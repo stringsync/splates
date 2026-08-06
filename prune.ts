@@ -105,7 +105,7 @@ export async function prune(
 // ponytail: a flat cap, no age policy. The ledger only answers "was this task
 // pruned before?", so losing the oldest entries costs a nicer message and
 // nothing else. Make it a config key if anyone ever wants a different depth.
-const TOMBSTONE_LIMIT = 50;
+const TOMBSTONE_LIMIT = 100;
 
 /** Drops the oldest tombstones so the ledger cannot grow without bound. */
 export async function trimTombstones(
