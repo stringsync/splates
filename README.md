@@ -138,6 +138,7 @@ export default {
 	postCreate: "bun install && cp ../../myrepo/.env .env",
 	leaseStalenessMs: 90_000,
 	graftRetryBudget: 2,
+	rememberedPrunes: 50,       // pruned names kept, so prune can say "already pruned"
 };
 ```
 

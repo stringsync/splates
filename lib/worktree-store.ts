@@ -4,11 +4,6 @@ import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { type TaskState, Worktree } from "./worktree";
 
-// ponytail: a flat cap on remembered names, no age policy. The memory only
-// answers "was this task pruned before?", so losing the oldest costs a nicer
-// message and nothing else. Make it a config key if anyone wants more depth.
-const REMEMBER = 50;
-
 const BRANCH_PREFIX = "task/";
 
 /**
@@ -26,7 +21,6 @@ export class WorktreeStore {
 		readonly git: Git,
 		readonly config: Config,
 		arborDir: string,
-		private readonly remember = REMEMBER,
 	) {
 		this.tasksDir = `${arborDir}/tasks`;
 		this.prunedDir = `${arborDir}/pruned`;
@@ -179,9 +173,10 @@ export class WorktreeStore {
 		task: string,
 		at = new Date().toISOString(),
 	): Promise<void> {
+		const { rememberedPrunes } = this.config;
 		await this.fs.write(this.prunedPath(task), `${at}\n`);
 		const names = await this.fs.readdir(this.prunedDir).catch(() => []);
-		if (names.length <= this.remember) {
+		if (names.length <= rememberedPrunes) {
 			return;
 		}
 		// Each file holds the ISO timestamp it was written with, which sorts
@@ -193,7 +188,7 @@ export class WorktreeStore {
 			})),
 		);
 		dated.sort((a, b) => a.at.localeCompare(b.at));
-		for (const { name } of dated.slice(0, names.length - this.remember)) {
+		for (const { name } of dated.slice(0, names.length - rememberedPrunes)) {
 			await this.fs.rm(this.prunedPath(name), { force: true });
 		}
 	}

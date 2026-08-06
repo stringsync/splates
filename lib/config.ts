@@ -11,6 +11,12 @@ export interface Config {
 	postCreate: string | null;
 	leaseStalenessMs: number;
 	graftRetryBudget: number;
+	/**
+	 * How many pruned task names to keep, so `prune` can say "already pruned"
+	 * rather than "never existed". A flat cap with no age policy: losing the
+	 * oldest costs a nicer message and nothing else.
+	 */
+	rememberedPrunes: number;
 }
 
 /** Defaults for this repo, overridden by whatever `arbor.config.ts` sets. */
@@ -27,6 +33,7 @@ async function defaults(fs: Fs, root: string): Promise<Config> {
 		postCreate: null,
 		leaseStalenessMs: 90_000,
 		graftRetryBudget: 2,
+		rememberedPrunes: 50,
 	};
 }
 

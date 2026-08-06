@@ -60,16 +60,20 @@ const config: Config = {
 	postCreate: null,
 	leaseStalenessMs: 90_000,
 	graftRetryBudget: 2,
+	rememberedPrunes: 50,
 };
 
-function store(fs: Fs, remember?: number, ps = new FakePs()): WorktreeStore {
+function store(
+	fs: Fs,
+	overrides: Partial<Config> = {},
+	ps = new FakePs(),
+): WorktreeStore {
 	return new WorktreeStore(
 		fs,
 		ps,
 		new Git(ps, fs, "/repo"),
-		config,
+		{ ...config, ...overrides },
 		"/repo/.git/arbor",
-		remember,
 	);
 }
 
@@ -105,7 +109,7 @@ test("a record that will not parse reads as unknown, not as absent", async () =>
 	const fs = new FakeFs();
 	const ps = new FakePs();
 	ps.exit(1); // every spawn now fails, so git reports no such branch
-	const worktrees = store(fs, undefined, ps);
+	const worktrees = store(fs, {}, ps);
 	await fs.write(worktrees.recordPath("alpha"), "{not json");
 
 	expect((await worktrees.find("alpha")).status).toBe("unknown");
@@ -124,7 +128,7 @@ test("ports are deterministic and inside the configured range", () => {
 
 test("the memory of pruned names drops its oldest entries", async () => {
 	const fs = new FakeFs();
-	const worktrees = store(fs, 2);
+	const worktrees = store(fs, { rememberedPrunes: 2 });
 	const pruned = "/repo/.git/arbor/pruned";
 	await worktrees.init();
 
