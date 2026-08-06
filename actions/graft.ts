@@ -59,10 +59,10 @@ export async function graft(
 			{ task, paths: dirty },
 		);
 	}
-	if (worktree.graftAttempts >= config.graftRetryBudget) {
+	if (worktree.graftAttempts >= config.graftRetryCount) {
 		failures.fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.graftRetryBudget} graft attempts — run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
+			`'${task}' has used its ${config.graftRetryCount} graft attempts — run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
 			{ task, graftAttempts: worktree.graftAttempts },
 		);
 	}

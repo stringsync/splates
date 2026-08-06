@@ -114,7 +114,7 @@ describe("graft", () => {
 	});
 
 	test("stops once the retry budget is spent", async () => {
-		const d = await setup({ graftRetryBudget: 2 });
+		const d = await setup({ graftRetryCount: 2 });
 		await create(d, d.failures, "alpha");
 		const worktree = await d.store.find("alpha");
 		await worktree.save({ graftAttempts: 2 });

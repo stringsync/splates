@@ -137,8 +137,8 @@ export default {
 	portRange: [3100, 3199],
 	postCreate: "bun install && cp ../../myrepo/.env .env",
 	leaseStalenessMs: 90_000,
-	graftRetryBudget: 2,
-	rememberedPrunes: 50,       // pruned names kept, so prune can say "already pruned"
+	graftRetryCount: 2,
+	pruneStorageCapacity: 50,       // pruned names kept, so prune can say "already pruned"
 };
 ```
 

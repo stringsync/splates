@@ -43,13 +43,13 @@ test("a package.json test script becomes the default test command", async () => 
 
 test("arbor.config.ts overrides the defaults it names, and only those", async () => {
 	const root = await dir({
-		"arbor.config.ts": `export default { trunk: "trunk", graftRetryBudget: 7 };\n`,
+		"arbor.config.ts": `export default { trunk: "trunk", graftRetryCount: 7 };\n`,
 	});
 
 	const config = await loadConfig(fs, root);
 
 	expect(config.trunk).toBe("trunk");
-	expect(config.graftRetryBudget).toBe(7);
+	expect(config.graftRetryCount).toBe(7);
 	expect(config.portRange).toEqual([3100, 3199]);
 	await rm(root, { recursive: true, force: true });
 });

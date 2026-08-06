@@ -173,10 +173,10 @@ export class WorktreeStore {
 		task: string,
 		at = new Date().toISOString(),
 	): Promise<void> {
-		const { rememberedPrunes } = this.config;
+		const { pruneStorageCapacity } = this.config;
 		await this.fs.write(this.prunedPath(task), `${at}\n`);
 		const names = await this.fs.readdir(this.prunedDir).catch(() => []);
-		if (names.length <= rememberedPrunes) {
+		if (names.length <= pruneStorageCapacity) {
 			return;
 		}
 		// Each file holds the ISO timestamp it was written with, which sorts
@@ -188,7 +188,10 @@ export class WorktreeStore {
 			})),
 		);
 		dated.sort((a, b) => a.at.localeCompare(b.at));
-		for (const { name } of dated.slice(0, names.length - rememberedPrunes)) {
+		for (const { name } of dated.slice(
+			0,
+			names.length - pruneStorageCapacity,
+		)) {
 			await this.fs.rm(this.prunedPath(name), { force: true });
 		}
 	}

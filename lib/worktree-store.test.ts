@@ -59,8 +59,8 @@ const config: Config = {
 	portRange: [3100, 3199],
 	postCreate: null,
 	leaseStalenessMs: 90_000,
-	graftRetryBudget: 2,
-	rememberedPrunes: 50,
+	graftRetryCount: 2,
+	pruneStorageCapacity: 50,
 };
 
 function store(
@@ -128,7 +128,7 @@ test("ports are deterministic and inside the configured range", () => {
 
 test("the memory of pruned names drops its oldest entries", async () => {
 	const fs = new FakeFs();
-	const worktrees = store(fs, { rememberedPrunes: 2 });
+	const worktrees = store(fs, { pruneStorageCapacity: 2 });
 	const pruned = "/repo/.git/arbor/pruned";
 	await worktrees.init();
 

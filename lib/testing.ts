@@ -47,8 +47,8 @@ export function testConfig(
 		portRange: [3100, 3199],
 		postCreate: null,
 		leaseStalenessMs: 90_000,
-		rememberedPrunes: 50,
-		graftRetryBudget: 2,
+		pruneStorageCapacity: 50,
+		graftRetryCount: 2,
 		...overrides,
 	};
 }
