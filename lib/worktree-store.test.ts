@@ -112,6 +112,16 @@ test("a record that will not parse reads as unknown, not as absent", async () =>
 	expect((await worktrees.find("missing")).status).toBe("absent");
 });
 
+test("ports are deterministic and inside the configured range", () => {
+	const worktrees = store(new FakeFs());
+
+	expect(worktrees.portFor("alpha")).toBe(worktrees.portFor("alpha"));
+	for (const task of ["alpha", "beta", "a-longer-task-name", "z"]) {
+		expect(worktrees.portFor(task)).toBeGreaterThanOrEqual(3100);
+		expect(worktrees.portFor(task)).toBeLessThanOrEqual(3199);
+	}
+});
+
 test("the memory of pruned names drops its oldest entries", async () => {
 	const fs = new FakeFs();
 	const worktrees = store(fs, 2);

@@ -5,6 +5,23 @@ import { MemoryLogger } from "@webappwiz/log";
 import { type Fs, NodeFs, NodePs, type Ps } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import { Arbor, type Config } from "./arbor";
+import { Exit } from "./exit";
+
+/** pid 1 always exists, so it stands in for another agent that is still running. */
+export const LIVE_PID = 1;
+
+/** Runs a command that is expected to bail, and hands back how it bailed. */
+export async function bails(work: Promise<unknown>): Promise<Exit> {
+	try {
+		await work;
+	} catch (e) {
+		if (e instanceof Exit) {
+			return e;
+		}
+		throw e;
+	}
+	throw new Error("expected a nonzero exit, but the command succeeded");
+}
 
 export interface Fixture {
 	arbor: Arbor;
