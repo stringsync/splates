@@ -2,54 +2,20 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryLogger } from "@webappwiz/log";
-import { NodeFs, NodePs } from "@webappwiz/sys";
-import { type Config, type Ctx, load } from "./context";
-
-/** A real NodePs that records `exit` and signals instead of acting on them. */
-export class TestPs extends NodePs {
-	readonly exits: number[] = [];
-	private readonly handlers = new Map<
-		string,
-		Array<(...a: unknown[]) => void>
-	>();
-	private readonly dead = new Set<number>();
-
-	override exit(code: number): void {
-		this.exits.push(code);
-	}
-
-	override on(signal: string, handler: (...a: unknown[]) => void): void {
-		this.handlers.set(signal, [...(this.handlers.get(signal) ?? []), handler]);
-	}
-
-	override once(event: "exit", handler: () => void): void {
-		this.on(event, handler);
-	}
-
-	dispatch(signal: string): void {
-		for (const handler of this.handlers.get(signal) ?? []) {
-			handler();
-		}
-	}
-
-	override alive(pid: number): boolean {
-		return this.dead.has(pid) ? false : super.alive(pid);
-	}
-
-	markDead(pid: number): void {
-		this.dead.add(pid);
-	}
-
-	lastExit(): number | undefined {
-		return this.exits.at(-1);
-	}
-}
+import { type Fs, NodeFs, NodePs, type Ps } from "@webappwiz/sys";
+import { FakeProcess } from "@webappwiz/sys/testing";
+import { Arbor, type Config } from "./arbor";
 
 export interface Fixture {
-	ctx: Ctx;
-	ps: TestPs;
+	arbor: Arbor;
+	fs: Fs;
+	/** Spawns for real; its exits and signals are the fake process's to keep. */
+	ps: Ps;
+	proc: FakeProcess;
 	log: MemoryLogger;
 	root: string;
+	/** Where the graft lock lands, now that `Lock` hides its mechanism. */
+	lockPath: string;
 	/** Commits a file in the given worktree. */
 	commit(
 		cwd: string,
@@ -62,11 +28,12 @@ export interface Fixture {
 	cleanup(): Promise<void>;
 }
 
-/** A throwaway git repo with one commit on `main`, plus an arbor context. */
+/** A throwaway git repo with one commit on `main`, plus an arbor wired to it. */
 export async function fixture(config: Partial<Config> = {}): Promise<Fixture> {
 	const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-")));
 	const root = join(base, "repo");
-	const ps = new TestPs();
+	const proc = new FakeProcess();
+	const ps = new NodePs(proc);
 	const log = new MemoryLogger();
 	const fs = new NodeFs();
 
@@ -109,10 +76,13 @@ export async function fixture(config: Partial<Config> = {}): Promise<Fixture> {
 	);
 
 	return {
-		ctx: await load(fs, ps, log, root),
+		arbor: await Arbor.open(fs, ps, log, root),
+		fs,
 		ps,
+		proc,
 		log,
 		root,
+		lockPath: join(root, ".git", "arbor", "graft.lock"),
 		commit,
 		git: run,
 		out: () =>

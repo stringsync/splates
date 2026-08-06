@@ -3,21 +3,21 @@ import { cli } from "@webappwiz/cmd";
 import { ConsoleLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { t } from "@webappwiz/t";
-import { claim } from "./claim";
-import { type Ctx, load } from "./context";
-import { create } from "./create";
-import { escalate } from "./escalate";
-import { Exit } from "./exit";
-import { graft } from "./graft";
-import { ls } from "./ls";
-import { prune } from "./prune";
+import { claim } from "./actions/claim";
+import { create } from "./actions/create";
+import { escalate } from "./actions/escalate";
+import { graft } from "./actions/graft";
+import { ls } from "./actions/ls";
+import { prune } from "./actions/prune";
+import { Arbor } from "./lib/arbor";
+import { Exit } from "./lib/exit";
 
 const log = new ConsoleLogger();
 const fs = new NodeFs();
 const ps = new NodePs();
 
-function run(action: (ctx: Ctx) => Promise<void>): Promise<void> {
-	return load(fs, ps, log)
+function run(action: (arbor: Arbor) => Promise<void>): Promise<void> {
+	return Arbor.open(fs, ps, log)
 		.then(action)
 		.catch((e) => {
 			// fail() has already printed and exited; the throw only unwinds.
@@ -33,20 +33,20 @@ arbor
 	.command("create")
 	.description("create a worktree, branch and port for a new task")
 	.arg("task", t.string(), { description: "task name (lowercase-with-dashes)" })
-	.action((o) => run((ctx) => create(ctx, o.task)));
+	.action((o) => run((a) => create(a, o.task)));
 
 arbor
 	.command("claim")
 	.description("take ownership of an existing worktree (resume entry point)")
 	.arg("task", t.string(), { description: "task name" })
-	.action((o) => run((ctx) => claim(ctx, o.task)));
+	.action((o) => run((a) => claim(a, o.task)));
 
 arbor
 	.command("graft")
 	.description(
 		"land this worktree's branch on trunk (rebase + test + fast-forward, never a merge commit)",
 	)
-	.action(() => run((ctx) => graft(ctx, process.cwd())));
+	.action(() => run((a) => graft(a, process.cwd())));
 
 arbor
 	.command("prune")
@@ -56,13 +56,13 @@ arbor
 		default: false,
 		description: "discard even when another agent holds the lease",
 	})
-	.action((o) => run((ctx) => prune(ctx, o.task, { force: o.force })));
+	.action((o) => run((a) => prune(a, o.task, { force: o.force })));
 
 arbor
 	.command("ls")
 	.description("list every workstream and its state")
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((o) => run((ctx) => ls(ctx, { json: o.json })));
+	.action((o) => run((a) => ls(a, { json: o.json })));
 
 arbor
 	.command("escalate")
@@ -73,7 +73,7 @@ arbor
 		description: "task name, when run outside its worktree",
 	})
 	.action((o) =>
-		run((ctx) => escalate(ctx, o.reason, process.cwd(), o.task || undefined)),
+		run((a) => escalate(a, o.reason, process.cwd(), o.task || undefined)),
 	);
 
 await arbor.run();

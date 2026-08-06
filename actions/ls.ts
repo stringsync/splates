@@ -1,7 +1,6 @@
 import { color } from "@webappwiz/log";
-import type { Ctx } from "./context";
-import { commitsAhead } from "./git";
-import { leaseIsLive, listStates, readState } from "./state";
+import type { Arbor } from "../lib/arbor";
+import type { Worktree } from "../lib/worktree";
 
 interface Row {
 	task: string;
@@ -14,51 +13,36 @@ interface Row {
 	worktree: string | null;
 }
 
-export async function ls(ctx: Ctx, { json = false } = {}): Promise<void> {
+export async function ls(arbor: Arbor, { json = false } = {}): Promise<void> {
 	const rows: Row[] = [];
-	for (const task of await listStates(ctx)) {
-		rows.push(await row(ctx, task));
+	for (const worktree of await arbor.store.list()) {
+		rows.push(await row(worktree));
 	}
 
 	if (json) {
-		ctx.log.info(JSON.stringify(rows, null, "\t"));
+		arbor.log.info(JSON.stringify(rows, null, "\t"));
 		return;
 	}
 	if (rows.length === 0) {
-		ctx.log.info("no workstreams — run `arbor create <task>` to start one");
+		arbor.log.info("no workstreams — run `arbor create <task>` to start one");
 		return;
 	}
-	ctx.log.info(table(rows));
+	arbor.log.info(table(rows));
 }
 
-async function row(ctx: Ctx, task: string): Promise<Row> {
-	const base = {
-		task,
-		branch: `task/${task}`,
-		ahead: null,
-		port: null,
-		age: "?",
-		worktree: null,
-	};
-	// One bad file must not take down the listing.
-	const state = await readState(ctx, task).catch(() => null);
-	if (!state) {
-		return { ...base, status: "unknown", lease: "none" };
-	}
-	const gone = !(await ctx.fs.exists(state.worktree));
+async function row(worktree: Worktree): Promise<Row> {
+	const { state } = worktree;
 	return {
-		task,
-		status: gone ? "orphaned" : state.status,
-		lease: state.lease
-			? leaseIsLive(ctx, state.lease)
-				? "live"
-				: "cold"
-			: "none",
-		branch: state.branch,
-		ahead: await commitsAhead(ctx, state.branch),
-		port: state.port,
-		age: age(state.createdAt),
-		worktree: state.worktree,
+		task: worktree.task,
+		// One unreadable record shows as `unknown` instead of taking down the
+		// whole listing.
+		status: worktree.status,
+		lease: !state?.lease ? "none" : worktree.leaseLive ? "live" : "cold",
+		branch: worktree.branch,
+		ahead: state ? await worktree.commitsAhead() : null,
+		port: state?.port ?? null,
+		age: state ? age(state.createdAt) : "?",
+		worktree: state ? worktree.path : null,
 	};
 }
 

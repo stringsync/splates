@@ -1,5 +1,3 @@
-import type { Ctx } from "./context";
-
 /**
  * Exit codes are the API: an agent branches on these, not on prose. Keep them
  * stable, and keep README.md's table in sync.
@@ -23,8 +21,9 @@ export const EXIT = {
 export type Reason = keyof typeof EXIT;
 
 /**
- * Thrown after `ps.exit` so the command body stops unwinding. Under NodePs the
- * process is already gone; under FakePs (tests) this is what ends the call.
+ * Thrown by `Arbor.fail` after `ps.exit` so the command body stops unwinding.
+ * Under NodePs the process is already gone; under a test Ps this is what ends
+ * the call.
  */
 export class Exit extends Error {
 	constructor(
@@ -33,17 +32,4 @@ export class Exit extends Error {
 	) {
 		super(reason);
 	}
-}
-
-/** Machine-readable reason on stdout, human explanation on stderr. */
-export function fail(
-	ctx: Ctx,
-	reason: Reason,
-	message: string,
-	data: Record<string, unknown> = {},
-): never {
-	ctx.log.info(JSON.stringify({ reason, ...data }));
-	ctx.log.error(message);
-	ctx.ps.exit(EXIT[reason]);
-	throw new Exit(EXIT[reason], reason);
 }
