@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@webappwiz/cmd": "workspace:*",
+		"@webappwiz/events": "workspace:*",
 		"@webappwiz/log": "workspace:*",
 		"@webappwiz/sys": "workspace:*",
 		"@webappwiz/t": "workspace:*"

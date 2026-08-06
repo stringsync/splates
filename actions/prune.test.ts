@@ -1,60 +1,97 @@
-import { expect, test } from "bun:test";
-import { bails, fixture, LIVE_PID } from "../lib/fixture";
+import { describe, expect, test } from "bun:test";
+import { Failures } from "../lib/failures";
+import { Git } from "../lib/git";
+import { Shell } from "../lib/shell";
+import { bails, LIVE_PID, raised, repo, testConfig } from "../lib/testing";
+import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { prune } from "./prune";
 
-test("prune removes everything and says what was thrown away", async () => {
-	const f = await fixture();
-	await create(f.arbor, "alpha");
-	const worktree = (await f.arbor.store.find("alpha")).path;
-	await f.commit(worktree, "alpha.txt", "alpha\n", "unlanded work");
+/** Called per test rather than once per describe: these run concurrently. */
+async function setup() {
+	const r = await repo();
+	const config = testConfig(r.root);
+	const store = new WorktreeStore(
+		r.fs,
+		r.ps,
+		new Git(r.ps, r.fs, r.root),
+		config,
+		r.arborDir,
+	);
+	await store.init();
+	const failures = new Failures();
+	// `shell` is only here for the `create` calls that arrange each test.
+	return {
+		...r,
+		config,
+		store,
+		shell: new Shell(r.ps),
+		failures,
+		raised: raised(failures),
+	};
+}
 
-	await prune(f.arbor, "alpha");
+describe("prune", () => {
+	test("removes everything and says what was thrown away", async () => {
+		const d = await setup();
+		await create(d, d.failures, "alpha");
+		const worktree = (await d.store.find("alpha")).path;
+		await d.commit(worktree, "alpha.txt", "alpha\n", "unlanded work");
 
-	expect(f.out()).toContain("discarded 1 commit(s)");
-	expect(await f.fs.exists(worktree)).toBe(false);
-	expect(await f.fs.exists(f.arbor.store.recordPath("alpha"))).toBe(false);
-	expect(await f.git(f.root, "branch", "--list", "task/alpha")).toBe("");
-	await f.cleanup();
-});
+		await prune(d, d.failures, "alpha");
 
-test("prune tells 'already pruned' apart from 'never existed'", async () => {
-	const f = await fixture();
-	await create(f.arbor, "alpha");
-	await prune(f.arbor, "alpha");
-
-	expect((await bails(prune(f.arbor, "alpha"))).reason).toBe("already_pruned");
-	expect((await bails(prune(f.arbor, "never"))).reason).toBe("not_found");
-	await f.cleanup();
-});
-
-test("prune cleans up leftovers when the worktree directory is already gone", async () => {
-	const f = await fixture();
-	await create(f.arbor, "alpha");
-	const worktree = (await f.arbor.store.find("alpha")).path;
-	await f.fs.rm(worktree, { recursive: true, force: true });
-
-	await prune(f.arbor, "alpha");
-
-	expect(f.out()).toContain("already gone");
-	expect(await f.git(f.root, "branch", "--list", "task/alpha")).toBe("");
-	await f.cleanup();
-});
-
-test("prune refuses a tree another agent is driving, unless forced", async () => {
-	const f = await fixture();
-	await create(f.arbor, "alpha");
-	const worktree = await (await f.arbor.store.find("alpha")).save({
-		lease: {
-			pid: LIVE_PID,
-			hostname: f.ps.hostname,
-			heartbeatAt: new Date().toISOString(),
-		},
+		expect(d.out()).toContain("discarded 1 commit(s)");
+		expect(await d.fs.exists(worktree)).toBe(false);
+		expect(await d.fs.exists(d.store.recordPath("alpha"))).toBe(false);
+		expect(await d.gitCli(d.root, "branch", "--list", "task/alpha")).toBe("");
+		await d.cleanup();
 	});
 
-	expect((await bails(prune(f.arbor, "alpha"))).reason).toBe("lease_live");
+	test("tells 'already pruned' apart from 'never existed'", async () => {
+		const d = await setup();
+		await create(d, d.failures, "alpha");
+		await prune(d, d.failures, "alpha");
 
-	await prune(f.arbor, "alpha", { force: true });
-	expect(await f.fs.exists(worktree.path)).toBe(false);
-	await f.cleanup();
+		expect((await bails(prune(d, d.failures, "alpha"))).reason).toBe(
+			"already_pruned",
+		);
+		expect((await bails(prune(d, d.failures, "never"))).reason).toBe(
+			"not_found",
+		);
+		await d.cleanup();
+	});
+
+	test("cleans up leftovers when the worktree directory is already gone", async () => {
+		const d = await setup();
+		await create(d, d.failures, "alpha");
+		const worktree = (await d.store.find("alpha")).path;
+		await d.fs.rm(worktree, { recursive: true, force: true });
+
+		await prune(d, d.failures, "alpha");
+
+		expect(d.out()).toContain("already gone");
+		expect(await d.gitCli(d.root, "branch", "--list", "task/alpha")).toBe("");
+		await d.cleanup();
+	});
+
+	test("refuses a tree another agent is driving, unless forced", async () => {
+		const d = await setup();
+		await create(d, d.failures, "alpha");
+		const worktree = await (await d.store.find("alpha")).save({
+			lease: {
+				pid: LIVE_PID,
+				hostname: d.ps.hostname,
+				heartbeatAt: new Date().toISOString(),
+			},
+		});
+
+		expect((await bails(prune(d, d.failures, "alpha"))).reason).toBe(
+			"lease_live",
+		);
+		expect(d.raised.at(-1)?.message).toContain("--force");
+
+		await prune(d, d.failures, "alpha", { force: true });
+		expect(await d.fs.exists(worktree.path)).toBe(false);
+		await d.cleanup();
+	});
 });

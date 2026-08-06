@@ -1,12 +1,17 @@
-import { color } from "@webappwiz/log";
-import type { Arbor } from "../lib/arbor";
+import { color, type Logger } from "@webappwiz/log";
+import type { Failures } from "../lib/failures";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 /** The resume entry point: a fresh agent thread picking up existing work. */
-export async function claim(arbor: Arbor, task: string): Promise<void> {
-	const found = await arbor.store.find(task);
+export async function claim(
+	{ store, log }: { store: WorktreeStore; log: Logger },
+	failures: Failures,
+	task: string,
+): Promise<void> {
+	const found = await store.find(task);
 
 	if (found.gone) {
-		arbor.fail(
+		failures.fail(
 			"not_found",
 			`no task '${task}' — run \`arbor create ${task}\``,
 			{
@@ -15,21 +20,21 @@ export async function claim(arbor: Arbor, task: string): Promise<void> {
 		);
 	}
 	if (found.status === "orphaned") {
-		arbor.fail(
+		failures.fail(
 			"orphaned",
 			`state file for '${task}' has no worktree at ${found.path} — run \`arbor prune ${task}\``,
 			{ task, worktree: found.path },
 		);
 	}
 	if (found.status === "stray") {
-		arbor.fail(
+		failures.fail(
 			"orphaned",
 			`branch ${found.branch} exists but has no worktree — run \`arbor prune ${task}\` and start over`,
 			{ task, branch: found.branch },
 		);
 	}
 	if (found.leaseHeld) {
-		arbor.fail(
+		failures.fail(
 			"lease_live",
 			`'${task}' is held by pid ${found.lease?.pid} on ${found.lease?.hostname} (heartbeat ${found.lease?.heartbeatAt}) — another agent is driving this tree`,
 			{ task, lease: found.lease },
@@ -65,5 +70,5 @@ export async function claim(arbor: Arbor, task: string): Promise<void> {
 			? "  uncommitted: none"
 			: `  uncommitted (${changes.length}):\n${changes.map((c) => `    ${c}`).join("\n")}`,
 	);
-	arbor.log.info(lines.join("\n"));
+	log.info(lines.join("\n"));
 }

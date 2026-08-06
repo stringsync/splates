@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Fs, MkdirOptions, RmOptions, StatResult } from "@webappwiz/sys";
 import { FakeFs, FakePs } from "@webappwiz/sys/testing";
-import type { Config } from "./arbor";
+import type { Config } from "./config";
 import { Git } from "./git";
 import { WorktreeStore } from "./worktree-store";
 

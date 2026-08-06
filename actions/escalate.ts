@@ -1,5 +1,8 @@
-import { color } from "@webappwiz/log";
-import type { Arbor } from "../lib/arbor";
+import { color, type Logger } from "@webappwiz/log";
+import type { Lock } from "@webappwiz/sys";
+import type { Failures } from "../lib/failures";
+import type { Git } from "../lib/git";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 /**
  * The way out that is not "resolve the conflict badly to finish the task".
@@ -7,22 +10,33 @@ import type { Arbor } from "../lib/arbor";
  * a decision — and that belongs to a human.
  */
 export async function escalate(
-	arbor: Arbor,
+	{
+		store,
+		git,
+		lock,
+		log,
+	}: {
+		store: WorktreeStore;
+		git: Git;
+		lock: Lock;
+		log: Logger;
+	},
+	failures: Failures,
 	reason: string,
 	cwd: string,
 	task?: string,
 ): Promise<void> {
-	const branch = await arbor.git.currentBranch(cwd).catch(() => "");
-	const name = task || arbor.store.taskFor(branch);
+	const branch = await git.currentBranch(cwd).catch(() => "");
+	const name = task || store.taskFor(branch);
 	if (!name) {
-		arbor.fail(
+		failures.fail(
 			"usage",
 			"not in a task worktree — pass --task <name> to escalate from elsewhere",
 		);
 	}
-	const found = await arbor.store.find(name);
+	const found = await store.find(name);
 	if (!found.state) {
-		arbor.fail("not_found", `no state file for '${name}'`, { task: name });
+		failures.fail("not_found", `no state file for '${name}'`, { task: name });
 	}
 
 	const escalations = [
@@ -36,9 +50,9 @@ export async function escalate(
 		lease: null,
 		escalations,
 	});
-	await arbor.lock.releaseIfOurs();
+	await lock.releaseIfOurs();
 
-	arbor.log.info(
+	log.info(
 		[
 			`${color.yellow("escalated")} ${worktree.task}`,
 			`  worktree: ${worktree.path}`,

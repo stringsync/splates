@@ -1,6 +1,6 @@
-import { color } from "@webappwiz/log";
-import type { Arbor } from "../lib/arbor";
+import { color, type Logger } from "@webappwiz/log";
 import type { Worktree } from "../lib/worktree";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 interface Row {
 	task: string;
@@ -13,21 +13,24 @@ interface Row {
 	worktree: string | null;
 }
 
-export async function ls(arbor: Arbor, { json = false } = {}): Promise<void> {
+export async function ls(
+	{ store, log }: { store: WorktreeStore; log: Logger },
+	{ json = false } = {},
+): Promise<void> {
 	const rows: Row[] = [];
-	for (const worktree of await arbor.store.list()) {
+	for (const worktree of await store.list()) {
 		rows.push(await row(worktree));
 	}
 
 	if (json) {
-		arbor.log.info(JSON.stringify(rows, null, "\t"));
+		log.info(JSON.stringify(rows, null, "\t"));
 		return;
 	}
 	if (rows.length === 0) {
-		arbor.log.info("no workstreams — run `arbor create <task>` to start one");
+		log.info("no workstreams — run `arbor create <task>` to start one");
 		return;
 	}
-	arbor.log.info(table(rows));
+	log.info(table(rows));
 }
 
 async function row(worktree: Worktree): Promise<Row> {

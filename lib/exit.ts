@@ -1,3 +1,6 @@
+import type { Middleware } from "@webappwiz/cmd";
+import type { Ps } from "@webappwiz/sys";
+
 /**
  * Exit codes are the API: an agent branches on these, not on prose. Keep them
  * stable, and keep README.md's table in sync.
@@ -21,9 +24,9 @@ export const EXIT = {
 export type Reason = keyof typeof EXIT;
 
 /**
- * Thrown by `Arbor.fail` after `ps.exit` so the command body stops unwinding.
- * Under NodePs the process is already gone; under a test Ps this is what ends
- * the call.
+ * Thrown by `Failures.fail` to stop the command that raised it. The process
+ * boundary catches this and exits with `code`; a test catches it and reads
+ * `reason`.
  */
 export class Exit extends Error {
 	constructor(
@@ -32,4 +35,22 @@ export class Exit extends Error {
 	) {
 		super(reason);
 	}
+}
+
+/**
+ * Turns a refusal into the process's exit code. The command has already said
+ * why it stopped, so there is nothing left to print — and this is the only
+ * place that decides how the process ends.
+ */
+export function exits<C extends object>(ps: Ps): Middleware<C> {
+	return async (ctx, next) => {
+		try {
+			await next(ctx);
+		} catch (e) {
+			if (!(e instanceof Exit)) {
+				throw e;
+			}
+			ps.exit(e.code);
+		}
+	};
 }

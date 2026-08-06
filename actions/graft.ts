@@ -1,6 +1,11 @@
-import { color } from "@webappwiz/log";
-import type { Arbor } from "../lib/arbor";
+import { color, type Logger } from "@webappwiz/log";
+import type { Lock } from "@webappwiz/sys";
+import type { Config } from "../lib/config";
+import type { Failures } from "../lib/failures";
+import type { Git } from "../lib/git";
+import type { Shell } from "../lib/shell";
 import type { Worktree } from "../lib/worktree";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 const TAIL_LINES = 40;
 
@@ -9,21 +14,37 @@ const TAIL_LINES = 40;
  * runs `git merge` in the merge-commit sense: it rebases onto trunk, runs the
  * tests there, and fast-forwards trunk. History stays linear.
  */
-export async function graft(arbor: Arbor, cwd: string): Promise<void> {
-	const { config, git, lock } = arbor;
-
+export async function graft(
+	{
+		store,
+		git,
+		lock,
+		shell,
+		config,
+		log,
+	}: {
+		store: WorktreeStore;
+		git: Git;
+		lock: Lock;
+		shell: Shell;
+		config: Config;
+		log: Logger;
+	},
+	failures: Failures,
+	cwd: string,
+): Promise<void> {
 	const branch = await git.currentBranch(cwd).catch(() => "");
-	const task = arbor.store.taskFor(branch);
+	const task = store.taskFor(branch);
 	if (!task) {
-		arbor.fail(
+		failures.fail(
 			"not_found",
 			`not in a task worktree (branch '${branch}') — run graft from a worktree made by \`arbor create\``,
 			{ branch },
 		);
 	}
-	let worktree = await arbor.store.find(task);
+	let worktree = await store.find(task);
 	if (!worktree.state) {
-		arbor.fail(
+		failures.fail(
 			"not_found",
 			`no state file for '${task}' — run \`arbor claim ${task}\` first`,
 			{ task },
@@ -32,21 +53,21 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
-		arbor.fail(
+		failures.fail(
 			"dirty",
 			`'${task}' has uncommitted changes — commit them before grafting`,
 			{ task, paths: dirty },
 		);
 	}
 	if (worktree.graftAttempts >= config.graftRetryBudget) {
-		arbor.fail(
+		failures.fail(
 			"budget_exhausted",
 			`'${task}' has used its ${config.graftRetryBudget} graft attempts — run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
 			{ task, graftAttempts: worktree.graftAttempts },
 		);
 	}
 	if (worktree.leaseHeld) {
-		arbor.fail(
+		failures.fail(
 			"lease_live",
 			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname} — another agent is driving this tree`,
 			{ task, lease: worktree.lease },
@@ -66,7 +87,7 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 		const paths = await git.conflictedPaths(worktree.path);
 		await lock.release();
 		await bump(worktree);
-		arbor.fail(
+		failures.fail(
 			"conflict",
 			[
 				`rebase onto ${config.trunk} conflicted in ${paths.length || "?"} file(s):`,
@@ -84,7 +105,7 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 	// After the rebase, never before: a branch that passed against an older
 	// trunk tells you nothing about the combination. This is the only thing
 	// standing between semantic conflicts and a broken trunk.
-	const tests = await arbor.shell.run(config.testCommand, {
+	const tests = await shell.run(config.testCommand, {
 		cwd: worktree.path,
 		env: {
 			ARBOR_TASK: task,
@@ -99,7 +120,7 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 		await git.resetHard(worktree.path, before);
 		await lock.release();
 		await bump(worktree);
-		arbor.fail(
+		failures.fail(
 			"tests_failed",
 			[
 				`\`${config.testCommand}\` failed after rebasing onto ${config.trunk} (exit ${tests.exitCode}).`,
@@ -117,7 +138,7 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 	const current = await worktree.reload();
 	if (!current.leaseOurs) {
 		await lock.release();
-		arbor.fail(
+		failures.fail(
 			"lease_lost",
 			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the graft — stopping without landing. Do not retry; another agent owns this tree.`,
 			{ task, lease: current.lease },
@@ -129,7 +150,7 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree);
-		arbor.fail(
+		failures.fail(
 			"merge_failed",
 			`could not fast-forward ${config.trunk} in ${git.root}: ${merged.stderr || merged.stdout}`,
 			{ task },
@@ -139,9 +160,7 @@ export async function graft(arbor: Arbor, cwd: string): Promise<void> {
 	const head = await git.shortHead(git.root);
 	await worktree.take({ status: "working", graftAttempts: 0 });
 	await lock.release();
-	arbor.log.info(
-		`${color.green("grafted")} ${task} onto ${config.trunk} (${head})`,
-	);
+	log.info(`${color.green("grafted")} ${task} onto ${config.trunk} (${head})`);
 }
 
 async function bump(worktree: Worktree): Promise<void> {

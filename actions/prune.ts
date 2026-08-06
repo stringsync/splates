@@ -1,5 +1,7 @@
-import { color } from "@webappwiz/log";
-import type { Arbor } from "../lib/arbor";
+import { color, type Logger } from "@webappwiz/log";
+import type { Config } from "../lib/config";
+import type { Failures } from "../lib/failures";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 /**
  * Discards a whole workstream — worktree, branch and record. Unrelated to
@@ -9,15 +11,16 @@ import type { Arbor } from "../lib/arbor";
  * than a hard rebase, so this is meant to be used freely.
  */
 export async function prune(
-	arbor: Arbor,
+	{ store, config, log }: { store: WorktreeStore; config: Config; log: Logger },
+	failures: Failures,
 	task: string,
 	{ force = false }: { force?: boolean } = {},
 ): Promise<void> {
-	const worktree = await arbor.store.find(task);
+	const worktree = await store.find(task);
 
 	if (worktree.gone) {
 		const pruned = worktree.status === "pruned";
-		arbor.fail(
+		failures.fail(
 			pruned ? "already_pruned" : "not_found",
 			pruned
 				? `'${task}' was already pruned (${worktree.prunedAt}) — nothing left to remove`
@@ -28,13 +31,13 @@ export async function prune(
 
 	if (worktree.leaseHeld) {
 		if (!force) {
-			arbor.fail(
+			failures.fail(
 				"lease_live",
 				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname} — pass --force to discard it anyway`,
 				{ task, lease: worktree.lease },
 			);
 		}
-		arbor.log.error(
+		log.error(
 			color.yellow(
 				`arbor: --force discarding a tree held by pid ${worktree.lease?.pid}`,
 			),
@@ -46,7 +49,7 @@ export async function prune(
 
 	const discarded = await worktree.discard();
 	if (discarded.code !== 0) {
-		arbor.fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
+		failures.fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
 			task,
 		});
 	}
@@ -60,9 +63,9 @@ export async function prune(
 	if (unlanded) {
 		lines.push(
 			color.yellow(
-				`  discarded ${unlanded} commit(s) that were never on ${arbor.config.trunk}`,
+				`  discarded ${unlanded} commit(s) that were never on ${config.trunk}`,
 			),
 		);
 	}
-	arbor.log.info(lines.join("\n"));
+	log.info(lines.join("\n"));
 }
