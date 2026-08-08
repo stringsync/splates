@@ -4,7 +4,7 @@ import { FileLock } from "@webappwiz/sys";
 import type { Config } from "../lib/config";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
-import { bails, repo, testConfig } from "../lib/testing";
+import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
 import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { graft } from "./graft";
@@ -121,21 +121,25 @@ describe("graft", () => {
 
 	test("refuses to land when the lease changed hands during the test run", async () => {
 		const d = await setup();
-		const thief = join(d.root, "steal.js");
-		const path = d.store.recordPath("alpha");
-		await Bun.write(
-			thief,
-			`const s = JSON.parse(await Bun.file(${JSON.stringify(path)}).text());\n` +
-				`s.lease = { pid: 999202, hostname: s.lease.hostname, heartbeatAt: new Date().toISOString() };\n` +
-				`await Bun.write(${JSON.stringify(path)}, JSON.stringify(s));\n`,
-		);
-		d.config.testCommand = `bun ${thief}`;
 		await create(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		const worktree = await d.store.find("alpha");
+		await d.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
 		const trunkBefore = await d.gitCli(d.root, "rev-parse", "main");
+		// Another agent takes the tree while the tests are running — the one
+		// window graft cannot hold the record across, and the reason it re-reads
+		// it before landing.
+		d.shell.run = async () => {
+			await worktree.save({
+				lease: {
+					pid: LIVE_PID,
+					hostname: d.ps.hostname,
+					heartbeatAt: new Date().toISOString(),
+				},
+			});
+			return { exitCode: 0, stdout: "", stderr: "" };
+		};
 
-		const exit = await bails(graft(d, worktree));
+		const exit = await bails(graft(d, worktree.path));
 
 		expect(exit.reason).toBe("lease_lost");
 		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);

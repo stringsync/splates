@@ -1,7 +1,7 @@
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemoryLogger } from "@webappwiz/log";
+import { color, MemoryLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import type { Config } from "./config";
@@ -97,7 +97,7 @@ export async function repo() {
 		gitCli,
 		commit,
 		out: () =>
-			Bun.stripANSI(log.entries.map((e) => String(e.message)).join("\n")),
+			color.strip(log.entries.map((e) => String(e.message)).join("\n")),
 		cleanup: () => rm(base, { recursive: true, force: true }),
 	};
 }
