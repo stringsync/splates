@@ -25,7 +25,7 @@ export function repository<C extends object>(
 	fs: Fs,
 	ps: Ps,
 	log: Logger,
-	cwd: string = process.cwd(),
+	cwd: string = ps.cwd(),
 ): Middleware<C, C & Repository> {
 	return async (ctx, next) => {
 		const { exitCode, stdout } = await ps.spawnCapture([

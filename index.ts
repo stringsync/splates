@@ -42,7 +42,7 @@ arbor
 		"land this worktree's branch on trunk (rebase + test + fast-forward, never a merge commit)",
 	)
 	.action((_o, { store, git, lock, shell, config }) =>
-		graft({ store, git, lock, shell, config, log }, process.cwd()),
+		graft({ store, git, lock, shell, config, log }, ps.cwd()),
 	);
 
 arbor
@@ -75,7 +75,7 @@ arbor
 		escalate(
 			{ store, git, lock, log },
 			o.reason,
-			process.cwd(),
+			ps.cwd(),
 			o.task || undefined,
 		),
 	);
