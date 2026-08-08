@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { MemoryLogger } from "@webappwiz/log";
 import { NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
@@ -27,21 +27,23 @@ test("exit codes are stable", () => {
 });
 
 describe("exits", () => {
-	function setup() {
-		const process = new FakeProcess();
-		const log = new MemoryLogger();
-		return { process, log, middleware: exits(new NodePs(process), log) };
-	}
+	let process: FakeProcess;
+	let log: MemoryLogger;
+	let middleware: ReturnType<typeof exits>;
+
+	beforeEach(() => {
+		process = new FakeProcess();
+		log = new MemoryLogger();
+		middleware = exits(new NodePs(process), log);
+	});
 
 	test("turns a refusal into JSON, an explanation and a status code", async () => {
-		const d = setup();
-
-		await d.middleware({}, async () => {
+		await middleware({}, async () => {
 			fail("conflict", "rebase conflicted", { task: "alpha" });
 		});
 
-		expect(d.process.lastExit()).toBe(EXIT.conflict);
-		const [json, human] = d.log.entries;
+		expect(process.lastExit()).toBe(EXIT.conflict);
+		const [json, human] = log.entries;
 		expect(JSON.parse(String(json?.message))).toEqual({
 			reason: "conflict",
 			task: "alpha",
@@ -50,22 +52,18 @@ describe("exits", () => {
 	});
 
 	test("lets anything that is not a refusal through", async () => {
-		const d = setup();
-
-		const boom = d.middleware({}, async () => {
+		const boom = middleware({}, async () => {
 			throw new Error("boom");
 		});
 
 		expect(boom).rejects.toThrow("boom");
-		expect(d.process.lastExit()).toBeUndefined();
+		expect(process.lastExit()).toBeUndefined();
 	});
 
 	test("leaves a command that succeeded alone", async () => {
-		const d = setup();
+		await middleware({}, async () => {});
 
-		await d.middleware({}, async () => {});
-
-		expect(d.process.lastExit()).toBeUndefined();
-		expect(d.log.entries).toEqual([]);
+		expect(process.lastExit()).toBeUndefined();
+		expect(log.entries).toEqual([]);
 	});
 });
