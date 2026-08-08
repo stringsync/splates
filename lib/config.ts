@@ -11,8 +11,6 @@ export interface Config {
 	trunk: string;
 	/** Directory holding one worktree per task, a sibling of the repo. */
 	worktreeRoot: string;
-	/** Inclusive `[start, end]` ports tasks are assigned from, by name hash. */
-	portRange: [number, number];
 	/** Command run by `create` in the new worktree, via `sh -c`. */
 	postCreate: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
@@ -37,7 +35,6 @@ async function defaults(fs: Fs, root: string): Promise<Config> {
 		testCommand: (await hasTestScript(fs, root)) ? "bun run test" : "bun test",
 		trunk: "main",
 		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor`),
-		portRange: [3100, 3199],
 		postCreate: null,
 		leaseStalenessMs: 90_000,
 		graftRetryCount: 2,

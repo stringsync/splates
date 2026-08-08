@@ -50,6 +50,6 @@ test("arbor.config.ts overrides the defaults it names, and only those", async ()
 
 	expect(config.trunk).toBe("trunk");
 	expect(config.graftRetryCount).toBe(7);
-	expect(config.portRange).toEqual([3100, 3199]);
+	expect(config.leaseStalenessMs).toBe(90_000);
 	await rm(root, { recursive: true, force: true });
 });

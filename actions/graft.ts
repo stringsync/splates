@@ -109,7 +109,6 @@ export async function graft(
 		cwd: worktree.path,
 		env: {
 			ARBOR_TASK: task,
-			ARBOR_PORT: String(worktree.port),
 			ARBOR_WORKTREE: worktree.path,
 		},
 	});

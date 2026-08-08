@@ -61,7 +61,6 @@ export async function create(
 			cwd: worktree.path,
 			env: {
 				ARBOR_TASK: task,
-				ARBOR_PORT: String(worktree.port),
 				ARBOR_WORKTREE: worktree.path,
 				ARBOR_TRUNK: config.trunk,
 			},
@@ -72,12 +71,12 @@ export async function create(
 			failures.fail(
 				"hook_failed",
 				`postCreate hook failed (exit ${exitCode}); worktree left in place at ${worktree.path}`,
-				{ task, worktree: worktree.path, port: worktree.port },
+				{ task, worktree: worktree.path },
 			);
 		}
 	}
 
 	log.info(
-		`${color.green("created")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  port:     ${worktree.port}`,
+		`${color.green("created")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}`,
 	);
 }

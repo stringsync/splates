@@ -44,7 +44,6 @@ export function testConfig(
 		testCommand: "true",
 		trunk: "main",
 		worktreeRoot: `${root}-arbor`,
-		portRange: [3100, 3199],
 		postCreate: null,
 		leaseStalenessMs: 90_000,
 		pruneStorageCapacity: 50,

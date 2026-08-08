@@ -52,7 +52,6 @@ export async function claim(
 		`${color.green("claimed")} ${worktree.task}`,
 		`  worktree: ${worktree.path}`,
 		`  branch:   ${worktree.branch}`,
-		`  port:     ${worktree.port}`,
 		`  status:   ${worktree.status}`,
 		`  attempts: ${worktree.graftAttempts}`,
 	];

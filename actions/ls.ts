@@ -8,7 +8,6 @@ interface Row {
 	lease: "live" | "cold" | "none";
 	branch: string;
 	ahead: number | null;
-	port: number | null;
 	age: string;
 	worktree: string | null;
 }
@@ -43,7 +42,6 @@ async function row(worktree: Worktree): Promise<Row> {
 		lease: !state?.lease ? "none" : worktree.leaseLive ? "live" : "cold",
 		branch: worktree.branch,
 		ahead: state ? await worktree.commitsAhead() : null,
-		port: state?.port ?? null,
 		age: state ? age(state.createdAt) : "?",
 		worktree: state ? worktree.path : null,
 	};
@@ -61,14 +59,13 @@ function age(since: string): string {
 }
 
 function table(rows: Row[]): string {
-	const header = ["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "PORT", "AGE"];
+	const header = ["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "AGE"];
 	const cells = rows.map((r) => [
 		r.task,
 		r.status,
 		r.lease,
 		r.branch,
 		r.ahead === null ? "?" : String(r.ahead),
-		r.port === null ? "?" : String(r.port),
 		r.age,
 	]);
 	const widths = header.map((h, i) =>

@@ -32,7 +32,7 @@ async function setup(overrides: Partial<Config> = {}) {
 }
 
 describe("create", () => {
-	test("makes a worktree, a branch, a port and a record", async () => {
+	test("makes a worktree, a branch and a record", async () => {
 		const d = await setup();
 
 		await create(d, d.failures, "alpha");
@@ -44,7 +44,6 @@ describe("create", () => {
 			status: "working",
 			graftAttempts: 0,
 		});
-		expect(state?.port).toBeGreaterThanOrEqual(3100);
 		expect(await d.fs.exists(join(state?.worktree ?? "", "README.md"))).toBe(
 			true,
 		);

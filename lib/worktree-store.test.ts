@@ -56,7 +56,6 @@ const config: Config = {
 	testCommand: "true",
 	trunk: "main",
 	worktreeRoot: "/repo-arbor",
-	portRange: [3100, 3199],
 	postCreate: null,
 	leaseStalenessMs: 90_000,
 	graftRetryCount: 2,
@@ -96,13 +95,17 @@ test("records land by rename, never by writing in place", async () => {
 test("a write that dies partway leaves the previous record readable", async () => {
 	const fs = new CrashingFs();
 	const worktrees = store(fs);
-	const saved = await (await worktrees.find("alpha")).save({ port: 3101 });
+	const saved = await (await worktrees.find("alpha")).save({
+		graftAttempts: 1,
+	});
 
 	fs.crash = true;
-	await expect(saved.save({ port: 3199 })).rejects.toThrow("boom");
+	await expect(saved.save({ graftAttempts: 2 })).rejects.toThrow("boom");
 
 	// The truncated bytes went to the temp path; the record itself never moved.
-	expect((await worktrees.find("alpha")).state).toMatchObject({ port: 3101 });
+	expect((await worktrees.find("alpha")).state).toMatchObject({
+		graftAttempts: 1,
+	});
 });
 
 test("a record that will not parse reads as unknown, not as absent", async () => {
@@ -114,16 +117,6 @@ test("a record that will not parse reads as unknown, not as absent", async () =>
 
 	expect((await worktrees.find("alpha")).status).toBe("unknown");
 	expect((await worktrees.find("missing")).status).toBe("absent");
-});
-
-test("ports are deterministic and inside the configured range", () => {
-	const worktrees = store(new FakeFs());
-
-	expect(worktrees.portFor("alpha")).toBe(worktrees.portFor("alpha"));
-	for (const task of ["alpha", "beta", "a-longer-task-name", "z"]) {
-		expect(worktrees.portFor(task)).toBeGreaterThanOrEqual(3100);
-		expect(worktrees.portFor(task)).toBeLessThanOrEqual(3199);
-	}
 });
 
 test("the memory of pruned names drops its oldest entries", async () => {

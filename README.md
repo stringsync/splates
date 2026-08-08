@@ -30,11 +30,10 @@ rebase — that is what `prune` is for.
 ### `arbor create <task>`
 
 Creates the workstream: branch `task/<task>`, a worktree at
-`../<repo>-arbor/<task>`, a port, and a state record.
+`../<repo>-arbor/<task>`, and a state record.
 
-The port is a hash of the task name into `portRange`, so a task keeps the same
-port forever. A fresh worktree shares no untracked files with the repo — no
-`node_modules`, no `.env` — which is what `postCreate` is for.
+A fresh worktree shares no untracked files with the repo — no `node_modules`,
+no `.env` — which is what `postCreate` is for.
 
 If the hook fails the worktree stays; fix it and re-run the hook by hand.
 
@@ -43,7 +42,7 @@ If the hook fails the worktree stays; fix it and re-run the hook by hand.
 Takes ownership of an existing worktree. **This is the resume entry point**: a
 fresh agent thread picking up dead work starts here.
 
-Prints the worktree path, port, status, uncommitted changes, and — loudly — any
+Prints the worktree path, status, uncommitted changes, and — loudly — any
 half-finished rebase or merge the tree is standing in. Refuses if another agent
 holds a live lease. A worktree with no record is rebuilt rather than rejected.
 
@@ -87,7 +86,7 @@ and drops the oldest as new ones arrive, so a long-forgotten task reports
 ### `arbor ls [--json]`
 
 Every workstream: task, status, lease (`live`/`cold`/`none`), branch, commits
-ahead of trunk, port, age. A corrupt record shows as `unknown` instead of taking
+ahead of trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
 ### `arbor escalate <reason> [--task <name>]`
@@ -134,7 +133,6 @@ export default {
 	testCommand: "bun test",        // what graft runs after rebasing, via sh -c
 	trunk: "main",
 	worktreeRoot: "../myrepo-arbor",
-	portRange: [3100, 3199],
 	postCreate: "bun install && cp ../../myrepo/.env .env",
 	leaseStalenessMs: 90_000,
 	graftRetryCount: 2,
@@ -144,8 +142,13 @@ export default {
 
 `testCommand` defaults to `bun run test` when the root `package.json` has a
 `test` script, otherwise `bun test`. `postCreate` and `testCommand` both run
-through `sh -c` in the worktree with `ARBOR_TASK`, `ARBOR_PORT` and
-`ARBOR_WORKTREE` in the environment.
+through `sh -c` in the worktree with `ARBOR_TASK` and `ARBOR_WORKTREE` in the
+environment.
+
+arbor does not allocate ports. Several worktrees running at once will collide on
+whatever they bind, and the thing that binds — docker-compose, a dev server, a
+test harness — is the only thing able to retry and release. `ARBOR_TASK` is in
+the environment to derive a stable port from if a task needs one.
 
 ### Leases and locks
 

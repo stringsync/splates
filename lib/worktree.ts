@@ -22,7 +22,6 @@ export interface TaskState {
 	worktree: string;
 	status: RecordStatus;
 	lease: LeaseState | null;
-	port: number;
 	graftAttempts: number;
 	createdAt: string;
 	updatedAt: string;
@@ -114,10 +113,6 @@ export class Worktree {
 		return this.leaseLive && !this.leaseOurs;
 	}
 
-	get port(): number {
-		return this.snapshot.state?.port ?? this.store.portFor(this.task);
-	}
-
 	get graftAttempts(): number {
 		return this.snapshot.state?.graftAttempts ?? 0;
 	}
@@ -171,7 +166,6 @@ export class Worktree {
 			worktree: this.path,
 			status: "working",
 			lease: null,
-			port: this.port,
 			graftAttempts: 0,
 			createdAt: now,
 			...(this.snapshot.state ?? {}),

@@ -26,7 +26,7 @@ const arbor = cli("arbor", log)
 
 arbor
 	.command("create")
-	.description("create a worktree, branch and port for a new task")
+	.description("create a worktree, branch and record for a new task")
 	.arg("task", t.string(), { description: "task name (lowercase-with-dashes)" })
 	.action((o, { store, shell, config, failures }) =>
 		create({ store, shell, config, log }, failures, o.task),

@@ -54,16 +54,6 @@ export class WorktreeStore {
 			: null;
 	}
 
-	/** Deterministic, so a task keeps its port across restarts and machines. */
-	portFor(task: string): number {
-		const [start, end] = this.config.portRange;
-		let hash = 0;
-		for (const char of task) {
-			hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-		}
-		return start + (hash % (end - start + 1));
-	}
-
 	recordPath(task: string): string {
 		return `${this.tasksDir}/${task}.json`;
 	}
