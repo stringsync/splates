@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import type { Config } from "../lib/config";
-import { Failures } from "../lib/failures";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
-import { bails, raised, repo, testConfig } from "../lib/testing";
+import { bails, repo, testConfig } from "../lib/testing";
 import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 
@@ -20,14 +19,11 @@ async function setup(overrides: Partial<Config> = {}) {
 		r.arborDir,
 	);
 	await store.init();
-	const failures = new Failures();
 	return {
 		...r,
 		config,
 		store,
 		shell: new Shell(r.ps),
-		failures,
-		raised: raised(failures),
 	};
 }
 
@@ -35,7 +31,7 @@ describe("create", () => {
 	test("makes a worktree, a branch and a record", async () => {
 		const d = await setup();
 
-		await create(d, d.failures, "alpha");
+		await create(d, "alpha");
 
 		const state = (await d.store.find("alpha")).state;
 		expect(state).toMatchObject({
@@ -61,13 +57,12 @@ describe("create", () => {
 
 	test("refuses a name that is already taken and points at claim", async () => {
 		const d = await setup();
-		await create(d, d.failures, "alpha");
+		await create(d, "alpha");
 
-		const exit = await bails(create(d, d.failures, "alpha"));
+		const exit = await bails(create(d, "alpha"));
 
 		expect(exit.reason).toBe("exists");
-		expect(exit.code).toBe(10);
-		expect(d.raised.at(-1)?.message).toContain("arbor claim alpha");
+		expect(exit.message).toContain("arbor claim alpha");
 		await d.cleanup();
 	});
 
@@ -75,7 +70,7 @@ describe("create", () => {
 		const d = await setup();
 
 		for (const name of ["Alpha", "a b", "feature/x", "-alpha", ""]) {
-			expect((await bails(create(d, d.failures, name))).reason).toBe("usage");
+			expect((await bails(create(d, name))).reason).toBe("usage");
 		}
 		await d.cleanup();
 	});
@@ -83,27 +78,22 @@ describe("create", () => {
 	test("reports a failed postCreate hook but keeps the worktree", async () => {
 		const d = await setup({ postCreate: "exit 3" });
 
-		const exit = await bails(create(d, d.failures, "alpha"));
+		const exit = await bails(create(d, "alpha"));
 
 		expect(exit.reason).toBe("hook_failed");
-		expect(exit.code).toBe(9);
 		const state = (await d.store.find("alpha")).state;
 		expect(await d.fs.exists(state?.worktree ?? "")).toBe(true);
 		await d.cleanup();
 	});
 
-	test("raises a fail event carrying the reason and its data", async () => {
+	test("refuses with a reason, a message and the data behind it", async () => {
 		const d = await setup();
 
-		await bails(create(d, d.failures, "Alpha"));
+		const exit = await bails(create(d, "Alpha"));
 
-		expect(d.raised).toEqual([
-			{
-				reason: "usage",
-				message: expect.stringContaining("invalid task name 'Alpha'"),
-				data: { task: "Alpha" },
-			},
-		]);
+		expect(exit.reason).toBe("usage");
+		expect(exit.message).toContain("invalid task name 'Alpha'");
+		expect(exit.data).toEqual({ task: "Alpha" });
 		await d.cleanup();
 	});
 });

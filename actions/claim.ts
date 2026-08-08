@@ -1,40 +1,35 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Failures } from "../lib/failures";
+import { fail } from "../lib/exit";
 import type { WorktreeStore } from "../lib/worktree-store";
 
 /** The resume entry point: a fresh agent thread picking up existing work. */
 export async function claim(
 	{ store, log }: { store: WorktreeStore; log: Logger },
-	failures: Failures,
 	task: string,
 ): Promise<void> {
 	const found = await store.find(task);
 
 	if (found.gone) {
-		failures.fail(
-			"not_found",
-			`no task '${task}' — run \`arbor create ${task}\``,
-			{
-				task,
-			},
-		);
+		fail("not_found", `no task '${task}' — run \`arbor create ${task}\``, {
+			task,
+		});
 	}
 	if (found.status === "orphaned") {
-		failures.fail(
+		fail(
 			"orphaned",
 			`state file for '${task}' has no worktree at ${found.path} — run \`arbor prune ${task}\``,
 			{ task, worktree: found.path },
 		);
 	}
 	if (found.status === "stray") {
-		failures.fail(
+		fail(
 			"orphaned",
 			`branch ${found.branch} exists but has no worktree — run \`arbor prune ${task}\` and start over`,
 			{ task, branch: found.branch },
 		);
 	}
 	if (found.leaseHeld) {
-		failures.fail(
+		fail(
 			"lease_live",
 			`'${task}' is held by pid ${found.lease?.pid} on ${found.lease?.hostname} (heartbeat ${found.lease?.heartbeatAt}) — another agent is driving this tree`,
 			{ task, lease: found.lease },

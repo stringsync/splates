@@ -6,12 +6,14 @@ import { NodeFs, NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import type { Config } from "./config";
 import { Exit } from "./exit";
-import type { Failure, Failures } from "./failures";
 
 /** pid 1 always exists, so it stands in for another agent that is still running. */
 export const LIVE_PID = 1;
 
-/** Runs a command that is expected to bail, and hands back how it bailed. */
+/**
+ * Runs a command that is expected to bail, and hands back how it bailed —
+ * reason, message and data all ride on the `Exit` itself.
+ */
 export async function bails(work: Promise<unknown>): Promise<Exit> {
 	try {
 		await work;
@@ -22,16 +24,6 @@ export async function bails(work: Promise<unknown>): Promise<Exit> {
 		throw e;
 	}
 	throw new Error("expected a nonzero exit, but the command succeeded");
-}
-
-/**
- * Collects what a `Failures` raises. Commands no longer print their own
- * refusals, so this is where a test reads the message and data from.
- */
-export function raised(failures: Failures): Failure[] {
-	const seen: Failure[] = [];
-	failures.events.on("fail", (f) => seen.push(f));
-	return seen;
 }
 
 /** Arbitrary but valid settings, for tests that do not care about config. */

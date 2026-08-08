@@ -1,6 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Config } from "../lib/config";
-import type { Failures } from "../lib/failures";
+import { fail } from "../lib/exit";
 import type { Shell } from "../lib/shell";
 import type { WorktreeStore } from "../lib/worktree-store";
 
@@ -18,11 +18,10 @@ export async function create(
 		config: Config;
 		log: Logger;
 	},
-	failures: Failures,
 	task: string,
 ): Promise<void> {
 	if (!NAME.test(task)) {
-		failures.fail(
+		fail(
 			"usage",
 			`invalid task name '${task}': use lowercase letters, digits and dashes`,
 			{ task },
@@ -31,14 +30,14 @@ export async function create(
 
 	const found = await store.find(task);
 	if (found.status === "stray") {
-		failures.fail(
+		fail(
 			"exists",
 			`branch ${found.branch} exists without a worktree — run \`arbor prune ${task}\` first`,
 			{ task, branch: found.branch },
 		);
 	}
 	if (!found.gone) {
-		failures.fail(
+		fail(
 			"exists",
 			`task '${task}' already exists — run \`arbor claim ${task}\``,
 			{ task, worktree: found.path },
@@ -47,7 +46,7 @@ export async function create(
 
 	const added = await store.create(task);
 	if (added.code !== 0) {
-		failures.fail("usage", `git worktree add failed: ${added.stderr}`, {
+		fail("usage", `git worktree add failed: ${added.stderr}`, {
 			task,
 		});
 	}
@@ -68,7 +67,7 @@ export async function create(
 		if (exitCode !== 0) {
 			// The worktree stays. Rolling back would throw away a tree the agent
 			// can fix by hand and re-run the hook in.
-			failures.fail(
+			fail(
 				"hook_failed",
 				`postCreate hook failed (exit ${exitCode}); worktree left in place at ${worktree.path}`,
 				{ task, worktree: worktree.path },

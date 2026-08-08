@@ -10,41 +10,39 @@ import { graft } from "./actions/graft";
 import { ls } from "./actions/ls";
 import { prune } from "./actions/prune";
 import { exits } from "./lib/exit";
-import { failures } from "./lib/failures";
 import { repository } from "./lib/repository";
 
 const log = new ConsoleLogger();
 const fs = new NodeFs();
 const ps = new NodePs();
 
-// Outermost first: a refusal raised inside `failures` unwinds past `repository`
-// and stops at `exits`, which is the only thing that ends the process.
+// Outermost first: a refusal raised in an action unwinds past `repository` and
+// stops at `exits`, which is the only thing that ends the process.
 const arbor = cli("arbor", log)
-	.use(exits(ps))
-	.use(failures(log))
+	.use(exits(ps, log))
 	.use(repository(fs, ps, log));
 
 arbor
 	.command("create")
 	.description("create a worktree, branch and record for a new task")
 	.arg("task", t.string(), { description: "task name (lowercase-with-dashes)" })
-	.action((o, { store, shell, config, failures }) =>
-		create({ store, shell, config, log }, failures, o.task),
+	.action((o, { store, shell, config }) =>
+		create({ store, shell, config, log }, o.task),
 	);
 
 arbor
 	.command("claim")
 	.description("take ownership of an existing worktree (resume entry point)")
 	.arg("task", t.string(), { description: "task name" })
-	.action((o, { store, failures }) => claim({ store, log }, failures, o.task));
+	.action((o, { store }) => claim({ store, log }, o.task));
 
 arbor
 	.command("graft")
 	.description(
 		"land this worktree's branch on trunk (rebase + test + fast-forward, never a merge commit)",
 	)
-	.action((_o, { store, git, lock, shell, config, failures }) =>
-		graft({ store, git, lock, shell, config, log }, failures, process.cwd()),
+	.action((_o, { store, git, lock, shell, config }) =>
+		graft({ store, git, lock, shell, config, log }, process.cwd()),
 	);
 
 arbor
@@ -55,8 +53,8 @@ arbor
 		default: false,
 		description: "discard even when another agent holds the lease",
 	})
-	.action((o, { store, config, failures }) =>
-		prune({ store, config, log }, failures, o.task, { force: o.force }),
+	.action((o, { store, config }) =>
+		prune({ store, config, log }, o.task, { force: o.force }),
 	);
 
 arbor
@@ -73,10 +71,9 @@ arbor
 		default: "",
 		description: "task name, when run outside its worktree",
 	})
-	.action((o, { store, git, lock, failures }) =>
+	.action((o, { store, git, lock }) =>
 		escalate(
 			{ store, git, lock, log },
-			failures,
 			o.reason,
 			process.cwd(),
 			o.task || undefined,

@@ -1,0 +1,71 @@
+import { describe, expect, test } from "bun:test";
+import { MemoryLogger } from "@webappwiz/log";
+import { NodePs } from "@webappwiz/sys";
+import { FakeProcess } from "@webappwiz/sys/testing";
+import { EXIT, exits, fail } from "./exit";
+
+/**
+ * These codes are arbor's API — an agent branches on them. Pinned here so a
+ * renumbering has to be deliberate, and so README.md's table has one source.
+ */
+test("exit codes are stable", () => {
+	expect(EXIT).toEqual({
+		usage: 1,
+		conflict: 2,
+		tests_failed: 3,
+		lease_lost: 4,
+		budget_exhausted: 5,
+		lease_live: 6,
+		dirty: 7,
+		not_found: 8,
+		hook_failed: 9,
+		exists: 10,
+		orphaned: 11,
+		merge_failed: 12,
+		already_pruned: 13,
+	});
+});
+
+describe("exits", () => {
+	function setup() {
+		const process = new FakeProcess();
+		const log = new MemoryLogger();
+		return { process, log, middleware: exits(new NodePs(process), log) };
+	}
+
+	test("turns a refusal into JSON, an explanation and a status code", async () => {
+		const d = setup();
+
+		await d.middleware({}, async () => {
+			fail("conflict", "rebase conflicted", { task: "alpha" });
+		});
+
+		expect(d.process.lastExit()).toBe(EXIT.conflict);
+		const [json, human] = d.log.entries;
+		expect(JSON.parse(String(json?.message))).toEqual({
+			reason: "conflict",
+			task: "alpha",
+		});
+		expect(String(human?.message)).toContain("rebase conflicted");
+	});
+
+	test("lets anything that is not a refusal through", async () => {
+		const d = setup();
+
+		const boom = d.middleware({}, async () => {
+			throw new Error("boom");
+		});
+
+		expect(boom).rejects.toThrow("boom");
+		expect(d.process.lastExit()).toBeUndefined();
+	});
+
+	test("leaves a command that succeeded alone", async () => {
+		const d = setup();
+
+		await d.middleware({}, async () => {});
+
+		expect(d.process.lastExit()).toBeUndefined();
+		expect(d.log.entries).toEqual([]);
+	});
+});

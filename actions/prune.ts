@@ -1,6 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Config } from "../lib/config";
-import type { Failures } from "../lib/failures";
+import { fail } from "../lib/exit";
 import type { WorktreeStore } from "../lib/worktree-store";
 
 /**
@@ -12,7 +12,6 @@ import type { WorktreeStore } from "../lib/worktree-store";
  */
 export async function prune(
 	{ store, config, log }: { store: WorktreeStore; config: Config; log: Logger },
-	failures: Failures,
 	task: string,
 	{ force = false }: { force?: boolean } = {},
 ): Promise<void> {
@@ -20,7 +19,7 @@ export async function prune(
 
 	if (worktree.gone) {
 		const pruned = worktree.status === "pruned";
-		failures.fail(
+		fail(
 			pruned ? "already_pruned" : "not_found",
 			pruned
 				? `'${task}' was already pruned (${worktree.prunedAt}) — nothing left to remove`
@@ -31,7 +30,7 @@ export async function prune(
 
 	if (worktree.leaseHeld) {
 		if (!force) {
-			failures.fail(
+			fail(
 				"lease_live",
 				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname} — pass --force to discard it anyway`,
 				{ task, lease: worktree.lease },
@@ -49,7 +48,7 @@ export async function prune(
 
 	const discarded = await worktree.discard();
 	if (discarded.code !== 0) {
-		failures.fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
+		fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
 			task,
 		});
 	}

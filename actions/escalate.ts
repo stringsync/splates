@@ -1,6 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Lock } from "@webappwiz/sys";
-import type { Failures } from "../lib/failures";
+import { fail } from "../lib/exit";
 import type { Git } from "../lib/git";
 import type { WorktreeStore } from "../lib/worktree-store";
 
@@ -21,7 +21,6 @@ export async function escalate(
 		lock: Lock;
 		log: Logger;
 	},
-	failures: Failures,
 	reason: string,
 	cwd: string,
 	task?: string,
@@ -29,14 +28,14 @@ export async function escalate(
 	const branch = await git.currentBranch(cwd).catch(() => "");
 	const name = task || store.taskFor(branch);
 	if (!name) {
-		failures.fail(
+		fail(
 			"usage",
 			"not in a task worktree — pass --task <name> to escalate from elsewhere",
 		);
 	}
 	const found = await store.find(name);
 	if (!found.state) {
-		failures.fail("not_found", `no state file for '${name}'`, { task: name });
+		fail("not_found", `no state file for '${name}'`, { task: name });
 	}
 
 	const escalations = [

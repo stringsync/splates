@@ -1,7 +1,7 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Lock } from "@webappwiz/sys";
 import type { Config } from "../lib/config";
-import type { Failures } from "../lib/failures";
+import { fail } from "../lib/exit";
 import type { Git } from "../lib/git";
 import type { Shell } from "../lib/shell";
 import type { Worktree } from "../lib/worktree";
@@ -30,13 +30,12 @@ export async function graft(
 		config: Config;
 		log: Logger;
 	},
-	failures: Failures,
 	cwd: string,
 ): Promise<void> {
 	const branch = await git.currentBranch(cwd).catch(() => "");
 	const task = store.taskFor(branch);
 	if (!task) {
-		failures.fail(
+		fail(
 			"not_found",
 			`not in a task worktree (branch '${branch}') — run graft from a worktree made by \`arbor create\``,
 			{ branch },
@@ -44,7 +43,7 @@ export async function graft(
 	}
 	let worktree = await store.find(task);
 	if (!worktree.state) {
-		failures.fail(
+		fail(
 			"not_found",
 			`no state file for '${task}' — run \`arbor claim ${task}\` first`,
 			{ task },
@@ -53,21 +52,21 @@ export async function graft(
 
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
-		failures.fail(
+		fail(
 			"dirty",
 			`'${task}' has uncommitted changes — commit them before grafting`,
 			{ task, paths: dirty },
 		);
 	}
 	if (worktree.graftAttempts >= config.graftRetryCount) {
-		failures.fail(
+		fail(
 			"budget_exhausted",
 			`'${task}' has used its ${config.graftRetryCount} graft attempts — run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
 			{ task, graftAttempts: worktree.graftAttempts },
 		);
 	}
 	if (worktree.leaseHeld) {
-		failures.fail(
+		fail(
 			"lease_live",
 			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname} — another agent is driving this tree`,
 			{ task, lease: worktree.lease },
@@ -87,7 +86,7 @@ export async function graft(
 		const paths = await git.conflictedPaths(worktree.path);
 		await lock.release();
 		await bump(worktree);
-		failures.fail(
+		fail(
 			"conflict",
 			[
 				`rebase onto ${config.trunk} conflicted in ${paths.length || "?"} file(s):`,
@@ -119,7 +118,7 @@ export async function graft(
 		await git.resetHard(worktree.path, before);
 		await lock.release();
 		await bump(worktree);
-		failures.fail(
+		fail(
 			"tests_failed",
 			[
 				`\`${config.testCommand}\` failed after rebasing onto ${config.trunk} (exit ${tests.exitCode}).`,
@@ -137,7 +136,7 @@ export async function graft(
 	const current = await worktree.reload();
 	if (!current.leaseOurs) {
 		await lock.release();
-		failures.fail(
+		fail(
 			"lease_lost",
 			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the graft — stopping without landing. Do not retry; another agent owns this tree.`,
 			{ task, lease: current.lease },
@@ -149,7 +148,7 @@ export async function graft(
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree);
-		failures.fail(
+		fail(
 			"merge_failed",
 			`could not fast-forward ${config.trunk} in ${git.root}: ${merged.stderr || merged.stdout}`,
 			{ task },

@@ -1,4 +1,5 @@
 import type { Middleware } from "@webappwiz/cmd";
+import type { Logger } from "@webappwiz/log";
 import type { Ps } from "@webappwiz/sys";
 
 /**
@@ -24,25 +25,38 @@ export const EXIT = {
 export type Reason = keyof typeof EXIT;
 
 /**
- * Thrown by `Failures.fail` to stop the command that raised it. The process
- * boundary catches this and exits with `code`; a test catches it and reads
- * `reason`.
+ * A refusal, carrying everything anyone needs to act on it: `exits` turns it
+ * into output and a status code, a test reads its fields directly.
  */
 export class Exit extends Error {
 	constructor(
-		readonly code: number,
 		readonly reason: Reason,
+		message: string,
+		readonly data: Record<string, unknown> = {},
 	) {
-		super(reason);
+		super(message);
 	}
 }
 
 /**
- * Turns a refusal into the process's exit code. The command has already said
- * why it stopped, so there is nothing left to print — and this is the only
- * place that decides how the process ends.
+ * How a command refuses. Every call site means "and go no further", which is
+ * what the `never` return buys: the code below a `fail` is unreachable, and
+ * TypeScript narrows accordingly.
  */
-export function exits<C extends object>(ps: Ps): Middleware<C> {
+export function fail(
+	reason: Reason,
+	message: string,
+	data: Record<string, unknown> = {},
+): never {
+	throw new Exit(reason, message, data);
+}
+
+/**
+ * Decides what a refusal looks like — a machine-readable reason on stdout, a
+ * human explanation on stderr — and is the only place that ends the process.
+ * An agent branches on the first and reads the second.
+ */
+export function exits<C extends object>(ps: Ps, log: Logger): Middleware<C> {
 	return async (ctx, next) => {
 		try {
 			await next(ctx);
@@ -50,7 +64,9 @@ export function exits<C extends object>(ps: Ps): Middleware<C> {
 			if (!(e instanceof Exit)) {
 				throw e;
 			}
-			ps.exit(e.code);
+			log.info(JSON.stringify({ reason: e.reason, ...e.data }));
+			log.error(e.message);
+			ps.exit(EXIT[e.reason]);
 		}
 	};
 }

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { Failures } from "../lib/failures";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
 import { repo, testConfig } from "../lib/testing";
@@ -25,15 +24,14 @@ async function setup() {
 		config,
 		store,
 		shell: new Shell(r.ps),
-		failures: new Failures(),
 	};
 }
 
 describe("ls", () => {
 	test("lists tasks, survives a corrupt record, and flags orphans", async () => {
 		const d = await setup();
-		await create(d, d.failures, "alpha");
-		await create(d, d.failures, "beta");
+		await create(d, "alpha");
+		await create(d, "beta");
 		await d.fs.write(d.store.recordPath("broken"), "{not json");
 		const beta = (await d.store.find("beta")).path;
 		await d.fs.rm(beta, { recursive: true, force: true });

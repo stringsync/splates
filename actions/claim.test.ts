@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { Failures } from "../lib/failures";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
-import { bails, LIVE_PID, raised, repo, testConfig } from "../lib/testing";
+import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
 import { WorktreeStore } from "../lib/worktree-store";
 import { claim } from "./claim";
 import { create } from "./create";
@@ -19,7 +18,6 @@ async function setup() {
 		r.arborDir,
 	);
 	await store.init();
-	const failures = new Failures();
 	// `shell` and `config` are here for the `create` calls that arrange each
 	// test; claim itself needs only the store, the log and somewhere to fail.
 	return {
@@ -27,15 +25,13 @@ async function setup() {
 		config,
 		store,
 		shell: new Shell(r.ps),
-		failures,
-		raised: raised(failures),
 	};
 }
 
 describe("claim", () => {
 	test("refuses a live lease and takes a cold one", async () => {
 		const d = await setup();
-		await create(d, d.failures, "alpha");
+		await create(d, "alpha");
 		// A live lease held by another, running process.
 		await (await d.store.find("alpha")).save({
 			lease: {
@@ -45,9 +41,8 @@ describe("claim", () => {
 			},
 		});
 
-		const exit = await bails(claim(d, d.failures, "alpha"));
+		const exit = await bails(claim(d, "alpha"));
 		expect(exit.reason).toBe("lease_live");
-		expect(exit.code).toBe(6);
 
 		// The same lease, gone cold because the heartbeat aged out.
 		await (await d.store.find("alpha")).save({
@@ -57,7 +52,7 @@ describe("claim", () => {
 				heartbeatAt: new Date(Date.now() - 120_000).toISOString(),
 			},
 		});
-		await claim(d, d.failures, "alpha");
+		await claim(d, "alpha");
 
 		expect((await d.store.find("alpha")).state?.lease?.pid).toBe(d.ps.pid);
 		expect(d.out()).toContain("claimed alpha");
@@ -66,7 +61,7 @@ describe("claim", () => {
 
 	test("rebuilds a missing record and reports an interrupted rebase", async () => {
 		const d = await setup();
-		await create(d, d.failures, "alpha");
+		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 
 		// Stand the worktree in a half-finished rebase, then lose the record.
@@ -75,7 +70,7 @@ describe("claim", () => {
 		await d.ps.spawnCapture(["git", "-C", worktree, "rebase", "main"]);
 		await d.fs.rm(d.store.recordPath("alpha"));
 
-		await claim(d, d.failures, "alpha");
+		await claim(d, "alpha");
 
 		expect(d.out()).toContain("state file rebuilt from disk");
 		expect(d.out()).toContain("rebase in progress");
@@ -87,14 +82,14 @@ describe("claim", () => {
 
 	test("reports a record whose worktree is gone as orphaned", async () => {
 		const d = await setup();
-		await create(d, d.failures, "alpha");
+		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.fs.rm(worktree, { recursive: true, force: true });
 
-		const exit = await bails(claim(d, d.failures, "alpha"));
+		const exit = await bails(claim(d, "alpha"));
 
 		expect(exit.reason).toBe("orphaned");
-		expect(d.raised.at(-1)?.message).toContain("arbor prune alpha");
+		expect(exit.message).toContain("arbor prune alpha");
 		await d.cleanup();
 	});
 });
