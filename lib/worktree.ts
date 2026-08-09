@@ -207,6 +207,10 @@ export class Worktree {
 		return this.store.git.commitsAhead(this.store.trunk, this.branch);
 	}
 
+	diffStat(): Promise<{ added: number; removed: number } | null> {
+		return this.store.git.diffStat(this.store.trunk, this.branch);
+	}
+
 	uncommitted(): Promise<string[]> {
 		return this.store.git.porcelain(this.path);
 	}

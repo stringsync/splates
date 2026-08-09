@@ -87,6 +87,28 @@ export class Git {
 		return result.code === 0 ? Number(result.stdout) : null;
 	}
 
+	/** Lines added and removed on `branch` since it left `trunk`. */
+	async diffStat(
+		trunk: string,
+		branch: string,
+	): Promise<{ added: number; removed: number } | null> {
+		const result = await this.run(
+			this.root,
+			"diff",
+			"--shortstat",
+			`${trunk}...${branch}`,
+		);
+		if (result.code !== 0) {
+			return null;
+		}
+		const count = (pattern: RegExp): number =>
+			Number(pattern.exec(result.stdout)?.[1] ?? 0);
+		return {
+			added: count(/(\d+) insertion/),
+			removed: count(/(\d+) deletion/),
+		};
+	}
+
 	rebase(cwd: string, onto: string): Promise<GitResult> {
 		return this.run(cwd, "rebase", onto);
 	}

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { color } from "@webappwiz/log";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
 import { repo, testConfig } from "../lib/testing";
@@ -41,6 +42,7 @@ describe("ls", () => {
 		expect(d.out()).toContain("alpha");
 		expect(d.out()).toContain("unknown"); // the corrupt row, not a crash
 		expect(d.out()).toContain("orphaned");
+		expect(color.strip(d.out())).toContain("+0 -0");
 
 		d.log.clear();
 		await ls(d, { json: true });

@@ -8,6 +8,8 @@ interface Row {
 	lease: "live" | "cold" | "none";
 	branch: string;
 	ahead: number | null;
+	added: number | null;
+	removed: number | null;
 	age: string;
 	worktree: string | null;
 }
@@ -34,6 +36,7 @@ export async function ls(
 
 async function row(worktree: Worktree): Promise<Row> {
 	const { state } = worktree;
+	const diff = state ? await worktree.diffStat() : null;
 	return {
 		task: worktree.task,
 		// One unreadable record shows as `unknown` instead of taking down the
@@ -42,6 +45,8 @@ async function row(worktree: Worktree): Promise<Row> {
 		lease: !state?.lease ? "none" : worktree.leaseLive ? "live" : "cold",
 		branch: worktree.branch,
 		ahead: state ? await worktree.commitsAhead() : null,
+		added: diff?.added ?? null,
+		removed: diff?.removed ?? null,
 		age: state ? age(state.createdAt) : "?",
 		worktree: state ? worktree.path : null,
 	};
@@ -58,22 +63,32 @@ function age(since: string): string {
 	return `${Math.floor(minutes / (60 * 24))}d`;
 }
 
+function diff(row: Row): string {
+	if (row.added === null || row.removed === null) {
+		return "?";
+	}
+	return `${color.green(`+${row.added}`)} ${color.red(`-${row.removed}`)}`;
+}
+
 function table(rows: Row[]): string {
-	const header = ["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "AGE"];
+	const header = ["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "DIFF", "AGE"];
 	const cells = rows.map((r) => [
 		r.task,
 		r.status,
 		r.lease,
 		r.branch,
 		r.ahead === null ? "?" : String(r.ahead),
+		diff(r),
 		r.age,
 	]);
+	// Padding goes by visible width: the diff cell carries color codes.
+	const width = (cell: string): number => color.strip(cell).length;
 	const widths = header.map((h, i) =>
-		Math.max(h.length, ...cells.map((c) => (c[i] ?? "").length)),
+		Math.max(h.length, ...cells.map((c) => width(c[i] ?? ""))),
 	);
 	const line = (cs: string[]): string =>
 		cs
-			.map((c, i) => c.padEnd(widths[i] ?? 0))
+			.map((c, i) => c.padEnd((widths[i] ?? 0) + c.length - width(c)))
 			.join("  ")
 			.trimEnd();
 	const out = [color.dim(line(header)), ...cells.map(line)];
