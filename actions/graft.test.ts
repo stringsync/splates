@@ -47,11 +47,21 @@ describe("graft", () => {
 		expect(
 			await d.gitCli(d.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
-		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(
-			await d.gitCli(worktree, "rev-parse", "task/alpha"),
-		);
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
-		expect((await d.store.find("alpha")).state?.graftAttempts).toBe(0);
+		await d.cleanup();
+	});
+
+	test("discards the landed task, so it drops out of the listing", async () => {
+		const d = await setup();
+		await create(d, "alpha");
+		const worktree = (await d.store.find("alpha")).path;
+		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await graft(d, worktree);
+
+		expect((await d.store.find("alpha")).status).toBe("pruned");
+		expect(await d.fs.exists(worktree)).toBe(false);
+		expect(await d.store.list()).toEqual([]);
 		await d.cleanup();
 	});
 

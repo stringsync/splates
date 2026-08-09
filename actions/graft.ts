@@ -156,9 +156,26 @@ export async function graft(
 	}
 
 	const head = await git.shortHead(git.root);
-	await worktree.take({ status: "working", graftAttempts: 0 });
+	// The work is on trunk, so the tree has nothing left to hold. Discarding it
+	// here is what keeps `arbor ls` a list of live work rather than a graveyard
+	// of landed tasks.
+	//
+	// Step out of it first: graft usually runs from inside the tree it is about
+	// to delete, and spawning git from a directory that no longer exists fails
+	// with ENOENT before git is even reached.
+	store.ps.cd(git.root);
+	const discarded = await current.discard();
 	await lock.release();
-	log.info(`${color.green("grafted")} ${task} onto ${config.trunk} (${head})`);
+	if (discarded.code !== 0) {
+		fail(
+			"usage",
+			`landed '${task}' on ${config.trunk} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor prune ${task}\` to clean up.`,
+			{ task },
+		);
+	}
+	log.info(
+		`${color.green("grafted")} ${task} onto ${config.trunk} (${head})\n  worktree removed — cd ${git.root}`,
+	);
 }
 
 async function bump(worktree: Worktree): Promise<void> {

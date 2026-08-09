@@ -63,6 +63,11 @@ linear; there is no merge commit to reason about.
    trunk; this is the only defense against semantic conflicts, where both sides
    merge cleanly and the combination is broken.
 4. Re-checks the lease, then `git checkout <trunk> && git merge --ff-only`.
+5. Discards the workstream — worktree, branch and record — exactly as `prune`
+   would. The work is on trunk, so the tree has nothing left to hold, and
+   `arbor ls` stays a list of live work rather than a graveyard of landed
+   tasks. The agent's own directory goes with it, so the success message
+   prints the main tree to `cd` back to.
 
 On conflict the rebase is **left in progress** — the agent needs the markers.
 Resolve, `git add`, `git rebase --continue`, `arbor graft` again. On test
@@ -75,8 +80,10 @@ There is deliberately no flag to skip the test gate.
 Discards a workstream: worktree, branch, and record. Unrelated to
 `git worktree prune`, which only tidies stale metadata.
 
-Use it freely. Warns about commits that never landed, but never blocks —
-throwing work away is the cheap escape hatch, not a last resort.
+For abandoning work that will never land — a successful `graft` already
+discards its own tree. Use it freely. Warns about commits that never landed,
+but never blocks — throwing work away is the cheap escape hatch, not a last
+resort.
 
 Pruning leaves a tombstone in `.git/arbor/pruned/` so a second `prune` can say
 `already_pruned` rather than `not_found`. The ledger keeps the 50 most recent

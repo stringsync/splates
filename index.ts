@@ -44,7 +44,7 @@ arbor
 arbor
 	.command("graft")
 	.description(
-		"land this worktree's branch on trunk: rebase onto trunk, run tests on the rebased code, then fast-forward trunk (linear history, never a merge commit, no flag to skip tests); requires committed work — refuses a dirty worktree",
+		"land this worktree's branch on trunk: rebase onto trunk, run tests on the rebased code, fast-forward trunk, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work — refuses a dirty worktree",
 	)
 	.action((_o, { store, git, lock, shell, config }) =>
 		graft({ store, git, lock, shell, config, log }, ps.cwd()),

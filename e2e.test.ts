@@ -36,7 +36,7 @@ async function setup(testCommand = "true") {
 }
 
 describe("arbor", () => {
-	test("two agents create, claim, graft and prune", async () => {
+	test("two agents create, claim and graft", async () => {
 		const { arbor, rows, ...r } = await setup();
 		expect((await arbor(r.root, "create", "alpha")).exitCode).toBe(0);
 		expect((await arbor(r.root, "create", "beta")).exitCode).toBe(0);
@@ -69,9 +69,12 @@ describe("arbor", () => {
 			await r.gitCli(r.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
 
-		expect((await arbor(r.root, "prune", "alpha")).exitCode).toBe(0);
-		expect((await arbor(r.root, "prune", "beta")).exitCode).toBe(0);
+		// Grafting cleans up after itself: nothing left to list, and nothing left
+		// for prune to remove.
 		expect(await rows()).toEqual([]);
+		const pruned = await arbor(r.root, "prune", "alpha");
+		expect(pruned.exitCode).toBe(13);
+		expect(pruned.stdout).toContain("already_pruned");
 		await r.cleanup();
 	});
 
@@ -184,7 +187,7 @@ describe("arbor", () => {
 		expect(await r.gitCli(r.root, "log", "--oneline", "main")).toContain(
 			"add epsilon",
 		);
-		expect((await rows())[0]?.status).toBe("working");
+		expect(await rows()).toEqual([]);
 		await r.cleanup();
 	});
 });
