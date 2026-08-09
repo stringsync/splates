@@ -25,7 +25,9 @@ const arbor = cli("arbor", log)
 
 arbor
 	.command("create")
-	.description("create a worktree, branch and record for a new task")
+	.description(
+		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor/<task> and a state record",
+	)
 	.arg("task", t.string(), { description: "task name (lowercase-with-dashes)" })
 	.action((o, { store, shell, config }) =>
 		create({ store, shell, config, log }, o.task),
@@ -33,14 +35,16 @@ arbor
 
 arbor
 	.command("claim")
-	.description("take ownership of an existing worktree (resume entry point)")
+	.description(
+		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds a live lease",
+	)
 	.arg("task", t.string(), { description: "task name" })
 	.action((o, { store }) => claim({ store, log }, o.task));
 
 arbor
 	.command("graft")
 	.description(
-		"land this worktree's branch on trunk (rebase + test + fast-forward, never a merge commit)",
+		"land this worktree's branch on trunk: rebase onto trunk, run tests on the rebased code, then fast-forward trunk (linear history, never a merge commit, no flag to skip tests); requires committed work — refuses a dirty worktree",
 	)
 	.action((_o, { store, git, lock, shell, config }) =>
 		graft({ store, git, lock, shell, config, log }, ps.cwd()),
@@ -48,7 +52,9 @@ arbor
 
 arbor
 	.command("prune")
-	.description("discard a task: worktree, branch and state file")
+	.description(
+		"discard a task: worktree, branch and state file; cheap and encouraged — redoing a task against current trunk often beats a hard rebase",
+	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("force", t.boolean(), {
 		default: false,
@@ -60,13 +66,17 @@ arbor
 
 arbor
 	.command("ls")
-	.description("list every workstream and its state")
+	.description(
+		"list every workstream: task, status, lease (live/cold/none), branch, commits ahead of trunk, age",
+	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((o, { store }) => ls({ store, log }, { json: o.json }));
 
 arbor
 	.command("path")
-	.description("print a task's worktree path, or the main tree with no task")
+	.description(
+		"print a task's worktree path, or the main tree with no task; names another agent's tree without taking its lease",
+	)
 	.arg("task", t.string(), {
 		default: "",
 		description: "task name; omit for the main tree",
@@ -75,7 +85,9 @@ arbor
 
 arbor
 	.command("escalate")
-	.description("hand this task to a human and stop")
+	.description(
+		"hand this task to a human and stop: records the reason, drops the lease and leaves the worktree exactly as it is; use instead of resolving a genuine conflict badly just to finish",
+	)
 	.arg("reason", t.string(), { description: "why this needs a human" })
 	.option("task", t.string(), {
 		default: "",
