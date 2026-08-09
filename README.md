@@ -89,6 +89,29 @@ Every workstream: task, status, lease (`live`/`cold`/`none`), branch, commits
 ahead of trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
+### `arbor path [task]`
+
+Prints one path and nothing else, so it composes:
+
+```bash
+cd "$(arbor path)"             # back to the main tree, from any worktree
+zed -a "$(arbor path alpha)"   # read a task's work beside your own
+git -C "$(arbor path alpha)" diff main...task/alpha
+```
+
+**This is how a human looks at an agent's work.** Moving between trees is `cd`
+and nothing else — worktrees are directories, not checkouts, so your main tree
+stays on trunk while agents work and there is no branch to switch, nothing to
+stash, nothing to switch back. Reading a task this way takes no lease, so it
+cannot knock the agent driving it off its own tree the way `claim` would.
+
+With no task it prints the main tree, which is the one path a process standing
+in a worktree cannot otherwise name: git's `--show-toplevel` hands back the
+worktree it is already in.
+
+Refuses a task that does not exist, or one whose directory is gone, rather than
+printing a path you cannot `cd` into.
+
 ### `arbor escalate <reason> [--task <name>]`
 
 The explicit "this needs a human" exit. Records the reason, drops the lease, and

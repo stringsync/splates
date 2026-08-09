@@ -8,6 +8,7 @@ import { create } from "./actions/create";
 import { escalate } from "./actions/escalate";
 import { graft } from "./actions/graft";
 import { ls } from "./actions/ls";
+import { path } from "./actions/path";
 import { prune } from "./actions/prune";
 import { exits } from "./lib/exit";
 import { repository } from "./lib/repository";
@@ -62,6 +63,15 @@ arbor
 	.description("list every workstream and its state")
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((o, { store }) => ls({ store, log }, { json: o.json }));
+
+arbor
+	.command("path")
+	.description("print a task's worktree path, or the main tree with no task")
+	.arg("task", t.string(), {
+		default: "",
+		description: "task name; omit for the main tree",
+	})
+	.action((o, { store }) => path({ store, log }, o.task || undefined));
 
 arbor
 	.command("escalate")
