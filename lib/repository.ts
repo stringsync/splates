@@ -4,6 +4,7 @@ import type { Logger } from "@webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "@webappwiz/sys";
 import { type Config, loadConfig } from "./config";
 import { Git } from "./git";
+import { Journal } from "./journal";
 import { Shell } from "./shell";
 import { WorktreeStore } from "./worktree-store";
 
@@ -14,6 +15,7 @@ export interface Repository {
 	store: WorktreeStore;
 	lock: Lock;
 	shell: Shell;
+	journal: Journal;
 }
 
 /**
@@ -58,6 +60,7 @@ export function repository<C extends object>(
 				stalenessMs: config.leaseStalenessMs,
 			}),
 			shell: new Shell(ps),
+			journal: new Journal(fs, `${arborDir}/log.jsonl`, config.logCapacity),
 		});
 	};
 }

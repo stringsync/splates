@@ -96,6 +96,23 @@ Every workstream: task, status, lease (`live`/`cold`/`none`), branch, commits
 ahead of trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
+### `arbor log [--count 20] [--json]`
+
+The last N things done here — `create`, `claim`, `graft`, `prune`, `escalate` —
+oldest first, each with the task and how it ended (`ok`, or the refusal reason).
+
+```
+WHEN  ACTION    TASK   RESULT
+2h    create    alpha  ok
+1h    graft     alpha  tests_failed
+1h    graft     alpha  ok
+```
+
+`ls` is what still exists; this is what happened. Entries outlive their tasks —
+a successful `graft` and a `prune` both take the record with them, so this is
+the only thing that remembers a task landed at all. The last 200 are kept
+(`logCapacity`) in `.git/arbor/log.jsonl`.
+
 ### `arbor path [task]`
 
 Prints one path and nothing else, so it composes:
@@ -167,6 +184,7 @@ export default {
 	leaseStalenessMs: 90_000,
 	graftRetryCount: 2,
 	pruneStorageCapacity: 50,       // pruned names kept, so prune can say "already pruned"
+	logCapacity: 200,               // entries `arbor log` keeps before the oldest fall off
 };
 ```
 

@@ -60,6 +60,7 @@ const config: Config = {
 	leaseStalenessMs: 90_000,
 	graftRetryCount: 2,
 	pruneStorageCapacity: 50,
+	logCapacity: 200,
 };
 
 function store(

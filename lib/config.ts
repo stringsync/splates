@@ -23,6 +23,8 @@ export interface Config {
 	 * oldest costs a nicer message and nothing else.
 	 */
 	pruneStorageCapacity: number;
+	/** How many entries `arbor log` keeps before the oldest fall off. */
+	logCapacity: number;
 }
 
 /** Defaults for this repo, overridden by whatever `arbor.config.ts` sets. */
@@ -39,6 +41,7 @@ async function defaults(fs: Fs, root: string): Promise<Config> {
 		leaseStalenessMs: 90_000,
 		graftRetryCount: 2,
 		pruneStorageCapacity: 50,
+		logCapacity: 200,
 	};
 }
 

@@ -40,6 +40,7 @@ export function testConfig(
 		leaseStalenessMs: 90_000,
 		pruneStorageCapacity: 50,
 		graftRetryCount: 2,
+		logCapacity: 200,
 		...overrides,
 	};
 }

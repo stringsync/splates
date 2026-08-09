@@ -1,4 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
+import { age } from "../lib/age";
+import { table } from "../lib/table";
 import type { Worktree } from "../lib/worktree";
 import type { WorktreeStore } from "../lib/worktree-store";
 
@@ -31,7 +33,7 @@ export async function ls(
 		log.info("no workstreams — run `arbor create <task>` to start one");
 		return;
 	}
-	log.info(table(rows));
+	log.info(listing(rows));
 }
 
 async function row(worktree: Worktree): Promise<Row> {
@@ -52,17 +54,6 @@ async function row(worktree: Worktree): Promise<Row> {
 	};
 }
 
-function age(since: string): string {
-	const minutes = Math.floor((Date.now() - Date.parse(since)) / 60_000);
-	if (minutes < 60) {
-		return `${minutes}m`;
-	}
-	if (minutes < 60 * 24) {
-		return `${Math.floor(minutes / 60)}h`;
-	}
-	return `${Math.floor(minutes / (60 * 24))}d`;
-}
-
 function diff(row: Row): string {
 	if (row.added === null || row.removed === null) {
 		return "?";
@@ -70,8 +61,7 @@ function diff(row: Row): string {
 	return `${color.green(`+${row.added}`)} ${color.red(`-${row.removed}`)}`;
 }
 
-function table(rows: Row[]): string {
-	const header = ["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "DIFF", "AGE"];
+function listing(rows: Row[]): string {
 	const cells = rows.map((r) => [
 		r.task,
 		r.status,
@@ -81,17 +71,9 @@ function table(rows: Row[]): string {
 		diff(r),
 		r.age,
 	]);
-	// Padding goes by visible width: the diff cell carries color codes.
-	const width = (cell: string): number => color.strip(cell).length;
-	const widths = header.map((h, i) =>
-		Math.max(h.length, ...cells.map((c) => width(c[i] ?? ""))),
-	);
-	const line = (cs: string[]): string =>
-		cs
-			.map((c, i) => c.padEnd((widths[i] ?? 0) + c.length - width(c)))
-			.join("  ")
-			.trimEnd();
-	const out = [color.dim(line(header)), ...cells.map(line)];
+	const out = [
+		table(["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "DIFF", "AGE"], cells),
+	];
 	const orphaned = rows.filter((r) => r.status === "orphaned");
 	if (orphaned.length > 0) {
 		out.push(

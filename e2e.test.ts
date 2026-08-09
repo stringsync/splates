@@ -75,6 +75,20 @@ describe("arbor", () => {
 		const pruned = await arbor(r.root, "prune", "alpha");
 		expect(pruned.exitCode).toBe(13);
 		expect(pruned.stdout).toContain("already_pruned");
+
+		// The journal outlives the tasks: both grafts and the refused prune.
+		const journal = JSON.parse(
+			(await arbor(r.root, "log", "--json")).stdout,
+		) as { action: string; task: string | null; reason: string | null }[];
+		expect(journal).toMatchObject([
+			{ action: "create", task: "alpha", reason: null },
+			{ action: "create", task: "beta", reason: null },
+			{ action: "claim", task: "alpha", reason: null },
+			{ action: "graft", task: "alpha", reason: null },
+			{ action: "claim", task: "beta", reason: null },
+			{ action: "graft", task: "beta", reason: null },
+			{ action: "prune", task: "alpha", reason: "already_pruned" },
+		]);
 		await r.cleanup();
 	});
 
