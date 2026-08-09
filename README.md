@@ -92,8 +92,8 @@ and drops the oldest as new ones arrive, so a long-forgotten task reports
 
 ### `arbor ls [--json]`
 
-Every workstream: task, status, lease (`live`/`cold`/`none`), branch, commits
-ahead of trunk, age. A corrupt record shows as `unknown` instead of taking
+Every workstream: task, status, lease (`live`/`cold`/`none`), commits ahead of
+trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
 ### `arbor log [--count 20] [--json]`

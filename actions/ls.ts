@@ -8,7 +8,6 @@ interface Row {
 	task: string;
 	status: string;
 	lease: "live" | "cold" | "none";
-	branch: string;
 	ahead: number | null;
 	added: number | null;
 	removed: number | null;
@@ -45,7 +44,6 @@ async function row(worktree: Worktree): Promise<Row> {
 		// whole listing.
 		status: worktree.status,
 		lease: !state?.lease ? "none" : worktree.leaseLive ? "live" : "cold",
-		branch: worktree.branch,
 		ahead: state ? await worktree.commitsAhead() : null,
 		added: diff?.added ?? null,
 		removed: diff?.removed ?? null,
@@ -66,13 +64,12 @@ function listing(rows: Row[]): string {
 		r.task,
 		r.status,
 		r.lease,
-		r.branch,
 		r.ahead === null ? "?" : String(r.ahead),
 		diff(r),
 		r.age,
 	]);
 	const out = [
-		table(["TASK", "STATUS", "LEASE", "BRANCH", "AHEAD", "DIFF", "AGE"], cells),
+		table(["TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
 	];
 	const orphaned = rows.filter((r) => r.status === "orphaned");
 	if (orphaned.length > 0) {

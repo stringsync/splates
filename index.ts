@@ -85,7 +85,7 @@ arbor
 arbor
 	.command("ls")
 	.description(
-		"list every workstream: task, status, lease (live/cold/none), branch, commits ahead of trunk, age",
+		"list every workstream: task, status, lease (live/cold/none), commits ahead of trunk, age",
 	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((o, { store }) => ls({ store, log }, { json: o.json }));
