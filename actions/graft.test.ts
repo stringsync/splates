@@ -1,7 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "@webappwiz/sys";
-import type { Config } from "../lib/config";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
 import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
@@ -9,39 +8,31 @@ import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { graft } from "./graft";
 
-describe("graft", () => {
-	let d: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		git: Git;
-		store: WorktreeStore;
-		shell: Shell;
-		lockPath: string;
-		lock: FileLock;
+/** A repo of its own per test, so grafts in different tests can run at once. */
+const setup = async () => {
+	const r = await repo();
+	const config = testConfig(r.root);
+	const git = new Git(r.ps, r.fs, r.root);
+	const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
+	await store.init();
+	const lockPath = join(r.arborDir, "graft.lock");
+	return {
+		...r,
+		config,
+		git,
+		store,
+		shell: new Shell(r.ps),
+		lockPath,
+		lock: new FileLock(r.fs, r.ps, r.log, lockPath, {
+			stalenessMs: config.leaseStalenessMs,
+		}),
 	};
+};
 
-	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
-		const git = new Git(r.ps, r.fs, r.root);
-		const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
-		await store.init();
-		const lockPath = join(r.arborDir, "graft.lock");
-		d = {
-			...r,
-			config,
-			git,
-			store,
-			shell: new Shell(r.ps),
-			lockPath,
-			lock: new FileLock(r.fs, r.ps, r.log, lockPath, {
-				stalenessMs: config.leaseStalenessMs,
-			}),
-		};
-	});
-
-	afterEach(() => d.cleanup());
-
+describe.concurrent("graft", () => {
 	it("rebases, tests, then fast-forwards trunk", async () => {
+		await using d = await setup();
+
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -60,6 +51,8 @@ describe("graft", () => {
 	});
 
 	it("discards the landed task, so it drops out of the listing", async () => {
+		await using d = await setup();
+
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -72,6 +65,8 @@ describe("graft", () => {
 	});
 
 	it("refuses to run with uncommitted changes, before taking the lock", async () => {
+		await using d = await setup();
+
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.fs.write(join(worktree, "alpha.txt"), "not committed\n");
@@ -83,6 +78,8 @@ describe("graft", () => {
 	});
 
 	it("leaves a conflicting rebase in progress for the agent to resolve", async () => {
+		await using d = await setup();
+
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "README.md", "task side\n", "task edit");
@@ -100,6 +97,8 @@ describe("graft", () => {
 	});
 
 	it("rolls the branch back and leaves trunk alone when tests fail", async () => {
+		await using d = await setup();
+
 		d.config.testCommand = "echo boom-from-tests; exit 1";
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
@@ -118,6 +117,8 @@ describe("graft", () => {
 	});
 
 	it("stops once the retry budget is spent", async () => {
+		await using d = await setup();
+
 		d.config.graftRetryCount = 2;
 		await create(d, "alpha");
 		const worktree = await d.store.find("alpha");
@@ -130,6 +131,8 @@ describe("graft", () => {
 	});
 
 	it("refuses to land when the lease changed hands during the test run", async () => {
+		await using d = await setup();
+
 		await create(d, "alpha");
 		const worktree = await d.store.find("alpha");
 		await d.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
@@ -156,6 +159,8 @@ describe("graft", () => {
 	});
 
 	it("serializes: one graft runs its tests and lands before the next starts", async () => {
+		await using d = await setup();
+
 		const trace = join(d.root, "trace.log");
 		d.config.testCommand = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
 
