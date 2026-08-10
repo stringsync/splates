@@ -2,7 +2,7 @@ import { color, type Logger } from "@webappwiz/log";
 import { age } from "../lib/age";
 import { table } from "../lib/table";
 import type { Worktree } from "../lib/worktree";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { IWorktreeStore } from "../lib/worktree-store";
 
 interface Row {
 	task: string;
@@ -16,7 +16,7 @@ interface Row {
 }
 
 export async function ls(
-	{ store, log }: { store: WorktreeStore; log: Logger },
+	{ store, log }: { store: IWorktreeStore; log: Logger },
 	{ json = false } = {},
 ): Promise<void> {
 	const rows: Row[] = [];

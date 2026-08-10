@@ -12,9 +12,14 @@ import { ls } from "./actions/ls";
 import { path } from "./actions/path";
 import { prune } from "./actions/prune";
 import { exits } from "./lib/exit";
-import type { Git } from "./lib/git";
+import type { IGit } from "./lib/git";
 import { repository } from "./lib/repository";
-import type { WorktreeStore } from "./lib/worktree-store";
+import type { IWorktreeStore } from "./lib/worktree-store";
+
+export type { IGit } from "./lib/git";
+export type { IJournal } from "./lib/journal";
+export type { IShell } from "./lib/shell";
+export type { IWorktreeStore } from "./lib/worktree-store";
 
 const log = new ConsoleLogger();
 const fs = new NodeFs();
@@ -24,7 +29,7 @@ const ps = new NodePs();
  * Which task a command that takes no task name is about — `graft` and
  * `escalate` read it off the current branch — so the journal can name it.
  */
-const here = async (store: WorktreeStore, git: Git): Promise<string | null> =>
+const here = async (store: IWorktreeStore, git: IGit): Promise<string | null> =>
 	store.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and

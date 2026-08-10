@@ -11,12 +11,22 @@ export interface Entry {
 	reason: string | null;
 }
 
+/** Records how a command went, and hands back what was recorded before. */
+export interface IJournal {
+	record<T>(
+		action: string,
+		task: string | null,
+		run: () => Promise<T>,
+	): Promise<T>;
+	tail(count: number): Promise<Entry[]>;
+}
+
 /**
  * What has been done in this repo, oldest first. Entries outlive their tasks:
  * `graft` and `prune` take the record with them, so this is the only thing that
  * remembers a task existed at all.
  */
-export class Journal {
+export class Journal implements IJournal {
 	constructor(
 		private readonly fs: Fs,
 		private readonly path: string,

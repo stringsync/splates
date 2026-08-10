@@ -1,24 +1,42 @@
 import { resolve } from "node:path";
 import type { Fs, Ps } from "@webappwiz/sys";
 import type { Config } from "./config";
-import type { Git, GitResult } from "./git";
+import type { GitResult, IGit } from "./git";
 import { type TaskState, Worktree } from "./worktree";
 
 const BRANCH_PREFIX = "task/";
+
+/** Looking a workstream up by name, and everything kept about it on disk. */
+export interface IWorktreeStore {
+	readonly ps: Ps;
+	readonly git: IGit;
+	readonly config: Config;
+	readonly trunk: string;
+	init(): Promise<void>;
+	pathFor(task: string): string;
+	branchFor(task: string): string;
+	taskFor(branch: string): string | null;
+	recordPath(task: string): string;
+	find(task: string): Promise<Worktree>;
+	list(): Promise<Worktree[]>;
+	create(task: string): Promise<GitResult>;
+	discard(worktree: Worktree): Promise<GitResult>;
+	saveRecord(state: TaskState): Promise<void>;
+}
 
 /**
  * Where workstreams live and everything persistent about them: the worktree
  * directories, the records under `.git/arbor/tasks`, and the names of tasks
  * already pruned. One name, one lookup, whatever state it turns out to be in.
  */
-export class WorktreeStore {
+export class WorktreeStore implements IWorktreeStore {
 	private readonly tasksDir: string;
 	private readonly prunedDir: string;
 
 	constructor(
 		private readonly fs: Fs,
 		readonly ps: Ps,
-		readonly git: Git,
+		readonly git: IGit,
 		readonly config: Config,
 		arborDir: string,
 	) {

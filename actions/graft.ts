@@ -2,10 +2,10 @@ import { color, type Logger } from "@webappwiz/log";
 import type { Lock } from "@webappwiz/sys";
 import type { Config } from "../lib/config";
 import { fail } from "../lib/exit";
-import type { Git } from "../lib/git";
-import type { Shell } from "../lib/shell";
+import type { IGit } from "../lib/git";
+import type { IShell } from "../lib/shell";
 import type { Worktree } from "../lib/worktree";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { IWorktreeStore } from "../lib/worktree-store";
 
 const TAIL_LINES = 40;
 
@@ -23,10 +23,10 @@ export async function graft(
 		config,
 		log,
 	}: {
-		store: WorktreeStore;
-		git: Git;
+		store: IWorktreeStore;
+		git: IGit;
 		lock: Lock;
-		shell: Shell;
+		shell: IShell;
 		config: Config;
 		log: Logger;
 	},

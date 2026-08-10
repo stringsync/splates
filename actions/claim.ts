@@ -1,10 +1,10 @@
 import { color, type Logger } from "@webappwiz/log";
 import { fail } from "../lib/exit";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { IWorktreeStore } from "../lib/worktree-store";
 
 /** The resume entry point: a fresh agent thread picking up existing work. */
 export async function claim(
-	{ store, log }: { store: WorktreeStore; log: Logger },
+	{ store, log }: { store: IWorktreeStore; log: Logger },
 	task: string,
 ): Promise<void> {
 	const found = await store.find(task);

@@ -3,19 +3,19 @@ import type { Middleware } from "@webappwiz/cmd";
 import type { Logger } from "@webappwiz/log";
 import { FileLock, type Fs, type Lock, type Ps } from "@webappwiz/sys";
 import { type Config, loadConfig } from "./config";
-import { Git } from "./git";
-import { Journal } from "./journal";
-import { Shell } from "./shell";
-import { WorktreeStore } from "./worktree-store";
+import { Git, type IGit } from "./git";
+import { type IJournal, Journal } from "./journal";
+import { type IShell, Shell } from "./shell";
+import { type IWorktreeStore, WorktreeStore } from "./worktree-store";
 
 /** What a command gets to work with, once there is a repository to work in. */
 export interface Repository {
 	config: Config;
-	git: Git;
-	store: WorktreeStore;
+	git: IGit;
+	store: IWorktreeStore;
 	lock: Lock;
-	shell: Shell;
-	journal: Journal;
+	shell: IShell;
+	journal: IJournal;
 }
 
 /**

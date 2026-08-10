@@ -1,8 +1,8 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Lock } from "@webappwiz/sys";
 import { fail } from "../lib/exit";
-import type { Git } from "../lib/git";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { IGit } from "../lib/git";
+import type { IWorktreeStore } from "../lib/worktree-store";
 
 /**
  * The way out that is not "resolve the conflict badly to finish the task".
@@ -16,8 +16,8 @@ export async function escalate(
 		lock,
 		log,
 	}: {
-		store: WorktreeStore;
-		git: Git;
+		store: IWorktreeStore;
+		git: IGit;
 		lock: Lock;
 		log: Logger;
 	},

@@ -1,6 +1,6 @@
 import type { Logger } from "@webappwiz/log";
 import { fail } from "../lib/exit";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { IWorktreeStore } from "../lib/worktree-store";
 
 /**
  * Where a task lives, or — with no task — the main tree. Nothing but the path
@@ -10,7 +10,7 @@ import type { WorktreeStore } from "../lib/worktree-store";
  * `--show-toplevel` hands back the worktree it is already in.
  */
 export async function path(
-	{ store, log }: { store: WorktreeStore; log: Logger },
+	{ store, log }: { store: IWorktreeStore; log: Logger },
 	task?: string,
 ): Promise<void> {
 	if (!task) {

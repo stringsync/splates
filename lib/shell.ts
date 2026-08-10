@@ -8,11 +8,17 @@ import type {
 /** Running a configured command somewhere it was not configured is a bug. */
 export type ShellOptions = SpawnOptions & { cwd: string };
 
+/** What a caller may ask of a shell: run a command string, capture or stream. */
+export interface IShell {
+	run(command: string, options: ShellOptions): Promise<SpawnCaptureResult>;
+	stream(command: string, options: ShellOptions): Promise<SpawnResult>;
+}
+
 /**
  * Runs the commands a repo configures — `testCommand`, `postCreate` — as
  * shell strings rather than argv, since that is how a repo writes them.
  */
-export class Shell {
+export class Shell implements IShell {
 	// This is the whole of what `graft` and `create` are allowed to do to the
 	// process. Handing them a `Ps` instead would hand them `exit` and `cd` too.
 	constructor(private readonly ps: Ps) {}
