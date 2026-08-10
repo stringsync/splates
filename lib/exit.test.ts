@@ -4,12 +4,20 @@ import { NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import { EXIT, exits, fail } from "./exit";
 
-describe("EXIT", () => {
-	/**
-	 * These codes are arbor's API — an agent branches on them. Pinned here so a
-	 * renumbering has to be deliberate, and so README.md's table has one source.
-	 */
-	it("exit codes are stable", () => {
+describe("exit", () => {
+	let process: FakeProcess;
+	let log: MemoryLogger;
+	let middleware: ReturnType<typeof exits>;
+
+	beforeEach(() => {
+		process = new FakeProcess();
+		log = new MemoryLogger();
+		middleware = exits(new NodePs(process), log);
+	});
+
+	it("keeps the exit codes stable", () => {
+		// pinned: these codes are arbor's API — an agent branches on them — so a
+		// renumbering has to be deliberate, and README.md's table has one source
 		expect(EXIT).toEqual({
 			usage: 1,
 			conflict: 2,
@@ -25,18 +33,6 @@ describe("EXIT", () => {
 			merge_failed: 12,
 			already_pruned: 13,
 		});
-	});
-});
-
-describe("exits", () => {
-	let process: FakeProcess;
-	let log: MemoryLogger;
-	let middleware: ReturnType<typeof exits>;
-
-	beforeEach(() => {
-		process = new FakeProcess();
-		log = new MemoryLogger();
-		middleware = exits(new NodePs(process), log);
 	});
 
 	it("turns a refusal into JSON, an explanation and a status code", async () => {
