@@ -145,9 +145,8 @@ export class GitWorktreeStore implements WorktreeStore {
 
 	/** Writes a task's record. A concurrent reader sees the old one or the new. */
 	async saveRecord(state: TaskState): Promise<void> {
-		// Writes to a temp path in the same directory, then renames. A half-written
-		// record read by a concurrent agent is a real failure mode, and rename is
-		// the only way to make the swap atomic.
+		// A half-written record read by a concurrent agent is a real failure mode,
+		// and rename is the only way to make the swap atomic.
 		const path = this.recordPath(state.task);
 		const tmp = `${path}.${this.ps.pid}.tmp`;
 		await this.fs.write(tmp, `${JSON.stringify(state, null, "\t")}\n`);
