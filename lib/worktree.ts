@@ -1,5 +1,5 @@
 import type { GitResult } from "./git";
-import type { IWorktreeStore } from "./worktree-store";
+import type { WorktreeStore } from "./worktree-store";
 
 /** The status a task's own record carries. */
 export type RecordStatus = "working" | "grafting" | "escalated";
@@ -60,7 +60,7 @@ export interface WorktreeSnapshot {
  */
 export class Worktree {
 	constructor(
-		private readonly store: IWorktreeStore,
+		private readonly store: WorktreeStore,
 		private readonly snapshot: WorktreeSnapshot,
 	) {}
 

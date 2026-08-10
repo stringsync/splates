@@ -7,7 +7,7 @@ export interface GitResult {
 }
 
 /** The git vocabulary arbor depends on, scoped to one repository. */
-export interface IGit {
+export interface Git {
 	/** The main worktree, where trunk lives. */
 	readonly root: string;
 	run(cwd: string, ...args: string[]): Promise<GitResult>;
@@ -40,7 +40,7 @@ export interface IGit {
  * to run these themselves — going through arbor is what makes concurrent work
  * safe — so this is the only place git is spoken.
  */
-export class Git implements IGit {
+export class CliGit implements Git {
 	constructor(
 		private readonly ps: Ps,
 		private readonly fs: Fs,

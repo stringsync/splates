@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { Exit } from "../lib/exit";
-import { Journal } from "../lib/journal";
+import { FileJournal, type Journal } from "../lib/journal";
 import { bails, repo } from "../lib/testing";
 import { log } from "./log";
 
@@ -13,7 +13,7 @@ describe("log", () => {
 		await r.fs.mkdir(r.arborDir);
 		d = {
 			...r,
-			journal: new Journal(r.fs, join(r.arborDir, "log.jsonl"), 200),
+			journal: new FileJournal(r.fs, join(r.arborDir, "log.jsonl"), 200),
 		};
 	});
 
@@ -44,7 +44,7 @@ describe("log", () => {
 	});
 
 	it("keeps the log capped and asking for none returns none", async () => {
-		d.journal = new Journal(d.fs, join(d.arborDir, "log.jsonl"), 2);
+		d.journal = new FileJournal(d.fs, join(d.arborDir, "log.jsonl"), 2);
 		for (const task of ["a", "b", "c"]) {
 			await d.journal.record("create", task, async () => {});
 		}

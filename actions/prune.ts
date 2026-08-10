@@ -1,7 +1,7 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Config } from "../lib/config";
 import { fail } from "../lib/exit";
-import type { IWorktreeStore } from "../lib/worktree-store";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 /**
  * Discards a whole workstream — worktree, branch and record. Unrelated to
@@ -11,11 +11,7 @@ import type { IWorktreeStore } from "../lib/worktree-store";
  * than a hard rebase, so this is meant to be used freely.
  */
 export async function prune(
-	{
-		store,
-		config,
-		log,
-	}: { store: IWorktreeStore; config: Config; log: Logger },
+	{ store, config, log }: { store: WorktreeStore; config: Config; log: Logger },
 	task: string,
 	{ force = false }: { force?: boolean } = {},
 ): Promise<void> {

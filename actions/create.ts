@@ -1,8 +1,8 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Config } from "../lib/config";
 import { fail } from "../lib/exit";
-import type { IShell } from "../lib/shell";
-import type { IWorktreeStore } from "../lib/worktree-store";
+import type { Shell } from "../lib/shell";
+import type { WorktreeStore } from "../lib/worktree-store";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -13,8 +13,8 @@ export async function create(
 		config,
 		log,
 	}: {
-		store: IWorktreeStore;
-		shell: IShell;
+		store: WorktreeStore;
+		shell: Shell;
 		config: Config;
 		log: Logger;
 	},

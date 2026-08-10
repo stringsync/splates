@@ -1,15 +1,15 @@
 import { resolve } from "node:path";
 import type { Fs, Ps } from "@webappwiz/sys";
 import type { Config } from "./config";
-import type { GitResult, IGit } from "./git";
+import type { Git, GitResult } from "./git";
 import { type TaskState, Worktree } from "./worktree";
 
 const BRANCH_PREFIX = "task/";
 
 /** Looking a workstream up by name, and everything kept about it on disk. */
-export interface IWorktreeStore {
+export interface WorktreeStore {
 	readonly ps: Ps;
-	readonly git: IGit;
+	readonly git: Git;
 	readonly config: Config;
 	readonly trunk: string;
 	init(): Promise<void>;
@@ -29,14 +29,14 @@ export interface IWorktreeStore {
  * directories, the records under `.git/arbor/tasks`, and the names of tasks
  * already pruned. One name, one lookup, whatever state it turns out to be in.
  */
-export class WorktreeStore implements IWorktreeStore {
+export class GitWorktreeStore implements WorktreeStore {
 	private readonly tasksDir: string;
 	private readonly prunedDir: string;
 
 	constructor(
 		private readonly fs: Fs,
 		readonly ps: Ps,
-		readonly git: IGit,
+		readonly git: Git,
 		readonly config: Config,
 		arborDir: string,
 	) {

@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "@webappwiz/sys";
 import type { Config } from "../lib/config";
-import { Git } from "../lib/git";
-import { Shell } from "../lib/shell";
+import { CliGit, type Git } from "../lib/git";
+import { PosixShell, type Shell } from "../lib/shell";
 import { bails, repo, testConfig } from "../lib/testing";
-import { WorktreeStore } from "../lib/worktree-store";
+import { GitWorktreeStore, type WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { escalate } from "./escalate";
 
@@ -21,15 +21,15 @@ describe("escalate", () => {
 	beforeEach(async () => {
 		const r = await repo();
 		const config = testConfig(r.root);
-		const git = new Git(r.ps, r.fs, r.root);
-		const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
+		const git = new CliGit(r.ps, r.fs, r.root);
+		const store = new GitWorktreeStore(r.fs, r.ps, git, config, r.arborDir);
 		await store.init();
 		d = {
 			...r,
 			config,
 			git,
 			store,
-			shell: new Shell(r.ps),
+			shell: new PosixShell(r.ps),
 			lock: new FileLock(r.fs, r.ps, r.log, join(r.arborDir, "graft.lock"), {
 				stalenessMs: config.leaseStalenessMs,
 			}),
