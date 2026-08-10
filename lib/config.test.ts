@@ -1,55 +1,55 @@
-import { expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "@webappwiz/sys";
 import { loadConfig } from "./config";
 
-const fs = new NodeFs();
+describe("loadConfig", () => {
+	const fs = new NodeFs();
+	let root: string;
 
-async function dir(files: Record<string, string>): Promise<string> {
-	const root = await mkdtemp(join(tmpdir(), "arbor-config-"));
-	for (const [name, content] of Object.entries(files)) {
-		await fs.write(join(root, name), content);
-	}
-	return root;
-}
-
-test("worktrees default to a sibling of the repo, named after it", async () => {
-	const root = await dir({});
-
-	const config = await loadConfig(fs, root);
-
-	expect(config.worktreeRoot).toBe(`${root}-arbor`);
-	expect(config.trunk).toBe("main");
-	await rm(root, { recursive: true, force: true });
-});
-
-test("a package.json test script becomes the default test command", async () => {
-	const withScript = await dir({
-		"package.json": JSON.stringify({ scripts: { test: "vitest" } }),
+	beforeEach(async () => {
+		root = await mkdtemp(join(tmpdir(), "arbor-config-"));
 	});
-	const without = await dir({ "package.json": "{}" });
-	const unparseable = await dir({ "package.json": "{not json" });
 
-	expect((await loadConfig(fs, withScript)).testCommand).toBe("bun run test");
-	expect((await loadConfig(fs, without)).testCommand).toBe("bun test");
-	expect((await loadConfig(fs, unparseable)).testCommand).toBe("bun test");
-
-	for (const root of [withScript, without, unparseable]) {
+	afterEach(async () => {
 		await rm(root, { recursive: true, force: true });
-	}
-});
-
-test("arbor.config.ts overrides the defaults it names, and only those", async () => {
-	const root = await dir({
-		"arbor.config.ts": `export default { trunk: "trunk", graftRetryCount: 7 };\n`,
 	});
 
-	const config = await loadConfig(fs, root);
+	it("worktrees default to a sibling of the repo, named after it", async () => {
+		const config = await loadConfig(fs, root);
 
-	expect(config.trunk).toBe("trunk");
-	expect(config.graftRetryCount).toBe(7);
-	expect(config.leaseStalenessMs).toBe(90_000);
-	await rm(root, { recursive: true, force: true });
+		expect(config.worktreeRoot).toBe(`${root}-arbor`);
+		expect(config.trunk).toBe("main");
+	});
+
+	it("a package.json test script becomes the default test command", async () => {
+		const packageJson = join(root, "package.json");
+
+		await fs.write(
+			packageJson,
+			JSON.stringify({ scripts: { test: "vitest" } }),
+		);
+		expect((await loadConfig(fs, root)).testCommand).toBe("bun run test");
+
+		await fs.write(packageJson, "{}");
+		expect((await loadConfig(fs, root)).testCommand).toBe("bun test");
+
+		await fs.write(packageJson, "{not json");
+		expect((await loadConfig(fs, root)).testCommand).toBe("bun test");
+	});
+
+	it("arbor.config.ts overrides the defaults it names, and only those", async () => {
+		await fs.write(
+			join(root, "arbor.config.ts"),
+			`export default { trunk: "trunk", graftRetryCount: 7 };\n`,
+		);
+
+		const config = await loadConfig(fs, root);
+
+		expect(config.trunk).toBe("trunk");
+		expect(config.graftRetryCount).toBe(7);
+		expect(config.leaseStalenessMs).toBe(90_000);
+	});
 });

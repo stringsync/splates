@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "@webappwiz/sys";
 import type { Config } from "../lib/config";
@@ -9,30 +9,39 @@ import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { graft } from "./graft";
 
-/** Called per test rather than once per describe: these run concurrently. */
-async function setup(overrides: Partial<Config> = {}) {
-	const r = await repo();
-	const config = testConfig(r.root, overrides);
-	const git = new Git(r.ps, r.fs, r.root);
-	const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
-	await store.init();
-	const lockPath = join(r.arborDir, "graft.lock");
-	return {
-		...r,
-		config,
-		git,
-		store,
-		shell: new Shell(r.ps),
-		lockPath,
-		lock: new FileLock(r.fs, r.ps, r.log, lockPath, {
-			stalenessMs: config.leaseStalenessMs,
-		}),
-	};
-}
-
 describe("graft", () => {
-	test("rebases, tests, then fast-forwards trunk", async () => {
-		const d = await setup();
+	let d: Awaited<ReturnType<typeof repo>> & {
+		config: Config;
+		git: Git;
+		store: WorktreeStore;
+		shell: Shell;
+		lockPath: string;
+		lock: FileLock;
+	};
+
+	beforeEach(async () => {
+		const r = await repo();
+		const config = testConfig(r.root);
+		const git = new Git(r.ps, r.fs, r.root);
+		const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
+		await store.init();
+		const lockPath = join(r.arborDir, "graft.lock");
+		d = {
+			...r,
+			config,
+			git,
+			store,
+			shell: new Shell(r.ps),
+			lockPath,
+			lock: new FileLock(r.fs, r.ps, r.log, lockPath, {
+				stalenessMs: config.leaseStalenessMs,
+			}),
+		};
+	});
+
+	afterEach(() => d.cleanup());
+
+	it("rebases, tests, then fast-forwards trunk", async () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -48,11 +57,9 @@ describe("graft", () => {
 			await d.gitCli(d.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
-		await d.cleanup();
 	});
 
-	test("discards the landed task, so it drops out of the listing", async () => {
-		const d = await setup();
+	it("discards the landed task, so it drops out of the listing", async () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -62,11 +69,9 @@ describe("graft", () => {
 		expect((await d.store.find("alpha")).status).toBe("pruned");
 		expect(await d.fs.exists(worktree)).toBe(false);
 		expect(await d.store.list()).toEqual([]);
-		await d.cleanup();
 	});
 
-	test("refuses to run with uncommitted changes, before taking the lock", async () => {
-		const d = await setup();
+	it("refuses to run with uncommitted changes, before taking the lock", async () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.fs.write(join(worktree, "alpha.txt"), "not committed\n");
@@ -75,11 +80,9 @@ describe("graft", () => {
 
 		expect(exit.reason).toBe("dirty");
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
-		await d.cleanup();
 	});
 
-	test("leaves a conflicting rebase in progress for the agent to resolve", async () => {
-		const d = await setup();
+	it("leaves a conflicting rebase in progress for the agent to resolve", async () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "README.md", "task side\n", "task edit");
@@ -94,11 +97,10 @@ describe("graft", () => {
 		);
 		expect((await d.store.find("alpha")).state?.graftAttempts).toBe(1);
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
-		await d.cleanup();
 	});
 
-	test("rolls the branch back and leaves trunk alone when tests fail", async () => {
-		const d = await setup({ testCommand: "echo boom-from-tests; exit 1" });
+	it("rolls the branch back and leaves trunk alone when tests fail", async () => {
+		d.config.testCommand = "echo boom-from-tests; exit 1";
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -113,11 +115,10 @@ describe("graft", () => {
 		expect(await d.gitCli(worktree, "rev-parse", "HEAD")).toBe(before);
 		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
-		await d.cleanup();
 	});
 
-	test("stops once the retry budget is spent", async () => {
-		const d = await setup({ graftRetryCount: 2 });
+	it("stops once the retry budget is spent", async () => {
+		d.config.graftRetryCount = 2;
 		await create(d, "alpha");
 		const worktree = await d.store.find("alpha");
 		await worktree.save({ graftAttempts: 2 });
@@ -126,11 +127,9 @@ describe("graft", () => {
 
 		expect(exit.reason).toBe("budget_exhausted");
 		expect(exit.message).toContain("arbor escalate");
-		await d.cleanup();
 	});
 
-	test("refuses to land when the lease changed hands during the test run", async () => {
-		const d = await setup();
+	it("refuses to land when the lease changed hands during the test run", async () => {
 		await create(d, "alpha");
 		const worktree = await d.store.find("alpha");
 		await d.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
@@ -154,11 +153,9 @@ describe("graft", () => {
 		expect(exit.reason).toBe("lease_lost");
 		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
-		await d.cleanup();
 	});
 
-	test("serializes: one graft runs its tests and lands before the next starts", async () => {
-		const d = await setup();
+	it("serializes: one graft runs its tests and lands before the next starts", async () => {
 		const trace = join(d.root, "trace.log");
 		d.config.testCommand = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
 
@@ -183,6 +180,5 @@ describe("graft", () => {
 		expect(
 			await d.gitCli(d.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
-		await d.cleanup();
 	}, 20_000);
 });

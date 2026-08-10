@@ -1,19 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { color } from "@webappwiz/log";
 import { repo } from "./lib/testing";
 
 const CLI = join(import.meta.dir, "index.ts");
 
-/** Called per test rather than once per describe: these run concurrently. */
-async function setup(testCommand = "true") {
-	const r = await repo();
-	// The only thing worth overriding: the default `bun test` fails in a
-	// worktree that has no tests, and graft would read that as a real failure.
-	await r.fs.write(
-		join(r.root, "arbor.config.ts"),
-		`export default { testCommand: ${JSON.stringify(testCommand)} };\n`,
-	);
+describe("arbor", () => {
+	let r: Awaited<ReturnType<typeof repo>>;
 
 	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
 	const arbor = async (cwd: string, ...args: string[]) => {
@@ -32,12 +25,19 @@ async function setup(testCommand = "true") {
 			worktree: string;
 		}[];
 
-	return { ...r, arbor, rows };
-}
+	beforeEach(async () => {
+		r = await repo();
+		// The only thing worth overriding: the default `bun test` fails in a
+		// worktree that has no tests, and graft would read that as a real failure.
+		await r.fs.write(
+			join(r.root, "arbor.config.ts"),
+			`export default { testCommand: "true" };\n`,
+		);
+	});
 
-describe("arbor", () => {
-	test("two agents create, claim and graft", async () => {
-		const { arbor, rows, ...r } = await setup();
+	afterEach(() => r.cleanup());
+
+	it("two agents create, claim and graft", async () => {
 		expect((await arbor(r.root, "create", "alpha")).exitCode).toBe(0);
 		expect((await arbor(r.root, "create", "beta")).exitCode).toBe(0);
 
@@ -89,13 +89,15 @@ describe("arbor", () => {
 			{ action: "graft", task: "beta", reason: null },
 			{ action: "prune", task: "alpha", reason: "already_pruned" },
 		]);
-		await r.cleanup();
 	});
 
-	test("an escalated task is picked up by another agent and grafted", async () => {
+	it("an escalated task is picked up by another agent and grafted", async () => {
 		// Tests pass only once the committed marker says so, which is how the
 		// first agent's graft fails for a reason the second agent can fix.
-		const { arbor, rows, ...r } = await setup("grep -q ok status.txt");
+		await r.fs.write(
+			join(r.root, "arbor.config.ts"),
+			`export default { testCommand: "grep -q ok status.txt" };\n`,
+		);
 		expect((await arbor(r.root, "create", "gamma")).exitCode).toBe(0);
 		const tree = (await rows())[0]?.worktree;
 		if (!tree) {
@@ -127,11 +129,9 @@ describe("arbor", () => {
 		expect(await r.gitCli(r.root, "log", "--oneline", "main")).toContain(
 			"fix status",
 		);
-		await r.cleanup();
 	});
 
-	test("an agent dies mid-task and the next one lands the work", async () => {
-		const { arbor, rows, ...r } = await setup();
+	it("an agent dies mid-task and the next one lands the work", async () => {
 		expect((await arbor(r.root, "create", "delta")).exitCode).toBe(0);
 		const tree = (await rows())[0]?.worktree;
 		if (!tree) {
@@ -156,14 +156,12 @@ describe("arbor", () => {
 		expect(await r.gitCli(r.root, "log", "--oneline", "main")).toContain(
 			"finish delta",
 		);
-		await r.cleanup();
 	});
 
-	test("an agent killed mid-graft leaves a tree the next one can land", async () => {
+	it("an agent killed mid-graft leaves a tree the next one can land", async () => {
 		// SIGKILL from inside the test gate: the first graft dies after rebasing
 		// and before trunk moves, holding both the lease and the graft lock. The
 		// marker file makes it happen exactly once, so the retry can pass.
-		const { arbor, rows, ...r } = await setup();
 		const die = join(r.root, "die");
 		await r.fs.write(
 			join(r.root, "arbor.config.ts"),
@@ -202,6 +200,5 @@ describe("arbor", () => {
 			"add epsilon",
 		);
 		expect(await rows()).toEqual([]);
-		await r.cleanup();
 	});
 });

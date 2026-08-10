@@ -1,28 +1,30 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "@webappwiz/log";
 import { NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import { EXIT, exits, fail } from "./exit";
 
-/**
- * These codes are arbor's API — an agent branches on them. Pinned here so a
- * renumbering has to be deliberate, and so README.md's table has one source.
- */
-test("exit codes are stable", () => {
-	expect(EXIT).toEqual({
-		usage: 1,
-		conflict: 2,
-		tests_failed: 3,
-		lease_lost: 4,
-		budget_exhausted: 5,
-		lease_live: 6,
-		dirty: 7,
-		not_found: 8,
-		hook_failed: 9,
-		exists: 10,
-		orphaned: 11,
-		merge_failed: 12,
-		already_pruned: 13,
+describe("EXIT", () => {
+	/**
+	 * These codes are arbor's API — an agent branches on them. Pinned here so a
+	 * renumbering has to be deliberate, and so README.md's table has one source.
+	 */
+	it("exit codes are stable", () => {
+		expect(EXIT).toEqual({
+			usage: 1,
+			conflict: 2,
+			tests_failed: 3,
+			lease_lost: 4,
+			budget_exhausted: 5,
+			lease_live: 6,
+			dirty: 7,
+			not_found: 8,
+			hook_failed: 9,
+			exists: 10,
+			orphaned: 11,
+			merge_failed: 12,
+			already_pruned: 13,
+		});
 	});
 });
 
@@ -37,7 +39,7 @@ describe("exits", () => {
 		middleware = exits(new NodePs(process), log);
 	});
 
-	test("turns a refusal into JSON, an explanation and a status code", async () => {
+	it("turns a refusal into JSON, an explanation and a status code", async () => {
 		await middleware({}, async () => {
 			fail("conflict", "rebase conflicted", { task: "alpha" });
 		});
@@ -51,7 +53,7 @@ describe("exits", () => {
 		expect(String(human?.message)).toContain("rebase conflicted");
 	});
 
-	test("lets anything that is not a refusal through", async () => {
+	it("lets anything that is not a refusal through", async () => {
 		const boom = middleware({}, async () => {
 			throw new Error("boom");
 		});
@@ -60,7 +62,7 @@ describe("exits", () => {
 		expect(process.lastExit()).toBeUndefined();
 	});
 
-	test("leaves a command that succeeded alone", async () => {
+	it("leaves a command that succeeded alone", async () => {
 		await middleware({}, async () => {});
 
 		expect(process.lastExit()).toBeUndefined();

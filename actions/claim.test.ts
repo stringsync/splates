@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { Config } from "../lib/config";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
 import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
@@ -6,31 +7,32 @@ import { WorktreeStore } from "../lib/worktree-store";
 import { claim } from "./claim";
 import { create } from "./create";
 
-/** Called per test rather than once per describe: these run concurrently. */
-async function setup() {
-	const r = await repo();
-	const config = testConfig(r.root);
-	const store = new WorktreeStore(
-		r.fs,
-		r.ps,
-		new Git(r.ps, r.fs, r.root),
-		config,
-		r.arborDir,
-	);
-	await store.init();
+describe("claim", () => {
 	// `shell` and `config` are here for the `create` calls that arrange each
 	// test; claim itself needs only the store, the log and somewhere to fail.
-	return {
-		...r,
-		config,
-		store,
-		shell: new Shell(r.ps),
+	let d: Awaited<ReturnType<typeof repo>> & {
+		config: Config;
+		store: WorktreeStore;
+		shell: Shell;
 	};
-}
 
-describe("claim", () => {
-	test("refuses a live lease and takes a cold one", async () => {
-		const d = await setup();
+	beforeEach(async () => {
+		const r = await repo();
+		const config = testConfig(r.root);
+		const store = new WorktreeStore(
+			r.fs,
+			r.ps,
+			new Git(r.ps, r.fs, r.root),
+			config,
+			r.arborDir,
+		);
+		await store.init();
+		d = { ...r, config, store, shell: new Shell(r.ps) };
+	});
+
+	afterEach(() => d.cleanup());
+
+	it("refuses a live lease and takes a cold one", async () => {
 		await create(d, "alpha");
 		// A live lease held by another, running process.
 		await (await d.store.find("alpha")).save({
@@ -56,11 +58,9 @@ describe("claim", () => {
 
 		expect((await d.store.find("alpha")).state?.lease?.pid).toBe(d.ps.pid);
 		expect(d.out()).toContain("claimed alpha");
-		await d.cleanup();
 	});
 
-	test("rebuilds a missing record and reports an interrupted rebase", async () => {
-		const d = await setup();
+	it("rebuilds a missing record and reports an interrupted rebase", async () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 
@@ -77,11 +77,9 @@ describe("claim", () => {
 		expect((await d.store.find("alpha")).state).toMatchObject({
 			branch: "task/alpha",
 		});
-		await d.cleanup();
 	});
 
-	test("reports a record whose worktree is gone as orphaned", async () => {
-		const d = await setup();
+	it("reports a record whose worktree is gone as orphaned", async () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.fs.rm(worktree, { recursive: true, force: true });
@@ -90,6 +88,5 @@ describe("claim", () => {
 
 		expect(exit.reason).toBe("orphaned");
 		expect(exit.message).toContain("arbor prune alpha");
-		await d.cleanup();
 	});
 });

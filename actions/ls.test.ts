@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { color } from "@webappwiz/log";
+import type { Config } from "../lib/config";
 import { Git } from "../lib/git";
 import { Shell } from "../lib/shell";
 import { repo, testConfig } from "../lib/testing";
@@ -7,30 +8,31 @@ import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { ls } from "./ls";
 
-/** Called per test rather than once per describe: these run concurrently. */
-async function setup() {
-	const r = await repo();
-	const config = testConfig(r.root);
-	const store = new WorktreeStore(
-		r.fs,
-		r.ps,
-		new Git(r.ps, r.fs, r.root),
-		config,
-		r.arborDir,
-	);
-	await store.init();
-	// ls needs only the store and the log; the rest arranges it with `create`.
-	return {
-		...r,
-		config,
-		store,
-		shell: new Shell(r.ps),
-	};
-}
-
 describe("ls", () => {
-	test("lists tasks, survives a corrupt record, and flags orphans", async () => {
-		const d = await setup();
+	// ls needs only the store and the log; the rest arranges it with `create`.
+	let d: Awaited<ReturnType<typeof repo>> & {
+		config: Config;
+		store: WorktreeStore;
+		shell: Shell;
+	};
+
+	beforeEach(async () => {
+		const r = await repo();
+		const config = testConfig(r.root);
+		const store = new WorktreeStore(
+			r.fs,
+			r.ps,
+			new Git(r.ps, r.fs, r.root),
+			config,
+			r.arborDir,
+		);
+		await store.init();
+		d = { ...r, config, store, shell: new Shell(r.ps) };
+	});
+
+	afterEach(() => d.cleanup());
+
+	it("lists tasks, survives a corrupt record, and flags orphans", async () => {
 		await create(d, "alpha");
 		await create(d, "beta");
 		await d.fs.write(d.store.recordPath("broken"), "{not json");
@@ -52,15 +54,11 @@ describe("ls", () => {
 			"beta",
 			"broken",
 		]);
-		await d.cleanup();
 	});
 
-	test("says so plainly when there is nothing to list", async () => {
-		const d = await setup();
-
+	it("says so plainly when there is nothing to list", async () => {
 		await ls(d);
 
 		expect(d.out()).toContain("no workstreams");
-		await d.cleanup();
 	});
 });
