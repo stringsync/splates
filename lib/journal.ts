@@ -45,17 +45,16 @@ export class Journal {
 		return count <= 0 ? [] : (await this.entries()).slice(-count);
 	}
 
-	/**
-	 * ponytail: rewrites the whole file to keep it capped. Fine at a few hundred
-	 * lines, and two agents finishing at the same instant lose an entry rather
-	 * than corrupt one — switch to an append + occasional compaction if `Fs`
-	 * ever grows an append.
-	 */
+	/** Adds one entry, dropping the oldest once `capacity` is reached. */
 	private async append(
 		action: string,
 		task: string | null,
 		reason: string | null,
 	): Promise<void> {
+		// ponytail: rewrites the whole file to keep it capped. Fine at a few hundred
+		// lines, and two agents finishing at the same instant lose an entry rather
+		// than corrupt one — switch to an append + occasional compaction if `Fs`
+		// ever grows an append.
 		const entry: Entry = { at: new Date().toISOString(), action, task, reason };
 		const kept = [...(await this.entries()), entry].slice(-this.capacity);
 		await this.fs.write(

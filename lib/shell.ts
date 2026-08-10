@@ -11,11 +11,10 @@ export type ShellOptions = SpawnOptions & { cwd: string };
 /**
  * Runs the commands a repo configures — `testCommand`, `postCreate` — as
  * shell strings rather than argv, since that is how a repo writes them.
- *
- * This is the whole of what `graft` and `create` are allowed to do to the
- * process. Handing them a `Ps` instead would hand them `exit` and `cd` too.
  */
 export class Shell {
+	// This is the whole of what `graft` and `create` are allowed to do to the
+	// process. Handing them a `Ps` instead would hand them `exit` and `cd` too.
 	constructor(private readonly ps: Ps) {}
 
 	/** Captures output, for commands whose failure has to be reported back. */

@@ -86,12 +86,13 @@ export class Worktree {
 
 	/**
 	 * Live means a fresh heartbeat and, when the holder is on this host, a pid
-	 * that still exists. The pid check matters because every arbor command is
-	 * its own short-lived process: without it a tree would stay locked for the
-	 * whole staleness window after a command that merely finished, and `create`
-	 * would block the `graft` that follows it.
+	 * that still exists.
 	 */
 	get leaseLive(): boolean {
+		// The pid check matters because every arbor command is its own short-lived
+		// process: without it a tree would stay locked for the whole staleness
+		// window after a command that merely finished, and `create` would block the
+		// `graft` that follows it.
 		const { lease } = this;
 		const { ps, config } = this.store;
 		if (!lease) {

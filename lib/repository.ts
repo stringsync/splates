@@ -20,8 +20,7 @@ export interface Repository {
 
 /**
  * Runs the action against the repository `cwd` sits in, and refuses to run it
- * at all when that is not a repository. Nothing below here touches `Fs` or
- * `Ps`: this is the only place they are spoken.
+ * at all when that is not a repository.
  */
 export function repository<C extends object>(
 	fs: Fs,
@@ -29,6 +28,8 @@ export function repository<C extends object>(
 	log: Logger,
 	cwd: string = ps.cwd(),
 ): Middleware<C, C & Repository> {
+	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
+	// spoken.
 	return async (ctx, next) => {
 		const { exitCode, stdout } = await ps.spawnCapture([
 			"git",

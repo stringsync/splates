@@ -2,11 +2,10 @@ import type { Middleware } from "@webappwiz/cmd";
 import type { Logger } from "@webappwiz/log";
 import type { Ps } from "@webappwiz/sys";
 
-/**
- * Exit codes are the API: an agent branches on these, not on prose. Keep them
- * stable, and keep README.md's table in sync.
- */
+/** Exit codes are the API: an agent branches on these, not on prose. */
 export const EXIT = {
+	// Stable by contract: keep them as they are, and keep README.md's table in
+	// sync.
 	usage: 1,
 	conflict: 2,
 	tests_failed: 3,
