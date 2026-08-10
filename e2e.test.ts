@@ -107,7 +107,6 @@ describe.concurrent("arbor", () => {
 			throw new Error("create did not record a worktree path");
 		}
 
-		// First agent: lands broken work, fails the gate, hands it to a human.
 		expect((await arbor(tree, "claim", "gamma")).exitCode).toBe(0);
 		await r.commit(tree, "status.txt", "wrong\n", "add status");
 		const failed = await arbor(tree, "graft");

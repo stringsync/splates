@@ -58,7 +58,6 @@ export class CliGit implements Git {
 		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
 	}
 
-	/** Like `run`, but a nonzero exit is a thrown error rather than a result. */
 	async out(cwd: string, ...args: string[]): Promise<string> {
 		const result = await this.run(cwd, ...args);
 		if (result.code !== 0) {
@@ -171,11 +170,10 @@ export class CliGit implements Git {
 		return this.run(this.root, "branch", "-D", branch);
 	}
 
-	/**
-	 * The per-worktree git directory, read from the worktree's `.git` file
-	 * rather than guessed from its basename — git dedupes those names.
-	 */
+	/** The git directory belonging to a worktree, or null if it has none. */
 	async worktreeGitDir(worktree: string): Promise<string | null> {
+		// Guessing this from the worktree's basename would be wrong: git dedupes
+		// those names, so the directory is not always named after the worktree.
 		const raw = await this.fs.read(`${worktree}/.git`).catch(() => null);
 		return raw?.trim().replace(/^gitdir:\s*/, "") ?? null;
 	}

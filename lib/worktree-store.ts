@@ -53,10 +53,7 @@ export class GitWorktreeStore implements WorktreeStore {
 		return this.config.trunk;
 	}
 
-	/**
-	 * Worktrees are siblings of the repo, not nested inside it, so editors and
-	 * test runners don't walk into five copies of the tree.
-	 */
+	/** Where a task's worktree lives: a sibling of the repo, never inside it. */
 	pathFor(task: string): string {
 		return resolve(this.config.worktreeRoot, task);
 	}

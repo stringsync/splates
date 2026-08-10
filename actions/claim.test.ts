@@ -34,7 +34,6 @@ describe("claim", () => {
 
 	it("refuses a live lease and takes a cold one", async () => {
 		await create(d, "alpha");
-		// A live lease held by another, running process.
 		await (await d.store.find("alpha")).save({
 			lease: {
 				pid: LIVE_PID,
@@ -64,7 +63,6 @@ describe("claim", () => {
 		await create(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 
-		// Stand the worktree in a half-finished rebase, then lose the record.
 		await d.commit(d.root, "README.md", "trunk side\n", "trunk");
 		await d.commit(worktree, "README.md", "task side\n", "task");
 		await d.ps.spawnCapture(["git", "-C", worktree, "rebase", "main"]);

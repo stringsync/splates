@@ -5,7 +5,7 @@ import type {
 	SpawnResult,
 } from "@webappwiz/sys";
 
-/** Running a configured command somewhere it was not configured is a bug. */
+/** Spawn options for a shell command. `cwd` is the worktree it runs against. */
 export type ShellOptions = SpawnOptions & { cwd: string };
 
 /** What a caller may ask of a shell: run a command string, capture or stream. */
