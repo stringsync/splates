@@ -61,10 +61,10 @@ export class FileJournal implements Journal {
 		task: string | null,
 		reason: string | null,
 	): Promise<void> {
-		// ponytail: rewrites the whole file to keep it capped. Fine at a few hundred
-		// lines, and two agents finishing at the same instant lose an entry rather
-		// than corrupt one — switch to an append + occasional compaction if `Fs`
-		// ever grows an append.
+		// rewrites the whole file to keep it capped. Fine at a few hundred lines,
+		// and two agents finishing at the same instant lose an entry rather than
+		// corrupt one — switch to an append + occasional compaction if `Fs` ever
+		// grows an append.
 		const entry: Entry = { at: new Date().toISOString(), action, task, reason };
 		const kept = [...(await this.entries()), entry].slice(-this.capacity);
 		await this.fs.write(
