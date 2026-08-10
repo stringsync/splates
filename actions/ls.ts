@@ -43,7 +43,7 @@ async function row(worktree: Worktree): Promise<Row> {
 		// One unreadable record shows as `unknown` instead of taking down the
 		// whole listing.
 		status: worktree.status,
-		lease: !state?.lease ? "none" : worktree.leaseLive ? "live" : "cold",
+		lease: worktree.leaseStatus,
 		ahead: state ? await worktree.commitsAhead() : null,
 		added: diff?.added ?? null,
 		removed: diff?.removed ?? null,

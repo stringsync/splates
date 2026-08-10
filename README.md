@@ -96,6 +96,30 @@ Every workstream: task, status, lease (`live`/`cold`/`none`), commits ahead of
 trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
+### `arbor show <task> [--json]`
+
+One workstream in full — the row `ls` would print for it, plus the `TODO.md`
+its agent keeps at the worktree root and the reason behind an `escalated`
+status.
+
+```
+alpha working
+  branch:    task/alpha
+  worktree:  /src/repo-arbor/alpha
+  lease:     live
+  ahead:     3  +82 -14
+  age:       2h
+
+TODO.md
+# alpha
+...
+```
+
+`ls` says a task exists; this says what it is doing. Like `path`, it takes no
+lease — reading another agent's tree cannot knock it off its own work the way
+`claim` would. A task with no `TODO.md` is called out rather than passed over
+in silence: it is the one thing that makes the work resumable.
+
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here — `create`, `claim`, `graft`, `prune`, `escalate` —

@@ -104,6 +104,11 @@ export class Worktree {
 		return lease.hostname === ps.hostname ? ps.alive(lease.pid) : true;
 	}
 
+	/** Who is on this tree: someone right now, someone who left, or no one. */
+	get leaseStatus(): "live" | "cold" | "none" {
+		return !this.lease ? "none" : this.leaseLive ? "live" : "cold";
+	}
+
 	get leaseOurs(): boolean {
 		const { ps } = this.store;
 		return this.lease?.pid === ps.pid && this.lease.hostname === ps.hostname;

@@ -11,6 +11,7 @@ import { DEFAULT_COUNT, log as showLog } from "./actions/log";
 import { ls } from "./actions/ls";
 import { path } from "./actions/path";
 import { prune } from "./actions/prune";
+import { show } from "./actions/show";
 import { exits } from "./lib/exit";
 import type { Git } from "./lib/git";
 import { repository } from "./lib/repository";
@@ -94,6 +95,15 @@ arbor
 	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((o, { store }) => ls({ store, log }, { json: o.json }));
+
+arbor
+	.command("show")
+	.description(
+		"read one task without touching it: everything `ls` lists for it, plus the TODO.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
+	)
+	.arg("task", t.string(), { description: "task name" })
+	.option("json", t.boolean(), { default: false, description: "emit JSON" })
+	.action((o, { store }) => show({ store, fs, log }, o.task, { json: o.json }));
 
 arbor
 	.command("log")
