@@ -178,7 +178,6 @@ describe.concurrent("graft", () => {
 		// Never interleaved: whoever starts first also ends first.
 		expect(lines[1]).toBe(`end-${lines[0]?.slice("start-".length)}`);
 		expect(lines[3]).toBe(`end-${lines[2]?.slice("start-".length)}`);
-		// Both landed, on a linear trunk.
 		const log = await d.gitCli(d.root, "log", "--oneline", "main");
 		expect(log).toContain("add alpha");
 		expect(log).toContain("add beta");

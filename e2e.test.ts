@@ -36,7 +36,7 @@ const setup = async () => {
 };
 
 describe.concurrent("arbor", () => {
-	it("two agents create, claim and graft", async () => {
+	it("lands both trees on trunk without a merge when two agents work at once", async () => {
 		await using r = await setup();
 		const { arbor, rows } = r;
 
@@ -71,8 +71,6 @@ describe.concurrent("arbor", () => {
 			await r.gitCli(r.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
 
-		// Grafting cleans up after itself: nothing left to list, and nothing left
-		// for prune to remove.
 		expect(await rows()).toEqual([]);
 		const pruned = await arbor(r.root, "prune", "alpha");
 		expect(pruned.exitCode).toBe(13);
@@ -93,7 +91,7 @@ describe.concurrent("arbor", () => {
 		]);
 	});
 
-	it("an escalated task is picked up by another agent and grafted", async () => {
+	it("lands the work when a second agent picks up an escalated tree", async () => {
 		await using r = await setup();
 		const { arbor, rows } = r;
 
@@ -136,7 +134,7 @@ describe.concurrent("arbor", () => {
 		);
 	});
 
-	it("an agent dies mid-task and the next one lands the work", async () => {
+	it("reports the uncommitted work and lands it when an agent dies mid-task", async () => {
 		await using r = await setup();
 		const { arbor, rows } = r;
 
@@ -166,7 +164,7 @@ describe.concurrent("arbor", () => {
 		);
 	});
 
-	it("an agent killed mid-graft leaves a tree the next one can land", async () => {
+	it("lands the tree on a retry when an agent is killed mid-graft", async () => {
 		await using r = await setup();
 		const { arbor, rows } = r;
 
@@ -190,8 +188,6 @@ describe.concurrent("arbor", () => {
 		expect((await arbor(tree, "graft")).exitCode).not.toBe(0);
 		expect(await r.fs.exists(die)).toBe(false);
 
-		// Killed with the record mid-flight: still `grafting`, lease cold, trunk
-		// untouched, and the lock directory left behind on disk.
 		const stalled = (await rows())[0];
 		expect(stalled?.status).toBe("grafting");
 		expect(stalled?.lease).toBe("cold");

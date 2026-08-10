@@ -73,7 +73,7 @@ describe("WorktreeStore", () => {
 
 	const git = (fs: Fs) => new Git(ps, fs, "/repo");
 
-	it("records land by rename, never by writing in place", async () => {
+	it("lands a record by rename, never by writing in place", async () => {
 		const fs = new RecordingFs(new FakeFs());
 		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
 
@@ -89,7 +89,7 @@ describe("WorktreeStore", () => {
 		});
 	});
 
-	it("a write that dies partway leaves the previous record readable", async () => {
+	it("leaves the previous record readable when a write dies partway", async () => {
 		const fs = new CrashingFs();
 		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
 		const saved = await (await worktrees.find("alpha")).save({
@@ -105,7 +105,7 @@ describe("WorktreeStore", () => {
 		});
 	});
 
-	it("a record that will not parse reads as unknown, not as absent", async () => {
+	it("reports unknown, not absent, when a record will not parse", async () => {
 		const fs = new FakeFs();
 		ps.exit(1); // every spawn now fails, so git reports no such branch
 		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
@@ -115,7 +115,7 @@ describe("WorktreeStore", () => {
 		expect((await worktrees.find("missing")).status).toBe("absent");
 	});
 
-	it("the memory of pruned names drops its oldest entries", async () => {
+	it("drops the oldest pruned names when the memory is full", async () => {
 		const fs = new FakeFs();
 		config.pruneStorageCapacity = 2;
 		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);

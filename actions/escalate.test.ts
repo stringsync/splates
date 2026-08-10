@@ -54,7 +54,7 @@ describe("escalate", () => {
 		expect((await d.store.find("alpha")).state?.escalations).toHaveLength(2);
 	});
 
-	it("outside a worktree, needs an explicit task", async () => {
+	it("requires an explicit task when run outside a worktree", async () => {
 		await create(d, "alpha");
 
 		const exit = await bails(escalate(d, "needs a human", d.root));
