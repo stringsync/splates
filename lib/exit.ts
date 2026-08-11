@@ -19,6 +19,7 @@ export const EXIT = {
 	orphaned: 11,
 	merge_failed: 12,
 	already_pruned: 13,
+	timed_out: 14,
 } as const;
 
 export type Reason = keyof typeof EXIT;

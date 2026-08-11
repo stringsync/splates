@@ -207,4 +207,34 @@ describe.concurrent("arbor", () => {
 		);
 		expect(await rows()).toEqual([]);
 	});
+
+	it("holds a second agent until the tree it overlaps has landed", async () => {
+		await using r = await setup();
+		const { arbor, rows } = r;
+
+		expect((await arbor(r.root, "create", "zeta")).exitCode).toBe(0);
+		const [zeta] = (await rows()).map((row) => row.worktree);
+		if (!zeta) {
+			throw new Error("create did not record a worktree path");
+		}
+		await r.commit(zeta, "shared.txt", "zeta\n", "add shared");
+
+		// The agent that would touch the same files waits instead of racing.
+		const waiting = arbor(r.root, "wait", "zeta");
+		expect((await arbor(zeta, "graft")).exitCode).toBe(0);
+
+		const waited = await waiting;
+		expect(waited.exitCode).toBe(0);
+		expect(waited.stdout).toContain("gone");
+
+		// Giving up is a refusal, so the agent has something to escalate on.
+		expect((await arbor(r.root, "create", "eta")).exitCode).toBe(0);
+		const timedOut = await arbor(r.root, "wait", "eta", "--timeout", "0");
+		expect(timedOut.exitCode).toBe(14);
+		expect(JSON.parse(timedOut.stdout)).toMatchObject({
+			reason: "timed_out",
+			task: "eta",
+			status: "working",
+		});
+	});
 });

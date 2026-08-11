@@ -120,6 +120,31 @@ lease — reading another agent's tree cannot knock it off its own work the way
 `claim` would. A task with no `TODO.md` is called out rather than passed over
 in silence: it is the one thing that makes the work resumable.
 
+### `arbor wait <task> [--timeout 30] [--json]`
+
+Blocks until a task stops moving, polling every 2s:
+
+```
+$ arbor wait alpha
+gone alpha — grafted or pruned, nothing of it is left (waited 4m 12s)
+```
+
+Three things end the wait: the task disappears (`gone` — it grafted or was
+pruned), it escalates, or it falls apart (`orphaned`, `stray`, `unrecorded`,
+`unknown`). Anything else is still in flight and worth waiting for.
+
+**This is what an agent does instead of starting work that overlaps a task
+already in flight.** The overlap disappears when that task grafts; starting now
+buys a rebase conflict instead.
+
+Running out of `--timeout` minutes (default 30) is a refusal — `timed_out`,
+exit 14 — not a result. A task still working after the whole budget is a
+question for a human: keep waiting, work alongside it, or do something else.
+
+Discarding a task removes its directory before its record, so a tree mid-graft
+reads as `orphaned` for a moment. A broken status has to survive a poll before
+`wait` believes it, which is why it does not report a landing as a wreck.
+
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here — `create`, `claim`, `graft`, `prune`, `escalate` —
@@ -191,6 +216,7 @@ The agent's control flow runs on these.
 | 11   | `orphaned`          | Record with no worktree. `arbor prune` it.                         |
 | 12   | `merge_failed`      | Trunk could not be fast-forwarded (usually a dirty main worktree). |
 | 13   | `already_pruned`    | This task was pruned earlier; nothing left to remove.              |
+| 14   | `timed_out`         | `arbor wait` gave up: the task is still going. Ask the human what to do. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

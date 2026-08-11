@@ -3,6 +3,7 @@ import { cli } from "@webappwiz/cmd";
 import { ConsoleLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { t } from "@webappwiz/t";
+import { Duration } from "@webappwiz/time";
 import { claim } from "./actions/claim";
 import { create } from "./actions/create";
 import { escalate } from "./actions/escalate";
@@ -12,6 +13,7 @@ import { ls } from "./actions/ls";
 import { path } from "./actions/path";
 import { prune } from "./actions/prune";
 import { show } from "./actions/show";
+import { DEFAULT_TIMEOUT, wait } from "./actions/wait";
 import { exits } from "./lib/exit";
 import type { Git } from "./lib/git";
 import { repository } from "./lib/repository";
@@ -104,6 +106,24 @@ arbor
 	.arg("task", t.string(), { description: "task name" })
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((o, { store }) => show({ store, fs, log }, o.task, { json: o.json }));
+
+arbor
+	.command("wait")
+	.description(
+		"block until a task stops moving — it grafts or is pruned, escalates, or falls apart — so work that would overlap it starts against the result instead of racing it; refuses with `timed_out` if it is still going after --timeout, which is your cue to ask a human",
+	)
+	.arg("task", t.string(), { description: "task name" })
+	.option("timeout", t.number(), {
+		default: DEFAULT_TIMEOUT.mins,
+		description: "minutes to wait before giving up and asking a human",
+	})
+	.option("json", t.boolean(), { default: false, description: "emit JSON" })
+	.action((o, { store }) =>
+		wait({ store, log }, o.task, {
+			timeout: Duration.mins(o.timeout),
+			json: o.json,
+		}),
+	);
 
 arbor
 	.command("log")
