@@ -84,10 +84,6 @@ export class Worktree {
 		return this.snapshot.state?.lease ?? null;
 	}
 
-	/**
-	 * Live means a fresh heartbeat and, when the holder is on this host, a pid
-	 * that still exists.
-	 */
 	get leaseLive(): boolean {
 		// The pid check matters because every arbor command is its own short-lived
 		// process: without it a tree would stay locked for the whole staleness
@@ -104,7 +100,6 @@ export class Worktree {
 		return lease.hostname === ps.hostname ? ps.alive(lease.pid) : true;
 	}
 
-	/** Who is on this tree: someone right now, someone who left, or no one. */
 	get leaseStatus(): "live" | "cold" | "none" {
 		return !this.lease ? "none" : this.leaseLive ? "live" : "cold";
 	}
@@ -114,7 +109,6 @@ export class Worktree {
 		return this.lease?.pid === ps.pid && this.lease.hostname === ps.hostname;
 	}
 
-	/** Someone else is driving this tree right now. */
 	get leaseHeld(): boolean {
 		return this.leaseLive && !this.leaseOurs;
 	}
@@ -123,7 +117,6 @@ export class Worktree {
 		return this.snapshot.state?.graftAttempts ?? 0;
 	}
 
-	/** Whether the working directory itself is on disk. */
 	get exists(): boolean {
 		return this.snapshot.exists;
 	}
@@ -132,7 +125,6 @@ export class Worktree {
 		return this.snapshot.hasBranch;
 	}
 
-	/** When this task was pruned, if it was and nothing has replaced it. */
 	get prunedAt(): string | null {
 		return this.snapshot.prunedAt;
 	}
@@ -154,7 +146,6 @@ export class Worktree {
 		return prunedAt ? "pruned" : "absent";
 	}
 
-	/** Nothing is left under this name: nothing to claim, nothing to remove. */
 	get gone(): boolean {
 		return this.status === "absent" || this.status === "pruned";
 	}
@@ -186,7 +177,6 @@ export class Worktree {
 		});
 	}
 
-	/** `save`, taking the lease for this process. */
 	take(changes: Partial<TaskState> = {}): Promise<Worktree> {
 		const { ps } = this.store;
 		return this.save({

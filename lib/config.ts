@@ -27,7 +27,6 @@ export interface Config {
 	logCapacity: number;
 }
 
-/** Defaults for this repo, overridden by whatever `arbor.config.ts` sets. */
 export async function loadConfig(fs: Fs, root: string): Promise<Config> {
 	return { ...(await defaults(fs, root)), ...(await file(fs, root)) };
 }

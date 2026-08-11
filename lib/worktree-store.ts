@@ -62,7 +62,6 @@ export class GitWorktreeStore implements WorktreeStore {
 		return `${BRANCH_PREFIX}${task}`;
 	}
 
-	/** The task a branch belongs to, or null if it is not a task branch. */
 	taskFor(branch: string): string | null {
 		return branch.startsWith(BRANCH_PREFIX)
 			? branch.slice(BRANCH_PREFIX.length)

@@ -48,7 +48,6 @@ export class FileJournal implements Journal {
 		}
 	}
 
-	/** The last `count` entries, oldest first. */
 	async tail(count: number): Promise<Entry[]> {
 		// slice(-0) is slice(0), which would hand back everything.
 		return count <= 0 ? [] : (await this.entries()).slice(-count);
