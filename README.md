@@ -1,6 +1,6 @@
 # @webappwiz/arbor
 
-Runs several AI coding agents on one repository at once — each in its own git
+Runs several AI coding agents on one repository at once, each in its own git
 worktree, landing on `main` without pull requests.
 
 ```bash
@@ -15,7 +15,7 @@ back to that same agent, in the same conversation, which fixes it and calls
 Two rules make that safe:
 
 1. **arbor never spawns an agent.** Agents exist because a human opened a
-   thread. arbor is a set of deterministic verbs over git and disk — no LLM
+   thread. arbor is a set of deterministic verbs over git and disk: no LLM
    calls, no knowledge of who is running.
 2. **Agents never run raw git for these operations.** Every state transition
    goes through an arbor command. Exit codes and stderr are the interface the
@@ -23,7 +23,7 @@ Two rules make that safe:
 
 Conflicts between agents are expected, not a process failure. Discarding a task
 and redoing it against current trunk is cheap and often better than a hard
-rebase — that is what `prune` is for.
+rebase, and that is what `prune` is for.
 
 ## Commands
 
@@ -32,8 +32,8 @@ rebase — that is what `prune` is for.
 Creates the workstream: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
 
-A fresh worktree shares no untracked files with the repo — no `node_modules`,
-no `.env` — which is what `postCreate` is for.
+A fresh worktree shares no untracked files with the repo (no `node_modules`,
+no `.env`) which is what `postCreate` is for.
 
 If the hook fails the worktree stays; fix it and re-run the hook by hand.
 
@@ -42,7 +42,7 @@ If the hook fails the worktree stays; fix it and re-run the hook by hand.
 Takes ownership of an existing worktree. **This is the resume entry point**: a
 fresh agent thread picking up dead work starts here.
 
-Prints the worktree path, status, uncommitted changes, and — loudly — any
+Prints the worktree path, status, uncommitted changes, and, loudly, any
 half-finished rebase or merge the tree is standing in. Refuses if another agent
 holds a live lease. A worktree with no record is rebuilt rather than rejected.
 
@@ -55,7 +55,7 @@ rebases onto trunk, runs the tests there, and fast-forwards trunk. History stays
 linear; there is no merge commit to reason about.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere.
-2. Takes the graft lock — **blocking**, polling every 2s. Blocking is
+2. Takes the graft lock, **blocking**, polling every 2s. Blocking is
    deliberate: telling an agent "busy, try later" invites it to go edit more
    code in a branch that is supposed to be frozen.
 3. `git rebase <trunk>`, then the test command, **in that order**. A branch that
@@ -63,13 +63,13 @@ linear; there is no merge commit to reason about.
    trunk; this is the only defense against semantic conflicts, where both sides
    merge cleanly and the combination is broken.
 4. Re-checks the lease, then `git checkout <trunk> && git merge --ff-only`.
-5. Discards the workstream — worktree, branch and record — exactly as `prune`
+5. Discards the workstream (worktree, branch and record) exactly as `prune`
    would. The work is on trunk, so the tree has nothing left to hold, and
    `arbor ls` stays a list of live work rather than a graveyard of landed
    tasks. The agent's own directory goes with it, so the success message
    prints the main tree to `cd` back to.
 
-On conflict the rebase is **left in progress** — the agent needs the markers.
+On conflict the rebase is **left in progress**: the agent needs the markers.
 Resolve, `git add`, `git rebase --continue`, `arbor graft` again. On test
 failure the branch is reset to where it was and trunk is never touched.
 
@@ -80,9 +80,9 @@ There is deliberately no flag to skip the test gate.
 Discards a workstream: worktree, branch, and record. Unrelated to
 `git worktree prune`, which only tidies stale metadata.
 
-For abandoning work that will never land — a successful `graft` already
+For abandoning work that will never land. A successful `graft` already
 discards its own tree. Use it freely. Warns about commits that never landed,
-but never blocks — throwing work away is the cheap escape hatch, not a last
+but never blocks: throwing work away is the cheap escape hatch, not a last
 resort.
 
 Pruning leaves a tombstone in `.git/arbor/pruned/` so a second `prune` can say
@@ -98,7 +98,7 @@ down the listing; a record whose worktree vanished shows as `orphaned`.
 
 ### `arbor show <task> [--json]`
 
-One workstream in full — the row `ls` would print for it, plus the `TODO.md`
+One workstream in full: the row `ls` would print for it, plus the `TODO.md`
 its agent keeps at the worktree root and the reason behind an `escalated`
 status.
 
@@ -116,7 +116,7 @@ TODO.md
 ```
 
 `ls` says a task exists; this says what it is doing. Like `path`, it takes no
-lease — reading another agent's tree cannot knock it off its own work the way
+lease, so reading another agent's tree cannot knock it off its own work the way
 `claim` would. A task with no `TODO.md` is called out rather than passed over
 in silence: it is the one thing that makes the work resumable.
 
@@ -132,10 +132,10 @@ Blocks until a task stops moving, polling every 2s:
 
 ```
 $ arbor wait alpha
-gone alpha — grafted or pruned, nothing of it is left (waited 4m 12s)
+gone alpha: grafted or pruned, nothing of it is left (waited 4m 12s)
 ```
 
-Three things end the wait: the task disappears (`gone` — it grafted or was
+Three things end the wait: the task disappears (`gone`, it grafted or was
 pruned), it escalates, or it falls apart (`orphaned`, `stray`, `unrecorded`,
 `unknown`). Anything else is still in flight and worth waiting for.
 
@@ -143,8 +143,8 @@ pruned), it escalates, or it falls apart (`orphaned`, `stray`, `unrecorded`,
 already in flight.** The overlap disappears when that task grafts; starting now
 buys a rebase conflict instead.
 
-Running out of `--timeout` minutes (default 30) is a refusal — `timed_out`,
-exit 14 — not a result. A task still working after the whole budget is a
+Running out of `--timeout` minutes (default 30) is a refusal (`timed_out`,
+exit 14) not a result. A task still working after the whole budget is a
 question for a human: keep waiting, work alongside it, or do something else.
 
 Discarding a task removes its directory before its record, so a tree mid-graft
@@ -153,7 +153,7 @@ reads as `orphaned` for a moment. A broken status has to survive a poll before
 
 ### `arbor log [--count 20] [--json]`
 
-The last N things done here — `create`, `claim`, `graft`, `prune`, `escalate` —
+The last N things done here (`create`, `claim`, `graft`, `prune`, `escalate`),
 oldest first, each with the task and how it ended (`ok`, or the refusal reason).
 
 ```
@@ -163,7 +163,7 @@ WHEN  ACTION    TASK   RESULT
 1h    graft     alpha  ok
 ```
 
-`ls` is what still exists; this is what happened. Entries outlive their tasks —
+`ls` is what still exists; this is what happened. Entries outlive their tasks:
 a successful `graft` and a `prune` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 200 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
@@ -179,7 +179,7 @@ git -C "$(arbor path alpha)" diff main...task/alpha
 ```
 
 **This is how a human looks at an agent's work.** Moving between trees is `cd`
-and nothing else — worktrees are directories, not checkouts, so your main tree
+and nothing else. Worktrees are directories, not checkouts, so your main tree
 stays on trunk while agents work and there is no branch to switch, nothing to
 stash, nothing to switch back. Reading a task this way takes no lease, so it
 cannot knock the agent driving it off its own tree the way `claim` would.
@@ -197,8 +197,8 @@ The explicit "this needs a human" exit. Records the reason, drops the lease, and
 leaves the worktree **exactly** as it is so the human sees what the agent saw.
 
 This exists so an agent has a way out that is not "resolve the conflict badly to
-finish the task". Agents are reliable at mechanical conflicts — both sides added
-imports, a signature changed on one side and its callers on the other — and
+finish the task". Agents are reliable at mechanical conflicts (both sides added
+imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
@@ -208,7 +208,7 @@ The agent's control flow runs on these.
 
 | Code | Reason              | Meaning and what to do                                            |
 | ---- | ------------------- | ----------------------------------------------------------------- |
-| 0    | —                   | Success.                                                           |
+| 0    | none                | Success.                                                           |
 | 1    | `usage`             | Bad task name, bad flags, or an unexpected git failure.            |
 | 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, graft again. |
 | 3    | `tests_failed`      | Tests failed after the rebase. Branch rolled back, trunk untouched. Fix and graft again. |
@@ -218,7 +218,7 @@ The agent's control flow runs on these.
 | 7    | `dirty`             | Uncommitted changes. Commit before grafting.                       |
 | 8    | `not_found`         | No such task, or not run from a task worktree.                     |
 | 9    | `hook_failed`       | `postCreate` failed. The worktree still exists; fix and re-run the hook. |
-| 10   | `exists`            | Task already exists — `arbor claim` it, or `arbor prune` first.    |
+| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor prune` first.    |
 | 11   | `orphaned`          | Record with no worktree. `arbor prune` it.                         |
 | 12   | `merge_failed`      | Trunk could not be fast-forwarded (usually a dirty main worktree). |
 | 13   | `already_pruned`    | This task was pruned earlier; nothing left to remove.              |
@@ -250,13 +250,13 @@ through `sh -c` in the worktree with `ARBOR_TASK` and `ARBOR_WORKTREE` in the
 environment.
 
 arbor does not allocate ports. Several worktrees running at once will collide on
-whatever they bind, and the thing that binds — docker-compose, a dev server, a
-test harness — is the only thing able to retry and release. `ARBOR_TASK` is in
+whatever they bind, and the thing that binds (docker-compose, a dev server, a
+test harness) is the only thing able to retry and release. `ARBOR_TASK` is in
 the environment to derive a stable port from if a task needs one.
 
 ### Leases and locks
 
-State lives in `.git/arbor/` — shared by every worktree, never tracked by git.
+State lives in `.git/arbor/`, shared by every worktree, never tracked by git.
 Records are written to a temp file and `rename()`d into place, so a concurrent
 reader never sees half a file. The graft lock is `mkdir` on
 `.git/arbor/graft.lock`: atomic everywhere, no dependencies, and it either
@@ -273,7 +273,7 @@ the `graft` that follows it.
 ### `git rerere`
 
 Adding `git config rerere.enabled true` to `postCreate` is worth it. The cache
-lives in `.git/rr-cache`, which every worktree shares — verified against two
+lives in `.git/rr-cache`, which every worktree shares, verified against two
 real worktrees: a conflict resolved in one is replayed automatically in the
 other. Git still leaves the file staged as `UU`, so the agent must confirm with
 `git add` and `git rebase --continue`. Not enabled by default; opt in per repo.
@@ -284,5 +284,5 @@ other. Git still leaves the file staged as `UU`, so the agent must confirm with
 exists because of a real livelock: an agent rebases onto trunk, another agent
 lands during its test run, and it is stale again before it finishes. Under load
 an unlucky agent can chase a moving trunk indefinitely. When the budget is gone,
-escalate or prune — redoing the task against current trunk usually beats
+escalate or prune: redoing the task against current trunk usually beats
 retrofitting a rebase.

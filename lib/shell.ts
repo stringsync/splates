@@ -15,7 +15,7 @@ export interface Shell {
 }
 
 /**
- * Runs the commands a repo configures — `testCommand`, `postCreate` — as
+ * Runs the commands a repo configures (`testCommand`, `postCreate`) as
  * shell strings rather than argv, since that is how a repo writes them.
  */
 export class PosixShell implements Shell {

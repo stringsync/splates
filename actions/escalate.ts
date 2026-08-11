@@ -7,7 +7,7 @@ import type { WorktreeStore } from "../lib/worktree-store";
 /**
  * The way out that is not "resolve the conflict badly to finish the task".
  * When both sides restructured the same logic there is no correct merge, only
- * a decision — and that belongs to a human.
+ * a decision, and that belongs to a human.
  */
 export async function escalate(
 	{
@@ -30,7 +30,7 @@ export async function escalate(
 	if (!name) {
 		fail(
 			"usage",
-			"not in a task worktree — pass --task <name> to escalate from elsewhere",
+			"not in a task worktree: pass --task <name> to escalate from elsewhere",
 		);
 	}
 	const found = await store.find(name);

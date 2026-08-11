@@ -4,7 +4,7 @@ import { fail } from "../lib/exit";
 import type { WorktreeStore } from "../lib/worktree-store";
 
 /**
- * Discards a whole workstream — worktree, branch and record. Unrelated to
+ * Discards a whole workstream: worktree, branch and record. Unrelated to
  * `git worktree prune`, which only tidies stale metadata.
  *
  * Throwing a task away and redoing it against current trunk is usually cheaper
@@ -22,8 +22,8 @@ export async function prune(
 		fail(
 			pruned ? "already_pruned" : "not_found",
 			pruned
-				? `'${task}' was already pruned (${worktree.prunedAt}) — nothing left to remove`
-				: `no worktree, branch or state file named '${task}' — it never existed here`,
+				? `'${task}' was already pruned (${worktree.prunedAt}), nothing left to remove`
+				: `no worktree, branch or state file named '${task}', so it never existed here`,
 			{ task },
 		);
 	}
@@ -32,7 +32,7 @@ export async function prune(
 		if (!force) {
 			fail(
 				"lease_live",
-				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname} — pass --force to discard it anyway`,
+				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: pass --force to discard it anyway`,
 				{ task, lease: worktree.lease },
 			);
 		}

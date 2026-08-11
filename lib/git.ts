@@ -37,8 +37,8 @@ export interface Git {
 
 /**
  * Every git call arbor makes, scoped to one repository. Agents are not allowed
- * to run these themselves — going through arbor is what makes concurrent work
- * safe — so this is the only place git is spoken.
+ * to run these themselves, since going through arbor is what makes concurrent
+ * work safe, so this is the only place git is spoken.
  */
 export class CliGit implements Git {
 	constructor(

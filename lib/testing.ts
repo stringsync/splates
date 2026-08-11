@@ -11,7 +11,7 @@ import { Exit } from "./exit";
 export const LIVE_PID = 1;
 
 /**
- * Runs a command that is expected to bail, and hands back how it bailed —
+ * Runs a command that is expected to bail, and hands back how it bailed:
  * reason, message and data all ride on the `Exit` itself.
  */
 export async function bails(work: Promise<unknown>): Promise<Exit> {

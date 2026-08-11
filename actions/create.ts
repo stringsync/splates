@@ -32,14 +32,14 @@ export async function create(
 	if (found.status === "stray") {
 		fail(
 			"exists",
-			`branch ${found.branch} exists without a worktree — run \`arbor prune ${task}\` first`,
+			`branch ${found.branch} exists without a worktree: run \`arbor prune ${task}\` first`,
 			{ task, branch: found.branch },
 		);
 	}
 	if (!found.gone) {
 		fail(
 			"exists",
-			`task '${task}' already exists — run \`arbor claim ${task}\``,
+			`task '${task}' already exists: run \`arbor claim ${task}\``,
 			{ task, worktree: found.path },
 		);
 	}

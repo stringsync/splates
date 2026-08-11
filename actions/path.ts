@@ -3,7 +3,7 @@ import { fail } from "../lib/exit";
 import type { WorktreeStore } from "../lib/worktree-store";
 
 /**
- * Where a task lives, or — with no task — the main tree. Nothing but the path
+ * Where a task lives, or (with no task) the main tree. Nothing but the path
  * on stdout, so it composes: `cd "$(arbor path)"`, `zed -a "$(arbor path x)"`.
  * Moving between trees is `cd` and nothing else, and the main tree is the one
  * path a process standing in a worktree cannot otherwise name: git's
@@ -22,7 +22,7 @@ export async function path(
 	if (worktree.gone) {
 		fail(
 			"not_found",
-			`no task '${task}' — run \`arbor ls\` to see what there is`,
+			`no task '${task}': run \`arbor ls\` to see what there is`,
 			{ task },
 		);
 	}

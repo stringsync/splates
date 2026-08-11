@@ -50,7 +50,7 @@ describe.concurrent("arbor", () => {
 			throw new Error("create did not record a worktree path");
 		}
 
-		// Each agent resumes a tree it did not create — a fresh thread starts here.
+		// Each agent resumes a tree it did not create: a fresh thread starts here.
 		const claimed = await arbor(alpha, "claim", "alpha");
 		expect(claimed.exitCode).toBe(0);
 		expect(claimed.stdout).toContain("uncommitted: none");

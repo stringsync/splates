@@ -37,7 +37,7 @@ export async function graft(
 	if (!task) {
 		fail(
 			"not_found",
-			`not in a task worktree (branch '${branch}') — run graft from a worktree made by \`arbor create\``,
+			`not in a task worktree (branch '${branch}'): run graft from a worktree made by \`arbor create\``,
 			{ branch },
 		);
 	}
@@ -45,7 +45,7 @@ export async function graft(
 	if (!worktree.state) {
 		fail(
 			"not_found",
-			`no state file for '${task}' — run \`arbor claim ${task}\` first`,
+			`no state file for '${task}': run \`arbor claim ${task}\` first`,
 			{ task },
 		);
 	}
@@ -54,21 +54,21 @@ export async function graft(
 	if (dirty.length > 0) {
 		fail(
 			"dirty",
-			`'${task}' has uncommitted changes — commit them before grafting`,
+			`'${task}' has uncommitted changes: commit them before grafting`,
 			{ task, paths: dirty },
 		);
 	}
 	if (worktree.graftAttempts >= config.graftRetryCount) {
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.graftRetryCount} graft attempts — run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
+			`'${task}' has used its ${config.graftRetryCount} graft attempts: run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
 			{ task, graftAttempts: worktree.graftAttempts },
 		);
 	}
 	if (worktree.leaseHeld) {
 		fail(
 			"lease_live",
-			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname} — another agent is driving this tree`,
+			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: another agent is driving this tree`,
 			{ task, lease: worktree.lease },
 		);
 	}
@@ -113,7 +113,7 @@ export async function graft(
 	});
 	if (tests.exitCode !== 0) {
 		// The rebase already finished, so there is nothing for `rebase --abort`
-		// to undo — resetting to the pre-rebase commit is what returns the branch
+		// to undo: resetting to the pre-rebase commit is what returns the branch
 		// to its previous state.
 		await git.resetHard(worktree.path, before);
 		await lock.release();
@@ -138,7 +138,7 @@ export async function graft(
 		await lock.release();
 		fail(
 			"lease_lost",
-			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the graft — stopping without landing. Do not retry; another agent owns this tree.`,
+			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the graft, stopping without landing. Do not retry; another agent owns this tree.`,
 			{ task, lease: current.lease },
 		);
 	}
@@ -174,7 +174,7 @@ export async function graft(
 		);
 	}
 	log.info(
-		`${color.green("grafted")} ${task} onto ${config.trunk} (${head})\n  worktree removed — cd ${git.root}`,
+		`${color.green("grafted")} ${task} onto ${config.trunk} (${head})\n  worktree removed, cd ${git.root}`,
 	);
 }
 

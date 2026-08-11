@@ -37,7 +37,7 @@ export async function show(
 	if (worktree.gone) {
 		fail(
 			"not_found",
-			`no task '${task}' — run \`arbor ls\` to see what there is`,
+			`no task '${task}': run \`arbor ls\` to see what there is`,
 			{ task },
 		);
 	}
@@ -98,7 +98,7 @@ function report(d: Details): string {
 	} else if (d.status !== "orphaned") {
 		lines.push(
 			"",
-			color.yellow(`no ${TODO} — whoever picks this up starts from the diff`),
+			color.yellow(`no ${TODO}: whoever picks this up starts from the diff`),
 		);
 	}
 	return lines.join("\n");

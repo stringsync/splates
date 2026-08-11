@@ -52,8 +52,8 @@ export function fail(
 }
 
 /**
- * Decides what a refusal looks like — a machine-readable reason on stdout, a
- * human explanation on stderr — and is the only place that ends the process.
+ * Decides what a refusal looks like (a machine-readable reason on stdout, a
+ * human explanation on stderr) and is the only place that ends the process.
  * An agent branches on the first and reads the second.
  */
 export function exits<C extends object>(ps: Ps, log: Logger): Middleware<C> {

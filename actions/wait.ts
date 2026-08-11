@@ -14,7 +14,7 @@ const POLL = Duration.secs(2);
 /**
  * Blocks until a task stops moving: it lands or is pruned, it escalates, or it
  * falls apart. This is what an agent does instead of starting work that
- * overlaps a task already in flight — the overlap disappears when that task
+ * overlaps a task already in flight: the overlap disappears when that task
  * grafts, and starting now buys a rebase conflict instead.
  *
  * Giving up is a refusal (`timed_out`), because a task still working after the
@@ -38,7 +38,7 @@ export async function wait(
 	if (worktree.status === "absent") {
 		fail(
 			"not_found",
-			`no task '${task}' — run \`arbor ls\` to see what there is`,
+			`no task '${task}': run \`arbor ls\` to see what there is`,
 			{
 				task,
 			},
@@ -47,7 +47,7 @@ export async function wait(
 
 	// Discarding a task removes its directory before its record, so a tree being
 	// grafted or pruned reads as `orphaned` in between. A broken status is only
-	// believed once it survives a poll — anything that resolves faster than the
+	// believed once it survives a poll: anything that resolves faster than the
 	// interval was someone else's landing, not a broken tree.
 	let previous: WorktreeStatus | null = null;
 
@@ -76,7 +76,7 @@ export async function wait(
 		if (!left.isGreaterThan(Duration.zero())) {
 			fail(
 				"timed_out",
-				`'${task}' is still ${worktree.status} after ${waited().human()} — ask whether to keep waiting, work alongside it, or do something else`,
+				`'${task}' is still ${worktree.status} after ${waited().human()}: ask whether to keep waiting, work alongside it, or do something else`,
 				{ task, status: worktree.status, waitedMs: waited().ms },
 			);
 		}
@@ -112,16 +112,16 @@ function report(worktree: Worktree, rest: Rest, waited: Duration): string {
 	const { task, status } = worktree;
 	const took = `(waited ${waited.human()})`;
 	if (rest === "gone") {
-		return `${color.green("gone")} ${task} — grafted or pruned, nothing of it is left ${took}`;
+		return `${color.green("gone")} ${task}: grafted or pruned, nothing of it is left ${took}`;
 	}
 	if (rest === "escalated") {
 		return [
 			`${color.yellow("escalated")} ${task}: ${escalationOf(worktree) ?? "no reason recorded"} ${took}`,
-			`  it is waiting on a person — \`arbor show ${task}\` for what it needs`,
+			`  it is waiting on a person: \`arbor show ${task}\` for what it needs`,
 		].join("\n");
 	}
 	return [
-		`${color.yellow(status)} ${task} — nothing is driving it ${took}`,
+		`${color.yellow(status)} ${task}: nothing is driving it ${took}`,
 		`  \`arbor show ${task}\` for what is left of it`,
 	].join("\n");
 }

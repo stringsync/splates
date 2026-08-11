@@ -137,7 +137,7 @@ describe.concurrent("graft", () => {
 		const worktree = await d.store.find("alpha");
 		await d.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
 		const trunkBefore = await d.gitCli(d.root, "rev-parse", "main");
-		// Another agent takes the tree while the tests are running — the one
+		// Another agent takes the tree while the tests are running: the one
 		// window graft cannot hold the record across, and the reason it re-reads
 		// it before landing.
 		d.shell.run = async () => {

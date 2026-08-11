@@ -154,7 +154,7 @@ export class Worktree {
 		return prunedAt ? "pruned" : "absent";
 	}
 
-	/** Nothing is left under this name — nothing to claim, nothing to remove. */
+	/** Nothing is left under this name: nothing to claim, nothing to remove. */
 	get gone(): boolean {
 		return this.status === "absent" || this.status === "pruned";
 	}

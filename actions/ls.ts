@@ -29,7 +29,7 @@ export async function ls(
 		return;
 	}
 	if (rows.length === 0) {
-		log.info("no workstreams — run `arbor create <task>` to start one");
+		log.info("no workstreams: run `arbor create <task>` to start one");
 		return;
 	}
 	log.info(listing(rows));
@@ -76,7 +76,7 @@ function listing(rows: Row[]): string {
 		out.push(
 			"",
 			color.yellow(
-				`${orphaned.length} orphaned record(s) — run \`arbor prune ${orphaned[0]?.task}\``,
+				`${orphaned.length} orphaned record(s): run \`arbor prune ${orphaned[0]?.task}\``,
 			),
 		);
 	}

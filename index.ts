@@ -29,8 +29,8 @@ const fs = new NodeFs();
 const ps = new NodePs();
 
 /**
- * Which task a command that takes no task name is about — `graft` and
- * `escalate` read it off the current branch — so the journal can name it.
+ * Which task a command that takes no task name is about, so the journal can
+ * name it. `graft` and `escalate` read it off the current branch.
  */
 const here = async (store: WorktreeStore, git: Git): Promise<string | null> =>
 	store.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
@@ -66,7 +66,7 @@ arbor
 arbor
 	.command("graft")
 	.description(
-		"land this worktree's branch on trunk: rebase onto trunk, run tests on the rebased code, fast-forward trunk, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work — refuses a dirty worktree",
+		"land this worktree's branch on trunk: rebase onto trunk, run tests on the rebased code, fast-forward trunk, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
 	.action(async (_o, { store, git, lock, shell, config, journal }) =>
 		journal.record("graft", await here(store, git), () =>
@@ -77,7 +77,7 @@ arbor
 arbor
 	.command("prune")
 	.description(
-		"discard a task: worktree, branch and state file; cheap and encouraged — redoing a task against current trunk often beats a hard rebase",
+		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("force", t.boolean(), {
@@ -110,7 +110,7 @@ arbor
 arbor
 	.command("wait")
 	.description(
-		"block until a task stops moving — it grafts or is pruned, escalates, or falls apart — so work that would overlap it starts against the result instead of racing it; refuses with `timed_out` if it is still going after --timeout, which is your cue to ask a human",
+		"block until a task stops moving (it grafts or is pruned, escalates, or falls apart), so work that would overlap it starts against the result instead of racing it; refuses with `timed_out` if it is still going after --timeout, which is your cue to ask a human",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("timeout", t.number(), {
