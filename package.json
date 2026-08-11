@@ -12,6 +12,7 @@
 	"dependencies": {
 		"@webappwiz/cmd": "workspace:*",
 		"@webappwiz/log": "workspace:*",
+		"@webappwiz/md": "workspace:*",
 		"@webappwiz/sys": "workspace:*",
 		"@webappwiz/t": "workspace:*",
 		"@webappwiz/time": "workspace:*"

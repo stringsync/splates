@@ -120,6 +120,12 @@ lease — reading another agent's tree cannot knock it off its own work the way
 `claim` would. A task with no `TODO.md` is called out rather than passed over
 in silence: it is the one thing that makes the work resumable.
 
+A `TODO.md` that is there gets checked against the shape the agent skill
+prescribes (`# <task>`, `## Goal`, `## Next` with something unchecked in it, a
+`## Blocked` question once escalated), and anything off is printed under it.
+Warnings only, never a refusal: the agent that wrote the file is the one that
+runs `show` on it, and a rough TODO still beats none.
+
 ### `arbor wait <task> [--timeout 30] [--json]`
 
 Blocks until a task stops moving, polling every 2s:

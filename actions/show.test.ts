@@ -46,6 +46,21 @@ describe("show", () => {
 		expect(d.out()).toContain("- [ ] the rest");
 	});
 
+	it("says how a TODO.md departs from the shape the skill prescribes", async () => {
+		await create(d, "alpha");
+		const alpha = (await d.store.find("alpha")).path;
+		await d.fs.write(
+			`${alpha}/TODO.md`,
+			"# something else\n\n## Goal\nland it\n",
+		);
+		d.log.clear();
+
+		await show(d, "alpha");
+
+		expect(d.out()).toContain('should be "# alpha"');
+		expect(d.out()).toContain("no ## Next section");
+	});
+
 	it("says the TODO.md is missing rather than staying silent", async () => {
 		await create(d, "alpha");
 		d.log.clear();

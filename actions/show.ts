@@ -2,6 +2,7 @@ import { color, type Logger } from "@webappwiz/log";
 import type { Fs } from "@webappwiz/sys";
 import { age } from "../lib/age";
 import { fail } from "../lib/exit";
+import { checkTodo } from "../lib/todo";
 import type { WorktreeStore } from "../lib/worktree-store";
 
 const TODO = "TODO.md";
@@ -18,6 +19,8 @@ interface Details {
 	age: string | null;
 	escalation: string | null;
 	todo: string | null;
+	/** How the `TODO.md` departs from the shape the skill prescribes. */
+	todoProblems: string[];
 }
 
 /**
@@ -44,6 +47,9 @@ export async function show(
 	// status names what is wrong, and asking git about a branch that is not
 	// there would only fill the fields with nulls.
 	const stat = worktree.hasBranch ? await worktree.diffStat() : null;
+	const todo = worktree.exists
+		? await fs.read(`${worktree.path}/${TODO}`).catch(() => null)
+		: null;
 	const details: Details = {
 		task: worktree.task,
 		status: worktree.status,
@@ -55,9 +61,14 @@ export async function show(
 		removed: stat?.removed ?? null,
 		age: state ? age(state.createdAt) : null,
 		escalation: state?.escalations?.at(-1)?.reason ?? null,
-		todo: worktree.exists
-			? await fs.read(`${worktree.path}/${TODO}`).catch(() => null)
-			: null,
+		todo,
+		todoProblems:
+			todo === null
+				? []
+				: checkTodo(todo, {
+						task: worktree.task,
+						escalated: worktree.status === "escalated",
+					}),
 	};
 
 	if (json) {
@@ -81,6 +92,9 @@ function report(d: Details): string {
 	}
 	if (d.todo !== null) {
 		lines.push("", color.bold(TODO), d.todo.trimEnd());
+		for (const problem of d.todoProblems) {
+			lines.push(color.yellow(`  ${problem}`));
+		}
 	} else if (d.status !== "orphaned") {
 		lines.push(
 			"",
