@@ -1,2 +1,3 @@
 If you change this package's API, check that the agent skill at
-`.agents/skills/arbor/SKILL.md` (repo root) is still in sync.
+`packages/cli/skills/arbor/SKILL.md` is still in sync. That is the source; the
+copies under `.agents/skills/` and `.claude/skills/` are installed from it.
