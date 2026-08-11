@@ -6,41 +6,12 @@ export interface GitResult {
 	stderr: string;
 }
 
-/** The git vocabulary arbor depends on, scoped to one repository. */
-export interface Git {
-	/** The main worktree, where trunk lives. */
-	readonly root: string;
-	run(cwd: string, ...args: string[]): Promise<GitResult>;
-	out(cwd: string, ...args: string[]): Promise<string>;
-	branchExists(branch: string): Promise<boolean>;
-	currentBranch(cwd: string): Promise<string>;
-	head(cwd: string): Promise<string>;
-	shortHead(cwd: string): Promise<string>;
-	porcelain(cwd: string): Promise<string[]>;
-	conflictedPaths(cwd: string): Promise<string[]>;
-	commitsAhead(trunk: string, branch: string): Promise<number | null>;
-	diffStat(
-		trunk: string,
-		branch: string,
-	): Promise<{ added: number; removed: number } | null>;
-	rebase(cwd: string, onto: string): Promise<GitResult>;
-	resetHard(cwd: string, commit: string): Promise<GitResult>;
-	checkout(branch: string): Promise<GitResult>;
-	mergeFfOnly(branch: string): Promise<GitResult>;
-	addWorktree(branch: string, path: string, from: string): Promise<GitResult>;
-	removeWorktree(path: string): Promise<GitResult>;
-	pruneWorktrees(): Promise<GitResult>;
-	deleteBranch(branch: string): Promise<GitResult>;
-	worktreeGitDir(worktree: string): Promise<string | null>;
-	interruptedOps(worktree: string): Promise<string[]>;
-}
-
 /**
  * Every git call arbor makes, scoped to one repository. Agents are not allowed
  * to run these themselves, since going through arbor is what makes concurrent
  * work safe, so this is the only place git is spoken.
  */
-export class CliGit implements Git {
+export class Git {
 	constructor(
 		private readonly ps: Ps,
 		private readonly fs: Fs,

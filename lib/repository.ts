@@ -1,19 +1,19 @@
 import { dirname } from "node:path";
 import type { Middleware } from "@webappwiz/cmd";
 import type { Logger } from "@webappwiz/log";
-import { FileLock, type Fs, type Lock, type Ps } from "@webappwiz/sys";
+import { FileLock, type Fs, type Ps } from "@webappwiz/sys";
 import { type Config, loadConfig } from "./config";
-import { CliGit, type Git } from "./git";
-import { FileJournal, type Journal } from "./journal";
-import { PosixShell, type Shell } from "./shell";
-import { GitWorktreeStore, type WorktreeStore } from "./worktree-store";
+import { Git } from "./git";
+import { Journal } from "./journal";
+import { Shell } from "./shell";
+import { WorktreeStore } from "./worktree-store";
 
 /** What a command gets to work with, once there is a repository to work in. */
 export interface Repository {
 	config: Config;
 	git: Git;
 	store: WorktreeStore;
-	lock: Lock;
+	lock: FileLock;
 	shell: Shell;
 	journal: Journal;
 }
@@ -48,8 +48,8 @@ export function repository<C extends object>(
 		const arborDir = `${gitDir}/arbor`;
 
 		const config = await loadConfig(fs, dirname(gitDir));
-		const git = new CliGit(ps, fs, dirname(gitDir));
-		const store = new GitWorktreeStore(fs, ps, git, config, arborDir);
+		const git = new Git(ps, fs, dirname(gitDir));
+		const store = new WorktreeStore(fs, ps, git, config, arborDir);
 		await store.init();
 
 		await next({
@@ -60,8 +60,8 @@ export function repository<C extends object>(
 			lock: new FileLock(fs, ps, log, `${arborDir}/graft.lock`, {
 				stalenessMs: config.leaseStalenessMs,
 			}),
-			shell: new PosixShell(ps),
-			journal: new FileJournal(fs, `${arborDir}/log.jsonl`, config.logCapacity),
+			shell: new Shell(ps),
+			journal: new Journal(fs, `${arborDir}/log.jsonl`, config.logCapacity),
 		});
 	};
 }

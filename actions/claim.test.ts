@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Config } from "../lib/config";
-import { CliGit } from "../lib/git";
-import { PosixShell, type Shell } from "../lib/shell";
+import { Git } from "../lib/git";
+import { Shell } from "../lib/shell";
 import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
-import { GitWorktreeStore, type WorktreeStore } from "../lib/worktree-store";
+import { WorktreeStore } from "../lib/worktree-store";
 import { claim } from "./claim";
 import { create } from "./create";
 
@@ -19,15 +19,15 @@ describe("claim", () => {
 	beforeEach(async () => {
 		const r = await repo();
 		const config = testConfig(r.root);
-		const store = new GitWorktreeStore(
+		const store = new WorktreeStore(
 			r.fs,
 			r.ps,
-			new CliGit(r.ps, r.fs, r.root),
+			new Git(r.ps, r.fs, r.root),
 			config,
 			r.arborDir,
 		);
 		await store.init();
-		d = { ...r, config, store, shell: new PosixShell(r.ps) };
+		d = { ...r, config, store, shell: new Shell(r.ps) };
 	});
 
 	afterEach(() => d.cleanup());

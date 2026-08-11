@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "@webappwiz/sys";
-import { CliGit } from "../lib/git";
-import { PosixShell } from "../lib/shell";
+import { Git } from "../lib/git";
+import { Shell } from "../lib/shell";
 import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
-import { GitWorktreeStore } from "../lib/worktree-store";
+import { WorktreeStore } from "../lib/worktree-store";
 import { create } from "./create";
 import { graft } from "./graft";
 
@@ -12,8 +12,8 @@ import { graft } from "./graft";
 const setup = async () => {
 	const r = await repo();
 	const config = testConfig(r.root);
-	const git = new CliGit(r.ps, r.fs, r.root);
-	const store = new GitWorktreeStore(r.fs, r.ps, git, config, r.arborDir);
+	const git = new Git(r.ps, r.fs, r.root);
+	const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
 	await store.init();
 	const lockPath = join(r.arborDir, "graft.lock");
 	return {
@@ -21,7 +21,7 @@ const setup = async () => {
 		config,
 		git,
 		store,
-		shell: new PosixShell(r.ps),
+		shell: new Shell(r.ps),
 		lockPath,
 		lock: new FileLock(r.fs, r.ps, r.log, lockPath, {
 			stalenessMs: config.leaseStalenessMs,

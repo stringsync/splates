@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Lock } from "@webappwiz/sys";
+import type { FileLock } from "@webappwiz/sys";
 import type { Config } from "../lib/config";
 import { fail } from "../lib/exit";
 import type { Git } from "../lib/git";
@@ -25,7 +25,7 @@ export async function graft(
 	}: {
 		store: WorktreeStore;
 		git: Git;
-		lock: Lock;
+		lock: FileLock;
 		shell: Shell;
 		config: Config;
 		log: Logger;
