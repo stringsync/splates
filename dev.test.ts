@@ -60,10 +60,13 @@ describe("dev", () => {
 			expect(html).toContain("task/alpha");
 			expect(html).toContain("working");
 			expect(html).toContain("add");
-			// The markdown is there, rendered rather than dumped, and folded away
-			// rather than filling the card.
-			expect(html).toContain(`<summary class="quiet">TODO.md</summary>`);
+			// The markdown is there, rendered rather than dumped, and open rather
+			// than folded away.
+			expect(html).toContain(`<p class="quiet">TODO.md</p>`);
 			expect(html).toContain("<h4>Next</h4>");
+			// The card's summary already names the task, so the document's own
+			// title is not repeated under it.
+			expect(html).not.toContain("<h3>alpha</h3>");
 			expect(html).toContain(
 				`<li class="box"><input type="checkbox" disabled> the rest</li>`,
 			);
