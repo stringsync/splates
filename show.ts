@@ -25,6 +25,11 @@ export interface Details {
 	todoProblems: string[];
 }
 
+export interface ShowOptions {
+	/** Print the details as JSON instead of prose. */
+	json?: boolean;
+}
+
 /**
  * One task in full: what `ls` shows for it, plus the `TODO.md` its agent
  * left at the worktree root. Reading a tree this way takes no lease, so it
@@ -33,7 +38,7 @@ export interface Details {
 export async function show(
 	{ store, fs, log }: { store: WorktreeStore; fs: Fs; log: Logger },
 	task: string,
-	{ json = false } = {},
+	{ json = false }: ShowOptions = {},
 ): Promise<void> {
 	const worktree = await store.find(task);
 	if (worktree.gone) {

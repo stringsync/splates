@@ -15,6 +15,10 @@ export class WorktreeStore {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
 
+	// lint-ignore classes-over-function-exports: Git is the only way arbor speaks
+	// git and will stay that way, so a second implementation is not coming and
+	// one-dir-per-interface says not to write the interface until it does. Tests
+	// run the real Git against a throwaway repo rather than faking twenty methods.
 	constructor(
 		private readonly fs: Fs,
 		readonly ps: Ps,

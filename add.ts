@@ -6,6 +6,11 @@ import type { WorktreeStore } from "./worktree-store";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+export interface AddOptions {
+	/** Branch the task starts from and merges onto. Defaults to the trunk. */
+	base?: string;
+}
+
 export async function add(
 	{
 		store,
@@ -19,7 +24,7 @@ export async function add(
 		log: Logger;
 	},
 	task: string,
-	{ base = config.trunk }: { base?: string } = {},
+	{ base = config.trunk }: AddOptions = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(

@@ -5,6 +5,13 @@ const SECTIONS = ["Goal", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 
+export interface TodoOptions {
+	/** The task name the title is expected to match. */
+	task: string;
+	/** Whether the task has escalated, which makes `## Blocked` required. */
+	escalated?: boolean;
+}
+
 /**
  * Every way a task's `TODO.md` departs from the shape the agent skill
  * prescribes, phrased for the agent that wrote it. Advisory only: a resumable
@@ -13,7 +20,7 @@ const UNCHECKED = /^[ \t]*- \[ \]/m;
  */
 export function checkTodo(
 	text: string,
-	{ task, escalated = false }: { task: string; escalated?: boolean },
+	{ task, escalated = false }: TodoOptions,
 ): string[] {
 	const md = Markdown.parse(text);
 	const problems: string[] = [];

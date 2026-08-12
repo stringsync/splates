@@ -25,8 +25,9 @@ export const EXIT = {
 export type Reason = keyof typeof EXIT;
 
 /**
- * A refusal, carrying everything anyone needs to act on it: `exits` turns it
- * into output and a status code, a test reads its fields directly.
+ * A refusal, carrying the reason to branch on, a message to show, and any
+ * data worth reporting with it. `exits` turns one into output and a status
+ * code.
  */
 export class Exit extends Error {
 	constructor(

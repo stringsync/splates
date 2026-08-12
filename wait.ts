@@ -11,6 +11,15 @@ export const DEFAULT_TIMEOUT = Duration.mins(30);
 /** Same interval the merge lock polls on: cheap enough, quick enough. */
 const POLL = Duration.secs(2);
 
+export interface WaitOptions {
+	/** How long to wait before giving up with `timed_out`. */
+	timeout?: Duration;
+	/** How often to re-read the task's status. */
+	poll?: Duration;
+	/** Print the outcome as JSON instead of prose. */
+	json?: boolean;
+}
+
 /**
  * Blocks until a task stops moving: it lands or is removed, it escalates, or it
  * falls apart. This is what an agent does instead of starting work that
@@ -23,11 +32,7 @@ const POLL = Duration.secs(2);
 export async function wait(
 	{ store, log }: { store: WorktreeStore; log: Logger },
 	task: string,
-	{
-		timeout = DEFAULT_TIMEOUT,
-		poll = POLL,
-		json = false,
-	}: { timeout?: Duration; poll?: Duration; json?: boolean } = {},
+	{ timeout = DEFAULT_TIMEOUT, poll = POLL, json = false }: WaitOptions = {},
 ): Promise<void> {
 	const started = Date.now();
 	const waited = (): Duration => Duration.ms(Date.now() - started);

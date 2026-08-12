@@ -2,6 +2,11 @@ import { color, type Logger } from "@webappwiz/log";
 import { fail } from "./exit";
 import type { WorktreeStore } from "./worktree-store";
 
+export interface RmOptions {
+	/** Discard the tree even when another agent holds its lease. */
+	force?: boolean;
+}
+
 /**
  * Discards a whole task: `git worktree remove` plus the branch and the
  * record.
@@ -12,7 +17,7 @@ import type { WorktreeStore } from "./worktree-store";
 export async function rm(
 	{ store, log }: { store: WorktreeStore; log: Logger },
 	task: string,
-	{ force = false }: { force?: boolean } = {},
+	{ force = false }: RmOptions = {},
 ): Promise<void> {
 	const worktree = await store.find(task);
 
