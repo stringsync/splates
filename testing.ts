@@ -17,11 +17,11 @@ export const LIVE_PID = 1;
 export async function bails(work: Promise<unknown>): Promise<Exit> {
 	try {
 		await work;
-	} catch (e) {
-		if (e instanceof Exit) {
-			return e;
+	} catch (entry) {
+		if (entry instanceof Exit) {
+			return entry;
 		}
-		throw e;
+		throw entry;
 	}
 	throw new Error("expected a nonzero exit, but the command succeeded");
 }
@@ -100,7 +100,7 @@ export async function repo() {
 		gitCli,
 		commit,
 		out: () =>
-			color.strip(log.entries.map((e) => String(e.message)).join("\n")),
+			color.strip(log.entries.map((entry) => String(entry.message)).join("\n")),
 		cleanup,
 		// so a concurrent test can own its repo with `await using`, instead of
 		// afterEach handing every test in the file the same one

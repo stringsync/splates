@@ -52,10 +52,10 @@ arbor
 		description:
 			"branch this task starts from and merges onto (default: trunk)",
 	})
-	.action((o, { store, shell, config, journal }) =>
-		journal.record("add", o.task, () =>
-			add({ store, shell, config, log }, o.task, {
-				base: o.base || undefined,
+	.action((opts, { store, shell, config, journal }) =>
+		journal.record("add", opts.task, () =>
+			add({ store, shell, config, log }, opts.task, {
+				base: opts.base || undefined,
 			}),
 		),
 	);
@@ -66,8 +66,8 @@ arbor
 		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease",
 	)
 	.arg("task", t.string(), { description: "task name" })
-	.action((o, { store, journal }) =>
-		journal.record("claim", o.task, () => claim({ store, log }, o.task)),
+	.action((opts, { store, journal }) =>
+		journal.record("claim", opts.task, () => claim({ store, log }, opts.task)),
 	);
 
 arbor
@@ -91,9 +91,9 @@ arbor
 		default: false,
 		description: "discard even when another agent holds the lease",
 	})
-	.action((o, { store, journal }) =>
-		journal.record("rm", o.task, () =>
-			rm({ store, log }, o.task, { force: o.force }),
+	.action((opts, { store, journal }) =>
+		journal.record("rm", opts.task, () =>
+			rm({ store, log }, opts.task, { force: opts.force }),
 		),
 	);
 
@@ -103,7 +103,7 @@ arbor
 		"list every task: name, status, lease (held/stale/none), commits ahead of trunk, age",
 	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((o, { store }) => ls({ store, log }, { json: o.json }));
+	.action((opts, { store }) => ls({ store, log }, { json: opts.json }));
 
 arbor
 	.command("show")
@@ -112,7 +112,9 @@ arbor
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((o, { store }) => show({ store, fs, log }, o.task, { json: o.json }));
+	.action((opts, { store }) =>
+		show({ store, fs, log }, opts.task, { json: opts.json }),
+	);
 
 arbor
 	.command("wait")
@@ -125,10 +127,10 @@ arbor
 		description: "minutes to wait before giving up and asking a human",
 	})
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((o, { store }) =>
-		wait({ store, log }, o.task, {
-			timeout: Duration.mins(o.timeout),
-			json: o.json,
+	.action((opts, { store }) =>
+		wait({ store, log }, opts.task, {
+			timeout: Duration.mins(opts.timeout),
+			json: opts.json,
 		}),
 	);
 
@@ -142,8 +144,8 @@ arbor
 		description: "how many entries to show",
 	})
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((o, { journal }) =>
-		showLog({ journal, log }, { count: o.count, json: o.json }),
+	.action((opts, { journal }) =>
+		showLog({ journal, log }, { count: opts.count, json: opts.json }),
 	);
 
 arbor
@@ -155,7 +157,7 @@ arbor
 		default: "",
 		description: "task name; omit for the main tree",
 	})
-	.action((o, { store }) => path({ store, log }, o.task || undefined));
+	.action((opts, { store }) => path({ store, log }, opts.task || undefined));
 
 arbor
 	.command("escalate")
@@ -167,13 +169,13 @@ arbor
 		default: "",
 		description: "task name, when run outside its worktree",
 	})
-	.action(async (o, { store, git, lock, journal }) =>
-		journal.record("escalate", o.task || (await here(store, git)), () =>
+	.action(async (opts, { store, git, lock, journal }) =>
+		journal.record("escalate", opts.task || (await here(store, git)), () =>
 			escalate(
 				{ store, git, lock, log },
-				o.reason,
+				opts.reason,
 				ps.cwd(),
-				o.task || undefined,
+				opts.task || undefined,
 			),
 		),
 	);

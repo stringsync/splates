@@ -60,18 +60,18 @@ function diff(row: Row): string {
 }
 
 function listing(rows: Row[]): string {
-	const cells = rows.map((r) => [
-		r.task,
-		r.status,
-		r.lease,
-		r.ahead === null ? "?" : String(r.ahead),
-		diff(r),
-		r.age,
+	const cells = rows.map((row) => [
+		row.task,
+		row.status,
+		row.lease,
+		row.ahead === null ? "?" : String(row.ahead),
+		diff(row),
+		row.age,
 	]);
 	const out = [
 		table(["TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
 	];
-	const orphaned = rows.filter((r) => r.status === "orphaned");
+	const orphaned = rows.filter((row) => row.status === "orphaned");
 	if (orphaned.length > 0) {
 		out.push(
 			"",

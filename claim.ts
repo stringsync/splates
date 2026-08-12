@@ -62,7 +62,7 @@ export async function claim(
 	lines.push(
 		changes.length === 0
 			? "  uncommitted: none"
-			: `  uncommitted (${changes.length}):\n${changes.map((c) => `    ${c}`).join("\n")}`,
+			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
 	log.info(lines.join("\n"));
 }

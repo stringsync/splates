@@ -10,46 +10,46 @@ import { WorktreeStore } from "./worktree-store";
 describe("path", () => {
 	// `shell` and `config` are here for the `create` calls that arrange each
 	// test; path itself needs only the store and the log.
-	let d: Awaited<ReturnType<typeof repo>> & {
+	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		store: WorktreeStore;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
+		const fixture = await repo();
+		const config = testConfig(fixture.root);
 		const store = new WorktreeStore(
-			r.fs,
-			r.ps,
-			new Git(r.ps, r.fs, r.root),
+			fixture.fs,
+			fixture.ps,
+			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
-			r.arborDir,
+			fixture.arborDir,
 		);
 		await store.init();
-		d = { ...r, config, store, shell: new Shell(r.ps) };
+		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("prints the main tree bare, so `cd $(arbor path)` works", async () => {
-		await path(d);
+		await path(deps);
 
 		// Bare: no label, no decoration, nothing a shell would have to strip.
-		expect(d.out()).toBe(d.root);
+		expect(deps.out()).toBe(deps.root);
 	});
 
 	it("prints a task's worktree, and refuses one that is not there", async () => {
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		d.log.clear();
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		deps.log.clear();
 
-		await path(d, "alpha");
-		expect(d.out()).toBe(worktree);
+		await path(deps, "alpha");
+		expect(deps.out()).toBe(worktree);
 
-		expect((await bails(path(d, "nope"))).reason).toBe("not_found");
+		expect((await bails(path(deps, "nope"))).reason).toBe("not_found");
 
-		await d.fs.rm(worktree, { recursive: true, force: true });
-		expect((await bails(path(d, "alpha"))).reason).toBe("orphaned");
+		await deps.fs.rm(worktree, { recursive: true, force: true });
+		expect((await bails(path(deps, "alpha"))).reason).toBe("orphaned");
 	});
 });

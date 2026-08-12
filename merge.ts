@@ -92,7 +92,7 @@ export async function merge(
 			"conflict",
 			[
 				`rebase onto ${base} conflicted in ${paths.length || "?"} file(s):`,
-				...paths.map((p) => `  ${p}`),
+				...paths.map((file) => `  ${file}`),
 				"",
 				"The rebase is still in progress. Resolve the conflicts, `git add` them,",
 				"`git rebase --continue`, then run `arbor merge` again.",

@@ -54,11 +54,11 @@ export function checkTodo(
 			"## Blocked asks nothing: a human needs one specific question to answer",
 		);
 	}
-	const known = SECTIONS.map((s) => s.toLowerCase());
-	for (const s of md.sections) {
-		if (s.level === 2 && !known.includes(s.heading.toLowerCase())) {
+	const known = SECTIONS.map((section) => section.toLowerCase());
+	for (const section of md.sections) {
+		if (section.level === 2 && !known.includes(section.heading.toLowerCase())) {
 			problems.push(
-				`unexpected section "## ${s.heading}" (line ${s.line}): keep to ${SECTIONS.join(", ")}`,
+				`unexpected section "## ${section.heading}" (line ${section.line}): keep to ${SECTIONS.join(", ")}`,
 			);
 		}
 	}

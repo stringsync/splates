@@ -15,103 +15,103 @@ const poll = Duration.ms(5);
 const timeout = Duration.secs(5);
 
 describe("wait", () => {
-	let d: Awaited<ReturnType<typeof repo>> & {
+	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		store: WorktreeStore;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
+		const fixture = await repo();
+		const config = testConfig(fixture.root);
 		const store = new WorktreeStore(
-			r.fs,
-			r.ps,
-			new Git(r.ps, r.fs, r.root),
+			fixture.fs,
+			fixture.ps,
+			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
-			r.arborDir,
+			fixture.arborDir,
 		);
 		await store.init();
-		d = { ...r, config, store, shell: new Shell(r.ps) };
+		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("notices a change made while it is polling", async () => {
-		await add(d, "alpha");
-		d.log.clear();
+		await add(deps, "alpha");
+		deps.log.clear();
 
-		const waiting = wait(d, "alpha", { poll, timeout });
+		const waiting = wait(deps, "alpha", { poll, timeout });
 		await sleep(Duration.ms(20)); // at least one round of polling
-		await (await d.store.find("alpha")).save({ status: "escalated" });
+		await (await deps.store.find("alpha")).save({ status: "escalated" });
 		await waiting;
 
-		expect(d.out()).toContain("escalated alpha");
+		expect(deps.out()).toContain("escalated alpha");
 	});
 
 	it("keeps waiting through the orphaned moment a discard passes through", async () => {
-		await add(d, "alpha");
+		await add(deps, "alpha");
 		// What another agent's merge looks like halfway through: directory gone,
 		// record still there.
-		await d.fs.rm((await d.store.find("alpha")).path, {
+		await deps.fs.rm((await deps.store.find("alpha")).path, {
 			recursive: true,
 			force: true,
 		});
-		d.log.clear();
+		deps.log.clear();
 
 		// Long enough that the whole discard lands between two polls, which is the
 		// case the confirmation exists for.
-		const waiting = wait(d, "alpha", { poll: Duration.ms(500), timeout });
-		await rm(d, "alpha");
+		const waiting = wait(deps, "alpha", { poll: Duration.ms(500), timeout });
+		await rm(deps, "alpha");
 		await waiting;
 
-		expect(d.out()).toContain("gone");
-		expect(d.out()).not.toContain("orphaned alpha");
+		expect(deps.out()).toContain("gone");
+		expect(deps.out()).not.toContain("orphaned alpha");
 	});
 
 	it("returns straight away for a task that is already gone", async () => {
-		await add(d, "alpha");
-		await rm(d, "alpha");
-		d.log.clear();
+		await add(deps, "alpha");
+		await rm(deps, "alpha");
+		deps.log.clear();
 
-		await wait(d, "alpha", { poll, timeout });
+		await wait(deps, "alpha", { poll, timeout });
 
-		expect(d.out()).toContain("gone");
+		expect(deps.out()).toContain("gone");
 	});
 
 	it("stops on an escalation and repeats the reason", async () => {
-		await add(d, "alpha");
-		await (await d.store.find("alpha")).save({
+		await add(deps, "alpha");
+		await (await deps.store.find("alpha")).save({
 			status: "escalated",
 			escalations: [{ reason: "two designs, no right merge", at: "now" }],
 		});
-		d.log.clear();
+		deps.log.clear();
 
-		await wait(d, "alpha", { poll, timeout });
+		await wait(deps, "alpha", { poll, timeout });
 
-		expect(d.out()).toContain("escalated");
-		expect(d.out()).toContain("two designs, no right merge");
+		expect(deps.out()).toContain("escalated");
+		expect(deps.out()).toContain("two designs, no right merge");
 	});
 
 	it("stops on a task that fell apart rather than waiting it out", async () => {
-		await add(d, "alpha");
-		await d.fs.rm((await d.store.find("alpha")).path, {
+		await add(deps, "alpha");
+		await deps.fs.rm((await deps.store.find("alpha")).path, {
 			recursive: true,
 			force: true,
 		});
-		d.log.clear();
+		deps.log.clear();
 
-		await wait(d, "alpha", { poll, timeout });
+		await wait(deps, "alpha", { poll, timeout });
 
-		expect(d.out()).toContain("orphaned");
+		expect(deps.out()).toContain("orphaned");
 	});
 
 	it("refuses with timed_out while the task is still working", async () => {
-		await add(d, "alpha");
-		d.log.clear();
+		await add(deps, "alpha");
+		deps.log.clear();
 
 		const bailed = await bails(
-			wait(d, "alpha", { poll, timeout: Duration.ms(20) }),
+			wait(deps, "alpha", { poll, timeout: Duration.ms(20) }),
 		);
 
 		expect(bailed.reason).toBe("timed_out");
@@ -119,19 +119,19 @@ describe("wait", () => {
 	});
 
 	it("refuses a task that was never created", async () => {
-		expect((await bails(wait(d, "ghost", { poll, timeout }))).reason).toBe(
+		expect((await bails(wait(deps, "ghost", { poll, timeout }))).reason).toBe(
 			"not_found",
 		);
 	});
 
 	it("carries how it ended as JSON", async () => {
-		await add(d, "alpha");
-		await rm(d, "alpha");
-		d.log.clear();
+		await add(deps, "alpha");
+		await rm(deps, "alpha");
+		deps.log.clear();
 
-		await wait(d, "alpha", { poll, timeout, json: true });
+		await wait(deps, "alpha", { poll, timeout, json: true });
 
-		expect(JSON.parse(d.out())).toMatchObject({
+		expect(JSON.parse(deps.out())).toMatchObject({
 			task: "alpha",
 			rest: "gone",
 			status: "removed",

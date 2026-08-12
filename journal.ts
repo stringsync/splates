@@ -32,9 +32,13 @@ export class Journal {
 			const out = await run();
 			await this.append(action, task, null);
 			return out;
-		} catch (e) {
-			await this.append(action, task, e instanceof Exit ? e.reason : "error");
-			throw e;
+		} catch (entry) {
+			await this.append(
+				action,
+				task,
+				entry instanceof Exit ? entry.reason : "error",
+			);
+			throw entry;
 		}
 	}
 
@@ -55,7 +59,7 @@ export class Journal {
 		const kept = [...(await this.entries()), entry].slice(-this.capacity);
 		await this.fs.write(
 			this.path,
-			kept.map((e) => `${JSON.stringify(e)}\n`).join(""),
+			kept.map((entry) => `${JSON.stringify(entry)}\n`).join(""),
 		);
 	}
 

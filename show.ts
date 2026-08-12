@@ -80,25 +80,25 @@ export async function show(
 	log.info(report(details));
 }
 
-function report(d: Details): string {
+function report(details: Details): string {
 	const lines = [
-		`${color.bold(d.task)} ${d.status}`,
-		`  branch:    ${d.branch}`,
-		`  base:      ${d.base}`,
-		`  worktree:  ${d.worktree}`,
-		`  lease:     ${d.lease}`,
-		`  ahead:     ${d.ahead === null ? "?" : d.ahead}  ${diff(d)}`,
-		`  age:       ${d.age ?? "?"}`,
+		`${color.bold(details.task)} ${details.status}`,
+		`  branch:    ${details.branch}`,
+		`  base:      ${details.base}`,
+		`  worktree:  ${details.worktree}`,
+		`  lease:     ${details.lease}`,
+		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,
+		`  age:       ${details.age ?? "?"}`,
 	];
-	if (d.escalation !== null) {
-		lines.push(`  ${color.yellow(`escalated: ${d.escalation}`)}`);
+	if (details.escalation !== null) {
+		lines.push(`  ${color.yellow(`escalated: ${details.escalation}`)}`);
 	}
-	if (d.todo !== null) {
-		lines.push("", color.bold(TODO), d.todo.trimEnd());
-		for (const problem of d.todoProblems) {
+	if (details.todo !== null) {
+		lines.push("", color.bold(TODO), details.todo.trimEnd());
+		for (const problem of details.todoProblems) {
 			lines.push(color.yellow(`  ${problem}`));
 		}
-	} else if (d.status !== "orphaned") {
+	} else if (details.status !== "orphaned") {
 		lines.push(
 			"",
 			color.yellow(`no ${TODO}: whoever picks this up starts from the diff`),
@@ -107,9 +107,9 @@ function report(d: Details): string {
 	return lines.join("\n");
 }
 
-function diff(d: Details): string {
-	if (d.added === null || d.removed === null) {
+function diff(details: Details): string {
+	if (details.added === null || details.removed === null) {
 		return "?";
 	}
-	return `${color.green(`+${d.added}`)} ${color.red(`-${d.removed}`)}`;
+	return `${color.green(`+${details.added}`)} ${color.red(`-${details.removed}`)}`;
 }

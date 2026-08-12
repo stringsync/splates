@@ -8,56 +8,56 @@ import { bails, repo, testConfig } from "./testing";
 import { WorktreeStore } from "./worktree-store";
 
 describe("add", () => {
-	let d: Awaited<ReturnType<typeof repo>> & {
+	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		store: WorktreeStore;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
+		const fixture = await repo();
+		const config = testConfig(fixture.root);
 		const store = new WorktreeStore(
-			r.fs,
-			r.ps,
-			new Git(r.ps, r.fs, r.root),
+			fixture.fs,
+			fixture.ps,
+			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
-			r.arborDir,
+			fixture.arborDir,
 		);
 		await store.init();
-		d = { ...r, config, store, shell: new Shell(r.ps) };
+		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("makes a worktree, a branch and a record", async () => {
-		await add(d, "alpha");
+		await add(deps, "alpha");
 
-		const state = (await d.store.find("alpha")).state;
+		const state = (await deps.store.find("alpha")).state;
 		expect(state).toMatchObject({
 			task: "alpha",
 			branch: "task/alpha",
 			status: "working",
 			mergeAttempts: 0,
 		});
-		expect(await d.fs.exists(join(state?.worktree ?? "", "README.md"))).toBe(
+		expect(await deps.fs.exists(join(state?.worktree ?? "", "README.md"))).toBe(
 			true,
 		);
 		expect(
-			await d.gitCli(
+			await deps.gitCli(
 				state?.worktree ?? "",
 				"rev-parse",
 				"--abbrev-ref",
 				"HEAD",
 			),
 		).toBe("task/alpha");
-		expect(d.out()).toContain("added alpha");
+		expect(deps.out()).toContain("added alpha");
 	});
 
 	it("refuses a name that is already taken and points at claim", async () => {
-		await add(d, "alpha");
+		await add(deps, "alpha");
 
-		const exit = await bails(add(d, "alpha"));
+		const exit = await bails(add(deps, "alpha"));
 
 		expect(exit.reason).toBe("exists");
 		expect(exit.message).toContain("arbor claim alpha");
@@ -65,22 +65,22 @@ describe("add", () => {
 
 	it("rejects names that are not legal branch or directory names", async () => {
 		for (const name of ["Alpha", "a b", "feature/x", "-alpha", ""]) {
-			expect((await bails(add(d, name))).reason).toBe("usage");
+			expect((await bails(add(deps, name))).reason).toBe("usage");
 		}
 	});
 
 	it("reports a failed postCreate hook but keeps the worktree", async () => {
-		d.config = testConfig(d.root, { postCreate: "exit 3" });
+		deps.config = testConfig(deps.root, { postCreate: "exit 3" });
 
-		const exit = await bails(add(d, "alpha"));
+		const exit = await bails(add(deps, "alpha"));
 
 		expect(exit.reason).toBe("hook_failed");
-		const state = (await d.store.find("alpha")).state;
-		expect(await d.fs.exists(state?.worktree ?? "")).toBe(true);
+		const state = (await deps.store.find("alpha")).state;
+		expect(await deps.fs.exists(state?.worktree ?? "")).toBe(true);
 	});
 
 	it("refuses with a reason, a message and the data behind it", async () => {
-		const exit = await bails(add(d, "Alpha"));
+		const exit = await bails(add(deps, "Alpha"));
 
 		expect(exit.reason).toBe("usage");
 		expect(exit.message).toContain("invalid task name 'Alpha'");

@@ -9,76 +9,80 @@ import { WorktreeStore } from "./worktree-store";
 
 describe("rm", () => {
 	// `shell` is only here for the `create` calls that arrange each test.
-	let d: Awaited<ReturnType<typeof repo>> & {
+	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		store: WorktreeStore;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
+		const fixture = await repo();
+		const config = testConfig(fixture.root);
 		const store = new WorktreeStore(
-			r.fs,
-			r.ps,
-			new Git(r.ps, r.fs, r.root),
+			fixture.fs,
+			fixture.ps,
+			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
-			r.arborDir,
+			fixture.arborDir,
 		);
 		await store.init();
-		d = { ...r, config, store, shell: new Shell(r.ps) };
+		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("removes everything and says what was thrown away", async () => {
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "alpha.txt", "alpha\n", "unlanded work");
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "unlanded work");
 
-		await rm(d, "alpha");
+		await rm(deps, "alpha");
 
-		expect(d.out()).toContain("discarded 1 commit(s)");
-		expect(await d.fs.exists(worktree)).toBe(false);
-		expect(await d.fs.exists(d.store.recordPath("alpha"))).toBe(false);
-		expect(await d.gitCli(d.root, "branch", "--list", "task/alpha")).toBe("");
+		expect(deps.out()).toContain("discarded 1 commit(s)");
+		expect(await deps.fs.exists(worktree)).toBe(false);
+		expect(await deps.fs.exists(deps.store.recordPath("alpha"))).toBe(false);
+		expect(await deps.gitCli(deps.root, "branch", "--list", "task/alpha")).toBe(
+			"",
+		);
 	});
 
 	it("tells 'already removed' apart from 'never existed'", async () => {
-		await add(d, "alpha");
-		await rm(d, "alpha");
+		await add(deps, "alpha");
+		await rm(deps, "alpha");
 
-		expect((await bails(rm(d, "alpha"))).reason).toBe("already_removed");
-		expect((await bails(rm(d, "never"))).reason).toBe("not_found");
+		expect((await bails(rm(deps, "alpha"))).reason).toBe("already_removed");
+		expect((await bails(rm(deps, "never"))).reason).toBe("not_found");
 	});
 
 	it("cleans up leftovers when the worktree directory is already gone", async () => {
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.fs.rm(worktree, { recursive: true, force: true });
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.fs.rm(worktree, { recursive: true, force: true });
 
-		await rm(d, "alpha");
+		await rm(deps, "alpha");
 
-		expect(d.out()).toContain("already gone");
-		expect(await d.gitCli(d.root, "branch", "--list", "task/alpha")).toBe("");
+		expect(deps.out()).toContain("already gone");
+		expect(await deps.gitCli(deps.root, "branch", "--list", "task/alpha")).toBe(
+			"",
+		);
 	});
 
 	it("refuses a tree another agent is driving, unless forced", async () => {
-		await add(d, "alpha");
-		const worktree = await (await d.store.find("alpha")).save({
+		await add(deps, "alpha");
+		const worktree = await (await deps.store.find("alpha")).save({
 			lease: {
 				pid: LIVE_PID,
-				hostname: d.ps.hostname,
+				hostname: deps.ps.hostname,
 				heartbeatAt: new Date().toISOString(),
 			},
 		});
 
-		const exit = await bails(rm(d, "alpha"));
+		const exit = await bails(rm(deps, "alpha"));
 
 		expect(exit.reason).toBe("lease_held");
 		expect(exit.message).toContain("--force");
 
-		await rm(d, "alpha", { force: true });
-		expect(await d.fs.exists(worktree.path)).toBe(false);
+		await rm(deps, "alpha", { force: true });
+		expect(await deps.fs.exists(worktree.path)).toBe(false);
 	});
 });

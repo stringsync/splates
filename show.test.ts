@@ -8,77 +8,77 @@ import { bails, repo, testConfig } from "./testing";
 import { WorktreeStore } from "./worktree-store";
 
 describe("show", () => {
-	let d: Awaited<ReturnType<typeof repo>> & {
+	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		store: WorktreeStore;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
+		const fixture = await repo();
+		const config = testConfig(fixture.root);
 		const store = new WorktreeStore(
-			r.fs,
-			r.ps,
-			new Git(r.ps, r.fs, r.root),
+			fixture.fs,
+			fixture.ps,
+			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
-			r.arborDir,
+			fixture.arborDir,
 		);
 		await store.init();
-		d = { ...r, config, store, shell: new Shell(r.ps) };
+		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("reports a task and prints the TODO.md left in its worktree", async () => {
-		await add(d, "alpha");
-		const alpha = (await d.store.find("alpha")).path;
-		await d.fs.write(
+		await add(deps, "alpha");
+		const alpha = (await deps.store.find("alpha")).path;
+		await deps.fs.write(
 			`${alpha}/TODO.md`,
 			"# alpha\n\n## Next\n- [ ] the rest\n",
 		);
-		d.log.clear();
+		deps.log.clear();
 
-		await show(d, "alpha");
+		await show(deps, "alpha");
 
-		expect(d.out()).toContain("task/alpha");
-		expect(d.out()).toContain("working");
-		expect(d.out()).toContain("- [ ] the rest");
+		expect(deps.out()).toContain("task/alpha");
+		expect(deps.out()).toContain("working");
+		expect(deps.out()).toContain("- [ ] the rest");
 	});
 
 	it("says how a TODO.md departs from the shape the skill prescribes", async () => {
-		await add(d, "alpha");
-		const alpha = (await d.store.find("alpha")).path;
-		await d.fs.write(
+		await add(deps, "alpha");
+		const alpha = (await deps.store.find("alpha")).path;
+		await deps.fs.write(
 			`${alpha}/TODO.md`,
 			"# something else\n\n## Goal\nland it\n",
 		);
-		d.log.clear();
+		deps.log.clear();
 
-		await show(d, "alpha");
+		await show(deps, "alpha");
 
-		expect(d.out()).toContain('should be "# alpha"');
-		expect(d.out()).toContain("no ## Next section");
+		expect(deps.out()).toContain('should be "# alpha"');
+		expect(deps.out()).toContain("no ## Next section");
 	});
 
 	it("says the TODO.md is missing rather than staying silent", async () => {
-		await add(d, "alpha");
-		d.log.clear();
+		await add(deps, "alpha");
+		deps.log.clear();
 
-		await show(d, "alpha");
+		await show(deps, "alpha");
 
-		expect(d.out()).toContain("no TODO.md");
+		expect(deps.out()).toContain("no TODO.md");
 	});
 
 	it("carries the task's fields and its TODO.md as JSON", async () => {
-		await add(d, "alpha");
-		const alpha = (await d.store.find("alpha")).path;
-		await d.fs.write(`${alpha}/TODO.md`, "# alpha\n");
-		d.log.clear();
+		await add(deps, "alpha");
+		const alpha = (await deps.store.find("alpha")).path;
+		await deps.fs.write(`${alpha}/TODO.md`, "# alpha\n");
+		deps.log.clear();
 
-		await show(d, "alpha", { json: true });
+		await show(deps, "alpha", { json: true });
 
-		expect(JSON.parse(d.out())).toMatchObject({
+		expect(JSON.parse(deps.out())).toMatchObject({
 			task: "alpha",
 			status: "working",
 			branch: "task/alpha",
@@ -88,20 +88,20 @@ describe("show", () => {
 	});
 
 	it("refuses a task that was never created", async () => {
-		expect((await bails(show(d, "ghost"))).reason).toBe("not_found");
+		expect((await bails(show(deps, "ghost"))).reason).toBe("not_found");
 	});
 
 	it("still describes a task whose worktree is gone", async () => {
-		await add(d, "alpha");
-		await d.fs.rm((await d.store.find("alpha")).path, {
+		await add(deps, "alpha");
+		await deps.fs.rm((await deps.store.find("alpha")).path, {
 			recursive: true,
 			force: true,
 		});
-		d.log.clear();
+		deps.log.clear();
 
-		await show(d, "alpha");
+		await show(deps, "alpha");
 
-		expect(d.out()).toContain("orphaned");
-		expect(d.out()).not.toContain("no TODO.md");
+		expect(deps.out()).toContain("orphaned");
+		expect(deps.out()).not.toContain("no TODO.md");
 	});
 });

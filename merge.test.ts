@@ -10,20 +10,26 @@ import { WorktreeStore } from "./worktree-store";
 
 /** A repo of its own per test, so merges in different tests can run at once. */
 const setup = async () => {
-	const r = await repo();
-	const config = testConfig(r.root);
-	const git = new Git(r.ps, r.fs, r.root);
-	const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
+	const fixture = await repo();
+	const config = testConfig(fixture.root);
+	const git = new Git(fixture.ps, fixture.fs, fixture.root);
+	const store = new WorktreeStore(
+		fixture.fs,
+		fixture.ps,
+		git,
+		config,
+		fixture.arborDir,
+	);
 	await store.init();
-	const lockPath = join(r.arborDir, "merge.lock");
+	const lockPath = join(fixture.arborDir, "merge.lock");
 	return {
-		...r,
+		...fixture,
 		config,
 		git,
 		store,
-		shell: new Shell(r.ps),
+		shell: new Shell(fixture.ps),
 		lockPath,
-		lock: new FileLock(r.fs, r.ps, r.log, lockPath, {
+		lock: new FileLock(fixture.fs, fixture.ps, fixture.log, lockPath, {
 			stalenessMs: config.leaseStalenessMs,
 		}),
 	};
@@ -31,175 +37,175 @@ const setup = async () => {
 
 describe.concurrent("merge", () => {
 	it("rebases, tests, then fast-forwards trunk", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		// Trunk moved on underneath, so the rebase has real work to do.
-		await d.commit(d.root, "trunk.txt", "trunk\n", "add trunk");
+		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
 
-		await merge(d, worktree);
+		await merge(deps, worktree);
 
-		expect(await d.gitCli(d.root, "log", "--oneline", "main")).toContain(
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
 			"add alpha",
 		);
 		expect(
-			await d.gitCli(d.root, "rev-list", "--count", "--merges", "main"),
+			await deps.gitCli(deps.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
-		expect(await d.fs.exists(d.lockPath)).toBe(false);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
 	it("lands a --base task on its base branch and leaves trunk alone", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		await d.gitCli(d.root, "branch", "feature", "main");
-		const trunkBefore = await d.gitCli(d.root, "rev-parse", "main");
-		await add(d, "alpha", { base: "feature" });
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.gitCli(deps.root, "branch", "feature", "main");
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
+		await add(deps, "alpha", { base: "feature" });
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
-		await merge(d, worktree);
+		await merge(deps, worktree);
 
-		expect(await d.gitCli(d.root, "log", "--oneline", "feature")).toContain(
-			"add alpha",
-		);
-		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);
+		expect(
+			await deps.gitCli(deps.root, "log", "--oneline", "feature"),
+		).toContain("add alpha");
+		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
 	});
 
 	it("discards the landed task, so it drops out of the listing", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
-		await merge(d, worktree);
+		await merge(deps, worktree);
 
-		expect((await d.store.find("alpha")).status).toBe("removed");
-		expect(await d.fs.exists(worktree)).toBe(false);
-		expect(await d.store.list()).toEqual([]);
+		expect((await deps.store.find("alpha")).status).toBe("removed");
+		expect(await deps.fs.exists(worktree)).toBe(false);
+		expect(await deps.store.list()).toEqual([]);
 	});
 
 	it("refuses to run with uncommitted changes, before taking the lock", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.fs.write(join(worktree, "alpha.txt"), "not committed\n");
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.fs.write(join(worktree, "alpha.txt"), "not committed\n");
 
-		const exit = await bails(merge(d, worktree));
+		const exit = await bails(merge(deps, worktree));
 
 		expect(exit.reason).toBe("dirty");
-		expect(await d.fs.exists(d.lockPath)).toBe(false);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
 	it("leaves a conflicting rebase in progress for the agent to resolve", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "README.md", "task side\n", "task edit");
-		await d.commit(d.root, "README.md", "trunk side\n", "trunk edit");
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "README.md", "task side\n", "task edit");
+		await deps.commit(deps.root, "README.md", "trunk side\n", "trunk edit");
 
-		const exit = await bails(merge(d, worktree));
+		const exit = await bails(merge(deps, worktree));
 
 		expect(exit.reason).toBe("conflict");
 		expect(exit.message).toContain("README.md");
-		expect(await d.gitCli(worktree, "status", "--porcelain")).toContain(
+		expect(await deps.gitCli(worktree, "status", "--porcelain")).toContain(
 			"UU README.md",
 		);
-		expect((await d.store.find("alpha")).state?.mergeAttempts).toBe(1);
-		expect(await d.fs.exists(d.lockPath)).toBe(false);
+		expect((await deps.store.find("alpha")).state?.mergeAttempts).toBe(1);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
 	it("rolls the branch back and leaves trunk alone when tests fail", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		d.config.testCommand = "echo boom-from-tests; exit 1";
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
-		await d.commit(d.root, "trunk.txt", "trunk\n", "add trunk");
-		const before = await d.gitCli(worktree, "rev-parse", "HEAD");
-		const trunkBefore = await d.gitCli(d.root, "rev-parse", "main");
+		deps.config.testCommand = "echo boom-from-tests; exit 1";
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
+		const before = await deps.gitCli(worktree, "rev-parse", "HEAD");
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 
-		const exit = await bails(merge(d, worktree));
+		const exit = await bails(merge(deps, worktree));
 
 		expect(exit.reason).toBe("tests_failed");
 		expect(exit.message).toContain("boom-from-tests");
-		expect(await d.gitCli(worktree, "rev-parse", "HEAD")).toBe(before);
-		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);
-		expect(await d.fs.exists(d.lockPath)).toBe(false);
+		expect(await deps.gitCli(worktree, "rev-parse", "HEAD")).toBe(before);
+		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
 	it("stops once the retry budget is spent", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		d.config.mergeRetryCount = 2;
-		await add(d, "alpha");
-		const worktree = await d.store.find("alpha");
+		deps.config.mergeRetryCount = 2;
+		await add(deps, "alpha");
+		const worktree = await deps.store.find("alpha");
 		await worktree.save({ mergeAttempts: 2 });
 
-		const exit = await bails(merge(d, worktree.path));
+		const exit = await bails(merge(deps, worktree.path));
 
 		expect(exit.reason).toBe("budget_exhausted");
 		expect(exit.message).toContain("arbor escalate");
 	});
 
 	it("refuses to land when the lease changed hands during the test run", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		await add(d, "alpha");
-		const worktree = await d.store.find("alpha");
-		await d.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
-		const trunkBefore = await d.gitCli(d.root, "rev-parse", "main");
+		await add(deps, "alpha");
+		const worktree = await deps.store.find("alpha");
+		await deps.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 		// Another agent takes the tree while the tests are running: the one
 		// window merge cannot hold the record across, and the reason it re-reads
 		// it before landing.
-		d.shell.run = async () => {
+		deps.shell.run = async () => {
 			await worktree.save({
 				lease: {
 					pid: LIVE_PID,
-					hostname: d.ps.hostname,
+					hostname: deps.ps.hostname,
 					heartbeatAt: new Date().toISOString(),
 				},
 			});
 			return { exitCode: 0, stdout: "", stderr: "" };
 		};
 
-		const exit = await bails(merge(d, worktree.path));
+		const exit = await bails(merge(deps, worktree.path));
 
 		expect(exit.reason).toBe("lease_lost");
-		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);
-		expect(await d.fs.exists(d.lockPath)).toBe(false);
+		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
 	it("serializes: one merge runs its tests and lands before the next starts", async () => {
-		await using d = await setup();
+		await using deps = await setup();
 
-		const trace = join(d.root, "trace.log");
-		d.config.testCommand = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
+		const trace = join(deps.root, "trace.log");
+		deps.config.testCommand = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
 
-		await add(d, "alpha");
-		await add(d, "beta");
-		const alpha = (await d.store.find("alpha")).path;
-		const beta = (await d.store.find("beta")).path;
-		await d.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
-		await d.commit(beta, "beta.txt", "beta\n", "add beta");
+		await add(deps, "alpha");
+		await add(deps, "beta");
+		const alpha = (await deps.store.find("alpha")).path;
+		const beta = (await deps.store.find("beta")).path;
+		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
+		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
 
-		await Promise.all([merge(d, alpha), merge(d, beta)]);
+		await Promise.all([merge(deps, alpha), merge(deps, beta)]);
 
-		const lines = (await d.fs.read(trace)).trim().split("\n");
+		const lines = (await deps.fs.read(trace)).trim().split("\n");
 		expect(lines).toHaveLength(4);
 		// Never interleaved: whoever starts first also ends first.
 		expect(lines[1]).toBe(`end-${lines[0]?.slice("start-".length)}`);
 		expect(lines[3]).toBe(`end-${lines[2]?.slice("start-".length)}`);
-		const log = await d.gitCli(d.root, "log", "--oneline", "main");
+		const log = await deps.gitCli(deps.root, "log", "--oneline", "main");
 		expect(log).toContain("add alpha");
 		expect(log).toContain("add beta");
 		expect(
-			await d.gitCli(d.root, "rev-list", "--count", "--merges", "main"),
+			await deps.gitCli(deps.root, "rev-list", "--count", "--merges", "main"),
 		).toBe("0");
 	}, 20_000);
 });

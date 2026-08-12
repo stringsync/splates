@@ -10,7 +10,7 @@ import { bails, repo, testConfig } from "./testing";
 import { WorktreeStore } from "./worktree-store";
 
 describe("escalate", () => {
-	let d: Awaited<ReturnType<typeof repo>> & {
+	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		git: Git;
 		store: WorktreeStore;
@@ -19,50 +19,62 @@ describe("escalate", () => {
 	};
 
 	beforeEach(async () => {
-		const r = await repo();
-		const config = testConfig(r.root);
-		const git = new Git(r.ps, r.fs, r.root);
-		const store = new WorktreeStore(r.fs, r.ps, git, config, r.arborDir);
+		const fixture = await repo();
+		const config = testConfig(fixture.root);
+		const git = new Git(fixture.ps, fixture.fs, fixture.root);
+		const store = new WorktreeStore(
+			fixture.fs,
+			fixture.ps,
+			git,
+			config,
+			fixture.arborDir,
+		);
 		await store.init();
-		d = {
-			...r,
+		deps = {
+			...fixture,
 			config,
 			git,
 			store,
-			shell: new Shell(r.ps),
-			lock: new FileLock(r.fs, r.ps, r.log, join(r.arborDir, "merge.lock"), {
-				stalenessMs: config.leaseStalenessMs,
-			}),
+			shell: new Shell(fixture.ps),
+			lock: new FileLock(
+				fixture.fs,
+				fixture.ps,
+				fixture.log,
+				join(fixture.arborDir, "merge.lock"),
+				{
+					stalenessMs: config.leaseStalenessMs,
+				},
+			),
 		};
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("records the reason, drops the lease, and leaves the tree alone", async () => {
-		await add(d, "alpha");
-		const worktree = (await d.store.find("alpha")).path;
-		await d.fs.write(join(worktree, "half-done.txt"), "work in progress\n");
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.fs.write(join(worktree, "half-done.txt"), "work in progress\n");
 
-		await escalate(d, "both sides restructured the router", worktree);
+		await escalate(deps, "both sides restructured the router", worktree);
 
-		const state = (await d.store.find("alpha")).state;
+		const state = (await deps.store.find("alpha")).state;
 		expect(state).toMatchObject({ status: "escalated", lease: null });
 		expect(state?.escalations).toHaveLength(1);
-		expect(await d.fs.exists(join(worktree, "half-done.txt"))).toBe(true);
+		expect(await deps.fs.exists(join(worktree, "half-done.txt"))).toBe(true);
 
-		await escalate(d, "second thoughts", worktree);
-		expect((await d.store.find("alpha")).state?.escalations).toHaveLength(2);
+		await escalate(deps, "second thoughts", worktree);
+		expect((await deps.store.find("alpha")).state?.escalations).toHaveLength(2);
 	});
 
 	it("requires an explicit task when run outside a worktree", async () => {
-		await add(d, "alpha");
+		await add(deps, "alpha");
 
-		const exit = await bails(escalate(d, "needs a human", d.root));
+		const exit = await bails(escalate(deps, "needs a human", deps.root));
 
 		expect(exit.reason).toBe("usage");
 		expect(exit.message).toContain("--task");
 
-		await escalate(d, "needs a human", d.root, "alpha");
-		expect((await d.store.find("alpha")).state?.status).toBe("escalated");
+		await escalate(deps, "needs a human", deps.root, "alpha");
+		expect((await deps.store.find("alpha")).state?.status).toBe("escalated");
 	});
 });

@@ -6,59 +6,66 @@ import { log } from "./log";
 import { bails, repo } from "./testing";
 
 describe("log", () => {
-	let d: Awaited<ReturnType<typeof repo>> & { journal: Journal };
+	let deps: Awaited<ReturnType<typeof repo>> & { journal: Journal };
 
 	beforeEach(async () => {
-		const r = await repo();
-		await r.fs.mkdir(r.arborDir);
-		d = {
-			...r,
-			journal: new Journal(r.fs, join(r.arborDir, "log.jsonl"), 200),
+		const fixture = await repo();
+		await fixture.fs.mkdir(fixture.arborDir);
+		deps = {
+			...fixture,
+			journal: new Journal(
+				fixture.fs,
+				join(fixture.arborDir, "log.jsonl"),
+				200,
+			),
 		};
 	});
 
-	afterEach(() => d.cleanup());
+	afterEach(() => deps.cleanup());
 
 	it("records how each command ended, refusals included", async () => {
-		await d.journal.record("create", "alpha", async () => {});
+		await deps.journal.record("create", "alpha", async () => {});
 		await bails(
-			d.journal.record("merge", "alpha", () =>
+			deps.journal.record("merge", "alpha", () =>
 				Promise.reject(new Exit("tests_failed", "nope")),
 			),
 		);
 
-		await log(d);
+		await log(deps);
 
-		const out = d.out();
+		const out = deps.out();
 		expect(out).toContain("create");
 		expect(out).toContain("alpha");
 		expect(out).toContain("ok");
 		expect(out).toContain("tests_failed");
 
 		// Newest last, and --count trims from the front.
-		d.log.clear();
-		await log(d, { count: 1, json: true });
-		expect(JSON.parse(d.out())).toMatchObject([
+		deps.log.clear();
+		await log(deps, { count: 1, json: true });
+		expect(JSON.parse(deps.out())).toMatchObject([
 			{ action: "merge", task: "alpha", reason: "tests_failed" },
 		]);
 	});
 
 	it("keeps the log capped and asking for none returns none", async () => {
-		d.journal = new Journal(d.fs, join(d.arborDir, "log.jsonl"), 2);
+		deps.journal = new Journal(deps.fs, join(deps.arborDir, "log.jsonl"), 2);
 		for (const task of ["a", "b", "c"]) {
-			await d.journal.record("create", task, async () => {});
+			await deps.journal.record("create", task, async () => {});
 		}
 
-		expect((await d.journal.tail(10)).map((e) => e.task)).toEqual(["b", "c"]);
-		expect(await d.journal.tail(0)).toEqual([]);
+		expect((await deps.journal.tail(10)).map((entry) => entry.task)).toEqual([
+			"b",
+			"c",
+		]);
+		expect(await deps.journal.tail(0)).toEqual([]);
 
-		await log(d, { json: true });
-		expect(JSON.parse(d.out())).toHaveLength(2);
+		await log(deps, { json: true });
+		expect(JSON.parse(deps.out())).toHaveLength(2);
 	});
 
 	it("says so plainly when nothing has happened", async () => {
-		await log(d);
+		await log(deps);
 
-		expect(d.out()).toContain("nothing recorded yet");
+		expect(deps.out()).toContain("nothing recorded yet");
 	});
 });

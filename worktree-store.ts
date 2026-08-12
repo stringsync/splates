@@ -85,8 +85,8 @@ export class WorktreeStore {
 	async list(): Promise<Worktree[]> {
 		const entries = await this.fs.readdir(this.tasksDir).catch(() => []);
 		const tasks = entries
-			.filter((e) => e.endsWith(".json"))
-			.map((e) => e.slice(0, -".json".length))
+			.filter((entry) => entry.endsWith(".json"))
+			.map((entry) => entry.slice(0, -".json".length))
 			.sort();
 		const found: Worktree[] = [];
 		for (const task of tasks) {
@@ -167,7 +167,7 @@ export class WorktreeStore {
 				at: (await this.removedAt(name)) ?? "",
 			})),
 		);
-		dated.sort((a, b) => a.at.localeCompare(b.at));
+		dated.sort((left, right) => left.at.localeCompare(right.at));
 		for (const { name } of dated.slice(0, names.length - removedCapacity)) {
 			await this.fs.rm(this.removedPath(name), { force: true });
 		}
