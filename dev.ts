@@ -183,10 +183,11 @@ td { padding: .15rem 1.5rem .15rem 0 }
 .bar i { display: block; height: 100%; background: #2a2 }
 .added { color: #2a2 } .removed { color: #c33 } .ok { color: #2a2 } .warn { color: #b80 }
 .quiet { opacity: .6 }
-/* A rendered TODO.md, in a box of its own like the card around it. Its headings
-   are section labels rather than titles, so they read as the dt/badge lettering
-   above them does. */
-.todo { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 4px; padding: .5rem .75rem; margin: .5rem 0 }
+/* A rendered TODO.md. It sits on the card rather than in a border of its own:
+   a box inside a box reads as busy, and the label and spacing separate it
+   well enough. Its headings are section labels rather than titles, so they
+   read as the dt/badge lettering above them does. */
+.todo { margin: .75rem 0 }
 .todo :is(h3, h4, h5, h6) { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; margin: .9rem 0 .3rem }
 .todo > :first-child { margin-top: 0 }
 .todo p { margin: .3rem 0 }
