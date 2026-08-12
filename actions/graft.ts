@@ -10,9 +10,10 @@ import type { WorktreeStore } from "../worktree-store";
 const TAIL_LINES = 40;
 
 /**
- * Lands the current worktree's branch on trunk. Despite the name this never
- * runs `git merge` in the merge-commit sense: it rebases onto trunk, runs the
- * tests there, and fast-forwards trunk. History stays linear.
+ * Lands the current worktree's branch on its base branch, trunk unless the
+ * task was created with `--base`. Despite the name this never runs `git merge`
+ * in the merge-commit sense: it rebases onto the base, runs the tests there,
+ * and fast-forwards the base. History stays linear.
  */
 export async function graft(
 	{
@@ -50,6 +51,7 @@ export async function graft(
 		);
 	}
 
+	const base = worktree.base;
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(
@@ -61,7 +63,7 @@ export async function graft(
 	if (worktree.graftAttempts >= config.graftRetryCount) {
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.graftRetryCount} graft attempts: run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${config.trunk}`,
+			`'${task}' has used its ${config.graftRetryCount} graft attempts: run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${base}`,
 			{ task, graftAttempts: worktree.graftAttempts },
 		);
 	}
@@ -80,7 +82,7 @@ export async function graft(
 	worktree = await worktree.take({ status: "grafting" });
 
 	const before = await git.head(worktree.path);
-	const rebase = await git.rebase(worktree.path, config.trunk);
+	const rebase = await git.rebase(worktree.path, base);
 	if (rebase.code !== 0) {
 		// Left in progress on purpose: the agent needs the conflict markers.
 		const paths = await git.conflictedPaths(worktree.path);
@@ -89,13 +91,13 @@ export async function graft(
 		fail(
 			"conflict",
 			[
-				`rebase onto ${config.trunk} conflicted in ${paths.length || "?"} file(s):`,
+				`rebase onto ${base} conflicted in ${paths.length || "?"} file(s):`,
 				...paths.map((p) => `  ${p}`),
 				"",
 				"The rebase is still in progress. Resolve the conflicts, `git add` them,",
 				"`git rebase --continue`, then run `arbor graft` again.",
 				"If both sides restructured the same logic, prefer `arbor escalate <reason>`",
-				`or \`arbor prune ${task}\` and redo the task against current ${config.trunk}.`,
+				`or \`arbor prune ${task}\` and redo the task against current ${base}.`,
 			].join("\n"),
 			{ task, paths },
 		);
@@ -121,8 +123,8 @@ export async function graft(
 		fail(
 			"tests_failed",
 			[
-				`\`${config.testCommand}\` failed after rebasing onto ${config.trunk} (exit ${tests.exitCode}).`,
-				`${config.trunk} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
+				`\`${config.testCommand}\` failed after rebasing onto ${base} (exit ${tests.exitCode}).`,
+				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
 				"",
 				tail(`${tests.stdout}\n${tests.stderr}`),
 			].join("\n"),
@@ -143,14 +145,14 @@ export async function graft(
 		);
 	}
 
-	const checkout = await git.checkout(config.trunk);
+	const checkout = await git.checkout(base);
 	const merged = checkout.code === 0 ? await git.mergeFfOnly(branch) : checkout;
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree);
 		fail(
 			"merge_failed",
-			`could not fast-forward ${config.trunk} in ${git.root}: ${merged.stderr || merged.stdout}`,
+			`could not fast-forward ${base} in ${git.root}: ${merged.stderr || merged.stdout}`,
 			{ task },
 		);
 	}
@@ -169,12 +171,12 @@ export async function graft(
 	if (discarded.code !== 0) {
 		fail(
 			"usage",
-			`landed '${task}' on ${config.trunk} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor prune ${task}\` to clean up.`,
+			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor prune ${task}\` to clean up.`,
 			{ task },
 		);
 	}
 	log.info(
-		`${color.green("grafted")} ${task} onto ${config.trunk} (${head})\n  worktree removed, cd ${git.root}`,
+		`${color.green("grafted")} ${task} onto ${base} (${head})\n  worktree removed, cd ${git.root}`,
 	);
 }
 

@@ -11,6 +11,7 @@ interface Details {
 	task: string;
 	status: string;
 	branch: string;
+	base: string;
 	worktree: string;
 	lease: "live" | "cold" | "none";
 	ahead: number | null;
@@ -54,6 +55,7 @@ export async function show(
 		task: worktree.task,
 		status: worktree.status,
 		branch: worktree.branch,
+		base: worktree.base,
 		worktree: worktree.path,
 		lease: worktree.leaseStatus,
 		ahead: worktree.hasBranch ? await worktree.commitsAhead() : null,
@@ -82,6 +84,7 @@ function report(d: Details): string {
 	const lines = [
 		`${color.bold(d.task)} ${d.status}`,
 		`  branch:    ${d.branch}`,
+		`  base:      ${d.base}`,
 		`  worktree:  ${d.worktree}`,
 		`  lease:     ${d.lease}`,
 		`  ahead:     ${d.ahead === null ? "?" : d.ahead}  ${diff(d)}`,

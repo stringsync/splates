@@ -19,6 +19,7 @@ export async function create(
 		log: Logger;
 	},
 	task: string,
+	{ base = config.trunk }: { base?: string } = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(
@@ -44,14 +45,14 @@ export async function create(
 		);
 	}
 
-	const added = await store.create(task);
+	const added = await store.create(task, base);
 	if (added.code !== 0) {
 		fail("usage", `git worktree add failed: ${added.stderr}`, {
 			task,
 		});
 	}
 
-	const worktree = await (await store.find(task)).take();
+	const worktree = await (await store.find(task)).take({ base });
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
@@ -76,6 +77,6 @@ export async function create(
 	}
 
 	log.info(
-		`${color.green("created")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}`,
+		`${color.green("created")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  base:     ${base}`,
 	);
 }

@@ -1,5 +1,4 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Config } from "../config";
 import { fail } from "../exit";
 import type { WorktreeStore } from "../worktree-store";
 
@@ -11,7 +10,7 @@ import type { WorktreeStore } from "../worktree-store";
  * than a hard rebase, so this is meant to be used freely.
  */
 export async function prune(
-	{ store, config, log }: { store: WorktreeStore; config: Config; log: Logger },
+	{ store, log }: { store: WorktreeStore; log: Logger },
 	task: string,
 	{ force = false }: { force?: boolean } = {},
 ): Promise<void> {
@@ -62,7 +61,7 @@ export async function prune(
 	if (unlanded) {
 		lines.push(
 			color.yellow(
-				`  discarded ${unlanded} commit(s) that were never on ${config.trunk}`,
+				`  discarded ${unlanded} commit(s) that were never on ${worktree.base}`,
 			),
 		);
 	}

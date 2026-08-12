@@ -47,9 +47,16 @@ arbor
 		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor/<task> and a state record",
 	)
 	.arg("task", t.string(), { description: "task name (lowercase-with-dashes)" })
+	.option("base", t.string(), {
+		default: "",
+		description:
+			"branch this task starts from and grafts onto (default: trunk)",
+	})
 	.action((o, { store, shell, config, journal }) =>
 		journal.record("create", o.task, () =>
-			create({ store, shell, config, log }, o.task),
+			create({ store, shell, config, log }, o.task, {
+				base: o.base || undefined,
+			}),
 		),
 	);
 
@@ -66,7 +73,7 @@ arbor
 arbor
 	.command("graft")
 	.description(
-		"land this worktree's branch on trunk: rebase onto trunk, run tests on the rebased code, fast-forward trunk, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
+		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
 	.action(async (_o, { store, git, lock, shell, config, journal }) =>
 		journal.record("graft", await here(store, git), () =>
@@ -84,9 +91,9 @@ arbor
 		default: false,
 		description: "discard even when another agent holds the lease",
 	})
-	.action((o, { store, config, journal }) =>
+	.action((o, { store, journal }) =>
 		journal.record("prune", o.task, () =>
-			prune({ store, config, log }, o.task, { force: o.force }),
+			prune({ store, log }, o.task, { force: o.force }),
 		),
 	);
 

@@ -50,6 +50,23 @@ describe.concurrent("graft", () => {
 		expect(await d.fs.exists(d.lockPath)).toBe(false);
 	});
 
+	it("lands a --base task on its base branch and leaves trunk alone", async () => {
+		await using d = await setup();
+
+		await d.gitCli(d.root, "branch", "feature", "main");
+		const trunkBefore = await d.gitCli(d.root, "rev-parse", "main");
+		await create(d, "alpha", { base: "feature" });
+		const worktree = (await d.store.find("alpha")).path;
+		await d.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await graft(d, worktree);
+
+		expect(await d.gitCli(d.root, "log", "--oneline", "feature")).toContain(
+			"add alpha",
+		);
+		expect(await d.gitCli(d.root, "rev-parse", "main")).toBe(trunkBefore);
+	});
+
 	it("discards the landed task, so it drops out of the listing", async () => {
 		await using d = await setup();
 

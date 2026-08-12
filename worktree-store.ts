@@ -96,13 +96,9 @@ export class WorktreeStore {
 	}
 
 	/** Adds the branch and the working directory. The record comes after. */
-	async create(task: string): Promise<GitResult> {
+	async create(task: string, base = this.config.trunk): Promise<GitResult> {
 		await this.fs.mkdir(this.config.worktreeRoot);
-		return this.git.addWorktree(
-			this.branchFor(task),
-			this.pathFor(task),
-			this.config.trunk,
-		);
+		return this.git.addWorktree(this.branchFor(task), this.pathFor(task), base);
 	}
 
 	async discard(worktree: Worktree): Promise<GitResult> {

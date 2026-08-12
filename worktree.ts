@@ -20,6 +20,8 @@ export interface TaskState {
 	task: string;
 	branch: string;
 	worktree: string;
+	/** The branch this task lands on. Absent in old records: trunk. */
+	base?: string;
 	status: RecordStatus;
 	lease: LeaseState | null;
 	graftAttempts: number;
@@ -70,6 +72,11 @@ export class Worktree {
 
 	get branch(): string {
 		return this.snapshot.branch;
+	}
+
+	/** Where this task's work lands: its recorded base branch, else trunk. */
+	get base(): string {
+		return this.snapshot.state?.base ?? this.store.trunk;
 	}
 
 	get path(): string {
@@ -200,11 +207,11 @@ export class Worktree {
 	}
 
 	commitsAhead(): Promise<number | null> {
-		return this.store.git.commitsAhead(this.store.trunk, this.branch);
+		return this.store.git.commitsAhead(this.base, this.branch);
 	}
 
 	diffStat(): Promise<{ added: number; removed: number } | null> {
-		return this.store.git.diffStat(this.store.trunk, this.branch);
+		return this.store.git.diffStat(this.base, this.branch);
 	}
 
 	uncommitted(): Promise<string[]> {
