@@ -224,7 +224,8 @@ function Log({ entries }: { entries: Entry[] }): JSX.Element {
 	return (
 		<table aria-label="log" className="border-collapse">
 			<tbody>
-				{entries.map((entry) => (
+				{/* Newest first: the page is read to see what just happened. */}
+				{entries.toReversed().map((entry) => (
 					<tr key={`${entry.at}-${entry.action}-${entry.task ?? ""}`}>
 						<Cell>{age(entry.at)}</Cell>
 						<Cell>{entry.action}</Cell>
