@@ -1,8 +1,8 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { FileLock } from "@webappwiz/sys";
-import { fail } from "../exit";
-import type { Git } from "../git";
-import type { WorktreeStore } from "../worktree-store";
+import { fail } from "./exit";
+import type { Git } from "./git";
+import type { WorktreeStore } from "./worktree-store";
 
 /**
  * The way out that is not "resolve the conflict badly to finish the task".

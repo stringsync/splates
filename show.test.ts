@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "../config";
-import { Git } from "../git";
-import { Shell } from "../shell";
-import { bails, repo, testConfig } from "../testing";
-import { WorktreeStore } from "../worktree-store";
 import { add } from "./add";
+import type { Config } from "./config";
+import { Git } from "./git";
+import { Shell } from "./shell";
 import { show } from "./show";
+import { bails, repo, testConfig } from "./testing";
+import { WorktreeStore } from "./worktree-store";
 
 describe("show", () => {
 	let d: Awaited<ReturnType<typeof repo>> & {

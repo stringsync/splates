@@ -1,8 +1,8 @@
 import { color, type Logger } from "@webappwiz/log";
 import { Duration, sleep } from "@webappwiz/time";
-import { fail } from "../exit";
-import type { Worktree, WorktreeStatus } from "../worktree";
-import type { WorktreeStore } from "../worktree-store";
+import { fail } from "./exit";
+import type { Worktree, WorktreeStatus } from "./worktree";
+import type { WorktreeStore } from "./worktree-store";
 
 /** How the wait ended, once nothing is going to move on its own any more. */
 type Rest = "gone" | "escalated" | "broken";

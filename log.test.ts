@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { Exit } from "../exit";
-import { Journal } from "../journal";
-import { bails, repo } from "../testing";
+import { Exit } from "./exit";
+import { Journal } from "./journal";
 import { log } from "./log";
+import { bails, repo } from "./testing";
 
 describe("log", () => {
 	let d: Awaited<ReturnType<typeof repo>> & { journal: Journal };

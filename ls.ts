@@ -1,8 +1,8 @@
 import { color, type Logger } from "@webappwiz/log";
-import { age } from "../age";
-import { table } from "../table";
-import type { Worktree } from "../worktree";
-import type { WorktreeStore } from "../worktree-store";
+import { age } from "./age";
+import { table } from "./table";
+import type { Worktree } from "./worktree";
+import type { WorktreeStore } from "./worktree-store";
 
 interface Row {
 	task: string;

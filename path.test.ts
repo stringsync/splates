@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "../config";
-import { Git } from "../git";
-import { Shell } from "../shell";
-import { bails, repo, testConfig } from "../testing";
-import { WorktreeStore } from "../worktree-store";
 import { add } from "./add";
+import type { Config } from "./config";
+import { Git } from "./git";
 import { path } from "./path";
+import { Shell } from "./shell";
+import { bails, repo, testConfig } from "./testing";
+import { WorktreeStore } from "./worktree-store";
 
 describe("path", () => {
 	// `shell` and `config` are here for the `create` calls that arrange each

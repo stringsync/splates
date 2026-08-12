@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { color } from "@webappwiz/log";
-import type { Config } from "../config";
-import { Git } from "../git";
-import { Shell } from "../shell";
-import { repo, testConfig } from "../testing";
-import { WorktreeStore } from "../worktree-store";
 import { add } from "./add";
+import type { Config } from "./config";
+import { Git } from "./git";
 import { ls } from "./ls";
+import { Shell } from "./shell";
+import { repo, testConfig } from "./testing";
+import { WorktreeStore } from "./worktree-store";
 
 describe("ls", () => {
 	// ls needs only the store and the log; the rest arranges it with `create`.

@@ -1,9 +1,9 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Fs } from "@webappwiz/sys";
-import { age } from "../age";
-import { fail } from "../exit";
-import { checkTodo } from "../todo";
-import type { WorktreeStore } from "../worktree-store";
+import { age } from "./age";
+import { fail } from "./exit";
+import { checkTodo } from "./todo";
+import type { WorktreeStore } from "./worktree-store";
 
 const TODO = "TODO.md";
 

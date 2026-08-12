@@ -1,6 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
-import { fail } from "../exit";
-import type { WorktreeStore } from "../worktree-store";
+import { fail } from "./exit";
+import type { WorktreeStore } from "./worktree-store";
 
 /**
  * Discards a whole task: `git worktree remove` plus the branch and the

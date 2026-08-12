@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "@webappwiz/sys";
-import { Git } from "../git";
-import { Shell } from "../shell";
-import { bails, LIVE_PID, repo, testConfig } from "../testing";
-import { WorktreeStore } from "../worktree-store";
 import { add } from "./add";
+import { Git } from "./git";
 import { merge } from "./merge";
+import { Shell } from "./shell";
+import { bails, LIVE_PID, repo, testConfig } from "./testing";
+import { WorktreeStore } from "./worktree-store";
 
 /** A repo of its own per test, so merges in different tests can run at once. */
 const setup = async () => {

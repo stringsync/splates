@@ -1,6 +1,6 @@
 import type { Logger } from "@webappwiz/log";
-import { fail } from "../exit";
-import type { WorktreeStore } from "../worktree-store";
+import { fail } from "./exit";
+import type { WorktreeStore } from "./worktree-store";
 
 /**
  * Where a task lives, or (with no task) the main tree. Nothing but the path

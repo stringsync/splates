@@ -1,7 +1,7 @@
 import { color, type Logger } from "@webappwiz/log";
-import { age } from "../age";
-import type { Entry, Journal } from "../journal";
-import { table } from "../table";
+import { age } from "./age";
+import type { Entry, Journal } from "./journal";
+import { table } from "./table";
 
 /** Enough to cover a session's worth of work without scrolling. */
 export const DEFAULT_COUNT = 20;

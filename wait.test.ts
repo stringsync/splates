@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "@webappwiz/time";
-import type { Config } from "../config";
-import { Git } from "../git";
-import { Shell } from "../shell";
-import { bails, repo, testConfig } from "../testing";
-import { WorktreeStore } from "../worktree-store";
 import { add } from "./add";
+import type { Config } from "./config";
+import { Git } from "./git";
 import { rm } from "./rm";
+import { Shell } from "./shell";
+import { bails, repo, testConfig } from "./testing";
 import { wait } from "./wait";
+import { WorktreeStore } from "./worktree-store";
 
 // Fast enough that a test spends no real time waiting, slow enough that the
 // loop still goes round more than once.
