@@ -6,7 +6,7 @@ import type { WorktreeStore } from "../worktree-store";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export async function create(
+export async function add(
 	{
 		store,
 		shell,
@@ -33,7 +33,7 @@ export async function create(
 	if (found.status === "stray") {
 		fail(
 			"exists",
-			`branch ${found.branch} exists without a worktree: run \`arbor prune ${task}\` first`,
+			`branch ${found.branch} exists without a worktree: run \`arbor rm ${task}\` first`,
 			{ task, branch: found.branch },
 		);
 	}
@@ -45,7 +45,7 @@ export async function create(
 		);
 	}
 
-	const added = await store.create(task, base);
+	const added = await store.add(task, base);
 	if (added.code !== 0) {
 		fail("usage", `git worktree add failed: ${added.stderr}`, {
 			task,
@@ -77,6 +77,6 @@ export async function create(
 	}
 
 	log.info(
-		`${color.green("created")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  base:     ${base}`,
+		`${color.green("added")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  base:     ${base}`,
 	);
 }

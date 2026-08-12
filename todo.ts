@@ -9,7 +9,7 @@ const UNCHECKED = /^[ \t]*- \[ \]/m;
  * Every way a task's `TODO.md` departs from the shape the agent skill
  * prescribes, phrased for the agent that wrote it. Advisory only: a resumable
  * TODO is the point, and a malformed one still beats none, so nothing here
- * blocks a graft.
+ * blocks a merge.
  */
 export function checkTodo(
 	text: string,

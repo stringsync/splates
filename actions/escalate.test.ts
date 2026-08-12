@@ -6,7 +6,7 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { bails, repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
-import { create } from "./create";
+import { add } from "./add";
 import { escalate } from "./escalate";
 
 describe("escalate", () => {
@@ -30,7 +30,7 @@ describe("escalate", () => {
 			git,
 			store,
 			shell: new Shell(r.ps),
-			lock: new FileLock(r.fs, r.ps, r.log, join(r.arborDir, "graft.lock"), {
+			lock: new FileLock(r.fs, r.ps, r.log, join(r.arborDir, "merge.lock"), {
 				stalenessMs: config.leaseStalenessMs,
 			}),
 		};
@@ -39,7 +39,7 @@ describe("escalate", () => {
 	afterEach(() => d.cleanup());
 
 	it("records the reason, drops the lease, and leaves the tree alone", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.fs.write(join(worktree, "half-done.txt"), "work in progress\n");
 
@@ -55,7 +55,7 @@ describe("escalate", () => {
 	});
 
 	it("requires an explicit task when run outside a worktree", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 
 		const exit = await bails(escalate(d, "needs a human", d.root));
 

@@ -4,7 +4,7 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { bails, repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
-import { create } from "./create";
+import { add } from "./add";
 import { show } from "./show";
 
 describe("show", () => {
@@ -31,7 +31,7 @@ describe("show", () => {
 	afterEach(() => d.cleanup());
 
 	it("reports a task and prints the TODO.md left in its worktree", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const alpha = (await d.store.find("alpha")).path;
 		await d.fs.write(
 			`${alpha}/TODO.md`,
@@ -47,7 +47,7 @@ describe("show", () => {
 	});
 
 	it("says how a TODO.md departs from the shape the skill prescribes", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const alpha = (await d.store.find("alpha")).path;
 		await d.fs.write(
 			`${alpha}/TODO.md`,
@@ -62,7 +62,7 @@ describe("show", () => {
 	});
 
 	it("says the TODO.md is missing rather than staying silent", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		d.log.clear();
 
 		await show(d, "alpha");
@@ -71,7 +71,7 @@ describe("show", () => {
 	});
 
 	it("carries the task's fields and its TODO.md as JSON", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const alpha = (await d.store.find("alpha")).path;
 		await d.fs.write(`${alpha}/TODO.md`, "# alpha\n");
 		d.log.clear();
@@ -92,7 +92,7 @@ describe("show", () => {
 	});
 
 	it("still describes a task whose worktree is gone", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		await d.fs.rm((await d.store.find("alpha")).path, {
 			recursive: true,
 			force: true,

@@ -10,27 +10,27 @@ export async function claim(
 	const found = await store.find(task);
 
 	if (found.gone) {
-		fail("not_found", `no task '${task}': run \`arbor create ${task}\``, {
+		fail("not_found", `no task '${task}': run \`arbor add ${task}\``, {
 			task,
 		});
 	}
 	if (found.status === "orphaned") {
 		fail(
 			"orphaned",
-			`state file for '${task}' has no worktree at ${found.path}: run \`arbor prune ${task}\``,
+			`state file for '${task}' has no worktree at ${found.path}: run \`arbor rm ${task}\``,
 			{ task, worktree: found.path },
 		);
 	}
 	if (found.status === "stray") {
 		fail(
 			"orphaned",
-			`branch ${found.branch} exists but has no worktree: run \`arbor prune ${task}\` and start over`,
+			`branch ${found.branch} exists but has no worktree: run \`arbor rm ${task}\` and start over`,
 			{ task, branch: found.branch },
 		);
 	}
-	if (found.leaseHeld) {
+	if (found.leaseHeldByOther) {
 		fail(
-			"lease_live",
+			"lease_held",
 			`'${task}' is held by pid ${found.lease?.pid} on ${found.lease?.hostname} (heartbeat ${found.lease?.heartbeatAt}): another agent is driving this tree`,
 			{ task, lease: found.lease },
 		);
@@ -48,7 +48,7 @@ export async function claim(
 		`  worktree: ${worktree.path}`,
 		`  branch:   ${worktree.branch}`,
 		`  status:   ${worktree.status}`,
-		`  attempts: ${worktree.graftAttempts}`,
+		`  attempts: ${worktree.mergeAttempts}`,
 	];
 	if (rebuilt) {
 		lines.push(`  ${color.yellow("note: state file rebuilt from disk")}`);
@@ -56,7 +56,7 @@ export async function claim(
 	if (interrupted.length > 0) {
 		lines.push(
 			`  ${color.red(`interrupted git operation: ${interrupted.join(", ")}`)}`,
-			"  resolve it before grafting: you are standing in a half-finished operation",
+			"  resolve it before merging: you are standing in a half-finished operation",
 		);
 	}
 	lines.push(

@@ -5,9 +5,9 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { bails, repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
-import { create } from "./create";
+import { add } from "./add";
 
-describe("create", () => {
+describe("add", () => {
 	let d: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		store: WorktreeStore;
@@ -31,14 +31,14 @@ describe("create", () => {
 	afterEach(() => d.cleanup());
 
 	it("makes a worktree, a branch and a record", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 
 		const state = (await d.store.find("alpha")).state;
 		expect(state).toMatchObject({
 			task: "alpha",
 			branch: "task/alpha",
 			status: "working",
-			graftAttempts: 0,
+			mergeAttempts: 0,
 		});
 		expect(await d.fs.exists(join(state?.worktree ?? "", "README.md"))).toBe(
 			true,
@@ -51,13 +51,13 @@ describe("create", () => {
 				"HEAD",
 			),
 		).toBe("task/alpha");
-		expect(d.out()).toContain("created alpha");
+		expect(d.out()).toContain("added alpha");
 	});
 
 	it("refuses a name that is already taken and points at claim", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 
-		const exit = await bails(create(d, "alpha"));
+		const exit = await bails(add(d, "alpha"));
 
 		expect(exit.reason).toBe("exists");
 		expect(exit.message).toContain("arbor claim alpha");
@@ -65,14 +65,14 @@ describe("create", () => {
 
 	it("rejects names that are not legal branch or directory names", async () => {
 		for (const name of ["Alpha", "a b", "feature/x", "-alpha", ""]) {
-			expect((await bails(create(d, name))).reason).toBe("usage");
+			expect((await bails(add(d, name))).reason).toBe("usage");
 		}
 	});
 
 	it("reports a failed postCreate hook but keeps the worktree", async () => {
 		d.config = testConfig(d.root, { postCreate: "exit 3" });
 
-		const exit = await bails(create(d, "alpha"));
+		const exit = await bails(add(d, "alpha"));
 
 		expect(exit.reason).toBe("hook_failed");
 		const state = (await d.store.find("alpha")).state;
@@ -80,7 +80,7 @@ describe("create", () => {
 	});
 
 	it("refuses with a reason, a message and the data behind it", async () => {
-		const exit = await bails(create(d, "Alpha"));
+		const exit = await bails(add(d, "Alpha"));
 
 		expect(exit.reason).toBe("usage");
 		expect(exit.message).toContain("invalid task name 'Alpha'");

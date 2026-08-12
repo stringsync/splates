@@ -7,13 +7,13 @@ import { type TaskState, Worktree } from "./worktree";
 const BRANCH_PREFIX = "task/";
 
 /**
- * Where workstreams live and everything persistent about them: the worktree
+ * Where tasks live and everything persistent about them: the worktree
  * directories, the records under `.git/arbor/tasks`, and the names of tasks
- * already pruned. One name, one lookup, whatever state it turns out to be in.
+ * already removed. One name, one lookup, whatever state it turns out to be in.
  */
 export class WorktreeStore {
 	private readonly tasksDir: string;
-	private readonly prunedDir: string;
+	private readonly removedDir: string;
 
 	constructor(
 		private readonly fs: Fs,
@@ -23,12 +23,12 @@ export class WorktreeStore {
 		arborDir: string,
 	) {
 		this.tasksDir = `${arborDir}/tasks`;
-		this.prunedDir = `${arborDir}/pruned`;
+		this.removedDir = `${arborDir}/removed`;
 	}
 
 	async init(): Promise<void> {
 		await this.fs.mkdir(this.tasksDir);
-		await this.fs.mkdir(this.prunedDir);
+		await this.fs.mkdir(this.removedDir);
 	}
 
 	get trunk(): string {
@@ -75,10 +75,10 @@ export class WorktreeStore {
 			hasBranch,
 			corrupt,
 			// Only worth asking when there is nothing else left of the task.
-			prunedAt:
+			removedAt:
 				state || exists || hasBranch || corrupt
 					? null
-					: await this.prunedAt(task),
+					: await this.removedAt(task),
 		});
 	}
 
@@ -96,7 +96,7 @@ export class WorktreeStore {
 	}
 
 	/** Adds the branch and the working directory. The record comes after. */
-	async create(task: string, base = this.config.trunk): Promise<GitResult> {
+	async add(task: string, base = this.config.trunk): Promise<GitResult> {
 		await this.fs.mkdir(this.config.worktreeRoot);
 		return this.git.addWorktree(this.branchFor(task), this.pathFor(task), base);
 	}
@@ -116,7 +116,7 @@ export class WorktreeStore {
 			}
 		}
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
-		await this.rememberPruned(worktree.task);
+		await this.rememberRemoved(worktree.task);
 		return removed;
 	}
 
@@ -135,28 +135,28 @@ export class WorktreeStore {
 		return raw === null ? null : (JSON.parse(raw) as TaskState);
 	}
 
-	private prunedPath(task: string): string {
-		return `${this.prunedDir}/${task}`;
+	private removedPath(task: string): string {
+		return `${this.removedDir}/${task}`;
 	}
 
-	private async prunedAt(task: string): Promise<string | null> {
-		const raw = await this.fs.read(this.prunedPath(task)).catch(() => null);
+	private async removedAt(task: string): Promise<string | null> {
+		const raw = await this.fs.read(this.removedPath(task)).catch(() => null);
 		return raw?.trim() ?? null;
 	}
 
 	/**
-	 * Remembers a pruned name so a second `prune` can say "already pruned"
+	 * Remembers a removed name so a second `rm` can say "already removed"
 	 * instead of "never existed", then drops the oldest so the list of
 	 * remembered names cannot grow without bound.
 	 */
-	private async rememberPruned(
+	private async rememberRemoved(
 		task: string,
 		at = new Date().toISOString(),
 	): Promise<void> {
-		const { pruneStorageCapacity } = this.config;
-		await this.fs.write(this.prunedPath(task), `${at}\n`);
-		const names = await this.fs.readdir(this.prunedDir).catch(() => []);
-		if (names.length <= pruneStorageCapacity) {
+		const { removedCapacity } = this.config;
+		await this.fs.write(this.removedPath(task), `${at}\n`);
+		const names = await this.fs.readdir(this.removedDir).catch(() => []);
+		if (names.length <= removedCapacity) {
 			return;
 		}
 		// Each file holds the ISO timestamp it was written with, which sorts
@@ -164,15 +164,12 @@ export class WorktreeStore {
 		const dated = await Promise.all(
 			names.map(async (name) => ({
 				name,
-				at: (await this.prunedAt(name)) ?? "",
+				at: (await this.removedAt(name)) ?? "",
 			})),
 		);
 		dated.sort((a, b) => a.at.localeCompare(b.at));
-		for (const { name } of dated.slice(
-			0,
-			names.length - pruneStorageCapacity,
-		)) {
-			await this.fs.rm(this.prunedPath(name), { force: true });
+		for (const { name } of dated.slice(0, names.length - removedCapacity)) {
+			await this.fs.rm(this.removedPath(name), { force: true });
 		}
 	}
 }

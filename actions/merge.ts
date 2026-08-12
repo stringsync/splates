@@ -11,11 +11,11 @@ const TAIL_LINES = 40;
 
 /**
  * Lands the current worktree's branch on its base branch, trunk unless the
- * task was created with `--base`. Despite the name this never runs `git merge`
- * in the merge-commit sense: it rebases onto the base, runs the tests there,
- * and fast-forwards the base. History stays linear.
+ * task was created with `--base`. Never a merge commit: it rebases onto the
+ * base, runs the tests there, and fast-forwards the base with
+ * `git merge --ff-only`. History stays linear.
  */
-export async function graft(
+export async function merge(
 	{
 		store,
 		git,
@@ -38,7 +38,7 @@ export async function graft(
 	if (!task) {
 		fail(
 			"not_found",
-			`not in a task worktree (branch '${branch}'): run graft from a worktree made by \`arbor create\``,
+			`not in a task worktree (branch '${branch}'): run merge from a worktree made by \`arbor add\``,
 			{ branch },
 		);
 	}
@@ -56,20 +56,20 @@ export async function graft(
 	if (dirty.length > 0) {
 		fail(
 			"dirty",
-			`'${task}' has uncommitted changes: commit them before grafting`,
+			`'${task}' has uncommitted changes: commit them before merging`,
 			{ task, paths: dirty },
 		);
 	}
-	if (worktree.graftAttempts >= config.graftRetryCount) {
+	if (worktree.mergeAttempts >= config.mergeRetryCount) {
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.graftRetryCount} graft attempts: run \`arbor escalate <reason>\` or \`arbor prune ${task}\` and start over against current ${base}`,
-			{ task, graftAttempts: worktree.graftAttempts },
+			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\` or \`arbor rm ${task}\` and start over against current ${base}`,
+			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}
-	if (worktree.leaseHeld) {
+	if (worktree.leaseHeldByOther) {
 		fail(
-			"lease_live",
+			"lease_held",
 			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: another agent is driving this tree`,
 			{ task, lease: worktree.lease },
 		);
@@ -79,7 +79,7 @@ export async function graft(
 	// Blocks until free: an agent told "busy, try later" goes and edits code in
 	// a branch that is supposed to be frozen.
 	await lock.acquire();
-	worktree = await worktree.take({ status: "grafting" });
+	worktree = await worktree.take({ status: "merging" });
 
 	const before = await git.head(worktree.path);
 	const rebase = await git.rebase(worktree.path, base);
@@ -95,9 +95,9 @@ export async function graft(
 				...paths.map((p) => `  ${p}`),
 				"",
 				"The rebase is still in progress. Resolve the conflicts, `git add` them,",
-				"`git rebase --continue`, then run `arbor graft` again.",
+				"`git rebase --continue`, then run `arbor merge` again.",
 				"If both sides restructured the same logic, prefer `arbor escalate <reason>`",
-				`or \`arbor prune ${task}\` and redo the task against current ${base}.`,
+				`or \`arbor rm ${task}\` and redo the task against current ${base}.`,
 			].join("\n"),
 			{ task, paths },
 		);
@@ -140,7 +140,7 @@ export async function graft(
 		await lock.release();
 		fail(
 			"lease_lost",
-			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the graft, stopping without landing. Do not retry; another agent owns this tree.`,
+			`the lease on '${task}' was taken by pid ${current.lease?.pid} during the merge, stopping without landing. Do not retry; another agent owns this tree.`,
 			{ task, lease: current.lease },
 		);
 	}
@@ -162,7 +162,7 @@ export async function graft(
 	// here is what keeps `arbor ls` a list of live work rather than a graveyard
 	// of landed tasks.
 	//
-	// Step out of it first: graft usually runs from inside the tree it is about
+	// Step out of it first: merge usually runs from inside the tree it is about
 	// to delete, and spawning git from a directory that no longer exists fails
 	// with ENOENT before git is even reached.
 	store.ps.cd(git.root);
@@ -171,19 +171,19 @@ export async function graft(
 	if (discarded.code !== 0) {
 		fail(
 			"usage",
-			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor prune ${task}\` to clean up.`,
+			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor rm ${task}\` to clean up.`,
 			{ task },
 		);
 	}
 	log.info(
-		`${color.green("grafted")} ${task} onto ${base} (${head})\n  worktree removed, cd ${git.root}`,
+		`${color.green("merged")} ${task} onto ${base} (${head})\n  worktree removed, cd ${git.root}`,
 	);
 }
 
 async function bump(worktree: Worktree): Promise<void> {
 	await worktree.take({
 		status: "working",
-		graftAttempts: worktree.graftAttempts + 1,
+		mergeAttempts: worktree.mergeAttempts + 1,
 	});
 }
 

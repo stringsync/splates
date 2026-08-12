@@ -4,7 +4,7 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { bails, repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
-import { create } from "./create";
+import { add } from "./add";
 import { path } from "./path";
 
 describe("path", () => {
@@ -40,7 +40,7 @@ describe("path", () => {
 	});
 
 	it("prints a task's worktree, and refuses one that is not there", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		d.log.clear();
 

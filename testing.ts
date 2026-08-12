@@ -32,14 +32,14 @@ export function testConfig(
 	overrides: Partial<Config> = {},
 ): Config {
 	return {
-		// Keeps graft's test gate green unless a test asks otherwise.
+		// Keeps merge's test gate green unless a test asks otherwise.
 		testCommand: "true",
 		trunk: "main",
 		worktreeRoot: `${root}-arbor`,
 		postCreate: null,
 		leaseStalenessMs: 90_000,
-		pruneStorageCapacity: 50,
-		graftRetryCount: 2,
+		removedCapacity: 50,
+		mergeRetryCount: 2,
 		logCapacity: 200,
 		...overrides,
 	};

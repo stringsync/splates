@@ -8,14 +8,14 @@ import type { WorktreeStore } from "../worktree-store";
 type Rest = "gone" | "escalated" | "broken";
 
 export const DEFAULT_TIMEOUT = Duration.mins(30);
-/** Same interval the graft lock polls on: cheap enough, quick enough. */
+/** Same interval the merge lock polls on: cheap enough, quick enough. */
 const POLL = Duration.secs(2);
 
 /**
- * Blocks until a task stops moving: it lands or is pruned, it escalates, or it
+ * Blocks until a task stops moving: it lands or is removed, it escalates, or it
  * falls apart. This is what an agent does instead of starting work that
  * overlaps a task already in flight: the overlap disappears when that task
- * grafts, and starting now buys a rebase conflict instead.
+ * merges, and starting now buys a rebase conflict instead.
  *
  * Giving up is a refusal (`timed_out`), because a task still working after the
  * whole budget is a question for a human, not a result.
@@ -34,7 +34,7 @@ export async function wait(
 
 	let worktree = await store.find(task);
 	// A name that was never here will never rest, so say so now rather than
-	// spending the budget on it. A pruned one, by contrast, has already rested.
+	// spending the budget on it. A removed one, by contrast, has already rested.
 	if (worktree.status === "absent") {
 		fail(
 			"not_found",
@@ -46,7 +46,7 @@ export async function wait(
 	}
 
 	// Discarding a task removes its directory before its record, so a tree being
-	// grafted or pruned reads as `orphaned` in between. A broken status is only
+	// merged or removed reads as `orphaned` in between. A broken status is only
 	// believed once it survives a poll: anything that resolves faster than the
 	// interval was someone else's landing, not a broken tree.
 	let previous: WorktreeStatus | null = null;
@@ -91,11 +91,11 @@ export async function wait(
 function restOf(worktree: Worktree): Rest | null {
 	switch (worktree.status) {
 		case "working":
-		case "grafting":
+		case "merging":
 			return null;
 		case "escalated":
 			return "escalated";
-		case "pruned":
+		case "removed":
 		case "absent":
 			return "gone";
 		// orphaned, stray, unrecorded, unknown: nothing left to drive it.
@@ -112,7 +112,7 @@ function report(worktree: Worktree, rest: Rest, waited: Duration): string {
 	const { task, status } = worktree;
 	const took = `(waited ${waited.human()})`;
 	if (rest === "gone") {
-		return `${color.green("gone")} ${task}: grafted or pruned, nothing of it is left ${took}`;
+		return `${color.green("gone")} ${task}: merged or removed, nothing of it is left ${took}`;
 	}
 	if (rest === "escalated") {
 		return [

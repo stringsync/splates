@@ -1,7 +1,7 @@
 import type { Fs } from "@webappwiz/sys";
 import { Exit } from "./exit";
 
-/** One thing that was done to a workstream, and how it went. */
+/** One thing that was done to a task, and how it went. */
 export interface Entry {
 	at: string;
 	action: string;
@@ -13,7 +13,7 @@ export interface Entry {
 
 /**
  * What has been done in this repo, oldest first. Entries outlive their tasks:
- * `graft` and `prune` take the record with them, so this is the only thing that
+ * `merge` and `rm` take the record with them, so this is the only thing that
  * remembers a task existed at all.
  */
 export class Journal {

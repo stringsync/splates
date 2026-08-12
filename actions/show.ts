@@ -13,7 +13,7 @@ interface Details {
 	branch: string;
 	base: string;
 	worktree: string;
-	lease: "live" | "cold" | "none";
+	lease: "held" | "stale" | "none";
 	ahead: number | null;
 	added: number | null;
 	removed: number | null;
@@ -25,7 +25,7 @@ interface Details {
 }
 
 /**
- * One workstream in full: what `ls` shows for it, plus the `TODO.md` its agent
+ * One task in full: what `ls` shows for it, plus the `TODO.md` its agent
  * left at the worktree root. Reading a tree this way takes no lease, so it
  * cannot knock the agent driving it off its own work.
  */

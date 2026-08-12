@@ -22,7 +22,7 @@ describe("log", () => {
 	it("records how each command ended, refusals included", async () => {
 		await d.journal.record("create", "alpha", async () => {});
 		await bails(
-			d.journal.record("graft", "alpha", () =>
+			d.journal.record("merge", "alpha", () =>
 				Promise.reject(new Exit("tests_failed", "nope")),
 			),
 		);
@@ -39,7 +39,7 @@ describe("log", () => {
 		d.log.clear();
 		await log(d, { count: 1, json: true });
 		expect(JSON.parse(d.out())).toMatchObject([
-			{ action: "graft", task: "alpha", reason: "tests_failed" },
+			{ action: "merge", task: "alpha", reason: "tests_failed" },
 		]);
 	});
 

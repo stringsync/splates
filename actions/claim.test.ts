@@ -4,8 +4,8 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { bails, LIVE_PID, repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
+import { add } from "./add";
 import { claim } from "./claim";
-import { create } from "./create";
 
 describe("claim", () => {
 	// `shell` and `config` are here for the `create` calls that arrange each
@@ -33,7 +33,7 @@ describe("claim", () => {
 	afterEach(() => d.cleanup());
 
 	it("refuses a live lease and takes a cold one", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		await (await d.store.find("alpha")).save({
 			lease: {
 				pid: LIVE_PID,
@@ -43,7 +43,7 @@ describe("claim", () => {
 		});
 
 		const exit = await bails(claim(d, "alpha"));
-		expect(exit.reason).toBe("lease_live");
+		expect(exit.reason).toBe("lease_held");
 
 		// The same lease, gone cold because the heartbeat aged out.
 		await (await d.store.find("alpha")).save({
@@ -60,7 +60,7 @@ describe("claim", () => {
 	});
 
 	it("rebuilds a missing record and reports an interrupted rebase", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 
 		await d.commit(d.root, "README.md", "trunk side\n", "trunk");
@@ -78,13 +78,13 @@ describe("claim", () => {
 	});
 
 	it("reports a record whose worktree is gone as orphaned", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		const worktree = (await d.store.find("alpha")).path;
 		await d.fs.rm(worktree, { recursive: true, force: true });
 
 		const exit = await bails(claim(d, "alpha"));
 
 		expect(exit.reason).toBe("orphaned");
-		expect(exit.message).toContain("arbor prune alpha");
+		expect(exit.message).toContain("arbor rm alpha");
 	});
 });

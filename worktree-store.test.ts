@@ -68,8 +68,8 @@ describe("WorktreeStore", () => {
 			worktreeRoot: "/repo-arbor",
 			postCreate: null,
 			leaseStalenessMs: 90_000,
-			graftRetryCount: 2,
-			pruneStorageCapacity: 50,
+			mergeRetryCount: 2,
+			removedCapacity: 50,
 			logCapacity: 200,
 		};
 	});
@@ -96,15 +96,15 @@ describe("WorktreeStore", () => {
 		const fs = new CrashingFs();
 		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
 		const saved = await (await worktrees.find("alpha")).save({
-			graftAttempts: 1,
+			mergeAttempts: 1,
 		});
 
 		fs.crash = true;
-		await expect(saved.save({ graftAttempts: 2 })).rejects.toThrow("boom");
+		await expect(saved.save({ mergeAttempts: 2 })).rejects.toThrow("boom");
 
 		// The truncated bytes went to the temp path; the record itself never moved.
 		expect((await worktrees.find("alpha")).state).toMatchObject({
-			graftAttempts: 1,
+			mergeAttempts: 1,
 		});
 	});
 
@@ -118,21 +118,21 @@ describe("WorktreeStore", () => {
 		expect((await worktrees.find("missing")).status).toBe("absent");
 	});
 
-	it("drops the oldest pruned names when the memory is full", async () => {
+	it("drops the oldest removed names when the memory is full", async () => {
 		const fs = new FakeFs();
-		config.pruneStorageCapacity = 2;
+		config.removedCapacity = 2;
 		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
-		const pruned = `${ARBOR_DIR}/pruned`;
+		const removed = `${ARBOR_DIR}/removed`;
 		await worktrees.init();
 
 		// Seeded with distinct timestamps, since four discards in the same
 		// millisecond would have nothing to order them by.
 		for (const [i, task] of ["oldest", "middle", "newest"].entries()) {
-			await fs.write(`${pruned}/${task}`, `2026-0${i + 1}-01T00:00:00.000Z\n`);
+			await fs.write(`${removed}/${task}`, `2026-0${i + 1}-01T00:00:00.000Z\n`);
 		}
 
 		await worktrees.discard(await worktrees.find("alpha"));
 
-		expect((await fs.readdir(pruned)).sort()).toEqual(["alpha", "newest"]);
+		expect((await fs.readdir(removed)).sort()).toEqual(["alpha", "newest"]);
 	});
 });

@@ -11,14 +11,14 @@ export const EXIT = {
 	tests_failed: 3,
 	lease_lost: 4,
 	budget_exhausted: 5,
-	lease_live: 6,
+	lease_held: 6,
 	dirty: 7,
 	not_found: 8,
 	hook_failed: 9,
 	exists: 10,
 	orphaned: 11,
 	merge_failed: 12,
-	already_pruned: 13,
+	already_removed: 13,
 	timed_out: 14,
 } as const;
 

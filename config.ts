@@ -2,27 +2,27 @@ import { basename, resolve } from "node:path";
 import type { Fs } from "@webappwiz/sys";
 
 export interface Config {
-	/** What `graft` runs after rebasing, via `sh -c`. */
+	/** What `merge` runs after rebasing, via `sh -c`. */
 	testCommand: string;
 	/**
-	 * The integration branch name. `graft` rebases a task onto this branch and
+	 * The integration branch name. `merge` rebases a task onto this branch and
 	 * then fast-forwards it to the result; new worktrees start from it.
 	 */
 	trunk: string;
 	/** Directory holding one worktree per task, a sibling of the repo. */
 	worktreeRoot: string;
-	/** Command run by `create` in the new worktree, via `sh -c`. */
+	/** Command run by `add` in the new worktree, via `sh -c`. */
 	postCreate: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
-	/** Failed `graft` attempts a task gets before it must escalate or be pruned. */
-	graftRetryCount: number;
+	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
+	mergeRetryCount: number;
 	/**
-	 * How many pruned task names to keep, so `prune` can say "already pruned"
+	 * How many removed task names to keep, so `rm` can say "already removed"
 	 * rather than "never existed". A flat cap with no age policy: losing the
 	 * oldest costs a nicer message and nothing else.
 	 */
-	pruneStorageCapacity: number;
+	removedCapacity: number;
 	/** How many entries `arbor log` keeps before the oldest fall off. */
 	logCapacity: number;
 }
@@ -38,8 +38,8 @@ async function defaults(fs: Fs, root: string): Promise<Config> {
 		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor`),
 		postCreate: null,
 		leaseStalenessMs: 90_000,
-		graftRetryCount: 2,
-		pruneStorageCapacity: 50,
+		mergeRetryCount: 2,
+		removedCapacity: 50,
 		logCapacity: 200,
 	};
 }

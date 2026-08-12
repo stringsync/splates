@@ -5,7 +5,7 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
-import { create } from "./create";
+import { add } from "./add";
 import { ls } from "./ls";
 
 describe("ls", () => {
@@ -33,8 +33,8 @@ describe("ls", () => {
 	afterEach(() => d.cleanup());
 
 	it("lists tasks, survives a corrupt record, and flags orphans", async () => {
-		await create(d, "alpha");
-		await create(d, "beta");
+		await add(d, "alpha");
+		await add(d, "beta");
 		await d.fs.write(d.store.recordPath("broken"), "{not json");
 		const beta = (await d.store.find("beta")).path;
 		await d.fs.rm(beta, { recursive: true, force: true });
@@ -59,6 +59,6 @@ describe("ls", () => {
 	it("says so plainly when there is nothing to list", async () => {
 		await ls(d);
 
-		expect(d.out()).toContain("no workstreams");
+		expect(d.out()).toContain("no tasks");
 	});
 });

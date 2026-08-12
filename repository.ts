@@ -57,7 +57,7 @@ export function repository<C extends object>(
 			config,
 			git,
 			store,
-			lock: new FileLock(fs, ps, log, `${arborDir}/graft.lock`, {
+			lock: new FileLock(fs, ps, log, `${arborDir}/merge.lock`, {
 				stalenessMs: config.leaseStalenessMs,
 			}),
 			shell: new Shell(ps),

@@ -4,14 +4,14 @@ import { ConsoleLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { t } from "@webappwiz/t";
 import { Duration } from "@webappwiz/time";
+import { add } from "./actions/add";
 import { claim } from "./actions/claim";
-import { create } from "./actions/create";
 import { escalate } from "./actions/escalate";
-import { graft } from "./actions/graft";
 import { DEFAULT_COUNT, log as showLog } from "./actions/log";
 import { ls } from "./actions/ls";
+import { merge } from "./actions/merge";
 import { path } from "./actions/path";
-import { prune } from "./actions/prune";
+import { rm } from "./actions/rm";
 import { show } from "./actions/show";
 import { DEFAULT_TIMEOUT, wait } from "./actions/wait";
 import { exits } from "./exit";
@@ -30,7 +30,7 @@ const ps = new NodePs();
 
 /**
  * Which task a command that takes no task name is about, so the journal can
- * name it. `graft` and `escalate` read it off the current branch.
+ * name it. `merge` and `escalate` read it off the current branch.
  */
 const here = async (store: WorktreeStore, git: Git): Promise<string | null> =>
 	store.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
@@ -42,7 +42,7 @@ const arbor = cli("arbor", log)
 	.use(repository(fs, ps, log));
 
 arbor
-	.command("create")
+	.command("add")
 	.description(
 		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor/<task> and a state record",
 	)
@@ -50,11 +50,11 @@ arbor
 	.option("base", t.string(), {
 		default: "",
 		description:
-			"branch this task starts from and grafts onto (default: trunk)",
+			"branch this task starts from and merges onto (default: trunk)",
 	})
 	.action((o, { store, shell, config, journal }) =>
-		journal.record("create", o.task, () =>
-			create({ store, shell, config, log }, o.task, {
+		journal.record("add", o.task, () =>
+			add({ store, shell, config, log }, o.task, {
 				base: o.base || undefined,
 			}),
 		),
@@ -63,7 +63,7 @@ arbor
 arbor
 	.command("claim")
 	.description(
-		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds a live lease",
+		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.action((o, { store, journal }) =>
@@ -71,18 +71,18 @@ arbor
 	);
 
 arbor
-	.command("graft")
+	.command("merge")
 	.description(
 		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
 	.action(async (_o, { store, git, lock, shell, config, journal }) =>
-		journal.record("graft", await here(store, git), () =>
-			graft({ store, git, lock, shell, config, log }, ps.cwd()),
+		journal.record("merge", await here(store, git), () =>
+			merge({ store, git, lock, shell, config, log }, ps.cwd()),
 		),
 	);
 
 arbor
-	.command("prune")
+	.command("rm")
 	.description(
 		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
@@ -92,15 +92,15 @@ arbor
 		description: "discard even when another agent holds the lease",
 	})
 	.action((o, { store, journal }) =>
-		journal.record("prune", o.task, () =>
-			prune({ store, log }, o.task, { force: o.force }),
+		journal.record("rm", o.task, () =>
+			rm({ store, log }, o.task, { force: o.force }),
 		),
 	);
 
 arbor
 	.command("ls")
 	.description(
-		"list every workstream: task, status, lease (live/cold/none), commits ahead of trunk, age",
+		"list every task: name, status, lease (held/stale/none), commits ahead of trunk, age",
 	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((o, { store }) => ls({ store, log }, { json: o.json }));
@@ -117,7 +117,7 @@ arbor
 arbor
 	.command("wait")
 	.description(
-		"block until a task stops moving (it grafts or is pruned, escalates, or falls apart), so work that would overlap it starts against the result instead of racing it; refuses with `timed_out` if it is still going after --timeout, which is your cue to ask a human",
+		"block until a task stops moving (it merges or is removed, escalates, or falls apart), so work that would overlap it starts against the result instead of racing it; refuses with `timed_out` if it is still going after --timeout, which is your cue to ask a human",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("timeout", t.number(), {
@@ -135,7 +135,7 @@ arbor
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per create, claim, graft, prune and escalate, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, rm and escalate, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", t.number(), {
 		default: DEFAULT_COUNT,

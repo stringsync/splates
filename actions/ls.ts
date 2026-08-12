@@ -7,7 +7,7 @@ import type { WorktreeStore } from "../worktree-store";
 interface Row {
 	task: string;
 	status: string;
-	lease: "live" | "cold" | "none";
+	lease: "held" | "stale" | "none";
 	ahead: number | null;
 	added: number | null;
 	removed: number | null;
@@ -29,7 +29,7 @@ export async function ls(
 		return;
 	}
 	if (rows.length === 0) {
-		log.info("no workstreams: run `arbor create <task>` to start one");
+		log.info("no tasks: run `arbor add <task>` to start one");
 		return;
 	}
 	log.info(listing(rows));
@@ -76,7 +76,7 @@ function listing(rows: Row[]): string {
 		out.push(
 			"",
 			color.yellow(
-				`${orphaned.length} orphaned record(s): run \`arbor prune ${orphaned[0]?.task}\``,
+				`${orphaned.length} orphaned record(s): run \`arbor rm ${orphaned[0]?.task}\``,
 			),
 		);
 	}

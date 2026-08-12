@@ -43,13 +43,13 @@ describe("loadConfig", () => {
 	it("overrides only the defaults arbor.config.ts names", async () => {
 		await fs.write(
 			join(root, "arbor.config.ts"),
-			`export default { trunk: "trunk", graftRetryCount: 7 };\n`,
+			`export default { trunk: "trunk", mergeRetryCount: 7 };\n`,
 		);
 
 		const config = await loadConfig(fs, root);
 
 		expect(config.trunk).toBe("trunk");
-		expect(config.graftRetryCount).toBe(7);
+		expect(config.mergeRetryCount).toBe(7);
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 });

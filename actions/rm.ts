@@ -3,13 +3,13 @@ import { fail } from "../exit";
 import type { WorktreeStore } from "../worktree-store";
 
 /**
- * Discards a whole workstream: worktree, branch and record. Unrelated to
- * `git worktree prune`, which only tidies stale metadata.
+ * Discards a whole task: `git worktree remove` plus the branch and the
+ * record.
  *
  * Throwing a task away and redoing it against current trunk is usually cheaper
  * than a hard rebase, so this is meant to be used freely.
  */
-export async function prune(
+export async function rm(
 	{ store, log }: { store: WorktreeStore; log: Logger },
 	task: string,
 	{ force = false }: { force?: boolean } = {},
@@ -17,20 +17,20 @@ export async function prune(
 	const worktree = await store.find(task);
 
 	if (worktree.gone) {
-		const pruned = worktree.status === "pruned";
+		const removed = worktree.status === "removed";
 		fail(
-			pruned ? "already_pruned" : "not_found",
-			pruned
-				? `'${task}' was already pruned (${worktree.prunedAt}), nothing left to remove`
+			removed ? "already_removed" : "not_found",
+			removed
+				? `'${task}' was already removed (${worktree.removedAt}), nothing left to remove`
 				: `no worktree, branch or state file named '${task}', so it never existed here`,
 			{ task },
 		);
 	}
 
-	if (worktree.leaseHeld) {
+	if (worktree.leaseHeldByOther) {
 		if (!force) {
 			fail(
-				"lease_live",
+				"lease_held",
 				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: pass --force to discard it anyway`,
 				{ task, lease: worktree.lease },
 			);
@@ -53,7 +53,7 @@ export async function prune(
 	}
 
 	const lines = [
-		`${color.green("pruned")} ${task}`,
+		`${color.green("removed")} ${task}`,
 		`  worktree: ${worktree.exists ? worktree.path : "already gone"}`,
 		`  branch:   ${worktree.hasBranch ? worktree.branch : "already gone"}`,
 		`  state:    ${worktree.state ? "removed" : "already gone"}`,

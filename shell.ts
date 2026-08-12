@@ -13,7 +13,7 @@ export type ShellOptions = SpawnOptions & { cwd: string };
  * shell strings rather than argv, since that is how a repo writes them.
  */
 export class Shell {
-	// This is the whole of what `graft` and `create` are allowed to do to the
+	// This is the whole of what `merge` and `add` are allowed to do to the
 	// process. Handing them a `Ps` instead would hand them `exit` and `cd` too.
 	constructor(private readonly ps: Ps) {}
 

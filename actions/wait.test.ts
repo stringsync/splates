@@ -5,8 +5,8 @@ import { Git } from "../git";
 import { Shell } from "../shell";
 import { bails, repo, testConfig } from "../testing";
 import { WorktreeStore } from "../worktree-store";
-import { create } from "./create";
-import { prune } from "./prune";
+import { add } from "./add";
+import { rm } from "./rm";
 import { wait } from "./wait";
 
 // Fast enough that a test spends no real time waiting, slow enough that the
@@ -38,7 +38,7 @@ describe("wait", () => {
 	afterEach(() => d.cleanup());
 
 	it("notices a change made while it is polling", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		d.log.clear();
 
 		const waiting = wait(d, "alpha", { poll, timeout });
@@ -50,8 +50,8 @@ describe("wait", () => {
 	});
 
 	it("keeps waiting through the orphaned moment a discard passes through", async () => {
-		await create(d, "alpha");
-		// What another agent's graft looks like halfway through: directory gone,
+		await add(d, "alpha");
+		// What another agent's merge looks like halfway through: directory gone,
 		// record still there.
 		await d.fs.rm((await d.store.find("alpha")).path, {
 			recursive: true,
@@ -62,7 +62,7 @@ describe("wait", () => {
 		// Long enough that the whole discard lands between two polls, which is the
 		// case the confirmation exists for.
 		const waiting = wait(d, "alpha", { poll: Duration.ms(500), timeout });
-		await prune(d, "alpha");
+		await rm(d, "alpha");
 		await waiting;
 
 		expect(d.out()).toContain("gone");
@@ -70,8 +70,8 @@ describe("wait", () => {
 	});
 
 	it("returns straight away for a task that is already gone", async () => {
-		await create(d, "alpha");
-		await prune(d, "alpha");
+		await add(d, "alpha");
+		await rm(d, "alpha");
 		d.log.clear();
 
 		await wait(d, "alpha", { poll, timeout });
@@ -80,7 +80,7 @@ describe("wait", () => {
 	});
 
 	it("stops on an escalation and repeats the reason", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		await (await d.store.find("alpha")).save({
 			status: "escalated",
 			escalations: [{ reason: "two designs, no right merge", at: "now" }],
@@ -94,7 +94,7 @@ describe("wait", () => {
 	});
 
 	it("stops on a task that fell apart rather than waiting it out", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		await d.fs.rm((await d.store.find("alpha")).path, {
 			recursive: true,
 			force: true,
@@ -107,7 +107,7 @@ describe("wait", () => {
 	});
 
 	it("refuses with timed_out while the task is still working", async () => {
-		await create(d, "alpha");
+		await add(d, "alpha");
 		d.log.clear();
 
 		const bailed = await bails(
@@ -125,8 +125,8 @@ describe("wait", () => {
 	});
 
 	it("carries how it ended as JSON", async () => {
-		await create(d, "alpha");
-		await prune(d, "alpha");
+		await add(d, "alpha");
+		await rm(d, "alpha");
 		d.log.clear();
 
 		await wait(d, "alpha", { poll, timeout, json: true });
@@ -134,7 +134,7 @@ describe("wait", () => {
 		expect(JSON.parse(d.out())).toMatchObject({
 			task: "alpha",
 			rest: "gone",
-			status: "pruned",
+			status: "removed",
 		});
 	});
 });

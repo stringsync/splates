@@ -8,9 +8,9 @@ bunx @webappwiz/arbor <command>
 ```
 
 Each agent drives its own landing. It works in a worktree, then calls
-`arbor graft` to get that work onto trunk. If grafting fails, the failure comes
+`arbor merge` to get that work onto trunk. If merging fails, the failure comes
 back to that same agent, in the same conversation, which fixes it and calls
-`graft` again. There is no daemon, no queue, no orchestrator.
+`merge` again. There is no daemon, no queue, no orchestrator.
 
 Two rules make that safe:
 
@@ -23,13 +23,13 @@ Two rules make that safe:
 
 Conflicts between agents are expected, not a process failure. Discarding a task
 and redoing it against current trunk is cheap and often better than a hard
-rebase, and that is what `prune` is for.
+rebase, and that is what `rm` is for.
 
 ## Commands
 
-### `arbor create <task>`
+### `arbor add <task>`
 
-Creates the workstream: branch `task/<task>`, a worktree at
+Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
 
 A fresh worktree shares no untracked files with the repo (no `node_modules`,
@@ -44,18 +44,17 @@ fresh agent thread picking up dead work starts here.
 
 Prints the worktree path, status, uncommitted changes, and, loudly, any
 half-finished rebase or merge the tree is standing in. Refuses if another agent
-holds a live lease. A worktree with no record is rebuilt rather than rejected.
+holds the lease. A worktree with no record is rebuilt rather than rejected.
 
-### `arbor graft`
+### `arbor merge`
 
 Lands the current worktree's branch on trunk. The core command.
 
-**Despite the name this never runs `git merge` in the merge-commit sense.** It
-rebases onto trunk, runs the tests there, and fast-forwards trunk. History stays
-linear; there is no merge commit to reason about.
+**Never a merge commit.** It rebases onto trunk, runs the tests there, and
+fast-forwards trunk with `git merge --ff-only`. History stays linear.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere.
-2. Takes the graft lock, **blocking**, polling every 2s. Blocking is
+2. Takes the merge lock, **blocking**, polling every 2s. Blocking is
    deliberate: telling an agent "busy, try later" invites it to go edit more
    code in a branch that is supposed to be frozen.
 3. `git rebase <trunk>`, then the test command, **in that order**. A branch that
@@ -63,42 +62,41 @@ linear; there is no merge commit to reason about.
    trunk; this is the only defense against semantic conflicts, where both sides
    merge cleanly and the combination is broken.
 4. Re-checks the lease, then `git checkout <trunk> && git merge --ff-only`.
-5. Discards the workstream (worktree, branch and record) exactly as `prune`
+5. Discards the task (worktree, branch and record) exactly as `rm`
    would. The work is on trunk, so the tree has nothing left to hold, and
    `arbor ls` stays a list of live work rather than a graveyard of landed
    tasks. The agent's own directory goes with it, so the success message
    prints the main tree to `cd` back to.
 
 On conflict the rebase is **left in progress**: the agent needs the markers.
-Resolve, `git add`, `git rebase --continue`, `arbor graft` again. On test
+Resolve, `git add`, `git rebase --continue`, `arbor merge` again. On test
 failure the branch is reset to where it was and trunk is never touched.
 
 There is deliberately no flag to skip the test gate.
 
-### `arbor prune <task>`
+### `arbor rm <task>`
 
-Discards a workstream: worktree, branch, and record. Unrelated to
-`git worktree prune`, which only tidies stale metadata.
+Discards a task: `git worktree remove` plus the branch and the record.
 
-For abandoning work that will never land. A successful `graft` already
+For abandoning work that will never land. A successful `merge` already
 discards its own tree. Use it freely. Warns about commits that never landed,
 but never blocks: throwing work away is the cheap escape hatch, not a last
 resort.
 
-Pruning leaves a tombstone in `.git/arbor/pruned/` so a second `prune` can say
-`already_pruned` rather than `not_found`. The ledger keeps the 50 most recent
+Removal leaves a tombstone in `.git/arbor/removed/` so a second `rm` can say
+`already_removed` rather than `not_found`. The ledger keeps the 50 most recent
 and drops the oldest as new ones arrive, so a long-forgotten task reports
 `not_found` again.
 
 ### `arbor ls [--json]`
 
-Every workstream: task, status, lease (`live`/`cold`/`none`), commits ahead of
+Every task: name, status, lease (`held`/`stale`/`none`), commits ahead of
 trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
 ### `arbor show <task> [--json]`
 
-One workstream in full: the row `ls` would print for it, plus the `TODO.md`
+One task in full: the row `ls` would print for it, plus the `TODO.md`
 its agent keeps at the worktree root and the reason behind an `escalated`
 status.
 
@@ -106,7 +104,7 @@ status.
 alpha working
   branch:    task/alpha
   worktree:  /src/repo-arbor/alpha
-  lease:     live
+  lease:     held
   ahead:     3  +82 -14
   age:       2h
 
@@ -132,39 +130,39 @@ Blocks until a task stops moving, polling every 2s:
 
 ```
 $ arbor wait alpha
-gone alpha: grafted or pruned, nothing of it is left (waited 4m 12s)
+gone alpha: merged or removed, nothing of it is left (waited 4m 12s)
 ```
 
-Three things end the wait: the task disappears (`gone`, it grafted or was
-pruned), it escalates, or it falls apart (`orphaned`, `stray`, `unrecorded`,
+Three things end the wait: the task disappears (`gone`, it merged or was
+removed), it escalates, or it falls apart (`orphaned`, `stray`, `unrecorded`,
 `unknown`). Anything else is still in flight and worth waiting for.
 
 **This is what an agent does instead of starting work that overlaps a task
-already in flight.** The overlap disappears when that task grafts; starting now
+already in flight.** The overlap disappears when that task merges; starting now
 buys a rebase conflict instead.
 
 Running out of `--timeout` minutes (default 30) is a refusal (`timed_out`,
 exit 14) not a result. A task still working after the whole budget is a
 question for a human: keep waiting, work alongside it, or do something else.
 
-Discarding a task removes its directory before its record, so a tree mid-graft
+Discarding a task removes its directory before its record, so a tree mid-merge
 reads as `orphaned` for a moment. A broken status has to survive a poll before
 `wait` believes it, which is why it does not report a landing as a wreck.
 
 ### `arbor log [--count 20] [--json]`
 
-The last N things done here (`create`, `claim`, `graft`, `prune`, `escalate`),
+The last N things done here (`add`, `claim`, `merge`, `rm`, `escalate`),
 oldest first, each with the task and how it ended (`ok`, or the refusal reason).
 
 ```
 WHEN  ACTION    TASK   RESULT
-2h    create    alpha  ok
-1h    graft     alpha  tests_failed
-1h    graft     alpha  ok
+2h    add       alpha  ok
+1h    merge     alpha  tests_failed
+1h    merge     alpha  ok
 ```
 
 `ls` is what still exists; this is what happened. Entries outlive their tasks:
-a successful `graft` and a `prune` both take the record with them, so this is
+a successful `merge` and a `rm` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 200 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
@@ -210,18 +208,18 @@ The agent's control flow runs on these.
 | ---- | ------------------- | ----------------------------------------------------------------- |
 | 0    | none                | Success.                                                           |
 | 1    | `usage`             | Bad task name, bad flags, or an unexpected git failure.            |
-| 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, graft again. |
-| 3    | `tests_failed`      | Tests failed after the rebase. Branch rolled back, trunk untouched. Fix and graft again. |
-| 4    | `lease_lost`        | Another agent took the tree mid-graft. **Stop. Do not retry.**     |
-| 5    | `budget_exhausted`  | Out of graft attempts. `arbor escalate` or `arbor prune` and redo against current trunk. |
-| 6    | `lease_live`        | Another agent is driving this tree.                                |
-| 7    | `dirty`             | Uncommitted changes. Commit before grafting.                       |
+| 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, merge again. |
+| 3    | `tests_failed`      | Tests failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
+| 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
+| 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate` or `arbor rm` and redo against current trunk. |
+| 6    | `lease_held`        | Another agent is driving this tree.                                |
+| 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
 | 8    | `not_found`         | No such task, or not run from a task worktree.                     |
 | 9    | `hook_failed`       | `postCreate` failed. The worktree still exists; fix and re-run the hook. |
-| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor prune` first.    |
-| 11   | `orphaned`          | Record with no worktree. `arbor prune` it.                         |
+| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor rm` first.    |
+| 11   | `orphaned`          | Record with no worktree. `arbor rm` it.                         |
 | 12   | `merge_failed`      | Trunk could not be fast-forwarded (usually a dirty main worktree). |
-| 13   | `already_pruned`    | This task was pruned earlier; nothing left to remove.              |
+| 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
 | 14   | `timed_out`         | `arbor wait` gave up: the task is still going. Ask the human what to do. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
@@ -233,13 +231,13 @@ plus fields like `paths` for conflicts) and the human explanation on **stderr**.
 
 ```ts
 export default {
-	testCommand: "bun test",        // what graft runs after rebasing, via sh -c
+	testCommand: "bun test",        // what merge runs after rebasing, via sh -c
 	trunk: "main",
 	worktreeRoot: "../myrepo-arbor",
 	postCreate: "bun install && cp ../../myrepo/.env .env",
 	leaseStalenessMs: 90_000,
-	graftRetryCount: 2,
-	pruneStorageCapacity: 50,       // pruned names kept, so prune can say "already pruned"
+	mergeRetryCount: 2,
+	removedCapacity: 50,            // removed names kept, so rm can say "already removed"
 	logCapacity: 200,               // entries `arbor log` keeps before the oldest fall off
 };
 ```
@@ -258,17 +256,17 @@ the environment to derive a stable port from if a task needs one.
 
 State lives in `.git/arbor/`, shared by every worktree, never tracked by git.
 Records are written to a temp file and `rename()`d into place, so a concurrent
-reader never sees half a file. The graft lock is `mkdir` on
-`.git/arbor/graft.lock`: atomic everywhere, no dependencies, and it either
+reader never sees half a file. The merge lock is `mkdir` on
+`.git/arbor/merge.lock`: atomic everywhere, no dependencies, and it either
 succeeds or fails with no check-then-write window. A holder that dies is
 detected (dead pid, or a timestamp past `leaseStalenessMs`) and its lock is
 stolen, loudly.
 
-A lease is **live** when its heartbeat is fresh *and*, for a holder on this
+A lease is **held** when its heartbeat is fresh *and*, for a holder on this
 host, its pid still exists. The pid check matters because every arbor command is
 its own short-lived process: without it, a tree would stay locked for the whole
-staleness window after a command that merely finished, and `create` would block
-the `graft` that follows it.
+staleness window after a command that merely finished, and `add` would block
+the `merge` that follows it.
 
 ### `git rerere`
 
@@ -280,9 +278,9 @@ other. Git still leaves the file staged as `UU`, so the agent must confirm with
 
 ## Retry budget
 
-`graftAttempts` counts conflicts, failed test runs, and failed fast-forwards. It
+`mergeAttempts` counts conflicts, failed test runs, and failed fast-forwards. It
 exists because of a real livelock: an agent rebases onto trunk, another agent
 lands during its test run, and it is stale again before it finishes. Under load
 an unlucky agent can chase a moving trunk indefinitely. When the budget is gone,
-escalate or prune: redoing the task against current trunk usually beats
+escalate or `arbor rm`: redoing the task against current trunk usually beats
 retrofitting a rebase.
