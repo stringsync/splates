@@ -168,21 +168,8 @@ the only thing that remembers a task landed at all. The last 200 are kept
 
 ### `arbor dev [--port 4269]`
 
-`ls`, `show` and `log` as one page, which reloads itself when a task changes:
-
-```bash
-arbor dev            # http://localhost:4269
-```
-
-Every task gets a card carrying what `show` prints for it, `TODO.md` included,
-with the log beside it, or underneath on a window too narrow for both. A poll every two seconds decides whether anything moved
-and pushes to open pages over SSE, so a page left on a second monitor keeps up
-with agents on its own. `age` is deliberately left out of that comparison: it
-ticks every minute and would otherwise reload every page for nothing.
-
-Read-only, and takes no lease, for the same reason `show` does not: driving a
-task is what the CLI is for, and a button that took a lease would fight the
-agent holding it.
+`ls`, `show` and `log` in a browser, on `http://localhost:4269`, reloading
+themselves as tasks change. Read-only, and takes no lease.
 
 ### `arbor path [task]`
 

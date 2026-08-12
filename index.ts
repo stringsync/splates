@@ -151,9 +151,7 @@ arbor
 
 arbor
 	.command("dev")
-	.description(
-		"serve what `ls`, `show` and `log` print as one web page, which reloads itself over SSE when a task changes; read-only, and takes no lease",
-	)
+	.description("serve `ls`, `show` and `log` as a web page; read-only")
 	.option("port", t.number(), {
 		default: DEFAULT_PORT,
 		description: "port to listen on",
