@@ -156,8 +156,12 @@ const esc = (text: string): string =>
 
 const STYLE = `
 :root { color-scheme: light dark }
-body { font: 13px ui-monospace, monospace; max-width: 62rem; margin: 2rem auto; padding: 0 1rem }
-h1, h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; opacity: .6 }
+body { font: 13px ui-monospace, monospace; max-width: 100rem; margin: 2rem auto; padding: 0 1rem }
+h1, h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; opacity: .6; margin-top: 0 }
+main { display: grid; gap: 0 2rem; align-items: start }
+/* Tasks carry a TODO.md and want the room; the log is four narrow columns.
+   Below this the two would each be too cramped to read, so they stack. */
+@media (min-width: 72rem) { main { grid-template-columns: minmax(0, 1fr) max-content } }
 details { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 4px; padding: .5rem .75rem; margin: .5rem 0 }
 summary { cursor: pointer }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0 1rem; margin: .5rem 0 }
@@ -176,18 +180,24 @@ function page({ tasks, entries }: Snapshot): string {
 <title>arbor</title>
 <link rel="icon" href="data:,">
 <style>${STYLE}</style>
+<main>
+<section>
 <h1>tasks</h1>
 ${
 	tasks.length === 0
 		? `<p class="quiet">no tasks: run <code>arbor add &lt;task&gt;</code> to start one</p>`
 		: tasks.map(card).join("\n")
 }
+</section>
+<section>
 <h2>log</h2>
 ${
 	entries.length === 0
 		? `<p class="quiet">nothing recorded yet</p>`
 		: `<table>${entries.map(row).join("")}</table>`
 }
+</section>
+</main>
 <script>new EventSource("/events").onmessage = () => location.reload()</script>
 `;
 }

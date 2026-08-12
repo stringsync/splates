@@ -175,7 +175,7 @@ arbor dev            # http://localhost:4269
 ```
 
 Every task gets a card carrying what `show` prints for it, `TODO.md` included,
-with the log underneath. A poll every two seconds decides whether anything moved
+with the log beside it, or underneath on a window too narrow for both. A poll every two seconds decides whether anything moved
 and pushes to open pages over SSE, so a page left on a second monitor keeps up
 with agents on its own. `age` is deliberately left out of that comparison: it
 ticks every minute and would otherwise reload every page for nothing.
