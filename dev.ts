@@ -193,8 +193,10 @@ td { padding: .15rem 1.5rem .15rem 0 }
 /* Checklist items give up the bullet to the checkbox and pull back into the
    space it left. */
 .todo li.box { list-style: none; margin-left: -1.2rem }
-.todo li.box:has(input:checked) { opacity: .5; text-decoration: line-through }
-.todo input { margin: 0 .35rem 0 0; vertical-align: -.1em; accent-color: #2a2 }
+/* A ticked box says done on its own: striking the text through as well turns a
+   long Done section into a wall of crossed-out lines. */
+.todo li.box:has(input:checked) { opacity: .5 }
+.todo input { margin: 0 .35rem 0 0; vertical-align: -.1em }
 .todo code { background: color-mix(in srgb, currentColor 10%, transparent); border-radius: 3px; padding: 0 .25rem }
 .todo pre code { background: none; padding: 0 }
 `;
