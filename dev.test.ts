@@ -80,9 +80,29 @@ describe("dev", () => {
 			).text();
 
 			expect(html).toContain(`<details open class="escalated">`);
+			expect(html).toContain(`<span class="badge needs">escalated</span>`);
 			expect(html).toContain("needs a human");
 			// The reason belongs above the fields, not buried among them.
 			expect(html.indexOf("needs a human")).toBeLessThan(html.indexOf("<dl>"));
+		} finally {
+			server.stop();
+		}
+	});
+
+	it("marks a task whose worktree is gone as broken rather than normal", async () => {
+		await add(deps, "alpha");
+		await deps.fs.rm((await deps.store.find("alpha")).path, {
+			recursive: true,
+			force: true,
+		});
+
+		const server = await dev(deps, { port: 0 });
+		try {
+			const html = await (
+				await fetch(`http://localhost:${server.port}/`)
+			).text();
+
+			expect(html).toContain(`<span class="badge broken">orphaned</span>`);
 		} finally {
 			server.stop();
 		}

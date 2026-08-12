@@ -177,6 +177,9 @@ details.escalated { border-color: #b80; border-left: 4px solid #b80; background:
 details.escalated summary { color: #b80; font-weight: bold }
 .banner { border-left: 3px solid #b80; padding: .4rem .75rem; margin: .5rem 0; background: color-mix(in srgb, #b80 12%, transparent) }
 .banner b { text-transform: uppercase; letter-spacing: .1em; font-size: .8rem }
+.badge { display: inline-block; padding: 0 .45rem; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; font-weight: normal; opacity: .7 }
+.badge.needs { border-color: #b80; background: color-mix(in srgb, #b80 18%, transparent); color: #b80; opacity: 1 }
+.badge.broken { border-color: #c33; background: color-mix(in srgb, #c33 18%, transparent); color: #c33; opacity: 1 }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0 1rem; margin: .5rem 0 }
 dt { opacity: .6 }
 dd { margin: 0 }
@@ -223,13 +226,27 @@ function card(details: Details): string {
 			? ""
 			: `<p class="banner"><b>needs you</b> ${esc(details.escalation)}</p>`;
 	return `<details open${escalated ? ` class="escalated"` : ""}>
-<summary><b>${esc(details.task)}</b> ${esc(details.status)} lease:${esc(details.lease)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</summary>
+<summary><b>${esc(details.task)}</b> ${badge(details.status)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</summary>
 ${banner}
 <dl><dt>branch<dd>${esc(details.branch)}
 <dt>base<dd>${esc(details.base)}
-<dt>worktree<dd>${esc(details.worktree)}</dl>
+<dt>worktree<dd>${esc(details.worktree)}
+<dt>lease<dd>${esc(details.lease)}</dl>
 ${todo(details)}
 </details>`;
+}
+
+/** A tree in one of these needs fixing rather than driving. */
+const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
+
+/**
+ * Three tones rather than one per status: normal, waiting on a person, and
+ * broken. Any more and the colour stops meaning anything.
+ */
+function badge(status: string): string {
+	const tone =
+		status === "escalated" ? " needs" : BROKEN.has(status) ? " broken" : "";
+	return `<span class="badge${tone}">${esc(status)}</span>`;
 }
 
 function diff(details: Details): string {
