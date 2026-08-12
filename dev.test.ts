@@ -5,6 +5,7 @@ import { dev } from "./dev";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
+import type { Snapshot } from "./snapshot";
 import { repo, testConfig } from "./testing";
 import { WorktreeStore } from "./worktree-store";
 
@@ -42,7 +43,25 @@ describe("dev", () => {
 
 	afterEach(() => deps.cleanup());
 
-	it("serves each task's fields, its TODO.md and the log", async () => {
+	/** Port 0 so concurrent test files cannot collide on a fixed one. */
+	const serving = async (
+		body: (snapshot: () => Promise<Snapshot>, port: number) => Promise<void>,
+	): Promise<void> => {
+		const server = await dev(deps, { port: 0 });
+		try {
+			await body(
+				async () =>
+					(await (
+						await fetch(`http://localhost:${server.port}/api/snapshot`)
+					).json()) as Snapshot,
+				server.port,
+			);
+		} finally {
+			server.stop();
+		}
+	};
+
+	it("serves each task's fields and its TODO.md as data", async () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"));
 		const alpha = (await deps.store.find("alpha")).path;
 		await deps.fs.write(
@@ -50,129 +69,46 @@ describe("dev", () => {
 			"# alpha\n\n## Goal\nland it\n\n## Next\n- [ ] the rest\n",
 		);
 
-		// Port 0 so concurrent test files cannot collide on a fixed one.
-		const server = await dev(deps, { port: 0 });
-		try {
-			const html = await (
-				await fetch(`http://localhost:${server.port}/`)
-			).text();
+		await serving(async (snapshot) => {
+			const { tasks, entries } = await snapshot();
 
-			expect(html).toContain("task/alpha");
-			expect(html).toContain("working");
-			expect(html).toContain("add");
-			// The markdown is there, rendered rather than dumped, and open rather
-			// than folded away.
-			expect(html).toContain(`<p class="quiet">TODO.md</p>`);
-			expect(html).toContain("<h4>Next</h4>");
-			// The card's header already names the task, so the document's own
-			// title is not repeated under it.
-			expect(html).not.toContain("<h3>alpha</h3>");
-			expect(html).toContain(
-				`<li class="box"><input type="checkbox" disabled> the rest</li>`,
-			);
-		} finally {
-			server.stop();
-		}
+			expect(tasks).toHaveLength(1);
+			expect(tasks[0]?.task).toBe("alpha");
+			expect(tasks[0]?.branch).toBe("task/alpha");
+			expect(tasks[0]?.status).toBe("working");
+			expect(tasks[0]?.todo).toContain("- [ ] the rest");
+			expect(entries.map((entry) => entry.action)).toContain("add");
+		});
 	});
 
-	it("bars a task by its checkboxes, counting only Done and Next", async () => {
-		await add(deps, "alpha");
-		const alpha = (await deps.store.find("alpha")).path;
-		await deps.fs.write(
-			`${alpha}/TODO.md`,
-			[
-				"# alpha",
-				"",
-				"## Goal",
-				"land it",
-				"",
-				"## Done",
-				"- [x] one",
-				"- [x] two",
-				"",
-				"## Next",
-				"- [ ] three",
-				"- [ ] four",
-				"",
-				"## Notes",
-				"- [ ] not work: a stray box here must not count",
-				"",
-			].join("\n"),
-		);
-
-		const server = await dev(deps, { port: 0 });
-		try {
-			const html = await (
-				await fetch(`http://localhost:${server.port}/`)
-			).text();
-
-			expect(html).toContain(`aria-label="2 of 4 done"`);
-			expect(html).toContain(`width:50%`);
-		} finally {
-			server.stop();
-		}
-	});
-
-	it("leaves out the bar when there is nothing to count", async () => {
-		await add(deps, "alpha");
-		const alpha = (await deps.store.find("alpha")).path;
-		await deps.fs.write(`${alpha}/TODO.md`, "# alpha\n\n## Goal\nland it\n");
-
-		const server = await dev(deps, { port: 0 });
-		try {
-			const html = await (
-				await fetch(`http://localhost:${server.port}/`)
-			).text();
-
-			expect(html).not.toContain(`class="bar"`);
-		} finally {
-			server.stop();
-		}
-	});
-
-	it("marks an escalated task and leads its card with the reason", async () => {
+	it("reports an escalated task with the reason a person has to read", async () => {
 		await add(deps, "alpha");
 		await (await deps.store.find("alpha")).save({
 			status: "escalated",
 			escalations: [{ reason: "needs a human", at: new Date().toISOString() }],
 		});
 
-		const server = await dev(deps, { port: 0 });
-		try {
-			const html = await (
-				await fetch(`http://localhost:${server.port}/`)
-			).text();
+		await serving(async (snapshot) => {
+			const { tasks } = await snapshot();
 
-			expect(html).toContain(`<article class="escalated">`);
-			expect(html).toContain(`<span class="badge needs">escalated</span>`);
-			expect(html).toContain("needs a human");
-			// The reason belongs above the fields, not buried among them.
-			expect(html.indexOf("needs a human")).toBeLessThan(html.indexOf("<dl>"));
-		} finally {
-			server.stop();
-		}
+			expect(tasks[0]?.status).toBe("escalated");
+			expect(tasks[0]?.escalation).toBe("needs a human");
+		});
 	});
 
-	it("marks a task whose worktree is gone as broken rather than normal", async () => {
+	it("reports a task whose worktree is gone as orphaned", async () => {
 		await add(deps, "alpha");
 		await deps.fs.rm((await deps.store.find("alpha")).path, {
 			recursive: true,
 			force: true,
 		});
 
-		const server = await dev(deps, { port: 0 });
-		try {
-			const html = await (
-				await fetch(`http://localhost:${server.port}/`)
-			).text();
-
-			expect(html).toContain(`<span class="badge broken">orphaned</span>`);
-		} finally {
-			server.stop();
-		}
+		await serving(async (snapshot) => {
+			expect((await snapshot()).tasks[0]?.status).toBe("orphaned");
+		});
 	});
 
-	it("escapes markup in a TODO.md instead of serving it as HTML", async () => {
+	it("serves the TODO.md verbatim, leaving the page to render it", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.store.find("alpha")).path;
 		await deps.fs.write(
@@ -180,24 +116,62 @@ describe("dev", () => {
 			"# alpha\n\n## Next\n- [ ] drop <script>alert(1)</script>\n",
 		);
 
-		const server = await dev(deps, { port: 0 });
-		try {
-			const html = await (
-				await fetch(`http://localhost:${server.port}/`)
+		await serving(async (snapshot) => {
+			// The server is a data source now: escaping is React's job, and a
+			// server that pre-escaped would double-escape once it got there.
+			expect((await snapshot()).tasks[0]?.todo).toContain(
+				"<script>alert(1)</script>",
+			);
+		});
+	});
+
+	// The `/main.js` route is deliberately not asserted here. `Bun.build` cannot
+	// resolve the extensionless imports in `@webappwiz/react`'s entry point when
+	// it runs under `bun test`, though the identical call succeeds outside it, so
+	// a test of that route would fail on a Bun quirk rather than on this code.
+	// What the bundle needs is that the page's modules typecheck and resolve,
+	// which `bin/wiz fix` covers by running tsc over the workspace.
+	it("serves the page the browser asks for its assets from", async () => {
+		await add(deps, "alpha");
+
+		await serving(async (_snapshot, port) => {
+			const html = await (await fetch(`http://localhost:${port}/`)).text();
+
+			expect(html).toContain("<title>arbor</title>");
+			expect(html).toContain(`<div id="root">`);
+			expect(html).toContain(`href="/styles.css"`);
+			expect(html).toContain(`src="/main.js"`);
+		});
+	});
+
+	it("serves the stylesheet Tailwind compiled, not the import that asks for it", async () => {
+		await add(deps, "alpha");
+
+		await serving(async (_snapshot, port) => {
+			const css = await (
+				await fetch(`http://localhost:${port}/styles.css`)
 			).text();
 
-			expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
-			expect(html).not.toContain("<script>alert(1)</script>");
-		} finally {
-			server.stop();
-		}
+			// Either at-rule surviving into the output means Tailwind did not run,
+			// and the page would come out with no classes at all.
+			expect(css).not.toContain('@import "tailwindcss"');
+			expect(css).not.toContain("@tailwind utilities");
+			expect(css).toContain("color-scheme: light dark");
+			// Real utilities, not just the theme block: Tailwind emits only the
+			// classes it can see, and it compiles happily to nothing at all when it
+			// is pointed at no sources. One class from the page and one from the
+			// `Markdown` component in `@webappwiz/react`, since they are found by
+			// separate `@source` lines.
+			expect(css).toContain("max-w-6xl");
+			expect(css).toContain("list-disc");
+		});
 	});
 
 	it("pushes over SSE when a task changes, and stays quiet when it does not", async () => {
 		await add(deps, "alpha");
-		const server = await dev(deps, { port: 0 });
-		try {
-			const events = await fetch(`http://localhost:${server.port}/events`);
+
+		await serving(async (_snapshot, port) => {
+			const events = await fetch(`http://localhost:${port}/events`);
 			const reader = (events.body ?? new ReadableStream()).getReader();
 			await add(deps, "beta");
 
@@ -215,8 +189,6 @@ describe("dev", () => {
 
 			expect(sse).toContain("data: changed");
 			await reader.cancel();
-		} finally {
-			server.stop();
-		}
+		});
 	}, 15_000);
 });

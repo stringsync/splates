@@ -10,11 +10,22 @@
 		".": "./index.ts"
 	},
 	"dependencies": {
+		"@tailwindcss/oxide": "^4.3.3",
 		"@webappwiz/cmd": "workspace:*",
+		"@webappwiz/disposable": "workspace:*",
+		"@webappwiz/events": "workspace:*",
 		"@webappwiz/log": "workspace:*",
 		"@webappwiz/md": "workspace:*",
+		"@webappwiz/react": "workspace:*",
 		"@webappwiz/sys": "workspace:*",
 		"@webappwiz/t": "workspace:*",
-		"@webappwiz/time": "workspace:*"
+		"@webappwiz/time": "workspace:*",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
+		"tailwindcss": "^4.3.3"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.4"
 	}
 }
