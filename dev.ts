@@ -2,6 +2,7 @@ import type { Logger } from "@webappwiz/log";
 import { Markdown } from "@webappwiz/md";
 import type { Fs } from "@webappwiz/sys";
 import { age } from "./age";
+import { esc, render } from "./html";
 import type { Entry, Journal } from "./journal";
 import { DEFAULT_COUNT } from "./log";
 import { type Details, taskDetails } from "./show";
@@ -146,15 +147,6 @@ function fingerprint({ tasks, entries }: Snapshot): string {
 	]);
 }
 
-const ENTITIES: Record<string, string> = {
-	"&": "&amp;",
-	"<": "&lt;",
-	">": "&gt;",
-};
-
-const esc = (text: string): string =>
-	text.replace(/[&<>]/g, (char) => ENTITIES[char] ?? char);
-
 const STYLE = `
 :root { color-scheme: light dark }
 body { font: 13px ui-monospace, monospace; max-width: 72rem; margin: 2rem auto; padding: 0 1rem }
@@ -191,6 +183,20 @@ td { padding: .15rem 1.5rem .15rem 0 }
 .bar i { display: block; height: 100%; background: #2a2 }
 .added { color: #2a2 } .removed { color: #c33 } .ok { color: #2a2 } .warn { color: #b80 }
 .quiet { opacity: .6 }
+/* A rendered TODO.md. Its headings are section labels rather than titles, so
+   they read as the dt/badge lettering above them does. */
+.todo { margin-top: .5rem }
+.todo :is(h3, h4, h5, h6) { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; margin: .9rem 0 .3rem }
+.todo > :first-child { margin-top: 0 }
+.todo p { margin: .3rem 0 }
+.todo ul { list-style: disc; padding-left: 1.2rem; margin: .3rem 0 }
+/* Checklist items give up the bullet to the checkbox and pull back into the
+   space it left. */
+.todo li.box { list-style: none; margin-left: -1.2rem }
+.todo li.box:has(input:checked) { opacity: .5; text-decoration: line-through }
+.todo input { margin: 0 .35rem 0 0; vertical-align: -.1em; accent-color: #2a2 }
+.todo code { background: color-mix(in srgb, currentColor 10%, transparent); border-radius: 3px; padding: 0 .25rem }
+.todo pre code { background: none; padding: 0 }
 `;
 
 function page({ tasks, entries }: Snapshot): string {
@@ -269,7 +275,7 @@ function todo(details: Details): string {
 	const problems = details.todoProblems
 		.map((problem) => `<p class="warn">${esc(problem)}</p>`)
 		.join("");
-	return `<details><summary class="quiet">TODO.md</summary><pre>${esc(details.todo.trimEnd())}</pre></details>${problems}`;
+	return `<details><summary class="quiet">TODO.md</summary><div class="todo">${render(details.todo)}</div></details>${problems}`;
 }
 
 const BOX = /^[ \t]*- \[([ xX])\]/gm;

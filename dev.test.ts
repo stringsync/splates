@@ -59,10 +59,14 @@ describe("dev", () => {
 
 			expect(html).toContain("task/alpha");
 			expect(html).toContain("working");
-			expect(html).toContain("- [ ] the rest");
 			expect(html).toContain("add");
-			// The markdown is there, but folded away rather than filling the card.
+			// The markdown is there, rendered rather than dumped, and folded away
+			// rather than filling the card.
 			expect(html).toContain(`<summary class="quiet">TODO.md</summary>`);
+			expect(html).toContain("<h4>Next</h4>");
+			expect(html).toContain(
+				`<li class="box"><input type="checkbox" disabled> the rest</li>`,
+			);
 		} finally {
 			server.stop();
 		}
