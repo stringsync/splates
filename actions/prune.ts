@@ -1,7 +1,7 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Config } from "../lib/config";
-import { fail } from "../lib/exit";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { Config } from "../config";
+import { fail } from "../exit";
+import type { WorktreeStore } from "../worktree-store";
 
 /**
  * Discards a whole workstream: worktree, branch and record. Unrelated to

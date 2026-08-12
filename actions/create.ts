@@ -1,8 +1,8 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Config } from "../lib/config";
-import { fail } from "../lib/exit";
-import type { Shell } from "../lib/shell";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { Config } from "../config";
+import { fail } from "../exit";
+import type { Shell } from "../shell";
+import type { WorktreeStore } from "../worktree-store";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

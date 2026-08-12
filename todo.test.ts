@@ -13,7 +13,7 @@ Teach show to check the TODO.
 - [ ] wire it up
 
 ## Notes
-- lives in lib/todo.ts
+- lives in todo.ts
 `;
 
 describe("checkTodo", () => {

@@ -14,15 +14,15 @@ import { path } from "./actions/path";
 import { prune } from "./actions/prune";
 import { show } from "./actions/show";
 import { DEFAULT_TIMEOUT, wait } from "./actions/wait";
-import { exits } from "./lib/exit";
-import type { Git } from "./lib/git";
-import { repository } from "./lib/repository";
-import type { WorktreeStore } from "./lib/worktree-store";
+import { exits } from "./exit";
+import type { Git } from "./git";
+import { repository } from "./repository";
+import type { WorktreeStore } from "./worktree-store";
 
-export type { Git } from "./lib/git";
-export type { Journal } from "./lib/journal";
-export type { Shell } from "./lib/shell";
-export type { WorktreeStore } from "./lib/worktree-store";
+export type { Git } from "./git";
+export type { Journal } from "./journal";
+export type { Shell } from "./shell";
+export type { WorktreeStore } from "./worktree-store";
 
 const log = new ConsoleLogger();
 const fs = new NodeFs();

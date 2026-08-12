@@ -1,11 +1,11 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { FileLock } from "@webappwiz/sys";
-import type { Config } from "../lib/config";
-import { fail } from "../lib/exit";
-import type { Git } from "../lib/git";
-import type { Shell } from "../lib/shell";
-import type { Worktree } from "../lib/worktree";
-import type { WorktreeStore } from "../lib/worktree-store";
+import type { Config } from "../config";
+import { fail } from "../exit";
+import type { Git } from "../git";
+import type { Shell } from "../shell";
+import type { Worktree } from "../worktree";
+import type { WorktreeStore } from "../worktree-store";
 
 const TAIL_LINES = 40;
 

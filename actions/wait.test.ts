@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "@webappwiz/time";
-import type { Config } from "../lib/config";
-import { Git } from "../lib/git";
-import { Shell } from "../lib/shell";
-import { bails, repo, testConfig } from "../lib/testing";
-import { WorktreeStore } from "../lib/worktree-store";
+import type { Config } from "../config";
+import { Git } from "../git";
+import { Shell } from "../shell";
+import { bails, repo, testConfig } from "../testing";
+import { WorktreeStore } from "../worktree-store";
 import { create } from "./create";
 import { prune } from "./prune";
 import { wait } from "./wait";

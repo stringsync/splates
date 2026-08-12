@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "@webappwiz/sys";
-import { Git } from "../lib/git";
-import { Shell } from "../lib/shell";
-import { bails, LIVE_PID, repo, testConfig } from "../lib/testing";
-import { WorktreeStore } from "../lib/worktree-store";
+import { Git } from "../git";
+import { Shell } from "../shell";
+import { bails, LIVE_PID, repo, testConfig } from "../testing";
+import { WorktreeStore } from "../worktree-store";
 import { create } from "./create";
 import { graft } from "./graft";
 

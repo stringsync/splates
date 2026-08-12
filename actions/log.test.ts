@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { Exit } from "../lib/exit";
-import { Journal } from "../lib/journal";
-import { bails, repo } from "../lib/testing";
+import { Exit } from "../exit";
+import { Journal } from "../journal";
+import { bails, repo } from "../testing";
 import { log } from "./log";
 
 describe("log", () => {

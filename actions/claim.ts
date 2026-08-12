@@ -1,6 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
-import { fail } from "../lib/exit";
-import type { WorktreeStore } from "../lib/worktree-store";
+import { fail } from "../exit";
+import type { WorktreeStore } from "../worktree-store";
 
 /** The resume entry point: a fresh agent thread picking up existing work. */
 export async function claim(
