@@ -6,6 +6,11 @@ import { type TaskState, Worktree } from "./worktree";
 
 const BRANCH_PREFIX = "task/";
 
+export interface AddOptions {
+	/** Branch the new worktree starts from. Defaults to the trunk. */
+	base?: string;
+}
+
 /**
  * Where tasks live and everything persistent about them: the worktree
  * directories, the records under `.git/arbor/tasks`, and the names of tasks
@@ -97,7 +102,10 @@ export class WorktreeStore {
 	}
 
 	/** Adds the branch and the working directory. The record comes after. */
-	async add(task: string, base = this.config.trunk): Promise<GitResult> {
+	async add(
+		task: string,
+		{ base = this.config.trunk }: AddOptions = {},
+	): Promise<GitResult> {
 		await this.fs.mkdir(this.config.worktreeRoot);
 		return this.git.addWorktree(this.branchFor(task), this.pathFor(task), base);
 	}

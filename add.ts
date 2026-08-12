@@ -50,7 +50,7 @@ export async function add(
 		);
 	}
 
-	const added = await store.add(task, base);
+	const added = await store.add(task, { base });
 	if (added.code !== 0) {
 		fail("usage", `git worktree add failed: ${added.stderr}`, {
 			task,
