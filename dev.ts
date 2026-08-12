@@ -1,4 +1,5 @@
 import type { Logger } from "@webappwiz/log";
+import { Markdown } from "@webappwiz/md";
 import type { Fs } from "@webappwiz/sys";
 import { age } from "./age";
 import type { Entry, Journal } from "./journal";
@@ -186,6 +187,8 @@ dd { margin: 0 }
 pre { background: color-mix(in srgb, currentColor 7%, transparent); padding: .75rem; border-radius: 4px; overflow-x: auto; white-space: pre-wrap }
 table { border-collapse: collapse }
 td { padding: .15rem 1.5rem .15rem 0 }
+.bar { display: inline-block; vertical-align: middle; width: 6rem; height: .45rem; border-radius: 999px; background: color-mix(in srgb, currentColor 18%, transparent); overflow: hidden }
+.bar i { display: block; height: 100%; background: #2a2 }
 .added { color: #2a2 } .removed { color: #c33 } .ok { color: #2a2 } .warn { color: #b80 }
 .quiet { opacity: .6 }
 `;
@@ -226,7 +229,7 @@ function card(details: Details): string {
 			? ""
 			: `<p class="banner"><b>needs you</b> ${esc(details.escalation)}</p>`;
 	return `<details open${escalated ? ` class="escalated"` : ""}>
-<summary><b>${esc(details.task)}</b> ${badge(details.status)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</summary>
+<summary><b>${esc(details.task)}</b> ${badge(details.status)} ${bar(details)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</summary>
 ${banner}
 <dl><dt>branch<dd>${esc(details.branch)}
 <dt>base<dd>${esc(details.base)}
@@ -262,10 +265,37 @@ function todo(details: Details): string {
 			? ""
 			: `<p class="warn">no TODO.md: whoever picks this up starts from the diff</p>`;
 	}
+	// The problems stay outside the dropdown: they are the reason to open it.
 	const problems = details.todoProblems
 		.map((problem) => `<p class="warn">${esc(problem)}</p>`)
 		.join("");
-	return `<pre>${esc(details.todo.trimEnd())}</pre>${problems}`;
+	return `<details><summary class="quiet">TODO.md</summary><pre>${esc(details.todo.trimEnd())}</pre></details>${problems}`;
+}
+
+const BOX = /^[ \t]*- \[([ xX])\]/gm;
+
+/** The sections that hold the work, so a checklist under Notes cannot skew it. */
+const WORK = ["Done", "Next"];
+
+/**
+ * How far along the task is, counted off the `TODO.md` checkboxes rather than
+ * anything arbor records: the agent moving an item to `## Done` is the only
+ * signal there is that a step finished.
+ */
+function bar(details: Details): string {
+	if (details.todo === null) {
+		return "";
+	}
+	const md = Markdown.parse(details.todo);
+	const boxes = WORK.flatMap((name) =>
+		md.has(name) ? [...md.section(name).body.matchAll(BOX)] : [],
+	);
+	if (boxes.length === 0) {
+		return "";
+	}
+	const done = boxes.filter((box) => box[1] !== " ").length;
+	const percent = Math.round((done / boxes.length) * 100);
+	return `<span class="bar" role="img" aria-label="${done} of ${boxes.length} done"><i style="width:${percent}%"></i></span> <span class="quiet">${done}/${boxes.length}</span>`;
 }
 
 function row(entry: Entry): string {

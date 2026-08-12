@@ -61,6 +61,63 @@ describe("dev", () => {
 			expect(html).toContain("working");
 			expect(html).toContain("- [ ] the rest");
 			expect(html).toContain("add");
+			// The markdown is there, but folded away rather than filling the card.
+			expect(html).toContain(`<summary class="quiet">TODO.md</summary>`);
+		} finally {
+			server.stop();
+		}
+	});
+
+	it("bars a task by its checkboxes, counting only Done and Next", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.store.find("alpha")).path;
+		await deps.fs.write(
+			`${alpha}/TODO.md`,
+			[
+				"# alpha",
+				"",
+				"## Goal",
+				"land it",
+				"",
+				"## Done",
+				"- [x] one",
+				"- [x] two",
+				"",
+				"## Next",
+				"- [ ] three",
+				"- [ ] four",
+				"",
+				"## Notes",
+				"- [ ] not work: a stray box here must not count",
+				"",
+			].join("\n"),
+		);
+
+		const server = await dev(deps, { port: 0 });
+		try {
+			const html = await (
+				await fetch(`http://localhost:${server.port}/`)
+			).text();
+
+			expect(html).toContain(`aria-label="2 of 4 done"`);
+			expect(html).toContain(`width:50%`);
+		} finally {
+			server.stop();
+		}
+	});
+
+	it("leaves out the bar when there is nothing to count", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.store.find("alpha")).path;
+		await deps.fs.write(`${alpha}/TODO.md`, "# alpha\n\n## Goal\nland it\n");
+
+		const server = await dev(deps, { port: 0 });
+		try {
+			const html = await (
+				await fetch(`http://localhost:${server.port}/`)
+			).text();
+
+			expect(html).not.toContain(`class="bar"`);
 		} finally {
 			server.stop();
 		}
