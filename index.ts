@@ -3,7 +3,6 @@ import { cli } from "@webappwiz/cmd";
 import { ConsoleLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { t } from "@webappwiz/t";
-import { Duration } from "@webappwiz/time";
 import { add } from "./add";
 import { claim } from "./claim";
 import { DEFAULT_PORT, dev } from "./dev";
@@ -17,7 +16,6 @@ import { path } from "./path";
 import { repository } from "./repository";
 import { rm } from "./rm";
 import { show } from "./show";
-import { DEFAULT_TIMEOUT, wait } from "./wait";
 import type { WorktreeStore } from "./worktree-store";
 
 export type { Git } from "./git";
@@ -115,24 +113,6 @@ arbor
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, { store }) =>
 		show({ store, fs, log }, opts.task, { json: opts.json }),
-	);
-
-arbor
-	.command("wait")
-	.description(
-		"block until a task stops moving (it merges or is removed, escalates, or falls apart), so work that would overlap it starts against the result instead of racing it; refuses with `timed_out` if it is still going after --timeout, which is your cue to ask a human",
-	)
-	.arg("task", t.string(), { description: "task name" })
-	.option("timeout", t.number(), {
-		default: DEFAULT_TIMEOUT.mins,
-		description: "minutes to wait before giving up and asking a human",
-	})
-	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, { store }) =>
-		wait({ store, log }, opts.task, {
-			timeout: Duration.mins(opts.timeout),
-			json: opts.json,
-		}),
 	);
 
 arbor

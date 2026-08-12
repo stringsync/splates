@@ -32,7 +32,6 @@ describe("exit", () => {
 			orphaned: 11,
 			merge_failed: 12,
 			already_removed: 13,
-			timed_out: 14,
 		});
 	});
 
