@@ -66,6 +66,28 @@ describe("dev", () => {
 		}
 	});
 
+	it("marks an escalated task and leads its card with the reason", async () => {
+		await add(deps, "alpha");
+		await (await deps.store.find("alpha")).save({
+			status: "escalated",
+			escalations: [{ reason: "needs a human", at: new Date().toISOString() }],
+		});
+
+		const server = await dev(deps, { port: 0 });
+		try {
+			const html = await (
+				await fetch(`http://localhost:${server.port}/`)
+			).text();
+
+			expect(html).toContain(`<details open class="escalated">`);
+			expect(html).toContain("needs a human");
+			// The reason belongs above the fields, not buried among them.
+			expect(html.indexOf("needs a human")).toBeLessThan(html.indexOf("<dl>"));
+		} finally {
+			server.stop();
+		}
+	});
+
 	it("escapes markup in a TODO.md instead of serving it as HTML", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.store.find("alpha")).path;

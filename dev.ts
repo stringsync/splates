@@ -171,6 +171,12 @@ body:has(#log:target) nav a[href="#tasks"] { opacity: .4 }
 body:has(#log:target) nav a[href="#log"] { opacity: 1 }
 details { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 4px; padding: .5rem .75rem; margin: .5rem 0 }
 summary { cursor: pointer }
+/* An escalated task is waiting on the person reading this page, so it is the
+   one thing here allowed to shout. */
+details.escalated { border-color: #b80; border-left: 4px solid #b80; background: color-mix(in srgb, #b80 7%, transparent) }
+details.escalated summary { color: #b80; font-weight: bold }
+.banner { border-left: 3px solid #b80; padding: .4rem .75rem; margin: .5rem 0; background: color-mix(in srgb, #b80 12%, transparent) }
+.banner b { text-transform: uppercase; letter-spacing: .1em; font-size: .8rem }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0 1rem; margin: .5rem 0 }
 dt { opacity: .6 }
 dd { margin: 0 }
@@ -209,17 +215,19 @@ ${
 }
 
 function card(details: Details): string {
-	const fields = [
-		`<dt>branch<dd>${esc(details.branch)}`,
-		`<dt>base<dd>${esc(details.base)}`,
-		`<dt>worktree<dd>${esc(details.worktree)}`,
-	];
-	if (details.escalation !== null) {
-		fields.push(`<dt>escalated<dd class="warn">${esc(details.escalation)}`);
-	}
-	return `<details open>
+	const escalated = details.status === "escalated";
+	// The reason is the whole point of an escalated card, so it goes above the
+	// fields rather than into the run of them.
+	const banner =
+		details.escalation === null
+			? ""
+			: `<p class="banner"><b>needs you</b> ${esc(details.escalation)}</p>`;
+	return `<details open${escalated ? ` class="escalated"` : ""}>
 <summary><b>${esc(details.task)}</b> ${esc(details.status)} lease:${esc(details.lease)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</summary>
-<dl>${fields.join("\n")}</dl>
+${banner}
+<dl><dt>branch<dd>${esc(details.branch)}
+<dt>base<dd>${esc(details.base)}
+<dt>worktree<dd>${esc(details.worktree)}</dl>
 ${todo(details)}
 </details>`;
 }
