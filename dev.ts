@@ -165,14 +165,14 @@ body:has(#log:target) nav a[href="#log"] { opacity: 1 }
 article, details { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 4px; padding: .5rem .75rem; margin: .5rem 0 }
 summary { cursor: pointer }
 .head { margin: 0 }
-/* An escalated task is waiting on the person reading this page, so it is the
-   one thing here allowed to shout. */
-article.escalated { border-color: #b80; border-left: 4px solid #b80; background: color-mix(in srgb, #b80 7%, transparent) }
-article.escalated .head { color: #b80; font-weight: bold }
-.banner { border-left: 3px solid #b80; padding: .4rem .75rem; margin: .5rem 0; background: color-mix(in srgb, #b80 12%, transparent) }
+/* An escalated task is waiting on the person reading this page. A yellow
+   accent edge and head are enough to say so; the card itself stays quiet. */
+article.escalated { border-left: 3px solid #b80 }
+article.escalated .head { color: #b80 }
+.banner { border-left: 3px solid #b80; padding: .4rem .75rem; margin: .5rem 0; background: color-mix(in srgb, #b80 7%, transparent) }
 .banner b { text-transform: uppercase; letter-spacing: .1em; font-size: .8rem }
 .badge { display: inline-block; padding: 0 .45rem; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; font-weight: normal; opacity: .7 }
-.badge.needs { border-color: #b80; background: color-mix(in srgb, #b80 18%, transparent); color: #b80; opacity: 1 }
+.badge.needs { border-color: #b80; background: color-mix(in srgb, #b80 10%, transparent); color: #b80; opacity: 1 }
 .badge.broken { border-color: #c33; background: color-mix(in srgb, #c33 18%, transparent); color: #c33; opacity: 1 }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 0 1rem; margin: .5rem 0 }
 dt { opacity: .6 }
