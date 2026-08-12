@@ -64,7 +64,7 @@ describe("dev", () => {
 			// than folded away.
 			expect(html).toContain(`<p class="quiet">TODO.md</p>`);
 			expect(html).toContain("<h4>Next</h4>");
-			// The card's summary already names the task, so the document's own
+			// The card's header already names the task, so the document's own
 			// title is not repeated under it.
 			expect(html).not.toContain("<h3>alpha</h3>");
 			expect(html).toContain(
@@ -143,7 +143,7 @@ describe("dev", () => {
 				await fetch(`http://localhost:${server.port}/`)
 			).text();
 
-			expect(html).toContain(`<details open class="escalated">`);
+			expect(html).toContain(`<article class="escalated">`);
 			expect(html).toContain(`<span class="badge needs">escalated</span>`);
 			expect(html).toContain("needs a human");
 			// The reason belongs above the fields, not buried among them.

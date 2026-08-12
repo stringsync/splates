@@ -162,12 +162,13 @@ body:has(#log:target) #tasks { display: none }
 body:has(#log:target) #log { display: block }
 body:has(#log:target) nav a[href="#tasks"] { opacity: .4 }
 body:has(#log:target) nav a[href="#log"] { opacity: 1 }
-details { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 4px; padding: .5rem .75rem; margin: .5rem 0 }
+article, details { border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 4px; padding: .5rem .75rem; margin: .5rem 0 }
 summary { cursor: pointer }
+.head { margin: 0 }
 /* An escalated task is waiting on the person reading this page, so it is the
    one thing here allowed to shout. */
-details.escalated { border-color: #b80; border-left: 4px solid #b80; background: color-mix(in srgb, #b80 7%, transparent) }
-details.escalated summary { color: #b80; font-weight: bold }
+article.escalated { border-color: #b80; border-left: 4px solid #b80; background: color-mix(in srgb, #b80 7%, transparent) }
+article.escalated .head { color: #b80; font-weight: bold }
 .banner { border-left: 3px solid #b80; padding: .4rem .75rem; margin: .5rem 0; background: color-mix(in srgb, #b80 12%, transparent) }
 .banner b { text-transform: uppercase; letter-spacing: .1em; font-size: .8rem }
 .badge { display: inline-block; padding: 0 .45rem; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; font-weight: normal; opacity: .7 }
@@ -238,15 +239,15 @@ function card(details: Details): string {
 		details.escalation === null
 			? ""
 			: `<p class="banner"><b>needs you</b> ${esc(details.escalation)}</p>`;
-	return `<details open${escalated ? ` class="escalated"` : ""}>
-<summary><b>${esc(details.task)}</b> ${badge(details.status)} ${bar(details)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</summary>
+	return `<article${escalated ? ` class="escalated"` : ""}>
+<p class="head"><b>${esc(details.task)}</b> ${badge(details.status)} ${bar(details)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</p>
 ${banner}
 <dl><dt>branch<dd>${esc(details.branch)}
 <dt>base<dd>${esc(details.base)}
 <dt>worktree<dd>${esc(details.worktree)}
 <dt>lease<dd>${esc(details.lease)}</dl>
 ${todo(details)}
-</details>`;
+</article>`;
 }
 
 /** A tree in one of these needs fixing rather than driving. */
