@@ -173,6 +173,8 @@ article.escalated .head { color: #b80 }
    strip shape and the yellow say "waiting on you" without a label, since the
    badge already names the status. */
 .banner { margin: .5rem -.75rem; padding: .4rem .75rem; background: color-mix(in srgb, #b80 10%, transparent); color: #b80 }
+/* Its label names what the string is, dimmed like the dt labels below. */
+.banner b { font-weight: normal; opacity: .65; margin-right: .25rem }
 .badge { display: inline-block; padding: 0 .45rem; border-radius: 999px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; font-weight: normal; opacity: .7 }
 .badge.needs { border-color: #b80; background: color-mix(in srgb, #b80 10%, transparent); color: #b80; opacity: 1 }
 .badge.broken { border-color: #c33; background: color-mix(in srgb, #c33 18%, transparent); color: #c33; opacity: 1 }
@@ -240,7 +242,7 @@ function card(details: Details): string {
 	const banner =
 		details.escalation === null
 			? ""
-			: `<p class="banner">${esc(details.escalation)}</p>`;
+			: `<p class="banner"><b>reason</b> ${esc(details.escalation)}</p>`;
 	return `<article${escalated ? ` class="escalated"` : ""}>
 <p class="head"><b>${esc(details.task)}</b> ${badge(details.status)} ${bar(details)} ahead:${details.ahead ?? "?"} ${diff(details)} ${esc(details.age ?? "?")}</p>
 ${banner}
