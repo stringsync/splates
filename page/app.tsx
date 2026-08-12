@@ -100,10 +100,14 @@ function Card({ task }: { task: Details }): JSX.Element {
 				{task.age ?? "?"}
 			</p>
 			{/* The reason is the whole point of an escalated card, so it leads rather
-			    than joining the run of fields. */}
+			    than joining the run of fields. It runs the full width of the card as
+			    a tinted strip, which says "waiting on you" without a second accent
+			    edge competing with the card's own. */}
 			{task.escalation !== null && (
-				<p className="my-2 border-amber-600 border-l-[3px] bg-amber-600/7 px-3 py-1.5">
-					<b className={`font-normal ${NEEDS}`}>NEEDS YOU</b> {task.escalation}
+				<p className={`-mx-3 my-2 bg-amber-600/10 px-3 py-1.5 ${NEEDS}`}>
+					{/* The label names what the string is, dimmed like the dt labels. */}
+					<b className="mr-1 font-normal opacity-65">reason</b>
+					{task.escalation}
 				</p>
 			)}
 			<dl className="my-2 grid grid-cols-[max-content_1fr] gap-x-4">
