@@ -166,6 +166,24 @@ a successful `merge` and a `rm` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 200 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
+### `arbor dev [--port 4269]`
+
+`ls`, `show` and `log` as one page, which reloads itself when a task changes:
+
+```bash
+arbor dev            # http://localhost:4269
+```
+
+Every task gets a card carrying what `show` prints for it, `TODO.md` included,
+with the log underneath. A poll every two seconds decides whether anything moved
+and pushes to open pages over SSE, so a page left on a second monitor keeps up
+with agents on its own. `age` is deliberately left out of that comparison: it
+ticks every minute and would otherwise reload every page for nothing.
+
+Read-only, and takes no lease, for the same reason `show` does not: driving a
+task is what the CLI is for, and a button that took a lease would fight the
+agent holding it.
+
 ### `arbor path [task]`
 
 Prints one path and nothing else, so it composes:

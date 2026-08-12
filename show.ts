@@ -3,11 +3,12 @@ import type { Fs } from "@webappwiz/sys";
 import { age } from "./age";
 import { fail } from "./exit";
 import { checkTodo } from "./todo";
+import type { Worktree } from "./worktree";
 import type { WorktreeStore } from "./worktree-store";
 
 const TODO = "TODO.md";
 
-interface Details {
+export interface Details {
 	task: string;
 	status: string;
 	branch: string;
@@ -42,7 +43,23 @@ export async function show(
 			{ task },
 		);
 	}
+	const details = await taskDetails(worktree, fs);
 
+	if (json) {
+		log.info(JSON.stringify(details, null, "\t"));
+		return;
+	}
+	log.info(report(details));
+}
+
+/**
+ * Everything there is to say about one task. Split out so `dev` can render the
+ * same fields this prints, rather than assembling its own and drifting.
+ */
+export async function taskDetails(
+	worktree: Worktree,
+	fs: Fs,
+): Promise<Details> {
 	const { state } = worktree;
 	// A record whose worktree or branch is gone is still worth showing: the
 	// status names what is wrong, and asking git about a branch that is not
@@ -51,7 +68,7 @@ export async function show(
 	const todo = worktree.exists
 		? await fs.read(`${worktree.path}/${TODO}`).catch(() => null)
 		: null;
-	const details: Details = {
+	return {
 		task: worktree.task,
 		status: worktree.status,
 		branch: worktree.branch,
@@ -72,12 +89,6 @@ export async function show(
 						escalated: worktree.status === "escalated",
 					}),
 	};
-
-	if (json) {
-		log.info(JSON.stringify(details, null, "\t"));
-		return;
-	}
-	log.info(report(details));
 }
 
 function report(details: Details): string {

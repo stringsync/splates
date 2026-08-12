@@ -6,6 +6,7 @@ import { t } from "@webappwiz/t";
 import { Duration } from "@webappwiz/time";
 import { add } from "./add";
 import { claim } from "./claim";
+import { DEFAULT_PORT, dev } from "./dev";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
 import type { Git } from "./git";
@@ -146,6 +147,19 @@ arbor
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, { journal }) =>
 		showLog({ journal, log }, { count: opts.count, json: opts.json }),
+	);
+
+arbor
+	.command("dev")
+	.description(
+		"serve what `ls`, `show` and `log` print as one web page, which reloads itself over SSE when a task changes; read-only, and takes no lease",
+	)
+	.option("port", t.number(), {
+		default: DEFAULT_PORT,
+		description: "port to listen on",
+	})
+	.action((opts, { store, journal }) =>
+		dev({ store, fs, journal, log }, { port: opts.port }),
 	);
 
 arbor
