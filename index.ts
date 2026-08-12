@@ -107,7 +107,7 @@ arbor
 arbor
 	.command("show")
 	.description(
-		"read one task without touching it: everything `ls` lists for it, plus the TODO.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
+		"read one task without touching it: everything `ls` lists for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })

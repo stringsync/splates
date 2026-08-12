@@ -2,11 +2,11 @@ import { color, type Logger } from "@webappwiz/log";
 import type { Fs } from "@webappwiz/sys";
 import { age } from "./age";
 import { fail } from "./exit";
-import { checkTodo } from "./todo";
+import { checkPlan } from "./plan";
 import type { Worktree } from "./worktree";
 import type { WorktreeStore } from "./worktree-store";
 
-const TODO = "TODO.md";
+const FILE = "ARBOR.md";
 
 export interface Details {
 	task: string;
@@ -20,9 +20,9 @@ export interface Details {
 	removed: number | null;
 	age: string | null;
 	escalation: string | null;
-	todo: string | null;
-	/** How the `TODO.md` departs from the shape the skill prescribes. */
-	todoProblems: string[];
+	plan: string | null;
+	/** How the `ARBOR.md` departs from the shape the skill prescribes. */
+	planProblems: string[];
 }
 
 export interface ShowOptions {
@@ -31,7 +31,7 @@ export interface ShowOptions {
 }
 
 /**
- * One task in full: what `ls` shows for it, plus the `TODO.md` its agent
+ * One task in full: what `ls` shows for it, plus the `ARBOR.md` its agent
  * left at the worktree root. Reading a tree this way takes no lease, so it
  * cannot knock the agent driving it off its own work.
  */
@@ -70,8 +70,8 @@ export async function taskDetails(
 	// status names what is wrong, and asking git about a branch that is not
 	// there would only fill the fields with nulls.
 	const stat = worktree.hasBranch ? await worktree.diffStat() : null;
-	const todo = worktree.exists
-		? await fs.read(`${worktree.path}/${TODO}`).catch(() => null)
+	const plan = worktree.exists
+		? await fs.read(`${worktree.path}/${FILE}`).catch(() => null)
 		: null;
 	return {
 		task: worktree.task,
@@ -85,11 +85,11 @@ export async function taskDetails(
 		removed: stat?.removed ?? null,
 		age: state ? age(state.createdAt) : null,
 		escalation: state?.escalations?.at(-1)?.reason ?? null,
-		todo,
-		todoProblems:
-			todo === null
+		plan,
+		planProblems:
+			plan === null
 				? []
-				: checkTodo(todo, {
+				: checkPlan(plan, {
 						task: worktree.task,
 						escalated: worktree.status === "escalated",
 					}),
@@ -109,15 +109,15 @@ function report(details: Details): string {
 	if (details.escalation !== null) {
 		lines.push(`  ${color.yellow(`escalated: ${details.escalation}`)}`);
 	}
-	if (details.todo !== null) {
-		lines.push("", color.bold(TODO), details.todo.trimEnd());
-		for (const problem of details.todoProblems) {
+	if (details.plan !== null) {
+		lines.push("", color.bold(FILE), details.plan.trimEnd());
+		for (const problem of details.planProblems) {
 			lines.push(color.yellow(`  ${problem}`));
 		}
 	} else if (details.status !== "orphaned") {
 		lines.push(
 			"",
-			color.yellow(`no ${TODO}: whoever picks this up starts from the diff`),
+			color.yellow(`no ${FILE}: whoever picks this up starts from the diff`),
 		);
 	}
 	return lines.join("\n");

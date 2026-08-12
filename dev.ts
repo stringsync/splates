@@ -38,7 +38,7 @@ export async function dev(
 	let last = fingerprint(await snapshot(store, fs, journal));
 
 	// ponytail: polls, because arbor's state is spread across records, git refs
-	// and TODO.md, and one watcher would not cover all three. Watch `.git/arbor`
+	// and ARBOR.md, and one watcher would not cover all three. Watch `.git/arbor`
 	// and the worktree roots if two seconds ever feels slow.
 	const tick = async (): Promise<void> => {
 		const print = fingerprint(await snapshot(store, fs, journal));

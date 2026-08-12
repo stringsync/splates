@@ -30,11 +30,11 @@ describe("show", () => {
 
 	afterEach(() => deps.cleanup());
 
-	it("reports a task and prints the TODO.md left in its worktree", async () => {
+	it("reports a task and prints the ARBOR.md left in its worktree", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.store.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/TODO.md`,
+			`${alpha}/ARBOR.md`,
 			"# alpha\n\n## Next\n- [ ] the rest\n",
 		);
 		deps.log.clear();
@@ -46,11 +46,11 @@ describe("show", () => {
 		expect(deps.out()).toContain("- [ ] the rest");
 	});
 
-	it("says how a TODO.md departs from the shape the skill prescribes", async () => {
+	it("says how an ARBOR.md departs from the shape the skill prescribes", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.store.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/TODO.md`,
+			`${alpha}/ARBOR.md`,
 			"# something else\n\n## Goal\nland it\n",
 		);
 		deps.log.clear();
@@ -61,19 +61,19 @@ describe("show", () => {
 		expect(deps.out()).toContain("no ## Next section");
 	});
 
-	it("says the TODO.md is missing rather than staying silent", async () => {
+	it("says the ARBOR.md is missing rather than staying silent", async () => {
 		await add(deps, "alpha");
 		deps.log.clear();
 
 		await show(deps, "alpha");
 
-		expect(deps.out()).toContain("no TODO.md");
+		expect(deps.out()).toContain("no ARBOR.md");
 	});
 
-	it("carries the task's fields and its TODO.md as JSON", async () => {
+	it("carries the task's fields and its ARBOR.md as JSON", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.store.find("alpha")).path;
-		await deps.fs.write(`${alpha}/TODO.md`, "# alpha\n");
+		await deps.fs.write(`${alpha}/ARBOR.md`, "# alpha\n");
 		deps.log.clear();
 
 		await show(deps, "alpha", { json: true });
@@ -83,7 +83,7 @@ describe("show", () => {
 			status: "working",
 			branch: "task/alpha",
 			ahead: 0,
-			todo: "# alpha\n",
+			plan: "# alpha\n",
 		});
 	});
 
@@ -102,6 +102,6 @@ describe("show", () => {
 		await show(deps, "alpha");
 
 		expect(deps.out()).toContain("orphaned");
-		expect(deps.out()).not.toContain("no TODO.md");
+		expect(deps.out()).not.toContain("no ARBOR.md");
 	});
 });

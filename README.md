@@ -96,7 +96,7 @@ down the listing; a record whose worktree vanished shows as `orphaned`.
 
 ### `arbor show <task> [--json]`
 
-One task in full: the row `ls` would print for it, plus the `TODO.md`
+One task in full: the row `ls` would print for it, plus the `ARBOR.md`
 its agent keeps at the worktree root and the reason behind an `escalated`
 status.
 
@@ -108,21 +108,21 @@ alpha working
   ahead:     3  +82 -14
   age:       2h
 
-TODO.md
+ARBOR.md
 # alpha
 ...
 ```
 
 `ls` says a task exists; this says what it is doing. Like `path`, it takes no
 lease, so reading another agent's tree cannot knock it off its own work the way
-`claim` would. A task with no `TODO.md` is called out rather than passed over
+`claim` would. A task with no `ARBOR.md` is called out rather than passed over
 in silence: it is the one thing that makes the work resumable.
 
-A `TODO.md` that is there gets checked against the shape the agent skill
+A `ARBOR.md` that is there gets checked against the shape the agent skill
 prescribes (`# <task>`, `## Goal`, `## Next` with something unchecked in it, a
 `## Blocked` question once escalated), and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
-runs `show` on it, and a rough TODO still beats none.
+runs `show` on it, and a rough plan still beats none.
 
 ### `arbor log [--count 20] [--json]`
 

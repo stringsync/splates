@@ -61,11 +61,11 @@ describe("dev", () => {
 		}
 	};
 
-	it("serves each task's fields and its TODO.md as data", async () => {
+	it("serves each task's fields and its ARBOR.md as data", async () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"));
 		const alpha = (await deps.store.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/TODO.md`,
+			`${alpha}/ARBOR.md`,
 			"# alpha\n\n## Goal\nland it\n\n## Next\n- [ ] the rest\n",
 		);
 
@@ -76,7 +76,7 @@ describe("dev", () => {
 			expect(tasks[0]?.task).toBe("alpha");
 			expect(tasks[0]?.branch).toBe("task/alpha");
 			expect(tasks[0]?.status).toBe("working");
-			expect(tasks[0]?.todo).toContain("- [ ] the rest");
+			expect(tasks[0]?.plan).toContain("- [ ] the rest");
 			expect(entries.map((entry) => entry.action)).toContain("add");
 		});
 	});
@@ -108,18 +108,18 @@ describe("dev", () => {
 		});
 	});
 
-	it("serves the TODO.md verbatim, leaving the page to render it", async () => {
+	it("serves the ARBOR.md verbatim, leaving the page to render it", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.store.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/TODO.md`,
+			`${alpha}/ARBOR.md`,
 			"# alpha\n\n## Next\n- [ ] drop <script>alert(1)</script>\n",
 		);
 
 		await serving(async (snapshot) => {
 			// The server is a data source now: escaping is React's job, and a
 			// server that pre-escaped would double-escape once it got there.
-			expect((await snapshot()).tasks[0]?.todo).toContain(
+			expect((await snapshot()).tasks[0]?.plan).toContain(
 				"<script>alert(1)</script>",
 			);
 		});

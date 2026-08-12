@@ -11,13 +11,13 @@ export interface Progress {
 }
 
 /**
- * How far along a task is, counted off its `TODO.md` checkboxes rather than
+ * How far along a task is, counted off its `ARBOR.md` checkboxes rather than
  * anything arbor records: the agent moving an item to `## Done` is the only
  * signal there is that a step finished. Null when there is nothing to count,
  * which is a task whose file has no checklist yet.
  */
-export function progress(todo: string): Progress | null {
-	const md = Markdown.parse(todo);
+export function progress(plan: string): Progress | null {
+	const md = Markdown.parse(plan);
 	const boxes = WORK.flatMap((name) =>
 		md.has(name) ? [...md.section(name).body.matchAll(BOX)] : [],
 	);

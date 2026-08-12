@@ -96,7 +96,7 @@ function Card({ task }: { task: Details }): JSX.Element {
 		>
 			<p className={escalated ? NEEDS : ""}>
 				<b>{task.task}</b> <Badge status={task.status} />{" "}
-				<Bar todo={task.todo} /> ahead:{task.ahead ?? "?"} <Diff task={task} />{" "}
+				<Bar plan={task.plan} /> ahead:{task.ahead ?? "?"} <Diff task={task} />{" "}
 				{task.age ?? "?"}
 			</p>
 			{/* The reason is the whole point of an escalated card, so it leads rather
@@ -112,7 +112,7 @@ function Card({ task }: { task: Details }): JSX.Element {
 				<Field name="worktree">{task.worktree}</Field>
 				<Field name="lease">{task.lease}</Field>
 			</dl>
-			<Todo task={task} />
+			<Plan task={task} />
 		</article>
 	);
 }
@@ -164,8 +164,8 @@ function Diff({ task }: { task: Details }): JSX.Element {
 	);
 }
 
-function Bar({ todo }: { todo: string | null }): JSX.Element | null {
-	const counted = todo === null ? null : progress(todo);
+function Bar({ plan }: { plan: string | null }): JSX.Element | null {
+	const counted = plan === null ? null : progress(plan);
 	if (counted === null) {
 		return null;
 	}
@@ -189,13 +189,13 @@ function Bar({ todo }: { todo: string | null }): JSX.Element | null {
 	);
 }
 
-function Todo({ task }: { task: Details }): JSX.Element | null {
-	if (task.todo === null) {
+function Plan({ task }: { task: Details }): JSX.Element | null {
+	if (task.plan === null) {
 		// An orphaned tree has no worktree to hold the file, so its absence is not
 		// news.
 		return task.status === "orphaned" ? null : (
 			<p className={NEEDS}>
-				no TODO.md: whoever picks this up starts from the diff
+				no ARBOR.md: whoever picks this up starts from the diff
 			</p>
 		);
 	}
@@ -204,11 +204,11 @@ function Todo({ task }: { task: Details }): JSX.Element | null {
 			{/* The card's heading already carries the task name, so the document's own
 			    title would only say it a second time. */}
 			<div className="my-3">
-				<p className="opacity-60">TODO.md</p>
-				<Markdown text={task.todo.replace(/^\s*#\s[^\n]*/, "")} />
+				<p className="opacity-60">ARBOR.md</p>
+				<Markdown text={task.plan.replace(/^\s*#\s[^\n]*/, "")} />
 			</div>
 			{/* The problems sit outside the document: they are what to read it for. */}
-			{task.todoProblems.map((problem) => (
+			{task.planProblems.map((problem) => (
 				<p key={problem} className={NEEDS}>
 					{problem}
 				</p>

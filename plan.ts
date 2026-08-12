@@ -1,11 +1,11 @@
 import { Markdown } from "@webappwiz/md";
 
-/** The h2 sections a `TODO.md` may have, in the order they belong in. */
+/** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
 const SECTIONS = ["Goal", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 
-export interface TodoOptions {
+export interface PlanOptions {
 	/** The task name the title is expected to match. */
 	task: string;
 	/** Whether the task has escalated, which makes `## Blocked` required. */
@@ -13,14 +13,14 @@ export interface TodoOptions {
 }
 
 /**
- * Every way a task's `TODO.md` departs from the shape the agent skill
+ * Every way a task's `ARBOR.md` departs from the shape the agent skill
  * prescribes, phrased for the agent that wrote it. Advisory only: a resumable
- * TODO is the point, and a malformed one still beats none, so nothing here
+ * plan is the point, and a malformed one still beats none, so nothing here
  * blocks a merge.
  */
-export function checkTodo(
+export function checkPlan(
 	text: string,
-	{ task, escalated = false }: TodoOptions,
+	{ task, escalated = false }: PlanOptions,
 ): string[] {
 	const md = Markdown.parse(text);
 	const problems: string[] = [];
