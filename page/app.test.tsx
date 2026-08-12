@@ -152,9 +152,9 @@ describe("App", () => {
 			"main",
 			"/tmp/repo-arbor/alpha",
 			"none",
+			"1",
 		]);
 		expect(getByText("working")).toBeDefined();
-		expect(container.textContent).toContain("ahead:1");
 		expect(container.textContent).toContain("+2");
 		expect(container.textContent).toContain("-1");
 		expect(container.textContent).toContain("3m");
@@ -165,7 +165,11 @@ describe("App", () => {
 			tasks: [details({ ahead: null, added: null, removed: null, age: null })],
 		});
 
-		expect(container.textContent).toContain("ahead:?");
+		const fields = [...container.querySelectorAll("dd")].map(
+			(field) => field.textContent,
+		);
+
+		expect(fields).toContain("?");
 		expect(container.textContent).not.toContain("+");
 	});
 

@@ -96,8 +96,7 @@ function Card({ task }: { task: Details }): JSX.Element {
 		>
 			<p className={escalated ? NEEDS : ""}>
 				<b>{task.task}</b> <Badge status={task.status} />{" "}
-				<Bar plan={task.plan} /> ahead:{task.ahead ?? "?"} <Diff task={task} />{" "}
-				{task.age ?? "?"}
+				<Bar plan={task.plan} /> <Diff task={task} /> {task.age ?? "?"}
 			</p>
 			{/* The reason is the whole point of an escalated card, so it leads rather
 			    than joining the run of fields. It runs the full width of the card as
@@ -115,6 +114,7 @@ function Card({ task }: { task: Details }): JSX.Element {
 				<Field name="base">{task.base}</Field>
 				<Field name="worktree">{task.worktree}</Field>
 				<Field name="lease">{task.lease}</Field>
+				<Field name="commits">{String(task.ahead ?? "?")}</Field>
 			</dl>
 			<Plan task={task} />
 		</article>
