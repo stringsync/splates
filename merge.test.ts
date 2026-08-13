@@ -139,6 +139,33 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	it("runs postRewrite before the tests, and fails the gate when it does", async () => {
+		await using deps = await setup();
+
+		// Only passes if the hook ran first, in the same tree, before the tests.
+		deps.config.postRewrite = "echo hooked > hook.txt";
+		deps.config.testCommand = "grep -q hooked hook.txt";
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await merge(deps, worktree);
+		expect(await deps.gitCli(deps.root, "log", "-1", "--format=%s")).toBe(
+			"add alpha",
+		);
+
+		deps.config.postRewrite = "echo boom-from-hook; exit 1";
+		await add(deps, "beta");
+		const beta = (await deps.store.find("beta")).path;
+		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
+
+		const exit = await bails(merge(deps, beta));
+
+		expect(exit.reason).toBe("tests_failed");
+		expect(exit.message).toContain("boom-from-hook");
+		expect((await deps.store.find("beta")).state?.mergeAttempts).toBe(1);
+	});
+
 	it("stops once the retry budget is spent", async () => {
 		await using deps = await setup();
 

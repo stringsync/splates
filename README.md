@@ -33,7 +33,7 @@ Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
 
 A fresh worktree shares no untracked files with the repo (no `node_modules`,
-no `.env`) which is what `postCreate` is for.
+no `.env`) which is what `postCheckout` is for.
 
 If the hook fails the worktree stays; fix it and re-run the hook by hand.
 
@@ -209,7 +209,7 @@ The agent's control flow runs on these.
 | 6    | `lease_held`        | Another agent is driving this tree.                                |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
 | 8    | `not_found`         | No such task, or not run from a task worktree.                     |
-| 9    | `hook_failed`       | `postCreate` failed. The worktree still exists; fix and re-run the hook. |
+| 9    | `hook_failed`       | `postCheckout` failed. The worktree still exists; fix and re-run the hook. |
 | 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor rm` first.    |
 | 11   | `orphaned`          | Record with no worktree. `arbor rm` it.                         |
 | 12   | `merge_failed`      | Trunk could not be fast-forwarded (usually a dirty main worktree). |
@@ -227,7 +227,8 @@ export default {
 	testCommand: "bun test",        // what merge runs after rebasing, via sh -c
 	trunk: "main",
 	worktreeRoot: "../myrepo-arbor",
-	postCreate: "bun install && cp ../../myrepo/.env .env",
+	postCheckout: "bun install && cp ../../myrepo/.env .env",
+	postRewrite: "bun install",     // after each rebase, before the test gate
 	leaseStalenessMs: 90_000,
 	mergeRetryCount: 2,
 	removedCapacity: 50,            // removed names kept, so rm can say "already removed"
@@ -236,9 +237,12 @@ export default {
 ```
 
 `testCommand` defaults to `bun run test` when the root `package.json` has a
-`test` script, otherwise `bun test`. `postCreate` and `testCommand` both run
-through `sh -c` in the worktree with `ARBOR_TASK` and `ARBOR_WORKTREE` in the
-environment.
+`test` script, otherwise `bun test`. The hooks are named for the git events
+they follow: `postCheckout` runs once, when `add` checks the worktree out, and
+`postRewrite` runs after every rebase `merge` does, before the tests. They both
+run through `sh -c` in the worktree with `ARBOR_TASK` and `ARBOR_WORKTREE` in
+the environment, and a failing `postRewrite` fails the gate: the branch rolls
+back and the attempt is spent, exactly as a failing test would.
 
 arbor does not allocate ports. Several worktrees running at once will collide on
 whatever they bind, and the thing that binds (docker-compose, a dev server, a
@@ -263,7 +267,7 @@ the `merge` that follows it.
 
 ### `git rerere`
 
-Adding `git config rerere.enabled true` to `postCreate` is worth it. The cache
+Adding `git config rerere.enabled true` to `postCheckout` is worth it. The cache
 lives in `.git/rr-cache`, which every worktree shares, verified against two
 real worktrees: a conflict resolved in one is replayed automatically in the
 other. Git still leaves the file staged as `UU`, so the agent must confirm with

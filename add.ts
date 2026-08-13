@@ -61,8 +61,8 @@ export async function add(
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
-	if (config.postCreate) {
-		const { exitCode } = await shell.stream(config.postCreate, {
+	if (config.postCheckout) {
+		const { exitCode } = await shell.stream(config.postCheckout, {
 			cwd: worktree.path,
 			env: {
 				ARBOR_TASK: task,
@@ -75,7 +75,7 @@ export async function add(
 			// can fix by hand and re-run the hook in.
 			fail(
 				"hook_failed",
-				`postCreate hook failed (exit ${exitCode}); worktree left in place at ${worktree.path}`,
+				`postCheckout hook failed (exit ${exitCode}); worktree left in place at ${worktree.path}`,
 				{ task, worktree: worktree.path },
 			);
 		}

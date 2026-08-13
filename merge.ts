@@ -106,7 +106,14 @@ export async function merge(
 	// After the rebase, never before: a branch that passed against an older
 	// trunk tells you nothing about the combination. This is the only thing
 	// standing between semantic conflicts and a broken trunk.
-	const tests = await shell.run(config.testCommand, {
+	//
+	// postRewrite shares the shell with the tests rather than getting its own
+	// run: the recovery is the same either way, and one gate reports one
+	// failure however far down it got.
+	const gate = config.postRewrite
+		? `${config.postRewrite} && ${config.testCommand}`
+		: config.testCommand;
+	const tests = await shell.run(gate, {
 		cwd: worktree.path,
 		env: {
 			ARBOR_TASK: task,
@@ -123,7 +130,7 @@ export async function merge(
 		fail(
 			"tests_failed",
 			[
-				`\`${config.testCommand}\` failed after rebasing onto ${base} (exit ${tests.exitCode}).`,
+				`\`${gate}\` failed after rebasing onto ${base} (exit ${tests.exitCode}).`,
 				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
 				"",
 				tail(`${tests.stdout}\n${tests.stderr}`),

@@ -12,7 +12,13 @@ export interface Config {
 	/** Directory holding one worktree per task, a sibling of the repo. */
 	worktreeRoot: string;
 	/** Command run by `add` in the new worktree, via `sh -c`. */
-	postCreate: string | null;
+	postCheckout: string | null;
+	/**
+	 * Command run by `merge` after the rebase, before the test gate, via
+	 * `sh -c`. A rebase can bring in a dependency the worktree has never
+	 * installed, and the tests import it.
+	 */
+	postRewrite: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
@@ -36,7 +42,8 @@ async function defaults(fs: Fs, root: string): Promise<Config> {
 		testCommand: (await hasTestScript(fs, root)) ? "bun run test" : "bun test",
 		trunk: "main",
 		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor`),
-		postCreate: null,
+		postCheckout: null,
+		postRewrite: null,
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 2,
 		removedCapacity: 50,

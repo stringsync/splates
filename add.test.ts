@@ -69,8 +69,8 @@ describe("add", () => {
 		}
 	});
 
-	it("reports a failed postCreate hook but keeps the worktree", async () => {
-		deps.config = testConfig(deps.root, { postCreate: "exit 3" });
+	it("reports a failed postCheckout hook but keeps the worktree", async () => {
+		deps.config = testConfig(deps.root, { postCheckout: "exit 3" });
 
 		const exit = await bails(add(deps, "alpha"));
 
