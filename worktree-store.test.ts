@@ -1,6 +1,6 @@
-// lint-ignore-file one-dir-per-interface: RecordingFs and CrashingFs exist to break
+// judge-ignore-file one-dir-per-interface: RecordingFs and CrashingFs exist to break
 // this file's write path, so they belong here rather than shipped from @webappwiz/sys
-// lint-ignore-file one-class-per-file: the same two fakes are local to this suite
+// judge-ignore-file one-class-per-file: the same two fakes are local to this suite
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { Fs, MkdirOptions, RmOptions, StatResult } from "@webappwiz/sys";
 import { FakeFs, FakePs } from "@webappwiz/sys/testing";

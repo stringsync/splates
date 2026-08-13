@@ -61,7 +61,7 @@ export interface WorktreeSnapshot {
  * existence checks themselves.
  */
 export class Worktree {
-	// lint-ignore classes-over-function-exports: the store is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the store's Git
+	// judge-ignore classes-over-function-exports: the store is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the store's Git
 	constructor(
 		private readonly store: WorktreeStore,
 		private readonly snapshot: WorktreeSnapshot,

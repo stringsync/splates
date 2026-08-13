@@ -20,7 +20,7 @@ export class WorktreeStore {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
 
-	// lint-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, which one-dir-per-interface says is when not to write the interface; tests run the real Git against a throwaway repo rather than faking twenty methods
+	// judge-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, which one-dir-per-interface says is when not to write the interface; tests run the real Git against a throwaway repo rather than faking twenty methods
 	constructor(
 		private readonly fs: Fs,
 		readonly ps: Ps,
