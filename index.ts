@@ -9,8 +9,6 @@ export type { Journal } from "./journal";
 export type { Shell } from "./shell";
 export type { WorktreeStore } from "./worktree-store";
 
-await arbor.run({
-	log: new ConsoleLogger(),
-	fs: new NodeFs(),
-	ps: new NodePs(),
-});
+const ps = new NodePs();
+
+await arbor.run({ log: new ConsoleLogger(), fs: new NodeFs(), ps }, ps.args);
