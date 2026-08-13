@@ -1,11 +1,13 @@
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { BunHttpServer } from "@webappwiz/http";
 import { color, MemoryLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import type { Config } from "./config";
 import { Exit } from "./exit";
+import { BunBundler } from "./page/bundler/bun-bundler";
 
 /** pid 1 always exists, so it stands in for another agent that is still running. */
 export const LIVE_PID = 1;
@@ -100,6 +102,10 @@ export async function repo() {
 		// the exits `ps` records rather than takes
 		proc,
 		log,
+		// the real ones: `dev` is tested by serving a page and fetching it, so a
+		// stand-in would only have to grow into these
+		http: new BunHttpServer(),
+		bundler: new BunBundler(),
 		gitCli,
 		commit,
 		out: () =>

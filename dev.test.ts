@@ -57,7 +57,7 @@ describe("dev", () => {
 				server.port,
 			);
 		} finally {
-			server.stop();
+			await server.stop();
 		}
 	};
 
@@ -125,9 +125,9 @@ describe("dev", () => {
 		});
 	});
 
-	// The `/main.js` route is deliberately not asserted here. `Bun.build` cannot
+	// The `/main.js` route is deliberately not asserted here. `BunBundler` cannot
 	// resolve the extensionless imports in `@webappwiz/react`'s entry point when
-	// it runs under `bun test`, though the identical call succeeds outside it, so
+	// it runs under `bun test`, though the identical build succeeds outside it, so
 	// a test of that route would fail on a Bun quirk rather than on this code.
 	// What the bundle needs is that the page's modules typecheck and resolve,
 	// which `bin/wiz fix` covers by running tsc over the workspace.

@@ -1,4 +1,5 @@
 import { cli, type Deps } from "@webappwiz/cmd";
+import type { HttpServer } from "@webappwiz/http";
 import type { Fs } from "@webappwiz/sys";
 import { t } from "@webappwiz/t";
 import { add } from "./add";
@@ -9,6 +10,7 @@ import { exits } from "./exit";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { ls } from "./ls";
 import { merge } from "./merge";
+import type { Bundler } from "./page/bundler/bundler";
 import { path } from "./path";
 import { type Repository, repository } from "./repository";
 import { rm } from "./rm";
@@ -17,6 +19,10 @@ import { show } from "./show";
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
 	fs: Fs;
+	/** Only `dev` listens, but the runtime is picked once, where arbor starts. */
+	http: HttpServer;
+	/** Likewise: only the dev page is bundled, and only one place decides how. */
+	bundler: Bundler;
 }
 
 /**

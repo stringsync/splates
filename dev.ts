@@ -1,7 +1,10 @@
+import type { HttpServer } from "@webappwiz/http";
 import type { Logger } from "@webappwiz/log";
 import type { Fs } from "@webappwiz/sys";
+import { Duration } from "@webappwiz/time";
 import type { Journal } from "./journal";
-import { script, shell, styles } from "./page/assets";
+import { Assets } from "./page/assets";
+import type { Bundler } from "./page/bundler/bundler";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeStore } from "./worktree-store";
 
@@ -13,7 +16,7 @@ const POLL_MS = 2_000;
 /** A running server, and the one thing a caller ever wants to do with it. */
 export interface DevServer {
 	port: number;
-	stop: () => void;
+	stop(): Promise<void>;
 }
 
 /**
@@ -21,8 +24,8 @@ export interface DevServer {
  * repo changes. Read-only on purpose: driving arbor is what the CLI is for, and
  * a button that took a lease would fight the agent holding it.
  *
- * The page itself is a React app under `page/`, which Bun bundles on the way
- * out, so nothing here builds markup.
+ * The page itself is a React app under `page/`, bundled on the way out, so
+ * nothing here builds markup.
  */
 export async function dev(
 	{
@@ -30,11 +33,21 @@ export async function dev(
 		fs,
 		journal,
 		log,
-	}: { store: WorktreeStore; fs: Fs; journal: Journal; log: Logger },
+		http,
+		bundler,
+	}: {
+		store: WorktreeStore;
+		fs: Fs;
+		journal: Journal;
+		log: Logger;
+		http: HttpServer;
+		bundler: Bundler;
+	},
 	{ port = DEFAULT_PORT } = {},
 ): Promise<DevServer> {
 	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
+	const assets = new Assets(fs, bundler);
 	let last = fingerprint(await snapshot(store, fs, journal));
 
 	// ponytail: polls, because arbor's state is spread across records, git refs
@@ -59,77 +72,82 @@ export async function dev(
 	let js: Promise<string> | null = null;
 	let css: Promise<string> | null = null;
 
-	const server = Bun.serve({
-		port,
-		// An SSE stream is idle by design between changes, and Bun would otherwise
-		// close it after ten seconds.
-		idleTimeout: 0,
-		routes: {
-			"/": async () =>
-				new Response(await shell(), {
-					headers: { "content-type": "text/html; charset=utf-8" },
-				}),
-			"/main.js": async () => {
-				js ??= script();
-				try {
-					return new Response(await js, {
-						headers: { "content-type": "text/javascript; charset=utf-8" },
-					});
-				} catch (error) {
-					// A page that mounts nothing is a blank screen with nothing in the
-					// console, so say it here where the person who ran the command is
-					// looking. Cleared so the next reload tries again.
-					js = null;
-					log.error(`could not build the dev page: ${String(error)}`);
-					return new Response(String(error), { status: 500 });
-				}
-			},
-			"/styles.css": async () => {
-				css ??= styles();
-				return new Response(await css, {
-					headers: { "content-type": "text/css; charset=utf-8" },
-				});
-			},
-			"/api/snapshot": async () =>
-				Response.json(await snapshot(store, fs, journal)),
-			"/events": () => {
-				let self: ReadableStreamDefaultController<Uint8Array> | null = null;
-				return new Response(
-					new ReadableStream<Uint8Array>({
-						start: (stream) => {
-							self = stream;
-							open.add(stream);
-							// A comment, ignored by EventSource. Without a first chunk the
-							// response headers never reach the client and the page hangs
-							// waiting to connect.
-							stream.enqueue(encoder.encode(": connected\n\n"));
-						},
-						cancel: () => {
-							if (self) {
-								open.delete(self);
-							}
-						},
-					}),
-					{
-						headers: {
-							"content-type": "text/event-stream",
-							"cache-control": "no-cache",
-						},
-					},
-				);
-			},
-		},
-	});
+	const main = async (): Promise<Response> => {
+		js ??= assets.script();
+		try {
+			return new Response(await js, {
+				headers: { "content-type": "text/javascript; charset=utf-8" },
+			});
+		} catch (error) {
+			// A page that mounts nothing is a blank screen with nothing in the
+			// console, so say it here where the person who ran the command is
+			// looking. Cleared so the next reload tries again.
+			js = null;
+			log.error(`could not build the dev page: ${String(error)}`);
+			return new Response(String(error), { status: 500 });
+		}
+	};
 
-	// Undefined only for a unix socket, which this never asks for. Reading it
-	// back matters for `--port 0`, where the port is whatever was free.
-	const listening = server.port ?? port;
-	log.info(`arbor dev on http://localhost:${listening}`);
+	const events = (): Response => {
+		let self: ReadableStreamDefaultController<Uint8Array> | null = null;
+		return new Response(
+			new ReadableStream<Uint8Array>({
+				start: (stream) => {
+					self = stream;
+					open.add(stream);
+					// A comment, ignored by EventSource. Without a first chunk the
+					// response headers never reach the client and the page hangs
+					// waiting to connect.
+					stream.enqueue(encoder.encode(": connected\n\n"));
+				},
+				cancel: () => {
+					if (self) {
+						open.delete(self);
+					}
+				},
+			}),
+			{
+				headers: {
+					"content-type": "text/event-stream",
+					"cache-control": "no-cache",
+				},
+			},
+		);
+	};
+
+	const listening = await http.serve(
+		async (request) => {
+			switch (new URL(request.url).pathname) {
+				case "/":
+					return new Response(await assets.shell(), {
+						headers: { "content-type": "text/html; charset=utf-8" },
+					});
+				case "/main.js":
+					return main();
+				case "/styles.css":
+					css ??= assets.styles();
+					return new Response(await css, {
+						headers: { "content-type": "text/css; charset=utf-8" },
+					});
+				case "/api/snapshot":
+					return Response.json(await snapshot(store, fs, journal));
+				case "/events":
+					return events();
+				default:
+					return new Response("not found", { status: 404 });
+			}
+		},
+		// An SSE stream is idle by design between changes, and would otherwise be
+		// closed out from under the page.
+		{ port, idleTimeout: Duration.zero() },
+	);
+
+	log.info(`arbor dev on http://localhost:${listening.port}`);
 	return {
-		port: listening,
-		stop: () => {
+		port: listening.port,
+		stop: async () => {
 			clearInterval(poll);
-			void server.stop(true);
+			await listening.stop();
 		},
 	};
 }

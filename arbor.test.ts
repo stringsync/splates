@@ -12,7 +12,13 @@ describe("arbor cli", () => {
 	it("runs its commands against the dependencies it is given", async () => {
 		await using env = await repo();
 		env.ps.cd(env.root);
-		const deps = { log: env.log, fs: env.fs, ps: env.ps };
+		const deps = {
+			log: env.log,
+			fs: env.fs,
+			ps: env.ps,
+			http: env.http,
+			bundler: env.bundler,
+		};
 
 		await arbor.run(deps, ["add", "alpha"]);
 		await arbor.run(deps, ["ls", "--json"]);
@@ -26,10 +32,16 @@ describe("arbor cli", () => {
 		await using env = await repo();
 		env.ps.cd(env.root);
 
-		await arbor.run({ log: env.log, fs: env.fs, ps: env.ps }, [
-			"claim",
-			"nope",
-		]);
+		await arbor.run(
+			{
+				log: env.log,
+				fs: env.fs,
+				ps: env.ps,
+				http: env.http,
+				bundler: env.bundler,
+			},
+			["claim", "nope"],
+		);
 
 		expect(env.out()).toContain('"reason":"not_found"');
 		expect(env.proc.lastExit()).toBe(8);
