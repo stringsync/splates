@@ -53,7 +53,8 @@ export async function repo() {
 	const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-")));
 	const root = join(base, "repo");
 	// Spawns for real; its exits and signals are the fake process's to keep.
-	const ps = new NodePs(new FakeProcess());
+	const proc = new FakeProcess();
+	const ps = new NodePs(proc);
 	const log = new MemoryLogger();
 	const fs = new NodeFs();
 
@@ -96,6 +97,8 @@ export async function repo() {
 		arborDir: join(root, ".git", "arbor"),
 		fs,
 		ps,
+		// the exits `ps` records rather than takes
+		proc,
 		log,
 		gitCli,
 		commit,

@@ -1,6 +1,4 @@
-import type { Middleware } from "@webappwiz/cmd";
-import type { Logger } from "@webappwiz/log";
-import type { Ps } from "@webappwiz/sys";
+import type { Deps, Middleware } from "@webappwiz/cmd";
 
 /** Exit codes are the API: an agent branches on these, not on prose. */
 export const EXIT = {
@@ -56,7 +54,7 @@ export function fail(
  * human explanation on stderr) and is the only place that ends the process.
  * An agent branches on the first and reads the second.
  */
-export function exits<C extends object>(ps: Ps, log: Logger): Middleware<C> {
+export function exits<C extends Deps>(): Middleware<C> {
 	return async (ctx, next) => {
 		try {
 			await next(ctx);
@@ -64,9 +62,9 @@ export function exits<C extends object>(ps: Ps, log: Logger): Middleware<C> {
 			if (!(e instanceof Exit)) {
 				throw e;
 			}
-			log.info(JSON.stringify({ reason: e.reason, ...e.data }));
-			log.error(e.message);
-			ps.exit(EXIT[e.reason]);
+			ctx.log.info(JSON.stringify({ reason: e.reason, ...e.data }));
+			ctx.log.error(e.message);
+			ctx.ps.exit(EXIT[e.reason]);
 		}
 	};
 }

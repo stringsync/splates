@@ -1,7 +1,6 @@
 import { dirname } from "node:path";
-import type { Middleware } from "@webappwiz/cmd";
-import type { Logger } from "@webappwiz/log";
-import { FileLock, type Fs, type Ps } from "@webappwiz/sys";
+import type { Deps, Middleware } from "@webappwiz/cmd";
+import { FileLock, type Fs } from "@webappwiz/sys";
 import { type Config, loadConfig } from "./config";
 import { Git } from "./git";
 import { Journal } from "./journal";
@@ -22,15 +21,14 @@ export interface Repository {
  * Runs the action against the repository `cwd` sits in, and refuses to run it
  * at all when that is not a repository.
  */
-export function repository<C extends object>(
-	fs: Fs,
-	ps: Ps,
-	log: Logger,
-	cwd: string = ps.cwd(),
+export function repository<C extends Deps & { fs: Fs }>(
+	at?: string,
 ): Middleware<C, C & Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
 	return async (ctx, next) => {
+		const { fs, ps, log } = ctx;
+		const cwd = at ?? ps.cwd();
 		const { exitCode, stdout } = await ps.spawnCapture([
 			"git",
 			"-C",

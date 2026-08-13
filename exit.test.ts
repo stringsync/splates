@@ -7,12 +7,14 @@ import { EXIT, exits, fail } from "./exit";
 describe("exit", () => {
 	let process: FakeProcess;
 	let log: MemoryLogger;
+	let ps: NodePs;
 	let middleware: ReturnType<typeof exits>;
 
 	beforeEach(() => {
 		process = new FakeProcess();
 		log = new MemoryLogger();
-		middleware = exits(new NodePs(process), log);
+		ps = new NodePs(process);
+		middleware = exits();
 	});
 
 	it("keeps the exit codes stable", () => {
@@ -36,7 +38,7 @@ describe("exit", () => {
 	});
 
 	it("turns a refusal into JSON, an explanation and a status code", async () => {
-		await middleware({}, async () => {
+		await middleware({ log, ps }, async () => {
 			fail("conflict", "rebase conflicted", { task: "alpha" });
 		});
 
@@ -50,7 +52,7 @@ describe("exit", () => {
 	});
 
 	it("lets anything that is not a refusal through", async () => {
-		const boom = middleware({}, async () => {
+		const boom = middleware({ log, ps }, async () => {
 			throw new Error("boom");
 		});
 
@@ -59,7 +61,7 @@ describe("exit", () => {
 	});
 
 	it("leaves a command that succeeded alone", async () => {
-		await middleware({}, async () => {});
+		await middleware({ log, ps }, async () => {});
 
 		expect(process.lastExit()).toBeUndefined();
 		expect(log.entries).toEqual([]);
