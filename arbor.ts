@@ -13,6 +13,7 @@ import { merge } from "./merge";
 import type { Bundler } from "./page/bundler/bundler";
 import { path } from "./path";
 import { type Repository, repository } from "./repository";
+import { retry } from "./retry";
 import { rm } from "./rm";
 import { show } from "./show";
 
@@ -118,7 +119,7 @@ arbor
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, rm and escalate, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, rm, escalate and retry, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", t.number(), {
 		default: DEFAULT_COUNT,
@@ -161,4 +162,14 @@ arbor
 		ctx.journal.record("escalate", opts.task || (await here(ctx)), () =>
 			escalate(ctx, opts.reason, ctx.ps.cwd(), opts.task || undefined),
 		),
+	);
+
+arbor
+	.command("retry")
+	.description(
+		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not rm and redo, and only from escalated, so a human has seen the tree first",
+	)
+	.arg("task", t.string(), { description: "task name" })
+	.action((opts, ctx) =>
+		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
 	);

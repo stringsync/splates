@@ -126,7 +126,8 @@ runs `show` on it, and a rough plan still beats none.
 
 ### `arbor log [--count 20] [--json]`
 
-The last N things done here (`add`, `claim`, `merge`, `rm`, `escalate`),
+The last N things done here (`add`, `claim`, `merge`, `rm`, `escalate`,
+`retry`),
 oldest first, each with the task and how it ended (`ok`, or the refusal reason).
 
 ```
@@ -180,6 +181,19 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
+### `arbor retry <task>`
+
+Grants an escalated task another `mergeRetryCount` merge attempts and puts it
+back to `working`. The way out of `budget_exhausted` that is not `rm` and redo,
+for the case where the task was one fix away rather than genuinely lost.
+
+Only from `escalated`, and that is the whole design. The budget exists to make
+an agent stop and hand the task over; an agent that could grant itself more
+attempts would be back to grinding against a moving trunk forever. So the price
+of a fresh budget is that a human has looked at the tree first.
+
+It takes no lease: whoever picks the task up runs `arbor claim` as usual.
+
 ## Exit codes
 
 The agent's control flow runs on these.
@@ -191,7 +205,7 @@ The agent's control flow runs on these.
 | 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, merge again. |
 | 3    | `tests_failed`      | Tests failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
-| 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate` or `arbor rm` and redo against current trunk. |
+| 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor rm` and redo against current trunk. |
 | 6    | `lease_held`        | Another agent is driving this tree.                                |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
 | 8    | `not_found`         | No such task, or not run from a task worktree.                     |

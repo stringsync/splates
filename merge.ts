@@ -63,7 +63,7 @@ export async function merge(
 	if (worktree.mergeAttempts >= config.mergeRetryCount) {
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\` or \`arbor rm ${task}\` and start over against current ${base}`,
+			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`arbor retry ${task}\`; or \`arbor rm ${task}\` and start over against current ${base}`,
 			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}
