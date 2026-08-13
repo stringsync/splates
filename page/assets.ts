@@ -2,7 +2,7 @@ import { dirname } from "node:path";
 import { Scanner } from "@tailwindcss/oxide";
 import { compile } from "tailwindcss";
 
-const here = import.meta.dir;
+const here = import.meta.dirname;
 
 /**
  * The three files the browser asks for, built here rather than by Bun's HTML

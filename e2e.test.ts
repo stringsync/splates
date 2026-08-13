@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { color } from "@webappwiz/log";
 import { repo } from "./testing";
 
-const CLI = join(import.meta.dir, "index.ts");
+const CLI = join(import.meta.dirname, "index.ts");
 
 /** A repo of its own per test, so the four of them can run at once. */
 const setup = async () => {
