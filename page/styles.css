@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 /* Tailwind only emits the utilities it can actually see, and its automatic
-   detection does not find them from here: the page's own components, plus the
-   shared components the page renders. A class used in a file nobody lists comes
-   out of the compiler as nothing at all. */
+   detection does not find them from here. Every file holding a class the page
+   renders has to be listed: one that nobody lists comes out of the compiler as
+   nothing at all. */
 @source "./app.tsx";
-@source "../../react/markdown.tsx";
+@source "./markdown.tsx";
 
 /* The page follows whatever the terminal it was launched from is set to. */
 :root {

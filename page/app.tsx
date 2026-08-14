@@ -1,10 +1,11 @@
-import { Markdown, useDisposerEffect, useReactive } from "@webappwiz/react";
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { type JSX, useState } from "react";
 import { age } from "../age";
 import type { Entry } from "../journal";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Feed } from "./feed";
+import { Markdown } from "./markdown";
 
 const TABS = ["tasks", "log"] as const;
 

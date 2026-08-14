@@ -159,7 +159,7 @@ describe("dev", () => {
 			// Real utilities, not just the theme block: Tailwind emits only the
 			// classes it can see, and it compiles happily to nothing at all when it
 			// is pointed at no sources. One class from the page and one from the
-			// `Markdown` component in `@webappwiz/react`, since they are found by
+			// `Markdown` component beside it, since they are found by
 			// separate `@source` lines.
 			expect(css).toContain("max-w-6xl");
 			expect(css).toContain("list-disc");
