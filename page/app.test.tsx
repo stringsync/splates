@@ -140,6 +140,47 @@ describe("App", () => {
 		expect(cards[1]?.textContent).toContain("beta");
 	});
 
+	it("links the sidebar to the heading of every card", async () => {
+		const view = await open({
+			tasks: [details({ task: "alpha" }), details({ task: "beta" })],
+		});
+
+		const links = [
+			...view
+				.getByRole("navigation", { name: "contents" })
+				.querySelectorAll("a"),
+		];
+
+		expect(links.map((link) => link.getAttribute("href"))).toEqual([
+			"#alpha",
+			"#beta",
+		]);
+		expect(
+			[...view.container.querySelectorAll("article h2")].map((heading) =>
+				heading.getAttribute("id"),
+			),
+		).toEqual(["alpha", "beta"]);
+	});
+
+	it("draws each task's progress in the sidebar", async () => {
+		const view = await open({
+			tasks: [details({ plan: "# alpha\n\n## Next\n- [x] one\n- [ ] two\n" })],
+		});
+
+		const link = view
+			.getByRole("navigation", { name: "contents" })
+			.querySelector("a");
+
+		expect(link?.textContent).toContain("alpha");
+		expect(link?.textContent).toContain("1/2");
+	});
+
+	it("leaves the sidebar out when there are no tasks", async () => {
+		const view = await open({ tasks: [] });
+
+		expect(view.queryByRole("navigation", { name: "contents" })).toBeNull();
+	});
+
 	it("shows the fields `arbor show` prints for a task", async () => {
 		const { container, getByText } = await open({ tasks: [details()] });
 
@@ -197,7 +238,7 @@ describe("App", () => {
 	});
 
 	it("draws the bar off the ARBOR.md checkboxes", async () => {
-		const { getByRole, container } = await open({
+		const { container } = await open({
 			tasks: [
 				details({
 					plan: "# alpha\n\n## Done\n- [x] one\n\n## Next\n- [ ] two\n- [ ] three\n",
@@ -205,12 +246,14 @@ describe("App", () => {
 			],
 		});
 
-		expect(getByRole("img", { name: "1 of 3 done" })).toBeDefined();
+		const bar = container.querySelector("article [role=img]");
+
+		expect(bar?.getAttribute("aria-label")).toBe("1 of 3 done");
 		expect(container.textContent).toContain("1/3");
 	});
 
 	it("counts only the work sections, so a checklist under Notes cannot skew it", async () => {
-		const { getByRole } = await open({
+		const { container } = await open({
 			tasks: [
 				details({
 					plan: "# alpha\n\n## Next\n- [ ] one\n\n## Notes\n- [x] not work\n",
@@ -218,7 +261,9 @@ describe("App", () => {
 			],
 		});
 
-		expect(getByRole("img", { name: "0 of 1 done" })).toBeDefined();
+		const bar = container.querySelector("article [role=img]");
+
+		expect(bar?.getAttribute("aria-label")).toBe("0 of 1 done");
 	});
 
 	it("leaves the bar off a task whose ARBOR.md has no checklist", async () => {
@@ -230,12 +275,15 @@ describe("App", () => {
 	});
 
 	it("renders the ARBOR.md, minus the title the card already carries", async () => {
-		const { container, getByRole } = await open({
+		const { container } = await open({
 			tasks: [details({ plan: "# alpha\n\n## Goal\nland it\n" })],
 		});
 
 		expect(container.querySelector("h1")).toBeNull();
-		expect(getByRole("heading", { level: 2 }).textContent).toBe("Goal");
+		// The card's own heading first, then the document's sections under it.
+		const headings = [...container.querySelectorAll("h2")];
+		expect(headings[0]?.textContent).toContain("alpha");
+		expect(headings[1]?.textContent).toBe("Goal");
 		expect(container.textContent).toContain("land it");
 	});
 

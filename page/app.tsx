@@ -59,7 +59,14 @@ export function App(): JSX.Element {
 			{snapshot === null ? (
 				<p className="opacity-60">reading the repo</p>
 			) : tab === "tasks" ? (
-				<Tasks tasks={snapshot.tasks} />
+				<div className="flex gap-8">
+					<Contents tasks={snapshot.tasks} />
+					{/* Without a minimum of nothing a long worktree path in a card sets
+					    the column's width and pushes the sidebar off the screen. */}
+					<div className="min-w-0 flex-1">
+						<Tasks tasks={snapshot.tasks} />
+					</div>
+				</div>
 			) : (
 				<Log entries={snapshot.entries} />
 			)}
@@ -84,20 +91,56 @@ function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 	);
 }
 
+/**
+ * Every task, and how far along it is, in the width the cards do not need. It
+ * is the whole run of them at once, which a page of cards taller than the
+ * screen otherwise loses. Nothing at all when there are no tasks: the empty
+ * state says everything a list of none could.
+ */
+function Contents({ tasks }: { tasks: Details[] }): JSX.Element | null {
+	if (tasks.length === 0) {
+		return null;
+	}
+	return (
+		// Narrow enough that it never competes with the cards, and gone entirely
+		// once the window cannot spare the column.
+		<nav
+			aria-label="contents"
+			className="sticky top-8 hidden h-fit w-44 shrink-0 sm:block"
+		>
+			{tasks.map((task) => (
+				<a
+					key={task.task}
+					href={`#${task.task}`}
+					className={`my-2 block ${task.status === "escalated" ? NEEDS : ""}`}
+				>
+					<span className="block truncate">{task.task}</span>
+					<Bar plan={task.plan} />
+				</a>
+			))}
+		</nav>
+	);
+}
+
 function Card({ task }: { task: Details }): JSX.Element {
 	const escalated = task.status === "escalated";
 	return (
 		// An escalated task is waiting on the person reading this page. A yellow
 		// accent edge and head are enough to say so; the card itself stays quiet.
 		<article
-			className={`my-2 rounded border border-current/20 p-3 ${
+			// The margin the sticky sidebar leaves clear, so a card jumped to from
+			// there does not land flush against the top of the window.
+			className={`my-2 scroll-mt-8 rounded border border-current/20 p-3 ${
 				escalated ? "border-l-[3px] border-l-amber-600" : ""
 			}`}
 		>
-			<p className={escalated ? NEEDS : ""}>
-				<b>{task.task}</b> <Badge status={task.status} />{" "}
-				<Bar plan={task.plan} /> <Diff task={task} /> {task.age ?? "?"}
-			</p>
+			<h2 id={task.task} className={escalated ? NEEDS : ""}>
+				<a href={`#${task.task}`}>
+					<b>{task.task}</b>
+				</a>{" "}
+				<Badge status={task.status} /> <Bar plan={task.plan} />{" "}
+				<Diff task={task} /> {task.age ?? "?"}
+			</h2>
 			{/* The reason is the whole point of an escalated card, so it leads rather
 			    than joining the run of fields. It runs the full width of the card as
 			    a tinted strip, which says "waiting on you" without a second accent
