@@ -1,5 +1,5 @@
 import type { GitResult } from "./git";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 /** The status a task's own record carries. */
 export type RecordStatus = "working" | "merging" | "escalated";
@@ -43,7 +43,7 @@ export type WorktreeStatus =
 	| "unrecorded" // a directory with no record
 	| "unknown"; // a record that would not parse
 
-/** What the store found on disk. */
+/** What the service found on disk. */
 export interface WorktreeSnapshot {
 	task: string;
 	branch: string;
@@ -56,14 +56,14 @@ export interface WorktreeSnapshot {
 }
 
 /**
- * One task, whether or not it is still there. Commands ask the store for
+ * One task, whether or not it is still there. Commands ask the service for
  * one of these and read its status rather than assembling the same handful of
  * existence checks themselves.
  */
 export class Worktree {
-	// judge-ignore classes-over-function-exports: the store is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the store's Git
+	// judge-ignore classes-over-function-exports: the service is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the service's Git
 	constructor(
-		private readonly store: WorktreeStore,
+		private readonly service: WorktreeService,
 		private readonly snapshot: WorktreeSnapshot,
 	) {}
 
@@ -77,7 +77,7 @@ export class Worktree {
 
 	/** Where this task's work lands: its recorded base branch, else trunk. */
 	get base(): string {
-		return this.snapshot.state?.base ?? this.store.trunk;
+		return this.snapshot.state?.base ?? this.service.trunk;
 	}
 
 	get path(): string {
@@ -98,7 +98,7 @@ export class Worktree {
 		// window after a command that merely finished, and `add` would block the
 		// `merge` that follows it.
 		const { lease } = this;
-		const { ps, config } = this.store;
+		const { ps, config } = this.service;
 		if (!lease) {
 			return false;
 		}
@@ -113,7 +113,7 @@ export class Worktree {
 	}
 
 	get leaseOurs(): boolean {
-		const { ps } = this.store;
+		const { ps } = this.service;
 		return this.lease?.pid === ps.pid && this.lease.hostname === ps.hostname;
 	}
 
@@ -177,8 +177,8 @@ export class Worktree {
 			...changes,
 			updatedAt: now,
 		};
-		await this.store.saveRecord(state);
-		return new Worktree(this.store, {
+		await this.service.saveRecord(state);
+		return new Worktree(this.service, {
 			...this.snapshot,
 			state,
 			corrupt: false,
@@ -186,7 +186,7 @@ export class Worktree {
 	}
 
 	take(changes: Partial<TaskState> = {}): Promise<Worktree> {
-		const { ps } = this.store;
+		const { ps } = this.service;
 		return this.save({
 			...changes,
 			lease: {
@@ -199,27 +199,27 @@ export class Worktree {
 
 	/** Re-reads from disk. `merge` needs this: the record is the truth. */
 	reload(): Promise<Worktree> {
-		return this.store.find(this.task);
+		return this.service.find(this.task);
 	}
 
 	/** Removes the directory, the branch, and the record; remembers the name. */
 	discard(): Promise<GitResult> {
-		return this.store.discard(this);
+		return this.service.discard(this);
 	}
 
 	commitsAhead(): Promise<number | null> {
-		return this.store.git.commitsAhead(this.base, this.branch);
+		return this.service.git.commitsAhead(this.base, this.branch);
 	}
 
 	diffStat(): Promise<{ added: number; removed: number } | null> {
-		return this.store.git.diffStat(this.base, this.branch);
+		return this.service.git.diffStat(this.base, this.branch);
 	}
 
 	uncommitted(): Promise<string[]> {
-		return this.store.git.porcelain(this.path);
+		return this.service.git.porcelain(this.path);
 	}
 
 	interruptedOps(): Promise<string[]> {
-		return this.store.git.interruptedOps(this.path);
+		return this.service.git.interruptedOps(this.path);
 	}
 }

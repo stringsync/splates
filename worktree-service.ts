@@ -16,7 +16,7 @@ export interface AddOptions {
  * directories, the records under `.git/arbor/tasks`, and the names of tasks
  * already removed. One name, one lookup, whatever state it turns out to be in.
  */
-export class WorktreeStore {
+export class WorktreeService {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
 

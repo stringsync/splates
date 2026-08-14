@@ -6,27 +6,27 @@ import { Git } from "./git";
 import { merge } from "./merge";
 import { Shell } from "./shell";
 import { bails, LIVE_PID, repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 /** A repo of its own per test, so merges in different tests can run at once. */
 const setup = async () => {
 	const fixture = await repo();
 	const config = testConfig(fixture.root);
 	const git = new Git(fixture.ps, fixture.fs, fixture.root);
-	const store = new WorktreeStore(
+	const service = new WorktreeService(
 		fixture.fs,
 		fixture.ps,
 		git,
 		config,
 		fixture.arborDir,
 	);
-	await store.init();
+	await service.init();
 	const lockPath = join(fixture.arborDir, "merge.lock");
 	return {
 		...fixture,
 		config,
 		git,
-		store,
+		service,
 		shell: new Shell(fixture.ps),
 		lockPath,
 		lock: new FileLock(fixture.fs, fixture.ps, fixture.log, lockPath, {
@@ -40,7 +40,7 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		// Trunk moved on underneath, so the rebase has real work to do.
 		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
@@ -62,7 +62,7 @@ describe.concurrent("merge", () => {
 		deps.config.postRewrite = null;
 		deps.config.preMerge = null;
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
 		await merge(deps, worktree);
@@ -78,7 +78,7 @@ describe.concurrent("merge", () => {
 		await deps.gitCli(deps.root, "branch", "feature", "main");
 		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 		await add(deps, "alpha", { base: "feature" });
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
 		await merge(deps, worktree);
@@ -93,21 +93,21 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
 		await merge(deps, worktree);
 
-		expect((await deps.store.find("alpha")).status).toBe("removed");
+		expect((await deps.service.find("alpha")).status).toBe("removed");
 		expect(await deps.fs.exists(worktree)).toBe(false);
-		expect(await deps.store.list()).toEqual([]);
+		expect(await deps.service.list()).toEqual([]);
 	});
 
 	it("refuses to run with uncommitted changes, before taking the lock", async () => {
 		await using deps = await setup();
 
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.fs.write(join(worktree, "alpha.txt"), "not committed\n");
 
 		const exit = await bails(merge(deps, worktree));
@@ -120,7 +120,7 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "README.md", "task side\n", "task edit");
 		await deps.commit(deps.root, "README.md", "trunk side\n", "trunk edit");
 
@@ -131,7 +131,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.gitCli(worktree, "status", "--porcelain")).toContain(
 			"UU README.md",
 		);
-		expect((await deps.store.find("alpha")).state?.mergeAttempts).toBe(1);
+		expect((await deps.service.find("alpha")).state?.mergeAttempts).toBe(1);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
@@ -140,7 +140,7 @@ describe.concurrent("merge", () => {
 
 		deps.config.preMerge = "echo boom-from-tests; exit 1";
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
 		const before = await deps.gitCli(worktree, "rev-parse", "HEAD");
@@ -162,7 +162,7 @@ describe.concurrent("merge", () => {
 		deps.config.postRewrite = "echo hooked > hook.txt";
 		deps.config.preMerge = "grep -q hooked hook.txt";
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
 		await merge(deps, worktree);
@@ -172,14 +172,14 @@ describe.concurrent("merge", () => {
 
 		deps.config.postRewrite = "echo boom-from-hook; exit 1";
 		await add(deps, "beta");
-		const beta = (await deps.store.find("beta")).path;
+		const beta = (await deps.service.find("beta")).path;
 		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
 
 		const exit = await bails(merge(deps, beta));
 
 		expect(exit.reason).toBe("tests_failed");
 		expect(exit.message).toContain("boom-from-hook");
-		expect((await deps.store.find("beta")).state?.mergeAttempts).toBe(1);
+		expect((await deps.service.find("beta")).state?.mergeAttempts).toBe(1);
 	});
 
 	it("stops once the retry budget is spent", async () => {
@@ -187,7 +187,7 @@ describe.concurrent("merge", () => {
 
 		deps.config.mergeRetryCount = 2;
 		await add(deps, "alpha");
-		const worktree = await deps.store.find("alpha");
+		const worktree = await deps.service.find("alpha");
 		await worktree.save({ mergeAttempts: 2 });
 
 		const exit = await bails(merge(deps, worktree.path));
@@ -200,7 +200,7 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		await add(deps, "alpha");
-		const worktree = await deps.store.find("alpha");
+		const worktree = await deps.service.find("alpha");
 		await deps.commit(worktree.path, "alpha.txt", "alpha\n", "add alpha");
 		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 		// Another agent takes the tree while the tests are running: the one
@@ -232,8 +232,8 @@ describe.concurrent("merge", () => {
 
 		await add(deps, "alpha");
 		await add(deps, "beta");
-		const alpha = (await deps.store.find("alpha")).path;
-		const beta = (await deps.store.find("beta")).path;
+		const alpha = (await deps.service.find("alpha")).path;
+		const beta = (await deps.service.find("beta")).path;
 		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
 

@@ -1,13 +1,13 @@
 import { color, type Logger } from "@webappwiz/log";
 import { fail } from "./exit";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 /** The resume entry point: a fresh agent thread picking up existing work. */
 export async function claim(
-	{ store, log }: { store: WorktreeStore; log: Logger },
+	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
 ): Promise<void> {
-	const found = await store.find(task);
+	const found = await service.find(task);
 
 	if (found.gone) {
 		fail("not_found", `no task '${task}': run \`arbor add ${task}\``, {

@@ -8,7 +8,7 @@ export type { ArborDeps } from "./arbor";
 export type { Git } from "./git";
 export type { Journal } from "./journal";
 export type { Shell } from "./shell";
-export type { WorktreeStore } from "./worktree-store";
+export type { WorktreeService } from "./worktree-service";
 
 await arbor.run({
 	fs: new NodeFs(),

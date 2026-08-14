@@ -5,27 +5,27 @@ import type { Config } from "./config";
 import { Git } from "./git";
 import { Shell } from "./shell";
 import { bails, repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("add", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
-		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
+		await service.init();
+		deps = { ...fixture, config, service, shell: new Shell(fixture.ps) };
 	});
 
 	afterEach(() => deps.cleanup());
@@ -33,7 +33,7 @@ describe("add", () => {
 	it("makes a worktree, a branch and a record", async () => {
 		await add(deps, "alpha");
 
-		const state = (await deps.store.find("alpha")).state;
+		const state = (await deps.service.find("alpha")).state;
 		expect(state).toMatchObject({
 			task: "alpha",
 			branch: "task/alpha",
@@ -75,7 +75,7 @@ describe("add", () => {
 		const exit = await bails(add(deps, "alpha"));
 
 		expect(exit.reason).toBe("hook_failed");
-		const state = (await deps.store.find("alpha")).state;
+		const state = (await deps.service.find("alpha")).state;
 		expect(await deps.fs.exists(state?.worktree ?? "")).toBe(true);
 	});
 

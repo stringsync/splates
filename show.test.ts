@@ -5,34 +5,34 @@ import { Git } from "./git";
 import { Shell } from "./shell";
 import { show } from "./show";
 import { bails, repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("show", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
-		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
+		await service.init();
+		deps = { ...fixture, config, service, shell: new Shell(fixture.ps) };
 	});
 
 	afterEach(() => deps.cleanup());
 
 	it("reports a task and prints the ARBOR.md left in its worktree", async () => {
 		await add(deps, "alpha");
-		const alpha = (await deps.store.find("alpha")).path;
+		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
 			`${alpha}/ARBOR.md`,
 			"# alpha\n\n## Next\n- [ ] the rest\n",
@@ -48,7 +48,7 @@ describe("show", () => {
 
 	it("says how an ARBOR.md departs from the shape the skill prescribes", async () => {
 		await add(deps, "alpha");
-		const alpha = (await deps.store.find("alpha")).path;
+		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
 			`${alpha}/ARBOR.md`,
 			"# something else\n\n## Goal\nland it\n",
@@ -72,7 +72,7 @@ describe("show", () => {
 
 	it("carries the task's fields and its ARBOR.md as JSON", async () => {
 		await add(deps, "alpha");
-		const alpha = (await deps.store.find("alpha")).path;
+		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(`${alpha}/ARBOR.md`, "# alpha\n");
 		deps.log.clear();
 
@@ -93,7 +93,7 @@ describe("show", () => {
 
 	it("still describes a task whose worktree is gone", async () => {
 		await add(deps, "alpha");
-		await deps.fs.rm((await deps.store.find("alpha")).path, {
+		await deps.fs.rm((await deps.service.find("alpha")).path, {
 			recursive: true,
 			force: true,
 		});

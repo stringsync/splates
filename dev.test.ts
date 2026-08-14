@@ -7,12 +7,12 @@ import { Journal } from "./journal";
 import { Shell } from "./shell";
 import type { Snapshot } from "./snapshot";
 import { repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("dev", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 		journal: Journal;
 	};
@@ -20,18 +20,18 @@ describe("dev", () => {
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
+		await service.init();
 		deps = {
 			...fixture,
 			config,
-			store,
+			service,
 			shell: new Shell(fixture.ps),
 			journal: new Journal(
 				fixture.fs,
@@ -63,7 +63,7 @@ describe("dev", () => {
 
 	it("serves each task's fields and its ARBOR.md as data", async () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"));
-		const alpha = (await deps.store.find("alpha")).path;
+		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
 			`${alpha}/ARBOR.md`,
 			"# alpha\n\n## Goal\nland it\n\n## Next\n- [ ] the rest\n",
@@ -83,7 +83,7 @@ describe("dev", () => {
 
 	it("reports an escalated task with the reason a person has to read", async () => {
 		await add(deps, "alpha");
-		await (await deps.store.find("alpha")).save({
+		await (await deps.service.find("alpha")).save({
 			status: "escalated",
 			escalations: [{ reason: "needs a human", at: new Date().toISOString() }],
 		});
@@ -98,7 +98,7 @@ describe("dev", () => {
 
 	it("reports a task whose worktree is gone as orphaned", async () => {
 		await add(deps, "alpha");
-		await deps.fs.rm((await deps.store.find("alpha")).path, {
+		await deps.fs.rm((await deps.service.find("alpha")).path, {
 			recursive: true,
 			force: true,
 		});
@@ -110,7 +110,7 @@ describe("dev", () => {
 
 	it("serves the ARBOR.md verbatim, leaving the page to render it", async () => {
 		await add(deps, "alpha");
-		const alpha = (await deps.store.find("alpha")).path;
+		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
 			`${alpha}/ARBOR.md`,
 			"# alpha\n\n## Next\n- [ ] drop <script>alert(1)</script>\n",

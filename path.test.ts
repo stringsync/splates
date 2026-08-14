@@ -5,29 +5,29 @@ import { Git } from "./git";
 import { path } from "./path";
 import { Shell } from "./shell";
 import { bails, repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("path", () => {
 	// `shell` and `config` are here for the `create` calls that arrange each
-	// test; path itself needs only the store and the log.
+	// test; path itself needs only the service and the log.
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
-		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
+		await service.init();
+		deps = { ...fixture, config, service, shell: new Shell(fixture.ps) };
 	});
 
 	afterEach(() => deps.cleanup());
@@ -41,7 +41,7 @@ describe("path", () => {
 
 	it("prints a task's worktree, and refuses one that is not there", async () => {
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		deps.log.clear();
 
 		await path(deps, "alpha");

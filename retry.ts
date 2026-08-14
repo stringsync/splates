@@ -1,7 +1,7 @@
 import { color, type Logger } from "@webappwiz/log";
 import type { Config } from "./config";
 import { fail } from "./exit";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 /**
  * The way back from `budget_exhausted`. A task that has spent its merge
@@ -13,10 +13,14 @@ import type { WorktreeStore } from "./worktree-store";
  * fresh budget is that a human has looked at the tree first.
  */
 export async function retry(
-	{ store, config, log }: { store: WorktreeStore; config: Config; log: Logger },
+	{
+		service,
+		config,
+		log,
+	}: { service: WorktreeService; config: Config; log: Logger },
 	task: string,
 ): Promise<void> {
-	const found = await store.find(task);
+	const found = await service.find(task);
 	if (found.gone) {
 		fail("not_found", `no task '${task}'`, { task });
 	}

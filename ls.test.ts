@@ -6,28 +6,28 @@ import { Git } from "./git";
 import { ls } from "./ls";
 import { Shell } from "./shell";
 import { repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("ls", () => {
-	// ls needs only the store and the log; the rest arranges it with `create`.
+	// ls needs only the service and the log; the rest arranges it with `create`.
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
-		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
+		await service.init();
+		deps = { ...fixture, config, service, shell: new Shell(fixture.ps) };
 	});
 
 	afterEach(() => deps.cleanup());
@@ -35,8 +35,8 @@ describe("ls", () => {
 	it("lists tasks, survives a corrupt record, and flags orphans", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");
-		await deps.fs.write(deps.store.recordPath("broken"), "{not json");
-		const beta = (await deps.store.find("beta")).path;
+		await deps.fs.write(deps.service.recordPath("broken"), "{not json");
+		const beta = (await deps.service.find("beta")).path;
 		await deps.fs.rm(beta, { recursive: true, force: true });
 
 		await ls(deps);

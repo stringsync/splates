@@ -2,7 +2,7 @@ import { color, type Logger } from "@webappwiz/log";
 import type { FileLock } from "@webappwiz/sys";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 /**
  * The way out that is not "resolve the conflict badly to finish the task".
@@ -11,12 +11,12 @@ import type { WorktreeStore } from "./worktree-store";
  */
 export async function escalate(
 	{
-		store,
+		service,
 		git,
 		lock,
 		log,
 	}: {
-		store: WorktreeStore;
+		service: WorktreeService;
 		git: Git;
 		lock: FileLock;
 		log: Logger;
@@ -26,14 +26,14 @@ export async function escalate(
 	task?: string,
 ): Promise<void> {
 	const branch = await git.currentBranch(cwd).catch(() => "");
-	const name = task || store.taskFor(branch);
+	const name = task || service.taskFor(branch);
 	if (!name) {
 		fail(
 			"usage",
 			"not in a task worktree: pass --task <name> to escalate from elsewhere",
 		);
 	}
-	const found = await store.find(name);
+	const found = await service.find(name);
 	if (!found.state) {
 		fail("not_found", `no state file for '${name}'`, { task: name });
 	}

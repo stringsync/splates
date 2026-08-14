@@ -5,13 +5,13 @@ import { type Config, loadConfig } from "./config";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 /** What a command gets to work with, once there is a repository to work in. */
 export interface Repository {
 	config: Config;
 	git: Git;
-	store: WorktreeStore;
+	service: WorktreeService;
 	lock: FileLock;
 	shell: Shell;
 	journal: Journal;
@@ -47,14 +47,14 @@ export function repository<C extends Deps & { fs: Fs }>(
 
 		const config = await loadConfig(fs, dirname(gitDir));
 		const git = new Git(ps, fs, dirname(gitDir));
-		const store = new WorktreeStore(fs, ps, git, config, arborDir);
-		await store.init();
+		const service = new WorktreeService(fs, ps, git, config, arborDir);
+		await service.init();
 
 		await next({
 			...ctx,
 			config,
 			git,
-			store,
+			service,
 			lock: new FileLock(fs, ps, log, `${arborDir}/merge.lock`, {
 				stalenessMs: config.leaseStalenessMs,
 			}),

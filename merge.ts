@@ -5,7 +5,7 @@ import { fail } from "./exit";
 import type { Git } from "./git";
 import type { Shell } from "./shell";
 import type { Worktree } from "./worktree";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 const TAIL_LINES = 40;
 
@@ -17,14 +17,14 @@ const TAIL_LINES = 40;
  */
 export async function merge(
 	{
-		store,
+		service,
 		git,
 		lock,
 		shell,
 		config,
 		log,
 	}: {
-		store: WorktreeStore;
+		service: WorktreeService;
 		git: Git;
 		lock: FileLock;
 		shell: Shell;
@@ -34,7 +34,7 @@ export async function merge(
 	cwd: string,
 ): Promise<void> {
 	const branch = await git.currentBranch(cwd).catch(() => "");
-	const task = store.taskFor(branch);
+	const task = service.taskFor(branch);
 	if (!task) {
 		fail(
 			"not_found",
@@ -42,7 +42,7 @@ export async function merge(
 			{ branch },
 		);
 	}
-	let worktree = await store.find(task);
+	let worktree = await service.find(task);
 	if (!worktree.state) {
 		fail(
 			"not_found",
@@ -175,7 +175,7 @@ export async function merge(
 	// Step out of it first: merge usually runs from inside the tree it is about
 	// to delete, and spawning git from a directory that no longer exists fails
 	// with ENOENT before git is even reached.
-	store.ps.cd(git.root);
+	service.ps.cd(git.root);
 	const discarded = await current.discard();
 	await lock.release();
 	if (discarded.code !== 0) {

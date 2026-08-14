@@ -5,42 +5,42 @@ import { Git } from "./git";
 import { rm } from "./rm";
 import { Shell } from "./shell";
 import { bails, LIVE_PID, repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("rm", () => {
 	// `shell` is only here for the `create` calls that arrange each test.
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 	};
 
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			new Git(fixture.ps, fixture.fs, fixture.root),
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
-		deps = { ...fixture, config, store, shell: new Shell(fixture.ps) };
+		await service.init();
+		deps = { ...fixture, config, service, shell: new Shell(fixture.ps) };
 	});
 
 	afterEach(() => deps.cleanup());
 
 	it("removes everything and says what was thrown away", async () => {
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "unlanded work");
 
 		await rm(deps, "alpha");
 
 		expect(deps.out()).toContain("discarded 1 commit(s)");
 		expect(await deps.fs.exists(worktree)).toBe(false);
-		expect(await deps.fs.exists(deps.store.recordPath("alpha"))).toBe(false);
+		expect(await deps.fs.exists(deps.service.recordPath("alpha"))).toBe(false);
 		expect(await deps.gitCli(deps.root, "branch", "--list", "task/alpha")).toBe(
 			"",
 		);
@@ -56,7 +56,7 @@ describe("rm", () => {
 
 	it("cleans up leftovers when the worktree directory is already gone", async () => {
 		await add(deps, "alpha");
-		const worktree = (await deps.store.find("alpha")).path;
+		const worktree = (await deps.service.find("alpha")).path;
 		await deps.fs.rm(worktree, { recursive: true, force: true });
 
 		await rm(deps, "alpha");
@@ -69,7 +69,7 @@ describe("rm", () => {
 
 	it("refuses a tree another agent is driving, unless forced", async () => {
 		await add(deps, "alpha");
-		const worktree = await (await deps.store.find("alpha")).save({
+		const worktree = await (await deps.service.find("alpha")).save({
 			lease: {
 				pid: LIVE_PID,
 				hostname: deps.ps.hostname,

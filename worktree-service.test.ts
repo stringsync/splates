@@ -6,7 +6,7 @@ import type { Fs, MkdirOptions, RmOptions, StatResult } from "@webappwiz/sys";
 import { FakeFs, FakePs } from "@webappwiz/sys/testing";
 import type { Config } from "./config";
 import { Git } from "./git";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 /** Records every filesystem call so the write path can be asserted on. */
 class RecordingFs implements Fs {
@@ -55,7 +55,7 @@ class CrashingFs extends FakeFs {
 	}
 }
 
-describe("WorktreeStore", () => {
+describe("WorktreeService", () => {
 	const ARBOR_DIR = "/repo/.git/arbor";
 	let ps: FakePs;
 	let config: Config;
@@ -79,7 +79,7 @@ describe("WorktreeStore", () => {
 
 	it("lands a record by rename, never by writing in place", async () => {
 		const fs = new RecordingFs(new FakeFs());
-		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
 
 		await (await worktrees.find("alpha")).save();
 
@@ -95,7 +95,7 @@ describe("WorktreeStore", () => {
 
 	it("leaves the previous record readable when a write dies partway", async () => {
 		const fs = new CrashingFs();
-		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
 		const saved = await (await worktrees.find("alpha")).save({
 			mergeAttempts: 1,
 		});
@@ -112,7 +112,7 @@ describe("WorktreeStore", () => {
 	it("reports unknown, not absent, when a record will not parse", async () => {
 		const fs = new FakeFs();
 		ps.exit(1); // every spawn now fails, so git reports no such branch
-		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
 		await fs.write(worktrees.recordPath("alpha"), "{not json");
 
 		expect((await worktrees.find("alpha")).status).toBe("unknown");
@@ -122,7 +122,7 @@ describe("WorktreeStore", () => {
 	it("drops the oldest removed names when the memory is full", async () => {
 		const fs = new FakeFs();
 		config.removedCapacity = 2;
-		const worktrees = new WorktreeStore(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
 		const removed = `${ARBOR_DIR}/removed`;
 		await worktrees.init();
 

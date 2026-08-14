@@ -5,13 +5,13 @@ import { Git } from "./git";
 import { retry } from "./retry";
 import { Shell } from "./shell";
 import { bails, repo, testConfig } from "./testing";
-import { WorktreeStore } from "./worktree-store";
+import { WorktreeService } from "./worktree-service";
 
 describe("retry", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		git: Git;
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 	};
 
@@ -19,22 +19,22 @@ describe("retry", () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
 		const git = new Git(fixture.ps, fixture.fs, fixture.root);
-		const store = new WorktreeStore(
+		const service = new WorktreeService(
 			fixture.fs,
 			fixture.ps,
 			git,
 			config,
 			fixture.arborDir,
 		);
-		await store.init();
-		deps = { ...fixture, config, git, store, shell: new Shell(fixture.ps) };
+		await service.init();
+		deps = { ...fixture, config, git, service, shell: new Shell(fixture.ps) };
 	});
 
 	afterEach(() => deps.cleanup());
 
 	it("puts an escalated task back to working with a fresh budget", async () => {
 		await add(deps, "alpha");
-		const spent = await deps.store.find("alpha");
+		const spent = await deps.service.find("alpha");
 		await spent.save({
 			status: "escalated",
 			mergeAttempts: deps.config.mergeRetryCount,
@@ -42,7 +42,7 @@ describe("retry", () => {
 
 		await retry(deps, "alpha");
 
-		expect((await deps.store.find("alpha")).state).toMatchObject({
+		expect((await deps.service.find("alpha")).state).toMatchObject({
 			status: "working",
 			mergeAttempts: 0,
 		});
@@ -55,7 +55,7 @@ describe("retry", () => {
 
 		expect(exit.reason).toBe("usage");
 		expect(exit.message).toContain("not escalated");
-		expect((await deps.store.find("alpha")).state?.status).toBe("working");
+		expect((await deps.service.find("alpha")).state?.status).toBe("working");
 	});
 
 	it("refuses a name with no task", async () => {

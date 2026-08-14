@@ -6,7 +6,7 @@ import type { Journal } from "./journal";
 import { Assets } from "./page/assets";
 import type { Bundler } from "./page/bundler/bundler";
 import { fingerprint, snapshot } from "./snapshot";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 export const DEFAULT_PORT = 4269;
 
@@ -29,14 +29,14 @@ export interface DevServer {
  */
 export async function dev(
 	{
-		store,
+		service,
 		fs,
 		journal,
 		log,
 		http,
 		bundler,
 	}: {
-		store: WorktreeStore;
+		service: WorktreeService;
 		fs: Fs;
 		journal: Journal;
 		log: Logger;
@@ -48,13 +48,13 @@ export async function dev(
 	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
 	const assets = new Assets(fs, bundler);
-	let last = fingerprint(await snapshot(store, fs, journal));
+	let last = fingerprint(await snapshot(service, fs, journal));
 
 	// ponytail: polls, because arbor's state is spread across records, git refs
 	// and ARBOR.md, and one watcher would not cover all three. Watch `.git/arbor`
 	// and the worktree roots if two seconds ever feels slow.
 	const tick = async (): Promise<void> => {
-		const print = fingerprint(await snapshot(store, fs, journal));
+		const print = fingerprint(await snapshot(service, fs, journal));
 		if (print === last) {
 			return;
 		}
@@ -130,7 +130,7 @@ export async function dev(
 						headers: { "content-type": "text/css; charset=utf-8" },
 					});
 				case "/api/snapshot":
-					return Response.json(await snapshot(store, fs, journal));
+					return Response.json(await snapshot(service, fs, journal));
 				case "/events":
 					return events();
 				default:

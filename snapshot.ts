@@ -2,7 +2,7 @@ import type { Fs } from "@webappwiz/sys";
 import type { Entry, Journal } from "./journal";
 import { DEFAULT_COUNT } from "./log";
 import { type Details, taskDetails } from "./show";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 /** Everything one page shows: `ls` and `show` for each task, plus `log`. */
 export interface Snapshot {
@@ -15,12 +15,12 @@ export interface Snapshot {
  * serving a page cannot knock an agent off the tree it is driving.
  */
 export async function snapshot(
-	store: WorktreeStore,
+	service: WorktreeService,
 	fs: Fs,
 	journal: Journal,
 ): Promise<Snapshot> {
 	const tasks: Details[] = [];
-	for (const worktree of await store.list()) {
+	for (const worktree of await service.list()) {
 		tasks.push(await taskDetails(worktree, fs));
 	}
 	return { tasks, entries: await journal.tail(DEFAULT_COUNT) };

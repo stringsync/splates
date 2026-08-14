@@ -4,7 +4,7 @@ import { age } from "./age";
 import { fail } from "./exit";
 import { checkPlan } from "./plan";
 import type { Worktree } from "./worktree";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 const FILE = "ARBOR.md";
 
@@ -36,11 +36,11 @@ export interface ShowOptions {
  * cannot knock the agent driving it off its own work.
  */
 export async function show(
-	{ store, fs, log }: { store: WorktreeStore; fs: Fs; log: Logger },
+	{ service, fs, log }: { service: WorktreeService; fs: Fs; log: Logger },
 	task: string,
 	{ json = false }: ShowOptions = {},
 ): Promise<void> {
-	const worktree = await store.find(task);
+	const worktree = await service.find(task);
 	if (worktree.gone) {
 		fail(
 			"not_found",

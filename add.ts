@@ -2,7 +2,7 @@ import { color, type Logger } from "@webappwiz/log";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Shell } from "./shell";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -13,12 +13,12 @@ export interface AddOptions {
 
 export async function add(
 	{
-		store,
+		service,
 		shell,
 		config,
 		log,
 	}: {
-		store: WorktreeStore;
+		service: WorktreeService;
 		shell: Shell;
 		config: Config;
 		log: Logger;
@@ -34,7 +34,7 @@ export async function add(
 		);
 	}
 
-	const found = await store.find(task);
+	const found = await service.find(task);
 	if (found.status === "stray") {
 		fail(
 			"exists",
@@ -50,14 +50,14 @@ export async function add(
 		);
 	}
 
-	const added = await store.add(task, { base });
+	const added = await service.add(task, { base });
 	if (added.code !== 0) {
 		fail("usage", `git worktree add failed: ${added.stderr}`, {
 			task,
 		});
 	}
 
-	const worktree = await (await store.find(task)).take({ base });
+	const worktree = await (await service.find(task)).take({ base });
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.

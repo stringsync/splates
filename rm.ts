@@ -1,6 +1,6 @@
 import { color, type Logger } from "@webappwiz/log";
 import { fail } from "./exit";
-import type { WorktreeStore } from "./worktree-store";
+import type { WorktreeService } from "./worktree-service";
 
 export interface RmOptions {
 	/** Discard the tree even when another agent holds its lease. */
@@ -15,11 +15,11 @@ export interface RmOptions {
  * than a hard rebase, so this is meant to be used freely.
  */
 export async function rm(
-	{ store, log }: { store: WorktreeStore; log: Logger },
+	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
 	{ force = false }: RmOptions = {},
 ): Promise<void> {
-	const worktree = await store.find(task);
+	const worktree = await service.find(task);
 
 	if (worktree.gone) {
 		const removed = worktree.status === "removed";

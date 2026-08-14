@@ -31,11 +31,11 @@ export interface ArborDeps extends Deps {
  * name it. `merge` and `escalate` read it off the current branch.
  */
 const here = async ({
-	store,
+	service,
 	git,
 	ps,
 }: ArborDeps & Repository): Promise<string | null> =>
-	store.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
+	service.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and
 // stops at `exits`, which is the only thing that ends the process.
