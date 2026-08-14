@@ -2,7 +2,7 @@
 import { BunHttpServer } from "@webappwiz/http";
 import { NodeFs } from "@webappwiz/sys";
 import { arbor } from "./arbor";
-import { BunBundler } from "./page/bundler/bun-bundler";
+import { BunBundler } from "./dev/bundler/bun-bundler";
 
 export type { ArborDeps } from "./arbor";
 export type { Git } from "./git";

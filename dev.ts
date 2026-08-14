@@ -2,9 +2,9 @@ import type { HttpServer } from "@webappwiz/http";
 import type { Logger } from "@webappwiz/log";
 import type { Fs } from "@webappwiz/sys";
 import { Duration } from "@webappwiz/time";
+import { Assets } from "./dev/assets";
+import type { Bundler } from "./dev/bundler/bundler";
 import type { Journal } from "./journal";
-import { Assets } from "./page/assets";
-import type { Bundler } from "./page/bundler/bundler";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";
 
@@ -24,7 +24,7 @@ export interface DevServer {
  * repo changes. Read-only on purpose: driving arbor is what the CLI is for, and
  * a button that took a lease would fight the agent holding it.
  *
- * The page itself is a React app under `page/`, bundled on the way out, so
+ * The page itself is a React app under `dev/`, bundled on the way out, so
  * nothing here builds markup.
  */
 export async function dev(

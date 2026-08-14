@@ -6,8 +6,8 @@ import { color, MemoryLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import type { Config } from "./config";
+import { BunBundler } from "./dev/bundler/bun-bundler";
 import { Exit } from "./exit";
-import { BunBundler } from "./page/bundler/bun-bundler";
 
 /** pid 1 always exists, so it stands in for another agent that is still running. */
 export const LIVE_PID = 1;
