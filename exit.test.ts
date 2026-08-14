@@ -13,7 +13,7 @@ describe("exit", () => {
 	beforeEach(() => {
 		process = new FakeProcess();
 		log = new MemoryLogger();
-		ps = new NodePs(process);
+		ps = new NodePs({ proc: process });
 		middleware = exits();
 	});
 

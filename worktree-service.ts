@@ -16,6 +16,12 @@ export interface AddOptions {
  * directories, the records under `.git/arbor/tasks`, and the names of tasks
  * already removed. One name, one lookup, whatever state it turns out to be in.
  */
+/** What a `WorktreeService` works through; the real ones by default. */
+export interface WorktreeServiceOptions {
+	fs?: Fs;
+	ps?: Ps;
+}
+
 export class WorktreeService {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
@@ -27,11 +33,10 @@ export class WorktreeService {
 		readonly git: Git,
 		readonly config: Config,
 		arborDir: string,
-		fs?: Fs,
-		ps?: Ps,
+		opts: WorktreeServiceOptions = {},
 	) {
-		this.fs = fs ?? new NodeFs();
-		this.ps = ps ?? new NodePs();
+		this.fs = opts.fs ?? new NodeFs();
+		this.ps = opts.ps ?? new NodePs();
 		this.tasksDir = `${arborDir}/tasks`;
 		this.removedDir = `${arborDir}/removed`;
 	}

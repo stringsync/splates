@@ -12,14 +12,11 @@ import { WorktreeService } from "./worktree-service";
 const setup = async () => {
 	const fixture = await repo();
 	const config = testConfig(fixture.root);
-	const git = new Git(fixture.root, fixture.ps, fixture.fs);
-	const service = new WorktreeService(
-		git,
-		config,
-		fixture.arborDir,
-		fixture.fs,
-		fixture.ps,
-	);
+	const git = new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs });
+	const service = new WorktreeService(git, config, fixture.arborDir, {
+		fs: fixture.fs,
+		ps: fixture.ps,
+	});
 	await service.init();
 	const lockPath = join(fixture.arborDir, "merge.lock");
 	return {
@@ -27,9 +24,12 @@ const setup = async () => {
 		config,
 		git,
 		service,
-		shell: new Shell(fixture.ps),
+		shell: new Shell({ ps: fixture.ps }),
 		lockPath,
-		lock: new FileLock(lockPath, fixture.fs, fixture.ps, fixture.log, {
+		lock: new FileLock(lockPath, {
+			fs: fixture.fs,
+			ps: fixture.ps,
+			log: fixture.log,
 			stalenessMs: config.leaseStalenessMs,
 		}),
 	};

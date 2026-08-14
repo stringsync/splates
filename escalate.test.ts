@@ -21,30 +21,24 @@ describe("escalate", () => {
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const git = new Git(fixture.root, fixture.ps, fixture.fs);
-		const service = new WorktreeService(
-			git,
-			config,
-			fixture.arborDir,
-			fixture.fs,
-			fixture.ps,
-		);
+		const git = new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs });
+		const service = new WorktreeService(git, config, fixture.arborDir, {
+			fs: fixture.fs,
+			ps: fixture.ps,
+		});
 		await service.init();
 		deps = {
 			...fixture,
 			config,
 			git,
 			service,
-			shell: new Shell(fixture.ps),
-			lock: new FileLock(
-				join(fixture.arborDir, "merge.lock"),
-				fixture.fs,
-				fixture.ps,
-				fixture.log,
-				{
-					stalenessMs: config.leaseStalenessMs,
-				},
-			),
+			shell: new Shell({ ps: fixture.ps }),
+			lock: new FileLock(join(fixture.arborDir, "merge.lock"), {
+				fs: fixture.fs,
+				ps: fixture.ps,
+				log: fixture.log,
+				stalenessMs: config.leaseStalenessMs,
+			}),
 		};
 	});
 

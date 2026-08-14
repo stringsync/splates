@@ -21,22 +21,21 @@ describe("dev", () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
 		const service = new WorktreeService(
-			new Git(fixture.root, fixture.ps, fixture.fs),
+			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
 			config,
 			fixture.arborDir,
-			fixture.fs,
-			fixture.ps,
+			{ fs: fixture.fs, ps: fixture.ps },
 		);
 		await service.init();
 		deps = {
 			...fixture,
 			config,
 			service,
-			shell: new Shell(fixture.ps),
+			shell: new Shell({ ps: fixture.ps }),
 			journal: new Journal(
 				`${fixture.arborDir}/log.jsonl`,
 				config.logCapacity,
-				fixture.fs,
+				{ fs: fixture.fs },
 			),
 		};
 	});

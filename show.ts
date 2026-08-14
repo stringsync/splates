@@ -48,7 +48,7 @@ export async function show(
 			{ task },
 		);
 	}
-	const details = await taskDetails(worktree, fs);
+	const details = await taskDetails(worktree, { fs });
 
 	if (json) {
 		log.info(JSON.stringify(details, null, "\t"));
@@ -61,11 +61,16 @@ export async function show(
  * Everything there is to say about one task. Split out so `dev` can render the
  * same fields this prints, rather than assembling its own and drifting.
  */
+export interface TaskDetailsOptions {
+	/** What the worktree is read through; the real filesystem by default. */
+	fs?: Fs;
+}
+
 export async function taskDetails(
 	worktree: Worktree,
-	fs?: Fs,
+	opts: TaskDetailsOptions = {},
 ): Promise<Details> {
-	const files = fs ?? new NodeFs();
+	const files = opts.fs ?? new NodeFs();
 	const { state } = worktree;
 	// A record whose worktree or branch is gone is still worth showing: the
 	// status names what is wrong, and asking git about a branch that is not

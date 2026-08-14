@@ -18,16 +18,19 @@ describe("retry", () => {
 	beforeEach(async () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
-		const git = new Git(fixture.root, fixture.ps, fixture.fs);
-		const service = new WorktreeService(
-			git,
-			config,
-			fixture.arborDir,
-			fixture.fs,
-			fixture.ps,
-		);
+		const git = new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs });
+		const service = new WorktreeService(git, config, fixture.arborDir, {
+			fs: fixture.fs,
+			ps: fixture.ps,
+		});
 		await service.init();
-		deps = { ...fixture, config, git, service, shell: new Shell(fixture.ps) };
+		deps = {
+			...fixture,
+			config,
+			git,
+			service,
+			shell: new Shell({ ps: fixture.ps }),
+		};
 	});
 
 	afterEach(() => deps.cleanup());

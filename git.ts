@@ -11,6 +11,12 @@ export interface GitResult {
  * to run these themselves, since going through arbor is what makes concurrent
  * work safe, so this is the only place git is spoken.
  */
+/** What a `Git` works through; the real ones by default. */
+export interface GitOptions {
+	ps?: Ps;
+	fs?: Fs;
+}
+
 export class Git {
 	private readonly ps: Ps;
 	private readonly fs: Fs;
@@ -18,11 +24,10 @@ export class Git {
 	constructor(
 		/** The main worktree, where trunk lives. */
 		readonly root: string,
-		ps?: Ps,
-		fs?: Fs,
+		opts: GitOptions = {},
 	) {
-		this.ps = ps ?? new NodePs();
-		this.fs = fs ?? new NodeFs();
+		this.ps = opts.ps ?? new NodePs();
+		this.fs = opts.fs ?? new NodeFs();
 	}
 
 	async run(cwd: string, ...args: string[]): Promise<GitResult> {

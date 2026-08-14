@@ -14,15 +14,20 @@ export interface Snapshot {
  * Reads the whole repo the way `ls`, `show` and `log` do. Takes no lease, so
  * serving a page cannot knock an agent off the tree it is driving.
  */
+export interface SnapshotOptions {
+	/** What the worktrees are read through; the real filesystem by default. */
+	fs?: Fs;
+}
+
 export async function snapshot(
 	service: WorktreeService,
 	journal: Journal,
-	fs?: Fs,
+	opts: SnapshotOptions = {},
 ): Promise<Snapshot> {
-	const files = fs ?? new NodeFs();
+	const fs = opts.fs ?? new NodeFs();
 	const tasks: Details[] = [];
 	for (const worktree of await service.list()) {
-		tasks.push(await taskDetails(worktree, files));
+		tasks.push(await taskDetails(worktree, { fs }));
 	}
 	return { tasks, entries: await journal.tail(DEFAULT_COUNT) };
 }

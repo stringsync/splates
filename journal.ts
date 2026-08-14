@@ -16,15 +16,20 @@ export interface Entry {
  * `merge` and `rm` take the record with them, so this is the only thing that
  * remembers a task existed at all.
  */
+/** What a `Journal` is stored through; the real filesystem by default. */
+export interface JournalOptions {
+	fs?: Fs;
+}
+
 export class Journal {
 	private readonly fs: Fs;
 
 	constructor(
 		private readonly path: string,
 		private readonly capacity: number,
-		fs?: Fs,
+		opts: JournalOptions = {},
 	) {
-		this.fs = fs ?? new NodeFs();
+		this.fs = opts.fs ?? new NodeFs();
 	}
 
 	async record<T>(

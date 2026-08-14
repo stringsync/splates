@@ -19,14 +19,19 @@ const here = import.meta.dirname;
  * in, so that file is theirs and never ours. Building the two assets by hand
  * travels with the package instead of asking every caller to configure it.
  */
+/** What an `Assets` reads through; the real filesystem by default. */
+export interface AssetsOptions {
+	fs?: Fs;
+}
+
 export class Assets {
 	private readonly fs: Fs;
 
 	constructor(
 		private readonly bundler: Bundler,
-		fs?: Fs,
+		opts: AssetsOptions = {},
 	) {
-		this.fs = fs ?? new NodeFs();
+		this.fs = opts.fs ?? new NodeFs();
 	}
 
 	/** The page itself, exactly as the file on disk has it. */

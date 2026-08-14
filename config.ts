@@ -48,8 +48,16 @@ export function defineConfig(config: Partial<Config>): Partial<Config> {
 	return config;
 }
 
-export async function loadConfig(root: string, fs?: Fs): Promise<Config> {
-	return { ...defaults(root), ...(await file(fs ?? new NodeFs(), root)) };
+export interface LoadConfigOptions {
+	/** What `arbor.config.ts` is looked for through; the real one by default. */
+	fs?: Fs;
+}
+
+export async function loadConfig(
+	root: string,
+	opts: LoadConfigOptions = {},
+): Promise<Config> {
+	return { ...defaults(root), ...(await file(opts.fs ?? new NodeFs(), root)) };
 }
 
 function defaults(root: string): Config {

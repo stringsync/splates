@@ -57,7 +57,7 @@ export async function repo() {
 	const root = join(base, "repo");
 	// Spawns for real; its exits and signals are the fake process's to keep.
 	const proc = new FakeProcess();
-	const ps = new NodePs(proc);
+	const ps = new NodePs({ proc });
 	const log = new MemoryLogger();
 	const fs = new NodeFs();
 

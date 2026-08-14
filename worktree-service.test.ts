@@ -17,8 +17,8 @@ class RecordingFs implements Fs {
 	exists(path: string): Promise<boolean> {
 		return this.inner.exists(path);
 	}
-	mkdir(path: string, options?: MkdirOptions): Promise<void> {
-		return this.inner.mkdir(path, options);
+	mkdir(path: string, opts?: MkdirOptions): Promise<void> {
+		return this.inner.mkdir(path, opts);
 	}
 	read(path: string): Promise<string> {
 		return this.inner.read(path);
@@ -37,8 +37,8 @@ class RecordingFs implements Fs {
 	stat(path: string): Promise<StatResult> {
 		return this.inner.stat(path);
 	}
-	rm(path: string, options?: RmOptions): Promise<void> {
-		return this.inner.rm(path, options);
+	rm(path: string, opts?: RmOptions): Promise<void> {
+		return this.inner.rm(path, opts);
 	}
 }
 
@@ -75,11 +75,14 @@ describe("WorktreeService", () => {
 		};
 	});
 
-	const git = (fs: Fs) => new Git("/repo", ps, fs);
+	const git = (fs: Fs) => new Git("/repo", { ps: ps, fs: fs });
 
 	it("lands a record by rename, never by writing in place", async () => {
 		const fs = new RecordingFs(new FakeFs());
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+			fs: fs,
+			ps: ps,
+		});
 
 		await (await worktrees.find("alpha")).save();
 
@@ -95,7 +98,10 @@ describe("WorktreeService", () => {
 
 	it("leaves the previous record readable when a write dies partway", async () => {
 		const fs = new CrashingFs();
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+			fs: fs,
+			ps: ps,
+		});
 		const saved = await (await worktrees.find("alpha")).save({
 			mergeAttempts: 1,
 		});
@@ -112,7 +118,10 @@ describe("WorktreeService", () => {
 	it("reports unknown, not absent, when a record will not parse", async () => {
 		const fs = new FakeFs();
 		ps.exit(1); // every spawn now fails, so git reports no such branch
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+			fs: fs,
+			ps: ps,
+		});
 		await fs.write(worktrees.recordPath("alpha"), "{not json");
 
 		expect((await worktrees.find("alpha")).status).toBe("unknown");
@@ -122,7 +131,10 @@ describe("WorktreeService", () => {
 	it("drops the oldest removed names when the memory is full", async () => {
 		const fs = new FakeFs();
 		config.removedCapacity = 2;
-		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
+			fs: fs,
+			ps: ps,
+		});
 		const removed = `${ARBOR_DIR}/removed`;
 		await worktrees.init();
 
