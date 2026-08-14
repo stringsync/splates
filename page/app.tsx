@@ -112,7 +112,9 @@ function Contents({ tasks }: { tasks: Details[] }): JSX.Element | null {
 				<a
 					key={task.task}
 					href={`#${task.task}`}
-					className={`my-2 block ${task.status === "escalated" ? NEEDS : ""}`}
+					className={`my-2 block hover:underline ${
+						task.status === "escalated" ? NEEDS : ""
+					}`}
 				>
 					<span className="block truncate">{task.task}</span>
 					<Bar plan={task.plan} />
@@ -135,7 +137,7 @@ function Card({ task }: { task: Details }): JSX.Element {
 			}`}
 		>
 			<h2 id={task.task} className={escalated ? NEEDS : ""}>
-				<a href={`#${task.task}`}>
+				<a href={`#${task.task}`} className="hover:underline">
 					<b>{task.task}</b>
 				</a>{" "}
 				<Badge status={task.status} /> <Bar plan={task.plan} />{" "}
