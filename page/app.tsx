@@ -130,13 +130,14 @@ function Card({ task }: { task: Details }): JSX.Element {
 		// An escalated task is waiting on the person reading this page. A yellow
 		// accent edge and head are enough to say so; the card itself stays quiet.
 		<article
-			// The margin the sticky sidebar leaves clear, so a card jumped to from
-			// there does not land flush against the top of the window.
-			className={`my-2 scroll-mt-8 rounded border border-current/20 p-3 ${
+			className={`my-2 rounded border border-current/20 p-3 ${
 				escalated ? "border-l-[3px] border-l-amber-600" : ""
 			}`}
 		>
-			<h2 id={task.task} className={escalated ? NEEDS : ""}>
+			{/* The scroll margin is the card's own border and padding plus a line of
+			    air, so a heading jumped to from the sidebar arrives with its card
+			    around it rather than cropped at the top of the window. */}
+			<h2 id={task.task} className={`scroll-mt-8 ${escalated ? NEEDS : ""}`}>
 				<a href={`#${task.task}`} className="hover:underline">
 					<b>{task.task}</b>
 				</a>{" "}
