@@ -18,14 +18,14 @@ describe("loadConfig", () => {
 	});
 
 	it("defaults the worktree root to a sibling of the repo, named after it", async () => {
-		const config = await loadConfig(fs, root);
+		const config = await loadConfig(root, fs);
 
 		expect(config.worktreeRoot).toBe(`${root}-arbor`);
 		expect(config.trunk).toBe("main");
 	});
 
 	it("leaves every hook unset, so a repo runs only what it asks for", async () => {
-		const config = await loadConfig(fs, root);
+		const config = await loadConfig(root, fs);
 
 		expect(config.postCheckout).toBeNull();
 		expect(config.postRewrite).toBeNull();
@@ -38,7 +38,7 @@ describe("loadConfig", () => {
 			`export default { trunk: "trunk", mergeRetryCount: 7 };\n`,
 		);
 
-		const config = await loadConfig(fs, root);
+		const config = await loadConfig(root, fs);
 
 		expect(config.trunk).toBe("trunk");
 		expect(config.mergeRetryCount).toBe(7);

@@ -75,11 +75,11 @@ describe("WorktreeService", () => {
 		};
 	});
 
-	const git = (fs: Fs) => new Git(ps, fs, "/repo");
+	const git = (fs: Fs) => new Git("/repo", ps, fs);
 
 	it("lands a record by rename, never by writing in place", async () => {
 		const fs = new RecordingFs(new FakeFs());
-		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
 
 		await (await worktrees.find("alpha")).save();
 
@@ -95,7 +95,7 @@ describe("WorktreeService", () => {
 
 	it("leaves the previous record readable when a write dies partway", async () => {
 		const fs = new CrashingFs();
-		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
 		const saved = await (await worktrees.find("alpha")).save({
 			mergeAttempts: 1,
 		});
@@ -112,7 +112,7 @@ describe("WorktreeService", () => {
 	it("reports unknown, not absent, when a record will not parse", async () => {
 		const fs = new FakeFs();
 		ps.exit(1); // every spawn now fails, so git reports no such branch
-		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
 		await fs.write(worktrees.recordPath("alpha"), "{not json");
 
 		expect((await worktrees.find("alpha")).status).toBe("unknown");
@@ -122,7 +122,7 @@ describe("WorktreeService", () => {
 	it("drops the oldest removed names when the memory is full", async () => {
 		const fs = new FakeFs();
 		config.removedCapacity = 2;
-		const worktrees = new WorktreeService(fs, ps, git(fs), config, ARBOR_DIR);
+		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, fs, ps);
 		const removed = `${ARBOR_DIR}/removed`;
 		await worktrees.init();
 

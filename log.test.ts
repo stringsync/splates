@@ -14,9 +14,9 @@ describe("log", () => {
 		deps = {
 			...fixture,
 			journal: new Journal(
-				fixture.fs,
 				join(fixture.arborDir, "log.jsonl"),
 				200,
+				fixture.fs,
 			),
 		};
 	});
@@ -48,7 +48,7 @@ describe("log", () => {
 	});
 
 	it("keeps the log capped and asking for none returns none", async () => {
-		deps.journal = new Journal(deps.fs, join(deps.arborDir, "log.jsonl"), 2);
+		deps.journal = new Journal(join(deps.arborDir, "log.jsonl"), 2, deps.fs);
 		for (const task of ["a", "b", "c"]) {
 			await deps.journal.record("create", task, async () => {});
 		}

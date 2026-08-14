@@ -20,11 +20,11 @@ describe("path", () => {
 		const fixture = await repo();
 		const config = testConfig(fixture.root);
 		const service = new WorktreeService(
-			fixture.fs,
-			fixture.ps,
-			new Git(fixture.ps, fixture.fs, fixture.root),
+			new Git(fixture.root, fixture.ps, fixture.fs),
 			config,
 			fixture.arborDir,
+			fixture.fs,
+			fixture.ps,
 		);
 		await service.init();
 		deps = { ...fixture, config, service, shell: new Shell(fixture.ps) };
