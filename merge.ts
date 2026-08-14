@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { FileLock } from "@webappwiz/sys";
+import type { Lock } from "@webappwiz/sys";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
@@ -26,7 +26,7 @@ export async function merge(
 	}: {
 		service: WorktreeService;
 		git: Git;
-		lock: FileLock;
+		lock: Lock;
 		shell: Shell;
 		config: Config;
 		log: Logger;

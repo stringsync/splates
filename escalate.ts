@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { FileLock } from "@webappwiz/sys";
+import type { Lock } from "@webappwiz/sys";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import type { WorktreeService } from "./worktree-service";
@@ -18,7 +18,7 @@ export async function escalate(
 	}: {
 		service: WorktreeService;
 		git: Git;
-		lock: FileLock;
+		lock: Lock;
 		log: Logger;
 	},
 	reason: string,

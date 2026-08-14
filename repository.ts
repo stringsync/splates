@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "@webappwiz/cmd";
-import { FileLock, type Fs } from "@webappwiz/sys";
+import { FileLock, type Fs, type Lock } from "@webappwiz/sys";
 import { type Config, loadConfig } from "./config";
 import { Git } from "./git";
 import { Journal } from "./journal";
@@ -12,7 +12,7 @@ export interface Repository {
 	config: Config;
 	git: Git;
 	service: WorktreeService;
-	lock: FileLock;
+	lock: Lock;
 	shell: Shell;
 	journal: Journal;
 }
