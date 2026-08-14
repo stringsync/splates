@@ -34,12 +34,12 @@ export function testConfig(
 	overrides: Partial<Config> = {},
 ): Config {
 	return {
-		// Keeps merge's test gate green unless a test asks otherwise.
-		testCommand: "true",
 		trunk: "main",
 		worktreeRoot: `${root}-arbor`,
 		postCheckout: null,
 		postRewrite: null,
+		// Keeps merge's gate green unless a test asks otherwise.
+		preMerge: "true",
 		leaseStalenessMs: 90_000,
 		removedCapacity: 50,
 		mergeRetryCount: 2,

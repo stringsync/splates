@@ -2,8 +2,6 @@ import { basename, resolve } from "node:path";
 import type { Fs } from "@webappwiz/sys";
 
 export interface Config {
-	/** What `merge` runs after rebasing, via `sh -c`. */
-	testCommand: string;
 	/**
 	 * The integration branch name. `merge` rebases a task onto this branch and
 	 * then fast-forwards it to the result; new worktrees start from it.
@@ -14,11 +12,19 @@ export interface Config {
 	/** Command run by `add` in the new worktree, via `sh -c`. */
 	postCheckout: string | null;
 	/**
-	 * Command run by `merge` after the rebase, before the test gate, via
-	 * `sh -c`. A rebase can bring in a dependency the worktree has never
-	 * installed, and the tests import it.
+	 * Command run by `merge` after the rebase, before `preMerge`, via `sh -c`.
+	 * A rebase can bring in a dependency the worktree has never installed, and
+	 * whatever `preMerge` runs needs it.
 	 */
 	postRewrite: string | null;
+	/**
+	 * Command run by `merge` after the rebase, via `sh -c`. The last gate before
+	 * the branch lands: a nonzero exit rolls the branch back and leaves the base
+	 * untouched. Tests are the obvious thing to put here, but arbor has no
+	 * opinion; a repo with nothing to run leaves it null and merges on a green
+	 * rebase alone.
+	 */
+	preMerge: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
@@ -33,31 +39,31 @@ export interface Config {
 	logCapacity: number;
 }
 
-export async function loadConfig(fs: Fs, root: string): Promise<Config> {
-	return { ...(await defaults(fs, root)), ...(await file(fs, root)) };
+/**
+ * Identity, for the types. `export default defineConfig({ ... })` in
+ * `arbor.config.ts` gets the key names and their types checked, and completion
+ * while writing it; a bare object literal gets neither.
+ */
+export function defineConfig(config: Partial<Config>): Partial<Config> {
+	return config;
 }
 
-async function defaults(fs: Fs, root: string): Promise<Config> {
+export async function loadConfig(fs: Fs, root: string): Promise<Config> {
+	return { ...defaults(root), ...(await file(fs, root)) };
+}
+
+function defaults(root: string): Config {
 	return {
-		testCommand: (await hasTestScript(fs, root)) ? "bun run test" : "bun test",
 		trunk: "main",
 		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor`),
 		postCheckout: null,
 		postRewrite: null,
+		preMerge: null,
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 2,
 		removedCapacity: 50,
 		logCapacity: 200,
 	};
-}
-
-async function hasTestScript(fs: Fs, root: string): Promise<boolean> {
-	const raw = await fs.read(`${root}/package.json`).catch(() => "{}");
-	try {
-		return typeof JSON.parse(raw)?.scripts?.test === "string";
-	} catch {
-		return false;
-	}
 }
 
 async function file(fs: Fs, root: string): Promise<Partial<Config>> {

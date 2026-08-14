@@ -63,11 +63,11 @@ describe("WorktreeStore", () => {
 	beforeEach(() => {
 		ps = new FakePs();
 		config = {
-			testCommand: "true",
 			trunk: "main",
 			worktreeRoot: "/repo-arbor",
 			postCheckout: null,
 			postRewrite: null,
+			preMerge: "true",
 			leaseStalenessMs: 90_000,
 			mergeRetryCount: 2,
 			removedCapacity: 50,

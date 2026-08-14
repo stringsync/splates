@@ -24,20 +24,12 @@ describe("loadConfig", () => {
 		expect(config.trunk).toBe("main");
 	});
 
-	it("takes the default test command from a package.json test script", async () => {
-		const packageJson = join(root, "package.json");
+	it("leaves every hook unset, so a repo runs only what it asks for", async () => {
+		const config = await loadConfig(fs, root);
 
-		await fs.write(
-			packageJson,
-			JSON.stringify({ scripts: { test: "vitest" } }),
-		);
-		expect((await loadConfig(fs, root)).testCommand).toBe("bun run test");
-
-		await fs.write(packageJson, "{}");
-		expect((await loadConfig(fs, root)).testCommand).toBe("bun test");
-
-		await fs.write(packageJson, "{not json");
-		expect((await loadConfig(fs, root)).testCommand).toBe("bun test");
+		expect(config.postCheckout).toBeNull();
+		expect(config.postRewrite).toBeNull();
+		expect(config.preMerge).toBeNull();
 	});
 
 	it("overrides only the defaults arbor.config.ts names", async () => {

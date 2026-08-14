@@ -56,6 +56,22 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	it("lands on a clean rebase alone when no hook is configured", async () => {
+		await using deps = await setup();
+
+		deps.config.postRewrite = null;
+		deps.config.preMerge = null;
+		await add(deps, "alpha");
+		const worktree = (await deps.store.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await merge(deps, worktree);
+
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
+	});
+
 	it("lands a --base task on its base branch and leaves trunk alone", async () => {
 		await using deps = await setup();
 
@@ -119,10 +135,10 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
-	it("rolls the branch back and leaves trunk alone when tests fail", async () => {
+	it("rolls the branch back and leaves trunk alone when the gate fails", async () => {
 		await using deps = await setup();
 
-		deps.config.testCommand = "echo boom-from-tests; exit 1";
+		deps.config.preMerge = "echo boom-from-tests; exit 1";
 		await add(deps, "alpha");
 		const worktree = (await deps.store.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -139,12 +155,12 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
-	it("runs postRewrite before the tests, and fails the gate when it does", async () => {
+	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {
 		await using deps = await setup();
 
-		// Only passes if the hook ran first, in the same tree, before the tests.
+		// Only passes if the hook ran first, in the same tree, before preMerge.
 		deps.config.postRewrite = "echo hooked > hook.txt";
-		deps.config.testCommand = "grep -q hooked hook.txt";
+		deps.config.preMerge = "grep -q hooked hook.txt";
 		await add(deps, "alpha");
 		const worktree = (await deps.store.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -212,7 +228,7 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		const trace = join(deps.root, "trace.log");
-		deps.config.testCommand = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
+		deps.config.preMerge = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
 
 		await add(deps, "alpha");
 		await add(deps, "beta");

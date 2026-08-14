@@ -9,8 +9,8 @@ import type {
 export type ShellOptions = SpawnOptions & { cwd: string };
 
 /**
- * Runs the commands a repo configures (`testCommand`, the hooks) as
- * shell strings rather than argv, since that is how a repo writes them.
+ * Runs the commands a repo configures (the lifecycle hooks) as shell strings
+ * rather than argv, since that is how a repo writes them.
  */
 export class Shell {
 	// This is the whole of what `merge` and `add` are allowed to do to the

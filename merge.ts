@@ -12,7 +12,7 @@ const TAIL_LINES = 40;
 /**
  * Lands the current worktree's branch on its base branch, trunk unless the
  * task was created with `--base`. Never a merge commit: it rebases onto the
- * base, runs the tests there, and fast-forwards the base with
+ * base, runs the gate there, and fast-forwards the base with
  * `git merge --ff-only`. History stays linear.
  */
 export async function merge(
@@ -105,22 +105,25 @@ export async function merge(
 
 	// After the rebase, never before: a branch that passed against an older
 	// trunk tells you nothing about the combination. This is the only thing
-	// standing between semantic conflicts and a broken trunk.
+	// standing between semantic conflicts and a broken trunk, and a repo that
+	// configures neither hook has chosen to go without it.
 	//
-	// postRewrite shares the shell with the tests rather than getting its own
-	// run: the recovery is the same either way, and one gate reports one
-	// failure however far down it got.
-	const gate = config.postRewrite
-		? `${config.postRewrite} && ${config.testCommand}`
-		: config.testCommand;
-	const tests = await shell.run(gate, {
-		cwd: worktree.path,
-		env: {
-			ARBOR_TASK: task,
-			ARBOR_WORKTREE: worktree.path,
-		},
-	});
-	if (tests.exitCode !== 0) {
+	// The two hooks share one shell rather than getting a run each: the recovery
+	// is the same either way, and one gate reports one failure however far down
+	// it got.
+	const gate = [config.postRewrite, config.preMerge]
+		.filter(Boolean)
+		.join(" && ");
+	const gated = gate
+		? await shell.run(gate, {
+				cwd: worktree.path,
+				env: {
+					ARBOR_TASK: task,
+					ARBOR_WORKTREE: worktree.path,
+				},
+			})
+		: { exitCode: 0, stdout: "", stderr: "" };
+	if (gated.exitCode !== 0) {
 		// The rebase already finished, so there is nothing for `rebase --abort`
 		// to undo: resetting to the pre-rebase commit is what returns the branch
 		// to its previous state.
@@ -130,12 +133,12 @@ export async function merge(
 		fail(
 			"tests_failed",
 			[
-				`\`${gate}\` failed after rebasing onto ${base} (exit ${tests.exitCode}).`,
+				`\`${gate}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
 				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
 				"",
-				tail(`${tests.stdout}\n${tests.stderr}`),
+				tail(`${gated.stdout}\n${gated.stderr}`),
 			].join("\n"),
-			{ task, exitCode: tests.exitCode },
+			{ task, exitCode: gated.exitCode },
 		);
 	}
 

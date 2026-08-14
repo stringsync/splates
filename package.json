@@ -7,7 +7,8 @@
 		"arbor": "./index.ts"
 	},
 	"exports": {
-		".": "./index.ts"
+		".": "./index.ts",
+		"./config": "./config.ts"
 	},
 	"dependencies": {
 		"@tailwindcss/oxide": "^4.3.3",

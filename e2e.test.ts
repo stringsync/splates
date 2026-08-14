@@ -8,11 +8,11 @@ const CLI = join(import.meta.dirname, "index.ts");
 /** A repo of its own per test, so the four of them can run at once. */
 const setup = async () => {
 	const env = await repo();
-	// The only thing worth overriding: the default `bun test` fails in a
-	// worktree that has no tests, and merge would read that as a real failure.
+	// A gate that passes, so the happy paths exercise merge rather than the
+	// fixture repo's (nonexistent) tests.
 	await env.fs.write(
 		join(env.root, "arbor.config.ts"),
-		`export default { testCommand: "true" };\n`,
+		`export default { preMerge: "true" };\n`,
 	);
 
 	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
@@ -99,7 +99,7 @@ describe.concurrent("arbor", () => {
 		// first agent's merge fails for a reason the second agent can fix.
 		await env.fs.write(
 			join(env.root, "arbor.config.ts"),
-			`export default { testCommand: "grep -q ok status.txt" };\n`,
+			`export default { preMerge: "grep -q ok status.txt" };\n`,
 		);
 		expect((await arbor(env.root, "add", "gamma")).exitCode).toBe(0);
 		const tree = (await rows())[0]?.worktree;
@@ -173,7 +173,7 @@ describe.concurrent("arbor", () => {
 		const die = join(env.root, "die");
 		await env.fs.write(
 			join(env.root, "arbor.config.ts"),
-			`export default { testCommand: "if [ -f ${die} ]; then rm ${die}; kill -9 $PPID; fi" };\n`,
+			`export default { preMerge: "if [ -f ${die} ]; then rm ${die}; kill -9 $PPID; fi" };\n`,
 		);
 		await env.fs.write(die, "");
 		expect((await arbor(env.root, "add", "epsilon")).exitCode).toBe(0);

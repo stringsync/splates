@@ -50,14 +50,15 @@ holds the lease. A worktree with no record is rebuilt rather than rejected.
 
 Lands the current worktree's branch on trunk. The core command.
 
-**Never a merge commit.** It rebases onto trunk, runs the tests there, and
-fast-forwards trunk with `git merge --ff-only`. History stays linear.
+**Never a merge commit.** It rebases onto trunk, runs the `preMerge` gate
+there, and fast-forwards trunk with `git merge --ff-only`. History stays
+linear.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere.
 2. Takes the merge lock, **blocking**, polling every 2s. Blocking is
    deliberate: telling an agent "busy, try later" invites it to go edit more
    code in a branch that is supposed to be frozen.
-3. `git rebase <trunk>`, then the test command, **in that order**. A branch that
+3. `git rebase <trunk>`, then the `preMerge` gate, **in that order**. A branch that
    passed before rebasing says nothing about whether it works against current
    trunk; this is the only defense against semantic conflicts, where both sides
    merge cleanly and the combination is broken.
@@ -69,10 +70,11 @@ fast-forwards trunk with `git merge --ff-only`. History stays linear.
    prints the main tree to `cd` back to.
 
 On conflict the rebase is **left in progress**: the agent needs the markers.
-Resolve, `git add`, `git rebase --continue`, `arbor merge` again. On test
-failure the branch is reset to where it was and trunk is never touched.
+Resolve, `git add`, `git rebase --continue`, `arbor merge` again. When the gate
+fails the branch is reset to where it was and trunk is never touched.
 
-There is deliberately no flag to skip the test gate.
+There is deliberately no flag to skip the gate: a repo that wants none
+configures none.
 
 ### `arbor rm <task>`
 
@@ -203,7 +205,7 @@ The agent's control flow runs on these.
 | 0    | none                | Success.                                                           |
 | 1    | `usage`             | Bad task name, bad flags, or an unexpected git failure.            |
 | 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, merge again. |
-| 3    | `tests_failed`      | Tests failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
+| 3    | `tests_failed`      | The gate (`postRewrite`, `preMerge`) failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
 | 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor rm` and redo against current trunk. |
 | 6    | `lease_held`        | Another agent is driving this tree.                                |
@@ -220,29 +222,36 @@ plus fields like `paths` for conflicts) and the human explanation on **stderr**.
 
 ## Configuration
 
-`arbor.config.ts` at the repo root, all keys optional:
+`arbor.config.ts` at the repo root, all keys optional. `defineConfig` is an
+identity function that exists for the types:
 
 ```ts
-export default {
-	testCommand: "bun test",        // what merge runs after rebasing, via sh -c
+import { defineConfig } from "@webappwiz/arbor/config";
+
+export default defineConfig({
 	trunk: "main",
 	worktreeRoot: "../myrepo-arbor",
 	postCheckout: "bun install && cp ../../myrepo/.env .env",
-	postRewrite: "bun install",     // after each rebase, before the test gate
+	postRewrite: "bun install",     // after each rebase, before preMerge
+	preMerge: "bun test",           // the last gate before the branch lands
 	leaseStalenessMs: 90_000,
 	mergeRetryCount: 2,
 	removedCapacity: 50,            // removed names kept, so rm can say "already removed"
 	logCapacity: 200,               // entries `arbor log` keeps before the oldest fall off
-};
+});
 ```
 
-`testCommand` defaults to `bun run test` when the root `package.json` has a
-`test` script, otherwise `bun test`. The hooks are named for the git events
-they follow: `postCheckout` runs once, when `add` checks the worktree out, and
-`postRewrite` runs after every rebase `merge` does, before the tests. They both
-run through `sh -c` in the worktree with `ARBOR_TASK` and `ARBOR_WORKTREE` in
-the environment, and a failing `postRewrite` fails the gate: the branch rolls
-back and the attempt is spent, exactly as a failing test would.
+The hooks are named for the git events they sit around: `postCheckout` runs
+once, when `add` checks the worktree out; `postRewrite` runs after every rebase
+`merge` does; `preMerge` runs after that, and is the last thing between the
+branch and the base. They all run through `sh -c` in the worktree with
+`ARBOR_TASK` and `ARBOR_WORKTREE` in the environment.
+
+Every hook is unset by default: arbor has no opinion about what a repo runs, or
+whether it has tests at all. Configure `preMerge` and a nonzero exit rolls the
+branch back and spends an attempt, leaving the base untouched; `postRewrite`
+fails the same gate the same way. Configure neither and a task lands on a clean
+rebase alone.
 
 arbor does not allocate ports. Several worktrees running at once will collide on
 whatever they bind, and the thing that binds (docker-compose, a dev server, a
