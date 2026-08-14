@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Fs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/sys";
 import { age } from "./age";
 import { fail } from "./exit";
 import { checkPlan } from "./plan";
@@ -63,15 +63,16 @@ export async function show(
  */
 export async function taskDetails(
 	worktree: Worktree,
-	fs: Fs,
+	fs?: Fs,
 ): Promise<Details> {
+	const files = fs ?? new NodeFs();
 	const { state } = worktree;
 	// A record whose worktree or branch is gone is still worth showing: the
 	// status names what is wrong, and asking git about a branch that is not
 	// there would only fill the fields with nulls.
 	const stat = worktree.hasBranch ? await worktree.diffStat() : null;
 	const plan = worktree.exists
-		? await fs.read(`${worktree.path}/${FILE}`).catch(() => null)
+		? await files.read(`${worktree.path}/${FILE}`).catch(() => null)
 		: null;
 	return {
 		task: worktree.task,

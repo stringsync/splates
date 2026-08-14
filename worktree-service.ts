@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { Fs, Ps } from "@webappwiz/sys";
+import { type Fs, NodeFs, NodePs, type Ps } from "@webappwiz/sys";
 import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { type TaskState, Worktree } from "./worktree";
@@ -19,15 +19,19 @@ export interface AddOptions {
 export class WorktreeService {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
+	private readonly fs: Fs;
+	readonly ps: Ps;
 
 	// judge-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, which one-dir-per-interface says is when not to write the interface; tests run the real Git against a throwaway repo rather than faking twenty methods
 	constructor(
-		private readonly fs: Fs,
-		readonly ps: Ps,
 		readonly git: Git,
 		readonly config: Config,
 		arborDir: string,
+		fs?: Fs,
+		ps?: Ps,
 	) {
+		this.fs = fs ?? new NodeFs();
+		this.ps = ps ?? new NodePs();
 		this.tasksDir = `${arborDir}/tasks`;
 		this.removedDir = `${arborDir}/removed`;
 	}

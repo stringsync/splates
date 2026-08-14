@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Scanner } from "@tailwindcss/oxide";
-import type { Fs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/sys";
 import { compile } from "tailwindcss";
 import type { Bundler } from "./bundler/bundler";
 
@@ -20,10 +20,14 @@ const here = import.meta.dirname;
  * travels with the package instead of asking every caller to configure it.
  */
 export class Assets {
+	private readonly fs: Fs;
+
 	constructor(
-		private readonly fs: Fs,
 		private readonly bundler: Bundler,
-	) {}
+		fs?: Fs,
+	) {
+		this.fs = fs ?? new NodeFs();
+	}
 
 	/** The page itself, exactly as the file on disk has it. */
 	shell(): Promise<string> {

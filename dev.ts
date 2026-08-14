@@ -47,14 +47,14 @@ export async function dev(
 ): Promise<DevServer> {
 	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
-	const assets = new Assets(fs, bundler);
-	let last = fingerprint(await snapshot(service, fs, journal));
+	const assets = new Assets(bundler, fs);
+	let last = fingerprint(await snapshot(service, journal, fs));
 
 	// ponytail: polls, because arbor's state is spread across records, git refs
 	// and ARBOR.md, and one watcher would not cover all three. Watch `.git/arbor`
 	// and the worktree roots if two seconds ever feels slow.
 	const tick = async (): Promise<void> => {
-		const print = fingerprint(await snapshot(service, fs, journal));
+		const print = fingerprint(await snapshot(service, journal, fs));
 		if (print === last) {
 			return;
 		}
@@ -130,7 +130,7 @@ export async function dev(
 						headers: { "content-type": "text/css; charset=utf-8" },
 					});
 				case "/api/snapshot":
-					return Response.json(await snapshot(service, fs, journal));
+					return Response.json(await snapshot(service, journal, fs));
 				case "/events":
 					return events();
 				default:

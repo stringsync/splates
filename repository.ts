@@ -45,9 +45,9 @@ export function repository<C extends Deps & { fs: Fs }>(
 		const gitDir = stdout.trim();
 		const arborDir = `${gitDir}/arbor`;
 
-		const config = await loadConfig(fs, dirname(gitDir));
-		const git = new Git(ps, fs, dirname(gitDir));
-		const service = new WorktreeService(fs, ps, git, config, arborDir);
+		const config = await loadConfig(dirname(gitDir), fs);
+		const git = new Git(dirname(gitDir), ps, fs);
+		const service = new WorktreeService(git, config, arborDir, fs, ps);
 		await service.init();
 
 		await next({
@@ -55,11 +55,11 @@ export function repository<C extends Deps & { fs: Fs }>(
 			config,
 			git,
 			service,
-			lock: new FileLock(fs, ps, log, `${arborDir}/merge.lock`, {
+			lock: new FileLock(`${arborDir}/merge.lock`, fs, ps, log, {
 				stalenessMs: config.leaseStalenessMs,
 			}),
 			shell: new Shell(ps),
-			journal: new Journal(fs, `${arborDir}/log.jsonl`, config.logCapacity),
+			journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, fs),
 		});
 	};
 }

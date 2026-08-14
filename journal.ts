@@ -1,4 +1,4 @@
-import type { Fs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/sys";
 import { Exit } from "./exit";
 
 /** One thing that was done to a task, and how it went. */
@@ -17,11 +17,15 @@ export interface Entry {
  * remembers a task existed at all.
  */
 export class Journal {
+	private readonly fs: Fs;
+
 	constructor(
-		private readonly fs: Fs,
 		private readonly path: string,
 		private readonly capacity: number,
-	) {}
+		fs?: Fs,
+	) {
+		this.fs = fs ?? new NodeFs();
+	}
 
 	async record<T>(
 		action: string,

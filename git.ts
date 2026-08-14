@@ -1,4 +1,4 @@
-import type { Fs, Ps } from "@webappwiz/sys";
+import { type Fs, NodeFs, NodePs, type Ps } from "@webappwiz/sys";
 
 export interface GitResult {
 	code: number;
@@ -12,12 +12,18 @@ export interface GitResult {
  * work safe, so this is the only place git is spoken.
  */
 export class Git {
+	private readonly ps: Ps;
+	private readonly fs: Fs;
+
 	constructor(
-		private readonly ps: Ps,
-		private readonly fs: Fs,
 		/** The main worktree, where trunk lives. */
 		readonly root: string,
-	) {}
+		ps?: Ps,
+		fs?: Fs,
+	) {
+		this.ps = ps ?? new NodePs();
+		this.fs = fs ?? new NodeFs();
+	}
 
 	async run(cwd: string, ...args: string[]): Promise<GitResult> {
 		const { exitCode, stdout, stderr } = await this.ps.spawnCapture([

@@ -1,8 +1,9 @@
-import type {
-	Ps,
-	SpawnCaptureResult,
-	SpawnOptions,
-	SpawnResult,
+import {
+	NodePs,
+	type Ps,
+	type SpawnCaptureResult,
+	type SpawnOptions,
+	type SpawnResult,
 } from "@webappwiz/sys";
 
 /** Spawn options for a shell command. `cwd` is the worktree it runs against. */
@@ -13,9 +14,13 @@ export type ShellOptions = SpawnOptions & { cwd: string };
  * rather than argv, since that is how a repo writes them.
  */
 export class Shell {
+	private readonly ps: Ps;
+
 	// This is the whole of what `merge` and `add` are allowed to do to the
 	// process. Handing them a `Ps` instead would hand them `exit` and `cd` too.
-	constructor(private readonly ps: Ps) {}
+	constructor(ps?: Ps) {
+		this.ps = ps ?? new NodePs();
+	}
 
 	/** Captures output, for commands whose failure has to be reported back. */
 	run(command: string, options: ShellOptions): Promise<SpawnCaptureResult> {

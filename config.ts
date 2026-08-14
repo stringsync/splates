@@ -1,5 +1,5 @@
 import { basename, resolve } from "node:path";
-import type { Fs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/sys";
 
 export interface Config {
 	/**
@@ -48,8 +48,8 @@ export function defineConfig(config: Partial<Config>): Partial<Config> {
 	return config;
 }
 
-export async function loadConfig(fs: Fs, root: string): Promise<Config> {
-	return { ...defaults(root), ...(await file(fs, root)) };
+export async function loadConfig(root: string, fs?: Fs): Promise<Config> {
+	return { ...defaults(root), ...(await file(fs ?? new NodeFs(), root)) };
 }
 
 function defaults(root: string): Config {
