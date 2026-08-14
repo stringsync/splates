@@ -9,7 +9,7 @@ import {
 // Imported for the side effect, and before anything that touches a global:
 // `@webappwiz/react/dom` is what puts a DOM on `globalThis` for React to
 // render into.
-import "@webappwiz/react/dom";
+import "@webappwiz/browser/dom";
 import type { Entry } from "../journal";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
