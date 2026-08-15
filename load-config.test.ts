@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "@webappwiz/system";
-import { loadConfig } from "./config";
+import { loadConfig } from "./load-config";
 
 describe("loadConfig", () => {
 	const fs = new NodeFs();

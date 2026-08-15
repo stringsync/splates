@@ -1,9 +1,10 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "@webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "@webappwiz/system";
-import { type Config, loadConfig } from "./config";
+import type { Config } from "./config";
 import { Git } from "./git";
 import { Journal } from "./journal";
+import { loadConfig } from "./load-config";
 import { Shell } from "./shell";
 import { WorktreeService } from "./worktree-service";
 
