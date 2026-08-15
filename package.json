@@ -19,6 +19,7 @@
 		"@webappwiz/log": "workspace:*",
 		"@webappwiz/md": "workspace:*",
 		"@webappwiz/react": "workspace:*",
+		"@webappwiz/ship": "workspace:*",
 		"@webappwiz/sys": "workspace:*",
 		"@webappwiz/t": "workspace:*",
 		"@webappwiz/time": "workspace:*",

@@ -1,9 +1,9 @@
 import type { HttpServer } from "@webappwiz/http";
 import type { Logger } from "@webappwiz/log";
+import type { Bundler } from "@webappwiz/ship";
 import type { Fs } from "@webappwiz/sys";
 import { Duration } from "@webappwiz/time";
 import { Assets } from "./dev/assets";
-import type { Bundler } from "./dev/bundler/bundler";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";

@@ -1,9 +1,9 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Scanner } from "@tailwindcss/oxide";
+import type { Bundler } from "@webappwiz/ship";
 import { type Fs, NodeFs } from "@webappwiz/sys";
 import { compile } from "tailwindcss";
-import type { Bundler } from "./bundler/bundler";
 
 const here = import.meta.dirname;
 

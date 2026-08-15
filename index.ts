@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 import { BunHttpServer } from "@webappwiz/http";
+import { BunBundler } from "@webappwiz/ship";
 import { NodeFs } from "@webappwiz/sys";
 import { arbor } from "./arbor";
-import { BunBundler } from "./dev/bundler/bun-bundler";
 
 export type { ArborDeps } from "./arbor";
 export type { Git } from "./git";

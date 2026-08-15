@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunHttpServer } from "@webappwiz/http";
 import { color, MemoryLogger } from "@webappwiz/log";
+import { BunBundler } from "@webappwiz/ship";
 import { NodeFs, NodePs } from "@webappwiz/sys";
 import { FakeProcess } from "@webappwiz/sys/testing";
 import type { Config } from "./config";
-import { BunBundler } from "./dev/bundler/bun-bundler";
 import { Exit } from "./exit";
 
 /** pid 1 always exists, so it stands in for another agent that is still running. */
