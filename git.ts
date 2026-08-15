@@ -152,6 +152,16 @@ export class Git {
 		return this.run(this.root, "branch", "-D", branch);
 	}
 
+	/** The one `.git` every worktree of this repo shares. */
+	commonDir(): Promise<string> {
+		return this.out(
+			this.root,
+			"rev-parse",
+			"--path-format=absolute",
+			"--git-common-dir",
+		);
+	}
+
 	/** The git directory belonging to a worktree, or null if it has none. */
 	async worktreeGitDir(worktree: string): Promise<string | null> {
 		// Guessing this from the worktree's basename would be wrong: git dedupes

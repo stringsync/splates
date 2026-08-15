@@ -68,6 +68,22 @@ describe("add", () => {
 		expect(plan).toContain("- [ ]");
 	});
 
+	it("excludes the plan from git, once, so no task can commit it", async () => {
+		await add(deps, "alpha");
+		await add(deps, "beta");
+
+		const exclude = await deps.fs.read(
+			join(deps.root, ".git", "info", "exclude"),
+		);
+		expect(exclude.split("\n").filter((line) => line === "ARBOR.md")).toEqual([
+			"ARBOR.md",
+		]);
+		const state = (await deps.service.find("alpha")).state;
+		expect(
+			await deps.gitCli(state?.worktree ?? "", "status", "--porcelain"),
+		).toBe("");
+	});
+
 	it("refuses a name that is already taken and points at claim", async () => {
 		await add(deps, "alpha");
 
