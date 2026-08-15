@@ -1,6 +1,14 @@
 {
 	"name": "@webappwiz/arbor",
 	"version": "0.0.0",
+	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
+	"license": "MIT",
+	"author": "Jared Johnson",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jaredjj3/webappwiz.git",
+		"directory": "packages/arbor"
+	},
 	"type": "module",
 	"module": "index.ts",
 	"bin": {
@@ -9,6 +17,20 @@
 	"exports": {
 		".": "./index.ts",
 		"./config": "./config.ts"
+	},
+	"engines": {
+		"bun": ">=1.3"
+	},
+	"files": [
+		"**/*.ts",
+		"**/*.tsx",
+		"!**/*.test.ts",
+		"!**/*.test.tsx",
+		"dev/index.html",
+		"dev/styles.css"
+	],
+	"publishConfig": {
+		"access": "public"
 	},
 	"dependencies": {
 		"@tailwindcss/oxide": "^4.3.3",
