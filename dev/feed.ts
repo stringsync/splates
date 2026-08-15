@@ -9,7 +9,7 @@ export type FeedEvents = { changed: undefined };
  *
  * One of these lasts as long as the page: `start` and `stop` open and close the
  * stream, and stopping leaves the object usable so it can be started again. It
- * is deliberately not `Disposable`, because the component reads it through
+ * is deliberately not `Resource`, because the component reads it through
  * `useReactive`, which subscribes to the instance it saw on its first render.
  */
 export class Feed implements Eventful<FeedEvents> {
