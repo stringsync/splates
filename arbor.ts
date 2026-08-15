@@ -65,7 +65,7 @@ arbor
 arbor
 	.command("claim")
 	.description(
-		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease",
+		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.action((opts, ctx) =>
@@ -102,7 +102,7 @@ arbor
 arbor
 	.command("ls")
 	.description(
-		"list every task: name, status, lease (held/stale/none), commits ahead of trunk, age",
+		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
 	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => ls(ctx, { json: opts.json }));
