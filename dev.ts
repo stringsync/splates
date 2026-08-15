@@ -1,8 +1,8 @@
 import type { HttpServer } from "@webappwiz/http";
 import type { Logger } from "@webappwiz/log";
-import type { Bundler } from "@webappwiz/ship";
 import type { Fs } from "@webappwiz/system";
 import { Duration } from "@webappwiz/time";
+import type { Bundler } from "./bundler/bundler";
 import { Assets } from "./dev/assets";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";

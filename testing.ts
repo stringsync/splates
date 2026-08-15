@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunHttpServer } from "@webappwiz/http";
 import { color, MemoryLogger } from "@webappwiz/log";
-import { BunBundler } from "@webappwiz/ship";
 import { NodeFs, NodePs } from "@webappwiz/system";
 import { FakeProcess } from "@webappwiz/system/testing";
+import { BunBundler } from "./bundler/bun-bundler";
 import type { Config } from "./config";
 import { Exit } from "./exit";
 

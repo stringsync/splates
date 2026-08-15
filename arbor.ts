@@ -1,9 +1,9 @@
 import { cli, type Deps } from "@webappwiz/cmd";
 import type { HttpServer } from "@webappwiz/http";
-import type { Bundler } from "@webappwiz/ship";
 import type { Fs } from "@webappwiz/system";
 import { t } from "@webappwiz/t";
 import { add } from "./add";
+import type { Bundler } from "./bundler/bundler";
 import { claim } from "./claim";
 import { DEFAULT_PORT, dev } from "./dev";
 import { escalate } from "./escalate";
