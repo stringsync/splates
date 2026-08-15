@@ -4,8 +4,12 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>arbor</title>
-		<!-- Nothing to show, and it stops the browser asking for a favicon. -->
-		<link rel="icon" href="data:," />
+		<!-- The emoji drawn as SVG inline, so there is no file for the server to
+		     serve and nothing to keep in step with the heading on the page. -->
+		<link
+			rel="icon"
+			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='28'>🌲</text></svg>"
+		/>
 		<!-- Both are routes the server builds on request, not files next to this
 		     one. See dev/assets.ts for why they are not Bun's HTML import. -->
 		<link rel="stylesheet" href="/styles.css" />

@@ -279,7 +279,11 @@ describe("App", () => {
 			tasks: [details({ plan: "# alpha\n\n## Goal\nland it\n" })],
 		});
 
-		expect(container.querySelector("h1")).toBeNull();
+		// The page's own title is the only h1 on it: the plan's `# alpha` is gone.
+		const titles = [...container.querySelectorAll("h1")].map(
+			(title) => title.textContent,
+		);
+		expect(titles).toEqual(["🌲 arbor"]);
 		// The card's own heading first, then the document's sections under it.
 		const headings = [...container.querySelectorAll("h2")];
 		expect(headings[0]?.textContent).toContain("alpha");

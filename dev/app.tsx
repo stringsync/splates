@@ -40,6 +40,11 @@ export function App(): JSX.Element {
 
 	return (
 		<div className="mx-auto max-w-6xl px-4 py-8 font-mono text-[13px]">
+			{/* The same name and tree as the tab, so a window found among many says
+			    what it is whichever half of it you are looking at. */}
+			<h1 className="mb-4 text-base">
+				<b>🌲 arbor</b>
+			</h1>
 			<nav className="mb-4 flex gap-6 text-xs uppercase tracking-widest">
 				{TABS.map((name) => (
 					<button
