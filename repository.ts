@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "@webappwiz/cmd";
-import { FileLock, type Fs, type Lock } from "@webappwiz/sys";
+import { FileLock, type Fs, type Lock } from "@webappwiz/system";
 import { type Config, loadConfig } from "./config";
 import { Git } from "./git";
 import { Journal } from "./journal";

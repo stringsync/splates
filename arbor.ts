@@ -1,7 +1,7 @@
 import { cli, type Deps } from "@webappwiz/cmd";
 import type { HttpServer } from "@webappwiz/http";
 import type { Bundler } from "@webappwiz/ship";
-import type { Fs } from "@webappwiz/sys";
+import type { Fs } from "@webappwiz/system";
 import { t } from "@webappwiz/t";
 import { add } from "./add";
 import { claim } from "./claim";

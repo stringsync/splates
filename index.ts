@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { BunHttpServer } from "@webappwiz/http";
 import { BunBundler } from "@webappwiz/ship";
-import { NodeFs } from "@webappwiz/sys";
+import { NodeFs } from "@webappwiz/system";
 import { arbor } from "./arbor";
 
 export type { ArborDeps } from "./arbor";

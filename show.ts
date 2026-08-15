@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import { type Fs, NodeFs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
 import { checkPlan } from "./plan";

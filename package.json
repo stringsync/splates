@@ -20,7 +20,7 @@
 		"@webappwiz/md": "workspace:*",
 		"@webappwiz/react": "workspace:*",
 		"@webappwiz/ship": "workspace:*",
-		"@webappwiz/sys": "workspace:*",
+		"@webappwiz/system": "workspace:*",
 		"@webappwiz/t": "workspace:*",
 		"@webappwiz/time": "workspace:*",
 		"react": "^19.2.8",

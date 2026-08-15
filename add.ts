@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Fs } from "@webappwiz/sys";
+import type { Fs } from "@webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Shell } from "./shell";

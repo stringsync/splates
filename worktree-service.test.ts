@@ -1,9 +1,14 @@
 // judge-ignore-file one-dir-per-interface: RecordingFs and CrashingFs exist to break
-// this file's write path, so they belong here rather than shipped from @webappwiz/sys
+// this file's write path, so they belong here rather than shipped from @webappwiz/system
 // judge-ignore-file one-class-per-file: the same two fakes are local to this suite
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { Fs, MkdirOptions, RmOptions, StatResult } from "@webappwiz/sys";
-import { FakeFs, FakePs } from "@webappwiz/sys/testing";
+import type {
+	Fs,
+	MkdirOptions,
+	RmOptions,
+	StatResult,
+} from "@webappwiz/system";
+import { FakeFs, FakePs } from "@webappwiz/system/testing";
 import type { Config } from "./config";
 import { Git } from "./git";
 import { WorktreeService } from "./worktree-service";

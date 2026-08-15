@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { FileLock } from "@webappwiz/sys";
+import { FileLock } from "@webappwiz/system";
 import { add } from "./add";
 import { Git } from "./git";
 import { merge } from "./merge";

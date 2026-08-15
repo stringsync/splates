@@ -4,7 +4,7 @@ import {
 	type SpawnCaptureResult,
 	type SpawnOptions,
 	type SpawnResult,
-} from "@webappwiz/sys";
+} from "@webappwiz/system";
 
 /** Spawn options for a shell command. `cwd` is the worktree it runs against. */
 export type ShellRunOptions = SpawnOptions & { cwd: string };

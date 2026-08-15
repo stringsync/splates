@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { FileLock } from "@webappwiz/sys";
+import { FileLock } from "@webappwiz/system";
 import { add } from "./add";
 import type { Config } from "./config";
 import { escalate } from "./escalate";

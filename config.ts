@@ -1,5 +1,5 @@
 import { basename, resolve } from "node:path";
-import { type Fs, NodeFs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/system";
 
 export interface Config {
 	/**

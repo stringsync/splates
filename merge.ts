@@ -1,5 +1,5 @@
 import { color, type Logger } from "@webappwiz/log";
-import type { Lock } from "@webappwiz/sys";
+import type { Lock } from "@webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";

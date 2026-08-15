@@ -1,4 +1,4 @@
-import { type Fs, NodeFs } from "@webappwiz/sys";
+import { type Fs, NodeFs } from "@webappwiz/system";
 import type { Entry, Journal } from "./journal";
 import { DEFAULT_COUNT } from "./log";
 import { type Details, taskDetails } from "./show";
