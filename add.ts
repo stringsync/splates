@@ -1,10 +1,21 @@
 import { color, type Logger } from "@webappwiz/log";
+import type { Fs } from "@webappwiz/sys";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Shell } from "./shell";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** The plan a fresh task starts with. `## Goal` is left empty on purpose:
+ * `arbor show` nags until the agent fills it in. */
+const PLAN = (task: string) => `# ${task}
+
+## Goal
+
+## Next
+- [ ] fill in Goal and list the steps here as \`- [ ]\` items
+`;
 
 export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
@@ -17,11 +28,13 @@ export async function add(
 		shell,
 		config,
 		log,
+		fs,
 	}: {
 		service: WorktreeService;
 		shell: Shell;
 		config: Config;
 		log: Logger;
+		fs: Fs;
 	},
 	task: string,
 	{ base = config.trunk }: AddOptions = {},
@@ -58,6 +71,8 @@ export async function add(
 	}
 
 	const worktree = await (await service.find(task)).take({ base });
+
+	await fs.write(`${worktree.path}/ARBOR.md`, PLAN(task));
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.

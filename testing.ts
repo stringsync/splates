@@ -92,6 +92,8 @@ export async function repo() {
 	await gitCli(root, "config", "user.name", "arbor");
 	await gitCli(root, "config", "commit.gpgsign", "false");
 	await commit(root, "README.md", "seed\n", "seed");
+	// as in a real arbor repo, so the stub `add` writes never reads as dirty
+	await commit(root, ".gitignore", "ARBOR.md\n", "ignore ARBOR.md");
 
 	const cleanup = () => rm(base, { recursive: true, force: true });
 

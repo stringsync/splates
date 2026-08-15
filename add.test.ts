@@ -58,6 +58,16 @@ describe("add", () => {
 		expect(deps.out()).toContain("added alpha");
 	});
 
+	it("leaves a stub ARBOR.md for the agent to fill in", async () => {
+		await add(deps, "alpha");
+
+		const state = (await deps.service.find("alpha")).state;
+		const plan = await deps.fs.read(join(state?.worktree ?? "", "ARBOR.md"));
+		expect(plan).toStartWith("# alpha\n");
+		expect(plan).toContain("## Goal");
+		expect(plan).toContain("- [ ]");
+	});
+
 	it("refuses a name that is already taken and points at claim", async () => {
 		await add(deps, "alpha");
 

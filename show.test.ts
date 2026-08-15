@@ -67,6 +67,8 @@ describe("show", () => {
 
 	it("says the ARBOR.md is missing rather than staying silent", async () => {
 		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		await deps.fs.rm(`${alpha}/ARBOR.md`);
 		deps.log.clear();
 
 		await show(deps, "alpha");
