@@ -17,7 +17,7 @@ const PLAN = (task: string): string =>
 		.heading(1, task)
 		.heading(2, "Goal")
 		.heading(2, "Next")
-		.text("- [ ] fill in Goal and list the steps here as `- [ ]` items")
+		.checklist("fill in Goal and list the steps here as `- [ ]` items")
 		.toString();
 
 export interface AddOptions {
