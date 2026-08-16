@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { BunHttpServer } from "@webappwiz/http";
+import { BunHttpServer } from "@webappwiz/http/bun";
 import { NodeFs } from "@webappwiz/system";
 import { arbor } from "./arbor";
 import { assets } from "./dev/assets";
