@@ -1,4 +1,4 @@
-import "../../../test-setup";
+import "../../../setup";
 import { describe, expect, it } from "bun:test";
 import { render } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
