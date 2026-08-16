@@ -99,6 +99,16 @@ describe("add", () => {
 		}
 	});
 
+	it("refuses a repo with submodules, before making anything", async () => {
+		await deps.fs.write(join(deps.root, ".gitmodules"), "");
+
+		const exit = await bails(add(deps, "alpha"));
+
+		expect(exit.reason).toBe("usage");
+		expect(exit.message).toContain(".gitmodules");
+		expect((await deps.service.find("alpha")).gone).toBe(true);
+	});
+
 	it("reports a failed postCheckout hook but keeps the worktree", async () => {
 		deps.config = testConfig(deps.root, { postCheckout: "exit 3" });
 

@@ -50,6 +50,19 @@ export async function add(
 		);
 	}
 
+	// A worktree gets its own empty submodule directories, so every task would
+	// have to bootstrap them before anything builds. Refuse the repo instead.
+	// Git only reads the superproject's top-level file, so there is nowhere else
+	// to look; a stale one with no live gitlink refuses too, which is the safe
+	// direction to be wrong in.
+	if (await fs.exists(`${service.git.root}/.gitmodules`)) {
+		fail(
+			"usage",
+			"this repo has git submodules (.gitmodules), which arbor does not support: worktrees do not share them",
+			{ task },
+		);
+	}
+
 	const found = await service.find(task);
 	if (found.status === "stray") {
 		fail(

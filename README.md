@@ -37,6 +37,11 @@ no `.env`) which is what `postCheckout` is for.
 
 If the hook fails the worktree stays; fix it and re-run the hook by hand.
 
+Refuses a repo with submodules (`usage`). A worktree gets its own empty
+submodule directories, so every task would have to bootstrap them before
+anything builds, and arbor would rather say so than hand back a tree that does
+not work.
+
 ### `arbor claim <task>`
 
 Takes ownership of an existing worktree. **This is the resume entry point**: a
@@ -203,7 +208,7 @@ The agent's control flow runs on these.
 | Code | Reason              | Meaning and what to do                                            |
 | ---- | ------------------- | ----------------------------------------------------------------- |
 | 0    | none                | Success.                                                           |
-| 1    | `usage`             | Bad task name, bad flags, or an unexpected git failure.            |
+| 1    | `usage`             | Bad task name, bad flags, a repo arbor does not support, or an unexpected git failure. |
 | 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, merge again. |
 | 3    | `tests_failed`      | The gate (`postRewrite`, `preMerge`) failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
