@@ -1,6 +1,6 @@
-// judge-ignore-file one-dir-per-interface: RecordingFs and CrashingFs exist to break
+// rule-ignore-file one-dir-per-interface: RecordingFs and CrashingFs exist to break
 // this file's write path, so they belong here rather than shipped from @webappwiz/system
-// judge-ignore-file one-class-per-file: the same two fakes are local to this suite
+// rule-ignore-file one-class-per-file: the same two fakes are local to this suite
 import { beforeEach, describe, expect, it } from "bun:test";
 import type {
 	Fs,

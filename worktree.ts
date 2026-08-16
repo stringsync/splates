@@ -61,7 +61,7 @@ export interface WorktreeSnapshot {
  * existence checks themselves.
  */
 export class Worktree {
-	// judge-ignore classes-over-function-exports: the service is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the service's Git
+	// rule-ignore classes-over-function-exports: the service is what hands out Worktrees, so the two are one design in two files, and an interface here would have one implementation and still expose the service's Git
 	constructor(
 		private readonly service: WorktreeService,
 		private readonly snapshot: WorktreeSnapshot,

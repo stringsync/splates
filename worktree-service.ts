@@ -28,7 +28,7 @@ export class WorktreeService {
 	private readonly fs: Fs;
 	readonly ps: Ps;
 
-	// judge-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, which one-dir-per-interface says is when not to write the interface; tests run the real Git against a throwaway repo rather than faking twenty methods
+	// rule-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, which one-dir-per-interface says is when not to write the interface; tests run the real Git against a throwaway repo rather than faking twenty methods
 	constructor(
 		readonly git: Git,
 		readonly config: Config,
