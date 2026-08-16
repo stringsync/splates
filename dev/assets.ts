@@ -1,71 +1,22 @@
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { Scanner } from "@tailwindcss/oxide";
-import { type Fs, NodeFs } from "@webappwiz/system";
-import { compile } from "tailwindcss";
-import type { Bundler } from "../bundler/bundler";
+import script from "./build/main.txt" with { type: "text" };
+import shell from "./build/shell.txt" with { type: "text" };
+import styles from "./build/styles.txt" with { type: "text" };
 
-const here = import.meta.dirname;
+/** The three files the browser asks for, as the server hands them over. */
+export interface Assets {
+	/** The page, which asks for the other two. */
+	shell: string;
+	/** The React app, bundled for the browser. */
+	script: string;
+	/** The stylesheet, with Tailwind already compiled. */
+	styles: string;
+}
 
 /**
- * The three files the browser asks for, built here rather than by an HTML
- * import.
- *
- * ponytail: the import route bundles the page in one line, but it hands the
- * stylesheet to the bundler's CSS pipeline, which inlines Tailwind and leaves
- * `@tailwind utilities` in the output. Compiling Tailwind properly needs
- * `bun-plugin-tailwind`, which is configured in `bunfig.toml`, which is read
- * from the current directory: `arbor dev` runs inside whatever repo the user is
- * in, so that file is theirs and never ours. Building the two assets by hand
- * travels with the package instead of asking every caller to configure it.
+ * The page this package ships, built by `build.ts` and imported here as text so
+ * it travels inside the bundle a release publishes. Serving it costs a string
+ * lookup, and nothing is read off disk: a published package has no `dev/`
+ * directory to read from, and the CLI's own dependencies stay clear of React
+ * and Tailwind because neither is needed once the page is built.
  */
-/** What an `Assets` reads through; the real filesystem by default. */
-export interface AssetsOptions {
-	fs?: Fs;
-}
-
-export class Assets {
-	private readonly fs: Fs;
-
-	constructor(
-		private readonly bundler: Bundler,
-		opts: AssetsOptions = {},
-	) {
-		this.fs = opts.fs ?? new NodeFs();
-	}
-
-	/** The page itself, exactly as the file on disk has it. */
-	shell(): Promise<string> {
-		return this.fs.read(`${here}/index.html`);
-	}
-
-	/** The React app, bundled for the browser. */
-	script(): Promise<string> {
-		return this.bundler.bundle(`${here}/main.tsx`);
-	}
-
-	/** The stylesheet, with Tailwind compiled. */
-	async styles(): Promise<string> {
-		const compiler = await compile(await this.fs.read(`${here}/styles.css`), {
-			base: here,
-			loadStylesheet: async (id: string, base: string) => {
-				// Tailwind asks for its own entry by bare name, then for the parts of it
-				// by relative path. Only the bare name needs module resolution; the
-				// rest are paths off a base that is already inside tailwind's package.
-				const path =
-					id === "tailwindcss"
-						? fileURLToPath(import.meta.resolve("tailwindcss/index.css"))
-						: resolve(base, id);
-				return {
-					path,
-					base: dirname(path),
-					content: await this.fs.read(path),
-				};
-			},
-		});
-		// The `@source` lines in styles.css say which files to read class names out
-		// of. Tailwind emits only the utilities it finds there.
-		const scanner = new Scanner({ sources: compiler.sources });
-		return compiler.build(scanner.scan());
-	}
-}
+export const assets: Assets = { shell, script, styles };

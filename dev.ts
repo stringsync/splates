@@ -2,8 +2,7 @@ import type { HttpServer } from "@webappwiz/http";
 import type { Logger } from "@webappwiz/log";
 import type { Fs } from "@webappwiz/system";
 import { Duration } from "@webappwiz/time";
-import type { Bundler } from "./bundler/bundler";
-import { Assets } from "./dev/assets";
+import type { Assets } from "./dev/assets";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";
@@ -24,8 +23,9 @@ export interface DevServer {
  * repo changes. Read-only on purpose: driving arbor is what the CLI is for, and
  * a button that took a lease would fight the agent holding it.
  *
- * The page itself is a React app under `dev/`, bundled on the way out, so
- * nothing here builds markup.
+ * The page itself is a React app under `dev/`, built before publishing and
+ * carried in the bundle, so nothing here builds markup and nothing reads it
+ * off disk.
  */
 export async function dev(
 	{
@@ -34,20 +34,19 @@ export async function dev(
 		journal,
 		log,
 		http,
-		bundler,
+		assets,
 	}: {
 		service: WorktreeService;
 		fs: Fs;
 		journal: Journal;
 		log: Logger;
 		http: HttpServer;
-		bundler: Bundler;
+		assets: Assets;
 	},
 	{ port = DEFAULT_PORT } = {},
 ): Promise<DevServer> {
 	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
-	const assets = new Assets(bundler, { fs });
 	let last = fingerprint(await snapshot(service, journal, { fs }));
 
 	// ponytail: polls, because arbor's state is spread across records, git refs
@@ -66,27 +65,6 @@ export async function dev(
 	const poll = setInterval(() => {
 		tick().catch((error: unknown) => log.error(String(error)));
 	}, POLL_MS);
-
-	// Built once, on the first page load, and held: both come out of source files
-	// that cannot change while the CLI is running.
-	let js: Promise<string> | null = null;
-	let css: Promise<string> | null = null;
-
-	const main = async (): Promise<Response> => {
-		js ??= assets.script();
-		try {
-			return new Response(await js, {
-				headers: { "content-type": "text/javascript; charset=utf-8" },
-			});
-		} catch (error) {
-			// A page that mounts nothing is a blank screen with nothing in the
-			// console, so say it here where the person who ran the command is
-			// looking. Cleared so the next reload tries again.
-			js = null;
-			log.error(`could not build the dev page: ${String(error)}`);
-			return new Response(String(error), { status: 500 });
-		}
-	};
 
 	const events = (): Response => {
 		let self: ReadableStreamDefaultController<Uint8Array> | null = null;
@@ -119,14 +97,15 @@ export async function dev(
 		async (request) => {
 			switch (new URL(request.url).pathname) {
 				case "/":
-					return new Response(await assets.shell(), {
+					return new Response(assets.shell, {
 						headers: { "content-type": "text/html; charset=utf-8" },
 					});
 				case "/main.js":
-					return main();
+					return new Response(assets.script, {
+						headers: { "content-type": "text/javascript; charset=utf-8" },
+					});
 				case "/styles.css":
-					css ??= assets.styles();
-					return new Response(await css, {
+					return new Response(assets.styles, {
 						headers: { "content-type": "text/css; charset=utf-8" },
 					});
 				case "/api/snapshot":

@@ -17,7 +17,7 @@ describe("arbor cli", () => {
 			fs: env.fs,
 			ps: env.ps,
 			http: env.http,
-			bundler: env.bundler,
+			assets: env.assets,
 		};
 
 		await arbor.run(deps, ["add", "alpha"]);
@@ -38,7 +38,7 @@ describe("arbor cli", () => {
 				fs: env.fs,
 				ps: env.ps,
 				http: env.http,
-				bundler: env.bundler,
+				assets: env.assets,
 			},
 			["claim", "nope"],
 		);

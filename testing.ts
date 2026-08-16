@@ -5,8 +5,8 @@ import { BunHttpServer } from "@webappwiz/http";
 import { color, MemoryLogger } from "@webappwiz/log";
 import { NodeFs, NodePs } from "@webappwiz/system";
 import { FakeProcess } from "@webappwiz/system/testing";
-import { BunBundler } from "./bundler/bun-bundler";
 import type { Config } from "./config";
+import { assets } from "./dev/assets";
 import { Exit } from "./exit";
 
 /** pid 1 always exists, so it stands in for another agent that is still running. */
@@ -104,9 +104,10 @@ export async function repo() {
 		proc,
 		log,
 		// the real ones: `dev` is tested by serving a page and fetching it, so a
-		// stand-in would only have to grow into these
+		// stand-in would only have to grow into these. The assets are the ones
+		// that publish, which is the point of asserting on what comes back.
 		http: new BunHttpServer(),
-		bundler: new BunBundler(),
+		assets,
 		gitCli,
 		commit,
 		out: () =>

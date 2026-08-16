@@ -3,9 +3,9 @@ import type { HttpServer } from "@webappwiz/http";
 import type { Fs } from "@webappwiz/system";
 import { t } from "@webappwiz/t";
 import { add } from "./add";
-import type { Bundler } from "./bundler/bundler";
 import { claim } from "./claim";
 import { DEFAULT_PORT, dev } from "./dev";
+import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
 import { DEFAULT_COUNT, log as showLog } from "./log";
@@ -22,8 +22,8 @@ export interface ArborDeps extends Deps {
 	fs: Fs;
 	/** Only `dev` listens, but the runtime is picked once, where arbor starts. */
 	http: HttpServer;
-	/** Likewise: only the dev page is bundled, and only one place decides how. */
-	bundler: Bundler;
+	/** Likewise: only `dev` serves the page, and it is built before it ships. */
+	assets: Assets;
 }
 
 /**

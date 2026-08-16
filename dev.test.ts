@@ -124,12 +124,6 @@ describe("dev", () => {
 		});
 	});
 
-	// The `/main.js` route is deliberately not asserted here. `BunBundler` cannot
-	// resolve the extensionless imports in `@webappwiz/react`'s entry point when
-	// it runs under `bun test`, though the identical build succeeds outside it, so
-	// a test of that route would fail on a Bun quirk rather than on this code.
-	// What the bundle needs is that the page's modules typecheck and resolve,
-	// which `bin/wiz fix` covers by running tsc over the workspace.
 	it("serves the page the browser asks for its assets from", async () => {
 		await add(deps, "alpha");
 
@@ -140,6 +134,24 @@ describe("dev", () => {
 			expect(html).toContain(`<div id="root">`);
 			expect(html).toContain(`href="/styles.css"`);
 			expect(html).toContain(`src="/main.js"`);
+		});
+	});
+
+	it("serves the React app already bundled, with nothing left to fetch", async () => {
+		await add(deps, "alpha");
+
+		await serving(async (_snapshot, port) => {
+			const response = await fetch(`http://localhost:${port}/main.js`);
+			const js = await response.text();
+
+			expect(response.headers.get("content-type")).toContain("text/javascript");
+			// React is in the file rather than imported from anywhere, which is what
+			// makes the page work with no network and no import map.
+			expect(js).not.toContain('from "react"');
+			expect(js).toContain("createRoot");
+			// The page's own markup reached the bundle, so this is the app and not
+			// an empty entry module that failed to pull anything in.
+			expect(js).toContain("arbor");
 		});
 	});
 
