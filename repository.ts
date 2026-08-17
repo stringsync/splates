@@ -46,8 +46,8 @@ export function repository<C extends Deps & { fs: Fs }>(
 		const gitDir = stdout.trim();
 		const arborDir = `${gitDir}/arbor`;
 
-		const config = await loadConfig(dirname(gitDir), { fs });
 		const git = new Git(dirname(gitDir), { ps, fs });
+		const config = await loadConfig(dirname(gitDir), { fs, git });
 		const service = new WorktreeService(git, config, arborDir, { fs, ps });
 		await service.init();
 

@@ -119,6 +119,30 @@ describe("add", () => {
 		expect(await deps.fs.exists(state?.worktree ?? "")).toBe(true);
 	});
 
+	it("tells the postCheckout hook which branch the trunk is", async () => {
+		deps.config = testConfig(deps.root, {
+			trunk: "master",
+			postCheckout: "printenv ARBOR_TRUNK > trunk.txt",
+		});
+
+		await add(deps, "alpha", { base: "main" });
+
+		const state = (await deps.service.find("alpha")).state;
+		expect(await deps.fs.read(join(state?.worktree ?? "", "trunk.txt"))).toBe(
+			"master\n",
+		);
+	});
+
+	it("names the trunk and the config when the trunk is not a branch", async () => {
+		deps.config = testConfig(deps.root, { trunk: "master" });
+
+		const exit = await bails(add(deps, "alpha"));
+
+		expect(exit.reason).toBe("usage");
+		expect(exit.message).toContain("trunk 'master'");
+		expect(exit.message).toContain("arbor.config.ts");
+	});
+
 	it("refuses with a reason, a message and the data behind it", async () => {
 		const exit = await bails(add(deps, "Alpha"));
 

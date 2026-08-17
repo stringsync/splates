@@ -246,6 +246,10 @@ export default defineConfig({
 });
 ```
 
+`trunk` is the one key worth leaving out: unset, arbor takes the branch
+`refs/remotes/origin/HEAD` points at, so a repo on `master` needs no config at
+all, and falls back to `main` when there is no such ref to read.
+
 The hooks are named for the git events they sit around: `postCheckout` runs
 once, when `add` checks the worktree out; `postRewrite` runs after every rebase
 `merge` does; `preMerge` runs after that, and is the last thing between the

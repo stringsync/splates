@@ -81,9 +81,17 @@ export async function add(
 
 	const added = await service.add(task, { base });
 	if (added.code !== 0) {
-		fail("usage", `git worktree add failed: ${added.stderr}`, {
-			task,
-		});
+		// git's own "invalid reference" sends people to the branch, when what is
+		// wrong is which branch arbor thinks the trunk is.
+		const missingTrunk =
+			base === config.trunk && !(await service.git.branchExists(base));
+		fail(
+			"usage",
+			missingTrunk
+				? `trunk '${base}' is not a branch in this repo: set \`trunk\` in arbor.config.ts`
+				: `git worktree add failed: ${added.stderr}`,
+			{ task },
+		);
 	}
 
 	const worktree = await (await service.find(task)).take({ base });

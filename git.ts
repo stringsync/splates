@@ -61,6 +61,20 @@ export class Git {
 		return code === 0;
 	}
 
+	/**
+	 * The branch `origin/HEAD` points at, or null when the repo has no such ref:
+	 * no remote, or a clone that never fetched it.
+	 */
+	async defaultBranch(): Promise<string | null> {
+		const { code, stdout } = await this.run(
+			this.root,
+			"symbolic-ref",
+			"--short",
+			"refs/remotes/origin/HEAD",
+		);
+		return code === 0 ? stdout.replace(/^origin\//, "") || null : null;
+	}
+
 	currentBranch(cwd: string): Promise<string> {
 		return this.out(cwd, "rev-parse", "--abbrev-ref", "HEAD");
 	}
