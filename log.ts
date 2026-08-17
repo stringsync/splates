@@ -1,4 +1,4 @@
-import { color, type Logger } from "@webappwiz/log";
+import { color, type Logger } from "webappwiz/log";
 import { age } from "./age";
 import type { Entry, Journal } from "./journal";
 import { table } from "./table";

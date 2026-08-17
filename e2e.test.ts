@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { color } from "@webappwiz/log";
+import { color } from "webappwiz/log";
 import { repo } from "./testing";
 
 const CLI = join(import.meta.dirname, "index.ts");

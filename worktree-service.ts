@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { type Fs, NodeFs, NodePs, type Ps } from "@webappwiz/system";
+import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { type TaskState, Worktree } from "./worktree";

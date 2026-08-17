@@ -1,4 +1,4 @@
-import type { Deps, Middleware } from "@webappwiz/cmd";
+import type { Deps, Middleware } from "webappwiz/cmd";
 
 /** Exit codes are the API: an agent branches on these, not on prose. */
 export const EXIT = {

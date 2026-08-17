@@ -1,4 +1,4 @@
-import { type Fs, NodeFs, NodePs, type Ps } from "@webappwiz/system";
+import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 
 export interface GitResult {
 	code: number;

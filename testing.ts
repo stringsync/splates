@@ -1,10 +1,10 @@
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BunHttpServer } from "@webappwiz/http/bun";
-import { color, MemoryLogger } from "@webappwiz/log";
-import { NodeFs, NodePs } from "@webappwiz/system";
-import { FakeProcess } from "@webappwiz/system/testing";
+import { BunHttpServer } from "webappwiz/http/bun";
+import { color, MemoryLogger } from "webappwiz/log";
+import { NodeFs, NodePs } from "webappwiz/system";
+import { FakeProcess } from "webappwiz/system/testing";
 import type { Config } from "./config";
 import { assets } from "./dev/assets";
 import { Exit } from "./exit";

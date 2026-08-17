@@ -25,21 +25,13 @@
 		"access": "public"
 	},
 	"dependencies": {
-		"@webappwiz/cmd": "workspace:*",
-		"@webappwiz/http": "workspace:*",
-		"@webappwiz/log": "workspace:*",
-		"@webappwiz/md": "workspace:*",
-		"@webappwiz/system": "workspace:*",
-		"@webappwiz/t": "workspace:*",
-		"@webappwiz/time": "workspace:*"
+		"webappwiz": "workspace:*"
 	},
 	"devDependencies": {
 		"@tailwindcss/oxide": "^4.3.3",
 		"@testing-library/react": "^16.3.1",
 		"@types/react": "^19.2.18",
 		"@types/react-dom": "^19.2.4",
-		"@webappwiz/browser": "workspace:*",
-		"@webappwiz/events": "workspace:*",
 		"@webappwiz/react": "workspace:*",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",

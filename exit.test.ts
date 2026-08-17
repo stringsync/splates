@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { MemoryLogger } from "@webappwiz/log";
-import { NodePs } from "@webappwiz/system";
-import { FakeProcess } from "@webappwiz/system/testing";
+import { MemoryLogger } from "webappwiz/log";
+import { NodePs } from "webappwiz/system";
+import { FakeProcess } from "webappwiz/system/testing";
 import { EXIT, exits, fail } from "./exit";
 
 describe("exit", () => {

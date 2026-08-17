@@ -1,5 +1,5 @@
 import { basename, resolve } from "node:path";
-import { type Fs, NodeFs } from "@webappwiz/system";
+import { type Fs, NodeFs } from "webappwiz/system";
 import type { Config } from "./config";
 
 export interface LoadConfigOptions {

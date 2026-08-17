@@ -1,4 +1,4 @@
-import { color } from "@webappwiz/log";
+import { color } from "webappwiz/log";
 
 /**
  * Columns padded to their widest cell. Padding goes by visible width, not

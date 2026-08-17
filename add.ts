@@ -1,6 +1,6 @@
-import { color, type Logger } from "@webappwiz/log";
-import { MarkdownWriter } from "@webappwiz/md";
-import type { Fs } from "@webappwiz/system";
+import { color, type Logger } from "webappwiz/log";
+import { MarkdownWriter } from "webappwiz/md";
+import type { Fs } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Shell } from "./shell";

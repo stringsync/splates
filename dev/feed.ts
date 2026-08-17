@@ -1,4 +1,4 @@
-import { Dispatcher, type Eventful } from "@webappwiz/events";
+import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Snapshot } from "../snapshot";
 
 export type FeedEvents = { changed: undefined };

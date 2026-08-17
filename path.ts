@@ -1,4 +1,4 @@
-import type { Logger } from "@webappwiz/log";
+import type { Logger } from "webappwiz/log";
 import { fail } from "./exit";
 import type { WorktreeService } from "./worktree-service";
 

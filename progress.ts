@@ -1,4 +1,4 @@
-import { Markdown } from "@webappwiz/md";
+import { Markdown } from "webappwiz/md";
 
 const BOX = /^[ \t]*- \[([ xX])\]/gm;
 
