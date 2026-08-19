@@ -413,13 +413,23 @@ describe("App", () => {
 	});
 
 	it("says it is not connected when the stream drops, and stops once it is back", async () => {
+		// The favicon index.html carries, which the page rewrites: the test DOM
+		// never loads that file, so the link starts here.
+		const icon = document.createElement("link");
+		icon.setAttribute("rel", "icon");
+		document.head.append(icon);
 		const view = await open({ tasks: [details()] });
 
 		await act(async () => stream?.onerror?.());
 		expect(view.container.textContent).toContain("not connected");
+		expect(view.container.querySelector("h1")?.textContent).toBe("⚠️ arbor");
+		expect(icon.getAttribute("href")).toContain("⚠️");
 
 		await act(async () => stream?.onopen?.());
 		expect(view.container.textContent).not.toContain("not connected");
+		expect(view.container.querySelector("h1")?.textContent).toBe("🌲 arbor");
+		expect(icon.getAttribute("href")).toContain("🌲");
+		icon.remove();
 	});
 
 	it("keeps the last snapshot on screen when a refetch fails", async () => {

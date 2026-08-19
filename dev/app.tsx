@@ -1,5 +1,5 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { type JSX, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { age } from "../age";
 import type { Entry } from "../journal";
 import { progress } from "../progress";
@@ -38,12 +38,24 @@ export function App(): JSX.Element {
 	// across a refetch, which is what the old page needed a URL hash for.
 	const [tab, setTab] = useState<Tab>("tasks");
 
+	// The tree turns to a warning in both places at once, so a glance at the tab
+	// bar says the page has lost its server before the page is even opened.
+	const emoji = offline ? "⚠️" : "🌲";
+	useEffect(() => {
+		document
+			.querySelector("link[rel=icon]")
+			?.setAttribute(
+				"href",
+				`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='28'>${emoji}</text></svg>`,
+			);
+	}, [emoji]);
+
 	return (
 		<div className="mx-auto max-w-6xl px-4 py-8 font-mono text-[13px]">
 			{/* The same name and tree as the tab, so a window found among many says
 			    what it is whichever half of it you are looking at. */}
 			<h1 className="mb-4 text-base">
-				<b>🌲 arbor</b>
+				<b>{emoji} arbor</b>
 			</h1>
 			<nav className="mb-4 flex gap-6 text-xs uppercase tracking-widest">
 				{TABS.map((name) => (
