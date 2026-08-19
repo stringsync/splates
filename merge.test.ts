@@ -182,6 +182,39 @@ describe.concurrent("merge", () => {
 		expect((await deps.service.find("beta")).state?.mergeAttempts).toBe(1);
 	});
 
+	it("runs postMerge in the main tree after landing", async () => {
+		await using deps = await setup();
+
+		deps.config.postMerge = 'echo "$ARBOR_TASK" > post-merge.txt';
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await merge(deps, worktree);
+
+		expect(await deps.fs.read(join(deps.root, "post-merge.txt"))).toBe(
+			"alpha\n",
+		);
+	});
+
+	it("reports a failed postMerge without disturbing the landed branch", async () => {
+		await using deps = await setup();
+
+		deps.config.postMerge = "echo boom-after-land; exit 1";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		const exit = await bails(merge(deps, worktree));
+
+		expect(exit.reason).toBe("hook_failed");
+		expect(exit.message).toContain("boom-after-land");
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+	});
+
 	it("stops once the retry budget is spent", async () => {
 		await using deps = await setup();
 

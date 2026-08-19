@@ -37,6 +37,7 @@ describe("loadConfig", () => {
 		expect(config.postCheckout).toBeNull();
 		expect(config.postRewrite).toBeNull();
 		expect(config.preMerge).toBeNull();
+		expect(config.postMerge).toBeNull();
 	});
 
 	it("overrides only the defaults arbor.config.ts names", async () => {

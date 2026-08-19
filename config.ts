@@ -22,6 +22,12 @@ export interface Config {
 	 * rebase alone.
 	 */
 	preMerge: string | null;
+	/**
+	 * Command run by `merge` in the main tree after the base fast-forwards, via
+	 * `sh -c`. The branch has already landed and the worktree is gone: a nonzero
+	 * exit reports the failure but rolls nothing back.
+	 */
+	postMerge: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */

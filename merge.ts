@@ -185,6 +185,26 @@ export async function merge(
 			{ task },
 		);
 	}
+	// After the land, in the main tree: the merge can bring the main tree a
+	// dependency change the way a rebase brings the worktree one. The branch is
+	// already on the base, so a failure here reports and rolls nothing back.
+	if (config.postMerge) {
+		const ran = await shell.run(config.postMerge, {
+			cwd: git.root,
+			env: { ARBOR_TASK: task },
+		});
+		if (ran.exitCode !== 0) {
+			fail(
+				"hook_failed",
+				[
+					`landed '${task}' on ${base} (${head}) but the postMerge hook failed (exit ${ran.exitCode}).`,
+					"",
+					tail(`${ran.stdout}\n${ran.stderr}`),
+				].join("\n"),
+				{ task, exitCode: ran.exitCode },
+			);
+		}
+	}
 	log.info(
 		`${color.green("merged")} ${task} onto ${base} (${head})\n  worktree removed, cd ${git.root}`,
 	);
