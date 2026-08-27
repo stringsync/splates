@@ -6,6 +6,9 @@ const GOOD = `# alpha
 ## Goal
 Teach show to check the plan.
 
+## Files
+- plan.ts
+
 ## Done
 - [x] wrote the checker
 

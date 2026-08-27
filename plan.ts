@@ -1,7 +1,7 @@
 import { Markdown } from "webappwiz/md";
 
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Done", "Next", "Notes", "Blocked"];
+const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 
