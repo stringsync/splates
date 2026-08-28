@@ -10,12 +10,13 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const PLAN_FILE = "ARBOR.md";
 
-/** The plan a fresh task starts with. `## Goal` is left empty on purpose:
- * `arbor show` nags until the agent fills it in. */
+/** The plan a fresh task starts with. `## Goal` and `## Files` are left empty
+ * on purpose: `arbor show` nags until the agent fills them in. */
 const PLAN = (task: string): string =>
 	new MarkdownWriter()
 		.heading(1, task)
 		.heading(2, "Goal")
+		.heading(2, "Files")
 		.heading(2, "Next")
 		.checklist("fill in Goal and list the steps here as `- [ ]` items")
 		.toString();

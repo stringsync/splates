@@ -65,6 +65,7 @@ describe("add", () => {
 		const plan = await deps.fs.read(join(state?.worktree ?? "", "ARBOR.md"));
 		expect(plan).toStartWith("# alpha\n");
 		expect(plan).toContain("## Goal");
+		expect(plan).toContain("## Files");
 		expect(plan).toContain("- [ ]");
 	});
 

@@ -32,7 +32,20 @@ describe("checkPlan", () => {
 
 	it("names the required sections that are missing", () => {
 		const problems = checkPlan("# alpha\n", { task: "alpha" });
-		expect(problems).toEqual(["no ## Goal section", "no ## Next section"]);
+		expect(problems).toEqual([
+			"no ## Goal section",
+			"no ## Files section",
+			"no ## Next section",
+		]);
+	});
+
+	it("wants the files the task plans to touch", () => {
+		const problems = checkPlan(GOOD.replace("- plan.ts", ""), {
+			task: "alpha",
+		});
+		expect(problems).toEqual([
+			"## Files is empty: list the file paths you plan to touch",
+		]);
 	});
 
 	it("wants a next step, not just an empty heading", () => {

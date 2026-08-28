@@ -2,7 +2,7 @@ import { Markdown } from "webappwiz/md";
 
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
 const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
-const REQUIRED = ["Goal", "Next"];
+const REQUIRED = ["Goal", "Files", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 
 export interface PlanOptions {
@@ -41,6 +41,9 @@ export function checkPlan(
 	}
 	if (section("Goal") === "") {
 		problems.push("## Goal is empty: say in a line or two what done means");
+	}
+	if (section("Files") === "") {
+		problems.push("## Files is empty: list the file paths you plan to touch");
 	}
 	const next = section("Next");
 	if (next !== null && !UNCHECKED.test(next)) {
