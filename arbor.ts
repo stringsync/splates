@@ -124,13 +124,13 @@ arbor
 		"block until a task stops moving: escalated, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
 	)
 	.arg("task", t.string(), { description: "task name" })
-	.option("timeout-seconds", t.number(), {
+	.option("timeout-secs", t.number(), {
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
 	.action((opts, ctx) =>
 		wait(ctx, opts.task, {
-			timeout: Duration.secs(opts["timeout-seconds"]),
+			timeout: Duration.secs(opts["timeout-secs"]),
 		}),
 	);
 

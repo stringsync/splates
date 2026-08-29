@@ -131,7 +131,7 @@ prescribes (`# <task>`, `## Goal`, `## Next` with something unchecked in it, a
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
-### `arbor wait <task> [--timeout-seconds 300]`
+### `arbor wait <task> [--timeout-secs 300]`
 
 Blocks until a task stops moving, then prints where it stopped.
 
