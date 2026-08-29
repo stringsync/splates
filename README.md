@@ -131,6 +131,23 @@ prescribes (`# <task>`, `## Goal`, `## Next` with something unchecked in it, a
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
+### `arbor wait <task> [--timeout-seconds 300]`
+
+Blocks until a task stops moving, then prints where it stopped.
+
+Moving means `working` or `merging`. Everything else is somewhere it stays
+without a person: `escalated` (printed with its reason), `removed` (merged or
+discarded, and `arbor log` says which), or one of the broken statuses.
+
+This is for the agent whose own work overlaps a task already in flight and
+would rather rebase onto its result than against it. The timeout is short by
+design: five minutes, and then a `timeout` refusal that hands the decision
+back, rather than a session that blocks all afternoon on a tree nobody is
+driving. Wait again, work alongside it, or ask the human.
+
+Like `show` and `path`, it takes no lease, so watching a task cannot knock its
+agent off it.
+
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `rm`, `escalate`,
@@ -221,6 +238,7 @@ The agent's control flow runs on these.
 | 11   | `orphaned`          | Record with no worktree. `arbor rm` it.                         |
 | 12   | `merge_failed`      | Trunk could not be fast-forwarded (usually a dirty main worktree). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
+| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging.        |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

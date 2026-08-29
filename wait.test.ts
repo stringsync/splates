@@ -64,6 +64,7 @@ describe("wait", () => {
 		await wait(deps, "alpha", PATIENT);
 
 		expect(deps.out()).toContain("removed");
+		expect(deps.out()).toContain("arbor log");
 	});
 
 	it("gives up on a task that keeps working", async () => {
@@ -74,6 +75,7 @@ describe("wait", () => {
 		);
 
 		expect(exit.reason).toBe("timeout");
+		expect(exit.message).toContain("still working");
 		expect(exit.data).toMatchObject({ task: "alpha", status: "working" });
 	});
 
