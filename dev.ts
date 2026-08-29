@@ -1,12 +1,13 @@
 import type { HttpServer } from "webappwiz/http";
 import type { Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
+import type { Fs, PortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Assets } from "./dev/assets";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";
 
+/** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
 
 /** How often the repo is re-read to decide whether open pages should refetch. */
@@ -35,6 +36,7 @@ export async function dev(
 		log,
 		http,
 		assets,
+		ports,
 	}: {
 		service: WorktreeService;
 		fs: Fs;
@@ -42,6 +44,7 @@ export async function dev(
 		log: Logger;
 		http: HttpServer;
 		assets: Assets;
+		ports: PortProvider;
 	},
 	{ port = DEFAULT_PORT } = {},
 ): Promise<DevServer> {
@@ -118,7 +121,7 @@ export async function dev(
 		},
 		// An SSE stream is idle by design between changes, and would otherwise be
 		// closed out from under the page.
-		{ port, idleTimeout: Duration.zero() },
+		{ port: await ports.get(port), idleTimeout: Duration.zero() },
 	);
 
 	log.info(`arbor dev on http://localhost:${listening.port}`);

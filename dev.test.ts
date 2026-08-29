@@ -60,6 +60,22 @@ describe("dev", () => {
 		}
 	};
 
+	it("moves up to an open port when the one it asks for is taken", async () => {
+		const held = await dev(deps, { port: 0 });
+
+		try {
+			const server = await dev(deps, { port: held.port });
+
+			try {
+				expect(server.port).toBeGreaterThan(held.port);
+			} finally {
+				await server.stop();
+			}
+		} finally {
+			await held.stop();
+		}
+	});
+
 	it("serves each task's fields and its ARBOR.md as data", async () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"));
 		const alpha = (await deps.service.find("alpha")).path;

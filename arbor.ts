@@ -1,6 +1,6 @@
 import { cli, type Deps } from "webappwiz/cmd";
 import type { HttpServer } from "webappwiz/http";
-import type { Fs } from "webappwiz/system";
+import type { Fs, PortProvider } from "webappwiz/system";
 import { t } from "webappwiz/t";
 import { Duration } from "webappwiz/time";
 import { add } from "./add";
@@ -26,6 +26,8 @@ export interface ArborDeps extends Deps {
 	http: HttpServer;
 	/** Likewise: only `dev` serves the page, and it is built before it ships. */
 	assets: Assets;
+	/** And likewise: only `dev` needs a port, but it is the machine's answer. */
+	ports: PortProvider;
 }
 
 /**
@@ -151,7 +153,7 @@ arbor
 	.description("serve `ls`, `show` and `log` as a web page; read-only")
 	.option("port", t.number(), {
 		default: DEFAULT_PORT,
-		description: "port to listen on",
+		description: "port to listen on, or the next open one above it",
 	})
 	.action((opts, ctx) => dev(ctx, { port: opts.port }));
 

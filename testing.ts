@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunHttpServer } from "webappwiz/http/bun";
 import { color, MemoryLogger } from "webappwiz/log";
-import { NodeFs, NodePs } from "webappwiz/system";
+import { NodeFs, NodePortProvider, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
 import type { Config } from "./config";
 import { assets } from "./dev/assets";
@@ -109,6 +109,7 @@ export async function repo() {
 		// that publish, which is the point of asserting on what comes back.
 		http: new BunHttpServer(),
 		assets,
+		ports: new NodePortProvider(),
 		gitCli,
 		commit,
 		out: () =>

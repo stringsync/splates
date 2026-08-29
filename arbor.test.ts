@@ -18,6 +18,7 @@ describe("arbor cli", () => {
 			ps: env.ps,
 			http: env.http,
 			assets: env.assets,
+			ports: env.ports,
 		};
 
 		await arbor.run(deps, ["add", "alpha"]);
@@ -39,6 +40,7 @@ describe("arbor cli", () => {
 				ps: env.ps,
 				http: env.http,
 				assets: env.assets,
+				ports: env.ports,
 			},
 			["claim", "nope"],
 		);
