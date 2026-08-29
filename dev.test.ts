@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import type { Config } from "./config";
-import { dev } from "./dev";
+import { dev, devPorts } from "./dev";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
@@ -42,11 +43,11 @@ describe("dev", () => {
 
 	afterEach(() => deps.cleanup());
 
-	/** Port 0 so concurrent test files cannot collide on a fixed one. */
+	/** Any port, so concurrent test files cannot collide on a fixed one. */
 	const serving = async (
 		body: (snapshot: () => Promise<Snapshot>, port: number) => Promise<void>,
 	): Promise<void> => {
-		const server = await dev(deps, { port: 0 });
+		const server = await dev(deps, { ports: OpenPortProvider.any() });
 		try {
 			await body(
 				async () =>
@@ -61,10 +62,10 @@ describe("dev", () => {
 	};
 
 	it("moves up to an open port when the one it asks for is taken", async () => {
-		const held = await dev(deps, { port: 0 });
+		const held = await dev(deps, { ports: OpenPortProvider.any() });
 
 		try {
-			const server = await dev(deps, { port: held.port });
+			const server = await dev(deps, { ports: devPorts(held.port) });
 
 			try {
 				expect(server.port).toBeGreaterThan(held.port);

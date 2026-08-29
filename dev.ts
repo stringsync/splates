@@ -1,8 +1,14 @@
 import type { HttpServer } from "webappwiz/http";
 import type { Logger } from "webappwiz/log";
-import type { Fs, PortProvider } from "webappwiz/system";
+import {
+	type Fs,
+	MAX_PORT,
+	OpenPortProvider,
+	type PortProvider,
+} from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Assets } from "./dev/assets";
+import { fail } from "./exit";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";
@@ -10,8 +16,35 @@ import type { WorktreeService } from "./worktree-service";
 /** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
 
+/** How far above the port asked for `dev` will look before giving up. */
+export const PORT_SPAN = 20;
+
+/**
+ * Where `dev` will listen, given the port asked for. A flag is outside input,
+ * so a port that cannot exist is a refusal with an exit code rather than the
+ * assertion `OpenPortProvider` would raise for a bug in here.
+ */
+export function devPorts(from: number): PortProvider {
+	if (!Number.isInteger(from) || from < 0 || from > MAX_PORT) {
+		fail(
+			"usage",
+			`invalid port '${from}': use a whole number 0 to ${MAX_PORT}`,
+			{
+				port: from,
+			},
+		);
+	}
+	return OpenPortProvider.span({ from, span: PORT_SPAN });
+}
+
 /** How often the repo is re-read to decide whether open pages should refetch. */
 const POLL_MS = 2_000;
+
+/** What `dev` lets a caller choose. */
+export interface DevOptions {
+	/** Where to listen; the port `--port` asked for, and the span above it. */
+	ports?: PortProvider;
+}
 
 /** A running server, and the one thing a caller ever wants to do with it. */
 export interface DevServer {
@@ -36,7 +69,6 @@ export async function dev(
 		log,
 		http,
 		assets,
-		ports,
 	}: {
 		service: WorktreeService;
 		fs: Fs;
@@ -44,9 +76,8 @@ export async function dev(
 		log: Logger;
 		http: HttpServer;
 		assets: Assets;
-		ports: PortProvider;
 	},
-	{ port = DEFAULT_PORT } = {},
+	{ ports = devPorts(DEFAULT_PORT) }: DevOptions = {},
 ): Promise<DevServer> {
 	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
@@ -121,7 +152,7 @@ export async function dev(
 		},
 		// An SSE stream is idle by design between changes, and would otherwise be
 		// closed out from under the page.
-		{ port: await ports.get(port), idleTimeout: Duration.zero() },
+		{ port: await ports.get(), idleTimeout: Duration.zero() },
 	);
 
 	log.info(`arbor dev on http://localhost:${listening.port}`);

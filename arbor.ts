@@ -1,11 +1,11 @@
 import { cli, type Deps } from "webappwiz/cmd";
 import type { HttpServer } from "webappwiz/http";
-import type { Fs, PortProvider } from "webappwiz/system";
+import type { Fs } from "webappwiz/system";
 import { t } from "webappwiz/t";
 import { Duration } from "webappwiz/time";
 import { add } from "./add";
 import { claim } from "./claim";
-import { DEFAULT_PORT, dev } from "./dev";
+import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
@@ -26,8 +26,6 @@ export interface ArborDeps extends Deps {
 	http: HttpServer;
 	/** Likewise: only `dev` serves the page, and it is built before it ships. */
 	assets: Assets;
-	/** And likewise: only `dev` needs a port, but it is the machine's answer. */
-	ports: PortProvider;
 }
 
 /**
@@ -155,7 +153,7 @@ arbor
 		default: DEFAULT_PORT,
 		description: "port to listen on, or the next open one above it",
 	})
-	.action((opts, ctx) => dev(ctx, { port: opts.port }));
+	.action((opts, ctx) => dev(ctx, { ports: devPorts(opts.port) }));
 
 arbor
 	.command("path")
