@@ -2,6 +2,7 @@ import { cli, type Deps } from "webappwiz/cmd";
 import type { HttpServer } from "webappwiz/http";
 import type { Fs } from "webappwiz/system";
 import { t } from "webappwiz/t";
+import { Duration } from "webappwiz/time";
 import { add } from "./add";
 import { claim } from "./claim";
 import { DEFAULT_PORT, dev } from "./dev";
@@ -16,6 +17,7 @@ import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { rm } from "./rm";
 import { show } from "./show";
+import { DEFAULT_TIMEOUT, wait } from "./wait";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
@@ -115,6 +117,22 @@ arbor
 	.arg("task", t.string(), { description: "task name" })
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => show(ctx, opts.task, { json: opts.json }));
+
+arbor
+	.command("wait")
+	.description(
+		"block until a task stops moving: escalated, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
+	)
+	.arg("task", t.string(), { description: "task name" })
+	.option("timeout-seconds", t.number(), {
+		default: DEFAULT_TIMEOUT.secs,
+		description: "how long to wait before giving up",
+	})
+	.action((opts, ctx) =>
+		wait(ctx, opts.task, {
+			timeout: Duration.secs(opts["timeout-seconds"]),
+		}),
+	);
 
 arbor
 	.command("log")
