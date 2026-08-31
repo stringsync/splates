@@ -1,6 +1,6 @@
 {
 	"name": "@webappwiz/arbor",
-	"version": "0.0.9",
+	"version": "0.0.10",
 	"description": "Runs several AI coding agents on one repository at once, each in its own git worktree",
 	"license": "MIT",
 	"author": "Jared Johnson",
