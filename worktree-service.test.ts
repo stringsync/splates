@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { Fs, MkdirOptions, RmOptions, StatResult } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
-import { CONFIG_FACTORY, type Config } from "./config";
+import type { Config } from "./config";
 import { Git } from "./git";
 import { WorktreeService } from "./worktree-service";
 
@@ -62,7 +62,7 @@ describe("WorktreeService", () => {
 
 	beforeEach(() => {
 		ps = new FakePs();
-		config = CONFIG_FACTORY.parse({
+		config = {
 			trunk: "main",
 			worktreeRoot: "/repo-arbor",
 			postCheckout: null,
@@ -73,7 +73,7 @@ describe("WorktreeService", () => {
 			mergeRetryCount: 2,
 			removedCapacity: 50,
 			logCapacity: 200,
-		});
+		};
 	});
 
 	const git = (fs: Fs) => new Git("/repo", { ps: ps, fs: fs });
@@ -131,7 +131,7 @@ describe("WorktreeService", () => {
 
 	it("drops the oldest removed names when the memory is full", async () => {
 		const fs = new FakeFs();
-		config = config.update({ removedCapacity: 2 });
+		config.removedCapacity = 2;
 		const worktrees = new WorktreeService(git(fs), config, ARBOR_DIR, {
 			fs: fs,
 			ps: ps,

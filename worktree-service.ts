@@ -47,12 +47,12 @@ export class WorktreeService {
 	}
 
 	get trunk(): string {
-		return this.config.get("trunk");
+		return this.config.trunk;
 	}
 
 	/** Where a task's worktree lives: a sibling of the repo, never inside it. */
 	pathFor(task: string): string {
-		return resolve(this.config.get("worktreeRoot"), task);
+		return resolve(this.config.worktreeRoot, task);
 	}
 
 	branchFor(task: string): string {
@@ -113,9 +113,9 @@ export class WorktreeService {
 	/** Adds the branch and the working directory. The record comes after. */
 	async add(
 		task: string,
-		{ base = this.config.get("trunk") }: AddOptions = {},
+		{ base = this.config.trunk }: AddOptions = {},
 	): Promise<GitResult> {
-		await this.fs.mkdir(this.config.get("worktreeRoot"));
+		await this.fs.mkdir(this.config.worktreeRoot);
 		return this.git.addWorktree(this.branchFor(task), this.pathFor(task), base);
 	}
 
@@ -171,7 +171,7 @@ export class WorktreeService {
 		task: string,
 		at = new Date().toISOString(),
 	): Promise<void> {
-		const removedCapacity = this.config.get("removedCapacity");
+		const { removedCapacity } = this.config;
 		await this.fs.write(this.removedPath(task), `${at}\n`);
 		const names = await this.fs.readdir(this.removedDir).catch(() => []);
 		if (names.length <= removedCapacity) {

@@ -35,7 +35,7 @@ describe("dev", () => {
 			shell: new Shell({ ps: fixture.ps }),
 			journal: new Journal(
 				`${fixture.arborDir}/log.jsonl`,
-				config.get("logCapacity"),
+				config.logCapacity,
 				{ fs: fixture.fs },
 			),
 		};

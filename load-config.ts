@@ -1,6 +1,6 @@
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
-import { CONFIG_FACTORY, type Config, type ConfigRecord } from "./config";
+import type { Config } from "./config";
 import { Git } from "./git";
 
 export interface LoadConfigOptions {
@@ -26,10 +26,10 @@ export async function loadConfig(
 		found.trunk ??
 		(await (opts.git ?? new Git(root)).defaultBranch()) ??
 		"main";
-	return CONFIG_FACTORY.parse({ ...defaults(root, trunk), ...found });
+	return { ...defaults(root, trunk), ...found };
 }
 
-function defaults(root: string, trunk: string): ConfigRecord {
+function defaults(root: string, trunk: string): Config {
 	return {
 		trunk,
 		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor`),
@@ -44,7 +44,7 @@ function defaults(root: string, trunk: string): ConfigRecord {
 	};
 }
 
-async function file(fs: Fs, root: string): Promise<Partial<ConfigRecord>> {
+async function file(fs: Fs, root: string): Promise<Partial<Config>> {
 	const path = `${root}/arbor.config.ts`;
 	if (!(await fs.exists(path))) {
 		return {};
@@ -56,6 +56,6 @@ async function file(fs: Fs, root: string): Promise<Partial<ConfigRecord>> {
 			`could not load ${path}: ${cause}. Its imports may be stale: try \`bun install\` in ${root}.`,
 			{ cause },
 		);
-	})) as { default?: Partial<ConfigRecord> };
+	})) as { default?: Partial<Config> };
 	return mod.default ?? {};
 }

@@ -28,16 +28,16 @@ describe("loadConfig", () => {
 	it("defaults the worktree root to a sibling of the repo, named after it", async () => {
 		const config = await loadConfig(root, { fs, git });
 
-		expect(config.get("worktreeRoot")).toBe(`${root}-arbor`);
+		expect(config.worktreeRoot).toBe(`${root}-arbor`);
 	});
 
 	it("leaves every hook unset, so a repo runs only what it asks for", async () => {
 		const config = await loadConfig(root, { fs, git });
 
-		expect(config.get("postCheckout")).toBeNull();
-		expect(config.get("postRewrite")).toBeNull();
-		expect(config.get("preMerge")).toBeNull();
-		expect(config.get("postMerge")).toBeNull();
+		expect(config.postCheckout).toBeNull();
+		expect(config.postRewrite).toBeNull();
+		expect(config.preMerge).toBeNull();
+		expect(config.postMerge).toBeNull();
 	});
 
 	it("overrides only the defaults arbor.config.ts names", async () => {
@@ -48,15 +48,15 @@ describe("loadConfig", () => {
 
 		const config = await loadConfig(root, { fs, git });
 
-		expect(config.get("trunk")).toBe("trunk");
-		expect(config.get("mergeRetryCount")).toBe(7);
-		expect(config.get("leaseStalenessMs")).toBe(90_000);
+		expect(config.trunk).toBe("trunk");
+		expect(config.mergeRetryCount).toBe(7);
+		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
 	it("falls back to main when the repo has no origin/HEAD", async () => {
 		const config = await loadConfig(root, { fs, git });
 
-		expect(config.get("trunk")).toBe("main");
+		expect(config.trunk).toBe("main");
 	});
 
 	it("reports the config path and the remedy when the file will not import", async () => {
@@ -83,7 +83,7 @@ describe("loadConfig", () => {
 			git: new Git(fixture.root, { ps: fixture.ps }),
 		});
 
-		expect(config.get("trunk")).toBe("master");
+		expect(config.trunk).toBe("master");
 	});
 
 	it("prefers the trunk arbor.config.ts names over what it detects", async () => {
@@ -99,7 +99,7 @@ describe("loadConfig", () => {
 			git: new Git(fixture.root, { ps: fixture.ps }),
 		});
 
-		expect(config.get("trunk")).toBe("release");
+		expect(config.trunk).toBe("release");
 	});
 });
 

@@ -37,7 +37,7 @@ describe("escalate", () => {
 				fs: fixture.fs,
 				ps: fixture.ps,
 				log: fixture.log,
-				stalenessMs: config.get("leaseStalenessMs"),
+				stalenessMs: config.leaseStalenessMs,
 			}),
 		};
 	});

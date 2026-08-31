@@ -40,7 +40,7 @@ describe("retry", () => {
 		const spent = await deps.service.find("alpha");
 		await spent.save({
 			status: "escalated",
-			mergeAttempts: deps.config.get("mergeRetryCount"),
+			mergeAttempts: deps.config.mergeRetryCount,
 		});
 
 		await retry(deps, "alpha");
