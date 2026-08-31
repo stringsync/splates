@@ -33,7 +33,7 @@ export function testConfig(
 	root: string,
 	overrides: Partial<ConfigRecord> = {},
 ): Config {
-	return CONFIG_FACTORY.create({
+	return CONFIG_FACTORY.parse({
 		trunk: "main",
 		worktreeRoot: `${root}-arbor`,
 		postCheckout: null,

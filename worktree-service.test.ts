@@ -62,7 +62,7 @@ describe("WorktreeService", () => {
 
 	beforeEach(() => {
 		ps = new FakePs();
-		config = CONFIG_FACTORY.create({
+		config = CONFIG_FACTORY.parse({
 			trunk: "main",
 			worktreeRoot: "/repo-arbor",
 			postCheckout: null,

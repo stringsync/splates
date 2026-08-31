@@ -26,7 +26,7 @@ export async function loadConfig(
 		found.trunk ??
 		(await (opts.git ?? new Git(root)).defaultBranch()) ??
 		"main";
-	return CONFIG_FACTORY.create({ ...defaults(root, trunk), ...found });
+	return CONFIG_FACTORY.parse({ ...defaults(root, trunk), ...found });
 }
 
 function defaults(root: string, trunk: string): ConfigRecord {
