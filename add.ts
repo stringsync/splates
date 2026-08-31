@@ -41,7 +41,7 @@ export async function add(
 		fs: Fs;
 	},
 	task: string,
-	{ base = config.trunk }: AddOptions = {},
+	{ base = config.get("trunk") }: AddOptions = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(
@@ -85,7 +85,7 @@ export async function add(
 		// git's own "invalid reference" sends people to the branch, when what is
 		// wrong is which branch arbor thinks the trunk is.
 		const missingTrunk =
-			base === config.trunk && !(await service.git.branchExists(base));
+			base === config.get("trunk") && !(await service.git.branchExists(base));
 		fail(
 			"usage",
 			missingTrunk
@@ -114,13 +114,14 @@ export async function add(
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
-	if (config.postCheckout) {
-		const { exitCode } = await shell.stream(config.postCheckout, {
+	const postCheckout = config.get("postCheckout");
+	if (postCheckout) {
+		const { exitCode } = await shell.stream(postCheckout, {
 			cwd: worktree.path,
 			env: {
 				ARBOR_TASK: task,
 				ARBOR_WORKTREE: worktree.path,
-				ARBOR_TRUNK: config.trunk,
+				ARBOR_TRUNK: config.get("trunk"),
 			},
 		});
 		if (exitCode !== 0) {

@@ -60,10 +60,10 @@ export function repository<C extends Deps & { fs: Fs }>(
 				fs,
 				ps,
 				log,
-				stalenessMs: config.leaseStalenessMs,
+				stalenessMs: config.get("leaseStalenessMs"),
 			}),
 			shell: new Shell({ ps }),
-			journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, {
+			journal: new Journal(`${arborDir}/log.jsonl`, config.get("logCapacity"), {
 				fs,
 			}),
 		});

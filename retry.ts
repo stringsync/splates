@@ -39,7 +39,7 @@ export async function retry(
 	log.info(
 		[
 			`${color.green("retry")} ${worktree.task}`,
-			`  attempts: 0 of ${config.mergeRetryCount}`,
+			`  attempts: 0 of ${config.get("mergeRetryCount")}`,
 			`  status:   working`,
 			"",
 			`Run \`arbor claim ${worktree.task}\` to pick it up.`,

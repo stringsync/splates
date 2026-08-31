@@ -102,7 +102,10 @@ export class Worktree {
 		if (!lease) {
 			return false;
 		}
-		if (Date.now() - Date.parse(lease.heartbeatAt) >= config.leaseStalenessMs) {
+		if (
+			Date.now() - Date.parse(lease.heartbeatAt) >=
+			config.get("leaseStalenessMs")
+		) {
 			return false;
 		}
 		return lease.hostname === ps.hostname ? ps.alive(lease.pid) : true;

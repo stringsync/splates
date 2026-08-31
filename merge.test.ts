@@ -30,7 +30,7 @@ const setup = async () => {
 			fs: fixture.fs,
 			ps: fixture.ps,
 			log: fixture.log,
-			stalenessMs: config.leaseStalenessMs,
+			stalenessMs: config.get("leaseStalenessMs"),
 		}),
 	};
 };
@@ -59,8 +59,8 @@ describe.concurrent("merge", () => {
 	it("lands on a clean rebase alone when no hook is configured", async () => {
 		await using deps = await setup();
 
-		deps.config.postRewrite = null;
-		deps.config.preMerge = null;
+		deps.config = deps.config.update({ postRewrite: null });
+		deps.config = deps.config.update({ preMerge: null });
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -138,7 +138,9 @@ describe.concurrent("merge", () => {
 	it("rolls the branch back and leaves trunk alone when the gate fails", async () => {
 		await using deps = await setup();
 
-		deps.config.preMerge = "echo boom-from-tests; exit 1";
+		deps.config = deps.config.update({
+			preMerge: "echo boom-from-tests; exit 1",
+		});
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -159,8 +161,8 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		// Only passes if the hook ran first, in the same tree, before preMerge.
-		deps.config.postRewrite = "echo hooked > hook.txt";
-		deps.config.preMerge = "grep -q hooked hook.txt";
+		deps.config = deps.config.update({ postRewrite: "echo hooked > hook.txt" });
+		deps.config = deps.config.update({ preMerge: "grep -q hooked hook.txt" });
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -170,7 +172,9 @@ describe.concurrent("merge", () => {
 			"add alpha",
 		);
 
-		deps.config.postRewrite = "echo boom-from-hook; exit 1";
+		deps.config = deps.config.update({
+			postRewrite: "echo boom-from-hook; exit 1",
+		});
 		await add(deps, "beta");
 		const beta = (await deps.service.find("beta")).path;
 		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
@@ -185,7 +189,9 @@ describe.concurrent("merge", () => {
 	it("runs postMerge in the main tree after landing", async () => {
 		await using deps = await setup();
 
-		deps.config.postMerge = 'echo "$ARBOR_TASK" > post-merge.txt';
+		deps.config = deps.config.update({
+			postMerge: 'echo "$ARBOR_TASK" > post-merge.txt',
+		});
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -200,7 +206,9 @@ describe.concurrent("merge", () => {
 	it("reports a failed postMerge without disturbing the landed branch", async () => {
 		await using deps = await setup();
 
-		deps.config.postMerge = "echo boom-after-land; exit 1";
+		deps.config = deps.config.update({
+			postMerge: "echo boom-after-land; exit 1",
+		});
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
@@ -218,7 +226,7 @@ describe.concurrent("merge", () => {
 	it("stops once the retry budget is spent", async () => {
 		await using deps = await setup();
 
-		deps.config.mergeRetryCount = 2;
+		deps.config = deps.config.update({ mergeRetryCount: 2 });
 		await add(deps, "alpha");
 		const worktree = await deps.service.find("alpha");
 		await worktree.save({ mergeAttempts: 2 });
@@ -261,7 +269,9 @@ describe.concurrent("merge", () => {
 		await using deps = await setup();
 
 		const trace = join(deps.root, "trace.log");
-		deps.config.preMerge = `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`;
+		deps.config = deps.config.update({
+			preMerge: `printf 'start-%s\\n' "$ARBOR_TASK" >> ${trace}; sleep 0.2; printf 'end-%s\\n' "$ARBOR_TASK" >> ${trace}`,
+		});
 
 		await add(deps, "alpha");
 		await add(deps, "beta");

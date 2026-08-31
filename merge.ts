@@ -60,10 +60,10 @@ export async function merge(
 			{ task, paths: dirty },
 		);
 	}
-	if (worktree.mergeAttempts >= config.mergeRetryCount) {
+	if (worktree.mergeAttempts >= config.get("mergeRetryCount")) {
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`arbor retry ${task}\`; or \`arbor rm ${task}\` and start over against current ${base}`,
+			`'${task}' has used its ${config.get("mergeRetryCount")} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.get("mergeRetryCount")} with \`arbor retry ${task}\`; or \`arbor rm ${task}\` and start over against current ${base}`,
 			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}
@@ -111,7 +111,7 @@ export async function merge(
 	// The two hooks share one shell rather than getting a run each: the recovery
 	// is the same either way, and one gate reports one failure however far down
 	// it got.
-	const gate = [config.postRewrite, config.preMerge]
+	const gate = [config.get("postRewrite"), config.get("preMerge")]
 		.filter(Boolean)
 		.join(" && ");
 	const gated = gate
@@ -188,8 +188,9 @@ export async function merge(
 	// After the land, in the main tree: the merge can bring the main tree a
 	// dependency change the way a rebase brings the worktree one. The branch is
 	// already on the base, so a failure here reports and rolls nothing back.
-	if (config.postMerge) {
-		const ran = await shell.run(config.postMerge, {
+	const postMerge = config.get("postMerge");
+	if (postMerge) {
+		const ran = await shell.run(postMerge, {
 			cwd: git.root,
 			env: { ARBOR_TASK: task },
 		});

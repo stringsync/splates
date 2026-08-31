@@ -5,7 +5,7 @@ import { BunHttpServer } from "webappwiz/http/bun";
 import { color, MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
-import type { Config } from "./config";
+import { CONFIG_FACTORY, type Config, type ConfigRecord } from "./config";
 import { assets } from "./dev/assets";
 import { Exit } from "./exit";
 
@@ -31,9 +31,9 @@ export async function bails(work: Promise<unknown>): Promise<Exit> {
 /** Arbitrary but valid settings, for tests that do not care about config. */
 export function testConfig(
 	root: string,
-	overrides: Partial<Config> = {},
+	overrides: Partial<ConfigRecord> = {},
 ): Config {
-	return {
+	return CONFIG_FACTORY.create({
 		trunk: "main",
 		worktreeRoot: `${root}-arbor`,
 		postCheckout: null,
@@ -46,7 +46,7 @@ export function testConfig(
 		mergeRetryCount: 2,
 		logCapacity: 200,
 		...overrides,
-	};
+	});
 }
 
 /**
