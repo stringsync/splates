@@ -94,7 +94,7 @@ export async function repo() {
 	await gitCli(root, "config", "commit.gpgsign", "false");
 	await commit(root, "README.md", "seed\n", "seed");
 
-	const cleanup = () => rm(base, { recursive: true, force: true });
+	const disposeAsync = () => rm(base, { recursive: true, force: true });
 
 	return {
 		root,
@@ -113,9 +113,9 @@ export async function repo() {
 		commit,
 		out: () =>
 			color.strip(log.entries.map((entry) => String(entry.message)).join("\n")),
-		cleanup,
+		disposeAsync,
 		// so a concurrent test can own its repo with `await using`, instead of
 		// afterEach handing every test in the file the same one
-		[Symbol.asyncDispose]: async () => void (await cleanup()),
+		[Symbol.asyncDispose]: disposeAsync,
 	};
 }

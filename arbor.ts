@@ -28,17 +28,6 @@ export interface ArborDeps extends Deps {
 	assets: Assets;
 }
 
-/**
- * Which task a command that takes no task name is about, so the journal can
- * name it. `merge` and `escalate` read it off the current branch.
- */
-const here = async ({
-	service,
-	git,
-	ps,
-}: ArborDeps & Repository): Promise<string | null> =>
-	service.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
-
 // Outermost first: a refusal raised in an action unwinds past `repository` and
 // stops at `exits`, which is the only thing that ends the process.
 export const arbor = cli<ArborDeps>("arbor")
@@ -178,7 +167,9 @@ arbor
 	})
 	.action(async (opts, ctx) =>
 		ctx.journal.record("escalate", opts.task || (await here(ctx)), () =>
-			escalate(ctx, opts.reason, ctx.ps.cwd(), opts.task || undefined),
+			escalate(ctx, opts.reason, ctx.ps.cwd(), {
+				task: opts.task || undefined,
+			}),
 		),
 	);
 
@@ -191,3 +182,15 @@ arbor
 	.action((opts, ctx) =>
 		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
 	);
+
+/**
+ * Which task a command that takes no task name is about, so the journal can
+ * name it. `merge` and `escalate` read it off the current branch.
+ */
+async function here({
+	service,
+	git,
+	ps,
+}: ArborDeps & Repository): Promise<string | null> {
+	return service.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
+}

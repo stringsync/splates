@@ -42,7 +42,7 @@ describe("escalate", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("records the reason, drops the lease, and leaves the tree alone", async () => {
 		await add(deps, "alpha");
@@ -70,7 +70,7 @@ describe("escalate", () => {
 		expect(exit.reason).toBe("usage");
 		expect(exit.message).toContain("--task");
 
-		await escalate(deps, "needs a human", deps.root, "alpha");
+		await escalate(deps, "needs a human", deps.root, { task: "alpha" });
 		expect((await deps.service.find("alpha")).state?.status).toBe("escalated");
 	});
 });

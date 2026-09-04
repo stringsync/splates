@@ -15,7 +15,6 @@ const PATIENT = { timeout: Duration.secs(5), poll: Duration.ms(5) };
 describe("wait", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		git: Git;
 		service: WorktreeService;
 		shell: Shell;
 	};
@@ -32,13 +31,12 @@ describe("wait", () => {
 		deps = {
 			...fixture,
 			config,
-			git,
 			service,
 			shell: new Shell({ ps: fixture.ps }),
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("returns with the reason once a task escalates while it waits", async () => {
 		await add(deps, "alpha");

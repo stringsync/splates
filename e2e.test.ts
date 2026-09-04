@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
+import { ensure } from "webappwiz/assert";
 import { color } from "webappwiz/log";
 import { repo } from "./testing";
 
@@ -45,10 +46,8 @@ describe.concurrent("arbor", () => {
 
 		const listed = await rows();
 		expect(listed.map((row) => row.task)).toEqual(["alpha", "beta"]);
-		const [alpha, beta] = listed.map((row) => row.worktree);
-		if (!alpha || !beta) {
-			throw new Error("add did not record a worktree path");
-		}
+		const [alpha, beta] = listed.map((row) => row.worktree) as [string, string];
+		expect([alpha, beta]).not.toContain("");
 
 		// Each agent resumes a tree it did not create: a fresh thread starts here.
 		const claimed = await arbor(alpha, "claim", "alpha");
@@ -96,10 +95,10 @@ describe.concurrent("arbor", () => {
 		const { arbor, rows } = env;
 
 		expect((await arbor(env.root, "add", "parent")).exitCode).toBe(0);
-		const parent = (await rows())[0]?.worktree;
-		if (!parent) {
-			throw new Error("add did not record a worktree path");
-		}
+		const parent = ensure.defined(
+			(await rows())[0]?.worktree,
+			"add did not record a worktree path",
+		);
 		await env.commit(parent, "parent.txt", "parent\n", "add parent");
 
 		// The parent hands out a part from inside its own tree, based on its own
@@ -107,10 +106,10 @@ describe.concurrent("arbor", () => {
 		expect(
 			(await arbor(parent, "add", "part", "--base", "task/parent")).exitCode,
 		).toBe(0);
-		const part = (await rows()).find((row) => row.task === "part")?.worktree;
-		if (!part) {
-			throw new Error("add did not record a worktree path");
-		}
+		const part = ensure.defined(
+			(await rows()).find((row) => row.task === "part")?.worktree,
+			"add did not record a worktree path",
+		);
 		await env.commit(part, "part.txt", "part\n", "add part");
 
 		const landed = await arbor(part, "merge");
@@ -143,10 +142,10 @@ describe.concurrent("arbor", () => {
 			`export default { preMerge: "grep -q ok status.txt" };\n`,
 		);
 		expect((await arbor(env.root, "add", "gamma")).exitCode).toBe(0);
-		const tree = (await rows())[0]?.worktree;
-		if (!tree) {
-			throw new Error("add did not record a worktree path");
-		}
+		const tree = ensure.defined(
+			(await rows())[0]?.worktree,
+			"add did not record a worktree path",
+		);
 
 		expect((await arbor(tree, "claim", "gamma")).exitCode).toBe(0);
 		await env.commit(tree, "status.txt", "wrong\n", "add status");
@@ -179,10 +178,10 @@ describe.concurrent("arbor", () => {
 		const { arbor, rows } = env;
 
 		expect((await arbor(env.root, "add", "delta")).exitCode).toBe(0);
-		const tree = (await rows())[0]?.worktree;
-		if (!tree) {
-			throw new Error("add did not record a worktree path");
-		}
+		const tree = ensure.defined(
+			(await rows())[0]?.worktree,
+			"add did not record a worktree path",
+		);
 
 		// The first agent claims, writes, and never comes back: the record keeps
 		// a lease whose pid died with the process.
@@ -218,10 +217,10 @@ describe.concurrent("arbor", () => {
 		);
 		await env.fs.write(die, "");
 		expect((await arbor(env.root, "add", "epsilon")).exitCode).toBe(0);
-		const tree = (await rows())[0]?.worktree;
-		if (!tree) {
-			throw new Error("add did not record a worktree path");
-		}
+		const tree = ensure.defined(
+			(await rows())[0]?.worktree,
+			"add did not record a worktree path",
+		);
 
 		expect((await arbor(tree, "claim", "epsilon")).exitCode).toBe(0);
 		await env.commit(tree, "epsilon.txt", "epsilon\n", "add epsilon");

@@ -116,8 +116,7 @@ export async function merge(
 		.filter(Boolean)
 		.join(" && ");
 	const gated = gate
-		? await shell.run(gate, {
-				cwd: worktree.path,
+		? await shell.run(gate, worktree.path, {
 				env: {
 					ARBOR_TASK: task,
 					ARBOR_WORKTREE: worktree.path,
@@ -210,8 +209,7 @@ export async function merge(
 	// dependency change the way a rebase brings the worktree one. The branch is
 	// already on the base, so a failure here reports and rolls nothing back.
 	if (config.postMerge) {
-		const ran = await shell.run(config.postMerge, {
-			cwd: landing,
+		const ran = await shell.run(config.postMerge, landing, {
 			env: { ARBOR_TASK: task },
 		});
 		if (ran.exitCode !== 0) {

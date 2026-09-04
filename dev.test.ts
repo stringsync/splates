@@ -10,6 +10,21 @@ import type { Snapshot } from "./snapshot";
 import { repo, testConfig } from "./testing";
 import { WorktreeService } from "./worktree-service";
 
+async function readUntil(
+	reader: ReadableStreamDefaultReader<Uint8Array>,
+	needle: string,
+): Promise<string> {
+	let text = "";
+	while (!text.includes(needle)) {
+		const { value, done } = await reader.read();
+		if (done) {
+			break;
+		}
+		text += new TextDecoder().decode(value);
+	}
+	return text;
+}
+
 describe("dev", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
@@ -41,7 +56,7 @@ describe("dev", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	/** Any port, so concurrent test files cannot collide on a fixed one. */
 	const serving = async (
@@ -57,7 +72,7 @@ describe("dev", () => {
 				server.port,
 			);
 		} finally {
-			await server.stop();
+			await server.disposeAsync();
 		}
 	};
 
@@ -70,10 +85,10 @@ describe("dev", () => {
 			try {
 				expect(server.port).toBeGreaterThan(held.port);
 			} finally {
-				await server.stop();
+				await server.disposeAsync();
 			}
 		} finally {
-			await held.stop();
+			await held.disposeAsync();
 		}
 	});
 
@@ -206,14 +221,7 @@ describe("dev", () => {
 			// The poll only pushes on a change, so this drains the connect comment
 			// and then blocks until the new task lands. A server that pushed nothing
 			// fails here by timing the test out.
-			let sse = "";
-			while (!sse.includes("data: changed")) {
-				const { value, done } = await reader.read();
-				if (done) {
-					break;
-				}
-				sse += new TextDecoder().decode(value);
-			}
+			const sse = await readUntil(reader, "data: changed");
 
 			expect(sse).toContain("data: changed");
 			await reader.cancel();

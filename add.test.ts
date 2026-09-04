@@ -32,7 +32,7 @@ describe("add", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("makes a worktree, a branch and a record", async () => {
 		await add(deps, "alpha");
@@ -95,9 +95,13 @@ describe("add", () => {
 	});
 
 	it("rejects names that are not legal branch or directory names", async () => {
-		for (const name of ["Alpha", "a b", "feature/x", "-alpha", ""]) {
-			expect((await bails(add(deps, name))).reason).toBe("usage");
-		}
+		const names = ["Alpha", "a b", "feature/x", "-alpha", ""];
+
+		const reasons = await Promise.all(
+			names.map(async (name) => (await bails(add(deps, name))).reason),
+		);
+
+		expect(reasons).toEqual(names.map(() => "usage"));
 	});
 
 	it("refuses a repo with submodules, before making anything", async () => {

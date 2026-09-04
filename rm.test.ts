@@ -33,7 +33,7 @@ describe("rm", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("removes everything and says what was thrown away", async () => {
 		await add(deps, "alpha");

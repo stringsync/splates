@@ -139,9 +139,9 @@ describe("WorktreeService", () => {
 
 		// Seeded with distinct timestamps, since four discards in the same
 		// millisecond would have nothing to order them by.
-		for (const [i, task] of ["oldest", "middle", "newest"].entries()) {
-			await fs.write(`${removed}/${task}`, `2026-0${i + 1}-01T00:00:00.000Z\n`);
-		}
+		await fs.write(`${removed}/oldest`, "2026-01-01T00:00:00.000Z\n");
+		await fs.write(`${removed}/middle`, "2026-02-01T00:00:00.000Z\n");
+		await fs.write(`${removed}/newest`, "2026-03-01T00:00:00.000Z\n");
 
 		await worktrees.discard(await worktrees.find("alpha"));
 

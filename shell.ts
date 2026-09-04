@@ -6,9 +6,6 @@ import {
 	type SpawnResult,
 } from "webappwiz/system";
 
-/** Spawn options for a shell command. `cwd` is the worktree it runs against. */
-export type ShellRunOptions = SpawnOptions & { cwd: string };
-
 /** What a `Shell` spawns through; the real process by default. */
 export interface ShellOptions {
 	ps?: Ps;
@@ -28,12 +25,20 @@ export class Shell {
 	}
 
 	/** Captures output, for commands whose failure has to be reported back. */
-	run(command: string, opts: ShellRunOptions): Promise<SpawnCaptureResult> {
-		return this.ps.spawnCapture(["sh", "-c", command], opts);
+	run(
+		command: string,
+		cwd: string,
+		opts: SpawnOptions = {},
+	): Promise<SpawnCaptureResult> {
+		return this.ps.spawnCapture(["sh", "-c", command], { ...opts, cwd });
 	}
 
 	/** Inherits stdio, for commands the agent should watch as they run. */
-	stream(command: string, opts: ShellRunOptions): Promise<SpawnResult> {
-		return this.ps.spawn(["sh", "-c", command], opts);
+	stream(
+		command: string,
+		cwd: string,
+		opts: SpawnOptions = {},
+	): Promise<SpawnResult> {
+		return this.ps.spawn(["sh", "-c", command], { ...opts, cwd });
 	}
 }

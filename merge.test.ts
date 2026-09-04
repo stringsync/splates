@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { FileLock } from "webappwiz/system";
+import { FakePs } from "webappwiz/system/testing";
 import { add } from "./add";
 import { Git } from "./git";
 import { merge } from "./merge";
@@ -281,7 +282,8 @@ describe.concurrent("merge", () => {
 		// Another agent takes the tree while the tests are running: the one
 		// window merge cannot hold the record across, and the reason it re-reads
 		// it before landing.
-		deps.shell.run = async () => {
+		const ps = new FakePs();
+		ps.simulate(async () => {
 			await worktree.save({
 				lease: {
 					pid: LIVE_PID,
@@ -289,10 +291,12 @@ describe.concurrent("merge", () => {
 					heartbeatAt: new Date().toISOString(),
 				},
 			});
-			return { exitCode: 0, stdout: "", stderr: "" };
-		};
+			return 0;
+		});
 
-		const exit = await bails(merge(deps, worktree.path));
+		const exit = await bails(
+			merge({ ...deps, shell: new Shell({ ps }) }, worktree.path),
+		);
 
 		expect(exit.reason).toBe("lease_lost");
 		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
@@ -316,7 +320,7 @@ describe.concurrent("merge", () => {
 
 		const lines = (await deps.fs.read(trace)).trim().split("\n");
 		expect(lines).toHaveLength(4);
-		// Never interleaved: whoever starts first also ends first.
+		// Merges hold the lock exclusively, so the second can't start until the first ends.
 		expect(lines[1]).toBe(`end-${lines[0]?.slice("start-".length)}`);
 		expect(lines[3]).toBe(`end-${lines[2]?.slice("start-".length)}`);
 		const log = await deps.gitCli(deps.root, "log", "--oneline", "main");

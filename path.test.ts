@@ -34,7 +34,7 @@ describe("path", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("prints the main tree bare, so `cd $(arbor path)` works", async () => {
 		await path(deps);

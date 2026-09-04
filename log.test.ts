@@ -19,7 +19,7 @@ describe("log", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("records how each command ended, refusals included", async () => {
 		await deps.journal.record("create", "alpha", async () => {});
@@ -49,9 +49,9 @@ describe("log", () => {
 		deps.journal = new Journal(join(deps.arborDir, "log.jsonl"), 2, {
 			fs: deps.fs,
 		});
-		for (const task of ["a", "b", "c"]) {
-			await deps.journal.record("create", task, async () => {});
-		}
+		await deps.journal.record("create", "a", async () => {});
+		await deps.journal.record("create", "b", async () => {});
+		await deps.journal.record("create", "c", async () => {});
 
 		expect((await deps.journal.tail(10)).map((entry) => entry.task)).toEqual([
 			"b",

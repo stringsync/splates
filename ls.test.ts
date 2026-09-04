@@ -34,7 +34,7 @@ describe("ls", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("lists tasks, survives a corrupt record, and flags orphans", async () => {
 		await add(deps, "alpha");

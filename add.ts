@@ -10,17 +10,6 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const PLAN_FILE = "ARBOR.md";
 
-/** The plan a fresh task starts with. `## Goal` and `## Files` are left empty
- * on purpose: `arbor show` nags until the agent fills them in. */
-const PLAN = (task: string): string =>
-	new MarkdownWriter()
-		.heading(1, task)
-		.heading(2, "Goal")
-		.heading(2, "Files")
-		.heading(2, "Next")
-		.checklist("fill in Goal and list the steps here as `- [ ]` items")
-		.toString();
-
 export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;
@@ -115,14 +104,17 @@ export async function add(
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
 	if (config.postCheckout) {
-		const { exitCode } = await shell.stream(config.postCheckout, {
-			cwd: worktree.path,
-			env: {
-				ARBOR_TASK: task,
-				ARBOR_WORKTREE: worktree.path,
-				ARBOR_TRUNK: config.trunk,
+		const { exitCode } = await shell.stream(
+			config.postCheckout,
+			worktree.path,
+			{
+				env: {
+					ARBOR_TASK: task,
+					ARBOR_WORKTREE: worktree.path,
+					ARBOR_TRUNK: config.trunk,
+				},
 			},
-		});
+		);
 		if (exitCode !== 0) {
 			// The worktree stays. Rolling back would throw away a tree the agent
 			// can fix by hand and re-run the hook in.
@@ -137,4 +129,16 @@ export async function add(
 	log.info(
 		`${color.green("added")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  base:     ${base}`,
 	);
+}
+
+/** The plan a fresh task starts with. `## Goal` and `## Files` are left empty
+ * on purpose: `arbor show` nags until the agent fills them in. */
+function PLAN(task: string): string {
+	return new MarkdownWriter()
+		.heading(1, task)
+		.heading(2, "Goal")
+		.heading(2, "Files")
+		.heading(2, "Next")
+		.checklist("fill in Goal and list the steps here as `- [ ]` items")
+		.toString();
 }

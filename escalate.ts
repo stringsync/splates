@@ -4,6 +4,11 @@ import { fail } from "./exit";
 import type { Git } from "./git";
 import type { WorktreeService } from "./worktree-service";
 
+export interface EscalateOptions {
+	/** Task to escalate. Defaults to the one `cwd` is a worktree for. */
+	task?: string;
+}
+
 /**
  * The way out that is not "resolve the conflict badly to finish the task".
  * When both sides restructured the same logic there is no correct merge, only
@@ -23,7 +28,7 @@ export async function escalate(
 	},
 	reason: string,
 	cwd: string,
-	task?: string,
+	{ task }: EscalateOptions = {},
 ): Promise<void> {
 	const branch = await git.currentBranch(cwd).catch(() => "");
 	const name = task || service.taskFor(branch);

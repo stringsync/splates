@@ -1,3 +1,4 @@
+import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import type { HttpServer } from "webappwiz/http";
 import type { Logger } from "webappwiz/log";
 import {
@@ -19,24 +20,6 @@ export const DEFAULT_PORT = 4269;
 /** How far above the port asked for `dev` will look before giving up. */
 export const PORT_SPAN = 20;
 
-/**
- * Where `dev` will listen, given the port asked for. A flag is outside input,
- * so a port that cannot exist is a refusal with an exit code rather than the
- * assertion `OpenPortProvider` would raise for a bug in here.
- */
-export function devPorts(from: number): PortProvider {
-	if (!Number.isInteger(from) || from < 0 || from > MAX_PORT) {
-		fail(
-			"usage",
-			`invalid port '${from}': use a whole number 0 to ${MAX_PORT}`,
-			{
-				port: from,
-			},
-		);
-	}
-	return OpenPortProvider.span({ from, span: PORT_SPAN });
-}
-
 /** How often the repo is re-read to decide whether open pages should refetch. */
 const POLL_MS = 2_000;
 
@@ -47,19 +30,14 @@ export interface DevOptions {
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */
-export interface DevServer {
+export interface DevServer extends AsyncResource {
 	port: number;
-	stop(): Promise<void>;
 }
 
 /**
  * Serves what `ls`, `show` and `log` print, as one page that refetches when the
  * repo changes. Read-only on purpose: driving arbor is what the CLI is for, and
  * a button that took a lease would fight the agent holding it.
- *
- * The page itself is a React app under `dev/`, built before publishing and
- * carried in the bundle, so nothing here builds markup and nothing reads it
- * off disk.
  */
 export async function dev(
 	{
@@ -79,6 +57,9 @@ export async function dev(
 	},
 	{ ports = devPorts(DEFAULT_PORT) }: DevOptions = {},
 ): Promise<DevServer> {
+	// The page itself is a React app under `dev/`, built before publishing and
+	// carried in the bundle, so nothing here builds markup and nothing reads it
+	// off disk.
 	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
 	let last = fingerprint(await snapshot(service, journal, { fs }));
@@ -156,11 +137,29 @@ export async function dev(
 	);
 
 	log.info(`arbor dev on http://localhost:${listening.port}`);
+	const disposer = new AsyncDisposer();
+	disposer.defer(() => listening.stop());
+	disposer.defer(async () => clearInterval(poll));
 	return {
 		port: listening.port,
-		stop: async () => {
-			clearInterval(poll);
-			await listening.stop();
-		},
+		disposeAsync: disposer.disposeAsync,
 	};
+}
+
+/**
+ * Where `dev` will listen, given the port asked for. A flag is outside input,
+ * so a port that cannot exist is a refusal with an exit code rather than the
+ * assertion `OpenPortProvider` would raise for a bug in here.
+ */
+export function devPorts(from: number): PortProvider {
+	if (!Number.isInteger(from) || from < 0 || from > MAX_PORT) {
+		fail(
+			"usage",
+			`invalid port '${from}': use a whole number 0 to ${MAX_PORT}`,
+			{
+				port: from,
+			},
+		);
+	}
+	return OpenPortProvider.span({ from, span: PORT_SPAN });
 }

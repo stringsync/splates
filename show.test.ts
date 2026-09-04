@@ -32,7 +32,7 @@ describe("show", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("reports a task and prints the ARBOR.md left in its worktree", async () => {
 		await add(deps, "alpha");

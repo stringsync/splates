@@ -1,3 +1,4 @@
+import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Snapshot } from "../snapshot";
 
@@ -7,12 +8,13 @@ export type FeedEvents = { changed: undefined };
  * The page's copy of the repo, refetched whenever the server says something
  * moved.
  *
- * One of these lasts as long as the page: `start` and `stop` open and close the
- * stream, and stopping leaves the object usable so it can be started again. It
- * is deliberately not `Resource`, because the component reads it through
- * `useReactive`, which subscribes to the instance it saw on its first render.
+ * One of these lasts as long as the page: `start` and `dispose` open and close
+ * the stream, and disposing leaves the object usable so it can be started
+ * again, which is why the component reads it through `useReactive` rather than
+ * rebuilding it, since that subscribes to the instance it saw on its first
+ * render.
  */
-export class Feed implements Eventful<FeedEvents> {
+export class Feed implements Eventful<FeedEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<FeedEvents>();
 	readonly events = this.dispatcher.events;
 
@@ -38,7 +40,7 @@ export class Feed implements Eventful<FeedEvents> {
 		void this.load();
 	}
 
-	stop(): void {
+	dispose(): void {
 		this.stream?.close();
 		this.stream = null;
 	}

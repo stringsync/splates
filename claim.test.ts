@@ -34,7 +34,7 @@ describe("claim", () => {
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("refuses a live lease and takes a cold one", async () => {
 		await add(deps, "alpha");

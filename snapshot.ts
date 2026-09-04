@@ -1,7 +1,7 @@
 import { type Fs, NodeFs } from "webappwiz/system";
 import type { Entry, Journal } from "./journal";
 import { DEFAULT_COUNT } from "./log";
-import { type Details, taskDetails } from "./show";
+import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 
 /** Everything one page shows: `ls` and `show` for each task, plus `log`. */
@@ -24,10 +24,10 @@ export async function snapshot(
 	journal: Journal,
 	opts: SnapshotOptions = {},
 ): Promise<Snapshot> {
-	const fs = opts.fs ?? new NodeFs();
+	const details = new TaskDetails({ fs: opts.fs ?? new NodeFs() });
 	const tasks: Details[] = [];
 	for (const worktree of await service.list()) {
-		tasks.push(await taskDetails(worktree, { fs }));
+		tasks.push(await details.get(worktree));
 	}
 	return { tasks, entries: await journal.tail(DEFAULT_COUNT) };
 }

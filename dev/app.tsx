@@ -25,7 +25,7 @@ export function App(): JSX.Element {
 	useDisposerEffect(
 		(disposer) => {
 			feed.start();
-			disposer.defer(() => feed.stop());
+			disposer.use(feed);
 		},
 		[feed],
 	);

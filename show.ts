@@ -38,7 +38,7 @@ export interface ShowOptions {
 export async function show(
 	{ service, fs, log }: { service: WorktreeService; fs: Fs; log: Logger },
 	task: string,
-	{ json = false }: ShowOptions = {},
+	opts: ShowOptions = {},
 ): Promise<void> {
 	const worktree = await service.find(task);
 	if (worktree.gone) {
@@ -48,58 +48,63 @@ export async function show(
 			{ task },
 		);
 	}
-	const details = await taskDetails(worktree, { fs });
+	const details = await new TaskDetails({ fs }).get(worktree);
 
-	if (json) {
+	if (opts.json ?? false) {
 		log.info(JSON.stringify(details, null, "\t"));
 		return;
 	}
 	log.info(report(details));
 }
 
-/**
- * Everything there is to say about one task. Split out so `dev` can render the
- * same fields this prints, rather than assembling its own and drifting.
- */
+/** Configures how {@link TaskDetails} gathers a task's info. */
 export interface TaskDetailsOptions {
 	/** What the worktree is read through; the real filesystem by default. */
 	fs?: Fs;
 }
 
-export async function taskDetails(
-	worktree: Worktree,
-	opts: TaskDetailsOptions = {},
-): Promise<Details> {
-	const files = opts.fs ?? new NodeFs();
-	const { state } = worktree;
-	// A record whose worktree or branch is gone is still worth showing: the
-	// status names what is wrong, and asking git about a branch that is not
-	// there would only fill the fields with nulls.
-	const stat = worktree.hasBranch ? await worktree.diffStat() : null;
-	const plan = worktree.exists
-		? await files.read(`${worktree.path}/${FILE}`).catch(() => null)
-		: null;
-	return {
-		task: worktree.task,
-		status: worktree.status,
-		branch: worktree.branch,
-		base: worktree.base,
-		worktree: worktree.path,
-		lease: worktree.leaseStatus,
-		ahead: worktree.hasBranch ? await worktree.commitsAhead() : null,
-		added: stat?.added ?? null,
-		removed: stat?.removed ?? null,
-		age: state ? age(state.createdAt) : null,
-		escalation: state?.escalations?.at(-1)?.reason ?? null,
-		plan,
-		planProblems:
-			plan === null
-				? []
-				: checkPlan(plan, {
-						task: worktree.task,
-						escalated: worktree.status === "escalated",
-					}),
-	};
+/**
+ * Everything there is to say about one task. Split out so `dev` can render the
+ * same fields this prints, rather than assembling its own and drifting.
+ */
+export class TaskDetails {
+	private readonly fs: Fs;
+
+	constructor(opts: TaskDetailsOptions = {}) {
+		this.fs = opts.fs ?? new NodeFs();
+	}
+
+	async get(worktree: Worktree): Promise<Details> {
+		const { state } = worktree;
+		// A record whose worktree or branch is gone is still worth showing: the
+		// status names what is wrong, and asking git about a branch that is not
+		// there would only fill the fields with nulls.
+		const stat = worktree.hasBranch ? await worktree.diffStat() : null;
+		const plan = worktree.exists
+			? await this.fs.read(`${worktree.path}/${FILE}`).catch(() => null)
+			: null;
+		return {
+			task: worktree.task,
+			status: worktree.status,
+			branch: worktree.branch,
+			base: worktree.base,
+			worktree: worktree.path,
+			lease: worktree.leaseStatus,
+			ahead: worktree.hasBranch ? await worktree.commitsAhead() : null,
+			added: stat?.added ?? null,
+			removed: stat?.removed ?? null,
+			age: state ? age(state.createdAt) : null,
+			escalation: state?.escalations?.at(-1)?.reason ?? null,
+			plan,
+			planProblems:
+				plan === null
+					? []
+					: checkPlan(plan, {
+							task: worktree.task,
+							escalated: worktree.status === "escalated",
+						}),
+		};
+	}
 }
 
 function report(details: Details): string {

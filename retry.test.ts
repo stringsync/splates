@@ -10,7 +10,6 @@ import { WorktreeService } from "./worktree-service";
 describe("retry", () => {
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
-		git: Git;
 		service: WorktreeService;
 		shell: Shell;
 	};
@@ -27,13 +26,12 @@ describe("retry", () => {
 		deps = {
 			...fixture,
 			config,
-			git,
 			service,
 			shell: new Shell({ ps: fixture.ps }),
 		};
 	});
 
-	afterEach(() => deps.cleanup());
+	afterEach(() => deps.disposeAsync());
 
 	it("puts an escalated task back to working with a fresh budget", async () => {
 		await add(deps, "alpha");
