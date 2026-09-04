@@ -1,34 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
 import { retry } from "./retry";
-import { Shell } from "./shell";
-import { bails, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 describe("retry", () => {
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const git = new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs });
-		const service = new WorktreeService(git, config, fixture.arborDir, {
-			fs: fixture.fs,
-			ps: fixture.ps,
-		});
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -52,14 +31,13 @@ describe("retry", () => {
 	it("refuses a task nobody has escalated", async () => {
 		await add(deps, "alpha");
 
-		const exit = await bails(retry(deps, "alpha"));
-
-		expect(exit.reason).toBe("usage");
-		expect(exit.message).toContain("not escalated");
+		await expect(retry(deps, "alpha")).toBail("usage", {
+			message: "not escalated",
+		});
 		expect((await deps.service.find("alpha")).state?.status).toBe("working");
 	});
 
 	it("refuses a name with no task", async () => {
-		expect((await bails(retry(deps, "nope"))).reason).toBe("not_found");
+		await expect(retry(deps, "nope")).toBail("not_found");
 	});
 });

@@ -1,35 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
-import { Shell } from "./shell";
-import { bails, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 describe("add", () => {
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -88,47 +66,39 @@ describe("add", () => {
 	it("refuses a name that is already taken and points at claim", async () => {
 		await add(deps, "alpha");
 
-		const exit = await bails(add(deps, "alpha"));
-
-		expect(exit.reason).toBe("exists");
-		expect(exit.message).toContain("arbor claim alpha");
+		await expect(add(deps, "alpha")).toBail("exists", {
+			message: "arbor claim alpha",
+		});
 	});
 
 	it("rejects names that are not legal branch or directory names", async () => {
 		const names = ["Alpha", "a b", "feature/x", "-alpha", ""];
 
-		const reasons = await Promise.all(
-			names.map(async (name) => (await bails(add(deps, name))).reason),
+		await Promise.all(
+			names.map((name) => expect(add(deps, name)).toBail("usage")),
 		);
-
-		expect(reasons).toEqual(names.map(() => "usage"));
 	});
 
 	it("refuses a repo with submodules, before making anything", async () => {
 		await deps.fs.write(join(deps.root, ".gitmodules"), "");
 
-		const exit = await bails(add(deps, "alpha"));
-
-		expect(exit.reason).toBe("usage");
-		expect(exit.message).toContain(".gitmodules");
+		await expect(add(deps, "alpha")).toBail("usage", {
+			message: ".gitmodules",
+		});
 		expect((await deps.service.find("alpha")).gone).toBe(true);
 	});
 
 	it("reports a failed postCheckout hook but keeps the worktree", async () => {
-		deps.config = testConfig(deps.root, { postCheckout: "exit 3" });
+		deps.config.postCheckout = "exit 3";
 
-		const exit = await bails(add(deps, "alpha"));
-
-		expect(exit.reason).toBe("hook_failed");
+		await expect(add(deps, "alpha")).toBail("hook_failed");
 		const state = (await deps.service.find("alpha")).state;
 		expect(await deps.fs.exists(state?.worktree ?? "")).toBe(true);
 	});
 
 	it("tells the postCheckout hook which branch the trunk is", async () => {
-		deps.config = testConfig(deps.root, {
-			trunk: "master",
-			postCheckout: "printenv ARBOR_TRUNK > trunk.txt",
-		});
+		deps.config.trunk = "master";
+		deps.config.postCheckout = "printenv ARBOR_TRUNK > trunk.txt";
 
 		await add(deps, "alpha", { base: "main" });
 
@@ -139,20 +109,17 @@ describe("add", () => {
 	});
 
 	it("names the trunk and the config when the trunk is not a branch", async () => {
-		deps.config = testConfig(deps.root, { trunk: "master" });
+		deps.config.trunk = "master";
 
-		const exit = await bails(add(deps, "alpha"));
-
-		expect(exit.reason).toBe("usage");
-		expect(exit.message).toContain("trunk 'master'");
-		expect(exit.message).toContain("arbor.config.ts");
+		await expect(add(deps, "alpha")).toBail("usage", {
+			message: ["trunk 'master'", "arbor.config.ts"],
+		});
 	});
 
 	it("refuses with a reason, a message and the data behind it", async () => {
-		const exit = await bails(add(deps, "Alpha"));
-
-		expect(exit.reason).toBe("usage");
-		expect(exit.message).toContain("invalid task name 'Alpha'");
-		expect(exit.data).toEqual({ task: "Alpha" });
+		await expect(add(deps, "Alpha")).toBail("usage", {
+			message: "invalid task name 'Alpha'",
+			data: { task: "Alpha" },
+		});
 	});
 });

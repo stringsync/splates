@@ -1,35 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
-import { Shell } from "./shell";
 import { show } from "./show";
-import { bails, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 describe("show", () => {
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -94,7 +72,7 @@ describe("show", () => {
 	});
 
 	it("refuses a task that was never created", async () => {
-		expect((await bails(show(deps, "ghost"))).reason).toBe("not_found");
+		await expect(show(deps, "ghost")).toBail("not_found");
 	});
 
 	it("still describes a task whose worktree is gone", async () => {

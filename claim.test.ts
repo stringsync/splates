@@ -1,37 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
 import { claim } from "./claim";
-import type { Config } from "./config";
-import { Git } from "./git";
-import { Shell } from "./shell";
-import { bails, LIVE_PID, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { LIVE_PID, Testing } from "./testing";
 
 describe("claim", () => {
-	// `shell` and `config` are here for the `create` calls that arrange each
-	// test; claim itself needs only the service, the log and somewhere to fail.
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -46,8 +22,7 @@ describe("claim", () => {
 			},
 		});
 
-		const exit = await bails(claim(deps, "alpha"));
-		expect(exit.reason).toBe("lease_held");
+		await expect(claim(deps, "alpha")).toBail("lease_held");
 
 		// The same lease, gone cold because the heartbeat aged out.
 		await (await deps.service.find("alpha")).save({
@@ -88,9 +63,8 @@ describe("claim", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.fs.rm(worktree, { recursive: true, force: true });
 
-		const exit = await bails(claim(deps, "alpha"));
-
-		expect(exit.reason).toBe("orphaned");
-		expect(exit.message).toContain("arbor rm alpha");
+		await expect(claim(deps, "alpha")).toBail("orphaned", {
+			message: "arbor rm alpha",
+		});
 	});
 });

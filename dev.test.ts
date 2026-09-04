@@ -1,14 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
-import type { Config } from "./config";
 import { dev, devPorts } from "./dev";
-import { Git } from "./git";
-import { Journal } from "./journal";
-import { Shell } from "./shell";
 import type { Snapshot } from "./snapshot";
-import { repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 async function readUntil(
 	reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -26,34 +21,10 @@ async function readUntil(
 }
 
 describe("dev", () => {
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-		journal: Journal;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-			journal: new Journal(
-				`${fixture.arborDir}/log.jsonl`,
-				config.logCapacity,
-				{ fs: fixture.fs },
-			),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { arbor } from "./arbor";
-import { repo } from "./testing";
+import { Testing } from "./testing";
 
 /**
  * The cli in this process, run with fakes: the same commands `e2e.test.ts`
@@ -10,7 +10,7 @@ import { repo } from "./testing";
  */
 describe("arbor cli", () => {
 	it("runs its commands against the dependencies it is given", async () => {
-		await using env = await repo();
+		await using env = await Testing.open();
 		env.ps.cd(env.root);
 		const deps = {
 			log: env.log,
@@ -29,7 +29,7 @@ describe("arbor cli", () => {
 	});
 
 	it("reports a refusal as a reason, a message and an exit code", async () => {
-		await using env = await repo();
+		await using env = await Testing.open();
 		env.ps.cd(env.root);
 
 		await arbor.run(
@@ -48,7 +48,7 @@ describe("arbor cli", () => {
 	});
 
 	it("refuses a port that cannot exist rather than trying to listen", async () => {
-		await using env = await repo();
+		await using env = await Testing.open();
 		env.ps.cd(env.root);
 
 		await arbor.run(

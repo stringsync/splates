@@ -1,37 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { color } from "webappwiz/log";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
 import { list } from "./list";
-import { Shell } from "./shell";
-import { repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 describe("list", () => {
-	// list needs only the service and the log; the rest arranges it with `create`.
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());

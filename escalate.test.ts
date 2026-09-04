@@ -1,45 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { FileLock } from "webappwiz/system";
 import { add } from "./add";
-import type { Config } from "./config";
 import { escalate } from "./escalate";
-import { Git } from "./git";
-import { Shell } from "./shell";
-import { bails, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 describe("escalate", () => {
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		git: Git;
-		service: WorktreeService;
-		shell: Shell;
-		lock: FileLock;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const git = new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs });
-		const service = new WorktreeService(git, config, fixture.arborDir, {
-			fs: fixture.fs,
-			ps: fixture.ps,
-		});
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			git,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-			lock: new FileLock(join(fixture.arborDir, "merge.lock"), {
-				fs: fixture.fs,
-				ps: fixture.ps,
-				log: fixture.log,
-				stalenessMs: config.leaseStalenessMs,
-			}),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -65,10 +34,9 @@ describe("escalate", () => {
 	it("requires an explicit task when run outside a worktree", async () => {
 		await add(deps, "alpha");
 
-		const exit = await bails(escalate(deps, "needs a human", deps.root));
-
-		expect(exit.reason).toBe("usage");
-		expect(exit.message).toContain("--task");
+		await expect(escalate(deps, "needs a human", deps.root)).toBail("usage", {
+			message: "--task",
+		});
 
 		await escalate(deps, "needs a human", deps.root, { task: "alpha" });
 		expect((await deps.service.find("alpha")).state?.status).toBe("escalated");

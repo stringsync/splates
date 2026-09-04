@@ -1,39 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "webappwiz/time";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
 import { rm } from "./rm";
-import { Shell } from "./shell";
-import { bails, repo, testConfig } from "./testing";
+import { Testing } from "./testing";
 import { wait } from "./wait";
-import { WorktreeService } from "./worktree-service";
 
 /** Long enough that a test only reaches it when waiting is genuinely stuck. */
 const PATIENT = { timeout: Duration.secs(5), poll: Duration.ms(5) };
 
 describe("wait", () => {
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const git = new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs });
-		const service = new WorktreeService(git, config, fixture.arborDir, {
-			fs: fixture.fs,
-			ps: fixture.ps,
-		});
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -68,16 +47,15 @@ describe("wait", () => {
 	it("gives up on a task that keeps working", async () => {
 		await add(deps, "alpha");
 
-		const exit = await bails(
+		await expect(
 			wait(deps, "alpha", { timeout: Duration.ms(20), poll: Duration.ms(5) }),
-		);
-
-		expect(exit.reason).toBe("timeout");
-		expect(exit.message).toContain("still working");
-		expect(exit.data).toMatchObject({ task: "alpha", status: "working" });
+		).toBail("timeout", {
+			message: "still working",
+			data: { task: "alpha", status: "working" },
+		});
 	});
 
 	it("refuses a name nothing remembers", async () => {
-		expect((await bails(wait(deps, "nope", PATIENT))).reason).toBe("not_found");
+		await expect(wait(deps, "nope", PATIENT)).toBail("not_found");
 	});
 });

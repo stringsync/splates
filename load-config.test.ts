@@ -6,7 +6,7 @@ import { NodeFs } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
 import { Git } from "./git";
 import { loadConfig } from "./load-config";
-import { repo } from "./testing";
+import { Testing } from "./testing";
 
 describe("loadConfig", () => {
 	const fs = new NodeFs();
@@ -75,7 +75,7 @@ describe("loadConfig", () => {
 	});
 
 	it("takes the trunk from what origin/HEAD points at", async () => {
-		await using fixture = await repo();
+		await using fixture = await Testing.open();
 		await originHead(fixture, "master");
 
 		const config = await loadConfig(fixture.root, {
@@ -87,7 +87,7 @@ describe("loadConfig", () => {
 	});
 
 	it("prefers the trunk arbor.config.ts names over what it detects", async () => {
-		await using fixture = await repo();
+		await using fixture = await Testing.open();
 		await originHead(fixture, "master");
 		await fixture.fs.write(
 			join(fixture.root, "arbor.config.ts"),
@@ -104,10 +104,7 @@ describe("loadConfig", () => {
 });
 
 /** Fabricates the ref a clone would fetch, without a remote to fetch from. */
-async function originHead(
-	fixture: Awaited<ReturnType<typeof repo>>,
-	branch: string,
-): Promise<void> {
+async function originHead(fixture: Testing, branch: string): Promise<void> {
 	await fixture.gitCli(
 		fixture.root,
 		"remote",

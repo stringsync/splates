@@ -2,13 +2,13 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { ensure } from "webappwiz/assert";
 import { color } from "webappwiz/log";
-import { repo } from "./testing";
+import { Testing } from "./testing";
 
 const CLI = join(import.meta.dirname, "index.ts");
 
 /** A repo of its own per test, so the four of them can run at once. */
 const setup = async () => {
-	const env = await repo();
+	const env = await Testing.open();
 	// A gate that passes, so the happy paths exercise merge rather than the
 	// fixture repo's (nonexistent) tests.
 	await env.fs.write(
@@ -33,13 +33,13 @@ const setup = async () => {
 			worktree: string;
 		}[];
 
-	return { ...env, arbor, rows };
+	return { env, arbor, rows, [Symbol.asyncDispose]: () => env.disposeAsync() };
 };
 
 describe.concurrent("arbor", () => {
 	it("lands both trees on trunk without a merge when two agents work at once", async () => {
-		await using env = await setup();
-		const { arbor, rows } = env;
+		await using cli = await setup();
+		const { env, arbor, rows } = cli;
 
 		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
 		expect((await arbor(env.root, "add", "beta")).exitCode).toBe(0);
@@ -91,8 +91,8 @@ describe.concurrent("arbor", () => {
 	});
 
 	it("lands a stacked task in its parent's worktree, and the parent on trunk", async () => {
-		await using env = await setup();
-		const { arbor, rows } = env;
+		await using cli = await setup();
+		const { env, arbor, rows } = cli;
 
 		expect((await arbor(env.root, "add", "parent")).exitCode).toBe(0);
 		const parent = ensure.defined(
@@ -132,8 +132,8 @@ describe.concurrent("arbor", () => {
 	});
 
 	it("lands the work when a second agent picks up an escalated tree", async () => {
-		await using env = await setup();
-		const { arbor, rows } = env;
+		await using cli = await setup();
+		const { env, arbor, rows } = cli;
 
 		// Tests pass only once the committed marker says so, which is how the
 		// first agent's merge fails for a reason the second agent can fix.
@@ -174,8 +174,8 @@ describe.concurrent("arbor", () => {
 	});
 
 	it("reports the uncommitted work and lands it when an agent dies mid-task", async () => {
-		await using env = await setup();
-		const { arbor, rows } = env;
+		await using cli = await setup();
+		const { env, arbor, rows } = cli;
 
 		expect((await arbor(env.root, "add", "delta")).exitCode).toBe(0);
 		const tree = ensure.defined(
@@ -204,8 +204,8 @@ describe.concurrent("arbor", () => {
 	});
 
 	it("lands the tree on a retry when an agent is killed mid-merge", async () => {
-		await using env = await setup();
-		const { arbor, rows } = env;
+		await using cli = await setup();
+		const { env, arbor, rows } = cli;
 
 		// SIGKILL from inside the test gate: the first merge dies after rebasing
 		// and before trunk moves, holding both the lease and the merge lock. The

@@ -1,37 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
 import { path } from "./path";
-import { Shell } from "./shell";
-import { bails, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { Testing } from "./testing";
 
 describe("path", () => {
-	// `shell` and `config` are here for the `create` calls that arrange each
-	// test; path itself needs only the service and the log.
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -51,9 +27,9 @@ describe("path", () => {
 		await path(deps, "alpha");
 		expect(deps.out()).toBe(worktree);
 
-		expect((await bails(path(deps, "nope"))).reason).toBe("not_found");
+		await expect(path(deps, "nope")).toBail("not_found");
 
 		await deps.fs.rm(worktree, { recursive: true, force: true });
-		expect((await bails(path(deps, "alpha"))).reason).toBe("orphaned");
+		await expect(path(deps, "alpha")).toBail("orphaned");
 	});
 });

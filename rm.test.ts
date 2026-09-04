@@ -1,36 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
-import type { Config } from "./config";
-import { Git } from "./git";
 import { rm } from "./rm";
-import { Shell } from "./shell";
-import { bails, LIVE_PID, repo, testConfig } from "./testing";
-import { WorktreeService } from "./worktree-service";
+import { LIVE_PID, Testing } from "./testing";
 
 describe("rm", () => {
-	// `shell` is only here for the `create` calls that arrange each test.
-	let deps: Awaited<ReturnType<typeof repo>> & {
-		config: Config;
-		service: WorktreeService;
-		shell: Shell;
-	};
+	let deps: Testing;
 
 	beforeEach(async () => {
-		const fixture = await repo();
-		const config = testConfig(fixture.root);
-		const service = new WorktreeService(
-			new Git(fixture.root, { ps: fixture.ps, fs: fixture.fs }),
-			config,
-			fixture.arborDir,
-			{ fs: fixture.fs, ps: fixture.ps },
-		);
-		await service.init();
-		deps = {
-			...fixture,
-			config,
-			service,
-			shell: new Shell({ ps: fixture.ps }),
-		};
+		deps = await Testing.open();
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -54,8 +31,8 @@ describe("rm", () => {
 		await add(deps, "alpha");
 		await rm(deps, "alpha");
 
-		expect((await bails(rm(deps, "alpha"))).reason).toBe("already_removed");
-		expect((await bails(rm(deps, "never"))).reason).toBe("not_found");
+		await expect(rm(deps, "alpha")).toBail("already_removed");
+		await expect(rm(deps, "never")).toBail("not_found");
 	});
 
 	it("cleans up leftovers when the worktree directory is already gone", async () => {
@@ -81,10 +58,9 @@ describe("rm", () => {
 			},
 		});
 
-		const exit = await bails(rm(deps, "alpha"));
-
-		expect(exit.reason).toBe("lease_held");
-		expect(exit.message).toContain("--force");
+		await expect(rm(deps, "alpha")).toBail("lease_held", {
+			message: "--force",
+		});
 
 		await rm(deps, "alpha", { force: true });
 		expect(await deps.fs.exists(worktree.path)).toBe(false);
