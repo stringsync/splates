@@ -189,7 +189,7 @@ export async function merge(
 
 	const head = await git.shortHead(landing);
 	// The work is on the base, so the tree has nothing left to hold. Discarding it
-	// here is what keeps `arbor ls` a list of live work rather than a graveyard
+	// here is what keeps `arbor list` a list of live work rather than a graveyard
 	// of landed tasks.
 	//
 	// Step out of it first: merge usually runs from inside the tree it is about

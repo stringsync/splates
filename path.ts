@@ -22,7 +22,7 @@ export async function path(
 	if (worktree.gone) {
 		fail(
 			"not_found",
-			`no task '${task}': run \`arbor ls\` to see what there is`,
+			`no task '${task}': run \`arbor list\` to see what there is`,
 			{ task },
 		);
 	}

@@ -26,7 +26,7 @@ const setup = async () => {
 	};
 
 	const rows = async () =>
-		JSON.parse((await arbor(env.root, "ls", "--json")).stdout) as {
+		JSON.parse((await arbor(env.root, "list", "--json")).stdout) as {
 			task: string;
 			status: string;
 			lease: "held" | "stale" | "none";

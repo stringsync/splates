@@ -3,13 +3,13 @@ import { color } from "webappwiz/log";
 import { add } from "./add";
 import type { Config } from "./config";
 import { Git } from "./git";
-import { ls } from "./ls";
+import { list } from "./list";
 import { Shell } from "./shell";
 import { repo, testConfig } from "./testing";
 import { WorktreeService } from "./worktree-service";
 
-describe("ls", () => {
-	// ls needs only the service and the log; the rest arranges it with `create`.
+describe("list", () => {
+	// list needs only the service and the log; the rest arranges it with `create`.
 	let deps: Awaited<ReturnType<typeof repo>> & {
 		config: Config;
 		service: WorktreeService;
@@ -43,7 +43,7 @@ describe("ls", () => {
 		const beta = (await deps.service.find("beta")).path;
 		await deps.fs.rm(beta, { recursive: true, force: true });
 
-		await ls(deps);
+		await list(deps);
 
 		expect(deps.out()).toContain("alpha");
 		expect(deps.out()).toContain("unknown"); // the corrupt row, not a crash
@@ -51,7 +51,7 @@ describe("ls", () => {
 		expect(color.strip(deps.out())).toContain("+0 -0");
 
 		deps.log.clear();
-		await ls(deps, { json: true });
+		await list(deps, { json: true });
 		const rows = JSON.parse(deps.out());
 		expect(rows.map((fixture: { task: string }) => fixture.task)).toEqual([
 			"alpha",
@@ -61,7 +61,7 @@ describe("ls", () => {
 	});
 
 	it("says so plainly when there is nothing to list", async () => {
-		await ls(deps);
+		await list(deps);
 
 		expect(deps.out()).toContain("no tasks");
 	});

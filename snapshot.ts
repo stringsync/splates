@@ -4,14 +4,14 @@ import { DEFAULT_COUNT } from "./log";
 import { type Details, TaskDetails } from "./show";
 import type { WorktreeService } from "./worktree-service";
 
-/** Everything one page shows: `ls` and `show` for each task, plus `log`. */
+/** Everything one page shows: `list` and `show` for each task, plus `log`. */
 export interface Snapshot {
 	tasks: Details[];
 	entries: Entry[];
 }
 
 /**
- * Reads the whole repo the way `ls`, `show` and `log` do. Takes no lease, so
+ * Reads the whole repo the way `list`, `show` and `log` do. Takes no lease, so
  * serving a page cannot knock an agent off the tree it is driving.
  */
 export interface SnapshotOptions {

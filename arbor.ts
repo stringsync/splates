@@ -9,8 +9,8 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
+import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
-import { ls } from "./ls";
 import { merge } from "./merge";
 import { path } from "./path";
 import { type Repository, repository } from "./repository";
@@ -91,17 +91,17 @@ arbor
 	);
 
 arbor
-	.command("ls")
+	.command("list")
 	.description(
 		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
 	)
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) => ls(ctx, { json: opts.json }));
+	.action((opts, ctx) => list(ctx, { json: opts.json }));
 
 arbor
 	.command("show")
 	.description(
-		"read one task without touching it: everything `ls` lists for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
+		"read one task without touching it: everything `list` shows for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.option("json", t.boolean(), { default: false, description: "emit JSON" })
@@ -137,7 +137,7 @@ arbor
 
 arbor
 	.command("dev")
-	.description("serve `ls`, `show` and `log` as a web page; read-only")
+	.description("serve `list`, `show` and `log` as a web page; read-only")
 	.option("port", t.number(), {
 		default: DEFAULT_PORT,
 		description: "port to listen on, or the next open one above it",

@@ -41,7 +41,7 @@ export async function wait(
 		if (worktree.status === "absent") {
 			fail(
 				"not_found",
-				`no task '${task}': run \`arbor ls\` to see what there is`,
+				`no task '${task}': run \`arbor list\` to see what there is`,
 				{ task },
 			);
 		}

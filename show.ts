@@ -31,7 +31,7 @@ export interface ShowOptions {
 }
 
 /**
- * One task in full: what `ls` shows for it, plus the `ARBOR.md` its agent
+ * One task in full: what `list` shows for it, plus the `ARBOR.md` its agent
  * left at the worktree root. Reading a tree this way takes no lease, so it
  * cannot knock the agent driving it off its own work.
  */
@@ -44,7 +44,7 @@ export async function show(
 	if (worktree.gone) {
 		fail(
 			"not_found",
-			`no task '${task}': run \`arbor ls\` to see what there is`,
+			`no task '${task}': run \`arbor list\` to see what there is`,
 			{ task },
 		);
 	}

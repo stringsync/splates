@@ -83,10 +83,10 @@ describe("Markdown", () => {
 
 	it("renders inline code, bold and italics inside a line", () => {
 		const { container } = render(
-			<Markdown text={"run `arbor ls` for **every** *task*\n"} />,
+			<Markdown text={"run `arbor list` for **every** *task*\n"} />,
 		);
 
-		expect(container.querySelector("code")?.textContent).toBe("arbor ls");
+		expect(container.querySelector("code")?.textContent).toBe("arbor list");
 		expect(container.querySelector("strong")?.textContent).toBe("every");
 		expect(container.querySelector("em")?.textContent).toBe("task");
 	});

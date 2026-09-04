@@ -35,7 +35,7 @@ export interface DevServer extends AsyncResource {
 }
 
 /**
- * Serves what `ls`, `show` and `log` print, as one page that refetches when the
+ * Serves what `list`, `show` and `log` print, as one page that refetches when the
  * repo changes. Read-only on purpose: driving arbor is what the CLI is for, and
  * a button that took a lease would fight the agent holding it.
  */

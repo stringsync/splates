@@ -21,7 +21,7 @@ describe("arbor cli", () => {
 		};
 
 		await arbor.run(deps, ["add", "alpha"]);
-		await arbor.run(deps, ["ls", "--json"]);
+		await arbor.run(deps, ["list", "--json"]);
 
 		const rows = JSON.parse(String(env.log.entries.at(-1)?.message));
 		expect(rows).toMatchObject([{ task: "alpha", status: "working" }]);

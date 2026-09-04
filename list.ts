@@ -15,14 +15,14 @@ interface Row {
 	worktree: string | null;
 }
 
-export interface LsOptions {
+export interface ListOptions {
 	/** Print the rows as JSON instead of a table. */
 	json?: boolean;
 }
 
-export async function ls(
+export async function list(
 	{ service, log }: { service: WorktreeService; log: Logger },
-	{ json = false }: LsOptions = {},
+	{ json = false }: ListOptions = {},
 ): Promise<void> {
 	const rows: Row[] = [];
 	for (const worktree of await service.list()) {

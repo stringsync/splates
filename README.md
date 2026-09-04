@@ -80,7 +80,7 @@ linear.
    back would leave its index and files on the old commit.
 5. Discards the task (worktree, branch and record) exactly as `rm`
    would. The work is on trunk, so the tree has nothing left to hold, and
-   `arbor ls` stays a list of live work rather than a graveyard of landed
+   `arbor list` stays a list of live work rather than a graveyard of landed
    tasks. The agent's own directory goes with it, so the success message
    prints the main tree to `cd` back to.
 
@@ -105,7 +105,7 @@ Removal leaves a tombstone in `.git/arbor/removed/` so a second `rm` can say
 and drops the oldest as new ones arrive, so a long-forgotten task reports
 `not_found` again.
 
-### `arbor ls [--json]`
+### `arbor list [--json]`
 
 Every task: name, status, lease (`held`/`stale`/`none`), commits ahead of
 trunk, age. A corrupt record shows as `unknown` instead of taking
@@ -113,7 +113,7 @@ down the listing; a record whose worktree vanished shows as `orphaned`.
 
 ### `arbor show <task> [--json]`
 
-One task in full: the row `ls` would print for it, plus the `ARBOR.md`
+One task in full: the row `list` would print for it, plus the `ARBOR.md`
 its agent keeps at the worktree root and the reason behind an `escalated`
 status.
 
@@ -130,7 +130,7 @@ ARBOR.md
 ...
 ```
 
-`ls` says a task exists; this says what it is doing. Like `path`, it takes no
+`list` says a task exists; this says what it is doing. Like `path`, it takes no
 lease, so reading another agent's tree cannot knock it off its own work the way
 `claim` would. A task with no `ARBOR.md` is called out rather than passed over
 in silence: it is the one thing that makes the work resumable.
@@ -171,14 +171,14 @@ WHEN  ACTION    TASK   RESULT
 1h    merge     alpha  ok
 ```
 
-`ls` is what still exists; this is what happened. Entries outlive their tasks:
+`list` is what still exists; this is what happened. Entries outlive their tasks:
 a successful `merge` and a `rm` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 200 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
 ### `arbor dev [--port 4269]`
 
-`ls`, `show` and `log` in a browser, on `http://localhost:4269`, reloading
+`list`, `show` and `log` in a browser, on `http://localhost:4269`, reloading
 themselves as tasks change. Read-only, and takes no lease.
 
 ### `arbor path [task]`
