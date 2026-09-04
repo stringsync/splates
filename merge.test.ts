@@ -89,6 +89,48 @@ describe.concurrent("merge", () => {
 		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
 	});
 
+	it("lands into the worktree that holds the base, leaving trunk alone", async () => {
+		await using deps = await setup();
+
+		await add(deps, "parent");
+		const parent = (await deps.service.find("parent")).path;
+		await deps.commit(parent, "parent.txt", "parent\n", "add parent");
+		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
+
+		await add(deps, "child", { base: "task/parent" });
+		const child = (await deps.service.find("child")).path;
+		await deps.commit(child, "child.txt", "child\n", "add child");
+
+		await merge(deps, child);
+
+		// The parent's files move with its branch, not just the ref: a ref moved
+		// behind a worktree's back leaves it reading the landed files as deleted.
+		expect(await deps.fs.exists(join(parent, "child.txt"))).toBe(true);
+		expect(await deps.gitCli(parent, "log", "--oneline", "HEAD")).toContain(
+			"add child",
+		);
+		expect(await deps.gitCli(deps.root, "rev-parse", "main")).toBe(trunkBefore);
+	});
+
+	it("refuses to land into a base worktree whose changes collide", async () => {
+		await using deps = await setup();
+
+		await add(deps, "parent");
+		const parent = (await deps.service.find("parent")).path;
+		await add(deps, "child", { base: "task/parent" });
+		const child = (await deps.service.find("child")).path;
+		await deps.commit(child, "shared.txt", "child\n", "add shared");
+		// The parent is mid-edit on the very file the child is about to land.
+		await deps.fs.write(join(parent, "shared.txt"), "parent still editing\n");
+
+		const exit = await bails(merge(deps, child));
+
+		expect(exit.reason).toBe("merge_failed");
+		expect(exit.message).toContain(parent);
+		expect((await deps.service.find("child")).state?.mergeAttempts).toBe(1);
+		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+	});
+
 	it("discards the landed task, so it drops out of the listing", async () => {
 		await using deps = await setup();
 

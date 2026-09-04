@@ -91,6 +91,47 @@ describe.concurrent("arbor", () => {
 		]);
 	});
 
+	it("lands a stacked task in its parent's worktree, and the parent on trunk", async () => {
+		await using env = await setup();
+		const { arbor, rows } = env;
+
+		expect((await arbor(env.root, "add", "parent")).exitCode).toBe(0);
+		const parent = (await rows())[0]?.worktree;
+		if (!parent) {
+			throw new Error("add did not record a worktree path");
+		}
+		await env.commit(parent, "parent.txt", "parent\n", "add parent");
+
+		// The parent hands out a part from inside its own tree, based on its own
+		// branch, so the part lands on it rather than on trunk.
+		expect(
+			(await arbor(parent, "add", "part", "--base", "task/parent")).exitCode,
+		).toBe(0);
+		const part = (await rows()).find((row) => row.task === "part")?.worktree;
+		if (!part) {
+			throw new Error("add did not record a worktree path");
+		}
+		await env.commit(part, "part.txt", "part\n", "add part");
+
+		const landed = await arbor(part, "merge");
+		expect(landed.exitCode).toBe(0);
+		expect(landed.stdout).toContain("merged part onto task/parent");
+		expect(landed.stdout).toContain(parent);
+		// The parent's own tree has the file, not just the branch.
+		expect(await env.fs.exists(join(part, "part.txt"))).toBe(false);
+		expect(await env.fs.exists(join(parent, "part.txt"))).toBe(true);
+		expect(
+			await env.gitCli(env.root, "log", "--oneline", "main"),
+		).not.toContain("add part");
+
+		// The parent then lands both commits on trunk with its own merge.
+		expect((await arbor(parent, "merge")).exitCode).toBe(0);
+		const log = await env.gitCli(env.root, "log", "--oneline", "main");
+		expect(log).toContain("add parent");
+		expect(log).toContain("add part");
+		expect(await rows()).toEqual([]);
+	});
+
 	it("lands the work when a second agent picks up an escalated tree", async () => {
 		await using env = await setup();
 		const { arbor, rows } = env;

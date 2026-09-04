@@ -13,7 +13,8 @@ const TAIL_LINES = 40;
  * Lands the current worktree's branch on its base branch, trunk unless the
  * task was created with `--base`. Never a merge commit: it rebases onto the
  * base, runs the gate there, and fast-forwards the base with
- * `git merge --ff-only`. History stays linear.
+ * `git merge --ff-only`, in whichever worktree has the base checked out.
+ * History stays linear.
  */
 export async function merge(
 	{
@@ -155,20 +156,40 @@ export async function merge(
 		);
 	}
 
-	const checkout = await git.checkout(base);
-	const merged = checkout.code === 0 ? await git.mergeFfOnly(branch) : checkout;
+	// A branch can only be advanced where it is checked out: git allows one
+	// worktree per branch, and moving the ref behind that worktree's back would
+	// leave its index and files on the old commit. For trunk that tree is the
+	// main one; for a task created with `--base task/<other>` it is that task's
+	// worktree, and the work lands there rather than on trunk.
+	const holder = await git.worktreeFor(base);
+	const landing = holder ?? git.root;
+	const checkout = holder ? null : await git.checkout(base);
+	const merged =
+		checkout && checkout.code !== 0
+			? checkout
+			: await git.mergeFfOnly(landing, branch);
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree);
 		fail(
 			"merge_failed",
-			`could not fast-forward ${base} in ${git.root}: ${merged.stderr || merged.stdout}`,
-			{ task },
+			[
+				`could not fast-forward ${base} in ${landing}: ${merged.stderr || merged.stdout}`,
+				...(landing === git.root
+					? []
+					: [
+							"",
+							`${base} is checked out there, which is the only place it can move.`,
+							"Whoever is working in that tree has to commit or stash what collides,",
+							"then merge again.",
+						]),
+			].join("\n"),
+			{ task, base, landing },
 		);
 	}
 
-	const head = await git.shortHead(git.root);
-	// The work is on trunk, so the tree has nothing left to hold. Discarding it
+	const head = await git.shortHead(landing);
+	// The work is on the base, so the tree has nothing left to hold. Discarding it
 	// here is what keeps `arbor ls` a list of live work rather than a graveyard
 	// of landed tasks.
 	//
@@ -190,7 +211,7 @@ export async function merge(
 	// already on the base, so a failure here reports and rolls nothing back.
 	if (config.postMerge) {
 		const ran = await shell.run(config.postMerge, {
-			cwd: git.root,
+			cwd: landing,
 			env: { ARBOR_TASK: task },
 		});
 		if (ran.exitCode !== 0) {
@@ -206,7 +227,9 @@ export async function merge(
 		}
 	}
 	log.info(
-		`${color.green("merged")} ${task} onto ${base} (${head})\n  worktree removed, cd ${git.root}`,
+		`${color.green("merged")} ${task} onto ${base} (${head})${
+			landing === git.root ? "" : `\n  landed in: ${landing}`
+		}\n  worktree removed, cd ${git.root}`,
 	);
 }
 

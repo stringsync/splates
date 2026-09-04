@@ -32,6 +32,11 @@ rebase, and that is what `rm` is for.
 Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
 
+`--base <branch>` starts the task from that branch and lands it back there
+instead of trunk. It takes another task's branch too: `--base task/<other>`
+stacks this task on that one, and the work lands in that task's worktree
+rather than on trunk.
+
 A fresh worktree shares no untracked files with the repo (no `node_modules`,
 no `.env`) which is what `postCheckout` is for.
 
@@ -53,10 +58,11 @@ holds the lease. A worktree with no record is rebuilt rather than rejected.
 
 ### `arbor merge`
 
-Lands the current worktree's branch on trunk. The core command.
+Lands the current worktree's branch on its base, trunk unless the task was
+created with `--base`. The core command.
 
-**Never a merge commit.** It rebases onto trunk, runs the `preMerge` gate
-there, and fast-forwards trunk with `git merge --ff-only`. History stays
+**Never a merge commit.** It rebases onto the base, runs the `preMerge` gate
+there, and fast-forwards the base with `git merge --ff-only`. History stays
 linear.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere.
@@ -67,7 +73,11 @@ linear.
    passed before rebasing says nothing about whether it works against current
    trunk; this is the only defense against semantic conflicts, where both sides
    merge cleanly and the combination is broken.
-4. Re-checks the lease, then `git checkout <trunk> && git merge --ff-only`.
+4. Re-checks the lease, then fast-forwards the base **in the worktree that has
+   it checked out**: the main tree for trunk, or the other task's worktree for
+   a `--base task/<other>` task. Git allows one worktree per branch, and that
+   tree is the only place the branch can move: advancing the ref behind its
+   back would leave its index and files on the old commit.
 5. Discards the task (worktree, branch and record) exactly as `rm`
    would. The work is on trunk, so the tree has nothing left to hold, and
    `arbor ls` stays a list of live work rather than a graveyard of landed
@@ -236,7 +246,7 @@ The agent's control flow runs on these.
 | 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
 | 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor rm` first.    |
 | 11   | `orphaned`          | Record with no worktree. `arbor rm` it.                         |
-| 12   | `merge_failed`      | Trunk could not be fast-forwarded (usually a dirty main worktree). |
+| 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
 | 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging.        |
 

@@ -145,8 +145,31 @@ export class Git {
 		return this.run(this.root, "checkout", branch);
 	}
 
-	mergeFfOnly(branch: string): Promise<GitResult> {
-		return this.run(this.root, "merge", "--ff-only", branch);
+	mergeFfOnly(cwd: string, branch: string): Promise<GitResult> {
+		return this.run(cwd, "merge", "--ff-only", branch);
+	}
+
+	/**
+	 * The worktree with `branch` checked out, or null when no worktree has it.
+	 * Git allows one worktree per branch and that is the only place the branch
+	 * can be advanced, so this is where a fast-forward has to happen.
+	 */
+	async worktreeFor(branch: string): Promise<string | null> {
+		const listing = await this.out(
+			this.root,
+			"worktree",
+			"list",
+			"--porcelain",
+		);
+		let path: string | null = null;
+		for (const line of listing.split("\n")) {
+			if (line.startsWith("worktree ")) {
+				path = line.slice("worktree ".length);
+			} else if (line === `branch refs/heads/${branch}`) {
+				return path;
+			}
+		}
+		return null;
 	}
 
 	addWorktree(branch: string, path: string, from: string): Promise<GitResult> {

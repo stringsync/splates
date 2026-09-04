@@ -56,7 +56,7 @@ arbor
 	.option("base", t.string(), {
 		default: "",
 		description:
-			"branch this task starts from and merges onto (default: trunk)",
+			"branch this task starts from and merges onto (default: trunk); `task/<other>` stacks this task on that one and lands the work in its worktree",
 	})
 	.action((opts, ctx) =>
 		ctx.journal.record("add", opts.task, () =>
@@ -77,7 +77,7 @@ arbor
 arbor
 	.command("merge")
 	.description(
-		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
+		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it in whichever worktree has it checked out, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
 	.action(async (_opts, ctx) =>
 		ctx.journal.record("merge", await here(ctx), () =>
