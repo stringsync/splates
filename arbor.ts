@@ -22,9 +22,9 @@ import { DEFAULT_TIMEOUT, wait } from "./wait";
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
 	fs: Fs;
-	/** Only `dev` listens, but the runtime is picked once, where arbor starts. */
+	/** HTTP server `dev` listens on to serve its preview. */
 	http: HttpServer;
-	/** Likewise: only `dev` serves the page, and it is built before it ships. */
+	/** The built page `dev` serves as its preview. */
 	assets: Assets;
 }
 
