@@ -1,5 +1,4 @@
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
-import type { HttpServer } from "webappwiz/http";
 import type { Logger } from "webappwiz/log";
 import {
 	type Fs,
@@ -10,6 +9,7 @@ import {
 import { Duration } from "webappwiz/time";
 import type { Assets } from "./dev/assets";
 import { fail } from "./exit";
+import type { HttpServer } from "./http-server";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";

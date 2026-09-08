@@ -1,5 +1,4 @@
 import { cli, type Deps } from "webappwiz/cmd";
-import type { HttpServer } from "webappwiz/http";
 import type { Fs } from "webappwiz/system";
 import { t } from "webappwiz/t";
 import { Duration } from "webappwiz/time";
@@ -9,6 +8,7 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
+import type { HttpServer } from "./http-server";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
