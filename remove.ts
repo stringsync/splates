@@ -2,7 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
 import type { WorktreeService } from "./worktree-service";
 
-export interface RmOptions {
+export interface RemoveOptions {
 	/** Discard the tree even when another agent holds its lease. */
 	force?: boolean;
 }
@@ -14,10 +14,10 @@ export interface RmOptions {
  * Throwing a task away and redoing it against current trunk is usually cheaper
  * than a hard rebase, so this is meant to be used freely.
  */
-export async function rm(
+export async function remove(
 	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
-	{ force = false }: RmOptions = {},
+	{ force = false }: RemoveOptions = {},
 ): Promise<void> {
 	const worktree = await service.find(task);
 

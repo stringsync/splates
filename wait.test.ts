@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "webappwiz/time";
 import { add } from "./add";
-import { rm } from "./rm";
+import { remove } from "./remove";
 import { Testing } from "./testing";
 import { wait } from "./wait";
 
@@ -35,7 +35,7 @@ describe("wait", () => {
 
 	it("returns once nothing is left of the task", async () => {
 		await add(deps, "alpha");
-		await rm(deps, "alpha");
+		await remove(deps, "alpha");
 		deps.log.clear();
 
 		await wait(deps, "alpha", PATIENT);

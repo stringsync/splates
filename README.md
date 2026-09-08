@@ -23,7 +23,7 @@ Two rules make that safe:
 
 Conflicts between agents are expected, not a process failure. Discarding a task
 and redoing it against current trunk is cheap and often better than a hard
-rebase, and that is what `rm` is for.
+rebase, and that is what `remove` is for.
 
 ## Commands
 
@@ -78,7 +78,7 @@ linear.
    a `--base task/<other>` task. Git allows one worktree per branch, and that
    tree is the only place the branch can move: advancing the ref behind its
    back would leave its index and files on the old commit.
-5. Discards the task (worktree, branch and record) exactly as `rm`
+5. Discards the task (worktree, branch and record) exactly as `remove`
    would. The work is on trunk, so the tree has nothing left to hold, and
    `arbor list` stays a list of live work rather than a graveyard of landed
    tasks. The agent's own directory goes with it, so the success message
@@ -91,7 +91,7 @@ fails the branch is reset to where it was and trunk is never touched.
 There is deliberately no flag to skip the gate: a repo that wants none
 configures none.
 
-### `arbor rm <task>`
+### `arbor remove <task>`
 
 Discards a task: `git worktree remove` plus the branch and the record.
 
@@ -100,7 +100,7 @@ discards its own tree. Use it freely. Warns about commits that never landed,
 but never blocks: throwing work away is the cheap escape hatch, not a last
 resort.
 
-Removal leaves a tombstone in `.git/arbor/removed/` so a second `rm` can say
+Removal leaves a tombstone in `.git/arbor/removed/` so a second `remove` can say
 `already_removed` rather than `not_found`. The ledger keeps the 50 most recent
 and drops the oldest as new ones arrive, so a long-forgotten task reports
 `not_found` again.
@@ -160,7 +160,7 @@ agent off it.
 
 ### `arbor log [--count 20] [--json]`
 
-The last N things done here (`add`, `claim`, `merge`, `rm`, `escalate`,
+The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
 `retry`),
 oldest first, each with the task and how it ended (`ok`, or the refusal reason).
 
@@ -172,7 +172,7 @@ WHEN  ACTION    TASK   RESULT
 ```
 
 `list` is what still exists; this is what happened. Entries outlive their tasks:
-a successful `merge` and a `rm` both take the record with them, so this is
+a successful `merge` and a `remove` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 200 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
@@ -218,7 +218,7 @@ correct merge, only a decision.
 ### `arbor retry <task>`
 
 Grants an escalated task another `mergeRetryCount` merge attempts and puts it
-back to `working`. The way out of `budget_exhausted` that is not `rm` and redo,
+back to `working`. The way out of `budget_exhausted` that is not `remove` and redo,
 for the case where the task was one fix away rather than genuinely lost.
 
 Only from `escalated`, and that is the whole design. The budget exists to make
@@ -239,13 +239,13 @@ The agent's control flow runs on these.
 | 2    | `conflict`          | Rebase conflicted. **Rebase is still in progress.** Resolve, `git add`, `git rebase --continue`, merge again. |
 | 3    | `tests_failed`      | The gate (`postRewrite`, `preMerge`) failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
-| 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor rm` and redo against current trunk. |
+| 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor remove` and redo against current trunk. |
 | 6    | `lease_held`        | Another agent is driving this tree.                                |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
 | 8    | `not_found`         | No such task, or not run from a task worktree.                     |
 | 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
-| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor rm` first.    |
-| 11   | `orphaned`          | Record with no worktree. `arbor rm` it.                         |
+| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. |
+| 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
 | 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging.        |
@@ -270,7 +270,7 @@ export default defineConfig({
 	postMerge: "bun install",       // in the main tree, after the branch lands
 	leaseStalenessMs: 90_000,
 	mergeRetryCount: 2,
-	removedCapacity: 50,            // removed names kept, so rm can say "already removed"
+	removedCapacity: 50,            // removed names kept, so remove can say "already removed"
 	logCapacity: 200,               // entries `arbor log` keeps before the oldest fall off
 });
 ```
@@ -330,5 +330,5 @@ other. Git still leaves the file staged as `UU`, so the agent must confirm with
 exists because of a real livelock: an agent rebases onto trunk, another agent
 lands during its test run, and it is stale again before it finishes. Under load
 an unlucky agent can chase a moving trunk indefinitely. When the budget is gone,
-escalate or `arbor rm`: redoing the task against current trunk usually beats
+escalate or `arbor remove`: redoing the task against current trunk usually beats
 retrofitting a rebase.

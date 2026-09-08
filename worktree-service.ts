@@ -163,7 +163,7 @@ export class WorktreeService {
 	}
 
 	/**
-	 * Remembers a removed name so a second `rm` can say "already removed"
+	 * Remembers a removed name so a second `remove` can say "already removed"
 	 * instead of "never existed", then drops the oldest so the list of
 	 * remembered names cannot grow without bound.
 	 */

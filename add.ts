@@ -57,7 +57,7 @@ export async function add(
 	if (found.status === "stray") {
 		fail(
 			"exists",
-			`branch ${found.branch} exists without a worktree: run \`arbor rm ${task}\` first`,
+			`branch ${found.branch} exists without a worktree: run \`arbor remove ${task}\` first`,
 			{ task, branch: found.branch },
 		);
 	}

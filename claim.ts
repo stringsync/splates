@@ -17,14 +17,14 @@ export async function claim(
 	if (found.status === "orphaned") {
 		fail(
 			"orphaned",
-			`state file for '${task}' has no worktree at ${found.path}: run \`arbor rm ${task}\``,
+			`state file for '${task}' has no worktree at ${found.path}: run \`arbor remove ${task}\``,
 			{ task, worktree: found.path },
 		);
 	}
 	if (found.status === "stray") {
 		fail(
 			"orphaned",
-			`branch ${found.branch} exists but has no worktree: run \`arbor rm ${task}\` and start over`,
+			`branch ${found.branch} exists but has no worktree: run \`arbor remove ${task}\` and start over`,
 			{ task, branch: found.branch },
 		);
 	}

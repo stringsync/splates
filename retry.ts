@@ -5,7 +5,7 @@ import type { WorktreeService } from "./worktree-service";
 
 /**
  * The way back from `budget_exhausted`. A task that has spent its merge
- * attempts gets another `mergeRetryCount` of them, instead of `rm` and redo.
+ * attempts gets another `mergeRetryCount` of them, instead of `remove` and redo.
  *
  * Only from `escalated`, and deliberately: the budget's whole job is to make an
  * agent stop and hand the task over. An agent that could grant itself more

@@ -71,11 +71,11 @@ describe.concurrent("arbor", () => {
 		).toBe("0");
 
 		expect(await rows()).toEqual([]);
-		const removed = await arbor(env.root, "rm", "alpha");
+		const removed = await arbor(env.root, "remove", "alpha");
 		expect(removed.exitCode).toBe(13);
 		expect(removed.stdout).toContain("already_removed");
 
-		// The journal outlives the tasks: both merges and the refused rm.
+		// The journal outlives the tasks: both merges and the refused remove.
 		const journal = JSON.parse(
 			(await arbor(env.root, "log", "--json")).stdout,
 		) as { action: string; task: string | null; reason: string | null }[];
@@ -86,7 +86,7 @@ describe.concurrent("arbor", () => {
 			{ action: "merge", task: "alpha", reason: null },
 			{ action: "claim", task: "beta", reason: null },
 			{ action: "merge", task: "beta", reason: null },
-			{ action: "rm", task: "alpha", reason: "already_removed" },
+			{ action: "remove", task: "alpha", reason: "already_removed" },
 		]);
 	});
 

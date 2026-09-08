@@ -33,7 +33,7 @@ export interface Config {
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
 	mergeRetryCount: number;
 	/**
-	 * How many removed task names to keep, so `rm` can say "already removed"
+	 * How many removed task names to keep, so `remove` can say "already removed"
 	 * rather than "never existed". A flat cap with no age policy: losing the
 	 * oldest costs a nicer message and nothing else.
 	 */

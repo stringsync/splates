@@ -64,7 +64,7 @@ describe("claim", () => {
 		await deps.fs.rm(worktree, { recursive: true, force: true });
 
 		await expect(claim(deps, "alpha")).toBail("orphaned", {
-			message: "arbor rm alpha",
+			message: "arbor remove alpha",
 		});
 	});
 });

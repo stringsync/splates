@@ -64,7 +64,7 @@ export async function merge(
 	if (worktree.mergeAttempts >= config.mergeRetryCount) {
 		fail(
 			"budget_exhausted",
-			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`arbor retry ${task}\`; or \`arbor rm ${task}\` and start over against current ${base}`,
+			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`arbor retry ${task}\`; or \`arbor remove ${task}\` and start over against current ${base}`,
 			{ task, mergeAttempts: worktree.mergeAttempts },
 		);
 	}
@@ -98,7 +98,7 @@ export async function merge(
 				"The rebase is still in progress. Resolve the conflicts, `git add` them,",
 				"`git rebase --continue`, then run `arbor merge` again.",
 				"If both sides restructured the same logic, prefer `arbor escalate <reason>`",
-				`or \`arbor rm ${task}\` and redo the task against current ${base}.`,
+				`or \`arbor remove ${task}\` and redo the task against current ${base}.`,
 			].join("\n"),
 			{ task, paths },
 		);
@@ -201,7 +201,7 @@ export async function merge(
 	if (discarded.code !== 0) {
 		fail(
 			"usage",
-			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor rm ${task}\` to clean up.`,
+			`landed '${task}' on ${base} (${head}) but could not discard its worktree: ${discarded.stderr || discarded.stdout}\nRun \`arbor remove ${task}\` to clean up.`,
 			{ task },
 		);
 	}

@@ -13,9 +13,9 @@ import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
+import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
-import { rm } from "./rm";
 import { show } from "./show";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
 
@@ -75,7 +75,7 @@ arbor
 	);
 
 arbor
-	.command("rm")
+	.command("remove")
 	.description(
 		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
@@ -85,8 +85,8 @@ arbor
 		description: "discard even when another agent holds the lease",
 	})
 	.action((opts, ctx) =>
-		ctx.journal.record("rm", opts.task, () =>
-			rm(ctx, opts.task, { force: opts.force }),
+		ctx.journal.record("remove", opts.task, () =>
+			remove(ctx, opts.task, { force: opts.force }),
 		),
 	);
 
@@ -126,7 +126,7 @@ arbor
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, rm, escalate and retry, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, escalate and retry, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", t.number(), {
 		default: DEFAULT_COUNT,
@@ -176,7 +176,7 @@ arbor
 arbor
 	.command("retry")
 	.description(
-		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not rm and redo, and only from escalated, so a human has seen the tree first",
+		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not remove and redo, and only from escalated, so a human has seen the tree first",
 	)
 	.arg("task", t.string(), { description: "task name" })
 	.action((opts, ctx) =>

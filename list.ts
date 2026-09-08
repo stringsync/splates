@@ -81,7 +81,7 @@ function listing(rows: Row[]): string {
 		out.push(
 			"",
 			color.yellow(
-				`${orphaned.length} orphaned record(s): run \`arbor rm ${orphaned[0]?.task}\``,
+				`${orphaned.length} orphaned record(s): run \`arbor remove ${orphaned[0]?.task}\``,
 			),
 		);
 	}

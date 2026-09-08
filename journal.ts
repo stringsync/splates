@@ -13,7 +13,7 @@ export interface Entry {
 
 /**
  * What has been done in this repo, oldest first. Entries outlive their tasks:
- * `merge` and `rm` take the record with them, so this is the only thing that
+ * `merge` and `remove` take the record with them, so this is the only thing that
  * remembers a task existed at all.
  */
 /** What a `Journal` is stored through; the real filesystem by default. */
