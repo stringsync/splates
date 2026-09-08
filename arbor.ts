@@ -1,7 +1,7 @@
 import { cli, type Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
-import { t } from "webappwiz/t";
 import { Duration } from "webappwiz/time";
+import { z } from "zod";
 import { add } from "./add";
 import { claim } from "./claim";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
@@ -41,8 +41,8 @@ arbor
 	.description(
 		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor/<task> and a state record",
 	)
-	.arg("task", t.string(), { description: "task name (lowercase-with-dashes)" })
-	.option("base", t.string(), {
+	.arg("task", z.string(), { description: "task name (lowercase-with-dashes)" })
+	.option("base", z.string(), {
 		default: "",
 		description:
 			"branch this task starts from and merges onto (default: trunk); `task/<other>` stacks this task on that one and lands the work in its worktree",
@@ -58,7 +58,7 @@ arbor
 	.description(
 		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
 	)
-	.arg("task", t.string(), { description: "task name" })
+	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) =>
 		ctx.journal.record("claim", opts.task, () => claim(ctx, opts.task)),
 	);
@@ -79,11 +79,15 @@ arbor
 	.description(
 		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
-	.arg("task", t.string(), { description: "task name" })
-	.option("force", t.boolean(), {
-		default: false,
-		description: "discard even when another agent holds the lease",
-	})
+	.arg("task", z.string(), { description: "task name" })
+	.option(
+		"force",
+		z.string().transform((raw) => raw !== "false"),
+		{
+			default: false,
+			description: "discard even when another agent holds the lease",
+		},
+	)
 	.action((opts, ctx) =>
 		ctx.journal.record("remove", opts.task, () =>
 			remove(ctx, opts.task, { force: opts.force }),
@@ -95,7 +99,11 @@ arbor
 	.description(
 		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
 	)
-	.option("json", t.boolean(), { default: false, description: "emit JSON" })
+	.option(
+		"json",
+		z.string().transform((raw) => raw !== "false"),
+		{ default: false, description: "emit JSON" },
+	)
 	.action((opts, ctx) => list(ctx, { json: opts.json }));
 
 arbor
@@ -103,8 +111,12 @@ arbor
 	.description(
 		"read one task without touching it: everything `list` shows for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
 	)
-	.arg("task", t.string(), { description: "task name" })
-	.option("json", t.boolean(), { default: false, description: "emit JSON" })
+	.arg("task", z.string(), { description: "task name" })
+	.option(
+		"json",
+		z.string().transform((raw) => raw !== "false"),
+		{ default: false, description: "emit JSON" },
+	)
 	.action((opts, ctx) => show(ctx, opts.task, { json: opts.json }));
 
 arbor
@@ -112,8 +124,8 @@ arbor
 	.description(
 		"block until a task stops moving: escalated, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
 	)
-	.arg("task", t.string(), { description: "task name" })
-	.option("timeout-secs", t.number(), {
+	.arg("task", z.string(), { description: "task name" })
+	.option("timeout-secs", z.coerce.number(), {
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
@@ -128,17 +140,21 @@ arbor
 	.description(
 		"show what has been done here recently: one line per add, claim, merge, remove, escalate and retry, with how it ended; outlives the tasks themselves",
 	)
-	.option("count", t.number(), {
+	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
 		description: "how many entries to show",
 	})
-	.option("json", t.boolean(), { default: false, description: "emit JSON" })
+	.option(
+		"json",
+		z.string().transform((raw) => raw !== "false"),
+		{ default: false, description: "emit JSON" },
+	)
 	.action((opts, ctx) => showLog(ctx, { count: opts.count, json: opts.json }));
 
 arbor
 	.command("dev")
 	.description("serve `list`, `show` and `log` as a web page; read-only")
-	.option("port", t.number(), {
+	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
 		description: "port to listen on, or the next open one above it",
 	})
@@ -149,7 +165,7 @@ arbor
 	.description(
 		"print a task's worktree path, or the main tree with no task; names another agent's tree without taking its lease",
 	)
-	.arg("task", t.string(), {
+	.arg("task", z.string(), {
 		default: "",
 		description: "task name; omit for the main tree",
 	})
@@ -160,8 +176,8 @@ arbor
 	.description(
 		"hand this task to a human and stop: records the reason, drops the lease and leaves the worktree exactly as it is; use instead of resolving a genuine conflict badly just to finish",
 	)
-	.arg("reason", t.string(), { description: "why this needs a human" })
-	.option("task", t.string(), {
+	.arg("reason", z.string(), { description: "why this needs a human" })
+	.option("task", z.string(), {
 		default: "",
 		description: "task name, when run outside its worktree",
 	})
@@ -178,7 +194,7 @@ arbor
 	.description(
 		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not remove and redo, and only from escalated, so a human has seen the tree first",
 	)
-	.arg("task", t.string(), { description: "task name" })
+	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) =>
 		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
 	);

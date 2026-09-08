@@ -25,7 +25,8 @@
 		"access": "public"
 	},
 	"dependencies": {
-		"webappwiz": "workspace:*"
+		"webappwiz": "workspace:*",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@tailwindcss/oxide": "^4.3.3",
