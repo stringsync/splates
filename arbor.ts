@@ -8,7 +8,6 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
-import type { HttpServer } from "./http-server";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
@@ -22,8 +21,6 @@ import { DEFAULT_TIMEOUT, wait } from "./wait";
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
 	fs: Fs;
-	/** HTTP server `dev` listens on to serve its preview. */
-	http: HttpServer;
 	/** The built page `dev` serves as its preview. */
 	assets: Assets;
 }

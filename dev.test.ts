@@ -140,6 +140,16 @@ describe("dev", () => {
 		});
 	});
 
+	it("answers a path it does not serve with a 404", async () => {
+		await add(deps, "alpha");
+
+		await serving(async (_snapshot, port) => {
+			const response = await fetch(`http://localhost:${port}/nope`);
+
+			expect(response.status).toBe(404);
+		});
+	});
+
 	it("serves the React app already bundled, with nothing left to fetch", async () => {
 		await add(deps, "alpha");
 

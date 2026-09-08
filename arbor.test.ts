@@ -16,7 +16,6 @@ describe("arbor cli", () => {
 			log: env.log,
 			fs: env.fs,
 			ps: env.ps,
-			http: env.http,
 			assets: env.assets,
 		};
 
@@ -37,7 +36,6 @@ describe("arbor cli", () => {
 				log: env.log,
 				fs: env.fs,
 				ps: env.ps,
-				http: env.http,
 				assets: env.assets,
 			},
 			["claim", "nope"],
@@ -56,7 +54,6 @@ describe("arbor cli", () => {
 				log: env.log,
 				fs: env.fs,
 				ps: env.ps,
-				http: env.http,
 				assets: env.assets,
 			},
 			["dev", "--port", "99999"],

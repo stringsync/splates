@@ -6,10 +6,8 @@ import {
 	OpenPortProvider,
 	type PortProvider,
 } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
 import type { Assets } from "./dev/assets";
 import { fail } from "./exit";
-import type { HttpServer } from "./http-server";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { WorktreeService } from "./worktree-service";
@@ -45,14 +43,12 @@ export async function dev(
 		fs,
 		journal,
 		log,
-		http,
 		assets,
 	}: {
 		service: WorktreeService;
 		fs: Fs;
 		journal: Journal;
 		log: Logger;
-		http: HttpServer;
 		assets: Assets;
 	},
 	{ ports = devPorts(DEFAULT_PORT) }: DevOptions = {},
@@ -108,40 +104,40 @@ export async function dev(
 		);
 	};
 
-	const listening = await http.serve(
-		async (request) => {
-			switch (new URL(request.url).pathname) {
-				case "/":
-					return new Response(assets.shell, {
-						headers: { "content-type": "text/html; charset=utf-8" },
-					});
-				case "/main.js":
-					return new Response(assets.script, {
-						headers: { "content-type": "text/javascript; charset=utf-8" },
-					});
-				case "/styles.css":
-					return new Response(assets.styles, {
-						headers: { "content-type": "text/css; charset=utf-8" },
-					});
-				case "/api/snapshot":
-					return Response.json(await snapshot(service, journal, { fs }));
-				case "/events":
-					return events();
-				default:
-					return new Response("not found", { status: 404 });
-			}
-		},
-		// An SSE stream is idle by design between changes, and would otherwise be
-		// closed out from under the page.
-		{ port: await ports.get(), idleTimeout: Duration.zero() },
-	);
+	const asset = (body: string, type: string): Response =>
+		new Response(body, { headers: { "content-type": type } });
 
-	log.info(`arbor dev on http://localhost:${listening.port}`);
+	const requested = await ports.get();
+	const server = Bun.serve({
+		port: requested,
+		// Zero never closes an idle connection, which is what the SSE stream needs:
+		// it is idle by design between the things it has to say.
+		idleTimeout: 0,
+		// The static three are handed over without entering JS; the other two have
+		// to be asked for, since they answer with the state of the repo right now.
+		routes: {
+			"/": asset(assets.shell, "text/html; charset=utf-8"),
+			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
+			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
+			"/api/snapshot": async () =>
+				Response.json(await snapshot(service, journal, { fs })),
+			"/events": events,
+		},
+		fetch: () => new Response("not found", { status: 404 }),
+	});
+	// Read back, because `ports` may hand over 0 to mean any port at all, and
+	// read now, because `server.port` is 0 once the server is stopped and this is
+	// handed to a caller that stops it. Undefined only for a unix socket, which
+	// this never asks for.
+	const port = server.port ?? requested;
+
+	log.info(`arbor dev on http://localhost:${port}`);
 	const disposer = new AsyncDisposer();
-	disposer.defer(() => listening.stop());
+	// true drains open connections rather than cutting them mid-response
+	disposer.defer(() => server.stop(true));
 	disposer.defer(async () => clearInterval(poll));
 	return {
-		port: listening.port,
+		port,
 		disposeAsync: disposer.disposeAsync,
 	};
 }

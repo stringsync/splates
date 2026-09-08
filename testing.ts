@@ -9,7 +9,6 @@ import type { Config } from "./config";
 import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
-import { BunHttpServer } from "./http-server";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
 import { WorktreeService } from "./worktree-service";
@@ -30,10 +29,8 @@ export class Testing implements AsyncDisposable {
 	readonly proc = new FakeProcess();
 	readonly ps: NodePs;
 	readonly log = new MemoryLogger();
-	// The real ones: `dev` is tested by serving a page and fetching it, so a
-	// stand-in would only have to grow into these. The assets are the ones that
-	// publish, which is the point of asserting on what comes back.
-	readonly http = new BunHttpServer();
+	// The real ones, which publish: `dev` is tested by serving a page and
+	// fetching it, and asserting on what comes back is the point.
 	readonly assets = assets;
 	/** Arbitrary but valid settings; a test changes what it cares about. */
 	readonly config: Config;
