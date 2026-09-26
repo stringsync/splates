@@ -66,16 +66,27 @@ describe("checkPlan", () => {
 		]);
 	});
 
-	it("wants an escalation to leave a question behind", () => {
+	it("wants an escalation to leave numbered items behind", () => {
 		expect(checkPlan(GOOD, { task: "alpha", escalated: true })).toEqual([
-			"escalated with no ## Blocked section: state what needs verifying and the question a human must answer",
+			"escalated with no ## Blocked section: add `- [ ] Q1.` items for what the reviewer must do",
 		]);
-		const vague = `${GOOD}\n## Blocked\nThe colours look wrong.\n`;
+		const vague = `${GOOD}\n## Blocked\nIs the new banner the right green?\n`;
 		expect(checkPlan(vague, { task: "alpha", escalated: true })).toEqual([
-			"## Blocked asks nothing: a human needs one specific question to answer",
+			"## Blocked lists nothing: add `- [ ] Q1.` items for what the reviewer must do",
 		]);
-		const asked = `${GOOD}\n## Blocked\nIs the new banner the right green?\n`;
+		const asked = `${GOOD}\n## Blocked\n- [ ] Q1. Open /tmp/shot.png. Confirm the banner is green.\n`;
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
+	});
+
+	it("flags open items once the task is no longer escalated", () => {
+		const items =
+			"- [x] Q1. Run the tests. → pass\n- [ ] Q2. Decide: keep or drop?\n- [ ] Q3. Open /tmp/a.png.\n";
+		const blocked = `${GOOD}\n## Blocked\n${items}`;
+		expect(checkPlan(blocked, { task: "alpha" })).toEqual([
+			"## Blocked has open Q2, Q3: ask the reviewer before merging",
+		]);
+		const answered = `${GOOD}\n## Blocked\n${items.replaceAll("- [ ]", "- [x]")}`;
+		expect(checkPlan(answered, { task: "alpha" })).toEqual([]);
 	});
 
 	it("flags a section nobody will think to read", () => {

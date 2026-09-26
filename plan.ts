@@ -4,6 +4,8 @@ import { Markdown } from "webappwiz/md";
 const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Files", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
+const QUESTION = /^[ \t]*- \[[ xX]\] Q\d+\./m;
+const OPEN_QUESTION = /^[ \t]*- \[ \] (Q\d+)\./gm;
 
 export interface PlanOptions {
 	/** The task name the title is expected to match. */
@@ -56,12 +58,19 @@ export function checkPlan(
 	const blocked = section("Blocked");
 	if (escalated && blocked === null) {
 		problems.push(
-			"escalated with no ## Blocked section: state what needs verifying and the question a human must answer",
+			"escalated with no ## Blocked section: add `- [ ] Q1.` items for what the reviewer must do",
 		);
 	}
-	if (blocked !== null && !blocked.includes("?")) {
+	if (blocked !== null && !QUESTION.test(blocked)) {
 		problems.push(
-			"## Blocked asks nothing: a human needs one specific question to answer",
+			"## Blocked lists nothing: add `- [ ] Q1.` items for what the reviewer must do",
+		);
+	}
+	const open = blocked === null ? [] : [...blocked.matchAll(OPEN_QUESTION)];
+	if (!escalated && open.length > 0) {
+		const numbers = open.map((match) => match[1]).join(", ");
+		problems.push(
+			`## Blocked has open ${numbers}: ask the reviewer before merging`,
 		);
 	}
 	const known = SECTIONS.map((section) => section.toLowerCase());

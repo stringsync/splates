@@ -137,7 +137,8 @@ in silence: it is the one thing that makes the work resumable.
 
 A `ARBOR.md` that is there gets checked against the shape the agent skill
 prescribes (`# <task>`, `## Goal`, `## Next` with something unchecked in it, a
-`## Blocked` question once escalated), and anything off is printed under it.
+`## Blocked` with `- [ ] Q1.` items once escalated, and none left open after),
+and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
