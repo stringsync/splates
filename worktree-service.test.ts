@@ -1,4 +1,4 @@
-// rule-ignore-file one-class-per-file: the same two fakes are local to this suite
+// scry-ignore-file one-class-per-file: the same two fakes are local to this suite
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { Fs, MkdirOptions, RmOptions, StatResult } from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
