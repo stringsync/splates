@@ -1,11 +1,35 @@
 import { Markdown } from "webappwiz/md";
 
+/** The plan each task keeps at its worktree root, excluded from git. */
+export const PLAN_FILE = "ARBOR.md";
+
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
 const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Files", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 const QUESTION = /^[ \t]*- \[[ xX]\] Q\d+\./m;
 const OPEN_QUESTION = /^[ \t]*- \[ \] (Q\d+)\./gm;
+
+const BULLET = /^- +(.+)$/;
+
+/**
+ * The paths an `ARBOR.md` says its task will touch: each top-level bullet
+ * under `## Files`, taken as written. Prose around the list is left out, and a
+ * plan with no such section plans nothing.
+ */
+export function plannedFiles(text: string): string[] {
+	const md = Markdown.parse(text);
+	if (!md.has("Files")) {
+		return [];
+	}
+	return md
+		.section("Files")
+		.body.split("\n")
+		.flatMap((line) => {
+			const item = BULLET.exec(line)?.[1];
+			return item === undefined ? [] : [item.replaceAll("`", "").trim()];
+		});
+}
 
 export interface PlanOptions {
 	/** The task name the title is expected to match. */

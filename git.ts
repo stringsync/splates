@@ -133,6 +133,41 @@ export class Git {
 		};
 	}
 
+	/**
+	 * Every path `branch` touches since it left `trunk`, plus what is still
+	 * uncommitted in `worktree` when there is one: an agent mid-task has usually
+	 * committed nothing yet, and its edits are the overlap that matters most.
+	 */
+	async changedFiles(
+		trunk: string,
+		branch: string,
+		worktree: string | null,
+	): Promise<string[] | null> {
+		const committed = await this.run(
+			this.root,
+			"diff",
+			"--name-only",
+			`${trunk}...${branch}`,
+		);
+		if (committed.code !== 0) {
+			return null;
+		}
+		const paths = lines(committed.stdout);
+		if (worktree !== null) {
+			// Two calls rather than `status --porcelain`, whose leading status
+			// columns do not survive the trim every call here gets.
+			const edited = await this.run(worktree, "diff", "--name-only", "HEAD");
+			const added = await this.run(
+				worktree,
+				"ls-files",
+				"--others",
+				"--exclude-standard",
+			);
+			paths.push(...lines(edited.stdout), ...lines(added.stdout));
+		}
+		return [...new Set(paths)].sort();
+	}
+
 	rebase(cwd: string, onto: string): Promise<GitResult> {
 		return this.run(cwd, "rebase", onto);
 	}

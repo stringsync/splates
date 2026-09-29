@@ -101,7 +101,16 @@ arbor
 		z.string().transform((raw) => raw !== "false"),
 		{ default: false, description: "emit JSON" },
 	)
-	.action((opts, ctx) => list(ctx, { json: opts.json }));
+	.option(
+		"files",
+		z.string().transform((raw) => raw !== "false"),
+		{
+			default: false,
+			description:
+				"add each task's changed files (committed or not) and the files its ARBOR.md plans to touch, to check for overlap before starting",
+		},
+	)
+	.action((opts, ctx) => list(ctx, { json: opts.json, files: opts.files }));
 
 arbor
 	.command("show")

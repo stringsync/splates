@@ -215,6 +215,15 @@ export class Worktree {
 		return this.service.git.diffStat(this.base, this.branch);
 	}
 
+	/** Committed and uncommitted paths this task touches; null without a branch. */
+	changedFiles(): Promise<string[] | null> {
+		return this.service.git.changedFiles(
+			this.base,
+			this.branch,
+			this.exists ? this.path : null,
+		);
+	}
+
 	uncommitted(): Promise<string[]> {
 		return this.service.git.porcelain(this.path);
 	}

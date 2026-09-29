@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { checkPlan } from "./plan";
+import { checkPlan, plannedFiles } from "./plan";
 
 const GOOD = `# alpha
 
@@ -99,5 +99,31 @@ describe("checkPlan", () => {
 	it("does not mistake a comment in a fenced block for a heading", () => {
 		const fenced = `${GOOD}\n\`\`\`bash\n# alpha notes\n## Goal\n\`\`\`\n`;
 		expect(checkPlan(fenced, { task: "alpha" })).toEqual([]);
+	});
+});
+
+describe("plannedFiles", () => {
+	it("takes each top-level bullet under ## Files, without backticks", () => {
+		const plan = [
+			"# alpha",
+			"",
+			"## Files",
+			"",
+			"Phase 1:",
+			"",
+			"- `a.ts`",
+			"- b/{c,d}.ts",
+			"  - nested note",
+			"",
+			"## Next",
+			"",
+			"- [ ] not a file",
+		].join("\n");
+
+		expect(plannedFiles(plan)).toEqual(["a.ts", "b/{c,d}.ts"]);
+	});
+
+	it("plans nothing without a ## Files section", () => {
+		expect(plannedFiles("# alpha\n")).toEqual([]);
 	});
 });

@@ -1,5 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
+import type { Fs } from "webappwiz/system";
 import { age } from "./age";
+import { PLAN_FILE, plannedFiles } from "./plan";
 import { table } from "./table";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -13,20 +15,31 @@ interface Row {
 	removed: number | null;
 	age: string;
 	worktree: string | null;
+	/** Paths the task has touched, committed or not; only with `files`. */
+	changed?: string[] | null;
+	/** Paths its `ARBOR.md` plans to touch; only with `files`. */
+	planned?: string[];
 }
 
 export interface ListOptions {
 	/** Print the rows as JSON instead of a table. */
 	json?: boolean;
+	/**
+	 * Add each task's changed and planned files, which is what an agent checks
+	 * its own plan against before starting. Off by default: it costs git calls
+	 * and a file read per task.
+	 */
+	files?: boolean;
 }
 
 export async function list(
-	{ service, log }: { service: WorktreeService; log: Logger },
-	{ json = false }: ListOptions = {},
+	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
+	{ json = false, files = false }: ListOptions = {},
 ): Promise<void> {
 	const rows: Row[] = [];
 	for (const worktree of await service.list()) {
-		rows.push(await row(worktree));
+		const base = await row(worktree);
+		rows.push(files ? { ...base, ...(await paths(worktree, fs)) } : base);
 	}
 
 	if (json) {
@@ -57,6 +70,19 @@ async function row(worktree: Worktree): Promise<Row> {
 	};
 }
 
+async function paths(
+	worktree: Worktree,
+	fs: Fs,
+): Promise<Pick<Row, "changed" | "planned">> {
+	const plan = worktree.exists
+		? await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
+		: null;
+	return {
+		changed: worktree.hasBranch ? await worktree.changedFiles() : null,
+		planned: plan === null ? [] : plannedFiles(plan),
+	};
+}
+
 function diff(row: Row): string {
 	if (row.added === null || row.removed === null) {
 		return "?";
@@ -76,6 +102,11 @@ function listing(rows: Row[]): string {
 	const out = [
 		table(["TASK", "STATUS", "LEASE", "AHEAD", "DIFF", "AGE"], cells),
 	];
+	for (const row of rows) {
+		if (row.changed !== undefined) {
+			out.push("", ...files(row));
+		}
+	}
 	const orphaned = rows.filter((row) => row.status === "orphaned");
 	if (orphaned.length > 0) {
 		out.push(
@@ -86,4 +117,21 @@ function listing(rows: Row[]): string {
 		);
 	}
 	return out.join("\n");
+}
+
+/**
+ * One task's paths, each once: `changed` when the task has touched it,
+ * `planned` when only its `ARBOR.md` names it so far.
+ */
+function files(row: Row): string[] {
+	const changed = row.changed ?? [];
+	const planned = (row.planned ?? []).filter((path) => !changed.includes(path));
+	const lines = [
+		...changed.map((path) => `  changed  ${path}`),
+		...planned.map((path) => `  ${color.dim("planned")}  ${path}`),
+	];
+	return [
+		color.bold(row.task),
+		...(lines.length > 0 ? lines : [color.dim("  no files yet")]),
+	];
 }

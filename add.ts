@@ -3,12 +3,11 @@ import { MarkdownWriter } from "webappwiz/md";
 import type { Fs } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
+import { PLAN_FILE } from "./plan";
 import type { Shell } from "./shell";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-const PLAN_FILE = "ARBOR.md";
 
 export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */

@@ -2,11 +2,9 @@ import { color, type Logger } from "webappwiz/log";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
-import { checkPlan } from "./plan";
+import { checkPlan, PLAN_FILE } from "./plan";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
-
-const FILE = "ARBOR.md";
 
 export interface Details {
 	task: string;
@@ -81,7 +79,7 @@ export class TaskDetails {
 		// there would only fill the fields with nulls.
 		const stat = worktree.hasBranch ? await worktree.diffStat() : null;
 		const plan = worktree.exists
-			? await this.fs.read(`${worktree.path}/${FILE}`).catch(() => null)
+			? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
 			: null;
 		return {
 			task: worktree.task,
@@ -121,14 +119,16 @@ function report(details: Details): string {
 		lines.push(`  ${color.yellow(`escalated: ${details.escalation}`)}`);
 	}
 	if (details.plan !== null) {
-		lines.push("", color.bold(FILE), details.plan.trimEnd());
+		lines.push("", color.bold(PLAN_FILE), details.plan.trimEnd());
 		for (const problem of details.planProblems) {
 			lines.push(color.yellow(`  ${problem}`));
 		}
 	} else if (details.status !== "orphaned") {
 		lines.push(
 			"",
-			color.yellow(`no ${FILE}: whoever picks this up starts from the diff`),
+			color.yellow(
+				`no ${PLAN_FILE}: whoever picks this up starts from the diff`,
+			),
 		);
 	}
 	return lines.join("\n");

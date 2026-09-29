@@ -105,11 +105,22 @@ Removal leaves a tombstone in `.git/arbor/removed/` so a second `remove` can say
 and drops the oldest as new ones arrive, so a long-forgotten task reports
 `not_found` again.
 
-### `arbor list [--json]`
+### `arbor list [--json] [--files]`
 
 Every task: name, status, lease (`held`/`stale`/`none`), commits ahead of
 trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
+
+`--files` adds, under each task, every path it has changed (committed or
+not) and every path its `ARBOR.md` plans under `## Files` that it has not
+touched yet. This is the overlap check an agent runs before starting: its own
+list of files against everyone else's.
+
+```
+alpha
+  changed  src/auth.ts
+  planned  src/session.ts
+```
 
 ### `arbor show <task> [--json]`
 
