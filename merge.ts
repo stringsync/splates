@@ -4,6 +4,7 @@ import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import type { Shell } from "./shell";
+import { recommend, recommendation, type Todos } from "./todo";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -24,6 +25,7 @@ export async function merge(
 		shell,
 		config,
 		log,
+		todos,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -31,6 +33,7 @@ export async function merge(
 		shell: Shell;
 		config: Config;
 		log: Logger;
+		todos: Todos;
 	},
 	cwd: string,
 ): Promise<void> {
@@ -224,11 +227,23 @@ export async function merge(
 			);
 		}
 	}
-	log.info(
+	// Done is done: the todos this task took up leave the list with it.
+	for (const todo of await todos.takenBy(task)) {
+		await todo.remove();
+	}
+	const lines = [
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`
 		}\n  worktree removed, cd ${git.root}`,
-	);
+	];
+	// Only a landing on trunk ends a piece of work. A part landing on its
+	// parent's branch hands back to that parent, which is not done yet.
+	if (landing === git.root) {
+		lines.push(
+			...recommendation(await recommend(todos, task, config.todoStalenessMs)),
+		);
+	}
+	log.info(lines.join("\n"));
 }
 
 async function bump(worktree: Worktree): Promise<void> {

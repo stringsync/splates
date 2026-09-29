@@ -78,6 +78,7 @@ describe("WorktreeService", () => {
 			mergeRetryCount: 2,
 			removedCapacity: 50,
 			logCapacity: 200,
+			todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		};
 	});
 

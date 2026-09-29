@@ -1,5 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
+import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 export interface RemoveOptions {
@@ -15,7 +16,11 @@ export interface RemoveOptions {
  * than a hard rebase, so this is meant to be used freely.
  */
 export async function remove(
-	{ service, log }: { service: WorktreeService; log: Logger },
+	{
+		service,
+		log,
+		todos,
+	}: { service: WorktreeService; log: Logger; todos: Todos },
 	task: string,
 	{ force = false }: RemoveOptions = {},
 ): Promise<void> {
@@ -57,6 +62,12 @@ export async function remove(
 		});
 	}
 
+	// The work was thrown away, not done, so what it took up is open again.
+	const released = await todos.takenBy(task);
+	for (const todo of released) {
+		await todo.release();
+	}
+
 	const lines = [
 		`${color.green("removed")} ${task}`,
 		`  worktree: ${worktree.exists ? worktree.path : "already gone"}`,
@@ -69,6 +80,9 @@ export async function remove(
 				`  discarded ${unlanded} commit(s) that were never on ${worktree.base}`,
 			),
 		);
+	}
+	for (const todo of released) {
+		lines.push(`  todo ${todo.id} is open again: ${todo.text}`);
 	}
 	log.info(lines.join("\n"));
 }

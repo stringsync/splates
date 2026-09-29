@@ -40,6 +40,12 @@ export interface Config {
 	removedCapacity: number;
 	/** How many entries `arbor log` keeps before the oldest fall off. */
 	logCapacity: number;
+	/**
+	 * How long a todo can wait before `merge` stops recommending it and offers
+	 * it for removal instead: work deferred that long has usually been done
+	 * some other way, or stopped mattering.
+	 */
+	todoStalenessMs: number;
 }
 
 /**

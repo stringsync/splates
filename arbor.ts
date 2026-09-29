@@ -16,6 +16,7 @@ import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
+import { todoAdd, todoList, todoRemove } from "./todo";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
@@ -44,9 +45,17 @@ arbor
 		description:
 			"branch this task starts from and merges onto (default: trunk); `task/<other>` stacks this task on that one and lands the work in its worktree",
 	})
+	.option("todo", z.coerce.number().int().nonnegative(), {
+		default: 0,
+		description:
+			"take up this todo: its text becomes the plan's Goal, merging removes it, and removing the task puts it back",
+	})
 	.action((opts, ctx) =>
 		ctx.journal.record("add", opts.task, () =>
-			add(ctx, opts.task, { base: opts.base || undefined }),
+			add(ctx, opts.task, {
+				base: opts.base || undefined,
+				todo: opts.todo || undefined,
+			}),
 		),
 	);
 
@@ -203,6 +212,45 @@ arbor
 	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) =>
 		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
+	);
+
+const todo = arbor
+	.group("todo")
+	.description(
+		"defer work for later instead of growing the task you are in: `merge` recommends the next one when a task lands",
+	);
+
+todo
+	.command("add")
+	.description(
+		"note something to do later and move on; run from a worktree, it records the task it came up in",
+	)
+	.arg("text", z.string(), { description: "what is left to do, in a line" })
+	.action(async (opts, ctx) => {
+		const from = await here(ctx);
+		await ctx.journal.record("todo add", from, () =>
+			todoAdd(ctx, opts.text, from),
+		);
+	});
+
+todo
+	.command("list")
+	.description(
+		"every todo, oldest first, with the task it came from and the task that took it up",
+	)
+	.option(
+		"json",
+		z.string().transform((raw) => raw !== "false"),
+		{ default: false, description: "emit JSON" },
+	)
+	.action((opts, ctx) => todoList(ctx, { json: opts.json }));
+
+todo
+	.command("remove")
+	.description("drop a todo that was done some other way or no longer applies")
+	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.action((opts, ctx) =>
+		ctx.journal.record("todo remove", null, () => todoRemove(ctx, opts.id)),
 	);
 
 /**

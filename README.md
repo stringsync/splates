@@ -27,10 +27,13 @@ rebase, and that is what `remove` is for.
 
 ## Commands
 
-### `arbor add <task>`
+### `arbor add <task> [--base <branch>] [--todo <id>]`
 
 Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
+
+`--todo <id>` takes up a todo (see `arbor todo`): its text becomes the plan's
+`## Goal`, and no other task can take it while this one lives.
 
 `--base <branch>` starts the task from that branch and lands it back there
 instead of trunk. It takes another task's branch too: `--base task/<other>`
@@ -91,6 +94,23 @@ fails the branch is reset to where it was and trunk is never touched.
 There is deliberately no flag to skip the gate: a repo that wants none
 configures none.
 
+A merge onto trunk ends by recommending what to do next: one todo, the task's
+own follow-ups first and then the longest waiting, plus any todo older than
+`todoStalenessMs` (30 days) offered for removal instead. The todos the task
+took up with `--todo` leave the list, since that work is now done.
+
+```
+merged alpha onto main (1a2b3c4)
+  worktree removed, cd /src/repo
+
+next todo 7: retry the upload when the token expires
+  from alpha, waiting 2h
+  start it: arbor add <task> --todo 7
+
+stale todos, remove unless they still apply:
+  2: try the old parser again (41d)  arbor todo remove 2
+```
+
 ### `arbor remove <task>`
 
 Discards a task: `git worktree remove` plus the branch and the record.
@@ -99,6 +119,9 @@ For abandoning work that will never land. A successful `merge` already
 discards its own tree. Use it freely. Warns about commits that never landed,
 but never blocks: throwing work away is the cheap escape hatch, not a last
 resort.
+
+The todos it took up are open again, since the work they asked for was not
+done.
 
 Removal leaves a tombstone in `.git/arbor/removed/` so a second `remove` can say
 `already_removed` rather than `not_found`. The ledger keeps the 50 most recent
@@ -227,6 +250,21 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
+### `arbor todo add <text>`, `arbor todo list [--json]`, `arbor todo remove <id>`
+
+Work deferred for later. When something outside the task comes up (a bug next
+door, a follow-up the reviewer asked for, a question that turns out to be its
+own project), the agent notes it with `arbor todo add` and carries on instead
+of growing the task. Run from a worktree, `add` records the task it came up
+in, which is what lets `merge` recommend a task's own follow-ups first.
+
+Todos live in `.git/arbor/todos/`, one file each, so every worktree sees a new
+one at once, with nothing to commit and no two agents rewriting the same file.
+Numbers are never reused. They are local to the clone: not in git history,
+not on a fresh checkout.
+
+`arbor add <task> --todo <id>` is how one gets picked up.
+
 ### `arbor retry <task>`
 
 Grants an escalated task another `mergeRetryCount` merge attempts and puts it
@@ -284,6 +322,7 @@ export default defineConfig({
 	mergeRetryCount: 2,
 	removedCapacity: 50,            // removed names kept, so remove can say "already removed"
 	logCapacity: 1000,              // entries `arbor log` keeps before the oldest fall off
+	todoStalenessMs: 2_592_000_000, // 30 days: past this, merge offers a todo for removal
 });
 ```
 

@@ -11,6 +11,7 @@ import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
+import { Todos } from "./todo";
 import { WorktreeService } from "./worktree-service";
 
 /**
@@ -40,6 +41,7 @@ export class Testing implements AsyncDisposable {
 	readonly journal: Journal;
 	readonly lockPath: string;
 	readonly lock: FileLock;
+	readonly todos: Todos;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -57,6 +59,7 @@ export class Testing implements AsyncDisposable {
 			removedCapacity: 50,
 			mergeRetryCount: 2,
 			logCapacity: 200,
+			todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.service = new WorktreeService(this.git, this.config, this.arborDir, {
@@ -76,6 +79,15 @@ export class Testing implements AsyncDisposable {
 			log: this.log,
 			stalenessMs: this.config.leaseStalenessMs,
 		});
+		this.todos = new Todos(
+			join(this.arborDir, "todos"),
+			new FileLock(join(this.arborDir, "todos.lock"), {
+				fs: this.fs,
+				ps: this.ps,
+				log: this.log,
+			}),
+			{ fs: this.fs },
+		);
 	}
 
 	/** A repo of its own, seeded and ready for a command. */

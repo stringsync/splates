@@ -5,6 +5,7 @@ import type { Config } from "./config";
 import { fail } from "./exit";
 import { PLAN_FILE } from "./plan";
 import type { Shell } from "./shell";
+import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -12,6 +13,11 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;
+	/**
+	 * The todo this task takes up: its text seeds the plan's Goal, and nobody
+	 * else can take it while the task lives.
+	 */
+	todo?: number;
 }
 
 export async function add(
@@ -21,15 +27,17 @@ export async function add(
 		config,
 		log,
 		fs,
+		todos,
 	}: {
 		service: WorktreeService;
 		shell: Shell;
 		config: Config;
 		log: Logger;
 		fs: Fs;
+		todos: Todos;
 	},
 	task: string,
-	{ base = config.trunk }: AddOptions = {},
+	{ base = config.trunk, todo: id }: AddOptions = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(
@@ -68,6 +76,13 @@ export async function add(
 		);
 	}
 
+	// Looked up before anything is created, so a todo that is gone or taken
+	// refuses the whole add instead of leaving a tree behind.
+	const todo = id === undefined ? null : await todos.find(id);
+	if (todo?.takenBy) {
+		await todo.take(task); // refuses, naming the task that has it
+	}
+
 	const added = await service.add(task, { base });
 	if (added.code !== 0) {
 		// git's own "invalid reference" sends people to the branch, when what is
@@ -98,7 +113,11 @@ export async function add(
 		);
 	}
 
-	await fs.write(`${worktree.path}/${PLAN_FILE}`, PLAN(task));
+	await fs.write(
+		`${worktree.path}/${PLAN_FILE}`,
+		PLAN(task, todo?.text ?? null),
+	);
+	await todo?.take(task);
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
@@ -130,12 +149,15 @@ export async function add(
 	);
 }
 
-/** The plan a fresh task starts with. `## Goal` and `## Files` are left empty
- * on purpose: `arbor show` nags until the agent fills them in. */
-function PLAN(task: string): string {
-	return new MarkdownWriter()
-		.heading(1, task)
-		.heading(2, "Goal")
+/** The plan a fresh task starts with. `## Goal` is the todo it takes up, if
+ * any; it and `## Files` are otherwise left empty on purpose: `arbor show` nags
+ * until the agent fills them in. */
+function PLAN(task: string, goal: string | null): string {
+	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
+	if (goal !== null) {
+		writer.text(goal);
+	}
+	return writer
 		.heading(2, "Files")
 		.heading(2, "Next")
 		.checklist("fill in Goal and list the steps here as `- [ ]` items")

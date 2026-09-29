@@ -6,6 +6,7 @@ import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
 import { Shell } from "./shell";
+import { Todos } from "./todo";
 import { WorktreeService } from "./worktree-service";
 
 /** What a command gets to work with, once there is a repository to work in. */
@@ -16,6 +17,7 @@ export interface Repository {
 	lock: Lock;
 	shell: Shell;
 	journal: Journal;
+	todos: Todos;
 }
 
 /**
@@ -66,6 +68,16 @@ export function repository<C extends Deps & { fs: Fs }>(
 			journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, {
 				fs,
 			}),
+			todos: new Todos(
+				`${arborDir}/todos`,
+				new FileLock(`${arborDir}/todos.lock`, {
+					fs,
+					ps,
+					log,
+					stalenessMs: config.leaseStalenessMs,
+				}),
+				{ fs },
+			),
 		});
 	};
 }
