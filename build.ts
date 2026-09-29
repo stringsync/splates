@@ -1,5 +1,4 @@
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Scanner } from "@tailwindcss/oxide";
 import { compile } from "tailwindcss";
 
@@ -27,6 +26,10 @@ async function script(): Promise<string> {
 	const built = await Bun.build({
 		entrypoints: [`${here}/dev/main.tsx`],
 		target: "browser",
+		// React's production build: the development one is several times the
+		// size, slower, and asks the person on the page to install DevTools.
+		define: { "process.env.NODE_ENV": '"production"' },
+		minify: true,
 		// Left to throw, a failure arrives as an AggregateError that says only
 		// "Bundle failed": which import went missing is in the logs, and whoever
 		// is reading the terminal needs that to know it is their install.
@@ -39,19 +42,38 @@ async function script(): Promise<string> {
 	return output.text();
 }
 
+/**
+ * Where a package's stylesheet is: the `style` entry of its `exports`, which is
+ * where CSS packages like tw-animate-css put it. Bun's resolver does not
+ * follow that condition, so the package is found by walking up to it.
+ */
+async function stylesheet(name: string): Promise<string> {
+	for (let dir = here; ; dir = dirname(dir)) {
+		const root = `${dir}/node_modules/${name}`;
+		const manifest = Bun.file(`${root}/package.json`);
+		if (await manifest.exists()) {
+			const { exports, style } = await manifest.json();
+			const entry = exports?.["."]?.style ?? style ?? "index.css";
+			return resolve(root, entry);
+		}
+		if (dir === dirname(dir)) {
+			throw new Error(`no stylesheet package '${name}' above ${here}`);
+		}
+	}
+}
+
 /** The stylesheet, with only the utilities the page actually uses in it. */
 async function styles(): Promise<string> {
 	const base = `${here}/dev`;
 	const compiler = await compile(await Bun.file(`${base}/styles.css`).text(), {
 		base,
 		loadStylesheet: async (id: string, from: string) => {
-			// Tailwind asks for its own entry by bare name, then for the parts of it
-			// by relative path. Only the bare name needs module resolution; the rest
-			// are paths off a base that is already inside tailwind's package.
-			const path =
-				id === "tailwindcss"
-					? fileURLToPath(import.meta.resolve("tailwindcss/index.css"))
-					: resolve(from, id);
+			// A stylesheet is asked for by bare package name (`@import "tailwindcss"`),
+			// then the parts of it by relative path. Only the bare names need module
+			// resolution; the rest are paths off a base already inside the package.
+			const path = id.startsWith(".")
+				? resolve(from, id)
+				: await stylesheet(id);
 			return {
 				path,
 				base: dirname(path),

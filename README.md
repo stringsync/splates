@@ -272,10 +272,32 @@ a successful `merge` and a `remove` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 1000 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
-### `arbor dev [--port 4269]`
+### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
-`list`, `show` and `log` in a browser, on `http://localhost:4269`, reloading
-themselves as tasks change. Read-only, and takes no lease.
+The inbox, todos, tasks and log in a browser, on `http://localhost:4269`,
+reloading themselves as anything changes. Built for a phone first: open
+questions lead, filterable by tag, and tapping one opens it with a reply box
+that takes pasted images.
+
+Everything the page does, the CLI does too, through the same functions:
+answering is `arbor reply`, adding is `arbor todo add`. Nothing else is
+writable from the page. Merging, removing and claiming stay in the CLI, so a
+page that should not have been reachable can at worst leave a reply. It takes
+no lease.
+
+It listens on 127.0.0.1 only and refuses a request whose `Host` is not this
+machine, and any write from another origin. To use it from another device,
+put a tunnel in front of it (Cloudflare Tunnel, Tailscale, ngrok) and name the
+tunnel's hostname in `--allow-hosts`:
+
+```bash
+arbor dev --allow-hosts myrepo-arbor.example.dev
+```
+
+arbor has no login of its own. Whoever can reach an allowed host can read the
+repo's plans and reply, so the tunnel has to be the one asking who you are
+(Cloudflare Access, a Tailscale tailnet). Never expose it through a tunnel
+with no login in front.
 
 ### `arbor path [task]`
 

@@ -3,7 +3,7 @@ import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { dev, devPorts } from "./dev";
 import type { Snapshot } from "./snapshot";
-import { Testing } from "./testing";
+import { LIVE_PID, Testing } from "./testing";
 
 async function readUntil(
 	reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -180,13 +180,13 @@ describe("dev", () => {
 			// and the page would come out with no classes at all.
 			expect(css).not.toContain('@import "tailwindcss"');
 			expect(css).not.toContain("@tailwind utilities");
-			expect(css).toContain("color-scheme: light dark");
+			expect(css).toContain("color-scheme: dark");
 			// Real utilities, not just the theme block: Tailwind emits only the
 			// classes it can see, and it compiles happily to nothing at all when it
 			// is pointed at no sources. One class from the page and one from the
 			// `Markdown` component beside it, since they are found by
 			// separate `@source` lines.
-			expect(css).toContain("max-w-6xl");
+			expect(css).toContain("max-w-2xl");
 			expect(css).toContain("list-disc");
 		});
 	});
@@ -208,4 +208,128 @@ describe("dev", () => {
 			await reader.cancel();
 		});
 	}, 15_000);
+
+	describe("writes", () => {
+		const PLAN = [
+			"# alpha",
+			"",
+			"## Blocked",
+			"",
+			"- [ ] Q1. [ui] Open the page. Reply pass or fail.",
+			"",
+		].join("\n");
+
+		const asked = async (): Promise<string> => {
+			await add(deps, "alpha");
+			const path = `${(await deps.service.find("alpha")).path}/ARBOR.md`;
+			await deps.fs.write(path, PLAN);
+			return path;
+		};
+
+		/** A post the way the page makes one: same origin as the host it asked. */
+		const post = (port: number, path: string, body: BodyInit, headers = {}) =>
+			fetch(`http://127.0.0.1:${port}${path}`, {
+				method: "POST",
+				headers: { origin: `http://127.0.0.1:${port}`, ...headers },
+				body,
+			});
+
+		it("replies to a question, image and all, and says so in the inbox", async () => {
+			const plan = await asked();
+
+			await serving(async (snapshot, port) => {
+				const form = new FormData();
+				form.set("task", "alpha");
+				form.set("question", "Q1");
+				form.set("text", "fail: it clips");
+				form.append("images", new File([new Uint8Array([1, 2])], "shot.png"));
+
+				const response = await post(port, "/api/reply", form);
+
+				expect(response.status).toBe(200);
+				const written = await deps.fs.read(plan);
+				expect(written).toContain("→ fail: it clips");
+				expect(written).toContain(deps.service.attachmentsPath("alpha"));
+				expect((await snapshot()).inbox.questions[0]?.reply).toContain(
+					"fail: it clips",
+				);
+				const [last] = await deps.journal.tail(1);
+				expect(last?.action).toBe("reply");
+			});
+		});
+
+		it("refuses a reply to a tree a live agent holds, with the CLI's reason", async () => {
+			await asked();
+			await (await deps.service.find("alpha")).save({
+				lease: {
+					pid: LIVE_PID,
+					hostname: deps.ps.hostname,
+					heartbeatAt: new Date().toISOString(),
+				},
+			});
+
+			await serving(async (_snapshot, port) => {
+				const form = new FormData();
+				form.set("task", "alpha");
+				form.set("question", "Q1");
+				form.set("text", "pass");
+
+				const response = await post(port, "/api/reply", form);
+
+				expect(response.status).toBe(409);
+				expect(((await response.json()) as { reason: string }).reason).toBe(
+					"lease_held",
+				);
+			});
+		});
+
+		it("adds a todo", async () => {
+			await serving(async (snapshot, port) => {
+				const response = await post(
+					port,
+					"/api/todos",
+					JSON.stringify({ text: "write the docs" }),
+					{ "content-type": "application/json" },
+				);
+
+				expect(response.status).toBe(200);
+				expect((await snapshot()).todos.map((todo) => todo.text)).toEqual([
+					"write the docs",
+				]);
+			});
+		});
+
+		it("refuses a write from another site", async () => {
+			await serving(async (_snapshot, port) => {
+				const response = await post(
+					port,
+					"/api/todos",
+					JSON.stringify({ text: "planted" }),
+					{ origin: "https://evil.example" },
+				);
+
+				expect(response.status).toBe(403);
+				expect(await deps.todos.all()).toEqual([]);
+			});
+		});
+	});
+
+	it("refuses a host it was not told about, and serves one it was", async () => {
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			hosts: ["repo.arbor.example"],
+		});
+		try {
+			const as = (host: string) =>
+				fetch(`http://127.0.0.1:${server.port}/api/snapshot`, {
+					headers: { host },
+				});
+
+			expect((await as("rebound.example")).status).toBe(403);
+			expect((await as("repo.arbor.example")).status).toBe(200);
+			expect((await as(`localhost:${server.port}`)).status).toBe(200);
+		} finally {
+			await server.disposeAsync();
+		}
+	});
 });

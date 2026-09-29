@@ -220,12 +220,27 @@ arbor
 
 arbor
 	.command("dev")
-	.description("serve `list`, `show` and `log` as a web page; read-only")
+	.description(
+		"serve the inbox, todos, tasks and log as a web page on this machine; from it a person can reply to questions and add todos, and nothing else",
+	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
 		description: "port to listen on, or the next open one above it",
 	})
-	.action((opts, ctx) => dev(ctx, { ports: devPorts(opts.port) }));
+	.option("allow-hosts", z.string(), {
+		default: "",
+		description:
+			"comma-separated host names the page may also be reached by, like a tunnel's; putting a login in front of them is the tunnel's job",
+	})
+	.action((opts, ctx) =>
+		dev(ctx, {
+			ports: devPorts(opts.port),
+			hosts: opts["allow-hosts"]
+				.split(",")
+				.map((host) => host.trim())
+				.filter(Boolean),
+		}),
+	);
 
 arbor
 	.command("path")

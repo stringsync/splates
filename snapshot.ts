@@ -1,35 +1,55 @@
-import { type Fs, NodeFs } from "webappwiz/system";
+import { basename } from "node:path";
+import type { Fs } from "webappwiz/system";
+import { type Inbox, openQuestions } from "./inbox";
 import type { Entry, Journal } from "./journal";
 import { DEFAULT_COUNT } from "./log";
 import { type Details, TaskDetails } from "./show";
+import type { TodoState, Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
-/** Everything one page shows: `list` and `show` for each task, plus `log`. */
+/**
+ * Everything one page shows: `inbox`, `todo list`, `list` and `show` for each
+ * task, and `log`.
+ */
 export interface Snapshot {
+	/** The repository's directory name, so a page among many says whose it is. */
+	repo: string;
+	/** Past this age a todo is offered for removal rather than recommended. */
+	todoStalenessMs: number;
+	inbox: Inbox;
+	todos: TodoState[];
 	tasks: Details[];
 	entries: Entry[];
 }
 
 /**
- * Reads the whole repo the way `list`, `show` and `log` do. Takes no lease, so
+ * Reads the whole repo the way the CLI's read commands do. Takes no lease, so
  * serving a page cannot knock an agent off the tree it is driving.
  */
-export interface SnapshotOptions {
-	/** What the worktrees are read through; the real filesystem by default. */
-	fs?: Fs;
-}
-
-export async function snapshot(
-	service: WorktreeService,
-	journal: Journal,
-	opts: SnapshotOptions = {},
-): Promise<Snapshot> {
-	const details = new TaskDetails({ fs: opts.fs ?? new NodeFs() });
+export async function snapshot({
+	service,
+	journal,
+	todos,
+	fs,
+}: {
+	service: WorktreeService;
+	journal: Journal;
+	todos: Todos;
+	fs: Fs;
+}): Promise<Snapshot> {
+	const details = new TaskDetails({ fs });
 	const tasks: Details[] = [];
 	for (const worktree of await service.list()) {
 		tasks.push(await details.get(worktree));
 	}
-	return { tasks, entries: await journal.tail(DEFAULT_COUNT) };
+	return {
+		repo: basename(service.git.root),
+		todoStalenessMs: service.config.todoStalenessMs,
+		inbox: await openQuestions({ service, fs }),
+		todos: (await todos.all()).map((todo) => todo.state),
+		tasks,
+		entries: await journal.tail(DEFAULT_COUNT),
+	};
 }
 
 /**
@@ -37,8 +57,15 @@ export async function snapshot(
  * `age` ticks every minute, and hashing it would push to every open page for
  * nothing.
  */
-export function fingerprint({ tasks, entries }: Snapshot): string {
+export function fingerprint({
+	inbox,
+	todos,
+	tasks,
+	entries,
+}: Snapshot): string {
 	return JSON.stringify([
+		inbox.questions,
+		todos,
 		tasks.map((task) => [
 			task.task,
 			task.status,
