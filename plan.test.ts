@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { checkPlan, plannedFiles } from "./plan";
+import {
+	checkPlan,
+	plannedFiles,
+	questionNumber,
+	questions,
+	withReply,
+} from "./plan";
 
 const GOOD = `# alpha
 
@@ -76,6 +82,8 @@ describe("checkPlan", () => {
 		]);
 		const asked = `${GOOD}\n## Blocked\n- [ ] Q1. Open /tmp/shot.png. Confirm the banner is green.\n`;
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
+		const tagged = `${GOOD}\n## Blocked\n- [ ] Q1. [ui, db] Open /tmp/shot.png. Reply pass or fail.\n`;
+		expect(checkPlan(tagged, { task: "alpha", escalated: true })).toEqual([]);
 	});
 
 	it("flags open items once the task is no longer escalated", () => {
@@ -125,5 +133,96 @@ describe("plannedFiles", () => {
 
 	it("plans nothing without a ## Files section", () => {
 		expect(plannedFiles("# alpha\n")).toEqual([]);
+	});
+});
+
+const BLOCKED = `${GOOD}
+## Blocked
+
+- [x] Q1. Run the tests. Reply pass or fail. → pass
+- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Reply pass or fail. → fail, too wide
+- [ ] Q3. [ui] Decide: keep or drop?
+  - not a question of its own
+- [ ] Q4. [Not Tags] Confirm the copy.
+`;
+
+describe("questions", () => {
+	it("reads each numbered item with its tags and reply", () => {
+		expect(questions(BLOCKED)).toEqual([
+			{
+				number: "Q1",
+				done: true,
+				tags: [],
+				text: "Run the tests. Reply pass or fail.",
+				reply: "pass",
+			},
+			{
+				number: "Q2",
+				done: false,
+				tags: ["ui", "db-schema"],
+				text: "Open /tmp/shot.png. Reply pass or fail.",
+				reply: "fail, too wide",
+			},
+			{
+				number: "Q3",
+				done: false,
+				tags: ["ui"],
+				text: "Decide: keep or drop?",
+				reply: null,
+			},
+			{
+				number: "Q4",
+				done: false,
+				tags: [],
+				text: "[Not Tags] Confirm the copy.",
+				reply: null,
+			},
+		]);
+	});
+
+	it("reads only ## Blocked", () => {
+		const elsewhere = GOOD.replace(
+			"- [ ] wire it up",
+			"- [ ] Q1. Not blocked.",
+		);
+		expect(questions(elsewhere)).toEqual([]);
+		const after = `${BLOCKED}\n## Notes\n- [ ] Q9. Also not blocked.\n`;
+		expect(questions(after).map((found) => found.number)).toEqual([
+			"Q1",
+			"Q2",
+			"Q3",
+			"Q4",
+		]);
+	});
+});
+
+describe("withReply", () => {
+	it("writes the reply after the arrow, leaving the checkbox open", () => {
+		const replied = withReply(BLOCKED, "Q3", "keep");
+		expect(replied).toContain("- [ ] Q3. [ui] Decide: keep or drop? → keep\n");
+		expect(replied?.replace(" → keep", "")).toBe(BLOCKED);
+	});
+
+	it("replaces an earlier reply and keeps the answer on one line", () => {
+		const replied = withReply(BLOCKED, "Q2", "pass\nnow it fits");
+		expect(replied).toContain(
+			"- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Reply pass or fail. → pass now it fits\n",
+		);
+		expect(replied).not.toContain("too wide");
+	});
+
+	it("finds nothing to answer outside ## Blocked", () => {
+		expect(withReply(BLOCKED, "Q9", "yes")).toBeNull();
+		expect(withReply(GOOD, "Q1", "yes")).toBeNull();
+	});
+});
+
+describe("questionNumber", () => {
+	it("reads a number however it was typed", () => {
+		for (const raw of ["Q9", "q9", "9", "Q9.", " q9: "]) {
+			expect(questionNumber(raw)).toBe("Q9");
+		}
+		expect(questionNumber("nine")).toBeNull();
+		expect(questionNumber("D9")).toBeNull();
 	});
 });

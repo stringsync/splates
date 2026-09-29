@@ -8,11 +8,13 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits } from "./exit";
+import { inbox } from "./inbox";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
 import { remove } from "./remove";
+import { reply } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
@@ -62,7 +64,7 @@ arbor
 arbor
 	.command("claim")
 	.description(
-		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
+		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; an escalated task goes back to working; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action((opts, ctx) =>
@@ -144,16 +146,66 @@ arbor
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
+	.option(
+		"answered",
+		z.string().transform((raw) => raw !== "false"),
+		{
+			default: false,
+			description:
+				"wait instead until every open question under the task's ## Blocked has a reply, then print the replies",
+		},
+	)
 	.action((opts, ctx) =>
 		wait(ctx, opts.task, {
 			timeout: Duration.secs(opts["timeout-secs"]),
+			answered: opts.answered,
 		}),
+	);
+
+arbor
+	.command("inbox")
+	.description(
+		"list every open question under the tasks' ## Blocked, grouped by task, with any reply their agent has yet to act on; takes no lease",
+	)
+	.option("tag", z.string(), {
+		default: "",
+		description:
+			"only questions carrying one of these tags, comma separated (`ui,db`)",
+	})
+	.option(
+		"json",
+		z.string().transform((raw) => raw !== "false"),
+		{ default: false, description: "emit JSON" },
+	)
+	.action((opts, ctx) =>
+		inbox(ctx, { tags: commaList(opts.tag), json: opts.json }),
+	);
+
+arbor
+	.command("reply")
+	.description(
+		"answer a task's open question: writes ` → <text>` onto its line in ARBOR.md, replacing any earlier reply, and leaves the box for the agent to check; refuses a task whose agent is in a live session",
+	)
+	.arg("task", z.string(), { description: "task name" })
+	.arg("question", z.string(), { description: "question number: Q9, q9 or 9" })
+	.arg("text", z.string(), { description: "the answer, on one line" })
+	.option("image", z.string(), {
+		default: "",
+		description:
+			"files to attach, comma separated: copied under .git/arbor/attachments/<task>/ and their paths added to the reply",
+	})
+	.action((opts, ctx) =>
+		ctx.journal.record("reply", opts.task, () =>
+			reply(ctx, opts.task, opts.question, opts.text, {
+				images: commaList(opts.image),
+			}),
+		),
 	);
 
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, remove, escalate and retry, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry and reply, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
@@ -252,6 +304,14 @@ todo
 	.action((opts, ctx) =>
 		ctx.journal.record("todo remove", null, () => todoRemove(ctx, opts.id)),
 	);
+
+/** A comma-separated flag's values, with no empty ones. */
+function commaList(raw: string): string[] {
+	return raw
+		.split(",")
+		.map((value) => value.trim())
+		.filter(Boolean);
+}
 
 /**
  * Which task a command that takes no task name is about, so the journal can

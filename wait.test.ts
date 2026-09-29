@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Duration, sleep } from "webappwiz/time";
 import { add } from "./add";
+import { PLAN_FILE } from "./plan";
 import { remove } from "./remove";
+import { replyTo } from "./reply";
 import { Testing } from "./testing";
 import { wait } from "./wait";
 
@@ -57,5 +59,83 @@ describe("wait", () => {
 
 	it("refuses a name nothing remembers", async () => {
 		await expect(wait(deps, "nope", PATIENT)).toBail("not_found");
+	});
+
+	describe("--answered", () => {
+		const blocked = (...items: string[]) =>
+			`# alpha\n\n## Blocked\n\n${items.join("\n")}\n`;
+
+		/** A task that escalated with these questions, its lease dropped. */
+		async function escalated(...items: string[]): Promise<string> {
+			await add(deps, "alpha");
+			const worktree = await (await deps.service.find("alpha")).save({
+				status: "escalated",
+				lease: null,
+			});
+			const plan = `${worktree.path}/${PLAN_FILE}`;
+			await deps.fs.write(plan, blocked(...items));
+			deps.log.clear();
+			return plan;
+		}
+
+		it("returns with the replies once every open question has one", async () => {
+			await escalated(
+				"- [x] Q1. Run it. → pass",
+				"- [ ] Q2. [ui] Open /tmp/a.png. → pass",
+				"- [ ] Q3. Decide: keep or drop?",
+			);
+
+			const waiting = wait(deps, "alpha", { ...PATIENT, answered: true });
+			await sleep(Duration.ms(20));
+			await replyTo(deps, "alpha", "Q3", { text: "keep" });
+			await waiting;
+
+			expect(deps.out()).toBe(
+				[
+					"alpha answered",
+					"  Q2 [ui] Open /tmp/a.png.",
+					"    → pass",
+					"  Q3 Decide: keep or drop?",
+					"    → keep",
+				].join("\n"),
+			);
+		});
+
+		it("returns at once when nothing is open", async () => {
+			await escalated("- [x] Q1. Run it. → pass");
+
+			await wait(deps, "alpha", { ...PATIENT, answered: true });
+
+			expect(deps.out()).toBe("alpha has no open questions");
+		});
+
+		it("returns when the task is gone", async () => {
+			await escalated("- [ ] Q1. Run it.");
+			await remove(deps, "alpha");
+			deps.log.clear();
+
+			await wait(deps, "alpha", { ...PATIENT, answered: true });
+
+			expect(deps.out()).toContain("alpha removed");
+		});
+
+		it("gives up naming the questions still unanswered", async () => {
+			await escalated(
+				"- [ ] Q1. Run it. → pass",
+				"- [ ] Q2. Open it.",
+				"- [ ] Q3. Decide it.",
+			);
+
+			await expect(
+				wait(deps, "alpha", {
+					timeout: Duration.ms(20),
+					poll: Duration.ms(5),
+					answered: true,
+				}),
+			).toBail("timeout", {
+				message: "Q2, Q3 unanswered",
+				data: { task: "alpha", status: "escalated", unanswered: ["Q2", "Q3"] },
+			});
+		});
 	});
 });

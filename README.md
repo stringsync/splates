@@ -59,6 +59,11 @@ Prints the worktree path, status, uncommitted changes, and, loudly, any
 half-finished rebase or merge the tree is standing in. Refuses if another agent
 holds the lease. A worktree with no record is rebuilt rather than rejected.
 
+Claiming an `escalated` task puts it back to `working`: someone is on it
+again, and whatever it was waiting on is theirs to act on. Its merge budget
+stays as it was. Only `retry` refills that, and only from `escalated`, so a
+human granting a fresh budget does it before the agent claims.
+
 ### `arbor merge`
 
 Lands the current worktree's branch on its base, trunk unless the task was
@@ -176,7 +181,7 @@ and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
-### `arbor wait <task> [--timeout-secs 300]`
+### `arbor wait <task> [--timeout-secs 300] [--answered]`
 
 Blocks until a task stops moving, then prints where it stopped.
 
@@ -193,11 +198,67 @@ driving. Wait again, work alongside it, or ask the human.
 Like `show` and `path`, it takes no lease, so watching a task cannot knock its
 agent off it.
 
+`--answered` waits for something else: until every open question under the
+task's `## Blocked` has a reply (or none is open), then prints them. This is
+how an agent that escalated waits for its human, with the same timeout and
+the same `timeout` refusal, which names the questions still unanswered. A task
+that is gone ends the wait too, since nothing is left to answer.
+
+```
+alpha answered
+  Q2 [ui] Open /src/shots/header.png. Reply pass or fail.
+    → pass
+```
+
+### `arbor inbox [--tag <tag>] [--json]`
+
+Every open question waiting on a person, across all tasks: each unchecked
+`- [ ] Q9.` item under a task's `## Blocked`, grouped by task. One that has a
+reply its agent has not acted on yet stays, with the reply under it.
+
+```
+db 2  ui 1
+
+alpha
+  Q2 [ui, db] Open /src/shots/header.png. Reply pass or fail.
+    → pass
+  Q3 Decide: keep or drop?
+
+beta (in a live session: answer it there)
+  Q1 [db] Confirm the migration drops nothing.
+```
+
+A question may carry domain tags right after its number, lowercase words or
+dash-words, comma separated:
+
+```markdown
+- [ ] Q9. [ui, db] Open `/abs/path/shot.png`. Reply pass or fail.
+```
+
+The line at the top counts each tag, so whoever answers can take a slice;
+`--tag ui,db` keeps the questions carrying any of them. Takes no lease.
+
+### `arbor reply <task> <question> <text> [--image <path>]`
+
+Answers a question: writes ` → <text>` onto its line in the task's `ARBOR.md`,
+replacing any earlier reply there. The box stays unchecked: checking it off is
+the agent's word that it has acted on the answer. `<question>` is the number
+however it is typed (`Q9`, `q9`, `9`).
+
+`--image a.png,b.png` copies each file under
+`.git/arbor/attachments/<task>/` and adds its absolute path to the reply, so
+the agent can open it from its own tree. They go when the task is merged or
+removed.
+
+Refuses `lease_held` while the task's agent is in a live session: it is waiting
+in its chat, not reading its plan, so answer it there. Refuses `not_found` for
+a task or question that is not there, or one already checked off.
+
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
-`retry`),
-oldest first, each with the task and how it ended (`ok`, or the refusal reason).
+`retry`, `reply`), oldest first, each with the task and how it ended (`ok`, or
+the refusal reason).
 
 ```
 WHEN  ACTION    TASK   RESULT
@@ -290,15 +351,15 @@ The agent's control flow runs on these.
 | 3    | `tests_failed`      | The gate (`postRewrite`, `preMerge`) failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
 | 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor remove` and redo against current trunk. |
-| 6    | `lease_held`        | Another agent is driving this tree.                                |
+| 6    | `lease_held`        | Another agent is driving this tree. For `reply`: answer that agent in its chat. |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
-| 8    | `not_found`         | No such task, or not run from a task worktree.                     |
+| 8    | `not_found`         | No such task, or not run from a task worktree; for `reply`, no such open question. |
 | 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
 | 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. |
 | 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
-| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging.        |
+| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging, or with `--answered`, a question is still unanswered. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

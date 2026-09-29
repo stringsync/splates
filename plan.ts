@@ -31,6 +31,114 @@ export function plannedFiles(text: string): string[] {
 		});
 }
 
+/** One `- [ ] Q9.` item under `## Blocked`: something only a person can do. */
+export interface Question {
+	/** As the plan numbers it, `Q9`: the name a reply goes by. */
+	number: string;
+	/** Checked off, which the agent does once it has acted on the reply. */
+	done: boolean;
+	/** The domains it needs, `[ui, db]` after the number, for picking a slice. */
+	tags: string[];
+	/** The item itself, without its checkbox, number, tags or reply. */
+	text: string;
+	/** Whatever follows ` → `, or null when nobody has answered yet. */
+	reply: string | null;
+}
+
+const ITEM = /^[ \t]*- \[([ xX])\] (Q\d+)\.[ \t]*(.*)$/;
+const TAG = "[a-z0-9]+(?:-[a-z0-9]+)*";
+const TAGS = new RegExp(`^\\[(${TAG}(?:,[ \\t]*${TAG})*)\\][ \\t]*`);
+/** What separates an item from its reply, spaces included. */
+const ARROW = " → ";
+
+/**
+ * Every numbered item under `## Blocked`, open or checked off. The reply is
+ * read off the item's own line: an answer is one line, written by `arbor
+ * reply` or by hand after the arrow.
+ */
+export function questions(text: string): Question[] {
+	return blockedLines(text).flatMap(({ line }) => {
+		const found = question(line);
+		return found === null ? [] : [found];
+	});
+}
+
+/**
+ * The plan with `reply` written onto that question's line, in place of any
+ * earlier one. The checkbox is left alone: checking it off is the agent's
+ * word that it has acted on the answer. Null when the plan has no such
+ * question.
+ */
+export function withReply(
+	text: string,
+	number: string,
+	reply: string,
+): string | null {
+	const lines = text.split("\n");
+	const target = blockedLines(text).find(
+		({ line }) => question(line)?.number === number,
+	);
+	if (target === undefined) {
+		return null;
+	}
+	const { index, line } = target;
+	const arrow = line.indexOf(ARROW);
+	const item = (arrow === -1 ? line : line.slice(0, arrow)).trimEnd();
+	// A newline would end the item: the rest would read as prose under it.
+	lines[index] = `${item}${ARROW}${reply.replace(/\s*\n\s*/g, " ").trim()}`;
+	return lines.join("\n");
+}
+
+/**
+ * A question's number however a person typed it: `Q9`, `q9`, `9` and `Q9.`
+ * all mean `Q9`. Null for anything that is not a number at all.
+ */
+export function questionNumber(raw: string): string | null {
+	const digits = /^q?(\d+)[.:]?$/i.exec(raw.trim())?.[1];
+	return digits === undefined ? null : `Q${Number(digits)}`;
+}
+
+function question(line: string): Question | null {
+	const item = ITEM.exec(line);
+	if (item === null) {
+		return null;
+	}
+	const [, check = " ", number = "", rest = ""] = item;
+	const tagged = TAGS.exec(rest);
+	const body = tagged === null ? rest : rest.slice(tagged[0].length);
+	const arrow = body.indexOf(ARROW);
+	return {
+		number,
+		done: check !== " ",
+		tags: tagged?.[1]?.split(",").map((tag) => tag.trim()) ?? [],
+		text: (arrow === -1 ? body : body.slice(0, arrow)).trim(),
+		reply: arrow === -1 ? null : body.slice(arrow + ARROW.length).trim(),
+	};
+}
+
+/**
+ * The lines under `## Blocked`, with where each sits in the whole file so a
+ * reply can be written back in place.
+ */
+function blockedLines(text: string): { index: number; line: string }[] {
+	const { sections } = Markdown.parse(text);
+	const at = sections.findIndex(
+		(section) => section.heading.toLowerCase() === "blocked",
+	);
+	const blocked = sections[at];
+	if (blocked === undefined) {
+		return [];
+	}
+	const lines = text.split("\n");
+	// `line` is 1-based, so it is also the index of the line after the heading.
+	const end =
+		sections.slice(at + 1).find((later) => later.level <= blocked.level)
+			?.line ?? lines.length + 1;
+	return lines
+		.slice(blocked.line, end - 1)
+		.map((line, offset) => ({ index: blocked.line + offset, line }));
+}
+
 export interface PlanOptions {
 	/** The task name the title is expected to match. */
 	task: string;

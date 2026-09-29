@@ -158,11 +158,12 @@ describe.concurrent("arbor", () => {
 			(await arbor(tree, "escalate", "cannot tell what ok means")).exitCode,
 		).toBe(0);
 
-		// Second agent, fresh thread: the escalated tree is still claimable, and
-		// the earlier failure did not eat the whole merge budget.
+		// Second agent, fresh thread: the escalated tree is still claimable, is
+		// someone's work again, and the earlier failure did not eat the whole
+		// merge budget.
 		const resumed = await arbor(tree, "claim", "gamma");
 		expect(resumed.exitCode).toBe(0);
-		expect(resumed.stdout).toContain("status:   escalated");
+		expect(resumed.stdout).toContain("status:   working (was escalated)");
 		expect(resumed.stdout).toContain("attempts: 1");
 		await env.commit(tree, "status.txt", "ok\n", "fix status");
 		const merged = await arbor(tree, "merge");

@@ -67,4 +67,23 @@ describe("claim", () => {
 			message: "arbor remove alpha",
 		});
 	});
+
+	it("puts an escalated task back to working, keeping its budget", async () => {
+		await add(deps, "alpha");
+		await (await deps.service.find("alpha")).save({
+			status: "escalated",
+			lease: null,
+			mergeAttempts: 1,
+			escalations: [{ reason: "needs a look", at: new Date().toISOString() }],
+		});
+
+		await claim(deps, "alpha");
+
+		expect((await deps.service.find("alpha")).state).toMatchObject({
+			status: "working",
+			mergeAttempts: 1,
+			escalations: [{ reason: "needs a look" }],
+		});
+		expect(deps.out()).toContain("status:   working (was escalated)");
+	});
 });

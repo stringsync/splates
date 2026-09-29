@@ -25,6 +25,7 @@ export interface WorktreeServiceOptions {
 export class WorktreeService {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
+	private readonly attachmentsDir: string;
 	private readonly fs: Fs;
 	readonly ps: Ps;
 
@@ -39,6 +40,7 @@ export class WorktreeService {
 		this.ps = opts.ps ?? new NodePs();
 		this.tasksDir = `${arborDir}/tasks`;
 		this.removedDir = `${arborDir}/removed`;
+		this.attachmentsDir = `${arborDir}/attachments`;
 	}
 
 	async init(): Promise<void> {
@@ -67,6 +69,15 @@ export class WorktreeService {
 
 	recordPath(task: string): string {
 		return `${this.tasksDir}/${task}.json`;
+	}
+
+	/**
+	 * Where the files attached to a task's replies live. Under `.git/arbor`
+	 * rather than in the worktree, so they are never committed and every tree
+	 * can open them, and gone with the task.
+	 */
+	attachmentsPath(task: string): string {
+		return `${this.attachmentsDir}/${task}`;
 	}
 
 	/** Always answers; the returned worktree's status says what was found. */
@@ -134,6 +145,10 @@ export class WorktreeService {
 			}
 		}
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
+		await this.fs.rm(this.attachmentsPath(worktree.task), {
+			recursive: true,
+			force: true,
+		});
 		await this.rememberRemoved(worktree.task);
 		return removed;
 	}

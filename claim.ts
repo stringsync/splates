@@ -2,7 +2,11 @@ import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
 import type { WorktreeService } from "./worktree-service";
 
-/** The resume entry point: a fresh agent thread picking up existing work. */
+/**
+ * The resume entry point: a fresh agent thread picking up existing work. An
+ * escalated task goes back to `working`, since someone is on it again; its
+ * merge budget stays as it was, which only `retry` refills.
+ */
 export async function claim(
 	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
@@ -39,7 +43,8 @@ export async function claim(
 	// A worktree with no readable record is still work: `save` writes a fresh
 	// one rather than refusing the resume.
 	const rebuilt = found.state === null;
-	const worktree = await found.take();
+	const escalated = found.status === "escalated";
+	const worktree = await found.take(escalated ? { status: "working" } : {});
 
 	const interrupted = await worktree.interruptedOps();
 	const changes = await worktree.uncommitted();
@@ -47,7 +52,7 @@ export async function claim(
 		`${color.green("claimed")} ${worktree.task}`,
 		`  worktree: ${worktree.path}`,
 		`  branch:   ${worktree.branch}`,
-		`  status:   ${worktree.status}`,
+		`  status:   ${worktree.status}${escalated ? " (was escalated)" : ""}`,
 		`  attempts: ${worktree.mergeAttempts}`,
 	];
 	if (rebuilt) {
