@@ -174,7 +174,7 @@ WHEN  ACTION    TASK   RESULT
 
 `list` is what still exists; this is what happened. Entries outlive their tasks:
 a successful `merge` and a `remove` both take the record with them, so this is
-the only thing that remembers a task landed at all. The last 200 are kept
+the only thing that remembers a task landed at all. The last 1000 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
 ### `arbor dev [--port 4269]`
@@ -272,7 +272,7 @@ export default defineConfig({
 	leaseStalenessMs: 90_000,
 	mergeRetryCount: 2,
 	removedCapacity: 50,            // removed names kept, so remove can say "already removed"
-	logCapacity: 200,               // entries `arbor log` keeps before the oldest fall off
+	logCapacity: 1000,              // entries `arbor log` keeps before the oldest fall off
 });
 ```
 

@@ -40,7 +40,7 @@ function defaults(root: string, trunk: string): Config {
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 2,
 		removedCapacity: 50,
-		logCapacity: 200,
+		logCapacity: 1000,
 	};
 }
 
