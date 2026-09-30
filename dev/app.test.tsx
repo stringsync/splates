@@ -220,7 +220,7 @@ describe("inbox", () => {
 		expect(document.title).toBe("(2) webappwiz");
 	});
 
-	it("moves a replied question to a tab of its own, saying where it stands", async () => {
+	it("lists replied questions with the open ones, each saying where it stands", async () => {
 		const view = await open({
 			inbox: {
 				questions: [
@@ -237,19 +237,19 @@ describe("inbox", () => {
 			},
 		});
 
-		expect(view.queryByText("answered")).toBeNull();
+		const rows = within(
+			view.getByRole("region", { name: "alpha" }),
+		).getAllByRole("button");
+		expect(rows.map((row) => row.textContent)).toEqual([
+			"Q1waiting",
+			"Q2answeredWaiting",
+			"Q3acted onRead",
+		]);
+		// Only what waits on you is counted.
 		expect(view.getByRole("tab", { name: /inbox/i }).textContent).toContain(
 			"1",
 		);
 		expect(document.title).toBe("(1) webappwiz");
-
-		await tab(view, /^Replied/);
-
-		expect(view.getByText("answered")).toBeTruthy();
-		expect(document.body.textContent).toContain(
-			"Waiting for its agent, still editable",
-		);
-		expect(document.body.textContent).toContain("Read by its agent");
 	});
 
 	it("holds a reply while it is open to change, and lets go on close", async () => {
@@ -270,7 +270,6 @@ describe("inbox", () => {
 				replied: 1,
 			},
 		});
-		await tab(view, /^Replied/);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
@@ -279,7 +278,9 @@ describe("inbox", () => {
 			view.getByRole("textbox", { name: "reply" }),
 		);
 		expect(posts[0]?.path).toBe("/api/reply/hold");
-		expect(document.body.textContent).toContain("so its agent waits");
+		expect(document.body.textContent).toContain(
+			"its agent waits until you close this",
+		);
 		expect((box as HTMLTextAreaElement).value).toBe("and log it");
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Email/ })),
@@ -304,7 +305,6 @@ describe("inbox", () => {
 		const view = await open({
 			inbox: { questions: [pending()], replied: 1 },
 		});
-		await tab(view, /^Replied/);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
@@ -334,13 +334,12 @@ describe("inbox", () => {
 				replied: 1,
 			},
 		});
-		await tab(view, /^Replied/);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
 
 		await waitFor(() =>
-			expect(document.body.textContent).toContain("It can no longer change"),
+			expect(document.body.textContent).toContain("can no longer change"),
 		);
 		expect(document.body.textContent).toContain("keep it");
 		expect(view.queryByRole("textbox", { name: "reply" })).toBeNull();
@@ -355,7 +354,6 @@ describe("inbox", () => {
 		const view = await open({
 			inbox: { questions: [pending()], replied: 1 },
 		});
-		await tab(view, /^Replied/);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
@@ -694,6 +692,36 @@ describe("log", () => {
 		expect(items[0]?.textContent).toContain("merge");
 		expect(items[0]?.textContent).toContain("tests_failed");
 		expect(items[1]?.textContent).not.toContain("ok");
+	});
+});
+
+describe("nav", () => {
+	/** happy-dom answers media queries against this, 1024 wide to start. */
+	const resize = (width: number) =>
+		(
+			window as unknown as {
+				happyDOM: { setViewport(size: { width: number }): void };
+			}
+		).happyDOM.setViewport({ width });
+	afterEach(() => resize(1024));
+
+	/** Which way the tabs run, from the root that decides it. */
+	const orientation = (view: Awaited<ReturnType<typeof open>>) =>
+		view
+			.getByRole("tablist")
+			.closest("[data-slot=tabs]")
+			?.getAttribute("data-orientation");
+
+	it("runs along the bottom of a phone, and down the side of anything wider", async () => {
+		resize(390);
+		expect(orientation(await open())).toBe("horizontal");
+		cleanup();
+
+		resize(1280);
+		const wide = await open();
+		expect(orientation(wide)).toBe("vertical");
+		await tab(wide, /todos/i);
+		expect(wide.getByRole("textbox", { name: "new todo" })).toBeTruthy();
 	});
 });
 

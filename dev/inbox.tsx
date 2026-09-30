@@ -10,13 +10,7 @@ import {
 	SquareCheckIcon,
 	SquareIcon,
 } from "lucide-react";
-import {
-	type JSX,
-	type KeyboardEvent,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
+import { type JSX, type KeyboardEvent, useEffect, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -44,17 +38,12 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "#dev/components/ui/sheet.tsx";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "#dev/components/ui/tabs.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "#dev/components/ui/toggle-group.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { OpenQuestion, QuestionState } from "../inbox";
 import type { Snapshot } from "../snapshot";
 import { fileUrl, holdReply, releaseReply, reply, unreply } from "./api";
@@ -72,22 +61,14 @@ interface Named {
 }
 
 /**
- * What waits on a person: the questions with no reply yet, grouped by task.
- * Once answered, a question moves to Replied, where it can still be changed
- * until its agent reads it.
+ * Every question asked, grouped by task, each saying on its own line where it
+ * stands: the ones with no mark wait on you. A reply stays editable here until
+ * its agent reads it.
  */
 export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const { questions } = snapshot.inbox;
 	const [opened, setOpened] = useState<Named | null>(null);
 
-	const open = useMemo(
-		() => questions.filter((question) => question.state === "open"),
-		[questions],
-	);
-	const replied = useMemo(
-		() => questions.filter((question) => question.state !== "open"),
-		[questions],
-	);
 	const current =
 		opened === null
 			? undefined
@@ -95,52 +76,29 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					(question) =>
 						question.task === opened.task && question.number === opened.number,
 				);
-	const openOne = (question: OpenQuestion) =>
-		setOpened({ task: question.task, number: question.number });
 
 	return (
-		<Tabs defaultValue="open" className="gap-4">
-			<TabsList className="w-full">
-				<TabsTrigger value="open">
-					Open
-					<Count>{open.length}</Count>
-				</TabsTrigger>
-				<TabsTrigger value="replied">
-					Replied
-					<Count>{replied.length}</Count>
-				</TabsTrigger>
-			</TabsList>
-			<TabsContent value="open">
-				{open.length === 0 ? (
-					<Empty>
-						<EmptyHeader>
-							<EmptyMedia variant="icon">
-								<InboxIcon />
-							</EmptyMedia>
-							<EmptyTitle>Nothing needs you</EmptyTitle>
-							<EmptyDescription>
-								Questions agents escalate show up here.
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<Groups questions={open} onOpen={openOne} />
-				)}
-			</TabsContent>
-			<TabsContent value="replied">
-				{replied.length === 0 ? (
-					<Empty>
-						<EmptyHeader>
-							<EmptyTitle>No replies waiting</EmptyTitle>
-							<EmptyDescription>
-								What you answer waits here until its agent acts on it.
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<Groups questions={replied} onOpen={openOne} />
-				)}
-			</TabsContent>
+		<>
+			{questions.length === 0 ? (
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<InboxIcon />
+						</EmptyMedia>
+						<EmptyTitle>Nothing needs you</EmptyTitle>
+						<EmptyDescription>
+							Questions agents escalate show up here.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			) : (
+				<Groups
+					questions={questions}
+					onOpen={(question) =>
+						setOpened({ task: question.task, number: question.number })
+					}
+				/>
+			)}
 			<Sheet
 				open={current !== undefined}
 				onOpenChange={(open) => {
@@ -157,13 +115,7 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					/>
 				)}
 			</Sheet>
-		</Tabs>
-	);
-}
-
-function Count({ children }: { children: number }): JSX.Element | null {
-	return children === 0 ? null : (
-		<span className="text-muted-foreground tabular-nums">{children}</span>
+		</>
 	);
 }
 
@@ -192,6 +144,7 @@ function Groups({
 	);
 }
 
+/** One question on one line: its number, its subject, and where it stands. */
 function Row({
 	question,
 	onOpen,
@@ -208,16 +161,25 @@ function Row({
 			<span className="w-7 shrink-0 text-muted-foreground text-xs tabular-nums">
 				{question.number}
 			</span>
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="line-clamp-2 text-sm">{plain(question.text)}</span>
-				{question.state !== "open" && <Status state={question.state} />}
+			<span
+				className={cn(
+					"min-w-0 flex-1 truncate text-sm",
+					// Out of your hands, so it steps back from the ones that are not.
+					question.state === "read" && "text-muted-foreground",
+				)}
+			>
+				{plain(question.text)}
 			</span>
-			{question.state === "open" && question.lease === "held" && (
-				<MessageCircleIcon
-					role="img"
-					aria-label="answer it in its chat"
-					className="size-4 shrink-0 text-warning"
-				/>
+			{question.state === "open" ? (
+				question.lease === "held" && (
+					<MessageCircleIcon
+						role="img"
+						aria-label="answer it in its chat"
+						className="size-4 shrink-0 text-warning"
+					/>
+				)
+			) : (
+				<Status state={question.state} />
 			)}
 		</button>
 	);
@@ -225,36 +187,47 @@ function Row({
 
 const STATUS: Record<
 	Exclude<QuestionState, "open">,
-	{ Icon: LucideIcon; label: string; className: string }
+	{ Icon: LucideIcon; label: string; hint: string; className: string }
 > = {
 	replied: {
 		Icon: PencilLineIcon,
-		label: "Waiting for its agent, still editable",
+		label: "Waiting",
+		hint: "Waiting for its agent: you can still change it",
 		className: "text-warning",
 	},
 	editing: {
 		Icon: PencilLineIcon,
-		label: "Being edited, so its agent waits",
+		label: "Editing",
+		hint: "Editing: its agent waits until you close this",
 		className: "text-warning",
 	},
 	read: {
 		Icon: CheckCheckIcon,
-		label: "Read by its agent",
+		label: "Read",
+		hint: "Read by its agent: it can no longer change here",
 		className: "text-success",
 	},
 };
 
-/** Where a replied question stands, in a word and a colour. */
+/**
+ * Where a replied question stands: a word and a colour in a row, the reason
+ * in full inside the question.
+ */
 function Status({
 	state,
+	full = false,
 }: {
 	state: Exclude<QuestionState, "open">;
+	full?: boolean;
 }): JSX.Element {
-	const { Icon, label, className } = STATUS[state];
+	const { Icon, label, hint, className } = STATUS[state];
 	return (
-		<span className="flex items-center gap-1 text-muted-foreground text-xs">
-			<Icon className={`size-3.5 ${className}`} />
-			{label}
+		<span
+			title={hint}
+			className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs"
+		>
+			<Icon className={cn("size-3.5", className)} />
+			{full ? hint : label}
 		</span>
 	);
 }
@@ -323,11 +296,10 @@ function Respond({
 	if (question.state === "read") {
 		return (
 			<div className="flex flex-col gap-2 text-sm">
-				<Status state="read" />
+				<Status state="read" full />
 				<p className="break-words">{question.reply}</p>
 				<p className="text-muted-foreground text-xs">
-					It can no longer change here. If it needs to, tell the agent in its
-					chat.
+					If it needs to change, tell the agent in its chat.
 				</p>
 			</div>
 		);
@@ -389,7 +361,7 @@ function Edit({
 	}
 	return (
 		<div className="flex flex-col gap-3">
-			<Status state="editing" />
+			<Status state="editing" full />
 			<ReplyBox question={question} onSent={onSent} />
 		</div>
 	);

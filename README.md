@@ -328,12 +328,13 @@ reloading themselves as anything changes. Built for a phone first: open
 questions lead, grouped by task, and tapping one opens it with its body,
 images full size on a tap, its choices, and a reply box that takes pasted or
 picked files. The task's plan slides in over the question without closing
-it. A sent reply moves the question from Open to Replied, where each says where
-it stands: waiting for its agent and still editable, being edited, or read by
-its agent. Opening one still waiting holds it, so its agent cannot claim it
+it. Every question stays in one list, one line each: the ones with no mark
+wait on you, and a replied one says where it stands in a word: Waiting (for
+its agent, still editable), Editing, or Read (by its agent). Opening one still waiting holds it, so its agent cannot claim it
 half-changed, and closing it lets go; the hold also lapses on its own after
 five minutes. One its agent has read shows the answer and can no longer
-change. Todos open to reword, attach files to, or remove. The tabs sit along the bottom, in reach of a thumb.
+change. Todos open to reword, attach files to, or remove. On a phone the tabs sit along the
+bottom, in reach of a thumb; on anything wider they run down a sidebar.
 If the server stops answering, the header says it is offline, since what the
 page shows may be stale.
 
