@@ -4,19 +4,10 @@ import { Markdown } from "webappwiz/md";
 export const PLAN_FILE = "ARBOR.md";
 
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
-const SECTIONS = [
-	"Goal",
-	"Files",
-	"Done",
-	"Next",
-	"Notes",
-	"Blocked",
-	"Messages",
-];
+const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Files", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 const QUESTION = /^[ \t]*- \[[ xX]\] Q\d+\./m;
-const OPEN_QUESTION = /^[ \t]*- \[ \] (Q\d+)\./gm;
 
 const BULLET = /^- +(.+)$/;
 
@@ -59,6 +50,11 @@ export interface Question {
 	/** Whatever follows ` → `, or null when nobody has answered yet. */
 	reply: string | null;
 	/**
+	 * What a person added once the reply was read, oldest first: each an
+	 * indented `→ ` line under the question.
+	 */
+	followUps: string[];
+	/**
 	 * The answers it offers, in order. Empty for a question answered in words
 	 * alone. A reply can always add words to its picks, or answer in words
 	 * instead.
@@ -85,6 +81,8 @@ export interface Choice {
 const ITEM = /^[ \t]*- \[([ xX])\] (Q\d+)\.[ \t]*(.*)$/;
 /** What separates an item from its reply, spaces included. */
 const ARROW = " → ";
+/** A follow-up: a line of its own under the question, led by the arrow. */
+const FOLLOW_UP = /^[ \t]+→[ \t]+(.*)$/;
 /** `- (a) text` picks one, `- [a] text` picks any. */
 const CHOICE = /^[ \t]+- (?:\(([a-z])\)|\[([a-z])\])[ \t]+(.+)$/;
 /** An image the page can show: an absolute path, nothing fetched from afar. */
@@ -93,13 +91,13 @@ const IMAGE = /!\[[^\]]*\]\((\/[^)\s]+)\)/g;
 /**
  * Every numbered item under `## Blocked`, open or checked off, each with the
  * indented lines under it. The reply is read off the item's own line: an
- * answer is one line, written by `arbor messages` or by hand after the arrow.
+ * answer is one line, written by `arbor reply` or by hand after the arrow.
  */
 export function questions(text: string): Question[] {
 	const found: { asked: Question; body: string[] }[] = [];
 	// The question the lines being read sit under, if they still do.
 	let last: { asked: Question; body: string[] } | undefined;
-	for (const { line } of sectionLines(text, "Blocked")) {
+	for (const { line } of blockedLines(text)) {
 		const asked = question(line);
 		if (asked !== null) {
 			last = { asked, body: [] };
@@ -113,8 +111,11 @@ export function questions(text: string): Question[] {
 		if (last === undefined) {
 			continue;
 		}
+		const followUp = FOLLOW_UP.exec(line);
 		const choice = CHOICE.exec(line);
-		if (choice !== null) {
+		if (followUp !== null) {
+			last.asked.followUps.push((followUp[1] ?? "").trim());
+		} else if (choice !== null) {
 			last.asked.choices.push({
 				key: choice[1] ?? choice[2] ?? "",
 				text: (choice[3] ?? "").trim(),
@@ -218,7 +219,7 @@ export function withReply(
 	reply: string | null,
 ): string | null {
 	const lines = text.split("\n");
-	const target = sectionLines(text, "Blocked").find(
+	const target = blockedLines(text).find(
 		({ line }) => question(line)?.number === number,
 	);
 	if (target === undefined) {
@@ -233,6 +234,78 @@ export function withReply(
 			? item
 			: `${item}${ARROW}${reply.replace(/\s*\n\s*/g, " ").trim()}`;
 	return lines.join("\n");
+}
+
+/**
+ * The plan with `reply` added under a question already answered, as an
+ * indented `→ ` line after everything else under it, and the question
+ * unchecked: whatever the agent did about the answer, it has more to read.
+ * Null when the plan has no such question.
+ */
+export function withFollowUp(
+	text: string,
+	number: string,
+	reply: string,
+): string | null {
+	const lines = text.split("\n");
+	const blocked = blockedLines(text);
+	const at = blocked.findIndex(({ line }) => question(line)?.number === number);
+	const target = blocked[at];
+	if (target === undefined) {
+		return null;
+	}
+	// The question runs on while lines are indented or blank; it ends at its
+	// last indented line.
+	let last = target.index;
+	for (const { index, line } of blocked.slice(at + 1)) {
+		if (line.trim() === "") {
+			continue;
+		}
+		if (!/^[ \t]/.test(line)) {
+			break;
+		}
+		last = index;
+	}
+	const indent = /^[ \t]*/.exec(target.line)?.[0] ?? "";
+	lines[target.index] = target.line.replace(/- \[[xX]\]/, "- [ ]");
+	lines.splice(
+		last + 1,
+		0,
+		`${indent}  → ${reply.replace(/\s*\n\s*/g, " ").trim()}`,
+	);
+	return lines.join("\n");
+}
+
+/**
+ * The plan with a new open question at the end of `## Blocked`, the section
+ * made if missing, numbered after the highest there. Returns the plan and
+ * the number it went by.
+ */
+export function withQuestion(
+	text: string,
+	subject: string,
+	body = "",
+): { plan: string; number: string } {
+	const numbers = questions(text).map((asked) => Number(asked.number.slice(1)));
+	const number = `Q${Math.max(0, ...numbers) + 1}`;
+	const detail = body.trim() === "" ? [] : body.trim().split("\n");
+	const item = [
+		`- [ ] ${number}. ${subject.trim()}`,
+		...detail.map((line) => `  ${line}`.trimEnd()),
+	];
+	const blocked = blockedLines(text);
+	if (blocked.length === 0 && !/^## Blocked[ \t]*$/im.test(text)) {
+		return {
+			plan: `${text.trimEnd()}\n\n## Blocked\n\n${item.join("\n")}\n`,
+			number,
+		};
+	}
+	const lines = text.split("\n");
+	const last = blocked.findLast(({ line }) => line.trim() !== "");
+	const heading = lines.findIndex((line) => /^## Blocked[ \t]*$/i.test(line));
+	const at = last === undefined ? heading + 1 : last.index + 1;
+	lines.splice(at, 0, ...(last === undefined ? ["", ...item] : item));
+	return { plan: lines.join("\n"), number };
 }
 
 /**
@@ -257,6 +330,7 @@ function question(line: string): Question | null {
 		text: (arrow === -1 ? rest : rest.slice(0, arrow)).trim(),
 		body: "",
 		reply: arrow === -1 ? null : rest.slice(arrow + ARROW.length).trim(),
+		followUps: [],
 		choices: [],
 		pick: null,
 		chosen: [],
@@ -265,112 +339,26 @@ function question(line: string): Question | null {
 }
 
 /**
- * The lines under one `## <heading>`, with where each sits in the whole file
- * so a reply can be written back in place. `end` is the index just past them:
- * where an item added to the section goes.
+ * The lines under `## Blocked`, with where each sits in the whole file so a
+ * reply can be written back in place.
  */
-function sectionLines(
-	text: string,
-	heading: string,
-): { index: number; line: string }[] {
-	return sectionRange(text, heading)?.lines ?? [];
-}
-
-function sectionRange(
-	text: string,
-	heading: string,
-): { lines: { index: number; line: string }[]; end: number } | null {
+function blockedLines(text: string): { index: number; line: string }[] {
 	const { sections } = Markdown.parse(text);
 	const at = sections.findIndex(
-		(section) => section.heading.toLowerCase() === heading.toLowerCase(),
+		(section) => section.heading.toLowerCase() === "blocked",
 	);
-	const found = sections[at];
-	if (found === undefined) {
-		return null;
+	const blocked = sections[at];
+	if (blocked === undefined) {
+		return [];
 	}
 	const lines = text.split("\n");
 	// `line` is 1-based, so it is also the index of the line after the heading.
 	const end =
-		(sections.slice(at + 1).find((later) => later.level <= found.level)?.line ??
-			lines.length + 1) - 1;
-	return {
-		lines: lines
-			.slice(found.line, end)
-			.map((line, offset) => ({ index: found.line + offset, line })),
-		end,
-	};
-}
-
-/**
- * One `- [ ] M2.` item under `## Messages`: something a person told the task's
- * agent, written there when the agent claimed it. The agent checks it off
- * once it has acted on it, as with a question.
- */
-export interface PlanMessage {
-	/** `M2`. */
-	id: string;
-	done: boolean;
-	/** The item's line, and the lines indented under it, dedented. */
-	text: string;
-}
-
-const MESSAGE = /^[ \t]*- \[([ xX])\] (M\d+)\.[ \t]*(.*)$/;
-
-/** Every item under `## Messages`, open or checked off. */
-export function messages(text: string): PlanMessage[] {
-	const found: { message: PlanMessage; body: string[] }[] = [];
-	let last: { message: PlanMessage; body: string[] } | undefined;
-	for (const { line } of sectionLines(text, "Messages")) {
-		const item = MESSAGE.exec(line);
-		if (item !== null) {
-			last = {
-				message: { id: item[2] ?? "", done: item[1] !== " ", text: "" },
-				body: [(item[3] ?? "").trim()],
-			};
-			found.push(last);
-		} else if (line.trim() !== "" && !/^[ \t]/.test(line)) {
-			last = undefined;
-		} else {
-			last?.body.push(line);
-		}
-	}
-	return found.map(({ message, body }) => {
-		const [head = "", ...rest] = body;
-		message.text = [head, dedent(rest)].filter(Boolean).join("\n");
-		return message;
-	});
-}
-
-/**
- * The plan with a message added as the last item under `## Messages`, the
- * section made at the end of the plan if it has none. Lines after the first
- * are indented under it, so the item holds the whole message.
- */
-export function withMessage(text: string, id: string, message: string): string {
-	const [head = "", ...rest] = message.trim().split("\n");
-	const item = [
-		`- [ ] ${id}. ${head.trim()}`,
-		...rest.map((line) => (line.trim() === "" ? "" : `  ${line}`)),
-	];
-	const range = sectionRange(text, "Messages");
-	if (range === null) {
-		return `${text.replace(/\s*$/, "")}\n\n## Messages\n\n${item.join("\n")}\n`;
-	}
-	const lines = text.split("\n");
-	// After the last line with anything on it, so blank lines stay below.
-	const last = range.lines.findLast(({ line }) => line.trim() !== "");
-	const at = last === undefined ? range.end : last.index + 1;
-	const before = last === undefined ? [""] : [];
-	lines.splice(at, 0, ...before, ...item);
-	return lines.join("\n");
-}
-
-/** The next free message id, after every one the plan or `taken` has. */
-export function nextMessageId(text: string, taken: string[]): string {
-	const numbers = [...messages(text).map((found) => found.id), ...taken]
-		.filter((id) => /^M\d+$/.test(id))
-		.map((id) => Number(id.slice(1)));
-	return `M${Math.max(0, ...numbers) + 1}`;
+		sections.slice(at + 1).find((later) => later.level <= blocked.level)
+			?.line ?? lines.length + 1;
+	return lines
+		.slice(blocked.line, end - 1)
+		.map((line, offset) => ({ index: blocked.line + offset, line }));
 }
 
 export interface PlanOptions {
@@ -432,9 +420,12 @@ export function checkPlan(
 			"## Blocked lists nothing: add `- [ ] Q1.` items for what the reviewer must do",
 		);
 	}
-	const open = blocked === null ? [] : [...blocked.matchAll(OPEN_QUESTION)];
+	// Answered and unchecked is a follow-up to act on; unanswered needs a person.
+	const open = questions(text).filter(
+		(asked) => !asked.done && asked.reply === null,
+	);
 	if (!escalated && open.length > 0) {
-		const numbers = open.map((match) => match[1]).join(", ");
+		const numbers = open.map((asked) => asked.number).join(", ");
 		problems.push(
 			`## Blocked has open ${numbers}: ask the reviewer before merging`,
 		);

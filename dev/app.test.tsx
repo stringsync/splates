@@ -3,8 +3,6 @@
 import "../../../setup";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { OpenQuestion } from "../inbox";
-import type { MessageState } from "../messages";
-import type { Sent } from "../send";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
@@ -61,7 +59,6 @@ function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		repo: "webappwiz",
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		inbox: { questions: [], replied: 0 },
-		sent: [],
 		todos: [],
 		tasks: [],
 		...overrides,
@@ -110,39 +107,13 @@ function question(overrides: Partial<OpenQuestion> = {}): OpenQuestion {
 		text: "🎨 Does the header wrap?",
 		body: "",
 		reply: null,
+		followUps: [],
 		choices: [],
 		pick: null,
 		chosen: [],
 		images: [],
 		pending: null,
 		state: "open",
-		...overrides,
-	};
-}
-
-/** Something sent to alpha's agent, a reply to Q1 not yet read by default. */
-function sent(
-	message: Partial<MessageState> = {},
-	overrides: Partial<Sent> = {},
-): Sent {
-	return {
-		task: "alpha",
-		lease: "none",
-		message: {
-			task: "alpha",
-			id: "Q1",
-			about: null,
-			choices: [],
-			text: "keep",
-			files: [],
-			sentAt: new Date().toISOString(),
-			editingUntil: null,
-			claimedAt: null,
-			...message,
-		},
-		subject: "Does the header wrap?",
-		question: question(),
-		state: "waiting",
 		...overrides,
 	};
 }
@@ -160,6 +131,7 @@ function details(overrides: Partial<Details> = {}): Details {
 		removed: 1,
 		age: "3m",
 		escalation: null,
+		review: null,
 		plan: null,
 		planProblems: [],
 		...overrides,
@@ -178,9 +150,18 @@ function todo(overrides: Partial<TodoState> = {}): TodoState {
 	};
 }
 
-/** Renders the page with a snapshot already waiting, and lets it arrive. */
+/**
+ * Renders the page with a snapshot already waiting, and lets it arrive. Each
+ * task a question names is there too, unless the tasks are given.
+ */
 async function open(overrides: Partial<Snapshot> = {}) {
-	served = snapshot(overrides);
+	const named = [
+		...new Set((overrides.inbox?.questions ?? []).map(({ task }) => task)),
+	];
+	served = snapshot({
+		tasks: named.map((task) => details({ task })),
+		...overrides,
+	});
 	const view = render(<App />);
 	await waitFor(() =>
 		expect(view.getByRole("tab", { name: /inbox/i })).toBeTruthy(),
@@ -193,10 +174,33 @@ async function tab(view: Awaited<ReturnType<typeof open>>, name: RegExp) {
 }
 
 describe("inbox", () => {
-	it("says so when nothing needs you", async () => {
+	it("says so when there are no tasks", async () => {
 		const view = await open();
 
-		expect(view.getByText("Nothing needs you")).toBeTruthy();
+		expect(view.getByText("No tasks")).toBeTruthy();
+	});
+
+	it("lists every task with its status, asking or not, those asking first", async () => {
+		const view = await open({
+			inbox: { questions: [question({ task: "beta" })], replied: 0 },
+			tasks: [
+				details({ task: "alpha" }),
+				details({ task: "beta", status: "escalated" }),
+			],
+		});
+
+		const sections = view
+			.getAllByRole("region")
+			.filter((section) => section.tagName === "SECTION");
+		expect(
+			sections.map((section) => section.getAttribute("aria-label")),
+		).toEqual(["beta", "alpha"]);
+		expect(
+			within(sections[0] as HTMLElement).getByText("escalated"),
+		).toBeTruthy();
+		expect(
+			within(sections[1] as HTMLElement).getByText("working"),
+		).toBeTruthy();
 	});
 
 	it("lists each open question under its task, and counts them in the tab", async () => {
@@ -260,62 +264,31 @@ describe("inbox", () => {
 		expect(view.getAllByRole("img", { name: "the header" })).toHaveLength(1);
 	});
 
-	it("writes a new message to the task picked", async () => {
-		const view = await open({
-			tasks: [details({ task: "alpha" }), details({ task: "beta" })],
-		});
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /New message/ })),
-		);
-
-		// No box until there is a task to send it to.
-		expect(view.queryByRole("textbox", { name: "message" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "beta" })),
-			),
-		);
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "message" }), {
-				target: { value: "rebase on main first" },
-			}),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send" })),
-		);
-
-		await waitFor(() =>
-			expect(posts.map((post) => post.path)).toEqual(["/api/message"]),
-		);
-		const form = posts[0]?.body as FormData;
-		expect(form.get("task")).toBe("beta");
-		expect(form.get("text")).toBe("rebase on main first");
-	});
-
-	it("opens the task over the question, which stays open under it", async () => {
+	it("opens a task from its View button, and not from a question", async () => {
 		const view = await open({
 			inbox: { questions: [question()], replied: 0 },
 			tasks: [details({ plan: "# alpha\n\n## Goal\n\nThe goal here." })],
 		});
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+			fireEvent.click(view.getByRole("button", { name: "View alpha" })),
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "View" })),
-			),
-		);
-
 		await waitFor(() =>
 			expect(document.body.textContent).toContain("The goal here."),
 		);
-		// Rising from the bottom as it does from the task list, over the question.
-		expect(document.querySelectorAll('[data-side="bottom"]')).toHaveLength(2);
-		// Still there under the task, only inert while the task is on top.
-		expect(
-			view.getByRole("textbox", { name: "message", hidden: true }),
-		).toBeTruthy();
+		expect(document.querySelector('[data-side="bottom"]')).toBeTruthy();
+		cleanup();
+
+		const again = await open({
+			inbox: { questions: [question()], replied: 0 },
+		});
+		await act(async () =>
+			fireEvent.click(again.getByRole("button", { name: /Q1/ })),
+		);
+		await waitFor(() =>
+			expect(again.getByRole("textbox", { name: "message" })).toBeTruthy(),
+		);
+		expect(again.queryByRole("button", { name: /^View/ })).toBeNull();
 	});
 
 	it("sends a reply to the question opened", async () => {
@@ -429,56 +402,76 @@ describe("inbox", () => {
 	});
 });
 
-describe("sent", () => {
-	it("says so when nothing was sent", async () => {
-		const view = await open();
-		await tab(view, /sent/i);
-
-		expect(view.getByText("Nothing sent")).toBeTruthy();
-	});
-
-	it("lists what was sent under its task, each saying where it stands", async () => {
-		const view = await open({
-			sent: [
-				sent({ id: "M2" }, { subject: "and the footer", state: "waiting" }),
-				sent({ id: "Q1" }, { subject: "Does the header wrap?", state: "read" }),
-				sent({ id: "M1" }, { subject: "use the grid", state: "done" }),
-			],
+describe("answered", () => {
+	/** A reply to Q1 its agent has yet to read. */
+	const waiting = (overrides: Partial<OpenQuestion> = {}) =>
+		question({
+			state: "waiting",
+			pending: {
+				task: "alpha",
+				question: "Q1",
+				choices: [],
+				text: "keep",
+				files: [],
+				repliedAt: new Date().toISOString(),
+				editingUntil: null,
+			},
+			...overrides,
 		});
-		await tab(view, /sent/i);
 
-		const rows = within(
-			view.getByRole("region", { name: "alpha" }),
-		).getAllByRole("button");
+	it("lists them after the open ones, each saying where it stands", async () => {
+		const view = await open({
+			inbox: {
+				questions: [
+					question({ number: "Q1", text: "sent", state: "done", done: true }),
+					waiting({ number: "Q2", text: "waiting" }),
+					question({ number: "Q3", text: "read", reply: "yes", state: "read" }),
+					question({ number: "Q4", text: "open" }),
+				],
+				replied: 2,
+			},
+		});
+
+		const rows = within(view.getByRole("region", { name: "alpha" }))
+			.getAllByRole("button")
+			.filter((row) => /^Q\d/.test(row.textContent ?? ""));
 		expect(rows.map((row) => row.textContent)).toEqual([
-			"M2and the footerWaiting",
-			"Q1Does the header wrap?Read",
-			"M1use the gridDone",
+			"Q4open",
+			"Q1sentDone",
+			"Q2waitingWaiting",
+			"Q3readRead",
 		]);
-		// Nothing sent waits on you, so the inbox counts none of it.
-		expect(view.getByRole("tab", { name: /inbox/i }).textContent).not.toMatch(
-			/\d/,
+		// Only what waits on you is counted.
+		expect(view.getByRole("tab", { name: /inbox/i }).textContent).toContain(
+			"1",
 		);
+		expect(document.title).toBe("(1) webappwiz");
 	});
 
 	it("holds a reply while it is open to change, and lets go on close", async () => {
 		const view = await open({
-			sent: [
-				sent(
-					{ choices: ["b"], text: "and log it" },
-					{
-						question: question({
-							choices: [
-								{ key: "a", text: "Email" },
-								{ key: "b", text: "Slack" },
-							],
-							pick: "any",
-						}),
-					},
-				),
-			],
+			inbox: {
+				questions: [
+					waiting({
+						choices: [
+							{ key: "a", text: "Email" },
+							{ key: "b", text: "Slack" },
+						],
+						pick: "any",
+						pending: {
+							task: "alpha",
+							question: "Q1",
+							choices: ["b"],
+							text: "and log it",
+							files: [],
+							repliedAt: new Date().toISOString(),
+							editingUntil: null,
+						},
+					}),
+				],
+				replied: 1,
+			},
 		});
-		await tab(view, /sent/i);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
@@ -489,10 +482,10 @@ describe("sent", () => {
 		expect(posts[0]?.path).toBe("/api/hold");
 		expect(JSON.parse(String(posts[0]?.body))).toEqual({
 			task: "alpha",
-			id: "Q1",
+			question: "Q1",
 		});
 		expect(document.body.textContent).toContain(
-			"its agent waits until you close this",
+			"Its agent waits until you close this",
 		);
 		expect((box as HTMLTextAreaElement).value).toBe("and log it");
 		await act(async () =>
@@ -514,38 +507,10 @@ describe("sent", () => {
 		expect(form.get("text")).toBe("and log it");
 	});
 
-	it("changes a message of its own in place", async () => {
+	it("withdraws a reply its agent has not read", async () => {
 		const view = await open({
-			sent: [sent({ id: "M1", text: "use the grid" }, { question: null })],
+			inbox: { questions: [waiting()], replied: 1 },
 		});
-		await tab(view, /sent/i);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /M1/ })),
-		);
-
-		await act(async () =>
-			fireEvent.change(
-				await waitFor(() => view.getByRole("textbox", { name: "message" })),
-				{ target: { value: "use flex" } },
-			),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Update" })),
-		);
-
-		await waitFor(() =>
-			expect(posts.map((post) => post.path)).toContain("/api/message"),
-		);
-		const form = posts.find((post) => post.path === "/api/message")
-			?.body as FormData;
-		expect(form.get("task")).toBe("alpha");
-		expect(form.get("id")).toBe("M1");
-		expect(form.get("text")).toBe("use flex");
-	});
-
-	it("withdraws what its agent has not read", async () => {
-		const view = await open({ sent: [sent()] });
-		await tab(view, /sent/i);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
@@ -562,21 +527,30 @@ describe("sent", () => {
 		const withdrawn = posts.find((post) => post.path === "/api/withdraw");
 		expect(JSON.parse(String(withdrawn?.body))).toEqual({
 			task: "alpha",
-			id: "Q1",
+			question: "Q1",
 		});
 	});
 
-	it("shows what its agent has read, and follows it up with a message", async () => {
+	it("shows what its agent has read, and follows it up", async () => {
 		const view = await open({
-			sent: [sent({ text: "keep it" }, { state: "read" })],
+			inbox: {
+				questions: [
+					question({
+						reply: "keep it",
+						followUps: ["and rename it"],
+						state: "done",
+						done: true,
+					}),
+				],
+				replied: 0,
+			},
 		});
-		await tab(view, /sent/i);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
 
 		await waitFor(() =>
-			expect(document.body.textContent).toContain("follow it up"),
+			expect(document.body.textContent).toContain("and rename it"),
 		);
 		expect(document.body.textContent).toContain("keep it");
 		// Read, so nothing is held.
@@ -591,29 +565,124 @@ describe("sent", () => {
 		);
 
 		await waitFor(() =>
-			expect(posts.map((post) => post.path)).toEqual(["/api/message"]),
+			expect(posts.map((post) => post.path)).toEqual(["/api/reply"]),
 		);
 		const form = posts[0]?.body as FormData;
-		expect(form.get("about")).toBe("Q1");
-		expect(form.get("id")).toBeNull();
+		expect(form.get("question")).toBe("Q1");
+		expect(form.getAll("choice")).toEqual([]);
 		expect(form.get("text")).toBe("not the header, the footer");
 	});
 
-	it("says why something cannot be opened to change, once its agent got to it first", async () => {
+	it("says why a reply cannot be opened to change, once its agent got to it first", async () => {
 		refusal = {
-			reason: "exists",
-			message: "Q1 on 'alpha' was read by its agent already",
+			reason: "not_found",
+			message: "Q1 on 'alpha' has no reply to edit",
 		};
-		const view = await open({ sent: [sent()] });
-		await tab(view, /sent/i);
+		const view = await open({
+			inbox: { questions: [waiting()], replied: 1 },
+		});
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
 
 		await waitFor(() =>
-			expect(document.body.textContent).toContain("was read by its agent"),
+			expect(document.body.textContent).toContain("has no reply to edit"),
 		);
 		expect(view.queryByRole("textbox", { name: "message" })).toBeNull();
+	});
+});
+
+describe("defer and skip", () => {
+	for (const [label, path] of [
+		["Defer", "/api/defer"],
+		["Skip", "/api/skip"],
+	] as const) {
+		it(`${label.toLowerCase()}s a question in a tap`, async () => {
+			const view = await open({
+				inbox: { questions: [question()], replied: 0 },
+			});
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+			);
+
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() => view.getByRole("button", { name: label })),
+				),
+			);
+
+			await waitFor(() =>
+				expect(posts.map((post) => post.path)).toEqual([path]),
+			);
+			expect(JSON.parse(String(posts[0]?.body))).toEqual({
+				task: "alpha",
+				question: "Q1",
+			});
+		});
+	}
+});
+
+describe("review", () => {
+	const reviewing = () =>
+		open({
+			inbox: {
+				questions: [
+					question({ number: "Q1", reply: "yes", state: "done", done: true }),
+					question({
+						number: "Q2",
+						text: "✅ Ready to merge?",
+						body: "Check the header at 390px.",
+					}),
+				],
+				replied: 0,
+			},
+			tasks: [
+				details({ status: "escalated", review: "Q2", ahead: 3, added: 40 }),
+			],
+		});
+
+	it("shows one card in place of the task's questions, and approves it", async () => {
+		const view = await reviewing();
+		const alpha = within(view.getByRole("region", { name: "alpha" }));
+
+		expect(alpha.getByText("Check the header at 390px.")).toBeTruthy();
+		expect(alpha.getByText(/3 commits/)).toBeTruthy();
+		expect(alpha.queryByRole("button", { name: /Q1/ })).toBeNull();
+		await act(async () =>
+			fireEvent.click(alpha.getByRole("button", { name: "Approve" })),
+		);
+
+		await waitFor(() =>
+			expect(posts.map((post) => post.path)).toEqual(["/api/approve"]),
+		);
+		expect(JSON.parse(String(posts[0]?.body))).toEqual({
+			task: "alpha",
+			question: "Q2",
+		});
+	});
+
+	it("asks what to change when changes are requested", async () => {
+		const view = await reviewing();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Request changes" })),
+		);
+		await act(async () =>
+			fireEvent.change(
+				await waitFor(() => view.getByRole("textbox", { name: "message" })),
+				{ target: { value: "the logo overlaps" } },
+			),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Request changes" })),
+		);
+
+		await waitFor(() =>
+			expect(posts.map((post) => post.path)).toEqual(["/api/reply"]),
+		);
+		const form = posts[0]?.body as FormData;
+		expect(form.get("question")).toBe("Q2");
+		expect(form.get("text")).toBe("the logo overlaps");
 	});
 });
 
@@ -816,35 +885,6 @@ describe("todo edits", () => {
 	});
 });
 
-describe("tasks", () => {
-	it("flags only the statuses that are news, and opens a task's plan", async () => {
-		const view = await open({
-			tasks: [
-				details({ task: "alpha" }),
-				details({
-					task: "beta",
-					status: "escalated",
-					escalation: "needs eyes",
-					plan: "# beta\n\n## Goal\n\nship the thing\n",
-				}),
-			],
-		});
-		await tab(view, /tasks/i);
-
-		expect(view.queryByText("working")).toBeNull();
-		expect(view.getByText("escalated")).toBeTruthy();
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /beta/ })),
-		);
-
-		await waitFor(() =>
-			expect(document.body.textContent).toContain("ship the thing"),
-		);
-		expect(document.body.textContent).toContain("needs eyes");
-	});
-});
-
 describe("nav", () => {
 	/** happy-dom answers media queries against this, 1024 wide to start. */
 	const resize = (width: number) =>
@@ -881,6 +921,7 @@ describe("feed", () => {
 
 		served = snapshot({
 			inbox: { questions: [question({ text: "new one" })], replied: 0 },
+			tasks: [details()],
 		});
 		await act(async () => stream?.onmessage?.());
 

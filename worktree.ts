@@ -14,6 +14,11 @@ export interface LeaseState {
 export interface Escalation {
 	reason: string;
 	at: string;
+	/**
+	 * For a task handed over to be approved rather than to answer questions,
+	 * the question in its plan that asks for the approval, `Q4`.
+	 */
+	review?: string;
 }
 
 export interface TaskState {

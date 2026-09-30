@@ -1,15 +1,14 @@
 import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { type Inbox, openQuestions } from "./inbox";
-import type { Messages } from "./messages";
-import { type Sent, sentList } from "./send";
+import type { Replies } from "./replies";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState, Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Everything one page shows: `inbox`, everything sent, `todo list`, and
- * `list` and `show` for each task.
+ * Everything one page shows: `list` and `show` for each task, every question
+ * each one asked however it stands, and `todo list`.
  */
 export interface Snapshot {
 	/** The repository's directory name, so a page among many says whose it is. */
@@ -17,24 +16,23 @@ export interface Snapshot {
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
 	inbox: Inbox;
-	sent: Sent[];
 	todos: TodoState[];
 	tasks: Details[];
 }
 
 /**
  * Reads the whole repo the way the CLI's read commands do. Takes no lease, so
- * serving a page cannot knock an agent off the tree it is driving.
+ * the page can sit open on a live tree without disturbing the agent in it.
  */
 export async function snapshot({
 	service,
 	todos,
-	messages,
+	replies,
 	fs,
 }: {
 	service: WorktreeService;
 	todos: Todos;
-	messages: Messages;
+	replies: Replies;
 	fs: Fs;
 }): Promise<Snapshot> {
 	const details = new TaskDetails({ fs });
@@ -45,8 +43,11 @@ export async function snapshot({
 	return {
 		repo: basename(service.git.root),
 		todoStalenessMs: service.config.todoStalenessMs,
-		inbox: await openQuestions({ service, fs, messages }),
-		sent: await sentList({ service, fs, messages }),
+		// Answered and checked off too: each stays under its task to follow up.
+		inbox: await openQuestions(
+			{ service, fs, replies },
+			{ replied: true, done: true },
+		),
 		todos: (await todos.all()).map((todo) => todo.state),
 		tasks,
 	};
@@ -57,10 +58,9 @@ export async function snapshot({
  * `age` ticks every minute, and hashing it would push to every open page for
  * nothing.
  */
-export function fingerprint({ inbox, sent, todos, tasks }: Snapshot): string {
+export function fingerprint({ inbox, todos, tasks }: Snapshot): string {
 	return JSON.stringify([
 		inbox.questions,
-		sent,
 		todos,
 		tasks.map((task) => [
 			task.task,
@@ -70,6 +70,7 @@ export function fingerprint({ inbox, sent, todos, tasks }: Snapshot): string {
 			task.added,
 			task.removed,
 			task.escalation,
+			task.review,
 			task.plan,
 			task.planProblems,
 		]),

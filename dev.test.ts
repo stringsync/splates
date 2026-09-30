@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { dev, devPorts } from "./dev";
-import { claim } from "./send";
+import { claimReplies } from "./reply";
 import type { Snapshot } from "./snapshot";
 import { LIVE_PID, Testing } from "./testing";
 
@@ -265,28 +265,13 @@ describe("dev", () => {
 			return post(port, "/api/reply", form);
 		};
 
-		/** A JSON post naming one thing sent on alpha, as hold, release and withdraw take. */
-		const named = (port: number, path: string, id = "Q1") =>
-			post(port, path, JSON.stringify({ task: "alpha", id }), {
+		/** A JSON post naming one of alpha's questions, as most answer routes take. */
+		const named = (port: number, path: string, question = "Q1") =>
+			post(port, path, JSON.stringify({ task: "alpha", question }), {
 				"content-type": "application/json",
 			});
 
-		/** A message the way the page sends one. */
-		const tell = (
-			port: number,
-			text: string,
-			fields: Record<string, string> = {},
-		) => {
-			const form = new FormData();
-			form.set("task", "alpha");
-			form.set("text", text);
-			for (const [name, value] of Object.entries(fields)) {
-				form.set(name, value);
-			}
-			return post(port, "/api/message", form);
-		};
-
-		it("replies to a question, files and all, and moves it to sent", async () => {
+		it("replies to a question, files and all, and says it waits on its agent", async () => {
 			const plan = await asked();
 			const before = await deps.fs.read(plan);
 
@@ -299,43 +284,59 @@ describe("dev", () => {
 				expect(response.status).toBe(200);
 				// Waiting for its agent, so the plan is as it was.
 				expect(await deps.fs.read(plan)).toBe(before);
-				const { inbox, sent } = await snapshot();
-				expect(inbox.questions).toEqual([]);
-				expect(sent[0]).toMatchObject({
+				const [question] = (await snapshot()).inbox.questions;
+				expect(question).toMatchObject({
+					number: "Q1",
 					state: "waiting",
-					subject: "Open the page. Does it fit?",
-					message: { id: "Q1", text: "it clips" },
+					pending: { text: "it clips" },
 				});
-				expect(sent[0]?.message.files[1]).toEndWith("-trace.log");
+				expect(question?.pending?.files[1]).toEndWith("-trace.log");
 				const [last] = await deps.journal.tail(1);
 				expect(last?.action).toBe("reply");
 			});
 		});
 
-		it("sends a message of its own, and a follow-up", async () => {
-			await asked();
+		it("follows up an answer its agent has read", async () => {
+			const plan = await asked();
 
 			await serving(async (snapshot, port) => {
-				expect((await tell(port, "Rename it.")).status).toBe(200);
-				await claim(deps, "alpha");
-				expect(
-					(await tell(port, "Actually, don't.", { about: "M1" })).status,
-				).toBe(200);
-				expect((await tell(port, "Or maybe.", { id: "M1" })).status).toBe(409);
+				await answer(port, "no");
+				await claimReplies(deps, "alpha");
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("read");
 
-				const { sent } = await snapshot();
-				expect(
-					sent.map(({ message, subject, state }) => [
-						message.id,
-						subject,
-						state,
-					]),
-				).toEqual([
-					["M2", "Re M1: Actually, don't.", "waiting"],
-					["M1", "Rename it.", "read"],
+				expect((await answer(port, "and shrink the logo")).status).toBe(200);
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("waiting");
+				await claimReplies(deps, "alpha");
+				expect(await deps.fs.read(plan)).toContain(
+					"Does it fit? → no\n  ![the page]",
+				);
+				expect(await deps.fs.read(plan)).toContain("  → and shrink the logo");
+			});
+		});
+
+		it("defers a question to a todo, skips one, and approves one", async () => {
+			const plan = await asked();
+			await deps.fs.write(
+				plan,
+				`${await deps.fs.read(plan)}- [ ] Q2. Tidy?\n- [ ] Q3. ✅ Ready to merge?\n`,
+			);
+
+			await serving(async (snapshot, port) => {
+				expect((await named(port, "/api/defer")).status).toBe(200);
+				expect((await named(port, "/api/skip", "Q2")).status).toBe(200);
+				expect((await named(port, "/api/approve", "Q3")).status).toBe(200);
+
+				const { inbox, todos } = await snapshot();
+				expect(todos[0]).toMatchObject({ id: 1, from: "alpha" });
+				expect(inbox.questions.map((asked) => asked.pending?.text)).toEqual([
+					"Deferred to todo 1: leave it out of this task.",
+					"Skip this: go ahead without it.",
+					"Approved: merge it.",
 				]);
-				const [last] = await deps.journal.tail(1);
-				expect(last?.action).toBe("message");
+				const actions = (await deps.journal.tail(3)).map(
+					(entry) => entry.action,
+				);
+				expect(actions).toEqual(["defer", "skip", "approve"]);
 			});
 		});
 
@@ -359,7 +360,7 @@ describe("dev", () => {
 			});
 		});
 
-		it("holds something sent open for editing, and lets go", async () => {
+		it("holds a reply open for editing, and lets go", async () => {
 			await asked();
 
 			await serving(async (snapshot, port) => {
@@ -367,29 +368,22 @@ describe("dev", () => {
 				await answer(port, "no");
 
 				expect((await named(port, "/api/hold")).status).toBe(200);
-				expect((await snapshot()).sent[0]?.state).toBe("editing");
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("editing");
 
 				expect((await named(port, "/api/release")).status).toBe(200);
-				expect((await snapshot()).sent[0]?.state).toBe("waiting");
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("waiting");
 			});
 		});
 
-		it("refuses to change what its agent has claimed", async () => {
-			const plan = await asked();
+		it("takes back a reply its agent has not read", async () => {
+			await asked();
 
 			await serving(async (snapshot, port) => {
 				await answer(port, "no");
-				await claim(deps, "alpha");
 
-				expect(await deps.fs.read(plan)).toContain("Does it fit? → no");
-				expect((await snapshot()).sent[0]?.state).toBe("read");
-				for (const refused of [
-					await answer(port, "yes"),
-					await named(port, "/api/hold"),
-					await named(port, "/api/withdraw"),
-				]) {
-					expect(refused.status).toBe(409);
-				}
+				expect((await named(port, "/api/withdraw")).status).toBe(200);
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("open");
+				expect((await named(port, "/api/withdraw")).status).toBe(404);
 			});
 		});
 
@@ -423,20 +417,6 @@ describe("dev", () => {
 				expect(
 					(await file("", `${deps.todos.dir}/1/../../../config`)).status,
 				).toBe(404);
-			});
-		});
-
-		it("takes back something sent", async () => {
-			await asked();
-
-			await serving(async (snapshot, port) => {
-				await answer(port, "no");
-
-				expect((await named(port, "/api/withdraw")).status).toBe(200);
-				const { inbox, sent } = await snapshot();
-				expect(inbox.questions[0]?.number).toBe("Q1");
-				expect(sent).toEqual([]);
-				expect((await named(port, "/api/withdraw")).status).toBe(404);
 			});
 		});
 

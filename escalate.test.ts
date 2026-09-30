@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { add } from "./add";
-import { escalate } from "./escalate";
+import { escalate, REVIEW_SUBJECT } from "./escalate";
+import { PLAN_FILE, questions } from "./plan";
 import { Testing } from "./testing";
 
 describe("escalate", () => {
@@ -40,5 +41,34 @@ describe("escalate", () => {
 
 		await escalate(deps, "needs a human", deps.root, { task: "alpha" });
 		expect((await deps.service.find("alpha")).state?.status).toBe("escalated");
+	});
+
+	it("asks for approval with a question of its own, once nothing else is open", async () => {
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		const plan = join(worktree, PLAN_FILE);
+		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] Q1. Keep it?\n");
+
+		await expect(
+			escalate(deps, "check the header", worktree, { review: true }),
+		).toBail("blocked", { data: { task: "alpha", blocked: ["Q1"] } });
+
+		await deps.fs.write(
+			plan,
+			"# alpha\n\n## Blocked\n\n- [x] Q1. Keep it? → yes\n",
+		);
+		await escalate(deps, "check the header at 390px", worktree, {
+			review: true,
+		});
+
+		expect(questions(await deps.fs.read(plan)).at(-1)).toMatchObject({
+			number: "Q2",
+			text: REVIEW_SUBJECT,
+			body: "check the header at 390px",
+		});
+		expect(
+			(await deps.service.find("alpha")).state?.escalations?.at(-1),
+		).toMatchObject({ reason: "check the header at 390px", review: "Q2" });
+		expect(deps.out()).toContain("review:   Q2 asks to approve merging");
 	});
 });

@@ -19,6 +19,7 @@ export const EXIT = {
 	already_removed: 13,
 	timeout: 14,
 	unread: 15,
+	blocked: 16,
 } as const;
 
 export type Reason = keyof typeof EXIT;

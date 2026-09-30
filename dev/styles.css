@@ -15,7 +15,6 @@
 @source "./mentions.tsx";
 @source "./compose.tsx";
 @source "./question.tsx";
-@source "./sent.tsx";
 @source "./components/ui";
 
 @custom-variant dark (&:is(.dark *));

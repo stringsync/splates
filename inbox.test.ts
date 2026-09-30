@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
 import { inbox, openQuestions } from "./inbox";
 import { PLAN_FILE } from "./plan";
-import { hold, replyTo } from "./send";
+import { holdReply, replyTo } from "./reply";
 import { LIVE_PID, Testing } from "./testing";
 
 /**
@@ -77,7 +77,7 @@ describe("inbox", () => {
 		expect(found.questions[0]?.reply).toBe("yes");
 	});
 
-	it("moves a question with a reply waiting to be claimed to replied", async () => {
+	it("moves a question with a reply waiting to be claimed to waiting", async () => {
 		await replyTo(deps, "alpha", "Q3", { text: "keep" });
 
 		const open = await openQuestions(deps);
@@ -92,19 +92,36 @@ describe("inbox", () => {
 		);
 		expect(states).toEqual([
 			"alpha Q2 read",
-			"alpha Q3 replied",
+			"alpha Q3 waiting",
 			"beta Q1 open",
 			"beta Q2 open",
 		]);
 		expect(all.questions[1]?.pending?.text).toBe("keep");
 
-		await hold(deps, "alpha", "Q3");
+		await holdReply(deps, "alpha", "Q3");
 		const held = await openQuestions(deps, { replied: true });
 		expect(held.questions[1]?.state).toBe("editing");
 
 		deps.log.clear();
 		await inbox(deps, { replied: true });
 		expect(deps.out()).toContain("    → keep (waiting for its agent)");
+	});
+
+	it("keeps the checked-off ones too when asked, and a follow-up waits on them", async () => {
+		const all = await openQuestions(deps, { replied: true, done: true });
+		expect(
+			all.questions
+				.filter(({ task }) => task === "alpha")
+				.map(({ number, state }) => `${number} ${state}`),
+		).toEqual(["Q1 done", "Q2 read", "Q3 open"]);
+
+		await replyTo(deps, "alpha", "Q1", { text: "run it again" });
+		const followed = await openQuestions(deps, { replied: true, done: true });
+		expect(followed.questions[0]).toMatchObject({
+			number: "Q1",
+			done: true,
+			state: "waiting",
+		});
 	});
 
 	it("prints them grouped by task, bodies and choices under them", async () => {

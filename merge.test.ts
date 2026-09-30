@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { add } from "./add";
 import { merge } from "./merge";
-import { claim, sendMessage } from "./send";
+import { PLAN_FILE } from "./plan";
+import { claimReplies, replyTo } from "./reply";
 import { Shell } from "./shell";
 import { LIVE_PID, Testing } from "./testing";
 
@@ -222,24 +223,37 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
-	it("refuses to land while a person's message is unread", async () => {
+	it("refuses to land while a question is open, a reply unread, or an answer unchecked", async () => {
 		await using deps = await Testing.open();
 
 		await add(deps, "alpha");
-		const worktree = (await deps.service.find("alpha")).path;
+		const found = await deps.service.find("alpha");
+		const worktree = found.path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
-		await sendMessage(deps, "alpha", { text: "Hold on, rename it first." });
+		const plan = `${worktree}/${PLAN_FILE}`;
+		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] Q1. Keep it?\n");
 
-		await expect(merge(deps, worktree)).toBail("unread", {
-			message: "M1 from a person",
-			data: { task: "alpha", unread: ["M1"] },
+		await expect(merge(deps, worktree)).toBail("blocked", {
+			message: "Q1 unchecked",
+			data: { task: "alpha", blocked: ["Q1"] },
 		});
+
+		await found.save({ lease: null });
+		await replyTo(deps, "alpha", "Q1", { text: "rename it first" });
+		await expect(merge(deps, worktree)).toBail("unread", {
+			message: "replies to Q1 not yet read",
+			data: { task: "alpha", unread: ["Q1"] },
+		});
+
+		// Read but not acted on: the agent checks it off once it has.
+		await claimReplies(deps, "alpha");
+		await expect(merge(deps, worktree)).toBail("blocked");
 		expect(
 			await deps.gitCli(deps.root, "log", "--oneline", "main"),
 		).not.toContain("add alpha");
 
-		// Read, it may land: acting on it is the agent's to judge.
-		await claim(deps, "alpha");
+		const read = await deps.fs.read(plan);
+		await deps.fs.write(plan, read.replace("- [ ]", "- [x]"));
 		await merge(deps, worktree);
 		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
 			"add alpha",

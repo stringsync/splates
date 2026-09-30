@@ -18,6 +18,11 @@ export interface Details {
 	removed: number | null;
 	age: string | null;
 	escalation: string | null;
+	/**
+	 * While escalated to be approved, the question that asks for it, `Q4`;
+	 * null otherwise.
+	 */
+	review: string | null;
 	plan: string | null;
 	/** How the `ARBOR.md` departs from the shape the skill prescribes. */
 	planProblems: string[];
@@ -93,6 +98,10 @@ export class TaskDetails {
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
 			escalation: state?.escalations?.at(-1)?.reason ?? null,
+			review:
+				state?.status === "escalated"
+					? (state.escalations?.at(-1)?.review ?? null)
+					: null,
 			plan,
 			planProblems:
 				plan === null

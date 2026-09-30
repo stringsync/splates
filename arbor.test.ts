@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
 import { arbor } from "./arbor";
-import { replyTo, sendMessage } from "./send";
+import { replyTo } from "./reply";
 import { Testing } from "./testing";
 
 /**
@@ -59,22 +59,20 @@ describe("arbor cli", () => {
 		await arbor.run(deps, ["reply", "alpha", "Q1", "looks right"]);
 		expect(env.out()).not.toContain("  reply ");
 		await replyTo(env, "alpha", "Q2", { text: "", choices: ["b", "a"] });
-		await sendMessage(env, "alpha", { text: "Rename it." });
 
 		await arbor.run(deps, ["inbox", "--replied", "--json"]);
 		expect(
 			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,
 		).toMatchObject([
 			{ number: "Q1", state: "open" },
-			{ number: "Q2", state: "replied" },
+			{ number: "Q2", state: "waiting" },
 		]);
 
 		// The agent reads what it was sent from its tree, claiming it.
 		env.ps.cd(worktree.path);
-		await arbor.run(deps, ["messages"]);
+		await arbor.run(deps, ["replies"]);
 		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
 		expect(plan).toContain("Run it where? → a (locally), b (in ci)\n");
-		expect(plan).toContain("## Messages\n\n- [ ] M1. Rename it.\n");
 
 		env.ps.cd(env.root);
 		await arbor.run(deps, ["todo", "add", "write docs", "--file", "a.png"]);
@@ -95,7 +93,33 @@ describe("arbor cli", () => {
 		await arbor.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));
 		expect(entries.map((entry: { action: string }) => entry.action)).toContain(
-			"messages",
+			"replies",
+		);
+	});
+
+	it("asks for a review from the command line", async () => {
+		await using env = await Testing.open();
+		env.ps.cd(env.root);
+		const deps = {
+			log: env.log,
+			fs: env.fs,
+			ps: env.ps,
+			assets: env.assets,
+		};
+		await arbor.run(deps, ["add", "alpha"]);
+
+		await arbor.run(deps, [
+			"escalate",
+			"check the header",
+			"--task",
+			"alpha",
+			"--review",
+		]);
+
+		const worktree = await env.service.find("alpha");
+		expect(worktree.state?.escalations?.at(-1)?.review).toBe("Q1");
+		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
+			"- [ ] Q1. ✅ Ready to merge?\n  check the header\n",
 		);
 	});
 

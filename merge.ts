@@ -1,9 +1,10 @@
 import { color, type Logger } from "webappwiz/log";
-import type { Lock } from "webappwiz/system";
+import type { Fs, Lock } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import type { Messages } from "./messages";
+import { PLAN_FILE, questions } from "./plan";
+import type { Replies } from "./replies";
 import type { Shell } from "./shell";
 import { recommend, recommendation, type Todos } from "./todo";
 import type { Worktree } from "./worktree";
@@ -27,7 +28,8 @@ export async function merge(
 		config,
 		log,
 		todos,
-		messages,
+		replies,
+		fs,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -36,7 +38,8 @@ export async function merge(
 		config: Config;
 		log: Logger;
 		todos: Todos;
-		messages: Messages;
+		replies: Replies;
+		fs: Fs;
 	},
 	cwd: string,
 ): Promise<void> {
@@ -83,14 +86,27 @@ export async function merge(
 	}
 	// A person may have said something that changes the work, so it is read
 	// before the work lands, whatever the agent was doing when it was sent.
-	const unread = (await messages.unclaimed(task)).map(
-		(message) => message.state.id,
+	const unread = (await replies.forTask(task)).map(
+		(pending) => pending.state.question,
 	);
 	if (unread.length > 0) {
 		fail(
 			"unread",
-			`'${task}' has ${unread.join(", ")} from a person, not yet read: run \`arbor messages\`, act on what it says, then merge again`,
+			`'${task}' has replies to ${unread.join(", ")} not yet read: run \`arbor replies\`, act on them, check each off, then merge again`,
 			{ task, unread },
+		);
+	}
+	// An unchecked question is one a person has yet to answer, or an answer
+	// or follow-up the agent has yet to act on.
+	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
+	const blocked = questions(plan)
+		.filter((asked) => !asked.done)
+		.map((asked) => asked.number);
+	if (blocked.length > 0) {
+		fail(
+			"blocked",
+			`'${task}' has ${blocked.join(", ")} unchecked under ## Blocked: act on each answer and check it off, or wait for one with \`arbor wait --answered\`, then merge again`,
+			{ task, blocked },
 		);
 	}
 	worktree = await worktree.take();

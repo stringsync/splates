@@ -11,8 +11,16 @@ import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import { openQuestions } from "./inbox";
 import type { Journal } from "./journal";
-import type { Messages } from "./messages";
-import { hold, release, replyTo, sendMessage, withdraw } from "./send";
+import type { Replies } from "./replies";
+import {
+	APPROVED,
+	defer,
+	holdReply,
+	releaseReply,
+	replyTo,
+	SKIP,
+	withdrawReply,
+} from "./reply";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -72,13 +80,13 @@ export interface DevServer extends AsyncResource {
 }
 
 /**
- * Serves what `inbox`, `todo list`, `list` and `show` print, and everything
- * sent to each task's agent, as one page that refetches when the repo
- * changes. It is the only place a person replies to a question or messages an
- * agent: the CLI has no command for either, so no agent is tempted to message
- * another. Anything that moves a task (merge, remove, claim) stays in the CLI,
- * so a page that should not have been reachable can at worst send a message
- * or change a todo.
+ * Serves what `list`, `show`, `inbox` and `todo list` print, as one page that
+ * refetches when the repo changes. It is the only place a person answers a
+ * question: follows one up, defers or skips it, or approves a merge. The CLI
+ * has no command for any of them, so no agent is tempted to answer another.
+ * Anything that moves a task (merge, remove, claim) stays in the CLI, so a
+ * page that should not have been reachable can at worst leave a reply or
+ * change a todo.
  */
 export async function dev(
 	{
@@ -86,7 +94,7 @@ export async function dev(
 		fs,
 		journal,
 		todos,
-		messages,
+		replies,
 		log,
 		assets,
 	}: {
@@ -94,14 +102,14 @@ export async function dev(
 		fs: Fs;
 		journal: Journal;
 		todos: Todos;
-		messages: Messages;
+		replies: Replies;
 		log: Logger;
 		assets: Assets;
 	},
 	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
 ): Promise<DevServer> {
-	const read = () => snapshot({ service, todos, messages, fs });
-	const deps = { service, fs, messages };
+	const read = () => snapshot({ service, todos, replies, fs });
+	const deps = { service, fs, replies };
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
@@ -208,57 +216,47 @@ export async function dev(
 		return Response.json(replied);
 	};
 
-	const message = async (request: Request): Promise<Response> => {
-		const form = await request.formData();
-		const task = String(form.get("task") ?? "");
-		const sent = await journal.record("message", task, async () =>
-			sendMessage(deps, task, {
-				id: form.has("id") ? String(form.get("id")) : undefined,
-				about: form.has("about") ? String(form.get("about")) : null,
-				text: String(form.get("text") ?? ""),
-				files: await uploads(form),
-				keep: form.getAll("keep").map(String),
-			}),
-		);
-		await tick();
-		return Response.json(sent);
-	};
-
-	/** The `{task, id}` a route names in its JSON body. */
+	/** The `{task, question}` a reply route names in its JSON body. */
 	const named = async (request: Request) => {
-		const { task, id } = (await request.json()) as {
+		const { task, question } = (await request.json()) as {
 			task?: unknown;
-			id?: unknown;
+			question?: unknown;
 		};
-		return { task: String(task ?? ""), id: String(id ?? "") };
+		return { task: String(task ?? ""), question: String(question ?? "") };
 	};
 
-	const withdrawn = async (request: Request): Promise<Response> => {
-		const { task, id } = await named(request);
-		const taken = await journal.record("withdraw", task, () =>
-			withdraw(deps, task, id),
-		);
-		await tick();
-		return Response.json(taken);
-	};
+	/** A route that answers a question one way, named in its JSON body. */
+	const answer =
+		(
+			action: string,
+			how: (task: string, question: string) => Promise<unknown>,
+		) =>
+		async (request: Request): Promise<Response> => {
+			const { task, question } = await named(request);
+			const done = await journal.record(action, task, () =>
+				how(task, question),
+			);
+			await tick();
+			return Response.json(done);
+		};
 
-	// Not journaled: opening something sent to look at it is not something that
+	// Not journaled: opening a reply to look at it is not something that
 	// happened to the repo, only a hold that keeps the agent out meanwhile.
-	const held = async (request: Request): Promise<Response> => {
-		const { task, id } = await named(request);
-		const state = await hold(deps, task, id);
+	const hold = async (request: Request): Promise<Response> => {
+		const { task, question } = await named(request);
+		const held = await holdReply(deps, task, question);
 		await tick();
-		return Response.json(state);
+		return Response.json(held);
 	};
 
-	const released = async (request: Request): Promise<Response> => {
-		const { task, id } = await named(request);
-		await release(deps, task, id);
+	const release = async (request: Request): Promise<Response> => {
+		const { task, question } = await named(request);
+		await releaseReply(deps, task, question);
 		await tick();
 		return Response.json({});
 	};
 
-	// Only an image an open question shows, or a file a message or a todo holds,
+	// Only an image an open question shows, or a file a reply or a todo holds,
 	// so the page, and whoever a tunnel lets reach it, can read nothing on this
 	// machine that was not put in front of a person on purpose.
 	const file = async (request: Request): Promise<Response> => {
@@ -266,11 +264,13 @@ export async function dev(
 		const task = params.get("task") ?? "";
 		const path = params.get("path") ?? "";
 		const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
+		const held = replies.owns(path) || todos.owns(path);
 		const shown =
-			messages.owns(path) ||
-			todos.owns(path) ||
+			held ||
 			(type !== undefined &&
-				(await openQuestions(deps, { replied: true })).questions.some(
+				(
+					await openQuestions(deps, { replied: true, done: true })
+				).questions.some(
 					(question) =>
 						question.task === task && question.images.includes(path),
 				));
@@ -362,10 +362,36 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/snapshot": guarded(async () => Response.json(await read())),
 			"/api/reply": { POST: guarded(reply) },
-			"/api/message": { POST: guarded(message) },
-			"/api/withdraw": { POST: guarded(withdrawn) },
-			"/api/hold": { POST: guarded(held) },
-			"/api/release": { POST: guarded(released) },
+			"/api/withdraw": {
+				POST: guarded(
+					answer("withdraw", (task, question) =>
+						withdrawReply(deps, task, question),
+					),
+				),
+			},
+			"/api/defer": {
+				POST: guarded(
+					answer("defer", (task, question) =>
+						defer({ ...deps, todos }, task, question),
+					),
+				),
+			},
+			"/api/skip": {
+				POST: guarded(
+					answer("skip", (task, question) =>
+						replyTo(deps, task, question, { text: SKIP }),
+					),
+				),
+			},
+			"/api/approve": {
+				POST: guarded(
+					answer("approve", (task, question) =>
+						replyTo(deps, task, question, { text: APPROVED }),
+					),
+				),
+			},
+			"/api/hold": { POST: guarded(hold) },
+			"/api/release": { POST: guarded(release) },
 			"/api/file": guarded(file),
 			"/api/paths": guarded(paths),
 			"/api/todos": { POST: guarded(addTodo) },

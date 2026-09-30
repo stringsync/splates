@@ -11,7 +11,7 @@ import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
 import { Journal } from "./journal";
-import { Messages } from "./messages";
+import { Replies } from "./replies";
 import { Shell } from "./shell";
 import { Todos } from "./todo";
 import { WorktreeService } from "./worktree-service";
@@ -46,7 +46,7 @@ export class Testing implements AsyncDisposable {
 	readonly lockPath: string;
 	readonly lock: FileLock;
 	readonly todos: Todos;
-	readonly messages: Messages;
+	readonly replies: Replies;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -93,9 +93,9 @@ export class Testing implements AsyncDisposable {
 			}),
 			{ fs: this.fs, ids: this.ids },
 		);
-		this.messages = new Messages(
-			join(this.arborDir, "messages"),
-			new FileLock(join(this.arborDir, "messages.lock"), {
+		this.replies = new Replies(
+			join(this.arborDir, "replies"),
+			new FileLock(join(this.arborDir, "replies.lock"), {
 				fs: this.fs,
 				ps: this.ps,
 				log: this.log,

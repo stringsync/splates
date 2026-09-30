@@ -1,38 +1,43 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
-import { type MessageState, type Messages, replyText } from "./messages";
 import { PLAN_FILE, type Question, questions } from "./plan";
+import { type Replies, type ReplyState, replyText } from "./replies";
 import type { WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
-/** An open question, with the task that asked it. */
+/** A question, with the task that asked it and where it stands. */
 export interface OpenQuestion extends Question {
 	task: string;
 	status: WorktreeStatus;
 	/**
 	 * `held` means the asking agent is in a live session: answer it there,
-	 * since a reply refuses a tree someone is driving.
+	 * since `arbor reply` refuses a tree someone is driving.
 	 */
 	lease: "held" | "stale" | "none";
-	/** A reply given and waiting for the agent to claim it, or null. */
-	pending: MessageState | null;
 	/**
-	 * Where it stands. `open` waits on a person. `replied` waits on its agent
-	 * and can still be edited. `editing` is held by someone changing it.
-	 * `read` has been claimed by its agent, and can no longer change.
+	 * A reply or follow-up given and waiting for the agent to claim it, or
+	 * null.
+	 */
+	pending: ReplyState | null;
+	/**
+	 * Where it stands. `open` waits on a person. `waiting` has a reply its
+	 * agent has yet to read, which can still be edited. `editing` is held by
+	 * someone changing it. `read` has been claimed by its agent, which has yet
+	 * to check it off. `done` is checked off. A follow-up takes a `read` or
+	 * `done` question back to `waiting`.
 	 */
 	state: QuestionState;
 }
 
-export type QuestionState = "open" | "replied" | "editing" | "read";
+export type QuestionState = "open" | "waiting" | "editing" | "read" | "done";
 
 export interface Inbox {
 	/**
-	 * Open questions, by task name and then in the order each plan lists them.
-	 * Only the unanswered ones unless the replied ones were asked for too.
+	 * Questions, by task name and then in the order each plan lists them.
+	 * Only the unanswered ones unless the others were asked for too.
 	 */
 	questions: OpenQuestion[];
-	/** How many open questions have a reply their agent has yet to act on. */
+	/** How many unchecked questions have a reply their agent has yet to act on. */
 	replied: number;
 }
 
@@ -42,6 +47,8 @@ export interface InboxOptions {
 	 * to an answer. Without it, a question leaves the inbox once it is answered.
 	 */
 	replied?: boolean;
+	/** Keep the questions checked off too, to follow one up. */
+	done?: boolean;
 }
 
 /**
@@ -57,9 +64,9 @@ export async function openQuestions(
 	{
 		service,
 		fs,
-		messages,
-	}: { service: WorktreeService; fs: Fs; messages: Messages },
-	{ replied = false }: InboxOptions = {},
+		replies,
+	}: { service: WorktreeService; fs: Fs; replies: Replies },
+	{ replied = false, done = false }: InboxOptions = {},
 ): Promise<Inbox> {
 	const open: OpenQuestion[] = [];
 	for (const worktree of await service.list()) {
@@ -69,15 +76,11 @@ export async function openQuestions(
 		if (plan === null) {
 			continue;
 		}
-		const waiting = await messages.unclaimed(worktree.task);
+		const waiting = await replies.forTask(worktree.task);
 		for (const question of questions(plan)) {
-			if (question.done) {
-				continue;
-			}
-			const pending =
-				question.reply === null
-					? waiting.find((found) => found.state.id === question.number)
-					: undefined;
+			const pending = waiting.find(
+				(found) => found.state.question === question.number,
+			);
 			open.push({
 				task: worktree.task,
 				status: worktree.status,
@@ -85,21 +88,24 @@ export async function openQuestions(
 				...question,
 				pending: pending?.state ?? null,
 				state:
-					question.reply !== null
-						? "read"
-						: pending === undefined
-							? "open"
-							: pending.editing
-								? "editing"
-								: "replied",
+					pending !== undefined
+						? pending.editing
+							? "editing"
+							: "waiting"
+						: question.done
+							? "done"
+							: question.reply === null
+								? "open"
+								: "read",
 			});
 		}
 	}
 	return {
-		questions: replied
-			? open
-			: open.filter((question) => question.state === "open"),
-		replied: open.filter((question) => question.state !== "open").length,
+		questions: open.filter(
+			({ state }) => state === "open" || (state === "done" ? done : replied),
+		),
+		replied: open.filter(({ state }) => state !== "open" && state !== "done")
+			.length,
 	};
 }
 
@@ -110,7 +116,7 @@ export interface InboxPrintOptions extends InboxOptions {
 
 /** `arbor inbox`: the open questions, grouped by task. */
 export async function inbox(
-	deps: { service: WorktreeService; fs: Fs; messages: Messages; log: Logger },
+	deps: { service: WorktreeService; fs: Fs; replies: Replies; log: Logger },
 	{ json = false, replied = false }: InboxPrintOptions = {},
 ): Promise<void> {
 	const found = await openQuestions(deps, { replied });
@@ -136,7 +142,7 @@ export async function inbox(
  * under it, then the reply the agent has yet to act on, if there is one.
  */
 export function formatQuestion(
-	question: Question & { pending?: MessageState | null },
+	question: Question & { pending?: ReplyState | null },
 ): string[] {
 	const lines = [
 		`  ${question.number} ${question.text}`,
@@ -151,7 +157,11 @@ export function formatQuestion(
 	];
 	if (question.reply !== null) {
 		lines.push(color.dim(`    → ${question.reply}`));
-	} else if (question.pending) {
+		for (const followUp of question.followUps) {
+			lines.push(color.dim(`    → ${followUp}`));
+		}
+	}
+	if (question.pending) {
 		lines.push(
 			color.dim(
 				`    → ${replyText(question, question.pending)} (waiting for its agent)`,

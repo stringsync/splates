@@ -14,9 +14,9 @@ import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
 import { remove } from "./remove";
+import { readReplies } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
-import { readMessages } from "./send";
 import { show } from "./show";
 import { todoAdd, todoList, todoRemove, todoUpdate } from "./todo";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
@@ -152,7 +152,7 @@ arbor
 		{
 			default: false,
 			description:
-				"wait instead until every open question under the task's ## Blocked has a reply, then claim the replies and any messages, which writes them into ARBOR.md, and print them",
+				"wait instead until every open question under the task's ## Blocked has a reply, then claim the replies, which writes them into ARBOR.md, and print them",
 		},
 	)
 	.action((opts, ctx) =>
@@ -186,9 +186,9 @@ arbor
 	);
 
 arbor
-	.command("messages")
+	.command("replies")
 	.description(
-		"claim what a person sent the task from the page, which writes each reply into its ARBOR.md after ` → ` and each message under ## Messages, locking them against edits, and print them; the one way an agent reads what it was sent, and `merge` refuses until it has",
+		"claim the replies a person gave the task's questions on the page, which writes each into its ARBOR.md after ` → `, a follow-up on a line of its own under its question, unchecking it, and locks them against edits, and print them; the one way an agent reads what the inbox answered, and `merge` refuses until it has",
 	)
 	.arg("task", z.string(), {
 		default: "",
@@ -199,17 +199,17 @@ arbor
 		if (task === null) {
 			fail(
 				"usage",
-				"not in a task's worktree: name the task, `arbor messages <task>`",
+				"not in a task's worktree: name the task, `arbor replies <task>`",
 				{},
 			);
 		}
-		await ctx.journal.record("messages", task, () => readMessages(ctx, task));
+		await ctx.journal.record("replies", task, () => readReplies(ctx, task));
 	});
 
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, reply and message, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, reply and more, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
@@ -225,7 +225,7 @@ arbor
 arbor
 	.command("dev")
 	.description(
-		"serve the inbox, what was sent, todos and tasks as a web page on this machine; the only place a person replies to questions or messages a task's agent, and adds, updates or removes todos",
+		"serve each task with its questions, and the todos, as a web page on this machine; the only place a person answers, follows up, defers or skips a question, or approves a merge, and where todos can be added, updated or removed",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
@@ -262,15 +262,28 @@ arbor
 	.description(
 		"hand this task to a human and stop: records the reason, drops the lease and leaves the worktree exactly as it is; use instead of resolving a genuine conflict badly just to finish",
 	)
-	.arg("reason", z.string(), { description: "why this needs a human" })
+	.arg("reason", z.string(), {
+		description:
+			"why this needs a human; with --review, what to look at before approving",
+	})
 	.option("task", z.string(), {
 		default: "",
 		description: "task name, when run outside its worktree",
 	})
+	.option(
+		"review",
+		z.string().transform((raw) => raw !== "false"),
+		{
+			default: false,
+			description:
+				"ask a person to approve merging: adds a `✅ Ready to merge?` question under ## Blocked with the reason as its detail, which the page shows as Approve or Request changes; refused while another question is unchecked",
+		},
+	)
 	.action(async (opts, ctx) =>
 		ctx.journal.record("escalate", opts.task || (await here(ctx)), () =>
 			escalate(ctx, opts.reason, ctx.ps.cwd(), {
 				task: opts.task || undefined,
+				review: opts.review,
 			}),
 		),
 	);

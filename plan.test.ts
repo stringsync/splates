@@ -6,6 +6,8 @@ import {
 	questionNumber,
 	questions,
 	replyLine,
+	withFollowUp,
+	withQuestion,
 	withReply,
 } from "./plan";
 
@@ -97,6 +99,9 @@ describe("checkPlan", () => {
 		]);
 		const answered = `${GOOD}\n## Blocked\n${items.replaceAll("- [ ]", "- [x]")}`;
 		expect(checkPlan(answered, { task: "alpha" })).toEqual([]);
+		// Answered but unchecked is the agent's to act on, not the reviewer's.
+		const acting = `${GOOD}\n## Blocked\n- [ ] Q1. Keep it? → yes\n  → and rename it\n`;
+		expect(checkPlan(acting, { task: "alpha" })).toEqual([]);
 	});
 
 	it("flags a section nobody will think to read", () => {
@@ -156,6 +161,7 @@ function bare(overrides: Partial<Question>): Question {
 		text: "",
 		body: "",
 		reply: null,
+		followUps: [],
 		choices: [],
 		pick: null,
 		chosen: [],
@@ -324,6 +330,42 @@ describe("withReply", () => {
 	it("finds nothing to answer outside ## Blocked", () => {
 		expect(withReply(BLOCKED, "Q9", "yes")).toBeNull();
 		expect(withReply(GOOD, "Q1", "yes")).toBeNull();
+	});
+});
+
+describe("withFollowUp", () => {
+	it("adds a line under everything the question has, and unchecks it", () => {
+		const plan =
+			"## Blocked\n\n- [x] Q1. Keep it? → yes\n  It is old.\n  - (a) Yes\n\n- [ ] Q2. Next?\n";
+		expect(withFollowUp(plan, "Q1", "and rename\nit")).toBe(
+			"## Blocked\n\n- [ ] Q1. Keep it? → yes\n  It is old.\n  - (a) Yes\n  → and rename it\n\n- [ ] Q2. Next?\n",
+		);
+		expect(withFollowUp(plan, "Q9", "x")).toBeNull();
+	});
+});
+
+describe("withQuestion", () => {
+	it("numbers a new question after the rest, its detail indented under it", () => {
+		const added = withQuestion(
+			BLOCKED,
+			"✅ Ready to merge?",
+			"Look at\nthe header.",
+		);
+		expect(added.number).toBe("Q5");
+		expect(questions(added.plan).at(-1)).toMatchObject({
+			number: "Q5",
+			text: "✅ Ready to merge?",
+			body: "Look at\nthe header.",
+		});
+		expect(questions(added.plan)).toHaveLength(questions(BLOCKED).length + 1);
+	});
+
+	it("makes ## Blocked when there is none", () => {
+		const added = withQuestion(GOOD, "✅ Ready to merge?");
+		expect(added).toEqual({
+			plan: `${GOOD.trimEnd()}\n\n## Blocked\n\n- [ ] Q1. ✅ Ready to merge?\n`,
+			number: "Q1",
+		});
 	});
 });
 
