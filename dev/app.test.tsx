@@ -35,6 +35,8 @@ let posts: {
 }[];
 /** Set to refuse the next write the way the server would. */
 let refusal: { reason: string; message: string } | null;
+/** What `/api/paths` lists, for `@`. */
+let tree: string[];
 /** The stream the page opened, so a test can push through it. */
 let stream: FakeEventSource | null;
 
@@ -68,6 +70,7 @@ function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 
 beforeEach(() => {
 	served = snapshot();
+	tree = [];
 	down = false;
 	posts = [];
 	refusal = null;
@@ -82,6 +85,9 @@ beforeEach(() => {
 				return Response.json(refusal, { status: 409 });
 			}
 			return Response.json({});
+		}
+		if (path.startsWith("/api/paths")) {
+			return Response.json(tree);
 		}
 		return Response.json(served);
 	}) as unknown as typeof fetch;
@@ -534,6 +540,93 @@ describe("inbox", () => {
 			expect(document.body.textContent).toContain("Answer it in that chat"),
 		);
 		expect(view.queryByRole("textbox", { name: "reply" })).toBeNull();
+	});
+});
+
+describe("@ files", () => {
+	/** Opens Q1 and returns its reply box, with the tree's paths loaded. */
+	async function replyBox(paths: string[]) {
+		tree = paths;
+		const view = await open({
+			inbox: { questions: [question()], replied: 0 },
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+		const box = (await waitFor(() =>
+			view.getByRole("textbox", { name: "reply" }),
+		)) as HTMLTextAreaElement;
+		return { view, box };
+	}
+
+	/** Types `value` as if the caret ended up at its end. */
+	async function type(box: HTMLTextAreaElement, value: string) {
+		await act(async () => {
+			box.focus();
+			fireEvent.change(box, { target: { value } });
+			box.setSelectionRange(value.length, value.length);
+			fireEvent.select(box);
+		});
+	}
+
+	it("offers the task's files for an @, best match first, and writes the one picked", async () => {
+		const { view, box } = await replyBox([
+			"src/",
+			"src/app.tsx",
+			"src/lib/",
+			"src/lib/apply.ts",
+			"README.md",
+		]);
+
+		await type(box, "see @app");
+
+		const options = await waitFor(() => view.getAllByRole("option"));
+		expect(options.map((option) => option.textContent)).toEqual([
+			"app.tsxsrc/",
+			"apply.tssrc/lib/",
+		]);
+		await act(async () => fireEvent.keyDown(box, { key: "ArrowDown" }));
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(box.value).toBe("see @src/lib/apply.ts ");
+		expect(view.queryByRole("listbox")).toBeNull();
+		// Enter picked a file; it did not send the reply.
+		expect(posts).toEqual([]);
+	});
+
+	it("keeps the list open inside a directory picked", async () => {
+		const { view, box } = await replyBox(["src/", "src/lib/", "src/lib/a.ts"]);
+
+		await type(box, "@sr");
+		await act(async () =>
+			fireEvent.mouseDown(view.getByRole("option", { name: /^src\// })),
+		);
+		expect(box.value).toBe("@src/");
+		await type(box, box.value);
+
+		expect(
+			view.getAllByRole("option").map((option) => option.textContent),
+		).toEqual(["lib/src/", "a.tssrc/lib/"]);
+	});
+
+	it("closes the list on Escape, leaving the question open", async () => {
+		const { view, box } = await replyBox(["src/app.tsx"]);
+
+		await type(box, "@app");
+		await waitFor(() => view.getByRole("listbox"));
+		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
+
+		expect(view.queryByRole("listbox")).toBeNull();
+		expect(view.getByRole("textbox", { name: "reply" })).toBeTruthy();
+		expect(box.value).toBe("@app");
+	});
+
+	it("ignores an @ inside a word, like an address", async () => {
+		const { view, box } = await replyBox(["example.com"]);
+
+		await type(box, "mail me@example");
+
+		expect(view.queryByRole("listbox")).toBeNull();
 	});
 });
 

@@ -274,6 +274,19 @@ export async function dev(
 		});
 	};
 
+	// Names only, and only what git would show anyone with the repo: enough to
+	// point an agent at a file with `@`, and nothing inside one.
+	const paths = async (request: Request): Promise<Response> => {
+		const task = new URL(request.url).searchParams.get("task") ?? "";
+		const worktree = task === "" ? null : await service.find(task);
+		if (worktree !== null && !worktree.exists) {
+			fail("not_found", `no worktree for '${task}'`, { task });
+		}
+		return Response.json(
+			await service.git.paths(worktree?.path ?? service.git.root),
+		);
+	};
+
 	const addTodo = async (request: Request): Promise<Response> => {
 		const form = await request.formData();
 		const todo = await journal.record("todo add", null, async () =>
@@ -336,6 +349,7 @@ export async function dev(
 			"/api/reply/hold": { POST: guarded(hold) },
 			"/api/reply/release": { POST: guarded(release) },
 			"/api/file": guarded(file),
+			"/api/paths": guarded(paths),
 			"/api/todos": { POST: guarded(addTodo) },
 			"/api/todos/:id": {
 				PATCH: guarded(updateTodo),

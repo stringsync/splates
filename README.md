@@ -333,7 +333,10 @@ wait on you, and a replied one says where it stands in a word: Waiting (for
 its agent, still editable), Editing, or Read (by its agent). Opening one still waiting holds it, so its agent cannot claim it
 half-changed, and closing it lets go; the hold also lapses on its own after
 five minutes. One its agent has read shows the answer and can no longer
-change. Todos open to reword, attach files to, or remove. On a phone the tabs sit along the
+change. Todos open to reword, attach files to, or remove. Typing `@` in a reply or a todo
+offers the files and directories in the task's tree (the main tree's for a
+todo), tracked or new but not ignored, and writes the one picked as
+`@path/from/root`; picking a directory keeps the list open on what is inside. On a phone the tabs sit along the
 bottom, in reach of a thumb; on anything wider they run down a sidebar.
 If the server stops answering, the header says it is offline, since what the
 page shows may be stale.

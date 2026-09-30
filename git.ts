@@ -168,6 +168,31 @@ export class Git {
 		return [...new Set(paths)].sort();
 	}
 
+	/**
+	 * Every path a person might point an agent at in the tree at `cwd`: the
+	 * files git tracks, the new ones it does not ignore, and each directory
+	 * above them, which ends in `/`. Sorted, relative to the tree's root.
+	 */
+	async paths(cwd: string): Promise<string[]> {
+		const files = lines(
+			await this.out(
+				cwd,
+				"ls-files",
+				"--cached",
+				"--others",
+				"--exclude-standard",
+			),
+		);
+		const found = new Set(files);
+		for (const file of files) {
+			const parts = file.split("/");
+			for (let depth = 1; depth < parts.length; depth++) {
+				found.add(`${parts.slice(0, depth).join("/")}/`);
+			}
+		}
+		return [...found].sort();
+	}
+
 	rebase(cwd: string, onto: string): Promise<GitResult> {
 		return this.run(cwd, "rebase", onto);
 	}

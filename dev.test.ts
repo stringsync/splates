@@ -479,6 +479,36 @@ describe("dev", () => {
 		});
 	});
 
+	it("lists the paths a task's tree holds, for pointing an agent at one", async () => {
+		await add(deps, "alpha");
+		const tree = (await deps.service.find("alpha")).path;
+		await deps.fs.mkdir(`${tree}/src/lib`);
+		await deps.commit(tree, "src/lib/a.ts", "a\n", "add a");
+		await deps.fs.write(`${tree}/src/new.ts`, "new\n");
+		await deps.fs.write(`${tree}/.gitignore`, "*.log\n");
+		await deps.fs.write(`${tree}/debug.log`, "noise\n");
+
+		await serving(async (_snapshot, port) => {
+			const paths = (task: string) =>
+				fetch(
+					`http://127.0.0.1:${port}/api/paths?${new URLSearchParams({ task })}`,
+				);
+
+			const listed = (await (await paths("alpha")).json()) as string[];
+			expect(listed).toContain("src/");
+			expect(listed).toContain("src/lib/");
+			expect(listed).toContain("src/lib/a.ts");
+			// New but not ignored, so an agent may well want pointing at it.
+			expect(listed).toContain("src/new.ts");
+			expect(listed).not.toContain("debug.log");
+			// The main tree, where trunk is, has none of the task's work.
+			expect((await (await paths("")).json()) as string[]).not.toContain(
+				"src/lib/a.ts",
+			);
+			expect((await paths("nope")).status).toBe(404);
+		});
+	});
+
 	it("refuses a host it was not told about, and serves one it was", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),

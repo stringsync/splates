@@ -125,3 +125,15 @@ async function json(path: string, body: unknown): Promise<void> {
 		body: JSON.stringify(body),
 	});
 }
+
+/**
+ * The files and directories (ending in `/`) a task's tree holds, or the main
+ * tree's for none: what `@` offers.
+ */
+export async function paths(task = ""): Promise<string[]> {
+	const response = await fetch(`/api/paths?${new URLSearchParams({ task })}`);
+	if (!response.ok) {
+		throw new ApiError("error", `/api/paths: ${response.status}`);
+	}
+	return (await response.json()) as string[];
+}

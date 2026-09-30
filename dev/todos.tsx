@@ -29,6 +29,7 @@ import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import { addTodo, removeTodo, updateTodo } from "./api";
 import { AttachButton, FileList, useFiles } from "./files";
+import { MentionAnchor, useMentions } from "./mentions";
 
 /**
  * Work deferred for later, oldest first, and a line to add to it. Picking one
@@ -134,6 +135,7 @@ function Todo({
 function Add(): JSX.Element {
 	const [text, setText] = useState("");
 	const files = useFiles();
+	const mentions = useMentions<HTMLInputElement>({ task: "", text, setText });
 	const [sending, setSending] = useState(false);
 
 	const submit = async (event: FormEvent) => {
@@ -159,25 +161,31 @@ function Add(): JSX.Element {
 
 	return (
 		<form onSubmit={submit} className="flex flex-col gap-2">
-			<InputGroup>
-				<InputGroupInput
-					aria-label="new todo"
-					placeholder="Something to do later"
-					value={text}
-					onChange={(event) => setText(event.target.value)}
-					onPaste={files.paste}
-				/>
-				<InputGroupAddon align="inline-end">
-					<AttachButton files={files} />
-					<InputGroupButton
-						type="submit"
-						variant="secondary"
-						disabled={text.trim() === "" || sending}
-					>
-						Add
-					</InputGroupButton>
-				</InputGroupAddon>
-			</InputGroup>
+			<MentionAnchor mentions={mentions}>
+				<InputGroup>
+					<InputGroupInput
+						ref={mentions.ref}
+						aria-label="new todo"
+						placeholder="Something to do later, @ for a file"
+						value={text}
+						onChange={mentions.onChange}
+						onSelect={mentions.onSelect}
+						onClick={mentions.onClick}
+						onKeyDown={mentions.onKeyDown}
+						onPaste={files.paste}
+					/>
+					<InputGroupAddon align="inline-end">
+						<AttachButton files={files} />
+						<InputGroupButton
+							type="submit"
+							variant="secondary"
+							disabled={text.trim() === "" || sending}
+						>
+							Add
+						</InputGroupButton>
+					</InputGroupAddon>
+				</InputGroup>
+			</MentionAnchor>
 			<FileList files={files} />
 		</form>
 	);
@@ -193,6 +201,11 @@ function Edit({
 }): JSX.Element {
 	const [text, setText] = useState(todo.text);
 	const files = useFiles(todo.files);
+	const mentions = useMentions<HTMLTextAreaElement>({
+		task: "",
+		text,
+		setText,
+	});
 	const [busy, setBusy] = useState(false);
 	// Removing cannot be taken back, so it asks twice.
 	const [confirming, setConfirming] = useState(false);
@@ -233,18 +246,24 @@ function Edit({
 				</SheetDescription>
 			</SheetHeader>
 			<div className="flex flex-col gap-2 px-4">
-				<InputGroup>
-					<InputGroupTextarea
-						aria-label="todo"
-						value={text}
-						onChange={(event) => setText(event.target.value)}
-						onPaste={files.paste}
-						rows={3}
-					/>
-					<InputGroupAddon align="block-end">
-						<AttachButton files={files} />
-					</InputGroupAddon>
-				</InputGroup>
+				<MentionAnchor mentions={mentions}>
+					<InputGroup>
+						<InputGroupTextarea
+							ref={mentions.ref}
+							aria-label="todo"
+							value={text}
+							onChange={mentions.onChange}
+							onSelect={mentions.onSelect}
+							onClick={mentions.onClick}
+							onKeyDown={mentions.onKeyDown}
+							onPaste={files.paste}
+							rows={3}
+						/>
+						<InputGroupAddon align="block-end">
+							<AttachButton files={files} />
+						</InputGroupAddon>
+					</InputGroup>
+				</MentionAnchor>
 				<FileList files={files} />
 			</div>
 			<SheetFooter className="flex-row justify-between">

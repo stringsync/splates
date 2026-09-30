@@ -49,6 +49,7 @@ import type { Snapshot } from "../snapshot";
 import { fileUrl, holdReply, releaseReply, reply, unreply } from "./api";
 import { AttachButton, FileList, useFiles } from "./files";
 import { Markdown } from "./markdown";
+import { MentionAnchor, useMentions } from "./mentions";
 import { Task } from "./tasks";
 
 /** How often an open reply renews its hold, well inside `EDIT_MS`. */
@@ -380,6 +381,11 @@ function ReplyBox({
 	const [choices, setChoices] = useState<string[]>(pending?.choices ?? []);
 	const [text, setText] = useState(pending?.text ?? "");
 	const files = useFiles(pending?.files ?? []);
+	const mentions = useMentions<HTMLTextAreaElement>({
+		task: question.task,
+		text,
+		setText,
+	});
 	const [sending, setSending] = useState(false);
 	const offers = question.choices.length > 0;
 
@@ -420,6 +426,9 @@ function ReplyBox({
 	};
 
 	const keys = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+		if (mentions.onKeyDown(event)) {
+			return;
+		}
 		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 			event.preventDefault();
 			send();
@@ -431,29 +440,38 @@ function ReplyBox({
 			{offers && (
 				<Choices question={question} value={choices} onChange={setChoices} />
 			)}
-			<InputGroup>
-				<InputGroupTextarea
-					aria-label="reply"
-					placeholder={offers ? "Add context (optional)" : "Reply"}
-					value={text}
-					onChange={(event) => setText(event.target.value)}
-					onPaste={files.paste}
-					onKeyDown={keys}
-					rows={offers ? 2 : 3}
-					autoFocus={!offers && pending === null}
-				/>
-				<InputGroupAddon align="block-end" className="justify-between">
-					<AttachButton files={files} />
-					<InputGroupButton
-						variant="default"
-						size="sm"
-						disabled={!ready || sending}
-						onClick={send}
-					>
-						{pending === null ? "Send" : "Update"}
-					</InputGroupButton>
-				</InputGroupAddon>
-			</InputGroup>
+			<MentionAnchor mentions={mentions}>
+				<InputGroup>
+					<InputGroupTextarea
+						ref={mentions.ref}
+						aria-label="reply"
+						placeholder={
+							offers
+								? "Add context (optional), @ for a file"
+								: "Reply, @ for a file"
+						}
+						value={text}
+						onChange={mentions.onChange}
+						onSelect={mentions.onSelect}
+						onClick={mentions.onClick}
+						onPaste={files.paste}
+						onKeyDown={keys}
+						rows={offers ? 2 : 3}
+						autoFocus={!offers && pending === null}
+					/>
+					<InputGroupAddon align="block-end" className="justify-between">
+						<AttachButton files={files} />
+						<InputGroupButton
+							variant="default"
+							size="sm"
+							disabled={!ready || sending}
+							onClick={send}
+						>
+							{pending === null ? "Send" : "Update"}
+						</InputGroupButton>
+					</InputGroupAddon>
+				</InputGroup>
+			</MentionAnchor>
 			<FileList files={files} />
 			{pending !== null && (
 				<Button
