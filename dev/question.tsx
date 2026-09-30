@@ -50,7 +50,7 @@ export function ItemSheet({
 		>
 			<SheetHeader className="pr-12">
 				<div className="flex items-center gap-2 text-muted-foreground text-xs">
-					<span className="tabular-nums">{id}</span>
+					<span className="shrink-0 tabular-nums">{id}</span>
 					<span className="truncate">{task}</span>
 					{details && (
 						// Over this rather than in place of it: closing the task comes

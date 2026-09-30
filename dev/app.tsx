@@ -83,8 +83,8 @@ export function App(): JSX.Element {
 						{/* Heads the sidebar when there is one. */}
 						<h1
 							className={cn(
-								"font-medium text-sm",
-								wide && "fixed top-6 left-6 z-50",
+								"min-w-0 truncate font-medium text-sm",
+								wide && "fixed top-6 left-6 z-50 max-w-44",
 							)}
 						>
 							{snapshot?.repo ?? "arbor"}
@@ -93,7 +93,7 @@ export function App(): JSX.Element {
 					    stops answering, the page says so, since what it shows may no
 					    longer be true. */}
 						{offline && (
-							<span role="status" className="text-destructive text-xs">
+							<span role="status" className="shrink-0 text-destructive text-xs">
 								Offline: is `arbor dev` still running?
 							</span>
 						)}

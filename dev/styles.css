@@ -102,7 +102,9 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	/* A long URL or path breaks rather than pushing the page wider; lines
+	   meant to stay on one line truncate instead. */
 	body {
-		@apply bg-background text-foreground antialiased;
+		@apply bg-background text-foreground antialiased wrap-anywhere;
 	}
 }

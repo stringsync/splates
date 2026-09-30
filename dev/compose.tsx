@@ -250,8 +250,10 @@ export function Choices({
 									value.includes(key) ? "text-primary" : "text-muted-foreground"
 								}
 							/>
-							<span className="flex-1">{text}</span>
-							<span className="text-muted-foreground text-xs">{key}</span>
+							<span className="min-w-0 flex-1">{text}</span>
+							<span className="shrink-0 text-muted-foreground text-xs">
+								{key}
+							</span>
 						</ToggleGroupItem>
 					);
 				})}
