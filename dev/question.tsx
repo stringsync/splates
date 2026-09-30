@@ -1,4 +1,3 @@
-import { PanelRightIcon } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
@@ -34,7 +33,7 @@ export function ItemSheet({
 	task: string;
 	/** `Q3`, `M2`. */
 	id: string;
-	/** The task's details, for the Task button; none hides it. */
+	/** The task's details, for the View button; none hides it. */
 	details: Details | undefined;
 	title: string;
 	/** Markdown under the title, images and all. */
@@ -59,13 +58,12 @@ export function ItemSheet({
 						<Sheet>
 							<SheetTrigger
 								render={
-									<Button variant="ghost" size="xs" className="-my-1 ml-auto" />
+									<Button variant="outline" size="xs" className="-my-1" />
 								}
 							>
-								<PanelRightIcon data-icon="inline-start" />
-								Task
+								View
 							</SheetTrigger>
-							<Task task={details} side="right" />
+							<Task task={details} />
 						</Sheet>
 					)}
 				</div>

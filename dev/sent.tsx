@@ -5,10 +5,8 @@ import {
 	type LucideIcon,
 	PencilLineIcon,
 	SendIcon,
-	SquarePenIcon,
 } from "lucide-react";
 import { type JSX, useState } from "react";
-import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Empty,
 	EmptyDescription,
@@ -16,16 +14,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "#dev/components/ui/empty.tsx";
-import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-} from "#dev/components/ui/sheet.tsx";
-import {
-	ToggleGroup,
-	ToggleGroupItem,
-} from "#dev/components/ui/toggle-group.tsx";
+import { Sheet } from "#dev/components/ui/sheet.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Sent, SentState } from "../send";
 import type { Snapshot } from "../snapshot";
@@ -48,7 +37,6 @@ interface Named {
 export function SentTab({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const { sent } = snapshot;
 	const [opened, setOpened] = useState<Named | null>(null);
-	const [writing, setWriting] = useState(false);
 
 	const current =
 		opened === null
@@ -56,23 +44,9 @@ export function SentTab({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 			: sent.find(
 					(item) => item.task === opened.task && item.message.id === opened.id,
 				);
-	// Tasks a message can go to: any with a tree for its plan.
-	const tasks = snapshot.tasks
-		.filter((task) => task.status !== "orphaned")
-		.map((task) => task.task);
 
 	return (
-		<div className="flex flex-col gap-4">
-			<Button
-				variant="outline"
-				size="sm"
-				className="self-end"
-				disabled={tasks.length === 0}
-				onClick={() => setWriting(true)}
-			>
-				<SquarePenIcon data-icon="inline-start" />
-				New message
-			</Button>
+		<>
 			{sent.length === 0 ? (
 				<Empty>
 					<EmptyHeader>
@@ -127,12 +101,7 @@ export function SentTab({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					</ItemSheet>
 				)}
 			</Sheet>
-			<Sheet open={writing} onOpenChange={setWriting}>
-				{writing && (
-					<NewMessage tasks={tasks} onDone={() => setWriting(false)} />
-				)}
-			</Sheet>
-		</div>
+		</>
 	);
 }
 
@@ -300,57 +269,6 @@ function Opened({
 				onDone={onDone}
 			/>
 		</div>
-	);
-}
-
-/** A message of its own to one task's agent. */
-function NewMessage({
-	tasks,
-	onDone,
-}: {
-	tasks: string[];
-	onDone: () => void;
-}): JSX.Element {
-	const [task, setTask] = useState(tasks.length === 1 ? (tasks[0] ?? "") : "");
-	return (
-		<SheetContent
-			side="bottom"
-			className="mx-auto max-h-[90dvh] max-w-2xl overflow-y-auto rounded-t-xl"
-		>
-			<SheetHeader>
-				<SheetTitle>New message</SheetTitle>
-			</SheetHeader>
-			<div className="flex flex-col gap-4 px-4 pb-4">
-				<ToggleGroup
-					value={task === "" ? [] : [task]}
-					onValueChange={(picked) => setTask((picked as string[])[0] ?? "")}
-					orientation="vertical"
-					variant="outline"
-					className="w-full"
-					aria-label="task"
-				>
-					{tasks.map((name) => (
-						<ToggleGroupItem
-							key={name}
-							value={name}
-							className="w-full justify-start"
-						>
-							{name}
-						</ToggleGroupItem>
-					))}
-				</ToggleGroup>
-				{task !== "" && (
-					<Composer
-						key={task}
-						task={task}
-						label="Send"
-						placeholder={`Tell ${task}'s agent, @ for a file`}
-						send={(composed) => message({ task, ...composed })}
-						onDone={onDone}
-					/>
-				)}
-			</div>
-		</SheetContent>
 	);
 }
 

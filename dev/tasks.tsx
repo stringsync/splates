@@ -103,16 +103,10 @@ function Progress({ plan }: { plan: string | null }): JSX.Element | null {
 }
 
 /**
- * One task, all of it. Rises from the bottom from the task list; slides in
- * from the right over an open question, so closing it returns to the question.
+ * One task, all of it, rising from the bottom: from the task list, or stacked
+ * over an open question, so closing it returns to the question.
  */
-export function Task({
-	task,
-	side = "bottom",
-}: {
-	task: Details;
-	side?: "bottom" | "right";
-}): JSX.Element {
+export function Task({ task }: { task: Details }): JSX.Element {
 	const fields: [string, ReactNode][] = [
 		["status", task.status],
 		["branch", task.branch],
@@ -136,12 +130,8 @@ export function Task({
 	];
 	return (
 		<SheetContent
-			side={side}
-			className={
-				side === "bottom"
-					? "mx-auto max-h-[85dvh] max-w-2xl overflow-y-auto rounded-t-xl"
-					: "w-full overflow-y-auto sm:max-w-lg"
-			}
+			side="bottom"
+			className="mx-auto max-h-[85dvh] max-w-2xl overflow-y-auto rounded-t-xl"
 		>
 			<SheetHeader>
 				<SheetTitle>{task.task}</SheetTitle>

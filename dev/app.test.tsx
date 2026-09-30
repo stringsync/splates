@@ -260,6 +260,38 @@ describe("inbox", () => {
 		expect(view.getAllByRole("img", { name: "the header" })).toHaveLength(1);
 	});
 
+	it("writes a new message to the task picked", async () => {
+		const view = await open({
+			tasks: [details({ task: "alpha" }), details({ task: "beta" })],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /New message/ })),
+		);
+
+		// No box until there is a task to send it to.
+		expect(view.queryByRole("textbox", { name: "message" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "beta" })),
+			),
+		);
+		await act(async () =>
+			fireEvent.change(view.getByRole("textbox", { name: "message" }), {
+				target: { value: "rebase on main first" },
+			}),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		await waitFor(() =>
+			expect(posts.map((post) => post.path)).toEqual(["/api/message"]),
+		);
+		const form = posts[0]?.body as FormData;
+		expect(form.get("task")).toBe("beta");
+		expect(form.get("text")).toBe("rebase on main first");
+	});
+
 	it("opens the task over the question, which stays open under it", async () => {
 		const view = await open({
 			inbox: { questions: [question()], replied: 0 },
@@ -271,13 +303,15 @@ describe("inbox", () => {
 		);
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Task" })),
+				await waitFor(() => view.getByRole("button", { name: "View" })),
 			),
 		);
 
 		await waitFor(() =>
 			expect(document.body.textContent).toContain("The goal here."),
 		);
+		// Rising from the bottom as it does from the task list, over the question.
+		expect(document.querySelectorAll('[data-side="bottom"]')).toHaveLength(2);
 		// Still there under the task, only inert while the task is on top.
 		expect(
 			view.getByRole("textbox", { name: "message", hidden: true }),
@@ -580,39 +614,6 @@ describe("sent", () => {
 			expect(document.body.textContent).toContain("was read by its agent"),
 		);
 		expect(view.queryByRole("textbox", { name: "message" })).toBeNull();
-	});
-
-	it("writes a new message to the task picked", async () => {
-		const view = await open({
-			tasks: [details({ task: "alpha" }), details({ task: "beta" })],
-		});
-		await tab(view, /sent/i);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /New message/ })),
-		);
-
-		// No box until there is a task to send it to.
-		expect(view.queryByRole("textbox", { name: "message" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "beta" })),
-			),
-		);
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "message" }), {
-				target: { value: "rebase on main first" },
-			}),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send" })),
-		);
-
-		await waitFor(() =>
-			expect(posts.map((post) => post.path)).toEqual(["/api/message"]),
-		);
-		const form = posts[0]?.body as FormData;
-		expect(form.get("task")).toBe("beta");
-		expect(form.get("text")).toBe("rebase on main first");
 	});
 });
 

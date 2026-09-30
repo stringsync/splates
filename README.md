@@ -330,8 +330,9 @@ The inbox, what you sent, todos and tasks in a browser, on
 `http://localhost:4269`, reloading themselves as anything changes. Built for a
 phone first: the inbox leads with the questions waiting on you, grouped by
 task, and tapping one opens it with its body, images full size on a tap, its
-choices, and a reply box that takes pasted or picked files. The task's plan
-slides in over the question without closing it.
+choices, and a reply box that takes pasted or picked files. View opens the
+task over it, just as from the task list, and closing it comes back to the
+question. New message writes to any task's agent unasked.
 
 A question leaves the inbox once answered, for the Sent tab, which lists every
 reply and message you sent each task's agent, one line each with where it
@@ -339,9 +340,8 @@ stands in a word: Waiting (for its agent, still yours to change or withdraw),
 Editing, Read (by its agent), or Done (checked off). Opening one still waiting
 holds it, so its agent cannot claim it half-changed, and closing it lets go;
 the hold also lapses on its own after five minutes. One its agent has read
-shows what you sent and a box to follow it up with a message. New message
-writes to any task's agent unprompted. Everything stays listed until its task
-lands or goes.
+shows what you sent and a box to follow it up with a message. Everything
+stays listed until its task lands or goes.
 
 Todos open to reword, attach files to, or remove. Typing `@` in a reply, a
 message or a todo offers the files and directories in the task's tree (the
