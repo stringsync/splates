@@ -270,26 +270,13 @@ describe("inbox", () => {
 		expect(view.getAllByRole("img", { name: "the header" })).toHaveLength(1);
 	});
 
-	it("opens a task from its section, or from a question, over it", async () => {
+	it("opens a question's task over it, and nowhere else in the list", async () => {
 		const view = await open({
 			inbox: { questions: [question()], replied: 0 },
 			tasks: [details({ plan: "# alpha\n\n## Goal\n\nThe goal here." })],
 		});
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "View alpha" })),
-		);
-		await waitFor(() =>
-			expect(document.body.textContent).toContain("The goal here."),
-		);
-		await act(async () =>
-			fireEvent.keyDown(document.activeElement ?? document.body, {
-				key: "Escape",
-			}),
-		);
-		await waitFor(() =>
-			expect(document.body.textContent).not.toContain("The goal here."),
-		);
+		expect(view.queryByRole("button", { name: /View/ })).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
@@ -981,6 +968,35 @@ describe("todo edits", () => {
 
 		await waitFor(() => expect(posts).toHaveLength(1));
 		expect(posts[0]).toMatchObject({ path: "/api/todos/4", method: "DELETE" });
+	});
+});
+
+describe("tasks", () => {
+	it("flags only the statuses that are news, and opens a task's plan", async () => {
+		const view = await open({
+			tasks: [
+				details({ task: "alpha" }),
+				details({
+					task: "beta",
+					status: "escalated",
+					escalation: "needs eyes",
+					plan: "# beta\n\n## Goal\n\nship the thing\n",
+				}),
+			],
+		});
+		await tab(view, /tasks/i);
+
+		expect(view.queryByText("working")).toBeNull();
+		expect(view.getByText("escalated")).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /beta/ })),
+		);
+
+		await waitFor(() =>
+			expect(document.body.textContent).toContain("ship the thing"),
+		);
+		expect(document.body.textContent).toContain("needs eyes");
 	});
 });
 

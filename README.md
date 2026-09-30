@@ -321,12 +321,11 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 ### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
-The inbox, what you sent, and the todos in a browser, on
+The inbox, what you sent, the todos, and the tasks in a browser, on
 `http://localhost:4269`, reloading themselves as anything changes. Built for a
 phone first. The inbox holds only what waits on you: each unanswered question,
 grouped by task, a task only when it has one. A task whose agent is in a live
-session is left out, since that agent is answered in its chat. Each task's
-View opens its details and whole plan.
+session is left out, since that agent is answered in its chat.
 
 Tapping a question opens it with its body, images full size on a tap, its
 choices, a View button for its task, and a reply box that takes pasted or
@@ -348,6 +347,9 @@ until its task lands or goes.
 A line across the top always says something, so nothing under it moves: the
 latest reply its agent has yet to read, with Withdraw, or else how many
 questions need you and how many replies wait for their agents.
+
+Tasks lists every task with its progress through its plan, flagging only an
+escalated or broken status; tapping one opens its details and whole plan.
 
 Todos open to reword, attach files to, or remove. Typing `@` in a reply or a
 todo offers the files and directories in the task's tree (the main tree's for

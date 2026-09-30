@@ -1,5 +1,6 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
+	GitBranchIcon,
 	InboxIcon,
 	ListTodoIcon,
 	type LucideIcon,
@@ -17,12 +18,14 @@ import { cn } from "#dev/lib/utils.ts";
 import { Banner } from "./banner";
 import { Feed } from "./feed";
 import { Inbox, Sent, waiting } from "./inbox";
+import { Tasks } from "./tasks";
 import { Todos } from "./todos";
 
 const TABS: { value: string; label: string; Icon: LucideIcon }[] = [
 	{ value: "inbox", label: "Inbox", Icon: InboxIcon },
 	{ value: "sent", label: "Sent", Icon: SendIcon },
 	{ value: "todos", label: "Todos", Icon: ListTodoIcon },
+	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
 ];
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
@@ -157,6 +160,9 @@ export function App(): JSX.Element {
 							</TabsContent>
 							<TabsContent value="todos">
 								<Todos snapshot={snapshot} />
+							</TabsContent>
+							<TabsContent value="tasks">
+								<Tasks tasks={snapshot.tasks} />
 							</TabsContent>
 						</Tabs>
 					)}

@@ -17,7 +17,6 @@ import type { Snapshot } from "../snapshot";
 import { approve, defer, reply, skip, withdraw } from "./api";
 import { Composer, Held } from "./compose";
 import { ItemSheet, plain } from "./question";
-import { Task } from "./tasks";
 
 /** A question by name, rather than the object, so it keeps up with the plan. */
 interface Named {
@@ -94,7 +93,7 @@ function answered(question: OpenQuestion): boolean {
 
 /**
  * Questions grouped by task, one line each, a task only when it has some. Each
- * opens in a sheet to act on it; a task's View opens its plan.
+ * opens in a sheet to act on it, where View opens its task.
  */
 function Questions({
 	snapshot,
@@ -106,7 +105,6 @@ function Questions({
 	empty: ReactNode;
 }): JSX.Element {
 	const [opened, setOpened] = useState<Named | null>(null);
-	const [viewing, setViewing] = useState<string | null>(null);
 
 	// Only among `shown`: a question answered from here moves to the other tab,
 	// and its sheet closes rather than following it there.
@@ -117,7 +115,6 @@ function Questions({
 					(question) =>
 						question.task === opened.task && question.number === opened.number,
 				);
-	const details = viewing === null ? undefined : find(snapshot.tasks, viewing);
 
 	return (
 		<>
@@ -131,20 +128,7 @@ function Questions({
 							aria-label={task}
 							className="flex flex-col gap-1"
 						>
-							<div className="flex items-center gap-2">
-								<h2 className="truncate text-muted-foreground text-xs">
-									{task}
-								</h2>
-								<Button
-									variant="ghost"
-									size="xs"
-									className="-my-1 ml-auto text-muted-foreground"
-									aria-label={`View ${task}`}
-									onClick={() => setViewing(task)}
-								>
-									View
-								</Button>
-							</div>
+							<h2 className="truncate text-muted-foreground text-xs">{task}</h2>
 							{asked.map((question) => (
 								<Row
 									key={question.number}
@@ -181,16 +165,6 @@ function Questions({
 						/>
 					</ItemSheet>
 				)}
-			</Sheet>
-			<Sheet
-				open={details !== undefined}
-				onOpenChange={(open) => {
-					if (!open) {
-						setViewing(null);
-					}
-				}}
-			>
-				{details && <Task task={details} />}
 			</Sheet>
 		</>
 	);
