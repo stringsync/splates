@@ -8,6 +8,7 @@
    nothing at all. */
 @source "./app.tsx";
 @source "./inbox.tsx";
+@source "./banner.tsx";
 @source "./todos.tsx";
 @source "./tasks.tsx";
 @source "./markdown.tsx";

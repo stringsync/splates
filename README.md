@@ -321,28 +321,33 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 ### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
-Every task and its questions, and the todos, in a browser, on
+The inbox, what you sent, and the todos in a browser, on
 `http://localhost:4269`, reloading themselves as anything changes. Built for a
-phone first. The inbox lists each task with its status and a View button that
-opens its details and whole plan. Under each are its questions, one line
-each: the ones waiting on you first, then the answered ones with where each
-stands in a word: Waiting (for its agent, still yours to change or
-withdraw), Editing, Read (by its agent), or Done (checked off). Tasks with
-something waiting on you come first.
+phone first. The inbox holds only what waits on you: each unanswered question,
+grouped by task, a task only when it has one. A task whose agent is in a live
+session is left out, since that agent is answered in its chat. Each task's
+View opens its details and whole plan.
 
 Tapping a question opens it with its body, images full size on a tap, its
-choices, and a reply box that takes pasted or picked files. Beside the box,
-**Defer** makes the question a todo, its images carried along, and answers it
-"Deferred to todo 7: leave it out of this task."; **Skip** answers "Skip
-this: go ahead without it.". Opening a reply still waiting holds it, so its
-agent cannot claim it half-changed, and closing it lets go; the hold also
-lapses on its own after five minutes. One its agent has read shows what was
-said so far and a box to follow it up.
+choices, a View button for its task, and a reply box that takes pasted or
+picked files. Beside the box, **Defer** makes the question a todo, its images
+carried along, and answers it "Deferred to todo 7: leave it out of this
+task."; **Skip** answers "Skip this: go ahead without it.". A task escalated
+with `arbor escalate --review` asks `✅ Ready to merge?` like any other
+question, with **Approve** ("Approved: merge it.") beside a box to request
+changes.
 
-A task escalated with `arbor escalate --review` shows one card in place of
-its questions: what the agent says to look at, its commits and diff size, and
-**Approve** or **Request changes**. Approving answers "Approved: merge it.";
-requesting changes opens a box to say what.
+Once answered, a question moves to Sent, one line each with where it stands
+in a word: Waiting (for its agent, still yours to change or withdraw),
+Editing, Read (by its agent), or Done (checked off). Opening one still
+waiting holds it, so its agent cannot claim it half-changed, and closing it
+lets go; the hold also lapses on its own after five minutes. One its agent
+has read shows what was said so far and a box to follow it up. Each stays
+until its task lands or goes.
+
+A line across the top always says something, so nothing under it moves: the
+latest reply its agent has yet to read, with Withdraw, or else how many
+questions need you and how many replies wait for their agents.
 
 Todos open to reword, attach files to, or remove. Typing `@` in a reply or a
 todo offers the files and directories in the task's tree (the main tree's for

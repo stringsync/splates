@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -6,20 +7,25 @@ import {
 	DialogTrigger,
 } from "#dev/components/ui/dialog.tsx";
 import {
+	Sheet,
 	SheetContent,
 	SheetHeader,
 	SheetTitle,
+	SheetTrigger,
 } from "#dev/components/ui/sheet.tsx";
+import type { Details } from "../show";
 import { fileUrl } from "./api";
 import { Markdown } from "./markdown";
+import { Task } from "./tasks";
 
 /**
- * A bottom sheet for one question to read and answer: its number and task,
- * its title and body, then whatever can be done about it.
+ * A bottom sheet for one thing to read and answer: its id and task, its task
+ * a tap away, its title and body, then whatever can be done about it.
  */
 export function ItemSheet({
 	task,
 	id,
+	details,
 	title,
 	body = "",
 	children,
@@ -27,6 +33,8 @@ export function ItemSheet({
 	task: string;
 	/** `Q3`. */
 	id: string;
+	/** The task's details, for the View button; none hides it. */
+	details: Details | undefined;
 	title: string;
 	/** Markdown under the title, images and all. */
 	body?: string;
@@ -44,6 +52,20 @@ export function ItemSheet({
 				<div className="flex items-center gap-2 text-muted-foreground text-xs">
 					<span className="tabular-nums">{id}</span>
 					<span className="truncate">{task}</span>
+					{details && (
+						// Over this rather than in place of it: closing the task comes
+						// back here, words and all.
+						<Sheet>
+							<SheetTrigger
+								render={
+									<Button variant="outline" size="xs" className="-my-1" />
+								}
+							>
+								View
+							</SheetTrigger>
+							<Task task={details} />
+						</Sheet>
+					)}
 				</div>
 				<SheetTitle>
 					<Markdown text={title} image={image} />

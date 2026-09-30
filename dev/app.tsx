@@ -1,5 +1,10 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { InboxIcon, ListTodoIcon, type LucideIcon } from "lucide-react";
+import {
+	InboxIcon,
+	ListTodoIcon,
+	type LucideIcon,
+	SendIcon,
+} from "lucide-react";
 import { type JSX, useEffect, useState, useSyncExternalStore } from "react";
 import {
 	Tabs,
@@ -9,12 +14,14 @@ import {
 } from "#dev/components/ui/tabs.tsx";
 import { Toaster } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { Banner } from "./banner";
 import { Feed } from "./feed";
-import { Inbox } from "./inbox";
+import { Inbox, Sent, waiting } from "./inbox";
 import { Todos } from "./todos";
 
 const TABS: { value: string; label: string; Icon: LucideIcon }[] = [
 	{ value: "inbox", label: "Inbox", Icon: InboxIcon },
+	{ value: "sent", label: "Sent", Icon: SendIcon },
 	{ value: "todos", label: "Todos", Icon: ListTodoIcon },
 ];
 
@@ -52,9 +59,7 @@ export function App(): JSX.Element {
 		["changed"],
 	);
 
-	const open =
-		snapshot?.inbox.questions.filter((question) => question.state === "open")
-			.length ?? 0;
+	const open = snapshot === null ? 0 : waiting(snapshot).length;
 	// The tab says what waits on you, so a phone's tab switcher does too.
 	useEffect(() => {
 		const repo = snapshot?.repo ?? "arbor";
@@ -90,6 +95,7 @@ export function App(): JSX.Element {
 							</span>
 						)}
 					</header>
+					{snapshot !== null && <Banner snapshot={snapshot} />}
 					{snapshot === null ? null : (
 						<Tabs
 							defaultValue="inbox"
@@ -145,6 +151,9 @@ export function App(): JSX.Element {
 							</TabsList>
 							<TabsContent value="inbox">
 								<Inbox snapshot={snapshot} />
+							</TabsContent>
+							<TabsContent value="sent">
+								<Sent snapshot={snapshot} />
 							</TabsContent>
 							<TabsContent value="todos">
 								<Todos snapshot={snapshot} />
