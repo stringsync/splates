@@ -8,6 +8,7 @@ import {
 } from "webappwiz/system";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
+import { openQuestions } from "./inbox";
 import type { Journal } from "./journal";
 import { type Attachment, replyTo } from "./reply";
 import { fingerprint, snapshot } from "./snapshot";
@@ -31,6 +32,16 @@ const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 
 /** A phone photo fits; a stray video does not. */
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
+
+/** The images a question may show, by extension, and how each is served. */
+const IMAGE_TYPES: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	gif: "image/gif",
+	webp: "image/webp",
+	svg: "image/svg+xml",
+};
 
 /** How a refusal from the core reads over HTTP. */
 const STATUS: Partial<Record<Reason, number>> = {
@@ -179,11 +190,11 @@ export async function dev(
 	const reply = async (request: Request): Promise<Response> => {
 		const form = await request.formData();
 		const task = String(form.get("task") ?? "");
-		const images: Attachment[] = [];
-		for (const file of form.getAll("images")) {
+		const files: Attachment[] = [];
+		for (const file of form.getAll("file")) {
 			if (file instanceof File) {
-				images.push({
-					name: file.name || "pasted.png",
+				files.push({
+					name: file.name || "pasted",
 					bytes: new Uint8Array(await file.arrayBuffer()),
 				});
 			}
@@ -191,12 +202,49 @@ export async function dev(
 		const replied = await journal.record("reply", task, () =>
 			replyTo({ service, fs }, task, String(form.get("question") ?? ""), {
 				text: String(form.get("text") ?? ""),
-				choice: String(form.get("choice") ?? "") || undefined,
-				images,
+				choices: form.getAll("choice").map(String),
+				files,
 			}),
 		);
 		await tick();
 		return Response.json(replied);
+	};
+
+	// Only an image an open question shows, so the page, and whoever a tunnel
+	// lets reach it, can read nothing on this machine an agent did not put in
+	// front of a person on purpose.
+	const image = async (request: Request): Promise<Response> => {
+		const params = new URL(request.url).searchParams;
+		const task = params.get("task") ?? "";
+		const path = params.get("path") ?? "";
+		const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
+		const { questions } = await openQuestions(
+			{ service, fs },
+			{ replied: true },
+		);
+		const shown = questions.some(
+			(question) => question.task === task && question.images.includes(path),
+		);
+		const bytes =
+			shown && type !== undefined
+				? await fs.readBytes(path).catch(() => null)
+				: null;
+		if (bytes === null) {
+			return refuse(
+				404,
+				"not_found",
+				`no open question in '${task}' shows ${path}`,
+			);
+		}
+		return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
+			headers: {
+				"content-type": type ?? "application/octet-stream",
+				// An svg opened on its own could otherwise run a script.
+				"content-security-policy":
+					"default-src 'none'; style-src 'unsafe-inline'",
+				"x-content-type-options": "nosniff",
+			},
+		});
 	};
 
 	const addTodo = async (request: Request): Promise<Response> => {
@@ -226,6 +274,7 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/snapshot": guarded(async () => Response.json(await read())),
 			"/api/reply": { POST: guarded(reply) },
+			"/api/image": guarded(image),
 			"/api/todos": { POST: guarded(addTodo) },
 			"/events": guarded(async () => events()),
 		},

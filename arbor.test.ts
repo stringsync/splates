@@ -42,31 +42,39 @@ describe("arbor cli", () => {
 		});
 		await env.fs.write(
 			join(worktree.path, "ARBOR.md"),
-			"# alpha\n\n## Blocked\n\n- [ ] Q1. [ui] Open it.\n- [ ] Q2. [db] Run it where?\n  - (a) locally\n  - (b) in ci\n",
+			"# alpha\n\n## Blocked\n\n- [ ] Q1. Open it.\n- [ ] Q2. Run it where?\n  - [a] locally\n  - [b] in ci\n",
 		);
 		await env.fs.write(join(env.root, "a.png"), "a");
-		await env.fs.write(join(env.root, "b.png"), "b");
+		await env.fs.write(join(env.root, "b.log"), "b");
 
-		await arbor.run(deps, ["inbox", "--tag", "db,css", "--json"]);
+		await arbor.run(deps, ["inbox", "--json"]);
 		const found = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(found.questions).toMatchObject([{ task: "alpha", number: "Q2" }]);
+		expect(found.questions).toMatchObject([
+			{ task: "alpha", number: "Q1" },
+			{ task: "alpha", number: "Q2", pick: "any" },
+		]);
 
 		await arbor.run(deps, [
 			"reply",
 			"alpha",
 			"q1",
 			"looks right",
-			"--image",
-			"a.png,b.png",
+			"--file",
+			"a.png,b.log",
 		]);
 		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
-		expect(plan).toContain("- [ ] Q1. [ui] Open it. → looks right /");
-		expect(plan).toContain("-b.png\n");
+		expect(plan).toContain("- [ ] Q1. Open it. → looks right /");
+		expect(plan).toContain("-b.log\n");
 
-		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b"]);
+		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b,a"]);
 		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
-			"Run it where? → b (in ci)\n",
+			"Run it where? → a (locally), b (in ci)\n",
 		);
+
+		await arbor.run(deps, ["inbox", "--replied", "--json"]);
+		expect(
+			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,
+		).toHaveLength(2);
 
 		await arbor.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));

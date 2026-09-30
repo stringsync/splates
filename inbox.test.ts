@@ -28,57 +28,55 @@ describe("inbox", () => {
 		await ask(
 			deps,
 			"alpha",
-			"- [x] Q1. [ui] Run it. → pass",
-			"- [ ] Q2. [ui, db] Open /tmp/a.png. Does it fit? → pass",
-			"- [ ] Q3. Decide: keep or drop?",
+			"- [x] Q1. Run it. → yes",
+			"- [ ] Q2. Open /tmp/a.png. Does it fit? → yes",
+			"- [ ] Q3. 🧹 Keep or drop the old flag?",
+			"  It has been off since March.",
 		);
 		await ask(
 			deps,
 			"beta",
-			"- [ ] Q1. [db] Run the migration when?",
+			"- [ ] Q1. 🗄️ Run the migration when?",
 			"  - (a) now",
 			"  - (b) after the backfill",
+			"- [ ] Q2. 🔔 Notify where?",
+			"  - [a] Email",
+			"  - [b] Slack",
 		);
 		deps.log.clear();
 	});
 
 	afterEach(() => deps.disposeAsync());
 
-	it("gathers every open question across tasks, with tag counts", async () => {
+	it("gathers the questions still waiting on a reply, across tasks", async () => {
 		const found = await openQuestions(deps);
 
 		expect(
-			found.questions.map(({ task, number, reply }) => ({
-				task,
-				number,
-				reply,
-			})),
-		).toEqual([
-			{ task: "alpha", number: "Q2", reply: "pass" },
-			{ task: "alpha", number: "Q3", reply: null },
-			{ task: "beta", number: "Q1", reply: null },
-		]);
+			found.questions.map(({ task, number }) => `${task} ${number}`),
+		).toEqual(["alpha Q3", "beta Q1", "beta Q2"]);
 		expect(found.questions[0]).toMatchObject({
 			status: "working",
 			lease: "none",
-			tags: ["ui", "db"],
-			text: "Open /tmp/a.png. Does it fit?",
+			text: "🧹 Keep or drop the old flag?",
+			body: "It has been off since March.",
 		});
-		// The checked-off Q1 is not counted: nobody has to answer it.
-		expect(found.tags).toEqual([
-			{ tag: "db", count: 2 },
-			{ tag: "ui", count: 1 },
+		// Answered, so it waits on its agent now; the checked-off Q1 on nobody.
+		expect(found.replied).toBe(1);
+	});
+
+	it("keeps the replied ones too when asked, to change an answer", async () => {
+		const found = await openQuestions(deps, { replied: true });
+
+		expect(found.questions.map((question) => question.number)).toEqual([
+			"Q2",
+			"Q3",
+			"Q1",
+			"Q2",
 		]);
+		expect(found.questions[0]?.reply).toBe("yes");
 	});
 
-	it("keeps the questions carrying any of the tags asked for", async () => {
-		const found = await openQuestions(deps, { tags: ["ui", "nope"] });
-
-		expect(found.questions.map((question) => question.number)).toEqual(["Q2"]);
-		expect(found.tags).toHaveLength(2); // the whole inbox, to pick another slice
-	});
-
-	it("prints them grouped by task, the tags first", async () => {
+	it("prints them grouped by task, bodies and choices under them", async () => {
 		await (await deps.service.find("beta")).save({
 			lease: {
 				pid: LIVE_PID,
@@ -91,19 +89,28 @@ describe("inbox", () => {
 
 		expect(deps.out()).toBe(
 			[
-				"db 2  ui 1",
-				"",
 				"alpha",
-				"  Q2 [ui, db] Open /tmp/a.png. Does it fit?",
-				"    → pass",
-				"  Q3 Decide: keep or drop?",
+				"  Q3 🧹 Keep or drop the old flag?",
+				"      It has been off since March.",
 				"",
 				"beta (in a live session: answer it there)",
-				"  Q1 [db] Run the migration when?",
+				"  Q1 🗄️ Run the migration when?",
 				"      (a) now",
 				"      (b) after the backfill",
+				"  Q2 🔔 Notify where?",
+				"      [a] Email",
+				"      [b] Slack",
+				"",
+				"1 replied, awaiting its agent: arbor inbox --replied",
 			].join("\n"),
 		);
+
+		deps.log.clear();
+		await inbox(deps, { replied: true });
+		expect(deps.out()).toContain(
+			"  Q2 Open /tmp/a.png. Does it fit?\n    → yes",
+		);
+		expect(deps.out()).not.toContain("--replied");
 
 		deps.log.clear();
 		await inbox(deps, { json: true });
@@ -111,13 +118,17 @@ describe("inbox", () => {
 	});
 
 	it("says so plainly when nothing is waiting", async () => {
-		await inbox(deps, { tags: ["css"] });
-		expect(deps.out()).toBe("no open questions tagged css");
-
-		await ask(deps, "alpha");
 		await ask(deps, "beta");
+		await ask(deps, "alpha", "- [ ] Q2. Does it fit? → yes");
 		deps.log.clear();
 		await inbox(deps);
-		expect(deps.out()).toBe("no open questions");
+		expect(deps.out()).toBe(
+			"nothing needs you\n1 replied, awaiting its agent: arbor inbox --replied",
+		);
+
+		await ask(deps, "alpha");
+		deps.log.clear();
+		await inbox(deps);
+		expect(deps.out()).toBe("nothing needs you");
 	});
 });

@@ -215,14 +215,16 @@ describe("dev", () => {
 			"",
 			"## Blocked",
 			"",
-			"- [ ] Q1. [ui] Open the page. Does it fit?",
+			"- [ ] Q1. Open the page. Does it fit?",
+			"  ![the page](SHOT)",
 			"",
 		].join("\n");
 
 		const asked = async (): Promise<string> => {
 			await add(deps, "alpha");
-			const path = `${(await deps.service.find("alpha")).path}/ARBOR.md`;
-			await deps.fs.write(path, PLAN);
+			const tree = (await deps.service.find("alpha")).path;
+			const path = `${tree}/ARBOR.md`;
+			await deps.fs.write(path, PLAN.replace("SHOT", `${tree}/page.png`));
 			return path;
 		};
 
@@ -234,7 +236,7 @@ describe("dev", () => {
 				body,
 			});
 
-		it("replies to a question, image and all, and says so in the inbox", async () => {
+		it("replies to a question, files and all, and says so in the inbox", async () => {
 			const plan = await asked();
 
 			await serving(async (snapshot, port) => {
@@ -242,7 +244,8 @@ describe("dev", () => {
 				form.set("task", "alpha");
 				form.set("question", "Q1");
 				form.set("text", "fail: it clips");
-				form.append("images", new File([new Uint8Array([1, 2])], "shot.png"));
+				form.append("file", new File([new Uint8Array([1, 2])], "shot.png"));
+				form.append("file", new File(["trace"], "trace.log"));
 
 				const response = await post(port, "/api/reply", form);
 
@@ -250,6 +253,7 @@ describe("dev", () => {
 				const written = await deps.fs.read(plan);
 				expect(written).toContain("→ fail: it clips");
 				expect(written).toContain(deps.service.attachmentsPath("alpha"));
+				expect(written).toContain("-trace.log");
 				expect((await snapshot()).inbox.questions[0]?.reply).toContain(
 					"fail: it clips",
 				);
@@ -280,6 +284,29 @@ describe("dev", () => {
 				expect(((await response.json()) as { reason: string }).reason).toBe(
 					"lease_held",
 				);
+			});
+		});
+
+		it("serves an image an open question shows, and nothing else", async () => {
+			await asked();
+			const tree = (await deps.service.find("alpha")).path;
+			await deps.fs.writeBytes(`${tree}/page.png`, new Uint8Array([7]));
+			await deps.fs.writeBytes(`${tree}/other.png`, new Uint8Array([8]));
+
+			await serving(async (_snapshot, port) => {
+				const image = (task: string, path: string) =>
+					fetch(
+						`http://127.0.0.1:${port}/api/image?${new URLSearchParams({ task, path })}`,
+					);
+
+				const shown = await image("alpha", `${tree}/page.png`);
+				expect(shown.status).toBe(200);
+				expect(shown.headers.get("content-type")).toBe("image/png");
+				expect(new Uint8Array(await shown.arrayBuffer())).toEqual(
+					new Uint8Array([7]),
+				);
+				expect((await image("alpha", `${tree}/other.png`)).status).toBe(404);
+				expect((await image("beta", `${tree}/page.png`)).status).toBe(404);
 			});
 		});
 

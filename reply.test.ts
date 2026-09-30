@@ -16,7 +16,7 @@ x
 ## Blocked
 
 - [x] Q1. Run it. → pass
-- [ ] Q2. [ui] Open /tmp/a.png. Does it fit? → fail
+- [ ] Q2. Open /tmp/a.png. Does it fit? → no
 - [ ] Q3. Decide: keep or drop?
 `;
 
@@ -57,26 +57,25 @@ describe("reply", () => {
 		expect(replied.question).toMatchObject({
 			number: "Q2",
 			done: false,
-			tags: ["ui"],
 			reply: "pass",
 		});
-		expect(await deps.fs.read(plan)).not.toContain("→ fail");
+		expect(await deps.fs.read(plan)).not.toContain("→ no");
 	});
 
-	it("stores attachments with the task and names them in the reply", async () => {
+	it("stores files of any kind with the task and names them in the reply", async () => {
 		const bytes = new Uint8Array([1, 2, 3]);
 		const replied = await replyTo(deps, "alpha", "Q3", {
 			text: "see",
-			images: [
+			files: [
 				{ name: "my shot.png", bytes },
-				{ name: "my shot.png", bytes },
+				{ name: "trace.log", bytes },
 			],
 		});
 
 		const dir = deps.service.attachmentsPath("alpha");
 		expect(replied.attachments).toEqual([
 			`${dir}/0-my-shot.png`,
-			`${dir}/1-my-shot.png`,
+			`${dir}/1-trace.log`,
 		]);
 		expect(await deps.fs.readBytes(`${dir}/0-my-shot.png`)).toEqual(bytes);
 		const [, , asked] = questions(await deps.fs.read(plan));
@@ -91,14 +90,14 @@ describe("reply", () => {
 		const shot = join(deps.root, "shot.png");
 		await deps.fs.writeBytes(shot, new Uint8Array([9]));
 
-		await reply(deps, "alpha", "Q3", "", { images: [shot] });
+		await reply(deps, "alpha", "Q3", "", { files: [shot] });
 
 		const [, , asked] = questions(await deps.fs.read(plan));
 		expect(asked?.reply).toBe(
 			`${deps.service.attachmentsPath("alpha")}/0-shot.png`,
 		);
 		await expect(
-			reply(deps, "alpha", "Q3", "x", { images: ["missing.png"] }),
+			reply(deps, "alpha", "Q3", "x", { files: ["missing.png"] }),
 		).toBail("usage", { message: "missing.png" });
 	});
 
@@ -108,21 +107,21 @@ describe("reply", () => {
 
 		const picked = await replyTo(deps, "alpha", "Q4", {
 			text: "",
-			choice: "b",
+			choices: ["b"],
 		});
 		expect(picked.question).toMatchObject({
 			reply: "b (users)",
-			chosen: "b",
+			chosen: ["b"],
 		});
 
-		await reply(deps, "alpha", "Q4", "and backfill", { choice: "a" });
+		await reply(deps, "alpha", "Q4", "and backfill", { choices: ["a"] });
 		expect(await deps.fs.read(plan)).toBe(
 			offered.replace("live?", "live? → a (sessions): and backfill"),
 		);
 
 		// Words alone still answer it.
 		const worded = await replyTo(deps, "alpha", "Q4", { text: "neither" });
-		expect(worded.question).toMatchObject({ reply: "neither", chosen: null });
+		expect(worded.question).toMatchObject({ reply: "neither", chosen: [] });
 	});
 
 	it("refuses a choice the question doesn't offer", async () => {
@@ -132,11 +131,31 @@ describe("reply", () => {
 		);
 
 		await expect(
-			replyTo(deps, "alpha", "Q4", { text: "", choice: "c" }),
+			replyTo(deps, "alpha", "Q4", { text: "", choices: ["c"] }),
 		).toBail("usage", { message: "Q4 offers a, b, not 'c'" });
 		await expect(
-			replyTo(deps, "alpha", "Q3", { text: "", choice: "a" }),
+			replyTo(deps, "alpha", "Q3", { text: "", choices: ["a"] }),
 		).toBail("usage", { message: "Q3 offers no choices" });
+		await expect(
+			replyTo(deps, "alpha", "Q4", { text: "", choices: ["a", "b"] }),
+		).toBail("usage", { message: "Q4 takes one choice at most" });
+	});
+
+	it("picks any that apply from a [a] list", async () => {
+		await deps.fs.write(
+			plan,
+			`${PLAN}- [ ] Q4. Notify where?\n  - [a] Email\n  - [b] Slack\n  - [c] Push\n`,
+		);
+
+		const replied = await replyTo(deps, "alpha", "Q4", {
+			text: "and log it",
+			choices: ["c", "a"],
+		});
+
+		expect(replied.question).toMatchObject({
+			reply: "a (Email), c (Push): and log it",
+			chosen: ["a", "c"],
+		});
 	});
 
 	it("refuses a task whose agent is in a live session", async () => {

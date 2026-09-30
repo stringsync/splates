@@ -31,26 +31,40 @@ export function plannedFiles(text: string): string[] {
 		});
 }
 
-/** One `- [ ] Q9.` item under `## Blocked`: something only a person can do. */
+/**
+ * One `- [ ] Q9.` item under `## Blocked`: something only a person can do.
+ * The item's line is its subject; lines indented under it are its body, and
+ * `- (a) ...` or `- [a] ...` lines among them are the answers it offers.
+ */
 export interface Question {
 	/** As the plan numbers it, `Q9`: the name a reply goes by. */
 	number: string;
 	/** Checked off, which the agent does once it has acted on the reply. */
 	done: boolean;
-	/** The domains it needs, `[ui, db]` after the number, for picking a slice. */
-	tags: string[];
-	/** The item itself, without its checkbox, number, tags or reply. */
+	/** The item's own line, without its checkbox, number or reply. */
 	text: string;
+	/**
+	 * The markdown indented under it, dedented, choices left out: detail,
+	 * code blocks, `![shot](/abs/path.png)` images. Empty when there is none.
+	 */
+	body: string;
 	/** Whatever follows ` → `, or null when nobody has answered yet. */
 	reply: string | null;
 	/**
-	 * The answers it offers, one `- (a) ...` line each under it, in order. Empty
-	 * for a question answered in words alone. A reply can always add words to
-	 * a choice, or answer in words instead of one.
+	 * The answers it offers, in order. Empty for a question answered in words
+	 * alone. A reply can always add words to its picks, or answer in words
+	 * instead.
 	 */
 	choices: Choice[];
-	/** Which choice the reply picked, by key, or null. */
-	chosen: string | null;
+	/**
+	 * `one` for `- (a)` choices, at most one of which a reply picks; `any` for
+	 * `- [a]` choices, where it picks all that apply. Null without choices.
+	 */
+	pick: "one" | "any" | null;
+	/** The keys of the choices the reply picked, in the order offered. */
+	chosen: string[];
+	/** The absolute paths of the images its text and body show. */
+	images: string[];
 }
 
 /** One answer a question offers: `- (b) Migrate on next login`. */
@@ -61,61 +75,126 @@ export interface Choice {
 }
 
 const ITEM = /^[ \t]*- \[([ xX])\] (Q\d+)\.[ \t]*(.*)$/;
-const TAG = "[a-z0-9]+(?:-[a-z0-9]+)*";
-const TAGS = new RegExp(`^\\[(${TAG}(?:,[ \\t]*${TAG})*)\\][ \\t]*`);
 /** What separates an item from its reply, spaces included. */
 const ARROW = " → ";
-const CHOICE = /^[ \t]+- \(([a-z])\)[ \t]+(.+)$/;
-/** A reply that picked one: `b`, `b (Migrate on next login)`, `b: and email them`. */
-const PICKED = /^([a-z])(?=$|:| \()/;
+/** `- (a) text` picks one, `- [a] text` picks any. */
+const CHOICE = /^[ \t]+- (?:\(([a-z])\)|\[([a-z])\])[ \t]+(.+)$/;
+/** An image the page can show: an absolute path, nothing fetched from afar. */
+const IMAGE = /!\[[^\]]*\]\((\/[^)\s]+)\)/g;
 
 /**
- * Every numbered item under `## Blocked`, open or checked off. The reply is
- * read off the item's own line: an answer is one line, written by `arbor
- * reply` or by hand after the arrow.
+ * Every numbered item under `## Blocked`, open or checked off, each with the
+ * indented lines under it. The reply is read off the item's own line: an
+ * answer is one line, written by `arbor reply` or by hand after the arrow.
  */
 export function questions(text: string): Question[] {
-	const found: Question[] = [];
+	const found: { asked: Question; body: string[] }[] = [];
+	// The question the lines being read sit under, if they still do.
+	let last: { asked: Question; body: string[] } | undefined;
 	for (const { line } of blockedLines(text)) {
 		const asked = question(line);
-		const last = found.at(-1);
-		const choice = CHOICE.exec(line);
 		if (asked !== null) {
-			found.push(asked);
-		} else if (choice !== null && last !== undefined) {
-			// Indented under the question it offers them for.
-			last.choices.push({
-				key: choice[1] ?? "",
-				text: (choice[2] ?? "").trim(),
+			last = { asked, body: [] };
+			found.push(last);
+			continue;
+		}
+		// A line back at the margin ends the question; blank ones do not.
+		if (line.trim() !== "" && !/^[ \t]/.test(line)) {
+			last = undefined;
+		}
+		if (last === undefined) {
+			continue;
+		}
+		const choice = CHOICE.exec(line);
+		if (choice !== null) {
+			last.asked.choices.push({
+				key: choice[1] ?? choice[2] ?? "",
+				text: (choice[3] ?? "").trim(),
 			});
+			last.asked.pick ??= choice[1] === undefined ? "any" : "one";
+		} else {
+			last.body.push(line);
 		}
 	}
-	for (const asked of found) {
-		const key =
-			asked.reply === null ? undefined : PICKED.exec(asked.reply)?.[1];
-		asked.chosen = asked.choices.some((choice) => choice.key === key)
-			? (key ?? null)
-			: null;
-	}
-	return found;
+	return found.map(({ asked, body }) => {
+		asked.body = dedent(body);
+		asked.chosen = picks(asked.reply, asked.choices);
+		asked.images = [
+			...new Set(
+				[...`${asked.text}\n${asked.body}`.matchAll(IMAGE)].flatMap((image) =>
+					image[1] === undefined ? [] : [image[1]],
+				),
+			),
+		];
+		return asked;
+	});
 }
 
 /**
- * How a reply reads in the plan: the choice spelled out, so the agent needs
- * nothing but the line, then any words after it. `b (Migrate on next login):
- * and email them first`.
+ * How a reply reads in the plan: each pick spelled out, so the agent needs
+ * nothing but the line, then any words after it. `a (Email), c (Push): and
+ * log it`.
  */
 export function replyLine(
 	asked: Question,
-	{ choice, text }: { choice?: string; text: string },
+	{ choices = [], text }: { choices?: string[]; text: string },
 ): string {
-	const picked = asked.choices.find((found) => found.key === choice);
+	const head = asked.choices
+		.filter((choice) => choices.includes(choice.key))
+		.map((choice) => `${choice.key} (${choice.text})`)
+		.join(", ");
 	const words = text.trim();
-	if (picked === undefined) {
+	if (head === "") {
 		return words;
 	}
-	const head = `${picked.key} (${picked.text})`;
 	return words === "" ? head : `${head}: ${words}`;
+}
+
+/**
+ * The keys a reply picked: a run of `b` or `b (Its text)`, comma separated,
+ * at its start, ended by a colon or the end of the reply. Words that merely
+ * start with a letter pick nothing.
+ */
+function picks(reply: string | null, choices: Choice[]): string[] {
+	if (reply === null || choices.length === 0) {
+		return [];
+	}
+	const picked: string[] = [];
+	let rest = reply.trim();
+	while (true) {
+		const choice = choices.find(
+			(offered) =>
+				rest.startsWith(`${offered.key} (${offered.text})`) ||
+				(/^[a-z](?=$|,|:)/.test(rest) && rest[0] === offered.key),
+		);
+		if (choice === undefined) {
+			return [];
+		}
+		picked.push(choice.key);
+		const spelled = `${choice.key} (${choice.text})`;
+		rest = rest.slice(rest.startsWith(spelled) ? spelled.length : 1);
+		if (rest === "" || rest.startsWith(":")) {
+			return choices
+				.map((offered) => offered.key)
+				.filter((key) => picked.includes(key));
+		}
+		if (!rest.startsWith(",")) {
+			return [];
+		}
+		rest = rest.replace(/^,\s*/, "");
+	}
+}
+
+/** Lines with the indent they all share taken off, blank ends trimmed. */
+function dedent(lines: string[]): string {
+	const indents = lines
+		.filter((line) => line.trim() !== "")
+		.map((line) => /^[ \t]*/.exec(line)?.[0].length ?? 0);
+	const cut = indents.length === 0 ? 0 : Math.min(...indents);
+	return lines
+		.map((line) => line.slice(cut).trimEnd())
+		.join("\n")
+		.replace(/^\n+|\s+$/g, "");
 }
 
 /**
@@ -159,17 +238,17 @@ function question(line: string): Question | null {
 		return null;
 	}
 	const [, check = " ", number = "", rest = ""] = item;
-	const tagged = TAGS.exec(rest);
-	const body = tagged === null ? rest : rest.slice(tagged[0].length);
-	const arrow = body.indexOf(ARROW);
+	const arrow = rest.indexOf(ARROW);
 	return {
 		number,
 		done: check !== " ",
-		tags: tagged?.[1]?.split(",").map((tag) => tag.trim()) ?? [],
-		text: (arrow === -1 ? body : body.slice(0, arrow)).trim(),
-		reply: arrow === -1 ? null : body.slice(arrow + ARROW.length).trim(),
+		text: (arrow === -1 ? rest : rest.slice(0, arrow)).trim(),
+		body: "",
+		reply: arrow === -1 ? null : rest.slice(arrow + ARROW.length).trim(),
 		choices: [],
-		chosen: null,
+		pick: null,
+		chosen: [],
+		images: [],
 	};
 }
 

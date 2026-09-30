@@ -1,14 +1,21 @@
-import type { JSX, ReactNode } from "react";
+import { createContext, type JSX, type ReactNode, useContext } from "react";
 
 export interface MarkdownProps {
 	text: string;
 	/** Added to the wrapping `<div>`, for margins and the like. */
 	className?: string;
+	/**
+	 * Renders a `![alt](/abs/path.png)` image. Without one, an image reads as
+	 * its alt text: the page cannot load a path on its own.
+	 */
+	image?: (path: string, alt: string) => ReactNode;
 }
+
+const ImageContext = createContext<MarkdownProps["image"]>(undefined);
 
 /**
  * Renders markdown: headings, bullet and checklist items, fenced code and
- * prose, with inline code, emphasis and http links.
+ * prose, with inline code, emphasis, http links and images.
  *
  * ponytail: parses the common shape rather than the whole of CommonMark, since
  * the repo carries no runtime dependencies and every document it renders is
@@ -17,13 +24,19 @@ export interface MarkdownProps {
  * plain. Reach for `react-markdown` if a document here ever needs tables or
  * nesting.
  */
-export function Markdown({ text, className }: MarkdownProps): JSX.Element {
+export function Markdown({
+	text,
+	className,
+	image,
+}: MarkdownProps): JSX.Element {
 	return (
-		<div className={className}>
-			{blocks(text).map((block) => (
-				<Block key={block.line} block={block} />
-			))}
-		</div>
+		<ImageContext value={image}>
+			<div className={className}>
+				{blocks(text).map((block) => (
+					<Block key={block.line} block={block} />
+				))}
+			</div>
+		</ImageContext>
 	);
 }
 
@@ -146,7 +159,11 @@ function Block({ block }: { block: Block }): JSX.Element {
 		case "heading": {
 			// The regex clamps the level to 1-6, so the tag is always a real one.
 			const Tag = `h${block.level}` as "h1";
-			return <Tag className={HEADING_STYLE}>{inline(block.text)}</Tag>;
+			return (
+				<Tag className={HEADING_STYLE}>
+					<Inline text={block.text} />
+				</Tag>
+			);
 		}
 		case "list":
 			return (
@@ -163,13 +180,21 @@ function Block({ block }: { block: Block }): JSX.Element {
 				</pre>
 			);
 		case "para":
-			return <p className="my-1">{inline(block.text)}</p>;
+			return (
+				<p className="my-1">
+					<Inline text={block.text} />
+				</p>
+			);
 	}
 }
 
 function ListItem({ item }: { item: Item }): JSX.Element {
 	if (item.checked === null) {
-		return <li>{inline(item.text)}</li>;
+		return (
+			<li>
+				<Inline text={item.text} />
+			</li>
+		);
 	}
 	return (
 		// A checklist item gives up its bullet to the box and pulls back into the
@@ -183,26 +208,38 @@ function ListItem({ item }: { item: Item }): JSX.Element {
 				disabled
 				className="mr-1.5 align-[-0.1em]"
 			/>
-			{inline(item.text)}
+			<Inline text={item.text} />
 		</li>
 	);
 }
 
 // http(s) only for links: every document here is agent-written, and a link is
 // the one construct that would otherwise let a scheme like `javascript:` in.
+// Images are absolute paths only, loaded through whatever `image` renders.
 const INLINE =
-	/`([^`]+)`|\*\*([^*]+)\*\*|(?<![*\w])\*([^*\n]+)\*(?!\w)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+	/`([^`]+)`|\*\*([^*]+)\*\*|(?<![*\w])\*([^*\n]+)\*(?!\w)|!\[([^\]]*)\]\((\/[^)\s]+)\)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+
+function Inline({ text }: { text: string }): JSX.Element {
+	const image = useContext(ImageContext);
+	return <>{inline(text, image)}</>;
+}
 
 /** The spans of markup worth keeping. React escapes the text between them. */
-function inline(text: string): ReactNode[] {
+function inline(text: string, image: MarkdownProps["image"]): ReactNode[] {
 	const out: ReactNode[] = [];
 	let at = 0;
 	for (const match of text.matchAll(INLINE)) {
 		if (match.index > at) {
 			out.push(text.slice(at, match.index));
 		}
-		const [whole, code, strong, em, label, href] = match;
-		if (code !== undefined) {
+		const [whole, code, strong, em, alt, path, label, href] = match;
+		if (path !== undefined) {
+			out.push(
+				<span key={match.index}>
+					{image === undefined ? alt || path : image(path, alt ?? "")}
+				</span>,
+			);
+		} else if (code !== undefined) {
 			out.push(
 				<code key={match.index} className="rounded bg-current/10 px-1">
 					{code}

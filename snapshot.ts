@@ -45,7 +45,8 @@ export async function snapshot({
 	return {
 		repo: basename(service.git.root),
 		todoStalenessMs: service.config.todoStalenessMs,
-		inbox: await openQuestions({ service, fs }),
+		// Replied ones too: the page hides them itself, behind a toggle.
+		inbox: await openQuestions({ service, fs }, { replied: true }),
 		todos: (await todos.all()).map((todo) => todo.state),
 		tasks,
 		entries: await journal.tail(DEFAULT_COUNT),

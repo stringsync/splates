@@ -31,28 +31,28 @@ async function send(path: string, init: RequestInit): Promise<unknown> {
 export interface ReplyForm {
 	task: string;
 	question: string;
-	/** The key of the choice picked, or null for words alone. */
-	choice: string | null;
+	/** The keys of the choices picked; none for words alone. */
+	choices: string[];
 	text: string;
-	images: File[];
+	files: File[];
 }
 
 export async function reply({
 	task,
 	question,
-	choice,
+	choices,
 	text,
-	images,
+	files,
 }: ReplyForm): Promise<void> {
 	const form = new FormData();
 	form.set("task", task);
 	form.set("question", question);
-	if (choice !== null) {
-		form.set("choice", choice);
+	for (const choice of choices) {
+		form.append("choice", choice);
 	}
 	form.set("text", text);
-	for (const image of images) {
-		form.append("images", image, image.name);
+	for (const file of files) {
+		form.append("file", file, file.name);
 	}
 	await send("/api/reply", { body: form });
 }
@@ -62,4 +62,9 @@ export async function addTodo(text: string): Promise<void> {
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ text }),
 	});
+}
+
+/** Where the page loads an image a question shows. */
+export function imageUrl(task: string, path: string): string {
+	return `/api/image?${new URLSearchParams({ task, path })}`;
 }

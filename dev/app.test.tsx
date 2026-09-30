@@ -53,7 +53,7 @@ function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {
 		repo: "webappwiz",
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
-		inbox: { questions: [], tags: [] },
+		inbox: { questions: [], replied: 0 },
 		todos: [],
 		tasks: [],
 		entries: [],
@@ -96,11 +96,13 @@ function question(overrides: Partial<OpenQuestion> = {}): OpenQuestion {
 		lease: "none",
 		number: "Q1",
 		done: false,
-		tags: [],
-		text: "Open `/tmp/shot.png`. Does the header wrap? Reply yes, or what's wrong.",
+		text: "🎨 Does the header wrap?",
+		body: "",
 		reply: null,
 		choices: [],
-		chosen: null,
+		pick: null,
+		chosen: [],
+		images: [],
 		...overrides,
 	};
 }
@@ -173,7 +175,7 @@ describe("inbox", () => {
 					question({ task: "alpha", number: "Q1", text: "first" }),
 					question({ task: "beta", number: "Q4", text: "second" }),
 				],
-				tags: [],
+				replied: 0,
 			},
 		});
 
@@ -189,39 +191,136 @@ describe("inbox", () => {
 		expect(document.title).toBe("(2) webappwiz");
 	});
 
-	it("narrows to the tags picked", async () => {
+	it("hides a question once replied, until asked to show those", async () => {
 		const view = await open({
 			inbox: {
 				questions: [
-					question({ number: "Q1", tags: ["ui"], text: "about the ui" }),
-					question({ number: "Q2", tags: ["db"], text: "about the db" }),
+					question({ number: "Q1", text: "waiting" }),
+					question({ number: "Q2", text: "answered", reply: "yes" }),
 				],
-				tags: [
-					{ tag: "ui", count: 1 },
-					{ tag: "db", count: 1 },
+				replied: 1,
+			},
+		});
+
+		expect(view.queryByText("answered")).toBeNull();
+		expect(view.getByRole("tab", { name: /inbox/i }).textContent).toContain(
+			"1",
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "show replied" })),
+		);
+
+		expect(view.getByText("answered")).toBeTruthy();
+		expect(view.getByRole("img", { name: "replied" })).toBeTruthy();
+	});
+
+	it("starts from the reply already sent, to change or add to it", async () => {
+		const view = await open({
+			inbox: {
+				questions: [
+					question({
+						reply: "b (Slack): and log it",
+						choices: [
+							{ key: "a", text: "Email" },
+							{ key: "b", text: "Slack" },
+						],
+						pick: "any",
+						chosen: ["b"],
+					}),
 				],
+				replied: 1,
+			},
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "show replied" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "reply" }),
+		);
+		expect((box as HTMLTextAreaElement).value).toBe("and log it");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Email/ })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Update" })),
+		);
+
+		await waitFor(() => expect(posts).toHaveLength(1));
+		const form = posts[0]?.body as FormData;
+		expect(form.getAll("choice").sort()).toEqual(["a", "b"]);
+		expect(form.get("text")).toBe("and log it");
+	});
+
+	it("shows the body, its code and its images, full size on a tap", async () => {
+		const view = await open({
+			inbox: {
+				questions: [
+					question({
+						body: "Before:\n\n```\nold()\n```\n\n![the header](/tmp/shot.png)",
+						images: ["/tmp/shot.png"],
+					}),
+				],
+				replied: 0,
 			},
 		});
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^db/ })),
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
 
-		expect(view.queryByText("about the ui")).toBeNull();
-		expect(view.getByText("about the db")).toBeTruthy();
+		await waitFor(() =>
+			expect(document.querySelector("pre")?.textContent).toBe("old()"),
+		);
+		const [thumbnail] = await waitFor(() =>
+			view.getAllByRole("img", { name: "the header" }),
+		);
+		expect(thumbnail?.getAttribute("src")).toBe(
+			"/api/image?task=alpha&path=%2Ftmp%2Fshot.png",
+		);
+		await act(async () =>
+			fireEvent.click(thumbnail?.closest("button") as HTMLElement),
+		);
+		// The full-size one, over the thumbnail now inert beneath it.
+		await waitFor(() =>
+			expect(
+				view.getAllByRole("img", { name: "the header", hidden: true }),
+			).toHaveLength(2),
+		);
+		expect(view.getAllByRole("img", { name: "the header" })).toHaveLength(1);
 	});
 
-	it("marks a question answered here but not yet acted on", async () => {
+	it("opens the task over the question, which stays open under it", async () => {
 		const view = await open({
-			inbox: { questions: [question({ reply: "pass" })], tags: [] },
+			inbox: { questions: [question()], replied: 0 },
+			tasks: [details({ plan: "# alpha\n\n## Goal\n\nThe goal here." })],
 		});
 
-		expect(view.getByText("replied")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Task" })),
+			),
+		);
+
+		await waitFor(() =>
+			expect(document.body.textContent).toContain("The goal here."),
+		);
+		// Still there under the task, only inert while the task is on top.
+		expect(
+			view.getByRole("textbox", { name: "reply", hidden: true }),
+		).toBeTruthy();
 	});
 
 	it("sends a reply to the question opened", async () => {
 		const view = await open({
-			inbox: { questions: [question()], tags: [] },
+			inbox: { questions: [question()], replied: 0 },
 		});
 
 		await act(async () =>
@@ -245,7 +344,7 @@ describe("inbox", () => {
 		expect(form.get("text")).toBe("fail: it clips");
 	});
 
-	it("picks a choice, with words or without", async () => {
+	it("picks one choice or none, with words or without", async () => {
 		const view = await open({
 			inbox: {
 				questions: [
@@ -255,9 +354,10 @@ describe("inbox", () => {
 							{ key: "a", text: "Sign in again" },
 							{ key: "b", text: "Migrate on next login" },
 						],
+						pick: "one",
 					}),
 				],
-				tags: [],
+				replied: 0,
 			},
 		});
 
@@ -268,9 +368,16 @@ describe("inbox", () => {
 			view.getByRole("button", { name: "Send" }),
 		);
 		expect((send as HTMLButtonElement).disabled).toBe(true);
+		// One or none: a second tap unpicks it.
+		const migrate = view.getByRole("button", { name: /Migrate/ });
+		await act(async () => fireEvent.click(migrate));
+		expect((send as HTMLButtonElement).disabled).toBe(false);
+		await act(async () => fireEvent.click(migrate));
+		expect((send as HTMLButtonElement).disabled).toBe(true);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Migrate/ })),
+			fireEvent.click(view.getByRole("button", { name: /Sign in/ })),
 		);
+		await act(async () => fireEvent.click(migrate));
 		await act(async () =>
 			fireEvent.change(view.getByRole("textbox", { name: "reply" }), {
 				target: { value: "email them first" },
@@ -280,14 +387,14 @@ describe("inbox", () => {
 
 		await waitFor(() => expect(posts).toHaveLength(1));
 		const form = posts[0]?.body as FormData;
-		expect(form.get("choice")).toBe("b");
+		expect(form.getAll("choice")).toEqual(["b"]);
 		expect(form.get("text")).toBe("email them first");
 	});
 
 	it("shows why a reply was refused", async () => {
 		refusal = { reason: "lease_held", message: "an agent holds 'alpha'" };
 		const view = await open({
-			inbox: { questions: [question()], tags: [] },
+			inbox: { questions: [question()], replied: 0 },
 		});
 
 		await act(async () =>
@@ -308,7 +415,7 @@ describe("inbox", () => {
 
 	it("sends a live session's question to its chat instead", async () => {
 		const view = await open({
-			inbox: { questions: [question({ lease: "held" })], tags: [] },
+			inbox: { questions: [question({ lease: "held" })], replied: 0 },
 		});
 
 		await act(async () =>
@@ -410,7 +517,7 @@ describe("feed", () => {
 		const view = await open();
 
 		served = snapshot({
-			inbox: { questions: [question({ text: "new one" })], tags: [] },
+			inbox: { questions: [question({ text: "new one" })], replied: 0 },
 		});
 		await act(async () => stream?.onmessage?.());
 

@@ -15,35 +15,35 @@ export interface OpenQuestion extends Question {
 	lease: "held" | "stale" | "none";
 }
 
-/** How many open questions carry a tag, for picking a slice to answer. */
-export interface TagCount {
-	tag: string;
-	count: number;
-}
-
 export interface Inbox {
-	/** Open questions, by task name and then in the order each plan lists them. */
+	/**
+	 * Open questions, by task name and then in the order each plan lists them.
+	 * Only the unanswered ones unless the replied ones were asked for too.
+	 */
 	questions: OpenQuestion[];
-	/** Every tag on an open question, the busiest first, whatever the filter. */
-	tags: TagCount[];
+	/** How many open questions have a reply their agent has yet to act on. */
+	replied: number;
 }
 
 export interface InboxOptions {
-	/** Keep only the questions carrying any of these; none keeps every one. */
-	tags?: string[];
+	/**
+	 * Keep the questions replied to but not yet checked off, to change or add
+	 * to an answer. Without it, a question leaves the inbox once it is answered.
+	 */
+	replied?: boolean;
 }
 
 /**
  * Every question still waiting on a person, across all tasks: the unchecked
- * items under each worktree's `## Blocked`. One answered but not yet checked
- * off is still here, with its reply, because the agent has not acted on it.
+ * items under each worktree's `## Blocked` with no reply yet, and with
+ * `replied` also those answered but not yet checked off.
  *
  * Returns data rather than printing it, so the CLI and the dev server show the
  * same inbox.
  */
 export async function openQuestions(
 	{ service, fs }: { service: WorktreeService; fs: Fs },
-	{ tags = [] }: InboxOptions = {},
+	{ replied = false }: InboxOptions = {},
 ): Promise<Inbox> {
 	const open: OpenQuestion[] = [];
 	for (const worktree of await service.list()) {
@@ -65,13 +65,10 @@ export async function openQuestions(
 		}
 	}
 	return {
-		questions:
-			tags.length === 0
-				? open
-				: open.filter((question) =>
-						question.tags.some((tag) => tags.includes(tag)),
-					),
-		tags: counts(open),
+		questions: replied
+			? open
+			: open.filter((question) => question.reply === null),
+		replied: open.filter((question) => question.reply !== null).length,
 	};
 }
 
@@ -83,34 +80,41 @@ export interface InboxPrintOptions extends InboxOptions {
 /** `arbor inbox`: the open questions, grouped by task. */
 export async function inbox(
 	deps: { service: WorktreeService; fs: Fs; log: Logger },
-	{ json = false, tags = [] }: InboxPrintOptions = {},
+	{ json = false, replied = false }: InboxPrintOptions = {},
 ): Promise<void> {
-	const found = await openQuestions(deps, { tags });
+	const found = await openQuestions(deps, { replied });
 	if (json) {
 		deps.log.info(JSON.stringify(found, null, "\t"));
 		return;
 	}
+	const more =
+		!replied && found.replied > 0
+			? color.dim(
+					`${found.replied} replied, awaiting its agent: arbor inbox --replied`,
+				)
+			: null;
 	if (found.questions.length === 0) {
-		deps.log.info(
-			tags.length === 0
-				? "no open questions"
-				: `no open questions tagged ${tags.join(", ")}`,
-		);
+		deps.log.info(["nothing needs you", ...(more ? [more] : [])].join("\n"));
 		return;
 	}
-	deps.log.info(listing(found));
+	deps.log.info([listing(found), ...(more ? ["", more] : [])].join("\n"));
 }
 
 /**
- * One question as the inbox prints it: `Q9 [ui] text`, and under it the
- * reply the agent has yet to act on, if there is one.
+ * One question as the inbox prints it: `Q9 subject`, its body and choices
+ * under it, then the reply the agent has yet to act on, if there is one.
  */
 export function formatQuestion(question: Question): string[] {
-	const tags =
-		question.tags.length === 0 ? "" : ` [${question.tags.join(", ")}]`;
 	const lines = [
-		`  ${question.number}${tags} ${question.text}`,
-		...question.choices.map(({ key, text }) => `      (${key}) ${text}`),
+		`  ${question.number} ${question.text}`,
+		...(question.body === ""
+			? []
+			: question.body.split("\n").map((line) => `      ${line}`.trimEnd())),
+		...question.choices.map(({ key, text }) =>
+			question.pick === "any"
+				? `      [${key}] ${text}`
+				: `      (${key}) ${text}`,
+		),
 	];
 	if (question.reply !== null) {
 		lines.push(color.dim(`    → ${question.reply}`));
@@ -118,13 +122,8 @@ export function formatQuestion(question: Question): string[] {
 	return lines;
 }
 
-function listing({ questions, tags }: Inbox): string {
+function listing({ questions }: Inbox): string {
 	const out: string[] = [];
-	if (tags.length > 0) {
-		out.push(
-			color.dim(tags.map(({ tag, count }) => `${tag} ${count}`).join("  ")),
-		);
-	}
 	let task: string | null = null;
 	for (const question of questions) {
 		if (question.task !== task) {
@@ -139,17 +138,4 @@ function listing({ questions, tags }: Inbox): string {
 		out.push(...formatQuestion(question));
 	}
 	return out.join("\n");
-}
-
-function counts(open: Question[]): TagCount[] {
-	const tally = new Map<string, number>();
-	for (const tag of open.flatMap((question) => question.tags)) {
-		tally.set(tag, (tally.get(tag) ?? 0) + 1);
-	}
-	return [...tally]
-		.map(([tag, count]) => ({ tag, count }))
-		.sort(
-			(left, right) =>
-				right.count - left.count || left.tag.localeCompare(right.tag),
-		);
 }

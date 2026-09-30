@@ -165,20 +165,24 @@ arbor
 arbor
 	.command("inbox")
 	.description(
-		"list every open question under the tasks' ## Blocked, grouped by task, with any reply their agent has yet to act on; takes no lease",
+		"list every question under the tasks' ## Blocked still waiting on a reply, grouped by task; takes no lease",
 	)
-	.option("tag", z.string(), {
-		default: "",
-		description:
-			"only questions carrying one of these tags, comma separated (`ui,db`)",
-	})
+	.option(
+		"replied",
+		z.string().transform((raw) => raw !== "false"),
+		{
+			default: false,
+			description:
+				"also list the ones replied to that their agent has yet to act on, to change or add to an answer",
+		},
+	)
 	.option(
 		"json",
 		z.string().transform((raw) => raw !== "false"),
 		{ default: false, description: "emit JSON" },
 	)
 	.action((opts, ctx) =>
-		inbox(ctx, { tags: commaList(opts.tag), json: opts.json }),
+		inbox(ctx, { replied: opts.replied, json: opts.json }),
 	);
 
 arbor
@@ -196,9 +200,9 @@ arbor
 	.option("choice", z.string(), {
 		default: "",
 		description:
-			"the letter of the choice picked, for a question that lists them as `- (a) ...` lines",
+			"the letters of the choices picked, comma separated: one at most for `- (a) ...` choices, any for `- [a] ...` ones",
 	})
-	.option("image", z.string(), {
+	.option("file", z.string(), {
 		default: "",
 		description:
 			"files to attach, comma separated: copied under .git/arbor/attachments/<task>/ and their paths added to the reply",
@@ -206,8 +210,8 @@ arbor
 	.action((opts, ctx) =>
 		ctx.journal.record("reply", opts.task, () =>
 			reply(ctx, opts.task, opts.question, opts.text, {
-				images: commaList(opts.image),
-				choice: opts.choice || undefined,
+				files: commaList(opts.file),
+				choices: commaList(opts.choice),
 			}),
 		),
 	);

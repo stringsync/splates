@@ -22,11 +22,15 @@ export interface Attachment {
 }
 
 export interface ReplyInput {
-	/** Words, alongside a choice or instead of one. */
+	/** Words, alongside the picks or instead of them. */
 	text: string;
-	/** The key of the choice picked (`b`), for a question that offers them. */
-	choice?: string;
-	images?: Attachment[];
+	/**
+	 * The keys of the choices picked (`b`), for a question that offers them:
+	 * at most one for a `- (a)` question, any number for a `- [a]` one.
+	 */
+	choices?: string[];
+	/** Files of any kind. */
+	files?: Attachment[];
 }
 
 export interface Replied {
@@ -55,7 +59,7 @@ export async function replyTo(
 	}: { service: WorktreeService; fs: Fs; ids?: IdProvider },
 	task: string,
 	question: string,
-	{ text, choice, images = [] }: ReplyInput,
+	{ text, choices = [], files = [] }: ReplyInput,
 ): Promise<Replied> {
 	const number = questionNumber(question);
 	if (number === null) {
@@ -65,7 +69,7 @@ export async function replyTo(
 			{ task, question },
 		);
 	}
-	if (text.trim() === "" && images.length === 0 && !choice) {
+	if (text.trim() === "" && files.length === 0 && choices.length === 0) {
 		fail("usage", "an empty reply answers nothing: say what to do", {
 			task,
 			question: number,
@@ -107,28 +111,39 @@ export async function replyTo(
 		);
 	}
 
-	if (choice && !asked.choices.some((offered) => offered.key === choice)) {
-		const keys = asked.choices.map((offered) => offered.key).join(", ");
+	const keys = asked.choices.map((offered) => offered.key);
+	const unknown = choices.find((choice) => !keys.includes(choice));
+	if (unknown !== undefined) {
 		fail(
 			"usage",
-			asked.choices.length === 0
+			keys.length === 0
 				? `${number} offers no choices: answer it in words`
-				: `${number} offers ${keys}, not '${choice}'`,
-			{ task, question: number, choice },
+				: `${number} offers ${keys.join(", ")}, not '${unknown}'`,
+			{ task, question: number, choice: unknown },
+		);
+	}
+	if (asked.pick === "one" && new Set(choices).size > 1) {
+		fail(
+			"usage",
+			`${number} takes one choice at most, not ${choices.join(", ")}`,
+			{
+				task,
+				question: number,
+			},
 		);
 	}
 
 	const attachments: string[] = [];
-	if (images.length > 0) {
+	if (files.length > 0) {
 		const dir = service.attachmentsPath(task);
 		await fs.mkdir(dir);
-		for (const image of images) {
-			const stored = `${dir}/${ids.next()}-${safe(image.name)}`;
-			await fs.writeBytes(stored, image.bytes);
+		for (const file of files) {
+			const stored = `${dir}/${ids.next()}-${safe(file.name)}`;
+			await fs.writeBytes(stored, file.bytes);
 			attachments.push(stored);
 		}
 	}
-	const reply = [replyLine(asked, { choice, text }), ...attachments]
+	const reply = [replyLine(asked, { choices, text }), ...attachments]
 		.filter(Boolean)
 		.join(" ");
 	const updated = withReply(plan, number, reply) ?? plan;
@@ -145,9 +160,9 @@ export async function replyTo(
 
 export interface ReplyOptions {
 	/** Files to attach, relative to the current directory or absolute. */
-	images?: string[];
-	/** The key of the choice picked, for a question that offers them. */
-	choice?: string;
+	files?: string[];
+	/** The keys of the choices picked, for a question that offers them. */
+	choices?: string[];
 }
 
 /** `arbor reply`: reads the attachments off disk and answers the question. */
@@ -156,24 +171,24 @@ export async function reply(
 	task: string,
 	question: string,
 	text: string,
-	{ images = [], choice }: ReplyOptions = {},
+	{ files = [], choices = [] }: ReplyOptions = {},
 ): Promise<void> {
 	const attached: Attachment[] = [];
-	for (const image of images) {
-		const path = resolve(deps.ps.cwd(), image);
+	for (const file of files) {
+		const path = resolve(deps.ps.cwd(), file);
 		const bytes = await deps.fs.readBytes(path).catch(() => null);
 		if (bytes === null) {
 			fail("usage", `cannot read ${path}: nothing was replied`, {
 				task,
-				image: path,
+				file: path,
 			});
 		}
 		attached.push({ name: basename(path), bytes });
 	}
 	const replied = await replyTo(deps, task, question, {
 		text,
-		choice,
-		images: attached,
+		choices,
+		files: attached,
 	});
 	deps.log.info(
 		[

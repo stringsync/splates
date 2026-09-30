@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	checkPlan,
 	plannedFiles,
+	type Question,
 	questionNumber,
 	questions,
 	replyLine,
@@ -83,8 +84,8 @@ describe("checkPlan", () => {
 		]);
 		const asked = `${GOOD}\n## Blocked\n- [ ] Q1. Open /tmp/shot.png. Confirm the banner is green.\n`;
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
-		const tagged = `${GOOD}\n## Blocked\n- [ ] Q1. [ui, db] Open /tmp/shot.png. Does it fit?\n`;
-		expect(checkPlan(tagged, { task: "alpha", escalated: true })).toEqual([]);
+		const detailed = `${GOOD}\n## Blocked\n- [ ] Q1. 🎨 Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
+		expect(checkPlan(detailed, { task: "alpha", escalated: true })).toEqual([]);
 	});
 
 	it("flags open items once the task is no longer escalated", () => {
@@ -141,51 +142,48 @@ const BLOCKED = `${GOOD}
 ## Blocked
 
 - [x] Q1. Run the tests. Does it fit? → pass
-- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Does it fit? → fail, too wide
-- [ ] Q3. [ui] Decide: keep or drop?
+- [ ] Q2. 🎨 Does the header fit? → no, too wide
+- [ ] Q3. Decide: keep or drop?
   - not a question of its own
-- [ ] Q4. [Not Tags] Confirm the copy.
+- [ ] Q4. Confirm the copy.
 `;
 
+/** A question as `questions` reads it, with nothing under it. */
+function bare(overrides: Partial<Question>): Question {
+	return {
+		number: "Q1",
+		done: false,
+		text: "",
+		body: "",
+		reply: null,
+		choices: [],
+		pick: null,
+		chosen: [],
+		images: [],
+		...overrides,
+	};
+}
+
 describe("questions", () => {
-	it("reads each numbered item with its tags and reply", () => {
+	it("reads each numbered item with its reply and what is indented under it", () => {
 		expect(questions(BLOCKED)).toEqual([
-			{
+			bare({
 				number: "Q1",
 				done: true,
-				tags: [],
 				text: "Run the tests. Does it fit?",
 				reply: "pass",
-				choices: [],
-				chosen: null,
-			},
-			{
+			}),
+			bare({
 				number: "Q2",
-				done: false,
-				tags: ["ui", "db-schema"],
-				text: "Open /tmp/shot.png. Does it fit?",
-				reply: "fail, too wide",
-				choices: [],
-				chosen: null,
-			},
-			{
+				text: "🎨 Does the header fit?",
+				reply: "no, too wide",
+			}),
+			bare({
 				number: "Q3",
-				done: false,
-				tags: ["ui"],
 				text: "Decide: keep or drop?",
-				reply: null,
-				choices: [],
-				chosen: null,
-			},
-			{
-				number: "Q4",
-				done: false,
-				tags: [],
-				text: "[Not Tags] Confirm the copy.",
-				reply: null,
-				choices: [],
-				chosen: null,
-			},
+				body: "- not a question of its own",
+			}),
+			bare({ number: "Q4", text: "Confirm the copy." }),
 		]);
 	});
 
@@ -203,12 +201,49 @@ describe("questions", () => {
 			"Q4",
 		]);
 	});
+
+	it("keeps the body's markdown, code and images included", () => {
+		const plan = `${GOOD}
+## Blocked
+
+- [ ] Q1. 🗄️ Does this migration look right?
+  It runs before the deploy.
+
+  \`\`\`sql
+  alter table users
+    add column email text;
+  \`\`\`
+
+  ![before](/tmp/before.png) ![after](/tmp/after.png)
+  - (a) Ship it
+Prose back at the margin ends it.
+  - (b) not a choice of Q1
+`;
+		expect(questions(plan)).toEqual([
+			bare({
+				text: "🗄️ Does this migration look right?",
+				body: [
+					"It runs before the deploy.",
+					"",
+					"```sql",
+					"alter table users",
+					"  add column email text;",
+					"```",
+					"",
+					"![before](/tmp/before.png) ![after](/tmp/after.png)",
+				].join("\n"),
+				choices: [{ key: "a", text: "Ship it" }],
+				pick: "one",
+				images: ["/tmp/before.png", "/tmp/after.png"],
+			}),
+		]);
+	});
 });
 
 const CHOICES = `${GOOD}
 ## Blocked
 
-- [ ] Q1. [auth] How do old sessions move over?
+- [ ] Q1. How do old sessions move over?
   - (a) Force everyone to sign in again
   - (b) Migrate on next login
 - [ ] Q2. Which table? → b (users): and backfill
@@ -217,36 +252,48 @@ const CHOICES = `${GOOD}
 - [ ] Q3. Anything else? → a bit more logging
 - [ ] Q4. Pick one → c
   - (a) left
+- [ ] Q5. Where should it notify? → c (Push), a: and log it
+  - [a] Email
+  - [b] Slack
+  - [c] Push
 `;
 
 describe("choices", () => {
 	it("reads the choices indented under each question", () => {
-		const [first, second, third, fourth] = questions(CHOICES);
-		expect(first?.choices).toEqual([
-			{ key: "a", text: "Force everyone to sign in again" },
-			{ key: "b", text: "Migrate on next login" },
-		]);
-		expect(first?.chosen).toBeNull();
-		expect(second?.chosen).toBe("b");
+		const [first, second, third, fourth, fifth] = questions(CHOICES);
+		expect(first).toMatchObject({
+			choices: [
+				{ key: "a", text: "Force everyone to sign in again" },
+				{ key: "b", text: "Migrate on next login" },
+			],
+			pick: "one",
+			chosen: [],
+		});
+		expect(second?.chosen).toEqual(["b"]);
 		// Words that happen to start with a letter pick nothing.
-		expect(third).toMatchObject({ choices: [], chosen: null });
+		expect(third).toMatchObject({ choices: [], pick: null, chosen: [] });
 		// Nor does a letter it never offered.
-		expect(fourth?.chosen).toBeNull();
+		expect(fourth?.chosen).toEqual([]);
+		// Picks from a `[a]` list, bare or spelled out, in the order offered.
+		expect(fifth).toMatchObject({ pick: "any", chosen: ["a", "c"] });
 	});
 
-	it("spells the choice out in the reply, words after it", () => {
-		const [asked] = questions(CHOICES);
-		if (asked === undefined) {
+	it("spells each pick out in the reply, words after them", () => {
+		const [asked, , , , any] = questions(CHOICES);
+		if (asked === undefined || any === undefined) {
 			throw new Error("no question");
 		}
-		expect(replyLine(asked, { choice: "b", text: "" })).toBe(
+		expect(replyLine(asked, { choices: ["b"], text: "" })).toBe(
 			"b (Migrate on next login)",
 		);
-		expect(replyLine(asked, { choice: "a", text: " email them " })).toBe(
+		expect(replyLine(asked, { choices: ["a"], text: " email them " })).toBe(
 			"a (Force everyone to sign in again): email them",
 		);
 		expect(replyLine(asked, { text: "neither, ask Sam" })).toBe(
 			"neither, ask Sam",
+		);
+		expect(replyLine(any, { choices: ["c", "a"], text: "" })).toBe(
+			"a (Email), c (Push)",
 		);
 	});
 
@@ -255,21 +302,21 @@ describe("choices", () => {
 		expect(replied).toContain(
 			"sessions move over? → b (Migrate on next login)\n  - (a) Force",
 		);
-		expect(questions(replied ?? "")[0]?.chosen).toBe("b");
+		expect(questions(replied ?? "")[0]?.chosen).toEqual(["b"]);
 	});
 });
 
 describe("withReply", () => {
 	it("writes the reply after the arrow, leaving the checkbox open", () => {
 		const replied = withReply(BLOCKED, "Q3", "keep");
-		expect(replied).toContain("- [ ] Q3. [ui] Decide: keep or drop? → keep\n");
+		expect(replied).toContain("- [ ] Q3. Decide: keep or drop? → keep\n");
 		expect(replied?.replace(" → keep", "")).toBe(BLOCKED);
 	});
 
 	it("replaces an earlier reply and keeps the answer on one line", () => {
 		const replied = withReply(BLOCKED, "Q2", "pass\nnow it fits");
 		expect(replied).toContain(
-			"- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Does it fit? → pass now it fits\n",
+			"- [ ] Q2. 🎨 Does the header fit? → pass now it fits\n",
 		);
 		expect(replied).not.toContain("too wide");
 	});

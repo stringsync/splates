@@ -206,50 +206,49 @@ that is gone ends the wait too, since nothing is left to answer.
 
 ```
 alpha answered
-  Q2 [ui] Open /src/shots/header.png. Does the header wrap? Reply yes, or what's wrong.
+  Q2 🎨 Does the header wrap to two lines?
     → yes
 ```
 
-### `arbor inbox [--tag <tag>] [--json]`
+### `arbor inbox [--replied] [--json]`
 
-Every open question waiting on a person, across all tasks: each unchecked
-`- [ ] Q9.` item under a task's `## Blocked`, grouped by task. One that has a
-reply its agent has not acted on yet stays, with the reply under it.
+Every question waiting on a person, across all tasks: each unchecked
+`- [ ] Q9.` item under a task's `## Blocked` with no reply yet, grouped by
+task. A question leaves the inbox once it is answered. `--replied` brings back
+the ones answered but not yet checked off by their agent, with the reply under
+each, to change or add to an answer. Takes no lease.
 
 ```
-db 2  ui 1
-
 alpha
-  Q2 [ui, db] Open /src/shots/header.png. Does the header wrap? Reply yes, or what's wrong.
-    → yes
-  Q3 Decide: keep or drop?
+  Q3 🧹 Keep or drop the old flag?
+      It has been off since March.
 
 beta (in a live session: answer it there)
-  Q1 [db] Decide when the migration runs.
+  Q1 🗄️ When should the migration run?
       (a) Now
       (b) After the backfill
+
+1 replied, awaiting its agent: arbor inbox --replied
 ```
 
-A question may carry domain tags right after its number, lowercase words or
-dash-words, comma separated:
+A question's line is its subject. Lines indented under it are its body,
+markdown with code blocks and images (`![shot](/abs/path.png)`, which the page
+shows inline). Choices come last in the body: `- (a) ...` lines take one or
+none, `- [a] ...` lines take any that apply.
 
 ```markdown
-- [ ] Q9. [ui, db] Open `/abs/path/shot.png`. Does the header wrap? Reply yes, or what's wrong.
-```
-
-The line at the top counts each tag, so whoever answers can take a slice;
-`--tag ui,db` keeps the questions carrying any of them. Takes no lease.
-
-A question with a few possible answers lists them as `- (a) ...` lines
-indented under it, one lowercase letter each:
-
-```markdown
-- [ ] Q3. [auth] Decide how existing sessions move to the new tokens.
+- [ ] Q3. 🔐 How should existing sessions move to the new tokens?
+  Sessions are keyed by the old cookie.
+  ![login screen](/abs/path/login.png)
   - (a) Sign everyone out once
   - (b) Migrate each session on its next request
+- [ ] Q4. 🔔 Where should failures notify?
+  - [a] Email
+  - [b] Slack
+  - [c] Push
 ```
 
-### `arbor reply <task> <question> [text] [--choice <letter>] [--image <path>]`
+### `arbor reply <task> <question> [text] [--choice <letters>] [--file <path>]`
 
 Answers a question: writes ` → <text>` onto its line in the task's `ARBOR.md`,
 replacing any earlier reply there. The box stays unchecked: checking it off is
@@ -258,11 +257,13 @@ however it is typed (`Q9`, `q9`, `9`).
 
 `--choice b` picks one of the question's choices and spells it out, so the
 line alone says what was picked: ` → b (Migrate each session on its next
-request)`. Any text goes after it, ` → b (...): but email them first`. Text
-alone still answers a question with choices, for when none of them fits.
-Refuses `usage` for a letter the question does not offer.
+request)`. `--choice a,c` picks several from a `- [a]` list: ` → a (Email),
+c (Push)`. Any text goes after the picks, ` → b (...): but email them first`.
+Text alone still answers a question with choices, for when none of them fits.
+Refuses `usage` for a letter the question does not offer, or a second pick
+from a `- (a)` list.
 
-`--image a.png,b.png` copies each file under
+`--file a.png,trace.log` copies each file, of any kind, under
 `.git/arbor/attachments/<task>/` and adds its absolute path to the reply, so
 the agent can open it from its own tree. They go when the task is merged or
 removed.
@@ -293,8 +294,11 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 The inbox, todos, tasks and log in a browser, on `http://localhost:4269`,
 reloading themselves as anything changes. Built for a phone first: open
-questions lead, filterable by tag, and tapping one opens it with its choices,
-if it has any, and a reply box that takes pasted images. If the server stops
+questions lead, grouped by task, and tapping one opens it with its body,
+images full size on a tap, its choices, and a reply box that takes pasted or
+picked files. The task's plan slides in over the question without closing
+it. A replied question drops out; a toggle brings those back until their
+agent acts on them. If the server stops
 answering, the header says it is offline, since what the page shows may be
 stale.
 

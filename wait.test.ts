@@ -81,7 +81,7 @@ describe("wait", () => {
 		it("returns with the replies once every open question has one", async () => {
 			await escalated(
 				"- [x] Q1. Run it. → pass",
-				"- [ ] Q2. [ui] Open /tmp/a.png. → pass",
+				"- [ ] Q2. Open /tmp/a.png. → pass",
 				"- [ ] Q3. Decide: keep or drop?",
 			);
 
@@ -93,7 +93,7 @@ describe("wait", () => {
 			expect(deps.out()).toBe(
 				[
 					"alpha answered",
-					"  Q2 [ui] Open /tmp/a.png.",
+					"  Q2 Open /tmp/a.png.",
 					"    → pass",
 					"  Q3 Decide: keep or drop?",
 					"    → keep",
