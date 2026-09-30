@@ -75,41 +75,11 @@ export async function replyTo(
 			question: number,
 		});
 	}
-	const worktree = await service.find(task);
-	if (worktree.gone || !worktree.exists) {
-		fail(
-			"not_found",
-			`no worktree for '${task}': run \`arbor inbox\` to see what is waiting`,
-			{ task },
-		);
-	}
-	if (worktree.leaseHeldByOther) {
-		fail(
-			"lease_held",
-			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: its agent is in a live session, so answer it in that chat`,
-			{ task, lease: worktree.lease },
-		);
-	}
-	const path = `${worktree.path}/${PLAN_FILE}`;
-	const plan = await fs.read(path).catch(() => null);
-	const asked =
-		plan === null
-			? undefined
-			: questions(plan).find((found) => found.number === number);
-	if (plan === null || asked === undefined) {
-		fail(
-			"not_found",
-			`'${task}' asks no ${number}: run \`arbor inbox\` to see what is open`,
-			{ task, question: number },
-		);
-	}
-	if (asked.done) {
-		fail(
-			"not_found",
-			`${number} on '${task}' is checked off already: its agent has acted on it`,
-			{ task, question: number },
-		);
-	}
+	const { path, plan, asked } = await openQuestion(
+		{ service, fs },
+		task,
+		number,
+	);
 
 	const keys = asked.choices.map((offered) => offered.key);
 	const unknown = choices.find((choice) => !keys.includes(choice));
@@ -156,6 +126,124 @@ export async function replyTo(
 		},
 		attachments,
 	};
+}
+
+/**
+ * The question as the task's plan asks it, refusing one that is not there to
+ * answer: no tree, a live agent in it, no such question, or one its agent has
+ * already acted on.
+ */
+async function openQuestion(
+	{ service, fs }: { service: WorktreeService; fs: Fs },
+	task: string,
+	number: string,
+): Promise<{ path: string; plan: string; asked: Question }> {
+	const worktree = await service.find(task);
+	if (worktree.gone || !worktree.exists) {
+		fail(
+			"not_found",
+			`no worktree for '${task}': run \`arbor inbox\` to see what is waiting`,
+			{ task },
+		);
+	}
+	if (worktree.leaseHeldByOther) {
+		fail(
+			"lease_held",
+			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: its agent is in a live session, so answer it in that chat`,
+			{ task, lease: worktree.lease },
+		);
+	}
+	const path = `${worktree.path}/${PLAN_FILE}`;
+	const plan = await fs.read(path).catch(() => null);
+	const asked =
+		plan === null
+			? undefined
+			: questions(plan).find((found) => found.number === number);
+	if (plan === null || asked === undefined) {
+		fail(
+			"not_found",
+			`'${task}' asks no ${number}: run \`arbor inbox\` to see what is open`,
+			{ task, question: number },
+		);
+	}
+	if (asked.done) {
+		fail(
+			"not_found",
+			`${number} on '${task}' is checked off already: its agent has acted on it`,
+			{ task, question: number },
+		);
+	}
+	return { path, plan, asked };
+}
+
+export interface Withdrawn {
+	task: string;
+	/** The question as the plan now reads, with no reply. */
+	question: Question;
+	/** The reply taken back, to answer again from. */
+	reply: string;
+}
+
+/**
+ * Takes back a reply its agent has not acted on yet: the question reads as
+ * asked again, and any files the reply stored are deleted. Refuses once the
+ * agent has checked the question off, since by then it has acted on it.
+ */
+export async function withdrawReply(
+	{ service, fs }: { service: WorktreeService; fs: Fs },
+	task: string,
+	question: string,
+): Promise<Withdrawn> {
+	const number = questionNumber(question);
+	if (number === null) {
+		fail(
+			"usage",
+			`'${question}' is not a question number: name it the way the plan does, like Q9`,
+			{ task, question },
+		);
+	}
+	const { path, plan, asked } = await openQuestion(
+		{ service, fs },
+		task,
+		number,
+	);
+	if (asked.reply === null) {
+		fail("not_found", `${number} on '${task}' has no reply to withdraw`, {
+			task,
+			question: number,
+		});
+	}
+	const updated = withReply(plan, number, null) ?? plan;
+	await fs.write(path, updated);
+	const dir = `${service.attachmentsPath(task)}/`;
+	for (const stored of asked.reply.split(" ")) {
+		if (stored.startsWith(dir)) {
+			await fs.rm(stored).catch(() => undefined);
+		}
+	}
+	return {
+		task,
+		question: questions(updated).find((found) => found.number === number) ?? {
+			...asked,
+			reply: null,
+		},
+		reply: asked.reply,
+	};
+}
+
+/** `arbor unreply`: takes back a reply its agent has yet to act on. */
+export async function unreply(
+	deps: { service: WorktreeService; fs: Fs; log: Logger },
+	task: string,
+	question: string,
+): Promise<void> {
+	const withdrawn = await withdrawReply(deps, task, question);
+	deps.log.info(
+		[
+			`${color.green("withdrew")} the reply to ${withdrawn.question.number} on ${task}`,
+			color.dim(`  was: ${withdrawn.reply}`),
+		].join("\n"),
+	);
 }
 
 export interface ReplyOptions {

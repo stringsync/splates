@@ -4,7 +4,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { add } from "./add";
 import { PLAN_FILE, questions } from "./plan";
 import { remove } from "./remove";
-import { reply, replyTo } from "./reply";
+import { reply, replyTo, unreply, withdrawReply } from "./reply";
 import { LIVE_PID, Testing } from "./testing";
 
 const PLAN = `# alpha
@@ -155,6 +155,35 @@ describe("reply", () => {
 		expect(replied.question).toMatchObject({
 			reply: "a (Email), c (Push): and log it",
 			chosen: ["a", "c"],
+		});
+	});
+
+	it("takes a reply back, files and all, while its agent has not acted", async () => {
+		const replied = await replyTo(deps, "alpha", "Q3", {
+			text: "keep",
+			files: [{ name: "shot.png", bytes: new Uint8Array([1]) }],
+		});
+
+		const withdrawn = await withdrawReply(deps, "alpha", "q3");
+
+		expect(withdrawn.reply).toBe(`keep ${replied.attachments[0]}`);
+		expect(withdrawn.question.reply).toBeNull();
+		expect(await deps.fs.read(plan)).toBe(PLAN);
+		expect(await deps.fs.exists(replied.attachments[0] ?? "")).toBe(false);
+
+		await replyTo(deps, "alpha", "Q3", { text: "drop" });
+		deps.log.clear();
+		await unreply(deps, "alpha", "Q3");
+		expect(deps.out()).toContain("withdrew the reply to Q3 on alpha");
+		expect(deps.out()).toContain("was: drop");
+	});
+
+	it("refuses to take back what is not there or already acted on", async () => {
+		await expect(withdrawReply(deps, "alpha", "Q3")).toBail("not_found", {
+			message: "no reply to withdraw",
+		});
+		await expect(withdrawReply(deps, "alpha", "Q1")).toBail("not_found", {
+			message: "checked off already",
 		});
 	});
 

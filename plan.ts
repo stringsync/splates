@@ -199,14 +199,15 @@ function dedent(lines: string[]): string {
 
 /**
  * The plan with `reply` written onto that question's line, in place of any
- * earlier one. The checkbox is left alone: checking it off is the agent's
+ * earlier one, or with no reply there at all when it is null. The checkbox is left alone: checking it off is the agent's
  * word that it has acted on the answer. Null when the plan has no such
  * question.
  */
 export function withReply(
 	text: string,
 	number: string,
-	reply: string,
+	/** Null takes the reply off, leaving the question as it was asked. */
+	reply: string | null,
 ): string | null {
 	const lines = text.split("\n");
 	const target = blockedLines(text).find(
@@ -219,7 +220,10 @@ export function withReply(
 	const arrow = line.indexOf(ARROW);
 	const item = (arrow === -1 ? line : line.slice(0, arrow)).trimEnd();
 	// A newline would end the item: the rest would read as prose under it.
-	lines[index] = `${item}${ARROW}${reply.replace(/\s*\n\s*/g, " ").trim()}`;
+	lines[index] =
+		reply === null
+			? item
+			: `${item}${ARROW}${reply.replace(/\s*\n\s*/g, " ").trim()}`;
 	return lines.join("\n");
 }
 

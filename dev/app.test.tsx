@@ -27,7 +27,11 @@ let served: Snapshot;
 /** Set to fail the next fetch, standing in for a server that went away. */
 let down: boolean;
 /** Every write the page made, in order. */
-let posts: { path: string; body: BodyInit | null | undefined }[];
+let posts: {
+	path: string;
+	method: string;
+	body: BodyInit | null | undefined;
+}[];
 /** Set to refuse the next write the way the server would. */
 let refusal: { reason: string; message: string } | null;
 /** The stream the page opened, so a test can push through it. */
@@ -71,8 +75,8 @@ beforeEach(() => {
 		if (down) {
 			throw new Error("no server");
 		}
-		if (init?.method === "POST") {
-			posts.push({ path, body: init.body });
+		if (init?.method !== undefined && init.method !== "GET") {
+			posts.push({ path, method: init.method, body: init.body });
 			if (refusal) {
 				return Response.json(refusal, { status: 409 });
 			}
@@ -208,7 +212,7 @@ describe("inbox", () => {
 		);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "show replied" })),
+			fireEvent.click(view.getByRole("button", { name: /1 replied/ })),
 		);
 
 		expect(view.getByText("answered")).toBeTruthy();
@@ -233,7 +237,7 @@ describe("inbox", () => {
 			},
 		});
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "show replied" })),
+			fireEvent.click(view.getByRole("button", { name: /1 replied/ })),
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
@@ -391,6 +395,42 @@ describe("inbox", () => {
 		expect(form.get("text")).toBe("email them first");
 	});
 
+	it("says a reply went, and undoes it back into the form", async () => {
+		const view = await open({
+			inbox: { questions: [question()], replied: 0 },
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "reply" }),
+		);
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "it clips" } }),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		const undo = await waitFor(() =>
+			view.getByRole("button", { name: "Undo" }),
+		);
+		expect(document.body.textContent).toContain("Replied to Q1");
+		await act(async () => fireEvent.click(undo));
+
+		await waitFor(() => expect(posts).toHaveLength(2));
+		expect(posts[1]?.path).toBe("/api/unreply");
+		expect(JSON.parse(String(posts[1]?.body))).toEqual({
+			task: "alpha",
+			question: "Q1",
+		});
+		const reopened = await waitFor(() =>
+			view.getByRole("textbox", { name: "reply" }),
+		);
+		expect((reopened as HTMLTextAreaElement).value).toBe("it clips");
+		expect(view.queryByRole("button", { name: "Undo" })).toBeNull();
+	});
+
 	it("shows why a reply was refused", async () => {
 		refusal = { reason: "lease_held", message: "an agent holds 'alpha'" };
 		const view = await open({
@@ -463,6 +503,49 @@ describe("todos", () => {
 		expect(JSON.parse(String(posts[0]?.body))).toEqual({
 			text: "write the docs",
 		});
+	});
+});
+
+describe("todo edits", () => {
+	it("rewords one", async () => {
+		const view = await open({ todos: [todo({ id: 4, text: "write docs" })] });
+		await tab(view, /todos/i);
+
+		await act(async () => fireEvent.click(view.getByText("write docs")));
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "todo" }),
+		);
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "write the docs" } }),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Save" })),
+		);
+
+		await waitFor(() => expect(posts).toHaveLength(1));
+		expect(posts[0]).toMatchObject({ path: "/api/todos/4", method: "PATCH" });
+		expect(JSON.parse(String(posts[0]?.body))).toEqual({
+			text: "write the docs",
+		});
+	});
+
+	it("removes one, asking twice", async () => {
+		const view = await open({ todos: [todo({ id: 4, text: "write docs" })] });
+		await tab(view, /todos/i);
+
+		await act(async () => fireEvent.click(view.getByText("write docs")));
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Remove" })),
+			),
+		);
+		expect(posts).toHaveLength(0);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Remove for good" })),
+		);
+
+		await waitFor(() => expect(posts).toHaveLength(1));
+		expect(posts[0]).toMatchObject({ path: "/api/todos/4", method: "DELETE" });
 	});
 });
 

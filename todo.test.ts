@@ -5,7 +5,7 @@ import { merge } from "./merge";
 import { PLAN_FILE } from "./plan";
 import { remove } from "./remove";
 import { Testing } from "./testing";
-import { recommend, todoAdd, todoList, todoRemove } from "./todo";
+import { recommend, todoAdd, todoList, todoRemove, todoUpdate } from "./todo";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -36,6 +36,22 @@ describe.concurrent("todo", () => {
 			"third",
 		]);
 		await expect(todoRemove(deps, 2)).toBail("not_found");
+	});
+
+	it("rewords one, keeping its number", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "write docs", "alpha");
+
+		const updated = await todoUpdate(deps, 1, "  write the arbor docs ");
+
+		expect(updated.state).toMatchObject({
+			id: 1,
+			text: "write the arbor docs",
+			from: "alpha",
+		});
+		expect((await deps.todos.find(1)).text).toBe("write the arbor docs");
+		await expect(todoUpdate(deps, 1, " ")).toBail("usage");
+		await expect(todoUpdate(deps, 9, "x")).toBail("not_found");
 	});
 
 	it("refuses a todo with no text", async () => {

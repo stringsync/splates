@@ -1,5 +1,5 @@
 import { GitBranchIcon } from "lucide-react";
-import { type JSX, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import {
 	Empty,
@@ -113,16 +113,24 @@ export function Task({
 	task: Details;
 	side?: "bottom" | "right";
 }): JSX.Element {
-	const fields: [string, string][] = [
+	const fields: [string, ReactNode][] = [
 		["status", task.status],
 		["branch", task.branch],
 		["base", task.base],
 		["worktree", task.worktree],
 		["lease", task.lease],
 		["commits", String(task.ahead ?? "?")],
+
 		[
 			"diff",
-			task.added === null ? "?" : `+${task.added} -${task.removed ?? 0}`,
+			task.added === null ? (
+				"?"
+			) : (
+				<span key="diff" className="tabular-nums">
+					<span className="text-success">+{task.added}</span>{" "}
+					<span className="text-destructive">-{task.removed ?? 0}</span>
+				</span>
+			),
 		],
 		["age", task.age ?? "?"],
 	];

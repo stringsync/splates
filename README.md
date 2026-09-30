@@ -272,10 +272,19 @@ Refuses `lease_held` while the task's agent is in a live session: it is waiting
 in its chat, not reading its plan, so answer it there. Refuses `not_found` for
 a task or question that is not there, or one already checked off.
 
+### `arbor unreply <task> <question>`
+
+Takes back a reply its agent has not acted on yet: the question reads as asked
+again, and any files the reply stored are deleted. Refuses `not_found` once the
+agent has checked the question off, or when there is no reply to take back.
+An agent blocked on `arbor wait --answered` may already have woken for the
+reply, so this is for catching a mistake quickly, not for changing your mind
+an hour later; for that, reply again.
+
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
-`retry`, `reply`), oldest first, each with the task and how it ended (`ok`, or
+`retry`, `reply`, `unreply`, `todo add`, `todo update`, `todo remove`), oldest first, each with the task and how it ended (`ok`, or
 the refusal reason).
 
 ```
@@ -297,15 +306,18 @@ reloading themselves as anything changes. Built for a phone first: open
 questions lead, grouped by task, and tapping one opens it with its body,
 images full size on a tap, its choices, and a reply box that takes pasted or
 picked files. The task's plan slides in over the question without closing
-it. A replied question drops out; a toggle brings those back until their
-agent acts on them. If the server stops
-answering, the header says it is offline, since what the page shows may be
-stale.
+it. A sent reply drops the question from the list and leaves a banner with an
+undo, which reopens the question with the answer as it was. Replied questions
+come back from a line under the list until their agent acts on them. Todos
+open to reword or remove. The tabs sit along the bottom, in reach of a thumb.
+If the server stops answering, the header says it is offline, since what the
+page shows may be stale.
 
 Everything the page does, the CLI does too, through the same functions:
-answering is `arbor reply`, adding is `arbor todo add`. Nothing else is
-writable from the page. Merging, removing and claiming stay in the CLI, so a
-page that should not have been reachable can at worst leave a reply. It takes
+answering is `arbor reply`, undoing is `arbor unreply`, and todos are `arbor
+todo add`, `update` and `remove`. Nothing else is writable from the page.
+Merging, removing tasks and claiming stay in the CLI, so a page that should
+not have been reachable can at worst leave replies and change todos. It takes
 no lease.
 
 It listens on 127.0.0.1 only and refuses a request whose `Host` is not this
@@ -356,7 +368,7 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <text>`, `arbor todo list [--json]`, `arbor todo remove <id>`
+### `arbor todo add <text>`, `arbor todo list [--json]`, `arbor todo update <id> <text>`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -369,7 +381,9 @@ one at once, with nothing to commit and no two agents rewriting the same file.
 Numbers are never reused. They are local to the clone: not in git history,
 not on a fresh checkout.
 
-`arbor add <task> --todo <id>` is how one gets picked up.
+`arbor add <task> --todo <id>` is how one gets picked up. `update` rewords
+one and keeps its number; `remove` drops one done some other way or no longer
+wanted.
 
 ### `arbor retry <task>`
 

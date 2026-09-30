@@ -69,6 +69,17 @@ export class Todo {
 		return this.todos.save({ ...this.state, takenBy: null });
 	}
 
+	/** Says what is left to do in other words, keeping its id and history. */
+	update(text: string): Promise<Todo> {
+		const trimmed = text.trim();
+		if (trimmed === "") {
+			fail("usage", "a todo needs text: say what is left to do", {
+				todo: this.id,
+			});
+		}
+		return this.todos.save({ ...this.state, text: trimmed });
+	}
+
 	remove(): Promise<void> {
 		return this.todos.delete(this.id);
 	}
@@ -289,6 +300,16 @@ export async function todoList(
 			]),
 		),
 	);
+}
+
+export async function todoUpdate(
+	{ todos, log }: { todos: Todos; log: Logger },
+	id: number,
+	text: string,
+): Promise<Todo> {
+	const updated = await (await todos.find(id)).update(text);
+	log.info(`${color.green("updated")} todo ${id}: ${updated.text}`);
+	return updated;
 }
 
 export async function todoRemove(

@@ -10,7 +10,7 @@ import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import { openQuestions } from "./inbox";
 import type { Journal } from "./journal";
-import { type Attachment, replyTo } from "./reply";
+import { type Attachment, replyTo, withdrawReply } from "./reply";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -256,6 +256,49 @@ export async function dev(
 		return Response.json(todo.state);
 	};
 
+	const unreply = async (request: Request): Promise<Response> => {
+		const { task, question } = (await request.json()) as {
+			task?: unknown;
+			question?: unknown;
+		};
+		const withdrawn = await journal.record("unreply", String(task ?? ""), () =>
+			withdrawReply(
+				{ service, fs },
+				String(task ?? ""),
+				String(question ?? ""),
+			),
+		);
+		await tick();
+		return Response.json(withdrawn);
+	};
+
+	/** The todo a `/api/todos/<id>` path names. */
+	const todoAt = async (request: Request) => {
+		const raw = new URL(request.url).pathname.split("/").at(-1) ?? "";
+		const id = Number(raw);
+		if (!Number.isInteger(id) || id <= 0) {
+			fail("usage", `'${raw}' is not a todo id`, { todo: raw });
+		}
+		return todos.find(id);
+	};
+
+	const updateTodo = async (request: Request): Promise<Response> => {
+		const { text } = (await request.json()) as { text?: unknown };
+		const found = await todoAt(request);
+		const todo = await journal.record("todo update", null, () =>
+			found.update(String(text ?? "")),
+		);
+		await tick();
+		return Response.json(todo.state);
+	};
+
+	const removeTodo = async (request: Request): Promise<Response> => {
+		const found = await todoAt(request);
+		await journal.record("todo remove", null, () => found.remove());
+		await tick();
+		return Response.json(found.state);
+	};
+
 	const requested = await ports.get();
 	const server = Bun.serve({
 		port: requested,
@@ -275,7 +318,12 @@ export async function dev(
 			"/api/snapshot": guarded(async () => Response.json(await read())),
 			"/api/reply": { POST: guarded(reply) },
 			"/api/image": guarded(image),
+			"/api/unreply": { POST: guarded(unreply) },
 			"/api/todos": { POST: guarded(addTodo) },
+			"/api/todos/:id": {
+				PATCH: guarded(updateTodo),
+				DELETE: guarded(removeTodo),
+			},
 			"/events": guarded(async () => events()),
 		},
 		fetch: () => new Response("not found", { status: 404 }),

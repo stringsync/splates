@@ -10,6 +10,7 @@ import {
 	PaperclipIcon,
 	SquareCheckIcon,
 	SquareIcon,
+	Undo2Icon,
 	XIcon,
 } from "lucide-react";
 import {
@@ -21,6 +22,12 @@ import {
 	useRef,
 	useState,
 } from "react";
+import {
+	Alert,
+	AlertAction,
+	AlertDescription,
+	AlertTitle,
+} from "#dev/components/ui/alert.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -49,31 +56,42 @@ import {
 	SheetTrigger,
 } from "#dev/components/ui/sheet.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
-import { Toggle } from "#dev/components/ui/toggle.tsx";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "#dev/components/ui/toggle-group.tsx";
 import type { OpenQuestion } from "../inbox";
 import type { Snapshot } from "../snapshot";
-import { imageUrl, reply } from "./api";
+import { imageUrl, reply, unreply } from "./api";
 import { Markdown } from "./markdown";
 import { Task } from "./tasks";
+
+/** What a reply box held: kept after sending, so an undo can hand it back. */
+interface Draft {
+	choices: string[];
+	text: string;
+	files: File[];
+}
+
+/** A question by name, rather than the object, so it keeps up with the plan. */
+interface Named {
+	task: string;
+	number: string;
+}
 
 /**
  * What waits on a person, and nothing else: each unanswered question in a
  * line, grouped by task. A question leaves once it is answered; the ones its
- * agent has yet to act on come back behind a toggle, to change or add to.
+ * agent has yet to act on come back from a line under the list, to change or
+ * add to.
  */
 export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const { questions } = snapshot.inbox;
 	const [showReplied, setShowReplied] = useState(false);
-	// By name rather than the object, so an open question keeps up with the
-	// plan as it changes underneath.
-	const [opened, setOpened] = useState<{
-		task: string;
-		number: string;
-	} | null>(null);
+	const [opened, setOpened] = useState<(Named & { draft?: Draft }) | null>(
+		null,
+	);
+	const [sent, setSent] = useState<(Named & { draft: Draft }) | null>(null);
 
 	const replied = questions.filter((question) => question.reply !== null);
 	const shown = useMemo(
@@ -94,22 +112,15 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-6">
-			{replied.length > 0 && (
-				<div className="flex justify-end">
-					<Toggle
-						pressed={showReplied}
-						onPressedChange={setShowReplied}
-						variant="outline"
-						size="sm"
-						aria-label="show replied"
-					>
-						<CheckCheckIcon className="text-success" />
-						Replied
-						<span className="text-muted-foreground tabular-nums">
-							{replied.length}
-						</span>
-					</Toggle>
-				</div>
+			{sent && (
+				<Sent
+					sent={sent}
+					onUndone={() => {
+						setSent(null);
+						setOpened(sent);
+					}}
+					onDismiss={() => setSent(null)}
+				/>
 			)}
 			{shown.length === 0 && (
 				<Empty>
@@ -138,6 +149,21 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					))}
 				</section>
 			))}
+			{/* Last, and quiet: what waits on agents rather than on you. */}
+			{replied.length > 0 && (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="-mx-2 self-start text-muted-foreground"
+					aria-expanded={showReplied}
+					onClick={() => setShowReplied((shown) => !shown)}
+				>
+					<CheckCheckIcon data-icon="inline-start" className="text-success" />
+					{showReplied
+						? "Hide replied"
+						: `${replied.length} replied, waiting on agents`}
+				</Button>
+			)}
 			<Sheet
 				open={current !== undefined}
 				onOpenChange={(open) => {
@@ -150,11 +176,74 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					<Answer
 						question={current}
 						snapshot={snapshot}
-						onDone={() => setOpened(null)}
+						draft={opened?.draft}
+						onSent={(draft) => {
+							setSent({ task: current.task, number: current.number, draft });
+							setOpened(null);
+						}}
 					/>
 				)}
 			</Sheet>
 		</div>
+	);
+}
+
+/**
+ * Says a reply went, and offers to take it back while its agent has yet to
+ * act on it: the question reopens with the answer as it was, to edit.
+ */
+function Sent({
+	sent,
+	onUndone,
+	onDismiss,
+}: {
+	sent: Named;
+	onUndone: () => void;
+	onDismiss: () => void;
+}): JSX.Element {
+	const [undoing, setUndoing] = useState(false);
+	const [refused, setRefused] = useState<string | null>(null);
+	const undo = async () => {
+		setUndoing(true);
+		try {
+			await unreply(sent.task, sent.number);
+			onUndone();
+		} catch (error) {
+			setRefused(error instanceof Error ? error.message : String(error));
+			setUndoing(false);
+		}
+	};
+	return (
+		// The Alert colours its icon like its text; green says it went.
+		<Alert className="*:[svg]:text-success">
+			<CircleCheckIcon />
+			<AlertTitle>
+				Replied to {sent.number}{" "}
+				<span className="font-normal text-muted-foreground">{sent.task}</span>
+			</AlertTitle>
+			{refused && <AlertDescription>{refused}</AlertDescription>}
+			<AlertAction className="flex gap-1">
+				{refused === null && (
+					<Button
+						variant="outline"
+						size="xs"
+						disabled={undoing}
+						onClick={() => void undo()}
+					>
+						<Undo2Icon data-icon="inline-start" />
+						Undo
+					</Button>
+				)}
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					aria-label="dismiss"
+					onClick={onDismiss}
+				>
+					<XIcon />
+				</Button>
+			</AlertAction>
+		</Alert>
 	);
 }
 
@@ -209,11 +298,13 @@ function Mark({ question }: { question: OpenQuestion }): JSX.Element | null {
 function Answer({
 	question,
 	snapshot,
-	onDone,
+	draft,
+	onSent,
 }: {
 	question: OpenQuestion;
 	snapshot: Snapshot;
-	onDone: () => void;
+	draft?: Draft;
+	onSent: (draft: Draft) => void;
 }): JSX.Element {
 	const task = snapshot.tasks.find((task) => task.task === question.task);
 	const live = question.lease === "held";
@@ -265,7 +356,7 @@ function Answer({
 						Its agent is in a live session. Answer it in that chat.
 					</p>
 				) : (
-					<ReplyBox question={question} onDone={onDone} />
+					<ReplyBox question={question} draft={draft} onSent={onSent} />
 				)}
 			</div>
 		</SheetContent>
@@ -300,16 +391,21 @@ function Lightbox({ src, alt }: { src: string; alt: string }): JSX.Element {
 
 function ReplyBox({
 	question,
-	onDone,
+	draft,
+	onSent,
 }: {
 	question: OpenQuestion;
-	onDone: () => void;
+	/** A reply taken back, to edit and send again. */
+	draft?: Draft;
+	onSent: (draft: Draft) => void;
 }): JSX.Element {
 	// Start from the reply already sent, so sending again changes or adds to it
 	// rather than starting over.
-	const [choices, setChoices] = useState<string[]>(question.chosen);
-	const [text, setText] = useState(() => words(question));
-	const [files, setFiles] = useState<File[]>([]);
+	const [choices, setChoices] = useState<string[]>(
+		draft?.choices ?? question.chosen,
+	);
+	const [text, setText] = useState(() => draft?.text ?? words(question));
+	const [files, setFiles] = useState<File[]>(draft?.files ?? []);
 	const [sending, setSending] = useState(false);
 	const picker = useRef<HTMLInputElement>(null);
 	const offers = question.choices.length > 0;
@@ -347,8 +443,7 @@ function ReplyBox({
 				text,
 				files,
 			});
-			toast.add({ title: `Replied to ${question.number}`, type: "success" });
-			onDone();
+			onSent({ choices, text, files });
 		} catch (error) {
 			toast.add({
 				title: "Not sent",

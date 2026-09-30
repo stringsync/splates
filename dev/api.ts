@@ -1,7 +1,8 @@
 /**
- * The page's two writes, each the same core function the CLI calls behind it:
- * `arbor reply` and `arbor todo add`. A refusal comes back as the CLI's own
- * reason and message, thrown so the caller can show it.
+ * The page's writes, each the same core function the CLI calls behind it:
+ * `arbor reply`, `arbor unreply` and `arbor todo add`, `update` and `remove`.
+ * A refusal comes back as the CLI's own reason and message, thrown so the
+ * caller can show it.
  */
 
 export class ApiError extends Error {
@@ -61,6 +62,26 @@ export async function addTodo(text: string): Promise<void> {
 	await send("/api/todos", {
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({ text }),
+	});
+}
+
+export async function updateTodo(id: number, text: string): Promise<void> {
+	await send(`/api/todos/${id}`, {
+		method: "PATCH",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ text }),
+	});
+}
+
+export async function removeTodo(id: number): Promise<void> {
+	await send(`/api/todos/${id}`, { method: "DELETE" });
+}
+
+/** Takes back a reply its agent has not acted on yet. */
+export async function unreply(task: string, question: string): Promise<void> {
+	await send("/api/unreply", {
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ task, question }),
 	});
 }
 

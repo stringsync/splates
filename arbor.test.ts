@@ -71,6 +71,15 @@ describe("arbor cli", () => {
 			"Run it where? → a (locally), b (in ci)\n",
 		);
 
+		await arbor.run(deps, ["unreply", "alpha", "Q2"]);
+		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
+			"Run it where?\n",
+		);
+		await arbor.run(deps, ["todo", "add", "write docs"]);
+		await arbor.run(deps, ["todo", "update", "1", "write the docs"]);
+		expect((await env.todos.find(1)).text).toBe("write the docs");
+		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b,a"]);
+
 		await arbor.run(deps, ["inbox", "--replied", "--json"]);
 		expect(
 			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,

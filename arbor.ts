@@ -14,11 +14,11 @@ import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
 import { remove } from "./remove";
-import { reply } from "./reply";
+import { reply, unreply } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
-import { todoAdd, todoList, todoRemove } from "./todo";
+import { todoAdd, todoList, todoRemove, todoUpdate } from "./todo";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
@@ -186,6 +186,19 @@ arbor
 	);
 
 arbor
+	.command("unreply")
+	.description(
+		"take back a reply its agent has not acted on yet, deleting any files it stored; refuses once the agent has checked the question off",
+	)
+	.arg("task", z.string(), { description: "task name" })
+	.arg("question", z.string(), { description: "question number: Q9, q9 or 9" })
+	.action((opts, ctx) =>
+		ctx.journal.record("unreply", opts.task, () =>
+			unreply(ctx, opts.task, opts.question),
+		),
+	);
+
+arbor
 	.command("reply")
 	.description(
 		"answer a task's open question: writes ` → <text>` onto its line in ARBOR.md, replacing any earlier reply, and leaves the box for the agent to check; refuses a task whose agent is in a live session",
@@ -235,7 +248,7 @@ arbor
 arbor
 	.command("dev")
 	.description(
-		"serve the inbox, todos, tasks and log as a web page on this machine; from it a person can reply to questions and add todos, and nothing else",
+		"serve the inbox, todos, tasks and log as a web page on this machine; from it a person can reply to questions, withdraw a reply, and add, update or remove todos, and nothing else",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
@@ -325,6 +338,17 @@ todo
 		{ default: false, description: "emit JSON" },
 	)
 	.action((opts, ctx) => todoList(ctx, { json: opts.json }));
+
+todo
+	.command("update")
+	.description("say what a todo is in other words; it keeps its id")
+	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.arg("text", z.string(), { description: "what is left to do, in a line" })
+	.action((opts, ctx) =>
+		ctx.journal.record("todo update", null, () =>
+			todoUpdate(ctx, opts.id, opts.text),
+		),
+	);
 
 todo
 	.command("remove")

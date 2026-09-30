@@ -310,6 +310,65 @@ describe("dev", () => {
 			});
 		});
 
+		it("takes a reply back", async () => {
+			const plan = await asked();
+			const before = await deps.fs.read(plan);
+
+			await serving(async (_snapshot, port) => {
+				const form = new FormData();
+				form.set("task", "alpha");
+				form.set("question", "Q1");
+				form.set("text", "no");
+				await post(port, "/api/reply", form);
+
+				const response = await post(
+					port,
+					"/api/unreply",
+					JSON.stringify({ task: "alpha", question: "Q1" }),
+					{ "content-type": "application/json" },
+				);
+
+				expect(response.status).toBe(200);
+				expect(await deps.fs.read(plan)).toBe(before);
+				const again = await post(
+					port,
+					"/api/unreply",
+					JSON.stringify({ task: "alpha", question: "Q1" }),
+					{ "content-type": "application/json" },
+				);
+				expect(again.status).toBe(404);
+			});
+		});
+
+		it("updates and removes a todo", async () => {
+			await deps.todos.add("write docs", null);
+
+			await serving(async (snapshot, port) => {
+				const write = (method: string, path: string, body?: string) =>
+					fetch(`http://127.0.0.1:${port}${path}`, {
+						method,
+						headers: {
+							origin: `http://127.0.0.1:${port}`,
+							"content-type": "application/json",
+						},
+						body,
+					});
+
+				const updated = await write(
+					"PATCH",
+					"/api/todos/1",
+					JSON.stringify({ text: "write the docs" }),
+				);
+				expect(updated.status).toBe(200);
+				expect((await snapshot()).todos[0]?.text).toBe("write the docs");
+
+				expect((await write("DELETE", "/api/todos/1")).status).toBe(200);
+				expect((await snapshot()).todos).toEqual([]);
+				expect((await write("DELETE", "/api/todos/1")).status).toBe(404);
+				expect((await write("DELETE", "/api/todos/nope")).status).toBe(400);
+			});
+		});
+
 		it("adds a todo", async () => {
 			await serving(async (snapshot, port) => {
 				const response = await post(
