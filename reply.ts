@@ -9,6 +9,7 @@ import {
 	type Question,
 	questionNumber,
 	questions,
+	replyLine,
 	withReply,
 } from "./plan";
 import type { WorktreeService } from "./worktree-service";
@@ -21,7 +22,10 @@ export interface Attachment {
 }
 
 export interface ReplyInput {
+	/** Words, alongside a choice or instead of one. */
 	text: string;
+	/** The key of the choice picked (`b`), for a question that offers them. */
+	choice?: string;
 	images?: Attachment[];
 }
 
@@ -51,7 +55,7 @@ export async function replyTo(
 	}: { service: WorktreeService; fs: Fs; ids?: IdProvider },
 	task: string,
 	question: string,
-	{ text, images = [] }: ReplyInput,
+	{ text, choice, images = [] }: ReplyInput,
 ): Promise<Replied> {
 	const number = questionNumber(question);
 	if (number === null) {
@@ -61,7 +65,7 @@ export async function replyTo(
 			{ task, question },
 		);
 	}
-	if (text.trim() === "" && images.length === 0) {
+	if (text.trim() === "" && images.length === 0 && !choice) {
 		fail("usage", "an empty reply answers nothing: say what to do", {
 			task,
 			question: number,
@@ -103,6 +107,17 @@ export async function replyTo(
 		);
 	}
 
+	if (choice && !asked.choices.some((offered) => offered.key === choice)) {
+		const keys = asked.choices.map((offered) => offered.key).join(", ");
+		fail(
+			"usage",
+			asked.choices.length === 0
+				? `${number} offers no choices: answer it in words`
+				: `${number} offers ${keys}, not '${choice}'`,
+			{ task, question: number, choice },
+		);
+	}
+
 	const attachments: string[] = [];
 	if (images.length > 0) {
 		const dir = service.attachmentsPath(task);
@@ -113,7 +128,9 @@ export async function replyTo(
 			attachments.push(stored);
 		}
 	}
-	const reply = [text.trim(), ...attachments].filter(Boolean).join(" ");
+	const reply = [replyLine(asked, { choice, text }), ...attachments]
+		.filter(Boolean)
+		.join(" ");
 	const updated = withReply(plan, number, reply) ?? plan;
 	await fs.write(path, updated);
 	return {
@@ -129,6 +146,8 @@ export async function replyTo(
 export interface ReplyOptions {
 	/** Files to attach, relative to the current directory or absolute. */
 	images?: string[];
+	/** The key of the choice picked, for a question that offers them. */
+	choice?: string;
 }
 
 /** `arbor reply`: reads the attachments off disk and answers the question. */
@@ -137,7 +156,7 @@ export async function reply(
 	task: string,
 	question: string,
 	text: string,
-	{ images = [] }: ReplyOptions = {},
+	{ images = [], choice }: ReplyOptions = {},
 ): Promise<void> {
 	const attached: Attachment[] = [];
 	for (const image of images) {
@@ -153,6 +172,7 @@ export async function reply(
 	}
 	const replied = await replyTo(deps, task, question, {
 		text,
+		choice,
 		images: attached,
 	});
 	deps.log.info(

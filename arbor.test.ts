@@ -42,7 +42,7 @@ describe("arbor cli", () => {
 		});
 		await env.fs.write(
 			join(worktree.path, "ARBOR.md"),
-			"# alpha\n\n## Blocked\n\n- [ ] Q1. [ui] Open it.\n- [ ] Q2. [db] Run it.\n",
+			"# alpha\n\n## Blocked\n\n- [ ] Q1. [ui] Open it.\n- [ ] Q2. [db] Run it where?\n  - (a) locally\n  - (b) in ci\n",
 		);
 		await env.fs.write(join(env.root, "a.png"), "a");
 		await env.fs.write(join(env.root, "b.png"), "b");
@@ -62,6 +62,11 @@ describe("arbor cli", () => {
 		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
 		expect(plan).toContain("- [ ] Q1. [ui] Open it. → looks right /");
 		expect(plan).toContain("-b.png\n");
+
+		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b"]);
+		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
+			"Run it where? → b (in ci)\n",
+		);
 
 		await arbor.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));

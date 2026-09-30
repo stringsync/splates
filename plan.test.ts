@@ -4,6 +4,7 @@ import {
 	plannedFiles,
 	questionNumber,
 	questions,
+	replyLine,
 	withReply,
 } from "./plan";
 
@@ -82,7 +83,7 @@ describe("checkPlan", () => {
 		]);
 		const asked = `${GOOD}\n## Blocked\n- [ ] Q1. Open /tmp/shot.png. Confirm the banner is green.\n`;
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
-		const tagged = `${GOOD}\n## Blocked\n- [ ] Q1. [ui, db] Open /tmp/shot.png. Reply pass or fail.\n`;
+		const tagged = `${GOOD}\n## Blocked\n- [ ] Q1. [ui, db] Open /tmp/shot.png. Does it fit?\n`;
 		expect(checkPlan(tagged, { task: "alpha", escalated: true })).toEqual([]);
 	});
 
@@ -139,8 +140,8 @@ describe("plannedFiles", () => {
 const BLOCKED = `${GOOD}
 ## Blocked
 
-- [x] Q1. Run the tests. Reply pass or fail. → pass
-- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Reply pass or fail. → fail, too wide
+- [x] Q1. Run the tests. Does it fit? → pass
+- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Does it fit? → fail, too wide
 - [ ] Q3. [ui] Decide: keep or drop?
   - not a question of its own
 - [ ] Q4. [Not Tags] Confirm the copy.
@@ -153,15 +154,19 @@ describe("questions", () => {
 				number: "Q1",
 				done: true,
 				tags: [],
-				text: "Run the tests. Reply pass or fail.",
+				text: "Run the tests. Does it fit?",
 				reply: "pass",
+				choices: [],
+				chosen: null,
 			},
 			{
 				number: "Q2",
 				done: false,
 				tags: ["ui", "db-schema"],
-				text: "Open /tmp/shot.png. Reply pass or fail.",
+				text: "Open /tmp/shot.png. Does it fit?",
 				reply: "fail, too wide",
+				choices: [],
+				chosen: null,
 			},
 			{
 				number: "Q3",
@@ -169,6 +174,8 @@ describe("questions", () => {
 				tags: ["ui"],
 				text: "Decide: keep or drop?",
 				reply: null,
+				choices: [],
+				chosen: null,
 			},
 			{
 				number: "Q4",
@@ -176,6 +183,8 @@ describe("questions", () => {
 				tags: [],
 				text: "[Not Tags] Confirm the copy.",
 				reply: null,
+				choices: [],
+				chosen: null,
 			},
 		]);
 	});
@@ -196,6 +205,60 @@ describe("questions", () => {
 	});
 });
 
+const CHOICES = `${GOOD}
+## Blocked
+
+- [ ] Q1. [auth] How do old sessions move over?
+  - (a) Force everyone to sign in again
+  - (b) Migrate on next login
+- [ ] Q2. Which table? → b (users): and backfill
+  - (a) sessions
+  - (b) users
+- [ ] Q3. Anything else? → a bit more logging
+- [ ] Q4. Pick one → c
+  - (a) left
+`;
+
+describe("choices", () => {
+	it("reads the choices indented under each question", () => {
+		const [first, second, third, fourth] = questions(CHOICES);
+		expect(first?.choices).toEqual([
+			{ key: "a", text: "Force everyone to sign in again" },
+			{ key: "b", text: "Migrate on next login" },
+		]);
+		expect(first?.chosen).toBeNull();
+		expect(second?.chosen).toBe("b");
+		// Words that happen to start with a letter pick nothing.
+		expect(third).toMatchObject({ choices: [], chosen: null });
+		// Nor does a letter it never offered.
+		expect(fourth?.chosen).toBeNull();
+	});
+
+	it("spells the choice out in the reply, words after it", () => {
+		const [asked] = questions(CHOICES);
+		if (asked === undefined) {
+			throw new Error("no question");
+		}
+		expect(replyLine(asked, { choice: "b", text: "" })).toBe(
+			"b (Migrate on next login)",
+		);
+		expect(replyLine(asked, { choice: "a", text: " email them " })).toBe(
+			"a (Force everyone to sign in again): email them",
+		);
+		expect(replyLine(asked, { text: "neither, ask Sam" })).toBe(
+			"neither, ask Sam",
+		);
+	});
+
+	it("keeps the choices when the question is answered", () => {
+		const replied = withReply(CHOICES, "Q1", "b (Migrate on next login)");
+		expect(replied).toContain(
+			"sessions move over? → b (Migrate on next login)\n  - (a) Force",
+		);
+		expect(questions(replied ?? "")[0]?.chosen).toBe("b");
+	});
+});
+
 describe("withReply", () => {
 	it("writes the reply after the arrow, leaving the checkbox open", () => {
 		const replied = withReply(BLOCKED, "Q3", "keep");
@@ -206,7 +269,7 @@ describe("withReply", () => {
 	it("replaces an earlier reply and keeps the answer on one line", () => {
 		const replied = withReply(BLOCKED, "Q2", "pass\nnow it fits");
 		expect(replied).toContain(
-			"- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Reply pass or fail. → pass now it fits\n",
+			"- [ ] Q2. [ui, db-schema] Open /tmp/shot.png. Does it fit? → pass now it fits\n",
 		);
 		expect(replied).not.toContain("too wide");
 	});

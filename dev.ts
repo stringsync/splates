@@ -191,6 +191,7 @@ export async function dev(
 		const replied = await journal.record("reply", task, () =>
 			replyTo({ service, fs }, task, String(form.get("question") ?? ""), {
 				text: String(form.get("text") ?? ""),
+				choice: String(form.get("choice") ?? "") || undefined,
 				images,
 			}),
 		);

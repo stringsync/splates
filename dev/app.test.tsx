@@ -97,8 +97,10 @@ function question(overrides: Partial<OpenQuestion> = {}): OpenQuestion {
 		number: "Q1",
 		done: false,
 		tags: [],
-		text: "Open `/tmp/shot.png`. Confirm the header wraps. Reply pass or fail.",
+		text: "Open `/tmp/shot.png`. Does the header wrap? Reply yes, or what's wrong.",
 		reply: null,
+		choices: [],
+		chosen: null,
 		...overrides,
 	};
 }
@@ -243,6 +245,45 @@ describe("inbox", () => {
 		expect(form.get("text")).toBe("fail: it clips");
 	});
 
+	it("picks a choice, with words or without", async () => {
+		const view = await open({
+			inbox: {
+				questions: [
+					question({
+						text: "How do old sessions move over?",
+						choices: [
+							{ key: "a", text: "Sign in again" },
+							{ key: "b", text: "Migrate on next login" },
+						],
+					}),
+				],
+				tags: [],
+			},
+		});
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+		const send = await waitFor(() =>
+			view.getByRole("button", { name: "Send" }),
+		);
+		expect((send as HTMLButtonElement).disabled).toBe(true);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Migrate/ })),
+		);
+		await act(async () =>
+			fireEvent.change(view.getByRole("textbox", { name: "reply" }), {
+				target: { value: "email them first" },
+			}),
+		);
+		await act(async () => fireEvent.click(send));
+
+		await waitFor(() => expect(posts).toHaveLength(1));
+		const form = posts[0]?.body as FormData;
+		expect(form.get("choice")).toBe("b");
+		expect(form.get("text")).toBe("email them first");
+	});
+
 	it("shows why a reply was refused", async () => {
 		refusal = { reason: "lease_held", message: "an agent holds 'alpha'" };
 		const view = await open({
@@ -378,10 +419,11 @@ describe("feed", () => {
 
 	it("says it is offline when the server goes away", async () => {
 		const view = await open();
+		expect(view.queryByRole("status")).toBeNull();
 
 		down = true;
 		await act(async () => stream?.onmessage?.());
 
-		await waitFor(() => expect(view.getByText("offline")).toBeTruthy());
+		await waitFor(() => expect(view.getByText(/Offline/)).toBeTruthy());
 	});
 });

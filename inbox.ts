@@ -108,7 +108,10 @@ export async function inbox(
 export function formatQuestion(question: Question): string[] {
 	const tags =
 		question.tags.length === 0 ? "" : ` [${question.tags.join(", ")}]`;
-	const lines = [`  ${question.number}${tags} ${question.text}`];
+	const lines = [
+		`  ${question.number}${tags} ${question.text}`,
+		...question.choices.map(({ key, text }) => `      (${key}) ${text}`),
+	];
 	if (question.reply !== null) {
 		lines.push(color.dim(`    → ${question.reply}`));
 	}

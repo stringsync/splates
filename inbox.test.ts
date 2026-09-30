@@ -29,10 +29,16 @@ describe("inbox", () => {
 			deps,
 			"alpha",
 			"- [x] Q1. [ui] Run it. → pass",
-			"- [ ] Q2. [ui, db] Open /tmp/a.png. Reply pass or fail. → pass",
+			"- [ ] Q2. [ui, db] Open /tmp/a.png. Does it fit? → pass",
 			"- [ ] Q3. Decide: keep or drop?",
 		);
-		await ask(deps, "beta", "- [ ] Q1. [db] Confirm the migration.");
+		await ask(
+			deps,
+			"beta",
+			"- [ ] Q1. [db] Run the migration when?",
+			"  - (a) now",
+			"  - (b) after the backfill",
+		);
 		deps.log.clear();
 	});
 
@@ -56,7 +62,7 @@ describe("inbox", () => {
 			status: "working",
 			lease: "none",
 			tags: ["ui", "db"],
-			text: "Open /tmp/a.png. Reply pass or fail.",
+			text: "Open /tmp/a.png. Does it fit?",
 		});
 		// The checked-off Q1 is not counted: nobody has to answer it.
 		expect(found.tags).toEqual([
@@ -88,12 +94,14 @@ describe("inbox", () => {
 				"db 2  ui 1",
 				"",
 				"alpha",
-				"  Q2 [ui, db] Open /tmp/a.png. Reply pass or fail.",
+				"  Q2 [ui, db] Open /tmp/a.png. Does it fit?",
 				"    → pass",
 				"  Q3 Decide: keep or drop?",
 				"",
 				"beta (in a live session: answer it there)",
-				"  Q1 [db] Confirm the migration.",
+				"  Q1 [db] Run the migration when?",
+				"      (a) now",
+				"      (b) after the backfill",
 			].join("\n"),
 		);
 

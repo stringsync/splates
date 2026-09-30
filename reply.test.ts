@@ -16,7 +16,7 @@ x
 ## Blocked
 
 - [x] Q1. Run it. → pass
-- [ ] Q2. [ui] Open /tmp/a.png. Reply pass or fail. → fail
+- [ ] Q2. [ui] Open /tmp/a.png. Does it fit? → fail
 - [ ] Q3. Decide: keep or drop?
 `;
 
@@ -100,6 +100,43 @@ describe("reply", () => {
 		await expect(
 			reply(deps, "alpha", "Q3", "x", { images: ["missing.png"] }),
 		).toBail("usage", { message: "missing.png" });
+	});
+
+	it("picks a choice, with or without words", async () => {
+		const offered = `${PLAN}- [ ] Q4. [db] Where does it live?\n  - (a) sessions\n  - (b) users\n`;
+		await deps.fs.write(plan, offered);
+
+		const picked = await replyTo(deps, "alpha", "Q4", {
+			text: "",
+			choice: "b",
+		});
+		expect(picked.question).toMatchObject({
+			reply: "b (users)",
+			chosen: "b",
+		});
+
+		await reply(deps, "alpha", "Q4", "and backfill", { choice: "a" });
+		expect(await deps.fs.read(plan)).toBe(
+			offered.replace("live?", "live? → a (sessions): and backfill"),
+		);
+
+		// Words alone still answer it.
+		const worded = await replyTo(deps, "alpha", "Q4", { text: "neither" });
+		expect(worded.question).toMatchObject({ reply: "neither", chosen: null });
+	});
+
+	it("refuses a choice the question doesn't offer", async () => {
+		await deps.fs.write(
+			plan,
+			`${PLAN}- [ ] Q4. Where?\n  - (a) sessions\n  - (b) users\n`,
+		);
+
+		await expect(
+			replyTo(deps, "alpha", "Q4", { text: "", choice: "c" }),
+		).toBail("usage", { message: "Q4 offers a, b, not 'c'" });
+		await expect(
+			replyTo(deps, "alpha", "Q3", { text: "", choice: "a" }),
+		).toBail("usage", { message: "Q3 offers no choices" });
 	});
 
 	it("refuses a task whose agent is in a live session", async () => {

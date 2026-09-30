@@ -43,6 +43,21 @@ export interface Question {
 	text: string;
 	/** Whatever follows ` → `, or null when nobody has answered yet. */
 	reply: string | null;
+	/**
+	 * The answers it offers, one `- (a) ...` line each under it, in order. Empty
+	 * for a question answered in words alone. A reply can always add words to
+	 * a choice, or answer in words instead of one.
+	 */
+	choices: Choice[];
+	/** Which choice the reply picked, by key, or null. */
+	chosen: string | null;
+}
+
+/** One answer a question offers: `- (b) Migrate on next login`. */
+export interface Choice {
+	/** The letter it goes by: `b`. */
+	key: string;
+	text: string;
 }
 
 const ITEM = /^[ \t]*- \[([ xX])\] (Q\d+)\.[ \t]*(.*)$/;
@@ -50,6 +65,9 @@ const TAG = "[a-z0-9]+(?:-[a-z0-9]+)*";
 const TAGS = new RegExp(`^\\[(${TAG}(?:,[ \\t]*${TAG})*)\\][ \\t]*`);
 /** What separates an item from its reply, spaces included. */
 const ARROW = " → ";
+const CHOICE = /^[ \t]+- \(([a-z])\)[ \t]+(.+)$/;
+/** A reply that picked one: `b`, `b (Migrate on next login)`, `b: and email them`. */
+const PICKED = /^([a-z])(?=$|:| \()/;
 
 /**
  * Every numbered item under `## Blocked`, open or checked off. The reply is
@@ -57,10 +75,47 @@ const ARROW = " → ";
  * reply` or by hand after the arrow.
  */
 export function questions(text: string): Question[] {
-	return blockedLines(text).flatMap(({ line }) => {
-		const found = question(line);
-		return found === null ? [] : [found];
-	});
+	const found: Question[] = [];
+	for (const { line } of blockedLines(text)) {
+		const asked = question(line);
+		const last = found.at(-1);
+		const choice = CHOICE.exec(line);
+		if (asked !== null) {
+			found.push(asked);
+		} else if (choice !== null && last !== undefined) {
+			// Indented under the question it offers them for.
+			last.choices.push({
+				key: choice[1] ?? "",
+				text: (choice[2] ?? "").trim(),
+			});
+		}
+	}
+	for (const asked of found) {
+		const key =
+			asked.reply === null ? undefined : PICKED.exec(asked.reply)?.[1];
+		asked.chosen = asked.choices.some((choice) => choice.key === key)
+			? (key ?? null)
+			: null;
+	}
+	return found;
+}
+
+/**
+ * How a reply reads in the plan: the choice spelled out, so the agent needs
+ * nothing but the line, then any words after it. `b (Migrate on next login):
+ * and email them first`.
+ */
+export function replyLine(
+	asked: Question,
+	{ choice, text }: { choice?: string; text: string },
+): string {
+	const picked = asked.choices.find((found) => found.key === choice);
+	const words = text.trim();
+	if (picked === undefined) {
+		return words;
+	}
+	const head = `${picked.key} (${picked.text})`;
+	return words === "" ? head : `${head}: ${words}`;
 }
 
 /**
@@ -113,6 +168,8 @@ function question(line: string): Question | null {
 		tags: tagged?.[1]?.split(",").map((tag) => tag.trim()) ?? [],
 		text: (arrow === -1 ? body : body.slice(0, arrow)).trim(),
 		reply: arrow === -1 ? null : body.slice(arrow + ARROW.length).trim(),
+		choices: [],
+		chosen: null,
 	};
 }
 

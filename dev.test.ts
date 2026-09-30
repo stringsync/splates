@@ -215,7 +215,7 @@ describe("dev", () => {
 			"",
 			"## Blocked",
 			"",
-			"- [ ] Q1. [ui] Open the page. Reply pass or fail.",
+			"- [ ] Q1. [ui] Open the page. Does it fit?",
 			"",
 		].join("\n");
 

@@ -31,6 +31,8 @@ async function send(path: string, init: RequestInit): Promise<unknown> {
 export interface ReplyForm {
 	task: string;
 	question: string;
+	/** The key of the choice picked, or null for words alone. */
+	choice: string | null;
 	text: string;
 	images: File[];
 }
@@ -38,12 +40,16 @@ export interface ReplyForm {
 export async function reply({
 	task,
 	question,
+	choice,
 	text,
 	images,
 }: ReplyForm): Promise<void> {
 	const form = new FormData();
 	form.set("task", task);
 	form.set("question", question);
+	if (choice !== null) {
+		form.set("choice", choice);
+	}
 	form.set("text", text);
 	for (const image of images) {
 		form.append("images", image, image.name);

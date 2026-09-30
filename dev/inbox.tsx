@@ -248,6 +248,9 @@ function ReplyBox({
 	question: OpenQuestion;
 	onDone: () => void;
 }): JSX.Element {
+	// A reply sent here already picked one: start from it, so sending again
+	// changes the answer rather than dropping the choice.
+	const [choice, setChoice] = useState<string | null>(question.chosen);
 	const [text, setText] = useState("");
 	const [images, setImages] = useState<File[]>([]);
 	const [sending, setSending] = useState(false);
@@ -270,8 +273,11 @@ function ReplyBox({
 		}
 	};
 
+	// Words alone, a choice alone, or both: whichever the answer needs.
+	const ready = choice !== null || text.trim() !== "" || images.length > 0;
+
 	const send = async () => {
-		if (text.trim() === "" || sending) {
+		if (!ready || sending) {
 			return;
 		}
 		setSending(true);
@@ -279,6 +285,7 @@ function ReplyBox({
 			await reply({
 				task: question.task,
 				question: question.number,
+				choice,
 				text,
 				images,
 			});
@@ -304,16 +311,39 @@ function ReplyBox({
 
 	return (
 		<div className="flex flex-col gap-2">
+			{question.choices.length > 0 && (
+				<ToggleGroup
+					value={choice === null ? [] : [choice]}
+					onValueChange={(value) => setChoice((value[0] as string) ?? null)}
+					orientation="vertical"
+					variant="outline"
+					className="w-full"
+					aria-label="choices"
+				>
+					{question.choices.map(({ key, text }) => (
+						<ToggleGroupItem
+							key={key}
+							value={key}
+							className="h-auto w-full justify-start gap-3 py-2 text-left whitespace-normal"
+						>
+							<span className="text-muted-foreground">{key}</span>
+							{text}
+						</ToggleGroupItem>
+					))}
+				</ToggleGroup>
+			)}
 			<InputGroup>
 				<InputGroupTextarea
 					aria-label="reply"
-					placeholder="Reply"
+					placeholder={
+						question.choices.length > 0 ? "Add context (optional)" : "Reply"
+					}
 					value={text}
 					onChange={(event) => setText(event.target.value)}
 					onPaste={paste}
 					onKeyDown={keys}
-					rows={3}
-					autoFocus
+					rows={question.choices.length > 0 ? 2 : 3}
+					autoFocus={question.choices.length === 0}
 				/>
 				<InputGroupAddon align="block-end" className="justify-between">
 					<InputGroupButton
@@ -327,7 +357,7 @@ function ReplyBox({
 					<InputGroupButton
 						variant="default"
 						size="sm"
-						disabled={text.trim() === "" || sending}
+						disabled={!ready || sending}
 						onClick={() => void send()}
 					>
 						Send

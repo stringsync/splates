@@ -206,8 +206,8 @@ that is gone ends the wait too, since nothing is left to answer.
 
 ```
 alpha answered
-  Q2 [ui] Open /src/shots/header.png. Reply pass or fail.
-    → pass
+  Q2 [ui] Open /src/shots/header.png. Does the header wrap? Reply yes, or what's wrong.
+    → yes
 ```
 
 ### `arbor inbox [--tag <tag>] [--json]`
@@ -220,30 +220,47 @@ reply its agent has not acted on yet stays, with the reply under it.
 db 2  ui 1
 
 alpha
-  Q2 [ui, db] Open /src/shots/header.png. Reply pass or fail.
-    → pass
+  Q2 [ui, db] Open /src/shots/header.png. Does the header wrap? Reply yes, or what's wrong.
+    → yes
   Q3 Decide: keep or drop?
 
 beta (in a live session: answer it there)
-  Q1 [db] Confirm the migration drops nothing.
+  Q1 [db] Decide when the migration runs.
+      (a) Now
+      (b) After the backfill
 ```
 
 A question may carry domain tags right after its number, lowercase words or
 dash-words, comma separated:
 
 ```markdown
-- [ ] Q9. [ui, db] Open `/abs/path/shot.png`. Reply pass or fail.
+- [ ] Q9. [ui, db] Open `/abs/path/shot.png`. Does the header wrap? Reply yes, or what's wrong.
 ```
 
 The line at the top counts each tag, so whoever answers can take a slice;
 `--tag ui,db` keeps the questions carrying any of them. Takes no lease.
 
-### `arbor reply <task> <question> <text> [--image <path>]`
+A question with a few possible answers lists them as `- (a) ...` lines
+indented under it, one lowercase letter each:
+
+```markdown
+- [ ] Q3. [auth] Decide how existing sessions move to the new tokens.
+  - (a) Sign everyone out once
+  - (b) Migrate each session on its next request
+```
+
+### `arbor reply <task> <question> [text] [--choice <letter>] [--image <path>]`
 
 Answers a question: writes ` → <text>` onto its line in the task's `ARBOR.md`,
 replacing any earlier reply there. The box stays unchecked: checking it off is
 the agent's word that it has acted on the answer. `<question>` is the number
 however it is typed (`Q9`, `q9`, `9`).
+
+`--choice b` picks one of the question's choices and spells it out, so the
+line alone says what was picked: ` → b (Migrate each session on its next
+request)`. Any text goes after it, ` → b (...): but email them first`. Text
+alone still answers a question with choices, for when none of them fits.
+Refuses `usage` for a letter the question does not offer.
 
 `--image a.png,b.png` copies each file under
 `.git/arbor/attachments/<task>/` and adds its absolute path to the reply, so
@@ -276,8 +293,10 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 The inbox, todos, tasks and log in a browser, on `http://localhost:4269`,
 reloading themselves as anything changes. Built for a phone first: open
-questions lead, filterable by tag, and tapping one opens it with a reply box
-that takes pasted images.
+questions lead, filterable by tag, and tapping one opens it with its choices,
+if it has any, and a reply box that takes pasted images. If the server stops
+answering, the header says it is offline, since what the page shows may be
+stale.
 
 Everything the page does, the CLI does too, through the same functions:
 answering is `arbor reply`, adding is `arbor todo add`. Nothing else is

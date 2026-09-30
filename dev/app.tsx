@@ -43,21 +43,14 @@ export function App(): JSX.Element {
 			<main className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-6 px-4 pt-6 pb-16">
 				<header className="flex items-center justify-between">
 					<h1 className="font-medium text-sm">{snapshot?.repo ?? "arbor"}</h1>
-					{/* A dot and nothing else while connected: the page only speaks up
-					    when it can no longer be trusted. */}
-					<span
-						role="status"
-						title={
-							offline ? "not connected: is `arbor dev` still running?" : "live"
-						}
-						className={
-							offline
-								? "text-destructive text-xs"
-								: "size-1.5 rounded-full bg-muted-foreground/40"
-						}
-					>
-						{offline ? "offline" : null}
-					</span>
+					{/* Silent while connected, which is the normal case. Once the server
+					    stops answering, the page says so, since what it shows may no
+					    longer be true. */}
+					{offline && (
+						<span role="status" className="text-destructive text-xs">
+							Offline: is `arbor dev` still running?
+						</span>
+					)}
 				</header>
 				{snapshot === null ? null : (
 					<Tabs defaultValue="inbox" className="gap-6">

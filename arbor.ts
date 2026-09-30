@@ -188,7 +188,16 @@ arbor
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.arg("question", z.string(), { description: "question number: Q9, q9 or 9" })
-	.arg("text", z.string(), { description: "the answer, on one line" })
+	.arg("text", z.string(), {
+		default: "",
+		description:
+			"the answer in words, on one line; with --choice, whatever to add to it",
+	})
+	.option("choice", z.string(), {
+		default: "",
+		description:
+			"the letter of the choice picked, for a question that lists them as `- (a) ...` lines",
+	})
 	.option("image", z.string(), {
 		default: "",
 		description:
@@ -198,6 +207,7 @@ arbor
 		ctx.journal.record("reply", opts.task, () =>
 			reply(ctx, opts.task, opts.question, opts.text, {
 				images: commaList(opts.image),
+				choice: opts.choice || undefined,
 			}),
 		),
 	);
