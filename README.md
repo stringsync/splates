@@ -325,7 +325,9 @@ The inbox, what you sent, the todos, and the tasks in a browser, on
 `http://localhost:4269`, reloading themselves as anything changes. Built for a
 phone first. The inbox holds only what waits on you: each unanswered question,
 grouped by task, a task only when it has one. A task whose agent is in a live
-session is left out, since that agent is answered in its chat.
+session is left out, since that agent is answered in its chat. With a keyboard,
+J opens the next question, and a hint under the list says so when the page
+sees a mouse or trackpad.
 
 Tapping a question opens it with its body, images full size on a tap, its
 choices, a View button for its task, and a reply box that takes pasted or

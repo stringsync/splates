@@ -296,6 +296,37 @@ describe("inbox", () => {
 		).toBeTruthy();
 	});
 
+	it("opens the next question on J, down the list and around", async () => {
+		const view = await open({
+			inbox: {
+				questions: [
+					question(),
+					question({ number: "Q2", text: "Which font?" }),
+					question({ task: "beta", text: "Ship it?" }),
+				],
+				replied: 0,
+			},
+		});
+		const heading = () =>
+			within(view.getByRole("dialog")).getByRole("heading").textContent;
+
+		expect(view.getByText("opens the next question")).toBeTruthy();
+		for (const expected of [
+			"Does the header wrap?",
+			"Which font?",
+			"Ship it?",
+			"Does the header wrap?",
+		]) {
+			await act(async () => fireEvent.keyDown(document.body, { key: "j" }));
+			await waitFor(() => expect(heading()).toContain(expected));
+		}
+
+		// Written into the reply box, a J is just a letter.
+		const box = view.getByRole("textbox", { name: "message" });
+		await act(async () => fireEvent.keyDown(box, { key: "j" }));
+		expect(heading()).toContain("Does the header wrap?");
+	});
+
 	it("sends a reply to the question opened", async () => {
 		const view = await open({
 			inbox: { questions: [question()], replied: 0 },

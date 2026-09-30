@@ -1,5 +1,11 @@
 import { CheckIcon, InboxIcon, SendIcon } from "lucide-react";
-import { type JSX, type ReactNode, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useEffect,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Empty,
@@ -8,6 +14,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "#dev/components/ui/empty.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { Sheet } from "#dev/components/ui/sheet.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -33,6 +40,7 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 		<Questions
 			snapshot={snapshot}
 			shown={waiting(snapshot)}
+			shortcut
 			empty={
 				<Empty>
 					<EmptyHeader>
@@ -93,18 +101,58 @@ function answered(question: OpenQuestion): boolean {
 
 /**
  * Questions grouped by task, one line each, a task only when it has some. Each
- * opens in a sheet to act on it, where View opens its task.
+ * opens in a sheet to act on it, where View opens its task. With `shortcut`,
+ * J opens the next one.
  */
 function Questions({
 	snapshot,
 	shown,
 	empty,
+	shortcut = false,
 }: {
 	snapshot: Snapshot;
 	shown: OpenQuestion[];
 	empty: ReactNode;
+	shortcut?: boolean;
 }): JSX.Element {
 	const [opened, setOpened] = useState<Named | null>(null);
+	const keyboard = useKeyboard();
+
+	// In the order listed, so J walks down the page.
+	const listed = [...group(shown).values()].flat();
+	useEffect(() => {
+		if (!shortcut) {
+			return;
+		}
+		const pressed = (event: KeyboardEvent) => {
+			if (
+				event.key.toLowerCase() !== "j" ||
+				event.metaKey ||
+				event.ctrlKey ||
+				event.altKey ||
+				typing(event.target) ||
+				// A task open over the question: J there is not about the inbox.
+				document.querySelectorAll('[role="dialog"]').length > 1
+			) {
+				return;
+			}
+			const at =
+				opened === null
+					? -1
+					: listed.findIndex(
+							(question) =>
+								question.task === opened.task &&
+								question.number === opened.number,
+						);
+			const next = listed[at + 1] ?? listed[0];
+			if (next !== undefined) {
+				event.preventDefault();
+				setOpened({ task: next.task, number: next.number });
+			}
+		};
+		addEventListener("keydown", pressed);
+		return () => removeEventListener("keydown", pressed);
+	}, [shortcut, opened, listed]);
 
 	// Only among `shown`: a question answered from here moves to the other tab,
 	// and its sheet closes rather than following it there.
@@ -140,6 +188,11 @@ function Questions({
 							))}
 						</section>
 					))}
+					{shortcut && keyboard && (
+						<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
+							<Kbd>J</Kbd> opens the next question
+						</p>
+					)}
 				</div>
 			)}
 			<Sheet
@@ -396,6 +449,32 @@ function find(tasks: Details[], name: string): Details | undefined {
 }
 
 /** Questions by task, in the order the snapshot lists them. */
+/** Where a keypress is text being written, not a shortcut. */
+function typing(target: EventTarget | null): boolean {
+	return (
+		target instanceof HTMLElement &&
+		(target.isContentEditable ||
+			target.closest("input, textarea, select, [role=combobox]") !== null)
+	);
+}
+
+/**
+ * Whether this looks like a computer, going by a mouse or trackpad: no page
+ * can see a keyboard until it is typed on, and a phone's has no J to spare.
+ */
+function useKeyboard(): boolean {
+	return useSyncExternalStore(
+		(changed) => {
+			const query = matchMedia(KEYBOARD);
+			query.addEventListener("change", changed);
+			return () => query.removeEventListener("change", changed);
+		},
+		() => matchMedia(KEYBOARD).matches,
+	);
+}
+
+const KEYBOARD = "(hover: hover) and (pointer: fine)";
+
 function group(questions: OpenQuestion[]): Map<string, OpenQuestion[]> {
 	const byTask = new Map<string, OpenQuestion[]>();
 	for (const question of questions) {
