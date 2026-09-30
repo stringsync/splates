@@ -115,7 +115,7 @@ export async function add(
 
 	await fs.write(
 		`${worktree.path}/${PLAN_FILE}`,
-		PLAN(task, todo?.text ?? null),
+		PLAN(task, todo === null ? null : goal(todo.text, todo.files)),
 	);
 	await todo?.take(task);
 
@@ -147,6 +147,16 @@ export async function add(
 	log.info(
 		`${color.green("added")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  base:     ${base}`,
 	);
+}
+
+/**
+ * A todo as a Goal: its words, and each file attached to it by path, which
+ * stay readable until the task lands and takes the todo with it.
+ */
+function goal(text: string, files: string[]): string {
+	return files.length === 0
+		? text
+		: [text, "", ...files.map((path) => `Attached: \`${path}\``)].join("\n");
 }
 
 /** The plan a fresh task starts with. `## Goal` is the todo it takes up, if

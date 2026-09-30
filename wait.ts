@@ -2,8 +2,9 @@ import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { Duration, sleep } from "webappwiz/time";
 import { fail } from "./exit";
-import { formatQuestion } from "./inbox";
-import { PLAN_FILE, type Question, questions } from "./plan";
+import { PLAN_FILE, questions } from "./plan";
+import type { Replies } from "./replies";
+import { claimedListing, claimReplies } from "./reply";
 import type { Worktree, WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -36,11 +37,17 @@ export interface WaitOptions {
  * again rather than block a session for an afternoon.
  *
  * With `answered` it blocks instead until every open question under the
- * task's `## Blocked` has a reply, then prints them: the agent that escalated
+ * task's `## Blocked` has a reply nobody is still editing, then claims them,
+ * which writes them into the plan, and prints them: the agent that escalated
  * waits for its human this way, rather than polling its own plan.
  */
 export async function wait(
-	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
+	{
+		service,
+		log,
+		fs,
+		replies,
+	}: { service: WorktreeService; log: Logger; fs: Fs; replies: Replies },
 	task: string,
 	{
 		timeout = DEFAULT_TIMEOUT,
@@ -67,12 +74,11 @@ export async function wait(
 			log.info(report(worktree));
 			return;
 		}
-		const open = answered ? await pending(fs, worktree) : [];
-		const unanswered = open
-			.filter((question) => question.reply === null)
-			.map((question) => question.number);
+		const unanswered = answered ? await waitingOn(fs, replies, worktree) : [];
 		if (answered && unanswered.length === 0) {
-			log.info(replies(worktree, open));
+			log.info(
+				claimedListing(await claimReplies({ service, fs, replies }, task)),
+			);
 			return;
 		}
 		if (!answered && !RUNNING.includes(worktree.status)) {
@@ -95,20 +101,28 @@ export async function wait(
 	}
 }
 
-/** The open questions in a task's plan; a tree with no plan asks none. */
-async function pending(fs: Fs, worktree: Worktree): Promise<Question[]> {
+/**
+ * The open questions still waiting on a person: no reply in the plan, and
+ * none waiting to be claimed that is not being edited. A tree with no plan
+ * asks none.
+ */
+async function waitingOn(
+	fs: Fs,
+	replies: Replies,
+	worktree: Worktree,
+): Promise<string[]> {
 	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
-	return questions(plan).filter((question) => !question.done);
-}
-
-function replies(worktree: Worktree, answered: Question[]): string {
-	if (answered.length === 0) {
-		return `${color.bold(worktree.task)} has no open questions`;
-	}
-	return [
-		`${color.bold(worktree.task)} answered`,
-		...answered.flatMap(formatQuestion),
-	].join("\n");
+	const ready = (await replies.forTask(worktree.task))
+		.filter((pending) => !pending.editing)
+		.map((pending) => pending.state.question);
+	return questions(plan)
+		.filter(
+			(question) =>
+				!question.done &&
+				question.reply === null &&
+				!ready.includes(question.number),
+		)
+		.map((question) => question.number);
 }
 
 function report(worktree: Worktree): string {

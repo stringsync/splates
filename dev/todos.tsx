@@ -28,6 +28,7 @@ import { age } from "../age";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import { addTodo, removeTodo, updateTodo } from "./api";
+import { AttachButton, FileList, useFiles } from "./files";
 
 /**
  * Work deferred for later, oldest first, and a line to add to it. Picking one
@@ -93,6 +94,9 @@ function Todo({
 		todo.takenBy === null &&
 		Date.now() - Date.parse(todo.createdAt) > staleness;
 	const meta = [
+		todo.files.length > 0
+			? `${todo.files.length} file${todo.files.length === 1 ? "" : "s"}`
+			: null,
 		todo.takenBy ? `taken by ${todo.takenBy}` : null,
 		todo.from ? `from ${todo.from}` : null,
 		age(todo.createdAt),
@@ -129,6 +133,7 @@ function Todo({
 
 function Add(): JSX.Element {
 	const [text, setText] = useState("");
+	const files = useFiles();
 	const [sending, setSending] = useState(false);
 
 	const submit = async (event: FormEvent) => {
@@ -138,8 +143,9 @@ function Add(): JSX.Element {
 		}
 		setSending(true);
 		try {
-			await addTodo(text);
+			await addTodo(text, files.files);
 			setText("");
+			files.clear();
 		} catch (error) {
 			toast.add({
 				title: "Not added",
@@ -152,15 +158,17 @@ function Add(): JSX.Element {
 	};
 
 	return (
-		<form onSubmit={submit}>
+		<form onSubmit={submit} className="flex flex-col gap-2">
 			<InputGroup>
 				<InputGroupInput
 					aria-label="new todo"
 					placeholder="Something to do later"
 					value={text}
 					onChange={(event) => setText(event.target.value)}
+					onPaste={files.paste}
 				/>
 				<InputGroupAddon align="inline-end">
+					<AttachButton files={files} />
 					<InputGroupButton
 						type="submit"
 						variant="secondary"
@@ -170,6 +178,7 @@ function Add(): JSX.Element {
 					</InputGroupButton>
 				</InputGroupAddon>
 			</InputGroup>
+			<FileList files={files} />
 		</form>
 	);
 }
@@ -183,6 +192,7 @@ function Edit({
 	onDone: () => void;
 }): JSX.Element {
 	const [text, setText] = useState(todo.text);
+	const files = useFiles(todo.files);
 	const [busy, setBusy] = useState(false);
 	// Removing cannot be taken back, so it asks twice.
 	const [confirming, setConfirming] = useState(false);
@@ -202,7 +212,11 @@ function Edit({
 		}
 	};
 
-	const changed = text.trim() !== "" && text.trim() !== todo.text;
+	const changed =
+		text.trim() !== "" &&
+		(text.trim() !== todo.text ||
+			files.files.length > 0 ||
+			files.keep.length !== todo.files.length);
 	return (
 		<SheetContent
 			side="bottom"
@@ -218,15 +232,20 @@ function Edit({
 							: "Added by hand"}
 				</SheetDescription>
 			</SheetHeader>
-			<div className="px-4">
+			<div className="flex flex-col gap-2 px-4">
 				<InputGroup>
 					<InputGroupTextarea
 						aria-label="todo"
 						value={text}
 						onChange={(event) => setText(event.target.value)}
+						onPaste={files.paste}
 						rows={3}
 					/>
+					<InputGroupAddon align="block-end">
+						<AttachButton files={files} />
+					</InputGroupAddon>
 				</InputGroup>
+				<FileList files={files} />
 			</div>
 			<SheetFooter className="flex-row justify-between">
 				<Button
@@ -243,7 +262,17 @@ function Edit({
 				</Button>
 				<Button
 					disabled={!changed || busy}
-					onClick={() => void run(() => updateTodo(todo.id, text), "Not saved")}
+					onClick={() =>
+						void run(
+							() =>
+								updateTodo(todo.id, {
+									text,
+									files: files.files,
+									keep: files.keep,
+								}),
+							"Not saved",
+						)
+					}
 				>
 					Save
 				</Button>

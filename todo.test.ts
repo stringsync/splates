@@ -42,7 +42,9 @@ describe.concurrent("todo", () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "write docs", "alpha");
 
-		const updated = await todoUpdate(deps, 1, "  write the arbor docs ");
+		const updated = await todoUpdate(deps, 1, {
+			text: "  write the arbor docs ",
+		});
 
 		expect(updated.state).toMatchObject({
 			id: 1,
@@ -50,8 +52,69 @@ describe.concurrent("todo", () => {
 			from: "alpha",
 		});
 		expect((await deps.todos.find(1)).text).toBe("write the arbor docs");
-		await expect(todoUpdate(deps, 1, " ")).toBail("usage");
-		await expect(todoUpdate(deps, 9, "x")).toBail("not_found");
+		await expect(todoUpdate(deps, 1, { text: " " })).toBail("usage");
+		await expect(todoUpdate(deps, 9, { text: "x" })).toBail("not_found");
+	});
+
+	it("keeps files beside a todo, adds and drops them, and removes them with it", async () => {
+		await using deps = await Testing.open();
+		const shot = `${deps.root}/shot.png`;
+		const log = `${deps.root}/trace.log`;
+		await deps.fs.writeBytes(shot, new Uint8Array([1]));
+		await deps.fs.writeBytes(log, new Uint8Array([2]));
+
+		const todo = await todoAdd(deps, "fix the chart", null, {
+			files: [shot],
+		});
+		const dir = `${deps.todos.dir}/1`;
+		expect(todo.files).toEqual([`${dir}/0-shot.png`]);
+		expect(await deps.fs.readBytes(`${dir}/0-shot.png`)).toEqual(
+			new Uint8Array([1]),
+		);
+
+		// Words alone leave the files be.
+		const reworded = await todoUpdate(deps, 1, { text: "fix the bar chart" });
+		expect(reworded.files).toEqual(todo.files);
+
+		const swapped = await todoUpdate(deps, 1, {
+			files: [log],
+			removeFiles: ["0-shot.png"],
+		});
+		expect(swapped.state).toMatchObject({
+			text: "fix the bar chart",
+			files: [`${dir}/1-trace.log`],
+		});
+		expect(await deps.fs.exists(`${dir}/0-shot.png`)).toBe(false);
+		await expect(todoUpdate(deps, 1, { removeFiles: ["nope.png"] })).toBail(
+			"not_found",
+			{ message: "no file 'nope.png'" },
+		);
+
+		await todoRemove(deps, 1);
+		expect(await deps.fs.exists(dir)).toBe(false);
+	});
+
+	it("names a todo's files in the Goal of the task that takes it up", async () => {
+		await using deps = await Testing.open();
+		const shot = `${deps.root}/shot.png`;
+		await deps.fs.writeBytes(shot, new Uint8Array([1]));
+		await todoAdd(deps, "fix the chart", null, { files: [shot] });
+
+		await add(deps, "chart", { todo: 1 });
+
+		const worktree = (await deps.service.find("chart")).path;
+		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
+			`## Goal\n\nfix the chart\n\nAttached: \`${deps.todos.dir}/1/0-shot.png\``,
+		);
+	});
+
+	it("reads one saved before todos took files as having none", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "old one", null);
+		const { files: _, ...older } = (await deps.todos.find(1)).state;
+		await deps.fs.write(`${deps.todos.dir}/1.json`, JSON.stringify(older));
+
+		expect((await deps.todos.find(1)).state.files).toEqual([]);
 	});
 
 	it("refuses a todo with no text", async () => {

@@ -1,33 +1,22 @@
 import {
 	CheckCheckIcon,
-	CircleCheckIcon,
 	CircleDotIcon,
 	CircleIcon,
-	FileIcon,
 	InboxIcon,
+	type LucideIcon,
 	MessageCircleIcon,
 	PanelRightIcon,
-	PaperclipIcon,
+	PencilLineIcon,
 	SquareCheckIcon,
 	SquareIcon,
-	Undo2Icon,
-	XIcon,
 } from "lucide-react";
 import {
-	type ClipboardEvent,
 	type JSX,
 	type KeyboardEvent,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
-import {
-	Alert,
-	AlertAction,
-	AlertDescription,
-	AlertTitle,
-} from "#dev/components/ui/alert.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -55,23 +44,26 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "#dev/components/ui/sheet.tsx";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "#dev/components/ui/tabs.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "#dev/components/ui/toggle-group.tsx";
-import type { OpenQuestion } from "../inbox";
+import type { OpenQuestion, QuestionState } from "../inbox";
 import type { Snapshot } from "../snapshot";
-import { imageUrl, reply, unreply } from "./api";
+import { fileUrl, holdReply, releaseReply, reply, unreply } from "./api";
+import { AttachButton, FileList, useFiles } from "./files";
 import { Markdown } from "./markdown";
 import { Task } from "./tasks";
 
-/** What a reply box held: kept after sending, so an undo can hand it back. */
-interface Draft {
-	choices: string[];
-	text: string;
-	files: File[];
-}
+/** How often an open reply renews its hold, well inside `EDIT_MS`. */
+const HOLD_EVERY_MS = 60_000;
 
 /** A question by name, rather than the object, so it keeps up with the plan. */
 interface Named {
@@ -80,28 +72,22 @@ interface Named {
 }
 
 /**
- * What waits on a person, and nothing else: each unanswered question in a
- * line, grouped by task. A question leaves once it is answered; the ones its
- * agent has yet to act on come back from a line under the list, to change or
- * add to.
+ * What waits on a person: the questions with no reply yet, grouped by task.
+ * Once answered, a question moves to Replied, where it can still be changed
+ * until its agent reads it.
  */
 export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const { questions } = snapshot.inbox;
-	const [showReplied, setShowReplied] = useState(false);
-	const [opened, setOpened] = useState<(Named & { draft?: Draft }) | null>(
-		null,
-	);
-	const [sent, setSent] = useState<(Named & { draft: Draft }) | null>(null);
+	const [opened, setOpened] = useState<Named | null>(null);
 
-	const replied = questions.filter((question) => question.reply !== null);
-	const shown = useMemo(
-		() =>
-			showReplied
-				? questions
-				: questions.filter((question) => question.reply === null),
-		[questions, showReplied],
+	const open = useMemo(
+		() => questions.filter((question) => question.state === "open"),
+		[questions],
 	);
-	const byTask = useMemo(() => group(shown), [shown]);
+	const replied = useMemo(
+		() => questions.filter((question) => question.state !== "open"),
+		[questions],
+	);
 	const current =
 		opened === null
 			? undefined
@@ -109,61 +95,52 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					(question) =>
 						question.task === opened.task && question.number === opened.number,
 				);
+	const openOne = (question: OpenQuestion) =>
+		setOpened({ task: question.task, number: question.number });
 
 	return (
-		<div className="flex flex-col gap-6">
-			{sent && (
-				<Sent
-					sent={sent}
-					onUndone={() => {
-						setSent(null);
-						setOpened(sent);
-					}}
-					onDismiss={() => setSent(null)}
-				/>
-			)}
-			{shown.length === 0 && (
-				<Empty>
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<InboxIcon />
-						</EmptyMedia>
-						<EmptyTitle>Nothing needs you</EmptyTitle>
-						<EmptyDescription>
-							Questions agents escalate show up here.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			)}
-			{[...byTask].map(([task, open]) => (
-				<section key={task} aria-label={task} className="flex flex-col gap-1">
-					<h2 className="text-muted-foreground text-xs">{task}</h2>
-					{open.map((question) => (
-						<Row
-							key={question.number}
-							question={question}
-							onOpen={() =>
-								setOpened({ task: question.task, number: question.number })
-							}
-						/>
-					))}
-				</section>
-			))}
-			{/* Last, and quiet: what waits on agents rather than on you. */}
-			{replied.length > 0 && (
-				<Button
-					variant="ghost"
-					size="sm"
-					className="-mx-2 self-start text-muted-foreground"
-					aria-expanded={showReplied}
-					onClick={() => setShowReplied((shown) => !shown)}
-				>
-					<CheckCheckIcon data-icon="inline-start" className="text-success" />
-					{showReplied
-						? "Hide replied"
-						: `${replied.length} replied, waiting on agents`}
-				</Button>
-			)}
+		<Tabs defaultValue="open" className="gap-4">
+			<TabsList className="w-full">
+				<TabsTrigger value="open">
+					Open
+					<Count>{open.length}</Count>
+				</TabsTrigger>
+				<TabsTrigger value="replied">
+					Replied
+					<Count>{replied.length}</Count>
+				</TabsTrigger>
+			</TabsList>
+			<TabsContent value="open">
+				{open.length === 0 ? (
+					<Empty>
+						<EmptyHeader>
+							<EmptyMedia variant="icon">
+								<InboxIcon />
+							</EmptyMedia>
+							<EmptyTitle>Nothing needs you</EmptyTitle>
+							<EmptyDescription>
+								Questions agents escalate show up here.
+							</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
+				) : (
+					<Groups questions={open} onOpen={openOne} />
+				)}
+			</TabsContent>
+			<TabsContent value="replied">
+				{replied.length === 0 ? (
+					<Empty>
+						<EmptyHeader>
+							<EmptyTitle>No replies waiting</EmptyTitle>
+							<EmptyDescription>
+								What you answer waits here until its agent acts on it.
+							</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
+				) : (
+					<Groups questions={replied} onOpen={openOne} />
+				)}
+			</TabsContent>
 			<Sheet
 				open={current !== undefined}
 				onOpenChange={(open) => {
@@ -176,74 +153,42 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					<Answer
 						question={current}
 						snapshot={snapshot}
-						draft={opened?.draft}
-						onSent={(draft) => {
-							setSent({ task: current.task, number: current.number, draft });
-							setOpened(null);
-						}}
+						onSent={() => setOpened(null)}
 					/>
 				)}
 			</Sheet>
-		</div>
+		</Tabs>
 	);
 }
 
-/**
- * Says a reply went, and offers to take it back while its agent has yet to
- * act on it: the question reopens with the answer as it was, to edit.
- */
-function Sent({
-	sent,
-	onUndone,
-	onDismiss,
+function Count({ children }: { children: number }): JSX.Element | null {
+	return children === 0 ? null : (
+		<span className="text-muted-foreground tabular-nums">{children}</span>
+	);
+}
+
+function Groups({
+	questions,
+	onOpen,
 }: {
-	sent: Named;
-	onUndone: () => void;
-	onDismiss: () => void;
+	questions: OpenQuestion[];
+	onOpen: (question: OpenQuestion) => void;
 }): JSX.Element {
-	const [undoing, setUndoing] = useState(false);
-	const [refused, setRefused] = useState<string | null>(null);
-	const undo = async () => {
-		setUndoing(true);
-		try {
-			await unreply(sent.task, sent.number);
-			onUndone();
-		} catch (error) {
-			setRefused(error instanceof Error ? error.message : String(error));
-			setUndoing(false);
-		}
-	};
 	return (
-		// The Alert colours its icon like its text; green says it went.
-		<Alert className="*:[svg]:text-success">
-			<CircleCheckIcon />
-			<AlertTitle>
-				Replied to {sent.number}{" "}
-				<span className="font-normal text-muted-foreground">{sent.task}</span>
-			</AlertTitle>
-			{refused && <AlertDescription>{refused}</AlertDescription>}
-			<AlertAction className="flex gap-1">
-				{refused === null && (
-					<Button
-						variant="outline"
-						size="xs"
-						disabled={undoing}
-						onClick={() => void undo()}
-					>
-						<Undo2Icon data-icon="inline-start" />
-						Undo
-					</Button>
-				)}
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					aria-label="dismiss"
-					onClick={onDismiss}
-				>
-					<XIcon />
-				</Button>
-			</AlertAction>
-		</Alert>
+		<div className="flex flex-col gap-6">
+			{[...group(questions)].map(([task, asked]) => (
+				<section key={task} aria-label={task} className="flex flex-col gap-1">
+					<h2 className="text-muted-foreground text-xs">{task}</h2>
+					{asked.map((question) => (
+						<Row
+							key={question.number}
+							question={question}
+							onOpen={() => onOpen(question)}
+						/>
+					))}
+				</section>
+			))}
+		</div>
 	);
 }
 
@@ -263,53 +208,70 @@ function Row({
 			<span className="w-7 shrink-0 text-muted-foreground text-xs tabular-nums">
 				{question.number}
 			</span>
-			<span className="line-clamp-2 flex-1 text-sm">
-				{plain(question.text)}
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="line-clamp-2 text-sm">{plain(question.text)}</span>
+				{question.state !== "open" && <Status state={question.state} />}
 			</span>
-			<Mark question={question} />
+			{question.state === "open" && question.lease === "held" && (
+				<MessageCircleIcon
+					role="img"
+					aria-label="answer it in its chat"
+					className="size-4 shrink-0 text-warning"
+				/>
+			)}
 		</button>
 	);
 }
 
-/** Answered, or waiting in a live chat: the two things a row may need to say. */
-function Mark({ question }: { question: OpenQuestion }): JSX.Element | null {
-	if (question.reply !== null) {
-		return (
-			<CircleCheckIcon
-				role="img"
-				aria-label="replied"
-				className="size-4 shrink-0 text-success"
-			/>
-		);
-	}
-	if (question.lease === "held") {
-		return (
-			<MessageCircleIcon
-				role="img"
-				aria-label="answer it in its chat"
-				className="size-4 shrink-0 text-warning"
-			/>
-		);
-	}
-	return null;
+const STATUS: Record<
+	Exclude<QuestionState, "open">,
+	{ Icon: LucideIcon; label: string; className: string }
+> = {
+	replied: {
+		Icon: PencilLineIcon,
+		label: "Waiting for its agent, still editable",
+		className: "text-warning",
+	},
+	editing: {
+		Icon: PencilLineIcon,
+		label: "Being edited, so its agent waits",
+		className: "text-warning",
+	},
+	read: {
+		Icon: CheckCheckIcon,
+		label: "Read by its agent",
+		className: "text-success",
+	},
+};
+
+/** Where a replied question stands, in a word and a colour. */
+function Status({
+	state,
+}: {
+	state: Exclude<QuestionState, "open">;
+}): JSX.Element {
+	const { Icon, label, className } = STATUS[state];
+	return (
+		<span className="flex items-center gap-1 text-muted-foreground text-xs">
+			<Icon className={`size-3.5 ${className}`} />
+			{label}
+		</span>
+	);
 }
 
 /** One question opened: all of it, a reply, and its task a tap away. */
 function Answer({
 	question,
 	snapshot,
-	draft,
 	onSent,
 }: {
 	question: OpenQuestion;
 	snapshot: Snapshot;
-	draft?: Draft;
-	onSent: (draft: Draft) => void;
+	onSent: () => void;
 }): JSX.Element {
 	const task = snapshot.tasks.find((task) => task.task === question.task);
-	const live = question.lease === "held";
 	const image = (path: string, alt: string) => (
-		<Lightbox src={imageUrl(question.task, path)} alt={alt || path} />
+		<Lightbox src={fileUrl(path, question.task)} alt={alt || path} />
 	);
 	return (
 		<SheetContent
@@ -344,22 +306,200 @@ function Answer({
 				{question.body !== "" && (
 					<Markdown text={question.body} image={image} className="text-sm" />
 				)}
-				{question.reply !== null && (
-					<p className="flex gap-2 text-muted-foreground text-sm">
-						<CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-success" />
-						<span className="min-w-0 break-words">{question.reply}</span>
-					</p>
-				)}
-				{live ? (
-					<p className="flex gap-2 text-muted-foreground text-sm">
-						<MessageCircleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
-						Its agent is in a live session. Answer it in that chat.
-					</p>
-				) : (
-					<ReplyBox question={question} draft={draft} onSent={onSent} />
-				)}
+				<Respond question={question} onSent={onSent} />
 			</div>
 		</SheetContent>
+	);
+}
+
+/** What can be done about the question from here, given where it stands. */
+function Respond({
+	question,
+	onSent,
+}: {
+	question: OpenQuestion;
+	onSent: () => void;
+}): JSX.Element {
+	if (question.state === "read") {
+		return (
+			<div className="flex flex-col gap-2 text-sm">
+				<Status state="read" />
+				<p className="break-words">{question.reply}</p>
+				<p className="text-muted-foreground text-xs">
+					It can no longer change here. If it needs to, tell the agent in its
+					chat.
+				</p>
+			</div>
+		);
+	}
+	if (question.lease === "held") {
+		return (
+			<p className="flex gap-2 text-muted-foreground text-sm">
+				<MessageCircleIcon className="mt-0.5 size-4 shrink-0 text-warning" />
+				Its agent is in a live session. Answer it in that chat.
+			</p>
+		);
+	}
+	if (question.state === "open") {
+		return <ReplyBox question={question} onSent={onSent} />;
+	}
+	return <Edit question={question} onSent={onSent} />;
+}
+
+/**
+ * A reply not yet read, opened to change: held while open, so its agent
+ * cannot read it half-edited, and let go on close.
+ */
+function Edit({
+	question,
+	onSent,
+}: {
+	question: OpenQuestion;
+	onSent: () => void;
+}): JSX.Element {
+	const [held, setHeld] = useState<"holding" | "held" | string>("holding");
+	const { task, number } = question;
+
+	useEffect(() => {
+		let live = true;
+		const hold = () =>
+			holdReply(task, number).then(
+				() => live && setHeld("held"),
+				(error: unknown) =>
+					live &&
+					setHeld(error instanceof Error ? error.message : String(error)),
+			);
+		void hold();
+		const renew = setInterval(() => void hold(), HOLD_EVERY_MS);
+		return () => {
+			live = false;
+			clearInterval(renew);
+			// Sent or not, the hold ends with the sheet. Sending already let go,
+			// and letting go twice is harmless.
+			void releaseReply(task, number).catch(() => undefined);
+		};
+	}, [task, number]);
+
+	// A beat at most: the hold is one small write.
+	if (held === "holding") {
+		return <div className="h-24" />;
+	}
+	if (held !== "held") {
+		return <p className="text-muted-foreground text-sm">{held}</p>;
+	}
+	return (
+		<div className="flex flex-col gap-3">
+			<Status state="editing" />
+			<ReplyBox question={question} onSent={onSent} />
+		</div>
+	);
+}
+
+function ReplyBox({
+	question,
+	onSent,
+}: {
+	question: OpenQuestion;
+	onSent: () => void;
+}): JSX.Element {
+	// Start from the reply waiting, so sending again changes it rather than
+	// starting over.
+	const pending = question.pending;
+	const [choices, setChoices] = useState<string[]>(pending?.choices ?? []);
+	const [text, setText] = useState(pending?.text ?? "");
+	const files = useFiles(pending?.files ?? []);
+	const [sending, setSending] = useState(false);
+	const offers = question.choices.length > 0;
+
+	// Picks alone, words alone, files alone, or any mix.
+	const ready = choices.length > 0 || text.trim() !== "" || files.any;
+
+	const run = async (write: () => Promise<void>, failed: string) => {
+		setSending(true);
+		try {
+			await write();
+			onSent();
+		} catch (error) {
+			toast.add({
+				title: failed,
+				description: error instanceof Error ? error.message : String(error),
+				type: "error",
+			});
+			setSending(false);
+		}
+	};
+
+	const send = () => {
+		if (!ready || sending) {
+			return;
+		}
+		void run(
+			() =>
+				reply({
+					task: question.task,
+					question: question.number,
+					choices,
+					text,
+					files: files.files,
+					keep: files.keep,
+				}),
+			"Not sent",
+		);
+	};
+
+	const keys = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+			event.preventDefault();
+			send();
+		}
+	};
+
+	return (
+		<div className="flex flex-col gap-2">
+			{offers && (
+				<Choices question={question} value={choices} onChange={setChoices} />
+			)}
+			<InputGroup>
+				<InputGroupTextarea
+					aria-label="reply"
+					placeholder={offers ? "Add context (optional)" : "Reply"}
+					value={text}
+					onChange={(event) => setText(event.target.value)}
+					onPaste={files.paste}
+					onKeyDown={keys}
+					rows={offers ? 2 : 3}
+					autoFocus={!offers && pending === null}
+				/>
+				<InputGroupAddon align="block-end" className="justify-between">
+					<AttachButton files={files} />
+					<InputGroupButton
+						variant="default"
+						size="sm"
+						disabled={!ready || sending}
+						onClick={send}
+					>
+						{pending === null ? "Send" : "Update"}
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
+			<FileList files={files} />
+			{pending !== null && (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="self-start text-muted-foreground"
+					disabled={sending}
+					onClick={() =>
+						void run(
+							() => unreply(question.task, question.number),
+							"Not withdrawn",
+						)
+					}
+				>
+					Withdraw the reply
+				</Button>
+			)}
+		</div>
 	);
 }
 
@@ -386,141 +526,6 @@ function Lightbox({ src, alt }: { src: string; alt: string }): JSX.Element {
 				/>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function ReplyBox({
-	question,
-	draft,
-	onSent,
-}: {
-	question: OpenQuestion;
-	/** A reply taken back, to edit and send again. */
-	draft?: Draft;
-	onSent: (draft: Draft) => void;
-}): JSX.Element {
-	// Start from the reply already sent, so sending again changes or adds to it
-	// rather than starting over.
-	const [choices, setChoices] = useState<string[]>(
-		draft?.choices ?? question.chosen,
-	);
-	const [text, setText] = useState(() => draft?.text ?? words(question));
-	const [files, setFiles] = useState<File[]>(draft?.files ?? []);
-	const [sending, setSending] = useState(false);
-	const picker = useRef<HTMLInputElement>(null);
-	const offers = question.choices.length > 0;
-
-	const attach = (added: Iterable<File>) => {
-		const list = [...added];
-		if (list.length > 0) {
-			setFiles((files) => [...files, ...list]);
-		}
-	};
-
-	// A screenshot pasted from the clipboard arrives as a file with no useful
-	// name, which is fine: the server keeps whatever it is given.
-	const paste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
-		const pasted = [...event.clipboardData.files];
-		if (pasted.length > 0) {
-			event.preventDefault();
-			attach(pasted);
-		}
-	};
-
-	// Picks alone, words alone, or both: whichever the answer needs.
-	const ready = choices.length > 0 || text.trim() !== "" || files.length > 0;
-
-	const send = async () => {
-		if (!ready || sending) {
-			return;
-		}
-		setSending(true);
-		try {
-			await reply({
-				task: question.task,
-				question: question.number,
-				choices,
-				text,
-				files,
-			});
-			onSent({ choices, text, files });
-		} catch (error) {
-			toast.add({
-				title: "Not sent",
-				description: error instanceof Error ? error.message : String(error),
-				type: "error",
-			});
-		} finally {
-			setSending(false);
-		}
-	};
-
-	const keys = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-			event.preventDefault();
-			void send();
-		}
-	};
-
-	return (
-		<div className="flex flex-col gap-2">
-			{offers && (
-				<Choices question={question} value={choices} onChange={setChoices} />
-			)}
-			<InputGroup>
-				<InputGroupTextarea
-					aria-label="reply"
-					placeholder={offers ? "Add context (optional)" : "Reply"}
-					value={text}
-					onChange={(event) => setText(event.target.value)}
-					onPaste={paste}
-					onKeyDown={keys}
-					rows={offers ? 2 : 3}
-					autoFocus={!offers && question.reply === null}
-				/>
-				<InputGroupAddon align="block-end" className="justify-between">
-					<InputGroupButton
-						aria-label="attach files"
-						size="icon-xs"
-						variant="ghost"
-						onClick={() => picker.current?.click()}
-					>
-						<PaperclipIcon />
-					</InputGroupButton>
-					<InputGroupButton
-						variant="default"
-						size="sm"
-						disabled={!ready || sending}
-						onClick={() => void send()}
-					>
-						{question.reply === null ? "Send" : "Update"}
-					</InputGroupButton>
-				</InputGroupAddon>
-			</InputGroup>
-			<input
-				ref={picker}
-				type="file"
-				multiple
-				hidden
-				onChange={(event) => {
-					attach(event.target.files ?? []);
-					event.target.value = "";
-				}}
-			/>
-			{files.length > 0 && (
-				<div className="flex flex-wrap gap-2">
-					{files.map((file, index) => (
-						<Attached
-							key={`${file.name}-${file.size}-${file.lastModified}`}
-							file={file}
-							onRemove={() =>
-								setFiles((files) => files.filter((_, at) => at !== index))
-							}
-						/>
-					))}
-				</div>
-			)}
-		</div>
 	);
 }
 
@@ -576,70 +581,6 @@ function Choices({
 			</p>
 		</div>
 	);
-}
-
-/** A file about to be sent: a thumbnail for an image, its name otherwise. */
-function Attached({
-	file,
-	onRemove,
-}: {
-	file: File;
-	onRemove: () => void;
-}): JSX.Element {
-	const image = file.type.startsWith("image/");
-	// Revoked when the thumbnail goes, or every pasted screenshot stays in memory
-	// for as long as the page is open.
-	const [url, setUrl] = useState<string>();
-	useEffect(() => {
-		if (!image) {
-			return;
-		}
-		const created = URL.createObjectURL(file);
-		setUrl(created);
-		return () => URL.revokeObjectURL(created);
-	}, [file, image]);
-	return (
-		<div className="relative">
-			{image ? (
-				<img
-					src={url}
-					alt={file.name}
-					className="size-16 rounded-md border object-cover"
-				/>
-			) : (
-				<div className="flex h-16 max-w-40 items-center gap-2 rounded-md border px-3 text-xs">
-					<FileIcon className="size-4 shrink-0 text-muted-foreground" />
-					<span className="truncate">{file.name}</span>
-				</div>
-			)}
-			<Button
-				aria-label={`remove ${file.name}`}
-				variant="secondary"
-				size="icon-xs"
-				className="absolute -top-2 -right-2 rounded-full"
-				onClick={onRemove}
-			>
-				<XIcon />
-			</Button>
-		</div>
-	);
-}
-
-/** The words of a reply already sent, after whatever it picked. */
-function words(question: OpenQuestion): string {
-	const { reply, chosen, choices } = question;
-	if (reply === null) {
-		return "";
-	}
-	const head = choices
-		.filter((choice) => chosen.includes(choice.key))
-		.map((choice) => `${choice.key} (${choice.text})`)
-		.join(", ");
-	return head !== "" && reply.startsWith(head)
-		? reply.slice(head.length).replace(/^:\s*/, "")
-		: chosen.length > 0
-			? reply.replace(/^[a-z](?:,\s*[a-z])*:?\s*/, "")
-			: reply;
 }
 
 /** Questions by task, in the order the inbox lists them. */

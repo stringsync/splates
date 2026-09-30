@@ -3,6 +3,7 @@ import type { Fs } from "webappwiz/system";
 import { type Inbox, openQuestions } from "./inbox";
 import type { Entry, Journal } from "./journal";
 import { DEFAULT_COUNT } from "./log";
+import type { Replies } from "./replies";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState, Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -30,11 +31,13 @@ export async function snapshot({
 	service,
 	journal,
 	todos,
+	replies,
 	fs,
 }: {
 	service: WorktreeService;
 	journal: Journal;
 	todos: Todos;
+	replies: Replies;
 	fs: Fs;
 }): Promise<Snapshot> {
 	const details = new TaskDetails({ fs });
@@ -45,8 +48,8 @@ export async function snapshot({
 	return {
 		repo: basename(service.git.root),
 		todoStalenessMs: service.config.todoStalenessMs,
-		// Replied ones too: the page hides them itself, behind a toggle.
-		inbox: await openQuestions({ service, fs }, { replied: true }),
+		// Replied ones too: the page keeps them in a tab of their own.
+		inbox: await openQuestions({ service, fs, replies }, { replied: true }),
 		todos: (await todos.all()).map((todo) => todo.state),
 		tasks,
 		entries: await journal.tail(DEFAULT_COUNT),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { arbor } from "./arbor";
 import { Testing } from "./testing";
 
@@ -62,36 +62,56 @@ describe("arbor cli", () => {
 			"--file",
 			"a.png,b.log",
 		]);
-		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
-		expect(plan).toContain("- [ ] Q1. Open it. → looks right /");
-		expect(plan).toContain("-b.log\n");
+		// Waiting for its agent, not in the plan yet.
+		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).not.toContain(
+			"→",
+		);
 
 		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b,a"]);
-		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
-			"Run it where? → a (locally), b (in ci)\n",
-		);
-
 		await arbor.run(deps, ["unreply", "alpha", "Q2"]);
-		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
-			"Run it where?\n",
-		);
-		await arbor.run(deps, ["todo", "add", "write docs"]);
-		await arbor.run(deps, ["todo", "update", "1", "write the docs"]);
-		expect((await env.todos.find(1)).text).toBe("write the docs");
+		expect(await env.replies.find("alpha", "Q2")).toBeNull();
+		await arbor.run(deps, ["todo", "add", "write docs", "--file", "a.png"]);
+		const [attached = ""] = (await env.todos.find(1)).files;
+		await arbor.run(deps, [
+			"todo",
+			"update",
+			"1",
+			"write the docs",
+			"--remove-file",
+			basename(attached),
+		]);
+		expect((await env.todos.find(1)).state).toMatchObject({
+			text: "write the docs",
+			files: [],
+		});
 		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b,a"]);
 
 		await arbor.run(deps, ["inbox", "--replied", "--json"]);
 		expect(
 			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,
-		).toHaveLength(2);
+		).toMatchObject([
+			{ number: "Q1", state: "replied" },
+			{ number: "Q2", state: "replied" },
+		]);
+
+		// The agent reads its replies from its tree, claiming them.
+		env.ps.cd(worktree.path);
+		await arbor.run(deps, ["replies"]);
+		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
+		expect(plan).toContain("- [ ] Q1. Open it. → looks right /");
+		expect(plan).toContain("-b.log\n");
+		expect(plan).toContain("Run it where? → a (locally), b (in ci)\n");
+		env.log.clear();
+		await arbor.run(deps, ["unreply", "alpha", "Q2"]);
+		expect(env.out()).toContain('"reason":"exists"');
 
 		await arbor.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(entries.at(-1)).toMatchObject({
-			action: "reply",
-			task: "alpha",
-			reason: null,
-		});
+		expect(entries.slice(-3)).toMatchObject([
+			{ action: "reply", task: "alpha", reason: null },
+			{ action: "replies", task: "alpha", reason: null },
+			{ action: "unreply", task: "alpha", reason: "exists" },
+		]);
 	});
 
 	it("reports a refusal as a reason, a message and an exit code", async () => {

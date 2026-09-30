@@ -1,6 +1,9 @@
+import { basename } from "node:path";
+import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { color, type Logger } from "webappwiz/log";
-import { type Fs, type Lock, NodeFs } from "webappwiz/system";
+import { type Fs, type Lock, NodeFs, type Ps } from "webappwiz/system";
 import { age } from "./age";
+import { type Attachment, Attachments, readFiles } from "./attachments";
 import { fail } from "./exit";
 import { table } from "./table";
 
@@ -13,6 +16,18 @@ export interface TodoState {
 	createdAt: string;
 	/** The task working on it now, or null while it waits to be picked up. */
 	takenBy: string | null;
+	/** Absolute paths of the files attached, in `todos/<id>/`. */
+	files: string[];
+}
+
+/** A todo's words and files changed: new ones added, some of the old kept. */
+export interface TodoChange {
+	/** New words; the old ones stay when this is absent. */
+	text?: string;
+	/** Files to add. */
+	files?: Attachment[];
+	/** The paths of the files it has now to keep; absent keeps them all. */
+	keep?: string[];
 }
 
 /**
@@ -69,41 +84,83 @@ export class Todo {
 		return this.todos.save({ ...this.state, takenBy: null });
 	}
 
-	/** Says what is left to do in other words, keeping its id and history. */
-	update(text: string): Promise<Todo> {
-		const trimmed = text.trim();
+	get files(): string[] {
+		return this.state.files;
+	}
+
+	get attachments(): Attachments {
+		return this.todos.attachments(this.id);
+	}
+
+	/**
+	 * Says what is left to do in other words, or with other files, keeping its
+	 * id and history.
+	 */
+	async update({ text, files = [], keep }: TodoChange): Promise<Todo> {
+		const trimmed = text?.trim() ?? this.text;
 		if (trimmed === "") {
 			fail("usage", "a todo needs text: say what is left to do", {
 				todo: this.id,
 			});
 		}
-		return this.todos.save({ ...this.state, text: trimmed });
+		const kept =
+			keep === undefined
+				? this.files
+				: this.files.filter((path) => keep.includes(path));
+		await this.attachments.remove(
+			this.files.filter((path) => !kept.includes(path)),
+		);
+		const added = await this.attachments.store(files);
+		return this.todos.save({
+			...this.state,
+			text: trimmed,
+			files: [...kept, ...added],
+		});
 	}
 
-	remove(): Promise<void> {
-		return this.todos.delete(this.id);
+	async remove(): Promise<void> {
+		await this.todos.delete(this.id);
+		await this.attachments.clear();
 	}
 }
 
 /** What `Todos` is stored through; the real filesystem by default. */
 export interface TodosOptions {
 	fs?: Fs;
+	/** Names stored files apart; a test counts. */
+	ids?: IdProvider;
 }
 
 /** Every todo in the repo, one JSON file each under `.git/arbor/todos`. */
 export class Todos {
 	private readonly fs: Fs;
+	private readonly ids: IdProvider;
 
 	constructor(
-		private readonly dir: string,
+		readonly dir: string,
 		/** Held while numbering a new todo, so two agents never share an id. */
 		private readonly lock: Lock,
 		opts: TodosOptions = {},
 	) {
 		this.fs = opts.fs ?? new NodeFs();
+		this.ids = opts.ids ?? new UuidProvider();
 	}
 
-	async add(text: string, from: string | null): Promise<Todo> {
+	/** Where a todo's files live, beside its record. */
+	attachments(id: number): Attachments {
+		return new Attachments(`${this.dir}/${id}`, this.fs, this.ids);
+	}
+
+	/** Whether `path` is a file some todo holds, and not a way out of here. */
+	owns(path: string): boolean {
+		return new Attachments(this.dir, this.fs).owns(path);
+	}
+
+	async add(
+		text: string,
+		from: string | null,
+		files: Attachment[] = [],
+	): Promise<Todo> {
 		const trimmed = text.trim();
 		if (trimmed === "") {
 			fail("usage", "a todo needs text: say what is left to do", {});
@@ -121,6 +178,7 @@ export class Todos {
 				from,
 				createdAt: new Date().toISOString(),
 				takenBy: null,
+				files: await this.attachments(id).store(files),
 			});
 		} finally {
 			await this.lock.release();
@@ -185,7 +243,11 @@ export class Todos {
 			return null;
 		}
 		try {
-			return JSON.parse(raw) as TodoState;
+			// One saved before todos took files has none, rather than no list.
+			const state = JSON.parse(raw) as Omit<TodoState, "files"> & {
+				files?: string[];
+			};
+			return { ...state, files: state.files ?? [] };
 		} catch {
 			return null;
 		}
@@ -257,14 +319,24 @@ export interface TodoListOptions {
 	json?: boolean;
 }
 
+export interface TodoFileOptions {
+	/** Files to attach, relative to the current directory or absolute. */
+	files?: string[];
+}
+
 export async function todoAdd(
-	{ todos, log }: { todos: Todos; log: Logger },
+	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
 	text: string,
 	from: string | null,
+	{ files = [] }: TodoFileOptions = {},
 ): Promise<Todo> {
-	const todo = await todos.add(text, from);
-	log.info(
-		`${color.green("added")} todo ${todo.id}\n  start it: arbor add <task> --todo ${todo.id}`,
+	const todo = await deps.todos.add(text, from, await readFiles(deps, files));
+	deps.log.info(
+		[
+			`${color.green("added")} todo ${todo.id}`,
+			...todo.files.map((path) => `  ${path}`),
+			`  start it: arbor add <task> --todo ${todo.id}`,
+		].join("\n"),
 	);
 	return todo;
 }
@@ -290,25 +362,58 @@ export async function todoList(
 	}
 	log.info(
 		table(
-			["ID", "TODO", "FROM", "AGE", "TAKEN BY"],
+			["ID", "TODO", "FROM", "AGE", "TAKEN BY", "FILES"],
 			all.map((todo) => [
 				String(todo.id),
 				todo.text,
 				todo.from ?? "",
 				age(todo.state.createdAt),
 				todo.takenBy ?? "",
+				todo.files.length === 0 ? "" : String(todo.files.length),
 			]),
 		),
 	);
 }
 
+export interface TodoUpdateOptions extends TodoFileOptions {
+	/** New words; the old ones stay when this is absent or empty. */
+	text?: string;
+	/** Attached files to drop, by path or by the name they were stored under. */
+	removeFiles?: string[];
+}
+
 export async function todoUpdate(
-	{ todos, log }: { todos: Todos; log: Logger },
+	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
 	id: number,
-	text: string,
+	{ text, files = [], removeFiles = [] }: TodoUpdateOptions = {},
 ): Promise<Todo> {
-	const updated = await (await todos.find(id)).update(text);
-	log.info(`${color.green("updated")} todo ${id}: ${updated.text}`);
+	const todo = await deps.todos.find(id);
+	const matches = (path: string, named: string) =>
+		path === named || basename(path) === named;
+	const unknown = removeFiles.find(
+		(named) => !todo.files.some((path) => matches(path, named)),
+	);
+	if (unknown !== undefined) {
+		fail(
+			"not_found",
+			`todo ${id} has no file '${unknown}': nothing was changed`,
+			{ todo: id, file: unknown },
+		);
+	}
+	const dropped = todo.files.filter((path) =>
+		removeFiles.some((named) => matches(path, named)),
+	);
+	const updated = await todo.update({
+		text: text || undefined,
+		files: await readFiles(deps, files),
+		keep: todo.files.filter((path) => !dropped.includes(path)),
+	});
+	deps.log.info(
+		[
+			`${color.green("updated")} todo ${id}: ${updated.text}`,
+			...updated.files.map((path) => `  ${path}`),
+		].join("\n"),
+	);
 	return updated;
 }
 

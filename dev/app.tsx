@@ -47,7 +47,7 @@ export function App(): JSX.Element {
 
 	// Replied ones wait on their agent, not on you, so they are not counted.
 	const open =
-		snapshot?.inbox.questions.filter((question) => question.reply === null)
+		snapshot?.inbox.questions.filter((question) => question.state === "open")
 			.length ?? 0;
 	// The tab says what waits on you, so a phone's tab switcher does too.
 	useEffect(() => {

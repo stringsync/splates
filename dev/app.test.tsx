@@ -4,6 +4,7 @@ import "../../../setup";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { OpenQuestion } from "../inbox";
 import type { Entry } from "../journal";
+import type { ReplyState } from "../replies";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
@@ -107,8 +108,31 @@ function question(overrides: Partial<OpenQuestion> = {}): OpenQuestion {
 		pick: null,
 		chosen: [],
 		images: [],
+		pending: null,
+		state: "open",
 		...overrides,
 	};
+}
+
+/** A question answered here whose reply waits for its agent to claim it. */
+function pending(
+	reply: Partial<ReplyState> = {},
+	overrides: Partial<OpenQuestion> = {},
+): OpenQuestion {
+	return question({
+		state: "replied",
+		pending: {
+			task: "alpha",
+			question: "Q1",
+			choices: [],
+			text: "keep",
+			files: [],
+			repliedAt: new Date().toISOString(),
+			editingUntil: null,
+			...reply,
+		},
+		...overrides,
+	});
 }
 
 function details(overrides: Partial<Details> = {}): Details {
@@ -137,6 +161,7 @@ function todo(overrides: Partial<TodoState> = {}): TodoState {
 		from: null,
 		createdAt: new Date().toISOString(),
 		takenBy: null,
+		files: [],
 		...overrides,
 	};
 }
@@ -195,14 +220,20 @@ describe("inbox", () => {
 		expect(document.title).toBe("(2) webappwiz");
 	});
 
-	it("hides a question once replied, until asked to show those", async () => {
+	it("moves a replied question to a tab of its own, saying where it stands", async () => {
 		const view = await open({
 			inbox: {
 				questions: [
 					question({ number: "Q1", text: "waiting" }),
-					question({ number: "Q2", text: "answered", reply: "yes" }),
+					pending({ question: "Q2" }, { number: "Q2", text: "answered" }),
+					question({
+						number: "Q3",
+						text: "acted on",
+						reply: "yes",
+						state: "read",
+					}),
 				],
-				replied: 1,
+				replied: 2,
 			},
 		});
 
@@ -210,35 +241,36 @@ describe("inbox", () => {
 		expect(view.getByRole("tab", { name: /inbox/i }).textContent).toContain(
 			"1",
 		);
+		expect(document.title).toBe("(1) webappwiz");
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /1 replied/ })),
-		);
+		await tab(view, /^Replied/);
 
 		expect(view.getByText("answered")).toBeTruthy();
-		expect(view.getByRole("img", { name: "replied" })).toBeTruthy();
+		expect(document.body.textContent).toContain(
+			"Waiting for its agent, still editable",
+		);
+		expect(document.body.textContent).toContain("Read by its agent");
 	});
 
-	it("starts from the reply already sent, to change or add to it", async () => {
+	it("holds a reply while it is open to change, and lets go on close", async () => {
 		const view = await open({
 			inbox: {
 				questions: [
-					question({
-						reply: "b (Slack): and log it",
-						choices: [
-							{ key: "a", text: "Email" },
-							{ key: "b", text: "Slack" },
-						],
-						pick: "any",
-						chosen: ["b"],
-					}),
+					pending(
+						{ choices: ["b"], text: "and log it" },
+						{
+							choices: [
+								{ key: "a", text: "Email" },
+								{ key: "b", text: "Slack" },
+							],
+							pick: "any",
+						},
+					),
 				],
 				replied: 1,
 			},
 		});
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /1 replied/ })),
-		);
+		await tab(view, /^Replied/);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
 		);
@@ -246,6 +278,8 @@ describe("inbox", () => {
 		const box = await waitFor(() =>
 			view.getByRole("textbox", { name: "reply" }),
 		);
+		expect(posts[0]?.path).toBe("/api/reply/hold");
+		expect(document.body.textContent).toContain("so its agent waits");
 		expect((box as HTMLTextAreaElement).value).toBe("and log it");
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /Email/ })),
@@ -254,10 +288,82 @@ describe("inbox", () => {
 			fireEvent.click(view.getByRole("button", { name: "Update" })),
 		);
 
-		await waitFor(() => expect(posts).toHaveLength(1));
-		const form = posts[0]?.body as FormData;
+		await waitFor(() =>
+			expect(posts.map((post) => post.path)).toEqual([
+				"/api/reply/hold",
+				"/api/reply",
+				"/api/reply/release",
+			]),
+		);
+		const form = posts[1]?.body as FormData;
 		expect(form.getAll("choice").sort()).toEqual(["a", "b"]);
 		expect(form.get("text")).toBe("and log it");
+	});
+
+	it("withdraws a reply its agent has not read", async () => {
+		const view = await open({
+			inbox: { questions: [pending()], replied: 1 },
+		});
+		await tab(view, /^Replied/);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Withdraw the reply" }),
+				),
+			),
+		);
+
+		await waitFor(() =>
+			expect(posts.map((post) => post.path)).toContain("/api/unreply"),
+		);
+		const withdrawn = posts.find((post) => post.path === "/api/unreply");
+		expect(JSON.parse(String(withdrawn?.body))).toEqual({
+			task: "alpha",
+			question: "Q1",
+		});
+	});
+
+	it("shows a reply its agent has read, no longer to change", async () => {
+		const view = await open({
+			inbox: {
+				questions: [question({ reply: "keep it", state: "read" })],
+				replied: 1,
+			},
+		});
+		await tab(view, /^Replied/);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+
+		await waitFor(() =>
+			expect(document.body.textContent).toContain("It can no longer change"),
+		);
+		expect(document.body.textContent).toContain("keep it");
+		expect(view.queryByRole("textbox", { name: "reply" })).toBeNull();
+		expect(posts).toEqual([]);
+	});
+
+	it("says why a reply cannot be opened to change, once its agent got to it first", async () => {
+		refusal = {
+			reason: "exists",
+			message: "Q1 on 'alpha' was read by its agent already",
+		};
+		const view = await open({
+			inbox: { questions: [pending()], replied: 1 },
+		});
+		await tab(view, /^Replied/);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
+		);
+
+		await waitFor(() =>
+			expect(document.body.textContent).toContain("was read by its agent"),
+		);
+		expect(view.queryByRole("textbox", { name: "reply" })).toBeNull();
 	});
 
 	it("shows the body, its code and its images, full size on a tap", async () => {
@@ -284,7 +390,7 @@ describe("inbox", () => {
 			view.getAllByRole("img", { name: "the header" }),
 		);
 		expect(thumbnail?.getAttribute("src")).toBe(
-			"/api/image?task=alpha&path=%2Ftmp%2Fshot.png",
+			"/api/file?task=alpha&path=%2Ftmp%2Fshot.png",
 		);
 		await act(async () =>
 			fireEvent.click(thumbnail?.closest("button") as HTMLElement),
@@ -395,42 +501,6 @@ describe("inbox", () => {
 		expect(form.get("text")).toBe("email them first");
 	});
 
-	it("says a reply went, and undoes it back into the form", async () => {
-		const view = await open({
-			inbox: { questions: [question()], replied: 0 },
-		});
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Q1/ })),
-		);
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "reply" }),
-		);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "it clips" } }),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send" })),
-		);
-
-		const undo = await waitFor(() =>
-			view.getByRole("button", { name: "Undo" }),
-		);
-		expect(document.body.textContent).toContain("Replied to Q1");
-		await act(async () => fireEvent.click(undo));
-
-		await waitFor(() => expect(posts).toHaveLength(2));
-		expect(posts[1]?.path).toBe("/api/unreply");
-		expect(JSON.parse(String(posts[1]?.body))).toEqual({
-			task: "alpha",
-			question: "Q1",
-		});
-		const reopened = await waitFor(() =>
-			view.getByRole("textbox", { name: "reply" }),
-		);
-		expect((reopened as HTMLTextAreaElement).value).toBe("it clips");
-		expect(view.queryByRole("button", { name: "Undo" })).toBeNull();
-	});
-
 	it("shows why a reply was refused", async () => {
 		refusal = { reason: "lease_held", message: "an agent holds 'alpha'" };
 		const view = await open({
@@ -500,9 +570,9 @@ describe("todos", () => {
 
 		await waitFor(() => expect(posts).toHaveLength(1));
 		expect(posts[0]?.path).toBe("/api/todos");
-		expect(JSON.parse(String(posts[0]?.body))).toEqual({
-			text: "write the docs",
-		});
+		const form = posts[0]?.body as FormData;
+		expect(form.get("text")).toBe("write the docs");
+		expect(form.getAll("file")).toEqual([]);
 	});
 });
 
@@ -524,9 +594,41 @@ describe("todo edits", () => {
 
 		await waitFor(() => expect(posts).toHaveLength(1));
 		expect(posts[0]).toMatchObject({ path: "/api/todos/4", method: "PATCH" });
-		expect(JSON.parse(String(posts[0]?.body))).toEqual({
-			text: "write the docs",
+		expect((posts[0]?.body as FormData | undefined)?.get("text")).toBe(
+			"write the docs",
+		);
+	});
+
+	it("drops a file attached to one", async () => {
+		const view = await open({
+			todos: [
+				todo({
+					id: 4,
+					text: "fix the chart",
+					files: [
+						"/repo/.git/arbor/todos/4/0-a.png",
+						"/repo/.git/arbor/todos/4/1-b.log",
+					],
+				}),
+			],
 		});
+		await tab(view, /todos/i);
+		expect(document.body.textContent).toContain("2 files");
+
+		await act(async () => fireEvent.click(view.getByText("fix the chart")));
+		const save = await waitFor(() =>
+			view.getByRole("button", { name: "Save" }),
+		);
+		expect((save as HTMLButtonElement).disabled).toBe(true);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "remove b.log" })),
+		);
+		await act(async () => fireEvent.click(save));
+
+		await waitFor(() => expect(posts).toHaveLength(1));
+		expect((posts[0]?.body as FormData | undefined)?.getAll("keep")).toEqual([
+			"/repo/.git/arbor/todos/4/0-a.png",
+		]);
 	});
 
 	it("removes one, asking twice", async () => {

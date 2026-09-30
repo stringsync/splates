@@ -7,14 +7,14 @@ import { claim } from "./claim";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
-import { exits } from "./exit";
+import { exits, fail } from "./exit";
 import { inbox } from "./inbox";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
 import { remove } from "./remove";
-import { reply, unreply } from "./reply";
+import { readReplies, reply, unreply } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
@@ -152,7 +152,7 @@ arbor
 		{
 			default: false,
 			description:
-				"wait instead until every open question under the task's ## Blocked has a reply, then print the replies",
+				"wait instead until every open question under the task's ## Blocked has a reply, then claim the replies, which writes them into ARBOR.md, and print them",
 		},
 	)
 	.action((opts, ctx) =>
@@ -186,9 +186,30 @@ arbor
 	);
 
 arbor
+	.command("replies")
+	.description(
+		"claim the replies waiting for a task, which writes each into its ARBOR.md after ` → ` and locks it against edits, and print them; the one way an agent reads what the inbox answered",
+	)
+	.arg("task", z.string(), {
+		default: "",
+		description: "task name; defaults to the worktree you are in",
+	})
+	.action(async (opts, ctx) => {
+		const task = opts.task || (await here(ctx));
+		if (task === null) {
+			fail(
+				"usage",
+				"not in a task's worktree: name the task, `arbor replies <task>`",
+				{},
+			);
+		}
+		await ctx.journal.record("replies", task, () => readReplies(ctx, task));
+	});
+
+arbor
 	.command("unreply")
 	.description(
-		"take back a reply its agent has not acted on yet, deleting any files it stored; refuses once the agent has checked the question off",
+		"take back a reply its agent has not claimed yet, deleting any files it stored; refuses once the agent has read it",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.arg("question", z.string(), { description: "question number: Q9, q9 or 9" })
@@ -320,10 +341,15 @@ todo
 		"note something to do later and move on; run from a worktree, it records the task it came up in",
 	)
 	.arg("text", z.string(), { description: "what is left to do, in a line" })
+	.option("file", z.string(), {
+		default: "",
+		description:
+			"files to attach, comma separated: copied under .git/arbor/todos/<id>/",
+	})
 	.action(async (opts, ctx) => {
 		const from = await here(ctx);
 		await ctx.journal.record("todo add", from, () =>
-			todoAdd(ctx, opts.text, from),
+			todoAdd(ctx, opts.text, from, { files: commaList(opts.file) }),
 		);
 	});
 
@@ -341,12 +367,30 @@ todo
 
 todo
 	.command("update")
-	.description("say what a todo is in other words; it keeps its id")
+	.description(
+		"say what a todo is in other words, or attach and drop files; it keeps its id",
+	)
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
-	.arg("text", z.string(), { description: "what is left to do, in a line" })
+	.arg("text", z.string(), {
+		default: "",
+		description: "what is left to do, in a line; leave out to keep the words",
+	})
+	.option("file", z.string(), {
+		default: "",
+		description: "files to attach, comma separated",
+	})
+	.option("remove-file", z.string(), {
+		default: "",
+		description:
+			"attached files to drop, comma separated, by path or stored name",
+	})
 	.action((opts, ctx) =>
 		ctx.journal.record("todo update", null, () =>
-			todoUpdate(ctx, opts.id, opts.text),
+			todoUpdate(ctx, opts.id, {
+				text: opts.text,
+				files: commaList(opts.file),
+				removeFiles: commaList(opts["remove-file"]),
+			}),
 		),
 	);
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { dev, devPorts } from "./dev";
+import { claimReplies } from "./reply";
 import type { Snapshot } from "./snapshot";
 import { LIVE_PID, Testing } from "./testing";
 
@@ -191,6 +192,23 @@ describe("dev", () => {
 		});
 	});
 
+	it("names every file of the page as a source for Tailwind", async () => {
+		const dir = `${import.meta.dir}/dev`;
+		const styles = await Bun.file(`${dir}/styles.css`).text();
+		const listed = [...styles.matchAll(/^@source "\.\/(.+\.tsx)";$/gm)].map(
+			([, file]) => file,
+		);
+		// A file left off compiles to a page missing its classes, with no error.
+		const pages = [...new Bun.Glob("*.tsx").scanSync(dir)].filter(
+			(file) => !file.includes(".test."),
+		);
+
+		// `main.tsx` only mounts the app, and has no classes to find.
+		expect(listed.sort()).toEqual(
+			pages.filter((file) => file !== "main.tsx").sort(),
+		);
+	});
+
 	it("pushes over SSE when a task changes, and stays quiet when it does not", async () => {
 		await add(deps, "alpha");
 
@@ -236,27 +254,43 @@ describe("dev", () => {
 				body,
 			});
 
-		it("replies to a question, files and all, and says so in the inbox", async () => {
+		/** A reply the way the page sends one. */
+		const answer = (port: number, text: string, files: File[] = []) => {
+			const form = new FormData();
+			form.set("task", "alpha");
+			form.set("question", "Q1");
+			form.set("text", text);
+			for (const file of files) {
+				form.append("file", file);
+			}
+			return post(port, "/api/reply", form);
+		};
+
+		/** A JSON post naming Q1 on alpha, as hold, release and unreply take. */
+		const named = (port: number, path: string) =>
+			post(port, path, JSON.stringify({ task: "alpha", question: "Q1" }), {
+				"content-type": "application/json",
+			});
+
+		it("replies to a question, files and all, and moves it to replied", async () => {
 			const plan = await asked();
+			const before = await deps.fs.read(plan);
 
 			await serving(async (snapshot, port) => {
-				const form = new FormData();
-				form.set("task", "alpha");
-				form.set("question", "Q1");
-				form.set("text", "fail: it clips");
-				form.append("file", new File([new Uint8Array([1, 2])], "shot.png"));
-				form.append("file", new File(["trace"], "trace.log"));
-
-				const response = await post(port, "/api/reply", form);
+				const response = await answer(port, "it clips", [
+					new File([new Uint8Array([1, 2])], "shot.png"),
+					new File(["trace"], "trace.log"),
+				]);
 
 				expect(response.status).toBe(200);
-				const written = await deps.fs.read(plan);
-				expect(written).toContain("→ fail: it clips");
-				expect(written).toContain(deps.service.attachmentsPath("alpha"));
-				expect(written).toContain("-trace.log");
-				expect((await snapshot()).inbox.questions[0]?.reply).toContain(
-					"fail: it clips",
-				);
+				// Waiting for its agent, so the plan is as it was.
+				expect(await deps.fs.read(plan)).toBe(before);
+				const [question] = (await snapshot()).inbox.questions;
+				expect(question).toMatchObject({
+					state: "replied",
+					pending: { text: "it clips" },
+				});
+				expect(question?.pending?.files[1]).toEndWith("-trace.log");
 				const [last] = await deps.journal.tail(1);
 				expect(last?.action).toBe("reply");
 			});
@@ -273,12 +307,7 @@ describe("dev", () => {
 			});
 
 			await serving(async (_snapshot, port) => {
-				const form = new FormData();
-				form.set("task", "alpha");
-				form.set("question", "Q1");
-				form.set("text", "pass");
-
-				const response = await post(port, "/api/reply", form);
+				const response = await answer(port, "pass");
 
 				expect(response.status).toBe(409);
 				expect(((await response.json()) as { reason: string }).reason).toBe(
@@ -287,112 +316,162 @@ describe("dev", () => {
 			});
 		});
 
-		it("serves an image an open question shows, and nothing else", async () => {
+		it("holds a reply open for editing, and lets go", async () => {
+			await asked();
+
+			await serving(async (snapshot, port) => {
+				expect((await named(port, "/api/reply/hold")).status).toBe(404);
+				await answer(port, "no");
+
+				expect((await named(port, "/api/reply/hold")).status).toBe(200);
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("editing");
+
+				expect((await named(port, "/api/reply/release")).status).toBe(200);
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("replied");
+			});
+		});
+
+		it("refuses to change a reply its agent has claimed", async () => {
+			const plan = await asked();
+
+			await serving(async (snapshot, port) => {
+				await answer(port, "no");
+				await claimReplies(deps, "alpha");
+
+				expect(await deps.fs.read(plan)).toContain("Does it fit? → no");
+				expect((await snapshot()).inbox.questions[0]?.state).toBe("read");
+				for (const refused of [
+					await answer(port, "yes"),
+					await named(port, "/api/reply/hold"),
+					await named(port, "/api/unreply"),
+				]) {
+					expect(refused.status).toBe(409);
+				}
+			});
+		});
+
+		it("serves an image an open question shows, a stored file, and nothing else", async () => {
 			await asked();
 			const tree = (await deps.service.find("alpha")).path;
 			await deps.fs.writeBytes(`${tree}/page.png`, new Uint8Array([7]));
 			await deps.fs.writeBytes(`${tree}/other.png`, new Uint8Array([8]));
+			const todo = await deps.todos.add("look", null, [
+				{ name: "trace.log", bytes: new Uint8Array([9]) },
+			]);
 
 			await serving(async (_snapshot, port) => {
-				const image = (task: string, path: string) =>
+				const file = (task: string, path: string) =>
 					fetch(
-						`http://127.0.0.1:${port}/api/image?${new URLSearchParams({ task, path })}`,
+						`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ task, path })}`,
 					);
 
-				const shown = await image("alpha", `${tree}/page.png`);
+				const shown = await file("alpha", `${tree}/page.png`);
 				expect(shown.status).toBe(200);
 				expect(shown.headers.get("content-type")).toBe("image/png");
 				expect(new Uint8Array(await shown.arrayBuffer())).toEqual(
 					new Uint8Array([7]),
 				);
-				expect((await image("alpha", `${tree}/other.png`)).status).toBe(404);
-				expect((await image("beta", `${tree}/page.png`)).status).toBe(404);
+				expect((await file("alpha", `${tree}/other.png`)).status).toBe(404);
+				expect((await file("beta", `${tree}/page.png`)).status).toBe(404);
+
+				const stored = await file("", todo.files[0] ?? "");
+				expect(stored.status).toBe(200);
+				expect(stored.headers.get("content-disposition")).toBe("attachment");
+				expect(
+					(await file("", `${deps.todos.dir}/1/../../../config`)).status,
+				).toBe(404);
 			});
 		});
 
 		it("takes a reply back", async () => {
-			const plan = await asked();
-			const before = await deps.fs.read(plan);
+			await asked();
 
-			await serving(async (_snapshot, port) => {
-				const form = new FormData();
-				form.set("task", "alpha");
-				form.set("question", "Q1");
-				form.set("text", "no");
-				await post(port, "/api/reply", form);
+			await serving(async (snapshot, port) => {
+				await answer(port, "no");
 
+				expect((await named(port, "/api/unreply")).status).toBe(200);
+				expect((await snapshot()).inbox.questions[0]).toMatchObject({
+					state: "open",
+					pending: null,
+				});
+				expect((await named(port, "/api/unreply")).status).toBe(404);
+			});
+		});
+
+		/** A todo write the way the page makes one. */
+		const todoForm = (
+			text: string | null,
+			files: File[] = [],
+			keep: string[] = [],
+		) => {
+			const form = new FormData();
+			if (text !== null) {
+				form.set("text", text);
+			}
+			for (const file of files) {
+				form.append("file", file);
+			}
+			for (const path of keep) {
+				form.append("keep", path);
+			}
+			return form;
+		};
+
+		it("adds a todo, files and all", async () => {
+			await serving(async (snapshot, port) => {
 				const response = await post(
 					port,
-					"/api/unreply",
-					JSON.stringify({ task: "alpha", question: "Q1" }),
-					{ "content-type": "application/json" },
+					"/api/todos",
+					todoForm("write the docs", [new File(["x"], "notes.md")]),
 				);
 
 				expect(response.status).toBe(200);
-				expect(await deps.fs.read(plan)).toBe(before);
-				const again = await post(
-					port,
-					"/api/unreply",
-					JSON.stringify({ task: "alpha", question: "Q1" }),
-					{ "content-type": "application/json" },
-				);
-				expect(again.status).toBe(404);
+				const [todo] = (await snapshot()).todos;
+				expect(todo?.text).toBe("write the docs");
+				expect(todo?.files[0]).toEndWith("-notes.md");
 			});
 		});
 
 		it("updates and removes a todo", async () => {
-			await deps.todos.add("write docs", null);
+			const todo = await deps.todos.add("write docs", null, [
+				{ name: "a.png", bytes: new Uint8Array([1]) },
+				{ name: "b.png", bytes: new Uint8Array([2]) },
+			]);
+			const [kept, dropped] = todo.files;
 
 			await serving(async (snapshot, port) => {
-				const write = (method: string, path: string, body?: string) =>
+				const write = (method: string, path: string, body?: FormData) =>
 					fetch(`http://127.0.0.1:${port}${path}`, {
 						method,
-						headers: {
-							origin: `http://127.0.0.1:${port}`,
-							"content-type": "application/json",
-						},
+						headers: { origin: `http://127.0.0.1:${port}` },
 						body,
 					});
 
 				const updated = await write(
 					"PATCH",
 					"/api/todos/1",
-					JSON.stringify({ text: "write the docs" }),
+					todoForm("write the docs", [], [kept ?? ""]),
 				);
 				expect(updated.status).toBe(200);
-				expect((await snapshot()).todos[0]?.text).toBe("write the docs");
+				expect((await snapshot()).todos[0]).toMatchObject({
+					text: "write the docs",
+					files: [kept],
+				});
+				expect(await deps.fs.exists(dropped ?? "")).toBe(false);
 
 				expect((await write("DELETE", "/api/todos/1")).status).toBe(200);
 				expect((await snapshot()).todos).toEqual([]);
+				expect(await deps.fs.exists(kept ?? "")).toBe(false);
 				expect((await write("DELETE", "/api/todos/1")).status).toBe(404);
 				expect((await write("DELETE", "/api/todos/nope")).status).toBe(400);
 			});
 		});
 
-		it("adds a todo", async () => {
-			await serving(async (snapshot, port) => {
-				const response = await post(
-					port,
-					"/api/todos",
-					JSON.stringify({ text: "write the docs" }),
-					{ "content-type": "application/json" },
-				);
-
-				expect(response.status).toBe(200);
-				expect((await snapshot()).todos.map((todo) => todo.text)).toEqual([
-					"write the docs",
-				]);
-			});
-		});
-
 		it("refuses a write from another site", async () => {
 			await serving(async (_snapshot, port) => {
-				const response = await post(
-					port,
-					"/api/todos",
-					JSON.stringify({ text: "planted" }),
-					{ origin: "https://evil.example" },
-				);
+				const response = await post(port, "/api/todos", todoForm("planted"), {
+					origin: "https://evil.example",
+				});
 
 				expect(response.status).toBe(403);
 				expect(await deps.todos.all()).toEqual([]);

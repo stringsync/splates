@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
 import { inbox, openQuestions } from "./inbox";
 import { PLAN_FILE } from "./plan";
+import { holdReply, replyTo } from "./reply";
 import { LIVE_PID, Testing } from "./testing";
 
 /**
@@ -76,6 +77,36 @@ describe("inbox", () => {
 		expect(found.questions[0]?.reply).toBe("yes");
 	});
 
+	it("moves a question with a reply waiting to be claimed to replied", async () => {
+		await replyTo(deps, "alpha", "Q3", { text: "keep" });
+
+		const open = await openQuestions(deps);
+		expect(
+			open.questions.map(({ task, number }) => `${task} ${number}`),
+		).toEqual(["beta Q1", "beta Q2"]);
+		expect(open.replied).toBe(2);
+
+		const all = await openQuestions(deps, { replied: true });
+		const states = all.questions.map(
+			({ task, number, state }) => `${task} ${number} ${state}`,
+		);
+		expect(states).toEqual([
+			"alpha Q2 read",
+			"alpha Q3 replied",
+			"beta Q1 open",
+			"beta Q2 open",
+		]);
+		expect(all.questions[1]?.pending?.text).toBe("keep");
+
+		await holdReply(deps, "alpha", "Q3");
+		const held = await openQuestions(deps, { replied: true });
+		expect(held.questions[1]?.state).toBe("editing");
+
+		deps.log.clear();
+		await inbox(deps, { replied: true });
+		expect(deps.out()).toContain("    → keep (waiting for its agent)");
+	});
+
 	it("prints them grouped by task, bodies and choices under them", async () => {
 		await (await deps.service.find("beta")).save({
 			lease: {
@@ -101,7 +132,7 @@ describe("inbox", () => {
 				"      [a] Email",
 				"      [b] Slack",
 				"",
-				"1 replied, awaiting its agent: arbor inbox --replied",
+				"1 replied, not yet acted on: arbor inbox --replied",
 			].join("\n"),
 		);
 
@@ -123,7 +154,7 @@ describe("inbox", () => {
 		deps.log.clear();
 		await inbox(deps);
 		expect(deps.out()).toBe(
-			"nothing needs you\n1 replied, awaiting its agent: arbor inbox --replied",
+			"nothing needs you\n1 replied, not yet acted on: arbor inbox --replied",
 		);
 
 		await ask(deps, "alpha");

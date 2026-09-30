@@ -3,7 +3,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { add } from "./add";
 import { PLAN_FILE } from "./plan";
 import { remove } from "./remove";
-import { replyTo } from "./reply";
+import { holdReply, replyTo } from "./reply";
 import { Testing } from "./testing";
 import { wait } from "./wait";
 
@@ -79,7 +79,7 @@ describe("wait", () => {
 		}
 
 		it("returns with the replies once every open question has one", async () => {
-			await escalated(
+			const plan = await escalated(
 				"- [x] Q1. Run it. → pass",
 				"- [ ] Q2. Open /tmp/a.png. → pass",
 				"- [ ] Q3. Decide: keep or drop?",
@@ -91,14 +91,28 @@ describe("wait", () => {
 			await waiting;
 
 			expect(deps.out()).toBe(
-				[
-					"alpha answered",
-					"  Q2 Open /tmp/a.png.",
-					"    → pass",
-					"  Q3 Decide: keep or drop?",
-					"    → keep",
-				].join("\n"),
+				["alpha replied", "  Q3 Decide: keep or drop?", "    → keep"].join(
+					"\n",
+				),
 			);
+			// Claimed, so it is the agent's now, in its plan.
+			expect(await deps.fs.read(plan)).toContain("keep or drop? → keep");
+		});
+
+		it("waits out a reply someone is still editing", async () => {
+			await escalated("- [ ] Q1. Decide: keep or drop?");
+			await replyTo(deps, "alpha", "Q1", { text: "keep" });
+			await holdReply(deps, "alpha", "Q1");
+
+			await expect(
+				wait(deps, "alpha", {
+					timeout: Duration.ms(20),
+					poll: Duration.ms(5),
+					answered: true,
+				}),
+			).toBail("timeout", {
+				data: { task: "alpha", status: "escalated", unanswered: ["Q1"] },
+			});
 		});
 
 		it("returns at once when nothing is open", async () => {
@@ -106,7 +120,7 @@ describe("wait", () => {
 
 			await wait(deps, "alpha", { ...PATIENT, answered: true });
 
-			expect(deps.out()).toBe("alpha has no open questions");
+			expect(deps.out()).toBe("alpha has no new replies");
 		});
 
 		it("returns when the task is gone", async () => {

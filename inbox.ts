@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { PLAN_FILE, type Question, questions } from "./plan";
+import { type Replies, type ReplyState, replyText } from "./replies";
 import type { WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -13,7 +14,17 @@ export interface OpenQuestion extends Question {
 	 * since `arbor reply` refuses a tree someone is driving.
 	 */
 	lease: "held" | "stale" | "none";
+	/** A reply given and waiting for the agent to claim it, or null. */
+	pending: ReplyState | null;
+	/**
+	 * Where it stands. `open` waits on a person. `replied` waits on its agent
+	 * and can still be edited. `editing` is held by someone changing it.
+	 * `read` has been claimed by its agent, and can no longer change.
+	 */
+	state: QuestionState;
 }
+
+export type QuestionState = "open" | "replied" | "editing" | "read";
 
 export interface Inbox {
 	/**
@@ -36,13 +47,18 @@ export interface InboxOptions {
 /**
  * Every question still waiting on a person, across all tasks: the unchecked
  * items under each worktree's `## Blocked` with no reply yet, and with
- * `replied` also those answered but not yet checked off.
+ * `replied` also those answered but not yet checked off, whether their agent
+ * has read the reply or not.
  *
  * Returns data rather than printing it, so the CLI and the dev server show the
  * same inbox.
  */
 export async function openQuestions(
-	{ service, fs }: { service: WorktreeService; fs: Fs },
+	{
+		service,
+		fs,
+		replies,
+	}: { service: WorktreeService; fs: Fs; replies: Replies },
 	{ replied = false }: InboxOptions = {},
 ): Promise<Inbox> {
 	const open: OpenQuestion[] = [];
@@ -53,22 +69,37 @@ export async function openQuestions(
 		if (plan === null) {
 			continue;
 		}
+		const waiting = await replies.forTask(worktree.task);
 		for (const question of questions(plan)) {
-			if (!question.done) {
-				open.push({
-					task: worktree.task,
-					status: worktree.status,
-					lease: worktree.leaseStatus,
-					...question,
-				});
+			if (question.done) {
+				continue;
 			}
+			const pending =
+				question.reply === null
+					? waiting.find((found) => found.state.question === question.number)
+					: undefined;
+			open.push({
+				task: worktree.task,
+				status: worktree.status,
+				lease: worktree.leaseStatus,
+				...question,
+				pending: pending?.state ?? null,
+				state:
+					question.reply !== null
+						? "read"
+						: pending === undefined
+							? "open"
+							: pending.editing
+								? "editing"
+								: "replied",
+			});
 		}
 	}
 	return {
 		questions: replied
 			? open
-			: open.filter((question) => question.reply === null),
-		replied: open.filter((question) => question.reply !== null).length,
+			: open.filter((question) => question.state === "open"),
+		replied: open.filter((question) => question.state !== "open").length,
 	};
 }
 
@@ -79,7 +110,7 @@ export interface InboxPrintOptions extends InboxOptions {
 
 /** `arbor inbox`: the open questions, grouped by task. */
 export async function inbox(
-	deps: { service: WorktreeService; fs: Fs; log: Logger },
+	deps: { service: WorktreeService; fs: Fs; replies: Replies; log: Logger },
 	{ json = false, replied = false }: InboxPrintOptions = {},
 ): Promise<void> {
 	const found = await openQuestions(deps, { replied });
@@ -90,7 +121,7 @@ export async function inbox(
 	const more =
 		!replied && found.replied > 0
 			? color.dim(
-					`${found.replied} replied, awaiting its agent: arbor inbox --replied`,
+					`${found.replied} replied, not yet acted on: arbor inbox --replied`,
 				)
 			: null;
 	if (found.questions.length === 0) {
@@ -104,7 +135,9 @@ export async function inbox(
  * One question as the inbox prints it: `Q9 subject`, its body and choices
  * under it, then the reply the agent has yet to act on, if there is one.
  */
-export function formatQuestion(question: Question): string[] {
+export function formatQuestion(
+	question: Question & { pending?: ReplyState | null },
+): string[] {
 	const lines = [
 		`  ${question.number} ${question.text}`,
 		...(question.body === ""
@@ -118,6 +151,12 @@ export function formatQuestion(question: Question): string[] {
 	];
 	if (question.reply !== null) {
 		lines.push(color.dim(`    → ${question.reply}`));
+	} else if (question.pending) {
+		lines.push(
+			color.dim(
+				`    → ${replyText(question, question.pending)} (waiting for its agent)`,
+			),
+		);
 	}
 	return lines;
 }

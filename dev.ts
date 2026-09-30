@@ -6,11 +6,13 @@ import {
 	OpenPortProvider,
 	type PortProvider,
 } from "webappwiz/system";
+import type { Attachment } from "./attachments";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import { openQuestions } from "./inbox";
 import type { Journal } from "./journal";
-import { type Attachment, replyTo, withdrawReply } from "./reply";
+import type { Replies } from "./replies";
+import { holdReply, releaseReply, replyTo, withdrawReply } from "./reply";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -83,6 +85,7 @@ export async function dev(
 		fs,
 		journal,
 		todos,
+		replies,
 		log,
 		assets,
 	}: {
@@ -90,12 +93,14 @@ export async function dev(
 		fs: Fs;
 		journal: Journal;
 		todos: Todos;
+		replies: Replies;
 		log: Logger;
 		assets: Assets;
 	},
 	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
 ): Promise<DevServer> {
-	const read = () => snapshot({ service, journal, todos, fs });
+	const read = () => snapshot({ service, journal, todos, replies, fs });
+	const deps = { service, fs, replies };
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
@@ -190,55 +195,77 @@ export async function dev(
 	const reply = async (request: Request): Promise<Response> => {
 		const form = await request.formData();
 		const task = String(form.get("task") ?? "");
-		const files: Attachment[] = [];
-		for (const file of form.getAll("file")) {
-			if (file instanceof File) {
-				files.push({
-					name: file.name || "pasted",
-					bytes: new Uint8Array(await file.arrayBuffer()),
-				});
-			}
-		}
-		const replied = await journal.record("reply", task, () =>
-			replyTo({ service, fs }, task, String(form.get("question") ?? ""), {
+		const replied = await journal.record("reply", task, async () =>
+			replyTo(deps, task, String(form.get("question") ?? ""), {
 				text: String(form.get("text") ?? ""),
 				choices: form.getAll("choice").map(String),
-				files,
+				files: await uploads(form),
+				keep: form.getAll("keep").map(String),
 			}),
 		);
 		await tick();
 		return Response.json(replied);
 	};
 
-	// Only an image an open question shows, so the page, and whoever a tunnel
-	// lets reach it, can read nothing on this machine an agent did not put in
-	// front of a person on purpose.
-	const image = async (request: Request): Promise<Response> => {
+	/** The `{task, question}` a reply route names in its JSON body. */
+	const named = async (request: Request) => {
+		const { task, question } = (await request.json()) as {
+			task?: unknown;
+			question?: unknown;
+		};
+		return { task: String(task ?? ""), question: String(question ?? "") };
+	};
+
+	const unreply = async (request: Request): Promise<Response> => {
+		const { task, question } = await named(request);
+		const withdrawn = await journal.record("unreply", task, () =>
+			withdrawReply(deps, task, question),
+		);
+		await tick();
+		return Response.json(withdrawn);
+	};
+
+	// Not journaled: opening a reply to look at it is not something that
+	// happened to the repo, only a hold that keeps the agent out meanwhile.
+	const hold = async (request: Request): Promise<Response> => {
+		const { task, question } = await named(request);
+		const held = await holdReply(deps, task, question);
+		await tick();
+		return Response.json(held);
+	};
+
+	const release = async (request: Request): Promise<Response> => {
+		const { task, question } = await named(request);
+		await releaseReply(deps, task, question);
+		await tick();
+		return Response.json({});
+	};
+
+	// Only an image an open question shows, or a file a reply or a todo holds,
+	// so the page, and whoever a tunnel lets reach it, can read nothing on this
+	// machine that was not put in front of a person on purpose.
+	const file = async (request: Request): Promise<Response> => {
 		const params = new URL(request.url).searchParams;
 		const task = params.get("task") ?? "";
 		const path = params.get("path") ?? "";
 		const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
-		const { questions } = await openQuestions(
-			{ service, fs },
-			{ replied: true },
-		);
-		const shown = questions.some(
-			(question) => question.task === task && question.images.includes(path),
-		);
-		const bytes =
-			shown && type !== undefined
-				? await fs.readBytes(path).catch(() => null)
-				: null;
+		const held = replies.owns(path) || todos.owns(path);
+		const shown =
+			held ||
+			(type !== undefined &&
+				(await openQuestions(deps, { replied: true })).questions.some(
+					(question) =>
+						question.task === task && question.images.includes(path),
+				));
+		const bytes = shown ? await fs.readBytes(path).catch(() => null) : null;
 		if (bytes === null) {
-			return refuse(
-				404,
-				"not_found",
-				`no open question in '${task}' shows ${path}`,
-			);
+			return refuse(404, "not_found", `nothing here shows ${path}`);
 		}
 		return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
 			headers: {
 				"content-type": type ?? "application/octet-stream",
+				// Anything not an image downloads rather than rendering here.
+				...(type === undefined ? { "content-disposition": "attachment" } : {}),
 				// An svg opened on its own could otherwise run a script.
 				"content-security-policy":
 					"default-src 'none'; style-src 'unsafe-inline'",
@@ -248,28 +275,12 @@ export async function dev(
 	};
 
 	const addTodo = async (request: Request): Promise<Response> => {
-		const { text } = (await request.json()) as { text?: unknown };
-		const todo = await journal.record("todo add", null, () =>
-			todos.add(String(text ?? ""), null),
+		const form = await request.formData();
+		const todo = await journal.record("todo add", null, async () =>
+			todos.add(String(form.get("text") ?? ""), null, await uploads(form)),
 		);
 		await tick();
 		return Response.json(todo.state);
-	};
-
-	const unreply = async (request: Request): Promise<Response> => {
-		const { task, question } = (await request.json()) as {
-			task?: unknown;
-			question?: unknown;
-		};
-		const withdrawn = await journal.record("unreply", String(task ?? ""), () =>
-			withdrawReply(
-				{ service, fs },
-				String(task ?? ""),
-				String(question ?? ""),
-			),
-		);
-		await tick();
-		return Response.json(withdrawn);
 	};
 
 	/** The todo a `/api/todos/<id>` path names. */
@@ -283,10 +294,14 @@ export async function dev(
 	};
 
 	const updateTodo = async (request: Request): Promise<Response> => {
-		const { text } = (await request.json()) as { text?: unknown };
+		const form = await request.formData();
 		const found = await todoAt(request);
-		const todo = await journal.record("todo update", null, () =>
-			found.update(String(text ?? "")),
+		const todo = await journal.record("todo update", null, async () =>
+			found.update({
+				text: form.has("text") ? String(form.get("text")) : undefined,
+				files: await uploads(form),
+				keep: form.getAll("keep").map(String),
+			}),
 		);
 		await tick();
 		return Response.json(todo.state);
@@ -317,8 +332,10 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/snapshot": guarded(async () => Response.json(await read())),
 			"/api/reply": { POST: guarded(reply) },
-			"/api/image": guarded(image),
 			"/api/unreply": { POST: guarded(unreply) },
+			"/api/reply/hold": { POST: guarded(hold) },
+			"/api/reply/release": { POST: guarded(release) },
+			"/api/file": guarded(file),
 			"/api/todos": { POST: guarded(addTodo) },
 			"/api/todos/:id": {
 				PATCH: guarded(updateTodo),
@@ -361,6 +378,20 @@ export function devPorts(from: number): PortProvider {
 		);
 	}
 	return OpenPortProvider.span({ from, span: PORT_SPAN, host: LOOPBACK });
+}
+
+/** The files a form carries under `file`, as bytes. */
+async function uploads(form: FormData): Promise<Attachment[]> {
+	const files: Attachment[] = [];
+	for (const file of form.getAll("file")) {
+		if (file instanceof File) {
+			files.push({
+				name: file.name || "pasted",
+				bytes: new Uint8Array(await file.arrayBuffer()),
+			});
+		}
+	}
+	return files;
 }
 
 /** The host a Host header names, without its port. */

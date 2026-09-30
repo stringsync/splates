@@ -12,6 +12,7 @@
 @source "./tasks.tsx";
 @source "./log.tsx";
 @source "./markdown.tsx";
+@source "./files.tsx";
 @source "./components/ui";
 
 @custom-variant dark (&:is(.dark *));
