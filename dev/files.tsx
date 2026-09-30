@@ -186,6 +186,6 @@ function Chip({
 const STORED_ID = /^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|\d+)-/i;
 
 /** A stored file's name as given, without the id stored names lead with. */
-function stored(path: string): string {
+export function stored(path: string): string {
 	return (path.split("/").at(-1) ?? path).replace(STORED_ID, "");
 }

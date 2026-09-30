@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
 import { arbor } from "./arbor";
+import { replyTo, sendMessage } from "./send";
 import { Testing } from "./testing";
 
 /**
@@ -27,7 +28,7 @@ describe("arbor cli", () => {
 		expect(await env.fs.exists(join(`${env.root}-arbor`, "alpha"))).toBe(true);
 	});
 
-	it("answers a question from the inbox and journals the reply", async () => {
+	it("lets an agent read what the page sent it, and nothing more", async () => {
 		await using env = await Testing.open();
 		env.ps.cd(env.root);
 		const deps = {
@@ -45,7 +46,6 @@ describe("arbor cli", () => {
 			"# alpha\n\n## Blocked\n\n- [ ] Q1. Open it.\n- [ ] Q2. Run it where?\n  - [a] locally\n  - [b] in ci\n",
 		);
 		await env.fs.write(join(env.root, "a.png"), "a");
-		await env.fs.write(join(env.root, "b.log"), "b");
 
 		await arbor.run(deps, ["inbox", "--json"]);
 		const found = JSON.parse(String(env.log.entries.at(-1)?.message));
@@ -54,22 +54,29 @@ describe("arbor cli", () => {
 			{ task: "alpha", number: "Q2", pick: "any" },
 		]);
 
-		await arbor.run(deps, [
-			"reply",
-			"alpha",
-			"q1",
-			"looks right",
-			"--file",
-			"a.png,b.log",
-		]);
-		// Waiting for its agent, not in the plan yet.
-		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).not.toContain(
-			"→",
-		);
+		// A person answers from the page; the CLI has no way to.
+		env.log.clear();
+		await arbor.run(deps, ["reply", "alpha", "Q1", "looks right"]);
+		expect(env.out()).not.toContain("  reply ");
+		await replyTo(env, "alpha", "Q2", { text: "", choices: ["b", "a"] });
+		await sendMessage(env, "alpha", { text: "Rename it." });
 
-		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b,a"]);
-		await arbor.run(deps, ["unreply", "alpha", "Q2"]);
-		expect(await env.replies.find("alpha", "Q2")).toBeNull();
+		await arbor.run(deps, ["inbox", "--replied", "--json"]);
+		expect(
+			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,
+		).toMatchObject([
+			{ number: "Q1", state: "open" },
+			{ number: "Q2", state: "replied" },
+		]);
+
+		// The agent reads what it was sent from its tree, claiming it.
+		env.ps.cd(worktree.path);
+		await arbor.run(deps, ["messages"]);
+		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
+		expect(plan).toContain("Run it where? → a (locally), b (in ci)\n");
+		expect(plan).toContain("## Messages\n\n- [ ] M1. Rename it.\n");
+
+		env.ps.cd(env.root);
 		await arbor.run(deps, ["todo", "add", "write docs", "--file", "a.png"]);
 		const [attached = ""] = (await env.todos.find(1)).files;
 		await arbor.run(deps, [
@@ -84,34 +91,12 @@ describe("arbor cli", () => {
 			text: "write the docs",
 			files: [],
 		});
-		await arbor.run(deps, ["reply", "alpha", "Q2", "--choice", "b,a"]);
-
-		await arbor.run(deps, ["inbox", "--replied", "--json"]);
-		expect(
-			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,
-		).toMatchObject([
-			{ number: "Q1", state: "replied" },
-			{ number: "Q2", state: "replied" },
-		]);
-
-		// The agent reads its replies from its tree, claiming them.
-		env.ps.cd(worktree.path);
-		await arbor.run(deps, ["replies"]);
-		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
-		expect(plan).toContain("- [ ] Q1. Open it. → looks right /");
-		expect(plan).toContain("-b.log\n");
-		expect(plan).toContain("Run it where? → a (locally), b (in ci)\n");
-		env.log.clear();
-		await arbor.run(deps, ["unreply", "alpha", "Q2"]);
-		expect(env.out()).toContain('"reason":"exists"');
 
 		await arbor.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(entries.slice(-3)).toMatchObject([
-			{ action: "reply", task: "alpha", reason: null },
-			{ action: "replies", task: "alpha", reason: null },
-			{ action: "unreply", task: "alpha", reason: "exists" },
-		]);
+		expect(entries.map((entry: { action: string }) => entry.action)).toContain(
+			"messages",
+		);
 	});
 
 	it("reports a refusal as a reason, a message and an exit code", async () => {
@@ -146,7 +131,7 @@ describe("arbor cli", () => {
 			["dev", "--port", "99999"],
 		);
 
-		expect(env.out()).toContain('"reason":"usage"');
+		expect(env.out()).not.toContain("  reply ");
 		expect(env.proc.lastExit()).toBe(1);
 	});
 });

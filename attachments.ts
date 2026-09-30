@@ -11,8 +11,8 @@ export interface Attachment {
 }
 
 /**
- * The folder of files that belong to one record, a reply's or a todo's, kept
- * beside it: `replies/<task>/Q2.json` has `replies/<task>/Q2/`, and
+ * The folder of files that belong to one record, a message's or a todo's,
+ * kept beside it: `messages/<task>/Q2.json` has `messages/<task>/Q2/`, and
  * `todos/7.json` has `todos/7/`. Under `.git/arbor`, so nothing here is ever
  * committed and every tree can open what it holds.
  */

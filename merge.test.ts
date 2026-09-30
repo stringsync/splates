@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { add } from "./add";
 import { merge } from "./merge";
+import { claim, sendMessage } from "./send";
 import { Shell } from "./shell";
 import { LIVE_PID, Testing } from "./testing";
 
@@ -219,6 +220,30 @@ describe.concurrent("merge", () => {
 			"add alpha",
 		);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
+	});
+
+	it("refuses to land while a person's message is unread", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await sendMessage(deps, "alpha", { text: "Hold on, rename it first." });
+
+		await expect(merge(deps, worktree)).toBail("unread", {
+			message: "M1 from a person",
+			data: { task: "alpha", unread: ["M1"] },
+		});
+		expect(
+			await deps.gitCli(deps.root, "log", "--oneline", "main"),
+		).not.toContain("add alpha");
+
+		// Read, it may land: acting on it is the agent's to judge.
+		await claim(deps, "alpha");
+		await merge(deps, worktree);
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
 	});
 
 	it("stops once the retry budget is spent", async () => {

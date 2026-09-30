@@ -3,6 +3,7 @@ import type { Lock } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
+import type { Messages } from "./messages";
 import type { Shell } from "./shell";
 import { recommend, recommendation, type Todos } from "./todo";
 import type { Worktree } from "./worktree";
@@ -26,6 +27,7 @@ export async function merge(
 		config,
 		log,
 		todos,
+		messages,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -34,6 +36,7 @@ export async function merge(
 		config: Config;
 		log: Logger;
 		todos: Todos;
+		messages: Messages;
 	},
 	cwd: string,
 ): Promise<void> {
@@ -76,6 +79,18 @@ export async function merge(
 			"lease_held",
 			`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: another agent is driving this tree`,
 			{ task, lease: worktree.lease },
+		);
+	}
+	// A person may have said something that changes the work, so it is read
+	// before the work lands, whatever the agent was doing when it was sent.
+	const unread = (await messages.unclaimed(task)).map(
+		(message) => message.state.id,
+	);
+	if (unread.length > 0) {
+		fail(
+			"unread",
+			`'${task}' has ${unread.join(", ")} from a person, not yet read: run \`arbor messages\`, act on what it says, then merge again`,
+			{ task, unread },
 		);
 	}
 	worktree = await worktree.take();

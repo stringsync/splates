@@ -18,6 +18,7 @@ export const EXIT = {
 	merge_failed: 12,
 	already_removed: 13,
 	timeout: 14,
+	unread: 15,
 } as const;
 
 export type Reason = keyof typeof EXIT;

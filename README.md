@@ -74,7 +74,9 @@ created with `--base`. The core command.
 there, and fast-forwards the base with `git merge --ff-only`. History stays
 linear.
 
-1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere.
+1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere,
+   or (`unread`) while a person's reply or message waits unclaimed: run
+   `arbor messages`, act on it, and merge again.
 2. Takes the merge lock, **blocking**, polling every 2s. Blocking is
    deliberate: telling an agent "busy, try later" invites it to go edit more
    code in a branch that is supposed to be frozen.
@@ -200,15 +202,15 @@ Like `show` and `path`, it takes no lease, so watching a task cannot knock its
 agent off it.
 
 `--answered` waits for something else: until every open question under the
-task's `## Blocked` has a reply (or none is open), then claims the new ones
-the way `arbor replies` does and prints them. This is how an agent that
+task's `## Blocked` has a reply (or none is open), then claims everything new
+the way `arbor messages` does and prints it. This is how an agent that
 escalated waits for its human, with the same timeout and the same `timeout`
 refusal, which names the questions still unanswered. A reply someone has open
 to edit does not count yet. A task that is gone ends the wait too, since
 nothing is left to answer.
 
 ```
-alpha replied
+alpha has new
   Q2 🎨 Does the header wrap to two lines?
     → yes
 ```
@@ -219,8 +221,8 @@ Every question waiting on a person, across all tasks: each unchecked
 `- [ ] Q9.` item under a task's `## Blocked` with no reply yet, grouped by
 task. A question leaves the inbox once it is answered. `--replied` brings back
 the ones answered but not yet checked off by their agent, with the reply under
-each: one still waiting for its agent says so, and can be changed until the
-agent claims it. Takes no lease.
+each: one still waiting for its agent says so, and can be changed on the page
+until the agent claims it. Takes no lease.
 
 ```
 alpha
@@ -252,61 +254,62 @@ none, `- [a] ...` lines take any that apply.
   - [c] Push
 ```
 
-### `arbor reply <task> <question> [text] [--choice <letters>] [--file <path>]`
+### `arbor messages [task]`
 
-Answers a question. The reply waits in `.git/arbor/replies/<task>/Q9.json`,
-not in the plan, until the task's agent claims it with `arbor replies` or
-`arbor wait --answered`. Until then, replying again replaces it and `arbor
-unreply` takes it back. Claiming writes it onto the question's line in
-`ARBOR.md` after ` → `, and from then on it is the agent's: it can no longer
-change here. The box stays unchecked: checking it off is the agent's word that
-it has acted on the answer. `<question>` is the number however it is typed
-(`Q9`, `q9`, `9`).
+How an agent reads what its human sent it, and the only way it does. A person
+writes from the page (`arbor dev`), never the CLI, so agents have no way to
+message each other: every word an agent reads through arbor came from a
+person.
 
-`--choice b` picks one of the question's choices and spells it out, so the
-line alone says what was picked: ` → b (Migrate each session on its next
-request)`. `--choice a,c` picks several from a `- [a]` list: ` → a (Email),
-c (Push)`. Any text goes after the picks, ` → b (...): but email them first`.
-Text alone still answers a question with choices, for when none of them fits.
-Refuses `usage` for a letter the question does not offer, or a second pick
-from a `- (a)` list.
+Two kinds of thing arrive. A **reply** answers a question under `## Blocked`,
+and claiming writes it onto the question's line after ` → `, its picks spelled
+out so the line alone says what was picked: ` → b (Migrate each session on
+its next request)`, or ` → a (Email), c (Push): and log it` with words after
+the picks. A **message** is anything else the person wants the agent to know,
+often a follow-up to something already read, and claiming appends it under
+`## Messages` as an item of its own, the section made if missing:
 
-`--file a.png,trace.log` copies each file, of any kind, beside the reply in
-`.git/arbor/replies/<task>/Q9/`, and the claimed line names each by absolute
-path, so the agent can open it from its own tree. They go when the task is
-merged or removed.
+```markdown
+## Messages
 
-Refuses `lease_held` while the task's agent is in a live session: it is waiting
-in its chat, not reading its plan, so answer it there. Refuses `not_found` for
-a task or question that is not there, or one already checked off, and `exists`
-for one whose reply its agent has already claimed: tell the agent instead.
+- [ ] M1. Re Q3: sign out the admins too, not just the users.
+- [ ] M2. Use the grid from the pricing page.
+  /abs/path/.git/arbor/messages/alpha/M2/layout.png
+```
 
-### `arbor replies [task]`
+Both boxes stay unchecked: checking one off is the agent's word that it has
+acted on it.
 
-How an agent reads what its human answered, and the only way it does: claims
-every reply waiting for the task, writing each into `ARBOR.md` after ` → `,
-and prints them with what is still unanswered. Once claimed, a reply can no
-longer be changed or taken back, so the agent never acts on an answer that
-changes under it. A reply someone has open to edit on the page is left for
-the next call. Run from a task worktree, the task is that one.
+Claiming takes everything waiting for the task, writes it into `ARBOR.md`, and
+prints it with the questions still unanswered. Once claimed, nothing can change
+or be taken back, so the agent never acts on words that change under it.
+Something the person has open to edit on the page is left for the next call.
+Run from a task worktree, the task is that one.
 
 ```
-alpha replied
+alpha has new
   Q3 🧹 Keep or drop the old flag?
     → drop
+  M1 Re Q3: sign out the admins too, not just the users.
   unanswered: Q4
 ```
 
-### `arbor unreply <task> <question>`
+Until claimed, each waits in `.git/arbor/messages/<task>/<id>.json`, its files
+beside it in `<id>/`, and the claimed text names each file by absolute path so
+the agent can open it from its own tree. The records stay after claiming, as
+the page's Sent history, and go with their files when the task is merged or
+removed.
 
-Takes back a reply its agent has not claimed yet, files and all: the question
-waits on a person again. Refuses `not_found` when there is no reply to take
-back, and `exists` once the agent has claimed it.
+A reply is refused (`lease_held`) while the task's agent is in a live
+session: it is waiting in its chat, not reading its plan, so answer it there.
+A message goes through anyway, since it waits in the plan for whenever the
+agent next looks, and `arbor merge` will not land the task until it has.
 
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
-`retry`, `reply`, `replies`, `unreply`, `todo add`, `todo update`, `todo remove`), oldest first, each with the task and how it ended (`ok`, or
+`retry`, `messages`, `todo add`, `todo update`, `todo remove`, and from the
+page `reply`, `message` and `withdraw`), oldest first, each with the task and how it ended (`ok`, or
 the refusal reason).
 
 ```
@@ -323,31 +326,37 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 ### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
-The inbox, todos, tasks and log in a browser, on `http://localhost:4269`,
-reloading themselves as anything changes. Built for a phone first: open
-questions lead, grouped by task, and tapping one opens it with its body,
-images full size on a tap, its choices, and a reply box that takes pasted or
-picked files. The task's plan slides in over the question without closing
-it. Every question stays in one list, one line each: the ones with no mark
-wait on you, and a replied one says where it stands in a word: Waiting (for
-its agent, still editable), Editing, or Read (by its agent). Opening one still waiting holds it, so its agent cannot claim it
-half-changed, and closing it lets go; the hold also lapses on its own after
-five minutes. One its agent has read shows the answer and can no longer
-change. Todos open to reword, attach files to, or remove. Typing `@` in a reply or a todo
-offers the files and directories in the task's tree (the main tree's for a
-todo), tracked or new but not ignored, and writes the one picked as
-`@path/from/root`; picking a directory keeps the list open on what is inside. On a phone the tabs sit along the
-bottom, in reach of a thumb; on anything wider they run down a sidebar.
-If the server stops answering, the header says it is offline, since what the
-page shows may be stale.
+The inbox, what you sent, todos and tasks in a browser, on
+`http://localhost:4269`, reloading themselves as anything changes. Built for a
+phone first: the inbox leads with the questions waiting on you, grouped by
+task, and tapping one opens it with its body, images full size on a tap, its
+choices, and a reply box that takes pasted or picked files. The task's plan
+slides in over the question without closing it.
 
-Everything the page does, the CLI does too, through the same functions:
-answering is `arbor reply`, withdrawing is `arbor unreply`, and todos are
-`arbor todo add`, `update` and `remove`. Holding a reply open is the page's
-alone: it is what lets a person edit in place. Nothing else is writable from the page.
-Merging, removing tasks and claiming stay in the CLI, so a page that should
-not have been reachable can at worst leave replies and change todos. It takes
-no lease.
+A question leaves the inbox once answered, for the Sent tab, which lists every
+reply and message you sent each task's agent, one line each with where it
+stands in a word: Waiting (for its agent, still yours to change or withdraw),
+Editing, Read (by its agent), or Done (checked off). Opening one still waiting
+holds it, so its agent cannot claim it half-changed, and closing it lets go;
+the hold also lapses on its own after five minutes. One its agent has read
+shows what you sent and a box to follow it up with a message. New message
+writes to any task's agent unprompted. Everything stays listed until its task
+lands or goes.
+
+Todos open to reword, attach files to, or remove. Typing `@` in a reply, a
+message or a todo offers the files and directories in the task's tree (the
+main tree's for a todo), tracked or new but not ignored, and writes the one
+picked as `@path/from/root`; picking a directory keeps the list open on what
+is inside. On a phone the tabs sit along the bottom, in reach of a thumb; on
+anything wider they run down a sidebar. If the server stops answering, the
+header says it is offline, since what the page shows may be stale.
+
+Replies and messages are written here and nowhere else, so an agent with a
+shell cannot send one: see `arbor messages`. Todos are the CLI's too, through
+the same functions (`arbor todo add`, `update` and `remove`). Merging,
+removing tasks and claiming stay in the CLI, so a page that should not have
+been reachable can at worst leave messages and change todos. It takes no
+lease.
 
 It listens on 127.0.0.1 only and refuses a request whose `Host` is not this
 machine, and any write from another origin. To use it from another device,
@@ -444,15 +453,16 @@ The agent's control flow runs on these.
 | 3    | `tests_failed`      | The gate (`postRewrite`, `preMerge`) failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
 | 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor remove` and redo against current trunk. |
-| 6    | `lease_held`        | Another agent is driving this tree. For `reply`: answer that agent in its chat. |
+| 6    | `lease_held`        | Another agent is driving this tree. For a reply from the page: answer that agent in its chat. |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
-| 8    | `not_found`         | No such task, or not run from a task worktree; for `reply`, no such open question. |
+| 8    | `not_found`         | No such task, or not run from a task worktree; for a reply from the page, no such open question. |
 | 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
-| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. For `reply` and `unreply`: its agent already claimed the reply, so tell it in its chat. |
+| 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. From the page: its agent already read what you are changing, so follow it up with a message. |
 | 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
 | 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging, or with `--answered`, a question is still unanswered. |
+| 15   | `unread`            | `arbor merge` refused: a person's reply or message waits unclaimed. `arbor messages`, act on it, merge again. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

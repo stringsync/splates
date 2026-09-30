@@ -3,7 +3,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { add } from "./add";
 import { PLAN_FILE } from "./plan";
 import { remove } from "./remove";
-import { holdReply, replyTo } from "./reply";
+import { hold, replyTo } from "./send";
 import { Testing } from "./testing";
 import { wait } from "./wait";
 
@@ -91,7 +91,7 @@ describe("wait", () => {
 			await waiting;
 
 			expect(deps.out()).toBe(
-				["alpha replied", "  Q3 Decide: keep or drop?", "    → keep"].join(
+				["alpha has new", "  Q3 Decide: keep or drop?", "    → keep"].join(
 					"\n",
 				),
 			);
@@ -102,7 +102,7 @@ describe("wait", () => {
 		it("waits out a reply someone is still editing", async () => {
 			await escalated("- [ ] Q1. Decide: keep or drop?");
 			await replyTo(deps, "alpha", "Q1", { text: "keep" });
-			await holdReply(deps, "alpha", "Q1");
+			await hold(deps, "alpha", "Q1");
 
 			await expect(
 				wait(deps, "alpha", {
@@ -120,7 +120,7 @@ describe("wait", () => {
 
 			await wait(deps, "alpha", { ...PATIENT, answered: true });
 
-			expect(deps.out()).toBe("alpha has no new replies");
+			expect(deps.out()).toBe("alpha has nothing new");
 		});
 
 		it("returns when the task is gone", async () => {

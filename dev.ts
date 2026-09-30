@@ -11,8 +11,8 @@ import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import { openQuestions } from "./inbox";
 import type { Journal } from "./journal";
-import type { Replies } from "./replies";
-import { holdReply, releaseReply, replyTo, withdrawReply } from "./reply";
+import type { Messages } from "./messages";
+import { hold, release, replyTo, sendMessage, withdraw } from "./send";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -72,12 +72,13 @@ export interface DevServer extends AsyncResource {
 }
 
 /**
- * Serves what `inbox`, `todo list`, `list`, `show` and `log` print, as one page
- * that refetches when the repo changes, and takes the two things a person does
- * from it: `reply` and `todo add`. Nothing more: each is the same core function
- * the CLI calls, and anything that moves a task (merge, remove, claim) stays in
- * the CLI, so a page that should not have been reachable can at worst leave a
- * reply.
+ * Serves what `inbox`, `todo list`, `list` and `show` print, and everything
+ * sent to each task's agent, as one page that refetches when the repo
+ * changes. It is the only place a person replies to a question or messages an
+ * agent: the CLI has no command for either, so no agent is tempted to message
+ * another. Anything that moves a task (merge, remove, claim) stays in the CLI,
+ * so a page that should not have been reachable can at worst send a message
+ * or change a todo.
  */
 export async function dev(
 	{
@@ -85,7 +86,7 @@ export async function dev(
 		fs,
 		journal,
 		todos,
-		replies,
+		messages,
 		log,
 		assets,
 	}: {
@@ -93,14 +94,14 @@ export async function dev(
 		fs: Fs;
 		journal: Journal;
 		todos: Todos;
-		replies: Replies;
+		messages: Messages;
 		log: Logger;
 		assets: Assets;
 	},
 	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
 ): Promise<DevServer> {
-	const read = () => snapshot({ service, journal, todos, replies, fs });
-	const deps = { service, fs, replies };
+	const read = () => snapshot({ service, todos, messages, fs });
+	const deps = { service, fs, messages };
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
@@ -207,41 +208,57 @@ export async function dev(
 		return Response.json(replied);
 	};
 
-	/** The `{task, question}` a reply route names in its JSON body. */
-	const named = async (request: Request) => {
-		const { task, question } = (await request.json()) as {
-			task?: unknown;
-			question?: unknown;
-		};
-		return { task: String(task ?? ""), question: String(question ?? "") };
-	};
-
-	const unreply = async (request: Request): Promise<Response> => {
-		const { task, question } = await named(request);
-		const withdrawn = await journal.record("unreply", task, () =>
-			withdrawReply(deps, task, question),
+	const message = async (request: Request): Promise<Response> => {
+		const form = await request.formData();
+		const task = String(form.get("task") ?? "");
+		const sent = await journal.record("message", task, async () =>
+			sendMessage(deps, task, {
+				id: form.has("id") ? String(form.get("id")) : undefined,
+				about: form.has("about") ? String(form.get("about")) : null,
+				text: String(form.get("text") ?? ""),
+				files: await uploads(form),
+				keep: form.getAll("keep").map(String),
+			}),
 		);
 		await tick();
-		return Response.json(withdrawn);
+		return Response.json(sent);
 	};
 
-	// Not journaled: opening a reply to look at it is not something that
-	// happened to the repo, only a hold that keeps the agent out meanwhile.
-	const hold = async (request: Request): Promise<Response> => {
-		const { task, question } = await named(request);
-		const held = await holdReply(deps, task, question);
+	/** The `{task, id}` a route names in its JSON body. */
+	const named = async (request: Request) => {
+		const { task, id } = (await request.json()) as {
+			task?: unknown;
+			id?: unknown;
+		};
+		return { task: String(task ?? ""), id: String(id ?? "") };
+	};
+
+	const withdrawn = async (request: Request): Promise<Response> => {
+		const { task, id } = await named(request);
+		const taken = await journal.record("withdraw", task, () =>
+			withdraw(deps, task, id),
+		);
 		await tick();
-		return Response.json(held);
+		return Response.json(taken);
 	};
 
-	const release = async (request: Request): Promise<Response> => {
-		const { task, question } = await named(request);
-		await releaseReply(deps, task, question);
+	// Not journaled: opening something sent to look at it is not something that
+	// happened to the repo, only a hold that keeps the agent out meanwhile.
+	const held = async (request: Request): Promise<Response> => {
+		const { task, id } = await named(request);
+		const state = await hold(deps, task, id);
+		await tick();
+		return Response.json(state);
+	};
+
+	const released = async (request: Request): Promise<Response> => {
+		const { task, id } = await named(request);
+		await release(deps, task, id);
 		await tick();
 		return Response.json({});
 	};
 
-	// Only an image an open question shows, or a file a reply or a todo holds,
+	// Only an image an open question shows, or a file a message or a todo holds,
 	// so the page, and whoever a tunnel lets reach it, can read nothing on this
 	// machine that was not put in front of a person on purpose.
 	const file = async (request: Request): Promise<Response> => {
@@ -249,9 +266,9 @@ export async function dev(
 		const task = params.get("task") ?? "";
 		const path = params.get("path") ?? "";
 		const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
-		const held = replies.owns(path) || todos.owns(path);
 		const shown =
-			held ||
+			messages.owns(path) ||
+			todos.owns(path) ||
 			(type !== undefined &&
 				(await openQuestions(deps, { replied: true })).questions.some(
 					(question) =>
@@ -345,9 +362,10 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/snapshot": guarded(async () => Response.json(await read())),
 			"/api/reply": { POST: guarded(reply) },
-			"/api/unreply": { POST: guarded(unreply) },
-			"/api/reply/hold": { POST: guarded(hold) },
-			"/api/reply/release": { POST: guarded(release) },
+			"/api/message": { POST: guarded(message) },
+			"/api/withdraw": { POST: guarded(withdrawn) },
+			"/api/hold": { POST: guarded(held) },
+			"/api/release": { POST: guarded(released) },
 			"/api/file": guarded(file),
 			"/api/paths": guarded(paths),
 			"/api/todos": { POST: guarded(addTodo) },

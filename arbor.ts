@@ -14,9 +14,9 @@ import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
 import { remove } from "./remove";
-import { readReplies, reply, unreply } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
+import { readMessages } from "./send";
 import { show } from "./show";
 import { todoAdd, todoList, todoRemove, todoUpdate } from "./todo";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
@@ -152,7 +152,7 @@ arbor
 		{
 			default: false,
 			description:
-				"wait instead until every open question under the task's ## Blocked has a reply, then claim the replies, which writes them into ARBOR.md, and print them",
+				"wait instead until every open question under the task's ## Blocked has a reply, then claim the replies and any messages, which writes them into ARBOR.md, and print them",
 		},
 	)
 	.action((opts, ctx) =>
@@ -186,9 +186,9 @@ arbor
 	);
 
 arbor
-	.command("replies")
+	.command("messages")
 	.description(
-		"claim the replies waiting for a task, which writes each into its ARBOR.md after ` → ` and locks it against edits, and print them; the one way an agent reads what the inbox answered",
+		"claim what a person sent the task from the page, which writes each reply into its ARBOR.md after ` → ` and each message under ## Messages, locking them against edits, and print them; the one way an agent reads what it was sent, and `merge` refuses until it has",
 	)
 	.arg("task", z.string(), {
 		default: "",
@@ -199,61 +199,17 @@ arbor
 		if (task === null) {
 			fail(
 				"usage",
-				"not in a task's worktree: name the task, `arbor replies <task>`",
+				"not in a task's worktree: name the task, `arbor messages <task>`",
 				{},
 			);
 		}
-		await ctx.journal.record("replies", task, () => readReplies(ctx, task));
+		await ctx.journal.record("messages", task, () => readMessages(ctx, task));
 	});
-
-arbor
-	.command("unreply")
-	.description(
-		"take back a reply its agent has not claimed yet, deleting any files it stored; refuses once the agent has read it",
-	)
-	.arg("task", z.string(), { description: "task name" })
-	.arg("question", z.string(), { description: "question number: Q9, q9 or 9" })
-	.action((opts, ctx) =>
-		ctx.journal.record("unreply", opts.task, () =>
-			unreply(ctx, opts.task, opts.question),
-		),
-	);
-
-arbor
-	.command("reply")
-	.description(
-		"answer a task's open question: writes ` → <text>` onto its line in ARBOR.md, replacing any earlier reply, and leaves the box for the agent to check; refuses a task whose agent is in a live session",
-	)
-	.arg("task", z.string(), { description: "task name" })
-	.arg("question", z.string(), { description: "question number: Q9, q9 or 9" })
-	.arg("text", z.string(), {
-		default: "",
-		description:
-			"the answer in words, on one line; with --choice, whatever to add to it",
-	})
-	.option("choice", z.string(), {
-		default: "",
-		description:
-			"the letters of the choices picked, comma separated: one at most for `- (a) ...` choices, any for `- [a] ...` ones",
-	})
-	.option("file", z.string(), {
-		default: "",
-		description:
-			"files to attach, comma separated: copied under .git/arbor/attachments/<task>/ and their paths added to the reply",
-	})
-	.action((opts, ctx) =>
-		ctx.journal.record("reply", opts.task, () =>
-			reply(ctx, opts.task, opts.question, opts.text, {
-				files: commaList(opts.file),
-				choices: commaList(opts.choice),
-			}),
-		),
-	);
 
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry and reply, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, reply and message, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
@@ -269,7 +225,7 @@ arbor
 arbor
 	.command("dev")
 	.description(
-		"serve the inbox, todos, tasks and log as a web page on this machine; from it a person can reply to questions, withdraw a reply, and add, update or remove todos, and nothing else",
+		"serve the inbox, what was sent, todos and tasks as a web page on this machine; the only place a person replies to questions or messages a task's agent, and adds, updates or removes todos",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,

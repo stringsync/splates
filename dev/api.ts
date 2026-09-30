@@ -1,8 +1,7 @@
 /**
- * The page's writes, each the same core function the CLI calls behind it:
- * `arbor reply`, `arbor unreply` and `arbor todo add`, `update` and `remove`.
- * Holding a reply open to edit has no command of its own: the CLI's `reply`
- * is one write, over before an agent could read half of it.
+ * The page's writes. Replies and messages are the page's alone, with no CLI
+ * command behind them, so no agent is tempted to message another; todos are
+ * the same core functions as `arbor todo add`, `update` and `remove`.
  * A refusal comes back as the CLI's own reason and message, thrown so the
  * caller can show it.
  */
@@ -64,21 +63,48 @@ export async function reply({
 	await send("/api/reply", { body: form });
 }
 
-/** Takes back a reply its agent has not claimed yet. */
-export async function unreply(task: string, question: string): Promise<void> {
-	await json("/api/unreply", { task, question });
+export interface MessageForm extends FilesForm {
+	task: string;
+	/** The message to change, still unclaimed; absent for a new one. */
+	id?: string;
+	/** The question it follows up, like `Q3`. */
+	about?: string | null;
+	text: string;
 }
 
-/** Holds a reply while it is open to edit, so its agent cannot claim it. */
-export async function holdReply(task: string, question: string): Promise<void> {
-	await json("/api/reply/hold", { task, question });
+/** Tells a task's agent something, or changes a message it has yet to read. */
+export async function message({
+	task,
+	id,
+	about,
+	text,
+	files,
+	keep,
+}: MessageForm): Promise<void> {
+	const form = filesForm({ files, keep });
+	form.set("task", task);
+	if (id !== undefined) {
+		form.set("id", id);
+	}
+	if (about) {
+		form.set("about", about);
+	}
+	form.set("text", text);
+	await send("/api/message", { body: form });
 }
 
-export async function releaseReply(
-	task: string,
-	question: string,
-): Promise<void> {
-	await json("/api/reply/release", { task, question });
+/** Takes back a reply or a message its agent has not claimed yet. */
+export async function withdraw(task: string, id: string): Promise<void> {
+	await json("/api/withdraw", { task, id });
+}
+
+/** Holds something sent while it is open to edit, so its agent cannot claim it. */
+export async function hold(task: string, id: string): Promise<void> {
+	await json("/api/hold", { task, id });
+}
+
+export async function release(task: string, id: string): Promise<void> {
+	await json("/api/release", { task, id });
 }
 
 export async function addTodo(text: string, files: File[]): Promise<void> {

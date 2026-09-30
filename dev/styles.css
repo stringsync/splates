@@ -10,10 +10,12 @@
 @source "./inbox.tsx";
 @source "./todos.tsx";
 @source "./tasks.tsx";
-@source "./log.tsx";
 @source "./markdown.tsx";
 @source "./files.tsx";
 @source "./mentions.tsx";
+@source "./compose.tsx";
+@source "./question.tsx";
+@source "./sent.tsx";
 @source "./components/ui";
 
 @custom-variant dark (&:is(.dark *));

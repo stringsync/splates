@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
 import { inbox, openQuestions } from "./inbox";
 import { PLAN_FILE } from "./plan";
-import { holdReply, replyTo } from "./reply";
+import { hold, replyTo } from "./send";
 import { LIVE_PID, Testing } from "./testing";
 
 /**
@@ -98,7 +98,7 @@ describe("inbox", () => {
 		]);
 		expect(all.questions[1]?.pending?.text).toBe("keep");
 
-		await holdReply(deps, "alpha", "Q3");
+		await hold(deps, "alpha", "Q3");
 		const held = await openQuestions(deps, { replied: true });
 		expect(held.questions[1]?.state).toBe("editing");
 

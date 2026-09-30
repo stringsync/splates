@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
+import { type MessageState, type Messages, replyText } from "./messages";
 import { PLAN_FILE, type Question, questions } from "./plan";
-import { type Replies, type ReplyState, replyText } from "./replies";
 import type { WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -11,11 +11,11 @@ export interface OpenQuestion extends Question {
 	status: WorktreeStatus;
 	/**
 	 * `held` means the asking agent is in a live session: answer it there,
-	 * since `arbor reply` refuses a tree someone is driving.
+	 * since a reply refuses a tree someone is driving.
 	 */
 	lease: "held" | "stale" | "none";
 	/** A reply given and waiting for the agent to claim it, or null. */
-	pending: ReplyState | null;
+	pending: MessageState | null;
 	/**
 	 * Where it stands. `open` waits on a person. `replied` waits on its agent
 	 * and can still be edited. `editing` is held by someone changing it.
@@ -57,8 +57,8 @@ export async function openQuestions(
 	{
 		service,
 		fs,
-		replies,
-	}: { service: WorktreeService; fs: Fs; replies: Replies },
+		messages,
+	}: { service: WorktreeService; fs: Fs; messages: Messages },
 	{ replied = false }: InboxOptions = {},
 ): Promise<Inbox> {
 	const open: OpenQuestion[] = [];
@@ -69,14 +69,14 @@ export async function openQuestions(
 		if (plan === null) {
 			continue;
 		}
-		const waiting = await replies.forTask(worktree.task);
+		const waiting = await messages.unclaimed(worktree.task);
 		for (const question of questions(plan)) {
 			if (question.done) {
 				continue;
 			}
 			const pending =
 				question.reply === null
-					? waiting.find((found) => found.state.question === question.number)
+					? waiting.find((found) => found.state.id === question.number)
 					: undefined;
 			open.push({
 				task: worktree.task,
@@ -110,7 +110,7 @@ export interface InboxPrintOptions extends InboxOptions {
 
 /** `arbor inbox`: the open questions, grouped by task. */
 export async function inbox(
-	deps: { service: WorktreeService; fs: Fs; replies: Replies; log: Logger },
+	deps: { service: WorktreeService; fs: Fs; messages: Messages; log: Logger },
 	{ json = false, replied = false }: InboxPrintOptions = {},
 ): Promise<void> {
 	const found = await openQuestions(deps, { replied });
@@ -136,7 +136,7 @@ export async function inbox(
  * under it, then the reply the agent has yet to act on, if there is one.
  */
 export function formatQuestion(
-	question: Question & { pending?: ReplyState | null },
+	question: Question & { pending?: MessageState | null },
 ): string[] {
 	const lines = [
 		`  ${question.number} ${question.text}`,

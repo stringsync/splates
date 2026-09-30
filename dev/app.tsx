@@ -4,7 +4,7 @@ import {
 	InboxIcon,
 	ListTodoIcon,
 	type LucideIcon,
-	ScrollTextIcon,
+	SendIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useState, useSyncExternalStore } from "react";
 import {
@@ -17,15 +17,15 @@ import { Toaster } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { Feed } from "./feed";
 import { Inbox } from "./inbox";
-import { Log } from "./log";
+import { SentTab } from "./sent";
 import { Tasks } from "./tasks";
 import { Todos } from "./todos";
 
 const TABS: { value: string; label: string; Icon: LucideIcon }[] = [
 	{ value: "inbox", label: "Inbox", Icon: InboxIcon },
+	{ value: "sent", label: "Sent", Icon: SendIcon },
 	{ value: "todos", label: "Todos", Icon: ListTodoIcon },
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
-	{ value: "log", label: "Log", Icon: ScrollTextIcon },
 ];
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
@@ -62,10 +62,7 @@ export function App(): JSX.Element {
 		["changed"],
 	);
 
-	// Replied ones wait on their agent, not on you, so they are not counted.
-	const open =
-		snapshot?.inbox.questions.filter((question) => question.state === "open")
-			.length ?? 0;
+	const open = snapshot?.inbox.questions.length ?? 0;
 	// The tab says what waits on you, so a phone's tab switcher does too.
 	useEffect(() => {
 		const repo = snapshot?.repo ?? "arbor";
@@ -157,14 +154,14 @@ export function App(): JSX.Element {
 							<TabsContent value="inbox">
 								<Inbox snapshot={snapshot} />
 							</TabsContent>
+							<TabsContent value="sent">
+								<SentTab snapshot={snapshot} />
+							</TabsContent>
 							<TabsContent value="todos">
 								<Todos snapshot={snapshot} />
 							</TabsContent>
 							<TabsContent value="tasks">
 								<Tasks tasks={snapshot.tasks} />
-							</TabsContent>
-							<TabsContent value="log">
-								<Log entries={snapshot.entries} />
 							</TabsContent>
 						</Tabs>
 					)}

@@ -5,7 +5,7 @@ import type { Config } from "./config";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
-import { Replies } from "./replies";
+import { Messages } from "./messages";
 import { Shell } from "./shell";
 import { Todos } from "./todo";
 import { WorktreeService } from "./worktree-service";
@@ -19,7 +19,7 @@ export interface Repository {
 	shell: Shell;
 	journal: Journal;
 	todos: Todos;
-	replies: Replies;
+	messages: Messages;
 }
 
 /**
@@ -80,9 +80,9 @@ export function repository<C extends Deps & { fs: Fs }>(
 				}),
 				{ fs },
 			),
-			replies: new Replies(
-				`${arborDir}/replies`,
-				new FileLock(`${arborDir}/replies.lock`, {
+			messages: new Messages(
+				`${arborDir}/messages`,
+				new FileLock(`${arborDir}/messages.lock`, {
 					fs,
 					ps,
 					log,

@@ -4,7 +4,15 @@ import { Markdown } from "webappwiz/md";
 export const PLAN_FILE = "ARBOR.md";
 
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
+const SECTIONS = [
+	"Goal",
+	"Files",
+	"Done",
+	"Next",
+	"Notes",
+	"Blocked",
+	"Messages",
+];
 const REQUIRED = ["Goal", "Files", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 const QUESTION = /^[ \t]*- \[[ xX]\] Q\d+\./m;
@@ -85,13 +93,13 @@ const IMAGE = /!\[[^\]]*\]\((\/[^)\s]+)\)/g;
 /**
  * Every numbered item under `## Blocked`, open or checked off, each with the
  * indented lines under it. The reply is read off the item's own line: an
- * answer is one line, written by `arbor reply` or by hand after the arrow.
+ * answer is one line, written by `arbor messages` or by hand after the arrow.
  */
 export function questions(text: string): Question[] {
 	const found: { asked: Question; body: string[] }[] = [];
 	// The question the lines being read sit under, if they still do.
 	let last: { asked: Question; body: string[] } | undefined;
-	for (const { line } of blockedLines(text)) {
+	for (const { line } of sectionLines(text, "Blocked")) {
 		const asked = question(line);
 		if (asked !== null) {
 			last = { asked, body: [] };
@@ -210,7 +218,7 @@ export function withReply(
 	reply: string | null,
 ): string | null {
 	const lines = text.split("\n");
-	const target = blockedLines(text).find(
+	const target = sectionLines(text, "Blocked").find(
 		({ line }) => question(line)?.number === number,
 	);
 	if (target === undefined) {
@@ -257,26 +265,112 @@ function question(line: string): Question | null {
 }
 
 /**
- * The lines under `## Blocked`, with where each sits in the whole file so a
- * reply can be written back in place.
+ * The lines under one `## <heading>`, with where each sits in the whole file
+ * so a reply can be written back in place. `end` is the index just past them:
+ * where an item added to the section goes.
  */
-function blockedLines(text: string): { index: number; line: string }[] {
+function sectionLines(
+	text: string,
+	heading: string,
+): { index: number; line: string }[] {
+	return sectionRange(text, heading)?.lines ?? [];
+}
+
+function sectionRange(
+	text: string,
+	heading: string,
+): { lines: { index: number; line: string }[]; end: number } | null {
 	const { sections } = Markdown.parse(text);
 	const at = sections.findIndex(
-		(section) => section.heading.toLowerCase() === "blocked",
+		(section) => section.heading.toLowerCase() === heading.toLowerCase(),
 	);
-	const blocked = sections[at];
-	if (blocked === undefined) {
-		return [];
+	const found = sections[at];
+	if (found === undefined) {
+		return null;
 	}
 	const lines = text.split("\n");
 	// `line` is 1-based, so it is also the index of the line after the heading.
 	const end =
-		sections.slice(at + 1).find((later) => later.level <= blocked.level)
-			?.line ?? lines.length + 1;
-	return lines
-		.slice(blocked.line, end - 1)
-		.map((line, offset) => ({ index: blocked.line + offset, line }));
+		(sections.slice(at + 1).find((later) => later.level <= found.level)?.line ??
+			lines.length + 1) - 1;
+	return {
+		lines: lines
+			.slice(found.line, end)
+			.map((line, offset) => ({ index: found.line + offset, line })),
+		end,
+	};
+}
+
+/**
+ * One `- [ ] M2.` item under `## Messages`: something a person told the task's
+ * agent, written there when the agent claimed it. The agent checks it off
+ * once it has acted on it, as with a question.
+ */
+export interface PlanMessage {
+	/** `M2`. */
+	id: string;
+	done: boolean;
+	/** The item's line, and the lines indented under it, dedented. */
+	text: string;
+}
+
+const MESSAGE = /^[ \t]*- \[([ xX])\] (M\d+)\.[ \t]*(.*)$/;
+
+/** Every item under `## Messages`, open or checked off. */
+export function messages(text: string): PlanMessage[] {
+	const found: { message: PlanMessage; body: string[] }[] = [];
+	let last: { message: PlanMessage; body: string[] } | undefined;
+	for (const { line } of sectionLines(text, "Messages")) {
+		const item = MESSAGE.exec(line);
+		if (item !== null) {
+			last = {
+				message: { id: item[2] ?? "", done: item[1] !== " ", text: "" },
+				body: [(item[3] ?? "").trim()],
+			};
+			found.push(last);
+		} else if (line.trim() !== "" && !/^[ \t]/.test(line)) {
+			last = undefined;
+		} else {
+			last?.body.push(line);
+		}
+	}
+	return found.map(({ message, body }) => {
+		const [head = "", ...rest] = body;
+		message.text = [head, dedent(rest)].filter(Boolean).join("\n");
+		return message;
+	});
+}
+
+/**
+ * The plan with a message added as the last item under `## Messages`, the
+ * section made at the end of the plan if it has none. Lines after the first
+ * are indented under it, so the item holds the whole message.
+ */
+export function withMessage(text: string, id: string, message: string): string {
+	const [head = "", ...rest] = message.trim().split("\n");
+	const item = [
+		`- [ ] ${id}. ${head.trim()}`,
+		...rest.map((line) => (line.trim() === "" ? "" : `  ${line}`)),
+	];
+	const range = sectionRange(text, "Messages");
+	if (range === null) {
+		return `${text.replace(/\s*$/, "")}\n\n## Messages\n\n${item.join("\n")}\n`;
+	}
+	const lines = text.split("\n");
+	// After the last line with anything on it, so blank lines stay below.
+	const last = range.lines.findLast(({ line }) => line.trim() !== "");
+	const at = last === undefined ? range.end : last.index + 1;
+	const before = last === undefined ? [""] : [];
+	lines.splice(at, 0, ...before, ...item);
+	return lines.join("\n");
+}
+
+/** The next free message id, after every one the plan or `taken` has. */
+export function nextMessageId(text: string, taken: string[]): string {
+	const numbers = [...messages(text).map((found) => found.id), ...taken]
+		.filter((id) => /^M\d+$/.test(id))
+		.map((id) => Number(id.slice(1)));
+	return `M${Math.max(0, ...numbers) + 1}`;
 }
 
 export interface PlanOptions {
