@@ -347,8 +347,9 @@ has read shows what was said so far and a box to follow it up. Each stays
 until its task lands or goes.
 
 A line across the top always says something, so nothing under it moves: the
-latest reply its agent has yet to read, with Withdraw, or else how many
-questions need you and how many replies wait for their agents.
+question you last replied to while its agent has yet to read it, with
+Withdraw, or else how many questions need you and how many replies wait for
+their agents.
 
 Tasks lists every task with its progress through its plan, flagging only an
 escalated or broken status; tapping one opens its details and whole plan.

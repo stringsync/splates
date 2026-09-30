@@ -5,12 +5,12 @@ import type { OpenQuestion } from "../inbox";
 import type { Snapshot } from "../snapshot";
 import { withdraw } from "./api";
 import { waiting } from "./inbox";
-import { plain } from "./question";
 
 /**
- * One line across the top, always there so nothing under it moves: the last
- * reply you sent while its agent has yet to read it, with a way to take it
- * back, and otherwise where things stand.
+ * One line across the top, always there so nothing under it moves: which
+ * question you last replied to while its agent has yet to read it, with a way
+ * to take it back, and otherwise where things stand. Only the question, not
+ * the reply, so it fits.
  */
 export function Banner({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const latest = latestUnread(snapshot.inbox.questions);
@@ -27,14 +27,10 @@ export function Banner({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 
 function Latest({ question }: { question: OpenQuestion }): JSX.Element {
 	const [sending, setSending] = useState(false);
-	const said = question.pending?.text ?? "";
 	return (
 		<>
 			<span className="min-w-0 flex-1 truncate">
-				<span className="text-muted-foreground">
-					Sent to {question.task} {question.number}:{" "}
-				</span>
-				{plain(said) || "files"}
+				Reply to {question.task} {question.number}
 			</span>
 			<Button
 				variant="ghost"

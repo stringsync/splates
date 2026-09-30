@@ -786,7 +786,7 @@ describe("banner", () => {
 			},
 		});
 
-		expect(banner(view).textContent).toContain("Sent to alpha Q2: newer");
+		expect(banner(view).textContent).toBe("Reply to alpha Q2Withdraw");
 		await act(async () =>
 			fireEvent.click(
 				within(banner(view)).getByRole("button", { name: "Withdraw" }),
