@@ -186,7 +186,7 @@ and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
-### `arbor wait <task> [--timeout-secs 300] [--answered]`
+### `arbor wait <task> [--timeout-secs 900] [--answered]`
 
 Blocks until a task stops moving, then prints where it stopped.
 
@@ -196,7 +196,7 @@ discarded, and `arbor log` says which), or one of the broken statuses.
 
 This is for the agent whose own work overlaps a task already in flight and
 would rather rebase onto its result than against it. The timeout is short by
-design: five minutes, and then a `timeout` refusal that hands the decision
+design: fifteen minutes, and then a `timeout` refusal that hands the decision
 back, rather than a session that blocks all afternoon on a tree nobody is
 driving. Wait again, work alongside it, or ask the human.
 

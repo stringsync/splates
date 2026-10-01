@@ -9,7 +9,7 @@ import type { Worktree, WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /** How long `wait` gives a task before handing the wait back to its caller. */
-export const DEFAULT_TIMEOUT = Duration.mins(5);
+export const DEFAULT_TIMEOUT = Duration.mins(15);
 
 /** How often the task's record is re-read. Cheap: a file and two git refs. */
 const POLL = Duration.secs(2);
