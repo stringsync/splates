@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { FakePs } from "webappwiz/system/testing";
 import { add } from "./add";
@@ -7,6 +7,11 @@ import { PLAN_FILE } from "./plan";
 import { claimReplies, replyTo } from "./reply";
 import { Shell } from "./shell";
 import { LIVE_PID, Testing } from "./testing";
+
+// Every test here drives real git in a repo of its own, dozens of processes
+// each: fast alone, but starved past bun's 5s default when the whole suite
+// runs in parallel on a busy machine.
+setDefaultTimeout(30_000);
 
 describe.concurrent("merge", () => {
 	it("rebases, tests, then fast-forwards trunk", async () => {

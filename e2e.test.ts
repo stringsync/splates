@@ -1,8 +1,13 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { join } from "node:path";
 import { ensure } from "webappwiz/assert";
 import { color } from "webappwiz/log";
 import { Testing } from "./testing";
+
+// Every test here drives real git in a repo of its own, dozens of processes
+// each: fast alone, but starved past bun's 5s default when the whole suite
+// runs in parallel on a busy machine.
+setDefaultTimeout(30_000);
 
 const CLI = join(import.meta.dirname, "index.ts");
 
