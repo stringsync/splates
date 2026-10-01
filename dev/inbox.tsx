@@ -23,6 +23,7 @@ import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import { approve, defer, reply, skip, withdraw } from "./api";
 import { Composer, Held } from "./compose";
+import { Linked } from "./markdown";
 import { ItemSheet, plain } from "./question";
 
 /** A question by name, rather than the object, so it keeps up with the plan. */
@@ -437,7 +438,7 @@ function Thread({ question }: { question: OpenQuestion }): JSX.Element | null {
 				// Lines only ever get added, so where one sits is what it is.
 				// biome-ignore lint/suspicious/noArrayIndexKey: append-only
 				<li key={index} className="whitespace-pre-wrap break-words">
-					{line}
+					<Linked text={line} />
 				</li>
 			))}
 		</ol>

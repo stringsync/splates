@@ -4,7 +4,7 @@ import { render } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
-import { Markdown } from "./markdown";
+import { Linked, Markdown } from "./markdown";
 
 describe("Markdown", () => {
 	it("renders a heading at its own level", () => {
@@ -102,6 +102,44 @@ describe("Markdown", () => {
 		expect(link?.getAttribute("href")).toBe("http://localhost:4269");
 	});
 
+	it("opens a link in a new tab, so the page keeps its place", () => {
+		const { container } = render(
+			<Markdown text={"open [the page](http://localhost:4269)"} />,
+		);
+
+		const link = container.querySelector("a");
+
+		expect(link?.getAttribute("target")).toBe("_blank");
+		expect(link?.getAttribute("rel")).toBe("noreferrer");
+	});
+
+	it("links a bare URL, leaving the punctuation after it as text", () => {
+		const { container } = render(
+			<Markdown text={"see https://example.com/a?b=1. Or (https://x.dev)"} />,
+		);
+
+		const links = [...container.querySelectorAll("a")];
+
+		expect(links.map((link) => link.getAttribute("href"))).toEqual([
+			"https://example.com/a?b=1",
+			"https://x.dev",
+		]);
+		expect(container.textContent).toBe(
+			"see https://example.com/a?b=1. Or (https://x.dev)",
+		);
+	});
+
+	it("leaves a URL inside inline code as code", () => {
+		const { container } = render(
+			<Markdown text={"run `curl https://x.dev`"} />,
+		);
+
+		expect(container.querySelector("a")).toBeNull();
+		expect(container.querySelector("code")?.textContent).toBe(
+			"curl https://x.dev",
+		);
+	});
+
 	it("leaves a javascript: link as text rather than making it clickable", () => {
 		const { container } = render(
 			<Markdown text={"[click](javascript:alert(1))"} />,
@@ -119,6 +157,22 @@ describe("Markdown", () => {
 		expect(container.querySelector("script")).toBeNull();
 		expect(container.querySelector("li")?.textContent).toBe(
 			"drop <script>alert(1)</script>",
+		);
+	});
+});
+
+describe("Linked", () => {
+	it("links the URLs in plain text and keeps the rest as typed", () => {
+		const { container } = render(
+			<Linked text={"**look** at\nhttps://example.com/x, then reply"} />,
+		);
+
+		expect(container.querySelector("strong")).toBeNull();
+		expect(container.querySelector("a")?.getAttribute("href")).toBe(
+			"https://example.com/x",
+		);
+		expect(container.textContent).toBe(
+			"**look** at\nhttps://example.com/x, then reply",
 		);
 	});
 });

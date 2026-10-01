@@ -15,7 +15,7 @@ const ImageContext = createContext<MarkdownProps["image"]>(undefined);
 
 /**
  * Renders markdown: headings, bullet and checklist items, fenced code and
- * prose, with inline code, emphasis, http links and images.
+ * prose, with inline code, emphasis, http links (bare URLs too) and images.
  *
  * ponytail: parses the common shape rather than the whole of CommonMark, since
  * the repo carries no runtime dependencies and every document it renders is
@@ -215,9 +215,44 @@ function ListItem({ item }: { item: Item }): JSX.Element {
 
 // http(s) only for links: every document here is agent-written, and a link is
 // the one construct that would otherwise let a scheme like `javascript:` in.
+// A bare URL stops short of the punctuation that ends the sentence around it.
 // Images are absolute paths only, loaded through whatever `image` renders.
-const INLINE =
-	/`([^`]+)`|\*\*([^*]+)\*\*|(?<![*\w])\*([^*\n]+)\*(?!\w)|!\[([^\]]*)\]\((\/[^)\s]+)\)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+const WEB = String.raw`https?:\/\/[^\s<>()\[\]]*[^\s<>()\[\].,;:!?'"]`;
+const INLINE = new RegExp(
+	String.raw`\x60([^\x60]+)\x60|\*\*([^*]+)\*\*|(?<![*\w])\*([^*\n]+)\*(?!\w)|!\[([^\]]*)\]\((\/[^)\s]+)\)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(${WEB})`,
+	"g",
+);
+const BARE = new RegExp(WEB, "g");
+
+/**
+ * Plain text with only its http(s) URLs made clickable, for what a person
+ * wrote: a reply keeps its own line breaks and any markup as typed.
+ */
+export function Linked({ text }: { text: string }): JSX.Element {
+	const out: ReactNode[] = [];
+	let at = 0;
+	for (const match of text.matchAll(BARE)) {
+		out.push(text.slice(at, match.index));
+		out.push(<Link key={match.index} href={match[0]} label={match[0]} />);
+		at = match.index + match[0].length;
+	}
+	out.push(text.slice(at));
+	return <>{out}</>;
+}
+
+/** Opens in a new tab, so following a link never loses the page's place. */
+function Link({ href, label }: { href: string; label: string }): JSX.Element {
+	return (
+		<a
+			href={href}
+			target="_blank"
+			rel="noreferrer"
+			className="break-all underline"
+		>
+			{label}
+		</a>
+	);
+}
 
 function Inline({ text }: { text: string }): JSX.Element {
 	const image = useContext(ImageContext);
@@ -232,7 +267,7 @@ function inline(text: string, image: MarkdownProps["image"]): ReactNode[] {
 		if (match.index > at) {
 			out.push(text.slice(at, match.index));
 		}
-		const [whole, code, strong, em, alt, path, label, href] = match;
+		const [whole, code, strong, em, alt, path, label, href, bare] = match;
 		if (path !== undefined) {
 			out.push(
 				<span key={match.index}>
@@ -249,11 +284,11 @@ function inline(text: string, image: MarkdownProps["image"]): ReactNode[] {
 			out.push(<strong key={match.index}>{strong}</strong>);
 		} else if (em !== undefined) {
 			out.push(<em key={match.index}>{em}</em>);
+		} else if (bare !== undefined) {
+			out.push(<Link key={match.index} href={bare} label={bare} />);
 		} else {
 			out.push(
-				<a key={match.index} href={href} className="underline">
-					{label}
-				</a>,
+				<Link key={match.index} href={href ?? ""} label={label ?? ""} />,
 			);
 		}
 		at = match.index + whole.length;
