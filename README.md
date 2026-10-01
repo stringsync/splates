@@ -27,14 +27,14 @@ rebase, and that is what `remove` is for.
 
 ## Commands
 
-### `arbor add <task> [--base <branch>] [--todo <id>]`
+### `arbor add <task> [--base <branch>] [--todo <id,...>]`
 
 Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
 
-`--todo <id>` takes up a todo (see `arbor todo`): its text becomes the plan's
-`## Goal`, followed by the path of each file attached to it, and no other task
-can take it while this one lives.
+`--todo 3,5` takes up todos (see `arbor todo`): their text becomes the plan's
+`## Goal`, each followed by the path of every file attached to it, and no
+other task can take them while this one lives.
 
 `--base <branch>` starts the task from that branch and lands it back there
 instead of trunk. It takes another task's branch too: `--base task/<other>`
@@ -107,11 +107,13 @@ configures none.
 A merge onto trunk ends by recommending what to do next: one todo, the task's
 own follow-ups first and then the longest waiting, plus any todo older than
 `todoStalenessMs` (30 days) offered for removal instead. The todos the task
-took up with `--todo` leave the list, since that work is now done.
+took up, with `--todo` or `todo take`, leave the list, since that work is now
+done; release one first to keep what is left of it.
 
 ```
 merged alpha onto main (1a2b3c4)
   worktree removed, cd /src/repo
+  done todo 5: show upload progress
 
 next todo 7: retry the upload when the token expires
   from alpha, waiting 2h
@@ -303,7 +305,8 @@ session: it is waiting in its chat, not reading its plan, so answer it there.
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
-`retry`, `replies`, `todo add`, `todo update`, `todo remove`, and from the
+`retry`, `replies`, `todo add`, `todo update`, `todo take`, `todo release`,
+`todo remove`, and from the
 page `reply`, `withdraw`, `defer`, `skip` and `approve`), oldest first, each with the task and how it ended (`ok`, or
 the refusal reason).
 
@@ -424,7 +427,7 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <text> [--file <path>]`, `arbor todo list [--json]`, `arbor todo update <id> [text] [--file <path>] [--remove-file <name>]`, `arbor todo remove <id>`
+### `arbor todo add <text> [--file <path>]`, `arbor todo list [--json]`, `arbor todo update <id> [text] [--file <path>] [--remove-file <name>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -437,9 +440,13 @@ one at once, with nothing to commit and no two agents rewriting the same file.
 Numbers are never reused. They are local to the clone: not in git history,
 not on a fresh checkout.
 
-`arbor add <task> --todo <id>` is how one gets picked up. `update` rewords
-one and keeps its number; `remove` drops one done some other way or no longer
-wanted.
+`arbor add <task> --todo <id,...>` picks todos up with a new task; `take`,
+run from a worktree, adds them to the task already under way, all or none.
+A task can hold any number. `release` puts them back on the list, from a
+worktree only its own task's: a task landing with one half done rewords it to
+what is left with `update`, then releases it, so the merge leaves it open.
+`update` rewords one and keeps its number; `remove` drops one done some other
+way or no longer wanted.
 
 `--file a.png,notes.md` attaches files of any kind, stored beside the todo in
 `.git/arbor/todos/<id>/` the way a reply's are. `update --remove-file` drops

@@ -5,7 +5,15 @@ import { merge } from "./merge";
 import { PLAN_FILE } from "./plan";
 import { remove } from "./remove";
 import { Testing } from "./testing";
-import { recommend, todoAdd, todoList, todoRemove, todoUpdate } from "./todo";
+import {
+	recommend,
+	todoAdd,
+	todoList,
+	todoRelease,
+	todoRemove,
+	todoTake,
+	todoUpdate,
+} from "./todo";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -100,7 +108,7 @@ describe.concurrent("todo", () => {
 		await deps.fs.writeBytes(shot, new Uint8Array([1]));
 		await todoAdd(deps, "fix the chart", null, { files: [shot] });
 
-		await add(deps, "chart", { todo: 1 });
+		await add(deps, "chart", { todos: [1] });
 
 		const worktree = (await deps.service.find("chart")).path;
 		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
@@ -135,25 +143,101 @@ describe.concurrent("todo", () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "support dark mode", null);
 
-		await add(deps, "dark", { todo: 1 });
+		await add(deps, "dark", { todos: [1] });
 
 		const worktree = (await deps.service.find("dark")).path;
 		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
 			"## Goal\n\nsupport dark mode",
 		);
 		expect((await deps.todos.find(1)).takenBy).toBe("dark");
-		await expect(add(deps, "other", { todo: 1 })).toBail("exists", {
+		await expect(add(deps, "other", { todos: [1] })).toBail("exists", {
 			message: "already taken by 'dark'",
 		});
 		// Refused before anything was made.
 		expect((await deps.service.find("other")).gone).toBe(true);
-		await expect(add(deps, "missing", { todo: 9 })).toBail("not_found");
+		await expect(add(deps, "missing", { todos: [9] })).toBail("not_found");
+	});
+
+	it("takes up several todos at once, naming each in the Goal", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "support dark mode", null);
+		await todoAdd(deps, "dark charts too", "beta");
+
+		await add(deps, "dark", { todos: [1, 2] });
+
+		const worktree = (await deps.service.find("dark")).path;
+		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
+			"## Goal\n\nTodo 1: support dark mode\n\nTodo 2: dark charts too",
+		);
+		expect((await deps.todos.takenBy("dark")).map((todo) => todo.id)).toEqual([
+			1, 2,
+		]);
+	});
+
+	it("takes todos for a task already under way, all or none", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "support dark mode", null);
+		await todoAdd(deps, "dark charts too", null);
+		await todoAdd(deps, "someone else's", null);
+		await add(deps, "other", { todos: [3] });
+
+		await todoTake(deps, [1, 2, 1], "dark");
+
+		expect((await deps.todos.takenBy("dark")).map((todo) => todo.id)).toEqual([
+			1, 2,
+		]);
+		expect(color.strip(deps.out())).toContain("took todo 2: dark charts too");
+		await todoRelease(deps, [2], "dark");
+		await expect(todoTake(deps, [2, 3], "dark")).toBail("exists", {
+			message: "already taken by 'other'",
+		});
+		// Refused as a whole: 2 was not taken on the way.
+		expect((await deps.todos.find(2)).takenBy).toBeNull();
+		await expect(todoTake(deps, [9], "dark")).toBail("not_found");
+		await expect(todoTake(deps, [2], null)).toBail("usage");
+		await expect(todoTake(deps, [], "dark")).toBail("usage");
+	});
+
+	it("releases only its own task's todos from a worktree", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "support dark mode", null);
+		await add(deps, "dark", { todos: [1] });
+
+		await expect(todoRelease(deps, [1], "other")).toBail("exists", {
+			message: "taken by 'dark'",
+		});
+		await todoRelease(deps, [1], "dark");
+		expect((await deps.todos.find(1)).takenBy).toBeNull();
+
+		await todoTake(deps, [1], "dark");
+		// From the main tree, anyone's.
+		await todoRelease(deps, [1], null);
+		expect((await deps.todos.find(1)).takenBy).toBeNull();
+	});
+
+	it("leaves a released todo on the list when its task lands", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "support dark mode", null);
+		await todoAdd(deps, "dark charts too", null);
+		await add(deps, "dark", { todos: [1, 2] });
+		const worktree = (await deps.service.find("dark")).path;
+		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
+		await todoUpdate(deps, 2, { text: "dark tooltips on charts" });
+		await todoRelease(deps, [2], "dark");
+		deps.log.clear();
+
+		await merge(deps, worktree);
+
+		await expect(deps.todos.find(1)).toBail("not_found");
+		const out = color.strip(deps.out());
+		expect(out).toContain("done todo 1: support dark mode");
+		expect(out).toContain("next todo 2: dark tooltips on charts");
 	});
 
 	it("puts a removed task's todo back on the list", async () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "support dark mode", null);
-		await add(deps, "dark", { todo: 1 });
+		await add(deps, "dark", { todos: [1] });
 
 		await remove(deps, "dark");
 
@@ -167,7 +251,7 @@ describe.concurrent("todo", () => {
 		await todoAdd(deps, "older, from elsewhere", "beta");
 		await todoAdd(deps, "follow-up from dark", "dark");
 		await age(deps, 2, 3);
-		await add(deps, "dark", { todo: 1 });
+		await add(deps, "dark", { todos: [1] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
 		deps.log.clear();

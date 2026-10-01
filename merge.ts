@@ -259,13 +259,15 @@ export async function merge(
 		}
 	}
 	// Done is done: the todos this task took up leave the list with it.
-	for (const todo of await todos.takenBy(task)) {
+	const done = await todos.takenBy(task);
+	for (const todo of done) {
 		await todo.remove();
 	}
 	const lines = [
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`
 		}\n  worktree removed, cd ${git.root}`,
+		...done.map((todo) => `  done todo ${todo.id}: ${todo.text}`),
 	];
 	// Only a landing on trunk ends a piece of work. A part landing on its
 	// parent's branch hands back to that parent, which is not done yet.

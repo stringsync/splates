@@ -5,7 +5,7 @@ import type { Config } from "./config";
 import { fail } from "./exit";
 import { PLAN_FILE } from "./plan";
 import type { Shell } from "./shell";
-import type { Todos } from "./todo";
+import type { Todo, Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -14,10 +14,10 @@ export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;
 	/**
-	 * The todo this task takes up: its text seeds the plan's Goal, and nobody
-	 * else can take it while the task lives.
+	 * The todos this task takes up: their text seeds the plan's Goal, and
+	 * nobody else can take them while the task lives.
 	 */
-	todo?: number;
+	todos?: number[];
 }
 
 export async function add(
@@ -37,7 +37,7 @@ export async function add(
 		todos: Todos;
 	},
 	task: string,
-	{ base = config.trunk, todo: id }: AddOptions = {},
+	{ base = config.trunk, todos: ids = [] }: AddOptions = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(
@@ -78,9 +78,13 @@ export async function add(
 
 	// Looked up before anything is created, so a todo that is gone or taken
 	// refuses the whole add instead of leaving a tree behind.
-	const todo = id === undefined ? null : await todos.find(id);
-	if (todo?.takenBy) {
-		await todo.take(task); // refuses, naming the task that has it
+	const taken: Todo[] = [];
+	for (const id of new Set(ids)) {
+		const todo = await todos.find(id);
+		if (todo.takenBy) {
+			await todo.take(task); // refuses, naming the task that has it
+		}
+		taken.push(todo);
 	}
 
 	const added = await service.add(task, { base });
@@ -115,9 +119,11 @@ export async function add(
 
 	await fs.write(
 		`${worktree.path}/${PLAN_FILE}`,
-		PLAN(task, todo === null ? null : goal(todo.text, todo.files)),
+		PLAN(task, taken.length === 0 ? null : goal(taken)),
 	);
-	await todo?.take(task);
+	for (const todo of taken) {
+		await todo.take(task);
+	}
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
@@ -150,16 +156,25 @@ export async function add(
 }
 
 /**
- * A todo as a Goal: its words, and each file attached to it by path, which
- * stay readable until the task lands and takes the todo with it.
+ * Todos as a Goal: each one's words, and each file attached to it by path,
+ * which stay readable until the task lands and takes the todo with it. One
+ * todo is the Goal as it stands; several are each named by id.
  */
-function goal(text: string, files: string[]): string {
-	return files.length === 0
-		? text
-		: [text, "", ...files.map((path) => `Attached: \`${path}\``)].join("\n");
+function goal(todos: Todo[]): string {
+	return todos
+		.map((todo) => {
+			const text =
+				todos.length === 1 ? todo.text : `Todo ${todo.id}: ${todo.text}`;
+			return todo.files.length === 0
+				? text
+				: [text, "", ...todo.files.map((path) => `Attached: \`${path}\``)].join(
+						"\n",
+					);
+		})
+		.join("\n\n");
 }
 
-/** The plan a fresh task starts with. `## Goal` is the todo it takes up, if
+/** The plan a fresh task starts with. `## Goal` is the todos it takes up, if
  * any; it and `## Files` are otherwise left empty on purpose: `arbor show` nags
  * until the agent fills them in. */
 function PLAN(task: string, goal: string | null): string {

@@ -18,7 +18,14 @@ import { readReplies } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
-import { todoAdd, todoList, todoRemove, todoUpdate } from "./todo";
+import {
+	todoAdd,
+	todoList,
+	todoRelease,
+	todoRemove,
+	todoTake,
+	todoUpdate,
+} from "./todo";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
@@ -47,16 +54,16 @@ arbor
 		description:
 			"branch this task starts from and merges onto (default: trunk); `task/<other>` stacks this task on that one and lands the work in its worktree",
 	})
-	.option("todo", z.coerce.number().int().nonnegative(), {
-		default: 0,
+	.option("todo", z.string(), {
+		default: "",
 		description:
-			"take up this todo: its text becomes the plan's Goal, merging removes it, and removing the task puts it back",
+			"take up these todos, comma separated: their text becomes the plan's Goal, merging removes them, and removing the task puts them back",
 	})
 	.action((opts, ctx) =>
 		ctx.journal.record("add", opts.task, () =>
 			add(ctx, opts.task, {
 				base: opts.base || undefined,
-				todo: opts.todo || undefined,
+				todos: todoIds(opts.todo),
 			}),
 		),
 	);
@@ -364,12 +371,53 @@ todo
 	);
 
 todo
+	.command("take")
+	.description(
+		"take up todos for the task whose worktree you are in, as when they turn out to be part of its work: merging removes them, removing the task puts them back",
+	)
+	.rest("ids", z.coerce.number().int().positive(), {
+		description: "todo ids",
+	})
+	.action(async (opts, ctx) => {
+		const task = await here(ctx);
+		await ctx.journal.record("todo take", task, () =>
+			todoTake(ctx, opts.ids, task),
+		);
+	});
+
+todo
+	.command("release")
+	.description(
+		"put taken todos back on the list, as when a task lands without finishing them: `arbor todo update` the leftover first; from a worktree, only its own task's",
+	)
+	.rest("ids", z.coerce.number().int().positive(), {
+		description: "todo ids",
+	})
+	.action(async (opts, ctx) => {
+		const task = await here(ctx);
+		await ctx.journal.record("todo release", task, () =>
+			todoRelease(ctx, opts.ids, task),
+		);
+	});
+
+todo
 	.command("remove")
 	.description("drop a todo that was done some other way or no longer applies")
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.action((opts, ctx) =>
 		ctx.journal.record("todo remove", null, () => todoRemove(ctx, opts.id)),
 	);
+
+/** `--todo 3,5` as ids, refusing anything that is not one. */
+function todoIds(raw: string): number[] {
+	return commaList(raw).map((value) => {
+		const id = Number(value);
+		if (!Number.isInteger(id) || id <= 0) {
+			fail("usage", `'${value}' is not a todo id`, { todo: value });
+		}
+		return id;
+	});
+}
 
 /** A comma-separated flag's values, with no empty ones. */
 function commaList(raw: string): string[] {
