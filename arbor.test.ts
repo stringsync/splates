@@ -103,7 +103,7 @@ describe("arbor cli", () => {
 		const worktree = await env.service.find("alpha");
 		expect(worktree.state?.escalations?.at(-1)?.review).toBe("1");
 		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
-			"- [ ] 1. ✅ Ready to merge?\n  check the header\n",
+			"- [ ] 1. Ready to merge?\n  check the header\n",
 		);
 	});
 

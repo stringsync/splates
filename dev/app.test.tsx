@@ -229,10 +229,16 @@ describe("@ files", () => {
 });
 
 describe("todos", () => {
-	it("lists todos as cards, leaving out where they came from, and calls old ones stale", async () => {
+	it("lists todos as cards with a preview and badges, leaving out where they came from", async () => {
 		const view = await open({
 			todos: [
-				todo({ id: 1, subject: "fresh", from: "alpha", text: "more" }),
+				todo({
+					id: 1,
+					subject: "fresh",
+					from: "alpha",
+					text: "more to say",
+					files: ["/tmp/a.png", "/tmp/b.log"],
+				}),
 				todo({
 					id: 2,
 					subject: "ancient",
@@ -246,9 +252,36 @@ describe("todos", () => {
 		await tab(view, /todos/i);
 
 		expect(document.body.textContent).not.toContain("alpha");
-		expect(document.body.textContent).toContain("stale");
-		expect(document.body.textContent).toContain("taken by beta");
-		expect(view.getAllByRole("img", { name: "has detail" })).toHaveLength(1);
+		const cards = within(view.getByRole("list", { name: "todos" }))
+			.getAllByRole("listitem")
+			.map((card) => card.textContent);
+		expect(cards[0]).toContain("more to say");
+		expect(cards[0]).toContain("#1");
+		expect(
+			view.getByRole("img", { name: "files" }).parentElement?.textContent,
+		).toBe("2");
+		expect(view.getAllByRole("img", { name: "stale" })).toHaveLength(1);
+		expect(view.getByRole("img", { name: "taken by" })).toBeTruthy();
+		expect(cards[2]).toContain("Taken by beta");
+	});
+
+	it("copies a link to one, without opening it", async () => {
+		const copied: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText: async (text: string) => void copied.push(text) },
+		});
+		const view = await open({ todos: [todo({ id: 7, subject: "fix it" })] });
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "copy a link to todo 7" }),
+			),
+		);
+
+		expect(copied).toEqual(["[ARBOR TODO #7]"]);
+		expect(view.queryByText("Todo 7")).toBeNull();
+		expect(view.getByText("Copied [ARBOR TODO #7]")).toBeTruthy();
 	});
 
 	it("adds one", async () => {
@@ -371,7 +404,9 @@ describe("todo edits", () => {
 			],
 		});
 		await tab(view, /todos/i);
-		expect(document.body.textContent).toContain("2 files");
+		expect(
+			view.getByRole("img", { name: "files" }).parentElement?.textContent,
+		).toBe("2");
 
 		await act(async () => fireEvent.click(view.getByText("fix the chart")));
 		const save = await waitFor(() =>
@@ -433,10 +468,9 @@ describe("tasks", () => {
 			fireEvent.click(view.getByRole("button", { name: /beta/ })),
 		);
 
-		await waitFor(() =>
-			expect(document.body.textContent).toContain("ship the thing"),
-		);
-		expect(document.body.textContent).toContain("needs eyes");
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).toContain("ship the thing");
+		expect(dialog.textContent).toContain("needs eyes");
 	});
 });
 

@@ -2,19 +2,19 @@ import { GitBranchIcon } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "#dev/components/ui/dialog.tsx";
+import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
 	EmptyTitle,
 } from "#dev/components/ui/empty.tsx";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetHeader,
-	SheetTitle,
-} from "#dev/components/ui/sheet.tsx";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Markdown } from "./markdown";
@@ -65,7 +65,7 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 					</li>
 				))}
 			</ul>
-			<Sheet
+			<Dialog
 				open={opened !== null}
 				onOpenChange={(open) => {
 					if (!open) {
@@ -74,7 +74,7 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 				}}
 			>
 				{opened && <Task task={opened} />}
-			</Sheet>
+			</Dialog>
 		</>
 	);
 }
@@ -102,7 +102,7 @@ function Progress({ plan }: { plan: string | null }): JSX.Element | null {
 	);
 }
 
-/** One task, all of it, rising from the bottom over the task list. */
+/** One task, all of it, in a dialog over the task list. */
 function Task({ task }: { task: Details }): JSX.Element {
 	const fields: [string, ReactNode][] = [
 		["status", task.status],
@@ -126,15 +126,12 @@ function Task({ task }: { task: Details }): JSX.Element {
 		["age", task.age ?? "?"],
 	];
 	return (
-		<SheetContent
-			side="bottom"
-			className="mx-auto max-h-[85dvh] max-w-2xl overflow-y-auto rounded-t-xl"
-		>
-			<SheetHeader>
-				<SheetTitle>{task.task}</SheetTitle>
-				<SheetDescription>{task.escalation ?? task.status}</SheetDescription>
-			</SheetHeader>
-			<div className="flex flex-col gap-6 px-4 pb-4 text-sm">
+		<DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+			<DialogHeader>
+				<DialogTitle>{task.task}</DialogTitle>
+				<DialogDescription>{task.escalation ?? task.status}</DialogDescription>
+			</DialogHeader>
+			<div className="flex min-w-0 flex-col gap-6 text-sm">
 				<dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
 					{fields.map(([name, value]) => (
 						<div key={name} className="contents">
@@ -158,6 +155,6 @@ function Task({ task }: { task: Details }): JSX.Element {
 					</ul>
 				)}
 			</div>
-		</SheetContent>
+		</DialogContent>
 	);
 }

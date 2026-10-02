@@ -83,7 +83,7 @@ describe("checkPlan", () => {
 		]);
 		const asked = `${GOOD}\n## Blocked\n- [ ] 1. Open /tmp/shot.png. Confirm the banner is green.\n`;
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
-		const detailed = `${GOOD}\n## Blocked\n- [ ] 1. 🎨 Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
+		const detailed = `${GOOD}\n## Blocked\n- [ ] 1. Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
 		expect(checkPlan(detailed, { task: "alpha", escalated: true })).toEqual([]);
 	});
 
@@ -144,7 +144,7 @@ const BLOCKED = `${GOOD}
 ## Blocked
 
 - [x] 1. Run the tests. Does it fit? → pass
-- [ ] 2. 🎨 Does the header fit? → no, too wide
+- [ ] 2. Does the header fit? → no, too wide
 - [ ] 3. Decide: keep or drop?
   - not a question of its own
 - [ ] 4. Confirm the copy.
@@ -186,7 +186,7 @@ describe("questions", () => {
 			}),
 			bare({
 				number: "2",
-				text: "🎨 Does the header fit?",
+				text: "Does the header fit?",
 				reply: "no, too wide",
 			}),
 			bare({
@@ -214,7 +214,7 @@ describe("questions", () => {
 		const plan = `${GOOD}
 ## Blocked
 
-- [ ] 1. 🗄️ Does this migration look right?
+- [ ] 1. Does this migration look right?
   It runs before the deploy.
 
   \`\`\`sql
@@ -229,7 +229,7 @@ Prose back at the margin ends it.
 `;
 		expect(questions(plan)).toEqual([
 			bare({
-				text: "🗄️ Does this migration look right?",
+				text: "Does this migration look right?",
 				body: [
 					"It runs before the deploy.",
 					"",
@@ -286,22 +286,22 @@ describe("withQuestion", () => {
 	it("numbers a new question after the rest, its detail indented under it", () => {
 		const added = withQuestion(
 			BLOCKED,
-			"✅ Ready to merge?",
+			"Ready to merge?",
 			"Look at\nthe header.",
 		);
 		expect(added.number).toBe("5");
 		expect(questions(added.plan).at(-1)).toMatchObject({
 			number: "5",
-			text: "✅ Ready to merge?",
+			text: "Ready to merge?",
 			body: "Look at\nthe header.",
 		});
 		expect(questions(added.plan)).toHaveLength(questions(BLOCKED).length + 1);
 	});
 
 	it("makes ## Blocked when there is none", () => {
-		const added = withQuestion(GOOD, "✅ Ready to merge?");
+		const added = withQuestion(GOOD, "Ready to merge?");
 		expect(added).toEqual({
-			plan: `${GOOD.trimEnd()}\n\n## Blocked\n\n- [ ] 1. ✅ Ready to merge?\n`,
+			plan: `${GOOD.trimEnd()}\n\n## Blocked\n\n- [ ] 1. Ready to merge?\n`,
 			number: "1",
 		});
 	});

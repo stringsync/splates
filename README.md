@@ -231,13 +231,17 @@ themselves as anything changes. Built for a phone first.
 
 Todos are cards in list order: drag one to reorder the list (a short press
 on a phone, or Space on its grip and the arrow keys), or tap it to reword,
-attach files to, or remove. Typing `@` in a todo offers the files and
+attach files to, or remove. A card shows its subject, two lines of its
+detail, and badges for its files and staleness, and a green edge with
+"Taken by <task>" once a task has taken it; its
+`#7` copies `[ARBOR TODO #7]`, which the agent skill reads as that todo, for
+pasting into a chat. Typing `@` in a todo offers the files and
 directories in the main tree, tracked or new but not ignored, and writes the
 one picked as `@path/from/root`; picking a directory keeps the list open on
 what is inside.
 
 Tasks lists every task with its progress through its plan, flagging only an
-escalated or broken status; tapping one opens its details and whole plan.
+escalated or broken status; tapping one opens its details and whole plan in a dialog.
 
 On a phone the tabs sit along the bottom, in reach of a thumb; on anything
 wider they run down a sidebar. If the server stops answering, the header says
@@ -297,12 +301,12 @@ blocks and images (`![shot](/abs/path.png)`). Choices come last in the body:
 `- (a) ...` lines take one or none, `- [a] ...` lines take any that apply.
 
 ```markdown
-- [ ] 3. 🔐 How should existing sessions move to the new tokens?
+- [ ] 3. How should existing sessions move to the new tokens?
   Sessions are keyed by the old cookie.
   ![login screen](/abs/path/login.png)
   - (a) Sign everyone out once
   - (b) Migrate each session on its next request
-- [ ] 4. 🔔 Where should failures notify?
+- [ ] 4. Where should failures notify?
   - [a] Email
   - [b] Slack
   - [c] Push
@@ -312,11 +316,11 @@ The person answers in the agent's chat, and the agent writes each answer on
 its question's line after ` → `, then checks it off once it has acted on it:
 
 ```markdown
-- [x] 3. 🔐 How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
+- [x] 3. How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
 ```
 
 `--review` asks for approval to merge rather than for answers: it adds
-`- [ ] 5. ✅ Ready to merge?` under `## Blocked`, the reason indented under
+`- [ ] 5. Ready to merge?` under `## Blocked`, the reason indented under
 it as what to look at. Refused (`blocked`) while another question is
 unchecked, so a review is the last thing standing between the task and trunk.
 The agent merges once the person approves in chat, or acts on the changes
@@ -335,9 +339,7 @@ door, a follow-up the reviewer asked for, a question that turns out to be its
 own project), the agent notes it with `arbor todo add` and carries on instead
 of growing the task. Run from a worktree, `add` records the task it came up
 in. A todo is a subject, one line that `list` and `merge` show, and an optional
-detail below it that `show` prints in full. Agents lead a subject with one
-emoji for what it is about (`🐛 Upload retries forever on a 413`), as they do a
-question, so the list reads at a glance.
+detail below it that `show` prints in full.
 
 The list is in order: position 1 is the top, and after a task's own todos,
 the open todo highest on it is the one `merge` recommends next. A new one goes to the bottom, or with

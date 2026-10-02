@@ -62,7 +62,7 @@ export function App(): JSX.Element {
 			<div className={cn(wide && "pl-56")}>
 				<main
 					className={cn(
-						"mx-auto flex min-h-dvh max-w-2xl flex-col gap-6 px-4 pt-6",
+						"mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 pt-6",
 						!wide && "pb-28",
 					)}
 				>
@@ -92,7 +92,7 @@ export function App(): JSX.Element {
 							className="gap-6"
 						>
 							{/* On a phone, a bar along the bottom, where a thumb already is;
-						    the sheets rise over it, so a todo has the whole screen.
+						    a dialog sits over it.
 						    With room to spare, a sidebar down the left instead. */}
 							<TabsList
 								variant="line"

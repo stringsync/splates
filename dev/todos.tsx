@@ -22,9 +22,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-	AlignLeftIcon,
+	ClockIcon,
+	GitBranchIcon,
 	GripVerticalIcon,
+	LinkIcon,
 	ListTodoIcon,
+	type LucideIcon,
+	PaperclipIcon,
 	Trash2Icon,
 } from "lucide-react";
 import {
@@ -33,11 +37,20 @@ import {
 	type JSX,
 	type KeyboardEventHandler,
 	type MouseEventHandler,
+	type ReactNode,
 	type TouchEventHandler,
 	useEffect,
 	useState,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#dev/components/ui/dialog.tsx";
 import {
 	Empty,
 	EmptyDescription,
@@ -52,14 +65,6 @@ import {
 	InputGroupInput,
 	InputGroupTextarea,
 } from "#dev/components/ui/input-group.tsx";
-import {
-	Sheet,
-	SheetContent,
-	SheetDescription,
-	SheetFooter,
-	SheetHeader,
-	SheetTitle,
-} from "#dev/components/ui/sheet.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
@@ -97,7 +102,7 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 			) : (
 				<Board todos={todos} staleness={todoStalenessMs} onOpen={setOpened} />
 			)}
-			<Sheet
+			<Dialog
 				open={current !== undefined}
 				onOpenChange={(open) => {
 					if (!open) {
@@ -106,7 +111,7 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 				}}
 			>
 				{current && <Edit todo={current} onDone={() => setOpened(null)} />}
-			</Sheet>
+			</Dialog>
 		</div>
 	);
 }
@@ -265,55 +270,125 @@ function Card({
 	const stale =
 		todo.takenBy === null &&
 		Date.now() - Date.parse(todo.createdAt) > staleness;
-	const meta = [
-		`#${todo.id}`,
-		todo.files.length > 0
-			? `${todo.files.length} file${todo.files.length === 1 ? "" : "s"}`
-			: null,
-		todo.takenBy ? `taken by ${todo.takenBy}` : null,
-		stale ? `stale, ${age(todo.createdAt)}` : null,
-	].filter(Boolean);
 	return (
 		<div
+			{...pointer}
 			className={cn(
-				"group flex touch-manipulation items-stretch rounded-lg border bg-card text-card-foreground shadow-xs transition-shadow hover:shadow-sm",
+				"group relative flex cursor-grab touch-manipulation items-stretch rounded-lg border bg-card text-card-foreground shadow-xs transition-shadow select-none hover:shadow-sm active:cursor-grabbing",
+				// Taken: a task is at work on it, which should read from across
+				// the room.
+				todo.takenBy && "border-l-4 border-l-success",
 				className,
 			)}
 		>
-			<button
-				type="button"
-				onClick={onOpen}
-				{...pointer}
-				className="flex min-w-0 flex-1 cursor-grab flex-col gap-1 py-2.5 pl-3 text-left select-none active:cursor-grabbing"
+			<div
+				className={cn(
+					"flex min-w-0 flex-1 flex-col gap-1.5 py-2.5 pl-3",
+					stale && "opacity-60",
+				)}
 			>
-				<span
-					className={cn(
-						"text-sm",
-						(todo.takenBy || stale) && "text-muted-foreground",
-					)}
+				{/* Stretched over the whole card, so a tap anywhere opens it; the
+				    buttons on top of it keep their own. */}
+				<button
+					type="button"
+					onClick={onOpen}
+					className="cursor-grab text-left font-semibold text-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring active:cursor-grabbing"
 				>
 					{todo.subject}
-					{todo.text !== "" && (
-						<AlignLeftIcon
-							role="img"
-							aria-label="has detail"
-							className="ml-1.5 inline size-3.5 text-muted-foreground"
-						/>
+				</button>
+				{todo.text !== "" && (
+					<span className="line-clamp-2 whitespace-pre-line text-muted-foreground text-xs">
+						{todo.text}
+					</span>
+				)}
+				{/* Badges, the way a Trello card has them: only what there is. */}
+				<span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+					<CopyLink id={todo.id} />
+					{todo.files.length > 0 && (
+						<Badge Icon={PaperclipIcon} label="files">
+							{todo.files.length}
+						</Badge>
+					)}
+					{todo.takenBy && (
+						<span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 font-medium text-success">
+							<GitBranchIcon
+								aria-label="taken by"
+								role="img"
+								className="size-3.5 shrink-0"
+							/>
+							<span className="truncate">Taken by {todo.takenBy}</span>
+						</span>
+					)}
+					{stale && (
+						<Badge Icon={ClockIcon} label="stale">
+							stale, {age(todo.createdAt)}
+						</Badge>
 					)}
 				</span>
-				<span className="text-muted-foreground text-xs">
-					{meta.join(" · ")}
-				</span>
-			</button>
+			</div>
 			<button
 				type="button"
 				{...grip}
 				aria-label={`move ${todo.subject}`}
-				className="flex w-8 shrink-0 cursor-grab items-center justify-center rounded-r-lg text-muted-foreground opacity-40 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative flex w-8 shrink-0 cursor-grab items-center justify-center rounded-r-lg text-muted-foreground opacity-40 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				<GripVerticalIcon className="size-4" />
 			</button>
 		</div>
+	);
+}
+
+/** What a chat with an agent takes to mean this todo. */
+function todoReference(id: number): string {
+	return `[ARBOR TODO #${id}]`;
+}
+
+/**
+ * The card's id, which copies `todoReference` for pasting into a chat. Above
+ * the card's own button, and never the start of a drag.
+ */
+function CopyLink({ id }: { id: number }): JSX.Element {
+	const copy = async () => {
+		try {
+			await navigator.clipboard.writeText(todoReference(id));
+			toast.add({ title: `Copied ${todoReference(id)}` });
+		} catch (error) {
+			toast.add({
+				title: "Not copied",
+				description: error instanceof Error ? error.message : String(error),
+				type: "error",
+			});
+		}
+	};
+	return (
+		<button
+			type="button"
+			aria-label={`copy a link to todo ${id}`}
+			onClick={() => void copy()}
+			onMouseDown={(event) => event.stopPropagation()}
+			onTouchStart={(event) => event.stopPropagation()}
+			className="relative -mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			<LinkIcon className="size-3.5" />#{id}
+		</button>
+	);
+}
+
+/** One fact about a card, after an icon that says what kind. */
+function Badge({
+	Icon,
+	label,
+	children,
+}: {
+	Icon: LucideIcon;
+	label: string;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<span className="inline-flex items-center gap-1" title={label}>
+			<Icon aria-label={label} role="img" className="size-3.5" />
+			{children}
+		</span>
 	);
 }
 
@@ -445,19 +520,16 @@ function Edit({
 			files.files.length > 0 ||
 			files.keep.length !== todo.files.length);
 	return (
-		<SheetContent
-			side="bottom"
-			className="mx-auto max-h-[85dvh] max-w-2xl overflow-y-auto rounded-t-xl"
-		>
-			<SheetHeader>
-				<SheetTitle>Todo {todo.id}</SheetTitle>
-				<SheetDescription>
+		<DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
+			<DialogHeader>
+				<DialogTitle>Todo {todo.id}</DialogTitle>
+				<DialogDescription>
 					{todo.takenBy
 						? `Taken by ${todo.takenBy}`
 						: `Number ${todo.position} on the list`}
-				</SheetDescription>
-			</SheetHeader>
-			<div className="flex flex-col gap-2 px-4">
+				</DialogDescription>
+			</DialogHeader>
+			<div className="flex flex-col gap-2">
 				<MentionAnchor mentions={mentions}>
 					<InputGroup>
 						<InputGroupInput
@@ -493,7 +565,7 @@ function Edit({
 				</MentionAnchor>
 				<FileList files={files} />
 			</div>
-			<SheetFooter className="flex-row justify-between">
+			<DialogFooter className="flex-row justify-between sm:justify-between">
 				<Button
 					variant={confirming ? "destructive" : "ghost"}
 					disabled={busy}
@@ -523,7 +595,7 @@ function Edit({
 				>
 					Save
 				</Button>
-			</SheetFooter>
-		</SheetContent>
+			</DialogFooter>
+		</DialogContent>
 	);
 }

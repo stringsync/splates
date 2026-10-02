@@ -17,7 +17,7 @@ export interface EscalateOptions {
 }
 
 /** The question a review asks. */
-export const REVIEW_SUBJECT = "✅ Ready to merge?";
+export const REVIEW_SUBJECT = "Ready to merge?";
 
 /**
  * The way out that is not "resolve the conflict badly to finish the task".

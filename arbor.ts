@@ -228,7 +228,7 @@ arbor
 		{
 			default: false,
 			description:
-				"ask a person to approve merging: adds a `✅ Ready to merge?` question under ## Blocked with the reason as its detail, which the page shows as Approve or Request changes; refused while another question is unchecked",
+				"ask a person to approve merging: adds a `Ready to merge?` question under ## Blocked with the reason as its detail, answered in chat; refused while another question is unchecked",
 		},
 	)
 	.action(async (opts, ctx) =>

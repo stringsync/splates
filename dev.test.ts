@@ -185,7 +185,7 @@ describe("dev", () => {
 			// is pointed at no sources. One class from the page and one from the
 			// `Markdown` component beside it, since they are found by
 			// separate `@source` lines.
-			expect(css).toContain("max-w-2xl");
+			expect(css).toContain("max-w-xl");
 			expect(css).toContain("list-disc");
 		});
 	});

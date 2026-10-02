@@ -87,10 +87,10 @@ export function useMentions<
 			return;
 		}
 		const box = ref.current.getBoundingClientRect();
-		// A sheet the box sits in clips anything past its edges, and the window
+		// A dialog the box sits in clips anything past its edges, and the window
 		// clips the rest.
 		const frame = ref.current
-			.closest("[data-slot=sheet-content]")
+			.closest("[data-slot=dialog-content]")
 			?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
 		const above = box.top - frame.top;
 		const under = Math.min(frame.bottom, innerHeight) - box.bottom;
@@ -145,7 +145,7 @@ export function useMentions<
 				return false;
 			}
 			event.preventDefault();
-			// Escape would otherwise close the sheet as well as the list.
+			// Escape would otherwise close the dialog as well as the list.
 			event.stopPropagation();
 			return true;
 		},
