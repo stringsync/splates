@@ -18,8 +18,9 @@ export const EXIT = {
 	merge_failed: 12,
 	already_removed: 13,
 	timeout: 14,
-	unread: 15,
+	// 15 was `unread`, gone with the replies that waited to be read: never reuse it.
 	blocked: 16,
+	not_escalated: 17,
 } as const;
 
 export type Reason = keyof typeof EXIT;

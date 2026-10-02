@@ -7,7 +7,8 @@ export const PLAN_FILE = "ARBOR.md";
 const SECTIONS = ["Goal", "Files", "Done", "Next", "Notes", "Blocked"];
 const REQUIRED = ["Goal", "Files", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
-const QUESTION = /^[ \t]*- \[[ xX]\] Q\d+\./m;
+// A `Q` before the number is how plans were numbered once, and still reads.
+const QUESTION = /^[ \t]*- \[[ xX]\] [Qq]?\d+\./m;
 
 const BULLET = /^- +(.+)$/;
 
@@ -31,12 +32,12 @@ export function plannedFiles(text: string): string[] {
 }
 
 /**
- * One `- [ ] Q9.` item under `## Blocked`: something only a person can do.
+ * One `- [ ] 9.` item under `## Blocked`: something only a person can do.
  * The item's line is its subject; lines indented under it are its body, and
  * `- (a) ...` or `- [a] ...` lines among them are the answers it offers.
  */
 export interface Question {
-	/** As the plan numbers it, `Q9`: the name a reply goes by. */
+	/** As the plan numbers it, `9`: the name a reply goes by. */
 	number: string;
 	/** Checked off, which the agent does once it has acted on the reply. */
 	done: boolean;
@@ -78,7 +79,7 @@ export interface Choice {
 	text: string;
 }
 
-const ITEM = /^[ \t]*- \[([ xX])\] (Q\d+)\.[ \t]*(.*)$/;
+const ITEM = /^[ \t]*- \[([ xX])\] [Qq]?(\d+)\.[ \t]*(.*)$/;
 /** What separates an item from its reply, spaces included. */
 const ARROW = " → ";
 /** A follow-up: a line of its own under the question, led by the arrow. */
@@ -286,8 +287,8 @@ export function withQuestion(
 	subject: string,
 	body = "",
 ): { plan: string; number: string } {
-	const numbers = questions(text).map((asked) => Number(asked.number.slice(1)));
-	const number = `Q${Math.max(0, ...numbers) + 1}`;
+	const numbers = questions(text).map((asked) => Number(asked.number));
+	const number = String(Math.max(0, ...numbers) + 1);
 	const detail = body.trim() === "" ? [] : body.trim().split("\n");
 	const item = [
 		`- [ ] ${number}. ${subject.trim()}`,
@@ -309,12 +310,12 @@ export function withQuestion(
 }
 
 /**
- * A question's number however a person typed it: `Q9`, `q9`, `9` and `Q9.`
- * all mean `Q9`. Null for anything that is not a number at all.
+ * A question's number however a person typed it: `9`, `9.`, `Q9` and `q9:`
+ * all mean `9`. Null for anything that is not a number at all.
  */
 export function questionNumber(raw: string): string | null {
 	const digits = /^q?(\d+)[.:]?$/i.exec(raw.trim())?.[1];
-	return digits === undefined ? null : `Q${Number(digits)}`;
+	return digits === undefined ? null : String(Number(digits));
 }
 
 function question(line: string): Question | null {
@@ -412,12 +413,12 @@ export function checkPlan(
 	const blocked = section("Blocked");
 	if (escalated && blocked === null) {
 		problems.push(
-			"escalated with no ## Blocked section: add `- [ ] Q1.` items for what the reviewer must do",
+			"escalated with no ## Blocked section: add `- [ ] 1.` items for what the reviewer must do",
 		);
 	}
 	if (blocked !== null && !QUESTION.test(blocked)) {
 		problems.push(
-			"## Blocked lists nothing: add `- [ ] Q1.` items for what the reviewer must do",
+			"## Blocked lists nothing: add `- [ ] 1.` items for what the reviewer must do",
 		);
 	}
 	// Answered and unchecked is a follow-up to act on; unanswered needs a person.
@@ -427,7 +428,7 @@ export function checkPlan(
 	if (!escalated && open.length > 0) {
 		const numbers = open.map((asked) => asked.number).join(", ");
 		problems.push(
-			`## Blocked has open ${numbers}: ask the reviewer before merging`,
+			`## Blocked has open questions ${numbers}: ask the reviewer before merging`,
 		);
 	}
 	const known = SECTIONS.map((section) => section.toLowerCase());

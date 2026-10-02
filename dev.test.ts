@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { dev, devPorts } from "./dev";
-import { claimReplies } from "./reply";
+import { questions } from "./plan";
 import type { Snapshot } from "./snapshot";
-import { LIVE_PID, Testing } from "./testing";
+import { Testing } from "./testing";
 
 async function readUntil(
 	reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -232,14 +232,22 @@ describe("dev", () => {
 			"",
 			"## Blocked",
 			"",
-			"- [ ] Q1. Open the page. Does it fit?",
+			"- [ ] 1. Open the page. Does it fit?",
 			"  ![the page](SHOT)",
 			"",
 		].join("\n");
 
 		const asked = async (): Promise<string> => {
 			await add(deps, "alpha");
-			const tree = (await deps.service.find("alpha")).path;
+			// Only an escalated task's questions are answered from the page.
+			const tree = (
+				await (
+					await deps.service.find("alpha")
+				).save({
+					status: "escalated",
+					lease: null,
+				})
+			).path;
 			const path = `${tree}/ARBOR.md`;
 			await deps.fs.write(path, PLAN.replace("SHOT", `${tree}/page.png`));
 			return path;
@@ -257,7 +265,7 @@ describe("dev", () => {
 		const answer = (port: number, text: string, files: File[] = []) => {
 			const form = new FormData();
 			form.set("task", "alpha");
-			form.set("question", "Q1");
+			form.set("question", "1");
 			form.set("text", text);
 			for (const file of files) {
 				form.append("file", file);
@@ -266,14 +274,13 @@ describe("dev", () => {
 		};
 
 		/** A JSON post naming one of alpha's questions, as most answer routes take. */
-		const named = (port: number, path: string, question = "Q1") =>
+		const named = (port: number, path: string, question = "1") =>
 			post(port, path, JSON.stringify({ task: "alpha", question }), {
 				"content-type": "application/json",
 			});
 
-		it("replies to a question, files and all, and says it waits on its agent", async () => {
+		it("writes an answer into the plan, files and all", async () => {
 			const plan = await asked();
-			const before = await deps.fs.read(plan);
 
 			await serving(async (snapshot, port) => {
 				const response = await answer(port, "it clips", [
@@ -282,31 +289,23 @@ describe("dev", () => {
 				]);
 
 				expect(response.status).toBe(200);
-				// Waiting for its agent, so the plan is as it was.
-				expect(await deps.fs.read(plan)).toBe(before);
-				const [question] = (await snapshot()).inbox.questions;
-				expect(question).toMatchObject({
-					number: "Q1",
-					state: "waiting",
-					pending: { text: "it clips" },
-				});
-				expect(question?.pending?.files[1]).toEndWith("-trace.log");
+				// Answered, so it is its agent's now, and off the page.
+				expect((await snapshot()).blocked).toEqual([]);
+				const [question] = questions(await deps.fs.read(plan));
+				expect(question?.reply).toStartWith("it clips ");
+				expect(question?.reply).toEndWith("-trace.log");
 				const [last] = await deps.journal.tail(1);
 				expect(last?.action).toBe("reply");
 			});
 		});
 
-		it("follows up an answer its agent has read", async () => {
+		it("follows up an answer", async () => {
 			const plan = await asked();
 
-			await serving(async (snapshot, port) => {
+			await serving(async (_snapshot, port) => {
 				await answer(port, "no");
-				await claimReplies(deps, "alpha");
-				expect((await snapshot()).inbox.questions[0]?.state).toBe("read");
-
 				expect((await answer(port, "and shrink the logo")).status).toBe(200);
-				expect((await snapshot()).inbox.questions[0]?.state).toBe("waiting");
-				await claimReplies(deps, "alpha");
+
 				expect(await deps.fs.read(plan)).toContain(
 					"Does it fit? → no\n  ![the page]",
 				);
@@ -318,17 +317,20 @@ describe("dev", () => {
 			const plan = await asked();
 			await deps.fs.write(
 				plan,
-				`${await deps.fs.read(plan)}- [ ] Q2. Tidy?\n- [ ] Q3. ✅ Ready to merge?\n`,
+				`${await deps.fs.read(plan)}- [ ] 2. Tidy?\n- [ ] 3. ✅ Ready to merge?\n`,
 			);
 
 			await serving(async (snapshot, port) => {
 				expect((await named(port, "/api/defer")).status).toBe(200);
-				expect((await named(port, "/api/skip", "Q2")).status).toBe(200);
-				expect((await named(port, "/api/approve", "Q3")).status).toBe(200);
+				expect((await named(port, "/api/skip", "2")).status).toBe(200);
+				expect((await named(port, "/api/approve", "3")).status).toBe(200);
 
-				const { inbox, todos } = await snapshot();
+				const { blocked, todos } = await snapshot();
+				expect(blocked).toEqual([]);
 				expect(todos[0]).toMatchObject({ id: 1, from: "alpha" });
-				expect(inbox.questions.map((asked) => asked.pending?.text)).toEqual([
+				expect(
+					questions(await deps.fs.read(plan)).map((asked) => asked.reply),
+				).toEqual([
 					"Deferred to todo 1: leave it out of this task.",
 					"Skip this: go ahead without it.",
 					"Approved: merge it.",
@@ -340,50 +342,19 @@ describe("dev", () => {
 			});
 		});
 
-		it("refuses a reply to a tree a live agent holds, with the CLI's reason", async () => {
-			await asked();
-			await (await deps.service.find("alpha")).save({
-				lease: {
-					pid: LIVE_PID,
-					hostname: deps.ps.hostname,
-					heartbeatAt: new Date().toISOString(),
-				},
-			});
+		it("shows and answers only escalated tasks, refusing others with the CLI's reason", async () => {
+			const plan = await asked();
+			await (await deps.service.find("alpha")).save({ status: "working" });
 
-			await serving(async (_snapshot, port) => {
+			await serving(async (snapshot, port) => {
+				expect((await snapshot()).blocked).toEqual([]);
 				const response = await answer(port, "pass");
 
 				expect(response.status).toBe(409);
 				expect(((await response.json()) as { reason: string }).reason).toBe(
-					"lease_held",
+					"not_escalated",
 				);
-			});
-		});
-
-		it("holds a reply open for editing, and lets go", async () => {
-			await asked();
-
-			await serving(async (snapshot, port) => {
-				expect((await named(port, "/api/hold")).status).toBe(404);
-				await answer(port, "no");
-
-				expect((await named(port, "/api/hold")).status).toBe(200);
-				expect((await snapshot()).inbox.questions[0]?.state).toBe("editing");
-
-				expect((await named(port, "/api/release")).status).toBe(200);
-				expect((await snapshot()).inbox.questions[0]?.state).toBe("waiting");
-			});
-		});
-
-		it("takes back a reply its agent has not read", async () => {
-			await asked();
-
-			await serving(async (snapshot, port) => {
-				await answer(port, "no");
-
-				expect((await named(port, "/api/withdraw")).status).toBe(200);
-				expect((await snapshot()).inbox.questions[0]?.state).toBe("open");
-				expect((await named(port, "/api/withdraw")).status).toBe(404);
+				expect(await deps.fs.read(plan)).not.toContain("→");
 			});
 		});
 
@@ -392,9 +363,9 @@ describe("dev", () => {
 			const tree = (await deps.service.find("alpha")).path;
 			await deps.fs.writeBytes(`${tree}/page.png`, new Uint8Array([7]));
 			await deps.fs.writeBytes(`${tree}/other.png`, new Uint8Array([8]));
-			const todo = await deps.todos.add("look", null, [
-				{ name: "trace.log", bytes: new Uint8Array([9]) },
-			]);
+			const todo = await deps.todos.add("look", null, {
+				files: [{ name: "trace.log", bytes: new Uint8Array([9]) }],
+			});
 
 			await serving(async (_snapshot, port) => {
 				const file = (task: string, path: string) =>
@@ -422,13 +393,13 @@ describe("dev", () => {
 
 		/** A todo write the way the page makes one. */
 		const todoForm = (
-			text: string | null,
+			subject: string | null,
 			files: File[] = [],
 			keep: string[] = [],
 		) => {
 			const form = new FormData();
-			if (text !== null) {
-				form.set("text", text);
+			if (subject !== null) {
+				form.set("subject", subject);
 			}
 			for (const file of files) {
 				form.append("file", file);
@@ -441,24 +412,58 @@ describe("dev", () => {
 
 		it("adds a todo, files and all", async () => {
 			await serving(async (snapshot, port) => {
-				const response = await post(
-					port,
-					"/api/todos",
-					todoForm("write the docs", [new File(["x"], "notes.md")]),
-				);
+				await post(port, "/api/todos", todoForm("lower"));
+				const form = todoForm("write the docs", [new File(["x"], "notes.md")]);
+				form.set("text", "the CLI first");
+				form.set("position", "1");
+				const response = await post(port, "/api/todos", form);
 
 				expect(response.status).toBe(200);
-				const [todo] = (await snapshot()).todos;
-				expect(todo?.text).toBe("write the docs");
+				const [todo, lower] = (await snapshot()).todos;
+				expect(todo).toMatchObject({
+					subject: "write the docs",
+					text: "the CLI first",
+					position: 1,
+				});
 				expect(todo?.files[0]).toEndWith("-notes.md");
+				expect(lower).toMatchObject({ subject: "lower", position: 2 });
+			});
+		});
+
+		it("moves a todo, leaving its words and files alone", async () => {
+			await deps.todos.add("first", null);
+			await deps.todos.add("second", null, {
+				files: [{ name: "a.png", bytes: new Uint8Array([1]) }],
+			});
+
+			await serving(async (snapshot, port) => {
+				const move = (path: string, position: unknown) =>
+					fetch(`http://127.0.0.1:${port}${path}`, {
+						method: "PUT",
+						headers: {
+							origin: `http://127.0.0.1:${port}`,
+							"content-type": "application/json",
+						},
+						body: JSON.stringify({ position }),
+					});
+
+				expect((await move("/api/todos/2/position", 1)).status).toBe(200);
+				const [top] = (await snapshot()).todos;
+				expect(top).toMatchObject({ id: 2, subject: "second", position: 1 });
+				expect(top?.files).toHaveLength(1);
+				expect((await move("/api/todos/2/position", 0)).status).toBe(400);
+				expect((await move("/api/todos/9/position", 1)).status).toBe(404);
 			});
 		});
 
 		it("updates and removes a todo", async () => {
-			const todo = await deps.todos.add("write docs", null, [
-				{ name: "a.png", bytes: new Uint8Array([1]) },
-				{ name: "b.png", bytes: new Uint8Array([2]) },
-			]);
+			const todo = await deps.todos.add("write docs", null, {
+				files: [
+					{ name: "a.png", bytes: new Uint8Array([1]) },
+					{ name: "b.png", bytes: new Uint8Array([2]) },
+				],
+			});
+			await deps.todos.add("above", null);
 			const [kept, dropped] = todo.files;
 
 			await serving(async (snapshot, port) => {
@@ -469,20 +474,22 @@ describe("dev", () => {
 						body,
 					});
 
-				const updated = await write(
-					"PATCH",
-					"/api/todos/1",
-					todoForm("write the docs", [], [kept ?? ""]),
-				);
+				const form = todoForm("write the docs", [], [kept ?? ""]);
+				form.set("position", "2");
+				const updated = await write("PATCH", "/api/todos/1", form);
 				expect(updated.status).toBe(200);
-				expect((await snapshot()).todos[0]).toMatchObject({
-					text: "write the docs",
+				expect((await snapshot()).todos[1]).toMatchObject({
+					id: 1,
+					subject: "write the docs",
+					position: 2,
 					files: [kept],
 				});
 				expect(await deps.fs.exists(dropped ?? "")).toBe(false);
 
 				expect((await write("DELETE", "/api/todos/1")).status).toBe(200);
-				expect((await snapshot()).todos).toEqual([]);
+				expect((await snapshot()).todos).toMatchObject([
+					{ subject: "above", position: 1 },
+				]);
 				expect(await deps.fs.exists(kept ?? "")).toBe(false);
 				expect((await write("DELETE", "/api/todos/1")).status).toBe(404);
 				expect((await write("DELETE", "/api/todos/nope")).status).toBe(400);

@@ -7,23 +7,30 @@ import { remove } from "./remove";
 import { Testing } from "./testing";
 import {
 	recommend,
+	type TodoState,
 	todoAdd,
 	todoList,
 	todoRelease,
 	todoRemove,
+	todoShow,
 	todoTake,
 	todoUpdate,
 } from "./todo";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Backdates a todo, since `merge` sorts and ages them by when they were added. */
+/** Backdates a todo, since `merge` offers one waiting too long for removal. */
 async function age(deps: Testing, id: number, days: number): Promise<void> {
 	const todo = await deps.todos.find(id);
 	await deps.todos.save({
 		...todo.state,
 		createdAt: new Date(Date.now() - days * DAY).toISOString(),
 	});
+}
+
+/** The subjects in list order. */
+async function order(deps: Testing): Promise<string[]> {
+	return (await deps.todos.all()).map((todo) => todo.subject);
 }
 
 describe.concurrent("todo", () => {
@@ -39,29 +46,123 @@ describe.concurrent("todo", () => {
 		deps.log.clear();
 		await todoList(deps, { json: true });
 		const listed = JSON.parse(deps.out());
-		expect(listed.map((todo: { text: string }) => todo.text)).toEqual([
-			"write the docs",
-			"third",
+		expect(
+			listed.map(({ subject, position }: TodoState) => [subject, position]),
+		).toEqual([
+			["write the docs", 1],
+			["third", 2],
 		]);
 		await expect(todoRemove(deps, 2)).toBail("not_found");
 	});
 
 	it("rewords one, keeping its number", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "write docs", "alpha");
+		await todoAdd(deps, "write docs", "alpha", { text: "the CLI first" });
 
 		const updated = await todoUpdate(deps, 1, {
-			text: "  write the arbor docs ",
+			subject: "  write the arbor docs ",
 		});
 
 		expect(updated.state).toMatchObject({
 			id: 1,
-			text: "write the arbor docs",
+			subject: "write the arbor docs",
+			text: "the CLI first",
 			from: "alpha",
 		});
-		expect((await deps.todos.find(1)).text).toBe("write the arbor docs");
-		await expect(todoUpdate(deps, 1, { text: " " })).toBail("usage");
-		await expect(todoUpdate(deps, 9, { text: "x" })).toBail("not_found");
+		const detailed = await todoUpdate(deps, 1, { text: " and the page " });
+		expect(detailed.state).toMatchObject({
+			subject: "write the arbor docs",
+			text: "and the page",
+		});
+		await expect(todoUpdate(deps, 1, { subject: " " })).toBail("usage");
+		await expect(todoUpdate(deps, 9, { subject: "x" })).toBail("not_found");
+	});
+
+	it("keeps a subject to one line, the rest leading the detail", async () => {
+		await using deps = await Testing.open();
+
+		const todo = await deps.todos.add("fix the flake\nin CI\n", null, {
+			text: "seen twice",
+		});
+
+		expect(todo.state).toMatchObject({
+			subject: "fix the flake",
+			text: "in CI\n\nseen twice",
+		});
+	});
+
+	it("puts a new todo at the bottom, or where asked, pushing the rest down", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "one", null);
+		await todoAdd(deps, "two", null);
+
+		await todoAdd(deps, "urgent", null, { position: 1 });
+		await todoAdd(deps, "past the end", null, { position: 99 });
+
+		expect(await order(deps)).toEqual(["urgent", "one", "two", "past the end"]);
+		await expect(todoAdd(deps, "nowhere", null, { position: 0 })).toBail(
+			"usage",
+		);
+	});
+
+	it("moves one up or down, and closes the gap a removed one leaves", async () => {
+		await using deps = await Testing.open();
+		for (const subject of ["a", "b", "c", "d"]) {
+			await todoAdd(deps, subject, null);
+		}
+
+		await todoUpdate(deps, 4, { position: 2 });
+		expect(await order(deps)).toEqual(["a", "d", "b", "c"]);
+		await todoUpdate(deps, 1, { position: 9 });
+		expect(await order(deps)).toEqual(["d", "b", "c", "a"]);
+		await todoRemove(deps, 2);
+
+		expect(
+			(await deps.todos.all()).map(({ subject, position }) => [
+				subject,
+				position,
+			]),
+		).toEqual([
+			["d", 1],
+			["c", 2],
+			["a", 3],
+		]);
+		// Written down, not only counted again on reading.
+		expect(
+			JSON.parse(await deps.fs.read(`${deps.todos.dir}/1.json`)),
+		).toMatchObject({ position: 3 });
+		// Taking one leaves it where it is.
+		await (await deps.todos.find(3)).take("alpha");
+		expect(await order(deps)).toEqual(["d", "c", "a"]);
+	});
+
+	it("shows one in full, detail and files below", async () => {
+		await using deps = await Testing.open();
+		const shot = `${deps.root}/shot.png`;
+		await deps.fs.writeBytes(shot, new Uint8Array([1]));
+		await todoAdd(deps, "first", null);
+		await todoAdd(deps, "fix the chart", "alpha", {
+			text: "the bars overlap on a phone",
+			files: [shot],
+		});
+		deps.log.clear();
+
+		await todoShow(deps, 2);
+
+		const out = color.strip(deps.out());
+		expect(out).toContain("todo 2 fix the chart");
+		expect(out).toContain("position:  2");
+		expect(out).toContain("from:      alpha");
+		expect(out).toContain(`file:      ${deps.todos.dir}/2/0-shot.png`);
+		expect(out).toEndWith("\n\nthe bars overlap on a phone");
+		deps.log.clear();
+		await todoShow(deps, 2, { json: true });
+		expect(JSON.parse(deps.out())).toMatchObject({
+			id: 2,
+			position: 2,
+			text: "the bars overlap on a phone",
+		});
+		await expect(todoShow(deps, 9)).toBail("not_found");
 	});
 
 	it("keeps files beside a todo, adds and drops them, and removes them with it", async () => {
@@ -81,7 +182,9 @@ describe.concurrent("todo", () => {
 		);
 
 		// Words alone leave the files be.
-		const reworded = await todoUpdate(deps, 1, { text: "fix the bar chart" });
+		const reworded = await todoUpdate(deps, 1, {
+			subject: "fix the bar chart",
+		});
 		expect(reworded.files).toEqual(todo.files);
 
 		const swapped = await todoUpdate(deps, 1, {
@@ -89,7 +192,7 @@ describe.concurrent("todo", () => {
 			removeFiles: ["0-shot.png"],
 		});
 		expect(swapped.state).toMatchObject({
-			text: "fix the bar chart",
+			subject: "fix the bar chart",
 			files: [`${dir}/1-trace.log`],
 		});
 		expect(await deps.fs.exists(`${dir}/0-shot.png`)).toBe(false);
@@ -125,7 +228,27 @@ describe.concurrent("todo", () => {
 		expect((await deps.todos.find(1)).state.files).toEqual([]);
 	});
 
-	it("refuses a todo with no text", async () => {
+	it("reads one saved before subjects and positions, below those with them", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "older", null);
+		await todoAdd(deps, "newer", null);
+		const {
+			subject: _,
+			position: __,
+			...older
+		} = (await deps.todos.find(1)).state;
+		await deps.fs.write(
+			`${deps.todos.dir}/1.json`,
+			JSON.stringify({ ...older, text: "older\n\nwith more to say" }),
+		);
+
+		expect((await deps.todos.all()).map((todo) => todo.state)).toMatchObject([
+			{ id: 2, position: 1 },
+			{ id: 1, position: 2, subject: "older", text: "with more to say" },
+		]);
+	});
+
+	it("refuses a todo with no subject", async () => {
 		await using deps = await Testing.open();
 
 		await expect(todoAdd(deps, "   ", null)).toBail("usage");
@@ -141,13 +264,13 @@ describe.concurrent("todo", () => {
 
 	it("seeds the plan's Goal from the todo a task takes up", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "support dark mode", null);
+		await todoAdd(deps, "support dark mode", null, { text: "charts too" });
 
 		await add(deps, "dark", { todos: [1] });
 
 		const worktree = (await deps.service.find("dark")).path;
 		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
-			"## Goal\n\nsupport dark mode",
+			"## Goal\n\nsupport dark mode\n\ncharts too\n\n## Files",
 		);
 		expect((await deps.todos.find(1)).takenBy).toBe("dark");
 		await expect(add(deps, "other", { todos: [1] })).toBail("exists", {
@@ -222,7 +345,7 @@ describe.concurrent("todo", () => {
 		await add(deps, "dark", { todos: [1, 2] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
-		await todoUpdate(deps, 2, { text: "dark tooltips on charts" });
+		await todoUpdate(deps, 2, { subject: "dark tooltips on charts" });
 		await todoRelease(deps, [2], "dark");
 		deps.log.clear();
 
@@ -249,8 +372,7 @@ describe.concurrent("todo", () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "support dark mode", null);
 		await todoAdd(deps, "older, from elsewhere", "beta");
-		await todoAdd(deps, "follow-up from dark", "dark");
-		await age(deps, 2, 3);
+		await todoAdd(deps, "follow-up from dark", "dark", { position: 2 });
 		await add(deps, "dark", { todos: [1] });
 		const worktree = (await deps.service.find("dark")).path;
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
@@ -260,27 +382,34 @@ describe.concurrent("todo", () => {
 
 		await expect(deps.todos.find(1)).toBail("not_found");
 		const out = color.strip(deps.out());
-		// Its own follow-up beats an older todo from another task.
 		expect(out).toContain("next todo 3: follow-up from dark");
 		expect(out).toContain("arbor add <task> --todo 3");
 	});
 
-	it("sorts a task's own todos first, then oldest, and sets stale ones aside", async () => {
+	it("recommends the highest open todo, and sets stale ones aside", async () => {
 		await using deps = await Testing.open();
-		await todoAdd(deps, "newer elsewhere", "beta");
-		await todoAdd(deps, "older elsewhere", "beta");
-		await todoAdd(deps, "own", "alpha");
+		await todoAdd(deps, "taken", null);
 		await todoAdd(deps, "ancient", null);
-		await age(deps, 1, 1);
-		await age(deps, 2, 2);
-		await age(deps, 4, 90);
+		await todoAdd(deps, "lower", null);
+		await todoAdd(deps, "higher", null, { position: 3 });
+		await (await deps.todos.find(1)).take("alpha");
+		await age(deps, 2, 90);
 
-		const own = await recommend(deps.todos, "alpha", 30 * DAY);
-		const other = await recommend(deps.todos, "gamma", 30 * DAY);
+		const { next, stale } = await recommend(deps.todos, null, 30 * DAY);
 
-		expect(own.next?.text).toBe("own");
-		expect(other.next?.text).toBe("older elsewhere");
-		expect(own.stale.map((todo) => todo.text)).toEqual(["ancient"]);
+		expect(next?.subject).toBe("higher");
+		expect(stale.map((todo) => todo.subject)).toEqual(["ancient"]);
+	});
+
+	it("recommends what came up in the task that landed before the rest", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "top", null);
+		await todoAdd(deps, "from alpha, lower", "alpha");
+		await todoAdd(deps, "from alpha, higher", "alpha", { position: 2 });
+
+		const { next } = await recommend(deps.todos, "alpha", 30 * DAY);
+
+		expect(next?.subject).toBe("from alpha, higher");
 	});
 
 	it("recommends nothing once every todo is taken or stale", async () => {

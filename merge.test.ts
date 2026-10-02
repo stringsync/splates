@@ -4,7 +4,7 @@ import { FakePs } from "webappwiz/system/testing";
 import { add } from "./add";
 import { merge } from "./merge";
 import { PLAN_FILE } from "./plan";
-import { claimReplies, replyTo } from "./reply";
+import { replyTo } from "./reply";
 import { Shell } from "./shell";
 import { LIVE_PID, Testing } from "./testing";
 
@@ -228,7 +228,7 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
-	it("refuses to land while a question is open, a reply unread, or an answer unchecked", async () => {
+	it("refuses to land while a question is open or an answer unchecked", async () => {
 		await using deps = await Testing.open();
 
 		await add(deps, "alpha");
@@ -236,22 +236,18 @@ describe.concurrent("merge", () => {
 		const worktree = found.path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 		const plan = `${worktree}/${PLAN_FILE}`;
-		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] Q1. Keep it?\n");
+		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] 1. Keep it?\n");
 
 		await expect(merge(deps, worktree)).toBail("blocked", {
-			message: "Q1 unchecked",
-			data: { task: "alpha", blocked: ["Q1"] },
+			message: "questions 1 unchecked",
+			data: { task: "alpha", blocked: ["1"] },
 		});
 
-		await found.save({ lease: null });
-		await replyTo(deps, "alpha", "Q1", { text: "rename it first" });
-		await expect(merge(deps, worktree)).toBail("unread", {
-			message: "replies to Q1 not yet read",
-			data: { task: "alpha", unread: ["Q1"] },
-		});
+		await found.save({ status: "escalated", lease: null });
+		await replyTo(deps, "alpha", "1", { text: "rename it first" });
+		await (await deps.service.find("alpha")).save({ status: "working" });
 
-		// Read but not acted on: the agent checks it off once it has.
-		await claimReplies(deps, "alpha");
+		// Answered but not acted on: the agent checks it off once it has.
 		await expect(merge(deps, worktree)).toBail("blocked");
 		expect(
 			await deps.gitCli(deps.root, "log", "--oneline", "main"),

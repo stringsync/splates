@@ -4,7 +4,6 @@ import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import { PLAN_FILE, questions } from "./plan";
-import type { Replies } from "./replies";
 import type { Shell } from "./shell";
 import { recommend, recommendation, type Todos } from "./todo";
 import type { Worktree } from "./worktree";
@@ -28,7 +27,6 @@ export async function merge(
 		config,
 		log,
 		todos,
-		replies,
 		fs,
 	}: {
 		service: WorktreeService;
@@ -38,7 +36,6 @@ export async function merge(
 		config: Config;
 		log: Logger;
 		todos: Todos;
-		replies: Replies;
 		fs: Fs;
 	},
 	cwd: string,
@@ -84,18 +81,6 @@ export async function merge(
 			{ task, lease: worktree.lease },
 		);
 	}
-	// A person may have said something that changes the work, so it is read
-	// before the work lands, whatever the agent was doing when it was sent.
-	const unread = (await replies.forTask(task)).map(
-		(pending) => pending.state.question,
-	);
-	if (unread.length > 0) {
-		fail(
-			"unread",
-			`'${task}' has replies to ${unread.join(", ")} not yet read: run \`arbor replies\`, act on them, check each off, then merge again`,
-			{ task, unread },
-		);
-	}
 	// An unchecked question is one a person has yet to answer, or an answer
 	// or follow-up the agent has yet to act on.
 	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
@@ -105,7 +90,7 @@ export async function merge(
 	if (blocked.length > 0) {
 		fail(
 			"blocked",
-			`'${task}' has ${blocked.join(", ")} unchecked under ## Blocked: act on each answer and check it off, or wait for one with \`arbor wait --answered\`, then merge again`,
+			`'${task}' has questions ${blocked.join(", ")} unchecked under ## Blocked: act on each answer and check it off, or wait for one with \`arbor wait --answered\`, then merge again`,
 			{ task, blocked },
 		);
 	}
@@ -267,7 +252,7 @@ export async function merge(
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`
 		}\n  worktree removed, cd ${git.root}`,
-		...done.map((todo) => `  done todo ${todo.id}: ${todo.text}`),
+		...done.map((todo) => `  done todo ${todo.id}: ${todo.subject}`),
 	];
 	// Only a landing on trunk ends a piece of work. A part landing on its
 	// parent's branch hands back to that parent, which is not done yet.

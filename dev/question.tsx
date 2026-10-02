@@ -31,7 +31,7 @@ export function ItemSheet({
 	children,
 }: {
 	task: string;
-	/** `Q3`. */
+	/** `3`. */
 	id: string;
 	/** The task's details, for the View button; none hides it. */
 	details: Details | undefined;

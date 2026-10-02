@@ -11,10 +11,10 @@ export interface Attachment {
 }
 
 /**
- * The folder of files that belong to one record, a reply's or a todo's, kept
- * beside it: `replies/<task>/Q2.json` has `replies/<task>/Q2/`, and
- * `todos/7.json` has `todos/7/`. Under `.git/arbor`, so nothing here is ever
- * committed and every tree can open what it holds.
+ * The folder of files that belong to an answer or a todo: question 2's on a
+ * task in `replies/<task>/2/`, and todo 7's beside its record, in `todos/7/`.
+ * Under `.git/arbor`, so nothing here is ever committed and every tree can
+ * open what it holds.
  */
 export class Attachments {
 	constructor(

@@ -8,13 +8,11 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
-import { inbox } from "./inbox";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
 import { remove } from "./remove";
-import { readReplies } from "./reply";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
@@ -23,6 +21,7 @@ import {
 	todoList,
 	todoRelease,
 	todoRemove,
+	todoShow,
 	todoTake,
 	todoUpdate,
 } from "./todo";
@@ -57,7 +56,7 @@ arbor
 	.option("todo", z.string(), {
 		default: "",
 		description:
-			"take up these todos, comma separated: their text becomes the plan's Goal, merging removes them, and removing the task puts them back",
+			"take up these todos, comma separated: their words become the plan's Goal, merging removes them, and removing the task puts them back",
 	})
 	.action((opts, ctx) =>
 		ctx.journal.record("add", opts.task, () =>
@@ -159,7 +158,7 @@ arbor
 		{
 			default: false,
 			description:
-				"wait instead until every open question under the task's ## Blocked has a reply, then claim the replies, which writes them into ARBOR.md, and print them",
+				"wait instead until every unchecked question under the task's ## Blocked has an answer in its ARBOR.md, then print them: what an escalated agent runs to learn it is unblocked",
 		},
 	)
 	.action((opts, ctx) =>
@@ -168,50 +167,6 @@ arbor
 			answered: opts.answered,
 		}),
 	);
-
-arbor
-	.command("inbox")
-	.description(
-		"list every question under the tasks' ## Blocked still waiting on a reply, grouped by task; takes no lease",
-	)
-	.option(
-		"replied",
-		z.string().transform((raw) => raw !== "false"),
-		{
-			default: false,
-			description:
-				"also list the ones replied to that their agent has yet to act on, to change or add to an answer",
-		},
-	)
-	.option(
-		"json",
-		z.string().transform((raw) => raw !== "false"),
-		{ default: false, description: "emit JSON" },
-	)
-	.action((opts, ctx) =>
-		inbox(ctx, { replied: opts.replied, json: opts.json }),
-	);
-
-arbor
-	.command("replies")
-	.description(
-		"claim the replies a person gave the task's questions on the page, which writes each into its ARBOR.md after ` → `, a follow-up on a line of its own under its question, unchecking it, and locks them against edits, and print them; the one way an agent reads what the inbox answered, and `merge` refuses until it has",
-	)
-	.arg("task", z.string(), {
-		default: "",
-		description: "task name; defaults to the worktree you are in",
-	})
-	.action(async (opts, ctx) => {
-		const task = opts.task || (await here(ctx));
-		if (task === null) {
-			fail(
-				"usage",
-				"not in a task's worktree: name the task, `arbor replies <task>`",
-				{},
-			);
-		}
-		await ctx.journal.record("replies", task, () => readReplies(ctx, task));
-	});
 
 arbor
 	.command("log")
@@ -232,7 +187,7 @@ arbor
 arbor
 	.command("dev")
 	.description(
-		"serve each task with its questions, and the todos, as a web page on this machine; the only place a person answers, follows up, defers or skips a question, or approves a merge, and where todos can be added, updated or removed",
+		"serve the tasks, the questions escalated ones ask under ## Blocked, and the todos as a web page on this machine; the only place a person answers, follows up, defers or skips a question, or approves a merge, writing the answer into the task's ARBOR.md, and where todos can be added, updated or removed",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
@@ -305,6 +260,9 @@ arbor
 		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
 	);
 
+/** A place in the todo list, 1 at the top; absent leaves it to the command. */
+const position = z.coerce.number().int().positive().optional();
+
 const todo = arbor
 	.group("todo")
 	.description(
@@ -316,7 +274,15 @@ todo
 	.description(
 		"note something to do later and move on; run from a worktree, it records the task it came up in",
 	)
-	.arg("text", z.string(), { description: "what is left to do, in a line" })
+	.arg("subject", z.string(), { description: "what is left to do, in a line" })
+	.arg("text", z.string(), {
+		default: "",
+		description: "whatever more there is to say about it",
+	})
+	.option("position", position, {
+		description:
+			"where it goes in the list, 1 at the top, pushing those from there down (default: the bottom)",
+	})
 	.option("file", z.string(), {
 		default: "",
 		description:
@@ -325,14 +291,18 @@ todo
 	.action(async (opts, ctx) => {
 		const from = await here(ctx);
 		await ctx.journal.record("todo add", from, () =>
-			todoAdd(ctx, opts.text, from, { files: commaList(opts.file) }),
+			todoAdd(ctx, opts.subject, from, {
+				text: opts.text,
+				position: opts.position,
+				files: commaList(opts.file),
+			}),
 		);
 	});
 
 todo
 	.command("list")
 	.description(
-		"every todo, oldest first, with the task it came from and the task that took it up",
+		"every todo, top of the list first, with the task it came from and the task that took it up",
 	)
 	.option(
 		"json",
@@ -342,14 +312,34 @@ todo
 	.action((opts, ctx) => todoList(ctx, { json: opts.json }));
 
 todo
+	.command("show")
+	.description("one todo in full: where it stands, its files, and its detail")
+	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.option(
+		"json",
+		z.string().transform((raw) => raw !== "false"),
+		{ default: false, description: "emit JSON" },
+	)
+	.action((opts, ctx) => todoShow(ctx, opts.id, { json: opts.json }));
+
+todo
 	.command("update")
 	.description(
-		"say what a todo is in other words, or attach and drop files; it keeps its id",
+		"say what a todo is in other words, move it up or down the list, or attach and drop files; it keeps its id",
 	)
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.arg("text", z.string(), {
 		default: "",
-		description: "what is left to do, in a line; leave out to keep the words",
+		description:
+			"whatever more there is to say about it; leave out to keep the detail",
+	})
+	.option("subject", z.string(), {
+		default: "",
+		description: "what is left to do, in a line; leave out to keep it",
+	})
+	.option("position", position, {
+		description:
+			"where to move it in the list, 1 at the top; the others close up around it",
 	})
 	.option("file", z.string(), {
 		default: "",
@@ -363,7 +353,9 @@ todo
 	.action((opts, ctx) =>
 		ctx.journal.record("todo update", null, () =>
 			todoUpdate(ctx, opts.id, {
+				subject: opts.subject,
 				text: opts.text,
+				position: opts.position,
 				files: commaList(opts.file),
 				removeFiles: commaList(opts["remove-file"]),
 			}),

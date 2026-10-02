@@ -28,7 +28,7 @@ describe("arbor cli", () => {
 		expect(await env.fs.exists(join(`${env.root}-arbor`, "alpha"))).toBe(true);
 	});
 
-	it("lets an agent read what the page sent it, and nothing more", async () => {
+	it("lets an agent wait for what the page answered, and nothing more", async () => {
 		await using env = await Testing.open();
 		env.ps.cd(env.root);
 		const deps = {
@@ -38,62 +38,61 @@ describe("arbor cli", () => {
 			assets: env.assets,
 		};
 		await arbor.run(deps, ["add", "alpha"]);
-		const worktree = await (await env.service.find("alpha")).save({
-			lease: null,
-		});
+		const worktree = await env.service.find("alpha");
 		await env.fs.write(
 			join(worktree.path, "ARBOR.md"),
-			"# alpha\n\n## Blocked\n\n- [ ] Q1. Open it.\n- [ ] Q2. Run it where?\n  - [a] locally\n  - [b] in ci\n",
+			"# alpha\n\n## Blocked\n\n- [ ] 1. Open it.\n- [ ] 2. Run it where?\n  - [a] locally\n  - [b] in ci\n",
 		);
 		await env.fs.write(join(env.root, "a.png"), "a");
-
-		await arbor.run(deps, ["inbox", "--json"]);
-		const found = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(found.questions).toMatchObject([
-			{ task: "alpha", number: "Q1" },
-			{ task: "alpha", number: "Q2", pick: "any" },
-		]);
+		env.ps.cd(worktree.path);
+		await arbor.run(deps, ["escalate", "needs a person"]);
 
 		// A person answers from the page; the CLI has no way to.
 		env.log.clear();
-		await arbor.run(deps, ["reply", "alpha", "Q1", "looks right"]);
+		await arbor.run(deps, ["reply", "alpha", "1", "looks right"]);
 		expect(env.out()).not.toContain("  reply ");
-		await replyTo(env, "alpha", "Q2", { text: "", choices: ["b", "a"] });
+		await replyTo(env, "alpha", "1", { text: "looks right" });
+		await replyTo(env, "alpha", "2", { text: "", choices: ["b", "a"] });
 
-		await arbor.run(deps, ["inbox", "--replied", "--json"]);
-		expect(
-			JSON.parse(String(env.log.entries.at(-1)?.message)).questions,
-		).toMatchObject([
-			{ number: "Q1", state: "open" },
-			{ number: "Q2", state: "waiting" },
-		]);
-
-		// The agent reads what it was sent from its tree, claiming it.
-		env.ps.cd(worktree.path);
-		await arbor.run(deps, ["replies"]);
+		// The agent waits for its answers and reads them in its plan.
+		env.log.clear();
+		await arbor.run(deps, ["wait", "alpha", "--answered"]);
+		expect(env.out()).toContain("    → a (locally), b (in ci)");
 		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
 		expect(plan).toContain("Run it where? → a (locally), b (in ci)\n");
 
 		env.ps.cd(env.root);
-		await arbor.run(deps, ["todo", "add", "write docs", "--file", "a.png"]);
+		await arbor.run(deps, [
+			"todo",
+			"add",
+			"write docs",
+			"the CLI first",
+			"--file",
+			"a.png",
+		]);
 		const [attached = ""] = (await env.todos.find(1)).files;
 		await arbor.run(deps, [
 			"todo",
 			"update",
 			"1",
+			"--subject",
 			"write the docs",
+			"--position",
+			"1",
 			"--remove-file",
 			basename(attached),
 		]);
 		expect((await env.todos.find(1)).state).toMatchObject({
-			text: "write the docs",
+			subject: "write the docs",
+			text: "the CLI first",
+			position: 1,
 			files: [],
 		});
 
 		await arbor.run(deps, ["log", "--json"]);
 		const entries = JSON.parse(String(env.log.entries.at(-1)?.message));
 		expect(entries.map((entry: { action: string }) => entry.action)).toContain(
-			"replies",
+			"escalate",
 		);
 	});
 
@@ -117,9 +116,9 @@ describe("arbor cli", () => {
 		]);
 
 		const worktree = await env.service.find("alpha");
-		expect(worktree.state?.escalations?.at(-1)?.review).toBe("Q1");
+		expect(worktree.state?.escalations?.at(-1)?.review).toBe("1");
 		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
-			"- [ ] Q1. ✅ Ready to merge?\n  check the header\n",
+			"- [ ] 1. ✅ Ready to merge?\n  check the header\n",
 		);
 	});
 

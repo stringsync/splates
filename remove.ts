@@ -82,7 +82,7 @@ export async function remove(
 		);
 	}
 	for (const todo of released) {
-		lines.push(`  todo ${todo.id} is open again: ${todo.text}`);
+		lines.push(`  todo ${todo.id} is open again: ${todo.subject}`);
 	}
 	log.info(lines.join("\n"));
 }

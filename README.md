@@ -32,9 +32,9 @@ rebase, and that is what `remove` is for.
 Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
 
-`--todo 3,5` takes up todos (see `arbor todo`): their text becomes the plan's
-`## Goal`, each followed by the path of every file attached to it, and no
-other task can take them while this one lives.
+`--todo 3,5` takes up todos (see `arbor todo`): each one's subject and detail
+become the plan's `## Goal`, followed by the path of every file attached to it,
+and no other task can take them while this one lives.
 
 `--base <branch>` starts the task from that branch and lands it back there
 instead of trunk. It takes another task's branch too: `--base task/<other>`
@@ -75,7 +75,6 @@ there, and fast-forwards the base with `git merge --ff-only`. History stays
 linear.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere,
-   or while a person's reply waits unclaimed (`unread`: run `arbor replies`),
    or while a question under `## Blocked` is unchecked (`blocked`): whether
    nobody has answered it yet, or the agent has yet to act on an answer or a
    follow-up and check it off.
@@ -104,9 +103,10 @@ fails the branch is reset to where it was and trunk is never touched.
 There is deliberately no flag to skip the gate: a repo that wants none
 configures none.
 
-A merge onto trunk ends by recommending what to do next: one todo, the task's
-own follow-ups first and then the longest waiting, plus any todo older than
-`todoStalenessMs` (30 days) offered for removal instead. The todos the task
+A merge onto trunk ends by recommending what to do next: the open todo highest
+on the list that came up in the task that landed, since its context is
+freshest, or failing that the open todo highest on the list, plus any todo older than `todoStalenessMs` (30 days) offered for
+removal instead. The todos the task
 took up, with `--todo` or `todo take`, leave the list, since that work is now
 done; release one first to keep what is left of it.
 
@@ -183,7 +183,7 @@ in silence: it is the one thing that makes the work resumable.
 
 A `ARBOR.md` that is there gets checked against the shape the agent skill
 prescribes (`# <task>`, `## Goal`, `## Next` with something unchecked in it, a
-`## Blocked` with `- [ ] Q1.` items once escalated, and none left open after),
+`## Blocked` with `- [ ] 1.` items once escalated, and none left open after),
 and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
@@ -205,109 +205,67 @@ driving. Wait again, work alongside it, or ask the human.
 Like `show` and `path`, it takes no lease, so watching a task cannot knock its
 agent off it.
 
-`--answered` waits for something else: until every open question under the
-task's `## Blocked` has a reply (or none is open), then claims everything new
-the way `arbor replies` does and prints it. This is how an agent that
-escalated waits for its human, with the same timeout and the same `timeout`
-refusal, which names the questions still unanswered. A reply someone has open
-to edit does not count yet. A task that is gone ends the wait too, since
+`--answered` waits for something else: until every unchecked question under
+the task's `## Blocked` has an answer in its `ARBOR.md` (or none is open), then
+prints each with what was said. This is how an agent that escalated learns it
+is unblocked, with the same timeout and the same `timeout` refusal, which names
+the questions still unanswered. A task that is gone ends the wait too, since
 nothing is left to answer.
 
 ```
-alpha has new
-  Q2 🎨 Does the header wrap to two lines?
+alpha answered
+  2. 🎨 Does the header wrap to two lines?
     → yes
 ```
 
-### `arbor inbox [--replied] [--json]`
-
-Every question waiting on a person, across all tasks: each unchecked
-`- [ ] Q9.` item under a task's `## Blocked` with no reply yet, grouped by
-task. A question leaves the inbox once it is answered. `--replied` brings back
-the ones answered but not yet checked off by their agent, with the reply under
-each, follow-ups too: one still waiting for its agent says so, and can be
-changed on the page until the agent claims it. Takes no lease.
-
-```
-alpha
-  Q3 🧹 Keep or drop the old flag?
-      It has been off since March.
-
-beta (in a live session: answer it there)
-  Q1 🗄️ When should the migration run?
-      (a) Now
-      (b) After the backfill
-
-1 replied, not yet acted on: arbor inbox --replied
-```
-
-A question's line is its subject. Lines indented under it are its body,
+Questions are numbered `1.`, `2.`, … (a plan numbered the old way, `Q1.`,
+still reads). A question's line is its subject. Lines indented under it are its body,
 markdown with code blocks and images (`![shot](/abs/path.png)`, which the page
 shows inline). Choices come last in the body: `- (a) ...` lines take one or
 none, `- [a] ...` lines take any that apply.
 
 ```markdown
-- [ ] Q3. 🔐 How should existing sessions move to the new tokens?
+- [ ] 3. 🔐 How should existing sessions move to the new tokens?
   Sessions are keyed by the old cookie.
   ![login screen](/abs/path/login.png)
   - (a) Sign everyone out once
   - (b) Migrate each session on its next request
-- [ ] Q4. 🔔 Where should failures notify?
+- [ ] 4. 🔔 Where should failures notify?
   - [a] Email
   - [b] Slack
   - [c] Push
 ```
 
-### `arbor replies [task]`
-
-How an agent reads what its human answered, and the only way it does. A
-person answers from the page (`arbor dev`), never the CLI, so agents have no
-way to answer each other: every answer an agent reads through arbor came from
-a person. For anything no question asked, the person tells the agent in its
-chat.
-
-Claiming takes every reply waiting for the task, writes each into `ARBOR.md`,
-and prints them with the questions still unanswered. The first answer to a
-question goes on its line after ` → `, its picks spelled out so the line alone
-says what was picked: ` → b (Migrate each session on its next request)`, or
-` → a (Email), c (Push): and log it` with words after the picks. Once the
-agent has read an answer, the person can follow it up; a follow-up goes on a
-line of its own under the question, and unchecks it, whatever the agent did
-about the answer before:
+A person answers from the page (`arbor dev`), never the CLI, so agents have no
+way to answer each other: every answer an agent reads in its plan came from a
+person, or from its own chat. The first answer to a question goes on its line
+after ` → `, its picks spelled out so the line alone says what was picked:
+` → b (Migrate each session on its next request)`, or
+` → a (Email), c (Push): and log it` with words after the picks. Anything said
+after that is a follow-up, on a line of its own under the question, and
+unchecks it, whatever the agent did about the answer before:
 
 ```markdown
-- [ ] Q3. 🔐 How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
+- [ ] 3. 🔐 How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
   Sessions are keyed by the old cookie.
   → Sign out the admins, though.
 ```
 
 The box stays unchecked: checking it off is the agent's word that it has
-acted on everything under it. Once claimed, a reply can no longer change or be
-taken back, so the agent never acts on words that change under it. A reply the
-person has open to edit on the page is left for the next call. Run from a
-task worktree, the task is that one.
-
-```
-alpha replied
-  Q3 🧹 Keep or drop the old flag?
-    → drop
-  unanswered: Q4
-```
-
-Until claimed, a reply waits in `.git/arbor/replies/<task>/Q3.json`, its files
-beside it in `Q3/`, and the claimed line names each file by absolute path so
+acted on everything under it. Files attached to an answer are kept in
+`.git/arbor/replies/<task>/3/`, and the line names each by absolute path so
 the agent can open it from its own tree. They go when the task is merged or
 removed.
 
-A reply is refused (`lease_held`) while the task's agent is in a live
-session: it is waiting in its chat, not reading its plan, so answer it there.
+Only an escalated task is answered from the page (`not_escalated` otherwise):
+an agent still at work asks in its chat, and is answered there.
 
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
-`retry`, `replies`, `todo add`, `todo update`, `todo take`, `todo release`,
+`retry`, `todo add`, `todo update`, `todo take`, `todo release`,
 `todo remove`, and from the
-page `reply`, `withdraw`, `defer`, `skip` and `approve`), oldest first, each with the task and how it ended (`ok`, or
+page `reply`, `defer`, `skip` and `approve`), oldest first, each with the task and how it ended (`ok`, or
 the refusal reason).
 
 ```
@@ -324,40 +282,31 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 ### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
-The inbox, what you sent, the todos, and the tasks in a browser, on
+What escalated tasks ask, the todos, and the tasks in a browser, on
 `http://localhost:4269`, reloading themselves as anything changes. Built for a
-phone first. The inbox holds only what waits on you: each unanswered question,
-grouped by task, a task only when it has one. A task whose agent is in a live
-session is left out, since that agent is answered in its chat. With a keyboard,
+phone first. Blocked holds every question under `## Blocked` in an escalated
+task's `ARBOR.md` that nobody has answered, grouped by task, and its tab
+counts them. Once answered, a question is its agent's to act on and leaves the
+page; anything more about it goes in that agent's chat. A task still at work
+is left out, since its agent is answered in its chat. With a keyboard,
 J opens the next question, and a hint under the list says so when the page
 sees a mouse or trackpad.
 
-Tapping a question opens it with its body, images full size on a tap, its
+Tapping an open question shows its body, images full size on a tap, its
 choices, a View button for its task, and a reply box that takes pasted or
-picked files. Beside the box, **Defer** makes the question a todo, its images
-carried along, and answers it "Deferred to todo 7: leave it out of this
-task."; **Skip** answers "Skip this: go ahead without it.". A task escalated
-with `arbor escalate --review` asks `✅ Ready to merge?` like any other
-question, with **Approve** ("Approved: merge it.") beside a box to request
-changes.
-
-Once answered, a question moves to Sent, one line each with where it stands
-in a word: Waiting (for its agent, still yours to change or withdraw),
-Editing, Read (by its agent), or Done (checked off). Opening one still
-waiting holds it, so its agent cannot claim it half-changed, and closing it
-lets go; the hold also lapses on its own after five minutes. One its agent
-has read shows what was said so far and a box to follow it up. Each stays
-until its task lands or goes.
-
-A line across the top always says something, so nothing under it moves: the
-question you last replied to while its agent has yet to read it, with
-Withdraw, or else how many questions need you and how many replies wait for
-their agents.
+picked files. Sending writes the answer straight into the task's `ARBOR.md`.
+Beside the box, **Defer** makes the question a todo, its images carried along,
+and answers it "Deferred to todo 7: leave it out of this task."; **Skip**
+answers "Skip this: go ahead without it.". A task escalated with
+`arbor escalate --review` asks `✅ Ready to merge?` like any other question,
+with **Approve** ("Approved: merge it.") beside a box to request changes.
 
 Tasks lists every task with its progress through its plan, flagging only an
 escalated or broken status; tapping one opens its details and whole plan.
 
-Todos open to reword, attach files to, or remove. Typing `@` in a reply or a
+Todos are cards in list order: drag one to reorder the list (a short press
+on a phone, or Space on its grip and the arrow keys), or tap it to reword,
+attach files to, or remove. Typing `@` in a reply or a
 todo offers the files and directories in the task's tree (the main tree's for
 a todo), tracked or new but not ignored, and writes the one picked as
 `@path/from/root`; picking a directory keeps the list open on what is inside.
@@ -366,7 +315,7 @@ wider they run down a sidebar. If the server stops answering, the header says
 it is offline, since what the page shows may be stale.
 
 Answering is done here and nowhere else, so an agent with a shell cannot
-answer another: see `arbor replies`. Todos are the CLI's too, through the same
+answer another. Todos are the CLI's too, through the same
 functions (`arbor todo add`, `update` and `remove`). Merging, removing tasks
 and claiming stay in the CLI, so a page that should not have been reachable
 can at worst leave a reply and change todos. It takes no lease.
@@ -414,7 +363,7 @@ The explicit "this needs a human" exit. Records the reason, drops the lease, and
 leaves the worktree **exactly** as it is so the human sees what the agent saw.
 
 `--review` asks for approval to merge rather than for answers: it adds
-`- [ ] Q5. ✅ Ready to merge?` under `## Blocked`, the reason indented under
+`- [ ] 5. ✅ Ready to merge?` under `## Blocked`, the reason indented under
 it as what to look at, and the page shows the task as one card with Approve
 and Request changes. Refused (`blocked`) while another question is unchecked,
 so a review is the last thing standing between the task and trunk. The agent
@@ -427,13 +376,23 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <text> [--file <path>]`, `arbor todo list [--json]`, `arbor todo update <id> [text] [--file <path>] [--remove-file <name>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
+### `arbor todo add <subject> [text] [--position <n>] [--file <path>]`, `arbor todo list [--json]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
 own project), the agent notes it with `arbor todo add` and carries on instead
 of growing the task. Run from a worktree, `add` records the task it came up
-in, which is what lets `merge` recommend a task's own follow-ups first.
+in. A todo is a subject, one line that `list` and `merge` show, and an optional
+detail below it that `show` prints in full. Agents lead a subject with one
+emoji for what it is about (`🐛 Upload retries forever on a 413`), as they do a
+question, so the list reads at a glance.
+
+The list is in order: position 1 is the top, and after a task's own todos,
+the open todo highest on it is the one `merge` recommends next. A new one goes to the bottom, or with
+`--position 2` in at 2, pushing those from there down. `update --position`
+moves one, and removing one closes the gap, so positions always run 1, 2, 3.
+Whoever keeps the list, a person on the page or an agent, decides what
+matters most by moving it up.
 
 Todos live in `.git/arbor/todos/`, one file each, so every worktree sees a new
 one at once, with nothing to commit and no two agents rewriting the same file.
@@ -445,12 +404,13 @@ run from a worktree, adds them to the task already under way, all or none.
 A task can hold any number. `release` puts them back on the list, from a
 worktree only its own task's: a task landing with one half done rewords it to
 what is left with `update`, then releases it, so the merge leaves it open.
-`update` rewords one and keeps its number; `remove` drops one done some other
-way or no longer wanted.
+`update` rewords one, its detail as the argument and its subject with
+`--subject`, and keeps its number; `remove` drops one done some other way or
+no longer wanted.
 
 `--file a.png,notes.md` attaches files of any kind, stored beside the todo in
 `.git/arbor/todos/<id>/` the way a reply's are. `update --remove-file` drops
-one, named by path or by its stored file name (`todo list` shows them). They
+one, named by path or by its stored file name (`todo show` lists them). They
 go when the todo does.
 
 ### `arbor retry <task>`
@@ -478,17 +438,17 @@ The agent's control flow runs on these.
 | 3    | `tests_failed`      | The gate (`postRewrite`, `preMerge`) failed after the rebase. Branch rolled back, trunk untouched. Fix and merge again. |
 | 4    | `lease_lost`        | Another agent took the tree mid-merge. **Stop. Do not retry.**     |
 | 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor remove` and redo against current trunk. |
-| 6    | `lease_held`        | Another agent is driving this tree. For a reply from the page: answer that agent in its chat. |
+| 6    | `lease_held`        | Another agent is driving this tree.                                |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
-| 8    | `not_found`         | No such task, or not run from a task worktree; for a reply from the page, no such open question. |
+| 8    | `not_found`         | No such task, or not run from a task worktree; for a reply from the page, no such question. |
 | 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
 | 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. |
 | 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
 | 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging, or with `--answered`, a question is still unanswered. |
-| 15   | `unread`            | `arbor merge` refused: a person's reply waits unclaimed. `arbor replies`, act on it, check it off, merge again. |
 | 16   | `blocked`           | `arbor merge` refused: a question under `## Blocked` is unchecked, unanswered or not yet acted on. Also `escalate --review` while one is. |
+| 17   | `not_escalated`     | A reply from the page to a task that is not escalated: its agent is still at work, so say it in its chat. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

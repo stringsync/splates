@@ -31,19 +31,20 @@ async function send(path: string, init: RequestInit): Promise<unknown> {
 	return body;
 }
 
-/** A reply or a todo's files: new ones to add, and the stored ones to keep. */
+/** A todo's files: new ones to add, and the stored ones to keep. */
 export interface FilesForm {
 	files: File[];
 	/** Paths of files already stored to keep; the rest are dropped. */
 	keep: string[];
 }
 
-export interface ReplyForm extends FilesForm {
+export interface ReplyForm {
 	task: string;
 	question: string;
 	/** The keys of the choices picked; none for words alone. */
 	choices: string[];
 	text: string;
+	files: File[];
 }
 
 export async function reply({
@@ -52,9 +53,8 @@ export async function reply({
 	choices,
 	text,
 	files,
-	keep,
 }: ReplyForm): Promise<void> {
-	const form = filesForm({ files, keep });
+	const form = filesForm({ files, keep: [] });
 	form.set("task", task);
 	form.set("question", question);
 	for (const choice of choices) {
@@ -62,20 +62,6 @@ export async function reply({
 	}
 	form.set("text", text);
 	await send("/api/reply", { body: form });
-}
-
-/** Takes back a reply its agent has not claimed yet. */
-export async function withdraw(task: string, question: string): Promise<void> {
-	await json("/api/withdraw", { task, question });
-}
-
-/** Holds a reply while it is open to edit, so its agent cannot claim it. */
-export async function hold(task: string, question: string): Promise<void> {
-	await json("/api/hold", { task, question });
-}
-
-export async function release(task: string, question: string): Promise<void> {
-	await json("/api/release", { task, question });
 }
 
 /** Makes the question a todo, and tells its agent to leave it out. */
@@ -93,19 +79,39 @@ export async function approve(task: string, question: string): Promise<void> {
 	await json("/api/approve", { task, question });
 }
 
-export async function addTodo(text: string, files: File[]): Promise<void> {
+/** What a todo says: a line, and whatever more there is to say. */
+export interface TodoForm {
+	subject: string;
+	text: string;
+	/** Where it goes in the list, 1 at the top; absent leaves it be. */
+	position?: number;
+}
+
+export async function addTodo(
+	{ subject, text, position }: TodoForm,
+	files: File[],
+): Promise<void> {
 	const form = filesForm({ files, keep: [] });
-	form.set("text", text);
+	todoForm(form, { subject, text, position });
 	await send("/api/todos", { body: form });
 }
 
 export async function updateTodo(
 	id: number,
-	{ text, files, keep }: FilesForm & { text: string },
+	{ subject, text, position, files, keep }: FilesForm & TodoForm,
 ): Promise<void> {
 	const form = filesForm({ files, keep });
-	form.set("text", text);
+	todoForm(form, { subject, text, position });
 	await send(`/api/todos/${id}`, { method: "PATCH", body: form });
+}
+
+/** Puts a todo at `position`, 1 at the top, moving the rest around it. */
+export async function moveTodo(id: number, position: number): Promise<void> {
+	await send(`/api/todos/${id}/position`, {
+		method: "PUT",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ position }),
+	});
 }
 
 export async function removeTodo(id: number): Promise<void> {
@@ -113,11 +119,19 @@ export async function removeTodo(id: number): Promise<void> {
 }
 
 /**
- * Where the page loads a stored file: one a reply or a todo holds, or an
+ * Where the page loads a stored file: one an answer or a todo holds, or an
  * image a question of `task` shows.
  */
 export function fileUrl(path: string, task = ""): string {
 	return `/api/file?${new URLSearchParams({ task, path })}`;
+}
+
+function todoForm(form: FormData, { subject, text, position }: TodoForm): void {
+	form.set("subject", subject);
+	form.set("text", text);
+	if (position !== undefined) {
+		form.set("position", String(position));
+	}
 }
 
 function filesForm({ files, keep }: FilesForm): FormData {

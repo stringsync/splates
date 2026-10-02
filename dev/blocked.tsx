@@ -1,4 +1,4 @@
-import { CheckIcon, InboxIcon, SendIcon } from "lucide-react";
+import { OctagonPauseIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -17,13 +17,11 @@ import {
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { Sheet } from "#dev/components/ui/sheet.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
-import { cn } from "#dev/lib/utils.ts";
-import type { OpenQuestion, QuestionState } from "../inbox";
+import type { Blocker } from "../blocked";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
-import { approve, defer, reply, skip, withdraw } from "./api";
-import { Composer, Held } from "./compose";
-import { Linked } from "./markdown";
+import { approve, defer, reply, skip } from "./api";
+import { Composer } from "./compose";
 import { ItemSheet, plain } from "./question";
 
 /** A question by name, rather than the object, so it keeps up with the plan. */
@@ -33,20 +31,20 @@ interface Named {
 }
 
 /**
- * What waits on you: each unanswered question, grouped by task. A task whose
- * agent is in a live session is left out, since it is answered in that chat.
+ * What waits on you: every question escalated tasks ask under `## Blocked`
+ * that nobody has answered, grouped by task. Once answered it is its agent's,
+ * and a task still at work asks in its chat.
  */
-export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
+export function Blocked({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	return (
 		<Questions
 			snapshot={snapshot}
-			shown={waiting(snapshot)}
-			shortcut
+			shown={snapshot.blocked}
 			empty={
 				<Empty>
 					<EmptyHeader>
 						<EmptyMedia variant="icon">
-							<InboxIcon />
+							<OctagonPauseIcon />
 						</EmptyMedia>
 						<EmptyTitle>Nothing needs you</EmptyTitle>
 						<EmptyDescription>
@@ -60,61 +58,18 @@ export function Inbox({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 }
 
 /**
- * Every question you answered, each saying where it stands, to change while
- * its agent has yet to read it and to follow up after, until its task lands.
- */
-export function Sent({ snapshot }: { snapshot: Snapshot }): JSX.Element {
-	return (
-		<Questions
-			snapshot={snapshot}
-			shown={snapshot.inbox.questions.filter(answered)}
-			empty={
-				<Empty>
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<SendIcon />
-						</EmptyMedia>
-						<EmptyTitle>Nothing sent</EmptyTitle>
-						<EmptyDescription>
-							Questions you answer show up here until their task lands.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			}
-		/>
-	);
-}
-
-/** The questions the inbox counts: open, and not for a live agent's chat. */
-export function waiting(snapshot: Snapshot): OpenQuestion[] {
-	return snapshot.inbox.questions.filter(
-		(question) => question.state === "open" && question.lease !== "held",
-	);
-}
-
-/** Answered by a person, whether its agent has read it yet or not. */
-function answered(question: OpenQuestion): boolean {
-	return (
-		question.state !== "open" &&
-		(question.pending !== null || question.reply !== null)
-	);
-}
-
-/**
  * Questions grouped by task, one line each, a task only when it has some. Each
- * opens in a sheet to act on it, where View opens its task. With `shortcut`,
- * J opens the next one.
+ * opens in a sheet to act on it, where View opens its task, and J opens the
+ * next one.
  */
 function Questions({
 	snapshot,
 	shown,
 	empty,
-	shortcut = false,
 }: {
 	snapshot: Snapshot;
-	shown: OpenQuestion[];
+	shown: Blocker[];
 	empty: ReactNode;
-	shortcut?: boolean;
 }): JSX.Element {
 	const [opened, setOpened] = useState<Named | null>(null);
 	const keyboard = useKeyboard();
@@ -122,9 +77,6 @@ function Questions({
 	// In the order listed, so J walks down the page.
 	const listed = [...group(shown).values()].flat();
 	useEffect(() => {
-		if (!shortcut) {
-			return;
-		}
 		const pressed = (event: KeyboardEvent) => {
 			if (
 				event.key.toLowerCase() !== "j" ||
@@ -132,7 +84,7 @@ function Questions({
 				event.ctrlKey ||
 				event.altKey ||
 				typing(event.target) ||
-				// A task open over the question: J there is not about the inbox.
+				// A task open over the question: J there is not about the list.
 				document.querySelectorAll('[role="dialog"]').length > 1
 			) {
 				return;
@@ -153,10 +105,10 @@ function Questions({
 		};
 		addEventListener("keydown", pressed);
 		return () => removeEventListener("keydown", pressed);
-	}, [shortcut, opened, listed]);
+	}, [opened, listed]);
 
-	// Only among `shown`: a question answered from here moves to the other tab,
-	// and its sheet closes rather than following it there.
+	// Only among `shown`: a question its task stops asking takes its sheet
+	// with it.
 	const current =
 		opened === null
 			? undefined
@@ -189,7 +141,7 @@ function Questions({
 							))}
 						</section>
 					))}
-					{shortcut && keyboard && (
+					{keyboard && (
 						<p className="flex items-center gap-1.5 text-muted-foreground text-xs">
 							<Kbd>J</Kbd> opens the next question
 						</p>
@@ -229,7 +181,7 @@ function Row({
 	question,
 	onOpen,
 }: {
-	question: OpenQuestion;
+	question: Blocker;
 	onOpen: () => void;
 }): JSX.Element {
 	return (
@@ -241,115 +193,28 @@ function Row({
 			<span className="w-7 shrink-0 text-muted-foreground text-xs tabular-nums">
 				{question.number}
 			</span>
-			<span
-				className={cn(
-					"min-w-0 flex-1 truncate text-sm",
-					// Acted on, so it steps back from what is still in play.
-					question.state === "done" && "text-muted-foreground",
-				)}
-			>
+			<span className="min-w-0 flex-1 truncate text-sm">
 				{plain(question.text)}
 			</span>
-			<Status state={question.state} />
 		</button>
 	);
 }
 
-const STATUS: Record<QuestionState, string | null> = {
-	open: null,
-	waiting: "Waiting",
-	editing: "Editing",
-	read: "Read",
-	done: "Done",
-};
-
-/** Where an answered question stands, in a word; nothing for an open one. */
-function Status({ state }: { state: QuestionState }): JSX.Element | null {
-	const label = STATUS[state];
-	if (label === null) {
-		return null;
-	}
-	return (
-		<span className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
-			{state === "read" && <CheckIcon className="size-3.5 text-success" />}
-			{label}
-		</span>
-	);
-}
-
 /**
- * What can be done about a question from its sheet: answer, defer or skip one
- * that is open, or approve one asking to merge; change or withdraw a reply its
- * agent has yet to read; follow up one it has. A live agent is answered in its
- * chat instead.
+ * What can be done about a question from its sheet: answer, defer or skip
+ * it, or approve one asking to merge.
  */
 function Respond({
 	question,
 	review,
 	onDone,
 }: {
-	question: OpenQuestion;
+	question: Blocker;
 	/** The task's review question, if it is asking for one. */
 	review: string | null;
 	onDone: () => void;
 }): JSX.Element {
-	const { task, number, state, pending } = question;
-	if (question.lease === "held") {
-		return (
-			<div className="flex flex-col gap-4">
-				<Thread question={question} />
-				<p className="text-muted-foreground text-sm">
-					Its agent is in a live session. Say anything more in that chat.
-				</p>
-			</div>
-		);
-	}
-	if ((state === "waiting" || state === "editing") && pending) {
-		return (
-			<div className="flex flex-col gap-4">
-				<Thread question={question} />
-				<Held task={task} id={number}>
-					<div className="flex flex-col gap-2">
-						<p className="text-muted-foreground text-xs">
-							Its agent waits until you close this.
-						</p>
-						<Composer
-							task={task}
-							question={question.reply === null ? question : null}
-							initial={{
-								choices: pending.choices,
-								text: pending.text,
-								keep: pending.files,
-							}}
-							label="Update"
-							placeholder="@ for a file"
-							send={(composed) =>
-								reply({ task, question: number, ...composed })
-							}
-							withdraw={() => withdraw(task, number)}
-							onDone={onDone}
-						/>
-					</div>
-				</Held>
-			</div>
-		);
-	}
-	if (state === "read" || state === "done") {
-		return (
-			<div className="flex flex-col gap-4">
-				<Thread question={question} />
-				<Composer
-					task={task}
-					label="Send"
-					placeholder="Follow up, @ for a file"
-					send={({ text, files, keep }) =>
-						reply({ task, question: number, choices: [], text, files, keep })
-					}
-					onDone={onDone}
-				/>
-			</div>
-		);
-	}
+	const { task, number } = question;
 	const reviewing = review === number;
 	const offers = question.choices.length > 0;
 	return (
@@ -423,33 +288,10 @@ function Action({
 	);
 }
 
-/** What was said so far: the answer its agent read, then each follow-up. */
-function Thread({ question }: { question: OpenQuestion }): JSX.Element | null {
-	const said = [
-		...(question.reply === null ? [] : [question.reply]),
-		...question.followUps,
-	];
-	if (said.length === 0) {
-		return null;
-	}
-	return (
-		<ol className="flex flex-col gap-1 rounded-lg bg-muted px-3 py-2 text-sm">
-			{said.map((line, index) => (
-				// Lines only ever get added, so where one sits is what it is.
-				// biome-ignore lint/suspicious/noArrayIndexKey: append-only
-				<li key={index} className="whitespace-pre-wrap break-words">
-					<Linked text={line} />
-				</li>
-			))}
-		</ol>
-	);
-}
-
 function find(tasks: Details[], name: string): Details | undefined {
 	return tasks.find((task) => task.task === name);
 }
 
-/** Questions by task, in the order the snapshot lists them. */
 /** Where a keypress is text being written, not a shortcut. */
 function typing(target: EventTarget | null): boolean {
 	return (
@@ -476,8 +318,9 @@ function useKeyboard(): boolean {
 
 const KEYBOARD = "(hover: hover) and (pointer: fine)";
 
-function group(questions: OpenQuestion[]): Map<string, OpenQuestion[]> {
-	const byTask = new Map<string, OpenQuestion[]>();
+/** Questions by task, in the order the snapshot lists them. */
+function group(questions: Blocker[]): Map<string, Blocker[]> {
+	const byTask = new Map<string, Blocker[]>();
 	for (const question of questions) {
 		byTask.set(question.task, [...(byTask.get(question.task) ?? []), question]);
 	}

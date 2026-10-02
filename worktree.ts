@@ -16,7 +16,7 @@ export interface Escalation {
 	at: string;
 	/**
 	 * For a task handed over to be approved rather than to answer questions,
-	 * the question in its plan that asks for the approval, `Q4`.
+	 * the question in its plan that asks for the approval, `4`.
 	 */
 	review?: string;
 }

@@ -72,9 +72,9 @@ export class WorktreeService {
 	}
 
 	/**
-	 * Where a task's replies wait to be read, and the files attached to them.
-	 * Under `.git/arbor` rather than in the worktree, so they are never
-	 * committed and every tree can open them, and gone with the task.
+	 * Where the files attached to a task's answers live. Under `.git/arbor`
+	 * rather than in the worktree, so they are never committed and every tree
+	 * can open them, and gone with the task.
 	 */
 	repliesPath(task: string): string {
 		return `${this.repliesDir}/${task}`;

@@ -7,20 +7,12 @@ import {
 	type PortProvider,
 } from "webappwiz/system";
 import type { Attachment } from "./attachments";
+import { blockers } from "./blocked";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
-import { openQuestions } from "./inbox";
 import type { Journal } from "./journal";
 import type { Replies } from "./replies";
-import {
-	APPROVED,
-	defer,
-	holdReply,
-	releaseReply,
-	replyTo,
-	SKIP,
-	withdrawReply,
-} from "./reply";
+import { APPROVED, defer, replyTo, SKIP } from "./reply";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -59,6 +51,7 @@ const STATUS: Partial<Record<Reason, number>> = {
 	not_found: 404,
 	lease_held: 409,
 	exists: 409,
+	not_escalated: 409,
 };
 
 /** What `dev` lets a caller choose. */
@@ -80,10 +73,12 @@ export interface DevServer extends AsyncResource {
 }
 
 /**
- * Serves what `list`, `show`, `inbox` and `todo list` print, as one page that
- * refetches when the repo changes. It is the only place a person answers a
- * question: follows one up, defers or skips it, or approves a merge. The CLI
- * has no command for any of them, so no agent is tempted to answer another.
+ * Serves what `list`, `show` and `todo list` print, and the questions
+ * escalated tasks ask, as one page that refetches when the repo changes. It is
+ * the only place a person answers a question: follows one up, defers or skips
+ * it, or approves a merge, each written straight into the task's `ARBOR.md`.
+ * The CLI has no command for any of them, so no agent is tempted to answer
+ * another.
  * Anything that moves a task (merge, remove, claim) stays in the CLI, so a
  * page that should not have been reachable can at worst leave a reply or
  * change a todo.
@@ -108,7 +103,7 @@ export async function dev(
 	},
 	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
 ): Promise<DevServer> {
-	const read = () => snapshot({ service, todos, replies, fs });
+	const read = () => snapshot({ service, todos, fs });
 	const deps = { service, fs, replies };
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
@@ -209,7 +204,6 @@ export async function dev(
 				text: String(form.get("text") ?? ""),
 				choices: form.getAll("choice").map(String),
 				files: await uploads(form),
-				keep: form.getAll("keep").map(String),
 			}),
 		);
 		await tick();
@@ -240,23 +234,7 @@ export async function dev(
 			return Response.json(done);
 		};
 
-	// Not journaled: opening a reply to look at it is not something that
-	// happened to the repo, only a hold that keeps the agent out meanwhile.
-	const hold = async (request: Request): Promise<Response> => {
-		const { task, question } = await named(request);
-		const held = await holdReply(deps, task, question);
-		await tick();
-		return Response.json(held);
-	};
-
-	const release = async (request: Request): Promise<Response> => {
-		const { task, question } = await named(request);
-		await releaseReply(deps, task, question);
-		await tick();
-		return Response.json({});
-	};
-
-	// Only an image an open question shows, or a file a reply or a todo holds,
+	// Only an image a question shows, or a file an answer or a todo holds,
 	// so the page, and whoever a tunnel lets reach it, can read nothing on this
 	// machine that was not put in front of a person on purpose.
 	const file = async (request: Request): Promise<Response> => {
@@ -268,9 +246,7 @@ export async function dev(
 		const shown =
 			held ||
 			(type !== undefined &&
-				(
-					await openQuestions(deps, { replied: true, done: true })
-				).questions.some(
+				(await blockers({ service, fs })).some(
 					(question) =>
 						question.task === task && question.images.includes(path),
 				));
@@ -307,15 +283,23 @@ export async function dev(
 	const addTodo = async (request: Request): Promise<Response> => {
 		const form = await request.formData();
 		const todo = await journal.record("todo add", null, async () =>
-			todos.add(String(form.get("text") ?? ""), null, await uploads(form)),
+			todos.add(String(form.get("subject") ?? ""), null, {
+				text: String(form.get("text") ?? ""),
+				files: await uploads(form),
+				position: positionIn(form),
+			}),
 		);
 		await tick();
 		return Response.json(todo.state);
 	};
 
-	/** The todo a `/api/todos/<id>` path names. */
+	/** Where a todo write asks to put it; absent leaves it to the write. */
+	const positionIn = (form: FormData): number | undefined =>
+		form.has("position") ? Number(form.get("position")) : undefined;
+
+	/** The todo a `/api/todos/<id>` path names, or `/api/todos/<id>/position`. */
 	const todoAt = async (request: Request) => {
-		const raw = new URL(request.url).pathname.split("/").at(-1) ?? "";
+		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
 		const id = Number(raw);
 		if (!Number.isInteger(id) || id <= 0) {
 			fail("usage", `'${raw}' is not a todo id`, { todo: raw });
@@ -328,10 +312,24 @@ export async function dev(
 		const found = await todoAt(request);
 		const todo = await journal.record("todo update", null, async () =>
 			found.update({
+				subject: form.has("subject") ? String(form.get("subject")) : undefined,
 				text: form.has("text") ? String(form.get("text")) : undefined,
+				position: positionIn(form),
 				files: await uploads(form),
 				keep: form.getAll("keep").map(String),
 			}),
+		);
+		await tick();
+		return Response.json(todo.state);
+	};
+
+	// Its own route, carrying nothing but the place, so a drag can never touch
+	// a todo's words or files.
+	const moveTodo = async (request: Request): Promise<Response> => {
+		const found = await todoAt(request);
+		const { position } = (await request.json()) as { position?: unknown };
+		const todo = await journal.record("todo update", null, () =>
+			found.update({ position: Number(position) }),
 		);
 		await tick();
 		return Response.json(todo.state);
@@ -362,13 +360,6 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/snapshot": guarded(async () => Response.json(await read())),
 			"/api/reply": { POST: guarded(reply) },
-			"/api/withdraw": {
-				POST: guarded(
-					answer("withdraw", (task, question) =>
-						withdrawReply(deps, task, question),
-					),
-				),
-			},
 			"/api/defer": {
 				POST: guarded(
 					answer("defer", (task, question) =>
@@ -390,8 +381,6 @@ export async function dev(
 					),
 				),
 			},
-			"/api/hold": { POST: guarded(hold) },
-			"/api/release": { POST: guarded(release) },
 			"/api/file": guarded(file),
 			"/api/paths": guarded(paths),
 			"/api/todos": { POST: guarded(addTodo) },
@@ -399,6 +388,7 @@ export async function dev(
 				PATCH: guarded(updateTodo),
 				DELETE: guarded(removeTodo),
 			},
+			"/api/todos/:id/position": { PUT: guarded(moveTodo) },
 			"/events": guarded(async () => events()),
 		},
 		fetch: () => new Response("not found", { status: 404 }),

@@ -4,14 +4,7 @@ import {
 	SquareCheckIcon,
 	SquareIcon,
 } from "lucide-react";
-import {
-	type JSX,
-	type KeyboardEvent,
-	type ReactNode,
-	useEffect,
-	useState,
-} from "react";
-import { Button } from "#dev/components/ui/button.tsx";
+import { type JSX, type KeyboardEvent, useState } from "react";
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -24,54 +17,42 @@ import {
 	ToggleGroupItem,
 } from "#dev/components/ui/toggle-group.tsx";
 import type { Question } from "../plan";
-import { hold, release } from "./api";
 import { AttachButton, FileList, useFiles } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
-
-/** How often something open to edit renews its hold, well inside `EDIT_MS`. */
-const HOLD_EVERY_MS = 60_000;
 
 /** What a person composed: picks, words and files. */
 export interface Composed {
 	choices: string[];
 	text: string;
-	/** New files to attach. */
+	/** Files to attach. */
 	files: File[];
-	/** Paths of files already stored to keep. */
-	keep: string[];
 }
 
 /**
  * A box to write a reply or a message in: the question's choices when it
- * offers them, words with `@` for a file, and attachments. Starts from what
- * was sent before, so sending again changes it rather than starting over.
+ * offers them, words with `@` for a file, and attachments.
  */
 export function Composer({
 	task,
 	question = null,
-	initial,
 	label,
 	placeholder,
 	send,
 	onDone,
-	withdraw,
 }: {
 	/** Whose tree `@` lists. */
 	task: string;
 	/** The question a reply answers, for its choices. */
 	question?: Question | null;
-	initial?: Partial<Composed>;
-	/** What the button says: `Send`, `Update`. */
+	/** What the button says: `Send`, `Request changes`. */
 	label: string;
 	placeholder: string;
 	send: (composed: Composed) => Promise<void>;
 	onDone: () => void;
-	/** Takes back what was sent, when there is something to take back. */
-	withdraw?: () => Promise<void>;
 }): JSX.Element {
-	const [choices, setChoices] = useState<string[]>(initial?.choices ?? []);
-	const [text, setText] = useState(initial?.text ?? "");
-	const files = useFiles(initial?.keep ?? []);
+	const [choices, setChoices] = useState<string[]>([]);
+	const [text, setText] = useState("");
+	const files = useFiles([]);
 	const mentions = useMentions<HTMLTextAreaElement>({ task, text, setText });
 	const [sending, setSending] = useState(false);
 	const offers = (question?.choices.length ?? 0) > 0;
@@ -98,10 +79,7 @@ export function Composer({
 		if (!ready || sending) {
 			return;
 		}
-		void run(
-			() => send({ choices, text, files: files.files, keep: files.keep }),
-			"Not sent",
-		);
+		void run(() => send({ choices, text, files: files.files }), "Not sent");
 	};
 
 	const keys = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -132,7 +110,7 @@ export function Composer({
 						onPaste={files.paste}
 						onKeyDown={keys}
 						rows={offers ? 2 : 3}
-						autoFocus={!offers && initial === undefined}
+						autoFocus={!offers}
 					/>
 					<InputGroupAddon align="block-end" className="justify-between">
 						<AttachButton files={files} />
@@ -148,65 +126,8 @@ export function Composer({
 				</InputGroup>
 			</MentionAnchor>
 			<FileList files={files} />
-			{withdraw && (
-				<Button
-					variant="ghost"
-					size="sm"
-					className="self-start text-muted-foreground"
-					disabled={sending}
-					onClick={() => void run(withdraw, "Not withdrawn")}
-				>
-					Withdraw
-				</Button>
-			)}
 		</div>
 	);
-}
-
-/**
- * Something sent and not yet read, opened to change: held while open, so its
- * agent cannot read it half-edited, and let go on close. Shows `children` once
- * held, or why it could not be.
- */
-export function Held({
-	task,
-	id,
-	children,
-}: {
-	task: string;
-	id: string;
-	children: ReactNode;
-}): JSX.Element {
-	const [held, setHeld] = useState<"holding" | "held" | string>("holding");
-
-	useEffect(() => {
-		let live = true;
-		const renewal = () =>
-			hold(task, id).then(
-				() => live && setHeld("held"),
-				(error: unknown) =>
-					live &&
-					setHeld(error instanceof Error ? error.message : String(error)),
-			);
-		void renewal();
-		const renew = setInterval(() => void renewal(), HOLD_EVERY_MS);
-		return () => {
-			live = false;
-			clearInterval(renew);
-			// Sent or not, the hold ends with the sheet. Sending already let go,
-			// and letting go twice is harmless.
-			void release(task, id).catch(() => undefined);
-		};
-	}, [task, id]);
-
-	// A beat at most: the hold is one small write.
-	if (held === "holding") {
-		return <div className="h-24" />;
-	}
-	if (held !== "held") {
-		return <p className="text-muted-foreground text-sm">{held}</p>;
-	}
-	return <>{children}</>;
 }
 
 /**

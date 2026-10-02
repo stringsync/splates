@@ -1,10 +1,9 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	GitBranchIcon,
-	InboxIcon,
 	ListTodoIcon,
 	type LucideIcon,
-	SendIcon,
+	OctagonPauseIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useState, useSyncExternalStore } from "react";
 import {
@@ -15,15 +14,13 @@ import {
 } from "#dev/components/ui/tabs.tsx";
 import { Toaster } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { Banner } from "./banner";
+import { Blocked } from "./blocked";
 import { Feed } from "./feed";
-import { Inbox, Sent, waiting } from "./inbox";
 import { Tasks } from "./tasks";
 import { Todos } from "./todos";
 
 const TABS: { value: string; label: string; Icon: LucideIcon }[] = [
-	{ value: "inbox", label: "Inbox", Icon: InboxIcon },
-	{ value: "sent", label: "Sent", Icon: SendIcon },
+	{ value: "blocked", label: "Blocked", Icon: OctagonPauseIcon },
 	{ value: "todos", label: "Todos", Icon: ListTodoIcon },
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
 ];
@@ -62,7 +59,7 @@ export function App(): JSX.Element {
 		["changed"],
 	);
 
-	const open = snapshot === null ? 0 : waiting(snapshot).length;
+	const open = snapshot?.blocked.length ?? 0;
 	// The tab says what waits on you, so a phone's tab switcher does too.
 	useEffect(() => {
 		const repo = snapshot?.repo ?? "arbor";
@@ -98,10 +95,9 @@ export function App(): JSX.Element {
 							</span>
 						)}
 					</header>
-					{snapshot !== null && <Banner snapshot={snapshot} />}
 					{snapshot === null ? null : (
 						<Tabs
-							defaultValue="inbox"
+							defaultValue="blocked"
 							orientation={wide ? "vertical" : "horizontal"}
 							className="gap-6"
 						>
@@ -130,7 +126,7 @@ export function App(): JSX.Element {
 											<>
 												<Icon />
 												{label}
-												{value === "inbox" && open > 0 && (
+												{value === "blocked" && open > 0 && (
 													<span className="ml-auto text-muted-foreground text-xs tabular-nums">
 														{open}
 													</span>
@@ -140,7 +136,7 @@ export function App(): JSX.Element {
 											<>
 												<span className="relative">
 													<Icon className="size-5" />
-													{value === "inbox" && open > 0 && (
+													{value === "blocked" && open > 0 && (
 														<span className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-primary px-1 text-[0.625rem] text-primary-foreground tabular-nums leading-4">
 															{open}
 														</span>
@@ -152,11 +148,8 @@ export function App(): JSX.Element {
 									</TabsTrigger>
 								))}
 							</TabsList>
-							<TabsContent value="inbox">
-								<Inbox snapshot={snapshot} />
-							</TabsContent>
-							<TabsContent value="sent">
-								<Sent snapshot={snapshot} />
+							<TabsContent value="blocked">
+								<Blocked snapshot={snapshot} />
 							</TabsContent>
 							<TabsContent value="todos">
 								<Todos snapshot={snapshot} />

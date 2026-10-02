@@ -1,21 +1,20 @@
 import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
-import { type Inbox, openQuestions } from "./inbox";
-import type { Replies } from "./replies";
+import { type Blocker, blockers } from "./blocked";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState, Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Everything one page shows: `list` and `show` for each task, every question
- * each one asked however it stands, and `todo list`.
+ * Everything one page shows: `list` and `show` for each task, the questions
+ * escalated tasks ask, and `todo list`.
  */
 export interface Snapshot {
 	/** The repository's directory name, so a page among many says whose it is. */
 	repo: string;
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
-	inbox: Inbox;
+	blocked: Blocker[];
 	todos: TodoState[];
 	tasks: Details[];
 }
@@ -27,12 +26,10 @@ export interface Snapshot {
 export async function snapshot({
 	service,
 	todos,
-	replies,
 	fs,
 }: {
 	service: WorktreeService;
 	todos: Todos;
-	replies: Replies;
 	fs: Fs;
 }): Promise<Snapshot> {
 	const details = new TaskDetails({ fs });
@@ -43,11 +40,7 @@ export async function snapshot({
 	return {
 		repo: basename(service.git.root),
 		todoStalenessMs: service.config.todoStalenessMs,
-		// Answered and checked off too: each stays under its task to follow up.
-		inbox: await openQuestions(
-			{ service, fs, replies },
-			{ replied: true, done: true },
-		),
+		blocked: await blockers({ service, fs }),
 		todos: (await todos.all()).map((todo) => todo.state),
 		tasks,
 	};
@@ -58,9 +51,9 @@ export async function snapshot({
  * `age` ticks every minute, and hashing it would push to every open page for
  * nothing.
  */
-export function fingerprint({ inbox, todos, tasks }: Snapshot): string {
+export function fingerprint({ blocked, todos, tasks }: Snapshot): string {
 	return JSON.stringify([
-		inbox.questions,
+		blocked,
 		todos,
 		tasks.map((task) => [
 			task.task,

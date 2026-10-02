@@ -10,7 +10,12 @@ import { table } from "./table";
 /** What a todo is on disk: one file apiece, so two agents never rewrite one. */
 export interface TodoState {
 	id: number;
+	/** What is left to do, in a line. */
+	subject: string;
+	/** Whatever more there is to say about it, or empty when the line is enough. */
 	text: string;
+	/** Where it stands in the list, 1 at the top: the one to pick up first. */
+	position: number;
 	/** The task it came up in, or null when a person added it from the main tree. */
 	from: string | null;
 	createdAt: string;
@@ -20,14 +25,27 @@ export interface TodoState {
 	files: string[];
 }
 
-/** A todo's words and files changed: new ones added, some of the old kept. */
+/** A todo's words, place or files changed: new ones added, some of the old kept. */
 export interface TodoChange {
-	/** New words; the old ones stay when this is absent. */
+	/** A new line; the old one stays when this is absent. */
+	subject?: string;
+	/** New detail, empty for none; the old stays when this is absent. */
 	text?: string;
+	/** Where to move it in the list; it stays put when this is absent. */
+	position?: number;
 	/** Files to add. */
 	files?: Attachment[];
 	/** The paths of the files it has now to keep; absent keeps them all. */
 	keep?: string[];
+}
+
+/** What a new todo has besides its subject, all of it optional. */
+export interface TodoNew {
+	/** Whatever more there is to say about it. */
+	text?: string;
+	files?: Attachment[];
+	/** Where it goes in the list, pushing those from there down; the bottom by default. */
+	position?: number;
 }
 
 /**
@@ -46,8 +64,16 @@ export class Todo {
 		return this.state.id;
 	}
 
+	get subject(): string {
+		return this.state.subject;
+	}
+
 	get text(): string {
 		return this.state.text;
+	}
+
+	get position(): number {
+		return this.state.position;
 	}
 
 	get from(): string | null {
@@ -68,20 +94,25 @@ export class Todo {
 	}
 
 	/** Marks it as the work of `task`, refusing one another task already has. */
-	async take(task: string): Promise<Todo> {
-		if (this.takenBy !== null && this.takenBy !== task) {
-			fail(
-				"exists",
-				`todo ${this.id} is already taken by '${this.takenBy}': pick another from \`arbor todo list\``,
-				{ todo: this.id, takenBy: this.takenBy },
-			);
-		}
-		return this.todos.save({ ...this.state, takenBy: task });
+	take(task: string): Promise<Todo> {
+		return this.todos.revise(this.id, (state) => {
+			if (state.takenBy !== null && state.takenBy !== task) {
+				fail(
+					"exists",
+					`todo ${this.id} is already taken by '${state.takenBy}': pick another from \`arbor todo list\``,
+					{ todo: this.id, takenBy: state.takenBy },
+				);
+			}
+			return { ...state, takenBy: task };
+		});
 	}
 
 	/** Puts it back on the list, as when the task that took it is removed. */
 	release(): Promise<Todo> {
-		return this.todos.save({ ...this.state, takenBy: null });
+		return this.todos.revise(this.id, (state) => ({
+			...state,
+			takenBy: null,
+		}));
 	}
 
 	get files(): string[] {
@@ -93,13 +124,19 @@ export class Todo {
 	}
 
 	/**
-	 * Says what is left to do in other words, or with other files, keeping its
-	 * id and history.
+	 * Says what is left to do in other words, with other files, or higher or
+	 * lower in the list, keeping its id and history.
 	 */
-	async update({ text, files = [], keep }: TodoChange): Promise<Todo> {
-		const trimmed = text?.trim() ?? this.text;
-		if (trimmed === "") {
-			fail("usage", "a todo needs text: say what is left to do", {
+	async update({
+		subject,
+		text,
+		position,
+		files = [],
+		keep,
+	}: TodoChange): Promise<Todo> {
+		const words = wording(subject ?? this.subject, text ?? this.text);
+		if (words.subject === "") {
+			fail("usage", "a todo needs a subject: say what is left to do", {
 				todo: this.id,
 			});
 		}
@@ -111,11 +148,14 @@ export class Todo {
 			this.files.filter((path) => !kept.includes(path)),
 		);
 		const added = await this.attachments.store(files);
-		return this.todos.save({
-			...this.state,
-			text: trimmed,
+		const updated = await this.todos.revise(this.id, (state) => ({
+			...state,
+			...words,
 			files: [...kept, ...added],
-		});
+		}));
+		return position === undefined
+			? updated
+			: this.todos.move(this.id, position);
 	}
 
 	async remove(): Promise<void> {
@@ -138,7 +178,11 @@ export class Todos {
 
 	constructor(
 		readonly dir: string,
-		/** Held while numbering a new todo, so two agents never share an id. */
+		/**
+		 * Held while numbering a new todo, so two agents never share an id, and
+		 * while writing one, so a move renumbering the rest never loses to a
+		 * write of a position it just changed.
+		 */
 		private readonly lock: Lock,
 		opts: TodosOptions = {},
 	) {
@@ -157,60 +201,71 @@ export class Todos {
 	}
 
 	async add(
-		text: string,
+		subject: string,
 		from: string | null,
-		files: Attachment[] = [],
+		{ text = "", files = [], position }: TodoNew = {},
 	): Promise<Todo> {
-		const trimmed = text.trim();
-		if (trimmed === "") {
-			fail("usage", "a todo needs text: say what is left to do", {});
+		const words = wording(subject, text);
+		if (words.subject === "") {
+			fail("usage", "a todo needs a subject: say what is left to do", {});
 		}
 		await this.fs.mkdir(this.dir);
-		await this.lock.acquire();
-		try {
+		return this.locked(async () => {
 			// Numbered past every id handed out before, removed ones included, so
 			// a number never comes back meaning something else.
 			const id = (await this.lastId()) + 1;
 			await this.fs.write(`${this.dir}/last`, String(id));
-			return await this.save({
+			const todo = await this.save({
 				id,
-				text: trimmed,
+				...words,
+				position: 0,
 				from,
 				createdAt: new Date().toISOString(),
 				takenBy: null,
 				files: await this.attachments(id).store(files),
 			});
-		} finally {
-			await this.lock.release();
-		}
+			return this.place(todo.state, position);
+		});
 	}
 
-	/** Oldest first. A file that will not parse is skipped rather than fatal. */
+	/**
+	 * Top of the list first. A file that will not parse is skipped rather than
+	 * fatal, and positions are counted again from 1 as they are read, so a
+	 * gap or a tie left by a crash, or a todo saved before they had any (it
+	 * goes below those that do, oldest first), never shows.
+	 */
 	async all(): Promise<Todo[]> {
-		const entries = await this.fs.readdir(this.dir).catch(() => []);
-		const todos: Todo[] = [];
-		for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
-			const state = await this.read(`${this.dir}/${entry}`);
-			if (state) {
-				todos.push(new Todo(this, state));
-			}
-		}
-		return todos.sort((left, right) => left.id - right.id);
+		return (await this.stored()).map(
+			(state, i) => new Todo(this, { ...state, position: i + 1 }),
+		);
 	}
 
 	async find(id: number): Promise<Todo> {
-		const state = await this.read(this.path(id));
-		if (!state) {
-			fail("not_found", `no todo ${id}: run \`arbor todo list\``, {
-				todo: id,
-			});
-		}
-		return new Todo(this, state);
+		return (await this.all()).find((todo) => todo.id === id) ?? missing(id);
 	}
 
 	/** The todos `task` has taken; what a merge or remove settles. */
 	async takenBy(task: string): Promise<Todo[]> {
 		return (await this.all()).filter((todo) => todo.takenBy === task);
+	}
+
+	/**
+	 * Puts a todo at `position`, 1 at the top, past the bottom meaning the
+	 * bottom, and numbers the rest around it.
+	 */
+	async move(id: number, position: number): Promise<Todo> {
+		return this.locked(async () => this.place(await this.state(id), position));
+	}
+
+	/**
+	 * @internal Rewrites one todo as it stands on disk now, under the lock, so
+	 * a change to its words or who has it never undoes a move made meanwhile.
+	 */
+	async revise(
+		id: number,
+		change: (state: TodoState) => TodoState,
+	): Promise<Todo> {
+		return this.locked(async () => this.save(change(await this.state(id))));
 	}
 
 	/** @internal Writes one todo. Rename makes the swap atomic for readers. */
@@ -222,9 +277,77 @@ export class Todos {
 		return new Todo(this, state);
 	}
 
-	/** @internal */
+	/** @internal Removes one, moving those below it up to close the gap. */
 	async delete(id: number): Promise<void> {
-		await this.fs.rm(this.path(id), { force: true });
+		await this.locked(async () => {
+			await this.fs.rm(this.path(id), { force: true });
+			await this.renumber(await this.stored());
+		});
+	}
+
+	private async locked<T>(run: () => Promise<T>): Promise<T> {
+		await this.lock.acquire();
+		try {
+			return await run();
+		} finally {
+			await this.lock.release();
+		}
+	}
+
+	/** One todo as it stands on disk; call it under the lock. */
+	private async state(id: number): Promise<TodoState> {
+		const state = await this.read(this.path(id));
+		return state ?? missing(id);
+	}
+
+	/**
+	 * Slots `state` in at `position` among the rest and saves whichever moved.
+	 * Call it under the lock.
+	 */
+	private async place(
+		state: TodoState,
+		position: number | undefined,
+	): Promise<Todo> {
+		if (
+			position !== undefined &&
+			(!Number.isInteger(position) || position <= 0)
+		) {
+			fail("usage", `'${position}' is not a position: 1 is the top`, {
+				todo: state.id,
+				position,
+			});
+		}
+		const rest = (await this.stored()).filter((other) => other.id !== state.id);
+		const at = Math.min((position ?? Infinity) - 1, rest.length);
+		const order = [...rest.slice(0, at), state, ...rest.slice(at)];
+		await this.renumber(order);
+		return this.find(state.id);
+	}
+
+	/** Every todo in list order, with the positions it has on disk. */
+	private async stored(): Promise<TodoState[]> {
+		const entries = await this.fs.readdir(this.dir).catch(() => []);
+		const states: TodoState[] = [];
+		for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
+			const state = await this.read(`${this.dir}/${entry}`);
+			if (state) {
+				states.push(state);
+			}
+		}
+		return states.sort(
+			(left, right) =>
+				(left.position || Infinity) - (right.position || Infinity) ||
+				left.id - right.id,
+		);
+	}
+
+	/** Saves each todo in `order` whose position on disk is not its place there. */
+	private async renumber(order: TodoState[]): Promise<void> {
+		for (const [i, state] of order.entries()) {
+			if (state.position !== i + 1) {
+				await this.save({ ...state, position: i + 1 });
+			}
+		}
 	}
 
 	private path(id: number): string {
@@ -243,15 +366,49 @@ export class Todos {
 			return null;
 		}
 		try {
-			// One saved before todos took files has none, rather than no list.
-			const state = JSON.parse(raw) as Omit<TodoState, "files"> & {
+			// One saved before todos took files has none, rather than no list;
+			// one saved before they had subjects has its first line as one; and
+			// one saved before they had positions has 0 until `all` places it.
+			const state = JSON.parse(raw) as Omit<
+				TodoState,
+				"files" | "subject" | "position"
+			> & {
 				files?: string[];
+				subject?: string;
+				position?: number;
 			};
-			return { ...state, files: state.files ?? [] };
+			return {
+				...state,
+				...(state.subject === undefined
+					? wording(state.text, "")
+					: { subject: state.subject, text: state.text }),
+				position: state.position ?? 0,
+				files: state.files ?? [],
+			};
 		} catch {
 			return null;
 		}
 	}
+}
+
+function missing(id: number): never {
+	fail("not_found", `no todo ${id}: run \`arbor todo list\``, { todo: id });
+}
+
+/**
+ * A subject and its detail, trimmed. A subject running past one line keeps
+ * only the first, the rest leading the detail, so the list stays one line a
+ * todo however it was written.
+ */
+function wording(
+	subject: string,
+	text: string,
+): { subject: string; text: string } {
+	const [first = "", ...rest] = subject.trim().split("\n");
+	return {
+		subject: first.trim(),
+		text: [rest.join("\n").trim(), text.trim()].filter(Boolean).join("\n\n"),
+	};
 }
 
 /** What a finished task should be followed by, and what should just go. */
@@ -263,9 +420,10 @@ export interface Recommendation {
 }
 
 /**
- * Which todo to take up after `task`: its own first, since whoever just
- * finished it knows that context best, then the longest waiting. Todos past
- * `staleness` are never recommended, only offered for removal.
+ * Which todo to take up after `task`: one that came up in it first, since
+ * whoever just finished it knows that context best, then the open one highest
+ * on the list, which is how whoever keeps the list says what matters most.
+ * Todos past `staleness` are never recommended, only offered for removal.
  */
 export async function recommend(
 	todos: Todos,
@@ -274,10 +432,9 @@ export async function recommend(
 ): Promise<Recommendation> {
 	const open = (await todos.all())
 		.filter((todo) => todo.takenBy === null)
+		// Stable, so each half keeps its place in the list.
 		.sort(
-			(left, right) =>
-				Number(right.from === task) - Number(left.from === task) ||
-				left.createdAt.getTime() - right.createdAt.getTime(),
+			(left, right) => Number(right.from === task) - Number(left.from === task),
 		);
 	return {
 		next: open.find((todo) => todo.waited <= staleness) ?? null,
@@ -291,7 +448,7 @@ export function recommendation({ next, stale }: Recommendation): string[] {
 	if (next) {
 		lines.push(
 			"",
-			`${color.bold("next todo")} ${next.id}: ${next.text}`,
+			`${color.bold("next todo")} ${next.id}: ${next.subject}`,
 			`  ${from(next)}, waiting ${age(next.state.createdAt)}`,
 			`  start it: arbor add <task> --todo ${next.id}`,
 		);
@@ -303,7 +460,7 @@ export function recommendation({ next, stale }: Recommendation): string[] {
 		);
 		for (const todo of stale) {
 			lines.push(
-				`  ${todo.id}: ${todo.text} (${age(todo.state.createdAt)})  arbor todo remove ${todo.id}`,
+				`  ${todo.id}: ${todo.subject} (${age(todo.state.createdAt)})  arbor todo remove ${todo.id}`,
 			);
 		}
 	}
@@ -324,16 +481,27 @@ export interface TodoFileOptions {
 	files?: string[];
 }
 
+export interface TodoAddOptions extends TodoFileOptions {
+	/** Whatever more there is to say than the subject. */
+	text?: string;
+	/** Where it goes in the list, 1 at the top; the bottom by default. */
+	position?: number;
+}
+
 export async function todoAdd(
 	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
-	text: string,
+	subject: string,
 	from: string | null,
-	{ files = [] }: TodoFileOptions = {},
+	{ text, files = [], position }: TodoAddOptions = {},
 ): Promise<Todo> {
-	const todo = await deps.todos.add(text, from, await readFiles(deps, files));
+	const todo = await deps.todos.add(subject, from, {
+		text,
+		files: await readFiles(deps, files),
+		position,
+	});
 	deps.log.info(
 		[
-			`${color.green("added")} todo ${todo.id}`,
+			`${color.green("added")} todo ${todo.id} at position ${todo.position}`,
 			...todo.files.map((path) => `  ${path}`),
 			`  start it: arbor add <task> --todo ${todo.id}`,
 		].join("\n"),
@@ -357,15 +525,16 @@ export async function todoList(
 		return;
 	}
 	if (all.length === 0) {
-		log.info("no todos: `arbor todo add <text>` defers work for later");
+		log.info("no todos: `arbor todo add <subject>` defers work for later");
 		return;
 	}
 	log.info(
 		table(
-			["ID", "TODO", "FROM", "AGE", "TAKEN BY", "FILES"],
+			["POS", "ID", "SUBJECT", "FROM", "AGE", "TAKEN BY", "FILES"],
 			all.map((todo) => [
+				String(todo.position),
 				String(todo.id),
-				todo.text,
+				todo.subject,
 				todo.from ?? "",
 				age(todo.state.createdAt),
 				todo.takenBy ?? "",
@@ -375,9 +544,43 @@ export async function todoList(
 	);
 }
 
+export interface TodoShowOptions {
+	/** Print the todo as JSON instead of prose. */
+	json?: boolean;
+}
+
+/** One todo in full: what `todo list` shows of it, its files, and its detail. */
+export async function todoShow(
+	{ todos, log }: { todos: Todos; log: Logger },
+	id: number,
+	{ json = false }: TodoShowOptions = {},
+): Promise<void> {
+	const todo = await todos.find(id);
+	if (json) {
+		log.info(JSON.stringify(todo.state, null, "\t"));
+		return;
+	}
+	const lines = [
+		`${color.bold(`todo ${todo.id}`)} ${todo.subject}`,
+		`  position:  ${todo.position}`,
+		`  from:      ${todo.from ?? "added by hand"}`,
+		`  taken by:  ${todo.takenBy ?? "nobody yet"}`,
+		`  age:       ${age(todo.state.createdAt)}`,
+		...todo.files.map((path) => `  file:      ${path}`),
+	];
+	if (todo.text !== "") {
+		lines.push("", todo.text);
+	}
+	log.info(lines.join("\n"));
+}
+
 export interface TodoUpdateOptions extends TodoFileOptions {
-	/** New words; the old ones stay when this is absent or empty. */
+	/** A new line; the old one stays when this is absent or empty. */
+	subject?: string;
+	/** New detail; the old stays when this is absent or empty. */
 	text?: string;
+	/** Where to move it in the list, 1 at the top; it stays put when absent. */
+	position?: number;
 	/** Attached files to drop, by path or by the name they were stored under. */
 	removeFiles?: string[];
 }
@@ -385,7 +588,13 @@ export interface TodoUpdateOptions extends TodoFileOptions {
 export async function todoUpdate(
 	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
 	id: number,
-	{ text, files = [], removeFiles = [] }: TodoUpdateOptions = {},
+	{
+		subject,
+		text,
+		position,
+		files = [],
+		removeFiles = [],
+	}: TodoUpdateOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.find(id);
 	const matches = (path: string, named: string) =>
@@ -404,13 +613,15 @@ export async function todoUpdate(
 		removeFiles.some((named) => matches(path, named)),
 	);
 	const updated = await todo.update({
+		subject: subject || undefined,
 		text: text || undefined,
+		position,
 		files: await readFiles(deps, files),
 		keep: todo.files.filter((path) => !dropped.includes(path)),
 	});
 	deps.log.info(
 		[
-			`${color.green("updated")} todo ${id}: ${updated.text}`,
+			`${color.green("updated")} todo ${id} at position ${updated.position}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
 		].join("\n"),
 	);
@@ -444,7 +655,7 @@ export async function todoTake(
 	log.info(
 		[
 			...taken.map(
-				(todo) => `${color.green("took")} todo ${todo.id}: ${todo.text}`,
+				(todo) => `${color.green("took")} todo ${todo.id}: ${todo.subject}`,
 			),
 			`  add ${taken.length === 1 ? "it" : "them"} to the Goal in ARBOR.md; merging removes ${taken.length === 1 ? "it" : "them"}`,
 		].join("\n"),
@@ -476,7 +687,9 @@ export async function todoRelease(
 	const released = await Promise.all(found.map((todo) => todo.release()));
 	log.info(
 		released
-			.map((todo) => `${color.green("released")} todo ${todo.id}: ${todo.text}`)
+			.map(
+				(todo) => `${color.green("released")} todo ${todo.id}: ${todo.subject}`,
+			)
 			.join("\n"),
 	);
 	return released;
@@ -496,5 +709,5 @@ export async function todoRemove(
 ): Promise<void> {
 	const todo = await todos.find(id);
 	await todo.remove();
-	log.info(`${color.green("removed")} todo ${id}: ${todo.text}`);
+	log.info(`${color.green("removed")} todo ${id}: ${todo.subject}`);
 }

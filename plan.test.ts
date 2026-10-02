@@ -78,29 +78,29 @@ describe("checkPlan", () => {
 
 	it("wants an escalation to leave numbered items behind", () => {
 		expect(checkPlan(GOOD, { task: "alpha", escalated: true })).toEqual([
-			"escalated with no ## Blocked section: add `- [ ] Q1.` items for what the reviewer must do",
+			"escalated with no ## Blocked section: add `- [ ] 1.` items for what the reviewer must do",
 		]);
 		const vague = `${GOOD}\n## Blocked\nIs the new banner the right green?\n`;
 		expect(checkPlan(vague, { task: "alpha", escalated: true })).toEqual([
-			"## Blocked lists nothing: add `- [ ] Q1.` items for what the reviewer must do",
+			"## Blocked lists nothing: add `- [ ] 1.` items for what the reviewer must do",
 		]);
-		const asked = `${GOOD}\n## Blocked\n- [ ] Q1. Open /tmp/shot.png. Confirm the banner is green.\n`;
+		const asked = `${GOOD}\n## Blocked\n- [ ] 1. Open /tmp/shot.png. Confirm the banner is green.\n`;
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
-		const detailed = `${GOOD}\n## Blocked\n- [ ] Q1. 🎨 Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
+		const detailed = `${GOOD}\n## Blocked\n- [ ] 1. 🎨 Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
 		expect(checkPlan(detailed, { task: "alpha", escalated: true })).toEqual([]);
 	});
 
 	it("flags open items once the task is no longer escalated", () => {
 		const items =
-			"- [x] Q1. Run the tests. → pass\n- [ ] Q2. Decide: keep or drop?\n- [ ] Q3. Open /tmp/a.png.\n";
+			"- [x] 1. Run the tests. → pass\n- [ ] 2. Decide: keep or drop?\n- [ ] 3. Open /tmp/a.png.\n";
 		const blocked = `${GOOD}\n## Blocked\n${items}`;
 		expect(checkPlan(blocked, { task: "alpha" })).toEqual([
-			"## Blocked has open Q2, Q3: ask the reviewer before merging",
+			"## Blocked has open questions 2, 3: ask the reviewer before merging",
 		]);
 		const answered = `${GOOD}\n## Blocked\n${items.replaceAll("- [ ]", "- [x]")}`;
 		expect(checkPlan(answered, { task: "alpha" })).toEqual([]);
 		// Answered but unchecked is the agent's to act on, not the reviewer's.
-		const acting = `${GOOD}\n## Blocked\n- [ ] Q1. Keep it? → yes\n  → and rename it\n`;
+		const acting = `${GOOD}\n## Blocked\n- [ ] 1. Keep it? → yes\n  → and rename it\n`;
 		expect(checkPlan(acting, { task: "alpha" })).toEqual([]);
 	});
 
@@ -146,17 +146,17 @@ describe("plannedFiles", () => {
 const BLOCKED = `${GOOD}
 ## Blocked
 
-- [x] Q1. Run the tests. Does it fit? → pass
-- [ ] Q2. 🎨 Does the header fit? → no, too wide
-- [ ] Q3. Decide: keep or drop?
+- [x] 1. Run the tests. Does it fit? → pass
+- [ ] 2. 🎨 Does the header fit? → no, too wide
+- [ ] 3. Decide: keep or drop?
   - not a question of its own
-- [ ] Q4. Confirm the copy.
+- [ ] 4. Confirm the copy.
 `;
 
 /** A question as `questions` reads it, with nothing under it. */
 function bare(overrides: Partial<Question>): Question {
 	return {
-		number: "Q1",
+		number: "1",
 		done: false,
 		text: "",
 		body: "",
@@ -171,40 +171,50 @@ function bare(overrides: Partial<Question>): Question {
 }
 
 describe("questions", () => {
+	it("still reads a plan numbered the old way, Q1", () => {
+		const [asked] = questions("## Blocked\n\n- [ ] Q3. Keep it? → yes\n");
+
+		expect(asked).toMatchObject({
+			number: "3",
+			text: "Keep it?",
+			reply: "yes",
+		});
+		expect(withReply("## Blocked\n\n- [ ] Q3. Keep it?\n", "3", "no")).toBe(
+			"## Blocked\n\n- [ ] Q3. Keep it? → no\n",
+		);
+	});
+
 	it("reads each numbered item with its reply and what is indented under it", () => {
 		expect(questions(BLOCKED)).toEqual([
 			bare({
-				number: "Q1",
+				number: "1",
 				done: true,
 				text: "Run the tests. Does it fit?",
 				reply: "pass",
 			}),
 			bare({
-				number: "Q2",
+				number: "2",
 				text: "🎨 Does the header fit?",
 				reply: "no, too wide",
 			}),
 			bare({
-				number: "Q3",
+				number: "3",
 				text: "Decide: keep or drop?",
 				body: "- not a question of its own",
 			}),
-			bare({ number: "Q4", text: "Confirm the copy." }),
+			bare({ number: "4", text: "Confirm the copy." }),
 		]);
 	});
 
 	it("reads only ## Blocked", () => {
-		const elsewhere = GOOD.replace(
-			"- [ ] wire it up",
-			"- [ ] Q1. Not blocked.",
-		);
+		const elsewhere = GOOD.replace("- [ ] wire it up", "- [ ] 1. Not blocked.");
 		expect(questions(elsewhere)).toEqual([]);
-		const after = `${BLOCKED}\n## Notes\n- [ ] Q9. Also not blocked.\n`;
+		const after = `${BLOCKED}\n## Notes\n- [ ] 9. Also not blocked.\n`;
 		expect(questions(after).map((found) => found.number)).toEqual([
-			"Q1",
-			"Q2",
-			"Q3",
-			"Q4",
+			"1",
+			"2",
+			"3",
+			"4",
 		]);
 	});
 
@@ -212,7 +222,7 @@ describe("questions", () => {
 		const plan = `${GOOD}
 ## Blocked
 
-- [ ] Q1. 🗄️ Does this migration look right?
+- [ ] 1. 🗄️ Does this migration look right?
   It runs before the deploy.
 
   \`\`\`sql
@@ -223,7 +233,7 @@ describe("questions", () => {
   ![before](/tmp/before.png) ![after](/tmp/after.png)
   - (a) Ship it
 Prose back at the margin ends it.
-  - (b) not a choice of Q1
+  - (b) not a choice of 1
 `;
 		expect(questions(plan)).toEqual([
 			bare({
@@ -249,16 +259,16 @@ Prose back at the margin ends it.
 const CHOICES = `${GOOD}
 ## Blocked
 
-- [ ] Q1. How do old sessions move over?
+- [ ] 1. How do old sessions move over?
   - (a) Force everyone to sign in again
   - (b) Migrate on next login
-- [ ] Q2. Which table? → b (users): and backfill
+- [ ] 2. Which table? → b (users): and backfill
   - (a) sessions
   - (b) users
-- [ ] Q3. Anything else? → a bit more logging
-- [ ] Q4. Pick one → c
+- [ ] 3. Anything else? → a bit more logging
+- [ ] 4. Pick one → c
   - (a) left
-- [ ] Q5. Where should it notify? → c (Push), a: and log it
+- [ ] 5. Where should it notify? → c (Push), a: and log it
   - [a] Email
   - [b] Slack
   - [c] Push
@@ -304,7 +314,7 @@ describe("choices", () => {
 	});
 
 	it("keeps the choices when the question is answered", () => {
-		const replied = withReply(CHOICES, "Q1", "b (Migrate on next login)");
+		const replied = withReply(CHOICES, "1", "b (Migrate on next login)");
 		expect(replied).toContain(
 			"sessions move over? → b (Migrate on next login)\n  - (a) Force",
 		);
@@ -314,33 +324,33 @@ describe("choices", () => {
 
 describe("withReply", () => {
 	it("writes the reply after the arrow, leaving the checkbox open", () => {
-		const replied = withReply(BLOCKED, "Q3", "keep");
-		expect(replied).toContain("- [ ] Q3. Decide: keep or drop? → keep\n");
+		const replied = withReply(BLOCKED, "3", "keep");
+		expect(replied).toContain("- [ ] 3. Decide: keep or drop? → keep\n");
 		expect(replied?.replace(" → keep", "")).toBe(BLOCKED);
 	});
 
 	it("replaces an earlier reply and keeps the answer on one line", () => {
-		const replied = withReply(BLOCKED, "Q2", "pass\nnow it fits");
+		const replied = withReply(BLOCKED, "2", "pass\nnow it fits");
 		expect(replied).toContain(
-			"- [ ] Q2. 🎨 Does the header fit? → pass now it fits\n",
+			"- [ ] 2. 🎨 Does the header fit? → pass now it fits\n",
 		);
 		expect(replied).not.toContain("too wide");
 	});
 
 	it("finds nothing to answer outside ## Blocked", () => {
-		expect(withReply(BLOCKED, "Q9", "yes")).toBeNull();
-		expect(withReply(GOOD, "Q1", "yes")).toBeNull();
+		expect(withReply(BLOCKED, "9", "yes")).toBeNull();
+		expect(withReply(GOOD, "1", "yes")).toBeNull();
 	});
 });
 
 describe("withFollowUp", () => {
 	it("adds a line under everything the question has, and unchecks it", () => {
 		const plan =
-			"## Blocked\n\n- [x] Q1. Keep it? → yes\n  It is old.\n  - (a) Yes\n\n- [ ] Q2. Next?\n";
-		expect(withFollowUp(plan, "Q1", "and rename\nit")).toBe(
-			"## Blocked\n\n- [ ] Q1. Keep it? → yes\n  It is old.\n  - (a) Yes\n  → and rename it\n\n- [ ] Q2. Next?\n",
+			"## Blocked\n\n- [x] 1. Keep it? → yes\n  It is old.\n  - (a) Yes\n\n- [ ] 2. Next?\n";
+		expect(withFollowUp(plan, "1", "and rename\nit")).toBe(
+			"## Blocked\n\n- [ ] 1. Keep it? → yes\n  It is old.\n  - (a) Yes\n  → and rename it\n\n- [ ] 2. Next?\n",
 		);
-		expect(withFollowUp(plan, "Q9", "x")).toBeNull();
+		expect(withFollowUp(plan, "9", "x")).toBeNull();
 	});
 });
 
@@ -351,9 +361,9 @@ describe("withQuestion", () => {
 			"✅ Ready to merge?",
 			"Look at\nthe header.",
 		);
-		expect(added.number).toBe("Q5");
+		expect(added.number).toBe("5");
 		expect(questions(added.plan).at(-1)).toMatchObject({
-			number: "Q5",
+			number: "5",
 			text: "✅ Ready to merge?",
 			body: "Look at\nthe header.",
 		});
@@ -363,16 +373,16 @@ describe("withQuestion", () => {
 	it("makes ## Blocked when there is none", () => {
 		const added = withQuestion(GOOD, "✅ Ready to merge?");
 		expect(added).toEqual({
-			plan: `${GOOD.trimEnd()}\n\n## Blocked\n\n- [ ] Q1. ✅ Ready to merge?\n`,
-			number: "Q1",
+			plan: `${GOOD.trimEnd()}\n\n## Blocked\n\n- [ ] 1. ✅ Ready to merge?\n`,
+			number: "1",
 		});
 	});
 });
 
 describe("questionNumber", () => {
 	it("reads a number however it was typed", () => {
-		for (const raw of ["Q9", "q9", "9", "Q9.", " q9: "]) {
-			expect(questionNumber(raw)).toBe("Q9");
+		for (const raw of ["9", "q9", "Q9", "9.", " q9: "]) {
+			expect(questionNumber(raw)).toBe("9");
 		}
 		expect(questionNumber("nine")).toBeNull();
 		expect(questionNumber("D9")).toBeNull();

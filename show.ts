@@ -19,7 +19,7 @@ export interface Details {
 	age: string | null;
 	escalation: string | null;
 	/**
-	 * While escalated to be approved, the question that asks for it, `Q4`;
+	 * While escalated to be approved, the question that asks for it, `4`;
 	 * null otherwise.
 	 */
 	review: string | null;

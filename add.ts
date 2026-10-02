@@ -14,7 +14,7 @@ export interface AddOptions {
 	/** Branch the task starts from and merges onto. Defaults to the trunk. */
 	base?: string;
 	/**
-	 * The todos this task takes up: their text seeds the plan's Goal, and
+	 * The todos this task takes up: their words seed the plan's Goal, and
 	 * nobody else can take them while the task lives.
 	 */
 	todos?: number[];
@@ -156,20 +156,22 @@ export async function add(
 }
 
 /**
- * Todos as a Goal: each one's words, and each file attached to it by path,
- * which stay readable until the task lands and takes the todo with it. One
- * todo is the Goal as it stands; several are each named by id.
+ * Todos as a Goal: each one's subject and detail, and each file attached to it
+ * by path, which stay readable until the task lands and takes the todo with
+ * it. One todo is the Goal as it stands; several are each named by id.
  */
 function goal(todos: Todo[]): string {
 	return todos
 		.map((todo) => {
-			const text =
-				todos.length === 1 ? todo.text : `Todo ${todo.id}: ${todo.text}`;
-			return todo.files.length === 0
-				? text
-				: [text, "", ...todo.files.map((path) => `Attached: \`${path}\``)].join(
-						"\n",
-					);
+			const subject =
+				todos.length === 1 ? todo.subject : `Todo ${todo.id}: ${todo.subject}`;
+			return [
+				subject,
+				todo.text,
+				todo.files.map((path) => `Attached: \`${path}\``).join("\n"),
+			]
+				.filter(Boolean)
+				.join("\n\n");
 		})
 		.join("\n\n");
 }

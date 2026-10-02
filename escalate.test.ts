@@ -47,28 +47,30 @@ describe("escalate", () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		const plan = join(worktree, PLAN_FILE);
-		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] Q1. Keep it?\n");
+		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] 1. Keep it?\n");
 
 		await expect(
 			escalate(deps, "check the header", worktree, { review: true }),
-		).toBail("blocked", { data: { task: "alpha", blocked: ["Q1"] } });
+		).toBail("blocked", { data: { task: "alpha", blocked: ["1"] } });
 
 		await deps.fs.write(
 			plan,
-			"# alpha\n\n## Blocked\n\n- [x] Q1. Keep it? → yes\n",
+			"# alpha\n\n## Blocked\n\n- [x] 1. Keep it? → yes\n",
 		);
 		await escalate(deps, "check the header at 390px", worktree, {
 			review: true,
 		});
 
 		expect(questions(await deps.fs.read(plan)).at(-1)).toMatchObject({
-			number: "Q2",
+			number: "2",
 			text: REVIEW_SUBJECT,
 			body: "check the header at 390px",
 		});
 		expect(
 			(await deps.service.find("alpha")).state?.escalations?.at(-1),
-		).toMatchObject({ reason: "check the header at 390px", review: "Q2" });
-		expect(deps.out()).toContain("review:   Q2 asks to approve merging");
+		).toMatchObject({ reason: "check the header at 390px", review: "2" });
+		expect(deps.out()).toContain(
+			"review:   question 2 asks to approve merging",
+		);
 	});
 });

@@ -3,7 +3,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { add } from "./add";
 import { PLAN_FILE } from "./plan";
 import { remove } from "./remove";
-import { holdReply, replyTo } from "./reply";
+import { replyTo } from "./reply";
 import { Testing } from "./testing";
 import { wait } from "./wait";
 
@@ -78,53 +78,55 @@ describe("wait", () => {
 			return plan;
 		}
 
-		it("returns with the replies once every open question has one", async () => {
+		it("returns with the answers once every open question has one", async () => {
 			const plan = await escalated(
-				"- [x] Q1. Run it. → pass",
-				"- [ ] Q2. Open /tmp/a.png. → pass",
-				"- [ ] Q3. Decide: keep or drop?",
+				"- [x] 1. Run it. → pass",
+				"- [ ] 2. Open /tmp/a.png. → pass",
+				"- [ ] 3. Decide: keep or drop?",
 			);
 
 			const waiting = wait(deps, "alpha", { ...PATIENT, answered: true });
 			await sleep(Duration.ms(20));
-			await replyTo(deps, "alpha", "Q3", { text: "keep" });
+			await replyTo(deps, "alpha", "3", { text: "keep" });
 			await waiting;
 
 			expect(deps.out()).toBe(
-				["alpha replied", "  Q3 Decide: keep or drop?", "    → keep"].join(
-					"\n",
-				),
+				[
+					"alpha answered",
+					"  2. Open /tmp/a.png.",
+					"    → pass",
+					"  3. Decide: keep or drop?",
+					"    → keep",
+				].join("\n"),
 			);
-			// Claimed, so it is the agent's now, in its plan.
 			expect(await deps.fs.read(plan)).toContain("keep or drop? → keep");
 		});
 
-		it("waits out a reply someone is still editing", async () => {
-			await escalated("- [ ] Q1. Decide: keep or drop?");
-			await replyTo(deps, "alpha", "Q1", { text: "keep" });
-			await holdReply(deps, "alpha", "Q1");
-
-			await expect(
-				wait(deps, "alpha", {
-					timeout: Duration.ms(20),
-					poll: Duration.ms(5),
-					answered: true,
-				}),
-			).toBail("timeout", {
-				data: { task: "alpha", status: "escalated", unanswered: ["Q1"] },
-			});
-		});
-
-		it("returns at once when nothing is open", async () => {
-			await escalated("- [x] Q1. Run it. → pass");
+		it("prints follow-ups under their answer", async () => {
+			await escalated("- [ ] 1. Which table? → users", "  → and sessions");
 
 			await wait(deps, "alpha", { ...PATIENT, answered: true });
 
-			expect(deps.out()).toBe("alpha has no new replies");
+			expect(deps.out()).toBe(
+				[
+					"alpha answered",
+					"  1. Which table?",
+					"    → users",
+					"    → and sessions",
+				].join("\n"),
+			);
+		});
+
+		it("returns at once when nothing is open", async () => {
+			await escalated("- [x] 1. Run it. → pass");
+
+			await wait(deps, "alpha", { ...PATIENT, answered: true });
+
+			expect(deps.out()).toBe("alpha has nothing unchecked under ## Blocked");
 		});
 
 		it("returns when the task is gone", async () => {
-			await escalated("- [ ] Q1. Run it.");
+			await escalated("- [ ] 1. Run it.");
 			await remove(deps, "alpha");
 			deps.log.clear();
 
@@ -135,9 +137,9 @@ describe("wait", () => {
 
 		it("gives up naming the questions still unanswered", async () => {
 			await escalated(
-				"- [ ] Q1. Run it. → pass",
-				"- [ ] Q2. Open it.",
-				"- [ ] Q3. Decide it.",
+				"- [ ] 1. Run it. → pass",
+				"- [ ] 2. Open it.",
+				"- [ ] 3. Decide it.",
 			);
 
 			await expect(
@@ -147,8 +149,8 @@ describe("wait", () => {
 					answered: true,
 				}),
 			).toBail("timeout", {
-				message: "Q2, Q3 unanswered",
-				data: { task: "alpha", status: "escalated", unanswered: ["Q2", "Q3"] },
+				message: "questions 2, 3 unanswered",
+				data: { task: "alpha", status: "escalated", unanswered: ["2", "3"] },
 			});
 		});
 	});

@@ -66,7 +66,7 @@ export async function escalate(
 		if (unchecked.length > 0) {
 			fail(
 				"blocked",
-				`'${name}' has ${unchecked.join(", ")} unchecked under ## Blocked: settle those first, or escalate without --review to ask them`,
+				`'${name}' has questions ${unchecked.join(", ")} unchecked under ## Blocked: settle those first, or escalate without --review to ask them`,
 				{ task: name, blocked: unchecked },
 			);
 		}
@@ -97,7 +97,9 @@ export async function escalate(
 			`  worktree: ${worktree.path}`,
 			`  branch:   ${worktree.branch}`,
 			`  reason:   ${reason}`,
-			asked === undefined ? "" : `  review:   ${asked} asks to approve merging`,
+			asked === undefined
+				? ""
+				: `  review:   question ${asked} asks to approve merging`,
 			escalations.length > 1
 				? `  (${escalations.length} escalations recorded)`
 				: "",
