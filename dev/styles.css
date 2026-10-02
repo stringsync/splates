@@ -7,14 +7,11 @@
    renders has to be listed: one that nobody lists comes out of the compiler as
    nothing at all. */
 @source "./app.tsx";
-@source "./blocked.tsx";
 @source "./todos.tsx";
 @source "./tasks.tsx";
 @source "./markdown.tsx";
 @source "./files.tsx";
 @source "./mentions.tsx";
-@source "./compose.tsx";
-@source "./question.tsx";
 @source "./components/ui";
 
 @custom-variant dark (&:is(.dark *));

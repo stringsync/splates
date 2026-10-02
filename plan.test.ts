@@ -5,10 +5,7 @@ import {
 	type Question,
 	questionNumber,
 	questions,
-	replyLine,
-	withFollowUp,
 	withQuestion,
-	withReply,
 } from "./plan";
 
 const GOOD = `# alpha
@@ -164,8 +161,6 @@ function bare(overrides: Partial<Question>): Question {
 		followUps: [],
 		choices: [],
 		pick: null,
-		chosen: [],
-		images: [],
 		...overrides,
 	};
 }
@@ -179,9 +174,6 @@ describe("questions", () => {
 			text: "Keep it?",
 			reply: "yes",
 		});
-		expect(withReply("## Blocked\n\n- [ ] Q3. Keep it?\n", "3", "no")).toBe(
-			"## Blocked\n\n- [ ] Q3. Keep it? → no\n",
-		);
 	});
 
 	it("reads each numbered item with its reply and what is indented under it", () => {
@@ -250,7 +242,6 @@ Prose back at the margin ends it.
 				].join("\n"),
 				choices: [{ key: "a", text: "Ship it" }],
 				pick: "one",
-				images: ["/tmp/before.png", "/tmp/after.png"],
 			}),
 		]);
 	});
@@ -283,74 +274,11 @@ describe("choices", () => {
 				{ key: "b", text: "Migrate on next login" },
 			],
 			pick: "one",
-			chosen: [],
 		});
-		expect(second?.chosen).toEqual(["b"]);
-		// Words that happen to start with a letter pick nothing.
-		expect(third).toMatchObject({ choices: [], pick: null, chosen: [] });
-		// Nor does a letter it never offered.
-		expect(fourth?.chosen).toEqual([]);
-		// Picks from a `[a]` list, bare or spelled out, in the order offered.
-		expect(fifth).toMatchObject({ pick: "any", chosen: ["a", "c"] });
-	});
-
-	it("spells each pick out in the reply, words after them", () => {
-		const [asked, , , , any] = questions(CHOICES);
-		if (asked === undefined || any === undefined) {
-			throw new Error("no question");
-		}
-		expect(replyLine(asked, { choices: ["b"], text: "" })).toBe(
-			"b (Migrate on next login)",
-		);
-		expect(replyLine(asked, { choices: ["a"], text: " email them " })).toBe(
-			"a (Force everyone to sign in again): email them",
-		);
-		expect(replyLine(asked, { text: "neither, ask Sam" })).toBe(
-			"neither, ask Sam",
-		);
-		expect(replyLine(any, { choices: ["c", "a"], text: "" })).toBe(
-			"a (Email), c (Push)",
-		);
-	});
-
-	it("keeps the choices when the question is answered", () => {
-		const replied = withReply(CHOICES, "1", "b (Migrate on next login)");
-		expect(replied).toContain(
-			"sessions move over? → b (Migrate on next login)\n  - (a) Force",
-		);
-		expect(questions(replied ?? "")[0]?.chosen).toEqual(["b"]);
-	});
-});
-
-describe("withReply", () => {
-	it("writes the reply after the arrow, leaving the checkbox open", () => {
-		const replied = withReply(BLOCKED, "3", "keep");
-		expect(replied).toContain("- [ ] 3. Decide: keep or drop? → keep\n");
-		expect(replied?.replace(" → keep", "")).toBe(BLOCKED);
-	});
-
-	it("replaces an earlier reply and keeps the answer on one line", () => {
-		const replied = withReply(BLOCKED, "2", "pass\nnow it fits");
-		expect(replied).toContain(
-			"- [ ] 2. 🎨 Does the header fit? → pass now it fits\n",
-		);
-		expect(replied).not.toContain("too wide");
-	});
-
-	it("finds nothing to answer outside ## Blocked", () => {
-		expect(withReply(BLOCKED, "9", "yes")).toBeNull();
-		expect(withReply(GOOD, "1", "yes")).toBeNull();
-	});
-});
-
-describe("withFollowUp", () => {
-	it("adds a line under everything the question has, and unchecks it", () => {
-		const plan =
-			"## Blocked\n\n- [x] 1. Keep it? → yes\n  It is old.\n  - (a) Yes\n\n- [ ] 2. Next?\n";
-		expect(withFollowUp(plan, "1", "and rename\nit")).toBe(
-			"## Blocked\n\n- [ ] 1. Keep it? → yes\n  It is old.\n  - (a) Yes\n  → and rename it\n\n- [ ] 2. Next?\n",
-		);
-		expect(withFollowUp(plan, "9", "x")).toBeNull();
+		expect(second?.choices.map((choice) => choice.key)).toEqual(["a", "b"]);
+		expect(third).toMatchObject({ choices: [], pick: null });
+		expect(fourth?.pick).toBe("one");
+		expect(fifth).toMatchObject({ pick: "any" });
 	});
 });
 

@@ -1,8 +1,6 @@
 /**
- * The page's writes. Answering a question, however it is answered, is the
- * page's alone, with no CLI command behind it, so no agent is tempted to
- * answer another; todos are the same core functions as `arbor todo add`,
- * `update` and `remove`.
+ * The page's writes: the same core functions as `arbor todo add`, `update`
+ * and `remove`.
  * A refusal comes back as the CLI's own reason and message, thrown so the
  * caller can show it.
  */
@@ -36,47 +34,6 @@ export interface FilesForm {
 	files: File[];
 	/** Paths of files already stored to keep; the rest are dropped. */
 	keep: string[];
-}
-
-export interface ReplyForm {
-	task: string;
-	question: string;
-	/** The keys of the choices picked; none for words alone. */
-	choices: string[];
-	text: string;
-	files: File[];
-}
-
-export async function reply({
-	task,
-	question,
-	choices,
-	text,
-	files,
-}: ReplyForm): Promise<void> {
-	const form = filesForm({ files, keep: [] });
-	form.set("task", task);
-	form.set("question", question);
-	for (const choice of choices) {
-		form.append("choice", choice);
-	}
-	form.set("text", text);
-	await send("/api/reply", { body: form });
-}
-
-/** Makes the question a todo, and tells its agent to leave it out. */
-export async function defer(task: string, question: string): Promise<void> {
-	await json("/api/defer", { task, question });
-}
-
-/** Tells its agent to go ahead without an answer. */
-export async function skip(task: string, question: string): Promise<void> {
-	await json("/api/skip", { task, question });
-}
-
-/** Approves a review: its agent may merge. */
-export async function approve(task: string, question: string): Promise<void> {
-	await json("/api/approve", { task, question });
 }
 
 /** What a todo says: a line, and whatever more there is to say. */
@@ -118,12 +75,9 @@ export async function removeTodo(id: number): Promise<void> {
 	await send(`/api/todos/${id}`, { method: "DELETE" });
 }
 
-/**
- * Where the page loads a stored file: one an answer or a todo holds, or an
- * image a question of `task` shows.
- */
-export function fileUrl(path: string, task = ""): string {
-	return `/api/file?${new URLSearchParams({ task, path })}`;
+/** Where the page loads a file a todo holds. */
+export function fileUrl(path: string): string {
+	return `/api/file?${new URLSearchParams({ path })}`;
 }
 
 function todoForm(form: FormData, { subject, text, position }: TodoForm): void {
@@ -143,13 +97,6 @@ function filesForm({ files, keep }: FilesForm): FormData {
 		form.append("keep", path);
 	}
 	return form;
-}
-
-async function json(path: string, body: unknown): Promise<void> {
-	await send(path, {
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify(body),
-	});
 }
 
 /**

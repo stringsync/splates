@@ -66,10 +66,6 @@ export interface Question {
 	 * `- [a]` choices, where it picks all that apply. Null without choices.
 	 */
 	pick: "one" | "any" | null;
-	/** The keys of the choices the reply picked, in the order offered. */
-	chosen: string[];
-	/** The absolute paths of the images its text and body show. */
-	images: string[];
 }
 
 /** One answer a question offers: `- (b) Migrate on next login`. */
@@ -86,8 +82,6 @@ const ARROW = " → ";
 const FOLLOW_UP = /^[ \t]+→[ \t]+(.*)$/;
 /** `- (a) text` picks one, `- [a] text` picks any. */
 const CHOICE = /^[ \t]+- (?:\(([a-z])\)|\[([a-z])\])[ \t]+(.+)$/;
-/** An image the page can show: an absolute path, nothing fetched from afar. */
-const IMAGE = /!\[[^\]]*\]\((\/[^)\s]+)\)/g;
 
 /**
  * Every numbered item under `## Blocked`, open or checked off, each with the
@@ -128,71 +122,8 @@ export function questions(text: string): Question[] {
 	}
 	return found.map(({ asked, body }) => {
 		asked.body = dedent(body);
-		asked.chosen = picks(asked.reply, asked.choices);
-		asked.images = [
-			...new Set(
-				[...`${asked.text}\n${asked.body}`.matchAll(IMAGE)].flatMap((image) =>
-					image[1] === undefined ? [] : [image[1]],
-				),
-			),
-		];
 		return asked;
 	});
-}
-
-/**
- * How a reply reads in the plan: each pick spelled out, so the agent needs
- * nothing but the line, then any words after it. `a (Email), c (Push): and
- * log it`.
- */
-export function replyLine(
-	asked: Question,
-	{ choices = [], text }: { choices?: string[]; text: string },
-): string {
-	const head = asked.choices
-		.filter((choice) => choices.includes(choice.key))
-		.map((choice) => `${choice.key} (${choice.text})`)
-		.join(", ");
-	const words = text.trim();
-	if (head === "") {
-		return words;
-	}
-	return words === "" ? head : `${head}: ${words}`;
-}
-
-/**
- * The keys a reply picked: a run of `b` or `b (Its text)`, comma separated,
- * at its start, ended by a colon or the end of the reply. Words that merely
- * start with a letter pick nothing.
- */
-function picks(reply: string | null, choices: Choice[]): string[] {
-	if (reply === null || choices.length === 0) {
-		return [];
-	}
-	const picked: string[] = [];
-	let rest = reply.trim();
-	while (true) {
-		const choice = choices.find(
-			(offered) =>
-				rest.startsWith(`${offered.key} (${offered.text})`) ||
-				(/^[a-z](?=$|,|:)/.test(rest) && rest[0] === offered.key),
-		);
-		if (choice === undefined) {
-			return [];
-		}
-		picked.push(choice.key);
-		const spelled = `${choice.key} (${choice.text})`;
-		rest = rest.slice(rest.startsWith(spelled) ? spelled.length : 1);
-		if (rest === "" || rest.startsWith(":")) {
-			return choices
-				.map((offered) => offered.key)
-				.filter((key) => picked.includes(key));
-		}
-		if (!rest.startsWith(",")) {
-			return [];
-		}
-		rest = rest.replace(/^,\s*/, "");
-	}
 }
 
 /** Lines with the indent they all share taken off, blank ends trimmed. */
@@ -205,76 +136,6 @@ function dedent(lines: string[]): string {
 		.map((line) => line.slice(cut).trimEnd())
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
-}
-
-/**
- * The plan with `reply` written onto that question's line, in place of any
- * earlier one, or with no reply there at all when it is null. The checkbox is left alone: checking it off is the agent's
- * word that it has acted on the answer. Null when the plan has no such
- * question.
- */
-export function withReply(
-	text: string,
-	number: string,
-	/** Null takes the reply off, leaving the question as it was asked. */
-	reply: string | null,
-): string | null {
-	const lines = text.split("\n");
-	const target = blockedLines(text).find(
-		({ line }) => question(line)?.number === number,
-	);
-	if (target === undefined) {
-		return null;
-	}
-	const { index, line } = target;
-	const arrow = line.indexOf(ARROW);
-	const item = (arrow === -1 ? line : line.slice(0, arrow)).trimEnd();
-	// A newline would end the item: the rest would read as prose under it.
-	lines[index] =
-		reply === null
-			? item
-			: `${item}${ARROW}${reply.replace(/\s*\n\s*/g, " ").trim()}`;
-	return lines.join("\n");
-}
-
-/**
- * The plan with `reply` added under a question already answered, as an
- * indented `→ ` line after everything else under it, and the question
- * unchecked: whatever the agent did about the answer, it has more to read.
- * Null when the plan has no such question.
- */
-export function withFollowUp(
-	text: string,
-	number: string,
-	reply: string,
-): string | null {
-	const lines = text.split("\n");
-	const blocked = blockedLines(text);
-	const at = blocked.findIndex(({ line }) => question(line)?.number === number);
-	const target = blocked[at];
-	if (target === undefined) {
-		return null;
-	}
-	// The question runs on while lines are indented or blank; it ends at its
-	// last indented line.
-	let last = target.index;
-	for (const { index, line } of blocked.slice(at + 1)) {
-		if (line.trim() === "") {
-			continue;
-		}
-		if (!/^[ \t]/.test(line)) {
-			break;
-		}
-		last = index;
-	}
-	const indent = /^[ \t]*/.exec(target.line)?.[0] ?? "";
-	lines[target.index] = target.line.replace(/- \[[xX]\]/, "- [ ]");
-	lines.splice(
-		last + 1,
-		0,
-		`${indent}  → ${reply.replace(/\s*\n\s*/g, " ").trim()}`,
-	);
-	return lines.join("\n");
 }
 
 /**
@@ -334,8 +195,6 @@ function question(line: string): Question | null {
 		followUps: [],
 		choices: [],
 		pick: null,
-		chosen: [],
-		images: [],
 	};
 }
 

@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { dev, devPorts } from "./dev";
-import { questions } from "./plan";
 import type { Snapshot } from "./snapshot";
 import { Testing } from "./testing";
 
@@ -227,32 +226,6 @@ describe("dev", () => {
 	}, 15_000);
 
 	describe("writes", () => {
-		const PLAN = [
-			"# alpha",
-			"",
-			"## Blocked",
-			"",
-			"- [ ] 1. Open the page. Does it fit?",
-			"  ![the page](SHOT)",
-			"",
-		].join("\n");
-
-		const asked = async (): Promise<string> => {
-			await add(deps, "alpha");
-			// Only an escalated task's questions are answered from the page.
-			const tree = (
-				await (
-					await deps.service.find("alpha")
-				).save({
-					status: "escalated",
-					lease: null,
-				})
-			).path;
-			const path = `${tree}/ARBOR.md`;
-			await deps.fs.write(path, PLAN.replace("SHOT", `${tree}/page.png`));
-			return path;
-		};
-
 		/** A post the way the page makes one: same origin as the host it asked. */
 		const post = (port: number, path: string, body: BodyInit, headers = {}) =>
 			fetch(`http://127.0.0.1:${port}${path}`, {
@@ -261,133 +234,36 @@ describe("dev", () => {
 				body,
 			});
 
-		/** A reply the way the page sends one. */
-		const answer = (port: number, text: string, files: File[] = []) => {
-			const form = new FormData();
-			form.set("task", "alpha");
-			form.set("question", "1");
-			form.set("text", text);
-			for (const file of files) {
-				form.append("file", file);
-			}
-			return post(port, "/api/reply", form);
-		};
-
-		/** A JSON post naming one of alpha's questions, as most answer routes take. */
-		const named = (port: number, path: string, question = "1") =>
-			post(port, path, JSON.stringify({ task: "alpha", question }), {
-				"content-type": "application/json",
-			});
-
-		it("writes an answer into the plan, files and all", async () => {
-			const plan = await asked();
-
-			await serving(async (snapshot, port) => {
-				const response = await answer(port, "it clips", [
-					new File([new Uint8Array([1, 2])], "shot.png"),
-					new File(["trace"], "trace.log"),
-				]);
-
-				expect(response.status).toBe(200);
-				// Answered, so it is its agent's now, and off the page.
-				expect((await snapshot()).blocked).toEqual([]);
-				const [question] = questions(await deps.fs.read(plan));
-				expect(question?.reply).toStartWith("it clips ");
-				expect(question?.reply).toEndWith("-trace.log");
-				const [last] = await deps.journal.tail(1);
-				expect(last?.action).toBe("reply");
-			});
-		});
-
-		it("follows up an answer", async () => {
-			const plan = await asked();
-
-			await serving(async (_snapshot, port) => {
-				await answer(port, "no");
-				expect((await answer(port, "and shrink the logo")).status).toBe(200);
-
-				expect(await deps.fs.read(plan)).toContain(
-					"Does it fit? → no\n  ![the page]",
-				);
-				expect(await deps.fs.read(plan)).toContain("  → and shrink the logo");
-			});
-		});
-
-		it("defers a question to a todo, skips one, and approves one", async () => {
-			const plan = await asked();
-			await deps.fs.write(
-				plan,
-				`${await deps.fs.read(plan)}- [ ] 2. Tidy?\n- [ ] 3. ✅ Ready to merge?\n`,
-			);
-
-			await serving(async (snapshot, port) => {
-				expect((await named(port, "/api/defer")).status).toBe(200);
-				expect((await named(port, "/api/skip", "2")).status).toBe(200);
-				expect((await named(port, "/api/approve", "3")).status).toBe(200);
-
-				const { blocked, todos } = await snapshot();
-				expect(blocked).toEqual([]);
-				expect(todos[0]).toMatchObject({ id: 1, from: "alpha" });
-				expect(
-					questions(await deps.fs.read(plan)).map((asked) => asked.reply),
-				).toEqual([
-					"Deferred to todo 1: leave it out of this task.",
-					"Skip this: go ahead without it.",
-					"Approved: merge it.",
-				]);
-				const actions = (await deps.journal.tail(3)).map(
-					(entry) => entry.action,
-				);
-				expect(actions).toEqual(["defer", "skip", "approve"]);
-			});
-		});
-
-		it("shows and answers only escalated tasks, refusing others with the CLI's reason", async () => {
-			const plan = await asked();
-			await (await deps.service.find("alpha")).save({ status: "working" });
-
-			await serving(async (snapshot, port) => {
-				expect((await snapshot()).blocked).toEqual([]);
-				const response = await answer(port, "pass");
-
-				expect(response.status).toBe(409);
-				expect(((await response.json()) as { reason: string }).reason).toBe(
-					"not_escalated",
-				);
-				expect(await deps.fs.read(plan)).not.toContain("→");
-			});
-		});
-
-		it("serves an image an open question shows, a stored file, and nothing else", async () => {
-			await asked();
+		it("serves a file a todo holds, and nothing else", async () => {
+			await add(deps, "alpha");
 			const tree = (await deps.service.find("alpha")).path;
 			await deps.fs.writeBytes(`${tree}/page.png`, new Uint8Array([7]));
-			await deps.fs.writeBytes(`${tree}/other.png`, new Uint8Array([8]));
 			const todo = await deps.todos.add("look", null, {
-				files: [{ name: "trace.log", bytes: new Uint8Array([9]) }],
+				files: [
+					{ name: "shot.png", bytes: new Uint8Array([8]) },
+					{ name: "trace.log", bytes: new Uint8Array([9]) },
+				],
 			});
 
 			await serving(async (_snapshot, port) => {
-				const file = (task: string, path: string) =>
+				const file = (path: string) =>
 					fetch(
-						`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ task, path })}`,
+						`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
 					);
 
-				const shown = await file("alpha", `${tree}/page.png`);
+				const shown = await file(todo.files[0] ?? "");
 				expect(shown.status).toBe(200);
 				expect(shown.headers.get("content-type")).toBe("image/png");
 				expect(new Uint8Array(await shown.arrayBuffer())).toEqual(
-					new Uint8Array([7]),
+					new Uint8Array([8]),
 				);
-				expect((await file("alpha", `${tree}/other.png`)).status).toBe(404);
-				expect((await file("beta", `${tree}/page.png`)).status).toBe(404);
-
-				const stored = await file("", todo.files[0] ?? "");
+				const stored = await file(todo.files[1] ?? "");
 				expect(stored.status).toBe(200);
 				expect(stored.headers.get("content-disposition")).toBe("attachment");
-				expect(
-					(await file("", `${deps.todos.dir}/1/../../../config`)).status,
-				).toBe(404);
+				expect((await file(`${tree}/page.png`)).status).toBe(404);
+				expect((await file(`${deps.todos.dir}/1/../../../config`)).status).toBe(
+					404,
+				);
 			});
 		});
 

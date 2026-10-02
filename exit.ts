@@ -20,7 +20,7 @@ export const EXIT = {
 	timeout: 14,
 	// 15 was `unread`, gone with the replies that waited to be read: never reuse it.
 	blocked: 16,
-	not_escalated: 17,
+	// 17 was `not_escalated`, gone with answering from the page: never reuse it.
 } as const;
 
 export type Reason = keyof typeof EXIT;

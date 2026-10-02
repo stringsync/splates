@@ -2,7 +2,6 @@
 // it is what puts a DOM on `globalThis` for React to render into.
 import "../../../setup";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Blocker } from "../blocked";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
@@ -18,7 +17,7 @@ const { App } = await import("./app");
 
 /**
  * The page never touches arbor: it reads a `Snapshot` the server already
- * assembled and posts to two routes. So the fake is the snapshot and a record
+ * assembled and writes todos. So the fake is the snapshot and a record
  * of the posts, and none of these tests need a repo, a worktree or the CLI.
  * `dev.test.ts` covers the half that does.
  */
@@ -31,8 +30,6 @@ let posts: {
 	method: string;
 	body: BodyInit | null | undefined;
 }[];
-/** Set to refuse the next write the way the server would. */
-let refusal: { reason: string; message: string } | null;
 /** What `/api/paths` lists, for `@`. */
 let tree: string[];
 /** The stream the page opened, so a test can push through it. */
@@ -58,7 +55,6 @@ function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {
 		repo: "webappwiz",
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
-		blocked: [],
 		todos: [],
 		tasks: [],
 		...overrides,
@@ -70,7 +66,6 @@ beforeEach(() => {
 	tree = [];
 	down = false;
 	posts = [];
-	refusal = null;
 	stream = null;
 	globalThis.fetch = (async (path: string, init?: RequestInit) => {
 		if (down) {
@@ -78,9 +73,6 @@ beforeEach(() => {
 		}
 		if (init?.method !== undefined && init.method !== "GET") {
 			posts.push({ path, method: init.method, body: init.body });
-			if (refusal) {
-				return Response.json(refusal, { status: 409 });
-			}
 			return Response.json({});
 		}
 		if (path.startsWith("/api/paths")) {
@@ -96,23 +88,6 @@ afterEach(() => {
 	globalThis.fetch = realFetch;
 	globalThis.EventSource = realEventSource;
 });
-
-function question(overrides: Partial<Blocker> = {}): Blocker {
-	return {
-		task: "alpha",
-		number: "1",
-		done: false,
-		text: "🎨 Does the header wrap?",
-		body: "",
-		reply: null,
-		followUps: [],
-		choices: [],
-		pick: null,
-		chosen: [],
-		images: [],
-		...overrides,
-	};
-}
 
 function details(overrides: Partial<Details> = {}): Details {
 	return {
@@ -148,19 +123,12 @@ function todo(overrides: Partial<TodoState> = {}): TodoState {
 	};
 }
 
-/**
- * Renders the page with a snapshot already waiting, and lets it arrive. Each
- * task a question names is there too, unless the tasks are given.
- */
+/** Renders the page with a snapshot already waiting, and lets it arrive. */
 async function open(overrides: Partial<Snapshot> = {}) {
-	const named = [...new Set((overrides.blocked ?? []).map(({ task }) => task))];
-	served = snapshot({
-		tasks: named.map((task) => details({ task })),
-		...overrides,
-	});
+	served = snapshot(overrides);
 	const view = render(<App />);
 	await waitFor(() =>
-		expect(view.getByRole("tab", { name: /blocked/i })).toBeTruthy(),
+		expect(view.getByRole("tab", { name: /todos/i })).toBeTruthy(),
 	);
 	return view;
 }
@@ -169,332 +137,29 @@ async function tab(view: Awaited<ReturnType<typeof open>>, name: RegExp) {
 	await act(async () => fireEvent.click(view.getByRole("tab", { name })));
 }
 
-describe("blocked", () => {
-	it("says so when nothing needs you", async () => {
+describe("header", () => {
+	it("has no status line, and opens on the todos", async () => {
 		const view = await open();
 
-		expect(view.getByText("Nothing needs you")).toBeTruthy();
-	});
-
-	it("lists each open question under its task, and counts them in the tab", async () => {
-		const view = await open({
-			blocked: [
-				question({ task: "alpha", number: "1", text: "first" }),
-				question({ task: "beta", number: "4", text: "second" }),
-			],
-		});
-
-		expect(
-			within(view.getByRole("region", { name: "alpha" })).getByText("first"),
-		).toBeTruthy();
-		expect(
-			within(view.getByRole("region", { name: "beta" })).getByText("second"),
-		).toBeTruthy();
-		expect(view.getByRole("tab", { name: /blocked/i }).textContent).toContain(
-			"2",
-		);
-		expect(document.title).toBe("(2) webappwiz");
-	});
-
-	it("shows the body, its code and its images, full size on a tap", async () => {
-		const view = await open({
-			blocked: [
-				question({
-					body: "Before:\n\n```\nold()\n```\n\n![the header](/tmp/shot.png)",
-					images: ["/tmp/shot.png"],
-				}),
-			],
-		});
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^1/ })),
-		);
-
-		await waitFor(() =>
-			expect(document.querySelector("pre")?.textContent).toBe("old()"),
-		);
-		const [thumbnail] = await waitFor(() =>
-			view.getAllByRole("img", { name: "the header" }),
-		);
-		expect(thumbnail?.getAttribute("src")).toBe(
-			"/api/file?task=alpha&path=%2Ftmp%2Fshot.png",
-		);
-		await act(async () =>
-			fireEvent.click(thumbnail?.closest("button") as HTMLElement),
-		);
-		// The full-size one, over the thumbnail now inert beneath it.
-		await waitFor(() =>
-			expect(
-				view.getAllByRole("img", { name: "the header", hidden: true }),
-			).toHaveLength(2),
-		);
-		expect(view.getAllByRole("img", { name: "the header" })).toHaveLength(1);
-	});
-
-	it("opens a question's task over it, and nowhere else in the list", async () => {
-		const view = await open({
-			blocked: [question()],
-			tasks: [details({ plan: "# alpha\n\n## Goal\n\nThe goal here." })],
-		});
-
-		expect(view.queryByRole("button", { name: /View/ })).toBeNull();
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^1/ })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "View" })),
-			),
-		);
-		await waitFor(() =>
-			expect(document.body.textContent).toContain("The goal here."),
-		);
-		// Both rise from the bottom, the task over the question still open under it.
-		expect(document.querySelectorAll('[data-side="bottom"]')).toHaveLength(2);
-		expect(
-			view.getByRole("textbox", { name: "message", hidden: true }),
-		).toBeTruthy();
-	});
-
-	it("opens the next question on J, down the list and around", async () => {
-		const view = await open({
-			blocked: [
-				question(),
-				question({ number: "2", text: "Which font?" }),
-				question({ task: "beta", text: "Ship it?" }),
-			],
-		});
-		const heading = () =>
-			within(view.getByRole("dialog")).getByRole("heading").textContent;
-
-		expect(view.getByText("opens the next question")).toBeTruthy();
-		for (const expected of [
-			"Does the header wrap?",
-			"Which font?",
-			"Ship it?",
-			"Does the header wrap?",
-		]) {
-			await act(async () => fireEvent.keyDown(document.body, { key: "j" }));
-			await waitFor(() => expect(heading()).toContain(expected));
-		}
-
-		// Written into the reply box, a J is just a letter.
-		const box = view.getByRole("textbox", { name: "message" });
-		await act(async () => fireEvent.keyDown(box, { key: "j" }));
-		expect(heading()).toContain("Does the header wrap?");
-	});
-
-	it("sends a reply to the question opened", async () => {
-		const view = await open({
-			blocked: [question()],
-		});
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^1/ })),
-		);
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "message" }),
-		);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "fail: it clips" } }),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send" })),
-		);
-
-		await waitFor(() => expect(posts).toHaveLength(1));
-		expect(posts[0]?.path).toBe("/api/reply");
-		const form = posts[0]?.body as FormData;
-		expect(form.get("task")).toBe("alpha");
-		expect(form.get("question")).toBe("1");
-		expect(form.get("text")).toBe("fail: it clips");
-	});
-
-	it("picks one choice or none, with words or without", async () => {
-		const view = await open({
-			blocked: [
-				question({
-					text: "How do old sessions move over?",
-					choices: [
-						{ key: "a", text: "Sign in again" },
-						{ key: "b", text: "Migrate on next login" },
-					],
-					pick: "one",
-				}),
-			],
-		});
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^1/ })),
-		);
-		const send = await waitFor(() =>
-			view.getByRole("button", { name: "Send" }),
-		);
-		expect((send as HTMLButtonElement).disabled).toBe(true);
-		// One or none: a second tap unpicks it.
-		const migrate = view.getByRole("button", { name: /Migrate/ });
-		await act(async () => fireEvent.click(migrate));
-		expect((send as HTMLButtonElement).disabled).toBe(false);
-		await act(async () => fireEvent.click(migrate));
-		expect((send as HTMLButtonElement).disabled).toBe(true);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /Sign in/ })),
-		);
-		await act(async () => fireEvent.click(migrate));
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "message" }), {
-				target: { value: "email them first" },
-			}),
-		);
-		await act(async () => fireEvent.click(send));
-
-		await waitFor(() => expect(posts).toHaveLength(1));
-		const form = posts[0]?.body as FormData;
-		expect(form.getAll("choice")).toEqual(["b"]);
-		expect(form.get("text")).toBe("email them first");
-	});
-
-	it("shows why a reply was refused", async () => {
-		refusal = { reason: "not_escalated", message: "'alpha' is working" };
-		const view = await open({
-			blocked: [question()],
-		});
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^1/ })),
-		);
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "message" }),
-		);
-		await act(async () => fireEvent.change(box, { target: { value: "pass" } }));
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Send" })),
-		);
-
-		await waitFor(() =>
-			expect(document.body.textContent).toContain("'alpha' is working"),
-		);
-	});
-});
-
-describe("defer and skip", () => {
-	for (const [label, path] of [
-		["Defer", "/api/defer"],
-		["Skip", "/api/skip"],
-	] as const) {
-		it(`${label.toLowerCase()}s a question in a tap`, async () => {
-			const view = await open({
-				blocked: [question()],
-			});
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: /^1/ })),
-			);
-
-			await act(async () =>
-				fireEvent.click(
-					await waitFor(() => view.getByRole("button", { name: label })),
-				),
-			);
-
-			await waitFor(() =>
-				expect(posts.map((post) => post.path)).toEqual([path]),
-			);
-			expect(JSON.parse(String(posts[0]?.body))).toEqual({
-				task: "alpha",
-				question: "1",
-			});
-		});
-	}
-});
-
-describe("review", () => {
-	const reviewing = () =>
-		open({
-			blocked: [
-				question({
-					number: "2",
-					text: "✅ Ready to merge?",
-					body: "Check the header at 390px.",
-				}),
-			],
-			tasks: [details({ status: "escalated", review: "2" })],
-		});
-
-	it("opens like any other question, and approves it", async () => {
-		const view = await reviewing();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^2/ })),
-		);
-
-		await waitFor(() =>
-			expect(document.body.textContent).toContain("Check the header at 390px."),
-		);
-		expect(view.queryByRole("button", { name: "Defer" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Approve" })),
-		);
-
-		await waitFor(() =>
-			expect(posts.map((post) => post.path)).toEqual(["/api/approve"]),
-		);
-		expect(JSON.parse(String(posts[0]?.body))).toEqual({
-			task: "alpha",
-			question: "2",
-		});
-	});
-
-	it("says what to change when changes are requested", async () => {
-		const view = await reviewing();
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^2/ })),
-		);
-
-		await act(async () =>
-			fireEvent.change(
-				await waitFor(() => view.getByRole("textbox", { name: "message" })),
-				{ target: { value: "the logo overlaps" } },
-			),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Request changes" })),
-		);
-
-		await waitFor(() =>
-			expect(posts.map((post) => post.path)).toEqual(["/api/reply"]),
-		);
-		const form = posts[0]?.body as FormData;
-		expect(form.get("question")).toBe("2");
-		expect(form.get("text")).toBe("the logo overlaps");
-	});
-});
-
-describe("header", () => {
-	it("has no status line: the tab's count says what waits on you", async () => {
-		const view = await open({ blocked: [question()] });
-
 		expect(view.queryByLabelText("banner")).toBeNull();
+		expect(view.getByRole("textbox", { name: "new todo" })).toBeTruthy();
+		expect(view.queryByRole("tab", { name: /blocked/i })).toBeNull();
 	});
 });
 
 describe("@ files", () => {
-	/** Opens question 1 and returns its reply box, with the tree's paths loaded. */
-	async function replyBox(paths: string[]) {
+	/** The new todo's box, with the tree's paths loaded. */
+	async function todoBox(paths: string[]) {
 		tree = paths;
-		const view = await open({
-			blocked: [question()],
-		});
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /^1/ })),
-		);
-		const box = (await waitFor(() =>
-			view.getByRole("textbox", { name: "message" }),
-		)) as HTMLTextAreaElement;
+		const view = await open();
+		const box = view.getByRole("textbox", {
+			name: "new todo",
+		}) as HTMLInputElement;
 		return { view, box };
 	}
 
 	/** Types `value` as if the caret ended up at its end. */
-	async function type(box: HTMLTextAreaElement, value: string) {
+	async function type(box: HTMLInputElement, value: string) {
 		await act(async () => {
 			box.focus();
 			fireEvent.change(box, { target: { value } });
@@ -503,8 +168,8 @@ describe("@ files", () => {
 		});
 	}
 
-	it("offers the task's files for an @, best match first, and writes the one picked", async () => {
-		const { view, box } = await replyBox([
+	it("offers the repo's files for an @, best match first, and writes the one picked", async () => {
+		const { view, box } = await todoBox([
 			"src/",
 			"src/app.tsx",
 			"src/lib/",
@@ -524,12 +189,12 @@ describe("@ files", () => {
 
 		expect(box.value).toBe("see @src/lib/apply.ts ");
 		expect(view.queryByRole("listbox")).toBeNull();
-		// Enter picked a file; it did not send the reply.
+		// Enter picked a file; it did not add the todo.
 		expect(posts).toEqual([]);
 	});
 
 	it("keeps the list open inside a directory picked", async () => {
-		const { view, box } = await replyBox(["src/", "src/lib/", "src/lib/a.ts"]);
+		const { view, box } = await todoBox(["src/", "src/lib/", "src/lib/a.ts"]);
 
 		await type(box, "@sr");
 		await act(async () =>
@@ -543,20 +208,19 @@ describe("@ files", () => {
 		).toEqual(["lib/src/", "a.tssrc/lib/"]);
 	});
 
-	it("closes the list on Escape, leaving the question open", async () => {
-		const { view, box } = await replyBox(["src/app.tsx"]);
+	it("closes the list on Escape, leaving the text as typed", async () => {
+		const { view, box } = await todoBox(["src/app.tsx"]);
 
 		await type(box, "@app");
 		await waitFor(() => view.getByRole("listbox"));
 		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
 
 		expect(view.queryByRole("listbox")).toBeNull();
-		expect(view.getByRole("textbox", { name: "message" })).toBeTruthy();
 		expect(box.value).toBe("@app");
 	});
 
 	it("ignores an @ inside a word, like an address", async () => {
-		const { view, box } = await replyBox(["example.com"]);
+		const { view, box } = await todoBox(["example.com"]);
 
 		await type(box, "mail me@example");
 
@@ -811,8 +475,7 @@ describe("feed", () => {
 		const view = await open();
 
 		served = snapshot({
-			blocked: [question({ text: "new one" })],
-			tasks: [details()],
+			todos: [todo({ subject: "new one" })],
 		});
 		await act(async () => stream?.onmessage?.());
 

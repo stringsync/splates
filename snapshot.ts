@@ -1,20 +1,18 @@
 import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
-import { type Blocker, blockers } from "./blocked";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState, Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Everything one page shows: `list` and `show` for each task, the questions
- * escalated tasks ask, and `todo list`.
+ * Everything one page shows: `todo list`, and `list` and `show` for each
+ * task.
  */
 export interface Snapshot {
 	/** The repository's directory name, so a page among many says whose it is. */
 	repo: string;
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
-	blocked: Blocker[];
 	todos: TodoState[];
 	tasks: Details[];
 }
@@ -40,7 +38,6 @@ export async function snapshot({
 	return {
 		repo: basename(service.git.root),
 		todoStalenessMs: service.config.todoStalenessMs,
-		blocked: await blockers({ service, fs }),
 		todos: (await todos.all()).map((todo) => todo.state),
 		tasks,
 	};
@@ -51,9 +48,8 @@ export async function snapshot({
  * `age` ticks every minute, and hashing it would push to every open page for
  * nothing.
  */
-export function fingerprint({ blocked, todos, tasks }: Snapshot): string {
+export function fingerprint({ todos, tasks }: Snapshot): string {
 	return JSON.stringify([
-		blocked,
 		todos,
 		tasks.map((task) => [
 			task.task,

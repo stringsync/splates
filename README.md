@@ -76,8 +76,8 @@ linear.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere,
    or while a question under `## Blocked` is unchecked (`blocked`): whether
-   nobody has answered it yet, or the agent has yet to act on an answer or a
-   follow-up and check it off.
+   nobody has answered it yet, or the agent has yet to act on an answer and
+   check it off.
 2. Takes the merge lock, **blocking**, polling every 2s. Blocking is
    deliberate: telling an agent "busy, try later" invites it to go edit more
    code in a branch that is supposed to be frozen.
@@ -188,7 +188,7 @@ and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
-### `arbor wait <task> [--timeout-secs 900] [--answered]`
+### `arbor wait <task> [--timeout-secs 900]`
 
 Blocks until a task stops moving, then prints where it stopped.
 
@@ -205,67 +205,11 @@ driving. Wait again, work alongside it, or ask the human.
 Like `show` and `path`, it takes no lease, so watching a task cannot knock its
 agent off it.
 
-`--answered` waits for something else: until every unchecked question under
-the task's `## Blocked` has an answer in its `ARBOR.md` (or none is open), then
-prints each with what was said. This is how an agent that escalated learns it
-is unblocked, with the same timeout and the same `timeout` refusal, which names
-the questions still unanswered. A task that is gone ends the wait too, since
-nothing is left to answer.
-
-```
-alpha answered
-  2. 🎨 Does the header wrap to two lines?
-    → yes
-```
-
-Questions are numbered `1.`, `2.`, … (a plan numbered the old way, `Q1.`,
-still reads). A question's line is its subject. Lines indented under it are its body,
-markdown with code blocks and images (`![shot](/abs/path.png)`, which the page
-shows inline). Choices come last in the body: `- (a) ...` lines take one or
-none, `- [a] ...` lines take any that apply.
-
-```markdown
-- [ ] 3. 🔐 How should existing sessions move to the new tokens?
-  Sessions are keyed by the old cookie.
-  ![login screen](/abs/path/login.png)
-  - (a) Sign everyone out once
-  - (b) Migrate each session on its next request
-- [ ] 4. 🔔 Where should failures notify?
-  - [a] Email
-  - [b] Slack
-  - [c] Push
-```
-
-A person answers from the page (`arbor dev`), never the CLI, so agents have no
-way to answer each other: every answer an agent reads in its plan came from a
-person, or from its own chat. The first answer to a question goes on its line
-after ` → `, its picks spelled out so the line alone says what was picked:
-` → b (Migrate each session on its next request)`, or
-` → a (Email), c (Push): and log it` with words after the picks. Anything said
-after that is a follow-up, on a line of its own under the question, and
-unchecks it, whatever the agent did about the answer before:
-
-```markdown
-- [ ] 3. 🔐 How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
-  Sessions are keyed by the old cookie.
-  → Sign out the admins, though.
-```
-
-The box stays unchecked: checking it off is the agent's word that it has
-acted on everything under it. Files attached to an answer are kept in
-`.git/arbor/replies/<task>/3/`, and the line names each by absolute path so
-the agent can open it from its own tree. They go when the task is merged or
-removed.
-
-Only an escalated task is answered from the page (`not_escalated` otherwise):
-an agent still at work asks in its chat, and is answered there.
-
 ### `arbor log [--count 20] [--json]`
 
 The last N things done here (`add`, `claim`, `merge`, `remove`, `escalate`,
-`retry`, `todo add`, `todo update`, `todo take`, `todo release`,
-`todo remove`, and from the
-page `reply`, `defer`, `skip` and `approve`), oldest first, each with the task and how it ended (`ok`, or
+`retry`, `todo add`, `todo update`, `todo take`, `todo release` and
+`todo remove`), oldest first, each with the task and how it ended (`ok`, or
 the refusal reason).
 
 ```
@@ -282,43 +226,27 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 
 ### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
-What escalated tasks ask, the todos, and the tasks in a browser, on
-`http://localhost:4269`, reloading themselves as anything changes. Built for a
-phone first. Blocked holds every question under `## Blocked` in an escalated
-task's `ARBOR.md` that nobody has answered, grouped by task, and its tab
-counts them. Once answered, a question is its agent's to act on and leaves the
-page; anything more about it goes in that agent's chat. A task still at work
-is left out, since its agent is answered in its chat. With a keyboard,
-J opens the next question, and a hint under the list says so when the page
-sees a mouse or trackpad.
+The todos and the tasks in a browser, on `http://localhost:4269`, reloading
+themselves as anything changes. Built for a phone first.
 
-Tapping an open question shows its body, images full size on a tap, its
-choices, a View button for its task, and a reply box that takes pasted or
-picked files. Sending writes the answer straight into the task's `ARBOR.md`.
-Beside the box, **Defer** makes the question a todo, its images carried along,
-and answers it "Deferred to todo 7: leave it out of this task."; **Skip**
-answers "Skip this: go ahead without it.". A task escalated with
-`arbor escalate --review` asks `✅ Ready to merge?` like any other question,
-with **Approve** ("Approved: merge it.") beside a box to request changes.
+Todos are cards in list order: drag one to reorder the list (a short press
+on a phone, or Space on its grip and the arrow keys), or tap it to reword,
+attach files to, or remove. Typing `@` in a todo offers the files and
+directories in the main tree, tracked or new but not ignored, and writes the
+one picked as `@path/from/root`; picking a directory keeps the list open on
+what is inside.
 
 Tasks lists every task with its progress through its plan, flagging only an
 escalated or broken status; tapping one opens its details and whole plan.
 
-Todos are cards in list order: drag one to reorder the list (a short press
-on a phone, or Space on its grip and the arrow keys), or tap it to reword,
-attach files to, or remove. Typing `@` in a reply or a
-todo offers the files and directories in the task's tree (the main tree's for
-a todo), tracked or new but not ignored, and writes the one picked as
-`@path/from/root`; picking a directory keeps the list open on what is inside.
 On a phone the tabs sit along the bottom, in reach of a thumb; on anything
 wider they run down a sidebar. If the server stops answering, the header says
 it is offline, since what the page shows may be stale.
 
-Answering is done here and nowhere else, so an agent with a shell cannot
-answer another. Todos are the CLI's too, through the same
-functions (`arbor todo add`, `update` and `remove`). Merging, removing tasks
-and claiming stay in the CLI, so a page that should not have been reachable
-can at worst leave a reply and change todos. It takes no lease.
+Todo writes are the same functions as `arbor todo add`, `update` and
+`remove`. Questions are answered in the agent's chat, not here. Merging,
+removing tasks and claiming stay in the CLI, so a page that should not have
+been reachable can at worst change todos. It takes no lease.
 
 It listens on 127.0.0.1 only and refuses a request whose `Host` is not this
 machine, and any write from another origin. To use it from another device,
@@ -330,7 +258,7 @@ arbor dev --allow-hosts myrepo-arbor.example.dev
 ```
 
 arbor has no login of its own. Whoever can reach an allowed host can read the
-repo's plans and reply, so the tunnel has to be the one asking who you are
+repo's plans and change its todos, so the tunnel has to be the one asking who you are
 (Cloudflare Access, a Tailscale tailnet). Never expose it through a tunnel
 with no login in front.
 
@@ -362,13 +290,37 @@ printing a path you cannot `cd` into.
 The explicit "this needs a human" exit. Records the reason, drops the lease, and
 leaves the worktree **exactly** as it is so the human sees what the agent saw.
 
+Questions go under `## Blocked` in the task's `ARBOR.md`, numbered `1.`,
+`2.`, … (a plan numbered the old way, `Q1.`, still reads). A question's line
+is its subject. Lines indented under it are its body, markdown with code
+blocks and images (`![shot](/abs/path.png)`). Choices come last in the body:
+`- (a) ...` lines take one or none, `- [a] ...` lines take any that apply.
+
+```markdown
+- [ ] 3. 🔐 How should existing sessions move to the new tokens?
+  Sessions are keyed by the old cookie.
+  ![login screen](/abs/path/login.png)
+  - (a) Sign everyone out once
+  - (b) Migrate each session on its next request
+- [ ] 4. 🔔 Where should failures notify?
+  - [a] Email
+  - [b] Slack
+  - [c] Push
+```
+
+The person answers in the agent's chat, and the agent writes each answer on
+its question's line after ` → `, then checks it off once it has acted on it:
+
+```markdown
+- [x] 3. 🔐 How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
+```
+
 `--review` asks for approval to merge rather than for answers: it adds
 `- [ ] 5. ✅ Ready to merge?` under `## Blocked`, the reason indented under
-it as what to look at, and the page shows the task as one card with Approve
-and Request changes. Refused (`blocked`) while another question is unchecked,
-so a review is the last thing standing between the task and trunk. The agent
-waits with `arbor wait --answered`, then merges on "Approved: merge it." or
-acts on the changes asked for.
+it as what to look at. Refused (`blocked`) while another question is
+unchecked, so a review is the last thing standing between the task and trunk.
+The agent merges once the person approves in chat, or acts on the changes
+asked for.
 
 This exists so an agent has a way out that is not "resolve the conflict badly to
 finish the task". Agents are reliable at mechanical conflicts (both sides added
@@ -409,7 +361,7 @@ what is left with `update`, then releases it, so the merge leaves it open.
 no longer wanted.
 
 `--file a.png,notes.md` attaches files of any kind, stored beside the todo in
-`.git/arbor/todos/<id>/` the way a reply's are. `update --remove-file` drops
+`.git/arbor/todos/<id>/`. `update --remove-file` drops
 one, named by path or by its stored file name (`todo show` lists them). They
 go when the todo does.
 
@@ -440,15 +392,14 @@ The agent's control flow runs on these.
 | 5    | `budget_exhausted`  | Out of merge attempts. `arbor escalate`, and a human can grant another budget with `arbor retry`; or `arbor remove` and redo against current trunk. |
 | 6    | `lease_held`        | Another agent is driving this tree.                                |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
-| 8    | `not_found`         | No such task, or not run from a task worktree; for a reply from the page, no such question. |
+| 8    | `not_found`         | No such task, or not run from a task worktree. |
 | 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
 | 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. |
 | 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
-| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging, or with `--answered`, a question is still unanswered. |
+| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging. |
 | 16   | `blocked`           | `arbor merge` refused: a question under `## Blocked` is unchecked, unanswered or not yet acted on. Also `escalate --review` while one is. |
-| 17   | `not_escalated`     | A reply from the page to a task that is not escalated: its agent is still at work, so say it in its chat. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

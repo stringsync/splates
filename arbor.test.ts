@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
 import { arbor } from "./arbor";
-import { replyTo } from "./reply";
 import { Testing } from "./testing";
 
 /**
@@ -28,7 +27,7 @@ describe("arbor cli", () => {
 		expect(await env.fs.exists(join(`${env.root}-arbor`, "alpha"))).toBe(true);
 	});
 
-	it("lets an agent wait for what the page answered, and nothing more", async () => {
+	it("escalates a task and edits its todos", async () => {
 		await using env = await Testing.open();
 		env.ps.cd(env.root);
 		const deps = {
@@ -41,25 +40,11 @@ describe("arbor cli", () => {
 		const worktree = await env.service.find("alpha");
 		await env.fs.write(
 			join(worktree.path, "ARBOR.md"),
-			"# alpha\n\n## Blocked\n\n- [ ] 1. Open it.\n- [ ] 2. Run it where?\n  - [a] locally\n  - [b] in ci\n",
+			"# alpha\n\n## Blocked\n\n- [ ] 1. Open it.\n",
 		);
 		await env.fs.write(join(env.root, "a.png"), "a");
 		env.ps.cd(worktree.path);
 		await arbor.run(deps, ["escalate", "needs a person"]);
-
-		// A person answers from the page; the CLI has no way to.
-		env.log.clear();
-		await arbor.run(deps, ["reply", "alpha", "1", "looks right"]);
-		expect(env.out()).not.toContain("  reply ");
-		await replyTo(env, "alpha", "1", { text: "looks right" });
-		await replyTo(env, "alpha", "2", { text: "", choices: ["b", "a"] });
-
-		// The agent waits for its answers and reads them in its plan.
-		env.log.clear();
-		await arbor.run(deps, ["wait", "alpha", "--answered"]);
-		expect(env.out()).toContain("    → a (locally), b (in ci)");
-		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
-		expect(plan).toContain("Run it where? → a (locally), b (in ci)\n");
 
 		env.ps.cd(env.root);
 		await arbor.run(deps, [

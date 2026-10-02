@@ -81,8 +81,8 @@ export async function merge(
 			{ task, lease: worktree.lease },
 		);
 	}
-	// An unchecked question is one a person has yet to answer, or an answer
-	// or follow-up the agent has yet to act on.
+	// An unchecked question is one the user has yet to answer, or an answer
+	// the agent has yet to act on.
 	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
 	const blocked = questions(plan)
 		.filter((asked) => !asked.done)
@@ -90,7 +90,7 @@ export async function merge(
 	if (blocked.length > 0) {
 		fail(
 			"blocked",
-			`'${task}' has questions ${blocked.join(", ")} unchecked under ## Blocked: act on each answer and check it off, or wait for one with \`arbor wait --answered\`, then merge again`,
+			`'${task}' has questions ${blocked.join(", ")} unchecked under ## Blocked: act on each answer and check it off, or escalate and ask the user in chat, then merge again`,
 			{ task, blocked },
 		);
 	}

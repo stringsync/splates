@@ -23,7 +23,6 @@ it("keeps the exit codes stable", () => {
 		already_removed: 13,
 		timeout: 14,
 		blocked: 16,
-		not_escalated: 17,
 	});
 });
 

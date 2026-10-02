@@ -7,12 +7,9 @@ import {
 	type PortProvider,
 } from "webappwiz/system";
 import type { Attachment } from "./attachments";
-import { blockers } from "./blocked";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Journal } from "./journal";
-import type { Replies } from "./replies";
-import { APPROVED, defer, replyTo, SKIP } from "./reply";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todo";
 import type { WorktreeService } from "./worktree-service";
@@ -35,7 +32,7 @@ const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 /** A phone photo fits; a stray video does not. */
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
 
-/** The images a question may show, by extension, and how each is served. */
+/** The images a todo may hold, by extension, and how each is served. */
 const IMAGE_TYPES: Record<string, string> = {
 	png: "image/png",
 	jpg: "image/jpeg",
@@ -51,7 +48,6 @@ const STATUS: Partial<Record<Reason, number>> = {
 	not_found: 404,
 	lease_held: 409,
 	exists: 409,
-	not_escalated: 409,
 };
 
 /** What `dev` lets a caller choose. */
@@ -73,15 +69,10 @@ export interface DevServer extends AsyncResource {
 }
 
 /**
- * Serves what `list`, `show` and `todo list` print, and the questions
- * escalated tasks ask, as one page that refetches when the repo changes. It is
- * the only place a person answers a question: follows one up, defers or skips
- * it, or approves a merge, each written straight into the task's `ARBOR.md`.
- * The CLI has no command for any of them, so no agent is tempted to answer
- * another.
- * Anything that moves a task (merge, remove, claim) stays in the CLI, so a
- * page that should not have been reachable can at worst leave a reply or
- * change a todo.
+ * Serves what `todo list`, `list` and `show` print as one page that refetches
+ * when the repo changes, where a person adds, edits, reorders and removes
+ * todos. Anything that moves a task (merge, remove, claim) stays in the CLI,
+ * so a page that should not have been reachable can at worst change a todo.
  */
 export async function dev(
 	{
@@ -89,7 +80,6 @@ export async function dev(
 		fs,
 		journal,
 		todos,
-		replies,
 		log,
 		assets,
 	}: {
@@ -97,14 +87,12 @@ export async function dev(
 		fs: Fs;
 		journal: Journal;
 		todos: Todos;
-		replies: Replies;
 		log: Logger;
 		assets: Assets;
 	},
 	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
 ): Promise<DevServer> {
 	const read = () => snapshot({ service, todos, fs });
-	const deps = { service, fs, replies };
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
@@ -196,61 +184,15 @@ export async function dev(
 			}
 		};
 
-	const reply = async (request: Request): Promise<Response> => {
-		const form = await request.formData();
-		const task = String(form.get("task") ?? "");
-		const replied = await journal.record("reply", task, async () =>
-			replyTo(deps, task, String(form.get("question") ?? ""), {
-				text: String(form.get("text") ?? ""),
-				choices: form.getAll("choice").map(String),
-				files: await uploads(form),
-			}),
-		);
-		await tick();
-		return Response.json(replied);
-	};
-
-	/** The `{task, question}` a reply route names in its JSON body. */
-	const named = async (request: Request) => {
-		const { task, question } = (await request.json()) as {
-			task?: unknown;
-			question?: unknown;
-		};
-		return { task: String(task ?? ""), question: String(question ?? "") };
-	};
-
-	/** A route that answers a question one way, named in its JSON body. */
-	const answer =
-		(
-			action: string,
-			how: (task: string, question: string) => Promise<unknown>,
-		) =>
-		async (request: Request): Promise<Response> => {
-			const { task, question } = await named(request);
-			const done = await journal.record(action, task, () =>
-				how(task, question),
-			);
-			await tick();
-			return Response.json(done);
-		};
-
-	// Only an image a question shows, or a file an answer or a todo holds,
-	// so the page, and whoever a tunnel lets reach it, can read nothing on this
-	// machine that was not put in front of a person on purpose.
+	// Only a file a todo holds, so the page, and whoever a tunnel lets reach
+	// it, can read nothing on this machine that was not put there on purpose.
 	const file = async (request: Request): Promise<Response> => {
 		const params = new URL(request.url).searchParams;
-		const task = params.get("task") ?? "";
 		const path = params.get("path") ?? "";
 		const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
-		const held = replies.owns(path) || todos.owns(path);
-		const shown =
-			held ||
-			(type !== undefined &&
-				(await blockers({ service, fs })).some(
-					(question) =>
-						question.task === task && question.images.includes(path),
-				));
-		const bytes = shown ? await fs.readBytes(path).catch(() => null) : null;
+		const bytes = todos.owns(path)
+			? await fs.readBytes(path).catch(() => null)
+			: null;
 		if (bytes === null) {
 			return refuse(404, "not_found", `nothing here shows ${path}`);
 		}
@@ -359,28 +301,6 @@ export async function dev(
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/snapshot": guarded(async () => Response.json(await read())),
-			"/api/reply": { POST: guarded(reply) },
-			"/api/defer": {
-				POST: guarded(
-					answer("defer", (task, question) =>
-						defer({ ...deps, todos }, task, question),
-					),
-				),
-			},
-			"/api/skip": {
-				POST: guarded(
-					answer("skip", (task, question) =>
-						replyTo(deps, task, question, { text: SKIP }),
-					),
-				),
-			},
-			"/api/approve": {
-				POST: guarded(
-					answer("approve", (task, question) =>
-						replyTo(deps, task, question, { text: APPROVED }),
-					),
-				),
-			},
 			"/api/file": guarded(file),
 			"/api/paths": guarded(paths),
 			"/api/todos": { POST: guarded(addTodo) },

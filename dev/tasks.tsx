@@ -102,11 +102,8 @@ function Progress({ plan }: { plan: string | null }): JSX.Element | null {
 	);
 }
 
-/**
- * One task, all of it, rising from the bottom: from the task list, or stacked
- * over an open question, so closing it returns to the question.
- */
-export function Task({ task }: { task: Details }): JSX.Element {
+/** One task, all of it, rising from the bottom over the task list. */
+function Task({ task }: { task: Details }): JSX.Element {
 	const fields: [string, ReactNode][] = [
 		["status", task.status],
 		["branch", task.branch],

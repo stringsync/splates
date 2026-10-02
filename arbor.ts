@@ -152,26 +152,16 @@ arbor
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
-	.option(
-		"answered",
-		z.string().transform((raw) => raw !== "false"),
-		{
-			default: false,
-			description:
-				"wait instead until every unchecked question under the task's ## Blocked has an answer in its ARBOR.md, then print them: what an escalated agent runs to learn it is unblocked",
-		},
-	)
 	.action((opts, ctx) =>
 		wait(ctx, opts.task, {
 			timeout: Duration.secs(opts["timeout-secs"]),
-			answered: opts.answered,
 		}),
 	);
 
 arbor
 	.command("log")
 	.description(
-		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, reply and more, with how it ended; outlives the tasks themselves",
+		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, todo and more, with how it ended; outlives the tasks themselves",
 	)
 	.option("count", z.coerce.number(), {
 		default: DEFAULT_COUNT,
@@ -187,7 +177,7 @@ arbor
 arbor
 	.command("dev")
 	.description(
-		"serve the tasks, the questions escalated ones ask under ## Blocked, and the todos as a web page on this machine; the only place a person answers, follows up, defers or skips a question, or approves a merge, writing the answer into the task's ARBOR.md, and where todos can be added, updated or removed",
+		"serve the todos and the tasks as a web page on this machine, where todos can be added, updated, reordered or removed",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,

@@ -1,10 +1,5 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import {
-	GitBranchIcon,
-	ListTodoIcon,
-	type LucideIcon,
-	OctagonPauseIcon,
-} from "lucide-react";
+import { GitBranchIcon, ListTodoIcon, type LucideIcon } from "lucide-react";
 import { type JSX, useEffect, useState, useSyncExternalStore } from "react";
 import {
 	Tabs,
@@ -14,13 +9,11 @@ import {
 } from "#dev/components/ui/tabs.tsx";
 import { Toaster } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { Blocked } from "./blocked";
 import { Feed } from "./feed";
 import { Tasks } from "./tasks";
 import { Todos } from "./todos";
 
 const TABS: { value: string; label: string; Icon: LucideIcon }[] = [
-	{ value: "blocked", label: "Blocked", Icon: OctagonPauseIcon },
 	{ value: "todos", label: "Todos", Icon: ListTodoIcon },
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
 ];
@@ -59,12 +52,9 @@ export function App(): JSX.Element {
 		["changed"],
 	);
 
-	const open = snapshot?.blocked.length ?? 0;
-	// The tab says what waits on you, so a phone's tab switcher does too.
 	useEffect(() => {
-		const repo = snapshot?.repo ?? "arbor";
-		document.title = open > 0 ? `(${open}) ${repo}` : repo;
-	}, [snapshot?.repo, open]);
+		document.title = snapshot?.repo ?? "arbor";
+	}, [snapshot?.repo]);
 
 	return (
 		<Toaster>
@@ -97,12 +87,12 @@ export function App(): JSX.Element {
 					</header>
 					{snapshot === null ? null : (
 						<Tabs
-							defaultValue="blocked"
+							defaultValue="todos"
 							orientation={wide ? "vertical" : "horizontal"}
 							className="gap-6"
 						>
 							{/* On a phone, a bar along the bottom, where a thumb already is;
-						    the sheets rise over it, so a question has the whole screen.
+						    the sheets rise over it, so a todo has the whole screen.
 						    With room to spare, a sidebar down the left instead. */}
 							<TabsList
 								variant="line"
@@ -126,31 +116,16 @@ export function App(): JSX.Element {
 											<>
 												<Icon />
 												{label}
-												{value === "blocked" && open > 0 && (
-													<span className="ml-auto text-muted-foreground text-xs tabular-nums">
-														{open}
-													</span>
-												)}
 											</>
 										) : (
 											<>
-												<span className="relative">
-													<Icon className="size-5" />
-													{value === "blocked" && open > 0 && (
-														<span className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-primary px-1 text-[0.625rem] text-primary-foreground tabular-nums leading-4">
-															{open}
-														</span>
-													)}
-												</span>
+												<Icon className="size-5" />
 												{label}
 											</>
 										)}
 									</TabsTrigger>
 								))}
 							</TabsList>
-							<TabsContent value="blocked">
-								<Blocked snapshot={snapshot} />
-							</TabsContent>
 							<TabsContent value="todos">
 								<Todos snapshot={snapshot} />
 							</TabsContent>
