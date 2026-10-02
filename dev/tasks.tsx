@@ -102,8 +102,8 @@ function Progress({ plan }: { plan: string | null }): JSX.Element | null {
 	);
 }
 
-/** One task, all of it, in a dialog over the task list. */
-function Task({ task }: { task: Details }): JSX.Element {
+/** One task, all of it, in a dialog over the task list or a todo that names it. */
+export function Task({ task }: { task: Details }): JSX.Element {
 	const fields: [string, ReactNode][] = [
 		["status", task.status],
 		["branch", task.branch],
@@ -126,7 +126,7 @@ function Task({ task }: { task: Details }): JSX.Element {
 		["age", task.age ?? "?"],
 	];
 	return (
-		<DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl">
 			<DialogHeader>
 				<DialogTitle>{task.task}</DialogTitle>
 				<DialogDescription>{task.escalation ?? task.status}</DialogDescription>

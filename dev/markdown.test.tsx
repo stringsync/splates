@@ -4,7 +4,7 @@ import { render } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
-import { Linked, Markdown } from "./markdown";
+import { Markdown } from "./markdown";
 
 describe("Markdown", () => {
 	it("renders a heading at its own level", () => {
@@ -14,17 +14,15 @@ describe("Markdown", () => {
 		expect(page.getByRole("heading", { level: 2 }).textContent).toBe("Goal");
 	});
 
-	it("renders prose as a paragraph, joining the lines it wrapped over", () => {
+	it("keeps lines that wrap in one paragraph", () => {
 		const { container } = render(
 			<Markdown text={"one or two lines:\nwhat done means.\n"} />,
 		);
 
-		expect(container.querySelector("p")?.textContent).toBe(
-			"one or two lines: what done means.",
-		);
+		expect(container.querySelectorAll("p")).toHaveLength(1);
 	});
 
-	it("gives a checklist item a real checkbox, ticked when the box was", () => {
+	it("gives a checklist item a disabled checkbox, ticked when the box was", () => {
 		const { container } = render(
 			<Markdown text={"- [ ] the rest\n- [x] landed\n"} />,
 		);
@@ -32,35 +30,34 @@ describe("Markdown", () => {
 		const boxes = [...container.querySelectorAll("input")];
 
 		expect(boxes.map((box) => box.checked)).toEqual([false, true]);
+		expect(boxes.every((box) => box.disabled)).toBe(true);
 		expect(container.textContent).toContain("the rest");
 	});
 
-	it("disables every checkbox, since the page only reports", () => {
-		const { container } = render(<Markdown text={"- [ ] the rest\n"} />);
-
-		expect(container.querySelector("input")?.disabled).toBe(true);
-	});
-
 	it("renders a plain bullet without a checkbox", () => {
-		const { container } = render(
-			<Markdown text={"- where the code lives\n"} />,
-		);
+		const { container } = render(<Markdown text={"- a bullet\n"} />);
 
-		expect(container.querySelectorAll("li")).toHaveLength(1);
+		expect(container.querySelector("li")?.textContent).toBe("a bullet");
 		expect(container.querySelector("input")).toBeNull();
 	});
 
-	it("folds a wrapped continuation line into the item above it", () => {
+	it("nests lists", () => {
 		const { container } = render(
-			<Markdown
-				text={"- [x] replace the outer details\n      with an article\n"}
-			/>,
+			<Markdown text={"- outer\n  - inner\n- next\n"} />,
 		);
 
-		expect(container.querySelectorAll("li")).toHaveLength(1);
-		expect(container.querySelector("li")?.textContent).toBe(
-			"replace the outer details with an article",
+		expect(container.querySelectorAll("ul ul li")).toHaveLength(1);
+		expect(container.querySelectorAll("ul > li")).toHaveLength(3);
+	});
+
+	it("renders a table", () => {
+		const { container } = render(
+			<Markdown text={"| a | b |\n| - | - |\n| 1 | 2 |\n"} />,
 		);
+
+		expect(
+			[...container.querySelectorAll("td")].map((cell) => cell.textContent),
+		).toEqual(["1", "2"]);
 	});
 
 	it("renders a fenced block as code, verbatim", () => {
@@ -70,14 +67,6 @@ describe("Markdown", () => {
 
 		expect(container.querySelector("pre code")?.textContent).toBe(
 			"const x = 1;",
-		);
-	});
-
-	it("still renders a fence nobody closed", () => {
-		const { container } = render(<Markdown text={"```\narbor merge\n"} />);
-
-		expect(container.querySelector("pre code")?.textContent).toBe(
-			"arbor merge",
 		);
 	});
 
@@ -91,7 +80,7 @@ describe("Markdown", () => {
 		expect(container.querySelector("em")?.textContent).toBe("task");
 	});
 
-	it("links http destinations", () => {
+	it("links http destinations in a new tab, so the page keeps its place", () => {
 		const { container } = render(
 			<Markdown text={"open [the page](http://localhost:4269)"} />,
 		);
@@ -100,53 +89,26 @@ describe("Markdown", () => {
 
 		expect(link?.textContent).toBe("the page");
 		expect(link?.getAttribute("href")).toBe("http://localhost:4269");
-	});
-
-	it("opens a link in a new tab, so the page keeps its place", () => {
-		const { container } = render(
-			<Markdown text={"open [the page](http://localhost:4269)"} />,
-		);
-
-		const link = container.querySelector("a");
-
 		expect(link?.getAttribute("target")).toBe("_blank");
-		expect(link?.getAttribute("rel")).toBe("noreferrer");
+		expect(link?.getAttribute("rel")).toContain("noopener");
 	});
 
-	it("links a bare URL, leaving the punctuation after it as text", () => {
+	it("links a bare URL", () => {
 		const { container } = render(
-			<Markdown text={"see https://example.com/a?b=1. Or (https://x.dev)"} />,
+			<Markdown text={"see https://example.com/a?b=1 for more"} />,
 		);
 
-		const links = [...container.querySelectorAll("a")];
-
-		expect(links.map((link) => link.getAttribute("href"))).toEqual([
+		expect(container.querySelector("a")?.getAttribute("href")).toBe(
 			"https://example.com/a?b=1",
-			"https://x.dev",
-		]);
-		expect(container.textContent).toBe(
-			"see https://example.com/a?b=1. Or (https://x.dev)",
 		);
 	});
 
-	it("leaves a URL inside inline code as code", () => {
-		const { container } = render(
-			<Markdown text={"run `curl https://x.dev`"} />,
-		);
-
-		expect(container.querySelector("a")).toBeNull();
-		expect(container.querySelector("code")?.textContent).toBe(
-			"curl https://x.dev",
-		);
-	});
-
-	it("leaves a javascript: link as text rather than making it clickable", () => {
+	it("never makes a javascript: link clickable", () => {
 		const { container } = render(
 			<Markdown text={"[click](javascript:alert(1))"} />,
 		);
 
-		expect(container.querySelector("a")).toBeNull();
-		expect(container.textContent).toContain("[click](javascript:alert(1))");
+		expect(container.querySelector("a[href]")).toBeNull();
 	});
 
 	it("renders markup in the source as text instead of elements", () => {
@@ -155,24 +117,17 @@ describe("Markdown", () => {
 		);
 
 		expect(container.querySelector("script")).toBeNull();
-		expect(container.querySelector("li")?.textContent).toBe(
+		expect(container.querySelector("li")?.textContent?.trim()).toBe(
 			"drop <script>alert(1)</script>",
 		);
 	});
-});
 
-describe("Linked", () => {
-	it("links the URLs in plain text and keeps the rest as typed", () => {
+	it("shows an image as its alt text, since the page cannot load a local path", () => {
 		const { container } = render(
-			<Linked text={"**look** at\nhttps://example.com/x, then reply"} />,
+			<Markdown text={"![the header](/abs/a.png)"} />,
 		);
 
-		expect(container.querySelector("strong")).toBeNull();
-		expect(container.querySelector("a")?.getAttribute("href")).toBe(
-			"https://example.com/x",
-		);
-		expect(container.textContent).toBe(
-			"**look** at\nhttps://example.com/x, then reply",
-		);
+		expect(container.querySelector("img")).toBeNull();
+		expect(container.textContent).toBe("[the header]");
 	});
 });

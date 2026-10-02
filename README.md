@@ -232,10 +232,11 @@ themselves as anything changes. Built for a phone first.
 Todos are cards in list order: drag one to reorder the list (a short press
 on a phone, or Space on its grip and the arrow keys), or tap it to reword,
 attach files to, or remove. A card shows its subject, two lines of its
-detail, and badges for its files and staleness, and a green edge with
+detail rendered as markdown, and badges for its files and staleness, and a green edge with
 "Taken by <task>" once a task has taken it; its
 `#7` copies `[ARBOR TODO #7]`, which the agent skill reads as that todo, for
-pasting into a chat. Typing `@` in a todo offers the files and
+pasting into a chat. An opened todo shows its detail rendered, with Write and
+Preview to switch between the markdown and how it reads. Typing `@` in a todo offers the files and
 directories in the main tree, tracked or new but not ignored, and writes the
 one picked as `@path/from/root`; picking a directory keeps the list open on
 what is inside.
@@ -339,7 +340,8 @@ door, a follow-up the reviewer asked for, a question that turns out to be its
 own project), the agent notes it with `arbor todo add` and carries on instead
 of growing the task. Run from a worktree, `add` records the task it came up
 in. A todo is a subject, one line that `list` and `merge` show, and an optional
-detail below it that `show` prints in full.
+detail below it in markdown, which `show` prints in full and the `dev` page
+renders.
 
 The list is in order: position 1 is the top, and after a task's own todos,
 the open todo highest on it is the one `merge` recommends next. A new one goes to the bottom, or with

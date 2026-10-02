@@ -1,300 +1,124 @@
-import { createContext, type JSX, type ReactNode, useContext } from "react";
+import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
+import type { ComponentProps, JSX } from "react";
+import { cn } from "#dev/lib/utils.ts";
 
 export interface MarkdownProps {
 	text: string;
 	/** Added to the wrapping `<div>`, for margins and the like. */
 	className?: string;
 	/**
-	 * Renders a `![alt](/abs/path.png)` image. Without one, an image reads as
-	 * its alt text: the page cannot load a path on its own.
+	 * A card's two-line glimpse: every block at the size of the text around
+	 * it and with no margins, so the lines that show are the content's.
 	 */
-	image?: (path: string, alt: string) => ReactNode;
+	preview?: boolean;
 }
 
-const ImageContext = createContext<MarkdownProps["image"]>(undefined);
+// Every level renders as the same quiet uppercase label: the documents this
+// renders sit inside a card or a dialog that already carries the real title,
+// so a heading here is a section marker, not a hierarchy, and a run of
+// title-sized lines would shout over the content. The tag still says the
+// level for a reader.
+const HEADING =
+	"mt-[0.9rem] mb-[0.3rem] first:mt-0 font-bold text-[0.8rem] uppercase tracking-[0.08em] opacity-55";
+
+const heading = (tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => ({
+	component: tag,
+	props: { className: HEADING },
+});
+
+/** A link opens in a new tab, so the page keeps its place. */
+function Link(props: ComponentProps<"a">): JSX.Element {
+	return (
+		<a
+			{...props}
+			target="_blank"
+			rel="noreferrer noopener"
+			className="break-all underline"
+		/>
+	);
+}
 
 /**
- * Renders markdown: headings, bullet and checklist items, fenced code and
- * prose, with inline code, emphasis, http links (bare URLs too) and images.
- *
- * ponytail: parses the common shape rather than the whole of CommonMark, since
- * the repo carries no runtime dependencies and every document it renders is
- * agent-written. Lists are flat, so a nested item renders as a sibling, and
- * anything unrecognised renders as its own text: nothing is lost, only left
- * plain. Reach for `react-markdown` if a document here ever needs tables or
- * nesting.
+ * An image reads as its alt text: the paths agents write are files on their
+ * machine, which the page has no way to load.
+ */
+function Image({ alt }: ComponentProps<"img">): JSX.Element {
+	return <span className="text-muted-foreground">[{alt || "image"}]</span>;
+}
+
+/** A checklist box only reports: the document is the agent's to tick. */
+function Checkbox(props: ComponentProps<"input">): JSX.Element {
+	return (
+		<input {...props} disabled className="mr-1.5 align-[-0.1em]" readOnly />
+	);
+}
+
+const OPTIONS: MarkdownToJSX.Options = {
+	// Markup in a todo or a plan is shown as typed, never as elements.
+	disableParsingRawHTML: true,
+	forceBlock: true,
+	overrides: {
+		h1: heading("h1"),
+		h2: heading("h2"),
+		h3: heading("h3"),
+		h4: heading("h4"),
+		h5: heading("h5"),
+		h6: heading("h6"),
+		p: { props: { className: "my-1" } },
+		ul: { props: { className: "my-1 list-disc pl-5" } },
+		// A checklist item gives up its bullet to the box, and fades once ticked.
+		li: {
+			props: {
+				className:
+					"has-[>input]:-ml-5 has-[>input]:list-none has-[>input:checked]:opacity-50",
+			},
+		},
+		ol: { props: { className: "my-1 list-decimal pl-5" } },
+		blockquote: {
+			props: { className: "my-1 border-l-2 pl-3 text-muted-foreground" },
+		},
+		pre: {
+			props: {
+				className: "my-2 overflow-x-auto rounded bg-current/8 p-3 text-xs",
+			},
+		},
+		code: {
+			props: {
+				className:
+					"rounded bg-current/10 px-1 [pre_&]:p-0 [pre_&]:bg-transparent",
+			},
+		},
+		table: {
+			props: { className: "my-2 block overflow-x-auto text-xs" },
+		},
+		th: { props: { className: "border px-2 py-1 text-left font-medium" } },
+		td: { props: { className: "border px-2 py-1" } },
+		hr: { props: { className: "my-3" } },
+		a: Link,
+		img: Image,
+		input: Checkbox,
+	},
+};
+
+/**
+ * Renders markdown with markdown-to-jsx: GitHub's flavor, nesting, tables and
+ * task lists included, styled to sit quietly in the page.
  */
 export function Markdown({
 	text,
 	className,
-	image,
+	preview = false,
 }: MarkdownProps): JSX.Element {
 	return (
-		<ImageContext value={image}>
-			<div className={className}>
-				{blocks(text).map((block) => (
-					<Block key={block.line} block={block} />
-				))}
-			</div>
-		</ImageContext>
-	);
-}
-
-/** One parsed block, tagged with the 0-based source line it opened on. */
-type Block =
-	| { kind: "heading"; line: number; level: number; text: string }
-	| { kind: "list"; line: number; items: Item[] }
-	| { kind: "code"; line: number; code: string }
-	| { kind: "para"; line: number; text: string };
-
-interface Item {
-	line: number;
-	text: string;
-	/** Null for a plain bullet, otherwise whether its box is ticked. */
-	checked: boolean | null;
-}
-
-const HEADING = /^(#{1,6})\s+(.*)$/;
-const ITEM = /^\s*[-*]\s+(?:\[([ xX])\]\s*)?(.*)$/;
-const FENCE = /^\s*(?:```|~~~)/;
-
-function blocks(text: string): Block[] {
-	const out: Block[] = [];
-	let para: { line: number; lines: string[] } | null = null;
-	let list: { line: number; items: Item[] } | null = null;
-	let code: { line: number; lines: string[] } | null = null;
-
-	const endPara = (): void => {
-		if (para !== null) {
-			out.push({ kind: "para", line: para.line, text: para.lines.join(" ") });
-			para = null;
-		}
-	};
-	const endList = (): void => {
-		if (list !== null) {
-			out.push({ kind: "list", line: list.line, items: list.items });
-			list = null;
-		}
-	};
-	const endCode = (): void => {
-		if (code !== null) {
-			out.push({ kind: "code", line: code.line, code: code.lines.join("\n") });
-			code = null;
-		}
-	};
-	const endBlock = (): void => {
-		endPara();
-		endList();
-	};
-
-	for (const [at, line] of text.split("\n").entries()) {
-		if (code !== null) {
-			if (FENCE.test(line)) {
-				endCode();
-			} else {
-				code.lines.push(line);
-			}
-			continue;
-		}
-		if (FENCE.test(line)) {
-			endBlock();
-			code = { line: at, lines: [] };
-			continue;
-		}
-		if (line.trim() === "") {
-			endBlock();
-			continue;
-		}
-		const heading = line.match(HEADING);
-		if (heading) {
-			endBlock();
-			out.push({
-				kind: "heading",
-				line: at,
-				level: (heading[1] ?? "#").length,
-				text: heading[2] ?? "",
-			});
-			continue;
-		}
-		const item = line.match(ITEM);
-		if (item) {
-			endPara();
-			list ??= { line: at, items: [] };
-			list.items.push({
-				line: at,
-				text: item[2] ?? "",
-				checked: item[1] === undefined ? null : item[1] !== " ",
-			});
-			continue;
-		}
-		// A plain line under a list item belongs to it: agents wrap long items, and
-		// letting one start a paragraph spills it out past the bullet.
-		const open = list?.items.at(-1);
-		if (open !== undefined) {
-			open.text = `${open.text} ${line.trim()}`;
-			continue;
-		}
-		para ??= { line: at, lines: [] };
-		para.lines.push(line.trim());
-	}
-	// An unclosed fence still had content worth showing, minus the blank lines
-	// between its last line and the end of the document.
-	while (code !== null && (code.lines.at(-1) ?? "x").trim() === "") {
-		code.lines.pop();
-	}
-	endCode();
-	endBlock();
-	return out;
-}
-
-// Every level renders as the same quiet uppercase label: the documents this
-// renders sit inside a card that already carries the real title, so a heading
-// here is a section marker, not a hierarchy, and a run of title-sized lines
-// would shout over the content. The tag still says the level for a reader.
-const HEADING_STYLE =
-	"mt-[0.9rem] mb-[0.3rem] first:mt-0 font-bold text-[0.8rem] uppercase tracking-[0.08em] opacity-55";
-
-function Block({ block }: { block: Block }): JSX.Element {
-	switch (block.kind) {
-		case "heading": {
-			// The regex clamps the level to 1-6, so the tag is always a real one.
-			const Tag = `h${block.level}` as "h1";
-			return (
-				<Tag className={HEADING_STYLE}>
-					<Inline text={block.text} />
-				</Tag>
-			);
-		}
-		case "list":
-			return (
-				<ul className="my-1 list-disc pl-5">
-					{block.items.map((item) => (
-						<ListItem key={item.line} item={item} />
-					))}
-				</ul>
-			);
-		case "code":
-			return (
-				<pre className="my-2 overflow-x-auto rounded bg-current/8 p-3 text-xs">
-					<code>{block.code}</code>
-				</pre>
-			);
-		case "para":
-			return (
-				<p className="my-1">
-					<Inline text={block.text} />
-				</p>
-			);
-	}
-}
-
-function ListItem({ item }: { item: Item }): JSX.Element {
-	if (item.checked === null) {
-		return (
-			<li>
-				<Inline text={item.text} />
-			</li>
-		);
-	}
-	return (
-		// A checklist item gives up its bullet to the box and pulls back into the
-		// space that left. A ticked box says done on its own, so its text is dimmed
-		// rather than struck through: a long done section of strikethrough is a wall
-		// nobody reads.
-		<li className={`-ml-5 list-none ${item.checked ? "opacity-50" : ""}`}>
-			<input
-				type="checkbox"
-				checked={item.checked}
-				disabled
-				className="mr-1.5 align-[-0.1em]"
-			/>
-			<Inline text={item.text} />
-		</li>
-	);
-}
-
-// http(s) only for links: every document here is agent-written, and a link is
-// the one construct that would otherwise let a scheme like `javascript:` in.
-// A bare URL stops short of the punctuation that ends the sentence around it.
-// Images are absolute paths only, loaded through whatever `image` renders.
-const WEB = String.raw`https?:\/\/[^\s<>()\[\]]*[^\s<>()\[\].,;:!?'"]`;
-const INLINE = new RegExp(
-	String.raw`\x60([^\x60]+)\x60|\*\*([^*]+)\*\*|(?<![*\w])\*([^*\n]+)\*(?!\w)|!\[([^\]]*)\]\((\/[^)\s]+)\)|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(${WEB})`,
-	"g",
-);
-const BARE = new RegExp(WEB, "g");
-
-/**
- * Plain text with only its http(s) URLs made clickable, for what a person
- * wrote: a reply keeps its own line breaks and any markup as typed.
- */
-export function Linked({ text }: { text: string }): JSX.Element {
-	const out: ReactNode[] = [];
-	let at = 0;
-	for (const match of text.matchAll(BARE)) {
-		out.push(text.slice(at, match.index));
-		out.push(<Link key={match.index} href={match[0]} label={match[0]} />);
-		at = match.index + match[0].length;
-	}
-	out.push(text.slice(at));
-	return <>{out}</>;
-}
-
-/** Opens in a new tab, so following a link never loses the page's place. */
-function Link({ href, label }: { href: string; label: string }): JSX.Element {
-	return (
-		<a
-			href={href}
-			target="_blank"
-			rel="noreferrer"
-			className="break-all underline"
+		<div
+			className={cn(
+				"min-w-0 break-words",
+				preview &&
+					"max-h-[2lh] overflow-hidden [&_*]:my-0 [&_*]:text-[length:inherit] [&_*]:normal-case [&_*]:tracking-normal [&_pre]:p-0 [&_pre]:bg-transparent",
+				className,
+			)}
 		>
-			{label}
-		</a>
+			<Render options={OPTIONS}>{text}</Render>
+		</div>
 	);
-}
-
-function Inline({ text }: { text: string }): JSX.Element {
-	const image = useContext(ImageContext);
-	return <>{inline(text, image)}</>;
-}
-
-/** The spans of markup worth keeping. React escapes the text between them. */
-function inline(text: string, image: MarkdownProps["image"]): ReactNode[] {
-	const out: ReactNode[] = [];
-	let at = 0;
-	for (const match of text.matchAll(INLINE)) {
-		if (match.index > at) {
-			out.push(text.slice(at, match.index));
-		}
-		const [whole, code, strong, em, alt, path, label, href, bare] = match;
-		if (path !== undefined) {
-			out.push(
-				<span key={match.index}>
-					{image === undefined ? alt || path : image(path, alt ?? "")}
-				</span>,
-			);
-		} else if (code !== undefined) {
-			out.push(
-				<code key={match.index} className="rounded bg-current/10 px-1">
-					{code}
-				</code>,
-			);
-		} else if (strong !== undefined) {
-			out.push(<strong key={match.index}>{strong}</strong>);
-		} else if (em !== undefined) {
-			out.push(<em key={match.index}>{em}</em>);
-		} else if (bare !== undefined) {
-			out.push(<Link key={match.index} href={bare} label={bare} />);
-		} else {
-			out.push(
-				<Link key={match.index} href={href ?? ""} label={label ?? ""} />,
-			);
-		}
-		at = match.index + whole.length;
-	}
-	if (at < text.length) {
-		out.push(text.slice(at));
-	}
-	return out;
 }

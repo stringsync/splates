@@ -32,6 +32,7 @@ import {
 	Trash2Icon,
 } from "lucide-react";
 import {
+	createContext,
 	type FormEvent,
 	type HTMLAttributes,
 	type JSX,
@@ -39,6 +40,7 @@ import {
 	type MouseEventHandler,
 	type ReactNode,
 	type TouchEventHandler,
+	useContext,
 	useEffect,
 	useState,
 } from "react";
@@ -72,7 +74,9 @@ import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import { addTodo, moveTodo, removeTodo, updateTodo } from "./api";
 import { AttachButton, FileList, useFiles } from "./files";
+import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
+import { Task } from "./tasks";
 
 /**
  * Work deferred for later, top of the list first, and a line to add to it.
@@ -81,40 +85,61 @@ import { MentionAnchor, useMentions } from "./mentions";
  * to reorder it, or tap one to reword or remove it.
  */
 export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
-	const { todos, todoStalenessMs } = snapshot;
+	const { todos, todoStalenessMs, tasks } = snapshot;
 	const [opened, setOpened] = useState<number | null>(null);
 	const current = todos.find((todo) => todo.id === opened);
+	const [openedTask, setOpenedTask] = useState<string | null>(null);
+	const task = tasks.find((found) => found.task === openedTask);
+	// Only a task the page knows of opens: one merged a moment ago has no
+	// details left to show.
+	const openTask = (name: string) =>
+		tasks.some((found) => found.task === name) ? setOpenedTask(name) : null;
 	return (
-		<div className="flex flex-col gap-6">
-			<Add />
-			{todos.length === 0 ? (
-				<Empty>
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<ListTodoIcon />
-						</EmptyMedia>
-						<EmptyTitle>Nothing deferred</EmptyTitle>
-						<EmptyDescription>
-							Agents add what comes up outside their task here.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			) : (
-				<Board todos={todos} staleness={todoStalenessMs} onOpen={setOpened} />
-			)}
-			<Dialog
-				open={current !== undefined}
-				onOpenChange={(open) => {
-					if (!open) {
-						setOpened(null);
-					}
-				}}
-			>
-				{current && <Edit todo={current} onDone={() => setOpened(null)} />}
-			</Dialog>
-		</div>
+		<OpenTask value={openTask}>
+			<div className="flex flex-col gap-6">
+				<Add />
+				{todos.length === 0 ? (
+					<Empty>
+						<EmptyHeader>
+							<EmptyMedia variant="icon">
+								<ListTodoIcon />
+							</EmptyMedia>
+							<EmptyTitle>Nothing deferred</EmptyTitle>
+							<EmptyDescription>
+								Agents add what comes up outside their task here.
+							</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
+				) : (
+					<Board todos={todos} staleness={todoStalenessMs} onOpen={setOpened} />
+				)}
+				<Dialog
+					open={current !== undefined}
+					onOpenChange={(open) => {
+						if (!open) {
+							setOpened(null);
+						}
+					}}
+				>
+					{current && <Edit todo={current} onDone={() => setOpened(null)} />}
+				</Dialog>
+				<Dialog
+					open={task !== undefined}
+					onOpenChange={(open) => {
+						if (!open) {
+							setOpenedTask(null);
+						}
+					}}
+				>
+					{task && <Task task={task} />}
+				</Dialog>
+			</div>
+		</OpenTask>
 	);
 }
+
+/** Opens the task a card names, from wherever the card is drawn. */
+const OpenTask = createContext<(task: string) => void>(() => {});
 
 /**
  * The todos as cards in a column, each dragged to where it belongs. A mouse
@@ -297,9 +322,11 @@ function Card({
 					{todo.subject}
 				</button>
 				{todo.text !== "" && (
-					<span className="line-clamp-2 whitespace-pre-line text-muted-foreground text-xs">
-						{todo.text}
-					</span>
+					<Markdown
+						text={todo.text}
+						preview
+						className="text-muted-foreground text-xs"
+					/>
 				)}
 				{/* Badges, the way a Trello card has them: only what there is. */}
 				<span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
@@ -309,16 +336,7 @@ function Card({
 							{todo.files.length}
 						</Badge>
 					)}
-					{todo.takenBy && (
-						<span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 font-medium text-success">
-							<GitBranchIcon
-								aria-label="taken by"
-								role="img"
-								className="size-3.5 shrink-0"
-							/>
-							<span className="truncate">Taken by {todo.takenBy}</span>
-						</span>
-					)}
+					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}
@@ -335,6 +353,31 @@ function Card({
 				<GripVerticalIcon className="size-4" />
 			</button>
 		</div>
+	);
+}
+
+/**
+ * The task that took the todo, green so it reads from across the room. A tap
+ * opens the task; like the copy link, it sits above the card's own button and
+ * never starts a drag.
+ */
+function TakenBy({ task }: { task: string }): JSX.Element {
+	const openTask = useContext(OpenTask);
+	return (
+		<button
+			type="button"
+			onClick={() => openTask(task)}
+			onMouseDown={(event) => event.stopPropagation()}
+			onTouchStart={(event) => event.stopPropagation()}
+			className="relative inline-flex min-w-0 cursor-pointer items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 font-medium text-success outline-none hover:bg-success/25 focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			<GitBranchIcon
+				aria-label="taken by"
+				role="img"
+				className="size-3.5 shrink-0"
+			/>
+			<span className="truncate">Taken by {task}</span>
+		</button>
 	);
 }
 
@@ -460,7 +503,7 @@ function Add(): JSX.Element {
 						<InputGroupTextarea
 							ref={detail.ref}
 							aria-label="new todo detail"
-							placeholder="More to say, if any"
+							placeholder="More to say in markdown, if any"
 							value={text}
 							onChange={detail.onChange}
 							onSelect={detail.onSelect}
@@ -487,6 +530,8 @@ function Edit({
 }): JSX.Element {
 	const [subject, setSubject] = useState(todo.subject);
 	const [text, setText] = useState(todo.text);
+	// Read first when there is something to read, the way a Trello card opens.
+	const [writing, setWriting] = useState(todo.text === "");
 	const files = useFiles(todo.files);
 	const mentions = useMentions<HTMLInputElement>({
 		task: "",
@@ -520,7 +565,7 @@ function Edit({
 			files.files.length > 0 ||
 			files.keep.length !== todo.files.length);
 	return (
-		<DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
+		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-lg">
 			<DialogHeader>
 				<DialogTitle>Todo {todo.id}</DialogTitle>
 				<DialogDescription>
@@ -544,25 +589,58 @@ function Edit({
 						/>
 					</InputGroup>
 				</MentionAnchor>
-				<MentionAnchor mentions={detail}>
-					<InputGroup>
-						<InputGroupTextarea
-							ref={detail.ref}
-							aria-label="detail"
-							placeholder="More to say, if any"
-							value={text}
-							onChange={detail.onChange}
-							onSelect={detail.onSelect}
-							onClick={detail.onClick}
-							onKeyDown={detail.onKeyDown}
-							onPaste={files.paste}
-							rows={3}
-						/>
-						<InputGroupAddon align="block-end">
-							<AttachButton files={files} />
-						</InputGroupAddon>
-					</InputGroup>
-				</MentionAnchor>
+				<div className="flex items-center justify-between">
+					<div className="flex gap-1">
+						<Button
+							size="xs"
+							variant={writing ? "secondary" : "ghost"}
+							aria-pressed={writing}
+							onClick={() => setWriting(true)}
+						>
+							Write
+						</Button>
+						<Button
+							size="xs"
+							variant={writing ? "ghost" : "secondary"}
+							aria-pressed={!writing}
+							onClick={() => setWriting(false)}
+						>
+							Preview
+						</Button>
+					</div>
+					<span className="text-muted-foreground text-xs">
+						Markdown supported
+					</span>
+				</div>
+				{writing ? (
+					<MentionAnchor mentions={detail}>
+						<InputGroup>
+							<InputGroupTextarea
+								ref={detail.ref}
+								aria-label="detail"
+								placeholder="More to say in markdown, if any"
+								value={text}
+								onChange={detail.onChange}
+								onSelect={detail.onSelect}
+								onClick={detail.onClick}
+								onKeyDown={detail.onKeyDown}
+								onPaste={files.paste}
+								rows={6}
+							/>
+							<InputGroupAddon align="block-end">
+								<AttachButton files={files} />
+							</InputGroupAddon>
+						</InputGroup>
+					</MentionAnchor>
+				) : (
+					<div className="min-h-20 rounded-md border px-3 py-2 text-sm">
+						{text.trim() === "" ? (
+							<span className="text-muted-foreground">Nothing to preview</span>
+						) : (
+							<Markdown text={text} />
+						)}
+					</div>
+				)}
 				<FileList files={files} />
 			</div>
 			<DialogFooter className="flex-row justify-between sm:justify-between">

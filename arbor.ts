@@ -267,7 +267,7 @@ todo
 	.arg("subject", z.string(), { description: "what is left to do, in a line" })
 	.arg("text", z.string(), {
 		default: "",
-		description: "whatever more there is to say about it",
+		description: "whatever more there is to say about it, in markdown",
 	})
 	.option("position", position, {
 		description:
@@ -321,7 +321,7 @@ todo
 	.arg("text", z.string(), {
 		default: "",
 		description:
-			"whatever more there is to say about it; leave out to keep the detail",
+			"whatever more there is to say about it, in markdown; leave out to keep the detail",
 	})
 	.option("subject", z.string(), {
 		default: "",

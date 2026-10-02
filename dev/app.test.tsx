@@ -284,6 +284,26 @@ describe("todos", () => {
 		expect(view.getByText("Copied [ARBOR TODO #7]")).toBeTruthy();
 	});
 
+	it("opens the task that took one, without opening the todo", async () => {
+		const view = await open({
+			todos: [todo({ id: 3, subject: "taken", takenBy: "beta" })],
+			tasks: [
+				details({
+					task: "beta",
+					plan: "# beta\n\n## Goal\n\nship the thing\n",
+				}),
+			],
+		});
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Taken by beta/ })),
+		);
+
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).toContain("ship the thing");
+		expect(view.queryByText("Todo 3")).toBeNull();
+	});
+
 	it("adds one", async () => {
 		const view = await open();
 		await tab(view, /todos/i);
@@ -312,6 +332,20 @@ describe("todos", () => {
 });
 
 describe("todo edits", () => {
+	it("renders a todo's detail as markdown, on its card and when opened", async () => {
+		const view = await open({
+			todos: [
+				todo({ id: 4, subject: "write docs", text: "start with **the CLI**" }),
+			],
+		});
+
+		expect(view.getByText("the CLI").tagName).toBe("STRONG");
+		await act(async () => fireEvent.click(view.getByText("write docs")));
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(within(dialog).getByText("the CLI").tagName).toBe("STRONG");
+		expect(dialog.textContent).toContain("Markdown supported");
+	});
+
 	it("rewords one", async () => {
 		const view = await open({
 			todos: [todo({ id: 4, subject: "write docs", text: "soon" })],
@@ -324,6 +358,11 @@ describe("todo edits", () => {
 		);
 		await act(async () =>
 			fireEvent.change(box, { target: { value: "write the docs" } }),
+		);
+		// A todo with detail opens on its preview.
+		expect(view.queryByRole("textbox", { name: "detail" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Write" })),
 		);
 		await act(async () =>
 			fireEvent.change(view.getByRole("textbox", { name: "detail" }), {
