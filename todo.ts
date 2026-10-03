@@ -474,6 +474,8 @@ function from(todo: Todo): string {
 export interface TodoListOptions {
 	/** Print the todos as JSON instead of a table. */
 	json?: boolean;
+	/** Only those no task has taken: the ones free to pick up. */
+	open?: boolean;
 }
 
 export interface TodoFileOptions {
@@ -511,27 +513,32 @@ export async function todoAdd(
 
 export async function todoList(
 	{ todos, log }: { todos: Todos; log: Logger },
-	{ json = false }: TodoListOptions = {},
+	{ json = false, open = false }: TodoListOptions = {},
 ): Promise<void> {
-	const all = await todos.all();
+	const every = await todos.all();
+	const listed = every.filter((todo) => !open || todo.takenBy === null);
 	if (json) {
 		log.info(
 			JSON.stringify(
-				all.map((todo) => todo.state),
+				listed.map((todo) => todo.state),
 				null,
 				"\t",
 			),
 		);
 		return;
 	}
-	if (all.length === 0) {
+	if (every.length === 0) {
 		log.info("no todos: `arbor todo add <subject>` defers work for later");
+		return;
+	}
+	if (listed.length === 0) {
+		log.info("no open todos: every one is taken, see `arbor todo list`");
 		return;
 	}
 	log.info(
 		table(
 			["POS", "ID", "SUBJECT", "FROM", "AGE", "TAKEN BY", "FILES"],
-			all.map((todo) => [
+			listed.map((todo) => [
 				String(todo.position),
 				String(todo.id),
 				todo.subject,

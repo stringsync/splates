@@ -254,10 +254,28 @@ describe.concurrent("todo", () => {
 		await expect(todoAdd(deps, "   ", null)).toBail("usage");
 	});
 
+	it("lists only the todos no task has taken when asked", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "taken", null);
+		await todoAdd(deps, "free", null);
+		await add(deps, "busy", { todos: [1] });
+
+		deps.log.clear();
+		await todoList(deps, { json: true, open: true });
+
+		expect(
+			JSON.parse(deps.out()).map(({ subject }: TodoState) => subject),
+		).toEqual(["free"]);
+		await todoTake(deps, [2], "busy");
+		deps.log.clear();
+		await todoList(deps, { open: true });
+		expect(deps.out()).toContain("no open todos");
+	});
+
 	it("says so plainly when there is nothing to do", async () => {
 		await using deps = await Testing.open();
 
-		await todoList(deps);
+		await todoList(deps, { open: true });
 
 		expect(deps.out()).toContain("no todos");
 	});

@@ -333,7 +333,7 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <subject> [text] [--position <n>] [--file <path>]`, `arbor todo list [--json]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
+### `arbor todo add <subject> [text] [--position <n>] [--file <path>]`, `arbor todo list [--json] [--open]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -360,6 +360,8 @@ run from a worktree, adds them to the task already under way, all or none.
 A task can hold any number. `release` puts them back on the list, from a
 worktree only its own task's: a task landing with one half done rewords it to
 what is left with `update`, then releases it, so the merge leaves it open.
+`list --open` shows only those no task holds, which is what an agent
+looking for work to pick up wants.
 `update` rewords one, its detail as the argument and its subject with
 `--subject`, and keeps its number; `remove` drops one done some other way or
 no longer wanted.

@@ -299,7 +299,15 @@ todo
 		z.string().transform((raw) => raw !== "false"),
 		{ default: false, description: "emit JSON" },
 	)
-	.action((opts, ctx) => todoList(ctx, { json: opts.json }));
+	.option(
+		"open",
+		z.string().transform((raw) => raw !== "false"),
+		{
+			default: false,
+			description: "only todos no task has taken up: the ones free to pick up",
+		},
+	)
+	.action((opts, ctx) => todoList(ctx, { json: opts.json, open: opts.open }));
 
 todo
 	.command("show")
