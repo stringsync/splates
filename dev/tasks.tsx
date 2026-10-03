@@ -1,4 +1,3 @@
-import { GitBranchIcon } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import {
@@ -8,13 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from "#dev/components/ui/empty.tsx";
+import { Progress as Bar } from "#dev/components/ui/progress.tsx";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Markdown } from "./markdown";
@@ -23,26 +16,19 @@ import { Markdown } from "./markdown";
 const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
 
 /**
- * Every task in a line: its name, how far along its plan is, and a status only
+ * Every task in a line: its name, a bar for how far along its plan is, and a status only
  * when the status is news. The rest (branch, paths, the whole plan) waits
  * behind a tap.
  */
 export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 	const [opened, setOpened] = useState<Details | null>(null);
 
+	// One line, not a big empty state: the todos below it are the page then.
 	if (tasks.length === 0) {
 		return (
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<GitBranchIcon />
-					</EmptyMedia>
-					<EmptyTitle>No tasks</EmptyTitle>
-					<EmptyDescription>
-						<code>arbor add &lt;task&gt;</code> starts one.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
+			<p className="text-muted-foreground text-sm">
+				No tasks: <code>arbor add &lt;task&gt;</code> starts one.
+			</p>
 		);
 	}
 
@@ -96,8 +82,16 @@ function Progress({ plan }: { plan: string | null }): JSX.Element | null {
 		return null;
 	}
 	return (
-		<span className="w-10 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-			{counted.done}/{counted.total}
+		<span className="flex w-28 shrink-0 items-center gap-2">
+			<Bar
+				value={counted.done}
+				max={counted.total}
+				aria-label="progress"
+				className="flex-1"
+			/>
+			<span className="w-8 text-right text-muted-foreground text-xs tabular-nums">
+				{counted.done}/{counted.total}
+			</span>
 		</span>
 	);
 }

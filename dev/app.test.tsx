@@ -128,13 +128,9 @@ async function open(overrides: Partial<Snapshot> = {}) {
 	served = snapshot(overrides);
 	const view = render(<App />);
 	await waitFor(() =>
-		expect(view.getByRole("tab", { name: /todos/i })).toBeTruthy(),
+		expect(view.getByRole("region", { name: "Todos" })).toBeTruthy(),
 	);
 	return view;
-}
-
-async function tab(view: Awaited<ReturnType<typeof open>>, name: RegExp) {
-	await act(async () => fireEvent.click(view.getByRole("tab", { name })));
 }
 
 describe("header", () => {
@@ -249,8 +245,6 @@ describe("todos", () => {
 			],
 		});
 
-		await tab(view, /todos/i);
-
 		expect(document.body.textContent).not.toContain("alpha");
 		const cards = within(view.getByRole("list", { name: "todos" }))
 			.getAllByRole("listitem")
@@ -306,7 +300,6 @@ describe("todos", () => {
 
 	it("adds one", async () => {
 		const view = await open();
-		await tab(view, /todos/i);
 
 		const input = view.getByRole("textbox", { name: "new todo" });
 		await act(async () =>
@@ -350,7 +343,6 @@ describe("todo edits", () => {
 		const view = await open({
 			todos: [todo({ id: 4, subject: "write docs", text: "soon" })],
 		});
-		await tab(view, /todos/i);
 
 		await act(async () => fireEvent.click(view.getByText("write docs")));
 		const box = await waitFor(() =>
@@ -400,7 +392,6 @@ describe("todo edits", () => {
 					todo({ id: 4, subject: "second", position: 2 }),
 				],
 			});
-			await tab(view, /todos/i);
 
 			const grip = view.getByRole("button", { name: "move second" });
 			grip.focus();
@@ -442,7 +433,6 @@ describe("todo edits", () => {
 				}),
 			],
 		});
-		await tab(view, /todos/i);
 		expect(
 			view.getByRole("img", { name: "files" }).parentElement?.textContent,
 		).toBe("2");
@@ -467,7 +457,6 @@ describe("todo edits", () => {
 		const view = await open({
 			todos: [todo({ id: 4, subject: "write docs" })],
 		});
-		await tab(view, /todos/i);
 
 		await act(async () => fireEvent.click(view.getByText("write docs")));
 		await act(async () =>
@@ -498,9 +487,9 @@ describe("tasks", () => {
 				}),
 			],
 		});
-		await tab(view, /tasks/i);
 
 		expect(view.queryByText("working")).toBeNull();
+		expect(view.queryByRole("progressbar")).toBeNull();
 		expect(view.getByText("escalated")).toBeTruthy();
 
 		await act(async () =>
@@ -511,35 +500,38 @@ describe("tasks", () => {
 		expect(dialog.textContent).toContain("ship the thing");
 		expect(dialog.textContent).toContain("needs eyes");
 	});
+
+	it("fills a bar with the steps its plan has checked off", async () => {
+		const view = await open({
+			tasks: [
+				details({
+					task: "alpha",
+					plan: "# alpha\n\n## Done\n\n- [x] one\n\n## Next\n\n- [ ] two\n- [ ] three\n- [ ] four\n",
+				}),
+			],
+		});
+
+		const bar = view.getByRole("progressbar", { name: "progress" });
+		expect(bar.getAttribute("aria-valuenow")).toBe("1");
+		expect(bar.getAttribute("aria-valuemax")).toBe("4");
+		expect(view.getByText("1/4")).toBeTruthy();
+	});
 });
 
-describe("nav", () => {
-	/** happy-dom answers media queries against this, 1024 wide to start. */
-	const resize = (width: number) =>
-		(
-			window as unknown as {
-				happyDOM: { setViewport(size: { width: number }): void };
-			}
-		).happyDOM.setViewport({ width });
-	afterEach(() => resize(1024));
+describe("page", () => {
+	it("shows the tasks and the todos together, with no tabs", async () => {
+		const view = await open({
+			tasks: [details({ task: "alpha" })],
+			todos: [todo({ subject: "later" })],
+		});
 
-	/** Which way the tabs run, from the root that decides it. */
-	const orientation = (view: Awaited<ReturnType<typeof open>>) =>
-		view
-			.getByRole("tablist")
-			.closest("[data-slot=tabs]")
-			?.getAttribute("data-orientation");
-
-	it("runs along the bottom of a phone, and down the side of anything wider", async () => {
-		resize(390);
-		expect(orientation(await open())).toBe("horizontal");
-		cleanup();
-
-		resize(1280);
-		const wide = await open();
-		expect(orientation(wide)).toBe("vertical");
-		await tab(wide, /todos/i);
-		expect(wide.getByRole("textbox", { name: "new todo" })).toBeTruthy();
+		expect(view.queryByRole("tablist")).toBeNull();
+		expect(
+			within(view.getByRole("region", { name: "Tasks" })).getByText("alpha"),
+		).toBeTruthy();
+		expect(
+			within(view.getByRole("region", { name: "Todos" })).getByText(/later/),
+		).toBeTruthy();
 	});
 });
 

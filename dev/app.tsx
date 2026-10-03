@@ -1,37 +1,9 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { GitBranchIcon, ListTodoIcon, type LucideIcon } from "lucide-react";
-import { type JSX, useEffect, useState, useSyncExternalStore } from "react";
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from "#dev/components/ui/tabs.tsx";
+import { type JSX, useEffect, useState } from "react";
 import { Toaster } from "#dev/components/ui/toast.tsx";
-import { cn } from "#dev/lib/utils.ts";
 import { Feed } from "./feed";
 import { Tasks } from "./tasks";
 import { Todos } from "./todos";
-
-const TABS: { value: string; label: string; Icon: LucideIcon }[] = [
-	{ value: "todos", label: "Todos", Icon: ListTodoIcon },
-	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
-];
-
-/** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
-const WIDE = "(min-width: 768px)";
-
-/** Whether the window is `WIDE` right now, following it as it resizes. */
-function useWide(): boolean {
-	return useSyncExternalStore(
-		(changed) => {
-			const query = matchMedia(WIDE);
-			query.addEventListener("change", changed);
-			return () => query.removeEventListener("change", changed);
-		},
-		() => matchMedia(WIDE).matches,
-	);
-}
 
 export function App(): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
@@ -45,7 +17,6 @@ export function App(): JSX.Element {
 		},
 		[feed],
 	);
-	const wide = useWide();
 	const { snapshot, offline } = useReactive(
 		feed,
 		(feed) => ({ snapshot: feed.snapshot, offline: feed.offline }),
@@ -58,84 +29,45 @@ export function App(): JSX.Element {
 
 	return (
 		<Toaster>
-			{/* Clear of the sidebar, or of the bar along the bottom. */}
-			<div className={cn(wide && "pl-56")}>
-				<main
-					className={cn(
-						"mx-auto flex min-h-dvh max-w-xl flex-col gap-6 px-4 pt-6",
-						!wide && "pb-28",
-					)}
-				>
-					<header className="flex items-center justify-between">
-						{/* Heads the sidebar when there is one. */}
-						<h1
-							className={cn(
-								"min-w-0 truncate font-medium text-sm",
-								wide && "fixed top-6 left-6 z-50 max-w-44",
-							)}
-						>
-							{snapshot?.repo ?? "arbor"}
-						</h1>
-						{/* Silent while connected, which is the normal case. Once the server
+			<main className="mx-auto flex min-h-dvh max-w-xl flex-col gap-8 px-4 py-6">
+				<header className="flex items-center justify-between">
+					<h1 className="min-w-0 truncate font-medium text-sm">
+						{snapshot?.repo ?? "arbor"}
+					</h1>
+					{/* Silent while connected, which is the normal case. Once the server
 					    stops answering, the page says so, since what it shows may no
 					    longer be true. */}
-						{offline && (
-							<span role="status" className="shrink-0 text-destructive text-xs">
-								Offline: is `arbor dev` still running?
-							</span>
-						)}
-					</header>
-					{snapshot === null ? null : (
-						<Tabs
-							defaultValue="todos"
-							orientation={wide ? "vertical" : "horizontal"}
-							className="gap-6"
-						>
-							{/* On a phone, a bar along the bottom, where a thumb already is;
-						    a dialog sits over it.
-						    With room to spare, a sidebar down the left instead. */}
-							<TabsList
-								variant="line"
-								className={
-									wide
-										? "fixed inset-y-0 left-0 z-40 w-56 items-stretch justify-start gap-1 border-r bg-background px-3 pt-16 group-data-vertical/tabs:h-dvh"
-										: "fixed inset-x-0 bottom-0 z-40 w-full group-data-horizontal/tabs:h-auto justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur"
-								}
-							>
-								{TABS.map(({ value, label, Icon }) => (
-									<TabsTrigger
-										key={value}
-										value={value}
-										className={
-											wide
-												? "h-9 flex-none gap-3 px-3 after:hidden data-active:bg-muted"
-												: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden"
-										}
-									>
-										{wide ? (
-											<>
-												<Icon />
-												{label}
-											</>
-										) : (
-											<>
-												<Icon className="size-5" />
-												{label}
-											</>
-										)}
-									</TabsTrigger>
-								))}
-							</TabsList>
-							<TabsContent value="todos">
-								<Todos snapshot={snapshot} />
-							</TabsContent>
-							<TabsContent value="tasks">
-								<Tasks tasks={snapshot.tasks} />
-							</TabsContent>
-						</Tabs>
+					{offline && (
+						<span role="status" className="shrink-0 text-destructive text-xs">
+							Offline: is `arbor dev` still running?
+						</span>
 					)}
-				</main>
-			</div>
+				</header>
+				{/* Tasks first: there are only ever a few, and they are what is moving
+				    right now. The todos below are what comes after. */}
+				{snapshot === null ? null : (
+					<>
+						<section aria-labelledby="tasks" className="flex flex-col gap-2">
+							<h2
+								id="tasks"
+								className="font-medium text-muted-foreground text-xs"
+							>
+								Tasks
+							</h2>
+							<Tasks tasks={snapshot.tasks} />
+						</section>
+						<section aria-labelledby="todos" className="flex flex-col gap-2">
+							<h2
+								id="todos"
+								className="font-medium text-muted-foreground text-xs"
+							>
+								Todos
+							</h2>
+							<Todos snapshot={snapshot} />
+						</section>
+					</>
+				)}
+			</main>
 		</Toaster>
 	);
 }
