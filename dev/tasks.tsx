@@ -8,7 +8,7 @@ import {
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
 import { Progress as Bar } from "#dev/components/ui/progress.tsx";
-import { progress } from "../progress";
+import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
 import { Markdown } from "./markdown";
 
@@ -46,7 +46,7 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 								{task.task}
 							</span>
 							<Status status={task.status} />
-							<Progress plan={task.plan} />
+							<PlanProgress plan={task.plan} />
 						</button>
 					</li>
 				))}
@@ -76,21 +76,18 @@ function Status({ status }: { status: string }): JSX.Element | null {
 	return null;
 }
 
-function Progress({ plan }: { plan: string | null }): JSX.Element | null {
+function PlanProgress({ plan }: { plan: string | null }): JSX.Element | null {
 	const counted = plan === null ? null : progress(plan);
-	if (counted === null) {
-		return null;
-	}
+	return counted && <Progress {...counted} />;
+}
+
+/** A bar and its count, the end of a task's or a tag's row. */
+export function Progress({ done, total }: Counted): JSX.Element {
 	return (
 		<span className="flex w-28 shrink-0 items-center gap-2">
-			<Bar
-				value={counted.done}
-				max={counted.total}
-				aria-label="progress"
-				className="flex-1"
-			/>
+			<Bar value={done} max={total} aria-label="progress" className="flex-1" />
 			<span className="w-8 text-right text-muted-foreground text-xs tabular-nums">
-				{counted.done}/{counted.total}
+				{done}/{total}
 			</span>
 		</span>
 	);

@@ -235,6 +235,13 @@ export async function dev(
 		return Response.json(todo.state);
 	};
 
+	/** The tags a todo write sends, comma separated. */
+	const tagsIn = (form: FormData): string[] =>
+		String(form.get("tags") ?? "")
+			.split(",")
+			.map((tag) => tag.trim())
+			.filter(Boolean);
+
 	/** Where a todo write asks to put it; absent leaves it to the write. */
 	const positionIn = (form: FormData): number | undefined =>
 		form.has("position") ? Number(form.get("position")) : undefined;
@@ -259,6 +266,7 @@ export async function dev(
 				position: positionIn(form),
 				files: await uploads(form),
 				keep: form.getAll("keep").map(String),
+				tags: form.has("tags") ? tagsIn(form) : undefined,
 			}),
 		);
 		await tick();

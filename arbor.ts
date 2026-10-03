@@ -22,6 +22,7 @@ import {
 	todoRelease,
 	todoRemove,
 	todoShow,
+	todoTags,
 	todoTake,
 	todoUpdate,
 } from "./todo";
@@ -254,6 +255,11 @@ todo
 		description:
 			"files to attach, comma separated: copied under .git/arbor/todos/<id>/",
 	})
+	.option("tag", z.string(), {
+		default: "",
+		description:
+			"tags, comma separated, each one lowercase word (or a few joined by hyphens): the areas or goals it belongs to; `arbor todo tags` lists those in use",
+	})
 	.action(async (opts, ctx) => {
 		const from = await here(ctx);
 		await ctx.journal.record("todo add", from, () =>
@@ -261,6 +267,7 @@ todo
 				text: opts.text,
 				position: opts.position,
 				files: commaList(opts.file),
+				tags: commaList(opts.tag),
 			}),
 		);
 	});
@@ -275,7 +282,25 @@ todo
 		default: false,
 		description: "only todos no task has taken up: the ones free to pick up",
 	})
-	.action((opts, ctx) => todoList(ctx, { json: opts.json, open: opts.open }));
+	.option("tag", z.string(), {
+		default: "",
+		description: "only todos with this tag",
+	})
+	.action((opts, ctx) =>
+		todoList(ctx, {
+			json: opts.json,
+			open: opts.open,
+			tag: opts.tag || undefined,
+		}),
+	);
+
+todo
+	.command("tags")
+	.description(
+		"every tag in use, with how many todos have it: reuse one before making up another",
+	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) => todoTags(ctx, { json: opts.json }));
 
 todo
 	.command("show")
@@ -287,7 +312,7 @@ todo
 todo
 	.command("update")
 	.description(
-		"say what a todo is in other words, move it up or down the list, or attach and drop files; it keeps its id",
+		"say what a todo is in other words, move it up or down the list, tag it, or attach and drop files; it keeps its id",
 	)
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.arg("text", z.string(), {
@@ -312,6 +337,14 @@ todo
 		description:
 			"attached files to drop, comma separated, by path or stored name",
 	})
+	.option("tag", z.string(), {
+		default: "",
+		description: "tags to add, comma separated",
+	})
+	.option("remove-tag", z.string(), {
+		default: "",
+		description: "tags to drop, comma separated",
+	})
 	.action((opts, ctx) =>
 		ctx.journal.record("todo update", null, () =>
 			todoUpdate(ctx, opts.id, {
@@ -320,6 +353,8 @@ todo
 				position: opts.position,
 				files: commaList(opts.file),
 				removeFiles: commaList(opts["remove-file"]),
+				tags: commaList(opts.tag),
+				removeTags: commaList(opts["remove-tag"]),
 			}),
 		),
 	);

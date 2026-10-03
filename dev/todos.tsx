@@ -29,6 +29,7 @@ import {
 	ListTodoIcon,
 	type LucideIcon,
 	PaperclipIcon,
+	TagIcon,
 	Trash2Icon,
 } from "lucide-react";
 import {
@@ -42,6 +43,7 @@ import {
 	type TouchEventHandler,
 	useContext,
 	useEffect,
+	useId,
 	useState,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -76,6 +78,7 @@ import { addTodo, moveTodo, removeTodo, updateTodo } from "./api";
 import { AttachButton, FileList, useFiles } from "./files";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
+import { TagFilter } from "./tags";
 import { Task } from "./tasks";
 
 /**
@@ -85,7 +88,14 @@ import { Task } from "./tasks";
  * to reorder it, or tap one to reword or remove it.
  */
 export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
-	const { todos, todoStalenessMs, tasks } = snapshot;
+	const { todoStalenessMs, tasks } = snapshot;
+	const [picked, setPicked] = useState<string | null>(null);
+	const tags = [...new Set(snapshot.todos.flatMap((todo) => todo.tags))].sort();
+	// A tag whose last todo went has nothing left to show, and lets go.
+	const tag = picked !== null && tags.includes(picked) ? picked : null;
+	const todos = snapshot.todos.filter(
+		(todo) => tag === null || todo.tags.includes(tag),
+	);
 	const [opened, setOpened] = useState<number | null>(null);
 	const current = todos.find((todo) => todo.id === opened);
 	const [openedTask, setOpenedTask] = useState<string | null>(null);
@@ -96,47 +106,59 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 		tasks.some((found) => found.task === name) ? setOpenedTask(name) : null;
 	return (
 		<OpenTask value={openTask}>
-			<div className="flex flex-col gap-6">
-				<Add />
-				{todos.length === 0 ? (
-					<Empty>
-						<EmptyHeader>
-							<EmptyMedia variant="icon">
-								<ListTodoIcon />
-							</EmptyMedia>
-							<EmptyTitle>Nothing deferred</EmptyTitle>
-							<EmptyDescription>
-								Agents add what comes up outside their task here.
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<Board todos={todos} staleness={todoStalenessMs} onOpen={setOpened} />
-				)}
-				<Dialog
-					open={current !== undefined}
-					onOpenChange={(open) => {
-						if (!open) {
-							setOpened(null);
-						}
-					}}
-				>
-					{current && <Edit todo={current} onDone={() => setOpened(null)} />}
-				</Dialog>
-				<Dialog
-					open={task !== undefined}
-					onOpenChange={(open) => {
-						if (!open) {
-							setOpenedTask(null);
-						}
-					}}
-				>
-					{task && <Task task={task} />}
-				</Dialog>
-			</div>
+			<FilterTag value={setPicked}>
+				<div className="flex flex-col gap-6">
+					<Add />
+					{tags.length > 0 && (
+						<TagFilter tags={tags} selected={tag} onSelect={setPicked} />
+					)}
+					{todos.length === 0 ? (
+						<Empty>
+							<EmptyHeader>
+								<EmptyMedia variant="icon">
+									<ListTodoIcon />
+								</EmptyMedia>
+								<EmptyTitle>Nothing deferred</EmptyTitle>
+								<EmptyDescription>
+									Agents add what comes up outside their task here.
+								</EmptyDescription>
+							</EmptyHeader>
+						</Empty>
+					) : (
+						<Board
+							todos={todos}
+							staleness={todoStalenessMs}
+							onOpen={setOpened}
+						/>
+					)}
+					<Dialog
+						open={current !== undefined}
+						onOpenChange={(open) => {
+							if (!open) {
+								setOpened(null);
+							}
+						}}
+					>
+						{current && <Edit todo={current} onDone={() => setOpened(null)} />}
+					</Dialog>
+					<Dialog
+						open={task !== undefined}
+						onOpenChange={(open) => {
+							if (!open) {
+								setOpenedTask(null);
+							}
+						}}
+					>
+						{task && <Task task={task} />}
+					</Dialog>
+				</div>
+			</FilterTag>
 		</OpenTask>
 	);
 }
+
+/** Shows only one tag's todos, from a tag on any card. */
+const FilterTag = createContext<(tag: string) => void>(() => {});
 
 /** Opens the task a card names, from wherever the card is drawn. */
 const OpenTask = createContext<(task: string) => void>(() => {});
@@ -182,7 +204,11 @@ function Board({
 		}
 		const to = ids.indexOf(Number(over.id));
 		setDropped(arrayMove(ids, ids.indexOf(Number(active.id)), to));
-		moveTodo(Number(active.id), to + 1).catch((error: unknown) => {
+		// The place of the card it landed on, which is not its index when the
+		// list shows only one tag's todos.
+		const position =
+			todos.find((todo) => todo.id === Number(over.id))?.position ?? to + 1;
+		moveTodo(Number(active.id), position).catch((error: unknown) => {
 			setDropped(null);
 			toast.add({
 				title: "Not moved",
@@ -299,7 +325,9 @@ function Card({
 		<div
 			{...pointer}
 			className={cn(
-				"group relative flex cursor-grab touch-manipulation items-stretch rounded-lg border bg-card text-card-foreground shadow-xs transition-shadow select-none hover:shadow-sm active:cursor-grabbing",
+				// A pointer, since a tap opens it; a drag from anywhere still moves
+				// it, and the grip says so with its own cursor.
+				"group relative flex cursor-pointer touch-manipulation items-stretch rounded-lg border bg-card text-card-foreground shadow-xs transition-[background-color,border-color,box-shadow] select-none hover:border-foreground/25 hover:bg-muted/70 hover:shadow-sm",
 				// Taken: a task is at work on it, which should read from across
 				// the room.
 				todo.takenBy && "border-l-4 border-l-success",
@@ -317,7 +345,7 @@ function Card({
 				<button
 					type="button"
 					onClick={onOpen}
-					className="cursor-grab text-left font-semibold text-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring active:cursor-grabbing"
+					className="cursor-pointer text-left font-semibold text-sm outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
 				>
 					{todo.subject}
 				</button>
@@ -337,6 +365,9 @@ function Card({
 						</Badge>
 					)}
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
+					{todo.tags.map((tag) => (
+						<TagButton key={tag} tag={tag} />
+					))}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}
@@ -348,7 +379,7 @@ function Card({
 				type="button"
 				{...grip}
 				aria-label={`move ${todo.subject}`}
-				className="relative flex w-8 shrink-0 cursor-grab items-center justify-center rounded-r-lg text-muted-foreground opacity-40 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative flex w-8 shrink-0 cursor-grab items-center active:cursor-grabbing justify-center rounded-r-lg text-muted-foreground opacity-40 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				<GripVerticalIcon className="size-4" />
 			</button>
@@ -377,6 +408,24 @@ function TakenBy({ task }: { task: string }): JSX.Element {
 				className="size-3.5 shrink-0"
 			/>
 			<span className="truncate">Taken by {task}</span>
+		</button>
+	);
+}
+
+/** One of a card's tags, which shows only that tag's todos when tapped. */
+function TagButton({ tag }: { tag: string }): JSX.Element {
+	const filter = useContext(FilterTag);
+	return (
+		<button
+			type="button"
+			aria-label={`show only ${tag}`}
+			onClick={() => filter(tag)}
+			onMouseDown={(event) => event.stopPropagation()}
+			onTouchStart={(event) => event.stopPropagation()}
+			className="relative inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			<TagIcon aria-hidden className="size-3" />
+			{tag}
 		</button>
 	);
 }
@@ -530,6 +579,12 @@ function Edit({
 }): JSX.Element {
 	const [subject, setSubject] = useState(todo.subject);
 	const [text, setText] = useState(todo.text);
+	const [tags, setTags] = useState(todo.tags.join(", "));
+	const tagsHint = useId();
+	const tagged = tags
+		.split(",")
+		.map((tag) => tag.trim())
+		.filter(Boolean);
 	// Read first when there is something to read, the way a Trello card opens.
 	const [writing, setWriting] = useState(todo.text === "");
 	const files = useFiles(todo.files);
@@ -562,12 +617,18 @@ function Edit({
 		subject.trim() !== "" &&
 		(subject.trim() !== todo.subject ||
 			text.trim() !== todo.text ||
+			tagged.join(",") !== todo.tags.join(",") ||
 			files.files.length > 0 ||
 			files.keep.length !== todo.files.length);
 	return (
 		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-lg">
 			<DialogHeader>
-				<DialogTitle>Todo {todo.id}</DialogTitle>
+				<DialogTitle className="flex items-center gap-2">
+					Todo {todo.id}
+					<span className="font-normal text-muted-foreground text-xs">
+						<CopyLink id={todo.id} />
+					</span>
+				</DialogTitle>
 				<DialogDescription>
 					{todo.takenBy
 						? `Taken by ${todo.takenBy}`
@@ -642,6 +703,24 @@ function Edit({
 					</div>
 				)}
 				<FileList files={files} />
+				<div className="flex flex-col gap-1">
+					<InputGroup>
+						<InputGroupAddon>
+							<TagIcon />
+						</InputGroupAddon>
+						<InputGroupInput
+							aria-label="tags"
+							aria-describedby={tagsHint}
+							placeholder="uploads, merge"
+							value={tags}
+							onChange={(event) => setTags(event.target.value)}
+						/>
+					</InputGroup>
+					{/* Always shown, since the placeholder goes once a tag is typed. */}
+					<p id={tagsHint} className="text-muted-foreground text-xs">
+						Separate tags with commas.
+					</p>
+				</div>
 			</div>
 			<DialogFooter className="flex-row justify-between sm:justify-between">
 				<Button
@@ -664,6 +743,7 @@ function Edit({
 								updateTodo(todo.id, {
 									subject,
 									text,
+									tags: tagged,
 									files: files.files,
 									keep: files.keep,
 								}),

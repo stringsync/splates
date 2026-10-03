@@ -13,6 +13,7 @@ import {
 	todoRelease,
 	todoRemove,
 	todoShow,
+	todoTags,
 	todoTake,
 	todoUpdate,
 } from "./todo";
@@ -430,6 +431,20 @@ describe.concurrent("todo", () => {
 		expect(next?.subject).toBe("from alpha, higher");
 	});
 
+	it("recommends one sharing a tag with what the task settled, before the top", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "top", null);
+		await todoAdd(deps, "page bug", null, { tags: ["dev-page"] });
+		await todoAdd(deps, "page polish", null, { tags: ["dev-page", "ui"] });
+		await (await deps.todos.find(2)).remove();
+
+		const { next } = await recommend(deps.todos, "alpha", 30 * DAY, [
+			"dev-page",
+		]);
+
+		expect(next?.subject).toBe("page polish");
+	});
+
 	it("recommends nothing once every todo is taken or stale", async () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "taken", null);
@@ -439,5 +454,37 @@ describe.concurrent("todo", () => {
 
 		expect(next).toBeNull();
 		expect(stale).toEqual([]);
+	});
+
+	it("tags todos, filters by tag, and counts the todos each tag has", async () => {
+		await using deps = await Testing.open();
+		await todoAdd(deps, "one", null, { tags: ["ui", "dev-page", "ui"] });
+		await todoAdd(deps, "two", null, { tags: ["dev-page"] });
+		await todoAdd(deps, "three", null);
+		await todoRemove(deps, 2);
+
+		expect((await deps.todos.find(1)).tags).toEqual(["dev-page", "ui"]);
+		await expect(todoAdd(deps, "bad", null, { tags: ["Dev Page"] })).toBail(
+			"usage",
+		);
+		await todoUpdate(deps, 3, { tags: ["merge"] });
+		await todoUpdate(deps, 1, { tags: ["merge"], removeTags: ["ui"] });
+		expect((await deps.todos.find(1)).tags).toEqual(["dev-page", "merge"]);
+		await expect(todoUpdate(deps, 1, { removeTags: ["ui"] })).toBail(
+			"not_found",
+		);
+
+		deps.log.clear();
+		await todoList(deps, { json: true, tag: "merge" });
+		expect(
+			JSON.parse(deps.out()).map(({ subject }: TodoState) => subject),
+		).toEqual(["one", "three"]);
+
+		deps.log.clear();
+		await todoTags(deps, { json: true });
+		expect(JSON.parse(deps.out())).toEqual([
+			{ tag: "dev-page", todos: 1 },
+			{ tag: "merge", todos: 2 },
+		]);
 	});
 });

@@ -23,6 +23,30 @@ export interface TodoState {
 	takenBy: string | null;
 	/** Absolute paths of the files attached, in `todos/<id>/`. */
 	files: string[];
+	/** What it belongs to, sorted: the areas or goals it adds up to with others. */
+	tags: string[];
+}
+
+/** A tag in use, with how many todos have it. */
+export interface TagState {
+	tag: string;
+	todos: number;
+}
+
+/** A lowercase word or a few joined by hyphens, so `Dark Mode` and `dark-mode` cannot both exist. */
+const TAG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** `tags` deduped and sorted, refusing any not written the one way. */
+export function tagList(tags: string[]): string[] {
+	const bad = tags.find((tag) => !TAG.test(tag));
+	if (bad !== undefined) {
+		fail(
+			"usage",
+			`'${bad}' is not a tag: use one lowercase word, or a few joined by hyphens, like uploads or dark-mode`,
+			{ tag: bad },
+		);
+	}
+	return [...new Set(tags)].sort();
 }
 
 /** A todo's words, place or files changed: new ones added, some of the old kept. */
@@ -37,6 +61,8 @@ export interface TodoChange {
 	files?: Attachment[];
 	/** The paths of the files it has now to keep; absent keeps them all. */
 	keep?: string[];
+	/** Its tags from now on; the old stay when this is absent. */
+	tags?: string[];
 }
 
 /** What a new todo has besides its subject, all of it optional. */
@@ -46,6 +72,7 @@ export interface TodoNew {
 	files?: Attachment[];
 	/** Where it goes in the list, pushing those from there down; the bottom by default. */
 	position?: number;
+	tags?: string[];
 }
 
 /**
@@ -119,6 +146,10 @@ export class Todo {
 		return this.state.files;
 	}
 
+	get tags(): string[] {
+		return this.state.tags;
+	}
+
 	get attachments(): Attachments {
 		return this.todos.attachments(this.id);
 	}
@@ -133,6 +164,7 @@ export class Todo {
 		position,
 		files = [],
 		keep,
+		tags,
 	}: TodoChange): Promise<Todo> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -140,6 +172,7 @@ export class Todo {
 				todo: this.id,
 			});
 		}
+		const tagged = tags === undefined ? this.tags : tagList(tags);
 		const kept =
 			keep === undefined
 				? this.files
@@ -152,6 +185,7 @@ export class Todo {
 			...state,
 			...words,
 			files: [...kept, ...added],
+			tags: tagged,
 		}));
 		return position === undefined
 			? updated
@@ -203,12 +237,13 @@ export class Todos {
 	async add(
 		subject: string,
 		from: string | null,
-		{ text = "", files = [], position }: TodoNew = {},
+		{ text = "", files = [], position, tags = [] }: TodoNew = {},
 	): Promise<Todo> {
 		const words = wording(subject, text);
 		if (words.subject === "") {
 			fail("usage", "a todo needs a subject: say what is left to do", {});
 		}
+		const tagged = tagList(tags);
 		await this.fs.mkdir(this.dir);
 		return this.locked(async () => {
 			// Numbered past every id handed out before, removed ones included, so
@@ -223,6 +258,7 @@ export class Todos {
 				createdAt: new Date().toISOString(),
 				takenBy: null,
 				files: await this.attachments(id).store(files),
+				tags: tagged,
 			});
 			return this.place(todo.state, position);
 		});
@@ -242,6 +278,19 @@ export class Todos {
 
 	async find(id: number): Promise<Todo> {
 		return (await this.all()).find((todo) => todo.id === id) ?? missing(id);
+	}
+
+	/** Every tag a todo on the list has, by name, with how many have it. */
+	async tags(): Promise<TagState[]> {
+		const counts = new Map<string, number>();
+		for (const todo of await this.all()) {
+			for (const tag of todo.tags) {
+				counts.set(tag, (counts.get(tag) ?? 0) + 1);
+			}
+		}
+		return [...counts]
+			.map(([tag, todos]) => ({ tag, todos }))
+			.sort((left, right) => left.tag.localeCompare(right.tag));
 	}
 
 	/** The todos `task` has taken; what a merge or remove settles. */
@@ -368,12 +417,14 @@ export class Todos {
 		try {
 			// One saved before todos took files has none, rather than no list;
 			// one saved before they had subjects has its first line as one; and
-			// one saved before they had positions has 0 until `all` places it.
+			// one saved before they had positions has 0 until `all` places it;
+			// one saved before tags has none.
 			const state = JSON.parse(raw) as Omit<
 				TodoState,
-				"files" | "subject" | "position"
+				"files" | "subject" | "position" | "tags"
 			> & {
 				files?: string[];
+				tags?: string[];
 				subject?: string;
 				position?: number;
 			};
@@ -384,6 +435,7 @@ export class Todos {
 					: { subject: state.subject, text: state.text }),
 				position: state.position ?? 0,
 				files: state.files ?? [],
+				tags: state.tags ?? [],
 			};
 		} catch {
 			return null;
@@ -421,7 +473,8 @@ export interface Recommendation {
 
 /**
  * Which todo to take up after `task`: one that came up in it first, since
- * whoever just finished it knows that context best, then the open one highest
+ * whoever just finished it knows that context best, then one sharing a tag
+ * in `settled`, those of the todos it finished, the same area of work, then the open one highest
  * on the list, which is how whoever keeps the list says what matters most.
  * Todos past `staleness` are never recommended, only offered for removal.
  */
@@ -429,13 +482,18 @@ export async function recommend(
 	todos: Todos,
 	task: string | null,
 	staleness: number,
+	settled: string[] = [],
 ): Promise<Recommendation> {
+	const rank = (todo: Todo) =>
+		todo.from === task
+			? 2
+			: todo.tags.some((tag) => settled.includes(tag))
+				? 1
+				: 0;
 	const open = (await todos.all())
 		.filter((todo) => todo.takenBy === null)
-		// Stable, so each half keeps its place in the list.
-		.sort(
-			(left, right) => Number(right.from === task) - Number(left.from === task),
-		);
+		// Stable, so each group keeps its place in the list.
+		.sort((left, right) => rank(right) - rank(left));
 	return {
 		next: open.find((todo) => todo.waited <= staleness) ?? null,
 		stale: open.filter((todo) => todo.waited > staleness),
@@ -476,6 +534,8 @@ export interface TodoListOptions {
 	json?: boolean;
 	/** Only those no task has taken: the ones free to pick up. */
 	open?: boolean;
+	/** Only those with this tag. */
+	tag?: string;
 }
 
 export interface TodoFileOptions {
@@ -488,18 +548,20 @@ export interface TodoAddOptions extends TodoFileOptions {
 	text?: string;
 	/** Where it goes in the list, 1 at the top; the bottom by default. */
 	position?: number;
+	tags?: string[];
 }
 
 export async function todoAdd(
 	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
 	subject: string,
 	from: string | null,
-	{ text, files = [], position }: TodoAddOptions = {},
+	{ text, files = [], position, tags }: TodoAddOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.add(subject, from, {
 		text,
 		files: await readFiles(deps, files),
 		position,
+		tags,
 	});
 	deps.log.info(
 		[
@@ -513,10 +575,14 @@ export async function todoAdd(
 
 export async function todoList(
 	{ todos, log }: { todos: Todos; log: Logger },
-	{ json = false, open = false }: TodoListOptions = {},
+	{ json = false, open = false, tag }: TodoListOptions = {},
 ): Promise<void> {
 	const every = await todos.all();
-	const listed = every.filter((todo) => !open || todo.takenBy === null);
+	const listed = every.filter(
+		(todo) =>
+			(!open || todo.takenBy === null) &&
+			(tag === undefined || todo.tags.includes(tag)),
+	);
 	if (json) {
 		log.info(
 			JSON.stringify(
@@ -532,16 +598,21 @@ export async function todoList(
 		return;
 	}
 	if (listed.length === 0) {
-		log.info("no open todos: every one is taken, see `arbor todo list`");
+		log.info(
+			tag === undefined
+				? "no open todos: every one is taken, see `arbor todo list`"
+				: `no ${open ? "open " : ""}todos tagged ${tag}: see \`arbor todo tags\``,
+		);
 		return;
 	}
 	log.info(
 		table(
-			["POS", "ID", "SUBJECT", "FROM", "AGE", "TAKEN BY", "FILES"],
+			["POS", "ID", "SUBJECT", "TAGS", "FROM", "AGE", "TAKEN BY", "FILES"],
 			listed.map((todo) => [
 				String(todo.position),
 				String(todo.id),
 				todo.subject,
+				todo.tags.join(","),
 				todo.from ?? "",
 				age(todo.state.createdAt),
 				todo.takenBy ?? "",
@@ -572,6 +643,7 @@ export async function todoShow(
 		`  position:  ${todo.position}`,
 		`  from:      ${todo.from ?? "added by hand"}`,
 		`  taken by:  ${todo.takenBy ?? "nobody yet"}`,
+		...(todo.tags.length === 0 ? [] : [`  tags:      ${todo.tags.join(", ")}`]),
 		`  age:       ${age(todo.state.createdAt)}`,
 		...todo.files.map((path) => `  file:      ${path}`),
 	];
@@ -590,6 +662,10 @@ export interface TodoUpdateOptions extends TodoFileOptions {
 	position?: number;
 	/** Attached files to drop, by path or by the name they were stored under. */
 	removeFiles?: string[];
+	/** Tags to add. */
+	tags?: string[];
+	/** Tags to drop. */
+	removeTags?: string[];
 }
 
 export async function todoUpdate(
@@ -601,9 +677,19 @@ export async function todoUpdate(
 		position,
 		files = [],
 		removeFiles = [],
+		tags = [],
+		removeTags = [],
 	}: TodoUpdateOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.find(id);
+	const unknownTag = removeTags.find((tag) => !todo.tags.includes(tag));
+	if (unknownTag !== undefined) {
+		fail(
+			"not_found",
+			`todo ${id} has no tag '${unknownTag}': nothing was changed`,
+			{ todo: id, tag: unknownTag },
+		);
+	}
 	const matches = (path: string, named: string) =>
 		path === named || basename(path) === named;
 	const unknown = removeFiles.find(
@@ -625,6 +711,7 @@ export async function todoUpdate(
 		position,
 		files: await readFiles(deps, files),
 		keep: todo.files.filter((path) => !dropped.includes(path)),
+		tags: [...todo.tags, ...tags].filter((tag) => !removeTags.includes(tag)),
 	});
 	deps.log.info(
 		[
@@ -717,4 +804,31 @@ export async function todoRemove(
 	const todo = await todos.find(id);
 	await todo.remove();
 	log.info(`${color.green("removed")} todo ${id}: ${todo.subject}`);
+}
+
+export interface TodoTagsOptions {
+	/** Print the tags as JSON instead of a table. */
+	json?: boolean;
+}
+
+/** Every tag in use, with how many todos have it: the names to reuse first. */
+export async function todoTags(
+	{ todos, log }: { todos: Todos; log: Logger },
+	{ json = false }: TodoTagsOptions = {},
+): Promise<void> {
+	const tags = await todos.tags();
+	if (json) {
+		log.info(JSON.stringify(tags, null, "\t"));
+		return;
+	}
+	if (tags.length === 0) {
+		log.info("no tags: `arbor todo add <subject> --tag <tag>` adds one");
+		return;
+	}
+	log.info(
+		table(
+			["TAG", "TODOS"],
+			tags.map(({ tag, todos }) => [tag, String(todos)]),
+		),
+	);
 }

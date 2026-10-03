@@ -258,7 +258,14 @@ export async function merge(
 	// parent's branch hands back to that parent, which is not done yet.
 	if (landing === git.root) {
 		lines.push(
-			...recommendation(await recommend(todos, task, config.todoStalenessMs)),
+			...recommendation(
+				await recommend(
+					todos,
+					task,
+					config.todoStalenessMs,
+					done.flatMap((todo) => todo.tags),
+				),
+			),
 		);
 	}
 	log.info(lines.join("\n"));

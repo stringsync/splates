@@ -42,6 +42,8 @@ export interface TodoForm {
 	text: string;
 	/** Where it goes in the list, 1 at the top; absent leaves it be. */
 	position?: number;
+	/** Its tags from now on; absent leaves them be. */
+	tags?: string[];
 }
 
 export async function addTodo(
@@ -55,10 +57,10 @@ export async function addTodo(
 
 export async function updateTodo(
 	id: number,
-	{ subject, text, position, files, keep }: FilesForm & TodoForm,
+	{ subject, text, position, tags, files, keep }: FilesForm & TodoForm,
 ): Promise<void> {
 	const form = filesForm({ files, keep });
-	todoForm(form, { subject, text, position });
+	todoForm(form, { subject, text, position, tags });
 	await send(`/api/todos/${id}`, { method: "PATCH", body: form });
 }
 
@@ -80,11 +82,17 @@ export function fileUrl(path: string): string {
 	return `/api/file?${new URLSearchParams({ path })}`;
 }
 
-function todoForm(form: FormData, { subject, text, position }: TodoForm): void {
+function todoForm(
+	form: FormData,
+	{ subject, text, position, tags }: TodoForm,
+): void {
 	form.set("subject", subject);
 	form.set("text", text);
 	if (position !== undefined) {
 		form.set("position", String(position));
+	}
+	if (tags !== undefined) {
+		form.set("tags", tags.join(","));
 	}
 }
 

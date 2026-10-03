@@ -105,7 +105,8 @@ configures none.
 
 A merge onto trunk ends by recommending what to do next: the open todo highest
 on the list that came up in the task that landed, since its context is
-freshest, or failing that the open todo highest on the list, plus any todo older than `todoStalenessMs` (30 days) offered for
+freshest, then one sharing a tag with the todos the task settled, the same
+area of work, or failing that the open todo highest on the list, plus any todo older than `todoStalenessMs` (30 days) offered for
 removal instead. The todos the task
 took up, with `--todo` or `todo take`, leave the list, since that work is now
 done; release one first to keep what is left of it.
@@ -229,24 +230,34 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 The todos and the tasks in a browser, on `http://localhost:4269`, reloading
 themselves as anything changes. Built for a phone first.
 
+One page, tasks above the todos.
+
 Todos are cards in list order: drag one to reorder the list (a short press
 on a phone, or Space on its grip and the arrow keys), or tap it to reword,
 attach files to, or remove. A card shows its subject, two lines of its
-detail rendered as markdown, and badges for its files and staleness, and a green edge with
+detail rendered as markdown, and badges for its files, tags and staleness, and a green edge with
 "Taken by <task>" once a task has taken it; its
 `#7` copies `[ARBOR TODO #7]`, which the agent skill reads as that todo, for
 pasting into a chat. An opened todo shows its detail rendered, with Write and
 Preview to switch between the markdown and how it reads. Typing `@` in a todo offers the files and
 directories in the main tree, tracked or new but not ignored, and writes the
 one picked as `@path/from/root`; picking a directory keeps the list open on
-what is inside.
+what is inside. An opened todo's tags are edited there too, comma separated,
+and its `#7` copies the same reference as the card's.
 
-Tasks lists every task with its progress through its plan, flagging only an
-escalated or broken status; tapping one opens its details and whole plan in a dialog.
+Tasks lists every task with a bar for its progress through its plan, counted
+from the checkboxes under `## Done` and `## Next` in its `ARBOR.md`, flagging
+only an escalated or broken status; tapping one opens its details and whole
+plan in a dialog.
 
-On a phone the tabs sit along the bottom, in reach of a thumb; on anything
-wider they run down a sidebar. If the server stops answering, the header says
-it is offline, since what the page shows may be stale.
+A row of tags over the todos filters them, the way a mail client filters by
+label: All, then every tag a todo has. Tapping one there, or on a card, shows
+only its todos. Dragging a card while filtered moves it to the place in the
+whole list of the card it is dropped on, so the todos hidden between them
+shift around it.
+
+If the server stops answering, the header says it is offline, since what the
+page shows may be stale.
 
 Todo writes are the same functions as `arbor todo add`, `update` and
 `remove`. Questions are answered in the agent's chat, not here. Merging,
@@ -333,7 +344,7 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <subject> [text] [--position <n>] [--file <path>]`, `arbor todo list [--json] [--open]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
+### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--tag <tag>]`, `arbor todo list [--json] [--open] [--tag <tag>]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--tag <tag>] [--remove-tag <tag>]`, `arbor todo tags [--json]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -370,6 +381,13 @@ no longer wanted.
 `.git/arbor/todos/<id>/`. `update --remove-file` drops
 one, named by path or by its stored file name (`todo show` lists them). They
 go when the todo does.
+
+`--tag uploads,merge` tags a todo with the areas or goals it belongs to; a
+todo can have several tags and a tag many todos. A tag is a lowercase word,
+or a few joined by hyphens, and anything else is refused, so one area never
+splits into two spellings. `update --tag` adds tags, `--remove-tag` drops them,
+`list --tag` shows only one tag's todos, and `todo tags` lists every tag in
+use with how many todos have it.
 
 ### `arbor retry <task>`
 

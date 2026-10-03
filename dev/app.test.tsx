@@ -119,6 +119,7 @@ function todo(overrides: Partial<TodoState> = {}): TodoState {
 		createdAt: new Date().toISOString(),
 		takenBy: null,
 		files: [],
+		tags: [],
 		...overrides,
 	};
 }
@@ -276,6 +277,20 @@ describe("todos", () => {
 		expect(copied).toEqual(["[ARBOR TODO #7]"]);
 		expect(view.queryByText("Todo 7")).toBeNull();
 		expect(view.getByText("Copied [ARBOR TODO #7]")).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "fix it" })),
+		);
+		// The toast is a dialog too.
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: /Todo 7/ }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "copy a link to todo 7" }),
+			),
+		);
+		expect(copied).toEqual(["[ARBOR TODO #7]", "[ARBOR TODO #7]"]);
 	});
 
 	it("opens the task that took one, without opening the todo", async () => {
@@ -372,6 +387,30 @@ describe("todo edits", () => {
 		expect(form.get("text")).toBe("");
 		// Not moved, so no place is sent to undo a move made elsewhere.
 		expect(form.has("position")).toBe(false);
+	});
+
+	it("tags one from its dialog", async () => {
+		const view = await open({
+			todos: [todo({ id: 4, subject: "write docs", tags: ["docs"] })],
+		});
+
+		await act(async () => fireEvent.click(view.getByText("write docs")));
+		const box = await waitFor(() =>
+			view.getByRole("textbox", { name: "tags" }),
+		);
+		expect((box as HTMLInputElement).value).toBe("docs");
+		expect(box.getAttribute("aria-describedby")).toBeTruthy();
+		expect(view.getByText("Separate tags with commas.")).toBeTruthy();
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "docs, dev-page" } }),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Save" })),
+		);
+
+		await waitFor(() => expect(posts).toHaveLength(1));
+		const form = posts[0]?.body as FormData;
+		expect(form.get("tags")).toBe("docs,dev-page");
 	});
 
 	it("moves one up the list by its grip, from the keyboard", async () => {
@@ -515,6 +554,41 @@ describe("tasks", () => {
 		expect(bar.getAttribute("aria-valuenow")).toBe("1");
 		expect(bar.getAttribute("aria-valuemax")).toBe("4");
 		expect(view.getByText("1/4")).toBeTruthy();
+	});
+});
+
+describe("tags", () => {
+	it("filters the list by a tag from the row above it, or from a card", async () => {
+		const view = await open({
+			todos: [
+				todo({ id: 1, subject: "page bug", tags: ["page"] }),
+				todo({ id: 2, subject: "merge flake", position: 2, tags: ["merge"] }),
+			],
+		});
+		const filter = view.getByRole("group", { name: "filter by tag" });
+		const list = view.getByRole("list", { name: "todos" });
+
+		expect(view.queryByRole("progressbar")).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(filter).getByRole("button", { name: "page" })),
+		);
+		expect(within(list).queryByText("merge flake")).toBeNull();
+		expect(within(list).getByText("page bug")).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(within(filter).getByRole("button", { name: "All" })),
+		);
+		expect(within(list).getByText("merge flake")).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "show only merge" })),
+		);
+		expect(within(list).queryByText("page bug")).toBeNull();
+		expect(
+			within(filter)
+				.getByRole("button", { name: "merge" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
 	});
 });
 

@@ -160,7 +160,9 @@ describe("dev", () => {
 			// React is in the file rather than imported from anywhere, which is what
 			// makes the page work with no network and no import map.
 			expect(js).not.toContain('from "react"');
-			expect(js).toContain("createRoot");
+			// A name like `createRoot` can be minified away; the symbol React tags
+			// its elements with is a string, and stays.
+			expect(js).toContain("react.transitional.element");
 			// The page's own markup reached the bundle, so this is the app and not
 			// an empty entry module that failed to pull anything in.
 			expect(js).toContain("arbor");
@@ -352,6 +354,7 @@ describe("dev", () => {
 
 				const form = todoForm("write the docs", [], [kept ?? ""]);
 				form.set("position", "2");
+				form.set("tags", "docs, dev-page");
 				const updated = await write("PATCH", "/api/todos/1", form);
 				expect(updated.status).toBe(200);
 				expect((await snapshot()).todos[1]).toMatchObject({
@@ -359,6 +362,7 @@ describe("dev", () => {
 					subject: "write the docs",
 					position: 2,
 					files: [kept],
+					tags: ["dev-page", "docs"],
 				});
 				expect(await deps.fs.exists(dropped ?? "")).toBe(false);
 
