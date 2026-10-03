@@ -94,14 +94,10 @@ arbor
 		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
 	.arg("task", z.string(), { description: "task name" })
-	.option(
-		"force",
-		z.string().transform((raw) => raw !== "false"),
-		{
-			default: false,
-			description: "discard even when another agent holds the lease",
-		},
-	)
+	.option("force", z.boolean(), {
+		default: false,
+		description: "discard even when another agent holds the lease",
+	})
 	.action((opts, ctx) =>
 		ctx.journal.record("remove", opts.task, () =>
 			remove(ctx, opts.task, { force: opts.force }),
@@ -113,20 +109,12 @@ arbor
 	.description(
 		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
 	)
-	.option(
-		"json",
-		z.string().transform((raw) => raw !== "false"),
-		{ default: false, description: "emit JSON" },
-	)
-	.option(
-		"files",
-		z.string().transform((raw) => raw !== "false"),
-		{
-			default: false,
-			description:
-				"add each task's changed files (committed or not) and the files its ARBOR.md plans to touch, to check for overlap before starting",
-		},
-	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.option("files", z.boolean(), {
+		default: false,
+		description:
+			"add each task's changed files (committed or not) and the files its ARBOR.md plans to touch, to check for overlap before starting",
+	})
 	.action((opts, ctx) => list(ctx, { json: opts.json, files: opts.files }));
 
 arbor
@@ -135,11 +123,7 @@ arbor
 		"read one task without touching it: everything `list` shows for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
 	)
 	.arg("task", z.string(), { description: "task name" })
-	.option(
-		"json",
-		z.string().transform((raw) => raw !== "false"),
-		{ default: false, description: "emit JSON" },
-	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => show(ctx, opts.task, { json: opts.json }));
 
 arbor
@@ -167,11 +151,7 @@ arbor
 		default: DEFAULT_COUNT,
 		description: "how many entries to show",
 	})
-	.option(
-		"json",
-		z.string().transform((raw) => raw !== "false"),
-		{ default: false, description: "emit JSON" },
-	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => showLog(ctx, { count: opts.count, json: opts.json }));
 
 arbor
@@ -222,15 +202,11 @@ arbor
 		default: "",
 		description: "task name, when run outside its worktree",
 	})
-	.option(
-		"review",
-		z.string().transform((raw) => raw !== "false"),
-		{
-			default: false,
-			description:
-				"ask a person to approve merging: adds a `Ready to merge?` question under ## Blocked with the reason as its detail, answered in chat; refused while another question is unchecked",
-		},
-	)
+	.option("review", z.boolean(), {
+		default: false,
+		description:
+			"ask a person to approve merging: adds a `Ready to merge?` question under ## Blocked with the reason as its detail, answered in chat; refused while another question is unchecked",
+	})
 	.action(async (opts, ctx) =>
 		ctx.journal.record("escalate", opts.task || (await here(ctx)), () =>
 			escalate(ctx, opts.reason, ctx.ps.cwd(), {
@@ -294,30 +270,18 @@ todo
 	.description(
 		"every todo, top of the list first, with the task it came from and the task that took it up",
 	)
-	.option(
-		"json",
-		z.string().transform((raw) => raw !== "false"),
-		{ default: false, description: "emit JSON" },
-	)
-	.option(
-		"open",
-		z.string().transform((raw) => raw !== "false"),
-		{
-			default: false,
-			description: "only todos no task has taken up: the ones free to pick up",
-		},
-	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.option("open", z.boolean(), {
+		default: false,
+		description: "only todos no task has taken up: the ones free to pick up",
+	})
 	.action((opts, ctx) => todoList(ctx, { json: opts.json, open: opts.open }));
 
 todo
 	.command("show")
 	.description("one todo in full: where it stands, its files, and its detail")
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
-	.option(
-		"json",
-		z.string().transform((raw) => raw !== "false"),
-		{ default: false, description: "emit JSON" },
-	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => todoShow(ctx, opts.id, { json: opts.json }));
 
 todo
