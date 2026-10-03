@@ -148,7 +148,7 @@ down the listing; a record whose worktree vanished shows as `orphaned`.
 
 `--files` adds, under each task, every path it has changed (committed or
 not) and every path its `ARBOR.md` plans under `## Files` that it has not
-touched yet. This is the overlap check an agent runs before starting: its own
+touched yet. This is the overlap check an agent runs once it has planned: its own
 list of files against everyone else's.
 
 ```
