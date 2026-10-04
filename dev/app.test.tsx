@@ -425,6 +425,68 @@ describe("todo edits", () => {
 		expect(form.get("tags")).toBe("docs,dev-page");
 	});
 
+	it("moves one to the top or bottom from its dialog", async () => {
+		const view = await open({
+			todos: [
+				todo({ id: 1, subject: "first" }),
+				todo({ id: 4, subject: "second", position: 2, tags: ["docs"] }),
+				todo({ id: 6, subject: "third", position: 3 }),
+			],
+		});
+
+		// Filtered to one tag, the bottom is still the whole list's.
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "docs" })),
+		);
+		await act(async () => fireEvent.click(view.getByText("second")));
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Move to bottom" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Move to top" }),
+			),
+		);
+
+		await waitFor(() => expect(posts).toHaveLength(2));
+		expect(posts.map((post) => post.path)).toEqual([
+			"/api/todos/4/position",
+			"/api/todos/4/position",
+		]);
+		expect(posts.map((post) => JSON.parse(String(post.body)))).toEqual([
+			{ position: 3 },
+			{ position: 1 },
+		]);
+		// Still open, to keep working on it.
+		expect(view.getByRole("dialog")).toBeTruthy();
+	});
+
+	it("cannot move the top todo up or the bottom one down", async () => {
+		const view = await open({
+			todos: [
+				todo({ id: 1, subject: "first" }),
+				todo({ id: 4, subject: "second", position: 2 }),
+			],
+		});
+
+		await act(async () => fireEvent.click(view.getByText("first")));
+		let dialog = await waitFor(() => view.getByRole("dialog"));
+		const top = within(dialog).getByRole("button", { name: "Move to top" });
+		expect((top as HTMLButtonElement).disabled).toBe(true);
+		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+
+		await act(async () => fireEvent.click(view.getByText("second")));
+		dialog = await waitFor(() => view.getByRole("dialog"));
+		const bottom = within(dialog).getByRole("button", {
+			name: "Move to bottom",
+		});
+		expect((bottom as HTMLButtonElement).disabled).toBe(true);
+	});
+
 	it("moves one up the list by its grip, from the keyboard", async () => {
 		// happy-dom lays nothing out, and a drag goes by where things are: stack
 		// the cards 50px apart so there is an above and a below.

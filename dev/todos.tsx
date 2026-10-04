@@ -22,6 +22,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+	ArrowDownToLineIcon,
+	ArrowUpToLineIcon,
 	ClockIcon,
 	GitBranchIcon,
 	GripVerticalIcon,
@@ -85,7 +87,7 @@ import { Task } from "./tasks";
  * Work deferred for later, top of the list first, and a line to add to it.
  * Picking one up takes an agent (`arbor add <task> --todo <id>`), and `merge`
  * recommends the highest open one, so the list is the priority: drag a card
- * to reorder it, or tap one to reword or remove it.
+ * to reorder it, or tap one to reword, move or remove it.
  */
 export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const { todoStalenessMs, tasks } = snapshot;
@@ -98,6 +100,8 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	);
 	const [opened, setOpened] = useState<number | null>(null);
 	const current = todos.find((todo) => todo.id === opened);
+	// The bottom of the whole list, not just of the todos a tag shows.
+	const last = Math.max(0, ...snapshot.todos.map((todo) => todo.position));
 	const [openedTask, setOpenedTask] = useState<string | null>(null);
 	const task = tasks.find((found) => found.task === openedTask);
 	// Only a task the page knows of opens: one merged a moment ago has no
@@ -139,7 +143,9 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 							}
 						}}
 					>
-						{current && <Edit todo={current} onDone={() => setOpened(null)} />}
+						{current && (
+							<Edit todo={current} last={last} onDone={() => setOpened(null)} />
+						)}
 					</Dialog>
 					<Dialog
 						open={task !== undefined}
@@ -569,12 +575,18 @@ function Add(): JSX.Element {
 	);
 }
 
-/** One todo opened: its words and files to change, and a way to drop it. */
+/**
+ * One todo opened: its words and files to change, a way to send it to the top
+ * or bottom of the list, and a way to drop it.
+ */
 function Edit({
 	todo,
+	last,
 	onDone,
 }: {
 	todo: TodoState;
+	/** The bottom position of the whole list. */
+	last: number;
 	onDone: () => void;
 }): JSX.Element {
 	const [subject, setSubject] = useState(todo.subject);
@@ -613,6 +625,23 @@ function Edit({
 		}
 	};
 
+	// Moving stays open, words unsaved and all: the next snapshot says where it
+	// went.
+	const move = async (position: number) => {
+		setBusy(true);
+		try {
+			await moveTodo(todo.id, position);
+		} catch (error) {
+			toast.add({
+				title: "Not moved",
+				description: error instanceof Error ? error.message : String(error),
+				type: "error",
+			});
+		} finally {
+			setBusy(false);
+		}
+	};
+
 	const changed =
 		subject.trim() !== "" &&
 		(subject.trim() !== todo.subject ||
@@ -629,11 +658,33 @@ function Edit({
 						<CopyLink id={todo.id} />
 					</span>
 				</DialogTitle>
-				<DialogDescription>
-					{todo.takenBy
-						? `Taken by ${todo.takenBy}`
-						: `Number ${todo.position} on the list`}
-				</DialogDescription>
+				<div className="flex items-center justify-between gap-2">
+					<DialogDescription>
+						{todo.takenBy
+							? `Taken by ${todo.takenBy}`
+							: `Position ${todo.position}`}
+					</DialogDescription>
+					<div className="flex gap-1">
+						<Button
+							size="xs"
+							variant="ghost"
+							disabled={busy || todo.position <= 1}
+							onClick={() => void move(1)}
+						>
+							<ArrowUpToLineIcon data-icon="inline-start" />
+							Move to top
+						</Button>
+						<Button
+							size="xs"
+							variant="ghost"
+							disabled={busy || todo.position >= last}
+							onClick={() => void move(last)}
+						>
+							<ArrowDownToLineIcon data-icon="inline-start" />
+							Move to bottom
+						</Button>
+					</div>
+				</div>
 			</DialogHeader>
 			<div className="flex flex-col gap-2">
 				<MentionAnchor mentions={mentions}>
