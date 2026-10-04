@@ -108,9 +108,10 @@ describe.concurrent("todo", () => {
 
 	it("moves one up or down, and closes the gap a removed one leaves", async () => {
 		await using deps = await Testing.open();
-		for (const subject of ["a", "b", "c", "d"]) {
-			await todoAdd(deps, subject, null);
-		}
+		await todoAdd(deps, "a", null);
+		await todoAdd(deps, "b", null);
+		await todoAdd(deps, "c", null);
+		await todoAdd(deps, "d", null);
 
 		await todoUpdate(deps, 4, { position: 2 });
 		expect(await order(deps)).toEqual(["a", "d", "b", "c"]);

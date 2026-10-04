@@ -5,7 +5,8 @@ import { fail } from "./exit";
 import type { Git } from "./git";
 import { PLAN_FILE, questions } from "./plan";
 import type { Shell } from "./shell";
-import { recommend, recommendation, type Todos } from "./todo";
+import { recommend, recommendation } from "./todo";
+import type { Todos } from "./todos";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 

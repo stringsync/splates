@@ -5,7 +5,8 @@ import type { Config } from "./config";
 import { fail } from "./exit";
 import { PLAN_FILE } from "./plan";
 import type { Shell } from "./shell";
-import type { Todo, Todos } from "./todo";
+import type { Todo } from "./todo";
+import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

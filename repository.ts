@@ -6,7 +6,7 @@ import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
 import { Shell } from "./shell";
-import { Todos } from "./todo";
+import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
 
 /** What a command gets to work with, once there is a repository to work in. */

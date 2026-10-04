@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
-import type { Todos } from "./todo";
+import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
 
 export interface RemoveOptions {

@@ -12,7 +12,7 @@ import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
-import type { Todos } from "./todo";
+import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
@@ -20,54 +20,6 @@ export const DEFAULT_PORT = 4269;
 
 /** How far above the port asked for `dev` will look before giving up. */
 export const PORT_SPAN = 20;
-
-/** How often the repo is re-read to decide whether open pages should refetch. */
-const POLL_MS = 2_000;
-
-/** The one address the server binds: this machine, and nothing else. */
-const LOOPBACK = "127.0.0.1";
-
-/** Names this machine answers to, which a page opened on it always may use. */
-const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
-
-/** A phone photo fits; a stray video does not. */
-const MAX_BODY_BYTES = 25 * 1024 * 1024;
-
-/** The images a todo may hold, by extension, and how each is served. */
-const IMAGE_TYPES: Record<string, string> = {
-	png: "image/png",
-	jpg: "image/jpeg",
-	jpeg: "image/jpeg",
-	gif: "image/gif",
-	webp: "image/webp",
-	svg: "image/svg+xml",
-};
-
-/** How a refusal from the core reads over HTTP. */
-const STATUS: Partial<Record<Reason, number>> = {
-	usage: 400,
-	not_found: 404,
-	lease_held: 409,
-	exists: 409,
-};
-
-/** What `dev` lets a caller choose. */
-export interface DevOptions {
-	/** Where to listen; the port `--port` asked for, and the span above it. */
-	ports?: PortProvider;
-	/**
-	 * Host names besides this machine's own that the page may be reached by,
-	 * like the hostname of a tunnel. Anything else is refused, which is what
-	 * stops another site from reading the repo through a browser pointed at
-	 * localhost. Who may use those names is the tunnel's business, not arbor's.
-	 */
-	hosts?: string[];
-}
-
-/** A running server, and the one thing a caller ever wants to do with it. */
-export interface DevServer extends AsyncResource {
-	port: number;
-}
 
 /**
  * Serves what `todo list`, `list` and `show` print as one page that refetches
@@ -340,6 +292,54 @@ export async function dev(
 		port,
 		disposeAsync: disposer.disposeAsync,
 	};
+}
+
+/** How often the repo is re-read to decide whether open pages should refetch. */
+const POLL_MS = 2_000;
+
+/** The one address the server binds: this machine, and nothing else. */
+const LOOPBACK = "127.0.0.1";
+
+/** Names this machine answers to, which a page opened on it always may use. */
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+/** A phone photo fits; a stray video does not. */
+const MAX_BODY_BYTES = 25 * 1024 * 1024;
+
+/** The images a todo may hold, by extension, and how each is served. */
+const IMAGE_TYPES: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	gif: "image/gif",
+	webp: "image/webp",
+	svg: "image/svg+xml",
+};
+
+/** How a refusal from the core reads over HTTP. */
+const STATUS: Partial<Record<Reason, number>> = {
+	usage: 400,
+	not_found: 404,
+	lease_held: 409,
+	exists: 409,
+};
+
+/** What `dev` lets a caller choose. */
+export interface DevOptions {
+	/** Where to listen; the port `--port` asked for, and the span above it. */
+	ports?: PortProvider;
+	/**
+	 * Host names besides this machine's own that the page may be reached by,
+	 * like the hostname of a tunnel. Anything else is refused, which is what
+	 * stops another site from reading the repo through a browser pointed at
+	 * localhost. Who may use those names is the tunnel's business, not arbor's.
+	 */
+	hosts?: string[];
+}
+
+/** A running server, and the one thing a caller ever wants to do with it. */
+export interface DevServer extends AsyncResource {
+	port: number;
 }
 
 /**

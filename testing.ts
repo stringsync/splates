@@ -12,7 +12,7 @@ import { Exit, type Reason } from "./exit";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
-import { Todos } from "./todo";
+import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
 
 /**

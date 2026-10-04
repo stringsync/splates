@@ -1,65 +1,6 @@
 import type { GitResult } from "./git";
 import type { WorktreeService } from "./worktree-service";
 
-/** The status a task's own record carries. */
-export type RecordStatus = "working" | "merging" | "escalated";
-
-/** What a task's record stores about who is driving it. */
-export interface LeaseState {
-	pid: number;
-	hostname: string;
-	heartbeatAt: string;
-}
-
-export interface Escalation {
-	reason: string;
-	at: string;
-	/**
-	 * For a task handed over to be approved rather than to answer questions,
-	 * the question in its plan that asks for the approval, `4`.
-	 */
-	review?: string;
-}
-
-export interface TaskState {
-	task: string;
-	branch: string;
-	worktree: string;
-	/** The branch this task lands on. Absent in old records: trunk. */
-	base?: string;
-	status: RecordStatus;
-	lease: LeaseState | null;
-	mergeAttempts: number;
-	createdAt: string;
-	updatedAt: string;
-	escalations?: Escalation[];
-}
-
-/**
- * Everything a name can turn out to be. The record's own status when the
- * task is intact, and otherwise the way in which it is not.
- */
-export type WorktreeStatus =
-	| RecordStatus
-	| "absent" // nothing under this name, and no memory of one
-	| "removed" // discarded earlier; still remembered
-	| "orphaned" // a record whose directory is gone
-	| "stray" // a leftover branch, with no directory or record
-	| "unrecorded" // a directory with no record
-	| "unknown"; // a record that would not parse
-
-/** What the service found on disk. */
-export interface WorktreeSnapshot {
-	task: string;
-	branch: string;
-	path: string;
-	state: TaskState | null;
-	exists: boolean;
-	hasBranch: boolean;
-	removedAt: string | null;
-	corrupt: boolean;
-}
-
 /**
  * One task, whether or not it is still there. Commands ask the service for
  * one of these and read its status rather than assembling the same handful of
@@ -236,4 +177,63 @@ export class Worktree {
 	interruptedOps(): Promise<string[]> {
 		return this.service.git.interruptedOps(this.path);
 	}
+}
+
+/** The status a task's own record carries. */
+export type RecordStatus = "working" | "merging" | "escalated";
+
+/** What a task's record stores about who is driving it. */
+export interface LeaseState {
+	pid: number;
+	hostname: string;
+	heartbeatAt: string;
+}
+
+export interface Escalation {
+	reason: string;
+	at: string;
+	/**
+	 * For a task handed over to be approved rather than to answer questions,
+	 * the question in its plan that asks for the approval, `4`.
+	 */
+	review?: string;
+}
+
+export interface TaskState {
+	task: string;
+	branch: string;
+	worktree: string;
+	/** The branch this task lands on. Absent in old records: trunk. */
+	base?: string;
+	status: RecordStatus;
+	lease: LeaseState | null;
+	mergeAttempts: number;
+	createdAt: string;
+	updatedAt: string;
+	escalations?: Escalation[];
+}
+
+/**
+ * Everything a name can turn out to be. The record's own status when the
+ * task is intact, and otherwise the way in which it is not.
+ */
+export type WorktreeStatus =
+	| RecordStatus
+	| "absent" // nothing under this name, and no memory of one
+	| "removed" // discarded earlier; still remembered
+	| "orphaned" // a record whose directory is gone
+	| "stray" // a leftover branch, with no directory or record
+	| "unrecorded" // a directory with no record
+	| "unknown"; // a record that would not parse
+
+/** What the service found on disk. */
+export interface WorktreeSnapshot {
+	task: string;
+	branch: string;
+	path: string;
+	state: TaskState | null;
+	exists: boolean;
+	hasBranch: boolean;
+	removedAt: string | null;
+	corrupt: boolean;
 }

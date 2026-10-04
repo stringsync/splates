@@ -1,7 +1,8 @@
 import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
 import { type Details, TaskDetails } from "./show";
-import type { TodoState, Todos } from "./todo";
+import type { TodoState } from "./todo";
+import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
 
 /**
