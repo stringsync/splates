@@ -31,9 +31,16 @@ export function App(): JSX.Element {
 		<Toaster>
 			<main className="mx-auto flex min-h-dvh max-w-xl flex-col gap-8 px-4 py-6">
 				<header className="flex items-center justify-between">
-					<h1 className="min-w-0 truncate font-medium text-sm">
-						{snapshot?.repo ?? "arbor"}
-					</h1>
+					<div className="flex min-w-0 items-baseline gap-2">
+						<h1 className="shrink-0 font-medium text-sm">
+							{snapshot?.repo ?? "arbor"}
+						</h1>
+						{snapshot && (
+							<span className="min-w-0 truncate text-muted-foreground text-xs">
+								{snapshot.path}
+							</span>
+						)}
+					</div>
 					{/* Silent while connected, which is the normal case. Once the server
 					    stops answering, the page says so, since what it shows may no
 					    longer be true. */}

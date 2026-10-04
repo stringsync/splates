@@ -54,6 +54,7 @@ const realEventSource = globalThis.EventSource;
 function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {
 		repo: "webappwiz",
+		path: "~/Projects/webappwiz",
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		todos: [],
 		tasks: [],
@@ -141,6 +142,17 @@ describe("header", () => {
 		expect(view.queryByLabelText("banner")).toBeNull();
 		expect(view.getByRole("textbox", { name: "new todo" })).toBeTruthy();
 		expect(view.queryByRole("tab", { name: /blocked/i })).toBeNull();
+	});
+});
+
+describe("repo", () => {
+	it("names the repo, and shows where it sits", async () => {
+		const view = await open();
+
+		expect(view.getByRole("heading", { level: 1 }).textContent).toBe(
+			"webappwiz",
+		);
+		expect(view.getByText("~/Projects/webappwiz")).toBeTruthy();
 	});
 });
 

@@ -11,6 +11,8 @@ import type { WorktreeService } from "./worktree-service";
 export interface Snapshot {
 	/** The repository's directory name, so a page among many says whose it is. */
 	repo: string;
+	/** Where the repository sits, with the home directory as `~`. */
+	path: string;
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
 	todos: TodoState[];
@@ -25,10 +27,13 @@ export async function snapshot({
 	service,
 	todos,
 	fs,
+	home,
 }: {
 	service: WorktreeService;
 	todos: Todos;
 	fs: Fs;
+	/** The home directory to show as `~`, when there is one. */
+	home?: string;
 }): Promise<Snapshot> {
 	const details = new TaskDetails({ fs });
 	const tasks: Details[] = [];
@@ -37,6 +42,7 @@ export async function snapshot({
 	}
 	return {
 		repo: basename(service.git.root),
+		path: tilde(service.git.root, home),
 		todoStalenessMs: service.config.todoStalenessMs,
 		todos: (await todos.all()).map((todo) => todo.state),
 		tasks,
@@ -64,4 +70,15 @@ export function fingerprint({ todos, tasks }: Snapshot): string {
 			task.planProblems,
 		]),
 	]);
+}
+
+/** `root` with a leading `home` written as `~`, the way a shell prompt shows it. */
+function tilde(root: string, home: string | undefined): string {
+	if (!home) {
+		return root;
+	}
+	if (root === home) {
+		return "~";
+	}
+	return root.startsWith(`${home}/`) ? `~${root.slice(home.length)}` : root;
 }

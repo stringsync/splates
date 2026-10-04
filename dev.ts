@@ -5,6 +5,7 @@ import {
 	MAX_PORT,
 	OpenPortProvider,
 	type PortProvider,
+	type Ps,
 } from "webappwiz/system";
 import type { Attachment } from "./attachments";
 import type { Assets } from "./dev/assets";
@@ -78,6 +79,7 @@ export async function dev(
 	{
 		service,
 		fs,
+		ps,
 		journal,
 		todos,
 		log,
@@ -85,6 +87,7 @@ export async function dev(
 	}: {
 		service: WorktreeService;
 		fs: Fs;
+		ps: Ps;
 		journal: Journal;
 		todos: Todos;
 		log: Logger;
@@ -92,7 +95,8 @@ export async function dev(
 	},
 	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
 ): Promise<DevServer> {
-	const read = () => snapshot({ service, todos, fs });
+	const home = ps.env("HOME");
+	const read = () => snapshot({ service, todos, fs, home });
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
