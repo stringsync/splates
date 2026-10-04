@@ -37,6 +37,7 @@ import {
 import {
 	createContext,
 	type FormEvent,
+	Fragment,
 	type HTMLAttributes,
 	type JSX,
 	type KeyboardEventHandler,
@@ -46,6 +47,7 @@ import {
 	useContext,
 	useEffect,
 	useId,
+	useRef,
 	useState,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -71,6 +73,7 @@ import {
 	InputGroupInput,
 	InputGroupTextarea,
 } from "#dev/components/ui/input-group.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
@@ -87,7 +90,8 @@ import { Task } from "./tasks";
  * Work deferred for later, top of the list first, and a line to add to it.
  * Picking one up takes an agent (`arbor add <task> --todo <id>`), and `merge`
  * recommends the highest open one, so the list is the priority: drag a card
- * to reorder it, or tap one to reword, move or remove it.
+ * to reorder it, or tap one to reword, move or remove it. `o` opens the top
+ * one, and the open one's keys step through the rest.
  */
 export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const { todoStalenessMs, tasks } = snapshot;
@@ -99,7 +103,10 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 		(todo) => tag === null || todo.tags.includes(tag),
 	);
 	const [opened, setOpened] = useState<number | null>(null);
-	const current = todos.find((todo) => todo.id === opened);
+	const at = todos.findIndex((todo) => todo.id === opened);
+	const current = todos[at];
+	const previous = current && todos[at - 1];
+	const next = current && todos[at + 1];
 	// The bottom of the whole list, not just of the todos a tag shows.
 	const last = Math.max(0, ...snapshot.todos.map((todo) => todo.position));
 	const [openedTask, setOpenedTask] = useState<string | null>(null);
@@ -108,6 +115,27 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	// details left to show.
 	const openTask = (name: string) =>
 		tasks.some((found) => found.task === name) ? setOpenedTask(name) : null;
+	const popup = useRef<HTMLDivElement>(null);
+	const [keysShown, setKeysShown] = useState(false);
+	// Only over the bare list: an open todo has keys of its own.
+	const bare = current === undefined && task === undefined && !keysShown;
+	useKeys({
+		o: () => {
+			const top = todos[0];
+			if (!bare || top === undefined) {
+				return false;
+			}
+			setOpened(top.id);
+			return true;
+		},
+		"?": () => {
+			if (!bare) {
+				return false;
+			}
+			setKeysShown(true);
+			return true;
+		},
+	});
 	return (
 		<OpenTask value={openTask}>
 			<FilterTag value={setPicked}>
@@ -115,6 +143,11 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					<Add />
 					{tags.length > 0 && (
 						<TagFilter tags={tags} selected={tag} onSelect={setPicked} />
+					)}
+					{todos.length > 0 && (
+						<Hint className="-mb-4 self-end">
+							<Kbd>o</Kbd> opens the top todo
+						</Hint>
 					)}
 					{todos.length === 0 ? (
 						<Empty>
@@ -144,8 +177,31 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 						}}
 					>
 						{current && (
-							<Edit todo={current} last={last} onDone={() => setOpened(null)} />
+							// Held here rather than in Edit, so stepping to another todo
+							// swaps what the dialog shows without opening it again.
+							<DialogContent
+								ref={popup}
+								// The dialog itself, not its subject: a key pressed on
+								// opening is a shortcut, and a click into a field starts
+								// typing.
+								initialFocus={popup}
+								className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-lg"
+							>
+								{/* Keyed, so stepping to another todo starts on its own
+								    words. */}
+								<Edit
+									key={current.id}
+									todo={current}
+									last={last}
+									previous={previous && (() => setOpened(previous.id))}
+									next={next && (() => setOpened(next.id))}
+									onDone={() => setOpened(null)}
+								/>
+							</DialogContent>
 						)}
+					</Dialog>
+					<Dialog open={keysShown} onOpenChange={setKeysShown}>
+						<Shortcuts />
 					</Dialog>
 					<Dialog
 						open={task !== undefined}
@@ -160,6 +216,83 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 				</div>
 			</FilterTag>
 		</OpenTask>
+	);
+}
+
+/**
+ * Answers single keys pressed anywhere on the page but a text field, where
+ * they are typing. Each run says whether it used the press, which then goes
+ * no further.
+ */
+function useKeys(keys: Record<string, () => boolean>): void {
+	useEffect(() => {
+		const press = (event: KeyboardEvent) => {
+			const target = event.target as HTMLElement | null;
+			if (
+				event.altKey ||
+				event.ctrlKey ||
+				event.metaKey ||
+				target?.closest("input, textarea, [contenteditable]")
+			) {
+				return;
+			}
+			if (keys[event.key]?.()) {
+				event.preventDefault();
+			}
+		};
+		window.addEventListener("keydown", press);
+		return () => window.removeEventListener("keydown", press);
+	});
+}
+
+/** Every key the page answers, for `?` to list. */
+const shortcuts: { keys: string[]; does: string }[] = [
+	{ keys: ["o"], does: "Open the top todo" },
+	{ keys: ["[", "]"], does: "Open the previous or next todo" },
+	{ keys: ["{", "}"], does: "Move the open todo to the top or bottom" },
+	{ keys: ["?"], does: "Show these shortcuts" },
+];
+
+function Shortcuts(): JSX.Element {
+	return (
+		<DialogContent>
+			<DialogHeader>
+				<DialogTitle>Keyboard shortcuts</DialogTitle>
+				<DialogDescription>Anywhere but a text field.</DialogDescription>
+			</DialogHeader>
+			<dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
+				{shortcuts.map(({ keys, does }) => (
+					<Fragment key={does}>
+						<dt className="flex gap-1">
+							{keys.map((key) => (
+								<Kbd key={key}>{key}</Kbd>
+							))}
+						</dt>
+						<dd>{does}</dd>
+					</Fragment>
+				))}
+			</dl>
+		</DialogContent>
+	);
+}
+
+/** Words about a shortcut, shown only where there is a keyboard to press it. */
+function Hint({
+	className,
+	children,
+}: {
+	className?: string;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<span
+			className={cn(
+				"hidden items-center gap-1.5 text-muted-foreground text-xs pointer-fine:inline-flex",
+				className,
+			)}
+		>
+			{children}
+		</span>
 	);
 }
 
@@ -577,16 +710,23 @@ function Add(): JSX.Element {
 
 /**
  * One todo opened: its words and files to change, a way to send it to the top
- * or bottom of the list, and a way to drop it.
+ * or bottom of the list, a way to drop it, and a step to the todo above or
+ * below it.
  */
 function Edit({
 	todo,
 	last,
+	previous,
+	next,
 	onDone,
 }: {
 	todo: TodoState;
 	/** The bottom position of the whole list. */
 	last: number;
+	/** Opens the todo above this one, when the list shows one. */
+	previous?: () => void;
+	/** Opens the todo below this one, when the list shows one. */
+	next?: () => void;
 	onDone: () => void;
 }): JSX.Element {
 	const [subject, setSubject] = useState(todo.subject);
@@ -610,34 +750,21 @@ function Edit({
 	// Removing cannot be taken back, so it asks twice.
 	const [confirming, setConfirming] = useState(false);
 
-	const run = async (write: () => Promise<void>, failed: string) => {
+	const run = async (
+		write: () => Promise<void>,
+		failed: string,
+		then = onDone,
+	) => {
 		setBusy(true);
 		try {
 			await write();
-			onDone();
+			then();
 		} catch (error) {
 			toast.add({
 				title: failed,
 				description: error instanceof Error ? error.message : String(error),
 				type: "error",
 			});
-			setBusy(false);
-		}
-	};
-
-	// Moving stays open, words unsaved and all: the next snapshot says where it
-	// went.
-	const move = async (position: number) => {
-		setBusy(true);
-		try {
-			await moveTodo(todo.id, position);
-		} catch (error) {
-			toast.add({
-				title: "Not moved",
-				description: error instanceof Error ? error.message : String(error),
-				type: "error",
-			});
-		} finally {
 			setBusy(false);
 		}
 	};
@@ -649,8 +776,50 @@ function Edit({
 			tagged.join(",") !== todo.tags.join(",") ||
 			files.files.length > 0 ||
 			files.keep.length !== todo.files.length);
+	const save = (position?: number) =>
+		updateTodo(todo.id, {
+			subject,
+			text,
+			position,
+			tags: tagged,
+			files: files.files,
+			keep: files.keep,
+		});
+
+	// Moving it is done with it, the way saving is: the list shows where it
+	// went. Words changed on the way go with it, in the one write.
+	const canMoveUp = !busy && todo.position > 1;
+	const canMoveDown = !busy && todo.position < last;
+	const move = (position: number): boolean => {
+		if (position < todo.position ? !canMoveUp : !canMoveDown) {
+			return false;
+		}
+		void run(
+			() => (changed ? save(position) : moveTodo(todo.id, position)),
+			"Not moved",
+		);
+		return true;
+	};
+	// Stepping away saves first, so nothing typed is lost on the way.
+	const step = (to: (() => void) | undefined): boolean => {
+		if (to === undefined || busy) {
+			return false;
+		}
+		if (changed) {
+			void run(() => save(), "Not saved", to);
+		} else {
+			to();
+		}
+		return true;
+	};
+	useKeys({
+		"[": () => step(previous),
+		"]": () => step(next),
+		"{": () => move(1),
+		"}": () => move(last),
+	});
 	return (
-		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-lg">
+		<>
 			<DialogHeader>
 				<DialogTitle className="flex items-center gap-2">
 					Todo {todo.id}
@@ -668,8 +837,8 @@ function Edit({
 						<Button
 							size="xs"
 							variant="ghost"
-							disabled={busy || todo.position <= 1}
-							onClick={() => void move(1)}
+							disabled={!canMoveUp}
+							onClick={() => move(1)}
 						>
 							<ArrowUpToLineIcon data-icon="inline-start" />
 							Move to top
@@ -677,8 +846,8 @@ function Edit({
 						<Button
 							size="xs"
 							variant="ghost"
-							disabled={busy || todo.position >= last}
-							onClick={() => void move(last)}
+							disabled={!canMoveDown}
+							onClick={() => move(last)}
 						>
 							<ArrowDownToLineIcon data-icon="inline-start" />
 							Move to bottom
@@ -788,23 +957,11 @@ function Edit({
 				</Button>
 				<Button
 					disabled={!changed || busy}
-					onClick={() =>
-						void run(
-							() =>
-								updateTodo(todo.id, {
-									subject,
-									text,
-									tags: tagged,
-									files: files.files,
-									keep: files.keep,
-								}),
-							"Not saved",
-						)
-					}
+					onClick={() => void run(() => save(), "Not saved")}
 				>
 					Save
 				</Button>
 			</DialogFooter>
-		</DialogContent>
+		</>
 	);
 }
