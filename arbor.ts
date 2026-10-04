@@ -284,13 +284,14 @@ todo
 	})
 	.option("tag", z.string(), {
 		default: "",
-		description: "only todos with this tag",
+		description:
+			"only todos with any of these tags, comma separated: pass every tag your task's todos have to see the ones your work affects",
 	})
 	.action((opts, ctx) =>
 		todoList(ctx, {
 			json: opts.json,
 			open: opts.open,
-			tag: opts.tag || undefined,
+			tags: commaList(opts.tag),
 		}),
 	);
 

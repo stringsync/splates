@@ -534,8 +534,8 @@ export interface TodoListOptions {
 	json?: boolean;
 	/** Only those no task has taken: the ones free to pick up. */
 	open?: boolean;
-	/** Only those with this tag. */
-	tag?: string;
+	/** Only those with any of these tags; every todo when empty. */
+	tags?: string[];
 }
 
 export interface TodoFileOptions {
@@ -575,13 +575,13 @@ export async function todoAdd(
 
 export async function todoList(
 	{ todos, log }: { todos: Todos; log: Logger },
-	{ json = false, open = false, tag }: TodoListOptions = {},
+	{ json = false, open = false, tags = [] }: TodoListOptions = {},
 ): Promise<void> {
 	const every = await todos.all();
 	const listed = every.filter(
 		(todo) =>
 			(!open || todo.takenBy === null) &&
-			(tag === undefined || todo.tags.includes(tag)),
+			(tags.length === 0 || todo.tags.some((tag) => tags.includes(tag))),
 	);
 	if (json) {
 		log.info(
@@ -599,9 +599,9 @@ export async function todoList(
 	}
 	if (listed.length === 0) {
 		log.info(
-			tag === undefined
+			tags.length === 0
 				? "no open todos: every one is taken, see `arbor todo list`"
-				: `no ${open ? "open " : ""}todos tagged ${tag}: see \`arbor todo tags\``,
+				: `no ${open ? "open " : ""}todos tagged ${tags.join(" or ")}: see \`arbor todo tags\``,
 		);
 		return;
 	}

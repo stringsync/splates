@@ -344,7 +344,7 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--tag <tag>]`, `arbor todo list [--json] [--open] [--tag <tag>]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--tag <tag>] [--remove-tag <tag>]`, `arbor todo tags [--json]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
+### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--tag <tag>]`, `arbor todo list [--json] [--open] [--tag <tags>]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--tag <tag>] [--remove-tag <tag>]`, `arbor todo tags [--json]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -386,7 +386,7 @@ go when the todo does.
 todo can have several tags and a tag many todos. A tag is a lowercase word,
 or a few joined by hyphens, and anything else is refused, so one area never
 splits into two spellings. `update --tag` adds tags, `--remove-tag` drops them,
-`list --tag` shows only one tag's todos, and `todo tags` lists every tag in
+`list --tag uploads,merge` shows only the todos with any of those tags, and `todo tags` lists every tag in
 use with how many todos have it.
 
 ### `arbor retry <task>`

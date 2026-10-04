@@ -475,7 +475,14 @@ describe.concurrent("todo", () => {
 		);
 
 		deps.log.clear();
-		await todoList(deps, { json: true, tag: "merge" });
+		await todoList(deps, { json: true, tags: ["merge"] });
+		expect(
+			JSON.parse(deps.out()).map(({ subject }: TodoState) => subject),
+		).toEqual(["one", "three"]);
+
+		await todoUpdate(deps, 3, { tags: ["ui"], removeTags: ["merge"] });
+		deps.log.clear();
+		await todoList(deps, { json: true, tags: ["dev-page", "ui"] });
 		expect(
 			JSON.parse(deps.out()).map(({ subject }: TodoState) => subject),
 		).toEqual(["one", "three"]);
@@ -484,7 +491,8 @@ describe.concurrent("todo", () => {
 		await todoTags(deps, { json: true });
 		expect(JSON.parse(deps.out())).toEqual([
 			{ tag: "dev-page", todos: 1 },
-			{ tag: "merge", todos: 2 },
+			{ tag: "merge", todos: 1 },
+			{ tag: "ui", todos: 1 },
 		]);
 	});
 });
