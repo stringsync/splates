@@ -14,7 +14,6 @@ import {
 	restrictToVerticalAxis,
 } from "@dnd-kit/modifiers";
 import {
-	arrayMove,
 	SortableContext,
 	sortableKeyboardCoordinates,
 	useSortable,
@@ -80,12 +79,12 @@ import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
-import { moveTodo } from "./api";
 import { AttachButton, FileList } from "./files";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { TagFilter } from "./tags";
 import { Task } from "./tasks";
+import { TodoBoard } from "./todo-board";
 import { TodoDraft } from "./todo-draft";
 import { TodoEditor } from "./todo-editor";
 import { TodoView } from "./todo-view";
@@ -313,12 +312,10 @@ function Board({
 	staleness: number;
 	onOpen: (id: number) => void;
 }): JSX.Element {
-	// The order just dropped, shown until the server's catches up, so a card
-	// lands where it was let go instead of jumping back for a poll.
-	const [dropped, setDropped] = useState<number[] | null>(null);
-	const [dragging, setDragging] = useState<number | null>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: any new snapshot is the server's word
-	useEffect(() => setDropped(null), [todos]);
+	const [board] = useState(() => new TodoBoard());
+	useReactive(board, ({ dragging, dropped }) => ({ dragging, dropped }), [
+		"changed",
+	]);
 	const sensors = useSensors(
 		useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
 		useSensor(TouchSensor, {
@@ -328,29 +325,18 @@ function Board({
 			coordinateGetter: sortableKeyboardCoordinates,
 		}),
 	);
-	const ids = dropped ?? todos.map((todo) => todo.id);
-	const shown = ids.flatMap((id) => todos.filter((todo) => todo.id === id));
-	const lifted = todos.find((todo) => todo.id === dragging);
+	const { ids, todos: shown, lifted } = board.show(todos);
 
 	const drop = ({ active, over }: DragEndEvent) => {
-		setDragging(null);
-		if (over === null || active.id === over.id) {
-			return;
-		}
-		const to = ids.indexOf(Number(over.id));
-		setDropped(arrayMove(ids, ids.indexOf(Number(active.id)), to));
-		// The place of the card it landed on, which is not its index when the
-		// list shows only one tag's todos.
-		const position =
-			todos.find((todo) => todo.id === Number(over.id))?.position ?? to + 1;
-		moveTodo(Number(active.id), position).catch((error: unknown) => {
-			setDropped(null);
-			toast.add({
-				title: "Not moved",
-				description: error instanceof Error ? error.message : String(error),
-				type: "error",
-			});
-		});
+		board
+			.drop(todos, Number(active.id), over === null ? null : Number(over.id))
+			?.catch((error: unknown) =>
+				toast.add({
+					title: "Not moved",
+					description: error instanceof Error ? error.message : String(error),
+					type: "error",
+				}),
+			);
 	};
 
 	return (
@@ -358,8 +344,8 @@ function Board({
 			sensors={sensors}
 			collisionDetection={closestCenter}
 			modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-			onDragStart={({ active }) => setDragging(Number(active.id))}
-			onDragCancel={() => setDragging(null)}
+			onDragStart={({ active }) => board.lift(Number(active.id))}
+			onDragCancel={() => board.cancel()}
 			onDragEnd={drop}
 		>
 			<SortableContext items={ids} strategy={verticalListSortingStrategy}>
