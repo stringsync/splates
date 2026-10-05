@@ -42,7 +42,7 @@ export async function escalate(
 	cwd: string,
 	{ task, review = false }: EscalateOptions = {},
 ): Promise<void> {
-	const branch = await git.currentBranch(cwd).catch(() => "");
+	const branch = await git.currentBranch(cwd);
 	const name = task || service.taskFor(branch);
 	if (!name) {
 		fail(

@@ -41,12 +41,12 @@ export async function merge(
 	},
 	cwd: string,
 ): Promise<void> {
-	const branch = await git.currentBranch(cwd).catch(() => "");
+	const branch = await git.currentBranch(cwd);
 	const task = service.taskFor(branch);
 	if (!task) {
 		fail(
 			"not_found",
-			`not in a task worktree (branch '${branch}'): run merge from a worktree made by \`arbor add\``,
+			`not in a task worktree (${branch === null ? "no branch" : `branch '${branch}'`}): run merge from a worktree made by \`arbor add\``,
 			{ branch },
 		);
 	}
@@ -186,7 +186,7 @@ export async function merge(
 	const merged =
 		checkout && checkout.code !== 0
 			? checkout
-			: await git.mergeFfOnly(landing, branch);
+			: await git.mergeFfOnly(landing, service.branchFor(task));
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree);

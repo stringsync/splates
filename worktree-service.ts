@@ -59,8 +59,8 @@ export class WorktreeService {
 		return `${BRANCH_PREFIX}${task}`;
 	}
 
-	taskFor(branch: string): string | null {
-		return branch.startsWith(BRANCH_PREFIX)
+	taskFor(branch: string | null): string | null {
+		return branch?.startsWith(BRANCH_PREFIX)
 			? branch.slice(BRANCH_PREFIX.length)
 			: null;
 	}

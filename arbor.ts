@@ -426,5 +426,5 @@ async function here({
 	git,
 	ps,
 }: ArborDeps & Repository): Promise<string | null> {
-	return service.taskFor(await git.currentBranch(ps.cwd()).catch(() => ""));
+	return service.taskFor(await git.currentBranch(ps.cwd()));
 }

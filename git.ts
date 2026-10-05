@@ -75,8 +75,27 @@ export class Git {
 		return code === 0 ? stdout.replace(/^origin\//, "") || null : null;
 	}
 
-	currentBranch(cwd: string): Promise<string> {
-		return this.out(cwd, "rev-parse", "--abbrev-ref", "HEAD");
+	/**
+	 * The branch checked out at `cwd`, or null where there is none: a detached
+	 * HEAD, or a directory outside any repository. Any other failure throws, so
+	 * it is not mistaken for being off a task's branch.
+	 */
+	async currentBranch(cwd: string): Promise<string | null> {
+		const { code, stdout, stderr } = await this.run(
+			cwd,
+			"symbolic-ref",
+			"--quiet",
+			"--short",
+			"HEAD",
+		);
+		if (code === 0) {
+			return stdout;
+		}
+		// --quiet makes a detached HEAD exit 1 and say nothing
+		if (code === 1 || stderr.includes("not a git repository")) {
+			return null;
+		}
+		throw new Error(`git symbolic-ref HEAD: ${stderr || stdout}`);
 	}
 
 	head(cwd: string): Promise<string> {
