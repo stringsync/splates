@@ -86,7 +86,8 @@ const CHOICE = /^[ \t]+- (?:\(([a-z])\)|\[([a-z])\])[ \t]+(.+)$/;
 /**
  * Every numbered item under `## Blocked`, open or checked off, each with the
  * indented lines under it. The reply is read off the item's own line: an
- * answer is one line, written by `arbor reply` or by hand after the arrow.
+ * answer is one line after the arrow, which the agent writes in from the
+ * user's reply in chat.
  */
 export function questions(text: string): Question[] {
 	const found: { asked: Question; body: string[] }[] = [];
