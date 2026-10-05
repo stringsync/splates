@@ -41,7 +41,7 @@ export async function remove(
 		if (!force) {
 			fail(
 				"lease_held",
-				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: pass --force to discard it anyway`,
+				`'${task}' is held by pid ${worktree.lease?.pid} on ${worktree.lease?.hostname}: another agent is driving this tree. Leave it to that agent, or ask the user, who can pass --force to discard it anyway`,
 				{ task, lease: worktree.lease },
 			);
 		}

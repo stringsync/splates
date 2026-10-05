@@ -190,6 +190,13 @@ export async function merge(
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree);
+		// Said to the agent landing the part, not the one holding the tree: telling
+		// it to stash sends it into a tree it does not own, and a stash there is
+		// how another agent's work gets lost.
+		const holderTask = service.taskFor(base);
+		const whoever = holderTask
+			? `The agent working on '${holderTask}'`
+			: "Whoever is working in that tree";
 		fail(
 			"merge_failed",
 			[
@@ -199,8 +206,8 @@ export async function merge(
 					: [
 							"",
 							`${base} is checked out there, which is the only place it can move.`,
-							"Whoever is working in that tree has to commit or stash what collides,",
-							"then merge again.",
+							`${whoever} has to commit what collides; leave that tree alone`,
+							"and tell them, then merge again once they have.",
 						]),
 			].join("\n"),
 			{ task, base, landing },

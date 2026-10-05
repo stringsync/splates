@@ -100,8 +100,10 @@ describe.concurrent("merge", () => {
 		// The parent is mid-edit on the very file the child is about to land.
 		await deps.fs.write(join(parent, "shared.txt"), "parent still editing\n");
 
+		// Names the parent's agent as the one to act, so the child's agent does
+		// not go committing or stashing in a tree it does not own.
 		await expect(merge(deps, child)).toBail("merge_failed", {
-			message: parent,
+			message: [parent, "The agent working on 'parent' has to commit"],
 		});
 		expect((await deps.service.find("child")).state?.mergeAttempts).toBe(1);
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
