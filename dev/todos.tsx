@@ -142,7 +142,12 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 				<div className="flex flex-col gap-6">
 					<Add />
 					{tags.length > 0 && (
-						<TagFilter tags={tags} selected={tag} onSelect={setPicked} />
+						<TagFilter
+							tags={tags}
+							todos={snapshot.todos}
+							selected={tag}
+							onSelect={setPicked}
+						/>
 					)}
 					{todos.length > 0 && (
 						<Hint className="-mb-4 self-end">
@@ -931,7 +936,8 @@ function Edit({
 						<InputGroupInput
 							aria-label="tags"
 							aria-describedby={tagsHint}
-							placeholder="uploads, merge"
+							// Says what the field is for: example tags read as ones already set.
+							placeholder="Words that group related todos"
 							value={tags}
 							onChange={(event) => setTags(event.target.value)}
 						/>

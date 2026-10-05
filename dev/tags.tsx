@@ -4,14 +4,17 @@ import { cn } from "#dev/lib/utils.ts";
 
 /**
  * A row of tags over the list, the way a mail client filters by label: All,
- * then every tag a todo has. Tapping one shows only its todos.
+ * then every tag a todo has, each with how many todos it shows. Tapping one
+ * shows only its todos.
  */
 export function TagFilter({
 	tags,
+	todos,
 	selected,
 	onSelect,
 }: {
 	tags: string[];
+	todos: { tags: string[] }[];
 	selected: string | null;
 	onSelect: (tag: string | null) => void;
 }): JSX.Element {
@@ -30,6 +33,16 @@ export function TagFilter({
 		>
 			{value !== null && <TagIcon aria-hidden className="size-3" />}
 			{label}
+			<span
+				className={cn(
+					"tabular-nums",
+					selected !== value && "text-muted-foreground/70",
+				)}
+			>
+				{value === null
+					? todos.length
+					: todos.filter((todo) => todo.tags.includes(value)).length}
+			</span>
 		</button>
 	);
 	return (
