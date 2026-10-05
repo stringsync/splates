@@ -6,60 +6,6 @@ import type { Config } from "./config";
 import { Git } from "./git";
 import { WorktreeService } from "./worktree-service";
 
-/** Records every filesystem call so the write path can be asserted on. */
-class RecordingFs implements Fs {
-	readonly ops: string[] = [];
-
-	constructor(private readonly inner: Fs) {}
-
-	exists(path: string): Promise<boolean> {
-		return this.inner.exists(path);
-	}
-	mkdir(path: string, opts?: MkdirOptions): Promise<void> {
-		return this.inner.mkdir(path, opts);
-	}
-	read(path: string): Promise<string> {
-		return this.inner.read(path);
-	}
-	write(path: string, data: string): Promise<void> {
-		this.ops.push(`write ${path}`);
-		return this.inner.write(path, data);
-	}
-	readBytes(path: string): Promise<Uint8Array> {
-		return this.inner.readBytes(path);
-	}
-	writeBytes(path: string, data: Uint8Array): Promise<void> {
-		this.ops.push(`writeBytes ${path}`);
-		return this.inner.writeBytes(path, data);
-	}
-	rename(from: string, to: string): Promise<void> {
-		this.ops.push(`rename ${from} -> ${to}`);
-		return this.inner.rename(from, to);
-	}
-	readdir(path: string): Promise<string[]> {
-		return this.inner.readdir(path);
-	}
-	stat(path: string): Promise<StatResult> {
-		return this.inner.stat(path);
-	}
-	rm(path: string, opts?: RmOptions): Promise<void> {
-		return this.inner.rm(path, opts);
-	}
-}
-
-/** Dies halfway through a write, leaving a truncated file behind. */
-class CrashingFs extends FakeFs {
-	crash = false;
-
-	override async write(path: string, data: string): Promise<void> {
-		if (!this.crash) {
-			return super.write(path, data);
-		}
-		await super.write(path, data.slice(0, data.length / 2));
-		throw new Error("boom");
-	}
-}
-
 describe("WorktreeService", () => {
 	const ARBOR_DIR = "/repo/.git/arbor";
 	let ps: FakePs;
@@ -156,3 +102,57 @@ describe("WorktreeService", () => {
 		expect((await fs.readdir(removed)).sort()).toEqual(["alpha", "newest"]);
 	});
 });
+
+/** Records every filesystem call so the write path can be asserted on. */
+class RecordingFs implements Fs {
+	readonly ops: string[] = [];
+
+	constructor(private readonly inner: Fs) {}
+
+	exists(path: string): Promise<boolean> {
+		return this.inner.exists(path);
+	}
+	mkdir(path: string, opts?: MkdirOptions): Promise<void> {
+		return this.inner.mkdir(path, opts);
+	}
+	read(path: string): Promise<string> {
+		return this.inner.read(path);
+	}
+	write(path: string, data: string): Promise<void> {
+		this.ops.push(`write ${path}`);
+		return this.inner.write(path, data);
+	}
+	readBytes(path: string): Promise<Uint8Array> {
+		return this.inner.readBytes(path);
+	}
+	writeBytes(path: string, data: Uint8Array): Promise<void> {
+		this.ops.push(`writeBytes ${path}`);
+		return this.inner.writeBytes(path, data);
+	}
+	rename(from: string, to: string): Promise<void> {
+		this.ops.push(`rename ${from} -> ${to}`);
+		return this.inner.rename(from, to);
+	}
+	readdir(path: string): Promise<string[]> {
+		return this.inner.readdir(path);
+	}
+	stat(path: string): Promise<StatResult> {
+		return this.inner.stat(path);
+	}
+	rm(path: string, opts?: RmOptions): Promise<void> {
+		return this.inner.rm(path, opts);
+	}
+}
+
+/** Dies halfway through a write, leaving a truncated file behind. */
+class CrashingFs extends FakeFs {
+	crash = false;
+
+	override async write(path: string, data: string): Promise<void> {
+		if (!this.crash) {
+			return super.write(path, data);
+		}
+		await super.write(path, data.slice(0, data.length / 2));
+		throw new Error("boom");
+	}
+}

@@ -13,6 +13,29 @@ export interface MarkdownProps {
 	preview?: boolean;
 }
 
+/**
+ * Renders markdown with markdown-to-jsx: GitHub's flavor, nesting, tables and
+ * task lists included, styled to sit quietly in the page.
+ */
+export function Markdown({
+	text,
+	className,
+	preview = false,
+}: MarkdownProps): JSX.Element {
+	return (
+		<div
+			className={cn(
+				"min-w-0 break-words",
+				preview &&
+					"max-h-[2lh] overflow-hidden [&_*]:my-0 [&_*]:text-[length:inherit] [&_*]:normal-case [&_*]:tracking-normal [&_pre]:p-0 [&_pre]:bg-transparent",
+				className,
+			)}
+		>
+			<Render options={OPTIONS}>{text}</Render>
+		</div>
+	);
+}
+
 // Every level renders as the same quiet uppercase label: the documents this
 // renders sit inside a card or a dialog that already carries the real title,
 // so a heading here is a section marker, not a hierarchy, and a run of
@@ -20,38 +43,6 @@ export interface MarkdownProps {
 // level for a reader.
 const HEADING =
 	"mt-[0.9rem] mb-[0.3rem] first:mt-0 font-bold text-[0.8rem] uppercase tracking-[0.08em] opacity-55";
-
-const heading = (tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") => ({
-	component: tag,
-	props: { className: HEADING },
-});
-
-/** A link opens in a new tab, so the page keeps its place. */
-function Link(props: ComponentProps<"a">): JSX.Element {
-	return (
-		<a
-			{...props}
-			target="_blank"
-			rel="noreferrer noopener"
-			className="break-all underline"
-		/>
-	);
-}
-
-/**
- * An image reads as its alt text: the paths agents write are files on their
- * machine, which the page has no way to load.
- */
-function Image({ alt }: ComponentProps<"img">): JSX.Element {
-	return <span className="text-muted-foreground">[{alt || "image"}]</span>;
-}
-
-/** A checklist box only reports: the document is the agent's to tick. */
-function Checkbox(props: ComponentProps<"input">): JSX.Element {
-	return (
-		<input {...props} disabled className="mr-1.5 align-[-0.1em]" readOnly />
-	);
-}
 
 const OPTIONS: MarkdownToJSX.Options = {
 	// Markup in a todo or a plan is shown as typed, never as elements.
@@ -100,25 +91,33 @@ const OPTIONS: MarkdownToJSX.Options = {
 	},
 };
 
-/**
- * Renders markdown with markdown-to-jsx: GitHub's flavor, nesting, tables and
- * task lists included, styled to sit quietly in the page.
- */
-export function Markdown({
-	text,
-	className,
-	preview = false,
-}: MarkdownProps): JSX.Element {
+function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
+	return { component: tag, props: { className: HEADING } };
+}
+
+/** A link opens in a new tab, so the page keeps its place. */
+function Link(props: ComponentProps<"a">): JSX.Element {
 	return (
-		<div
-			className={cn(
-				"min-w-0 break-words",
-				preview &&
-					"max-h-[2lh] overflow-hidden [&_*]:my-0 [&_*]:text-[length:inherit] [&_*]:normal-case [&_*]:tracking-normal [&_pre]:p-0 [&_pre]:bg-transparent",
-				className,
-			)}
-		>
-			<Render options={OPTIONS}>{text}</Render>
-		</div>
+		<a
+			{...props}
+			target="_blank"
+			rel="noreferrer noopener"
+			className="break-all underline"
+		/>
+	);
+}
+
+/**
+ * An image reads as its alt text: the paths agents write are files on their
+ * machine, which the page has no way to load.
+ */
+function Image({ alt }: ComponentProps<"img">): JSX.Element {
+	return <span className="text-muted-foreground">[{alt || "image"}]</span>;
+}
+
+/** A checklist box only reports: the document is the agent's to tick. */
+function Checkbox(props: ComponentProps<"input">): JSX.Element {
+	return (
+		<input {...props} disabled className="mr-1.5 align-[-0.1em]" readOnly />
 	);
 }

@@ -183,7 +183,6 @@ describe.concurrent("todo", () => {
 			new Uint8Array([1]),
 		);
 
-		// Words alone leave the files be.
 		const reworded = await todoUpdate(deps, 1, {
 			subject: "fix the bar chart",
 		});

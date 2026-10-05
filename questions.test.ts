@@ -1,67 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type Question, questions } from "./plan";
 
-const GOOD = `# alpha
-
-## Goal
-Teach show to check the plan.
-
-## Files
-- plan.ts
-
-## Done
-- [x] wrote the checker
-
-## Next
-- [ ] wire it up
-
-## Notes
-- lives in plan.ts
-`;
-
-const BLOCKED = `${GOOD}
-## Blocked
-
-- [x] 1. Run the tests. Does it fit? → pass
-- [ ] 2. Does the header fit? → no, too wide
-- [ ] 3. Decide: keep or drop?
-  - not a question of its own
-- [ ] 4. Confirm the copy.
-`;
-
-const CHOICES = `${GOOD}
-## Blocked
-
-- [ ] 1. How do old sessions move over?
-  - (a) Force everyone to sign in again
-  - (b) Migrate on next login
-- [ ] 2. Which table? → b (users): and backfill
-  - (a) sessions
-  - (b) users
-- [ ] 3. Anything else? → a bit more logging
-- [ ] 4. Pick one → c
-  - (a) left
-- [ ] 5. Where should it notify? → c (Push), a: and log it
-  - [a] Email
-  - [b] Slack
-  - [c] Push
-`;
-
-/** A question as `questions` reads it, with nothing under it. */
-function bare(overrides: Partial<Question>): Question {
-	return {
-		number: "1",
-		done: false,
-		text: "",
-		body: "",
-		reply: null,
-		followUps: [],
-		choices: [],
-		pick: null,
-		...overrides,
-	};
-}
-
 describe("questions", () => {
 	it("still reads a plan numbered the old way, Q1", () => {
 		const [asked] = questions("## Blocked\n\n- [ ] Q3. Keep it? → yes\n");
@@ -158,3 +97,64 @@ Prose back at the margin ends it.
 		expect(fifth).toMatchObject({ pick: "any" });
 	});
 });
+
+const GOOD = `# alpha
+
+## Goal
+Teach show to check the plan.
+
+## Files
+- plan.ts
+
+## Done
+- [x] wrote the checker
+
+## Next
+- [ ] wire it up
+
+## Notes
+- lives in plan.ts
+`;
+
+const BLOCKED = `${GOOD}
+## Blocked
+
+- [x] 1. Run the tests. Does it fit? → pass
+- [ ] 2. Does the header fit? → no, too wide
+- [ ] 3. Decide: keep or drop?
+  - not a question of its own
+- [ ] 4. Confirm the copy.
+`;
+
+const CHOICES = `${GOOD}
+## Blocked
+
+- [ ] 1. How do old sessions move over?
+  - (a) Force everyone to sign in again
+  - (b) Migrate on next login
+- [ ] 2. Which table? → b (users): and backfill
+  - (a) sessions
+  - (b) users
+- [ ] 3. Anything else? → a bit more logging
+- [ ] 4. Pick one → c
+  - (a) left
+- [ ] 5. Where should it notify? → c (Push), a: and log it
+  - [a] Email
+  - [b] Slack
+  - [c] Push
+`;
+
+/** A question as `questions` reads it, with nothing under it. */
+function bare(overrides: Partial<Question>): Question {
+	return {
+		number: "1",
+		done: false,
+		text: "",
+		body: "",
+		reply: null,
+		followUps: [],
+		choices: [],
+		pick: null,
+		...overrides,
+	};
+}

@@ -9,38 +9,6 @@ import { Testing } from "./testing";
 // runs in parallel on a busy machine.
 setDefaultTimeout(30_000);
 
-const CLI = join(import.meta.dirname, "index.ts");
-
-/** A repo of its own per test, so the four of them can run at once. */
-const setup = async () => {
-	const env = await Testing.open();
-	// A gate that passes, so the happy paths exercise merge rather than the
-	// fixture repo's (nonexistent) tests.
-	await env.fs.write(
-		join(env.root, "arbor.config.ts"),
-		`export default { preMerge: "true" };\n`,
-	);
-
-	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
-	const arbor = async (cwd: string, ...args: string[]) => {
-		const { exitCode, stdout, stderr } = await env.ps.spawnCapture(
-			["bun", CLI, ...args],
-			{ cwd },
-		);
-		return { exitCode, stdout: color.strip(stdout), stderr };
-	};
-
-	const rows = async () =>
-		JSON.parse((await arbor(env.root, "list", "--json")).stdout) as {
-			task: string;
-			status: string;
-			lease: "held" | "stale" | "none";
-			worktree: string;
-		}[];
-
-	return { env, arbor, rows, [Symbol.asyncDispose]: () => env.disposeAsync() };
-};
-
 describe.concurrent("arbor", () => {
 	it("lands both trees on trunk without a merge when two agents work at once", async () => {
 		await using cli = await setup();
@@ -254,3 +222,35 @@ describe.concurrent("arbor", () => {
 		expect(await rows()).toEqual([]);
 	});
 });
+
+const CLI = join(import.meta.dirname, "index.ts");
+
+/** A repo of its own per test, so the four of them can run at once. */
+const setup = async () => {
+	const env = await Testing.open();
+	// A gate that passes, so the happy paths exercise merge rather than the
+	// fixture repo's (nonexistent) tests.
+	await env.fs.write(
+		join(env.root, "arbor.config.ts"),
+		`export default { preMerge: "true" };\n`,
+	);
+
+	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
+	const arbor = async (cwd: string, ...args: string[]) => {
+		const { exitCode, stdout, stderr } = await env.ps.spawnCapture(
+			["bun", CLI, ...args],
+			{ cwd },
+		);
+		return { exitCode, stdout: color.strip(stdout), stderr };
+	};
+
+	const rows = async () =>
+		JSON.parse((await arbor(env.root, "list", "--json")).stdout) as {
+			task: string;
+			status: string;
+			lease: "held" | "stale" | "none";
+			worktree: string;
+		}[];
+
+	return { env, arbor, rows, [Symbol.asyncDispose]: () => env.disposeAsync() };
+};

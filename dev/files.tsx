@@ -1,59 +1,71 @@
+import { useReactive } from "@webappwiz/react";
 import { FileIcon, PaperclipIcon, XIcon } from "lucide-react";
-import {
-	type ClipboardEvent,
-	type JSX,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
+import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Button } from "#dev/components/ui/button.tsx";
 import { InputGroupButton } from "#dev/components/ui/input-group.tsx";
 import { fileUrl } from "./api";
 
-const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
+export type FilesEvents = { changed: undefined };
 
 /**
  * Files on their way to being attached, and the ones already stored: what a
  * reply box and a todo both need. `keep` starts as every stored path.
  */
-export function useFiles(stored: string[] = []) {
-	const [files, setFiles] = useState<File[]>([]);
-	const [keep, setKeep] = useState<string[]>(stored);
-	const add = (added: Iterable<File>) => {
+export class Files implements Eventful<FilesEvents> {
+	private readonly dispatcher = new Dispatcher<FilesEvents>();
+	readonly events = this.dispatcher.events;
+
+	/** New files, not yet sent. */
+	files: File[] = [];
+	/** Stored paths still kept. */
+	keep: string[];
+
+	constructor(stored: string[] = []) {
+		this.keep = stored;
+	}
+
+	add(added: Iterable<File>): void {
 		const list = [...added];
 		if (list.length > 0) {
-			setFiles((files) => [...files, ...list]);
+			this.set({ files: [...this.files, ...list] });
 		}
-	};
-	// A screenshot pasted from the clipboard arrives as a file with no useful
-	// name, which is fine: the server keeps whatever it is given.
-	const paste = (event: ClipboardEvent<HTMLElement>) => {
+	}
+
+	/**
+	 * Takes whatever files a paste carries, and keeps the paste from also
+	 * landing as text when it carried any.
+	 */
+	paste(event: { clipboardData: DataTransfer; preventDefault(): void }): void {
+		// A screenshot pasted from the clipboard arrives as a file with no useful
+		// name, which is fine: the server keeps whatever it is given.
 		const pasted = [...event.clipboardData.files];
 		if (pasted.length > 0) {
 			event.preventDefault();
-			add(pasted);
+			this.add(pasted);
 		}
-	};
-	return {
-		files,
-		keep,
-		add,
-		paste,
-		drop: (index: number) =>
-			setFiles((files) => files.filter((_, at) => at !== index)),
-		unkeep: (path: string) =>
-			setKeep((keep) => keep.filter((kept) => kept !== path)),
-		/** Back to nothing attached, once what was attached has been sent. */
-		clear: () => {
-			setFiles([]);
-			setKeep([]);
-		},
-		/** Anything to send: a new file, or a stored one still kept. */
-		any: files.length > 0 || keep.length > 0,
-	};
+	}
+
+	drop(index: number): void {
+		this.set({ files: this.files.filter((_, at) => at !== index) });
+	}
+
+	unkeep(path: string): void {
+		this.set({ keep: this.keep.filter((kept) => kept !== path) });
+	}
+
+	/** Back to nothing attached, once what was attached has been sent. */
+	clear(): void {
+		this.set({ files: [], keep: [] });
+	}
+
+	private set(next: Partial<Pick<Files, "files" | "keep">>): void {
+		Object.assign(this, next);
+		this.dispatcher.dispatch("changed");
+	}
 }
 
-export type Files = ReturnType<typeof useFiles>;
+const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
 
 /** The paperclip: picks any number of files of any kind. */
 export function AttachButton({ files }: { files: Files }): JSX.Element {
@@ -84,12 +96,17 @@ export function AttachButton({ files }: { files: Files }): JSX.Element {
 
 /** Every file attached, stored or new, each with a way to drop it. */
 export function FileList({ files }: { files: Files }): JSX.Element | null {
-	if (!files.any) {
+	const { added, kept } = useReactive(
+		files,
+		(files) => ({ added: files.files, kept: files.keep }),
+		["changed"],
+	);
+	if (added.length === 0 && kept.length === 0) {
 		return null;
 	}
 	return (
 		<div className="flex flex-wrap gap-2">
-			{files.keep.map((path) => (
+			{kept.map((path) => (
 				<Chip
 					key={path}
 					name={stored(path)}
@@ -98,7 +115,7 @@ export function FileList({ files }: { files: Files }): JSX.Element | null {
 					onRemove={() => files.unkeep(path)}
 				/>
 			))}
-			{files.files.map((file, index) => (
+			{added.map((file, index) => (
 				<New
 					key={`${file.name}-${file.size}-${file.lastModified}`}
 					file={file}

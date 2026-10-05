@@ -1,3 +1,4 @@
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { FileIcon, FolderIcon } from "lucide-react";
 import {
 	type ChangeEvent,
@@ -5,8 +6,9 @@ import {
 	type KeyboardEvent,
 	useEffect,
 	useRef,
-	useState,
 } from "react";
+import type { Resource } from "webappwiz/disposable";
+import { Dispatcher, type Eventful } from "webappwiz/events";
 import { cn } from "#dev/lib/utils.ts";
 import { paths as fetchPaths } from "./api";
 
@@ -27,106 +29,236 @@ interface Mention {
 	query: string;
 }
 
-/**
- * Points an agent at a file or directory by typing `@` in a text box: a list
- * of the tree's paths, filtered as you type, and the path written in place of
- * what was typed. The list floats over the page, above the box or below it
- * when there is no room above, so nothing around it moves.
- *
- * The paths load once, when the box first shows, so there is nothing to wait
- * for at the `@`.
- */
-export function useMentions<
-	Box extends HTMLInputElement | HTMLTextAreaElement,
->({
-	task,
-	text,
-	setText,
-}: {
-	/** Whose tree to list; empty for the main tree. */
-	task: string;
-	text: string;
-	setText: (text: string) => void;
-}) {
-	const ref = useRef<Box>(null);
-	const [all, setAll] = useState<string[]>([]);
-	const [caret, setCaret] = useState(0);
-	const [active, setActive] = useState(0);
-	// Where Escape closed the list, so it stays closed until another `@`.
-	const [dismissed, setDismissed] = useState<number | null>(null);
-	const [place, setPlace] = useState<Place>({
-		below: false,
-		room: SHOWN * ROW,
-	});
+/** The edges of a box on the screen, in pixels from the top. */
+interface Edges {
+	top: number;
+	bottom: number;
+}
 
-	useEffect(() => {
-		let live = true;
-		fetchPaths(task).then(
-			(found) => live && setAll(found),
+export type MentionsEvents = { changed: undefined };
+
+/**
+ * A text box's words, and the files and directories an `@` in them can point
+ * an agent at: a list of the tree's paths, filtered as you type, and the path
+ * written in place of what was typed. Read it through `useMentions`, which
+ * wires it to a box.
+ *
+ * `load` fetches the paths, once, when the box first shows, so there is
+ * nothing to wait for at the `@`.
+ */
+export class Mentions implements Eventful<MentionsEvents>, Resource {
+	private readonly dispatcher = new Dispatcher<MentionsEvents>();
+	readonly events = this.dispatcher.events;
+
+	/** The paths that match the `@` the caret is in, best first. */
+	matches: string[] = [];
+	place: Place = { below: false, room: SHOWN * ROW };
+
+	private all: string[] = [];
+	private caret = 0;
+	private chosen = 0;
+	// Where Escape closed the list, so it stays closed until another `@`.
+	private dismissed: number | null = null;
+	// Bumped by `dispose`, so a load it outlived lands nowhere.
+	private loads = 0;
+
+	constructor(
+		/** Whose tree to list; empty for the main tree. */
+		private readonly task: string,
+		/** The box's words. */
+		public text = "",
+	) {}
+
+	/** Whether the list shows. */
+	get open(): boolean {
+		return this.matches.length > 0;
+	}
+
+	/** The index of the match Enter would write. */
+	get active(): number {
+		return Math.min(this.chosen, this.matches.length - 1);
+	}
+
+	load(): void {
+		const load = ++this.loads;
+		fetchPaths(this.task).then(
+			(found) => {
+				if (load === this.loads) {
+					this.all = found;
+					this.update();
+				}
+			},
 			// Without the list, `@` is only a character: nothing else breaks.
 			() => undefined,
 		);
-		return () => {
-			live = false;
-		};
-	}, [task]);
+	}
 
-	const mention = typedAt(text, caret);
-	const matches =
-		mention === null || mention.start === dismissed
-			? []
-			: rank(all, mention.query).slice(0, SHOWN);
+	dispose(): void {
+		this.loads++;
+	}
+
+	/** New words in the box, with the caret where it now is. */
+	write(text: string, caret = text.length): void {
+		this.text = text;
+		this.caret = caret;
+		this.update();
+	}
+
+	/** The caret moved without the words changing. */
+	track(caret: number): void {
+		this.caret = caret;
+		this.update();
+	}
+
+	/**
+	 * Steps the active match `by` rows, wrapping at either end; false when no
+	 * list is open to step through.
+	 */
+	move(by: number): boolean {
+		if (!this.open) {
+			return false;
+		}
+		this.chosen =
+			(this.active + by + this.matches.length) % this.matches.length;
+		this.update();
+		return true;
+	}
+
+	hover(index: number): void {
+		this.chosen = index;
+		this.update();
+	}
+
+	/** Closes the list until another `@`; false when none was open. */
+	dismiss(): boolean {
+		const mention = this.mention();
+		if (!this.open || mention === null) {
+			return false;
+		}
+		this.dismissed = mention.start;
+		this.update();
+		return true;
+	}
+
+	/**
+	 * Writes `path` in place of the `@` being typed, and gives where the caret
+	 * belongs after it; null when no `@` is being typed. Writes the active
+	 * match when no path is given.
+	 */
+	insert(path = this.matches[this.active] ?? ""): number | null {
+		const mention = this.mention();
+		if (mention === null) {
+			return null;
+		}
+		const end = mention.start + 1 + mention.query.length;
+		// A directory keeps the list open on what is inside it; a file is done.
+		const written = `@${path}${path.endsWith("/") ? "" : " "}`;
+		const after = mention.start + written.length;
+		this.write(
+			this.text.slice(0, mention.start) + written + this.text.slice(end),
+			after,
+		);
+		return after;
+	}
+
+	/**
+	 * Picks the side the list opens on, from where the box sits within the
+	 * frame that clips it, as the list opens rather than while it filters, so
+	 * it stays put.
+	 */
+	placeIn(box: Edges, frame: Edges): void {
+		const above = box.top - frame.top;
+		const under = frame.bottom - box.bottom;
+		const full = SHOWN * ROW + 10;
+		// Above by choice, where a phone's keyboard cannot cover it; below
+		// only when that has more room.
+		const below = above < full && under > above;
+		this.place = { below, room: Math.min(full, (below ? under : above) - 8) };
+		this.dispatcher.dispatch("changed");
+	}
+
+	private mention(): Mention | null {
+		return typedAt(this.text, this.caret);
+	}
+
+	private update(): void {
+		const mention = this.mention();
+		const wasOpen = this.open;
+		this.matches =
+			mention === null || mention.start === this.dismissed
+				? []
+				: rank(this.all, mention.query).slice(0, SHOWN);
+		if (!wasOpen && this.open) {
+			this.chosen = 0;
+		}
+		this.dispatcher.dispatch("changed");
+	}
+}
+
+/**
+ * Wires `mentions` to a text box: spread the handlers onto the box, give it
+ * `value` as its value, and hold both it and `menu` in a `MentionAnchor`. The
+ * list floats over the page, above the box or below it when there is no room
+ * above, so nothing around it moves.
+ */
+export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
+	mentions: Mentions,
+) {
+	const ref = useRef<Box>(null);
+	const { value, matches, active, place } = useReactive(
+		mentions,
+		(mentions) => ({
+			value: mentions.text,
+			matches: mentions.matches,
+			active: mentions.active,
+			place: mentions.place,
+		}),
+		["changed"],
+	);
 	const open = matches.length > 0;
-	const picked = Math.min(active, matches.length - 1);
 
-	// Decided as the list opens, not while it filters, so it stays put.
-	const opening = open && mention !== null;
-	const _at = mention?.start;
+	useDisposerEffect(
+		(disposer) => {
+			mentions.load();
+			disposer.use(mentions);
+		},
+		[mentions],
+	);
+
 	useEffect(() => {
-		if (!opening || ref.current === null) {
+		if (!open || ref.current === null) {
 			return;
 		}
-		const box = ref.current.getBoundingClientRect();
 		// A dialog the box sits in clips anything past its edges, and the window
 		// clips the rest.
 		const frame = ref.current
 			.closest("[data-slot=dialog-content]")
 			?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
-		const above = box.top - frame.top;
-		const under = Math.min(frame.bottom, innerHeight) - box.bottom;
-		const full = SHOWN * ROW + 10;
-		// Above by choice, where a phone's keyboard cannot cover it; below
-		// only when that has more room.
-		const below = above < full && under > above;
-		setPlace({ below, room: Math.min(full, (below ? under : above) - 8) });
-		setActive(0);
-	}, [opening]);
+		mentions.placeIn(ref.current.getBoundingClientRect(), {
+			top: frame.top,
+			bottom: Math.min(frame.bottom, innerHeight),
+		});
+	}, [open, mentions]);
 
-	const track = () => setCaret(ref.current?.selectionStart ?? 0);
-
-	const insert = (path: string) => {
-		if (mention === null) {
+	const focusAt = (caret: number | null) => {
+		if (caret === null) {
 			return;
 		}
-		const end = mention.start + 1 + mention.query.length;
-		// A directory keeps the list open on what is inside it; a file is done.
-		const written = `@${path}${path.endsWith("/") ? "" : " "}`;
-		const next = text.slice(0, mention.start) + written + text.slice(end);
-		const after = mention.start + written.length;
-		setText(next);
-		setCaret(after);
 		requestAnimationFrame(() => {
 			ref.current?.focus();
-			ref.current?.setSelectionRange(after, after);
+			ref.current?.setSelectionRange(caret, caret);
 		});
 	};
+	const track = () => mentions.track(ref.current?.selectionStart ?? 0);
 
 	return {
 		ref,
-		onChange: (event: ChangeEvent<Box>) => {
-			setText(event.target.value);
-			setCaret(event.target.selectionStart ?? event.target.value.length);
-		},
+		value,
+		onChange: (event: ChangeEvent<Box>) =>
+			mentions.write(
+				event.target.value,
+				event.target.selectionStart ?? event.target.value.length,
+			),
 		onSelect: track,
 		onClick: track,
 		/** Handles the keys the list takes while open; true when it took one. */
@@ -136,11 +268,11 @@ export function useMentions<
 			}
 			const move = { ArrowDown: 1, ArrowUp: -1 }[event.key];
 			if (move !== undefined) {
-				setActive((picked + move + matches.length) % matches.length);
+				mentions.move(move);
 			} else if (event.key === "Enter" || event.key === "Tab") {
-				insert(matches[picked] ?? "");
+				focusAt(mentions.insert());
 			} else if (event.key === "Escape") {
-				setDismissed(mention?.start ?? null);
+				mentions.dismiss();
 			} else {
 				return false;
 			}
@@ -152,16 +284,14 @@ export function useMentions<
 		menu: open ? (
 			<Menu
 				matches={matches}
-				active={picked}
+				active={active}
 				place={place}
-				onPick={insert}
-				onHover={setActive}
+				onPick={(path) => focusAt(mentions.insert(path))}
+				onHover={(index) => mentions.hover(index)}
 			/>
 		) : null,
 	};
 }
-
-export type Mentions = ReturnType<typeof useMentions<HTMLTextAreaElement>>;
 
 function Menu({
 	matches,

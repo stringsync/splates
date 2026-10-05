@@ -21,6 +21,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useReactive } from "@webappwiz/react";
 import {
 	ArrowDownToLineIcon,
 	ArrowUpToLineIcon,
@@ -79,12 +80,15 @@ import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
-import { addTodo, moveTodo, removeTodo, updateTodo } from "./api";
-import { AttachButton, FileList, useFiles } from "./files";
+import { moveTodo } from "./api";
+import { AttachButton, FileList } from "./files";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { TagFilter } from "./tags";
 import { Task } from "./tasks";
+import { TodoDraft } from "./todo-draft";
+import { TodoEditor } from "./todo-editor";
+import { TodoView } from "./todo-view";
 
 /**
  * Work deferred for later, top of the list first, and a line to add to it.
@@ -94,51 +98,31 @@ import { Task } from "./tasks";
  * one, and the open one's keys step through the rest.
  */
 export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
-	const { todoStalenessMs, tasks } = snapshot;
-	const [picked, setPicked] = useState<string | null>(null);
-	const tags = [...new Set(snapshot.todos.flatMap((todo) => todo.tags))].sort();
-	// A tag whose last todo went has nothing left to show, and lets go.
-	const tag = picked !== null && tags.includes(picked) ? picked : null;
-	const todos = snapshot.todos.filter(
-		(todo) => tag === null || todo.tags.includes(tag),
+	const [view] = useState(() => new TodoView());
+	// Every choice is read, so any of them changing renders again; `show` then
+	// applies them to whichever snapshot came last.
+	const { keysShown } = useReactive(
+		view,
+		({ picked, opened, openedTask, keysShown }) => ({
+			picked,
+			opened,
+			openedTask,
+			keysShown,
+		}),
+		["changed"],
 	);
-	const [opened, setOpened] = useState<number | null>(null);
-	const at = todos.findIndex((todo) => todo.id === opened);
-	const current = todos[at];
-	const previous = current && todos[at - 1];
-	const next = current && todos[at + 1];
-	// The bottom of the whole list, not just of the todos a tag shows.
-	const last = Math.max(0, ...snapshot.todos.map((todo) => todo.position));
-	const [openedTask, setOpenedTask] = useState<string | null>(null);
-	const task = tasks.find((found) => found.task === openedTask);
-	// Only a task the page knows of opens: one merged a moment ago has no
-	// details left to show.
-	const openTask = (name: string) =>
-		tasks.some((found) => found.task === name) ? setOpenedTask(name) : null;
+	const { tags, tag, todos, current, previous, next, last, task } =
+		view.show(snapshot);
+	const openTask = (name: string) => view.openTask(snapshot, name);
+	const pick = (picked: string | null) => view.pick(picked);
 	const popup = useRef<HTMLDivElement>(null);
-	const [keysShown, setKeysShown] = useState(false);
-	// Only over the bare list: an open todo has keys of its own.
-	const bare = current === undefined && task === undefined && !keysShown;
 	useKeys({
-		o: () => {
-			const top = todos[0];
-			if (!bare || top === undefined) {
-				return false;
-			}
-			setOpened(top.id);
-			return true;
-		},
-		"?": () => {
-			if (!bare) {
-				return false;
-			}
-			setKeysShown(true);
-			return true;
-		},
+		o: () => view.openTop(snapshot),
+		"?": () => view.showKeys(snapshot),
 	});
 	return (
 		<OpenTask value={openTask}>
-			<FilterTag value={setPicked}>
+			<FilterTag value={pick}>
 				<div className="flex flex-col gap-6">
 					<Add />
 					{tags.length > 0 && (
@@ -146,7 +130,7 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 							tags={tags}
 							todos={snapshot.todos}
 							selected={tag}
-							onSelect={setPicked}
+							onSelect={pick}
 						/>
 					)}
 					{todos.length > 0 && (
@@ -169,15 +153,15 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 					) : (
 						<Board
 							todos={todos}
-							staleness={todoStalenessMs}
-							onOpen={setOpened}
+							staleness={snapshot.todoStalenessMs}
+							onOpen={(id) => view.open(id)}
 						/>
 					)}
 					<Dialog
 						open={current !== undefined}
 						onOpenChange={(open) => {
 							if (!open) {
-								setOpened(null);
+								view.close();
 							}
 						}}
 					>
@@ -198,21 +182,28 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 									key={current.id}
 									todo={current}
 									last={last}
-									previous={previous && (() => setOpened(previous.id))}
-									next={next && (() => setOpened(next.id))}
-									onDone={() => setOpened(null)}
+									previous={previous && (() => view.open(previous.id))}
+									next={next && (() => view.open(next.id))}
+									onDone={() => view.close()}
 								/>
 							</DialogContent>
 						)}
 					</Dialog>
-					<Dialog open={keysShown} onOpenChange={setKeysShown}>
+					<Dialog
+						open={keysShown}
+						onOpenChange={(open) => {
+							if (!open) {
+								view.hideKeys();
+							}
+						}}
+					>
 						<Shortcuts />
 					</Dialog>
 					<Dialog
 						open={task !== undefined}
 						onOpenChange={(open) => {
 							if (!open) {
-								setOpenedTask(null);
+								view.closeTask();
 							}
 						}}
 					>
@@ -629,37 +620,24 @@ function Badge({
 }
 
 function Add(): JSX.Element {
-	const [subject, setSubject] = useState("");
-	const [text, setText] = useState("");
-	const files = useFiles();
-	const mentions = useMentions<HTMLInputElement>({
-		task: "",
-		text: subject,
-		setText: setSubject,
-	});
-	const detail = useMentions<HTMLTextAreaElement>({ task: "", text, setText });
-	const [sending, setSending] = useState(false);
+	const [draft] = useState(() => new TodoDraft());
+	const { ready, started } = useReactive(
+		draft,
+		(draft) => ({ ready: draft.ready, started: draft.started }),
+		["changed"],
+	);
+	const mentions = useMentions<HTMLInputElement>(draft.subject);
+	const detail = useMentions<HTMLTextAreaElement>(draft.detail);
 
-	const submit = async (event: FormEvent) => {
+	const submit = (event: FormEvent) => {
 		event.preventDefault();
-		if (subject.trim() === "" || sending) {
-			return;
-		}
-		setSending(true);
-		try {
-			await addTodo({ subject, text }, files.files);
-			setSubject("");
-			setText("");
-			files.clear();
-		} catch (error) {
+		draft.add().catch((error: unknown) =>
 			toast.add({
 				title: "Not added",
 				description: error instanceof Error ? error.message : String(error),
 				type: "error",
-			});
-		} finally {
-			setSending(false);
-		}
+			}),
+		);
 	};
 
 	return (
@@ -670,19 +648,19 @@ function Add(): JSX.Element {
 						ref={mentions.ref}
 						aria-label="new todo"
 						placeholder="Something to do later, @ for a file"
-						value={subject}
+						value={mentions.value}
 						onChange={mentions.onChange}
 						onSelect={mentions.onSelect}
 						onClick={mentions.onClick}
 						onKeyDown={mentions.onKeyDown}
-						onPaste={files.paste}
+						onPaste={(event) => draft.files.paste(event)}
 					/>
 					<InputGroupAddon align="inline-end">
-						<AttachButton files={files} />
+						<AttachButton files={draft.files} />
 						<InputGroupButton
 							type="submit"
 							variant="secondary"
-							disabled={subject.trim() === "" || sending}
+							disabled={!ready}
 						>
 							Add
 						</InputGroupButton>
@@ -690,25 +668,25 @@ function Add(): JSX.Element {
 				</InputGroup>
 			</MentionAnchor>
 			{/* Only once there is a line to add to, so the box stays one line. */}
-			{(subject !== "" || text !== "") && (
+			{started && (
 				<MentionAnchor mentions={detail}>
 					<InputGroup>
 						<InputGroupTextarea
 							ref={detail.ref}
 							aria-label="new todo detail"
 							placeholder="More to say in markdown, if any"
-							value={text}
+							value={detail.value}
 							onChange={detail.onChange}
 							onSelect={detail.onSelect}
 							onClick={detail.onClick}
 							onKeyDown={detail.onKeyDown}
-							onPaste={files.paste}
+							onPaste={(event) => draft.files.paste(event)}
 							rows={2}
 						/>
 					</InputGroup>
 				</MentionAnchor>
 			)}
-			<FileList files={files} />
+			<FileList files={draft.files} />
 		</form>
 	);
 }
@@ -734,89 +712,45 @@ function Edit({
 	next?: () => void;
 	onDone: () => void;
 }): JSX.Element {
-	const [subject, setSubject] = useState(todo.subject);
-	const [text, setText] = useState(todo.text);
-	const [tags, setTags] = useState(todo.tags.join(", "));
+	const [editor] = useState(() => new TodoEditor(todo, last));
+	const { tags, busy, confirming, changed, canMoveUp, canMoveDown } =
+		useReactive(
+			editor,
+			(editor) => ({
+				tags: editor.tags,
+				busy: editor.busy,
+				confirming: editor.confirming,
+				changed: editor.changed,
+				canMoveUp: editor.canMoveUp,
+				canMoveDown: editor.canMoveDown,
+			}),
+			["changed"],
+		);
 	const tagsHint = useId();
-	const tagged = tags
-		.split(",")
-		.map((tag) => tag.trim())
-		.filter(Boolean);
 	// Read first when there is something to read, the way a Trello card opens.
 	const [writing, setWriting] = useState(todo.text === "");
-	const files = useFiles(todo.files);
-	const mentions = useMentions<HTMLInputElement>({
-		task: "",
-		text: subject,
-		setText: setSubject,
-	});
-	const detail = useMentions<HTMLTextAreaElement>({ task: "", text, setText });
-	const [busy, setBusy] = useState(false);
-	// Removing cannot be taken back, so it asks twice.
-	const [confirming, setConfirming] = useState(false);
+	const mentions = useMentions<HTMLInputElement>(editor.subject);
+	const detail = useMentions<HTMLTextAreaElement>(editor.detail);
 
-	const run = async (
-		write: () => Promise<void>,
+	const settle = (
+		writing: Promise<void> | null,
 		failed: string,
 		then = onDone,
-	) => {
-		setBusy(true);
-		try {
-			await write();
-			then();
-		} catch (error) {
+	): boolean => {
+		writing?.then(then, (error: unknown) =>
 			toast.add({
 				title: failed,
 				description: error instanceof Error ? error.message : String(error),
 				type: "error",
-			});
-			setBusy(false);
-		}
-	};
-
-	const changed =
-		subject.trim() !== "" &&
-		(subject.trim() !== todo.subject ||
-			text.trim() !== todo.text ||
-			tagged.join(",") !== todo.tags.join(",") ||
-			files.files.length > 0 ||
-			files.keep.length !== todo.files.length);
-	const save = (position?: number) =>
-		updateTodo(todo.id, {
-			subject,
-			text,
-			position,
-			tags: tagged,
-			files: files.files,
-			keep: files.keep,
-		});
-
-	// Moving it is done with it, the way saving is: the list shows where it
-	// went. Words changed on the way go with it, in the one write.
-	const canMoveUp = !busy && todo.position > 1;
-	const canMoveDown = !busy && todo.position < last;
-	const move = (position: number): boolean => {
-		if (position < todo.position ? !canMoveUp : !canMoveDown) {
-			return false;
-		}
-		void run(
-			() => (changed ? save(position) : moveTodo(todo.id, position)),
-			"Not moved",
+			}),
 		);
-		return true;
+		return writing !== null;
 	};
-	// Stepping away saves first, so nothing typed is lost on the way.
-	const step = (to: (() => void) | undefined): boolean => {
-		if (to === undefined || busy) {
-			return false;
-		}
-		if (changed) {
-			void run(() => save(), "Not saved", to);
-		} else {
-			to();
-		}
-		return true;
-	};
+	// Moving it is done with it, the way saving is: the list shows where it
+	// went.
+	const move = (position: number) => settle(editor.move(position), "Not moved");
+	const step = (to: (() => void) | undefined) =>
+		to !== undefined && settle(editor.leave(), "Not saved", to);
 	useKeys({
 		"[": () => step(previous),
 		"]": () => step(next),
@@ -866,12 +800,12 @@ function Edit({
 						<InputGroupInput
 							ref={mentions.ref}
 							aria-label="subject"
-							value={subject}
+							value={mentions.value}
 							onChange={mentions.onChange}
 							onSelect={mentions.onSelect}
 							onClick={mentions.onClick}
 							onKeyDown={mentions.onKeyDown}
-							onPaste={files.paste}
+							onPaste={(event) => editor.files.paste(event)}
 						/>
 					</InputGroup>
 				</MentionAnchor>
@@ -905,29 +839,29 @@ function Edit({
 								ref={detail.ref}
 								aria-label="detail"
 								placeholder="More to say in markdown, if any"
-								value={text}
+								value={detail.value}
 								onChange={detail.onChange}
 								onSelect={detail.onSelect}
 								onClick={detail.onClick}
 								onKeyDown={detail.onKeyDown}
-								onPaste={files.paste}
+								onPaste={(event) => editor.files.paste(event)}
 								rows={6}
 							/>
 							<InputGroupAddon align="block-end">
-								<AttachButton files={files} />
+								<AttachButton files={editor.files} />
 							</InputGroupAddon>
 						</InputGroup>
 					</MentionAnchor>
 				) : (
 					<div className="min-h-20 rounded-md border px-3 py-2 text-sm">
-						{text.trim() === "" ? (
+						{detail.value.trim() === "" ? (
 							<span className="text-muted-foreground">Nothing to preview</span>
 						) : (
-							<Markdown text={text} />
+							<Markdown text={detail.value} />
 						)}
 					</div>
 				)}
-				<FileList files={files} />
+				<FileList files={editor.files} />
 				<div className="flex flex-col gap-1">
 					<InputGroup>
 						<InputGroupAddon>
@@ -939,7 +873,7 @@ function Edit({
 							// Says what the field is for: example tags read as ones already set.
 							placeholder="Words that group related todos"
 							value={tags}
-							onChange={(event) => setTags(event.target.value)}
+							onChange={(event) => editor.setTags(event.target.value)}
 						/>
 					</InputGroup>
 					{/* Always shown, since the placeholder goes once a tag is typed. */}
@@ -952,18 +886,14 @@ function Edit({
 				<Button
 					variant={confirming ? "destructive" : "ghost"}
 					disabled={busy}
-					onClick={() =>
-						confirming
-							? void run(() => removeTodo(todo.id), "Not removed")
-							: setConfirming(true)
-					}
+					onClick={() => settle(editor.remove(), "Not removed")}
 				>
 					<Trash2Icon data-icon="inline-start" />
 					{confirming ? "Remove for good" : "Remove"}
 				</Button>
 				<Button
 					disabled={!changed || busy}
-					onClick={() => void run(() => save(), "Not saved")}
+					onClick={() => settle(editor.save(), "Not saved")}
 				>
 					Save
 				</Button>

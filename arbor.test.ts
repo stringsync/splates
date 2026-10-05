@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
 import { arbor } from "./arbor";
 import { Testing } from "./testing";
@@ -9,16 +9,23 @@ import { Testing } from "./testing";
  * dependency an action uses arrives through `run`.
  */
 describe("arbor cli", () => {
-	it("runs its commands against the dependencies it is given", async () => {
-		await using env = await Testing.open();
+	let env: Testing;
+	let deps: Parameters<typeof arbor.run>[0];
+
+	beforeEach(async () => {
+		env = await Testing.open();
 		env.ps.cd(env.root);
-		const deps = {
+		deps = {
 			log: env.log,
 			fs: env.fs,
 			ps: env.ps,
 			assets: env.assets,
 		};
+	});
 
+	afterEach(() => env.disposeAsync());
+
+	it("runs its commands against the dependencies it is given", async () => {
 		await arbor.run(deps, ["add", "alpha"]);
 		await arbor.run(deps, ["list", "--json"]);
 
@@ -28,14 +35,6 @@ describe("arbor cli", () => {
 	});
 
 	it("escalates a task and edits its todos", async () => {
-		await using env = await Testing.open();
-		env.ps.cd(env.root);
-		const deps = {
-			log: env.log,
-			fs: env.fs,
-			ps: env.ps,
-			assets: env.assets,
-		};
 		await arbor.run(deps, ["add", "alpha"]);
 		const worktree = await env.service.find("alpha");
 		await env.fs.write(
@@ -82,14 +81,6 @@ describe("arbor cli", () => {
 	});
 
 	it("asks for a review from the command line", async () => {
-		await using env = await Testing.open();
-		env.ps.cd(env.root);
-		const deps = {
-			log: env.log,
-			fs: env.fs,
-			ps: env.ps,
-			assets: env.assets,
-		};
 		await arbor.run(deps, ["add", "alpha"]);
 
 		await arbor.run(deps, [
@@ -108,36 +99,14 @@ describe("arbor cli", () => {
 	});
 
 	it("reports a refusal as a reason, a message and an exit code", async () => {
-		await using env = await Testing.open();
-		env.ps.cd(env.root);
-
-		await arbor.run(
-			{
-				log: env.log,
-				fs: env.fs,
-				ps: env.ps,
-				assets: env.assets,
-			},
-			["claim", "nope"],
-		);
+		await arbor.run(deps, ["claim", "nope"]);
 
 		expect(env.out()).toContain('"reason":"not_found"');
 		expect(env.proc.lastExit()).toBe(8);
 	});
 
 	it("refuses a port that cannot exist rather than trying to listen", async () => {
-		await using env = await Testing.open();
-		env.ps.cd(env.root);
-
-		await arbor.run(
-			{
-				log: env.log,
-				fs: env.fs,
-				ps: env.ps,
-				assets: env.assets,
-			},
-			["dev", "--port", "99999"],
-		);
+		await arbor.run(deps, ["dev", "--port", "99999"]);
 
 		expect(env.out()).not.toContain("  reply ");
 		expect(env.proc.lastExit()).toBe(1);
