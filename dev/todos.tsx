@@ -11,7 +11,11 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import {
+	horizontalListSortingStrategy,
+	SortableContext,
+	sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import { useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import {
@@ -38,13 +42,27 @@ import {
 	InputGroupTextarea,
 } from "#dev/components/ui/input-group.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
-import { lanes as laneList, named } from "../lanes";
+import {
+	type LaneRecord,
+	type LaneState,
+	lanes as laneList,
+	named,
+} from "../lanes";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import { Board as BoardContext } from "./board";
 import { Card, CopyLink } from "./card";
 import { AttachButton, FileList } from "./files";
-import { AddLane, columnOf, Lane, ShownLanes, Untriaged } from "./lanes";
+import {
+	AddLane,
+	columnId,
+	columnOf,
+	Lane,
+	LiftedLane,
+	laneOf,
+	ShownLanes,
+	Untriaged,
+} from "./lanes";
 import { Links } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
@@ -59,7 +77,8 @@ import { TodoView } from "./todo-view";
  * queue, then a way to add another. Picking one up takes an agent (`arbor
  * add <task> --todo <id>`), and `merge` recommends the highest open one, so
  * the order is the priority: drag a card up or down, or into a lane, or tap
- * one to reword, link, place or remove it.
+ * one to reword, link, place or remove it. A lane moves by its header, as a
+ * Trello list does.
  */
 export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const [view] = useState(() => new TodoView(localStorage));
@@ -71,19 +90,25 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 		({ opened, openedTask, hidden }) => ({ opened, openedTask, hidden }),
 		["changed"],
 	);
-	const { dragging, naming } = useReactive(
+	const { dragging, naming, draggingLane } = useReactive(
 		board,
-		({ dragging, dropped, naming }) => ({ dragging, dropped, naming }),
+		({ dragging, dropped, naming, draggingLane, droppedLanes }) => ({
+			dragging,
+			dropped,
+			naming,
+			draggingLane,
+			droppedLanes,
+		}),
 		["changed"],
 	);
 	const { current, task } = view.show(snapshot);
 	// The board as dropped, until the server's word on it arrives.
 	const { todos: all, lifted } = board.show(snapshot.todos);
-	const records = useMemo(
-		() => named(all, snapshot.lanes),
-		[all, snapshot.lanes],
-	);
+	// The lanes as dropped, too, until the server's word on them arrives.
+	const shownLanes = board.showLanes(snapshot.lanes);
+	const records = useMemo(() => named(all, shownLanes), [all, shownLanes]);
 	const lanes = laneList(all, records);
+	const shown = lanes.filter((lane) => !hidden.includes(lane.id));
 	const context = useMemo(
 		() => ({
 			linked: true,
@@ -91,8 +116,12 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 			lanes: records,
 			open: (id: number) => view.open(id),
 			openTask: (name: string) => view.openTask(snapshot, name),
+			moveLane: (id: number, position: number) =>
+				void board
+					.moveLane(snapshot.lanes, id, position)
+					?.catch((error: unknown) => notMoved(error)),
 		}),
-		[all, records, view, snapshot],
+		[all, records, view, board, snapshot],
 	);
 	const popup = useRef<HTMLDivElement>(null);
 	return (
@@ -100,8 +129,10 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 			<Drag
 				board={board}
 				todos={snapshot.todos}
+				lanes={snapshot.lanes}
 				staleness={snapshot.todoStalenessMs}
 				lifted={lifted}
+				liftedLane={lanes.find((lane) => lane.id === draggingLane)}
 			>
 				<ShownLanes
 					lanes={lanes}
@@ -117,9 +148,11 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 							staleness={snapshot.todoStalenessMs}
 						/>
 					)}
-					{lanes
-						.filter((lane) => !hidden.includes(lane.id))
-						.map((lane) => (
+					<SortableContext
+						items={shown.map((lane) => columnId(lane.id))}
+						strategy={horizontalListSortingStrategy}
+					>
+						{shown.map((lane) => (
 							<Lane
 								key={lane.id}
 								lane={lane}
@@ -127,6 +160,7 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 								staleness={snapshot.todoStalenessMs}
 							/>
 						))}
+					</SortableContext>
 					<AddLane
 						dragging={dragging !== null}
 						naming={all.find((todo) => todo.id === naming)}
@@ -174,25 +208,39 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	);
 }
 
+/** A toast for a move the server refused. */
+function notMoved(error: unknown): void {
+	toast.add({
+		title: "Not moved",
+		description: error instanceof Error ? error.message : String(error),
+		type: "error",
+	});
+}
+
 /**
  * Lets a card be dragged anywhere on the board: up or down its column, onto
  * a card in a lane to join it there, onto a column's space for its bottom,
- * or onto the new lane column. A mouse drags once it moves a few pixels and a
- * finger after a short press, so a tap still opens the card and a swipe
- * still scrolls; a keyboard picks one up by its grip with Space and moves it
+ * or onto the new lane column; and a lane, by its header, left or right
+ * past the others. A mouse drags once it moves a few pixels and a finger
+ * after a short press, so a tap still opens the card and a swipe still
+ * scrolls; a keyboard picks a card up by its grip with Space and moves it
  * with the arrows.
  */
 function Drag({
 	board,
 	todos,
+	lanes,
 	staleness,
 	lifted,
+	liftedLane,
 	children,
 }: {
 	board: TodoBoard;
 	todos: TodoState[];
+	lanes: LaneRecord[];
 	staleness: number;
 	lifted?: TodoState;
+	liftedLane?: LaneState;
 	children: ReactNode;
 }): JSX.Element {
 	const sensors = useSensors(
@@ -206,6 +254,17 @@ function Drag({
 	);
 
 	const drop = ({ active, over }: DragEndEvent) => {
+		const moving = laneOf(active.id);
+		if (moving !== undefined) {
+			board
+				.dropLane(
+					lanes,
+					moving,
+					over === null ? null : (laneOf(over.id) ?? null),
+				)
+				?.catch(notMoved);
+			return;
+		}
 		const lane = over === null ? undefined : columnOf(over.id);
 		board
 			.drop(
@@ -217,20 +276,21 @@ function Drag({
 						? { card: Number(over.id) }
 						: { lane },
 			)
-			?.catch((error: unknown) =>
-				toast.add({
-					title: "Not moved",
-					description: error instanceof Error ? error.message : String(error),
-					type: "error",
-				}),
-			);
+			?.catch(notMoved);
 	};
 
 	return (
 		<DndContext
 			sensors={sensors}
 			collisionDetection={collide}
-			onDragStart={({ active }) => board.lift(Number(active.id))}
+			onDragStart={({ active }) => {
+				const lane = laneOf(active.id);
+				if (lane === undefined) {
+					board.lift(Number(active.id));
+				} else {
+					board.liftLane(lane);
+				}
+			}}
 			onDragCancel={() => board.cancel()}
 			onDragEnd={drop}
 		>
@@ -244,6 +304,7 @@ function Drag({
 						className="rotate-2 cursor-grabbing shadow-lg"
 					/>
 				)}
+				{liftedLane && <LiftedLane lane={liftedLane} staleness={staleness} />}
 			</DragOverlay>
 		</DndContext>
 	);
@@ -252,9 +313,18 @@ function Drag({
 /**
  * The card under the pointer, or failing one the column, so a card dropped
  * between two lands in the column it is over; the nearest card when the
- * pointer is over neither, as when a keyboard moves it.
+ * pointer is over neither, as when a keyboard moves it. A lane in hand
+ * looks only at the other lanes, nearest first.
  */
 const collide: CollisionDetection = (args) => {
+	if (laneOf(args.active.id) !== undefined) {
+		return closestCenter({
+			...args,
+			droppableContainers: args.droppableContainers.filter(
+				(container) => laneOf(container.id) !== undefined,
+			),
+		});
+	}
 	const within = pointerWithin(args);
 	const card = within.find((hit) => columnOf(hit.id) === undefined);
 	return card ? [card] : within.length > 0 ? within : closestCenter(args);

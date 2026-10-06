@@ -29,6 +29,7 @@ describe("TodoBoard", () => {
 				name === undefined
 					? write("arrange", id, lane, before)
 					: write("arrange", id, lane, before, name),
+			moveLane: (id, position) => write("moveLane", id, position),
 		});
 	});
 
@@ -110,5 +111,51 @@ describe("TodoBoard", () => {
 			board.drop(todos, 4, { lane: 1 }),
 		]).toEqual([null, null, null]);
 		expect([writes, board.show(todos).lifted]).toEqual([[], undefined]);
+	});
+
+	describe("lanes", () => {
+		const lanes = [
+			{ id: 1, name: "Licensing" },
+			{ id: 2, name: "Editor" },
+			{ id: 3, name: "Docs" },
+		];
+		const order = () => board.showLanes(lanes).map((lane) => lane.id);
+
+		it("shows a dropped lane in the place of the one it landed on, and moves it there", async () => {
+			board.liftLane(3);
+			expect(board.draggingLane).toBe(3);
+
+			await board.dropLane(lanes, 3, 1);
+
+			expect(board.draggingLane).toBeNull();
+			expect(order()).toEqual([3, 1, 2]);
+			await board.dropLane(lanes, 3, 2);
+			expect(order()).toEqual([1, 2, 3]);
+			expect(writes).toEqual([
+				["moveLane", 3, 1],
+				["moveLane", 3, 3],
+			]);
+		});
+
+		it("moves nothing when a lane lands on itself or nowhere", () => {
+			expect(board.dropLane(lanes, 2, 2)).toBeNull();
+			expect(board.dropLane(lanes, 2, null)).toBeNull();
+			expect(board.moveLane(lanes, 1, 0)).toBeNull();
+			expect(writes).toEqual([]);
+		});
+
+		it("puts the lanes back when the server refuses, and gives way to new ones", async () => {
+			refuse = new Error("no");
+			await expect(board.moveLane(lanes, 1, 3) ?? undefined).rejects.toThrow(
+				"no",
+			);
+			expect(order()).toEqual([1, 2, 3]);
+
+			refuse = null;
+			await board.moveLane(lanes, 1, 3);
+			expect(order()).toEqual([2, 3, 1]);
+			const fresh = [...lanes];
+			expect(board.showLanes(fresh)).toBe(fresh);
+		});
 	});
 });

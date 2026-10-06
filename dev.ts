@@ -307,14 +307,23 @@ export async function dev(
 		return Response.json(lane);
 	};
 
-	const renameLane = async (request: Request): Promise<Response> => {
+	// A new name, a new place among the lanes, or both.
+	const updateLane = async (request: Request): Promise<Response> => {
 		const id = laneAt(request);
-		const { name } = await body(request);
-		const lane = await journal.record("lane update", null, () =>
-			todos.renameLane(id, String(name ?? "")),
-		);
+		const { name, position } = await body(request);
+		const lane = await journal.record("lane update", null, async () => {
+			const renamed =
+				name === undefined
+					? undefined
+					: await todos.renameLane(id, String(name));
+			const order =
+				position === undefined
+					? undefined
+					: await todos.moveLane(id, Number(position));
+			return order?.find((each) => each.id === id) ?? renamed;
+		});
 		await tick();
-		return Response.json(lane);
+		return Response.json(lane ?? { id });
 	};
 
 	const dropLane = async (request: Request): Promise<Response> => {
@@ -360,7 +369,7 @@ export async function dev(
 			"/api/todos/:id/lane": { PUT: guarded(arrangeTodo) },
 			"/api/lanes/:id/join": { POST: guarded(joinLane) },
 			"/api/lanes": { POST: guarded(addLane) },
-			"/api/lanes/:id": { PUT: guarded(renameLane), DELETE: guarded(dropLane) },
+			"/api/lanes/:id": { PUT: guarded(updateLane), DELETE: guarded(dropLane) },
 			"/events": guarded(async () => events()),
 		},
 		fetch: () => new Response("not found", { status: 404 }),

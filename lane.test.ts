@@ -299,4 +299,33 @@ describe.concurrent("lanes", () => {
 		// Numbers are never handed out again.
 		expect((await laneAdd(deps, "Again")).id).toBe(3);
 	});
+
+	it("moves a lane among the others, keeping its todos", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await laneAdd(deps, "Editor");
+		await laneAdd(deps, "Docs");
+		await todoAdd(deps, "first", null, { lane: 3 });
+		const order = async () => (await deps.todos.lanes()).map((each) => each.id);
+
+		deps.log.clear();
+		await laneUpdate(deps, 3, { position: 1 });
+		expect(await order()).toEqual([3, 1, 2]);
+		expect(color.strip(deps.out())).toContain(
+			"lanes in order: 3 Docs, 1 Licensing, 2 Editor",
+		);
+		await laneUpdate(deps, 3, { position: 99 });
+		expect(await order()).toEqual([1, 2, 3]);
+		await laneUpdate(deps, 1, { name: "Licenses", position: 2 });
+		expect(await deps.todos.lanes()).toEqual([
+			{ id: 2, name: "Editor" },
+			{ id: 1, name: "Licenses" },
+			{ id: 3, name: "Docs" },
+		]);
+		expect((await deps.todos.find(1)).lane).toBe(3);
+
+		await expect(laneUpdate(deps, 9, { position: 1 })).toBail("not_found");
+		await expect(laneUpdate(deps, 1, { position: 0 })).toBail("usage");
+		await expect(laneUpdate(deps, 1)).toBail("usage");
+	});
 });

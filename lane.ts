@@ -167,19 +167,38 @@ export async function laneAdd(
 export interface LaneUpdateOptions {
 	/** What it is called from now on. */
 	name?: string;
+	/** Where it goes among the lanes, 1 the first; the others close up around it. */
+	position?: number;
 }
 
-/** Calls a lane by another name. */
+/** Calls a lane by another name, or moves it among the others. */
 export async function laneUpdate(
 	{ todos, log }: { todos: Todos; log: Logger },
 	id: number,
-	{ name }: LaneUpdateOptions = {},
+	{ name, position }: LaneUpdateOptions = {},
 ): Promise<void> {
-	if (name === undefined) {
-		fail("usage", "nothing to change: pass `--name <name>`", { lane: id });
+	if (name === undefined && position === undefined) {
+		fail(
+			"usage",
+			"nothing to change: pass `--name <name>` or `--position <n>`",
+			{ lane: id },
+		);
 	}
-	const record = await todos.renameLane(id, name);
-	log.info(`${color.green("updated")} lane ${record.id}: ${record.name}`);
+	const renamed =
+		name === undefined ? undefined : await todos.renameLane(id, name);
+	const order =
+		position === undefined ? undefined : await todos.moveLane(id, position);
+	const record = order?.find((each) => each.id === id) ?? renamed;
+	log.info(
+		[
+			`${color.green("updated")} lane ${id}: ${record?.name}`,
+			...(order === undefined
+				? []
+				: [
+						`  lanes in order: ${order.map((each) => `${each.id} ${each.name}`).join(", ")}`,
+					]),
+		].join("\n"),
+	);
 }
 
 /** Removes a lane, putting its todos back with the untriaged ones. */

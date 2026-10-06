@@ -114,6 +114,11 @@ export async function renameLane(id: number, name: string): Promise<void> {
 	await sendJson(`/api/lanes/${id}`, "PUT", { name });
 }
 
+/** Puts lane `id` at `position` among the lanes, 1 the first column. */
+export async function moveLane(id: number, position: number): Promise<void> {
+	await sendJson(`/api/lanes/${id}`, "PUT", { position });
+}
+
 /** Removes lane `id`, putting its todos back with the untriaged ones. */
 export async function dropLane(id: number): Promise<void> {
 	await send(`/api/lanes/${id}`, { method: "DELETE" });

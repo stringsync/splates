@@ -14,6 +14,8 @@ export interface BoardContext {
 	lanes: LaneRecord[];
 	open: (id: number) => void;
 	openTask: (task: string) => void;
+	/** Puts a lane at a position among the lanes, 1 the first column. */
+	moveLane: (id: number, position: number) => void;
 }
 
 export const Board = createContext<BoardContext>({
@@ -22,6 +24,7 @@ export const Board = createContext<BoardContext>({
 	lanes: [],
 	open: () => {},
 	openTask: () => {},
+	moveLane: () => {},
 });
 
 /**

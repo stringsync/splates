@@ -454,16 +454,23 @@ lane
 
 lane
 	.command("update")
-	.description("rename a lane")
+	.description("rename a lane, or move it among the others")
 	.arg("lane", z.coerce.number().int().positive(), {
 		description: "lane number",
 	})
 	.option("name", z.string().optional(), {
 		description: "what it is called from now on",
 	})
+	.option("position", position, {
+		description:
+			"where to move it among the lanes, 1 the first column on the board; the others close up around it",
+	})
 	.action((opts, ctx) =>
 		ctx.journal.record("lane update", null, () =>
-			laneUpdate(ctx, opts.lane, { name: opts.name }),
+			laneUpdate(ctx, opts.lane, {
+				name: opts.name,
+				position: opts.position,
+			}),
 		),
 	);
 

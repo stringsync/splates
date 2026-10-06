@@ -407,6 +407,13 @@ describe("dev", () => {
 				id: 4,
 				name: "Guides",
 			});
+
+			const moved = await send("PUT", "/api/lanes/4", { position: 1 });
+			expect(await moved.json()).toEqual({ id: 4, name: "Guides" });
+			expect((await snapshot()).lanes[0]).toEqual({ id: 4, name: "Guides" });
+			expect((await send("PUT", "/api/lanes/4", { position: 0 })).status).toBe(
+				400,
+			);
 		});
 	});
 

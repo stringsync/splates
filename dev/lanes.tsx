@@ -1,10 +1,14 @@
 import { useDroppable } from "@dnd-kit/core";
 import {
 	SortableContext,
+	useSortable,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useReactive } from "@webappwiz/react";
 import {
+	ArrowLeftIcon,
+	ArrowRightIcon,
 	ChevronDownIcon,
 	Columns3Icon,
 	CopyIcon,
@@ -19,10 +23,14 @@ import {
 	XIcon,
 } from "lucide-react";
 import {
+	type CSSProperties,
 	type FormEvent,
 	type JSX,
 	type KeyboardEvent,
+	type MouseEventHandler,
 	type ReactNode,
+	type Ref,
+	type TouchEventHandler,
 	useContext,
 	useState,
 } from "react";
@@ -43,7 +51,7 @@ import type { LaneState } from "../lanes";
 import type { TodoState } from "../todo";
 import { addLane, dropLane, joinLanes, renameLane } from "./api";
 import { Board, still } from "./board";
-import { copy, laneReference, Sortable } from "./card";
+import { Card, copy, laneReference, Sortable } from "./card";
 import { AttachButton, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
 import { TodoDraft } from "./todo-draft";
@@ -79,28 +87,43 @@ export function columnOf(
 	return lane === "none" ? null : lane === "new" ? "new" : Number(lane);
 }
 
+/** The lane a `columnId` names when it is a lane's own, not the untriaged or new one. */
+export function laneOf(id: string | number): number | undefined {
+	const lane = columnOf(id);
+	return typeof lane === "number" ? lane : undefined;
+}
+
 /**
  * A column a card can be dropped on, lit while one is over it: the cards in
  * it are their own targets, and the rest of it means the bottom. Every
  * column is a Trello list: a header, its cards, and a way to add one.
  */
 function Column({
-	lane,
 	label,
+	drop,
+	lit,
+	style,
+	className,
 	children,
 }: {
-	lane: number | null;
 	label: string;
+	/** Where the column takes a dropped card. */
+	drop: Ref<HTMLElement>;
+	/** A card is over it. */
+	lit: boolean;
+	style?: CSSProperties;
+	className?: string;
 	children: ReactNode;
 }): JSX.Element {
-	const { setNodeRef, isOver } = useDroppable({ id: columnId(lane) });
 	return (
 		<section
-			ref={setNodeRef}
+			ref={drop}
 			aria-label={label}
+			style={style}
 			className={cn(
 				"flex max-h-[calc(100dvh-6rem)] w-72 shrink-0 snap-start flex-col gap-1.5 rounded-xl bg-muted/40 p-2 transition-colors dark:bg-muted/20",
-				isOver && "bg-primary/5 ring-1 ring-primary/30",
+				lit && "bg-primary/5 ring-1 ring-primary/30",
+				className,
 			)}
 		>
 			{children}
@@ -158,8 +181,9 @@ export function Untriaged({
 	staleness: number;
 }): JSX.Element {
 	const board = useContext(Board);
+	const { setNodeRef, isOver } = useDroppable({ id: columnId(null) });
 	return (
-		<Column lane={null} label="Untriaged">
+		<Column label="Untriaged" drop={setNodeRef} lit={isOver}>
 			<header className="flex flex-col gap-1 px-1 pt-1">
 				<h3 className="flex items-baseline gap-1.5 font-medium text-sm">
 					Untriaged
@@ -262,7 +286,8 @@ export function ShownLanes({
 
 /**
  * One lane: an agent's queue, top first. The header says who is on it, or
- * offers the prompt that starts one.
+ * offers the prompt that starts one, and moves the lane: dragged by it, the
+ * lane takes the place of the one it is let go on, as a Trello list does.
  */
 export function Lane({
 	lane,
@@ -270,15 +295,43 @@ export function Lane({
 	staleness,
 }: {
 	lane: LaneState;
-	/** Every lane, so this one can join another. */
+	/** Every lane, so this one can join another or move past it. */
 	lanes: LaneState[];
 	staleness: number;
 }): JSX.Element {
 	const { openTask } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
+	const {
+		listeners,
+		setNodeRef,
+		setActivatorNodeRef,
+		transform,
+		transition,
+		isDragging,
+		isOver,
+		active,
+	} = useSortable({ id: columnId(lane.id) });
+	// Lit for a card over it, not for a lane passing by.
+	const lit = isOver && active !== null && laneOf(active.id) === undefined;
 	return (
-		<Column lane={lane.id} label={lane.name}>
-			<header className="flex flex-col gap-1 px-1 pt-1">
+		<Column
+			label={lane.name}
+			drop={setNodeRef}
+			lit={lit}
+			style={{ transform: CSS.Translate.toString(transform), transition }}
+			// The slot it leaves while it is in hand, where it will land.
+			className={cn(isDragging && "bg-muted ring-1 ring-border *:invisible")}
+		>
+			{/* A mouse drags the lane from its header once it moves a few pixels
+			    and a finger after a short press, so a tap still renames it; a
+			    keyboard moves it from its menu. */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer drags the lane by its header; a keyboard has Move left and right in its menu */}
+			<header
+				ref={setActivatorNodeRef}
+				onMouseDown={listeners?.onMouseDown as MouseEventHandler}
+				onTouchStart={listeners?.onTouchStart as TouchEventHandler}
+				className="flex cursor-grab touch-manipulation flex-col gap-1 px-1 pt-1 active:cursor-grabbing"
+			>
 				<div className="flex items-center justify-between gap-2">
 					{renaming ? (
 						<LaneName lane={lane} onDone={() => setRenaming(false)} />
@@ -390,7 +443,40 @@ function LaneName({
 	);
 }
 
-/** What can be done to a whole lane: start it, rename it, fold it into another, or remove it. */
+/**
+ * A lane in hand, lifted off the board and tilted the way Trello lifts a
+ * list: its name and its cards, to see what is moving.
+ */
+export function LiftedLane({
+	lane,
+	staleness,
+}: {
+	lane: LaneState;
+	staleness: number;
+}): JSX.Element {
+	return (
+		<section
+			aria-hidden
+			className="flex max-h-[calc(100dvh-6rem)] w-72 rotate-2 cursor-grabbing flex-col gap-1.5 overflow-hidden rounded-xl bg-muted p-2 shadow-lg"
+		>
+			<h3 className="flex items-baseline gap-1.5 px-1 pt-1 font-medium text-sm">
+				{lane.name}
+				<span className="font-normal text-muted-foreground text-xs tabular-nums">
+					{lane.todos.length}
+				</span>
+			</h3>
+			<ol className="flex flex-col gap-1.5">
+				{lane.todos.map((todo, i) => (
+					<li key={todo.id}>
+						<Card todo={todo} staleness={staleness} step={i + 1} />
+					</li>
+				))}
+			</ol>
+		</section>
+	);
+}
+
+/** What can be done to a whole lane: start it, rename it, move it, fold it into another, or remove it. */
 function LaneMenu({
 	lane,
 	lanes,
@@ -400,7 +486,9 @@ function LaneMenu({
 	lanes: LaneState[];
 	onRename: () => void;
 }): JSX.Element {
+	const { moveLane } = useContext(Board);
 	const others = lanes.filter((other) => other.id !== lane.id);
+	const at = lanes.findIndex((other) => other.id === lane.id);
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -424,6 +512,25 @@ function LaneMenu({
 					<PencilIcon />
 					Rename
 				</DropdownMenuItem>
+				{others.length > 0 && (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							disabled={at === 0}
+							onClick={() => moveLane(lane.id, at)}
+						>
+							<ArrowLeftIcon />
+							Move left
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							disabled={at === lanes.length - 1}
+							onClick={() => moveLane(lane.id, at + 2)}
+						>
+							<ArrowRightIcon />
+							Move right
+						</DropdownMenuItem>
+					</>
+				)}
 				{others.length > 0 && lane.todos.length > 0 && (
 					<>
 						<DropdownMenuSeparator />

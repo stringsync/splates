@@ -162,6 +162,51 @@ describe("App's lanes", () => {
 		});
 	});
 
+	it("moves a lane left or right from its menu, showing it there at once", async () => {
+		const view = await testing.open({
+			todos: sound2score(),
+			lanes: SOUND2SCORE_LANES,
+		});
+		// The board's columns, leaving out the toasts' region.
+		const columns = () =>
+			view
+				.getAllByRole("region")
+				.map((region) => region.getAttribute("aria-label"))
+				.filter((label) => label !== "Notifications");
+		const pick = async (lane: string, name: string) => {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: `${lane} actions` })),
+			);
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() => view.getByRole("menuitem", { name })),
+				),
+			);
+		};
+
+		await pick("Score editor", "Move left");
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/lanes/3",
+			method: "PUT",
+			body: JSON.stringify({ position: 2 }),
+		});
+		expect(columns()).toEqual([
+			"Untriaged",
+			"Licensing",
+			"Score editor",
+			"Audio, uploads and pricing",
+			"new lane",
+		]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Licensing actions" })),
+		);
+		const left = await waitFor(() =>
+			view.getByRole("menuitem", { name: "Move left" }),
+		);
+		expect(left.getAttribute("aria-disabled")).toBe("true");
+	});
+
 	it("asks for a new lane's name in place when one is picked in the dialog", async () => {
 		const view = await testing.open({
 			todos: sound2score(),

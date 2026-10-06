@@ -272,6 +272,28 @@ export class Todos {
 		});
 	}
 
+	/**
+	 * Puts lane `id` at `position` among the lanes, 1 the first column, past
+	 * the last meaning the last; the others close up around it.
+	 */
+	async moveLane(id: number, position: number): Promise<LaneRecord[]> {
+		if (!Number.isInteger(position) || position <= 0) {
+			fail("usage", `'${position}' is not a position: 1 is the first lane`, {
+				position,
+			});
+		}
+		return this.locked(async () => {
+			const records = await this.records(await this.stored());
+			lacking(records, id);
+			const moved = records.find((record) => record.id === id) as LaneRecord;
+			const rest = records.filter((record) => record.id !== id);
+			const at = Math.min(position - 1, rest.length);
+			const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
+			await this.writeLanes(order);
+			return order;
+		});
+	}
+
 	/** Removes lane `id`, putting its todos back in none, untriaged. */
 	async dropLane(id: number): Promise<void> {
 		await this.locked(async () => {

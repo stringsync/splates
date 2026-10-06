@@ -1,6 +1,7 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import type { LaneRecord } from "../lanes";
 import type { TodoState } from "../todo";
-import { arrangeTodo, moveTodo } from "./api";
+import { arrangeTodo, moveLane, moveTodo } from "./api";
 
 export type TodoBoardEvents = { changed: undefined };
 
@@ -26,6 +27,8 @@ export interface BoardWrites {
 		before?: number,
 		name?: string,
 	): Promise<void>;
+	/** Puts a lane at a position among the lanes, 1 the first column. */
+	moveLane(id: number, position: number): Promise<void>;
 }
 
 /** What the board shows of the todos it was given. */
@@ -37,11 +40,11 @@ export interface BoardShown {
 }
 
 /**
- * The board's order while cards are dragged, across the todo column and the
- * lanes: which card is in hand, and the list as just dropped, shown until the
- * server's catches up, so a card lands where it was let go instead of jumping
- * back for a poll. Any new list of todos is the server's word, and the
- * dropped order gives way to it.
+ * The board's order while cards and lanes are dragged, across the todo
+ * column and the lanes: which card or lane is in hand, and the list as just
+ * dropped, shown until the server's catches up, so a card or a lane lands
+ * where it was let go instead of jumping back for a poll. Any new list of
+ * todos or lanes is the server's word, and the dropped order gives way to it.
  */
 export class TodoBoard implements Eventful<TodoBoardEvents> {
 	private readonly dispatcher = new Dispatcher<TodoBoardEvents>();
@@ -53,13 +56,80 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 	dropped: { todos: TodoState[]; on: TodoState[] } | null = null;
 	/** The id of the card dropped to start a lane, until the lane is named. */
 	naming: number | null = null;
+	/** The id of the lane in hand, while one is dragged by its header. */
+	draggingLane: number | null = null;
+	/** The lanes as dropped, and the lanes they were dropped on, until a refusal or new lanes. */
+	droppedLanes: { lanes: LaneRecord[]; on: LaneRecord[] } | null = null;
 
 	constructor(
 		private readonly writes: BoardWrites = {
 			move: moveTodo,
 			arrange: arrangeTodo,
+			moveLane,
 		},
 	) {}
+
+	/** The lanes in the order the board shows them. */
+	showLanes(lanes: LaneRecord[]): LaneRecord[] {
+		return this.droppedLanes?.on === lanes ? this.droppedLanes.lanes : lanes;
+	}
+
+	liftLane(id: number): void {
+		this.draggingLane = id;
+		this.dispatcher.dispatch("changed");
+	}
+
+	/**
+	 * Drops lane `id` onto lane `onto`, taking its place the way a Trello
+	 * list does, and makes the write that puts it there; null when that
+	 * moves nothing.
+	 */
+	dropLane(
+		lanes: LaneRecord[],
+		id: number,
+		onto: number | null,
+	): Promise<void> | null {
+		this.draggingLane = null;
+		const at = this.showLanes(lanes).findIndex((lane) => lane.id === onto);
+		if (at === -1) {
+			this.dispatcher.dispatch("changed");
+			return null;
+		}
+		return this.moveLane(lanes, id, at + 1);
+	}
+
+	/**
+	 * Puts lane `id` at `position` among the lanes, 1 the first, shown there
+	 * at once; null when it is there already. A write the server refuses puts
+	 * the lanes back, and is thrown from the promise.
+	 */
+	moveLane(
+		lanes: LaneRecord[],
+		id: number,
+		position: number,
+	): Promise<void> | null {
+		const shown = this.showLanes(lanes);
+		const lane = shown.find((each) => each.id === id);
+		const rest = shown.filter((each) => each.id !== id);
+		const at = Math.max(0, Math.min(position - 1, rest.length));
+		if (lane === undefined || shown.indexOf(lane) === at) {
+			this.dispatcher.dispatch("changed");
+			return null;
+		}
+		const dropped = {
+			lanes: [...rest.slice(0, at), lane, ...rest.slice(at)],
+			on: lanes,
+		};
+		this.droppedLanes = dropped;
+		this.dispatcher.dispatch("changed");
+		return this.writes.moveLane(id, at + 1).catch((error: unknown) => {
+			if (this.droppedLanes === dropped) {
+				this.droppedLanes = null;
+				this.dispatcher.dispatch("changed");
+			}
+			throw error;
+		});
+	}
 
 	show(todos: TodoState[]): BoardShown {
 		const shown = this.dropped?.on === todos ? this.dropped.todos : todos;
@@ -74,9 +144,10 @@ export class TodoBoard implements Eventful<TodoBoardEvents> {
 		this.dispatcher.dispatch("changed");
 	}
 
-	/** Puts the card in hand back where it was. */
+	/** Puts the card or lane in hand back where it was. */
 	cancel(): void {
 		this.dragging = null;
+		this.draggingLane = null;
 		this.dispatcher.dispatch("changed");
 	}
 
