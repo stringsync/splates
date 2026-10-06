@@ -185,18 +185,13 @@ export async function dev(
 				text: String(form.get("text") ?? ""),
 				files: await uploads(form),
 				position: positionIn(form),
+				// Added from a lane's column, it goes at the bottom of that lane.
+				lane: form.has("lane") ? laneIn(Number(form.get("lane"))) : null,
 			}),
 		);
 		await tick();
 		return Response.json(todo.state);
 	};
-
-	/** The tags a todo write sends, comma separated. */
-	const tagsIn = (form: FormData): string[] =>
-		String(form.get("tags") ?? "")
-			.split(",")
-			.map((tag) => tag.trim())
-			.filter(Boolean);
 
 	/** Where a todo write asks to put it; absent leaves it to the write. */
 	const positionIn = (form: FormData): number | undefined =>
@@ -222,7 +217,6 @@ export async function dev(
 				position: positionIn(form),
 				files: await uploads(form),
 				keep: form.getAll("keep").map(String),
-				tags: form.has("tags") ? tagsIn(form) : undefined,
 			}),
 		);
 		await tick();
@@ -239,6 +233,95 @@ export async function dev(
 		);
 		await tick();
 		return Response.json(todo.state);
+	};
+
+	/** The JSON a write sends, as an object. */
+	const body = async (request: Request): Promise<Record<string, unknown>> => {
+		const read = (await request.json().catch(() => ({}))) as unknown;
+		return typeof read === "object" && read !== null
+			? (read as Record<string, unknown>)
+			: {};
+	};
+
+	/** A lane as a write names it: a number, `"new"`, or null for none. */
+	const laneIn = (value: unknown): number | "new" | null =>
+		value === "new" || value === null ? value : Number(value);
+
+	// What blocks it, all of it: the page sends the whole list, and
+	// only the difference is linked or unlinked, so a loop is still refused.
+	const linkTodo = async (request: Request): Promise<Response> => {
+		const found = await todoAt(request);
+		const { blockedBy } = await body(request);
+		const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
+		const todo = await journal.record("todo update", null, () =>
+			todos.link(found.id, {
+				add: ids.filter((id) => !found.blockedBy.includes(id)),
+				drop: found.blockedBy.filter((id) => !ids.includes(id)),
+			}),
+		);
+		await tick();
+		return Response.json(todo.state);
+	};
+
+	// Into a lane, or none, above the todo `before` or at the bottom of it.
+	const arrangeTodo = async (request: Request): Promise<Response> => {
+		const found = await todoAt(request);
+		const { lane, before, name } = await body(request);
+		const todo = await journal.record("todo update", null, () =>
+			todos.arrange(found.id, laneIn(lane), {
+				name: typeof name === "string" ? name : undefined,
+				before:
+					before === undefined || before === null ? undefined : Number(before),
+			}),
+		);
+		await tick();
+		return Response.json(todo.state);
+	};
+
+	/** The lane a `/api/lanes/<id>` path names. */
+	const laneAt = (request: Request): number => {
+		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
+		const id = Number(raw);
+		if (!Number.isInteger(id) || id <= 0) {
+			fail("usage", `'${raw}' is not a lane`, { lane: raw });
+		}
+		return id;
+	};
+
+	const joinLane = async (request: Request): Promise<Response> => {
+		const from = laneAt(request);
+		const { into } = await body(request);
+		await journal.record("lane join", null, () =>
+			todos.joinLanes(from, Number(into)),
+		);
+		await tick();
+		return Response.json({ lane: Number(into) });
+	};
+
+	const addLane = async (request: Request): Promise<Response> => {
+		const { name } = await body(request);
+		const lane = await journal.record("lane add", null, () =>
+			todos.addLane(String(name ?? "")),
+		);
+		await tick();
+		return Response.json(lane);
+	};
+
+	const renameLane = async (request: Request): Promise<Response> => {
+		const id = laneAt(request);
+		const { name } = await body(request);
+		const lane = await journal.record("lane update", null, () =>
+			todos.renameLane(id, String(name ?? "")),
+		);
+		await tick();
+		return Response.json(lane);
+	};
+
+	const dropLane = async (request: Request): Promise<Response> => {
+		const id = laneAt(request);
+		await journal.record("lane remove", null, () => todos.dropLane(id));
+		await tick();
+		return Response.json({ lane: id });
 	};
 
 	const removeTodo = async (request: Request): Promise<Response> => {
@@ -273,6 +356,11 @@ export async function dev(
 				DELETE: guarded(removeTodo),
 			},
 			"/api/todos/:id/position": { PUT: guarded(moveTodo) },
+			"/api/todos/:id/blocked-by": { PUT: guarded(linkTodo) },
+			"/api/todos/:id/lane": { PUT: guarded(arrangeTodo) },
+			"/api/lanes/:id/join": { POST: guarded(joinLane) },
+			"/api/lanes": { POST: guarded(addLane) },
+			"/api/lanes/:id": { PUT: guarded(renameLane), DELETE: guarded(dropLane) },
 			"/events": guarded(async () => events()),
 		},
 		fetch: () => new Response("not found", { status: 404 }),
@@ -322,6 +410,7 @@ const STATUS: Partial<Record<Reason, number>> = {
 	not_found: 404,
 	lease_held: 409,
 	exists: 409,
+	cycle: 409,
 };
 
 /** What `dev` lets a caller choose. */

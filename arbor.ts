@@ -8,6 +8,7 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
+import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
@@ -22,11 +23,10 @@ import {
 	todoRelease,
 	todoRemove,
 	todoShow,
-	todoTags,
 	todoTake,
 	todoUpdate,
 } from "./todo";
-import { DEFAULT_TIMEOUT, wait } from "./wait";
+import { DEFAULT_TIMEOUT, todoWait, wait } from "./wait";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
@@ -255,10 +255,15 @@ todo
 		description:
 			"files to attach, comma separated: copied under .git/arbor/todos/<id>/",
 	})
-	.option("tag", z.string(), {
+	.option("blocked-by", z.string(), {
 		default: "",
 		description:
-			"tags, comma separated, each one lowercase word (or a few joined by hyphens): the areas or goals it belongs to; `arbor todo tags` lists those in use",
+			"ids of the todos blocking it, comma separated: each has to merge before this one starts",
+	})
+	.option("lane", z.string(), {
+		default: "",
+		description:
+			"the lane it goes in, at the bottom: a lane's number, or `new` for one of its own (default: none, untriaged)",
 	})
 	.action(async (opts, ctx) => {
 		const from = await here(ctx);
@@ -267,7 +272,8 @@ todo
 				text: opts.text,
 				position: opts.position,
 				files: commaList(opts.file),
-				tags: commaList(opts.tag),
+				blockedBy: todoIds(opts["blocked-by"]),
+				lane: laneIn(opts.lane) ?? null,
 			}),
 		);
 	});
@@ -282,26 +288,18 @@ todo
 		default: false,
 		description: "only todos no task has taken up: the ones free to pick up",
 	})
-	.option("tag", z.string(), {
-		default: "",
+	.option("ready", z.boolean(), {
+		default: false,
 		description:
-			"only todos with any of these tags, comma separated: pass every tag your task's todos have to see the ones your work affects",
+			"only todos free to start now: nobody has taken them, and nothing blocking them is still open",
 	})
 	.action((opts, ctx) =>
 		todoList(ctx, {
 			json: opts.json,
 			open: opts.open,
-			tags: commaList(opts.tag),
+			ready: opts.ready,
 		}),
 	);
-
-todo
-	.command("tags")
-	.description(
-		"every tag in use, with how many todos have it: reuse one before making up another",
-	)
-	.option("json", z.boolean(), { default: false, description: "emit JSON" })
-	.action((opts, ctx) => todoTags(ctx, { json: opts.json }));
 
 todo
 	.command("show")
@@ -313,7 +311,7 @@ todo
 todo
 	.command("update")
 	.description(
-		"say what a todo is in other words, move it up or down the list, tag it, or attach and drop files; it keeps its id",
+		"say what a todo is in other words, move it up or down the list, or attach and drop files; it keeps its id",
 	)
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.arg("text", z.string(), {
@@ -338,13 +336,19 @@ todo
 		description:
 			"attached files to drop, comma separated, by path or stored name",
 	})
-	.option("tag", z.string(), {
+	.option("blocked-by", z.string(), {
 		default: "",
-		description: "tags to add, comma separated",
+		description:
+			"ids of more todos blocking it, comma separated: each has to merge before this one starts; refused when that makes a loop",
 	})
-	.option("remove-tag", z.string(), {
+	.option("remove-blocked-by", z.string(), {
 		default: "",
-		description: "tags to drop, comma separated",
+		description: "ids of todos no longer blocking it, comma separated",
+	})
+	.option("lane", z.string(), {
+		default: "",
+		description:
+			"move it to a lane, at the bottom: a lane's number, `new` for one of its own, or `none` to put it back with the untriaged",
 	})
 	.action((opts, ctx) =>
 		ctx.journal.record("todo update", null, () =>
@@ -354,8 +358,9 @@ todo
 				position: opts.position,
 				files: commaList(opts.file),
 				removeFiles: commaList(opts["remove-file"]),
-				tags: commaList(opts.tag),
-				removeTags: commaList(opts["remove-tag"]),
+				blockedBy: todoIds(opts["blocked-by"]),
+				removeBlockedBy: todoIds(opts["remove-blocked-by"]),
+				lane: laneIn(opts.lane),
 			}),
 		),
 	);
@@ -397,6 +402,103 @@ todo
 	.action((opts, ctx) =>
 		ctx.journal.record("todo remove", null, () => todoRemove(ctx, opts.id)),
 	);
+
+todo
+	.command("wait")
+	.description(
+		"block until a todo leaves the list, which it does when the task that took it merges: for a todo blocked by one another lane is on; ends early when that task is escalated, and gives up with `timeout`",
+	)
+	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
+	.option("timeout-secs", z.coerce.number(), {
+		default: DEFAULT_TIMEOUT.secs,
+		description: "how long to wait before giving up",
+	})
+	.action((opts, ctx) =>
+		todoWait(ctx, opts.id, { timeout: Duration.secs(opts["timeout-secs"]) }),
+	);
+
+const lane = arbor
+	.group("lane")
+	.description(
+		"lanes: named runs of todos, one agent's queue each, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an agent on one. A todo in no lane is untriaged",
+	);
+
+lane
+	.command("list")
+	.description(
+		"every lane: its name, its todos in order, the tasks on it, its next todo, and what blocks that in other lanes",
+	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) => laneList(ctx, { json: opts.json }));
+
+lane
+	.command("show")
+	.description(
+		"one lane step by step, and what its agent does next: start the next todo, or wait for the one blocking it in another lane to land first",
+	)
+	.arg("lane", z.coerce.number().int().positive(), {
+		description: "lane number",
+	})
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) => laneShow(ctx, opts.lane, { json: opts.json }));
+
+lane
+	.command("add")
+	.description("start an empty lane, after the others")
+	.arg("name", z.string(), {
+		description: "what its todos are for, like `Licensing`",
+	})
+	.action((opts, ctx) =>
+		ctx.journal.record("lane add", null, () => laneAdd(ctx, opts.name)),
+	);
+
+lane
+	.command("update")
+	.description("rename a lane")
+	.arg("lane", z.coerce.number().int().positive(), {
+		description: "lane number",
+	})
+	.option("name", z.string().optional(), {
+		description: "what it is called from now on",
+	})
+	.action((opts, ctx) =>
+		ctx.journal.record("lane update", null, () =>
+			laneUpdate(ctx, opts.lane, { name: opts.name }),
+		),
+	);
+
+lane
+	.command("remove")
+	.description(
+		"remove a lane, putting its todos back with the untriaged ones; a lane whose last todo merges goes on its own",
+	)
+	.arg("lane", z.coerce.number().int().positive(), {
+		description: "lane number",
+	})
+	.action((opts, ctx) =>
+		ctx.journal.record("lane remove", null, () => laneRemove(ctx, opts.lane)),
+	);
+
+/** `--lane 3`, `new` or `none` as a lane; absent leaves it to the command. */
+function laneIn(raw: string): number | "new" | null | undefined {
+	const value = raw.trim();
+	if (value === "") {
+		return undefined;
+	}
+	if (value === "new") {
+		return "new";
+	}
+	if (value === "none") {
+		return null;
+	}
+	const id = Number(value);
+	if (!Number.isInteger(id) || id <= 0) {
+		fail("usage", `'${value}' is not a lane: pass its number, new or none`, {
+			lane: value,
+		});
+	}
+	return id;
+}
 
 /** `--todo 3,5` as ids, refusing anything that is not one. */
 function todoIds(raw: string): number[] {

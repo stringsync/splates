@@ -45,6 +45,8 @@ export class Testing implements Resource {
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
 	tree: string[] = [];
+	/** What every write answers with; a test sets it when the page reads it. */
+	reply: unknown = {};
 	/** Every write the page made, in order. */
 	readonly posts: Post[] = [];
 	/** The stream the page opened, so a test can push through it. */
@@ -60,7 +62,7 @@ export class Testing implements Resource {
 			}
 			if (init?.method !== undefined && init.method !== "GET") {
 				this.posts.push({ path, method: init.method, body: init.body });
-				return Response.json({});
+				return Response.json(this.reply);
 			}
 			if (path.startsWith("/api/paths")) {
 				return Response.json(this.tree);
@@ -90,15 +92,27 @@ export class Testing implements Resource {
 	/** Renders the page with `served` waiting, and lets it arrive. */
 	async open(overrides: Partial<Snapshot> = {}) {
 		this.served = snapshot(overrides);
+		// The page a test before went to stays in the address: start on none.
+		history.replaceState(null, "", " ");
 		const view = render(createElement(App));
 		await waitFor(() =>
-			expect(view.getByRole("region", { name: "Todos" })).toBeTruthy(),
+			expect(view.getByRole("region", { name: "Untriaged" })).toBeTruthy(),
+		);
+		return view;
+	}
+
+	/** Renders the page as `open` does, and goes to its tasks. */
+	async openTasks(overrides: Partial<Snapshot> = {}) {
+		const view = await this.open(overrides);
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
 		);
 		return view;
 	}
 
 	/** Hands `fetch` and `EventSource` back. */
 	dispose(): void {
+		localStorage.clear();
 		globalThis.fetch = this.#fetch;
 		globalThis.EventSource = this.#eventSource;
 	}
@@ -110,6 +124,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		path: "~/Projects/webappwiz",
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		todos: [],
+		lanes: [],
 		tasks: [],
 		...overrides,
 	};
@@ -145,7 +160,8 @@ export function todo(overrides: Partial<TodoState> = {}): TodoState {
 		createdAt: new Date().toISOString(),
 		takenBy: null,
 		files: [],
-		tags: [],
+		blockedBy: [],
+		lane: null,
 		...overrides,
 	};
 }

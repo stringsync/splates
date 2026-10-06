@@ -16,7 +16,8 @@
 	},
 	"exports": {
 		".": "./index.ts",
-		"./config": "./config.ts"
+		"./config": "./config.ts",
+		"./lanes-from-tags": "./lanes-from-tags.ts"
 	},
 	"imports": {
 		"#dev/*": "./dev/*"

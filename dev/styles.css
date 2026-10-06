@@ -12,7 +12,10 @@
 @source "./markdown.tsx";
 @source "./files.tsx";
 @source "./mentions.tsx";
-@source "./tags.tsx";
+@source "./card.tsx";
+@source "./board.ts";
+@source "./lanes.tsx";
+@source "./links.tsx";
 @source "./components/ui";
 
 @custom-variant dark (&:is(.dark *));

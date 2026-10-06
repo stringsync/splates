@@ -32,7 +32,6 @@ describe("App's todo edits", () => {
 		await act(async () => fireEvent.click(view.getByText("write docs")));
 		const dialog = await waitFor(() => view.getByRole("dialog"));
 		expect(within(dialog).getByText("the CLI").tagName).toBe("STRONG");
-		expect(dialog.textContent).toContain("Markdown supported");
 	});
 
 	it("rewords one", async () => {
@@ -47,16 +46,17 @@ describe("App's todo edits", () => {
 		await act(async () =>
 			fireEvent.change(box, { target: { value: "write the docs" } }),
 		);
-		// A todo with detail opens on its preview.
+		// A todo with detail opens rendered, and a click on it writes it.
 		expect(view.queryByRole("textbox", { name: "detail" })).toBeNull();
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Write" })),
+			fireEvent.click(within(view.getByRole("dialog")).getByText("soon")),
 		);
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "detail" }), {
-				target: { value: "" },
-			}),
-		);
+		const detail = view.getByRole("textbox", { name: "detail" });
+		expect(document.activeElement).toBe(detail);
+		await act(async () => fireEvent.change(detail, { target: { value: "" } }));
+		// Once it is left, it reads again, and with nothing in it offers more.
+		await act(async () => fireEvent.blur(detail));
+		expect(view.getByRole("button", { name: "Add more detail" })).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Save" })),
 		);
@@ -71,229 +71,6 @@ describe("App's todo edits", () => {
 		expect(form.get("text")).toBe("");
 		// Not moved, so no place is sent to undo a move made elsewhere.
 		expect(form.has("position")).toBe(false);
-	});
-
-	it("tags one from its dialog", async () => {
-		const view = await testing.open({
-			todos: [todo({ id: 4, subject: "write docs", tags: ["docs"] })],
-		});
-
-		await act(async () => fireEvent.click(view.getByText("write docs")));
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "tags" }),
-		);
-		expect((box as HTMLInputElement).value).toBe("docs");
-		expect(box.getAttribute("aria-describedby")).toBeTruthy();
-		expect(view.getByText("Separate tags with commas.")).toBeTruthy();
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "docs, dev-page" } }),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Save" })),
-		);
-
-		await waitFor(() => expect(testing.posts).toHaveLength(1));
-		const form = testing.posts[0]?.body as FormData;
-		expect(form.get("tags")).toBe("docs,dev-page");
-	});
-
-	it("moves one to the top or bottom from its dialog", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({ id: 4, subject: "second", position: 2, tags: ["docs"] }),
-				todo({ id: 6, subject: "third", position: 3 }),
-			],
-		});
-
-		// Filtered to one tag, the bottom is still the whole list's.
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "docs 1" })),
-		);
-		await act(async () => fireEvent.click(view.getByText("second")));
-		let dialog = await waitFor(() => view.getByRole("dialog"));
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Move to bottom" }),
-			),
-		);
-		// Done with it, the way saving is.
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		await act(async () => fireEvent.click(view.getByText("second")));
-		dialog = await waitFor(() => view.getByRole("dialog"));
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Move to top" }),
-			),
-		);
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-
-		expect(testing.posts.map((post) => post.path)).toEqual([
-			"/api/todos/4/position",
-			"/api/todos/4/position",
-		]);
-		expect(testing.posts.map((post) => JSON.parse(String(post.body)))).toEqual([
-			{ position: 3 },
-			{ position: 1 },
-		]);
-	});
-
-	it("opens the top todo and steps through the list from the keyboard", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({ id: 4, subject: "second", position: 2 }),
-			],
-		});
-		const subject = () =>
-			(view.getByRole("textbox", { name: "subject" }) as HTMLInputElement)
-				.value;
-		const press = (key: string) =>
-			act(async () => fireEvent.keyDown(document.body, { key }));
-
-		await press("o");
-		await waitFor(() => expect(subject()).toBe("first"));
-		await press("]");
-		await waitFor(() => expect(subject()).toBe("second"));
-		// Nothing below the bottom one.
-		await press("]");
-		expect(subject()).toBe("second");
-		await press("[");
-		await waitFor(() => expect(subject()).toBe("first"));
-		// The one dialog all along, showing another todo.
-		expect(view.getAllByRole("dialog")).toHaveLength(1);
-		// A key typed into a field is only typing.
-		await act(async () =>
-			fireEvent.keyDown(view.getByRole("textbox", { name: "subject" }), {
-				key: "]",
-			}),
-		);
-		expect(subject()).toBe("first");
-		expect(testing.posts).toHaveLength(0);
-	});
-
-	it("lists the keyboard shortcuts on ?", async () => {
-		const view = await testing.open({
-			todos: [todo({ id: 1, subject: "first" })],
-		});
-
-		await act(async () => fireEvent.keyDown(document.body, { key: "?" }));
-		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Keyboard shortcuts" }),
-		);
-		expect(dialog.textContent).toContain("Open the top todo");
-		// Its own keys stay quiet while it is up.
-		await act(async () => fireEvent.keyDown(document.body, { key: "o" }));
-		expect(view.queryByRole("textbox", { name: "subject" })).toBeNull();
-	});
-
-	it("saves what was typed before stepping to the next todo", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({ id: 4, subject: "second", position: 2 }),
-			],
-		});
-
-		await act(async () => fireEvent.click(view.getByText("first")));
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "subject" }),
-		);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "first, reworded" } }),
-		);
-		await act(async () => fireEvent.keyDown(document.body, { key: "]" }));
-
-		await waitFor(() =>
-			expect(
-				(view.getByRole("textbox", { name: "subject" }) as HTMLInputElement)
-					.value,
-			).toBe("second"),
-		);
-		expect(testing.posts).toHaveLength(1);
-		expect(testing.posts[0]).toMatchObject({
-			path: "/api/todos/1",
-			method: "PATCH",
-		});
-		const form = testing.posts[0]?.body as FormData;
-		expect(form.get("subject")).toBe("first, reworded");
-	});
-
-	it("moves the open todo to the top or bottom from the keyboard", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({ id: 4, subject: "second", position: 2 }),
-				todo({ id: 6, subject: "third", position: 3 }),
-			],
-		});
-
-		await act(async () => fireEvent.click(view.getByText("second")));
-		await waitFor(() => view.getByRole("dialog"));
-		await act(async () => fireEvent.keyDown(document.body, { key: "{" }));
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		await act(async () => fireEvent.click(view.getByText("second")));
-		await waitFor(() => view.getByRole("dialog"));
-		await act(async () => fireEvent.keyDown(document.body, { key: "}" }));
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-
-		expect(testing.posts.map((post) => JSON.parse(String(post.body)))).toEqual([
-			{ position: 1 },
-			{ position: 3 },
-		]);
-	});
-
-	it("saves what was typed along with a move", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({ id: 4, subject: "second", position: 2 }),
-			],
-		});
-
-		await act(async () => fireEvent.click(view.getByText("second")));
-		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "subject" }),
-		);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "second, reworded" } }),
-		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Move to top" })),
-		);
-
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-		expect(testing.posts).toHaveLength(1);
-		expect(testing.posts[0]).toMatchObject({
-			path: "/api/todos/4",
-			method: "PATCH",
-		});
-		const form = testing.posts[0]?.body as FormData;
-		expect(form.get("subject")).toBe("second, reworded");
-		expect(form.get("position")).toBe("1");
-	});
-
-	it("cannot move the top todo up or the bottom one down", async () => {
-		const view = await testing.open({
-			todos: [
-				todo({ id: 1, subject: "first" }),
-				todo({ id: 4, subject: "second", position: 2 }),
-			],
-		});
-
-		await act(async () => fireEvent.click(view.getByText("first")));
-		let dialog = await waitFor(() => view.getByRole("dialog"));
-		const top = within(dialog).getByRole("button", { name: "Move to top" });
-		expect((top as HTMLButtonElement).disabled).toBe(true);
-		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
-		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
-
-		await act(async () => fireEvent.click(view.getByText("second")));
-		dialog = await waitFor(() => view.getByRole("dialog"));
-		const bottom = within(dialog).getByRole("button", {
-			name: "Move to bottom",
-		});
-		expect((bottom as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it("moves one up the list by its grip, from the keyboard", async () => {
@@ -316,7 +93,8 @@ describe("App's todo edits", () => {
 			});
 
 			const grip = view.getByRole("button", { name: "move second" });
-			grip.focus();
+			// Focus lights up its links, which is a render of its own.
+			act(() => grip.focus());
 			// Each key gets a moment for the drag to catch up before the next.
 			const press = (code: string) =>
 				act(async () => {
@@ -335,7 +113,7 @@ describe("App's todo edits", () => {
 			});
 			// Where it was let go, before the server says so.
 			expect(
-				within(view.getByRole("list", { name: "todos" }))
+				within(view.getByRole("list", { name: "Untriaged todos" }))
 					.getAllByRole("listitem")
 					.map((card) => card.textContent),
 			).toEqual([

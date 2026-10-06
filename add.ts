@@ -5,7 +5,7 @@ import type { Config } from "./config";
 import { fail } from "./exit";
 import { PLAN_FILE } from "./plan";
 import type { Shell } from "./shell";
-import type { Todo } from "./todo";
+import { blockedWarning, type Todo } from "./todo";
 import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
 
@@ -80,11 +80,13 @@ export async function add(
 	// Looked up before anything is created, so a todo that is gone or taken
 	// refuses the whole add instead of leaving a tree behind.
 	const taken: Todo[] = [];
+	const blocked: string[] = [];
 	for (const id of new Set(ids)) {
 		const todo = await todos.find(id);
 		if (todo.takenBy) {
 			await todo.take(task); // refuses, naming the task that has it
 		}
+		blocked.push(...blockedWarning(todo, await todo.blockers(task, ids)));
 		taken.push(todo);
 	}
 
@@ -152,7 +154,13 @@ export async function add(
 	}
 
 	log.info(
-		`${color.green("added")} ${task}\n  worktree: ${worktree.path}\n  branch:   ${worktree.branch}\n  base:     ${base}`,
+		[
+			`${color.green("added")} ${task}`,
+			`  worktree: ${worktree.path}`,
+			`  branch:   ${worktree.branch}`,
+			`  base:     ${base}`,
+			...blocked,
+		].join("\n"),
 	);
 }
 

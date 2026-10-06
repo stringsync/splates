@@ -1,6 +1,8 @@
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
-import type { ComponentProps, JSX } from "react";
+import { type ComponentProps, type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
+import { MENTION } from "../lanes";
+import { Board, still } from "./board";
 
 export interface MarkdownProps {
 	text: string;
@@ -31,7 +33,7 @@ export function Markdown({
 				className,
 			)}
 		>
-			<Render options={OPTIONS}>{text}</Render>
+			<Render options={OPTIONS}>{linked(text)}</Render>
 		</div>
 	);
 }
@@ -95,8 +97,66 @@ function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
 	return { component: tag, props: { className: HEADING } };
 }
 
+/** Where a mention of todo `#N` links to, read back by `Link`. */
+const TODO_LINK = /^#todo-(\d+)$/;
+
+/**
+ * `text` with each `#N` outside code made a link to that todo, which `Link`
+ * draws as one.
+ */
+function linked(text: string): string {
+	return text
+		.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/)
+		.map((part, i) =>
+			// The odd parts are the code the split kept, left as written.
+			i % 2 === 1 ? part : part.replace(MENTION, "[#$1](#todo-$1)"),
+		)
+		.join("");
+}
+
+/**
+ * A todo mentioned as `#N`: a tap opens it while it is on the list, and once
+ * it is gone (merged or removed, since ids never come back) it is struck
+ * through, so nobody reads it as still to do.
+ */
+function Mention({ id }: { id: number }): JSX.Element {
+	const board = useContext(Board);
+	const todo = board.todos.find((each) => each.id === id);
+	if (!board.linked) {
+		return <span>#{id}</span>;
+	}
+	if (todo === undefined) {
+		return (
+			<span
+				title={`#${id} is no longer on the list: merged or removed`}
+				className="text-muted-foreground line-through"
+			>
+				#{id}
+			</span>
+		);
+	}
+	return (
+		<button
+			type="button"
+			{...still}
+			onClick={(event) => {
+				event.stopPropagation();
+				board.open(id);
+			}}
+			title={todo.subject}
+			className="relative cursor-pointer font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid"
+		>
+			#{id}
+		</button>
+	);
+}
+
 /** A link opens in a new tab, so the page keeps its place. */
 function Link(props: ComponentProps<"a">): JSX.Element {
+	const mention = TODO_LINK.exec(props.href ?? "");
+	if (mention) {
+		return <Mention id={Number(mention[1])} />;
+	}
 	return (
 		<a
 			{...props}

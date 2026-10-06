@@ -1,5 +1,6 @@
 import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
+import type { LaneRecord } from "./lanes";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
@@ -17,6 +18,8 @@ export interface Snapshot {
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
 	todos: TodoState[];
+	/** Every lane, in board order, empty ones too. */
+	lanes: LaneRecord[];
 	tasks: Details[];
 }
 
@@ -46,6 +49,7 @@ export async function snapshot({
 		path: tilde(service.git.root, home),
 		todoStalenessMs: service.config.todoStalenessMs,
 		todos: (await todos.all()).map((todo) => todo.state),
+		lanes: await todos.lanes(),
 		tasks,
 	};
 }
@@ -55,9 +59,10 @@ export async function snapshot({
  * `age` ticks every minute, and hashing it would push to every open page for
  * nothing.
  */
-export function fingerprint({ todos, tasks }: Snapshot): string {
+export function fingerprint({ todos, lanes, tasks }: Snapshot): string {
 	return JSON.stringify([
 		todos,
+		lanes,
 		tasks.map((task) => [
 			task.task,
 			task.status,

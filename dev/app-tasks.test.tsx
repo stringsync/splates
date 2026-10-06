@@ -14,7 +14,7 @@ describe("App's tasks", () => {
 	});
 
 	it("flags only the statuses that are news, and opens a task's plan", async () => {
-		const view = await testing.open({
+		const view = await testing.openTasks({
 			tasks: [
 				details({ task: "alpha" }),
 				details({
@@ -40,7 +40,7 @@ describe("App's tasks", () => {
 	});
 
 	it("fills a bar with the steps its plan has checked off", async () => {
-		const view = await testing.open({
+		const view = await testing.openTasks({
 			tasks: [
 				details({
 					task: "alpha",

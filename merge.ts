@@ -253,6 +253,10 @@ export async function merge(
 	}
 	// Done is done: the todos this task took up leave the list with it.
 	const done = await todos.takenBy(task);
+	// Read before the todos go, since a lane they empty goes with them.
+	const ran = (await todos.lanes()).filter((lane) =>
+		done.some((todo) => todo.lane === lane.id),
+	);
 	for (const todo of done) {
 		await todo.remove();
 	}
@@ -267,12 +271,7 @@ export async function merge(
 	if (landing === git.root) {
 		lines.push(
 			...recommendation(
-				await recommend(
-					todos,
-					task,
-					config.todoStalenessMs,
-					done.flatMap((todo) => todo.tags),
-				),
+				await recommend(todos, task, config.todoStalenessMs, ran),
 			),
 		);
 	}

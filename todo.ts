@@ -4,6 +4,16 @@ import type { Fs, Ps } from "webappwiz/system";
 import { age } from "./age";
 import { type Attachment, type Attachments, readFiles } from "./attachments";
 import { fail } from "./exit";
+import {
+	blockerLabel,
+	blockersOf,
+	followers,
+	isReady,
+	type LaneRecord,
+	type LaneState,
+	lane,
+	mentioned,
+} from "./lanes";
 import { table } from "./table";
 import type { Todos } from "./todos";
 
@@ -23,8 +33,13 @@ export interface TodoState {
 	takenBy: string | null;
 	/** Absolute paths of the files attached, in `todos/<id>/`. */
 	files: string[];
-	/** What it belongs to, sorted: the areas or goals it adds up to with others. */
-	tags: string[];
+	/**
+	 * The todos that have to merge before this one starts, sorted. One leaves
+	 * the list when it merges or is removed, and with it every link to it.
+	 */
+	blockedBy: number[];
+	/** The lane it runs in, one agent's queue, or null for none. */
+	lane: number | null;
 }
 
 /**
@@ -72,8 +87,25 @@ export class Todo {
 		return Date.now() - this.createdAt.getTime();
 	}
 
+	/**
+	 * The todos blocking it that have yet to merge, leaving out those `task`
+	 * has or takes in the same breath, among `together`: what it should not be
+	 * started before.
+	 */
+	async blockers(task: string, together: number[] = []): Promise<Todo[]> {
+		if (this.takenBy === task) {
+			return [];
+		}
+		return (await this.todos.all()).filter(
+			(other) =>
+				this.blockedBy.includes(other.id) &&
+				other.takenBy !== task &&
+				!together.includes(other.id),
+		);
+	}
+
 	/** Marks it as the work of `task`, refusing one another task already has. */
-	take(task: string): Promise<Todo> {
+	async take(task: string): Promise<Todo> {
 		return this.todos.revise(this.id, (state) => {
 			if (state.takenBy !== null && state.takenBy !== task) {
 				fail(
@@ -98,8 +130,13 @@ export class Todo {
 		return this.state.files;
 	}
 
-	get tags(): string[] {
-		return this.state.tags;
+	/** The todos that have to merge before it starts. */
+	get blockedBy(): number[] {
+		return this.state.blockedBy;
+	}
+
+	get lane(): number | null {
+		return this.state.lane;
 	}
 
 	get attachments(): Attachments {
@@ -116,7 +153,8 @@ export class Todo {
 		position,
 		files = [],
 		keep,
-		tags,
+		blockedBy,
+		lane,
 	}: TodoChange): Promise<Todo> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -124,7 +162,6 @@ export class Todo {
 				todo: this.id,
 			});
 		}
-		const tagged = tags === undefined ? this.tags : tagList(tags);
 		const kept =
 			keep === undefined
 				? this.files
@@ -137,39 +174,24 @@ export class Todo {
 			...state,
 			...words,
 			files: [...kept, ...added],
-			tags: tagged,
 		}));
-		return position === undefined
-			? updated
-			: this.todos.move(this.id, position);
+		let linked = updated;
+		if (blockedBy !== undefined) {
+			linked = await this.todos.link(this.id, {
+				add: blockedBy.filter((id) => !updated.blockedBy.includes(id)),
+				drop: updated.blockedBy.filter((id) => !blockedBy.includes(id)),
+			});
+		}
+		if (lane !== undefined && lane !== linked.lane) {
+			linked = await this.todos.arrange(this.id, lane);
+		}
+		return position === undefined ? linked : this.todos.move(this.id, position);
 	}
 
 	async remove(): Promise<void> {
 		await this.todos.delete(this.id);
 		await this.attachments.clear();
 	}
-}
-
-/** A tag in use, with how many todos have it. */
-export interface TagState {
-	tag: string;
-	todos: number;
-}
-
-/** A lowercase word or a few joined by hyphens, so `Dark Mode` and `dark-mode` cannot both exist. */
-const TAG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-/** `tags` deduped and sorted, refusing any not written the one way. */
-export function tagList(tags: string[]): string[] {
-	const bad = tags.find((tag) => !TAG.test(tag));
-	if (bad !== undefined) {
-		fail(
-			"usage",
-			`'${bad}' is not a tag: use one lowercase word, or a few joined by hyphens, like uploads or dark-mode`,
-			{ tag: bad },
-		);
-	}
-	return [...new Set(tags)].sort();
 }
 
 /** A todo's words, place or files changed: new ones added, some of the old kept. */
@@ -184,8 +206,10 @@ export interface TodoChange {
 	files?: Attachment[];
 	/** The paths of the files it has now to keep; absent keeps them all. */
 	keep?: string[];
-	/** Its tags from now on; the old stay when this is absent. */
-	tags?: string[];
+	/** Every todo blocking it from now on; the old stay when this is absent. */
+	blockedBy?: number[];
+	/** The lane it runs in, `"new"` for one of its own, null for none; it stays when absent. */
+	lane?: number | "new" | null;
 }
 
 /** What a new todo has besides its subject, all of it optional. */
@@ -195,7 +219,10 @@ export interface TodoNew {
 	files?: Attachment[];
 	/** Where it goes in the list, pushing those from there down; the bottom by default. */
 	position?: number;
-	tags?: string[];
+	/** The todos blocking it: each has to merge before it starts. */
+	blockedBy?: number[];
+	/** The lane it goes in, `"new"` for one of its own; none by default. */
+	lane?: number | "new" | null;
 }
 
 /**
@@ -220,41 +247,90 @@ export interface Recommendation {
 	next: Todo | null;
 	/** Todos left waiting so long they probably no longer apply. */
 	stale: Todo[];
+	/**
+	 * The lane the finished task's todos ran in, when it has more to do:
+	 * `next` is its next step then, even one another lane still blocks.
+	 */
+	lane?: LaneState;
+	/** Every lane there is now, to name those `lane` is blocked by. */
+	records?: LaneRecord[];
+	/** A lane the finished task's todos emptied: its agent is done. */
+	finished?: LaneRecord;
 }
 
 /**
- * Which todo to take up after `task`: one that came up in it first, since
- * whoever just finished it knows that context best, then one sharing a tag
- * in `settled`, those of the todos it finished, the same area of work, then the open one highest
- * on the list, which is how whoever keeps the list says what matters most.
- * Todos past `staleness` are never recommended, only offered for removal.
+ * Which todo to take up after `task`. A task whose todos ran in a lane goes
+ * on down that lane, since that is what its agent was handed. Otherwise one
+ * that came up in it first, since whoever just finished it knows that context
+ * best, then the open one highest on the list, which is how
+ * whoever keeps the list says what matters most; never one still blocked by
+ * another yet to merge. Todos past `staleness` are never recommended, only
+ * offered for removal.
  */
 export async function recommend(
 	todos: Todos,
 	task: string | null,
 	staleness: number,
-	settled: string[] = [],
+	ran: LaneRecord[] = [],
 ): Promise<Recommendation> {
-	const rank = (todo: Todo) =>
-		todo.from === task
-			? 2
-			: todo.tags.some((tag) => settled.includes(tag))
-				? 1
-				: 0;
-	const open = (await todos.all())
-		.filter((todo) => todo.takenBy === null)
+	const all = await todos.all();
+	const states = all.map((todo) => todo.state);
+	const stale = all.filter(
+		(todo) => todo.takenBy === null && todo.waited > staleness,
+	);
+	const records = await todos.lanes();
+	for (const record of ran) {
+		const found = lane(states, record);
+		if (found.next !== null) {
+			return {
+				next: all.find((todo) => todo.id === found.next?.id) ?? null,
+				stale,
+				lane: found,
+				records,
+			};
+		}
+	}
+	const finished = ran.find(
+		(record) => lane(states, record).todos.length === 0,
+	);
+	const rank = (todo: Todo) => (todo.from === task ? 1 : 0);
+	const open = all
+		.filter((todo) => isReady(todo.state))
 		// Stable, so each group keeps its place in the list.
 		.sort((left, right) => rank(right) - rank(left));
 	return {
 		next: open.find((todo) => todo.waited <= staleness) ?? null,
-		stale: open.filter((todo) => todo.waited > staleness),
+		stale,
+		...(finished === undefined ? {} : { finished }),
 	};
 }
 
 /** The lines `merge` ends with, or none when there is nothing to say. */
-export function recommendation({ next, stale }: Recommendation): string[] {
+export function recommendation({
+	next,
+	stale,
+	lane,
+	records = [],
+	finished,
+}: Recommendation): string[] {
 	const lines: string[] = [];
-	if (next) {
+	if (finished !== undefined) {
+		lines.push(
+			"",
+			`${color.bold(`lane ${finished.id} ${finished.name}`)} is done: nothing is left in it, so it is gone`,
+		);
+	}
+	if (next && lane) {
+		lines.push(
+			"",
+			`${color.bold(`next in lane ${lane.id} ${lane.name}`)} todo ${next.id}: ${next.subject}`,
+			...lane.blockers.map(
+				(blocker) =>
+					`  ${color.yellow("blocked by")} ${blockerLabel(blocker, records)}, ${blocker.takenBy === null ? "not taken yet" : `taken by ${blocker.takenBy}`}: arbor todo wait ${blocker.id}`,
+			),
+			`  ${lane.blockers.length === 0 ? "start it" : "then start it"}: arbor add <task> --todo ${next.id}`,
+		);
+	} else if (next) {
 		lines.push(
 			"",
 			`${color.bold("next todo")} ${next.id}: ${next.subject}`,
@@ -285,8 +361,11 @@ export interface TodoListOptions {
 	json?: boolean;
 	/** Only those no task has taken: the ones free to pick up. */
 	open?: boolean;
-	/** Only those with any of these tags; every todo when empty. */
-	tags?: string[];
+	/**
+	 * Only those free to start now: nobody has taken them, and nothing they
+	 * is blocked by is still open.
+	 */
+	ready?: boolean;
 }
 
 export interface TodoFileOptions {
@@ -299,26 +378,32 @@ export interface TodoAddOptions extends TodoFileOptions {
 	text?: string;
 	/** Where it goes in the list, 1 at the top; the bottom by default. */
 	position?: number;
-	tags?: string[];
+	/** The todos blocking it: each has to merge before it starts. */
+	blockedBy?: number[];
+	/** The lane it goes in, `"new"` for one of its own; none by default. */
+	lane?: number | "new" | null;
 }
 
 export async function todoAdd(
 	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
 	subject: string,
 	from: string | null,
-	{ text, files = [], position, tags }: TodoAddOptions = {},
+	{ text, files = [], position, blockedBy, lane }: TodoAddOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.add(subject, from, {
 		text,
 		files: await readFiles(deps, files),
 		position,
-		tags,
+		blockedBy,
+		lane,
 	});
 	deps.log.info(
 		[
-			`${color.green("added")} todo ${todo.id} at position ${todo.position}`,
+			`${color.green("added")} todo ${todo.id} at position ${todo.position}${todo.lane === null ? "" : ` in lane ${todo.lane}`}`,
 			...todo.files.map((path) => `  ${path}`),
-			`  start it: arbor add <task> --todo ${todo.id}`,
+			todo.blockedBy.length === 0
+				? `  start it: arbor add <task> --todo ${todo.id}`
+				: `  blocked by: ${todo.blockedBy.map((id) => `todo ${id}`).join(", ")}, which merge first`,
 		].join("\n"),
 	);
 	return todo;
@@ -326,13 +411,12 @@ export async function todoAdd(
 
 export async function todoList(
 	{ todos, log }: { todos: Todos; log: Logger },
-	{ json = false, open = false, tags = [] }: TodoListOptions = {},
+	{ json = false, open = false, ready = false }: TodoListOptions = {},
 ): Promise<void> {
 	const every = await todos.all();
 	const listed = every.filter(
 		(todo) =>
-			(!open || todo.takenBy === null) &&
-			(tags.length === 0 || todo.tags.some((tag) => tags.includes(tag))),
+			(!open || todo.takenBy === null) && (!ready || isReady(todo.state)),
 	);
 	if (json) {
 		log.info(
@@ -350,20 +434,31 @@ export async function todoList(
 	}
 	if (listed.length === 0) {
 		log.info(
-			tags.length === 0
-				? "no open todos: every one is taken, see `arbor todo list`"
-				: `no ${open ? "open " : ""}todos tagged ${tags.join(" or ")}: see \`arbor todo tags\``,
+			ready
+				? "no ready todos: each is taken or blocked by one still open, see `arbor todo list`"
+				: "no open todos: every one is taken, see `arbor todo list`",
 		);
 		return;
 	}
 	log.info(
 		table(
-			["POS", "ID", "SUBJECT", "TAGS", "FROM", "AGE", "TAKEN BY", "FILES"],
+			[
+				"POS",
+				"ID",
+				"SUBJECT",
+				"BLOCKED BY",
+				"LANE",
+				"FROM",
+				"AGE",
+				"TAKEN BY",
+				"FILES",
+			],
 			listed.map((todo) => [
 				String(todo.position),
 				String(todo.id),
 				todo.subject,
-				todo.tags.join(","),
+				todo.blockedBy.join(","),
+				todo.lane === null ? "" : String(todo.lane),
 				todo.from ?? "",
 				age(todo.state.createdAt),
 				todo.takenBy ?? "",
@@ -389,15 +484,53 @@ export async function todoShow(
 		log.info(JSON.stringify(todo.state, null, "\t"));
 		return;
 	}
+	const states = (await todos.all()).map((each) => each.state);
+	// How another todo stands, in a few words: where it runs, who has it.
+	const where = (other: TodoState) =>
+		[
+			other.lane === null ? null : `lane ${other.lane}`,
+			other.takenBy === null ? null : `taken by ${other.takenBy}`,
+		].filter(Boolean);
+	const named = (other: TodoState) => {
+		const said = where(other);
+		return `#${other.id} ${other.subject}${said.length === 0 ? "" : ` (${said.join(", ")})`}`;
+	};
+	const records = await todos.lanes();
+	const record = records.find((each) => each.id === todo.lane);
+	const steps = record === undefined ? [] : lane(states, record).todos;
+	const step = steps.findIndex((other) => other.id === todo.id);
 	const lines = [
 		`${color.bold(`todo ${todo.id}`)} ${todo.subject}`,
 		`  position:  ${todo.position}`,
 		`  from:      ${todo.from ?? "added by hand"}`,
 		`  taken by:  ${todo.takenBy ?? "nobody yet"}`,
-		...(todo.tags.length === 0 ? [] : [`  tags:      ${todo.tags.join(", ")}`]),
+		...(todo.lane === null
+			? []
+			: [
+					`  lane:      ${todo.lane} ${record?.name ?? ""}, step ${step + 1} of ${steps.length}`,
+				]),
+		...blockersOf(states, todo.state).map(
+			(wait) =>
+				`  blocked by: ${named(states.find((other) => other.id === wait.id) as TodoState)}`,
+		),
+		...followers(states, todo.id).map(
+			(other) => `  blocking:  ${named(other)}`,
+		),
 		`  age:       ${age(todo.state.createdAt)}`,
 		...todo.files.map((path) => `  file:      ${path}`),
 	];
+	// A mention of a todo that has gone reads as if it were still there, so
+	// each is said to be open or gone: ids never come back, and a gone one has
+	// merged or been removed.
+	const mentions = mentioned(`${todo.subject}\n${todo.text}`).filter(
+		(id) => id !== todo.id,
+	);
+	for (const id of mentions) {
+		const other = states.find((each) => each.id === id);
+		lines.push(
+			`  mentions:  ${other ? named(other) : `#${id}, gone: merged or removed`}`,
+		);
+	}
 	if (todo.text !== "") {
 		lines.push("", todo.text);
 	}
@@ -413,10 +546,12 @@ export interface TodoUpdateOptions extends TodoFileOptions {
 	position?: number;
 	/** Attached files to drop, by path or by the name they were stored under. */
 	removeFiles?: string[];
-	/** Tags to add. */
-	tags?: string[];
-	/** Tags to drop. */
-	removeTags?: string[];
+	/** Todos blocking it from now on, besides those that already do. */
+	blockedBy?: number[];
+	/** Todos no longer blocking it. */
+	removeBlockedBy?: number[];
+	/** The lane it moves to, `"new"` for one of its own, null for none; it stays when absent. */
+	lane?: number | "new" | null;
 }
 
 export async function todoUpdate(
@@ -428,17 +563,20 @@ export async function todoUpdate(
 		position,
 		files = [],
 		removeFiles = [],
-		tags = [],
-		removeTags = [],
+		blockedBy = [],
+		removeBlockedBy = [],
+		lane,
 	}: TodoUpdateOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.find(id);
-	const unknownTag = removeTags.find((tag) => !todo.tags.includes(tag));
-	if (unknownTag !== undefined) {
+	const unlinked = removeBlockedBy.find(
+		(each) => !todo.blockedBy.includes(each),
+	);
+	if (unlinked !== undefined) {
 		fail(
 			"not_found",
-			`todo ${id} has no tag '${unknownTag}': nothing was changed`,
-			{ todo: id, tag: unknownTag },
+			`todo ${id} is not blocked by todo ${unlinked}: nothing was changed`,
+			{ todo: id, blockedBy: unlinked },
 		);
 	}
 	const matches = (path: string, named: string) =>
@@ -462,15 +600,49 @@ export async function todoUpdate(
 		position,
 		files: await readFiles(deps, files),
 		keep: todo.files.filter((path) => !dropped.includes(path)),
-		tags: [...todo.tags, ...tags].filter((tag) => !removeTags.includes(tag)),
+		blockedBy:
+			blockedBy.length === 0 && removeBlockedBy.length === 0
+				? undefined
+				: [...todo.blockedBy, ...blockedBy].filter(
+						(each) => !removeBlockedBy.includes(each),
+					),
+		lane,
 	});
 	deps.log.info(
 		[
-			`${color.green("updated")} todo ${id} at position ${updated.position}: ${updated.subject}`,
+			`${color.green("updated")} todo ${id} at position ${updated.position}${updated.lane === null ? "" : ` in lane ${updated.lane}`}: ${updated.subject}`,
 			...updated.files.map((path) => `  ${path}`),
+			...(updated.blockedBy.length === 0
+				? []
+				: [
+						`  blocked by: ${updated.blockedBy.map((each) => `todo ${each}`).join(", ")}`,
+					]),
 		].join("\n"),
 	);
 	return updated;
+}
+
+/**
+ * The lines warning that `todo` was taken while `blockers` have yet to merge,
+ * or none when nothing blocks it: it may be started, but what it builds on
+ * is not there yet.
+ */
+export function blockedWarning(todo: Todo, blockers: Todo[]): string[] {
+	const [first] = blockers;
+	if (first === undefined) {
+		return [];
+	}
+	const where = (other: Todo) =>
+		[
+			other.lane === null ? null : `lane ${other.lane}`,
+			other.takenBy === null ? "open" : `taken by ${other.takenBy}`,
+		]
+			.filter(Boolean)
+			.join(", ");
+	return [
+		`  ${color.yellow("blocked")}: todo ${todo.id} is blocked by ${blockers.map((other) => `todo ${other.id} (${where(other)})`).join(" and ")}, which ${blockers.length === 1 ? "has" : "have"} yet to merge`,
+		`  work only on what does not need ${blockers.length === 1 ? "it" : "them"}, or \`arbor todo wait ${first.id}\` until it lands`,
+	];
 }
 
 /**
@@ -496,12 +668,18 @@ export async function todoTake(
 			await todo.take(task); // refuses, naming the task that has it
 		}
 	}
+	const blocked = await Promise.all(
+		found.map(async (todo) =>
+			blockedWarning(todo, await todo.blockers(task, ids)),
+		),
+	);
 	const taken = await Promise.all(found.map((todo) => todo.take(task)));
 	log.info(
 		[
 			...taken.map(
 				(todo) => `${color.green("took")} todo ${todo.id}: ${todo.subject}`,
 			),
+			...blocked.flat(),
 			`  add ${taken.length === 1 ? "it" : "them"} to the Goal in ARBOR.md; merging removes ${taken.length === 1 ? "it" : "them"}`,
 		].join("\n"),
 	);
@@ -555,31 +733,4 @@ export async function todoRemove(
 	const todo = await todos.find(id);
 	await todo.remove();
 	log.info(`${color.green("removed")} todo ${id}: ${todo.subject}`);
-}
-
-export interface TodoTagsOptions {
-	/** Print the tags as JSON instead of a table. */
-	json?: boolean;
-}
-
-/** Every tag in use, with how many todos have it: the names to reuse first. */
-export async function todoTags(
-	{ todos, log }: { todos: Todos; log: Logger },
-	{ json = false }: TodoTagsOptions = {},
-): Promise<void> {
-	const tags = await todos.tags();
-	if (json) {
-		log.info(JSON.stringify(tags, null, "\t"));
-		return;
-	}
-	if (tags.length === 0) {
-		log.info("no tags: `arbor todo add <subject> --tag <tag>` adds one");
-		return;
-	}
-	log.info(
-		table(
-			["TAG", "TODOS"],
-			tags.map(({ tag, todos }) => [tag, String(todos)]),
-		),
-	);
 }

@@ -6,67 +6,43 @@ export type TodoViewEvents = { changed: undefined };
 
 /** What the todo list shows of a snapshot, given what has been picked. */
 export interface TodosShown {
-	/** Every tag any todo has, sorted. */
-	tags: string[];
-	/** The tag the list is narrowed to, if any. */
-	tag: string | null;
-	/** The todos the tag lets through, top of the list first. */
+	/** Every todo, top of the list first. */
 	todos: TodoState[];
-	/** The todo open in its dialog, and its neighbors in the list shown. */
+	/** The todo open in its dialog. */
 	current?: TodoState;
-	previous?: TodoState;
-	next?: TodoState;
-	/** The bottom position of the whole list, not just of the todos shown. */
-	last: number;
 	/** The task open in its dialog. */
 	task?: Snapshot["tasks"][number];
-	/** Nothing is open over the list, so the list's own keys apply. */
-	bare: boolean;
 }
 
+/** Where the lanes hidden from the board are kept between visits. */
+const HIDDEN = "arbor.hiddenLanes";
+
 /**
- * The todo list's choices: which tag it is narrowed to, which todo or task is
- * open, and whether the shortcuts show. `show` applies them to a snapshot,
- * which can change under them: a choice the snapshot no longer has room for
+ * The todo list's choices: which todo or task is open, and which lanes the
+ * board leaves out, `null` for the untriaged. `show` applies them to a
+ * snapshot, which can change under them: a choice the snapshot no longer has room for
  * shows as nothing picked.
  */
 export class TodoView implements Eventful<TodoViewEvents> {
 	private readonly dispatcher = new Dispatcher<TodoViewEvents>();
 	readonly events = this.dispatcher.events;
 
-	picked: string | null = null;
 	opened: number | null = null;
 	openedTask: string | null = null;
-	keysShown = false;
+	hidden: (number | null)[];
 
-	show(snapshot: Snapshot): TodosShown {
-		const tags = [
-			...new Set(snapshot.todos.flatMap((todo) => todo.tags)),
-		].sort();
-		// A tag whose last todo went has nothing left to show, and lets go.
-		const tag =
-			this.picked !== null && tags.includes(this.picked) ? this.picked : null;
-		const todos = snapshot.todos.filter(
-			(todo) => tag === null || todo.tags.includes(tag),
-		);
-		const at = todos.findIndex((todo) => todo.id === this.opened);
-		const current = todos[at];
-		const task = snapshot.tasks.find((found) => found.task === this.openedTask);
-		return {
-			tags,
-			tag,
-			todos,
-			current,
-			previous: current && todos[at - 1],
-			next: current && todos[at + 1],
-			last: Math.max(0, ...snapshot.todos.map((todo) => todo.position)),
-			task,
-			bare: current === undefined && task === undefined && !this.keysShown,
-		};
+	/** `storage` keeps the hidden lanes for the next visit, when given. */
+	constructor(private readonly storage?: Storage) {
+		this.hidden = hiddenIn(storage);
 	}
 
-	pick(tag: string | null): void {
-		this.set({ picked: tag });
+	show(snapshot: Snapshot): TodosShown {
+		const { todos } = snapshot;
+		return {
+			todos,
+			current: todos.find((todo) => todo.id === this.opened),
+			task: snapshot.tasks.find((found) => found.task === this.openedTask),
+		};
 	}
 
 	open(id: number): void {
@@ -75,17 +51,6 @@ export class TodoView implements Eventful<TodoViewEvents> {
 
 	close(): void {
 		this.set({ opened: null });
-	}
-
-	/** Opens the top todo shown; false when something else is open over it. */
-	openTop(snapshot: Snapshot): boolean {
-		const { bare, todos } = this.show(snapshot);
-		const top = todos[0];
-		if (!bare || top === undefined) {
-			return false;
-		}
-		this.open(top.id);
-		return true;
 	}
 
 	openTask(snapshot: Snapshot, name: string): void {
@@ -100,25 +65,37 @@ export class TodoView implements Eventful<TodoViewEvents> {
 		this.set({ openedTask: null });
 	}
 
-	/** Lists the shortcuts; false when something is open over the list. */
-	showKeys(snapshot: Snapshot): boolean {
-		if (!this.show(snapshot).bare) {
-			return false;
-		}
-		this.set({ keysShown: true });
-		return true;
+	/** Shows lane `lane`, or the untriaged for null, if hidden, else hides it. */
+	toggleLane(lane: number | null): void {
+		this.hide(
+			this.hidden.includes(lane)
+				? this.hidden.filter((other) => other !== lane)
+				: [...this.hidden, lane],
+		);
 	}
 
-	hideKeys(): void {
-		this.set({ keysShown: false });
+	/** Hides `lanes`, null for the untriaged, and shows every other. */
+	hide(lanes: (number | null)[]): void {
+		this.storage?.setItem(HIDDEN, JSON.stringify(lanes));
+		this.set({ hidden: lanes });
 	}
 
 	private set(
-		next: Partial<
-			Pick<TodoView, "picked" | "opened" | "openedTask" | "keysShown">
-		>,
+		next: Partial<Pick<TodoView, "opened" | "openedTask" | "hidden">>,
 	): void {
 		Object.assign(this, next);
 		this.dispatcher.dispatch("changed");
+	}
+}
+
+/** The lanes hidden on the last visit; none when what was kept will not read. */
+function hiddenIn(storage?: Storage): (number | null)[] {
+	try {
+		const kept: unknown = JSON.parse(storage?.getItem(HIDDEN) ?? "[]");
+		return Array.isArray(kept)
+			? kept.filter((lane) => lane === null || typeof lane === "number")
+			: [];
+	} catch {
+		return [];
 	}
 }

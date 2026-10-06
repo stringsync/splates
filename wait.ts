@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { Duration, sleep } from "webappwiz/time";
 import { fail } from "./exit";
+import type { Todos } from "./todos";
 import type { Worktree, WorktreeStatus } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -74,4 +75,56 @@ function report(worktree: Worktree): string {
 		);
 	}
 	return lines.join("\n");
+}
+
+/**
+ * Blocks until todo `id` leaves the list, which it does when the task that
+ * took it merges (or it is removed): what an agent whose next todo comes
+ * after it waits for, not knowing which task will take it. Ends early when
+ * the task that has it is escalated, since that wait is on a person.
+ */
+export async function todoWait(
+	{
+		service,
+		todos,
+		log,
+	}: { service: WorktreeService; todos: Todos; log: Logger },
+	id: number,
+	{ timeout = DEFAULT_TIMEOUT, poll = POLL }: WaitOptions = {},
+): Promise<void> {
+	// Refuses a todo there is no such thing as, which is a typo: one already
+	// gone is a wait that is over before it began, and says so.
+	await todos.find(id);
+	const deadline = Date.now() + timeout.ms;
+	for (;;) {
+		const todo = (await todos.all()).find((each) => each.id === id);
+		if (todo === undefined) {
+			log.info(
+				`${color.bold(`todo ${id}`)} landed or was removed: whatever came after it no longer waits on it`,
+			);
+			return;
+		}
+		const task =
+			todo.takenBy === null ? null : await service.find(todo.takenBy);
+		if (task?.status === "escalated") {
+			log.info(
+				[
+					`${color.bold(`todo ${id}`)} is with ${task.task}, which is escalated`,
+					`  ${color.yellow(`escalated: ${task.state?.escalations?.at(-1)?.reason ?? "no reason given"}`)}`,
+					"",
+					"It waits on a person: tell the user you are blocked on it.",
+				].join("\n"),
+			);
+			return;
+		}
+		const left = deadline - Date.now();
+		if (left <= 0) {
+			fail(
+				"timeout",
+				`todo ${id} is still on the list after ${timeout.secs}s (${todo.takenBy === null ? "nobody has taken it" : `taken by ${todo.takenBy}`}): wait again, or ask the human`,
+				{ todo: id, takenBy: todo.takenBy },
+			);
+		}
+		await sleep(Duration.min(poll, Duration.ms(left)));
+	}
 }

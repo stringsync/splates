@@ -26,7 +26,7 @@ describe("App's feed", () => {
 
 	it("says it is offline when the server goes away", async () => {
 		const view = await testing.open();
-		expect(view.queryByRole("status")).toBeNull();
+		expect(view.queryByText(/Offline/)).toBeNull();
 
 		testing.goAway();
 		await act(async () => testing.stream?.onmessage?.());

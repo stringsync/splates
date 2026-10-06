@@ -21,6 +21,8 @@ export const EXIT = {
 	// 15 was `unread`, gone with the replies that waited to be read: never reuse it.
 	blocked: 16,
 	// 17 was `not_escalated`, gone with answering from the page: never reuse it.
+	cycle: 18,
+	outdated: 19,
 } as const;
 
 export type Reason = keyof typeof EXIT;

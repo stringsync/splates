@@ -105,9 +105,11 @@ configures none.
 
 A merge onto trunk ends by recommending what to do next: the open todo highest
 on the list that came up in the task that landed, since its context is
-freshest, then one sharing a tag with the todos the task settled, the same
-area of work, or failing that the open todo highest on the list, plus any todo older than `todoStalenessMs` (30 days) offered for
-removal instead. The todos the task
+freshest, or failing that the open todo highest on the list, plus any todo older than `todoStalenessMs` (30 days) offered for
+removal instead. A todo blocked by one still open is never recommended.
+When the task's todos ran in a lane, the next is that lane's next todo
+instead, saying what blocks it in another lane if anything, or that the
+lane is done, which removes it. The todos the task
 took up, with `--todo` or `todo take`, leave the list, since that work is now
 done; release one first to keep what is left of it.
 
@@ -230,37 +232,69 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 The todos and the tasks in a browser, on `http://localhost:4269`, reloading
 themselves as anything changes. Built for a phone first.
 
-One page, tasks above the todos.
+Two pages, Todos and Tasks, picked in a sidebar on a wide screen and a bar
+along the bottom of a phone; `#tasks` in the address opens on the tasks.
 
-Todos are cards in list order: drag one to reorder the list (a short press
-on a phone, or Space on its grip and the arrow keys), or tap it to reword,
-attach files to, or remove. A card shows its subject, two lines of its
-detail rendered as markdown, and badges for its files, tags and staleness, and a green edge with
-"Taken by <task>" once a task has taken it; its
-`#7` copies `[ARBOR TODO #7]`, which the agent skill reads as that todo, for
-pasting into a chat. An opened todo shows its detail rendered, with Write and
-Preview to switch between the markdown and how it reads. Typing `@` in a todo offers the files and
-directories in the main tree, tracked or new but not ignored, and writes the
-one picked as `@path/from/root`; picking a directory keeps the list open on
-what is inside. An opened todo's tags are edited there too, comma separated,
-and its `#7` copies the same reference as the card's.
+Todos is a Trello-style board. Its first column, Untriaged, holds every todo
+in no lane, where new ones land; then comes a column for each lane, named,
+one agent's queue read top to bottom with its steps numbered; then "Add
+another lane". Each column ends in "Add a todo", which opens a box at its
+foot: Enter adds the todo at the bottom of that column and leaves the box
+open for the next, Escape puts it away, `@` names a file, and a pasted or
+attached file goes with it.
+
+Drag a card to reorder (a short press on a phone, or Space on its grip and
+the arrow keys), or tap it to reword, attach files to, link or remove.
+A card shows its subject, two lines of its detail rendered as markdown
+outside a lane, and one quiet line under it: its `#7`, an hourglass when
+something outside its lane blocks it, the task that took it, and its files
+and staleness. Its `#7` copies
+`[ARBOR TODO #7]`, which the agent skill reads as that todo, for pasting into
+a chat. An opened todo shows its detail rendered, and a click on it, but on a
+link in it, writes its markdown until you click away. Typing `@` in a todo offers
+the files and directories in the main tree, tracked or new but not ignored,
+and writes the one picked as `@path/from/root`; picking a directory keeps
+the list open on what is inside. An opened todo's `#7` copies the same
+reference as the card's.
 
 Tasks lists every task with a bar for its progress through its plan, counted
 from the checkboxes under `## Done` and `## Next` in its `ARBOR.md`, flagging
 only an escalated or broken status; tapping one opens its details and whole
 plan in a dialog.
 
-A row of tags over the todos filters them, the way a mail client filters by
-label: All, then every tag a todo has. Tapping one there, or on a card, shows
-only its todos. Dragging a card while filtered moves it to the place in the
-whole list of the card it is dropped on, so the todos hidden between them
-shift around it.
+A lane's header has its name, which a tap renames, and says which task is on
+it and on which todo, or, while no agent is, offers "Start lane", which
+copies `[ARBOR LANE N]`, the one-line prompt the agent skill reads as "work
+down lane N". The hourglass on a card blocked from outside its lane names
+what blocks it in a tooltip ("Blocked by #177 in Licensing").
 
-If the server stops answering, the header says it is offline, since what the
+Drag a card up or down its column, onto a card in another column to join it
+just above that card, onto a column's empty space for its bottom, or, while
+dragging, onto the dashed column at the end to start a lane, which then asks
+for the lane's name in place.
+A drop that would put a todo above one in its lane that blocks it is refused,
+saying which. A lane's menu copies its prompt, renames it, moves all its
+todos to the end of another lane, or removes it, untriaging its todos; a lane
+can stay empty until filled, and goes on its own once its last todo merges.
+Agents place the todos they add in lanes as they go, as the skill says, and
+the user reshapes them here. "Lanes" above the board picks which columns
+show, Untriaged included, one by one or all at once, and the browser
+remembers. Under its subject, an
+opened todo has a quiet row of properties: its lane, where "A new lane…"
+asks for the new lane's name in place, and the `#N` of each todo
+it is blocked by and is blocking, naming it in a tooltip, each with an × to
+unlink and a + that searches the todos by number or words, greying out those that would make a
+loop.
+
+`#187` in a todo's markdown links to that todo while it is on the list, and
+is struck through once it is gone (merged or removed), so it never reads as
+still to do.
+
+If the server stops answering, the page says it is offline, since what the
 page shows may be stale.
 
 Todo writes are the same functions as `arbor todo add`, `update` and
-`remove`. Questions are answered in the agent's chat, not here. Merging,
+`remove`, and lane writes the same as the CLI's. Questions are answered in the agent's chat, not here. Merging,
 removing tasks and claiming stay in the CLI, so a page that should not have
 been reachable can at worst change todos. It takes no lease.
 
@@ -344,7 +378,7 @@ imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
 
-### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--tag <tag>]`, `arbor todo list [--json] [--open] [--tag <tags>]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--tag <tag>] [--remove-tag <tag>]`, `arbor todo tags [--json]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo remove <id>`
+### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--blocked-by <ids>] [--lane <lane>]`, `arbor todo list [--json] [--open] [--ready]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--blocked-by <ids>] [--remove-blocked-by <ids>] [--lane <lane>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo wait <id> [--timeout-secs 900]`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -382,12 +416,43 @@ no longer wanted.
 one, named by path or by its stored file name (`todo show` lists them). They
 go when the todo does.
 
-`--tag uploads,merge` tags a todo with the areas or goals it belongs to; a
-todo can have several tags and a tag many todos. A tag is a lowercase word,
-or a few joined by hyphens, and anything else is refused, so one area never
-splits into two spellings. `update --tag` adds tags, `--remove-tag` drops them,
-`list --tag uploads,merge` shows only the todos with any of those tags, and `todo tags` lists every tag in
-use with how many todos have it.
+`--blocked-by 187,191` says a todo is blocked by others: each has to merge
+before it starts. `update --blocked-by` adds links and `--remove-blocked-by`
+drops one, and a link that would make a loop is refused (`cycle`), naming
+each todo in it. A link goes when the todo it points at leaves the list,
+merged with its task or removed, so no todo ever names one that is gone.
+`add --todo` and `take` warn when a todo is blocked by one still open, unless
+the same task takes both, and take it anyway. `list --ready` shows only the
+todos free to start: nobody has them and nothing blocking them is open.
+`show` lists what blocks a todo and what it blocks, its lane and step, and
+each todo its markdown mentions as `#N`, saying which are gone.
+
+`todo wait 177` blocks until todo 177 leaves the list, whichever task takes
+it, for an agent whose next todo it blocks; it ends early when the task
+holding it is escalated, and gives up with `timeout`.
+
+`--lane 2` puts a todo in lane 2, at the bottom, `--lane new` in a lane of its
+own, named after it, and `update --lane none` untriages it. A lane's order is
+the list's, so `--position` reorders within a lane too, and a move that puts
+a todo above one in its lane that blocks it is refused; a link that does so
+moves the todo down instead.
+
+### `arbor lane list [--json]`, `arbor lane show <lane> [--json]`, `arbor lane add <name>`, `arbor lane update <lane> --name <name>`, `arbor lane remove <lane>`
+
+A lane is a named queue of todos for one agent, worked top to bottom, one
+task per todo, so a chain of todos that build on each other stays with one
+agent. Lanes are kept in `.git/arbor/todos/lanes`, in board order; a todo in
+none is untriaged. Each has a number, which commands and `[ARBOR LANE 2]`
+use, never reused, and a name no other lane has. `list` shows each lane's
+name, its todos in order, the tasks on it, its next todo, and what blocks
+that in other lanes. `show 2` prints lane 2 step by step and what its agent
+does next: `arbor add <task> --todo <id>`, or first `arbor todo wait <id>`
+for a todo in another lane. It is what an agent handed `[ARBOR LANE 2]` from
+the `dev` page reads after each merge.
+
+`add` starts an empty lane after the others, `update --name` renames one, and
+`remove` takes one away, untriaging its todos. A lane also goes on its own
+once its last todo merges or is removed.
 
 ### `arbor retry <task>`
 
@@ -422,8 +487,10 @@ The agent's control flow runs on these.
 | 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
-| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging. |
+| 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging. Or `arbor todo wait`: the todo is still on the list. |
 | 16   | `blocked`           | `arbor merge` refused: a question under `## Blocked` is unchecked, unanswered or not yet acted on. Also `escalate --review` while one is. |
+| 18   | `cycle`             | A todo link refused: it would make a loop, named in the message. |
+| 19   | `outdated`          | A todo was saved with tags, from before lanes: arbor reads no todos until `bunx @webappwiz/cli update` moves each tag's todos into a lane named after it. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.

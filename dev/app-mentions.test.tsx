@@ -81,6 +81,9 @@ describe("App's @ files", () => {
 async function todoBox(testing: Testing, paths: string[]) {
 	testing.tree = paths;
 	const view = await testing.open();
+	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: "Add a todo" })),
+	);
 	const box = view.getByRole("textbox", {
 		name: "new todo",
 	}) as HTMLInputElement;

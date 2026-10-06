@@ -333,6 +333,83 @@ describe("dev", () => {
 		});
 	});
 
+	it("links todos and arranges lanes, refusing a loop", async () => {
+		await deps.todos.add("first", null);
+		await deps.todos.add("second", null, { blockedBy: [1] });
+		await deps.todos.add("third", null);
+
+		await serving(async (snapshot, port) => {
+			const send = (method: string, path: string, body: unknown = {}) =>
+				fetch(`http://127.0.0.1:${port}${path}`, {
+					method,
+					headers: {
+						origin: `http://127.0.0.1:${port}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
+				});
+			const state = async (id: number) =>
+				(await snapshot()).todos.find((todo) => todo.id === id);
+
+			const loop = await send("PUT", "/api/todos/1/blocked-by", {
+				blockedBy: [2],
+			});
+			expect(loop.status).toBe(409);
+			expect((await loop.json()).reason).toBe("cycle");
+			expect(
+				(await send("PUT", "/api/todos/3/blocked-by", { blockedBy: [2] }))
+					.status,
+			).toBe(200);
+			expect((await state(3))?.blockedBy).toEqual([2]);
+
+			for (const [id, lane] of [
+				[1, "new"],
+				[2, 1],
+				[3, 1],
+			] as const) {
+				expect(
+					(await send("PUT", `/api/todos/${id}/lane`, { lane })).status,
+				).toBe(200);
+			}
+			expect(
+				(await send("PUT", "/api/todos/3/lane", { lane: "new" })).status,
+			).toBe(200);
+			expect((await state(3))?.lane).toBe(2);
+			expect(
+				(await send("POST", "/api/lanes/2/join", { into: 1 })).status,
+			).toBe(200);
+			expect(
+				(
+					await send("PUT", "/api/todos/2/lane", {
+						lane: "new",
+						name: "Second",
+					})
+				).status,
+			).toBe(200);
+			expect((await state(2))?.lane).toBe(3);
+			expect((await snapshot()).lanes.at(-1)).toEqual({
+				id: 3,
+				name: "Second",
+			});
+			expect((await send("DELETE", "/api/lanes/3")).status).toBe(200);
+			expect((await state(2))?.lane).toBeNull();
+			expect((await send("DELETE", "/api/lanes/9")).status).toBe(404);
+
+			const added = await send("POST", "/api/lanes", { name: "Docs" });
+			expect(await added.json()).toEqual({ id: 4, name: "Docs" });
+			expect(
+				(await send("PUT", "/api/lanes/4", { name: "Guides" })).status,
+			).toBe(200);
+			expect(
+				(await send("PUT", "/api/lanes/1", { name: "guides" })).status,
+			).toBe(409);
+			expect((await snapshot()).lanes.at(-1)).toEqual({
+				id: 4,
+				name: "Guides",
+			});
+		});
+	});
+
 	it("updates and removes a todo", async () => {
 		const todo = await deps.todos.add("write docs", null, {
 			files: [
@@ -353,7 +430,6 @@ describe("dev", () => {
 
 			const form = todoForm("write the docs", [], [kept ?? ""]);
 			form.set("position", "2");
-			form.set("tags", "docs, dev-page");
 			const updated = await write("PATCH", "/api/todos/1", form);
 			expect(updated.status).toBe(200);
 			expect((await snapshot()).todos[1]).toMatchObject({
@@ -361,7 +437,6 @@ describe("dev", () => {
 				subject: "write the docs",
 				position: 2,
 				files: [kept],
-				tags: ["dev-page", "docs"],
 			});
 			expect(await deps.fs.exists(dropped ?? "")).toBe(false);
 

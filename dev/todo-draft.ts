@@ -33,10 +33,11 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 	}
 
 	/**
-	 * Adds the todo and starts the draft over; does nothing when not `ready`.
-	 * A refusal is thrown, and leaves the draft as it was.
+	 * Adds the todo at the bottom of `lane`, or of the untriaged ones for
+	 * null, and starts the draft over; does nothing when not `ready`. A
+	 * refusal is thrown, and leaves the draft as it was.
 	 */
-	async add(): Promise<void> {
+	async add(lane: number | null = null): Promise<void> {
 		if (!this.ready) {
 			return;
 		}
@@ -45,6 +46,7 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 			await addTodo(
 				{ subject: this.subject.text, text: this.detail.text },
 				this.files.files,
+				lane,
 			);
 			this.subject.write("");
 			this.detail.write("");

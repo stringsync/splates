@@ -1,14 +1,13 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { TodoState } from "../todo";
-import { moveTodo, removeTodo, updateTodo } from "./api";
+import { removeTodo, updateTodo } from "./api";
 import { Files } from "./files";
 import { Mentions } from "./mentions";
 
 export type TodoEditorEvents = { changed: undefined };
 
 /**
- * One todo opened: its words, tags and files to change, a way to send it to
- * the top or bottom of the list, and a way to drop it.
+ * One todo opened: its words and files to change, and a way to drop it.
  *
  * Each write gives back its promise, or null when it is not allowed now, and
  * a refusal is thrown from that promise. Once a write lands the editor stays
@@ -22,21 +21,14 @@ export class TodoEditor implements Eventful<TodoEditorEvents> {
 	readonly subject: Mentions;
 	readonly detail: Mentions;
 	readonly files: Files;
-	/** The tags as typed, separated by commas. */
-	tags: string;
 	busy = false;
 	/** Remove was pressed once, and the next press removes for good. */
 	confirming = false;
 
-	constructor(
-		private readonly todo: TodoState,
-		/** The bottom position of the whole list. */
-		private readonly last: number,
-	) {
+	constructor(private readonly todo: TodoState) {
 		this.subject = new Mentions("", todo.subject);
 		this.detail = new Mentions("", todo.text);
 		this.files = new Files(todo.files);
-		this.tags = todo.tags.join(", ");
 		for (const part of [this.subject, this.detail, this.files]) {
 			part.events.on("changed", () => this.dispatcher.dispatch("changed"));
 		}
@@ -49,51 +41,13 @@ export class TodoEditor implements Eventful<TodoEditorEvents> {
 			subject !== "" &&
 			(subject !== this.todo.subject ||
 				this.detail.text.trim() !== this.todo.text ||
-				this.tagged().join(",") !== this.todo.tags.join(",") ||
 				this.files.files.length > 0 ||
 				this.files.keep.length !== this.todo.files.length)
 		);
 	}
 
-	get canMoveUp(): boolean {
-		return !this.busy && this.todo.position > 1;
-	}
-
-	get canMoveDown(): boolean {
-		return !this.busy && this.todo.position < this.last;
-	}
-
-	setTags(tags: string): void {
-		this.tags = tags;
-		this.dispatcher.dispatch("changed");
-	}
-
 	save(): Promise<void> {
 		return this.write(() => this.update());
-	}
-
-	/**
-	 * Puts the todo at `position`, 1 at the top; null when it cannot go that
-	 * way. Words changed on the way go with it, in the one write.
-	 */
-	move(position: number): Promise<void> | null {
-		if (position < this.todo.position ? !this.canMoveUp : !this.canMoveDown) {
-			return null;
-		}
-		return this.write(() =>
-			this.changed ? this.update(position) : moveTodo(this.todo.id, position),
-		);
-	}
-
-	/**
-	 * Saves what changed before stepping to another todo, so nothing typed is
-	 * lost on the way; null while a write is under way.
-	 */
-	leave(): Promise<void> | null {
-		if (this.busy) {
-			return null;
-		}
-		return this.changed ? this.save() : Promise.resolve();
 	}
 
 	/**
@@ -109,19 +63,10 @@ export class TodoEditor implements Eventful<TodoEditorEvents> {
 		return this.write(() => removeTodo(this.todo.id));
 	}
 
-	private tagged(): string[] {
-		return this.tags
-			.split(",")
-			.map((tag) => tag.trim())
-			.filter(Boolean);
-	}
-
-	private update(position?: number): Promise<void> {
+	private update(): Promise<void> {
 		return updateTodo(this.todo.id, {
 			subject: this.subject.text,
 			text: this.detail.text,
-			position,
-			tags: this.tagged(),
 			files: this.files.files,
 			keep: this.files.keep,
 		});
