@@ -50,7 +50,8 @@ describe("App's conversations", () => {
 		if (open !== null) {
 			const nav = view.getByRole("navigation", { name: "conversations" });
 			const item = within(nav)
-				.getAllByRole("button")
+				.getAllByRole("listitem")
+				.flatMap((row) => within(row).getAllByRole("button"))
 				.find((button) => button.textContent?.includes(nameIn(held, open)));
 			if (item === undefined) {
 				throw new Error(`no conversation ${open} listed`);
@@ -59,6 +60,16 @@ describe("App's conversations", () => {
 		}
 		return view;
 	};
+
+	/** Picks an option of a Select: Base UI picks on the pointer let go. */
+	const pick = (option: HTMLElement) =>
+		act(async () => {
+			fireEvent.pointerDown(option, { pointerType: "mouse" });
+			fireEvent.mouseDown(option);
+			fireEvent.pointerUp(option, { pointerType: "mouse" });
+			fireEvent.mouseUp(option);
+			fireEvent.click(option);
+		});
 
 	const nameIn = (held: ConversationState[], id: string) => {
 		const found = held.find((each) => each.id === id);
@@ -100,8 +111,8 @@ describe("App's conversations", () => {
 						.map((item) => item.textContent),
 				]),
 		).toEqual([
-			["alpha", "Fix login"],
 			["Main tree", "Look around"],
+			["alpha", "Fix login"],
 		]);
 		await act(async () =>
 			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
@@ -264,22 +275,49 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("starts a conversation from the home composer, in the task and with the agent picked, and says the message", async () => {
-		const view = await conversations([], null);
+	it("starts a conversation from the home composer, in the main tree with the agent and its settings picked, and says the message", async () => {
+		const view = await conversations(
+			[
+				conversation({
+					id: "c0",
+					agent: "codex",
+					title: "Earlier",
+					settings: [
+						{
+							id: "model",
+							name: "Model",
+							category: "model",
+							current: "big",
+							options: [
+								{ value: "big", name: "Big", description: null },
+								{ value: "small", name: "Small", description: null },
+							],
+						},
+					],
+				}),
+			],
+			null,
+		);
 		testing.reply = conversation({
 			id: "c9",
 			agent: "codex",
-			task: "alpha",
+			task: null,
 			status: "starting",
 		});
-		expect(
-			(view.getByRole("combobox", { name: "task" }) as HTMLSelectElement).value,
-		).toBe("alpha");
+		// Claude has had no conversation, so nothing is known of its settings.
+		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
 
 		await act(async () =>
-			fireEvent.change(view.getByRole("combobox", { name: "agent" }), {
-				target: { value: "codex" },
-			}),
+			fireEvent.click(view.getByRole("combobox", { name: "agent" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: /Codex/ })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("combobox", { name: "model" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: "Small" })),
 		);
 		const box = view.getByRole("textbox", { name: "Message input" });
 		await act(async () =>
@@ -288,7 +326,10 @@ describe("App's conversations", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		expect(posted("/api/conversations")).toEqual([
-			{ method: "POST", body: { agent: "codex", task: "alpha" } },
+			{
+				method: "POST",
+				body: { agent: "codex", task: null, settings: { model: "small" } },
+			},
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
@@ -296,36 +337,21 @@ describe("App's conversations", () => {
 			]),
 		);
 		expect(location.hash).toBe("#conversations/c9");
-		expect(view.getByRole("region", { name: "alpha" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "New conversation" })).toBeTruthy();
 	});
 
-	it("starts a conversation from a task's +, with the agent picked, and opens it", async () => {
-		const view = await conversations([], null);
-		testing.reply = conversation({
-			id: "c9",
-			agent: "codex",
-			task: "alpha",
-			status: "starting",
-		});
-
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: "New conversation in alpha" }),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("menuitem", { name: "Codex" })),
-			),
-		);
-
-		expect(posted("/api/conversations")).toEqual([
-			{ method: "POST", body: { agent: "codex", task: "alpha" } },
+	it("opens the new conversation screen from the sidebar's button", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 		]);
-		await waitFor(() =>
-			expect(view.getByRole("region", { name: "alpha" })).toBeTruthy(),
+		expect(view.queryByRole("region", { name: "new conversation" })).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
 		);
-		expect(location.hash).toBe("#conversations/c9");
+
+		expect(location.hash).toBe("#conversations/new");
+		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
 	});
 
 	it("shows what was said as the server streams it", async () => {
@@ -481,36 +507,88 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("switches the model, and archives the conversation", async () => {
+	it("switches a setting, and archives the conversation", async () => {
 		const view = await conversations([
 			conversation({
-				model: {
-					id: "model",
-					name: "Model",
-					current: "big",
-					options: [
-						{ value: "big", name: "Big", description: null },
-						{ value: "small", name: "Small", description: null },
-					],
-				},
+				settings: [
+					{
+						id: "model",
+						name: "Model",
+						category: "model",
+						current: "big",
+						options: [
+							{ value: "big", name: "Big", description: null },
+							{ value: "small", name: "Small", description: null },
+						],
+					},
+				],
 			}),
 		]);
 
 		await act(async () =>
-			fireEvent.change(view.getByRole("combobox", { name: "model" }), {
-				target: { value: "small" },
-			}),
+			fireEvent.click(view.getByRole("combobox", { name: "model" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: "Small" })),
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Archive" })),
 		);
 
-		expect(posted("/api/conversations/c1/model")).toEqual([
-			{ method: "PUT", body: { model: "small" } },
+		expect(posted("/api/conversations/c1/setting")).toEqual([
+			{ method: "PUT", body: { id: "model", value: "small" } },
 		]);
 		expect(posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
+	});
+
+	it("offers each agent's own settings on the home, a pick for one never reaching the other", async () => {
+		const model = (current: string, names: string[]) => ({
+			id: "model",
+			name: "Model",
+			category: "model",
+			current,
+			options: names.map((name) => ({
+				value: name.toLowerCase(),
+				name,
+				description: null,
+			})),
+		});
+		const view = await conversations(
+			[
+				conversation({
+					id: "c1",
+					settings: [model("opus", ["Opus", "Sonnet"])],
+				}),
+				conversation({
+					id: "c2",
+					agent: "codex",
+					title: "Other",
+					settings: [model("luna", ["Luna", "Sol"])],
+				}),
+			],
+			null,
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("combobox", { name: "model" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: "Sonnet" })),
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("combobox", { name: "agent" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: /Codex/ })),
+		);
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("combobox", { name: "model" }).textContent,
+			).toContain("Luna"),
+		);
 	});
 
 	it("shows an archived conversation shut, to unarchive", async () => {

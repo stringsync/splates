@@ -10,7 +10,18 @@ export type Turn = (
 
 export const AGENT: Agent = { id: "fake", name: "Fake", argv: ["fake-acp"] };
 
-const MODELS: acp.SessionConfigOption[] = [
+const OPTIONS: acp.SessionConfigOption[] = [
+	{
+		id: "mode",
+		name: "Mode",
+		category: "mode",
+		type: "select",
+		currentValue: "ask",
+		options: [
+			{ value: "ask", name: "Ask" },
+			{ value: "auto", name: "Auto" },
+		],
+	},
 	{
 		id: "model",
 		name: "Model",
@@ -33,12 +44,19 @@ export class FakeAgent {
 	cancelled = 0;
 	/** The sessions resumed, by id, in order. */
 	resumed: string[] = [];
-	launched: { argv: string[]; cwd: string }[] = [];
+	/** The settings set, in order. */
+	chosen: { configId: string; value: unknown }[] = [];
+	private options = structuredClone(OPTIONS);
+	launched: { argv: string[]; cwd: string; env: Record<string, string> }[] = [];
 	killed = 0;
 	private exit: (code: number) => void = () => {};
 
-	launch = (argv: string[], cwd: string): AgentProcess => {
-		this.launched.push({ argv, cwd });
+	launch = (
+		argv: string[],
+		cwd: string,
+		env: Record<string, string>,
+	): AgentProcess => {
+		this.launched.push({ argv, cwd, env });
 		const toAgent = new TransformStream<Uint8Array, Uint8Array>();
 		const toClient = new TransformStream<Uint8Array, Uint8Array>();
 		new acp.AgentSideConnection(
@@ -70,18 +88,27 @@ export class FakeAgent {
 				protocolVersion: acp.PROTOCOL_VERSION,
 				agentCapabilities: {},
 			}),
-			newSession: async () => ({ sessionId: "s1", configOptions: MODELS }),
+			newSession: async () => ({
+				sessionId: "s1",
+				configOptions: this.options,
+			}),
 			resumeSession: async ({ sessionId }) => {
 				this.resumed.push(sessionId);
-				return { configOptions: MODELS };
+				return { configOptions: this.options };
 			},
 			authenticate: async () => ({}),
-			setSessionConfigOption: async ({ value }) => ({
-				configOptions: MODELS.map((option) => ({
-					...option,
-					currentValue: String(value),
-				})) as acp.SessionConfigOption[],
-			}),
+			setSessionConfigOption: async ({ configId, value }) => {
+				this.chosen.push({ configId, value });
+				this.options = this.options.map((option) =>
+					option.id === configId
+						? ({
+								...option,
+								currentValue: String(value),
+							} as acp.SessionConfigOption)
+						: option,
+				);
+				return { configOptions: this.options };
+			},
 			prompt: async ({ sessionId, prompt }) => ({
 				stopReason: await this.turn(
 					client,

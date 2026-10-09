@@ -166,14 +166,19 @@ export async function paths(task = ""): Promise<string[]> {
 	return (await response.json()) as string[];
 }
 
-/** Starts a conversation with `agent`, in `task`'s tree or the main tree for null. */
+/**
+ * Starts a conversation with `agent`, in `task`'s tree or the main tree for
+ * null, with `settings` (by id) set once its session offers them.
+ */
 export async function startConversation(
 	agent: string,
 	task: string | null,
+	settings: Record<string, string> = {},
 ): Promise<ConversationState> {
 	return (await sendJson("/api/conversations", "POST", {
 		agent,
 		task,
+		settings,
 	})) as ConversationState;
 }
 
@@ -200,8 +205,15 @@ export async function cancelConversation(id: string): Promise<void> {
 }
 
 /** Switches conversation `id` to `model`. */
-export async function chooseModel(id: string, model: string): Promise<void> {
-	await sendJson(`/api/conversations/${id}/model`, "PUT", { model });
+export async function chooseSetting(
+	id: string,
+	setting: string,
+	value: string,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/setting`, "PUT", {
+		id: setting,
+		value,
+	});
 }
 
 /** Names conversation `id` `name`, or back to the agent's title when blank. */

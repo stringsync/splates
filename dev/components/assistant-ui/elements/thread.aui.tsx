@@ -143,12 +143,14 @@ export type ThreadProps = {
 	above?: ReactNode | undefined;
 	/** Shown in place of the greeting while the thread is empty. */
 	welcome?: ReactNode | undefined;
+	/** In the composer's bottom row, before its buttons: the session's pickers. */
+	controls?: ReactNode | undefined;
 	/** What `@` offers in the composer; nothing when unset. */
 	mentions?: TriggerAdapter | undefined;
 };
 
 const ThreadExtrasContext = createContext<
-	Pick<ThreadProps, "above" | "welcome" | "mentions">
+	Pick<ThreadProps, "above" | "welcome" | "controls" | "mentions">
 >({});
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -195,13 +197,16 @@ export const Thread: FC<ThreadProps> = ({
 	autoFocus = true,
 	above,
 	welcome,
+	controls,
 	mentions,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
 
 	return (
 		<ThreadComponentsContext.Provider value={components}>
-			<ThreadExtrasContext.Provider value={{ above, welcome, mentions }}>
+			<ThreadExtrasContext.Provider
+				value={{ above, welcome, controls, mentions }}
+			>
 				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} />
 			</ThreadExtrasContext.Provider>
 		</ThreadComponentsContext.Provider>
@@ -614,10 +619,14 @@ const ComposerAction: FC = () => {
 			!(s.thread.isRunning && s.thread.capabilities.cancel),
 	);
 
+	const { controls } = useContext(ThreadExtrasContext);
+
 	return (
-		<div className="aui-composer-action-wrapper relative flex items-center justify-between">
+		<div className="aui-composer-action-wrapper relative flex items-center justify-between gap-2">
 			{/* Conversations send text only: no attachments. */}
-			<span />
+			<div className="flex min-w-0 items-center gap-0 overflow-hidden">
+				{controls}
+			</div>
 			<div className="flex items-center gap-1.5">
 				<AuiIf condition={(s) => s.thread.capabilities.dictation}>
 					<AuiIf condition={(s) => s.composer.dictation == null}>

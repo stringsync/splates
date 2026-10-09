@@ -40,13 +40,18 @@ export interface AgentProcess {
 	kill(): void;
 }
 
-/** Starts `argv` in `cwd` with its stdio piped. */
-export type Launch = (argv: string[], cwd: string) => AgentProcess;
+/** Starts `argv` in `cwd`, with `env` added to its own, its stdio piped. */
+export type Launch = (
+	argv: string[],
+	cwd: string,
+	env: Record<string, string>,
+) => AgentProcess;
 
 // TODO: webappwiz/system once `Ps` can start a child with its stdio left open
-export const launch: Launch = (argv, cwd) => {
+export const launch: Launch = (argv, cwd, env) => {
 	const child = Bun.spawn(argv, {
 		cwd,
+		env: { ...process.env, ...env },
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "pipe",
@@ -125,6 +130,8 @@ export type Answer =
 export interface Setting {
 	id: string;
 	name: string;
+	/** What it sets, as ACP names it: mode, model, thought_level, or its own. */
+	category: string | null;
 	current: string;
 	options: { value: string; name: string; description: string | null }[];
 }
@@ -150,8 +157,8 @@ export interface ConversationState {
 	error: string | null;
 	messages: Message[];
 	ask: Ask | null;
-	/** The model, when the agent lets the session pick one. */
-	model: Setting | null;
+	/** What the session lets the person pick: its mode, model, effort. */
+	settings: Setting[];
 	createdAt: string;
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
@@ -169,6 +176,10 @@ type Entry =
 			createdAt: string;
 	  }
 	| { kind: "session"; session: string }
+	/** Moved into a task's worktree, or back to the main tree. */
+	| { kind: "task"; task: string | null; cwd: string }
+	/** What the session offered and had set, kept so the next one can start alike. */
+	| { kind: "settings"; settings: Setting[] }
 	| { kind: "archive"; archived: boolean }
 	| { kind: "rename"; name: string | null }
 	| { kind: "prompt"; text: string }
@@ -224,7 +235,14 @@ export function fold(
 			}
 			return;
 		case "config_option_update":
-			state.model = modelIn(update.configOptions) ?? state.model;
+			state.settings = settingsIn(update.configOptions);
+			return;
+		case "current_mode_update":
+			state.settings = state.settings.map((setting) =>
+				setting.category === "mode"
+					? { ...setting, current: update.currentModeId }
+					: setting,
+			);
 			return;
 		default:
 			return;
@@ -242,29 +260,31 @@ function agentTurn(state: ConversationState): Message {
 	return turn;
 }
 
-/** The session's model setting, if the agent offers one. */
-function modelIn(
+/** The session's settings the agent lets the person pick from, in its order. */
+function settingsIn(
 	options: acp.SessionConfigOption[] | null | undefined,
-): Setting | null {
-	const model = options?.find(
-		(option) => option.category === "model" && option.type === "select",
-	);
-	if (model === undefined || model.type !== "select") {
-		return null;
-	}
-	const flat = model.options.flatMap((option) =>
-		"group" in option ? option.options : [option],
-	);
-	return {
-		id: model.id,
-		name: model.name,
-		current: model.currentValue,
-		options: flat.map((option) => ({
-			value: option.value,
-			name: option.name,
-			description: option.description ?? null,
-		})),
-	};
+): Setting[] {
+	return (options ?? []).flatMap((option) => {
+		if (option.type !== "select") {
+			return [];
+		}
+		const flat = option.options.flatMap((each) =>
+			"group" in each ? each.options : [each],
+		);
+		return [
+			{
+				id: option.id,
+				name: option.name,
+				category: option.category ?? null,
+				current: option.currentValue,
+				options: flat.map((each) => ({
+					value: each.value,
+					name: each.name,
+					description: each.description ?? null,
+				})),
+			},
+		];
+	});
 }
 
 /** A form an agent asks with, as the fields the page shows. */
@@ -320,6 +340,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private readonly saves: Throttler;
 	/** Under way while the agent starts or comes back, for a prompt to wait on. */
 	private opening: Promise<void> | null = null;
+	/** Settings picked before the session opened, set once it has. */
+	private picks: Record<string, string> = {};
 
 	private constructor(
 		readonly state: ConversationState,
@@ -329,8 +351,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		/** What to run to resume it; null when its agent is no longer known. */
 		private readonly agent: Agent | null,
 		/** Where it runs; null for a log too old to say. */
-		private readonly cwd: string | null,
+		private cwd: string | null,
 		private readonly run: Launch,
+		/** Where `arbor dev` answers, for the agent's CLI to tell it things. */
+		private readonly url: string | null,
 	) {
 		this.saves = new Throttler(timer, SAVE_EVERY);
 	}
@@ -347,7 +371,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			timer,
 			agents,
 			launch: run,
-		}: { fs: Fs; timer: Timer; agents: Agent[]; launch: Launch },
+			url,
+		}: {
+			fs: Fs;
+			timer: Timer;
+			agents: Agent[];
+			launch: Launch;
+			url: string | null;
+		},
 	): Promise<Conversation | null> {
 		const lines = (await fs.read(log)).split("\n").filter(Boolean);
 		const entries = lines.flatMap((line) => {
@@ -369,6 +400,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			agents.find((each) => each.id === start.agent) ?? null,
 			start.cwd ?? null,
 			run,
+			url,
 		);
 		conversation.lines.push(...lines.map((line) => `${line}\n`));
 		const { state } = conversation;
@@ -382,6 +414,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				fold(state, entry.update);
 			} else if (entry.kind === "session") {
 				conversation.session = entry.session;
+			} else if (entry.kind === "task") {
+				state.task = entry.task;
+				conversation.cwd = entry.cwd;
+			} else if (entry.kind === "settings") {
+				state.settings = entry.settings;
 			} else if (entry.kind === "archive") {
 				state.archived = entry.archived;
 			} else if (entry.kind === "rename") {
@@ -391,6 +428,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			}
 		}
 		state.status = state.error === null ? "stopped" : "failed";
+		// As last set, for the resumed session to match, picks made while
+		// stopped among them.
+		conversation.picks = Object.fromEntries(
+			state.settings.map((each) => [each.id, each.current]),
+		);
 		return conversation;
 	}
 
@@ -402,14 +444,22 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			task,
 			cwd,
 			log,
+			settings = {},
 		}: {
 			id: string;
 			agent: Agent;
 			task: string | null;
 			cwd: string;
 			log: string;
+			/** Values to set, by setting id, once the session offers them. */
+			settings?: Record<string, string>;
 		},
-		{ fs, timer, launch: run }: { fs: Fs; timer: Timer; launch: Launch },
+		{
+			fs,
+			timer,
+			launch: run,
+			url,
+		}: { fs: Fs; timer: Timer; launch: Launch; url: string | null },
 	): Promise<Conversation> {
 		const conversation = new Conversation(
 			blank(id, agent.id, task, new Date().toISOString()),
@@ -419,6 +469,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			agent,
 			cwd,
 			run,
+			url,
 		);
 		conversation.write({
 			kind: "start",
@@ -428,6 +479,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			cwd,
 			createdAt: conversation.state.createdAt,
 		});
+		conversation.picks = settings;
 		conversation.opening = conversation.open(agent, cwd).finally(() => {
 			conversation.opening = null;
 		});
@@ -441,7 +493,12 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private async open(agent: Agent, cwd: string): Promise<void> {
 		this.set({ status: "starting", error: null });
 		try {
-			const process = this.run(agent.argv, cwd);
+			// The agent's `arbor` finds its conversation, and the server, in its
+			// env, to move the conversation as it takes or lands a task.
+			const process = this.run(agent.argv, cwd, {
+				ARBOR_CONVERSATION: this.id,
+				...(this.url === null ? {} : { ARBOR_DEV: this.url }),
+			});
 			this.process = process;
 			void process.exited.then((code) => {
 				if (this.process === process) {
@@ -465,15 +522,33 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				const session = await connection.newSession({ cwd, mcpServers: [] });
 				this.session = session.sessionId;
 				this.write({ kind: "session", session: session.sessionId });
-				this.state.model = modelIn(session.configOptions);
+				this.state.settings = settingsIn(session.configOptions);
 			} else {
 				const session = await connection.resumeSession({
 					sessionId: this.session,
 					cwd,
 					mcpServers: [],
 				});
-				this.state.model = modelIn(session.configOptions);
+				this.state.settings = settingsIn(session.configOptions);
 			}
+			const picks = this.picks;
+			this.picks = {};
+			for (const [id, value] of Object.entries(picks)) {
+				const setting = this.state.settings.find((each) => each.id === id);
+				if (
+					setting !== undefined &&
+					setting.current !== value &&
+					setting.options.some((option) => option.value === value)
+				) {
+					const response = await connection.setSessionConfigOption({
+						sessionId: this.session,
+						configId: id,
+						value,
+					});
+					this.state.settings = settingsIn(response.configOptions);
+				}
+			}
+			this.write({ kind: "settings", settings: this.state.settings });
 			this.set({ status: "idle" });
 		} catch (error) {
 			await this.close(messageOf(error));
@@ -598,25 +673,42 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 	}
 
-	/** Switches the session's model, when the agent offers that. */
-	async choose(model: string): Promise<void> {
-		const setting = this.state.model;
-		if (
-			setting === null ||
-			this.connection === null ||
-			this.session === null ||
-			!setting.options.some((option) => option.value === model)
-		) {
-			fail("usage", `'${model}' is not a model this agent offers`, {
+	/**
+	 * Sets the session's setting `id` to `value`, one the agent offers: at once
+	 * while the agent runs, or, while it is stopped, when it next resumes.
+	 */
+	async choose(id: string, value: string): Promise<void> {
+		await this.opening;
+		const setting = this.state.settings.find((each) => each.id === id);
+		if (setting === undefined) {
+			fail("usage", `conversation ${this.id} has no setting '${id}'`, {
 				conversation: this.id,
 			});
 		}
+		if (!setting.options.some((option) => option.value === value)) {
+			fail(
+				"usage",
+				`'${value}' is not a ${setting.name.toLowerCase()} this agent offers`,
+				{ conversation: this.id },
+			);
+		}
+		if (this.connection === null || this.session === null) {
+			this.picks = { ...this.picks, [id]: value };
+			const settings = this.state.settings.map((each) =>
+				each.id === id ? { ...each, current: value } : each,
+			);
+			this.write({ kind: "settings", settings });
+			this.set({ settings });
+			return;
+		}
 		const response = await this.connection.setSessionConfigOption({
 			sessionId: this.session,
-			configId: setting.id,
-			value: model,
+			configId: id,
+			value,
 		});
-		this.set({ model: modelIn(response.configOptions) ?? setting });
+		const settings = settingsIn(response.configOptions);
+		this.write({ kind: "settings", settings });
+		this.set({ settings });
 	}
 
 	/** Brings a stopped conversation back: a new process, the same session. */
@@ -637,6 +729,17 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			this.opening = null;
 		});
 		await this.opening;
+	}
+
+	/**
+	 * Follows the agent into a task's worktree, or back to the main tree: a
+	 * running session keeps the directory it opened in, and the agent works by
+	 * absolute path; a resumed one opens in the new.
+	 */
+	move(task: string | null, cwd: string): void {
+		this.cwd = cwd;
+		this.write({ kind: "task", task, cwd });
+		this.set({ task });
 	}
 
 	/** Stops the agent; the next prompt resumes where it left off. */
@@ -734,7 +837,7 @@ function blank(
 		error: null,
 		messages: [],
 		ask: null,
-		model: null,
+		settings: [],
 		createdAt,
 		archived: false,
 	};
@@ -767,6 +870,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly run: Launch;
 	private readonly timer: Timer;
 	private loaded = false;
+	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
+	url: string | null = null;
 
 	constructor(
 		readonly dir: string,
@@ -796,10 +901,17 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		return found;
 	}
 
-	/** Starts a conversation with `agent` in `cwd`, for `task` if it is one's. */
+	/**
+	 * Starts a conversation with `agent` in `cwd`, for `task` if it is one's,
+	 * with `settings` set once the session offers them.
+	 */
 	async start(
 		agent: string,
-		{ task, cwd }: { task: string | null; cwd: string },
+		{
+			task,
+			cwd,
+			settings,
+		}: { task: string | null; cwd: string; settings?: Record<string, string> },
 	): Promise<Conversation> {
 		const chosen = this.agents.find((each) => each.id === agent);
 		if (chosen === undefined) {
@@ -813,8 +925,15 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		await this.fs.mkdir(this.dir);
 		const id = this.ids.next();
 		const conversation = await Conversation.start(
-			{ id, agent: chosen, task, cwd, log: `${this.dir}/${id}.jsonl` },
-			{ fs: this.fs, timer: this.timer, launch: this.run },
+			{
+				id,
+				agent: chosen,
+				task,
+				cwd,
+				log: `${this.dir}/${id}.jsonl`,
+				settings,
+			},
+			{ fs: this.fs, timer: this.timer, launch: this.run, url: this.url },
 		);
 		this.track(conversation);
 		return conversation;
@@ -851,6 +970,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				timer: this.timer,
 				agents: this.agents,
 				launch: this.run,
+				url: this.url,
 			});
 			if (read !== null && !this.known.has(read.id)) {
 				this.track(read);

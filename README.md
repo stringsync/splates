@@ -321,19 +321,24 @@ each started through `bunx` with its ACP adapter
 (`@agentclientprotocol/claude-agent-acp`, `@agentclientprotocol/codex-acp`),
 signed in the way its own CLI is.
 
-The sidebar lists conversations under the task each runs in, every live task
-with a + that starts one there with the agent you pick. The main tree comes
-last: a conversation belongs in a task, and one in the main tree is the
-exception. `#conversations/<id>` in the address opens one. With none open,
-the page is an empty thread: pick the task and the agent by its composer and
-your first message starts the conversation. Under the greeting sit the latest
-conversations to pick back up, those waiting on you first.
+Every conversation starts in the main tree, and follows its agent from
+there: the `arbor` an agent runs from a conversation knows the conversation
+and the server from its env (`ARBOR_CONVERSATION`, `ARBOR_DEV`), so `arbor
+add` and `arbor claim` move the conversation into that task's worktree, and
+`arbor merge` and `arbor remove` move it back. The sidebar lists
+conversations under the task each is in, the main tree first. New
+conversation at the top opens an empty thread: pick the agent by its composer
+and your first message starts the conversation. Under the greeting sit the
+latest conversations to pick back up, those waiting on you first.
+`#conversations/<id>` in the address opens one.
 
 The thread is [assistant-ui](https://www.assistant-ui.com)'s: the agent's
 words as markdown, its thinking and tool calls folded away, and a composer
 where Enter sends, Shift+Enter starts a new line, `@` names a file in the tree
-it works in, and Escape or Stop ends the agent's turn. The model picker lists
-the models the agent offers this account. A permission request offers Deny,
+it works in, and Escape or Stop ends the agent's turn. The pickers in the
+header switch what the session offers, its permission mode, model and effort
+among them; the same pickers on the new conversation screen, from what the
+agent offered last time, set them before the first message. A permission request offers Deny,
 This session and Always (digits 1 to 3); a question (Claude's
 AskUserQuestion) steps through its choices, with a box for an answer of your
 own.

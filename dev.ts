@@ -389,17 +389,40 @@ export async function dev(
 		});
 	};
 
-	const startConversation = async (request: Request): Promise<Response> => {
-		const { agent, task } = await body(request);
+	/** Where a conversation for `task` runs: its worktree, or the main tree. */
+	const treeFor = async (task: unknown): Promise<[string | null, string]> => {
 		const named = typeof task === "string" && task !== "" ? task : null;
 		const worktree = named === null ? null : await service.find(named);
 		if (worktree !== null && !worktree.exists) {
 			fail("not_found", `no worktree for '${named}'`, { task: named });
 		}
+		return [named, worktree?.path ?? service.git.root];
+	};
+
+	const startConversation = async (request: Request): Promise<Response> => {
+		const { agent, task, settings } = await body(request);
+		const [named, cwd] = await treeFor(task);
 		const conversation = await held().start(String(agent ?? ""), {
 			task: named,
-			cwd: worktree?.path ?? service.git.root,
+			cwd,
+			settings: Object.fromEntries(
+				Object.entries(
+					typeof settings === "object" && settings !== null ? settings : {},
+				).map(([id, value]) => [id, String(value)]),
+			),
 		});
+		return Response.json(conversation.state);
+	};
+
+	// The agent's own `arbor` sends this as it takes or lands a task. `from`
+	// names the task it is leaving, so removing some other task moves nothing.
+	const moveConversation = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		const { task, from } = await body(request);
+		const [named, cwd] = await treeFor(task);
+		if (from === undefined || from === conversation.state.task) {
+			conversation.move(named, cwd);
+		}
 		return Response.json(conversation.state);
 	};
 
@@ -423,10 +446,10 @@ export async function dev(
 		return Response.json(conversation.state);
 	};
 
-	const chooseModel = async (request: Request): Promise<Response> => {
+	const chooseSetting = async (request: Request): Promise<Response> => {
 		const conversation = await conversationAt(request);
-		const { model } = await body(request);
-		await conversation.choose(String(model ?? ""));
+		const { id, value } = await body(request);
+		await conversation.choose(String(id ?? ""), String(value ?? ""));
 		return Response.json(conversation.state);
 	};
 
@@ -527,9 +550,10 @@ export async function dev(
 			"/api/conversations/:id/prompt": { POST: talk(promptConversation) },
 			"/api/conversations/:id/answer": { POST: talk(answerConversation) },
 			"/api/conversations/:id/cancel": { POST: talk(cancelConversation) },
-			"/api/conversations/:id/model": { PUT: talk(chooseModel) },
+			"/api/conversations/:id/setting": { PUT: talk(chooseSetting) },
 			"/api/conversations/:id/archived": { PUT: talk(archiveConversation) },
 			"/api/conversations/:id/name": { PUT: talk(renameConversation) },
+			"/api/conversations/:id/task": { PUT: talk(moveConversation) },
 		},
 		fetch: () => new Response("not found", { status: 404 }),
 	});
@@ -538,6 +562,9 @@ export async function dev(
 	// handed to a caller that stops it. Undefined only for a unix socket, which
 	// this never asks for.
 	const port = server.port ?? requested;
+	if (conversations !== null) {
+		conversations.url = `http://localhost:${port}`;
+	}
 
 	log.info(`arbor dev on http://localhost:${port}`);
 	const disposer = new AsyncDisposer();

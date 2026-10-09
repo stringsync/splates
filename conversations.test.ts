@@ -46,23 +46,50 @@ describe("Conversations", () => {
 		return conversation;
 	};
 
-	it("starts the agent in the task's tree and offers its models", async () => {
+	it("starts the agent in the task's tree and offers its settings", async () => {
 		const conversation = await started();
 
 		expect(agent.launched).toEqual([
-			{ argv: ["fake-acp"], cwd: "/repo-arbor/login" },
+			{
+				argv: ["fake-acp"],
+				cwd: "/repo-arbor/login",
+				env: { ARBOR_CONVERSATION: "0" },
+			},
 		]);
 		expect(conversation.state).toMatchObject({
 			agent: "fake",
 			task: "login",
-			model: {
-				current: "big",
-				options: [
-					{ value: "big", name: "Big", description: null },
-					{ value: "small", name: "Small", description: "Fast" },
-				],
-			},
+			settings: [
+				{ id: "mode", category: "mode", current: "ask" },
+				{
+					id: "model",
+					name: "Model",
+					category: "model",
+					current: "big",
+					options: [
+						{ value: "big", name: "Big", description: null },
+						{ value: "small", name: "Small", description: "Fast" },
+					],
+				},
+			],
 		});
+	});
+
+	it("sets the settings picked up front once the session is open, skipping what it already is", async () => {
+		const conversation = await conversations.start("fake", {
+			task: null,
+			cwd: "/repo",
+			settings: { model: "small", mode: "ask", size: "huge" },
+		});
+		await until(conversation, "idle");
+
+		expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
+		expect(
+			conversation.state.settings.map((each) => [each.id, each.current]),
+		).toEqual([
+			["mode", "ask"],
+			["model", "small"],
+		]);
 	});
 
 	it("refuses an agent it does not know", async () => {
@@ -273,14 +300,80 @@ describe("Conversations", () => {
 		expect(conversation.state.ask).toBeNull();
 	});
 
-	it("switches the model to one the agent offers, and refuses any other", async () => {
+	it("switches a setting to a value the agent offers, and refuses any other", async () => {
 		const conversation = await started();
 
-		await conversation.choose("small");
-		expect(conversation.state.model?.current).toBe("small");
-		await expect(conversation.choose("huge")).rejects.toThrow(
+		await conversation.choose("model", "small");
+		expect(
+			conversation.state.settings.find((each) => each.id === "model")?.current,
+		).toBe("small");
+		await expect(conversation.choose("model", "huge")).rejects.toThrow(
 			"'huge' is not a model this agent offers",
 		);
+		await expect(conversation.choose("size", "huge")).rejects.toThrow(
+			"has no setting 'size'",
+		);
+	});
+
+	it("takes a setting while stopped, and sets it as the session resumes", async () => {
+		const conversation = await started();
+		await conversation.stop();
+
+		await conversation.choose("model", "small");
+		expect(
+			conversation.state.settings.find((each) => each.id === "model")?.current,
+		).toBe("small");
+		expect(agent.chosen).toEqual([]);
+
+		await conversation.prompt("go on");
+		await until(conversation, "idle");
+		expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
+	});
+
+	it("keeps a setting picked while stopped across a restart", async () => {
+		const conversation = await started();
+		await conversation.stop();
+		await conversation.choose("mode", "auto");
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		// A new agent process: what it starts with is its own default.
+		agent.chosen = [];
+
+		await read?.prompt("go on");
+		await until(read as Conversation, "idle");
+		expect(agent.chosen).toEqual([{ configId: "mode", value: "auto" }]);
+		await reread.disposeAsync();
+	});
+
+	it("moves into a task's tree and back, and resumes where it was moved to", async () => {
+		agent.turn = async () => "end_turn";
+		const conversation = await started();
+
+		conversation.move("signup", "/repo-arbor/signup");
+
+		expect(conversation.state.task).toBe("signup");
+		await conversation.stop();
+		await conversation.prompt("go on");
+		await until(conversation, "idle");
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo-arbor/signup");
+
+		conversation.move(null, "/repo");
+		await conversation.stop();
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(read?.state.task).toBeNull();
+		await read?.prompt("and on");
+		await until(read as Conversation, "idle");
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
+		await reread.disposeAsync();
 	});
 
 	it("takes a prompt while still starting, and says it once the session is open", async () => {
@@ -327,6 +420,7 @@ describe("Conversations", () => {
 			agent: "fake",
 			task: "login",
 			status: "stopped",
+			settings: [{ id: "mode" }, { id: "model", current: "big" }],
 			messages: [
 				{ role: "user", parts: [{ type: "text", text: "do it" }] },
 				{ role: "agent", parts: [{ type: "text", text: "Done." }] },
@@ -415,6 +509,7 @@ describe("Conversations", () => {
 		expect(lines.map((line) => JSON.parse(line).kind)).toEqual([
 			"start",
 			"session",
+			"settings",
 			"prompt",
 			"update",
 			"update",

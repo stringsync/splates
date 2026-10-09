@@ -585,7 +585,14 @@ describe("dev", () => {
 				});
 				const { id } = (await started.json()) as { id: string };
 				expect(agent.launched).toEqual([
-					{ argv: ["fake-acp"], cwd: (await deps.service.find("alpha")).path },
+					{
+						argv: ["fake-acp"],
+						cwd: (await deps.service.find("alpha")).path,
+						env: {
+							ARBOR_CONVERSATION: id,
+							ARBOR_DEV: `http://localhost:${port}`,
+						},
+					},
 				]);
 				const events = await fetch(
 					`http://localhost:${port}/api/conversations/events`,

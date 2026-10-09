@@ -207,7 +207,7 @@ export function conversation(
 		archived: false,
 		messages: [],
 		ask: null,
-		model: null,
+		settings: [],
 		createdAt: new Date().toISOString(),
 		...overrides,
 	};

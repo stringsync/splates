@@ -9,6 +9,7 @@ import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
+import { follow } from "./follow";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
@@ -60,14 +61,15 @@ arbor
 		description:
 			"take up these todos, comma separated: their words become the plan's Goal, merging removes them, and removing the task puts them back",
 	})
-	.action((opts, ctx) =>
-		ctx.journal.record("add", opts.task, () =>
+	.action(async (opts, ctx) => {
+		await ctx.journal.record("add", opts.task, () =>
 			add(ctx, opts.task, {
 				base: opts.base || undefined,
 				todos: todoIds(opts.todo),
 			}),
-		),
-	);
+		);
+		await follow(ctx, opts.task);
+	});
 
 arbor
 	.command("claim")
@@ -75,20 +77,23 @@ arbor
 		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; an escalated task goes back to working; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
 	)
 	.arg("task", z.string(), { description: "task name" })
-	.action((opts, ctx) =>
-		ctx.journal.record("claim", opts.task, () => claim(ctx, opts.task)),
-	);
+	.action(async (opts, ctx) => {
+		await ctx.journal.record("claim", opts.task, () => claim(ctx, opts.task));
+		await follow(ctx, opts.task);
+	});
 
 arbor
 	.command("merge")
 	.description(
 		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it in whichever worktree has it checked out, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
-	.action(async (_opts, ctx) =>
-		ctx.journal.record("merge", await here(ctx), () =>
-			merge(ctx, ctx.ps.cwd()),
-		),
-	);
+	.action(async (_opts, ctx) => {
+		const task = await here(ctx);
+		await ctx.journal.record("merge", task, () => merge(ctx, ctx.ps.cwd()));
+		if (task !== null) {
+			await follow(ctx, null, task);
+		}
+	});
 
 arbor
 	.command("remove")
@@ -100,11 +105,12 @@ arbor
 		default: false,
 		description: "discard even when another agent holds the lease",
 	})
-	.action((opts, ctx) =>
-		ctx.journal.record("remove", opts.task, () =>
+	.action(async (opts, ctx) => {
+		await ctx.journal.record("remove", opts.task, () =>
 			remove(ctx, opts.task, { force: opts.force }),
-		),
-	);
+		);
+		await follow(ctx, null, opts.task);
+	});
 
 arbor
 	.command("list")

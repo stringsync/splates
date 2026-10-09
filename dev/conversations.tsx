@@ -23,11 +23,16 @@ import { Button } from "#dev/components/ui/button.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuGroup,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "#dev/components/ui/select.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type {
@@ -35,6 +40,7 @@ import type {
 	Ask,
 	ConversationState,
 	Message,
+	Setting,
 	Status,
 } from "../conversations";
 import type { Details } from "../show";
@@ -43,7 +49,7 @@ import {
 	answerConversation,
 	archiveConversation,
 	cancelConversation,
-	chooseModel,
+	chooseSetting,
 	paths,
 	promptConversation,
 	renameConversation,
@@ -54,6 +60,8 @@ import { rank } from "./mentions";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
+/** In place of an id in the address: the screen that starts a conversation. */
+export const NEW = "new";
 
 /**
  * The conversation a `#conversations/<id>` address names, `ARCHIVED` for the
@@ -78,10 +86,10 @@ function nameOf(conversation: ConversationState): string {
 }
 
 /**
- * The sidebar's conversations, grouped by the task each runs in: every live
- * task, each with a + that starts one there, then any task gone since, then
- * the main tree, last since a conversation belongs in a task. Archived ones
- * sit behind a link at the bottom.
+ * The sidebar's conversations, under New conversation, grouped by the task
+ * each runs in: the main tree first, where every conversation starts, then
+ * every live task, then any task gone since. A conversation follows its agent
+ * as it takes and lands tasks. Archived ones sit behind a link at the bottom.
  */
 export function ConversationList({
 	feed,
@@ -111,70 +119,36 @@ export function ConversationList({
 			),
 		),
 	];
-	const groups: { task: string | null; startable: boolean }[] = [
-		...live.map((task) => ({ task, startable: true })),
-		...gone.map((task) => ({ task, startable: false })),
-		{ task: null, startable: true },
-	];
+	const groups: (string | null)[] = [null, ...live, ...gone];
 	const archived = conversations.length - listed.length;
-	const start = (agent: string, task: string | null) =>
-		startConversation(agent, task).then(
-			(state) => {
-				feed.put(state);
-				onOpen(state.id);
-			},
-			(error: unknown) => refused("Not started", error),
-		);
 
 	return (
 		<nav aria-label="conversations" className="flex flex-col gap-3">
-			{groups.map(({ task, startable }) => {
+			<button
+				type="button"
+				aria-current={open === NEW ? "page" : undefined}
+				onClick={() => onOpen(NEW)}
+				className={cn(
+					"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
+					open === NEW && "bg-foreground/[0.09]",
+				)}
+			>
+				<PlusIcon className="size-3.5" />
+				New conversation
+			</button>
+			{groups.map((task) => {
 				const held = listed.filter((each) => each.task === task);
 				const name = task ?? "Main tree";
 				return (
 					<div key={task ?? ""} className="flex flex-col">
-						<div className="flex items-center gap-1 pl-3">
-							<h3
-								className={cn(
-									"min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs",
-									task === null && "font-normal italic",
-								)}
-							>
-								{name}
-							</h3>
-							{startable && (
-								<DropdownMenu>
-									<DropdownMenuTrigger
-										render={
-											<Button
-												size="icon-xs"
-												variant="ghost"
-												aria-label={`New conversation in ${name}`}
-											/>
-										}
-									>
-										<PlusIcon />
-									</DropdownMenuTrigger>
-									<DropdownMenuContent align="start" className="w-56">
-										<DropdownMenuGroup>
-											<DropdownMenuLabel>
-												{task === null
-													? "In the main tree, outside any task"
-													: `In ${task}`}
-											</DropdownMenuLabel>
-											{agents.map((agent) => (
-												<DropdownMenuItem
-													key={agent.id}
-													onClick={() => void start(agent.id, task)}
-												>
-													{agent.name}
-												</DropdownMenuItem>
-											))}
-										</DropdownMenuGroup>
-									</DropdownMenuContent>
-								</DropdownMenu>
+						<h3
+							className={cn(
+								"truncate pl-3 font-medium text-muted-foreground text-xs",
+								task === null && "font-normal italic",
 							)}
-						</div>
+						>
+							{name}
+						</h3>
 						<ul aria-label={name} className="flex flex-col">
 							{held.map((each) => (
 								<li key={each.id}>
@@ -448,6 +422,14 @@ export function Conversations({
 					open={open}
 					onOpen={onOpen}
 				/>
+			) : open === NEW || (open === null && !phone) ? (
+				<Home
+					feed={feed}
+					agents={agents}
+					conversations={conversations.filter((each) => !each.archived)}
+					onOpen={onOpen}
+					onBack={phone ? () => onOpen(null) : null}
+				/>
 			) : open === ARCHIVED ? (
 				<Archived
 					conversations={conversations.filter((each) => each.archived)}
@@ -456,13 +438,7 @@ export function Conversations({
 					onBack={phone ? () => onOpen(null) : null}
 				/>
 			) : shown === null ? (
-				<Home
-					feed={feed}
-					tasks={tasks}
-					agents={agents}
-					conversations={conversations.filter((each) => !each.archived)}
-					onOpen={onOpen}
-				/>
+				<p className="text-muted-foreground text-sm">No such conversation.</p>
 			) : (
 				<Thread
 					key={shown.id}
@@ -480,29 +456,34 @@ const RECENT = 5;
 
 /**
  * The screen with no conversation open: an empty thread whose first message
- * starts one, in the task and with the agent picked by its composer, and
+ * starts one in the main tree, with the agent picked by its composer, and
  * under the greeting the latest conversations to pick back up, those waiting
  * on the person first.
  */
 function Home({
 	feed,
-	tasks,
 	agents,
 	conversations,
 	onOpen,
+	onBack,
 }: {
 	feed: ConversationFeed;
-	tasks: Details[];
 	agents: AgentChoice[];
 	/** The ones not archived, newest first. */
 	conversations: ConversationState[];
 	onOpen: (id: string) => void;
+	/** Back to the list, on a phone; null beside a sidebar. */
+	onBack: (() => void) | null;
 }): JSX.Element {
-	const live = tasks
-		.filter((each) => each.status !== "orphaned")
-		.map((each) => each.task);
-	const [task, setTask] = useState<string | null>(live[0] ?? null);
 	const [agent, setAgent] = useState(agents[0]?.id ?? "");
+	// What the agent's sessions offer is known from its latest conversation
+	// that got as far as a session; the first one with an agent starts with
+	// the agent's own defaults.
+	const offered =
+		conversations.find(
+			(each) => each.agent === agent && each.settings.length > 0,
+		)?.settings ?? [];
+	const [picks, setPicks] = useState<Record<string, string>>({});
 	const [starting, setStarting] = useState(false);
 	const waiting = (each: ConversationState) =>
 		each.ask !== null || each.status === "failed";
@@ -520,7 +501,7 @@ function Home({
 				.join("")
 				.trim();
 			setStarting(true);
-			const state = await startConversation(agent, task).catch(
+			const state = await startConversation(agent, null, picks).catch(
 				(error: unknown) => {
 					setStarting(false);
 					refused("Not started", error);
@@ -536,21 +517,67 @@ function Home({
 			);
 		},
 	});
-	const mentions = useFileMentions(task);
+	const mentions = useFileMentions(null);
 
 	return (
 		<section
 			aria-label="new conversation"
-			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col"
+			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
+			{onBack !== null && (
+				<header className="flex items-center gap-2">
+					<Back onBack={onBack} />
+					<h2 className="font-medium text-sm">New conversation</h2>
+				</header>
+			)}
 			<AssistantRuntimeProvider runtime={runtime}>
 				<ThreadView
 					mentions={mentions ?? undefined}
 					welcome={
 						<div className="mb-6 flex flex-col gap-8 px-2">
-							<p className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both font-medium text-2xl tracking-tight duration-200">
-								Start a conversation
-							</p>
+							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-1 font-medium text-2xl tracking-tight duration-200">
+								<span>Start a conversation with</span>
+								<Select
+									items={agents.map((each) => ({
+										value: each.id,
+										label: each.name,
+									}))}
+									value={agent}
+									onValueChange={(value) => {
+										setAgent(String(value));
+										setPicks({});
+									}}
+								>
+									<SelectTrigger
+										size="sm"
+										aria-label="agent"
+										className="h-auto gap-2 rounded-lg border-foreground/20 bg-muted px-3 py-1 font-medium text-2xl tracking-tight shadow-xs hover:bg-foreground/10 dark:bg-muted dark:hover:bg-foreground/15 [&_svg]:size-5"
+									>
+										<AgentIcon
+											agent={agent}
+											name={agentName(agents, agent)}
+											className="size-5"
+										/>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent
+										align="start"
+										alignItemWithTrigger={false}
+										className="w-auto"
+									>
+										{agents.map((each) => (
+											<SelectItem key={each.id} value={each.id}>
+												<AgentIcon
+													agent={each.id}
+													name={each.name}
+													className="size-3.5"
+												/>
+												{each.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
 							{recent.length > 0 && (
 								<section
 									aria-label="recent conversations"
@@ -574,39 +601,16 @@ function Home({
 							)}
 						</div>
 					}
-					above={
-						<div className="flex items-center gap-2 px-2 text-muted-foreground text-sm">
-							<span>In</span>
-							<select
-								aria-label="task"
-								value={task ?? ""}
-								onChange={(event) =>
-									setTask(event.target.value === "" ? null : event.target.value)
-								}
-								className={SELECT}
-							>
-								{live.map((each) => (
-									<option key={each} value={each}>
-										{each}
-									</option>
-								))}
-								<option value="">Main tree</option>
-							</select>
-							<span>with</span>
-							<select
-								aria-label="agent"
-								value={agent}
-								onChange={(event) => setAgent(event.target.value)}
-								className={SELECT}
-							>
-								{agents.map((each) => (
-									<option key={each.id} value={each.id}>
-										{each.name}
-									</option>
-								))}
-							</select>
-						</div>
-					}
+					controls={offered.map((setting) => (
+						<SettingSelect
+							key={setting.id}
+							setting={setting}
+							value={picks[setting.id] ?? setting.current}
+							onChange={(value) =>
+								setPicks((picks) => ({ ...picks, [setting.id]: value }))
+							}
+						/>
+					))}
 				/>
 			</AssistantRuntimeProvider>
 		</section>
@@ -614,6 +618,74 @@ function Home({
 }
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
+
+/**
+ * A picker in the composer's bottom row: quiet until hovered, as in Zed, and
+ * small, so the row holds them all on one line.
+ */
+const IN_COMPOSER =
+	"h-6 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
+
+/** One of a session's settings, picked from what the agent offers. */
+function SettingSelect({
+	setting,
+	value,
+	onChange,
+}: {
+	setting: Setting;
+	value: string;
+	onChange: (value: string) => void;
+}): JSX.Element {
+	const known = setting.options.some((option) => option.value === value);
+	return (
+		<Select
+			// Base UI keeps a picker's items once it has them, and shows a
+			// value it cannot find as its text, "null" among them: a picker
+			// reused for another agent's options must start over.
+			key={setting.options.map((option) => option.value).join("\n")}
+			items={setting.options.map((option) => ({
+				value: option.value,
+				label: option.name,
+			}))}
+			value={known ? value : setting.current}
+			onValueChange={(value) => {
+				if (value !== null) {
+					onChange(String(value));
+				}
+			}}
+		>
+			<SelectTrigger
+				size="sm"
+				aria-label={setting.name.toLowerCase()}
+				title={setting.name}
+				className={IN_COMPOSER}
+			>
+				{/* A mode or model says what it is by its value; "Off" or "High"
+				    alone would not. */}
+				{setting.category !== "mode" && setting.category !== "model" && (
+					<span className="text-muted-foreground/70">{setting.name}</span>
+				)}
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent
+				side="top"
+				align="start"
+				alignItemWithTrigger={false}
+				className="w-auto"
+			>
+				{setting.options.map((option) => (
+					<SelectItem
+						key={option.value}
+						value={option.value}
+						title={option.description ?? undefined}
+					>
+						{option.name}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
+	);
+}
 
 /** A conversation to pick back up: its mark, name, where it runs, its state. */
 function Recent({
@@ -730,7 +802,7 @@ function Thread({
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
-	const { id, status, model, archived } = conversation;
+	const { id, status, settings, archived } = conversation;
 	const running = status === "running";
 	const messages = useMemo(
 		() => conversation.messages.map((message, index) => like(message, index)),
@@ -789,24 +861,7 @@ function Thread({
 				) : (
 					<StatusBadge status={status} />
 				)}
-				{model !== null && !archived && (
-					<select
-						aria-label="model"
-						value={model.current}
-						onChange={(event) =>
-							chooseModel(id, event.target.value).catch((error: unknown) =>
-								refused("Model not switched", error),
-							)
-						}
-						className={SELECT}
-					>
-						{model.options.map((option) => (
-							<option key={option.value} value={option.value}>
-								{option.name}
-							</option>
-						))}
-					</select>
-				)}
+
 				<Button
 					variant="outline"
 					size="sm"
@@ -829,6 +884,22 @@ function Thread({
 				<AssistantRuntimeProvider runtime={runtime}>
 					<ThreadView
 						mentions={mentions ?? undefined}
+						controls={
+							!archived &&
+							settings.map((setting) => (
+								<SettingSelect
+									key={setting.id}
+									setting={setting}
+									value={setting.current}
+									onChange={(value) =>
+										chooseSetting(id, setting.id, value).catch(
+											(error: unknown) =>
+												refused(`${setting.name} not switched`, error),
+										)
+									}
+								/>
+							))
+						}
 						above={
 							conversation.ask !== null && (
 								<AskPanel
