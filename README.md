@@ -550,8 +550,8 @@ Records are written to a temp file and `rename()`d into place, so a concurrent
 reader never sees half a file. The merge lock is `mkdir` on
 `.git/arbor/merge.lock`: atomic everywhere, no dependencies, and it either
 succeeds or fails with no check-then-write window. A holder that dies is
-detected (dead pid, or a timestamp past `leaseStalenessMs`) and its lock is
-stolen, loudly.
+detected (dead pid, or for a holder on another host a timestamp past
+`leaseStalenessMs`) and its lock is stolen, loudly.
 
 A lease is **held** while its pid still exists, for a holder on this host, or
 while its heartbeat is fresh, for a holder on another. Every arbor command is
