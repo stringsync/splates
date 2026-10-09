@@ -39,19 +39,21 @@ export class Worktree {
 	}
 
 	get leaseHeld(): boolean {
-		// The pid check matters because every arbor command is its own short-lived
-		// process: without it a tree would stay locked for the whole staleness
-		// window after a command that merely finished, and `add` would block the
-		// `merge` that follows it.
+		// On this host the pid alone decides. Every arbor command is its own
+		// short-lived process, so a lease goes stale the moment its command
+		// exits, and nothing refreshes the heartbeat while one runs: judged by
+		// age, a merge whose test gate outlasts the staleness window could be
+		// claimed out from under it. The heartbeat only judges a holder on
+		// another host, whose pid cannot be checked.
 		const { lease } = this;
 		const { ps, config } = this.service;
 		if (!lease) {
 			return false;
 		}
-		if (Date.now() - Date.parse(lease.heartbeatAt) >= config.leaseStalenessMs) {
-			return false;
+		if (lease.hostname === ps.hostname) {
+			return ps.alive(lease.pid);
 		}
-		return lease.hostname === ps.hostname ? ps.alive(lease.pid) : true;
+		return Date.now() - Date.parse(lease.heartbeatAt) < config.leaseStalenessMs;
 	}
 
 	get leaseStatus(): "held" | "stale" | "none" {

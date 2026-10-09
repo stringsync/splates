@@ -24,11 +24,22 @@ describe("claim", () => {
 
 		await expect(claim(deps, "alpha")).toBail("lease_held");
 
-		// The same lease, gone cold because the heartbeat aged out.
+		// An old heartbeat does not cool a live pid on this host: a merge whose
+		// test gate outlasts the staleness window is still running.
 		await (await deps.service.find("alpha")).save({
 			lease: {
 				pid: LIVE_PID,
 				hostname: deps.ps.hostname,
+				heartbeatAt: new Date(Date.now() - 120_000).toISOString(),
+			},
+		});
+		await expect(claim(deps, "alpha")).toBail("lease_held");
+
+		// A holder on another host goes cold when its heartbeat ages out.
+		await (await deps.service.find("alpha")).save({
+			lease: {
+				pid: LIVE_PID,
+				hostname: "elsewhere",
 				heartbeatAt: new Date(Date.now() - 120_000).toISOString(),
 			},
 		});

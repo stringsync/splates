@@ -66,7 +66,6 @@ export function fingerprint({ todos, lanes, tasks }: Snapshot): string {
 		tasks.map((task) => [
 			task.task,
 			task.status,
-			task.lease,
 			task.ahead,
 			task.added,
 			task.removed,

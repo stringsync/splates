@@ -100,7 +100,6 @@ export function Task({ task }: { task: Details }): JSX.Element {
 		["branch", task.branch],
 		["base", task.base],
 		["worktree", task.worktree],
-		["lease", task.lease],
 		["commits", String(task.ahead ?? "?")],
 
 		[

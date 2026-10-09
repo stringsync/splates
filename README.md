@@ -553,11 +553,12 @@ succeeds or fails with no check-then-write window. A holder that dies is
 detected (dead pid, or a timestamp past `leaseStalenessMs`) and its lock is
 stolen, loudly.
 
-A lease is **held** when its heartbeat is fresh *and*, for a holder on this
-host, its pid still exists. The pid check matters because every arbor command is
-its own short-lived process: without it, a tree would stay locked for the whole
-staleness window after a command that merely finished, and `add` would block
-the `merge` that follows it.
+A lease is **held** while its pid still exists, for a holder on this host, or
+while its heartbeat is fresh, for a holder on another. Every arbor command is
+its own short-lived process, so a lease goes stale the moment its command exits:
+`stale` is the normal state of a task mid-edit. Nothing refreshes the heartbeat
+while a command runs, so on this host it is never consulted: a merge whose test
+gate outlasts `leaseStalenessMs` keeps its tree.
 
 ### `git rerere`
 
