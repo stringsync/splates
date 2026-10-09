@@ -853,11 +853,12 @@ const UserMessage: FC = () => {
 };
 
 /**
- * What the person said, across the thread's full width like the reply: a
- * quiet tint, opaque so a reply passing under a pinned one stays hidden.
+ * What the person said, across the thread's full width like the reply: the
+ * theme's muted fill, set apart from the page, and opaque so a reply passing
+ * under a pinned one stays hidden.
  */
 const USER_BOX =
-	"text-foreground rounded-lg border border-foreground/15 bg-[color-mix(in_oklab,var(--color-foreground)_3%,var(--color-background))] px-4 py-2.5 wrap-break-word";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 px-4 py-2.5 wrap-break-word";
 
 /** Lines of a message shown before it is clicked open. */
 const CLAMP = "max-h-24";
