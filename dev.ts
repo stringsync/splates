@@ -7,7 +7,9 @@ import {
 	type PortProvider,
 	type Ps,
 } from "webappwiz/system";
+import { Duration, SystemTimer, Throttler } from "webappwiz/time";
 import type { Attachment } from "./attachments";
+import type { Answer, Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Journal } from "./journal";
@@ -26,6 +28,10 @@ export const PORT_SPAN = 20;
  * when the repo changes, where a person adds, edits, reorders and removes
  * todos. Anything that moves a task (merge, remove, claim) stays in the CLI,
  * so a page that should not have been reachable can at worst change a todo.
+ *
+ * Given `conversations`, the page also talks to agents, which run commands on
+ * this machine. Those routes answer only to this machine's own names, never to
+ * a host `hosts` lets in, so a tunnel still reaches no further than the todos.
  */
 export async function dev(
 	{
@@ -45,7 +51,11 @@ export async function dev(
 		log: Logger;
 		assets: Assets;
 	},
-	{ ports = devPorts(DEFAULT_PORT), hosts = [] }: DevOptions = {},
+	{
+		ports = devPorts(DEFAULT_PORT),
+		hosts = [],
+		conversations = null,
+	}: DevOptions = {},
 ): Promise<DevServer> {
 	const home = ps.env("HOME");
 	const read = () => snapshot({ service, todos, fs, home });
@@ -340,6 +350,144 @@ export async function dev(
 		return Response.json(found.state);
 	};
 
+	// Refused, rather than missing, for any name but this machine's own: a
+	// tunnel's visitor learns the feature exists, and nothing more.
+	const local =
+		(handle: (request: Request) => Promise<Response>) =>
+		async (request: Request): Promise<Response> =>
+			LOCAL_HOSTS.includes(hostname(request.headers.get("host") ?? ""))
+				? handle(request)
+				: refuse(
+						403,
+						"forbidden",
+						"conversations run commands on this machine: open the page on it",
+					);
+	const talk = (handle: (request: Request) => Promise<Response>) =>
+		guarded(local(handle));
+
+	/** The conversations a page may hold, or a refusal when they are off. */
+	const held = (): Conversations => {
+		if (conversations === null) {
+			fail(
+				"not_found",
+				"conversations are off: run `arbor dev --experimental`",
+				{},
+			);
+		}
+		return conversations;
+	};
+
+	/** The conversation a `/api/conversations/<id>` path names. */
+	const conversationAt = (request: Request) =>
+		held().find(new URL(request.url).pathname.split("/")[3] ?? "");
+
+	const listConversations = async (): Promise<Response> => {
+		const all = held();
+		return Response.json({
+			agents: all.agents.map(({ id, name }) => ({ id, name })),
+			conversations: (await all.list()).map((each) => each.state),
+		});
+	};
+
+	const startConversation = async (request: Request): Promise<Response> => {
+		const { agent, task } = await body(request);
+		const named = typeof task === "string" && task !== "" ? task : null;
+		const worktree = named === null ? null : await service.find(named);
+		if (worktree !== null && !worktree.exists) {
+			fail("not_found", `no worktree for '${named}'`, { task: named });
+		}
+		const conversation = await held().start(String(agent ?? ""), {
+			task: named,
+			cwd: worktree?.path ?? service.git.root,
+		});
+		return Response.json(conversation.state);
+	};
+
+	const promptConversation = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		const { text } = await body(request);
+		await conversation.prompt(String(text ?? ""));
+		return Response.json(conversation.state);
+	};
+
+	const answerConversation = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		const { ask, answer } = await body(request);
+		conversation.answer(String(ask ?? ""), answer as Answer);
+		return Response.json(conversation.state);
+	};
+
+	const cancelConversation = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		await conversation.cancel();
+		return Response.json(conversation.state);
+	};
+
+	const chooseModel = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		const { model } = await body(request);
+		await conversation.choose(String(model ?? ""));
+		return Response.json(conversation.state);
+	};
+
+	const renameConversation = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		const { name } = await body(request);
+		await conversation.rename(String(name ?? ""));
+		return Response.json(conversation.state);
+	};
+
+	const archiveConversation = async (request: Request): Promise<Response> => {
+		const conversation = await conversationAt(request);
+		const { archived } = await body(request);
+		await (archived === false
+			? conversation.unarchive()
+			: conversation.archive());
+		return Response.json(conversation.state);
+	};
+
+	// Each change carries the whole conversation, since an agent streams in
+	// small pieces and a page refetching after each would fall behind. At most
+	// one per conversation per beat, the latest, which holds everything before.
+	const listeners = new Set<ReadableStreamDefaultController<Uint8Array>>();
+	const beats = new Map<string, Throttler>();
+	const timer = new SystemTimer();
+	const unlisten = conversations?.events.on("changed", (id) => {
+		const beat = beats.get(id) ?? new Throttler(timer, BEAT);
+		beats.set(id, beat);
+		beat.call(async () => {
+			const state = (await conversations.find(id)).state;
+			const chunk = encoder.encode(`data: ${JSON.stringify(state)}\n\n`);
+			for (const stream of listeners) {
+				stream.enqueue(chunk);
+			}
+		});
+	});
+	const conversationEvents = async (): Promise<Response> => {
+		held();
+		let self: ReadableStreamDefaultController<Uint8Array> | null = null;
+		return new Response(
+			new ReadableStream<Uint8Array>({
+				start: (stream) => {
+					self = stream;
+					listeners.add(stream);
+					stream.enqueue(encoder.encode(": connected\n\n"));
+				},
+				cancel: () => {
+					if (self) {
+						listeners.delete(self);
+					}
+				},
+			}),
+			{
+				headers: {
+					"content-type": "text/event-stream",
+					"cache-control": "no-cache",
+				},
+			},
+		);
+	};
+
 	const requested = await ports.get();
 	const server = Bun.serve({
 		port: requested,
@@ -371,6 +519,17 @@ export async function dev(
 			"/api/lanes": { POST: guarded(addLane) },
 			"/api/lanes/:id": { PUT: guarded(updateLane), DELETE: guarded(dropLane) },
 			"/events": guarded(async () => events()),
+			"/api/conversations": {
+				GET: talk(listConversations),
+				POST: talk(startConversation),
+			},
+			"/api/conversations/events": talk(conversationEvents),
+			"/api/conversations/:id/prompt": { POST: talk(promptConversation) },
+			"/api/conversations/:id/answer": { POST: talk(answerConversation) },
+			"/api/conversations/:id/cancel": { POST: talk(cancelConversation) },
+			"/api/conversations/:id/model": { PUT: talk(chooseModel) },
+			"/api/conversations/:id/archived": { PUT: talk(archiveConversation) },
+			"/api/conversations/:id/name": { PUT: talk(renameConversation) },
 		},
 		fetch: () => new Response("not found", { status: 404 }),
 	});
@@ -385,11 +544,21 @@ export async function dev(
 	// true drains open connections rather than cutting them mid-response
 	disposer.defer(() => server.stop(true));
 	disposer.defer(async () => clearInterval(poll));
+	disposer.defer(async () => {
+		unlisten?.();
+		for (const beat of beats.values()) {
+			beat.dispose();
+		}
+		await conversations?.disposeAsync();
+	});
 	return {
 		port,
 		disposeAsync: disposer.disposeAsync,
 	};
 }
+
+/** How often an open page hears about one conversation while its agent streams. */
+const BEAT = Duration.ms(50);
 
 /** How often the repo is re-read to decide whether open pages should refetch. */
 const POLL_MS = 2_000;
@@ -433,6 +602,11 @@ export interface DevOptions {
 	 * localhost. Who may use those names is the tunnel's business, not arbor's.
 	 */
 	hosts?: string[];
+	/**
+	 * The conversations the page may hold with agents; without them the page
+	 * has none to show, and the routes say they are off.
+	 */
+	conversations?: Conversations | null;
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */

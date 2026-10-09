@@ -5,6 +5,8 @@
  * caller can show it.
  */
 
+import type { Answer, ConversationState } from "../conversations";
+
 export class ApiError extends Error {
 	constructor(
 		readonly reason: string,
@@ -162,4 +164,58 @@ export async function paths(task = ""): Promise<string[]> {
 		throw new ApiError("error", `/api/paths: ${response.status}`);
 	}
 	return (await response.json()) as string[];
+}
+
+/** Starts a conversation with `agent`, in `task`'s tree or the main tree for null. */
+export async function startConversation(
+	agent: string,
+	task: string | null,
+): Promise<ConversationState> {
+	return (await sendJson("/api/conversations", "POST", {
+		agent,
+		task,
+	})) as ConversationState;
+}
+
+/** Says `text` to the agent in conversation `id`. */
+export async function promptConversation(
+	id: string,
+	text: string,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/prompt`, "POST", { text });
+}
+
+/** Answers what the agent in conversation `id` is asking, by the ask's id. */
+export async function answerConversation(
+	id: string,
+	ask: string,
+	answer: Answer,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/answer`, "POST", { ask, answer });
+}
+
+/** Stops the agent's turn in conversation `id`, keeping the conversation. */
+export async function cancelConversation(id: string): Promise<void> {
+	await send(`/api/conversations/${id}/cancel`, {});
+}
+
+/** Switches conversation `id` to `model`. */
+export async function chooseModel(id: string, model: string): Promise<void> {
+	await sendJson(`/api/conversations/${id}/model`, "PUT", { model });
+}
+
+/** Names conversation `id` `name`, or back to the agent's title when blank. */
+export async function renameConversation(
+	id: string,
+	name: string,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/name`, "PUT", { name });
+}
+
+/** Puts conversation `id` away, stopping its agent, or back on the list. */
+export async function archiveConversation(
+	id: string,
+	archived: boolean,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/archived`, "PUT", { archived });
 }

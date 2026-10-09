@@ -4,6 +4,7 @@ import "../../../setup";
 import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
+import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
@@ -26,7 +27,7 @@ export interface Post {
 
 /** The handlers `Feed` sets on its `EventSource`, for a test to call. */
 export interface Stream {
-	onmessage: (() => void) | null;
+	onmessage: ((event?: { data: string }) => void) | null;
 	onopen: (() => void) | null;
 	onerror: (() => void) | null;
 }
@@ -51,6 +52,16 @@ export class Testing implements Resource {
 	readonly posts: Post[] = [];
 	/** The stream the page opened, so a test can push through it. */
 	stream: Stream | null = null;
+	/**
+	 * The conversations `/api/conversations` lists, and the agents beside them;
+	 * null, the default, answers as `arbor dev` without `--experimental` does.
+	 */
+	talk: {
+		agents: { id: string; name: string }[];
+		conversations: ConversationState[];
+	} | null = null;
+	/** The conversations' own stream, once the page opens it. */
+	talkStream: Stream | null = null;
 	#down = false;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
@@ -67,6 +78,11 @@ export class Testing implements Resource {
 			if (path.startsWith("/api/paths")) {
 				return Response.json(this.tree);
 			}
+			if (path === "/api/conversations") {
+				return this.talk === null
+					? Response.json({ reason: "not_found" }, { status: 404 })
+					: Response.json(this.talk);
+			}
 			return Response.json(this.served);
 		}) as unknown as typeof fetch;
 		const testing = this;
@@ -75,13 +91,24 @@ export class Testing implements Resource {
 			onopen: (() => void) | null = null;
 			onerror: (() => void) | null = null;
 
-			constructor() {
-				testing.stream = this;
+			constructor(url: string) {
+				if (url === "/api/conversations/events") {
+					testing.talkStream = this;
+				} else {
+					testing.stream = this;
+				}
 			}
 
 			// `EventSource`'s own name for it, which `Feed` calls; nothing is held.
 			close(): void {}
 		} as unknown as typeof EventSource;
+	}
+
+	/** Streams `state` to the page, as the server does when a conversation moves. */
+	async say(state: ConversationState): Promise<void> {
+		await act(async () =>
+			this.talkStream?.onmessage?.({ data: JSON.stringify(state) }),
+		);
 	}
 
 	/** Fails every fetch from now on, standing in for a server that went away. */
@@ -162,6 +189,26 @@ export function todo(overrides: Partial<TodoState> = {}): TodoState {
 		files: [],
 		blockedBy: [],
 		lane: null,
+		...overrides,
+	};
+}
+
+export function conversation(
+	overrides: Partial<ConversationState> = {},
+): ConversationState {
+	return {
+		id: "c1",
+		agent: "claude",
+		task: null,
+		title: null,
+		status: "idle",
+		error: null,
+		name: null,
+		archived: false,
+		messages: [],
+		ask: null,
+		model: null,
+		createdAt: new Date().toISOString(),
 		...overrides,
 	};
 }

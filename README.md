@@ -227,7 +227,7 @@ a successful `merge` and a `remove` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 1000 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
-### `arbor dev [--port 4269] [--allow-hosts <names>]`
+### `arbor dev [--port 4269] [--allow-hosts <names>] [--experimental]`
 
 The todos and the tasks in a browser, on `http://localhost:4269`, reloading
 themselves as anything changes. Built for a phone first.
@@ -311,6 +311,39 @@ arbor has no login of its own. Whoever can reach an allowed host can read the
 repo's plans and change its todos, so the tunnel has to be the one asking who you are
 (Cloudflare Access, a Tailscale tailnet). Never expose it through a tunnel
 with no login in front.
+
+#### Conversations (experimental)
+
+`--experimental` turns on what is still being tried out. For now that is a
+third page, Conversations, where you talk to an agent that speaks the
+[Agent Client Protocol](https://agentclientprotocol.com): Claude or Codex,
+each started through `bunx` with its ACP adapter
+(`@agentclientprotocol/claude-agent-acp`, `@agentclientprotocol/codex-acp`),
+signed in the way its own CLI is.
+
+The sidebar lists conversations under the task each runs in, every live task
+with a + that starts one there with the agent you pick. The main tree comes
+last: a conversation belongs in a task, and one in the main tree is the
+exception. `#conversations/<id>` in the address opens one.
+
+The thread is [assistant-ui](https://www.assistant-ui.com)'s: the agent's
+words as markdown, its thinking and tool calls folded away, and a composer
+where Enter sends, Shift+Enter starts a new line, `@` names a file in the tree
+it works in, and Escape or Stop ends the agent's turn. The model picker lists
+the models the agent offers this account. A permission request offers Deny,
+This session and Always (digits 1 to 3); a question (Claude's
+AskUserQuestion) steps through its choices, with a box for an answer of your
+own.
+
+A conversation has no end. Its agent stops when `arbor dev` does, and the next
+message resumes the same session in a new process. Archive puts one away,
+stopping its agent; Archived, at the bottom of the sidebar, lists them, and
+Unarchive brings one back. Every conversation is logged under
+`.git/arbor/conversations`, one JSON-lines file each.
+
+Conversations run commands on this machine, so their routes answer only to
+`localhost`, `127.0.0.1` and `[::1]`: a host named in `--allow-hosts` still
+reaches the todos and tasks, and is refused the conversations.
 
 ### `arbor path [task]`
 

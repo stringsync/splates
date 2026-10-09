@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
+import { Conversations } from "./conversations";
 import { dev, devPorts } from "./dev";
+import { AGENT, FakeAgent, say } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
 import { Testing } from "./testing";
 
@@ -515,5 +517,187 @@ describe("dev", () => {
 		} finally {
 			await server.disposeAsync();
 		}
+	});
+
+	describe("conversations", () => {
+		let agent: FakeAgent;
+		let conversations: Conversations;
+
+		beforeEach(() => {
+			agent = new FakeAgent();
+			conversations = new Conversations(
+				`${deps.arborDir}/conversations`,
+				[AGENT],
+				{
+					launch: agent.launch,
+				},
+			);
+		});
+
+		const json = (port: number, path: string, method: string, body = {}) =>
+			fetch(`http://127.0.0.1:${port}${path}`, {
+				method,
+				headers: {
+					origin: `http://127.0.0.1:${port}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(body),
+			});
+
+		it("says they are off unless asked for", async () => {
+			await serving(async (_, port) => {
+				const response = await fetch(
+					`http://localhost:${port}/api/conversations`,
+				);
+
+				expect(response.status).toBe(404);
+				expect(await response.json()).toMatchObject({
+					reason: "not_found",
+					message: "conversations are off: run `arbor dev --experimental`",
+				});
+			});
+		});
+
+		it("starts one in a task's tree, streams the agent's turn, and archives it", async () => {
+			await add(deps, "alpha");
+			agent.turn = async (client, sessionId) => {
+				await client.sessionUpdate({ sessionId, update: say("Hello ") });
+				await client.sessionUpdate({ sessionId, update: say("there.") });
+				return "end_turn";
+			};
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations,
+			});
+			try {
+				const { port } = server;
+				const listed = await (
+					await fetch(`http://localhost:${port}/api/conversations`)
+				).json();
+				expect(listed).toEqual({
+					agents: [{ id: "fake", name: "Fake" }],
+					conversations: [],
+				});
+
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+					task: "alpha",
+				});
+				const { id } = (await started.json()) as { id: string };
+				expect(agent.launched).toEqual([
+					{ argv: ["fake-acp"], cwd: (await deps.service.find("alpha")).path },
+				]);
+				const events = await fetch(
+					`http://localhost:${port}/api/conversations/events`,
+				);
+				const reader = events.body?.getReader();
+				if (!reader) {
+					throw new Error("no event stream");
+				}
+				for (let i = 0; i < 100; i++) {
+					const response = await json(
+						port,
+						`/api/conversations/${id}/prompt`,
+						"POST",
+						{
+							text: "hi",
+						},
+					);
+					if (response.status === 200) {
+						break;
+					}
+					// Still starting: the agent has yet to open its session.
+					await Bun.sleep(5);
+				}
+
+				expect(await readUntil(reader, "Hello there.")).toContain(
+					'"role":"agent"',
+				);
+				await reader.cancel();
+				const archived = await json(
+					port,
+					`/api/conversations/${id}/archived`,
+					"PUT",
+					{ archived: true },
+				);
+				expect(await archived.json()).toMatchObject({
+					id,
+					status: "stopped",
+					archived: true,
+				});
+				expect(agent.killed).toBe(1);
+			} finally {
+				await server.disposeAsync();
+			}
+		}, 15_000);
+
+		it("refuses a conversation in a task with no worktree", async () => {
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations,
+			});
+			try {
+				const response = await json(server.port, "/api/conversations", "POST", {
+					agent: "fake",
+					task: "nope",
+				});
+
+				expect(response.status).toBe(404);
+				expect(agent.launched).toEqual([]);
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("answers only to this machine, even for a host the board lets in", async () => {
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				hosts: ["repo.arbor.example"],
+				conversations,
+			});
+			try {
+				const as = (host: string, path: string) =>
+					fetch(`http://127.0.0.1:${server.port}${path}`, {
+						headers: { host },
+					});
+
+				expect((await as("repo.arbor.example", "/api/snapshot")).status).toBe(
+					200,
+				);
+				const refused = await as("repo.arbor.example", "/api/conversations");
+				expect(refused.status).toBe(403);
+				expect(await refused.json()).toMatchObject({
+					message:
+						"conversations run commands on this machine: open the page on it",
+				});
+				expect(
+					(await as(`localhost:${server.port}`, "/api/conversations")).status,
+				).toBe(200);
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("refuses a start from another site", async () => {
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations,
+			});
+			try {
+				const response = await fetch(
+					`http://127.0.0.1:${server.port}/api/conversations`,
+					{
+						method: "POST",
+						headers: { origin: "https://evil.example" },
+						body: JSON.stringify({ agent: "fake" }),
+					},
+				);
+
+				expect(response.status).toBe(403);
+				expect(agent.launched).toEqual([]);
+			} finally {
+				await server.disposeAsync();
+			}
+		});
 	});
 });

@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
 import { claim } from "./claim";
+import { AGENTS, Conversations } from "./conversations";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
@@ -169,6 +170,11 @@ arbor
 		description:
 			"comma-separated host names the page may also be reached by, like a tunnel's; putting a login in front of them is the tunnel's job",
 	})
+	.option("experimental", z.boolean(), {
+		default: false,
+		description:
+			"turn on what is still being tried out: for now, conversations with ACP agents (Claude, Codex) from the page, which run commands on this machine and so answer only to it",
+	})
 	.action((opts, ctx) =>
 		dev(ctx, {
 			ports: devPorts(opts.port),
@@ -176,6 +182,11 @@ arbor
 				.split(",")
 				.map((host) => host.trim())
 				.filter(Boolean),
+			conversations: opts.experimental
+				? new Conversations(`${ctx.arborDir}/conversations`, AGENTS, {
+						fs: ctx.fs,
+					})
+				: null,
 		}),
 	);
 

@@ -11,6 +11,8 @@ import { WorktreeService } from "./worktree-service";
 
 /** What a command gets to work with, once there is a repository to work in. */
 export interface Repository {
+	/** Where arbor keeps its records: `.git/arbor`, shared by every worktree. */
+	arborDir: string;
 	config: Config;
 	git: Git;
 	service: WorktreeService;
@@ -55,6 +57,7 @@ export function repository<C extends Deps & { fs: Fs }>(
 
 		await next({
 			...ctx,
+			arborDir,
 			config,
 			git,
 			service,

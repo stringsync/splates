@@ -44,14 +44,23 @@ async function script(): Promise<string> {
 
 /**
  * Where a package's stylesheet is: the `style` entry of its `exports`, which is
- * where CSS packages like tw-animate-css put it. Bun's resolver does not
- * follow that condition, so the package is found by walking up to it.
+ * where CSS packages like tw-animate-css put it, or the file a path past the
+ * package's name points at (`@assistant-ui/react-markdown/styles/dot.css`).
+ * Bun's resolver does not follow that condition, so the package is found by
+ * walking up to it.
  */
-async function stylesheet(name: string): Promise<string> {
+async function stylesheet(id: string): Promise<string> {
+	const parts = id.split("/");
+	const length = id.startsWith("@") ? 2 : 1;
+	const name = parts.slice(0, length).join("/");
+	const file = parts.slice(length).join("/");
 	for (let dir = here; ; dir = dirname(dir)) {
 		const root = `${dir}/node_modules/${name}`;
 		const manifest = Bun.file(`${root}/package.json`);
 		if (await manifest.exists()) {
+			if (file !== "") {
+				return resolve(root, file);
+			}
 			const { exports, style } = await manifest.json();
 			const entry = exports?.["."]?.style ?? style ?? "index.css";
 			return resolve(root, entry);
