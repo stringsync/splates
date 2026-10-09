@@ -2,6 +2,7 @@ import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "webappwiz/system";
 import type { Config } from "./config";
+import { checkFormat } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
@@ -54,6 +55,8 @@ export function repository<C extends Deps & { fs: Fs }>(
 		const config = await loadConfig(dirname(gitDir), { fs, git });
 		const service = new WorktreeService(git, config, arborDir, { fs, ps });
 		await service.init();
+		// Before anything reads a record: one a newer arbor wrote is left alone.
+		await checkFormat(fs, arborDir);
 
 		await next({
 			...ctx,

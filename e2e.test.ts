@@ -221,6 +221,24 @@ describe.concurrent("arbor", () => {
 		);
 		expect(await rows()).toEqual([]);
 	});
+
+	it("stamps the records' format, and leaves records a newer arbor wrote alone", async () => {
+		await using cli = await setup();
+		const { env, arbor } = cli;
+		const format = join(env.arborDir, "format");
+
+		expect((await arbor(env.root, "list")).exitCode).toBe(0);
+		expect(await env.fs.read(format)).toBe("1\n");
+
+		await env.fs.write(format, "2\n");
+		const refused = await arbor(env.root, "add", "alpha");
+		expect(refused.exitCode).toBe(19);
+		expect(refused.stdout).toContain("outdated");
+		expect(refused.stderr).toContain("bunx @webappwiz/arbor@latest");
+		expect(await env.fs.exists(join(env.arborDir, "tasks", "alpha.json"))).toBe(
+			false,
+		);
+	});
 });
 
 const CLI = join(import.meta.dirname, "index.ts");

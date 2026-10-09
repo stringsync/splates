@@ -531,7 +531,7 @@ The agent's control flow runs on these.
 | 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging. Or `arbor todo wait`: the todo is still on the list. |
 | 16   | `blocked`           | `arbor merge` refused: a question under `## Blocked` is unchecked, unanswered or not yet acted on. Also `escalate --review` while one is. |
 | 18   | `cycle`             | A todo link refused: it would make a loop, named in the message. |
-| 19   | `outdated`          | A todo was saved with tags, from before lanes: arbor reads no todos until `bunx @webappwiz/cli update` moves each tag's todos into a lane named after it. |
+| 19   | `outdated`          | The records and this arbor disagree on format. A newer arbor wrote them: run `bunx @webappwiz/arbor@latest`. Or a todo was saved with tags, from before lanes: arbor reads no todos until `bunx @webappwiz/cli update` moves each tag's todos into a lane named after it. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.
@@ -587,6 +587,10 @@ the environment to derive a stable port from if a task needs one.
 ### Leases and locks
 
 State lives in `.git/arbor/`, shared by every worktree, never tracked by git.
+`.git/arbor/format` names the version of its records, as one; records from
+before it are version 1. A newer arbor migrates older records forward and never
+writes an older format, so an arbor meeting records newer than it understands
+refuses every command (`outdated`) rather than misread or overwrite them.
 Records are written to a temp file and `rename()`d into place, so a concurrent
 reader never sees half a file. The merge lock is `mkdir` on
 `.git/arbor/merge.lock`: atomic everywhere, no dependencies, and it either
