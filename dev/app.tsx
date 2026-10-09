@@ -59,6 +59,10 @@ function useWide(): boolean {
 	);
 }
 
+/** The page's tree, drawn gray and faded: `index.html` has it in color. */
+const OFFLINE_ICON =
+	"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><filter id='gray'><feColorMatrix type='saturate' values='0'/></filter><text y='26' font-size='28' filter='url(%23gray)' opacity='0.5'>🌲</text></svg>";
+
 export function App(): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
@@ -76,6 +80,18 @@ export function App(): JSX.Element {
 		(feed) => ({ snapshot: feed.snapshot, offline: feed.offline }),
 		["changed"],
 	);
+	// The tab says so too, for whoever has the page in the background.
+	useEffect(() => {
+		const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+		if (icon === null || !offline) {
+			return;
+		}
+		const online = icon.href;
+		icon.href = OFFLINE_ICON;
+		return () => {
+			icon.href = online;
+		};
+	}, [offline]);
 	// Its own feed, since `arbor dev` holds conversations only when asked to.
 	const [talk] = useState(() => new ConversationFeed());
 	useDisposerEffect(
@@ -151,20 +167,27 @@ export function App(): JSX.Element {
 										: "border-b px-4 py-2.5",
 								)}
 							>
-								<h1 className="truncate font-medium text-sm">
-									{snapshot?.repo ?? "arbor"}
-								</h1>
+								<div className="flex min-w-0 items-center gap-2">
+									<h1 className="truncate font-medium text-sm">
+										{snapshot?.repo ?? "arbor"}
+									</h1>
+									{/* Silent while connected, which is the normal case. Once the
+									    server stops answering, the page says so, since what it
+									    shows may no longer be true. */}
+									{offline && (
+										<span
+											role="status"
+											title="arbor dev stopped answering: is it still running?"
+											className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
+										>
+											<span className="size-1.5 rounded-full bg-destructive" />
+											Offline
+										</span>
+									)}
+								</div>
 								{snapshot && (
 									<span className="truncate text-muted-foreground text-xs">
 										{snapshot.path}
-									</span>
-								)}
-								{/* Silent while connected, which is the normal case. Once the server
-					    stops answering, the page says so, since what it shows may no
-					    longer be true. */}
-								{offline && (
-									<span role="status" className="text-destructive text-xs">
-										Offline: is `arbor dev` still running?
 									</span>
 								)}
 							</header>

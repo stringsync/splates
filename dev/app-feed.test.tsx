@@ -33,4 +33,20 @@ describe("App's feed", () => {
 
 		await waitFor(() => expect(view.getByText(/Offline/)).toBeTruthy());
 	});
+
+	it("grays out the tab's icon while offline, and brings it back", async () => {
+		const icon = document.createElement("link");
+		icon.rel = "icon";
+		icon.href = "data:image/svg+xml,tree";
+		document.head.append(icon);
+		const view = await testing.open();
+
+		testing.goAway();
+		await act(async () => testing.stream?.onmessage?.());
+		await waitFor(() => expect(icon.href).toContain("saturate"));
+
+		view.unmount();
+		expect(icon.href).toBe("data:image/svg+xml,tree");
+		icon.remove();
+	});
 });
