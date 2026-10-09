@@ -588,9 +588,13 @@ the environment to derive a stable port from if a task needs one.
 
 State lives in `.git/arbor/`, shared by every worktree, never tracked by git.
 `.git/arbor/format` names the version of its records, as one; records from
-before it are version 1. A newer arbor migrates older records forward and never
-writes an older format, so an arbor meeting records newer than it understands
-refuses every command (`outdated`) rather than misread or overwrite them.
+before it are version 1. Only `arbor dev` migrates older records forward, as
+it starts, a step at a time under `.git/arbor/format.lock`, saying each step on
+stderr; it never writes an older format. Every other command refuses records in
+any format but its own (`outdated`) rather than misread or overwrite them: older
+ones until `arbor dev` has run, newer ones until arbor is updated. A running
+`arbor dev` checks again on every request, its page showing an Outdated badge
+whose tooltip says what to run.
 Records are written to a temp file and `rename()`d into place, so a concurrent
 reader never sees half a file. The merge lock is `mkdir` on
 `.git/arbor/merge.lock`: atomic everywhere, no dependencies, and it either

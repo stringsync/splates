@@ -16,6 +16,11 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 	snapshot: Snapshot | null = null;
 	/** Set once the stream drops, so a stale page says so instead of lying. */
 	offline = false;
+	/**
+	 * What the server says when a newer arbor has moved the repo's records on,
+	 * past what it understands: it refuses until it is updated.
+	 */
+	outdated: string | null = null;
 
 	private stream: EventSource | null = null;
 
@@ -47,11 +52,20 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 		try {
 			const response = await fetch("/api/snapshot");
 			if (!response.ok) {
-				throw new Error(`snapshot: ${response.status}`);
+				const refusal = (await response.json().catch(() => null)) as {
+					reason?: string;
+					message?: string;
+				} | null;
+				if (refusal?.reason !== "outdated") {
+					throw new Error(`snapshot: ${response.status}`);
+				}
+				this.set({ outdated: refusal.message ?? "", offline: false });
+				return;
 			}
 			this.set({
 				snapshot: (await response.json()) as Snapshot,
 				offline: false,
+				outdated: null,
 			});
 		} catch {
 			// The last good snapshot stays on screen: a page that empties itself
@@ -60,7 +74,9 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 		}
 	}
 
-	private set(next: Partial<Pick<Feed, "snapshot" | "offline">>): void {
+	private set(
+		next: Partial<Pick<Feed, "snapshot" | "offline" | "outdated">>,
+	): void {
 		Object.assign(this, next);
 		this.dispatcher.dispatch("changed");
 	}

@@ -63,6 +63,7 @@ export class Testing implements Resource {
 	/** The conversations' own stream, once the page opens it. */
 	talkStream: Stream | null = null;
 	#down = false;
+	#refusal: { reason: string; message: string } | null = null;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
 
@@ -82,6 +83,9 @@ export class Testing implements Resource {
 				return this.talk === null
 					? Response.json({ reason: "not_found" }, { status: 404 })
 					: Response.json(this.talk);
+			}
+			if (this.#refusal !== null) {
+				return Response.json(this.#refusal, { status: 409 });
 			}
 			return Response.json(this.served);
 		}) as unknown as typeof fetch;
@@ -114,6 +118,11 @@ export class Testing implements Resource {
 	/** Fails every fetch from now on, standing in for a server that went away. */
 	goAway(): void {
 		this.#down = true;
+	}
+
+	/** Refuses the snapshot from now on, as a server does with `reason`. */
+	refuse(reason: string, message: string): void {
+		this.#refusal = { reason, message };
 	}
 
 	/** Renders the page with `served` waiting, and lets it arrive. */

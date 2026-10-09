@@ -12,6 +12,7 @@ import type { Attachment } from "./attachments";
 import type { Answer, Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
+import type { Format } from "./format";
 import type { Journal } from "./journal";
 import { fingerprint, snapshot } from "./snapshot";
 import type { Todos } from "./todos";
@@ -40,6 +41,7 @@ export async function dev(
 		ps,
 		journal,
 		todos,
+		format,
 		log,
 		assets,
 	}: {
@@ -48,6 +50,7 @@ export async function dev(
 		ps: Ps;
 		journal: Journal;
 		todos: Todos;
+		format: Format;
 		log: Logger;
 		assets: Assets;
 	},
@@ -136,6 +139,9 @@ export async function dev(
 				return refuse(403, "forbidden", "cross-origin writes are refused");
 			}
 			try {
+				// Again on every request, since a newer arbor may have migrated
+				// the records since this server started.
+				await format.check();
 				return await handle(request);
 			} catch (error) {
 				if (error instanceof Exit) {
@@ -616,6 +622,7 @@ const STATUS: Partial<Record<Reason, number>> = {
 	lease_held: 409,
 	exists: 409,
 	cycle: 409,
+	outdated: 409,
 };
 
 /** What `dev` lets a caller choose. */

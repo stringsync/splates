@@ -34,6 +34,21 @@ describe("App's feed", () => {
 		await waitFor(() => expect(view.getByText(/Offline/)).toBeTruthy());
 	});
 
+	it("says it is outdated, with what to run, when a newer arbor moved the records on", async () => {
+		const view = await testing.open();
+
+		testing.refuse(
+			"outdated",
+			"written by a newer arbor\nRun `bunx @webappwiz/arbor@latest` instead.",
+		);
+		await act(async () => testing.stream?.onmessage?.());
+
+		const badge = await waitFor(() => view.getByText("Outdated"));
+		expect(badge.textContent).toBe("Outdated");
+		expect(badge.title).toContain("bunx @webappwiz/arbor@latest");
+		expect(view.queryByText(/Offline/)).toBeNull();
+	});
+
 	it("grays out the tab's icon while offline, and brings it back", async () => {
 		const icon = document.createElement("link");
 		icon.rel = "icon";

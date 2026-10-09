@@ -75,9 +75,13 @@ export function App(): JSX.Element {
 		},
 		[feed],
 	);
-	const { snapshot, offline } = useReactive(
+	const { snapshot, offline, outdated } = useReactive(
 		feed,
-		(feed) => ({ snapshot: feed.snapshot, offline: feed.offline }),
+		(feed) => ({
+			snapshot: feed.snapshot,
+			offline: feed.offline,
+			outdated: feed.outdated,
+		}),
 		["changed"],
 	);
 	// The tab says so too, for whoever has the page in the background.
@@ -174,6 +178,17 @@ export function App(): JSX.Element {
 									{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it
 									    shows may no longer be true. */}
+									{/* Up but refusing: a newer arbor moved the records on. */}
+									{outdated !== null && !offline && (
+										<span
+											role="status"
+											title={outdated}
+											className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
+										>
+											<span className="size-1.5 rounded-full bg-amber-500" />
+											Outdated
+										</span>
+									)}
 									{offline && (
 										<span
 											role="status"

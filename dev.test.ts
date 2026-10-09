@@ -49,6 +49,18 @@ describe("dev", () => {
 		}
 	};
 
+	it("refuses every request once a newer arbor has moved the records on", async () => {
+		await serving(async (snapshot, port) => {
+			expect((await snapshot()).tasks).toEqual([]);
+			await deps.fs.write(`${deps.arborDir}/format`, "2\n");
+
+			const response = await fetch(`http://localhost:${port}/api/snapshot`);
+
+			expect(response.status).toBe(409);
+			expect(await response.text()).toContain("bunx @webappwiz/arbor@latest");
+		});
+	});
+
 	it("moves up to an open port when the one it asks for is taken", async () => {
 		const held = await dev(deps, { ports: OpenPortProvider.any() });
 

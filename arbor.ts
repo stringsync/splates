@@ -39,14 +39,13 @@ export interface ArborDeps extends Deps {
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and
 // stops at `exits`, which is the only thing that ends the process.
-export const arbor = cli<ArborDeps>("arbor")
-	.use(exits<ArborDeps>())
-	.use(repository<ArborDeps>());
+export const arbor = cli<ArborDeps>("arbor").use(exits<ArborDeps>());
 
 // Every action is handed the dependencies it runs with, so it passes the
 // context straight on: each command takes the few it names off it.
 arbor
 	.command("add")
+	.use(repository())
 	.description(
 		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor/<task> and a state record",
 	)
@@ -73,6 +72,7 @@ arbor
 
 arbor
 	.command("claim")
+	.use(repository())
 	.description(
 		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; an escalated task goes back to working; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
 	)
@@ -84,6 +84,7 @@ arbor
 
 arbor
 	.command("merge")
+	.use(repository())
 	.description(
 		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it in whichever worktree has it checked out, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
@@ -97,6 +98,7 @@ arbor
 
 arbor
 	.command("remove")
+	.use(repository())
 	.description(
 		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
@@ -114,6 +116,7 @@ arbor
 
 arbor
 	.command("list")
+	.use(repository())
 	.description(
 		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
 	)
@@ -127,6 +130,7 @@ arbor
 
 arbor
 	.command("show")
+	.use(repository())
 	.description(
 		"read one task without touching it: everything `list` shows for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
 	)
@@ -136,6 +140,7 @@ arbor
 
 arbor
 	.command("wait")
+	.use(repository())
 	.description(
 		"block until a task stops moving: escalated, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
 	)
@@ -152,6 +157,7 @@ arbor
 
 arbor
 	.command("log")
+	.use(repository())
 	.description(
 		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, todo and more, with how it ended; outlives the tasks themselves",
 	)
@@ -164,6 +170,7 @@ arbor
 
 arbor
 	.command("dev")
+	.use(repository({ migrates: true }))
 	.description(
 		"serve the todos and the tasks as a web page on this machine, where todos can be added, updated, reordered or removed",
 	)
@@ -198,6 +205,7 @@ arbor
 
 arbor
 	.command("path")
+	.use(repository())
 	.description(
 		"print a task's worktree path, or the main tree with no task; names another agent's tree without taking its lease",
 	)
@@ -209,6 +217,7 @@ arbor
 
 arbor
 	.command("escalate")
+	.use(repository())
 	.description(
 		"hand this task to a human and stop: records the reason, drops the lease and leaves the worktree exactly as it is; use instead of resolving a genuine conflict badly just to finish",
 	)
@@ -236,6 +245,7 @@ arbor
 
 arbor
 	.command("retry")
+	.use(repository())
 	.description(
 		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not remove and redo, and only from escalated, so a human has seen the tree first",
 	)
@@ -251,7 +261,8 @@ const todo = arbor
 	.group("todo")
 	.description(
 		"defer work for later instead of growing the task you are in: `merge` recommends the next one when a task lands",
-	);
+	)
+	.use(repository());
 
 todo
 	.command("add")
@@ -438,7 +449,8 @@ const lane = arbor
 	.group("lane")
 	.description(
 		"lanes: named runs of todos, one agent's queue each, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an agent on one. A todo in no lane is untriaged",
-	);
+	)
+	.use(repository());
 
 lane
 	.command("list")

@@ -9,6 +9,7 @@ import { FakeProcess } from "webappwiz/system/testing";
 import type { Config } from "./config";
 import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
+import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { Shell } from "./shell";
@@ -45,6 +46,7 @@ export class Testing implements AsyncDisposable {
 	readonly lockPath: string;
 	readonly lock: FileLock;
 	readonly todos: Todos;
+	readonly format: Format;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -91,6 +93,15 @@ export class Testing implements AsyncDisposable {
 			}),
 			{ fs: this.fs, ids: this.ids },
 		);
+		this.format = new Format(this.arborDir, {
+			fs: this.fs,
+			lock: new FileLock(join(this.arborDir, "format.lock"), {
+				fs: this.fs,
+				ps: this.ps,
+				log: this.log,
+			}),
+			log: this.log,
+		});
 	}
 
 	/** A repo of its own, seeded and ready for a command. */

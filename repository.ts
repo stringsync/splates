@@ -2,7 +2,7 @@ import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "webappwiz/system";
 import type { Config } from "./config";
-import { checkFormat } from "./format";
+import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
@@ -15,6 +15,8 @@ export interface Repository {
 	/** Where arbor keeps its records: `.git/arbor`, shared by every worktree. */
 	arborDir: string;
 	config: Config;
+	/** Checked before the command runs, so its records are in this arbor's format. */
+	format: Format;
 	git: Git;
 	service: WorktreeService;
 	lock: Lock;
@@ -23,13 +25,27 @@ export interface Repository {
 	todos: Todos;
 }
 
+/** How `repository` treats records in an older format than this arbor's. */
+export interface RepositoryOptions {
+	/**
+	 * Brings them forward before the action runs. Only `arbor dev` does: a
+	 * migration is the server's to run, with its sessions settled, so every
+	 * other command refuses them until it has.
+	 */
+	migrates?: boolean;
+	/** Where to look for the repository; the working directory by default. */
+	at?: string;
+}
+
 /**
  * Runs the action against the repository `cwd` sits in, and refuses to run it
- * at all when that is not a repository.
+ * at all when that is not a repository, or its records are in a format this
+ * arbor does not read.
  */
-export function repository<C extends Deps & { fs: Fs }>(
-	at?: string,
-): Middleware<C, C & Repository> {
+export function repository<C extends Deps & { fs: Fs }>({
+	migrates = false,
+	at,
+}: RepositoryOptions = {}): Middleware<C, C & Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
 	return async (ctx, next) => {
@@ -55,13 +71,24 @@ export function repository<C extends Deps & { fs: Fs }>(
 		const config = await loadConfig(dirname(gitDir), { fs, git });
 		const service = new WorktreeService(git, config, arborDir, { fs, ps });
 		await service.init();
-		// Before anything reads a record: one a newer arbor wrote is left alone.
-		await checkFormat(fs, arborDir);
+		// Before anything reads a record.
+		const format = new Format(arborDir, {
+			fs,
+			lock: new FileLock(`${arborDir}/format.lock`, {
+				fs,
+				ps,
+				log,
+				stalenessMs: config.leaseStalenessMs,
+			}),
+			log,
+		});
+		await (migrates ? format.migrate() : format.check());
 
 		await next({
 			...ctx,
 			arborDir,
 			config,
+			format,
 			git,
 			service,
 			lock: new FileLock(`${arborDir}/merge.lock`, {
