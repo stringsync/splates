@@ -141,12 +141,14 @@ export type ThreadProps = {
 	autoFocus?: boolean | undefined;
 	/** Shown just above the composer, such as what the agent is asking. */
 	above?: ReactNode | undefined;
+	/** Shown in place of the greeting while the thread is empty. */
+	welcome?: ReactNode | undefined;
 	/** What `@` offers in the composer; nothing when unset. */
 	mentions?: TriggerAdapter | undefined;
 };
 
 const ThreadExtrasContext = createContext<
-	Pick<ThreadProps, "above" | "mentions">
+	Pick<ThreadProps, "above" | "welcome" | "mentions">
 >({});
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -192,13 +194,14 @@ export const Thread: FC<ThreadProps> = ({
 	components = EMPTY_COMPONENTS,
 	autoFocus = true,
 	above,
+	welcome,
 	mentions,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
 
 	return (
 		<ThreadComponentsContext.Provider value={components}>
-			<ThreadExtrasContext.Provider value={{ above, mentions }}>
+			<ThreadExtrasContext.Provider value={{ above, welcome, mentions }}>
 				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} />
 			</ThreadExtrasContext.Provider>
 		</ThreadComponentsContext.Provider>
@@ -210,6 +213,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 	autoFocus,
 }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+	const { welcome } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
 
 	return (
@@ -237,9 +241,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 							isEmpty && "justify-center",
 						)}
 					>
-						<AuiIf condition={isNewChatView}>
-							<Welcome />
-						</AuiIf>
+						<AuiIf condition={isNewChatView}>{welcome ?? <Welcome />}</AuiIf>
 						<AuiIf condition={isHistoryLoadingView}>
 							<ThreadHistorySkeleton />
 						</AuiIf>

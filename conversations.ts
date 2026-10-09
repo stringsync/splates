@@ -318,8 +318,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private readonly lines: string[] = [];
 	private saving: Promise<void> = Promise.resolve();
 	private readonly saves: Throttler;
-	/** Under way while a stopped conversation comes back, for a prompt to wait on. */
-	private resuming: Promise<void> | null = null;
+	/** Under way while the agent starts or comes back, for a prompt to wait on. */
+	private opening: Promise<void> | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -428,7 +428,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			cwd,
 			createdAt: conversation.state.createdAt,
 		});
-		void conversation.open(agent, cwd);
+		conversation.opening = conversation.open(agent, cwd).finally(() => {
+			conversation.opening = null;
+		});
 		return conversation;
 	}
 
@@ -528,13 +530,15 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 
 	/**
-	 * Says `text` to the agent, resuming the session first when it stopped;
-	 * refused while the agent is still answering the last.
+	 * Says `text` to the agent, once it has started, resuming the session
+	 * first when it stopped; refused while the agent is still answering the
+	 * last.
 	 */
 	async prompt(text: string): Promise<void> {
 		if (this.state.status === "stopped" || this.state.status === "failed") {
 			await this.resume();
 		}
+		await this.opening;
 		if (this.state.status !== "idle" || this.connection === null) {
 			fail(
 				"usage",
@@ -629,10 +633,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				{ conversation: this.id },
 			);
 		}
-		this.resuming ??= this.open(this.agent, this.cwd).finally(() => {
-			this.resuming = null;
+		this.opening ??= this.open(this.agent, this.cwd).finally(() => {
+			this.opening = null;
 		});
-		await this.resuming;
+		await this.opening;
 	}
 
 	/** Stops the agent; the next prompt resumes where it left off. */

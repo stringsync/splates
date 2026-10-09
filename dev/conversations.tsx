@@ -248,6 +248,7 @@ function Item({
 				type="button"
 				aria-current={current ? "page" : undefined}
 				onClick={onOpen}
+				onDoubleClick={() => setRenaming(true)}
 				// Room for the buttons only while they show, and for a mark while
 				// there is one.
 				className={cn(
@@ -455,11 +456,13 @@ export function Conversations({
 					onBack={phone ? () => onOpen(null) : null}
 				/>
 			) : shown === null ? (
-				<p className="text-muted-foreground text-sm">
-					{conversations.length === 0
-						? "No conversations yet: start one with the + by a task."
-						: "Pick a conversation."}
-				</p>
+				<Home
+					feed={feed}
+					tasks={tasks}
+					agents={agents}
+					conversations={conversations.filter((each) => !each.archived)}
+					onOpen={onOpen}
+				/>
 			) : (
 				<Thread
 					key={shown.id}
@@ -469,6 +472,178 @@ export function Conversations({
 				/>
 			)}
 		</div>
+	);
+}
+
+/** How many conversations the home screen offers to pick back up. */
+const RECENT = 5;
+
+/**
+ * The screen with no conversation open: an empty thread whose first message
+ * starts one, in the task and with the agent picked by its composer, and
+ * under the greeting the latest conversations to pick back up, those waiting
+ * on the person first.
+ */
+function Home({
+	feed,
+	tasks,
+	agents,
+	conversations,
+	onOpen,
+}: {
+	feed: ConversationFeed;
+	tasks: Details[];
+	agents: AgentChoice[];
+	/** The ones not archived, newest first. */
+	conversations: ConversationState[];
+	onOpen: (id: string) => void;
+}): JSX.Element {
+	const live = tasks
+		.filter((each) => each.status !== "orphaned")
+		.map((each) => each.task);
+	const [task, setTask] = useState<string | null>(live[0] ?? null);
+	const [agent, setAgent] = useState(agents[0]?.id ?? "");
+	const [starting, setStarting] = useState(false);
+	const waiting = (each: ConversationState) =>
+		each.ask !== null || each.status === "failed";
+	const recent = [
+		...conversations.filter(waiting),
+		...conversations.filter((each) => !waiting(each)),
+	].slice(0, RECENT);
+	const runtime = useExternalStoreRuntime({
+		messages: NO_MESSAGES,
+		isRunning: starting,
+		convertMessage: (message: ThreadMessageLike) => message,
+		onNew: async (message) => {
+			const text = message.content
+				.map((part) => (part.type === "text" ? part.text : ""))
+				.join("")
+				.trim();
+			setStarting(true);
+			const state = await startConversation(agent, task).catch(
+				(error: unknown) => {
+					setStarting(false);
+					refused("Not started", error);
+					throw error;
+				},
+			);
+			feed.put(state);
+			// Shown at once, so the person watches the agent come up; the message
+			// waits on the server for the session to open.
+			onOpen(state.id);
+			await promptConversation(state.id, text).catch((error: unknown) =>
+				refused("Not sent", error),
+			);
+		},
+	});
+	const mentions = useFileMentions(task);
+
+	return (
+		<section
+			aria-label="new conversation"
+			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col"
+		>
+			<AssistantRuntimeProvider runtime={runtime}>
+				<ThreadView
+					mentions={mentions ?? undefined}
+					welcome={
+						<div className="mb-6 flex flex-col gap-8 px-2">
+							<p className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both font-medium text-2xl tracking-tight duration-200">
+								Start a conversation
+							</p>
+							{recent.length > 0 && (
+								<section
+									aria-label="recent conversations"
+									className="flex flex-col gap-1"
+								>
+									<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+										Pick back up
+									</h3>
+									<ul className="flex flex-col">
+										{recent.map((each) => (
+											<li key={each.id}>
+												<Recent
+													conversation={each}
+													agent={agentName(agents, each.agent)}
+													onOpen={() => onOpen(each.id)}
+												/>
+											</li>
+										))}
+									</ul>
+								</section>
+							)}
+						</div>
+					}
+					above={
+						<div className="flex items-center gap-2 px-2 text-muted-foreground text-sm">
+							<span>In</span>
+							<select
+								aria-label="task"
+								value={task ?? ""}
+								onChange={(event) =>
+									setTask(event.target.value === "" ? null : event.target.value)
+								}
+								className={SELECT}
+							>
+								{live.map((each) => (
+									<option key={each} value={each}>
+										{each}
+									</option>
+								))}
+								<option value="">Main tree</option>
+							</select>
+							<span>with</span>
+							<select
+								aria-label="agent"
+								value={agent}
+								onChange={(event) => setAgent(event.target.value)}
+								className={SELECT}
+							>
+								{agents.map((each) => (
+									<option key={each.id} value={each.id}>
+										{each.name}
+									</option>
+								))}
+							</select>
+						</div>
+					}
+				/>
+			</AssistantRuntimeProvider>
+		</section>
+	);
+}
+
+const NO_MESSAGES: ThreadMessageLike[] = [];
+
+/** A conversation to pick back up: its mark, name, where it runs, its state. */
+function Recent({
+	conversation,
+	agent,
+	onOpen,
+}: {
+	conversation: ConversationState;
+	agent: string;
+	onOpen: () => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			onClick={onOpen}
+			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
+		>
+			<AgentIcon
+				agent={conversation.agent}
+				name={agent}
+				className="size-3.5 text-foreground/70"
+			/>
+			<span className="min-w-0 flex-1 truncate text-sm">
+				{nameOf(conversation)}
+			</span>
+			<span className="shrink-0 truncate text-muted-foreground text-xs">
+				{conversation.task ?? "main tree"}
+			</span>
+			<Mark conversation={conversation} />
+		</button>
 	);
 }
 
@@ -564,8 +739,9 @@ function Thread({
 	const runtime = useExternalStoreRuntime({
 		messages,
 		isRunning: running,
-		// A stopped conversation takes a prompt, which resumes it.
-		isDisabled: archived || status === "starting",
+		// A stopped conversation takes a prompt, which resumes it, and one
+		// still starting holds it until the session opens.
+		isDisabled: archived,
 		convertMessage: (message: ThreadMessageLike) => message,
 		onNew: async (message) => {
 			const text = message.content
@@ -584,6 +760,7 @@ function Thread({
 		},
 	});
 	const mentions = useFileMentions(conversation.task);
+	const [renaming, setRenaming] = useState(false);
 
 	return (
 		<section
@@ -592,9 +769,21 @@ function Thread({
 		>
 			<header className="flex items-center gap-2">
 				{onBack !== null && <Back onBack={onBack} />}
-				<h2 className="min-w-0 flex-1 truncate font-medium text-sm">
-					{nameOf(conversation)}
-				</h2>
+				{renaming ? (
+					<Rename
+						conversation={conversation}
+						onDone={() => setRenaming(false)}
+					/>
+				) : (
+					// A shortcut: the menu in the sidebar renames too.
+					<h2
+						onDoubleClick={() => setRenaming(true)}
+						title="Double-click to rename"
+						className="min-w-0 flex-1 truncate font-medium text-sm"
+					>
+						{nameOf(conversation)}
+					</h2>
+				)}
 				{archived ? (
 					<Badge variant="secondary">archived</Badge>
 				) : (

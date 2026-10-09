@@ -283,6 +283,26 @@ describe("Conversations", () => {
 		);
 	});
 
+	it("takes a prompt while still starting, and says it once the session is open", async () => {
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({ sessionId, update: say("Hi.") });
+			return "end_turn";
+		};
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		expect(conversation.state.status).toBe("starting");
+
+		await conversation.prompt("hello");
+		await until(conversation, "idle");
+
+		expect(conversation.state.messages).toEqual([
+			{ role: "user", parts: [{ type: "text", text: "hello" }] },
+			{ role: "agent", parts: [{ type: "text", text: "Hi." }] },
+		]);
+	});
+
 	it("stops the agent, reads back from its log, and resumes on the next prompt", async () => {
 		agent.turn = async (client, sessionId) => {
 			await client.sessionUpdate({ sessionId, update: say("Done.") });

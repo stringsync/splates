@@ -159,6 +159,44 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("renames on a double click, in the list and on the open conversation's title", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+		]);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		await act(async () =>
+			fireEvent.doubleClick(
+				within(nav).getByRole("button", { name: "Claude Fix login" }),
+			),
+		);
+		const inList = await waitFor(() =>
+			within(nav).getByRole("textbox", { name: "Rename Fix login" }),
+		);
+		await act(async () => fireEvent.keyDown(inList, { key: "Escape" }));
+		expect(
+			within(nav).queryByRole("textbox", { name: "Rename Fix login" }),
+		).toBeNull();
+
+		const thread = view.getByRole("region", { name: "Fix login" });
+		await act(async () =>
+			fireEvent.doubleClick(
+				within(thread).getByRole("heading", { name: "Fix login" }),
+			),
+		);
+		const box = within(thread).getByRole("textbox", {
+			name: "Rename Fix login",
+		});
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "Login redirect" } }),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(posted("/api/conversations/c1/name")).toEqual([
+			{ method: "PUT", body: { name: "Login redirect" } },
+		]);
+	});
+
 	it("on a phone, shows the list or one conversation, with a way back", async () => {
 		resize(390, 844);
 		try {
@@ -189,6 +227,76 @@ describe("App's conversations", () => {
 		} finally {
 			resize(1024, 768);
 		}
+	});
+
+	it("with none open, offers the latest conversations to pick back up, those waiting first", async () => {
+		const view = await conversations(
+			[
+				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+				conversation({
+					id: "c2",
+					task: null,
+					title: "Look around",
+					status: "running",
+					ask: {
+						type: "permission",
+						id: "t1",
+						title: "rm -rf build",
+						options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
+					},
+				}),
+				conversation({ id: "c3", task: "alpha", title: "Old", archived: true }),
+			],
+			null,
+		);
+		const recent = view.getByRole("region", { name: "recent conversations" });
+
+		expect(
+			within(recent)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["Look aroundmain treeasking", "Fix loginalpha"]);
+		await act(async () =>
+			fireEvent.click(
+				within(recent).getByRole("button", { name: /Fix login/ }),
+			),
+		);
+		expect(location.hash).toBe("#conversations/c1");
+	});
+
+	it("starts a conversation from the home composer, in the task and with the agent picked, and says the message", async () => {
+		const view = await conversations([], null);
+		testing.reply = conversation({
+			id: "c9",
+			agent: "codex",
+			task: "alpha",
+			status: "starting",
+		});
+		expect(
+			(view.getByRole("combobox", { name: "task" }) as HTMLSelectElement).value,
+		).toBe("alpha");
+
+		await act(async () =>
+			fireEvent.change(view.getByRole("combobox", { name: "agent" }), {
+				target: { value: "codex" },
+			}),
+		);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "fix the login" } }),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(posted("/api/conversations")).toEqual([
+			{ method: "POST", body: { agent: "codex", task: "alpha" } },
+		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c9/prompt")).toEqual([
+				{ method: "POST", body: { text: "fix the login" } },
+			]),
+		);
+		expect(location.hash).toBe("#conversations/c9");
+		expect(view.getByRole("region", { name: "alpha" })).toBeTruthy();
 	});
 
 	it("starts a conversation from a task's +, with the agent picked, and opens it", async () => {

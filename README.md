@@ -324,7 +324,10 @@ signed in the way its own CLI is.
 The sidebar lists conversations under the task each runs in, every live task
 with a + that starts one there with the agent you pick. The main tree comes
 last: a conversation belongs in a task, and one in the main tree is the
-exception. `#conversations/<id>` in the address opens one.
+exception. `#conversations/<id>` in the address opens one. With none open,
+the page is an empty thread: pick the task and the agent by its composer and
+your first message starts the conversation. Under the greeting sit the latest
+conversations to pick back up, those waiting on you first.
 
 The thread is [assistant-ui](https://www.assistant-ui.com)'s: the agent's
 words as markdown, its thinking and tool calls folded away, and a composer
