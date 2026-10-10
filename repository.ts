@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "webappwiz/system";
@@ -6,6 +7,7 @@ import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
+import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
@@ -23,6 +25,8 @@ export interface Repository {
 	shell: Shell;
 	journal: Journal;
 	todos: Todos;
+	/** Every arbor project on this machine, which every command joins. */
+	projects: Projects;
 }
 
 /** How `repository` treats records in an older format than this arbor's. */
@@ -84,8 +88,25 @@ export function repository<C extends Deps & { fs: Fs }>({
 		});
 		await (migrates ? format.migrate() : format.check());
 
+		// The user's, shared by every repository on this machine: any command
+		// run in one makes it an arbor project, so it joins here. `ARBOR_HOME`
+		// moves it, as the tests do to keep theirs out of the user's.
+		const registry =
+			ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
+		const projects = new Projects(`${registry}/projects.json`, {
+			fs,
+			lock: new FileLock(`${registry}/projects.lock`, {
+				fs,
+				ps,
+				log,
+				stalenessMs: config.leaseStalenessMs,
+			}),
+		});
+		await projects.register(git.root);
+
 		await next({
 			...ctx,
+			projects,
 			arborDir,
 			config,
 			format,

@@ -12,6 +12,7 @@ import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
+import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
@@ -47,6 +48,10 @@ export class Testing implements AsyncDisposable {
 	readonly lock: FileLock;
 	readonly todos: Todos;
 	readonly format: Format;
+	/** Where arbor keeps what is the user's, under the test's own directory. */
+	readonly arborHome: string;
+	/** Kept in `arborHome`, never the user's home. */
+	readonly projects: Projects;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -93,6 +98,18 @@ export class Testing implements AsyncDisposable {
 			}),
 			{ fs: this.fs, ids: this.ids },
 		);
+		this.arborHome = join(base, "home", ".arbor");
+		// So a command run here, or a CLI it spawns, registers the test's
+		// repository in the test's registry rather than the user's.
+		this.proc.env = { ...process.env, ARBOR_HOME: this.arborHome };
+		this.projects = new Projects(join(this.arborHome, "projects.json"), {
+			fs: this.fs,
+			lock: new FileLock(join(this.arborHome, "projects.lock"), {
+				fs: this.fs,
+				ps: this.ps,
+				log: this.log,
+			}),
+		});
 		this.format = new Format(this.arborDir, {
 			fs: this.fs,
 			lock: new FileLock(join(this.arborDir, "format.lock"), {

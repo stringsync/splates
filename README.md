@@ -595,6 +595,13 @@ any format but its own (`outdated`) rather than misread or overwrite them: older
 ones until `arbor dev` has run, newer ones until arbor is updated. A running
 `arbor dev` checks again on every request, its page showing an Outdated badge
 whose tooltip says what to run.
+
+Every project on this machine is listed in `~/.arbor/projects.json`
+(`$ARBOR_HOME/projects.json` when that is set), which any arbor command run in
+a repository joins with its main tree, so one `arbor dev` can find them all
+without scanning the disk. One whose repository
+has since moved or been deleted stays listed, flagged as gone, since a drive
+that is not mounted comes back.
 Records are written to a temp file and `rename()`d into place, so a concurrent
 reader never sees half a file. The merge lock is `mkdir` on
 `.git/arbor/merge.lock`: atomic everywhere, no dependencies, and it either

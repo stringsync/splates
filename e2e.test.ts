@@ -222,6 +222,20 @@ describe.concurrent("arbor", () => {
 		expect(await rows()).toEqual([]);
 	});
 
+	it("registers the repository any command runs in, by its main tree", async () => {
+		await using cli = await setup();
+		const { env, arbor } = cli;
+
+		expect((await arbor(env.root, "todo", "list")).exitCode).toBe(0);
+		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+		const [alpha] = (await cli.rows()).map((row) => row.worktree);
+		expect((await arbor(alpha as string, "list")).exitCode).toBe(0);
+
+		expect((await env.projects.list()).map((each) => each.root)).toEqual([
+			env.root,
+		]);
+	});
+
 	it("stamps the records' format, and leaves records a newer arbor wrote alone", async () => {
 		await using cli = await setup();
 		const { env, arbor } = cli;
