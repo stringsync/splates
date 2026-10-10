@@ -22,6 +22,22 @@ async function readUntil(
 	return text;
 }
 
+/**
+ * What `reader` says within `ms`, stopping once it has said `needle`: sooner
+ * than the 2s poll, so only a watch could have told it.
+ */
+async function within(
+	reader: ReadableStreamDefaultReader<Uint8Array>,
+	needle: string,
+	ms: number,
+): Promise<boolean> {
+	const deadline = Bun.sleep(ms).then(() => false);
+	return Promise.race([
+		readUntil(reader, needle).then((text) => text.includes(needle)),
+		deadline,
+	]);
+}
+
 describe("dev", () => {
 	let deps: Testing;
 
@@ -193,7 +209,7 @@ describe("dev", () => {
 		}, 15_000);
 	});
 
-	it("reads the repo on its poll only while a page listens", async () => {
+	it("reads the repo only while a page listens", async () => {
 		const list = spyOn(deps.service, "list");
 
 		await serving(async (_, port) => {
@@ -389,6 +405,72 @@ describe("dev", () => {
 			await reader.cancel();
 		});
 	}, 15_000);
+
+	describe("watching", () => {
+		/** The page's stream of changes, once it has connected. */
+		const listen = async (port: number) => {
+			const events = await fetch(`http://localhost:${port}/events`);
+			const reader = (events.body ?? new ReadableStream()).getReader();
+			await readUntil(reader, ": connected");
+			return reader;
+		};
+
+		it("hears of an ARBOR.md, a commit and a todo as they change, without polling", async () => {
+			await add(deps, "alpha");
+			const tree = (await deps.service.find("alpha")).path;
+
+			await serving(async (_, port) => {
+				const reader = await listen(port);
+
+				await deps.fs.write(
+					`${tree}/ARBOR.md`,
+					"# alpha\n\n## Goal\n\nmoved\n",
+				);
+				expect(await within(reader, "data: changed", 1_000)).toBe(true);
+				await deps.commit(tree, "a.txt", "a\n", "add a");
+				expect(await within(reader, "data: changed", 1_000)).toBe(true);
+				await deps.todos.add("later", null);
+				expect(await within(reader, "data: changed", 1_000)).toBe(true);
+				await reader.cancel();
+			});
+		}, 15_000);
+
+		it("stays quiet while only a conversation's log grows", async () => {
+			await deps.fs.mkdir(`${deps.arborDir}/conversations`);
+			await serving(async (_, port) => {
+				const reader = await listen(port);
+
+				await deps.fs.write(
+					`${deps.arborDir}/conversations/c1.jsonl`,
+					'{"kind":"prompt","text":"hi"}\n',
+				);
+				expect(await within(reader, "data: changed", 500)).toBe(false);
+				await reader.cancel();
+			});
+		});
+
+		it("polls a repo it cannot watch, and says so", async () => {
+			const fs = Object.assign(Object.create(deps.fs), {
+				watch() {
+					throw new Error("no watching here");
+				},
+			}) as typeof deps.fs;
+			const server = await dev(
+				{ ...deps, fs },
+				{ ports: OpenPortProvider.any() },
+			);
+			try {
+				const reader = await listen(server.port);
+				expect(deps.out()).toContain("cannot watch");
+
+				await deps.todos.add("later", null);
+				expect(await within(reader, "data: changed", 4_000)).toBe(true);
+				await reader.cancel();
+			} finally {
+				await server.disposeAsync();
+			}
+		}, 15_000);
+	});
 
 	/** A post the way the page makes one: same origin as the host it asked. */
 	const post = (port: number, path: string, body: BodyInit, headers = {}) =>

@@ -230,7 +230,9 @@ the only thing that remembers a task landed at all. The last 1000 are kept
 ### `arbor dev [--port 4269] [--allow-hosts <names>] [--experimental]`
 
 The todos and the tasks in a browser, on `http://localhost:4269`, reloading
-themselves as anything changes. Built for a phone first.
+themselves as anything changes: while a page shows a project, `arbor dev`
+watches its `.git/arbor`, its branches' refs and each task's `ARBOR.md`, and
+polls every 2s only a repo it cannot watch. Built for a phone first.
 
 Two pages, Todos and Tasks, picked in a sidebar on a wide screen and a bar
 along the bottom of a phone; `#tasks` in the address opens on the tasks.

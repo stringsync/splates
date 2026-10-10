@@ -1,4 +1,9 @@
-import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
+import { basename, dirname } from "node:path";
+import {
+	AsyncDisposer,
+	type AsyncResource,
+	type Resource,
+} from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import {
 	type Fs,
@@ -7,12 +12,13 @@ import {
 	type PortProvider,
 	type Ps,
 } from "webappwiz/system";
-import { Duration, SystemTimer, Throttler } from "webappwiz/time";
+import { Debouncer, Duration, SystemTimer, Throttler } from "webappwiz/time";
 import type { Attachment } from "./attachments";
 import type { Answer, Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
+import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
 import { openRepository, type Repository } from "./repository";
 import { fingerprint, snapshot } from "./snapshot";
@@ -127,16 +133,18 @@ export async function dev(
 			conversations.url = url;
 		}
 
-		// ponytail: polls, because arbor's state is spread across records, git refs
-		// and ARBOR.md, and one watcher would not cover all three. Watch `.git/arbor`
-		// and the worktree roots if two seconds ever feels slow.
+		// What a page shows is spread across arbor's records, the branches'
+		// refs and each worktree's ARBOR.md, so all three are watched, and a
+		// change anywhere in them reads the repo again to see what moved.
 		const tick = async (): Promise<void> => {
 			// Read only for a page that would hear of it. One that connects later
 			// may hear of a change it already fetched, which costs it one refetch.
 			if (open.size === 0) {
 				return;
 			}
-			const print = fingerprint(await read());
+			const now = await read();
+			follow(now.tasks.map((task) => task.worktree));
+			const print = fingerprint(now);
 			if (print === last) {
 				return;
 			}
@@ -145,9 +153,95 @@ export async function dev(
 				stream.enqueue(encoder.encode("data: changed\n\n"));
 			}
 		};
-		const poll = setInterval(() => {
-			tick().catch((error: unknown) => log.error(String(error)));
-		}, POLL_MS);
+		// A write lands as a temp file renamed into place, and a merge moves
+		// several things at once: one read once they settle covers them all.
+		const settle = new Debouncer(new SystemTimer(), SETTLE);
+		const changed = () =>
+			settle.call(() => {
+				tick().catch((error: unknown) => log.error(String(error)));
+			});
+		const gitDir = dirname(arborDir);
+		const conversationsDir = `${arborDir}/conversations`;
+		let watches: Resource[] = [];
+		const trees = new Map<string, Resource>();
+		let poll: ReturnType<typeof setInterval> | null = null;
+		// Watched only while a page listens, the way the poll before it read.
+		const arm = (): void => {
+			try {
+				watches = [
+					fs.watch(
+						arborDir,
+						(path) => {
+							// An agent's turn streams into its log: nothing a page shows.
+							if (
+								path !== conversationsDir &&
+								!path.startsWith(`${conversationsDir}/`)
+							) {
+								changed();
+							}
+						},
+						{ recursive: true },
+					),
+					fs.watch(`${gitDir}/refs`, changed, { recursive: true }),
+					// Its own entries, of which only `packed-refs` names branches:
+					// `index` moves on every `git status`.
+					fs.watch(gitDir, (path) => {
+						if (basename(path) === "packed-refs") {
+							changed();
+						}
+					}),
+				];
+			} catch (error) {
+				log.error(
+					`arbor dev cannot watch ${service.git.root}, so it polls it: ${String(error)}`,
+				);
+				disarm();
+				poll = setInterval(changed, POLL_MS);
+			}
+			changed();
+		};
+		const disarm = (): void => {
+			for (const watch of [...watches, ...trees.values()]) {
+				watch.dispose();
+			}
+			watches = [];
+			trees.clear();
+			settle.cancel();
+			if (poll !== null) {
+				clearInterval(poll);
+				poll = null;
+			}
+		};
+		/** Watches the ARBOR.md of each worktree in `paths`, and no other. */
+		const follow = (paths: string[]): void => {
+			if (open.size === 0 || poll !== null) {
+				return;
+			}
+			for (const [path, watch] of trees) {
+				if (!paths.includes(path)) {
+					watch.dispose();
+					trees.delete(path);
+				}
+			}
+			for (const path of paths) {
+				if (trees.has(path)) {
+					continue;
+				}
+				try {
+					trees.set(
+						path,
+						fs.watch(path, (file) => {
+							if (basename(file) === PLAN_FILE) {
+								changed();
+							}
+						}),
+					);
+				} catch {
+					// Its worktree is gone: the task shows as orphaned, which no
+					// longer moves.
+				}
+			}
+		};
 
 		const events = (): Response => {
 			let self: ReadableStreamDefaultController<Uint8Array> | null = null;
@@ -156,6 +250,9 @@ export async function dev(
 					start: (stream) => {
 						self = stream;
 						open.add(stream);
+						if (open.size === 1) {
+							arm();
+						}
 						// A comment, ignored by EventSource. Without a first chunk the
 						// response headers never reach the client and the page hangs
 						// waiting to connect.
@@ -164,6 +261,9 @@ export async function dev(
 					cancel: () => {
 						if (self) {
 							open.delete(self);
+						}
+						if (open.size === 0) {
+							disarm();
 						}
 					},
 				}),
@@ -557,7 +657,7 @@ export async function dev(
 			archiveConversation,
 			conversationEvents,
 			async disposeAsync() {
-				clearInterval(poll);
+				disarm();
 				unlisten?.();
 				for (const beat of beats.values()) {
 					beat.dispose();
@@ -759,8 +859,14 @@ export async function dev(
 /** How often an open page hears about one conversation while its agent streams. */
 const BEAT = Duration.ms(50);
 
-/** How often the repo is re-read to decide whether open pages should refetch. */
+/**
+ * How often a repo that cannot be watched is re-read to decide whether open
+ * pages should refetch.
+ */
 const POLL_MS = 2_000;
+
+/** How long changes to a repo's files settle before it is read again. */
+const SETTLE = Duration.ms(50);
 
 /** The one address the server binds: this machine, and nothing else. */
 const LOOPBACK = "127.0.0.1";

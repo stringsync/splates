@@ -1,6 +1,13 @@
 // scry-ignore-file one-class-per-file: the same two fakes are local to this suite
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { Fs, MkdirOptions, RmOptions, StatResult } from "webappwiz/system";
+import type { Resource } from "webappwiz/disposable";
+import type {
+	Fs,
+	MkdirOptions,
+	RmOptions,
+	StatResult,
+	WatchOptions,
+} from "webappwiz/system";
 import { FakeFs, FakePs } from "webappwiz/system/testing";
 import type { Config } from "./config";
 import { Git } from "./git";
@@ -141,6 +148,13 @@ class RecordingFs implements Fs {
 	}
 	rm(path: string, opts?: RmOptions): Promise<void> {
 		return this.inner.rm(path, opts);
+	}
+	watch(
+		path: string,
+		onChange: (changed: string) => void,
+		opts?: WatchOptions,
+	): Resource {
+		return this.inner.watch(path, onChange, opts);
 	}
 }
 
