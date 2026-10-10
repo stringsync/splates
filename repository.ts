@@ -46,92 +46,100 @@ export interface RepositoryOptions {
  * at all when that is not a repository, or its records are in a format this
  * arbor does not read.
  */
-export function repository<C extends Deps & { fs: Fs }>({
-	migrates = false,
-	at,
-}: RepositoryOptions = {}): Middleware<C, C & Repository> {
+export function repository<C extends Deps & { fs: Fs }>(
+	opts: RepositoryOptions = {},
+): Middleware<C, C & Repository> {
+	return async (ctx, next) =>
+		next({ ...ctx, ...(await openRepository(ctx, opts)) });
+}
+
+/**
+ * What a command works with in the repository `at` sits in, the working
+ * directory by default: what `repository` hands an action, and what `arbor
+ * dev` opens each project it serves with. Refuses what `repository` does.
+ */
+export async function openRepository(
+	{ fs, ps, log }: Deps & { fs: Fs },
+	{ migrates = false, at }: RepositoryOptions = {},
+): Promise<Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
-	return async (ctx, next) => {
-		const { fs, ps, log } = ctx;
-		const cwd = at ?? ps.cwd();
-		const { exitCode, stdout } = await ps.spawnCapture([
-			"git",
-			"-C",
-			cwd,
-			"rev-parse",
-			"--path-format=absolute",
-			"--git-common-dir",
-		]);
-		if (exitCode !== 0) {
-			throw new Error(`not a git repository: ${cwd}`);
-		}
-		// Every worktree shares one `.git`, so state kept under it is visible to
-		// every agent and is inherently untracked.
-		const gitDir = stdout.trim();
-		const arborDir = `${gitDir}/arbor`;
+	const cwd = at ?? ps.cwd();
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		cwd,
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	if (exitCode !== 0) {
+		throw new Error(`not a git repository: ${cwd}`);
+	}
+	// Every worktree shares one `.git`, so state kept under it is visible to
+	// every agent and is inherently untracked.
+	const gitDir = stdout.trim();
+	const arborDir = `${gitDir}/arbor`;
 
-		const git = new Git(dirname(gitDir), { ps, fs });
-		const config = await loadConfig(dirname(gitDir), { fs, git });
-		const service = new WorktreeService(git, config, arborDir, { fs, ps });
-		await service.init();
-		// Before anything reads a record.
-		const format = new Format(arborDir, {
+	const git = new Git(dirname(gitDir), { ps, fs });
+	const config = await loadConfig(dirname(gitDir), { fs, git });
+	const service = new WorktreeService(git, config, arborDir, { fs, ps });
+	await service.init();
+	// Before anything reads a record.
+	const format = new Format(arborDir, {
+		fs,
+		lock: new FileLock(`${arborDir}/format.lock`, {
 			fs,
-			lock: new FileLock(`${arborDir}/format.lock`, {
-				fs,
-				ps,
-				log,
-				stalenessMs: config.leaseStalenessMs,
-			}),
+			ps,
 			log,
-		});
-		await (migrates ? format.migrate() : format.check());
+			stalenessMs: config.leaseStalenessMs,
+		}),
+		log,
+	});
+	await (migrates ? format.migrate() : format.check());
 
-		// The user's, shared by every repository on this machine: any command
-		// run in one makes it an arbor project, so it joins here. `ARBOR_HOME`
-		// moves it, as the tests do to keep theirs out of the user's.
-		const registry =
-			ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
-		const projects = new Projects(`${registry}/projects.json`, {
+	// The user's, shared by every repository on this machine: any command
+	// run in one makes it an arbor project, so it joins here. `ARBOR_HOME`
+	// moves it, as the tests do to keep theirs out of the user's.
+	const registry =
+		ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
+	const projects = new Projects(`${registry}/projects.json`, {
+		fs,
+		lock: new FileLock(`${registry}/projects.lock`, {
 			fs,
-			lock: new FileLock(`${registry}/projects.lock`, {
-				fs,
-				ps,
-				log,
-				stalenessMs: config.leaseStalenessMs,
-			}),
-		});
-		await projects.register(git.root);
+			ps,
+			log,
+			stalenessMs: config.leaseStalenessMs,
+		}),
+	});
+	await projects.register(git.root);
 
-		await next({
-			...ctx,
-			projects,
-			arborDir,
-			config,
-			format,
-			git,
-			service,
-			lock: new FileLock(`${arborDir}/merge.lock`, {
+	return {
+		projects,
+		arborDir,
+		config,
+		format,
+		git,
+		service,
+		lock: new FileLock(`${arborDir}/merge.lock`, {
+			fs,
+			ps,
+			log,
+			stalenessMs: config.leaseStalenessMs,
+		}),
+		shell: new Shell({ ps }),
+		journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, {
+			fs,
+		}),
+		todos: new Todos(
+			`${arborDir}/todos`,
+			new FileLock(`${arborDir}/todos.lock`, {
 				fs,
 				ps,
 				log,
 				stalenessMs: config.leaseStalenessMs,
 			}),
-			shell: new Shell({ ps }),
-			journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, {
-				fs,
-			}),
-			todos: new Todos(
-				`${arborDir}/todos`,
-				new FileLock(`${arborDir}/todos.lock`, {
-					fs,
-					ps,
-					log,
-					stalenessMs: config.leaseStalenessMs,
-				}),
-				{ fs },
-			),
-		});
+			{ fs },
+		),
 	};
 }

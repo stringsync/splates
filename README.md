@@ -235,6 +235,15 @@ themselves as anything changes. Built for a phone first.
 Two pages, Todos and Tasks, picked in a sidebar on a wide screen and a bar
 along the bottom of a phone; `#tasks` in the address opens on the tasks.
 
+One `arbor dev` serves every arbor project on this machine, from the registry
+(see Leases and locks), opening on the one it started in. The project's name
+heads the page and switches to another: click it, or ⌘K (Ctrl+K) anywhere,
+type to narrow the list, and Enter. The address names the project shown,
+`?project=shop`, by the last part of its root (`shop-2` for a second of the
+same name); another project's records are migrated as it is first opened. One
+whose repository is gone is listed struck through, with a button to forget it.
+A conversation stays in the project it started in.
+
 Todos is a Trello-style board. Its first column, Untriaged, holds every todo
 in no lane, where new ones land; then comes a column for each lane, named,
 one agent's queue read top to bottom with its steps numbered; then "Add

@@ -1,6 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { ConversationState } from "../conversations";
+import { scoped } from "./api";
 
 export type ConversationFeedEvents = { changed: undefined };
 
@@ -58,7 +59,7 @@ export class ConversationFeed
 		if (!(await this.list())) {
 			return;
 		}
-		const stream = new EventSource("/api/conversations/events");
+		const stream = new EventSource(scoped("/api/conversations/events"));
 		this.stream = stream;
 		stream.onmessage = (event: MessageEvent<string>) =>
 			this.put(JSON.parse(event.data) as ConversationState);
@@ -69,7 +70,9 @@ export class ConversationFeed
 
 	/** Reads every conversation afresh; false when they are off. */
 	private async list(): Promise<boolean> {
-		const response = await fetch("/api/conversations").catch(() => null);
+		const response = await fetch(scoped("/api/conversations")).catch(
+			() => null,
+		);
 		// Off, or a host that may not have them: either way, nothing to show.
 		if (response === null || !response.ok) {
 			return false;

@@ -196,9 +196,10 @@ arbor
 				.map((host) => host.trim())
 				.filter(Boolean),
 			conversations: opts.experimental
-				? new Conversations(`${ctx.arborDir}/conversations`, AGENTS, {
-						fs: ctx.fs,
-					})
+				? ({ arborDir }) =>
+						new Conversations(`${arborDir}/conversations`, AGENTS, {
+							fs: ctx.fs,
+						})
 				: null,
 		}),
 	);

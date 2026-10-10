@@ -13,10 +13,9 @@ import type { Answer, Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
-import type { Journal } from "./journal";
+import type { Projects } from "./projects";
+import { openRepository, type Repository } from "./repository";
 import { fingerprint, snapshot } from "./snapshot";
-import type { Todos } from "./todos";
-import type { WorktreeService } from "./worktree-service";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
@@ -35,84 +34,25 @@ export const PORT_SPAN = 20;
  * a host `hosts` lets in, so a tunnel still reaches no further than the todos.
  */
 export async function dev(
-	{
-		service,
-		fs,
-		ps,
-		journal,
-		todos,
-		format,
-		log,
-		assets,
-	}: {
-		service: WorktreeService;
-		fs: Fs;
-		ps: Ps;
-		journal: Journal;
-		todos: Todos;
-		format: Format;
-		log: Logger;
-		assets: Assets;
-	},
+	home: Project & { assets: Assets; projects: Projects },
 	{
 		ports = devPorts(DEFAULT_PORT),
 		hosts = [],
-		conversations = null,
+		conversations: converse = null,
+		open = async (root) => ({
+			...home,
+			...(await openRepository(home, { at: root, migrates: true })),
+		}),
 	}: DevOptions = {},
 ): Promise<DevServer> {
-	const home = ps.env("HOME");
-	const read = () => snapshot({ service, todos, fs, home });
+	const { fs, ps, log, assets, projects } = home;
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
 	// off disk.
-	const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 	const encoder = new TextEncoder();
-	let last = fingerprint(await read());
-
-	// ponytail: polls, because arbor's state is spread across records, git refs
-	// and ARBOR.md, and one watcher would not cover all three. Watch `.git/arbor`
-	// and the worktree roots if two seconds ever feels slow.
-	const tick = async (): Promise<void> => {
-		const print = fingerprint(await read());
-		if (print === last) {
-			return;
-		}
-		last = print;
-		for (const stream of open) {
-			stream.enqueue(encoder.encode("data: changed\n\n"));
-		}
-	};
-	const poll = setInterval(() => {
-		tick().catch((error: unknown) => log.error(String(error)));
-	}, POLL_MS);
-
-	const events = (): Response => {
-		let self: ReadableStreamDefaultController<Uint8Array> | null = null;
-		return new Response(
-			new ReadableStream<Uint8Array>({
-				start: (stream) => {
-					self = stream;
-					open.add(stream);
-					// A comment, ignored by EventSource. Without a first chunk the
-					// response headers never reach the client and the page hangs
-					// waiting to connect.
-					stream.enqueue(encoder.encode(": connected\n\n"));
-				},
-				cancel: () => {
-					if (self) {
-						open.delete(self);
-					}
-				},
-			}),
-			{
-				headers: {
-					"content-type": "text/event-stream",
-					"cache-control": "no-cache",
-				},
-			},
-		);
-	};
+	/** Where the agents' own `arbor` reaches this server, once it listens. */
+	let url: string | null = null;
 
 	const asset = (body: string, type: string): Response =>
 		new Response(body, { headers: { "content-type": type } });
@@ -139,9 +79,6 @@ export async function dev(
 				return refuse(403, "forbidden", "cross-origin writes are refused");
 			}
 			try {
-				// Again on every request, since a newer arbor may have migrated
-				// the records since this server started.
-				await format.check();
 				return await handle(request);
 			} catch (error) {
 				if (error instanceof Exit) {
@@ -156,206 +93,6 @@ export async function dev(
 			}
 		};
 
-	// Only a file a todo holds, so the page, and whoever a tunnel lets reach
-	// it, can read nothing on this machine that was not put there on purpose.
-	const file = async (request: Request): Promise<Response> => {
-		const params = new URL(request.url).searchParams;
-		const path = params.get("path") ?? "";
-		const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
-		const bytes = todos.owns(path)
-			? await fs.readBytes(path).catch(() => null)
-			: null;
-		if (bytes === null) {
-			return refuse(404, "not_found", `nothing here shows ${path}`);
-		}
-		return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
-			headers: {
-				"content-type": type ?? "application/octet-stream",
-				// Anything not an image downloads rather than rendering here.
-				...(type === undefined ? { "content-disposition": "attachment" } : {}),
-				// An svg opened on its own could otherwise run a script.
-				"content-security-policy":
-					"default-src 'none'; style-src 'unsafe-inline'",
-				"x-content-type-options": "nosniff",
-			},
-		});
-	};
-
-	// Names only, and only what git would show anyone with the repo: enough to
-	// point an agent at a file with `@`, and nothing inside one.
-	const paths = async (request: Request): Promise<Response> => {
-		const task = new URL(request.url).searchParams.get("task") ?? "";
-		const worktree = task === "" ? null : await service.find(task);
-		if (worktree !== null && !worktree.exists) {
-			fail("not_found", `no worktree for '${task}'`, { task });
-		}
-		return Response.json(
-			await service.git.paths(worktree?.path ?? service.git.root),
-		);
-	};
-
-	const addTodo = async (request: Request): Promise<Response> => {
-		const form = await request.formData();
-		const todo = await journal.record("todo add", null, async () =>
-			todos.add(String(form.get("subject") ?? ""), null, {
-				text: String(form.get("text") ?? ""),
-				files: await uploads(form),
-				position: positionIn(form),
-				// Added from a lane's column, it goes at the bottom of that lane.
-				lane: form.has("lane") ? laneIn(Number(form.get("lane"))) : null,
-			}),
-		);
-		await tick();
-		return Response.json(todo.state);
-	};
-
-	/** Where a todo write asks to put it; absent leaves it to the write. */
-	const positionIn = (form: FormData): number | undefined =>
-		form.has("position") ? Number(form.get("position")) : undefined;
-
-	/** The todo a `/api/todos/<id>` path names, or `/api/todos/<id>/position`. */
-	const todoAt = async (request: Request) => {
-		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
-		const id = Number(raw);
-		if (!Number.isInteger(id) || id <= 0) {
-			fail("usage", `'${raw}' is not a todo id`, { todo: raw });
-		}
-		return todos.find(id);
-	};
-
-	const updateTodo = async (request: Request): Promise<Response> => {
-		const form = await request.formData();
-		const found = await todoAt(request);
-		const todo = await journal.record("todo update", null, async () =>
-			found.update({
-				subject: form.has("subject") ? String(form.get("subject")) : undefined,
-				text: form.has("text") ? String(form.get("text")) : undefined,
-				position: positionIn(form),
-				files: await uploads(form),
-				keep: form.getAll("keep").map(String),
-			}),
-		);
-		await tick();
-		return Response.json(todo.state);
-	};
-
-	// Its own route, carrying nothing but the place, so a drag can never touch
-	// a todo's words or files.
-	const moveTodo = async (request: Request): Promise<Response> => {
-		const found = await todoAt(request);
-		const { position } = (await request.json()) as { position?: unknown };
-		const todo = await journal.record("todo update", null, () =>
-			found.update({ position: Number(position) }),
-		);
-		await tick();
-		return Response.json(todo.state);
-	};
-
-	/** The JSON a write sends, as an object. */
-	const body = async (request: Request): Promise<Record<string, unknown>> => {
-		const read = (await request.json().catch(() => ({}))) as unknown;
-		return typeof read === "object" && read !== null
-			? (read as Record<string, unknown>)
-			: {};
-	};
-
-	/** A lane as a write names it: a number, `"new"`, or null for none. */
-	const laneIn = (value: unknown): number | "new" | null =>
-		value === "new" || value === null ? value : Number(value);
-
-	// What blocks it, all of it: the page sends the whole list, and
-	// only the difference is linked or unlinked, so a loop is still refused.
-	const linkTodo = async (request: Request): Promise<Response> => {
-		const found = await todoAt(request);
-		const { blockedBy } = await body(request);
-		const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
-		const todo = await journal.record("todo update", null, () =>
-			todos.link(found.id, {
-				add: ids.filter((id) => !found.blockedBy.includes(id)),
-				drop: found.blockedBy.filter((id) => !ids.includes(id)),
-			}),
-		);
-		await tick();
-		return Response.json(todo.state);
-	};
-
-	// Into a lane, or none, above the todo `before` or at the bottom of it.
-	const arrangeTodo = async (request: Request): Promise<Response> => {
-		const found = await todoAt(request);
-		const { lane, before, name } = await body(request);
-		const todo = await journal.record("todo update", null, () =>
-			todos.arrange(found.id, laneIn(lane), {
-				name: typeof name === "string" ? name : undefined,
-				before:
-					before === undefined || before === null ? undefined : Number(before),
-			}),
-		);
-		await tick();
-		return Response.json(todo.state);
-	};
-
-	/** The lane a `/api/lanes/<id>` path names. */
-	const laneAt = (request: Request): number => {
-		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
-		const id = Number(raw);
-		if (!Number.isInteger(id) || id <= 0) {
-			fail("usage", `'${raw}' is not a lane`, { lane: raw });
-		}
-		return id;
-	};
-
-	const joinLane = async (request: Request): Promise<Response> => {
-		const from = laneAt(request);
-		const { into } = await body(request);
-		await journal.record("lane join", null, () =>
-			todos.joinLanes(from, Number(into)),
-		);
-		await tick();
-		return Response.json({ lane: Number(into) });
-	};
-
-	const addLane = async (request: Request): Promise<Response> => {
-		const { name } = await body(request);
-		const lane = await journal.record("lane add", null, () =>
-			todos.addLane(String(name ?? "")),
-		);
-		await tick();
-		return Response.json(lane);
-	};
-
-	// A new name, a new place among the lanes, or both.
-	const updateLane = async (request: Request): Promise<Response> => {
-		const id = laneAt(request);
-		const { name, position } = await body(request);
-		const lane = await journal.record("lane update", null, async () => {
-			const renamed =
-				name === undefined
-					? undefined
-					: await todos.renameLane(id, String(name));
-			const order =
-				position === undefined
-					? undefined
-					: await todos.moveLane(id, Number(position));
-			return order?.find((each) => each.id === id) ?? renamed;
-		});
-		await tick();
-		return Response.json(lane ?? { id });
-	};
-
-	const dropLane = async (request: Request): Promise<Response> => {
-		const id = laneAt(request);
-		await journal.record("lane remove", null, () => todos.dropLane(id));
-		await tick();
-		return Response.json({ lane: id });
-	};
-
-	const removeTodo = async (request: Request): Promise<Response> => {
-		const found = await todoAt(request);
-		await journal.record("todo remove", null, () => found.remove());
-		await tick();
-		return Response.json(found.state);
-	};
-
 	// Refused, rather than missing, for any name but this machine's own: a
 	// tunnel's visitor learns the feature exists, and nothing more.
 	const local =
@@ -368,153 +105,560 @@ export async function dev(
 						"forbidden",
 						"conversations run commands on this machine: open the page on it",
 					);
-	const talk = (handle: (request: Request) => Promise<Response>) =>
-		guarded(local(handle));
+	const talk = local;
 
-	/** The conversations a page may hold, or a refusal when they are off. */
-	const held = (): Conversations => {
-		if (conversations === null) {
-			fail(
-				"not_found",
-				"conversations are off: run `arbor dev --experimental`",
-				{},
-			);
+	/**
+	 * Everything one project's page talks to: its records, its stream of
+	 * changes and its conversations, kept from the first request for it until
+	 * the server stops.
+	 */
+	const serve = async ({
+		service,
+		journal,
+		todos,
+		format,
+		arborDir,
+	}: Project): Promise<Served> => {
+		const read = () => snapshot({ service, todos, fs, home: ps.env("HOME") });
+		const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
+		let last = fingerprint(await read());
+		const conversations = converse?.({ arborDir }) ?? null;
+		if (conversations !== null) {
+			conversations.url = url;
 		}
-		return conversations;
-	};
 
-	/** The conversation a `/api/conversations/<id>` path names. */
-	const conversationAt = (request: Request) =>
-		held().find(new URL(request.url).pathname.split("/")[3] ?? "");
-
-	const listConversations = async (): Promise<Response> => {
-		const all = held();
-		return Response.json({
-			agents: all.agents.map(({ id, name }) => ({ id, name })),
-			conversations: (await all.list()).map((each) => each.state),
-		});
-	};
-
-	/** Where a conversation for `task` runs: its worktree, or the main tree. */
-	const treeFor = async (task: unknown): Promise<[string | null, string]> => {
-		const named = typeof task === "string" && task !== "" ? task : null;
-		const worktree = named === null ? null : await service.find(named);
-		if (worktree !== null && !worktree.exists) {
-			fail("not_found", `no worktree for '${named}'`, { task: named });
-		}
-		return [named, worktree?.path ?? service.git.root];
-	};
-
-	const startConversation = async (request: Request): Promise<Response> => {
-		const { agent, task, settings } = await body(request);
-		const [named, cwd] = await treeFor(task);
-		const conversation = await held().start(String(agent ?? ""), {
-			task: named,
-			cwd,
-			settings: Object.fromEntries(
-				Object.entries(
-					typeof settings === "object" && settings !== null ? settings : {},
-				).map(([id, value]) => [id, String(value)]),
-			),
-		});
-		return Response.json(conversation.state);
-	};
-
-	// The agent's own `arbor` sends this as it takes or lands a task. `from`
-	// names the task it is leaving, so removing some other task moves nothing.
-	const moveConversation = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		const { task, from } = await body(request);
-		const [named, cwd] = await treeFor(task);
-		if (from === undefined || from === conversation.state.task) {
-			conversation.move(named, cwd);
-		}
-		return Response.json(conversation.state);
-	};
-
-	const promptConversation = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		const { text } = await body(request);
-		await conversation.prompt(String(text ?? ""));
-		return Response.json(conversation.state);
-	};
-
-	const answerConversation = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		const { ask, answer } = await body(request);
-		conversation.answer(String(ask ?? ""), answer as Answer);
-		return Response.json(conversation.state);
-	};
-
-	const cancelConversation = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		await conversation.cancel();
-		return Response.json(conversation.state);
-	};
-
-	const chooseSetting = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		const { id, value } = await body(request);
-		await conversation.choose(String(id ?? ""), String(value ?? ""));
-		return Response.json(conversation.state);
-	};
-
-	const renameConversation = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		const { name } = await body(request);
-		await conversation.rename(String(name ?? ""));
-		return Response.json(conversation.state);
-	};
-
-	const archiveConversation = async (request: Request): Promise<Response> => {
-		const conversation = await conversationAt(request);
-		const { archived } = await body(request);
-		await (archived === false
-			? conversation.unarchive()
-			: conversation.archive());
-		return Response.json(conversation.state);
-	};
-
-	// Each change carries the whole conversation, since an agent streams in
-	// small pieces and a page refetching after each would fall behind. At most
-	// one per conversation per beat, the latest, which holds everything before.
-	const listeners = new Set<ReadableStreamDefaultController<Uint8Array>>();
-	const beats = new Map<string, Throttler>();
-	const timer = new SystemTimer();
-	const unlisten = conversations?.events.on("changed", (id) => {
-		const beat = beats.get(id) ?? new Throttler(timer, BEAT);
-		beats.set(id, beat);
-		beat.call(async () => {
-			const state = (await conversations.find(id)).state;
-			const chunk = encoder.encode(`data: ${JSON.stringify(state)}\n\n`);
-			for (const stream of listeners) {
-				stream.enqueue(chunk);
+		// ponytail: polls, because arbor's state is spread across records, git refs
+		// and ARBOR.md, and one watcher would not cover all three. Watch `.git/arbor`
+		// and the worktree roots if two seconds ever feels slow.
+		const tick = async (): Promise<void> => {
+			// Read only for a page that would hear of it. One that connects later
+			// may hear of a change it already fetched, which costs it one refetch.
+			if (open.size === 0) {
+				return;
 			}
-		});
-	});
-	const conversationEvents = async (): Promise<Response> => {
-		held();
-		let self: ReadableStreamDefaultController<Uint8Array> | null = null;
-		return new Response(
-			new ReadableStream<Uint8Array>({
-				start: (stream) => {
-					self = stream;
-					listeners.add(stream);
-					stream.enqueue(encoder.encode(": connected\n\n"));
+			const print = fingerprint(await read());
+			if (print === last) {
+				return;
+			}
+			last = print;
+			for (const stream of open) {
+				stream.enqueue(encoder.encode("data: changed\n\n"));
+			}
+		};
+		const poll = setInterval(() => {
+			tick().catch((error: unknown) => log.error(String(error)));
+		}, POLL_MS);
+
+		const events = (): Response => {
+			let self: ReadableStreamDefaultController<Uint8Array> | null = null;
+			return new Response(
+				new ReadableStream<Uint8Array>({
+					start: (stream) => {
+						self = stream;
+						open.add(stream);
+						// A comment, ignored by EventSource. Without a first chunk the
+						// response headers never reach the client and the page hangs
+						// waiting to connect.
+						stream.enqueue(encoder.encode(": connected\n\n"));
+					},
+					cancel: () => {
+						if (self) {
+							open.delete(self);
+						}
+					},
+				}),
+				{
+					headers: {
+						"content-type": "text/event-stream",
+						"cache-control": "no-cache",
+					},
 				},
-				cancel: () => {
-					if (self) {
-						listeners.delete(self);
-					}
-				},
-			}),
-			{
+			);
+		};
+
+		// Only a file a todo holds, so the page, and whoever a tunnel lets reach
+		// it, can read nothing on this machine that was not put there on purpose.
+		const file = async (request: Request): Promise<Response> => {
+			const params = new URL(request.url).searchParams;
+			const path = params.get("path") ?? "";
+			const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
+			const bytes = todos.owns(path)
+				? await fs.readBytes(path).catch(() => null)
+				: null;
+			if (bytes === null) {
+				return refuse(404, "not_found", `nothing here shows ${path}`);
+			}
+			return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
 				headers: {
-					"content-type": "text/event-stream",
-					"cache-control": "no-cache",
+					"content-type": type ?? "application/octet-stream",
+					// Anything not an image downloads rather than rendering here.
+					...(type === undefined
+						? { "content-disposition": "attachment" }
+						: {}),
+					// An svg opened on its own could otherwise run a script.
+					"content-security-policy":
+						"default-src 'none'; style-src 'unsafe-inline'",
+					"x-content-type-options": "nosniff",
 				},
+			});
+		};
+
+		// Names only, and only what git would show anyone with the repo: enough to
+		// point an agent at a file with `@`, and nothing inside one.
+		const paths = async (request: Request): Promise<Response> => {
+			const task = new URL(request.url).searchParams.get("task") ?? "";
+			const worktree = task === "" ? null : await service.find(task);
+			if (worktree !== null && !worktree.exists) {
+				fail("not_found", `no worktree for '${task}'`, { task });
+			}
+			return Response.json(
+				await service.git.paths(worktree?.path ?? service.git.root),
+			);
+		};
+
+		const addTodo = async (request: Request): Promise<Response> => {
+			const form = await request.formData();
+			const todo = await journal.record("todo add", null, async () =>
+				todos.add(String(form.get("subject") ?? ""), null, {
+					text: String(form.get("text") ?? ""),
+					files: await uploads(form),
+					position: positionIn(form),
+					// Added from a lane's column, it goes at the bottom of that lane.
+					lane: form.has("lane") ? laneIn(Number(form.get("lane"))) : null,
+				}),
+			);
+			await tick();
+			return Response.json(todo.state);
+		};
+
+		/** Where a todo write asks to put it; absent leaves it to the write. */
+		const positionIn = (form: FormData): number | undefined =>
+			form.has("position") ? Number(form.get("position")) : undefined;
+
+		/** The todo a `/api/todos/<id>` path names, or `/api/todos/<id>/position`. */
+		const todoAt = async (request: Request) => {
+			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
+			const id = Number(raw);
+			if (!Number.isInteger(id) || id <= 0) {
+				fail("usage", `'${raw}' is not a todo id`, { todo: raw });
+			}
+			return todos.find(id);
+		};
+
+		const updateTodo = async (request: Request): Promise<Response> => {
+			const form = await request.formData();
+			const found = await todoAt(request);
+			const todo = await journal.record("todo update", null, async () =>
+				found.update({
+					subject: form.has("subject")
+						? String(form.get("subject"))
+						: undefined,
+					text: form.has("text") ? String(form.get("text")) : undefined,
+					position: positionIn(form),
+					files: await uploads(form),
+					keep: form.getAll("keep").map(String),
+				}),
+			);
+			await tick();
+			return Response.json(todo.state);
+		};
+
+		// Its own route, carrying nothing but the place, so a drag can never touch
+		// a todo's words or files.
+		const moveTodo = async (request: Request): Promise<Response> => {
+			const found = await todoAt(request);
+			const { position } = (await request.json()) as { position?: unknown };
+			const todo = await journal.record("todo update", null, () =>
+				found.update({ position: Number(position) }),
+			);
+			await tick();
+			return Response.json(todo.state);
+		};
+
+		/** The JSON a write sends, as an object. */
+		const body = async (request: Request): Promise<Record<string, unknown>> => {
+			const read = (await request.json().catch(() => ({}))) as unknown;
+			return typeof read === "object" && read !== null
+				? (read as Record<string, unknown>)
+				: {};
+		};
+
+		/** A lane as a write names it: a number, `"new"`, or null for none. */
+		const laneIn = (value: unknown): number | "new" | null =>
+			value === "new" || value === null ? value : Number(value);
+
+		// What blocks it, all of it: the page sends the whole list, and
+		// only the difference is linked or unlinked, so a loop is still refused.
+		const linkTodo = async (request: Request): Promise<Response> => {
+			const found = await todoAt(request);
+			const { blockedBy } = await body(request);
+			const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
+			const todo = await journal.record("todo update", null, () =>
+				todos.link(found.id, {
+					add: ids.filter((id) => !found.blockedBy.includes(id)),
+					drop: found.blockedBy.filter((id) => !ids.includes(id)),
+				}),
+			);
+			await tick();
+			return Response.json(todo.state);
+		};
+
+		// Into a lane, or none, above the todo `before` or at the bottom of it.
+		const arrangeTodo = async (request: Request): Promise<Response> => {
+			const found = await todoAt(request);
+			const { lane, before, name } = await body(request);
+			const todo = await journal.record("todo update", null, () =>
+				todos.arrange(found.id, laneIn(lane), {
+					name: typeof name === "string" ? name : undefined,
+					before:
+						before === undefined || before === null
+							? undefined
+							: Number(before),
+				}),
+			);
+			await tick();
+			return Response.json(todo.state);
+		};
+
+		/** The lane a `/api/lanes/<id>` path names. */
+		const laneAt = (request: Request): number => {
+			const raw = new URL(request.url).pathname.split("/")[3] ?? "";
+			const id = Number(raw);
+			if (!Number.isInteger(id) || id <= 0) {
+				fail("usage", `'${raw}' is not a lane`, { lane: raw });
+			}
+			return id;
+		};
+
+		const joinLane = async (request: Request): Promise<Response> => {
+			const from = laneAt(request);
+			const { into } = await body(request);
+			await journal.record("lane join", null, () =>
+				todos.joinLanes(from, Number(into)),
+			);
+			await tick();
+			return Response.json({ lane: Number(into) });
+		};
+
+		const addLane = async (request: Request): Promise<Response> => {
+			const { name } = await body(request);
+			const lane = await journal.record("lane add", null, () =>
+				todos.addLane(String(name ?? "")),
+			);
+			await tick();
+			return Response.json(lane);
+		};
+
+		// A new name, a new place among the lanes, or both.
+		const updateLane = async (request: Request): Promise<Response> => {
+			const id = laneAt(request);
+			const { name, position } = await body(request);
+			const lane = await journal.record("lane update", null, async () => {
+				const renamed =
+					name === undefined
+						? undefined
+						: await todos.renameLane(id, String(name));
+				const order =
+					position === undefined
+						? undefined
+						: await todos.moveLane(id, Number(position));
+				return order?.find((each) => each.id === id) ?? renamed;
+			});
+			await tick();
+			return Response.json(lane ?? { id });
+		};
+
+		const dropLane = async (request: Request): Promise<Response> => {
+			const id = laneAt(request);
+			await journal.record("lane remove", null, () => todos.dropLane(id));
+			await tick();
+			return Response.json({ lane: id });
+		};
+
+		const removeTodo = async (request: Request): Promise<Response> => {
+			const found = await todoAt(request);
+			await journal.record("todo remove", null, () => found.remove());
+			await tick();
+			return Response.json(found.state);
+		};
+
+		/** The conversations a page may hold, or a refusal when they are off. */
+		const held = (): Conversations => {
+			if (conversations === null) {
+				fail(
+					"not_found",
+					"conversations are off: run `arbor dev --experimental`",
+					{},
+				);
+			}
+			return conversations;
+		};
+
+		/** The conversation a `/api/conversations/<id>` path names. */
+		const conversationAt = (request: Request) =>
+			held().find(new URL(request.url).pathname.split("/")[3] ?? "");
+
+		const listConversations = async (): Promise<Response> => {
+			const all = held();
+			return Response.json({
+				agents: all.agents.map(({ id, name }) => ({ id, name })),
+				conversations: (await all.list()).map((each) => each.state),
+			});
+		};
+
+		/** Where a conversation for `task` runs: its worktree, or the main tree. */
+		const treeFor = async (task: unknown): Promise<[string | null, string]> => {
+			const named = typeof task === "string" && task !== "" ? task : null;
+			const worktree = named === null ? null : await service.find(named);
+			if (worktree !== null && !worktree.exists) {
+				fail("not_found", `no worktree for '${named}'`, { task: named });
+			}
+			return [named, worktree?.path ?? service.git.root];
+		};
+
+		const startConversation = async (request: Request): Promise<Response> => {
+			const { agent, task, settings } = await body(request);
+			const [named, cwd] = await treeFor(task);
+			const conversation = await held().start(String(agent ?? ""), {
+				task: named,
+				cwd,
+				settings: Object.fromEntries(
+					Object.entries(
+						typeof settings === "object" && settings !== null ? settings : {},
+					).map(([id, value]) => [id, String(value)]),
+				),
+			});
+			return Response.json(conversation.state);
+		};
+
+		// The agent's own `arbor` sends this as it takes or lands a task. `from`
+		// names the task it is leaving, so removing some other task moves nothing.
+		const moveConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { task, from } = await body(request);
+			const [named, cwd] = await treeFor(task);
+			if (from === undefined || from === conversation.state.task) {
+				conversation.move(named, cwd);
+			}
+			return Response.json(conversation.state);
+		};
+
+		const promptConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { text } = await body(request);
+			await conversation.prompt(String(text ?? ""));
+			return Response.json(conversation.state);
+		};
+
+		const answerConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { ask, answer } = await body(request);
+			conversation.answer(String(ask ?? ""), answer as Answer);
+			return Response.json(conversation.state);
+		};
+
+		const cancelConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			await conversation.cancel();
+			return Response.json(conversation.state);
+		};
+
+		const chooseSetting = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { id, value } = await body(request);
+			await conversation.choose(String(id ?? ""), String(value ?? ""));
+			return Response.json(conversation.state);
+		};
+
+		const renameConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { name } = await body(request);
+			await conversation.rename(String(name ?? ""));
+			return Response.json(conversation.state);
+		};
+
+		const archiveConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { archived } = await body(request);
+			await (archived === false
+				? conversation.unarchive()
+				: conversation.archive());
+			return Response.json(conversation.state);
+		};
+
+		// Each change carries the whole conversation, since an agent streams in
+		// small pieces and a page refetching after each would fall behind. At most
+		// one per conversation per beat, the latest, which holds everything before.
+		const listeners = new Set<ReadableStreamDefaultController<Uint8Array>>();
+		const beats = new Map<string, Throttler>();
+		const timer = new SystemTimer();
+		const unlisten = conversations?.events.on("changed", (id) => {
+			const beat = beats.get(id) ?? new Throttler(timer, BEAT);
+			beats.set(id, beat);
+			beat.call(async () => {
+				const state = (await conversations.find(id)).state;
+				const chunk = encoder.encode(`data: ${JSON.stringify(state)}\n\n`);
+				for (const stream of listeners) {
+					stream.enqueue(chunk);
+				}
+			});
+		});
+		const conversationEvents = async (): Promise<Response> => {
+			held();
+			let self: ReadableStreamDefaultController<Uint8Array> | null = null;
+			return new Response(
+				new ReadableStream<Uint8Array>({
+					start: (stream) => {
+						self = stream;
+						listeners.add(stream);
+						stream.enqueue(encoder.encode(": connected\n\n"));
+					},
+					cancel: () => {
+						if (self) {
+							listeners.delete(self);
+						}
+					},
+				}),
+				{
+					headers: {
+						"content-type": "text/event-stream",
+						"cache-control": "no-cache",
+					},
+				},
+			);
+		};
+
+		return {
+			root: service.git.root,
+			format,
+			conversations,
+			snapshot: async () => Response.json(await read()),
+			events: async () => events(),
+			file,
+			paths,
+			addTodo,
+			updateTodo,
+			moveTodo,
+			linkTodo,
+			arrangeTodo,
+			joinLane,
+			addLane,
+			updateLane,
+			dropLane,
+			removeTodo,
+			listConversations,
+			startConversation,
+			moveConversation,
+			promptConversation,
+			answerConversation,
+			cancelConversation,
+			chooseSetting,
+			renameConversation,
+			archiveConversation,
+			conversationEvents,
+			async disposeAsync() {
+				clearInterval(poll);
+				unlisten?.();
+				for (const beat of beats.values()) {
+					beat.dispose();
+				}
+				await conversations?.disposeAsync();
 			},
-		);
+		};
+	};
+
+	// By root, each opened on its first request: the one `arbor dev` started
+	// in at once, every other registered one only when a page asks for it.
+	const served = new Map<string, Promise<Served>>();
+	const here = home.service.git.root;
+	const servedAt = (root: string): Promise<Served> => {
+		let found = served.get(root);
+		if (found === undefined) {
+			found = (root === here ? Promise.resolve(home) : open(root)).then(serve);
+			// One that failed to open is tried again on the next request.
+			found.catch(() => served.delete(root));
+			served.set(root, found);
+		}
+		return found;
+	};
+
+	/** The project a request names with `?project=`, or the one started in. */
+	const projectFor = async (request: Request): Promise<Served> => {
+		const slug = new URL(request.url).searchParams.get("project") ?? "";
+		if (slug === "") {
+			return servedAt(here);
+		}
+		const found = (await projects.list()).find((each) => each.slug === slug);
+		if (found === undefined) {
+			fail("not_found", `no arbor project '${slug}'`, { project: slug });
+		}
+		if (found.gone) {
+			fail("not_found", `${found.root} is gone: moved or deleted`, {
+				project: slug,
+			});
+		}
+		return servedAt(found.root);
+	};
+
+	// Again on every request, since a newer arbor may have migrated the
+	// records since this server started.
+	const scoped =
+		(pick: (project: Served) => Handler) =>
+		(request: Request): Promise<Response> =>
+			guarded(async (request) => {
+				const project = await projectFor(request);
+				await project.format.check();
+				return pick(project)(request);
+			})(request);
+
+	// A conversation is the project's it started in, whichever the page is on:
+	// the agent's own `arbor` names no project when it says it moved.
+	const owned =
+		(pick: (project: Served) => Handler) =>
+		(request: Request): Promise<Response> =>
+			guarded(async (request) => {
+				const id = new URL(request.url).pathname.split("/")[3] ?? "";
+				let owner: Served | null = null;
+				for (const settled of await Promise.allSettled(served.values())) {
+					const project = settled.status === "fulfilled" ? settled.value : null;
+					if (
+						project?.conversations &&
+						(await project.conversations.find(id).then(
+							() => true,
+							() => false,
+						))
+					) {
+						owner = project;
+						break;
+					}
+				}
+				// None holds it: the project asked for refuses it, as ever.
+				const project = owner ?? (await projectFor(request));
+				await project.format.check();
+				return pick(project)(request);
+			})(request);
+
+	const listProjects = async (): Promise<Response> =>
+		Response.json({
+			projects: (await projects.list()).map((each) => ({
+				...each,
+				here: each.root === here,
+			})),
+		});
+
+	const forgetProject = async (request: Request): Promise<Response> => {
+		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
+		const found = (await projects.list()).find((each) => each.slug === slug);
+		if (found === undefined) {
+			fail("not_found", `no arbor project '${slug}'`, { project: slug });
+		}
+		if (found.root === here) {
+			fail("usage", `arbor dev runs in ${slug}: it cannot forget it`, {
+				project: slug,
+			});
+		}
+		await projects.forget(found.root);
+		return Response.json(found);
 	};
 
 	const requested = await ports.get();
@@ -533,33 +677,56 @@ export async function dev(
 			"/": asset(assets.shell, "text/html; charset=utf-8"),
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
-			"/api/snapshot": guarded(async () => Response.json(await read())),
-			"/api/file": guarded(file),
-			"/api/paths": guarded(paths),
-			"/api/todos": { POST: guarded(addTodo) },
+			"/api/projects": guarded(listProjects),
+			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
+			"/api/snapshot": scoped((project) => project.snapshot),
+			"/api/file": scoped((project) => project.file),
+			"/api/paths": scoped((project) => project.paths),
+			"/api/todos": { POST: scoped((project) => project.addTodo) },
 			"/api/todos/:id": {
-				PATCH: guarded(updateTodo),
-				DELETE: guarded(removeTodo),
+				PATCH: scoped((project) => project.updateTodo),
+				DELETE: scoped((project) => project.removeTodo),
 			},
-			"/api/todos/:id/position": { PUT: guarded(moveTodo) },
-			"/api/todos/:id/blocked-by": { PUT: guarded(linkTodo) },
-			"/api/todos/:id/lane": { PUT: guarded(arrangeTodo) },
-			"/api/lanes/:id/join": { POST: guarded(joinLane) },
-			"/api/lanes": { POST: guarded(addLane) },
-			"/api/lanes/:id": { PUT: guarded(updateLane), DELETE: guarded(dropLane) },
-			"/events": guarded(async () => events()),
+			"/api/todos/:id/position": { PUT: scoped((project) => project.moveTodo) },
+			"/api/todos/:id/blocked-by": {
+				PUT: scoped((project) => project.linkTodo),
+			},
+			"/api/todos/:id/lane": { PUT: scoped((project) => project.arrangeTodo) },
+			"/api/lanes/:id/join": { POST: scoped((project) => project.joinLane) },
+			"/api/lanes": { POST: scoped((project) => project.addLane) },
+			"/api/lanes/:id": {
+				PUT: scoped((project) => project.updateLane),
+				DELETE: scoped((project) => project.dropLane),
+			},
+			"/events": scoped((project) => project.events),
 			"/api/conversations": {
-				GET: talk(listConversations),
-				POST: talk(startConversation),
+				GET: talk(scoped((project) => project.listConversations)),
+				POST: talk(scoped((project) => project.startConversation)),
 			},
-			"/api/conversations/events": talk(conversationEvents),
-			"/api/conversations/:id/prompt": { POST: talk(promptConversation) },
-			"/api/conversations/:id/answer": { POST: talk(answerConversation) },
-			"/api/conversations/:id/cancel": { POST: talk(cancelConversation) },
-			"/api/conversations/:id/setting": { PUT: talk(chooseSetting) },
-			"/api/conversations/:id/archived": { PUT: talk(archiveConversation) },
-			"/api/conversations/:id/name": { PUT: talk(renameConversation) },
-			"/api/conversations/:id/task": { PUT: talk(moveConversation) },
+			"/api/conversations/events": talk(
+				scoped((project) => project.conversationEvents),
+			),
+			"/api/conversations/:id/prompt": {
+				POST: talk(owned((project) => project.promptConversation)),
+			},
+			"/api/conversations/:id/answer": {
+				POST: talk(owned((project) => project.answerConversation)),
+			},
+			"/api/conversations/:id/cancel": {
+				POST: talk(owned((project) => project.cancelConversation)),
+			},
+			"/api/conversations/:id/setting": {
+				PUT: talk(owned((project) => project.chooseSetting)),
+			},
+			"/api/conversations/:id/archived": {
+				PUT: talk(owned((project) => project.archiveConversation)),
+			},
+			"/api/conversations/:id/name": {
+				PUT: talk(owned((project) => project.renameConversation)),
+			},
+			"/api/conversations/:id/task": {
+				PUT: talk(owned((project) => project.moveConversation)),
+			},
 		},
 		fetch: () => new Response("not found", { status: 404 }),
 	});
@@ -568,21 +735,20 @@ export async function dev(
 	// handed to a caller that stops it. Undefined only for a unix socket, which
 	// this never asks for.
 	const port = server.port ?? requested;
-	if (conversations !== null) {
-		conversations.url = `http://localhost:${port}`;
-	}
+	url = `http://localhost:${port}`;
+	// Open now, so the page's first request finds it ready.
+	await servedAt(here);
 
 	log.info(`arbor dev on http://localhost:${port}`);
 	const disposer = new AsyncDisposer();
 	// true drains open connections rather than cutting them mid-response
 	disposer.defer(() => server.stop(true));
-	disposer.defer(async () => clearInterval(poll));
 	disposer.defer(async () => {
-		unlisten?.();
-		for (const beat of beats.values()) {
-			beat.dispose();
+		for (const settled of await Promise.allSettled(served.values())) {
+			if (settled.status === "fulfilled") {
+				await settled.value.disposeAsync();
+			}
 		}
-		await conversations?.disposeAsync();
 	});
 	return {
 		port,
@@ -637,10 +803,53 @@ export interface DevOptions {
 	 */
 	hosts?: string[];
 	/**
-	 * The conversations the page may hold with agents; without them the page
-	 * has none to show, and the routes say they are off.
+	 * Makes the conversations a project's page may hold with agents, its
+	 * records in `arborDir`; without it no page has any to show, and the routes
+	 * say they are off.
 	 */
-	conversations?: Conversations | null;
+	conversations?: ((project: { arborDir: string }) => Conversations) | null;
+	/** Opens a registered project other than the one started in, by its root. */
+	open?: (root: string) => Promise<Project>;
+}
+
+/** What `dev` serves a project with: its own records, read and written. */
+export type Project = Pick<
+	Repository,
+	"service" | "journal" | "todos" | "format" | "arborDir"
+> & { fs: Fs; ps: Ps; log: Logger };
+
+/** A route's work once its project is known. */
+type Handler = (request: Request) => Promise<Response>;
+
+/** One project as the server holds it: what each of its routes does. */
+interface Served extends AsyncResource {
+	root: string;
+	format: Format;
+	conversations: Conversations | null;
+	snapshot: Handler;
+	events: Handler;
+	file: Handler;
+	paths: Handler;
+	addTodo: Handler;
+	updateTodo: Handler;
+	moveTodo: Handler;
+	linkTodo: Handler;
+	arrangeTodo: Handler;
+	joinLane: Handler;
+	addLane: Handler;
+	updateLane: Handler;
+	dropLane: Handler;
+	removeTodo: Handler;
+	listConversations: Handler;
+	startConversation: Handler;
+	moveConversation: Handler;
+	promptConversation: Handler;
+	answerConversation: Handler;
+	cancelConversation: Handler;
+	chooseSetting: Handler;
+	renameConversation: Handler;
+	archiveConversation: Handler;
+	conversationEvents: Handler;
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */

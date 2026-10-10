@@ -14,6 +14,11 @@ export interface ProjectRecord {
 
 /** A registered repository, as the registry reads it back. */
 export interface Project extends ProjectRecord {
+	/**
+	 * What a URL names it by: the root's last part, `webappwiz`, with `-2`
+	 * and on for a second of the same name, in the order they joined.
+	 */
+	slug: string;
 	/** The repository is no longer there: moved or deleted since. */
 	gone: boolean;
 }
@@ -74,13 +79,31 @@ export class Projects {
 	 */
 	async list(): Promise<Project[]> {
 		const projects: Project[] = [];
+		const taken = new Map<string, number>();
 		for (const record of await this.records()) {
+			const name = record.root.split("/").filter(Boolean).at(-1) ?? "project";
+			const seen = (taken.get(name) ?? 0) + 1;
+			taken.set(name, seen);
 			projects.push({
 				...record,
+				slug: seen === 1 ? name : `${name}-${seen}`,
 				gone: !(await this.fs.exists(`${record.root}/.git`)),
 			});
 		}
 		return projects;
+	}
+
+	/** Drops the repository at `root`, as for one that is gone for good. */
+	async forget(root: string): Promise<void> {
+		await this.fs.mkdir(this.dir);
+		await this.lock.acquire();
+		try {
+			await this.write(
+				(await this.records()).filter((each) => each.root !== root),
+			);
+		} finally {
+			await this.lock.release();
+		}
 	}
 
 	private get dir(): string {

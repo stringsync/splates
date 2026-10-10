@@ -22,6 +22,7 @@ import {
 	conversationIn,
 } from "./conversations";
 import { Feed } from "./feed";
+import { ProjectSwitcher } from "./projects";
 import { Tasks } from "./tasks";
 import { Todos } from "./todos";
 
@@ -172,9 +173,7 @@ export function App(): JSX.Element {
 								)}
 							>
 								<div className="flex min-w-0 items-center gap-2">
-									<h1 className="truncate font-medium text-sm">
-										{snapshot?.repo ?? "arbor"}
-									</h1>
+									<ProjectSwitcher name={snapshot?.repo ?? "arbor"} />
 									{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it
 									    shows may no longer be true. */}

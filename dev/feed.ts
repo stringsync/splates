@@ -1,6 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Snapshot } from "../snapshot";
+import { scoped } from "./api";
 
 export type FeedEvents = { changed: undefined };
 
@@ -30,7 +31,7 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 		if (this.stream !== null) {
 			return;
 		}
-		const stream = new EventSource("/events");
+		const stream = new EventSource(scoped("/events"));
 		this.stream = stream;
 		stream.onmessage = () => void this.load();
 		stream.onopen = () => this.set({ offline: false });
@@ -50,7 +51,7 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 
 	private async load(): Promise<void> {
 		try {
-			const response = await fetch("/api/snapshot");
+			const response = await fetch(scoped("/api/snapshot"));
 			if (!response.ok) {
 				const refusal = (await response.json().catch(() => null)) as {
 					reason?: string;

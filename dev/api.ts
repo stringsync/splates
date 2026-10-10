@@ -16,8 +16,22 @@ export class ApiError extends Error {
 	}
 }
 
+/**
+ * `path` for the project this page shows: the one `?project=` names, or none
+ * for the one `arbor dev` started in. Every request the page makes goes
+ * through here.
+ */
+export function scoped(path: string): string {
+	const project = new URLSearchParams(location.search).get("project");
+	if (project === null || project === "") {
+		return path;
+	}
+	const query = new URLSearchParams({ project });
+	return `${path}${path.includes("?") ? "&" : "?"}${query}`;
+}
+
 async function send(path: string, init: RequestInit): Promise<unknown> {
-	const response = await fetch(path, { method: "POST", ...init });
+	const response = await fetch(scoped(path), { method: "POST", ...init });
 	const body = (await response.json().catch(() => ({}))) as {
 		reason?: string;
 		message?: string;
@@ -132,7 +146,7 @@ export async function removeTodo(id: number): Promise<void> {
 
 /** Where the page loads a file a todo holds. */
 export function fileUrl(path: string): string {
-	return `/api/file?${new URLSearchParams({ path })}`;
+	return scoped(`/api/file?${new URLSearchParams({ path })}`);
 }
 
 function todoForm(form: FormData, { subject, text, position }: TodoForm): void {
@@ -159,7 +173,9 @@ function filesForm({ files, keep }: FilesForm): FormData {
  * tree's for none: what `@` offers.
  */
 export async function paths(task = ""): Promise<string[]> {
-	const response = await fetch(`/api/paths?${new URLSearchParams({ task })}`);
+	const response = await fetch(
+		scoped(`/api/paths?${new URLSearchParams({ task })}`),
+	);
 	if (!response.ok) {
 		throw new ApiError("error", `/api/paths: ${response.status}`);
 	}
@@ -230,4 +246,41 @@ export async function archiveConversation(
 	archived: boolean,
 ): Promise<void> {
 	await sendJson(`/api/conversations/${id}/archived`, "PUT", { archived });
+}
+
+/** A project the page can switch to, from the registry. */
+export interface ProjectChoice {
+	slug: string;
+	root: string;
+	/** Its repository moved or was deleted: it cannot be opened. */
+	gone: boolean;
+	/** The one `arbor dev` runs in, which the page shows with no `?project=`. */
+	here: boolean;
+}
+
+/** Every arbor project on this machine, in the order each joined. */
+export async function listProjects(): Promise<ProjectChoice[]> {
+	const response = await fetch("/api/projects");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/projects: ${response.status}`);
+	}
+	return ((await response.json()) as { projects: ProjectChoice[] }).projects;
+}
+
+/** Drops a project from the registry, as for one that is gone for good. */
+export async function forgetProject(slug: string): Promise<void> {
+	await fetch(`/api/projects/${encodeURIComponent(slug)}`, {
+		method: "DELETE",
+	}).then(async (response) => {
+		if (!response.ok) {
+			const body = (await response.json().catch(() => ({}))) as {
+				reason?: string;
+				message?: string;
+			};
+			throw new ApiError(
+				body.reason ?? "error",
+				body.message ?? "not forgotten",
+			);
+		}
+	});
 }

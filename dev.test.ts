@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { Conversations } from "./conversations";
@@ -60,6 +60,155 @@ describe("dev", () => {
 			expect(await response.text()).toContain("bunx @webappwiz/arbor@latest");
 		});
 	});
+
+	describe("projects", () => {
+		/** A second repository, registered after the one the server runs in. */
+		const another = async () => {
+			const other = await Testing.open();
+			await deps.projects.register(deps.root);
+			await deps.projects.register(other.root);
+			return other;
+		};
+
+		const write = (port: number, path: string, method: string, body = {}) =>
+			fetch(`http://127.0.0.1:${port}${path}`, {
+				method,
+				headers: {
+					origin: `http://127.0.0.1:${port}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(body),
+			});
+
+		it("serves another registered project by its slug, writes and all", async () => {
+			await using other = await another();
+
+			await serving(async (snapshot, port) => {
+				const form = new FormData();
+				form.set("subject", "over there");
+				const added = await fetch(
+					`http://127.0.0.1:${port}/api/todos?project=repo-2`,
+					{
+						method: "POST",
+						headers: { origin: `http://127.0.0.1:${port}` },
+						body: form,
+					},
+				);
+				expect(added.status).toBe(200);
+
+				const there = (await (
+					await fetch(`http://localhost:${port}/api/snapshot?project=repo-2`)
+				).json()) as Snapshot;
+				expect(there.path).toBe(other.root);
+				expect(there.todos.map((todo) => todo.subject)).toEqual(["over there"]);
+				expect((await snapshot()).todos).toEqual([]);
+				expect((await other.todos.all()).map((todo) => todo.subject)).toEqual([
+					"over there",
+				]);
+			});
+		});
+
+		it("lists the projects, and forgets a gone one but never its own", async () => {
+			await using _other = await another();
+			await deps.projects.register("/nowhere/gone");
+
+			await serving(async (_, port) => {
+				const list = async () =>
+					(
+						(await (
+							await fetch(`http://localhost:${port}/api/projects`)
+						).json()) as {
+							projects: { slug: string; gone: boolean; here: boolean }[];
+						}
+					).projects;
+				expect(await list()).toMatchObject([
+					{ slug: "repo", gone: false, here: true },
+					{ slug: "repo-2", gone: false, here: false },
+					{ slug: "gone", gone: true, here: false },
+				]);
+				expect(
+					(await fetch(`http://localhost:${port}/api/snapshot?project=gone`))
+						.status,
+				).toBe(404);
+				expect(
+					(await fetch(`http://localhost:${port}/api/snapshot?project=none`))
+						.status,
+				).toBe(404);
+
+				expect((await write(port, "/api/projects/gone", "DELETE")).status).toBe(
+					200,
+				);
+				expect((await write(port, "/api/projects/repo", "DELETE")).status).toBe(
+					400,
+				);
+				expect((await list()).map((each) => each.slug)).toEqual([
+					"repo",
+					"repo-2",
+				]);
+			});
+		});
+
+		it("finds a conversation by its id in the project it started in", async () => {
+			await using other = await another();
+			const agent = new FakeAgent();
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: ({ arborDir }) =>
+					new Conversations(`${arborDir}/conversations`, [AGENT], {
+						launch: agent.launch,
+					}),
+			});
+			try {
+				const { port } = server;
+				const started = await write(
+					port,
+					"/api/conversations?project=repo-2",
+					"POST",
+					{ agent: "fake" },
+				);
+				const { id } = (await started.json()) as { id: string };
+				expect(agent.launched[0]?.cwd).toBe(other.root);
+
+				// As the agent's own `arbor` would, naming no project.
+				const renamed = await write(
+					port,
+					`/api/conversations/${id}/name`,
+					"PUT",
+					{
+						name: "Elsewhere",
+					},
+				);
+				expect(await renamed.json()).toMatchObject({ id, name: "Elsewhere" });
+				const listed = async (query: string) =>
+					(
+						(await (
+							await fetch(`http://localhost:${port}/api/conversations${query}`)
+						).json()) as { conversations: { id: string }[] }
+					).conversations.map((each) => each.id);
+				expect(await listed("?project=repo-2")).toEqual([id]);
+				expect(await listed("")).toEqual([]);
+			} finally {
+				await server.disposeAsync();
+			}
+		}, 15_000);
+	});
+
+	it("reads the repo on its poll only while a page listens", async () => {
+		const list = spyOn(deps.service, "list");
+
+		await serving(async (_, port) => {
+			const opened = list.mock.calls.length;
+			await Bun.sleep(2_200);
+			expect(list.mock.calls.length).toBe(opened);
+
+			const events = await fetch(`http://localhost:${port}/events`);
+			const reader = events.body?.getReader();
+			await Bun.sleep(2_200);
+			expect(list.mock.calls.length).toBeGreaterThan(opened);
+			await reader?.cancel();
+		});
+		list.mockRestore();
+	}, 15_000);
 
 	it("moves up to an open port when the one it asks for is taken", async () => {
 		const held = await dev(deps, { ports: OpenPortProvider.any() });
@@ -579,7 +728,7 @@ describe("dev", () => {
 			};
 			const server = await dev(deps, {
 				ports: OpenPortProvider.any(),
-				conversations,
+				conversations: () => conversations,
 			});
 			try {
 				const { port } = server;
@@ -653,7 +802,7 @@ describe("dev", () => {
 		it("refuses a conversation in a task with no worktree", async () => {
 			const server = await dev(deps, {
 				ports: OpenPortProvider.any(),
-				conversations,
+				conversations: () => conversations,
 			});
 			try {
 				const response = await json(server.port, "/api/conversations", "POST", {
@@ -672,7 +821,7 @@ describe("dev", () => {
 			const server = await dev(deps, {
 				ports: OpenPortProvider.any(),
 				hosts: ["repo.arbor.example"],
-				conversations,
+				conversations: () => conversations,
 			});
 			try {
 				const as = (host: string, path: string) =>
@@ -700,7 +849,7 @@ describe("dev", () => {
 		it("refuses a start from another site", async () => {
 			const server = await dev(deps, {
 				ports: OpenPortProvider.any(),
-				conversations,
+				conversations: () => conversations,
 			});
 			try {
 				const response = await fetch(

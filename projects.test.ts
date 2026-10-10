@@ -52,6 +52,32 @@ describe("Projects", () => {
 		]);
 	});
 
+	it("names each by its root's last part, numbering a second of the same name", async () => {
+		await using deps = await Testing.open();
+		const roots = ["/a/web", "/b/web", "/c/api"];
+		for (const root of roots) {
+			await deps.projects.register(root);
+		}
+
+		expect((await deps.projects.list()).map((each) => each.slug)).toEqual([
+			"web",
+			"web-2",
+			"api",
+		]);
+	});
+
+	it("forgets one, leaving the rest", async () => {
+		await using deps = await Testing.open();
+		await deps.projects.register("/a/web");
+		await deps.projects.register("/c/api");
+
+		await deps.projects.forget("/a/web");
+
+		expect((await deps.projects.list()).map((each) => each.root)).toEqual([
+			"/c/api",
+		]);
+	});
+
 	it("refuses a registry a newer arbor wrote", async () => {
 		await using deps = await Testing.open();
 		await deps.fs.mkdir(deps.projects.path.replace(/\/[^/]+$/, ""));

@@ -8,6 +8,7 @@ import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
+import type { ProjectChoice } from "./api";
 
 // Loaded only once the DOM above is in place, and handed on from here so a test
 // file need not load them itself. Bun loads a package's CommonJS while it links
@@ -62,6 +63,8 @@ export class Testing implements Resource {
 	} | null = null;
 	/** The conversations' own stream, once the page opens it. */
 	talkStream: Stream | null = null;
+	/** What the page is told of the projects on this machine. */
+	projects: ProjectChoice[] = [];
 	#down = false;
 	#refusal: { reason: string; message: string } | null = null;
 	readonly #fetch = globalThis.fetch;
@@ -76,10 +79,15 @@ export class Testing implements Resource {
 				this.posts.push({ path, method: init.method, body: init.body });
 				return Response.json(this.reply);
 			}
+			// The project a page names is the page's business, not the fake's.
+			const route = path.split("?")[0];
+			if (route === "/api/projects") {
+				return Response.json({ projects: this.projects });
+			}
 			if (path.startsWith("/api/paths")) {
 				return Response.json(this.tree);
 			}
-			if (path === "/api/conversations") {
+			if (route === "/api/conversations") {
 				return this.talk === null
 					? Response.json({ reason: "not_found" }, { status: 404 })
 					: Response.json(this.talk);
@@ -128,8 +136,9 @@ export class Testing implements Resource {
 	/** Renders the page with `served` waiting, and lets it arrive. */
 	async open(overrides: Partial<Snapshot> = {}) {
 		this.served = snapshot(overrides);
-		// The page a test before went to stays in the address: start on none.
-		history.replaceState(null, "", " ");
+		// The page a test before went to stays in the address: start on none, in
+		// the project the test put there.
+		history.replaceState(null, "", `${location.pathname}${location.search}`);
 		const view = render(createElement(App));
 		await waitFor(() =>
 			expect(view.getByRole("region", { name: "Untriaged" })).toBeTruthy(),
