@@ -104,16 +104,9 @@ export function questions(text: string): Question[] {
 			continue;
 		}
 		const followUp = FOLLOW_UP.exec(line);
-		const choice = CHOICE.exec(line);
 		if (followUp !== null) {
 			last.asked.followUps.push((followUp[1] ?? "").trim());
-		} else if (choice !== null) {
-			last.asked.choices.push({
-				key: choice[1] ?? choice[2] ?? "",
-				text: (choice[3] ?? "").trim(),
-			});
-			last.asked.pick ??= choice[1] === undefined ? "any" : "one";
-		} else {
+		} else if (!offers(last.asked, line)) {
 			last.body.push(line);
 		}
 	}
@@ -123,8 +116,29 @@ export function questions(text: string): Question[] {
 	});
 }
 
+/**
+ * Adds the choice `line` offers to `asked`, saying whether it was one: an
+ * indented `- (a) text` picks one, `- [a] text` picks any. The same in a plan
+ * and in a conversation, which `asked.ts` reads with this.
+ */
+export function offers(
+	asked: Pick<Question, "choices" | "pick">,
+	line: string,
+): boolean {
+	const choice = CHOICE.exec(line);
+	if (choice === null) {
+		return false;
+	}
+	asked.choices.push({
+		key: choice[1] ?? choice[2] ?? "",
+		text: (choice[3] ?? "").trim(),
+	});
+	asked.pick ??= choice[1] === undefined ? "any" : "one";
+	return true;
+}
+
 /** Lines with the indent they all share taken off, blank ends trimmed. */
-function dedent(lines: string[]): string {
+export function dedent(lines: string[]): string {
 	const indents = lines
 		.filter((line) => line.trim() !== "")
 		.map((line) => /^[ \t]*/.exec(line)?.[0].length ?? 0);

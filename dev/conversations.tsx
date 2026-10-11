@@ -36,6 +36,7 @@ import {
 } from "#dev/components/ui/select.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { stretches } from "../asked";
 import type {
 	Answer,
 	Ask,
@@ -59,6 +60,12 @@ import {
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
+import {
+	QuestionsUI,
+	type Reply,
+	ReplyContext,
+	ReviewUI,
+} from "./question-cards";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
@@ -850,6 +857,34 @@ function useDraft(
 }
 
 /**
+ * `runtime`'s composer as the question cards write to it: its text, kept
+ * current as it is typed in, and the textarea in `within` to focus.
+ */
+function useReply(
+	runtime: AssistantRuntime,
+	within: { current: HTMLElement | null },
+): Reply {
+	const composer = runtime.thread.composer;
+	const [text, setText] = useState(() => composer.getState().text);
+	useEffect(
+		() => composer.subscribe(() => setText(composer.getState().text)),
+		[composer],
+	);
+	return useMemo(
+		() => ({
+			text,
+			write: (next: string) => composer.setText(next),
+			focus: () => {
+				const box = within.current?.querySelector("textarea");
+				box?.focus();
+				box?.setSelectionRange(box.value.length, box.value.length);
+			},
+		}),
+		[text, composer, within],
+	);
+}
+
+/**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
  * with what the agent is asking above its composer.
  */
@@ -869,9 +904,18 @@ function Thread({
 }): JSX.Element {
 	const { id, status, settings, archived } = conversation;
 	const running = status === "running";
+	// The last message is still being written while the agent works.
+	const writing = status === "running" || status === "starting";
 	const messages = useMemo(
-		() => conversation.messages.map((message, index) => like(message, index)),
-		[conversation.messages],
+		() =>
+			conversation.messages.map((message, index) =>
+				like(
+					message,
+					index,
+					!writing || index < conversation.messages.length - 1,
+				),
+			),
+		[conversation.messages, writing],
 	);
 	const restore = useRef<(text: string) => void>(() => {});
 	const runtime = useExternalStoreRuntime({
@@ -899,11 +943,14 @@ function Thread({
 		},
 	});
 	restore.current = useDraft(runtime, drafts, id);
+	const section = useRef<HTMLElement>(null);
+	const reply = useReply(runtime, section);
 	const mentions = useFileMentions(conversation.task);
 	const [renaming, setRenaming] = useState(false);
 
 	return (
 		<section
+			ref={section}
 			aria-label={nameOf(conversation)}
 			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
@@ -950,36 +997,40 @@ function Thread({
 			)}
 			<div className="min-h-0 flex-1">
 				<AssistantRuntimeProvider runtime={runtime}>
-					<ThreadView
-						mentions={mentions ?? undefined}
-						controls={
-							!archived &&
-							settings.map((setting) => (
-								<SettingSelect
-									key={setting.id}
-									setting={setting}
-									value={setting.current}
-									onChange={(value) =>
-										chooseSetting(id, setting.id, value).catch(
-											(error: unknown) =>
-												refused(`${setting.name} not switched`, error),
-										)
-									}
-								/>
-							))
-						}
-						above={
-							conversation.ask !== null && (
-								<AskPanel
-									key={conversation.ask.id}
-									drafts={drafts}
-									conversation={conversation}
-									agent={agent}
-									ask={conversation.ask}
-								/>
-							)
-						}
-					/>
+					<QuestionsUI />
+					<ReviewUI />
+					<ReplyContext value={reply}>
+						<ThreadView
+							mentions={mentions ?? undefined}
+							controls={
+								!archived &&
+								settings.map((setting) => (
+									<SettingSelect
+										key={setting.id}
+										setting={setting}
+										value={setting.current}
+										onChange={(value) =>
+											chooseSetting(id, setting.id, value).catch(
+												(error: unknown) =>
+													refused(`${setting.name} not switched`, error),
+											)
+										}
+									/>
+								))
+							}
+							above={
+								conversation.ask !== null && (
+									<AskPanel
+										key={conversation.ask.id}
+										drafts={drafts}
+										conversation={conversation}
+										agent={agent}
+										ask={conversation.ask}
+									/>
+								)
+							}
+						/>
+					</ReplyContext>
 				</AssistantRuntimeProvider>
 			</div>
 		</section>
@@ -990,26 +1041,56 @@ function Thread({
  * A message as assistant-ui takes one, the one place ACP's shape meets
  * assistant-ui's: a tool call carries a result only once it has finished.
  */
-function like(message: Message, index: number): ThreadMessageLike {
+/** One part of a message as assistant-ui takes it. */
+type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
+
+function like(
+	message: Message,
+	index: number,
+	settled = true,
+): ThreadMessageLike {
 	return {
 		id: String(index),
 		role: message.role === "user" ? "user" : "assistant",
-		content: message.parts.map((part) => {
+		content: message.parts.flatMap((part): LikePart[] => {
 			switch (part.type) {
 				case "text":
-					return { type: "text", text: part.text };
+					// Questions become cards once the agent has stopped writing
+					// them: a list mid-stream may yet turn out not to ask any.
+					return message.role === "user" || !settled
+						? [{ type: "text" as const, text: part.text }]
+						: stretches(part.text).map((stretch): LikePart => {
+								switch (stretch.type) {
+									case "text":
+										return { type: "text", text: stretch.text };
+									case "questions":
+										return {
+											type: "data-questions",
+											data: { questions: stretch.questions },
+										};
+									case "review":
+										return {
+											type: "data-review",
+											data: { review: stretch.review },
+										};
+									default:
+										return stretch satisfies never;
+								}
+							});
 				case "thought":
-					return { type: "reasoning", text: part.text };
+					return [{ type: "reasoning", text: part.text }];
 				case "tool":
-					return {
-						type: "tool-call",
-						toolCallId: part.id,
-						toolName: part.title,
-						args: {},
-						...(part.status === "completed" || part.status === "failed"
-							? { result: part.status, isError: part.status === "failed" }
-							: {}),
-					};
+					return [
+						{
+							type: "tool-call",
+							toolCallId: part.id,
+							toolName: part.title,
+							args: {},
+							...(part.status === "completed" || part.status === "failed"
+								? { result: part.status, isError: part.status === "failed" }
+								: {}),
+						},
+					];
 				default:
 					return part satisfies never;
 			}

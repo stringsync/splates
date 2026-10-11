@@ -363,6 +363,22 @@ This session and Always (digits 1 to 3); a question (Claude's
 AskUserQuestion) steps through its choices, with a box for an answer of your
 own.
 
+Questions an agent asks in the arbor skill's format (a list numbered from 1,
+every item ending in `?`, its body and `- (a)` or `- [a]` choices indented
+under it) show as a panel of cards once the agent has finished writing them,
+saying how many are answered. Picking a choice, or typing in a card's own box
+(a note beside the picks, or the answer to a question without choices),
+writes that question's line of the reply in the composer as you would type
+it: `2. b`, `1. a, c: only on phones`, `3. after a phone check`. Enter in a
+box moves on to the next question, and from the last to the composer. Nothing
+is sent until you send it, so the agent reads the same reply it always has.
+
+A review report (`## 🔍 Ready to merge <task> onto <base>`, through its
+closing `Reply "merge", or say what to change.`) shows as a panel of its own,
+apart from any questions: the task and its base, what to look at, a Merge
+button that writes `merge` in the composer, and a box for what to change
+instead.
+
 What you type and have not sent stays put: each conversation keeps its own
 draft, as does the new conversation screen of each project, and so does the
 box of a question waiting on you, through switching conversations or pages and

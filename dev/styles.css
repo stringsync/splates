@@ -22,6 +22,7 @@
 @source "./conversations.tsx";
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
+@source "./question-cards.tsx";
 @source "./release.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";

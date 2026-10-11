@@ -425,6 +425,181 @@ describe("App's conversations", () => {
 		).toEqual(["POST"]);
 	});
 
+	describe("question cards", () => {
+		const report = [
+			"## ⚠️ Escalated header: waiting on two calls",
+			"",
+			"The header wraps now.",
+			"",
+			"1. Which pages need it?",
+			"   - [a] Todos",
+			"   - [b] Tasks",
+			"2. How should a stale todo be shown?",
+			"   - (a) A muted card",
+			"   - (b) A badge",
+			"3. Ready to merge?",
+		].join("\n");
+		const asking = (status: ConversationState["status"] = "idle") =>
+			conversation({
+				title: "Header",
+				status,
+				messages: [
+					{ role: "user", parts: [{ type: "text", text: "fix the header" }] },
+					{ role: "agent", parts: [{ type: "text", text: report }] },
+				],
+			});
+		const box = (view: Awaited<ReturnType<typeof conversations>>) =>
+			view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+		it("shows each question as a card, the text around them as written", async () => {
+			const view = await conversations([asking()]);
+
+			const cards = await waitFor(() =>
+				view.getByRole("list", { name: "questions" }),
+			);
+			expect(
+				within(cards)
+					.getAllByRole("listitem")
+					.map((card) => card.getAttribute("aria-label")),
+			).toEqual(["question 1", "question 2", "question 3"]);
+			expect(view.getByText("The header wraps now.")).toBeTruthy();
+			expect(view.queryByText("- (a) A muted card")).toBeNull();
+		});
+
+		it("composes the reply in the composer as choices are picked, sending nothing", async () => {
+			const view = await conversations([asking()]);
+			const choice = async (question: string, name: string) => {
+				const card = await waitFor(() =>
+					view.getByRole("listitem", { name: `question ${question}` }),
+				);
+				await act(async () =>
+					fireEvent.click(
+						within(card).getByRole("button", { name: new RegExp(name) }),
+					),
+				);
+			};
+
+			await choice("2", "A badge");
+			expect(box(view).value).toBe("2. b");
+			await choice("1", "Tasks");
+			await choice("1", "Todos");
+			expect(box(view).value).toBe("1. a, b\n2. b");
+			await choice("2", "A muted card");
+			expect(box(view).value).toBe("1. a, b\n2. a");
+			expect(
+				within(view.getByRole("listitem", { name: "question 2" }))
+					.getByRole("button", { name: /A muted card/ })
+					.getAttribute("aria-pressed"),
+			).toBe("true");
+
+			const note = (question: string) =>
+				within(
+					view.getByRole("listitem", { name: `question ${question}` }),
+				).getByRole("textbox") as HTMLTextAreaElement;
+			await act(async () =>
+				fireEvent.change(note("2"), { target: { value: "only on phones" } }),
+			);
+			await act(async () =>
+				fireEvent.change(note("3"), {
+					target: { value: "after a\nphone check" },
+				}),
+			);
+			expect(box(view).value).toBe(
+				"1. a, b\n2. a: only on phones\n3. after a phone check",
+			);
+			expect(note("2").value).toBe("only on phones");
+			expect(view.getByText("3 of 3 answered")).toBeTruthy();
+
+			await act(async () =>
+				fireEvent.change(note("3"), { target: { value: "" } }),
+			);
+			expect(box(view).value).toBe("1. a, b\n2. a: only on phones");
+			expect(view.getByText("2 of 3 answered")).toBeTruthy();
+			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
+		});
+
+		it("waits for the agent to finish writing before showing cards", async () => {
+			const view = await conversations([asking("running")]);
+			await waitFor(() =>
+				expect(view.getByText(/The header wraps now/)).toBeTruthy(),
+			);
+			expect(view.queryByRole("list", { name: "questions" })).toBeNull();
+
+			await testing.say(asking("idle"));
+
+			await waitFor(() =>
+				expect(view.getByRole("list", { name: "questions" })).toBeTruthy(),
+			);
+		});
+	});
+
+	describe("review panel", () => {
+		const reviewing = conversation({
+			title: "Header",
+			messages: [
+				{
+					role: "agent",
+					parts: [
+						{
+							type: "text",
+							text: [
+								"## 🔍 Ready to merge header onto main",
+								"",
+								"The header wraps on phones.",
+								"",
+								"Open the page at 390px wide.",
+								"",
+								'Reply "merge", or say what to change.',
+							].join("\n"),
+						},
+					],
+				},
+			],
+		});
+		const box = (view: Awaited<ReturnType<typeof conversations>>) =>
+			view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+		it("shows a review apart from questions, merging or saying what to change through the composer", async () => {
+			const view = await conversations([reviewing]);
+			const panel = await waitFor(() =>
+				view.getByRole("region", { name: "review header" }),
+			);
+			expect(
+				within(panel).getByText("The header wraps on phones."),
+			).toBeTruthy();
+			expect(view.queryByText(/Reply "merge"/)).toBeNull();
+			expect(view.queryByRole("list", { name: "questions" })).toBeNull();
+
+			await act(async () =>
+				fireEvent.click(within(panel).getByRole("button", { name: /Merge/ })),
+			);
+			expect(box(view).value).toBe("merge");
+			expect(
+				within(panel)
+					.getByRole("button", { name: /Merge on send/ })
+					.getAttribute("aria-pressed"),
+			).toBe("true");
+
+			await act(async () =>
+				fireEvent.change(
+					within(panel).getByRole("textbox", { name: "Changes to header" }),
+					{ target: { value: "keep it on one line on tablets" } },
+				),
+			);
+			expect(box(view).value).toBe("keep it on one line on tablets");
+			expect(
+				within(panel)
+					.getByRole("button", { name: /Merge/ })
+					.getAttribute("aria-pressed"),
+			).toBe("false");
+			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
+		});
+	});
+
 	describe("drafts", () => {
 		const held = [
 			conversation({ id: "c1", title: "Fix login" }),
