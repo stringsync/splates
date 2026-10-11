@@ -15,6 +15,16 @@ export interface MarkdownProps {
 	 * it and with no margins, so the lines that show are the content's.
 	 */
 	preview?: boolean;
+	/**
+	 * One line within other text, as a question's subject or a choice: its
+	 * emphasis, code and links, but no paragraph, in a `<span>`.
+	 */
+	inline?: boolean;
+	/**
+	 * Links drawn as their text, for markdown inside a control such as a
+	 * button, where a link would be one control inside another.
+	 */
+	unlinked?: boolean;
 }
 
 /**
@@ -25,7 +35,16 @@ export function Markdown({
 	text,
 	className,
 	preview = false,
+	inline = false,
+	unlinked = false,
 }: MarkdownProps): JSX.Element {
+	if (inline) {
+		return (
+			<span className={cn("min-w-0 break-words", className)}>
+				<Render options={unlinked ? UNLINKED : INLINE}>{linked(text)}</Render>
+			</span>
+		);
+	}
 	// The lightbox steps through the screenshots of one document.
 	return (
 		<div
@@ -103,6 +122,20 @@ const GLIMPSE: MarkdownToJSX.Options = {
 	overrides: { ...OPTIONS.overrides, img: Alt },
 };
 
+/** One line within other text, wrapped in nothing of its own. */
+const INLINE: MarkdownToJSX.Options = {
+	...OPTIONS,
+	forceBlock: false,
+	forceInline: true,
+	wrapper: null,
+};
+
+/** One line inside a control, its links and mentions as plain text. */
+const UNLINKED: MarkdownToJSX.Options = {
+	...INLINE,
+	overrides: { ...OPTIONS.overrides, a: Unlinked },
+};
+
 function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
 	return { component: tag, props: { className: HEADING } };
 }
@@ -175,6 +208,11 @@ function Link(props: ComponentProps<"a">): JSX.Element {
 			className="break-all underline"
 		/>
 	);
+}
+
+/** A link's text alone, as a link cannot sit inside another control. */
+function Unlinked({ children }: ComponentProps<"a">): JSX.Element {
+	return <span>{children}</span>;
 }
 
 /** An image shows what it names, when that is a file arbor holds. */

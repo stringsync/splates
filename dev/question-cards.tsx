@@ -470,7 +470,9 @@ function QuestionCard({
 			</span>
 			<div className="flex min-w-0 flex-1 flex-col gap-3">
 				<div className="flex flex-col gap-1">
-					<p className="font-medium text-sm leading-snug">{text}</p>
+					<p className="font-medium text-sm leading-snug">
+						<Markdown text={text} inline />
+					</p>
 					{body !== "" && (
 						<Markdown
 							text={body}
@@ -520,7 +522,12 @@ function QuestionCard({
 									>
 										{choice.key}
 									</span>
-									<span className="min-w-0 flex-1">{choice.text}</span>
+									<Markdown
+										text={choice.text}
+										inline
+										unlinked
+										className="flex-1"
+									/>
 									<CheckIcon
 										className={cn(
 											"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",

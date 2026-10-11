@@ -183,4 +183,23 @@ describe("Markdown", () => {
 		);
 		await waitFor(() => expect(page.queryByRole("dialog")).toBeNull());
 	});
+
+	it("renders one line inline, its emphasis and code, without a paragraph", () => {
+		const { container } = render(
+			<Markdown text="Keep `src/upload.ts` **as is**?" inline />,
+		);
+
+		expect(container.querySelector("p")).toBeNull();
+		expect(container.querySelector("code")?.textContent).toBe("src/upload.ts");
+		expect(container.querySelector("strong")?.textContent).toBe("as is");
+	});
+
+	it("draws a link as its text when unlinked, for inside a control", () => {
+		const { container } = render(
+			<Markdown text="See [the docs](https://example.com)" inline unlinked />,
+		);
+
+		expect(container.querySelector("a")).toBeNull();
+		expect(container.textContent).toBe("See the docs");
+	});
 });

@@ -1003,6 +1003,32 @@ describe("App's conversations", () => {
 			question: string,
 		) => view.getByRole("listitem", { name: `question ${question}` });
 
+		it("renders markdown in a question's subject and choices", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message("user", "fix the header"),
+						message(
+							"agent",
+							[
+								"1. Should `Header` wrap?",
+								"   - (a) **Always**",
+								"   - (b) Only below `md`",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+
+			const asked = await waitFor(() => card(view, "1"));
+			expect(
+				[...asked.querySelectorAll("code")].map((code) => code.textContent),
+			).toEqual(["Header", "md"]);
+			expect(asked.querySelector("strong")?.textContent).toBe("Always");
+			expect(asked.textContent).not.toContain("`");
+		});
+
 		it("keeps the answers in the card, never the composer, and sends them from it with anything else", async () => {
 			const view = await conversations([asking()]);
 			await waitFor(() => card(view, "2"));
