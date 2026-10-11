@@ -35,7 +35,7 @@ import {
 import { Feed } from "./feed";
 import { ProjectSwitcher } from "./projects";
 import { ReleaseHint } from "./release";
-import { Settings } from "./settings";
+import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { Tasks } from "./tasks";
 import { focusComposer, TerminalPane, ToggleTerminal } from "./terminal";
@@ -84,7 +84,7 @@ function useWide(): boolean {
 const OFFLINE_ICON =
 	"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><filter id='gray'><feColorMatrix type='saturate' values='0'/></filter><text y='26' font-size='28' filter='url(%23gray)' opacity='0.5'>🌲</text></svg>";
 
-export function App(): JSX.Element {
+export function App({ settings }: { settings: Settings }): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
 	// would leave the page listening to the one it replaced, showing nothing.
@@ -166,7 +166,6 @@ export function App(): JSX.Element {
 		({ value }) => value !== "conversations" || available,
 	);
 
-	const [settings] = useState(() => new Settings(localStorage));
 	const [setting, setSetting] = useState(false);
 	// ⌘, or Ctrl+, as in an IDE.
 	useEffect(() => {
@@ -322,7 +321,7 @@ export function App(): JSX.Element {
 										variant="line"
 										className={
 											wide
-												? "fixed inset-y-0 left-0 z-40 w-56 items-stretch justify-start gap-1 border-r bg-background px-3 pt-20 group-data-vertical/tabs:h-dvh"
+												? "fixed inset-y-0 left-0 z-40 w-56 items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
 												: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
 										}
 									>
@@ -332,8 +331,8 @@ export function App(): JSX.Element {
 												value={value}
 												className={
 													wide
-														? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-muted"
-														: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden"
+														? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+														: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
 												}
 											>
 												<Icon className={cn(!wide && "size-5")} />

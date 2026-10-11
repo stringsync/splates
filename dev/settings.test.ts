@@ -58,8 +58,23 @@ describe("Settings", () => {
 		expect(new Settings(localStorage).get("notifications.quietAfter")).toBe(10);
 	});
 
+	it("keeps a choice only while it is one the setting still offers", async () => {
+		const settings = new Settings(localStorage);
+		expect(settings.get("appearance.theme")).toBe("system");
+		expect(settings.get("appearance.accent")).toBe("teal");
+
+		await settings.set("appearance.accent", "violet");
+		expect(new Settings(localStorage).get("appearance.accent")).toBe("violet");
+
+		localStorage.setItem(
+			"arbor.settings",
+			JSON.stringify({ "appearance.accent": "chartreuse" }),
+		);
+		expect(new Settings(localStorage).get("appearance.accent")).toBe("teal");
+	});
+
 	it("searches by every word, in titles, descriptions and categories", () => {
-		expect(search("")).toHaveLength(7);
+		expect(search("")).toHaveLength(9);
 		expect(search("quiet")).toEqual([
 			"notifications.on",
 			"notifications.quiet",

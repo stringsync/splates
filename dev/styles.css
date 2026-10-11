@@ -38,55 +38,125 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn's neutral theme. The page follows whatever the device it is opened
-   on is set to, so `dark` is toggled by main.tsx off prefers-color-scheme. */
+/* Two soft, cool grays, with color kept for what matters: the accent marks
+   what you can act on and what is selected, and success, warning and
+   destructive mark state. Cards sit a step off the page so they read without
+   heavy borders. `dark` is toggled on <html> by appearance.ts, from the
+   Theme setting or the device. */
 :root {
 	color-scheme: light;
 	--radius: 0.625rem;
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.205 0 0);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.97 0 0);
-	--secondary-foreground: oklch(0.205 0 0);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.577 0.245 27.325);
-	--success: oklch(0.627 0.17 149.2);
+	--background: oklch(0.968 0.004 264);
+	--foreground: oklch(0.255 0.014 264);
+	--card: oklch(0.993 0.002 264);
+	--card-foreground: var(--foreground);
+	--popover: oklch(0.993 0.002 264);
+	--popover-foreground: var(--foreground);
+	--sidebar: oklch(0.945 0.005 264);
+	--primary: var(--brand);
+	--primary-foreground: var(--brand-foreground);
+	--secondary: oklch(0.928 0.006 264);
+	--secondary-foreground: var(--foreground);
+	--muted: oklch(0.928 0.006 264);
+	--muted-foreground: oklch(0.52 0.014 264);
+	--accent: color-mix(in oklab, var(--brand) 12%, var(--card));
+	--accent-foreground: var(--foreground);
+	--destructive: oklch(0.577 0.215 27.3);
+	--success: oklch(0.6 0.15 152);
 	--warning: oklch(0.666 0.157 58.3);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
+	--border: oklch(0.885 0.007 264);
+	--input: oklch(0.86 0.008 264);
+	--ring: var(--brand);
 }
 
 .dark {
 	color-scheme: dark;
-	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.922 0 0);
-	--primary-foreground: oklch(0.205 0 0);
-	--secondary: oklch(0.269 0 0);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.269 0 0);
-	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--success: oklch(0.723 0.192 149.6);
-	--warning: oklch(0.769 0.165 70.1);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.556 0 0);
+	--background: oklch(0.238 0.009 264);
+	--foreground: oklch(0.9 0.007 264);
+	--card: oklch(0.272 0.01 264);
+	--card-foreground: var(--foreground);
+	--popover: oklch(0.29 0.011 264);
+	--popover-foreground: var(--foreground);
+	--sidebar: oklch(0.215 0.009 264);
+	--secondary: oklch(0.31 0.011 264);
+	--muted: oklch(0.31 0.011 264);
+	--muted-foreground: oklch(0.685 0.013 264);
+	--accent: color-mix(in oklab, var(--brand) 20%, var(--card));
+	--destructive: oklch(0.68 0.17 22.2);
+	--success: oklch(0.74 0.15 152);
+	--warning: oklch(0.78 0.14 72);
+	--border: oklch(1 0 0 / 9%);
+	--input: oklch(1 0 0 / 14%);
+}
+
+/* Each accent, light then dark. A swatch carrying `data-accent` wears its
+   own, whatever the page's. The foreground is what reads on a filled
+   button. */
+[data-accent="indigo"] {
+	--brand: oklch(0.54 0.19 272);
+	--brand-foreground: oklch(0.985 0.005 272);
+}
+[data-accent="violet"] {
+	--brand: oklch(0.55 0.21 296);
+	--brand-foreground: oklch(0.985 0.005 296);
+}
+[data-accent="blue"] {
+	--brand: oklch(0.55 0.17 252);
+	--brand-foreground: oklch(0.985 0.005 252);
+}
+:root:not([data-accent]),
+[data-accent="teal"] {
+	--brand: oklch(0.56 0.1 192);
+	--brand-foreground: oklch(0.985 0.005 192);
+}
+[data-accent="green"] {
+	--brand: oklch(0.56 0.14 150);
+	--brand-foreground: oklch(0.985 0.005 150);
+}
+[data-accent="amber"] {
+	--brand: oklch(0.74 0.16 70);
+	--brand-foreground: oklch(0.25 0.04 60);
+}
+[data-accent="rose"] {
+	--brand: oklch(0.58 0.2 12);
+	--brand-foreground: oklch(0.985 0.005 12);
+}
+[data-accent="graphite"] {
+	--brand: oklch(0.32 0.014 264);
+	--brand-foreground: oklch(0.97 0.004 264);
+}
+:is(.dark, .dark *)[data-accent="indigo"] {
+	--brand: oklch(0.7 0.14 274);
+	--brand-foreground: oklch(0.2 0.03 274);
+}
+:is(.dark, .dark *)[data-accent="violet"] {
+	--brand: oklch(0.72 0.15 298);
+	--brand-foreground: oklch(0.2 0.03 298);
+}
+:is(.dark, .dark *)[data-accent="blue"] {
+	--brand: oklch(0.72 0.13 248);
+	--brand-foreground: oklch(0.2 0.03 248);
+}
+.dark:not([data-accent]),
+:is(.dark, .dark *)[data-accent="teal"] {
+	--brand: oklch(0.76 0.1 188);
+	--brand-foreground: oklch(0.2 0.03 188);
+}
+:is(.dark, .dark *)[data-accent="green"] {
+	--brand: oklch(0.76 0.14 150);
+	--brand-foreground: oklch(0.2 0.03 150);
+}
+:is(.dark, .dark *)[data-accent="amber"] {
+	--brand: oklch(0.8 0.14 75);
+	--brand-foreground: oklch(0.22 0.04 60);
+}
+:is(.dark, .dark *)[data-accent="rose"] {
+	--brand: oklch(0.72 0.15 12);
+	--brand-foreground: oklch(0.2 0.03 12);
+}
+:is(.dark, .dark *)[data-accent="graphite"] {
+	--brand: oklch(0.88 0.006 264);
+	--brand-foreground: oklch(0.24 0.01 264);
 }
 
 @theme inline {
@@ -96,6 +166,9 @@
 	--color-card-foreground: var(--card-foreground);
 	--color-popover: var(--popover);
 	--color-popover-foreground: var(--popover-foreground);
+	--color-sidebar: var(--sidebar);
+	--color-brand: var(--brand);
+	--color-brand-foreground: var(--brand-foreground);
 	--color-primary: var(--primary);
 	--color-primary-foreground: var(--primary-foreground);
 	--color-secondary: var(--secondary);
@@ -146,6 +219,9 @@
 	   meant to stay on one line truncate instead. */
 	body {
 		@apply bg-background text-foreground antialiased wrap-anywhere;
+	}
+	::selection {
+		background: color-mix(in oklab, var(--brand) 30%, transparent);
 	}
 }
 

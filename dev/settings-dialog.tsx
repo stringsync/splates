@@ -1,5 +1,5 @@
 import { useReactive } from "@webappwiz/react";
-import { SearchIcon } from "lucide-react";
+import { CheckIcon, SearchIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import {
 	Dialog,
@@ -13,6 +13,7 @@ import { cn } from "#dev/lib/utils.ts";
 import {
 	CATEGORIES,
 	type Category,
+	type Choice,
 	definitionOf,
 	type Key,
 	type Settings,
@@ -84,7 +85,8 @@ export function SettingsDialog({
 								}}
 								className={cn(
 									"flex items-center rounded-md px-3 py-1.5 text-left hover:bg-muted",
-									category === picked && "bg-muted font-medium",
+									category === picked &&
+										"bg-accent font-medium hover:bg-accent",
 								)}
 							>
 								<span className="flex-1">{category}</span>
@@ -136,7 +138,7 @@ function sectionId(category: Category): string {
 
 /**
  * One setting: its title and what it does, with what the search matched
- * marked, and a switch or a number field. One under a switch that is off is
+ * marked, and a switch, a number field, or its choices. One under a switch that is off is
  * greyed out, and so is one this browser cannot do.
  */
 function SettingRow({
@@ -176,7 +178,17 @@ function SettingRow({
 					{!supported && " This browser cannot do it."}
 				</p>
 			</div>
-			{typeof value === "boolean" ? (
+			{typeof value === "string" ? (
+				<Choices
+					id={id}
+					label={definition.title}
+					choices={definition.choices ?? []}
+					swatches={definition.swatches ?? false}
+					value={value}
+					disabled={disabled}
+					onChange={(next) => void settings.set(name, next)}
+				/>
+			) : typeof value === "boolean" ? (
 				<Switch
 					id={id}
 					checked={value}
@@ -266,6 +278,72 @@ function NumberField({
 			/>
 			{unit}
 		</span>
+	);
+}
+
+/**
+ * A choice's values side by side as radios, the one set filled: a segmented
+ * control of their labels, or for an accent, a swatch of each.
+ */
+function Choices({
+	id,
+	label,
+	choices,
+	swatches,
+	value,
+	disabled,
+	onChange,
+}: {
+	id: string;
+	label: string;
+	choices: readonly Choice[];
+	swatches: boolean;
+	value: string;
+	disabled: boolean;
+	onChange: (value: string) => void;
+}): JSX.Element {
+	return (
+		<fieldset
+			id={id}
+			aria-label={label}
+			disabled={disabled}
+			className={cn(
+				"flex shrink-0",
+				swatches ? "gap-1.5" : "rounded-md bg-muted p-0.5",
+			)}
+		>
+			{choices.map((choice) => {
+				const checked = choice.value === value;
+				return (
+					<label
+						key={choice.value}
+						title={swatches ? choice.label : undefined}
+						data-accent={swatches ? choice.value : undefined}
+						className={cn(
+							"cursor-pointer has-focus-visible:ring-2 has-focus-visible:ring-ring",
+							swatches
+								? "flex size-6 items-center justify-center rounded-full bg-brand text-brand-foreground ring-offset-2 ring-offset-background"
+								: "rounded-[calc(var(--radius)-4px)] px-3 py-1 text-muted-foreground text-xs hover:text-foreground",
+							swatches && checked && "ring-2 ring-brand",
+							!swatches && checked && "bg-card text-foreground shadow-sm",
+						)}
+					>
+						<input
+							type="radio"
+							name={id}
+							value={choice.value}
+							checked={checked}
+							aria-label={swatches ? choice.label : undefined}
+							onChange={() => onChange(choice.value)}
+							className="sr-only"
+						/>
+						{swatches
+							? checked && <CheckIcon className="size-3.5" />
+							: choice.label}
+					</label>
+				);
+			})}
+		</fieldset>
 	);
 }
 

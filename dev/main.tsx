@@ -1,19 +1,21 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
+import { followAppearance } from "./appearance";
+import { Settings } from "./settings";
 
 const root = document.getElementById("root");
 if (root === null) {
 	throw new Error("no #root to mount into: index.html and main.tsx disagree");
 }
 
-// shadcn's theme keys dark mode off a class, so the class follows the device,
-// including when it switches at sunset with the page open.
-const dark = matchMedia("(prefers-color-scheme: dark)");
-const theme = () =>
-	document.documentElement.classList.toggle("dark", dark.matches);
-theme();
-dark.addEventListener("change", theme);
+// Read before the first render, so the page never paints in the wrong theme.
+const settings = new Settings(localStorage);
+followAppearance(
+	settings,
+	document.documentElement,
+	matchMedia("(prefers-color-scheme: dark)"),
+);
 
 // Every spinner runs on one clock: each spin starts at the document timeline's
 // origin rather than when its element mounted, so all of them stand at the
@@ -38,6 +40,6 @@ document.addEventListener(
 
 createRoot(root).render(
 	<StrictMode>
-		<App />
+		<App settings={settings} />
 	</StrictMode>,
 );

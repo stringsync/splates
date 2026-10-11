@@ -11,6 +11,7 @@ import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import type { Interrupted, ProjectChoice } from "./api";
 import { FakeShell } from "./fake-shell";
+import { Settings } from "./settings";
 
 // Loaded only once the DOM above is in place, and handed on from here so a test
 // file need not load them itself. Bun loads a package's CommonJS while it links
@@ -171,7 +172,9 @@ export class Testing implements Resource {
 		// The page a test before went to stays in the address: start on none, in
 		// the project the test put there.
 		history.replaceState(null, "", `${location.pathname}${location.search}`);
-		const view = render(createElement(App));
+		const view = render(
+			createElement(App, { settings: new Settings(localStorage) }),
+		);
 		await waitFor(() =>
 			expect(view.getByRole("region", { name: "Untriaged" })).toBeTruthy(),
 		);

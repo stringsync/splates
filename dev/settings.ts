@@ -3,7 +3,7 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 export type SettingsEvents = { changed: undefined };
 
 /** The groups the Settings dialog lists down its left, in order. */
-export const CATEGORIES = ["Notifications"] as const;
+export const CATEGORIES = ["Appearance", "Notifications"] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 
@@ -19,13 +19,23 @@ interface Allowance {
 	refused: string;
 }
 
+/** One of the values a choice can take, with what the dialog calls it. */
+export interface Choice {
+	value: string;
+	label: string;
+}
+
 /** A setting the person can change, as the dialog shows it. */
 export interface Definition {
 	category: Category;
 	title: string;
 	description: string;
-	/** A switch for a boolean, a field for a number. */
-	default: boolean | number;
+	/** A switch for a boolean, a field for a number, a pick for a string. */
+	default: boolean | number | string;
+	/** What a string can be, in the order the dialog offers them. */
+	choices?: readonly Choice[];
+	/** Show each choice as a swatch of the accent it names. */
+	swatches?: boolean;
 	/** What a number counts, and the least it can be. */
 	unit?: string;
 	min?: number;
@@ -47,8 +57,40 @@ const notifications: Allowance = {
 		"Notifications are blocked: allow them for this page in the browser's settings.",
 };
 
+/** The accents the page can wear, each a palette in styles.css. */
+export const ACCENTS = [
+	{ value: "teal", label: "Teal" },
+	{ value: "indigo", label: "Indigo" },
+	{ value: "violet", label: "Violet" },
+	{ value: "blue", label: "Blue" },
+	{ value: "green", label: "Green" },
+	{ value: "amber", label: "Amber" },
+	{ value: "rose", label: "Rose" },
+	{ value: "graphite", label: "Graphite" },
+] as const satisfies readonly Choice[];
+
 /** Every setting, in the order the dialog shows them. */
 export const SETTINGS = {
+	"appearance.theme": {
+		category: "Appearance",
+		title: "Theme",
+		description: "Light or dark, or whichever this device is set to.",
+		default: "system",
+		choices: [
+			{ value: "system", label: "System" },
+			{ value: "light", label: "Light" },
+			{ value: "dark", label: "Dark" },
+		],
+	},
+	"appearance.accent": {
+		category: "Appearance",
+		title: "Accent",
+		description:
+			"The color of buttons, switches, focus, and whatever is selected.",
+		default: "teal",
+		choices: ACCENTS,
+		swatches: true,
+	},
 	"notifications.on": {
 		category: "Notifications",
 		title: "Notify me",
@@ -108,11 +150,13 @@ export const SETTINGS = {
 
 export type Key = keyof typeof SETTINGS;
 
-/** What a setting holds: a switch's boolean, or a number. */
+/** What a setting holds: a switch's boolean, a number, or a choice's value. */
 export type Value<K extends Key> = K extends Key
 	? (typeof SETTINGS)[K]["default"] extends boolean
 		? boolean
-		: number
+		: (typeof SETTINGS)[K]["default"] extends number
+			? number
+			: string
 	: never;
 
 /** Where the settings are kept between visits, together. */
@@ -127,7 +171,7 @@ export class Settings implements Eventful<SettingsEvents> {
 	private readonly dispatcher = new Dispatcher<SettingsEvents>();
 	readonly events = this.dispatcher.events;
 
-	private values: Partial<Record<Key, boolean | number>>;
+	private values: Partial<Record<Key, boolean | number | string>>;
 
 	constructor(private readonly storage: Storage) {
 		this.values = storedIn(storage);
@@ -183,19 +227,28 @@ export function definitionOf(key: Key): Definition {
 	return SETTINGS[key];
 }
 
-function storedIn(storage: Storage): Partial<Record<Key, boolean | number>> {
+function storedIn(
+	storage: Storage,
+): Partial<Record<Key, boolean | number | string>> {
 	try {
 		const stored: unknown = JSON.parse(storage.getItem(STORED) ?? "{}");
 		if (typeof stored !== "object" || stored === null) {
 			return {};
 		}
-		// Only what the page still knows of, and of the right kind.
+		// Only what the page still knows of, of the right kind, and for a
+		// choice, one it still offers.
 		return Object.fromEntries(
-			Object.entries(stored).filter(
-				([key, value]) =>
-					key in SETTINGS &&
-					typeof value === typeof SETTINGS[key as Key].default,
-			),
+			Object.entries(stored).filter(([key, value]) => {
+				if (!(key in SETTINGS)) {
+					return false;
+				}
+				const { default: fallback, choices }: Definition = SETTINGS[key as Key];
+				return (
+					typeof value === typeof fallback &&
+					(choices === undefined ||
+						choices.some((choice) => choice.value === value))
+				);
+			}),
 		);
 	} catch {
 		return {};

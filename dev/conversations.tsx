@@ -280,7 +280,7 @@ export function ConversationList({
 							aria-current={startsOne(open) ? "page" : undefined}
 							className={cn(
 								"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
-								startsOne(open) && "bg-foreground/[0.09]",
+								startsOne(open) && "bg-accent",
 							)}
 						/>
 					}
@@ -397,7 +397,7 @@ function External({
 			onClick={onOpen}
 			className={cn(
 				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]",
-				current && "bg-foreground/[0.09] hover:bg-foreground/[0.09]",
+				current && "bg-accent hover:bg-accent",
 			)}
 		>
 			<SquareArrowOutUpRightIcon
@@ -445,7 +445,7 @@ function Item({
 		<div
 			className={cn(
 				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05]",
-				current && "bg-foreground/[0.09] hover:bg-foreground/[0.09]",
+				current && "bg-accent hover:bg-accent",
 			)}
 		>
 			{renaming && (

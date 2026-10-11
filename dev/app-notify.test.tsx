@@ -68,7 +68,7 @@ describe("App's settings and notifications", () => {
 			)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Notifications"]);
+		).toEqual(["Appearance", "Notifications"]);
 		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
@@ -98,6 +98,31 @@ describe("App's settings and notifications", () => {
 			}),
 		);
 		expect(dialog.textContent).toContain("No settings match “zebra”");
+	});
+
+	it("picks the theme and accent among their choices, keeping them for the next visit", async () => {
+		const { dialog } = await settings();
+		const theme = within(dialog).getByRole("group", { name: "Theme" });
+		expect(within(theme).getByRole("radio", { name: "System" })).toHaveProperty(
+			"checked",
+			true,
+		);
+
+		await act(async () =>
+			fireEvent.click(within(theme).getByRole("radio", { name: "Dark" })),
+		);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("radio", { name: "Rose" })),
+		);
+
+		expect(within(theme).getByRole("radio", { name: "Dark" })).toHaveProperty(
+			"checked",
+			true,
+		);
+		expect(JSON.parse(localStorage.getItem("arbor.settings") ?? "")).toEqual({
+			"appearance.theme": "dark",
+			"appearance.accent": "rose",
+		});
 	});
 
 	it("turns notifications on, then notifies of an agent that comes to wait, opening it on a click", async () => {
