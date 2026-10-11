@@ -66,12 +66,15 @@ const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src, name }) => {
 type AttachmentPreviewDialogProps = PropsWithChildren<{
 	src: string | undefined;
 	name: string;
+	/** What the trigger is called, when its children do not say. */
+	label?: string;
 }>;
 
 const AttachmentPreviewDialog: FC<AttachmentPreviewDialogProps> = ({
 	children,
 	src,
 	name,
+	label,
 }) => {
 	if (!src) {
 		return children;
@@ -79,7 +82,10 @@ const AttachmentPreviewDialog: FC<AttachmentPreviewDialogProps> = ({
 
 	return (
 		<Dialog>
-			<DialogTrigger className="aui-attachment-preview-trigger cursor-zoom-in">
+			<DialogTrigger
+				aria-label={label}
+				className="aui-attachment-preview-trigger cursor-zoom-in"
+			>
 				{isValidElement(children) ? (
 					children
 				) : (
@@ -298,5 +304,19 @@ export const ComposerAddAttachment: FC = () => {
 		>
 			<PlusIcon className="aui-attachment-add-icon size-4" />
 		</ComposerPrimitive.AddAttachment>
+	);
+};
+
+/**
+ * An image sent in a message, outside any attachment's context: a tile the
+ * size of the composer's, which opens full size.
+ */
+export const ImageTile: FC<{ src: string; name: string }> = ({ src, name }) => {
+	return (
+		<AttachmentPreviewDialog src={src} name={name} label={`Preview ${name}`}>
+			<div className="aui-attachment-tile bg-muted hover:after:bg-foreground/10 relative size-14 overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset active:scale-[0.96] motion-reduce:transition-none dark:after:ring-white/10">
+				<AttachmentThumb src={src} />
+			</div>
+		</AttachmentPreviewDialog>
 	);
 };

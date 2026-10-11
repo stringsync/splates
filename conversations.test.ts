@@ -264,6 +264,31 @@ describe("Conversations", () => {
 			await finish(conversation);
 		});
 
+		it("holds a queued message's images for the turn's end, and hands them back when it is taken back", async () => {
+			agent.sees = true;
+			const conversation = await working();
+			const png = { mimeType: "image/png", data: btoa("png bytes") };
+
+			await conversation.prompt("two", [png]);
+			await conversation.prompt("three", [png]);
+
+			expect(conversation.unqueue(1)).toEqual({
+				text: "three",
+				images: [
+					{ name: expect.stringMatching(/\.png$/), mimeType: "image/png" },
+				],
+			});
+			held.finish?.("end_turn");
+			for (let i = 0; i < 100 && said.length < 2; i++) {
+				await Bun.sleep(1);
+			}
+			expect(agent.prompts.at(-1)).toEqual([
+				{ type: "image", mimeType: "image/png", data: png.data },
+				{ type: "text", text: "two" },
+			]);
+			await finish(conversation);
+		});
+
 		it("waits for the turn's end when the agent finds no turn to steer", async () => {
 			// As when the agent ended its turn, and arbor has yet to hear.
 			agent.steering = "promptRequired";
@@ -302,7 +327,7 @@ describe("Conversations", () => {
 			await conversation.prompt("two");
 			await conversation.prompt("three");
 
-			expect(conversation.unqueue(0)).toBe("two");
+			expect(conversation.unqueue(0)).toEqual({ text: "two", images: [] });
 
 			expect(thread(conversation)).toEqual([
 				["one", false],
@@ -630,6 +655,75 @@ describe("Conversations", () => {
 			parts: [{ type: "text", text: "Done." }],
 		});
 		await reread.disposeAsync();
+	});
+
+	describe("images", () => {
+		const PNG = { mimeType: "image/png", data: btoa("png bytes") };
+
+		it("sends images ahead of the words, keeps them beside the log, and reads them back", async () => {
+			agent.sees = true;
+			const conversation = await started();
+
+			await conversation.prompt("look", [PNG]);
+			await until(conversation, "idle");
+
+			expect(agent.prompts).toEqual([
+				[
+					{ type: "image", mimeType: "image/png", data: PNG.data },
+					{ type: "text", text: "look" },
+				],
+			]);
+			const image = conversation.state.messages[0]?.parts[0];
+			expect(image).toEqual({
+				type: "image",
+				name: expect.stringMatching(/^[0-9a-f]{16}\.png$/),
+				mimeType: "image/png",
+			});
+			const name = image?.type === "image" ? image.name : "";
+			const kept = await conversation.image(name);
+			expect(new TextDecoder().decode(kept?.bytes)).toBe("png bytes");
+			expect(kept?.mimeType).toBe("image/png");
+			expect(await conversation.image("other.png")).toBeNull();
+			await conversation.stop();
+			const reread = new Conversations(
+				"/repo/.git/arbor/conversations",
+				[AGENT],
+				{ fs, timer, clock, launch: agent.launch },
+			);
+			const [read] = await reread.list();
+			expect(read?.state.messages[0]?.parts).toEqual([
+				{ type: "image", name, mimeType: "image/png" },
+				{ type: "text", text: "look" },
+			]);
+			expect((await read?.image(name))?.mimeType).toBe("image/png");
+		});
+
+		it("sends an image with no words", async () => {
+			agent.sees = true;
+			const conversation = await started();
+
+			await conversation.prompt("", [PNG]);
+			await until(conversation, "idle");
+
+			expect(agent.prompts).toEqual([
+				[{ type: "image", mimeType: "image/png", data: PNG.data }],
+			]);
+		});
+
+		it("refuses images to an agent that does not take them, and images it cannot be sent", async () => {
+			const conversation = await started();
+
+			await expect(conversation.prompt("look", [PNG])).rejects.toThrow(
+				"Fake does not take images",
+			);
+			await expect(
+				conversation.prompt("look", [{ mimeType: "image/svg+xml", data: "" }]),
+			).rejects.toThrow(
+				"send a PNG, JPEG, GIF or WebP image, not image/svg+xml",
+			);
+			expect(conversation.state.messages).toEqual([]);
+			expect(agent.prompts).toEqual([]);
+		});
 	});
 
 	it("keeps a name the person gives over the agent's title, and reads it back", async () => {

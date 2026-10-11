@@ -5,7 +5,7 @@
  * caller can show it.
  */
 
-import type { Answer, ConversationState } from "../conversations";
+import type { Answer, ConversationState, Image } from "../conversations";
 import type { FileDiff } from "../diff";
 
 export class ApiError extends Error {
@@ -210,12 +210,42 @@ export async function startConversation(
 	})) as ConversationState;
 }
 
-/** Says `text` to the agent in conversation `id`. */
+/** Says `text` to the agent in conversation `id`, with `images`. */
 export async function promptConversation(
 	id: string,
 	text: string,
+	images: File[] = [],
 ): Promise<void> {
-	await sendJson(`/api/conversations/${id}/prompt`, "POST", { text });
+	await sendJson(`/api/conversations/${id}/prompt`, "POST", {
+		text,
+		...(images.length === 0
+			? {}
+			: {
+					images: await Promise.all(
+						images.map(async (file) => ({
+							mimeType: file.type,
+							data: (await dataUrl(file)).split(",")[1] ?? "",
+						})),
+					),
+				}),
+	});
+}
+
+/** `file` as a `data:` URL, its bytes in base64 after the comma. */
+function dataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(file);
+	});
+}
+
+/** Where the page reads `image`, one the person sent in conversation `id`. */
+export function conversationImage(id: string, image: Image): string {
+	return scoped(
+		`/api/conversations/${id}/images/${encodeURIComponent(image.name)}`,
+	);
 }
 
 /** Answers what the agent in conversation `id` is asking, by the ask's id. */
@@ -234,16 +264,28 @@ export async function cancelConversation(id: string): Promise<void> {
 
 /**
  * Takes back the `index`th message queued in conversation `id`, answering
- * with its words.
+ * with its words and images.
  */
 export async function unqueueConversation(
 	id: string,
 	index: number,
-): Promise<string> {
-	const { text } = (await sendJson(`/api/conversations/${id}/unqueue`, "POST", {
-		index,
-	})) as { text: string };
-	return text;
+): Promise<{ text: string; images: File[] }> {
+	const { text, images } = (await sendJson(
+		`/api/conversations/${id}/unqueue`,
+		"POST",
+		{ index },
+	)) as { text: string; images: Image[] };
+	return {
+		text,
+		images: await Promise.all(
+			images.map(async (image) => {
+				const response = await fetch(conversationImage(id, image));
+				return new File([await response.blob()], image.name, {
+					type: image.mimeType,
+				});
+			}),
+		),
+	};
 }
 
 /** Sends what is queued in conversation `id` now, stopping its turn. */

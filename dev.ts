@@ -615,9 +615,37 @@ export async function dev(
 
 		const promptConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
-			const { text } = await body(request);
-			await conversation.prompt(String(text ?? ""));
+			const { text, images } = await body(request);
+			await conversation.prompt(
+				String(text ?? ""),
+				(Array.isArray(images) ? images : []).map((each) => ({
+					mimeType: String(each?.mimeType ?? ""),
+					data: String(each?.data ?? ""),
+				})),
+			);
 			return Response.json(conversation.state);
+		};
+
+		// Only an image the person sent in it, by the name its message gives.
+		const conversationImage = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const name = new URL(request.url).pathname.split("/")[5] ?? "";
+			const image = await conversation.image(decodeURIComponent(name));
+			if (image === null) {
+				return refuse(
+					404,
+					"not_found",
+					`conversation ${conversation.id} sent no image ${name}`,
+				);
+			}
+			return new Response(new Blob([image.bytes as Uint8Array<ArrayBuffer>]), {
+				headers: {
+					"content-type": image.mimeType,
+					// Named for what is in it, so it never changes.
+					"cache-control": "private, max-age=31536000, immutable",
+					"x-content-type-options": "nosniff",
+				},
+			});
 		};
 
 		const answerConversation = async (request: Request): Promise<Response> => {
@@ -636,8 +664,7 @@ export async function dev(
 		const unqueueConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const { index } = await body(request);
-			const text = conversation.unqueue(Number(index ?? -1));
-			return Response.json({ text });
+			return Response.json(conversation.unqueue(Number(index ?? -1)));
 		};
 
 		const sendQueuedNow = async (request: Request): Promise<Response> => {
@@ -735,6 +762,7 @@ export async function dev(
 			startConversation,
 			moveConversation,
 			promptConversation,
+			conversationImage,
 			answerConversation,
 			cancelConversation,
 			unqueueConversation,
@@ -974,6 +1002,9 @@ export async function dev(
 			),
 			"/api/conversations/:id/prompt": {
 				POST: talk(owned((project) => project.promptConversation)),
+			},
+			"/api/conversations/:id/images/:name": {
+				GET: talk(owned((project) => project.conversationImage)),
 			},
 			"/api/conversations/:id/answer": {
 				POST: talk(owned((project) => project.answerConversation)),
@@ -1235,6 +1266,7 @@ interface Served extends AsyncResource {
 	startConversation: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;
+	conversationImage: Handler;
 	answerConversation: Handler;
 	cancelConversation: Handler;
 	unqueueConversation: Handler;

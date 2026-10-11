@@ -44,6 +44,10 @@ export function timeline(work: Work): Item[] {
 	const items: Item[] = [];
 	parts.forEach((part, index) => {
 		const last = items.at(-1);
+		// Only the person sends images, and this is the agent's turn.
+		if (part.type === "image") {
+			return;
+		}
 		if (part.type === "text") {
 			if (part.text.trim() !== "" && index !== work.reply) {
 				items.push({ type: "text", text: part.text });
@@ -53,12 +57,19 @@ export function timeline(work: Work): Item[] {
 		if (part.type === "thought") {
 			const next = parts
 				.slice(index + 1)
-				.find((each) => each.type !== "text" && each.at !== null);
+				.find(
+					(each) =>
+						(each.type === "thought" || each.type === "tool") &&
+						each.at !== null,
+				);
 			items.push({
 				type: "thought",
 				text: part.text,
 				at: part.at,
-				until: (next?.type === "text" ? null : next?.at) ?? work.until,
+				until:
+					(next?.type === "thought" || next?.type === "tool"
+						? next.at
+						: null) ?? work.until,
 			});
 			return;
 		}
@@ -168,7 +179,7 @@ export function worked(work: Work): string {
 /** What the agent is on right now, as of `now`; null between steps. */
 export function doing(work: Work, now: number): string | null {
 	const last = work.parts.at(-1);
-	if (last === undefined || last.type === "text") {
+	if (last === undefined || last.type === "text" || last.type === "image") {
 		return null;
 	}
 	if (last.type === "thought") {

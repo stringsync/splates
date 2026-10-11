@@ -598,6 +598,55 @@ describe("App's conversations", () => {
 		).toEqual(["POST"]);
 	});
 
+	it("sends an image pasted into the composer, and shows the images the person sent on their message", async () => {
+		const view = await conversations([
+			conversation({
+				title: "Look",
+				messages: [
+					{
+						...message("user", "this one"),
+						parts: [
+							{ type: "image", name: "ab12.png", mimeType: "image/png" },
+							{ type: "text", text: "this one" },
+						],
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Look" });
+		// In the message's box, ahead of its words, as the composer holds it.
+		await waitFor(() =>
+			expect(
+				within(thread)
+					.getByRole("button", { name: "Preview ab12.png" })
+					.closest(".aui-user-message-content")
+					?.textContent?.endsWith("this one"),
+			).toBe(true),
+		);
+		const box = view.getByRole("textbox", { name: "Message input" });
+
+		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+		await act(async () =>
+			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
+		);
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "and this" } }),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: "and this",
+						images: [{ mimeType: "image/png", data: btoa("png bytes") }],
+					},
+				},
+			]),
+		);
+	});
+
 	describe("question cards", () => {
 		const report = [
 			"## ⚠️ Escalated header: waiting on two calls",
@@ -1382,7 +1431,7 @@ describe("App's conversations", () => {
 			await waitFor(() => expect(box(view).value).toBe(""));
 			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 			expect(posted("/api/conversations/c1/send-now")).toHaveLength(2);
-			testing.reply = { text: "the second note" };
+			testing.reply = { text: "the second note", images: [] };
 			await act(async () => fireEvent.keyDown(box(view), { key: "ArrowUp" }));
 			expect(posted("/api/conversations/c1/unqueue")).toEqual([
 				{ method: "POST", body: { index: 0 } },
@@ -1409,7 +1458,7 @@ describe("App's conversations", () => {
 			await type(view, "still typing");
 
 			const queued = view.getByRole("region", { name: "queued messages" });
-			testing.reply = { text: "the second note" };
+			testing.reply = { text: "the second note", images: [] };
 			await act(async () =>
 				fireEvent.click(
 					within(queued).getByRole("button", {

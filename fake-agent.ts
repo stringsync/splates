@@ -51,6 +51,10 @@ export class FakeAgent {
 	steering: "injected" | "promptRequired" | null = null;
 	/** What was steered into a turn, in order. */
 	steered: string[] = [];
+	/** Whether it says it takes images in a prompt. */
+	sees = false;
+	/** Every prompt it was sent, block by block, in order. */
+	prompts: acp.ContentBlock[][] = [];
 	/** The settings set, in order. */
 	chosen: { configId: string; value: unknown }[] = [];
 	private options = structuredClone(OPTIONS);
@@ -93,7 +97,9 @@ export class FakeAgent {
 		return {
 			initialize: async () => ({
 				protocolVersion: acp.PROTOCOL_VERSION,
-				agentCapabilities: {},
+				agentCapabilities: this.sees
+					? { promptCapabilities: { image: true } }
+					: {},
 				...(this.steering === null
 					? {}
 					: { _meta: { steering: { supported: true } } }),
@@ -133,15 +139,18 @@ export class FakeAgent {
 				);
 				return { configOptions: this.options };
 			},
-			prompt: async ({ sessionId, prompt }) => ({
-				stopReason: await this.turn(
-					client,
-					sessionId,
-					prompt
-						.map((block) => (block.type === "text" ? block.text : ""))
-						.join(""),
-				),
-			}),
+			prompt: async ({ sessionId, prompt }) => {
+				this.prompts.push(prompt);
+				return {
+					stopReason: await this.turn(
+						client,
+						sessionId,
+						prompt
+							.map((block) => (block.type === "text" ? block.text : ""))
+							.join(""),
+					),
+				};
+			},
 			cancel: async () => {
 				this.cancelled++;
 			},

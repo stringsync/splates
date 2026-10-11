@@ -6,6 +6,7 @@ import {
 	type AssistantState,
 	AuiIf,
 	BranchPickerPrimitive,
+	type CompleteAttachment,
 	ComposerPrimitive,
 	ErrorPrimitive,
 	type FileMessagePartComponent,
@@ -54,8 +55,9 @@ import {
 	useState,
 } from "react";
 import {
+	ComposerAddAttachment,
 	ComposerAttachments,
-	UserMessageAttachments,
+	ImageTile,
 } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { File } from "#dev/components/assistant-ui/elements/file.tsx";
 import { ThreadFollowupSuggestions } from "#dev/components/assistant-ui/elements/follow-up-suggestions.aui.tsx";
@@ -797,8 +799,10 @@ const ComposerAction: FC = () => {
 
 	return (
 		<div className="aui-composer-action-wrapper relative flex items-center justify-between gap-2">
-			{/* Conversations send text only: no attachments. */}
 			<div className="flex min-w-0 items-center gap-0 overflow-hidden">
+				<AuiIf condition={(s) => s.thread.capabilities.attachments}>
+					<ComposerAddAttachment />
+				</AuiIf>
 				{controls}
 			</div>
 			<div className="flex items-center gap-1.5">
@@ -1017,6 +1021,7 @@ const UserImagePart: ImageMessagePartComponent = (part) => (
 
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
+	const attachments = useAuiState((s) => s.message.attachments);
 	return (
 		<MessagePrimitive.Root
 			data-slot="aui_user-message-root"
@@ -1035,16 +1040,44 @@ const UserMessage: FC = () => {
 			)}
 			data-role="user"
 		>
-			<UserMessageAttachments />
-
 			<div className="aui-user-message-content-wrapper relative min-w-0">
-				<Clamped watch={id}>
+				<Clamped watch={id} head={<ImageTiles attachments={attachments} />}>
 					<MessagePrimitive.Parts
 						components={{ File: UserFilePart, Image: UserImagePart }}
 					/>
 				</Clamped>
 			</div>
 		</MessagePrimitive.Root>
+	);
+};
+
+/**
+ * The images a message holds, at its start as the composer shows them, each
+ * opening full size; nothing for a message without any.
+ */
+const ImageTiles: FC<{
+	attachments: readonly CompleteAttachment[] | undefined;
+}> = ({ attachments = [] }) => {
+	const images = attachments.flatMap((attachment) =>
+		(attachment.content ?? []).flatMap((part) =>
+			part.type === "image" ? [{ name: attachment.name, src: part.image }] : [],
+		),
+	);
+	if (images.length === 0) {
+		return null;
+	}
+	return (
+		<div
+			data-slot="aui_user-message-images"
+			// A tile opens the image, rather than the message it sits in.
+			onClick={(event) => event.stopPropagation()}
+			onKeyDown={(event) => event.stopPropagation()}
+			className="flex flex-wrap gap-2 pb-2"
+		>
+			{images.map((image) => (
+				<ImageTile key={image.src} src={image.src} name={image.name} />
+			))}
+		</div>
 	);
 };
 
@@ -1066,8 +1099,10 @@ const Clamped: FC<
 	PropsWithChildren<{
 		/** Changes when the words do, to measure them again. */
 		watch: string;
+		/** Above the words and never cut: the images the message holds. */
+		head?: ReactNode;
 	}>
-> = ({ watch, children }) => {
+> = ({ watch, head, children }) => {
 	const text = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
 	const [more, setMore] = useState(false);
@@ -1104,6 +1139,7 @@ const Clamped: FC<
 				(more || open) && "cursor-pointer",
 			)}
 		>
+			{head}
 			<div
 				ref={text}
 				className={cn(

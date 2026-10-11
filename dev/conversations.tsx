@@ -2,6 +2,7 @@ import {
 	type AppendMessage,
 	type AssistantRuntime,
 	AssistantRuntimeProvider,
+	SimpleImageAttachmentAdapter,
 	type ThreadMessageLike,
 	type TriggerAdapter,
 	useAuiState,
@@ -60,6 +61,7 @@ import type {
 	Answer,
 	Ask,
 	ConversationState,
+	Image,
 	Message,
 	Setting,
 	Status,
@@ -74,6 +76,7 @@ import {
 	archiveConversation,
 	cancelConversation,
 	chooseSetting,
+	conversationImage,
 	paths,
 	promptConversation,
 	renameConversation,
@@ -810,7 +813,7 @@ function Home({
 	);
 	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
-	const restore = useRef<(text: string) => void>(() => {});
+	const restore = useRef<(text: string, images: File[]) => void>(() => {});
 	// Only those at rest: one at work or waiting on the person is in the
 	// sidebar already, and is not one to pick back up.
 	const recent = listed
@@ -820,16 +823,18 @@ function Home({
 		messages: NO_MESSAGES,
 		isRunning: starting,
 		convertMessage: (message: ThreadMessageLike) => message,
+		adapters: { attachments: IMAGES },
 		onNew: async (message) => {
 			const text = message.content
 				.map((part) => (part.type === "text" ? part.text : ""))
 				.join("")
 				.trim();
+			const images = imagesOf(message);
 			setStarting(true);
 			const state = await startConversation(agent, null, picks).catch(
 				(error: unknown) => {
 					setStarting(false);
-					restore.current(text);
+					restore.current(text, images);
 					refused("Not started", error);
 					throw error;
 				},
@@ -838,12 +843,14 @@ function Home({
 			// Shown at once, so the person watches the agent come up; the message
 			// waits on the server for the session to open.
 			onOpen(state.id);
-			await promptConversation(state.id, text).catch((error: unknown) => {
-				// The conversation is open by now: what was not sent waits in its
-				// composer.
-				drafts.write(state.id, text);
-				refused("Not sent", error);
-			});
+			await promptConversation(state.id, text, images).catch(
+				(error: unknown) => {
+					// The conversation is open by now: what was not sent waits in its
+					// composer, its words only.
+					drafts.write(state.id, text);
+					refused("Not sent", error);
+				},
+			);
 		},
 	});
 	restore.current = useDraft(
@@ -1029,11 +1036,13 @@ function Recent({
  * back to edit or thrown away, and all of them sent now, which stops the turn.
  */
 function Queued({
+	conversation,
 	messages,
 	onEdit,
 	onDiscard,
 	onSendNow,
 }: {
+	conversation: string;
 	messages: Message[];
 	onEdit: (index: number) => void;
 	onDiscard: (index: number) => void;
@@ -1061,6 +1070,12 @@ function Queued({
 					const text = message.parts
 						.map((part) => (part.type === "text" ? part.text : ""))
 						.join("");
+					const images = message.parts.flatMap((part) =>
+						part.type === "image" ? [part] : [],
+					);
+					const label =
+						text ||
+						(images.length === 1 ? "an image" : `${images.length} images`);
 					return (
 						<li
 							// Only ever added at the end and taken from anywhere, but
@@ -1069,11 +1084,19 @@ function Queued({
 							key={index}
 							className="group/queued flex items-center gap-2 rounded-lg py-1 pr-1 pl-2 hover:bg-foreground/[0.04]"
 						>
+							{images.map((image) => (
+								<img
+									key={image.name}
+									src={conversationImage(conversation, image)}
+									alt=""
+									className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
+								/>
+							))}
 							<span className="min-w-0 flex-1 truncate text-sm">{text}</span>
 							<Button
 								size="icon-xs"
 								variant="ghost"
-								aria-label={`Edit ${text}`}
+								aria-label={`Edit ${label}`}
 								onClick={() => onEdit(index)}
 							>
 								<PencilIcon />
@@ -1081,7 +1104,7 @@ function Queued({
 							<Button
 								size="icon-xs"
 								variant="ghost"
-								aria-label={`Discard ${text}`}
+								aria-label={`Discard ${label}`}
 								onClick={() => onDiscard(index)}
 							>
 								<Trash2Icon />
@@ -1160,7 +1183,7 @@ function useDraft(
 	runtime: AssistantRuntime,
 	drafts: Drafts,
 	key: string,
-): (text: string) => void {
+): (text: string, images: File[]) => void {
 	useEffect(() => {
 		const composer = runtime.thread.composer;
 		// Into an empty composer only: what is typed there is the newer draft.
@@ -1185,12 +1208,34 @@ function useDraft(
 			unlisten();
 		};
 	}, [runtime, drafts, key]);
-	return (text) => {
+	return (text, images) => {
+		const composer = runtime.thread.composer;
 		// Typed again since it was sent: that is the newer draft.
-		if (runtime.thread.composer.getState().text === "") {
-			runtime.thread.composer.setText(text);
+		if (!composer.getState().isEmpty) {
+			return;
+		}
+		composer.setText(text);
+		for (const image of images) {
+			void composer.addAttachment(image);
 		}
 	};
+}
+
+/**
+ * The images the agent can be sent, held as files until the message goes:
+ * PNG, JPEG, GIF and WebP, the ones the server keeps.
+ */
+class ImageAttachments extends SimpleImageAttachmentAdapter {
+	override accept = "image/png,image/jpeg,image/gif,image/webp";
+}
+
+const IMAGES = new ImageAttachments();
+
+/** The files of the images attached to `message`. */
+function imagesOf(message: AppendMessage): File[] {
+	return (message.attachments ?? []).flatMap((each) =>
+		each.file === undefined ? [] : [each.file],
+	);
 }
 
 /**
@@ -1265,6 +1310,7 @@ function Thread({
 			like(
 				message,
 				index,
+				conversation.id,
 				!writing || index < said.length - 1,
 				said[index - 1]?.at ?? message.at,
 			),
@@ -1278,16 +1324,17 @@ function Thread({
 					{ id: String(said.length), role: "assistant" as const, content: [] },
 				]
 			: liked;
-	}, [conversation.messages, writing, running]);
-	const restore = useRef<(text: string) => void>(() => {});
+	}, [conversation.messages, conversation.id, writing, running]);
+	const restore = useRef<(text: string, images: File[]) => void>(() => {});
 	const say = useCallback(
 		async (message: AppendMessage) => {
 			const text = message.content
 				.map((part) => (part.type === "text" ? part.text : ""))
 				.join("")
 				.trim();
-			await promptConversation(id, text).catch((error: unknown) => {
-				restore.current(text);
+			const images = imagesOf(message);
+			await promptConversation(id, text, images).catch((error: unknown) => {
+				restore.current(text, images);
 				refused("Not sent", error);
 				throw error;
 			});
@@ -1301,6 +1348,7 @@ function Thread({
 		// still starting holds it until the session opens.
 		isDisabled: archived,
 		convertMessage: (message: ThreadMessageLike) => message,
+		adapters: { attachments: IMAGES },
 		onNew: say,
 		// So the composer takes a message while the agent works. The server
 		// decides whether it joins the turn or waits for its end, and shows it
@@ -1339,18 +1387,24 @@ function Thread({
 		sendQueuedNow(id).catch((error: unknown) => refused("Not sent", error));
 	// Back into the composer to edit, ahead of anything typed there since.
 	const edit = async (index: number) => {
-		const text = await unqueueConversation(id, index).catch(
+		const taken = await unqueueConversation(id, index).catch(
 			(error: unknown) => {
 				refused("Not taken back", error);
 				return null;
 			},
 		);
-		if (text === null) {
+		if (taken === null) {
 			return;
 		}
+		const { text, images } = taken;
 		const composer = runtime.thread.composer;
 		const typed = composer.getState().text;
-		composer.setText(typed === "" ? text : `${text}\n\n${typed}`);
+		composer.setText(
+			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`,
+		);
+		for (const image of images) {
+			void composer.addAttachment(image);
+		}
 		section.current
 			?.querySelector<HTMLTextAreaElement>(
 				'textarea[aria-label="Message input"]',
@@ -1528,6 +1582,7 @@ function Thread({
 								<>
 									{queued.length > 0 && (
 										<Queued
+											conversation={id}
 											messages={queued}
 											onEdit={(index) => void edit(index)}
 											onDiscard={(index) => void discard(index)}
@@ -1564,6 +1619,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 function like(
 	message: Message,
 	index: number,
+	/** The conversation it is in, to read its images from. */
+	conversation: string,
 	settled = true,
 	/** When the turn began: the person's prompt it answers. */
 	began: string | null = message.at,
@@ -1577,6 +1634,10 @@ function like(
 				part.type === "text"
 					? [{ type: "text" as const, text: part.text }]
 					: [],
+			),
+			// Shown as tiles above the words, each opening full size.
+			attachments: message.parts.flatMap((part) =>
+				part.type === "image" ? [attached(conversation, part)] : [],
 			),
 		};
 	}
@@ -1604,6 +1665,21 @@ function like(
 				: []),
 			...(reply === "" ? [] : replied(reply, settled)),
 		],
+	};
+}
+
+/** An image the person sent, as assistant-ui shows an attachment. */
+function attached(
+	conversation: string,
+	image: Image,
+): NonNullable<ThreadMessageLike["attachments"]>[number] {
+	return {
+		id: image.name,
+		type: "image",
+		name: image.name,
+		contentType: image.mimeType,
+		status: { type: "complete" },
+		content: [{ type: "image", image: conversationImage(conversation, image) }],
 	};
 }
 

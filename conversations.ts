@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -97,7 +98,29 @@ export type Part =
 	| { type: "text"; text: string }
 	/** `at` is when the agent began it; null in a log too old to say. */
 	| { type: "thought"; text: string; at: string | null }
+	| ({ type: "image" } & Image)
 	| Tool;
+
+/** An image the person sent, kept beside the conversation's log as `name`. */
+export interface Image {
+	name: string;
+	mimeType: string;
+}
+
+/** An image as the page sends it, before it is kept. */
+export interface Upload {
+	mimeType: string;
+	/** Its bytes, in base64. */
+	data: string;
+}
+
+/** The images an agent can be sent, by media type, with the extension each is kept under. */
+const IMAGE_TYPES: Record<string, string> = {
+	"image/png": "png",
+	"image/jpeg": "jpg",
+	"image/gif": "gif",
+	"image/webp": "webp",
+};
 
 /** A tool call the agent made, as much of it as the page shows. */
 export interface Tool {
@@ -238,7 +261,14 @@ type Entry =
 	| { kind: "archive"; archived: boolean }
 	| { kind: "rename"; name: string | null }
 	/** `at` is missing from logs written before the page showed how long things took. */
-	| { kind: "prompt"; text: string; at?: string; queued?: true }
+	| {
+			kind: "prompt";
+			text: string;
+			at?: string;
+			queued?: true;
+			/** Missing from logs written before the page sent images. */
+			images?: Image[];
+	  }
 	/** Every queued prompt went out. */
 	| { kind: "sent" }
 	/** The `index`th queued prompt was taken back. */
@@ -538,6 +568,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private settle: ((answer: Answer) => void) | null = null;
 	/** Whether the agent takes a prompt into its running turn. */
 	private steers = false;
+	/** Whether the agent takes images in a prompt. */
+	private sees = false;
 	/** Whether the person cancelled the last turn, which holds the queue. */
 	private held = false;
 	/** The log's lines, all of them, since the file is rewritten whole. */
@@ -621,7 +653,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		for (const entry of entries) {
 			if (entry.kind === "prompt") {
 				state.messages.push({
-					...said(entry.text, entry.at ?? null),
+					...said(entry.text, entry.at ?? null, entry.images),
 					...(entry.queued ? { queued: true } : {}),
 				});
 			} else if (entry.kind === "sent") {
@@ -745,6 +777,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				clientCapabilities: { elicitation: { form: {} } },
 			});
 			this.steers = steers(initialized);
+			this.sees =
+				initialized.agentCapabilities?.promptCapabilities?.image === true;
 			if (this.session === null) {
 				const session = await connection.newSession({ cwd, mcpServers: [] });
 				this.session = session.sessionId;
@@ -833,20 +867,28 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 
 	/**
-	 * Says `text` to the agent, once it has started, resuming the session
-	 * first when it stopped. While the agent works, it joins the running turn
-	 * when the agent can take it there, and otherwise waits for the turn to
-	 * end.
+	 * Says `text` to the agent, with `images`, once it has started, resuming
+	 * the session first when it stopped. While the agent works, it joins the
+	 * running turn when the agent can take it there, and otherwise waits for
+	 * the turn to end.
 	 */
-	async prompt(text: string): Promise<void> {
+	async prompt(text: string, images: Upload[] = []): Promise<void> {
+		const words = text.trim();
+		if (words === "" && images.length === 0) {
+			fail("usage", "say something to the agent", { conversation: this.id });
+		}
+		const unknown = images.find((each) => !(each.mimeType in IMAGE_TYPES));
+		if (unknown !== undefined) {
+			fail(
+				"usage",
+				`send a PNG, JPEG, GIF or WebP image, not ${unknown.mimeType || "an untyped file"}`,
+				{ conversation: this.id },
+			);
+		}
 		if (this.state.status === "stopped" || this.state.status === "failed") {
 			await this.resume();
 		}
 		await this.opening;
-		const words = text.trim();
-		if (words === "") {
-			fail("usage", "say something to the agent", { conversation: this.id });
-		}
 		if (
 			(this.state.status !== "idle" && this.state.status !== "running") ||
 			this.connection === null
@@ -857,9 +899,15 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				{ conversation: this.id },
 			);
 		}
+		if (images.length > 0 && !this.sees) {
+			fail("usage", `${this.agent?.name ?? "the agent"} does not take images`, {
+				conversation: this.id,
+			});
+		}
+		const kept = await this.keep(images);
 		if (this.state.status === "running") {
 			if (!this.steers) {
-				this.queue(words);
+				this.queue(words, kept);
 				return;
 			}
 			// Said into the turn first, so a refusal leaves nothing in the thread.
@@ -867,14 +915,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				STEER,
 				{
 					sessionId: this.session ?? "",
-					prompt: [{ type: "text", text: words }],
+					prompt: await this.content([said(words, null, kept)]),
 					_meta: { steering: { idleBehavior: "promptRequired" } },
 				},
 			);
 			if (outcome === "injected" || outcome === "startedNewTurn") {
 				const at = this.now();
-				this.write({ kind: "prompt", text: words, at });
-				this.state.messages.push(said(words, at));
+				this.write({ kind: "prompt", text: words, at, ...shown(kept) });
+				this.state.messages.push(said(words, at, kept));
 				this.changed();
 				return;
 			}
@@ -887,49 +935,114 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			// next one if that has started.
 			// Read again: the turn may have ended while the agent answered.
 			if ((this.state.status as Status) !== "idle") {
-				this.queue(words);
+				this.queue(words, kept);
 				return;
 			}
 		}
 		this.held = false;
 		const at = this.now();
-		this.write({ kind: "prompt", text: words, at });
-		this.state.messages.push(said(words, at));
-		this.send([words]);
+		const message = said(words, at, kept);
+		this.write({ kind: "prompt", text: words, at, ...shown(kept) });
+		this.state.messages.push(message);
+		this.send([message]);
 	}
 
-	/** Holds `words` for when the turn ends, shown as said. */
-	private queue(words: string): void {
+	/** Holds `words` and `images` for when the turn ends, shown as said. */
+	private queue(words: string, images: Image[]): void {
 		const at = this.now();
-		this.write({ kind: "prompt", text: words, at, queued: true });
-		this.state.messages.push({ ...said(words, at), queued: true });
+		this.write({
+			kind: "prompt",
+			text: words,
+			at,
+			queued: true,
+			...shown(images),
+		});
+		this.state.messages.push({ ...said(words, at, images), queued: true });
 		this.changed();
+	}
+
+	/**
+	 * Saves each image beside the log, named for what is in it, so the page
+	 * reads it by name rather than with every change to the conversation.
+	 */
+	private async keep(images: Upload[]): Promise<Image[]> {
+		if (images.length === 0) {
+			return [];
+		}
+		await this.fs.mkdir(this.images());
+		return Promise.all(
+			images.map(async ({ mimeType, data }) => {
+				const bytes = new Uint8Array(Buffer.from(data, "base64"));
+				const hash = createHash("sha256").update(bytes).digest("hex");
+				const name = `${hash.slice(0, 16)}.${IMAGE_TYPES[mimeType]}`;
+				await this.fs.writeBytes(`${this.images()}/${name}`, bytes);
+				return { name, mimeType };
+			}),
+		);
+	}
+
+	/** Where its images are kept. */
+	private images(): string {
+		return this.log.replace(/\.jsonl$/, "");
+	}
+
+	/** The image `name` the person sent, or null when they sent none by that name. */
+	async image(
+		name: string,
+	): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+		const part = this.state.messages
+			.flatMap((message) => message.parts)
+			.find((each) => each.type === "image" && each.name === name);
+		if (part?.type !== "image") {
+			return null;
+		}
+		const bytes = await this.fs
+			.readBytes(`${this.images()}/${name}`)
+			.catch(() => null);
+		return bytes === null ? null : { bytes, mimeType: part.mimeType };
+	}
+
+	/** What `messages` say, as one prompt: their images, then their words. */
+	private async content(messages: Message[]): Promise<acp.ContentBlock[]> {
+		const images = await Promise.all(
+			messages
+				.flatMap((message) => message.parts)
+				.flatMap((part) => (part.type === "image" ? [part] : []))
+				.map(
+					async (part): Promise<acp.ContentBlock> => ({
+						type: "image",
+						mimeType: part.mimeType,
+						data: Buffer.from(
+							await this.fs.readBytes(`${this.images()}/${part.name}`),
+						).toString("base64"),
+					}),
+				),
+		);
+		const text = messages
+			.map(textOf)
+			.filter((each) => each !== "")
+			.join("\n\n");
+		return [
+			...images,
+			...(text === "" ? [] : [{ type: "text" as const, text }]),
+		];
 	}
 
 	/**
 	 * Starts a turn on `fresh`, with every message still queued ahead of it,
 	 * as one prompt.
 	 */
-	private send(fresh: string[]): void {
+	private send(fresh: Message[]): void {
 		const waiting = this.state.messages.filter((each) => each.queued);
 		if (waiting.length > 0) {
 			delivered(this.state.messages);
 			this.write({ kind: "sent" });
 		}
-		const prompt = [
-			...waiting.map((each) =>
-				each.parts
-					.map((part) => (part.type === "text" ? part.text : ""))
-					.join(""),
-			),
-			...fresh,
-		];
 		this.set({ status: "running" });
-		void this.connection
-			?.prompt({
-				sessionId: this.session ?? "",
-				prompt: [{ type: "text", text: prompt.join("\n\n") }],
-			})
+		void this.content([...waiting, ...fresh])
+			.then((prompt) =>
+				this.connection?.prompt({ sessionId: this.session ?? "", prompt }),
+			)
 			.then(
 				() => this.ended(null),
 				(error: unknown) => this.ended(messageOf(error)),
@@ -953,9 +1066,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	/**
 	 * Takes back the `index`th queued message before the agent hears it,
-	 * answering with its words, for the person to edit and send again.
+	 * answering with its words and images, for the person to edit and send
+	 * again.
 	 */
-	unqueue(index: number): string {
+	unqueue(index: number): { text: string; images: Image[] } {
 		const message = takeBack(this.state.messages, index);
 		if (message === null) {
 			fail(
@@ -968,9 +1082,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 		this.write({ kind: "unqueue", index });
 		this.changed();
-		return message.parts
-			.map((part) => (part.type === "text" ? part.text : ""))
-			.join("");
+		return {
+			text: textOf(message),
+			images: message.parts.flatMap((part) =>
+				part.type === "image"
+					? [{ name: part.name, mimeType: part.mimeType }]
+					: [],
+			),
+		};
 	}
 
 	/**
@@ -1169,11 +1288,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 }
 
-/** What the person said, `at`. */
-function said(text: string, at: string | null): Message {
+/** What the person said, `at`: their images, then their words. */
+function said(text: string, at: string | null, images: Image[] = []): Message {
 	return {
 		role: "user",
-		parts: [{ type: "text", text }],
+		parts: [
+			...images.map((image) => ({ type: "image" as const, ...image })),
+			...(text === "" ? [] : [{ type: "text" as const, text }]),
+		],
 		plan: null,
 		at,
 		until: at,
@@ -1200,6 +1322,18 @@ function blank(
 		createdAt,
 		archived: false,
 	};
+}
+
+/** A prompt entry's images, left out of the log when there are none. */
+function shown(images: Image[]): { images?: Image[] } {
+	return images.length === 0 ? {} : { images };
+}
+
+/** The words of `message`, without its images. */
+function textOf(message: Message): string {
+	return message.parts
+		.map((part) => (part.type === "text" ? part.text : ""))
+		.join("");
 }
 
 /** The ACP extension that says a prompt into the turn the agent is running. */
