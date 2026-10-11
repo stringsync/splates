@@ -137,6 +137,15 @@ export interface Tool {
 	until: string | null;
 	/** What a command did to git that it should not have. */
 	flags: Flag[];
+	/** How the person answered the agent asking to make it; null when it never asked. */
+	decision: Decision | null;
+}
+
+/** How the person answered an agent asking permission for a tool call. */
+export interface Decision {
+	/** The option they picked; null for an ask dismissed, as by stopping the turn. */
+	option: { name: string; kind: string } | null;
+	at: string;
 }
 
 /** A change to one file: `old` is null for a file the edit created. */
@@ -287,6 +296,8 @@ type Entry =
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	/** What a finished command did to git that it should not have. */
 	| { kind: "flags"; tool: string; flags: Flag[] }
+	/** How the person answered the agent asking permission for a tool call. */
+	| { kind: "decision"; tool: string; decision: Decision }
 	| { kind: "end"; error: string | null };
 
 /**
@@ -322,6 +333,12 @@ export function fold(
 			return;
 		}
 		case "tool_call": {
+			// Already made, when asking permission for it came first.
+			const made = toolIn(state, update.toolCallId);
+			if (made !== null) {
+				fill(made, update, at);
+				return;
+			}
 			const tool: Tool = {
 				type: "tool",
 				id: update.toolCallId,
@@ -336,6 +353,7 @@ export function fold(
 				at,
 				until: null,
 				flags: [],
+				decision: null,
 			};
 			agentTurn(state, at).parts.push(tool);
 			fill(tool, update, at);
@@ -776,6 +794,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				if (tool !== null) {
 					tool.flags = entry.flags;
 				}
+			} else if (entry.kind === "decision") {
+				const tool = toolIn(state, entry.tool);
+				if (tool !== null) {
+					tool.decision = entry.decision;
+				}
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
 			}
@@ -981,16 +1004,34 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				this.changed();
 			},
 			requestPermission: async (params) => {
+				const { toolCall } = params;
+				const title = toolCall.title ?? "Allow this?";
+				// An agent may ask before it says it is making the call.
+				if (toolIn(this.state, toolCall.toolCallId) === null) {
+					const at = this.now();
+					const update: acp.SessionUpdate = {
+						sessionUpdate: "tool_call",
+						toolCallId: toolCall.toolCallId,
+						title,
+						kind: toolCall.kind ?? undefined,
+						rawInput: toolCall.rawInput,
+						locations: toolCall.locations ?? undefined,
+						_meta: toolCall._meta,
+					};
+					this.write({ kind: "update", update, at });
+					fold(this.state, update, at);
+				}
 				const answer = await this.ask({
 					type: "permission",
-					id: params.toolCall.toolCallId,
-					title: params.toolCall.title ?? "Allow this?",
+					id: toolCall.toolCallId,
+					title,
 					options: params.options.map((option) => ({
 						id: option.optionId,
 						name: option.name,
 						kind: option.kind,
 					})),
 				});
+				this.decided(toolCall.toolCallId, params.options, answer);
 				return answer.type === "permission"
 					? { outcome: { outcome: "selected", optionId: answer.option } }
 					: { outcome: { outcome: "cancelled" } };
@@ -1010,6 +1051,30 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					: { action: "decline" };
 			},
 		};
+	}
+
+	/** Keeps how the person answered the permission asked for tool call `id`. */
+	private decided(
+		id: string,
+		options: acp.PermissionOption[],
+		answer: Answer,
+	): void {
+		const tool = toolIn(this.state, id);
+		if (tool === null) {
+			return;
+		}
+		const picked =
+			answer.type === "permission"
+				? options.find((option) => option.optionId === answer.option)
+				: undefined;
+		const decision: Decision = {
+			option:
+				picked === undefined ? null : { name: picked.name, kind: picked.kind },
+			at: this.now(),
+		};
+		tool.decision = decision;
+		this.write({ kind: "decision", tool: id, decision });
+		this.changed();
 	}
 
 	/** Holds `ask` until the person answers it, or the turn is cancelled. */

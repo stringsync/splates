@@ -651,6 +651,57 @@ describe("Conversations", () => {
 		expect(seen.outcome).toEqual({ outcome: "selected", optionId: "no" });
 	});
 
+	it("keeps how a permission was answered on its tool call, and in the log", async () => {
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({
+				sessionId,
+				update: {
+					sessionUpdate: "tool_call",
+					toolCallId: "t1",
+					title: "rm -rf build",
+					kind: "execute",
+				},
+			});
+			await client.requestPermission({
+				sessionId,
+				toolCall: { toolCallId: "t1", title: "rm -rf build" },
+				options: [
+					{ optionId: "yes", name: "Allow", kind: "allow_once" },
+					{ optionId: "no", name: "Reject", kind: "reject_once" },
+				],
+			});
+			return "end_turn";
+		};
+		const conversation = await started();
+		await conversation.prompt("clean up");
+		for (let i = 0; i < 100 && conversation.state.ask === null; i++) {
+			await Bun.sleep(1);
+		}
+		conversation.answer("t1", { type: "permission", option: "yes" });
+		await until(conversation, "idle");
+		const decisions = (each: Conversation) =>
+			each.state.messages.flatMap((message) =>
+				message.parts.flatMap((part) =>
+					part.type === "tool" ? [[part.title, part.decision?.option]] : [],
+				),
+			);
+
+		expect(decisions(conversation)).toEqual([
+			["rm -rf build", { name: "Allow", kind: "allow_once" }],
+		]);
+		await conversation.stop();
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(read && decisions(read)).toEqual([
+			["rm -rf build", { name: "Allow", kind: "allow_once" }],
+		]);
+		await reread.disposeAsync();
+	});
+
 	it("asks the person an agent's question form and hands back the answer", async () => {
 		const seen: { response?: acp.CreateElicitationResponse } = {};
 		agent.turn = async (client, sessionId) => {
@@ -741,6 +792,10 @@ describe("Conversations", () => {
 		expect(agent.cancelled).toBe(1);
 		expect(seen.outcome).toEqual({ outcome: "cancelled" });
 		expect(conversation.state.ask).toBeNull();
+		// Asked before the agent said it was making the call, which shows anyway.
+		expect(conversation.state.messages[1]?.parts).toMatchObject([
+			{ type: "tool", title: "deploy", decision: { option: null } },
+		]);
 	});
 
 	it("switches a setting to a value the agent offers, and refuses any other", async () => {
@@ -1206,6 +1261,7 @@ describe("fold", () => {
 				at: at(0),
 				until: at(30),
 				flags: [],
+				decision: null,
 			},
 		]);
 		expect(into.messages[0]).toMatchObject({ at: at(0), until: at(30) });

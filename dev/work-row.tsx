@@ -6,6 +6,7 @@ import {
 	CircleIcon,
 	CircleStopIcon,
 	FileTextIcon,
+	KeyRoundIcon,
 	LoaderIcon,
 	SearchIcon,
 	SquareTerminalIcon,
@@ -27,6 +28,7 @@ import type { Edit, Step, Tool } from "../conversations";
 import { editLines } from "../diff";
 import { Markdown } from "./markdown";
 import {
+	decided,
 	doing,
 	flagged,
 	type Item,
@@ -379,6 +381,16 @@ function Row({
 						</pre>
 					)}
 				</Fold>
+			);
+		case "decision":
+			return (
+				<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+					<span className="flex size-3.5 shrink-0 items-center justify-center [&_svg]:size-3">
+						<KeyRoundIcon aria-label="permission" />
+					</span>
+					<span className="shrink-0">{decided(item.decision)}</span>
+					<code className="min-w-0 truncate font-mono">{item.label}</code>
+				</div>
 			);
 		default:
 			return item satisfies never;

@@ -1603,6 +1603,49 @@ describe("App's conversations", () => {
 			expect(warnings.textContent).not.toContain("git status");
 		});
 
+		it("shows how each permission the agent asked was answered, above its call", async () => {
+			const at = "2026-10-11T12:00:00.000Z";
+			const thread = await opened(
+				turn([
+					tool({
+						id: "x1",
+						command: "rm -rf build",
+						decision: {
+							option: { name: "Allow", kind: "allow_once" },
+							at,
+						},
+					}),
+					tool({
+						id: "x2",
+						command: "git push",
+						status: "failed",
+						decision: {
+							option: { name: "Reject", kind: "reject_once" },
+							at,
+						},
+					}),
+					tool({ id: "x3", command: "deploy", decision: { option: null, at } }),
+					"Done.",
+				]),
+			);
+
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
+			expect(
+				within(timeline)
+					.getAllByRole("listitem")
+					.map((each) => each.textContent),
+			).toEqual([
+				"Allowed for this sessionrm -rf build",
+				expect.stringContaining("rm -rf build"),
+				"Deniedgit push",
+				expect.stringContaining("git push"),
+				"Dismisseddeploy",
+				expect.stringContaining("deploy"),
+			]);
+		});
+
 		it("shows the last thing the agent said, even with tool calls after it", async () => {
 			const thread = await opened(
 				turn([

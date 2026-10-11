@@ -1,4 +1,4 @@
-import type { Part, Step, Tool } from "../conversations";
+import type { Decision, Part, Step, Tool } from "../conversations";
 import type { Flag } from "../watch";
 
 /**
@@ -29,7 +29,9 @@ export type Item =
 	/** Reads and searches in a row, as one. */
 	| { type: "reads"; tools: Tool[] }
 	| { type: "subagent"; tool: Tool; calls: Tool[] }
-	| { type: "tool"; tool: Tool };
+	| { type: "tool"; tool: Tool }
+	/** How the person answered the agent asking permission for the call `label`. */
+	| { type: "decision"; label: string; decision: Decision };
 
 const READS = new Set(["read", "search", "fetch"]);
 const EDITS = new Set(["edit", "delete", "move"]);
@@ -74,6 +76,14 @@ export function timeline(work: Work): Item[] {
 			});
 			return;
 		}
+		// Above the call it let run, even one a subagent made.
+		if (part.decision !== null) {
+			items.push({
+				type: "decision",
+				label: label(part),
+				decision: part.decision,
+			});
+		}
 		if (part.parent !== null) {
 			return;
 		}
@@ -107,6 +117,26 @@ export function timeline(work: Work): Item[] {
 		}
 	});
 	return items;
+}
+
+/** What the person decided, in a few words, as the permission card says it. */
+export function decided(decision: Decision): string {
+	const { option } = decision;
+	if (option === null) {
+		return "Dismissed";
+	}
+	switch (option.kind) {
+		case "allow_once":
+			return "Allowed for this session";
+		case "allow_always":
+			return "Allowed always";
+		case "reject_once":
+			return "Denied";
+		case "reject_always":
+			return "Denied always";
+		default:
+			return option.name;
+	}
 }
 
 /** What a tool call is, in a line: the command for one that runs one. */
