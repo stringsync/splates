@@ -1242,6 +1242,9 @@ function SettingControl({
 	return <SettingSelect setting={setting} value={value} onChange={onChange} />;
 }
 
+/** The categories of setting a picker shows by value alone, effort among them. */
+const UNLABELED = new Set(["mode", "model", "thought_level"]);
+
 /** One of a session's settings, picked from what the agent offers. */
 function SettingSelect({
 	setting,
@@ -1276,9 +1279,9 @@ function SettingSelect({
 				title={setting.name}
 				className={IN_COMPOSER}
 			>
-				{/* A mode or model says what it is by its value; "Off" or "High"
+				{/* A mode, model, or effort says what it is by its value; "Off"
 				    alone would not. */}
-				{setting.category !== "mode" && setting.category !== "model" && (
+				{!UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
 				<SelectValue />

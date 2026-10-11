@@ -2190,6 +2190,30 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("shows an effort picker by its value alone", async () => {
+		const view = await conversations([
+			conversation({
+				settings: [
+					{
+						id: "effort",
+						name: "Effort",
+						type: "select",
+						category: "thought_level",
+						current: "high",
+						options: [
+							{ value: "low", name: "Low", description: null },
+							{ value: "high", name: "High", description: null },
+						],
+					},
+				],
+			}),
+		]);
+
+		const effort = view.getByRole("combobox", { name: "effort" });
+		await waitFor(() => expect(effort.textContent).toContain("High"));
+		expect(effort.textContent).not.toContain("Effort");
+	});
+
 	it("switches an on/off setting with a switch", async () => {
 		const view = await conversations([
 			conversation({
