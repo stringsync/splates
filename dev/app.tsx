@@ -50,6 +50,7 @@ import {
 import { isToggle } from "./terminal-session";
 import { Terminals } from "./terminals";
 import { Todos } from "./todos";
+import { TreesContext } from "./work-row";
 
 /**
  * The page's pages, the one in the address first: `#tasks`,
@@ -413,16 +414,18 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 												value="conversations"
 												className="min-w-0 px-4 py-4"
 											>
-												<Conversations
-													feed={talk}
-													tasks={snapshot.tasks}
-													todos={snapshot.todos}
-													lanes={snapshot.lanes}
-													trunk={snapshot.trunk}
-													open={open}
-													onOpen={(id) => go("conversations", id)}
-													phone={!wide}
-												/>
+												<TreesContext value={snapshot}>
+													<Conversations
+														feed={talk}
+														tasks={snapshot.tasks}
+														todos={snapshot.todos}
+														lanes={snapshot.lanes}
+														trunk={snapshot.trunk}
+														open={open}
+														onOpen={(id) => go("conversations", id)}
+														phone={!wide}
+													/>
+												</TreesContext>
 											</TabsContent>
 										)}
 									</>

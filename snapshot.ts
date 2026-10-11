@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
 import type { Release } from "./release";
@@ -16,6 +16,10 @@ export interface Snapshot {
 	repo: string;
 	/** Where the repository sits, with the home directory as `~`. */
 	path: string;
+	/** The main tree, absolute, which agents' file paths start from. */
+	root: string;
+	/** The directory that holds each task's worktree, absolute. */
+	worktreeRoot: string;
 	/** Past this age a todo is offered for removal rather than recommended. */
 	todoStalenessMs: number;
 	todos: TodoState[];
@@ -54,6 +58,8 @@ export async function snapshot({
 	return {
 		repo: basename(service.git.root),
 		path: tilde(service.git.root, home),
+		root: service.git.root,
+		worktreeRoot: resolve(service.config.worktreeRoot),
 		todoStalenessMs: service.config.todoStalenessMs,
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),

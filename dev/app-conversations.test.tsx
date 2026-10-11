@@ -1337,7 +1337,7 @@ describe("App's conversations", () => {
 			);
 		});
 
-		it("lists the files edited, each opening to its edits", async () => {
+		it("lists the files edited from the top of their tree, each opening to its edits", async () => {
 			const thread = await opened(
 				turn([
 					tool({
@@ -1355,8 +1355,16 @@ describe("App's conversations", () => {
 					tool({
 						id: "e3",
 						kind: "edit",
-						paths: ["/repo/lib/b.ts"],
-						edits: [{ path: "/repo/lib/b.ts", old: null, new: "new" }],
+						paths: ["/repo-arbor/gone/lib/b.ts"],
+						edits: [
+							{ path: "/repo-arbor/gone/lib/b.ts", old: null, new: "new" },
+						],
+					}),
+					tool({
+						id: "e4",
+						kind: "edit",
+						paths: ["/tmp/c.ts"],
+						edits: [{ path: "/tmp/c.ts", old: null, new: "new" }],
 					}),
 					"Done.",
 				]),
@@ -1365,11 +1373,17 @@ describe("App's conversations", () => {
 			const files = await waitFor(() =>
 				within(thread).getByRole("list", { name: "edited files" }),
 			);
-			expect(files.textContent).toBe("src/a.ts×2lib/b.ts");
+			expect(
+				within(files)
+					.getAllByRole("button")
+					.map((file) => [file.title, file.textContent]),
+			).toEqual([
+				["/repo/src/a.ts", "a.tssrc×2"],
+				["/repo-arbor/gone/lib/b.ts", "b.tslib"],
+				["/tmp/c.ts", "c.ts/tmp"],
+			]);
 			await act(async () =>
-				fireEvent.click(
-					within(files).getByRole("button", { name: /src\/a.ts/ }),
-				),
+				fireEvent.click(within(files).getByTitle("/repo/src/a.ts")),
 			);
 			expect(
 				within(within(thread).getByLabelText("edits to /repo/src/a.ts"))

@@ -29,9 +29,11 @@ import {
 	doing,
 	type Item,
 	label,
-	shortener,
+	relative,
 	span,
+	split,
 	summarize,
+	type Trees,
 	timeline,
 	type Work,
 	worked,
@@ -53,13 +55,15 @@ export const WorkUI = makeAssistantDataUI<{ work: Work }>({
  */
 const Going = createContext(true);
 
+/** Where the project's trees sit, so a path can show from the top of its own. */
+export const TreesContext = createContext<Trees | null>(null);
+
 export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const now = useNow(work.running);
 	const { edited } = summarize(work);
 	const items = timeline(work);
-	const short = shortener(
-		work.parts.flatMap((part) => (part.type === "tool" ? part.paths : [])),
-	);
+	const trees = use(TreesContext);
+	const short = (path: string) => relative(path, trees);
 	const [file, setFile] = useState<string | null>(null);
 	// Open while the agent works with nothing said yet, so there is
 	// something to watch, and folded once it starts writing its reply.
@@ -127,10 +131,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 									)}
 								>
 									<FileTextIcon className="size-3 shrink-0 text-muted-foreground" />
-									{/* A long path keeps its end, the file's name, on one line. */}
-									<span className="min-w-0 truncate [direction:rtl]">
-										<bdi>{short(path)}</bdi>
-									</span>
+									<Place path={short(path)} />
 									{count > 1 && (
 										<span className="shrink-0 text-muted-foreground">
 											×{count}
@@ -154,6 +155,22 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				)}
 			</div>
 		</Going>
+	);
+}
+
+/**
+ * A file's name, then its directory dimmed: only the directory gives way
+ * when they do not fit, so the name always shows.
+ */
+function Place({ path }: { path: string }): JSX.Element {
+	const { name, dir } = split(path);
+	return (
+		<>
+			<span className="max-w-full shrink-0 truncate">{name}</span>
+			{dir !== "" && (
+				<span className="min-w-0 truncate text-muted-foreground">{dir}</span>
+			)}
+		</>
 	);
 }
 

@@ -203,6 +203,8 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 	return {
 		repo: "webappwiz",
 		path: "~/Projects/webappwiz",
+		root: "/repo",
+		worktreeRoot: "/repo-arbor",
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		todos: [],
 		lanes: [],
