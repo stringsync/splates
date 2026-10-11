@@ -281,7 +281,8 @@ type Entry =
 	| { kind: "task"; task: string | null; cwd: string }
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }
-	| { kind: "archive"; archived: boolean }
+	/** `at` is missing from logs written before the oldest archived ones went. */
+	| { kind: "archive"; archived: boolean; at?: string }
 	| { kind: "rename"; name: string | null }
 	/** `at` is missing from logs written before the page showed how long things took. */
 	| {
@@ -677,6 +678,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private interrupting = false;
 	/** What follows the checkpoint asked last. */
 	private after: After = "stop";
+	/** When it was put away, for keeping the newest; null while it is not. */
+	archivedAt: string | null = null;
 	/** The commands running, by tool call, each watched since it started. */
 	private readonly watching = new Map<string, Watched>();
 
@@ -776,6 +779,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.settings = entry.settings;
 			} else if (entry.kind === "archive") {
 				state.archived = entry.archived;
+				conversation.archivedAt = entry.archived
+					? (entry.at ?? start.createdAt)
+					: null;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
 			} else if (entry.kind === "checkpoint") {
@@ -1548,10 +1554,21 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		if (this.state.archived === archived) {
 			return;
 		}
-		this.write({ kind: "archive", archived });
+		const at = this.now();
+		this.write({ kind: "archive", archived, at });
 		this.saves.flush();
 		await this.saving;
+		this.archivedAt = archived ? at : null;
 		this.set({ archived });
+	}
+
+	/** Stops it and deletes its log and images, for good. */
+	async delete(): Promise<void> {
+		await this.stop();
+		this.saves.flush();
+		await this.saving;
+		await this.fs.rm(this.log, { force: true });
+		await this.fs.rm(this.images(), { recursive: true, force: true });
 	}
 
 	private async close(error: string | null): Promise<void> {
@@ -1689,12 +1706,16 @@ function messageOf(error: unknown): string {
 	return String(error);
 }
 
-export type ConversationsEvents = { changed: string };
+export type ConversationsEvents = { changed: string; deleted: string };
+
+/** How many archived conversations are kept; older ones are deleted. */
+export const ARCHIVED_KEPT = 50;
 
 /**
  * Every conversation in the repo: the live ones this process started, and
  * the stopped ones read back from their logs, one JSON-lines file each under
- * `.git/arbor/conversations`.
+ * `.git/arbor/conversations`. Only the `ARCHIVED_KEPT` archived most recently
+ * are kept, so the logs do not pile up.
  */
 export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<ConversationsEvents>();
@@ -1708,6 +1729,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly clock: WallClock;
 	private readonly watch: Watch | null;
 	private loaded = false;
+	/** Deleting the archived ones past `ARCHIVED_KEPT`, one pass at a time. */
+	private pruning: Promise<void> = Promise.resolve();
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
 
@@ -1727,6 +1750,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	/** Every conversation, newest first. */
 	async list(): Promise<Conversation[]> {
 		await this.load();
+		// None that are on their way out.
+		await this.pruning;
 		return [...this.known.values()].sort((one, other) =>
 			other.state.createdAt.localeCompare(one.state.createdAt),
 		);
@@ -1797,10 +1822,31 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 	private track(conversation: Conversation): void {
 		this.known.set(conversation.id, conversation);
-		conversation.events.on("changed", () =>
-			this.dispatcher.dispatch("changed", conversation.id),
-		);
+		conversation.events.on("changed", () => {
+			this.dispatcher.dispatch("changed", conversation.id);
+			if (conversation.state.archived) {
+				void this.prune();
+			}
+		});
 		this.dispatcher.dispatch("changed", conversation.id);
+	}
+
+	/** Deletes every archived conversation past the newest `ARCHIVED_KEPT`. */
+	private prune(): Promise<void> {
+		this.pruning = this.pruning.then(async () => {
+			const old = [...this.known.values()]
+				.filter((each) => each.state.archived)
+				.sort((one, other) =>
+					(other.archivedAt ?? "").localeCompare(one.archivedAt ?? ""),
+				)
+				.slice(ARCHIVED_KEPT);
+			for (const conversation of old) {
+				this.known.delete(conversation.id);
+				await conversation.delete();
+				this.dispatcher.dispatch("deleted", conversation.id);
+			}
+		});
+		return this.pruning;
 	}
 
 	private async load(): Promise<void> {
@@ -1825,6 +1871,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				this.track(read);
 			}
 		}
+		await this.prune();
 	}
 }
 

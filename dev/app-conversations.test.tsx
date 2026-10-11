@@ -162,6 +162,32 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
+	it("drops an archived conversation the server deleted", async () => {
+		const view = await conversations(
+			[
+				conversation({ id: "c1", title: "Latest" }),
+				conversation({ id: "c2", title: "Kept", archived: true }),
+				conversation({ id: "c3", title: "Oldest", archived: true }),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		await act(async () =>
+			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
+		);
+
+		await testing.deleted("c3");
+
+		const archived = view.getByRole("region", {
+			name: "archived conversations",
+		});
+		expect(archived.textContent).toContain("Kept");
+		expect(archived.textContent).not.toContain("Oldest");
+		expect(
+			within(nav).getByRole("button", { name: /Archived/ }).textContent,
+		).toContain("1");
+	});
+
 	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
 		const view = await conversations(
 			[

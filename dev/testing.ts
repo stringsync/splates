@@ -34,6 +34,8 @@ export interface Stream {
 	onmessage: ((event?: { data: string }) => void) | null;
 	onopen: (() => void) | null;
 	onerror: (() => void) | null;
+	/** Each named event's listener, as `addEventListener` was given it. */
+	listeners: Map<string, (event: { data: string }) => void>;
 }
 
 /**
@@ -129,6 +131,7 @@ export class Testing implements Resource {
 			onmessage: (() => void) | null = null;
 			onopen: (() => void) | null = null;
 			onerror: (() => void) | null = null;
+			listeners = new Map<string, (event: { data: string }) => void>();
 
 			constructor(url: string) {
 				if (url === "/api/conversations/events") {
@@ -136,6 +139,13 @@ export class Testing implements Resource {
 				} else {
 					testing.stream = this;
 				}
+			}
+
+			addEventListener(
+				type: string,
+				listener: (event: { data: string }) => void,
+			): void {
+				this.listeners.set(type, listener);
 			}
 
 			// `EventSource`'s own name for it, which `Feed` calls; nothing is held.
@@ -153,6 +163,13 @@ export class Testing implements Resource {
 	async say(state: ConversationState): Promise<void> {
 		await act(async () =>
 			this.talkStream?.onmessage?.({ data: JSON.stringify(state) }),
+		);
+	}
+
+	/** Tells the page conversation `id` is gone, as the server does on deleting it. */
+	async deleted(id: string): Promise<void> {
+		await act(async () =>
+			this.talkStream?.listeners.get("deleted")?.({ data: id }),
 		);
 	}
 

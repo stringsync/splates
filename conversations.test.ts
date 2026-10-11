@@ -6,6 +6,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
+	ARCHIVED_KEPT,
 	CHECKPOINT,
 	type Conversation,
 	type ConversationState,
@@ -997,6 +998,56 @@ describe("Conversations", () => {
 		await conversation.unarchive();
 
 		expect(conversation.state.archived).toBe(false);
+	});
+
+	it("keeps the newest archived ones, deleting the log of the one archived longest ago", async () => {
+		const deleted: string[] = [];
+		conversations.events.on("deleted", (id) => deleted.push(id));
+		const all: Conversation[] = [];
+		for (let i = 0; i <= ARCHIVED_KEPT; i++) {
+			all.push(await started());
+		}
+		const [first, second] = all as [Conversation, Conversation];
+
+		// The first started is archived last, so the second goes.
+		for (const each of [...all.slice(1), first]) {
+			clock.advance(Duration.secs(1));
+			await each.archive();
+		}
+
+		const listed = await conversations.list();
+		expect(listed).toHaveLength(ARCHIVED_KEPT);
+		expect(listed.map((each) => each.id)).not.toContain(second.id);
+		expect(deleted).toEqual([second.id]);
+		expect(
+			await fs.exists(`/repo/.git/arbor/conversations/${second.id}.jsonl`),
+		).toBe(false);
+		expect(
+			await fs.exists(`/repo/.git/arbor/conversations/${first.id}.jsonl`),
+		).toBe(true);
+	});
+
+	it("deletes archived ones past those kept as it reads them, oldest first by when they started in logs that never said when they were archived", async () => {
+		const dir = "/repo/.git/arbor/conversations";
+		await fs.mkdir(dir, { recursive: true });
+		for (let i = 0; i <= ARCHIVED_KEPT; i++) {
+			const createdAt = new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString();
+			await fs.write(
+				`${dir}/old${i}.jsonl`,
+				`${JSON.stringify({ kind: "start", id: `old${i}`, agent: "fake", task: null, createdAt })}\n${JSON.stringify({ kind: "archive", archived: true })}\n`,
+			);
+		}
+		await fs.write(
+			`${dir}/live.jsonl`,
+			`${JSON.stringify({ kind: "start", id: "live", agent: "fake", task: null, createdAt: "2026-09-01T00:00:00.000Z" })}\n`,
+		);
+
+		const listed = await conversations.list();
+
+		expect(listed).toHaveLength(ARCHIVED_KEPT + 1);
+		expect(listed.map((each) => each.id)).toContain("live");
+		expect(listed.map((each) => each.id)).not.toContain("old0");
+		expect(await fs.exists(`${dir}/old0.jsonl`)).toBe(false);
 	});
 
 	it("fails with the agent's last words when it dies on its own", async () => {
