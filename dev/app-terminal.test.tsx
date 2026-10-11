@@ -174,6 +174,27 @@ describe("App's terminal", () => {
 		expect(shell?.sent).toEqual([sized, "ls\r"]);
 	});
 
+	it("hangs up on the shell, and shows no terminal, once the conversation is archived", async () => {
+		const view = await reading();
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+
+		await testing.say(
+			conversation({ id: "c1", title: "Fix it", archived: true }),
+		);
+
+		expect(shell?.readyState).toBe(3);
+		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+		expect(
+			within(view.getByRole("navigation", { name: "overview" })).queryByRole(
+				"button",
+				{ name: /Terminal/ },
+			),
+		).toBeNull();
+		expect(testing.shells).toHaveLength(1);
+	});
+
 	it("keeps each conversation's shell while another is up", async () => {
 		await reading([
 			conversation({ id: "c1", title: "One" }),

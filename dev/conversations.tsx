@@ -39,7 +39,15 @@ import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flo
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
-import { Dialog } from "#dev/components/ui/dialog.tsx";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#dev/components/ui/dialog.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -471,10 +479,7 @@ function Item({
 	const [renaming, setRenaming] = useState(false);
 	const { copied, copy } = useCopy();
 	const { id, archived } = conversation;
-	const file = () =>
-		archiveConversation(id, !archived).catch((error: unknown) =>
-			refused(archived ? "Not unarchived" : "Not archived", error),
-		);
+	const { file, confirm } = useArchive(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
 	return (
@@ -487,6 +492,7 @@ function Item({
 			{renaming && (
 				<Rename conversation={conversation} onDone={() => setRenaming(false)} />
 			)}
+			{confirm}
 			<button
 				type="button"
 				data-row
@@ -570,7 +576,7 @@ function Item({
 							<PencilIcon />
 							Rename
 						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => void file()}>
+						<DropdownMenuItem onClick={file}>
 							<Put />
 							{put}
 						</DropdownMenuItem>
@@ -580,13 +586,62 @@ function Item({
 					size="icon-xs"
 					variant="ghost"
 					aria-label={`${put} ${nameOf(conversation)}`}
-					onClick={() => void file()}
+					onClick={file}
 				>
 					<Put />
 				</Button>
 			</span>
 		</div>
 	);
+}
+
+/**
+ * Archives `conversation`, or brings it back. While its agent runs, idle or
+ * not, `file` asks first in `confirm`, since archiving stops it; render
+ * `confirm` beside whatever calls `file`.
+ */
+function useArchive(conversation: ConversationState): {
+	file: () => void;
+	confirm: JSX.Element;
+} {
+	const [asking, setAsking] = useState(false);
+	const { id, archived } = conversation;
+	const put = () =>
+		void archiveConversation(id, !archived).catch((error: unknown) =>
+			refused(archived ? "Not unarchived" : "Not archived", error),
+		);
+	// Idle too: its process is up, waiting for a prompt.
+	const live =
+		conversation.status !== "stopped" && conversation.status !== "failed";
+	const file = () => (!archived && live ? setAsking(true) : put());
+	const confirm = (
+		<Dialog open={asking} onOpenChange={setAsking}>
+			<DialogContent showCloseButton={false}>
+				<DialogHeader>
+					<DialogTitle>Archive {nameOf(conversation)}?</DialogTitle>
+					<DialogDescription>
+						The agent is still running. Archiving stops it and closes its
+						terminal.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<DialogClose render={<Button variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						variant="destructive"
+						onClick={() => {
+							setAsking(false);
+							put();
+						}}
+					>
+						Archive
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+	return { file, confirm };
 }
 
 /**
@@ -1434,6 +1489,7 @@ function Thread({
 		);
 	const review = useContext(ReviewChanges);
 	const terminal = useContext(ToggleTerminal);
+	const archive = useArchive(conversation);
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -1463,11 +1519,7 @@ function Thread({
 		{
 			label: archived ? "Unarchive" : "Archive",
 			icon: <ArchiveIcon />,
-			run: () => {
-				archiveConversation(id, !archived).catch((error: unknown) =>
-					refused(archived ? "Not unarchived" : "Not archived", error),
-				);
-			},
+			run: archive.file,
 		},
 	];
 	const filing = useMemo(
@@ -1568,6 +1620,7 @@ function Thread({
 				)}
 				<OverviewButtons actions={actions} />
 			</header>
+			{archive.confirm}
 			{task !== null && (
 				<Dialog open={details} onOpenChange={setDetails}>
 					{details && <Task task={task} />}

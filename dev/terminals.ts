@@ -80,6 +80,13 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		this.dispatcher.dispatch("changed");
 	}
 
+	/** Hangs up on `conversation`'s shell, if it has one, as it is archived. */
+	close(conversation: string): void {
+		if (this.sessions.has(conversation)) {
+			this.restart(conversation);
+		}
+	}
+
 	private stored(): string | null {
 		try {
 			return this.storage.getItem(KEY);

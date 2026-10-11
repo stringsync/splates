@@ -190,12 +190,21 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	// The task whose changes are open beside the page, whatever the page.
 	const [reviewing, setReviewing] = useState<string | null>(null);
 	const reviewed = snapshot?.tasks.find((task) => task.task === reviewing);
-	// The conversation up, whose terminal the pane shows when the changes
+	// The conversation up, unless archived, whose terminal the pane shows when the changes
 	// do not have it.
 	const shown =
 		available && page === "conversations"
-			? (conversations.find((each) => each.id === open) ?? null)
+			? (conversations.find((each) => each.id === open && !each.archived) ??
+				null)
 			: null;
+	// An archived conversation's agent is stopped, and its shell goes with it.
+	useEffect(() => {
+		for (const each of conversations) {
+			if (each.archived) {
+				terminals.close(each.id);
+			}
+		}
+	}, [conversations, terminals]);
 	const toggleTerminal = (conversation: string) => {
 		if (reviewing !== null) {
 			setReviewing(null);

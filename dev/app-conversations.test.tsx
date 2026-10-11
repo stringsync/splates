@@ -252,9 +252,16 @@ describe("App's conversations", () => {
 		).toEqual(["TerminalCtrl+`", "Archive"]);
 	});
 
-	it("archives from the list, with the agent's mark in place of its name", async () => {
+	it("archives a stopped conversation from the list, with the agent's mark in place of its name", async () => {
 		const view = await conversations(
-			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			[
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Fix login",
+					status: "stopped",
+				}),
+			],
 			null,
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
@@ -266,6 +273,48 @@ describe("App's conversations", () => {
 			),
 		);
 
+		expect(posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
+	it("asks before archiving a conversation whose agent is still running", async () => {
+		const view = await conversations(
+			[
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Fix login",
+					status: "running",
+				}),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const archive = () =>
+			act(async () =>
+				fireEvent.click(
+					within(nav).getByRole("button", { name: "Archive alpha" }),
+				),
+			);
+
+		await archive();
+		const dialog = view.getByRole("dialog", { name: "Archive alpha?" });
+		expect(dialog.textContent).toContain("still running");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
+		);
+		expect(posted("/api/conversations/c1/archived")).toEqual([]);
+
+		await archive();
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
+					"button",
+					{ name: "Archive" },
+				),
+			),
+		);
 		expect(posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
@@ -1784,7 +1833,7 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("switches a setting, and archives the conversation", async () => {
+	it("switches a setting, and archives the idle conversation once asked", async () => {
 		const view = await conversations([
 			conversation({
 				settings: [
@@ -1814,6 +1863,14 @@ describe("App's conversations", () => {
 					"button",
 					{ name: "Archive" },
 				),
+			),
+		);
+		expect(posted("/api/conversations/c1/archived")).toEqual([]);
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog")).getByRole("button", {
+					name: "Archive",
+				}),
 			),
 		);
 
