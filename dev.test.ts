@@ -1052,7 +1052,7 @@ describe("dev", () => {
 			}
 		});
 
-		it("checkpoints this project's live ones from the conversations route", async () => {
+		it("checkpoints the live ones of each project named", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {
 				said.push(text);
@@ -1073,11 +1073,10 @@ describe("dev", () => {
 					await Bun.sleep(5);
 				}
 
-				const response = await json(
-					port,
-					"/api/conversations/checkpoint",
-					"POST",
-				);
+				expect((await json(port, "/api/checkpoint", "POST")).status).toBe(400);
+				const response = await json(port, "/api/checkpoint", "POST", {
+					projects: ["repo"],
+				});
 
 				expect(response.status).toBe(200);
 				for (
@@ -1090,6 +1089,34 @@ describe("dev", () => {
 				expect(said).toEqual(["[ARBOR CHECKPOINT]"]);
 				await json(port, "/api/conversations/checkpoint", "DELETE");
 				expect(conversation.state.checkpoint).toBeNull();
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("lists each project's live conversations, for its checkpoint", async () => {
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+
+				const listed = (await (
+					await fetch(`http://127.0.0.1:${port}/api/projects`)
+				).json()) as { projects: { conversations: unknown[] }[] };
+
+				expect(listed.projects[0]?.conversations).toEqual([
+					{ id, name: "fake", status: "idle", checkpoint: null },
+				]);
 			} finally {
 				await server.disposeAsync();
 			}
@@ -1115,7 +1142,8 @@ describe("dev", () => {
 				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
 					await Bun.sleep(5);
 				}
-				await json(port, "/api/conversations/checkpoint", "POST", {
+				await json(port, "/api/checkpoint", "POST", {
+					projects: ["repo"],
 					after: "stop",
 				});
 				for (
@@ -1162,12 +1190,10 @@ describe("dev", () => {
 					await Bun.sleep(5);
 				}
 
-				const response = await json(
-					port,
-					"/api/conversations/checkpoint",
-					"POST",
-					{ after: "restart" },
-				);
+				const response = await json(port, "/api/checkpoint", "POST", {
+					projects: ["repo"],
+					after: "restart",
+				});
 
 				expect(response.status).toBe(200);
 				for (let i = 0; i < 100 && exits.length === 0; i++) {
@@ -1225,11 +1251,11 @@ describe("dev", () => {
 					await Bun.sleep(5);
 				}
 
-				await json(port, "/api/conversations/checkpoint", "POST");
+				await json(port, "/api/checkpoint", "POST", { projects: ["repo"] });
 				for (let i = 0; i < 100 && said.length === 0; i++) {
 					await Bun.sleep(5);
 				}
-				await json(port, "/api/conversations/checkpoint", "POST");
+				await json(port, "/api/checkpoint", "POST", { projects: ["repo"] });
 				await Bun.sleep(20);
 
 				expect(agent.cancelled).toBe(0);

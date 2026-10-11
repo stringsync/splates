@@ -25,12 +25,12 @@ export class ApiError extends Error {
 
 /**
  * `path` for the project this page shows: the one `?project=` names, or none
- * for the one `arbor dev` started in. Every request the page makes goes
- * through here.
+ * for the one `arbor dev` started in, unless `path` names one itself. Every
+ * request the page makes goes through here.
  */
 export function scoped(path: string): string {
 	const project = new URLSearchParams(location.search).get("project");
-	if (project === null || project === "") {
+	if (project === null || project === "" || path.includes("project=")) {
 		return path;
 	}
 	const query = new URLSearchParams({ project });
@@ -272,23 +272,33 @@ export async function answerConversation(
 	await sendJson(`/api/conversations/${id}/answer`, "POST", { ask, answer });
 }
 
+/** `path` for the project `slug` names, whichever one the page shows. */
+function inProject(path: string, slug: string): string {
+	return `${path}?${new URLSearchParams({ project: slug })}`;
+}
+
 /**
- * Asks every live conversation in this project to bring its `ARBOR.md` up to
- * date and stop, each saying how it gets on in its `checkpoint`, and then
- * does what `after` says: for a restart, every project's are asked.
+ * Asks every live conversation in each of `projects`, by slug, to bring its
+ * `ARBOR.md` up to date and stop, each saying how it gets on in its
+ * `checkpoint`, and then does what `after` says: a restart waits on them all.
  */
-export async function checkpointConversations(after: After): Promise<void> {
-	await sendJson("/api/conversations/checkpoint", "POST", { after });
+export async function checkpointProjects(
+	projects: string[],
+	after: After,
+): Promise<void> {
+	await sendJson("/api/checkpoint", "POST", { projects, after });
 }
 
-/** Tells each agent a checkpoint stopped in this project to carry on. */
-export async function resumeConversations(): Promise<void> {
-	await send("/api/conversations/resume", {});
+/** Tells each agent a checkpoint stopped in project `slug` to carry on. */
+export async function resumeConversations(slug: string): Promise<void> {
+	await send(inProject("/api/conversations/resume", slug), {});
 }
 
-/** Forgets this project's checkpoint, so the next one starts afresh. */
-export async function dismissCheckpoint(): Promise<void> {
-	await send("/api/conversations/checkpoint", { method: "DELETE" });
+/** Forgets project `slug`'s checkpoint, so the next one starts afresh. */
+export async function dismissCheckpoint(slug: string): Promise<void> {
+	await send(inProject("/api/conversations/checkpoint", slug), {
+		method: "DELETE",
+	});
 }
 
 /** Stops the agent's turn in conversation `id`, keeping the conversation. */
@@ -363,6 +373,17 @@ export interface ProjectChoice {
 	gone: boolean;
 	/** The one `arbor dev` runs in, which the page shows with no `?project=`. */
 	here: boolean;
+	/** Its live conversations, and those a checkpoint has asked. */
+	conversations: ProjectConversation[];
+}
+
+/** A conversation a checkpoint of its project asks, or has asked. */
+export interface ProjectConversation {
+	id: string;
+	name: string;
+	status: string;
+	/** Where its checkpoint stands; null when none was asked for. */
+	checkpoint: Checkpoint | null;
 }
 
 /** Every arbor project on this machine, in the order each joined. */

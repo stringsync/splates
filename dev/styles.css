@@ -25,6 +25,7 @@
 @source "./conversations.tsx";
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
+@source "./checkpoint.tsx";
 @source "./question-cards.tsx";
 @source "./report-cards.tsx";
 @source "./card-shell.tsx";

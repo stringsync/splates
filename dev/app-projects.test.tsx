@@ -14,9 +14,27 @@ describe("App's projects", () => {
 	beforeEach(() => {
 		testing = new Testing();
 		testing.projects = [
-			{ slug: "webappwiz", root: "/code/webappwiz", gone: false, here: true },
-			{ slug: "shop", root: "/code/shop", gone: false, here: false },
-			{ slug: "old", root: "/code/old", gone: true, here: false },
+			{
+				slug: "webappwiz",
+				root: "/code/webappwiz",
+				gone: false,
+				here: true,
+				conversations: [],
+			},
+			{
+				slug: "shop",
+				root: "/code/shop",
+				gone: false,
+				here: false,
+				conversations: [],
+			},
+			{
+				slug: "old",
+				root: "/code/old",
+				gone: true,
+				here: false,
+				conversations: [],
+			},
 		];
 	});
 

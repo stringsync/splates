@@ -727,24 +727,6 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
-		// A restart stops other projects' agents too, as they are: only this
-		// project's are asked.
-		const checkpointConversations = async (
-			request: Request,
-		): Promise<Response> => {
-			held();
-			const { after } = await body(request);
-			if (after === "restart") {
-				if (exit === null) {
-					fail("usage", "arbor dev cannot restart itself here: restart it", {});
-				}
-				restartAfter(await checkpoint("restart"));
-			} else {
-				await checkpoint(after === "continue" ? "continue" : "stop");
-			}
-			return Response.json({});
-		};
-
 		/** Forgets the checkpoint here, so the next click starts a new one. */
 		const dismissCheckpoint = async (): Promise<Response> => {
 			restarting = false;
@@ -880,7 +862,6 @@ export async function dev(
 			conversationImage,
 			answerConversation,
 			cancelConversation,
-			checkpointConversations,
 			dismissCheckpoint,
 			resumeConversations,
 			unqueueConversation,
@@ -917,8 +898,11 @@ export async function dev(
 	};
 
 	/** The project a request names with `?project=`, or the one started in. */
-	const projectFor = async (request: Request): Promise<Served> => {
-		const slug = new URL(request.url).searchParams.get("project") ?? "";
+	const projectFor = (request: Request): Promise<Served> =>
+		projectNamed(new URL(request.url).searchParams.get("project") ?? "");
+
+	/** The project `slug` names, or the one started in for none. */
+	const projectNamed = async (slug: string): Promise<Served> => {
 		if (slug === "") {
 			return servedAt(here);
 		}
@@ -1015,13 +999,35 @@ export async function dev(
 			}),
 		)(request);
 
+	// Each with the conversations a checkpoint would ask, or has asked, in
+	// it: only those of a project this server has opened, since one not yet
+	// opened has none running.
 	const listProjects = async (): Promise<Response> =>
 		Response.json({
-			projects: (await projects.list()).map((each) => ({
-				...each,
-				here: each.root === here,
-			})),
+			projects: await Promise.all(
+				(await projects.list()).map(async (each) => ({
+					...each,
+					here: each.root === here,
+					conversations: await checkpointable(each.root),
+				})),
+			),
 		});
+	const checkpointable = async (root: string) => {
+		const project = await served.get(root)?.catch(() => null);
+		return ((await project?.conversations?.list()) ?? [])
+			.map(({ state }) => state)
+			.filter(
+				(state) =>
+					state.checkpoint !== null ||
+					(state.status !== "stopped" && state.status !== "failed"),
+			)
+			.map(({ id, name, lastTask, title, agent, status, checkpoint }) => ({
+				id,
+				name: name ?? lastTask ?? title ?? agent,
+				status,
+				checkpoint,
+			}));
+	};
 
 	// Read when the page opens its hint, so the conversations it lists are the
 	// ones a restart would stop right then.
@@ -1089,6 +1095,38 @@ export async function dev(
 		});
 	};
 
+	/**
+	 * Asks every live conversation in each project `projects` names, by slug,
+	 * for a checkpoint, then does what `after` says. A restart waits on all of
+	 * them, and stops other projects' agents as they are.
+	 */
+	const checkpointProjects = async (request: Request): Promise<Response> => {
+		const read = (await request.json().catch(() => ({}))) as {
+			projects?: unknown;
+			after?: unknown;
+		};
+		const slugs = Array.isArray(read.projects) ? read.projects.map(String) : [];
+		if (slugs.length === 0) {
+			fail("usage", "name a project to checkpoint", {});
+		}
+		const after: After =
+			read.after === "restart" || read.after === "continue"
+				? read.after
+				: "stop";
+		if (after === "restart" && exit === null) {
+			fail("usage", "arbor dev cannot restart itself here: restart it", {});
+		}
+		const chosen = await Promise.all(slugs.map(projectNamed));
+		const asked: Promise<void>[] = [];
+		for (const project of chosen) {
+			asked.push(...(await project.checkpoint(after)));
+		}
+		if (after === "restart") {
+			restartAfter(asked);
+		}
+		return Response.json({});
+	};
+
 	const checkpointRelease = async (): Promise<Response> => {
 		await checkpointAll();
 		return showRelease();
@@ -1128,6 +1166,7 @@ export async function dev(
 			"/api/projects": guarded(listProjects),
 			"/api/release": guarded(showRelease),
 			"/api/release/checkpoint": { POST: guarded(checkpointRelease) },
+			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
@@ -1158,7 +1197,6 @@ export async function dev(
 				POST: talk(scoped((project) => project.startConversation)),
 			},
 			"/api/conversations/checkpoint": {
-				POST: talk(scoped((project) => project.checkpointConversations)),
 				DELETE: talk(scoped((project) => project.dismissCheckpoint)),
 			},
 			"/api/conversations/resume": {
@@ -1445,7 +1483,6 @@ interface Served extends AsyncResource {
 	 * answering with what settles as each answers.
 	 */
 	checkpoint: (after?: After) => Promise<Promise<void>[]>;
-	checkpointConversations: Handler;
 	dismissCheckpoint: Handler;
 	resumeConversations: Handler;
 	moveConversation: Handler;
