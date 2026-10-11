@@ -1506,7 +1506,7 @@ Cap upload retries
 			]);
 		});
 
-		it("lists a task whose agent runs outside the page as external, waiting once it escalates, and opens it alone", async () => {
+		it("lists a task whose agent runs outside the page as external, waiting once it escalates, and opens it alone with its questions, not its plan", async () => {
 			const view = await sidebar(
 				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 				[
@@ -1532,7 +1532,10 @@ Cap upload retries
 			);
 			expect(location.hash).toBe("#conversations/task/gamma");
 			const alone = view.getByRole("region", { name: "gamma" });
-			expect(alone.textContent).toContain("Cap upload retries");
+			// Not its ARBOR.md, which the task line opens: what the page knows of the agent.
+			expect(alone.textContent).not.toContain("Cap upload retries");
+			expect(alone.textContent).toContain("Escalated: needs a call");
+			expect(alone.textContent).toContain("Its agent runs outside the page");
 			expect(
 				within(alone).getByRole("list", { name: "questions" }).textContent,
 			).toContain("How many retries?");
@@ -1562,11 +1565,6 @@ Cap upload retries
 			expect(
 				within(alone).getByRole("button", { name: "Copied" }),
 			).toBeTruthy();
-			// Not again in the plan under them.
-			expect(
-				within(alone).queryByRole("heading", { name: /Blocked/ }),
-			).toBeNull();
-			expect(within(alone).getByRole("heading", { name: /Next/ })).toBeTruthy();
 			await act(async () =>
 				fireEvent.click(
 					within(alone).getByRole("button", { name: "About gamma" }),
@@ -1576,6 +1574,7 @@ Cap upload retries
 				view.getByRole("dialog", { name: "About gamma" }),
 			);
 			expect(popup.textContent).toContain("Waiting on you: How many retries?");
+			expect(popup.textContent).toContain("Cap upload retries");
 			await act(async () =>
 				fireEvent.click(within(popup).getByRole("button", { name: "Details" })),
 			);

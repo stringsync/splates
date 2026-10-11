@@ -3,8 +3,14 @@ import {
 	CopyIcon,
 	GitBranchIcon,
 	SquareArrowOutUpRightIcon,
+	TriangleAlertIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from "#dev/components/ui/alert.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import {
@@ -18,7 +24,6 @@ import { goalLine, type Question, unfinished } from "../plan";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Back } from "./back";
-import { Markdown } from "./markdown";
 import { QuestionCards, type Reply, ReplyContext } from "./question-cards";
 import { Progress, Task } from "./tasks";
 
@@ -138,7 +143,8 @@ function doingOf(need: Need, plan: string | null): string | null {
 /**
  * A task whose agent runs outside the page, such as in Claude Code or Codex,
  * where its conversation would be: the same header, its open questions as
- * cards, and its plan. The page cannot message that agent, so the cards
+ * cards, and what the page knows of the agent beyond its plan, which the
+ * header's task line opens. The page cannot message that agent, so the cards
  * compose a reply here to copy into its own session.
  */
 export function TaskView({
@@ -194,6 +200,14 @@ export function TaskView({
 			</header>
 			<div className="min-h-0 flex-1 overflow-y-auto">
 				<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
+					<Alert variant="warning">
+						<TriangleAlertIcon />
+						<AlertTitle>Its agent runs outside the page</AlertTitle>
+						<AlertDescription>
+							The page cannot message it: answer here, then paste the reply into
+							its own session.
+						</AlertDescription>
+					</Alert>
 					{open.length > 0 && (
 						<div id={`questions-${task.task}`} className="flex flex-col gap-2">
 							<ReplyContext value={reply}>
@@ -206,21 +220,15 @@ export function TaskView({
 								value={text}
 								onChange={(event) => setText(event.target.value)}
 							/>
-							<div className="flex items-center gap-2">
-								<p className="flex-1 text-muted-foreground text-xs">
-									Its agent runs outside the page: paste this into its session.
-								</p>
+							<div className="flex justify-end">
 								<CopyButton text={text} />
 							</div>
 						</div>
 					)}
-					{task.plan === null ? (
-						<p className="text-muted-foreground">
-							No ARBOR.md: whoever picks this up starts from the diff.
-						</p>
-					) : (
-						<Markdown text={withoutQuestions(task.plan)} />
+					{open.length === 0 && (
+						<p className="text-muted-foreground">No open questions.</p>
 					)}
+					<Agent task={task} />
 				</div>
 			</div>
 			<Dialog open={details} onOpenChange={setDetails}>
@@ -230,11 +238,35 @@ export function TaskView({
 	);
 }
 
-/** A plan to read under its cards: no title, and no `## Blocked`, which they show. */
-function withoutQuestions(plan: string): string {
-	return plan
-		.replace(/^\s*#\s[^\n]*/, "")
-		.replace(/^## Blocked\n[\s\S]*?(?=^## |(?![\s\S]))/m, "");
+/**
+ * What the page knows of the agent that its ARBOR.md does not say: why it
+ * stopped, and how much it has changed so far.
+ */
+function Agent({ task }: { task: Details }): JSX.Element {
+	const said =
+		task.review !== null
+			? `Ready to merge: ${task.review}`
+			: task.escalation === null
+				? null
+				: `Escalated: ${task.escalation}`;
+	return (
+		<div className="flex flex-col gap-2">
+			{said !== null && (
+				<p className="rounded-lg border bg-muted/40 px-3 py-2">{said}</p>
+			)}
+			<p className="text-muted-foreground text-xs tabular-nums">
+				{task.ahead ?? "?"} commit{task.ahead === 1 ? "" : "s"}
+				{task.added !== null && (
+					<>
+						{" · "}
+						<span className="text-success">+{task.added}</span>{" "}
+						<span className="text-destructive">-{task.removed ?? 0}</span>
+					</>
+				)}
+				{task.age !== null && ` · started ${task.age} ago`}
+			</p>
+		</div>
+	);
 }
 
 /** How long Copy says Copied before it goes back. */
