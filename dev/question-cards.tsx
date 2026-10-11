@@ -10,6 +10,7 @@ import {
 	type KeyboardEvent,
 	useContext,
 	useRef,
+	useState,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -137,9 +138,13 @@ function QuestionCard({
 		});
 	};
 	const enter = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-		if (event.key === "Enter" && !event.shiftKey) {
+		// One line per question is what the agent reads, so no Enter makes a
+		// new line; with Shift it does nothing.
+		if (event.key === "Enter") {
 			event.preventDefault();
-			onNext();
+			if (!event.shiftKey) {
+				onNext();
+			}
 		}
 	};
 	return (
@@ -258,7 +263,10 @@ export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 export function ReviewPanel({ review }: { review: Review }): JSX.Element {
 	const reply = useContext(ReplyContext);
 	const merging = reply?.text.trim().toLowerCase() === MERGE;
-	const changes = merging ? "" : (reply?.text ?? "");
+	// Typed into the box, "merge" stays there, so writing "merge the header
+	// first" keeps its first word; the button's merge shows only on itself.
+	const [typing, setTyping] = useState(false);
+	const changes = merging && !typing ? "" : (reply?.text ?? "");
 	return (
 		<section
 			aria-label={`review ${review.task}`}
@@ -291,6 +299,8 @@ export function ReviewPanel({ review }: { review: Review }): JSX.Element {
 						value={changes}
 						placeholder="Say what to change…"
 						onChange={(event) => reply.write(event.target.value)}
+						onFocus={() => setTyping(true)}
+						onBlur={() => setTyping(false)}
 						className="field-sizing-content min-h-9 w-full flex-1 resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
 					/>
 					<Button

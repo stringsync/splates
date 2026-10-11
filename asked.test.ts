@@ -192,4 +192,19 @@ describe("withAnswer", () => {
 		expect(answerIn("1. b", three)).toBeNull();
 		expect(answerIn("nothing here", one)).toBeNull();
 	});
+
+	it("reads back every note as typed, even one that starts like a pick", () => {
+		// Each step of typing a note into a box, as the box reads it back.
+		for (const words of ["a", "a ", "a lot", "b, a", " a", ":)", "ok"]) {
+			const reply = withAnswer("", two, { picks: [], words });
+			expect(answerIn(reply, two)).toEqual({ picks: [], words });
+		}
+		expect(withAnswer("", two, { picks: [], words: "a lot" })).toBe(
+			"2. : a lot",
+		);
+		expect(withAnswer("", two, { picks: [], words: "ok" })).toBe("2. ok");
+		expect(withAnswer("", two, { picks: ["a"], words: "a lot" })).toBe(
+			"2. a: a lot",
+		);
+	});
 });

@@ -686,6 +686,27 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
 		});
 
+		it("keeps a note that starts like a choice as typed, picking nothing", async () => {
+			const view = await conversations([asking()]);
+			const card = await waitFor(() =>
+				view.getByRole("listitem", { name: "question 2" }),
+			);
+			const note = within(card).getByRole("textbox") as HTMLTextAreaElement;
+
+			for (const typed of ["a", "a ", "a lot"]) {
+				await act(async () =>
+					fireEvent.change(note, { target: { value: typed } }),
+				);
+				expect(note.value).toBe(typed);
+			}
+			expect(box(view).value).toBe("2. : a lot");
+			expect(
+				within(card)
+					.getByRole("button", { name: /A muted card/ })
+					.getAttribute("aria-pressed"),
+			).toBe("false");
+		});
+
 		it("waits for the agent to finish writing before showing cards", async () => {
 			const view = await conversations([asking("running")]);
 			await waitFor(() =>
@@ -1021,6 +1042,29 @@ describe("App's conversations", () => {
 					.getAttribute("aria-pressed"),
 			).toBe("false");
 			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
+		});
+
+		it("keeps merge typed into the changes box, so a change can start with it", async () => {
+			const view = await conversations([reviewing]);
+			const panel = await waitFor(() =>
+				view.getByRole("region", { name: "review header" }),
+			);
+			const changes = within(panel).getByRole("textbox", {
+				name: "Changes to header",
+			}) as HTMLTextAreaElement;
+
+			await act(async () => {
+				fireEvent.focus(changes);
+				fireEvent.change(changes, { target: { value: "merge" } });
+			});
+			expect(changes.value).toBe("merge");
+
+			await act(async () =>
+				fireEvent.change(changes, {
+					target: { value: "merge the header first" },
+				}),
+			);
+			expect(box(view).value).toBe("merge the header first");
 		});
 	});
 

@@ -181,8 +181,17 @@ export function answerIn(text: string, asked: Asked): Answer | null {
 					: [found[1], found[2]];
 			return {
 				picks: (picks ?? "").split(/[ \t]*,[ \t]*/).filter(Boolean),
-				// After picks a colon sets the words apart; without, a space.
-				words: (rest ?? "").replace(picks ? /^:?[ \t]?/ : /^[ \t]/, ""),
+				// After picks a colon sets the words apart; without, a space, and
+				// a colon too where there are choices, as `withAnswer` writes
+				// words that would otherwise read as picks.
+				words: (rest ?? "").replace(
+					picks
+						? /^:?[ \t]?/
+						: asked.choices.length === 0
+							? /^[ \t]/
+							: /^[ \t](?::[ \t]?)?/,
+					"",
+				),
 			};
 		}
 	}
@@ -200,7 +209,14 @@ export function withAnswer(text: string, asked: Asked, answer: Answer): string {
 	const { number } = asked;
 	const lines = text === "" ? [] : text.split("\n");
 	const said = [answer.picks.join(", "), answer.words].filter(Boolean);
-	const line = said.length === 0 ? null : `${number}. ${said.join(": ")}`;
+	const plain = said.length === 0 ? null : `${number}. ${said.join(": ")}`;
+	// Words alone that start like picks, `2. a lot`, would read back as pick
+	// a: an empty pick before a colon keeps them words, so a box showing them
+	// shows what was typed.
+	const line =
+		plain === null || sameAnswer(answerIn(plain, asked), answer)
+			? plain
+			: `${number}. : ${answer.words}`;
 	const at = lines.findIndex((each) => replyLine(asked).test(each));
 	if (at !== -1) {
 		if (line === null) {
@@ -222,4 +238,12 @@ export function withAnswer(text: string, asked: Asked, answer: Answer): string {
 		(numbered.length > 0 ? (numbered.at(-1)?.index ?? 0) + 1 : lines.length);
 	lines.splice(index, 0, line);
 	return lines.join("\n");
+}
+
+function sameAnswer(read: Answer | null, answer: Answer): boolean {
+	return (
+		read !== null &&
+		read.words === answer.words &&
+		read.picks.join(",") === answer.picks.join(",")
+	);
 }
