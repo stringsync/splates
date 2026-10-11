@@ -87,21 +87,14 @@ describe("App", () => {
 			}
 		).happyDOM.setViewport({ width });
 
-	/** Which way the pages' tabs run, from the root that decides it. */
-	const orientation = (view: Awaited<ReturnType<Testing["open"]>>) =>
-		view
-			.getByRole("tablist")
-			.closest("[data-slot=tabs]")
-			?.getAttribute("data-orientation");
-
-	it("puts the pages in a bar along the bottom of a phone, and down the side of anything wider", async () => {
+	it("puts the pages beside the project name, on a phone and anything wider", async () => {
 		try {
-			resize(390);
-			expect(orientation(await testing.open())).toBe("horizontal");
-			cleanup();
-
-			resize(1280);
-			expect(orientation(await testing.open())).toBe("vertical");
+			for (const width of [390, 1280]) {
+				resize(width);
+				const view = await testing.open();
+				expect(view.getByRole("tablist").closest("header")).not.toBeNull();
+				cleanup();
+			}
 		} finally {
 			resize(1024);
 		}

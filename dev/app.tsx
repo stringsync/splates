@@ -59,9 +59,9 @@ function pageIn(hash: string): Page {
 }
 
 const PAGES: { value: Page; label: string; Icon: LucideIcon }[] = [
+	{ value: "conversations", label: "Conversations", Icon: MessagesSquareIcon },
 	{ value: "todos", label: "Todos", Icon: KanbanIcon },
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
-	{ value: "conversations", label: "Conversations", Icon: MessagesSquareIcon },
 ];
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
@@ -245,8 +245,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		return () => window.removeEventListener("keydown", listen);
 	}, [toggled]);
 	const paned = reviewed !== undefined || (terminal && shown !== null);
-	// On a phone, an open conversation takes the whole screen: no header, and
-	// no bar along the bottom, which its own Back replaces.
+	// On a phone, an open conversation takes the whole screen: no header,
+	// which its own Back replaces.
 	const reading = !wide && page === "conversations" && open !== null;
 	// Conversations counts only the agents waiting on you.
 	const count = (page: Page) =>
@@ -264,11 +264,10 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 						<Tabs
 							value={page}
 							onValueChange={(value) => go(value as Page)}
-							orientation={wide ? "vertical" : "horizontal"}
-							// Clear of the sidebar, or of the bar along the bottom.
+							// Clear of the sidebar.
 							className={cn(
 								"min-h-dvh gap-0",
-								wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
+								wide && "pl-(--sidebar-width)",
 								wide && paned && BESIDE_PANE,
 							)}
 							style={{ "--sidebar-width": `${width}px` } as CSSProperties}
@@ -314,6 +313,35 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													Offline
 												</span>
 											)}
+											{/* Beside the project they belong to, leaving the sidebar to the
+										    conversations. */}
+											<TabsList
+												variant="line"
+												className="ml-auto shrink-0 gap-0.5 p-0 group-data-horizontal/tabs:h-auto"
+											>
+												{pages.map(({ value, label, Icon }) => (
+													<TabsTrigger
+														key={value}
+														value={value}
+														title={
+															count(value) === null
+																? label
+																: `${label} (${count(value)})`
+														}
+														className="size-7 flex-none p-0 text-muted-foreground after:hidden hover:bg-muted group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+													>
+														<Icon />
+														<span className="sr-only">{label}</span>
+														{/* Only the agents waiting on you are worth a badge. */}
+														{value === "conversations" &&
+															count(value) !== null && (
+																<span className="-top-1 -right-1 absolute flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground tabular-nums leading-none">
+																	{count(value)}
+																</span>
+															)}
+													</TabsTrigger>
+												))}
+											</TabsList>
 											{/* At the foot of the sidebar when there is one. */}
 											{!wide && (
 												<button
@@ -321,7 +349,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													aria-label="Settings"
 													title="Settings"
 													onClick={() => setSetting(true)}
-													className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+													className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
 												>
 													<SettingsIcon className="size-4" />
 												</button>
@@ -333,52 +361,21 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 											</span>
 										)}
 									</header>
-									{/* With room to spare, a sidebar down the left. On a phone, a bar
-				    along the bottom, where a thumb already is; a dialog sits over
-				    it. */}
-									<TabsList
-										variant="line"
-										className={
-											wide
-												? "fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
-												: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
-										}
-									>
-										{pages.map(({ value, label, Icon }) => (
-											<TabsTrigger
-												key={value}
-												value={value}
-												className={
-													wide
-														? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
-														: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
-												}
-											>
-												<Icon className={cn(!wide && "size-5")} />
-												<span className={cn(wide && "flex-1 text-left")}>
-													{label}
-													{!wide && count(value) !== null && ` ${count(value)}`}
-												</span>
-												{wide && count(value) !== null && (
-													<span className="text-muted-foreground tabular-nums">
-														{count(value)}
-													</span>
-												)}
-											</TabsTrigger>
-										))}
-										{/* Under their tab, so one is a click away from any page. */}
-										{wide && available && snapshot !== null && (
-											<div className="-mx-3 mt-4 min-h-0 flex-1 overflow-y-auto border-t px-3 pt-4 pb-6">
-												<ConversationList
-													feed={talk}
-													tasks={snapshot.tasks}
-													settings={settings}
-													open={page === "conversations" ? open : null}
-													onOpen={(id) => go("conversations", id)}
-												/>
-											</div>
-										)}
-										{wide && (
+									{/* With room to spare, a sidebar down the left, all
+								    conversations. A phone has the list as its own page. */}
+									{wide && (
+										<div className="fixed inset-y-0 left-0 z-40 flex w-(--sidebar-width) flex-col border-r bg-sidebar px-3 pt-20">
+											{available && snapshot !== null && (
+												<div className="-mx-3 min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+													<ConversationList
+														feed={talk}
+														tasks={snapshot.tasks}
+														settings={settings}
+														open={page === "conversations" ? open : null}
+														onOpen={(id) => go("conversations", id)}
+													/>
+												</div>
+											)}
 											<button
 												type="button"
 												aria-label="Settings"
@@ -389,8 +386,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 												<span className="flex-1 text-left">Settings</span>
 												<Kbd>⌘,</Kbd>
 											</button>
-										)}
-									</TabsList>
+										</div>
+									)}
 									{wide && <SidebarHandle sidebar={sidebar} />}
 								</>
 							)}
