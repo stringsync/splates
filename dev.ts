@@ -357,6 +357,19 @@ export async function dev(
 			);
 		};
 
+		// What a task changed against its base, for its review in the page.
+		const diff = async (request: Request): Promise<Response> => {
+			const task = decodeURIComponent(
+				new URL(request.url).pathname.split("/")[3] ?? "",
+			);
+			const worktree = await service.find(task);
+			const files = worktree.hasBranch ? await worktree.diff() : null;
+			if (files === null) {
+				fail("not_found", `no branch for '${task}'`, { task });
+			}
+			return Response.json(files);
+		};
+
 		const addTodo = async (request: Request): Promise<Response> => {
 			const form = await request.formData();
 			const todo = await journal.record("todo add", null, async () =>
@@ -691,6 +704,7 @@ export async function dev(
 			events: async () => events(),
 			file,
 			paths,
+			diff,
 			addTodo,
 			updateTodo,
 			moveTodo,
@@ -873,6 +887,7 @@ export async function dev(
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
 			"/api/paths": scoped((project) => project.paths),
+			"/api/tasks/:task/diff": scoped((project) => project.diff),
 			"/api/todos": { POST: scoped((project) => project.addTodo) },
 			"/api/todos/:id": {
 				PATCH: scoped((project) => project.updateTodo),
@@ -1078,6 +1093,7 @@ interface Served extends AsyncResource {
 	events: Handler;
 	file: Handler;
 	paths: Handler;
+	diff: Handler;
 	addTodo: Handler;
 	updateTodo: Handler;
 	moveTodo: Handler;

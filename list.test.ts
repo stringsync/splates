@@ -62,6 +62,8 @@ describe("list", () => {
 		const [row] = JSON.parse(deps.out());
 		expect(row.changed).toEqual(["committed.txt", "untracked.txt"]);
 		expect(row.goal).toBe("support dark mode");
+		// Counted as they stand, committed or not.
+		expect([row.added, row.removed]).toEqual([2, 0]);
 	});
 
 	it("leaves files out unless asked", async () => {

@@ -5,6 +5,7 @@ import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import type { ConversationState, Message, Part, Tool } from "../conversations";
+import type { FileDiff } from "../diff";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
@@ -47,6 +48,8 @@ export class Testing implements Resource {
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
 	tree: string[] = [];
+	/** Each task's diff, by task, for `/api/tasks/:task/diff`. */
+	diffs: Record<string, FileDiff[]> = {};
 	/** What every write answers with; a test sets it when the page reads it. */
 	reply: unknown = {};
 	/** Refuses every write with this, as the server does, when set. */
@@ -99,6 +102,12 @@ export class Testing implements Resource {
 			}
 			if (path.startsWith("/api/paths")) {
 				return Response.json(this.tree);
+			}
+			const diff = /^\/api\/tasks\/([^/]+)\/diff$/.exec(route ?? "");
+			if (diff !== null) {
+				return Response.json(
+					this.diffs[decodeURIComponent(diff[1] ?? "")] ?? [],
+				);
 			}
 			if (route === "/api/conversations") {
 				return this.talk === null

@@ -64,6 +64,79 @@ describe("App's tasks", () => {
 		);
 	});
 
+	it("opens a task's changes in a pane beside the page, a file to a line, opening all at once", async () => {
+		testing.diffs.alpha = [
+			{
+				path: "src/a.ts",
+				from: null,
+				status: "modified",
+				added: 1,
+				removed: 1,
+				binary: false,
+				uncommitted: false,
+				hunks: [
+					{
+						range: "@@ -1,2 +1,2 @@",
+						lines: [
+							{ kind: "context", text: "keep" },
+							{ kind: "removed", text: "old" },
+							{ kind: "added", text: "new" },
+						],
+					},
+				],
+			},
+			{
+				path: "logo.png",
+				from: null,
+				status: "added",
+				added: 0,
+				removed: 0,
+				binary: true,
+				uncommitted: true,
+				hunks: [],
+			},
+		];
+		const view = await testing.openTasks({
+			tasks: [details({ task: "alpha" })],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
+		);
+
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).not.toContain("src/a.ts");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Review changes" })),
+		);
+
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		const changes = await waitFor(() =>
+			view.getByRole("complementary", { name: "changes in alpha" }),
+		);
+		const [first, second] = [...changes.querySelectorAll("summary")];
+		expect(first?.textContent).toBe("src/a.ts+1 −1");
+		expect(second?.textContent).toBe("logo.pngnewuncommitted+0 −0");
+		expect(view.getByLabelText("src/a.ts @@ -1,2 +1,2 @@").textContent).toBe(
+			"@@ -1,2 +1,2 @@+1 −1keep−old+new",
+		);
+
+		const files = [...changes.querySelectorAll("details")];
+		expect(files.map((file) => file.open)).toEqual([false, false]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Expand all" })),
+		);
+		expect(files.map((file) => file.open)).toEqual([true, true]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Collapse all" })),
+		);
+		expect(files.map((file) => file.open)).toEqual([false, false]);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Close changes" })),
+		);
+		expect(view.queryByRole("complementary")).toBeNull();
+	});
+
 	it("fills a bar with the steps its plan has checked off", async () => {
 		const view = await testing.openTasks({
 			tasks: [

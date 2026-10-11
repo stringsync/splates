@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
+import { CodeDiff } from "#dev/components/assistant-ui/elements/code-diff.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Edit, Step, Tool } from "../conversations";
+import { editLines } from "../diff";
 import { Markdown } from "./markdown";
 import {
 	doing,
@@ -106,6 +108,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 			)}
 			{file !== null && (
 				<Edits
+					short={short}
 					label={`edits to ${file}`}
 					edits={work.parts.flatMap((part) =>
 						part.type === "tool"
@@ -206,7 +209,7 @@ function Row({
 						</span>
 					}
 				>
-					<Edits edits={item.tool.edits} />
+					<Edits edits={item.tool.edits} short={short} />
 				</Fold>
 			);
 		case "reads": {
@@ -328,43 +331,35 @@ function Calls({ tools }: { tools: Tool[] }): JSX.Element {
 	);
 }
 
-/** Each edit as the lines it took out and the lines it put in. */
+/** Each edit as the lines it took out, then the lines it put in. */
 function Edits({
 	edits,
+	short,
 	label,
 }: {
 	edits: Edit[];
+	short: (path: string) => string;
 	label?: string;
 }): JSX.Element {
 	return (
 		<section aria-label={label} className="flex flex-col gap-2">
-			{edits.map((edit, index) => (
-				<section
-					// biome-ignore lint/suspicious/noArrayIndexKey: edits never reorder
-					key={index}
-					aria-label={`edit to ${edit.path}`}
-					className="max-h-80 overflow-auto rounded-md bg-muted py-2 font-mono text-xs"
-				>
-					{edit.old !== null && (
-						<pre className="bg-destructive/10 px-2 text-destructive">
-							{marked("-", edit.old)}
-						</pre>
-					)}
-					<pre className="bg-success/10 px-2 text-success">
-						{marked("+", edit.new)}
-					</pre>
-				</section>
-			))}
+			{edits.map((edit, index) => {
+				const lines = editLines(edit.old, edit.new);
+				return (
+					<CodeDiff
+						// biome-ignore lint/suspicious/noArrayIndexKey: edits never reorder
+						key={index}
+						aria-label={`edit to ${edit.path}`}
+						filename={short(edit.path)}
+						additions={lines.filter((line) => line.kind === "added").length}
+						deletions={lines.filter((line) => line.kind === "removed").length}
+						lines={lines}
+						className="max-h-80 max-w-none overflow-y-auto rounded-md [tab-size:2]"
+					/>
+				);
+			})}
 		</section>
 	);
-}
-
-/** `text` with `sign` before each of its lines. */
-function marked(sign: string, text: string): string {
-	return text
-		.split("\n")
-		.map((line) => `${sign}${line}`)
-		.join("\n");
 }
 
 /** The agent's plan as a checklist. */

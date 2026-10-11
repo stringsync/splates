@@ -147,6 +147,35 @@ describe("App's conversations", () => {
 		expect(branch()).toBe("main");
 	});
 
+	it("offers its actions in a card in its upper right, its task's changes among them, closing them on Escape", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+			conversation({ id: "c2", title: "Look around" }),
+		]);
+		const overview = view.getByRole("navigation", { name: "overview" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(overview).getByRole("button", { name: /Review changes/ }),
+			),
+		);
+		await waitFor(() =>
+			view.getByRole("complementary", { name: "changes in alpha" }),
+		);
+		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+		expect(view.queryByRole("complementary")).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
+		);
+		const main = view.getByRole("navigation", { name: "overview" });
+		expect(
+			within(main)
+				.getAllByRole("button")
+				.map((button) => button.textContent),
+		).toEqual(["Archive"]);
+	});
+
 	it("archives from the list, with the agent's mark in place of its name", async () => {
 		const view = await conversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
@@ -688,7 +717,7 @@ describe("App's conversations", () => {
 				within(within(thread).getByLabelText("edits to /repo/src/a.ts"))
 					.getAllByLabelText("edit to /repo/src/a.ts")
 					.map((edit) => edit.textContent),
-			).toEqual(["-one+two", "-two+three"]);
+			).toEqual(["src/a.ts+1 −1−one+two", "src/a.ts+1 −1−two+three"]);
 		});
 
 		it("says what it is on while it works, with its plan", async () => {
@@ -1120,7 +1149,12 @@ describe("App's conversations", () => {
 			await waitFor(() => view.getByRole("option", { name: "Small" })),
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Archive" })),
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "overview" })).getByRole(
+					"button",
+					{ name: "Archive" },
+				),
+			),
 		);
 
 		expect(posted("/api/conversations/c1/setting")).toEqual([
@@ -1195,7 +1229,12 @@ describe("App's conversations", () => {
 			).disabled,
 		).toBe(true);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Unarchive" })),
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "overview" })).getByRole(
+					"button",
+					{ name: "Unarchive" },
+				),
+			),
 		);
 		expect(posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: false } },

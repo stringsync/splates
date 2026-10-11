@@ -1,7 +1,10 @@
-import { type JSX, type ReactNode, useState } from "react";
+import { FileDiffIcon } from "lucide-react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Badge } from "#dev/components/ui/badge.tsx";
+import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
@@ -10,6 +13,7 @@ import {
 import { Progress as Bar } from "#dev/components/ui/progress.tsx";
 import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
+import { ReviewChanges } from "./changes";
 import { Markdown } from "./markdown";
 
 /** A tree in one of these needs fixing rather than driving. */
@@ -99,6 +103,7 @@ export function Progress({ done, total }: Counted): JSX.Element {
 
 /** One task, all of it, in a dialog over the task list or a todo that names it. */
 export function Task({ task }: { task: Details }): JSX.Element {
+	const review = useContext(ReviewChanges);
 	const fields: [string, ReactNode][] = [
 		["status", task.status],
 		["branch", task.branch],
@@ -138,6 +143,21 @@ export function Task({ task }: { task: Details }): JSX.Element {
 						</div>
 					))}
 				</dl>
+				{review !== null && task.ahead !== null && (
+					<DialogClose
+						render={
+							<Button
+								variant="outline"
+								size="sm"
+								className="self-start"
+								onClick={() => review(task.task)}
+							/>
+						}
+					>
+						<FileDiffIcon />
+						Review changes
+					</DialogClose>
+				)}
 				{task.plan === null ? (
 					<p className="text-muted-foreground">
 						No ARBOR.md: whoever picks this up starts from the diff.

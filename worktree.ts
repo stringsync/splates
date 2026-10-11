@@ -1,3 +1,4 @@
+import { type FileDiff, parseDiff } from "./diff";
 import type { GitResult } from "./git";
 import type { WorktreeService } from "./worktree-service";
 
@@ -159,8 +160,34 @@ export class Worktree {
 		return this.service.git.commitsAhead(this.base, this.branch);
 	}
 
-	diffStat(): Promise<{ added: number; removed: number } | null> {
-		return this.service.git.diffStat(this.base, this.branch);
+	/** Lines added and removed across all its pending work, as `diff` shows it. */
+	async diffStat(): Promise<{ added: number; removed: number } | null> {
+		const files = await this.diff();
+		return (
+			files && {
+				added: files.reduce((sum, file) => sum + file.added, 0),
+				removed: files.reduce((sum, file) => sum + file.removed, 0),
+			}
+		);
+	}
+
+	/**
+	 * Its committed and uncommitted changes, new files among them, parsed;
+	 * null without a branch.
+	 */
+	async diff(): Promise<FileDiff[] | null> {
+		const diff = await this.service.git.diff(
+			this.base,
+			this.branch,
+			this.exists ? this.path : null,
+		);
+		return (
+			diff &&
+			parseDiff(diff.text).map((file) => ({
+				...file,
+				uncommitted: diff.uncommitted.includes(file.path),
+			}))
+		);
 	}
 
 	/** Committed and uncommitted paths this task touches; null without a branch. */

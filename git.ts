@@ -130,26 +130,56 @@ export class Git {
 		return result.code === 0 ? Number(result.stdout) : null;
 	}
 
-	/** Lines added and removed on `branch` since it left `trunk`. */
-	async diffStat(
+	/**
+	 * What `branch` changed since it left `trunk`, as a unified diff, along
+	 * with all the work still uncommitted in `worktree` when there is one, new
+	 * files git does not track yet among it; `uncommitted` names the paths
+	 * that have some. Untrimmed, since a diff's lines keep their leading spaces.
+	 */
+	async diff(
 		trunk: string,
 		branch: string,
-	): Promise<{ added: number; removed: number } | null> {
-		const result = await this.run(
-			this.root,
-			"diff",
-			"--shortstat",
-			`${trunk}...${branch}`,
-		);
-		if (result.code !== 0) {
+		worktree: string | null,
+	): Promise<{ text: string; uncommitted: string[] } | null> {
+		const base = await this.run(this.root, "merge-base", trunk, branch);
+		if (base.code !== 0) {
 			return null;
 		}
-		const count = (pattern: RegExp): number =>
-			Number(pattern.exec(result.stdout)?.[1] ?? 0);
-		return {
-			added: count(/(\d+) insertion/),
-			removed: count(/(\d+) deletion/),
-		};
+		const raw = (cwd: string, ...args: string[]) =>
+			this.ps.spawnCapture([
+				"git",
+				"-C",
+				cwd,
+				"diff",
+				"--no-color",
+				"--no-ext-diff",
+				...args,
+			]);
+		const { exitCode, stdout } = await raw(
+			worktree ?? this.root,
+			base.stdout,
+			// Without a worktree, the branch's tip stands in for the tree.
+			...(worktree === null ? [branch] : []),
+		);
+		if (exitCode !== 0) {
+			return null;
+		}
+		if (worktree === null) {
+			return { text: stdout, uncommitted: [] };
+		}
+		const edited = lines(
+			await this.out(worktree, "diff", "--name-only", "HEAD"),
+		);
+		const untracked = lines(
+			await this.out(worktree, "ls-files", "--others", "--exclude-standard"),
+		);
+		let text = stdout;
+		for (const path of untracked) {
+			// Exits 1 because the two differ, which is the point.
+			const added = await raw(worktree, "--no-index", "--", "/dev/null", path);
+			text += added.stdout;
+		}
+		return { text, uncommitted: [...new Set([...edited, ...untracked])] };
 	}
 
 	/**

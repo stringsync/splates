@@ -6,6 +6,7 @@
  */
 
 import type { Answer, ConversationState } from "../conversations";
+import type { FileDiff } from "../diff";
 
 export class ApiError extends Error {
 	constructor(
@@ -180,6 +181,17 @@ export async function paths(task = ""): Promise<string[]> {
 		throw new ApiError("error", `/api/paths: ${response.status}`);
 	}
 	return (await response.json()) as string[];
+}
+
+/** What `task` changed against its base, uncommitted edits included. */
+export async function taskDiff(task: string): Promise<FileDiff[]> {
+	const response = await fetch(
+		scoped(`/api/tasks/${encodeURIComponent(task)}/diff`),
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `${task}'s diff: ${response.status}`);
+	}
+	return (await response.json()) as FileDiff[];
 }
 
 /**

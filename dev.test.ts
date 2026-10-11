@@ -4,6 +4,7 @@ import { Duration } from "webappwiz/time";
 import { add } from "./add";
 import { Conversations } from "./conversations";
 import { dev, devPorts } from "./dev";
+import type { FileDiff } from "./diff";
 import { AGENT, FakeAgent, say } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
 import { Testing } from "./testing";
@@ -780,6 +781,28 @@ describe("dev", () => {
 				"src/lib/a.ts",
 			);
 			expect((await paths("nope")).status).toBe(404);
+		});
+	});
+
+	it("serves a task's diff against its base, its uncommitted edits too", async () => {
+		await add(deps, "alpha");
+		const tree = (await deps.service.find("alpha")).path;
+		await deps.commit(tree, "a.ts", "a\n", "add a");
+		await deps.fs.write(`${tree}/a.ts`, "a\nb\n");
+		await deps.fs.write(`${tree}/b.ts`, "b\n");
+
+		await serving(async (_snapshot, port) => {
+			const diff = (task: string) =>
+				fetch(`http://127.0.0.1:${port}/api/tasks/${task}/diff`);
+
+			const files = (await (await diff("alpha")).json()) as FileDiff[];
+			expect(
+				files.map(({ path, added, uncommitted }) => [path, added, uncommitted]),
+			).toEqual([
+				["a.ts", 2, true],
+				["b.ts", 1, true],
+			]);
+			expect((await diff("nope")).status).toBe(404);
 		});
 	});
 

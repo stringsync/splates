@@ -25,6 +25,8 @@
 @source "./question-cards.tsx";
 @source "./release.tsx";
 @source "./work-row.tsx";
+@source "./changes.tsx";
+@source "./overview.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";
 

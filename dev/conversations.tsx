@@ -13,6 +13,7 @@ import {
 	ArchiveRestoreIcon,
 	ChevronLeftIcon,
 	EllipsisVerticalIcon,
+	FileDiffIcon,
 	GitBranchIcon,
 	LinkIcon,
 	Loader2Icon,
@@ -24,6 +25,7 @@ import {
 import {
 	type JSX,
 	useCallback,
+	useContext,
 	useEffect,
 	useMemo,
 	useRef,
@@ -75,9 +77,11 @@ import {
 	startConversation,
 	unqueueConversation,
 } from "./api";
+import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
+import { type Action, Overview, OverviewButtons } from "./overview";
 import {
 	QuestionsUI,
 	type Reply,
@@ -616,6 +620,7 @@ export function Conversations({
 					drafts={drafts}
 					conversation={shown}
 					agent={agentName(agents, shown.agent)}
+					task={tasks.find((each) => each.task === shown.task) ?? null}
 					branch={
 						shown.task === null
 							? trunk
@@ -1127,6 +1132,7 @@ function Thread({
 	drafts,
 	conversation,
 	agent,
+	task,
 	branch,
 	onBack,
 }: {
@@ -1135,6 +1141,8 @@ function Thread({
 	conversation: ConversationState;
 	/** The agent's name. */
 	agent: string;
+	/** The task it runs in; null in the main tree, or once the task is gone. */
+	task: Details | null;
 	/** The branch it works on; null once its task is gone. */
 	branch: string | null;
 	/** Back to the list, on a phone; null beside a sidebar. */
@@ -1237,6 +1245,33 @@ function Thread({
 			)
 			?.focus();
 	};
+	const review = useContext(ReviewChanges);
+	const actions: Action[] = [
+		...(review !== null && task !== null && task.ahead !== null
+			? [
+					{
+						label: "Review changes",
+						icon: <FileDiffIcon />,
+						detail: task.added !== null && (
+							<span className="font-mono text-xs">
+								<span className="text-success">+{task.added}</span>{" "}
+								<span className="text-destructive">−{task.removed ?? 0}</span>
+							</span>
+						),
+						run: () => review(task.task),
+					},
+				]
+			: []),
+		{
+			label: archived ? "Unarchive" : "Archive",
+			icon: <ArchiveIcon />,
+			run: () => {
+				archiveConversation(id, !archived).catch((error: unknown) =>
+					refused(archived ? "Not unarchived" : "Not archived", error),
+				);
+			},
+		},
+	];
 
 	return (
 		<section
@@ -1271,7 +1306,7 @@ function Thread({
 					void edit(queued.length - 1);
 				}
 			}}
-			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
 			<header className="flex min-h-9 items-center gap-2">
 				{onBack !== null && <Back onBack={onBack} />}
@@ -1307,26 +1342,15 @@ function Thread({
 				) : (
 					<StatusBadge status={status} />
 				)}
-
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() =>
-						archiveConversation(id, !archived).catch((error: unknown) =>
-							refused(archived ? "Not unarchived" : "Not archived", error),
-						)
-					}
-				>
-					<ArchiveIcon data-icon="inline-start" />
-					{archived ? "Unarchive" : "Archive"}
-				</Button>
+				<OverviewButtons actions={actions} />
 			</header>
 			{conversation.error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{conversation.error}
 				</p>
 			)}
-			<div className="min-h-0 flex-1">
+			<div className="relative min-h-0 flex-1">
+				<Overview actions={actions} />
 				<AssistantRuntimeProvider runtime={runtime}>
 					<QuestionsUI />
 					<ReviewUI />
