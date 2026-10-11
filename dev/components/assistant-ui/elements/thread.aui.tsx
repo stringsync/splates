@@ -263,6 +263,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 			<ThreadPrimitive.Viewport
 				ref={viewport}
 				turnAnchor="top"
+				topAnchorMessageClamp={UNCLAMPED}
 				data-slot="aui_thread-viewport"
 				className="relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll"
 			>
@@ -323,10 +324,12 @@ const anchoredTurn = (s: AssistantState) => {
 		: undefined;
 };
 
-/** How tall a person's message may be before only its foot is anchored. */
-const TALLER_THAN_EM = 10;
-/** How much of a message taller than that stays in view, anchored. */
-const VISIBLE_EM = 6;
+/**
+ * No message is too tall to anchor by its top. assistant-ui would scroll past
+ * the top of a tall one, leaving only its foot in view, but ours stays stuck
+ * atop its turn whole, so the reply would only scroll behind it.
+ */
+const UNCLAMPED = { tallerThan: `${Number.MAX_SAFE_INTEGER}px` };
 
 /** The spacer assistant-ui keeps below a turn anchored to the top. */
 const RESERVE = "[data-aui-top-anchor-reserve]";
@@ -368,21 +371,14 @@ function useAnchorAtOnce(viewport: RefObject<HTMLDivElement | null>): void {
 		target.after(reserve);
 		// By layout, as assistant-ui measures, so the fade's slide counts for
 		// nothing.
-		let top = 0;
+		let scrollTop = 0;
 		for (
 			let at: HTMLElement | null = anchor;
 			at != null && at !== scroller;
 			at = at.offsetParent as HTMLElement | null
 		) {
-			top += at.offsetTop;
+			scrollTop += at.offsetTop;
 		}
-		const em = Number.parseFloat(getComputedStyle(anchor).fontSize) || 16;
-		const height = anchor.offsetHeight;
-		const scrollTop =
-			top +
-			(height <= TALLER_THAN_EM * em
-				? 0
-				: Math.max(0, height - VISIBLE_EM * em));
 		// Again until it holds, as assistant-ui sizes it frame by frame: while
 		// the thread is shorter than the viewport, the room it takes first
 		// comes out of the space the composer's margin fills.
@@ -1032,11 +1028,34 @@ const UserImagePart: ImageMessagePartComponent = (part) => (
 	</div>
 );
 
+/**
+ * Has a person's message report, as its `offsetTop`, where it sits before it
+ * sticks: its turn's box, which it opens. Stuck, the browser's reading follows
+ * the scroll instead, and assistant-ui (like `useAnchorAtOnce`) sizes its
+ * spacer from it, so each time it measured a stuck message the spacer grew
+ * by however far the thread had scrolled, letting the reply scroll behind
+ * the message with nothing more below it.
+ */
+const unstuckTop = (element: HTMLDivElement | null) => {
+	const turn = element?.parentElement;
+	if (element == null || turn == null || turn.firstElementChild !== element) {
+		return;
+	}
+	Object.defineProperty(element, "offsetTop", {
+		configurable: true,
+		get: () => turn.offsetTop,
+	});
+	return () => {
+		Reflect.deleteProperty(element, "offsetTop");
+	};
+};
+
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
 	const attachments = useAuiState((s) => s.message.attachments);
 	return (
 		<MessagePrimitive.Root
+			ref={unstuckTop}
 			data-slot="aui_user-message-root"
 			// What `useAnchorAtOnce` finds a new turn's start by.
 			data-message-id={id}
