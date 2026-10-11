@@ -91,7 +91,15 @@ describe("App's conversations", () => {
 
 	const nameIn = (held: ConversationState[], id: string) => {
 		const found = held.find((each) => each.id === id);
-		return found?.name ?? found?.task ?? found?.title ?? "New conversation";
+		const opening = found?.messages
+			.filter((message) => message.role === "user")
+			.flatMap((message) => message.parts)
+			.flatMap((part) => (part.type === "text" ? [part.text.trim()] : []))
+			.find((text) => text !== "")
+			?.split("\n")[0];
+		return (
+			found?.name ?? found?.task ?? found?.title ?? opening ?? "Not started"
+		);
 	};
 
 	const posted = (path: string) =>
@@ -146,6 +154,52 @@ describe("App's conversations", () => {
 		});
 		expect(archived.textContent).toContain("Old");
 		expect(location.hash).toBe("#conversations/archived");
+	});
+
+	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
+		const view = await conversations(
+			[
+				conversation({
+					id: "c1",
+					task: null,
+					messages: [
+						message("user", "\n fix the login\nit loops"),
+						message("agent", "On it"),
+					],
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					task: null,
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "c3",
+					task: null,
+					title: "Fix login",
+					messages: [message("user", "fix the login")],
+					createdAt: "2026-10-11T10:00:00.000Z",
+				}),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const names = within(nav)
+			.getAllByRole("listitem")
+			.map((item) => item.querySelector("span.truncate") as HTMLElement);
+
+		expect(names.map((name) => name.textContent)).toEqual([
+			"Not started",
+			"fix the login",
+			"Fix login",
+			"alpha",
+		]);
+		expect(names.map((name) => name.classList.contains("italic"))).toEqual([
+			true,
+			true,
+			false,
+			false,
+		]);
 	});
 
 	it("names the branch under an open conversation's title, the trunk's for the main tree", async () => {
@@ -419,7 +473,7 @@ describe("App's conversations", () => {
 			]),
 		);
 		expect(location.hash).toBe("#conversations/c9");
-		expect(view.getByRole("region", { name: "New conversation" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "Not started" })).toBeTruthy();
 	});
 
 	it("opens the new conversation screen with the agent picked from the sidebar's menu", async () => {

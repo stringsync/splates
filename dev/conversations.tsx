@@ -155,15 +155,42 @@ function whereOf(conversation: ConversationState): string | null {
 /**
  * What a conversation goes by: the name the person gave it, else the task its
  * agent holds, so it follows the agent from task to task, else the agent's
- * title.
+ * title. Until it has one, a stand-in (see `unnamed`): the first line of what
+ * the person first said, else "Not started".
  */
 function nameOf(conversation: ConversationState): string {
 	return (
 		conversation.name ??
 		conversation.task ??
 		conversation.title ??
-		"New conversation"
+		openingOf(conversation) ??
+		"Not started"
 	);
+}
+
+/** Whether `nameOf` is a stand-in, shown muted until a real name comes. */
+function unnamed(conversation: ConversationState): boolean {
+	return (
+		conversation.name === null &&
+		conversation.task === null &&
+		conversation.title === null
+	);
+}
+
+/** The first line the person said in a conversation, or null before they say any. */
+function openingOf(conversation: ConversationState): string | null {
+	for (const message of conversation.messages) {
+		if (message.role !== "user") {
+			continue;
+		}
+		for (const part of message.parts) {
+			const line = part.type === "text" ? part.text.trim().split("\n")[0] : "";
+			if (line) {
+				return line;
+			}
+		}
+	}
+	return null;
 }
 
 /**
@@ -475,7 +502,12 @@ function Item({
 					name={agent}
 					className="size-3.5 text-foreground/70"
 				/>
-				<span className="min-w-0 flex-1 truncate text-sm">
+				<span
+					className={cn(
+						"min-w-0 flex-1 truncate text-sm",
+						unnamed(conversation) && "text-muted-foreground italic",
+					)}
+				>
 					{nameOf(conversation)}
 				</span>
 				{where && whereOf(conversation) !== null && (
@@ -562,7 +594,12 @@ function Rename({
 	conversation: ConversationState;
 	onDone: () => void;
 }): JSX.Element {
-	const [value, setValue] = useState(nameOf(conversation));
+	// "Not started" is no name to edit from.
+	const [value, setValue] = useState(
+		unnamed(conversation)
+			? (openingOf(conversation) ?? "")
+			: nameOf(conversation),
+	);
 	const box = useRef<HTMLInputElement>(null);
 	useEffect(() => {
 		// After the menu that asked for it hands focus back to its trigger.
@@ -962,7 +999,12 @@ function Recent({
 				name={agent}
 				className="size-3.5 text-foreground/70"
 			/>
-			<span className="min-w-0 flex-1 truncate text-sm">
+			<span
+				className={cn(
+					"min-w-0 flex-1 truncate text-sm",
+					unnamed(conversation) && "text-muted-foreground italic",
+				)}
+			>
 				{nameOf(conversation)}
 			</span>
 			{whereOf(conversation) !== null && (
@@ -1410,7 +1452,10 @@ function Thread({
 						<h2
 							onDoubleClick={() => setRenaming(true)}
 							title="Double-click to rename"
-							className="truncate font-medium text-sm"
+							className={cn(
+								"truncate font-medium text-sm",
+								unnamed(conversation) && "text-muted-foreground italic",
+							)}
 						>
 							{nameOf(conversation)}
 						</h2>
