@@ -360,7 +360,8 @@ function CheckpointAll({
  * says whether it works or waits on you. Archived ones sit behind a link at
  * the bottom.
  *
- * The arrow keys move between rows, and Alt+N opens the next one waiting.
+ * The arrow keys move between rows, Alt+N opens the next one waiting, and
+ * ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new one as the last was started.
  * As `settings` say, it notifies of an agent that comes to wait on you,
  * finishes its turn, or goes quiet.
  */
@@ -411,6 +412,9 @@ export function ConversationList({
 			(row.conversation ? nameOf(row.conversation) : row.task?.task) ?? "",
 		openRow,
 	);
+	// The latest, for the listener below, which outlives a render.
+	const onOpenRef = useRef(onOpen);
+	onOpenRef.current = onOpen;
 	const next = useRef(() => {});
 	next.current = () => {
 		const at = rows.findIndex(
@@ -428,8 +432,14 @@ export function ConversationList({
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			// By the key's place, since Alt+N types a tilde on a Mac.
-			if (event.altKey && event.code === "KeyN") {
-				event.preventDefault();
+			if (!event.altKey || event.code !== "KeyN") {
+				return;
+			}
+			event.preventDefault();
+			if (event.metaKey || event.ctrlKey) {
+				// With the agent, model, and settings the last one started with.
+				onOpenRef.current(NEW);
+			} else {
 				next.current();
 			}
 		};

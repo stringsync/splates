@@ -2402,5 +2402,48 @@ Cap upload retries
 			);
 			expect(location.hash).toBe("#conversations/c2");
 		});
+
+		it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({
+						id: "c1",
+						agent: "codex",
+						title: "Latest",
+						settings: [
+							{
+								id: "model",
+								name: "Model",
+								category: "model",
+								current: "small",
+								options: [
+									{ value: "big", name: "Big", description: null },
+									{ value: "small", name: "Small", description: null },
+								],
+							},
+						],
+					}),
+					conversation({ id: "c2", title: "Earlier", status: "running", ask }),
+				]),
+			);
+
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyN",
+				}),
+			);
+			expect(location.hash).toBe("#conversations/new");
+			expect(
+				within(
+					view.getByText("Start a conversation with")
+						.parentElement as HTMLElement,
+				).getByLabelText("Codex"),
+			).toBeTruthy();
+			expect(
+				view.getByRole("combobox", { name: "model" }).textContent,
+			).toContain("Small");
+		});
 	});
 });
