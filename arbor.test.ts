@@ -82,6 +82,9 @@ describe("arbor cli", () => {
 
 	it("asks for a review from the command line", async () => {
 		await arbor.run(deps, ["add", "alpha"]);
+		const worktree = await env.service.find("alpha");
+		await env.finish(worktree.path);
+		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
 
 		await arbor.run(deps, [
 			"escalate",
@@ -91,11 +94,11 @@ describe("arbor cli", () => {
 			"--review",
 		]);
 
-		const worktree = await env.service.find("alpha");
-		expect(worktree.state?.escalations?.at(-1)?.review).toBe("1");
-		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toContain(
-			"- [ ] 1. Ready to merge?\n  check the header\n",
-		);
+		expect(
+			(await env.service.find("alpha")).state?.escalations?.at(-1),
+		).toMatchObject({ reason: "check the header", review: true });
+		// A review is a state, not a question.
+		expect(await env.fs.read(join(worktree.path, "ARBOR.md"))).toBe(plan);
 	});
 
 	it("reports a refusal as a reason, a message and an exit code", async () => {

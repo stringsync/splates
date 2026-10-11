@@ -45,7 +45,7 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 							<span className="min-w-0 flex-1 truncate text-sm">
 								{task.task}
 							</span>
-							<Status status={task.status} />
+							<Status task={task} />
 							<PlanProgress plan={task.plan} />
 						</button>
 					</li>
@@ -66,7 +66,11 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 }
 
 /** Working and merging are the normal case, so they say nothing. */
-function Status({ status }: { status: string }): JSX.Element | null {
+function Status({ task }: { task: Details }): JSX.Element | null {
+	const { status } = task;
+	if (task.review !== null) {
+		return <Badge>ready to merge</Badge>;
+	}
 	if (status === "escalated") {
 		return <Badge variant="secondary">escalated</Badge>;
 	}
@@ -119,7 +123,11 @@ export function Task({ task }: { task: Details }): JSX.Element {
 		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl">
 			<DialogHeader>
 				<DialogTitle>{task.task}</DialogTitle>
-				<DialogDescription>{task.escalation ?? task.status}</DialogDescription>
+				<DialogDescription>
+					{task.review === null
+						? (task.escalation ?? task.status)
+						: `Ready to merge: ${task.review}`}
+				</DialogDescription>
 			</DialogHeader>
 			<div className="flex min-w-0 flex-col gap-6 text-sm">
 				<dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">

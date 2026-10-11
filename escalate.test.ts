@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { add } from "./add";
-import { escalate, REVIEW_SUBJECT } from "./escalate";
-import { PLAN_FILE, questions } from "./plan";
+import { escalate } from "./escalate";
+import { PLAN_FILE } from "./plan";
 import { Testing } from "./testing";
 
 describe("escalate", () => {
@@ -43,34 +43,36 @@ describe("escalate", () => {
 		expect((await deps.service.find("alpha")).state?.status).toBe("escalated");
 	});
 
-	it("asks for approval with a question of its own, once nothing else is open", async () => {
+	it("asks for approval once nothing is left, without asking a question", async () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		const plan = join(worktree, PLAN_FILE);
-		await deps.fs.write(plan, "# alpha\n\n## Blocked\n\n- [ ] 1. Keep it?\n");
+		await deps.fs.write(
+			plan,
+			"# alpha\n\n## Next\n\n- [ ] wire it up\n\n## Blocked\n\n- [ ] 1. Keep it?\n",
+		);
 
 		await expect(
 			escalate(deps, "check the header", worktree, { review: true }),
-		).toBail("blocked", { data: { task: "alpha", blocked: ["1"] } });
+		).toBail("blocked", {
+			message:
+				"questions 1 unchecked under ## Blocked and 1 step unchecked under ## Next",
+			data: { task: "alpha", blocked: ["1"], steps: ["wire it up"] },
+		});
 
-		await deps.fs.write(
-			plan,
-			"# alpha\n\n## Blocked\n\n- [x] 1. Keep it? → yes\n",
-		);
+		const finished =
+			"# alpha\n\n## Next\n\n- [x] wire it up\n\n## Blocked\n\n- [x] 1. Keep it? → yes\n";
+		await deps.fs.write(plan, finished);
 		await escalate(deps, "check the header at 390px", worktree, {
 			review: true,
 		});
 
-		expect(questions(await deps.fs.read(plan)).at(-1)).toMatchObject({
-			number: "2",
-			text: REVIEW_SUBJECT,
-			body: "check the header at 390px",
-		});
+		expect(await deps.fs.read(plan)).toBe(finished);
 		expect(
 			(await deps.service.find("alpha")).state?.escalations?.at(-1),
-		).toMatchObject({ reason: "check the header at 390px", review: "2" });
+		).toMatchObject({ reason: "check the header at 390px", review: true });
 		expect(deps.out()).toContain(
-			"review:   question 2 asks to approve merging",
+			"review:   ready to merge once a person approves",
 		);
 	});
 });

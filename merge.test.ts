@@ -22,6 +22,7 @@ describe.concurrent("merge", () => {
 		// Trunk moved on underneath, so the rebase has real work to do.
 		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
@@ -42,6 +43,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
@@ -58,6 +60,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		expect(
@@ -78,6 +81,7 @@ describe.concurrent("merge", () => {
 		const child = (await deps.service.find("child")).path;
 		await deps.commit(child, "child.txt", "child\n", "add child");
 
+		await deps.finish(child);
 		await merge(deps, child);
 
 		// The parent's files move with its branch, not just the ref: a ref moved
@@ -102,6 +106,7 @@ describe.concurrent("merge", () => {
 
 		// Names the parent's agent as the one to act, so the child's agent does
 		// not go committing or stashing in a tree it does not own.
+		await deps.finish(child);
 		await expect(merge(deps, child)).toBail("merge_failed", {
 			message: [parent, "The agent working on 'parent' has to commit"],
 		});
@@ -116,6 +121,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		expect((await deps.service.find("alpha")).status).toBe("removed");
@@ -130,6 +136,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.fs.write(join(worktree, "alpha.txt"), "not committed\n");
 
+		await deps.finish(worktree);
 		await expect(merge(deps, worktree)).toBail("dirty");
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
@@ -142,6 +149,7 @@ describe.concurrent("merge", () => {
 		await deps.commit(worktree, "README.md", "task side\n", "task edit");
 		await deps.commit(deps.root, "README.md", "trunk side\n", "trunk edit");
 
+		await deps.finish(worktree);
 		await expect(merge(deps, worktree)).toBail("conflict", {
 			message: "README.md",
 		});
@@ -163,6 +171,7 @@ describe.concurrent("merge", () => {
 		const before = await deps.gitCli(worktree, "rev-parse", "HEAD");
 		const trunkBefore = await deps.gitCli(deps.root, "rev-parse", "main");
 
+		await deps.finish(worktree);
 		await expect(merge(deps, worktree)).toBail("tests_failed", {
 			message: "boom-from-tests",
 		});
@@ -181,6 +190,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 		expect(await deps.gitCli(deps.root, "log", "-1", "--format=%s")).toBe(
 			"add alpha",
@@ -191,6 +201,7 @@ describe.concurrent("merge", () => {
 		const beta = (await deps.service.find("beta")).path;
 		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
 
+		await deps.finish(beta);
 		await expect(merge(deps, beta)).toBail("tests_failed", {
 			message: "boom-from-hook",
 		});
@@ -205,6 +216,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		expect(await deps.fs.read(join(deps.root, "post-merge.txt"))).toBe(
@@ -220,6 +232,7 @@ describe.concurrent("merge", () => {
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
 
+		await deps.finish(worktree);
 		await expect(merge(deps, worktree)).toBail("hook_failed", {
 			message: "boom-after-land",
 		});
@@ -241,7 +254,7 @@ describe.concurrent("merge", () => {
 
 		await expect(merge(deps, worktree)).toBail("blocked", {
 			message: "questions 1 unchecked",
-			data: { task: "alpha", blocked: ["1"] },
+			data: { task: "alpha", blocked: ["1"], steps: [] },
 		});
 
 		// Answered but not acted on: the agent checks it off once it has.
@@ -262,6 +275,32 @@ describe.concurrent("merge", () => {
 		);
 	});
 
+	it("refuses to land while a step under ## Next is unchecked", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		const plan = `${worktree}/${PLAN_FILE}`;
+		await deps.fs.write(
+			plan,
+			"# alpha\n\n## Done\n\n- [x] add alpha\n\n## Next\n\n- [ ] add beta\n",
+		);
+
+		await expect(merge(deps, worktree)).toBail("blocked", {
+			message: "1 step unchecked under ## Next",
+			data: { task: "alpha", blocked: [], steps: ["add beta"] },
+		});
+
+		await deps.fs.write(
+			plan,
+			"# alpha\n\n## Done\n\n- [x] add alpha\n\n## Next\n\n- [x] add beta\n",
+		);
+		await merge(deps, worktree);
+		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
+			"add alpha",
+		);
+	});
 	it("stops once the retry budget is spent", async () => {
 		await using deps = await Testing.open();
 
@@ -270,6 +309,7 @@ describe.concurrent("merge", () => {
 		const worktree = await deps.service.find("alpha");
 		await worktree.save({ mergeAttempts: 2 });
 
+		await deps.finish(worktree.path);
 		await expect(merge(deps, worktree.path)).toBail("budget_exhausted", {
 			message: "arbor escalate",
 		});
@@ -297,6 +337,7 @@ describe.concurrent("merge", () => {
 			return 0;
 		});
 
+		await deps.finish(worktree.path);
 		await expect(
 			merge({ ...deps, shell: new Shell({ ps }) }, worktree.path),
 		).toBail("lease_lost");
@@ -317,6 +358,8 @@ describe.concurrent("merge", () => {
 		await deps.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
 		await deps.commit(beta, "beta.txt", "beta\n", "add beta");
 
+		await deps.finish(alpha);
+		await deps.finish(beta);
 		await Promise.all([merge(deps, alpha), merge(deps, beta)]);
 
 		const lines = (await deps.fs.read(trace)).trim().split("\n");

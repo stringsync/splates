@@ -195,10 +195,11 @@ export interface Escalation {
 	reason: string;
 	at: string;
 	/**
-	 * For a task handed over to be approved rather than to answer questions,
-	 * the question in its plan that asks for the approval, `4`.
+	 * Set for a task handed over to be approved rather than to answer
+	 * questions, the reason saying what to look at. Records from before
+	 * reviews were a state hold the number of the question that asked, `"4"`.
 	 */
-	review?: string;
+	review?: true | string;
 }
 
 export interface TaskState {

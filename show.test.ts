@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
+import { escalate } from "./escalate";
 import { show } from "./show";
 import { Testing } from "./testing";
 
@@ -69,6 +70,25 @@ describe("show", () => {
 			ahead: 0,
 			plan: "# alpha\n",
 		});
+	});
+
+	it("says a task waiting on approval is ready to merge, and what to look at", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		await deps.finish(alpha);
+		await escalate(deps, "drag a todo on the board", alpha, { review: true });
+		deps.log.clear();
+
+		await show(deps, "alpha", { json: true });
+
+		const details = JSON.parse(deps.out());
+		expect(details).toMatchObject({
+			status: "escalated",
+			review: "drag a todo on the board",
+			ready: true,
+		});
+		// A review asks no question, so it leaves no ## Blocked behind.
+		expect(details.planProblems.join("\n")).not.toContain("## Blocked");
 	});
 
 	it("refuses a task that was never created", async () => {

@@ -2,22 +2,20 @@ import { color, type Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { PLAN_FILE, questions, withQuestion } from "./plan";
+import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
+import type { Escalation } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 export interface EscalateOptions {
 	/** Task to escalate. Defaults to the one `cwd` is a worktree for. */
 	task?: string;
 	/**
-	 * Ask a person to approve merging, rather than to answer questions: adds
-	 * the question that asks it to the plan, with the reason as its detail.
-	 * Refused while another question is unchecked.
+	 * Ask a person to approve merging, rather than to answer questions, with
+	 * the reason as what to look at. Refused until the task is ready to merge:
+	 * every question under `## Blocked` and step under `## Next` checked.
 	 */
 	review?: boolean;
 }
-
-/** The question a review asks. */
-export const REVIEW_SUBJECT = "Ready to merge?";
 
 /**
  * The way out that is not "resolve the conflict badly to finish the task".
@@ -55,31 +53,25 @@ export async function escalate(
 		fail("not_found", `no state file for '${name}'`, { task: name });
 	}
 
-	let asked: string | undefined;
 	if (review) {
-		const path = `${found.path}/${PLAN_FILE}`;
-		const plan = await fs.read(path).catch(() => "");
-		const unchecked = questions(plan)
-			.filter((question) => !question.done)
-			.map((question) => question.number);
 		// A review is the one thing left: approve it and the task lands.
-		if (unchecked.length > 0) {
+		const left = unfinished(
+			await fs.read(`${found.path}/${PLAN_FILE}`).catch(() => ""),
+		);
+		if (!ready(left)) {
 			fail(
 				"blocked",
-				`'${name}' has questions ${unchecked.join(", ")} unchecked under ## Blocked: settle those first, or escalate without --review to ask them`,
-				{ task: name, blocked: unchecked },
+				`'${name}' is not ready to merge: ${whatIsLeft(left)}. Escalate without --review to ask the questions, and finish or \`arbor todo add\` the steps, then ask for the review`,
+				{ task: name, blocked: left.questions, steps: left.steps },
 			);
 		}
-		const added = withQuestion(plan, REVIEW_SUBJECT, reason);
-		await fs.write(path, added.plan);
-		asked = added.number;
 	}
-	const escalations = [
+	const escalations: Escalation[] = [
 		...(found.state.escalations ?? []),
 		{
 			reason,
 			at: new Date().toISOString(),
-			...(asked === undefined ? {} : { review: asked }),
+			...(review ? { review: true } : {}),
 		},
 	];
 	// The worktree is left exactly as it is: a human needs to see what the
@@ -97,9 +89,7 @@ export async function escalate(
 			`  worktree: ${worktree.path}`,
 			`  branch:   ${worktree.branch}`,
 			`  reason:   ${reason}`,
-			asked === undefined
-				? ""
-				: `  review:   question ${asked} asks to approve merging`,
+			review ? "  review:   ready to merge once a person approves" : "",
 			escalations.length > 1
 				? `  (${escalations.length} escalations recorded)`
 				: "",

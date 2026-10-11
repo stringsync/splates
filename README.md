@@ -84,9 +84,9 @@ there, and fast-forwards the base with `git merge --ff-only`. History stays
 linear.
 
 1. Refuses if the worktree is dirty, out of retry budget, or leased elsewhere,
-   or while a question under `## Blocked` is unchecked (`blocked`): whether
-   nobody has answered it yet, or the agent has yet to act on an answer and
-   check it off.
+   or until the task is **ready to merge** (`blocked`): every question under
+   `## Blocked` checked, which means answered and acted on, and every step
+   under `## Next` checked. A task with no `ARBOR.md` has nothing left.
 2. Takes the merge lock, **blocking**, polling every 2s. Blocking is
    deliberate: telling an agent "busy, try later" invites it to go edit more
    code in a branch that is supposed to be frozen.
@@ -432,12 +432,15 @@ its question's line after ` → `, then checks it off once it has acted on it:
 - [x] 3. How should existing sessions move to the new tokens? → b (Migrate each session on its next request)
 ```
 
-`--review` asks for approval to merge rather than for answers: it adds
-`- [ ] 5. Ready to merge?` under `## Blocked`, the reason indented under
-it as what to look at. Refused (`blocked`) while another question is
-unchecked, so a review is the last thing standing between the task and trunk.
-The agent merges once the person approves in chat, or acts on the changes
-asked for.
+`--review` asks for approval to merge rather than for answers, the reason
+saying what to look at. It is a state of the task, not a question: it adds
+nothing to `## Blocked`, `arbor show` prints `ready to merge: <reason>`, and
+the `arbor dev` page badges the task "ready to merge". Refused (`blocked`)
+until the task is ready to merge, as `arbor merge` requires, so a review is
+the last thing standing between the task and trunk. The agent merges once
+the person approves in chat, or claims the task again and acts on the changes
+asked for. Whether a task needs a review at all is the agent's call: a small
+change it verified itself goes straight to `arbor merge`.
 
 This exists so an agent has a way out that is not "resolve the conflict badly to
 finish the task". Agents are reliable at mechanical conflicts (both sides added
@@ -555,7 +558,7 @@ The agent's control flow runs on these.
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
 | 13   | `already_removed`    | This task was removed earlier; nothing left to remove.              |
 | 14   | `timeout`           | `arbor wait` gave up: the task is still working or merging. Or `arbor todo wait`: the todo is still on the list. |
-| 16   | `blocked`           | `arbor merge` refused: a question under `## Blocked` is unchecked, unanswered or not yet acted on. Also `escalate --review` while one is. |
+| 16   | `blocked`           | `arbor merge` or `escalate --review` refused: the task is not ready to merge, with a question under `## Blocked` (unanswered or not yet acted on) or a step under `## Next` unchecked. |
 | 18   | `cycle`             | A todo link refused: it would make a loop, named in the message. |
 | 19   | `outdated`          | The records and this arbor disagree on format. A newer arbor wrote them: run `bunx @webappwiz/arbor@latest`. Or a todo was saved with tags, from before lanes: arbor reads no todos until `bunx @webappwiz/cli update` moves each tag's todos into a lane named after it. |
 | 20   | `uninitialized`     | This repository is not an arbor project yet: run `arbor init` in it once. Or `arbor dev` started in one that is not registered. |

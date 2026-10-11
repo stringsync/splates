@@ -2,7 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
-import { checkPlan, PLAN_FILE } from "./plan";
+import { checkPlan, PLAN_FILE, ready, unfinished } from "./plan";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -19,10 +19,15 @@ export interface Details {
 	age: string | null;
 	escalation: string | null;
 	/**
-	 * While escalated to be approved, the question that asks for it, `4`;
-	 * null otherwise.
+	 * While escalated to be approved, what to look at before approving; null
+	 * otherwise.
 	 */
 	review: string | null;
+	/**
+	 * Whether the plan leaves nothing unchecked under `## Blocked` or
+	 * `## Next`, which `arbor merge` and `arbor escalate --review` require.
+	 */
+	ready: boolean;
 	plan: string | null;
 	/** How the `ARBOR.md` departs from the shape the skill prescribes. */
 	planProblems: string[];
@@ -86,6 +91,9 @@ export class TaskDetails {
 		const plan = worktree.exists
 			? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
 			: null;
+		const last = state?.escalations?.at(-1);
+		const review =
+			state?.status === "escalated" && last?.review ? last.reason : null;
 		return {
 			task: worktree.task,
 			status: worktree.status,
@@ -97,11 +105,9 @@ export class TaskDetails {
 			added: stat?.added ?? null,
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
-			escalation: state?.escalations?.at(-1)?.reason ?? null,
-			review:
-				state?.status === "escalated"
-					? (state.escalations?.at(-1)?.review ?? null)
-					: null,
+			escalation: last?.reason ?? null,
+			review,
+			ready: ready(unfinished(plan ?? "")),
 			plan,
 			planProblems:
 				plan === null
@@ -109,6 +115,7 @@ export class TaskDetails {
 					: checkPlan(plan, {
 							task: worktree.task,
 							escalated: worktree.status === "escalated",
+							review: review !== null,
 						}),
 		};
 	}
@@ -124,7 +131,9 @@ function report(details: Details): string {
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,
 		`  age:       ${details.age ?? "?"}`,
 	];
-	if (details.escalation !== null) {
+	if (details.review !== null) {
+		lines.push(`  ${color.green(`ready to merge: ${details.review}`)}`);
+	} else if (details.escalation !== null) {
 		lines.push(`  ${color.yellow(`escalated: ${details.escalation}`)}`);
 	}
 	if (details.plan !== null) {

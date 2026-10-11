@@ -12,6 +12,7 @@ import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
+import { PLAN_FILE } from "./plan";
 import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { Todos } from "./todos";
@@ -165,6 +166,26 @@ export class Testing implements AsyncDisposable {
 		await this.fs.write(join(cwd, file), content);
 		await this.gitCli(cwd, "add", file);
 		await this.gitCli(cwd, "commit", "-m", message);
+	}
+
+	/**
+	 * Checks off every step under `## Next` in the plan at `cwd`, as an agent
+	 * does once its work is done, so the task is ready to merge.
+	 */
+	async finish(cwd: string): Promise<void> {
+		const path = join(cwd, PLAN_FILE);
+		const plan = await this.fs.read(path).catch(() => null);
+		if (plan === null) {
+			return;
+		}
+		let next = false;
+		const lines = plan.split("\n").map((line) => {
+			if (line.startsWith("## ")) {
+				next = line.trim() === "## Next";
+			}
+			return next ? line.replace(/^(\s*)- \[ \]/, "$1- [x]") : line;
+		});
+		await this.fs.write(path, lines.join("\n"));
 	}
 
 	/** Everything logged so far, one line each, without colour. */

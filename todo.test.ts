@@ -418,6 +418,7 @@ describe.concurrent("todo", () => {
 		await todoRelease(deps, [2], "dark");
 		deps.log.clear();
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		await expect(deps.todos.find(1)).toBail("not_found");
@@ -447,6 +448,7 @@ describe.concurrent("todo", () => {
 		await deps.commit(worktree, "dark.txt", "dark\n", "add dark");
 		deps.log.clear();
 
+		await deps.finish(worktree);
 		await merge(deps, worktree);
 
 		await expect(deps.todos.find(1)).toBail("not_found");

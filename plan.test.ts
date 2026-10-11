@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { checkPlan } from "./plan";
+import { checkPlan, ready, unfinished, whatIsLeft } from "./plan";
 
 const GOOD = `# alpha
 
@@ -48,13 +48,9 @@ describe("checkPlan", () => {
 		]);
 	});
 
-	it("wants a next step, not just an empty heading", () => {
-		const problems = checkPlan(GOOD.replace("- [ ] wire it up", ""), {
-			task: "alpha",
-		});
-		expect(problems).toEqual([
-			"## Next has no `- [ ]` item: say what the next step is",
-		]);
+	it("takes a Next with nothing left as a finished task", () => {
+		const finished = GOOD.replace("- [ ] wire it up", "- [x] wire it up");
+		expect(checkPlan(finished, { task: "alpha" })).toEqual([]);
 	});
 
 	it("catches work parked under Done that is not done", () => {
@@ -78,6 +74,12 @@ describe("checkPlan", () => {
 		expect(checkPlan(asked, { task: "alpha", escalated: true })).toEqual([]);
 		const detailed = `${GOOD}\n## Blocked\n- [ ] 1. Does the banner fit?\n  ![banner](/tmp/shot.png)\n  - (a) Yes\n`;
 		expect(checkPlan(detailed, { task: "alpha", escalated: true })).toEqual([]);
+	});
+
+	it("wants no question from a review, which asks only to approve", () => {
+		expect(
+			checkPlan(GOOD, { task: "alpha", escalated: true, review: true }),
+		).toEqual([]);
 	});
 
 	it("flags open items once the task is no longer escalated", () => {
@@ -104,5 +106,28 @@ describe("checkPlan", () => {
 	it("does not mistake a comment in a fenced block for a heading", () => {
 		const fenced = `${GOOD}\n\`\`\`bash\n# alpha notes\n## Goal\n\`\`\`\n`;
 		expect(checkPlan(fenced, { task: "alpha" })).toEqual([]);
+	});
+});
+
+describe("unfinished", () => {
+	it("finds the unchecked questions and steps a merge waits on", () => {
+		const plan = `${GOOD}\n## Blocked\n- [x] 1. Keep it? → yes\n- [ ] 2. Rename it?\n- [ ] 3. Drop it? → yes\n`;
+		const left = unfinished(plan);
+		expect(left).toEqual({ questions: ["2", "3"], steps: ["wire it up"] });
+		expect(ready(left)).toBe(false);
+		expect(whatIsLeft(left)).toBe(
+			"questions 2, 3 unchecked under ## Blocked and 1 step unchecked under ## Next",
+		);
+	});
+
+	it("leaves nothing once every box is checked, or with no plan at all", () => {
+		const finished = GOOD.replace("- [ ] wire it up", "- [x] wire it up");
+		expect(ready(unfinished(finished))).toBe(true);
+		expect(ready(unfinished(""))).toBe(true);
+	});
+
+	it("ignores an unchecked box outside Next and Blocked", () => {
+		const noted = `${GOOD.replace("- [ ] wire it up", "")}\n- [ ] an aside\n`;
+		expect(unfinished(noted).steps).toEqual([]);
 	});
 });

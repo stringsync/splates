@@ -27,6 +27,7 @@ describe.concurrent("arbor", () => {
 		expect(claimed.exitCode).toBe(0);
 		expect(claimed.stdout).toContain("uncommitted: none");
 		await env.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
+		await env.finish(alpha);
 		const merged = await arbor(alpha, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged alpha onto main");
@@ -34,6 +35,7 @@ describe.concurrent("arbor", () => {
 		// beta rebases onto a trunk that alpha moved out from under it.
 		expect((await arbor(beta, "claim", "beta")).exitCode).toBe(0);
 		await env.commit(beta, "beta.txt", "beta\n", "add beta");
+		await env.finish(beta);
 		expect((await arbor(beta, "merge")).exitCode).toBe(0);
 
 		const log = await env.gitCli(env.root, "log", "--oneline", "main");
@@ -85,6 +87,7 @@ describe.concurrent("arbor", () => {
 		);
 		await env.commit(part, "part.txt", "part\n", "add part");
 
+		await env.finish(part);
 		const landed = await arbor(part, "merge");
 		expect(landed.exitCode).toBe(0);
 		expect(landed.stdout).toContain("merged part onto task/parent");
@@ -97,6 +100,7 @@ describe.concurrent("arbor", () => {
 		).not.toContain("add part");
 
 		// The parent then lands both commits on trunk with its own merge.
+		await env.finish(parent);
 		expect((await arbor(parent, "merge")).exitCode).toBe(0);
 		const log = await env.gitCli(env.root, "log", "--oneline", "main");
 		expect(log).toContain("add parent");
@@ -122,6 +126,7 @@ describe.concurrent("arbor", () => {
 
 		expect((await arbor(tree, "claim", "gamma")).exitCode).toBe(0);
 		await env.commit(tree, "status.txt", "wrong\n", "add status");
+		await env.finish(tree);
 		const failed = await arbor(tree, "merge");
 		expect(failed.exitCode).not.toBe(0);
 		expect(
@@ -139,6 +144,7 @@ describe.concurrent("arbor", () => {
 		expect(resumed.stdout).toContain("status:   working (was escalated)");
 		expect(resumed.stdout).toContain("attempts: 1");
 		await env.commit(tree, "status.txt", "ok\n", "fix status");
+		await env.finish(tree);
 		const merged = await arbor(tree, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged gamma onto main");
@@ -171,6 +177,7 @@ describe.concurrent("arbor", () => {
 		expect(resumed.stdout).toContain("delta.txt");
 
 		await env.commit(tree, "delta.txt", "finished\n", "finish delta");
+		await env.finish(tree);
 		expect((await arbor(tree, "merge")).exitCode).toBe(0);
 		expect(await env.gitCli(env.root, "log", "--oneline", "main")).toContain(
 			"finish delta",
@@ -198,6 +205,7 @@ describe.concurrent("arbor", () => {
 
 		expect((await arbor(tree, "claim", "epsilon")).exitCode).toBe(0);
 		await env.commit(tree, "epsilon.txt", "epsilon\n", "add epsilon");
+		await env.finish(tree);
 		expect((await arbor(tree, "merge")).exitCode).not.toBe(0);
 		expect(await env.fs.exists(die)).toBe(false);
 
@@ -213,6 +221,7 @@ describe.concurrent("arbor", () => {
 		const resumed = await arbor(tree, "claim", "epsilon");
 		expect(resumed.exitCode).toBe(0);
 		expect(resumed.stdout).toContain("status:   merging");
+		await env.finish(tree);
 		const merged = await arbor(tree, "merge");
 		expect(merged.exitCode).toBe(0);
 		expect(merged.stdout).toContain("merged epsilon onto main");

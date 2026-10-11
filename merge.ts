@@ -3,7 +3,7 @@ import type { Fs, Lock } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { PLAN_FILE, questions } from "./plan";
+import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
 import type { Shell } from "./shell";
 import { recommend, recommendation } from "./todo";
 import type { Todos } from "./todos";
@@ -83,16 +83,15 @@ export async function merge(
 		);
 	}
 	// An unchecked question is one the user has yet to answer, or an answer
-	// the agent has yet to act on.
-	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
-	const blocked = questions(plan)
-		.filter((asked) => !asked.done)
-		.map((asked) => asked.number);
-	if (blocked.length > 0) {
+	// the agent has yet to act on; an unchecked step is work not yet done.
+	const left = unfinished(
+		await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => ""),
+	);
+	if (!ready(left)) {
 		fail(
 			"blocked",
-			`'${task}' has questions ${blocked.join(", ")} unchecked under ## Blocked: act on each answer and check it off, or escalate and ask the user in chat, then merge again`,
-			{ task, blocked },
+			`'${task}' is not ready to merge: ${whatIsLeft(left)}. Act on each answer and check it off, or escalate and ask the user in chat; finish each step and move it to ## Done, or \`arbor todo add\` it and drop it; then merge again`,
+			{ task, blocked: left.questions, steps: left.steps },
 		);
 	}
 	worktree = await worktree.take();

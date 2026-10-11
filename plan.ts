@@ -139,6 +139,54 @@ function dedent(lines: string[]): string {
 		.replace(/^\n+|\s+$/g, "");
 }
 
+/** What still stands between a task and trunk, as its plan tells it. */
+export interface Unfinished {
+	/** Each unchecked question under `## Blocked`, by number: `["2", "4"]`. */
+	questions: string[];
+	/** Each unchecked step under `## Next`, as written. */
+	steps: string[];
+}
+
+const STEP = /^[ \t]*- \[ \][ \t]*(.*)$/;
+
+/**
+ * The questions and steps a plan leaves unchecked. Nothing in either means the
+ * task is ready to merge: `arbor merge` lands it, and `arbor escalate --review`
+ * asks a person to look first. A task with no plan has nothing left.
+ */
+export function unfinished(text: string): Unfinished {
+	const md = Markdown.parse(text);
+	const next = md.has("Next") ? md.section("Next").body.split("\n") : [];
+	return {
+		questions: questions(text)
+			.filter((asked) => !asked.done)
+			.map((asked) => asked.number),
+		steps: next.flatMap((line) => {
+			const step = STEP.exec(line)?.[1];
+			return step === undefined ? [] : [step.trim()];
+		}),
+	};
+}
+
+/** Whether {@link unfinished} found nothing left. */
+export function ready({ questions, steps }: Unfinished): boolean {
+	return questions.length === 0 && steps.length === 0;
+}
+
+/** What {@link unfinished} found, as a clause: `questions 1, 2 unchecked under ## Blocked`. */
+export function whatIsLeft({ questions, steps }: Unfinished): string {
+	return [
+		questions.length > 0
+			? `questions ${questions.join(", ")} unchecked under ## Blocked`
+			: "",
+		steps.length > 0
+			? `${steps.length} step${steps.length === 1 ? "" : "s"} unchecked under ## Next`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" and ");
+}
+
 /**
  * The plan with a new open question at the end of `## Blocked`, the section
  * made if missing, numbered after the highest there. Returns the plan and
@@ -225,8 +273,13 @@ function blockedLines(text: string): { index: number; line: string }[] {
 export interface PlanOptions {
 	/** The task name the title is expected to match. */
 	task: string;
-	/** Whether the task has escalated, which makes `## Blocked` required. */
+	/**
+	 * Whether the task has escalated, which makes `## Blocked` required unless
+	 * it escalated for a review.
+	 */
 	escalated?: boolean;
+	/** Whether the escalation asks only to approve merging. */
+	review?: boolean;
 }
 
 /**
@@ -237,7 +290,7 @@ export interface PlanOptions {
  */
 export function checkPlan(
 	text: string,
-	{ task, escalated = false }: PlanOptions,
+	{ task, escalated = false, review = false }: PlanOptions,
 ): string[] {
 	const md = Markdown.parse(text);
 	const problems: string[] = [];
@@ -262,16 +315,13 @@ export function checkPlan(
 	if (section("Files") === "") {
 		problems.push("## Files is empty: list the file paths you plan to touch");
 	}
-	const next = section("Next");
-	if (next !== null && !UNCHECKED.test(next)) {
-		problems.push("## Next has no `- [ ]` item: say what the next step is");
-	}
 	const done = section("Done");
 	if (done !== null && UNCHECKED.test(done)) {
 		problems.push("## Done has a `- [ ]` item: it belongs under ## Next");
 	}
 	const blocked = section("Blocked");
-	if (escalated && blocked === null) {
+	// A review asks only to approve merging, which needs no question.
+	if (escalated && !review && blocked === null) {
 		problems.push(
 			"escalated with no ## Blocked section: add `- [ ] 1.` items for what the reviewer must do",
 		);

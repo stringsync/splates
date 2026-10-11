@@ -39,6 +39,31 @@ describe("App's tasks", () => {
 		expect(dialog.textContent).toContain("needs eyes");
 	});
 
+	it("marks a task waiting on approval as ready to merge, saying what to look at", async () => {
+		const view = await testing.openTasks({
+			tasks: [
+				details({
+					task: "alpha",
+					status: "escalated",
+					escalation: "drag a todo at http://localhost:4269",
+					review: "drag a todo at http://localhost:4269",
+				}),
+			],
+		});
+
+		expect(view.getByText("ready to merge")).toBeTruthy();
+		expect(view.queryByText("escalated")).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
+		);
+
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(dialog.textContent).toContain(
+			"Ready to merge: drag a todo at http://localhost:4269",
+		);
+	});
+
 	it("fills a bar with the steps its plan has checked off", async () => {
 		const view = await testing.openTasks({
 			tasks: [

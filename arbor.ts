@@ -244,7 +244,7 @@ arbor
 	.option("review", z.boolean(), {
 		default: false,
 		description:
-			"ask a person to approve merging: adds a `Ready to merge?` question under ## Blocked with the reason as its detail, answered in chat; refused while another question is unchecked",
+			"ask a person to approve merging, the reason saying what to look at, approved in chat; refused until the task is ready to merge, with every question under ## Blocked and step under ## Next checked",
 	})
 	.action(async (opts, ctx) =>
 		ctx.journal.record("escalate", opts.task || (await here(ctx)), () =>

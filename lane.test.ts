@@ -30,6 +30,7 @@ async function shape(deps: Testing): Promise<number[][]> {
 async function land(deps: Testing, task: string): Promise<void> {
 	const worktree = (await deps.service.find(task)).path;
 	await deps.commit(worktree, `${task}.txt`, `${task}\n`, task);
+	await deps.finish(worktree);
 	await merge(deps, worktree);
 	deps.ps.cd(deps.root);
 }
