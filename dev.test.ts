@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { add } from "./add";
 import { Conversations } from "./conversations";
 import { dev, devPorts } from "./dev";
@@ -771,6 +772,44 @@ describe("dev", () => {
 		}
 	});
 
+	describe("release", () => {
+		it("says on every page when a newer arbor is out, and nothing when the check fails", async () => {
+			let latest: string | null = null;
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				newest: async () => latest,
+				running: "0.0.43",
+				checkEvery: Duration.ms(20),
+			});
+			try {
+				const { port } = server;
+				const read = async () =>
+					(
+						(await (
+							await fetch(`http://localhost:${port}/api/snapshot`)
+						).json()) as Snapshot
+					).release;
+				expect(await read()).toBeNull();
+				expect(
+					await (await fetch(`http://localhost:${port}/api/release`)).json(),
+				).toEqual({ running: "0.0.43", newest: null, interrupted: [] });
+
+				const events = await fetch(`http://localhost:${port}/events`);
+				const reader = events.body?.getReader();
+				if (!reader) {
+					throw new Error("no event stream");
+				}
+				await readUntil(reader, "connected");
+				latest = "0.0.44";
+				expect(await within(reader, "changed", 1000)).toBe(true);
+				await reader.cancel();
+				expect(await read()).toEqual({ running: "0.0.43", newest: "0.0.44" });
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+	});
+
 	describe("conversations", () => {
 		let agent: FakeAgent;
 		let conversations: Conversations;
@@ -808,6 +847,64 @@ describe("dev", () => {
 					message: "conversations are off: run `arbor dev --experimental`",
 				});
 			});
+		});
+
+		it("lists the live ones as what a restart would stop", async () => {
+			let finish = () => {};
+			agent.turn = () =>
+				new Promise((resolve) => {
+					finish = () => resolve("end_turn");
+				});
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const release = async () =>
+					(
+						(await (
+							await fetch(`http://localhost:${port}/api/release`)
+						).json()) as { interrupted: unknown[] }
+					).interrupted;
+				for (let i = 0; i < 100; i++) {
+					const response = await json(
+						port,
+						`/api/conversations/${id}/prompt`,
+						"POST",
+						{ text: "hi" },
+					);
+					if (response.status === 200) {
+						break;
+					}
+					await Bun.sleep(5);
+				}
+
+				expect(await release()).toEqual([
+					{ project: "repo", id, name: "fake", status: "running" },
+				]);
+				finish();
+				const idle = { project: "repo", id, name: "fake", status: "idle" };
+				for (
+					let i = 0;
+					i < 100 && JSON.stringify(await release()) !== JSON.stringify([idle]);
+					i++
+				) {
+					await Bun.sleep(5);
+				}
+				expect(await release()).toEqual([idle]);
+				await json(port, `/api/conversations/${id}/archived`, "PUT", {
+					archived: true,
+				});
+				expect(await release()).toEqual([]);
+			} finally {
+				finish();
+				await server.disposeAsync();
+			}
 		});
 
 		it("starts one in a task's tree, streams the agent's turn, and archives it", async () => {

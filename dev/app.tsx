@@ -23,6 +23,7 @@ import {
 } from "./conversations";
 import { Feed } from "./feed";
 import { ProjectSwitcher } from "./projects";
+import { ReleaseHint } from "./release";
 import { Tasks } from "./tasks";
 import { Todos } from "./todos";
 
@@ -187,6 +188,10 @@ export function App(): JSX.Element {
 											<span className="size-1.5 rounded-full bg-amber-500" />
 											Outdated
 										</span>
+									)}
+									{/* A newer arbor is out: restarting onto it is the person's call. */}
+									{snapshot?.release && outdated === null && !offline && (
+										<ReleaseHint release={snapshot.release} />
 									)}
 									{offline && (
 										<span

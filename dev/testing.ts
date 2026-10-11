@@ -8,7 +8,7 @@ import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
-import type { ProjectChoice } from "./api";
+import type { Interrupted, ProjectChoice } from "./api";
 
 // Loaded only once the DOM above is in place, and handed on from here so a test
 // file need not load them itself. Bun loads a package's CommonJS while it links
@@ -65,6 +65,8 @@ export class Testing implements Resource {
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
 	projects: ProjectChoice[] = [];
+	/** The conversations `/api/release` says a restart would stop. */
+	interrupted: Interrupted[] = [];
 	#down = false;
 	#refusal: { reason: string; message: string } | null = null;
 	readonly #fetch = globalThis.fetch;
@@ -83,6 +85,13 @@ export class Testing implements Resource {
 			const route = path.split("?")[0];
 			if (route === "/api/projects") {
 				return Response.json({ projects: this.projects });
+			}
+			if (route === "/api/release") {
+				return Response.json({
+					running: this.served.release?.running ?? "0.0.1",
+					newest: this.served.release?.newest ?? null,
+					interrupted: this.interrupted,
+				});
 			}
 			if (path.startsWith("/api/paths")) {
 				return Response.json(this.tree);
@@ -171,6 +180,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		todos: [],
 		lanes: [],
 		tasks: [],
+		release: null,
 		...overrides,
 	};
 }

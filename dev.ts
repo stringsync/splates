@@ -20,6 +20,7 @@ import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
+import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
 import { fingerprint, snapshot } from "./snapshot";
 
@@ -45,6 +46,9 @@ export async function dev(
 		ports = devPorts(DEFAULT_PORT),
 		hosts = [],
 		conversations: converse = null,
+		newest = async () => null,
+		running = RUNNING,
+		checkEvery = CHECK,
 		open = async (root) => ({
 			...home,
 			...(await openRepository(home, { at: root, migrates: true })),
@@ -72,6 +76,8 @@ export async function dev(
 	const encoder = new TextEncoder();
 	/** Where the agents' own `arbor` reaches this server, once it listens. */
 	let url: string | null = null;
+	/** A newer arbor on npm, once a check has found one; every page says so. */
+	let release: Release | null = null;
 
 	const asset = (body: string, type: string): Response =>
 		new Response(body, { headers: { "content-type": type } });
@@ -138,7 +144,8 @@ export async function dev(
 		format,
 		arborDir,
 	}: Project): Promise<Served> => {
-		const read = () => snapshot({ service, todos, fs, home: ps.env("HOME") });
+		const read = () =>
+			snapshot({ service, todos, fs, home: ps.env("HOME"), release });
 		const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		let last = fingerprint(await read());
 		const conversations = converse?.({ arborDir }) ?? null;
@@ -645,6 +652,7 @@ export async function dev(
 			root: service.git.root,
 			format,
 			conversations,
+			refresh: changed,
 			snapshot: async () => Response.json(await read()),
 			events: async () => events(),
 			file,
@@ -758,6 +766,40 @@ export async function dev(
 			})),
 		});
 
+	// Read when the page opens its hint, so the conversations it lists are the
+	// ones a restart would stop right then.
+	const showRelease = async (): Promise<Response> => {
+		const interrupted: {
+			project: string;
+			id: string;
+			name: string;
+			status: string;
+		}[] = [];
+		const slugs = new Map(
+			(await projects.list()).map((each) => [each.root, each.slug]),
+		);
+		for (const settled of await Promise.allSettled(served.values())) {
+			const project = settled.status === "fulfilled" ? settled.value : null;
+			for (const conversation of (await project?.conversations?.list()) ?? []) {
+				const { id, name, title, agent, status } = conversation.state;
+				// An idle one loses its agent too, even with no turn to cut off.
+				if (status !== "stopped" && status !== "failed") {
+					interrupted.push({
+						project: slugs.get(project?.root ?? "") ?? "",
+						id,
+						name: name ?? title ?? agent,
+						status,
+					});
+				}
+			}
+		}
+		return Response.json({
+			running,
+			newest: release?.newest ?? null,
+			interrupted,
+		});
+	};
+
 	const forgetProject = async (request: Request): Promise<Response> => {
 		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
 		const found = (await projects.list()).find((each) => each.slug === slug);
@@ -790,6 +832,7 @@ export async function dev(
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/projects": guarded(listProjects),
+			"/api/release": guarded(showRelease),
 			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
@@ -853,6 +896,30 @@ export async function dev(
 
 	log.info(`arbor dev on http://localhost:${port}`);
 	const disposer = new AsyncDisposer();
+
+	// A check that fails says nothing, and the next one tries again.
+	const check = async (): Promise<void> => {
+		const found = await newest();
+		if (
+			found === null ||
+			!isNewer(found, running) ||
+			found === release?.newest
+		) {
+			return;
+		}
+		release = { running, newest: found };
+		log.info(
+			`arbor ${found} is out (this is ${running}): restart with \`bunx @webappwiz/arbor@latest dev\``,
+		);
+		for (const settled of await Promise.allSettled(served.values())) {
+			if (settled.status === "fulfilled") {
+				settled.value.refresh();
+			}
+		}
+	};
+	void check();
+	const checking = setInterval(() => void check(), checkEvery.ms);
+	disposer.defer(async () => clearInterval(checking));
 	// true drains open connections rather than cutting them mid-response
 	disposer.defer(() => server.stop(true));
 	disposer.defer(async () => {
@@ -876,6 +943,9 @@ const BEAT = Duration.ms(50);
  * pages should refetch.
  */
 const POLL_MS = 2_000;
+
+/** How often `arbor dev` asks npm whether a newer arbor is out. */
+const CHECK = Duration.mins(60);
 
 /** How long changes to a repo's files settle before it is read again. */
 const SETTLE = Duration.ms(50);
@@ -928,6 +998,16 @@ export interface DevOptions {
 	conversations?: ((project: { arborDir: string }) => Conversations) | null;
 	/** Opens a registered project other than the one started in, by its root. */
 	open?: (root: string) => Promise<Project>;
+	/**
+	 * The latest arbor on npm, or null when it cannot say, asked as the server
+	 * starts and hourly after; the page hints at a restart once it is past
+	 * `running`. Without it, nothing is checked.
+	 */
+	newest?: () => Promise<string | null>;
+	/** The version serving; the one installed by default. */
+	running?: string;
+	/** How often `newest` is asked after the first time: hourly by default. */
+	checkEvery?: Duration;
 }
 
 /** What `dev` serves a project with: its own records, read and written. */
@@ -944,6 +1024,8 @@ interface Served extends AsyncResource {
 	root: string;
 	format: Format;
 	conversations: Conversations | null;
+	/** Reads the repo again soon, telling its pages if anything moved. */
+	refresh: () => void;
 	snapshot: Handler;
 	events: Handler;
 	file: Handler;

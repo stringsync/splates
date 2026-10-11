@@ -49,6 +49,28 @@ describe("App's feed", () => {
 		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 
+	it("offers a newer arbor, with how to restart and what that stops", async () => {
+		const view = await testing.open();
+		expect(view.queryByText("Update")).toBeNull();
+
+		testing.served = snapshot({
+			release: { running: "0.0.43", newest: "0.0.44" },
+		});
+		testing.interrupted = [
+			{ project: "shop", id: "c1", name: "Fix checkout", status: "running" },
+		];
+		await act(async () => testing.stream?.onmessage?.());
+		const badge = await waitFor(() => view.getByText("Update"));
+		await act(async () => badge.click());
+
+		await waitFor(() => expect(view.getByText("Fix checkout")).toBeTruthy());
+		expect(view.getByText("arbor 0.0.44 is out")).toBeTruthy();
+		expect(view.getByText("bunx @webappwiz/arbor@latest dev")).toBeTruthy();
+		expect(
+			view.getByText("Fix checkout").closest("a")?.getAttribute("href"),
+		).toBe("/?project=shop#conversations/c1");
+	});
+
 	it("grays out the tab's icon while offline, and brings it back", async () => {
 		const icon = document.createElement("link");
 		icon.rel = "icon";

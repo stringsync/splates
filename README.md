@@ -617,6 +617,13 @@ ones until `arbor dev` has run, newer ones until arbor is updated. A running
 `arbor dev` checks again on every request, its page showing an Outdated badge
 whose tooltip says what to run.
 
+`arbor dev` asks npm for the latest arbor as it starts and hourly after. Once
+one newer than itself is out, it says so on stderr, and every page shows an
+Update badge beside the project's name, which opens on the command to restart
+with (`bunx @webappwiz/arbor@latest dev`) and the conversations, in any
+project, whose agents a restart would stop: checkpoint those first. A
+check that fails says nothing, and the next one tries again.
+
 Every project on this machine is listed in `~/.arbor/projects.json`
 (`$ARBOR_HOME/projects.json` when that is set), which `arbor init` run in a
 repository joins with its main tree, so one `arbor dev` can find them all

@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import type { Fs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
+import type { Release } from "./release";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
@@ -21,6 +22,8 @@ export interface Snapshot {
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
 	tasks: Details[];
+	/** A newer arbor than the one serving, once `arbor dev` has seen one on npm. */
+	release: Release | null;
 }
 
 /**
@@ -32,12 +35,14 @@ export async function snapshot({
 	todos,
 	fs,
 	home,
+	release = null,
 }: {
 	service: WorktreeService;
 	todos: Todos;
 	fs: Fs;
 	/** The home directory to show as `~`, when there is one. */
 	home?: string;
+	release?: Release | null;
 }): Promise<Snapshot> {
 	const details = new TaskDetails({ fs });
 	const tasks: Details[] = [];
@@ -51,6 +56,7 @@ export async function snapshot({
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),
 		tasks,
+		release,
 	};
 }
 
@@ -59,8 +65,14 @@ export async function snapshot({
  * `age` ticks every minute, and hashing it would push to every open page for
  * nothing.
  */
-export function fingerprint({ todos, lanes, tasks }: Snapshot): string {
+export function fingerprint({
+	todos,
+	lanes,
+	tasks,
+	release,
+}: Snapshot): string {
 	return JSON.stringify([
+		release,
 		todos,
 		lanes,
 		tasks.map((task) => [

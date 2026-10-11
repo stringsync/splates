@@ -16,6 +16,7 @@ import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
+import { newest } from "./release";
 import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
@@ -210,6 +211,7 @@ arbor
 							fs: ctx.fs,
 						})
 				: null,
+			newest: () => newest(),
 		}),
 	);
 
