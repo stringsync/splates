@@ -484,6 +484,37 @@ describe("App's conversations", () => {
 		expect(within(thread).getByText("running")).toBeTruthy();
 	});
 
+	it("keeps the reply in the place it held before the agent said anything", async () => {
+		const view = await conversations([
+			conversation({ title: "Read the note" }),
+		]);
+		const asked = message("user", "what does it say?");
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [asked],
+			}),
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const reply = () =>
+			thread.querySelector('[data-slot="aui_assistant-message-root"]');
+		await waitFor(() => expect(reply()).not.toBeNull());
+		const held = reply();
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [asked, message("agent", "It says hi.")],
+			}),
+		);
+
+		await waitFor(() => expect(thread.textContent).toContain("It says hi."));
+		// The same element, so it neither fades in again nor moves.
+		expect(held?.isConnected).toBe(true);
+	});
+
 	it("sends on Enter, keeps a new line on Shift+Enter, and stops a turn on Escape", async () => {
 		const view = await conversations([conversation()]);
 		const box = view.getByRole("textbox", {

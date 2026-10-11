@@ -243,6 +243,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 			delete (element as Partial<HTMLDivElement>).scrollTo;
 		};
 	}, []);
+	useAnchorAtOnce(viewport);
 
 	return (
 		<ThreadPrimitive.Root
@@ -308,6 +309,116 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 		</ThreadPrimitive.Root>
 	);
 };
+
+/**
+ * The person's message that opens the turn assistant-ui anchors to the top:
+ * the one before the last, a reply, while it runs.
+ */
+const anchoredTurn = (s: AssistantState) => {
+	const { messages, isRunning } = s.thread;
+	const anchor = messages.at(-2);
+	return isRunning &&
+		anchor?.role === "user" &&
+		messages.at(-1)?.role === "assistant"
+		? anchor.id
+		: undefined;
+};
+
+/** How tall a person's message may be before only its foot is anchored. */
+const TALLER_THAN_EM = 10;
+/** How much of a message taller than that stays in view, anchored. */
+const VISIBLE_EM = 6;
+
+/** The spacer assistant-ui keeps below a turn anchored to the top. */
+const RESERVE = "[data-aui-top-anchor-reserve]";
+
+/**
+ * Anchors a new turn to the top of `viewport` in the commit that adds it, as
+ * assistant-ui would a frame or two later: its spacer moved below the reply
+ * and sized to let the person's message reach the top, and the scroll there.
+ * Left to assistant-ui, every frame in between paints the message somewhere
+ * else first. Its own pass then finds nothing left to do.
+ */
+function useAnchorAtOnce(viewport: RefObject<HTMLDivElement | null>): void {
+	const id = useAuiState(anchoredTurn);
+	useLayoutEffect(() => {
+		const scroller = viewport.current;
+		const anchor = scroller?.querySelector<HTMLElement>(
+			`[data-role="user"][data-message-id="${CSS.escape(id ?? "")}"]`,
+		);
+		const target = anchor?.nextElementSibling;
+		if (
+			id === undefined ||
+			scroller == null ||
+			anchor == null ||
+			!(target instanceof HTMLElement)
+		) {
+			return;
+		}
+		// Before assistant-ui has anchored a turn here it has no spacer, and
+		// its own comes a frame later: a stand-in holds the room until then.
+		// assistant-ui keeps its spacer by reference, so it would never take
+		// one made here for its own.
+		const found = scroller.querySelector<HTMLElement>(RESERVE);
+		const reserve = found ?? document.createElement("div");
+		if (found === null) {
+			reserve.setAttribute("aria-hidden", "true");
+			reserve.style.flexShrink = "0";
+			reserve.style.pointerEvents = "none";
+		}
+		target.after(reserve);
+		// By layout, as assistant-ui measures, so the fade's slide counts for
+		// nothing.
+		let top = 0;
+		for (
+			let at: HTMLElement | null = anchor;
+			at != null && at !== scroller;
+			at = at.offsetParent as HTMLElement | null
+		) {
+			top += at.offsetTop;
+		}
+		const em = Number.parseFloat(getComputedStyle(anchor).fontSize) || 16;
+		const height = anchor.offsetHeight;
+		const scrollTop =
+			top +
+			(height <= TALLER_THAN_EM * em
+				? 0
+				: Math.max(0, height - VISIBLE_EM * em));
+		// Again until it holds, as assistant-ui sizes it frame by frame: while
+		// the thread is shorter than the viewport, the room it takes first
+		// comes out of the space the composer's margin fills.
+		for (let tries = 0; tries < 4; tries++) {
+			const rest = scroller.scrollHeight - reserve.offsetHeight;
+			const room = `${Math.max(0, scrollTop + scroller.clientHeight - rest)}px`;
+			if (reserve.style.height === room) {
+				break;
+			}
+			reserve.style.height = room;
+		}
+		const ratio = window.devicePixelRatio || 1;
+		scroller.scrollTop = Math.round(scrollTop * ratio) / ratio;
+		if (found !== null) {
+			return;
+		}
+		// Its spacer comes empty, the stand-in already making the room: the
+		// stand-in hands it the room before the frame paints.
+		let frame = 0;
+		const handOver = () => {
+			const theirs = scroller.querySelector<HTMLElement>(RESERVE);
+			if (theirs === null) {
+				frame = requestAnimationFrame(handOver);
+				return;
+			}
+			theirs.style.height = reserve.style.height;
+			reserve.remove();
+		};
+		frame = requestAnimationFrame(handOver);
+		return () => {
+			cancelAnimationFrame(frame);
+			reserve.remove();
+		};
+	}, [id, viewport]);
+}
 
 const ThreadMessage: FC = () => {
 	const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
@@ -759,15 +870,14 @@ const AssistantMessage: FC = () => {
 	} = useContext(ThreadComponentsContext);
 	const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
 
-	const ACTION_BAR_PT = "pt-1.5";
-	// Keep the action bar inside the contained root's paint box, then cancel its reserved space in flow.
-	const ACTION_BAR_HEIGHT = `min-h-7.5 ${ACTION_BAR_PT}`;
-
 	return (
 		<MessagePrimitive.Root
 			data-slot="aui_assistant-message-root"
 			data-role="assistant"
-			className="fade-in slide-in-from-bottom-1 animate-in relative duration-150 [contain-intrinsic-size:auto_200px] [content-visibility:auto]"
+			// Always laid out, never `content-visibility: auto`: a reply it skips
+			// stands in at a guessed height for a frame, whenever it mounts or
+			// stops being the last, and a new turn is anchored against that.
+			className="fade-in slide-in-from-bottom-1 animate-in relative duration-150"
 		>
 			<div
 				data-slot="aui_assistant-message-content"
@@ -963,9 +1073,6 @@ const Clamped: FC<
 	);
 };
 
-/** Room above the pinned message, in pixels: the band's `pt-2`. */
-const PIN_GAP = 8;
-
 /** Room kept between the pinned message and the next one pushing it out. */
 const PUSH_GAP = 16;
 
@@ -994,10 +1101,12 @@ const PinnedUserMessage: FC<{ viewport: RefObject<HTMLDivElement | null> }> = ({
 					'[data-slot="aui_user-message-root"]',
 				),
 			];
-			// The last turn whose message has begun to scroll out of sight.
+			// The last turn whose message has begun to scroll out of sight. Pinned
+			// where it leaves, the top, which is where a new turn is anchored, so
+			// the copy takes its place without a jump.
 			let at = -1;
 			starts.forEach((start, index) => {
-				if (start.getBoundingClientRect().top < top + PIN_GAP - 1) {
+				if (start.getBoundingClientRect().top < top - 1) {
 					at = index;
 				}
 			});
@@ -1055,7 +1164,7 @@ const PinnedUserMessage: FC<{ viewport: RefObject<HTMLDivElement | null> }> = ({
 		>
 			{/* Opaque but for its last 0.5rem, the box's corner radius, so the
 			    reply shows past the box's rounded foot rather than a square one. */}
-			<div className="pointer-events-auto mx-auto w-full max-w-(--thread-max-width) bg-[linear-gradient(var(--color-background)_calc(100%-0.5rem),transparent_calc(100%-0.5rem))] px-4 pt-2">
+			<div className="pointer-events-auto mx-auto w-full max-w-(--thread-max-width) bg-[linear-gradient(var(--color-background)_calc(100%-0.5rem),transparent_calc(100%-0.5rem))] px-4">
 				<div className="px-2">
 					<Clamped key={pin.id} watch={pin.id} lifted>
 						<p className="whitespace-pre-wrap">{text}</p>

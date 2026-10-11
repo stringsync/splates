@@ -1202,7 +1202,7 @@ function Thread({
 	const queued = conversation.messages.filter((each) => each.queued);
 	const messages = useMemo(() => {
 		const said = conversation.messages.filter((each) => !each.queued);
-		return said.map((message, index) =>
+		const liked = said.map((message, index) =>
 			like(
 				message,
 				index,
@@ -1210,7 +1210,16 @@ function Thread({
 				said[index - 1]?.at ?? message.at,
 			),
 		);
-	}, [conversation.messages, writing]);
+		// The reply's place while the agent has yet to say anything, under the
+		// id the reply will take: assistant-ui's own placeholder has an id of its
+		// own, so the reply would mount afresh in its place and fade in again.
+		return running && said.at(-1)?.role === "user"
+			? [
+					...liked,
+					{ id: String(said.length), role: "assistant" as const, content: [] },
+				]
+			: liked;
+	}, [conversation.messages, writing, running]);
 	const restore = useRef<(text: string) => void>(() => {});
 	const say = useCallback(
 		async (message: AppendMessage) => {
