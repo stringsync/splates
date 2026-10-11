@@ -5,7 +5,10 @@ import type { Part, Step, Tool } from "../conversations";
  * along the way, and its tool calls, which the page folds into one row.
  */
 export interface Work {
+	/** Every part of the turn, its reply among them. */
 	parts: Part[];
+	/** Which part is the reply, shown below the row; null before it says any. */
+	reply: number | null;
 	plan: Step[] | null;
 	/** When the person's prompt went, which the turn's time counts from. */
 	at: string | null;
@@ -42,7 +45,7 @@ export function timeline(work: Work): Item[] {
 	parts.forEach((part, index) => {
 		const last = items.at(-1);
 		if (part.type === "text") {
-			if (part.text.trim() !== "") {
+			if (part.text.trim() !== "" && index !== work.reply) {
 				items.push({ type: "text", text: part.text });
 			}
 			return;

@@ -1,14 +1,23 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
+	BrainIcon,
 	CheckIcon,
 	ChevronRightIcon,
 	CircleIcon,
+	CircleStopIcon,
 	FileTextIcon,
 	LoaderIcon,
 	SearchIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useEffect, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	use,
+	useEffect,
+	useState,
+} from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { CodeDiff } from "#dev/components/assistant-ui/elements/code-diff.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -37,6 +46,12 @@ export const WorkUI = makeAssistantDataUI<{ work: Work }>({
 	render: ({ data }) => <WorkRow work={data.work} />,
 });
 
+/**
+ * Whether the turn is still going: once it is over, a call the agent never
+ * finished has stopped, not running.
+ */
+const Going = createContext(true);
+
 export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const now = useNow(work.running);
 	const { edited } = summarize(work);
@@ -45,6 +60,15 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 		work.parts.flatMap((part) => (part.type === "tool" ? part.paths : [])),
 	);
 	const [file, setFile] = useState<string | null>(null);
+	// Open while the agent works with nothing said yet, so there is
+	// something to watch, and folded once it starts writing its reply.
+	const [open, setOpen] = useState(work.running && work.reply === null);
+	const replied = work.reply !== null;
+	useEffect(() => {
+		if (replied) {
+			setOpen(false);
+		}
+	}, [replied]);
 	const line = work.running
 		? [
 				work.at === null ? "Working" : `Working ${span(work.at, now)}`,
@@ -54,70 +78,76 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				.join(" · ")
 		: worked(work);
 	return (
-		<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
-			<details className="group/work">
-				<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-					<ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-open/work:rotate-90" />
-					{work.running && (
-						<LoaderIcon className="size-3.5 shrink-0 animate-spin" />
-					)}
-					<span className="min-w-0 truncate">{line}</span>
-				</summary>
-				<ol
-					aria-label="timeline"
-					className="mt-1.5 ml-1.5 flex flex-col gap-1 border-l pl-3"
+		<Going value={work.running}>
+			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
+				<details
+					open={open}
+					onToggle={(event) => setOpen(event.currentTarget.open)}
+					className="group/work"
 				>
-					{!work.running && work.plan !== null && (
-						<li>
-							<Plan steps={work.plan} />
-						</li>
-					)}
-					{items.map((item, index) => (
-						// The timeline only grows at its end, so an index is stable.
-						// biome-ignore lint/suspicious/noArrayIndexKey: as above
-						<li key={index}>
-							<Row item={item} short={short} />
-						</li>
-					))}
-				</ol>
-			</details>
-			{work.running && work.plan !== null && <Plan steps={work.plan} />}
-			{edited.length > 0 && (
-				<ul aria-label="edited files" className="flex flex-wrap gap-1">
-					{edited.map(({ path, count }) => (
-						<li key={path}>
-							<button
-								type="button"
-								title={path}
-								aria-pressed={file === path}
-								onClick={() => setFile(file === path ? null : path)}
-								className={cn(
-									"flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted",
-									file === path && "bg-muted",
-								)}
-							>
-								<FileTextIcon className="size-3 text-muted-foreground" />
-								{short(path)}
-								{count > 1 && (
-									<span className="text-muted-foreground">×{count}</span>
-								)}
-							</button>
-						</li>
-					))}
-				</ul>
-			)}
-			{file !== null && (
-				<Edits
-					short={short}
-					label={`edits to ${file}`}
-					edits={work.parts.flatMap((part) =>
-						part.type === "tool"
-							? part.edits.filter((edit) => edit.path === file)
-							: [],
-					)}
-				/>
-			)}
-		</div>
+					<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-open/work:rotate-90" />
+						{work.running && (
+							<LoaderIcon className="size-3.5 shrink-0 animate-spin" />
+						)}
+						<span className="min-w-0 truncate">{line}</span>
+					</summary>
+					<ol
+						aria-label="timeline"
+						className="mt-1.5 ml-1.5 flex flex-col gap-1 border-l pl-3"
+					>
+						{!work.running && work.plan !== null && (
+							<li>
+								<Plan steps={work.plan} />
+							</li>
+						)}
+						{items.map((item, index) => (
+							// The timeline only grows at its end, so an index is stable.
+							// biome-ignore lint/suspicious/noArrayIndexKey: as above
+							<li key={index}>
+								<Row item={item} short={short} />
+							</li>
+						))}
+					</ol>
+				</details>
+				{work.running && work.plan !== null && <Plan steps={work.plan} />}
+				{edited.length > 0 && (
+					<ul aria-label="edited files" className="flex flex-wrap gap-1">
+						{edited.map(({ path, count }) => (
+							<li key={path}>
+								<button
+									type="button"
+									title={path}
+									aria-pressed={file === path}
+									onClick={() => setFile(file === path ? null : path)}
+									className={cn(
+										"flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted",
+										file === path && "bg-muted",
+									)}
+								>
+									<FileTextIcon className="size-3 text-muted-foreground" />
+									{short(path)}
+									{count > 1 && (
+										<span className="text-muted-foreground">×{count}</span>
+									)}
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
+				{file !== null && (
+					<Edits
+						short={short}
+						label={`edits to ${file}`}
+						edits={work.parts.flatMap((part) =>
+							part.type === "tool"
+								? part.edits.filter((edit) => edit.path === file)
+								: [],
+						)}
+					/>
+				)}
+			</div>
+		</Going>
 	);
 }
 
@@ -155,7 +185,7 @@ function Row({
 		case "thought":
 			return (
 				<Fold
-					icon={<CircleIcon className="size-3" />}
+					icon={<BrainIcon className="size-3" />}
 					head={
 						item.at === null || item.until === null
 							? "Thought"
@@ -187,12 +217,17 @@ function Row({
 							$ {tool.command}
 						</pre>
 					)}
-					{tool.output !== "" && (
+					{tool.output !== "" ? (
 						<section aria-label="output">
 							<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-xs">
 								{plain(tool.output)}
 							</pre>
 						</section>
+					) : (
+						tool.status !== "pending" &&
+						tool.status !== "in_progress" && (
+							<p className="text-muted-foreground text-xs">No output</p>
+						)
 					)}
 				</Fold>
 			);
@@ -296,6 +331,7 @@ function Fold({
 
 /** ✓ or ✗ once a call has finished, a spinner until then. */
 function Status({ tool }: { tool: Tool }): JSX.Element {
+	const going = use(Going);
 	switch (tool.status) {
 		case "completed":
 			return <CheckIcon aria-label="passed" className="text-success" />;
@@ -303,7 +339,11 @@ function Status({ tool }: { tool: Tool }): JSX.Element {
 			return <XIcon aria-label="failed" className="text-destructive" />;
 		// Claude leaves a command pending, never in progress, while it runs.
 		default:
-			return <LoaderIcon aria-label="running" className="animate-spin" />;
+			return going ? (
+				<LoaderIcon aria-label="running" className="animate-spin" />
+			) : (
+				<CircleStopIcon aria-label="stopped" />
+			);
 	}
 }
 

@@ -1485,8 +1485,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
 /**
  * A message as assistant-ui takes one, the one place ACP's shape meets
- * assistant-ui's. An agent's turn is its reply, the text it ends on, after
- * one `data-work` part holding everything it did on the way there.
+ * assistant-ui's. An agent's turn is its reply, the last text it said, after
+ * one `data-work` part holding everything else it did.
  */
 function like(
 	message: Message,
@@ -1507,11 +1507,16 @@ function like(
 			),
 		};
 	}
-	const last = message.parts.at(-1);
+	// The last thing it said, even with tool calls after it: a turn that
+	// ends on one, or is still going, would otherwise fold its words away.
+	const said = message.parts.findLastIndex(
+		(part) => part.type === "text" && part.text.trim() !== "",
+	);
+	const last = message.parts[said];
 	const reply = last?.type === "text" ? last.text : "";
-	const parts = reply === "" ? message.parts : message.parts.slice(0, -1);
 	const work: Work = {
-		parts,
+		parts: message.parts,
+		reply: said === -1 ? null : said,
 		plan: message.plan,
 		at: began,
 		until: message.until,
@@ -1521,7 +1526,7 @@ function like(
 		id,
 		role: "assistant",
 		content: [
-			...(parts.length > 0 || message.plan !== null
+			...(message.parts.length > (said === -1 ? 0 : 1) || message.plan !== null
 				? [{ type: "data-work" as const, data: { work } }]
 				: []),
 			...(reply === "" ? [] : replied(reply, settled)),

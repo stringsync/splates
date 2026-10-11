@@ -697,6 +697,43 @@ describe("App's conversations", () => {
 			expect(within(timeline).getByText("Read 2 files")).toBeTruthy();
 		});
 
+		it("shows the last thing the agent said, even with tool calls after it", async () => {
+			const thread = await opened(
+				turn([
+					"Let me look.",
+					tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"] }),
+					"No, I'm not waiting on you.",
+					tool({ id: "x1", command: "bun test" }),
+				]),
+			);
+
+			await waitFor(() =>
+				expect(thread.textContent).toContain("No, I'm not waiting on you."),
+			);
+			const timeline = within(thread).getByRole("list", { name: "timeline" });
+			expect(timeline.textContent).not.toContain("No, I'm not waiting on you.");
+			expect(within(timeline).getByText("Let me look.")).toBeTruthy();
+			expect(within(timeline).getByText("bun test")).toBeTruthy();
+		});
+
+		it("marks a command the agent never finished as stopped once its turn is over", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "x1", command: "bun test" }),
+					tool({ id: "x2", command: "bun run demo", status: "in_progress" }),
+					"Done.",
+				]),
+			);
+
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
+			expect(within(timeline).getByLabelText("passed")).toBeTruthy();
+			expect(within(timeline).getByLabelText("stopped")).toBeTruthy();
+			expect(within(timeline).queryByLabelText("running")).toBeNull();
+			expect(within(timeline).getByText("No output")).toBeTruthy();
+		});
+
 		it("counts a command run again in a row, and opens it to its output", async () => {
 			const thread = await opened(
 				turn([
@@ -788,6 +825,41 @@ describe("App's conversations", () => {
 			expect(
 				within(thread).getByRole("list", { name: "plan" }).textContent,
 			).toBe("Run the testsFix what fails");
+		});
+
+		it("opens while the agent works with nothing said, folding once it replies", async () => {
+			const working = turn([tool({ id: "x1", command: "bun test" })], {
+				status: "running",
+			});
+			const thread = await opened(working);
+			const details = () =>
+				within(thread)
+					.getByRole("list", { name: "timeline" })
+					.closest("details") as HTMLDetailsElement;
+			await waitFor(() => expect(details().open).toBe(true));
+
+			await testing.say(
+				turn([tool({ id: "x1", command: "bun test" }), "Tests pass."], {
+					status: "running",
+				}),
+			);
+			await waitFor(() => expect(thread.textContent).toContain("Tests pass."));
+			expect(details().open).toBe(false);
+		});
+
+		it("stops saying it is thinking once it replies", async () => {
+			const thread = await opened(
+				turn(
+					[
+						{ type: "thought", text: "Which tests?", at: second(1) },
+						"Tests pass.",
+					],
+					{ status: "running" },
+				),
+			);
+
+			await waitFor(() => expect(thread.textContent).toContain("Tests pass."));
+			expect(thread.textContent).not.toContain("Thinking");
 		});
 
 		it("folds a subagent's calls into its row", async () => {
