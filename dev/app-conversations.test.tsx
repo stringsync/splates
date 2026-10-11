@@ -2529,15 +2529,15 @@ Cap upload retries
 			expect(view.getByRole("dialog", { name: "alpha" })).toBeTruthy();
 		});
 
-		it("counts the agents waiting on you on the tab and in the title", async () => {
+		it("counts the agents waiting on you in the tab's tooltip and the title, with no badge", async () => {
 			const view = await sidebar(
 				[conversation({ id: "c1", title: "Asks", status: "running", ask })],
 				[details({ task: "beta", status: "escalated" })],
 			);
 
-			expect(view.getByRole("tab", { name: /Conversations/ }).textContent).toBe(
-				"Conversations2",
-			);
+			const tab = view.getByRole("tab", { name: /Conversations/ });
+			expect(tab.textContent).toBe("Conversations");
+			expect(tab.title).toBe("Conversations (2)");
 			expect(document.title).toBe("(2) webappwiz");
 		});
 

@@ -332,13 +332,6 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													>
 														<Icon />
 														<span className="sr-only">{label}</span>
-														{/* Only the agents waiting on you are worth a badge. */}
-														{value === "conversations" &&
-															count(value) !== null && (
-																<span className="-top-1 -right-1 absolute flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground tabular-nums leading-none">
-																	{count(value)}
-																</span>
-															)}
 													</TabsTrigger>
 												))}
 											</TabsList>
