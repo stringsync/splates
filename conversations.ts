@@ -969,6 +969,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		if (this.state.status === "stopped" || this.state.status === "failed") {
 			await this.resume();
 		}
+		// Held while the agent starts, it finds a turn running only because a
+		// message said before it started one, which has yet to reach the agent:
+		// steered in, it would join that message rather than follow it.
+		const waited = this.opening !== null;
 		await this.opening;
 		// Said after a checkpoint ended, the work goes on past it.
 		if (
@@ -995,7 +999,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 		const kept = await this.keep(images);
 		if (this.state.status === "running") {
-			if (!this.steers) {
+			if (!this.steers || waited) {
 				this.queue(words, kept);
 				return;
 			}

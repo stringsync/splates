@@ -255,6 +255,34 @@ describe("Conversations", () => {
 			expect(said).toEqual(["one"]);
 		});
 
+		it("gives each message said while the agent starts a turn of its own, even when it steers", async () => {
+			agent.steering = "injected";
+			const conversation = await conversations.start("fake", {
+				task: "login",
+				cwd: "/repo-arbor/login",
+			});
+
+			await Promise.all([
+				conversation.prompt("one"),
+				conversation.prompt("two"),
+			]);
+
+			expect(agent.steered).toEqual([]);
+			expect(thread(conversation)).toEqual([
+				["one", false],
+				["two", true],
+			]);
+			for (let i = 0; i < 100 && held.finish === undefined; i++) {
+				await Bun.sleep(1);
+			}
+			held.finish?.("end_turn");
+			for (let i = 0; i < 100 && said.length < 2; i++) {
+				await Bun.sleep(1);
+			}
+			expect(said).toEqual(["one", "two"]);
+			await finish(conversation);
+		});
+
 		it("waits for the turn to end when the agent cannot steer, then says all that waited as one prompt", async () => {
 			const conversation = await working();
 

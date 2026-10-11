@@ -24,13 +24,13 @@ export class ConversationFeed
 
 	available = false;
 	agents: AgentChoice[] = [];
-	/** Newest first, each with the message on its way (see `send`) as said. */
+	/** Newest first, each with the messages on their way (see `send`) as said. */
 	conversations: ConversationState[] = [];
 	/**
-	 * Each conversation's message on its way, by id, with how many the person
-	 * had said there when they sent it.
+	 * Each conversation's messages on their way, by id, in the order sent,
+	 * with how many the person had said there when they sent the first.
 	 */
-	readonly sending = new Map<string, { text: string; after: number }>();
+	readonly sending = new Map<string, { texts: string[]; after: number }>();
 
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
@@ -63,20 +63,48 @@ export class ConversationFeed
 	/**
 	 * Shows `text` as said in conversation `id`, whose server holds it
 	 * unrecorded until the agent is up, starting or resuming, so the thread
-	 * does not sit as it was meanwhile. It goes once the server has one more
-	 * message from the person there, or `sent` says it was refused.
+	 * does not sit as it was meanwhile. The first held there starts a turn and
+	 * the rest wait for its end, so they show as queued, as the server will
+	 * record them. Each goes once the server has recorded as many more
+	 * messages from the person there, or `sent` says it was refused.
 	 */
 	send(id: string, text: string): void {
 		const held = this.recorded.find((each) => each.id === id);
-		this.sending.set(id, { text, after: said(held) });
+		const sending = this.sending.get(id);
+		if (sending === undefined) {
+			this.sending.set(id, { texts: [text], after: said(held) });
+		} else {
+			sending.texts.push(text);
+		}
 		this.show(this.recorded);
 	}
 
-	/** Stops showing what `send` showed in conversation `id`. */
-	sent(id: string): void {
-		if (this.sending.delete(id)) {
-			this.show(this.recorded);
+	/**
+	 * How many of conversation `id`'s queued messages are still on their way,
+	 * the last ones: the server has nothing of them to take back yet.
+	 */
+	unrecorded(id: string): number {
+		const sending = this.sending.get(id);
+		if (sending === undefined) {
+			return 0;
 		}
+		const held = this.recorded.find((each) => each.id === id);
+		// All but the first, which starts the turn, less those recorded since.
+		return sending.texts.length - Math.max(1, said(held) - sending.after);
+	}
+
+	/** Stops showing `text`, which `send` showed in conversation `id`. */
+	sent(id: string, text: string): void {
+		const sending = this.sending.get(id);
+		const at = sending?.texts.indexOf(text) ?? -1;
+		if (sending === undefined || at === -1) {
+			return;
+		}
+		sending.texts.splice(at, 1);
+		if (sending.texts.length === 0) {
+			this.sending.delete(id);
+		}
+		this.show(this.recorded);
 	}
 
 	private show(recorded: ConversationState[]): void {
@@ -86,7 +114,8 @@ export class ConversationFeed
 			if (sending === undefined) {
 				return each;
 			}
-			if (said(each) > sending.after) {
+			const recorded = said(each) - sending.after;
+			if (recorded >= sending.texts.length) {
 				this.sending.delete(each.id);
 				return each;
 			}
@@ -94,13 +123,14 @@ export class ConversationFeed
 				...each,
 				messages: [
 					...each.messages,
-					{
-						role: "user",
-						parts: [{ type: "text", text: sending.text }],
+					...sending.texts.slice(recorded).map((text, index) => ({
+						role: "user" as const,
+						parts: [{ type: "text" as const, text }],
 						plan: null,
 						at: null,
 						until: null,
-					},
+						...(recorded + index > 0 ? { queued: true as const } : {}),
+					})),
 				],
 			};
 		});

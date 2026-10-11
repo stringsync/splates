@@ -692,6 +692,49 @@ describe("App's conversations", () => {
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 	});
 
+	it("shows each message to a stopped conversation at once while its agent resumes, those after the first as queued until the server has them", async () => {
+		const said = [message("user", "fix the login"), message("agent", "Done.")];
+		const view = await conversations([
+			conversation({ title: "Login", status: "stopped", messages: said }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+
+		for (const text of ["and the logout", "and the signup"]) {
+			await act(async () => fireEvent.change(box, { target: { value: text } }));
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		}
+
+		await waitFor(() =>
+			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		);
+		const queued = within(thread).getByRole("region", {
+			name: "queued messages",
+		});
+		expect(within(queued).getByText("and the signup")).toBeTruthy();
+		// The server has nothing of it to take back yet.
+		const discard = within(queued).getByRole("button", {
+			name: "Discard and the signup",
+		}) as HTMLButtonElement;
+		expect(discard.disabled).toBe(true);
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [
+					...said,
+					message("user", "and the logout"),
+					{ ...message("user", "and the signup"), queued: true },
+				],
+			}),
+		);
+
+		await waitFor(() => expect(discard.disabled).toBe(false));
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
+	});
+
 	it("takes a message to a stopped conversation back out of its thread when the server refuses it", async () => {
 		const view = await conversations([
 			conversation({ title: "Login", status: "stopped" }),

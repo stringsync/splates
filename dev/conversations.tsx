@@ -1246,7 +1246,7 @@ function Home({
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its
 					// composer, its words only.
-					feed.sent(state.id);
+					feed.sent(state.id, text);
 					drafts.write(state.id, text);
 					refuseIn(state.id, "Not sent", error);
 				},
@@ -1486,12 +1486,15 @@ function Recent({
 function Queued({
 	conversation,
 	messages,
+	pending,
 	onEdit,
 	onDiscard,
 	onSendNow,
 }: {
 	conversation: string;
 	messages: Message[];
+	/** How many of `messages`, the last ones, the server has yet to record. */
+	pending: number;
 	onEdit: (index: number) => void;
 	onDiscard: (index: number) => void;
 	onSendNow: () => void;
@@ -1524,6 +1527,9 @@ function Queued({
 					const label =
 						text ||
 						(images.length === 1 ? "an image" : `${images.length} images`);
+					// Still on its way while the agent starts: the server has nothing
+					// to take back yet.
+					const unrecorded = index >= messages.length - pending;
 					return (
 						<li
 							// Only ever added at the end and taken from anywhere, but
@@ -1545,6 +1551,7 @@ function Queued({
 								size="icon-xs"
 								variant="ghost"
 								aria-label={`Edit ${label}`}
+								disabled={unrecorded}
 								onClick={() => onEdit(index)}
 							>
 								<PencilIcon />
@@ -1553,6 +1560,7 @@ function Queued({
 								size="icon-xs"
 								variant="ghost"
 								aria-label={`Discard ${label}`}
+								disabled={unrecorded}
 								onClick={() => onDiscard(index)}
 							>
 								<Trash2Icon />
@@ -1803,7 +1811,7 @@ function Thread({
 			}
 			await promptConversation(id, text, images).catch((error: unknown) => {
 				if (held) {
-					feed.sent(id);
+					feed.sent(id, text);
 				}
 				restore.current(text, images);
 				refused("Not sent", error);
@@ -1989,7 +1997,9 @@ function Thread({
 					event.key === "ArrowUp" &&
 					box.getAttribute("aria-label") === "Message input" &&
 					runtime.thread.composer.getState().text === "" &&
-					queued.length > 0
+					queued.length > 0 &&
+					// The last one is still on its way, with nothing to take back.
+					feed.unrecorded(id) === 0
 				) {
 					event.preventDefault();
 					void edit(queued.length - 1);
@@ -2082,6 +2092,7 @@ function Thread({
 												<Queued
 													conversation={id}
 													messages={queued}
+													pending={feed.unrecorded(id)}
 													onEdit={(index) => void edit(index)}
 													onDiscard={(index) => void discard(index)}
 													onSendNow={() => void sendNow()}
