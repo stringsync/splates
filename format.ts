@@ -61,28 +61,46 @@ export class Format {
 	}
 
 	/**
+	 * Makes the repository an arbor project, as only `arbor init` does: stamps
+	 * records from before formats were stamped as version 1, and a repository
+	 * with none yet as this arbor's. Leaves stamped records alone.
+	 */
+	async create(): Promise<void> {
+		if ((await this.stored()) !== null) {
+			return;
+		}
+		const records = await this.fs.exists(this.arborDir);
+		await this.fs.mkdir(this.arborDir);
+		await this.write(records ? 1 : this.current);
+	}
+
+	/**
 	 * Refuses records in any format but this arbor's, which it would misread or
 	 * overwrite: a newer one until arbor is updated, an older one until
-	 * `arbor dev` has migrated it. Records from before formats were stamped
-	 * are version 1, and stamped so when that is this arbor's.
+	 * `arbor dev` has migrated it. Refuses a repository with none stamped
+	 * until `arbor init` has made it an arbor project.
 	 */
 	async check(): Promise<void> {
 		const stored = await this.stored();
 		if (stored === this.current) {
 			return;
 		}
-		if (stored === null && this.current === 1) {
-			await this.write(1);
-			return;
+		if (stored === null) {
+			fail(
+				"uninitialized",
+				[
+					"this repository is not an arbor project yet.",
+					"Run `arbor init` in it once: it sets up arbor's records and registers it, then every command works.",
+				].join("\n"),
+			);
 		}
-		const format = stored ?? 1;
 		fail(
 			"outdated",
 			[
-				`this repository's arbor records are in format ${format}, older than this arbor's ${this.current}, so it leaves them alone.`,
+				`this repository's arbor records are in format ${stored}, older than this arbor's ${this.current}, so it leaves them alone.`,
 				"Start `arbor dev` in this repository once: it migrates them, then every command works as before.",
 			].join("\n"),
-			{ format, understood: this.current },
+			{ format: stored, understood: this.current },
 		);
 	}
 
@@ -92,14 +110,14 @@ export class Format {
 	 */
 	async migrate(): Promise<void> {
 		const stored = await this.stored();
-		if (stored === this.current || (stored === null && this.current === 1)) {
+		if (stored === null || stored === this.current) {
 			return this.check();
 		}
 		// Read again under the lock: another command may have just migrated.
 		await this.lock.acquire();
 		try {
 			for (
-				let format = (await this.stored()) ?? 1;
+				let format = (await this.stored()) ?? this.current;
 				format < this.current;
 				format += 1
 			) {

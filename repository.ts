@@ -25,7 +25,7 @@ export interface Repository {
 	shell: Shell;
 	journal: Journal;
 	todos: Todos;
-	/** Every arbor project on this machine, which every command joins. */
+	/** Every arbor project on this machine, which `arbor init` joins this one to. */
 	projects: Projects;
 }
 
@@ -37,6 +37,11 @@ export interface RepositoryOptions {
 	 * other command refuses them until it has.
 	 */
 	migrates?: boolean;
+	/**
+	 * Sets up the records of a repository that has none first, as only
+	 * `arbor init` does: every other command refuses one.
+	 */
+	creates?: boolean;
 	/** Where to look for the repository; the working directory by default. */
 	at?: string;
 }
@@ -60,7 +65,7 @@ export function repository<C extends Deps & { fs: Fs }>(
  */
 export async function openRepository(
 	{ fs, ps, log }: Deps & { fs: Fs },
-	{ migrates = false, at }: RepositoryOptions = {},
+	{ migrates = false, creates = false, at }: RepositoryOptions = {},
 ): Promise<Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
@@ -83,9 +88,7 @@ export async function openRepository(
 
 	const git = new Git(dirname(gitDir), { ps, fs });
 	const config = await loadConfig(dirname(gitDir), { fs, git });
-	const service = new WorktreeService(git, config, arborDir, { fs, ps });
-	await service.init();
-	// Before anything reads a record.
+	// Before anything reads or makes a record.
 	const format = new Format(arborDir, {
 		fs,
 		lock: new FileLock(`${arborDir}/format.lock`, {
@@ -96,11 +99,16 @@ export async function openRepository(
 		}),
 		log,
 	});
+	if (creates) {
+		await format.create();
+	}
 	await (migrates ? format.migrate() : format.check());
+	const service = new WorktreeService(git, config, arborDir, { fs, ps });
+	await service.init();
 
-	// The user's, shared by every repository on this machine: any command
-	// run in one makes it an arbor project, so it joins here. `ARBOR_HOME`
-	// moves it, as the tests do to keep theirs out of the user's.
+	// The user's, shared by every repository on this machine, which only
+	// `arbor init` writes this one into. `ARBOR_HOME` moves it, as the tests
+	// do to keep theirs out of the user's.
 	const registry =
 		ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
 	const projects = new Projects(`${registry}/projects.json`, {
@@ -112,7 +120,6 @@ export async function openRepository(
 			stalenessMs: config.leaseStalenessMs,
 		}),
 	});
-	await projects.register(git.root);
 
 	return {
 		projects,

@@ -27,6 +27,15 @@ rebase, and that is what `remove` is for.
 
 ## Commands
 
+### `arbor init`
+
+Makes the repository an arbor project: sets up its records under `.git/arbor`
+when it has none, and registers its main tree in `~/.arbor/projects.json` (see
+Leases and locks), so `arbor dev` serves it beside every other. Run in a
+project already under way, or again, it only registers. Every other command
+refuses a repository `arbor init` never ran in (`uninitialized`), and
+`arbor dev` one it never registered.
+
 ### `arbor add <task> [--base <branch>] [--todo <id,...>]`
 
 Creates the task: branch `task/<task>`, a worktree at
@@ -543,6 +552,7 @@ The agent's control flow runs on these.
 | 16   | `blocked`           | `arbor merge` refused: a question under `## Blocked` is unchecked, unanswered or not yet acted on. Also `escalate --review` while one is. |
 | 18   | `cycle`             | A todo link refused: it would make a loop, named in the message. |
 | 19   | `outdated`          | The records and this arbor disagree on format. A newer arbor wrote them: run `bunx @webappwiz/arbor@latest`. Or a todo was saved with tags, from before lanes: arbor reads no todos until `bunx @webappwiz/cli update` moves each tag's todos into a lane named after it. |
+| 20   | `uninitialized`     | This repository is not an arbor project yet: run `arbor init` in it once. Or `arbor dev` started in one that is not registered. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.
@@ -598,8 +608,8 @@ the environment to derive a stable port from if a task needs one.
 ### Leases and locks
 
 State lives in `.git/arbor/`, shared by every worktree, never tracked by git.
-`.git/arbor/format` names the version of its records, as one; records from
-before it are version 1. Only `arbor dev` migrates older records forward, as
+`.git/arbor/format` names the version of its records, as one, and is what
+`arbor init` writes: records from before it are version 1. Only `arbor dev` migrates older records forward, as
 it starts, a step at a time under `.git/arbor/format.lock`, saying each step on
 stderr; it never writes an older format. Every other command refuses records in
 any format but its own (`outdated`) rather than misread or overwrite them: older
@@ -608,8 +618,8 @@ ones until `arbor dev` has run, newer ones until arbor is updated. A running
 whose tooltip says what to run.
 
 Every project on this machine is listed in `~/.arbor/projects.json`
-(`$ARBOR_HOME/projects.json` when that is set), which any arbor command run in
-a repository joins with its main tree, so one `arbor dev` can find them all
+(`$ARBOR_HOME/projects.json` when that is set), which `arbor init` run in a
+repository joins with its main tree, so one `arbor dev` can find them all
 without scanning the disk. One whose repository
 has since moved or been deleted stays listed, flagged as gone, since a drive
 that is not mounted comes back.

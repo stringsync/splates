@@ -5,7 +5,7 @@ import { Testing } from "./testing";
 
 describe("Projects", () => {
 	it("registers a repository once, in the order arbor first ran in each", async () => {
-		await using deps = await Testing.open();
+		await using deps = await Testing.open({ init: false });
 		const other = `${deps.root}-other`;
 		await deps.fs.mkdir(`${other}/.git`);
 
@@ -20,7 +20,7 @@ describe("Projects", () => {
 	});
 
 	it("keeps every repository when commands register at once", async () => {
-		await using deps = await Testing.open();
+		await using deps = await Testing.open({ init: false });
 		const roots = ["a", "b", "c", "d"].map((name) => `${deps.root}-${name}`);
 		const registry = (path: string) =>
 			new Projects(path, {
@@ -43,7 +43,7 @@ describe("Projects", () => {
 	});
 
 	it("flags a repository that is gone, rather than forgetting it", async () => {
-		await using deps = await Testing.open();
+		await using deps = await Testing.open({ init: false });
 		const moved = `${deps.root}-moved`;
 		await deps.projects.register(moved);
 
@@ -53,7 +53,7 @@ describe("Projects", () => {
 	});
 
 	it("names each by its root's last part, numbering a second of the same name", async () => {
-		await using deps = await Testing.open();
+		await using deps = await Testing.open({ init: false });
 		const roots = ["/a/web", "/b/web", "/c/api"];
 		for (const root of roots) {
 			await deps.projects.register(root);
@@ -67,7 +67,7 @@ describe("Projects", () => {
 	});
 
 	it("forgets one, leaving the rest", async () => {
-		await using deps = await Testing.open();
+		await using deps = await Testing.open({ init: false });
 		await deps.projects.register("/a/web");
 		await deps.projects.register("/c/api");
 
@@ -79,7 +79,7 @@ describe("Projects", () => {
 	});
 
 	it("refuses a registry a newer arbor wrote", async () => {
-		await using deps = await Testing.open();
+		await using deps = await Testing.open({ init: false });
 		await deps.fs.mkdir(deps.projects.path.replace(/\/[^/]+$/, ""));
 		await deps.fs.write(
 			deps.projects.path,

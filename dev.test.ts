@@ -124,6 +124,15 @@ describe("dev", () => {
 			});
 		});
 
+		it("refuses to start in a project `arbor init` never registered", async () => {
+			await deps.projects.forget(deps.root);
+
+			await expect(dev(deps, { ports: OpenPortProvider.any() })).toBail(
+				"uninitialized",
+				{ message: "Run `arbor init` in it once" },
+			);
+		});
+
 		it("lists the projects, and forgets a gone one but never its own", async () => {
 			await using _other = await another();
 			await deps.projects.register("/nowhere/gone");

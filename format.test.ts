@@ -34,11 +34,29 @@ function step(name: string, ran: string[], flaky = false): Migration {
 }
 
 describe("Format", () => {
-	it("stamps records from before formats as version 1", async () => {
-		await using deps = await Testing.open();
+	it("refuses a repository arbor init never ran in, and stamps it as this arbor's on create", async () => {
+		await using deps = await Testing.open({ init: false });
+		const later = format(deps, [step("splits lanes", [])]);
 
-		await deps.format.check();
+		await expect(later.check()).toBail("uninitialized", {
+			message: "Run `arbor init` in it once",
+		});
+		await expect(later.migrate()).toBail("uninitialized");
+		expect(await deps.fs.exists(deps.arborDir)).toBe(false);
 
+		await later.create();
+		await later.check();
+		expect(await deps.fs.read(`${deps.arborDir}/format`)).toBe("2\n");
+	});
+
+	it("stamps records from before formats as version 1 on create, and leaves stamped ones alone", async () => {
+		await using deps = await Testing.open({ init: false });
+		await deps.fs.mkdir(`${deps.arborDir}/tasks`);
+
+		await format(deps, [step("splits lanes", [])]).create();
+		expect(await deps.fs.read(`${deps.arborDir}/format`)).toBe("1\n");
+
+		await deps.format.create();
 		expect(FORMAT).toBe(1);
 		expect(await deps.fs.read(`${deps.arborDir}/format`)).toBe("1\n");
 	});
@@ -116,7 +134,7 @@ describe("Format", () => {
 			],
 		});
 		expect(ran).toEqual([]);
-		expect(await deps.fs.exists(`${deps.arborDir}/format`)).toBe(false);
+		expect(await deps.fs.read(`${deps.arborDir}/format`)).toBe("1\n");
 
 		await older.migrate();
 		await older.check();

@@ -25,6 +25,7 @@ it("keeps the exit codes stable", () => {
 		blocked: 16,
 		cycle: 18,
 		outdated: 19,
+		uninitialized: 20,
 	});
 });
 

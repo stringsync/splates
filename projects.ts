@@ -34,8 +34,8 @@ export interface ProjectsOptions {
 
 /**
  * Every arbor project on this machine, kept in one file under the user's
- * home: an explicit roster that `arbor add` and `arbor dev` write themselves
- * into, so one `arbor dev` can find them all without scanning the disk.
+ * home: an explicit roster that `arbor init` writes each into, so one
+ * `arbor dev` can find them all without scanning the disk.
  */
 export class Projects {
 	private readonly fs: Fs;
@@ -52,10 +52,13 @@ export class Projects {
 		this.now = now;
 	}
 
-	/** Adds the repository at `root`, once; registering it again changes nothing. */
-	async register(root: string): Promise<void> {
+	/**
+	 * Adds the repository at `root`, once, saying whether it did: registering
+	 * it again changes nothing.
+	 */
+	async register(root: string): Promise<boolean> {
 		if ((await this.records()).some((each) => each.root === root)) {
-			return;
+			return false;
 		}
 		// The lock lives beside the file, so its directory comes first.
 		await this.fs.mkdir(this.dir);
@@ -64,9 +67,10 @@ export class Projects {
 		try {
 			const records = await this.records();
 			if (records.some((each) => each.root === root)) {
-				return;
+				return false;
 			}
 			await this.write([...records, { root, added: this.now().toISOString() }]);
+			return true;
 		} finally {
 			await this.lock.release();
 		}

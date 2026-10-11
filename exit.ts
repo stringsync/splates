@@ -23,6 +23,7 @@ export const EXIT = {
 	// 17 was `not_escalated`, gone with answering from the page: never reuse it.
 	cycle: 18,
 	outdated: 19,
+	uninitialized: 20,
 } as const;
 
 export type Reason = keyof typeof EXIT;

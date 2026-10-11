@@ -222,21 +222,44 @@ describe.concurrent("arbor", () => {
 		expect(await rows()).toEqual([]);
 	});
 
-	it("registers the repository any command runs in, by its main tree", async () => {
-		await using cli = await setup();
+	it("refuses every command but `arbor init` in a repository it never ran in", async () => {
+		await using cli = await setup({ init: false });
 		const { env, arbor } = cli;
 
-		expect((await arbor(env.root, "todo", "list")).exitCode).toBe(0);
+		for (const args of [["todo", "list"], ["add", "alpha"], ["dev"]]) {
+			const refused = await arbor(env.root, ...args);
+			expect(refused.exitCode).toBe(20);
+			expect(refused.stderr).toContain("Run `arbor init` in it once");
+		}
+		expect(await env.fs.exists(env.arborDir)).toBe(false);
+		expect(await env.projects.list()).toEqual([]);
+
+		const [registered, again] = [
+			await arbor(env.root, "init"),
+			await arbor(env.root, "init"),
+		];
+		expect(registered.exitCode).toBe(0);
+		expect(registered.stdout).toContain(`registered ${env.root}`);
+		expect(await env.fs.read(join(env.arborDir, "format"))).toBe("1\n");
+		expect(again.stdout).toContain(`${env.root} is already registered`);
 		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+	});
+
+	it("registers an arbor project already under way, by its main tree", async () => {
+		await using cli = await setup();
+		const { env, arbor } = cli;
+		await env.projects.forget(env.root);
+		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+
 		const [alpha] = (await cli.rows()).map((row) => row.worktree);
-		expect((await arbor(alpha as string, "list")).exitCode).toBe(0);
+		expect((await arbor(alpha as string, "init")).exitCode).toBe(0);
 
 		expect((await env.projects.list()).map((each) => each.root)).toEqual([
 			env.root,
 		]);
 	});
 
-	it("stamps the records' format, and leaves records a newer arbor wrote alone", async () => {
+	it("leaves records a newer arbor wrote alone", async () => {
 		await using cli = await setup();
 		const { env, arbor } = cli;
 		const format = join(env.arborDir, "format");
@@ -258,8 +281,8 @@ describe.concurrent("arbor", () => {
 const CLI = join(import.meta.dirname, "index.ts");
 
 /** A repo of its own per test, so the four of them can run at once. */
-const setup = async () => {
-	const env = await Testing.open();
+const setup = async ({ init = true }: { init?: boolean } = {}) => {
+	const env = await Testing.open({ init });
 	// A gate that passes, so the happy paths exercise merge rather than the
 	// fixture repo's (nonexistent) tests.
 	await env.fs.write(

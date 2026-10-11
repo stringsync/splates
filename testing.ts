@@ -121,11 +121,23 @@ export class Testing implements AsyncDisposable {
 		});
 	}
 
-	/** A repo of its own, seeded and ready for a command. */
-	static async open(): Promise<Testing> {
+	/**
+	 * A repo of its own, seeded and ready for a command: made an arbor project
+	 * as `arbor init` does, unless `init` is false.
+	 */
+	static async open({
+		init = true,
+	}: {
+		init?: boolean;
+	} = {}): Promise<Testing> {
 		const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-")));
 		const testing = new Testing(base);
 		await testing.seed();
+		if (init) {
+			await testing.format.create();
+			await testing.service.init();
+			await testing.projects.register(testing.root);
+		}
 		return testing;
 	}
 
@@ -180,7 +192,6 @@ export class Testing implements AsyncDisposable {
 		await this.gitCli(this.root, "config", "user.name", "arbor");
 		await this.gitCli(this.root, "config", "commit.gpgsign", "false");
 		await this.commit(this.root, "README.md", "seed\n", "seed");
-		await this.service.init();
 	}
 }
 

@@ -10,6 +10,7 @@ import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
+import { init } from "./init";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
@@ -43,6 +44,14 @@ export const arbor = cli<ArborDeps>("arbor").use(exits<ArborDeps>());
 
 // Every action is handed the dependencies it runs with, so it passes the
 // context straight on: each command takes the few it names off it.
+arbor
+	.command("init")
+	.use(repository({ creates: true }))
+	.description(
+		"make this repository an arbor project: set up its records under .git/arbor when it has none, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run in one already under way, it only registers",
+	)
+	.action((_opts, ctx) => init(ctx));
+
 arbor
 	.command("add")
 	.use(repository())

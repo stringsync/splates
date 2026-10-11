@@ -52,6 +52,19 @@ export async function dev(
 	}: DevOptions = {},
 ): Promise<DevServer> {
 	const { fs, ps, log, assets, projects } = home;
+	const here = home.service.git.root;
+	// The page lists and switches between registered projects only, so one
+	// that is not would be served but never named.
+	if (!(await projects.list()).some((each) => each.root === here)) {
+		fail(
+			"uninitialized",
+			[
+				`${here} is not registered as an arbor project.`,
+				"Run `arbor init` in it once, then `arbor dev` again.",
+			].join("\n"),
+			{ root: here },
+		);
+	}
 	const allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
@@ -670,7 +683,6 @@ export async function dev(
 	// By root, each opened on its first request: the one `arbor dev` started
 	// in at once, every other registered one only when a page asks for it.
 	const served = new Map<string, Promise<Served>>();
-	const here = home.service.git.root;
 	const servedAt = (root: string): Promise<Served> => {
 		let found = served.get(root);
 		if (found === undefined) {
