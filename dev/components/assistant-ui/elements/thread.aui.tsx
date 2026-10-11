@@ -1053,12 +1053,13 @@ const UserMessage: FC = () => {
 			)}
 			data-role="user"
 		>
-			<div className="aui-user-message-content-wrapper relative min-w-0">
+			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
 				<Clamped watch={id} head={<ImageTiles attachments={attachments} />}>
 					<MessagePrimitive.Parts
 						components={{ File: UserFilePart, Image: UserImagePart }}
 					/>
 				</Clamped>
+				<UserCopy />
 			</div>
 		</MessagePrimitive.Root>
 	);
@@ -1095,11 +1096,39 @@ const ImageTiles: FC<{
 };
 
 /**
+ * Copies what the person said, from the message's top corner: there only
+ * while the message is hovered or the button has focus, and a check once it
+ * has copied. Beside the box rather than in it, since the box is itself a
+ * button.
+ */
+const UserCopy: FC = () => (
+	<ActionBarPrimitive.Copy
+		render={
+			<TooltipIconButton
+				tooltip="Copy"
+				className={cn(
+					"aui-user-action-copy text-muted-foreground absolute end-1.5 top-1.5 size-6",
+					"opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100 data-copied:opacity-100",
+				)}
+			/>
+		}
+	>
+		<AuiIf condition={(s) => s.message.isCopied}>
+			<CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
+		</AuiIf>
+		<AuiIf condition={(s) => !s.message.isCopied}>
+			<CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />
+		</AuiIf>
+	</ActionBarPrimitive.Copy>
+);
+
+/**
  * What the person said, across the thread's full width like the reply: the
- * theme's muted fill, set apart from the page.
+ * theme's muted fill, set apart from the page, with room at its end for the
+ * copy button.
  */
 const USER_BOX =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 px-4 py-2.5 wrap-break-word";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 wrap-break-word";
 
 /** Lines of a message shown before it is clicked open. */
 const CLAMP = "max-h-24";

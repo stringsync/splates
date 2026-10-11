@@ -781,6 +781,33 @@ describe("App's conversations", () => {
 		);
 	});
 
+	it("copies what the person said from a button on their message, which says it copied", async () => {
+		const view = await conversations([
+			conversation({ title: "Read the note" }),
+		]);
+		const copied: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText: async (text: string) => void copied.push(text) },
+		});
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				messages: [
+					message("user", "what does it say?"),
+					message("agent", "It says hi."),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const copy = await within(thread).findByRole("button", { name: "Copy" });
+		await act(async () => fireEvent.click(copy));
+		expect(copied).toEqual(["what does it say?"]);
+		await waitFor(() => expect(copy.getAttribute("data-copied")).toBe("true"));
+	});
+
 	it("opens a link the agent wrote in a new tab, and a footnote in place", async () => {
 		const view = await conversations([
 			conversation({ title: "Read the note" }),
