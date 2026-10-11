@@ -144,6 +144,87 @@ describe("App's tasks", () => {
 		expect(view.queryByRole("complementary")).toBeNull();
 	});
 
+	it("grants a task out of merge attempts another round, saying so where it was asked", async () => {
+		const spent = {
+			task: "alpha",
+			status: "escalated",
+			escalation: "merge keeps conflicting",
+			mergeAttempts: 3,
+		};
+		const view = await testing.openTasks({
+			tasks: [
+				details(spent),
+				details({ ...spent, task: "beta", mergeAttempts: 1 }),
+			],
+		});
+
+		// Escalated for some other reason, a task has no use for more attempts.
+		expect(view.getByText("out of merges")).toBeTruthy();
+		expect(view.getByText("escalated")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /beta/ })),
+		);
+		const other = await waitFor(() => view.getByRole("dialog"));
+		expect(other.textContent).toContain("1 of 3 tried");
+		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Close" })),
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Retry" })),
+			),
+		);
+
+		await waitFor(() =>
+			expect(testing.posts.map((post) => post.path)).toEqual([
+				"/api/tasks/alpha/retry",
+			]),
+		);
+		// The page reads the task as working again, and the button stays to say so.
+		testing.served = {
+			...testing.served,
+			tasks: [details({ task: "alpha", status: "working" })],
+		};
+		await act(async () => testing.stream?.onmessage?.());
+		const retried = await waitFor(() =>
+			view.getByRole("button", { name: "Retried" }),
+		);
+		expect(retried.hasAttribute("disabled")).toBe(true);
+		expect(view.getByRole("dialog").textContent).toContain(
+			"arbor claim alpha picks it up",
+		);
+	});
+
+	it("says in the dialog why a retry was refused", async () => {
+		testing.refuseWrites = {
+			reason: "usage",
+			message: "'alpha' is working, not escalated",
+		};
+		const view = await testing.openTasks({
+			tasks: [details({ status: "escalated", mergeAttempts: 3 })],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Retry" })),
+			),
+		);
+
+		await waitFor(() =>
+			expect(view.getByRole("dialog").textContent).toContain(
+				"'alpha' is working, not escalated",
+			),
+		);
+		expect(view.getByRole("button", { name: "Retry" })).toBeTruthy();
+	});
+
 	it("fills a bar with the steps its plan has checked off", async () => {
 		const view = await testing.openTasks({
 			tasks: [

@@ -38,6 +38,8 @@ function task(overrides: Partial<Details> = {}): Details {
 		age: "3m",
 		createdAt: "2026-10-11T09:57:00.000Z",
 		escalation: null,
+		mergeAttempts: 0,
+		mergeAttemptLimit: 3,
 		escalatedAt: null,
 		review: null,
 		ready: false,

@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Config } from "./config";
 import { fail } from "./exit";
+import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -20,6 +21,24 @@ export async function retry(
 	}: { service: WorktreeService; config: Config; log: Logger },
 	task: string,
 ): Promise<void> {
+	const worktree = await grantRetry(service, task);
+
+	log.info(
+		[
+			`${color.green("retry")} ${worktree.task}`,
+			`  attempts: 0 of ${config.mergeRetryCount}`,
+			`  status:   working`,
+			"",
+			`Run \`arbor claim ${worktree.task}\` to pick it up.`,
+		].join("\n"),
+	);
+}
+
+/** What `retry` does, without the printing, for `arbor dev`'s page too. */
+export async function grantRetry(
+	service: WorktreeService,
+	task: string,
+): Promise<Worktree> {
 	const found = await service.find(task);
 	if (found.gone) {
 		fail("not_found", `no task '${task}'`, { task });
@@ -34,15 +53,5 @@ export async function retry(
 
 	// The lease stays as escalate left it: whoever picks the task up takes it
 	// with `claim`, the same as any other resume.
-	const worktree = await found.save({ status: "working", mergeAttempts: 0 });
-
-	log.info(
-		[
-			`${color.green("retry")} ${worktree.task}`,
-			`  attempts: 0 of ${config.mergeRetryCount}`,
-			`  status:   working`,
-			"",
-			`Run \`arbor claim ${worktree.task}\` to pick it up.`,
-		].join("\n"),
-	);
+	return found.save({ status: "working", mergeAttempts: 0 });
 }

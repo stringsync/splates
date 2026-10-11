@@ -20,6 +20,9 @@ export interface Details {
 	/** When it was added, which `age` counts from. */
 	createdAt: string | null;
 	escalation: string | null;
+	/** The merges it has tried; at `mergeAttemptLimit`, only `arbor retry` lets it try again. */
+	mergeAttempts: number;
+	mergeAttemptLimit: number;
 	/** While escalated, when it was; null otherwise. */
 	escalatedAt: string | null;
 	/**
@@ -111,6 +114,8 @@ export class TaskDetails {
 			age: state ? age(state.createdAt) : null,
 			createdAt: state?.createdAt ?? null,
 			escalation: last?.reason ?? null,
+			mergeAttempts: worktree.mergeAttempts,
+			mergeAttemptLimit: worktree.mergeAttemptLimit,
 			escalatedAt: state?.status === "escalated" ? (last?.at ?? null) : null,
 			review,
 			ready: ready(unfinished(plan ?? "")),

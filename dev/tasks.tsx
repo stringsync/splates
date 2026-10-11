@@ -1,4 +1,4 @@
-import { FileDiffIcon } from "lucide-react";
+import { CheckIcon, FileDiffIcon, RotateCcwIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -13,6 +13,7 @@ import {
 import { Progress as Bar } from "#dev/components/ui/progress.tsx";
 import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
+import { retryTask } from "./api";
 import { ReviewChanges } from "./changes";
 import { Markdown } from "./markdown";
 
@@ -25,7 +26,9 @@ const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
  * behind a tap.
  */
 export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
-	const [opened, setOpened] = useState<Details | null>(null);
+	// By name, so the dialog follows the task as the page reads it again.
+	const [named, setOpened] = useState<string | null>(null);
+	const opened = tasks.find((task) => task.task === named) ?? null;
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
@@ -43,7 +46,7 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 						<li key={task.task}>
 							<button
 								type="button"
-								onClick={() => setOpened(task)}
+								onClick={() => setOpened(task.task)}
 								className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
 							>
 								<span className="min-w-0 flex-1 truncate text-sm">
@@ -76,6 +79,9 @@ function Status({ task }: { task: Details }): JSX.Element | null {
 	if (task.review !== null) {
 		return <Badge>ready to merge</Badge>;
 	}
+	if (outOfMerges(task)) {
+		return <Badge variant="secondary">out of merges</Badge>;
+	}
 	if (status === "escalated") {
 		return <Badge variant="secondary">escalated</Badge>;
 	}
@@ -83,6 +89,15 @@ function Status({ task }: { task: Details }): JSX.Element | null {
 		return <Badge variant="destructive">{status}</Badge>;
 	}
 	return null;
+}
+
+/** Escalated with its merge attempts spent: what `arbor retry` is for. */
+function outOfMerges(task: Details): boolean {
+	return (
+		task.status === "escalated" &&
+		task.review === null &&
+		task.mergeAttempts >= task.mergeAttemptLimit
+	);
 }
 
 function PlanProgress({ plan }: { plan: string | null }): JSX.Element | null {
@@ -111,6 +126,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 		["base", task.base],
 		["worktree", task.worktree],
 		["commits", String(task.ahead ?? "?")],
+		["merges", `${task.mergeAttempts} of ${task.mergeAttemptLimit} tried`],
 
 		[
 			"diff",
@@ -144,6 +160,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 						</div>
 					))}
 				</dl>
+				<Retry task={task} />
 				{review !== null && task.ahead !== null && (
 					<DialogClose
 						render={
@@ -175,5 +192,57 @@ export function Task({ task }: { task: Details }): JSX.Element {
 				)}
 			</div>
 		</DialogContent>
+	);
+}
+
+/**
+ * Another round of merge attempts for a task out of them, as `arbor retry`
+ * gives. Once granted the task is working again, so the button stays only to
+ * say so, and what picks it up.
+ */
+function Retry({ task }: { task: Details }): JSX.Element | null {
+	const [state, setState] = useState<"idle" | "retrying" | "retried">("idle");
+	const [failed, setFailed] = useState<string | null>(null);
+	if (state === "idle" && !outOfMerges(task)) {
+		return null;
+	}
+	const retry = () => {
+		setState("retrying");
+		setFailed(null);
+		retryTask(task.task).then(
+			() => setState("retried"),
+			(error: unknown) => {
+				setState("idle");
+				setFailed(error instanceof Error ? error.message : String(error));
+			},
+		);
+	};
+	return (
+		<div className="flex flex-col gap-1">
+			<div className="flex items-center gap-3">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={state !== "idle"}
+					onClick={retry}
+				>
+					{state === "retried" ? <CheckIcon /> : <RotateCcwIcon />}
+					{state === "retried" ? "Retried" : "Retry"}
+				</Button>
+				<span className="text-muted-foreground text-xs">
+					{state === "retried" ? (
+						<>
+							Working again: <code>arbor claim {task.task}</code> picks it up.
+						</>
+					) : (
+						<>
+							Another {task.mergeAttemptLimit} merge attempts, as{" "}
+							<code>arbor retry</code> gives.
+						</>
+					)}
+				</span>
+			</div>
+			{failed !== null && <p className="text-destructive text-xs">{failed}</p>}
+		</div>
 	);
 }

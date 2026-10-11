@@ -24,6 +24,7 @@ import type { Projects } from "./projects";
 import { Pty } from "./pty";
 import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
+import { grantRetry } from "./retry";
 import { fingerprint, snapshot } from "./snapshot";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
@@ -376,6 +377,19 @@ export async function dev(
 				fail("not_found", `no branch for '${task}'`, { task });
 			}
 			return Response.json(files);
+		};
+
+		// `arbor retry` from the page: another round of merge attempts for a
+		// task escalated once it spent its own.
+		const retryTask = async (request: Request): Promise<Response> => {
+			const task = decodeURIComponent(
+				new URL(request.url).pathname.split("/")[3] ?? "",
+			);
+			const worktree = await journal.record("retry", task, () =>
+				grantRetry(service, task),
+			);
+			await tick();
+			return Response.json(worktree.state);
 		};
 
 		const addTodo = async (request: Request): Promise<Response> => {
@@ -787,6 +801,7 @@ export async function dev(
 			file,
 			paths,
 			diff,
+			retryTask,
 			addTodo,
 			updateTodo,
 			moveTodo,
@@ -1030,6 +1045,9 @@ export async function dev(
 			"/api/file": scoped((project) => project.file),
 			"/api/paths": scoped((project) => project.paths),
 			"/api/tasks/:task/diff": scoped((project) => project.diff),
+			"/api/tasks/:task/retry": {
+				POST: scoped((project) => project.retryTask),
+			},
 			"/api/todos": { POST: scoped((project) => project.addTodo) },
 			"/api/todos/:id": {
 				PATCH: scoped((project) => project.updateTodo),
@@ -1310,6 +1328,7 @@ interface Served extends AsyncResource {
 	file: Handler;
 	paths: Handler;
 	diff: Handler;
+	retryTask: Handler;
 	addTodo: Handler;
 	updateTodo: Handler;
 	moveTodo: Handler;

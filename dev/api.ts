@@ -200,6 +200,14 @@ export async function taskDiff(task: string): Promise<FileDiff[]> {
 }
 
 /**
+ * Gives `task`, escalated once it spent its merge attempts, another round of
+ * them, as `arbor retry` does.
+ */
+export async function retryTask(task: string): Promise<void> {
+	await send(`/api/tasks/${encodeURIComponent(task)}/retry`, {});
+}
+
+/**
  * Starts a conversation with `agent`, in `task`'s tree or the main tree for
  * null, with `settings` (by id) set once its session offers them.
  */

@@ -74,6 +74,11 @@ export class Worktree {
 		return this.snapshot.state?.mergeAttempts ?? 0;
 	}
 
+	/** How many merge attempts a task gets before `merge` stops on `budget_exhausted`. */
+	get mergeAttemptLimit(): number {
+		return this.service.config.mergeRetryCount;
+	}
+
 	get exists(): boolean {
 		return this.snapshot.exists;
 	}

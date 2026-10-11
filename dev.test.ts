@@ -806,6 +806,33 @@ describe("dev", () => {
 		});
 	});
 
+	it("grants a task out of merge attempts another round, and only an escalated one", async () => {
+		await add(deps, "alpha");
+		await add(deps, "beta");
+		await (await deps.service.find("alpha")).save({
+			status: "escalated",
+			mergeAttempts: deps.config.mergeRetryCount,
+		});
+
+		await serving(async (_snapshot, port) => {
+			const retry = (task: string) =>
+				fetch(`http://127.0.0.1:${port}/api/tasks/${task}/retry`, {
+					method: "POST",
+					headers: { origin: `http://127.0.0.1:${port}` },
+				});
+
+			expect((await retry("alpha")).status).toBe(200);
+			expect((await deps.service.find("alpha")).state).toMatchObject({
+				status: "working",
+				mergeAttempts: 0,
+			});
+			expect(await (await retry("beta")).json()).toMatchObject({
+				reason: "usage",
+			});
+			expect((await retry("nope")).status).toBe(404);
+		});
+	});
+
 	it("refuses a host it was not told about, and serves one it was", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
