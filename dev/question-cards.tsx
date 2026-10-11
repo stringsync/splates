@@ -456,15 +456,7 @@ function QuestionCard({
 	};
 	return (
 		<li aria-label={`question ${number}`} className="flex gap-3 px-4 py-4">
-			<span
-				className={cn(
-					"mt-px flex size-5 shrink-0 items-center justify-center rounded-full font-semibold text-[11px] tabular-nums transition-colors duration-200",
-					answer === null
-						? "bg-muted text-muted-foreground"
-						: "bg-success text-white",
-				)}
-			>
-				{/* The number stays once answered, to answer it by: the fill says so. */}
+			<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums">
 				{number}
 				{answer !== null && <span className="sr-only"> answered</span>}
 			</span>
