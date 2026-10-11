@@ -523,6 +523,36 @@ describe("dev", () => {
 		});
 	});
 
+	it("serves a file a task holds in parts, but never its record", async () => {
+		await add(deps, "alpha");
+		const [clip = ""] = await deps.service
+			.files("alpha")
+			.store([{ name: "run.webm", bytes: new Uint8Array([1, 2, 3, 4]) }]);
+
+		await serving(async (_snapshot, port) => {
+			const file = (path: string, headers = {}) =>
+				fetch(
+					`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
+					{ headers },
+				);
+
+			const whole = await file(clip);
+			expect(whole.status).toBe(200);
+			expect(whole.headers.get("content-type")).toBe("video/webm");
+			const part = await file(clip, { range: "bytes=1-2" });
+			expect(part.status).toBe(206);
+			expect(part.headers.get("content-range")).toBe("bytes 1-2/4");
+			expect(new Uint8Array(await part.arrayBuffer())).toEqual(
+				new Uint8Array([2, 3]),
+			);
+			const tail = await file(clip, { range: "bytes=-1" });
+			expect(new Uint8Array(await tail.arrayBuffer())).toEqual(
+				new Uint8Array([4]),
+			);
+			expect((await file(deps.service.recordPath("alpha"))).status).toBe(404);
+		});
+	});
+
 	/** A todo write the way the page makes one. */
 	const todoForm = (
 		subject: string | null,

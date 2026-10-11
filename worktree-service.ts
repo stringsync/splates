@@ -1,5 +1,6 @@
-import { resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import { Attachments } from "./attachments";
 import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { type TaskState, Worktree } from "./worktree";
@@ -44,6 +45,7 @@ export class WorktreeService {
 	async init(): Promise<void> {
 		await this.fs.mkdir(this.tasksDir);
 		await this.fs.mkdir(this.removedDir);
+		await this.sweep();
 	}
 
 	get trunk(): string {
@@ -67,6 +69,23 @@ export class WorktreeService {
 
 	recordPath(task: string): string {
 		return `${this.tasksDir}/${task}.json`;
+	}
+
+	/**
+	 * Where a task's files live, beside its record: the screenshots and videos
+	 * its questions show, in `tasks/<task>/`. They go when the task does.
+	 */
+	files(task: string): Attachments {
+		return new Attachments(`${this.tasksDir}/${task}`, this.fs);
+	}
+
+	/**
+	 * Whether `path` is a file some task holds: one level inside a task's
+	 * folder, so never a record, and not a way out of here.
+	 */
+	owns(path: string): boolean {
+		const inside = relative(this.tasksDir, resolve(path));
+		return !inside.startsWith("..") && inside.split(sep).length === 2;
 	}
 
 	/** Always answers; the returned worktree's status says what was found. */
@@ -98,7 +117,9 @@ export class WorktreeService {
 	}
 
 	async list(): Promise<Worktree[]> {
-		const entries = await this.fs.readdir(this.tasksDir).catch(() => []);
+		const entries: string[] = await this.fs
+			.readdir(this.tasksDir)
+			.catch(() => []);
 		const tasks = entries
 			.filter((entry) => entry.endsWith(".json"))
 			.map((entry) => entry.slice(0, -".json".length))
@@ -134,6 +155,7 @@ export class WorktreeService {
 			}
 		}
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
+		await this.files(worktree.task).clear();
 		await this.rememberRemoved(worktree.task);
 		return removed;
 	}
@@ -151,6 +173,26 @@ export class WorktreeService {
 	private async readRecord(task: string): Promise<TaskState | null> {
 		const raw = await this.fs.read(this.recordPath(task)).catch(() => null);
 		return raw === null ? null : (JSON.parse(raw) as TaskState);
+	}
+
+	/**
+	 * Drops the files of every task with no record left: what a process that
+	 * died between discarding a task and clearing its folder left behind.
+	 */
+	private async sweep(): Promise<void> {
+		const entries: string[] = await this.fs
+			.readdir(this.tasksDir)
+			.catch(() => []);
+		for (const entry of entries) {
+			const path = `${this.tasksDir}/${entry}`;
+			if (
+				entries.includes(`${entry}.json`) ||
+				!(await this.fs.stat(path).catch(() => null))?.isDirectory()
+			) {
+				continue;
+			}
+			await this.fs.rm(path, { recursive: true, force: true });
+		}
 	}
 
 	private removedPath(task: string): string {

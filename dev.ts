@@ -296,22 +296,43 @@ export async function dev(
 			);
 		};
 
-		// Only a file a todo holds, so the page, and whoever a tunnel lets reach
-		// it, can read nothing on this machine that was not put there on purpose.
+		// Only a file a todo or a task holds, so the page, and whoever a tunnel
+		// lets reach it, can read nothing on this machine that was not put there
+		// on purpose.
 		const file = async (request: Request): Promise<Response> => {
 			const params = new URL(request.url).searchParams;
 			const path = params.get("path") ?? "";
-			const type = IMAGE_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
-			const bytes = todos.owns(path)
-				? await fs.readBytes(path).catch(() => null)
-				: null;
+			const type = MEDIA_TYPES[path.split(".").at(-1)?.toLowerCase() ?? ""];
+			const bytes =
+				todos.owns(path) || service.owns(path)
+					? await fs.readBytes(path).catch(() => null)
+					: null;
 			if (bytes === null) {
 				return refuse(404, "not_found", `nothing here shows ${path}`);
 			}
-			return new Response(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
+			// Safari plays a video only from a server that hands out its parts.
+			const range = /^bytes=(\d*)-(\d*)$/.exec(
+				request.headers.get("range") ?? "",
+			);
+			const start = range?.[1] ? Number(range[1]) : null;
+			const end = range?.[2] ? Number(range[2]) : null;
+			const first =
+				start ?? (end === null ? 0 : Math.max(bytes.length - end, 0));
+			const last =
+				start !== null && end !== null
+					? Math.min(end, bytes.length - 1)
+					: bytes.length - 1;
+			const partial = range !== null && first <= last;
+			const body = partial ? bytes.subarray(first, last + 1) : bytes;
+			return new Response(new Blob([body as Uint8Array<ArrayBuffer>]), {
+				status: partial ? 206 : 200,
 				headers: {
 					"content-type": type ?? "application/octet-stream",
-					// Anything not an image downloads rather than rendering here.
+					"accept-ranges": "bytes",
+					...(partial
+						? { "content-range": `bytes ${first}-${last}/${bytes.length}` }
+						: {}),
+					// Anything not an image or a recording downloads rather than rendering here.
 					...(type === undefined
 						? { "content-disposition": "attachment" }
 						: {}),
@@ -959,14 +980,20 @@ const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 /** A phone photo fits; a stray video does not. */
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
 
-/** The images a todo may hold, by extension, and how each is served. */
-const IMAGE_TYPES: Record<string, string> = {
+/**
+ * The images and recordings a todo or a task may hold, by extension, and how
+ * each is served; `dev/media.tsx` shows the same ones inline.
+ */
+const MEDIA_TYPES: Record<string, string> = {
 	png: "image/png",
 	jpg: "image/jpeg",
 	jpeg: "image/jpeg",
 	gif: "image/gif",
 	webp: "image/webp",
 	svg: "image/svg+xml",
+	mp4: "video/mp4",
+	webm: "video/webm",
+	mov: "video/quicktime",
 };
 
 /** How a refusal from the core reads over HTTP. */

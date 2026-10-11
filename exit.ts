@@ -24,6 +24,7 @@ export const EXIT = {
 	cycle: 18,
 	outdated: 19,
 	uninitialized: 20,
+	too_large: 21,
 } as const;
 
 export type Reason = keyof typeof EXIT;

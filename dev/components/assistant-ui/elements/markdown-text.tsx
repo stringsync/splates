@@ -14,6 +14,7 @@ import remarkGfm from "remark-gfm";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#dev/lib/utils.ts";
+import { Media } from "#dev/media.tsx";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
 	components?: Parameters<typeof memoizeMarkdownComponents>[0];
@@ -88,6 +89,10 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
 };
 
 const defaultComponents = memoizeMarkdownComponents({
+	// What an agent attached shows inline; any other path reads as its alt text.
+	img: ({ src, alt }) => (
+		<Media src={typeof src === "string" ? src : undefined} alt={alt} />
+	),
 	h1: ({ className, ...props }) => (
 		<h1
 			className={cn(

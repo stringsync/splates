@@ -122,12 +122,35 @@ describe("Markdown", () => {
 		);
 	});
 
-	it("shows an image as its alt text, since the page cannot load a local path", () => {
+	it("names an image by absolute path once the server says arbor holds no such file", () => {
 		const { container } = render(
 			<Markdown text={"![the header](/abs/a.png)"} />,
 		);
 
+		// The page asked, and the 404 brought the alt text back.
 		expect(container.querySelector("img")).toBeNull();
 		expect(container.textContent).toBe("[the header]");
+	});
+
+	it("plays a recording by absolute path", () => {
+		const { container } = render(<Markdown text={"![the run](/abs/a.webm)"} />);
+
+		expect(container.querySelector("video")?.getAttribute("src")).toBe(
+			`/api/file?${new URLSearchParams({ path: "/abs/a.webm" })}`,
+		);
+	});
+
+	it("names an image rather than loading one off this machine, or in a glimpse", () => {
+		const remote = render(
+			<Markdown text={"![tracker](https://example.com/a.png)"} />,
+		);
+		expect(remote.container.querySelector("img")).toBeNull();
+		expect(remote.container.textContent).toBe("[tracker]");
+
+		const glimpse = render(
+			<Markdown text={"![the header](/abs/a.png)"} preview />,
+		);
+		expect(glimpse.container.querySelector("img")).toBeNull();
+		expect(glimpse.container.textContent).toBe("[the header]");
 	});
 });

@@ -3,6 +3,7 @@ import { type ComponentProps, type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { MENTION } from "../lanes";
 import { Board, still } from "./board";
+import { Alt, Media } from "./media";
 
 export interface MarkdownProps {
 	text: string;
@@ -33,7 +34,7 @@ export function Markdown({
 				className,
 			)}
 		>
-			<Render options={OPTIONS}>{linked(text)}</Render>
+			<Render options={preview ? GLIMPSE : OPTIONS}>{linked(text)}</Render>
 		</div>
 	);
 }
@@ -91,6 +92,12 @@ const OPTIONS: MarkdownToJSX.Options = {
 		img: Image,
 		input: Checkbox,
 	},
+};
+
+/** A card's glimpse names its images rather than squeezing them into two lines. */
+const GLIMPSE: MarkdownToJSX.Options = {
+	...OPTIONS,
+	overrides: { ...OPTIONS.overrides, img: Alt },
 };
 
 function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
@@ -167,12 +174,9 @@ function Link(props: ComponentProps<"a">): JSX.Element {
 	);
 }
 
-/**
- * An image reads as its alt text: the paths agents write are files on their
- * machine, which the page has no way to load.
- */
-function Image({ alt }: ComponentProps<"img">): JSX.Element {
-	return <span className="text-muted-foreground">[{alt || "image"}]</span>;
+/** An image shows what it names, when that is a file arbor holds. */
+function Image({ src, alt }: ComponentProps<"img">): JSX.Element {
+	return <Media src={src} alt={alt} />;
 }
 
 /** A checklist box only reports: the document is the agent's to tick. */

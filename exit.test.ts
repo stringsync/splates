@@ -26,6 +26,7 @@ it("keeps the exit codes stable", () => {
 		cycle: 18,
 		outdated: 19,
 		uninitialized: 20,
+		too_large: 21,
 	});
 });
 

@@ -3,6 +3,7 @@ import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
+import { attach } from "./attach";
 import { claim } from "./claim";
 import { AGENTS, Conversations } from "./conversations";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
@@ -251,6 +252,34 @@ arbor
 			escalate(ctx, opts.reason, ctx.ps.cwd(), {
 				task: opts.task || undefined,
 				review: opts.review,
+			}),
+		),
+	);
+
+arbor
+	.command("attach")
+	.use(repository())
+	.description(
+		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/arbor, which the `arbor dev` page shows inline; they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds",
+	)
+	.arg("files", z.string(), {
+		default: "",
+		description: "files to store, comma separated",
+	})
+	.option("task", z.string(), {
+		default: "",
+		description: "task name, when run outside its worktree",
+	})
+	.option("remove", z.string(), {
+		default: "",
+		description:
+			"files it holds to drop first, comma separated, by path or stored name",
+	})
+	.action(async (opts, ctx) =>
+		ctx.journal.record("attach", opts.task || (await here(ctx)), () =>
+			attach(ctx, commaList(opts.files), ctx.ps.cwd(), {
+				task: opts.task || undefined,
+				remove: commaList(opts.remove),
 			}),
 		),
 	);

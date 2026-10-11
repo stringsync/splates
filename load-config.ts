@@ -42,6 +42,7 @@ function defaults(root: string, trunk: string): Config {
 		removedCapacity: 50,
 		logCapacity: 1000,
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
+		attachmentCapacity: 100 * 1024 * 1024,
 	};
 }
 

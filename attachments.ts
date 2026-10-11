@@ -11,8 +11,8 @@ export interface Attachment {
 }
 
 /**
- * The folder of files that belong to a todo: todo 7's beside its record, in
- * `todos/7/`.
+ * The folder of files that belong to a todo or a task: todo 7's beside its
+ * record, in `todos/7/`, and task `login`'s in `tasks/login/`.
  * Under `.git/arbor`, so nothing here is ever committed and every tree can
  * open what it holds.
  */
@@ -36,6 +36,17 @@ export class Attachments {
 			stored.push(path);
 		}
 		return stored;
+	}
+
+	/** Each file stored here, by absolute path, with its size in bytes. */
+	async held(): Promise<{ path: string; bytes: number }[]> {
+		const names = await this.fs.readdir(this.dir).catch(() => []);
+		const held: { path: string; bytes: number }[] = [];
+		for (const name of names.sort()) {
+			const path = `${this.dir}/${name}`;
+			held.push({ path, bytes: (await this.fs.stat(path)).size });
+		}
+		return held;
 	}
 
 	/** Whether `path` is one of this folder's files, and not a way out of it. */

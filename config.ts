@@ -46,6 +46,11 @@ export interface Config {
 	 * some other way, or stopped mattering.
 	 */
 	todoStalenessMs: number;
+	/**
+	 * How many bytes of files `arbor attach` lets one task hold, all of them
+	 * together: a screen recording is the one thing here that grows fast.
+	 */
+	attachmentCapacity: number;
 }
 
 /**

@@ -12,6 +12,7 @@
 @source "./todos.tsx";
 @source "./tasks.tsx";
 @source "./markdown.tsx";
+@source "./media.tsx";
 @source "./files.tsx";
 @source "./mentions.tsx";
 @source "./card.tsx";

@@ -410,7 +410,8 @@ leaves the worktree **exactly** as it is so the human sees what the agent saw.
 Questions go under `## Blocked` in the task's `ARBOR.md`, numbered `1.`,
 `2.`, … (a plan numbered the old way, `Q1.`, still reads). A question's line
 is its subject. Lines indented under it are its body, markdown with code
-blocks and images (`![shot](/abs/path.png)`). Choices come last in the body:
+blocks and images (`![shot](/abs/path.png)`); an image or recording `arbor
+attach` stored shows inline on the `arbor dev` page. Choices come last in the body:
 `- (a) ...` lines take one or none, `- [a] ...` lines take any that apply.
 
 ```markdown
@@ -447,6 +448,23 @@ finish the task". Agents are reliable at mechanical conflicts (both sides added
 imports, a signature changed on one side and its callers on the other) and
 unreliable when both sides restructured the same logic, because then there is no
 correct merge, only a decision.
+
+### `arbor attach [files] [--remove <names>] [--task <name>]`
+
+Stores screenshots and recordings for a task's questions to show, comma
+separated, and prints the path each was stored at, in `.git/arbor/tasks/<task>/`,
+for a question to name as `![what](<path>)`. The `arbor dev` page shows these
+inline, in a task's plan and in a conversation alike: images, and `mp4`,
+`webm` and `mov` recordings. It serves no file arbor did not store, so a path
+anywhere else reads as its alt text.
+
+They go when the task merges or is removed, and any command clears the files
+of a task whose record is gone, so nothing outlives the task, and nothing
+lands in a commit the way a screenshot saved in the worktree would. Taking the
+task past `attachmentCapacity` bytes in all is refused (`too_large`) and
+stores nothing. `--remove` drops files it holds first, by path or stored name,
+as when a retaken screenshot replaces one; with no files, `attach` lists what
+the task holds.
 
 ### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--blocked-by <ids>] [--lane <lane>]`, `arbor todo list [--json] [--open] [--ready]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--blocked-by <ids>] [--remove-blocked-by <ids>] [--lane <lane>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo wait <id> [--timeout-secs 900]`, `arbor todo remove <id>`
 
@@ -562,6 +580,7 @@ The agent's control flow runs on these.
 | 18   | `cycle`             | A todo link refused: it would make a loop, named in the message. |
 | 19   | `outdated`          | The records and this arbor disagree on format. A newer arbor wrote them: run `bunx @webappwiz/arbor@latest`. Or a todo was saved with tags, from before lanes: arbor reads no todos until `bunx @webappwiz/cli update` moves each tag's todos into a lane named after it. |
 | 20   | `uninitialized`     | This repository is not an arbor project yet: run `arbor init` in it once. Or `arbor dev` started in one that is not registered. |
+| 21   | `too_large`         | `attach` would take the task past `attachmentCapacity`: nothing was stored. Remove files no question shows, or attach a shorter recording. |
 
 Every failure prints a one-line JSON object on **stdout** (`{"reason": ...}`,
 plus fields like `paths` for conflicts) and the human explanation on **stderr**.
@@ -586,6 +605,7 @@ export default defineConfig({
 	removedCapacity: 50,            // removed names kept, so remove can say "already removed"
 	logCapacity: 1000,              // entries `arbor log` keeps before the oldest fall off
 	todoStalenessMs: 2_592_000_000, // 30 days: past this, merge offers a todo for removal
+	attachmentCapacity: 104_857_600, // 100 MB: what `arbor attach` lets one task hold
 });
 ```
 
