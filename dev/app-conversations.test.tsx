@@ -2823,7 +2823,7 @@ Cap upload retries
 			]);
 		});
 
-		it("marks a conversation whose task merged, was removed, or escalated with its report's icon, until the person carries on", async () => {
+		it("marks a conversation whose task merged with the merge icon until the person carries on, one that escalated as waiting on you, and one removed not at all", async () => {
 			const view = await sidebar(
 				newestFirst([
 					conversation({
@@ -2872,29 +2872,24 @@ Cap upload retries
 					}),
 				],
 			);
-			const ended = Object.fromEntries(
+			const marks = Object.fromEntries(
 				within(view.getByRole("navigation", { name: "conversations" }))
 					.getAllByRole("listitem")
 					.map((row) => [
 						row.textContent,
-						within(row)
-							.queryByRole("img", { name: /merged|removed|escalated/ })
-							?.getAttribute("aria-label") ?? null,
+						(
+							within(row).queryByRole("img", { name: "merged" }) ??
+							within(row).queryByRole("status")
+						)?.getAttribute("aria-label") ?? null,
 					]),
 			);
 
-			expect(ended).toEqual({
+			expect(marks).toEqual({
 				Landed: "merged",
-				Dropped: "removed",
+				Dropped: null,
 				"Carried on": null,
-				alpha: "escalated",
+				alpha: "waiting on you",
 			});
-			// The warning stands in for the dot an escalated task would show.
-			expect(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).queryByRole("status"),
-			).toBeNull();
 		});
 
 		it("lists a task whose agent runs outside the page as working elsewhere, waiting once it escalates, and opens it alone with its questions, not its plan", async () => {

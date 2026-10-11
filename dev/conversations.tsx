@@ -14,6 +14,7 @@ import {
 	ArchiveRestoreIcon,
 	CheckIcon,
 	ChevronDownIcon,
+	CircleAlertIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
 	LinkIcon,
@@ -919,13 +920,13 @@ function Rename({
 }
 
 /**
- * What a list shows of an agent: a pulsing dot when it waits on you, a spinner while
- * it works, assuming or not, and an empty space when idle. When its last word
- * is a report of how its task ended or that it escalated, that report card's
- * icon stands in for the dot or the space, though not for a live ask or a
- * failure, which are newer. What it waits on is in its tooltip. Each sits
- * centered in a box of one size, so marks line up down a list whichever kind
- * they are.
+ * What a list shows of an agent, one of three marks: an amber alert when it
+ * waits on you, whatever for, a spinner while it works, assuming or not, and
+ * the merge icon once its task merged. Anything else, idle or removed, shows
+ * an empty space. A report in its last word decides the mark over a wait it
+ * ended, though not over a live ask or a failure, which are newer. What it
+ * waits on is in its tooltip. Each sits centered in a box of one size, so
+ * marks line up down a list whichever kind they are.
  */
 export function Mark({
 	need,
@@ -937,8 +938,8 @@ export function Mark({
 	const shows =
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
-	if (reported !== null && shows) {
-		const { title, Icon, tone } = ENDINGS[reported];
+	if (reported === "merged" && shows) {
+		const { title, Icon, tone } = ENDINGS.merged;
 		return (
 			<Icon
 				role="img"
@@ -947,23 +948,29 @@ export function Mark({
 			/>
 		);
 	}
+	if (need.kind === "waiting" || (reported === "escalated" && shows)) {
+		return (
+			<span
+				role="status"
+				aria-label="waiting on you"
+				title={need.kind === "waiting" ? need.subject : undefined}
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<CircleAlertIcon className="size-3.5 text-warning" />
+			</span>
+		);
+	}
 	if (need.kind === "idle") {
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
 	}
-	const waiting = need.kind === "waiting";
 	return (
 		<span
 			role="status"
-			aria-label={waiting ? "waiting on you" : "working"}
-			title={waiting ? need.subject : undefined}
+			aria-label="working"
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
-			{waiting ? (
-				<span className="size-2 animate-pulse rounded-full bg-sky-500" />
-			) : (
-				<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
-			)}
+			<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
 		</span>
 	);
 }
