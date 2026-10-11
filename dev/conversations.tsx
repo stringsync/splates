@@ -1019,6 +1019,7 @@ export function Conversations({
 						agent={agentName(agents, shown.agent)}
 						task={tasks.find((each) => each.task === shown.task) ?? null}
 						trunk={trunk}
+						onArchived={() => onOpen(NEW)}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
 				)}
@@ -1555,6 +1556,7 @@ function Thread({
 	agent,
 	task,
 	trunk,
+	onArchived,
 	onBack,
 }: {
 	/** What was typed and not sent, by conversation. */
@@ -1571,6 +1573,8 @@ function Thread({
 	task: Details | null;
 	/** The main tree's branch. */
 	trunk: string;
+	/** Once a report card has archived it, to start the next. */
+	onArchived: () => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
@@ -1737,12 +1741,17 @@ function Thread({
 			run: archive.file,
 		},
 	];
+	// The latest, so the card's callback stays the same across renders.
+	const onArchivedRef = useRef(onArchived);
+	onArchivedRef.current = onArchived;
 	const filing = useMemo(
 		() => ({
 			archived,
+			// With the agent, model, and settings the last one started with.
 			archive: () => {
-				archiveConversation(id, true).catch((error: unknown) =>
-					refused("Not archived", error),
+				archiveConversation(id, true).then(
+					() => onArchivedRef.current(),
+					(error: unknown) => refused("Not archived", error),
 				);
 			},
 		}),

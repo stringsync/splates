@@ -1497,7 +1497,7 @@ describe("App's conversations", () => {
 			expect(view.textContent).not.toContain("## ✅");
 		});
 
-		it("offers to archive the conversation from each report of a task that is over", async () => {
+		it("offers to archive the conversation from each report of a task that is over, then starts the next", async () => {
 			const view = await conversations([
 				conversation({
 					messages: [
@@ -1540,6 +1540,8 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations/c1/archived")).toEqual([
 				{ method: "PUT", body: { archived: true } },
 			]);
+			await waitFor(() => expect(location.hash).toBe("#conversations/new"));
+			expect(view.getByText("Start a conversation with")).toBeTruthy();
 		});
 	});
 
