@@ -63,6 +63,22 @@ describe("App's conversations", () => {
 		return view;
 	};
 
+	/** Opens the new conversation screen with `agent`, from the sidebar. */
+	const newWith = async (
+		view: Awaited<ReturnType<typeof conversations>>,
+		agent: string,
+	) => {
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: new RegExp(agent) }),
+				),
+			),
+		);
+	};
 	/** Picks an option of a Select: Base UI picks on the pointer let go. */
 	const pick = (option: HTMLElement) =>
 		act(async () => {
@@ -331,13 +347,16 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("starts a conversation from the home composer, in the main tree with the agent and its settings picked, and says the message", async () => {
+	it("starts a conversation from the home composer, in the main tree with the agent picked beside New conversation and its settings, and says the message", async () => {
 		const view = await conversations(
 			[
+				conversation({ id: "c1", title: "Latest" }),
 				conversation({
 					id: "c0",
 					agent: "codex",
 					title: "Earlier",
+					// Archived, and still what Codex's settings are known from.
+					archived: true,
 					settings: [
 						{
 							id: "model",
@@ -360,14 +379,18 @@ describe("App's conversations", () => {
 			task: null,
 			status: "starting",
 		});
-		// Claude has had no conversation, so nothing is known of its settings.
+		// The newest conversation's agent first, and Claude's sessions have
+		// offered nothing yet.
+		expect(
+			view.getByRole("region", { name: "new conversation" }).textContent,
+		).toContain("Start a conversation withClaude");
 		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("combobox", { name: "agent" })),
-		);
-		await pick(
-			await waitFor(() => view.getByRole("option", { name: /Codex/ })),
+		await newWith(view, "Codex");
+		expect(location.hash).toBe("#conversations/new/codex");
+		// Where Codex's last conversation left it.
+		expect(view.getByRole("combobox", { name: "model" }).textContent).toContain(
+			"Big",
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("combobox", { name: "model" })),
@@ -396,18 +419,29 @@ describe("App's conversations", () => {
 		expect(view.getByRole("region", { name: "New conversation" })).toBeTruthy();
 	});
 
-	it("opens the new conversation screen from the sidebar's button", async () => {
+	it("opens the new conversation screen with the agent picked from the sidebar's menu", async () => {
 		const view = await conversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 		]);
 		expect(view.queryByRole("region", { name: "new conversation" })).toBeNull();
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+		await newWith(view, "Codex");
+
+		expect(location.hash).toBe("#conversations/new/codex");
+		expect(
+			view.getByRole("region", { name: "new conversation" }).textContent,
+		).toContain("Start a conversation withCodex");
+	});
+
+	it("greets with the agent of the newest conversation when none is picked", async () => {
+		const view = await conversations(
+			[conversation({ id: "c1", agent: "codex", title: "Latest" })],
+			null,
 		);
 
-		expect(location.hash).toBe("#conversations/new");
-		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
+		expect(
+			view.getByRole("region", { name: "new conversation" }).textContent,
+		).toContain("Start a conversation withCodex");
 	});
 
 	it("shows what was said as the server streams it", async () => {
@@ -860,9 +894,7 @@ describe("App's conversations", () => {
 			await go(view, "Tidy tests");
 			await waitFor(() => expect(box(view).value).toBe(""));
 			await type(view, "another");
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
-			);
+			await newWith(view, "Claude");
 			await waitFor(() => expect(box(view).value).toBe(""));
 			await type(view, "a fresh start");
 
@@ -870,9 +902,7 @@ describe("App's conversations", () => {
 			await waitFor(() => expect(box(view).value).toBe("half a thought"));
 			await go(view, "Tidy tests");
 			await waitFor(() => expect(box(view).value).toBe("another"));
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
-			);
+			await newWith(view, "Claude");
 			await waitFor(() => expect(box(view).value).toBe("a fresh start"));
 		});
 
@@ -1231,12 +1261,7 @@ describe("App's conversations", () => {
 			await waitFor(() => view.getByRole("option", { name: "Sonnet" })),
 		);
 
-		await act(async () =>
-			fireEvent.click(view.getByRole("combobox", { name: "agent" })),
-		);
-		await pick(
-			await waitFor(() => view.getByRole("option", { name: /Codex/ })),
-		);
+		await newWith(view, "Codex");
 
 		await waitFor(() =>
 			expect(

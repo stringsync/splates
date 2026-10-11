@@ -11,6 +11,7 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
+	ChevronDownIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
 	LinkIcon,
@@ -100,8 +101,34 @@ import { WorkUI } from "./work-row";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
-/** In place of an id in the address: the screen that starts a conversation. */
+/**
+ * In place of an id in the address: the screen that starts a conversation,
+ * with the agent after it, as `new/codex`, else the agent last used.
+ */
 export const NEW = "new";
+
+/** Whether `open` is the screen that starts a conversation, with any agent. */
+function startsOne(open: string | null): boolean {
+	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);
+}
+
+/**
+ * The agent a new conversation starts with: the one `open` names, else the
+ * newest conversation's, else the first.
+ */
+function agentFor(
+	open: string | null,
+	agents: AgentChoice[],
+	conversations: ConversationState[],
+): string {
+	const named = open?.startsWith(`${NEW}/`) ? open.slice(NEW.length + 1) : null;
+	return (
+		agents.find((each) => each.id === named)?.id ??
+		agents.find((each) => each.id === conversations[0]?.agent)?.id ??
+		agents[0]?.id ??
+		""
+	);
+}
 
 /**
  * The conversation a `#conversations/<id>` address names, `ARCHIVED` for the
@@ -244,19 +271,36 @@ export function ConversationList({
 				}
 			}}
 		>
-			<button
-				type="button"
-				data-row
-				aria-current={open === NEW ? "page" : undefined}
-				onClick={() => onOpen(NEW)}
-				className={cn(
-					"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
-					open === NEW && "bg-foreground/[0.09]",
-				)}
-			>
-				<PlusIcon className="size-3.5" />
-				New conversation
-			</button>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<button
+							type="button"
+							data-row
+							aria-current={startsOne(open) ? "page" : undefined}
+							className={cn(
+								"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
+								startsOne(open) && "bg-foreground/[0.09]",
+							)}
+						/>
+					}
+				>
+					<PlusIcon className="size-3.5" />
+					<span className="flex-1">New conversation</span>
+					<ChevronDownIcon className="size-3.5 text-muted-foreground" />
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start" className="w-44">
+					{agents.map((each) => (
+						<DropdownMenuItem
+							key={each.id}
+							onClick={() => onOpen(`${NEW}/${each.id}`)}
+						>
+							<AgentIcon agent={each.id} name={each.name} />
+							{each.name}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuContent>
+			</DropdownMenu>
 			<ul aria-label="conversation list" className="flex flex-col">
 				{rows.map((row) =>
 					row.conversation !== null ? (
@@ -620,13 +664,16 @@ export function Conversations({
 					open={open}
 					onOpen={onOpen}
 				/>
-			) : open === NEW || (open === null && !phone) ? (
+			) : startsOne(open) || (open === null && !phone) ? (
 				<Home
+					// Its picks are for one agent's settings, so start over for another.
+					key={agentFor(open, agents, conversations)}
 					drafts={drafts}
 					tasks={tasks}
 					feed={feed}
 					agents={agents}
-					conversations={conversations.filter((each) => !each.archived)}
+					agent={agentFor(open, agents, conversations)}
+					conversations={conversations}
 					onOpen={onOpen}
 					onBack={phone ? () => onOpen(null) : null}
 				/>
@@ -670,15 +717,16 @@ const RECENT = 5;
 
 /**
  * The screen with no conversation open: an empty thread whose first message
- * starts one in the main tree, with the agent picked by its composer, and
- * under the greeting the latest conversations to pick back up, those waiting
- * on the person first.
+ * starts one with `agent` in the main tree, the agent's settings in its
+ * composer, and under the greeting the latest conversations to pick back up,
+ * those waiting on the person first.
  */
 function Home({
 	drafts,
 	tasks,
 	feed,
 	agents,
+	agent,
 	conversations,
 	onOpen,
 	onBack,
@@ -688,28 +736,33 @@ function Home({
 	tasks: Details[];
 	feed: ConversationFeed;
 	agents: AgentChoice[];
-	/** The ones not archived, newest first. */
+	/** The agent the conversation starts with, picked beside New conversation. */
+	agent: string;
+	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
 	onOpen: (id: string) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
-	const [agent, setAgent] = useState(agents[0]?.id ?? "");
 	// What the agent's sessions offer is known from its latest conversation
-	// that got as far as a session; the first one with an agent starts with
-	// the agent's own defaults.
+	// that got as far as a session, archived or not, and each setting starts
+	// where that one left it; the first one with an agent starts with the
+	// agent's own defaults.
 	const offered =
 		conversations.find(
 			(each) => each.agent === agent && each.settings.length > 0,
 		)?.settings ?? [];
-	const [picks, setPicks] = useState<Record<string, string>>({});
+	const [picks, setPicks] = useState<Record<string, string>>(() =>
+		Object.fromEntries(offered.map((each) => [each.id, each.current])),
+	);
+	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string) => void>(() => {});
 	const waiting = (each: ConversationState) =>
 		needOf(tasks, each).kind === "waiting";
 	const recent = [
-		...conversations.filter(waiting),
-		...conversations.filter((each) => !waiting(each)),
+		...listed.filter(waiting),
+		...listed.filter((each) => !waiting(each)),
 	].slice(0, RECENT);
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
@@ -769,46 +822,14 @@ function Home({
 						<div className="mb-6 flex flex-col gap-8 px-2">
 							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-1 font-medium text-2xl tracking-tight duration-200">
 								<span>Start a conversation with</span>
-								<Select
-									items={agents.map((each) => ({
-										value: each.id,
-										label: each.name,
-									}))}
-									value={agent}
-									onValueChange={(value) => {
-										setAgent(String(value));
-										setPicks({});
-									}}
-								>
-									<SelectTrigger
-										size="sm"
-										aria-label="agent"
-										className="h-auto gap-2 rounded-lg border-foreground/20 bg-muted px-3 py-1 font-medium text-2xl tracking-tight shadow-xs hover:bg-foreground/10 dark:bg-muted dark:hover:bg-foreground/15 [&_svg]:size-5"
-									>
-										<AgentIcon
-											agent={agent}
-											name={agentName(agents, agent)}
-											className="size-5"
-										/>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent
-										align="start"
-										alignItemWithTrigger={false}
-										className="w-auto"
-									>
-										{agents.map((each) => (
-											<SelectItem key={each.id} value={each.id}>
-												<AgentIcon
-													agent={each.id}
-													name={each.name}
-													className="size-3.5"
-												/>
-												{each.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<span className="flex items-center gap-2">
+									<AgentIcon
+										agent={agent}
+										name={agentName(agents, agent)}
+										className="size-5"
+									/>
+									{agentName(agents, agent)}
+								</span>
 							</div>
 							{recent.length > 0 && (
 								<section
