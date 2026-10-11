@@ -4,7 +4,7 @@ import "../../../setup";
 import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
-import type { ConversationState } from "../conversations";
+import type { ConversationState, Message, Part, Tool } from "../conversations";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
@@ -243,6 +243,40 @@ export function conversation(
 		ask: null,
 		settings: [],
 		createdAt: new Date().toISOString(),
+		...overrides,
+	};
+}
+
+/** A message of `role` made of `parts`, a string standing for its text. */
+export function message(
+	role: Message["role"],
+	...parts: (Part | string)[]
+): Message {
+	return {
+		role,
+		parts: parts.map((part) =>
+			typeof part === "string" ? { type: "text", text: part } : part,
+		),
+		plan: null,
+		at: null,
+		until: null,
+	};
+}
+
+export function tool(overrides: Partial<Tool> = {}): Tool {
+	return {
+		type: "tool",
+		id: "t1",
+		title: "cat note.txt",
+		status: "completed",
+		kind: "execute",
+		command: null,
+		output: "",
+		edits: [],
+		paths: [],
+		parent: null,
+		at: null,
+		until: null,
 		...overrides,
 	};
 }

@@ -71,6 +71,8 @@ import {
 	ReviewUI,
 } from "./question-cards";
 import { Task } from "./tasks";
+import type { Work } from "./work";
+import { WorkUI } from "./work-row";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
@@ -1086,6 +1088,7 @@ function Thread({
 					message,
 					index,
 					!writing || index < conversation.messages.length - 1,
+					conversation.messages[index - 1]?.at ?? message.at,
 				),
 			),
 		[conversation.messages, writing],
@@ -1172,6 +1175,7 @@ function Thread({
 				<AssistantRuntimeProvider runtime={runtime}>
 					<QuestionsUI />
 					<ReviewUI />
+					<WorkUI />
 					<ReplyContext value={reply}>
 						<ThreadView
 							mentions={mentions ?? undefined}
@@ -1210,65 +1214,78 @@ function Thread({
 	);
 }
 
-/**
- * A message as assistant-ui takes one, the one place ACP's shape meets
- * assistant-ui's: a tool call carries a result only once it has finished.
- */
 /** One part of a message as assistant-ui takes it. */
 type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
+/**
+ * A message as assistant-ui takes one, the one place ACP's shape meets
+ * assistant-ui's. An agent's turn is its reply, the text it ends on, after
+ * one `data-work` part holding everything it did on the way there.
+ */
 function like(
 	message: Message,
 	index: number,
 	settled = true,
+	/** When the turn began: the person's prompt it answers. */
+	began: string | null = message.at,
 ): ThreadMessageLike {
-	return {
-		id: String(index),
-		role: message.role === "user" ? "user" : "assistant",
-		content: message.parts.flatMap((part): LikePart[] => {
-			switch (part.type) {
-				case "text":
-					// Questions become cards once the agent has stopped writing
-					// them: a list mid-stream may yet turn out not to ask any.
-					return message.role === "user" || !settled
-						? [{ type: "text" as const, text: part.text }]
-						: stretches(part.text).map((stretch): LikePart => {
-								switch (stretch.type) {
-									case "text":
-										return { type: "text", text: stretch.text };
-									case "questions":
-										return {
-											type: "data-questions",
-											data: { questions: stretch.questions },
-										};
-									case "review":
-										return {
-											type: "data-review",
-											data: { review: stretch.review },
-										};
-									default:
-										return stretch satisfies never;
-								}
-							});
-				case "thought":
-					return [{ type: "reasoning", text: part.text }];
-				case "tool":
-					return [
-						{
-							type: "tool-call",
-							toolCallId: part.id,
-							toolName: part.title,
-							args: {},
-							...(part.status === "completed" || part.status === "failed"
-								? { result: part.status, isError: part.status === "failed" }
-								: {}),
-						},
-					];
-				default:
-					return part satisfies never;
-			}
-		}),
+	const id = String(index);
+	if (message.role === "user") {
+		return {
+			id,
+			role: "user",
+			content: message.parts.flatMap((part) =>
+				part.type === "text"
+					? [{ type: "text" as const, text: part.text }]
+					: [],
+			),
+		};
+	}
+	const last = message.parts.at(-1);
+	const reply = last?.type === "text" ? last.text : "";
+	const parts = reply === "" ? message.parts : message.parts.slice(0, -1);
+	const work: Work = {
+		parts,
+		plan: message.plan,
+		at: began,
+		until: message.until,
+		running: !settled,
 	};
+	return {
+		id,
+		role: "assistant",
+		content: [
+			...(parts.length > 0 || message.plan !== null
+				? [{ type: "data-work" as const, data: { work } }]
+				: []),
+			...(reply === "" ? [] : replied(reply, settled)),
+		],
+	};
+}
+
+/**
+ * The agent's reply, its questions and review as cards once it has stopped
+ * writing them: a list mid-stream may yet turn out not to ask any.
+ */
+function replied(text: string, settled: boolean): LikePart[] {
+	if (!settled) {
+		return [{ type: "text", text }];
+	}
+	return stretches(text).map((stretch): LikePart => {
+		switch (stretch.type) {
+			case "text":
+				return { type: "text", text: stretch.text };
+			case "questions":
+				return {
+					type: "data-questions",
+					data: { questions: stretch.questions },
+				};
+			case "review":
+				return { type: "data-review", data: { review: stretch.review } };
+			default:
+				return stretch satisfies never;
+		}
+	});
 }
 
 /** The tree's paths for the composer's `@`, once they have loaded. */

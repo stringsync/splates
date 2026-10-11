@@ -2,19 +2,28 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
-import { FakeTimer } from "webappwiz/time/testing";
-import { type Conversation, Conversations, type Status } from "./conversations";
+import { Duration } from "webappwiz/time";
+import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import {
+	type Conversation,
+	type ConversationState,
+	Conversations,
+	fold,
+	type Status,
+} from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
 
 describe("Conversations", () => {
 	let fs: FakeFs;
 	let timer: FakeTimer;
+	let clock: FakeWallClock;
 	let agent: FakeAgent;
 	let conversations: Conversations;
 
 	beforeEach(() => {
 		fs = new FakeFs();
 		timer = new FakeTimer();
+		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
 		conversations = new Conversations(
 			"/repo/.git/arbor/conversations",
@@ -22,6 +31,7 @@ describe("Conversations", () => {
 			{
 				fs,
 				timer,
+				clock,
 				ids: new CounterIdProvider(),
 				launch: agent.launch,
 			},
@@ -136,7 +146,7 @@ describe("Conversations", () => {
 		await until(conversation, "idle");
 
 		expect(conversation.state.title).toBe("Read the note");
-		expect(conversation.state.messages).toEqual([
+		expect(conversation.state.messages).toMatchObject([
 			{
 				role: "user",
 				parts: [{ type: "text", text: "what does note.txt say?" }],
@@ -338,7 +348,7 @@ describe("Conversations", () => {
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
-			{ fs, timer, launch: agent.launch },
+			{ fs, timer, clock, launch: agent.launch },
 		);
 		const [read] = await reread.list();
 		// A new agent process: what it starts with is its own default.
@@ -367,7 +377,7 @@ describe("Conversations", () => {
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
-			{ fs, timer, launch: agent.launch },
+			{ fs, timer, clock, launch: agent.launch },
 		);
 		const [read] = await reread.list();
 		expect(read?.state.task).toBeNull();
@@ -391,7 +401,7 @@ describe("Conversations", () => {
 		await conversation.prompt("hello");
 		await until(conversation, "idle");
 
-		expect(conversation.state.messages).toEqual([
+		expect(conversation.state.messages).toMatchObject([
 			{ role: "user", parts: [{ type: "text", text: "hello" }] },
 			{ role: "agent", parts: [{ type: "text", text: "Hi." }] },
 		]);
@@ -413,7 +423,7 @@ describe("Conversations", () => {
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
-			{ fs, timer, launch: agent.launch },
+			{ fs, timer, clock, launch: agent.launch },
 		);
 		const [read] = await reread.list();
 		expect(read?.state).toMatchObject({
@@ -433,7 +443,7 @@ describe("Conversations", () => {
 
 		expect(agent.resumed).toEqual(["s1"]);
 		expect(agent.launched.at(-1)?.cwd).toBe(agent.launched[0]?.cwd ?? "");
-		expect(read?.state.messages.at(-1)).toEqual({
+		expect(read?.state.messages.at(-1)).toMatchObject({
 			role: "agent",
 			parts: [{ type: "text", text: "Done." }],
 		});
@@ -449,7 +459,7 @@ describe("Conversations", () => {
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
-			{ fs, timer, launch: agent.launch },
+			{ fs, timer, clock, launch: agent.launch },
 		);
 		expect((await reread.list())[0]?.state.name).toBe("Login redirect");
 		await conversation.rename("");
@@ -472,7 +482,7 @@ describe("Conversations", () => {
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
-			{ fs, timer, launch: agent.launch },
+			{ fs, timer, clock, launch: agent.launch },
 		);
 		expect((await reread.list())[0]?.state.archived).toBe(true);
 
@@ -488,6 +498,32 @@ describe("Conversations", () => {
 		await until(conversation, "failed");
 
 		expect(conversation.state.error).toBe("fake agent fell over");
+	});
+
+	it("stamps what is said with when, and reads the times back from the log", async () => {
+		agent.turn = async (client, sessionId) => {
+			clock.advance(Duration.secs(3));
+			await client.sessionUpdate({ sessionId, update: say("Done.") });
+			return "end_turn";
+		};
+		const conversation = await started();
+		await conversation.prompt("go");
+		await until(conversation, "idle");
+		await conversation.stop();
+
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(
+			read?.state.messages.map(({ at, until }) => ({ at, until })),
+		).toEqual([
+			{ at: "2026-10-11T10:00:00.000Z", until: "2026-10-11T10:00:00.000Z" },
+			{ at: "2026-10-11T10:00:03.000Z", until: "2026-10-11T10:00:03.000Z" },
+		]);
+		await reread.disposeAsync();
 	});
 
 	it("saves a streaming log at most once per interval, and all of it on stop", async () => {
@@ -517,5 +553,201 @@ describe("Conversations", () => {
 			"update",
 			"end",
 		]);
+	});
+});
+
+describe("fold", () => {
+	const state = (): ConversationState => ({
+		id: "c",
+		agent: "claude",
+		task: null,
+		title: null,
+		name: null,
+		status: "running",
+		error: null,
+		messages: [],
+		ask: null,
+		settings: [],
+		createdAt: "2026-10-11T10:00:00.000Z",
+		archived: false,
+	});
+	const at = (secs: number) =>
+		new Date(Date.parse("2026-10-11T10:00:00Z") + secs * 1000).toISOString();
+
+	it("keeps a command, its output, and how long it ran, as Claude sends them", () => {
+		const into = state();
+		const updates: acp.SessionUpdate[] = [
+			{
+				sessionUpdate: "tool_call",
+				toolCallId: "t1",
+				title: "Terminal",
+				kind: "execute",
+				status: "pending",
+				content: [],
+				rawInput: {},
+			},
+			{
+				sessionUpdate: "tool_call_update",
+				toolCallId: "t1",
+				title: "bun test",
+				rawInput: { command: "bun test" },
+			},
+			{
+				sessionUpdate: "tool_call_update",
+				toolCallId: "t1",
+				content: [
+					{ type: "content", content: { type: "text", text: "Run the tests" } },
+				],
+			},
+			{
+				sessionUpdate: "tool_call_update",
+				toolCallId: "t1",
+				status: "failed",
+				content: [
+					{
+						type: "content",
+						content: { type: "text", text: "```console\n1 fail\n```" },
+					},
+				],
+			},
+		];
+		for (const [index, update] of updates.entries()) {
+			fold(into, update, at(index * 10));
+		}
+
+		expect(into.messages[0]?.parts).toEqual([
+			{
+				type: "tool",
+				id: "t1",
+				title: "bun test",
+				status: "failed",
+				kind: "execute",
+				command: "bun test",
+				output: "1 fail",
+				edits: [],
+				paths: [],
+				parent: null,
+				at: at(0),
+				until: at(30),
+			},
+		]);
+		expect(into.messages[0]).toMatchObject({ at: at(0), until: at(30) });
+	});
+
+	it("streams a command's output and fails it on a nonzero exit, as Codex sends them", () => {
+		const into = state();
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "x1",
+			title: "wc -l note.txt",
+			kind: "execute",
+			status: "in_progress",
+			rawInput: { command: ["wc", "-l", "note.txt"] },
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "x1",
+			_meta: { terminal_output_delta: { data: "no such file\n" } },
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "x1",
+			status: "completed",
+			_meta: { terminal_exit: { exit_code: 1 } },
+		});
+
+		expect(into.messages[0]?.parts[0]).toMatchObject({
+			command: "wc -l note.txt",
+			output: "no such file\n",
+			status: "failed",
+		});
+	});
+
+	it("keeps an edit's file and its change", () => {
+		const into = state();
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "w1",
+			title: "Write note.txt",
+			kind: "edit",
+			locations: [{ path: "/repo/note.txt" }],
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "w1",
+			status: "completed",
+			content: [
+				{ type: "diff", path: "/repo/note.txt", oldText: "hi", newText: "HI" },
+			],
+		});
+
+		expect(into.messages[0]?.parts[0]).toMatchObject({
+			paths: ["/repo/note.txt"],
+			edits: [{ path: "/repo/note.txt", old: "hi", new: "HI" }],
+		});
+	});
+
+	it("files a subagent's tool calls under its own, and leaves out its words", () => {
+		const into = state();
+		const under = { claudeCode: { parentToolUseId: "a1" } };
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "a1",
+			title: "Find the callers",
+			kind: "think",
+		});
+		fold(into, {
+			sessionUpdate: "agent_message_chunk",
+			content: { type: "text", text: "Searching." },
+			_meta: under,
+		});
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "g1",
+			title: "grep fold",
+			kind: "search",
+			_meta: under,
+		});
+
+		expect(
+			into.messages[0]?.parts.map((part) =>
+				part.type === "tool" ? [part.id, part.parent] : part.type,
+			),
+		).toEqual([
+			["a1", null],
+			["g1", "a1"],
+		]);
+	});
+
+	it("keeps the plan as last sent, and when a thought began", () => {
+		const into = state();
+		fold(
+			into,
+			{
+				sessionUpdate: "agent_thought_chunk",
+				content: { type: "text", text: "Hmm" },
+			},
+			at(0),
+		);
+		fold(
+			into,
+			{
+				sessionUpdate: "plan",
+				entries: [
+					{ content: "Read", priority: "high", status: "completed" },
+					{ content: "Write", priority: "high", status: "in_progress" },
+				],
+			},
+			at(5),
+		);
+
+		expect(into.messages[0]).toMatchObject({
+			parts: [{ type: "thought", text: "Hmm", at: at(0) }],
+			plan: [
+				{ text: "Read", status: "completed" },
+				{ text: "Write", status: "in_progress" },
+			],
+			until: at(5),
+		});
 	});
 });

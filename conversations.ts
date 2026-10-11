@@ -3,7 +3,14 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, NodeFs } from "webappwiz/system";
-import { Duration, SystemTimer, Throttler, type Timer } from "webappwiz/time";
+import {
+	Duration,
+	SystemTimer,
+	SystemWallClock,
+	Throttler,
+	type Timer,
+	type WallClock,
+} from "webappwiz/time";
 import { fail } from "./exit";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
@@ -82,21 +89,61 @@ export const launch: Launch = (argv, cwd, env) => {
 /** How much of an agent's stderr is kept to explain how it died. */
 const STDERR_CHARS = 2_000;
 
+/** How much of a tool call's output, and of each side of an edit, is kept. */
+const TOOL_CHARS = 20_000;
+
 /** One piece of what someone in a conversation said or did. */
 export type Part =
 	| { type: "text"; text: string }
-	| { type: "thought"; text: string }
-	| {
-			type: "tool";
-			id: string;
-			title: string;
-			status: "pending" | "in_progress" | "completed" | "failed";
-	  };
+	/** `at` is when the agent began it; null in a log too old to say. */
+	| { type: "thought"; text: string; at: string | null }
+	| Tool;
+
+/** A tool call the agent made, as much of it as the page shows. */
+export interface Tool {
+	type: "tool";
+	id: string;
+	title: string;
+	status: "pending" | "in_progress" | "completed" | "failed";
+	/** What ACP says it does: read, edit, execute, search, think, and so on. */
+	kind: string | null;
+	/** The command it runs, for one that runs one. */
+	command: string | null;
+	/** The end of what it printed, at most `TOOL_CHARS`. */
+	output: string;
+	/** The changes it made to files. */
+	edits: Edit[];
+	/** The files it touched. */
+	paths: string[];
+	/** The subagent's tool call it was made under, if one made it. */
+	parent: string | null;
+	/** When it began and finished; null in a log too old to say, or until it has. */
+	at: string | null;
+	until: string | null;
+}
+
+/** A change to one file: `old` is null for a file the edit created. */
+export interface Edit {
+	path: string;
+	old: string | null;
+	new: string;
+}
+
+/** A step of the agent's plan for the turn. */
+export interface Step {
+	text: string;
+	status: "pending" | "in_progress" | "completed";
+}
 
 /** One turn's worth of words, the person's or the agent's. */
 export interface Message {
 	role: "user" | "agent";
 	parts: Part[];
+	/** The agent's plan, as last sent; null when it sent none. */
+	plan: Step[] | null;
+	/** When it began and last moved; null in a log too old to say. */
+	at: string | null;
+	until: string | null;
 }
 
 /** A field of a question an agent asks, answered with one of `choices` or in words. */
@@ -185,53 +232,78 @@ type Entry =
 	| { kind: "settings"; settings: Setting[] }
 	| { kind: "archive"; archived: boolean }
 	| { kind: "rename"; name: string | null }
-	| { kind: "prompt"; text: string }
-	| { kind: "update"; update: acp.SessionUpdate }
+	/** `at` is missing from logs written before the page showed how long things took. */
+	| { kind: "prompt"; text: string; at?: string }
+	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	| { kind: "end"; error: string | null };
 
 /**
- * Folds one ACP update into the messages: text runs on in the message it
- * started, and a tool call is one part whose status moves along.
+ * Folds one ACP update, sent `at`, into the messages: text runs on in the
+ * message it started, and a tool call is one part that fills in as it runs.
  */
 export function fold(
 	state: ConversationState,
 	update: acp.SessionUpdate,
+	at: string | null = null,
 ): void {
 	switch (update.sessionUpdate) {
 		case "agent_message_chunk":
 		case "agent_thought_chunk": {
-			if (update.content.type !== "text") {
+			// A subagent's words are its own, kept in the log but out of the
+			// conversation's: its tool call stands for it.
+			if (update.content.type !== "text" || parentOf(update) !== null) {
 				return;
 			}
-			const type =
-				update.sessionUpdate === "agent_message_chunk" ? "text" : "thought";
-			const parts = agentTurn(state).parts;
-			const last = parts.at(-1);
-			if (last?.type === type) {
+			const turn = agentTurn(state, at);
+			const last = turn.parts.at(-1);
+			if (update.sessionUpdate === "agent_message_chunk") {
+				if (last?.type === "text") {
+					last.text += update.content.text;
+				} else {
+					turn.parts.push({ type: "text", text: update.content.text });
+				}
+			} else if (last?.type === "thought") {
 				last.text += update.content.text;
 			} else {
-				parts.push({ type, text: update.content.text });
+				turn.parts.push({ type: "thought", text: update.content.text, at });
 			}
 			return;
 		}
-		case "tool_call":
-			agentTurn(state).parts.push({
+		case "tool_call": {
+			const tool: Tool = {
 				type: "tool",
 				id: update.toolCallId,
 				title: update.title,
-				status: update.status ?? "pending",
-			});
+				status: "pending",
+				kind: update.kind ?? null,
+				command: null,
+				output: "",
+				edits: [],
+				paths: [],
+				parent: parentOf(update),
+				at,
+				until: null,
+			};
+			agentTurn(state, at).parts.push(tool);
+			fill(tool, update, at);
 			return;
+		}
 		case "tool_call_update": {
 			const part = state.messages
 				.flatMap((message) => message.parts)
 				.find((each) => each.type === "tool" && each.id === update.toolCallId);
 			if (part?.type === "tool") {
-				part.title = update.title ?? part.title;
-				part.status = update.status ?? part.status;
+				fill(part, update, at);
+				moved(state, at);
 			}
 			return;
 		}
+		case "plan":
+			agentTurn(state, at).plan = update.entries.map((entry) => ({
+				text: entry.content,
+				status: entry.status,
+			}));
+			return;
 		case "session_info_update":
 			if (update.title !== undefined) {
 				state.title = update.title;
@@ -252,15 +324,126 @@ export function fold(
 	}
 }
 
-/** The agent's message at the end, started if the person spoke last. */
-function agentTurn(state: ConversationState): Message {
+/**
+ * The agent's message at the end, started if the person spoke last, marked
+ * as having moved `at`.
+ */
+function agentTurn(state: ConversationState, at: string | null): Message {
 	const last = state.messages.at(-1);
 	if (last?.role === "agent") {
+		last.until = at ?? last.until;
 		return last;
 	}
-	const turn: Message = { role: "agent", parts: [] };
+	const turn: Message = {
+		role: "agent",
+		parts: [],
+		plan: null,
+		at,
+		until: at,
+	};
 	state.messages.push(turn);
 	return turn;
+}
+
+/** Marks the agent's message at the end, if it is the last, as having moved `at`. */
+function moved(state: ConversationState, at: string | null): void {
+	const last = state.messages.at(-1);
+	if (last?.role === "agent" && at !== null) {
+		last.until = at;
+	}
+}
+
+/** The subagent's tool call an update came from: Claude stamps it in `_meta`. */
+function parentOf(update: {
+	_meta?: { [key: string]: unknown } | null;
+}): string | null {
+	const claude = update._meta?.claudeCode as
+		| { parentToolUseId?: unknown }
+		| undefined;
+	return typeof claude?.parentToolUseId === "string"
+		? claude.parentToolUseId
+		: null;
+}
+
+/**
+ * Takes what an update says of a tool call into it. Adapters say it in
+ * different places: Claude sends a command's output whole as `rawOutput`
+ * once it ends, Codex streams it in `_meta` and says how it exited there.
+ */
+function fill(
+	tool: Tool,
+	update: acp.ToolCall | acp.ToolCallUpdate,
+	at: string | null,
+): void {
+	tool.title = update.title ?? tool.title;
+	tool.kind = update.kind ?? tool.kind;
+	const input = update.rawInput as { command?: unknown } | null | undefined;
+	if (typeof input?.command === "string") {
+		tool.command = input.command;
+	} else if (Array.isArray(input?.command)) {
+		tool.command = input.command.join(" ");
+	}
+	if (update.locations != null && update.locations.length > 0) {
+		tool.paths = [...new Set(update.locations.map((each) => each.path))];
+	}
+	const edits = (update.content ?? []).flatMap((each): Edit[] =>
+		each.type === "diff"
+			? [
+					{
+						path: each.path,
+						old:
+							each.oldText == null ? null : each.oldText.slice(0, TOOL_CHARS),
+						new: each.newText.slice(0, TOOL_CHARS),
+					},
+				]
+			: [],
+	);
+	if (edits.length > 0) {
+		tool.edits = edits;
+		tool.paths = [
+			...new Set([...tool.paths, ...edits.map((each) => each.path)]),
+		];
+	}
+	const meta = update._meta as
+		| {
+				terminal_output_delta?: { data?: unknown };
+				terminal_exit?: { exit_code?: unknown };
+		  }
+		| null
+		| undefined;
+	const delta = meta?.terminal_output_delta?.data;
+	if (typeof delta === "string") {
+		tool.output = (tool.output + delta).slice(-TOOL_CHARS);
+	}
+	const ended = update.status === "completed" || update.status === "failed";
+	if (typeof update.rawOutput === "string") {
+		tool.output = update.rawOutput.slice(-TOOL_CHARS);
+	} else if (ended && tool.output === "") {
+		// Until it ends, Claude's content is what the command is for, not what
+		// it printed.
+		tool.output = (update.content ?? [])
+			.flatMap((each) =>
+				each.type === "content" && each.content.type === "text"
+					? [unfenced(each.content.text)]
+					: [],
+			)
+			.join("\n")
+			.slice(-TOOL_CHARS);
+	}
+	const code = meta?.terminal_exit?.exit_code;
+	tool.status =
+		typeof code === "number" && code !== 0
+			? "failed"
+			: (update.status ?? tool.status);
+	if (ended) {
+		tool.until = at;
+	}
+}
+
+/** `text` without the code fence an adapter wrapped a command's output in. */
+function unfenced(text: string): string {
+	const fenced = /^```[^\n]*\n([\s\S]*?)\n?```$/.exec(text.trim());
+	return fenced?.[1] ?? text;
 }
 
 /** The session's settings the agent lets the person pick from, in its order. */
@@ -351,6 +534,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		private readonly log: string,
 		private readonly fs: Fs,
 		timer: Timer,
+		private readonly clock: WallClock,
 		/** What to run to resume it; null when its agent is no longer known. */
 		private readonly agent: Agent | null,
 		/** Where it runs; null for a log too old to say. */
@@ -366,18 +550,24 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		return this.state.id;
 	}
 
+	private now(): string {
+		return new Date(this.clock.now()).toISOString();
+	}
+
 	/** A conversation as its log left it: stopped, whatever it was doing. */
 	static async read(
 		log: string,
 		{
 			fs,
 			timer,
+			clock,
 			agents,
 			launch: run,
 			url,
 		}: {
 			fs: Fs;
 			timer: Timer;
+			clock: WallClock;
 			agents: Agent[];
 			launch: Launch;
 			url: string | null;
@@ -400,6 +590,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			log,
 			fs,
 			timer,
+			clock,
 			agents.find((each) => each.id === start.agent) ?? null,
 			start.cwd ?? null,
 			run,
@@ -409,12 +600,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		const { state } = conversation;
 		for (const entry of entries) {
 			if (entry.kind === "prompt") {
-				state.messages.push({
-					role: "user",
-					parts: [{ type: "text", text: entry.text }],
-				});
+				state.messages.push(said(entry.text, entry.at ?? null));
 			} else if (entry.kind === "update") {
-				fold(state, entry.update);
+				fold(state, entry.update, entry.at ?? null);
 			} else if (entry.kind === "session") {
 				conversation.session = entry.session;
 			} else if (entry.kind === "task") {
@@ -460,15 +648,23 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		{
 			fs,
 			timer,
+			clock,
 			launch: run,
 			url,
-		}: { fs: Fs; timer: Timer; launch: Launch; url: string | null },
+		}: {
+			fs: Fs;
+			timer: Timer;
+			clock: WallClock;
+			launch: Launch;
+			url: string | null;
+		},
 	): Promise<Conversation> {
 		const conversation = new Conversation(
-			blank(id, agent.id, task, new Date().toISOString()),
+			blank(id, agent.id, task, new Date(clock.now()).toISOString()),
 			log,
 			fs,
 			timer,
+			clock,
 			agent,
 			cwd,
 			run,
@@ -562,8 +758,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private client(): acp.Client {
 		return {
 			sessionUpdate: async ({ update }) => {
-				this.write({ kind: "update", update });
-				fold(this.state, update);
+				const at = this.now();
+				this.write({ kind: "update", update, at });
+				fold(this.state, update, at);
 				this.changed();
 			},
 			requestPermission: async (params) => {
@@ -603,7 +800,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		this.settle?.({ type: "dismiss" });
 		return new Promise((resolve) => {
 			this.settle = resolve;
-			this.set({ ask: { ...asked, at: new Date().toISOString() } });
+			this.set({ ask: { ...asked, at: this.now() } });
 		});
 	}
 
@@ -628,11 +825,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		if (words === "") {
 			fail("usage", "say something to the agent", { conversation: this.id });
 		}
-		this.write({ kind: "prompt", text: words });
-		this.state.messages.push({
-			role: "user",
-			parts: [{ type: "text", text: words }],
-		});
+		const at = this.now();
+		this.write({ kind: "prompt", text: words, at });
+		this.state.messages.push(said(words, at));
 		this.set({ status: "running" });
 		void this.connection
 			.prompt({
@@ -824,6 +1019,17 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 }
 
+/** What the person said, `at`. */
+function said(text: string, at: string | null): Message {
+	return {
+		role: "user",
+		parts: [{ type: "text", text }],
+		plan: null,
+		at,
+		until: at,
+	};
+}
+
 function blank(
 	id: string,
 	agent: string,
@@ -872,6 +1078,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly ids: IdProvider;
 	private readonly run: Launch;
 	private readonly timer: Timer;
+	private readonly clock: WallClock;
 	private loaded = false;
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
@@ -885,6 +1092,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.ids = opts.ids ?? new UuidProvider();
 		this.run = opts.launch ?? launch;
 		this.timer = opts.timer ?? new SystemTimer();
+		this.clock = opts.clock ?? new SystemWallClock();
 	}
 
 	/** Every conversation, newest first. */
@@ -936,7 +1144,13 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				log: `${this.dir}/${id}.jsonl`,
 				settings,
 			},
-			{ fs: this.fs, timer: this.timer, launch: this.run, url: this.url },
+			{
+				fs: this.fs,
+				timer: this.timer,
+				clock: this.clock,
+				launch: this.run,
+				url: this.url,
+			},
 		);
 		this.track(conversation);
 		return conversation;
@@ -971,6 +1185,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			const read = await Conversation.read(`${this.dir}/${name}`, {
 				fs: this.fs,
 				timer: this.timer,
+				clock: this.clock,
 				agents: this.agents,
 				launch: this.run,
 				url: this.url,
@@ -987,4 +1202,5 @@ export interface ConversationsOptions {
 	ids?: IdProvider;
 	launch?: Launch;
 	timer?: Timer;
+	clock?: WallClock;
 }

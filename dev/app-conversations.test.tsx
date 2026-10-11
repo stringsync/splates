@@ -6,7 +6,9 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	Testing,
+	tool,
 	waitFor,
 	within,
 } from "./testing";
@@ -370,22 +372,12 @@ describe("App's conversations", () => {
 				title: "Read the note",
 				status: "running",
 				messages: [
-					{
-						role: "user",
-						parts: [{ type: "text", text: "what does it say?" }],
-					},
-					{
-						role: "agent",
-						parts: [
-							{
-								type: "tool",
-								id: "t1",
-								title: "cat note.txt",
-								status: "completed",
-							},
-							{ type: "text", text: "It says **hi**." },
-						],
-					},
+					message("user", "what does it say?"),
+					message(
+						"agent",
+						tool({ command: "cat note.txt", status: "in_progress" }),
+						"It says **hi**.",
+					),
 				],
 			}),
 		);
@@ -397,12 +389,7 @@ describe("App's conversations", () => {
 		await waitFor(() =>
 			expect(within(thread).getByText("hi").tagName).toBe("STRONG"),
 		);
-		await act(async () =>
-			fireEvent.click(
-				within(thread).getByRole("button", { name: /1 tool call/ }),
-			),
-		);
-		expect(thread.textContent).toContain("cat note.txt");
+		expect(thread.textContent).toContain("Working");
 		expect(within(thread).getByText("running")).toBeTruthy();
 	});
 
@@ -449,10 +436,7 @@ describe("App's conversations", () => {
 			conversation({
 				title: "Header",
 				status,
-				messages: [
-					{ role: "user", parts: [{ type: "text", text: "fix the header" }] },
-					{ role: "agent", parts: [{ type: "text", text: report }] },
-				],
+				messages: [message("user", "fix the header"), message("agent", report)],
 			});
 		const box = (view: Awaited<ReturnType<typeof conversations>>) =>
 			view.getByRole("textbox", {
@@ -541,27 +525,213 @@ describe("App's conversations", () => {
 		});
 	});
 
+	describe("work row", () => {
+		const second = (secs: number) =>
+			new Date(Date.parse("2026-10-11T10:00:00Z") + secs * 1000).toISOString();
+		const turn = (
+			parts: Parameters<typeof message>[1][],
+			{
+				status = "idle" as ConversationState["status"],
+				plan = null as
+					| null
+					| { text: string; status: "pending" | "in_progress" | "completed" }[],
+			} = {},
+		) =>
+			conversation({
+				title: "Tests",
+				status,
+				messages: [
+					{
+						...message("user", "run the tests"),
+						at: second(0),
+						until: second(0),
+					},
+					{
+						...message("agent", ...parts),
+						plan,
+						at: second(1),
+						until: second(65),
+					},
+				],
+			});
+		const opened = async (state: ConversationState) => {
+			const view = await conversations([state]);
+			return await waitFor(() =>
+				view.getByRole("region", { name: state.title ?? "" }),
+			);
+		};
+
+		it("folds what the agent did into one line, and shows only its reply", async () => {
+			const thread = await opened(
+				turn([
+					{ type: "thought", text: "Which tests?", at: second(1) },
+					"Let me run them.",
+					tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"] }),
+					tool({ id: "r2", kind: "read", paths: ["/repo/b.ts"] }),
+					tool({
+						id: "x1",
+						command: "bun test",
+						status: "failed",
+						at: second(2),
+						until: second(30),
+					}),
+					tool({
+						id: "e1",
+						kind: "edit",
+						paths: ["/repo/src/a.ts"],
+						edits: [{ path: "/repo/src/a.ts", old: "one", new: "two" }],
+					}),
+					tool({
+						id: "x2",
+						command: "bun test",
+						at: second(31),
+						until: second(60),
+					}),
+					"All tests pass.",
+				]),
+			);
+
+			await waitFor(() =>
+				expect(thread.textContent).toContain(
+					"Worked 1m 5s · 2 commands (1 failed) · edited 1 file · read 2 files",
+				),
+			);
+			expect(thread.textContent).toContain("All tests pass.");
+			const timeline = within(thread).getByRole("list", { name: "timeline" });
+			expect((timeline.closest("details") as HTMLDetailsElement).open).toBe(
+				false,
+			);
+			expect(within(timeline).getByText("Thought for 1s")).toBeTruthy();
+			expect(within(timeline).getByText("Let me run them.")).toBeTruthy();
+			expect(within(timeline).getByText("Read 2 files")).toBeTruthy();
+		});
+
+		it("counts a command run again in a row, and opens it to its output", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "x1", command: "bun test", status: "failed" }),
+					tool({ id: "x2", command: "bun test", status: "failed" }),
+					tool({
+						id: "x3",
+						command: "bun test",
+						status: "failed",
+						output: "\u001b[31m1 fail\u001b[39m",
+					}),
+					"Still failing.",
+				]),
+			);
+
+			const row = await waitFor(() => within(thread).getByText("×3"));
+			const command = row.closest("details") as HTMLDetailsElement;
+			expect(within(command).getByLabelText("failed")).toBeTruthy();
+			expect(within(command).getByLabelText("output").textContent).toBe(
+				"1 fail",
+			);
+		});
+
+		it("lists the files edited, each opening to its edits", async () => {
+			const thread = await opened(
+				turn([
+					tool({
+						id: "e1",
+						kind: "edit",
+						paths: ["/repo/src/a.ts"],
+						edits: [{ path: "/repo/src/a.ts", old: "one", new: "two" }],
+					}),
+					tool({
+						id: "e2",
+						kind: "edit",
+						paths: ["/repo/src/a.ts"],
+						edits: [{ path: "/repo/src/a.ts", old: "two", new: "three" }],
+					}),
+					tool({
+						id: "e3",
+						kind: "edit",
+						paths: ["/repo/lib/b.ts"],
+						edits: [{ path: "/repo/lib/b.ts", old: null, new: "new" }],
+					}),
+					"Done.",
+				]),
+			);
+
+			const files = await waitFor(() =>
+				within(thread).getByRole("list", { name: "edited files" }),
+			);
+			expect(files.textContent).toBe("src/a.ts×2lib/b.ts");
+			await act(async () =>
+				fireEvent.click(
+					within(files).getByRole("button", { name: /src\/a.ts/ }),
+				),
+			);
+			expect(
+				within(within(thread).getByLabelText("edits to /repo/src/a.ts"))
+					.getAllByLabelText("edit to /repo/src/a.ts")
+					.map((edit) => edit.textContent),
+			).toEqual(["-one+two", "-two+three"]);
+		});
+
+		it("says what it is on while it works, with its plan", async () => {
+			const thread = await opened(
+				turn(
+					[
+						tool({
+							id: "x1",
+							command: "bun test",
+							status: "in_progress",
+							at: second(20),
+						}),
+					],
+					{
+						status: "running",
+						plan: [
+							{ text: "Run the tests", status: "in_progress" },
+							{ text: "Fix what fails", status: "pending" },
+						],
+					},
+				),
+			);
+
+			await waitFor(() =>
+				expect(thread.textContent).toMatch(/Working .+ · bun test · /),
+			);
+			expect(
+				within(thread).getByRole("list", { name: "plan" }).textContent,
+			).toBe("Run the testsFix what fails");
+		});
+
+		it("folds a subagent's calls into its row", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "a1", kind: "think", title: "Find the callers" }),
+					tool({ id: "g1", kind: "search", title: "grep fold", parent: "a1" }),
+					tool({ id: "g2", kind: "read", title: "Read a.ts", parent: "a1" }),
+					"Two callers.",
+				]),
+			);
+
+			await waitFor(() => expect(thread.textContent).toContain("1 subagent"));
+			const timeline = within(thread).getByRole("list", { name: "timeline" });
+			expect(timeline.textContent).toContain("Find the callers· 2 tool calls");
+			expect(timeline.textContent).not.toContain("Read 1 file");
+		});
+	});
+
 	describe("review panel", () => {
 		const reviewing = conversation({
 			title: "Header",
 			messages: [
-				{
-					role: "agent",
-					parts: [
-						{
-							type: "text",
-							text: [
-								"## 🔍 Ready to merge header onto main",
-								"",
-								"The header wraps on phones.",
-								"",
-								"Open the page at 390px wide.",
-								"",
-								'Reply "merge", or say what to change.',
-							].join("\n"),
-						},
-					],
-				},
+				message(
+					"agent",
+					[
+						"## 🔍 Ready to merge header onto main",
+						"",
+						"The header wraps on phones.",
+						"",
+						"Open the page at 390px wide.",
+						"",
+						'Reply "merge", or say what to change.',
+					].join("\n"),
+				),
 			],
 		});
 		const box = (view: Awaited<ReturnType<typeof conversations>>) =>
