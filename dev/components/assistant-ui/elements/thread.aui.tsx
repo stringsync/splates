@@ -9,9 +9,7 @@ import {
 	type CompleteAttachment,
 	ComposerPrimitive,
 	ErrorPrimitive,
-	type FileMessagePartComponent,
 	groupPartByType,
-	type ImageMessagePartComponent,
 	MessageByIndexProvider,
 	MessagePrimitive,
 	SuggestionPrimitive,
@@ -59,9 +57,7 @@ import {
 	ComposerAttachments,
 	ImageTile,
 } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
-import { File } from "#dev/components/assistant-ui/elements/file.tsx";
 import { ThreadFollowupSuggestions } from "#dev/components/assistant-ui/elements/follow-up-suggestions.aui.tsx";
-import { Image } from "#dev/components/assistant-ui/elements/image.tsx";
 import { MarkdownText } from "#dev/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	Reasoning,
@@ -970,18 +966,6 @@ const AssistantMessage: FC = () => {
 								return part.toolUI ?? <ToolFallbackComponent {...part} />;
 							case "data":
 								return part.dataRendererUI;
-							case "file":
-								return (
-									<div data-slot="aui_assistant-message-file" className="py-1">
-										<File {...part} />
-									</div>
-								);
-							case "image":
-								return (
-									<div data-slot="aui_assistant-message-image" className="py-1">
-										<Image {...part} />
-									</div>
-								);
 							case "indicator":
 								return <WorkingIndicator />;
 							default:
@@ -1016,18 +1000,6 @@ const WorkingIndicator: FC = () => {
 		</span>
 	);
 };
-
-const UserFilePart: FileMessagePartComponent = (part) => (
-	<div data-slot="aui_user-message-file" className="py-1">
-		<File {...part} />
-	</div>
-);
-
-const UserImagePart: ImageMessagePartComponent = (part) => (
-	<div data-slot="aui_user-message-image" className="py-1">
-		<Image {...part} />
-	</div>
-);
 
 /**
  * Has a person's message report, as its `offsetTop`, where it sits before it
@@ -1075,9 +1047,9 @@ const UserMessage: FC = () => {
 		>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
 				<Clamped watch={id} head={<ImageTiles attachments={attachments} />}>
-					<MessagePrimitive.Parts
-						components={{ File: UserFilePart, Image: UserImagePart }}
-					/>
+					{/* Only words: the images it carries are attachments, shown as
+					the tiles above. */}
+					<MessagePrimitive.Parts />
 				</Clamped>
 				<UserCopy />
 			</div>
