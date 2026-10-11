@@ -220,6 +220,29 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
+	// Every scroll jumps rather than glides: assistant-ui scrolls a new message
+	// to the top with `behavior: "smooth"`, which no stylesheet can override.
+	useEffect(() => {
+		const element = viewport.current;
+		if (element === null) {
+			return;
+		}
+		element.scrollTo = (options?: ScrollToOptions | number, y?: number) =>
+			(
+				HTMLElement.prototype.scrollTo as (
+					this: HTMLElement,
+					options: ScrollToOptions,
+				) => void
+			).call(
+				element,
+				typeof options === "number"
+					? { left: options, top: y ?? 0, behavior: "instant" }
+					: { ...options, behavior: "instant" },
+			);
+		return () => {
+			delete (element as Partial<HTMLDivElement>).scrollTo;
+		};
+	}, []);
 
 	return (
 		<ThreadPrimitive.Root
@@ -238,7 +261,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 					ref={viewport}
 					turnAnchor="top"
 					data-slot="aui_thread-viewport"
-					className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth"
+					className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll"
 				>
 					<div
 						className={cn(
@@ -669,6 +692,7 @@ const ComposerAction: FC = () => {
 				<AuiIf
 					condition={(s) =>
 						!s.composer.canCancel ||
+						(s.thread.capabilities.queue && !s.composer.isEmpty) ||
 						(s.thread.voice !== undefined &&
 							s.composer.submission === undefined)
 					}
@@ -692,6 +716,7 @@ const ComposerAction: FC = () => {
 				<AuiIf
 					condition={(s) =>
 						s.composer.canCancel &&
+						!(s.thread.capabilities.queue && !s.composer.isEmpty) &&
 						(s.thread.voice === undefined ||
 							s.composer.submission !== undefined)
 					}

@@ -44,6 +44,13 @@ export class FakeAgent {
 	cancelled = 0;
 	/** The sessions resumed, by id, in order. */
 	resumed: string[] = [];
+	/**
+	 * What `_session/steering` answers, or null for an agent that does not
+	 * offer it, the default.
+	 */
+	steering: "injected" | "promptRequired" | null = null;
+	/** What was steered into a turn, in order. */
+	steered: string[] = [];
 	/** The settings set, in order. */
 	chosen: { configId: string; value: unknown }[] = [];
 	private options = structuredClone(OPTIONS);
@@ -87,7 +94,24 @@ export class FakeAgent {
 			initialize: async () => ({
 				protocolVersion: acp.PROTOCOL_VERSION,
 				agentCapabilities: {},
+				...(this.steering === null
+					? {}
+					: { _meta: { steering: { supported: true } } }),
 			}),
+			extMethod: async (method, params) => {
+				if (method !== "_session/steering" || this.steering === null) {
+					throw acp.RequestError.methodNotFound(method);
+				}
+				const prompt = params.prompt as acp.ContentBlock[];
+				if (this.steering === "injected") {
+					this.steered.push(
+						prompt
+							.map((block) => (block.type === "text" ? block.text : ""))
+							.join(""),
+					);
+				}
+				return { outcome: this.steering };
+			},
 			newSession: async () => ({
 				sessionId: "s1",
 				configOptions: this.options,

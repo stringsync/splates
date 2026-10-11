@@ -144,6 +144,11 @@ export interface Message {
 	/** When it began and last moved; null in a log too old to say. */
 	at: string | null;
 	until: string | null;
+	/**
+	 * Said while the agent worked, to an agent that cannot take it mid-turn:
+	 * it goes out when the turn ends.
+	 */
+	queued?: true;
 }
 
 /** A field of a question an agent asks, answered with one of `choices` or in words. */
@@ -233,7 +238,11 @@ type Entry =
 	| { kind: "archive"; archived: boolean }
 	| { kind: "rename"; name: string | null }
 	/** `at` is missing from logs written before the page showed how long things took. */
-	| { kind: "prompt"; text: string; at?: string }
+	| { kind: "prompt"; text: string; at?: string; queued?: true }
+	/** Every queued prompt went out. */
+	| { kind: "sent" }
+	/** The `index`th queued prompt was taken back. */
+	| { kind: "unqueue"; index: number }
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	| { kind: "end"; error: string | null };
 
@@ -325,11 +334,18 @@ export function fold(
 }
 
 /**
+/**
  * The agent's message at the end, started if the person spoke last, marked
- * as having moved `at`.
+ * as having moved `at`. Queued messages stay below it: the agent has yet to
+ * hear them, so nothing it says meanwhile answers them.
  */
 function agentTurn(state: ConversationState, at: string | null): Message {
-	const last = state.messages.at(-1);
+	const { messages } = state;
+	let end = messages.length;
+	while (messages[end - 1]?.queued) {
+		end--;
+	}
+	const last = messages[end - 1];
 	if (last?.role === "agent") {
 		last.until = at ?? last.until;
 		return last;
@@ -341,7 +357,7 @@ function agentTurn(state: ConversationState, at: string | null): Message {
 		at,
 		until: at,
 	};
-	state.messages.push(turn);
+	messages.splice(end, 0, turn);
 	return turn;
 }
 
@@ -520,6 +536,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private session: string | null = null;
 	/** Settles the agent's pending ask with the person's answer. */
 	private settle: ((answer: Answer) => void) | null = null;
+	/** Whether the agent takes a prompt into its running turn. */
+	private steers = false;
+	/** Whether the person cancelled the last turn, which holds the queue. */
+	private held = false;
 	/** The log's lines, all of them, since the file is rewritten whole. */
 	private readonly lines: string[] = [];
 	private saving: Promise<void> = Promise.resolve();
@@ -600,7 +620,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		const { state } = conversation;
 		for (const entry of entries) {
 			if (entry.kind === "prompt") {
-				state.messages.push(said(entry.text, entry.at ?? null));
+				state.messages.push({
+					...said(entry.text, entry.at ?? null),
+					...(entry.queued ? { queued: true } : {}),
+				});
+			} else if (entry.kind === "sent") {
+				delivered(state.messages);
+			} else if (entry.kind === "unqueue") {
+				takeBack(state.messages, entry.index);
 			} else if (entry.kind === "update") {
 				fold(state, entry.update, entry.at ?? null);
 			} else if (entry.kind === "session") {
@@ -711,12 +738,13 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				acp.ndJsonStream(process.input, process.output),
 			);
 			this.connection = connection;
-			await connection.initialize({
+			const initialized = await connection.initialize({
 				protocolVersion: acp.PROTOCOL_VERSION,
 				// A form is how an agent asks the person a question, Claude's
 				// AskUserQuestion among them; without it the agent asks in prose.
 				clientCapabilities: { elicitation: { form: {} } },
 			});
+			this.steers = steers(initialized);
 			if (this.session === null) {
 				const session = await connection.newSession({ cwd, mcpServers: [] });
 				this.session = session.sessionId;
@@ -806,46 +834,167 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	/**
 	 * Says `text` to the agent, once it has started, resuming the session
-	 * first when it stopped; refused while the agent is still answering the
-	 * last.
+	 * first when it stopped. While the agent works, it joins the running turn
+	 * when the agent can take it there, and otherwise waits for the turn to
+	 * end.
 	 */
 	async prompt(text: string): Promise<void> {
 		if (this.state.status === "stopped" || this.state.status === "failed") {
 			await this.resume();
 		}
 		await this.opening;
-		if (this.state.status !== "idle" || this.connection === null) {
+		const words = text.trim();
+		if (words === "") {
+			fail("usage", "say something to the agent", { conversation: this.id });
+		}
+		if (
+			(this.state.status !== "idle" && this.state.status !== "running") ||
+			this.connection === null
+		) {
 			fail(
 				"usage",
 				`conversation ${this.id} is ${this.state.status}: wait for the agent, or cancel its turn`,
 				{ conversation: this.id },
 			);
 		}
-		const words = text.trim();
-		if (words === "") {
-			fail("usage", "say something to the agent", { conversation: this.id });
+		if (this.state.status === "running") {
+			if (!this.steers) {
+				this.queue(words);
+				return;
+			}
+			// Said into the turn first, so a refusal leaves nothing in the thread.
+			const { outcome } = await this.connection.request<{ outcome?: string }>(
+				STEER,
+				{
+					sessionId: this.session ?? "",
+					prompt: [{ type: "text", text: words }],
+					_meta: { steering: { idleBehavior: "promptRequired" } },
+				},
+			);
+			if (outcome === "injected" || outcome === "startedNewTurn") {
+				const at = this.now();
+				this.write({ kind: "prompt", text: words, at });
+				this.state.messages.push(said(words, at));
+				this.changed();
+				return;
+			}
+			if (outcome !== "promptRequired") {
+				fail("usage", `${this.agent?.name ?? "the agent"} did not take it`, {
+					conversation: this.id,
+				});
+			}
+			// The turn ended on the way: a turn of its own, then, or after the
+			// next one if that has started.
+			// Read again: the turn may have ended while the agent answered.
+			if ((this.state.status as Status) !== "idle") {
+				this.queue(words);
+				return;
+			}
 		}
+		this.held = false;
 		const at = this.now();
 		this.write({ kind: "prompt", text: words, at });
 		this.state.messages.push(said(words, at));
+		this.send([words]);
+	}
+
+	/** Holds `words` for when the turn ends, shown as said. */
+	private queue(words: string): void {
+		const at = this.now();
+		this.write({ kind: "prompt", text: words, at, queued: true });
+		this.state.messages.push({ ...said(words, at), queued: true });
+		this.changed();
+	}
+
+	/**
+	 * Starts a turn on `fresh`, with every message still queued ahead of it,
+	 * as one prompt.
+	 */
+	private send(fresh: string[]): void {
+		const waiting = this.state.messages.filter((each) => each.queued);
+		if (waiting.length > 0) {
+			delivered(this.state.messages);
+			this.write({ kind: "sent" });
+		}
+		const prompt = [
+			...waiting.map((each) =>
+				each.parts
+					.map((part) => (part.type === "text" ? part.text : ""))
+					.join(""),
+			),
+			...fresh,
+		];
 		this.set({ status: "running" });
 		void this.connection
-			.prompt({
+			?.prompt({
 				sessionId: this.session ?? "",
-				prompt: [{ type: "text", text: words }],
+				prompt: [{ type: "text", text: prompt.join("\n\n") }],
 			})
 			.then(
-				() => {
-					if (this.state.status === "running") {
-						this.set({ status: "idle" });
-					}
-				},
-				(error: unknown) => {
-					if (this.state.status === "running") {
-						this.set({ status: "idle", error: messageOf(error) });
-					}
+				() => this.ended(null),
+				(error: unknown) => this.ended(messageOf(error)),
+			);
+	}
+
+	/**
+	 * Back to idle once a turn ends, then on to what was queued meanwhile,
+	 * unless the person cancelled the turn: that holds the queue until they
+	 * say something.
+	 */
+	private ended(error: string | null): void {
+		if (this.state.status !== "running") {
+			return;
+		}
+		this.set({ status: "idle", ...(error === null ? {} : { error }) });
+		if (!this.held && this.state.messages.some((each) => each.queued)) {
+			this.send([]);
+		}
+	}
+
+	/**
+	 * Takes back the `index`th queued message before the agent hears it,
+	 * answering with its words, for the person to edit and send again.
+	 */
+	unqueue(index: number): string {
+		const message = takeBack(this.state.messages, index);
+		if (message === null) {
+			fail(
+				"not_found",
+				`conversation ${this.id} has no queued message ${index}`,
+				{
+					conversation: this.id,
 				},
 			);
+		}
+		this.write({ kind: "unqueue", index });
+		this.changed();
+		return message.parts
+			.map((part) => (part.type === "text" ? part.text : ""))
+			.join("");
+	}
+
+	/**
+	 * Sends what is queued now: stops the running turn, whose end sends it,
+	 * or, with no turn running, sends it as one.
+	 */
+	async sendNow(): Promise<void> {
+		if (!this.state.messages.some((each) => each.queued)) {
+			return;
+		}
+		if (this.state.status === "running") {
+			await this.cancel();
+			// After `cancel`, which holds the queue for a stop.
+			this.held = false;
+			return;
+		}
+		if (this.state.status === "stopped" || this.state.status === "failed") {
+			await this.resume();
+		}
+		await this.opening;
+		if (this.state.status === "idle") {
+			this.held = false;
+			this.send([]);
+		}
 	}
 
 	/** Settles the agent's pending ask, if `id` is still the one it is on. */
@@ -863,6 +1012,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	/** Stops the agent's turn, leaving the conversation open for the next. */
 	async cancel(): Promise<void> {
+		this.held = true;
 		if (this.settle !== null) {
 			this.answer(this.state.ask?.id ?? "", { type: "dismiss" });
 		}
@@ -1050,6 +1200,38 @@ function blank(
 		createdAt,
 		archived: false,
 	};
+}
+
+/** The ACP extension that says a prompt into the turn the agent is running. */
+const STEER = "_session/steering";
+
+/** Whether an agent says, as it starts, that it takes `STEER`. */
+function steers(initialized: acp.InitializeResponse): boolean {
+	const steering = initialized._meta?.steering;
+	return (
+		typeof steering === "object" &&
+		steering !== null &&
+		"supported" in steering &&
+		steering.supported === true
+	);
+}
+
+/** Marks every queued message as gone out. */
+function delivered(messages: Message[]): void {
+	for (const each of messages) {
+		delete each.queued;
+	}
+}
+
+/** Removes the `index`th queued message, returning it if there was one. */
+function takeBack(messages: Message[], index: number): Message | null {
+	const queued = messages.filter((each) => each.queued);
+	const message = queued[index];
+	if (message === undefined) {
+		return null;
+	}
+	messages.splice(messages.indexOf(message), 1);
+	return message;
 }
 
 function messageOf(error: unknown): string {

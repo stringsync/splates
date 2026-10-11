@@ -167,20 +167,202 @@ describe("Conversations", () => {
 		]);
 	});
 
-	it("refuses a prompt while the agent is still answering", async () => {
-		const held: { finish?: (reason: acp.StopReason) => void } = {};
-		agent.turn = () => new Promise((resolve) => (held.finish = resolve));
-		const conversation = await started();
-		await conversation.prompt("one");
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
+	describe("said while the agent works", () => {
+		let held: { finish?: (reason: acp.StopReason) => void };
+		let said: string[];
 
-		await expect(conversation.prompt("two")).rejects.toThrow(
-			"conversation 0 is running: wait for the agent, or cancel its turn",
-		);
-		held.finish?.("end_turn");
-		await until(conversation, "idle");
+		let client: acp.AgentSideConnection | undefined;
+
+		beforeEach(() => {
+			held = {};
+			said = [];
+			agent.turn = (connection, _session, text) => {
+				client = connection;
+				said.push(text);
+				return new Promise((resolve) => (held.finish = resolve));
+			};
+		});
+
+		/** Runs a turn on "one" and waits until the agent is on it. */
+		const working = async () => {
+			const conversation = await started();
+			await conversation.prompt("one");
+			for (let i = 0; i < 100 && held.finish === undefined; i++) {
+				await Bun.sleep(1);
+			}
+			return conversation;
+		};
+
+		const finish = async (conversation: Conversation) => {
+			const finishing = held.finish;
+			held.finish = undefined;
+			finishing?.("end_turn");
+			await until(conversation, "idle");
+		};
+
+		const thread = (conversation: Conversation) =>
+			conversation.state.messages.map((each) => [
+				each.parts
+					.map((part) => (part.type === "text" ? part.text : ""))
+					.join(""),
+				each.queued ?? false,
+			]);
+
+		it("joins the running turn when the agent steers", async () => {
+			agent.steering = "injected";
+			const conversation = await working();
+
+			await conversation.prompt("two");
+
+			expect(agent.steered).toEqual(["two"]);
+			expect(conversation.state.status).toBe("running");
+			expect(thread(conversation)).toEqual([
+				["one", false],
+				["two", false],
+			]);
+			await finish(conversation);
+			expect(said).toEqual(["one"]);
+		});
+
+		it("waits for the turn to end when the agent cannot steer, then says all that waited as one prompt", async () => {
+			const conversation = await working();
+
+			await conversation.prompt("two");
+			await conversation.prompt("three");
+
+			expect(thread(conversation)).toEqual([
+				["one", false],
+				["two", true],
+				["three", true],
+			]);
+			await client?.sessionUpdate({
+				sessionId: "s1",
+				update: say("Still on one."),
+			});
+			for (let i = 0; i < 100 && conversation.state.messages.length < 4; i++) {
+				await Bun.sleep(1);
+			}
+			// Below what the agent says meanwhile, since it has yet to hear them.
+			expect(thread(conversation)).toEqual([
+				["one", false],
+				["Still on one.", false],
+				["two", true],
+				["three", true],
+			]);
+			held.finish?.("end_turn");
+			for (let i = 0; i < 100 && said.length < 2; i++) {
+				await Bun.sleep(1);
+			}
+			expect(said).toEqual(["one", "two\n\nthree"]);
+			expect(conversation.state.status).toBe("running");
+			expect(thread(conversation)).toEqual([
+				["one", false],
+				["Still on one.", false],
+				["two", false],
+				["three", false],
+			]);
+			await finish(conversation);
+		});
+
+		it("waits for the turn's end when the agent finds no turn to steer", async () => {
+			// As when the agent ended its turn, and arbor has yet to hear.
+			agent.steering = "promptRequired";
+			const conversation = await working();
+
+			await conversation.prompt("two");
+
+			expect(thread(conversation).at(-1)).toEqual(["two", true]);
+			held.finish?.("end_turn");
+			for (let i = 0; i < 100 && said.length < 2; i++) {
+				await Bun.sleep(1);
+			}
+			expect(said).toEqual(["one", "two"]);
+			await finish(conversation);
+		});
+
+		it("holds what waited when the turn is cancelled, until the next message", async () => {
+			const conversation = await working();
+			await conversation.prompt("two");
+
+			await conversation.cancel();
+			await finish(conversation);
+
+			expect(said).toEqual(["one"]);
+			expect(thread(conversation).at(-1)).toEqual(["two", true]);
+			await conversation.prompt("three");
+			for (let i = 0; i < 100 && said.length < 2; i++) {
+				await Bun.sleep(1);
+			}
+			expect(said).toEqual(["one", "two\n\nthree"]);
+			await finish(conversation);
+		});
+
+		it("takes back a queued message, answering with its words", async () => {
+			const conversation = await working();
+			await conversation.prompt("two");
+			await conversation.prompt("three");
+
+			expect(conversation.unqueue(0)).toBe("two");
+
+			expect(thread(conversation)).toEqual([
+				["one", false],
+				["three", true],
+			]);
+			expect(() => conversation.unqueue(5)).toThrow(
+				"conversation 0 has no queued message 5",
+			);
+			await conversation.stop();
+			const reread = new Conversations(
+				"/repo/.git/arbor/conversations",
+				[AGENT],
+				{ fs, timer, launch: agent.launch },
+			);
+			const [read] = await reread.list();
+			expect(read && thread(read)).toEqual([
+				["one", false],
+				["three", true],
+			]);
+			await reread.disposeAsync();
+		});
+
+		it("sends what is queued now by stopping the turn", async () => {
+			agent.turn = (_client, _session, text) => {
+				said.push(text);
+				return new Promise((resolve) => (held.finish = resolve));
+			};
+			const conversation = await working();
+			await conversation.prompt("two");
+
+			await conversation.sendNow();
+			// The agent stops the turn it was asked to cancel.
+			held.finish?.("cancelled");
+			for (let i = 0; i < 100 && said.length < 2; i++) {
+				await Bun.sleep(1);
+			}
+
+			expect(agent.cancelled).toBe(1);
+			expect(said).toEqual(["one", "two"]);
+			await finish(conversation);
+		});
+
+		it("reads back what still waits from its log", async () => {
+			const conversation = await working();
+			await conversation.prompt("two");
+			await conversation.stop();
+
+			const reread = new Conversations(
+				"/repo/.git/arbor/conversations",
+				[AGENT],
+				{ fs, timer, launch: agent.launch },
+			);
+			const [read] = await reread.list();
+
+			expect(read && thread(read)).toEqual([
+				["one", false],
+				["two", true],
+			]);
+			await reread.disposeAsync();
+		});
 	});
 
 	it("holds a permission request until the person picks an option", async () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "../conversations";
 import {
 	act,
@@ -875,6 +875,86 @@ describe("App's conversations", () => {
 			await waitFor(() => expect(box(view).value).toBe("try this"));
 		});
 
+		it("sends while the agent works, offering Send over Stop once something is typed", async () => {
+			const view = await conversations(
+				[conversation({ id: "c1", title: "Fix login", status: "running" })],
+				"c1",
+			);
+			expect(
+				view.getByRole("button", { name: "Stop generating" }),
+			).toBeTruthy();
+
+			await type(view, "use the second note");
+
+			expect(
+				view.queryByRole("button", { name: "Stop generating" }),
+			).toBeNull();
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+			await waitFor(() =>
+				expect(posted("/api/conversations/c1/prompt")).toEqual([
+					{ method: "POST", body: { text: "use the second note" } },
+				]),
+			);
+			// Sent mid-turn, it stops nothing.
+			expect(posted("/api/conversations/c1/send-now")).toEqual([]);
+		});
+
+		it("holds a queued message above the composer, out of the thread, to send now or take back with Up", async () => {
+			const view = await conversations(
+				[
+					conversation({
+						id: "c1",
+						title: "Fix login",
+						status: "running",
+						messages: [
+							message("user", "go"),
+							message("agent", { type: "text", text: "On it." }),
+							{ ...message("user", "the second note"), queued: true },
+						],
+					}),
+				],
+				"c1",
+			);
+
+			const queued = view.getByRole("region", { name: "queued messages" });
+			expect(
+				within(queued)
+					.getAllByRole("listitem")
+					.map((each) => each.textContent),
+			).toEqual(["the second note"]);
+			expect(view.getAllByText(/the second note/)).toHaveLength(1);
+
+			await act(async () =>
+				fireEvent.click(
+					within(queued).getByRole("button", { name: /Send now/ }),
+				),
+			);
+			expect(posted("/api/conversations/c1/send-now")).toHaveLength(1);
+			// Enter with nothing typed, as in Zed, which the button says until
+			// something is typed.
+			const send = within(queued).getByRole("button", { name: /Send now/ });
+			expect(send.textContent).toBe("Send now↵");
+			await type(view, "more");
+			expect(send.textContent).toBe("Send now");
+			// With something typed, Enter queues it and sends nothing now.
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+			await waitFor(() =>
+				expect(posted("/api/conversations/c1/prompt")).toEqual([
+					{ method: "POST", body: { text: "more" } },
+				]),
+			);
+			expect(posted("/api/conversations/c1/send-now")).toHaveLength(1);
+			await waitFor(() => expect(box(view).value).toBe(""));
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+			expect(posted("/api/conversations/c1/send-now")).toHaveLength(2);
+			testing.reply = { text: "the second note" };
+			await act(async () => fireEvent.keyDown(box(view), { key: "ArrowUp" }));
+			expect(posted("/api/conversations/c1/unqueue")).toEqual([
+				{ method: "POST", body: { index: 0 } },
+			]);
+			await waitFor(() => expect(box(view).value).toBe("the second note"));
+		});
+
 		it("keeps what was typed into a question's box while away", async () => {
 			const asking = conversation({
 				id: "c1",
@@ -907,6 +987,28 @@ describe("App's conversations", () => {
 				(view.getByRole("textbox", { name: "Note" }) as HTMLInputElement).value,
 			).toBe("the second one");
 		});
+	});
+
+	it("scrolls the thread at once, even when asked to glide", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", title: "Fix login" }),
+		]);
+		const thread = view.container.ownerDocument.querySelector(
+			'[data-slot="aui_thread-viewport"]',
+		) as HTMLElement;
+		const scrolled: unknown[] = [];
+		const scroll = spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(
+			(options?: unknown) => {
+				scrolled.push(options);
+			},
+		);
+		try {
+			thread.scrollTo({ top: 40, behavior: "smooth" });
+		} finally {
+			scroll.mockRestore();
+		}
+
+		expect(scrolled).toEqual([{ top: 40, behavior: "instant" }]);
 	});
 
 	it("answers a permission with a digit: 1 denies, 2 allows once, 3 always", async () => {

@@ -604,6 +604,19 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
+		const unqueueConversation = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { index } = await body(request);
+			const text = conversation.unqueue(Number(index ?? -1));
+			return Response.json({ text });
+		};
+
+		const sendQueuedNow = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			await conversation.sendNow();
+			return Response.json(conversation.state);
+		};
+
 		const chooseSetting = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const { id, value } = await body(request);
@@ -694,6 +707,8 @@ export async function dev(
 			promptConversation,
 			answerConversation,
 			cancelConversation,
+			unqueueConversation,
+			sendQueuedNow,
 			chooseSetting,
 			renameConversation,
 			archiveConversation,
@@ -891,6 +906,12 @@ export async function dev(
 			"/api/conversations/:id/cancel": {
 				POST: talk(owned((project) => project.cancelConversation)),
 			},
+			"/api/conversations/:id/unqueue": {
+				POST: talk(owned((project) => project.unqueueConversation)),
+			},
+			"/api/conversations/:id/send-now": {
+				POST: talk(owned((project) => project.sendQueuedNow)),
+			},
 			"/api/conversations/:id/setting": {
 				PUT: talk(owned((project) => project.chooseSetting)),
 			},
@@ -1073,6 +1094,8 @@ interface Served extends AsyncResource {
 	promptConversation: Handler;
 	answerConversation: Handler;
 	cancelConversation: Handler;
+	unqueueConversation: Handler;
+	sendQueuedNow: Handler;
 	chooseSetting: Handler;
 	renameConversation: Handler;
 	archiveConversation: Handler;

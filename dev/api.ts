@@ -220,6 +220,25 @@ export async function cancelConversation(id: string): Promise<void> {
 	await send(`/api/conversations/${id}/cancel`, {});
 }
 
+/**
+ * Takes back the `index`th message queued in conversation `id`, answering
+ * with its words.
+ */
+export async function unqueueConversation(
+	id: string,
+	index: number,
+): Promise<string> {
+	const { text } = (await sendJson(`/api/conversations/${id}/unqueue`, "POST", {
+		index,
+	})) as { text: string };
+	return text;
+}
+
+/** Sends what is queued in conversation `id` now, stopping its turn. */
+export async function sendQueuedNow(id: string): Promise<void> {
+	await send(`/api/conversations/${id}/send-now`, {});
+}
+
 /** Switches conversation `id` to `model`. */
 export async function chooseSetting(
 	id: string,

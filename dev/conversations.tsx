@@ -1,8 +1,10 @@
 import {
+	type AppendMessage,
 	type AssistantRuntime,
 	AssistantRuntimeProvider,
 	type ThreadMessageLike,
 	type TriggerAdapter,
+	useAuiState,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
 import { useReactive } from "@webappwiz/react";
@@ -16,9 +18,17 @@ import {
 	Loader2Icon,
 	PencilIcon,
 	PlusIcon,
+	SendHorizontalIcon,
 	SquareArrowOutUpRightIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type JSX,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { PermissionGrant } from "#dev/components/assistant-ui/elements/permission-grant.tsx";
 import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flow.tsx";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
@@ -31,6 +41,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
 	Select,
 	SelectContent,
@@ -60,7 +71,9 @@ import {
 	paths,
 	promptConversation,
 	renameConversation,
+	sendQueuedNow,
 	startConversation,
+	unqueueConversation,
 } from "./api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
@@ -904,6 +917,67 @@ function Recent({
 	);
 }
 
+/**
+ * What the person said while the agent worked, to an agent that cannot take
+ * it mid-turn, until the turn ends and it goes out: each one can be taken
+ * back to edit, and all of them sent now, which stops the turn.
+ */
+function Queued({
+	messages,
+	onEdit,
+	onSendNow,
+}: {
+	messages: Message[];
+	onEdit: (index: number) => void;
+	onSendNow: () => void;
+}): JSX.Element {
+	// Enter sends the queue only with nothing typed; otherwise it queues what is.
+	const empty = useAuiState((state) => state.composer.isEmpty);
+	return (
+		<section
+			aria-label="queued messages"
+			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2"
+		>
+			<header className="flex items-center gap-2 pl-2">
+				<h3 className="flex-1 text-muted-foreground text-xs">
+					Queued for when the agent's turn ends
+				</h3>
+				<Button size="xs" variant="outline" onClick={onSendNow}>
+					<SendHorizontalIcon />
+					Send now
+					{empty && <Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>}
+				</Button>
+			</header>
+			<ul className="flex flex-col">
+				{messages.map((message, index) => {
+					const text = message.parts
+						.map((part) => (part.type === "text" ? part.text : ""))
+						.join("");
+					return (
+						<li
+							// Only ever added at the end and taken from anywhere, but
+							// each one's words are what the person sees.
+							// biome-ignore lint/suspicious/noArrayIndexKey: see above
+							key={index}
+							className="group/queued flex items-center gap-2 rounded-lg py-1 pr-1 pl-2 hover:bg-foreground/[0.04]"
+						>
+							<span className="min-w-0 flex-1 truncate text-sm">{text}</span>
+							<Button
+								size="icon-xs"
+								variant="ghost"
+								aria-label={`Edit ${text}`}
+								onClick={() => onEdit(index)}
+							>
+								<PencilIcon />
+							</Button>
+						</li>
+					);
+				})}
+			</ul>
+		</section>
+	);
+}
+
 /** Back to the list of conversations, where there is no sidebar. */
 function Back({ onBack }: { onBack: () => void }): JSX.Element {
 	return (
@@ -1070,27 +1144,24 @@ function Thread({
 	const running = status === "running";
 	// The last message is still being written while the agent works.
 	const writing = status === "running" || status === "starting";
-	const messages = useMemo(
-		() =>
-			conversation.messages.map((message, index) =>
-				like(
-					message,
-					index,
-					!writing || index < conversation.messages.length - 1,
-					conversation.messages[index - 1]?.at ?? message.at,
-				),
+	// What waits for the turn's end sits above the composer, not in the
+	// thread: the agent has yet to hear it, and the thread would take it for
+	// a turn the agent is answering.
+	const queued = conversation.messages.filter((each) => each.queued);
+	const messages = useMemo(() => {
+		const said = conversation.messages.filter((each) => !each.queued);
+		return said.map((message, index) =>
+			like(
+				message,
+				index,
+				!writing || index < said.length - 1,
+				said[index - 1]?.at ?? message.at,
 			),
-		[conversation.messages, writing],
-	);
+		);
+	}, [conversation.messages, writing]);
 	const restore = useRef<(text: string) => void>(() => {});
-	const runtime = useExternalStoreRuntime({
-		messages,
-		isRunning: running,
-		// A stopped conversation takes a prompt, which resumes it, and one
-		// still starting holds it until the session opens.
-		isDisabled: archived,
-		convertMessage: (message: ThreadMessageLike) => message,
-		onNew: async (message) => {
+	const say = useCallback(
+		async (message: AppendMessage) => {
 			const text = message.content
 				.map((part) => (part.type === "text" ? part.text : ""))
 				.join("")
@@ -1101,6 +1172,37 @@ function Thread({
 				throw error;
 			});
 		},
+		[id],
+	);
+	const runtime = useExternalStoreRuntime({
+		messages,
+		isRunning: running,
+		// A stopped conversation takes a prompt, which resumes it, and one
+		// still starting holds it until the session opens.
+		isDisabled: archived,
+		convertMessage: (message: ThreadMessageLike) => message,
+		onNew: say,
+		// So the composer takes a message while the agent works. The server
+		// decides whether it joins the turn or waits for its end, and shows it
+		// in the thread either way, so nothing waits here.
+		queue: useMemo(
+			() => ({
+				items: [],
+				steerItems: [],
+				enqueue: (message: AppendMessage) => void say(message).catch(() => {}),
+				// Every message sent mid-turn comes here; only ⌘⇧↵ sets `steer`,
+				// which sends it now, stopping the turn for an agent that cannot
+				// take it mid-turn.
+				steer: (message: AppendMessage) =>
+					void say(message)
+						.then(() => (message.steer ? sendQueuedNow(id) : undefined))
+						.catch(() => {}),
+				move: () => {},
+				edit: () => {},
+				remove: () => {},
+			}),
+			[say, id],
+		),
 		onCancel: async () => {
 			await cancelConversation(id).catch((error: unknown) =>
 				refused("Not cancelled", error),
@@ -1112,11 +1214,63 @@ function Thread({
 	const reply = useReply(runtime, section);
 	const mentions = useFileMentions(conversation.task);
 	const [renaming, setRenaming] = useState(false);
+	// Stops the turn so what is queued goes out now.
+	const sendNow = () =>
+		sendQueuedNow(id).catch((error: unknown) => refused("Not sent", error));
+	// Back into the composer to edit, ahead of anything typed there since.
+	const edit = async (index: number) => {
+		const text = await unqueueConversation(id, index).catch(
+			(error: unknown) => {
+				refused("Not taken back", error);
+				return null;
+			},
+		);
+		if (text === null) {
+			return;
+		}
+		const composer = runtime.thread.composer;
+		const typed = composer.getState().text;
+		composer.setText(typed === "" ? text : `${text}\n\n${typed}`);
+		section.current
+			?.querySelector<HTMLTextAreaElement>(
+				'textarea[aria-label="Message input"]',
+			)
+			?.focus();
+	};
 
 	return (
 		<section
 			ref={section}
 			aria-label={nameOf(conversation)}
+			// Up in an empty composer takes back the last queued message, as a
+			// terminal brings back the last command. Enter with nothing typed
+			// sends what is queued now, as in Zed; ⌘⇧↵ (Ctrl+Shift+Enter) with
+			// something typed sends that now too, as `queue.steer` below. On the
+			// way down, so the composer is read before it sends and empties.
+			onKeyDownCapture={(event) => {
+				const box = event.target as HTMLElement;
+				if (
+					event.key === "Enter" &&
+					!event.shiftKey &&
+					box.getAttribute("aria-label") === "Message input" &&
+					runtime.thread.composer.getState().text === "" &&
+					queued.length > 0
+				) {
+					event.preventDefault();
+					event.stopPropagation();
+					void sendNow();
+					return;
+				}
+				if (
+					event.key === "ArrowUp" &&
+					box.getAttribute("aria-label") === "Message input" &&
+					runtime.thread.composer.getState().text === "" &&
+					queued.length > 0
+				) {
+					event.preventDefault();
+					void edit(queued.length - 1);
+				}
+			}}
 			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
 			<header className="flex min-h-9 items-center gap-2">
@@ -1197,15 +1351,24 @@ function Thread({
 								))
 							}
 							above={
-								conversation.ask !== null && (
-									<AskPanel
-										key={conversation.ask.id}
-										drafts={drafts}
-										conversation={conversation}
-										agent={agent}
-										ask={conversation.ask}
-									/>
-								)
+								<>
+									{queued.length > 0 && (
+										<Queued
+											messages={queued}
+											onEdit={(index) => void edit(index)}
+											onSendNow={() => void sendNow()}
+										/>
+									)}
+									{conversation.ask !== null && (
+										<AskPanel
+											key={conversation.ask.id}
+											drafts={drafts}
+											conversation={conversation}
+											agent={agent}
+											ask={conversation.ask}
+										/>
+									)}
+								</>
 							}
 						/>
 					</ReplyContext>
