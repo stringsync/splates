@@ -208,6 +208,11 @@ export type Answer =
 export interface Setting {
 	id: string;
 	name: string;
+	/**
+	 * A pick among its options, or an on/off toggle, like fast mode, whose
+	 * options are `on` and `off`.
+	 */
+	type: "select" | "boolean";
 	/** What it sets, as ACP names it: mode, model, thought_level, or its own. */
 	category: string | null;
 	current: string;
@@ -501,7 +506,22 @@ function unfenced(text: string): string {
 function settingsIn(
 	options: acp.SessionConfigOption[] | null | undefined,
 ): Setting[] {
-	return (options ?? []).flatMap((option) => {
+	return (options ?? []).flatMap((option): Setting[] => {
+		if (option.type === "boolean") {
+			return [
+				{
+					id: option.id,
+					name: option.name,
+					type: "boolean",
+					category: option.category ?? null,
+					current: option.currentValue ? "on" : "off",
+					options: [
+						{ value: "on", name: "On", description: null },
+						{ value: "off", name: "Off", description: null },
+					],
+				},
+			];
+		}
 		if (option.type !== "select") {
 			return [];
 		}
@@ -512,6 +532,7 @@ function settingsIn(
 			{
 				id: option.id,
 				name: option.name,
+				type: "select",
 				category: option.category ?? null,
 				current: option.currentValue,
 				options: flat.map((each) => ({
@@ -522,6 +543,16 @@ function settingsIn(
 			},
 		];
 	});
+}
+
+/** `value` for `setting` as ACP sets it: a toggle's as a boolean. */
+function configValue(
+	setting: Setting,
+	value: string,
+): { type: "boolean"; value: boolean } | { value: string } {
+	return setting.type === "boolean"
+		? { type: "boolean", value: value === "on" }
+		: { value };
 }
 
 /** A form an agent asks with, as the fields the page shows. */
@@ -798,7 +829,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				protocolVersion: acp.PROTOCOL_VERSION,
 				// A form is how an agent asks the person a question, Claude's
 				// AskUserQuestion among them; without it the agent asks in prose.
-				clientCapabilities: { elicitation: { form: {} } },
+				clientCapabilities: {
+					elicitation: { form: {} },
+					session: { configOptions: { boolean: {} } },
+				},
 			});
 			this.steers = steers(initialized);
 			this.sees =
@@ -828,7 +862,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					const response = await connection.setSessionConfigOption({
 						sessionId: this.session,
 						configId: id,
-						value,
+						...configValue(setting, value),
 					});
 					this.state.settings = settingsIn(response.configOptions);
 				}
@@ -1301,7 +1335,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		const response = await this.connection.setSessionConfigOption({
 			sessionId: this.session,
 			configId: id,
-			value,
+			...configValue(setting, value),
 		});
 		const settings = settingsIn(response.configOptions);
 		this.write({ kind: "settings", settings });

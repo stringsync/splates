@@ -31,6 +31,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useId,
 	useMemo,
 	useRef,
 	useState,
@@ -71,6 +72,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#dev/components/ui/select.tsx";
+import { Switch } from "#dev/components/ui/switch.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { type Ending, stretches } from "../asked";
@@ -1174,7 +1176,7 @@ function Home({
 						</div>
 					}
 					controls={offered.map((setting) => (
-						<SettingSelect
+						<SettingControl
 							key={setting.id}
 							setting={setting}
 							value={picks[setting.id] ?? setting.current}
@@ -1197,6 +1199,41 @@ const NO_MESSAGES: ThreadMessageLike[] = [];
  */
 const IN_COMPOSER =
 	"h-6 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
+
+/** One of a session's settings: a switch for a toggle, else a picker. */
+function SettingControl({
+	setting,
+	value,
+	onChange,
+}: {
+	setting: Setting;
+	value: string;
+	onChange: (value: string) => void;
+}): JSX.Element {
+	const id = useId();
+	if (setting.type === "boolean") {
+		return (
+			<span
+				title={setting.name}
+				className={cn(
+					IN_COMPOSER,
+					"inline-flex items-center gap-1.5 rounded-md",
+				)}
+			>
+				<label htmlFor={id} className="cursor-pointer">
+					{setting.name}
+				</label>
+				<Switch
+					id={id}
+					size="sm"
+					checked={value === "on"}
+					onCheckedChange={(checked) => onChange(checked ? "on" : "off")}
+				/>
+			</span>
+		);
+	}
+	return <SettingSelect setting={setting} value={value} onChange={onChange} />;
+}
 
 /** One of a session's settings, picked from what the agent offers. */
 function SettingSelect({
@@ -1886,7 +1923,7 @@ function Thread({
 									controls={
 										!archived &&
 										settings.map((setting) => (
-											<SettingSelect
+											<SettingControl
 												key={setting.id}
 												setting={setting}
 												value={setting.current}

@@ -82,6 +82,16 @@ describe("Conversations", () => {
 						{ value: "small", name: "Small", description: "Fast" },
 					],
 				},
+				{
+					id: "fast",
+					name: "Fast mode",
+					type: "boolean",
+					current: "off",
+					options: [
+						{ value: "on", name: "On", description: null },
+						{ value: "off", name: "Off", description: null },
+					],
+				},
 			],
 		});
 	});
@@ -100,7 +110,26 @@ describe("Conversations", () => {
 		).toEqual([
 			["mode", "ask"],
 			["model", "small"],
+			["fast", "off"],
 		]);
+	});
+
+	it("sets an on/off setting as a boolean, picked up front or switched", async () => {
+		const conversation = await conversations.start("fake", {
+			task: null,
+			cwd: "/repo",
+			settings: { fast: "on" },
+		});
+		await until(conversation, "idle");
+		await conversation.choose("fast", "off");
+
+		expect(agent.chosen).toEqual([
+			{ configId: "fast", value: true },
+			{ configId: "fast", value: false },
+		]);
+		expect(
+			conversation.state.settings.find((each) => each.id === "fast")?.current,
+		).toBe("off");
 	});
 
 	it("refuses an agent it does not know", async () => {
@@ -756,7 +785,11 @@ describe("Conversations", () => {
 			agent: "fake",
 			task: "login",
 			status: "stopped",
-			settings: [{ id: "mode" }, { id: "model", current: "big" }],
+			settings: [
+				{ id: "mode" },
+				{ id: "model", current: "big" },
+				{ id: "fast", current: "off" },
+			],
 			messages: [
 				{ role: "user", parts: [{ type: "text", text: "do it" }] },
 				{ role: "agent", parts: [{ type: "text", text: "Done." }] },

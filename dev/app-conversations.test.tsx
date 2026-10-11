@@ -547,6 +547,7 @@ describe("App's conversations", () => {
 						{
 							id: "model",
 							name: "Model",
+							type: "select",
 							category: "model",
 							current: "big",
 							options: [
@@ -2015,6 +2016,7 @@ describe("App's conversations", () => {
 					{
 						id: "model",
 						name: "Model",
+						type: "select",
 						category: "model",
 						current: "big",
 						options: [
@@ -2057,10 +2059,39 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("switches an on/off setting with a switch", async () => {
+		const view = await conversations([
+			conversation({
+				settings: [
+					{
+						id: "fast",
+						name: "Fast mode",
+						type: "boolean",
+						category: "model_config",
+						current: "off",
+						options: [
+							{ value: "on", name: "On", description: null },
+							{ value: "off", name: "Off", description: null },
+						],
+					},
+				],
+			}),
+		]);
+
+		const fast = view.getByRole("switch", { name: "Fast mode" });
+		expect(fast.getAttribute("aria-checked")).toBe("false");
+		await act(async () => fireEvent.click(fast));
+
+		expect(posted("/api/conversations/c1/setting")).toEqual([
+			{ method: "PUT", body: { id: "fast", value: "on" } },
+		]);
+	});
+
 	it("offers each agent's own settings on the home, a pick for one never reaching the other", async () => {
 		const model = (current: string, names: string[]) => ({
 			id: "model",
 			name: "Model",
+			type: "select" as const,
 			category: "model",
 			current,
 			options: names.map((name) => ({
@@ -2459,6 +2490,7 @@ Cap upload retries
 							{
 								id: "model",
 								name: "Model",
+								type: "select",
 								category: "model",
 								current: "small",
 								options: [

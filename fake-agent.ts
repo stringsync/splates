@@ -33,6 +33,13 @@ const OPTIONS: acp.SessionConfigOption[] = [
 			{ value: "small", name: "Small", description: "Fast" },
 		],
 	},
+	{
+		id: "fast",
+		name: "Fast mode",
+		category: "model_config",
+		type: "boolean",
+		currentValue: false,
+	},
 ];
 
 /**
@@ -133,7 +140,8 @@ export class FakeAgent {
 					option.id === configId
 						? ({
 								...option,
-								currentValue: String(value),
+								currentValue:
+									typeof value === "boolean" ? value : String(value),
 							} as acp.SessionConfigOption)
 						: option,
 				);
