@@ -35,12 +35,12 @@ export function PermissionGrant({
 			)}
 			{...props}
 		>
-			<div className="flex items-center gap-2.5">
+			<div className="flex items-start gap-2.5">
 				<span className="bg-foreground/[0.05] text-foreground/45 flex size-7 shrink-0 items-center justify-center rounded-lg">
 					<KeyRoundIcon className="size-3.5" />
 				</span>
 				<div className="flex min-w-0 flex-1 flex-col">
-					<span className="truncate text-[13.5px] font-medium">
+					<span className="max-h-48 overflow-y-auto text-[13.5px] font-medium whitespace-pre-wrap [overflow-wrap:anywhere]">
 						{capability}
 					</span>
 					<span className="text-foreground/45 truncate text-xs">
