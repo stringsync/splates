@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { answerIn, stretches, withAnswer } from "./asked";
+import { answerIn, besides, stretches, withAnswer } from "./asked";
 
 /** The report examples the arbor skill shows agents, as agents copy them. */
 async function skillExamples(): Promise<string[]> {
@@ -301,5 +301,15 @@ describe("withAnswer", () => {
 		expect(withAnswer("", two, { picks: ["a"], words: "a lot" })).toBe(
 			"2. a: a lot",
 		);
+	});
+
+	it("reads what a reply says besides its answers", () => {
+		expect(
+			besides("1. a\n2. b: only on phones\n\nAlso the footer.", [one, two]),
+		).toBe("Also the footer.");
+		expect(besides("Looks good.\n3. after a check", [one, two, three])).toBe(
+			"Looks good.",
+		);
+		expect(besides("1. a\n2. b", [one, two])).toBe("");
 	});
 });

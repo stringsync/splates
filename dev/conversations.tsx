@@ -1547,14 +1547,15 @@ function imagesOf(message: AppendMessage): File[] {
 }
 
 /**
- * `runtime`'s composer as the question cards write to it: its text, kept
- * current as it is typed in, and its textarea in `within` to focus; what it
- * sends goes to conversation `id`.
+ * `runtime`'s composer as the cards write to it: its text, kept current as it
+ * is typed in, and its textarea in `within` to focus; what it sends goes to
+ * conversation `id`, and what a card keeps goes in `drafts` beside its own.
  */
 function useReply(
 	runtime: AssistantRuntime,
 	within: { current: HTMLElement | null },
 	id: string,
+	drafts: Drafts,
 ): Reply {
 	const composer = runtime.thread.composer;
 	const [text, setText] = useState(() => composer.getState().text);
@@ -1579,8 +1580,13 @@ function useReply(
 				void promptConversation(id, said).catch((error: unknown) =>
 					refused("Not sent", error),
 				),
+			drafts: {
+				read: (name: string) => drafts.read(`${id}:${name}`),
+				write: (name: string, kept: string) =>
+					drafts.write(`${id}:${name}`, kept),
+			},
 		}),
-		[text, composer, within, id],
+		[text, composer, within, id, drafts],
 	);
 }
 
@@ -1648,6 +1654,12 @@ function Thread({
 				]
 			: liked;
 	}, [conversation.messages, conversation.id, writing, running]);
+	// Its last word asks questions: their panel takes the focus, not the composer.
+	const last = messages.at(-1);
+	const asking =
+		last?.role === "assistant" &&
+		typeof last.content !== "string" &&
+		last.content.some((part) => part.type === "data-questions");
 	const restore = useRef<(text: string, images: File[]) => void>(() => {});
 	const say = useCallback(
 		async (message: AppendMessage) => {
@@ -1710,7 +1722,7 @@ function Thread({
 	});
 	restore.current = useDraft(runtime, drafts, id);
 	const section = useRef<HTMLElement>(null);
-	const reply = useReply(runtime, section, id);
+	const reply = useReply(runtime, section, id, drafts);
 	const mentions = useFileMentions(conversation.task);
 	const [renaming, setRenaming] = useState(false);
 	// Stops the turn so what is queued goes out now.
@@ -1919,6 +1931,7 @@ function Thread({
 						<StartNewContext value={startNew}>
 							<ReplyContext value={reply}>
 								<ThreadView
+									autoFocus={!asking}
 									mentions={mentions ?? undefined}
 									controls={
 										!archived &&

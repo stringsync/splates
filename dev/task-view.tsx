@@ -1,11 +1,9 @@
 import {
-	CheckIcon,
-	CopyIcon,
 	GitBranchIcon,
 	SquareArrowOutUpRightIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import { type JSX, useRef, useState } from "react";
+import { type JSX, useState } from "react";
 import {
 	Alert,
 	AlertDescription,
@@ -18,14 +16,12 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
-import { Textarea } from "#dev/components/ui/textarea.tsx";
 import type { Need } from "../needs";
 import { goalLine, type Question, unfinished } from "../plan";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Back } from "./back";
-import { copiedLabel, useCopy } from "./card";
-import { QuestionCards, type Reply, ReplyContext } from "./question-cards";
+import { QuestionCards } from "./question-cards";
 import { Progress, Task } from "./tasks";
 
 /** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
@@ -146,7 +142,7 @@ function doingOf(need: Need, plan: string | null): string | null {
  * where its conversation would be: the same header, its open questions as
  * cards, and what the page knows of the agent beyond its plan, which the
  * header's task line opens. The page cannot message that agent, so the cards
- * compose a reply here to copy into its own session.
+ * copy their answers to paste into its own session.
  */
 export function TaskView({
 	task,
@@ -160,18 +156,6 @@ export function TaskView({
 }): JSX.Element {
 	const [details, setDetails] = useState(false);
 	const open = openQuestions(need);
-	const [text, setText] = useState("");
-	const box = useRef<HTMLTextAreaElement>(null);
-	const reply: Reply = {
-		text,
-		write: setText,
-		focus: () => {
-			box.current?.focus();
-			box.current?.setSelectionRange(text.length, text.length);
-		},
-		// Its agent runs outside the page, which has no way to message it.
-		send: null,
-	};
 	return (
 		<section
 			aria-label={task.task}
@@ -213,19 +197,7 @@ export function TaskView({
 					</Alert>
 					{open.length > 0 && (
 						<div id={`questions-${task.task}`} className="flex flex-col gap-2">
-							<ReplyContext value={reply}>
-								<QuestionCards questions={open} />
-							</ReplyContext>
-							<Textarea
-								ref={box}
-								aria-label="reply"
-								placeholder="Pick or type answers above, or write them here"
-								value={text}
-								onChange={(event) => setText(event.target.value)}
-							/>
-							<div className="flex justify-end">
-								<CopyButton text={text} />
-							</div>
+							<QuestionCards questions={open} copy />
 						</div>
 					)}
 					{open.length === 0 && (
@@ -269,26 +241,5 @@ function Agent({ task }: { task: Details }): JSX.Element {
 				{task.age !== null && ` · started ${task.age} ago`}
 			</p>
 		</div>
-	);
-}
-
-/** Copies `text`, and says so where it was clicked for a moment. */
-function CopyButton({ text }: { text: string }): JSX.Element {
-	const { copied, copy } = useCopy();
-	return (
-		<Button
-			variant="outline"
-			size="sm"
-			disabled={text.trim() === ""}
-			title={copied.state === "failed" ? copied.error : undefined}
-			onClick={() => copy(text)}
-		>
-			{copied.state === "copied" ? (
-				<CheckIcon data-icon="inline-start" />
-			) : (
-				<CopyIcon data-icon="inline-start" />
-			)}
-			<span aria-live="polite">{copiedLabel(copied, "Copy")}</span>
-		</Button>
 	);
 }

@@ -366,3 +366,15 @@ function sameAnswer(read: Answer | null, answer: Answer): boolean {
 		read.picks.join(",") === answer.picks.join(",")
 	);
 }
+
+/**
+ * What `text`, a reply, says besides its lines for `asked`: what the person
+ * wrote under "Anything else", or around their answers when typed by hand.
+ */
+export function besides(text: string, asked: Asked[]): string {
+	return text
+		.split("\n")
+		.filter((line) => !asked.some((each) => replyLine(each).test(line)))
+		.join("\n")
+		.trim();
+}

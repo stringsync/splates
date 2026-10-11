@@ -929,36 +929,42 @@ describe("App's conversations", () => {
 			expect(view.queryByText("- (a) A muted card")).toBeNull();
 		});
 
-		it("composes the reply in the composer as choices are picked, sending nothing", async () => {
+		const card = (
+			view: Awaited<ReturnType<typeof conversations>>,
+			question: string,
+		) => view.getByRole("listitem", { name: `question ${question}` });
+
+		it("keeps the answers in the card, never the composer, and sends them from it with anything else", async () => {
 			const view = await conversations([asking()]);
-			const choice = async (question: string, name: string) => {
-				const card = await waitFor(() =>
-					view.getByRole("listitem", { name: `question ${question}` }),
-				);
-				await act(async () =>
+			await waitFor(() => card(view, "2"));
+			const choice = async (question: string, name: string) =>
+				act(async () =>
 					fireEvent.click(
-						within(card).getByRole("button", { name: new RegExp(name) }),
+						within(card(view, question)).getByRole("button", {
+							name: new RegExp(name),
+						}),
 					),
 				);
-			};
+			const send = view.getByRole("button", {
+				name: "Send",
+			}) as HTMLButtonElement;
+			expect(send.disabled).toBe(true);
 
 			await choice("2", "A badge");
-			expect(box(view).value).toBe("2. b");
 			await choice("1", "Tasks");
 			await choice("1", "Todos");
-			expect(box(view).value).toBe("1. a, b\n2. b");
 			await choice("2", "A muted card");
-			expect(box(view).value).toBe("1. a, b\n2. a");
 			expect(
-				within(view.getByRole("listitem", { name: "question 2" }))
+				within(card(view, "2"))
 					.getByRole("button", { name: /A muted card/ })
 					.getAttribute("aria-pressed"),
 			).toBe("true");
-
+			// Answered, it keeps its number.
+			expect(card(view, "2").textContent).toStartWith("2 answered");
 			const note = (question: string) =>
-				within(
-					view.getByRole("listitem", { name: `question ${question}` }),
-				).getByRole("textbox") as HTMLTextAreaElement;
+				within(card(view, question)).getByRole(
+					"textbox",
+				) as HTMLTextAreaElement;
 			await act(async () =>
 				fireEvent.change(note("2"), { target: { value: "only on phones" } }),
 			);
@@ -967,26 +973,109 @@ describe("App's conversations", () => {
 					target: { value: "after a\nphone check" },
 				}),
 			);
-			expect(box(view).value).toBe(
-				"1. a, b\n2. a: only on phones\n3. after a phone check",
-			);
 			expect(note("2").value).toBe("only on phones");
 			expect(view.getByText("3 of 3 answered")).toBeTruthy();
-
 			await act(async () =>
 				fireEvent.change(note("3"), { target: { value: "" } }),
 			);
-			expect(box(view).value).toBe("1. a, b\n2. a: only on phones");
 			expect(view.getByText("2 of 3 answered")).toBeTruthy();
+			await act(async () =>
+				fireEvent.change(view.getByRole("textbox", { name: "Anything else" }), {
+					target: { value: "Also the footer." },
+				}),
+			);
+			expect(box(view).value).toBe("");
+			expect(
+				localStorage.getItem("arbor.draft.c1:questions:1:Which pages need it?"),
+			).toBe("1. a, b\n2. a: only on phones\n\nAlso the footer.");
 			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
+
+			await act(async () => fireEvent.click(send));
+
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: "1. a, b\n2. a: only on phones\n\nAlso the footer.",
+					},
+				},
+			]);
+		});
+
+		it("answers by keyboard alone: letters pick, Enter goes on, and sends from anything else", async () => {
+			const view = await conversations([asking()]);
+			const first = await waitFor(() =>
+				within(card(view, "1")).getByRole("button", { name: /Todos/ }),
+			);
+			// Ready to answer as soon as it shows.
+			await waitFor(() => expect(document.activeElement === first).toBe(true));
+			const key = async (key: string, options = {}) =>
+				act(async () =>
+					fireEvent.keyDown(document.activeElement as Element, {
+						key,
+						...options,
+					}),
+				);
+
+			await key("b");
+			await key("a");
+			expect(
+				within(card(view, "1"))
+					.getAllByRole("button")
+					.map((each) => each.getAttribute("aria-pressed")),
+			).toEqual(["true", "true"]);
+			expect(document.activeElement === first).toBe(true);
+			await key("Enter");
+			expect(document.activeElement?.textContent).toContain("A muted card");
+			await key("ArrowDown");
+			expect(document.activeElement?.textContent).toContain("A badge");
+			await key("b");
+			await key("Enter");
+			expect(
+				document.activeElement === within(card(view, "3")).getByRole("textbox"),
+			).toBe(true);
+			await act(async () =>
+				fireEvent.change(document.activeElement as Element, {
+					target: { value: "soon" },
+				}),
+			);
+			await key("Enter");
+			const more = view.getByRole("textbox", { name: "Anything else" });
+			expect(document.activeElement === more).toBe(true);
+			await act(async () =>
+				fireEvent.change(more, { target: { value: "Thanks" } }),
+			);
+			await key("Enter", { shiftKey: true });
+			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
+			await key("Enter");
+
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "1. a, b\n2. b\n3. soon\n\nThanks" } },
+			]);
+		});
+
+		it("sends with ⌘Enter from any question", async () => {
+			const view = await conversations([asking()]);
+			const note = await waitFor(
+				() =>
+					within(card(view, "3")).getByRole("textbox") as HTMLTextAreaElement,
+			);
+			await act(async () =>
+				fireEvent.change(note, { target: { value: "after a check" } }),
+			);
+			await act(async () =>
+				fireEvent.keyDown(note, { key: "Enter", metaKey: true }),
+			);
+
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "3. after a check" } },
+			]);
 		});
 
 		it("keeps a note that starts like a choice as typed, picking nothing", async () => {
 			const view = await conversations([asking()]);
-			const card = await waitFor(() =>
-				view.getByRole("listitem", { name: "question 2" }),
-			);
-			const note = within(card).getByRole("textbox") as HTMLTextAreaElement;
+			const second = await waitFor(() => card(view, "2"));
+			const note = within(second).getByRole("textbox") as HTMLTextAreaElement;
 
 			for (const typed of ["a", "a ", "a lot"]) {
 				await act(async () =>
@@ -994,9 +1083,8 @@ describe("App's conversations", () => {
 				);
 				expect(note.value).toBe(typed);
 			}
-			expect(box(view).value).toBe("2. : a lot");
 			expect(
-				within(card)
+				within(second)
 					.getByRole("button", { name: /A muted card/ })
 					.getAttribute("aria-pressed"),
 			).toBe("false");
@@ -1009,7 +1097,10 @@ describe("App's conversations", () => {
 					messages: [
 						message("user", "fix the header"),
 						message("agent", report),
-						message("user", "1. a, b\n2. b: only on phones"),
+						message(
+							"user",
+							"1. a, b\n2. b: only on phones\n\nAlso the footer.",
+						),
 						message("agent", "Done."),
 					],
 				}),
@@ -1036,6 +1127,7 @@ describe("App's conversations", () => {
 			expect(badge.disabled).toBe(true);
 			expect(within(second).getByText("only on phones")).toBeTruthy();
 			expect(within(panel).queryByRole("textbox")).toBeNull();
+			expect(within(panel).getByText("Also the footer.")).toBeTruthy();
 			expect(box(view).value).toBe("");
 		});
 
@@ -2362,7 +2454,7 @@ Cap upload retries
 			expect(
 				within(alone).getByRole("list", { name: "questions" }).textContent,
 			).toContain("How many retries?");
-			// Its agent cannot be messaged: the cards compose a reply to copy.
+			// Its agent cannot be messaged: the cards copy their reply.
 			const copied: string[] = [];
 			Object.defineProperty(navigator, "clipboard", {
 				configurable: true,
@@ -2374,15 +2466,10 @@ Cap upload retries
 					{ target: { value: "three" } },
 				),
 			);
-			expect(
-				(
-					within(alone).getByRole("textbox", {
-						name: "reply",
-					}) as HTMLTextAreaElement
-				).value,
-			).toBe("1. three");
 			await act(async () =>
-				fireEvent.click(within(alone).getByRole("button", { name: "Copy" })),
+				fireEvent.click(
+					within(alone).getByRole("button", { name: "Copy reply" }),
+				),
 			);
 			expect(copied).toEqual(["1. three"]);
 			expect(
