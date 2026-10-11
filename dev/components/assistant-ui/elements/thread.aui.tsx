@@ -548,10 +548,9 @@ const SpokenMessage: FC = () => {
 						<span
 							data-slot="aui_spoken-message-indicator"
 							role="status"
-							className="text-muted-foreground ms-1 animate-pulse font-sans"
-							aria-label="Assistant is speaking"
+							className="text-muted-foreground shimmer ms-1 font-sans motion-reduce:animate-none"
 						>
-							●
+							Speaking
 						</span>
 					)}
 				</div>
@@ -990,10 +989,10 @@ const AssistantMessage: FC = () => {
 								return (
 									<span
 										data-slot="aui_assistant-message-indicator"
-										className="animate-pulse font-sans"
-										aria-label="Assistant is working"
+										role="status"
+										className="text-muted-foreground shimmer font-sans text-sm motion-reduce:animate-none"
 									>
-										{"●"}
+										Working
 									</span>
 								);
 							default:
