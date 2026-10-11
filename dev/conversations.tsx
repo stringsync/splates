@@ -500,14 +500,6 @@ function Item({
 						"opacity-0 group-focus-within/item:opacity-100 group-hover/item:opacity-100 pointer-coarse:opacity-100",
 				)}
 			>
-				<Button
-					size="icon-xs"
-					variant="ghost"
-					aria-label={`${put} ${nameOf(conversation)}`}
-					onClick={() => void file()}
-				>
-					<Put />
-				</Button>
 				<DropdownMenu open={menu} onOpenChange={setMenu}>
 					<DropdownMenuTrigger
 						render={
@@ -541,6 +533,14 @@ function Item({
 						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
+				<Button
+					size="icon-xs"
+					variant="ghost"
+					aria-label={`${put} ${nameOf(conversation)}`}
+					onClick={() => void file()}
+				>
+					<Put />
+				</Button>
 			</span>
 		</div>
 	);
