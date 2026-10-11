@@ -23,16 +23,19 @@ import { CardBody, CardShell, type Tone } from "./card-shell";
 import { Markdown } from "./markdown";
 import { InMessage, useCardReply } from "./question-cards";
 
-const ENDINGS: Record<Ending, { title: string; Icon: LucideIcon; tone: Tone }> =
-	{
-		merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
-		removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
-		escalated: {
-			title: "Escalated",
-			Icon: TriangleAlertIcon,
-			tone: "warning",
-		},
-	};
+/** How each ending shows: on its report card, and beside its conversation. */
+export const ENDINGS: Record<
+	Ending,
+	{ title: string; Icon: LucideIcon; tone: Tone }
+> = {
+	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
+	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
+	escalated: {
+		title: "Escalated",
+		Icon: TriangleAlertIcon,
+		tone: "warning",
+	},
+};
 
 /**
  * Renders a `data-report` part: how a task ended, or what it waits on, as the

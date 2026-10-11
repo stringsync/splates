@@ -2100,6 +2100,80 @@ Cap upload retries
 			]);
 		});
 
+		it("marks a conversation whose task merged, was removed, or escalated with its report's icon, until the person carries on", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({
+						id: "c1",
+						title: "Landed",
+						messages: [
+							message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+						],
+					}),
+					conversation({
+						id: "c2",
+						title: "Dropped",
+						messages: [
+							message(
+								"agent",
+								"## 🛑 Removed footer: superseded\n\nIt moved the footer.",
+							),
+						],
+					}),
+					conversation({
+						id: "c3",
+						title: "Carried on",
+						messages: [
+							message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+							message("user", "now the footer"),
+						],
+					}),
+					conversation({
+						id: "c4",
+						task: "alpha",
+						title: "Stuck",
+						messages: [
+							message(
+								"agent",
+								"## ⚠️ Escalated sidebar: needs a call\n\nIt folds.",
+							),
+						],
+					}),
+				]),
+				[
+					details({
+						task: "alpha",
+						status: "escalated",
+						escalation: "needs a call",
+						escalatedAt: "2026-10-11T10:00:00.000Z",
+					}),
+				],
+			);
+			const ended = Object.fromEntries(
+				within(view.getByRole("navigation", { name: "conversations" }))
+					.getAllByRole("listitem")
+					.map((row) => [
+						row.textContent,
+						within(row)
+							.queryByRole("img", { name: /merged|removed|escalated/ })
+							?.getAttribute("aria-label") ?? null,
+					]),
+			);
+
+			expect(ended).toEqual({
+				Landed: "merged",
+				Dropped: "removed",
+				"Carried on": null,
+				alpha: "escalated",
+			});
+			// The warning stands in for the dot an escalated task would show.
+			expect(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).queryByRole("status"),
+			).toBeNull();
+		});
+
 		it("lists a task whose agent runs outside the page as external, waiting once it escalates, and opens it alone with its questions, not its plan", async () => {
 			const view = await sidebar(
 				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],

@@ -64,7 +64,7 @@ import {
 } from "#dev/components/ui/select.tsx";
 import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { stretches } from "../asked";
+import { type Ending, stretches } from "../asked";
 import type {
 	Answer,
 	Ask,
@@ -94,6 +94,7 @@ import {
 } from "./api";
 import { Back } from "./back";
 import { copiedLabel, useCopy } from "./card";
+import { TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
@@ -106,7 +107,13 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
-import { ArchiveContext, ReportUI, TodosContext, TodoUI } from "./report-cards";
+import {
+	ArchiveContext,
+	ENDINGS,
+	ReportUI,
+	TodosContext,
+	TodoUI,
+} from "./report-cards";
 import type { Settings } from "./settings";
 import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
@@ -480,6 +487,7 @@ function Item({
 	const { copied, copy } = useCopy();
 	const { id, archived } = conversation;
 	const { file, confirm } = useArchive(conversation);
+	const reported = reportedAs(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
 	return (
@@ -506,7 +514,11 @@ function Item({
 					// A touch screen has no hover, so its buttons always show.
 					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3 text-left group-focus-within/item:pr-14 group-hover/item:pr-14 pointer-coarse:pr-24",
 					renaming && "hidden",
-					menu ? "pr-14" : need.kind === "idle" ? "pr-3" : "pr-6",
+					menu
+						? "pr-14"
+						: need.kind === "idle" && reported === null
+							? "pr-3"
+							: "pr-6",
 				)}
 			>
 				<AgentIcon
@@ -537,7 +549,7 @@ function Item({
 						: "group-focus-within/item:hidden group-hover/item:hidden",
 				)}
 			>
-				<Mark need={need} />
+				<Mark need={need} reported={reported} />
 			</span>
 			<span
 				className={cn(
@@ -692,11 +704,33 @@ function Rename({
 
 /**
  * What a list shows of an agent: a pulsing dot when it waits on you, a spinner while
- * it works, assuming or not, and an empty space when idle. What it waits on is in its
- * tooltip. Each sits centered in a box of one size, so marks line up down a
- * list whichever kind they are.
+ * it works, assuming or not, and an empty space when idle. When its last word
+ * is a report of how its task ended or that it escalated, that report card's
+ * icon stands in for the dot or the space, though not for a live ask or a
+ * failure, which are newer. What it waits on is in its tooltip. Each sits
+ * centered in a box of one size, so marks line up down a list whichever kind
+ * they are.
  */
-function Mark({ need }: { need: Need }): JSX.Element {
+function Mark({
+	need,
+	reported = null,
+}: {
+	need: Need;
+	reported?: Ending | null;
+}): JSX.Element {
+	const shows =
+		need.kind === "idle" ||
+		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
+	if (reported !== null && shows) {
+		const { title, Icon, tone } = ENDINGS[reported];
+		return (
+			<Icon
+				role="img"
+				aria-label={title.toLowerCase()}
+				className={cn("size-3.5 shrink-0", TONES[tone].icon)}
+			/>
+		);
+	}
 	if (need.kind === "idle") {
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
@@ -716,6 +750,26 @@ function Mark({ need }: { need: Need }): JSX.Element {
 			)}
 		</span>
 	);
+}
+
+/**
+ * How the task ended, or that it escalated, when the conversation's last word
+ * is the agent's report saying so. Anything the person says after it carries
+ * the conversation on, and the report goes.
+ */
+function reportedAs(conversation: ConversationState): Ending | null {
+	const last = conversation.messages.at(-1);
+	if (last === undefined || last.role !== "agent") {
+		return null;
+	}
+	const reply = last.parts.findLast(
+		(part) => part.type === "text" && part.text.trim() !== "",
+	);
+	const report =
+		reply?.type === "text"
+			? stretches(reply.text).findLast((each) => each.type === "report")
+			: undefined;
+	return report?.type === "report" ? report.report.ending : null;
 }
 
 function agentName(agents: AgentChoice[], id: string): string {
@@ -1063,6 +1117,7 @@ function Recent({
 	agent: string;
 	onOpen: () => void;
 }): JSX.Element {
+	const reported = reportedAs(conversation);
 	return (
 		<button
 			type="button"
@@ -1086,6 +1141,9 @@ function Recent({
 				<span className="shrink-0 truncate text-muted-foreground text-xs">
 					{whereOf(conversation)}
 				</span>
+			)}
+			{reported !== null && (
+				<Mark need={{ kind: "idle" }} reported={reported} />
 			)}
 		</button>
 	);

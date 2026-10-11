@@ -11,7 +11,7 @@ import { Markdown } from "./markdown";
 /** How a card's header is tinted: by what the person is to make of it. */
 export type Tone = "neutral" | "success" | "warning" | "destructive" | "info";
 
-const TONES: Record<Tone, { header: string; icon: string }> = {
+export const TONES: Record<Tone, { header: string; icon: string }> = {
 	neutral: { header: "bg-muted/40", icon: "text-muted-foreground" },
 	success: { header: "bg-success/[0.07]", icon: "text-success" },
 	warning: { header: "bg-warning/[0.08]", icon: "text-warning" },
