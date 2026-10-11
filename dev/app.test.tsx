@@ -32,6 +32,20 @@ describe("App", () => {
 		expect(view.queryByRole("tab", { name: /blocked/i })).toBeNull();
 	});
 
+	it("widens the sidebar by its edge, and keeps the width for the next visit", async () => {
+		const view = await testing.open();
+		const edge = view.getByRole("separator", { name: "Resize sidebar" });
+		expect(edge.getAttribute("aria-valuenow")).toBe("224");
+
+		fireEvent.keyDown(edge, { key: "ArrowRight" });
+		fireEvent.keyDown(edge, { key: "ArrowRight" });
+		expect(edge.getAttribute("aria-valuenow")).toBe("256");
+		expect(localStorage.getItem("arbor.sidebarWidth")).toBe("256");
+
+		fireEvent.doubleClick(edge);
+		expect(edge.getAttribute("aria-valuenow")).toBe("224");
+	});
+
 	it("names the repo, and shows where it sits", async () => {
 		const view = await testing.open();
 

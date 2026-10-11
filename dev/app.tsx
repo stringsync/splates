@@ -7,6 +7,7 @@ import {
 	SettingsIcon,
 } from "lucide-react";
 import {
+	type CSSProperties,
 	type JSX,
 	useEffect,
 	useRef,
@@ -37,6 +38,7 @@ import { ProjectSwitcher } from "./projects";
 import { ReleaseHint } from "./release";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
+import { SidebarHandle, SidebarWidth } from "./sidebar";
 import { Tasks } from "./tasks";
 import { focusComposer, TerminalPane, ToggleTerminal } from "./terminal";
 import { isToggle } from "./terminal-session";
@@ -187,6 +189,13 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	}, [snapshot?.repo, counted, waiting]);
 
 	const wide = useWide();
+	// Dragged wider or narrower by its edge, and kept for the next visit.
+	const [sidebar] = useState(() => new SidebarWidth(localStorage));
+	const { width } = useReactive(
+		sidebar,
+		(sidebar) => ({ width: sidebar.width }),
+		["changed"],
+	);
 	// The task whose changes are open beside the page, whatever the page.
 	const [reviewing, setReviewing] = useState<string | null>(null);
 	const reviewed = snapshot?.tasks.find((task) => task.task === reviewing);
@@ -259,9 +268,10 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 							// Clear of the sidebar, or of the bar along the bottom.
 							className={cn(
 								"min-h-dvh gap-0",
-								wide ? "pl-56" : !reading && "pb-20",
+								wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
 								wide && paned && BESIDE_PANE,
 							)}
+							style={{ "--sidebar-width": `${width}px` } as CSSProperties}
 						>
 							{!reading && (
 								<>
@@ -270,7 +280,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 										className={cn(
 											"flex min-w-0 flex-col gap-0.5",
 											wide
-												? "fixed top-0 left-0 z-50 w-56 px-6 pt-5"
+												? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
 												: "border-b px-4 py-2.5",
 										)}
 									>
@@ -330,7 +340,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 										variant="line"
 										className={
 											wide
-												? "fixed inset-y-0 left-0 z-40 w-56 items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
+												? "fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
 												: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
 										}
 									>
@@ -381,6 +391,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 											</button>
 										)}
 									</TabsList>
+									{wide && <SidebarHandle sidebar={sidebar} />}
 								</>
 							)}
 							{snapshot === null ? null : (
