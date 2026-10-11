@@ -41,7 +41,7 @@ describe("followAppearance", () => {
 		const settings = new Settings(localStorage);
 		const root = document.createElement("html");
 		const stop = followAppearance(settings, root, device().media);
-		expect(root.dataset.accent).toBe("teal");
+		expect(root.dataset.accent).toBe("graphite");
 
 		await settings.set("appearance.accent", "rose");
 		expect(root.dataset.accent).toBe("rose");

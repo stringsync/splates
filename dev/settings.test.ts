@@ -61,7 +61,7 @@ describe("Settings", () => {
 	it("keeps a choice only while it is one the setting still offers", async () => {
 		const settings = new Settings(localStorage);
 		expect(settings.get("appearance.theme")).toBe("system");
-		expect(settings.get("appearance.accent")).toBe("teal");
+		expect(settings.get("appearance.accent")).toBe("graphite");
 
 		await settings.set("appearance.accent", "violet");
 		expect(new Settings(localStorage).get("appearance.accent")).toBe("violet");
@@ -70,7 +70,9 @@ describe("Settings", () => {
 			"arbor.settings",
 			JSON.stringify({ "appearance.accent": "chartreuse" }),
 		);
-		expect(new Settings(localStorage).get("appearance.accent")).toBe("teal");
+		expect(new Settings(localStorage).get("appearance.accent")).toBe(
+			"graphite",
+		);
 	});
 
 	it("searches by every word, in titles, descriptions and categories", () => {

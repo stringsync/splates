@@ -59,6 +59,7 @@ const notifications: Allowance = {
 
 /** The accents the page can wear, each a palette in styles.css. */
 export const ACCENTS = [
+	{ value: "graphite", label: "Graphite" },
 	{ value: "teal", label: "Teal" },
 	{ value: "indigo", label: "Indigo" },
 	{ value: "violet", label: "Violet" },
@@ -66,7 +67,6 @@ export const ACCENTS = [
 	{ value: "green", label: "Green" },
 	{ value: "amber", label: "Amber" },
 	{ value: "rose", label: "Rose" },
-	{ value: "graphite", label: "Graphite" },
 ] as const satisfies readonly Choice[];
 
 /** Every setting, in the order the dialog shows them. */
@@ -87,7 +87,7 @@ export const SETTINGS = {
 		title: "Accent",
 		description:
 			"The color of buttons, switches, focus, and whatever is selected.",
-		default: "teal",
+		default: "graphite",
 		choices: ACCENTS,
 		swatches: true,
 	},

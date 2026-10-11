@@ -104,7 +104,6 @@
 	--brand: oklch(0.55 0.17 252);
 	--brand-foreground: oklch(0.985 0.005 252);
 }
-:root:not([data-accent]),
 [data-accent="teal"] {
 	--brand: oklch(0.56 0.1 192);
 	--brand-foreground: oklch(0.985 0.005 192);
@@ -121,6 +120,7 @@
 	--brand: oklch(0.58 0.2 12);
 	--brand-foreground: oklch(0.985 0.005 12);
 }
+:root:not([data-accent]),
 [data-accent="graphite"] {
 	--brand: oklch(0.32 0.014 264);
 	--brand-foreground: oklch(0.97 0.004 264);
@@ -137,7 +137,6 @@
 	--brand: oklch(0.72 0.13 248);
 	--brand-foreground: oklch(0.2 0.03 248);
 }
-.dark:not([data-accent]),
 :is(.dark, .dark *)[data-accent="teal"] {
 	--brand: oklch(0.76 0.1 188);
 	--brand-foreground: oklch(0.2 0.03 188);
@@ -154,6 +153,7 @@
 	--brand: oklch(0.72 0.15 12);
 	--brand-foreground: oklch(0.2 0.03 12);
 }
+.dark:not([data-accent]),
 :is(.dark, .dark *)[data-accent="graphite"] {
 	--brand: oklch(0.88 0.006 264);
 	--brand-foreground: oklch(0.24 0.01 264);
