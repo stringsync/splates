@@ -19,6 +19,7 @@ import {
 	PlusIcon,
 	SendHorizontalIcon,
 	SquareArrowOutUpRightIcon,
+	SquareTerminalIcon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -89,6 +90,8 @@ import {
 } from "./question-cards";
 import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
+import { ToggleTerminal } from "./terminal";
+import { TOGGLE } from "./terminal-session";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
 
@@ -1245,6 +1248,7 @@ function Thread({
 			?.focus();
 	};
 	const review = useContext(ReviewChanges);
+	const terminal = useContext(ToggleTerminal);
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -1258,6 +1262,16 @@ function Thread({
 							</span>
 						),
 						run: () => review(task.task),
+					},
+				]
+			: []),
+		...(terminal !== null
+			? [
+					{
+						label: "Terminal",
+						icon: <SquareTerminalIcon />,
+						detail: <Kbd>{TOGGLE}</Kbd>,
+						run: () => terminal(id),
 					},
 				]
 			: []),

@@ -3,6 +3,7 @@
 @import "./shadcn.css";
 @import "tw-shimmer";
 @import "@assistant-ui/react-markdown/styles/dot.css";
+@import "@xterm/xterm/css/xterm.css";
 
 /* Tailwind only emits the utilities it can actually see, and its automatic
    detection does not find them from here. Every file holding a class the page
@@ -29,6 +30,7 @@
 @source "./overview.tsx";
 @source "./task-view.tsx";
 @source "./back.tsx";
+@source "./terminal.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";
 

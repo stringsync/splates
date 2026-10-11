@@ -173,7 +173,7 @@ describe("App's conversations", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["Archive"]);
+		).toEqual(["TerminalCtrl+`", "Archive"]);
 	});
 
 	it("archives from the list, with the agent's mark in place of its name", async () => {

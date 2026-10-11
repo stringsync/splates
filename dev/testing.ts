@@ -10,6 +10,7 @@ import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import type { Interrupted, ProjectChoice } from "./api";
+import { FakeShell } from "./fake-shell";
 
 // Loaded only once the DOM above is in place, and handed on from here so a test
 // file need not load them itself. Bun loads a package's CommonJS while it links
@@ -72,10 +73,13 @@ export class Testing implements Resource {
 	projects: ProjectChoice[] = [];
 	/** The conversations `/api/release` says a restart would stop. */
 	interrupted: Interrupted[] = [];
+	/** Every terminal the page opened, oldest first. */
+	readonly shells: FakeShell[] = [];
 	#down = false;
 	#refusal: { reason: string; message: string } | null = null;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
+	readonly #webSocket = globalThis.WebSocket;
 
 	constructor() {
 		globalThis.fetch = (async (path: string, init?: RequestInit) => {
@@ -136,6 +140,12 @@ export class Testing implements Resource {
 			// `EventSource`'s own name for it, which `Feed` calls; nothing is held.
 			close(): void {}
 		} as unknown as typeof EventSource;
+		globalThis.WebSocket = class extends FakeShell {
+			constructor(url: string) {
+				super(url);
+				testing.shells.push(this);
+			}
+		} as unknown as typeof WebSocket;
 	}
 
 	/** Streams `state` to the page, as the server does when a conversation moves. */
@@ -177,11 +187,12 @@ export class Testing implements Resource {
 		return view;
 	}
 
-	/** Hands `fetch` and `EventSource` back. */
+	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
 	dispose(): void {
 		localStorage.clear();
 		globalThis.fetch = this.#fetch;
 		globalThis.EventSource = this.#eventSource;
+		globalThis.WebSocket = this.#webSocket;
 	}
 }
 

@@ -13,6 +13,7 @@ import {
 	type Ps,
 } from "webappwiz/system";
 import { Debouncer, Duration, SystemTimer, Throttler } from "webappwiz/time";
+import { z } from "zod";
 import type { Attachment } from "./attachments";
 import type { Answer, Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
@@ -20,6 +21,7 @@ import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
+import { Pty } from "./pty";
 import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
 import { fingerprint, snapshot } from "./snapshot";
@@ -46,6 +48,7 @@ export async function dev(
 		ports = devPorts(DEFAULT_PORT),
 		hosts = [],
 		conversations: converse = null,
+		shell = null,
 		newest = async () => null,
 		running = RUNNING,
 		checkEvery = CHECK,
@@ -84,10 +87,13 @@ export async function dev(
 
 	// Every route that reads or writes the repo goes through here. The Host
 	// check is what DNS rebinding runs into; the Origin check is what a form on
-	// another site posting to this one runs into.
+	// another site posting to this one runs into. A handler that upgrades the
+	// connection answers nothing, and that passes through too.
 	const guarded =
-		(handle: (request: Request) => Promise<Response>) =>
-		async (request: Request): Promise<Response> => {
+		<Answered extends Response | undefined>(
+			handle: (request: Request) => Promise<Answered>,
+		) =>
+		async (request: Request): Promise<Answered | Response> => {
 			const host = request.headers.get("host") ?? "";
 			if (!allowed.has(hostname(host))) {
 				return refuse(
@@ -121,14 +127,16 @@ export async function dev(
 	// Refused, rather than missing, for any name but this machine's own: a
 	// tunnel's visitor learns the feature exists, and nothing more.
 	const local =
-		(handle: (request: Request) => Promise<Response>) =>
-		async (request: Request): Promise<Response> =>
+		<Answered extends Response | undefined>(
+			handle: (request: Request) => Promise<Answered>,
+		) =>
+		async (request: Request): Promise<Answered | Response> =>
 			LOCAL_HOSTS.includes(hostname(request.headers.get("host") ?? ""))
 				? handle(request)
 				: refuse(
 						403,
 						"forbidden",
-						"conversations run commands on this machine: open the page on it",
+						"conversations and terminals run commands on this machine: open the page on it",
 					);
 	const talk = local;
 
@@ -570,6 +578,14 @@ export async function dev(
 			return [named, worktree?.path ?? service.git.root];
 		};
 
+		/** The tree a terminal opens in: `?task=`'s worktree, or the main tree. */
+		const terminalTree = async (request: Request): Promise<string> => {
+			const [, cwd] = await treeFor(
+				new URL(request.url).searchParams.get("task"),
+			);
+			return cwd;
+		};
+
 		const startConversation = async (request: Request): Promise<Response> => {
 			const { agent, task, settings } = await body(request);
 			const [named, cwd] = await treeFor(task);
@@ -727,6 +743,7 @@ export async function dev(
 			renameConversation,
 			archiveConversation,
 			conversationEvents,
+			terminalTree,
 			async disposeAsync() {
 				disarm();
 				unlisten?.();
@@ -808,6 +825,49 @@ export async function dev(
 				return pick(project)(request);
 			})(request);
 
+	// Every shell a page has open, so stopping the server hangs up on them all.
+	const shells = new Set<Pty>();
+
+	// A shell runs anything typed at it, so it gets the conversations' rule (this
+	// machine's own names only) and an Origin check of its own: an upgrade is a
+	// GET, which `guarded` lets through from anywhere, and without the check any
+	// site the person visits could open a shell here.
+	const openTerminal = (request: Request, server: Bun.Server<TerminalData>) =>
+		talk(
+			guarded(async (request): Promise<Response | undefined> => {
+				const host = request.headers.get("host") ?? "";
+				const origin = URL.parse(request.headers.get("origin") ?? "");
+				if (origin === null || origin.host !== host) {
+					return refuse(
+						403,
+						"forbidden",
+						"a terminal opens only from its own page",
+					);
+				}
+				if (shell === null) {
+					fail(
+						"not_found",
+						"terminals are off: run `arbor dev --experimental`",
+						{},
+					);
+				}
+				const project = await projectFor(request);
+				await project.format.check();
+				const cwd = await project.terminalTree(request);
+				const params = new URL(request.url).searchParams;
+				const data = {
+					cwd,
+					cols: dimension(params.get("cols"), 80),
+					rows: dimension(params.get("rows"), 24),
+					pty: null,
+				};
+				// Bun answers an upgrade itself, so there is nothing to return.
+				return server.upgrade(request, { data })
+					? undefined
+					: refuse(400, "usage", "a terminal is a WebSocket: connect with one");
+			}),
+		)(request);
+
 	const listProjects = async (): Promise<Response> =>
 		Response.json({
 			projects: (await projects.list()).map((each) => ({
@@ -866,7 +926,7 @@ export async function dev(
 	};
 
 	const requested = await ports.get();
-	const server = Bun.serve({
+	const server = Bun.serve<TerminalData>({
 		port: requested,
 		// This machine only. Reaching it from anywhere else is a tunnel's job,
 		// which connects from here too.
@@ -940,7 +1000,48 @@ export async function dev(
 				PUT: talk(owned((project) => project.moveConversation)),
 			},
 		},
-		fetch: () => new Response("not found", { status: 404 }),
+		// Bytes both ways are the terminal's own; text is for what is not, as
+		// JSON: a resize from the page, the shell's exit code from here.
+		websocket: {
+			open(socket) {
+				const { cwd, cols, rows } = socket.data;
+				const pty = new Pty({ argv: shell ?? [], cwd, cols, rows });
+				socket.data.pty = pty;
+				shells.add(pty);
+				pty.events.on("data", (bytes) => socket.sendBinary(bytes));
+				pty.events.on("exit", (code) => {
+					socket.send(JSON.stringify({ type: "exit", code }));
+					socket.close();
+				});
+			},
+			message(socket, message) {
+				const pty = socket.data.pty;
+				if (pty === null) {
+					return;
+				}
+				if (typeof message !== "string") {
+					pty.write(message);
+					return;
+				}
+				const parsed = TerminalMessage.safeParse(json(message));
+				if (parsed.success) {
+					pty.resize(parsed.data.cols, parsed.data.rows);
+				}
+			},
+			close(socket) {
+				const pty = socket.data.pty;
+				if (pty !== null) {
+					shells.delete(pty);
+					void pty.disposeAsync();
+				}
+			},
+		},
+		// Here rather than among the routes, since only here may a request be
+		// answered with an upgrade instead of a response.
+		fetch: (request, server) =>
+			new URL(request.url).pathname === "/api/terminal"
+				? openTerminal(request, server)
+				: new Response("not found", { status: 404 }),
 	});
 	// Read back, because `ports` may hand over 0 to mean any port at all, and
 	// read now, because `server.port` is 0 once the server is stopped and this is
@@ -980,6 +1081,9 @@ export async function dev(
 	// true drains open connections rather than cutting them mid-response
 	disposer.defer(() => server.stop(true));
 	disposer.defer(async () => {
+		await Promise.all([...shells].map((pty) => pty.disposeAsync()));
+	});
+	disposer.defer(async () => {
 		for (const settled of await Promise.allSettled(served.values())) {
 			if (settled.status === "fulfilled") {
 				await settled.value.disposeAsync();
@@ -1012,6 +1116,24 @@ const LOOPBACK = "127.0.0.1";
 
 /** Names this machine answers to, which a page opened on it always may use. */
 const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
+/** Bigger than any screen, and small enough that a typo cannot hurt. */
+const MAX_SIZE = 1000;
+
+/** What a terminal's socket carries: where its shell runs, and the shell. */
+interface TerminalData {
+	cwd: string;
+	cols: number;
+	rows: number;
+	pty: Pty | null;
+}
+
+/** The one thing a page says to its terminal that is not typing. */
+const TerminalMessage = z.object({
+	type: z.literal("resize"),
+	cols: z.number().int().min(1).max(MAX_SIZE),
+	rows: z.number().int().min(1).max(MAX_SIZE),
+});
 
 /** A phone photo fits; a stray video does not. */
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
@@ -1059,6 +1181,11 @@ export interface DevOptions {
 	 * say they are off.
 	 */
 	conversations?: ((project: { arborDir: string }) => Conversations) | null;
+	/**
+	 * The shell a page's terminal runs, as argv, in the main tree or a task's
+	 * worktree; without it, the page has no terminal and the route says so.
+	 */
+	shell?: string[] | null;
 	/** Opens a registered project other than the one started in, by its root. */
 	open?: (root: string) => Promise<Project>;
 	/**
@@ -1116,6 +1243,7 @@ interface Served extends AsyncResource {
 	renameConversation: Handler;
 	archiveConversation: Handler;
 	conversationEvents: Handler;
+	terminalTree: (request: Request) => Promise<string>;
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */
@@ -1160,6 +1288,23 @@ function hostname(host: string): string {
 	return host.startsWith("[")
 		? host.slice(0, host.indexOf("]") + 1)
 		: (host.split(":")[0] ?? "");
+}
+
+/** A terminal's size as the page asked for it, or `fallback` for nonsense. */
+function dimension(asked: string | null, fallback: number): number {
+	const value = Number(asked);
+	return Number.isInteger(value) && value > 0 && value <= MAX_SIZE
+		? value
+		: fallback;
+}
+
+/** `text` as JSON, or null when it is not. */
+function json(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
 }
 
 function refuse(status: number, reason: string, message: string): Response {

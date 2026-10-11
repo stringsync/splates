@@ -197,7 +197,7 @@ arbor
 	.option("experimental", z.boolean(), {
 		default: false,
 		description:
-			"turn on what is still being tried out: for now, conversations with ACP agents (Claude, Codex) from the page, which run commands on this machine and so answer only to it",
+			"turn on what is still being tried out: for now, conversations with ACP agents (Claude, Codex) and a terminal in the page, which run commands on this machine and so answer only to it",
 	})
 	.action((opts, ctx) =>
 		dev(ctx, {
@@ -211,6 +211,11 @@ arbor
 						new Conversations(`${arborDir}/conversations`, AGENTS, {
 							fs: ctx.fs,
 						})
+				: null,
+			// A login shell, as a terminal window opens, so the person's PATH
+			// and aliases are there.
+			shell: opts.experimental
+				? [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"]
 				: null,
 			newest: () => newest(),
 		}),

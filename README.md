@@ -395,6 +395,28 @@ Conversations run commands on this machine, so their routes answer only to
 `localhost`, `127.0.0.1` and `[::1]`: a host named in `--allow-hosts` still
 reaches the todos and tasks, and is refused the conversations.
 
+#### A conversation's terminal
+
+Each conversation has a terminal of its own, in the pane down the right of the
+page that Review changes opens too: Terminal in its Overview card, or Ctrl+`
+from anywhere on the page, the terminal included, shows or hides it, and
+whichever of the two you asked for last has the pane. Its shell is your
+`$SHELL`, as a login shell, started in the conversation's tree the first time
+the pane shows. The pane stays shown or hidden as you move between
+conversations and through a reload, and each one's shell keeps running while it is hidden or another conversation is up, until
+the browser tab closes, which hangs it up. A shell stays in the tree it
+started in: once the agent moves the conversation into a task, Restart starts
+one there, as it does once the shell exits.
+
+Everything you type goes to the shell, Escape and Tab included, so vim and
+completion work as in any terminal. Ctrl+` is the way out: hiding the pane
+puts the keyboard in the conversation's composer, its shell left running.
+
+A terminal is held to the conversations' rule, answering only to this
+machine's own names, and opens only from the page's own origin, so another
+site you visit cannot open one. It runs on macOS and Linux; on Windows, run
+`arbor dev` inside WSL.
+
 ### `arbor path [task]`
 
 Prints one path and nothing else, so it composes:
