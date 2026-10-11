@@ -11,6 +11,7 @@ import {
 	ArchiveRestoreIcon,
 	ChevronLeftIcon,
 	EllipsisVerticalIcon,
+	GitBranchIcon,
 	LinkIcon,
 	Loader2Icon,
 	PencilIcon,
@@ -102,13 +103,12 @@ function nameOf(conversation: ConversationState): string {
 }
 
 /**
- * The sidebar's conversations, under New conversation, grouped by the task
- * each runs in: the main tree first, where every conversation starts, then
- * every live task, then any task gone since. A conversation follows its agent
- * as it takes and lands tasks. A task whose agent runs outside the page sits
- * in its group as a row of its own. Rows stay put as their agents change
- * state; each one's mark says whether it works or waits on you. Archived ones
- * sit behind a link at the bottom.
+ * The sidebar's conversations, under New conversation, in one list, newest
+ * first, each row named alone, with its task on hover. A conversation follows its agent
+ * as it takes and lands tasks. A task whose agent runs outside the page is a
+ * row of its own. Rows stay put as their agents change state; each one's mark
+ * says whether it works or waits on you. Archived ones sit behind a link at
+ * the bottom.
  *
  * The arrow keys move between rows, and Alt+N opens the next one waiting.
  */
@@ -134,29 +134,14 @@ export function ConversationList({
 	const external = needs({ tasks, conversations }).filter(
 		(each) => each.conversation === null,
 	);
-	const live = tasks
-		.filter((each) => each.status !== "orphaned")
-		.map((each) => each.task);
-	const gone = [
-		...new Set(
-			listed.flatMap((each) =>
-				each.task !== null && !live.includes(each.task) ? [each.task] : [],
-			),
-		),
-	];
-	const groups = [null, ...live, ...gone].map((task) => ({
-		task,
-		rows: [
-			...listed
-				.filter((each) => each.task === task)
-				.map((conversation) => ({
-					conversation,
-					task: null,
-					need: needOf(tasks, conversation),
-				})),
-			...external.filter((each) => each.task?.task === task),
-		] as Needing[],
-	}));
+	const rows: Needing[] = [
+		...listed.map((conversation) => ({
+			conversation,
+			task: null,
+			need: needOf(tasks, conversation),
+		})),
+		...external,
+	].toSorted((one, other) => started(other).localeCompare(started(one)));
 	const archived = conversations.length - listed.length;
 	const openRow = (row: Needing) => {
 		if (row.conversation !== null) {
@@ -165,7 +150,6 @@ export function ConversationList({
 			setShown(row.task);
 		}
 	};
-	const rows = groups.flatMap((group) => group.rows);
 	const next = useRef(() => {});
 	next.current = () => {
 		const at = rows.findIndex(
@@ -227,46 +211,31 @@ export function ConversationList({
 				<PlusIcon className="size-3.5" />
 				New conversation
 			</button>
-			{groups.map(({ task, rows }) => {
-				const name = task ?? "Main tree";
-				return (
-					<div key={task ?? ""} className="flex flex-col">
-						<h3
-							className={cn(
-								"truncate pl-3 font-medium text-muted-foreground text-xs",
-								task === null && "font-normal italic",
-							)}
-						>
-							{name}
-						</h3>
-						<ul aria-label={name} className="flex flex-col">
-							{rows.map((row) =>
-								row.conversation !== null ? (
-									<li key={row.conversation.id}>
-										<Item
-											conversation={row.conversation}
-											agent={agentName(agents, row.conversation.agent)}
-											need={row.need}
-											current={row.conversation.id === open}
-											onOpen={() => openRow(row)}
-										/>
-									</li>
-								) : (
-									row.task !== null && (
-										<li key={`external ${row.task.task}`}>
-											<External
-												task={row.task}
-												need={row.need}
-												onOpen={() => openRow(row)}
-											/>
-										</li>
-									)
-								),
-							)}
-						</ul>
-					</div>
-				);
-			})}
+			<ul aria-label="conversation list" className="flex flex-col">
+				{rows.map((row) =>
+					row.conversation !== null ? (
+						<li key={row.conversation.id}>
+							<Item
+								conversation={row.conversation}
+								agent={agentName(agents, row.conversation.agent)}
+								need={row.need}
+								current={row.conversation.id === open}
+								onOpen={() => openRow(row)}
+							/>
+						</li>
+					) : (
+						row.task !== null && (
+							<li key={`external ${row.task.task}`}>
+								<External
+									task={row.task}
+									need={row.need}
+									onOpen={() => openRow(row)}
+								/>
+							</li>
+						)
+					),
+				)}
+			</ul>
 			<button
 				type="button"
 				data-row
@@ -312,6 +281,11 @@ export function useWaiting(feed: ConversationFeed, tasks: Details[]): number {
 	return needs({ tasks, conversations }).filter(
 		(each) => each.need.kind === "waiting",
 	).length;
+}
+
+/** When a row's conversation or task began; a task from before that, never. */
+function started(row: Needing): string {
+	return row.conversation?.createdAt ?? row.task?.createdAt ?? "";
 }
 
 /** What a conversation needs, from the task it runs in, if any. */
@@ -372,7 +346,7 @@ function Item({
 	need: Need;
 	current: boolean;
 	onOpen: () => void;
-	/** Whether to say where it ran, for a list not grouped by task. */
+	/** Whether to say where it ran, rather than only on hover. */
 	where?: boolean;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
@@ -400,6 +374,7 @@ function Item({
 				aria-current={current ? "page" : undefined}
 				onClick={onOpen}
 				onDoubleClick={() => setRenaming(true)}
+				title={where ? undefined : (conversation.task ?? undefined)}
 				// Room for the buttons only while they show, and for a mark while
 				// there is one.
 				className={cn(
@@ -569,12 +544,15 @@ function agentName(agents: AgentChoice[], id: string): string {
 export function Conversations({
 	feed,
 	tasks,
+	trunk,
 	open,
 	onOpen,
 	phone,
 }: {
 	feed: ConversationFeed;
 	tasks: Details[];
+	/** The main tree's branch. */
+	trunk: string;
 	open: string | null;
 	onOpen: (id: string | null) => void;
 	/** Whether there is no sidebar to hold the list. */
@@ -625,6 +603,11 @@ export function Conversations({
 					drafts={drafts}
 					conversation={shown}
 					agent={agentName(agents, shown.agent)}
+					branch={
+						shown.task === null
+							? trunk
+							: (tasks.find((each) => each.task === shown.task)?.branch ?? null)
+					}
 					onBack={phone ? () => onOpen(null) : null}
 				/>
 			)}
@@ -1067,6 +1050,7 @@ function Thread({
 	drafts,
 	conversation,
 	agent,
+	branch,
 	onBack,
 }: {
 	/** What was typed and not sent, by conversation. */
@@ -1074,6 +1058,8 @@ function Thread({
 	conversation: ConversationState;
 	/** The agent's name. */
 	agent: string;
+	/** The branch it works on; null once its task is gone. */
+	branch: string | null;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
@@ -1132,21 +1118,33 @@ function Thread({
 		>
 			<header className="flex items-center gap-2">
 				{onBack !== null && <Back onBack={onBack} />}
-				{renaming ? (
-					<Rename
-						conversation={conversation}
-						onDone={() => setRenaming(false)}
-					/>
-				) : (
-					// A shortcut: the menu in the sidebar renames too.
-					<h2
-						onDoubleClick={() => setRenaming(true)}
-						title="Double-click to rename"
-						className="min-w-0 flex-1 truncate font-medium text-sm"
-					>
-						{nameOf(conversation)}
-					</h2>
-				)}
+				<div className="flex min-w-0 flex-1 flex-col">
+					{renaming ? (
+						<Rename
+							conversation={conversation}
+							onDone={() => setRenaming(false)}
+						/>
+					) : (
+						// A shortcut: the menu in the sidebar renames too.
+						<h2
+							onDoubleClick={() => setRenaming(true)}
+							title="Double-click to rename"
+							className="truncate font-medium text-sm"
+						>
+							{nameOf(conversation)}
+						</h2>
+					)}
+					{branch !== null && (
+						<p className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
+							<GitBranchIcon
+								role="img"
+								aria-label="branch"
+								className="size-3 shrink-0"
+							/>
+							<span className="truncate">{branch}</span>
+						</p>
+					)}
+				</div>
 				{archived ? (
 					<Badge variant="secondary">archived</Badge>
 				) : (

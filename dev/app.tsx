@@ -289,6 +289,7 @@ export function App(): JSX.Element {
 									<Conversations
 										feed={talk}
 										tasks={snapshot.tasks}
+										trunk={snapshot.trunk}
 										open={open}
 										onOpen={(id) => go("conversations", id)}
 										phone={!wide}

@@ -92,11 +92,21 @@ describe("App's conversations", () => {
 		expect(view.queryByRole("tab", { name: /Conversations/ })).toBeNull();
 	});
 
-	it("lists conversations by task, the main tree last, and archived ones apart", async () => {
+	it("lists conversations newest first, each by name with its task on hover, and archived ones apart", async () => {
 		const view = await conversations(
 			[
-				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
-				conversation({ id: "c2", task: null, title: "Look around" }),
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Fix login",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					task: null,
+					title: "Look around",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
 				conversation({ id: "c3", task: "alpha", title: "Old", archived: true }),
 			],
 			null,
@@ -105,17 +115,13 @@ describe("App's conversations", () => {
 
 		expect(
 			within(nav)
-				.getAllByRole("list")
-				.map((group) => [
-					group.getAttribute("aria-label"),
-					...within(group)
-						.queryAllByRole("listitem")
-						.map((item) => item.textContent),
-				]),
-		).toEqual([
-			["Main tree", "Look around"],
-			["alpha", "Fix login"],
-		]);
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["Look around", "Fix login"]);
+		expect(within(nav).queryAllByRole("heading")).toEqual([]);
+		expect(
+			within(nav).getByRole("button", { name: "Claude Fix login" }).title,
+		).toBe("alpha");
 		await act(async () =>
 			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
 		);
@@ -124,6 +130,21 @@ describe("App's conversations", () => {
 		});
 		expect(archived.textContent).toContain("Old");
 		expect(location.hash).toBe("#conversations/archived");
+	});
+
+	it("names the branch under an open conversation's title, the trunk's for the main tree", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+			conversation({ id: "c2", title: "Look around" }),
+		]);
+		const branch = () =>
+			view.getByRole("img", { name: "branch" }).parentElement?.textContent;
+
+		expect(branch()).toBe("task/alpha");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
+		);
+		expect(branch()).toBe("main");
 	});
 
 	it("archives from the list, with the agent's mark in place of its name", async () => {
@@ -1120,6 +1141,13 @@ describe("App's conversations", () => {
 			return view;
 		};
 
+		/** Started a minute apart, the first last, so the list shows them in order. */
+		const newestFirst = (held: ConversationState[]) =>
+			held.map((each, at) => ({
+				...each,
+				createdAt: new Date(Date.UTC(2026, 9, 11, 10, 59 - at)).toISOString(),
+			}));
+
 		const rows = (view: Awaited<ReturnType<typeof sidebar>>) =>
 			within(view.getByRole("navigation", { name: "conversations" }))
 				.getAllByRole("listitem")
@@ -1129,13 +1157,15 @@ describe("App's conversations", () => {
 				]);
 
 		it("marks each agent waiting on you or working, and an idle one not at all", async () => {
-			const view = await sidebar([
-				conversation({ id: "c1", title: "Asks", status: "running", ask }),
-				conversation({ id: "c2", title: "Runs", status: "running" }),
-				conversation({ id: "c3", title: "Rests" }),
-				conversation({ id: "c4", title: "Broke", status: "failed" }),
-				conversation({ id: "c5", task: "alpha", title: "Plans" }),
-			]);
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Asks", status: "running", ask }),
+					conversation({ id: "c2", title: "Runs", status: "running" }),
+					conversation({ id: "c3", title: "Rests" }),
+					conversation({ id: "c4", title: "Broke", status: "failed" }),
+					conversation({ id: "c5", task: "alpha", title: "Plans" }),
+				]),
+			);
 
 			expect(rows(view)).toEqual([
 				["Asks", "waiting on you"],
@@ -1151,7 +1181,7 @@ describe("App's conversations", () => {
 				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 				[
 					details({ task: "alpha" }),
-					details({ task: "beta" }),
+					details({ task: "beta", createdAt: "2026-10-11T09:58:00.000Z" }),
 					details({
 						task: "gamma",
 						status: "escalated",
@@ -1185,13 +1215,17 @@ describe("App's conversations", () => {
 		});
 
 		it("moves between rows with the arrow keys, and opens the next one waiting with Alt+N", async () => {
-			const view = await sidebar([
-				conversation({ id: "c1", title: "Runs", status: "running" }),
-				conversation({ id: "c2", title: "Asks", status: "running", ask }),
-				conversation({ id: "c3", title: "Broke", status: "failed" }),
-			]);
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Runs", status: "running" }),
+					conversation({ id: "c2", title: "Asks", status: "running", ask }),
+					conversation({ id: "c3", title: "Broke", status: "failed" }),
+				]),
+			);
 			const nav = view.getByRole("navigation", { name: "conversations" });
-			const runs = within(nav).getByRole("button", { name: "Claude Runs" });
+			const runs = within(nav).getByRole("button", {
+				name: "Claude Runs",
+			});
 			runs.focus();
 
 			await act(async () => fireEvent.keyDown(runs, { key: "ArrowDown" }));

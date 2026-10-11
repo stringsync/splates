@@ -17,6 +17,8 @@ export interface Details {
 	added: number | null;
 	removed: number | null;
 	age: string | null;
+	/** When it was added, which `age` counts from. */
+	createdAt: string | null;
 	escalation: string | null;
 	/** While escalated, when it was; null otherwise. */
 	escalatedAt: string | null;
@@ -107,6 +109,7 @@ export class TaskDetails {
 			added: stat?.added ?? null,
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
+			createdAt: state?.createdAt ?? null,
 			escalation: last?.reason ?? null,
 			escalatedAt: state?.status === "escalated" ? (last?.at ?? null) : null,
 			review,

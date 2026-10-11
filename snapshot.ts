@@ -22,6 +22,8 @@ export interface Snapshot {
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
 	tasks: Details[];
+	/** The branch tasks land on, which the main tree has checked out. */
+	trunk: string;
 	/** A newer arbor than the one serving, once `arbor dev` has seen one on npm. */
 	release: Release | null;
 }
@@ -56,6 +58,7 @@ export async function snapshot({
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),
 		tasks,
+		trunk: service.config.trunk,
 		release,
 	};
 }

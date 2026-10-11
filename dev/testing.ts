@@ -184,6 +184,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		todos: [],
 		lanes: [],
 		tasks: [],
+		trunk: "main",
 		release: null,
 		...overrides,
 	};
@@ -201,6 +202,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		added: 2,
 		removed: 1,
 		age: "3m",
+		createdAt: "2026-10-11T09:57:00.000Z",
 		escalation: null,
 		escalatedAt: null,
 		review: null,

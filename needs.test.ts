@@ -36,6 +36,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		added: 1,
 		removed: 0,
 		age: "3m",
+		createdAt: "2026-10-11T09:57:00.000Z",
 		escalation: null,
 		escalatedAt: null,
 		review: null,
