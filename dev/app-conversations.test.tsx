@@ -368,10 +368,12 @@ describe("App's conversations", () => {
 		}
 	});
 
-	it("with none open, offers the latest conversations to pick back up, those waiting first", async () => {
+	it("with none open, offers the latest idle conversations to pick back up, none working or waiting", async () => {
 		const view = await conversations(
 			[
 				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+				conversation({ id: "c4", title: "Busy", status: "running" }),
+				conversation({ id: "c5", task: null, title: "Look into it" }),
 				conversation({
 					id: "c2",
 					task: null,
@@ -395,12 +397,8 @@ describe("App's conversations", () => {
 			within(recent)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Look aroundmain tree", "alpha"]);
-		expect(
-			within(recent)
-				.getAllByRole("status")
-				.map((each) => each.getAttribute("aria-label")),
-		).toEqual(["waiting on you"]);
+		).toEqual(["alpha", "Look into itmain tree"]);
+		expect(within(recent).queryByRole("status")).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(recent).getByRole("button", { name: /alpha/ })),
 		);

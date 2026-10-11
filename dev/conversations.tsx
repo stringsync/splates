@@ -811,12 +811,11 @@ function Home({
 	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string) => void>(() => {});
-	const waiting = (each: ConversationState) =>
-		needOf(tasks, each).kind === "waiting";
-	const recent = [
-		...listed.filter(waiting),
-		...listed.filter((each) => !waiting(each)),
-	].slice(0, RECENT);
+	// Only those at rest: one at work or waiting on the person is in the
+	// sidebar already, and is not one to pick back up.
+	const recent = listed
+		.filter((each) => needOf(tasks, each).kind === "idle")
+		.slice(0, RECENT);
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
 		isRunning: starting,
@@ -891,7 +890,6 @@ function Home({
 												<Recent
 													conversation={each}
 													agent={agentName(agents, each.agent)}
-													need={needOf(tasks, each)}
 													onOpen={() => onOpen(each.id)}
 												/>
 											</li>
@@ -987,16 +985,14 @@ function SettingSelect({
 	);
 }
 
-/** A conversation to pick back up: its mark, name, where it runs, its state. */
+/** A conversation to pick back up: its agent, name, and where it runs. */
 function Recent({
 	conversation,
 	agent,
-	need,
 	onOpen,
 }: {
 	conversation: ConversationState;
 	agent: string;
-	need: Need;
 	onOpen: () => void;
 }): JSX.Element {
 	return (
@@ -1023,7 +1019,6 @@ function Recent({
 					{whereOf(conversation)}
 				</span>
 			)}
-			<Mark need={need} />
 		</button>
 	);
 }
