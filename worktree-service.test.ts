@@ -130,6 +130,10 @@ class RecordingFs implements Fs {
 		this.ops.push(`write ${path}`);
 		return this.inner.write(path, data);
 	}
+	append(path: string, data: string): Promise<void> {
+		this.ops.push(`append ${path}`);
+		return this.inner.append(path, data);
+	}
 	readBytes(path: string): Promise<Uint8Array> {
 		return this.inner.readBytes(path);
 	}

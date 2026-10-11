@@ -1,5 +1,6 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { NodePs, type Ps, type TerminalChild } from "webappwiz/system";
 
 /** What a shell on a `Pty` says: bytes it wrote, and that it is gone. */
 export interface PtyEvents extends Record<string, unknown> {
@@ -14,6 +15,7 @@ export interface PtyOptions {
 	cols: number;
 	rows: number;
 	env?: Record<string, string>;
+	ps?: Ps;
 }
 
 /**
@@ -21,46 +23,42 @@ export interface PtyOptions {
  * shell: whatever it writes arrives as `data`, and `write` is typing at it.
  * POSIX only, since `Bun.Terminal` is.
  */
-// TODO: webappwiz/system once `Ps` can start a child on a terminal
 export class Pty implements AsyncResource, Eventful<PtyEvents> {
 	private readonly dispatcher = new Dispatcher<PtyEvents>();
 	readonly events = this.dispatcher.events;
-	private readonly terminal: Bun.Terminal;
-	private readonly child: Bun.Subprocess;
+	private readonly child: TerminalChild;
 
-	constructor({ argv, cwd, cols, rows, env = {} }: PtyOptions) {
-		this.terminal = new Bun.Terminal({
+	constructor({
+		argv,
+		cwd,
+		cols,
+		rows,
+		env = {},
+		ps = new NodePs(),
+	}: PtyOptions) {
+		const child = ps.startOnTerminal(argv, {
 			cols,
 			rows,
-			data: (_, bytes) => this.dispatcher.dispatch("data", bytes),
-		});
-		// In a session of its own, so the terminal can be its controlling one:
-		// see CLAIM.
-		this.child = Bun.spawn([process.execPath, "-e", CLAIM, "--", ...argv], {
-			terminal: this.terminal,
 			cwd,
-			env: { ...process.env, TERM: "xterm-256color", ...env },
-			detached: true,
+			env: { TERM: "xterm-256color", ...env },
 		});
-		// The exit code, not the terminal's own `exit`, which only says the
-		// stream closed and on Linux may never fire at all (Bun issue 40289).
-		void this.child.exited.then((code) =>
-			this.dispatcher.dispatch("exit", code),
-		);
+		this.child = child;
+		void (async () => {
+			for await (const bytes of child.output) {
+				this.dispatcher.dispatch("data", bytes);
+			}
+		})();
+		void child.exited.then((code) => this.dispatcher.dispatch("exit", code));
 	}
 
 	/** Types `data` at the program, keys and pastes alike. */
 	write(data: string | Uint8Array): void {
-		if (!this.terminal.closed) {
-			this.terminal.write(data);
-		}
+		this.child.write(data);
 	}
 
 	/** What a window resize does: the program hears of it as SIGWINCH. */
 	resize(cols: number, rows: number): void {
-		if (!this.terminal.closed) {
-			this.terminal.resize(cols, rows);
-		}
+		this.child.resize(cols, rows);
 	}
 
 	/**
@@ -68,38 +66,9 @@ export class Pty implements AsyncResource, Eventful<PtyEvents> {
 	 * its jobs, background ones included.
 	 */
 	async disposeAsync(): Promise<void> {
-		if (this.child.exitCode === null && this.child.signalCode === null) {
-			this.child.kill("SIGHUP");
-		}
-		this.terminal.close();
+		this.child.kill("SIGHUP");
+		this.child.close();
 		await this.child.exited;
 		this.dispatcher.dispose();
 	}
 }
-
-/**
- * Run by `bun -e` as the terminal's child, ahead of the program it is handed:
- * makes the terminal its controlling one, then becomes that program. Without
- * it, ^C never interrupts the job in front and a resize never reaches
- * full-screen programs, since `Bun.Terminal` leaves the child with no
- * controlling terminal (Bun issue 33237). Drop it once Bun does this itself.
- */
-const CLAIM = `
-import { dlopen, FFIType, ptr } from "bun:ffi";
-const darwin = process.platform === "darwin";
-const libc = dlopen(darwin ? "libc.dylib" : "libc.so.6", {
-	ioctl: { args: [FFIType.i32, FFIType.u64, FFIType.i32], returns: FFIType.i32 },
-	execvp: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.i32 },
-});
-const TIOCSCTTY = darwin ? 0x20007461 : 0x540e;
-if (libc.symbols.ioctl(0, TIOCSCTTY, 0) !== 0) {
-	console.error("arbor: ^C and resizes will not reach programs in this terminal");
-}
-const argv = process.argv.slice(1);
-const strings = argv.map((arg) => Buffer.from(arg + "\\0"));
-const pointers = new BigUint64Array(argv.length + 1);
-strings.forEach((each, i) => { pointers[i] = BigInt(ptr(each)); });
-libc.symbols.execvp(ptr(strings[0]), ptr(pointers));
-console.error("arbor: could not run " + argv[0]);
-process.exit(127);
-`;

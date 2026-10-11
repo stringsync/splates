@@ -3,7 +3,7 @@ import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import { type Fs, NodeFs } from "webappwiz/system";
+import { type Fs, NodeFs, NodePs } from "webappwiz/system";
 import {
 	Duration,
 	SystemTimer,
@@ -56,15 +56,8 @@ export type Launch = (
 	env: Record<string, string>,
 ) => AgentProcess;
 
-// TODO: webappwiz/system once `Ps` can start a child with its stdio left open
 export const launch: Launch = (argv, cwd, env) => {
-	const child = Bun.spawn(argv, {
-		cwd,
-		env: { ...process.env, ...env },
-		stdin: "pipe",
-		stdout: "pipe",
-		stderr: "pipe",
-	});
+	const child = new NodePs().start(argv, { cwd, env });
 	let tail = "";
 	void (async () => {
 		const decoder = new TextDecoder();
@@ -73,14 +66,7 @@ export const launch: Launch = (argv, cwd, env) => {
 		}
 	})();
 	return {
-		input: new WritableStream({
-			write: (chunk) => {
-				child.stdin.write(chunk);
-			},
-			close: () => {
-				child.stdin.end();
-			},
-		}),
+		input: child.stdin,
 		output: child.stdout,
 		stderr: () => tail,
 		exited: child.exited,
@@ -664,8 +650,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private sees = false;
 	/** Whether the person cancelled the last turn, which holds the queue. */
 	private held = false;
-	/** The log's lines, all of them, since the file is rewritten whole. */
-	private readonly lines: string[] = [];
+	/** The log's lines not yet appended to it. */
+	private readonly unsaved: string[] = [];
 	private saving: Promise<void> = Promise.resolve();
 	private readonly saves: Throttler;
 	/** Under way while the agent starts or comes back, for a prompt to wait on. */
@@ -731,7 +717,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			watch?: Watch | null;
 		},
 	): Promise<Conversation | null> {
-		const lines = (await fs.read(log)).split("\n").filter(Boolean);
+		const text = await fs.read(log);
+		const lines = text.split("\n").filter(Boolean);
 		const entries = lines.flatMap((line) => {
 			try {
 				return [JSON.parse(line) as Entry];
@@ -755,7 +742,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			url,
 			watch,
 		);
-		conversation.lines.push(...lines.map((line) => `${line}\n`));
+		// A line cut short, as by a crash mid-save, stays apart from the next.
+		if (text !== "" && !text.endsWith("\n")) {
+			conversation.unsaved.push("\n");
+		}
 		const { state } = conversation;
 		for (const entry of entries) {
 			if (entry.kind === "prompt") {
@@ -1593,13 +1583,12 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		});
 	}
 
-	// TODO: webappwiz/system once `Fs` can append, so a long log is not
-	// rewritten whole
 	private write(entry: Entry): void {
-		this.lines.push(`${JSON.stringify(entry)}\n`);
+		this.unsaved.push(`${JSON.stringify(entry)}\n`);
 		this.saves.call(() => {
+			const lines = this.unsaved.splice(0).join("");
 			this.saving = this.saving
-				.then(() => this.fs.write(this.log, this.lines.join("")))
+				.then(() => this.fs.append(this.log, lines))
 				.catch(() => {});
 		});
 	}
