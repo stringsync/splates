@@ -16,6 +16,7 @@
 @source "./media.tsx";
 @source "./files.tsx";
 @source "./mentions.tsx";
+@source "./notifications.tsx";
 @source "./card.tsx";
 @source "./board.ts";
 @source "./lanes.tsx";
@@ -25,6 +26,7 @@
 @source "./projects.tsx";
 @source "./question-cards.tsx";
 @source "./release.tsx";
+@source "./settings-dialog.tsx";
 @source "./work-row.tsx";
 @source "./changes.tsx";
 @source "./overview.tsx";

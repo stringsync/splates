@@ -4,6 +4,7 @@ import {
 	KanbanIcon,
 	type LucideIcon,
 	MessagesSquareIcon,
+	SettingsIcon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -12,6 +13,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
 	Tabs,
 	TabsContent,
@@ -33,6 +35,8 @@ import {
 import { Feed } from "./feed";
 import { ProjectSwitcher } from "./projects";
 import { ReleaseHint } from "./release";
+import { Settings } from "./settings";
+import { SettingsDialog } from "./settings-dialog";
 import { Tasks } from "./tasks";
 import { focusComposer, TerminalPane, ToggleTerminal } from "./terminal";
 import { isToggle } from "./terminal-session";
@@ -162,6 +166,20 @@ export function App(): JSX.Element {
 		({ value }) => value !== "conversations" || available,
 	);
 
+	const [settings] = useState(() => new Settings(localStorage));
+	const [setting, setSetting] = useState(false);
+	// ⌘, or Ctrl+, as in an IDE.
+	useEffect(() => {
+		const open = (event: KeyboardEvent) => {
+			if ((event.metaKey || event.ctrlKey) && event.key === ",") {
+				event.preventDefault();
+				setSetting(true);
+			}
+		};
+		document.addEventListener("keydown", open);
+		return () => document.removeEventListener("keydown", open);
+	}, []);
+
 	const waiting = useWaiting(talk, snapshot?.tasks ?? NO_TASKS);
 	const counted = available && waiting > 0;
 	useEffect(() => {
@@ -278,6 +296,18 @@ export function App(): JSX.Element {
 													Offline
 												</span>
 											)}
+											{/* At the foot of the sidebar when there is one. */}
+											{!wide && (
+												<button
+													type="button"
+													aria-label="Settings"
+													title="Settings"
+													onClick={() => setSetting(true)}
+													className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+												>
+													<SettingsIcon className="size-4" />
+												</button>
+											)}
 										</div>
 										{snapshot && (
 											<span className="truncate text-muted-foreground text-xs">
@@ -324,10 +354,23 @@ export function App(): JSX.Element {
 												<ConversationList
 													feed={talk}
 													tasks={snapshot.tasks}
+													settings={settings}
 													open={page === "conversations" ? open : null}
 													onOpen={(id) => go("conversations", id)}
 												/>
 											</div>
+										)}
+										{wide && (
+											<button
+												type="button"
+												aria-label="Settings"
+												onClick={() => setSetting(true)}
+												className="-mx-3 mt-auto flex h-12 shrink-0 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
+											>
+												<SettingsIcon className="size-4" />
+												<span className="flex-1 text-left">Settings</span>
+												<Kbd>⌘,</Kbd>
+											</button>
 										)}
 									</TabsList>
 								</>
@@ -383,6 +426,11 @@ export function App(): JSX.Element {
 								/>
 							)
 						)}
+						<SettingsDialog
+							settings={settings}
+							open={setting}
+							onOpenChange={setSetting}
+						/>
 					</TooltipProvider>
 				</ToggleTerminal>
 			</ReviewChanges>

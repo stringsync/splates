@@ -1,0 +1,129 @@
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import {
+	act,
+	cleanup,
+	conversation,
+	details,
+	fireEvent,
+	Testing,
+	waitFor,
+	within,
+} from "./testing";
+
+/** A browser that lets the page notify, keeping what it showed. */
+class FakeNotification {
+	static permission: NotificationPermission = "default";
+	static shown: FakeNotification[] = [];
+	static requestPermission = async () => {
+		FakeNotification.permission = "granted";
+		return FakeNotification.permission;
+	};
+	onclick: (() => void) | null = null;
+	constructor(readonly title: string) {
+		FakeNotification.shown.push(this);
+	}
+	close(): void {}
+}
+
+describe("App's settings and notifications", () => {
+	let testing: Testing;
+
+	beforeEach(() => {
+		testing = new Testing();
+		Object.assign(FakeNotification, { permission: "default", shown: [] });
+		Object.assign(globalThis, { Notification: FakeNotification });
+	});
+
+	afterEach(() => {
+		cleanup();
+		testing.dispose();
+		Reflect.deleteProperty(globalThis, "Notification");
+	});
+
+	/** Opens the page holding one running conversation, and its settings. */
+	const settings = async () => {
+		const runs = conversation({ id: "c1", title: "Fix", status: "running" });
+		testing.talk = {
+			agents: [{ id: "claude", name: "Claude" }],
+			conversations: [runs],
+		};
+		const view = await testing.open({ tasks: [details({ task: "alpha" })] });
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Settings" })),
+			),
+		);
+		return {
+			view,
+			runs,
+			dialog: view.getByRole("dialog", { name: "Settings" }),
+		};
+	};
+
+	it("opens from the header or with ⌘, listing settings by category", async () => {
+		const { view, dialog } = await settings();
+		expect(
+			within(
+				within(dialog).getByRole("navigation", { name: "setting categories" }),
+			)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["Notifications"]);
+		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
+
+		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull(),
+		);
+		await act(async () =>
+			fireEvent.keyDown(document.body, { key: ",", metaKey: true }),
+		);
+		expect(view.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+	});
+
+	it("keeps only the settings a search matches, marking the words", async () => {
+		const { dialog } = await settings();
+		await act(async () =>
+			fireEvent.change(within(dialog).getByRole("searchbox"), {
+				target: { value: "sound" },
+			}),
+		);
+
+		expect(within(dialog).getAllByRole("listitem")).toHaveLength(1);
+		expect(dialog.querySelector("mark")?.textContent).toBe("sound");
+
+		await act(async () =>
+			fireEvent.change(within(dialog).getByRole("searchbox"), {
+				target: { value: "zebra" },
+			}),
+		);
+		expect(dialog.textContent).toContain("No settings match “zebra”");
+	});
+
+	it("turns notifications on, then notifies of an agent that comes to wait, opening it on a click", async () => {
+		const { view, runs, dialog } = await settings();
+		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });
+		expect(sound.hasAttribute("data-disabled")).toBe(true);
+
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("switch", { name: "Notify me" }),
+			),
+		);
+		await waitFor(() =>
+			expect(sound.hasAttribute("data-disabled")).toBe(false),
+		);
+		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+
+		const away = spyOn(document, "hasFocus").mockReturnValue(false);
+		await testing.say({ ...runs, status: "failed", error: "agent exited" });
+		away.mockRestore();
+
+		expect(FakeNotification.shown.map((each) => each.title)).toEqual([
+			"Fix failed",
+		]);
+		await act(async () => FakeNotification.shown[0]?.onclick?.());
+		expect(location.hash).toBe("#conversations/c1");
+		expect(view.getByRole("tab", { name: /Conversations/ })).toBeTruthy();
+	});
+});

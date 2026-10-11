@@ -81,6 +81,7 @@ import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
+import { useNotifier } from "./notifications";
 import { type Action, Overview, OverviewButtons } from "./overview";
 import {
 	QuestionsUI,
@@ -88,6 +89,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import type { Settings } from "./settings";
 import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
 import { ToggleTerminal } from "./terminal";
@@ -143,15 +145,20 @@ function nameOf(conversation: ConversationState): string {
  * the bottom.
  *
  * The arrow keys move between rows, and Alt+N opens the next one waiting.
+ * As `settings` say, it notifies of an agent that comes to wait on you,
+ * finishes its turn, or goes quiet.
  */
 export function ConversationList({
 	feed,
 	tasks,
+	settings,
 	open,
 	onOpen,
 }: {
 	feed: ConversationFeed;
 	tasks: Details[];
+	/** What to notify of, or null for a list that notifies of nothing. */
+	settings: Settings | null;
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
@@ -181,6 +188,13 @@ export function ConversationList({
 			onOpen(`${TASK}${row.task.task}`);
 		}
 	};
+	useNotifier(
+		settings,
+		rows,
+		(row) =>
+			(row.conversation ? nameOf(row.conversation) : row.task?.task) ?? "",
+		openRow,
+	);
 	const next = useRef(() => {});
 	next.current = () => {
 		const at = rows.findIndex(
@@ -599,6 +613,9 @@ export function Conversations({
 				<ConversationList
 					feed={feed}
 					tasks={tasks}
+					// A phone's browser notifies only from a service worker, and
+					// this list comes and goes with what is open.
+					settings={null}
 					open={open}
 					onOpen={onOpen}
 				/>
