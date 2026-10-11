@@ -85,6 +85,12 @@ describe("App's lanes", () => {
 		);
 
 		expect(copied).toEqual(["[ARBOR LANE 2]"]);
+		// The button says so in place.
+		expect(
+			within(
+				view.getByRole("region", { name: "Audio, uploads and pricing" }),
+			).getByRole("button", { name: "Copied" }),
+		).toBeTruthy();
 	});
 
 	it("unblocks with one tap in the dialog, sending what is left", async () => {

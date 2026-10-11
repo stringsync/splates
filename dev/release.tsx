@@ -1,4 +1,4 @@
-import { CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
@@ -11,7 +11,7 @@ import {
 } from "#dev/components/ui/popover.tsx";
 import type { Release } from "../release";
 import { type Interrupted, showRelease } from "./api";
-import { copy } from "./card";
+import { useCopy } from "./card";
 
 /** What restarts `arbor dev` on the newest arbor. */
 export const RESTART = "bunx @webappwiz/arbor@latest dev";
@@ -23,6 +23,7 @@ export const RESTART = "bunx @webappwiz/arbor@latest dev";
 export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 	// Null until the hint has asked: a list shown before then would say none.
 	const [interrupted, setInterrupted] = useState<Interrupted[] | null>(null);
+	const { copied, copy } = useCopy();
 	return (
 		<Popover
 			onOpenChange={(open) => {
@@ -63,10 +64,16 @@ export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 						size="icon-xs"
 						variant="ghost"
 						aria-label="Copy the restart command"
-						title="Copy"
-						onClick={() => void copy(RESTART)}
+						title={
+							copied.state === "copied"
+								? "Copied"
+								: copied.state === "failed"
+									? `Not copied: ${copied.error}`
+									: "Copy"
+						}
+						onClick={() => copy(RESTART)}
 					>
-						<CopyIcon />
+						{copied.state === "copied" ? <CheckIcon /> : <CopyIcon />}
 					</Button>
 				</div>
 				{interrupted !== null && interrupted.length > 0 && (

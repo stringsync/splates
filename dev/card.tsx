@@ -16,8 +16,9 @@ import {
 	type ReactNode,
 	type TouchEventHandler,
 	useContext,
+	useEffect,
+	useState,
 } from "react";
-import { toast } from "#dev/components/ui/toast.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -40,18 +41,47 @@ export function laneReference(id: number): string {
 	return `[ARBOR LANE ${id}]`;
 }
 
-/** Copies `text` for pasting into a chat, and says so. */
-export async function copy(text: string): Promise<void> {
-	try {
-		await navigator.clipboard.writeText(text);
-		toast.add({ title: `Copied ${text}` });
-	} catch (error) {
-		toast.add({
-			title: "Not copied",
-			description: error instanceof Error ? error.message : String(error),
-			type: "error",
-		});
-	}
+/** How long a control that copied says so before it goes back. */
+const COPIED_MS = 1500;
+
+/** What a control that copies says for a moment after it is clicked. */
+export type Copied =
+	| { state: "idle" }
+	| { state: "copied" }
+	| { state: "failed"; error: string };
+
+/**
+ * Copies text for pasting into a chat; `copied` says how it went, for a
+ * moment, so the control that was clicked can say so in place.
+ */
+export function useCopy(): { copied: Copied; copy: (text: string) => void } {
+	const [copied, setCopied] = useState<Copied>({ state: "idle" });
+	useEffect(() => {
+		if (copied.state === "idle") {
+			return;
+		}
+		const back = setTimeout(() => setCopied({ state: "idle" }), COPIED_MS);
+		return () => clearTimeout(back);
+	}, [copied]);
+	const copy = (text: string) =>
+		void navigator.clipboard.writeText(text).then(
+			() => setCopied({ state: "copied" }),
+			(error: unknown) =>
+				setCopied({
+					state: "failed",
+					error: error instanceof Error ? error.message : String(error),
+				}),
+		);
+	return { copied, copy };
+}
+
+/** What a control that copies reads: `label`, or how its copy went. */
+export function copiedLabel(copied: Copied, label: string): string {
+	return copied.state === "copied"
+		? "Copied"
+		: copied.state === "failed"
+			? "Not copied"
+			: label;
 }
 
 /** One card in a column, holding its place while another is dragged over it. */
@@ -258,15 +288,17 @@ export function TakenBy({ task }: { task: string }): JSX.Element {
  * the card's own button, and never the start of a drag.
  */
 export function CopyLink({ id }: { id: number }): JSX.Element {
+	const { copied, copy } = useCopy();
 	return (
 		<button
 			type="button"
 			aria-label={`copy a link to todo ${id}`}
-			onClick={() => void copy(todoReference(id))}
+			title={copied.state === "failed" ? copied.error : undefined}
+			onClick={() => copy(todoReference(id))}
 			{...still}
 			className="relative -mx-1 inline-flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 		>
-			#{id}
+			<span aria-live="polite">{copiedLabel(copied, `#${id}`)}</span>
 		</button>
 	);
 }

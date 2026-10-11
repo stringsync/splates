@@ -74,12 +74,15 @@ describe("App's todos", () => {
 
 		expect(copied).toEqual(["[ARBOR TODO #7]"]);
 		expect(view.queryByText("Todo 7")).toBeNull();
-		expect(view.getByText("Copied [ARBOR TODO #7]")).toBeTruthy();
+		// The id says so in place, with no toast.
+		expect(
+			view.getByRole("button", { name: "copy a link to todo 7" }).textContent,
+		).toBe("Copied");
+		expect(view.queryByText("Copied [ARBOR TODO #7]")).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "fix it" })),
 		);
-		// The toast is a dialog too.
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: /Todo 7/ }),
 		);

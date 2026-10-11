@@ -5,7 +5,7 @@ import {
 	SquareArrowOutUpRightIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useRef, useState } from "react";
 import {
 	Alert,
 	AlertDescription,
@@ -24,6 +24,7 @@ import { goalLine, type Question, unfinished } from "../plan";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Back } from "./back";
+import { copiedLabel, useCopy } from "./card";
 import { QuestionCards, type Reply, ReplyContext } from "./question-cards";
 import { Progress, Task } from "./tasks";
 
@@ -269,34 +270,23 @@ function Agent({ task }: { task: Details }): JSX.Element {
 	);
 }
 
-/** How long Copy says Copied before it goes back. */
-const COPIED_MS = 1500;
-
 /** Copies `text`, and says so where it was clicked for a moment. */
 function CopyButton({ text }: { text: string }): JSX.Element {
-	const [copied, setCopied] = useState(false);
-	useEffect(() => {
-		if (!copied) {
-			return;
-		}
-		const back = setTimeout(() => setCopied(false), COPIED_MS);
-		return () => clearTimeout(back);
-	}, [copied]);
+	const { copied, copy } = useCopy();
 	return (
 		<Button
 			variant="outline"
 			size="sm"
 			disabled={text.trim() === ""}
-			onClick={() =>
-				void navigator.clipboard.writeText(text).then(() => setCopied(true))
-			}
+			title={copied.state === "failed" ? copied.error : undefined}
+			onClick={() => copy(text)}
 		>
-			{copied ? (
+			{copied.state === "copied" ? (
 				<CheckIcon data-icon="inline-start" />
 			) : (
 				<CopyIcon data-icon="inline-start" />
 			)}
-			<span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
+			<span aria-live="polite">{copiedLabel(copied, "Copy")}</span>
 		</Button>
 	);
 }

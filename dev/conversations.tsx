@@ -11,6 +11,7 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
+	CheckIcon,
 	ChevronDownIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
@@ -79,6 +80,7 @@ import {
 	unqueueConversation,
 } from "./api";
 import { Back } from "./back";
+import { copiedLabel, useCopy } from "./card";
 import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
@@ -434,6 +436,7 @@ function Item({
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const [renaming, setRenaming] = useState(false);
+	const { copied, copy } = useCopy();
 	const { id, archived } = conversation;
 	const file = () =>
 		archiveConversation(id, !archived).catch((error: unknown) =>
@@ -514,14 +517,16 @@ function Item({
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end" className="w-44">
 						<DropdownMenuItem
+							closeOnClick={false}
+							title={copied.state === "failed" ? copied.error : undefined}
 							onClick={() =>
-								void navigator.clipboard.writeText(
+								copy(
 									`${location.origin}${location.pathname}#conversations/${id}`,
 								)
 							}
 						>
-							<LinkIcon />
-							Copy link
+							{copied.state === "copied" ? <CheckIcon /> : <LinkIcon />}
+							<span aria-live="polite">{copiedLabel(copied, "Copy link")}</span>
 						</DropdownMenuItem>
 						<DropdownMenuItem onClick={() => setRenaming(true)}>
 							<PencilIcon />

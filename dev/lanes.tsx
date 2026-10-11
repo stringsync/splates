@@ -9,6 +9,7 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	CheckIcon,
 	ChevronDownIcon,
 	Columns3Icon,
 	CopyIcon,
@@ -51,7 +52,7 @@ import type { LaneState } from "../lanes";
 import type { TodoState } from "../todo";
 import { addLane, dropLane, joinLanes, renameLane } from "./api";
 import { Board, still } from "./board";
-import { Card, copy, laneReference, Sortable } from "./card";
+import { Card, copiedLabel, laneReference, Sortable, useCopy } from "./card";
 import { AttachButton, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
 import { TodoDraft } from "./todo-draft";
@@ -392,16 +393,25 @@ export function Lane({
  * agent's chat, it starts at the top and works down.
  */
 function StartLane({ lane }: { lane: LaneState }): JSX.Element {
+	const { copied, copy } = useCopy();
 	return (
 		<Button
 			size="xs"
 			variant="outline"
 			className="w-fit bg-transparent"
-			onClick={() => void copy(laneReference(lane.id))}
-			title={`No agent is on it yet. Copies ${laneReference(lane.id)} to paste into an agent's chat`}
+			onClick={() => copy(laneReference(lane.id))}
+			title={
+				copied.state === "failed"
+					? copied.error
+					: `No agent is on it yet. Copies ${laneReference(lane.id)} to paste into an agent's chat`
+			}
 		>
-			<CopyIcon data-icon="inline-start" />
-			Start lane
+			{copied.state === "copied" ? (
+				<CheckIcon data-icon="inline-start" />
+			) : (
+				<CopyIcon data-icon="inline-start" />
+			)}
+			<span aria-live="polite">{copiedLabel(copied, "Start lane")}</span>
 		</Button>
 	);
 }
@@ -487,6 +497,7 @@ function LaneMenu({
 	onRename: () => void;
 }): JSX.Element {
 	const { moveLane } = useContext(Board);
+	const { copied, copy } = useCopy();
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
 	return (
@@ -504,9 +515,15 @@ function LaneMenu({
 				<MoreHorizontalIcon />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-64">
-				<DropdownMenuItem onClick={() => void copy(laneReference(lane.id))}>
-					<CopyIcon />
-					Copy {laneReference(lane.id)}
+				<DropdownMenuItem
+					closeOnClick={false}
+					title={copied.state === "failed" ? copied.error : undefined}
+					onClick={() => copy(laneReference(lane.id))}
+				>
+					{copied.state === "copied" ? <CheckIcon /> : <CopyIcon />}
+					<span aria-live="polite">
+						{copiedLabel(copied, `Copy ${laneReference(lane.id)}`)}
+					</span>
 				</DropdownMenuItem>
 				<DropdownMenuItem onClick={onRename}>
 					<PencilIcon />
