@@ -1,9 +1,15 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { ConversationState } from "../conversations";
+import type { ConversationState, Image } from "../conversations";
 import { scoped } from "./api";
 
 export type ConversationFeedEvents = { changed: undefined };
+
+/** A message on its way: its words, and its images read from the page's own copies. */
+export interface Sending {
+	text: string;
+	images: Image[];
+}
 
 /** An agent a conversation can be started with. */
 export interface AgentChoice {
@@ -30,7 +36,7 @@ export class ConversationFeed
 	 * Each conversation's messages on their way, by id, in the order sent,
 	 * with how many the person had said there when they sent the first.
 	 */
-	readonly sending = new Map<string, { texts: string[]; after: number }>();
+	readonly sending = new Map<string, { messages: Sending[]; after: number }>();
 
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
@@ -48,6 +54,10 @@ export class ConversationFeed
 	dispose(): void {
 		this.stream?.close();
 		this.stream = null;
+		for (const { messages } of this.sending.values()) {
+			messages.forEach(forget);
+		}
+		this.sending.clear();
 	}
 
 	/** Puts `state` in place of what the page had of it, or first when new. */
@@ -61,22 +71,33 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Shows `text` as said in conversation `id`, whose server holds it
+	 * Shows `text` and `images` as said in conversation `id`, whose server holds it
 	 * unrecorded until the agent is up, starting or resuming, so the thread
 	 * does not sit as it was meanwhile. The first held there starts a turn and
 	 * the rest wait for its end, so they show as queued, as the server will
 	 * record them. Each goes once the server has recorded as many more
-	 * messages from the person there, or `sent` says it was refused.
+	 * messages from the person there, or `sent` says it was refused. The
+	 * images show from the files themselves, as the server has yet to keep
+	 * them.
 	 */
-	send(id: string, text: string): void {
+	send(id: string, text: string, images: File[] = []): Sending {
+		const message = {
+			text,
+			images: images.map((file) => ({
+				name: file.name,
+				mimeType: file.type,
+				url: URL.createObjectURL(file),
+			})),
+		};
 		const held = this.recorded.find((each) => each.id === id);
 		const sending = this.sending.get(id);
 		if (sending === undefined) {
-			this.sending.set(id, { texts: [text], after: said(held) });
+			this.sending.set(id, { messages: [message], after: said(held) });
 		} else {
-			sending.texts.push(text);
+			sending.messages.push(message);
 		}
 		this.show(this.recorded);
+		return message;
 	}
 
 	/**
@@ -90,18 +111,19 @@ export class ConversationFeed
 		}
 		const held = this.recorded.find((each) => each.id === id);
 		// All but the first, which starts the turn, less those recorded since.
-		return sending.texts.length - Math.max(1, said(held) - sending.after);
+		return sending.messages.length - Math.max(1, said(held) - sending.after);
 	}
 
-	/** Stops showing `text`, which `send` showed in conversation `id`. */
-	sent(id: string, text: string): void {
+	/** Stops showing `message`, which `send` showed in conversation `id`. */
+	sent(id: string, message: Sending): void {
 		const sending = this.sending.get(id);
-		const at = sending?.texts.indexOf(text) ?? -1;
+		const at = sending?.messages.indexOf(message) ?? -1;
 		if (sending === undefined || at === -1) {
 			return;
 		}
-		sending.texts.splice(at, 1);
-		if (sending.texts.length === 0) {
+		sending.messages.splice(at, 1);
+		forget(message);
+		if (sending.messages.length === 0) {
 			this.sending.delete(id);
 		}
 		this.show(this.recorded);
@@ -115,17 +137,26 @@ export class ConversationFeed
 				return each;
 			}
 			const recorded = said(each) - sending.after;
-			if (recorded >= sending.texts.length) {
+			if (recorded >= sending.messages.length) {
 				this.sending.delete(each.id);
+				sending.messages.forEach(forget);
 				return each;
 			}
 			return {
 				...each,
 				messages: [
 					...each.messages,
-					...sending.texts.slice(recorded).map((text, index) => ({
+					...sending.messages.slice(recorded).map((message, index) => ({
 						role: "user" as const,
-						parts: [{ type: "text" as const, text }],
+						parts: [
+							...message.images.map((image) => ({
+								type: "image" as const,
+								...image,
+							})),
+							...(message.text === ""
+								? []
+								: [{ type: "text" as const, text: message.text }]),
+						],
 						plan: null,
 						at: null,
 						until: null,
@@ -175,4 +206,13 @@ function said(conversation: ConversationState | undefined): number {
 		conversation?.messages.filter((message) => message.role === "user")
 			.length ?? 0
 	);
+}
+
+/** Lets go of the page's copies of `message`'s images. */
+function forget(message: Sending): void {
+	for (const image of message.images) {
+		if (image.url !== undefined) {
+			URL.revokeObjectURL(image.url);
+		}
+	}
 }

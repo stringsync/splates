@@ -106,6 +106,11 @@ export type Part =
 export interface Image {
 	name: string;
 	mimeType: string;
+	/**
+	 * Where the page reads one still on its way, before the server keeps it;
+	 * the server never sets it.
+	 */
+	url?: string;
 }
 
 /** An image as the page sends it, before it is kept. */

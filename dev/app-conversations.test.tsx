@@ -666,6 +666,49 @@ describe("App's conversations", () => {
 		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
 	});
 
+	it("shows the images sent with the first message in the new conversation's thread while its agent starts, then as the server keeps them", async () => {
+		const view = await conversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+		await act(async () =>
+			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
+		);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: "Not started" }),
+		);
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("button", { name: "Preview shot.png" }),
+			).toBeTruthy(),
+		);
+
+		await testing.say(
+			conversation({
+				id: "c9",
+				status: "running",
+				messages: [
+					{
+						...message("user", ""),
+						parts: [{ type: "image", name: "ab12.png", mimeType: "image/png" }],
+					},
+				],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("button", { name: "Preview ab12.png" }),
+			).toBeTruthy(),
+		);
+		expect(
+			within(thread).queryByRole("button", { name: "Preview shot.png" }),
+		).toBeNull();
+	});
+
 	it("shows a message to a stopped conversation in its thread while its agent resumes, then as the server has it", async () => {
 		const said = [message("user", "fix the login"), message("agent", "Done.")];
 		const view = await conversations([

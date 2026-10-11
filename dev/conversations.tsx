@@ -1235,18 +1235,20 @@ function Home({
 				},
 			);
 			feed.put(state);
-			// Shown at once, its words in its thread, so the person watches the
-			// agent come up; the message waits on the server for the session to
-			// open.
-			if (text !== "") {
-				feed.send(state.id, text);
-			}
+			// Shown at once in its thread, so the person watches the agent come
+			// up; the message waits on the server for the session to open.
+			const sending =
+				text !== "" || images.length > 0
+					? feed.send(state.id, text, images)
+					: null;
 			onOpen(state.id);
 			await promptConversation(state.id, text, images).catch(
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its
 					// composer, its words only.
-					feed.sent(state.id, text);
+					if (sending !== null) {
+						feed.sent(state.id, sending);
+					}
 					drafts.write(state.id, text);
 					refuseIn(state.id, "Not sent", error);
 				},
@@ -1805,13 +1807,15 @@ function Thread({
 				.trim();
 			const images = imagesOf(message);
 			// The server says nothing of it until the agent is back up.
-			const held = status !== "idle" && status !== "running" && text !== "";
-			if (held) {
-				feed.send(id, text);
-			}
+			const sending =
+				status !== "idle" &&
+				status !== "running" &&
+				(text !== "" || images.length > 0)
+					? feed.send(id, text, images)
+					: null;
 			await promptConversation(id, text, images).catch((error: unknown) => {
-				if (held) {
-					feed.sent(id, text);
+				if (sending !== null) {
+					feed.sent(id, sending);
 				}
 				restore.current(text, images);
 				refused("Not sent", error);

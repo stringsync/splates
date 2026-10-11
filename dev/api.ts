@@ -257,8 +257,9 @@ function dataUrl(file: File): Promise<string> {
 
 /** Where the page reads `image`, one the person sent in conversation `id`. */
 export function conversationImage(id: string, image: Image): string {
-	return scoped(
-		`/api/conversations/${id}/images/${encodeURIComponent(image.name)}`,
+	return (
+		image.url ??
+		scoped(`/api/conversations/${id}/images/${encodeURIComponent(image.name)}`)
 	);
 }
 
