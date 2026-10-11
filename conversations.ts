@@ -22,23 +22,6 @@ export interface Agent {
 	argv: string[];
 }
 
-/**
- * The agents a conversation can be started with, until a roster says which.
- * Each is the ACP adapter its maker publishes, fetched by `bunx` on first use.
- */
-export const AGENTS: Agent[] = [
-	{
-		id: "claude",
-		name: "Claude",
-		argv: ["bunx", "@agentclientprotocol/claude-agent-acp"],
-	},
-	{
-		id: "codex",
-		name: "Codex",
-		argv: ["bunx", "@agentclientprotocol/codex-acp"],
-	},
-];
-
 /** A running agent: bytes in, bytes out, and a way to stop it. */
 export interface AgentProcess {
 	input: WritableStream<Uint8Array>;

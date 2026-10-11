@@ -4,7 +4,7 @@ import { cn } from "#dev/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 
 /**
- * Each agent's mark, by its id in `AGENTS`. Paths from Simple Icons (CC0);
+ * Each agent's mark, by its id on the roster. Paths from Simple Icons (CC0);
  * an agent not here gets a plain bot.
  */
 const MARKS: Record<string, { path: string }> = {

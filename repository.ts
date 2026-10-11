@@ -1,4 +1,3 @@
-import { homedir } from "node:os";
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "webappwiz/system";
@@ -8,6 +7,7 @@ import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
 import { Projects } from "./projects";
+import { arborHome } from "./roster";
 import { Shell } from "./shell";
 import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
@@ -109,8 +109,7 @@ export async function openRepository(
 	// The user's, shared by every repository on this machine, which only
 	// `arbor init` writes this one into. `ARBOR_HOME` moves it, as the tests
 	// do to keep theirs out of the user's.
-	const registry =
-		ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
+	const registry = arborHome(ps);
 	const projects = new Projects(`${registry}/projects.json`, {
 		fs,
 		lock: new FileLock(`${registry}/projects.lock`, {

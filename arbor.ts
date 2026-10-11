@@ -3,9 +3,10 @@ import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
+import { agents } from "./agents";
 import { attach } from "./attach";
 import { claim } from "./claim";
-import { AGENTS, Conversations } from "./conversations";
+import { Conversations } from "./conversations";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
@@ -21,6 +22,7 @@ import { newest } from "./release";
 import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
+import { arborHome, Roster, type RosterAgent } from "./roster";
 import { show } from "./show";
 import { SERVING, supervise } from "./supervise";
 import {
@@ -209,6 +211,8 @@ arbor
 			ctx.ps.exit(await supervise(ctx.ps));
 			return;
 		}
+		// Read once: a roster edited while it serves applies from the restart.
+		const roster = opts.experimental ? await seeded(rosterOf(ctx)) : [];
 		return dev(ctx, {
 			ports: devPorts(opts.port),
 			hosts: opts["allow-hosts"]
@@ -217,7 +221,7 @@ arbor
 				.filter(Boolean),
 			conversations: opts.experimental
 				? ({ arborDir, git }) =>
-						new Conversations(`${arborDir}/conversations`, AGENTS, {
+						new Conversations(`${arborDir}/conversations`, roster, {
 							fs: ctx.fs,
 							watch: new Watch(git),
 						})
@@ -231,6 +235,16 @@ arbor
 			exit: (code) => ctx.ps.exit(code),
 		});
 	});
+
+arbor
+	.command("agents")
+	.description(
+		"print the roster of agents arbor can start, kept for every project in ~/.arbor/agents.json: each agent's launch command and models, with what each model is good at and what it costs, for choosing whom to delegate to; writes the defaults (Claude, Codex) there first when there is none, and `arbor dev` starts conversations with those it lists",
+	)
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) =>
+		agents({ roster: rosterOf(ctx), log: ctx.log }, { json: opts.json }),
+	);
 
 arbor
 	.command("path")
@@ -571,6 +585,17 @@ lane
 	.action((opts, ctx) =>
 		ctx.journal.record("lane remove", null, () => laneRemove(ctx, opts.lane)),
 	);
+
+/** The user's roster, beside the project registry. */
+function rosterOf({ ps, fs }: ArborDeps): Roster {
+	return new Roster(`${arborHome(ps)}/agents.json`, { fs });
+}
+
+/** The roster's agents, written out as the defaults first when there is none. */
+async function seeded(roster: Roster): Promise<RosterAgent[]> {
+	await roster.seed();
+	return roster.agents();
+}
 
 /** `--lane 3`, `new` or `none` as a lane; absent leaves it to the command. */
 function laneIn(raw: string): number | "new" | null | undefined {

@@ -1,6 +1,6 @@
 /**
  * Each agent's wordmark and the parts of its colored mark, by its id in
- * `AGENTS`, from Lobe Icons (MIT): `@lobehub/icons-static-svg`.
+ * the roster, from Lobe Icons (MIT): `@lobehub/icons-static-svg`.
  */
 export const BRANDS = {
 	claude: {

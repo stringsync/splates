@@ -35,6 +35,20 @@ describe("arbor cli", () => {
 		expect(await env.fs.exists(join(`${env.root}-arbor`, "alpha"))).toBe(true);
 	});
 
+	it("prints the roster from outside any repository", async () => {
+		const away = join(env.arborHome, "..");
+		await env.fs.mkdir(away);
+		env.ps.cd(away);
+		await arbor.run(deps, ["agents", "--json"]);
+
+		const roster = JSON.parse(String(env.log.entries.at(-1)?.message));
+		expect(roster.map((agent: { id: string }) => agent.id)).toEqual([
+			"claude",
+			"codex",
+		]);
+		expect(await env.fs.exists(join(env.arborHome, "agents.json"))).toBe(true);
+	});
+
 	it("escalates a task and edits its todos", async () => {
 		await arbor.run(deps, ["add", "alpha"]);
 		const worktree = await env.service.find("alpha");

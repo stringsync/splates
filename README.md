@@ -336,10 +336,10 @@ with no login in front.
 
 `--experimental` turns on what is still being tried out. For now that is a
 third page, Conversations, where you talk to an agent that speaks the
-[Agent Client Protocol](https://agentclientprotocol.com): Claude or Codex,
-each started through `bunx` with its ACP adapter
-(`@agentclientprotocol/claude-agent-acp`, `@agentclientprotocol/codex-acp`),
-signed in the way its own CLI is.
+[Agent Client Protocol](https://agentclientprotocol.com): any agent on the
+roster (see `arbor agents`), by default Claude or Codex, each started through
+`bunx` with its ACP adapter (`@agentclientprotocol/claude-agent-acp`,
+`@agentclientprotocol/codex-acp`), signed in the way its own CLI is.
 
 Every conversation starts in the main tree, and follows its agent from
 there: the `arbor` an agent runs from a conversation knows the conversation
@@ -416,6 +416,38 @@ A terminal is held to the conversations' rule, answering only to this
 machine's own names, and opens only from the page's own origin, so another
 site you visit cannot open one. It runs on macOS and Linux; on Windows, run
 `arbor dev` inside WSL.
+
+### `arbor agents [--json]`
+
+Prints the roster: every agent arbor can start, the command that starts it,
+and its models, each with what it is good at and what it costs, so an
+orchestrator in any model family can choose whom to delegate to. The roster is
+the user's, not a project's: `~/.arbor/agents.json`, beside the project
+registry. The first `arbor agents` or `arbor dev --experimental` writes the
+defaults there (Claude and Codex, with the models their adapters offer) and
+says so; edit it to add an agent, drop one, or rewrite a note. A model's `id`
+is the value the agent's Model setting takes, like `opus` or `gpt-6-luna`.
+
+```json
+{
+	"format": 1,
+	"agents": [
+		{
+			"id": "claude",
+			"name": "Claude",
+			"argv": ["bunx", "@agentclientprotocol/claude-agent-acp"],
+			"models": [
+				{
+					"id": "sonnet",
+					"name": "Sonnet 5.5",
+					"strengths": "simpler, well-specified tasks",
+					"cost": "medium"
+				}
+			]
+		}
+	]
+}
+```
 
 ### `arbor path [task]`
 
