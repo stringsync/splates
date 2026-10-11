@@ -246,8 +246,8 @@ export interface ConversationState {
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
 	/**
-	 * Where the last checkpoint asked while this process runs stands; null
-	 * when none was.
+	 * Where the last checkpoint asked stands, kept in the log so a restart
+	 * still shows it; null when none was, or once the work went on past it.
 	 */
 	checkpoint: Checkpoint | null;
 }
@@ -283,6 +283,8 @@ type Entry =
 	| { kind: "sent" }
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
+	/** Where a checkpoint stands, and what comes after it. */
+	| { kind: "checkpoint"; checkpoint: Checkpoint | null; after?: After }
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	| { kind: "end"; error: string | null };
 
@@ -605,6 +607,18 @@ const CHECKPOINT_WAIT = Duration.mins(2);
 export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
 
 /**
+ * What asks an agent to carry on from where its `ARBOR.md` says it stopped,
+ * after a checkpoint: the arbor skill says what it means.
+ */
+export const RESUME = "[ARBOR RESUME]";
+
+/**
+ * What follows a checkpoint: the agent stops; it carries on once done; or
+ * `arbor dev` restarts once every agent is done, and each carries on after.
+ */
+export type After = "stop" | "continue" | "restart";
+
+/**
  * One conversation with one agent. Live, it holds the agent's process; read
  * back from its log, it is what was said, and resumes on the next prompt.
  */
@@ -635,6 +649,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private waiting: Resource | null = null;
 	/** Whether a checkpoint is cancelling the turn, whose end is not its own. */
 	private interrupting = false;
+	/** What follows the checkpoint asked last. */
+	private after: After = "stop";
 
 	private constructor(
 		readonly state: ConversationState,
@@ -728,11 +744,18 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.archived = entry.archived;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
+			} else if (entry.kind === "checkpoint") {
+				state.checkpoint = entry.checkpoint;
+				conversation.after = entry.after ?? "stop";
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
 			}
 		}
 		state.status = state.error === null ? "stopped" : "failed";
+		// Its process ended before the agent answered.
+		if (state.checkpoint === "asked") {
+			state.checkpoint = "unanswered";
+		}
 		// As last set, for the resumed session to match, picks made while
 		// stopped among them.
 		conversation.picks = Object.fromEntries(
@@ -953,7 +976,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			this.state.checkpoint !== null &&
 			this.state.checkpoint !== "asked"
 		) {
-			this.set({ checkpoint: null });
+			this.mark(null);
 		}
 		if (
 			(this.state.status !== "idle" && this.state.status !== "running") ||
@@ -1137,7 +1160,24 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			(this.state.status as Status) === "idle"
 		) {
 			this.mark(error === null ? "done" : "failed");
+			if (this.after === "continue" && error === null) {
+				void this.prompt(RESUME).catch(() => {});
+			}
 		}
+	}
+
+	/**
+	 * Whether this stopped for a checkpoint that a restart was to follow, to
+	 * carry on once served again.
+	 */
+	get resumes(): boolean {
+		return this.after === "restart" && this.stoppedByCheckpoint;
+	}
+
+	/** Whether a checkpoint has ended and nothing has been said since. */
+	get stoppedByCheckpoint(): boolean {
+		const { checkpoint } = this.state;
+		return checkpoint !== null && checkpoint !== "asked";
 	}
 
 	/**
@@ -1146,7 +1186,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	 * the checkpoint into, or queues it after. What the person queued stays
 	 * queued, for the next prompt to send.
 	 */
-	async checkpoint(merging: boolean): Promise<void> {
+	async checkpoint(merging: boolean, after: After = "stop"): Promise<void> {
 		await this.opening;
 		if (
 			this.state.checkpoint === "asked" ||
@@ -1156,6 +1196,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 		// Asked from the start, so an agent slow to stop shows as on its way,
 		// and one that never stops runs out the same wait.
+		this.after = after;
 		this.mark("asked");
 		this.waiting?.dispose();
 		this.waiting = this.timer.setTimeout(() => {
@@ -1196,19 +1237,32 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	 * still on it carries on with its turn.
 	 */
 	dismissCheckpoint(): void {
-		this.waiting?.dispose();
-		this.waiting = null;
 		if (this.state.checkpoint !== null) {
-			this.set({ checkpoint: null });
+			this.mark(null);
 		}
 	}
 
-	private mark(checkpoint: Checkpoint): void {
+	private mark(checkpoint: Checkpoint | null): void {
 		if (checkpoint !== "asked") {
 			this.waiting?.dispose();
 			this.waiting = null;
 		}
+		this.write({ kind: "checkpoint", checkpoint, after: this.after });
 		this.set({ checkpoint });
+	}
+
+	/** Settles once the checkpoint asked is no longer under way. */
+	answered(): Promise<void> {
+		return new Promise((resolve) => {
+			const check = () => {
+				if (this.state.checkpoint !== "asked") {
+					off();
+					resolve();
+				}
+			};
+			const off = this.events.on("changed", check);
+			check();
+		});
 	}
 
 	/** Settles once no turn is running, or the checkpoint has given up. */

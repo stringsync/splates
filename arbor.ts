@@ -22,6 +22,7 @@ import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
 import { show } from "./show";
+import { SERVING, supervise } from "./supervise";
 import {
 	todoAdd,
 	todoList,
@@ -201,8 +202,13 @@ arbor
 		description:
 			"turn on what is still being tried out: for now, conversations with ACP agents (Claude, Codex) and a terminal in the page, which run commands on this machine and so answer only to it",
 	})
-	.action((opts, ctx) =>
-		dev(ctx, {
+	.action(async (opts, ctx) => {
+		// Served from a child, so the page can restart it.
+		if (ctx.ps.env(SERVING) === undefined) {
+			ctx.ps.exit(await supervise(ctx.ps));
+			return;
+		}
+		return dev(ctx, {
 			ports: devPorts(opts.port),
 			hosts: opts["allow-hosts"]
 				.split(",")
@@ -220,8 +226,9 @@ arbor
 				? [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"]
 				: null,
 			newest: () => newest(),
-		}),
-	);
+			exit: (code) => ctx.ps.exit(code),
+		});
+	});
 
 arbor
 	.command("path")

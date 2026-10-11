@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { basename, join } from "node:path";
 import { arbor } from "./arbor";
+import { SERVING } from "./supervise";
 import { Testing } from "./testing";
 
 /**
@@ -109,6 +110,8 @@ describe("arbor cli", () => {
 	});
 
 	it("refuses a port that cannot exist rather than trying to listen", async () => {
+		// As the supervisor runs it.
+		env.proc.env[SERVING] = "1";
 		await arbor.run(deps, ["dev", "--port", "99999"]);
 
 		expect(env.out()).not.toContain("  reply ");

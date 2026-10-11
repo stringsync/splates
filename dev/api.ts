@@ -6,6 +6,7 @@
  */
 
 import type {
+	After,
 	Answer,
 	Checkpoint,
 	ConversationState,
@@ -272,10 +273,16 @@ export async function answerConversation(
 
 /**
  * Asks every live conversation in this project to bring its `ARBOR.md` up to
- * date and stop, each saying how it gets on in its `checkpoint`.
+ * date and stop, each saying how it gets on in its `checkpoint`, and then
+ * does what `after` says: for a restart, every project's are asked.
  */
-export async function checkpointConversations(): Promise<void> {
-	await send("/api/conversations/checkpoint", {});
+export async function checkpointConversations(after: After): Promise<void> {
+	await sendJson("/api/conversations/checkpoint", "POST", { after });
+}
+
+/** Tells each agent a checkpoint stopped in this project to carry on. */
+export async function resumeConversations(): Promise<void> {
+	await send("/api/conversations/resume", {});
 }
 
 /** Forgets this project's checkpoint, so the next one starts afresh. */

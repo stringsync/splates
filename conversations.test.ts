@@ -10,6 +10,7 @@ import {
 	type ConversationState,
 	Conversations,
 	fold,
+	RESUME,
 	type Status,
 } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
@@ -456,6 +457,52 @@ describe("Conversations", () => {
 				expect(conversation.state.checkpoint).toBe("unanswered");
 				expect(said).toEqual(["one"]);
 				await finish(conversation);
+			});
+
+			it("carries on once done, when asked to continue", async () => {
+				const conversation = await started();
+				await conversation.checkpoint(false, "continue");
+				for (let i = 0; i < 100 && held.finish === undefined; i++) {
+					await Bun.sleep(1);
+				}
+
+				const finishing = held.finish;
+				held.finish = undefined;
+				finishing?.("end_turn");
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(1);
+				}
+
+				expect(said).toEqual([CHECKPOINT, RESUME]);
+				expect(conversation.state.checkpoint).toBeNull();
+				await finish(conversation);
+			});
+
+			it("keeps where it stands in the log, to resume after the restart it was for", async () => {
+				const conversation = await started();
+				await conversation.checkpoint(false, "restart");
+				for (let i = 0; i < 100 && held.finish === undefined; i++) {
+					await Bun.sleep(1);
+				}
+				await finish(conversation);
+				expect(conversation.resumes).toBe(true);
+
+				await conversation.stop();
+				const [read] = await new Conversations(
+					"/repo/.git/arbor/conversations",
+					[AGENT],
+					{ fs, timer, clock, launch: agent.launch },
+				).list();
+
+				expect(read?.state.checkpoint).toBe("done");
+				expect(read?.resumes).toBe(true);
+				await read?.prompt(RESUME);
+				expect(read?.state.checkpoint).toBeNull();
+				expect(read?.resumes).toBe(false);
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(1);
+				}
+				await finish(read as Conversation);
 			});
 
 			it("fails when the agent dies before it answers", async () => {

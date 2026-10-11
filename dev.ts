@@ -15,7 +15,13 @@ import {
 import { Debouncer, Duration, SystemTimer, Throttler } from "webappwiz/time";
 import { z } from "zod";
 import type { Attachment } from "./attachments";
-import type { Answer, Checkpoint, Conversations } from "./conversations";
+import {
+	type After,
+	type Answer,
+	type Checkpoint,
+	type Conversations,
+	RESUME,
+} from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
@@ -26,6 +32,7 @@ import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
 import { grantRetry } from "./retry";
 import { fingerprint, snapshot } from "./snapshot";
+import { RESTART, UPDATE } from "./supervise";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
@@ -53,6 +60,7 @@ export async function dev(
 		newest = async () => null,
 		running = RUNNING,
 		checkEvery = CHECK,
+		exit = null,
 		open = async (root) => ({
 			...home,
 			...(await openRepository(home, { at: root, migrates: true })),
@@ -82,6 +90,8 @@ export async function dev(
 	let url: string | null = null;
 	/** A newer arbor on npm, once a check has found one; every page says so. */
 	let release: Release | null = null;
+	/** Whether `arbor dev` restarts once the checkpoint under way ends. */
+	let restarting = false;
 
 	const asset = (body: string, type: string): Response =>
 		new Response(body, { headers: { "content-type": type } });
@@ -160,6 +170,14 @@ export async function dev(
 		const conversations = converse?.({ arborDir }) ?? null;
 		if (conversations !== null) {
 			conversations.url = url;
+			// Stopped for a restart, which this is: each carries on.
+			void conversations.list().then((all) => {
+				for (const conversation of all) {
+					if (conversation.resumes) {
+						void conversation.prompt(RESUME).catch(() => {});
+					}
+				}
+			});
 		}
 
 		// What a page shows is spread across arbor's records, the branches'
@@ -574,13 +592,16 @@ export async function dev(
 		 * Asks every live conversation for a checkpoint, without waiting on the
 		 * agents: one whose task is merging gets to finish the merge first.
 		 * While one is still asked, the checkpoint under way stands, and nothing
-		 * is asked again.
+		 * is asked again. Answers with what settles as each asked answers.
 		 */
-		const checkpoint = async (): Promise<void> => {
+		const checkpoint = async (
+			after: After = "stop",
+		): Promise<Promise<void>[]> => {
 			const all = (await conversations?.list()) ?? [];
 			if (all.some((each) => each.state.checkpoint === "asked")) {
-				return;
+				return [];
 			}
+			const asked: Promise<void>[] = [];
 			for (const conversation of all) {
 				// What the last one said goes, so this one lists only its own.
 				conversation.dismissCheckpoint();
@@ -589,10 +610,14 @@ export async function dev(
 					continue;
 				}
 				const worktree = task === null ? null : await service.find(task);
-				void conversation
-					.checkpoint(worktree?.status === "merging")
-					.catch(() => {});
+				asked.push(
+					conversation
+						.checkpoint(worktree?.status === "merging", after)
+						.catch(() => {})
+						.then(() => conversation.answered()),
+				);
 			}
+			return asked;
 		};
 
 		/** The conversation a `/api/conversations/<id>` path names. */
@@ -700,16 +725,39 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
-		const checkpointConversations = async (): Promise<Response> => {
+		// A restart stops other projects' agents too, as they are: only this
+		// project's are asked.
+		const checkpointConversations = async (
+			request: Request,
+		): Promise<Response> => {
 			held();
-			await checkpoint();
+			const { after } = await body(request);
+			if (after === "restart") {
+				if (exit === null) {
+					fail("usage", "arbor dev cannot restart itself here: restart it", {});
+				}
+				restartAfter(await checkpoint("restart"));
+			} else {
+				await checkpoint(after === "continue" ? "continue" : "stop");
+			}
 			return Response.json({});
 		};
 
 		/** Forgets the checkpoint here, so the next click starts a new one. */
 		const dismissCheckpoint = async (): Promise<Response> => {
+			restarting = false;
 			for (const conversation of await held().list()) {
 				conversation.dismissCheckpoint();
+			}
+			return Response.json({});
+		};
+
+		/** Tells each agent a checkpoint stopped here to carry on. */
+		const resumeConversations = async (): Promise<Response> => {
+			for (const conversation of await held().list()) {
+				if (conversation.stoppedByCheckpoint) {
+					void conversation.prompt(RESUME).catch(() => {});
+				}
 			}
 			return Response.json({});
 		};
@@ -822,6 +870,7 @@ export async function dev(
 			cancelConversation,
 			checkpointConversations,
 			dismissCheckpoint,
+			resumeConversations,
 			unqueueConversation,
 			sendQueuedNow,
 			chooseSetting,
@@ -997,12 +1046,38 @@ export async function dev(
 		});
 	};
 
-	const checkpointAll = async (): Promise<Response> => {
+	/** Asks every live conversation in every project for a checkpoint. */
+	const checkpointAll = async (): Promise<void> => {
 		for (const settled of await Promise.allSettled(served.values())) {
 			if (settled.status === "fulfilled") {
 				await settled.value.checkpoint();
 			}
 		}
+	};
+
+	/**
+	 * Restarts `arbor dev` once each checkpoint `asked` has been answered,
+	 * unless dismissed meanwhile.
+	 */
+	const restartAfter = (asked: Promise<void>[]): void => {
+		restarting = true;
+		void Promise.all(asked).then(async () => {
+			if (!restarting) {
+				return;
+			}
+			const code = release === null ? RESTART : UPDATE;
+			log.info(
+				release === null
+					? "arbor dev restarting"
+					: `arbor dev restarting on arbor ${release.newest}`,
+			);
+			await disposer.disposeAsync();
+			exit?.(code);
+		});
+	};
+
+	const checkpointRelease = async (): Promise<Response> => {
+		await checkpointAll();
 		return showRelease();
 	};
 
@@ -1039,7 +1114,7 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/projects": guarded(listProjects),
 			"/api/release": guarded(showRelease),
-			"/api/release/checkpoint": { POST: guarded(checkpointAll) },
+			"/api/release/checkpoint": { POST: guarded(checkpointRelease) },
 			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
@@ -1072,6 +1147,9 @@ export async function dev(
 			"/api/conversations/checkpoint": {
 				POST: talk(scoped((project) => project.checkpointConversations)),
 				DELETE: talk(scoped((project) => project.dismissCheckpoint)),
+			},
+			"/api/conversations/resume": {
+				POST: talk(scoped((project) => project.resumeConversations)),
 			},
 			"/api/conversations/events": talk(
 				scoped((project) => project.conversationEvents),
@@ -1305,6 +1383,12 @@ export interface DevOptions {
 	running?: string;
 	/** How often `newest` is asked after the first time: hourly by default. */
 	checkEvery?: Duration;
+	/**
+	 * Ends the process with `RESTART` or `UPDATE` once the server has
+	 * stopped, for its supervisor to start another; without it, the page
+	 * cannot restart `arbor dev`.
+	 */
+	exit?: ((code: number) => void) | null;
 }
 
 /** What `dev` serves a project with: its own records, read and written. */
@@ -1341,10 +1425,14 @@ interface Served extends AsyncResource {
 	removeTodo: Handler;
 	listConversations: Handler;
 	startConversation: Handler;
-	/** Asks every live conversation here to bring its ARBOR.md up to date. */
-	checkpoint: () => Promise<void>;
+	/**
+	 * Asks every live conversation here to bring its ARBOR.md up to date,
+	 * answering with what settles as each answers.
+	 */
+	checkpoint: (after?: After) => Promise<Promise<void>[]>;
 	checkpointConversations: Handler;
 	dismissCheckpoint: Handler;
+	resumeConversations: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;
 	conversationImage: Handler;

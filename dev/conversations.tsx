@@ -20,6 +20,7 @@ import {
 	LinkIcon,
 	Loader2Icon,
 	PencilIcon,
+	PlayIcon,
 	PlusIcon,
 	SendHorizontalIcon,
 	SquareArrowOutUpRightIcon,
@@ -76,6 +77,7 @@ import { Switch } from "#dev/components/ui/switch.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { type Ending, stretches } from "../asked";
 import type {
+	After,
 	Answer,
 	Ask,
 	Checkpoint,
@@ -101,6 +103,7 @@ import {
 	paths,
 	promptConversation,
 	renameConversation,
+	resumeConversations,
 	sendQueuedNow,
 	startConversation,
 	unqueueConversation,
@@ -235,12 +238,33 @@ function live({ status }: ConversationState): boolean {
 	return status === "starting" || status === "idle" || status === "running";
 }
 
+/** What the checkpoint menu offers, and what each does after. */
+const AFTERWARDS: { after: After; label: string; detail: string }[] = [
+	{
+		after: "stop",
+		label: "Checkpoint",
+		detail: "Each agent brings its ARBOR.md up to date and stops.",
+	},
+	{
+		after: "continue",
+		label: "Checkpoint and continue",
+		detail: "Then each carries on from it.",
+	},
+	{
+		after: "restart",
+		label: "Checkpoint and restart",
+		detail:
+			"Then arbor dev restarts, on a newer arbor if one is out, and each carries on. Other projects' agents stop as they are.",
+	},
+];
+
 /**
- * Asks every live conversation here to bring its ARBOR.md up to date and
- * stop, whenever the person likes, and opens on how each gets on. A click
- * while one is under way only opens it; the next starts once every agent has
- * answered or run out of time, or the person dismisses it. Shown while one is
- * live, or one has been asked.
+ * Asks every live conversation here to bring its ARBOR.md up to date, from a
+ * menu of what follows, so a stray click starts nothing. While one is under
+ * way, a click opens on how each gets on instead, until every agent has
+ * answered or run out of time, or the person dismisses it. Once it has ended,
+ * Resume beside it tells each agent it stopped to carry on. Shown while one
+ * is live, or one has been asked.
  */
 function CheckpointAll({
 	conversations,
@@ -262,60 +286,26 @@ function CheckpointAll({
 	const missed = asked.filter(
 		(each) => each.checkpoint === "failed" || each.checkpoint === "unanswered",
 	);
-	const says =
-		going > 0
-			? `Checkpointing ${asked.length - going} of ${asked.length}`
-			: asked.length === 0
-				? "Checkpoint all"
-				: missed.length === 0
-					? `Checkpointed ${done}`
-					: `Checkpointed ${done}, ${missed.length} not`;
-	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger
-				render={
-					<button
-						type="button"
-						data-row
-						title={
-							missed.length > 0
-								? `Not checkpointed: ${missed.map(nameOf).join(", ")}`
-								: "Ask every live agent to bring its ARBOR.md up to date and stop"
-						}
-						className={cn(
-							"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-							missed.length > 0 && going === 0 && "text-destructive",
-						)}
-					/>
-				}
-				onClick={() => {
-					// One under way stands: the click only shows it.
-					if (going === 0) {
-						checkpointConversations().catch((error: unknown) =>
-							refuse("Not checkpointed", error),
-						);
-					}
-				}}
-			>
-				{going > 0 ? (
+	const row =
+		"flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted";
+	if (going > 0) {
+		return (
+			<Popover open={open} onOpenChange={setOpen}>
+				<PopoverTrigger
+					render={<button type="button" data-row className={row} />}
+				>
 					<Loader2Icon className="size-3.5 animate-spin" />
-				) : asked.length > 0 && missed.length === 0 ? (
-					<CheckIcon className="size-3.5 text-success" />
-				) : (
-					<BookmarkCheckIcon className="size-3.5" />
-				)}
-				<span className="flex-1">{says}</span>
-			</PopoverTrigger>
-			<PopoverContent align="start" className="w-72">
-				<PopoverHeader>
-					<PopoverTitle>Checkpoint</PopoverTitle>
-					<PopoverDescription>
-						Each agent brings its ARBOR.md up to date and stops.
-					</PopoverDescription>
-				</PopoverHeader>
-				{asked.length === 0 ? (
-					<span className="text-muted-foreground text-xs">Asking…</span>
-				) : (
+					<span className="flex-1 truncate">
+						Checkpointing {asked.length - going} of {asked.length}
+					</span>
+				</PopoverTrigger>
+				<PopoverContent align="start" className="w-72">
+					<PopoverHeader>
+						<PopoverTitle>Checkpoint</PopoverTitle>
+						<PopoverDescription>
+							Each agent brings its ARBOR.md up to date and stops.
+						</PopoverDescription>
+					</PopoverHeader>
 					<ul className="flex flex-col">
 						{asked.map((each) => (
 							<li key={each.id}>
@@ -337,23 +327,93 @@ function CheckpointAll({
 							</li>
 						))}
 					</ul>
+					<Refusal refusal={refusal} />
+					<div>
+						<Button
+							size="xs"
+							variant="ghost"
+							onClick={() =>
+								dismissCheckpoint().then(
+									() => setOpen(false),
+									(error: unknown) => refuse("Not dismissed", error),
+								)
+							}
+						>
+							Dismiss
+						</Button>
+					</div>
+				</PopoverContent>
+			</Popover>
+		);
+	}
+	return (
+		<div className="flex flex-col">
+			<div className="flex items-center gap-1">
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						render={
+							<button
+								type="button"
+								data-row
+								title={
+									missed.length > 0
+										? `Not checkpointed: ${missed.map(nameOf).join(", ")}`
+										: undefined
+								}
+								className={cn(row, missed.length > 0 && "text-destructive")}
+							/>
+						}
+					>
+						{asked.length > 0 && missed.length === 0 ? (
+							<CheckIcon className="size-3.5 text-success" />
+						) : (
+							<BookmarkCheckIcon className="size-3.5" />
+						)}
+						<span className="flex-1 truncate">
+							{asked.length === 0
+								? "Checkpoint all"
+								: missed.length === 0
+									? `Checkpointed ${done}`
+									: `Checkpointed ${done}, ${missed.length} not`}
+						</span>
+						{asked.length === 0 && <ChevronDownIcon className="size-3.5" />}
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="start" className="w-64">
+						{AFTERWARDS.map(({ after, label, detail }) => (
+							<DropdownMenuItem
+								key={after}
+								className="flex-col items-start gap-0.5"
+								onClick={() =>
+									checkpointConversations(after).then(
+										() => setOpen(true),
+										(error: unknown) => refuse("Not checkpointed", error),
+									)
+								}
+							>
+								<span>{label}</span>
+								<span className="text-muted-foreground text-xs">{detail}</span>
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuContent>
+				</DropdownMenu>
+				{asked.length > 0 && (
+					<Button
+						size="icon-xs"
+						variant="outline"
+						aria-label="Resume"
+						title="Resume: tell each agent the checkpoint stopped to carry on"
+						onClick={() =>
+							resumeConversations().catch((error: unknown) =>
+								refuse("Not resumed", error),
+							)
+						}
+					>
+						<PlayIcon />
+					</Button>
 				)}
-				<Refusal refusal={refusal} />
-				<Button
-					size="xs"
-					variant="outline"
-					className="self-end"
-					onClick={() =>
-						dismissCheckpoint().then(
-							() => setOpen(false),
-							(error: unknown) => refuse("Not dismissed", error),
-						)
-					}
-				>
-					Dismiss
-				</Button>
-			</PopoverContent>
-		</Popover>
+			</div>
+			<Refusal refusal={refusal} className="px-3 pb-1.5" />
+		</div>
 	);
 }
 

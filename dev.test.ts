@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { add } from "./add";
-import { Conversations } from "./conversations";
+import { CHECKPOINT, Conversations, RESUME } from "./conversations";
 import { dev, devPorts } from "./dev";
 import type { FileDiff } from "./diff";
 import { AGENT, FakeAgent, say } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
+import { RESTART } from "./supervise";
 import { Testing } from "./testing";
 
 async function readUntil(
@@ -1091,6 +1092,115 @@ describe("dev", () => {
 				expect(conversation.state.checkpoint).toBeNull();
 			} finally {
 				await server.disposeAsync();
+			}
+		});
+
+		it("resumes each one a checkpoint stopped, at the person's word", async () => {
+			const said: string[] = [];
+			agent.turn = async (_, __, text) => {
+				said.push(text);
+				return "end_turn";
+			};
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+				await json(port, "/api/conversations/checkpoint", "POST", {
+					after: "stop",
+				});
+				for (
+					let i = 0;
+					i < 100 && conversation.state.checkpoint !== "done";
+					i++
+				) {
+					await Bun.sleep(5);
+				}
+
+				const response = await json(port, "/api/conversations/resume", "POST");
+
+				expect(response.status).toBe(200);
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(5);
+				}
+				expect(said).toEqual([CHECKPOINT, RESUME]);
+				expect(conversation.state.checkpoint).toBeNull();
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("restarts once every live one has checkpointed, and each carries on when served again", async () => {
+			const said: string[] = [];
+			agent.turn = async (_, __, text) => {
+				said.push(text);
+				return "end_turn";
+			};
+			const exits: number[] = [];
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+				exit: (code) => exits.push(code),
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+
+				const response = await json(
+					port,
+					"/api/conversations/checkpoint",
+					"POST",
+					{ after: "restart" },
+				);
+
+				expect(response.status).toBe(200);
+				for (let i = 0; i < 100 && exits.length === 0; i++) {
+					await Bun.sleep(5);
+				}
+				expect(exits).toEqual([RESTART]);
+				expect(said).toEqual([CHECKPOINT]);
+				expect(conversation.state).toMatchObject({
+					status: "stopped",
+					checkpoint: "done",
+				});
+			} finally {
+				if (exits.length === 0) {
+					await server.disposeAsync();
+				}
+			}
+
+			const again = new Conversations(
+				`${deps.arborDir}/conversations`,
+				[AGENT],
+				{ launch: agent.launch },
+			);
+			const restarted = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => again,
+			});
+			try {
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(5);
+				}
+				expect(said).toEqual([CHECKPOINT, RESUME]);
+			} finally {
+				await restarted.disposeAsync();
 			}
 		});
 

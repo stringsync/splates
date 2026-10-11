@@ -320,7 +320,7 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("checkpoints every live conversation from the list, only while one is live", async () => {
+	it("checkpoints every live conversation from a menu of what follows, only while one is live", async () => {
 		const view = await conversations(
 			[
 				conversation({ id: "c1", title: "Fix login", status: "running" }),
@@ -335,10 +335,19 @@ describe("App's conversations", () => {
 				within(nav).getByRole("button", { name: "Checkpoint all" }),
 			),
 		);
+		expect(posted("/api/conversations/checkpoint")).toEqual([]);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: /^Checkpoint and restart/ }),
+				),
+			),
+		);
 
 		expect(posted("/api/conversations/checkpoint")).toEqual([
-			{ method: "POST", body: {} },
+			{ method: "POST", body: { after: "restart" } },
 		]);
+		expect(view.queryByRole("button", { name: "Resume" })).toBeNull();
 		cleanup();
 		const stopped = await conversations(
 			[conversation({ id: "c2", title: "Old one", status: "stopped" })],
@@ -361,6 +370,7 @@ describe("App's conversations", () => {
 			],
 			null,
 		);
+		expect(view.queryByRole("button", { name: "Resume" })).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(
@@ -381,10 +391,15 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("starts a new checkpoint once the last one has ended, naming those it missed", async () => {
+	it("resumes those a checkpoint stopped once it has ended, naming those it missed", async () => {
 		const view = await conversations(
 			[
-				conversation({ id: "c1", title: "One", checkpoint: "done" }),
+				conversation({
+					id: "c1",
+					title: "One",
+					status: "stopped",
+					checkpoint: "done",
+				}),
 				conversation({ id: "c2", title: "Two", checkpoint: "unanswered" }),
 			],
 			null,
@@ -392,9 +407,11 @@ describe("App's conversations", () => {
 		const row = view.getByRole("button", { name: "Checkpointed 1, 1 not" });
 		expect(row.title).toBe("Not checkpointed: Two");
 
-		await act(async () => fireEvent.click(row));
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Resume" })),
+		);
 
-		expect(posted("/api/conversations/checkpoint")).toEqual([
+		expect(posted("/api/conversations/resume")).toEqual([
 			{ method: "POST", body: {} },
 		]);
 	});
