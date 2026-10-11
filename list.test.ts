@@ -37,14 +37,14 @@ describe("list", () => {
 		]);
 	});
 
-	it("names each task's changed and planned files with --files", async () => {
+	it("names each task's Goal and changed files with --files", async () => {
 		await add(deps, "alpha");
 		const worktree = (await deps.service.find("alpha")).path;
 		await deps.commit(worktree, "committed.txt", "a\n", "add committed");
 		await deps.fs.write(`${worktree}/untracked.txt`, "b\n");
 		await deps.fs.write(
 			`${worktree}/ARBOR.md`,
-			"# alpha\n\n## Files\n\n- `committed.txt`\n- planned.txt\n\nprose, not a path\n",
+			"# alpha\n\n## Goal\n\nsupport dark mode\nand charts\n",
 		);
 
 		deps.log.clear();
@@ -53,15 +53,15 @@ describe("list", () => {
 		const out = color.strip(deps.out());
 		expect(out).toContain("changed  committed.txt");
 		expect(out).toContain("changed  untracked.txt");
-		expect(out).toContain("planned  planned.txt");
-		expect(out).not.toContain("planned  committed.txt");
+		expect(out).toContain("goal     support dark mode");
+		expect(out).not.toContain("and charts");
 		expect(out).not.toContain("ARBOR.md"); // excluded, so never a change
 
 		deps.log.clear();
 		await list(deps, { json: true, files: true });
 		const [row] = JSON.parse(deps.out());
 		expect(row.changed).toEqual(["committed.txt", "untracked.txt"]);
-		expect(row.planned).toEqual(["committed.txt", "planned.txt"]);
+		expect(row.goal).toBe("support dark mode");
 	});
 
 	it("leaves files out unless asked", async () => {

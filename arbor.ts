@@ -134,7 +134,7 @@ arbor
 	.option("files", z.boolean(), {
 		default: false,
 		description:
-			"add each task's changed files (committed or not) and the files its ARBOR.md plans to touch, to check for overlap before starting",
+			"add each task's Goal and changed files (committed or not), to check for overlap before starting",
 	})
 	.action((opts, ctx) => list(ctx, { json: opts.json, files: opts.files }));
 

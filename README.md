@@ -158,15 +158,15 @@ Every task: name, status, lease (`held`/`stale`/`none`), commits ahead of
 trunk, age. A corrupt record shows as `unknown` instead of taking
 down the listing; a record whose worktree vanished shows as `orphaned`.
 
-`--files` adds, under each task, every path it has changed (committed or
-not) and every path its `ARBOR.md` plans under `## Files` that it has not
-touched yet. This is the overlap check an agent runs once it has planned: its own
-list of files against everyone else's.
+`--files` adds, under each task, the first line of its `ARBOR.md`'s
+`## Goal` and every path it has changed (committed or not). This is the
+overlap check an agent runs once it has planned: its own Goal against everyone
+else's, and the files they have already touched.
 
 ```
 alpha
+  goal     Sign sessions with rotating keys
   changed  src/auth.ts
-  planned  src/session.ts
 ```
 
 ### `arbor show <task> [--json]`

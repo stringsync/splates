@@ -186,15 +186,14 @@ function goal(todos: Todo[]): string {
 }
 
 /** The plan a fresh task starts with. `## Goal` is the todos it takes up, if
- * any; it and `## Files` are otherwise left empty on purpose: `arbor show` nags
- * until the agent fills them in. */
+ * any; it is otherwise left empty on purpose: `arbor show` nags until the
+ * agent fills it in. */
 function PLAN(task: string, goal: string | null): string {
 	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
 	if (goal !== null) {
 		writer.text(goal);
 	}
 	return writer
-		.heading(2, "Files")
 		.heading(2, "Next")
 		.checklist("fill in Goal and list the steps here as `- [ ]` items")
 		.toString();

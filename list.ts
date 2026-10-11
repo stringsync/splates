@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { age } from "./age";
-import { PLAN_FILE, plannedFiles } from "./plan";
+import { goalLine, PLAN_FILE } from "./plan";
 import { table } from "./table";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -17,15 +17,15 @@ interface Row {
 	worktree: string | null;
 	/** Paths the task has touched, committed or not; only with `files`. */
 	changed?: string[] | null;
-	/** Paths its `ARBOR.md` plans to touch; only with `files`. */
-	planned?: string[];
+	/** The first line of its `ARBOR.md`'s Goal, if any; only with `files`. */
+	goal?: string | null;
 }
 
 export interface ListOptions {
 	/** Print the rows as JSON instead of a table. */
 	json?: boolean;
 	/**
-	 * Add each task's changed and planned files, which is what an agent checks
+	 * Add each task's Goal and changed files, which is what an agent checks
 	 * its own plan against before starting. Off by default: it costs git calls
 	 * and a file read per task.
 	 */
@@ -73,13 +73,13 @@ async function row(worktree: Worktree): Promise<Row> {
 async function paths(
 	worktree: Worktree,
 	fs: Fs,
-): Promise<Pick<Row, "changed" | "planned">> {
+): Promise<Pick<Row, "changed" | "goal">> {
 	const plan = worktree.exists
 		? await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
 		: null;
 	return {
 		changed: worktree.hasBranch ? await worktree.changedFiles() : null,
-		planned: plan === null ? [] : plannedFiles(plan),
+		goal: plan === null ? null : goalLine(plan),
 	};
 }
 
@@ -119,19 +119,12 @@ function listing(rows: Row[]): string {
 	return out.join("\n");
 }
 
-/**
- * One task's paths, each once: `changed` when the task has touched it,
- * `planned` when only its `ARBOR.md` names it so far.
- */
+/** One task's Goal, then each path it has touched, committed or not. */
 function files(row: Row): string[] {
-	const changed = row.changed ?? [];
-	const planned = (row.planned ?? []).filter((path) => !changed.includes(path));
-	const lines = [
-		...changed.map((path) => `  changed  ${path}`),
-		...planned.map((path) => `  ${color.dim("planned")}  ${path}`),
-	];
+	const changed = (row.changed ?? []).map((path) => `  changed  ${path}`);
 	return [
 		color.bold(row.task),
-		...(lines.length > 0 ? lines : [color.dim("  no files yet")]),
+		...(row.goal ? [`  ${color.dim("goal")}     ${row.goal}`] : []),
+		...(changed.length > 0 ? changed : [color.dim("  no files yet")]),
 	];
 }

@@ -1,13 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { checkPlan, ready, unfinished, whatIsLeft } from "./plan";
+import { checkPlan, goalLine, ready, unfinished, whatIsLeft } from "./plan";
 
 const GOOD = `# alpha
 
 ## Goal
 Teach show to check the plan.
-
-## Files
-- plan.ts
 
 ## Done
 - [x] wrote the checker
@@ -32,20 +29,7 @@ describe("checkPlan", () => {
 
 	it("names the required sections that are missing", () => {
 		const problems = checkPlan("# alpha\n", { task: "alpha" });
-		expect(problems).toEqual([
-			"no ## Goal section",
-			"no ## Files section",
-			"no ## Next section",
-		]);
-	});
-
-	it("wants the files the task plans to touch", () => {
-		const problems = checkPlan(GOOD.replace("- plan.ts", ""), {
-			task: "alpha",
-		});
-		expect(problems).toEqual([
-			"## Files is empty: list the file paths you plan to touch",
-		]);
+		expect(problems).toEqual(["no ## Goal section", "no ## Next section"]);
 	});
 
 	it("takes a Next with nothing left as a finished task", () => {
@@ -129,5 +113,19 @@ describe("unfinished", () => {
 	it("ignores an unchecked box outside Next and Blocked", () => {
 		const noted = `${GOOD.replace("- [ ] wire it up", "")}\n- [ ] an aside\n`;
 		expect(unfinished(noted).steps).toEqual([]);
+	});
+});
+
+describe("goalLine", () => {
+	it("takes the first line under ## Goal", () => {
+		expect(goalLine(GOOD)).toBe("Teach show to check the plan.");
+		expect(goalLine("# alpha\n\n## Goal\n\n\n  dark mode\ncharts\n")).toBe(
+			"dark mode",
+		);
+	});
+
+	it("is null for a plan that has no Goal yet", () => {
+		expect(goalLine("# alpha\n")).toBeNull();
+		expect(goalLine("# alpha\n\n## Goal\n\n## Next\n")).toBeNull();
 	});
 });

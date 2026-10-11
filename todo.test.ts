@@ -339,7 +339,7 @@ describe.concurrent("todo", () => {
 
 		const worktree = (await deps.service.find("dark")).path;
 		expect(await deps.fs.read(`${worktree}/${PLAN_FILE}`)).toContain(
-			"## Goal\n\nsupport dark mode\n\ncharts too\n\n## Files",
+			"## Goal\n\nsupport dark mode\n\ncharts too\n\n## Next",
 		);
 		expect((await deps.todos.find(1)).takenBy).toBe("dark");
 		await expect(add(deps, "other", { todos: [1] })).toBail("exists", {
