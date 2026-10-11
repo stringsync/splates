@@ -477,7 +477,43 @@ describe("App's conversations", () => {
 			]),
 		);
 		expect(location.hash).toBe("#conversations/c9");
-		expect(view.getByRole("region", { name: "Not started" })).toBeTruthy();
+		expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy();
+	});
+
+	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {
+		const view = await conversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "fix the login" } }),
+		);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: "fix the login" }),
+		);
+		// Its title, and the message.
+		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
+		expect(within(thread).getByText("starting")).toBeTruthy();
+		expect(
+			within(view.getByRole("list", { name: "conversation list" })).getByText(
+				"fix the login",
+			),
+		).toBeTruthy();
+
+		await testing.say(
+			conversation({
+				id: "c9",
+				status: "running",
+				messages: [message("user", "fix the login")],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(within(thread).getByText("running")).toBeTruthy(),
+		);
+		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
 	});
 
 	it("opens the new conversation screen with the agent picked from the sidebar's menu", async () => {

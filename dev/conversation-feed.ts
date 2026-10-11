@@ -24,9 +24,16 @@ export class ConversationFeed
 
 	available = false;
 	agents: AgentChoice[] = [];
-	/** Newest first. */
+	/**
+	 * Newest first, each with the first message on its way (see `send`) as
+	 * said.
+	 */
 	conversations: ConversationState[] = [];
+	/** Each conversation's first message on its way, by id. */
+	readonly sending = new Map<string, string>();
 
+	/** As the server last said, without what is on its way. */
+	private recorded: ConversationState[] = [];
 	private stream: EventSource | null = null;
 
 	start(): void {
@@ -45,13 +52,56 @@ export class ConversationFeed
 
 	/** Puts `state` in place of what the page had of it, or first when new. */
 	put(state: ConversationState): void {
-		const at = this.conversations.findIndex((each) => each.id === state.id);
-		this.conversations =
+		const at = this.recorded.findIndex((each) => each.id === state.id);
+		this.show(
 			at === -1
-				? [state, ...this.conversations]
-				: this.conversations.map((each, index) =>
-						index === at ? state : each,
-					);
+				? [state, ...this.recorded]
+				: this.recorded.map((each, index) => (index === at ? state : each)),
+		);
+	}
+
+	/**
+	 * Shows `text` as said in conversation `id`, whose server holds it
+	 * unrecorded until the agent is up, so the thread does not sit empty
+	 * meanwhile. It goes once the server has a message from the person there,
+	 * or `sent` says it was refused.
+	 */
+	send(id: string, text: string): void {
+		this.sending.set(id, text);
+		this.show(this.recorded);
+	}
+
+	/** Stops showing what `send` showed in conversation `id`. */
+	sent(id: string): void {
+		if (this.sending.delete(id)) {
+			this.show(this.recorded);
+		}
+	}
+
+	private show(recorded: ConversationState[]): void {
+		this.recorded = recorded;
+		this.conversations = recorded.map((each) => {
+			const text = this.sending.get(each.id);
+			if (text === undefined) {
+				return each;
+			}
+			if (each.messages.some((message) => message.role === "user")) {
+				this.sending.delete(each.id);
+				return each;
+			}
+			return {
+				...each,
+				messages: [
+					{
+						role: "user",
+						parts: [{ type: "text", text }],
+						plan: null,
+						at: null,
+						until: null,
+					},
+				],
+			};
+		});
 		this.dispatcher.dispatch("changed");
 	}
 
@@ -81,8 +131,8 @@ export class ConversationFeed
 			agents: AgentChoice[];
 			conversations: ConversationState[];
 		};
-		Object.assign(this, { available: true, agents, conversations });
-		this.dispatcher.dispatch("changed");
+		Object.assign(this, { available: true, agents });
+		this.show(conversations);
 		return true;
 	}
 }

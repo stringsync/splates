@@ -757,6 +757,7 @@ export function Conversations({
 						key={shown.id}
 						drafts={drafts}
 						conversation={shown}
+						sending={feed.sending.has(shown.id)}
 						agent={agentName(agents, shown.agent)}
 						task={tasks.find((each) => each.task === shown.task) ?? null}
 						trunk={trunk}
@@ -840,13 +841,18 @@ function Home({
 				},
 			);
 			feed.put(state);
-			// Shown at once, so the person watches the agent come up; the message
-			// waits on the server for the session to open.
+			// Shown at once, its words in its thread, so the person watches the
+			// agent come up; the message waits on the server for the session to
+			// open.
+			if (text !== "") {
+				feed.send(state.id, text);
+			}
 			onOpen(state.id);
 			await promptConversation(state.id, text, images).catch(
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its
 					// composer, its words only.
+					feed.sent(state.id);
 					drafts.write(state.id, text);
 					refused("Not sent", error);
 				},
@@ -1279,6 +1285,7 @@ function useReply(
 function Thread({
 	drafts,
 	conversation,
+	sending,
 	agent,
 	task,
 	trunk,
@@ -1287,6 +1294,11 @@ function Thread({
 	/** What was typed and not sent, by conversation. */
 	drafts: Drafts;
 	conversation: ConversationState;
+	/**
+	 * Whether its first message is on its way while the agent starts, to be
+	 * answered as soon as it is up.
+	 */
+	sending: boolean;
 	/** The agent's name. */
 	agent: string;
 	/** The task it runs in; null in the main tree, or once the task is gone. */
@@ -1297,7 +1309,7 @@ function Thread({
 	onBack: (() => void) | null;
 }): JSX.Element {
 	const { id, status, settings, archived } = conversation;
-	const running = status === "running";
+	const running = status === "running" || sending;
 	// The last message is still being written while the agent works.
 	const writing = status === "running" || status === "starting";
 	// What waits for the turn's end sits above the composer, not in the
