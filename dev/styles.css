@@ -27,6 +27,7 @@
 @source "./question-cards.tsx";
 @source "./report-cards.tsx";
 @source "./card-shell.tsx";
+@source "./refusal.tsx";
 @source "./release.tsx";
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";

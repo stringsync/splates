@@ -16,6 +16,11 @@ export interface BoardContext {
 	openTask: (task: string) => void;
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane: (id: number, position: number) => void;
+	/** What was refused of each card, by its id, said on the card. */
+	refusedTodos: ReadonlyMap<number, string>;
+	/** What was refused of each lane, by its id, said under its header. */
+	refusedLanes: ReadonlyMap<number, string>;
+	refuseLane: (id: number, title: string, error: unknown) => void;
 }
 
 export const Board = createContext<BoardContext>({
@@ -25,6 +30,9 @@ export const Board = createContext<BoardContext>({
 	open: () => {},
 	openTask: () => {},
 	moveLane: () => {},
+	refusedTodos: new Map(),
+	refusedLanes: new Map(),
+	refuseLane: () => {},
 });
 
 /**

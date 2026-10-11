@@ -694,6 +694,10 @@ describe("App's conversations", () => {
 
 		await waitFor(() => expect(box.value).toBe("and the logout"));
 		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
+		// Said above the composer it was sent from, not in a toast.
+		expect(within(thread).getByRole("alert").textContent).toBe(
+			"Not sent: cannot resume",
+		);
 	});
 
 	it("opens the new conversation screen with the agent picked from the sidebar's menu", async () => {

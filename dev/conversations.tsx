@@ -73,7 +73,6 @@ import {
 	SelectValue,
 } from "#dev/components/ui/select.tsx";
 import { Switch } from "#dev/components/ui/switch.tsx";
-import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { type Ending, stretches } from "../asked";
 import type {
@@ -121,6 +120,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import { Refusal, type Refuse, useRefusal, useRefusals } from "./refusal";
 import { CheckpointState } from "./release";
 import {
 	ArchiveContext,
@@ -250,6 +250,7 @@ function CheckpointAll({
 	onOpen: (id: string) => void;
 }): JSX.Element | null {
 	const [open, setOpen] = useState(false);
+	const { refusal, refuse } = useRefusal();
 	const asked = conversations.filter((each) => each.checkpoint !== null);
 	if (!conversations.some(live) && asked.length === 0) {
 		return null;
@@ -291,7 +292,7 @@ function CheckpointAll({
 					// One under way stands: the click only shows it.
 					if (going === 0) {
 						checkpointConversations().catch((error: unknown) =>
-							refused("Not checkpointed", error),
+							refuse("Not checkpointed", error),
 						);
 					}
 				}}
@@ -337,6 +338,7 @@ function CheckpointAll({
 						))}
 					</ul>
 				)}
+				<Refusal refusal={refusal} />
 				<Button
 					size="xs"
 					variant="outline"
@@ -344,7 +346,7 @@ function CheckpointAll({
 					onClick={() =>
 						dismissCheckpoint().then(
 							() => setOpen(false),
-							(error: unknown) => refused("Not dismissed", error),
+							(error: unknown) => refuse("Not dismissed", error),
 						)
 					}
 				>
@@ -638,7 +640,8 @@ function Item({
 	const [renaming, setRenaming] = useState(false);
 	const { copied, copy } = useCopy();
 	const { id, archived } = conversation;
-	const { file, confirm } = useArchive(conversation);
+	const { refusal, refuse } = useRefusal();
+	const { file, confirm } = useArchive(conversation, refuse);
 	const reported = reportedAs(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
@@ -650,7 +653,11 @@ function Item({
 			)}
 		>
 			{renaming && (
-				<Rename conversation={conversation} onDone={() => setRenaming(false)} />
+				<Rename
+					conversation={conversation}
+					refuse={refuse}
+					onDone={() => setRenaming(false)}
+				/>
 			)}
 			{confirm}
 			<button
@@ -755,6 +762,7 @@ function Item({
 					<Put />
 				</Button>
 			</span>
+			<Refusal refusal={refusal} className="w-full px-3 pb-1.5" />
 		</div>
 	);
 }
@@ -764,7 +772,10 @@ function Item({
  * idle with its shell up, `file` asks first in `confirm`, since archiving
  * stops both; render `confirm` beside whatever calls `file`.
  */
-function useArchive(conversation: ConversationState): {
+function useArchive(
+	conversation: ConversationState,
+	refuse: Refuse,
+): {
 	file: () => void;
 	confirm: JSX.Element;
 } {
@@ -773,7 +784,7 @@ function useArchive(conversation: ConversationState): {
 	const { id, archived } = conversation;
 	const put = () =>
 		void archiveConversation(id, !archived).catch((error: unknown) =>
-			refused(archived ? "Not unarchived" : "Not archived", error),
+			refuse(archived ? "Not unarchived" : "Not archived", error),
 		);
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
@@ -821,9 +832,11 @@ function useArchive(conversation: ConversationState): {
  */
 function Rename({
 	conversation,
+	refuse,
 	onDone,
 }: {
 	conversation: ConversationState;
+	refuse: Refuse;
 	onDone: () => void;
 }): JSX.Element {
 	// "Not started" is no name to edit from.
@@ -849,7 +862,7 @@ function Rename({
 				if (event.key === "Enter") {
 					event.preventDefault();
 					renameConversation(conversation.id, value)
-						.catch((error: unknown) => refused("Not renamed", error))
+						.catch((error: unknown) => refuse("Not renamed", error))
 						.finally(onDone);
 				} else if (event.key === "Escape") {
 					event.preventDefault();
@@ -973,6 +986,9 @@ export function Conversations({
 	// reaches that conversation's composer.
 	const [drafts] = useState(() => new Drafts(localStorage));
 	const board = useMemo(() => ({ todos, lanes }), [todos, lanes]);
+	// By conversation, so a message Home sends to one it just started can be
+	// refused in that one's thread.
+	const { refusals, refuse } = useRefusals<string>();
 
 	return (
 		<TodosContext value={board}>
@@ -997,6 +1013,7 @@ export function Conversations({
 						agents={agents}
 						agent={agentFor(open, agents, conversations)}
 						conversations={conversations}
+						refuseIn={refuse}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
@@ -1029,6 +1046,8 @@ export function Conversations({
 						agent={agentName(agents, shown.agent)}
 						task={tasks.find((each) => each.task === shown.task) ?? null}
 						trunk={trunk}
+						refusal={refusals.get(shown.id) ?? null}
+						refuseIn={refuse}
 						onArchived={() => onOpen(NEW)}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
@@ -1055,6 +1074,7 @@ function Home({
 	agents,
 	agent,
 	conversations,
+	refuseIn,
 	onOpen,
 	onBack,
 }: {
@@ -1067,10 +1087,13 @@ function Home({
 	agent: string;
 	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
+	/** Says in a conversation's thread that a write to it was refused. */
+	refuseIn: (id: string, title: string, error: unknown) => void;
 	onOpen: (id: string) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
+	const { refusal, refuse } = useRefusal();
 	// What the agent's sessions offer is known from its latest conversation
 	// that got as far as a session, archived or not, and each setting starts
 	// where that one left it; the first one with an agent starts with the
@@ -1106,7 +1129,7 @@ function Home({
 				(error: unknown) => {
 					setStarting(false);
 					restore.current(text, images);
-					refused("Not started", error);
+					refuse("Not started", error);
 					throw error;
 				},
 			);
@@ -1124,7 +1147,7 @@ function Home({
 					// composer, its words only.
 					feed.sent(state.id);
 					drafts.write(state.id, text);
-					refused("Not sent", error);
+					refuseIn(state.id, "Not sent", error);
 				},
 			);
 		},
@@ -1153,6 +1176,7 @@ function Home({
 			<AssistantRuntimeProvider runtime={runtime}>
 				<ThreadView
 					mentions={mentions ?? undefined}
+					above={<Refusal refusal={refusal} className="px-2" />}
 					welcome={
 						<div className="mb-6 flex flex-col gap-8 px-2">
 							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-2xl tracking-tight duration-200">
@@ -1483,15 +1507,6 @@ function Archived({
 const SELECT =
 	"h-8 rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/** A toast for a request the server refused. */
-function refused(title: string, error: unknown): void {
-	toast.add({
-		title,
-		description: error instanceof Error ? error.message : String(error),
-		type: "error",
-	});
-}
-
 /**
  * Keeps what is typed in `runtime`'s composer in `drafts` under `key`, and
  * puts it back as the composer comes up, so leaving for another conversation
@@ -1563,10 +1578,7 @@ function imagesOf(message: AppendMessage): File[] {
 function useReply(id: string, drafts: Drafts): Reply {
 	return useMemo(
 		() => ({
-			send: (said: string) =>
-				void promptConversation(id, said).catch((error: unknown) =>
-					refused("Not sent", error),
-				),
+			send: (said: string) => promptConversation(id, said),
 			drafts: {
 				read: (name: string) => drafts.read(`${id}:${name}`),
 				write: (name: string, kept: string) =>
@@ -1599,6 +1611,8 @@ function Thread({
 	agent,
 	task,
 	trunk,
+	refusal,
+	refuseIn,
 	onArchived,
 	onOpen,
 	onBack,
@@ -1617,6 +1631,9 @@ function Thread({
 	task: Details | null;
 	/** The main tree's branch. */
 	trunk: string;
+	/** A write to it the server refused, said above the composer for a moment. */
+	refusal: string | null;
+	refuseIn: (id: string, title: string, error: unknown) => void;
 	/** Once a report card has archived it, to start the next. */
 	onArchived: () => void;
 	onOpen: (id: string) => void;
@@ -1624,6 +1641,10 @@ function Thread({
 	onBack: (() => void) | null;
 }): JSX.Element {
 	const { id, status, settings, archived } = conversation;
+	const refused = useCallback(
+		(title: string, error: unknown) => refuseIn(id, title, error),
+		[refuseIn, id],
+	);
 	const running = status === "running" || feed.sending.has(id);
 	// The last message is still being written while the agent works.
 	const writing = status === "running" || status === "starting";
@@ -1683,7 +1704,7 @@ function Thread({
 				throw error;
 			});
 		},
-		[id, status, feed],
+		[id, status, feed, refused],
 	);
 	const runtime = useExternalStoreRuntime({
 		messages,
@@ -1763,7 +1784,7 @@ function Thread({
 		);
 	const review = useContext(ReviewChanges);
 	const terminal = useContext(ToggleTerminal);
-	const archive = useArchive(conversation);
+	const archive = useArchive(conversation, refused);
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -1803,12 +1824,8 @@ function Thread({
 		() => ({
 			archived,
 			// With the agent, model, and settings the last one started with.
-			archive: () => {
-				archiveConversation(id, true).then(
-					() => onArchivedRef.current(),
-					(error: unknown) => refused("Not archived", error),
-				);
-			},
+			archive: () =>
+				archiveConversation(id, true).then(() => onArchivedRef.current()),
 		}),
 		[id, archived],
 	);
@@ -1880,6 +1897,7 @@ function Thread({
 					{renaming ? (
 						<Rename
 							conversation={conversation}
+							refuse={refused}
 							onDone={() => setRenaming(false)}
 						/>
 					) : (
@@ -1953,6 +1971,7 @@ function Thread({
 									}
 									above={
 										<>
+											<Refusal refusal={refusal} className="px-2" />
 											{queued.length > 0 && (
 												<Queued
 													conversation={id}
@@ -2146,25 +2165,31 @@ function AskPanel({
 }): JSX.Element {
 	// Its own draft beside the composer's: what is typed into its boxes.
 	const key = `${conversation.id}:${ask.id}`;
+	const { refusal, refuse } = useRefusal();
 	const send = (answer: Answer) =>
 		answerConversation(conversation.id, ask.id, answer).then(
 			() => drafts.write(key, ""),
-			(error: unknown) => refused("Not answered", error),
+			(error: unknown) => refuse("Not answered", error),
 		);
-	return ask.type === "permission" ? (
-		<Permission
-			ask={ask}
-			agent={agent}
-			where={conversation.task ?? "the main tree"}
-			send={send}
-		/>
-	) : (
-		<Question
-			ask={ask}
-			send={send}
-			typed={typedIn(drafts.read(key))}
-			onType={(typed) => drafts.write(key, JSON.stringify(typed))}
-		/>
+	return (
+		<>
+			{ask.type === "permission" ? (
+				<Permission
+					ask={ask}
+					agent={agent}
+					where={conversation.task ?? "the main tree"}
+					send={send}
+				/>
+			) : (
+				<Question
+					ask={ask}
+					send={send}
+					typed={typedIn(drafts.read(key))}
+					onType={(typed) => drafts.write(key, JSON.stringify(typed))}
+				/>
+			)}
+			<Refusal refusal={refusal} className="-mt-2 px-2" />
+		</>
 	);
 }
 

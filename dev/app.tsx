@@ -22,7 +22,6 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "#dev/components/ui/tabs.tsx";
-import { Toaster } from "#dev/components/ui/toast.tsx";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Details } from "../show";
@@ -268,200 +267,198 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 			: snapshot && (page === "todos" ? snapshot.todos : snapshot.tasks).length;
 
 	return (
-		<Toaster>
-			<ReviewChanges value={setReviewing}>
-				<ToggleTerminal value={shown === null ? null : toggleTerminal}>
-					<ShellRunning value={shellRunning}>
-						<TooltipProvider>
-							<Tabs
-								value={page}
-								onValueChange={(value) => go(value as Page)}
-								// Clear of the sidebar.
-								className={cn(
-									"min-h-dvh gap-0",
-									wide && "pl-(--sidebar-width)",
-									wide && paned && BESIDE_PANE,
-								)}
-								style={{ "--sidebar-width": `${width}px` } as CSSProperties}
-							>
-								{!reading && (
-									<>
-										{/* Heads the sidebar when there is one, and the page on a phone. */}
-										<header
-											className={cn(
-												"flex min-w-0 flex-col gap-0.5",
-												wide
-													? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
-													: "border-b px-4 py-2.5",
-											)}
-										>
-											<div className="flex min-w-0 items-center gap-2">
-												<ProjectSwitcher name={snapshot?.repo ?? "arbor"} />
-												{/* Silent while connected, which is the normal case. Once the
+		<ReviewChanges value={setReviewing}>
+			<ToggleTerminal value={shown === null ? null : toggleTerminal}>
+				<ShellRunning value={shellRunning}>
+					<TooltipProvider>
+						<Tabs
+							value={page}
+							onValueChange={(value) => go(value as Page)}
+							// Clear of the sidebar.
+							className={cn(
+								"min-h-dvh gap-0",
+								wide && "pl-(--sidebar-width)",
+								wide && paned && BESIDE_PANE,
+							)}
+							style={{ "--sidebar-width": `${width}px` } as CSSProperties}
+						>
+							{!reading && (
+								<>
+									{/* Heads the sidebar when there is one, and the page on a phone. */}
+									<header
+										className={cn(
+											"flex min-w-0 flex-col gap-0.5",
+											wide
+												? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
+												: "border-b px-4 py-2.5",
+										)}
+									>
+										<div className="flex min-w-0 items-center gap-2">
+											<ProjectSwitcher name={snapshot?.repo ?? "arbor"} />
+											{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it
 									    shows may no longer be true. */}
-												{/* Up but refusing: a newer arbor moved the records on. */}
-												{outdated !== null && !offline && (
-													<span
-														role="status"
-														title={outdated}
-														className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
-													>
-														<span className="size-1.5 rounded-full bg-amber-500" />
-														Outdated
-													</span>
-												)}
-												{/* A newer arbor is out: restarting onto it is the person's call. */}
-												{snapshot?.release && outdated === null && !offline && (
-													<ReleaseHint release={snapshot.release} />
-												)}
-												{offline && (
-													<span
-														role="status"
-														title="arbor dev stopped answering: is it still running?"
-														className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
-													>
-														<span className="size-1.5 rounded-full bg-destructive" />
-														Offline
-													</span>
-												)}
-												{/* Beside the project they belong to, leaving the sidebar to the
-										    conversations, and spaced as one row with Settings on a phone. */}
-												<div className="ml-auto flex shrink-0 items-center gap-0.5">
-													<TabsList
-														variant="line"
-														className="gap-0.5 p-0 group-data-horizontal/tabs:h-auto"
-													>
-														{pages.map(({ value, label, Icon }) => (
-															<TabsTrigger
-																key={value}
-																value={value}
-																title={
-																	count(value) === null
-																		? label
-																		: `${label} (${count(value)})`
-																}
-																className="size-7 flex-none p-0 text-muted-foreground after:hidden hover:bg-muted group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
-															>
-																<Icon />
-																<span className="sr-only">{label}</span>
-															</TabsTrigger>
-														))}
-													</TabsList>
-													{/* At the foot of the sidebar when there is one. */}
-													{!wide && (
-														<button
-															type="button"
-															aria-label="Settings"
-															title="Settings"
-															onClick={() => setSetting(true)}
-															className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-														>
-															<SettingsIcon className="size-4" />
-														</button>
-													)}
-												</div>
-											</div>
-											{snapshot && (
-												<span className="truncate text-muted-foreground text-xs">
-													{snapshot.path}
+											{/* Up but refusing: a newer arbor moved the records on. */}
+											{outdated !== null && !offline && (
+												<span
+													role="status"
+													title={outdated}
+													className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
+												>
+													<span className="size-1.5 rounded-full bg-amber-500" />
+													Outdated
 												</span>
 											)}
-										</header>
-										{/* With room to spare, a sidebar down the left, all
-								    conversations. A phone has the list as its own page. */}
-										{wide && (
-											<div className="fixed inset-y-0 left-0 z-40 flex w-(--sidebar-width) flex-col border-r bg-sidebar px-3 pt-20">
-												{available && snapshot !== null && (
-													<div className="-mx-3 min-h-0 flex-1 overflow-y-auto px-3 pb-6">
-														<ConversationList
-															feed={talk}
-															tasks={snapshot.tasks}
-															settings={settings}
-															open={page === "conversations" ? open : null}
-															onOpen={(id) => go("conversations", id)}
-														/>
-													</div>
-												)}
-												<button
-													type="button"
-													aria-label="Settings"
-													onClick={() => setSetting(true)}
-													className="-mx-3 mt-auto flex h-12 shrink-0 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
+											{/* A newer arbor is out: restarting onto it is the person's call. */}
+											{snapshot?.release && outdated === null && !offline && (
+												<ReleaseHint release={snapshot.release} />
+											)}
+											{offline && (
+												<span
+													role="status"
+													title="arbor dev stopped answering: is it still running?"
+													className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
 												>
-													<SettingsIcon className="size-4" />
-													<span className="flex-1 text-left">Settings</span>
-													<Kbd>⌘,</Kbd>
-												</button>
+													<span className="size-1.5 rounded-full bg-destructive" />
+													Offline
+												</span>
+											)}
+											{/* Beside the project they belong to, leaving the sidebar to the
+										    conversations, and spaced as one row with Settings on a phone. */}
+											<div className="ml-auto flex shrink-0 items-center gap-0.5">
+												<TabsList
+													variant="line"
+													className="gap-0.5 p-0 group-data-horizontal/tabs:h-auto"
+												>
+													{pages.map(({ value, label, Icon }) => (
+														<TabsTrigger
+															key={value}
+															value={value}
+															title={
+																count(value) === null
+																	? label
+																	: `${label} (${count(value)})`
+															}
+															className="size-7 flex-none p-0 text-muted-foreground after:hidden hover:bg-muted group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+														>
+															<Icon />
+															<span className="sr-only">{label}</span>
+														</TabsTrigger>
+													))}
+												</TabsList>
+												{/* At the foot of the sidebar when there is one. */}
+												{!wide && (
+													<button
+														type="button"
+														aria-label="Settings"
+														title="Settings"
+														onClick={() => setSetting(true)}
+														className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+													>
+														<SettingsIcon className="size-4" />
+													</button>
+												)}
 											</div>
+										</div>
+										{snapshot && (
+											<span className="truncate text-muted-foreground text-xs">
+												{snapshot.path}
+											</span>
 										)}
-										{wide && <SidebarHandle sidebar={sidebar} />}
-									</>
-								)}
-								{snapshot === null ? null : (
-									<>
-										{/* The board runs as wide as its lanes, the way a Trello board
-						    scrolls sideways. */}
-										<TabsContent value="todos" className="min-w-0 px-4 py-4">
-											<Todos snapshot={snapshot} />
-										</TabsContent>
-										<TabsContent
-											value="tasks"
-											className="mx-auto w-full max-w-xl px-4 py-6"
-										>
-											<Tasks tasks={snapshot.tasks} />
-										</TabsContent>
-										{available && (
-											<TabsContent
-												value="conversations"
-												className="min-w-0 px-4 py-4"
-											>
-												<TreesContext value={snapshot}>
-													<Conversations
+									</header>
+									{/* With room to spare, a sidebar down the left, all
+								    conversations. A phone has the list as its own page. */}
+									{wide && (
+										<div className="fixed inset-y-0 left-0 z-40 flex w-(--sidebar-width) flex-col border-r bg-sidebar px-3 pt-20">
+											{available && snapshot !== null && (
+												<div className="-mx-3 min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+													<ConversationList
 														feed={talk}
 														tasks={snapshot.tasks}
-														todos={snapshot.todos}
-														lanes={snapshot.lanes}
-														trunk={snapshot.trunk}
-														open={open}
+														settings={settings}
+														open={page === "conversations" ? open : null}
 														onOpen={(id) => go("conversations", id)}
-														phone={!wide}
 													/>
-												</TreesContext>
-											</TabsContent>
-										)}
-									</>
-								)}
-							</Tabs>
-							{reviewed !== undefined ? (
-								<ChangesPane
-									key={reviewed.task}
-									task={reviewed.task}
-									version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
-									phone={!wide}
-									onClose={() => setReviewing(null)}
-								/>
-							) : (
-								terminal &&
-								shown !== null && (
-									// One per conversation: its projections are of that one's shell.
-									<TerminalPane
-										key={shown.id}
-										terminals={terminals}
-										conversation={shown}
-										phone={!wide}
-									/>
-								)
+												</div>
+											)}
+											<button
+												type="button"
+												aria-label="Settings"
+												onClick={() => setSetting(true)}
+												className="-mx-3 mt-auto flex h-12 shrink-0 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
+											>
+												<SettingsIcon className="size-4" />
+												<span className="flex-1 text-left">Settings</span>
+												<Kbd>⌘,</Kbd>
+											</button>
+										</div>
+									)}
+									{wide && <SidebarHandle sidebar={sidebar} />}
+								</>
 							)}
-							<SettingsDialog
-								settings={settings}
-								open={setting}
-								onOpenChange={setSetting}
+							{snapshot === null ? null : (
+								<>
+									{/* The board runs as wide as its lanes, the way a Trello board
+						    scrolls sideways. */}
+									<TabsContent value="todos" className="min-w-0 px-4 py-4">
+										<Todos snapshot={snapshot} />
+									</TabsContent>
+									<TabsContent
+										value="tasks"
+										className="mx-auto w-full max-w-xl px-4 py-6"
+									>
+										<Tasks tasks={snapshot.tasks} />
+									</TabsContent>
+									{available && (
+										<TabsContent
+											value="conversations"
+											className="min-w-0 px-4 py-4"
+										>
+											<TreesContext value={snapshot}>
+												<Conversations
+													feed={talk}
+													tasks={snapshot.tasks}
+													todos={snapshot.todos}
+													lanes={snapshot.lanes}
+													trunk={snapshot.trunk}
+													open={open}
+													onOpen={(id) => go("conversations", id)}
+													phone={!wide}
+												/>
+											</TreesContext>
+										</TabsContent>
+									)}
+								</>
+							)}
+						</Tabs>
+						{reviewed !== undefined ? (
+							<ChangesPane
+								key={reviewed.task}
+								task={reviewed.task}
+								version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
+								phone={!wide}
+								onClose={() => setReviewing(null)}
 							/>
-						</TooltipProvider>
-					</ShellRunning>
-				</ToggleTerminal>
-			</ReviewChanges>
-		</Toaster>
+						) : (
+							terminal &&
+							shown !== null && (
+								// One per conversation: its projections are of that one's shell.
+								<TerminalPane
+									key={shown.id}
+									terminals={terminals}
+									conversation={shown}
+									phone={!wide}
+								/>
+							)
+						)}
+						<SettingsDialog
+							settings={settings}
+							open={setting}
+							onOpenChange={setSetting}
+						/>
+					</TooltipProvider>
+				</ShellRunning>
+			</ToggleTerminal>
+		</ReviewChanges>
 	);
 }

@@ -26,7 +26,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#dev/components/ui/select.tsx";
-import { toast } from "#dev/components/ui/toast.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -37,24 +36,7 @@ import { cycle, followers } from "../lanes";
 import type { TodoState } from "../todo";
 import { arrangeTodo, linkTodo } from "./api";
 import { Board } from "./board";
-
-/**
- * A write made from the dialog, with a toast when the server refuses it;
- * whether it landed.
- */
-function attempt(write: Promise<void>, failed: string): Promise<boolean> {
-	return write.then(
-		() => true,
-		(error: unknown) => {
-			toast.add({
-				title: failed,
-				description: error instanceof Error ? error.message : String(error),
-				type: "error",
-			});
-			return false;
-		},
-	);
-}
+import { Refusal, useRefusal } from "./refusal";
 
 /**
  * An open todo's place among the others, in a quiet row of properties under
@@ -67,17 +49,22 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 	const { todos } = useContext(Board);
 	const blockers = todos.filter((other) => todo.blockedBy.includes(other.id));
 	const blocking = followers(todos, todo.id);
+	// Each row says what of it was refused, under its own links.
+	const lane = useRefusal();
+	const blockedBy = useRefusal();
+	const blocks = useRefusal();
 	return (
 		<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1">
 			<Property title="Lane">
-				<LanePicker todo={todo} />
+				<LanePicker todo={todo} attempt={lane.attempt} />
+				<Refusal refusal={lane.refusal} className="w-full" />
 			</Property>
 			<Property title="Blocked by" Icon={HourglassIcon}>
 				<LinkList
 					title="Blocked by"
 					linked={blockers}
 					onRemove={(other) =>
-						attempt(
+						blockedBy.attempt(
 							linkTodo(
 								todo.id,
 								todo.blockedBy.filter((id) => id !== other.id),
@@ -91,19 +78,20 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					exclude={[todo.id, ...todo.blockedBy]}
 					loops={(other) => cycle(todos, todo.id, other.id)}
 					onPick={(other) =>
-						attempt(
+						blockedBy.attempt(
 							linkTodo(todo.id, [...todo.blockedBy, other.id]),
 							"Not linked",
 						)
 					}
 				/>
+				<Refusal refusal={blockedBy.refusal} className="w-full" />
 			</Property>
 			<Property title="Blocking" Icon={CornerDownRightIcon}>
 				<LinkList
 					title="Blocking"
 					linked={blocking}
 					onRemove={(other) =>
-						attempt(
+						blocks.attempt(
 							linkTodo(
 								other.id,
 								other.blockedBy.filter((id) => id !== todo.id),
@@ -117,12 +105,13 @@ export function Links({ todo }: { todo: TodoState }): JSX.Element {
 					exclude={[todo.id, ...blocking.map((other) => other.id)]}
 					loops={(other) => cycle(todos, other.id, todo.id)}
 					onPick={(other) =>
-						attempt(
+						blocks.attempt(
 							linkTodo(other.id, [...other.blockedBy, todo.id]),
 							"Not linked",
 						)
 					}
 				/>
+				<Refusal refusal={blocks.refusal} className="w-full" />
 			</Property>
 		</dl>
 	);
@@ -154,7 +143,14 @@ function Property({
  * new lane…" asks for its name in place, Enter starts it, Escape keeps the
  * lane it had.
  */
-function LanePicker({ todo }: { todo: TodoState }): JSX.Element {
+function LanePicker({
+	todo,
+	attempt,
+}: {
+	todo: TodoState;
+	/** Makes a write, saying whether it landed. */
+	attempt: (write: Promise<void>, failed: string) => Promise<boolean>;
+}): JSX.Element {
 	const { lanes } = useContext(Board);
 	const [naming, setNaming] = useState(false);
 	const [name, setName] = useState("");

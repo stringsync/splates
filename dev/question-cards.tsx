@@ -31,6 +31,7 @@ import type { Question } from "../plan";
 import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell } from "./card-shell";
 import { Markdown } from "./markdown";
+import { Refusal, useRefusal } from "./refusal";
 
 /** What the cards in a conversation answer through. */
 export interface Reply {
@@ -38,7 +39,7 @@ export interface Reply {
 	 * Sends `text` as a message of its own, leaving what is typed as it is;
 	 * null where nothing can be sent from the page, as to an external agent.
 	 */
-	send: ((text: string) => void) | null;
+	send: ((text: string) => Promise<void>) | null;
 	/**
 	 * Where a card keeps what is written in it and not sent, under a name of
 	 * its own in the conversation, so leaving and coming back loses nothing.
@@ -226,6 +227,7 @@ export function QuestionCards({
 	const out = replyOf(written.lines, written.more);
 	const send = copy ? null : (reply?.send ?? null);
 	const { copied, copy: copyOut } = useCopy();
+	const { refusal, attempt } = useRefusal();
 	const submit = () => {
 		if (!live || out === "") {
 			return;
@@ -233,7 +235,7 @@ export function QuestionCards({
 		if (send === null) {
 			copyOut(out);
 		} else {
-			send(out);
+			void attempt(send(out), "Not sent");
 		}
 	};
 	const panel = useRef<HTMLDivElement>(null);
@@ -357,6 +359,7 @@ export function QuestionCards({
 								</span>
 							</Button>
 						</div>
+						<Refusal refusal={refusal} className="text-right" />
 					</footer>
 				) : (
 					more !== "" && (
@@ -601,9 +604,10 @@ export function ReviewPanel({
 		kept.write(text);
 	};
 	const asked = changes.trim();
+	const { refusal, attempt } = useRefusal();
 	const ask = () => {
-		if (asked !== "") {
-			send?.(asked);
+		if (asked !== "" && send !== null) {
+			void attempt(send(asked), "Not sent");
 		}
 	};
 	const box = useRef<HTMLTextAreaElement>(null);
@@ -691,13 +695,14 @@ export function ReviewPanel({
 							// Changes written would go unsaid: merging means none.
 							disabled={asked !== ""}
 							title={asked === "" ? undefined : "Clear the changes to merge"}
-							onClick={() => send(MERGE)}
+							onClick={() => void attempt(send(MERGE), "Not sent")}
 							className="bg-success text-white hover:bg-success/90"
 						>
 							<GitMergeIcon data-icon="inline-start" />
 							Merge
 						</Button>
 					</div>
+					<Refusal refusal={refusal} className="text-right" />
 				</footer>
 			)}
 		</CardShell>

@@ -168,17 +168,39 @@ describe("App's lanes", () => {
 		});
 	});
 
+	it("says under a lane's header that its rename was refused", async () => {
+		const view = await testing.open({
+			todos: sound2score(),
+			lanes: SOUND2SCORE_LANES,
+		});
+		const lane = view.getByRole("region", { name: "Licensing" });
+		testing.refuseWrites = { reason: "usage", message: "taken" };
+
+		await act(async () =>
+			fireEvent.click(within(lane).getByRole("button", { name: "Licensing" })),
+		);
+		const name = view.getByRole("textbox", { name: "lane name" });
+		await act(async () =>
+			fireEvent.change(name, { target: { value: "Score editor" } }),
+		);
+		await act(async () => fireEvent.keyDown(name, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(within(lane).getByRole("alert").textContent).toBe(
+				"Not renamed: taken",
+			),
+		);
+	});
+
 	it("moves a lane left or right from its menu, showing it there at once", async () => {
 		const view = await testing.open({
 			todos: sound2score(),
 			lanes: SOUND2SCORE_LANES,
 		});
-		// The board's columns, leaving out the toasts' region.
 		const columns = () =>
 			view
 				.getAllByRole("region")
-				.map((region) => region.getAttribute("aria-label"))
-				.filter((label) => label !== "Notifications");
+				.map((region) => region.getAttribute("aria-label"));
 		const pick = async (lane: string, name: string) => {
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name: `${lane} actions` })),

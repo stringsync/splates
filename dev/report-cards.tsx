@@ -23,6 +23,7 @@ import { Badge, todoReference } from "./card";
 import { CardBody, CardShell, type Tone } from "./card-shell";
 import { Markdown } from "./markdown";
 import { InMessage, useCardReply } from "./question-cards";
+import { Refusal, useRefusal } from "./refusal";
 
 /** How each ending shows: on its report card, and beside its conversation. */
 export const ENDINGS: Record<
@@ -51,7 +52,7 @@ export const ReportUI = makeAssistantDataUI<{ report: Report }>({
 /** The open conversation, to archive; none outside one. */
 export const ArchiveContext = createContext<{
 	archived: boolean;
-	archive: () => void;
+	archive: () => Promise<void>;
 } | null>(null);
 
 export function ReportCard({ report }: { report: Report }): JSX.Element {
@@ -90,23 +91,27 @@ function Archive({
 	archive,
 }: {
 	archived: boolean;
-	archive: () => void;
+	archive: () => Promise<void>;
 }): JSX.Element {
+	const { refusal, attempt } = useRefusal();
 	return archived ? (
 		<span className="flex h-7 items-center gap-1 text-muted-foreground text-xs">
 			<CheckIcon className="size-3.5" strokeWidth={3} />
 			Archived
 		</span>
 	) : (
-		<Button
-			size="sm"
-			variant="outline"
-			onClick={archive}
-			className="h-7 gap-1.5 bg-background"
-		>
-			<ArchiveIcon data-icon="inline-start" />
-			Archive
-		</Button>
+		<span className="flex items-center gap-2">
+			<Refusal refusal={refusal} />
+			<Button
+				size="sm"
+				variant="outline"
+				onClick={() => void attempt(archive(), "Not archived")}
+				className="h-7 gap-1.5 bg-background"
+			>
+				<ArchiveIcon data-icon="inline-start" />
+				Archive
+			</Button>
+		</span>
 	);
 }
 
@@ -155,6 +160,7 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 			? null
 			: (board?.lanes.find((each) => each.id === todo.lane) ?? null);
 	const send = reply?.send ?? null;
+	const { refusal, attempt } = useRefusal();
 	const startNew = useContext(StartNewContext);
 	const open = todo !== null && todo.takenBy === null;
 	return (
@@ -203,6 +209,7 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 					)}
 					{gone && <span>gone: merged or removed</span>}
 				</span>
+				<Refusal refusal={refusal} />
 			</div>
 			{started && (
 				<span className="flex shrink-0 items-center gap-1 py-1 text-success text-xs">
@@ -216,7 +223,7 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 						<Button
 							size="sm"
 							variant="outline"
-							onClick={() => send(reference)}
+							onClick={() => void attempt(send(reference), "Not started")}
 							className="gap-1.5"
 						>
 							<PlayIcon data-icon="inline-start" />

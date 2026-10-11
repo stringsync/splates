@@ -30,6 +30,7 @@ import { blockerLabel } from "../lanes";
 import type { TodoState } from "../todo";
 import { Board, still } from "./board";
 import { Markdown } from "./markdown";
+import { Refusal } from "./refusal";
 
 /** What a chat with an agent takes to mean this todo. */
 export function todoReference(id: number): string {
@@ -225,6 +226,7 @@ export function Card({
 						</Badge>
 					)}
 				</span>
+				<Refusal refusal={board.refusedTodos.get(todo.id)} />
 			</div>
 			<button
 				type="button"

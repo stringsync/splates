@@ -8,8 +8,8 @@ import {
 } from "#dev/components/ui/dialog.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
 import { Switch } from "#dev/components/ui/switch.tsx";
-import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { Refusal, useRefusal } from "./refusal";
 import {
 	CATEGORIES,
 	type Category,
@@ -163,6 +163,7 @@ function SettingRow({
 	const disabled = !enabled || !supported;
 	const id = `setting-${name}`;
 	const depth = depthOf(name);
+	const { refusal, refuse } = useRefusal();
 
 	return (
 		<li
@@ -177,6 +178,7 @@ function SettingRow({
 					<Marked text={definition.description} query={query} />
 					{!supported && " This browser cannot do it."}
 				</p>
+				<Refusal refusal={refusal} className="mt-1" />
 			</div>
 			{typeof value === "string" ? (
 				<Choices
@@ -195,11 +197,7 @@ function SettingRow({
 					disabled={disabled}
 					onCheckedChange={async (checked) => {
 						if (!(await settings.set(name, checked))) {
-							toast.add({
-								title: definition.title,
-								description: definition.browser?.refused,
-								type: "error",
-							});
+							refuse("Not switched", definition.browser?.refused ?? "refused");
 						}
 					}}
 					className="mt-0.5"

@@ -8,18 +8,9 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
-import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { forgetProject, listProjects, type ProjectChoice } from "./api";
-
-/** A toast for a request the server refused. */
-function refused(title: string, error: unknown): void {
-	toast.add({
-		title,
-		description: error instanceof Error ? error.message : String(error),
-		type: "error",
-	});
-}
+import { Refusal, useRefusal } from "./refusal";
 
 /** The project the page shows: `?project=`, or none for the one started in. */
 export function shownProject(): string | null {
@@ -53,13 +44,14 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [active, setActive] = useState(0);
 	const [projects, setProjects] = useState<ProjectChoice[]>([]);
 	const shown = shownProject();
+	const { refusal, refuse: refused } = useRefusal();
 
 	const load = useCallback(
 		() =>
 			listProjects().then(setProjects, (error: unknown) =>
 				refused("Projects not listed", error),
 			),
-		[],
+		[refused],
 	);
 	useEffect(() => {
 		if (open) {
@@ -193,6 +185,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 						</li>
 					))}
 				</ul>
+				<Refusal refusal={refusal} className="px-2" />
 				<p className="px-2 text-muted-foreground text-xs">
 					<Kbd>⌘K</Kbd> opens this anywhere
 				</p>

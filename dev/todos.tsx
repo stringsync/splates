@@ -41,7 +41,6 @@ import {
 	InputGroupInput,
 	InputGroupTextarea,
 } from "#dev/components/ui/input-group.tsx";
-import { toast } from "#dev/components/ui/toast.tsx";
 import {
 	type LaneRecord,
 	type LaneState,
@@ -66,6 +65,7 @@ import {
 import { Links } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
+import { Refusal, useRefusal, useRefusals } from "./refusal";
 import { Task } from "./tasks";
 import { TodoBoard } from "./todo-board";
 import { TodoEditor } from "./todo-editor";
@@ -109,6 +109,8 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	const records = useMemo(() => named(all, shownLanes), [all, shownLanes]);
 	const lanes = laneList(all, records);
 	const shown = lanes.filter((lane) => !hidden.includes(lane.id));
+	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
+	const { refusals: refusedLanes, refuse: refuseLane } = useRefusals<number>();
 	const context = useMemo(
 		() => ({
 			linked: true,
@@ -119,15 +121,29 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 			moveLane: (id: number, position: number) =>
 				void board
 					.moveLane(snapshot.lanes, id, position)
-					?.catch((error: unknown) => notMoved(error)),
+					?.catch((error: unknown) => refuseLane(id, "Not moved", error)),
+			refusedTodos,
+			refusedLanes,
+			refuseLane,
 		}),
-		[all, records, view, board, snapshot],
+		[
+			all,
+			records,
+			view,
+			board,
+			snapshot,
+			refusedTodos,
+			refusedLanes,
+			refuseLane,
+		],
 	);
 	const popup = useRef<HTMLDivElement>(null);
 	return (
 		<BoardContext value={context}>
 			<Drag
 				board={board}
+				refuseTodo={refuseTodo}
+				refuseLane={refuseLane}
 				todos={snapshot.todos}
 				lanes={snapshot.lanes}
 				staleness={snapshot.todoStalenessMs}
@@ -208,15 +224,6 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 	);
 }
 
-/** A toast for a move the server refused. */
-function notMoved(error: unknown): void {
-	toast.add({
-		title: "Not moved",
-		description: error instanceof Error ? error.message : String(error),
-		type: "error",
-	});
-}
-
 /**
  * Lets a card be dragged anywhere on the board: up or down its column, onto
  * a card in a lane to join it there, onto a column's space for its bottom,
@@ -228,6 +235,8 @@ function notMoved(error: unknown): void {
  */
 function Drag({
 	board,
+	refuseTodo,
+	refuseLane,
 	todos,
 	lanes,
 	staleness,
@@ -236,6 +245,10 @@ function Drag({
 	children,
 }: {
 	board: TodoBoard;
+	/** Says on a card that it was not moved. */
+	refuseTodo: (id: number, title: string, error: unknown) => void;
+	/** Says under a lane's header that it was not moved. */
+	refuseLane: (id: number, title: string, error: unknown) => void;
 	todos: TodoState[];
 	lanes: LaneRecord[];
 	staleness: number;
@@ -262,7 +275,7 @@ function Drag({
 					moving,
 					over === null ? null : (laneOf(over.id) ?? null),
 				)
-				?.catch(notMoved);
+				?.catch((error: unknown) => refuseLane(moving, "Not moved", error));
 			return;
 		}
 		const lane = over === null ? undefined : columnOf(over.id);
@@ -276,7 +289,9 @@ function Drag({
 						? { card: Number(over.id) }
 						: { lane },
 			)
-			?.catch(notMoved);
+			?.catch((error: unknown) =>
+				refuseTodo(Number(active.id), "Not moved", error),
+			);
 	};
 
 	return (
@@ -358,14 +373,9 @@ function Edit({
 	const place = `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane?.name ?? "Untriaged"}`;
 	const mentions = useMentions<HTMLInputElement>(editor.subject);
 
+	const { refusal, refuse } = useRefusal();
 	const settle = (writing: Promise<void> | null, failed: string): void => {
-		writing?.then(onDone, (error: unknown) =>
-			toast.add({
-				title: failed,
-				description: error instanceof Error ? error.message : String(error),
-				type: "error",
-			}),
-		);
+		writing?.then(onDone, (error: unknown) => refuse(failed, error));
 	};
 	return (
 		<>
@@ -398,6 +408,7 @@ function Edit({
 				<Links todo={todo} />
 				<Detail editor={editor} />
 				<FileList files={editor.files} />
+				<Refusal refusal={refusal} className="text-right" />
 			</div>
 			<DialogFooter className="flex-row justify-between sm:justify-between">
 				<Button

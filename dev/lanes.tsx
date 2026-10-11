@@ -46,7 +46,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
-import { toast } from "#dev/components/ui/toast.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { LaneState } from "../lanes";
 import type { TodoState } from "../todo";
@@ -55,22 +54,8 @@ import { Board, still } from "./board";
 import { Card, copiedLabel, laneReference, Sortable, useCopy } from "./card";
 import { AttachButton, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
+import { Refusal, useRefusal } from "./refusal";
 import { TodoDraft } from "./todo-draft";
-
-/** A write from a column, with a toast when the server refuses it. */
-function attempt(write: Promise<void>, failed: string): Promise<boolean> {
-	return write.then(
-		() => true,
-		(error: unknown) => {
-			toast.add({
-				title: failed,
-				description: error instanceof Error ? error.message : String(error),
-				type: "error",
-			});
-			return false;
-		},
-	);
-}
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
 export function columnId(lane: number | null | "new"): string {
@@ -300,7 +285,7 @@ export function Lane({
 	lanes: LaneState[];
 	staleness: number;
 }): JSX.Element {
-	const { openTask } = useContext(Board);
+	const { openTask, refusedLanes } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
 	const {
 		listeners,
@@ -376,6 +361,7 @@ export function Lane({
 							);
 						})
 					: lane.next !== null && <StartLane lane={lane} />}
+				<Refusal refusal={refusedLanes.get(lane.id)} />
 			</header>
 			<Cards
 				todos={lane.todos}
@@ -424,13 +410,16 @@ function LaneName({
 	lane: LaneState;
 	onDone: () => void;
 }): JSX.Element {
+	const { refuseLane } = useContext(Board);
 	const [name, setName] = useState(lane.name);
 	const save = () => {
 		if (name.trim() === "" || name.trim() === lane.name) {
 			onDone();
 			return;
 		}
-		void attempt(renameLane(lane.id, name), "Not renamed").then(onDone);
+		void renameLane(lane.id, name)
+			.catch((error: unknown) => refuseLane(lane.id, "Not renamed", error))
+			.then(onDone);
 	};
 	return (
 		<input
@@ -496,7 +485,7 @@ function LaneMenu({
 	lanes: LaneState[];
 	onRename: () => void;
 }): JSX.Element {
-	const { moveLane } = useContext(Board);
+	const { moveLane, refuseLane } = useContext(Board);
 	const { copied, copy } = useCopy();
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
@@ -559,7 +548,9 @@ function LaneMenu({
 								<DropdownMenuItem
 									key={other.id}
 									onClick={() =>
-										void attempt(joinLanes(lane.id, other.id), "Not moved")
+										void joinLanes(lane.id, other.id).catch((error: unknown) =>
+											refuseLane(lane.id, "Not moved", error),
+										)
 									}
 								>
 									<MergeIcon />
@@ -571,7 +562,11 @@ function LaneMenu({
 				)}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem
-					onClick={() => void attempt(dropLane(lane.id), "Lane not removed")}
+					onClick={() =>
+						void dropLane(lane.id).catch((error: unknown) =>
+							refuseLane(lane.id, "Lane not removed", error),
+						)
+					}
 				>
 					<Undo2Icon />
 					{lane.todos.length === 0
@@ -618,6 +613,7 @@ function Composer({
 		"changed",
 	]);
 	const subject = useMentions<HTMLTextAreaElement>(draft.subject);
+	const { refusal, attempt } = useRefusal();
 
 	const submit = (event?: FormEvent) => {
 		event?.preventDefault();
@@ -657,6 +653,7 @@ function Composer({
 				/>
 			</MentionAnchor>
 			<FileList files={draft.files} />
+			<Refusal refusal={refusal} />
 			<div className="flex items-center gap-1">
 				<Button type="submit" size="sm" disabled={!ready}>
 					Add todo
@@ -700,6 +697,7 @@ export function AddLane({
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
 	const { setNodeRef, isOver } = useDroppable({ id: columnId("new") });
+	const { refusal, attempt } = useRefusal();
 	const close = () => {
 		setOpen(false);
 		setName("");
@@ -760,6 +758,7 @@ export function AddLane({
 						}}
 						className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					/>
+					<Refusal refusal={refusal} />
 					<div className="flex items-center gap-1">
 						<Button type="submit" size="sm" disabled={name.trim() === ""}>
 							Add lane
