@@ -243,7 +243,9 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 					<div
 						className={cn(
 							"mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4",
-							isEmpty && "justify-center",
+							// A set distance down, not centered, so the welcome stays put
+							// as what sits below it grows.
+							isEmpty && "pt-[20dvh]",
 						)}
 					>
 						<AuiIf condition={isNewChatView}>{welcome ?? <Welcome />}</AuiIf>

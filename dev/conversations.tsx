@@ -703,11 +703,14 @@ function Home({
 			aria-label="new conversation"
 			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
-			{onBack !== null && (
-				<header className="flex items-center gap-2">
+			{onBack !== null ? (
+				<header className="flex min-h-9 items-center gap-2">
 					<Back onBack={onBack} />
 					<h2 className="font-medium text-sm">New conversation</h2>
 				</header>
+			) : (
+				// A conversation's header's room, so the welcome sits where theirs do.
+				<div aria-hidden className="h-9 shrink-0" />
 			)}
 			<AssistantRuntimeProvider runtime={runtime}>
 				<ThreadView
@@ -1116,7 +1119,7 @@ function Thread({
 			aria-label={nameOf(conversation)}
 			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
-			<header className="flex items-center gap-2">
+			<header className="flex min-h-9 items-center gap-2">
 				{onBack !== null && <Back onBack={onBack} />}
 				<div className="flex min-w-0 flex-1 flex-col">
 					{renaming ? (
