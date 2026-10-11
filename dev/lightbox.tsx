@@ -5,7 +5,7 @@ import {
 	ExternalLinkIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, type KeyboardEvent, useRef } from "react";
+import { type JSX, type KeyboardEvent, useRef, useState } from "react";
 import { Button, buttonVariants } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 
@@ -38,6 +38,42 @@ export function gallery(from: Element): Shown[] {
 		const shown = item.getAttribute(ITEM);
 		return shown ? [JSON.parse(shown) as Shown] : [];
 	});
+}
+
+/**
+ * A lightbox to render beside the media, and `open`, which shows the media
+ * `from` is, or sits in, among the others of its document.
+ */
+export function useLightbox(): {
+	open: (from: Element) => void;
+	lightbox: JSX.Element;
+} {
+	const [items, setItems] = useState<Shown[]>([]);
+	const [index, setIndex] = useState<number | null>(null);
+	const open = (from: Element) => {
+		const item = from.closest(`[${ITEM}]`) ?? from;
+		const all = gallery(item);
+		const url = (JSON.parse(item.getAttribute(ITEM) ?? "{}") as Partial<Shown>)
+			.url;
+		setItems(all);
+		setIndex(
+			Math.max(
+				0,
+				all.findIndex((item) => item.url === url),
+			),
+		);
+	};
+	return {
+		open,
+		lightbox: (
+			<Lightbox
+				items={items}
+				index={index}
+				onIndex={setIndex}
+				onClose={() => setIndex(null)}
+			/>
+		),
+	};
 }
 
 /**

@@ -14,24 +14,13 @@ import {
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import {
-	type FC,
-	isValidElement,
-	type PropsWithChildren,
-	useState,
-} from "react";
+import type { FC } from "react";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
 	Avatar,
 	AvatarFallback,
 	AvatarImage,
 } from "#dev/components/ui/avatar.tsx";
-import {
-	Dialog,
-	DialogContent,
-	DialogTitle,
-	DialogTrigger,
-} from "#dev/components/ui/dialog.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -40,69 +29,12 @@ import {
 } from "#dev/components/ui/tooltip.tsx";
 import { useAttachmentSrc } from "#dev/hooks/use-attachment-src.ts";
 import { cn } from "#dev/lib/utils.ts";
+import { GROUP, ITEM, type Shown, useLightbox } from "#dev/lightbox.tsx";
 
-type AttachmentPreviewProps = {
-	src: string;
-	name: string;
-};
-
-const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src, name }) => {
-	const [isLoaded, setIsLoaded] = useState(false);
-	return (
-		<img
-			src={src}
-			alt={`Preview of ${name}`}
-			className={cn(
-				"block h-auto max-h-[80vh] w-auto max-w-full rounded-sm object-contain transition-opacity duration-300 motion-reduce:transition-none",
-				isLoaded
-					? "aui-attachment-preview-image-loaded opacity-100"
-					: "aui-attachment-preview-image-loading opacity-0",
-			)}
-			onLoad={() => setIsLoaded(true)}
-		/>
-	);
-};
-
-type AttachmentPreviewDialogProps = PropsWithChildren<{
-	src: string | undefined;
-	name: string;
-	/** What the trigger is called, when its children do not say. */
-	label?: string;
-}>;
-
-const AttachmentPreviewDialog: FC<AttachmentPreviewDialogProps> = ({
-	children,
-	src,
-	name,
-	label,
-}) => {
-	if (!src) {
-		return children;
-	}
-
-	return (
-		<Dialog>
-			<DialogTrigger
-				aria-label={label}
-				className="aui-attachment-preview-trigger cursor-zoom-in"
-			>
-				{isValidElement(children) ? (
-					children
-				) : (
-					<button type="button">{children}</button>
-				)}
-			</DialogTrigger>
-			<DialogContent className="aui-attachment-preview-dialog-content [&>button]:bg-foreground/60 [&>button]:hover:bg-foreground/80 [&_svg]:text-background p-2 sm:max-w-3xl [&>button]:rounded-full [&>button]:p-1 [&>button]:opacity-100 [&>button]:ring-0!">
-				<DialogTitle className="aui-sr-only sr-only">
-					Preview {name}
-				</DialogTitle>
-				<div className="aui-attachment-preview bg-background relative mx-auto flex max-h-[80dvh] w-full items-center justify-center overflow-hidden rounded-sm">
-					<AttachmentPreview src={src} name={name} />
-				</div>
-			</DialogContent>
-		</Dialog>
-	);
-};
+/** What the lightbox shows of an image attachment, on the tile that opens it. */
+const shown = (src: string, name: string) => ({
+	[ITEM]: JSON.stringify({ url: src, alt: name, video: false } satisfies Shown),
+});
 
 const AttachmentThumb: FC<{ src: string | undefined }> = ({ src }) => {
 	return (
@@ -123,6 +55,7 @@ const AttachmentUI: FC = () => {
 	const aui = useAui();
 	const isComposer = aui.attachment.source !== "message";
 	const src = useAttachmentSrc();
+	const { open, lightbox } = useLightbox();
 
 	const isImage = useAuiState((s) => s.attachment.type === "image");
 	const name = useAuiState((s) => s.attachment.name);
@@ -175,70 +108,65 @@ const AttachmentUI: FC = () => {
 							"aui-attachment-root-message only:*:first:size-24",
 					)}
 				>
-					<AttachmentPreviewDialog src={src} name={name}>
-						<TooltipTrigger
-							render={
-								<div
-									className={cn(
-										"aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 motion-reduce:transition-none dark:after:ring-white/10",
-										src
-											? "cursor-zoom-in active:scale-[0.96]"
-											: "cursor-default",
-										isError &&
-											"after:ring-destructive/60 dark:after:ring-destructive/60",
-									)}
-									role={src ? "button" : "group"}
-									tabIndex={0}
-									onKeyDown={
-										src
-											? (e) => {
-													if (e.key === "Enter") {
-														e.preventDefault();
-														e.currentTarget.click();
-													} else if (e.key === " ") {
-														e.preventDefault();
-													}
+					<TooltipTrigger
+						render={
+							<div
+								{...(src ? shown(src, name) : {})}
+								onClick={src ? (e) => open(e.currentTarget) : undefined}
+								className={cn(
+									"aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 motion-reduce:transition-none dark:after:ring-white/10",
+									src ? "cursor-zoom-in active:scale-[0.96]" : "cursor-default",
+									isError &&
+										"after:ring-destructive/60 dark:after:ring-destructive/60",
+								)}
+								role={src ? "button" : "group"}
+								tabIndex={0}
+								onKeyDown={
+									src
+										? (e) => {
+												if (e.key === "Enter") {
+													e.preventDefault();
+													e.currentTarget.click();
+												} else if (e.key === " ") {
+													e.preventDefault();
 												}
-											: undefined
-									}
-									onKeyUp={
-										src
-											? (e) => {
-													if (e.key === " ") {
-														e.currentTarget.click();
-													}
+											}
+										: undefined
+								}
+								onKeyUp={
+									src
+										? (e) => {
+												if (e.key === " ") {
+													e.currentTarget.click();
 												}
-											: undefined
-									}
-									aria-label={`${src ? `Preview ${name}` : `${typeLabel} attachment ${name}`}${
-										isError
-											? ", upload failed"
-											: isUploading
-												? ", uploading"
-												: ""
-									}`}
-								/>
-							}
-						>
-							<AttachmentThumb src={src} />
-							{isUploading && (
-								<div
-									aria-hidden="true"
-									className="aui-attachment-tile-uploading bg-background/60 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-[2px] motion-reduce:animate-none"
-								>
-									<Loader2Icon className="text-muted-foreground size-4 animate-spin" />
-								</div>
-							)}
-							{isError && (
-								<div
-									aria-hidden="true"
-									className="aui-attachment-tile-error bg-background/70 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-[2px] motion-reduce:animate-none"
-								>
-									<AlertCircleIcon className="text-destructive size-4" />
-								</div>
-							)}
-						</TooltipTrigger>
-					</AttachmentPreviewDialog>
+											}
+										: undefined
+								}
+								aria-label={`${src ? `Preview ${name}` : `${typeLabel} attachment ${name}`}${
+									isError ? ", upload failed" : isUploading ? ", uploading" : ""
+								}`}
+							/>
+						}
+					>
+						<AttachmentThumb src={src} />
+						{isUploading && (
+							<div
+								aria-hidden="true"
+								className="aui-attachment-tile-uploading bg-background/60 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-[2px] motion-reduce:animate-none"
+							>
+								<Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+							</div>
+						)}
+						{isError && (
+							<div
+								aria-hidden="true"
+								className="aui-attachment-tile-error bg-background/70 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-[2px] motion-reduce:animate-none"
+							>
+								<AlertCircleIcon className="text-destructive size-4" />
+							</div>
+						)}
+					</TooltipTrigger>
+					{lightbox}
 					{isComposer && <AttachmentRemove name={name} />}
 				</AttachmentPrimitive.Root>
 				<TooltipContent side="top">
@@ -270,7 +198,10 @@ const AttachmentRemove: FC<{ name: string }> = ({ name }) => {
 
 export const UserMessageAttachments: FC = () => {
 	return (
-		<div className="aui-user-message-attachments-end col-span-full col-start-1 row-start-1 flex w-full flex-row justify-end gap-2 empty:hidden">
+		<div
+			{...{ [GROUP]: "" }}
+			className="aui-user-message-attachments-end col-span-full col-start-1 row-start-1 flex w-full flex-row justify-end gap-2 empty:hidden"
+		>
 			<MessagePrimitive.Attachments>
 				{() => <AttachmentUI />}
 			</MessagePrimitive.Attachments>
@@ -280,7 +211,10 @@ export const UserMessageAttachments: FC = () => {
 
 export const ComposerAttachments: FC = () => {
 	return (
-		<div className="aui-composer-attachments flex w-full flex-row items-center gap-2 overflow-x-auto empty:hidden">
+		<div
+			{...{ [GROUP]: "" }}
+			className="aui-composer-attachments flex w-full flex-row items-center gap-2 overflow-x-auto empty:hidden"
+		>
 			<ComposerPrimitive.Attachments>
 				{() => <AttachmentUI />}
 			</ComposerPrimitive.Attachments>
@@ -309,14 +243,23 @@ export const ComposerAddAttachment: FC = () => {
 
 /**
  * An image sent in a message, outside any attachment's context: a tile the
- * size of the composer's, which opens full size.
+ * size of the composer's, which opens in the lightbox among the others beside
+ * it.
  */
 export const ImageTile: FC<{ src: string; name: string }> = ({ src, name }) => {
+	const { open, lightbox } = useLightbox();
 	return (
-		<AttachmentPreviewDialog src={src} name={name} label={`Preview ${name}`}>
-			<div className="aui-attachment-tile bg-muted hover:after:bg-foreground/10 relative size-14 overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset active:scale-[0.96] motion-reduce:transition-none dark:after:ring-white/10">
+		<>
+			<button
+				type="button"
+				{...shown(src, name)}
+				aria-label={`Preview ${name}`}
+				onClick={(e) => open(e.currentTarget)}
+				className="aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 cursor-zoom-in overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 active:scale-[0.96] motion-reduce:transition-none dark:after:ring-white/10"
+			>
 				<AttachmentThumb src={src} />
-			</div>
-		</AttachmentPreviewDialog>
+			</button>
+			{lightbox}
+		</>
 	);
 };

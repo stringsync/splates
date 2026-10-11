@@ -1,7 +1,7 @@
 import { Maximize2Icon } from "lucide-react";
 import { type JSX, type MouseEvent, useState } from "react";
 import { fileUrl } from "./api";
-import { gallery, ITEM, Lightbox, type Shown } from "./lightbox";
+import { ITEM, type Shown, useLightbox } from "./lightbox";
 
 /** The recordings a todo or a task may hold, by extension; `dev.ts` serves them. */
 const VIDEO = /\.(mp4|webm|mov)$/i;
@@ -21,31 +21,13 @@ export function Media({
 	alt?: string;
 }): JSX.Element {
 	const [failed, setFailed] = useState(false);
-	const [items, setItems] = useState<Shown[]>([]);
-	const [index, setIndex] = useState<number | null>(null);
+	const { open: show, lightbox } = useLightbox();
 	if (!src.startsWith("/") || failed) {
 		return <Alt alt={alt} />;
 	}
 	const url = fileUrl(src);
 	const shown: Shown = { url, alt, video: VIDEO.test(src) };
-	const open = (event: MouseEvent<HTMLElement>) => {
-		const all = gallery(event.currentTarget);
-		setItems(all);
-		setIndex(
-			Math.max(
-				0,
-				all.findIndex((item) => item.url === url),
-			),
-		);
-	};
-	const lightbox = (
-		<Lightbox
-			items={items}
-			index={index}
-			onIndex={setIndex}
-			onClose={() => setIndex(null)}
-		/>
-	);
+	const open = (event: MouseEvent<HTMLElement>) => show(event.currentTarget);
 	if (shown.video) {
 		return (
 			<span

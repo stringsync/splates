@@ -80,6 +80,7 @@ import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip
 import { Button } from "#dev/components/ui/button.tsx";
 import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { GROUP } from "#dev/lightbox.tsx";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
@@ -1102,6 +1103,8 @@ const ImageTiles: FC<{
 	return (
 		<div
 			data-slot="aui_user-message-images"
+			// The lightbox steps through the images of one message.
+			{...{ [GROUP]: "" }}
 			// A tile opens the image, rather than the message it sits in.
 			onClick={(event) => event.stopPropagation()}
 			onKeyDown={(event) => event.stopPropagation()}

@@ -5,6 +5,7 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Button } from "#dev/components/ui/button.tsx";
 import { InputGroupButton } from "#dev/components/ui/input-group.tsx";
 import { fileUrl } from "./api";
+import { GROUP, ITEM, type Shown, useLightbox } from "./lightbox";
 
 export type FilesEvents = { changed: undefined };
 
@@ -104,8 +105,9 @@ export function FileList({ files }: { files: Files }): JSX.Element | null {
 	if (added.length === 0 && kept.length === 0) {
 		return null;
 	}
+	// The lightbox steps through the images of one list, stored and new alike.
 	return (
-		<div className="flex flex-wrap gap-2">
+		<div {...{ [GROUP]: "" }} className="flex flex-wrap gap-2">
 			{kept.map((path) => (
 				<Chip
 					key={path}
@@ -150,7 +152,10 @@ function New({
 	);
 }
 
-/** One file: a thumbnail for an image, its name otherwise. */
+/**
+ * One file: a thumbnail for an image, which opens in the lightbox, and its
+ * name otherwise, which opens in a new tab when stored.
+ */
 function Chip({
 	name,
 	src,
@@ -162,6 +167,7 @@ function Chip({
 	href?: string;
 	onRemove?: () => void;
 }): JSX.Element {
+	const { open, lightbox } = useLightbox();
 	const face =
 		src === undefined ? (
 			<div className="flex h-16 max-w-40 items-center gap-2 rounded-md border px-3 text-xs">
@@ -177,13 +183,30 @@ function Chip({
 		);
 	return (
 		<div className="relative">
-			{href === undefined ? (
-				face
-			) : (
+			{src !== undefined ? (
+				<button
+					type="button"
+					{...{
+						[ITEM]: JSON.stringify({
+							url: src,
+							alt: name,
+							video: false,
+						} satisfies Shown),
+					}}
+					aria-label={`expand ${name}`}
+					onClick={(event) => open(event.currentTarget)}
+					className="block cursor-zoom-in rounded-md"
+				>
+					{face}
+				</button>
+			) : href !== undefined ? (
 				<a href={href} target="_blank" rel="noreferrer">
 					{face}
 				</a>
+			) : (
+				face
 			)}
+			{lightbox}
 			{onRemove && (
 				<Button
 					aria-label={`remove ${name}`}

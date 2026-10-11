@@ -147,6 +147,22 @@ describe("App's todo edits", () => {
 			view.getByRole("button", { name: "Save" }),
 		);
 		expect((save as HTMLButtonElement).disabled).toBe(true);
+		// An image opens in the lightbox; any other file is a link to it.
+		expect(
+			view.getByRole("link", { name: "b.log" }).getAttribute("target"),
+		).toBe("_blank");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "expand a.png" })),
+		);
+		const lightbox = await waitFor(() =>
+			view.getByRole("dialog", { name: "a.png" }),
+		);
+		expect(lightbox.querySelector("img")?.getAttribute("src")).toContain(
+			"0-a.png",
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "close" })),
+		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "remove b.log" })),
 		);

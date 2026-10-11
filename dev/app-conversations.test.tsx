@@ -1026,6 +1026,18 @@ describe("App's conversations", () => {
 					?.textContent?.endsWith("this one"),
 			).toBe(true),
 		);
+		await act(async () =>
+			fireEvent.click(
+				within(thread).getByRole("button", { name: "Preview ab12.png" }),
+			),
+		);
+		const lightbox = await waitFor(() =>
+			view.getByRole("dialog", { name: "ab12.png" }),
+		);
+		expect(lightbox.querySelector("img")).not.toBeNull();
+		await act(async () =>
+			fireEvent.click(within(lightbox).getByRole("button", { name: "close" })),
+		);
 		const box = view.getByRole("textbox", { name: "Message input" });
 
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
