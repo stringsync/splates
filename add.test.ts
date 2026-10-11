@@ -107,6 +107,21 @@ describe("add", () => {
 		);
 	});
 
+	it("runs onTree once the worktree exists, before the task is listed", async () => {
+		const seen: { exists: boolean; listed: string[] }[] = [];
+
+		await add(deps, "alpha", {
+			onTree: async () => {
+				seen.push({
+					exists: (await deps.service.find("alpha")).exists,
+					listed: (await deps.service.list()).map((each) => each.task),
+				});
+			},
+		});
+
+		expect(seen).toEqual([{ exists: true, listed: [] }]);
+	});
+
 	it("names the trunk and the config when the trunk is not a branch", async () => {
 		deps.config.trunk = "master";
 

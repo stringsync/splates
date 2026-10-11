@@ -76,9 +76,11 @@ arbor
 			add(ctx, opts.task, {
 				base: opts.base || undefined,
 				todos: todoIds(opts.todo),
+				// Before the task is live, or the page shows it a moment as an
+				// external agent's.
+				onTree: () => follow(ctx, opts.task),
 			}),
 		);
-		await follow(ctx, opts.task);
 	});
 
 arbor

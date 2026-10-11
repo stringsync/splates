@@ -19,6 +19,11 @@ export interface AddOptions {
 	 * nobody else can take them while the task lives.
 	 */
 	todos?: number[];
+	/**
+	 * Runs once the worktree exists and before its record makes the task live,
+	 * so whatever it tells of the task is in place before anyone can see it.
+	 */
+	onTree?: () => Promise<void>;
 }
 
 export async function add(
@@ -38,7 +43,7 @@ export async function add(
 		todos: Todos;
 	},
 	task: string,
-	{ base = config.trunk, todos: ids = [] }: AddOptions = {},
+	{ base = config.trunk, todos: ids = [], onTree }: AddOptions = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(
@@ -105,6 +110,7 @@ export async function add(
 		);
 	}
 
+	await onTree?.();
 	const worktree = await (await service.find(task)).take({ base });
 
 	// The plan is scratch for one task and must never land on trunk. Excluding
