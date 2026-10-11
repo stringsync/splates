@@ -12,11 +12,11 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
-	BookmarkCheckIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
+	FlagIcon,
 	LinkIcon,
 	Loader2Icon,
 	MonitorIcon,
@@ -368,11 +368,11 @@ function CheckpointAll({
 						{asked.length > 0 && missed.length === 0 ? (
 							<CheckIcon className="size-3.5 text-success" />
 						) : (
-							<BookmarkCheckIcon className="size-3.5" />
+							<FlagIcon className="size-3.5" />
 						)}
 						<span className="flex-1 truncate">
 							{asked.length === 0
-								? "Checkpoint all"
+								? "Checkpoint"
 								: missed.length === 0
 									? `Checkpointed ${done}`
 									: `Checkpointed ${done}, ${missed.length} not`}

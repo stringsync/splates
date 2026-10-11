@@ -331,9 +331,7 @@ describe("App's conversations", () => {
 		const nav = view.getByRole("navigation", { name: "conversations" });
 
 		await act(async () =>
-			fireEvent.click(
-				within(nav).getByRole("button", { name: "Checkpoint all" }),
-			),
+			fireEvent.click(within(nav).getByRole("button", { name: "Checkpoint" })),
 		);
 		expect(posted("/api/conversations/checkpoint")).toEqual([]);
 		await act(async () =>
