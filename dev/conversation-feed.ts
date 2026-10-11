@@ -24,13 +24,13 @@ export class ConversationFeed
 
 	available = false;
 	agents: AgentChoice[] = [];
-	/**
-	 * Newest first, each with the first message on its way (see `send`) as
-	 * said.
-	 */
+	/** Newest first, each with the message on its way (see `send`) as said. */
 	conversations: ConversationState[] = [];
-	/** Each conversation's first message on its way, by id. */
-	readonly sending = new Map<string, string>();
+	/**
+	 * Each conversation's message on its way, by id, with how many the person
+	 * had said there when they sent it.
+	 */
+	readonly sending = new Map<string, { text: string; after: number }>();
 
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
@@ -62,12 +62,13 @@ export class ConversationFeed
 
 	/**
 	 * Shows `text` as said in conversation `id`, whose server holds it
-	 * unrecorded until the agent is up, so the thread does not sit empty
-	 * meanwhile. It goes once the server has a message from the person there,
-	 * or `sent` says it was refused.
+	 * unrecorded until the agent is up, starting or resuming, so the thread
+	 * does not sit as it was meanwhile. It goes once the server has one more
+	 * message from the person there, or `sent` says it was refused.
 	 */
 	send(id: string, text: string): void {
-		this.sending.set(id, text);
+		const held = this.recorded.find((each) => each.id === id);
+		this.sending.set(id, { text, after: said(held) });
 		this.show(this.recorded);
 	}
 
@@ -81,20 +82,21 @@ export class ConversationFeed
 	private show(recorded: ConversationState[]): void {
 		this.recorded = recorded;
 		this.conversations = recorded.map((each) => {
-			const text = this.sending.get(each.id);
-			if (text === undefined) {
+			const sending = this.sending.get(each.id);
+			if (sending === undefined) {
 				return each;
 			}
-			if (each.messages.some((message) => message.role === "user")) {
+			if (said(each) > sending.after) {
 				this.sending.delete(each.id);
 				return each;
 			}
 			return {
 				...each,
 				messages: [
+					...each.messages,
 					{
 						role: "user",
-						parts: [{ type: "text", text }],
+						parts: [{ type: "text", text: sending.text }],
 						plan: null,
 						at: null,
 						until: null,
@@ -135,4 +137,12 @@ export class ConversationFeed
 		this.show(conversations);
 		return true;
 	}
+}
+
+/** How many messages the person has said in `conversation`, if any. */
+function said(conversation: ConversationState | undefined): number {
+	return (
+		conversation?.messages.filter((message) => message.role === "user")
+			.length ?? 0
+	);
 }

@@ -812,7 +812,7 @@ export function Conversations({
 						key={shown.id}
 						drafts={drafts}
 						conversation={shown}
-						sending={feed.sending.has(shown.id)}
+						feed={feed}
 						agent={agentName(agents, shown.agent)}
 						task={tasks.find((each) => each.task === shown.task) ?? null}
 						trunk={trunk}
@@ -1344,7 +1344,7 @@ function useReply(
 function Thread({
 	drafts,
 	conversation,
-	sending,
+	feed,
 	agent,
 	task,
 	trunk,
@@ -1354,10 +1354,10 @@ function Thread({
 	drafts: Drafts;
 	conversation: ConversationState;
 	/**
-	 * Whether its first message is on its way while the agent starts, to be
-	 * answered as soon as it is up.
+	 * What it is fed by, holding a message on its way while the agent starts
+	 * or resumes, to be answered as soon as it is up.
 	 */
-	sending: boolean;
+	feed: ConversationFeed;
 	/** The agent's name. */
 	agent: string;
 	/** The task it runs in; null in the main tree, or once the task is gone. */
@@ -1368,7 +1368,7 @@ function Thread({
 	onBack: (() => void) | null;
 }): JSX.Element {
 	const { id, status, settings, archived } = conversation;
-	const running = status === "running" || sending;
+	const running = status === "running" || feed.sending.has(id);
 	// The last message is still being written while the agent works.
 	const writing = status === "running" || status === "starting";
 	// What waits for the turn's end sits above the composer, not in the
@@ -1404,13 +1404,21 @@ function Thread({
 				.join("")
 				.trim();
 			const images = imagesOf(message);
+			// The server says nothing of it until the agent is back up.
+			const held = status !== "idle" && status !== "running" && text !== "";
+			if (held) {
+				feed.send(id, text);
+			}
 			await promptConversation(id, text, images).catch((error: unknown) => {
+				if (held) {
+					feed.sent(id);
+				}
 				restore.current(text, images);
 				refused("Not sent", error);
 				throw error;
 			});
 		},
-		[id],
+		[id, status, feed],
 	);
 	const runtime = useExternalStoreRuntime({
 		messages,

@@ -565,6 +565,57 @@ describe("App's conversations", () => {
 		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
 	});
 
+	it("shows a message to a stopped conversation in its thread while its agent resumes, then as the server has it", async () => {
+		const said = [message("user", "fix the login"), message("agent", "Done.")];
+		const view = await conversations([
+			conversation({ title: "Login", status: "stopped", messages: said }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "and the logout" } }),
+		);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		);
+		expect(thread.textContent).toContain("Done.");
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [...said, message("user", "and the logout")],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(within(thread).getByText("running")).toBeTruthy(),
+		);
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+	});
+
+	it("takes a message to a stopped conversation back out of its thread when the server refuses it", async () => {
+		const view = await conversations([
+			conversation({ title: "Login", status: "stopped" }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		}) as HTMLTextAreaElement;
+		testing.refuseWrites = { reason: "usage", message: "cannot resume" };
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "and the logout" } }),
+		);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() => expect(box.value).toBe("and the logout"));
+		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
+	});
+
 	it("opens the new conversation screen with the agent picked from the sidebar's menu", async () => {
 		const view = await conversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
