@@ -20,6 +20,7 @@ import {
 	SendHorizontalIcon,
 	SquareArrowOutUpRightIcon,
 	SquareTerminalIcon,
+	Trash2Icon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -958,15 +959,17 @@ function Recent({
 /**
  * What the person said while the agent worked, to an agent that cannot take
  * it mid-turn, until the turn ends and it goes out: each one can be taken
- * back to edit, and all of them sent now, which stops the turn.
+ * back to edit or thrown away, and all of them sent now, which stops the turn.
  */
 function Queued({
 	messages,
 	onEdit,
+	onDiscard,
 	onSendNow,
 }: {
 	messages: Message[];
 	onEdit: (index: number) => void;
+	onDiscard: (index: number) => void;
 	onSendNow: () => void;
 }): JSX.Element {
 	// Enter sends the queue only with nothing typed; otherwise it queues what is.
@@ -1007,6 +1010,14 @@ function Queued({
 								onClick={() => onEdit(index)}
 							>
 								<PencilIcon />
+							</Button>
+							<Button
+								size="icon-xs"
+								variant="ghost"
+								aria-label={`Discard ${text}`}
+								onClick={() => onDiscard(index)}
+							>
+								<Trash2Icon />
 							</Button>
 						</li>
 					);
@@ -1264,6 +1275,11 @@ function Thread({
 			)
 			?.focus();
 	};
+	// Gone before the agent hears it, its words with it.
+	const discard = (index: number) =>
+		unqueueConversation(id, index).catch((error: unknown) =>
+			refused("Not discarded", error),
+		);
 	const review = useContext(ReviewChanges);
 	const terminal = useContext(ToggleTerminal);
 	const actions: Action[] = [
@@ -1427,6 +1443,7 @@ function Thread({
 										<Queued
 											messages={queued}
 											onEdit={(index) => void edit(index)}
+											onDiscard={(index) => void discard(index)}
 											onSendNow={() => void sendNow()}
 										/>
 									)}

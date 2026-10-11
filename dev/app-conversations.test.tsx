@@ -982,6 +982,40 @@ describe("App's conversations", () => {
 			await waitFor(() => expect(box(view).value).toBe("the second note"));
 		});
 
+		it("throws a queued message away, leaving the composer as it was", async () => {
+			const view = await conversations(
+				[
+					conversation({
+						id: "c1",
+						title: "Fix login",
+						status: "running",
+						messages: [
+							message("user", "go"),
+							{ ...message("user", "the first note"), queued: true },
+							{ ...message("user", "the second note"), queued: true },
+						],
+					}),
+				],
+				"c1",
+			);
+			await type(view, "still typing");
+
+			const queued = view.getByRole("region", { name: "queued messages" });
+			testing.reply = { text: "the second note" };
+			await act(async () =>
+				fireEvent.click(
+					within(queued).getByRole("button", {
+						name: "Discard the second note",
+					}),
+				),
+			);
+
+			expect(posted("/api/conversations/c1/unqueue")).toEqual([
+				{ method: "POST", body: { index: 1 } },
+			]);
+			expect(box(view).value).toBe("still typing");
+		});
+
 		it("keeps what was typed into a question's box while away", async () => {
 			const asking = conversation({
 				id: "c1",
