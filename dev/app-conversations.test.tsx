@@ -1455,7 +1455,7 @@ describe("App's conversations", () => {
 				name: "Message input",
 			}) as HTMLTextAreaElement;
 
-		it("shows a review apart from questions, merging or saying what to change through the composer", async () => {
+		it("shows a review apart from questions, merging from the card", async () => {
 			const view = await conversations([reviewing]);
 			const panel = await waitFor(() =>
 				view.getByRole("region", { name: "review header" }),
@@ -1467,51 +1467,16 @@ describe("App's conversations", () => {
 			expect(view.queryByRole("list", { name: "questions" })).toBeNull();
 
 			await act(async () =>
-				fireEvent.click(within(panel).getByRole("button", { name: /Merge/ })),
-			);
-			expect(box(view).value).toBe("merge");
-			expect(
-				within(panel)
-					.getByRole("button", { name: /Merge on send/ })
-					.getAttribute("aria-pressed"),
-			).toBe("true");
-
-			await act(async () =>
-				fireEvent.change(
-					within(panel).getByRole("textbox", { name: "Changes to header" }),
-					{ target: { value: "keep it on one line on tablets" } },
-				),
-			);
-			expect(box(view).value).toBe("keep it on one line on tablets");
-			expect(
-				within(panel)
-					.getByRole("button", { name: /Merge/ })
-					.getAttribute("aria-pressed"),
-			).toBe("false");
-			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
-		});
-
-		it("leaves the changes box as it was when Merge is pressed, putting the caret in the composer", async () => {
-			const view = await conversations([reviewing]);
-			const panel = await waitFor(() =>
-				view.getByRole("region", { name: "review header" }),
-			);
-			const changes = within(panel).getByRole("textbox", {
-				name: "Changes to header",
-			}) as HTMLTextAreaElement;
-
-			await act(async () =>
 				fireEvent.click(within(panel).getByRole("button", { name: "Merge" })),
 			);
 
-			expect(document.activeElement).toBe(box(view));
-			expect(changes.value).toBe("");
-			expect(
-				within(panel).getByRole("button", { name: "Merge on send" }),
-			).toBeTruthy();
+			expect(box(view).value).toBe("");
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "merge" } },
+			]);
 		});
 
-		it("keeps merge typed into the changes box, so a change can start with it", async () => {
+		it("says what to change from the card by keyboard, kept as a draft until sent", async () => {
 			const view = await conversations([reviewing]);
 			const panel = await waitFor(() =>
 				view.getByRole("region", { name: "review header" }),
@@ -1519,19 +1484,36 @@ describe("App's conversations", () => {
 			const changes = within(panel).getByRole("textbox", {
 				name: "Changes to header",
 			}) as HTMLTextAreaElement;
-
-			await act(async () => {
-				fireEvent.focus(changes);
-				fireEvent.change(changes, { target: { value: "merge" } });
-			});
-			expect(changes.value).toBe("merge");
+			// Ready to answer as soon as it shows.
+			await waitFor(() =>
+				expect(document.activeElement === changes).toBe(true),
+			);
+			const merge = within(panel).getByRole("button", {
+				name: "Merge",
+			}) as HTMLButtonElement;
+			expect(merge.disabled).toBe(false);
 
 			await act(async () =>
 				fireEvent.change(changes, {
 					target: { value: "merge the header first" },
 				}),
 			);
-			expect(box(view).value).toBe("merge the header first");
+			expect(changes.value).toBe("merge the header first");
+			// Merging would leave the changes unsaid.
+			expect(merge.disabled).toBe(true);
+			expect(box(view).value).toBe("");
+			expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
+				"merge the header first",
+			);
+			await act(async () =>
+				fireEvent.keyDown(changes, { key: "Enter", shiftKey: true }),
+			);
+			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
+			await act(async () => fireEvent.keyDown(changes, { key: "Enter" }));
+
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "merge the header first" } },
+			]);
 		});
 
 		it("folds once the person has replied, opening on the reply that was sent, whatever is typed after", async () => {

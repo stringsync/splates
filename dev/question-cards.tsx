@@ -32,12 +32,8 @@ import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell } from "./card-shell";
 import { Markdown } from "./markdown";
 
-/** The reply being written in the composer, as the cards read and write it. */
+/** What the cards in a conversation answer through. */
 export interface Reply {
-	text: string;
-	write(text: string): void;
-	/** Puts the cursor in the composer, at the end of what is there. */
-	focus(): void;
 	/**
 	 * Sends `text` as a message of its own, leaving what is typed as it is;
 	 * null where nothing can be sent from the page, as to an external agent.
@@ -53,7 +49,7 @@ export interface Reply {
 	};
 }
 
-/** The open conversation's composer; none outside one, where cards only show. */
+/** The open conversation's; none outside one, where cards only show. */
 export const ReplyContext = createContext<Reply | null>(null);
 
 /**
@@ -64,7 +60,7 @@ const SentContext = createContext<string | null>(null);
 
 /**
  * Puts the card in `children` in its message: from the person's reply to it
- * on, the card keeps that reply rather than following the composer.
+ * on, the card keeps that reply, which nothing changes any more.
  */
 export function InMessage({ children }: { children: ReactNode }): JSX.Element {
 	const sent = useAuiState((state) => {
@@ -79,14 +75,66 @@ export function InMessage({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /**
- * What a card answers through: the composer while the person has yet to
- * reply to its message, and once they have, the reply they sent, which
- * nothing writes to any more. Neither outside a conversation.
+ * What a card answers through while the person has yet to reply to its
+ * message, and once they have, the reply they sent. Neither outside a
+ * conversation.
  */
 export function useCardReply(): { reply: Reply | null; sent: string | null } {
 	const live = useContext(ReplyContext);
 	const sent = useContext(SentContext);
 	return sent === null ? { reply: live, sent: null } : { reply: null, sent };
+}
+
+/**
+ * What a card keeps in the conversation's drafts under `name` while it is
+ * written, dropped once `sent`; nothing is kept without a name.
+ */
+function useKept(
+	name: string | null,
+	sent: string | null,
+): { read(): string; write(text: string): void } {
+	const drafts = useContext(ReplyContext)?.drafts ?? null;
+	// Sent, from the card or the composer: nothing is left to keep.
+	useEffect(() => {
+		if (sent !== null && name !== null) {
+			drafts?.write(name, "");
+		}
+	}, [sent, name, drafts]);
+	return {
+		read: () => (name === null ? "" : (drafts?.read(name) ?? "")),
+		write: (text) => {
+			if (name !== null) {
+				drafts?.write(name, text);
+			}
+		},
+	};
+}
+
+/**
+ * Focuses what `first` finds as a card comes up to be answered, which the
+ * composer leaves to it, unless the person is typing elsewhere, as in a
+ * composer holding a draft.
+ */
+function useArrival(
+	live: boolean,
+	first: () => HTMLElement | null | undefined,
+): void {
+	const arrive = useEffectEvent(() => {
+		const typing = document.activeElement;
+		if (
+			(typing instanceof HTMLTextAreaElement ||
+				typing instanceof HTMLInputElement) &&
+			typing.value !== ""
+		) {
+			return;
+		}
+		first()?.focus({ preventScroll: true });
+	});
+	useEffect(() => {
+		if (live) {
+			arrive();
+		}
+	}, [live]);
 }
 
 /** The data a `data-questions` part carries: one message's questions, in order. */
@@ -153,30 +201,22 @@ export function QuestionCards({
 	copy?: boolean;
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
-	const drafts = useContext(ReplyContext)?.drafts ?? null;
 	const live = sent === null && (copy || reply !== null);
+	const kept = useKept(draft, sent);
 	const [written, setWritten] = useState(() => {
-		const kept = draft === null ? "" : (drafts?.read(draft) ?? "");
+		const before = kept.read();
 		return {
 			lines: linesFor(
 				questions,
-				questions.map((asked) => answerIn(kept, asked)),
+				questions.map((asked) => answerIn(before, asked)),
 			),
-			more: besides(kept, questions),
+			more: besides(before, questions),
 		};
 	});
 	const write = (next: { lines: string; more: string }) => {
 		setWritten(next);
-		if (draft !== null) {
-			drafts?.write(draft, replyOf(next.lines, next.more));
-		}
+		kept.write(replyOf(next.lines, next.more));
 	};
-	// Sent, from here or the composer: nothing is left to keep.
-	useEffect(() => {
-		if (sent !== null && draft !== null) {
-			drafts?.write(draft, "");
-		}
-	}, [sent, draft, drafts]);
 	// What the answers are read from: what is written here, or once sent, the
 	// reply that was.
 	const said = sent ?? written.lines;
@@ -213,22 +253,9 @@ export function QuestionCards({
 			);
 		}
 	};
-	// Ready to answer as it comes up, which the composer leaves to it, unless
-	// a draft waits there.
-	const arrive = useEffectEvent(() => {
-		if (reply !== null && reply.text !== "") {
-			reply.focus();
-			return;
-		}
-		panel.current
-			?.querySelector<HTMLElement>("[data-stop]")
-			?.focus({ preventScroll: true });
-	});
-	useEffect(() => {
-		if (live) {
-			arrive();
-		}
-	}, [live]);
+	useArrival(live, () =>
+		panel.current?.querySelector<HTMLElement>("[data-stop]"),
+	);
 	return (
 		<CardShell
 			label="questions for you"
@@ -535,25 +562,52 @@ const MERGE = "merge";
 /**
  * Renders a `data-review` part as a review panel while it is mounted in a
  * thread: apart from questions, since approving is one decision about the
- * whole task. Merge, or what to change, is written into the composer, and
- * sent only when the person sends it.
+ * whole task. Merge, or what to change, is sent from the panel itself.
  */
 export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 	name: "review",
 	render: ({ data }) => (
 		<InMessage>
-			<ReviewPanel review={data.review} />
+			<MessageReview review={data.review} />
 		</InMessage>
 	),
 });
 
-export function ReviewPanel({ review }: { review: Review }): JSX.Element {
+/** The review of the message it is in, kept as a draft under that message. */
+function MessageReview({ review }: { review: Review }): JSX.Element {
+	const message = useAuiState((state) => state.message.id);
+	return <ReviewPanel review={review} draft={`review:${message}`} />;
+}
+
+/**
+ * A review answered by keyboard alone: it comes up in its changes box, where
+ * Enter sends them, and Merge is a Tab away. What is written stays in the
+ * panel, never the composer, until it is sent.
+ */
+export function ReviewPanel({
+	review,
+	draft = null,
+}: {
+	review: Review;
+	/** The name it keeps what is written under in the conversation's drafts. */
+	draft?: string | null;
+}): JSX.Element {
 	const { reply, sent } = useCardReply();
-	const merging = reply?.text.trim().toLowerCase() === MERGE;
-	// Typed into the box, "merge" stays there, so writing "merge the header
-	// first" keeps its first word; the button's merge shows only on itself.
-	const [typing, setTyping] = useState(false);
-	const changes = merging && !typing ? "" : (reply?.text ?? "");
+	const send = sent === null ? (reply?.send ?? null) : null;
+	const kept = useKept(draft, sent);
+	const [changes, setChanges] = useState(() => kept.read());
+	const write = (text: string) => {
+		setChanges(text);
+		kept.write(text);
+	};
+	const asked = changes.trim();
+	const ask = () => {
+		if (asked !== "") {
+			send?.(asked);
+		}
+	};
+	const box = useRef<HTMLTextAreaElement>(null);
+	useArrival(send !== null, () => box.current);
 	const approved = sent?.trim().toLowerCase() === MERGE;
 	return (
 		<CardShell
@@ -594,48 +648,56 @@ export function ReviewPanel({ review }: { review: Review }): JSX.Element {
 					)}
 				</footer>
 			)}
-			{reply !== null && (
-				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3 sm:flex-row sm:items-start">
+			{send !== null && (
+				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
 					<textarea
+						ref={box}
 						aria-label={`Changes to ${review.task}`}
 						rows={1}
 						value={changes}
 						placeholder="Say what to change…"
-						onChange={(event) => reply.write(event.target.value)}
-						onFocus={() => setTyping(true)}
-						onBlur={() => setTyping(false)}
-						className="field-sizing-content min-h-9 w-full flex-1 resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
-					/>
-					<Button
-						aria-pressed={merging}
-						onClick={() => {
-							reply.write(merging ? "" : MERGE);
-							reply.focus();
+						onChange={(event) => write(event.target.value)}
+						onKeyDown={(event) => {
+							// Enter sends, as in the composer; Shift+Enter is a new line.
+							if (event.key === "Enter" && !event.shiftKey) {
+								event.preventDefault();
+								ask();
+							}
 						}}
-						className={cn(
-							"h-9 shrink-0 gap-1.5 px-3.5 transition-colors",
-							merging && "bg-success text-white hover:bg-success/90",
-						)}
-					>
-						{/* Both labels hold their place, so the button is as wide either
-						    way and the box beside it does not shift when it is pressed. */}
-						<span className="grid *:col-start-1 *:row-start-1 *:flex *:items-center *:justify-center *:gap-1.5">
-							<span
-								aria-hidden={merging}
-								className={cn(merging && "invisible")}
-							>
-								<GitMergeIcon data-icon="inline-start" />
-								Merge
+						className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
+					/>
+					<div className="flex items-center gap-2">
+						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+							<span>
+								<Kbd>↵</Kbd> sends changes
 							</span>
-							<span
-								aria-hidden={!merging}
-								className={cn(!merging && "invisible")}
-							>
-								<CheckIcon strokeWidth={3} data-icon="inline-start" />
-								Merge on send
-							</span>
-						</span>
-					</Button>
+							{asked === "" && (
+								<span>
+									<Kbd>Tab</Kbd> to merge
+								</span>
+							)}
+						</p>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={asked === ""}
+							onClick={ask}
+						>
+							<SendHorizontalIcon data-icon="inline-start" />
+							Send changes
+						</Button>
+						<Button
+							size="sm"
+							// Changes written would go unsaid: merging means none.
+							disabled={asked !== ""}
+							title={asked === "" ? undefined : "Clear the changes to merge"}
+							onClick={() => send(MERGE)}
+							className="bg-success text-white hover:bg-success/90"
+						>
+							<GitMergeIcon data-icon="inline-start" />
+							Merge
+						</Button>
+					</div>
 				</footer>
 			)}
 		</CardShell>

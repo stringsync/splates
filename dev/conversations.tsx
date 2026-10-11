@@ -1547,35 +1547,12 @@ function imagesOf(message: AppendMessage): File[] {
 }
 
 /**
- * `runtime`'s composer as the cards write to it: its text, kept current as it
- * is typed in, and its textarea in `within` to focus; what it sends goes to
- * conversation `id`, and what a card keeps goes in `drafts` beside its own.
+ * What the cards in conversation `id` answer through: what they send goes to
+ * it, and what one keeps goes in `drafts` beside the composer's own.
  */
-function useReply(
-	runtime: AssistantRuntime,
-	within: { current: HTMLElement | null },
-	id: string,
-	drafts: Drafts,
-): Reply {
-	const composer = runtime.thread.composer;
-	const [text, setText] = useState(() => composer.getState().text);
-	useEffect(
-		() => composer.subscribe(() => setText(composer.getState().text)),
-		[composer],
-	);
+function useReply(id: string, drafts: Drafts): Reply {
 	return useMemo(
 		() => ({
-			text,
-			write: (next: string) => composer.setText(next),
-			focus: () => {
-				// The composer's own, not the first in the thread: a card's box
-				// would take the focus and scroll the thread to it.
-				const box = within.current?.querySelector<HTMLTextAreaElement>(
-					'textarea[aria-label="Message input"]',
-				);
-				box?.focus();
-				box?.setSelectionRange(box.value.length, box.value.length);
-			},
 			send: (said: string) =>
 				void promptConversation(id, said).catch((error: unknown) =>
 					refused("Not sent", error),
@@ -1586,8 +1563,19 @@ function useReply(
 					drafts.write(`${id}:${name}`, kept),
 			},
 		}),
-		[text, composer, within, id, drafts],
+		[id, drafts],
 	);
+}
+
+/** Whether `runtime`'s composer holds anything typed. */
+function useTyped(runtime: AssistantRuntime): boolean {
+	const composer = runtime.thread.composer;
+	const [typed, setTyped] = useState(() => composer.getState().text !== "");
+	useEffect(
+		() => composer.subscribe(() => setTyped(composer.getState().text !== "")),
+		[composer],
+	);
+	return typed;
 }
 
 /**
@@ -1654,12 +1642,15 @@ function Thread({
 				]
 			: liked;
 	}, [conversation.messages, conversation.id, writing, running]);
-	// Its last word asks questions: their panel takes the focus, not the composer.
+	// Its last word asks questions or for a review: the card takes the focus,
+	// not the composer, unless it holds a draft.
 	const last = messages.at(-1);
 	const asking =
 		last?.role === "assistant" &&
 		typeof last.content !== "string" &&
-		last.content.some((part) => part.type === "data-questions");
+		last.content.some(
+			(part) => part.type === "data-questions" || part.type === "data-review",
+		);
 	const restore = useRef<(text: string, images: File[]) => void>(() => {});
 	const say = useCallback(
 		async (message: AppendMessage) => {
@@ -1722,7 +1713,8 @@ function Thread({
 	});
 	restore.current = useDraft(runtime, drafts, id);
 	const section = useRef<HTMLElement>(null);
-	const reply = useReply(runtime, section, id, drafts);
+	const reply = useReply(id, drafts);
+	const typed = useTyped(runtime);
 	const mentions = useFileMentions(conversation.task);
 	const [renaming, setRenaming] = useState(false);
 	// Stops the turn so what is queued goes out now.
@@ -1931,7 +1923,7 @@ function Thread({
 						<StartNewContext value={startNew}>
 							<ReplyContext value={reply}>
 								<ThreadView
-									autoFocus={!asking}
+									autoFocus={!asking || typed}
 									mentions={mentions ?? undefined}
 									controls={
 										!archived &&
