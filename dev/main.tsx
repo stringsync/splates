@@ -15,6 +15,27 @@ const theme = () =>
 theme();
 dark.addEventListener("change", theme);
 
+// Every spinner runs on one clock: each spin starts at the document timeline's
+// origin rather than when its element mounted, so all of them stand at the
+// same angle at every frame, however many come and go.
+document.addEventListener(
+	"animationstart",
+	(event) => {
+		if (event.animationName !== "spin" || !(event.target instanceof Element)) {
+			return;
+		}
+		for (const animation of event.target.getAnimations()) {
+			if (
+				animation instanceof CSSAnimation &&
+				animation.animationName === "spin"
+			) {
+				animation.startTime = 0;
+			}
+		}
+	},
+	true,
+);
+
 createRoot(root).render(
 	<StrictMode>
 		<App />
