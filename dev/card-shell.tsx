@@ -1,4 +1,10 @@
-import { ChevronRightIcon, type LucideIcon } from "lucide-react";
+import {
+	ChevronRightIcon,
+	CircleSlashIcon,
+	GitMergeIcon,
+	type LucideIcon,
+	TriangleAlertIcon,
+} from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import {
 	Collapsible,
@@ -6,6 +12,7 @@ import {
 	CollapsibleTrigger,
 } from "#dev/components/ui/collapsible.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import type { Ending, Report } from "../asked";
 import { Markdown } from "./markdown";
 
 /** How a card's header is tinted: by what the person is to make of it. */
@@ -18,6 +25,27 @@ export const TONES: Record<Tone, { header: string; icon: string }> = {
 	destructive: { header: "bg-destructive/[0.07]", icon: "text-destructive" },
 	info: { header: "bg-info/[0.07]", icon: "text-info" },
 };
+
+/** How each ending shows: on its report card, and beside its conversation. */
+export const ENDINGS: Record<
+	Ending,
+	{ title: string; Icon: LucideIcon; tone: Tone }
+> = {
+	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
+	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
+	escalated: {
+		title: "Escalated",
+		Icon: TriangleAlertIcon,
+		tone: "warning",
+	},
+};
+
+/** What a report says: why it went, or what it waits on, leading the rest. */
+export function reportText(report: Report): string {
+	return [report.reason, report.body]
+		.filter((each) => each !== null && each !== "")
+		.join("\n\n");
+}
 
 /**
  * The frame every card in a conversation shares: a header with an icon, what

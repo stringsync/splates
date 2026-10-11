@@ -111,7 +111,7 @@ import {
 } from "./api";
 import { Back } from "./back";
 import { copiedLabel, useCopy } from "./card";
-import { TONES } from "./card-shell";
+import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
@@ -128,7 +128,6 @@ import { Refusal, type Refuse, useRefusal, useRefusals } from "./refusal";
 import { CheckpointState } from "./release";
 import {
 	ArchiveContext,
-	ENDINGS,
 	ReportUI,
 	StartNewContext,
 	TodosContext,
@@ -2197,27 +2196,44 @@ function attached(
 
 /**
  * The agent's reply, its questions and review as cards once it has stopped
- * writing them: a list mid-stream may yet turn out not to ask any.
+ * writing them: a list mid-stream may yet turn out not to ask any. An
+ * escalation's questions come right after it, so the two are one card: the
+ * questions, headed as the escalation.
  */
 function replied(text: string, settled: boolean): LikePart[] {
 	if (!settled) {
 		return [{ type: "text", text }];
 	}
-	return stretches(text).map((stretch): LikePart => {
+	const all = stretches(text);
+	return all.flatMap((stretch, at): LikePart[] => {
+		const before = all[at - 1];
+		const after = all[at + 1];
 		switch (stretch.type) {
 			case "text":
-				return { type: "text", text: stretch.text };
+				return [{ type: "text", text: stretch.text }];
 			case "questions":
-				return {
-					type: "data-questions",
-					data: { questions: stretch.questions },
-				};
+				return [
+					{
+						type: "data-questions",
+						data: {
+							questions: stretch.questions,
+							escalation:
+								before?.type === "report" &&
+								before.report.ending === "escalated"
+									? before.report
+									: null,
+						},
+					},
+				];
 			case "review":
-				return { type: "data-review", data: { review: stretch.review } };
+				return [{ type: "data-review", data: { review: stretch.review } }];
 			case "report":
-				return { type: "data-report", data: { report: stretch.report } };
+				return stretch.report.ending === "escalated" &&
+					after?.type === "questions"
+					? []
+					: [{ type: "data-report", data: { report: stretch.report } }];
 			case "todo":
-				return { type: "data-todo", data: { todo: stretch.todo } };
+				return [{ type: "data-todo", data: { todo: stretch.todo } }];
 			default:
 				return stretch satisfies never;
 		}

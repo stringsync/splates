@@ -2,42 +2,24 @@ import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
 	ArchiveIcon,
 	CheckIcon,
-	CircleSlashIcon,
 	GitBranchIcon,
-	GitMergeIcon,
 	HourglassIcon,
 	ListTodoIcon,
-	type LucideIcon,
 	MessageSquarePlusIcon,
 	PaperclipIcon,
 	PlayIcon,
-	TriangleAlertIcon,
 } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { Ending, Proposal, Report } from "../asked";
+import type { Proposal, Report } from "../asked";
 import type { LaneRecord } from "../lanes";
 import type { TodoState } from "../todo";
 import { Badge, todoReference } from "./card";
-import { CardBody, CardShell, type Tone } from "./card-shell";
+import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { Markdown } from "./markdown";
 import { InMessage, useCardReply } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
-
-/** How each ending shows: on its report card, and beside its conversation. */
-export const ENDINGS: Record<
-	Ending,
-	{ title: string; Icon: LucideIcon; tone: Tone }
-> = {
-	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
-	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
-	escalated: {
-		title: "Escalated",
-		Icon: TriangleAlertIcon,
-		tone: "warning",
-	},
-};
 
 /**
  * Renders a `data-report` part: how a task ended, or what it waits on, as the
@@ -61,10 +43,7 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	// An escalated task still waits on the person; only one that is over offers
 	// to put its conversation away.
 	const over = report.ending !== "escalated";
-	// Why it went, or what it waits on, leads what it says.
-	const text = [report.reason, report.body]
-		.filter((each) => each !== null && each !== "")
-		.join("\n\n");
+	const text = reportText(report);
 	return (
 		<CardShell
 			label={`${report.ending} ${report.task}`}

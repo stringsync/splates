@@ -1047,6 +1047,48 @@ describe("App's conversations", () => {
 			expect(view.queryByText("- (a) A muted card")).toBeNull();
 		});
 
+		it("asks an escalation's questions in its card, headed as the escalation", async () => {
+			const view = await conversations([asking()]);
+
+			const escalated = await waitFor(() =>
+				view.getByRole("region", { name: "escalated header" }),
+			);
+			expect(escalated.textContent).toContain("Escalated");
+			expect(escalated.textContent).toContain("waiting on two calls");
+			expect(escalated.textContent).toContain("The header wraps now.");
+			expect(
+				within(escalated).getByRole("list", { name: "questions" }),
+			).toBeTruthy();
+			expect(view.getAllByRole("region", { name: /escalated/ })).toHaveLength(
+				1,
+			);
+			expect(
+				view.queryByRole("region", { name: "questions for you" }),
+			).toBeNull();
+		});
+
+		it("asks questions outside an escalation in a card of their own", async () => {
+			const view = await conversations([
+				conversation({
+					messages: [
+						message("user", "fix the header"),
+						message(
+							"agent",
+							"Working on it.\n\n1. Which pages need it?\n2. Should it wrap?",
+						),
+					],
+				}),
+			]);
+
+			const asked = await waitFor(() =>
+				view.getByRole("region", { name: "questions for you" }),
+			);
+			expect(
+				within(asked).getByRole("list", { name: "questions" }),
+			).toBeTruthy();
+			expect(view.queryByRole("region", { name: /escalated/ })).toBeNull();
+		});
+
 		const card = (
 			view: Awaited<ReturnType<typeof conversations>>,
 			question: string,
@@ -1250,10 +1292,10 @@ describe("App's conversations", () => {
 				}),
 			]);
 			const panel = await waitFor(() =>
-				view.getByRole("region", { name: "questions for you" }),
+				view.getByRole("region", { name: "escalated header" }),
 			);
 			const fold = within(panel).getByRole("button", {
-				name: /Questions for you/,
+				name: /Escalated/,
 			});
 			expect(fold.getAttribute("aria-expanded")).toBe("false");
 			expect(fold.textContent).toContain("2 of 3 answered");

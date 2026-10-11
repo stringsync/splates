@@ -24,12 +24,13 @@ import {
 	type Answer,
 	answerIn,
 	besides,
+	type Report,
 	type Review,
 	withAnswer,
 } from "../asked";
 import type { Question } from "../plan";
 import { copiedLabel, useCopy } from "./card";
-import { CardBody, CardShell } from "./card-shell";
+import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -138,9 +139,13 @@ function useArrival(
 	}, [live]);
 }
 
-/** The data a `data-questions` part carries: one message's questions, in order. */
+/**
+ * The data a `data-questions` part carries: one message's questions, in
+ * order, and the escalation they end, when they do.
+ */
 export interface QuestionsData {
 	questions: Question[];
+	escalation: Report | null;
 }
 
 /**
@@ -151,17 +156,21 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 	name: "questions",
 	render: ({ data }) => (
 		<InMessage>
-			<MessageQuestions questions={data.questions} />
+			<MessageQuestions {...data} />
 		</InMessage>
 	),
 });
 
 /** The questions of the message it is in, kept as a draft under that message. */
-function MessageQuestions({ questions }: QuestionsData): JSX.Element {
+function MessageQuestions({
+	questions,
+	escalation,
+}: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
 	return (
 		<QuestionCards
 			questions={questions}
+			escalation={escalation}
 			// Its first question too, as a message can ask more than one list.
 			draft={`questions:${message}:${questions[0]?.text ?? ""}`}
 		/>
@@ -192,10 +201,13 @@ function replyOf(lines: string, more: string): string {
  */
 export function QuestionCards({
 	questions,
+	escalation = null,
 	draft = null,
 	copy = false,
 }: {
 	questions: Question[];
+	/** The escalation they end, which heads them in its place. */
+	escalation?: Report | null;
 	/** The name it keeps what is written under in the conversation's drafts. */
 	draft?: string | null;
 	/** Copy the reply rather than send it: its agent runs outside the page. */
@@ -258,12 +270,22 @@ export function QuestionCards({
 	useArrival(live, () =>
 		panel.current?.querySelector<HTMLElement>("[data-stop]"),
 	);
+	// Ending an escalation, they are its card: headed as it, what it says first.
+	const reported = escalation === null ? "" : reportText(escalation);
 	return (
 		<CardShell
-			label="questions for you"
-			Icon={MessageCircleQuestionIcon}
-			title={`${questions.length === 1 ? "A question" : "Questions"} for you`}
-			tone="info"
+			{...(escalation === null
+				? {
+						label: "questions for you",
+						Icon: MessageCircleQuestionIcon,
+						title: `${questions.length === 1 ? "A question" : "Questions"} for you`,
+						tone: "info" as const,
+					}
+				: {
+						label: `escalated ${escalation.task}`,
+						...ENDINGS.escalated,
+						task: escalation.task,
+					})}
 			folded={sent !== null}
 			aside={
 				<span className="flex items-center gap-2">
@@ -292,6 +314,11 @@ export function QuestionCards({
 					}
 				}}
 			>
+				{reported !== "" && (
+					<div className="border-b">
+						<CardBody text={reported} lead={escalation?.reason != null} />
+					</div>
+				)}
 				<ol aria-label="questions" className="divide-y">
 					{questions.map((asked, at) => (
 						<QuestionCard
