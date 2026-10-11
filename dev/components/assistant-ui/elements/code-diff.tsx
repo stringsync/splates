@@ -43,9 +43,15 @@ export function CodeDiff({
 			)}
 			{...props}
 		>
-			<div className="flex items-center justify-between px-4 pt-3 pb-2">
-				<span className="text-foreground/90">{filename}</span>
-				<span className={cn(mono, "tabular-nums")}>
+			<div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+				{/* arbor: a long path keeps its end, the file's name, on one line. */}
+				<span
+					title={filename}
+					className="min-w-0 truncate text-left text-foreground/90 [direction:rtl]"
+				>
+					<bdi>{filename}</bdi>
+				</span>
+				<span className={cn(mono, "shrink-0 tabular-nums")}>
 					<span className="text-emerald-600 dark:text-emerald-400">
 						+{additions}
 					</span>{" "}

@@ -115,21 +115,26 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				{edited.length > 0 && (
 					<ul aria-label="edited files" className="flex flex-wrap gap-1">
 						{edited.map(({ path, count }) => (
-							<li key={path}>
+							<li key={path} className="min-w-0 max-w-full">
 								<button
 									type="button"
 									title={path}
 									aria-pressed={file === path}
 									onClick={() => setFile(file === path ? null : path)}
 									className={cn(
-										"flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted",
+										"flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted",
 										file === path && "bg-muted",
 									)}
 								>
-									<FileTextIcon className="size-3 text-muted-foreground" />
-									{short(path)}
+									<FileTextIcon className="size-3 shrink-0 text-muted-foreground" />
+									{/* A long path keeps its end, the file's name, on one line. */}
+									<span className="min-w-0 truncate [direction:rtl]">
+										<bdi>{short(path)}</bdi>
+									</span>
 									{count > 1 && (
-										<span className="text-muted-foreground">×{count}</span>
+										<span className="shrink-0 text-muted-foreground">
+											×{count}
+										</span>
 									)}
 								</button>
 							</li>
