@@ -80,6 +80,9 @@ describe("stretches", () => {
 					body: [
 						"One sentence on what changed.",
 						"",
+						"- A todo dropped between two others lands between them, as you picked.",
+						"- A drag on a phone starts on press and hold, so the board still scrolls.",
+						"",
 						"Open http://localhost:4310 (a demo repo, nothing of yours):",
 						"",
 						"1. Drag a todo to another lane: it lands where you drop it.",
