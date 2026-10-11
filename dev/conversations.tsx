@@ -19,6 +19,7 @@ import {
 	FileDiffIcon,
 	LinkIcon,
 	Loader2Icon,
+	MonitorIcon,
 	PencilIcon,
 	PlayIcon,
 	PlusIcon,
@@ -670,9 +671,30 @@ function External({
 				className="size-3.5 text-foreground/70"
 			/>
 			<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
-			<span className="shrink-0 text-muted-foreground text-xs">external</span>
-			<Mark need={need} />
+			{need.kind === "working" || need.kind === "assuming" ? (
+				<Elsewhere />
+			) : (
+				<Mark need={need} />
+			)}
 		</button>
+	);
+}
+
+/**
+ * What a list shows of an external agent at work, in place of a spinner: the
+ * page cannot see whether it is still going, only that its task is under way
+ * somewhere else, so it stays still.
+ */
+function Elsewhere(): JSX.Element {
+	return (
+		<span
+			role="status"
+			aria-label="working elsewhere"
+			title="Working outside this page"
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<MonitorIcon className="size-3.5 text-foreground/60" />
+		</span>
 	);
 }
 

@@ -2505,7 +2505,7 @@ Cap upload retries
 			).toBeNull();
 		});
 
-		it("lists a task whose agent runs outside the page as external, waiting once it escalates, and opens it alone with its questions, not its plan", async () => {
+		it("lists a task whose agent runs outside the page as working elsewhere, waiting once it escalates, and opens it alone with its questions, not its plan", async () => {
 			const view = await sidebar(
 				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 				[
@@ -2523,8 +2523,8 @@ Cap upload retries
 
 			expect(rows(view)).toEqual([
 				["alpha", null],
-				["betaexternal", "working"],
-				["gammaexternal", "waiting on you"],
+				["beta", "working elsewhere"],
+				["gamma", "waiting on you"],
 			]);
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name: /gamma/ })),
