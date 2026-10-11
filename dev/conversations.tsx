@@ -12,8 +12,10 @@ import {
 	ChevronLeftIcon,
 	EllipsisVerticalIcon,
 	LinkIcon,
+	Loader2Icon,
 	PencilIcon,
 	PlusIcon,
+	SquareArrowOutUpRightIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { PermissionGrant } from "#dev/components/assistant-ui/elements/permission-grant.tsx";
@@ -21,6 +23,7 @@ import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flo
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
+import { Dialog } from "#dev/components/ui/dialog.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -45,6 +48,7 @@ import type {
 	Setting,
 	Status,
 } from "../conversations";
+import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
 import {
@@ -66,6 +70,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import { Task } from "./tasks";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
@@ -98,7 +103,12 @@ function nameOf(conversation: ConversationState): string {
  * The sidebar's conversations, under New conversation, grouped by the task
  * each runs in: the main tree first, where every conversation starts, then
  * every live task, then any task gone since. A conversation follows its agent
- * as it takes and lands tasks. Archived ones sit behind a link at the bottom.
+ * as it takes and lands tasks. A task whose agent runs outside the page sits
+ * in its group as a row of its own. Rows stay put as their agents change
+ * state; each one's mark says whether it works or waits on you. Archived ones
+ * sit behind a link at the bottom.
+ *
+ * The arrow keys move between rows, and Alt+N opens the next one waiting.
  */
 export function ConversationList({
 	feed,
@@ -117,7 +127,11 @@ export function ConversationList({
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
+	const [shown, setShown] = useState<Details | null>(null);
 	const listed = conversations.filter((each) => !each.archived);
+	const external = needs({ tasks, conversations }).filter(
+		(each) => each.conversation === null,
+	);
 	const live = tasks
 		.filter((each) => each.status !== "orphaned")
 		.map((each) => each.task);
@@ -128,13 +142,79 @@ export function ConversationList({
 			),
 		),
 	];
-	const groups: (string | null)[] = [null, ...live, ...gone];
+	const groups = [null, ...live, ...gone].map((task) => ({
+		task,
+		rows: [
+			...listed
+				.filter((each) => each.task === task)
+				.map((conversation) => ({
+					conversation,
+					task: null,
+					need: needOf(tasks, conversation),
+				})),
+			...external.filter((each) => each.task?.task === task),
+		] as Needing[],
+	}));
 	const archived = conversations.length - listed.length;
+	const openRow = (row: Needing) => {
+		if (row.conversation !== null) {
+			onOpen(row.conversation.id);
+		} else if (row.task !== null) {
+			setShown(row.task);
+		}
+	};
+	const rows = groups.flatMap((group) => group.rows);
+	const next = useRef(() => {});
+	next.current = () => {
+		const at = rows.findIndex(
+			(row) =>
+				(row.conversation !== null && row.conversation.id === open) ||
+				(row.task !== null && row.task.task === shown?.task),
+		);
+		// After the one open, around to the top.
+		const after = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
+		const waiting = after.find((row) => row.need.kind === "waiting");
+		if (waiting !== undefined) {
+			openRow(waiting);
+		}
+	};
+	useEffect(() => {
+		const jump = (event: KeyboardEvent) => {
+			// By the key's place, since Alt+N types a tilde on a Mac.
+			if (event.altKey && event.code === "KeyN") {
+				event.preventDefault();
+				next.current();
+			}
+		};
+		document.addEventListener("keydown", jump);
+		return () => document.removeEventListener("keydown", jump);
+	}, []);
 
 	return (
-		<nav aria-label="conversations" className="flex flex-col gap-3">
+		<nav
+			aria-label="conversations"
+			className="flex flex-col gap-3"
+			onKeyDown={(event) => {
+				const step =
+					event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+				if (step === 0) {
+					return;
+				}
+				const all = [
+					...event.currentTarget.querySelectorAll<HTMLElement>("[data-row]"),
+				];
+				const at = all.indexOf(event.target as HTMLElement);
+				const target = all[at + step];
+				// Not from a dialog the list opened, whose keys bubble here too.
+				if (at !== -1 && target !== undefined) {
+					event.preventDefault();
+					target.focus();
+				}
+			}}
+		>
 			<button
 				type="button"
+				data-row
 				aria-current={open === NEW ? "page" : undefined}
 				onClick={() => onOpen(NEW)}
 				className={cn(
@@ -145,8 +225,7 @@ export function ConversationList({
 				<PlusIcon className="size-3.5" />
 				New conversation
 			</button>
-			{groups.map((task) => {
-				const held = listed.filter((each) => each.task === task);
+			{groups.map(({ task, rows }) => {
 				const name = task ?? "Main tree";
 				return (
 					<div key={task ?? ""} className="flex flex-col">
@@ -159,22 +238,36 @@ export function ConversationList({
 							{name}
 						</h3>
 						<ul aria-label={name} className="flex flex-col">
-							{held.map((each) => (
-								<li key={each.id}>
-									<Item
-										conversation={each}
-										agent={agentName(agents, each.agent)}
-										current={each.id === open}
-										onOpen={() => onOpen(each.id)}
-									/>
-								</li>
-							))}
+							{rows.map((row) =>
+								row.conversation !== null ? (
+									<li key={row.conversation.id}>
+										<Item
+											conversation={row.conversation}
+											agent={agentName(agents, row.conversation.agent)}
+											need={row.need}
+											current={row.conversation.id === open}
+											onOpen={() => openRow(row)}
+										/>
+									</li>
+								) : (
+									row.task !== null && (
+										<li key={`external ${row.task.task}`}>
+											<External
+												task={row.task}
+												need={row.need}
+												onOpen={() => openRow(row)}
+											/>
+										</li>
+									)
+								),
+							)}
 						</ul>
 					</div>
 				);
 			})}
 			<button
 				type="button"
+				data-row
 				aria-current={open === ARCHIVED ? "page" : undefined}
 				onClick={() => onOpen(ARCHIVED)}
 				className={cn(
@@ -186,7 +279,77 @@ export function ConversationList({
 				<span className="flex-1">Archived</span>
 				<span className="tabular-nums">{archived}</span>
 			</button>
+			<Dialog
+				open={shown !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						setShown(null);
+					}
+				}}
+			>
+				{shown && (
+					<Task
+						task={tasks.find((each) => each.task === shown.task) ?? shown}
+					/>
+				)}
+			</Dialog>
 		</nav>
+	);
+}
+
+/**
+ * How many agents wait on the person: conversations, and tasks whose agents
+ * run outside the page.
+ */
+export function useWaiting(feed: ConversationFeed, tasks: Details[]): number {
+	const { conversations } = useReactive(
+		feed,
+		(feed) => ({ conversations: feed.conversations }),
+		["changed"],
+	);
+	return needs({ tasks, conversations }).filter(
+		(each) => each.need.kind === "waiting",
+	).length;
+}
+
+/** What a conversation needs, from the task it runs in, if any. */
+function needOf(tasks: Details[], conversation: ConversationState): Need {
+	const task =
+		conversation.task === null
+			? null
+			: (tasks.find((each) => each.task === conversation.task) ?? null);
+	return need(task, conversation);
+}
+
+/**
+ * A task whose agent runs outside the page, such as in Claude Code or Codex,
+ * as a peer of a conversation: named for its task, and opening the task.
+ */
+function External({
+	task,
+	need,
+	onOpen,
+}: {
+	task: Details;
+	need: Need;
+	onOpen: () => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			data-row
+			onClick={onOpen}
+			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
+		>
+			<SquareArrowOutUpRightIcon
+				role="img"
+				aria-label="external agent"
+				className="size-3.5 text-foreground/70"
+			/>
+			<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
+			<span className="shrink-0 text-muted-foreground text-xs">external</span>
+			<Mark need={need} />
+		</button>
 	);
 }
 
@@ -197,12 +360,14 @@ export function ConversationList({
 function Item({
 	conversation,
 	agent,
+	need,
 	current,
 	onOpen,
 	where = false,
 }: {
 	conversation: ConversationState;
 	agent: string;
+	need: Need;
 	current: boolean;
 	onOpen: () => void;
 	/** Whether to say where it ran, for a list not grouped by task. */
@@ -229,6 +394,7 @@ function Item({
 			)}
 			<button
 				type="button"
+				data-row
 				aria-current={current ? "page" : undefined}
 				onClick={onOpen}
 				onDoubleClick={() => setRenaming(true)}
@@ -238,14 +404,7 @@ function Item({
 					// A touch screen has no hover, so its buttons always show.
 					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3 text-left group-focus-within/item:pr-14 group-hover/item:pr-14 pointer-coarse:pr-24",
 					renaming && "hidden",
-					menu
-						? "pr-14"
-						: conversation.ask !== null || conversation.status === "failed"
-							? "pr-16"
-							: conversation.status === "running" ||
-									conversation.status === "starting"
-								? "pr-6"
-								: "pr-3",
+					menu ? "pr-14" : need.kind === "idle" ? "pr-3" : "pr-6",
 				)}
 			>
 				<AgentIcon
@@ -271,7 +430,7 @@ function Item({
 						: "group-focus-within/item:hidden group-hover/item:hidden",
 				)}
 			>
-				<Mark conversation={conversation} />
+				<Mark need={need} />
 			</span>
 			<span
 				className={cn(
@@ -368,28 +527,32 @@ function Rename({
 	);
 }
 
-/** What a list shows of where a conversation is: only what needs a look. */
-function Mark({
-	conversation,
-}: {
-	conversation: ConversationState;
-}): JSX.Element | null {
-	if (conversation.ask !== null) {
-		return <Badge>asking</Badge>;
+/**
+ * What a list shows of an agent: a pulsing dot when it waits on you, a spinner while
+ * it works, assuming or not, and an empty space when idle. What it waits on is in its
+ * tooltip. Each sits centered in a box of one size, so marks line up down a
+ * list whichever kind they are.
+ */
+function Mark({ need }: { need: Need }): JSX.Element {
+	if (need.kind === "idle") {
+		// Empty, so what sits beside it lines up with the rows that have one.
+		return <span className="size-3.5 shrink-0" />;
 	}
-	if (conversation.status === "failed") {
-		return <Badge variant="destructive">failed</Badge>;
-	}
-	if (conversation.status === "running" || conversation.status === "starting") {
-		return (
-			<span
-				role="status"
-				aria-label={conversation.status}
-				className="size-1.5 animate-pulse rounded-full bg-foreground/60"
-			/>
-		);
-	}
-	return null;
+	const waiting = need.kind === "waiting";
+	return (
+		<span
+			role="status"
+			aria-label={waiting ? "waiting on you" : "working"}
+			title={waiting ? need.subject : undefined}
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			{waiting ? (
+				<span className="size-2 animate-pulse rounded-full bg-sky-500" />
+			) : (
+				<Loader2Icon className="size-3.5 animate-spin text-foreground/60" />
+			)}
+		</span>
+	);
 }
 
 function agentName(agents: AgentChoice[], id: string): string {
@@ -437,6 +600,7 @@ export function Conversations({
 			) : open === NEW || (open === null && !phone) ? (
 				<Home
 					drafts={drafts}
+					tasks={tasks}
 					feed={feed}
 					agents={agents}
 					conversations={conversations.filter((each) => !each.archived)}
@@ -445,6 +609,7 @@ export function Conversations({
 				/>
 			) : open === ARCHIVED ? (
 				<Archived
+					tasks={tasks}
 					conversations={conversations.filter((each) => each.archived)}
 					agents={agents}
 					onOpen={onOpen}
@@ -476,6 +641,7 @@ const RECENT = 5;
  */
 function Home({
 	drafts,
+	tasks,
 	feed,
 	agents,
 	conversations,
@@ -484,6 +650,7 @@ function Home({
 }: {
 	/** What was typed and not sent, by conversation. */
 	drafts: Drafts;
+	tasks: Details[];
 	feed: ConversationFeed;
 	agents: AgentChoice[];
 	/** The ones not archived, newest first. */
@@ -504,7 +671,7 @@ function Home({
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string) => void>(() => {});
 	const waiting = (each: ConversationState) =>
-		each.ask !== null || each.status === "failed";
+		needOf(tasks, each).kind === "waiting";
 	const recent = [
 		...conversations.filter(waiting),
 		...conversations.filter((each) => !waiting(each)),
@@ -619,6 +786,7 @@ function Home({
 												<Recent
 													conversation={each}
 													agent={agentName(agents, each.agent)}
+													need={needOf(tasks, each)}
 													onOpen={() => onOpen(each.id)}
 												/>
 											</li>
@@ -718,17 +886,19 @@ function SettingSelect({
 function Recent({
 	conversation,
 	agent,
+	need,
 	onOpen,
 }: {
 	conversation: ConversationState;
 	agent: string;
+	need: Need;
 	onOpen: () => void;
 }): JSX.Element {
 	return (
 		<button
 			type="button"
 			onClick={onOpen}
-			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-3 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
+			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
 		>
 			<AgentIcon
 				agent={conversation.agent}
@@ -741,7 +911,7 @@ function Recent({
 			<span className="shrink-0 truncate text-muted-foreground text-xs">
 				{conversation.task ?? "main tree"}
 			</span>
-			<Mark conversation={conversation} />
+			<Mark need={need} />
 		</button>
 	);
 }
@@ -762,11 +932,13 @@ function Back({ onBack }: { onBack: () => void }): JSX.Element {
 
 /** Every archived conversation, newest first, to read or bring back. */
 function Archived({
+	tasks,
 	conversations,
 	agents,
 	onOpen,
 	onBack,
 }: {
+	tasks: Details[];
 	conversations: ConversationState[];
 	agents: AgentChoice[];
 	onOpen: (id: string) => void;
@@ -790,6 +962,7 @@ function Archived({
 							<Item
 								conversation={each}
 								agent={agentName(agents, each.agent)}
+								need={needOf(tasks, each)}
 								current={false}
 								onOpen={() => onOpen(each.id)}
 								where

@@ -15,11 +15,13 @@ import {
 import { Toaster } from "#dev/components/ui/toast.tsx";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import type { Details } from "../show";
 import { ConversationFeed } from "./conversation-feed";
 import {
 	ConversationList,
 	Conversations,
 	conversationIn,
+	useWaiting,
 } from "./conversations";
 import { Feed } from "./feed";
 import { ProjectSwitcher } from "./projects";
@@ -48,6 +50,9 @@ const PAGES: { value: Page; label: string; Icon: LucideIcon }[] = [
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
 const WIDE = "(min-width: 768px)";
+
+/** Before the first snapshot: one array, so nothing recomputes for a new one. */
+const NO_TASKS: Details[] = [];
 
 /** Whether the window is `WIDE` right now, following it as it resizes. */
 function useWide(): boolean {
@@ -136,17 +141,23 @@ export function App(): JSX.Element {
 		({ value }) => value !== "conversations" || available,
 	);
 
+	const waiting = useWaiting(talk, snapshot?.tasks ?? NO_TASKS);
+	const counted = available && waiting > 0;
 	useEffect(() => {
-		document.title = snapshot?.repo ?? "arbor";
-	}, [snapshot?.repo]);
+		const name = snapshot?.repo ?? "arbor";
+		document.title = counted ? `(${waiting}) ${name}` : name;
+	}, [snapshot?.repo, counted, waiting]);
 
 	const wide = useWide();
 	// On a phone, an open conversation takes the whole screen: no header, and
 	// no bar along the bottom, which its own Back replaces.
 	const reading = !wide && page === "conversations" && open !== null;
+	// Conversations counts only the agents waiting on you.
 	const count = (page: Page) =>
 		page === "conversations"
-			? null
+			? counted
+				? waiting
+				: null
 			: snapshot && (page === "todos" ? snapshot.todos : snapshot.tasks).length;
 
 	return (

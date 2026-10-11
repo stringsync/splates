@@ -267,7 +267,12 @@ describe("App's conversations", () => {
 			within(recent)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Look aroundmain treeasking", "Fix loginalpha"]);
+		).toEqual(["Look aroundmain tree", "Fix loginalpha"]);
+		expect(
+			within(recent)
+				.getAllByRole("status")
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["waiting on you"]);
 		await act(async () =>
 			fireEvent.click(
 				within(recent).getByRole("button", { name: /Fix login/ }),
@@ -919,5 +924,120 @@ describe("App's conversations", () => {
 				}) as HTMLTextAreaElement
 			).disabled,
 		).toBe(false);
+	});
+
+	describe("the sidebar's marks", () => {
+		const ask = {
+			type: "permission" as const,
+			id: "t1",
+			at: "2026-10-11T10:00:00.000Z",
+			title: "rm -rf build",
+			options: [{ id: "yes", name: "Allow", kind: "allow_once" as const }],
+		};
+
+		/** Opens the page on Conversations, holding `held`, with `tasks` live. */
+		const sidebar = async (
+			held: ConversationState[],
+			tasks = [details({ task: "alpha" })],
+		) => {
+			testing.talk = { agents: AGENTS, conversations: held };
+			const view = await testing.open({ tasks });
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() => view.getByRole("tab", { name: /Conversations/ })),
+				),
+			);
+			return view;
+		};
+
+		const rows = (view: Awaited<ReturnType<typeof sidebar>>) =>
+			within(view.getByRole("navigation", { name: "conversations" }))
+				.getAllByRole("listitem")
+				.map((row) => [
+					row.textContent,
+					within(row).queryByRole("status")?.getAttribute("aria-label") ?? null,
+				]);
+
+		it("marks each agent waiting on you or working, and an idle one not at all", async () => {
+			const view = await sidebar([
+				conversation({ id: "c1", title: "Asks", status: "running", ask }),
+				conversation({ id: "c2", title: "Runs", status: "running" }),
+				conversation({ id: "c3", title: "Rests" }),
+				conversation({ id: "c4", title: "Broke", status: "failed" }),
+				conversation({ id: "c5", task: "alpha", title: "Plans" }),
+			]);
+
+			expect(rows(view)).toEqual([
+				["Asks", "waiting on you"],
+				["Runs", "working"],
+				["Rests", null],
+				["Broke", "waiting on you"],
+				["Plans", null],
+			]);
+		});
+
+		it("lists a task whose agent runs outside the page as external, waiting once it escalates", async () => {
+			const view = await sidebar(
+				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+				[
+					details({ task: "alpha" }),
+					details({ task: "beta" }),
+					details({
+						task: "gamma",
+						status: "escalated",
+						escalation: "needs a call",
+						escalatedAt: "2026-10-11T10:00:00.000Z",
+					}),
+				],
+			);
+
+			expect(rows(view)).toEqual([
+				["Fix login", null],
+				["betaexternal", "working"],
+				["gammaexternal", "waiting on you"],
+			]);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /gamma/ })),
+			);
+			expect(view.getByRole("dialog", { name: "gamma" })).toBeTruthy();
+		});
+
+		it("counts the agents waiting on you on the tab and in the title", async () => {
+			const view = await sidebar(
+				[conversation({ id: "c1", title: "Asks", status: "running", ask })],
+				[details({ task: "beta", status: "escalated" })],
+			);
+
+			expect(view.getByRole("tab", { name: /Conversations/ }).textContent).toBe(
+				"Conversations2",
+			);
+			expect(document.title).toBe("(2) webappwiz");
+		});
+
+		it("moves between rows with the arrow keys, and opens the next one waiting with Alt+N", async () => {
+			const view = await sidebar([
+				conversation({ id: "c1", title: "Runs", status: "running" }),
+				conversation({ id: "c2", title: "Asks", status: "running", ask }),
+				conversation({ id: "c3", title: "Broke", status: "failed" }),
+			]);
+			const nav = view.getByRole("navigation", { name: "conversations" });
+			const runs = within(nav).getByRole("button", { name: "Claude Runs" });
+			runs.focus();
+
+			await act(async () => fireEvent.keyDown(runs, { key: "ArrowDown" }));
+			expect(document.activeElement?.textContent).toBe("Asks");
+			await act(async () =>
+				fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+			);
+			expect(location.hash).toBe("#conversations/c2");
+			await act(async () =>
+				fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+			);
+			expect(location.hash).toBe("#conversations/c3");
+			await act(async () =>
+				fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+			);
+			expect(location.hash).toBe("#conversations/c2");
+		});
 	});
 });
