@@ -3,6 +3,7 @@ import { type ComponentProps, type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { MENTION } from "../lanes";
 import { Board, still } from "./board";
+import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
 
 export interface MarkdownProps {
@@ -25,8 +26,10 @@ export function Markdown({
 	className,
 	preview = false,
 }: MarkdownProps): JSX.Element {
+	// The lightbox steps through the screenshots of one document.
 	return (
 		<div
+			{...{ [GROUP]: "" }}
 			className={cn(
 				"min-w-0 break-words",
 				preview &&

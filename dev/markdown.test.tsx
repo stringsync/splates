@@ -1,6 +1,6 @@
 import "../../../setup";
 import { describe, expect, it } from "bun:test";
-import { render } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
@@ -152,5 +152,35 @@ describe("Markdown", () => {
 		);
 		expect(glimpse.container.querySelector("img")).toBeNull();
 		expect(glimpse.container.textContent).toBe("[the header]");
+	});
+
+	it("opens a recording in a lightbox that steps through the document's media", async () => {
+		const page = render(
+			<Markdown
+				text={"![first run](/abs/a.webm)\n\n![second run](/abs/b.mp4)"}
+			/>,
+		);
+
+		await act(async () =>
+			fireEvent.click(page.getByRole("button", { name: "expand first run" })),
+		);
+		const lightbox = await waitFor(() => page.getByRole("dialog"));
+		expect(lightbox.textContent).toContain("first run1 of 2");
+
+		await act(async () => fireEvent.keyDown(lightbox, { key: "ArrowRight" }));
+		expect(lightbox.textContent).toContain("second run2 of 2");
+		expect(lightbox.querySelector("video")?.getAttribute("src")).toBe(
+			`/api/file?${new URLSearchParams({ path: "/abs/b.mp4" })}`,
+		);
+
+		await act(async () =>
+			fireEvent.click(page.getByRole("button", { name: "next" })),
+		);
+		expect(lightbox.textContent).toContain("first run1 of 2");
+
+		await act(async () =>
+			fireEvent.click(page.getByRole("button", { name: "close" })),
+		);
+		await waitFor(() => expect(page.queryByRole("dialog")).toBeNull());
 	});
 });

@@ -14,6 +14,7 @@ import remarkGfm from "remark-gfm";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#dev/lib/utils.ts";
+import { GROUP } from "#dev/lightbox.tsx";
 import { Media } from "#dev/media.tsx";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
@@ -50,13 +51,16 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
 		};
 	}, [stableComponents]);
 
+	// The lightbox steps through the screenshots of one message.
 	return (
-		<MarkdownTextPrimitive
-			remarkPlugins={[remarkGfm]}
-			className="aui-md"
-			components={markdownComponents}
-			defer
-		/>
+		<div {...{ [GROUP]: "" }}>
+			<MarkdownTextPrimitive
+				remarkPlugins={[remarkGfm]}
+				className="aui-md"
+				components={markdownComponents}
+				defer
+			/>
+		</div>
 	);
 };
 
