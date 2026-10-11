@@ -1,5 +1,6 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
+	ArchiveIcon,
 	CheckIcon,
 	CircleSlashIcon,
 	GitBranchIcon,
@@ -43,8 +44,18 @@ export const ReportUI = makeAssistantDataUI<{ report: Report }>({
 	render: ({ data }) => <ReportCard report={data.report} />,
 });
 
+/** The open conversation, to archive; none outside one. */
+export const ArchiveContext = createContext<{
+	archived: boolean;
+	archive: () => void;
+} | null>(null);
+
 export function ReportCard({ report }: { report: Report }): JSX.Element {
+	const conversation = useContext(ArchiveContext);
 	const { title, Icon, tone } = ENDINGS[report.ending];
+	// An escalated task still waits on the person; only one that is over offers
+	// to put its conversation away.
+	const over = report.ending !== "escalated";
 	// Why it went, or what it waits on, leads what it says.
 	const text = [report.reason, report.body]
 		.filter((each) => each !== null && each !== "")
@@ -57,11 +68,41 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 			tone={tone}
 			task={report.task}
 			base={report.base}
+			aside={
+				conversation === null || !over ? undefined : (
+					<Archive {...conversation} />
+				)
+			}
 		>
 			{text === "" ? undefined : (
 				<CardBody text={text} lead={report.reason !== null} />
 			)}
 		</CardShell>
+	);
+}
+
+function Archive({
+	archived,
+	archive,
+}: {
+	archived: boolean;
+	archive: () => void;
+}): JSX.Element {
+	return archived ? (
+		<span className="flex h-7 items-center gap-1 text-muted-foreground text-xs">
+			<CheckIcon className="size-3.5" strokeWidth={3} />
+			Archived
+		</span>
+	) : (
+		<Button
+			size="sm"
+			variant="outline"
+			onClick={archive}
+			className="h-7 gap-1.5 bg-background"
+		>
+			<ArchiveIcon data-icon="inline-start" />
+			Archive
+		</Button>
 	);
 }
 

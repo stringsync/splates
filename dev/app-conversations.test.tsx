@@ -1253,6 +1253,51 @@ describe("App's conversations", () => {
 			expect(escalated.textContent).toContain("needs a call on the width");
 			expect(view.textContent).not.toContain("## ✅");
 		});
+
+		it("offers to archive the conversation from each report of a task that is over", async () => {
+			const view = await conversations([
+				conversation({
+					messages: [
+						message(
+							"agent",
+							"## ✅ Merged header onto main\n\nThe header wraps now.",
+						),
+						message("user", "now the footer"),
+						message(
+							"agent",
+							[
+								"## ⚠️ Escalated footer: needs a call on the color",
+								"",
+								"The footer is gray.",
+								"",
+								"## 🛑 Removed sidebar: superseded by a fix on main",
+								"",
+								"It set out to fold the sidebar.",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+			const archive = (name: string) =>
+				within(view.getByRole("region", { name })).queryByRole("button", {
+					name: "Archive",
+				});
+
+			const removed = await waitFor(() =>
+				within(view.getByRole("region", { name: "removed sidebar" })).getByRole(
+					"button",
+					{ name: "Archive" },
+				),
+			);
+			expect(archive("merged header")).not.toBeNull();
+			expect(archive("escalated footer")).toBeNull();
+
+			await act(async () => fireEvent.click(removed));
+
+			expect(posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]);
+		});
 	});
 
 	describe("todo cards", () => {

@@ -98,7 +98,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
-import { ReportUI, TodosContext, TodoUI } from "./report-cards";
+import { ArchiveContext, ReportUI, TodosContext, TodoUI } from "./report-cards";
 import type { Settings } from "./settings";
 import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
@@ -1466,6 +1466,17 @@ function Thread({
 			},
 		},
 	];
+	const filing = useMemo(
+		() => ({
+			archived,
+			archive: () => {
+				archiveConversation(id, true).catch((error: unknown) =>
+					refused("Not archived", error),
+				);
+			},
+		}),
+		[id, archived],
+	);
 	const [details, setDetails] = useState(false);
 	const needed = need(task, conversation);
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
@@ -1571,49 +1582,51 @@ function Thread({
 					<ReportUI />
 					<TodoUI />
 					<WorkUI />
-					<ReplyContext value={reply}>
-						<ThreadView
-							mentions={mentions ?? undefined}
-							controls={
-								!archived &&
-								settings.map((setting) => (
-									<SettingSelect
-										key={setting.id}
-										setting={setting}
-										value={setting.current}
-										onChange={(value) =>
-											chooseSetting(id, setting.id, value).catch(
-												(error: unknown) =>
-													refused(`${setting.name} not switched`, error),
-											)
-										}
-									/>
-								))
-							}
-							above={
-								<>
-									{queued.length > 0 && (
-										<Queued
-											conversation={id}
-											messages={queued}
-											onEdit={(index) => void edit(index)}
-											onDiscard={(index) => void discard(index)}
-											onSendNow={() => void sendNow()}
+					<ArchiveContext value={filing}>
+						<ReplyContext value={reply}>
+							<ThreadView
+								mentions={mentions ?? undefined}
+								controls={
+									!archived &&
+									settings.map((setting) => (
+										<SettingSelect
+											key={setting.id}
+											setting={setting}
+											value={setting.current}
+											onChange={(value) =>
+												chooseSetting(id, setting.id, value).catch(
+													(error: unknown) =>
+														refused(`${setting.name} not switched`, error),
+												)
+											}
 										/>
-									)}
-									{conversation.ask !== null && (
-										<AskPanel
-											key={conversation.ask.id}
-											drafts={drafts}
-											conversation={conversation}
-											agent={agent}
-											ask={conversation.ask}
-										/>
-									)}
-								</>
-							}
-						/>
-					</ReplyContext>
+									))
+								}
+								above={
+									<>
+										{queued.length > 0 && (
+											<Queued
+												conversation={id}
+												messages={queued}
+												onEdit={(index) => void edit(index)}
+												onDiscard={(index) => void discard(index)}
+												onSendNow={() => void sendNow()}
+											/>
+										)}
+										{conversation.ask !== null && (
+											<AskPanel
+												key={conversation.ask.id}
+												drafts={drafts}
+												conversation={conversation}
+												agent={agent}
+												ask={conversation.ask}
+											/>
+										)}
+									</>
+								}
+							/>
+						</ReplyContext>
+					</ArchiveContext>
 				</AssistantRuntimeProvider>
 			</div>
 		</section>
