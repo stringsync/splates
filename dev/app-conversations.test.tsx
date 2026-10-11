@@ -518,6 +518,12 @@ describe("App's conversations", () => {
 				conversation({ id: "c4", title: "Busy", status: "running" }),
 				conversation({ id: "c5", task: null, title: "Look into it" }),
 				conversation({
+					id: "c6",
+					task: null,
+					lastTask: "beta",
+					title: "Landed it",
+				}),
+				conversation({
 					id: "c2",
 					task: null,
 					title: "Look around",
@@ -540,7 +546,7 @@ describe("App's conversations", () => {
 			within(recent)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["alpha", "Look into itmain tree"]);
+		).toEqual(["alpha", "Look into itmain tree", "beta"]);
 		expect(within(recent).queryByRole("status")).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(recent).getByRole("button", { name: /alpha/ })),

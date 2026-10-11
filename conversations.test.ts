@@ -796,12 +796,14 @@ describe("Conversations", () => {
 		conversation.move("signup", "/repo-arbor/signup");
 
 		expect(conversation.state.task).toBe("signup");
+		expect(conversation.state.lastTask).toBe("signup");
 		await conversation.stop();
 		await conversation.prompt("go on");
 		await until(conversation, "idle");
 		expect(agent.launched.at(-1)?.cwd).toBe("/repo-arbor/signup");
 
 		conversation.move(null, "/repo");
+		expect(conversation.state.lastTask).toBe("signup");
 		await conversation.stop();
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
@@ -810,6 +812,7 @@ describe("Conversations", () => {
 		);
 		const [read] = await reread.list();
 		expect(read?.state.task).toBeNull();
+		expect(read?.state.lastTask).toBe("signup");
 		await read?.prompt("and on");
 		await until(read as Conversation, "idle");
 		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
@@ -1063,6 +1066,7 @@ describe("fold", () => {
 		id: "c",
 		agent: "claude",
 		task: null,
+		lastTask: null,
 		title: null,
 		name: null,
 		status: "running",

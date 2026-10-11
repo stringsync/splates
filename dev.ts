@@ -1026,13 +1026,13 @@ export async function dev(
 		for (const settled of await Promise.allSettled(served.values())) {
 			const project = settled.status === "fulfilled" ? settled.value : null;
 			for (const conversation of (await project?.conversations?.list()) ?? []) {
-				const { id, name, title, agent, status } = conversation.state;
+				const { id, name, lastTask, title, agent, status } = conversation.state;
 				// An idle one loses its agent too, even with no turn to cut off.
 				if (status !== "stopped" && status !== "failed") {
 					interrupted.push({
 						project: slugs.get(project?.root ?? "") ?? "",
 						id,
-						name: name ?? title ?? agent,
+						name: name ?? lastTask ?? title ?? agent,
 						status,
 						checkpoint: conversation.state.checkpoint,
 					});

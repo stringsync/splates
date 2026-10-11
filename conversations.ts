@@ -231,6 +231,11 @@ export interface ConversationState {
 	agent: string;
 	/** The task whose worktree it runs in; null for the main tree. */
 	task: string | null;
+	/**
+	 * The task it runs in, or last ran in once that task merged or went; null
+	 * until it runs in one.
+	 */
+	lastTask: string | null;
 	/** What the agent calls it, once it says. */
 	title: string | null;
 	/** What the person renamed it to, over the agent's title. */
@@ -737,6 +742,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				conversation.session = entry.session;
 			} else if (entry.kind === "task") {
 				state.task = entry.task;
+				state.lastTask = entry.task ?? state.lastTask;
 				conversation.cwd = entry.cwd;
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;
@@ -1428,7 +1434,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	move(task: string | null, cwd: string): void {
 		this.cwd = cwd;
 		this.write({ kind: "task", task, cwd });
-		this.set({ task });
+		this.set({ task, lastTask: task ?? this.state.lastTask });
 	}
 
 	/** Stops the agent; the next prompt resumes where it left off. */
@@ -1537,6 +1543,7 @@ function blank(
 		id,
 		agent,
 		task,
+		lastTask: task,
 		title: null,
 		name: null,
 		status: "starting",

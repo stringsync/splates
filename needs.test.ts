@@ -54,6 +54,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		id: "c1",
 		agent: "claude",
 		task: "alpha",
+		lastTask: "alpha",
 		title: null,
 		name: null,
 		status: "running",

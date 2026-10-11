@@ -273,6 +273,7 @@ export function conversation(
 		settings: [],
 		createdAt: new Date().toISOString(),
 		checkpoint: null,
+		lastTask: overrides.task ?? null,
 		...overrides,
 	};
 }

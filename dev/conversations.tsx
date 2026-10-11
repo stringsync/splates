@@ -195,25 +195,26 @@ export function conversationIn(hash: string): string | null {
 
 /**
  * Where a conversation runs, for a list not grouped by task: nothing when its
- * name already says so.
+ * name already says so, as a finished task's name does.
  */
 function whereOf(conversation: ConversationState): string | null {
-	if (conversation.task === null) {
-		return "main tree";
+	if (nameOf(conversation) === conversation.lastTask) {
+		return null;
 	}
-	return nameOf(conversation) === conversation.task ? null : conversation.task;
+	return conversation.task ?? "main tree";
 }
 
 /**
  * What a conversation goes by: the name the person gave it, else the task its
- * agent holds, so it follows the agent from task to task, else the agent's
+ * agent holds, so it follows the agent from task to task, or held last, so a
+ * finished task keeps its name until the agent takes another, else the agent's
  * title. Until it has one, a stand-in (see `unnamed`): the first line of what
  * the person first said, else "Not started".
  */
 export function nameOf(conversation: ConversationState): string {
 	return (
 		conversation.name ??
-		conversation.task ??
+		conversation.lastTask ??
 		conversation.title ??
 		openingOf(conversation) ??
 		"Not started"
@@ -224,7 +225,7 @@ export function nameOf(conversation: ConversationState): string {
 function unnamed(conversation: ConversationState): boolean {
 	return (
 		conversation.name === null &&
-		conversation.task === null &&
+		conversation.lastTask === null &&
 		conversation.title === null
 	);
 }
