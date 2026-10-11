@@ -578,6 +578,32 @@ describe("App's conversations", () => {
 		expect(within(thread).getByText("running")).toBeTruthy();
 	});
 
+	it("opens a link the agent wrote in a new tab, and a footnote in place", async () => {
+		const view = await conversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				messages: [
+					message("user", "where is it?"),
+					message(
+						"agent",
+						"See [the docs](https://example.com) and [the note](#note).",
+					),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const docs = await within(thread).findByRole("link", { name: "the docs" });
+		expect(docs.getAttribute("target")).toBe("_blank");
+		expect(docs.getAttribute("rel")).toBe("noreferrer noopener");
+		const note = within(thread).getByRole("link", { name: "the note" });
+		expect(note.getAttribute("target")).toBeNull();
+	});
+
 	it("keeps the reply in the place it held before the agent said anything", async () => {
 		const view = await conversations([
 			conversation({ title: "Read the note" }),

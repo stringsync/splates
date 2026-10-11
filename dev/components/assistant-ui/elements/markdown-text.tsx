@@ -160,12 +160,17 @@ const defaultComponents = memoizeMarkdownComponents({
 			{...props}
 		/>
 	),
+	// A link opens in a new tab, so the conversation keeps its place; one to a
+	// spot on the page, such as a footnote, stays in it.
 	a: ({ className, ...props }) => (
 		<a
 			className={cn(
 				"aui-md-a text-primary hover:text-primary/80 underline underline-offset-2",
 				className,
 			)}
+			{...(props.href?.startsWith("#")
+				? {}
+				: { target: "_blank", rel: "noreferrer noopener" })}
 			{...props}
 		/>
 	),
