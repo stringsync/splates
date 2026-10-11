@@ -75,7 +75,7 @@ describe("App's conversations", () => {
 
 	const nameIn = (held: ConversationState[], id: string) => {
 		const found = held.find((each) => each.id === id);
-		return found?.title ?? found?.task ?? "New conversation";
+		return found?.name ?? found?.task ?? found?.title ?? "New conversation";
 	};
 
 	const posted = (path: string) =>
@@ -107,7 +107,7 @@ describe("App's conversations", () => {
 					title: "Look around",
 					createdAt: "2026-10-11T10:02:00.000Z",
 				}),
-				conversation({ id: "c3", task: "alpha", title: "Old", archived: true }),
+				conversation({ id: "c3", title: "Old", archived: true }),
 			],
 			null,
 		);
@@ -117,10 +117,10 @@ describe("App's conversations", () => {
 			within(nav)
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
-		).toEqual(["Look around", "Fix login"]);
+		).toEqual(["Look around", "alpha"]);
 		expect(within(nav).queryAllByRole("heading")).toEqual([]);
 		expect(
-			within(nav).getByRole("button", { name: "Claude Fix login" }).title,
+			within(nav).getByRole("button", { name: "Claude alpha" }).title,
 		).toBe("alpha");
 		await act(async () =>
 			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
@@ -186,7 +186,7 @@ describe("App's conversations", () => {
 		expect(within(nav).getByRole("img", { name: "Claude" })).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(
-				within(nav).getByRole("button", { name: "Archive Fix login" }),
+				within(nav).getByRole("button", { name: "Archive alpha" }),
 			),
 		);
 
@@ -202,7 +202,7 @@ describe("App's conversations", () => {
 		);
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More for Fix login" })),
+			fireEvent.click(view.getByRole("button", { name: "More for alpha" })),
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -210,7 +210,7 @@ describe("App's conversations", () => {
 			),
 		);
 		const box = await waitFor(() =>
-			view.getByRole("textbox", { name: "Rename Fix login" }),
+			view.getByRole("textbox", { name: "Rename alpha" }),
 		);
 		await act(async () =>
 			fireEvent.change(box, { target: { value: "Login redirect" } }),
@@ -230,25 +230,25 @@ describe("App's conversations", () => {
 
 		await act(async () =>
 			fireEvent.doubleClick(
-				within(nav).getByRole("button", { name: "Claude Fix login" }),
+				within(nav).getByRole("button", { name: "Claude alpha" }),
 			),
 		);
 		const inList = await waitFor(() =>
-			within(nav).getByRole("textbox", { name: "Rename Fix login" }),
+			within(nav).getByRole("textbox", { name: "Rename alpha" }),
 		);
 		await act(async () => fireEvent.keyDown(inList, { key: "Escape" }));
 		expect(
-			within(nav).queryByRole("textbox", { name: "Rename Fix login" }),
+			within(nav).queryByRole("textbox", { name: "Rename alpha" }),
 		).toBeNull();
 
-		const thread = view.getByRole("region", { name: "Fix login" });
+		const thread = view.getByRole("region", { name: "alpha" });
 		await act(async () =>
 			fireEvent.doubleClick(
-				within(thread).getByRole("heading", { name: "Fix login" }),
+				within(thread).getByRole("heading", { name: "alpha" }),
 			),
 		);
 		const box = within(thread).getByRole("textbox", {
-			name: "Rename Fix login",
+			name: "Rename alpha",
 		});
 		await act(async () =>
 			fireEvent.change(box, { target: { value: "Login redirect" } }),
@@ -270,7 +270,7 @@ describe("App's conversations", () => {
 			const nav = view.getByRole("navigation", { name: "conversations" });
 			await act(async () =>
 				fireEvent.click(
-					within(nav).getByRole("button", { name: "Claude Fix login" }),
+					within(nav).getByRole("button", { name: "Claude alpha" }),
 				),
 			);
 
@@ -286,7 +286,7 @@ describe("App's conversations", () => {
 			expect(
 				view.getByRole("navigation", { name: "conversations" }),
 			).toBeTruthy();
-			expect(view.queryByRole("region", { name: "Fix login" })).toBeNull();
+			expect(view.queryByRole("region", { name: "alpha" })).toBeNull();
 		} finally {
 			resize(1024, 768);
 		}
@@ -309,7 +309,7 @@ describe("App's conversations", () => {
 						options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
 					},
 				}),
-				conversation({ id: "c3", task: "alpha", title: "Old", archived: true }),
+				conversation({ id: "c3", title: "Old", archived: true }),
 			],
 			null,
 		);
@@ -319,16 +319,14 @@ describe("App's conversations", () => {
 			within(recent)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Look aroundmain tree", "Fix loginalpha"]);
+		).toEqual(["Look aroundmain tree", "alpha"]);
 		expect(
 			within(recent)
 				.getAllByRole("status")
 				.map((each) => each.getAttribute("aria-label")),
 		).toEqual(["waiting on you"]);
 		await act(async () =>
-			fireEvent.click(
-				within(recent).getByRole("button", { name: /Fix login/ }),
-			),
+			fireEvent.click(within(recent).getByRole("button", { name: /alpha/ })),
 		);
 		expect(location.hash).toBe("#conversations/c1");
 	});
@@ -1289,6 +1287,26 @@ describe("App's conversations", () => {
 				createdAt: new Date(Date.UTC(2026, 9, 11, 10, 59 - at)).toISOString(),
 			}));
 
+		const PLAN = `# a task
+
+## Goal
+
+Cap upload retries
+
+## Done
+
+- [x] find the retry loop
+
+## Next
+
+- [ ] cap retries
+- [ ] tell the user
+
+## Blocked
+
+- [ ] 1. How many retries?
+`;
+
 		const rows = (view: Awaited<ReturnType<typeof sidebar>>) =>
 			within(view.getByRole("navigation", { name: "conversations" }))
 				.getAllByRole("listitem")
@@ -1313,11 +1331,11 @@ describe("App's conversations", () => {
 				["Runs", "working"],
 				["Rests", null],
 				["Broke", "waiting on you"],
-				["Plans", null],
+				["alpha", null],
 			]);
 		});
 
-		it("lists a task whose agent runs outside the page as external, waiting once it escalates", async () => {
+		it("lists a task whose agent runs outside the page as external, waiting once it escalates, and opens it alone", async () => {
 			const view = await sidebar(
 				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 				[
@@ -1328,19 +1346,102 @@ describe("App's conversations", () => {
 						status: "escalated",
 						escalation: "needs a call",
 						escalatedAt: "2026-10-11T10:00:00.000Z",
+						plan: PLAN,
 					}),
 				],
 			);
 
 			expect(rows(view)).toEqual([
-				["Fix login", null],
+				["alpha", null],
 				["betaexternal", "working"],
 				["gammaexternal", "waiting on you"],
 			]);
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name: /gamma/ })),
 			);
+			expect(location.hash).toBe("#conversations/task/gamma");
+			const alone = view.getByRole("region", { name: "gamma" });
+			expect(alone.textContent).toContain("Cap upload retries");
+			expect(
+				within(alone).getByRole("list", { name: "questions" }).textContent,
+			).toContain("How many retries?");
+			// Its agent cannot be messaged: the cards compose a reply to copy.
+			const copied: string[] = [];
+			Object.defineProperty(navigator, "clipboard", {
+				configurable: true,
+				value: { writeText: async (text: string) => void copied.push(text) },
+			});
+			await act(async () =>
+				fireEvent.change(
+					within(alone).getByRole("textbox", { name: "Answer to 1" }),
+					{ target: { value: "three" } },
+				),
+			);
+			expect(
+				(
+					within(alone).getByRole("textbox", {
+						name: "reply",
+					}) as HTMLTextAreaElement
+				).value,
+			).toBe("1. three");
+			await act(async () =>
+				fireEvent.click(within(alone).getByRole("button", { name: "Copy" })),
+			);
+			expect(copied).toEqual(["1. three"]);
+			expect(
+				within(alone).getByRole("button", { name: "Copied" }),
+			).toBeTruthy();
+			// Not again in the plan under them.
+			expect(
+				within(alone).queryByRole("heading", { name: /Blocked/ }),
+			).toBeNull();
+			expect(within(alone).getByRole("heading", { name: /Next/ })).toBeTruthy();
+			await act(async () =>
+				fireEvent.click(
+					within(alone).getByRole("button", { name: "About gamma" }),
+				),
+			);
+			const popup = await waitFor(() =>
+				view.getByRole("dialog", { name: "About gamma" }),
+			);
+			expect(popup.textContent).toContain("Waiting on you: How many retries?");
+			await act(async () =>
+				fireEvent.click(within(popup).getByRole("button", { name: "Details" })),
+			);
 			expect(view.getByRole("dialog", { name: "gamma" })).toBeTruthy();
+		});
+
+		it("heads a conversation with its branch and progress, which open its Goal, next step and open questions", async () => {
+			const view = await sidebar(
+				[
+					conversation({
+						id: "c1",
+						task: "alpha",
+						title: "Fix login",
+						status: "running",
+					}),
+				],
+				[details({ task: "alpha", plan: PLAN })],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			);
+			const about = view.getByRole("button", { name: "About alpha" });
+
+			expect(about.textContent).toBe("task/alpha· 1/3");
+			await act(async () => fireEvent.click(about));
+			const popup = await waitFor(() =>
+				view.getByRole("dialog", { name: "About alpha" }),
+			);
+			expect(popup.textContent).toContain("Cap upload retries");
+			expect(popup.textContent).toContain("Assuming: How many retries?");
+			// No panel of them in the thread yet: the plan they are in opens.
+			await act(async () =>
+				fireEvent.click(
+					within(popup).getByRole("button", { name: "1 open question" }),
+				),
+			);
+			expect(view.getByRole("dialog", { name: "alpha" })).toBeTruthy();
 		});
 
 		it("counts the agents waiting on you on the tab and in the title", async () => {

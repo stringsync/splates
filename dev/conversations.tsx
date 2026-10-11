@@ -11,10 +11,8 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
-	ChevronLeftIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
-	GitBranchIcon,
 	LinkIcon,
 	Loader2Icon,
 	PencilIcon,
@@ -77,6 +75,7 @@ import {
 	startConversation,
 	unqueueConversation,
 } from "./api";
+import { Back } from "./back";
 import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { Drafts, newDraft } from "./drafts";
@@ -88,6 +87,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
@@ -107,14 +107,26 @@ export function conversationIn(hash: string): string | null {
 }
 
 /**
- * What a conversation goes by: the name the person gave it, else the agent's
- * title, else its task's name.
+ * Where a conversation runs, for a list not grouped by task: nothing when its
+ * name already says so.
+ */
+function whereOf(conversation: ConversationState): string | null {
+	if (conversation.task === null) {
+		return "main tree";
+	}
+	return nameOf(conversation) === conversation.task ? null : conversation.task;
+}
+
+/**
+ * What a conversation goes by: the name the person gave it, else the task its
+ * agent holds, so it follows the agent from task to task, else the agent's
+ * title.
  */
 function nameOf(conversation: ConversationState): string {
 	return (
 		conversation.name ??
-		conversation.title ??
 		conversation.task ??
+		conversation.title ??
 		"New conversation"
 	);
 }
@@ -146,7 +158,6 @@ export function ConversationList({
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
-	const [shown, setShown] = useState<Details | null>(null);
 	const listed = conversations.filter((each) => !each.archived);
 	const external = needs({ tasks, conversations }).filter(
 		(each) => each.conversation === null,
@@ -164,7 +175,7 @@ export function ConversationList({
 		if (row.conversation !== null) {
 			onOpen(row.conversation.id);
 		} else if (row.task !== null) {
-			setShown(row.task);
+			onOpen(`${TASK}${row.task.task}`);
 		}
 	};
 	const next = useRef(() => {});
@@ -172,7 +183,7 @@ export function ConversationList({
 		const at = rows.findIndex(
 			(row) =>
 				(row.conversation !== null && row.conversation.id === open) ||
-				(row.task !== null && row.task.task === shown?.task),
+				(row.task !== null && `${TASK}${row.task.task}` === open),
 		);
 		// After the one open, around to the top.
 		const after = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
@@ -246,6 +257,7 @@ export function ConversationList({
 								<External
 									task={row.task}
 									need={row.need}
+									current={`${TASK}${row.task.task}` === open}
 									onOpen={() => openRow(row)}
 								/>
 							</li>
@@ -267,20 +279,6 @@ export function ConversationList({
 				<span className="flex-1">Archived</span>
 				<span className="tabular-nums">{archived}</span>
 			</button>
-			<Dialog
-				open={shown !== null}
-				onOpenChange={(open) => {
-					if (!open) {
-						setShown(null);
-					}
-				}}
-			>
-				{shown && (
-					<Task
-						task={tasks.find((each) => each.task === shown.task) ?? shown}
-					/>
-				)}
-			</Dialog>
 		</nav>
 	);
 }
@@ -316,23 +314,29 @@ function needOf(tasks: Details[], conversation: ConversationState): Need {
 
 /**
  * A task whose agent runs outside the page, such as in Claude Code or Codex,
- * as a peer of a conversation: named for its task, and opening the task.
+ * as a peer of a conversation: named for its task, and opening it alone.
  */
 function External({
 	task,
 	need,
+	current,
 	onOpen,
 }: {
 	task: Details;
 	need: Need;
+	current: boolean;
 	onOpen: () => void;
 }): JSX.Element {
 	return (
 		<button
 			type="button"
 			data-row
+			aria-current={current ? "page" : undefined}
 			onClick={onOpen}
-			className="flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]"
+			className={cn(
+				"flex w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-3 text-left text-foreground hover:bg-foreground/[0.05]",
+				current && "bg-foreground/[0.09] hover:bg-foreground/[0.09]",
+			)}
 		>
 			<SquareArrowOutUpRightIcon
 				role="img"
@@ -409,9 +413,9 @@ function Item({
 				<span className="min-w-0 flex-1 truncate text-sm">
 					{nameOf(conversation)}
 				</span>
-				{where && (
+				{where && whereOf(conversation) !== null && (
 					<span className="shrink-0 truncate text-muted-foreground text-xs">
-						{conversation.task ?? "main tree"}
+						{whereOf(conversation)}
 					</span>
 				)}
 			</button>
@@ -581,6 +585,7 @@ export function Conversations({
 		["changed"],
 	);
 	const shown = conversations.find((each) => each.id === open) ?? null;
+	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
 	// One for the page, so a draft Home leaves for a conversation it started
 	// reaches that conversation's composer.
 	const [drafts] = useState(() => new Drafts(localStorage));
@@ -612,6 +617,16 @@ export function Conversations({
 					onOpen={onOpen}
 					onBack={phone ? () => onOpen(null) : null}
 				/>
+			) : open?.startsWith(TASK) ? (
+				external === null ? (
+					<p className="text-muted-foreground text-sm">No such task.</p>
+				) : (
+					<TaskView
+						task={external}
+						need={need(external, null)}
+						onBack={phone ? () => onOpen(null) : null}
+					/>
+				)
 			) : shown === null ? (
 				<p className="text-muted-foreground text-sm">No such conversation.</p>
 			) : (
@@ -621,11 +636,7 @@ export function Conversations({
 					conversation={shown}
 					agent={agentName(agents, shown.agent)}
 					task={tasks.find((each) => each.task === shown.task) ?? null}
-					branch={
-						shown.task === null
-							? trunk
-							: (tasks.find((each) => each.task === shown.task)?.branch ?? null)
-					}
+					trunk={trunk}
 					onBack={phone ? () => onOpen(null) : null}
 				/>
 			)}
@@ -914,9 +925,11 @@ function Recent({
 			<span className="min-w-0 flex-1 truncate text-sm">
 				{nameOf(conversation)}
 			</span>
-			<span className="shrink-0 truncate text-muted-foreground text-xs">
-				{conversation.task ?? "main tree"}
-			</span>
+			{whereOf(conversation) !== null && (
+				<span className="shrink-0 truncate text-muted-foreground text-xs">
+					{whereOf(conversation)}
+				</span>
+			)}
 			<Mark need={need} />
 		</button>
 	);
@@ -980,20 +993,6 @@ function Queued({
 				})}
 			</ul>
 		</section>
-	);
-}
-
-/** Back to the list of conversations, where there is no sidebar. */
-function Back({ onBack }: { onBack: () => void }): JSX.Element {
-	return (
-		<Button
-			size="icon-sm"
-			variant="ghost"
-			aria-label="Back to conversations"
-			onClick={onBack}
-		>
-			<ChevronLeftIcon />
-		</Button>
 	);
 }
 
@@ -1133,7 +1132,7 @@ function Thread({
 	conversation,
 	agent,
 	task,
-	branch,
+	trunk,
 	onBack,
 }: {
 	/** What was typed and not sent, by conversation. */
@@ -1143,8 +1142,8 @@ function Thread({
 	agent: string;
 	/** The task it runs in; null in the main tree, or once the task is gone. */
 	task: Details | null;
-	/** The branch it works on; null once its task is gone. */
-	branch: string | null;
+	/** The main tree's branch. */
+	trunk: string;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
@@ -1272,6 +1271,21 @@ function Thread({
 			},
 		},
 	];
+	const [details, setDetails] = useState(false);
+	const needed = need(task, conversation);
+	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
+	// The latest panel of them the agent wrote, else the plan they are in.
+	const toQuestions = () => {
+		const panels = section.current?.querySelectorAll(
+			'[aria-label="questions"]',
+		);
+		const last = panels?.[panels.length - 1];
+		if (last === undefined) {
+			setDetails(true);
+		} else {
+			last.scrollIntoView({ block: "start", behavior: "smooth" });
+		}
+	};
 
 	return (
 		<section
@@ -1326,16 +1340,13 @@ function Thread({
 							{nameOf(conversation)}
 						</h2>
 					)}
-					{branch !== null && (
-						<p className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
-							<GitBranchIcon
-								role="img"
-								aria-label="branch"
-								className="size-3 shrink-0"
-							/>
-							<span className="truncate">{branch}</span>
-						</p>
-					)}
+					<TaskLine
+						branch={branch}
+						task={task}
+						need={needed}
+						onQuestions={toQuestions}
+						onDetails={() => setDetails(true)}
+					/>
 				</div>
 				{archived ? (
 					<Badge variant="secondary">archived</Badge>
@@ -1344,6 +1355,11 @@ function Thread({
 				)}
 				<OverviewButtons actions={actions} />
 			</header>
+			{task !== null && (
+				<Dialog open={details} onOpenChange={setDetails}>
+					{details && <Task task={task} />}
+				</Dialog>
+			)}
 			{conversation.error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{conversation.error}
