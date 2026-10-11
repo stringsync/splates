@@ -11,6 +11,7 @@ import {
 	type FileMessagePartComponent,
 	groupPartByType,
 	type ImageMessagePartComponent,
+	MessageByIndexProvider,
 	MessagePrimitive,
 	SuggestionPrimitive,
 	type TextMessagePartComponent,
@@ -48,6 +49,7 @@ import {
 	useContext,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -256,56 +258,51 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 				["--composer-padding" as string]: "8px",
 			}}
 		>
-			<div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-				<PinnedUserMessage viewport={viewport} />
-				<ThreadPrimitive.Viewport
-					ref={viewport}
-					turnAnchor="top"
-					data-slot="aui_thread-viewport"
-					className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll"
+			<ThreadPrimitive.Viewport
+				ref={viewport}
+				turnAnchor="top"
+				data-slot="aui_thread-viewport"
+				className="relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll"
+			>
+				<div
+					className={cn(
+						"mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4",
+						// A set distance down, not centered, so the welcome stays put
+						// as what sits below it grows.
+						isEmpty && "pt-[20dvh]",
+					)}
 				>
+					<AuiIf condition={isNewChatView}>{welcome ?? <Welcome />}</AuiIf>
+					<AuiIf condition={isHistoryLoadingView}>
+						<ThreadHistorySkeleton />
+					</AuiIf>
+
+					<ThreadLoadEarlier />
+
 					<div
+						data-slot="aui_message-group"
+						className="mb-14 flex flex-col gap-y-6 empty:hidden"
+					>
+						<ThreadTurns />
+					</div>
+
+					<ThreadPrimitive.ViewportFooter
 						className={cn(
-							"mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4",
-							// A set distance down, not centered, so the welcome stays put
-							// as what sits below it grows.
-							isEmpty && "pt-[20dvh]",
+							"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2",
+							!isEmpty &&
+								"sticky bottom-0 mt-auto rounded-t-(--composer-radius)",
 						)}
 					>
-						<AuiIf condition={isNewChatView}>{welcome ?? <Welcome />}</AuiIf>
-						<AuiIf condition={isHistoryLoadingView}>
-							<ThreadHistorySkeleton />
+						<ThreadScrollToBottom />
+						<ThreadFollowupSuggestions />
+						<ThreadAbove />
+						<Composer autoFocus={autoFocus} />
+						<AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
+							<ThreadSuggestions />
 						</AuiIf>
-
-						<ThreadLoadEarlier />
-
-						<div
-							data-slot="aui_message-group"
-							className="mb-14 flex flex-col gap-y-6 empty:hidden"
-						>
-							<ThreadPrimitive.Messages>
-								{() => <ThreadMessage />}
-							</ThreadPrimitive.Messages>
-						</div>
-
-						<ThreadPrimitive.ViewportFooter
-							className={cn(
-								"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2",
-								!isEmpty &&
-									"sticky bottom-0 mt-auto rounded-t-(--composer-radius)",
-							)}
-						>
-							<ThreadScrollToBottom />
-							<ThreadFollowupSuggestions />
-							<ThreadAbove />
-							<Composer autoFocus={autoFocus} />
-							<AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
-								<ThreadSuggestions />
-							</AuiIf>
-						</ThreadPrimitive.ViewportFooter>
-					</div>
-				</ThreadPrimitive.Viewport>
-			</div>
+					</ThreadPrimitive.ViewportFooter>
+				</div>
+			</ThreadPrimitive.Viewport>
 		</ThreadPrimitive.Root>
 	);
 };
@@ -419,6 +416,47 @@ function useAnchorAtOnce(viewport: RefObject<HTMLDivElement | null>): void {
 		};
 	}, [id, viewport]);
 }
+
+/**
+ * The thread's messages, a box for each turn: the person's message and every
+ * reply up to their next one. A turn's box is what holds its message stuck
+ * atop the thread while the reply is read, until the box scrolls out and the
+ * next turn's message pushes it along.
+ */
+const ThreadTurns: FC = () => {
+	const roster = useAuiState((s) =>
+		s.thread.messages.map((each) => `${each.role} ${each.id}`).join("\n"),
+	);
+	const turns = useMemo(() => {
+		const all: { id: string; index: number }[][] = [];
+		roster.split("\n").forEach((line, index) => {
+			if (line === "") {
+				return;
+			}
+			const [role, id = ""] = line.split(" ");
+			const last = all.at(-1);
+			if (role === "user" || last === undefined) {
+				all.push([{ id, index }]);
+			} else {
+				last.push({ id, index });
+			}
+		});
+		return all;
+	}, [roster]);
+	return turns.map((turn) => (
+		<div
+			key={turn[0]?.id}
+			data-slot="aui_turn"
+			className="flex flex-col gap-y-6"
+		>
+			{turn.map(({ id, index }) => (
+				<MessageByIndexProvider key={id} index={index}>
+					<ThreadMessage />
+				</MessageByIndexProvider>
+			))}
+		</div>
+	));
+};
 
 const ThreadMessage: FC = () => {
 	const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
@@ -982,9 +1020,19 @@ const UserMessage: FC = () => {
 	return (
 		<MessagePrimitive.Root
 			data-slot="aui_user-message-root"
-			// What `PinnedUserMessage` finds each turn's start by.
+			// What `useAnchorAtOnce` finds a new turn's start by.
 			data-message-id={id}
-			className="fade-in slide-in-from-bottom-1 animate-in flex flex-col gap-y-2 px-2 duration-150"
+			className={cn(
+				"fade-in slide-in-from-bottom-1 animate-in flex flex-col gap-y-2 px-2 duration-150",
+				// Stuck atop the thread for as long as its turn is in view. Opaque,
+				// so the reply cannot show past its rounded corners, then fading
+				// the reply out over the 2rem below it, which the margin and the
+				// gap keep clear while it is not stuck. The margin alone is what
+				// its turn holds it by, so the fade comes to the next message's
+				// top as that pushes it out.
+				"bg-background sticky top-0 z-10 mb-2 [container-type:scroll-state]",
+				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-linear-to-b after:from-background after:to-transparent",
+			)}
 			data-role="user"
 		>
 			<UserMessageAttachments />
@@ -1002,8 +1050,7 @@ const UserMessage: FC = () => {
 
 /**
  * What the person said, across the thread's full width like the reply: the
- * theme's muted fill, set apart from the page, and opaque so a reply passing
- * under a pinned one stays hidden.
+ * theme's muted fill, set apart from the page.
  */
 const USER_BOX =
 	"text-foreground bg-muted rounded-lg border border-foreground/15 px-4 py-2.5 wrap-break-word";
@@ -1019,10 +1066,8 @@ const Clamped: FC<
 	PropsWithChildren<{
 		/** Changes when the words do, to measure them again. */
 		watch: string;
-		/** Raised by a shadow, for the pinned copy the reply passes under. */
-		lifted?: boolean;
 	}>
-> = ({ watch, lifted = false, children }) => {
+> = ({ watch, children }) => {
 	const text = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
 	const [more, setMore] = useState(false);
@@ -1054,7 +1099,8 @@ const Clamped: FC<
 			className={cn(
 				"aui-user-message-content outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				USER_BOX,
-				lifted && "shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]",
+				// Raised by a shadow while its message is stuck atop the thread.
+				"[@container_scroll-state(stuck:top)]:shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]",
 				(more || open) && "cursor-pointer",
 			)}
 		>
@@ -1062,114 +1108,15 @@ const Clamped: FC<
 				ref={text}
 				className={cn(
 					!open && [CLAMP, "overflow-hidden"],
+					// Open, it still sticks atop the thread, so it scrolls past half
+					// the screen rather than hide the reply.
+					open && "max-h-[50dvh] overflow-y-auto",
 					!open &&
 						more &&
 						"[mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
 				)}
 			>
 				{children}
-			</div>
-		</div>
-	);
-};
-
-/** Room kept between the pinned message and the next one pushing it out. */
-const PUSH_GAP = 16;
-
-/**
- * The person's message for the turn being read, held atop the thread while
- * its reply scrolls under it. One at a time: the next turn's message pushes it
- * up and out as it arrives, then takes its place.
- */
-const PinnedUserMessage: FC<{ viewport: RefObject<HTMLDivElement | null> }> = ({
-	viewport,
-}) => {
-	const [pin, setPin] = useState<{ id: string; shift: number } | null>(null);
-	const band = useRef<HTMLDivElement>(null);
-	const replace = useRef<() => void>(() => {});
-	useEffect(() => {
-		const scroller = viewport.current;
-		if (scroller === null) {
-			return;
-		}
-		let frame = 0;
-		const place = () => {
-			frame = 0;
-			const top = scroller.getBoundingClientRect().top;
-			const starts = [
-				...scroller.querySelectorAll<HTMLElement>(
-					'[data-slot="aui_user-message-root"]',
-				),
-			];
-			// The last turn whose message has begun to scroll out of sight. Pinned
-			// where it leaves, the top, which is where a new turn is anchored, so
-			// the copy takes its place without a jump.
-			let at = -1;
-			starts.forEach((start, index) => {
-				if (start.getBoundingClientRect().top < top - 1) {
-					at = index;
-				}
-			});
-			const id = starts[at]?.dataset.messageId;
-			if (id === undefined) {
-				setPin(null);
-				return;
-			}
-			const next = starts[at + 1];
-			const height = band.current?.offsetHeight ?? 0;
-			const shift =
-				next === undefined
-					? 0
-					: Math.min(
-							0,
-							next.getBoundingClientRect().top - top - height - PUSH_GAP,
-						);
-			setPin((was) =>
-				was?.id === id && was.shift === shift ? was : { id, shift },
-			);
-		};
-		const soon = () => {
-			frame ||= requestAnimationFrame(place);
-		};
-		replace.current = place;
-		place();
-		scroller.addEventListener("scroll", soon, { passive: true });
-		const growing = new ResizeObserver(soon);
-		for (const child of scroller.children) {
-			growing.observe(child);
-		}
-		return () => {
-			cancelAnimationFrame(frame);
-			scroller.removeEventListener("scroll", soon);
-			growing.disconnect();
-		};
-	}, [viewport]);
-	// A new message pinned has its own height, which the push depends on.
-	useLayoutEffect(() => replace.current(), [pin?.id]);
-	const text = useAuiState((s) => {
-		const message = s.thread.messages.find((each) => each.id === pin?.id);
-		return (message?.content ?? [])
-			.map((part) => (part.type === "text" ? part.text : ""))
-			.join("");
-	});
-	if (pin === null) {
-		return null;
-	}
-	return (
-		<div
-			ref={band}
-			data-slot="aui_pinned-user-message"
-			className="pointer-events-none absolute inset-x-0 top-0 z-10"
-			style={{ transform: `translateY(${pin.shift}px)` }}
-		>
-			{/* Opaque but for its last 0.5rem, the box's corner radius, so the
-			    reply shows past the box's rounded foot rather than a square one. */}
-			<div className="pointer-events-auto mx-auto w-full max-w-(--thread-max-width) bg-[linear-gradient(var(--color-background)_calc(100%-0.5rem),transparent_calc(100%-0.5rem))] px-4">
-				<div className="px-2">
-					<Clamped key={pin.id} watch={pin.id} lifted>
-						<p className="whitespace-pre-wrap">{text}</p>
-					</Clamped>
-				</div>
 			</div>
 		</div>
 	);
