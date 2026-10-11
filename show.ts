@@ -18,6 +18,8 @@ export interface Details {
 	removed: number | null;
 	age: string | null;
 	escalation: string | null;
+	/** While escalated, when it was; null otherwise. */
+	escalatedAt: string | null;
 	/**
 	 * While escalated to be approved, what to look at before approving; null
 	 * otherwise.
@@ -106,6 +108,7 @@ export class TaskDetails {
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
 			escalation: last?.reason ?? null,
+			escalatedAt: state?.status === "escalated" ? (last?.at ?? null) : null,
 			review,
 			ready: ready(unfinished(plan ?? "")),
 			plan,

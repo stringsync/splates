@@ -91,6 +91,21 @@ describe("show", () => {
 		expect(details.planProblems.join("\n")).not.toContain("## Blocked");
 	});
 
+	it("says when a task escalated, only while it is", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		deps.log.clear();
+		await show(deps, "alpha", { json: true });
+		expect(JSON.parse(deps.out()).escalatedAt).toBeNull();
+
+		await escalate(deps, "needs a human", alpha);
+		deps.log.clear();
+		await show(deps, "alpha", { json: true });
+
+		const { escalatedAt } = JSON.parse(deps.out());
+		expect(Date.parse(escalatedAt)).toBeGreaterThan(Date.now() - 60_000);
+	});
+
 	it("refuses a task that was never created", async () => {
 		await expect(show(deps, "ghost")).toBail("not_found");
 	});

@@ -110,8 +110,11 @@ export interface Field {
 		| null;
 }
 
-/** What the agent is waiting on the person for. */
-export type Ask =
+/** What the agent is waiting on the person for, since `at`. */
+export type Ask = Asked & { at: string };
+
+/** What the agent asks, before it is stamped with when. */
+type Asked =
 	| {
 			type: "permission";
 			id: string;
@@ -596,11 +599,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 
 	/** Holds `ask` until the person answers it, or the turn is cancelled. */
-	private ask(ask: Ask): Promise<Answer> {
+	private ask(asked: Asked): Promise<Answer> {
 		this.settle?.({ type: "dismiss" });
 		return new Promise((resolve) => {
 			this.settle = resolve;
-			this.set({ ask });
+			this.set({ ask: { ...asked, at: new Date().toISOString() } });
 		});
 	}
 

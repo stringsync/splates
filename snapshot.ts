@@ -82,6 +82,7 @@ export function fingerprint({
 			task.added,
 			task.removed,
 			task.escalation,
+			task.escalatedAt,
 			task.review,
 			task.plan,
 			task.planProblems,

@@ -252,6 +252,7 @@ describe("App's conversations", () => {
 					ask: {
 						type: "permission",
 						id: "t1",
+						at: "2026-10-11T10:00:00.000Z",
 						title: "rm -rf build",
 						options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
 					},
@@ -686,6 +687,7 @@ describe("App's conversations", () => {
 				ask: {
 					type: "question",
 					id: "q1",
+					at: "2026-10-11T10:00:00.000Z",
 					message: "Which note?",
 					fields: [
 						{ key: "note", title: "Note", description: null, choices: null },
@@ -718,6 +720,7 @@ describe("App's conversations", () => {
 				ask: {
 					type: "permission",
 					id: "t1",
+					at: "2026-10-11T10:00:00.000Z",
 					title: "rm -rf build",
 					options: [
 						{ id: "yes", name: "Allow", kind: "allow_once" },
@@ -744,6 +747,7 @@ describe("App's conversations", () => {
 				ask: {
 					type: "question",
 					id: "q1",
+					at: "2026-10-11T10:00:00.000Z",
 					message: "Uppercase the note?",
 					fields: [
 						{

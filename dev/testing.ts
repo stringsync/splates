@@ -202,6 +202,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		removed: 1,
 		age: "3m",
 		escalation: null,
+		escalatedAt: null,
 		review: null,
 		ready: true,
 		plan: null,

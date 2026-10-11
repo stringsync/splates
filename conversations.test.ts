@@ -195,6 +195,7 @@ describe("Conversations", () => {
 		expect(conversation.state.ask).toEqual({
 			type: "permission",
 			id: "t1",
+			at: expect.any(String),
 			title: "rm -rf build",
 			options: [
 				{ id: "yes", name: "Allow", kind: "allow_once" },
