@@ -1246,7 +1246,7 @@ function imagesOf(message: AppendMessage): File[] {
 
 /**
  * `runtime`'s composer as the question cards write to it: its text, kept
- * current as it is typed in, and the textarea in `within` to focus; what it
+ * current as it is typed in, and its textarea in `within` to focus; what it
  * sends goes to conversation `id`.
  */
 function useReply(
@@ -1265,7 +1265,11 @@ function useReply(
 			text,
 			write: (next: string) => composer.setText(next),
 			focus: () => {
-				const box = within.current?.querySelector("textarea");
+				// The composer's own, not the first in the thread: a card's box
+				// would take the focus and scroll the thread to it.
+				const box = within.current?.querySelector<HTMLTextAreaElement>(
+					'textarea[aria-label="Message input"]',
+				);
 				box?.focus();
 				box?.setSelectionRange(box.value.length, box.value.length);
 			},

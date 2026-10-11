@@ -390,12 +390,24 @@ export function ReviewPanel({ review }: { review: Review }): JSX.Element {
 							merging && "bg-success text-white hover:bg-success/90",
 						)}
 					>
-						{merging ? (
-							<CheckIcon strokeWidth={3} data-icon="inline-start" />
-						) : (
-							<GitMergeIcon data-icon="inline-start" />
-						)}
-						{merging ? "Merge on send" : "Merge"}
+						{/* Both labels hold their place, so the button is as wide either
+						    way and the box beside it does not shift when it is pressed. */}
+						<span className="grid *:col-start-1 *:row-start-1 *:flex *:items-center *:justify-center *:gap-1.5">
+							<span
+								aria-hidden={merging}
+								className={cn(merging && "invisible")}
+							>
+								<GitMergeIcon data-icon="inline-start" />
+								Merge
+							</span>
+							<span
+								aria-hidden={!merging}
+								className={cn(!merging && "invisible")}
+							>
+								<CheckIcon strokeWidth={3} data-icon="inline-start" />
+								Merge on send
+							</span>
+						</span>
 					</Button>
 				</footer>
 			)}

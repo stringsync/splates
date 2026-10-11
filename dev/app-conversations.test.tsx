@@ -1196,6 +1196,26 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
 		});
 
+		it("leaves the changes box as it was when Merge is pressed, putting the caret in the composer", async () => {
+			const view = await conversations([reviewing]);
+			const panel = await waitFor(() =>
+				view.getByRole("region", { name: "review header" }),
+			);
+			const changes = within(panel).getByRole("textbox", {
+				name: "Changes to header",
+			}) as HTMLTextAreaElement;
+
+			await act(async () =>
+				fireEvent.click(within(panel).getByRole("button", { name: "Merge" })),
+			);
+
+			expect(document.activeElement).toBe(box(view));
+			expect(changes.value).toBe("");
+			expect(
+				within(panel).getByRole("button", { name: "Merge on send" }),
+			).toBeTruthy();
+		});
+
 		it("keeps merge typed into the changes box, so a change can start with it", async () => {
 			const view = await conversations([reviewing]);
 			const panel = await waitFor(() =>
