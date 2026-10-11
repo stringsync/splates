@@ -131,6 +131,25 @@ describe("need", () => {
 		).toMatchObject({ why: "escalated", subject: "needs staging access" });
 	});
 
+	it("stops waiting on an escalation once a reply starts the agent's turn", () => {
+		const escalated = task({
+			plan: PLAN,
+			status: "escalated",
+			escalation: "eyes",
+		});
+
+		expect(need(escalated, talk())).toMatchObject({
+			kind: "assuming",
+			subject: "Does the header wrap?",
+		});
+		expect(need(escalated, talk({ status: "starting" }))).toMatchObject({
+			kind: "assuming",
+		});
+		expect(
+			need(task({ status: "escalated", review: "look", ready: true }), talk()),
+		).toEqual({ kind: "working", subject: null });
+	});
+
 	it("assumes while the agent runs on open questions, and waits once its turn ends on them", () => {
 		const assuming = need(task({ plan: PLAN }), talk());
 

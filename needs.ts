@@ -112,7 +112,10 @@ export function need(
 			ask.at,
 		);
 	}
-	if (task?.status === "escalated") {
+	// A reply starts the agent's turn before it claims the task back.
+	const replied =
+		conversation?.status === "running" || conversation?.status === "starting";
+	if (task?.status === "escalated" && !replied) {
 		if (task.review !== null) {
 			return waiting("review", task.review, task.escalatedAt);
 		}
