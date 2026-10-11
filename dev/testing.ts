@@ -268,6 +268,7 @@ export function conversation(
 		ask: null,
 		settings: [],
 		createdAt: new Date().toISOString(),
+		checkpoint: null,
 		...overrides,
 	};
 }

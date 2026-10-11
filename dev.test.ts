@@ -938,10 +938,22 @@ describe("dev", () => {
 				}
 
 				expect(await release()).toEqual([
-					{ project: "repo", id, name: "fake", status: "running" },
+					{
+						project: "repo",
+						id,
+						name: "fake",
+						status: "running",
+						checkpoint: null,
+					},
 				]);
 				finish();
-				const idle = { project: "repo", id, name: "fake", status: "idle" };
+				const idle = {
+					project: "repo",
+					id,
+					name: "fake",
+					status: "idle",
+					checkpoint: null,
+				};
 				for (
 					let i = 0;
 					i < 100 && JSON.stringify(await release()) !== JSON.stringify([idle]);
@@ -956,6 +968,137 @@ describe("dev", () => {
 				expect(await release()).toEqual([]);
 			} finally {
 				finish();
+				await server.disposeAsync();
+			}
+		});
+
+		it("checkpoints every live one, saying how each is getting on", async () => {
+			const said: string[] = [];
+			agent.turn = async (_, __, text) => {
+				said.push(text);
+				return "end_turn";
+			};
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+
+				const response = await json(port, "/api/release/checkpoint", "POST");
+
+				expect(response.status).toBe(200);
+				for (
+					let i = 0;
+					i < 100 && conversation.state.checkpoint !== "done";
+					i++
+				) {
+					await Bun.sleep(5);
+				}
+				expect(said).toEqual(["[ARBOR CHECKPOINT]"]);
+				expect(
+					(
+						(await (
+							await fetch(`http://localhost:${port}/api/release`)
+						).json()) as { interrupted: unknown[] }
+					).interrupted,
+				).toEqual([
+					{
+						project: "repo",
+						id,
+						name: "fake",
+						status: "idle",
+						checkpoint: "done",
+					},
+				]);
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("checkpoints this project's live ones from the conversations route", async () => {
+			const said: string[] = [];
+			agent.turn = async (_, __, text) => {
+				said.push(text);
+				return "end_turn";
+			};
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+
+				const response = await json(
+					port,
+					"/api/conversations/checkpoint",
+					"POST",
+				);
+
+				expect(response.status).toBe(200);
+				for (
+					let i = 0;
+					i < 100 && conversation.state.checkpoint !== "done";
+					i++
+				) {
+					await Bun.sleep(5);
+				}
+				expect(said).toEqual(["[ARBOR CHECKPOINT]"]);
+				await json(port, "/api/conversations/checkpoint", "DELETE");
+				expect(conversation.state.checkpoint).toBeNull();
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("asks no one again while a checkpoint is under way", async () => {
+			const said: string[] = [];
+			agent.turn = (_, __, text) => {
+				said.push(text);
+				return new Promise(() => {});
+			};
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+
+				await json(port, "/api/conversations/checkpoint", "POST");
+				for (let i = 0; i < 100 && said.length === 0; i++) {
+					await Bun.sleep(5);
+				}
+				await json(port, "/api/conversations/checkpoint", "POST");
+				await Bun.sleep(20);
+
+				expect(agent.cancelled).toBe(0);
+				expect(said).toEqual(["[ARBOR CHECKPOINT]"]);
+				expect(conversation.state.checkpoint).toBe("asked");
+			} finally {
 				await server.disposeAsync();
 			}
 		});

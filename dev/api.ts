@@ -5,7 +5,12 @@
  * caller can show it.
  */
 
-import type { Answer, ConversationState, Image } from "../conversations";
+import type {
+	Answer,
+	Checkpoint,
+	ConversationState,
+	Image,
+} from "../conversations";
 import type { FileDiff } from "../diff";
 
 export class ApiError extends Error {
@@ -257,6 +262,19 @@ export async function answerConversation(
 	await sendJson(`/api/conversations/${id}/answer`, "POST", { ask, answer });
 }
 
+/**
+ * Asks every live conversation in this project to bring its `ARBOR.md` up to
+ * date and stop, each saying how it gets on in its `checkpoint`.
+ */
+export async function checkpointConversations(): Promise<void> {
+	await send("/api/conversations/checkpoint", {});
+}
+
+/** Forgets this project's checkpoint, so the next one starts afresh. */
+export async function dismissCheckpoint(): Promise<void> {
+	await send("/api/conversations/checkpoint", { method: "DELETE" });
+}
+
 /** Stops the agent's turn in conversation `id`, keeping the conversation. */
 export async function cancelConversation(id: string): Promise<void> {
 	await send(`/api/conversations/${id}/cancel`, {});
@@ -365,6 +383,8 @@ export interface Interrupted {
 	id: string;
 	name: string;
 	status: string;
+	/** Where its checkpoint stands; null when none was asked for. */
+	checkpoint: Checkpoint | null;
 }
 
 /** What a restart would bring, and what it would stop right now. */
@@ -381,4 +401,12 @@ export async function showRelease(): Promise<ReleaseState> {
 		throw new ApiError("error", `/api/release: ${response.status}`);
 	}
 	return (await response.json()) as ReleaseState;
+}
+
+/**
+ * Asks every live conversation, in every project, to bring its `ARBOR.md` up
+ * to date and stop, for `showRelease` to say how each is getting on.
+ */
+export async function checkpointAll(): Promise<void> {
+	await send("/api/release/checkpoint", {});
 }

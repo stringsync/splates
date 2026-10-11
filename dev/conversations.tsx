@@ -12,6 +12,7 @@ import { useReactive } from "@webappwiz/react";
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
+	BookmarkCheckIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	EllipsisVerticalIcon,
@@ -56,6 +57,14 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
+	Popover,
+	PopoverContent,
+	PopoverDescription,
+	PopoverHeader,
+	PopoverTitle,
+	PopoverTrigger,
+} from "#dev/components/ui/popover.tsx";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -68,6 +77,7 @@ import { type Ending, stretches } from "../asked";
 import type {
 	Answer,
 	Ask,
+	Checkpoint,
 	ConversationState,
 	Image,
 	Message,
@@ -83,8 +93,10 @@ import {
 	answerConversation,
 	archiveConversation,
 	cancelConversation,
+	checkpointConversations,
 	chooseSetting,
 	conversationImage,
+	dismissCheckpoint,
 	paths,
 	promptConversation,
 	renameConversation,
@@ -107,6 +119,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import { CheckpointState } from "./release";
 import {
 	ArchiveContext,
 	ENDINGS,
@@ -212,6 +225,131 @@ function openingOf(conversation: ConversationState): string | null {
 		}
 	}
 	return null;
+}
+
+/** Whether a conversation has an agent running, which a checkpoint asks. */
+function live({ status }: ConversationState): boolean {
+	return status === "starting" || status === "idle" || status === "running";
+}
+
+/**
+ * Asks every live conversation here to bring its ARBOR.md up to date and
+ * stop, whenever the person likes, and opens on how each gets on. A click
+ * while one is under way only opens it; the next starts once every agent has
+ * answered or run out of time, or the person dismisses it. Shown while one is
+ * live, or one has been asked.
+ */
+function CheckpointAll({
+	conversations,
+	onOpen,
+}: {
+	conversations: ConversationState[];
+	onOpen: (id: string) => void;
+}): JSX.Element | null {
+	const [open, setOpen] = useState(false);
+	const asked = conversations.filter((each) => each.checkpoint !== null);
+	if (!conversations.some(live) && asked.length === 0) {
+		return null;
+	}
+	const count = (checkpoint: Checkpoint) =>
+		asked.filter((each) => each.checkpoint === checkpoint).length;
+	const done = count("done");
+	const going = count("asked");
+	const missed = asked.filter(
+		(each) => each.checkpoint === "failed" || each.checkpoint === "unanswered",
+	);
+	const says =
+		going > 0
+			? `Checkpointing ${asked.length - going} of ${asked.length}`
+			: asked.length === 0
+				? "Checkpoint all"
+				: missed.length === 0
+					? `Checkpointed ${done}`
+					: `Checkpointed ${done}, ${missed.length} not`;
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger
+				render={
+					<button
+						type="button"
+						data-row
+						title={
+							missed.length > 0
+								? `Not checkpointed: ${missed.map(nameOf).join(", ")}`
+								: "Ask every live agent to bring its ARBOR.md up to date and stop"
+						}
+						className={cn(
+							"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
+							missed.length > 0 && going === 0 && "text-destructive",
+						)}
+					/>
+				}
+				onClick={() => {
+					// One under way stands: the click only shows it.
+					if (going === 0) {
+						checkpointConversations().catch((error: unknown) =>
+							refused("Not checkpointed", error),
+						);
+					}
+				}}
+			>
+				{going > 0 ? (
+					<Loader2Icon className="size-3.5 animate-spin" />
+				) : asked.length > 0 && missed.length === 0 ? (
+					<CheckIcon className="size-3.5 text-success" />
+				) : (
+					<BookmarkCheckIcon className="size-3.5" />
+				)}
+				<span className="flex-1">{says}</span>
+			</PopoverTrigger>
+			<PopoverContent align="start" className="w-72">
+				<PopoverHeader>
+					<PopoverTitle>Checkpoint</PopoverTitle>
+					<PopoverDescription>
+						Each agent brings its ARBOR.md up to date and stops.
+					</PopoverDescription>
+				</PopoverHeader>
+				{asked.length === 0 ? (
+					<span className="text-muted-foreground text-xs">Asking…</span>
+				) : (
+					<ul className="flex flex-col">
+						{asked.map((each) => (
+							<li key={each.id}>
+								<button
+									type="button"
+									onClick={() => {
+										setOpen(false);
+										onOpen(each.id);
+									}}
+									className="flex w-full items-baseline gap-2 rounded-md px-1.5 py-1 text-left hover:bg-muted"
+								>
+									<span className="min-w-0 flex-1 truncate">
+										{nameOf(each)}
+									</span>
+									{each.checkpoint !== null && (
+										<CheckpointState checkpoint={each.checkpoint} />
+									)}
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
+				<Button
+					size="xs"
+					variant="outline"
+					className="self-end"
+					onClick={() =>
+						dismissCheckpoint().then(
+							() => setOpen(false),
+							(error: unknown) => refused("Not dismissed", error),
+						)
+					}
+				>
+					Dismiss
+				</Button>
+			</PopoverContent>
+		</Popover>
+	);
 }
 
 /**
@@ -351,6 +489,7 @@ export function ConversationList({
 					))}
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<CheckpointAll conversations={listed} onOpen={onOpen} />
 			<ul aria-label="conversation list" className="flex flex-col">
 				{rows.map((row) =>
 					row.conversation !== null ? (

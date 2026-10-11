@@ -1,5 +1,6 @@
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { type JSX, useState } from "react";
+import { CheckIcon, CopyIcon, Loader2Icon } from "lucide-react";
+import { type JSX, useCallback, useEffect, useState } from "react";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Popover,
@@ -9,8 +10,10 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
+import { cn } from "#dev/lib/utils.ts";
+import type { Checkpoint } from "../conversations";
 import type { Release } from "../release";
-import { type Interrupted, showRelease } from "./api";
+import { checkpointAll, type Interrupted, showRelease } from "./api";
 import { useCopy } from "./card";
 
 /** What restarts `arbor dev` on the newest arbor. */
@@ -23,17 +26,39 @@ export const RESTART = "bunx @webappwiz/arbor@latest dev";
 export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 	// Null until the hint has asked: a list shown before then would say none.
 	const [interrupted, setInterrupted] = useState<Interrupted[] | null>(null);
+	const [open, setOpen] = useState(false);
+	const [refused, setRefused] = useState<string | null>(null);
 	const { copied, copy } = useCopy();
+	const refresh = useCallback(
+		() =>
+			showRelease().then(
+				(state) => setInterrupted(state.interrupted),
+				// The hint still says how to restart; only the list is missing.
+				() => setInterrupted((shown) => shown ?? []),
+			),
+		[],
+	);
+	const checkpointing =
+		interrupted?.some((each) => each.checkpoint === "asked") ?? false;
+	// Asked again while agents checkpoint, for each to show when it is done.
+	useEffect(() => {
+		if (!open || !checkpointing) {
+			return;
+		}
+		const tick = new SystemTimer().setInterval(
+			() => void refresh(),
+			Duration.secs(1),
+		);
+		return () => tick.dispose();
+	}, [open, checkpointing, refresh]);
 	return (
 		<Popover
-			onOpenChange={(open) => {
-				if (open) {
+			onOpenChange={(opened) => {
+				setOpen(opened);
+				if (opened) {
 					setInterrupted(null);
-					showRelease().then(
-						(state) => setInterrupted(state.interrupted),
-						// The hint still says how to restart; only the list is missing.
-						() => setInterrupted([]),
-					);
+					setRefused(null);
+					void refresh();
 				}
 			}}
 		>
@@ -53,9 +78,57 @@ export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 					<PopoverTitle>arbor {release.newest} is out</PopoverTitle>
 					<PopoverDescription>
 						This page runs {release.running}. Checkpoint every conversation, so
-						each agent's ARBOR.md says where it stands, then restart:
+						each agent's ARBOR.md says where it stands, then restart.
 					</PopoverDescription>
 				</PopoverHeader>
+				{interrupted !== null && interrupted.length > 0 && (
+					<div className="flex flex-col gap-1">
+						<div className="flex items-center gap-2">
+							<span className="flex-1 text-muted-foreground text-xs">
+								A restart now stops:
+							</span>
+							<Button
+								size="xs"
+								variant="outline"
+								disabled={checkpointing}
+								onClick={() => {
+									setRefused(null);
+									checkpointAll().then(refresh, (error: Error) =>
+										setRefused(error.message),
+									);
+								}}
+							>
+								{checkpointing ? "Checkpointing" : "Checkpoint all"}
+							</Button>
+						</div>
+						{refused !== null && (
+							<span className="text-destructive text-xs">{refused}</span>
+						)}
+						<ul className="flex flex-col">
+							{interrupted.map((each) => (
+								<li key={each.id}>
+									<a
+										href={`/?project=${encodeURIComponent(each.project)}#conversations/${each.id}`}
+										className="flex items-baseline gap-2 rounded-md px-1.5 py-1 hover:bg-muted"
+									>
+										<span className="min-w-0 flex-1 truncate">{each.name}</span>
+										{each.checkpoint !== null && (
+											<CheckpointState checkpoint={each.checkpoint} />
+										)}
+										<span className="shrink-0 text-muted-foreground text-xs">
+											{each.project}
+										</span>
+									</a>
+								</li>
+							))}
+						</ul>
+					</div>
+				)}
+				{interrupted !== null && interrupted.length === 0 && (
+					<span className="text-muted-foreground text-xs">
+						No conversation is live.
+					</span>
+				)}
 				<div className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2">
 					<code className="min-w-0 flex-1 truncate font-mono text-xs">
 						{RESTART}
@@ -76,34 +149,40 @@ export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 						{copied.state === "copied" ? <CheckIcon /> : <CopyIcon />}
 					</Button>
 				</div>
-				{interrupted !== null && interrupted.length > 0 && (
-					<div className="flex flex-col gap-1">
-						<span className="text-muted-foreground text-xs">
-							A restart now stops:
-						</span>
-						<ul className="flex flex-col">
-							{interrupted.map((each) => (
-								<li key={each.id}>
-									<a
-										href={`/?project=${encodeURIComponent(each.project)}#conversations/${each.id}`}
-										className="flex items-baseline gap-2 rounded-md px-1.5 py-1 hover:bg-muted"
-									>
-										<span className="min-w-0 flex-1 truncate">{each.name}</span>
-										<span className="shrink-0 text-muted-foreground text-xs">
-											{each.project}
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					</div>
-				)}
-				{interrupted !== null && interrupted.length === 0 && (
-					<span className="text-muted-foreground text-xs">
-						No conversation is live.
-					</span>
-				)}
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+const SAYS: Record<Checkpoint, string> = {
+	asked: "Checkpointing",
+	done: "Checkpointed",
+	failed: "Failed",
+	unanswered: "No response",
+};
+
+/** How far one conversation's checkpoint has got. */
+export function CheckpointState({
+	checkpoint,
+}: {
+	checkpoint: Checkpoint;
+}): JSX.Element {
+	return (
+		<span
+			className={cn(
+				"flex shrink-0 items-center gap-1 self-center text-xs",
+				checkpoint === "done"
+					? "text-success"
+					: checkpoint === "asked"
+						? "text-muted-foreground"
+						: "text-destructive",
+			)}
+		>
+			{checkpoint === "asked" && (
+				<Loader2Icon className="size-3 animate-spin" />
+			)}
+			{checkpoint === "done" && <CheckIcon className="size-3" />}
+			{SAYS[checkpoint]}
+		</span>
 	);
 }

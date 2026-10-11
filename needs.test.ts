@@ -61,6 +61,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		settings: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
+		checkpoint: null,
 		...overrides,
 	};
 }

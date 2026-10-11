@@ -57,7 +57,13 @@ describe("App's feed", () => {
 			release: { running: "0.0.43", newest: "0.0.44" },
 		});
 		testing.interrupted = [
-			{ project: "shop", id: "c1", name: "Fix checkout", status: "running" },
+			{
+				project: "shop",
+				id: "c1",
+				name: "Fix checkout",
+				status: "running",
+				checkpoint: null,
+			},
 		];
 		await act(async () => testing.stream?.onmessage?.());
 		const badge = await waitFor(() => view.getByText("Update"));
@@ -69,6 +75,34 @@ describe("App's feed", () => {
 		expect(
 			view.getByText("Fix checkout").closest("a")?.getAttribute("href"),
 		).toBe("/?project=shop#conversations/c1");
+	});
+
+	it("checkpoints every live conversation, showing how each is getting on", async () => {
+		const view = await testing.open();
+		testing.served = snapshot({
+			release: { running: "0.0.43", newest: "0.0.44" },
+		});
+		const live = {
+			project: "shop",
+			id: "c1",
+			name: "Fix checkout",
+			status: "running",
+			checkpoint: null,
+		};
+		testing.interrupted = [live];
+		await act(async () => testing.stream?.onmessage?.());
+		await act(async () =>
+			(await waitFor(() => view.getByText("Update"))).click(),
+		);
+		const button = await waitFor(() => view.getByText("Checkpoint all"));
+
+		testing.interrupted = [{ ...live, checkpoint: "done" }];
+		await act(async () => button.click());
+
+		await waitFor(() => expect(view.getByText("Checkpointed")).toBeTruthy());
+		expect(testing.posts.map((each) => each.path)).toContain(
+			"/api/release/checkpoint",
+		);
 	});
 
 	it("grays out the tab's icon while offline, and brings it back", async () => {

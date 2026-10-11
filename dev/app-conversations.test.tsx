@@ -320,6 +320,85 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("checkpoints every live conversation from the list, only while one is live", async () => {
+		const view = await conversations(
+			[
+				conversation({ id: "c1", title: "Fix login", status: "running" }),
+				conversation({ id: "c2", title: "Old one", status: "stopped" }),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(nav).getByRole("button", { name: "Checkpoint all" }),
+			),
+		);
+
+		expect(posted("/api/conversations/checkpoint")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+		cleanup();
+		const stopped = await conversations(
+			[conversation({ id: "c2", title: "Old one", status: "stopped" })],
+			null,
+		);
+		expect(stopped.queryByRole("button", { name: /Checkpoint/ })).toBeNull();
+	});
+
+	it("opens the checkpoint under way rather than starting another, until dismissed", async () => {
+		const view = await conversations(
+			[
+				conversation({
+					id: "c1",
+					title: "One",
+					status: "stopped",
+					checkpoint: "done",
+				}),
+				conversation({ id: "c2", title: "Two", checkpoint: "asked" }),
+				conversation({ id: "c3", title: "Three", checkpoint: "unanswered" }),
+			],
+			null,
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Checkpointing 2 of 3" }),
+			),
+		);
+
+		expect(posted("/api/conversations/checkpoint")).toEqual([]);
+		const shown = await waitFor(() => view.getByRole("dialog"));
+		expect(within(shown).getByText("Checkpointed")).toBeTruthy();
+		expect(within(shown).getByText("Checkpointing")).toBeTruthy();
+		expect(within(shown).getByText("No response")).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(within(shown).getByRole("button", { name: "Dismiss" })),
+		);
+		expect(posted("/api/conversations/checkpoint")).toEqual([
+			{ method: "DELETE", body: {} },
+		]);
+	});
+
+	it("starts a new checkpoint once the last one has ended, naming those it missed", async () => {
+		const view = await conversations(
+			[
+				conversation({ id: "c1", title: "One", checkpoint: "done" }),
+				conversation({ id: "c2", title: "Two", checkpoint: "unanswered" }),
+			],
+			null,
+		);
+		const row = view.getByRole("button", { name: "Checkpointed 1, 1 not" });
+		expect(row.title).toBe("Not checkpointed: Two");
+
+		await act(async () => fireEvent.click(row));
+
+		expect(posted("/api/conversations/checkpoint")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+	});
+
 	it("renames a conversation from its menu", async () => {
 		const view = await conversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],

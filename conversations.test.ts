@@ -5,6 +5,7 @@ import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
+	CHECKPOINT,
 	type Conversation,
 	type ConversationState,
 	Conversations,
@@ -320,6 +321,123 @@ describe("Conversations", () => {
 			}
 			expect(said).toEqual(["one", "two\n\nthree"]);
 			await finish(conversation);
+		});
+
+		describe("checkpoint", () => {
+			it("cancels the turn and says the checkpoint alone, leaving what waited queued", async () => {
+				const conversation = await working();
+				await conversation.prompt("two");
+
+				const asking = conversation.checkpoint(false);
+				for (let i = 0; i < 100 && agent.cancelled === 0; i++) {
+					await Bun.sleep(1);
+				}
+				expect(conversation.state.checkpoint).toBe("asked");
+				held.finish?.("cancelled");
+				await asking;
+
+				expect(conversation.state.checkpoint).toBe("asked");
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(1);
+				}
+				expect(said).toEqual(["one", CHECKPOINT]);
+				await finish(conversation);
+				expect(conversation.state.checkpoint).toBe("done");
+				expect(thread(conversation)).toEqual([
+					["one", false],
+					["two", true],
+					[CHECKPOINT, false],
+				]);
+			});
+
+			it("forgets a finished checkpoint once the person says more", async () => {
+				const conversation = await started();
+				await conversation.checkpoint(false);
+				for (let i = 0; i < 100 && held.finish === undefined; i++) {
+					await Bun.sleep(1);
+				}
+				await finish(conversation);
+				expect(conversation.state.checkpoint).toBe("done");
+
+				await conversation.prompt("carry on");
+
+				expect(conversation.state.checkpoint).toBeNull();
+				for (let i = 0; i < 100 && held.finish === undefined; i++) {
+					await Bun.sleep(1);
+				}
+				await finish(conversation);
+			});
+
+			it("forgets a checkpoint dismissed before the agent answers", async () => {
+				const conversation = await started();
+				await conversation.checkpoint(false);
+
+				conversation.dismissCheckpoint();
+				timer.fireTimeouts();
+
+				expect(conversation.state.checkpoint).toBeNull();
+				for (let i = 0; i < 100 && held.finish === undefined; i++) {
+					await Bun.sleep(1);
+				}
+				await finish(conversation);
+				expect(conversation.state.checkpoint).toBeNull();
+			});
+
+			it("lets a merging turn finish, then checkpoints after it", async () => {
+				const conversation = await working();
+
+				await conversation.checkpoint(true);
+
+				expect(agent.cancelled).toBe(0);
+				expect(conversation.state.checkpoint).toBe("asked");
+				held.finish?.("end_turn");
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(1);
+				}
+				expect(said).toEqual(["one", CHECKPOINT]);
+				expect(conversation.state.checkpoint).toBe("asked");
+				await finish(conversation);
+				expect(conversation.state.checkpoint).toBe("done");
+			});
+
+			it("gives up on an agent that does not answer in time", async () => {
+				const conversation = await started();
+
+				await conversation.checkpoint(false);
+				timer.fireTimeouts();
+
+				expect(conversation.state.checkpoint).toBe("unanswered");
+				for (let i = 0; i < 100 && held.finish === undefined; i++) {
+					await Bun.sleep(1);
+				}
+				await finish(conversation);
+				expect(conversation.state.checkpoint).toBe("unanswered");
+			});
+
+			it("gives up on an agent that does not stop its turn", async () => {
+				const conversation = await working();
+
+				const asking = conversation.checkpoint(false);
+				for (let i = 0; i < 100 && agent.cancelled === 0; i++) {
+					await Bun.sleep(1);
+				}
+				timer.fireTimeouts();
+				await asking;
+
+				expect(conversation.state.checkpoint).toBe("unanswered");
+				expect(said).toEqual(["one"]);
+				await finish(conversation);
+			});
+
+			it("fails when the agent dies before it answers", async () => {
+				const conversation = await started();
+
+				await conversation.checkpoint(false);
+				agent.crash();
+				await until(conversation, "failed");
+
+				expect(conversation.state.checkpoint).toBe("failed");
+			});
 		});
 
 		it("takes back a queued message, answering with its words", async () => {
@@ -846,6 +964,7 @@ describe("fold", () => {
 		settings: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
+		checkpoint: null,
 	});
 	const at = (secs: number) =>
 		new Date(Date.parse("2026-10-11T10:00:00Z") + secs * 1000).toISOString();

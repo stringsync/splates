@@ -15,7 +15,7 @@ import {
 import { Debouncer, Duration, SystemTimer, Throttler } from "webappwiz/time";
 import { z } from "zod";
 import type { Attachment } from "./attachments";
-import type { Answer, Conversations } from "./conversations";
+import type { Answer, Checkpoint, Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
@@ -556,6 +556,31 @@ export async function dev(
 			return conversations;
 		};
 
+		/**
+		 * Asks every live conversation for a checkpoint, without waiting on the
+		 * agents: one whose task is merging gets to finish the merge first.
+		 * While one is still asked, the checkpoint under way stands, and nothing
+		 * is asked again.
+		 */
+		const checkpoint = async (): Promise<void> => {
+			const all = (await conversations?.list()) ?? [];
+			if (all.some((each) => each.state.checkpoint === "asked")) {
+				return;
+			}
+			for (const conversation of all) {
+				// What the last one said goes, so this one lists only its own.
+				conversation.dismissCheckpoint();
+				const { task, status } = conversation.state;
+				if (status === "stopped" || status === "failed") {
+					continue;
+				}
+				const worktree = task === null ? null : await service.find(task);
+				void conversation
+					.checkpoint(worktree?.status === "merging")
+					.catch(() => {});
+			}
+		};
+
 		/** The conversation a `/api/conversations/<id>` path names. */
 		const conversationAt = (request: Request) =>
 			held().find(new URL(request.url).pathname.split("/")[3] ?? "");
@@ -661,6 +686,20 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
+		const checkpointConversations = async (): Promise<Response> => {
+			held();
+			await checkpoint();
+			return Response.json({});
+		};
+
+		/** Forgets the checkpoint here, so the next click starts a new one. */
+		const dismissCheckpoint = async (): Promise<Response> => {
+			for (const conversation of await held().list()) {
+				conversation.dismissCheckpoint();
+			}
+			return Response.json({});
+		};
+
 		const unqueueConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const { index } = await body(request);
@@ -760,11 +799,14 @@ export async function dev(
 			removeTodo,
 			listConversations,
 			startConversation,
+			checkpoint,
 			moveConversation,
 			promptConversation,
 			conversationImage,
 			answerConversation,
 			cancelConversation,
+			checkpointConversations,
+			dismissCheckpoint,
 			unqueueConversation,
 			sendQueuedNow,
 			chooseSetting,
@@ -912,6 +954,7 @@ export async function dev(
 			id: string;
 			name: string;
 			status: string;
+			checkpoint: Checkpoint | null;
 		}[] = [];
 		const slugs = new Map(
 			(await projects.list()).map((each) => [each.root, each.slug]),
@@ -927,6 +970,7 @@ export async function dev(
 						id,
 						name: name ?? title ?? agent,
 						status,
+						checkpoint: conversation.state.checkpoint,
 					});
 				}
 			}
@@ -936,6 +980,15 @@ export async function dev(
 			newest: release?.newest ?? null,
 			interrupted,
 		});
+	};
+
+	const checkpointAll = async (): Promise<Response> => {
+		for (const settled of await Promise.allSettled(served.values())) {
+			if (settled.status === "fulfilled") {
+				await settled.value.checkpoint();
+			}
+		}
+		return showRelease();
 	};
 
 	const forgetProject = async (request: Request): Promise<Response> => {
@@ -971,6 +1024,7 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/projects": guarded(listProjects),
 			"/api/release": guarded(showRelease),
+			"/api/release/checkpoint": { POST: guarded(checkpointAll) },
 			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
@@ -996,6 +1050,10 @@ export async function dev(
 			"/api/conversations": {
 				GET: talk(scoped((project) => project.listConversations)),
 				POST: talk(scoped((project) => project.startConversation)),
+			},
+			"/api/conversations/checkpoint": {
+				POST: talk(scoped((project) => project.checkpointConversations)),
+				DELETE: talk(scoped((project) => project.dismissCheckpoint)),
 			},
 			"/api/conversations/events": talk(
 				scoped((project) => project.conversationEvents),
@@ -1264,6 +1322,10 @@ interface Served extends AsyncResource {
 	removeTodo: Handler;
 	listConversations: Handler;
 	startConversation: Handler;
+	/** Asks every live conversation here to bring its ARBOR.md up to date. */
+	checkpoint: () => Promise<void>;
+	checkpointConversations: Handler;
+	dismissCheckpoint: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;
 	conversationImage: Handler;
