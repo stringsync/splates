@@ -787,26 +787,16 @@ export async function dev(
 		const listeners = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		const beats = new Map<string, Throttler>();
 		const timer = new SystemTimer();
-		const tell = (chunk: Uint8Array) => {
-			for (const stream of listeners) {
-				stream.enqueue(chunk);
-			}
-		};
 		const unlisten = conversations?.events.on("changed", (id) => {
 			const beat = beats.get(id) ?? new Throttler(timer, BEAT);
 			beats.set(id, beat);
 			beat.call(async () => {
-				// Deleted since, as an old archived one is: the page has been told.
-				const found = await conversations.find(id).catch(() => null);
-				if (found !== null) {
-					tell(encoder.encode(`data: ${JSON.stringify(found.state)}\n\n`));
+				const state = (await conversations.find(id)).state;
+				const chunk = encoder.encode(`data: ${JSON.stringify(state)}\n\n`);
+				for (const stream of listeners) {
+					stream.enqueue(chunk);
 				}
 			});
-		});
-		const unlistenDeleted = conversations?.events.on("deleted", (id) => {
-			beats.get(id)?.dispose();
-			beats.delete(id);
-			tell(encoder.encode(`event: deleted\ndata: ${id}\n\n`));
 		});
 		const conversationEvents = async (): Promise<Response> => {
 			held();
@@ -874,7 +864,6 @@ export async function dev(
 			async disposeAsync() {
 				disarm();
 				unlisten?.();
-				unlistenDeleted?.();
 				for (const beat of beats.values()) {
 					beat.dispose();
 				}

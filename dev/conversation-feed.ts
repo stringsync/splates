@@ -70,12 +70,6 @@ export class ConversationFeed
 		);
 	}
 
-	/** Stops showing conversation `id`, which the server deleted. */
-	drop(id: string): void {
-		this.sending.delete(id);
-		this.show(this.recorded.filter((each) => each.id !== id));
-	}
-
 	/**
 	 * Shows `text` and `images` as said in conversation `id`, whose server holds it
 	 * unrecorded until the agent is up, starting or resuming, so the thread
@@ -182,9 +176,6 @@ export class ConversationFeed
 		this.stream = stream;
 		stream.onmessage = (event: MessageEvent<string>) =>
 			this.put(JSON.parse(event.data) as ConversationState);
-		stream.addEventListener("deleted", (event: MessageEvent<string>) =>
-			this.drop(event.data),
-		);
 		// Back after the stream dropped, as when `arbor dev` restarts: what the
 		// page holds may have moved meanwhile, so it is read again whole.
 		stream.onopen = () => void this.list();
