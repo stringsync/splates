@@ -382,8 +382,11 @@ describe("App's conversations", () => {
 		// The newest conversation's agent first, and Claude's sessions have
 		// offered nothing yet.
 		expect(
-			view.getByRole("region", { name: "new conversation" }).textContent,
-		).toContain("Start a conversation withClaude");
+			within(
+				view.getByText("Start a conversation with")
+					.parentElement as HTMLElement,
+			).getByLabelText("Claude"),
+		).toBeTruthy();
 		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
 
 		await newWith(view, "Codex");
@@ -429,8 +432,11 @@ describe("App's conversations", () => {
 
 		expect(location.hash).toBe("#conversations/new/codex");
 		expect(
-			view.getByRole("region", { name: "new conversation" }).textContent,
-		).toContain("Start a conversation withCodex");
+			within(
+				view.getByText("Start a conversation with")
+					.parentElement as HTMLElement,
+			).getByLabelText("Codex"),
+		).toBeTruthy();
 	});
 
 	it("greets with the agent of the newest conversation when none is picked", async () => {
@@ -440,8 +446,11 @@ describe("App's conversations", () => {
 		);
 
 		expect(
-			view.getByRole("region", { name: "new conversation" }).textContent,
-		).toContain("Start a conversation withCodex");
+			within(
+				view.getByText("Start a conversation with")
+					.parentElement as HTMLElement,
+			).getByLabelText("Codex"),
+		).toBeTruthy();
 	});
 
 	it("shows what was said as the server streams it", async () => {

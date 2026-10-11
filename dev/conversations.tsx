@@ -65,7 +65,7 @@ import type {
 } from "../conversations";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
-import { AgentIcon } from "./agent-icons";
+import { AgentBrand, AgentIcon } from "./agent-icons";
 import {
 	answerConversation,
 	archiveConversation,
@@ -820,16 +820,9 @@ function Home({
 					mentions={mentions ?? undefined}
 					welcome={
 						<div className="mb-6 flex flex-col gap-8 px-2">
-							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-1 font-medium text-2xl tracking-tight duration-200">
+							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-2xl tracking-tight duration-200">
 								<span>Start a conversation with</span>
-								<span className="flex items-center gap-2">
-									<AgentIcon
-										agent={agent}
-										name={agentName(agents, agent)}
-										className="size-5"
-									/>
-									{agentName(agents, agent)}
-								</span>
+								<AgentBrand agent={agent} name={agentName(agents, agent)} />
 							</div>
 							{recent.length > 0 && (
 								<section

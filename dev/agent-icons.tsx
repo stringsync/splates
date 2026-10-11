@@ -1,6 +1,7 @@
 import { BotIcon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#dev/lib/utils.ts";
+import { BRANDS } from "./agent-brands";
 
 /**
  * Each agent's mark, by its id in `AGENTS`. Paths from Simple Icons (CC0);
@@ -45,5 +46,84 @@ export function AgentIcon({
 		>
 			<path d={mark.path} />
 		</svg>
+	);
+}
+
+/**
+ * The agent's mark in its maker's colors beside its wordmark, named for
+ * screen readers by the agent's name; an agent with no wordmark here gets its
+ * plain mark and name.
+ */
+export function AgentBrand({
+	agent,
+	name,
+	className,
+}: {
+	agent: string;
+	name: string;
+	className?: string;
+}): JSX.Element {
+	const wordmark = (path: string, width: number) => (
+		<svg
+			aria-hidden="true"
+			viewBox={`0 0 ${width} 24`}
+			fill="currentColor"
+			className="h-[1em] w-auto shrink-0"
+		>
+			<path d={path} />
+		</svg>
+	);
+	const mark =
+		agent === "claude" ? (
+			<svg
+				aria-hidden="true"
+				viewBox="0 0 24 24"
+				className="size-[1.1em] shrink-0"
+			>
+				<path fill="#D97757" d={MARKS.claude?.path} />
+			</svg>
+		) : agent === "codex" ? (
+			<svg
+				aria-hidden="true"
+				viewBox="0 0 24 24"
+				className="size-[1.1em] shrink-0"
+			>
+				<defs>
+					<linearGradient
+						id="codex-cloud"
+						gradientUnits="userSpaceOnUse"
+						x1="12"
+						x2="12"
+						y1="3"
+						y2="21"
+					>
+						<stop stopColor="#B1A7FF" />
+						<stop offset=".5" stopColor="#7A9DFF" />
+						<stop offset="1" stopColor="#3941FF" />
+					</linearGradient>
+				</defs>
+				<path fill="#fff" d={BRANDS.codex.tile} />
+				<path fill="url(#codex-cloud)" d={BRANDS.codex.cloud} />
+			</svg>
+		) : null;
+	if (mark === null) {
+		return (
+			<span className={cn("flex items-center gap-2", className)}>
+				<AgentIcon agent={agent} name={name} className="size-[1em]" />
+				{name}
+			</span>
+		);
+	}
+	return (
+		<span
+			role="img"
+			aria-label={name}
+			className={cn("flex items-center gap-[0.3em]", className)}
+		>
+			{mark}
+			{agent === "claude"
+				? wordmark(BRANDS.claude.wordmark, 97)
+				: wordmark(BRANDS.codex.wordmark, 91)}
+		</span>
 	);
 }
