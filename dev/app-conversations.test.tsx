@@ -758,6 +758,29 @@ describe("App's conversations", () => {
 		expect(within(thread).getByText("running")).toBeTruthy();
 	});
 
+	it("says Working under a reply while its text streams", async () => {
+		const view = await conversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [
+					message("user", "what does it say?"),
+					message("agent", "It says"),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		await waitFor(() => expect(thread.textContent).toContain("It says"));
+		expect(within(thread).getByText("Working").getAttribute("role")).toBe(
+			"status",
+		);
+	});
+
 	it("opens a link the agent wrote in a new tab, and a footnote in place", async () => {
 		const view = await conversations([
 			conversation({ title: "Read the note" }),

@@ -2,7 +2,6 @@
 @import "tw-animate-css";
 @import "./shadcn.css";
 @import "tw-shimmer";
-@import "@assistant-ui/react-markdown/styles/dot.css";
 @import "@xterm/xterm/css/xterm.css";
 
 /* Tailwind only emits the utilities it can actually see, and its automatic

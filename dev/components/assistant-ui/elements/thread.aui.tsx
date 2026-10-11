@@ -924,7 +924,7 @@ const AssistantMessage: FC = () => {
 				data-slot="aui_assistant-message-content"
 				className="text-foreground px-2 leading-relaxed wrap-break-word"
 			>
-				<MessagePrimitive.GroupedParts groupBy={groupBy}>
+				<MessagePrimitive.GroupedParts groupBy={groupBy} indicator="always">
 					{({ part, children }) => {
 						switch (part.type) {
 							case "group-chainOfThought":
@@ -986,15 +986,7 @@ const AssistantMessage: FC = () => {
 									</div>
 								);
 							case "indicator":
-								return (
-									<span
-										data-slot="aui_assistant-message-indicator"
-										role="status"
-										className="text-muted-foreground shimmer font-sans text-sm motion-reduce:animate-none"
-									>
-										Working
-									</span>
-								);
+								return <WorkingIndicator />;
 							default:
 								return null;
 						}
@@ -1003,6 +995,28 @@ const AssistantMessage: FC = () => {
 				<MessageError />
 			</div>
 		</MessagePrimitive.Root>
+	);
+};
+
+/**
+ * The shimmering Working label under a busy reply, there while its text streams
+ * too, except under streaming reasoning, whose own label already says so.
+ */
+const WorkingIndicator: FC = () => {
+	const thinking = useAuiState(
+		(s) => s.message.parts.at(-1)?.type === "reasoning",
+	);
+	if (thinking) {
+		return null;
+	}
+	return (
+		<span
+			data-slot="aui_assistant-message-indicator"
+			role="status"
+			className="text-muted-foreground shimmer font-sans text-sm motion-reduce:animate-none"
+		>
+			Working
+		</span>
 	);
 };
 
