@@ -124,6 +124,7 @@ import {
 	ArchiveContext,
 	ENDINGS,
 	ReportUI,
+	StartNewContext,
 	TodosContext,
 	TodoUI,
 } from "./report-cards";
@@ -1020,6 +1021,7 @@ export function Conversations({
 						task={tasks.find((each) => each.task === shown.task) ?? null}
 						trunk={trunk}
 						onArchived={() => onOpen(NEW)}
+						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
 				)}
@@ -1557,6 +1559,7 @@ function Thread({
 	task,
 	trunk,
 	onArchived,
+	onOpen,
 	onBack,
 }: {
 	/** What was typed and not sent, by conversation. */
@@ -1575,6 +1578,7 @@ function Thread({
 	trunk: string;
 	/** Once a report card has archived it, to start the next. */
 	onArchived: () => void;
+	onOpen: (id: string) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
@@ -1757,6 +1761,17 @@ function Thread({
 		}),
 		[id, archived],
 	);
+	// The new conversation screen, with this one's agent picked and `text`
+	// typed ahead of anything already waiting there.
+	const startNew = useCallback(
+		(text: string) => {
+			const key = newDraft(new URLSearchParams(location.search).get("project"));
+			const kept = drafts.read(key);
+			drafts.write(key, kept.trim() === "" ? text : `${text}\n\n${kept}`);
+			onOpen(`${NEW}/${conversation.agent}`);
+		},
+		[drafts, onOpen, conversation.agent],
+	);
 	const [details, setDetails] = useState(false);
 	const needed = need(task, conversation);
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
@@ -1864,49 +1879,51 @@ function Thread({
 					<TodoUI />
 					<WorkUI />
 					<ArchiveContext value={filing}>
-						<ReplyContext value={reply}>
-							<ThreadView
-								mentions={mentions ?? undefined}
-								controls={
-									!archived &&
-									settings.map((setting) => (
-										<SettingSelect
-											key={setting.id}
-											setting={setting}
-											value={setting.current}
-											onChange={(value) =>
-												chooseSetting(id, setting.id, value).catch(
-													(error: unknown) =>
-														refused(`${setting.name} not switched`, error),
-												)
-											}
-										/>
-									))
-								}
-								above={
-									<>
-										{queued.length > 0 && (
-											<Queued
-												conversation={id}
-												messages={queued}
-												onEdit={(index) => void edit(index)}
-												onDiscard={(index) => void discard(index)}
-												onSendNow={() => void sendNow()}
+						<StartNewContext value={startNew}>
+							<ReplyContext value={reply}>
+								<ThreadView
+									mentions={mentions ?? undefined}
+									controls={
+										!archived &&
+										settings.map((setting) => (
+											<SettingSelect
+												key={setting.id}
+												setting={setting}
+												value={setting.current}
+												onChange={(value) =>
+													chooseSetting(id, setting.id, value).catch(
+														(error: unknown) =>
+															refused(`${setting.name} not switched`, error),
+													)
+												}
 											/>
-										)}
-										{conversation.ask !== null && (
-											<AskPanel
-												key={conversation.ask.id}
-												drafts={drafts}
-												conversation={conversation}
-												agent={agent}
-												ask={conversation.ask}
-											/>
-										)}
-									</>
-								}
-							/>
-						</ReplyContext>
+										))
+									}
+									above={
+										<>
+											{queued.length > 0 && (
+												<Queued
+													conversation={id}
+													messages={queued}
+													onEdit={(index) => void edit(index)}
+													onDiscard={(index) => void discard(index)}
+													onSendNow={() => void sendNow()}
+												/>
+											)}
+											{conversation.ask !== null && (
+												<AskPanel
+													key={conversation.ask.id}
+													drafts={drafts}
+													conversation={conversation}
+													agent={agent}
+													ask={conversation.ask}
+												/>
+											)}
+										</>
+									}
+								/>
+							</ReplyContext>
+						</StartNewContext>
 					</ArchiveContext>
 				</AssistantRuntimeProvider>
 			</div>

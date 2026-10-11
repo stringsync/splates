@@ -1599,13 +1599,56 @@ describe("App's conversations", () => {
 			);
 
 			await act(async () =>
-				fireEvent.click(within(open).getByRole("button", { name: /Start/ })),
+				fireEvent.click(within(open).getByRole("button", { name: "Start" })),
 			);
 
 			expect(posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
 			]);
 			expect(box.value).toBe("half a thought");
+		});
+
+		it("opens a new conversation with a proposed todo's reference typed in, ahead of its draft, and this conversation's agent picked", async () => {
+			const view = await conversations(
+				[conversation({ ...proposing, agent: "codex" })],
+				undefined,
+				board,
+			);
+			const open = await waitFor(() =>
+				view.getByRole("region", { name: "todo 12" }),
+			);
+			const taken = view.getByRole("region", { name: "todo 14" });
+			expect(
+				within(taken).queryByRole("button", {
+					name: "Start in a new conversation",
+				}),
+			).toBeNull();
+			localStorage.setItem("arbor.draft.new:", "and keep it small");
+
+			await act(async () =>
+				fireEvent.click(
+					within(open).getByRole("button", {
+						name: "Start in a new conversation",
+					}),
+				),
+			);
+
+			expect(location.hash).toBe("#conversations/new/codex");
+			expect(
+				within(
+					view.getByText("Start a conversation with")
+						.parentElement as HTMLElement,
+				).getByLabelText("Codex"),
+			).toBeTruthy();
+			expect(
+				(
+					view.getByRole("textbox", {
+						name: "Message input",
+					}) as HTMLTextAreaElement
+				).value,
+			).toBe("[ARBOR TODO #12]\n\nand keep it small");
+			expect(posted("/api/conversations")).toEqual([]);
+			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
 		});
 
 		it("keeps a todo as proposed once the person has replied, and says whether it was started", async () => {

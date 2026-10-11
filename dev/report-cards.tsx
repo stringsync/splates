@@ -8,6 +8,7 @@ import {
 	HourglassIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	MessageSquarePlusIcon,
 	PaperclipIcon,
 	PlayIcon,
 	TriangleAlertIcon,
@@ -116,11 +117,19 @@ export const TodosContext = createContext<{
 } | null>(null);
 
 /**
+ * Opens the new conversation screen with `text` typed in, to start it there;
+ * none outside a conversation.
+ */
+export const StartNewContext = createContext<((text: string) => void) | null>(
+	null,
+);
+
+/**
  * Renders a `data-todo` part as the todo it proposes. Until the person
  * replies it is read live as the board has it: a proposal another task has
  * since taken says so, and one merged or removed says it is gone. Start sends
- * the todo's reference at once, as the reply asking the agent to take it.
- * Once replied to, it keeps the todo as proposed, and whether it was started.
+ * the todo's reference at once, as the reply asking the agent to take it;
+ * beside it, the reference is typed into a new conversation instead. Once replied to, it keeps the todo as proposed, and whether it was started.
  */
 export const TodoUI = makeAssistantDataUI<{ todo: Proposal }>({
 	name: "todo",
@@ -146,6 +155,8 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 			? null
 			: (board?.lanes.find((each) => each.id === todo.lane) ?? null);
 	const send = reply?.send ?? null;
+	const startNew = useContext(StartNewContext);
+	const open = todo !== null && todo.takenBy === null;
 	return (
 		<section
 			aria-label={`todo ${proposal.id}`}
@@ -199,16 +210,31 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 					Started
 				</span>
 			)}
-			{send !== null && todo !== null && todo.takenBy === null && (
-				<Button
-					size="sm"
-					variant="outline"
-					onClick={() => send(reference)}
-					className="shrink-0 gap-1.5"
-				>
-					<PlayIcon data-icon="inline-start" />
-					Start
-				</Button>
+			{open && (send !== null || startNew !== null) && (
+				<span className="flex shrink-0 items-center gap-1">
+					{send !== null && (
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => send(reference)}
+							className="gap-1.5"
+						>
+							<PlayIcon data-icon="inline-start" />
+							Start
+						</Button>
+					)}
+					{startNew !== null && (
+						<Button
+							size="icon-sm"
+							variant="outline"
+							aria-label="Start in a new conversation"
+							title="Start in a new conversation"
+							onClick={() => startNew(reference)}
+						>
+							<MessageSquarePlusIcon />
+						</Button>
+					)}
+				</span>
 			)}
 		</section>
 	);
