@@ -822,6 +822,43 @@ describe("App's conversations", () => {
 			).toBe("false");
 		});
 
+		it("folds questions once replied to, opening on the answers sent, never asking them again", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message("user", "fix the header"),
+						message("agent", report),
+						message("user", "1. a, b\n2. b: only on phones"),
+						message("agent", "Done."),
+					],
+				}),
+			]);
+			const panel = await waitFor(() =>
+				view.getByRole("region", { name: "questions for you" }),
+			);
+			const fold = within(panel).getByRole("button", {
+				name: /Questions for you/,
+			});
+			expect(fold.getAttribute("aria-expanded")).toBe("false");
+			expect(fold.textContent).toContain("2 of 3 answered");
+			expect(view.queryByRole("list", { name: "questions" })).toBeNull();
+
+			await act(async () => fireEvent.click(fold));
+
+			const second = within(panel).getByRole("listitem", {
+				name: "question 2",
+			});
+			const badge = within(second).getByRole("button", {
+				name: /A badge/,
+			}) as HTMLButtonElement;
+			expect(badge.getAttribute("aria-pressed")).toBe("true");
+			expect(badge.disabled).toBe(true);
+			expect(within(second).getByText("only on phones")).toBeTruthy();
+			expect(within(panel).queryByRole("textbox")).toBeNull();
+			expect(box(view).value).toBe("");
+		});
+
 		it("waits for the agent to finish writing before showing cards", async () => {
 			const view = await conversations([asking("running")]);
 			await waitFor(() =>
@@ -1182,7 +1219,7 @@ describe("App's conversations", () => {
 			expect(box(view).value).toBe("merge the header first");
 		});
 
-		it("keeps the reply that was sent once the person has replied, whatever is typed after", async () => {
+		it("folds once the person has replied, opening on the reply that was sent, whatever is typed after", async () => {
 			const view = await conversations([
 				conversation({
 					...reviewing,
@@ -1196,15 +1233,22 @@ describe("App's conversations", () => {
 			const panel = await waitFor(() =>
 				view.getByRole("region", { name: "review header" }),
 			);
-			expect(panel.textContent).toContain("Merge approved");
-			expect(within(panel).queryByRole("button")).toBeNull();
+			const fold = within(panel).getByRole("button", {
+				name: /Ready to merge/,
+			});
+			expect(fold.getAttribute("aria-expanded")).toBe("false");
+			expect(fold.textContent).toContain("Merge approved");
+			expect(panel.textContent).not.toContain("The header wraps on phones.");
 
 			await act(async () =>
 				fireEvent.change(box(view), { target: { value: "merge" } }),
 			);
+			await act(async () => fireEvent.click(fold));
 
-			expect(panel.textContent).toContain("Merge approved");
-			expect(within(panel).queryByRole("button")).toBeNull();
+			expect(panel.textContent).toContain("The header wraps on phones.");
+			expect(
+				within(panel).queryByRole("button", { name: /^Merge/ }),
+			).toBeNull();
 			expect(within(panel).queryByRole("textbox")).toBeNull();
 		});
 	});

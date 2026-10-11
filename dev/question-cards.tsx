@@ -125,6 +125,7 @@ export function QuestionCards({
 			Icon={MessageCircleQuestionIcon}
 			title={`${questions.length === 1 ? "A question" : "Questions"} for you`}
 			tone="info"
+			folded={sent !== null}
 			aside={
 				<span className="flex items-center gap-2">
 					<span className="text-muted-foreground text-xs tabular-nums">
@@ -273,7 +274,10 @@ function QuestionCard({
 						})}
 					</fieldset>
 				)}
-				{reply !== null && (
+				{reply === null ? (
+					replied !== null &&
+					said.words.trim() !== "" && <p className="text-sm">{said.words}</p>
+				) : (
 					<textarea
 						data-answer={number}
 						aria-label={`Answer to ${number}`}
@@ -331,6 +335,14 @@ export function ReviewPanel({ review }: { review: Review }): JSX.Element {
 			title="Ready to merge"
 			task={review.task}
 			base={review.base}
+			folded={sent !== null}
+			aside={
+				sent === null ? undefined : (
+					<span className="text-muted-foreground text-xs">
+						{approved ? "Merge approved" : "Changes asked"}
+					</span>
+				)
+			}
 		>
 			{review.body !== "" && <CardBody text={review.body} />}
 			{sent !== null && (
