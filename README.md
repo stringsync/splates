@@ -639,7 +639,7 @@ export default defineConfig({
 	preMerge: "bun test",           // the last gate before the branch lands
 	postMerge: "bun install",       // in the main tree, after the branch lands
 	leaseStalenessMs: 90_000,
-	mergeRetryCount: 2,
+	mergeRetryCount: 3,
 	removedCapacity: 50,            // removed names kept, so remove can say "already removed"
 	logCapacity: 1000,              // entries `arbor log` keeps before the oldest fall off
 	todoStalenessMs: 2_592_000_000, // 30 days: past this, merge offers a todo for removal

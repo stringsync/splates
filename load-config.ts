@@ -38,7 +38,7 @@ function defaults(root: string, trunk: string): Config {
 		preMerge: null,
 		postMerge: null,
 		leaseStalenessMs: 90_000,
-		mergeRetryCount: 2,
+		mergeRetryCount: 3,
 		removedCapacity: 50,
 		logCapacity: 1000,
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
