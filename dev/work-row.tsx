@@ -8,6 +8,7 @@ import {
 	FileTextIcon,
 	LoaderIcon,
 	SearchIcon,
+	SquareTerminalIcon,
 	XIcon,
 } from "lucide-react";
 import {
@@ -201,7 +202,7 @@ function Row({
 			const tool = item.runs.at(-1) as Tool;
 			return (
 				<Fold
-					icon={<Status tool={tool} />}
+					icon={<CommandStatus tool={tool} />}
 					head={
 						<>
 							<code className="min-w-0 truncate font-mono text-xs">
@@ -345,6 +346,17 @@ function Status({ tool }: { tool: Tool }): JSX.Element {
 				<CircleStopIcon aria-label="stopped" />
 			);
 	}
+}
+
+/** A command's status: a pulsing terminal while it runs, then ✓ or ✗. */
+function CommandStatus({ tool }: { tool: Tool }): JSX.Element {
+	const going = use(Going);
+	const done = tool.status === "completed" || tool.status === "failed";
+	return !done && going ? (
+		<SquareTerminalIcon aria-label="running" className="animate-pulse" />
+	) : (
+		<Status tool={tool} />
+	);
 }
 
 function Took({ tool }: { tool: Tool }): JSX.Element | null {
