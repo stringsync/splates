@@ -1,4 +1,5 @@
 import {
+	type AssistantRuntime,
 	AssistantRuntimeProvider,
 	type ThreadMessageLike,
 	type TriggerAdapter,
@@ -56,6 +57,7 @@ import {
 	startConversation,
 } from "./api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
+import { Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
 
 /** What `#conversations/archived` opens: every archived conversation. */
@@ -412,6 +414,9 @@ export function Conversations({
 		["changed"],
 	);
 	const shown = conversations.find((each) => each.id === open) ?? null;
+	// One for the page, so a draft Home leaves for a conversation it started
+	// reaches that conversation's composer.
+	const [drafts] = useState(() => new Drafts(localStorage));
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -424,6 +429,7 @@ export function Conversations({
 				/>
 			) : open === NEW || (open === null && !phone) ? (
 				<Home
+					drafts={drafts}
 					feed={feed}
 					agents={agents}
 					conversations={conversations.filter((each) => !each.archived)}
@@ -442,6 +448,7 @@ export function Conversations({
 			) : (
 				<Thread
 					key={shown.id}
+					drafts={drafts}
 					conversation={shown}
 					agent={agentName(agents, shown.agent)}
 					onBack={phone ? () => onOpen(null) : null}
@@ -461,12 +468,15 @@ const RECENT = 5;
  * on the person first.
  */
 function Home({
+	drafts,
 	feed,
 	agents,
 	conversations,
 	onOpen,
 	onBack,
 }: {
+	/** What was typed and not sent, by conversation. */
+	drafts: Drafts;
 	feed: ConversationFeed;
 	agents: AgentChoice[];
 	/** The ones not archived, newest first. */
@@ -485,6 +495,7 @@ function Home({
 		)?.settings ?? [];
 	const [picks, setPicks] = useState<Record<string, string>>({});
 	const [starting, setStarting] = useState(false);
+	const restore = useRef<(text: string) => void>(() => {});
 	const waiting = (each: ConversationState) =>
 		each.ask !== null || each.status === "failed";
 	const recent = [
@@ -504,6 +515,7 @@ function Home({
 			const state = await startConversation(agent, null, picks).catch(
 				(error: unknown) => {
 					setStarting(false);
+					restore.current(text);
 					refused("Not started", error);
 					throw error;
 				},
@@ -512,11 +524,19 @@ function Home({
 			// Shown at once, so the person watches the agent come up; the message
 			// waits on the server for the session to open.
 			onOpen(state.id);
-			await promptConversation(state.id, text).catch((error: unknown) =>
-				refused("Not sent", error),
-			);
+			await promptConversation(state.id, text).catch((error: unknown) => {
+				// The conversation is open by now: what was not sent waits in its
+				// composer.
+				drafts.write(state.id, text);
+				refused("Not sent", error);
+			});
 		},
 	});
+	restore.current = useDraft(
+		runtime,
+		drafts,
+		newDraft(new URLSearchParams(location.search).get("project")),
+	);
 	const mentions = useFileMentions(null);
 
 	return (
@@ -788,14 +808,59 @@ function refused(title: string, error: unknown): void {
 }
 
 /**
+ * Keeps what is typed in `runtime`'s composer in `drafts` under `key`, and
+ * puts it back as the composer comes up, so leaving for another conversation
+ * loses nothing. Hands back what puts text back after a send was refused.
+ */
+function useDraft(
+	runtime: AssistantRuntime,
+	drafts: Drafts,
+	key: string,
+): (text: string) => void {
+	useEffect(() => {
+		const composer = runtime.thread.composer;
+		// Into an empty composer only: what is typed there is the newer draft.
+		const fill = () => {
+			const kept = drafts.read(key);
+			if (kept !== "" && composer.getState().text === "") {
+				composer.setText(kept);
+			}
+		};
+		fill();
+		const unsubscribe = composer.subscribe(() =>
+			drafts.write(key, composer.getState().text),
+		);
+		// Written from elsewhere: a message Home could not send to it.
+		const unlisten = drafts.events.on("written", (written) => {
+			if (written === key) {
+				fill();
+			}
+		});
+		return () => {
+			unsubscribe();
+			unlisten();
+		};
+	}, [runtime, drafts, key]);
+	return (text) => {
+		// Typed again since it was sent: that is the newer draft.
+		if (runtime.thread.composer.getState().text === "") {
+			runtime.thread.composer.setText(text);
+		}
+	};
+}
+
+/**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
  * with what the agent is asking above its composer.
  */
 function Thread({
+	drafts,
 	conversation,
 	agent,
 	onBack,
 }: {
+	/** What was typed and not sent, by conversation. */
+	drafts: Drafts;
 	conversation: ConversationState;
 	/** The agent's name. */
 	agent: string;
@@ -808,6 +873,7 @@ function Thread({
 		() => conversation.messages.map((message, index) => like(message, index)),
 		[conversation.messages],
 	);
+	const restore = useRef<(text: string) => void>(() => {});
 	const runtime = useExternalStoreRuntime({
 		messages,
 		isRunning: running,
@@ -821,6 +887,7 @@ function Thread({
 				.join("")
 				.trim();
 			await promptConversation(id, text).catch((error: unknown) => {
+				restore.current(text);
 				refused("Not sent", error);
 				throw error;
 			});
@@ -831,6 +898,7 @@ function Thread({
 			);
 		},
 	});
+	restore.current = useDraft(runtime, drafts, id);
 	const mentions = useFileMentions(conversation.task);
 	const [renaming, setRenaming] = useState(false);
 
@@ -904,6 +972,7 @@ function Thread({
 							conversation.ask !== null && (
 								<AskPanel
 									key={conversation.ask.id}
+									drafts={drafts}
 									conversation={conversation}
 									agent={agent}
 									ask={conversation.ask}
@@ -994,16 +1063,22 @@ function StatusBadge({ status }: { status: Status }): JSX.Element | null {
 
 /** What the agent is waiting on, answered in place or skipped. */
 function AskPanel({
+	drafts,
 	conversation,
 	agent,
 	ask,
 }: {
+	/** What was typed and not sent, by conversation. */
+	drafts: Drafts;
 	conversation: ConversationState;
 	agent: string;
 	ask: Ask;
 }): JSX.Element {
+	// Its own draft beside the composer's: what is typed into its boxes.
+	const key = `${conversation.id}:${ask.id}`;
 	const send = (answer: Answer) =>
-		answerConversation(conversation.id, ask.id, answer).catch(
+		answerConversation(conversation.id, ask.id, answer).then(
+			() => drafts.write(key, ""),
 			(error: unknown) => refused("Not answered", error),
 		);
 	return ask.type === "permission" ? (
@@ -1014,8 +1089,25 @@ function AskPanel({
 			send={send}
 		/>
 	) : (
-		<Question ask={ask} send={send} />
+		<Question
+			ask={ask}
+			send={send}
+			typed={typedIn(drafts.read(key))}
+			onType={(typed) => drafts.write(key, JSON.stringify(typed))}
+		/>
 	);
+}
+
+/** The boxes' draft as `Question` keeps it, or none for one that is not. */
+function typedIn(draft: string): Record<string, string> {
+	try {
+		const parsed: unknown = JSON.parse(draft);
+		return typeof parsed === "object" && parsed !== null
+			? (parsed as Record<string, string>)
+			: {};
+	} catch {
+		return {};
+	}
 }
 
 /**
@@ -1084,11 +1176,17 @@ function Permission({
 function Question({
 	ask,
 	send,
+	typed: drafted,
+	onType,
 }: {
 	ask: Extract<Ask, { type: "question" }>;
 	send: (answer: Answer) => Promise<unknown>;
+	/** What was typed into its boxes before, by field. */
+	typed: Record<string, string>;
+	/** Called with what is in its boxes whenever one changes. */
+	onType: (typed: Record<string, string>) => void;
 }): JSX.Element {
-	const [typed, setTyped] = useState<Record<string, string>>({});
+	const [typed, setTyped] = useState(drafted);
 	const steps = ask.fields.flatMap((field) =>
 		field.choices === null
 			? []
@@ -1141,9 +1239,11 @@ function Question({
 					aria-label={field.title}
 					placeholder={field.description ?? field.title}
 					value={typed[field.key] ?? ""}
-					onChange={(event) =>
-						setTyped({ ...typed, [field.key]: event.target.value })
-					}
+					onChange={(event) => {
+						const next = { ...typed, [field.key]: event.target.value };
+						setTyped(next);
+						onType(next);
+					}}
 					className={cn(SELECT, "w-full")}
 				/>
 			))}

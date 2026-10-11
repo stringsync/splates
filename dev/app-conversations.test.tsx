@@ -425,6 +425,117 @@ describe("App's conversations", () => {
 		).toEqual(["POST"]);
 	});
 
+	describe("drafts", () => {
+		const held = [
+			conversation({ id: "c1", title: "Fix login" }),
+			conversation({ id: "c2", title: "Tidy tests" }),
+		];
+		/** Opens the conversation listed by `name`, as a click in the sidebar does. */
+		const go = async (
+			view: Awaited<ReturnType<typeof conversations>>,
+			name: string,
+		) => {
+			const nav = view.getByRole("navigation", { name: "conversations" });
+			const item = within(nav)
+				.getAllByRole("button")
+				.find((button) => button.textContent?.includes(name));
+			if (item === undefined) {
+				throw new Error(`no ${name} listed`);
+			}
+			await act(async () => fireEvent.click(item));
+		};
+		const box = (view: Awaited<ReturnType<typeof conversations>>) =>
+			view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+		const type = (
+			view: Awaited<ReturnType<typeof conversations>>,
+			text: string,
+		) =>
+			act(async () => fireEvent.change(box(view), { target: { value: text } }));
+
+		it("keeps what was typed in each conversation, and a new one, while switching", async () => {
+			const view = await conversations(held, "c1");
+			await type(view, "half a thought");
+
+			await go(view, "Tidy tests");
+			await waitFor(() => expect(box(view).value).toBe(""));
+			await type(view, "another");
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+			);
+			await waitFor(() => expect(box(view).value).toBe(""));
+			await type(view, "a fresh start");
+
+			await go(view, "Fix login");
+			await waitFor(() => expect(box(view).value).toBe("half a thought"));
+			await go(view, "Tidy tests");
+			await waitFor(() => expect(box(view).value).toBe("another"));
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+			);
+			await waitFor(() => expect(box(view).value).toBe("a fresh start"));
+		});
+
+		it("keeps a draft across a reload, and drops it once sent", async () => {
+			const view = await conversations(held, "c1");
+			await type(view, "before the reload");
+			cleanup();
+
+			const again = await conversations(held, "c1");
+			await waitFor(() => expect(box(again).value).toBe("before the reload"));
+			await act(async () => fireEvent.keyDown(box(again), { key: "Enter" }));
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "before the reload" } },
+			]);
+			await go(again, "Tidy tests");
+			await go(again, "Fix login");
+			await waitFor(() => expect(box(again).value).toBe(""));
+		});
+
+		it("puts a message back in the composer when the server refuses it", async () => {
+			const view = await conversations(held, "c1");
+			testing.refuseWrites = { reason: "usage", message: "not now" };
+			await type(view, "try this");
+
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+
+			await waitFor(() => expect(box(view).value).toBe("try this"));
+		});
+
+		it("keeps what was typed into a question's box while away", async () => {
+			const asking = conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "running",
+				ask: {
+					type: "question",
+					id: "q1",
+					message: "Which note?",
+					fields: [
+						{ key: "note", title: "Note", description: null, choices: null },
+					],
+				},
+			});
+			const view = await conversations(
+				[asking, held[1] as ConversationState],
+				"c1",
+			);
+			await act(async () =>
+				fireEvent.change(view.getByRole("textbox", { name: "Note" }), {
+					target: { value: "the second one" },
+				}),
+			);
+
+			await go(view, "Tidy tests");
+			await go(view, "Fix login");
+
+			expect(
+				(view.getByRole("textbox", { name: "Note" }) as HTMLInputElement).value,
+			).toBe("the second one");
+		});
+	});
+
 	it("answers a permission with a digit: 1 denies, 2 allows once, 3 always", async () => {
 		await conversations([
 			conversation({

@@ -49,6 +49,8 @@ export class Testing implements Resource {
 	tree: string[] = [];
 	/** What every write answers with; a test sets it when the page reads it. */
 	reply: unknown = {};
+	/** Refuses every write with this, as the server does, when set. */
+	refuseWrites: { reason: string; message: string } | null = null;
 	/** Every write the page made, in order. */
 	readonly posts: Post[] = [];
 	/** The stream the page opened, so a test can push through it. */
@@ -79,7 +81,9 @@ export class Testing implements Resource {
 			}
 			if (init?.method !== undefined && init.method !== "GET") {
 				this.posts.push({ path, method: init.method, body: init.body });
-				return Response.json(this.reply);
+				return this.refuseWrites === null
+					? Response.json(this.reply)
+					: Response.json(this.refuseWrites, { status: 409 });
 			}
 			// The project a page names is the page's business, not the fake's.
 			const route = path.split("?")[0];

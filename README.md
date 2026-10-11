@@ -363,6 +363,12 @@ This session and Always (digits 1 to 3); a question (Claude's
 AskUserQuestion) steps through its choices, with a box for an answer of your
 own.
 
+What you type and have not sent stays put: each conversation keeps its own
+draft, as does the new conversation screen of each project, and so does the
+box of a question waiting on you, through switching conversations or pages and
+reloading. They are kept in the browser's local storage, and a message the
+server refuses goes back into the composer.
+
 A conversation has no end. Its agent stops when `arbor dev` does, and the next
 message resumes the same session in a new process. Archive puts one away,
 stopping its agent; Archived, at the bottom of the sidebar, lists them, and
