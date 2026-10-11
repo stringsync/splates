@@ -326,39 +326,41 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													</span>
 												)}
 												{/* Beside the project they belong to, leaving the sidebar to the
-										    conversations. */}
-												<TabsList
-													variant="line"
-													className="ml-auto shrink-0 gap-0.5 p-0 group-data-horizontal/tabs:h-auto"
-												>
-													{pages.map(({ value, label, Icon }) => (
-														<TabsTrigger
-															key={value}
-															value={value}
-															title={
-																count(value) === null
-																	? label
-																	: `${label} (${count(value)})`
-															}
-															className="size-7 flex-none p-0 text-muted-foreground after:hidden hover:bg-muted group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
-														>
-															<Icon />
-															<span className="sr-only">{label}</span>
-														</TabsTrigger>
-													))}
-												</TabsList>
-												{/* At the foot of the sidebar when there is one. */}
-												{!wide && (
-													<button
-														type="button"
-														aria-label="Settings"
-														title="Settings"
-														onClick={() => setSetting(true)}
-														className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+										    conversations, and spaced as one row with Settings on a phone. */}
+												<div className="ml-auto flex shrink-0 items-center gap-0.5">
+													<TabsList
+														variant="line"
+														className="gap-0.5 p-0 group-data-horizontal/tabs:h-auto"
 													>
-														<SettingsIcon className="size-4" />
-													</button>
-												)}
+														{pages.map(({ value, label, Icon }) => (
+															<TabsTrigger
+																key={value}
+																value={value}
+																title={
+																	count(value) === null
+																		? label
+																		: `${label} (${count(value)})`
+																}
+																className="size-7 flex-none p-0 text-muted-foreground after:hidden hover:bg-muted group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+															>
+																<Icon />
+																<span className="sr-only">{label}</span>
+															</TabsTrigger>
+														))}
+													</TabsList>
+													{/* At the foot of the sidebar when there is one. */}
+													{!wide && (
+														<button
+															type="button"
+															aria-label="Settings"
+															title="Settings"
+															onClick={() => setSetting(true)}
+															className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+														>
+															<SettingsIcon className="size-4" />
+														</button>
+													)}
+												</div>
 											</div>
 											{snapshot && (
 												<span className="truncate text-muted-foreground text-xs">
