@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "../conversations";
+import type { Snapshot } from "../snapshot";
 import {
 	act,
 	cleanup,
@@ -8,6 +9,7 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	todo,
 	tool,
 	waitFor,
 	within,
@@ -42,9 +44,13 @@ describe("App's conversations", () => {
 	const conversations = async (
 		held: ConversationState[],
 		open: string | null = held[0]?.id ?? null,
+		overrides: Partial<Snapshot> = {},
 	) => {
 		testing.talk = { agents: AGENTS, conversations: held };
-		const view = await testing.open({ tasks: [details({ task: "alpha" })] });
+		const view = await testing.open({
+			tasks: [details({ task: "alpha" })],
+			...overrides,
+		});
 		const tab = await waitFor(() =>
 			view.getByRole("tab", { name: /Conversations/ }),
 		);
@@ -1065,6 +1071,170 @@ describe("App's conversations", () => {
 				}),
 			);
 			expect(box(view).value).toBe("merge the header first");
+		});
+
+		it("keeps the reply that was sent once the person has replied, whatever is typed after", async () => {
+			const view = await conversations([
+				conversation({
+					...reviewing,
+					messages: [
+						...reviewing.messages,
+						message("user", "merge"),
+						message("agent", "Merged."),
+					],
+				}),
+			]);
+			const panel = await waitFor(() =>
+				view.getByRole("region", { name: "review header" }),
+			);
+			expect(panel.textContent).toContain("Merge approved");
+			expect(within(panel).queryByRole("button")).toBeNull();
+
+			await act(async () =>
+				fireEvent.change(box(view), { target: { value: "merge" } }),
+			);
+
+			expect(panel.textContent).toContain("Merge approved");
+			expect(within(panel).queryByRole("button")).toBeNull();
+			expect(within(panel).queryByRole("textbox")).toBeNull();
+		});
+	});
+
+	describe("report cards", () => {
+		it("shows how each task ended, or what it waits on, as a card", async () => {
+			await conversations([
+				conversation({
+					title: "Reports",
+					messages: [
+						message(
+							"agent",
+							[
+								"## ✅ Merged header onto main",
+								"",
+								"The header wraps now.",
+								"",
+								"## 🛑 Removed footer: superseded by a fix on main",
+								"",
+								"It set out to move the footer.",
+								"",
+								"## ⚠️ Escalated sidebar: needs a call on the width",
+								"",
+								"The sidebar folds on phones.",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+			const view = document.body;
+
+			const merged = await waitFor(() =>
+				within(view).getByRole("region", { name: "merged header" }),
+			);
+			expect(merged.textContent).toContain("Merged");
+			expect(merged.textContent).toContain("main");
+			expect(merged.textContent).toContain("The header wraps now.");
+			const removed = within(view).getByRole("region", {
+				name: "removed footer",
+			});
+			expect(removed.textContent).toContain("superseded by a fix on main");
+			expect(removed.textContent).toContain("It set out to move the footer.");
+			const escalated = within(view).getByRole("region", {
+				name: "escalated sidebar",
+			});
+			expect(escalated.textContent).toContain("needs a call on the width");
+			expect(view.textContent).not.toContain("## ✅");
+		});
+	});
+
+	describe("todo cards", () => {
+		const proposing = conversation({
+			title: "Next",
+			messages: [
+				message(
+					"agent",
+					[
+						"### 📝 Retry the upload [#12]",
+						"",
+						"It fails on a 413. It touches the retry loop.",
+						"",
+						"### 📝 Show the size limit [#14]",
+						"",
+						"Says how big a file may be.",
+						"",
+						"### 📝 Tidy the logs [#15]",
+						"",
+						"Already done.",
+					].join("\n"),
+				),
+			],
+		});
+
+		const board = {
+			todos: [
+				todo({ id: 12, subject: "Retry the upload on a 413", lane: 3 }),
+				todo({ id: 14, subject: "Show the size limit", takenBy: "limits" }),
+			],
+			lanes: [{ id: 3, name: "Uploads" }],
+		};
+
+		it("shows a proposed todo as the board has it, with Start sending its reference at once", async () => {
+			const view = await conversations([proposing], undefined, board);
+			const open = await waitFor(() =>
+				view.getByRole("region", { name: "todo 12" }),
+			);
+			// Live: the subject as the board has it now, and its lane.
+			expect(open.textContent).toContain("Retry the upload on a 413");
+			expect(open.textContent).toContain("Uploads");
+			expect(open.textContent).toContain("It fails on a 413.");
+			const taken = view.getByRole("region", { name: "todo 14" });
+			expect(taken.textContent).toContain("limits");
+			expect(within(taken).queryByRole("button", { name: /Start/ })).toBeNull();
+			const gone = view.getByRole("region", { name: "todo 15" });
+			expect(gone.textContent).toContain("gone");
+			expect(within(gone).queryByRole("button", { name: /Start/ })).toBeNull();
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+			await act(async () =>
+				fireEvent.change(box, { target: { value: "half a thought" } }),
+			);
+
+			await act(async () =>
+				fireEvent.click(within(open).getByRole("button", { name: /Start/ })),
+			);
+
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
+			]);
+			expect(box.value).toBe("half a thought");
+		});
+
+		it("keeps a todo as proposed once the person has replied, and says whether it was started", async () => {
+			const view = await conversations(
+				[
+					conversation({
+						...proposing,
+						messages: [
+							...proposing.messages,
+							message("user", "[ARBOR TODO #12]"),
+						],
+					}),
+				],
+				undefined,
+				board,
+			);
+			const started = await waitFor(() =>
+				view.getByRole("region", { name: "todo 12" }),
+			);
+
+			expect(started.textContent).toContain("Retry the upload");
+			// As proposed, not as the board has it now.
+			expect(started.textContent).not.toContain("Uploads");
+			expect(started.textContent).toContain("Started");
+			expect(within(started).queryByRole("button")).toBeNull();
+			const other = view.getByRole("region", { name: "todo 15" });
+			expect(other.textContent).not.toContain("gone");
+			expect(other.textContent).not.toContain("Started");
 		});
 	});
 

@@ -395,6 +395,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 											<Conversations
 												feed={talk}
 												tasks={snapshot.tasks}
+												todos={snapshot.todos}
+												lanes={snapshot.lanes}
 												trunk={snapshot.trunk}
 												open={open}
 												onOpen={(id) => go("conversations", id)}

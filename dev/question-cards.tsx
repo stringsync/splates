@@ -1,4 +1,4 @@
-import { makeAssistantDataUI } from "@assistant-ui/react";
+import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import {
 	CheckIcon,
 	GitMergeIcon,
@@ -8,6 +8,7 @@ import {
 	createContext,
 	type JSX,
 	type KeyboardEvent,
+	type ReactNode,
 	useContext,
 	useRef,
 	useState,
@@ -16,6 +17,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { type Answer, answerIn, type Review, withAnswer } from "../asked";
 import type { Question } from "../plan";
+import { CardBody, CardShell } from "./card-shell";
 import { Markdown } from "./markdown";
 
 /** The reply being written in the composer, as the cards read and write it. */
@@ -24,10 +26,48 @@ export interface Reply {
 	write(text: string): void;
 	/** Puts the cursor in the composer, at the end of what is there. */
 	focus(): void;
+	/**
+	 * Sends `text` as a message of its own, leaving what is typed as it is;
+	 * null where nothing can be sent from the page, as to an external agent.
+	 */
+	send: ((text: string) => void) | null;
 }
 
 /** The open conversation's composer; none outside one, where cards only show. */
 export const ReplyContext = createContext<Reply | null>(null);
+
+/**
+ * The reply the person sent to the message a card is in, or null while they
+ * have yet to: what `InMessage` reads from the thread.
+ */
+const SentContext = createContext<string | null>(null);
+
+/**
+ * Puts the card in `children` in its message: from the person's reply to it
+ * on, the card keeps that reply rather than following the composer.
+ */
+export function InMessage({ children }: { children: ReactNode }): JSX.Element {
+	const sent = useAuiState((state) => {
+		const next = state.thread.messages[state.message.index + 1];
+		return next?.role === "user"
+			? next.content
+					.map((part) => (part.type === "text" ? part.text : ""))
+					.join("")
+			: null;
+	});
+	return <SentContext value={sent}>{children}</SentContext>;
+}
+
+/**
+ * What a card answers through: the composer while the person has yet to
+ * reply to its message, and once they have, the reply they sent, which
+ * nothing writes to any more. Neither outside a conversation.
+ */
+export function useCardReply(): { reply: Reply | null; sent: string | null } {
+	const live = useContext(ReplyContext);
+	const sent = useContext(SentContext);
+	return sent === null ? { reply: live, sent: null } : { reply: null, sent };
+}
 
 /** The data a `data-questions` part carries: one message's questions, in order. */
 export interface QuestionsData {
@@ -42,7 +82,11 @@ export interface QuestionsData {
  */
 export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 	name: "questions",
-	render: ({ data }) => <QuestionCards questions={data.questions} />,
+	render: ({ data }) => (
+		<InMessage>
+			<QuestionCards questions={data.questions} />
+		</InMessage>
+	),
 });
 
 export function QuestionCards({
@@ -50,10 +94,13 @@ export function QuestionCards({
 }: {
 	questions: Question[];
 }): JSX.Element {
-	const reply = useContext(ReplyContext);
-	const panel = useRef<HTMLDivElement>(null);
+	const { reply, sent } = useCardReply();
+	// What the answers are read from: the reply being written, or once sent,
+	// the one that was.
+	const said = reply?.text ?? sent;
+	const panel = useRef<HTMLOListElement>(null);
 	const answered = questions.filter(
-		(asked) => reply !== null && answerIn(reply.text, asked) !== null,
+		(asked) => said !== null && answerIn(said, asked) !== null,
 	).length;
 	// Enter in an answer box goes on to the next question's, and from the
 	// last into the composer, where the reply is sent.
@@ -73,53 +120,58 @@ export function QuestionCards({
 		following.setSelectionRange(following.value.length, following.value.length);
 	};
 	return (
-		<div
-			ref={panel}
-			className="my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs"
-		>
-			<header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
-				<MessageCircleQuestionIcon className="size-4 text-muted-foreground" />
-				<span className="font-medium text-[13px]">
-					{questions.length === 1 ? "A question" : "Questions"} for you
-				</span>
-				<span className="ml-auto text-muted-foreground text-xs tabular-nums">
-					{answered} of {questions.length} answered
-				</span>
-				<span
-					aria-hidden
-					className="h-1 w-14 overflow-hidden rounded-full bg-border"
-				>
+		<CardShell
+			label="questions for you"
+			Icon={MessageCircleQuestionIcon}
+			title={`${questions.length === 1 ? "A question" : "Questions"} for you`}
+			tone="info"
+			aside={
+				<span className="flex items-center gap-2">
+					<span className="text-muted-foreground text-xs tabular-nums">
+						{answered} of {questions.length} answered
+					</span>
 					<span
-						className="block h-full rounded-full bg-success transition-[width] duration-300 ease-out"
-						style={{ width: `${(answered / questions.length) * 100}%` }}
-					/>
+						aria-hidden
+						className="block h-1 w-14 overflow-hidden rounded-full bg-border"
+					>
+						<span
+							className="block h-full rounded-full bg-success transition-[width] duration-300 ease-out"
+							style={{ width: `${(answered / questions.length) * 100}%` }}
+						/>
+					</span>
 				</span>
-			</header>
-			<ol aria-label="questions" className="divide-y">
+			}
+		>
+			<ol ref={panel} aria-label="questions" className="divide-y">
 				{questions.map((asked) => (
 					<QuestionCard
 						key={asked.number}
 						asked={asked}
 						reply={reply}
+						said={said}
 						onNext={() => next(asked.number)}
 					/>
 				))}
 			</ol>
-		</div>
+		</CardShell>
 	);
 }
 
 function QuestionCard({
 	asked,
 	reply,
+	said: replied,
 	onNext,
 }: {
 	asked: Question;
+	/** The composer, while the reply is still being written. */
 	reply: Reply | null;
+	/** The reply its answer is read from, being written or sent. */
+	said: string | null;
 	onNext: () => void;
 }): JSX.Element {
 	const { number, text, body, choices, pick } = asked;
-	const answer = reply === null ? null : answerIn(reply.text, asked);
+	const answer = replied === null ? null : answerIn(replied, asked);
 	const said: Answer = answer ?? { picks: [], words: "" };
 	const say = (next: Answer) =>
 		reply?.write(withAnswer(reply.text, asked, next));
@@ -257,39 +309,51 @@ const MERGE = "merge";
  */
 export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 	name: "review",
-	render: ({ data }) => <ReviewPanel review={data.review} />,
+	render: ({ data }) => (
+		<InMessage>
+			<ReviewPanel review={data.review} />
+		</InMessage>
+	),
 });
 
 export function ReviewPanel({ review }: { review: Review }): JSX.Element {
-	const reply = useContext(ReplyContext);
+	const { reply, sent } = useCardReply();
 	const merging = reply?.text.trim().toLowerCase() === MERGE;
 	// Typed into the box, "merge" stays there, so writing "merge the header
 	// first" keeps its first word; the button's merge shows only on itself.
 	const [typing, setTyping] = useState(false);
 	const changes = merging && !typing ? "" : (reply?.text ?? "");
+	const approved = sent?.trim().toLowerCase() === MERGE;
 	return (
-		<section
-			aria-label={`review ${review.task}`}
-			className="my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs"
+		<CardShell
+			label={`review ${review.task}`}
+			Icon={GitMergeIcon}
+			title="Ready to merge"
+			task={review.task}
+			base={review.base}
 		>
-			<header className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
-				<GitMergeIcon className="size-4 text-muted-foreground" />
-				<span className="font-medium text-[13px]">Ready to merge</span>
-				<span className="flex min-w-0 items-center gap-1.5 font-mono text-[12px] text-muted-foreground">
-					<span className="truncate rounded-md bg-background px-1.5 py-0.5 ring-1 ring-border">
-						{review.task}
-					</span>
-					<span aria-hidden>→</span>
-					<span className="truncate rounded-md bg-background px-1.5 py-0.5 ring-1 ring-border">
-						{review.base}
-					</span>
-				</span>
-			</header>
-			{review.body !== "" && (
-				<Markdown
-					text={review.body}
-					className="px-4 py-3.5 text-sm leading-relaxed [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-				/>
+			{review.body !== "" && <CardBody text={review.body} />}
+			{sent !== null && (
+				// What the person replied, as it was sent: the card keeps it.
+				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
+					{approved ? (
+						<>
+							<CheckIcon
+								className="mt-0.5 size-4 text-success"
+								strokeWidth={3}
+							/>
+							<span>Merge approved</span>
+						</>
+					) : (
+						<>
+							<span className="shrink-0 text-muted-foreground">Asked for</span>
+							<Markdown
+								text={sent}
+								className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+							/>
+						</>
+					)}
+				</footer>
 			)}
 			{reply !== null && (
 				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3 sm:flex-row sm:items-start">
@@ -323,6 +387,6 @@ export function ReviewPanel({ review }: { review: Review }): JSX.Element {
 					</Button>
 				</footer>
 			)}
-		</section>
+		</CardShell>
 	);
 }

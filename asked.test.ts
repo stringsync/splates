@@ -23,10 +23,16 @@ describe("stretches", () => {
 
 		const found = stretches(example);
 
-		expect(found.map((each) => each.type)).toEqual(["text", "questions"]);
+		expect(found.map((each) => each.type)).toEqual(["report", "questions"]);
 		expect(found[0]).toEqual({
-			type: "text",
-			text: "## ⚠️ Escalated <task>: needs two calls on the todo board\n\nOne sentence on what changed.",
+			type: "report",
+			report: {
+				ending: "escalated",
+				task: "<task>",
+				base: null,
+				reason: "needs two calls on the todo board",
+				body: "One sentence on what changed.",
+			},
 		});
 		const questions = found[1]?.type === "questions" ? found[1].questions : [];
 		expect(
@@ -85,13 +91,102 @@ describe("stretches", () => {
 			},
 		]);
 		for (const example of examples) {
-			if (example.startsWith("## ⚠️ Escalated") || example === review) {
+			if (example === review) {
 				continue;
 			}
-			expect(stretches(example).filter((each) => each.type !== "text")).toEqual(
-				[],
-			);
+			expect(
+				stretches(example).filter((each) => each.type === "review"),
+			).toEqual([]);
 		}
+	});
+
+	it("reads the skill's merge and remove reports, and the todos they propose", async () => {
+		const examples = await skillExamples();
+		const merged = examples.find((each) => each.startsWith("## ✅ Merged"));
+		const removed = examples.find((each) => each.startsWith("## 🛑 Removed"));
+		if (merged === undefined || removed === undefined) {
+			throw new Error("the skill has no merge or remove example");
+		}
+
+		// `[#<id>]` is a placeholder, not a number: only a real id makes a card.
+		expect(stretches(merged).map((each) => each.type)).toEqual([
+			"report",
+			"text",
+		]);
+		expect(stretches(merged)[0]).toEqual({
+			type: "report",
+			report: {
+				ending: "merged",
+				task: "<task>",
+				base: "<base>",
+				reason: null,
+				body: "One sentence on what changed.\n\nStale: todo <id> (remove?).",
+			},
+		});
+		expect(stretches(removed)[0]).toEqual({
+			type: "report",
+			report: {
+				ending: "removed",
+				task: "<task>",
+				base: null,
+				reason: "superseded by a fix on main",
+				body: "One sentence on what the task set out to do.",
+			},
+		});
+	});
+
+	it("reads a proposed todo anywhere in a message, up to the next heading or questions", () => {
+		const found = stretches(
+			[
+				"Next up:",
+				"",
+				"### 📝 Upload retries forever on a 413 [#12]",
+				"",
+				"The client retries every 4xx. It touches the retry loop.",
+				"",
+				"### 📝 Show the file size limit [#14]",
+				"",
+				"Says how big a file may be.",
+				"",
+				"1. Which first?",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{ type: "text", text: "Next up:" },
+			{
+				type: "todo",
+				todo: {
+					id: 12,
+					subject: "Upload retries forever on a 413",
+					body: "The client retries every 4xx. It touches the retry loop.",
+				},
+			},
+			{
+				type: "todo",
+				todo: {
+					id: 14,
+					subject: "Show the file size limit",
+					body: "Says how big a file may be.",
+				},
+			},
+			expect.objectContaining({ type: "questions" }),
+		]);
+	});
+
+	it("reads an escalation without a reason, or with its emoji's variation selector left off", () => {
+		expect(stretches("## ⚠ Escalated header")).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "escalated",
+					task: "header",
+					base: null,
+					reason: null,
+					body: "",
+				},
+			},
+		]);
 	});
 
 	it("leaves a review title without the line every review ends with as text", () => {

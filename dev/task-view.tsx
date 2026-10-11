@@ -169,6 +169,8 @@ export function TaskView({
 			box.current?.focus();
 			box.current?.setSelectionRange(text.length, text.length);
 		},
+		// Its agent runs outside the page, which has no way to message it.
+		send: null,
 	};
 	return (
 		<section

@@ -64,8 +64,10 @@ import type {
 	Setting,
 	Status,
 } from "../conversations";
+import type { LaneRecord } from "../lanes";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
+import type { TodoState } from "../todo";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import {
 	answerConversation,
@@ -93,6 +95,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import { ReportUI, TodosContext, TodoUI } from "./report-cards";
 import type { Settings } from "./settings";
 import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
@@ -669,6 +672,8 @@ function agentName(agents: AgentChoice[], id: string): string {
 export function Conversations({
 	feed,
 	tasks,
+	todos,
+	lanes,
 	trunk,
 	open,
 	onOpen,
@@ -676,6 +681,9 @@ export function Conversations({
 }: {
 	feed: ConversationFeed;
 	tasks: Details[];
+	/** What a todo an agent proposes is read from, live. */
+	todos: TodoState[];
+	lanes: LaneRecord[];
 	/** The main tree's branch. */
 	trunk: string;
 	open: string | null;
@@ -693,64 +701,67 @@ export function Conversations({
 	// One for the page, so a draft Home leaves for a conversation it started
 	// reaches that conversation's composer.
 	const [drafts] = useState(() => new Drafts(localStorage));
+	const board = useMemo(() => ({ todos, lanes }), [todos, lanes]);
 
 	return (
-		<div className="flex flex-col gap-4">
-			{phone && open === null ? (
-				<ConversationList
-					feed={feed}
-					tasks={tasks}
-					// A phone's browser notifies only from a service worker, and
-					// this list comes and goes with what is open.
-					settings={null}
-					open={open}
-					onOpen={onOpen}
-				/>
-			) : startsOne(open) || (open === null && !phone) ? (
-				<Home
-					// Its picks are for one agent's settings, so start over for another.
-					key={agentFor(open, agents, conversations)}
-					drafts={drafts}
-					tasks={tasks}
-					feed={feed}
-					agents={agents}
-					agent={agentFor(open, agents, conversations)}
-					conversations={conversations}
-					onOpen={onOpen}
-					onBack={phone ? () => onOpen(null) : null}
-				/>
-			) : open === ARCHIVED ? (
-				<Archived
-					tasks={tasks}
-					conversations={conversations.filter((each) => each.archived)}
-					agents={agents}
-					onOpen={onOpen}
-					onBack={phone ? () => onOpen(null) : null}
-				/>
-			) : open?.startsWith(TASK) ? (
-				external === null ? (
-					<p className="text-muted-foreground text-sm">No such task.</p>
-				) : (
-					<TaskView
-						task={external}
-						need={need(external, null)}
+		<TodosContext value={board}>
+			<div className="flex flex-col gap-4">
+				{phone && open === null ? (
+					<ConversationList
+						feed={feed}
+						tasks={tasks}
+						// A phone's browser notifies only from a service worker, and
+						// this list comes and goes with what is open.
+						settings={null}
+						open={open}
+						onOpen={onOpen}
+					/>
+				) : startsOne(open) || (open === null && !phone) ? (
+					<Home
+						// Its picks are for one agent's settings, so start over for another.
+						key={agentFor(open, agents, conversations)}
+						drafts={drafts}
+						tasks={tasks}
+						feed={feed}
+						agents={agents}
+						agent={agentFor(open, agents, conversations)}
+						conversations={conversations}
+						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
-				)
-			) : shown === null ? (
-				<p className="text-muted-foreground text-sm">No such conversation.</p>
-			) : (
-				<Thread
-					key={shown.id}
-					drafts={drafts}
-					conversation={shown}
-					agent={agentName(agents, shown.agent)}
-					task={tasks.find((each) => each.task === shown.task) ?? null}
-					trunk={trunk}
-					onBack={phone ? () => onOpen(null) : null}
-				/>
-			)}
-		</div>
+				) : open === ARCHIVED ? (
+					<Archived
+						tasks={tasks}
+						conversations={conversations.filter((each) => each.archived)}
+						agents={agents}
+						onOpen={onOpen}
+						onBack={phone ? () => onOpen(null) : null}
+					/>
+				) : open?.startsWith(TASK) ? (
+					external === null ? (
+						<p className="text-muted-foreground text-sm">No such task.</p>
+					) : (
+						<TaskView
+							task={external}
+							need={need(external, null)}
+							onBack={phone ? () => onOpen(null) : null}
+						/>
+					)
+				) : shown === null ? (
+					<p className="text-muted-foreground text-sm">No such conversation.</p>
+				) : (
+					<Thread
+						key={shown.id}
+						drafts={drafts}
+						conversation={shown}
+						agent={agentName(agents, shown.agent)}
+						task={tasks.find((each) => each.task === shown.task) ?? null}
+						trunk={trunk}
+						onBack={phone ? () => onOpen(null) : null}
+					/>
+				)}
+			</div>
+		</TodosContext>
 	);
 }
 
@@ -1189,11 +1200,13 @@ function useDraft(
 
 /**
  * `runtime`'s composer as the question cards write to it: its text, kept
- * current as it is typed in, and the textarea in `within` to focus.
+ * current as it is typed in, and the textarea in `within` to focus; what it
+ * sends goes to conversation `id`.
  */
 function useReply(
 	runtime: AssistantRuntime,
 	within: { current: HTMLElement | null },
+	id: string,
 ): Reply {
 	const composer = runtime.thread.composer;
 	const [text, setText] = useState(() => composer.getState().text);
@@ -1210,8 +1223,12 @@ function useReply(
 				box?.focus();
 				box?.setSelectionRange(box.value.length, box.value.length);
 			},
+			send: (said: string) =>
+				void promptConversation(id, said).catch((error: unknown) =>
+					refused("Not sent", error),
+				),
 		}),
-		[text, composer, within],
+		[text, composer, within, id],
 	);
 }
 
@@ -1319,7 +1336,7 @@ function Thread({
 	});
 	restore.current = useDraft(runtime, drafts, id);
 	const section = useRef<HTMLElement>(null);
-	const reply = useReply(runtime, section);
+	const reply = useReply(runtime, section, id);
 	const mentions = useFileMentions(conversation.task);
 	const [renaming, setRenaming] = useState(false);
 	// Stops the turn so what is queued goes out now.
@@ -1490,6 +1507,8 @@ function Thread({
 				<AssistantRuntimeProvider runtime={runtime}>
 					<QuestionsUI />
 					<ReviewUI />
+					<ReportUI />
+					<TodoUI />
 					<WorkUI />
 					<ReplyContext value={reply}>
 						<ThreadView
@@ -1612,6 +1631,10 @@ function replied(text: string, settled: boolean): LikePart[] {
 				};
 			case "review":
 				return { type: "data-review", data: { review: stretch.review } };
+			case "report":
+				return { type: "data-report", data: { report: stretch.report } };
+			case "todo":
+				return { type: "data-todo", data: { todo: stretch.todo } };
 			default:
 				return stretch satisfies never;
 		}

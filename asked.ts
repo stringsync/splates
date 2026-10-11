@@ -2,13 +2,16 @@ import { dedent, offers, type Question } from "./plan";
 
 /**
  * A stretch of an agent's message: markdown as it was written, the questions
- * it asks the person in the arbor skill's format, or its report asking them
- * to review a task before it merges.
+ * it asks the person in the arbor skill's format, its report asking them to
+ * review a task before it merges, its report of how a task ended or what it
+ * waits on, or a todo it proposes.
  */
 export type Stretch =
 	| { type: "text"; text: string }
 	| { type: "questions"; questions: Question[] }
-	| { type: "review"; review: Review };
+	| { type: "review"; review: Review }
+	| { type: "report"; report: Report }
+	| { type: "todo"; todo: Proposal };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -17,6 +20,39 @@ export interface Review {
 	/** What changed, and what to look at and where, as markdown. */
 	body: string;
 }
+
+/** How a task ended, or what it waits on, as the skill's reports title it. */
+export type Ending = "merged" | "removed" | "escalated";
+
+/**
+ * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
+ * <task>: <why>`, or `## ⚠️ Escalated <task>: <what it needs>`.
+ */
+export interface Report {
+	ending: Ending;
+	task: string;
+	/** Where it merged; null for the others. */
+	base: string | null;
+	/** What the title says after its colon, if anything. */
+	reason: string | null;
+	/** What changed, and anything else said before what follows, as markdown. */
+	body: string;
+}
+
+/** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
+export interface Proposal {
+	id: number;
+	/** The subject as the agent wrote it, which may since have changed. */
+	subject: string;
+	/** What the todo is and why it matters now, as markdown. */
+	body: string;
+}
+
+const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
+const ENDED =
+	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
+const HEADING = /^#{1,6}[ \t]/;
 
 /** A review report's title, and the line every one ends with. */
 const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
@@ -67,6 +103,14 @@ export function stretches(text: string): Stretch[] {
 			i = end;
 			continue;
 		}
+		const kept = keptAt(lines, i);
+		if (kept !== null) {
+			found.push(...prose(lines.slice(from, i)));
+			found.push(kept.stretch);
+			from = kept.end;
+			i = kept.end - 1;
+			continue;
+		}
 		if (ITEM.exec(line)?.[1] !== "1") {
 			continue;
 		}
@@ -81,6 +125,81 @@ export function stretches(text: string): Stretch[] {
 	}
 	found.push(...prose(lines.slice(from)));
 	return found;
+}
+
+/**
+ * The report or proposed todo titled at `start`, which runs until the next
+ * heading or list of questions, and the line after it; null for any other line.
+ */
+function keptAt(
+	lines: string[],
+	start: number,
+): { stretch: Stretch; end: number } | null {
+	const line = lines[start] as string;
+	const merged = MERGED.exec(line);
+	const ended = ENDED.exec(line);
+	const proposed = PROPOSAL.exec(line);
+	if (merged === null && ended === null && proposed === null) {
+		return null;
+	}
+	const end = endAt(lines, start + 1);
+	const body = lines
+		.slice(start + 1, end)
+		.join("\n")
+		.replace(/^\n+|\s+$/g, "");
+	if (proposed !== null) {
+		return {
+			stretch: {
+				type: "todo",
+				todo: {
+					id: Number(proposed[2]),
+					subject: proposed[1] as string,
+					body,
+				},
+			},
+			end,
+		};
+	}
+	const report: Report =
+		merged !== null
+			? {
+					ending: "merged",
+					task: merged[1] as string,
+					base: merged[2] as string,
+					reason: null,
+					body,
+				}
+			: {
+					ending: ended?.[1] === undefined ? "escalated" : "removed",
+					task: ended?.[2] as string,
+					base: null,
+					reason: ended?.[3] || null,
+					body,
+				};
+	return { stretch: { type: "report", report }, end };
+}
+
+/**
+ * The first line from `start` that begins something else: a heading or a
+ * list of questions, outside code blocks; else the end.
+ */
+function endAt(lines: string[], start: number): number {
+	let fenced = false;
+	for (let i = start; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		if (FENCE.test(line)) {
+			fenced = !fenced;
+			continue;
+		}
+		if (
+			!fenced &&
+			(HEADING.test(line) ||
+				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
+		) {
+			return i;
+		}
+	}
+	return lines.length;
 }
 
 /** The questions of the list starting at `start`, and the line after it. */

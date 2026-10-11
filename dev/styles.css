@@ -25,6 +25,8 @@
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
 @source "./question-cards.tsx";
+@source "./report-cards.tsx";
+@source "./card-shell.tsx";
 @source "./release.tsx";
 @source "./settings-dialog.tsx";
 @source "./work-row.tsx";
@@ -64,6 +66,7 @@
 	--destructive: oklch(0.577 0.215 27.3);
 	--success: oklch(0.6 0.15 152);
 	--warning: oklch(0.666 0.157 58.3);
+	--info: oklch(0.588 0.158 241.966);
 	--border: oklch(0.885 0.007 264);
 	--input: oklch(0.86 0.008 264);
 	--ring: var(--brand);
@@ -85,6 +88,7 @@
 	--destructive: oklch(0.68 0.17 22.2);
 	--success: oklch(0.74 0.15 152);
 	--warning: oklch(0.78 0.14 72);
+	--info: oklch(0.746 0.16 232.661);
 	--border: oklch(1 0 0 / 9%);
 	--input: oklch(1 0 0 / 14%);
 }
@@ -180,6 +184,7 @@
 	--color-destructive: var(--destructive);
 	--color-success: var(--success);
 	--color-warning: var(--warning);
+	--color-info: var(--info);
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
