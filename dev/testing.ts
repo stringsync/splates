@@ -308,6 +308,7 @@ export function tool(overrides: Partial<Tool> = {}): Tool {
 		parent: null,
 		at: null,
 		until: null,
+		flags: [],
 		...overrides,
 	};
 }

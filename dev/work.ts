@@ -1,4 +1,5 @@
 import type { Part, Step, Tool } from "../conversations";
+import type { Flag } from "../watch";
 
 /**
  * What an agent did in a turn before its reply: its thoughts, what it said
@@ -111,6 +112,33 @@ export function timeline(work: Work): Item[] {
 /** What a tool call is, in a line: the command for one that runs one. */
 export function label(tool: Tool): string {
 	return tool.command ?? tool.title;
+}
+
+/** The turn's commands that did to git what they should not have, subagents' among them. */
+export function flagged(work: Work): Tool[] {
+	return work.parts.filter(
+		(part): part is Tool => part.type === "tool" && part.flags.length > 0,
+	);
+}
+
+/** What a flag says a command did, in a few words. */
+export function warning(flag: Flag): string {
+	switch (flag.type) {
+		case "stashed":
+			return flag.count === 1
+				? "Stashed changes and left them there"
+				: `Stashed ${flag.count} changes and left them there`;
+		case "dropped":
+			return `Dropped commits from ${flag.branch}`;
+		case "left":
+			return `Left ${flag.branch} for ${flag.now ?? "a detached HEAD"}`;
+		case "pushed":
+			return `Pushed ${flag.refs.join(", ")}`;
+		case "outside":
+			return `Changed ${count(flag.paths.length, "file")} in the main tree`;
+		default:
+			return flag satisfies never;
+	}
 }
 
 /** What the turn added up to, for the row's one line. */

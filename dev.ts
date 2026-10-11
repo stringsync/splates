@@ -25,6 +25,7 @@ import {
 import type { Assets } from "./dev/assets";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
+import type { Git } from "./git";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
 import { Pty } from "./pty";
@@ -162,12 +163,13 @@ export async function dev(
 		todos,
 		format,
 		arborDir,
+		git,
 	}: Project): Promise<Served> => {
 		const read = () =>
 			snapshot({ service, todos, fs, home: ps.env("HOME"), release });
 		const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		let last = fingerprint(await read());
-		const conversations = converse?.({ arborDir }) ?? null;
+		const conversations = converse?.({ arborDir, git }) ?? null;
 		if (conversations !== null) {
 			conversations.url = url;
 			// Stopped for a restart, which this is: each carries on.
@@ -1362,10 +1364,12 @@ export interface DevOptions {
 	hosts?: string[];
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
-	 * records in `arborDir`; without it no page has any to show, and the routes
+	 * records in `arborDir`, its commands watched through `git`; without it no page has any to show, and the routes
 	 * say they are off.
 	 */
-	conversations?: ((project: { arborDir: string }) => Conversations) | null;
+	conversations?:
+		| ((project: { arborDir: string; git: Git }) => Conversations)
+		| null;
 	/**
 	 * The shell a page's terminal runs, as argv, in the main tree or a task's
 	 * worktree; without it, the page has no terminal and the route says so.
@@ -1394,7 +1398,7 @@ export interface DevOptions {
 /** What `dev` serves a project with: its own records, read and written. */
 export type Project = Pick<
 	Repository,
-	"service" | "journal" | "todos" | "format" | "arborDir"
+	"service" | "journal" | "todos" | "format" | "arborDir" | "git"
 > & { fs: Fs; ps: Ps; log: Logger };
 
 /** A route's work once its project is known. */

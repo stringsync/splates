@@ -9,6 +9,7 @@ import {
 	LoaderIcon,
 	SearchIcon,
 	SquareTerminalIcon,
+	TriangleAlertIcon,
 	XIcon,
 } from "lucide-react";
 import {
@@ -27,6 +28,7 @@ import { editLines } from "../diff";
 import { Markdown } from "./markdown";
 import {
 	doing,
+	flagged,
 	type Item,
 	label,
 	relative,
@@ -36,6 +38,7 @@ import {
 	type Trees,
 	timeline,
 	type Work,
+	warning,
 	worked,
 } from "./work";
 
@@ -116,6 +119,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 					</ol>
 				</details>
 				{work.running && work.plan !== null && <Plan steps={work.plan} />}
+				<Flags tools={flagged(work)} short={short} />
 				{edited.length > 0 && (
 					<ul aria-label="edited files" className="flex flex-wrap gap-1">
 						{edited.map(({ path, count }) => (
@@ -155,6 +159,58 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				)}
 			</div>
 		</Going>
+	);
+}
+
+/**
+ * A warning for each command that did to git what it should not have, which
+ * opens to the command, and to the main tree's files it changed.
+ */
+function Flags({
+	tools,
+	short,
+}: {
+	tools: Tool[];
+	short: (path: string) => string;
+}): JSX.Element | null {
+	if (tools.length === 0) {
+		return null;
+	}
+	return (
+		<ul aria-label="warnings" className="flex flex-col gap-1">
+			{tools.map((tool) => {
+				const outside = tool.flags.flatMap((flag) =>
+					flag.type === "outside" ? flag.paths : [],
+				);
+				return (
+					<li key={tool.id}>
+						<details>
+							<summary className="flex cursor-pointer list-none items-center gap-1.5 text-warning text-xs [&::-webkit-details-marker]:hidden">
+								<TriangleAlertIcon className="size-3.5 shrink-0" />
+								<span className="min-w-0 truncate">
+									{tool.flags.map(warning).join(" · ")}
+								</span>
+							</summary>
+							<div className="mt-1 mb-2 flex flex-col gap-1.5 pl-5">
+								<pre className="whitespace-pre-wrap break-all font-mono text-xs">
+									$ {label(tool)}
+								</pre>
+								{outside.length > 0 && (
+									<ul
+										aria-label="files changed in the main tree"
+										className="flex flex-col gap-0.5 font-mono text-muted-foreground text-xs"
+									>
+										{outside.map((path) => (
+											<li key={path}>{short(path)}</li>
+										))}
+									</ul>
+								)}
+							</div>
+						</details>
+					</li>
+				);
+			})}
+		</ul>
 	);
 }
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { join } from "node:path";
 import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
@@ -14,6 +15,8 @@ import {
 	type Status,
 } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
+import { Testing } from "./testing";
+import { Watch } from "./watch";
 
 describe("Conversations", () => {
 	let fs: FakeFs;
@@ -1059,6 +1062,72 @@ describe("Conversations", () => {
 			"end",
 		]);
 	});
+
+	it("flags a command for what it did to git, and keeps the flag in the log", async () => {
+		await using env = await Testing.open();
+		await env.fs.write(join(env.root, "README.md"), "edited\n");
+		const watching = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch, watch: new Watch(env.git) },
+		);
+		const command = (id: string, status: "in_progress" | "completed") =>
+			({
+				sessionUpdate:
+					id === "t1" && status === "in_progress"
+						? "tool_call"
+						: "tool_call_update",
+				toolCallId: id,
+				title: "git stash",
+				kind: "execute",
+				status,
+			}) as acp.SessionUpdate;
+		agent.turn = async (client, sessionId) => {
+			await client.sessionUpdate({
+				sessionId,
+				update: command("t1", "in_progress"),
+			});
+			await Bun.sleep(50);
+			await env.gitCli(env.root, "stash");
+			await client.sessionUpdate({
+				sessionId,
+				update: command("t1", "completed"),
+			});
+			return "end_turn";
+		};
+		const conversation = await watching.start("fake", {
+			task: null,
+			cwd: env.root,
+		});
+		await until(conversation, "idle");
+
+		await conversation.prompt("stash it");
+		await until(conversation, "idle");
+		const flagged = async (each: Conversation) => {
+			for (let i = 0; i < 100; i++) {
+				const part = each.state.messages[1]?.parts[0];
+				if (part?.type === "tool" && part.flags.length > 0) {
+					return part.flags;
+				}
+				await Bun.sleep(10);
+			}
+			return [];
+		};
+
+		expect(await flagged(conversation)).toEqual([
+			{ type: "stashed", count: 1 },
+		]);
+		await conversation.stop();
+		const [read] = await new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		).list();
+		expect(await flagged(read as Conversation)).toEqual([
+			{ type: "stashed", count: 1 },
+		]);
+		await watching.disposeAsync();
+	});
 });
 
 describe("fold", () => {
@@ -1136,6 +1205,7 @@ describe("fold", () => {
 				parent: null,
 				at: at(0),
 				until: at(30),
+				flags: [],
 			},
 		]);
 		expect(into.messages[0]).toMatchObject({ at: at(0), until: at(30) });

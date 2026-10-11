@@ -1413,6 +1413,41 @@ describe("App's conversations", () => {
 			expect(within(timeline).getByText("Read 2 files")).toBeTruthy();
 		});
 
+		it("warns of a command that did to git what it should not have, opening to the command", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "x1", command: "git status" }),
+					tool({
+						id: "x2",
+						command: "git stash && cd /repo && touch stray.txt",
+						flags: [
+							{ type: "stashed", count: 1 },
+							{ type: "outside", paths: ["stray.txt"] },
+						],
+					}),
+					"Done.",
+				]),
+			);
+
+			const warnings = await waitFor(() =>
+				within(thread).getByRole("list", { name: "warnings" }),
+			);
+			expect(
+				within(warnings).getAllByRole("listitem")[0]?.textContent,
+			).toContain(
+				"Stashed changes and left them there · Changed 1 file in the main tree",
+			);
+			expect(warnings.textContent).toContain(
+				"$ git stash && cd /repo && touch stray.txt",
+			);
+			expect(
+				within(warnings).getByRole("list", {
+					name: "files changed in the main tree",
+				}).textContent,
+			).toBe("stray.txt");
+			expect(warnings.textContent).not.toContain("git status");
+		});
+
 		it("shows the last thing the agent said, even with tool calls after it", async () => {
 			const thread = await opened(
 				turn([

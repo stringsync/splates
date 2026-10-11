@@ -13,6 +13,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { fail } from "./exit";
+import type { Flag, Watch, Watched } from "./watch";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
 export interface Agent {
@@ -143,6 +144,8 @@ export interface Tool {
 	/** When it began and finished; null in a log too old to say, or until it has. */
 	at: string | null;
 	until: string | null;
+	/** What a command did to git that it should not have. */
+	flags: Flag[];
 }
 
 /** A change to one file: `old` is null for a file the edit created. */
@@ -291,6 +294,8 @@ type Entry =
 	/** Where a checkpoint stands, and what comes after it. */
 	| { kind: "checkpoint"; checkpoint: Checkpoint | null; after?: After }
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
+	/** What a finished command did to git that it should not have. */
+	| { kind: "flags"; tool: string; flags: Flag[] }
 	| { kind: "end"; error: string | null };
 
 /**
@@ -339,16 +344,15 @@ export function fold(
 				parent: parentOf(update),
 				at,
 				until: null,
+				flags: [],
 			};
 			agentTurn(state, at).parts.push(tool);
 			fill(tool, update, at);
 			return;
 		}
 		case "tool_call_update": {
-			const part = state.messages
-				.flatMap((message) => message.parts)
-				.find((each) => each.type === "tool" && each.id === update.toolCallId);
-			if (part?.type === "tool") {
+			const part = toolIn(state, update.toolCallId);
+			if (part !== null) {
 				fill(part, update, at);
 				moved(state, at);
 			}
@@ -406,6 +410,18 @@ function agentTurn(state: ConversationState, at: string | null): Message {
 	};
 	messages.splice(end, 0, turn);
 	return turn;
+}
+
+/** The tool call `id`, wherever in the conversation it was made. */
+function toolIn(state: ConversationState, id: string): Tool | null {
+	for (const message of state.messages) {
+		for (const part of message.parts) {
+			if (part.type === "tool" && part.id === id) {
+				return part;
+			}
+		}
+	}
+	return null;
 }
 
 /** Marks the agent's message at the end, if it is the last, as having moved `at`. */
@@ -656,6 +672,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private interrupting = false;
 	/** What follows the checkpoint asked last. */
 	private after: After = "stop";
+	/** The commands running, by tool call, each watched since it started. */
+	private readonly watching = new Map<string, Watched>();
 
 	private constructor(
 		readonly state: ConversationState,
@@ -670,6 +688,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		private readonly run: Launch,
 		/** Where `arbor dev` answers, for the agent's CLI to tell it things. */
 		private readonly url: string | null,
+		/** What watches the agent's commands; null to leave them be. */
+		private readonly watch: Watch | null,
 	) {
 		this.saves = new Throttler(timer, SAVE_EVERY);
 	}
@@ -692,6 +712,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			agents,
 			launch: run,
 			url,
+			watch = null,
 		}: {
 			fs: Fs;
 			timer: Timer;
@@ -699,6 +720,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			agents: Agent[];
 			launch: Launch;
 			url: string | null;
+			watch?: Watch | null;
 		},
 	): Promise<Conversation | null> {
 		const lines = (await fs.read(log)).split("\n").filter(Boolean);
@@ -723,6 +745,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			start.cwd ?? null,
 			run,
 			url,
+			watch,
 		);
 		conversation.lines.push(...lines.map((line) => `${line}\n`));
 		const { state } = conversation;
@@ -753,6 +776,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			} else if (entry.kind === "checkpoint") {
 				state.checkpoint = entry.checkpoint;
 				conversation.after = entry.after ?? "stop";
+			} else if (entry.kind === "flags") {
+				const tool = toolIn(state, entry.tool);
+				if (tool !== null) {
+					tool.flags = entry.flags;
+				}
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
 			}
@@ -794,12 +822,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			clock,
 			launch: run,
 			url,
+			watch = null,
 		}: {
 			fs: Fs;
 			timer: Timer;
 			clock: WallClock;
 			launch: Launch;
 			url: string | null;
+			watch?: Watch | null;
 		},
 	): Promise<Conversation> {
 		const conversation = new Conversation(
@@ -812,6 +842,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			cwd,
 			run,
 			url,
+			watch,
 		);
 		conversation.write({
 			kind: "start",
@@ -903,6 +934,47 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 	}
 
+	/**
+	 * Watches each command the agent runs from when it starts, and keeps what
+	 * it did to git that it should not have once it ends.
+	 */
+	private watchCommand(update: acp.SessionUpdate): void {
+		if (
+			this.watch === null ||
+			this.cwd === null ||
+			(update.sessionUpdate !== "tool_call" &&
+				update.sessionUpdate !== "tool_call_update")
+		) {
+			return;
+		}
+		const tool = toolIn(this.state, update.toolCallId);
+		if (tool?.kind !== "execute") {
+			return;
+		}
+		const watched = this.watching.get(tool.id);
+		if (tool.status !== "completed" && tool.status !== "failed") {
+			if (watched === undefined) {
+				this.watching.set(tool.id, this.watch.command(this.cwd));
+			}
+			return;
+		}
+		if (watched === undefined) {
+			return;
+		}
+		this.watching.delete(tool.id);
+		void watched
+			.done()
+			.then((flags) => {
+				if (flags.length > 0) {
+					tool.flags = flags;
+					this.write({ kind: "flags", tool: tool.id, flags });
+					this.changed();
+				}
+			})
+			// Git it cannot read is nothing to flag.
+			.catch(() => {});
+	}
+
 	/** What the agent may ask of this side, all of it routed to the person. */
 	private client(): acp.Client {
 		return {
@@ -910,6 +982,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				const at = this.now();
 				this.write({ kind: "update", update, at });
 				fold(this.state, update, at);
+				this.watchCommand(update);
 				this.changed();
 			},
 			requestPermission: async (params) => {
@@ -1628,6 +1701,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly run: Launch;
 	private readonly timer: Timer;
 	private readonly clock: WallClock;
+	private readonly watch: Watch | null;
 	private loaded = false;
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
@@ -1642,6 +1716,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.run = opts.launch ?? launch;
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemWallClock();
+		this.watch = opts.watch ?? null;
 	}
 
 	/** Every conversation, newest first. */
@@ -1699,6 +1774,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				clock: this.clock,
 				launch: this.run,
 				url: this.url,
+				watch: this.watch,
 			},
 		);
 		this.track(conversation);
@@ -1738,6 +1814,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				agents: this.agents,
 				launch: this.run,
 				url: this.url,
+				watch: this.watch,
 			});
 			if (read !== null && !this.known.has(read.id)) {
 				this.track(read);
@@ -1752,4 +1829,6 @@ export interface ConversationsOptions {
 	launch?: Launch;
 	timer?: Timer;
 	clock?: WallClock;
+	/** What watches the agents' commands for what they do to git; none by default. */
+	watch?: Watch | null;
 }

@@ -33,6 +33,7 @@ import {
 	todoUpdate,
 } from "./todo";
 import { DEFAULT_TIMEOUT, todoWait, wait } from "./wait";
+import { Watch } from "./watch";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
@@ -215,9 +216,10 @@ arbor
 				.map((host) => host.trim())
 				.filter(Boolean),
 			conversations: opts.experimental
-				? ({ arborDir }) =>
+				? ({ arborDir, git }) =>
 						new Conversations(`${arborDir}/conversations`, AGENTS, {
 							fs: ctx.fs,
+							watch: new Watch(git),
 						})
 				: null,
 			// A login shell, as a terminal window opens, so the person's PATH
