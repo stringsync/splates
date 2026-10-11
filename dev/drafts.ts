@@ -55,9 +55,15 @@ export class Drafts implements Eventful<DraftsEvents> {
 }
 
 /**
- * The key of the draft for a conversation not started yet, one per project:
- * every project's page is on the same origin, so shares one storage.
+ * The key of the draft for a conversation not started yet, one per project
+ * (every project's page is on the same origin, so shares one storage), and
+ * one more per task for one to start in that task's tree.
  */
-export function newDraft(project: string | null): string {
-	return `new:${project ?? ""}`;
+export function newDraft(
+	project: string | null,
+	task: string | null = null,
+): string {
+	return task === null
+		? `new:${project ?? ""}`
+		: `new:${project ?? ""}:${task}`;
 }

@@ -114,7 +114,7 @@ import { copiedLabel, useCopy } from "./card";
 import { TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
-import { Drafts, newDraft } from "./drafts";
+import { type Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Action, Overview, OverviewButtons } from "./overview";
@@ -146,7 +146,9 @@ import { WorkUI } from "./work-row";
 export const ARCHIVED = "archived";
 /**
  * In place of an id in the address: the screen that starts a conversation,
- * with the agent after it, as `new/codex`, else the agent last used.
+ * with the agent after it, as `new/codex`, else the agent last used, and
+ * after that the task whose tree it starts in, as `new/codex/fix-upload`,
+ * else the main tree.
  */
 export const NEW = "new";
 
@@ -164,13 +166,22 @@ function agentFor(
 	agents: AgentChoice[],
 	conversations: ConversationState[],
 ): string {
-	const named = open?.startsWith(`${NEW}/`) ? open.slice(NEW.length + 1) : null;
+	const named = open?.startsWith(`${NEW}/`)
+		? open.slice(NEW.length + 1).split("/")[0]
+		: null;
 	return (
 		agents.find((each) => each.id === named)?.id ??
 		agents.find((each) => each.id === conversations[0]?.agent)?.id ??
 		agents[0]?.id ??
 		""
 	);
+}
+
+/** The task a new conversation starts in, from `open`; null for the main tree. */
+function taskFor(open: string | null): string | null {
+	return open?.startsWith(`${NEW}/`)
+		? (open.slice(NEW.length + 1).split("/")[1] ?? null)
+		: null;
 }
 
 /**
@@ -199,7 +210,7 @@ function whereOf(conversation: ConversationState): string | null {
  * title. Until it has one, a stand-in (see `unnamed`): the first line of what
  * the person first said, else "Not started".
  */
-function nameOf(conversation: ConversationState): string {
+export function nameOf(conversation: ConversationState): string {
 	return (
 		conversation.name ??
 		conversation.task ??
@@ -965,7 +976,7 @@ function Rename({
  * centered in a box of one size, so marks line up down a list whichever kind
  * they are.
  */
-function Mark({
+export function Mark({
 	need,
 	reported = null,
 }: {
@@ -1011,7 +1022,7 @@ function Mark({
  * is the agent's report saying so. Anything the person says after it carries
  * the conversation on, and the report goes.
  */
-function reportedAs(conversation: ConversationState): Ending | null {
+export function reportedAs(conversation: ConversationState): Ending | null {
 	const last = conversation.messages.at(-1);
 	if (last === undefined || last.role !== "agent") {
 		return null;
@@ -1037,6 +1048,7 @@ function agentName(agents: AgentChoice[], id: string): string {
  */
 export function Conversations({
 	feed,
+	drafts,
 	tasks,
 	todos,
 	lanes,
@@ -1046,6 +1058,11 @@ export function Conversations({
 	phone,
 }: {
 	feed: ConversationFeed;
+	/**
+	 * What was typed and not sent, by conversation: the page's, so a prompt
+	 * composed elsewhere on it reaches the composer it was meant for.
+	 */
+	drafts: Drafts;
 	tasks: Details[];
 	/** What a todo an agent proposes is read from, live. */
 	todos: TodoState[];
@@ -1064,9 +1081,6 @@ export function Conversations({
 	);
 	const shown = conversations.find((each) => each.id === open) ?? null;
 	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
-	// One for the page, so a draft Home leaves for a conversation it started
-	// reaches that conversation's composer.
-	const [drafts] = useState(() => new Drafts(localStorage));
 	const board = useMemo(() => ({ todos, lanes }), [todos, lanes]);
 	// By conversation, so a message Home sends to one it just started can be
 	// refused in that one's thread.
@@ -1087,13 +1101,15 @@ export function Conversations({
 					/>
 				) : startsOne(open) || (open === null && !phone) ? (
 					<Home
-						// Its picks are for one agent's settings, so start over for another.
-						key={agentFor(open, agents, conversations)}
+						// Its picks are for one agent's settings, and its draft for one
+						// tree, so start over for another.
+						key={`${agentFor(open, agents, conversations)}/${taskFor(open)}`}
 						drafts={drafts}
 						tasks={tasks}
 						feed={feed}
 						agents={agents}
 						agent={agentFor(open, agents, conversations)}
+						task={taskFor(open)}
 						conversations={conversations}
 						refuseIn={refuse}
 						onOpen={onOpen}
@@ -1145,7 +1161,7 @@ const RECENT = 5;
 
 /**
  * The screen with no conversation open: an empty thread whose first message
- * starts one with `agent` in the main tree, the agent's settings in its
+ * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
  * composer, and under the greeting the latest conversations to pick back up,
  * those waiting on the person first.
  */
@@ -1155,6 +1171,7 @@ function Home({
 	feed,
 	agents,
 	agent,
+	task,
 	conversations,
 	refuseIn,
 	onOpen,
@@ -1167,6 +1184,8 @@ function Home({
 	agents: AgentChoice[];
 	/** The agent the conversation starts with, picked beside New conversation. */
 	agent: string;
+	/** The task whose tree it starts in; null for the main tree. */
+	task: string | null;
 	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
 	/** Says in a conversation's thread that a write to it was refused. */
@@ -1207,7 +1226,7 @@ function Home({
 				.trim();
 			const images = imagesOf(message);
 			setStarting(true);
-			const state = await startConversation(agent, null, picks).catch(
+			const state = await startConversation(agent, task, picks).catch(
 				(error: unknown) => {
 					setStarting(false);
 					restore.current(text, images);
@@ -1237,9 +1256,9 @@ function Home({
 	restore.current = useDraft(
 		runtime,
 		drafts,
-		newDraft(new URLSearchParams(location.search).get("project")),
+		newDraft(new URLSearchParams(location.search).get("project"), task),
 	);
-	const mentions = useFileMentions(null);
+	const mentions = useFileMentions(task);
 
 	return (
 		<section
@@ -1264,6 +1283,11 @@ function Home({
 							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-2xl tracking-tight duration-200">
 								<span>Start a conversation with</span>
 								<AgentBrand agent={agent} name={agentName(agents, agent)} />
+								{task !== null && (
+									<span>
+										in <span className="font-mono text-xl">{task}</span>
+									</span>
+								)}
 							</div>
 							{recent.length > 0 && (
 								<section

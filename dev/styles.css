@@ -11,6 +11,7 @@
 @source "./app.tsx";
 @source "./todos.tsx";
 @source "./tasks.tsx";
+@source "./dispatching.tsx";
 @source "./markdown.tsx";
 @source "./media.tsx";
 @source "./lightbox.tsx";

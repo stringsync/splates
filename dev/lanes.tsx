@@ -52,6 +52,7 @@ import type { TodoState } from "../todo";
 import { addLane, dropLane, joinLanes, renameLane } from "./api";
 import { Board, still } from "./board";
 import { Card, copiedLabel, laneReference, Sortable, useCopy } from "./card";
+import { Dispatching, OnIt, StartMenu } from "./dispatching";
 import { AttachButton, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
@@ -349,15 +350,20 @@ export function Lane({
 								.map((todo) => `#${todo.id}`)
 								.join(", ");
 							return (
-								<button
-									key={agent}
-									type="button"
-									onClick={() => openTask(agent)}
-									className="inline-flex w-fit cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-								>
-									<GitBranchIcon aria-hidden className="size-3" />
-									{agent} on {on}
-								</button>
+								<span key={agent} className="flex min-w-0 items-center gap-1.5">
+									<button
+										type="button"
+										onClick={() => openTask(agent)}
+										{...still}
+										className="inline-flex min-w-0 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+									>
+										<GitBranchIcon aria-hidden className="size-3" />
+										<span className="truncate">
+											{agent} on {on}
+										</span>
+									</button>
+									<OnIt task={agent} />
+								</span>
 							);
 						})
 					: lane.next !== null && <StartLane lane={lane} />}
@@ -375,11 +381,20 @@ export function Lane({
 }
 
 /**
- * Copies `[ARBOR LANE <n>]` while no agent is on the lane: pasted into an
- * agent's chat, it starts at the top and works down.
+ * While no agent is on the lane, puts one on it with `[ARBOR LANE <n>]`,
+ * which starts at the top and works down: in a conversation, or, while the
+ * page holds none, copied to paste into an agent's chat.
  */
 function StartLane({ lane }: { lane: LaneState }): JSX.Element {
 	const { copied, copy } = useCopy();
+	if (useContext(Dispatching) !== null) {
+		return (
+			<StartMenu
+				assignment={{ kind: "lane", id: lane.id }}
+				label="Start lane"
+			/>
+		);
+	}
 	return (
 		<Button
 			size="xs"

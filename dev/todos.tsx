@@ -51,6 +51,7 @@ import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import { Board as BoardContext } from "./board";
 import { Card, CopyLink } from "./card";
+import { OnIt, StartMenu } from "./dispatching";
 import { AttachButton, FileList } from "./files";
 import {
 	AddLane,
@@ -405,6 +406,14 @@ function Edit({
 						/>
 					</InputGroup>
 				</MentionAnchor>
+				{todo.takenBy === null ? (
+					<StartMenu
+						assignment={{ kind: "todo", id: todo.id }}
+						className="self-start"
+					/>
+				) : (
+					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
+				)}
 				<Links todo={todo} />
 				<Detail editor={editor} />
 				<FileList files={editor.files} />

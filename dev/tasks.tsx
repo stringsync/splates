@@ -15,6 +15,7 @@ import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
 import { retryTask } from "./api";
 import { ReviewChanges } from "./changes";
+import { OnIt, StartMenu } from "./dispatching";
 import { Markdown } from "./markdown";
 
 /** A tree in one of these needs fixing rather than driving. */
@@ -52,6 +53,8 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 								<span className="min-w-0 flex-1 truncate text-sm">
 									{task.task}
 								</span>
+								{/* Only marks, since the row is a button: its dialog opens them. */}
+								<OnIt task={task.task} variant="marks" />
 								<Status task={task} />
 								<PlanProgress plan={task.plan} />
 							</button>
@@ -161,6 +164,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					))}
 				</dl>
 				<Retry task={task} />
+				<Conversations task={task.task} />
 				{review !== null && task.ahead !== null && (
 					<DialogClose
 						render={
@@ -192,6 +196,23 @@ export function Task({ task }: { task: Details }): JSX.Element {
 				)}
 			</div>
 		</DialogContent>
+	);
+}
+
+/**
+ * Every conversation on the task, newest first, each opening on a click, and
+ * a way to put another agent on it, in its tree.
+ */
+function Conversations({ task }: { task: string }): JSX.Element {
+	return (
+		<div className="flex flex-col gap-1">
+			<OnIt task={task} variant="rows" className="-mx-2" />
+			<StartMenu
+				assignment={{ kind: "task", task }}
+				label="Start a conversation"
+				className="self-start"
+			/>
+		</div>
 	);
 }
 

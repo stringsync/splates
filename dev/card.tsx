@@ -29,6 +29,7 @@ import { age } from "../age";
 import { blockerLabel } from "../lanes";
 import type { TodoState } from "../todo";
 import { Board, still } from "./board";
+import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
 
@@ -220,6 +221,7 @@ export function Card({
 						</Badge>
 					)}
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
+					{todo.takenBy && <OnIt task={todo.takenBy} />}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}
