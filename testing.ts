@@ -1,5 +1,5 @@
-import { expect } from "bun:test";
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { afterAll, expect } from "bun:test";
+import { cp, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CounterIdProvider } from "webappwiz/id";
@@ -134,7 +134,7 @@ export class Testing implements AsyncDisposable {
 	} = {}): Promise<Testing> {
 		const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-")));
 		const testing = new Testing(base);
-		await testing.seed();
+		await cp(await seeded(), testing.root, { recursive: true });
 		if (init) {
 			await testing.format.create();
 			await testing.service.init();
@@ -207,15 +207,44 @@ export class Testing implements AsyncDisposable {
 		return this.disposeAsync();
 	}
 
-	private async seed(): Promise<void> {
-		await this.fs.mkdir(this.root);
-		await this.gitCli(this.root, "init", "-b", "main");
-		await this.gitCli(this.root, "config", "user.email", "arbor@example.com");
-		await this.gitCli(this.root, "config", "user.name", "arbor");
-		await this.gitCli(this.root, "config", "commit.gpgsign", "false");
-		await this.commit(this.root, "README.md", "seed\n", "seed");
+	/** Makes the repo every test starts from, with one commit on `main`. */
+	static async seed(base: string): Promise<void> {
+		const testing = new Testing(base);
+		const { root } = testing;
+		await testing.fs.mkdir(root);
+		await testing.gitCli(root, "init", "-b", "main");
+		await testing.gitCli(root, "config", "user.email", "arbor@example.com");
+		await testing.gitCli(root, "config", "user.name", "arbor");
+		await testing.gitCli(root, "config", "commit.gpgsign", "false");
+		await testing.commit(root, "README.md", "seed\n", "seed");
 	}
 }
+
+/** Where the seeded repo lives: made at the first test, gone after the last. */
+let template: Promise<string> | null = null;
+
+/**
+ * The seeded repo, made once per test file and copied for each test: its six
+ * git spawns were most of what a concurrent suite spent, and with several
+ * test runs at once, enough to time the slowest tests out.
+ */
+async function seeded(): Promise<string> {
+	template ??= (async () => {
+		const base = await realpath(await mkdtemp(join(tmpdir(), "arbor-seed-")));
+		await Testing.seed(base);
+		return base;
+	})();
+	return join(await template, "repo");
+}
+
+// registered here, outside any describe, so it runs once the importing file's
+// tests are done
+afterAll(async () => {
+	if (template !== null) {
+		await rm(await template, { recursive: true, force: true });
+		template = null;
+	}
+});
 
 /** pid 1 always exists, so it stands in for another agent that is still running. */
 export const LIVE_PID = 1;
