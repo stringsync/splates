@@ -1,6 +1,7 @@
 import { createContext } from "react";
 import type { LaneRecord } from "../lanes";
 import type { TodoState } from "../todo";
+import { Drafts } from "./drafts";
 
 /**
  * What any card on the board can reach: every todo and lane, to name the
@@ -21,6 +22,8 @@ export interface BoardContext {
 	/** What was refused of each lane, by its id, said under its header. */
 	refusedLanes: ReadonlyMap<number, string>;
 	refuseLane: (id: number, title: string, error: unknown) => void;
+	/** Todos being added or edited and not yet sent, kept across pages. */
+	drafts: Drafts;
 }
 
 export const Board = createContext<BoardContext>({
@@ -33,6 +36,7 @@ export const Board = createContext<BoardContext>({
 	refusedTodos: new Map(),
 	refusedLanes: new Map(),
 	refuseLane: () => {},
+	drafts: new Drafts(),
 });
 
 /**

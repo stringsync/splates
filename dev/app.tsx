@@ -147,8 +147,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		}),
 		["changed"],
 	);
-	// What was typed and not sent, by conversation: one for the page, so a
-	// prompt composed on the board reaches the composer it opens.
+	// What was typed and not sent, by conversation and todo: one for the page,
+	// so a prompt composed on the board reaches the composer it opens.
 	const [drafts] = useState(() => new Drafts(localStorage));
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(() => new Terminals(localStorage));
@@ -429,7 +429,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 										{/* The board runs as wide as its lanes, the way a Trello board
 						    scrolls sideways. */}
 										<TabsContent value="todos" className="min-w-0 px-4 py-4">
-											<Todos snapshot={snapshot} />
+											<Todos snapshot={snapshot} drafts={drafts} />
 										</TabsContent>
 										<TabsContent
 											value="tasks"

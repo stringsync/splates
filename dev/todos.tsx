@@ -52,7 +52,8 @@ import type { TodoState } from "../todo";
 import { Board as BoardContext } from "./board";
 import { Card, CopyLink } from "./card";
 import { OnIt, StartMenu } from "./dispatching";
-import { AttachButton, FileList } from "./files";
+import { type Drafts, todoEdit } from "./drafts";
+import { AttachButton, Dropped, FileList } from "./files";
 import {
 	AddLane,
 	columnId,
@@ -81,7 +82,13 @@ import { TodoView } from "./todo-view";
  * one to reword, link, place or remove it. A lane moves by its header, as a
  * Trello list does.
  */
-export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
+export function Todos({
+	snapshot,
+	drafts,
+}: {
+	snapshot: Snapshot;
+	drafts: Drafts;
+}): JSX.Element {
 	const [view] = useState(() => new TodoView(localStorage));
 	const [board] = useState(() => new TodoBoard());
 	// Every choice is read, so any of them changing renders again; `show` then
@@ -126,8 +133,10 @@ export function Todos({ snapshot }: { snapshot: Snapshot }): JSX.Element {
 			refusedTodos,
 			refusedLanes,
 			refuseLane,
+			drafts,
 		}),
 		[
+			drafts,
 			all,
 			records,
 			view,
@@ -357,18 +366,27 @@ function Edit({
 	todo: TodoState;
 	onDone: () => void;
 }): JSX.Element {
-	const [editor] = useState(() => new TodoEditor(todo));
-	const { busy, confirming, changed } = useReactive(
+	const board = useContext(BoardContext);
+	const [editor] = useState(
+		() =>
+			new TodoEditor(
+				todo,
+				board.drafts,
+				todoEdit(new URLSearchParams(location.search).get("project"), todo.id),
+			),
+	);
+	const { busy, confirming, changed, restored, dropped } = useReactive(
 		editor,
 		(editor) => ({
 			busy: editor.busy,
 			confirming: editor.confirming,
 			changed: editor.changed,
+			restored: editor.restored,
+			dropped: editor.dropped,
 		}),
 		["changed"],
 	);
 	// Its step in its column says more than its place in the whole list.
-	const board = useContext(BoardContext);
 	const steps = board.todos.filter((other) => other.lane === todo.lane);
 	const lane = board.lanes.find((record) => record.id === todo.lane);
 	const place = `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane?.name ?? "Untriaged"}`;
@@ -392,6 +410,14 @@ function Edit({
 				</DialogDescription>
 			</DialogHeader>
 			<div className="flex min-w-0 flex-col gap-3">
+				{restored && (
+					<p className="flex items-center gap-2 text-muted-foreground text-xs">
+						Unsaved changes kept from before
+						<Button size="xs" variant="ghost" onClick={() => editor.discard()}>
+							Discard
+						</Button>
+					</p>
+				)}
 				<MentionAnchor mentions={mentions}>
 					<InputGroup>
 						<InputGroupInput
@@ -417,6 +443,7 @@ function Edit({
 				<Links todo={todo} />
 				<Detail editor={editor} />
 				<FileList files={editor.files} />
+				<Dropped names={dropped} />
 				<Refusal refusal={refusal} className="text-right" />
 			</div>
 			<DialogFooter className="flex-row justify-between sm:justify-between">

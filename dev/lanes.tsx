@@ -53,7 +53,8 @@ import { addLane, dropLane, joinLanes, renameLane } from "./api";
 import { Board, still } from "./board";
 import { Card, copiedLabel, laneReference, Sortable, useCopy } from "./card";
 import { Dispatching, OnIt, StartMenu } from "./dispatching";
-import { AttachButton, FileList } from "./files";
+import { type Drafts, todoDraft } from "./drafts";
+import { AttachButton, Dropped, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
 import { TodoDraft } from "./todo-draft";
@@ -600,7 +601,13 @@ function LaneMenu({
  * in the repo, and a pasted or attached file goes with it.
  */
 function AddTodo({ lane }: { lane: number | null }): JSX.Element {
-	const [open, setOpen] = useState(false);
+	const { drafts } = useContext(Board);
+	const key = todoDraft(
+		new URLSearchParams(location.search).get("project"),
+		lane,
+	);
+	// Open on a draft kept from before, so coming back shows what was typed.
+	const [open, setOpen] = useState(() => drafts.read(key) !== "");
 	if (!open) {
 		return (
 			<button
@@ -613,20 +620,34 @@ function AddTodo({ lane }: { lane: number | null }): JSX.Element {
 			</button>
 		);
 	}
-	return <Composer lane={lane} onClose={() => setOpen(false)} />;
+	return (
+		<Composer
+			lane={lane}
+			draft={key}
+			drafts={drafts}
+			onClose={() => setOpen(false)}
+		/>
+	);
 }
 
 function Composer({
 	lane,
+	draft: key,
+	drafts,
 	onClose,
 }: {
 	lane: number | null;
+	/** Where in `drafts` what is typed is kept. */
+	draft: string;
+	drafts: Drafts;
 	onClose: () => void;
 }): JSX.Element {
-	const [draft] = useState(() => new TodoDraft());
-	const { ready } = useReactive(draft, (draft) => ({ ready: draft.ready }), [
-		"changed",
-	]);
+	const [draft] = useState(() => new TodoDraft(drafts, key));
+	const { ready, dropped } = useReactive(
+		draft,
+		(draft) => ({ ready: draft.ready, dropped: draft.dropped }),
+		["changed"],
+	);
 	const subject = useMentions<HTMLTextAreaElement>(draft.subject);
 	const { refusal, attempt } = useRefusal();
 
@@ -668,6 +689,7 @@ function Composer({
 				/>
 			</MentionAnchor>
 			<FileList files={draft.files} />
+			<Dropped names={dropped} />
 			<Refusal refusal={refusal} />
 			<div className="flex items-center gap-1">
 				<Button type="submit" size="sm" disabled={!ready}>

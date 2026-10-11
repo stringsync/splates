@@ -60,6 +60,11 @@ export class Files implements Eventful<FilesEvents> {
 		this.set({ files: [], keep: [] });
 	}
 
+	/** Back to `stored` and nothing new, as when an edit is thrown away. */
+	reset(stored: string[]): void {
+		this.set({ files: [], keep: stored });
+	}
+
 	private set(next: Partial<Pick<Files, "files" | "keep">>): void {
 		Object.assign(this, next);
 		this.dispatcher.dispatch("changed");
@@ -228,4 +233,16 @@ const STORED_ID = /^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|\d+)-/i;
 /** A stored file's name as given, without the id stored names lead with. */
 export function stored(path: string): string {
 	return (path.split("/").at(-1) ?? path).replace(STORED_ID, "");
+}
+
+/** Names the files a reload dropped from a draft, to attach again. */
+export function Dropped({ names }: { names: string[] }): JSX.Element | null {
+	if (names.length === 0) {
+		return null;
+	}
+	return (
+		<p className="text-muted-foreground text-xs">
+			Lost on reload, attach again: {names.join(", ")}
+		</p>
+	);
 }
