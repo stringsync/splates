@@ -80,6 +80,15 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		this.dispatcher.dispatch("changed");
 	}
 
+	/**
+	 * Whether `conversation` has a shell that has not exited, which archiving
+	 * would hang up on, along with whatever runs in it.
+	 */
+	running(conversation: string): boolean {
+		const status = this.sessions.get(conversation)?.status;
+		return status === "connecting" || status === "open";
+	}
+
 	/** Hangs up on `conversation`'s shell, if it has one, as it is archived. */
 	close(conversation: string): void {
 		if (this.sessions.has(conversation)) {

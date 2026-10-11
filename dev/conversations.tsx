@@ -133,7 +133,7 @@ import {
 import type { Settings } from "./settings";
 import { TASK, TaskLine, TaskView } from "./task-view";
 import { Task } from "./tasks";
-import { ToggleTerminal } from "./terminal";
+import { ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
@@ -760,32 +760,39 @@ function Item({
 }
 
 /**
- * Archives `conversation`, or brings it back. While its agent runs, idle or
- * not, `file` asks first in `confirm`, since archiving stops it; render
- * `confirm` beside whatever calls `file`.
+ * Archives `conversation`, or brings it back. While its agent works, or sits
+ * idle with its shell up, `file` asks first in `confirm`, since archiving
+ * stops both; render `confirm` beside whatever calls `file`.
  */
 function useArchive(conversation: ConversationState): {
 	file: () => void;
 	confirm: JSX.Element;
 } {
 	const [asking, setAsking] = useState(false);
+	const shellRunning = useContext(ShellRunning);
 	const { id, archived } = conversation;
 	const put = () =>
 		void archiveConversation(id, !archived).catch((error: unknown) =>
 			refused(archived ? "Not unarchived" : "Not archived", error),
 		);
-	// Idle too: its process is up, waiting for a prompt.
-	const live =
-		conversation.status !== "stopped" && conversation.status !== "failed";
-	const file = () => (!archived && live ? setAsking(true) : put());
+	const working =
+		conversation.status === "starting" || conversation.status === "running";
+	// Idle, only its shell can lose anything, like a dev server it runs; asked
+	// as it is clicked, since the shell comes and goes without a render here.
+	const file = () =>
+		!archived &&
+		(working || (conversation.status === "idle" && shellRunning(id)))
+			? setAsking(true)
+			: put();
 	const confirm = (
 		<Dialog open={asking} onOpenChange={setAsking}>
 			<DialogContent showCloseButton={false}>
 				<DialogHeader>
 					<DialogTitle>Archive {nameOf(conversation)}?</DialogTitle>
 					<DialogDescription>
-						The agent is still running. Archiving stops it and closes its
-						terminal.
+						{working
+							? "The agent is still running. Archiving stops it and closes its terminal."
+							: "Its terminal is still open. Archiving closes it, and stops the idle agent."}
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter>

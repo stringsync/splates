@@ -195,6 +195,40 @@ describe("App's terminal", () => {
 		expect(testing.shells).toHaveLength(1);
 	});
 
+	it("asks before archiving an idle conversation only while its shell is up", async () => {
+		const view = await reading();
+		const archived = () =>
+			testing.posts.filter(
+				(post) => post.path === "/api/conversations/c1/archived",
+			);
+		const archive = () =>
+			act(async () =>
+				fireEvent.click(
+					within(view.getByRole("navigation", { name: "overview" })).getByRole(
+						"button",
+						{ name: "Archive" },
+					),
+				),
+			);
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+
+		await archive();
+		const dialog = view.getByRole("dialog");
+		expect(dialog.textContent).toContain("terminal is still open");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
+		);
+		expect(archived()).toHaveLength(0);
+
+		await act(async () => shell?.exit(0));
+		await archive();
+
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(archived()).toHaveLength(1);
+	});
+
 	it("keeps each conversation's shell while another is up", async () => {
 		await reading([
 			conversation({ id: "c1", title: "One" }),

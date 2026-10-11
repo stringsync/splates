@@ -16,6 +16,11 @@ export const ToggleTerminal = createContext<
 	((conversation: string) => void) | null
 >(null);
 
+/** Whether a conversation's shell is up; none where the page has no shells. */
+export const ShellRunning = createContext<(conversation: string) => boolean>(
+	() => false,
+);
+
 /**
  * `conversation`'s shell, in the pane down the right of the page (the whole
  * screen on a phone), with where it runs and how it stands above it. Unlike

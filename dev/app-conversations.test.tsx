@@ -2133,7 +2133,7 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("switches a setting, and archives the idle conversation once asked", async () => {
+	it("switches a setting, and archives the idle conversation at once, with no shell up", async () => {
 		const view = await conversations([
 			conversation({
 				settings: [
@@ -2166,15 +2166,8 @@ describe("App's conversations", () => {
 				),
 			),
 		);
-		expect(posted("/api/conversations/c1/archived")).toEqual([]);
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("dialog")).getByRole("button", {
-					name: "Archive",
-				}),
-			),
-		);
 
+		expect(view.queryByRole("dialog")).toBeNull();
 		expect(posted("/api/conversations/c1/setting")).toEqual([
 			{ method: "PUT", body: { id: "model", value: "small" } },
 		]);
