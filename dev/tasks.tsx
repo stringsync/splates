@@ -27,34 +27,35 @@ const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
 export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 	const [opened, setOpened] = useState<Details | null>(null);
 
-	// One line, not a big empty state: the todos below it are the page then.
-	if (tasks.length === 0) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				No tasks: <code>arbor add &lt;task&gt;</code> starts one.
-			</p>
-		);
-	}
-
 	return (
-		<>
-			<ul className="flex flex-col">
-				{tasks.map((task) => (
-					<li key={task.task}>
-						<button
-							type="button"
-							onClick={() => setOpened(task)}
-							className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
-						>
-							<span className="min-w-0 flex-1 truncate text-sm">
-								{task.task}
-							</span>
-							<Status task={task} />
-							<PlanProgress plan={task.plan} />
-						</button>
-					</li>
-				))}
-			</ul>
+		<section aria-label="tasks" className="flex flex-col gap-2">
+			<header>
+				<h2 className="font-medium text-sm">Tasks</h2>
+			</header>
+			{/* One line, not a big empty state: the todos below it are the page then. */}
+			{tasks.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					No tasks: <code>arbor add &lt;task&gt;</code> starts one.
+				</p>
+			) : (
+				<ul className="flex flex-col">
+					{tasks.map((task) => (
+						<li key={task.task}>
+							<button
+								type="button"
+								onClick={() => setOpened(task)}
+								className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
+							>
+								<span className="min-w-0 flex-1 truncate text-sm">
+									{task.task}
+								</span>
+								<Status task={task} />
+								<PlanProgress plan={task.plan} />
+							</button>
+						</li>
+					))}
+				</ul>
+			)}
 			<Dialog
 				open={opened !== null}
 				onOpenChange={(open) => {
@@ -65,7 +66,7 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 			>
 				{opened && <Task task={opened} />}
 			</Dialog>
-		</>
+		</section>
 	);
 }
 

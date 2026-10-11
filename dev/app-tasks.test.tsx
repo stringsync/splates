@@ -13,6 +13,13 @@ describe("App's tasks", () => {
 		testing.dispose();
 	});
 
+	it("heads the tasks with a title, with tasks or without", async () => {
+		const view = await testing.openTasks({ tasks: [] });
+
+		expect(view.getByRole("heading", { name: "Tasks" })).toBeTruthy();
+		expect(view.getByText(/No tasks/)).toBeTruthy();
+	});
+
 	it("flags only the statuses that are news, and opens a task's plan", async () => {
 		const view = await testing.openTasks({
 			tasks: [
