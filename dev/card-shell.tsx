@@ -18,12 +18,36 @@ import { Markdown } from "./markdown";
 /** How a card's header is tinted: by what the person is to make of it. */
 export type Tone = "neutral" | "success" | "warning" | "destructive" | "info";
 
-export const TONES: Record<Tone, { header: string; icon: string }> = {
-	neutral: { header: "bg-muted/40", icon: "text-muted-foreground" },
-	success: { header: "bg-success/[0.07]", icon: "text-success" },
-	warning: { header: "bg-warning/[0.08]", icon: "text-warning" },
-	destructive: { header: "bg-destructive/[0.07]", icon: "text-destructive" },
-	info: { header: "bg-info/[0.07]", icon: "text-info" },
+export const TONES: Record<
+	Tone,
+	{ header: string; icon: string; focus: string }
+> = {
+	neutral: {
+		header: "bg-muted/40",
+		icon: "text-muted-foreground",
+		focus: "focus-within:border-ring/60 focus-within:ring-ring/20",
+	},
+	success: {
+		header: "bg-success/[0.07]",
+		icon: "text-success",
+		focus: "focus-within:border-success/50 focus-within:ring-success/15",
+	},
+	warning: {
+		header: "bg-warning/[0.08]",
+		icon: "text-warning",
+		focus: "focus-within:border-warning/50 focus-within:ring-warning/15",
+	},
+	destructive: {
+		header: "bg-destructive/[0.07]",
+		icon: "text-destructive",
+		focus:
+			"focus-within:border-destructive/50 focus-within:ring-destructive/15",
+	},
+	info: {
+		header: "bg-info/[0.07]",
+		icon: "text-info",
+		focus: "focus-within:border-info/50 focus-within:ring-info/15",
+	},
 };
 
 /** How each ending shows: on its report card, and beside its conversation. */
@@ -76,8 +100,12 @@ export function CardShell({
 	folded?: boolean;
 	children?: ReactNode;
 }): JSX.Element {
-	const frame =
-		"group/card my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs";
+	// Ringed in its tone while focus is inside it, as when it comes up to be
+	// answered, so it is plain where the keys go.
+	const frame = cn(
+		"group/card my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:ring-3",
+		TONES[tone].focus,
+	);
 	const header = (
 		<Header
 			Icon={Icon}

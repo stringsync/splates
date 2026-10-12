@@ -482,8 +482,11 @@ function QuestionCard({
 		}
 	};
 	return (
-		<li aria-label={`question ${number}`} className="flex gap-3 px-4 py-4">
-			<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums">
+		<li
+			aria-label={`question ${number}`}
+			className="group/question flex gap-3 px-4 py-4 transition-colors duration-150 focus-within:bg-muted/30"
+		>
+			<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums transition-colors duration-150 group-focus-within/question:bg-primary group-focus-within/question:text-primary-foreground">
 				{number}
 				{answer !== null && <span className="sr-only"> answered</span>}
 			</span>
@@ -524,8 +527,10 @@ function QuestionCard({
 									data-stop={index === at ? number : undefined}
 									onFocus={() => setAt(index)}
 									onClick={() => toggle(choice.key)}
+									// Ringed on any focus, not just a keyboard one, since a card
+									// that comes up focuses its first choice itself.
 									className={cn(
-										"group flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition-[background-color,border-color,box-shadow,transform] duration-150 focus-visible:ring-3 focus-visible:ring-ring/40 active:scale-[0.99] disabled:cursor-default",
+										"group flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition-[background-color,border-color,box-shadow,transform] duration-150 focus:ring-3 focus:ring-ring/40 active:scale-[0.99] disabled:cursor-default",
 										on
 											? "border-primary/60 bg-primary/[0.04] shadow-xs ring-1 ring-primary/15"
 											: "border-border/70 bg-background hover:border-border hover:bg-muted/50",
