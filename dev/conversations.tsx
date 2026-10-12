@@ -122,6 +122,7 @@ import {
 } from "./conversation-feed";
 import {
 	DIRECTIVE_TYPE,
+	DirectiveChip,
 	directivesOf,
 	liftDirectives,
 	withDirectives,
@@ -1727,6 +1728,7 @@ function Queued({
 					const images = message.parts.flatMap((part) =>
 						part.type === "image" ? [part] : [],
 					);
+					const { directives, rest } = leadingDirectives(text);
 					const label =
 						text ||
 						(images.length === 1 ? "an image" : `${images.length} images`);
@@ -1749,7 +1751,10 @@ function Queued({
 									className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
 								/>
 							))}
-							<span className="min-w-0 flex-1 truncate text-sm">{text}</span>
+							{directives.map((directive) => (
+								<DirectiveChip key={directive} directive={directive} />
+							))}
+							<span className="min-w-0 flex-1 truncate text-sm">{rest}</span>
 							<Button
 								size="icon-xs"
 								variant="ghost"

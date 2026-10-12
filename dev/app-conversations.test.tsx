@@ -3155,6 +3155,32 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations/c1/send-now")).toEqual([]);
 		});
 
+		it("shows the directives a queued message starts with as chips, ahead of its words", async () => {
+			const view = await conversations(
+				[
+					conversation({
+						id: "c1",
+						title: "Fix login",
+						status: "running",
+						messages: [
+							message("user", "go"),
+							{
+								...message("user", "[ARBOR TASK alpha]\n\nthen stop"),
+								queued: true,
+							},
+						],
+					}),
+				],
+				"c1",
+			);
+
+			const queued = view.getByRole("region", { name: "queued messages" });
+			expect(within(queued).getByTitle("[ARBOR TASK alpha]").textContent).toBe(
+				"Taskalpha",
+			);
+			expect(within(queued).getByText("then stop")).toBeTruthy();
+		});
+
 		it("holds a queued message above the composer, out of the thread, to send now or take back with Up", async () => {
 			const view = await conversations(
 				[
