@@ -299,10 +299,10 @@ function openingOf(conversation: ConversationState): string | null {
  * says whether it works or waits on you. Archived ones sit behind a link at
  * the bottom.
  *
- * The arrow keys move between rows, ⌥⌘M (Ctrl+Alt+M off a Mac) opens the
- * next one waiting, or else the next merged, then unread, one, ⌥⌘N starts a new one as the last was started, and
- * ⌥⌘0 to ⌥⌘9 open the first ten rows, top to bottom. Holding ⌥⌘ shows each
- * of those keys beside what it opens.
+ * The arrow keys move between rows, ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new
+ * one as the last was started, and ⌥⌘0 to ⌥⌘9 open the first ten rows, top
+ * to bottom. Holding ⌥⌘ shows each of those keys beside what it opens. Its
+ * actions, ⌥⌘M among them, are `ConversationActions`, apart from it.
  * As `settings` say, it notifies of an agent that comes to wait on you,
  * finishes its turn, or goes quiet.
  */
@@ -363,18 +363,6 @@ export function ConversationList({
 	openRowRef.current = openRow;
 	const shownRef = useRef(shown);
 	shownRef.current = shown;
-	// Each time ⌥⌘M finds nothing to open, for the waiting line to say so.
-	const [nudges, setNudges] = useState(0);
-	const next = useRef(() => {});
-	next.current = () => {
-		const waiting = nextWaiting(rows, open, true);
-		if (waiting !== undefined) {
-			arriveAt(openedBy(waiting));
-			openRow(waiting);
-		} else {
-			setNudges((nudges) => nudges + 1);
-		}
-	};
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -398,9 +386,6 @@ export function ConversationList({
 				event.preventDefault();
 				// With the agent, model, and settings the last one started with.
 				onOpenRef.current(NEW);
-			} else if (event.code === "KeyM") {
-				event.preventDefault();
-				next.current();
 			}
 		};
 		document.addEventListener("keydown", jump);
@@ -471,13 +456,6 @@ export function ConversationList({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<WaitingLine
-				waiting={rows.filter(waitsOnYou).length}
-				nudges={nudges}
-				held={held}
-				onNext={() => next.current()}
-			/>
-			<CheckpointButton conversations={listed} />
 			{mains.map((each) => (
 				<TerminalRow
 					key={each}
@@ -533,6 +511,77 @@ export function ConversationList({
 				<span className="tabular-nums">{archived}</span>
 			</button>
 		</nav>
+	);
+}
+
+/**
+ * What the conversations can be asked to do as a whole, kept apart from the
+ * list, which holds only where to go: a line saying how many agents wait on
+ * you, which opens the next as ⌥⌘M (Ctrl+Alt+M off a Mac) does, and
+ * Checkpoint, which ⌥⌘C opens. ⌥⌘M opens the next one waiting, or else the next merged, then
+ * unread, one, and lights the line when there is none.
+ */
+export function ConversationActions({
+	feed,
+	tasks,
+	open,
+	onOpen,
+}: {
+	feed: ConversationFeed;
+	tasks: Details[];
+	/** The conversation shown, by id, or `ARCHIVED`. */
+	open: string | null;
+	onOpen: (id: string | null) => void;
+}): JSX.Element {
+	const { conversations } = useReactive(
+		feed,
+		(feed) => ({ conversations: feed.conversations }),
+		["changed"],
+	);
+	const rows = rowsOf(tasks, conversations);
+	const held = useHeld();
+	// Each time ⌥⌘M finds nothing to open, for the waiting line to say so.
+	const [nudges, setNudges] = useState(0);
+	// The latest, for the listener below, which outlives a render.
+	const next = useRef(() => {});
+	next.current = () => {
+		const waiting = nextWaiting(rows, open, true);
+		if (waiting !== undefined) {
+			arriveAt(openedBy(waiting));
+			onOpen(openedBy(waiting));
+		} else {
+			setNudges((nudges) => nudges + 1);
+		}
+	};
+	useEffect(() => {
+		const jump = (event: KeyboardEvent) => {
+			// By the key's place, since Alt types another letter on a Mac.
+			if (
+				event.code === "KeyM" &&
+				event.altKey &&
+				(event.metaKey || event.ctrlKey)
+			) {
+				event.preventDefault();
+				next.current();
+			}
+		};
+		document.addEventListener("keydown", jump);
+		return () => document.removeEventListener("keydown", jump);
+	}, []);
+
+	return (
+		<div className="flex flex-col gap-0.5">
+			<WaitingLine
+				waiting={rows.filter(waitsOnYou).length}
+				nudges={nudges}
+				held={held}
+				onNext={() => next.current()}
+			/>
+			<CheckpointButton
+				conversations={conversations.filter((each) => !each.archived)}
+				held={held}
+			/>
+		</div>
 	);
 }
 
@@ -1293,16 +1342,27 @@ export function Conversations({
 		<Board value={board}>
 			<div className="flex flex-col gap-4">
 				{phone && open === null ? (
-					<ConversationList
-						feed={feed}
-						terminals={terminals}
-						tasks={tasks}
-						// A phone's browser notifies only from a service worker, and
-						// this list comes and goes with what is open.
-						settings={null}
-						open={open}
-						onOpen={onOpen}
-					/>
+					<>
+						<ConversationList
+							feed={feed}
+							terminals={terminals}
+							tasks={tasks}
+							// A phone's browser notifies only from a service worker, and
+							// this list comes and goes with what is open.
+							settings={null}
+							open={open}
+							onOpen={onOpen}
+						/>
+						{/* At its foot, as at the sidebar's beside it. */}
+						<div className="border-t pt-3">
+							<ConversationActions
+								feed={feed}
+								tasks={tasks}
+								open={open}
+								onOpen={onOpen}
+							/>
+						</div>
+					</>
 				) : startsOne(open) || (open === null && !phone) ? (
 					<Home
 						// Its picks are for one agent's settings, and its draft for one

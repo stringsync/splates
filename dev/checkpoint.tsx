@@ -10,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { After, ConversationState } from "../conversations";
 import {
@@ -88,7 +89,7 @@ function offered(projects: ProjectChoice[]): ProjectChoice[] {
 }
 
 /**
- * The sidebar's Checkpoint, opening a dialog to checkpoint any of the
+ * The sidebar's Checkpoint, opening, as ⌥⌘C does, a dialog to checkpoint any of the
  * projects with agents running, which says how one under way gets on, then
  * slides on to what to do once it is done, or to `arbor dev` restarting
  * when that was asked for. The button says how it stands, so the dialog can
@@ -99,11 +100,30 @@ function offered(projects: ProjectChoice[]): ProjectChoice[] {
  */
 export function CheckpointButton({
 	conversations,
+	held = false,
 }: {
 	conversations: ConversationState[];
+	/** Whether ⌥⌘ is held, to show the key that opens it with ⌥⌘. */
+	held?: boolean;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
 	const [open, setOpen] = useState(false);
+	// ⌥⌘C (Ctrl+Alt+C off a Mac), by the key's place, since Alt types another
+	// letter on a Mac.
+	useEffect(() => {
+		const press = (event: KeyboardEvent) => {
+			if (
+				event.code === "KeyC" &&
+				event.altKey &&
+				(event.metaKey || event.ctrlKey)
+			) {
+				event.preventDefault();
+				setOpen(true);
+			}
+		};
+		document.addEventListener("keydown", press);
+		return () => document.removeEventListener("keydown", press);
+	}, []);
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	// The run of `arbor dev` a restart is to replace, once one is coming.
@@ -225,6 +245,12 @@ export function CheckpointButton({
 					<CheckIcon className="size-3.5 text-success" />
 				)}
 				<span className="flex-1 truncate">{BUTTON[slide](ended)}</span>
+				{held && (
+					// Its own height, taller than the line, would push the rows below.
+					<Kbd aria-hidden className="-my-0.5">
+						C
+					</Kbd>
+				)}
 			</button>
 			<Refusal refusal={refusal} className="px-3 pb-1.5" />
 			<CheckpointDialog

@@ -583,13 +583,9 @@ describe("App's conversations", () => {
 			[conversation({ id: "c1", title: "Fix login", status: "running" })],
 			null,
 		);
-		const nav = view.getByRole("navigation", { name: "conversations" });
-
 		await act(async () =>
 			fireEvent.click(
-				await waitFor(() =>
-					within(nav).getByRole("button", { name: "Checkpoint" }),
-				),
+				await waitFor(() => view.getByRole("button", { name: "Checkpoint" })),
 			),
 		);
 		const dialog = await waitFor(() =>
@@ -4821,7 +4817,11 @@ Cap upload retries
 				]),
 			);
 			const nav = view.getByRole("navigation", { name: "conversations" });
-			const line = within(nav).getByRole("button", { name: /waiting on you/ });
+			// An action, so beside the list of where to go rather than in it.
+			expect(
+				within(nav).queryByRole("button", { name: /waiting on you/ }),
+			).toBeNull();
+			const line = view.getByRole("button", { name: /waiting on you/ });
 			expect(line.textContent).toContain("1 waiting on you");
 
 			await act(async () => fireEvent.click(line));
@@ -4832,9 +4832,7 @@ Cap upload retries
 			const quiet = await sidebar([
 				conversation({ id: "c1", title: "Runs", status: "running" }),
 			]);
-			const none = within(
-				quiet.getByRole("navigation", { name: "conversations" }),
-			).getByRole("button", { name: /waiting on you/ });
+			const none = quiet.getByRole("button", { name: /waiting on you/ });
 			expect(none.textContent).toContain("Nothing waiting on you");
 			const before = location.hash;
 			await act(async () =>
@@ -4864,7 +4862,10 @@ Cap upload retries
 			await act(async () =>
 				fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 			);
-			expect(keys()).toEqual(["N", "M", "0", "1", "2"]);
+			expect(keys()).toEqual(["N", "0", "1", "2"]);
+			expect(
+				view.getByRole("button", { name: /waiting on you/ }).textContent,
+			).toContain("M");
 			await act(async () =>
 				fireEvent.keyDown(document.body, {
 					code: "Digit1",
@@ -4888,7 +4889,7 @@ Cap upload retries
 			expect(keys()).toEqual([]);
 		});
 
-		it("opens Todos with ⌥⌘T and Conversations with ⌥⌘C, showing each key on its tab while ⌥⌘ is held", async () => {
+		it("opens Todos with ⌥⌘T and Checkpoint with ⌥⌘C, showing each key while ⌥⌘ is held", async () => {
 			const view = await sidebar(
 				newestFirst([conversation({ id: "c1", title: "First" })]),
 			);
@@ -4901,8 +4902,12 @@ Cap upload retries
 				fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 			);
 			expect(key(/Todos/)).toBe("T");
-			expect(key(/Conversations/)).toBe("C");
+			expect(key(/Conversations/)).toBeNull();
 			expect(key(/Tasks/)).toBeNull();
+			expect(
+				view.getByRole("button", { name: /Checkpoint/ }).querySelector("kbd")
+					?.textContent,
+			).toBe("C");
 
 			await act(async () =>
 				fireEvent.keyDown(document.body, {
@@ -4913,18 +4918,20 @@ Cap upload retries
 			);
 			expect(tab(/Todos/).getAttribute("aria-selected")).toBe("true");
 			await act(async () =>
+				fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
+			);
+			expect(key(/Todos/)).toBeNull();
+
+			await act(async () =>
 				fireEvent.keyDown(document.body, {
 					code: "KeyC",
 					altKey: true,
 					ctrlKey: true,
 				}),
 			);
-			expect(tab(/Conversations/).getAttribute("aria-selected")).toBe("true");
-
-			await act(async () =>
-				fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
-			);
-			expect(key(/Todos/)).toBeNull();
+			expect(
+				await waitFor(() => view.getByRole("dialog", { name: /Checkpoint/ })),
+			).toBeTruthy();
 		});
 
 		it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {

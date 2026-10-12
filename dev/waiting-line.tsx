@@ -41,7 +41,6 @@ export function WaitingLine({
 	return (
 		<button
 			type="button"
-			data-row
 			data-lit={lit || undefined}
 			onClick={onNext}
 			className={cn(

@@ -30,6 +30,7 @@ import type { Details } from "../show";
 import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
 import { ConversationFeed } from "./conversation-feed";
 import {
+	ConversationActions,
 	ConversationList,
 	Conversations,
 	conversationIn,
@@ -81,7 +82,7 @@ const PAGES: {
 		value: "conversations",
 		label: "Conversations",
 		Icon: MessagesSquareIcon,
-		key: "C",
+		// None: ⌥⌘C opens Checkpoint.
 	},
 	{ value: "todos", label: "Todos", Icon: KanbanIcon, key: "T" },
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
@@ -461,17 +462,30 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													/>
 												</div>
 											)}
+											{/* The page's actions, apart from the list of where to go. */}
 											{wide && (
-												<button
-													type="button"
-													aria-label="Settings"
-													onClick={() => setSetting(true)}
-													className="-mx-3 mt-auto flex h-12 shrink-0 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
-												>
-													<SettingsIcon className="size-4" />
-													<span className="flex-1 text-left">Settings</span>
-													<Kbd>⌘,</Kbd>
-												</button>
+												<div className="-mx-3 mt-auto flex shrink-0 flex-col">
+													{available && snapshot !== null && (
+														<div className="border-t px-3 py-2">
+															<ConversationActions
+																feed={talk}
+																tasks={snapshot.tasks}
+																open={page === "conversations" ? open : null}
+																onOpen={(id) => go("conversations", id)}
+															/>
+														</div>
+													)}
+													<button
+														type="button"
+														aria-label="Settings"
+														onClick={() => setSetting(true)}
+														className="flex h-12 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
+													>
+														<SettingsIcon className="size-4" />
+														<span className="flex-1 text-left">Settings</span>
+														<Kbd>⌘,</Kbd>
+													</button>
+												</div>
 											)}
 										</TabsList>
 										{wide && <SidebarHandle sidebar={sidebar} />}
