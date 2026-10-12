@@ -3473,6 +3473,45 @@ Cap upload retries
 			expect(keys()).toEqual([]);
 		});
 
+		it("opens Todos with ⌥⌘T and Conversations with ⌥⌘C, showing each key on its tab while ⌥⌘ is held", async () => {
+			const view = await sidebar(
+				newestFirst([conversation({ id: "c1", title: "First" })]),
+			);
+			const tab = (name: RegExp) => view.getByRole("tab", { name });
+			const key = (name: RegExp) =>
+				tab(name).querySelector("kbd")?.textContent ?? null;
+			expect(key(/Todos/)).toBeNull();
+
+			await act(async () =>
+				fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
+			);
+			expect(key(/Todos/)).toBe("T");
+			expect(key(/Conversations/)).toBe("C");
+			expect(key(/Tasks/)).toBeNull();
+
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					code: "KeyT",
+					altKey: true,
+					metaKey: true,
+				}),
+			);
+			expect(tab(/Todos/).getAttribute("aria-selected")).toBe("true");
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					code: "KeyC",
+					altKey: true,
+					ctrlKey: true,
+				}),
+			);
+			expect(tab(/Conversations/).getAttribute("aria-selected")).toBe("true");
+
+			await act(async () =>
+				fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
+			);
+			expect(key(/Todos/)).toBeNull();
+		});
+
 		it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {
 			const view = await sidebar(
 				newestFirst([

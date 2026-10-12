@@ -508,7 +508,7 @@ function hintOf(shown: Needing[], row: Needing): string | null {
  * Whether ⌥⌘ (Ctrl+Alt off a Mac) is held down, to show the keys that go
  * with it. Leaving the window lets go, since its key-ups go elsewhere.
  */
-function useHeld(): boolean {
+export function useHeld(): boolean {
 	const [held, setHeld] = useState(false);
 	useEffect(() => {
 		const check = (event: KeyboardEvent) =>

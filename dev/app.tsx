@@ -33,6 +33,7 @@ import {
 	ConversationList,
 	Conversations,
 	conversationIn,
+	useHeld,
 	useWaiting,
 } from "./conversations";
 import { Dispatch } from "./dispatch";
@@ -69,9 +70,20 @@ function pageIn(hash: string): Page {
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
 }
 
-const PAGES: { value: Page; label: string; Icon: LucideIcon }[] = [
-	{ value: "conversations", label: "Conversations", Icon: MessagesSquareIcon },
-	{ value: "todos", label: "Todos", Icon: KanbanIcon },
+/** Each page with the key that opens it with ⌥⌘, if any. */
+const PAGES: {
+	value: Page;
+	label: string;
+	Icon: LucideIcon;
+	key?: string;
+}[] = [
+	{
+		value: "conversations",
+		label: "Conversations",
+		Icon: MessagesSquareIcon,
+		key: "C",
+	},
+	{ value: "todos", label: "Todos", Icon: KanbanIcon, key: "T" },
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
 ];
 
@@ -204,6 +216,28 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	const pages = PAGES.filter(
 		({ value }) => value !== "conversations" || available,
 	);
+	// ⌥⌘ and a page's key opens it, by the key's place, since Alt types
+	// another letter on a Mac.
+	const goRef = useRef(go);
+	goRef.current = go;
+	useEffect(() => {
+		const open = (event: KeyboardEvent) => {
+			if (!event.altKey || !(event.metaKey || event.ctrlKey)) {
+				return;
+			}
+			const found = PAGES.find(({ key }) => event.code === `Key${key}`);
+			if (
+				found !== undefined &&
+				(found.value !== "conversations" || available)
+			) {
+				event.preventDefault();
+				goRef.current(found.value);
+			}
+		};
+		document.addEventListener("keydown", open);
+		return () => document.removeEventListener("keydown", open);
+	}, [available]);
+	const held = useHeld();
 
 	const [setting, setSetting] = useState(false);
 	// ⌘, or Ctrl+, as in an IDE.
@@ -385,7 +419,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
 											}
 										>
-											{pages.map(({ value, label, Icon }) => (
+											{pages.map(({ value, label, Icon, key }) => (
 												<TabsTrigger
 													key={value}
 													value={value}
@@ -402,10 +436,15 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 															count(value) !== null &&
 															` ${count(value)}`}
 													</span>
-													{wide && count(value) !== null && (
-														<span className="text-muted-foreground tabular-nums">
-															{count(value)}
-														</span>
+													{wide && held && key !== undefined ? (
+														<Kbd aria-hidden>{key}</Kbd>
+													) : (
+														wide &&
+														count(value) !== null && (
+															<span className="text-muted-foreground tabular-nums">
+																{count(value)}
+															</span>
+														)
 													)}
 												</TabsTrigger>
 											))}
