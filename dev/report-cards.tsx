@@ -24,11 +24,16 @@ import { Refusal, useRefusal } from "./refusal";
 /**
  * Renders a `data-report` part: how a task ended, or what it waits on, as the
  * agent reported it then. It never follows the task afterwards, so a report
- * reads the same however the task has moved on since.
+ * reads the same however the task has moved on since. A conversation whose
+ * last turn reports opens on its report.
  */
 export const ReportUI = makeAssistantDataUI<{ report: Report }>({
 	name: "report",
-	render: ({ data }) => <ReportCard report={data.report} />,
+	render: ({ data }) => (
+		<div data-opens-thread>
+			<ReportCard report={data.report} />
+		</div>
+	),
 });
 
 /** The open conversation, to archive; none outside one. */

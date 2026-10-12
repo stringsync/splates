@@ -2531,6 +2531,78 @@ describe("App's conversations", () => {
 			expect(view.textContent).not.toContain("## ✅");
 		});
 
+		/** Records each element scrolled into view while `run` runs, in `scrolled`. */
+		const scrollingIntoView = async (
+			run: (scrolled: Element[]) => Promise<void>,
+		) => {
+			const scrolled: Element[] = [];
+			const scroll = spyOn(
+				HTMLElement.prototype,
+				"scrollIntoView",
+			).mockImplementation(function (this: HTMLElement) {
+				scrolled.push(this);
+			});
+			try {
+				await run(scrolled);
+			} finally {
+				scroll.mockRestore();
+			}
+			return scrolled;
+		};
+
+		it("opens a conversation at its last turn's last report, clear of the person's message", async () => {
+			let header: HTMLElement | undefined;
+			const scrolled = await scrollingIntoView(async (seen) => {
+				await conversations([
+					conversation({
+						messages: [
+							message("user", "fix the footer"),
+							message("agent", "## ✅ Merged footer onto main\n\nIt moved."),
+							message("user", "fix the header"),
+							message(
+								"agent",
+								[
+									"## 🛑 Removed sidebar: superseded by a fix on main",
+									"",
+									"## ✅ Merged header onto main",
+									"",
+									"It wraps.",
+								].join("\n"),
+							),
+						],
+					}),
+				]);
+				header = await waitFor(() =>
+					within(document.body).getByRole("region", { name: "merged header" }),
+				);
+				await waitFor(() => expect(seen.at(-1)).toBe(header));
+			});
+
+			expect(new Set<Element | undefined>(scrolled)).toEqual(new Set([header]));
+			expect(header?.style.scrollMarginTop).toMatch(/^\d+(\.\d+)?px$/);
+		});
+
+		it("opens a conversation that talked on after a report at the bottom", async () => {
+			const scrolled = await scrollingIntoView(async () => {
+				await conversations([
+					conversation({
+						messages: [
+							message("user", "fix the footer"),
+							message("agent", "## ✅ Merged footer onto main\n\nIt moved."),
+							message("user", "thanks"),
+							message("agent", "Any time."),
+						],
+					}),
+				]);
+				await waitFor(() =>
+					within(document.body).getByRole("region", { name: "merged footer" }),
+				);
+				await act(() => new Promise((done) => requestAnimationFrame(done)));
+			});
+
+			expect(scrolled).toEqual([]);
+		});
+
 		it("offers to archive the conversation from each report of a task that is over, then starts the next", async () => {
 			const view = await conversations([
 				conversation({

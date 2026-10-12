@@ -246,6 +246,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 		};
 	}, []);
 	useAnchorAtOnce(viewport);
+	useOpenAt(viewport);
 	const footer = useRef<HTMLDivElement>(null);
 	useClearOf(viewport, footer);
 
@@ -264,6 +265,8 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 				ref={viewport}
 				turnAnchor="top"
 				topAnchorMessageClamp={UNCLAMPED}
+				// `useOpenAt` places the thread as it opens instead.
+				scrollToBottomOnInitialize={false}
 				data-slot="aui_thread-viewport"
 				className="relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll"
 			>
@@ -334,6 +337,75 @@ function useClearOf(
 		watching.observe(over);
 		return () => watching.disconnect();
 	}, [viewport, footer]);
+}
+
+/** What a turn opens the thread at, if it holds one: its last such card. */
+const OPENS_THREAD = "[data-opens-thread]";
+
+/**
+ * Opens `viewport` at the top of what its last turn marks to open at, just
+ * clear of the person's message stuck above it, as on a report, else at the
+ * bottom, as assistant-ui would. It holds there while what is above settles,
+ * as markdown and cards render, until the person scrolls, clicks or types, or
+ * a reply starts and `useAnchorAtOnce` takes over.
+ */
+function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
+	const loaded = useAuiState((s) => s.thread.messages.length > 0);
+	const running = useAuiState((s) => s.thread.isRunning);
+	const release = useRef(() => {});
+	useLayoutEffect(() => {
+		const scroller = viewport.current;
+		const content = scroller?.firstElementChild;
+		if (!loaded || scroller == null || content == null) {
+			return;
+		}
+		const place = () => {
+			const turn = [
+				...scroller.querySelectorAll<HTMLElement>('[data-slot="aui_turn"]'),
+			].at(-1);
+			const card = [
+				...(turn?.querySelectorAll<HTMLElement>(OPENS_THREAD) ?? []),
+			].at(-1)?.firstElementChild;
+			if (!(card instanceof HTMLElement)) {
+				scroller.scrollTop = scroller.scrollHeight;
+				return;
+			}
+			const stuck = turn?.firstElementChild;
+			if (stuck instanceof HTMLElement && stuck.dataset.role === "user") {
+				// Below its fade too, which `::after` paints over the reply.
+				const fade = Number.parseFloat(
+					getComputedStyle(stuck, "::after").height,
+				);
+				card.style.scrollMarginTop = `${stuck.offsetHeight + (fade || 0)}px`;
+			}
+			card.scrollIntoView({ block: "start", behavior: "instant" });
+		};
+		place();
+		// Again once the parts assistant-ui renders through a renderer, as a
+		// report is, have come: it registers them a commit late.
+		const frame = requestAnimationFrame(place);
+		const watching = new ResizeObserver(place);
+		watching.observe(scroller);
+		watching.observe(content);
+		const gestures = ["pointerdown", "wheel", "touchstart", "keydown"];
+		const stop = () => {
+			cancelAnimationFrame(frame);
+			watching.disconnect();
+			for (const gesture of gestures) {
+				scroller.removeEventListener(gesture, stop);
+			}
+		};
+		for (const gesture of gestures) {
+			scroller.addEventListener(gesture, stop, { passive: true });
+		}
+		release.current = stop;
+		return stop;
+	}, [loaded, viewport]);
+	useEffect(() => {
+		if (running) {
+			release.current();
+		}
+	}, [running]);
 }
 
 /**
