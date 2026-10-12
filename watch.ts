@@ -94,6 +94,11 @@ export class Watched {
 		private readonly before: Promise<Look>,
 	) {}
 
+	/** Settles once the look before the command is taken. */
+	async looked(): Promise<void> {
+		await this.before;
+	}
+
 	/** Looks at git again, now that the command is over, and says what it did. */
 	async done(): Promise<Flag[]> {
 		const before = await this.before;

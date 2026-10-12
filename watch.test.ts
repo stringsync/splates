@@ -21,8 +21,7 @@ describe("Watch", () => {
 	/** What running `steps` in the task's tree did, as the watch tells it. */
 	const after = async (steps: () => Promise<unknown>, cwd = tree) => {
 		const watched = watch.command(cwd);
-		// The first look is taken before the command runs.
-		await Bun.sleep(50);
+		await watched.looked();
 		await steps();
 		return watched.done();
 	};

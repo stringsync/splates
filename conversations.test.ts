@@ -46,12 +46,18 @@ describe("Conversations", () => {
 
 	afterEach(() => conversations.disposeAsync());
 
-	const until = async (conversation: Conversation, status: Status) => {
-		for (let i = 0; i < 100 && conversation.state.status !== status; i++) {
-			await Bun.sleep(1);
-		}
-		expect(conversation.state.status).toBe(status);
-	};
+	/** Settles once `conversation` has `status`; a test that never sees it times out. */
+	const until = (conversation: Conversation, status: Status) =>
+		new Promise<void>((resolve) => {
+			const check = () => {
+				if (conversation.state.status === status) {
+					off();
+					resolve();
+				}
+			};
+			const off = conversation.events.on("changed", check);
+			check();
+		});
 
 	const started = async () => {
 		const conversation = await conversations.start("fake", {
@@ -1156,10 +1162,19 @@ describe("Conversations", () => {
 	it("flags a command for what it did to git, and keeps the flag in the log", async () => {
 		await using env = await Testing.open();
 		await env.fs.write(join(env.root, "README.md"), "edited\n");
+		// the command waits for the look before it, which a loaded machine slows
+		const looked = Promise.withResolvers<void>();
+		const watch = new (class extends Watch {
+			override command(cwd: string) {
+				const watched = super.command(cwd);
+				void watched.looked().then(looked.resolve);
+				return watched;
+			}
+		})(env.git);
 		const watching = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
-			{ fs, timer, clock, launch: agent.launch, watch: new Watch(env.git) },
+			{ fs, timer, clock, launch: agent.launch, watch },
 		);
 		const command = (id: string, status: "in_progress" | "completed") =>
 			({
@@ -1177,7 +1192,7 @@ describe("Conversations", () => {
 				sessionId,
 				update: command("t1", "in_progress"),
 			});
-			await Bun.sleep(50);
+			await looked.promise;
 			await env.gitCli(env.root, "stash");
 			await client.sessionUpdate({
 				sessionId,
@@ -1193,16 +1208,18 @@ describe("Conversations", () => {
 
 		await conversation.prompt("stash it");
 		await until(conversation, "idle");
-		const flagged = async (each: Conversation) => {
-			for (let i = 0; i < 100; i++) {
-				const part = each.state.messages[1]?.parts[0];
-				if (part?.type === "tool" && part.flags.length > 0) {
-					return part.flags;
-				}
-				await Bun.sleep(10);
-			}
-			return [];
-		};
+		const flagged = (each: Conversation) =>
+			new Promise<unknown>((resolve) => {
+				const check = () => {
+					const part = each.state.messages[1]?.parts[0];
+					if (part?.type === "tool" && part.flags.length > 0) {
+						off();
+						resolve(part.flags);
+					}
+				};
+				const off = each.events.on("changed", check);
+				check();
+			});
 
 		expect(await flagged(conversation)).toEqual([
 			{ type: "stashed", count: 1 },

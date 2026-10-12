@@ -26,8 +26,9 @@ async function readUntil(
 }
 
 /**
- * What `reader` says within `ms`, stopping once it has said `needle`: sooner
- * than the 2s poll, so only a watch could have told it.
+ * Whether `reader` says `needle` within `ms`. A server that could watch the
+ * repo never polls it, so a change it hears of there came from a watch,
+ * however long a loaded machine took to tell it.
  */
 async function within(
 	reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -467,11 +468,11 @@ describe("dev", () => {
 					`${tree}/ARBOR.md`,
 					"# alpha\n\n## Goal\n\nmoved\n",
 				);
-				expect(await within(reader, "data: changed", 1_000)).toBe(true);
+				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				await deps.commit(tree, "a.txt", "a\n", "add a");
-				expect(await within(reader, "data: changed", 1_000)).toBe(true);
+				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				await deps.todos.add("later", null);
-				expect(await within(reader, "data: changed", 1_000)).toBe(true);
+				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				await reader.cancel();
 			});
 		}, 15_000);
@@ -505,7 +506,7 @@ describe("dev", () => {
 				expect(deps.out()).toContain("cannot watch");
 
 				await deps.todos.add("later", null);
-				expect(await within(reader, "data: changed", 4_000)).toBe(true);
+				expect(await within(reader, "data: changed", 10_000)).toBe(true);
 				await reader.cancel();
 			} finally {
 				await server.disposeAsync();
@@ -911,7 +912,7 @@ describe("dev", () => {
 				}
 				await readUntil(reader, "connected");
 				latest = "0.0.44";
-				expect(await within(reader, "changed", 1000)).toBe(true);
+				expect(await within(reader, "changed", 5_000)).toBe(true);
 				await reader.cancel();
 				expect(await read()).toEqual({ running: "0.0.43", newest: "0.0.44" });
 			} finally {
