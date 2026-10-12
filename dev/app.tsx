@@ -17,6 +17,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { SystemClock, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
 	Tabs,
@@ -27,6 +28,9 @@ import {
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Details } from "../show";
+import { listProjects, restartIdle } from "./api";
+import { AutoRestart } from "./auto-restart";
+import { AutoRestartDialog } from "./auto-restart-dialog";
 import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
 import { ConversationFeed } from "./conversation-feed";
 import {
@@ -180,6 +184,15 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	const [drafts] = useState(() => new Drafts(localStorage));
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(() => new Terminals(localStorage));
+	const [autoRestart] = useState(
+		() =>
+			new AutoRestart({ list: listProjects, restart: restartIdle }, settings, {
+				timer: new SystemTimer(),
+				clock: new SystemClock(),
+				storage: sessionStorage,
+				reload: () => location.reload(),
+			}),
+	);
 	useDisposerEffect((disposer) => disposer.use(terminals), [terminals]);
 	const { opener } = useReactive(
 		settings,
@@ -427,11 +440,15 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 															Outdated
 														</span>
 													)}
-													{/* A newer arbor is out: restarting onto it is the person's call. */}
-													{snapshot?.release &&
+													{/* A newer arbor is out, or its source moved on: restarting
+													    onto it is the person's call. */}
+													{(snapshot?.release || snapshot?.behind) &&
 														outdated === null &&
 														!offline && (
-															<ReleaseHint release={snapshot.release} />
+															<ReleaseHint
+																release={snapshot.release}
+																behind={snapshot.behind}
+															/>
 														)}
 													{offline && (
 														<span
@@ -640,6 +657,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 									open={setting}
 									onOpenChange={setSetting}
 								/>
+								<AutoRestartDialog restart={autoRestart} />
 							</TooltipProvider>
 						</ShellRunning>
 					</ToggleTerminal>

@@ -68,7 +68,7 @@ describe("App's settings and notifications", () => {
 			)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Appearance", "Editor", "Notifications"]);
+		).toEqual(["Appearance", "Editor", "Notifications", "Restart"]);
 		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));

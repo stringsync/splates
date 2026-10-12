@@ -89,6 +89,8 @@ export class Testing implements Resource {
 	restarted: "waiting" | "resuming" | null = null;
 	/** The run of `arbor dev` `/api/projects` names: a test changes it to restart. */
 	run = "run-1";
+	/** Whether `/api/projects` says `arbor dev` can restart itself. */
+	restartable = true;
 	/** The conversations `/api/release` says a restart would stop. */
 	interrupted: Interrupted[] = [];
 	/** Every terminal the page opened, oldest first. */
@@ -121,12 +123,15 @@ export class Testing implements Resource {
 					run: this.run,
 					running: this.served.release?.running ?? "0.0.1",
 					newest: this.served.release?.newest ?? null,
+					behind: this.served.behind,
+					restartable: this.restartable,
 				});
 			}
 			if (route === "/api/release") {
 				return Response.json({
 					running: this.served.release?.running ?? "0.0.1",
 					newest: this.served.release?.newest ?? null,
+					behind: this.served.behind,
 					interrupted: this.interrupted,
 				});
 			}
@@ -259,6 +264,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		tasks: [],
 		trunk: "main",
 		release: null,
+		behind: null,
 		...overrides,
 	};
 }

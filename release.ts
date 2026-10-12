@@ -1,3 +1,5 @@
+import { dirname } from "node:path";
+import type { Ps } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import manifest from "./package.json" with { type: "json" };
 
@@ -14,6 +16,54 @@ const PATIENCE = Duration.secs(10);
 export interface Release {
 	running: string;
 	newest: string;
+}
+
+/**
+ * Commits to arbor's own source since `arbor dev` started from a checkout of
+ * it, which a restart picks up.
+ */
+export interface Behind {
+	/** The last commit to the source as the server started. */
+	running: string;
+	/** The last commit to it now. */
+	newest: string;
+}
+
+/**
+ * The directories arbor runs from in a checkout: its own, and the webappwiz
+ * library it imports, whose commits change what the server runs just as much.
+ */
+export const SOURCE = [
+	import.meta.dirname,
+	dirname(dirname(Bun.fileURLToPath(import.meta.resolve("webappwiz/time")))),
+];
+
+/**
+ * The last commit to `source`, or null when arbor does not run from a
+ * checkout, as from npm, or git cannot say. Never throws, like `newest`.
+ */
+export async function sourceCommit(
+	ps: Ps,
+	source = SOURCE,
+): Promise<string | null> {
+	const [here = "", ...rest] = source;
+	try {
+		const { exitCode, stdout } = await ps.spawnCapture([
+			"git",
+			"-C",
+			here,
+			"log",
+			"-1",
+			"--format=%H",
+			"--",
+			here,
+			...rest,
+		]);
+		const commit = stdout.trim();
+		return exitCode === 0 && /^[0-9a-f]{40,64}$/.test(commit) ? commit : null;
+	} catch {
+		return null;
+	}
 }
 
 /**

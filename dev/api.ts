@@ -14,6 +14,7 @@ import type {
 	Session,
 } from "../conversations";
 import type { FileDiff } from "../diff";
+import type { Behind } from "../release";
 import type { AgentPick } from "../roster";
 
 export class ApiError extends Error {
@@ -364,6 +365,14 @@ export async function restartFromCheckpoint(): Promise<void> {
 	await send("/api/checkpoint/restart", {});
 }
 
+/**
+ * Restarts `arbor dev` now, as when every agent is idle: refused while one
+ * is at work.
+ */
+export async function restartIdle(): Promise<void> {
+	await send("/api/restart", {});
+}
+
 /** Forgets project `slug`'s checkpoint, so the next one starts afresh. */
 export async function dismissCheckpoint(slug: string): Promise<void> {
 	await send(inProject("/api/conversations/checkpoint", slug), {
@@ -483,6 +492,10 @@ export interface Projects {
 	running: string;
 	/** A newer arbor, which a restart lands on; null when none is out. */
 	newest: string | null;
+	/** Commits to arbor's own source since this run started from it. */
+	behind: Behind | null;
+	/** Whether `arbor dev` can restart itself, as under its supervisor. */
+	restartable: boolean;
 }
 
 /** Every arbor project on this machine, and the `arbor dev` serving them. */
@@ -527,6 +540,7 @@ export interface Interrupted {
 export interface ReleaseState {
 	running: string;
 	newest: string | null;
+	behind: Behind | null;
 	interrupted: Interrupted[];
 }
 

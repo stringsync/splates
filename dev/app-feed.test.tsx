@@ -77,6 +77,23 @@ describe("App's feed", () => {
 		).toBe("/?project=shop#conversations/c1");
 	});
 
+	it("offers a restart once commits land on the source it runs from", async () => {
+		const view = await testing.open();
+		expect(view.queryByText("Restart")).toBeNull();
+
+		testing.served = snapshot({
+			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
+		});
+		await act(async () => testing.stream?.onmessage?.());
+		const badge = await waitFor(() => view.getByText("Restart"));
+		await act(async () => badge.click());
+
+		await waitFor(() =>
+			expect(view.getByText("arbor's source is at bbbbbbbb")).toBeTruthy(),
+		);
+		expect(view.queryByText("bunx @webappwiz/arbor@latest dev")).toBeNull();
+	});
+
 	it("checkpoints every live conversation, showing how each is getting on", async () => {
 		const view = await testing.open();
 		testing.served = snapshot({

@@ -33,7 +33,7 @@ import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
 import { RESUME } from "./prompts";
 import { Pty } from "./pty";
-import { isNewer, type Release, RUNNING } from "./release";
+import { type Behind, isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
 import { grantRetry } from "./retry";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
@@ -67,6 +67,8 @@ export async function dev(
 		newest = async () => null,
 		running = RUNNING,
 		checkEvery = CHECK,
+		source = async () => null,
+		sourceEvery = SOURCE_CHECK,
 		exit = null,
 		open = async (root) => ({
 			...home,
@@ -97,6 +99,13 @@ export async function dev(
 	let url: string | null = null;
 	/** A newer arbor on npm, once a check has found one; every page says so. */
 	let release: Release | null = null;
+	/**
+	 * The last commit to arbor's own source as this run started, or null when
+	 * it does not run from a checkout of it.
+	 */
+	const started = await source();
+	/** Commits to that source since, once a check has seen one. */
+	let behind: Behind | null = null;
 	/**
 	 * The restart to follow the checkpoint under way, once every agent has
 	 * answered, and whether the next run resumes them; null for none.
@@ -189,7 +198,14 @@ export async function dev(
 		git,
 	}: Project): Promise<Served> => {
 		const read = () =>
-			snapshot({ service, todos, fs, home: ps.env("HOME"), release });
+			snapshot({
+				service,
+				todos,
+				fs,
+				home: ps.env("HOME"),
+				release,
+				behind,
+			});
 		const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		let last = fingerprint(await read());
 		const conversations = converse?.({ arborDir, git }) ?? null;
@@ -1141,6 +1157,8 @@ export async function dev(
 			run,
 			running,
 			newest: release?.newest ?? null,
+			behind,
+			restartable: exit !== null,
 		});
 	};
 	const checkpointable = async (root: string) => {
@@ -1212,6 +1230,7 @@ export async function dev(
 		return Response.json({
 			running,
 			newest: release?.newest ?? null,
+			behind,
 			interrupted,
 		});
 	};
@@ -1227,23 +1246,30 @@ export async function dev(
 
 	/**
 	 * Restarts `arbor dev` once each checkpoint `asked` has been answered,
-	 * unless dismissed meanwhile.
+	 * unless dismissed meanwhile. Without `reopen`, the next run starts as if
+	 * started afresh, as for a restart with every agent idle.
 	 */
-	const restartAfter = (asked: Promise<void>[], resume: boolean): void => {
+	const restartAfter = (
+		asked: Promise<void>[],
+		resume: boolean,
+		{ reopens = true }: { reopens?: boolean } = {},
+	): void => {
 		restarting = { resume };
 		void Promise.all(asked).then(async () => {
 			if (restarting === null) {
 				return;
 			}
-			const roots: string[] = [];
-			for (const [root, opened] of served) {
-				const project = await opened.catch(() => null);
-				const all = (await project?.conversations?.list()) ?? [];
-				if (root !== here && all.some((each) => each.stoppedByCheckpoint)) {
-					roots.push(root);
+			if (reopens) {
+				const roots: string[] = [];
+				for (const [root, opened] of served) {
+					const project = await opened.catch(() => null);
+					const all = (await project?.conversations?.list()) ?? [];
+					if (root !== here && all.some((each) => each.stoppedByCheckpoint)) {
+						roots.push(root);
+					}
 				}
+				await fs.write(reopen, `${JSON.stringify({ roots, resume })}\n`);
 			}
-			await fs.write(reopen, `${JSON.stringify({ roots, resume })}\n`);
 			const code = release === null ? RESTART : UPDATE;
 			log.info(
 				release === null
@@ -1342,6 +1368,37 @@ export async function dev(
 		return Response.json({});
 	};
 
+	/**
+	 * Restarts `arbor dev` now, refused while any agent is at work, since
+	 * only a turn under way has anything to lose.
+	 */
+	const restartIdle = async (): Promise<Response> => {
+		if (exit === null) {
+			fail("usage", "arbor dev cannot restart itself here: restart it", {});
+		}
+		const working: { id: string; name: string }[] = [];
+		for (const settled of await Promise.allSettled(served.values())) {
+			const project = settled.status === "fulfilled" ? settled.value : null;
+			for (const { state } of (await project?.conversations?.list()) ?? []) {
+				if (state.status === "running" || state.status === "starting") {
+					working.push({
+						id: state.id,
+						name: state.name ?? state.lastTask ?? state.title ?? state.agent,
+					});
+				}
+			}
+		}
+		if (working.length > 0) {
+			fail(
+				"usage",
+				`agents are at work: ${working.map((each) => each.name).join(", ")}`,
+				{ conversations: working.map((each) => each.id) },
+			);
+		}
+		restartAfter([], false, { reopens: false });
+		return Response.json({});
+	};
+
 	const checkpointRelease = async (): Promise<Response> => {
 		await checkpointAll();
 		return showRelease();
@@ -1393,6 +1450,7 @@ export async function dev(
 			"/api/projects": guarded(listProjects),
 			"/api/release": guarded(showRelease),
 			"/api/release/checkpoint": { POST: guarded(checkpointRelease) },
+			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },
 			"/api/checkpoint/restart": {
@@ -1568,9 +1626,36 @@ export async function dev(
 			}
 		}
 	};
-	void check();
-	const checking = setInterval(() => void check(), checkEvery.ms);
-	disposer.defer(async () => clearInterval(checking));
+	// From a checkout, a restart runs its source again rather than npm's arbor,
+	// so commits to it are what make this run stale.
+	const checkSource = async (): Promise<void> => {
+		const found = await source();
+		if (
+			started === null ||
+			found === null ||
+			found === started ||
+			found === behind?.newest
+		) {
+			return;
+		}
+		behind = { running: started, newest: found };
+		log.info(
+			`arbor's source is at ${found.slice(0, 8)} (this runs ${started.slice(0, 8)}): restart to pick it up`,
+		);
+		for (const settled of await Promise.allSettled(served.values())) {
+			if (settled.status === "fulfilled") {
+				settled.value.refresh();
+			}
+		}
+	};
+	const checks =
+		started === null
+			? setInterval(() => void check(), checkEvery.ms)
+			: setInterval(() => void checkSource(), sourceEvery.ms);
+	if (started === null) {
+		void check();
+	}
+	disposer.defer(async () => clearInterval(checks));
 	// true drains open connections rather than cutting them mid-response
 	disposer.defer(() => server.stop(true));
 	disposer.defer(async () => {
@@ -1613,6 +1698,9 @@ const POLL_MS = 2_000;
 
 /** How often `arbor dev` asks npm whether a newer arbor is out. */
 const CHECK = Duration.mins(60);
+
+/** How often `arbor dev` run from a checkout reads its source's last commit. */
+const SOURCE_CHECK = Duration.secs(15);
 
 /** How long changes to a repo's files settle before it is read again. */
 const SETTLE = Duration.ms(50);
@@ -1706,6 +1794,16 @@ export interface DevOptions {
 	running?: string;
 	/** How often `newest` is asked after the first time: hourly by default. */
 	checkEvery?: Duration;
+	/**
+	 * The last commit to arbor's own source, or null when it does not run
+	 * from a checkout. Asked as the server starts, then every `sourceEvery`;
+	 * once it moves on, the page hints at a restart. A server started from a
+	 * checkout asks this in place of `newest`, since a restart runs the
+	 * checkout again. Without it, nothing is checked.
+	 */
+	source?: () => Promise<string | null>;
+	/** How often `source` is asked after the first time. */
+	sourceEvery?: Duration;
 	/**
 	 * Ends the process with `RESTART` or `UPDATE` once the server has
 	 * stopped, for its supervisor to start another; without it, the page

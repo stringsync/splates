@@ -17,18 +17,26 @@ import {
 } from "#dev/components/ui/popover.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Checkpoint } from "../conversations";
-import type { Release } from "../release";
+import type { Behind, Release } from "../release";
 import { checkpointAll, type Interrupted, showRelease } from "./api";
+import { short } from "./auto-restart";
 import { useCopy } from "./card";
 
 /** What restarts `arbor dev` on the newest arbor. */
 export const RESTART = "bunx @webappwiz/arbor@latest dev";
 
 /**
- * A badge beside the project's name once a newer arbor is out, opening on how
- * to restart onto it and which conversations that would stop.
+ * A badge beside the project's name once a newer arbor is out, or once
+ * commits have landed on the source `arbor dev` runs from, opening on how to
+ * restart onto it and which conversations that would stop.
  */
-export function ReleaseHint({ release }: { release: Release }): JSX.Element {
+export function ReleaseHint({
+	release,
+	behind,
+}: {
+	release: Release | null;
+	behind: Behind | null;
+}): JSX.Element {
 	// Null until the hint has asked: a list shown before then would say none.
 	const [interrupted, setInterrupted] = useState<Interrupted[] | null>(null);
 	const [open, setOpen] = useState(false);
@@ -76,14 +84,21 @@ export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 				}
 			>
 				<span className="size-1.5 rounded-full bg-sky-500" />
-				Update
+				{behind !== null ? "Restart" : "Update"}
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80">
 				<PopoverHeader>
-					<PopoverTitle>arbor {release.newest} is out</PopoverTitle>
+					<PopoverTitle>
+						{behind !== null
+							? `arbor's source is at ${short(behind.newest)}`
+							: `arbor ${release?.newest} is out`}
+					</PopoverTitle>
 					<PopoverDescription>
-						This page runs {release.running}. Checkpoint every conversation, so
-						each agent's ARBOR.md says where it stands, then restart.
+						This page runs{" "}
+						{behind !== null ? short(behind.running) : release?.running}.
+						Checkpoint every conversation, so each agent's ARBOR.md says where
+						it stands, then restart
+						{behind !== null ? " from Checkpoint in the sidebar" : ""}.
 					</PopoverDescription>
 				</PopoverHeader>
 				{interrupted !== null && interrupted.length > 0 && (
@@ -134,26 +149,28 @@ export function ReleaseHint({ release }: { release: Release }): JSX.Element {
 						No conversation is live.
 					</span>
 				)}
-				<div className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2">
-					<code className="min-w-0 flex-1 truncate font-mono text-xs">
-						{RESTART}
-					</code>
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label="Copy the restart command"
-						title={
-							copied.state === "copied"
-								? "Copied"
-								: copied.state === "failed"
-									? `Not copied: ${copied.error}`
-									: "Copy"
-						}
-						onClick={() => copy(RESTART)}
-					>
-						{copied.state === "copied" ? <CheckIcon /> : <CopyIcon />}
-					</Button>
-				</div>
+				{behind === null && (
+					<div className="flex items-center gap-1 rounded-md bg-muted py-1 pr-1 pl-2">
+						<code className="min-w-0 flex-1 truncate font-mono text-xs">
+							{RESTART}
+						</code>
+						<Button
+							size="icon-xs"
+							variant="ghost"
+							aria-label="Copy the restart command"
+							title={
+								copied.state === "copied"
+									? "Copied"
+									: copied.state === "failed"
+										? `Not copied: ${copied.error}`
+										: "Copy"
+							}
+							onClick={() => copy(RESTART)}
+						>
+							{copied.state === "copied" ? <CheckIcon /> : <CopyIcon />}
+						</Button>
+					</div>
+				)}
 			</PopoverContent>
 		</Popover>
 	);

@@ -19,7 +19,7 @@ import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { Offered } from "./offered";
 import { path } from "./path";
-import { newest } from "./release";
+import { newest, sourceCommit } from "./release";
 import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
@@ -297,6 +297,7 @@ arbor
 			// and aliases are there.
 			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
 			newest: () => newest(),
+			source: () => sourceCommit(ctx.ps),
 			exit: (code) => ctx.ps.exit(code),
 		});
 	});

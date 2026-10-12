@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
 import type { LaneRecord } from "./lanes";
-import type { Release } from "./release";
+import type { Behind, Release } from "./release";
 import { type Details, TaskDetails } from "./show";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
@@ -30,6 +30,8 @@ export interface Snapshot {
 	trunk: string;
 	/** A newer arbor than the one serving, once `arbor dev` has seen one on npm. */
 	release: Release | null;
+	/** Commits to arbor's own source since `arbor dev` started from it. */
+	behind: Behind | null;
 }
 
 /**
@@ -42,6 +44,7 @@ export async function snapshot({
 	fs,
 	home,
 	release = null,
+	behind = null,
 }: {
 	service: WorktreeService;
 	todos: Todos;
@@ -49,6 +52,7 @@ export async function snapshot({
 	/** The home directory to show as `~`, when there is one. */
 	home?: string;
 	release?: Release | null;
+	behind?: Behind | null;
 }): Promise<Snapshot> {
 	const tasks = await tasksOf({ service, fs });
 	return {
@@ -62,6 +66,7 @@ export async function snapshot({
 		tasks,
 		trunk: service.config.trunk,
 		release,
+		behind,
 	};
 }
 
@@ -91,9 +96,11 @@ export function fingerprint({
 	lanes,
 	tasks,
 	release,
+	behind,
 }: Snapshot): string {
 	return JSON.stringify([
 		release,
+		behind,
 		todos,
 		lanes,
 		tasks.map((task) => [

@@ -939,7 +939,12 @@ describe("dev", () => {
 				expect(await read()).toBeNull();
 				expect(
 					await (await fetch(`http://localhost:${port}/api/release`)).json(),
-				).toEqual({ running: "0.0.43", newest: null, interrupted: [] });
+				).toEqual({
+					running: "0.0.43",
+					newest: null,
+					behind: null,
+					interrupted: [],
+				});
 
 				const events = await fetch(`http://localhost:${port}/events`);
 				const reader = events.body?.getReader();
@@ -951,6 +956,53 @@ describe("dev", () => {
 				expect(await within(reader, "changed", 5_000)).toBe(true);
 				await reader.cancel();
 				expect(await read()).toEqual({ running: "0.0.43", newest: "0.0.44" });
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("says on every page when commits land on the source it runs from, asking npm nothing", async () => {
+			let commit = "a".repeat(40);
+			let asked = 0;
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				newest: async () => {
+					asked += 1;
+					return "9.9.9";
+				},
+				source: async () => commit,
+				sourceEvery: Duration.ms(20),
+			});
+			try {
+				const { port } = server;
+				const read = async () =>
+					(await (
+						await fetch(`http://localhost:${port}/api/snapshot`)
+					).json()) as Snapshot;
+				expect((await read()).behind).toBeNull();
+
+				const events = await fetch(`http://localhost:${port}/events`);
+				const reader = events.body?.getReader();
+				if (!reader) {
+					throw new Error("no event stream");
+				}
+				await readUntil(reader, "connected");
+				commit = "b".repeat(40);
+				expect(await within(reader, "changed", 5_000)).toBe(true);
+				await reader.cancel();
+
+				expect(await read()).toMatchObject({
+					release: null,
+					behind: { running: "a".repeat(40), newest: "b".repeat(40) },
+				});
+				expect(
+					await (await fetch(`http://localhost:${port}/api/projects`)).json(),
+				).toMatchObject({
+					newest: null,
+					behind: { running: "a".repeat(40), newest: "b".repeat(40) },
+					restartable: false,
+				});
+				expect(asked).toBe(0);
 			} finally {
 				await server.disposeAsync();
 			}
@@ -1632,6 +1684,71 @@ describe("dev", () => {
 				expect(one.state.checkpoint).toBeNull();
 			} finally {
 				await server.disposeAsync();
+			}
+		});
+
+		it("restarts at once with every agent idle, refused while one is at work, and reopens nothing after", async () => {
+			let finish = () => {};
+			agent.turn = () =>
+				new Promise((resolve) => {
+					finish = () => resolve("end_turn");
+				});
+			const exits: number[] = [];
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+				exit: (code) => exits.push(code),
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+				void conversation.prompt("work");
+				for (
+					let i = 0;
+					i < 100 && conversation.state.status !== "running";
+					i++
+				) {
+					await Bun.sleep(5);
+				}
+
+				const refused = await json(port, "/api/restart", "POST");
+
+				expect(refused.status).toBe(400);
+				expect(await refused.json()).toMatchObject({ reason: "usage" });
+
+				finish();
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+
+				const restarted = await json(port, "/api/restart", "POST");
+
+				expect(restarted.status).toBe(200);
+				for (let i = 0; i < 100 && exits.length === 0; i++) {
+					await Bun.sleep(5);
+				}
+				expect(exits).toEqual([RESTART]);
+			} finally {
+				if (exits.length === 0) {
+					await server.disposeAsync();
+				}
+			}
+
+			const again = await dev(deps, { ports: OpenPortProvider.any() });
+			try {
+				const listed = (await (
+					await fetch(`http://127.0.0.1:${again.port}/api/projects`)
+				).json()) as { restarted: string | null };
+				expect(listed.restarted).toBeNull();
+			} finally {
+				await again.disposeAsync();
 			}
 		});
 

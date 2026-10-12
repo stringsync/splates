@@ -4,7 +4,12 @@ import { OPENERS, ZED } from "./openers";
 export type SettingsEvents = { changed: undefined };
 
 /** The groups the Settings dialog lists down its left, in order. */
-export const CATEGORIES = ["Appearance", "Editor", "Notifications"] as const;
+export const CATEGORIES = [
+	"Appearance",
+	"Editor",
+	"Notifications",
+	"Restart",
+] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 
@@ -154,6 +159,18 @@ export const SETTINGS = {
 		description: "A short chime with each notification.",
 		default: false,
 		under: "notifications.on",
+	},
+	"restart.auto": {
+		category: "Restart",
+		title: "Restart when out of date",
+		description:
+			"Once a newer arbor is out, or commits land on the source arbor dev runs from, and every agent has been idle for a minute, restart arbor dev after a minute's countdown you can cancel.",
+		default: "off",
+		choices: [
+			{ value: "off", label: "Off" },
+			{ value: "restart", label: "Restart" },
+			{ value: "reload", label: "Restart and reload" },
+		],
 	},
 } satisfies Record<string, Definition>;
 
