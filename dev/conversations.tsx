@@ -2640,73 +2640,78 @@ function Thread({
 					{conversation.error}
 				</p>
 			)}
-			<div className="relative min-h-0 flex-1">
+			<div className="flex min-h-0 flex-1 gap-3">
 				<Actions actions={actions} />
-				<AssistantRuntimeProvider runtime={runtime}>
-					<Composing.Provider value={runtime.thread.composer}>
-						<QuestionsUI />
-						<ReviewUI />
-						<ReportUI />
-						<TodoUI />
-						<WorkUI />
-						<ArchiveContext value={filing}>
-							<StartNewContext value={startNew}>
-								<ReplyContext value={reply}>
-									<ThreadView
-										autoFocus={!(asking || answering) || typed}
-										mentions={mentions ?? undefined}
-										references={references}
-										placeholder={
-											archived
-												? `Archived: unarchive (${ARCHIVE}) to continue`
-												: undefined
-										}
-										controls={
-											!archived &&
-											settings.map((setting) => (
-												<SettingControl
-													key={setting.id}
-													setting={setting}
-													value={setting.current}
-													onChange={(value) =>
-														chooseSetting(id, setting.id, value).catch(
-															(error: unknown) =>
-																refused(`${setting.name} not switched`, error),
-														)
-													}
-												/>
-											))
-										}
-										above={
-											<>
-												<Refusal refusal={refusal} className="px-2" />
-												{queued.length > 0 && (
-													<Queued
-														conversation={id}
-														messages={queued}
-														pending={feed.unrecorded(id)}
-														onEdit={(index) => void edit(index)}
-														onDiscard={(index) => void discard(index)}
-														onSendNow={() => void sendNow()}
+				<div className="relative min-h-0 min-w-0 flex-1">
+					<AssistantRuntimeProvider runtime={runtime}>
+						<Composing.Provider value={runtime.thread.composer}>
+							<QuestionsUI />
+							<ReviewUI />
+							<ReportUI />
+							<TodoUI />
+							<WorkUI />
+							<ArchiveContext value={filing}>
+								<StartNewContext value={startNew}>
+									<ReplyContext value={reply}>
+										<ThreadView
+											autoFocus={!(asking || answering) || typed}
+											mentions={mentions ?? undefined}
+											references={references}
+											placeholder={
+												archived
+													? `Archived: unarchive (${ARCHIVE}) to continue`
+													: undefined
+											}
+											controls={
+												!archived &&
+												settings.map((setting) => (
+													<SettingControl
+														key={setting.id}
+														setting={setting}
+														value={setting.current}
+														onChange={(value) =>
+															chooseSetting(id, setting.id, value).catch(
+																(error: unknown) =>
+																	refused(
+																		`${setting.name} not switched`,
+																		error,
+																	),
+															)
+														}
 													/>
-												)}
-												{conversation.ask !== null && (
-													<AskPanel
-														key={conversation.ask.id}
-														drafts={drafts}
-														conversation={conversation}
-														agent={agent}
-														ask={conversation.ask}
-													/>
-												)}
-											</>
-										}
-									/>
-								</ReplyContext>
-							</StartNewContext>
-						</ArchiveContext>
-					</Composing.Provider>
-				</AssistantRuntimeProvider>
+												))
+											}
+											above={
+												<>
+													<Refusal refusal={refusal} className="px-2" />
+													{queued.length > 0 && (
+														<Queued
+															conversation={id}
+															messages={queued}
+															pending={feed.unrecorded(id)}
+															onEdit={(index) => void edit(index)}
+															onDiscard={(index) => void discard(index)}
+															onSendNow={() => void sendNow()}
+														/>
+													)}
+													{conversation.ask !== null && (
+														<AskPanel
+															key={conversation.ask.id}
+															drafts={drafts}
+															conversation={conversation}
+															agent={agent}
+															ask={conversation.ask}
+														/>
+													)}
+												</>
+											}
+										/>
+									</ReplyContext>
+								</StartNewContext>
+							</ArchiveContext>
+						</Composing.Provider>
+					</AssistantRuntimeProvider>
+				</div>
 			</div>
 		</section>
 	);
