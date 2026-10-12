@@ -174,8 +174,16 @@ function PlanProgress({ plan }: { plan: string | null }): JSX.Element | null {
 /** A bar and its count, the end of a task's or a tag's row. */
 export function Progress({ done, total }: Counted): JSX.Element {
 	return (
-		<span className="flex w-28 shrink-0 items-center gap-2">
-			<Bar value={done} max={total} aria-label="progress" className="flex-1" />
+		<span
+			title={`${done} of ${total} plan steps done`}
+			className="flex w-28 shrink-0 items-center gap-2"
+		>
+			<Bar
+				value={done}
+				max={total}
+				aria-label="plan steps done"
+				className="flex-1"
+			/>
 			<span className="w-8 text-right text-muted-foreground text-xs tabular-nums">
 				{done}/{total}
 			</span>

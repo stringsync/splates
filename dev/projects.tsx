@@ -96,7 +96,8 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [active, setActive] = useState(0);
-	const [projects, setProjects] = useState<ProjectChoice[]>([]);
+	// Null until first listed, so it never says none match before it knows.
+	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
 	const shown = shownProject();
 	const { refusal, refuse: refused } = useRefusal();
 
@@ -141,7 +142,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	}, []);
 
 	const words = query.trim().toLowerCase();
-	const matching = projects.filter(
+	const matching = (projects ?? []).filter(
 		(each) =>
 			words === "" ||
 			each.slug.toLowerCase().includes(words) ||
@@ -150,7 +151,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const current = (each: ProjectChoice) =>
 		shown === null ? each.here : each.slug === shown;
 	// This one's own are on the page already.
-	const elsewhere = projects.filter(
+	const elsewhere = (projects ?? []).filter(
 		(each) => each.waiting > 0 && !current(each),
 	);
 	const waitingElsewhere = elsewhere
@@ -231,7 +232,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 					}}
 				/>
 				<ul className="flex max-h-72 flex-col overflow-y-auto">
-					{matching.length === 0 && (
+					{projects !== null && matching.length === 0 && (
 						<li className="px-2 py-1.5 text-muted-foreground text-sm">
 							No project matches
 						</li>

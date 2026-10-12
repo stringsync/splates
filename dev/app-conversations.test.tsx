@@ -1270,12 +1270,7 @@ describe("App's conversations", () => {
 			within(recent)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual([
-			"alpha",
-			"Carried onmain tree",
-			"Look into itmain tree",
-			"beta",
-		]);
+		).toEqual(["alpha", "Carried onmain", "Look into itmain", "beta"]);
 		expect(within(recent).queryByRole("status")).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(recent).getByRole("button", { name: /alpha/ })),
@@ -4901,7 +4896,7 @@ Cap upload retries
 			);
 
 			expect(view.getByRole("tab", { name: /Conversations/ }).textContent).toBe(
-				"Conversations2",
+				"Conversations2 waiting on you",
 			);
 			expect(document.title).toBe("(2) webappwiz");
 		});

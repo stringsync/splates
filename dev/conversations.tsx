@@ -130,6 +130,7 @@ import {
 	liftDirectives,
 	withDirectives,
 } from "./directives";
+import { Trunk, whereRuns } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { FullscreenButton } from "./fullscreen";
 import { rank } from "./mentions";
@@ -246,11 +247,14 @@ export function conversationIn(hash: string): string | null {
  * Where a conversation runs, for a list not grouped by task: nothing when its
  * name already says so, as a finished task's name does.
  */
-function whereOf(conversation: ConversationState): string | null {
+function whereOf(
+	conversation: ConversationState,
+	trunk: string | null,
+): string | null {
 	if (nameOf(conversation) === conversation.lastTask) {
 		return null;
 	}
-	return conversation.task ?? "main tree";
+	return whereRuns(conversation.task, trunk);
 }
 
 /**
@@ -539,7 +543,7 @@ export function ConversationList({
 			>
 				<ArchiveIcon className="size-3.5" />
 				<span className="flex-1">Archived</span>
-				<span className="tabular-nums">{archived}</span>
+				{archived > 0 && <span className="tabular-nums">{archived}</span>}
 			</button>
 		</nav>
 	);
@@ -980,6 +984,7 @@ function Item({
 	const [menu, setMenu] = useState(false);
 	const [renaming, setRenaming] = useState(false);
 	const { copied, copy } = useCopy();
+	const trunk = useContext(Trunk);
 	const { id, archived } = conversation;
 	const { refusal, refuse } = useRefusal();
 	const { file, confirm } = useArchive(conversation, refuse);
@@ -1037,9 +1042,9 @@ function Item({
 				>
 					{nameOf(conversation)}
 				</span>
-				{where && whereOf(conversation) !== null && (
+				{where && whereOf(conversation, trunk) !== null && (
 					<span className="shrink-0 truncate text-muted-foreground text-xs">
-						{whereOf(conversation)}
+						{whereOf(conversation, trunk)}
 					</span>
 				)}
 			</button>
@@ -1884,6 +1889,7 @@ function Recent({
 	onOpen: () => void;
 }): JSX.Element {
 	const reported = reportedAs(conversation);
+	const trunk = useContext(Trunk);
 	return (
 		<button
 			type="button"
@@ -1903,9 +1909,9 @@ function Recent({
 			>
 				{nameOf(conversation)}
 			</span>
-			{whereOf(conversation) !== null && (
+			{whereOf(conversation, trunk) !== null && (
 				<span className="shrink-0 truncate text-muted-foreground text-xs">
-					{whereOf(conversation)}
+					{whereOf(conversation, trunk)}
 				</span>
 			)}
 			{reported !== null && (
@@ -2046,7 +2052,7 @@ function Archived({
 				<h2 className="font-medium text-sm">Archived</h2>
 			</header>
 			{conversations.length === 0 ? (
-				<p className="text-muted-foreground text-sm">Nothing archived yet.</p>
+				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
 				<ul className="flex flex-col">
 					{conversations.slice(0, shown).map((each) => (

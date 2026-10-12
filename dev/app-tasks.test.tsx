@@ -261,7 +261,7 @@ describe("App's tasks", () => {
 			],
 		});
 
-		const bar = view.getByRole("progressbar", { name: "progress" });
+		const bar = view.getByRole("progressbar", { name: "plan steps done" });
 		expect(bar.getAttribute("aria-valuenow")).toBe("1");
 		expect(bar.getAttribute("aria-valuemax")).toBe("4");
 		expect(view.getByText("1/4")).toBeTruthy();

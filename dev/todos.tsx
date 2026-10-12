@@ -21,7 +21,10 @@ import { Trash2Icon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
+	type RefObject,
+	useCallback,
 	useContext,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -148,6 +151,34 @@ export function Todos({
 			refuseLane,
 		],
 	);
+	const scroller = useRef<HTMLDivElement>(null);
+	const { edges, read: readEdges } = useEdges(scroller);
+	// Room for one column at a time, as on a phone, the board opens on the
+	// first lane rather than an empty Untriaged.
+	const untriaged = all.some((todo) => todo.lane === null);
+	const opened = useRef(false);
+	useEffect(() => {
+		const board = scroller.current;
+		if (opened.current || board === null || shown.length === 0) {
+			return;
+		}
+		opened.current = true;
+		const first = board.querySelector<HTMLElement>(
+			`section[aria-label="${CSS.escape(shown[0]?.name ?? "")}"]`,
+		);
+		if (
+			!untriaged &&
+			!hidden.includes(null) &&
+			first !== null &&
+			board.clientWidth < 2 * first.offsetWidth
+		) {
+			// Clear of the board's padding, as its snapping leaves a column.
+			board.scrollLeft +=
+				first.getBoundingClientRect().left -
+				board.getBoundingClientRect().left -
+				Number.parseFloat(getComputedStyle(board).scrollPaddingLeft || "0");
+		}
+	}, [shown, untriaged, hidden]);
 	return (
 		<BoardContext value={context}>
 			<Drag
@@ -170,7 +201,14 @@ export function Todos({
 					/>
 					<StartLanes lanes={lanes} />
 				</div>
-				<div className="-mx-4 flex snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-4">
+				<div
+					ref={scroller}
+					onScroll={readEdges}
+					// Faded where more columns are scrolled out of view, so a column
+					// cut off at the edge reads as more to see, not as the end.
+					style={{ maskImage: fadeOf(edges) }}
+					className="-mx-4 flex snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-4"
+				>
 					{!hidden.includes(null) && (
 						<Untriaged
 							todos={all.filter((todo) => todo.lane === null)}
@@ -213,6 +251,61 @@ export function Todos({
 			</Dialog>
 		</BoardContext>
 	);
+}
+
+/** Whether there is more of `board` to scroll to on its left and its right. */
+interface Edges {
+	left: boolean;
+	right: boolean;
+}
+
+function edgesOf(board: HTMLElement | null): Edges {
+	if (board === null) {
+		return { left: false, right: false };
+	}
+	return {
+		left: board.scrollLeft > 1,
+		right: board.scrollLeft + board.clientWidth < board.scrollWidth - 1,
+	};
+}
+
+/**
+ * `board`'s edges, read again as it resizes or its columns change, and by
+ * `read`, which its scrolling calls.
+ */
+function useEdges(board: RefObject<HTMLElement | null>): {
+	edges: Edges;
+	read: () => void;
+} {
+	const [edges, setEdges] = useState<Edges>({ left: false, right: false });
+	const read = useCallback(() => {
+		const next = edgesOf(board.current);
+		setEdges((was) =>
+			was.left === next.left && was.right === next.right ? was : next,
+		);
+	}, [board]);
+	useEffect(() => {
+		const element = board.current;
+		if (element === null) {
+			return;
+		}
+		const observer = new ResizeObserver(read);
+		observer.observe(element);
+		for (const column of element.children) {
+			observer.observe(column);
+		}
+		read();
+		return () => observer.disconnect();
+	});
+	return { edges, read };
+}
+
+/** A mask fading out each edge with more beyond it. */
+function fadeOf({ left, right }: Edges): string | undefined {
+	if (!left && !right) {
+		return undefined;
+	}
+	return `linear-gradient(to right, ${left ? "transparent, black 2.5rem" : "black"}, ${right ? "black calc(100% - 2.5rem), transparent" : "black"})`;
 }
 
 /**
@@ -301,12 +394,20 @@ function Drag({
 			onDragEnd={drop}
 		>
 			{children}
-			{/* Lifted off the column, tilted, the way a card in hand looks. */}
+			{/* Lifted off the column, tilted, the way a card in hand looks: as it
+			    was in its column, numbered and without its detail in a lane. */}
 			<DragOverlay>
 				{lifted && (
 					<Card
 						todo={lifted}
 						staleness={staleness}
+						step={
+							lifted.lane === null
+								? undefined
+								: todos
+										.filter((other) => other.lane === lifted.lane)
+										.findIndex((other) => other.id === lifted.id) + 1
+						}
 						className="rotate-2 cursor-grabbing shadow-lg"
 					/>
 				)}
@@ -406,10 +507,14 @@ function Edit({
 		}),
 		["changed"],
 	);
-	// Its step in its column says more than its place in the whole list.
+	// Its step in its lane says more than its place in the whole list. An
+	// untriaged todo is in no sequence, so it says only that.
 	const steps = board.todos.filter((other) => other.lane === todo.lane);
 	const lane = board.lanes.find((record) => record.id === todo.lane);
-	const place = `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane?.name ?? "Untriaged"}`;
+	const place =
+		lane === undefined
+			? "Untriaged"
+			: `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane.name}`;
 	const mentions = useMentions<HTMLInputElement>(editor.subject);
 
 	const { refusal, refuse } = useRefusal();

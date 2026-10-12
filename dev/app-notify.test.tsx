@@ -125,6 +125,26 @@ describe("App's settings and notifications", () => {
 		});
 	});
 
+	it("shows a switch under one that is off as off, keeping its own value for when it is on", async () => {
+		localStorage.setItem(
+			"arbor.settings",
+			JSON.stringify({ "notifications.sound": true }),
+		);
+		const { dialog } = await settings();
+		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });
+		expect(sound.getAttribute("aria-checked")).toBe("false");
+
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("switch", { name: "Notify me" }),
+			),
+		);
+
+		await waitFor(() =>
+			expect(sound.getAttribute("aria-checked")).toBe("true"),
+		);
+	});
+
 	it("turns notifications on, then notifies of an agent that comes to wait, opening it on a click", async () => {
 		const { view, runs, dialog } = await settings();
 		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });

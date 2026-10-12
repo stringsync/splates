@@ -56,6 +56,17 @@ describe("App's todos", () => {
 		expect(cards[2]).toContain("beta");
 	});
 
+	it("says an untriaged one is untriaged in its dialog, not a step of a sequence", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 1, subject: "loose" })],
+		});
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^loose/ })),
+		);
+		await waitFor(() => view.getByRole("dialog", { description: "Untriaged" }));
+	});
+
 	it("copies a link to one, without opening it", async () => {
 		const copied: string[] = [];
 		Object.defineProperty(navigator, "clipboard", {

@@ -193,7 +193,8 @@ function SettingRow({
 			) : typeof value === "boolean" ? (
 				<Switch
 					id={id}
-					checked={value}
+					// Off while it cannot take effect, its own value kept for when it can.
+					checked={value && !disabled}
 					disabled={disabled}
 					onCheckedChange={async (checked) => {
 						if (!(await settings.set(name, checked))) {

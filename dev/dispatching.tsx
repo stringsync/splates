@@ -25,6 +25,17 @@ import { Mark, nameOf, reportedAs } from "./conversations";
 import type { Assignment, Dispatch } from "./dispatch";
 
 /**
+ * The main tree's branch, which names it where a conversation's place is
+ * shown, as its header does; null until the page has read it.
+ */
+export const Trunk = createContext<string | null>(null);
+
+/** Where `task` runs: its name, or the trunk's branch for the main tree. */
+export function whereRuns(task: string | null, trunk: string | null): string {
+	return task ?? trunk ?? "main tree";
+}
+
+/**
  * How the board and the Tasks page put agents to work, and open the
  * conversation that does it; none while the page holds no conversations.
  */
@@ -148,6 +159,7 @@ export function StartMenu({
 	className?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
+	const trunk = useContext(Trunk);
 	if (context === null) {
 		return null;
 	}
@@ -226,7 +238,7 @@ export function StartMenu({
 										{/* Where it runs, unless its name says so. */}
 										{nameOf(each) !== each.task && (
 											<span className="shrink-0 text-muted-foreground text-xs">
-												{each.task ?? "main tree"}
+												{whereRuns(each.task, trunk)}
 											</span>
 										)}
 									</DropdownMenuItem>

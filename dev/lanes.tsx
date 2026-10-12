@@ -1,4 +1,4 @@
-import { useDroppable } from "@dnd-kit/core";
+import { type UniqueIdentifier, useDroppable } from "@dnd-kit/core";
 import {
 	SortableContext,
 	useSortable,
@@ -124,18 +124,32 @@ function Column({
 	);
 }
 
+/** The lane of the card `id` names, null for none, undefined for no card. */
+function laneOfCard(
+	todos: TodoState[],
+	id: UniqueIdentifier | undefined,
+): number | null | undefined {
+	return todos.find((todo) => todo.id === id)?.lane;
+}
+
 /** A column's cards, top first, each a drag handle and a drop target. */
 function Cards({
 	todos,
 	label,
 	staleness,
 	steps,
+	coming,
 }: {
 	todos: TodoState[];
 	label: string;
 	staleness: number;
 	/** Number the cards, as a lane's steps are. */
 	steps: boolean;
+	/**
+	 * A card from another column is over this one but none of its cards, so
+	 * it lands at the bottom: a line there says so, as one above a card does.
+	 */
+	coming: boolean;
 }): JSX.Element {
 	return (
 		<SortableContext
@@ -156,6 +170,12 @@ function Cards({
 						step={steps ? i + 1 : undefined}
 					/>
 				))}
+				{coming && (
+					<li
+						aria-hidden
+						className="mx-1 h-1 shrink-0 rounded-full bg-primary"
+					/>
+				)}
 			</ol>
 		</SortableContext>
 	);
@@ -174,7 +194,9 @@ export function Untriaged({
 	staleness: number;
 }): JSX.Element {
 	const board = useContext(Board);
-	const { setNodeRef, isOver } = useDroppable({ id: columnId(null) });
+	const { setNodeRef, isOver, active } = useDroppable({
+		id: columnId(null),
+	});
 	return (
 		<Column label="Untriaged" drop={setNodeRef} lit={isOver}>
 			<header className="flex flex-col gap-1 px-1 pt-1">
@@ -191,6 +213,7 @@ export function Untriaged({
 				label="Untriaged todos"
 				staleness={staleness}
 				steps={false}
+				coming={isOver && laneOfCard(board.todos, active?.id) !== null}
 			/>
 			{board.todos.length === 0 && (
 				<p className="px-1 py-2 text-muted-foreground text-xs">
@@ -288,7 +311,7 @@ export function Lane({
 	lanes: LaneState[];
 	staleness: number;
 }): JSX.Element {
-	const { openTask, refusedLanes } = useContext(Board);
+	const { openTask, refusedLanes, todos } = useContext(Board);
 	const [renaming, setRenaming] = useState(false);
 	const {
 		listeners,
@@ -376,6 +399,7 @@ export function Lane({
 				label={`${lane.name} todos`}
 				staleness={staleness}
 				steps
+				coming={lit && laneOfCard(todos, active?.id) !== lane.id}
 			/>
 			<AddTodo lane={lane.id} />
 		</Column>
