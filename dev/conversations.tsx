@@ -83,6 +83,7 @@ import { type Ending, type Report, stretches } from "../asked";
 import type {
 	Answer,
 	Ask,
+	Command,
 	ConversationState,
 	Image,
 	Message,
@@ -2411,6 +2412,7 @@ function Thread({
 	const reply = useReply(id, drafts);
 	const typed = useTyped(runtime);
 	const mentions = useFileMentions(conversation.task);
+	const commands = useCommands(conversation.commands);
 	const [renaming, setRenaming] = useState(false);
 	// Stops the turn so what is queued goes out now.
 	const sendNow = () =>
@@ -2692,6 +2694,7 @@ function Thread({
 										autoFocus={!(asking || answering) || typed}
 										mentions={mentions ?? undefined}
 										references={references}
+										commands={commands ?? undefined}
 										placeholder={
 											archived ? "Archived: unarchive to continue" : undefined
 										}
@@ -3051,6 +3054,41 @@ function useFileMentions(task: string | null): TriggerAdapter | null {
 }
 
 const MENTIONS_SHOWN = 8;
+
+/**
+ * The agent's skills and commands for the composer's `/`, those whose name
+ * starts with what was typed first, then those that hold it; none until the
+ * agent says what it has.
+ */
+function useCommands(commands: Command[]): TriggerAdapter | null {
+	return useMemo(
+		() =>
+			commands.length === 0
+				? null
+				: {
+						categories: () => [],
+						categoryItems: () => [],
+						search: (query: string) => {
+							const typed = query.toLowerCase();
+							const named = (command: Command) => command.name.toLowerCase();
+							return [
+								...commands.filter((each) => named(each).startsWith(typed)),
+								...commands.filter(
+									(each) =>
+										!named(each).startsWith(typed) &&
+										named(each).includes(typed),
+								),
+							].map((command) => ({
+								id: command.name,
+								type: "command",
+								label: command.name,
+								description: command.description,
+							}));
+						},
+					},
+		[commands],
+	);
+}
 
 /** What the agent is waiting on, answered in place or skipped. */
 function AskPanel({

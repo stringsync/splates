@@ -18,6 +18,7 @@ import {
 	type ToolCallMessagePartComponent,
 	type TriggerAdapter,
 	type TriggerItem,
+	type TriggerMatcher,
 	type Unstable_DirectiveFormatter,
 	unstable_useTriggerPopoverScopeContext,
 	useAuiState,
@@ -157,6 +158,8 @@ export type ThreadProps = {
 	mentions?: TriggerAdapter | undefined;
 	/** What `#` offers in the composer; nothing when unset. */
 	references?: References | undefined;
+	/** What `/` offers at the start of a message; nothing when unset. */
+	commands?: TriggerAdapter | undefined;
 	/** The empty composer's hint, such as why it takes nothing. */
 	placeholder?: string | undefined;
 	/** The id of the message to open at, rather than the bottom. */
@@ -166,7 +169,13 @@ export type ThreadProps = {
 const ThreadExtrasContext = createContext<
 	Pick<
 		ThreadProps,
-		"above" | "welcome" | "controls" | "mentions" | "references" | "placeholder"
+		| "above"
+		| "welcome"
+		| "controls"
+		| "mentions"
+		| "references"
+		| "commands"
+		| "placeholder"
 	>
 >({});
 
@@ -217,6 +226,7 @@ export const Thread: FC<ThreadProps> = ({
 	controls,
 	mentions,
 	references,
+	commands,
 	placeholder,
 	openAt,
 }) => {
@@ -231,6 +241,7 @@ export const Thread: FC<ThreadProps> = ({
 					controls,
 					mentions,
 					references,
+					commands,
 					placeholder,
 				}}
 			>
@@ -878,6 +889,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	const {
 		mentions,
 		references,
+		commands,
 		placeholder = "Send a message...",
 	} = useContext(ThreadExtrasContext);
 	const composer = (
@@ -903,7 +915,11 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>
 	);
-	if (mentions === undefined && references === undefined) {
+	if (
+		mentions === undefined &&
+		references === undefined &&
+		commands === undefined
+	) {
 		return composer;
 	}
 	return (
@@ -974,6 +990,21 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 						</ComposerPrimitive.TriggerPopoverItems>
 					</ComposerPrimitive.TriggerPopover>
 				)}
+				{commands !== undefined && (
+					<ComposerPrimitive.TriggerPopover
+						char="/"
+						matcher={AT_START}
+						adapter={commands}
+						className="absolute inset-x-0 bottom-full z-10 mb-2"
+					>
+						<ComposerPrimitive.TriggerPopover.Directive
+							formatter={PLAIN_COMMAND}
+						/>
+						<ComposerPrimitive.TriggerPopoverItems>
+							{(items) => <CommandList items={items} />}
+						</ComposerPrimitive.TriggerPopoverItems>
+					</ComposerPrimitive.TriggerPopover>
+				)}
 				{composer}
 			</div>
 		</ComposerPrimitive.TriggerPopoverRoot>
@@ -1036,6 +1067,65 @@ const ReferenceList: FC<{
 			))}
 		</div>
 	);
+};
+
+/**
+ * The agent's skills and commands that match what follows the `/`, each with
+ * what it does, the row the arrow keys are on kept in view.
+ */
+const CommandList: FC<{ items: readonly TriggerItem[] }> = ({ items }) => {
+	const { highlightedIndex } = unstable_useTriggerPopoverScopeContext();
+	const list = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		list.current
+			?.querySelector(`[data-index="${highlightedIndex}"]`)
+			?.scrollIntoView?.({ block: "nearest" });
+	}, [highlightedIndex]);
+	if (items.length === 0) {
+		return null;
+	}
+	return (
+		<div
+			ref={list}
+			aria-label="commands"
+			className={cn(POPOVER_LIST, "max-h-80 overflow-y-auto")}
+		>
+			{items.map((item, index) => (
+				<ComposerPrimitive.TriggerPopoverItem
+					key={item.id}
+					item={item}
+					index={index}
+					data-index={index}
+					className={cn(POPOVER_ROW, "text-sm")}
+				>
+					<span className="shrink-0 font-mono text-xs">/{item.label}</span>
+					{item.description !== undefined && (
+						// Gives way first, so the name keeps what it can.
+						<span className="text-muted-foreground shrink-1000 truncate text-xs">
+							{item.description}
+						</span>
+					)}
+				</ComposerPrimitive.TriggerPopoverItem>
+			))}
+		</div>
+	);
+};
+
+/**
+ * A `/` only at the very start of the message, where an agent reads it as a
+ * command, so one in a path or a sentence stays a character.
+ */
+const AT_START: TriggerMatcher = (text, _char, cursor) => {
+	const typed = /^\/(\S*)$/.exec(text.slice(0, cursor));
+	return typed === null
+		? null
+		: { query: typed[1] ?? "", offset: 0, endOffset: cursor };
+};
+
+/** A command written as `/name`, the way the agent reads it. */
+const PLAIN_COMMAND: Unstable_DirectiveFormatter = {
+	serialize: (item) => `/${item.id}`,
+	parse: (text) => [{ kind: "text", text }],
 };
 
 /** A mention written as `@path`, the way agents read a file reference. */

@@ -1452,6 +1452,68 @@ describe("App's conversations", () => {
 		expect(posted("/api/conversations")).toEqual([]);
 	});
 
+	describe("/ commands", () => {
+		const held = conversation({
+			commands: [
+				{ name: "arbor", description: "Land work on trunk", hint: null },
+				{ name: "code-review", description: "Review the diff", hint: null },
+				{ name: "init", description: "Write a CLAUDE.md", hint: null },
+			],
+		});
+		/** Types `text` into the composer, the caret at its end. */
+		const typeIn = async (box: HTMLTextAreaElement, text: string) =>
+			act(async () => {
+				box.focus();
+				fireEvent.change(box, { target: { value: text } });
+				box.setSelectionRange(text.length, text.length);
+				fireEvent.select(box);
+			});
+		const composer = async () => {
+			const view = await conversations([held]);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+			return { view, box };
+		};
+
+		it("lists the agent's skills for a / at the start, filtered as typed, and writes the one picked", async () => {
+			const { view, box } = await composer();
+
+			await typeIn(box, "/");
+			const list = await waitFor(() => view.getByRole("listbox"));
+			expect(
+				within(list)
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual([
+				"/arborLand work on trunk",
+				"/code-reviewReview the diff",
+				"/initWrite a CLAUDE.md",
+			]);
+
+			await typeIn(box, "/rev");
+			expect(
+				within(view.getByRole("listbox"))
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["/code-reviewReview the diff"]);
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			expect(box.value).toBe("/code-review ");
+			// Enter picked a command; it did not send.
+			expect(posted(`/api/conversations/${held.id}/prompt`)).toEqual([]);
+		});
+
+		it("leaves a / anywhere but the start a character", async () => {
+			const { view, box } = await composer();
+
+			for (const text of ["see /in", "src/in"]) {
+				await typeIn(box, text);
+				expect(view.queryByRole("listbox")).toBeNull();
+			}
+		});
+	});
+
 	describe("# references", () => {
 		const board = {
 			todos: [todo({ id: 12, subject: "Retry the upload on a 413", lane: 3 })],

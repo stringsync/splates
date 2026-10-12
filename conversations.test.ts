@@ -1679,6 +1679,7 @@ describe("fold", () => {
 		messages: [],
 		ask: null,
 		settings: [],
+		commands: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
 		unread: false,
@@ -1704,6 +1705,35 @@ describe("fold", () => {
 			...unused(),
 			context: { used: 10, size: 100 },
 		});
+	});
+
+	it("keeps the skills and commands the agent last said it has", () => {
+		const into = state();
+
+		fold(into, {
+			sessionUpdate: "available_commands_update",
+			availableCommands: [{ name: "init", description: "Write a CLAUDE.md" }],
+		});
+		fold(into, {
+			sessionUpdate: "available_commands_update",
+			availableCommands: [
+				{ name: "arbor", description: "Land work on trunk" },
+				{
+					name: "code-review",
+					description: "Review the diff",
+					input: { hint: "low|medium|high" },
+				},
+			],
+		});
+
+		expect(into.commands).toEqual([
+			{ name: "arbor", description: "Land work on trunk", hint: null },
+			{
+				name: "code-review",
+				description: "Review the diff",
+				hint: "low|medium|high",
+			},
+		]);
 	});
 
 	it("keeps a command, its output, and how long it ran, as Claude sends them", () => {

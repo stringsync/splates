@@ -218,6 +218,14 @@ export interface Setting {
 	options: { value: string; name: string; description: string | null }[];
 }
 
+/** A command the agent runs when a message starts with `/` and its name. */
+export interface Command {
+	name: string;
+	description: string;
+	/** What to write after its name, for one that takes input. */
+	hint: string | null;
+}
+
 /**
  * Where the agent is: `stopped` and `failed` have no process, and the next
  * prompt resumes the session in a new one.
@@ -271,6 +279,8 @@ export interface ConversationState {
 	ask: Ask | null;
 	/** What the session lets the person pick: its mode, model, effort. */
 	settings: Setting[];
+	/** The skills and commands a message can start with, as the agent last said. */
+	commands: Command[];
 	createdAt: string;
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
@@ -417,6 +427,13 @@ export function fold(
 			return;
 		case "config_option_update":
 			state.settings = settingsIn(update.configOptions);
+			return;
+		case "available_commands_update":
+			state.commands = update.availableCommands.map((command) => ({
+				name: command.name,
+				description: command.description,
+				hint: command.input?.hint ?? null,
+			}));
 			return;
 		case "usage_update":
 			// A subagent's context is its own.
@@ -1978,6 +1995,7 @@ function blank(
 		messages: [],
 		ask: null,
 		settings: [],
+		commands: [],
 		createdAt,
 		archived: false,
 		unread: false,

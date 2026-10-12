@@ -328,6 +328,7 @@ export function conversation(
 		messages: [],
 		ask: null,
 		settings: [],
+		commands: [],
 		createdAt: new Date().toISOString(),
 		checkpoint: null,
 		usage: { context: null, input: 0, cached: 0, output: 0, cost: null },
