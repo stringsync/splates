@@ -222,6 +222,31 @@ export interface Setting {
  */
 export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
 
+/** What a session has used, as far as its agent says. */
+export interface Usage {
+	/** Tokens in the context window, of the most it holds; null until said. */
+	context: { used: number; size: number } | null;
+	/** Tokens read over every turn the agent counted, those from cache among them. */
+	input: number;
+	/** Of `input`, those read from cache. */
+	cached: number;
+	/** Tokens written over every turn the agent counted. */
+	output: number;
+	/**
+	 * What the session cost, over every process it ran in; null for an agent
+	 * that never says, as Codex does not.
+	 */
+	cost: {
+		amount: number;
+		currency: string;
+		/**
+		 * What the agent last said it had cost: Claude counts from naught in
+		 * each new process, so a figure below it starts a new count.
+		 */
+		said: number;
+	} | null;
+}
+
 /** Everything the page shows of one conversation. */
 export interface ConversationState {
 	id: string;
@@ -262,6 +287,7 @@ export interface ConversationState {
 	 * still shows it; null when none was, or once the work went on past it.
 	 */
 	checkpoint: Checkpoint | null;
+	usage: Usage;
 }
 
 /** A line of a conversation's log: what was said, in the order it was. */
@@ -300,6 +326,8 @@ type Entry =
 	/** Where a checkpoint stands, and what comes after it. */
 	| { kind: "checkpoint"; checkpoint: Checkpoint | null }
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
+	/** The tokens a turn used, as the agent said when it ended. */
+	| { kind: "usage"; usage: acp.Usage }
 	/** What a finished command did to git that it should not have. */
 	| { kind: "flags"; tool: string; flags: Flag[] }
 	/** How the person answered the agent asking permission for a tool call. */
@@ -387,6 +415,22 @@ export function fold(
 		case "config_option_update":
 			state.settings = settingsIn(update.configOptions);
 			return;
+		case "usage_update":
+			// A subagent's context is its own.
+			if (parentOf(update) !== null) {
+				return;
+			}
+			state.usage.context = { used: update.used, size: update.size };
+			if (update.cost != null) {
+				const { amount, currency } = update.cost;
+				const before = state.usage.cost;
+				const carried =
+					before === null
+						? 0
+						: before.amount - (amount < before.said ? 0 : before.said);
+				state.usage.cost = { amount: carried + amount, currency, said: amount };
+			}
+			return;
 		case "current_mode_update":
 			state.settings = state.settings.map((setting) =>
 				setting.category === "mode"
@@ -399,7 +443,15 @@ export function fold(
 	}
 }
 
-/**
+/** Adds the tokens a turn used to those of the turns before it. */
+function tally(state: ConversationState, usage: acp.Usage): void {
+	const cached = usage.cachedReadTokens ?? 0;
+	state.usage.input +=
+		usage.inputTokens + cached + (usage.cachedWriteTokens ?? 0);
+	state.usage.cached += cached;
+	state.usage.output += usage.outputTokens;
+}
+
 /**
  * The agent's message at the end, started if the person spoke last, marked
  * as having moved `at`. Queued messages stay below it: the agent has yet to
@@ -820,6 +872,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				takeBack(state.messages, entry.index);
 			} else if (entry.kind === "update") {
 				fold(state, entry.update, entry.at ?? null);
+			} else if (entry.kind === "usage") {
+				tally(state, entry.usage);
 			} else if (entry.kind === "session") {
 				conversation.session = entry.session;
 			} else if (entry.kind === "task") {
@@ -1476,7 +1530,13 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				this.connection?.prompt({ sessionId: this.session ?? "", prompt }),
 			)
 			.then(
-				() => this.ended(null),
+				(response) => {
+					if (response?.usage != null) {
+						this.write({ kind: "usage", usage: response.usage });
+						tally(this.state, response.usage);
+					}
+					this.ended(null);
+				},
 				(error: unknown) => this.ended(messageOf(error)),
 			);
 	}
@@ -1913,12 +1973,18 @@ function blank(
 		unread: false,
 		seen: 0,
 		checkpoint: null,
+		usage: unused(),
 	};
 }
 
 /** How many of `messages` went out, as the thread shows them. */
 function sent(messages: Message[]): number {
 	return messages.filter((each) => !each.queued).length;
+}
+
+/** What a session has used before its agent says anything of it. */
+export function unused(): Usage {
+	return { context: null, input: 0, cached: 0, output: 0, cost: null };
 }
 
 /** A prompt entry's images, left out of the log when there are none. */

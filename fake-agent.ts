@@ -70,6 +70,8 @@ export class FakeAgent {
 	steered: string[] = [];
 	/** Whether it says it takes images in a prompt. */
 	sees = false;
+	/** The tokens it says each turn used; none, the default, says nothing. */
+	usage: acp.Usage | null = null;
 	/**
 	 * The sessions it holds from before, as its CLI would, to list and load;
 	 * none, the default, for an agent that does not offer either.
@@ -193,6 +195,7 @@ export class FakeAgent {
 							.map((block) => (block.type === "text" ? block.text : ""))
 							.join(""),
 					),
+					usage: this.usage,
 				};
 			},
 			cancel: async () => {

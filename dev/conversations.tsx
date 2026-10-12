@@ -169,6 +169,7 @@ import { TOGGLE } from "./terminal-session";
 import { isMain, numberOf, type Terminals } from "./terminals";
 import { TodoDialog } from "./todos";
 import { unanswered } from "./unanswered";
+import { ContextMeter } from "./usage";
 import { WaitingLine } from "./waiting-line";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
@@ -2693,20 +2694,27 @@ function Thread({
 											archived ? "Archived: unarchive to continue" : undefined
 										}
 										controls={
-											!archived &&
-											settings.map((setting) => (
-												<SettingControl
-													key={setting.id}
-													setting={setting}
-													value={setting.current}
-													onChange={(value) =>
-														chooseSetting(id, setting.id, value).catch(
-															(error: unknown) =>
-																refused(`${setting.name} not switched`, error),
-														)
-													}
-												/>
-											))
+											!archived && (
+												<>
+													<ContextMeter usage={conversation.usage} />
+													{settings.map((setting) => (
+														<SettingControl
+															key={setting.id}
+															setting={setting}
+															value={setting.current}
+															onChange={(value) =>
+																chooseSetting(id, setting.id, value).catch(
+																	(error: unknown) =>
+																		refused(
+																			`${setting.name} not switched`,
+																			error,
+																		),
+																)
+															}
+														/>
+													))}
+												</>
+											)
 										}
 										above={
 											<>

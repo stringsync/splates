@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ConversationState } from "./conversations";
+import { type ConversationState, unused } from "./conversations";
 import { need, needs } from "./needs";
 import type { Details } from "./show";
 
@@ -68,6 +68,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		unread: false,
 		seen: 0,
 		checkpoint: null,
+		usage: unused(),
 		...overrides,
 	};
 }

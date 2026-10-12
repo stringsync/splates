@@ -13,6 +13,7 @@ import {
 	fold,
 	launch,
 	type Status,
+	unused,
 } from "./conversations";
 import { AGENT, FakeAgent, heard, say } from "./fake-agent";
 import { Offered } from "./offered";
@@ -834,6 +835,59 @@ describe("Conversations", () => {
 		await reread.disposeAsync();
 	});
 
+	it("adds up the tokens each turn used and what the session cost, through a restart", async () => {
+		agent.usage = {
+			inputTokens: 10,
+			cachedReadTokens: 900,
+			cachedWriteTokens: 90,
+			outputTokens: 50,
+			totalTokens: 1050,
+		};
+		let cost = 0;
+		agent.turn = async (client, sessionId) => {
+			cost += 0.5;
+			await client.sessionUpdate({
+				sessionId,
+				update: {
+					sessionUpdate: "usage_update",
+					used: 40_000,
+					size: 200_000,
+					cost: { amount: cost, currency: "USD" },
+				},
+			});
+			return "end_turn";
+		};
+		const conversation = await started();
+
+		await conversation.prompt("one");
+		await until(conversation, "idle");
+		await conversation.prompt("two");
+		await until(conversation, "idle");
+		// Claude counts cost from naught again in a new process.
+		await conversation.stop();
+		cost = 0;
+		await conversation.prompt("three");
+		await until(conversation, "idle");
+
+		const usage = {
+			context: { used: 40_000, size: 200_000 },
+			input: 3000,
+			cached: 2700,
+			output: 150,
+			cost: { amount: 1.5, currency: "USD", said: 0.5 },
+		};
+		expect(conversation.state.usage).toEqual(usage);
+		await conversation.stop();
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(read?.state.usage).toEqual(usage);
+		await reread.disposeAsync();
+	});
+
 	it("asks the person an agent's question form and hands back the answer", async () => {
 		const seen: { response?: acp.CreateElicitationResponse } = {};
 		agent.turn = async (client, sessionId) => {
@@ -1630,9 +1684,27 @@ describe("fold", () => {
 		unread: false,
 		seen: 0,
 		checkpoint: null,
+		usage: unused(),
 	});
 	const at = (secs: number) =>
 		new Date(Date.parse("2026-10-11T10:00:00Z") + secs * 1000).toISOString();
+
+	it("keeps how full the context is, but not a subagent's", () => {
+		const into = state();
+
+		fold(into, { sessionUpdate: "usage_update", used: 10, size: 100 });
+		fold(into, {
+			sessionUpdate: "usage_update",
+			used: 90,
+			size: 100,
+			_meta: { claudeCode: { parentToolUseId: "t1" } },
+		});
+
+		expect(into.usage).toEqual({
+			...unused(),
+			context: { used: 10, size: 100 },
+		});
+	});
 
 	it("keeps a command, its output, and how long it ran, as Claude sends them", () => {
 		const into = state();

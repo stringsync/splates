@@ -295,6 +295,47 @@ describe("App's conversations", () => {
 		expect(branch()).toBe("main");
 	});
 
+	it("rings how full the context is, opening on what the session read, wrote, and cost", async () => {
+		const view = await conversations([
+			conversation({
+				id: "c1",
+				task: "alpha",
+				title: "Fix login",
+				usage: {
+					context: { used: 84_000, size: 200_000 },
+					input: 1_234_567,
+					cached: 1_200_000,
+					output: 34_000,
+					cost: { amount: 3.214, currency: "USD", said: 3.214 },
+				},
+			}),
+			conversation({ id: "c2", title: "Look around" }),
+		]);
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "42% of context used" }),
+			),
+		);
+		const card = await waitFor(
+			() => view.getByRole("region", { name: "Context" }).parentElement,
+		);
+		expect(
+			[...(card?.querySelectorAll("section") ?? [])].map(
+				(section) => section.textContent,
+			),
+		).toEqual([
+			"Context42%•84k / 200k",
+			"Tokens1.2M in•34k out1.2M of those in from cache",
+			"Cost3.21 USD",
+		]);
+		// Nothing to show before the agent says.
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
+		);
+		expect(view.queryByRole("button", { name: /of context used/ })).toBeNull();
+	});
+
 	it("takes up a task no conversation runs in, or an open todo, from a main-tree conversation's branch", async () => {
 		const view = await conversations(
 			[
