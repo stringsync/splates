@@ -2084,12 +2084,14 @@ function Thread({
 							onDone={() => setRenaming(false)}
 						/>
 					) : (
-						// A shortcut: the menu in the sidebar renames too.
+						// A shortcut: the menu in the sidebar renames too. Capped, so a
+						// long name, such as a question it was named after, ends in an
+						// ellipsis rather than running across the pane.
 						<h2
 							onDoubleClick={() => setRenaming(true)}
-							title="Double-click to rename"
+							title={`${nameOf(conversation)}\nDouble-click to rename`}
 							className={cn(
-								"truncate font-medium text-sm",
+								"max-w-md truncate font-medium text-sm",
 								unnamed(conversation) && "text-muted-foreground italic",
 							)}
 						>
