@@ -1,5 +1,5 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { CheckIcon, Loader2Icon } from "lucide-react";
+import { ArrowRightIcon, Loader2Icon, RotateCwIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer, timeAgo } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -15,8 +15,8 @@ import type { AutoRestart } from "./auto-restart";
 
 /**
  * The countdown to an auto restart, with a way to cancel it or restart at
- * once; then `arbor dev` restarting; then, once back, that it restarted and
- * how long ago, and reloaded the page if the setting asked.
+ * once; then `arbor dev` restarting; then, once back, a fresh start and how
+ * long ago, with the page reloaded if the setting asked.
  */
 export function AutoRestartDialog({
 	restart,
@@ -40,7 +40,10 @@ export function AutoRestartDialog({
 				}
 			}}
 		>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent
+				className={state.step === "back" ? "sm:max-w-sm" : "sm:max-w-md"}
+				showCloseButton={state.step !== "back"}
+			>
 				{state.step === "counting" ? (
 					<>
 						<DialogHeader>
@@ -79,35 +82,40 @@ export function AutoRestartDialog({
 						</DialogDescription>
 					</DialogHeader>
 				) : state.step === "back" ? (
-					<>
-						<DialogHeader>
-							<DialogTitle className="flex items-center gap-2">
-								<CheckIcon className="size-4 text-success" />
-								arbor dev restarted
-							</DialogTitle>
-							<DialogDescription>
-								<span
-									className="text-foreground"
-									title={new Date(state.at).toLocaleString()}
-								>
-									{ago}
-								</span>
-								, on its own onto <Onto onto={state.onto} />, with every agent
-								idle.{" "}
-								{state.reloaded
-									? "This page reloaded with it."
-									: "This page still runs what it loaded before: reload it for the new one."}
-							</DialogDescription>
-						</DialogHeader>
-						<DialogFooter>
-							{!state.reloaded && (
-								<Button variant="outline" onClick={() => location.reload()}>
-									Reload
+					<div className="flex items-start gap-3.5">
+						<div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15">
+							<RotateCwIcon className="size-4 text-success" />
+						</div>
+						<div className="flex min-w-0 flex-1 flex-col gap-3">
+							<div className="flex flex-col gap-0.5">
+								<DialogTitle>
+									Fresh start,{" "}
+									<span title={new Date(state.at).toLocaleString()}>{ago}</span>
+								</DialogTitle>
+								<DialogDescription>
+									Now on <Onto onto={state.onto} />.{" "}
+									{state.reloaded
+										? "This page reloaded with it."
+										: "This page still runs the old one."}
+								</DialogDescription>
+							</div>
+							<div className="flex gap-2">
+								<Button size="sm" onClick={() => restart.dismiss()} autoFocus>
+									Back to work
+									<ArrowRightIcon />
 								</Button>
-							)}
-							<Button onClick={() => restart.dismiss()}>Close</Button>
-						</DialogFooter>
-					</>
+								{!state.reloaded && (
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={() => location.reload()}
+									>
+										Reload
+									</Button>
+								)}
+							</div>
+						</div>
+					</div>
 				) : null}
 			</DialogContent>
 		</Dialog>
@@ -127,7 +135,7 @@ function Onto({ onto }: { onto: string }): JSX.Element {
 
 /**
  * How long ago `restart` came back, as words that move each second while
- * `back`, capitalized to lead a sentence.
+ * `back`.
  */
 function useAgo(restart: AutoRestart, back: boolean): string {
 	const [, setTicks] = useState(0);
@@ -142,6 +150,5 @@ function useAgo(restart: AutoRestart, back: boolean): string {
 		return () => tick.dispose();
 	}, [back]);
 	const ago = restart.ago();
-	const words = ago === null ? "" : timeAgo(ago);
-	return words.charAt(0).toUpperCase() + words.slice(1);
+	return ago === null ? "" : timeAgo(ago);
 }
