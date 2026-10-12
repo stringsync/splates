@@ -5,7 +5,7 @@ import { add } from "./add";
 import { CHECKPOINT, Conversations, RESUME } from "./conversations";
 import { dev, devPorts } from "./dev";
 import type { FileDiff } from "./diff";
-import { AGENT, FakeAgent, ROSTERED, say } from "./fake-agent";
+import { AGENT, FakeAgent, heard, ROSTERED, say } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
 import { RESTART } from "./supervise";
 import { Testing } from "./testing";
@@ -1158,6 +1158,67 @@ describe("dev", () => {
 				expect(agent.launched).toHaveLength(2);
 			} finally {
 				await again.disposeAsync();
+			}
+		});
+
+		it("lists the sessions in a task's tree and brings one in", async () => {
+			await add(deps, "alpha");
+			const tree = (await deps.service.find("alpha")).path;
+			agent.held = [
+				{
+					sessionId: "cli-1",
+					cwd: tree,
+					title: "From the CLI",
+					replay: [heard("hello"), say("Hi.")],
+				},
+			];
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const listed = await fetch(
+					`http://localhost:${port}/api/conversations/sessions?task=alpha`,
+				);
+
+				expect(await listed.json()).toEqual([
+					{
+						agent: "fake",
+						session: "cli-1",
+						title: "From the CLI",
+						updatedAt: null,
+					},
+				]);
+
+				const brought = await json(
+					port,
+					"/api/conversations/sessions",
+					"POST",
+					{
+						agent: "fake",
+						session: "cli-1",
+						task: "alpha",
+						title: "From the CLI",
+					},
+				);
+				expect(brought.status).toBe(200);
+				const { id } = (await brought.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+				expect(conversation.state).toMatchObject({
+					task: "alpha",
+					title: "From the CLI",
+					messages: [
+						{ role: "user", parts: [{ type: "text", text: "hello" }] },
+						{ role: "agent", parts: [{ type: "text", text: "Hi." }] },
+					],
+				});
+				expect(agent.launched.at(-1)?.cwd).toBe(tree);
+			} finally {
+				await server.disposeAsync();
 			}
 		});
 

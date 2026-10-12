@@ -11,15 +11,22 @@ import {
 	AlertDescription,
 	AlertTitle,
 } from "#dev/components/ui/alert.tsx";
+import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { age } from "../age";
+import type { ConversationState, Session } from "../conversations";
 import type { Need } from "../needs";
 import type { Question } from "../plan";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import type { Action } from "./actions";
+import { AgentIcon } from "./agent-icons";
+import { bringSession, listSessions } from "./api";
 import { Back } from "./back";
+import { type AgentChoice, agentName } from "./conversation-feed";
 import { QuestionCards } from "./question-cards";
+import { Refusal, useRefusal } from "./refusal";
 import { Task } from "./tasks";
 
 /** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
@@ -190,15 +197,21 @@ export function TaskLine({
  * where its conversation would be: the same header, its open questions as
  * cards, and what the page knows of the agent beyond its plan, whose details
  * the header's task line opens. The page cannot message that agent, so the cards
- * copy their answers to paste into its own session.
+ * copy their answers to paste into its own session, unless its session is
+ * brought in.
  */
 export function TaskView({
 	task,
 	need,
+	agents,
+	onBrought,
 	onBack,
 }: {
 	task: Details;
 	need: Need;
+	agents: AgentChoice[];
+	/** Opens a session brought in, as the conversation it now is. */
+	onBrought: (conversation: ConversationState) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
@@ -237,7 +250,7 @@ export function TaskView({
 						<AlertTitle>Its agent runs outside the page</AlertTitle>
 						<AlertDescription>
 							The page cannot message it: answer here, then paste the reply into
-							its own session.
+							its own session, or bring that session in below.
 						</AlertDescription>
 					</Alert>
 					{open.length > 0 && (
@@ -249,6 +262,7 @@ export function TaskView({
 						<p className="text-muted-foreground">No open questions.</p>
 					)}
 					<Agent task={task} />
+					<Sessions task={task.task} agents={agents} onBrought={onBrought} />
 				</div>
 			</div>
 			<Dialog open={details} onOpenChange={setDetails}>
@@ -286,5 +300,106 @@ function Agent({ task }: { task: Details }): JSX.Element {
 				{task.age !== null && ` · started ${task.age} ago`}
 			</p>
 		</div>
+	);
+}
+
+/**
+ * The sessions the agents hold in the task's tree that the page does not,
+ * such as one started in the Claude or Codex CLI, each brought in as a
+ * conversation on a click.
+ */
+function Sessions({
+	task,
+	agents,
+	onBrought,
+}: {
+	task: string;
+	agents: AgentChoice[];
+	onBrought: (conversation: ConversationState) => void;
+}): JSX.Element {
+	// Null while the agents are asked, which starts each of them.
+	const [sessions, setSessions] = useState<Session[] | null>(null);
+	const [bringing, setBringing] = useState<string | null>(null);
+	const { refusal, refuse } = useRefusal();
+	useEffect(() => {
+		let current = true;
+		setSessions(null);
+		listSessions(task).then(
+			(listed) => current && setSessions(listed),
+			(error: unknown) => {
+				if (current) {
+					setSessions([]);
+					refuse("Sessions not listed", error);
+				}
+			},
+		);
+		return () => {
+			current = false;
+		};
+	}, [task, refuse]);
+	const bring = (session: Session) => {
+		setBringing(session.session);
+		bringSession(session, task).then(onBrought, (error: unknown) => {
+			setBringing(null);
+			refuse("Not brought in", error);
+		});
+	};
+	return (
+		<section aria-label="sessions" className="flex flex-col gap-1">
+			<h3 className="font-medium text-muted-foreground text-xs">
+				Sessions in this worktree
+			</h3>
+			{sessions === null ? (
+				<p className="text-muted-foreground text-xs">Asking the agents…</p>
+			) : sessions.length === 0 ? (
+				<p className="text-muted-foreground text-xs">
+					None the page could bring in.
+				</p>
+			) : (
+				<>
+					<p className="text-muted-foreground text-xs">
+						Close one in its CLI before bringing it in, so the two do not write
+						to it at once.
+					</p>
+					<ul className="flex flex-col">
+						{sessions.map((each) => (
+							<li
+								key={`${each.agent} ${each.session}`}
+								className="flex min-w-0 items-center gap-2 py-1"
+							>
+								<AgentIcon
+									agent={each.agent}
+									name={agentName(agents, each.agent)}
+									className="size-3.5 text-foreground/70"
+								/>
+								<span
+									className={
+										each.title === null
+											? "min-w-0 flex-1 truncate text-muted-foreground italic"
+											: "min-w-0 flex-1 truncate"
+									}
+								>
+									{each.title ?? "Untitled session"}
+								</span>
+								{each.updatedAt !== null && (
+									<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+										{age(each.updatedAt)} ago
+									</span>
+								)}
+								<Button
+									size="xs"
+									variant="outline"
+									disabled={bringing !== null}
+									onClick={() => bring(each)}
+								>
+									{bringing === each.session ? "Bringing in…" : "Bring in"}
+								</Button>
+							</li>
+						))}
+					</ul>
+				</>
+			)}
+			<Refusal refusal={refusal} />
+		</section>
 	);
 }

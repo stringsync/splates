@@ -108,7 +108,11 @@ import { copiedLabel, todoReference, useCopy } from "./card";
 import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import { CheckpointButton } from "./checkpoint";
-import type { AgentChoice, ConversationFeed } from "./conversation-feed";
+import {
+	type AgentChoice,
+	agentName,
+	type ConversationFeed,
+} from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
@@ -1007,10 +1011,6 @@ export function reportedAs(conversation: ConversationState): Ending | null {
 	return report?.type === "report" ? report.report.ending : null;
 }
 
-function agentName(agents: AgentChoice[], id: string): string {
-	return agents.find((agent) => agent.id === id)?.name ?? id;
-}
-
 /**
  * The open conversation, or the archived ones when `open` is `ARCHIVED`. On a
  * phone, where there is no sidebar, it is one or the other: the list until a
@@ -1113,6 +1113,11 @@ export function Conversations({
 						<TaskView
 							task={external}
 							need={need(external, null)}
+							agents={agents}
+							onBrought={(state) => {
+								feed.put(state);
+								onOpen(state.id);
+							}}
 							onBack={phone ? () => onOpen(null) : null}
 						/>
 					)

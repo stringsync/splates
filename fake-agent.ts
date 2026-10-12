@@ -70,6 +70,13 @@ export class FakeAgent {
 	steered: string[] = [];
 	/** Whether it says it takes images in a prompt. */
 	sees = false;
+	/**
+	 * The sessions it holds from before, as its CLI would, to list and load;
+	 * none, the default, for an agent that does not offer either.
+	 */
+	held: (acp.SessionInfo & { replay: acp.SessionUpdate[] })[] | null = null;
+	/** The sessions loaded, by id, in order. */
+	loaded: string[] = [];
 	/** Every prompt it was sent, block by block, in order. */
 	prompts: acp.ContentBlock[][] = [];
 	/** The settings set, in order. */
@@ -114,9 +121,12 @@ export class FakeAgent {
 		return {
 			initialize: async () => ({
 				protocolVersion: acp.PROTOCOL_VERSION,
-				agentCapabilities: this.sees
-					? { promptCapabilities: { image: true } }
-					: {},
+				agentCapabilities: {
+					...(this.sees ? { promptCapabilities: { image: true } } : {}),
+					...(this.held === null
+						? {}
+						: { loadSession: true, sessionCapabilities: { list: {} } }),
+				},
 				...(this.steering === null
 					? {}
 					: { _meta: { steering: { supported: true } } }),
@@ -139,6 +149,22 @@ export class FakeAgent {
 				sessionId: "s1",
 				configOptions: this.options,
 			}),
+			listSessions: async ({ cwd }) => ({
+				sessions: (this.held ?? [])
+					.filter((each) => cwd == null || each.cwd === cwd)
+					.map(({ replay: _, ...info }) => info),
+			}),
+			loadSession: async ({ sessionId }) => {
+				const session = this.held?.find((each) => each.sessionId === sessionId);
+				if (session === undefined) {
+					throw acp.RequestError.resourceNotFound(sessionId);
+				}
+				this.loaded.push(sessionId);
+				for (const update of session.replay) {
+					await client.sessionUpdate({ sessionId, update });
+				}
+				return { configOptions: this.options };
+			},
 			resumeSession: async ({ sessionId }) => {
 				this.resumed.push(sessionId);
 				return { configOptions: this.options };
@@ -174,6 +200,14 @@ export class FakeAgent {
 			},
 		};
 	}
+}
+
+/** What the person said, as an agent replays it. */
+export function heard(text: string): acp.SessionUpdate {
+	return {
+		sessionUpdate: "user_message_chunk",
+		content: { type: "text", text },
+	};
 }
 
 export function say(text: string): acp.SessionUpdate {

@@ -3197,6 +3197,73 @@ Cap upload retries
 			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
+		it("brings a session in from a task whose agent runs outside the page, and opens it", async () => {
+			testing.sessions = [
+				{
+					agent: "claude",
+					session: "cli-1",
+					title: "Fix the upload",
+					updatedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+				},
+			];
+			const view = await sidebar([], [details({ task: "beta" })]);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /beta/ })),
+			);
+			const sessions = await waitFor(() =>
+				within(view.getByRole("region", { name: "beta" })).getByRole("region", {
+					name: "sessions",
+				}),
+			);
+			await waitFor(() =>
+				expect(sessions.textContent).toContain("Fix the upload"),
+			);
+			expect(sessions.textContent).toContain("5m ago");
+			testing.reply = conversation({
+				id: "c9",
+				task: "beta",
+				title: "Fix the upload",
+				status: "starting",
+			});
+
+			await act(async () =>
+				fireEvent.click(
+					within(sessions).getByRole("button", { name: "Bring in" }),
+				),
+			);
+
+			await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+			expect(testing.posts.at(-1)).toMatchObject({
+				path: "/api/conversations/sessions",
+				method: "POST",
+			});
+			expect(JSON.parse(String(testing.posts.at(-1)?.body))).toEqual({
+				agent: "claude",
+				session: "cli-1",
+				title: "Fix the upload",
+				task: "beta",
+			});
+			// Its thread, named for its task, as one started here is.
+			await waitFor(() =>
+				expect(
+					view.getByRole("region", { name: "beta" }).textContent,
+				).toContain("starting"),
+			);
+		});
+
+		it("says when no session in a task's tree can be brought in", async () => {
+			const view = await sidebar([], [details({ task: "beta" })]);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /beta/ })),
+			);
+
+			await waitFor(() =>
+				expect(
+					view.getByRole("region", { name: "sessions" }).textContent,
+				).toContain("None the page could bring in."),
+			);
+		});
+
 		it("heads a conversation with its branch and progress, which open its task", async () => {
 			const view = await sidebar(
 				[

@@ -741,6 +741,33 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
+		/**
+		 * The sessions the agents hold in `?task=`'s tree that no conversation
+		 * does, such as ones started in their CLI, to bring in.
+		 */
+		const listSessions = async (request: Request): Promise<Response> => {
+			const [, cwd] = await treeFor(
+				new URL(request.url).searchParams.get("task"),
+			);
+			return Response.json(await held().sessions(cwd));
+		};
+
+		/** Brings in a session an agent holds, as a conversation in `task`'s tree. */
+		const bringSession = async (request: Request): Promise<Response> => {
+			const { agent, session, task, title } = await body(request);
+			const [named, cwd] = await treeFor(task);
+			const conversation = await held().bring(
+				String(agent ?? ""),
+				String(session ?? ""),
+				{
+					task: named,
+					cwd,
+					title: typeof title === "string" && title !== "" ? title : null,
+				},
+			);
+			return Response.json(conversation.state);
+		};
+
 		// The agent's own `arbor` sends this as it takes or lands a task. `from`
 		// names the task it is leaving, so removing some other task moves nothing.
 		const moveConversation = async (request: Request): Promise<Response> => {
@@ -922,6 +949,8 @@ export async function dev(
 			removeTodo,
 			listConversations,
 			startConversation,
+			listSessions,
+			bringSession,
 			checkpoint,
 			moveConversation,
 			promptConversation,
@@ -1280,6 +1309,10 @@ export async function dev(
 				GET: talk(scoped((project) => project.listConversations)),
 				POST: talk(scoped((project) => project.startConversation)),
 			},
+			"/api/conversations/sessions": {
+				GET: talk(scoped((project) => project.listSessions)),
+				POST: talk(scoped((project) => project.bringSession)),
+			},
 			"/api/conversations/checkpoint": {
 				DELETE: talk(scoped((project) => project.dismissCheckpoint)),
 			},
@@ -1564,6 +1597,8 @@ interface Served extends AsyncResource {
 	removeTodo: Handler;
 	listConversations: Handler;
 	startConversation: Handler;
+	listSessions: Handler;
+	bringSession: Handler;
 	/**
 	 * Asks every live conversation here to bring its ARBOR.md up to date,
 	 * answering with what settles as each answers.

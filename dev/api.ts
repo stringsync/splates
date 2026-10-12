@@ -11,6 +11,7 @@ import type {
 	Checkpoint,
 	ConversationState,
 	Image,
+	Session,
 } from "../conversations";
 import type { FileDiff } from "../diff";
 import type { AgentPick } from "../roster";
@@ -249,6 +250,30 @@ export async function startConversation(
 		task,
 		settings,
 		...(model === undefined ? {} : { model }),
+	})) as ConversationState;
+}
+
+/**
+ * The sessions the agents hold in `task`'s tree that no conversation does,
+ * such as ones started in their CLI, newest first.
+ */
+export async function listSessions(task: string): Promise<Session[]> {
+	return (await send(
+		`/api/conversations/sessions?${new URLSearchParams({ task })}`,
+		{ method: "GET" },
+	)) as Session[];
+}
+
+/** Brings in `session`, one an agent holds, as a conversation in `task`'s tree. */
+export async function bringSession(
+	session: Session,
+	task: string,
+): Promise<ConversationState> {
+	return (await sendJson("/api/conversations/sessions", "POST", {
+		agent: session.agent,
+		session: session.session,
+		title: session.title,
+		task,
 	})) as ConversationState;
 }
 

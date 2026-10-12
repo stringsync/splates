@@ -4,7 +4,13 @@ import "../../../setup";
 import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
-import type { ConversationState, Message, Part, Tool } from "../conversations";
+import type {
+	ConversationState,
+	Message,
+	Part,
+	Session,
+	Tool,
+} from "../conversations";
 import type { FileDiff } from "../diff";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
@@ -69,6 +75,8 @@ export class Testing implements Resource {
 		agents: AgentChoice[];
 		conversations: ConversationState[];
 	} | null = null;
+	/** The sessions `/api/conversations/sessions` lists for any task. */
+	sessions: Session[] = [];
 	/** The conversations' own stream, once the page opens it. */
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
@@ -114,6 +122,9 @@ export class Testing implements Resource {
 				return Response.json(
 					this.diffs[decodeURIComponent(diff[1] ?? "")] ?? [],
 				);
+			}
+			if (route === "/api/conversations/sessions") {
+				return Response.json(this.sessions);
 			}
 			if (route === "/api/conversations") {
 				return this.talk === null

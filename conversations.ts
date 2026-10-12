@@ -673,6 +673,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private after: After = "stop";
 	/** The commands running, by tool call, each watched since it started. */
 	private readonly watching = new Map<string, Watched>();
+	/** Whether the next open loads the session, replaying it, rather than resuming it. */
+	private loading = false;
+	/** The person's words the replay has said so far, not yet logged as a prompt. */
+	private heard: string | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -695,6 +699,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	get id(): string {
 		return this.state.id;
+	}
+
+	/** The agent's session, once it has opened one. */
+	get sessionId(): string | null {
+		return this.session;
 	}
 
 	private now(): string {
@@ -876,6 +885,83 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 
 	/**
+	 * Brings in `session`, one `agent` holds outside arbor, such as from its
+	 * CLI: loads it in `cwd`, writing what the agent replays of it to a new
+	 * log, from which it resumes like any other.
+	 */
+	static async bring(
+		{
+			id,
+			agent,
+			session,
+			title,
+			task,
+			cwd,
+			log,
+		}: {
+			id: string;
+			agent: Agent;
+			session: string;
+			/** What the agent listed it as, until the replay says otherwise. */
+			title: string | null;
+			task: string | null;
+			cwd: string;
+			log: string;
+		},
+		{
+			fs,
+			timer,
+			clock,
+			launch: run,
+			url,
+			watch = null,
+		}: {
+			fs: Fs;
+			timer: Timer;
+			clock: WallClock;
+			launch: Launch;
+			url: string | null;
+			watch?: Watch | null;
+		},
+	): Promise<Conversation> {
+		const conversation = new Conversation(
+			blank(id, agent.id, task, new Date(clock.now()).toISOString()),
+			log,
+			fs,
+			timer,
+			clock,
+			agent,
+			cwd,
+			run,
+			url,
+			watch,
+		);
+		conversation.write({
+			kind: "start",
+			id,
+			agent: agent.id,
+			task,
+			cwd,
+			createdAt: conversation.state.createdAt,
+		});
+		conversation.session = session;
+		conversation.write({ kind: "session", session });
+		if (title !== null) {
+			const update: acp.SessionUpdate = {
+				sessionUpdate: "session_info_update",
+				title,
+			};
+			conversation.write({ kind: "update", update });
+			fold(conversation.state, update);
+		}
+		conversation.loading = true;
+		conversation.opening = conversation.open(agent, cwd).finally(() => {
+			conversation.opening = null;
+		});
+		return conversation;
+	}
+
+	/**
 	 * Runs the agent and opens a session with it: the one this conversation
 	 * had, when there was one, else a new one.
 	 */
@@ -917,6 +1003,15 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				const session = await connection.newSession({ cwd, mcpServers: [] });
 				this.session = session.sessionId;
 				this.write({ kind: "session", session: session.sessionId });
+				this.state.settings = settingsIn(session.configOptions);
+			} else if (this.loading) {
+				const session = await connection.loadSession({
+					sessionId: this.session,
+					cwd,
+					mcpServers: [],
+				});
+				this.loading = false;
+				this.logHeard();
 				this.state.settings = settingsIn(session.configOptions);
 			} else {
 				const session = await connection.resumeSession({
@@ -1003,6 +1098,21 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private client(): acp.Client {
 		return {
 			sessionUpdate: async ({ update }) => {
+				// A replay says the person's words too, which the log keeps as
+				// prompts, as though said here; it says nothing of when.
+				if (this.loading) {
+					if (update.sessionUpdate === "user_message_chunk") {
+						if (update.content.type === "text") {
+							this.heard = (this.heard ?? "") + update.content.text;
+						}
+						return;
+					}
+					this.logHeard();
+					this.write({ kind: "update", update });
+					fold(this.state, update);
+					this.changed();
+					return;
+				}
 				const at = this.now();
 				this.write({ kind: "update", update, at });
 				fold(this.state, update, at);
@@ -1057,6 +1167,18 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					: { action: "decline" };
 			},
 		};
+	}
+
+	/** Logs the person's words the replay has said, as one prompt. */
+	private logHeard(): void {
+		const text = this.heard?.trim() ?? "";
+		this.heard = null;
+		if (text === "") {
+			return;
+		}
+		this.write({ kind: "prompt", text });
+		this.state.messages.push(said(text, null));
+		this.changed();
 	}
 
 	/** Keeps how the person answered the permission asked for tool call `id`. */
@@ -1864,6 +1986,90 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		return conversation;
 	}
 
+	/**
+	 * The sessions each agent holds in `cwd` that arbor does not, such as ones
+	 * started in its CLI, to bring in: newest first, from every agent that
+	 * lists and loads sessions.
+	 */
+	async sessions(cwd: string): Promise<Session[]> {
+		await this.load();
+		const held = new Set(
+			[...this.known.values()].map(
+				(each) => `${each.state.agent} ${each.sessionId}`,
+			),
+		);
+		const listed = await Promise.all(
+			this.agents.map((agent) =>
+				listSessions(agent, cwd, this.run, this.timer).catch(
+					(): Session[] => [],
+				),
+			),
+		);
+		return listed
+			.flat()
+			.filter((each) => !held.has(`${each.agent} ${each.session}`))
+			.sort((one, other) =>
+				(other.updatedAt ?? "").localeCompare(one.updatedAt ?? ""),
+			);
+	}
+
+	/**
+	 * Brings in `session`, one `agent` holds outside arbor, as a conversation
+	 * in `cwd`, for `task` if it is one's.
+	 */
+	async bring(
+		agent: string,
+		session: string,
+		{
+			task,
+			cwd,
+			title = null,
+		}: { task: string | null; cwd: string; title?: string | null },
+	): Promise<Conversation> {
+		const chosen = this.agents.find((each) => each.id === agent);
+		if (chosen === undefined) {
+			fail(
+				"usage",
+				`no agent '${agent}': use one of ${this.agents.map((each) => each.id).join(", ")}`,
+				{ agent },
+			);
+		}
+		await this.load();
+		const holding = [...this.known.values()].find(
+			(each) => each.state.agent === agent && each.sessionId === session,
+		);
+		if (holding !== undefined) {
+			fail(
+				"usage",
+				`session ${session} is already conversation ${holding.id}`,
+				{ conversation: holding.id },
+			);
+		}
+		await this.fs.mkdir(this.dir);
+		const id = this.ids.next();
+		const conversation = await Conversation.bring(
+			{
+				id,
+				agent: chosen,
+				session,
+				title,
+				task,
+				cwd,
+				log: `${this.dir}/${id}.jsonl`,
+			},
+			{
+				fs: this.fs,
+				timer: this.timer,
+				clock: this.clock,
+				launch: this.run,
+				url: this.url,
+				watch: this.watch,
+			},
+		);
+		this.track(conversation);
+		return conversation;
+	}
+
 	/** Stops every live conversation, so no agent outlives the server. */
 	async disposeAsync(): Promise<void> {
 		await Promise.all([...this.known.values()].map((each) => each.stop()));
@@ -1911,6 +2117,94 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				this.track(read);
 			}
 		}
+	}
+}
+
+/** A session an agent holds that arbor could bring in. */
+export interface Session {
+	agent: string;
+	session: string;
+	title: string | null;
+	/** When it was last active, as the agent says; null when it does not. */
+	updatedAt: string | null;
+}
+
+/** How long an agent has to start and list its sessions. */
+const LIST_WAIT = Duration.secs(30);
+
+/** How many pages of sessions are read from an agent, at most. */
+const LIST_PAGES = 10;
+
+/**
+ * The sessions `agent` holds in `cwd`, asked of a process of its own that
+ * stops once it answers; none when it cannot both list and load them.
+ */
+async function listSessions(
+	agent: Agent,
+	cwd: string,
+	run: Launch,
+	timer: Timer,
+): Promise<Session[]> {
+	const process = run(agent.argv, cwd, {});
+	let timeout: Resource | null = null;
+	try {
+		const connection = new acp.ClientSideConnection(
+			() => ({
+				sessionUpdate: async () => {},
+				requestPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+			}),
+			acp.ndJsonStream(process.input, process.output),
+		);
+		const listing = (async () => {
+			const initialized = await connection.initialize({
+				protocolVersion: acp.PROTOCOL_VERSION,
+				clientCapabilities: {},
+			});
+			const capabilities = initialized.agentCapabilities;
+			if (
+				capabilities?.loadSession !== true ||
+				capabilities.sessionCapabilities?.list == null
+			) {
+				return [];
+			}
+			const sessions: Session[] = [];
+			let cursor: string | null = null;
+			for (let page = 0; page < LIST_PAGES; page++) {
+				const listed: acp.ListSessionsResponse = await connection.listSessions({
+					cwd,
+					cursor,
+				});
+				for (const each of listed.sessions) {
+					// An agent may list more than it was asked for.
+					if (each.cwd === cwd) {
+						sessions.push({
+							agent: agent.id,
+							session: each.sessionId,
+							title: each.title ?? null,
+							updatedAt: each.updatedAt ?? null,
+						});
+					}
+				}
+				cursor = listed.nextCursor ?? null;
+				if (cursor === null) {
+					break;
+				}
+			}
+			return sessions;
+		})();
+		const gaveUp = new Promise<never>((_, reject) => {
+			timeout = timer.setTimeout(
+				() => reject(new Error(`${agent.name} did not list its sessions`)),
+				LIST_WAIT,
+			);
+		});
+		const died = process.exited.then((code): never => {
+			throw new Error(`${agent.name} exited with code ${code}`);
+		});
+		return await Promise.race([listing, gaveUp, died]);
+	} finally {
+		(timeout as Resource | null)?.dispose();
+		process.kill();
 	}
 }
 

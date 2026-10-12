@@ -24,6 +24,11 @@ export interface AgentChoice {
 	settings: Setting[];
 }
 
+/** What to call agent `id`: its name, or its id once it is off the roster. */
+export function agentName(agents: AgentChoice[], id: string): string {
+	return agents.find((agent) => agent.id === id)?.name ?? id;
+}
+
 /**
  * The page's copy of every conversation, each replaced whole as the server
  * streams it. `available` stays false when `arbor dev` runs without
