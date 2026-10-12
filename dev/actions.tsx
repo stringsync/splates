@@ -15,49 +15,62 @@ export interface Action {
 }
 
 /**
- * Everything to do with a conversation, in a card floating in its upper
- * right, many of them opening the pane beside the page. Only where the
- * conversation leaves room beside its messages, `ActionButtons` standing
- * in for it elsewhere.
+ * Everything to do with a conversation, in a panel in its upper right, many
+ * of them opening the pane beside the page: the first, what it waits on you
+ * for, above a rule, the rest below it. Only where the conversation leaves
+ * room beside its messages, `ActionButtons` standing in for it elsewhere.
  */
 export function Actions({ actions }: { actions: Action[] }): JSX.Element {
+	const [status, ...rest] = actions;
 	return (
 		<nav
 			aria-label="actions"
-			className="absolute top-2 right-2 z-10 hidden w-56 flex-col gap-0.5 rounded-xl border bg-popover/95 p-1 text-popover-foreground shadow-sm backdrop-blur @6xl:flex"
+			className="absolute top-2 right-2 z-10 hidden w-60 flex-col divide-y overflow-hidden rounded-lg border bg-background @6xl:flex"
 		>
-			<p className="px-2 pt-1 pb-0.5 font-medium text-muted-foreground text-xs">
-				Actions
-			</p>
-			{actions.map((action) =>
-				action.run === null ? (
-					<p
-						key={action.label}
-						className="flex h-7 items-center gap-1.5 px-2.5 text-muted-foreground text-xs [&_svg]:size-3.5"
-					>
-						{action.icon}
-						<span className="flex-1">{action.label}</span>
-						{action.detail}
-					</p>
-				) : (
-					<Button
-						key={action.label}
-						variant="ghost"
-						size="sm"
-						onClick={action.run}
-						className={cn(
-							"justify-start",
-							// A count's icon keeps its own color.
-							action.count === undefined && "[&_svg]:text-muted-foreground",
-						)}
-					>
-						{action.icon}
-						<span className="flex-1 text-left">{action.label}</span>
-						{action.detail}
-					</Button>
-				),
+			{status !== undefined && (
+				<div className="py-1">
+					<ActionRow action={status} />
+				</div>
+			)}
+			{rest.length > 0 && (
+				<div className="py-1">
+					{rest.map((action) => (
+						<ActionRow key={action.label} action={action} />
+					))}
+				</div>
 			)}
 		</nav>
+	);
+}
+
+/** One action, or a row that only says something when it has nothing to run. */
+function ActionRow({ action }: { action: Action }): JSX.Element {
+	const row =
+		"flex h-8 w-full items-center gap-2 px-3 text-left text-sm [&_svg]:size-4";
+	const detail = action.detail && (
+		<span className="text-muted-foreground">{action.detail}</span>
+	);
+	return action.run === null ? (
+		<p className={cn(row, "text-muted-foreground")}>
+			{action.icon}
+			<span className="flex-1">{action.label}</span>
+			{detail}
+		</p>
+	) : (
+		<button
+			type="button"
+			onClick={action.run}
+			className={cn(
+				row,
+				"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
+				// A count's icon keeps its own color.
+				action.count === undefined && "[&_svg]:text-muted-foreground",
+			)}
+		>
+			{action.icon}
+			<span className="flex-1">{action.label}</span>
+			{detail}
+		</button>
 	);
 }
 
