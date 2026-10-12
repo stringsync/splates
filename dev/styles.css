@@ -15,6 +15,8 @@
 @source "./markdown.tsx";
 @source "./media.tsx";
 @source "./lightbox.tsx";
+@source "./annotate.tsx";
+@source "./composing.tsx";
 @source "./files.tsx";
 @source "./mentions.tsx";
 @source "./notifications.tsx";

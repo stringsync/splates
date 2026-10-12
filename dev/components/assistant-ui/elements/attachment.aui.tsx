@@ -11,16 +11,28 @@ import {
 	AlertCircleIcon,
 	FileText,
 	Loader2Icon,
+	PencilIcon,
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import type { FC } from "react";
+import { type FC, useState } from "react";
+import { useAnnotate } from "#dev/annotate.tsx";
+import { Annotation } from "#dev/annotation.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
 	Avatar,
 	AvatarFallback,
 	AvatarImage,
 } from "#dev/components/ui/avatar.tsx";
+import { Button } from "#dev/components/ui/button.tsx";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "#dev/components/ui/dialog.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -82,9 +94,20 @@ const AttachmentTile: FC = () => {
 	const isComposer = aui.attachment.source !== "message";
 	const src = useAttachmentSrc();
 	const { open, lightbox } = useLightbox();
+	const annotator = useAnnotate();
 
 	const isImage = useAuiState((s) => s.attachment.type === "image");
 	const name = useAuiState((s) => s.attachment.name);
+	// An image on its way opens to be marked up rather than only looked at.
+	const file = useAuiState((s) =>
+		isComposer && s.attachment.type === "image" ? s.attachment.file : undefined,
+	);
+	const annotate = async (image: File) => {
+		const marked = await annotator.open(image);
+		if (marked !== image) {
+			await replace(aui.composer(), aui.attachment().getState().id, marked);
+		}
+	};
 	const typeLabel = useAuiState((s) => {
 		const type = s.attachment.type;
 		switch (type) {
@@ -138,10 +161,20 @@ const AttachmentTile: FC = () => {
 						render={
 							<div
 								{...(src ? shown(src, name) : {})}
-								onClick={src ? (e) => open(e.currentTarget) : undefined}
+								onClick={
+									file
+										? () => void annotate(file)
+										: src
+											? (e) => open(e.currentTarget)
+											: undefined
+								}
 								className={cn(
 									"aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 motion-reduce:transition-none dark:after:ring-white/10",
-									src ? "cursor-zoom-in active:scale-[0.96]" : "cursor-default",
+									file
+										? "group/annotate cursor-pointer active:scale-[0.96]"
+										: src
+											? "cursor-zoom-in active:scale-[0.96]"
+											: "cursor-default",
 									isError &&
 										"after:ring-destructive/60 dark:after:ring-destructive/60",
 								)}
@@ -168,13 +201,21 @@ const AttachmentTile: FC = () => {
 											}
 										: undefined
 								}
-								aria-label={`${src ? `Preview ${name}` : `${typeLabel} attachment ${name}`}${
+								aria-label={`${file ? `Mark up ${name}` : src ? `Preview ${name}` : `${typeLabel} attachment ${name}`}${
 									isError ? ", upload failed" : isUploading ? ", uploading" : ""
 								}`}
 							/>
 						}
 					>
 						<AttachmentThumb src={src} />
+						{file && !isUploading && (
+							<div
+								aria-hidden="true"
+								className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover/annotate:opacity-100 group-focus-visible/annotate:opacity-100"
+							>
+								<PencilIcon className="size-4 text-white" />
+							</div>
+						)}
 						{isUploading && (
 							<div
 								aria-hidden="true"
@@ -193,10 +234,14 @@ const AttachmentTile: FC = () => {
 						)}
 					</TooltipTrigger>
 					{lightbox}
-					{isComposer && <AttachmentRemove name={name} />}
+					{annotator.annotate}
+					{isComposer && (
+						<AttachmentRemove name={name} marks={Annotation.marksOn(file)} />
+					)}
 				</AttachmentPrimitive.Root>
 				<TooltipContent side="top">
 					<AttachmentPrimitive.Name />
+					{file && <p className="text-muted-foreground">Click to mark up</p>}
 					{errorMessage && (
 						<p className="aui-attachment-error-message">{errorMessage}</p>
 					)}
@@ -206,19 +251,73 @@ const AttachmentTile: FC = () => {
 	);
 };
 
-const AttachmentRemove: FC<{ name: string }> = ({ name }) => {
+const REMOVE =
+	"aui-attachment-tile-remove absolute end-1 top-1 size-5 rounded-full bg-black/50! text-white after:absolute after:-inset-1.5 hover:bg-black/70! hover:text-white! active:scale-[0.96] motion-reduce:transition-none";
+
+/**
+ * The tile's remove button. An image with marks drawn on it asks first, since
+ * the marks go with it.
+ */
+const AttachmentRemove: FC<{ name: string; marks: number }> = ({
+	name,
+	marks,
+}) => {
+	const aui = useAui();
+	const [asking, setAsking] = useState(false);
+	const icon = (
+		<XIcon className="aui-attachment-remove-icon size-3 stroke-[2.5]" />
+	);
+	if (marks === 0) {
+		return (
+			<AttachmentPrimitive.Remove
+				render={
+					<TooltipIconButton
+						tooltip={`Remove ${name}`}
+						className={REMOVE}
+						side="top"
+					/>
+				}
+			>
+				{icon}
+			</AttachmentPrimitive.Remove>
+		);
+	}
+	const many = marks === 1 ? "its mark" : `its ${marks} marks`;
 	return (
-		<AttachmentPrimitive.Remove
-			render={
-				<TooltipIconButton
-					tooltip={`Remove ${name}`}
-					className="aui-attachment-tile-remove absolute end-1 top-1 size-5 rounded-full bg-black/50! text-white after:absolute after:-inset-1.5 hover:bg-black/70! hover:text-white! active:scale-[0.96] motion-reduce:transition-none"
-					side="top"
-				/>
-			}
-		>
-			<XIcon className="aui-attachment-remove-icon size-3 stroke-[2.5]" />
-		</AttachmentPrimitive.Remove>
+		<>
+			<TooltipIconButton
+				tooltip={`Remove ${name}`}
+				className={REMOVE}
+				side="top"
+				onClick={() => setAsking(true)}
+			>
+				{icon}
+			</TooltipIconButton>
+			<Dialog open={asking} onOpenChange={setAsking}>
+				<DialogContent showCloseButton={false}>
+					<DialogHeader>
+						<DialogTitle>Remove this image?</DialogTitle>
+						<DialogDescription>
+							{name} goes, and {many} with it.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setAsking(false)}>
+							Keep
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={() => {
+								setAsking(false);
+								void aui.attachment().remove();
+							}}
+						>
+							Remove
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 };
 
@@ -289,3 +388,31 @@ export const ImageTile: FC<{ src: string; name: string }> = ({ src, name }) => {
 		</>
 	);
 };
+
+/**
+ * Puts `file` in the place of attachment `id` in `composer`. Nothing replaces
+ * an attachment where it is, so it goes, with those after it, and they come
+ * back in their order.
+ */
+async function replace(
+	composer: ReturnType<ReturnType<typeof useAui>["composer"]>,
+	id: string,
+	file: File,
+): Promise<void> {
+	const all = composer.getState().attachments;
+	const after = all.slice(all.findIndex((each) => each.id === id) + 1);
+	for (const each of [{ id }, ...after]) {
+		await composer.attachment({ id: each.id }).remove();
+	}
+	await composer.addAttachment(file);
+	for (const each of after) {
+		await composer.addAttachment(
+			each.file ?? {
+				type: each.type,
+				name: each.name,
+				contentType: each.contentType,
+				content: each.content ?? [],
+			},
+		);
+	}
+}

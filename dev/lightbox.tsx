@@ -3,14 +3,26 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	ExternalLinkIcon,
+	PencilIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, type KeyboardEvent, useRef, useState } from "react";
+import {
+	type JSX,
+	type KeyboardEvent,
+	useContext,
+	useRef,
+	useState,
+} from "react";
+import { useAnnotate } from "#dev/annotate.tsx";
 import { Button, buttonVariants } from "#dev/components/ui/button.tsx";
+import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
 
 /** A control on the dark around the media, in either theme. */
 const LIGHT = "text-white hover:bg-white/15 hover:text-white";
+
+/** Where an SVG is kept, which cannot be marked up. */
+const SVG = /\.svg$/i;
 
 /** One screenshot or recording the lightbox can show. */
 export interface Shown {
@@ -95,6 +107,25 @@ export function Lightbox({
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);
 	const shown = index === null ? undefined : items[index];
+	const composer = useContext(Composing);
+	const annotator = useAnnotate();
+	// In a conversation, an image in it can go back to the agent, marked up
+	// or as it is, in the composer.
+	const markable =
+		composer !== null &&
+		shown !== undefined &&
+		!shown.video &&
+		!SVG.test(nameOf(shown));
+	const markUp = async (image: Shown) => {
+		const response = await fetch(image.url);
+		const blob = await response.blob();
+		// Out of the way first: the annotator takes the whole window itself.
+		onClose();
+		const marked = await annotator.open(
+			new File([blob], nameOf(image), { type: blob.type }),
+		);
+		await composer?.addAttachment(marked);
+	};
 	const many = items.length > 1;
 	const step = (by: number) => {
 		if (index !== null && many) {
@@ -109,126 +140,152 @@ export function Lightbox({
 		}
 	};
 	return (
-		<DialogPrimitive.Root
-			open={shown !== undefined}
-			onOpenChange={(open) => {
-				if (!open) {
-					onClose();
-				}
-			}}
-		>
-			<DialogPrimitive.Portal>
-				<DialogPrimitive.Backdrop
-					// The task or todo it opens from is often a dialog itself, whose own
-					// backdrop would otherwise be the only one shown.
-					forceRender
-					className="fixed inset-0 z-50 bg-black/85 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
-				/>
-				<DialogPrimitive.Popup
-					data-slot="lightbox"
-					ref={popup}
-					// The lightbox itself takes focus, so no control is ringed until
-					// the keyboard moves to it.
-					initialFocus={popup}
-					onKeyDown={onKeyDown}
-					// A click on the dimmed space around the media closes it, as a
-					// click on the backdrop would: the popup covers the backdrop.
-					onClick={(event) => {
-						if (event.target === event.currentTarget) {
-							onClose();
-						}
-					}}
-					className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 p-14 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
-				>
-					{shown && (
-						<>
-							<DialogPrimitive.Title className="sr-only">
-								{shown.alt || (shown.video ? "recording" : "image")}
-							</DialogPrimitive.Title>
-							{shown.video ? (
-								// biome-ignore lint/a11y/useMediaCaption: an agent's screen recording has no captions to give
-								<video
-									key={shown.url}
-									src={shown.url}
-									title={shown.alt}
-									controls
-									autoPlay
-									className="min-h-0 max-w-full flex-1 rounded-md object-contain"
-								/>
-							) : (
-								<img
-									key={shown.url}
-									src={shown.url}
-									alt={shown.alt}
-									className="min-h-0 max-w-full rounded-md object-contain"
-								/>
-							)}
-							<div className="flex max-w-full items-center gap-3 text-sm text-white/80">
-								{shown.alt && <span className="truncate">{shown.alt}</span>}
-								{many && (
-									<span className="shrink-0 tabular-nums text-white/60">
-										{(index ?? 0) + 1} of {items.length}
-									</span>
+		<>
+			<DialogPrimitive.Root
+				open={shown !== undefined}
+				onOpenChange={(open) => {
+					if (!open) {
+						onClose();
+					}
+				}}
+			>
+				<DialogPrimitive.Portal>
+					<DialogPrimitive.Backdrop
+						// The task or todo it opens from is often a dialog itself, whose own
+						// backdrop would otherwise be the only one shown.
+						forceRender
+						className="fixed inset-0 z-50 bg-black/85 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+					/>
+					<DialogPrimitive.Popup
+						data-slot="lightbox"
+						ref={popup}
+						// The lightbox itself takes focus, so no control is ringed until
+						// the keyboard moves to it.
+						initialFocus={popup}
+						onKeyDown={onKeyDown}
+						// A click on the dimmed space around the media closes it, as a
+						// click on the backdrop would: the popup covers the backdrop.
+						onClick={(event) => {
+							if (event.target === event.currentTarget) {
+								onClose();
+							}
+						}}
+						className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 p-14 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+					>
+						{shown && (
+							<>
+								<DialogPrimitive.Title className="sr-only">
+									{shown.alt || (shown.video ? "recording" : "image")}
+								</DialogPrimitive.Title>
+								{shown.video ? (
+									// biome-ignore lint/a11y/useMediaCaption: an agent's screen recording has no captions to give
+									<video
+										key={shown.url}
+										src={shown.url}
+										title={shown.alt}
+										controls
+										autoPlay
+										className="min-h-0 max-w-full flex-1 rounded-md object-contain"
+									/>
+								) : (
+									<img
+										key={shown.url}
+										src={shown.url}
+										alt={shown.alt}
+										className="min-h-0 max-w-full rounded-md object-contain"
+									/>
 								)}
-							</div>
-							<div className="absolute top-3 right-3 flex gap-1">
-								<a
-									href={shown.url}
-									target="_blank"
-									rel="noreferrer"
-									aria-label="open in a new tab"
-									className={cn(
-										buttonVariants({ variant: "ghost", size: "icon-sm" }),
-										LIGHT,
+								<div className="flex max-w-full items-center gap-3 text-sm text-white/80">
+									{shown.alt && <span className="truncate">{shown.alt}</span>}
+									{many && (
+										<span className="shrink-0 tabular-nums text-white/60">
+											{(index ?? 0) + 1} of {items.length}
+										</span>
 									)}
-								>
-									<ExternalLinkIcon />
-								</a>
-								<DialogPrimitive.Close
-									render={
+								</div>
+								<div className="absolute top-3 right-3 flex gap-1">
+									{markable && (
 										<Button
 											variant="ghost"
-											size="icon-sm"
-											aria-label="close"
+											size="sm"
+											onClick={() => void markUp(shown).catch(() => {})}
 											className={LIGHT}
-										/>
-									}
-								>
-									<XIcon />
-								</DialogPrimitive.Close>
-							</div>
-							{many && (
-								<>
-									<Button
-										variant="ghost"
-										size="icon"
-										aria-label="previous"
-										onClick={() => step(-1)}
+										>
+											<PencilIcon />
+											Mark up
+										</Button>
+									)}
+									<a
+										href={shown.url}
+										target="_blank"
+										rel="noreferrer"
+										aria-label="open in a new tab"
 										className={cn(
-											"absolute top-1/2 left-2 -translate-y-1/2",
+											buttonVariants({ variant: "ghost", size: "icon-sm" }),
 											LIGHT,
 										)}
 									>
-										<ChevronLeftIcon />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon"
-										aria-label="next"
-										onClick={() => step(1)}
-										className={cn(
-											"absolute top-1/2 right-2 -translate-y-1/2",
-											LIGHT,
-										)}
+										<ExternalLinkIcon />
+									</a>
+									<DialogPrimitive.Close
+										render={
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												aria-label="close"
+												className={LIGHT}
+											/>
+										}
 									>
-										<ChevronRightIcon />
-									</Button>
-								</>
-							)}
-						</>
-					)}
-				</DialogPrimitive.Popup>
-			</DialogPrimitive.Portal>
-		</DialogPrimitive.Root>
+										<XIcon />
+									</DialogPrimitive.Close>
+								</div>
+								{many && (
+									<>
+										<Button
+											variant="ghost"
+											size="icon"
+											aria-label="previous"
+											onClick={() => step(-1)}
+											className={cn(
+												"absolute top-1/2 left-2 -translate-y-1/2",
+												LIGHT,
+											)}
+										>
+											<ChevronLeftIcon />
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											aria-label="next"
+											onClick={() => step(1)}
+											className={cn(
+												"absolute top-1/2 right-2 -translate-y-1/2",
+												LIGHT,
+											)}
+										>
+											<ChevronRightIcon />
+										</Button>
+									</>
+								)}
+							</>
+						)}
+					</DialogPrimitive.Popup>
+				</DialogPrimitive.Portal>
+			</DialogPrimitive.Root>
+			{annotator.annotate}
+		</>
 	);
+}
+
+/**
+ * A file name for `image`, from where it is kept: the file a `/api/file` link
+ * reads, or the link's own last step.
+ */
+function nameOf(image: Shown): string {
+	const [link = "", query = ""] = image.url.split("?");
+	const path = new URLSearchParams(query).get("path") ?? link;
+	// Less the id arbor keeps an attached file under.
+	const last = (path.split("/").pop() ?? "").replace(/^[0-9a-f-]{36}-/, "");
+	return /\.\w+$/.test(last) ? last : "image.png";
 }

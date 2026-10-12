@@ -44,6 +44,7 @@ import {
 	useState,
 } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
+import { Annotation } from "#dev/annotation.ts";
 import { PermissionGrant } from "#dev/components/assistant-ui/elements/permission-grant.tsx";
 import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flow.tsx";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
@@ -76,6 +77,7 @@ import {
 	SelectValue,
 } from "#dev/components/ui/select.tsx";
 import { Switch } from "#dev/components/ui/switch.tsx";
+import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { type Ending, stretches } from "../asked";
 import type {
@@ -1475,10 +1477,10 @@ function Home({
 			// up; the message waits on the server for the session to open.
 			const sending =
 				text !== "" || images.length > 0
-					? feed.send(state.id, text, images)
+					? feed.send(state.id, noted(text, images), images)
 					: null;
 			onOpen(state.id);
-			await promptConversation(state.id, text, images).catch(
+			await promptConversation(state.id, noted(text, images), images).catch(
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its
 					// composer, its words only.
@@ -1513,62 +1515,64 @@ function Home({
 				<div aria-hidden className="h-9 shrink-0" />
 			)}
 			<AssistantRuntimeProvider runtime={runtime}>
-				<ThreadView
-					mentions={mentions ?? undefined}
-					above={<Refusal refusal={refusal} className="px-2" />}
-					welcome={
-						<div className="mb-6 flex flex-col gap-8 px-2">
-							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-2xl tracking-tight duration-200">
-								<span>Start a conversation with</span>
-								<AgentBrand agent={agent} name={agentName(agents, agent)} />
-								{task !== null && (
-									<span>
-										in <span className="font-mono text-xl">{task}</span>
-									</span>
+				<Composing.Provider value={runtime.thread.composer}>
+					<ThreadView
+						mentions={mentions ?? undefined}
+						above={<Refusal refusal={refusal} className="px-2" />}
+						welcome={
+							<div className="mb-6 flex flex-col gap-8 px-2">
+								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-2xl tracking-tight duration-200">
+									<span>Start a conversation with</span>
+									<AgentBrand agent={agent} name={agentName(agents, agent)} />
+									{task !== null && (
+										<span>
+											in <span className="font-mono text-xl">{task}</span>
+										</span>
+									)}
+								</div>
+								{recent.length > 0 && (
+									<section
+										aria-label="recent conversations"
+										className="flex flex-col gap-1"
+									>
+										<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+											Pick back up
+										</h3>
+										<ul className="flex flex-col">
+											{recent.map((each) => (
+												<li key={each.id}>
+													<Recent
+														conversation={each}
+														agent={agentName(agents, each.agent)}
+														onOpen={() => onOpen(each.id)}
+													/>
+												</li>
+											))}
+										</ul>
+									</section>
 								)}
 							</div>
-							{recent.length > 0 && (
-								<section
-									aria-label="recent conversations"
-									className="flex flex-col gap-1"
-								>
-									<h3 className="pl-3 font-medium text-muted-foreground text-xs">
-										Pick back up
-									</h3>
-									<ul className="flex flex-col">
-										{recent.map((each) => (
-											<li key={each.id}>
-												<Recent
-													conversation={each}
-													agent={agentName(agents, each.agent)}
-													onOpen={() => onOpen(each.id)}
-												/>
-											</li>
-										))}
-									</ul>
-								</section>
-							)}
-						</div>
-					}
-					controls={
-						offered.length > 0 ? (
-							offered.map((setting) => (
-								<SettingControl
-									key={setting.id}
-									setting={setting}
-									value={picks[setting.id] ?? setting.current}
-									onChange={(value) =>
-										setPicks((picks) => ({ ...picks, [setting.id]: value }))
-									}
-								/>
-							))
-						) : (
-							<span className="px-1.5 text-[11px] text-muted-foreground">
-								Settings appear once {agentName(agents, agent)} starts
-							</span>
-						)
-					}
-				/>
+						}
+						controls={
+							offered.length > 0 ? (
+								offered.map((setting) => (
+									<SettingControl
+										key={setting.id}
+										setting={setting}
+										value={picks[setting.id] ?? setting.current}
+										onChange={(value) =>
+											setPicks((picks) => ({ ...picks, [setting.id]: value }))
+										}
+									/>
+								))
+							) : (
+								<span className="px-1.5 text-[11px] text-muted-foreground">
+									Settings appear once {agentName(agents, agent)} starts
+								</span>
+							)
+						}
+					/>
+				</Composing.Provider>
 			</AssistantRuntimeProvider>
 		</section>
 	);
@@ -1956,6 +1960,18 @@ function said(message: AppendMessage): string {
 }
 
 /**
+ * `text` as the agent is sent it: then the notes on the marks drawn on
+ * `images`, which it reads beside the numbers drawn in. A message that comes
+ * back to the composer unsent comes back as `text`, its images still marked
+ * up, so the notes are not said twice.
+ */
+function noted(text: string, images: readonly File[]): string {
+	return [text, Annotation.notesFor(images)]
+		.filter((each) => each !== "")
+		.join("\n\n");
+}
+
+/**
  * The images the agent can be sent, held as files until the message goes:
  * PNG, JPEG, GIF and WebP, the ones the server keeps.
  */
@@ -2103,16 +2119,18 @@ function Thread({
 				status !== "idle" &&
 				status !== "running" &&
 				(text !== "" || images.length > 0)
-					? feed.send(id, text, images)
+					? feed.send(id, noted(text, images), images)
 					: null;
-			await promptConversation(id, text, images).catch((error: unknown) => {
-				if (sending !== null) {
-					feed.sent(id, sending);
-				}
-				restore.current(text, images);
-				refused("Not sent", error);
-				throw error;
-			});
+			await promptConversation(id, noted(text, images), images).catch(
+				(error: unknown) => {
+					if (sending !== null) {
+						feed.sent(id, sending);
+					}
+					restore.current(text, images);
+					refused("Not sent", error);
+					throw error;
+				},
+			);
 		},
 		[id, status, feed, refused],
 	);
@@ -2422,61 +2440,63 @@ function Thread({
 			<div className="relative min-h-0 flex-1">
 				<Actions actions={actions} />
 				<AssistantRuntimeProvider runtime={runtime}>
-					<QuestionsUI />
-					<ReviewUI />
-					<ReportUI />
-					<TodoUI />
-					<WorkUI />
-					<ArchiveContext value={filing}>
-						<StartNewContext value={startNew}>
-							<ReplyContext value={reply}>
-								<ThreadView
-									autoFocus={!(asking || answering) || typed}
-									mentions={mentions ?? undefined}
-									controls={
-										!archived &&
-										settings.map((setting) => (
-											<SettingControl
-												key={setting.id}
-												setting={setting}
-												value={setting.current}
-												onChange={(value) =>
-													chooseSetting(id, setting.id, value).catch(
-														(error: unknown) =>
-															refused(`${setting.name} not switched`, error),
-													)
-												}
-											/>
-										))
-									}
-									above={
-										<>
-											<Refusal refusal={refusal} className="px-2" />
-											{queued.length > 0 && (
-												<Queued
-													conversation={id}
-													messages={queued}
-													pending={feed.unrecorded(id)}
-													onEdit={(index) => void edit(index)}
-													onDiscard={(index) => void discard(index)}
-													onSendNow={() => void sendNow()}
+					<Composing.Provider value={runtime.thread.composer}>
+						<QuestionsUI />
+						<ReviewUI />
+						<ReportUI />
+						<TodoUI />
+						<WorkUI />
+						<ArchiveContext value={filing}>
+							<StartNewContext value={startNew}>
+								<ReplyContext value={reply}>
+									<ThreadView
+										autoFocus={!(asking || answering) || typed}
+										mentions={mentions ?? undefined}
+										controls={
+											!archived &&
+											settings.map((setting) => (
+												<SettingControl
+													key={setting.id}
+													setting={setting}
+													value={setting.current}
+													onChange={(value) =>
+														chooseSetting(id, setting.id, value).catch(
+															(error: unknown) =>
+																refused(`${setting.name} not switched`, error),
+														)
+													}
 												/>
-											)}
-											{conversation.ask !== null && (
-												<AskPanel
-													key={conversation.ask.id}
-													drafts={drafts}
-													conversation={conversation}
-													agent={agent}
-													ask={conversation.ask}
-												/>
-											)}
-										</>
-									}
-								/>
-							</ReplyContext>
-						</StartNewContext>
-					</ArchiveContext>
+											))
+										}
+										above={
+											<>
+												<Refusal refusal={refusal} className="px-2" />
+												{queued.length > 0 && (
+													<Queued
+														conversation={id}
+														messages={queued}
+														pending={feed.unrecorded(id)}
+														onEdit={(index) => void edit(index)}
+														onDiscard={(index) => void discard(index)}
+														onSendNow={() => void sendNow()}
+													/>
+												)}
+												{conversation.ask !== null && (
+													<AskPanel
+														key={conversation.ask.id}
+														drafts={drafts}
+														conversation={conversation}
+														agent={agent}
+														ask={conversation.ask}
+													/>
+												)}
+											</>
+										}
+									/>
+								</ReplyContext>
+							</StartNewContext>
+						</ArchiveContext>
+					</Composing.Provider>
 				</AssistantRuntimeProvider>
 			</div>
 		</section>
