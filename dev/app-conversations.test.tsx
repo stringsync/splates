@@ -2223,6 +2223,70 @@ describe("App's conversations", () => {
 			expect(details().open).toBe(false);
 		});
 
+		it("keeps what the agent said before its latest call in the timeline while it works", async () => {
+			const thread = await opened(
+				turn(
+					[
+						"Let me look.",
+						tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"] }),
+						{ type: "thought", text: "Which tests?", at: second(1) },
+					],
+					{ status: "running" },
+				),
+			);
+
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
+			expect(within(timeline).getByText("Let me look.")).toBeTruthy();
+			expect(within(thread).getAllByText("Let me look.")).toHaveLength(1);
+		});
+
+		it("folds the row once, so one opened again stays open as the agent narrates", async () => {
+			const thread = await opened(
+				turn([tool({ id: "x1", command: "bun test" }), "Checking."], {
+					status: "running",
+				}),
+			);
+			const details = () =>
+				within(thread)
+					.getByRole("list", { name: "timeline" })
+					.closest("details") as HTMLDetailsElement;
+			await waitFor(() => expect(thread.textContent).toContain("Checking."));
+			expect(details().open).toBe(false);
+			await act(async () => {
+				details().open = true;
+				details().dispatchEvent(new Event("toggle"));
+			});
+
+			await testing.say(
+				turn(
+					[
+						tool({ id: "x1", command: "bun test" }),
+						"Checking.",
+						tool({ id: "x2", command: "bun run demo" }),
+					],
+					{ status: "running" },
+				),
+			);
+			await waitFor(() => expect(thread.textContent).toContain("bun run demo"));
+			await testing.say(
+				turn(
+					[
+						tool({ id: "x1", command: "bun test" }),
+						"Checking.",
+						tool({ id: "x2", command: "bun run demo" }),
+						"Still checking.",
+					],
+					{ status: "running" },
+				),
+			);
+			await waitFor(() =>
+				expect(thread.textContent).toContain("Still checking."),
+			);
+			expect(details().open).toBe(true);
+		});
+
 		it("stops saying it is thinking once it replies", async () => {
 			const thread = await opened(
 				turn(

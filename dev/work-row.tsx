@@ -19,6 +19,7 @@ import {
 	type ReactNode,
 	use,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
@@ -71,11 +72,15 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const short = (path: string) => relative(path, trees);
 	const [file, setFile] = useState<string | null>(null);
 	// Open while the agent works with nothing said yet, so there is
-	// something to watch, and folded once it starts writing its reply.
+	// something to watch, and folded the first time it starts writing: its
+	// words come and go below while it narrates, and a row the person opens
+	// again stays open.
 	const [open, setOpen] = useState(work.running && work.reply === null);
 	const replied = work.reply !== null;
+	const folded = useRef(replied);
 	useEffect(() => {
-		if (replied) {
+		if (replied && !folded.current) {
+			folded.current = true;
 			setOpen(false);
 		}
 	}, [replied]);

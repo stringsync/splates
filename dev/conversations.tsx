@@ -2314,10 +2314,15 @@ function like(
 			),
 		};
 	}
-	// The last thing it said, even with tool calls after it: a turn that
-	// ends on one, or is still going, would otherwise fold its words away.
+	// Once the turn is over, the last thing it said, even with tool calls
+	// after it, since a turn that ends on one would otherwise fold its words
+	// away. While it goes on, only words still coming: what it said before
+	// its latest call or thought is narration, kept in the timeline.
 	const said = message.parts.findLastIndex(
-		(part) => part.type === "text" && part.text.trim() !== "",
+		(part, index) =>
+			part.type === "text" &&
+			part.text.trim() !== "" &&
+			(settled || index === message.parts.length - 1),
 	);
 	const last = message.parts[said];
 	const reply = last?.type === "text" ? last.text : "";
