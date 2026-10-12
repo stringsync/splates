@@ -137,13 +137,15 @@ import {
 } from "./report-cards";
 import type { Settings } from "./settings";
 import {
+	arriveAt,
+	arriving,
 	openQuestions,
 	questionsAction,
 	TASK,
 	TaskLine,
 	TaskView,
 	toWaiting,
-	useToQuestions,
+	useArrived,
 } from "./task-view";
 import { Task } from "./tasks";
 import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
@@ -367,8 +369,11 @@ export function ConversationList({
 		);
 		// After the one open, around to the top.
 		const after = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
-		const waiting = after.find((row) => row.need.kind === "waiting");
+		const waiting = after.find(waitsOnYou);
 		if (waiting !== undefined) {
+			arriveAt(
+				waiting.conversation?.id ?? `${TASK}${waiting.task?.task ?? ""}`,
+			);
 			openRow(waiting);
 		}
 	};
@@ -2074,15 +2079,26 @@ function Thread({
 		conversation.messages,
 		writing,
 	);
-	const [answering, setAnswering] = useState(false);
+	// Opened from the first render on Alt+N, so the composer leaves them the
+	// focus.
+	const [answering, setAnswering] = useState(
+		() => arriving(id) && open.uncarded.length > 0 && !archived,
+	);
 	// The card the thread ends on first, then those no card asks, apart from
-	// the conversation, then with none open, the plan.
-	const toQuestions = () =>
-		(asking && toWaiting(section.current)) ||
-		(open.uncarded.length > 0 && !archived
-			? setAnswering(true)
-			: toWaiting(section.current) || setDetails(task !== null));
-	useToQuestions(toQuestions);
+	// the conversation, then any other card it waits on you through.
+	const toAsked = () => {
+		if (asking && toWaiting(section.current)) {
+			return true;
+		}
+		if (open.uncarded.length > 0 && !archived) {
+			setAnswering(true);
+			return true;
+		}
+		return toWaiting(section.current);
+	};
+	useArrived(id, toAsked);
+	// With none open, the plan.
+	const toQuestions = () => toAsked() || setDetails(task !== null);
 	const actions: Action[] = [
 		questionsAction(
 			"questions" in needed
@@ -2266,7 +2282,7 @@ function Thread({
 						<StartNewContext value={startNew}>
 							<ReplyContext value={reply}>
 								<ThreadView
-									autoFocus={!asking || typed}
+									autoFocus={!(asking || answering) || typed}
 									mentions={mentions ?? undefined}
 									controls={
 										!archived &&
@@ -2315,6 +2331,25 @@ function Thread({
 				</AssistantRuntimeProvider>
 			</div>
 		</section>
+	);
+}
+
+/**
+ * Whether Alt+N stops on `row`: an agent stopped on you, or one asking as it
+ * works, while it has questions no reply has answered yet.
+ */
+function waitsOnYou({ conversation, need }: Needing): boolean {
+	if (need.kind === "waiting" && need.why !== "questions") {
+		return true;
+	}
+	if (need.kind !== "waiting" && need.kind !== "assuming") {
+		return false;
+	}
+	const running =
+		conversation?.status === "running" || conversation?.status === "starting";
+	return (
+		unanswered(need.questions, conversation?.messages ?? [], running).unanswered
+			.length > 0
 	);
 }
 

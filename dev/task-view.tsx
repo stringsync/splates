@@ -13,7 +13,6 @@ import {
 } from "#dev/components/ui/alert.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
-import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { age } from "../age";
 import type { ConversationState, Session } from "../conversations";
 import type { Need } from "../needs";
@@ -36,12 +35,6 @@ export const TASK = "task/";
 export function openQuestions(need: Need): Question[] {
 	return "questions" in need ? need.questions : [];
 }
-
-/**
- * The chord that goes to what an agent waits on you for, beside Alt+N, which
- * opens the next conversation waiting.
- */
-export const TO_QUESTIONS = "Alt+Q";
 
 /**
  * The cards an agent waits on you through, newest last: its questions, an
@@ -75,33 +68,45 @@ export function toWaiting(within: HTMLElement | null): boolean {
 }
 
 /**
- * Goes to what the agent waits on you for on Alt+Q, beside Alt+N, which opens
- * the next conversation waiting.
+ * Where Alt+N, which opens the next agent waiting on you, and the view that
+ * shows that agent meet: the agent it opened last, until its view goes to
+ * what it waits on you for.
  */
-export function useToQuestions(go: () => void): void {
-	const press = useEffectEvent(go);
+const arrivals = new EventTarget();
+let opening: string | null = null;
+
+/** Goes to what agent `open` waits on you for once its view shows. */
+export function arriveAt(open: string): void {
+	opening = open;
+	arrivals.dispatchEvent(new Event("arrive"));
+}
+
+/** Whether Alt+N is opening agent `open`, before its view goes there. */
+export function arriving(open: string): boolean {
+	return opening === open;
+}
+
+/**
+ * Runs `go` once Alt+N opens agent `open`: as its view shows, or at once
+ * when it already does.
+ */
+export function useArrived(open: string, go: () => void): void {
+	const arrive = useEffectEvent(() => {
+		if (opening === open) {
+			opening = null;
+			go();
+		}
+	});
 	useEffect(() => {
-		const down = (event: KeyboardEvent) => {
-			// By the key's place, since Alt+Q types œ on a Mac.
-			if (
-				event.code === "KeyQ" &&
-				event.altKey &&
-				!event.metaKey &&
-				!event.ctrlKey &&
-				!event.shiftKey
-			) {
-				event.preventDefault();
-				press();
-			}
-		};
-		document.addEventListener("keydown", down);
-		return () => document.removeEventListener("keydown", down);
+		arrive();
+		arrivals.addEventListener("arrive", arrive);
+		return () => arrivals.removeEventListener("arrive", arrive);
 	}, []);
 }
 
 /**
  * The actions' row on whether the agent has open questions, or waits on you
- * otherwise, which goes there as Alt+Q does.
+ * otherwise, which goes there.
  */
 export function questionsAction(need: Need, go: () => void): Action {
 	const said = waitingOn(need);
@@ -116,7 +121,6 @@ export function questionsAction(need: Need, go: () => void): Action {
 		label: said,
 		// The sidebar's mark for an agent waiting on you.
 		icon: <CircleAlertIcon className="text-warning" />,
-		detail: <Kbd className="h-4">{TO_QUESTIONS}</Kbd>,
 		run: go,
 		count: Math.max(openQuestions(need).length, 1),
 	};
@@ -218,7 +222,7 @@ export function TaskView({
 	const [details, setDetails] = useState(false);
 	const open = openQuestions(need);
 	const section = useRef<HTMLElement>(null);
-	useToQuestions(() => toWaiting(section.current) || setDetails(true));
+	useArrived(`${TASK}${task.task}`, () => toWaiting(section.current));
 	return (
 		<section
 			ref={section}
