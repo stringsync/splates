@@ -1773,38 +1773,38 @@ function Home({
 						references={references}
 						above={<Refusal refusal={refusal} className="px-2" />}
 						welcome={
-							<div className="mb-6 flex flex-col gap-8 px-2">
-								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex flex-wrap items-center gap-x-3 gap-y-1 font-medium text-2xl tracking-tight duration-200">
-									<span>Start a conversation with</span>
-									<AgentBrand agent={agent} name={agentName(agents, agent)} />
-									{task !== null && (
-										<span>
-											in <span className="font-mono text-xl">{task}</span>
-										</span>
-									)}
-								</div>
-								{recent.length > 0 && (
-									<section
-										aria-label="recent conversations"
-										className="flex flex-col gap-1"
-									>
-										<h3 className="pl-3 font-medium text-muted-foreground text-xs">
-											Pick back up
-										</h3>
-										<ul className="flex flex-col">
-											{recent.map((each) => (
-												<li key={each.id}>
-													<Recent
-														conversation={each}
-														agent={agentName(agents, each.agent)}
-														onOpen={() => onOpen(each.id)}
-													/>
-												</li>
-											))}
-										</ul>
-									</section>
+							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
+								<span>Start a conversation with</span>
+								<AgentBrand agent={agent} name={agentName(agents, agent)} />
+								{task !== null && (
+									<span>
+										in <span className="font-mono text-xl">{task}</span>
+									</span>
 								)}
 							</div>
+						}
+						below={
+							recent.length > 0 && (
+								<section
+									aria-label="recent conversations"
+									className="mt-4 flex flex-col gap-1 px-2"
+								>
+									<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+										Pick back up
+									</h3>
+									<ul className="flex flex-col">
+										{recent.map((each) => (
+											<li key={each.id}>
+												<Recent
+													conversation={each}
+													agent={agentName(agents, each.agent)}
+													onOpen={() => onOpen(each.id)}
+												/>
+											</li>
+										))}
+									</ul>
+								</section>
+							)
 						}
 						controls={
 							offered.length > 0 ? (

@@ -151,6 +151,8 @@ export type ThreadProps = {
 	above?: ReactNode | undefined;
 	/** Shown in place of the greeting while the thread is empty. */
 	welcome?: ReactNode | undefined;
+	/** Shown under the composer while the thread is empty, so it never moves the composer. */
+	below?: ReactNode | undefined;
 	/** In the composer's bottom row, before its buttons: the session's pickers. */
 	controls?: ReactNode | undefined;
 	/** What `@` offers in the composer; nothing when unset. */
@@ -170,6 +172,7 @@ const ThreadExtrasContext = createContext<
 		ThreadProps,
 		| "above"
 		| "welcome"
+		| "below"
 		| "controls"
 		| "mentions"
 		| "references"
@@ -222,6 +225,7 @@ export const Thread: FC<ThreadProps> = ({
 	autoFocus = true,
 	above,
 	welcome,
+	below,
 	controls,
 	mentions,
 	references,
@@ -237,6 +241,7 @@ export const Thread: FC<ThreadProps> = ({
 				value={{
 					above,
 					welcome,
+					below,
 					controls,
 					mentions,
 					references,
@@ -256,7 +261,7 @@ const ThreadRoot: FC<{
 	openAt: string | undefined;
 }> = ({ isEmpty, autoFocus, openAt }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
-	const { welcome } = useContext(ThreadExtrasContext);
+	const { welcome, below } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
 	// Every scroll jumps rather than glides: assistant-ui scrolls a new message
 	// to the top with `behavior: "smooth"`, which no stylesheet can override.
@@ -343,6 +348,7 @@ const ThreadRoot: FC<{
 						<AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
 							<ThreadSuggestions />
 						</AuiIf>
+						<AuiIf condition={isNewChatView}>{below}</AuiIf>
 					</ThreadPrimitive.ViewportFooter>
 				</div>
 			</ThreadPrimitive.Viewport>
