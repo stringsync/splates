@@ -16,7 +16,6 @@ import {
 	waitFor,
 	within,
 } from "./testing";
-import { blockedReply } from "./unanswered";
 
 /** Sizes the window, as a phone held upright or a laptop. */
 const resize = (width: number, height: number) =>
@@ -2222,6 +2221,20 @@ describe("App's conversations", () => {
 		});
 
 		it("keeps the answers in the card, never the composer, and sends them from it with anything else", async () => {
+			const QUOTED = [
+				"Also the footer.",
+				"",
+				"> **Which pages need it?**",
+				"",
+				"- (a) Todos",
+				"- (b) Tasks",
+				"",
+				"> **How should a stale todo be shown?**",
+				"",
+				"- (a) A muted card",
+				"",
+				"only on phones",
+			].join("\n");
 			const view = await conversations([asking()]);
 			await waitFor(() => card(view, "2"));
 			const choice = async (question: string, name: string) =>
@@ -2274,7 +2287,7 @@ describe("App's conversations", () => {
 			expect(box(view).value).toBe("");
 			expect(
 				localStorage.getItem("arbor.draft.c1:questions:1:Which pages need it?"),
-			).toBe("1. a, b\n2. a: only on phones\n\nAlso the footer.");
+			).toBe(QUOTED);
 			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
 
 			await act(async () => fireEvent.click(send));
@@ -2282,9 +2295,7 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations/c1/prompt")).toEqual([
 				{
 					method: "POST",
-					body: {
-						text: "1. a, b\n2. a: only on phones\n\nAlso the footer.",
-					},
+					body: { text: QUOTED },
 				},
 			]);
 		});
@@ -2337,7 +2348,27 @@ describe("App's conversations", () => {
 			await key("Enter");
 
 			expect(posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "1. a, b\n2. b\n3. soon\n\nThanks" } },
+				{
+					method: "POST",
+					body: {
+						text: [
+							"Thanks",
+							"",
+							"> **Which pages need it?**",
+							"",
+							"- (a) Todos",
+							"- (b) Tasks",
+							"",
+							"> **How should a stale todo be shown?**",
+							"",
+							"- (b) A badge",
+							"",
+							"> **Ready to merge?**",
+							"",
+							"soon",
+						].join("\n"),
+					},
+				},
 			]);
 		});
 
@@ -2410,7 +2441,10 @@ describe("App's conversations", () => {
 			);
 
 			expect(posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "3. after a check" } },
+				{
+					method: "POST",
+					body: { text: "> **Ready to merge?**\n\nafter a check" },
+				},
 			]);
 		});
 
@@ -2508,7 +2542,18 @@ describe("App's conversations", () => {
 			);
 
 			expect(posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "1. c, a, b" } },
+				{
+					method: "POST",
+					body: {
+						text: [
+							"> **In what order should the pages land?**",
+							"",
+							"1. (c) Notifications",
+							"2. (a) Profile",
+							"3. (b) Billing",
+						].join("\n"),
+					},
+				},
 			]);
 		});
 
@@ -4727,8 +4772,7 @@ Cap upload retries
 					within(alone).getByRole("button", { name: "Copy reply" }),
 				),
 			);
-			// Numbered as in its Blocked, which may not be how it last asked them.
-			expect(copied).toEqual([blockedReply("1. three")]);
+			expect(copied).toEqual(["> **How many retries?**\n\nthree"]);
 			// The only one waiting, ⌥⌘M goes to its open question where it is.
 			await act(async () =>
 				fireEvent.keyDown(document.body, {

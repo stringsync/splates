@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { questions } from "../plan";
 import { message } from "./testing";
-import { blockedReply, unanswered } from "./unanswered";
+import { unanswered } from "./unanswered";
 
 const open = questions(`# a task
 
@@ -41,19 +41,19 @@ describe("unanswered", () => {
 		).toEqual(["3"]);
 	});
 
-	it("reads a reply by the numbers in Blocked", () => {
+	it("reads a reply quoting a question by its line, wherever it comes", () => {
 		expect(
 			numbers(
 				unanswered(open, [
 					message("agent", "On it."),
-					message("user", blockedReply("3. b")),
+					message("user", "> **should it  wrap?**\n\n- (b) Only on phones"),
 					message("agent", "Still on it."),
 				]),
 			),
 		).toEqual(["2"]);
 	});
 
-	it("takes numbers outside a reply to a card or to Blocked for no answer", () => {
+	it("takes numbers outside a reply to a card for no answer", () => {
 		expect(
 			numbers(
 				unanswered(open, [

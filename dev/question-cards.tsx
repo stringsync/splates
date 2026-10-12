@@ -27,9 +27,10 @@ import {
 	answerIn,
 	besides,
 	type Demo,
+	isEmpty,
 	type Report,
 	type Review,
-	withAnswer,
+	replyOf,
 } from "../asked";
 import type { Question } from "../plan";
 import { copiedLabel, useCopy } from "./card";
@@ -43,7 +44,6 @@ import {
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
-import { blockedReply } from "./unanswered";
 
 /** What the cards in a conversation answer through. */
 export interface Reply {
@@ -203,17 +203,10 @@ function MessageQuestions({
 
 const UNANSWERED: Answer = { picks: [], words: "" };
 
-/** The reply lines for `answers`, as the arbor skill reads a reply. */
-function linesFor(questions: Question[], answers: (Answer | null)[]): string {
-	return questions.reduce(
-		(text, asked, at) => withAnswer(text, asked, answers[at] ?? UNANSWERED),
-		"",
-	);
-}
-
-/** The answers' lines, then anything else after a blank line. */
-function replyOf(lines: string, more: string): string {
-	return [lines, more.trim()].filter((each) => each !== "").join("\n\n");
+/** What the panel holds before it is sent: answers by question line, and the rest. */
+interface Written {
+	answers: Record<string, Answer>;
+	more: string;
 }
 
 /**
@@ -229,7 +222,6 @@ export function QuestionCards({
 	demo = null,
 	draft = null,
 	copy = false,
-	blocked = false,
 	onSent,
 }: {
 	questions: Question[];
@@ -241,38 +233,43 @@ export function QuestionCards({
 	draft?: string | null;
 	/** Copy the reply rather than send it: its agent runs outside the page. */
 	copy?: boolean;
-	/**
-	 * Numbered as in the task's `## Blocked` rather than the agent's latest
-	 * report, which the reply opens by saying.
-	 */
-	blocked?: boolean;
 	/** Once the reply is sent from it, or copied. */
 	onSent?: () => void;
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
 	const live = sent === null && (copy || reply !== null);
 	const kept = useKept(draft, sent);
-	const [written, setWritten] = useState(() => {
+	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
 		return {
-			lines: linesFor(
-				questions,
-				questions.map((asked) => answerIn(before, asked)),
+			answers: Object.fromEntries(
+				questions.flatMap((asked) => {
+					const answer = answerIn(before, asked);
+					return answer === null ? [] : [[asked.text, answer]];
+				}),
 			),
 			more: besides(before, questions),
 		};
 	});
-	const write = (next: { lines: string; more: string }) => {
+	// By each question's line, which stays put as others come and go.
+	const writtenFor = (asked: Question) => written.answers[asked.text] ?? null;
+	const write = (next: Written) => {
 		setWritten(next);
-		kept.write(replyOf(next.lines, next.more));
+		kept.write(
+			replyOf(
+				questions,
+				questions.map((asked) => next.answers[asked.text] ?? null),
+				next.more,
+			),
+		);
 	};
-	// What the answers are read from: what is written here, or once sent, the
-	// reply that was.
-	const said = sent ?? written.lines;
+	// What is written here, or once sent, what the reply that was says.
+	const answers = questions.map((asked) =>
+		sent === null ? writtenFor(asked) : answerIn(sent, asked),
+	);
 	const more = sent === null ? written.more : besides(sent, questions);
-	const answers = questions.map((asked) => answerIn(said, asked));
 	const answered = answers.filter((answer) => answer !== null).length;
-	const out = replyOf(written.lines, written.more);
+	const out = replyOf(questions, questions.map(writtenFor), written.more);
 	const send = copy ? null : (reply?.send ?? null);
 	const { copied, copy: copyOut } = useCopy();
 	const { refusal, attempt } = useRefusal();
@@ -280,14 +277,13 @@ export function QuestionCards({
 		if (!live || out === "") {
 			return;
 		}
-		const text = blocked ? blockedReply(out) : out;
 		if (send === null) {
 			// Kept, to copy again until its agent records it.
-			copyOut(text, onSent);
+			copyOut(out, onSent);
 		} else {
 			// Sent from outside a message, nothing else drops what it kept.
 			void attempt(
-				send(text).then(() => {
+				send(out).then(() => {
 					kept.write("");
 					onSent?.();
 				}),
@@ -383,7 +379,13 @@ export function QuestionCards({
 							onAnswer={(answer) =>
 								write({
 									...written,
-									lines: withAnswer(written.lines, asked, answer),
+									answers: isEmpty(answer)
+										? Object.fromEntries(
+												Object.entries(written.answers).filter(
+													([text]) => text !== asked.text,
+												),
+											)
+										: { ...written.answers, [asked.text]: answer },
 								})
 							}
 							onNext={() => next(asked.number)}
@@ -531,13 +533,10 @@ function QuestionCard({
 		}
 	};
 	const enter = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-		// One line per question is what the agent reads, so no Enter makes a
-		// new line; with Shift it does nothing.
-		if (event.key === "Enter") {
+		// Enter moves on; Shift+Enter is a new line.
+		if (event.key === "Enter" && !event.shiftKey) {
 			event.preventDefault();
-			if (!event.shiftKey) {
-				onNext();
-			}
+			onNext();
 		}
 	};
 	return (
@@ -650,17 +649,18 @@ function QuestionCard({
 							choices.length > 0 ? "Add a note (optional)" : "Your answer"
 						}
 						onChange={(event) =>
-							// One line per question is what the agent reads.
-							onAnswer({
-								...said,
-								words: event.target.value.replace(/\n/g, " "),
-							})
+							onAnswer({ ...said, words: event.target.value })
 						}
 						onKeyDown={enter}
 						className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:bg-background focus:ring-3 focus:ring-ring/20"
 					/>
 				) : (
-					said.words.trim() !== "" && <p className="text-sm">{said.words}</p>
+					said.words !== "" && (
+						<Markdown
+							text={said.words}
+							className="text-sm [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+						/>
+					)
 				)}
 			</div>
 		</li>

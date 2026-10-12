@@ -344,7 +344,6 @@ export function TaskView({
 									questions={open}
 									draft="questions"
 									copy
-									blocked
 									onSent={() => drafts.write(`${kept}:copied`, asking(open))}
 								/>
 							</ReplyContext>

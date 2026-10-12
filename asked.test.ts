@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { answerIn, besides, stretches, withAnswer } from "./asked";
+import { answerIn, besides, replyOf, stretches } from "./asked";
 
 /** The report examples the arbor skill shows agents, as agents copy them. */
 async function skillExamples(): Promise<string[]> {
@@ -411,7 +411,7 @@ describe("stretches", () => {
 	});
 });
 
-describe("withAnswer", () => {
+describe("replyOf", () => {
 	const choices = (keys: string) =>
 		[...keys].map((key) => ({
 			key,
@@ -419,45 +419,103 @@ describe("withAnswer", () => {
 			body: "",
 			chosen: false,
 		}));
-	const one = { number: "1", choices: choices("ab") };
-	const two = { number: "2", choices: choices("abc") };
-	const three = { number: "3", choices: [] };
+	const one = {
+		number: "1",
+		text: "Which one?",
+		choices: choices("ab"),
+		pick: "one" as const,
+	};
+	const two = {
+		number: "2",
+		text: "Which apply?",
+		choices: choices("abc"),
+		pick: "any" as const,
+	};
+	const three = { number: "3", text: "When?", choices: [], pick: null };
+	const order = {
+		number: "4",
+		text: "In what order?",
+		choices: choices("abc"),
+		pick: "order" as const,
+	};
 
-	it("writes a line per question, in number order, picks then words", () => {
-		let reply = withAnswer("", two, { picks: ["b"], words: "" });
-		expect(reply).toBe("2. b");
+	it("quotes each answered question, then its picks spelled out, then its words", () => {
+		const reply = replyOf(
+			[one, two, three],
+			[
+				{ picks: ["b"], words: "" },
+				{ picks: ["a", "c"], words: "only on phones\n\n- footer too" },
+				null,
+			],
+			"Looks good.",
+		);
 
-		reply = withAnswer(reply, one, { picks: ["a"], words: "" });
-		expect(reply).toBe("1. a\n2. b");
-
-		reply = withAnswer(reply, two, {
-			picks: ["a", "c"],
-			words: "only on phones",
-		});
-		expect(reply).toBe("1. a\n2. a, c: only on phones");
+		expect(reply).toBe(
+			[
+				"Looks good.",
+				"",
+				"> **Which one?**",
+				"",
+				"- (b) choice b",
+				"",
+				"> **Which apply?**",
+				"",
+				"- (a) choice a",
+				"- (c) choice c",
+				"",
+				"only on phones",
+				"",
+				"- footer too",
+			].join("\n"),
+		);
+		expect(answerIn(reply, one)).toEqual({ picks: ["b"], words: "" });
 		expect(answerIn(reply, two)).toEqual({
 			picks: ["a", "c"],
-			words: "only on phones",
+			words: "only on phones\n\n- footer too",
 		});
+		expect(answerIn(reply, three)).toBeNull();
+		expect(besides(reply, [one, two, three])).toBe("Looks good.");
+	});
 
-		reply = withAnswer(reply, three, { picks: [], words: "after a check" });
-		expect(reply).toBe("1. a\n2. a, c: only on phones\n3. after a check");
-		expect(withAnswer("Looks good.", one, { picks: ["b"], words: "" })).toBe(
-			"Looks good.\n1. b",
+	it("leaves out questions without an answer", () => {
+		expect(replyOf([one, three], [{ picks: [], words: " " }, null], "")).toBe(
+			"",
+		);
+		expect(replyOf([three], [{ picks: [], words: "after a check" }], "")).toBe(
+			"> **When?**\n\nafter a check",
 		);
 	});
 
-	it("drops a question's line once its answer is empty, leaving the rest", () => {
-		expect(
-			withAnswer("1. a\n2. b\nThanks", two, { picks: [], words: "" }),
-		).toBe("1. a\nThanks");
-		expect(withAnswer("Thanks", two, { picks: [], words: "" })).toBe("Thanks");
+	it("numbers the picks of an order, and reads them back in it", () => {
+		const reply = replyOf([order], [{ picks: ["c", "a", "b"], words: "" }], "");
+
+		expect(reply).toBe(
+			"> **In what order?**\n\n1. (c) choice c\n2. (a) choice a\n3. (b) choice b",
+		);
+		expect(answerIn(reply, order)?.picks).toEqual(["c", "a", "b"]);
 	});
 
-	it("keeps a trailing space in words, and reads only offered letters as picks", () => {
-		expect(answerIn("2. b: because ", two)).toEqual({
+	it("reads back words that look like a pick or a quoted question as words", () => {
+		const words = "- (a) is what I would pick\n> **Which one?**";
+		const reply = replyOf([two, one], [{ picks: [], words }, null], "");
+
+		expect(answerIn(reply, two)).toEqual({ picks: [], words });
+		expect(answerIn(reply, one)).toBeNull();
+	});
+
+	it("finds a question by its line, whatever its number", () => {
+		const reply = replyOf([three], [{ picks: [], words: "soon" }], "");
+
+		expect(answerIn(reply, { ...three, number: "7", text: "when?" })).toEqual({
+			picks: [],
+			words: "soon",
+		});
+	});
+
+	it("still reads a reply typed by hand, by number", () => {
+		expect(answerIn("2. b: because", two)).toEqual({
 			picks: ["b"],
-			words: "because ",
+			words: "because",
 		});
 		expect(answerIn("2. b because", two)).toEqual({
 			picks: ["b"],
@@ -470,38 +528,9 @@ describe("withAnswer", () => {
 		expect(answerIn("1. bonus", one)).toEqual({ picks: [], words: "bonus" });
 		expect(answerIn("1. b", three)).toBeNull();
 		expect(answerIn("nothing here", one)).toBeNull();
-	});
-
-	it("reads back every note as typed, even one that starts like a pick", () => {
-		// Each step of typing a note into a box, as the box reads it back.
-		for (const words of ["a", "a ", "a lot", "b, a", " a", ":)", "ok"]) {
-			const reply = withAnswer("", two, { picks: [], words });
-			expect(answerIn(reply, two)).toEqual({ picks: [], words });
-		}
-		expect(withAnswer("", two, { picks: [], words: "a lot" })).toBe(
-			"2. : a lot",
-		);
-		expect(withAnswer("", two, { picks: [], words: "ok" })).toBe("2. ok");
-		expect(withAnswer("", two, { picks: ["a"], words: "a lot" })).toBe(
-			"2. a: a lot",
-		);
-	});
-
-	it("keeps the order a reply puts choices in", () => {
-		const order = { number: "4", choices: choices("abc") };
-		const reply = withAnswer("", order, { picks: ["c", "a", "b"], words: "" });
-
-		expect(reply).toBe("4. c, a, b");
-		expect(answerIn(reply, order)?.picks).toEqual(["c", "a", "b"]);
-	});
-
-	it("reads what a reply says besides its answers", () => {
+		expect(answerIn("4. c, a, b", order)?.picks).toEqual(["c", "a", "b"]);
 		expect(
 			besides("1. a\n2. b: only on phones\n\nAlso the footer.", [one, two]),
 		).toBe("Also the footer.");
-		expect(besides("Looks good.\n3. after a check", [one, two, three])).toBe(
-			"Looks good.",
-		);
-		expect(besides("1. a\n2. b", [one, two])).toBe("");
 	});
 });

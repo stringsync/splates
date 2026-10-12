@@ -382,14 +382,18 @@ replies, after `arbor claim` returns, and between steps), bring it up to date:
   --remove <old path>`), and point the question at the new one;
 - add each question you now need.
 
-The user answers in chat, usually as a list matching your latest report:
-`2.` is its second question, whatever its number in `ARBOR.md`, and items
-left out stay open. A reply that opens with "Answers to `## Blocked`", sent
-from the `arbor dev` page, goes by the numbers in `ARBOR.md` instead, and
-answers them ahead of your report, as the page last read them: when you
-changed a question since, check the answer still fits it before acting on it,
-and ask again when it does not; one you added since stays open. When a reply
-does not fit your latest report, ask rather than guess. Whenever anything the user says settles an open question, even
+The user answers in chat. From the `arbor dev` page, a reply quotes each
+question it answers, its line in bold (`> **How should …?**`), and answers
+under it: the choices picked as `- (b) <its text>`, numbered in the order
+picked for an order, then any words. Anything else they say comes before the
+first quote. Match each quote to an open question by its line, whatever its
+number; questions not quoted stay open. A quote can come from `ARBOR.md` as
+the page last read it, ahead of your report: when it matches no question you
+have open, as one you changed since, ask again rather than guess what it
+answers. Typed by hand, a reply is a list matching your latest report: `2.`
+is its second question, whatever its number in `ARBOR.md`, and items left out
+stay open. When a reply does not fit your latest report, ask rather than
+guess. Whenever anything the user says settles an open question, even
 without naming it, write that answer after `→` and check it off, so it is not
 asked again. Check an item off only when its answer is one you can act on;
 anything else stays open and leads your next report. A reply about something

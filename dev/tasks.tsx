@@ -213,7 +213,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 			</DialogHeader>
 			<div className="-mx-4 flex min-w-0 flex-col gap-4 overflow-y-auto px-4 text-sm">
 				{answering && open.length > 0 && (
-					<QuestionCards questions={open} copy blocked />
+					<QuestionCards questions={open} copy />
 				)}
 				{task.plan === null ? (
 					<p className="text-muted-foreground">

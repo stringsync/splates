@@ -1,29 +1,12 @@
-import { answerIn, stretches } from "../asked";
+import { answerIn, quotedIn, stretches } from "../asked";
 import type { Message } from "../conversations";
 import type { Question } from "../plan";
 
 /**
- * How a reply to the questions in `## Blocked` opens, as their cards outside
- * a conversation copy it: its numbers are those of `## Blocked`, not of the
- * agent's latest report, as the arbor skill reads it.
- */
-export const BLOCKED_REPLY = "Answers to `## Blocked`, by its numbers there";
-
-/**
- * `lines` as those cards copy them, headed so the agent reads them
- * right: answered ahead of its report, from `ARBOR.md` as the page last read
- * it, so a question the agent changed or added since may be answered stale or
- * not at all.
- */
-export function blockedReply(lines: string): string {
-	return `${BLOCKED_REPLY}, answered ahead of your report from \`ARBOR.md\` as the page last read it: a question you changed since may have a stale answer, and one you added none.\n${lines}`;
-}
-
-/**
  * Of `open`, a task's open questions in `## Blocked`, those no reply in
- * `messages` has answered yet. A question is answered once a reply to a card
- * asking it, or by the numbers in `## Blocked`, says so, until the agent
- * records the answer.
+ * `messages` has answered yet. A question is answered once a reply quotes it
+ * with an answer, or a reply to a card asking it answers its number, until the
+ * agent records the answer.
  */
 export function unanswered(open: Question[], messages: Message[]): Question[] {
 	const done = new Set<Question>();
@@ -33,13 +16,12 @@ export function unanswered(open: Question[], messages: Message[]): Question[] {
 		}
 		const text = textOf(message);
 		const before = messages[at - 1];
-		if (text.startsWith(BLOCKED_REPLY)) {
-			for (const asked of open) {
-				if (answerIn(text, asked) !== null) {
-					done.add(asked);
-				}
+		for (const asked of open) {
+			if (quotedIn(text, asked) !== null) {
+				done.add(asked);
 			}
-		} else if (before?.role === "agent") {
+		}
+		if (before?.role === "agent") {
 			for (const card of asks(before)) {
 				const same = open.find((asked) => alike(asked, card));
 				if (same !== undefined && answerIn(text, card) !== null) {
