@@ -1,5 +1,6 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
+	BotIcon,
 	BrainIcon,
 	CheckIcon,
 	ChevronRightIcon,
@@ -8,9 +9,11 @@ import {
 	FileTextIcon,
 	KeyRoundIcon,
 	LoaderIcon,
+	PencilIcon,
 	SearchIcon,
 	SquareTerminalIcon,
 	TriangleAlertIcon,
+	WrenchIcon,
 	XIcon,
 } from "lucide-react";
 import {
@@ -109,7 +112,8 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 					</summary>
 					<ol
 						aria-label="timeline"
-						className="mt-1.5 ml-1.5 flex flex-col gap-1 border-l pl-3"
+						// A line down the left, each call's dot on it.
+						className="relative mt-2 ml-1.5 flex flex-col gap-1.5 pl-4 before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-border"
 					>
 						{!work.running && work.plan !== null && (
 							<li>
@@ -287,7 +291,8 @@ function Row({
 			const tool = item.runs.at(-1) as Tool;
 			return (
 				<Fold
-					icon={<CommandStatus tool={tool} />}
+					icon={<Kind tool={tool} icon={<SquareTerminalIcon />} />}
+					state={stateOf(tool)}
 					head={
 						<>
 							<code className="min-w-0 truncate font-mono text-xs">
@@ -321,7 +326,8 @@ function Row({
 		case "edit":
 			return (
 				<Fold
-					icon={<Status tool={item.tool} />}
+					icon={<Kind tool={item.tool} icon={<PencilIcon />} />}
+					state={stateOf(item.tool)}
 					head={
 						<span className="min-w-0 truncate">
 							{item.tool.paths.length > 0
@@ -354,7 +360,8 @@ function Row({
 		case "subagent":
 			return (
 				<Fold
-					icon={<Status tool={item.tool} />}
+					icon={<Kind tool={item.tool} icon={<BotIcon />} />}
+					state={stateOf(item.tool)}
 					head={
 						<>
 							<span className="min-w-0 truncate">{item.tool.title}</span>
@@ -372,7 +379,8 @@ function Row({
 		case "tool":
 			return (
 				<Fold
-					icon={<Status tool={item.tool} />}
+					icon={<Kind tool={item.tool} icon={<WrenchIcon />} />}
+					state={stateOf(item.tool)}
 					head={
 						<>
 							<span className="min-w-0 truncate">{item.tool.title}</span>
@@ -406,15 +414,41 @@ function Row({
 function Fold({
 	icon,
 	head,
+	state = null,
 	children,
 }: {
 	icon: ReactNode;
 	head: ReactNode;
+	/** How its call went; null for a row that is not one, such as a thought. */
+	state?: State | null;
 	children: ReactNode;
 }): JSX.Element {
+	const going = use(Going);
+	const shown = state === "running" && !going ? "stopped" : state;
 	return (
 		<details className="group/row">
-			<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
+			<summary
+				className={cn(
+					"relative flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground [&::-webkit-details-marker]:hidden",
+					shown === "failed" && "text-destructive",
+				)}
+			>
+				{/* Its dot on the timeline's line, colored by how it went. */}
+				{shown === null ? (
+					<span aria-hidden className={cn(DOT, "bg-muted-foreground/50")} />
+				) : (
+					<span
+						role="img"
+						aria-label={SAID[shown]}
+						className={cn(
+							DOT,
+							shown === "done" && "bg-muted-foreground/50",
+							shown === "failed" && "bg-destructive",
+							shown === "running" && "animate-pulse bg-primary",
+							shown === "stopped" && "bg-warning",
+						)}
+					/>
+				)}
 				<span className="flex size-3.5 shrink-0 items-center justify-center [&_svg]:size-3">
 					{icon}
 				</span>
@@ -443,22 +477,58 @@ function Status({ tool }: { tool: Tool }): JSX.Element {
 	}
 }
 
-/** A command's status: a pulsing terminal while it runs, then ✓ or ✗. */
-function CommandStatus({ tool }: { tool: Tool }): JSX.Element {
-	const going = use(Going);
-	const done = tool.status === "completed" || tool.status === "failed";
-	return !done && going ? (
-		<SquareTerminalIcon aria-label="running" className="animate-pulse" />
-	) : (
-		<Status tool={tool} />
-	);
-}
-
 function Took({ tool }: { tool: Tool }): JSX.Element | null {
 	if (tool.at === null || tool.until === null) {
 		return null;
 	}
-	return <span className="shrink-0">· {span(tool.at, tool.until)}</span>;
+	return (
+		<span className="ml-auto shrink-0 pl-2 tabular-nums">
+			{span(tool.at, tool.until)}
+		</span>
+	);
+}
+
+/** How a row's call went, for its dot on the timeline. */
+type State = "done" | "failed" | "running" | "stopped";
+
+const DOT = "absolute top-1.5 -left-4 size-[7px] rounded-full";
+
+/** Each state as its dot reads aloud. */
+const SAID: Record<State, string> = {
+	done: "passed",
+	failed: "failed",
+	running: "running",
+	stopped: "stopped",
+};
+
+function stateOf(tool: Tool): State {
+	return tool.status === "completed"
+		? "done"
+		: tool.status === "failed"
+			? "failed"
+			: "running";
+}
+
+/**
+ * What kind of call a row is, red when it failed, and a spinner while it
+ * runs; its dot on the line says how it went.
+ */
+function Kind({ tool, icon }: { tool: Tool; icon: ReactNode }): JSX.Element {
+	const going = use(Going);
+	const done = tool.status === "completed" || tool.status === "failed";
+	if (!done && going) {
+		return <LoaderIcon aria-hidden className="animate-spin" />;
+	}
+	return (
+		<span
+			className={cn(
+				"flex [&_svg]:size-3",
+				tool.status === "failed" && "text-destructive",
+			)}
+		>
+			{icon}
+		</span>
+	);
 }
 
 /** Calls as a plain list, for reads and a subagent's work. */
