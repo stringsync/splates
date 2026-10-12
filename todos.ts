@@ -343,6 +343,23 @@ export class Todos {
 	}
 
 	/**
+	 * @internal Removes each lane in `ids` that no todo is in any more: a lane
+	 * whose last todo merged is done. One emptied by hand stays, to be filled.
+	 */
+	async endLanes(ids: number[]): Promise<void> {
+		await this.locked(async () => {
+			const states = await this.stored();
+			const records = await this.records(states);
+			const done = new Set(
+				ids.filter((id) => !states.some((state) => state.lane === id)),
+			);
+			if (done.size > 0) {
+				await this.writeLanes(records.filter((record) => !done.has(record.id)));
+			}
+		});
+	}
+
+	/**
 	 * @internal Rewrites one todo as it stands on disk now, under the lock, so
 	 * a change to its words or who has it never undoes a move made meanwhile.
 	 */
@@ -434,7 +451,6 @@ export class Todos {
 	 */
 	async delete(id: number): Promise<void> {
 		await this.locked(async () => {
-			const gone = await this.read(this.path(id));
 			await this.fs.rm(this.path(id), { force: true });
 			const order: TodoState[] = [];
 			for (const state of await this.stored()) {
@@ -450,12 +466,6 @@ export class Todos {
 				}
 			}
 			await this.renumber(order);
-			// A lane whose last todo merged is done: it goes with it.
-			const lane = gone?.lane ?? null;
-			if (lane !== null && !order.some((state) => state.lane === lane)) {
-				const records = await this.records(order);
-				await this.writeLanes(records.filter((record) => record.id !== lane));
-			}
 		});
 	}
 

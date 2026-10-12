@@ -252,13 +252,14 @@ export async function merge(
 	}
 	// Done is done: the todos this task took up leave the list with it.
 	const done = await todos.takenBy(task);
-	// Read before the todos go, since a lane they empty goes with them.
+	// Read before the todos go, since a lane they empty ends with them.
 	const ran = (await todos.lanes()).filter((lane) =>
 		done.some((todo) => todo.lane === lane.id),
 	);
 	for (const todo of done) {
 		await todo.remove();
 	}
+	await todos.endLanes(ran.map((lane) => lane.id));
 	const lines = [
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`

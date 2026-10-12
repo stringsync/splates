@@ -278,6 +278,16 @@ describe.concurrent("lanes", () => {
 		expect(await deps.todos.lanes()).toEqual([]);
 	});
 
+	it("keeps a lane whose last todo is removed by hand, empty", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await todoAdd(deps, "only step", null, { lane: 1 });
+
+		await todoRemove(deps, 1);
+
+		expect(await deps.todos.lanes()).toEqual([{ id: 1, name: "Licensing" }]);
+	});
+
 	it("adds, renames and removes lanes, keeping an empty one, refusing a name in use", async () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "first", null);

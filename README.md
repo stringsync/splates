@@ -675,7 +675,7 @@ the `dev` page reads after each merge.
 
 `add` starts an empty lane after the others, `update --name` renames one, and
 `remove` takes one away, untriaging its todos. A lane also goes on its own
-once its last todo merges or is removed.
+once its last todo merges; removing its last todo by hand leaves it empty.
 
 ### `arbor retry <task>`
 
