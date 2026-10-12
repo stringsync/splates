@@ -246,6 +246,23 @@ export interface TaskState {
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];
+	/** The agent `arbor add --agent` handed the task to, for `arbor dev` to start. */
+	dispatch?: Dispatched;
+}
+
+/**
+ * Who `arbor add --agent` handed a task to. `arbor dev` starts the agent in
+ * the task's tree and writes down the conversation it started, so it starts
+ * once.
+ */
+export interface Dispatched {
+	agent: string;
+	/** The model to pick, by the session's model setting; absent, the agent's own. */
+	model?: string;
+	/** What the agent is told beyond claiming the task. */
+	prompt?: string;
+	/** The conversation `arbor dev` started, once it has. */
+	conversation?: string;
 }
 
 /**

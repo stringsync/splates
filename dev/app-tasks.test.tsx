@@ -46,6 +46,24 @@ describe("App's tasks", () => {
 		expect(dialog.textContent).toContain("needs eyes");
 	});
 
+	it("nests each part under the task it was handed out from", async () => {
+		const view = await testing.openTasks({
+			tasks: [
+				details({ task: "alpha-api", base: "task/alpha" }),
+				details({ task: "alpha" }),
+				details({ task: "beta" }),
+			],
+		});
+
+		const parts = view.getByRole("list", { name: "parts of alpha" });
+		expect(parts.textContent).toBe("alpha-api");
+		expect(
+			[...view.getByRole("list", { name: "task list" }).children].map(
+				(item) => item.firstElementChild?.textContent,
+			),
+		).toEqual(["alpha", "beta"]);
+	});
+
 	it("marks a task waiting on approval as ready to merge, saying what to look at", async () => {
 		const view = await testing.openTasks({
 			tasks: [

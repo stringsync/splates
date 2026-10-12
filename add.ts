@@ -4,9 +4,11 @@ import type { Fs } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
 import { PLAN_FILE } from "./plan";
+import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
 import { blockedWarning, type Todo } from "./todo";
 import type { Todos } from "./todos";
+import type { Dispatched } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -24,6 +26,13 @@ export interface AddOptions {
 	 * so whatever it tells of the task is in place before anyone can see it.
 	 */
 	onTree?: () => Promise<void>;
+	/**
+	 * The agent to hand the task to, which `arbor dev` starts in its tree once
+	 * the tree is ready; its id must be one of `agents`.
+	 */
+	dispatch?: Dispatched;
+	/** The roster's agents, which `dispatch` must name one of, and its model. */
+	agents?: RosterAgent[];
 }
 
 export async function add(
@@ -43,7 +52,13 @@ export async function add(
 		todos: Todos;
 	},
 	task: string,
-	{ base = config.trunk, todos: ids = [], onTree }: AddOptions = {},
+	{
+		base = config.trunk,
+		todos: ids = [],
+		onTree,
+		dispatch,
+		agents = [],
+	}: AddOptions = {},
 ): Promise<void> {
 	if (!NAME.test(task)) {
 		fail(
@@ -52,6 +67,13 @@ export async function add(
 			{ task },
 		);
 	}
+	const handOff =
+		dispatch === undefined
+			? undefined
+			: {
+					...dispatch,
+					...pickAgent(agents, dispatch.agent, dispatch.model, { task }),
+				};
 
 	// A worktree gets its own empty submodule directories, so every task would
 	// have to bootstrap them before anything builds. Refuse the repo instead.
@@ -159,12 +181,23 @@ export async function add(
 		}
 	}
 
+	// Only once the hook has readied the tree, so the agent never starts in
+	// one still installing.
+	if (handOff !== undefined) {
+		await worktree.save({ dispatch: handOff });
+	}
+
 	log.info(
 		[
 			`${color.green("added")} ${task}`,
 			`  worktree: ${worktree.path}`,
 			`  branch:   ${worktree.branch}`,
 			`  base:     ${base}`,
+			...(handOff === undefined
+				? []
+				: [
+						`  agent:    ${handOff.agent}${handOff.model === undefined ? "" : ` (${handOff.model})`}, which \`arbor dev\` starts in the worktree`,
+					]),
 			...blocked,
 		].join("\n"),
 	);

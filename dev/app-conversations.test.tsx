@@ -201,6 +201,50 @@ describe("App's conversations", () => {
 		).toBeNull();
 	});
 
+	it("nests a part's conversations under the task it was handed out from", async () => {
+		const view = await conversations(
+			[
+				conversation({
+					id: "c1",
+					task: "alpha",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					task: null,
+					title: "Look around",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "c3",
+					agent: "codex",
+					task: "alpha-api",
+					createdAt: "2026-10-11T10:03:00.000Z",
+				}),
+			],
+			null,
+			{
+				tasks: [
+					details({ task: "alpha" }),
+					details({ task: "alpha-api", base: "task/alpha" }),
+				],
+			},
+		);
+		const list = view.getByRole("list", { name: "conversation list" });
+
+		expect(
+			within(list)
+				.getAllByRole("listitem")
+				.filter((item) => item.parentElement === list)
+				.map((item) => item.textContent),
+		).toEqual(["Look around", "alphaalpha-api"]);
+		expect(
+			within(view.getByRole("list", { name: "parts of alpha" }))
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["alpha-api"]);
+	});
+
 	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
 		const view = await conversations(
 			[

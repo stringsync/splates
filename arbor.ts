@@ -22,7 +22,13 @@ import { newest } from "./release";
 import { remove } from "./remove";
 import { type Repository, repository } from "./repository";
 import { retry } from "./retry";
-import { arborHome, Roster, type RosterAgent } from "./roster";
+import {
+	type AgentPick,
+	arborHome,
+	pickAgent,
+	Roster,
+	type RosterAgent,
+} from "./roster";
 import { show } from "./show";
 import { SERVING, supervise } from "./supervise";
 import {
@@ -75,14 +81,47 @@ arbor
 		description:
 			"take up these todos, comma separated: their words become the plan's Goal, merging removes them, and removing the task puts them back",
 	})
+	.option("agent", z.string(), {
+		default: "",
+		description:
+			"hand the task to an agent on the roster (`arbor agents`), which `arbor dev --experimental` starts in the worktree, told to claim it; the conversation you run this from stays where it is",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description:
+			"with --agent: the model it works on, by its id or name on the roster (default: the agent's own)",
+	})
+	.option("prompt", z.string(), {
+		default: "",
+		description:
+			"with --agent: what to tell the agent beyond claiming the task, such as a part's instructions",
+	})
 	.action(async (opts, ctx) => {
+		if (opts.agent === "" && (opts.model !== "" || opts.prompt !== "")) {
+			fail("usage", "--model and --prompt go with --agent", {
+				task: opts.task,
+			});
+		}
+		const dispatch =
+			opts.agent === ""
+				? undefined
+				: {
+						agent: opts.agent,
+						...(opts.model === "" ? {} : { model: opts.model }),
+						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
+					};
+		const agents = dispatch === undefined ? [] : await seeded(rosterOf(ctx));
 		await ctx.journal.record("add", opts.task, () =>
 			add(ctx, opts.task, {
 				base: opts.base || undefined,
 				todos: todoIds(opts.todo),
+				dispatch,
+				agents,
 				// Before the task is live, or the page shows it a moment as an
-				// external agent's.
-				onTree: () => follow(ctx, opts.task),
+				// external agent's. A task handed to another agent is that
+				// agent's, so this conversation stays where it is.
+				onTree:
+					dispatch === undefined ? () => follow(ctx, opts.task) : undefined,
 			}),
 		);
 	});
@@ -364,8 +403,18 @@ todo
 		description:
 			"the lane it goes in, at the bottom: a lane's number, or `new` for one of its own (default: none, untriaged)",
 	})
+	.option("agent", z.string(), {
+		default: "",
+		description:
+			"the agent on the roster (`arbor agents`) that should work it, which Start on the `arbor dev` board offers first",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "with --agent: the model, by its id or name on the roster",
+	})
 	.action(async (opts, ctx) => {
 		const from = await here(ctx);
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
 		await ctx.journal.record("todo add", from, () =>
 			todoAdd(ctx, opts.subject, from, {
 				text: opts.text,
@@ -373,6 +422,7 @@ todo
 				files: commaList(opts.file),
 				blockedBy: todoIds(opts["blocked-by"]),
 				lane: laneIn(opts.lane) ?? null,
+				assignee,
 			}),
 		);
 	});
@@ -449,8 +499,18 @@ todo
 		description:
 			"move it to a lane, at the bottom: a lane's number, `new` for one of its own, or `none` to put it back with the untriaged",
 	})
-	.action((opts, ctx) =>
-		ctx.journal.record("todo update", null, () =>
+	.option("agent", z.string(), {
+		default: "",
+		description:
+			"the agent on the roster (`arbor agents`) that should work it, which Start on the `arbor dev` board offers first, or `none`",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "with --agent: the model, by its id or name on the roster",
+	})
+	.action(async (opts, ctx) => {
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
+		await ctx.journal.record("todo update", null, () =>
 			todoUpdate(ctx, opts.id, {
 				subject: opts.subject,
 				text: opts.text,
@@ -460,9 +520,10 @@ todo
 				blockedBy: todoIds(opts["blocked-by"]),
 				removeBlockedBy: todoIds(opts["remove-blocked-by"]),
 				lane: laneIn(opts.lane),
+				assignee,
 			}),
-		),
-	);
+		);
+	});
 
 todo
 	.command("take")
@@ -548,13 +609,27 @@ lane
 	.arg("name", z.string(), {
 		description: "what its todos are for, like `Licensing`",
 	})
-	.action((opts, ctx) =>
-		ctx.journal.record("lane add", null, () => laneAdd(ctx, opts.name)),
-	);
+	.option("agent", z.string(), {
+		default: "",
+		description:
+			"the agent on the roster (`arbor agents`) that should work its todos, which Start on the `arbor dev` board offers first",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "with --agent: the model, by its id or name on the roster",
+	})
+	.action(async (opts, ctx) => {
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
+		await ctx.journal.record("lane add", null, () =>
+			laneAdd(ctx, opts.name, assignee ?? null),
+		);
+	});
 
 lane
 	.command("update")
-	.description("rename a lane, or move it among the others")
+	.description(
+		"rename a lane, move it among the others, or say which agent should work it",
+	)
 	.arg("lane", z.coerce.number().int().positive(), {
 		description: "lane number",
 	})
@@ -565,14 +640,25 @@ lane
 		description:
 			"where to move it among the lanes, 1 the first column on the board; the others close up around it",
 	})
-	.action((opts, ctx) =>
-		ctx.journal.record("lane update", null, () =>
+	.option("agent", z.string(), {
+		default: "",
+		description:
+			"the agent on the roster (`arbor agents`) that should work its todos, which Start on the `arbor dev` board offers first, or `none`",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description: "with --agent: the model, by its id or name on the roster",
+	})
+	.action(async (opts, ctx) => {
+		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
+		await ctx.journal.record("lane update", null, () =>
 			laneUpdate(ctx, opts.lane, {
 				name: opts.name,
 				position: opts.position,
+				assignee,
 			}),
-		),
-	);
+		);
+	});
 
 lane
 	.command("remove")
@@ -585,6 +671,31 @@ lane
 	.action((opts, ctx) =>
 		ctx.journal.record("lane remove", null, () => laneRemove(ctx, opts.lane)),
 	);
+
+/**
+ * The agent `--agent` and `--model` name off the roster: undefined when
+ * neither is given, null for `--agent none`.
+ */
+async function assigneeIn(
+	deps: ArborDeps,
+	agent: string,
+	model: string,
+): Promise<AgentPick | null | undefined> {
+	if (agent === "") {
+		if (model !== "") {
+			fail("usage", "--model goes with --agent", { model });
+		}
+		return undefined;
+	}
+	if (agent === "none") {
+		return null;
+	}
+	return pickAgent(
+		await seeded(rosterOf(deps)),
+		agent,
+		model === "" ? undefined : model,
+	);
+}
 
 /** The user's roster, beside the project registry. */
 function rosterOf({ ps, fs }: ArborDeps): Roster {

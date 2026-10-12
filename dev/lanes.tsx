@@ -21,6 +21,7 @@ import {
 	PencilIcon,
 	PlusIcon,
 	Undo2Icon,
+	UserIcon,
 	XIcon,
 } from "lucide-react";
 import {
@@ -44,15 +45,18 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { LaneState } from "../lanes";
 import type { TodoState } from "../todo";
-import { addLane, dropLane, joinLanes, renameLane } from "./api";
+import { addLane, assignLane, dropLane, joinLanes, renameLane } from "./api";
 import { Board, still } from "./board";
 import { Card, copiedLabel, laneReference, Sortable, useCopy } from "./card";
-import { Dispatching, OnIt, StartMenu } from "./dispatching";
+import { AssigneeItems, Dispatching, OnIt, StartMenu } from "./dispatching";
 import { type Drafts, todoDraft } from "./drafts";
 import { AttachButton, Dropped, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
@@ -228,47 +232,43 @@ export function ShownLanes({
 	];
 	const left = columns.filter((column) => hidden.includes(column.id)).length;
 	return (
-		<div className="mb-2 flex">
-			<DropdownMenu>
-				<DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
-					<Columns3Icon data-icon="inline-start" />
-					Lanes
-					{left > 0 && (
-						<span className="text-muted-foreground text-xs">
-							· {left} hidden
-						</span>
-					)}
-					<ChevronDownIcon data-icon="inline-end" />
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start" className="w-64">
-					<DropdownMenuGroup>
-						<DropdownMenuLabel>Show on the board</DropdownMenuLabel>
-						<DropdownMenuItem
-							closeOnClick={false}
-							onClick={() =>
-								onHide(left > 0 ? [] : columns.map((column) => column.id))
-							}
+		<DropdownMenu>
+			<DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
+				<Columns3Icon data-icon="inline-start" />
+				Lanes
+				{left > 0 && (
+					<span className="text-muted-foreground text-xs">· {left} hidden</span>
+				)}
+				<ChevronDownIcon data-icon="inline-end" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-64">
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>Show on the board</DropdownMenuLabel>
+					<DropdownMenuItem
+						closeOnClick={false}
+						onClick={() =>
+							onHide(left > 0 ? [] : columns.map((column) => column.id))
+						}
+					>
+						{left > 0 ? <EyeIcon /> : <EyeOffIcon />}
+						{left > 0 ? "Show all" : "Hide all"}
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					{columns.map((column) => (
+						<DropdownMenuCheckboxItem
+							key={column.id ?? "untriaged"}
+							checked={!hidden.includes(column.id)}
+							onCheckedChange={() => onToggle(column.id)}
 						>
-							{left > 0 ? <EyeIcon /> : <EyeOffIcon />}
-							{left > 0 ? "Show all" : "Hide all"}
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						{columns.map((column) => (
-							<DropdownMenuCheckboxItem
-								key={column.id ?? "untriaged"}
-								checked={!hidden.includes(column.id)}
-								onCheckedChange={() => onToggle(column.id)}
-							>
-								<span className="min-w-0 flex-1 truncate">{column.name}</span>
-								<span className="text-muted-foreground text-xs tabular-nums">
-									{column.count}
-								</span>
-							</DropdownMenuCheckboxItem>
-						))}
-					</DropdownMenuGroup>
-				</DropdownMenuContent>
-			</DropdownMenu>
-		</div>
+							<span className="min-w-0 flex-1 truncate">{column.name}</span>
+							<span className="text-muted-foreground text-xs tabular-nums">
+								{column.count}
+							</span>
+						</DropdownMenuCheckboxItem>
+					))}
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
@@ -392,6 +392,7 @@ function StartLane({ lane }: { lane: LaneState }): JSX.Element {
 		return (
 			<StartMenu
 				assignment={{ kind: "lane", id: lane.id }}
+				assignee={lane.assignee}
 				label="Start lane"
 			/>
 		);
@@ -502,6 +503,7 @@ function LaneMenu({
 	onRename: () => void;
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
+	const dispatching = useContext(Dispatching);
 	const { copied, copy } = useCopy();
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
@@ -534,6 +536,29 @@ function LaneMenu({
 					<PencilIcon />
 					Rename
 				</DropdownMenuItem>
+				{dispatching !== null && (
+					<DropdownMenuSub>
+						<DropdownMenuSubTrigger>
+							<UserIcon />
+							<span className="flex-1">Assign to</span>
+							<span className="truncate text-muted-foreground text-xs">
+								{lane.assignee === null
+									? "any agent"
+									: dispatching.dispatch.pickName(lane.assignee)}
+							</span>
+						</DropdownMenuSubTrigger>
+						<DropdownMenuSubContent className="w-52">
+							<AssigneeItems
+								assignee={lane.assignee}
+								onPick={(pick) =>
+									void assignLane(lane.id, pick).catch((error: unknown) =>
+										refuseLane(lane.id, "Not assigned", error),
+									)
+								}
+							/>
+						</DropdownMenuSubContent>
+					</DropdownMenuSub>
+				)}
 				{others.length > 0 && (
 					<>
 						<DropdownMenuSeparator />

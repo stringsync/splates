@@ -1,8 +1,9 @@
-import { ChevronDownIcon, PlayIcon } from "lucide-react";
-import { createContext, type JSX, useContext } from "react";
+import { CheckIcon, ChevronDownIcon, PlayIcon, UserIcon } from "lucide-react";
+import { createContext, type JSX, useContext, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuGroup,
 	DropdownMenuItem,
@@ -14,8 +15,12 @@ import {
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import type { LaneState } from "../lanes";
+import type { AgentPick } from "../roster";
 import { AgentIcon } from "./agent-icons";
-import { still } from "./board";
+import { promptConversation, startConversation } from "./api";
+import { Board, still } from "./board";
+import { laneReference } from "./card";
 import { Mark, nameOf, reportedAs } from "./conversations";
 import type { Assignment, Dispatch } from "./dispatch";
 
@@ -127,10 +132,13 @@ export function OnIt({
  */
 export function StartMenu({
 	assignment,
+	assignee = null,
 	label = "Start",
 	className,
 }: {
 	assignment: Assignment;
+	/** The agent that should work it, offered first, on its model. */
+	assignee?: AgentPick | null;
 	label?: string;
 	className?: string;
 }): JSX.Element | null {
@@ -140,6 +148,11 @@ export function StartMenu({
 	}
 	const { dispatch, open } = context;
 	const others = dispatch.others(assignment);
+	const set =
+		assignee !== null &&
+		dispatch.agents.some((each) => each.id === assignee.agent)
+			? assignee
+			: null;
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -159,6 +172,24 @@ export function StartMenu({
 			<DropdownMenuContent align="start" className="w-56">
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>In a new conversation with</DropdownMenuLabel>
+					{set !== null && (
+						<DropdownMenuItem
+							onClick={() =>
+								open(dispatch.start(set.agent, assignment, set.model))
+							}
+						>
+							<AgentIcon
+								agent={set.agent}
+								name={dispatch.agentName(set.agent)}
+							/>
+							<span className="min-w-0 flex-1 truncate">
+								{dispatch.pickName(set)}
+							</span>
+							<span className="shrink-0 text-muted-foreground text-xs">
+								assigned
+							</span>
+						</DropdownMenuItem>
+					)}
 					{dispatch.agents.map((each) => (
 						<DropdownMenuItem
 							key={each.id}
@@ -199,6 +230,239 @@ export function StartMenu({
 						</DropdownMenuSub>
 					</>
 				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+/**
+ * Puts an agent on each of several lanes at once, from above the board: the
+ * lanes ticked among those with a todo next and no agent, each in a new
+ * conversation with the agent picked, sent `[ARBOR LANE <n>]` straight away,
+ * since there is one prompt per lane to review and it says only that. A lane
+ * that does not start says so on its header.
+ */
+export function StartLanes({
+	lanes,
+}: {
+	lanes: LaneState[];
+}): JSX.Element | null {
+	const context = useContext(Dispatching);
+	const { refuseLane } = useContext(Board);
+	const [picked, setPicked] = useState<number[]>([]);
+	const idle = lanes.filter(
+		(lane) => lane.agents.length === 0 && lane.next !== null,
+	);
+	if (context === null || idle.length === 0) {
+		return null;
+	}
+	const { dispatch } = context;
+	const chosen = idle.filter((lane) => picked.includes(lane.id));
+	// A lane with an agent assigned starts with it; the one picked takes the rest.
+	const start = (agent: string): void => {
+		setPicked([]);
+		for (const lane of chosen) {
+			const pick = assigneeOf(lane) ?? { agent };
+			void startConversation(pick.agent, null, {}, pick.model)
+				.then(({ id }) => promptConversation(id, laneReference(lane.id)))
+				.catch((error: unknown) => refuseLane(lane.id, "Not started", error));
+		}
+	};
+	const assigneeOf = (lane: LaneState): AgentPick | null =>
+		lane.assignee !== null &&
+		dispatch.agents.some((each) => each.id === lane.assignee?.agent)
+			? lane.assignee
+			: null;
+	const rest = chosen.filter((lane) => assigneeOf(lane) === null);
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
+				<PlayIcon data-icon="inline-start" />
+				Start lanes
+				<ChevronDownIcon data-icon="inline-end" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-64">
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>Lanes with no agent</DropdownMenuLabel>
+					{idle.map((lane) => (
+						<DropdownMenuCheckboxItem
+							key={lane.id}
+							closeOnClick={false}
+							checked={picked.includes(lane.id)}
+							onCheckedChange={(checked) =>
+								setPicked((was) =>
+									checked
+										? [...was, lane.id]
+										: was.filter((each) => each !== lane.id),
+								)
+							}
+						>
+							<span className="min-w-0 flex-1 truncate">{lane.name}</span>
+							{assigneeOf(lane) !== null && (
+								<span className="shrink-0 truncate text-muted-foreground text-xs">
+									{dispatch.pickName(assigneeOf(lane) as AgentPick)}
+								</span>
+							)}
+							{!lane.ready && (
+								<span className="text-muted-foreground text-xs">waits</span>
+							)}
+						</DropdownMenuCheckboxItem>
+					))}
+				</DropdownMenuGroup>
+				<DropdownMenuSeparator />
+				<DropdownMenuGroup>
+					{chosen.length > 0 && rest.length === 0 ? (
+						<DropdownMenuItem onClick={() => start("")}>
+							<PlayIcon />
+							Start {chosen.length === 1 ? "1 lane" : `${chosen.length} lanes`}{" "}
+							with their agents
+						</DropdownMenuItem>
+					) : (
+						<>
+							<DropdownMenuLabel>
+								{chosen.length === 0
+									? "Tick the lanes to start"
+									: `Start ${rest.length === 1 ? "1 lane" : `${rest.length} lanes`}${rest.length < chosen.length ? " with no agent assigned" : ""} with`}
+							</DropdownMenuLabel>
+							{dispatch.agents.map((each) => (
+								<DropdownMenuItem
+									key={each.id}
+									disabled={chosen.length === 0}
+									onClick={() => start(each.id)}
+								>
+									<AgentIcon agent={each.id} name={each.name} />
+									{each.name}
+								</DropdownMenuItem>
+							))}
+						</>
+					)}
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+/**
+ * The items that say which agent, and model, should work a todo or a lane:
+ * any agent, or one on the roster, on its own model or one it lists. For a
+ * menu of its own or a submenu of another.
+ */
+export function AssigneeItems({
+	assignee,
+	onPick,
+	label,
+}: {
+	assignee: AgentPick | null;
+	onPick: (pick: AgentPick | null) => void;
+	/** What the items are for, above them. */
+	label?: string;
+}): JSX.Element | null {
+	const context = useContext(Dispatching);
+	if (context === null) {
+		return null;
+	}
+	const { dispatch } = context;
+	const is = (pick: AgentPick | null) =>
+		pick === null
+			? assignee === null
+			: assignee?.agent === pick.agent && assignee.model === pick.model;
+	return (
+		<DropdownMenuGroup>
+			{label !== undefined && <DropdownMenuLabel>{label}</DropdownMenuLabel>}
+			<DropdownMenuCheckboxItem
+				checked={is(null)}
+				onCheckedChange={() => onPick(null)}
+			>
+				Any agent
+			</DropdownMenuCheckboxItem>
+			{dispatch.agents.map((each) =>
+				(each.models ?? []).length === 0 ? (
+					<DropdownMenuCheckboxItem
+						key={each.id}
+						checked={is({ agent: each.id })}
+						onCheckedChange={() => onPick({ agent: each.id })}
+					>
+						<AgentIcon agent={each.id} name={each.name} />
+						{each.name}
+					</DropdownMenuCheckboxItem>
+				) : (
+					<DropdownMenuSub key={each.id}>
+						<DropdownMenuSubTrigger>
+							<AgentIcon agent={each.id} name={each.name} />
+							<span className="flex-1">{each.name}</span>
+							{assignee?.agent === each.id && (
+								<CheckIcon className="size-3.5" />
+							)}
+						</DropdownMenuSubTrigger>
+						<DropdownMenuSubContent className="w-48">
+							<DropdownMenuCheckboxItem
+								checked={is({ agent: each.id })}
+								onCheckedChange={() => onPick({ agent: each.id })}
+							>
+								Its own model
+							</DropdownMenuCheckboxItem>
+							{(each.models ?? []).map((model) => (
+								<DropdownMenuCheckboxItem
+									key={model.id}
+									checked={is({ agent: each.id, model: model.id })}
+									onCheckedChange={() =>
+										onPick({ agent: each.id, model: model.id })
+									}
+								>
+									{model.name}
+								</DropdownMenuCheckboxItem>
+							))}
+						</DropdownMenuSubContent>
+					</DropdownMenuSub>
+				),
+			)}
+		</DropdownMenuGroup>
+	);
+}
+
+/**
+ * Which agent should work a todo, in a button saying so, its menu the
+ * `AssigneeItems`; none while the page holds no conversations.
+ */
+export function AssigneeMenu({
+	assignee,
+	onPick,
+	className,
+}: {
+	assignee: AgentPick | null;
+	onPick: (pick: AgentPick | null) => void;
+	className?: string;
+}): JSX.Element | null {
+	const context = useContext(Dispatching);
+	if (context === null) {
+		return null;
+	}
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button
+						size="xs"
+						variant="ghost"
+						aria-label="Assignee"
+						className={cn("w-fit gap-1 text-muted-foreground", className)}
+						{...still}
+					/>
+				}
+			>
+				{assignee === null ? (
+					<UserIcon data-icon="inline-start" />
+				) : (
+					<AgentIcon
+						agent={assignee.agent}
+						name={context.dispatch.agentName(assignee.agent)}
+					/>
+				)}
+				{assignee === null ? "Any agent" : context.dispatch.pickName(assignee)}
+				<ChevronDownIcon />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-52">
+				<AssigneeItems assignee={assignee} onPick={onPick} label="Assign to" />
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

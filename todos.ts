@@ -10,7 +10,8 @@ import {
 	named,
 	settle,
 } from "./lanes";
-import { Todo, type TodoNew, type TodoState, wording } from "./todo";
+import type { AgentPick } from "./roster";
+import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";
 
 /** Every todo in the repo, one JSON file each under `.git/arbor/todos`. */
 export class Todos {
@@ -50,6 +51,7 @@ export class Todos {
 			position,
 			blockedBy = [],
 			lane = null,
+			assignee = null,
 		}: TodoNew = {},
 	): Promise<Todo> {
 		const words = wording(subject, text);
@@ -81,10 +83,12 @@ export class Todos {
 				blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
 				lane: null,
 			};
-			const todo = await this.save({
-				...state,
-				lane: await this.laneId(lane, stored, [state]),
-			});
+			const todo = await this.save(
+				assigned(
+					{ ...state, lane: await this.laneId(lane, stored, [state]) },
+					assignee,
+				),
+			);
 			await this.place(todo.state, position);
 			return this.settled(todo.id);
 		});
@@ -245,14 +249,23 @@ export class Todos {
 		return this.records(await this.stored());
 	}
 
-	/** Starts an empty lane called `name`, after the others. */
-	async addLane(name: string): Promise<LaneRecord> {
+	/**
+	 * Starts an empty lane called `name`, after the others, worked by
+	 * `assignee` when there is one.
+	 */
+	async addLane(
+		name: string,
+		assignee: AgentPick | null = null,
+	): Promise<LaneRecord> {
 		return this.locked(async () => {
 			const states = await this.stored();
 			const records = await this.records(states);
 			// Named first, so a name refused never uses up a number.
 			const called = laneName(name, records);
-			const record = { id: await this.nextLaneId(states), name: called };
+			const record = assigned<LaneRecord>(
+				{ id: await this.nextLaneId(states), name: called },
+				assignee,
+			);
 			await this.writeLanes([...records, record]);
 			return record;
 		});
@@ -264,11 +277,33 @@ export class Todos {
 			const records = await this.records(await this.stored());
 			lacking(records, id);
 			const others = records.filter((record) => record.id !== id);
-			const renamed = { id, name: laneName(name, others) };
+			const renamed = {
+				...(records.find((record) => record.id === id) as LaneRecord),
+				name: laneName(name, others),
+			};
 			await this.writeLanes(
 				records.map((record) => (record.id === id ? renamed : record)),
 			);
 			return renamed;
+		});
+	}
+
+	/** Has `assignee` work lane `id`, or nobody in particular for null. */
+	async assignLane(
+		id: number,
+		assignee: AgentPick | null,
+	): Promise<LaneRecord> {
+		return this.locked(async () => {
+			const records = await this.records(await this.stored());
+			lacking(records, id);
+			const changed = assigned(
+				records.find((record) => record.id === id) as LaneRecord,
+				assignee,
+			);
+			await this.writeLanes(
+				records.map((record) => (record.id === id ? changed : record)),
+			);
+			return changed;
 		});
 	}
 

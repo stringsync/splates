@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import {
 	type JSX,
+	type ReactNode,
 	useCallback,
 	useContext,
 	useEffect,
@@ -77,6 +78,7 @@ import type {
 	Status,
 } from "../conversations";
 import type { LaneRecord } from "../lanes";
+import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
@@ -104,6 +106,7 @@ import { type Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Action, Overview, OverviewButtons } from "./overview";
+import { type Nested, nest } from "./parts";
 import {
 	QuestionsUI,
 	type Reply,
@@ -151,7 +154,9 @@ function agentFor(
 	conversations: ConversationState[],
 ): string {
 	const named = open?.startsWith(`${NEW}/`)
-		? open.slice(NEW.length + 1).split("/")[0]
+		? pathOf(open)
+				.slice(NEW.length + 1)
+				.split("/")[0]
 		: null;
 	return (
 		agents.find((each) => each.id === named)?.id ??
@@ -164,8 +169,23 @@ function agentFor(
 /** The task a new conversation starts in, from `open`; null for the main tree. */
 function taskFor(open: string | null): string | null {
 	return open?.startsWith(`${NEW}/`)
-		? (open.slice(NEW.length + 1).split("/")[1] ?? null)
+		? (pathOf(open)
+				.slice(NEW.length + 1)
+				.split("/")[1] ?? null)
 		: null;
+}
+
+/** The model a new conversation starts on, `?model=` in `open`, or null. */
+function modelFor(open: string | null): string | null {
+	const at = open?.indexOf("?") ?? -1;
+	return open === null || at === -1
+		? null
+		: new URLSearchParams(open.slice(at + 1)).get("model");
+}
+
+/** `open` without its `?` and what follows. */
+function pathOf(open: string): string {
+	return open.split("?")[0] ?? open;
 }
 
 /**
@@ -378,32 +398,30 @@ export function ConversationList({
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<CheckpointButton conversations={listed} />
-			<ul aria-label="conversation list" className="flex flex-col">
-				{rows.map((row) =>
+			<Rows
+				label="conversation list"
+				rows={nest(rows, tasks, taskOfRow)}
+				render={(row) =>
 					row.conversation !== null ? (
-						<li key={row.conversation.id}>
-							<Item
-								conversation={row.conversation}
-								agent={agentName(agents, row.conversation.agent)}
-								need={row.need}
-								current={row.conversation.id === open}
-								onOpen={() => openRow(row)}
-							/>
-						</li>
+						<Item
+							conversation={row.conversation}
+							agent={agentName(agents, row.conversation.agent)}
+							need={row.need}
+							current={row.conversation.id === open}
+							onOpen={() => openRow(row)}
+						/>
 					) : (
 						row.task !== null && (
-							<li key={`external ${row.task.task}`}>
-								<External
-									task={row.task}
-									need={row.need}
-									current={`${TASK}${row.task.task}` === open}
-									onOpen={() => openRow(row)}
-								/>
-							</li>
+							<External
+								task={row.task}
+								need={row.need}
+								current={`${TASK}${row.task.task}` === open}
+								onOpen={() => openRow(row)}
+							/>
 						)
-					),
-				)}
-			</ul>
+					)
+				}
+			/>
 			<button
 				type="button"
 				data-row
@@ -419,6 +437,56 @@ export function ConversationList({
 				<span className="tabular-nums">{archived}</span>
 			</button>
 		</nav>
+	);
+}
+
+/** The task a sidebar row is on, which its parts nest under. */
+function taskOfRow(row: Needing): string | null {
+	return row.conversation?.task ?? row.task?.task ?? null;
+}
+
+/** A row's key: its conversation's id, or its external agent's task. */
+function keyOfRow(row: Needing): string {
+	return row.conversation?.id ?? `external ${row.task?.task ?? ""}`;
+}
+
+/**
+ * The sidebar's rows as a list, each part's under the row of the task it was
+ * handed out from, in a list of its own, indented.
+ */
+function Rows({
+	label,
+	rows,
+	render,
+	nested = false,
+}: {
+	label: string;
+	rows: Nested<Needing>[];
+	render: (row: Needing) => ReactNode;
+	nested?: boolean;
+}): JSX.Element {
+	return (
+		<ul
+			aria-label={label}
+			className={cn(
+				"flex flex-col",
+				nested && "ml-4 border-foreground/10 border-l pl-1",
+			)}
+		>
+			{rows.map(({ row, parts }) => (
+				<li key={keyOfRow(row)}>
+					{render(row)}
+					{parts.length > 0 && (
+						<Rows
+							label={`parts of ${taskOfRow(row) ?? ""}`}
+							rows={parts}
+							render={render}
+							nested
+						/>
+					)}
+				</li>
+			))}
+		</ul>
 	);
 }
 
@@ -904,13 +972,14 @@ export function Conversations({
 					<Home
 						// Its picks are for one agent's settings, and its draft for one
 						// tree, so start over for another.
-						key={`${agentFor(open, agents, conversations)}/${taskFor(open)}`}
+						key={`${agentFor(open, agents, conversations)}/${taskFor(open)}/${modelFor(open)}`}
 						drafts={drafts}
 						tasks={tasks}
 						feed={feed}
 						agents={agents}
 						agent={agentFor(open, agents, conversations)}
 						task={taskFor(open)}
+						model={modelFor(open)}
 						conversations={conversations}
 						refuseIn={refuse}
 						onOpen={onOpen}
@@ -973,6 +1042,7 @@ function Home({
 	agents,
 	agent,
 	task,
+	model,
 	conversations,
 	refuseIn,
 	onOpen,
@@ -987,6 +1057,8 @@ function Home({
 	agent: string;
 	/** The task whose tree it starts in; null for the main tree. */
 	task: string | null;
+	/** The model it starts on, by its id on the roster; null for as picked. */
+	model: string | null;
 	/** Every one, archived too, newest first. */
 	conversations: ConversationState[];
 	/** Says in a conversation's thread that a write to it was refused. */
@@ -1004,9 +1076,14 @@ function Home({
 		conversations.find(
 			(each) => each.agent === agent && each.settings.length > 0,
 		)?.settings ?? [];
-	const [picks, setPicks] = useState<Record<string, string>>(() =>
-		Object.fromEntries(offered.map((each) => [each.id, each.current])),
-	);
+	// A model asked for, as by a todo's agent, shows picked where it is offered.
+	const [picks, setPicks] = useState<Record<string, string>>(() => {
+		const asked = model === null ? null : modelOption(offered, model);
+		return {
+			...Object.fromEntries(offered.map((each) => [each.id, each.current])),
+			...(asked === null ? {} : { [asked.setting]: asked.value }),
+		};
+	});
 	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string, images: File[]) => void>(() => {});
@@ -1027,14 +1104,18 @@ function Home({
 				.trim();
 			const images = imagesOf(message);
 			setStarting(true);
-			const state = await startConversation(agent, task, picks).catch(
-				(error: unknown) => {
-					setStarting(false);
-					restore.current(text, images);
-					refuse("Not started", error);
-					throw error;
-				},
-			);
+			const state = await startConversation(
+				agent,
+				task,
+				picks,
+				// Until a session has offered its settings, the server picks it.
+				model !== null && offered.length === 0 ? model : undefined,
+			).catch((error: unknown) => {
+				setStarting(false);
+				restore.current(text, images);
+				refuse("Not started", error);
+				throw error;
+			});
 			feed.put(state);
 			// Shown at once in its thread, so the person watches the agent come
 			// up; the message waits on the server for the session to open.

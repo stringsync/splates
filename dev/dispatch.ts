@@ -1,5 +1,7 @@
 import type { ConversationState } from "../conversations";
 import { type Needing, need } from "../needs";
+import { claimPrompt } from "../prompts";
+import type { AgentPick } from "../roster";
 import type { Details } from "../show";
 import { laneReference, todoReference } from "./card";
 import type { AgentChoice } from "./conversation-feed";
@@ -64,12 +66,26 @@ export class Dispatch {
 
 	/**
 	 * Composes `assignment`'s prompt for a new conversation with `agent`, one for a
-	 * task in its tree, and answers the address of the screen that starts it.
+	 * task in its tree, and answers the address of the screen that starts it,
+	 * on `model` when given.
 	 */
-	start(agent: string, assignment: Assignment): string {
+	start(agent: string, assignment: Assignment, model?: string): string {
 		const task = assignment.kind === "task" ? assignment.task : null;
 		this.compose(newDraft(this.project, task), promptFor(assignment));
-		return task === null ? `new/${agent}` : `new/${agent}/${task}`;
+		const address = task === null ? `new/${agent}` : `new/${agent}/${task}`;
+		return model === undefined
+			? address
+			: `${address}?model=${encodeURIComponent(model)}`;
+	}
+
+	/** What `pick` reads as: "Claude", or "Claude · Opus 5.5" on a model. */
+	pickName(pick: AgentPick): string {
+		const agent = this.agents.find((each) => each.id === pick.agent);
+		const model = agent?.models?.find((each) => each.id === pick.model);
+		const name = agent?.name ?? pick.agent;
+		return pick.model === undefined
+			? name
+			: `${name} · ${model?.name ?? pick.model}`;
 	}
 
 	/**
@@ -99,6 +115,6 @@ export function promptFor(assignment: Assignment): string {
 		case "lane":
 			return laneReference(assignment.id);
 		case "task":
-			return `Run \`arbor claim ${assignment.task}\` and carry on from its ARBOR.md.`;
+			return claimPrompt(assignment.task);
 	}
 }

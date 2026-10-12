@@ -14,6 +14,7 @@ import {
 	lane,
 	mentioned,
 } from "./lanes";
+import { type AgentPick, pickLabel } from "./roster";
 import { table } from "./table";
 import type { Todos } from "./todos";
 
@@ -40,6 +41,8 @@ export interface TodoState {
 	blockedBy: number[];
 	/** The lane it runs in, one agent's queue, or null for none. */
 	lane: number | null;
+	/** The agent, and model, that should work it, over its lane's; absent for none. */
+	assignee?: AgentPick;
 }
 
 /**
@@ -155,6 +158,7 @@ export class Todo {
 		keep,
 		blockedBy,
 		lane,
+		assignee,
 	}: TodoChange): Promise<Todo> {
 		const words = wording(subject ?? this.subject, text ?? this.text);
 		if (words.subject === "") {
@@ -170,11 +174,12 @@ export class Todo {
 			this.files.filter((path) => !kept.includes(path)),
 		);
 		const added = await this.attachments.store(files);
-		const updated = await this.todos.revise(this.id, (state) => ({
-			...state,
-			...words,
-			files: [...kept, ...added],
-		}));
+		const updated = await this.todos.revise(this.id, (state) =>
+			assigned(
+				{ ...state, ...words, files: [...kept, ...added] },
+				assignee === undefined ? state.assignee : assignee,
+			),
+		);
 		let linked = updated;
 		if (blockedBy !== undefined) {
 			linked = await this.todos.link(this.id, {
@@ -210,6 +215,8 @@ export interface TodoChange {
 	blockedBy?: number[];
 	/** The lane it runs in, `"new"` for one of its own, null for none; it stays when absent. */
 	lane?: number | "new" | null;
+	/** The agent that should work it, null for none; it stays when absent. */
+	assignee?: AgentPick | null;
 }
 
 /** What a new todo has besides its subject, all of it optional. */
@@ -223,6 +230,17 @@ export interface TodoNew {
 	blockedBy?: number[];
 	/** The lane it goes in, `"new"` for one of its own; none by default. */
 	lane?: number | "new" | null;
+	/** The agent that should work it; none by default. */
+	assignee?: AgentPick | null;
+}
+
+/** `state` worked by `assignee`, or by nobody in particular for null. */
+export function assigned<State extends { assignee?: AgentPick }>(
+	state: State,
+	assignee: AgentPick | null | undefined,
+): State {
+	const { assignee: _, ...rest } = state;
+	return (assignee == null ? rest : { ...rest, assignee }) as State;
 }
 
 /**
@@ -382,13 +400,22 @@ export interface TodoAddOptions extends TodoFileOptions {
 	blockedBy?: number[];
 	/** The lane it goes in, `"new"` for one of its own; none by default. */
 	lane?: number | "new" | null;
+	/** The agent that should work it; none by default. */
+	assignee?: AgentPick | null;
 }
 
 export async function todoAdd(
 	deps: { todos: Todos; log: Logger; fs: Fs; ps: Ps },
 	subject: string,
 	from: string | null,
-	{ text, files = [], position, blockedBy, lane }: TodoAddOptions = {},
+	{
+		text,
+		files = [],
+		position,
+		blockedBy,
+		lane,
+		assignee,
+	}: TodoAddOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.add(subject, from, {
 		text,
@@ -396,6 +423,7 @@ export async function todoAdd(
 		position,
 		blockedBy,
 		lane,
+		assignee,
 	});
 	deps.log.info(
 		[
@@ -504,6 +532,9 @@ export async function todoShow(
 		`  position:  ${todo.position}`,
 		`  from:      ${todo.from ?? "added by hand"}`,
 		`  taken by:  ${todo.takenBy ?? "nobody yet"}`,
+		...(todo.state.assignee === undefined
+			? []
+			: [`  assignee:  ${pickLabel(todo.state.assignee)}`]),
 		...(todo.lane === null
 			? []
 			: [
@@ -552,6 +583,8 @@ export interface TodoUpdateOptions extends TodoFileOptions {
 	removeBlockedBy?: number[];
 	/** The lane it moves to, `"new"` for one of its own, null for none; it stays when absent. */
 	lane?: number | "new" | null;
+	/** The agent that should work it, null for none; it stays when absent. */
+	assignee?: AgentPick | null;
 }
 
 export async function todoUpdate(
@@ -566,6 +599,7 @@ export async function todoUpdate(
 		blockedBy = [],
 		removeBlockedBy = [],
 		lane,
+		assignee,
 	}: TodoUpdateOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.find(id);
@@ -607,6 +641,7 @@ export async function todoUpdate(
 						(each) => !removeBlockedBy.includes(each),
 					),
 		lane,
+		assignee,
 	});
 	deps.log.info(
 		[

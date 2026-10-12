@@ -36,7 +36,7 @@ project already under way, or again, it only registers. Every other command
 refuses a repository `arbor init` never ran in (`uninitialized`), and
 `arbor dev` one it never registered.
 
-### `arbor add <task> [--base <branch>] [--todo <id,...>]`
+### `arbor add <task> [--base <branch>] [--todo <id,...>] [--agent <id> [--model <m>] [--prompt <text>]]`
 
 Creates the task: branch `task/<task>`, a worktree at
 `../<repo>-arbor/<task>`, and a state record.
@@ -49,6 +49,17 @@ and no other task can take them while this one lives.
 instead of trunk. It takes another task's branch too: `--base task/<other>`
 stacks this task on that one, and the work lands in that task's worktree
 rather than on trunk.
+
+`--agent claude` (or any agent on the roster, `arbor agents`) hands the task to another agent: once
+`postCheckout` has readied the worktree, the record names the agent, and
+`arbor dev --experimental` starts a conversation with it in the worktree,
+told to `arbor claim` the task and then whatever `--prompt` says. `--model`
+picks its model by its id or name on the roster, refusing one the roster
+does not list; the agent's own model stays when its session offers no such
+model. The server watches the records whether or not
+a page is open, and one started later picks the task up then; it starts each
+task's agent once. Run from a conversation, `--agent` leaves that
+conversation where it is, since the task is the other agent's.
 
 A fresh worktree shares no untracked files with the repo (no `node_modules`,
 no `.env`) which is what `postCheckout` is for.
@@ -279,8 +290,8 @@ reference as the card's.
 
 Tasks lists every task with a bar for its progress through its plan, counted
 from the checkboxes under `## Done` and `## Next` in its `ARBOR.md`, flagging
-only an escalated or broken status; tapping one opens its details and whole
-plan in a dialog.
+only an escalated or broken status, each part indented under the task it was
+handed out from; tapping one opens its details and whole plan in a dialog.
 
 A lane's header has its name, which a tap renames, and says which task is on
 it and on which todo, or, while no agent is, offers "Start lane", which
@@ -299,7 +310,12 @@ can stay empty until filled, and goes on its own once its last todo merges.
 Agents place the todos they add in lanes as they go, as the skill says, and
 the user reshapes them here. "Lanes" above the board picks which columns
 show, Untriaged included, one by one or all at once, and the browser
-remembers. Under its subject, an
+remembers. With conversations on, "Start lanes" beside it puts agents on
+several lanes at once: tick the lanes that have a todo next and no agent,
+pick the agent, and each lane gets a new conversation sent `[ARBOR LANE N]`
+straight away, a lane assigned an agent with that agent, on its model. An
+opened todo's Assignee, beside Start, and a lane's menu, under "Assign to",
+pick which agent and model should work it. Under its subject, an
 opened todo has a quiet row of properties: its lane, where "A new lane…"
 asks for the new lane's name in place, and the `#N` of each todo
 it is blocked by and is blocking, naming it in a tooltip, each with an × to
@@ -346,7 +362,8 @@ there: the `arbor` an agent runs from a conversation knows the conversation
 and the server from its env (`ARBOR_CONVERSATION`, `ARBOR_DEV`), so `arbor
 add` and `arbor claim` move the conversation into that task's worktree, and
 `arbor merge` and `arbor remove` move it back. The sidebar lists
-conversations under the task each is in, the main tree first. New
+conversations newest first, each named for the task it is in, and a part's
+(a task added with `--base task/<parent>`) indented under its parent's. New
 conversation at the top opens an empty thread: pick the agent by its composer
 and your first message starts the conversation. Under the greeting sit the
 latest conversations to pick back up, those waiting on you first.
@@ -536,7 +553,7 @@ stores nothing. `--remove` drops files it holds first, by path or stored name,
 as when a retaken screenshot replaces one; with no files, `attach` lists what
 the task holds.
 
-### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--blocked-by <ids>] [--lane <lane>]`, `arbor todo list [--json] [--open] [--ready]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--blocked-by <ids>] [--remove-blocked-by <ids>] [--lane <lane>]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo wait <id> [--timeout-secs 900]`, `arbor todo remove <id>`
+### `arbor todo add <subject> [text] [--position <n>] [--file <path>] [--blocked-by <ids>] [--lane <lane>] [--agent <id> [--model <m>]]`, `arbor todo list [--json] [--open] [--ready]`, `arbor todo show <id> [--json]`, `arbor todo update <id> [text] [--subject <subject>] [--position <n>] [--file <path>] [--remove-file <name>] [--blocked-by <ids>] [--remove-blocked-by <ids>] [--lane <lane>] [--agent <id> [--model <m>]]`, `arbor todo take <id...>`, `arbor todo release <id...>`, `arbor todo wait <id> [--timeout-secs 900]`, `arbor todo remove <id>`
 
 Work deferred for later. When something outside the task comes up (a bug next
 door, a follow-up the reviewer asked for, a question that turns out to be its
@@ -552,6 +569,12 @@ the open todo highest on it is the one `merge` recommends next. A new one goes t
 moves one, and removing one closes the gap, so positions always run 1, 2, 3.
 Whoever keeps the list, a person on the page or an agent, decides what
 matters most by moving it up.
+
+`--agent claude --model haiku` says which agent on the roster (`arbor agents`)
+should work a todo, and on which model, sized to it; `--agent none` clears
+it. A lane takes the same flags, and a todo's own assignee goes before its
+lane's. Nothing starts on its own: Start on the `dev` board offers the
+assignee first, on its model, and "Start lanes" starts each lane with its own.
 
 Todos live in `.git/arbor/todos/`, one file each, so every worktree sees a new
 one at once, with nothing to commit and no two agents rewriting the same file.
@@ -595,7 +618,7 @@ the list's, so `--position` reorders within a lane too, and a move that puts
 a todo above one in its lane that blocks it is refused; a link that does so
 moves the todo down instead.
 
-### `arbor lane list [--json]`, `arbor lane show <lane> [--json]`, `arbor lane add <name>`, `arbor lane update <lane> --name <name>`, `arbor lane remove <lane>`
+### `arbor lane list [--json]`, `arbor lane show <lane> [--json]`, `arbor lane add <name> [--agent <id> [--model <m>]]`, `arbor lane update <lane> [--name <name>] [--position <n>] [--agent <id> [--model <m>]]`, `arbor lane remove <lane>`
 
 A lane is a named queue of todos for one agent, worked top to bottom, one
 task per todo, so a chain of todos that build on each other stays with one

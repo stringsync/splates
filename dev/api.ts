@@ -13,6 +13,7 @@ import type {
 	Image,
 } from "../conversations";
 import type { FileDiff } from "../diff";
+import type { AgentPick } from "../roster";
 
 export class ApiError extends Error {
 	constructor(
@@ -122,6 +123,30 @@ export async function arrangeTodo(
 	await sendJson(`/api/todos/${id}/lane`, "PUT", { lane, before, name });
 }
 
+/** Has `assignee` work todo `id`, or nobody in particular for null. */
+export async function assignTodo(
+	id: number,
+	assignee: AgentPick | null,
+): Promise<void> {
+	await sendJson(
+		`/api/todos/${id}/assignee`,
+		"PUT",
+		assignee ?? { agent: null },
+	);
+}
+
+/** Has `assignee` work lane `id`, or nobody in particular for null. */
+export async function assignLane(
+	id: number,
+	assignee: AgentPick | null,
+): Promise<void> {
+	await sendJson(
+		`/api/lanes/${id}/assignee`,
+		"PUT",
+		assignee ?? { agent: null },
+	);
+}
+
 /** Moves lane `from`'s todos to the bottom of lane `into`. */
 export async function joinLanes(from: number, into: number): Promise<void> {
 	await sendJson(`/api/lanes/${from}/join`, "POST", { into });
@@ -216,11 +241,14 @@ export async function startConversation(
 	agent: string,
 	task: string | null,
 	settings: Record<string, string> = {},
+	/** The model to start on, by its id on the roster. */
+	model?: string,
 ): Promise<ConversationState> {
 	return (await sendJson("/api/conversations", "POST", {
 		agent,
 		task,
 		settings,
+		...(model === undefined ? {} : { model }),
 	})) as ConversationState;
 }
 

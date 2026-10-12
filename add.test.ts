@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { add } from "./add";
+import { ROSTERED } from "./fake-agent";
 import { Testing } from "./testing";
 
 describe("add", () => {
@@ -120,6 +121,44 @@ describe("add", () => {
 		});
 
 		expect(seen).toEqual([{ exists: true, listed: [] }]);
+	});
+
+	it("hands the task to an agent only once its hook has readied the tree", async () => {
+		deps.config.postCheckout = `cat ${join(deps.root, ".git", "arbor", "tasks", "alpha.json")} > record.json`;
+
+		await add(deps, "alpha", {
+			dispatch: { agent: "fake", model: "Small", prompt: "Do the part." },
+			agents: [ROSTERED],
+		});
+
+		const found = await deps.service.find("alpha");
+		expect(found.state?.dispatch).toEqual({
+			agent: "fake",
+			model: "small",
+			prompt: "Do the part.",
+		});
+		const during = JSON.parse(
+			await deps.fs.read(join(found.path, "record.json")),
+		) as { dispatch?: unknown };
+		expect(during.dispatch).toBeUndefined();
+		expect(deps.out()).toContain("agent:    fake (small)");
+	});
+
+	it("refuses an agent or a model the roster does not list, before making anything", async () => {
+		await expect(
+			add(deps, "alpha", { dispatch: { agent: "nobody" }, agents: [ROSTERED] }),
+		).toBail("usage", {
+			message: "no agent 'nobody' on the roster: use one of fake",
+		});
+		await expect(
+			add(deps, "alpha", {
+				dispatch: { agent: "fake", model: "huge" },
+				agents: [ROSTERED],
+			}),
+		).toBail("usage", {
+			message: "Fake has no model 'huge' on the roster: use one of big, small",
+		});
+		expect((await deps.service.find("alpha")).gone).toBe(true);
 	});
 
 	it("names the trunk and the config when the trunk is not a branch", async () => {

@@ -14,7 +14,14 @@ import {
 } from "./testing";
 
 const AGENTS = [
-	{ id: "claude", name: "Claude" },
+	{
+		id: "claude",
+		name: "Claude",
+		models: [
+			{ id: "opus", name: "Opus" },
+			{ id: "haiku", name: "Haiku" },
+		],
+	},
 	{ id: "codex", name: "Codex" },
 ];
 
@@ -184,5 +191,144 @@ describe("App's controls that put agents to work", () => {
 				{ text: "Run `arbor claim alpha` and carry on from its ARBOR.md." },
 			]),
 		);
+	});
+
+	it("starts the lanes ticked with no agent on them, each in a conversation of its own, sent at once", async () => {
+		const view = await board([], {
+			todos: [
+				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
+				todo({ id: 5, subject: "Sign in", lane: 2 }),
+				todo({ id: 6, subject: "Bill", lane: 3, takenBy: "alpha" }),
+			],
+			lanes: [
+				{ id: 1, name: "Uploads" },
+				{ id: 2, name: "Accounts" },
+				{ id: 3, name: "Billing" },
+			],
+		});
+		testing.reply = conversation({ id: "c7", status: "starting" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
+		);
+		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
+		expect(ticks.map((each) => each.textContent)).toEqual([
+			"Uploads",
+			"Accounts",
+		]);
+		expect(
+			view
+				.getByRole("menuitem", { name: /Claude/ })
+				.hasAttribute("data-disabled"),
+		).toBe(true);
+
+		for (const tick of ticks) {
+			await act(async () => fireEvent.click(tick));
+		}
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
+		);
+
+		expect(posted("/api/conversations")).toEqual([
+			{ agent: "codex", task: null, settings: {} },
+			{ agent: "codex", task: null, settings: {} },
+		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c7/prompt")).toEqual([
+				{ text: "[ARBOR LANE 1]" },
+				{ text: "[ARBOR LANE 2]" },
+			]),
+		);
+		expect(location.hash).not.toContain("conversations");
+	});
+
+	it("offers a todo's assigned agent first, on its model, and assigns one from the dialog", async () => {
+		const view = await board([], {
+			todos: [
+				todo({
+					id: 3,
+					subject: "Fix the upload",
+					lane: 1,
+					assignee: { agent: "claude", model: "haiku" },
+				}),
+			],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(
+			within(dialog).getByRole("button", { name: "Assignee" }).textContent,
+		).toContain("Claude · Haiku");
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
+		);
+		const items = await waitFor(() => view.getAllByRole("menuitem"));
+		expect(items[0]?.textContent).toBe("Claude · Haikuassigned");
+		await act(async () => fireEvent.click(items[0] as HTMLElement));
+
+		expect(location.hash).toBe("#conversations/new/claude?model=haiku");
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		expect(posted("/api/conversations")).toEqual([
+			{ agent: "claude", task: null, settings: {}, model: "haiku" },
+		]);
+	});
+
+	it("puts an agent on a todo from its dialog, or any agent", async () => {
+		const view = await board([], {
+			todos: [todo({ id: 3, subject: "Fix the upload", lane: 1 })],
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
+		);
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Assignee" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitemcheckbox", { name: /Codex/ })),
+		);
+
+		expect(posted("/api/todos/3/assignee")).toEqual([{ agent: "codex" }]);
+	});
+
+	it("starts a lane with its assigned agent, the agent picked taking the rest", async () => {
+		const view = await board([], {
+			todos: [
+				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
+				todo({ id: 5, subject: "Sign in", lane: 2 }),
+			],
+			lanes: [
+				{
+					id: 1,
+					name: "Uploads",
+					assignee: { agent: "claude", model: "opus" },
+				},
+				{ id: 2, name: "Accounts" },
+			],
+		});
+		testing.reply = conversation({ id: "c7", status: "starting" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
+		);
+		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
+		expect(ticks[0]?.textContent).toBe("UploadsClaude · Opus");
+		for (const tick of ticks) {
+			await act(async () => fireEvent.click(tick));
+		}
+		expect(
+			view.getByText("Start 1 lane with no agent assigned with"),
+		).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
+		);
+
+		expect(posted("/api/conversations")).toEqual([
+			{ agent: "claude", task: null, settings: {}, model: "opus" },
+			{ agent: "codex", task: null, settings: {} },
+		]);
 	});
 });

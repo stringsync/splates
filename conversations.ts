@@ -13,6 +13,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { fail } from "./exit";
+import { modelOption } from "./models";
 import type { Flag, Watch, Watched } from "./watch";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
@@ -658,6 +659,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private opening: Promise<void> | null = null;
 	/** Settings picked before the session opened, set once it has. */
 	private picks: Record<string, string> = {};
+	/** The model asked for before the session opened, picked once it has. */
+	private model: string | null = null;
 	/** Gives up on an asked checkpoint once `CHECKPOINT_WAIT` is out. */
 	private waiting: Resource | null = null;
 	/** Whether a checkpoint is cancelling the turn, whose end is not its own. */
@@ -808,6 +811,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			cwd,
 			log,
 			settings = {},
+			model,
 		}: {
 			id: string;
 			agent: Agent;
@@ -816,6 +820,12 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			log: string;
 			/** Values to set, by setting id, once the session offers them. */
 			settings?: Record<string, string>;
+			/**
+			 * The model to pick, by its value or name in the session's model
+			 * setting, over what `settings` says; the agent's own when it offers
+			 * none such.
+			 */
+			model?: string;
 		},
 		{
 			fs,
@@ -854,6 +864,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			createdAt: conversation.state.createdAt,
 		});
 		conversation.picks = settings;
+		conversation.model = model ?? null;
 		conversation.opening = conversation.open(agent, cwd).finally(() => {
 			conversation.opening = null;
 		});
@@ -911,7 +922,15 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				});
 				this.state.settings = settingsIn(session.configOptions);
 			}
-			const picks = this.picks;
+			const asked =
+				this.model === null
+					? null
+					: modelOption(this.state.settings, this.model);
+			this.model = null;
+			const picks =
+				asked === null
+					? this.picks
+					: { ...this.picks, [asked.setting]: asked.value };
 			this.picks = {};
 			for (const [id, value] of Object.entries(picks)) {
 				const setting = this.state.settings.find((each) => each.id === id);
@@ -1788,7 +1807,14 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			task,
 			cwd,
 			settings,
-		}: { task: string | null; cwd: string; settings?: Record<string, string> },
+			model,
+		}: {
+			task: string | null;
+			cwd: string;
+			settings?: Record<string, string>;
+			/** The model to start on, by its value or name in the model setting. */
+			model?: string;
+		},
 	): Promise<Conversation> {
 		const chosen = this.agents.find((each) => each.id === agent);
 		if (chosen === undefined) {
@@ -1809,6 +1835,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				cwd,
 				log: `${this.dir}/${id}.jsonl`,
 				settings,
+				model,
 			},
 			{
 				fs: this.fs,

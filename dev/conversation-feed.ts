@@ -15,6 +15,8 @@ export interface Sending {
 export interface AgentChoice {
 	id: string;
 	name: string;
+	/** The models the roster lists for it, by the ids its Model setting takes. */
+	models?: { id: string; name: string }[];
 }
 
 /**

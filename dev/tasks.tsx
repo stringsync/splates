@@ -11,12 +11,14 @@ import {
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
 import { Progress as Bar } from "#dev/components/ui/progress.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
 import { retryTask } from "./api";
 import { ReviewChanges } from "./changes";
 import { OnIt, StartMenu } from "./dispatching";
 import { Markdown } from "./markdown";
+import { type Nested, nest } from "./parts";
 
 /** A tree in one of these needs fixing rather than driving. */
 const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
@@ -42,25 +44,11 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 					No tasks: <code>arbor add &lt;task&gt;</code> starts one.
 				</p>
 			) : (
-				<ul className="flex flex-col">
-					{tasks.map((task) => (
-						<li key={task.task}>
-							<button
-								type="button"
-								onClick={() => setOpened(task.task)}
-								className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
-							>
-								<span className="min-w-0 flex-1 truncate text-sm">
-									{task.task}
-								</span>
-								{/* Only marks, since the row is a button: its dialog opens them. */}
-								<OnIt task={task.task} variant="marks" />
-								<Status task={task} />
-								<PlanProgress plan={task.plan} />
-							</button>
-						</li>
-					))}
-				</ul>
+				<TaskRows
+					label="task list"
+					rows={nest(tasks, tasks, (task) => task.task)}
+					onOpen={setOpened}
+				/>
 			)}
 			<Dialog
 				open={opened !== null}
@@ -73,6 +61,56 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 				{opened && <Task task={opened} />}
 			</Dialog>
 		</section>
+	);
+}
+
+/**
+ * Tasks a line each, each part handed out from one in a list of its own
+ * under it, indented.
+ */
+function TaskRows({
+	label,
+	rows,
+	onOpen,
+	nested = false,
+}: {
+	label: string;
+	rows: Nested<Details>[];
+	onOpen: (task: string) => void;
+	nested?: boolean;
+}): JSX.Element {
+	return (
+		<ul
+			aria-label={label}
+			className={cn(
+				"flex flex-col",
+				nested && "ml-2 border-foreground/10 border-l pl-3",
+			)}
+		>
+			{rows.map(({ row: task, parts }) => (
+				<li key={task.task}>
+					<button
+						type="button"
+						onClick={() => onOpen(task.task)}
+						className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
+					>
+						<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
+						{/* Only marks, since the row is a button: its dialog opens them. */}
+						<OnIt task={task.task} variant="marks" />
+						<Status task={task} />
+						<PlanProgress plan={task.plan} />
+					</button>
+					{parts.length > 0 && (
+						<TaskRows
+							label={`parts of ${task.task}`}
+							rows={parts}
+							onOpen={onOpen}
+							nested
+						/>
+					)}
+				</li>
+			))}
+		</ul>
 	);
 }
 

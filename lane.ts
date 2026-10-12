@@ -7,6 +7,7 @@ import {
 	lane,
 	lanes,
 } from "./lanes";
+import { type AgentPick, pickLabel } from "./roster";
 import { table } from "./table";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
@@ -87,6 +88,9 @@ export async function laneShow(
 	}
 	const lines = [
 		`${color.bold(`lane ${id}`)} ${found.name}: ${found.todos.length} todo${found.todos.length === 1 ? "" : "s"}${found.agents.length === 0 ? "" : `, ${found.agents.join(", ")} on it`}`,
+		...(found.assignee === null
+			? []
+			: [`  assignee: ${pickLabel(found.assignee)}`]),
 	];
 	for (const [i, todo] of found.todos.entries()) {
 		lines.push(
@@ -143,6 +147,7 @@ function laneJson(found: LaneState) {
 		name: found.name,
 		todos: found.todos.map((todo) => todo.id),
 		agents: found.agents,
+		assignee: found.assignee,
 		next: found.next?.id ?? null,
 		ready: found.ready,
 		blockers: found.blockers,
@@ -153,11 +158,12 @@ function laneJson(found: LaneState) {
 export async function laneAdd(
 	{ todos, log }: { todos: Todos; log: Logger },
 	name: string,
+	assignee: AgentPick | null = null,
 ): Promise<LaneRecord> {
-	const record = await todos.addLane(name);
+	const record = await todos.addLane(name, assignee);
 	log.info(
 		[
-			`${color.green("added")} lane ${record.id}: ${record.name}`,
+			`${color.green("added")} lane ${record.id}: ${record.name}${record.assignee === undefined ? "" : `, for ${pickLabel(record.assignee)}`}`,
 			`  fill it: arbor todo update <id> --lane ${record.id}`,
 		].join("\n"),
 	);
@@ -169,29 +175,33 @@ export interface LaneUpdateOptions {
 	name?: string;
 	/** Where it goes among the lanes, 1 the first; the others close up around it. */
 	position?: number;
+	/** The agent that should work it, null for none; it stays when absent. */
+	assignee?: AgentPick | null;
 }
 
 /** Calls a lane by another name, or moves it among the others. */
 export async function laneUpdate(
 	{ todos, log }: { todos: Todos; log: Logger },
 	id: number,
-	{ name, position }: LaneUpdateOptions = {},
+	{ name, position, assignee }: LaneUpdateOptions = {},
 ): Promise<void> {
-	if (name === undefined && position === undefined) {
+	if (name === undefined && position === undefined && assignee === undefined) {
 		fail(
 			"usage",
-			"nothing to change: pass `--name <name>` or `--position <n>`",
+			"nothing to change: pass `--name <name>`, `--position <n>` or `--agent <id>`",
 			{ lane: id },
 		);
 	}
+	const assigned =
+		assignee === undefined ? undefined : await todos.assignLane(id, assignee);
 	const renamed =
-		name === undefined ? undefined : await todos.renameLane(id, name);
+		name === undefined ? assigned : await todos.renameLane(id, name);
 	const order =
 		position === undefined ? undefined : await todos.moveLane(id, position);
 	const record = order?.find((each) => each.id === id) ?? renamed;
 	log.info(
 		[
-			`${color.green("updated")} lane ${id}: ${record?.name}`,
+			`${color.green("updated")} lane ${id}: ${record?.name}${record?.assignee === undefined ? "" : `, for ${pickLabel(record.assignee)}`}`,
 			...(order === undefined
 				? []
 				: [

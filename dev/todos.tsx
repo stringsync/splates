@@ -49,9 +49,10 @@ import {
 } from "../lanes";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
+import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
 import { Card, CopyLink } from "./card";
-import { OnIt, StartMenu } from "./dispatching";
+import { AssigneeMenu, OnIt, StartLanes, StartMenu } from "./dispatching";
 import { type Drafts, todoEdit } from "./drafts";
 import { AttachButton, Dropped, FileList } from "./files";
 import {
@@ -160,13 +161,16 @@ export function Todos({
 				lifted={lifted}
 				liftedLane={lanes.find((lane) => lane.id === draggingLane)}
 			>
-				<ShownLanes
-					lanes={lanes}
-					untriaged={all.filter((todo) => todo.lane === null).length}
-					hidden={hidden}
-					onToggle={(lane) => view.toggleLane(lane)}
-					onHide={(lanes) => view.hide(lanes)}
-				/>
+				<div className="mb-2 flex gap-2">
+					<ShownLanes
+						lanes={lanes}
+						untriaged={all.filter((todo) => todo.lane === null).length}
+						hidden={hidden}
+						onToggle={(lane) => view.toggleLane(lane)}
+						onHide={(lanes) => view.hide(lanes)}
+					/>
+					<StartLanes lanes={lanes} />
+				</div>
 				<div className="-mx-4 flex snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-4">
 					{!hidden.includes(null) && (
 						<Untriaged
@@ -433,10 +437,20 @@ function Edit({
 					</InputGroup>
 				</MentionAnchor>
 				{todo.takenBy === null ? (
-					<StartMenu
-						assignment={{ kind: "todo", id: todo.id }}
-						className="self-start"
-					/>
+					<div className="flex flex-wrap items-center gap-2">
+						<StartMenu
+							assignment={{ kind: "todo", id: todo.id }}
+							assignee={todo.assignee ?? lane?.assignee ?? null}
+						/>
+						<AssigneeMenu
+							assignee={todo.assignee ?? null}
+							onPick={(pick) =>
+								void assignTodo(todo.id, pick).catch((error: unknown) =>
+									refuse("Not assigned", error),
+								)
+							}
+						/>
+					</div>
 				) : (
 					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
 				)}

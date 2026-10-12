@@ -23,6 +23,7 @@ import {
 	RESUME,
 } from "./conversations";
 import type { Assets } from "./dev/assets";
+import { startDispatched } from "./dispatched";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
 import type { Git } from "./git";
@@ -32,6 +33,7 @@ import { Pty } from "./pty";
 import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
 import { grantRetry } from "./retry";
+import { type AgentPick, modelsOf, pickAgent } from "./roster";
 import { fingerprint, snapshot } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
 
@@ -170,6 +172,10 @@ export async function dev(
 		const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		let last = fingerprint(await read());
 		const conversations = converse?.({ arborDir, git }) ?? null;
+		// A task `arbor add --agent` handed to an agent starts it, whether or
+		// not a page listens, so its records are watched all along. One run at
+		// a time, so none starts a task the run before it is starting.
+		let handOffs: Resource | null = null;
 		if (conversations !== null) {
 			conversations.url = url;
 			// Stopped for a restart, which this is: each carries on.
@@ -180,6 +186,29 @@ export async function dev(
 					}
 				}
 			});
+			let starting = Promise.resolve();
+			const handOff = (): void => {
+				starting = starting
+					.then(() => startDispatched({ service, conversations, log }))
+					.catch((error: unknown) => log.error(String(error)));
+			};
+			const settled = new Debouncer(new SystemTimer(), SETTLE);
+			try {
+				const watch = fs.watch(`${arborDir}/tasks`, () =>
+					settled.call(handOff),
+				);
+				handOffs = {
+					dispose: () => {
+						watch.dispose();
+						settled.cancel();
+					},
+				};
+			} catch (error) {
+				log.error(
+					`arbor dev cannot watch ${service.git.root}'s tasks, so it starts a task handed to an agent only as it starts: ${String(error)}`,
+				);
+			}
+			handOff();
 		}
 
 		// What a page shows is spread across arbor's records, the branches'
@@ -564,6 +593,44 @@ export async function dev(
 			return Response.json(lane ?? { id });
 		};
 
+		/**
+		 * The agent a body names, `{ agent, model }`, off the roster the page's
+		 * conversations start from; null for `{ agent: null }`, for none.
+		 */
+		const assigneeIn = async (request: Request): Promise<AgentPick | null> => {
+			const { agent, model } = await body(request);
+			if (agent === null || agent === undefined || agent === "") {
+				return null;
+			}
+			return pickAgent(
+				held().agents.map((each) => ({ ...each, models: modelsOf(each) })),
+				String(agent),
+				model === null || model === undefined || model === ""
+					? undefined
+					: String(model),
+			);
+		};
+
+		const assignTodo = async (request: Request): Promise<Response> => {
+			const found = await todoAt(request);
+			const assignee = await assigneeIn(request);
+			const todo = await journal.record("todo update", null, () =>
+				found.update({ assignee }),
+			);
+			await tick();
+			return Response.json(todo.state);
+		};
+
+		const assignLane = async (request: Request): Promise<Response> => {
+			const id = laneAt(request);
+			const assignee = await assigneeIn(request);
+			const lane = await journal.record("lane update", null, () =>
+				todos.assignLane(id, assignee),
+			);
+			await tick();
+			return Response.json(lane);
+		};
+
 		const dropLane = async (request: Request): Promise<Response> => {
 			const id = laneAt(request);
 			await journal.record("lane remove", null, () => todos.dropLane(id));
@@ -629,7 +696,11 @@ export async function dev(
 		const listConversations = async (): Promise<Response> => {
 			const all = held();
 			return Response.json({
-				agents: all.agents.map(({ id, name }) => ({ id, name })),
+				agents: all.agents.map((each) => ({
+					id: each.id,
+					name: each.name,
+					models: modelsOf(each).map(({ id, name }) => ({ id, name })),
+				})),
 				conversations: (await all.list()).map((each) => each.state),
 			});
 		};
@@ -653,11 +724,12 @@ export async function dev(
 		};
 
 		const startConversation = async (request: Request): Promise<Response> => {
-			const { agent, task, settings } = await body(request);
+			const { agent, task, settings, model } = await body(request);
 			const [named, cwd] = await treeFor(task);
 			const conversation = await held().start(String(agent ?? ""), {
 				task: named,
 				cwd,
+				model: typeof model === "string" && model !== "" ? model : undefined,
 				settings: Object.fromEntries(
 					Object.entries(
 						typeof settings === "object" && settings !== null ? settings : {},
@@ -839,6 +911,8 @@ export async function dev(
 			moveTodo,
 			linkTodo,
 			arrangeTodo,
+			assignTodo,
+			assignLane,
 			joinLane,
 			addLane,
 			updateLane,
@@ -863,6 +937,7 @@ export async function dev(
 			terminalTree,
 			async disposeAsync() {
 				disarm();
+				handOffs?.dispose();
 				unlisten?.();
 				for (const beat of beats.values()) {
 					beat.dispose();
@@ -1174,6 +1249,12 @@ export async function dev(
 				PUT: scoped((project) => project.linkTodo),
 			},
 			"/api/todos/:id/lane": { PUT: scoped((project) => project.arrangeTodo) },
+			"/api/todos/:id/assignee": {
+				PUT: scoped((project) => project.assignTodo),
+			},
+			"/api/lanes/:id/assignee": {
+				PUT: scoped((project) => project.assignLane),
+			},
 			"/api/lanes/:id/join": { POST: scoped((project) => project.joinLane) },
 			"/api/lanes": { POST: scoped((project) => project.addLane) },
 			"/api/lanes/:id": {
@@ -1460,6 +1541,8 @@ interface Served extends AsyncResource {
 	moveTodo: Handler;
 	linkTodo: Handler;
 	arrangeTodo: Handler;
+	assignTodo: Handler;
+	assignLane: Handler;
 	joinLane: Handler;
 	addLane: Handler;
 	updateLane: Handler;

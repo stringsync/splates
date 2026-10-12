@@ -100,6 +100,63 @@ export const DEFAULT_AGENTS: RosterAgent[] = [
 	},
 ];
 
+/** An agent off the roster, on one of its models, or on its own without one. */
+export interface AgentPick {
+	agent: string;
+	/** The roster's id for the model, which the agent's Model setting takes. */
+	model?: string;
+}
+
+/** The models `agent` runs, as the roster lists them; none for an agent off it. */
+export function modelsOf(agent: Agent): RosterModel[] {
+	return "models" in agent ? (agent as RosterAgent).models : [];
+}
+
+/** `pick` in a word: `claude`, or `claude (opus)` on a model. */
+export function pickLabel(pick: AgentPick): string {
+	return pick.model === undefined
+		? pick.agent
+		: `${pick.agent} (${pick.model})`;
+}
+
+/**
+ * `agent` on `model`, named by its id or name in any case, as the roster's
+ * ids; refuses an agent or a model the roster does not list, saying so with
+ * `data`. An agent whose models the roster leaves out takes the model as
+ * given.
+ */
+export function pickAgent(
+	agents: RosterAgent[],
+	agent: string,
+	model: string | undefined,
+	data: Record<string, unknown> = {},
+): AgentPick {
+	const found = agents.find((each) => each.id === agent);
+	if (found === undefined) {
+		fail(
+			"usage",
+			`no agent '${agent}' on the roster: use one of ${agents.map((each) => each.id).join(", ")} (\`arbor agents\` lists them; ~/.arbor/agents.json keeps them)`,
+			{ ...data, agent },
+		);
+	}
+	if (model === undefined || found.models.length === 0) {
+		return model === undefined ? { agent } : { agent, model };
+	}
+	const wanted = model.toLowerCase();
+	const picked = found.models.find(
+		(each) =>
+			each.id.toLowerCase() === wanted || each.name.toLowerCase() === wanted,
+	);
+	if (picked === undefined) {
+		fail(
+			"usage",
+			`${found.name} has no model '${model}' on the roster: use one of ${found.models.map((each) => each.id).join(", ")}`,
+			{ ...data, agent, model },
+		);
+	}
+	return { agent, model: picked.id };
+}
+
 /** Where the user's arbor files live: `~/.arbor`, or `ARBOR_HOME`, as the tests set. */
 export function arborHome(ps: Ps): string {
 	return ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;

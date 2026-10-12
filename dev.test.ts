@@ -5,7 +5,7 @@ import { add } from "./add";
 import { CHECKPOINT, Conversations, RESUME } from "./conversations";
 import { dev, devPorts } from "./dev";
 import type { FileDiff } from "./diff";
-import { AGENT, FakeAgent, say } from "./fake-agent";
+import { AGENT, FakeAgent, ROSTERED, say } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
 import { RESTART } from "./supervise";
 import { Testing } from "./testing";
@@ -1000,6 +1000,127 @@ describe("dev", () => {
 			}
 		});
 
+		it("assigns a todo and a lane an agent off the roster, and starts a conversation on a model", async () => {
+			const rostered = new Conversations(
+				`${deps.arborDir}/conversations`,
+				[ROSTERED],
+				{ launch: agent.launch },
+			);
+			await deps.todos.add("first", null);
+			await deps.todos.addLane("Licensing");
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => rostered,
+			});
+			try {
+				const { port } = server;
+				const listed = (await (
+					await fetch(`http://localhost:${port}/api/conversations`)
+				).json()) as { agents: unknown[] };
+				expect(listed.agents).toEqual([
+					{
+						id: "fake",
+						name: "Fake",
+						models: [
+							{ id: "big", name: "Big" },
+							{ id: "small", name: "Small" },
+						],
+					},
+				]);
+
+				await json(port, "/api/todos/1/assignee", "PUT", {
+					agent: "fake",
+					model: "Small",
+				});
+				await json(port, "/api/lanes/1/assignee", "PUT", { agent: "fake" });
+				expect((await deps.todos.find(1)).state.assignee).toEqual({
+					agent: "fake",
+					model: "small",
+				});
+				expect(await deps.todos.lanes()).toEqual([
+					{ id: 1, name: "Licensing", assignee: { agent: "fake" } },
+				]);
+				const refused = await json(port, "/api/todos/1/assignee", "PUT", {
+					agent: "nobody",
+				});
+				expect(refused.status).toBe(400);
+				await json(port, "/api/todos/1/assignee", "PUT", { agent: null });
+				expect((await deps.todos.find(1)).state.assignee).toBeUndefined();
+
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+					model: "small",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await rostered.find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+				expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
+		it("starts the agent of a task handed to one, in its tree, once", async () => {
+			const said: string[] = [];
+			agent.turn = async (_, __, text) => {
+				said.push(text);
+				return "end_turn";
+			};
+			const until = async (done: () => boolean) => {
+				for (let i = 0; i < 200 && !done(); i++) {
+					await Bun.sleep(10);
+				}
+			};
+			await add(deps, "alpha", {
+				dispatch: { agent: "fake", model: "Small", prompt: "Do the part." },
+				agents: [ROSTERED],
+			});
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				await until(() => said.length === 1);
+				const alpha = await deps.service.find("alpha");
+				const [started] = await conversations.list();
+
+				expect(said).toEqual([
+					"Run `arbor claim alpha` and carry on from its ARBOR.md.\n\nDo the part.",
+				]);
+				expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
+				expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
+				expect(started?.state.task).toBe("alpha");
+				expect(alpha.state?.dispatch?.conversation).toBe(started?.id);
+
+				// Handed over while the server runs, with no page listening.
+				await add(deps, "beta", {
+					dispatch: { agent: "fake" },
+					agents: [ROSTERED],
+				});
+				await until(() => said.length === 2);
+
+				expect(said[1]).toBe(
+					"Run `arbor claim beta` and carry on from its ARBOR.md.",
+				);
+			} finally {
+				await server.disposeAsync();
+			}
+
+			// Each is started once, however often the server starts.
+			const again = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: () => conversations,
+			});
+			try {
+				await Bun.sleep(200);
+				expect(agent.launched).toHaveLength(2);
+			} finally {
+				await again.disposeAsync();
+			}
+		});
+
 		it("checkpoints every live one, saying how each is getting on", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {
@@ -1283,7 +1404,7 @@ describe("dev", () => {
 					await fetch(`http://localhost:${port}/api/conversations`)
 				).json();
 				expect(listed).toEqual({
-					agents: [{ id: "fake", name: "Fake" }],
+					agents: [{ id: "fake", name: "Fake", models: [] }],
 					conversations: [],
 				});
 

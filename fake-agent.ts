@@ -1,5 +1,6 @@
 import * as acp from "@agentclientprotocol/sdk";
 import type { Agent, AgentProcess } from "./conversations";
+import type { RosterAgent } from "./roster";
 
 /** What the agent does with each prompt, given the connection back to arbor. */
 export type Turn = (
@@ -9,6 +10,15 @@ export type Turn = (
 ) => Promise<acp.StopReason>;
 
 export const AGENT: Agent = { id: "fake", name: "Fake", argv: ["fake-acp"] };
+
+/** `AGENT` as the roster lists it, with the models its Model setting offers. */
+export const ROSTERED: RosterAgent = {
+	...AGENT,
+	models: [
+		{ id: "big", name: "Big", strengths: "hard problems", cost: "high" },
+		{ id: "small", name: "Small", strengths: "quick edits", cost: "low" },
+	],
+};
 
 const OPTIONS: acp.SessionConfigOption[] = [
 	{
