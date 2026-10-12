@@ -2945,8 +2945,9 @@ describe("App's conversations", () => {
 				view.getAllByTitle("#15 is archived: merged or removed"),
 			).toHaveLength(2);
 
+			// The directive it starts with is a chip, which opens it too.
 			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "#14" })),
+				fireEvent.click(view.getByTitle("[ARBOR TODO #14]")),
 			);
 			await waitFor(() =>
 				expect(view.getByRole("dialog", { name: /Todo 14/ })).toBeTruthy(),
@@ -3043,6 +3044,27 @@ describe("App's conversations", () => {
 				expect(view.queryByTitle("[ARBOR TODO #12]")).toBeNull(),
 			);
 			expect(localStorage.getItem("arbor.draft.c1") ?? "").toBe("");
+		});
+
+		it("shows the directives a sent message starts with as chips, ahead of its words", async () => {
+			const view = await conversations([
+				conversation({
+					id: "c1",
+					title: "Fix login",
+					messages: [
+						message("user", "[ARBOR TASK alpha]\n\nand keep it small"),
+						message("user", "not [ARBOR TASK alpha] here"),
+					],
+				}),
+			]);
+
+			await waitFor(() =>
+				expect(view.getByTitle("[ARBOR TASK alpha]").textContent).toBe(
+					"Taskalpha",
+				),
+			);
+			expect(view.getByText("and keep it small")).toBeTruthy();
+			expect(view.getByText("not [ARBOR TASK alpha] here")).toBeTruthy();
 		});
 
 		it("sends a directive kept in a draft with nothing typed", async () => {

@@ -75,9 +75,11 @@ import {
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Skeleton } from "#dev/components/ui/skeleton.tsx";
+import { DirectiveChip } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { Mentioned } from "#dev/markdown.tsx";
+import { leadingDirectives } from "../../../../prompts";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
@@ -1129,12 +1131,32 @@ const unstuckTop = (element: HTMLDivElement | null) => {
 	};
 };
 
-/** What the person typed, as typed, each todo it mentions a link to it. */
-const UserText: TextMessagePartComponent = ({ text }) => (
-	<p className="whitespace-pre-line">
-		<Mentioned text={text} />
-	</p>
-);
+/**
+ * What the person typed, as typed, each todo it mentions a link to it, and
+ * the directives it starts with as the chips the composer showed them as.
+ */
+const UserText: TextMessagePartComponent = ({ text }) => {
+	const { directives, rest } = leadingDirectives(text);
+	return (
+		<>
+			{directives.length > 0 && (
+				<span
+					data-slot="aui_user-message-directives"
+					className={cn("flex flex-wrap gap-2", rest !== "" && "pb-2")}
+				>
+					{directives.map((directive) => (
+						<DirectiveChip key={directive} directive={directive} opens />
+					))}
+				</span>
+			)}
+			{rest !== "" && (
+				<p className="whitespace-pre-line">
+					<Mentioned text={rest} />
+				</p>
+			)}
+		</>
+	);
+};
 
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
