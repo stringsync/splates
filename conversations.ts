@@ -15,6 +15,7 @@ import {
 import { fail } from "./exit";
 import { modelOption } from "./models";
 import type { Offered } from "./offered";
+import { SERVING } from "./supervise";
 import type { Flag, Watch, Watched } from "./watch";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
@@ -42,7 +43,9 @@ export type Launch = (
 ) => AgentProcess;
 
 export const launch: Launch = (argv, cwd, env) => {
-	const child = new NodePs().start(argv, { cwd, env });
+	// So an `arbor dev` the agent runs supervises itself rather than serving
+	// as this one's child.
+	const child = new NodePs().start(argv, { cwd, env, unset: [SERVING] });
 	let tail = "";
 	void (async () => {
 		const decoder = new TextDecoder();

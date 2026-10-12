@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { NodePs } from "webappwiz/system";
 import { Pty } from "./pty";
+import { SERVING } from "./supervise";
 
 describe("Pty", () => {
 	let cwd: string;
@@ -77,5 +79,33 @@ describe("Pty", () => {
 			await Bun.sleep(10);
 		}
 		expect(exited).toBe(3);
+	});
+
+	it("leaves out that arbor dev serves, so one run in it supervises itself", async () => {
+		const shell = new Pty({
+			argv: ["/bin/sh"],
+			cwd,
+			cols: 80,
+			rows: 24,
+			env: { PS1: "$ " },
+			// As the page's terminals inherit it from the server.
+			ps: new NodePs({
+				proc: { ...process, env: { ...process.env, [SERVING]: "1" } },
+			}),
+		});
+		let out = "";
+		const decoder = new TextDecoder();
+		shell.events.on("data", (bytes) => {
+			out += decoder.decode(bytes, { stream: true });
+		});
+		try {
+			shell.write(`echo serving:\${${SERVING}-unset}\n`);
+			for (let i = 0; i < 300 && !out.includes("serving:unset"); i++) {
+				await Bun.sleep(10);
+			}
+			expect(out).toContain("serving:unset");
+		} finally {
+			await shell.disposeAsync();
+		}
 	});
 });
