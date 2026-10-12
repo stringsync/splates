@@ -5223,5 +5223,26 @@ Cap upload retries
 			expect((await item("Codex")).textContent).toContain("⌥⌘N");
 			expect((await item("Claude")).textContent).not.toContain("⌥⌘N");
 		});
+
+		it("focuses the composer of the agent picked from New, the one shown too", async () => {
+			const view = await sidebar([conversation({ id: "c1", title: "Latest" })]);
+			const composer = () =>
+				within(
+					view.getByRole("region", { name: "new conversation" }),
+				).getByRole("textbox", { name: "Message input" });
+
+			for (const agent of ["Codex", "Codex"]) {
+				view.getByRole("button", { name: "New" }).focus();
+				await newWith(view, agent);
+				// Not `toBe` the element, whose printout on a failure overwhelms Bun.
+				expect(document.activeElement === composer()).toBe(true);
+				expect(
+					within(
+						view.getByText("Start a conversation with")
+							.parentElement as HTMLElement,
+					).getByLabelText(agent),
+				).toBeTruthy();
+			}
+		});
 	});
 });

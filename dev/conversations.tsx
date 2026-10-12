@@ -372,6 +372,8 @@ export function ConversationList({
 	openRowRef.current = openRow;
 	const shownRef = useRef(shown);
 	shownRef.current = shown;
+	// Whether the New menu last closed on an agent, which its focus follows.
+	const picked = useRef(false);
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -445,11 +447,30 @@ export function ConversationList({
 						<ChevronDownIcon className="size-3.5 text-muted-foreground" />
 					)}
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start" className="w-44">
+				<DropdownMenuContent
+					align="start"
+					className="w-44"
+					// Into the composer of the conversation picked, ready to type, rather
+					// than back to New; otherwise as usual.
+					finalFocus={() => {
+						if (!picked.current) {
+							return true;
+						}
+						picked.current = false;
+						return (
+							document.querySelector<HTMLTextAreaElement>(
+								'section[aria-label="new conversation"] textarea[aria-label="Message input"]',
+							) ?? true
+						);
+					}}
+				>
 					{agents.map((each) => (
 						<DropdownMenuItem
 							key={each.id}
-							onClick={() => onOpen(`${NEW}/${each.id}`)}
+							onClick={() => {
+								picked.current = true;
+								onOpen(`${NEW}/${each.id}`);
+							}}
 						>
 							<AgentIcon agent={each.id} name={each.name} />
 							{each.name}
