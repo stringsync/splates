@@ -32,7 +32,13 @@ import {
 } from "../asked";
 import type { Question } from "../plan";
 import { copiedLabel, useCopy } from "./card";
-import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
+import {
+	CardBody,
+	CardShell,
+	ENDINGS,
+	reportText,
+	toCardTop,
+} from "./card-shell";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
 import { blockedReply } from "./unanswered";
@@ -117,8 +123,8 @@ function useKept(
 
 /**
  * Focuses what `first` finds as a card comes up to be answered, which the
- * composer leaves to it, and scrolls its question into view, unless the
- * person is typing elsewhere, as in a composer holding a draft.
+ * composer leaves to it, and scrolls the card to its top, unless the person
+ * is typing elsewhere, as in a composer holding a draft.
  */
 function useArrival(
 	live: boolean,
@@ -134,12 +140,11 @@ function useArrival(
 			return;
 		}
 		const stop = first();
-		// In view whole, as Enter brings each later question, rather than
-		// focused off screen above the foot of the card.
 		stop?.focus({ preventScroll: true });
-		(stop?.closest("li, footer") ?? stop)?.scrollIntoView({
-			block: "nearest",
-		});
+		const card = stop?.closest<HTMLElement>("[data-card]");
+		if (card != null) {
+			toCardTop(card);
+		}
 	});
 	useEffect(() => {
 		if (live) {

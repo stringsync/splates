@@ -52,6 +52,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { toCardTop } from "#dev/card-shell.tsx";
 import {
 	ComposerAddAttachment,
 	ComposerAttachments,
@@ -372,15 +373,7 @@ function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
 				scroller.scrollTop = scroller.scrollHeight;
 				return;
 			}
-			const stuck = turn?.firstElementChild;
-			if (stuck instanceof HTMLElement && stuck.dataset.role === "user") {
-				// Below its fade too, which `::after` paints over the reply.
-				const fade = Number.parseFloat(
-					getComputedStyle(stuck, "::after").height,
-				);
-				card.style.scrollMarginTop = `${stuck.offsetHeight + (fade || 0)}px`;
-			}
-			card.scrollIntoView({ block: "start", behavior: "instant" });
+			toCardTop(card);
 		};
 		place();
 		// Again once the parts assistant-ui renders through a renderer, as a

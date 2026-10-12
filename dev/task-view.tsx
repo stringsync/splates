@@ -23,6 +23,7 @@ import type { Action } from "./actions";
 import { AgentIcon } from "./agent-icons";
 import { bringSession, listSessions } from "./api";
 import { Back } from "./back";
+import { toCardTop } from "./card-shell";
 import { type AgentChoice, agentName } from "./conversation-feed";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
@@ -49,8 +50,8 @@ const WAITING_CARDS = [
 ].join(", ");
 
 /**
- * Scrolls to the newest card in `within` that an agent waits on you through
- * and focuses its first stop, false when there is none.
+ * Scrolls to the top of the newest card in `within` that an agent waits on
+ * you through and focuses its first stop, false when there is none.
  */
 export function toWaiting(within: HTMLElement | null): boolean {
 	const cards = within?.querySelectorAll<HTMLElement>(WAITING_CARDS) ?? [];
@@ -61,8 +62,7 @@ export function toWaiting(within: HTMLElement | null): boolean {
 	const stop = card.querySelector<HTMLElement>(
 		"[data-stop], textarea, input, button:not([disabled])",
 	);
-	// What is focused in the middle, as a tall card's middle can leave it out of sight.
-	(stop ?? card).scrollIntoView({ block: "center", behavior: "smooth" });
+	toCardTop(card, "smooth");
 	stop?.focus({ preventScroll: true });
 	return true;
 }

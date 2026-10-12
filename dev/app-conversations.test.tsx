@@ -1879,7 +1879,7 @@ describe("App's conversations", () => {
 			]);
 		});
 
-		it("scrolls the whole first question into view as the card arrives", async () => {
+		it("scrolls the card to its top as it arrives, clear of the person's message", async () => {
 			const scrolled: Element[] = [];
 			const scroll = spyOn(
 				HTMLElement.prototype,
@@ -1895,7 +1895,9 @@ describe("App's conversations", () => {
 				await waitFor(() =>
 					expect(document.activeElement === first).toBe(true),
 				);
-				expect(scrolled).toEqual([card(view, "1")]);
+				const asked = view.getByRole("region", { name: "escalated header" });
+				expect(scrolled).toEqual([asked]);
+				expect(asked.style.scrollMarginTop).toMatch(/^\d+(\.\d+)?px$/);
 			} finally {
 				scroll.mockRestore();
 			}
@@ -4044,6 +4046,48 @@ Cap upload retries
 				view.getByRole("dialog", { name: "alpha" }),
 			);
 			expect(dialog.textContent).toContain("Cap upload retries");
+		});
+
+		it("scrolls the card asking the open questions to its top from the actions", async () => {
+			const view = await sidebar(
+				[
+					conversation({
+						id: "c1",
+						task: "alpha",
+						messages: [
+							message("user", "cap the retries"),
+							message(
+								"agent",
+								"## ⚠️ Escalated alpha: needs a call\n\nIt caps.\n\n1. How many retries?",
+							),
+						],
+					}),
+				],
+				[details({ task: "alpha", plan: PLAN })],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			);
+			const escalated = await waitFor(() =>
+				view.getByRole("region", { name: "escalated alpha" }),
+			);
+			const scrolled: [string | null, unknown][] = [];
+			const scroll = spyOn(
+				HTMLElement.prototype,
+				"scrollIntoView",
+			).mockImplementation(function (this: HTMLElement, options) {
+				scrolled.push([this.getAttribute("aria-label"), options]);
+			});
+			try {
+				await act(async () => fireEvent.click(questionsButton(view)));
+			} finally {
+				scroll.mockRestore();
+			}
+
+			expect(scrolled).toEqual([
+				["escalated alpha", { block: "start", behavior: "smooth" }],
+			]);
+			expect(escalated.contains(document.activeElement)).toBe(true);
 		});
 
 		it("says among a conversation's actions whether it has open questions, answering them in a dialog while no card in the thread asks them", async () => {

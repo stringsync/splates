@@ -72,6 +72,23 @@ export function reportText(report: Report): string {
 }
 
 /**
+ * Scrolls `card` to its top, just clear of the person's message stuck atop
+ * its turn, with the fade `::after` paints below it, so a card that comes up
+ * or takes the focus reads from its start.
+ */
+export function toCardTop(
+	card: HTMLElement,
+	behavior: ScrollBehavior = "instant",
+): void {
+	const stuck = card.closest('[data-slot="aui_turn"]')?.firstElementChild;
+	if (stuck instanceof HTMLElement && stuck.dataset.role === "user") {
+		const fade = Number.parseFloat(getComputedStyle(stuck, "::after").height);
+		card.style.scrollMarginTop = `${stuck.offsetHeight + (fade || 0)}px`;
+	}
+	card.scrollIntoView({ block: "start", behavior });
+}
+
+/**
  * The frame every card in a conversation shares: a header with an icon, what
  * the card is, and the task it is about, then whatever the card holds. A
  * folded card shows only its header until it is opened.
@@ -120,7 +137,10 @@ export function CardShell({
 	);
 	if (folded) {
 		return (
-			<Collapsible render={<section aria-label={label} />} className={frame}>
+			<Collapsible
+				render={<section aria-label={label} data-card />}
+				className={frame}
+			>
 				<CollapsibleTrigger
 					nativeButton={false}
 					render={<header />}
@@ -133,7 +153,7 @@ export function CardShell({
 		);
 	}
 	return (
-		<section aria-label={label} className={frame}>
+		<section aria-label={label} data-card className={frame}>
 			<header>{header}</header>
 			{children}
 		</section>
