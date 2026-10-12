@@ -434,6 +434,27 @@ function moved(state: ConversationState, at: string | null): void {
 	}
 }
 
+/** Whether `update` is the agent at work, as it is only in a turn. */
+function starts(update: acp.SessionUpdate): boolean {
+	return (
+		(update.sessionUpdate === "agent_message_chunk" ||
+			update.sessionUpdate === "agent_thought_chunk" ||
+			update.sessionUpdate === "tool_call") &&
+		parentOf(update) === null
+	);
+}
+
+/**
+ * Whether `update` ends a turn: Claude says where each turn came from in the
+ * usage it sends at the turn's end, and only then.
+ */
+function result(update: acp.SessionUpdate): boolean {
+	return (
+		update.sessionUpdate === "usage_update" &&
+		update._meta?.["_claude/origin"] != null
+	);
+}
+
 /** The subagent's tool call an update came from: Claude stamps it in `_meta`. */
 function parentOf(update: {
 	_meta?: { [key: string]: unknown } | null;
@@ -660,6 +681,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private sees = false;
 	/** Whether the person cancelled the last turn, which holds the queue. */
 	private held = false;
+	/** Whether the turn running is one the agent started, with no prompt to end it. */
+	private unprompted = false;
+	/** Whether the agent has said a turn ended, as Claude does, so one it starts can end. */
+	private tells = false;
 	/** The log's lines not yet appended to it. */
 	private readonly unsaved: string[] = [];
 	private saving: Promise<void> = Promise.resolve();
@@ -1130,10 +1155,22 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					return;
 				}
 				const at = this.now();
+				// Claude starts a turn of its own when a task it left running in
+				// the background ends: a turn like any, though no prompt ends it.
+				if (this.tells && this.state.status === "idle" && starts(update)) {
+					this.unprompted = true;
+					this.set({ status: "running" });
+				}
 				this.write({ kind: "update", update, at });
 				fold(this.state, update, at);
 				this.watchCommand(update);
 				this.changed();
+				if (result(update)) {
+					this.tells = true;
+					if (this.unprompted) {
+						this.ended(null);
+					}
+				}
 			},
 			requestPermission: async (params) => {
 				const { toolCall } = params;
@@ -1436,6 +1473,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		if (this.state.status !== "running") {
 			return;
 		}
+		this.unprompted = false;
 		this.set({ status: "idle", ...(error === null ? {} : { error }) });
 		if (!this.held && this.state.messages.some((each) => each.queued)) {
 			this.send([]);

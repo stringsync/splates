@@ -413,6 +413,93 @@ describe("Conversations", () => {
 			await finish(conversation);
 		});
 
+		describe("a turn the agent starts on its own", () => {
+			/** What Claude sends as a turn ends, saying where the turn came from. */
+			const result = (kind: string): acp.SessionUpdate => ({
+				sessionUpdate: "usage_update",
+				used: 1,
+				size: 10,
+				_meta: { "_claude/origin": { kind } },
+			});
+
+			/** Ends a turn on "one", then has the agent start one of its own. */
+			const unprompted = async () => {
+				const conversation = await working();
+				await update(result("human"));
+				await finish(conversation);
+				await client?.sessionUpdate({
+					sessionId: "s1",
+					update: say("The tests passed."),
+				});
+				return conversation;
+			};
+
+			const update = async (update: acp.SessionUpdate) => {
+				await client?.sessionUpdate({ sessionId: "s1", update });
+			};
+
+			it("runs until the agent says that turn ended", async () => {
+				const conversation = await unprompted();
+
+				expect(conversation.state.status).toBe("running");
+				await update({ sessionUpdate: "usage_update", used: 1, size: 10 });
+				expect(conversation.state.status).toBe("running");
+				await update(result("task-notification"));
+				expect(conversation.state.status).toBe("idle");
+			});
+
+			it("starts none for an agent that never says a turn ended", async () => {
+				const conversation = await working();
+				await finish(conversation);
+
+				await update(say("A late word."));
+
+				expect(conversation.state.status).toBe("idle");
+			});
+
+			it("starts no turn on a tool call's late word", async () => {
+				const conversation = await working();
+				await update(result("human"));
+				await finish(conversation);
+
+				await update({
+					sessionUpdate: "tool_call_update",
+					toolCallId: "t1",
+					status: "completed",
+				});
+
+				expect(conversation.state.status).toBe("idle");
+			});
+
+			it("queues what is said meanwhile for its end, when the agent cannot steer", async () => {
+				const conversation = await unprompted();
+
+				await conversation.prompt("two");
+
+				expect(thread(conversation).at(-1)).toEqual(["two", true]);
+				expect(said).toEqual(["one"]);
+				await update(result("task-notification"));
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(1);
+				}
+				expect(said).toEqual(["one", "two"]);
+				await finish(conversation);
+			});
+
+			it("steers what is said meanwhile into it, when the agent can", async () => {
+				agent.steering = "injected";
+				const conversation = await unprompted();
+
+				await conversation.prompt("two");
+
+				expect(agent.steered).toEqual(["two"]);
+				expect(thread(conversation).at(-1)).toEqual(["two", false]);
+				await update(result("task-notification"));
+				expect(conversation.state.status).toBe("idle");
+				expect(said).toEqual(["one"]);
+			});
+		});
+
 		it("holds what waited when the turn is cancelled, until the next message", async () => {
 			const conversation = await working();
 			await conversation.prompt("two");
