@@ -15,7 +15,7 @@ export interface Work {
 	at: string | null;
 	/** When the agent last moved. */
 	until: string | null;
-	/** Still going: the row counts up and says what it is on. */
+	/** Still going: the row counts up. */
 	running: boolean;
 }
 
@@ -171,100 +171,37 @@ export function warning(flag: Flag): string {
 	}
 }
 
-/** What the turn added up to, for the row's one line. */
-export interface Summary {
-	commands: number;
-	failed: number;
-	/** Each file changed, with how many tool calls changed it. */
-	edited: { path: string; count: number }[];
-	read: number;
-	searched: number;
-	subagents: number;
-}
-
-export function summarize(work: Work): Summary {
-	const items = timeline(work);
-	const tools = items.flatMap((item) =>
-		item.type === "reads"
-			? item.tools
-			: item.type === "command"
-				? item.runs
-				: "tool" in item
-					? [item.tool]
-					: [],
-	);
-	const edited = new Map<string, number>();
-	for (const tool of tools) {
-		if (EDITS.has(tool.kind ?? "") || tool.edits.length > 0) {
-			for (const path of tool.paths) {
-				edited.set(path, (edited.get(path) ?? 0) + 1);
+/** Each file the turn changed, with how many tool calls changed it. */
+export function edited(work: Work): { path: string; count: number }[] {
+	const paths = new Map<string, number>();
+	for (const item of timeline(work)) {
+		const tools =
+			item.type === "reads"
+				? item.tools
+				: item.type === "command"
+					? item.runs
+					: "tool" in item
+						? [item.tool]
+						: [];
+		for (const tool of tools) {
+			if (EDITS.has(tool.kind ?? "") || tool.edits.length > 0) {
+				for (const path of tool.paths) {
+					paths.set(path, (paths.get(path) ?? 0) + 1);
+				}
 			}
 		}
 	}
-	const commands = tools.filter((tool) => tool.kind === "execute");
-	const reads = tools.filter((tool) => tool.kind === "read");
-	return {
-		commands: commands.length,
-		failed: commands.filter((tool) => tool.status === "failed").length,
-		edited: [...edited].map(([path, count]) => ({ path, count })),
-		read: new Set(reads.flatMap((tool) => tool.paths)).size || reads.length,
-		searched: tools.filter((tool) => tool.kind === "search").length,
-		subagents: items.filter((item) => item.type === "subagent").length,
-	};
+	return [...paths].map(([path, count]) => ({ path, count }));
 }
 
-/** The finished row's line: "Worked 3m 12s · 6 commands (1 failed) · …". */
-export function worked(work: Work): string {
-	const { commands, failed, edited, read, searched, subagents } =
-		summarize(work);
-	const took =
-		work.at === null || work.until === null
-			? "Worked"
-			: `Worked ${span(work.at, work.until)}`;
-	return [
-		took,
-		commands > 0 &&
-			`${count(commands, "command")}${failed > 0 ? ` (${failed} failed)` : ""}`,
-		edited.length > 0 && `edited ${count(edited.length, "file")}`,
-		read > 0 && `read ${count(read, "file")}`,
-		searched > 0 && `searched ${count(searched, "time")}`,
-		subagents > 0 && count(subagents, "subagent"),
-	]
-		.filter(Boolean)
-		.join(" · ");
-}
-
-/** What the agent is on right now, as of `now`; null between steps. */
-export function doing(work: Work, now: number): string | null {
-	const last = work.parts.at(-1);
-	if (last === undefined || last.type === "text" || last.type === "image") {
-		return null;
+/** The row's line: "Working 1m 5s" as of `now` while it runs, then "Worked 3m 12s". */
+export function took(work: Work, now: number): string {
+	if (work.running) {
+		return work.at === null ? "Working" : `Working ${span(work.at, now)}`;
 	}
-	if (last.type === "thought") {
-		return last.at === null ? "Thinking" : `Thinking ${span(last.at, now)}`;
-	}
-	const top =
-		last.parent === null
-			? last
-			: work.parts.find(
-					(each): each is Tool =>
-						each.type === "tool" && each.id === last.parent,
-				);
-	if (
-		top === undefined ||
-		(top.status !== "pending" && top.status !== "in_progress")
-	) {
-		return null;
-	}
-	const item = timeline(work).at(-1);
-	const runs = item?.type === "command" ? item.runs.length : 1;
-	return [
-		label(top),
-		runs > 1 && `×${runs}`,
-		top.at !== null && span(top.at, now),
-	]
-		.filter(Boolean)
-		.join(" · ");
+	return work.at === null || work.until === null
+		? "Worked"
+		: `Worked ${span(work.at, work.until)}`;
 }
 
 /** How long from `from` to `to`, to the second: "41s", "2m 14s", "1h 3m". */

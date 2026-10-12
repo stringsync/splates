@@ -2132,9 +2132,7 @@ describe("App's conversations", () => {
 			);
 
 			await waitFor(() =>
-				expect(thread.textContent).toContain(
-					"Worked 1m 5s · 2 commands (1 failed) · edited 1 file · read 2 files",
-				),
+				expect(within(thread).getByText("Worked 1m 5s").tagName).toBe("SPAN"),
 			);
 			expect(thread.textContent).toContain("All tests pass.");
 			const timeline = within(thread).getByRole("list", { name: "timeline" });
@@ -2339,7 +2337,7 @@ describe("App's conversations", () => {
 			).toEqual(["src/a.ts+1 −1−one+two", "src/a.ts+1 −1−two+three"]);
 		});
 
-		it("says what it is on while it works, with its plan", async () => {
+		it("says only how long it has worked while it works, shimmering, with its plan", async () => {
 			const thread = await opened(
 				turn(
 					[
@@ -2360,9 +2358,9 @@ describe("App's conversations", () => {
 				),
 			);
 
-			await waitFor(() =>
-				expect(thread.textContent).toMatch(/Working .+ · bun test · /),
-			);
+			const line = await waitFor(() => within(thread).getByText(/^Working /));
+			expect(line.textContent).not.toContain("bun test");
+			expect(line.className).toContain("shimmer");
 			expect(
 				within(thread).getByRole("list", { name: "plan" }).textContent,
 			).toBe("Run the testsFix what fails");
@@ -2375,9 +2373,7 @@ describe("App's conversations", () => {
 				}),
 			);
 
-			await waitFor(() =>
-				expect(thread.textContent).toMatch(/Working .+ · bun test/),
-			);
+			await waitFor(() => within(thread).getByText(/^Working /));
 			expect(thread.textContent?.match(/Working/g)).toHaveLength(1);
 		});
 
@@ -2490,8 +2486,9 @@ describe("App's conversations", () => {
 				]),
 			);
 
-			await waitFor(() => expect(thread.textContent).toContain("1 subagent"));
-			const timeline = within(thread).getByRole("list", { name: "timeline" });
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
 			expect(timeline.textContent).toContain("Find the callers· 2 tool calls");
 			expect(timeline.textContent).not.toContain("Read 1 file");
 		});

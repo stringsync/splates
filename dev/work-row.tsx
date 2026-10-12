@@ -33,24 +33,23 @@ import { editLines } from "../diff";
 import { Markdown } from "./markdown";
 import {
 	decided,
-	doing,
+	edited,
 	flagged,
 	type Item,
 	label,
 	relative,
 	span,
 	split,
-	summarize,
 	type Trees,
 	timeline,
+	took,
 	type Work,
 	warning,
-	worked,
 } from "./work";
 
 /**
  * Renders a `data-work` part: what an agent did before its reply, as one
- * line that says how long and what it is on, with the files it edited, and
+ * line that says how long it took, with the files it edited, and
  * the whole timeline a click away.
  */
 export const WorkUI = makeAssistantDataUI<{ work: Work }>({
@@ -69,7 +68,7 @@ export const TreesContext = createContext<Trees | null>(null);
 
 export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const now = useNow(work.running);
-	const { edited } = summarize(work);
+	const files = edited(work);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -87,14 +86,6 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 			setOpen(false);
 		}
 	}, [replied]);
-	const line = work.running
-		? [
-				work.at === null ? "Working" : `Working ${span(work.at, now)}`,
-				doing(work, now),
-			]
-				.filter(Boolean)
-				.join(" · ")
-		: worked(work);
 	return (
 		<Going value={work.running}>
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
@@ -105,10 +96,14 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				>
 					<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
 						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-open/work:rotate-90" />
-						{work.running && (
-							<LoaderIcon className="size-3.5 shrink-0 animate-spin" />
-						)}
-						<span className="min-w-0 truncate">{line}</span>
+						<span
+							className={cn(
+								"min-w-0 truncate",
+								work.running && "shimmer motion-reduce:animate-none",
+							)}
+						>
+							{took(work, now)}
+						</span>
 					</summary>
 					<ol
 						aria-label="timeline"
@@ -131,9 +126,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				</details>
 				{work.running && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
-				{edited.length > 0 && (
+				{files.length > 0 && (
 					<ul aria-label="edited files" className="flex flex-wrap gap-1">
-						{edited.map(({ path, count }) => (
+						{files.map(({ path, count }) => (
 							<li key={path} className="min-w-0 max-w-full">
 								<button
 									type="button"
