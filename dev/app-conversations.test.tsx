@@ -5113,6 +5113,34 @@ Cap upload retries
 			expect(keys()).toEqual([]);
 		});
 
+		it("opens the row below with ⌥⌘] and the one above with ⌥⌘[, round past either end", async () => {
+			await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "First" }),
+					conversation({ id: "c2", title: "Second" }),
+				]),
+				[details({ task: "beta", status: "escalated" })],
+			);
+			const press = (code: string) =>
+				act(async () =>
+					fireEvent.keyDown(document.body, {
+						code,
+						altKey: true,
+						metaKey: true,
+					}),
+				);
+			await press("BracketRight");
+			expect(location.hash).toBe("#conversations/c1");
+			await press("BracketRight");
+			expect(location.hash).toBe("#conversations/c2");
+			await press("BracketRight");
+			expect(location.hash).toBe("#conversations/task/beta");
+			await press("BracketRight");
+			expect(location.hash).toBe("#conversations/c1");
+			await press("BracketLeft");
+			expect(location.hash).toBe("#conversations/task/beta");
+		});
+
 		it("opens Todos with ⌥⌘T and Checkpoint with ⌥⌘C, showing each key while ⌥⌘ is held", async () => {
 			const view = await sidebar(
 				newestFirst([conversation({ id: "c1", title: "First" })]),

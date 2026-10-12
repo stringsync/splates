@@ -309,8 +309,9 @@ function openingOf(conversation: ConversationState): string | null {
  * the bottom.
  *
  * The arrow keys move between rows, ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new
- * one as the last was started, and ⌥⌘0 to ⌥⌘9 open the first ten rows, top
- * to bottom. Holding ⌥⌘ shows each of those keys beside what it opens. Its
+ * one as the last was started, ⌥⌘0 to ⌥⌘9 open the first ten rows, top
+ * to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
+ * terminals among them, round past either end. Holding ⌥⌘ shows each of those keys beside what it opens. Its
  * actions, ⌥⌘M among them, are `ConversationActions`, apart from it.
  * As `settings` say, it notifies of an agent that comes to wait on you,
  * finishes its turn, or goes quiet.
@@ -376,6 +377,21 @@ export function ConversationList({
 	openRowRef.current = openRow;
 	const shownRef = useRef(shown);
 	shownRef.current = shown;
+	// Every row top to bottom, by what opens it: what ⌥⌘[ and ⌥⌘] step through.
+	const stops = [
+		...mains,
+		...flatten(nested).flatMap((row) =>
+			row.conversation !== null
+				? [row.conversation.id]
+				: row.task !== null
+					? [`${TASK}${row.task.task}`]
+					: [],
+		),
+	];
+	const stopsRef = useRef(stops);
+	stopsRef.current = stops;
+	const openRef = useRef(open);
+	openRef.current = open;
 	// Whether the New menu last closed on an agent, which its focus follows.
 	const picked = useRef(false);
 	useEffect(() => {
@@ -401,7 +417,29 @@ export function ConversationList({
 				event.preventDefault();
 				// With the agent, model, and settings the last one started with.
 				onOpenRef.current(NEW);
+				return;
 			}
+			const step =
+				event.code === "BracketRight"
+					? 1
+					: event.code === "BracketLeft"
+						? -1
+						: 0;
+			const stops = stopsRef.current;
+			if (step === 0 || stops.length === 0) {
+				return;
+			}
+			event.preventDefault();
+			// From a row, round past either end; from no row, in from the top or
+			// the bottom.
+			const at = stops.indexOf(openRef.current ?? "");
+			const to =
+				at === -1
+					? step === 1
+						? 0
+						: stops.length - 1
+					: (at + step + stops.length) % stops.length;
+			onOpenRef.current(stops[to] ?? null);
 		};
 		document.addEventListener("keydown", jump);
 		return () => document.removeEventListener("keydown", jump);
