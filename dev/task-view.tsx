@@ -68,7 +68,7 @@ export function toWaiting(within: HTMLElement | null): boolean {
 }
 
 /**
- * Where Alt+N, which opens the next agent waiting on you, and the view that
+ * Where ⌥⌘M, which opens the next agent waiting on you, and the view that
  * shows that agent meet: the agent it opened last, until its view goes to
  * what it waits on you for.
  */
@@ -81,13 +81,13 @@ export function arriveAt(open: string): void {
 	arrivals.dispatchEvent(new Event("arrive"));
 }
 
-/** Whether Alt+N is opening agent `open`, before its view goes there. */
+/** Whether ⌥⌘M is opening agent `open`, before its view goes there. */
 export function arriving(open: string): boolean {
 	return opening === open;
 }
 
 /**
- * Runs `go` once Alt+N opens agent `open`: as its view shows, or at once
+ * Runs `go` once ⌥⌘M opens agent `open`: as its view shows, or at once
  * when it already does.
  */
 export function useArrived(open: string, go: () => void): void {

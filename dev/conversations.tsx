@@ -295,8 +295,8 @@ function openingOf(conversation: ConversationState): string | null {
  * says whether it works or waits on you. Archived ones sit behind a link at
  * the bottom.
  *
- * The arrow keys move between rows, Alt+N opens the next one waiting,
- * ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new one as the last was started, and
+ * The arrow keys move between rows, ⌥⌘M (Ctrl+Alt+M off a Mac) opens the
+ * next one waiting, ⌥⌘N starts a new one as the last was started, and
  * ⌥⌘0 to ⌥⌘9 open the first ten rows, top to bottom. Holding ⌥⌘ shows each
  * of those keys beside what it opens.
  * As `settings` say, it notifies of an agent that comes to wait on you,
@@ -401,15 +401,16 @@ export function ConversationList({
 				}
 				return;
 			}
-			// By the key's place, since Alt+N types a tilde on a Mac.
-			if (!event.altKey || event.code !== "KeyN") {
+			// By the key's place, since Alt types another letter on a Mac.
+			if (!event.altKey || !(event.metaKey || event.ctrlKey)) {
 				return;
 			}
-			event.preventDefault();
-			if (event.metaKey || event.ctrlKey) {
+			if (event.code === "KeyN") {
+				event.preventDefault();
 				// With the agent, model, and settings the last one started with.
 				onOpenRef.current(NEW);
-			} else {
+			} else if (event.code === "KeyM") {
+				event.preventDefault();
 				next.current();
 			}
 		};
@@ -2152,7 +2153,7 @@ function Thread({
 		conversation.messages,
 		writing,
 	);
-	// Opened from the first render on Alt+N, so the composer leaves them the
+	// Opened from the first render on ⌥⌘M, so the composer leaves them the
 	// focus.
 	const [answering, setAnswering] = useState(
 		() => arriving(id) && open.uncarded.length > 0 && !archived,
@@ -2408,7 +2409,7 @@ function Thread({
 }
 
 /**
- * Whether Alt+N stops on `row`: an agent stopped on you, or one asking as it
+ * Whether ⌥⌘M stops on `row`: an agent stopped on you, or one asking as it
  * works, while it has questions no reply has answered yet.
  */
 function waitsOnYou({ conversation, need }: Needing): boolean {

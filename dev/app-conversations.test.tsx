@@ -3755,9 +3755,13 @@ Cap upload retries
 			);
 			// Numbered as in its Blocked, which may not be how it last asked them.
 			expect(copied).toEqual([blockedReply("1. three")]);
-			// The only one waiting, Alt+N goes to its open question where it is.
+			// The only one waiting, ⌥⌘M goes to its open question where it is.
 			await act(async () =>
-				fireEvent.keyDown(document.body, { code: "KeyN", altKey: true }),
+				fireEvent.keyDown(document.body, {
+					code: "KeyM",
+					altKey: true,
+					metaKey: true,
+				}),
 			);
 			expect(document.activeElement).toBe(
 				within(alone).getByRole("textbox", { name: "Answer to 1" }),
@@ -3922,7 +3926,7 @@ Cap upload retries
 			);
 		});
 
-		it("goes round the agents with open questions by keyboard alone: Alt+N, answer, ⌘Enter, Alt+N", async () => {
+		it("goes round the agents with open questions by keyboard alone: ⌥⌘M, answer, ⌘Enter, ⌥⌘M", async () => {
 			const plan = (question: string) =>
 				PLAN.replace(
 					"- [ ] 1. How many retries?",
@@ -3949,9 +3953,13 @@ Cap upload retries
 					details({ task: "beta", plan: plan("Wrap on phones?") }),
 				],
 			);
-			const altN = () =>
+			const next = () =>
 				act(async () =>
-					fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+					fireEvent.keyDown(document.body, {
+						altKey: true,
+						metaKey: true,
+						code: "KeyM",
+					}),
 				);
 			const answer = async (key: string) => {
 				// In a dialog, as no card in the thread asks them, focused on
@@ -3973,7 +3981,7 @@ Cap upload retries
 			};
 
 			// Asking as it works.
-			await altN();
+			await next();
 			expect(location.hash).toBe("#conversations/c1");
 			await answer("a");
 			expect(posted("/api/conversations/c1/prompt")).toEqual([
@@ -3986,7 +3994,7 @@ Cap upload retries
 			await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 
 			// Stopped on you.
-			await altN();
+			await next();
 			expect(location.hash).toBe("#conversations/c2");
 			await answer("b");
 			expect(posted("/api/conversations/c2/prompt")).toEqual([
@@ -4009,7 +4017,7 @@ Cap upload retries
 			await act(async () =>
 				fireEvent.click(view.getByRole("button", { name: "Claude Idle" })),
 			);
-			await altN();
+			await next();
 			expect(location.hash).toBe("#conversations/c0");
 		});
 
@@ -4134,7 +4142,7 @@ Cap upload retries
 			expect(document.title).toBe("(2) webappwiz");
 		});
 
-		it("moves between rows with the arrow keys, and opens the next one waiting with Alt+N", async () => {
+		it("moves between rows with the arrow keys, and opens the next one waiting with ⌥⌘M", async () => {
 			const view = await sidebar(
 				newestFirst([
 					conversation({ id: "c1", title: "Runs", status: "running" }),
@@ -4150,16 +4158,34 @@ Cap upload retries
 
 			await act(async () => fireEvent.keyDown(runs, { key: "ArrowDown" }));
 			expect(document.activeElement?.textContent).toBe("Asks");
+			// Alt+N alone types a tilde on a Mac, so it opens nothing.
+			const before = location.hash;
 			await act(async () =>
 				fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+			);
+			expect(location.hash).toBe(before);
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyM",
+				}),
 			);
 			expect(location.hash).toBe("#conversations/c2");
 			await act(async () =>
-				fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyM",
+				}),
 			);
 			expect(location.hash).toBe("#conversations/c3");
 			await act(async () =>
-				fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyM",
+				}),
 			);
 			expect(location.hash).toBe("#conversations/c2");
 		});
