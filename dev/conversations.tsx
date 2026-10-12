@@ -2253,7 +2253,7 @@ function useTyped(runtime: AssistantRuntime): boolean {
 /**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
  * with what the agent is asking above its composer. ⌥⌘⌫ (Ctrl+Alt+Backspace
- * off a Mac) archives it, or brings it back.
+ * off a Mac) archives it; only Unarchive brings it back.
  */
 function Thread({
 	drafts,
@@ -2521,13 +2521,17 @@ function Thread({
 		{
 			label: archived ? "Unarchive" : "Archive",
 			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
-			detail: <Kbd>{ARCHIVE}</Kbd>,
+			detail: archived ? undefined : <Kbd>{ARCHIVE}</Kbd>,
 			run: () => archive.file(),
 		},
 	];
 	const references = useReferences(runtime.thread.composer, tasks, actions);
-	// Archived, on to the next; brought back, still here.
-	const fileByKey = () => archive.file(archived ? undefined : onLeft);
+	// Archived, on to the next. Already archived, the key does nothing.
+	const fileByKey = () => {
+		if (!archived) {
+			archive.file(onLeft);
+		}
+	};
 	// The latest, for the listener below, which outlives a render.
 	const fileRef = useRef(fileByKey);
 	fileRef.current = fileByKey;
@@ -2702,9 +2706,7 @@ function Thread({
 											mentions={mentions ?? undefined}
 											references={references}
 											placeholder={
-												archived
-													? `Archived: unarchive (${ARCHIVE}) to continue`
-													: undefined
+												archived ? "Archived: unarchive to continue" : undefined
 											}
 											controls={
 												!archived &&

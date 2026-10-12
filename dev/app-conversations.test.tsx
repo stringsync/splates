@@ -534,7 +534,7 @@ describe("App's conversations", () => {
 		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
 	});
 
-	it("brings an archived conversation back on ⌥⌘⌫, staying on it", async () => {
+	it("leaves an archived conversation archived on ⌥⌘⌫", async () => {
 		await conversations([], null);
 		await testing.say(conversation({ status: "stopped", archived: true }));
 		await act(async () => {
@@ -544,9 +544,7 @@ describe("App's conversations", () => {
 
 		await pressArchive();
 
-		expect(posted("/api/conversations/c1/archived")).toEqual([
-			{ method: "PUT", body: { archived: false } },
-		]);
+		expect(posted("/api/conversations/c1/archived")).toEqual([]);
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
@@ -560,7 +558,7 @@ describe("App's conversations", () => {
 
 		const box = await view.findByRole("textbox", { name: "Message input" });
 		expect(box.getAttribute("placeholder")).toBe(
-			"Archived: unarchive (⌥⌘⌫) to continue",
+			"Archived: unarchive to continue",
 		);
 	});
 
