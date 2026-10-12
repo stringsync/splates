@@ -60,7 +60,7 @@ rather than on trunk.
 
 `--agent claude` (or any agent on the roster, `arbor agents`) hands the task to another agent: once
 `postCheckout` has readied the worktree, the record names the agent, and
-`arbor dev --experimental` starts a conversation with it in the worktree,
+`arbor dev` starts a conversation with it in the worktree,
 told to `arbor claim` the task and then whatever `--prompt` says. `--model`
 picks its model by its id or name on the roster, refusing one the roster
 does not list; the agent's own model stays when its session offers no such
@@ -255,7 +255,7 @@ a successful `merge` and a `remove` both take the record with them, so this is
 the only thing that remembers a task landed at all. The last 1000 are kept
 (`logCapacity`) in `.git/arbor/log.jsonl`.
 
-### `arbor dev [--port 4269] [--allow-hosts <names>] [--experimental]`
+### `arbor dev [--port 4269] [--allow-hosts <names>]`
 
 The todos and the tasks in a browser, on `http://localhost:4269`, reloading
 themselves as anything changes: while a page shows a project, `arbor dev`
@@ -358,10 +358,9 @@ repo's plans and change its todos, so the tunnel has to be the one asking who yo
 (Cloudflare Access, a Tailscale tailnet). Never expose it through a tunnel
 with no login in front.
 
-#### Conversations (experimental)
+#### Conversations
 
-`--experimental` turns on what is still being tried out. For now that is a
-third page, Conversations, where you talk to an agent that speaks the
+A third page, Conversations, is where you talk to an agent that speaks the
 [Agent Client Protocol](https://agentclientprotocol.com): any agent on the
 roster (see `arbor agents`), by default Claude or Codex, each started through
 `bunx` with its ACP adapter (`@agentclientprotocol/claude-agent-acp`,
@@ -450,7 +449,7 @@ Prints the roster: every agent arbor can start, the command that starts it,
 and its models, each with what it is good at and what it costs, so an
 orchestrator in any model family can choose whom to delegate to. The roster is
 the user's, not a project's: `~/.arbor/agents.json`, beside the project
-registry. The first `arbor agents` or `arbor dev --experimental` writes the
+registry. The first `arbor agents` or `arbor dev` writes the
 defaults there (Claude and Codex, with the models their adapters offer) and
 says so; edit it to add an agent, drop one, or rewrite a note. A model's `id`
 is the value the agent's Model setting takes, like `opus` or `gpt-6-luna`.

@@ -648,11 +648,7 @@ export async function dev(
 		/** The conversations a page may hold, or a refusal when they are off. */
 		const held = (): Conversations => {
 			if (conversations === null) {
-				fail(
-					"not_found",
-					"conversations are off: run `arbor dev --experimental`",
-					{},
-				);
+				fail("not_found", "conversations are off", {});
 			}
 			return conversations;
 		};
@@ -1060,11 +1056,7 @@ export async function dev(
 					);
 				}
 				if (shell === null) {
-					fail(
-						"not_found",
-						"terminals are off: run `arbor dev --experimental`",
-						{},
-					);
+					fail("not_found", "terminals are off", {});
 				}
 				const project = await projectFor(request);
 				await project.format.check();

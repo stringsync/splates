@@ -69,7 +69,7 @@ export class Testing implements Resource {
 	stream: Stream | null = null;
 	/**
 	 * The conversations `/api/conversations` lists, and the agents beside them;
-	 * null, the default, answers as `arbor dev` without `--experimental` does.
+	 * null, the default, answers as a server with no conversations does.
 	 */
 	talk: {
 		agents: AgentChoice[];

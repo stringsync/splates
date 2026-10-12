@@ -31,8 +31,8 @@ export function agentName(agents: AgentChoice[], id: string): string {
 
 /**
  * The page's copy of every conversation, each replaced whole as the server
- * streams it. `available` stays false when `arbor dev` runs without
- * `--experimental`, and the page then shows no Conversations at all.
+ * streams it. `available` stays false when the server holds no
+ * conversations, and the page then shows no Conversations at all.
  */
 export class ConversationFeed
 	implements Eventful<ConversationFeedEvents>, Resource

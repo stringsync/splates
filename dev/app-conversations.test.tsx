@@ -120,7 +120,7 @@ describe("App's conversations", () => {
 				body: JSON.parse(String(post.body ?? "{}")),
 			}));
 
-	it("shows no Conversations without `--experimental`", async () => {
+	it("shows no Conversations when the server has none", async () => {
 		const view = await testing.open();
 
 		expect(view.queryByRole("tab", { name: /Conversations/ })).toBeNull();

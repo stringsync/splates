@@ -26,8 +26,7 @@ import type { Assignment, Dispatch } from "./dispatch";
 
 /**
  * How the board and the Tasks page put agents to work, and open the
- * conversation that does it; none while the page holds no conversations, as
- * without `--experimental`.
+ * conversation that does it; none while the page holds no conversations.
  */
 export const Dispatching = createContext<{
 	dispatch: Dispatch;

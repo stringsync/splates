@@ -93,7 +93,7 @@ arbor
 	.option("agent", z.string(), {
 		default: "",
 		description:
-			"hand the task to an agent on the roster (`arbor agents`), which `arbor dev --experimental` starts in the worktree, told to claim it; the conversation you run this from stays where it is",
+			"hand the task to an agent on the roster (`arbor agents`), which `arbor dev` starts in the worktree, told to claim it; the conversation you run this from stays where it is",
 	})
 	.option("model", z.string(), {
 		default: "",
@@ -248,11 +248,6 @@ arbor
 		description:
 			"comma-separated host names the page may also be reached by, like a tunnel's; putting a login in front of them is the tunnel's job",
 	})
-	.option("experimental", z.boolean(), {
-		default: false,
-		description:
-			"turn on what is still being tried out: for now, conversations with ACP agents (Claude, Codex) and a terminal in the page, which run commands on this machine and so answer only to it",
-	})
 	.action(async (opts, ctx) => {
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
@@ -260,7 +255,7 @@ arbor
 			return;
 		}
 		// Read once: a roster edited while it serves applies from the restart.
-		const roster = opts.experimental ? await seeded(rosterOf(ctx)) : [];
+		const roster = await seeded(rosterOf(ctx));
 		// One for every project's conversations, so none overwrites another's.
 		const offered = new Offered(`${arborHome(ctx.ps)}/offered.json`, {
 			fs: ctx.fs,
@@ -271,19 +266,15 @@ arbor
 				.split(",")
 				.map((host) => host.trim())
 				.filter(Boolean),
-			conversations: opts.experimental
-				? ({ arborDir, git }) =>
-						new Conversations(`${arborDir}/conversations`, roster, {
-							fs: ctx.fs,
-							offered,
-							watch: new Watch(git),
-						})
-				: null,
+			conversations: ({ arborDir, git }) =>
+				new Conversations(`${arborDir}/conversations`, roster, {
+					fs: ctx.fs,
+					offered,
+					watch: new Watch(git),
+				}),
 			// A login shell, as a terminal window opens, so the person's PATH
 			// and aliases are there.
-			shell: opts.experimental
-				? [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"]
-				: null,
+			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
 			newest: () => newest(),
 			exit: (code) => ctx.ps.exit(code),
 		});

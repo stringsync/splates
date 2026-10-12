@@ -955,7 +955,7 @@ describe("dev", () => {
 				expect(response.status).toBe(404);
 				expect(await response.json()).toMatchObject({
 					reason: "not_found",
-					message: "conversations are off: run `arbor dev --experimental`",
+					message: "conversations are off",
 				});
 			});
 		});
@@ -1667,7 +1667,7 @@ describe("dev", () => {
 
 				expect(response.status).toBe(404);
 				expect(await response.json()).toMatchObject({
-					message: "terminals are off: run `arbor dev --experimental`",
+					message: "terminals are off",
 				});
 			});
 		});
