@@ -1121,8 +1121,8 @@ const RECENT = 5;
 /**
  * The screen with no conversation open: an empty thread whose first message
  * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
- * composer, and under the greeting the latest conversations to pick back up,
- * those waiting on the person first.
+ * composer, and under the greeting the latest unfinished conversations to
+ * pick back up, none whose task merged.
  */
 function Home({
 	drafts,
@@ -1176,10 +1176,13 @@ function Home({
 	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string, images: File[]) => void>(() => {});
-	// Only those at rest: one at work or waiting on the person is in the
-	// sidebar already, and is not one to pick back up.
+	// Only unfinished work at rest: one at work or waiting on the person is in
+	// the sidebar already, and one whose task merged is done.
 	const recent = listed
-		.filter((each) => needOf(tasks, each).kind === "idle")
+		.filter(
+			(each) =>
+				needOf(tasks, each).kind === "idle" && reportedAs(each) !== "merged",
+		)
 		.slice(0, RECENT);
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,

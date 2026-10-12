@@ -657,10 +657,27 @@ describe("App's conversations", () => {
 		}
 	});
 
-	it("with none open, offers the latest idle conversations to pick back up, none working or waiting", async () => {
+	it("with none open, offers the latest idle conversations to pick back up, none working, waiting, or merged", async () => {
 		const view = await conversations(
 			[
 				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+				conversation({
+					id: "c7",
+					task: null,
+					title: "Landed",
+					messages: [
+						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+					],
+				}),
+				conversation({
+					id: "c8",
+					task: null,
+					title: "Carried on",
+					messages: [
+						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+						message("user", "now the footer"),
+					],
+				}),
 				conversation({ id: "c4", title: "Busy", status: "running" }),
 				conversation({ id: "c5", task: null, title: "Look into it" }),
 				conversation({
@@ -692,7 +709,12 @@ describe("App's conversations", () => {
 			within(recent)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["alpha", "Look into itmain tree", "beta"]);
+		).toEqual([
+			"alpha",
+			"Carried onmain tree",
+			"Look into itmain tree",
+			"beta",
+		]);
 		expect(within(recent).queryByRole("status")).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(recent).getByRole("button", { name: /alpha/ })),
