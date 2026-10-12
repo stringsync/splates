@@ -1702,6 +1702,37 @@ describe("App's conversations", () => {
 			]);
 		});
 
+		it("scrolls the whole next question into view on Enter, clear of the composer", async () => {
+			const view = await conversations([asking()]);
+			const first = await waitFor(() =>
+				within(card(view, "1")).getByRole("button", { name: /Todos/ }),
+			);
+			await waitFor(() => expect(document.activeElement === first).toBe(true));
+			const scrolled: Element[] = [];
+			const scroll = spyOn(
+				HTMLElement.prototype,
+				"scrollIntoView",
+			).mockImplementation(function (this: HTMLElement) {
+				scrolled.push(this);
+			});
+			try {
+				await act(async () => fireEvent.keyDown(first, { key: "Enter" }));
+				await act(async () =>
+					fireEvent.keyDown(document.activeElement as Element, {
+						key: "Enter",
+					}),
+				);
+			} finally {
+				scroll.mockRestore();
+			}
+
+			expect(scrolled).toEqual([card(view, "2"), card(view, "3")]);
+			const thread = view.container.ownerDocument.querySelector(
+				'[data-slot="aui_thread-viewport"]',
+			) as HTMLElement;
+			expect(thread.style.scrollPaddingBottom).toMatch(/^\d+px$/);
+		});
+
 		it("sends with ⌘Enter from any question", async () => {
 			const view = await conversations([asking()]);
 			const note = await waitFor(

@@ -261,7 +261,10 @@ export function QuestionCards({
 		const all = stops();
 		const following =
 			all[all.findIndex((stop) => stop.dataset.stop === number) + 1];
-		following?.focus();
+		// The whole question in view, not just its first stop, which the
+		// browser would leave at the very foot of the thread.
+		following?.focus({ preventScroll: true });
+		following?.closest("li, footer")?.scrollIntoView({ block: "nearest" });
 		if (following instanceof HTMLTextAreaElement) {
 			following.setSelectionRange(
 				following.value.length,

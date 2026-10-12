@@ -246,6 +246,8 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 		};
 	}, []);
 	useAnchorAtOnce(viewport);
+	const footer = useRef<HTMLDivElement>(null);
+	useClearOf(viewport, footer);
 
 	return (
 		<ThreadPrimitive.Root
@@ -288,6 +290,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 					</div>
 
 					<ThreadPrimitive.ViewportFooter
+						ref={footer}
 						className={cn(
 							"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2",
 							!isEmpty &&
@@ -307,6 +310,31 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 		</ThreadPrimitive.Root>
 	);
 };
+
+/**
+ * Keeps `viewport`'s scroll padding at the bottom as tall as `footer`, which
+ * sticks over the foot of the thread, so what is scrolled into view, as by
+ * focusing it, lands above the composer rather than behind it.
+ */
+function useClearOf(
+	viewport: RefObject<HTMLDivElement | null>,
+	footer: RefObject<HTMLDivElement | null>,
+): void {
+	useLayoutEffect(() => {
+		const scroller = viewport.current;
+		const over = footer.current;
+		if (scroller === null || over === null) {
+			return;
+		}
+		const measure = () => {
+			scroller.style.scrollPaddingBottom = `${over.offsetHeight}px`;
+		};
+		measure();
+		const watching = new ResizeObserver(measure);
+		watching.observe(over);
+		return () => watching.disconnect();
+	}, [viewport, footer]);
+}
 
 /**
  * The person's message that opens the turn assistant-ui anchors to the top:
