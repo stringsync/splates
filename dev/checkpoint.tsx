@@ -1,5 +1,5 @@
 import { CheckIcon, FlagIcon, Loader2Icon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
@@ -18,7 +18,6 @@ import {
 	listProjects,
 	type ProjectChoice,
 	type ProjectConversation,
-	resumeConversations,
 } from "./api";
 import { projectUrl } from "./projects";
 import { Refusal, useRefusal } from "./refusal";
@@ -75,8 +74,9 @@ function standing(conversations: ProjectConversation[]): Standing {
  * The sidebar's Checkpoint, opening a dialog to checkpoint any of the
  * projects with agents running, and saying how one under way gets on. Asks
  * the server for every project again as `conversations`, this project's,
- * change, and each second while a checkpoint is under way. Shown while any
- * project has an agent running, or a checkpoint asked.
+ * change, and each second while a checkpoint is under way, closing the
+ * dialog once it ends. Shown while any project has an agent running, or a
+ * checkpoint asked.
  */
 export function CheckpointButton({
 	conversations,
@@ -115,6 +115,14 @@ export function CheckpointButton({
 		);
 		return () => tick.dispose();
 	}, [all.going, open, load]);
+	// Closes the dialog once a checkpoint under way ends.
+	const going = useRef(all.going);
+	useEffect(() => {
+		if (going.current > 0 && all.going === 0) {
+			setOpen(false);
+		}
+		going.current = all.going;
+	}, [all.going]);
 	if (shown.length === 0) {
 		return null;
 	}
@@ -165,7 +173,7 @@ export function CheckpointButton({
 /**
  * Picks projects to checkpoint and what follows, this one picked to start
  * with. A project whose checkpoint is asked lists how each of its agents
- * gets on instead of being picked, with Dismiss, and Resume once it ends.
+ * gets on instead of being picked, with Dismiss.
  */
 function CheckpointDialog({
 	open,
@@ -181,6 +189,12 @@ function CheckpointDialog({
 	const [picked, setPicked] = useState<Set<string> | null>(null);
 	const [after, setAfter] = useState<After>("stop");
 	const { refusal, refuse } = useRefusal();
+	useEffect(() => {
+		if (!open) {
+			setPicked(null);
+			setAfter("stop");
+		}
+	}, [open]);
 	const pickable = projects.filter(
 		(each) => standing(each.conversations).asked.length === 0,
 	);
@@ -199,16 +213,7 @@ function CheckpointDialog({
 		pickable.some((each) => each.slug === slug),
 	);
 	return (
-		<Dialog
-			open={open}
-			onOpenChange={(next) => {
-				onOpenChange(next);
-				if (!next) {
-					setPicked(null);
-					setAfter("stop");
-				}
-			}}
-		>
+		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>Checkpoint</DialogTitle>
@@ -304,7 +309,7 @@ function ProjectRow({
 	onChange: () => void;
 	refuse: (what: string, error: unknown) => void;
 }): JSX.Element {
-	const { asked, going, live } = standing(project.conversations);
+	const { asked, live } = standing(project.conversations);
 	const href = (id: string) => {
 		const url = new URL(projectUrl(project));
 		url.hash = `#conversations/${id}`;
@@ -343,21 +348,6 @@ function ProjectRow({
 		<li className="flex flex-col rounded-md border px-2 py-1.5">
 			<div className="flex items-center gap-2">
 				{name}
-				{going === 0 && (
-					<Button
-						size="xs"
-						variant="outline"
-						title="Tell each agent the checkpoint stopped to carry on"
-						onClick={() =>
-							resumeConversations(project.slug).then(
-								onChange,
-								(error: unknown) => refuse("Not resumed", error),
-							)
-						}
-					>
-						Resume
-					</Button>
-				)}
 				<Button
 					size="xs"
 					variant="ghost"

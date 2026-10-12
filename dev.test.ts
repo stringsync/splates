@@ -1344,51 +1344,6 @@ describe("dev", () => {
 			}
 		});
 
-		it("resumes each one a checkpoint stopped, at the person's word", async () => {
-			const said: string[] = [];
-			agent.turn = async (_, __, text) => {
-				said.push(text);
-				return "end_turn";
-			};
-			const server = await dev(deps, {
-				ports: OpenPortProvider.any(),
-				conversations: () => conversations,
-			});
-			try {
-				const { port } = server;
-				const started = await json(port, "/api/conversations", "POST", {
-					agent: "fake",
-				});
-				const { id } = (await started.json()) as { id: string };
-				const conversation = await conversations.find(id);
-				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-					await Bun.sleep(5);
-				}
-				await json(port, "/api/checkpoint", "POST", {
-					projects: ["repo"],
-					after: "stop",
-				});
-				for (
-					let i = 0;
-					i < 100 && conversation.state.checkpoint !== "done";
-					i++
-				) {
-					await Bun.sleep(5);
-				}
-
-				const response = await json(port, "/api/conversations/resume", "POST");
-
-				expect(response.status).toBe(200);
-				for (let i = 0; i < 100 && said.length < 2; i++) {
-					await Bun.sleep(5);
-				}
-				expect(said).toEqual([CHECKPOINT, RESUME]);
-				expect(conversation.state.checkpoint).toBeNull();
-			} finally {
-				await server.disposeAsync();
-			}
-		});
-
 		it("restarts once every live one has checkpointed, and each carries on when served again", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {

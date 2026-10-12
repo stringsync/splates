@@ -342,11 +342,6 @@ export async function checkpointProjects(
 	await sendJson("/api/checkpoint", "POST", { projects, after });
 }
 
-/** Tells each agent a checkpoint stopped in project `slug` to carry on. */
-export async function resumeConversations(slug: string): Promise<void> {
-	await send(inProject("/api/conversations/resume", slug), {});
-}
-
 /** Forgets project `slug`'s checkpoint, so the next one starts afresh. */
 export async function dismissCheckpoint(slug: string): Promise<void> {
 	await send(inProject("/api/conversations/checkpoint", slug), {

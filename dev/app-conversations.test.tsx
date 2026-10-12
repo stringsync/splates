@@ -584,7 +584,7 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("resumes those a checkpoint stopped once it has ended, naming those it missed", async () => {
+	it("names those a checkpoint missed once it has ended, with no Resume", async () => {
 		testing.projects = [
 			project(
 				"webappwiz",
@@ -602,17 +602,45 @@ describe("App's conversations", () => {
 		expect(row.title).toBe("Not checkpointed: Two");
 
 		await act(async () => fireEvent.click(row));
+
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint" }),
+		);
+		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
+	});
+
+	it("closes the dialog once the checkpoint under way ends", async () => {
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		const view = await conversations(
+			[conversation({ id: "c1", title: "One", status: "running" })],
+			null,
+		);
 		await act(async () =>
 			fireEvent.click(
-				within(
-					await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" })),
-				).getByRole("button", { name: "Resume" }),
+				await waitFor(() =>
+					view.getByRole("button", { name: "Checkpointing 0 of 1" }),
+				),
 			),
 		);
+		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
 
-		expect(posted("/api/conversations/resume?project=webappwiz")).toEqual([
-			{ method: "POST", body: {} },
-		]);
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "One",
+				status: "stopped",
+				checkpoint: "done",
+			}),
+		);
+
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "Checkpoint" })).toBeNull(),
+		);
 	});
 
 	describe("back from a restart", () => {

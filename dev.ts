@@ -837,16 +837,6 @@ export async function dev(
 			return Response.json({});
 		};
 
-		/** Tells each agent a checkpoint stopped here to carry on. */
-		const resumeConversations = async (): Promise<Response> => {
-			for (const conversation of await held().list()) {
-				if (conversation.stoppedByCheckpoint) {
-					void conversation.prompt(RESUME).catch(() => {});
-				}
-			}
-			return Response.json({});
-		};
-
 		const unqueueConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const { index } = await body(request);
@@ -958,7 +948,6 @@ export async function dev(
 			answerConversation,
 			cancelConversation,
 			dismissCheckpoint,
-			resumeConversations,
 			unqueueConversation,
 			sendQueuedNow,
 			chooseSetting,
@@ -1316,9 +1305,6 @@ export async function dev(
 			"/api/conversations/checkpoint": {
 				DELETE: talk(scoped((project) => project.dismissCheckpoint)),
 			},
-			"/api/conversations/resume": {
-				POST: talk(scoped((project) => project.resumeConversations)),
-			},
 			"/api/conversations/events": talk(
 				scoped((project) => project.conversationEvents),
 			),
@@ -1605,7 +1591,6 @@ interface Served extends AsyncResource {
 	 */
 	checkpoint: (after?: After) => Promise<Promise<void>[]>;
 	dismissCheckpoint: Handler;
-	resumeConversations: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;
 	conversationImage: Handler;
