@@ -34,6 +34,8 @@ describe("stretches", () => {
 				base: null,
 				reason: "needs two calls on the todo board",
 				body: "One sentence on what changed.",
+				source:
+					"## ⚠️ Escalated <task>: needs two calls on the todo board\n\nOne sentence on what changed.",
 			},
 		});
 		expect(found[1]).toEqual({
@@ -157,6 +159,8 @@ describe("stretches", () => {
 				base: "<base>",
 				reason: null,
 				body: "One sentence on what changed.\n\n- Restart `arbor dev` to see it.",
+				source:
+					"## ✅ Merged <task> onto <base>\n\nOne sentence on what changed.\n\n- Restart `arbor dev` to see it.",
 			},
 		});
 		expect(stretches(removed)[0]).toEqual({
@@ -167,6 +171,8 @@ describe("stretches", () => {
 				base: null,
 				reason: "superseded by a fix on main",
 				body: "One sentence on what the task set out to do.",
+				source:
+					"## 🛑 Removed <task>: superseded by a fix on main\n\nOne sentence on what the task set out to do.",
 			},
 		});
 	});
@@ -271,6 +277,7 @@ describe("stretches", () => {
 					base: null,
 					reason: null,
 					body: "",
+					source: "## ⚠ Escalated header",
 				},
 			},
 		]);

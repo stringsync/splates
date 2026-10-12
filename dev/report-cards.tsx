@@ -2,6 +2,8 @@ import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
 	ArchiveIcon,
 	CheckIcon,
+	CodeIcon,
+	CopyIcon,
 	GitBranchIcon,
 	HourglassIcon,
 	ListTodoIcon,
@@ -9,13 +11,13 @@ import {
 	PaperclipIcon,
 	PlayIcon,
 } from "lucide-react";
-import { createContext, type JSX, useContext } from "react";
+import { createContext, type JSX, useContext, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Proposal, Report } from "../asked";
 import { todoReference } from "../prompts";
 import { Board } from "./board";
-import { Badge } from "./card";
+import { Badge, copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { Markdown } from "./markdown";
 import { InMessage, useCardReply } from "./question-cards";
@@ -44,6 +46,9 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	// to put its conversation away.
 	const over = report.ending !== "escalated";
 	const text = reportText(report);
+	// Shows the markdown the agent wrote in place of the card's body, until
+	// toggled back; never kept, so the card opens rendered.
+	const [showing, setShowing] = useState(false);
 	return (
 		<CardShell
 			label={`${report.ending} ${report.task}`}
@@ -53,15 +58,54 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 			task={report.task}
 			base={report.base}
 			aside={
-				conversation === null || !over ? undefined : (
-					<Archive {...conversation} />
-				)
+				<span className="flex items-center gap-2">
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						aria-label="Show source"
+						aria-pressed={showing}
+						title={showing ? "Hide source" : "Show source"}
+						onClick={() => setShowing(!showing)}
+						className={cn(showing && "bg-accent text-accent-foreground")}
+					>
+						<CodeIcon />
+					</Button>
+					{conversation !== null && over && <Archive {...conversation} />}
+				</span>
 			}
 		>
-			{text === "" ? undefined : (
+			{showing ? (
+				<Source text={report.source} />
+			) : text === "" ? undefined : (
 				<CardBody text={text} lead={report.reason !== null} />
 			)}
 		</CardShell>
+	);
+}
+
+/** A report's markdown as the agent wrote it, to read or copy. */
+function Source({ text }: { text: string }): JSX.Element {
+	const { copied, copy } = useCopy();
+	return (
+		<div className="relative">
+			<pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words px-4 py-3.5 pr-24 font-mono text-[12px] leading-relaxed">
+				{text}
+			</pre>
+			<Button
+				size="sm"
+				variant="outline"
+				title={copied.state === "failed" ? copied.error : undefined}
+				onClick={() => copy(text)}
+				className="absolute top-2.5 right-2.5 h-7 gap-1.5 bg-background"
+			>
+				{copied.state === "copied" ? (
+					<CheckIcon data-icon="inline-start" />
+				) : (
+					<CopyIcon data-icon="inline-start" />
+				)}
+				<span aria-live="polite">{copiedLabel(copied, "Copy")}</span>
+			</Button>
+		</div>
 	);
 }
 

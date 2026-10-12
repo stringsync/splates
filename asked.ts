@@ -60,6 +60,8 @@ export interface Report {
 	reason: string | null;
 	/** What changed, and anything else said before what follows, as markdown. */
 	body: string;
+	/** The markdown the agent wrote for it, from its title to its end. */
+	source: string;
 }
 
 /** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
@@ -199,6 +201,7 @@ function keptAt(
 			end,
 		};
 	}
+	const source = lines.slice(start, end).join("\n").replace(/\s+$/, "");
 	const report: Report =
 		merged !== null
 			? {
@@ -207,6 +210,7 @@ function keptAt(
 					base: merged[2] as string,
 					reason: null,
 					body,
+					source,
 				}
 			: {
 					ending: ended?.[1] === undefined ? "escalated" : "removed",
@@ -214,6 +218,7 @@ function keptAt(
 					base: null,
 					reason: ended?.[3] || null,
 					body,
+					source,
 				};
 	return { stretch: { type: "report", report }, end };
 }

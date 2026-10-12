@@ -3339,6 +3339,53 @@ describe("App's conversations", () => {
 			}
 		});
 
+		it("shows a report's markdown as the agent wrote it in place of its body, to copy, until toggled back", async () => {
+			const written = [
+				"## ✅ Merged header onto main",
+				"",
+				"The header **wraps** now.",
+			].join("\n");
+			const view = await conversations([
+				conversation({
+					messages: [
+						message(
+							"agent",
+							`${written}\n\n### 📝 Fold the sidebar [#7]\n\nNext.`,
+						),
+					],
+				}),
+			]);
+			const copied: string[] = [];
+			Object.defineProperty(navigator, "clipboard", {
+				configurable: true,
+				value: { writeText: async (text: string) => void copied.push(text) },
+			});
+			const card = await waitFor(() =>
+				view.getByRole("region", { name: "merged header" }),
+			);
+			const toggle = within(card).getByRole("button", { name: "Show source" });
+			expect(toggle.getAttribute("aria-pressed")).toBe("false");
+			expect(card.querySelector("pre")).toBeNull();
+
+			act(() => fireEvent.click(toggle));
+
+			expect(toggle.getAttribute("aria-pressed")).toBe("true");
+			expect(card.querySelector("pre")?.textContent).toBe(written);
+			expect(card.querySelector("strong")).toBeNull();
+			await act(async () =>
+				fireEvent.click(within(card).getByRole("button", { name: "Copy" })),
+			);
+			expect(copied).toEqual([written]);
+			expect(
+				within(card).getByRole("button", { name: "Copied" }),
+			).not.toBeNull();
+
+			act(() => fireEvent.click(toggle));
+
+			expect(card.querySelector("pre")).toBeNull();
+			expect(card.querySelector("strong")?.textContent).toBe("wraps");
+		});
+
 		it("offers to archive the conversation from each report of a task that is over, then starts the next", async () => {
 			const view = await conversations([
 				conversation({
