@@ -390,7 +390,7 @@ describe("App's conversations", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["TerminalCtrl+`", "Archive"]);
+		).toEqual(["TerminalCtrl+`", "Archive⌥⌘⌫"]);
 	});
 
 	it("archives a stopped conversation from the list, with the agent's mark in place of its name", async () => {
@@ -459,6 +459,71 @@ describe("App's conversations", () => {
 		expect(posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
+	});
+
+	/** Presses ⌥⌘⌫, by the key's place as on a Mac. */
+	const pressArchive = () =>
+		act(async () =>
+			fireEvent.keyDown(document.body, {
+				code: "Backspace",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+
+	it("archives the open conversation on ⌥⌘⌫, going on to the next agent waiting on you", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", title: "Done", status: "stopped" }),
+			conversation({ id: "c2", title: "Broke", status: "failed" }),
+		]);
+		expect(location.hash).toBe("#conversations/c1");
+
+		// Backspace alone, or ⌥⌫ that deletes a word, archives nothing.
+		await act(async () =>
+			fireEvent.keyDown(document.body, { code: "Backspace", altKey: true }),
+		);
+		expect(posted("/api/conversations/c1/archived")).toEqual([]);
+		await pressArchive();
+
+		expect(posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+		await waitFor(() => expect(location.hash).toBe("#conversations/c2"));
+		expect(view.getByRole("heading", { name: "Broke" })).toBeTruthy();
+	});
+
+	it("archives the open conversation on ⌥⌘⌫ to a new one with none waiting, asking first while its agent runs", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", title: "Fix login", status: "running" }),
+		]);
+
+		await pressArchive();
+		const dialog = view.getByRole("dialog", { name: "Archive Fix login?" });
+		expect(posted("/api/conversations/c1/archived")).toEqual([]);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+		);
+
+		expect(posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
+	});
+
+	it("brings an archived conversation back on ⌥⌘⌫, staying on it", async () => {
+		await conversations([], null);
+		await testing.say(conversation({ status: "stopped", archived: true }));
+		await act(async () => {
+			location.hash = "#conversations/c1";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+
+		await pressArchive();
+
+		expect(posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: false } },
+		]);
+		expect(location.hash).toBe("#conversations/c1");
 	});
 
 	/** A conversation of `slug`'s, as the projects route lists it. */
@@ -3466,7 +3531,7 @@ describe("App's conversations", () => {
 			fireEvent.click(
 				within(view.getByRole("navigation", { name: "actions" })).getByRole(
 					"button",
-					{ name: "Archive" },
+					{ name: /^Archive/ },
 				),
 			),
 		);
@@ -3595,7 +3660,7 @@ describe("App's conversations", () => {
 			fireEvent.click(
 				within(view.getByRole("navigation", { name: "actions" })).getByRole(
 					"button",
-					{ name: "Unarchive" },
+					{ name: /^Unarchive/ },
 				),
 			),
 		);

@@ -206,7 +206,7 @@ describe("App's terminal", () => {
 				fireEvent.click(
 					within(view.getByRole("navigation", { name: "actions" })).getByRole(
 						"button",
-						{ name: "Archive" },
+						{ name: /^Archive/ },
 					),
 				),
 			);

@@ -333,17 +333,7 @@ export function ConversationList({
 	);
 
 	const listed = conversations.filter((each) => !each.archived);
-	const external = needs({ tasks, conversations }).filter(
-		(each) => each.conversation === null,
-	);
-	const rows: Needing[] = [
-		...listed.map((conversation) => ({
-			conversation,
-			task: null,
-			need: needOf(tasks, conversation),
-		})),
-		...external,
-	].toSorted((one, other) => started(other).localeCompare(started(one)));
+	const rows = rowsOf(tasks, conversations);
 	const archived = conversations.length - listed.length;
 	const nested = nest(rows, tasks, taskOfRow);
 	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
@@ -372,18 +362,9 @@ export function ConversationList({
 	shownRef.current = shown;
 	const next = useRef(() => {});
 	next.current = () => {
-		const at = rows.findIndex(
-			(row) =>
-				(row.conversation !== null && row.conversation.id === open) ||
-				(row.task !== null && `${TASK}${row.task.task}` === open),
-		);
-		// After the one open, around to the top.
-		const after = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
-		const waiting = after.find(waitsOnYou);
+		const waiting = nextWaiting(rows, open);
 		if (waiting !== undefined) {
-			arriveAt(
-				waiting.conversation?.id ?? `${TASK}${waiting.task?.task ?? ""}`,
-			);
+			arriveAt(openedBy(waiting));
 			openRow(waiting);
 		}
 	};
@@ -542,6 +523,9 @@ export function ConversationList({
 	);
 }
 
+/** What archives the open conversation, or brings it back. */
+const ARCHIVE = "⌥⌘⌫";
+
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
 
@@ -619,6 +603,44 @@ export function useHeld(): boolean {
 		};
 	}, []);
 	return held;
+}
+
+/** The sidebar's rows, newest first: the conversations listed, then external agents. */
+function rowsOf(
+	tasks: Details[],
+	conversations: ConversationState[],
+): Needing[] {
+	const external = needs({ tasks, conversations }).filter(
+		(each) => each.conversation === null,
+	);
+	return [
+		...conversations
+			.filter((each) => !each.archived)
+			.map((conversation) => ({
+				conversation,
+				task: null,
+				need: needOf(tasks, conversation),
+			})),
+		...external,
+	].toSorted((one, other) => started(other).localeCompare(started(one)));
+}
+
+/** What opens `row`: its conversation's id, or its external agent's task. */
+function openedBy(row: Needing): string {
+	return row.conversation?.id ?? `${TASK}${row.task?.task ?? ""}`;
+}
+
+/**
+ * The next of `rows` that waits on you after the one `open` shows, around to
+ * the top: what ⌥⌘M opens. The one open comes last, so ⌥⌘M on the only one
+ * waiting goes back to its questions.
+ */
+function nextWaiting(
+	rows: Needing[],
+	open: string | null,
+): Needing | undefined {
+	const at = rows.findIndex((row) => openedBy(row) === open);
+	return [...rows.slice(at + 1), ...rows.slice(0, at + 1)].find(waitsOnYou);
 }
 
 /** The task a sidebar row is on, which its parts nest under. */
@@ -920,7 +942,7 @@ function Item({
 								Mark as unread
 							</DropdownMenuItem>
 						)}
-						<DropdownMenuItem onClick={file}>
+						<DropdownMenuItem onClick={() => file()}>
 							<Put />
 							{put}
 						</DropdownMenuItem>
@@ -930,7 +952,7 @@ function Item({
 					size="icon-xs"
 					variant="ghost"
 					aria-label={`${put} ${nameOf(conversation)}`}
-					onClick={file}
+					onClick={() => file()}
 				>
 					<Put />
 				</Button>
@@ -941,33 +963,44 @@ function Item({
 }
 
 /**
- * Archives `conversation`, or brings it back. While its agent works, or sits
- * idle with its shell up, `file` asks first in `confirm`, since archiving
- * stops both; render `confirm` beside whatever calls `file`.
+ * Archives `conversation`, or brings it back, then runs `then`. While its
+ * agent works, or sits idle with its shell up, `file` asks first in
+ * `confirm`, since archiving stops both; render `confirm` beside whatever
+ * calls `file`.
  */
 function useArchive(
 	conversation: ConversationState,
 	refuse: Refuse,
 ): {
-	file: () => void;
+	file: (then?: () => void) => void;
 	confirm: JSX.Element;
 } {
 	const [asking, setAsking] = useState(false);
+	// Held while `confirm` asks.
+	const after = useRef<(() => void) | undefined>(undefined);
 	const shellRunning = useContext(ShellRunning);
 	const { id, archived } = conversation;
 	const put = () =>
-		void archiveConversation(id, !archived).catch((error: unknown) =>
-			refuse(archived ? "Not unarchived" : "Not archived", error),
+		void archiveConversation(id, !archived).then(
+			() => after.current?.(),
+			(error: unknown) =>
+				refuse(archived ? "Not unarchived" : "Not archived", error),
 		);
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
 	// Idle, only its shell can lose anything, like a dev server it runs; asked
 	// as it is clicked, since the shell comes and goes without a render here.
-	const file = () =>
-		!archived &&
-		(working || (conversation.status === "idle" && shellRunning(id)))
-			? setAsking(true)
-			: put();
+	const file = (then?: () => void) => {
+		after.current = then;
+		if (
+			!archived &&
+			(working || (conversation.status === "idle" && shellRunning(id)))
+		) {
+			setAsking(true);
+		} else {
+			put();
+		}
+	};
 	const confirm = (
 		<Dialog open={asking} onOpenChange={setAsking}>
 			<DialogContent showCloseButton={false}>
@@ -1294,6 +1327,15 @@ export function Conversations({
 						refusal={refusals.get(shown.id) ?? null}
 						refuseIn={refuse}
 						onArchived={() => onOpen(NEW)}
+						onLeft={() => {
+							const waiting = nextWaiting(rowsOf(tasks, conversations), open);
+							if (waiting === undefined || openedBy(waiting) === open) {
+								onOpen(NEW);
+							} else {
+								arriveAt(openedBy(waiting));
+								onOpen(openedBy(waiting));
+							}
+						}}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
@@ -1963,7 +2005,8 @@ function useTyped(runtime: AssistantRuntime): boolean {
 
 /**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
- * with what the agent is asking above its composer.
+ * with what the agent is asking above its composer. ⌥⌘⌫ (Ctrl+Alt+Backspace
+ * off a Mac) archives it, or brings it back.
  */
 function Thread({
 	drafts,
@@ -1976,6 +2019,7 @@ function Thread({
 	refusal,
 	refuseIn,
 	onArchived,
+	onLeft,
 	onOpen,
 	onBack,
 }: {
@@ -2000,6 +2044,11 @@ function Thread({
 	refuseIn: (id: string, title: string, error: unknown) => void;
 	/** Once a report card has archived it, to start the next. */
 	onArchived: () => void;
+	/**
+	 * Once ⌥⌘⌫ has archived it, to go on to the next agent waiting on you, or
+	 * a new conversation with none.
+	 */
+	onLeft: () => void;
 	onOpen: (id: string) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
@@ -2213,9 +2262,30 @@ function Thread({
 		{
 			label: archived ? "Unarchive" : "Archive",
 			icon: <ArchiveIcon />,
-			run: archive.file,
+			detail: <Kbd>{ARCHIVE}</Kbd>,
+			run: () => archive.file(),
 		},
 	];
+	// Archived, on to the next; brought back, still here.
+	const fileByKey = () => archive.file(archived ? undefined : onLeft);
+	// The latest, for the listener below, which outlives a render.
+	const fileRef = useRef(fileByKey);
+	fileRef.current = fileByKey;
+	useEffect(() => {
+		// By the key's place, as ⌥⌘N and ⌥⌘M.
+		const file = (event: KeyboardEvent) => {
+			if (
+				event.code === "Backspace" &&
+				event.altKey &&
+				(event.metaKey || event.ctrlKey)
+			) {
+				event.preventDefault();
+				fileRef.current();
+			}
+		};
+		document.addEventListener("keydown", file);
+		return () => document.removeEventListener("keydown", file);
+	}, []);
 	// The latest, so the card's callback stays the same across renders.
 	const onArchivedRef = useRef(onArchived);
 	onArchivedRef.current = onArchived;
