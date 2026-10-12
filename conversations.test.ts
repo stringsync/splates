@@ -536,23 +536,25 @@ describe("Conversations", () => {
 				await finish(conversation);
 			});
 
-			it("carries on once done, when asked to continue", async () => {
+			it("resumes after a restart it was not asked for, once done", async () => {
 				const conversation = await started();
-				await conversation.checkpoint(false, "continue");
+				await conversation.checkpoint(false);
 				for (let i = 0; i < 100 && held.finish === undefined; i++) {
 					await Bun.sleep(1);
 				}
-
-				const finishing = held.finish;
-				held.finish = undefined;
-				finishing?.("end_turn");
-				for (let i = 0; i < 100 && said.length < 2; i++) {
-					await Bun.sleep(1);
-				}
-
-				expect(said).toEqual([CHECKPOINT, RESUME]);
-				expect(conversation.state.checkpoint).toBeNull();
 				await finish(conversation);
+				expect(conversation.resumes).toBe(false);
+
+				conversation.resumeAfterRestart();
+
+				expect(conversation.resumes).toBe(true);
+				await conversation.stop();
+				const [read] = await new Conversations(
+					"/repo/.git/arbor/conversations",
+					[AGENT],
+					{ fs, timer, clock, launch: agent.launch },
+				).list();
+				expect(read?.resumes).toBe(true);
 			});
 
 			it("keeps where it stands in the log, to resume after the restart it was for", async () => {

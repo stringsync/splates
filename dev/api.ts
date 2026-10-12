@@ -331,15 +331,37 @@ function inProject(path: string, slug: string): string {
 }
 
 /**
- * Asks every live conversation in each of `projects`, by slug, to bring its
- * `ARBOR.md` up to date and stop, each saying how it gets on in its
- * `checkpoint`, and then does what `after` says: a restart waits on them all.
+ * Asks every live conversation in each of `projects`, by slug, or only those
+ * `conversations` names by id, to bring its `ARBOR.md` up to date and stop,
+ * each saying how it gets on in its `checkpoint`, and then does what `after`
+ * says: a restart waits on them all.
  */
 export async function checkpointProjects(
 	projects: string[],
 	after: After,
+	conversations?: string[],
 ): Promise<void> {
-	await sendJson("/api/checkpoint", "POST", { projects, after });
+	await sendJson("/api/checkpoint", "POST", {
+		projects,
+		after,
+		...(conversations === undefined ? {} : { conversations }),
+	});
+}
+
+/**
+ * Tells each agent done with the checkpoint, in every project, to carry on,
+ * and forgets the checkpoint of those it missed.
+ */
+export async function resumeCheckpoint(): Promise<void> {
+	await send("/api/checkpoint/resume", {});
+}
+
+/**
+ * Restarts `arbor dev` now, each agent done with the checkpoint carrying on
+ * once served again.
+ */
+export async function restartFromCheckpoint(): Promise<void> {
+	await send("/api/checkpoint/restart", {});
 }
 
 /** Forgets project `slug`'s checkpoint, so the next one starts afresh. */

@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { SystemTimer } from "webappwiz/time";
 import type { Checkpoint, ConversationState, Setting } from "../conversations";
 import type { Snapshot } from "../snapshot";
 import type { ProjectChoice } from "./api";
@@ -554,7 +553,7 @@ describe("App's conversations", () => {
 		expect(within(dialog).queryByRole("checkbox")).toBeNull();
 	});
 
-	it("says how each agent of a checkpoint under way gets on, until dismissed", async () => {
+	it("says how each agent of a checkpoint under way gets on", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "Fix login")], true),
 			project("shop", [
@@ -577,49 +576,16 @@ describe("App's conversations", () => {
 		);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Checkpoint under way" }),
 		);
-		expect(
-			within(dialog).queryByRole("checkbox", { name: "Checkpoint shop" }),
-		).toBeNull();
+		expect(within(dialog).queryByRole("checkbox")).toBeNull();
 		expect(within(dialog).getByText("Checkpointed")).toBeTruthy();
 		expect(within(dialog).getByText("Checkpointing")).toBeTruthy();
 		expect(within(dialog).getByText("No response")).toBeTruthy();
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" })),
-		);
-		expect(posted("/api/conversations/checkpoint?project=shop")).toEqual([
-			{ method: "DELETE", body: {} },
-		]);
 	});
 
-	it("names those a checkpoint missed once it has ended, with no Resume", async () => {
-		testing.projects = [
-			project(
-				"webappwiz",
-				[live("c1", "One", "done"), live("c2", "Two", "unanswered")],
-				true,
-			),
-		];
-		const view = await conversations(
-			[conversation({ id: "c1", title: "One", status: "stopped" })],
-			null,
-		);
-		const row = await waitFor(() =>
-			view.getByRole("button", { name: "Checkpoint done, 1 missed" }),
-		);
-		expect(row.title).toBe("Not checkpointed: Two");
-
-		await act(async () => fireEvent.click(row));
-
-		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
-		);
-		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
-	});
-
-	it("closes the dialog once the checkpoint under way ends, saying it is done after its agents carry on", async () => {
+	it("slides on to Done once the checkpoint ends, opening on its own, and resumes its agents", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
@@ -627,14 +593,10 @@ describe("App's conversations", () => {
 			[conversation({ id: "c1", title: "One", status: "running" })],
 			null,
 		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("button", { name: "Checkpointing 0 of 1" }),
-				),
-			),
+		await waitFor(() =>
+			view.getByRole("button", { name: "Checkpointing 0 of 1" }),
 		);
-		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
+		expect(view.queryByRole("dialog")).toBeNull();
 
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "done")], true),
@@ -648,25 +610,72 @@ describe("App's conversations", () => {
 			}),
 		);
 
-		await waitFor(() =>
-			expect(view.queryByRole("dialog", { name: "Checkpoint" })).toBeNull(),
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint done" }),
 		);
-		expect(view.getByRole("button", { name: "Checkpoint done" })).toBeTruthy();
-
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
-		await testing.say(
-			conversation({ id: "c1", title: "One", status: "running" }),
+		expect(dialog.textContent).toContain("1 agent checkpointed and stopped.");
+		expect(
+			within(dialog).queryByRole("button", { name: "Retry missed" }),
+		).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Resume" })),
 		);
-
-		await waitFor(() =>
-			expect(
-				view.getByRole("button", { name: "Checkpoint done" }),
-			).toBeTruthy(),
-		);
+		expect(posted("/api/checkpoint/resume")).toEqual([
+			{ method: "POST", body: {} },
+		]);
 	});
 
-	it("says a checkpoint is done for five seconds, even when its agents carry on before the page hears it end", async () => {
-		const timeouts = spyOn(SystemTimer.prototype, "setTimeout");
+	it("retries those a checkpoint missed, restarts, or closes, leaving them stopped", async () => {
+		testing.projects = [
+			project(
+				"webappwiz",
+				[live("c1", "One", "done"), live("c2", "Two", "asked")],
+				true,
+			),
+		];
+		const view = await conversations(
+			[conversation({ id: "c1", title: "One", status: "stopped" })],
+			null,
+		);
+		testing.projects = [
+			project(
+				"webappwiz",
+				[live("c1", "One", "done"), live("c2", "Two", "unanswered")],
+				true,
+			),
+		];
+		await testing.say(conversation({ id: "c2", title: "Two", status: "idle" }));
+
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint done" }),
+		);
+		expect(dialog.textContent).toContain("1 missed: Two.");
+		// The footer's, not the corner's, which does the same.
+		const click = (name: string) =>
+			act(async () =>
+				fireEvent.click(
+					within(dialog).getAllByRole("button", { name }).at(-1) as Element,
+				),
+			);
+
+		await click("Retry missed");
+		expect(posted("/api/checkpoint")).toEqual([
+			{
+				method: "POST",
+				body: { projects: ["webappwiz"], after: "stop", conversations: ["c2"] },
+			},
+		]);
+		await click("Restart");
+		expect(posted("/api/checkpoint/restart")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+		await click("Close");
+		expect(posted("/api/conversations/checkpoint?project=webappwiz")).toEqual([
+			{ method: "DELETE", body: {} },
+		]);
+	});
+
+	it("keeps a done checkpoint on the button while looking at one of its agents", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
@@ -674,25 +683,33 @@ describe("App's conversations", () => {
 			[conversation({ id: "c1", title: "One", status: "running" })],
 			null,
 		);
-		await waitFor(() =>
-			view.getByRole("button", { name: "Checkpointing 0 of 1" }),
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "One",
+				status: "stopped",
+				checkpoint: "done",
+			}),
+		);
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint done" }),
 		);
 
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
-		await testing.say(conversation({ id: "c1", title: "One", status: "idle" }));
-
-		await waitFor(() =>
-			expect(
-				view.getByRole("button", { name: "Checkpoint done" }),
-			).toBeTruthy(),
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("link", { name: /One/ })),
 		);
-		const [shown] = timeouts.mock.calls.filter(
-			([, delay]) => delay.ms === 5000,
-		);
-		timeouts.mockRestore();
-		await act(async () => shown?.[0]());
 
-		expect(view.getByRole("button", { name: "Checkpoint" })).toBeTruthy();
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(posted("/api/conversations/checkpoint?project=webappwiz")).toEqual(
+			[],
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Checkpoint done" })),
+		);
+		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint done" }));
 	});
 
 	describe("back from a restart", () => {

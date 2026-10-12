@@ -19,6 +19,7 @@ import {
 	type After,
 	type Answer,
 	type Checkpoint,
+	type Conversation,
 	type Conversations,
 	RESUME,
 } from "./conversations";
@@ -654,13 +655,15 @@ export async function dev(
 		};
 
 		/**
-		 * Asks every live conversation for a checkpoint, without waiting on the
-		 * agents: one whose task is merging gets to finish the merge first.
-		 * While one is still asked, the checkpoint under way stands, and nothing
-		 * is asked again. Answers with what settles as each asked answers.
+		 * Asks every live conversation for a checkpoint, or only those `only`
+		 * names by id, without waiting on the agents: one whose task is merging
+		 * gets to finish the merge first. While one is still asked, the
+		 * checkpoint under way stands, and nothing is asked again. Answers with
+		 * what settles as each asked answers.
 		 */
 		const checkpoint = async (
 			after: After = "stop",
+			only?: string[],
 		): Promise<Promise<void>[]> => {
 			const all = (await conversations?.list()) ?? [];
 			if (all.some((each) => each.state.checkpoint === "asked")) {
@@ -668,6 +671,9 @@ export async function dev(
 			}
 			const asked: Promise<void>[] = [];
 			for (const conversation of all) {
+				if (only !== undefined && !only.includes(conversation.id)) {
+					continue;
+				}
 				// What the last one said goes, so this one lists only its own.
 				conversation.dismissCheckpoint();
 				const { task, status } = conversation.state;
@@ -1180,26 +1186,78 @@ export async function dev(
 		const read = (await request.json().catch(() => ({}))) as {
 			projects?: unknown;
 			after?: unknown;
+			conversations?: unknown;
 		};
 		const slugs = Array.isArray(read.projects) ? read.projects.map(String) : [];
 		if (slugs.length === 0) {
 			fail("usage", "name a project to checkpoint", {});
 		}
-		const after: After =
-			read.after === "restart" || read.after === "continue"
-				? read.after
-				: "stop";
+		const after: After = read.after === "restart" ? "restart" : "stop";
+		const only = Array.isArray(read.conversations)
+			? read.conversations.map(String)
+			: undefined;
 		if (after === "restart" && exit === null) {
 			fail("usage", "arbor dev cannot restart itself here: restart it", {});
 		}
 		const chosen = await Promise.all(slugs.map(projectNamed));
 		const asked: Promise<void>[] = [];
 		for (const project of chosen) {
-			asked.push(...(await project.checkpoint(after)));
+			asked.push(...(await project.checkpoint(after, only)));
 		}
 		if (after === "restart") {
 			restartAfter(asked);
 		}
+		return Response.json({});
+	};
+
+	/** Each conversation a checkpoint has asked, in every project. */
+	const checkpointed = async (): Promise<Conversation[]> => {
+		const all: Conversation[] = [];
+		for (const settled of await Promise.allSettled(served.values())) {
+			if (settled.status === "fulfilled") {
+				for (const each of (await settled.value.conversations?.list()) ?? []) {
+					if (each.state.checkpoint !== null) {
+						all.push(each);
+					}
+				}
+			}
+		}
+		return all;
+	};
+
+	/**
+	 * Tells each agent done with the checkpoint, in every project, to carry
+	 * on, and forgets the checkpoint of those it missed.
+	 */
+	const resumeCheckpoint = async (): Promise<Response> => {
+		restarting = false;
+		for (const conversation of await checkpointed()) {
+			const done = conversation.state.checkpoint === "done";
+			conversation.dismissCheckpoint();
+			if (done) {
+				void conversation.prompt(RESUME).catch(() => {});
+			}
+		}
+		return Response.json({});
+	};
+
+	/**
+	 * Restarts `arbor dev` now, on a newer arbor if one is out, each agent
+	 * done with the checkpoint carrying on once served again; those it missed
+	 * are forgotten, and stop as they are.
+	 */
+	const restartFromCheckpoint = async (): Promise<Response> => {
+		if (exit === null) {
+			fail("usage", "arbor dev cannot restart itself here: restart it", {});
+		}
+		for (const conversation of await checkpointed()) {
+			if (conversation.state.checkpoint === "done") {
+				conversation.resumeAfterRestart();
+			} else {
+				conversation.dismissCheckpoint();
+			}
+		}
+		restartAfter([]);
 		return Response.json({});
 	};
 
@@ -1255,6 +1313,10 @@ export async function dev(
 			"/api/release": guarded(showRelease),
 			"/api/release/checkpoint": { POST: guarded(checkpointRelease) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
+			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },
+			"/api/checkpoint/restart": {
+				POST: talk(guarded(restartFromCheckpoint)),
+			},
 			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
@@ -1581,7 +1643,7 @@ interface Served extends AsyncResource {
 	 * Asks every live conversation here to bring its ARBOR.md up to date,
 	 * answering with what settles as each answers.
 	 */
-	checkpoint: (after?: After) => Promise<Promise<void>[]>;
+	checkpoint: (after?: After, only?: string[]) => Promise<Promise<void>[]>;
 	dismissCheckpoint: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;

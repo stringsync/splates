@@ -1,5 +1,5 @@
 import { CheckIcon, FlagIcon, Loader2Icon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { type JSX, useCallback, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
@@ -18,22 +18,21 @@ import {
 	listProjects,
 	type ProjectChoice,
 	type ProjectConversation,
+	restartFromCheckpoint,
+	resumeCheckpoint,
+	showRelease,
 } from "./api";
 import { projectUrl } from "./projects";
 import { Refusal, useRefusal } from "./refusal";
 import { CheckpointState } from "./release";
 
-/** What a checkpoint can do once its agents have answered. */
+/** What a checkpoint does once its agents have answered. */
 const AFTERWARDS: { after: After; label: string; detail: string }[] = [
 	{
 		after: "stop",
 		label: "Checkpoint",
-		detail: "Each agent brings its ARBOR.md up to date and stops.",
-	},
-	{
-		after: "continue",
-		label: "Checkpoint and continue",
-		detail: "Then each carries on from it.",
+		detail:
+			"Each agent brings its ARBOR.md up to date and stops, then you pick what comes next.",
 	},
 	{
 		after: "restart",
@@ -43,43 +42,40 @@ const AFTERWARDS: { after: After; label: string; detail: string }[] = [
 	},
 ];
 
-/** How a project's checkpoint stands. */
+/** How a checkpoint stands. */
 interface Standing {
 	asked: ProjectConversation[];
 	/** Still to answer. */
 	going: number;
-	done: number;
 	missed: ProjectConversation[];
-	/** Live and not yet asked. */
-	live: number;
 }
-
-/** How long the button says a checkpoint is done before it reads Checkpoint again. */
-const DONE_FOR = Duration.secs(5);
 
 function standing(conversations: ProjectConversation[]): Standing {
 	const asked = conversations.filter((each) => each.checkpoint !== null);
-	const count = (checkpoint: string) =>
-		asked.filter((each) => each.checkpoint === checkpoint).length;
 	return {
 		asked,
-		going: count("asked"),
-		done: count("done"),
+		going: asked.filter((each) => each.checkpoint === "asked").length,
 		missed: asked.filter(
 			(each) =>
 				each.checkpoint === "failed" || each.checkpoint === "unanswered",
 		),
-		live: conversations.length - asked.length,
 	};
+}
+
+/** Where the dialog is: picking projects, waiting on agents, or done. */
+type Slide = "pick" | "going" | "done";
+
+function slideOf({ asked, going }: Standing): Slide {
+	return asked.length === 0 ? "pick" : going > 0 ? "going" : "done";
 }
 
 /**
  * The sidebar's Checkpoint, opening a dialog to checkpoint any of the
- * projects with agents running, and saying how one under way gets on, then
- * for a moment that it is done, or which agents it missed until dismissed.
+ * projects with agents running, which says how one under way gets on, then
+ * slides on to what to do once it is done, opening on its own for that.
  * Asks the server for every project again as `conversations`, this
- * project's, change, and each second while a checkpoint is under way,
- * closing the dialog once it ends.
+ * project's, change, and each second while a checkpoint is under way or the
+ * dialog is open.
  */
 export function CheckpointButton({
 	conversations,
@@ -87,8 +83,9 @@ export function CheckpointButton({
 	conversations: ConversationState[];
 }): JSX.Element {
 	const [projects, setProjects] = useState<ProjectChoice[]>([]);
-	const [open, setOpen] = useState(false);
-	const [done, setDone] = useState(false);
+	const [opened, setOpened] = useState(false);
+	// Closed to look at an agent, so a done checkpoint waits on the button.
+	const [aside, setAside] = useState(false);
 	const { refusal, refuse } = useRefusal();
 	const load = useCallback(
 		() =>
@@ -109,6 +106,8 @@ export function CheckpointButton({
 		(each) => !each.gone && each.conversations.length > 0,
 	);
 	const all = standing(shown.flatMap((each) => each.conversations));
+	const slide = slideOf(all);
+	const open = opened || (slide === "done" && !aside);
 	useEffect(() => {
 		if (all.going === 0 && !open) {
 			return;
@@ -119,69 +118,47 @@ export function CheckpointButton({
 		);
 		return () => tick.dispose();
 	}, [all.going, open, load]);
-	// Says a checkpoint under way is done for a moment once it ends, and
-	// closes the dialog.
-	const going = useRef(all.going);
 	useEffect(() => {
-		if (all.going > 0) {
-			setDone(false);
-		} else if (going.current > 0) {
-			setDone(true);
-			setOpen(false);
+		if (slide !== "done") {
+			setAside(false);
 		}
-		going.current = all.going;
-	}, [all.going]);
-	useEffect(() => {
-		if (!done) {
-			return;
-		}
-		const shown = new SystemTimer().setTimeout(() => setDone(false), DONE_FOR);
-		return () => shown.dispose();
-	}, [done]);
-	const missed = all.going === 0 ? all.missed : [];
+	}, [slide]);
 	return (
 		<>
 			<button
 				type="button"
 				data-row
-				onClick={() => setOpen(true)}
-				title={
-					missed.length > 0
-						? `Not checkpointed: ${missed.map((each) => each.name).join(", ")}`
-						: undefined
-				}
-				className={cn(
-					"flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-					missed.length > 0 && "text-destructive",
-				)}
+				onClick={() => {
+					setAside(false);
+					setOpened(true);
+				}}
+				className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
 			>
-				{all.going > 0 ? (
+				{slide === "going" ? (
 					<Loader2Icon className="size-3.5 animate-spin" />
-				) : done && missed.length === 0 ? (
+				) : slide === "done" ? (
 					<CheckIcon className="size-3.5" />
 				) : (
 					<FlagIcon className="size-3.5" />
 				)}
 				<span className="flex-1 truncate">
-					{all.going > 0
+					{slide === "going"
 						? `Checkpointing ${all.asked.length - all.going} of ${all.asked.length}`
-						: missed.length > 0
-							? `Checkpoint done, ${missed.length} missed`
-							: done
-								? "Checkpoint done"
-								: "Checkpoint"}
+						: slide === "done"
+							? "Checkpoint done"
+							: "Checkpoint"}
 				</span>
 			</button>
 			<Refusal refusal={refusal} className="px-3 pb-1.5" />
 			<CheckpointDialog
 				open={open}
-				onOpenChange={setOpen}
+				onClose={() => setOpened(false)}
+				onAside={() => {
+					setOpened(false);
+					setAside(true);
+				}}
 				projects={shown}
 				onChange={load}
-				onDismiss={() => {
-					setDone(false);
-					void load();
-				}}
 			/>
 		</>
 	);
@@ -189,38 +166,132 @@ export function CheckpointButton({
 
 /**
  * Picks projects to checkpoint and what follows, this one picked to start
- * with. A project whose checkpoint is asked lists how each of its agents
- * gets on instead of being picked, with Dismiss.
+ * with; then lists how each agent asked gets on; then, once all have
+ * answered, offers to resume them, restart, or retry those it missed.
+ * Closing it once done leaves the agents stopped and forgets the checkpoint.
  */
 function CheckpointDialog({
 	open,
-	onOpenChange,
+	onClose,
+	onAside,
 	projects,
 	onChange,
-	onDismiss,
 }: {
 	open: boolean;
-	onOpenChange: (open: boolean) => void;
+	onClose: () => void;
+	/** Follows a link to an agent, leaving a done checkpoint where it is. */
+	onAside: () => void;
 	projects: ProjectChoice[];
-	onChange: () => void;
-	onDismiss: () => void;
+	onChange: () => Promise<void>;
+}): JSX.Element {
+	const all = standing(projects.flatMap((each) => each.conversations));
+	const slide = slideOf(all);
+	const { refusal, refuse } = useRefusal();
+	const [busy, setBusy] = useState(false);
+	/** Does `write`, then asks again, saying why when refused. */
+	const act = (write: () => Promise<void>, failed: string) => {
+		setBusy(true);
+		return write()
+			.then(onChange, (error: unknown) => refuse(failed, error))
+			.finally(() => setBusy(false));
+	};
+	const close = () => {
+		if (slide !== "done") {
+			onClose();
+			return;
+		}
+		const asked = projects.filter(
+			(each) => standing(each.conversations).asked.length > 0,
+		);
+		void act(
+			() =>
+				Promise.all(asked.map((each) => dismissCheckpoint(each.slug))).then(
+					() => {},
+				),
+			"Not dismissed",
+		).then(onClose);
+	};
+	return (
+		<Dialog open={open} onOpenChange={(next) => !next && close()}>
+			<DialogContent className="sm:max-w-md">
+				{/* Keyed, so each slide comes in on its own. */}
+				<div
+					key={slide}
+					className="grid gap-4 duration-200 animate-in fade-in-0 slide-in-from-right-8"
+				>
+					{slide === "pick" ? (
+						<PickSlide
+							projects={projects}
+							onClose={onClose}
+							onAsk={(go, after) =>
+								act(() => checkpointProjects(go, after), "Not checkpointed")
+							}
+						/>
+					) : (
+						<>
+							<DialogHeader>
+								<DialogTitle>
+									{slide === "going"
+										? "Checkpoint under way"
+										: "Checkpoint done"}
+								</DialogTitle>
+								<DialogDescription>
+									{slide === "going"
+										? "Each agent is bringing its ARBOR.md up to date."
+										: summary(all)}
+								</DialogDescription>
+							</DialogHeader>
+							<AskedList projects={projects} onOpen={onAside} />
+							<Refusal refusal={refusal} />
+							{slide === "going" ? (
+								<DialogFooter>
+									<Button variant="outline" onClick={onClose}>
+										Close
+									</Button>
+								</DialogFooter>
+							) : (
+								<DoneActions
+									standing={all}
+									projects={projects}
+									busy={busy}
+									onClose={close}
+									act={act}
+								/>
+							)}
+						</>
+					)}
+				</div>
+				{slide === "pick" && <Refusal refusal={refusal} />}
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+/** What a done checkpoint came to, in a sentence. */
+function summary({ asked, missed }: Standing): string {
+	const done = asked.length - missed.length;
+	const stopped = `${done} ${done === 1 ? "agent" : "agents"} checkpointed and stopped.`;
+	return missed.length === 0
+		? stopped
+		: `${stopped} ${missed.length} missed: ${missed.map((each) => each.name).join(", ")}.`;
+}
+
+/** The projects to pick, with what follows, and the button that asks. */
+function PickSlide({
+	projects,
+	onClose,
+	onAsk,
+}: {
+	projects: ProjectChoice[];
+	onClose: () => void;
+	onAsk: (projects: string[], after: After) => Promise<void>;
 }): JSX.Element {
 	const [picked, setPicked] = useState<Set<string> | null>(null);
 	const [after, setAfter] = useState<After>("stop");
-	const { refusal, refuse } = useRefusal();
-	useEffect(() => {
-		if (!open) {
-			setPicked(null);
-			setAfter("stop");
-		}
-	}, [open]);
-	const pickable = projects.filter(
-		(each) => standing(each.conversations).asked.length === 0,
-	);
-	// This project to start with, once the dialog knows which are pickable.
+	// This project to start with, once the dialog knows which there are.
 	const chosen =
 		picked ??
-		new Set(pickable.filter((each) => each.here).map((each) => each.slug));
+		new Set(projects.filter((each) => each.here).map((each) => each.slug));
 	const toggle = (slug: string) => {
 		const next = new Set(chosen);
 		if (!next.delete(slug)) {
@@ -229,35 +300,40 @@ function CheckpointDialog({
 		setPicked(next);
 	};
 	const go = [...chosen].filter((slug) =>
-		pickable.some((each) => each.slug === slug),
+		projects.some((each) => each.slug === slug),
 	);
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
-				<DialogHeader>
-					<DialogTitle>Checkpoint</DialogTitle>
-					<DialogDescription>
-						Each agent in the projects you pick brings its ARBOR.md up to date,
-						so the next one can carry on from it.
-					</DialogDescription>
-				</DialogHeader>
-				{projects.length === 0 && (
-					<p className="text-muted-foreground text-sm">No agent is running.</p>
-				)}
-				<ul aria-label="projects" className="flex flex-col gap-1">
-					{projects.map((project) => (
-						<ProjectRow
-							key={project.slug}
-							project={project}
-							picked={chosen.has(project.slug)}
-							onPick={() => toggle(project.slug)}
-							onOpen={() => onOpenChange(false)}
-							onDismiss={onDismiss}
-							refuse={refuse}
-						/>
-					))}
-				</ul>
-				{pickable.length > 0 && (
+		<>
+			<DialogHeader>
+				<DialogTitle>Checkpoint</DialogTitle>
+				<DialogDescription>
+					Each agent in the projects you pick brings its ARBOR.md up to date, so
+					the next one can carry on from it.
+				</DialogDescription>
+			</DialogHeader>
+			{projects.length === 0 ? (
+				<p className="text-muted-foreground text-sm">No agent is running.</p>
+			) : (
+				<>
+					<ul aria-label="projects" className="flex flex-col gap-1">
+						{projects.map((project) => (
+							<li key={project.slug}>
+								<label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
+									<input
+										type="checkbox"
+										aria-label={`Checkpoint ${project.slug}`}
+										checked={chosen.has(project.slug)}
+										onChange={() => toggle(project.slug)}
+										className="accent-primary"
+									/>
+									<ProjectName project={project} />
+									<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+										{project.conversations.length} live
+									</span>
+								</label>
+							</li>
+						))}
+					</ul>
 					<fieldset className="flex flex-col gap-1">
 						<legend className="mb-1 text-muted-foreground text-xs">Then</legend>
 						{AFTERWARDS.map((each) => (
@@ -285,59 +361,137 @@ function CheckpointDialog({
 							</label>
 						))}
 					</fieldset>
-				)}
-				<Refusal refusal={refusal} />
-				<DialogFooter>
-					<Button variant="outline" onClick={() => onOpenChange(false)}>
-						Close
+				</>
+			)}
+			<DialogFooter>
+				<Button variant="outline" onClick={onClose}>
+					Close
+				</Button>
+				{projects.length > 0 && (
+					<Button
+						disabled={go.length === 0}
+						onClick={() => void onAsk(go, after)}
+					>
+						{go.length > 1 ? `Checkpoint ${go.length} projects` : "Checkpoint"}
 					</Button>
-					{pickable.length > 0 && (
-						<Button
-							disabled={go.length === 0}
-							onClick={() =>
-								checkpointProjects(go, after).then(
-									() => {
-										setPicked(null);
-										onChange();
-									},
-									(error: unknown) => refuse("Not checkpointed", error),
-								)
-							}
-						>
-							{go.length > 1
-								? `Checkpoint ${go.length} projects`
-								: "Checkpoint"}
-						</Button>
-					)}
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+				)}
+			</DialogFooter>
+		</>
 	);
 }
 
-/** One project in the dialog: a box to pick it, or how its checkpoint gets on. */
-function ProjectRow({
-	project,
-	picked,
-	onPick,
-	onOpen,
-	onDismiss,
-	refuse,
+/** The Done slide's way on: resume, restart, retry those missed, or close. */
+function DoneActions({
+	standing: { asked, missed },
+	projects,
+	busy,
+	onClose,
+	act,
 }: {
-	project: ProjectChoice;
-	picked: boolean;
-	onPick: () => void;
-	onOpen: () => void;
-	onDismiss: () => void;
-	refuse: (what: string, error: unknown) => void;
+	standing: Standing;
+	projects: ProjectChoice[];
+	busy: boolean;
+	onClose: () => void;
+	act: (write: () => Promise<void>, failed: string) => Promise<void>;
 }): JSX.Element {
-	const { asked, live } = standing(project.conversations);
-	const href = (id: string) => {
-		const url = new URL(projectUrl(project));
-		url.hash = `#conversations/${id}`;
-		return url.toString();
+	// A newer arbor, if one is out, is what a restart lands on.
+	const [newest, setNewest] = useState<string | null>(null);
+	useEffect(() => {
+		showRelease().then(
+			(release) => setNewest(release.newest),
+			() => {},
+		);
+	}, []);
+	const retry = () => {
+		const ids = new Set(missed.map((each) => each.id));
+		const slugs = projects
+			.filter((each) => each.conversations.some((one) => ids.has(one.id)))
+			.map((each) => each.slug);
+		return act(
+			() => checkpointProjects(slugs, "stop", [...ids]),
+			"Not checkpointed",
+		);
 	};
-	const name = (
+	const done = asked.length - missed.length;
+	return (
+		<DialogFooter>
+			<Button variant="outline" disabled={busy} onClick={onClose}>
+				Close
+			</Button>
+			{missed.length > 0 && (
+				<Button variant="outline" disabled={busy} onClick={() => void retry()}>
+					Retry missed
+				</Button>
+			)}
+			<Button
+				variant="outline"
+				disabled={busy}
+				onClick={() => void act(restartFromCheckpoint, "Not restarted")}
+			>
+				{newest === null ? "Restart" : `Restart on ${newest}`}
+			</Button>
+			{done > 0 && (
+				<Button
+					disabled={busy}
+					onClick={() => void act(resumeCheckpoint, "Not resumed")}
+				>
+					Resume
+				</Button>
+			)}
+		</DialogFooter>
+	);
+}
+
+/** Each project's agents a checkpoint asked, and how each got on. */
+function AskedList({
+	projects,
+	onOpen,
+}: {
+	projects: ProjectChoice[];
+	onOpen: () => void;
+}): JSX.Element {
+	return (
+		<ul aria-label="agents" className="flex flex-col gap-2">
+			{projects.map((project) => {
+				const { asked } = standing(project.conversations);
+				if (asked.length === 0) {
+					return null;
+				}
+				const href = (id: string) => {
+					const url = new URL(projectUrl(project));
+					url.hash = `#conversations/${id}`;
+					return url.toString();
+				};
+				return (
+					<li key={project.slug} className="flex flex-col gap-0.5">
+						<span className="flex px-1.5">
+							<ProjectName project={project} />
+						</span>
+						<ul className="flex flex-col">
+							{asked.map((each) => (
+								<li key={each.id}>
+									<a
+										href={href(each.id)}
+										onClick={onOpen}
+										className="flex items-baseline gap-2 rounded-md px-1.5 py-0.5 text-xs hover:bg-muted"
+									>
+										<span className="min-w-0 flex-1 truncate">{each.name}</span>
+										{each.checkpoint !== null && (
+											<CheckpointState checkpoint={each.checkpoint} />
+										)}
+									</a>
+								</li>
+							))}
+						</ul>
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
+function ProjectName({ project }: { project: ProjectChoice }): JSX.Element {
+	return (
 		<span className="flex min-w-0 flex-1 items-baseline gap-2">
 			<span className="truncate font-medium text-sm">{project.slug}</span>
 			{project.here && (
@@ -346,58 +500,5 @@ function ProjectRow({
 				</span>
 			)}
 		</span>
-	);
-	if (asked.length === 0) {
-		return (
-			<li>
-				<label className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
-					<input
-						type="checkbox"
-						aria-label={`Checkpoint ${project.slug}`}
-						checked={picked}
-						onChange={onPick}
-						className="accent-primary"
-					/>
-					{name}
-					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-						{live} live
-					</span>
-				</label>
-			</li>
-		);
-	}
-	return (
-		<li className="flex flex-col rounded-md border px-2 py-1.5">
-			<div className="flex items-center gap-2">
-				{name}
-				<Button
-					size="xs"
-					variant="ghost"
-					onClick={() =>
-						dismissCheckpoint(project.slug).then(onDismiss, (error: unknown) =>
-							refuse("Not dismissed", error),
-						)
-					}
-				>
-					Dismiss
-				</Button>
-			</div>
-			<ul className="flex flex-col">
-				{asked.map((each) => (
-					<li key={each.id}>
-						<a
-							href={href(each.id)}
-							onClick={onOpen}
-							className="flex items-baseline gap-2 rounded-md px-1.5 py-0.5 text-xs hover:bg-muted"
-						>
-							<span className="min-w-0 flex-1 truncate">{each.name}</span>
-							{each.checkpoint !== null && (
-								<CheckpointState checkpoint={each.checkpoint} />
-							)}
-						</a>
-					</li>
-				))}
-			</ul>
-		</li>
 	);
 }

@@ -636,10 +636,10 @@ export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
 export const RESUME = "[ARBOR RESUME]";
 
 /**
- * What follows a checkpoint: the agent stops; it carries on once done; or
- * `arbor dev` restarts once every agent is done, and each carries on after.
+ * What follows a checkpoint: the agent stops, or `arbor dev` restarts once
+ * every agent is done, and each carries on after.
  */
-export type After = "stop" | "continue" | "restart";
+export type After = "stop" | "restart";
 
 /**
  * One conversation with one agent. Live, it holds the agent's process; read
@@ -1447,9 +1447,6 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			(this.state.status as Status) === "idle"
 		) {
 			this.mark(error === null ? "done" : "failed");
-			if (this.after === "continue" && error === null) {
-				void this.prompt(RESUME).catch(() => {});
-			}
 		}
 	}
 
@@ -1459,6 +1456,17 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	 */
 	get resumes(): boolean {
 		return this.after === "restart" && this.stoppedByCheckpoint;
+	}
+
+	/**
+	 * Carries on once served again, when done with a checkpoint that asked
+	 * for no restart and `arbor dev` restarts after all.
+	 */
+	resumeAfterRestart(): void {
+		if (this.state.checkpoint === "done") {
+			this.after = "restart";
+			this.mark("done");
+		}
 	}
 
 	/** Whether a checkpoint has ended and nothing has been said since. */
