@@ -76,7 +76,7 @@ Prose back at the margin ends it.
 					"",
 					"![before](/tmp/before.png) ![after](/tmp/after.png)",
 				].join("\n"),
-				choices: [{ key: "a", text: "Ship it", chosen: false }],
+				choices: [{ key: "a", text: "Ship it", body: "", chosen: false }],
 				pick: "one",
 			}),
 		]);
@@ -95,6 +95,38 @@ Prose back at the margin ends it.
 		expect(third).toMatchObject({ choices: [], pick: null });
 		expect(fourth?.pick).toBe("one");
 		expect(fifth).toMatchObject({ pick: "any" });
+	});
+
+	it("reads the lines indented under a choice as that choice's", () => {
+		const [asked] = questions(`${GOOD}
+## Blocked
+
+- [ ] 1. Which style should the action list take?
+  The current one:
+  ![current](/tmp/current.png)
+  - (a) A rail (chosen)
+    ![rail](/tmp/rail.png)
+    Quietest of the two.
+  - (b) A panel
+    ![panel](/tmp/panel.png)
+  Dark ones are attached too.
+`);
+		expect(asked).toMatchObject({
+			body: [
+				"The current one:",
+				"![current](/tmp/current.png)",
+				"Dark ones are attached too.",
+			].join("\n"),
+			choices: [
+				{
+					key: "a",
+					text: "A rail",
+					body: "![rail](/tmp/rail.png)\nQuietest of the two.",
+					chosen: true,
+				},
+				{ key: "b", text: "A panel", body: "![panel](/tmp/panel.png)" },
+			],
+		});
 	});
 
 	it("reads `- a.` choices as ones a reply puts in order", () => {

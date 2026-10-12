@@ -74,6 +74,11 @@ export interface Choice {
 	/** What it says, without the `(chosen)` that may end it. */
 	text: string;
 	/**
+	 * The markdown indented under it, dedented: most often the screenshot of
+	 * what it would look like. Empty when there is none.
+	 */
+	body: string;
+	/**
 	 * Marked `(chosen)`: what the agent went with while it waits for the reply,
 	 * which picks nothing for the person.
 	 */
@@ -87,7 +92,7 @@ const ARROW = " → ";
 const FOLLOW_UP = /^[ \t]+→[ \t]+(.*)$/;
 /** `- (a) text` picks one, `- [a] text` picks any, `- a. text` is put in order. */
 const CHOICE =
-	/^[ \t]+- (?:\(([a-z])\)|\[([a-z])\]|([a-z])\.)[ \t]+(.+?)[ \t]*$/;
+	/^([ \t]+)- (?:\(([a-z])\)|\[([a-z])\]|([a-z])\.)[ \t]+(.+?)[ \t]*$/;
 /** What ends the choice the agent went with. */
 const CHOSEN = /[ \t]*\(chosen\)$/i;
 
@@ -122,17 +127,18 @@ export function questions(text: string): Question[] {
 			last.body.push(line);
 		}
 	}
-	return found.map(({ asked, body }) => {
-		asked.body = dedent(body);
-		return asked;
-	});
+	return found.map(({ asked, body }) => settled(asked, body));
 }
 
+/** How far each choice's dash is indented, which what is under it goes past. */
+const INDENTS = new WeakMap<Choice, number>();
+
 /**
- * Adds the choice `line` offers to `asked`, saying whether it was one: an
- * indented `- (a) text` picks one, `- [a] text` picks any, and `- a. text` is
- * put in order. The first choice says which for the question. The same in a
- * plan and in a conversation, which `asked.ts` reads with this.
+ * Adds what `line` offers to `asked`, saying whether it did: an indented
+ * `- (a) text` picks one, `- [a] text` picks any, and `- a. text` is put in
+ * order, and a line indented past a choice's dash, such as its screenshot,
+ * belongs to that choice. The first choice says which for the question. The
+ * same in a plan and in a conversation, which `asked.ts` reads with this.
  */
 export function offers(
 	asked: Pick<Question, "choices" | "pick">,
@@ -140,17 +146,39 @@ export function offers(
 ): boolean {
 	const choice = CHOICE.exec(line);
 	if (choice === null) {
-		return false;
+		const last = asked.choices.at(-1);
+		const indent = /^[ \t]*/.exec(line)?.[0].length ?? 0;
+		if (
+			last === undefined ||
+			line.trim() === "" ||
+			indent <= (INDENTS.get(last) ?? indent)
+		) {
+			return false;
+		}
+		last.body = last.body === "" ? line : `${last.body}\n${line}`;
+		return true;
 	}
-	const [, one, any, order, text = ""] = choice;
-	asked.choices.push({
+	const [, indent = "", one, any, order, text = ""] = choice;
+	const offered: Choice = {
 		key: one ?? any ?? order ?? "",
 		text: text.replace(CHOSEN, ""),
+		body: "",
 		chosen: CHOSEN.test(text),
-	});
+	};
+	INDENTS.set(offered, indent.length);
+	asked.choices.push(offered);
 	asked.pick ??=
 		one !== undefined ? "one" : any !== undefined ? "any" : "order";
 	return true;
+}
+
+/** `asked` with `body` as its own, and each choice's dedented. */
+export function settled(asked: Question, body: string[]): Question {
+	asked.body = dedent(body);
+	for (const choice of asked.choices) {
+		choice.body = dedent(choice.body.split("\n"));
+	}
+	return asked;
 }
 
 /** Lines with the indent they all share taken off, blank ends trimmed. */

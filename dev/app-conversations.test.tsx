@@ -1634,6 +1634,41 @@ describe("App's conversations", () => {
 			expect(asked.textContent).not.toContain("`");
 		});
 
+		it("shows a screenshot indented under a choice with that choice", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Actions",
+					messages: [
+						message("user", "restyle the actions"),
+						message(
+							"agent",
+							[
+								"1. Which style should the actions take?",
+								"   - (a) A rail",
+								"     ![rail](/abs/rail.png)",
+								"   - (b) A panel",
+								"     ![panel](/abs/panel.png)",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+
+			const asked = await waitFor(() => card(view, "1"));
+			const frame = (name: string) =>
+				within(asked).getByRole("button", { name: new RegExp(name) })
+					.parentElement as HTMLElement;
+			// Under the choice, as its alt text where the file will not load.
+			expect(frame("A rail").lastElementChild?.textContent).toContain("rail");
+			expect(frame("A panel").lastElementChild?.textContent).toContain("panel");
+			// The screenshots are no choices of their own.
+			expect(
+				within(asked)
+					.getAllByRole("button", { pressed: false })
+					.map((each) => each.textContent),
+			).toEqual(["aA rail", "bA panel"]);
+		});
+
 		it("keeps the answers in the card, never the composer, and sends them from it with anything else", async () => {
 			const view = await conversations([asking()]);
 			await waitFor(() => card(view, "2"));

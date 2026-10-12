@@ -464,11 +464,19 @@ function QuestionCard({
 		});
 	};
 	const keys = (event: KeyboardEvent<HTMLFieldSetElement>) => {
-		if (event.metaKey || event.ctrlKey || event.altKey) {
+		// A screenshot under a choice keeps its own keys.
+		if (
+			event.metaKey ||
+			event.ctrlKey ||
+			event.altKey ||
+			!(event.target as HTMLElement).hasAttribute("aria-pressed")
+		) {
 			return;
 		}
 		const buttons = [
-			...event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
+			...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+				"button[aria-pressed]",
+			),
 		];
 		const to = (index: number) => {
 			setAt(index);
@@ -543,52 +551,59 @@ function QuestionCard({
 							{choices.map((choice, index) => {
 								const on = said.picks.includes(choice.key);
 								return (
-									<button
+									// Its body sits under it in the same frame, outside the
+									// button, as a screenshot is a button of its own. Ringed on
+									// any focus, not just a keyboard one, since a card that
+									// comes up focuses its first choice itself.
+									<div
 										key={choice.key}
-										type="button"
-										aria-pressed={on}
-										disabled={!live}
-										// One stop per question for Tab; the arrows and letters move
-										// within it.
-										tabIndex={index === at ? 0 : -1}
-										data-stop={index === at ? number : undefined}
-										onFocus={() => setAt(index)}
-										onClick={() => toggle(choice.key)}
-										// Ringed on any focus, not just a keyboard one, since a card
-										// that comes up focuses its first choice itself.
 										className={cn(
-											"group flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition-[background-color,border-color,box-shadow,transform] duration-150 focus:ring-3 focus:ring-ring/40 active:scale-[0.99] disabled:cursor-default",
+											"group rounded-lg border transition-[background-color,border-color,box-shadow,transform] duration-150 has-[>button:active]:scale-[0.99] has-[>button:focus]:ring-3 has-[>button:focus]:ring-ring/40",
 											on
 												? "border-primary/60 bg-primary/[0.04] shadow-xs ring-1 ring-primary/15"
 												: "border-border/70 bg-background hover:border-border hover:bg-muted/50",
 										)}
 									>
-										<span
-											className={cn(
-												"flex size-5 shrink-0 items-center justify-center border font-medium font-mono text-[11px] transition-colors duration-150",
-												// A circle picks one, as a radio does; a square any.
-												pick === "any" ? "rounded-md" : "rounded-full",
-												on
-													? "border-primary bg-primary text-primary-foreground"
-													: "bg-muted/60 text-muted-foreground group-hover:bg-background",
-											)}
+										<button
+											type="button"
+											aria-pressed={on}
+											disabled={!live}
+											// One stop per question for Tab; the arrows and letters
+											// move within it.
+											tabIndex={index === at ? 0 : -1}
+											data-stop={index === at ? number : undefined}
+											onFocus={() => setAt(index)}
+											onClick={() => toggle(choice.key)}
+											className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm outline-none disabled:cursor-default"
 										>
-											{choice.key}
-										</span>
-										<Markdown
-											text={choice.text}
-											inline
-											unlinked
-											className="flex-1"
-										/>
-										{choice.chosen && <Chosen />}
-										<CheckIcon
-											className={cn(
-												"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",
-												on ? "scale-100 opacity-100" : "scale-75 opacity-0",
-											)}
-										/>
-									</button>
+											<span
+												className={cn(
+													"flex size-5 shrink-0 items-center justify-center border font-medium font-mono text-[11px] transition-colors duration-150",
+													// A circle picks one, as a radio does; a square any.
+													pick === "any" ? "rounded-md" : "rounded-full",
+													on
+														? "border-primary bg-primary text-primary-foreground"
+														: "bg-muted/60 text-muted-foreground group-hover:bg-background",
+												)}
+											>
+												{choice.key}
+											</span>
+											<Markdown
+												text={choice.text}
+												inline
+												unlinked
+												className="flex-1"
+											/>
+											{choice.chosen && <Chosen />}
+											<CheckIcon
+												className={cn(
+													"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",
+													on ? "scale-100 opacity-100" : "scale-75 opacity-0",
+												)}
+											/>
+										</button>
+										<ChoiceBody body={choice.body} />
+									</div>
 								);
 							})}
 						</fieldset>
@@ -618,6 +633,28 @@ function QuestionCard({
 				)}
 			</div>
 		</li>
+	);
+}
+
+/**
+ * What is indented under a choice, as its screenshot, lined up with its text
+ * unless `inset` is off, where it already sits under the text.
+ */
+function ChoiceBody({
+	body,
+	inset = true,
+}: {
+	body: string;
+	inset?: boolean;
+}): JSX.Element | null {
+	return body === "" ? null : (
+		<Markdown
+			text={body}
+			className={cn(
+				"text-[13px] text-muted-foreground leading-relaxed [&_p]:my-0",
+				inset && "pr-3 pb-2 pl-11",
+			)}
+		/>
 	);
 }
 
@@ -685,7 +722,12 @@ function Ranking({
 		requestAnimationFrame(() => focus(to));
 	};
 	const keys = (event: KeyboardEvent<HTMLOListElement>) => {
-		if (event.metaKey || event.ctrlKey) {
+		// A screenshot under a choice keeps its own keys.
+		if (
+			event.metaKey ||
+			event.ctrlKey ||
+			!(event.target as HTMLElement).hasAttribute("data-row")
+		) {
 			return;
 		}
 		const step =
@@ -733,7 +775,10 @@ function Ranking({
 						<span className="flex size-5 shrink-0 items-center justify-center rounded-md border bg-muted/60 font-medium font-mono text-[11px] text-muted-foreground">
 							{choice.key}
 						</span>
-						<Markdown text={choice.text} inline unlinked className="flex-1" />
+						<span className="flex min-w-0 flex-1 flex-col">
+							<Markdown text={choice.text} inline unlinked />
+							<ChoiceBody body={choice.body} inset={false} />
+						</span>
 						{live && (
 							<span className="flex shrink-0">
 								<Button

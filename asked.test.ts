@@ -56,8 +56,18 @@ describe("stretches", () => {
 				text: "How should a stale todo be shown?",
 				body: "",
 				choices: [
-					{ key: "a", text: "A muted card", chosen: false },
-					{ key: "b", text: 'A "stale" badge', chosen: false },
+					{
+						key: "a",
+						text: "A muted card",
+						body: "![muted card](/abs/path/muted.png)",
+						chosen: false,
+					},
+					{
+						key: "b",
+						text: 'A "stale" badge',
+						body: "![stale badge](/abs/path/badge.png)",
+						chosen: false,
+					},
 				],
 				pick: "one",
 			},
@@ -257,7 +267,12 @@ describe("stretches", () => {
 
 describe("withAnswer", () => {
 	const choices = (keys: string) =>
-		[...keys].map((key) => ({ key, text: `choice ${key}`, chosen: false }));
+		[...keys].map((key) => ({
+			key,
+			text: `choice ${key}`,
+			body: "",
+			chosen: false,
+		}));
 	const one = { number: "1", choices: choices("ab") };
 	const two = { number: "2", choices: choices("abc") };
 	const three = { number: "3", choices: [] };

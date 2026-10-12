@@ -1,4 +1,4 @@
-import { dedent, offers, type Question } from "./plan";
+import { offers, type Question, settled } from "./plan";
 
 /**
  * A stretch of an agent's message: markdown as it was written, the questions
@@ -239,10 +239,7 @@ function listAt(
 		return null;
 	}
 	return {
-		questions: items.map(({ asked, body }) => {
-			asked.body = dedent(body);
-			return asked;
-		}),
+		questions: items.map(({ asked, body }) => settled(asked, body)),
 		end,
 	};
 }
