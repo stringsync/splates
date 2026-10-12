@@ -27,6 +27,10 @@ import {
 } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { CodeDiff } from "#dev/components/assistant-ui/elements/code-diff.tsx";
+import {
+	field,
+	paper,
+} from "#dev/components/assistant-ui/elements/surfaces.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Edit, Step, Tool } from "../conversations";
 import { editLines } from "../diff";
@@ -92,10 +96,16 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				<details
 					open={open}
 					onToggle={(event) => setOpen(event.currentTarget.open)}
-					className="group/work"
+					// The timeline slides open and shut with the chevron, where the
+					// browser can size to `auto`; elsewhere it opens at once.
+					className={cn(
+						"group/work [interpolate-size:allow-keywords]",
+						"details-content:h-0 details-content:overflow-clip open:details-content:h-auto",
+						"details-content:transition-[height,content-visibility] details-content:transition-discrete details-content:duration-200 details-content:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:details-content:transition-none",
+					)}
 				>
 					<summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform group-open/work:rotate-90" />
+						<ChevronRightIcon className="size-3.5 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/work:rotate-90 motion-reduce:transition-none" />
 						<span
 							className={cn(
 								"min-w-0 truncate",
@@ -302,23 +312,47 @@ function Row({
 						</>
 					}
 				>
-					{tool.command !== null && (
-						<pre className="whitespace-pre-wrap break-all font-mono text-xs">
-							$ {tool.command}
-						</pre>
-					)}
-					{tool.output !== "" ? (
-						<section aria-label="output">
-							<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-xs">
-								{plain(tool.output)}
+					<div
+						className={cn(
+							paper,
+							"overflow-hidden rounded-md font-mono text-xs leading-relaxed",
+						)}
+					>
+						{tool.command !== null && (
+							// A hanging indent, so a long or many-line command lines up
+							// after its `$`.
+							<pre className="whitespace-pre-wrap py-1.5 pr-2.5 pl-[calc(0.625rem+2ch)] -indent-[2ch]">
+								$ {tool.command}
 							</pre>
-						</section>
-					) : (
-						tool.status !== "pending" &&
-						tool.status !== "in_progress" && (
-							<p className="text-muted-foreground text-xs">No output</p>
-						)
-					)}
+						)}
+						{tool.output !== "" ? (
+							<section
+								aria-label="output"
+								className={cn(
+									field,
+									tool.command !== null && "border-border/60 border-t",
+								)}
+							>
+								{/* Unwrapped, as a terminal shows it, so columns line up. */}
+								<pre className="max-h-80 overflow-auto whitespace-pre px-2.5 py-1.5 text-muted-foreground">
+									{plain(tool.output)}
+								</pre>
+							</section>
+						) : (
+							tool.status !== "pending" &&
+							tool.status !== "in_progress" && (
+								<p
+									className={cn(
+										field,
+										"px-2.5 py-1.5 font-sans text-muted-foreground",
+										tool.command !== null && "border-border/60 border-t",
+									)}
+								>
+									No output
+								</p>
+							)
+						)}
+					</div>
 				</Fold>
 			);
 		}
