@@ -93,6 +93,35 @@ describe("App's projects", () => {
 		).toHaveLength(1);
 	});
 
+	it("marks the closed switcher while another project has agents waiting on you", async () => {
+		const view = await testing.open();
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("button", {
+					name: "Switch project: 2 waiting on you in shop",
+				}),
+			).toBeTruthy(),
+		);
+	});
+
+	it("leaves the agents waiting in the project shown off the switcher's mark", async () => {
+		visit("http://localhost/?project=shop");
+		const [started] = testing.projects;
+		if (started) {
+			started.waiting = 1;
+		}
+		const view = await testing.open();
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("button", {
+					name: "Switch project: 1 waiting on you in webappwiz",
+				}),
+			).toBeTruthy(),
+		);
+	});
+
 	it("asks the server for the project the address names", async () => {
 		visit("http://localhost/?project=shop");
 		const asked: string[] = [];
@@ -128,7 +157,7 @@ describe("App's projects", () => {
 		const status = await waitFor(() => screen.getByText("Opening shop"));
 		expect(status.getAttribute("role")).toBe("status");
 		expect(
-			screen.getByRole("button", { name: "Switch project" }).textContent,
+			screen.getByRole("button", { name: /^Switch project/ }).textContent,
 		).toBe("shop");
 		arrive();
 		await opening;
@@ -143,7 +172,7 @@ describe("App's projects", () => {
 		history.replaceState(null, "", "#conversations/c1");
 		const assign = spyOn(location, "assign").mockImplementation(() => {});
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Switch project" })),
+			fireEvent.click(view.getByRole("button", { name: /^Switch project/ })),
 		);
 		const shop = await waitFor(() => view.getByText("/code/shop"));
 		await act(async () => fireEvent.click(shop));
@@ -155,7 +184,7 @@ describe("App's projects", () => {
 		visit(there.toString());
 		const back = await testing.open();
 		await act(async () =>
-			fireEvent.click(back.getByRole("button", { name: "Switch project" })),
+			fireEvent.click(back.getByRole("button", { name: /^Switch project/ })),
 		);
 		const home = await waitFor(() => back.getByText("/code/webappwiz"));
 		await act(async () => fireEvent.click(home));
@@ -194,7 +223,7 @@ describe("App's projects", () => {
 	it("forgets a project that is gone", async () => {
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Switch project" })),
+			fireEvent.click(view.getByRole("button", { name: /^Switch project/ })),
 		);
 
 		const forget = await waitFor(() =>
@@ -211,7 +240,7 @@ describe("App's projects", () => {
 		visit("http://localhost/?project=old");
 		const view = await testing.open();
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Switch project" })),
+			fireEvent.click(view.getByRole("button", { name: /^Switch project/ })),
 		);
 
 		const forget = await waitFor(() =>

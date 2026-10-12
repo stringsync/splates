@@ -5,6 +5,7 @@ import {
 	XIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
@@ -21,6 +22,12 @@ import { Refusal, useRefusal } from "./refusal";
 export function shownProject(): string | null {
 	return new URLSearchParams(location.search).get("project") || null;
 }
+
+/**
+ * How often the projects are asked again, while the tab shows, for the
+ * switcher to say when another one has agents waiting on you.
+ */
+const LISTED = Duration.secs(15);
 
 /** Where this tab last was in each project, by slug, "" for the one started in. */
 const PLACES = "arbor.places";
@@ -82,7 +89,8 @@ export function projectUrl(project: ProjectChoice): string {
 /**
  * The project's name, heading the page, as a picker of every project on this
  * machine, each marked with how many agents wait on you there: ⌘K (Ctrl+K)
- * opens it, typing narrows it, the arrows and Enter pick.
+ * opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
+ * while another project has agents waiting on you.
  */
 export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -105,6 +113,22 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 			void load();
 		}
 	}, [open, load]);
+	// Only the mark on the trigger hangs on these: one that fails says nothing,
+	// and the next tries again.
+	useEffect(() => {
+		const list = () =>
+			listProjects().then(
+				(listed) => setProjects(listed.projects),
+				() => {},
+			);
+		void list();
+		const tick = new SystemTimer().setInterval(() => {
+			if (!document.hidden) {
+				void list();
+			}
+		}, LISTED);
+		return () => tick.dispose();
+	}, []);
 	useEffect(() => {
 		const toggle = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -125,6 +149,13 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	);
 	const current = (each: ProjectChoice) =>
 		shown === null ? each.here : each.slug === shown;
+	// This one's own are on the page already.
+	const elsewhere = projects.filter(
+		(each) => each.waiting > 0 && !current(each),
+	);
+	const waitingElsewhere = elsewhere
+		.map((each) => `${each.waiting} waiting on you in ${each.slug}`)
+		.join(", ");
 	const go = (each: ProjectChoice | undefined) => {
 		if (each === undefined || each.gone) {
 			return;
@@ -153,13 +184,27 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 				render={
 					<button
 						type="button"
-						aria-label="Switch project"
-						title="Switch project (⌘K)"
+						aria-label={
+							elsewhere.length > 0
+								? `Switch project: ${waitingElsewhere}`
+								: "Switch project"
+						}
+						title={
+							elsewhere.length > 0
+								? `Switch project (⌘K): ${waitingElsewhere}`
+								: "Switch project (⌘K)"
+						}
 						className="-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left hover:bg-muted"
 					/>
 				}
 			>
 				<h1 className="truncate font-medium text-sm">{name}</h1>
+				{elsewhere.length > 0 && (
+					<CircleAlertIcon
+						aria-hidden
+						className="size-3.5 shrink-0 text-warning"
+					/>
+				)}
 				<ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80 gap-2 p-2">

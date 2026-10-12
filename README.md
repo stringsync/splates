@@ -305,8 +305,9 @@ type to narrow the list, and Enter. The address names the project shown,
 `?project=shop`, by the last part of its root (`shop-2` for a second of the
 same name); another project's records are migrated as it is first opened or
 listed. Each project is marked with how many agents wait on you there, its
-escalated tasks alone until it has been opened. One whose repository is gone is
-listed struck through. Each project but the one
+escalated tasks alone until it has been opened, and the project's name is
+marked while another has any, asked again every 15 seconds while the tab shows.
+One whose repository is gone is listed struck through. Each project but the one
 shown and the one `arbor dev` started in has a button to forget it, as
 `arbor forget` does, which refuses one with conversations under way.
 A conversation stays in the project it started in.
