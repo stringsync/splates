@@ -51,18 +51,23 @@ export const Dispatching = createContext<{
  * a click, and one whose agent has stopped says Resume, since sending to it
  * starts the agent again; `rows` say each one's name too, for a dialog with
  * room for it. As `marks` they only show, for inside a button of their own.
+ * `spinning` keeps only those whose agent is at work, or with false, the rest.
  */
 export function OnIt({
 	task,
 	variant = "chips",
+	spinning,
 	className,
 }: {
 	task: string;
 	variant?: "marks" | "chips" | "rows";
+	spinning?: boolean;
 	className?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
-	const rows = context?.dispatch.on(task) ?? [];
+	const rows = (context?.dispatch.on(task) ?? []).filter(
+		({ need }) => spinning === undefined || spins(need) === spinning,
+	);
 	if (context === null || rows.length === 0) {
 		return null;
 	}
@@ -81,8 +86,7 @@ export function OnIt({
 				}
 				// Beside a spinner, that it is being worked on is all there is to
 				// say; rows keep the logo, which goes with the name there.
-				const spins = need.kind === "working" || need.kind === "assuming";
-				const icon = (!spins || variant === "rows") && (
+				const icon = (!spins(need) || variant === "rows") && (
 					<AgentIcon
 						agent={conversation.agent}
 						name={dispatch.agentName(conversation.agent)}
@@ -136,6 +140,11 @@ export function OnIt({
 			})}
 		</span>
 	);
+}
+
+/** Whether a conversation shows as a spinner: its agent is at work. */
+function spins(need: { kind: string }): boolean {
+	return need.kind === "working" || need.kind === "assuming";
 }
 
 /**

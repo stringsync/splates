@@ -219,7 +219,7 @@ export function Card({
 						</Badge>
 					)}
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
-					{todo.takenBy && <OnIt task={todo.takenBy} />}
+					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}
 					{stale && (
 						<Badge Icon={ClockIcon} label="stale">
 							stale, {age(todo.createdAt)}
@@ -236,6 +236,15 @@ export function Card({
 			>
 				<GripVerticalIcon className="size-4" />
 			</button>
+			{/* An agent at work spins in the top right, on every card the same
+			    place, in the grip's column so the subject keeps its width. */}
+			{todo.takenBy && (
+				<OnIt
+					task={todo.takenBy}
+					spinning
+					className="absolute top-2 right-0 w-7 flex-col"
+				/>
+			)}
 		</div>
 	);
 }
