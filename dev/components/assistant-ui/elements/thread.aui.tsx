@@ -322,7 +322,10 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 /**
  * Keeps `viewport`'s scroll padding at the bottom as tall as `footer`, which
  * sticks over the foot of the thread, so what is scrolled into view, as by
- * focusing it, lands above the composer rather than behind it.
+ * focusing it, lands above the composer rather than behind it. None while
+ * the focus is in the footer: it sits in that padding itself, so the browser,
+ * keeping the composer's caret in view, would scroll the thread at each key
+ * while the footer stuck along with it.
  */
 function useClearOf(
 	viewport: RefObject<HTMLDivElement | null>,
@@ -334,13 +337,30 @@ function useClearOf(
 		if (scroller === null || over === null) {
 			return;
 		}
+		let inside = over.contains(document.activeElement);
 		const measure = () => {
-			scroller.style.scrollPaddingBottom = `${over.offsetHeight}px`;
+			scroller.style.scrollPaddingBottom = inside
+				? "0px"
+				: `${over.offsetHeight}px`;
+		};
+		const enter = () => {
+			inside = true;
+			measure();
+		};
+		const leave = (event: FocusEvent) => {
+			inside = over.contains(event.relatedTarget as Node | null);
+			measure();
 		};
 		measure();
 		const watching = new ResizeObserver(measure);
 		watching.observe(over);
-		return () => watching.disconnect();
+		over.addEventListener("focusin", enter);
+		over.addEventListener("focusout", leave);
+		return () => {
+			watching.disconnect();
+			over.removeEventListener("focusin", enter);
+			over.removeEventListener("focusout", leave);
+		};
 	}, [viewport, footer]);
 }
 

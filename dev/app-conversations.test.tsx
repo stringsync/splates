@@ -2960,6 +2960,50 @@ describe("App's conversations", () => {
 			expect(scrolled).toEqual([]);
 		});
 
+		it("keeps the thread clear of the composer only while the focus is elsewhere, so typing never scrolls it", async () => {
+			// The footer's height, which the page has no layout to give.
+			const height = Object.getOwnPropertyDescriptor(
+				HTMLElement.prototype,
+				"offsetHeight",
+			) as PropertyDescriptor;
+			Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+				configurable: true,
+				get: () => 120,
+			});
+			try {
+				const view = await conversations([
+					conversation({
+						messages: [
+							message("user", "fix the footer"),
+							message("agent", "## ✅ Merged footer onto main\n\nIt moved."),
+						],
+					}),
+				]);
+				const thread = await waitFor(
+					() =>
+						document.querySelector(
+							'[data-slot="aui_thread-viewport"]',
+						) as HTMLElement,
+				);
+				const composer = within(view.container).getByRole("textbox", {
+					name: "Message input",
+				});
+				const archive = await waitFor(() =>
+					within(view.getByRole("region", { name: "merged footer" })).getByRole(
+						"button",
+						{ name: "Archive" },
+					),
+				);
+
+				act(() => composer.focus());
+				expect(thread.style.scrollPaddingBottom).toBe("0px");
+				act(() => archive.focus());
+				expect(thread.style.scrollPaddingBottom).toBe("120px");
+			} finally {
+				Object.defineProperty(HTMLElement.prototype, "offsetHeight", height);
+			}
+		});
+
 		it("offers to archive the conversation from each report of a task that is over, then starts the next", async () => {
 			const view = await conversations([
 				conversation({
