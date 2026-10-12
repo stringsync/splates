@@ -130,6 +130,7 @@ import {
 	withDirectives,
 } from "./directives";
 import { type Drafts, newDraft } from "./drafts";
+import { FullscreenButton } from "./fullscreen";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Nested, nest } from "./parts";
@@ -581,6 +582,7 @@ export function ConversationActions({
 				conversations={conversations.filter((each) => !each.archived)}
 				held={held}
 			/>
+			<FullscreenButton held={held} />
 		</div>
 	);
 }

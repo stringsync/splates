@@ -106,4 +106,69 @@ describe("App", () => {
 			resize(1024);
 		}
 	});
+
+	/** The Fullscreen API, which happy-dom leaves out, flipping as a browser does. */
+	const fullscreenable = () => {
+		let element: Element | null = null;
+		const flip = (to: Element | null) => {
+			element = to;
+			document.dispatchEvent(new Event("fullscreenchange"));
+			return Promise.resolve();
+		};
+		Object.defineProperties(document, {
+			fullscreenEnabled: { configurable: true, get: () => true },
+			fullscreenElement: { configurable: true, get: () => element },
+			exitFullscreen: { configurable: true, value: () => flip(null) },
+		});
+		document.documentElement.requestFullscreen = () =>
+			flip(document.documentElement);
+		return () => {
+			for (const name of [
+				"fullscreenEnabled",
+				"fullscreenElement",
+				"exitFullscreen",
+			]) {
+				delete (document as unknown as Record<string, unknown>)[name];
+			}
+			delete (document.documentElement as { requestFullscreen?: unknown })
+				.requestFullscreen;
+		};
+	};
+
+	it("goes fullscreen and back by its button or ⌥⌘F", async () => {
+		const restore = fullscreenable();
+		testing.talk = { agents: [], conversations: [] };
+		try {
+			const view = await testing.open();
+
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() => view.getByRole("button", { name: "Fullscreen" })),
+				),
+			);
+			expect(document.fullscreenElement).toBe(document.documentElement);
+			expect(
+				view.getByRole("button", { name: "Exit fullscreen" }),
+			).toBeTruthy();
+			await act(async () =>
+				fireEvent.keyDown(document, {
+					code: "KeyF",
+					altKey: true,
+					metaKey: true,
+				}),
+			);
+			expect(document.fullscreenElement).toBeNull();
+			expect(view.getByRole("button", { name: "Fullscreen" })).toBeTruthy();
+		} finally {
+			restore();
+		}
+	});
+
+	it("leaves the button out where the browser keeps fullscreen to itself", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.open();
+
+		await waitFor(() => view.getByRole("button", { name: "Checkpoint" }));
+		expect(view.queryByRole("button", { name: "Fullscreen" })).toBeNull();
+	});
 });

@@ -41,6 +41,7 @@ import { Dispatch } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { Drafts } from "./drafts";
 import { Feed } from "./feed";
+import { useFullscreenKey } from "./fullscreen";
 import { ProjectSwitcher, shownProject } from "./projects";
 import { ReleaseHint } from "./release";
 import type { Settings } from "./settings";
@@ -252,6 +253,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		document.addEventListener("keydown", open);
 		return () => document.removeEventListener("keydown", open);
 	}, []);
+
+	useFullscreenKey();
 
 	const waiting = useWaiting(talk, tasks);
 	const counted = available && waiting > 0;

@@ -18,6 +18,7 @@
 @source "./annotate.tsx";
 @source "./composing.tsx";
 @source "./files.tsx";
+@source "./fullscreen.tsx";
 @source "./mentions.tsx";
 @source "./notifications.tsx";
 @source "./card.tsx";
