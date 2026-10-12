@@ -2740,6 +2740,7 @@ function AskPanel({
 			{ask.type === "permission" ? (
 				<Permission
 					ask={ask}
+					command={commandOf(conversation, ask.id)}
 					agent={agent}
 					where={conversation.task ?? "the main tree"}
 					send={send}
@@ -2755,6 +2756,18 @@ function AskPanel({
 			<Refusal refusal={refusal} className="-mt-2 px-2" />
 		</>
 	);
+}
+
+/** The command the tool call `id` runs, for one that runs one. */
+function commandOf(conversation: ConversationState, id: string): string | null {
+	for (const message of conversation.messages) {
+		for (const part of message.parts) {
+			if (part.type === "tool" && part.id === id) {
+				return part.command;
+			}
+		}
+	}
+	return null;
 }
 
 /** The boxes' draft as `Question` keeps it, or none for one that is not. */
@@ -2776,11 +2789,13 @@ function typedIn(draft: string): Record<string, string> {
  */
 function Permission({
 	ask,
+	command,
 	agent,
 	where,
 	send,
 }: {
 	ask: Extract<Ask, { type: "permission" }>;
+	command: string | null;
 	agent: string;
 	where: string;
 	send: (answer: Answer) => Promise<unknown>;
@@ -2818,6 +2833,7 @@ function Permission({
 		<PermissionGrant
 			aria-label="permission"
 			capability={ask.title}
+			command={command}
 			requester={agent}
 			reach={[`in ${where}`]}
 			scope="pending"

@@ -3284,6 +3284,28 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("sets the command a permission asks to run as code", async () => {
+		const command = "git status && bin/wiz dev fix 2>&1 | tail -15";
+		const view = await conversations([
+			conversation({
+				status: "running",
+				messages: [
+					message("agent", tool({ id: "t1", title: command, command })),
+				],
+				ask: {
+					type: "permission",
+					id: "t1",
+					at: "2026-10-11T10:00:00.000Z",
+					title: command,
+					options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
+				},
+			}),
+		]);
+
+		const card = view.getByRole("generic", { name: "permission" });
+		expect(card.querySelector("code")?.textContent).toBe(command);
+	});
+
 	it("answers a question form with the choices picked", async () => {
 		const view = await conversations([
 			conversation({

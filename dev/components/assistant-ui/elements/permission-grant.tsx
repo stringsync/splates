@@ -9,6 +9,7 @@ export type GrantScope = "session" | "always" | "denied";
 
 export function PermissionGrant({
 	capability,
+	command,
 	requester,
 	reach,
 	scope,
@@ -17,9 +18,17 @@ export function PermissionGrant({
 	...props
 }: Omit<
 	ComponentProps<"div">,
-	"children" | "capability" | "requester" | "reach" | "scope" | "onGrant"
+	| "children"
+	| "capability"
+	| "command"
+	| "requester"
+	| "reach"
+	| "scope"
+	| "onGrant"
 > & {
 	capability: string;
+	/** The command it would run, set as code in place of `capability`. */
+	command?: string | null;
 	requester: string;
 	reach: readonly string[];
 	scope: GrantScope | "pending";
@@ -40,9 +49,15 @@ export function PermissionGrant({
 					<KeyRoundIcon className="size-3.5" />
 				</span>
 				<div className="flex min-w-0 flex-1 flex-col">
-					<span className="max-h-48 overflow-y-auto text-[13.5px] font-medium whitespace-pre-wrap [overflow-wrap:anywhere]">
-						{capability}
-					</span>
+					{command == null ? (
+						<span className="max-h-48 overflow-y-auto text-[13.5px] font-medium whitespace-pre-wrap [overflow-wrap:anywhere]">
+							{capability}
+						</span>
+					) : (
+						<code className="max-h-48 overflow-y-auto font-mono text-xs leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]">
+							{command}
+						</code>
+					)}
 					<span className="text-foreground/45 truncate text-xs">
 						requested by {requester}
 					</span>
