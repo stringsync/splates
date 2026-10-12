@@ -50,6 +50,7 @@ describe("App's projects", () => {
 		cleanup();
 		testing.dispose();
 		visit("about:blank");
+		sessionStorage.clear();
 	});
 
 	it("opens the switcher on ⌘K, narrows it as you type, and goes to the pick on Enter", async () => {
@@ -115,6 +116,60 @@ describe("App's projects", () => {
 		await opening;
 
 		expect(screen.queryByText("Opening shop")).toBeNull();
+		globalThis.fetch = fetched;
+	});
+
+	it("comes back to the conversation it left a project on", async () => {
+		visit("http://localhost/");
+		const view = await testing.open();
+		history.replaceState(null, "", "#conversations/c1");
+		const assign = spyOn(location, "assign").mockImplementation(() => {});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Switch project" })),
+		);
+		const shop = await waitFor(() => view.getByText("/code/shop"));
+		await act(async () => fireEvent.click(shop));
+		const there = new URL(String(assign.mock.calls[0]?.[0]));
+		expect(there.search).toBe("?project=shop");
+		expect(there.hash).toBe("#conversations");
+		cleanup();
+
+		visit(there.toString());
+		const back = await testing.open();
+		await act(async () =>
+			fireEvent.click(back.getByRole("button", { name: "Switch project" })),
+		);
+		const home = await waitFor(() => back.getByText("/code/webappwiz"));
+		await act(async () => fireEvent.click(home));
+
+		const returned = new URL(String(assign.mock.calls[1]?.[0]));
+		expect(returned.search).toBe("");
+		expect(returned.hash).toBe("#conversations/c1");
+		assign.mockRestore();
+	});
+
+	it("names the project started in while it opens again", async () => {
+		await testing.open({ repo: "webappwiz" });
+		cleanup();
+
+		visit("http://localhost/");
+		let arrive = () => {};
+		const held = new Promise<void>((resolve) => {
+			arrive = resolve;
+		});
+		const fetched = globalThis.fetch;
+		globalThis.fetch = (async (path: string, init?: RequestInit) => {
+			if (path.startsWith("/api/snapshot")) {
+				await held;
+			}
+			return fetched(path, init);
+		}) as typeof fetch;
+
+		const opening = testing.open();
+		const screen = within(document.body);
+		await waitFor(() => screen.getByText("Opening webappwiz"));
+		arrive();
+		await opening;
 		globalThis.fetch = fetched;
 	});
 

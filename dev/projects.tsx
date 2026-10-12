@@ -17,9 +17,46 @@ export function shownProject(): string | null {
 	return new URLSearchParams(location.search).get("project") || null;
 }
 
+/** Where this tab last was in each project, by slug, "" for the one started in. */
+const PLACES = "arbor.places";
+
+/** A project as this tab last showed it: its name, and the address's hash. */
+interface Place {
+	name?: string;
+	hash?: string;
+}
+
+function places(): Record<string, Place> {
+	try {
+		const read: unknown = JSON.parse(sessionStorage.getItem(PLACES) ?? "{}");
+		return typeof read === "object" && read !== null
+			? (read as Record<string, Place>)
+			: {};
+	} catch {
+		return {};
+	}
+}
+
+/** Where `project`, a slug or "" for the one started in, was last left. */
+export function placeOf(project: string): Place {
+	return places()[project] ?? {};
+}
+
+/** Keeps `place` for `project`, over what was kept for it before. */
+export function rememberPlace(project: string, place: Place): void {
+	const all = places();
+	all[project] = { ...all[project], ...place };
+	sessionStorage.setItem(PLACES, JSON.stringify(all));
+}
+
+function keyOf(project: ProjectChoice): string {
+	return project.here ? "" : project.slug;
+}
+
 /**
- * Where the page goes to show `project`: the same page of it, and none of
- * the last project's conversations, which are its own.
+ * Where the page goes to show `project`: where this tab last left it, else
+ * the same page of it, and none of the last project's conversations, which
+ * are its own.
  */
 export function projectUrl(project: ProjectChoice): string {
 	const url = new URL(location.href);
@@ -28,7 +65,10 @@ export function projectUrl(project: ProjectChoice): string {
 	} else {
 		url.searchParams.set("project", project.slug);
 	}
-	if (url.hash.startsWith("#conversations/")) {
+	const { hash } = placeOf(keyOf(project));
+	if (hash !== undefined) {
+		url.hash = hash;
+	} else if (url.hash.startsWith("#conversations/")) {
 		url.hash = "#conversations";
 	}
 	return url.toString();
@@ -85,6 +125,11 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 		}
 		setOpen(false);
 		if (!current(each)) {
+			// So coming back lands here, and the page names `each` while it opens.
+			rememberPlace(shown ?? "", { hash: location.hash });
+			if (placeOf(keyOf(each)).name === undefined) {
+				rememberPlace(keyOf(each), { name: each.slug });
+			}
 			location.assign(projectUrl(each));
 		}
 	};

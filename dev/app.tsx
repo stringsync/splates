@@ -42,7 +42,12 @@ import { Dispatching } from "./dispatching";
 import { Drafts } from "./drafts";
 import { Feed } from "./feed";
 import { useFullscreenKey } from "./fullscreen";
-import { ProjectSwitcher, shownProject } from "./projects";
+import {
+	ProjectSwitcher,
+	placeOf,
+	rememberPlace,
+	shownProject,
+} from "./projects";
 import { ReleaseHint } from "./release";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
@@ -194,9 +199,17 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		history.replaceState(null, "", next === "todos" ? " " : hash);
 	};
 	const tasks = snapshot?.tasks ?? NO_TASKS;
-	// Before the first snapshot, the project the address names, so a switch
-	// heads the page with where it is going rather than "arbor".
-	const name = snapshot?.repo ?? shownProject() ?? "arbor";
+	// Before the first snapshot, the name this tab last saw the project by,
+	// else the one the address names, so a switch heads the page with where it
+	// is going rather than "arbor".
+	const project = shownProject() ?? "";
+	const name = snapshot?.repo ?? placeOf(project).name ?? (project || "arbor");
+	const repo = snapshot?.repo;
+	useEffect(() => {
+		if (repo !== undefined) {
+			rememberPlace(project, { name: repo });
+		}
+	}, [repo, project]);
 	const dispatching = useMemo(
 		() =>
 			available
