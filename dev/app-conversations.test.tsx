@@ -1339,6 +1339,38 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("offers the tree's files for an @ in the composer, over the composer, and writes the one picked", async () => {
+		testing.tree = ["README.md", "src/", "src/components/", "src/index.ts"];
+		const view = await conversations([]);
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		}) as HTMLTextAreaElement;
+
+		await act(async () => {
+			box.focus();
+			fireEvent.change(box, { target: { value: "see @comp" } });
+			box.setSelectionRange(9, 9);
+			fireEvent.select(box);
+		});
+		const list = await waitFor(() => view.getByRole("listbox"));
+		expect(
+			within(list)
+				.getAllByRole("option")
+				.map((option) => option.textContent),
+		).toEqual(["src/components/"]);
+		// Out of the flow, held to a box of the composer's own, so it floats
+		// over the thread rather than pushing the composer down or anchoring
+		// to the thread's scroller, off the top of the page.
+		expect(list.classList.contains("absolute")).toBe(true);
+		expect(list.parentElement?.classList.contains("relative")).toBe(true);
+		expect(list.parentElement?.contains(box)).toBe(true);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(box.value).toBe("see @src/components/ ");
+		expect(posted("/api/conversations")).toEqual([]);
+	});
+
 	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {
 		const view = await conversations([], null);
 		testing.reply = conversation({ id: "c9", status: "starting" });

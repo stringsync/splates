@@ -905,29 +905,39 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	}
 	return (
 		<ComposerPrimitive.TriggerPopoverRoot>
-			<ComposerPrimitive.TriggerPopover char="@" adapter={mentions}>
-				<ComposerPrimitive.TriggerPopover.Directive formatter={PLAIN_MENTION} />
-				<ComposerPrimitive.TriggerPopoverItems>
-					{(items) => (
-						<div
-							aria-label="mentions"
-							className="bg-popover text-popover-foreground absolute bottom-full z-10 mb-2 w-full max-w-md rounded-xl border p-1 shadow-md"
-						>
-							{items.map((item, index) => (
-								<ComposerPrimitive.TriggerPopoverItem
-									key={item.id}
-									item={item}
-									index={index}
-									className="data-[highlighted]:bg-accent flex w-full items-center rounded-lg px-2 py-1.5 text-start font-mono text-xs outline-none"
-								>
-									<span className="truncate">{item.label}</span>
-								</ComposerPrimitive.TriggerPopoverItem>
-							))}
-						</div>
-					)}
-				</ComposerPrimitive.TriggerPopoverItems>
-			</ComposerPrimitive.TriggerPopover>
-			{composer}
+			{/* The list floats over the thread above the composer, held to the
+			    composer's edges, so opening it moves nothing. */}
+			<div className="relative w-full">
+				<ComposerPrimitive.TriggerPopover
+					char="@"
+					adapter={mentions}
+					className="absolute inset-x-0 bottom-full z-10 mb-2"
+				>
+					<ComposerPrimitive.TriggerPopover.Directive
+						formatter={PLAIN_MENTION}
+					/>
+					<ComposerPrimitive.TriggerPopoverItems>
+						{(items) => (
+							<div
+								aria-label="mentions"
+								className="bg-popover text-popover-foreground w-full max-w-md rounded-xl border p-1 shadow-md"
+							>
+								{items.map((item, index) => (
+									<ComposerPrimitive.TriggerPopoverItem
+										key={item.id}
+										item={item}
+										index={index}
+										className="data-[highlighted]:bg-accent flex w-full items-center rounded-lg px-2 py-1.5 text-start font-mono text-xs outline-none"
+									>
+										<span className="truncate">{item.label}</span>
+									</ComposerPrimitive.TriggerPopoverItem>
+								))}
+							</div>
+						)}
+					</ComposerPrimitive.TriggerPopoverItems>
+				</ComposerPrimitive.TriggerPopover>
+				{composer}
+			</div>
 		</ComposerPrimitive.TriggerPopoverRoot>
 	);
 };
