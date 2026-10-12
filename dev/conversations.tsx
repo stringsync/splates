@@ -142,6 +142,7 @@ import {
 	ReplyContext,
 	ReviewUI,
 } from "./question-cards";
+import { useReferences } from "./references";
 import { Refusal, type Refuse, useRefusal, useRefusals } from "./refusal";
 import {
 	ArchiveContext,
@@ -1482,6 +1483,7 @@ export function Conversations({
 						feed={feed}
 						agent={agentName(agents, shown.agent)}
 						task={tasks.find((each) => each.task === shown.task) ?? null}
+						tasks={tasks}
 						free={free}
 						trunk={trunk}
 						refusal={refusals.get(shown.id) ?? null}
@@ -1661,6 +1663,7 @@ function Home({
 		newDraft(new URLSearchParams(location.search).get("project"), task),
 	);
 	const mentions = useFileMentions(task);
+	const references = useReferences(runtime.thread.composer, tasks);
 
 	return (
 		<section
@@ -1680,6 +1683,7 @@ function Home({
 				<Composing.Provider value={runtime.thread.composer}>
 					<ThreadView
 						mentions={mentions ?? undefined}
+						references={references}
 						above={<Refusal refusal={refusal} className="px-2" />}
 						welcome={
 							<div className="mb-6 flex flex-col gap-8 px-2">
@@ -2192,6 +2196,7 @@ function Thread({
 	feed,
 	agent,
 	task,
+	tasks,
 	free,
 	trunk,
 	refusal,
@@ -2213,6 +2218,8 @@ function Thread({
 	agent: string;
 	/** The task it runs in; null in the main tree, or once the task is gone. */
 	task: Details | null;
+	/** Every live task, for `#` to offer. */
+	tasks: Details[];
 	/** The tasks it can take up from the main tree. */
 	free: Details[];
 	/** The main tree's branch. */
@@ -2453,6 +2460,7 @@ function Thread({
 			run: () => archive.file(),
 		},
 	];
+	const references = useReferences(runtime.thread.composer, tasks, actions);
 	// Archived, on to the next; brought back, still here.
 	const fileByKey = () => archive.file(archived ? undefined : onLeft);
 	// The latest, for the listener below, which outlives a render.
@@ -2626,6 +2634,7 @@ function Thread({
 									<ThreadView
 										autoFocus={!(asking || answering) || typed}
 										mentions={mentions ?? undefined}
+										references={references}
 										placeholder={
 											archived
 												? `Archived: unarchive (${ARCHIVE}) to continue`

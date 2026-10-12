@@ -15,14 +15,13 @@ import {
 import { Debouncer, Duration, SystemTimer, Throttler } from "webappwiz/time";
 import { z } from "zod";
 import type { Attachment } from "./attachments";
-import {
-	type After,
-	type Answer,
-	type Checkpoint,
-	type Conversation,
-	type ConversationState,
-	type Conversations,
-	RESUME,
+import type {
+	After,
+	Answer,
+	Checkpoint,
+	Conversation,
+	ConversationState,
+	Conversations,
 } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { startDispatched } from "./dispatched";
@@ -32,6 +31,7 @@ import type { Git } from "./git";
 import { needs } from "./needs";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
+import { RESUME } from "./prompts";
 import { Pty } from "./pty";
 import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";

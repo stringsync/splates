@@ -41,6 +41,7 @@
 @source "./work-row.tsx";
 @source "./changes.tsx";
 @source "./actions.tsx";
+@source "./references.tsx";
 @source "./task-view.tsx";
 @source "./back.tsx";
 @source "./terminal.tsx";

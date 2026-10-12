@@ -17,7 +17,9 @@ import {
 	ThreadPrimitive,
 	type ToolCallMessagePartComponent,
 	type TriggerAdapter,
+	type TriggerItem,
 	type Unstable_DirectiveFormatter,
+	unstable_useTriggerPopoverScopeContext,
 	useAuiState,
 } from "@assistant-ui/react";
 import {
@@ -80,6 +82,7 @@ import { DirectiveChip } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { Mentioned } from "#dev/markdown.tsx";
+import type { References } from "#dev/references.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
@@ -152,6 +155,8 @@ export type ThreadProps = {
 	controls?: ReactNode | undefined;
 	/** What `@` offers in the composer; nothing when unset. */
 	mentions?: TriggerAdapter | undefined;
+	/** What `#` offers in the composer; nothing when unset. */
+	references?: References | undefined;
 	/** The empty composer's hint, such as why it takes nothing. */
 	placeholder?: string | undefined;
 };
@@ -159,7 +164,7 @@ export type ThreadProps = {
 const ThreadExtrasContext = createContext<
 	Pick<
 		ThreadProps,
-		"above" | "welcome" | "controls" | "mentions" | "placeholder"
+		"above" | "welcome" | "controls" | "mentions" | "references" | "placeholder"
 	>
 >({});
 
@@ -209,6 +214,7 @@ export const Thread: FC<ThreadProps> = ({
 	welcome,
 	controls,
 	mentions,
+	references,
 	placeholder,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
@@ -216,7 +222,14 @@ export const Thread: FC<ThreadProps> = ({
 	return (
 		<ThreadComponentsContext.Provider value={components}>
 			<ThreadExtrasContext.Provider
-				value={{ above, welcome, controls, mentions, placeholder }}
+				value={{
+					above,
+					welcome,
+					controls,
+					mentions,
+					references,
+					placeholder,
+				}}
 			>
 				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} />
 			</ThreadExtrasContext.Provider>
@@ -882,8 +895,11 @@ const ThreadAbove: FC = () => {
 };
 
 const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
-	const { mentions, placeholder = "Send a message..." } =
-		useContext(ThreadExtrasContext);
+	const {
+		mentions,
+		references,
+		placeholder = "Send a message...",
+	} = useContext(ThreadExtrasContext);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -907,45 +923,138 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>
 	);
-	if (mentions === undefined) {
+	if (mentions === undefined && references === undefined) {
 		return composer;
 	}
 	return (
 		<ComposerPrimitive.TriggerPopoverRoot>
-			{/* The list floats over the thread above the composer, held to the
-			    composer's edges, so opening it moves nothing. */}
+			{/* The lists float over the thread above the composer, held to the
+			    composer's edges, so opening one moves nothing. */}
 			<div className="relative w-full">
-				<ComposerPrimitive.TriggerPopover
-					char="@"
-					adapter={mentions}
-					className="absolute inset-x-0 bottom-full z-10 mb-2"
-				>
-					<ComposerPrimitive.TriggerPopover.Directive
-						formatter={PLAIN_MENTION}
-					/>
-					<ComposerPrimitive.TriggerPopoverItems>
-						{(items) => (
-							<div
-								aria-label="mentions"
-								className="bg-popover text-popover-foreground w-full max-w-md rounded-xl border p-1 shadow-md"
-							>
-								{items.map((item, index) => (
-									<ComposerPrimitive.TriggerPopoverItem
-										key={item.id}
-										item={item}
-										index={index}
-										className="data-[highlighted]:bg-accent flex w-full items-center rounded-lg px-2 py-1.5 text-start font-mono text-xs outline-none"
-									>
-										<span className="truncate">{item.label}</span>
-									</ComposerPrimitive.TriggerPopoverItem>
-								))}
-							</div>
-						)}
-					</ComposerPrimitive.TriggerPopoverItems>
-				</ComposerPrimitive.TriggerPopover>
+				{mentions !== undefined && (
+					<ComposerPrimitive.TriggerPopover
+						char="@"
+						adapter={mentions}
+						className="absolute inset-x-0 bottom-full z-10 mb-2"
+					>
+						<ComposerPrimitive.TriggerPopover.Directive
+							formatter={PLAIN_MENTION}
+						/>
+						<ComposerPrimitive.TriggerPopoverItems>
+							{(items) => (
+								<div aria-label="mentions" className={POPOVER_LIST}>
+									{items.map((item, index) => (
+										<ComposerPrimitive.TriggerPopoverItem
+											key={item.id}
+											item={item}
+											index={index}
+											className={cn(POPOVER_ROW, "font-mono text-xs")}
+										>
+											<span className="truncate">{item.label}</span>
+										</ComposerPrimitive.TriggerPopoverItem>
+									))}
+								</div>
+							)}
+						</ComposerPrimitive.TriggerPopoverItems>
+					</ComposerPrimitive.TriggerPopover>
+				)}
+				{references !== undefined && (
+					<ComposerPrimitive.TriggerPopover
+						char="#"
+						adapter={references.adapter}
+						aria-label="references"
+						className="absolute inset-x-0 bottom-full z-10 mb-2"
+					>
+						{/* Nothing of the `#` stays: a directive goes in as a chip,
+						    an action only runs. */}
+						<ComposerPrimitive.TriggerPopover.Action
+							onExecute={references.pick}
+							removeOnExecute
+						/>
+						<ComposerPrimitive.TriggerPopoverCategories>
+							{(categories) => (
+								<div className={POPOVER_LIST}>
+									{categories.map((category) => (
+										<ComposerPrimitive.TriggerPopoverCategoryItem
+											key={category.id}
+											categoryId={category.id}
+											className={cn(POPOVER_ROW, "justify-between text-sm")}
+										>
+											{category.label}
+											<ChevronRightIcon className="text-muted-foreground size-4" />
+										</ComposerPrimitive.TriggerPopoverCategoryItem>
+									))}
+								</div>
+							)}
+						</ComposerPrimitive.TriggerPopoverCategories>
+						<ComposerPrimitive.TriggerPopoverItems>
+							{(items) => (
+								<ReferenceList items={items} references={references} />
+							)}
+						</ComposerPrimitive.TriggerPopoverItems>
+					</ComposerPrimitive.TriggerPopover>
+				)}
 				{composer}
 			</div>
 		</ComposerPrimitive.TriggerPopoverRoot>
+	);
+};
+
+const POPOVER_LIST =
+	"bg-popover text-popover-foreground w-full max-w-md rounded-xl border p-1 shadow-md";
+const POPOVER_ROW =
+	"data-[highlighted]:bg-accent flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start outline-none";
+
+/**
+ * What a `#` category holds, or what matches what was typed after it, the row
+ * the arrow keys are on kept in view.
+ */
+const ReferenceList: FC<{
+	items: readonly TriggerItem[];
+	references: References;
+}> = ({ items, references }) => {
+	const { highlightedIndex } = unstable_useTriggerPopoverScopeContext();
+	const list = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		list.current
+			?.querySelector(`[data-index="${highlightedIndex}"]`)
+			?.scrollIntoView?.({ block: "nearest" });
+	}, [highlightedIndex]);
+	return (
+		<div ref={list} className={cn(POPOVER_LIST, "max-h-80 overflow-y-auto")}>
+			<ComposerPrimitive.TriggerPopoverBack
+				className={cn(POPOVER_ROW, "text-muted-foreground text-xs")}
+			>
+				<ChevronLeftIcon className="size-3.5" />
+				Back
+			</ComposerPrimitive.TriggerPopoverBack>
+			{items.length === 0 && (
+				<p className="text-muted-foreground px-2 py-1.5 text-sm">
+					Nothing matches
+				</p>
+			)}
+			{items.map((item, index) => (
+				<ComposerPrimitive.TriggerPopoverItem
+					key={item.id}
+					item={item}
+					index={index}
+					data-index={index}
+					className={cn(
+						POPOVER_ROW,
+						"text-sm [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+					)}
+				>
+					{references.icon(item)}
+					<span className="truncate">{item.label}</span>
+					{item.description !== undefined && (
+						// Gives way first, so the label keeps what it can.
+						<span className="text-muted-foreground shrink-1000 truncate text-xs">
+							{item.description}
+						</span>
+					)}
+				</ComposerPrimitive.TriggerPopoverItem>
+			))}
+		</div>
 	);
 };
 

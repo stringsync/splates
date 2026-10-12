@@ -54,12 +54,19 @@ export function liftDirectives(composer: ThreadComposerRuntime): void {
 	if (directives.length === 0) {
 		return;
 	}
-	const held = directivesOf(state.attachments);
 	composer.setText(rest);
 	for (const directive of directives) {
-		if (!held.includes(directive)) {
-			void composer.addAttachment(attachment(directive));
-		}
+		addDirective(composer, directive);
+	}
+}
+
+/** Adds `directive` to `composer` as a chip, unless it holds it already. */
+export function addDirective(
+	composer: ThreadComposerRuntime,
+	directive: string,
+): void {
+	if (!directivesOf(composer.getState().attachments).includes(directive)) {
+		void composer.addAttachment(attachment(directive));
 	}
 }
 

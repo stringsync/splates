@@ -15,6 +15,7 @@ import {
 import { fail } from "./exit";
 import { modelOption } from "./models";
 import type { Offered } from "./offered";
+import { CHECKPOINT } from "./prompts";
 import { SERVING } from "./supervise";
 import type { Flag, Watch, Watched } from "./watch";
 
@@ -641,12 +642,6 @@ export type ConversationEvents = { changed: undefined };
 /** How often a live conversation's log is saved while the agent streams. */
 const SAVE_EVERY = Duration.ms(500);
 
-/**
- * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
- * restart: the arbor skill says what it means.
- */
-export const CHECKPOINT = "[ARBOR CHECKPOINT]";
-
 /** How long an agent has to answer a checkpoint before it is unanswered. */
 const CHECKPOINT_WAIT = Duration.mins(2);
 
@@ -655,12 +650,6 @@ const CHECKPOINT_WAIT = Duration.mins(2);
  * failed with the turn, or unanswered after `CHECKPOINT_WAIT`.
  */
 export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
-
-/**
- * What asks an agent to carry on from where its `ARBOR.md` says it stopped,
- * after a checkpoint: the arbor skill says what it means.
- */
-export const RESUME = "[ARBOR RESUME]";
 
 /**
  * What follows a checkpoint: the agents stop; or `arbor dev` restarts once

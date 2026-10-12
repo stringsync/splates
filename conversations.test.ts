@@ -6,17 +6,16 @@ import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
-	CHECKPOINT,
 	type Conversation,
 	type ConversationState,
 	Conversations,
 	fold,
 	launch,
-	RESUME,
 	type Status,
 } from "./conversations";
 import { AGENT, FakeAgent, heard, say } from "./fake-agent";
 import { Offered } from "./offered";
+import { CHECKPOINT, RESUME } from "./prompts";
 import { Testing } from "./testing";
 import { Watch } from "./watch";
 

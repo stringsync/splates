@@ -13,6 +13,18 @@ export function taskReference(task: string): string {
 	return `[ARBOR TASK ${task}]`;
 }
 
+/**
+ * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
+ * restart: the arbor skill says what it means.
+ */
+export const CHECKPOINT = "[ARBOR CHECKPOINT]";
+
+/**
+ * What asks an agent to carry on from where its `ARBOR.md` says it stopped,
+ * after a checkpoint: the arbor skill says what it means.
+ */
+export const RESUME = "[ARBOR RESUME]";
+
 /** One `[ARBOR ...]` directive at the start of a text, and the space after it. */
 const LEADING = /^\s*(\[ARBOR [A-Z]+(?: [^\]\s]+)?\])(?:\s+|$)/;
 

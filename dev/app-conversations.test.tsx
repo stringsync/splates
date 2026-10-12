@@ -1432,6 +1432,97 @@ describe("App's conversations", () => {
 		expect(posted("/api/conversations")).toEqual([]);
 	});
 
+	describe("# references", () => {
+		const board = {
+			todos: [todo({ id: 12, subject: "Retry the upload on a 413", lane: 3 })],
+			lanes: [{ id: 3, name: "Uploads" }],
+		};
+		/** Types `text` into the composer, the caret at its end. */
+		const typeIn = async (box: HTMLTextAreaElement, text: string) =>
+			act(async () => {
+				box.focus();
+				fireEvent.change(box, { target: { value: text } });
+				box.setSelectionRange(text.length, text.length);
+				fireEvent.select(box);
+			});
+
+		it("lists arbor's items by category for a #, and holds the one picked as a chip", async () => {
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			await typeIn(box, "#");
+			const categories = await waitFor(() =>
+				view.getByRole("listbox", { name: "references" }),
+			);
+			expect(
+				within(categories)
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["Directives", "Todos", "Lanes", "Tasks"]);
+			await act(async () =>
+				fireEvent.click(
+					within(categories).getByRole("option", { name: /Todos/ }),
+				),
+			);
+			const todos = view.getByRole("listbox", { name: "references" });
+			expect(
+				within(todos)
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["Retry the upload on a 413#12"]);
+
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			await waitFor(() =>
+				expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+			);
+			expect(box.value).toBe("");
+			expect(posted("/api/conversations")).toEqual([]);
+		});
+
+		it("searches every category for what follows the #", async () => {
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			await typeIn(box, "see #upl");
+			const found = await waitFor(() =>
+				view.getByRole("listbox", { name: "references" }),
+			);
+			expect(
+				within(found)
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["Retry the upload on a 413#12", "Uploadslane 3"]);
+			await act(async () => fireEvent.keyDown(box, { key: "ArrowDown" }));
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			await waitFor(() =>
+				expect(view.getByTitle("[ARBOR LANE 3]")).toBeTruthy(),
+			);
+			expect(box.value).toBe("see ");
+		});
+
+		it("runs a conversation's action picked after a #, writing nothing", async () => {
+			const view = await conversations([conversation({ title: "alpha" })]);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			await typeIn(box, "#archi");
+			await waitFor(() => view.getByRole("listbox", { name: "references" }));
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			expect(posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]);
+			expect(box.value).toBe("");
+		});
+	});
+
 	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {
 		const view = await conversations([], null);
 		testing.reply = conversation({ id: "c9", status: "starting" });
