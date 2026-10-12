@@ -553,7 +553,7 @@ describe("App's conversations", () => {
 		expect(within(dialog).queryByRole("checkbox")).toBeNull();
 	});
 
-	it("says how each agent of a checkpoint under way gets on", async () => {
+	it("says how each agent of a checkpoint under way gets on, closing and opening again from the button", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "Fix login")], true),
 			project("shop", [
@@ -570,7 +570,7 @@ describe("App's conversations", () => {
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>
-					view.getByRole("button", { name: "Checkpointing 2 of 3" }),
+					view.getByRole("button", { name: "Checkpoint under way" }),
 				),
 			),
 		);
@@ -583,9 +583,26 @@ describe("App's conversations", () => {
 		expect(within(dialog).getByText("Checkpointing")).toBeTruthy();
 		expect(within(dialog).getByText("No response")).toBeTruthy();
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				within(dialog)
+					.getAllByRole("button", { name: "Close" })
+					.at(-1) as Element,
+			),
+		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Checkpoint under way" }),
+			),
+		);
+		await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint under way" }),
+		);
 	});
 
-	it("slides on to Done once the checkpoint ends, opening on its own, and resumes its agents", async () => {
+	it("says a checkpoint is done on the button, opening Done, and resumes its agents", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
@@ -594,7 +611,7 @@ describe("App's conversations", () => {
 			null,
 		);
 		await waitFor(() =>
-			view.getByRole("button", { name: "Checkpointing 0 of 1" }),
+			view.getByRole("button", { name: "Checkpoint under way" }),
 		);
 		expect(view.queryByRole("dialog")).toBeNull();
 
@@ -610,6 +627,14 @@ describe("App's conversations", () => {
 			}),
 		);
 
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Checkpoint done" }),
+				),
+			),
+		);
+		expect(view.queryAllByRole("dialog")).toHaveLength(1);
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "Checkpoint done" }),
 		);
@@ -623,6 +648,21 @@ describe("App's conversations", () => {
 		expect(posted("/api/checkpoint/resume")).toEqual([
 			{ method: "POST", body: {} },
 		]);
+
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await testing.say(
+			conversation({ id: "c1", title: "One", status: "running" }),
+		);
+		await waitFor(() =>
+			expect(dialog.textContent).toContain(
+				"1 agent checkpointed and carried on.",
+			),
+		);
+		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
+		// Behind the dialog, so hidden from the accessibility tree.
+		expect(
+			view.getByRole("button", { name: "Checkpoint done", hidden: true }),
+		).toBeTruthy();
 	});
 
 	it("retries those a checkpoint missed, restarts, or closes, leaving them stopped", async () => {
@@ -645,6 +685,13 @@ describe("App's conversations", () => {
 			),
 		];
 		await testing.say(conversation({ id: "c2", title: "Two", status: "idle" }));
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Checkpoint done" }),
+				),
+			),
+		);
 
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "Checkpoint done" }),
@@ -694,6 +741,13 @@ describe("App's conversations", () => {
 				checkpoint: "done",
 			}),
 		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Checkpoint done" }),
+				),
+			),
+		);
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "Checkpoint done" }),
 		);
@@ -712,61 +766,32 @@ describe("App's conversations", () => {
 		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint done" }));
 	});
 
-	describe("back from a restart", () => {
-		/** Opens the page on `held`, then drops the stream and brings it back. */
-		const restart = async (held: ConversationState[]) => {
-			await conversations(held, null);
-			const reload = spyOn(location, "reload").mockImplementation(() => {});
-			await act(async () => testing.talkStream?.onerror?.());
-			await act(async () => testing.talkStream?.onerror?.());
-			testing.talk = { agents: AGENTS, conversations: held };
-			await act(async () => testing.talkStream?.onopen?.());
-			return reload;
-		};
+	it("says a checkpoint is done, without reloading, once its agents are back from a restart", async () => {
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
+		const view = await conversations(
+			[conversation({ id: "c1", status: "stopped", checkpoint: "done" })],
+			null,
+		);
+		const reload = spyOn(location, "reload").mockImplementation(() => {});
+		await waitFor(() => view.getByRole("button", { name: "Checkpoint done" }));
+		await act(async () => testing.talkStream?.onerror?.());
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await act(async () => testing.talkStream?.onopen?.());
+		await testing.say(conversation({ id: "c1", status: "running" }));
 
-		it("reloads the page once each agent a checkpoint stopped has resumed", async () => {
-			const stopped = (id: string) =>
-				conversation({ id, status: "stopped", checkpoint: "done" });
-			const reload = await restart([stopped("c1"), stopped("c2")]);
-
-			await testing.say(conversation({ id: "c1", status: "running" }));
-			expect(reload).not.toHaveBeenCalled();
-			await testing.say(conversation({ id: "c2", status: "running" }));
-
-			expect(reload).toHaveBeenCalledTimes(1);
-			reload.mockRestore();
-		});
-
-		it("stays while an agent fails to resume", async () => {
-			const reload = await restart([
-				conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
-				conversation({ id: "c2", status: "stopped", checkpoint: "done" }),
-			]);
-
-			await testing.say(conversation({ id: "c1", status: "running" }));
-			await testing.say(
-				conversation({
-					id: "c2",
-					status: "failed",
-					error: "agent exited",
-					checkpoint: "done",
-				}),
-			);
-
-			expect(reload).not.toHaveBeenCalled();
-			reload.mockRestore();
-		});
-
-		it("stays when no checkpoint had stopped an agent", async () => {
-			const reload = await restart([
-				conversation({ id: "c1", status: "running" }),
-			]);
-
-			await testing.say(conversation({ id: "c1", status: "idle" }));
-
-			expect(reload).not.toHaveBeenCalled();
-			reload.mockRestore();
-		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Checkpoint done" })),
+		);
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint done" }),
+		);
+		expect(dialog.textContent).toContain(
+			"1 agent checkpointed and carried on.",
+		);
+		expect(reload).not.toHaveBeenCalled();
+		reload.mockRestore();
 	});
 
 	it("renames a conversation from its menu", async () => {
