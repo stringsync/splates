@@ -38,6 +38,11 @@ export interface Details {
 	plan: string | null;
 	/** How the `ARBOR.md` departs from the shape the skill prescribes. */
 	planProblems: string[];
+	/**
+	 * Whether `arbor add --agent` handed it to an agent that `arbor dev` has
+	 * yet to start a conversation with.
+	 */
+	dispatched: boolean;
 }
 
 export interface ShowOptions {
@@ -128,6 +133,9 @@ export class TaskDetails {
 							escalated: worktree.status === "escalated",
 							review: review !== null,
 						}),
+			dispatched:
+				state?.dispatch !== undefined &&
+				state.dispatch.conversation === undefined,
 		};
 	}
 }

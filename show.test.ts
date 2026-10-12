@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
 import { escalate } from "./escalate";
+import { ROSTERED } from "./fake-agent";
 import { show } from "./show";
 import { Testing } from "./testing";
 
@@ -104,6 +105,24 @@ describe("show", () => {
 
 		const { escalatedAt } = JSON.parse(deps.out());
 		expect(Date.parse(escalatedAt)).toBeGreaterThan(Date.now() - 60_000);
+	});
+
+	it("says a task is handed to an agent until its conversation starts", async () => {
+		await add(deps, "alpha", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+		deps.log.clear();
+		await show(deps, "alpha", { json: true });
+		expect(JSON.parse(deps.out()).dispatched).toBe(true);
+
+		await (await deps.service.find("alpha")).save({
+			dispatch: { agent: "fake", conversation: "c1" },
+		});
+		deps.log.clear();
+		await show(deps, "alpha", { json: true });
+
+		expect(JSON.parse(deps.out()).dispatched).toBe(false);
 	});
 
 	it("refuses a task that was never created", async () => {

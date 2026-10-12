@@ -263,6 +263,12 @@ export interface Dispatched {
 	prompt?: string;
 	/** The conversation `arbor dev` started, once it has. */
 	conversation?: string;
+	/**
+	 * Set while the postCheckout hook readies the tree, which `arbor dev`
+	 * waits out: recorded from the start, the task reads as handed over
+	 * rather than an external agent's.
+	 */
+	pending?: true;
 }
 
 /**

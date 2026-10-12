@@ -123,7 +123,7 @@ describe("add", () => {
 		expect(seen).toEqual([{ exists: true, listed: [] }]);
 	});
 
-	it("hands the task to an agent only once its hook has readied the tree", async () => {
+	it("hands the task to an agent pending while its hook readies the tree", async () => {
 		deps.config.postCheckout = `cat ${join(deps.root, ".git", "arbor", "tasks", "alpha.json")} > record.json`;
 
 		await add(deps, "alpha", {
@@ -140,8 +140,23 @@ describe("add", () => {
 		const during = JSON.parse(
 			await deps.fs.read(join(found.path, "record.json")),
 		) as { dispatch?: unknown };
-		expect(during.dispatch).toBeUndefined();
+		expect(during.dispatch).toEqual({
+			agent: "fake",
+			model: "small",
+			prompt: "Do the part.",
+			pending: true,
+		});
 		expect(deps.out()).toContain("agent:    fake (small)");
+	});
+
+	it("hands the task to no agent when its hook fails", async () => {
+		deps.config.postCheckout = "exit 3";
+
+		await expect(
+			add(deps, "alpha", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),
+		).toBail("hook_failed");
+
+		expect((await deps.service.find("alpha")).state?.dispatch).toBeUndefined();
 	});
 
 	it("refuses an agent or a model the roster does not list, before making anything", async () => {

@@ -25,6 +25,7 @@ export async function startDispatched({
 		if (
 			dispatch === undefined ||
 			dispatch.conversation !== undefined ||
+			dispatch.pending === true ||
 			!worktree.exists
 		) {
 			continue;

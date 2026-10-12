@@ -133,7 +133,12 @@ export async function add(
 	}
 
 	await onTree?.();
-	const worktree = await (await service.find(task)).take({ base });
+	const worktree = await (await service.find(task)).take({
+		base,
+		...(handOff === undefined
+			? {}
+			: { dispatch: { ...handOff, pending: true } }),
+	});
 
 	// The plan is scratch for one task and must never land on trunk. Excluding
 	// it through the shared `.git` covers every worktree at once and leaves the
@@ -171,6 +176,10 @@ export async function add(
 			},
 		);
 		if (exitCode !== 0) {
+			// No agent starts in a tree its hook left broken.
+			if (handOff !== undefined) {
+				await worktree.save({ dispatch: undefined });
+			}
 			// The worktree stays. Rolling back would throw away a tree the agent
 			// can fix by hand and re-run the hook in.
 			fail(
@@ -181,8 +190,8 @@ export async function add(
 		}
 	}
 
-	// Only once the hook has readied the tree, so the agent never starts in
-	// one still installing.
+	// Ready only once the hook has readied the tree, so the agent never starts
+	// in one still installing.
 	if (handOff !== undefined) {
 		await worktree.save({ dispatch: handOff });
 	}

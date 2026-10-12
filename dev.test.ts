@@ -1109,7 +1109,16 @@ describe("dev", () => {
 				await server.disposeAsync();
 			}
 
-			// Each is started once, however often the server starts.
+			// Each is started once, however often the server starts, and one
+			// whose tree is still readying waits for it.
+			await add(deps, "gamma", {
+				dispatch: { agent: "fake" },
+				agents: [ROSTERED],
+			});
+			const gamma = await deps.service.find("gamma");
+			await gamma.save({
+				dispatch: { ...gamma.state?.dispatch, agent: "fake", pending: true },
+			});
 			const again = await dev(deps, {
 				ports: OpenPortProvider.any(),
 				conversations: () => conversations,

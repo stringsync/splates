@@ -53,7 +53,8 @@ const KINDS: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
 
 /**
  * Every listed conversation, and every live task no listed conversation runs
- * in (an external agent, run outside the page), with what each needs: those waiting first,
+ * in (an external agent, run outside the page) and none is about to, with
+ * what each needs: those waiting first,
  * oldest stop first, then those assuming, most open questions first, then the
  * rest in the order given.
  */
@@ -73,8 +74,12 @@ export function needs({
 			const task = live.find((each) => each.task === conversation.task) ?? null;
 			return { conversation, task, need: need(task, conversation) };
 		}),
+		// One handed to an agent shows once its conversation starts.
 		...live
-			.filter((task) => !listed.some((each) => each.task === task.task))
+			.filter(
+				(task) =>
+					!task.dispatched && !listed.some((each) => each.task === task.task),
+			)
 			.map((task) => ({ conversation: null, task, need: need(task, null) })),
 	];
 	// Stable, so equals keep the order they came in.

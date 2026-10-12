@@ -237,6 +237,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		ready: true,
 		plan: null,
 		planProblems: [],
+		dispatched: false,
 		...overrides,
 	};
 }

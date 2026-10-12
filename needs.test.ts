@@ -45,6 +45,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		ready: false,
 		plan: null,
 		planProblems: [],
+		dispatched: false,
 		...overrides,
 	};
 }
@@ -222,5 +223,11 @@ describe("needs", () => {
 			listed.map((each) => each.conversation?.id ?? each.task?.task),
 		).toEqual(["early", "late", "external", "many", "few", "idle"]);
 		expect(listed[2]?.conversation).toBeNull();
+	});
+
+	it("leaves out a task handed to an agent whose conversation has yet to start", () => {
+		expect(
+			needs({ tasks: [task({ dispatched: true })], conversations: [] }),
+		).toEqual([]);
 	});
 });
