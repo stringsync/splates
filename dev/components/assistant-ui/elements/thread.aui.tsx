@@ -248,8 +248,10 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 			delete (element as Partial<HTMLDivElement>).scrollTo;
 		};
 	}, []);
-	useAnchorAtOnce(viewport);
+	// First, so the room it leaves below a report is gone before a new turn
+	// is measured to anchor.
 	useOpenAt(viewport);
+	useAnchorAtOnce(viewport);
 	const footer = useRef<HTMLDivElement>(null);
 	useClearOf(viewport, footer);
 
@@ -346,16 +348,53 @@ function useClearOf(
 const OPENS_THREAD = "[data-opens-thread]";
 
 /**
+ * How far down `element` sits in `scroller`, by layout, as assistant-ui
+ * measures, so a fade's slide counts for nothing.
+ */
+function layoutTop(element: HTMLElement, scroller: HTMLElement): number {
+	let top = 0;
+	for (
+		let at: HTMLElement | null = element;
+		at != null && at !== scroller;
+		at = at.offsetParent as HTMLElement | null
+	) {
+		top += at.offsetTop;
+	}
+	return top;
+}
+
+/**
+ * Sizes `room`, at the foot of the thread, so `scroller` can scroll `top`
+ * to its top. Again until it holds: while the thread is shorter than the
+ * viewport, the room it takes first comes out of the space the composer's
+ * margin fills.
+ */
+function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
+	for (let tries = 0; tries < 4; tries++) {
+		const rest = scroller.scrollHeight - room.offsetHeight;
+		const height = `${Math.max(0, top + scroller.clientHeight - rest)}px`;
+		if (room.style.height === height) {
+			break;
+		}
+		room.style.height = height;
+	}
+}
+
+/**
  * Opens `viewport` at the top of what its last turn marks to open at, just
  * clear of the person's message stuck above it, as on a report, else at the
- * bottom, as assistant-ui would. It holds there while what is above settles,
+ * bottom, as assistant-ui would. A report too near the foot of the thread to
+ * reach the top gets room below it, as assistant-ui leaves below a new turn,
+ * until another message comes. It holds there while what is above settles,
  * as markdown and cards render, until the person scrolls, clicks or types, or
  * a reply starts and `useAnchorAtOnce` takes over.
  */
 function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
-	const loaded = useAuiState((s) => s.thread.messages.length > 0);
+	const count = useAuiState((s) => s.thread.messages.length);
+	const loaded = count > 0;
 	const running = useAuiState((s) => s.thread.isRunning);
 	const release = useRef(() => {});
+	const room = useRef<HTMLDivElement | null>(null);
 	useLayoutEffect(() => {
 		const scroller = viewport.current;
 		const content = scroller?.firstElementChild;
@@ -369,10 +408,29 @@ function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
 			const card = [
 				...(turn?.querySelectorAll<HTMLElement>(OPENS_THREAD) ?? []),
 			].at(-1)?.firstElementChild;
-			if (!(card instanceof HTMLElement)) {
+			if (turn === undefined || !(card instanceof HTMLElement)) {
+				room.current?.remove();
 				scroller.scrollTop = scroller.scrollHeight;
 				return;
 			}
+			if (room.current === null) {
+				room.current = document.createElement("div");
+				room.current.setAttribute("aria-hidden", "true");
+				room.current.style.flexShrink = "0";
+				room.current.style.pointerEvents = "none";
+			}
+			// Inside the turn, so the person's message stays stuck above it.
+			if (room.current.parentElement !== turn) {
+				turn.append(room.current);
+			}
+			// Sets the card's scroll margin, which the room is sized to.
+			toCardTop(card);
+			makeRoom(
+				scroller,
+				room.current,
+				layoutTop(card, scroller) -
+					(Number.parseFloat(card.style.scrollMarginTop) || 0),
+			);
 			toCardTop(card);
 		};
 		place();
@@ -396,6 +454,9 @@ function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
 		release.current = stop;
 		return stop;
 	}, [loaded, viewport]);
+	// Before a new turn is measured, so it anchors as if the room were never
+	// there.
+	useLayoutEffect(() => () => room.current?.remove(), [count]);
 	useEffect(() => {
 		if (running) {
 			release.current();
@@ -462,27 +523,9 @@ function useAnchorAtOnce(viewport: RefObject<HTMLDivElement | null>): void {
 			reserve.style.pointerEvents = "none";
 		}
 		target.after(reserve);
-		// By layout, as assistant-ui measures, so the fade's slide counts for
-		// nothing.
-		let scrollTop = 0;
-		for (
-			let at: HTMLElement | null = anchor;
-			at != null && at !== scroller;
-			at = at.offsetParent as HTMLElement | null
-		) {
-			scrollTop += at.offsetTop;
-		}
-		// Again until it holds, as assistant-ui sizes it frame by frame: while
-		// the thread is shorter than the viewport, the room it takes first
-		// comes out of the space the composer's margin fills.
-		for (let tries = 0; tries < 4; tries++) {
-			const rest = scroller.scrollHeight - reserve.offsetHeight;
-			const room = `${Math.max(0, scrollTop + scroller.clientHeight - rest)}px`;
-			if (reserve.style.height === room) {
-				break;
-			}
-			reserve.style.height = room;
-		}
+		const scrollTop = layoutTop(anchor, scroller);
+		// As assistant-ui sizes it frame by frame.
+		makeRoom(scroller, reserve, scrollTop);
 		const ratio = window.devicePixelRatio || 1;
 		scroller.scrollTop = Math.round(scrollTop * ratio) / ratio;
 		if (found !== null) {
