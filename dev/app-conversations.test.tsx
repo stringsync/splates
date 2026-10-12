@@ -308,6 +308,61 @@ describe("App's conversations", () => {
 		expect(branch()).toBe("main");
 	});
 
+	it("takes up a task no conversation runs in, or an open todo, from a main-tree conversation's branch", async () => {
+		const view = await conversations(
+			[
+				conversation({ id: "c1", title: "Look around" }),
+				conversation({ id: "c2", task: "alpha", title: "Fix login" }),
+			],
+			"c1",
+			{
+				tasks: [
+					details({ task: "alpha" }),
+					details({ task: "beta", status: "escalated" }),
+					details({ task: "gamma", dispatched: true }),
+				],
+				todos: [
+					todo({ id: 12, subject: "Retry the upload on a 413", position: 2 }),
+					todo({ id: 14, subject: "Show the size limit", takenBy: "limits" }),
+					todo({ id: 9, subject: "Name the upload", position: 1 }),
+				],
+			},
+		);
+		const open = async () =>
+			act(async () =>
+				fireEvent.click(
+					view.getByRole("button", { name: "Take up a task or todo" }),
+				),
+			);
+
+		await open();
+		const items = await waitFor(() => view.getAllByRole("menuitem"));
+		// alpha has its conversation, gamma is handed to an agent, and 14 is taken.
+		expect(items.map((each) => each.textContent)).toEqual([
+			"beta",
+			"Name the upload#9",
+			"Retry the upload on a 413#12",
+		]);
+		await act(async () => fireEvent.click(items[0] as HTMLElement));
+		await open();
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: /Retry the upload/ }),
+				),
+			),
+		);
+		expect(posted("/api/conversations/c1/prompt")).toEqual([
+			{
+				method: "POST",
+				body: {
+					text: "Claim task beta with `arbor claim beta` and carry on with it.",
+				},
+			},
+			{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
+		]);
+	});
+
 	it("offers its actions in a card in its upper right, its task's changes among them, closing them on Escape", async () => {
 		const view = await conversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),

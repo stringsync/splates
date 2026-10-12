@@ -17,7 +17,9 @@ import {
 	CircleAlertIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
+	GitBranchIcon,
 	LinkIcon,
+	ListTodoIcon,
 	Loader2Icon,
 	MonitorIcon,
 	PencilIcon,
@@ -55,7 +57,10 @@ import {
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
@@ -99,7 +104,7 @@ import {
 	unqueueConversation,
 } from "./api";
 import { Back } from "./back";
-import { copiedLabel, useCopy } from "./card";
+import { copiedLabel, todoReference, useCopy } from "./card";
 import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import { CheckpointButton } from "./checkpoint";
@@ -1047,6 +1052,18 @@ export function Conversations({
 	const shown = conversations.find((each) => each.id === open) ?? null;
 	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
 	const board = useMemo(() => ({ todos, lanes }), [todos, lanes]);
+	// What a main-tree conversation can take up: a live task no listed
+	// conversation runs in, nor one about to. `arbor claim` refuses one an
+	// external agent still holds, so its agent says so.
+	const free = tasks.filter(
+		(each) =>
+			["working", "escalated"].includes(each.status) &&
+			!each.dispatched &&
+			!conversations.some(
+				(conversation) =>
+					!conversation.archived && conversation.task === each.task,
+			),
+	);
 	// By conversation, so a message Home sends to one it just started can be
 	// refused in that one's thread.
 	const { refusals, refuse } = useRefusals<string>();
@@ -1109,6 +1126,7 @@ export function Conversations({
 						feed={feed}
 						agent={agentName(agents, shown.agent)}
 						task={tasks.find((each) => each.task === shown.task) ?? null}
+						free={free}
 						trunk={trunk}
 						refusal={refusals.get(shown.id) ?? null}
 						refuseIn={refuse}
@@ -1738,6 +1756,7 @@ function Thread({
 	feed,
 	agent,
 	task,
+	free,
 	trunk,
 	refusal,
 	refuseIn,
@@ -1757,6 +1776,8 @@ function Thread({
 	agent: string;
 	/** The task it runs in; null in the main tree, or once the task is gone. */
 	task: Details | null;
+	/** The tasks it can take up from the main tree. */
+	free: Details[];
 	/** The main tree's branch. */
 	trunk: string;
 	/** A write to it the server refused, said above the composer for a moment. */
@@ -1811,13 +1832,8 @@ function Thread({
 			(part) => part.type === "data-questions" || part.type === "data-review",
 		);
 	const restore = useRef<(text: string, images: File[]) => void>(() => {});
-	const say = useCallback(
-		async (message: AppendMessage) => {
-			const text = message.content
-				.map((part) => (part.type === "text" ? part.text : ""))
-				.join("")
-				.trim();
-			const images = imagesOf(message);
+	const send = useCallback(
+		async (text: string, images: File[]) => {
 			// The server says nothing of it until the agent is back up.
 			const sending =
 				status !== "idle" &&
@@ -1835,6 +1851,17 @@ function Thread({
 			});
 		},
 		[id, status, feed, refused],
+	);
+	const say = useCallback(
+		(message: AppendMessage) =>
+			send(
+				message.content
+					.map((part) => (part.type === "text" ? part.text : ""))
+					.join("")
+					.trim(),
+				imagesOf(message),
+			),
+		[send],
 	);
 	const runtime = useExternalStoreRuntime({
 		messages,
@@ -2036,11 +2063,19 @@ function Thread({
 							{nameOf(conversation)}
 						</h2>
 					)}
-					<TaskLine
-						branch={branch}
-						task={task}
-						onDetails={() => setDetails(true)}
-					/>
+					{conversation.task === null && !archived ? (
+						<TakeUp
+							trunk={trunk}
+							tasks={free}
+							onTake={(text) => void send(text, []).catch(() => {})}
+						/>
+					) : (
+						<TaskLine
+							branch={branch}
+							task={task}
+							onDetails={() => setDetails(true)}
+						/>
+					)}
 				</div>
 				{archived ? (
 					<Badge variant="secondary">archived</Badge>
@@ -2121,6 +2156,93 @@ function Thread({
 				</AssistantRuntimeProvider>
 			</div>
 		</section>
+	);
+}
+
+/** What a conversation's agent is asked to take `task` up with. */
+export function claimPrompt(task: string): string {
+	return `Claim task ${task} with \`arbor claim ${task}\` and carry on with it.`;
+}
+
+/**
+ * The line under a main-tree conversation's title: the trunk's branch, which
+ * opens a menu of the tasks and open todos its agent can take up. Picking one
+ * asks the agent to claim it, and the conversation follows it there.
+ */
+function TakeUp({
+	trunk,
+	tasks,
+	onTake,
+}: {
+	trunk: string;
+	tasks: Details[];
+	/** Sends the prompt that takes it up. */
+	onTake: (text: string) => void;
+}): JSX.Element {
+	const board = useContext(TodosContext);
+	const todos = (board?.todos ?? [])
+		.filter((each) => each.takenBy === null)
+		.sort((one, other) => one.position - other.position);
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<button
+						type="button"
+						aria-label="Take up a task or todo"
+						title="Take up a task or todo"
+						className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
+					>
+						<GitBranchIcon
+							role="img"
+							aria-label="branch"
+							className="size-3 shrink-0"
+						/>
+						<span className="truncate">{trunk}</span>
+						<ChevronDownIcon aria-hidden className="size-3 shrink-0" />
+					</button>
+				}
+			/>
+			<DropdownMenuContent className="max-h-80 w-80 overflow-y-auto">
+				{tasks.length === 0 && todos.length === 0 && (
+					<p className="px-1.5 py-1 text-muted-foreground text-xs">
+						No task or open todo to take up.
+					</p>
+				)}
+				{tasks.length > 0 && (
+					<DropdownMenuGroup>
+						<DropdownMenuLabel>Claim a task</DropdownMenuLabel>
+						{tasks.map((each) => (
+							<DropdownMenuItem
+								key={each.task}
+								onClick={() => onTake(claimPrompt(each.task))}
+							>
+								<GitBranchIcon aria-hidden />
+								<span className="truncate">{each.task}</span>
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuGroup>
+				)}
+				{tasks.length > 0 && todos.length > 0 && <DropdownMenuSeparator />}
+				{todos.length > 0 && (
+					<DropdownMenuGroup>
+						<DropdownMenuLabel>Start a todo</DropdownMenuLabel>
+						{todos.map((each) => (
+							<DropdownMenuItem
+								key={each.id}
+								onClick={() => onTake(todoReference(each.id))}
+							>
+								<ListTodoIcon aria-hidden />
+								<span className="min-w-0 flex-1 truncate">{each.subject}</span>
+								<span className="shrink-0 text-muted-foreground tabular-nums">
+									#{each.id}
+								</span>
+							</DropdownMenuItem>
+						))}
+					</DropdownMenuGroup>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
