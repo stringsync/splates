@@ -152,10 +152,15 @@ export type ThreadProps = {
 	controls?: ReactNode | undefined;
 	/** What `@` offers in the composer; nothing when unset. */
 	mentions?: TriggerAdapter | undefined;
+	/** The empty composer's hint, such as why it takes nothing. */
+	placeholder?: string | undefined;
 };
 
 const ThreadExtrasContext = createContext<
-	Pick<ThreadProps, "above" | "welcome" | "controls" | "mentions">
+	Pick<
+		ThreadProps,
+		"above" | "welcome" | "controls" | "mentions" | "placeholder"
+	>
 >({});
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -204,13 +209,14 @@ export const Thread: FC<ThreadProps> = ({
 	welcome,
 	controls,
 	mentions,
+	placeholder,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
 
 	return (
 		<ThreadComponentsContext.Provider value={components}>
 			<ThreadExtrasContext.Provider
-				value={{ above, welcome, controls, mentions }}
+				value={{ above, welcome, controls, mentions, placeholder }}
 			>
 				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} />
 			</ThreadExtrasContext.Provider>
@@ -876,7 +882,8 @@ const ThreadAbove: FC = () => {
 };
 
 const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
-	const { mentions } = useContext(ThreadExtrasContext);
+	const { mentions, placeholder = "Send a message..." } =
+		useContext(ThreadExtrasContext);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -889,7 +896,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 			>
 				<ComposerAttachments />
 				<ComposerPrimitive.Input
-					placeholder="Send a message..."
+					placeholder={placeholder}
 					className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
 					rows={1}
 					autoFocus={autoFocus}

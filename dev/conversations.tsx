@@ -2448,7 +2448,7 @@ function Thread({
 			: []),
 		{
 			label: archived ? "Unarchive" : "Archive",
-			icon: <ArchiveIcon />,
+			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
 			detail: <Kbd>{ARCHIVE}</Kbd>,
 			run: () => archive.file(),
 		},
@@ -2626,6 +2626,11 @@ function Thread({
 									<ThreadView
 										autoFocus={!(asking || answering) || typed}
 										mentions={mentions ?? undefined}
+										placeholder={
+											archived
+												? `Archived: unarchive (${ARCHIVE}) to continue`
+												: undefined
+										}
 										controls={
 											!archived &&
 											settings.map((setting) => (

@@ -550,6 +550,20 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("says in an archived conversation's composer how to carry on", async () => {
+		const view = await conversations([], null);
+		await testing.say(conversation({ status: "stopped", archived: true }));
+		await act(async () => {
+			location.hash = "#conversations/c1";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+
+		const box = await view.findByRole("textbox", { name: "Message input" });
+		expect(box.getAttribute("placeholder")).toBe(
+			"Archived: unarchive (⌥⌘⌫) to continue",
+		);
+	});
+
 	/** A conversation of `slug`'s, as the projects route lists it. */
 	const live = (
 		id: string,
