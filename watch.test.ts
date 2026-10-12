@@ -18,12 +18,19 @@ describe("Watch", () => {
 
 	afterEach(() => env.disposeAsync());
 
-	/** What running `steps` in the task's tree did, as the watch tells it. */
-	const after = async (steps: () => Promise<unknown>, cwd = tree) => {
+	/**
+	 * What running `steps` in the task's tree did, as the watch tells it of a
+	 * command that reads `command`.
+	 */
+	const after = async (
+		steps: () => Promise<unknown>,
+		cwd = tree,
+		command: string | null = null,
+	) => {
 		const watched = watch.command(cwd);
 		await watched.looked();
 		await steps();
-		return watched.done();
+		return watched.done(command);
 	};
 
 	const git = (...args: string[]) => env.gitCli(tree, ...args);
@@ -87,17 +94,50 @@ describe("Watch", () => {
 		).toEqual([]);
 	});
 
-	it("flags a push", async () => {
-		const remote = join(env.config.worktreeRoot, "..", "remote.git");
-		await env.gitCli(env.root, "init", "--bare", remote);
-		await env.gitCli(env.root, "remote", "add", "origin", remote);
-		await env.gitCli(env.root, "push", "origin", "main");
-		await env.gitCli(env.root, "fetch", "origin");
+	describe("with a remote", () => {
+		beforeEach(async () => {
+			const remote = join(env.config.worktreeRoot, "..", "remote.git");
+			await env.gitCli(env.root, "init", "--bare", remote);
+			await env.gitCli(env.root, "remote", "add", "origin", remote);
+			await env.gitCli(env.root, "push", "origin", "main");
+			await env.gitCli(env.root, "fetch", "origin");
+			await env.gitCli(env.root, "remote", "set-head", "origin", "main");
+		});
 
-		expect(await after(() => git("push", "origin", "task/login"))).toEqual([
-			{ type: "pushed", refs: ["origin/task/login"] },
-		]);
-		expect(await after(() => git("fetch", "origin"))).toEqual([]);
+		it("flags a push", async () => {
+			expect(
+				await after(
+					() => git("push", "origin", "task/login"),
+					tree,
+					"git push origin task/login",
+				),
+			).toEqual([{ type: "pushed", refs: ["origin/task/login"] }]);
+			expect(
+				await after(() => git("fetch", "origin"), tree, "git fetch origin"),
+			).toEqual([]);
+		});
+
+		it("names the branch pushed, not origin/HEAD pointing at it", async () => {
+			expect(
+				await after(
+					() => git("push", "origin", "task/login:main"),
+					tree,
+					"git push origin task/login:main",
+				),
+			).toEqual([{ type: "pushed", refs: ["origin/main"] }]);
+		});
+
+		it("says nothing of a push another tree made while it ran", async () => {
+			await env.commit(env.root, "c.txt", "trunk\n", "c");
+
+			expect(
+				await after(
+					() => env.gitCli(env.root, "push", "origin", "main"),
+					tree,
+					"grep -rn login .",
+				),
+			).toEqual([]);
+		});
 	});
 
 	it("flags files changed in the main tree, but not by a command run there", async () => {

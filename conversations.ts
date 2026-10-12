@@ -1131,7 +1131,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 		this.watching.delete(tool.id);
 		void watched
-			.done()
+			.done(tool.command)
 			.then((flags) => {
 				if (flags.length > 0) {
 					tool.flags = flags;

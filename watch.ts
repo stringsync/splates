@@ -12,7 +12,7 @@ export type Flag =
 	| { type: "dropped"; branch: string }
 	/** Checked out `now`, a branch or null for a detached HEAD, off `branch`. */
 	| { type: "left"; branch: string; now: string | null }
-	/** Pushed, updating these remote branches. */
+	/** Pushed, updating these remote branches, in a command that says `push`. */
 	| { type: "pushed"; refs: string[] }
 	/** Changed these files in the main tree, from a task's worktree. */
 	| { type: "outside"; paths: string[] };
@@ -27,7 +27,7 @@ interface Look {
 	tip: string | null;
 	/** Whether the tree is gone, as a merged task's is. */
 	gone: boolean;
-	/** Every remote branch, with its commit. */
+	/** Every remote branch but a symbolic one like `origin/HEAD`, with its commit. */
 	remotes: Map<string, string>;
 	/** The main tree's uncommitted paths; null for a command run in it. */
 	dirty: Set<string> | null;
@@ -55,7 +55,7 @@ function look(git: Git, cwd: string): Promise<Look> {
 		git.run(
 			git.root,
 			"for-each-ref",
-			"--format=%(refname) %(objectname)",
+			"--format=%(refname) %(objectname) %(symref)",
 			"refs/remotes",
 		),
 		cwd === git.root
@@ -67,9 +67,9 @@ function look(git: Git, cwd: string): Promise<Look> {
 		tip: branch.code === 0 && tip.code === 0 ? tip.stdout : null,
 		gone: branch.code > 1,
 		remotes: new Map(
-			lines(remotes.stdout).map((line) => {
-				const [ref = "", commit = ""] = line.split(" ");
-				return [ref, commit];
+			lines(remotes.stdout).flatMap((line) => {
+				const [ref = "", commit = "", symref = ""] = line.split(" ");
+				return symref === "" ? [[ref, commit] as const] : [];
 			}),
 		),
 		dirty: status === null ? null : new Set(lines(status.stdout).map(pathOf)),
@@ -99,8 +99,12 @@ export class Watched {
 		await this.before;
 	}
 
-	/** Looks at git again, now that the command is over, and says what it did. */
-	async done(): Promise<Flag[]> {
+	/**
+	 * Looks at git again, now that `command` is over, and says what it did.
+	 * Every tree shares the remotes' reflogs, so a push only counts in a
+	 * command that says `push`: another task's merge may push while it runs.
+	 */
+	async done(command: string | null): Promise<Flag[]> {
 		const before = await this.before;
 		const after = await look(this.git, this.cwd);
 		const flags: Flag[] = [];
@@ -122,7 +126,9 @@ export class Watched {
 				});
 			}
 		}
-		const pushed = await this.pushed(before.remotes, after.remotes);
+		const pushed = /\bpush\b/.test(command ?? "")
+			? await this.pushed(before.remotes, after.remotes)
+			: [];
 		if (pushed.length > 0) {
 			flags.push({ type: "pushed", refs: pushed });
 		}
