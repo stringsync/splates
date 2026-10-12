@@ -4529,6 +4529,41 @@ Cap upload retries
 			expect(location.hash).toBe("#conversations/c2");
 		});
 
+		it("counts the agents waiting on you in the sidebar, and lights the line when ⌥⌘M finds none", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Runs", status: "running" }),
+					conversation({ id: "c2", title: "Broke", status: "failed" }),
+				]),
+			);
+			const nav = view.getByRole("navigation", { name: "conversations" });
+			const line = within(nav).getByRole("button", { name: /waiting on you/ });
+			expect(line.textContent).toContain("1 waiting on you");
+
+			await act(async () => fireEvent.click(line));
+			expect(location.hash).toBe("#conversations/c2");
+			expect(line.hasAttribute("data-lit")).toBe(false);
+
+			view.unmount();
+			const quiet = await sidebar([
+				conversation({ id: "c1", title: "Runs", status: "running" }),
+			]);
+			const none = within(
+				quiet.getByRole("navigation", { name: "conversations" }),
+			).getByRole("button", { name: /waiting on you/ });
+			expect(none.textContent).toContain("Nothing waiting on you");
+			const before = location.hash;
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyM",
+				}),
+			);
+			expect(location.hash).toBe(before);
+			expect(none.hasAttribute("data-lit")).toBe(true);
+		});
+
 		it("shows each key while ⌥⌘ is held, and opens a row with ⌥⌘ and its digit", async () => {
 			const view = await sidebar(
 				newestFirst([
@@ -4545,7 +4580,7 @@ Cap upload retries
 			await act(async () =>
 				fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 			);
-			expect(keys()).toEqual(["N", "0", "1", "2"]);
+			expect(keys()).toEqual(["N", "M", "0", "1", "2"]);
 			await act(async () =>
 				fireEvent.keyDown(document.body, {
 					code: "Digit1",

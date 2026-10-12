@@ -36,6 +36,7 @@
 @source "./release.tsx";
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";
+@source "./waiting-line.tsx";
 @source "./work-row.tsx";
 @source "./changes.tsx";
 @source "./actions.tsx";

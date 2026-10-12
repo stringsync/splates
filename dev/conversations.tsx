@@ -165,6 +165,7 @@ import { TOGGLE } from "./terminal-session";
 import { isMain, numberOf, type Terminals } from "./terminals";
 import { TodoDialog } from "./todos";
 import { unanswered } from "./unanswered";
+import { WaitingLine } from "./waiting-line";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
 
@@ -362,12 +363,16 @@ export function ConversationList({
 	openRowRef.current = openRow;
 	const shownRef = useRef(shown);
 	shownRef.current = shown;
+	// Each time ⌥⌘M finds nothing to open, for the waiting line to say so.
+	const [nudges, setNudges] = useState(0);
 	const next = useRef(() => {});
 	next.current = () => {
 		const waiting = nextWaiting(rows, open, true);
 		if (waiting !== undefined) {
 			arriveAt(openedBy(waiting));
 			openRow(waiting);
+		} else {
+			setNudges((nudges) => nudges + 1);
 		}
 	};
 	useEffect(() => {
@@ -466,6 +471,12 @@ export function ConversationList({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<WaitingLine
+				waiting={rows.filter(waitsOnYou).length}
+				nudges={nudges}
+				held={held}
+				onNext={() => next.current()}
+			/>
 			<CheckpointButton conversations={listed} />
 			{mains.map((each) => (
 				<TerminalRow
