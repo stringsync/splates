@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { MemoryLogger } from "webappwiz/log";
 import { FakePs } from "webappwiz/system/testing";
 import { follow } from "./follow";
+import { Testing } from "./testing";
 
 describe("follow", () => {
 	let ps: FakePs;
@@ -73,5 +74,28 @@ describe("follow", () => {
 			"arbor dev did not move the conversation: 404",
 			"arbor dev at http://localhost:1 could not be told of the move: refused",
 		]);
+	});
+
+	it("is left out of a test's commands run from an agent in arbor dev", async () => {
+		const outer = {
+			ARBOR_CONVERSATION: process.env.ARBOR_CONVERSATION,
+			ARBOR_DEV: process.env.ARBOR_DEV,
+		};
+		process.env.ARBOR_CONVERSATION = "c1";
+		process.env.ARBOR_DEV = "http://localhost:4270";
+		try {
+			await using testing = await Testing.open({ init: false });
+
+			expect(testing.ps.env("ARBOR_CONVERSATION")).toBeUndefined();
+			expect(testing.ps.env("ARBOR_DEV")).toBeUndefined();
+		} finally {
+			for (const [name, value] of Object.entries(outer)) {
+				if (value === undefined) {
+					delete process.env[name];
+				} else {
+					process.env[name] = value;
+				}
+			}
+		}
 	});
 });
