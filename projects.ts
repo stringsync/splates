@@ -97,14 +97,21 @@ export class Projects {
 		return projects;
 	}
 
-	/** Drops the repository at `root`, as for one that is gone for good. */
-	async forget(root: string): Promise<void> {
+	/**
+	 * Drops the repository at `root`, saying whether it was there: one gone
+	 * for good, or one `arbor dev` should no longer offer.
+	 */
+	async forget(root: string): Promise<boolean> {
 		await this.fs.mkdir(this.dir);
 		await this.lock.acquire();
 		try {
-			await this.write(
-				(await this.records()).filter((each) => each.root !== root),
-			);
+			const records = await this.records();
+			const kept = records.filter((each) => each.root !== root);
+			if (kept.length === records.length) {
+				return false;
+			}
+			await this.write(kept);
+			return true;
 		} finally {
 			await this.lock.release();
 		}

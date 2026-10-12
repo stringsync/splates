@@ -36,6 +36,14 @@ project already under way, or again, it only registers. Every other command
 refuses a repository `arbor init` never ran in (`uninitialized`), and
 `arbor dev` one it never registered.
 
+### `arbor forget`
+
+Takes the repository's main tree off `~/.arbor/projects.json`, so `arbor dev`
+no longer offers it, as the project switcher's forget button does. Its records
+under `.git/arbor` stay, and `arbor init` brings it back. Unlike the button, it
+cannot see the conversations a running `arbor dev` has in it, and leaves them
+running until that server stops.
+
 ### `arbor add <task> [--base <branch>] [--todo <id,...>] [--agent <id> [--model <m>] [--prompt <text>]]`
 
 Creates the task: branch `task/<task>`, a worktree at
@@ -263,7 +271,9 @@ heads the page and switches to another: click it, or ⌘K (Ctrl+K) anywhere,
 type to narrow the list, and Enter. The address names the project shown,
 `?project=shop`, by the last part of its root (`shop-2` for a second of the
 same name); another project's records are migrated as it is first opened. One
-whose repository is gone is listed struck through, with a button to forget it.
+whose repository is gone is listed struck through. Each project but the one
+shown and the one `arbor dev` started in has a button to forget it, as
+`arbor forget` does, which refuses one with conversations under way.
 A conversation stays in the project it started in.
 
 Todos is a Trello-style board. Its first column, Untriaged, holds every todo

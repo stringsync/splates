@@ -97,4 +97,23 @@ describe("App's projects", () => {
 			expect.objectContaining({ path: "/api/projects/old", method: "DELETE" }),
 		);
 	});
+
+	it("forgets one still there, but never the one shown or started in", async () => {
+		visit("http://localhost/?project=old");
+		const view = await testing.open();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Switch project" })),
+		);
+
+		const forget = await waitFor(() =>
+			view.getByRole("button", { name: "Forget shop" }),
+		);
+		expect(view.queryByRole("button", { name: "Forget webappwiz" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Forget old" })).toBeNull();
+		await act(async () => fireEvent.click(forget));
+
+		expect(testing.posts).toContainEqual(
+			expect.objectContaining({ path: "/api/projects/shop", method: "DELETE" }),
+		);
+	});
 });

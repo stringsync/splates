@@ -12,7 +12,7 @@ import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
-import { init } from "./init";
+import { forget, init } from "./init";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
@@ -64,6 +64,14 @@ arbor
 		"make this repository an arbor project: set up its records under .git/arbor when it has none, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run in one already under way, it only registers",
 	)
 	.action((_opts, ctx) => init(ctx));
+
+arbor
+	.command("forget")
+	.use(repository())
+	.description(
+		"take this repository off ~/.arbor/projects.json, so `arbor dev` no longer offers it; its records stay, and `arbor init` brings it back",
+	)
+	.action((_opts, ctx) => forget(ctx));
 
 arbor
 	.command("add")

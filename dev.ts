@@ -1209,7 +1209,19 @@ export async function dev(
 				project: slug,
 			});
 		}
+		// Its agents would carry on with nothing on the page left to show them.
+		const live = await checkpointable(found.root);
+		if (live.length > 0) {
+			fail(
+				"usage",
+				`${slug} has conversations under way: stop ${live.map((each) => each.name).join(", ")} first`,
+				{ project: slug, conversations: live.map((each) => each.id) },
+			);
+		}
 		await projects.forget(found.root);
+		const opened = served.get(found.root);
+		served.delete(found.root);
+		await (await opened?.catch(() => null))?.disposeAsync();
 		return Response.json(found);
 	};
 

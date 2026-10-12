@@ -167,12 +167,21 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 									</span>
 								</span>
 							</button>
-							{each.gone && (
+							{!each.here && !current(each) && (
 								<Button
 									size="icon-xs"
 									variant="ghost"
 									aria-label={`Forget ${each.slug}`}
-									title="Forget it: its repository is gone"
+									title={
+										each.gone
+											? "Forget it: its repository is gone"
+											: "Forget it: `arbor init` there brings it back"
+									}
+									className={cn(
+										!each.gone &&
+											at !== active &&
+											"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100",
+									)}
 									onClick={() =>
 										forgetProject(each.slug).then(load, (error: unknown) =>
 											refused(`${each.slug} not forgotten`, error),

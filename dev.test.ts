@@ -219,6 +219,35 @@ describe("dev", () => {
 				await server.disposeAsync();
 			}
 		}, 15_000);
+
+		it("refuses to forget a project with a conversation under way", async () => {
+			await using _other = await another();
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: ({ arborDir }) =>
+					new Conversations(`${arborDir}/conversations`, [AGENT], {
+						launch: new FakeAgent().launch,
+					}),
+			});
+			try {
+				const { port } = server;
+				await write(port, "/api/conversations?project=repo-2", "POST", {
+					agent: "fake",
+				});
+
+				const refused = await write(port, "/api/projects/repo-2", "DELETE");
+				expect(refused.status).toBe(400);
+				expect(await refused.json()).toMatchObject({
+					message: expect.stringContaining("stop fake first"),
+				});
+				expect((await deps.projects.list()).map((each) => each.slug)).toEqual([
+					"repo",
+					"repo-2",
+				]);
+			} finally {
+				await server.disposeAsync();
+			}
+		}, 15_000);
 	});
 
 	it("reads the repo only while a page listens", async () => {

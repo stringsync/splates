@@ -268,6 +268,22 @@ describe.concurrent("arbor", () => {
 		]);
 	});
 
+	it("forgets this repository, keeping its records", async () => {
+		await using cli = await setup();
+		const { env, arbor } = cli;
+		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+
+		const forgot = await arbor(env.root, "forget");
+		const again = await arbor(env.root, "forget");
+
+		expect(forgot.exitCode).toBe(0);
+		expect(forgot.stdout).toContain(`forgot ${env.root}`);
+		expect(again.stdout).toContain(`${env.root} is not registered`);
+		expect(await env.projects.list()).toEqual([]);
+		expect((await arbor(env.root, "init")).exitCode).toBe(0);
+		expect((await cli.rows()).map((row) => row.task)).toEqual(["alpha"]);
+	});
+
 	it("leaves records a newer arbor wrote alone", async () => {
 		await using cli = await setup();
 		const { env, arbor } = cli;

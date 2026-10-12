@@ -23,3 +23,23 @@ export async function init({
 	}
 	log.info(`${git.root} is already registered in ${projects.path}`);
 }
+
+/**
+ * Takes this repository off the registry, so `arbor dev` no longer offers it:
+ * its records stay, and `arbor init` brings it back.
+ */
+export async function forget({
+	git,
+	projects,
+	log,
+}: {
+	git: Git;
+	projects: Projects;
+	log: Logger;
+}): Promise<void> {
+	if (await projects.forget(git.root)) {
+		log.info(`${color.green("forgot")} ${git.root} in ${projects.path}`);
+		return;
+	}
+	log.info(`${git.root} is not registered in ${projects.path}`);
+}
