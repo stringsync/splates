@@ -897,16 +897,29 @@ export async function dev(
 		const listeners = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		const beats = new Map<string, Throttler>();
 		const timer = new SystemTimer();
+		const send = (chunk: Uint8Array): void => {
+			for (const stream of listeners) {
+				stream.enqueue(chunk);
+			}
+		};
 		const unlisten = conversations?.events.on("changed", (id) => {
 			const beat = beats.get(id) ?? new Throttler(timer, BEAT);
 			beats.set(id, beat);
 			beat.call(async () => {
-				const state = (await conversations.find(id)).state;
-				const chunk = encoder.encode(`data: ${JSON.stringify(state)}\n\n`);
-				for (const stream of listeners) {
-					stream.enqueue(chunk);
+				// Gone meanwhile, deleted as an older archived one: `removed` says so.
+				const state = (await conversations.list()).find(
+					(each) => each.id === id,
+				)?.state;
+				if (state !== undefined) {
+					send(encoder.encode(`data: ${JSON.stringify(state)}\n\n`));
 				}
 			});
+		});
+		// An older archived conversation, deleted: the page drops it.
+		const unlistenRemoved = conversations?.events.on("removed", (id) => {
+			beats.get(id)?.dispose();
+			beats.delete(id);
+			send(encoder.encode(`event: removed\ndata: ${id}\n\n`));
 		});
 		const conversationEvents = async (): Promise<Response> => {
 			held();
@@ -984,6 +997,7 @@ export async function dev(
 				disarm();
 				handOffs?.dispose();
 				unlisten?.();
+				unlistenRemoved?.();
 				for (const beat of beats.values()) {
 					beat.dispose();
 				}

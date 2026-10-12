@@ -2058,12 +2058,9 @@ function Queued({
 	);
 }
 
-/** How many archived conversations show at once; Show older adds as many more. */
-const ARCHIVED_SHOWN = 50;
-
 /**
- * The archived conversations, newest first, to read or bring back: the
- * newest `ARCHIVED_SHOWN`, then as many more for each Show older.
+ * The archived conversations, newest first, to read or bring back: every one
+ * kept, since arbor deletes the older ones.
  */
 function Archived({
 	tasks,
@@ -2078,8 +2075,6 @@ function Archived({
 	onOpen: (id: string) => void;
 	onBack: (() => void) | null;
 }): JSX.Element {
-	const [shown, setShown] = useState(ARCHIVED_SHOWN);
-	const older = conversations.length - shown;
 	return (
 		<section
 			aria-label="archived conversations"
@@ -2093,7 +2088,7 @@ function Archived({
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
 				<ul className="flex flex-col">
-					{conversations.slice(0, shown).map((each) => (
+					{conversations.map((each) => (
 						<li key={each.id}>
 							<Item
 								conversation={each}
@@ -2106,16 +2101,6 @@ function Archived({
 						</li>
 					))}
 				</ul>
-			)}
-			{older > 0 && (
-				<Button
-					variant="ghost"
-					size="sm"
-					className="self-start text-muted-foreground"
-					onClick={() => setShown(shown + ARCHIVED_SHOWN)}
-				>
-					Show older ({older})
-				</Button>
 			)}
 		</section>
 	);

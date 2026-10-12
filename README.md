@@ -451,7 +451,9 @@ A conversation has no end. Its agent stops when `arbor dev` does, and the next
 message resumes the same session in a new process. Archive puts one away,
 stopping its agent; Archived, at the bottom of the sidebar, lists them, and
 Unarchive brings one back. Every conversation is logged under
-`.git/arbor/conversations`, one JSON-lines file each.
+`.git/arbor/conversations`, one JSON-lines file each. Only the 50 archived
+most recently are kept: archiving one more deletes the log, and any images,
+of the one archived longest ago.
 
 Conversations run commands on this machine, so their routes answer only to
 `localhost`, `127.0.0.1` and `[::1]`: a host named in `--allow-hosts` still

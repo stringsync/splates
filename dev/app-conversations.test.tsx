@@ -166,13 +166,12 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
-	it("shows the newest 50 archived conversations, and 50 more for each Show older", async () => {
+	it("drops an archived conversation once the server deletes it", async () => {
 		const view = await conversations(
 			[
 				conversation({ id: "live", title: "Live" }),
-				...Array.from({ length: 120 }, (_, i) =>
-					conversation({ id: `a${i}`, title: `Put away ${i}`, archived: true }),
-				),
+				conversation({ id: "a1", title: "Put away", archived: true }),
+				conversation({ id: "a2", title: "Older", archived: true }),
 			],
 			null,
 		);
@@ -183,25 +182,12 @@ describe("App's conversations", () => {
 		const archived = view.getByRole("region", {
 			name: "archived conversations",
 		});
-		const listed = () => within(archived).getAllByRole("listitem");
 
-		expect(listed()).toHaveLength(50);
-		expect(listed()[0]?.textContent).toContain("Put away 0");
-		await act(async () =>
-			fireEvent.click(
-				within(archived).getByRole("button", { name: "Show older (70)" }),
-			),
-		);
-		expect(listed()).toHaveLength(100);
-		await act(async () =>
-			fireEvent.click(
-				within(archived).getByRole("button", { name: "Show older (20)" }),
-			),
-		);
-		expect(listed()).toHaveLength(120);
-		expect(
-			within(archived).queryByRole("button", { name: /Show older/ }),
-		).toBeNull();
+		await testing.remove("a2");
+
+		expect(within(archived).getAllByRole("listitem")).toHaveLength(1);
+		expect(archived.textContent).toContain("Put away");
+		expect(archived.textContent).not.toContain("Older");
 	});
 
 	it("nests a part's conversations under the task it was handed out from", async () => {

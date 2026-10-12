@@ -275,7 +275,8 @@ type Entry =
 	| { kind: "task"; task: string | null; cwd: string }
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }
-	| { kind: "archive"; archived: boolean }
+	/** `at` is missing from logs written before older archived ones were deleted. */
+	| { kind: "archive"; archived: boolean; at?: string }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
 	/** `at` is missing from logs written before the page showed how long things took. */
@@ -701,6 +702,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private loading = false;
 	/** The person's words the replay has said so far, not yet logged as a prompt. */
 	private heard: string | null = null;
+	/** When it was archived, for which archived ones to keep; null when unknown or not archived. */
+	private archivedAt: string | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -730,6 +733,16 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	/** The agent's session, once it has opened one. */
 	get sessionId(): string | null {
 		return this.session;
+	}
+
+	/**
+	 * When it was archived, or when it started for a log too old to say; null
+	 * while it is not archived.
+	 */
+	get archivedSince(): string | null {
+		return this.state.archived
+			? (this.archivedAt ?? this.state.createdAt)
+			: null;
 	}
 
 	private now(): string {
@@ -812,6 +825,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.settings = entry.settings;
 			} else if (entry.kind === "archive") {
 				state.archived = entry.archived;
+				conversation.archivedAt = entry.archived ? (entry.at ?? null) : null;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
 			} else if (entry.kind === "unread") {
@@ -1780,6 +1794,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		await this.saving;
 	}
 
+	/** Stops it and deletes its log and images, for good. */
+	async delete(): Promise<void> {
+		await this.stop();
+		await this.saving;
+		await this.fs.rm(this.log, { force: true });
+		await this.fs.rm(this.images(), { recursive: true, force: true });
+	}
+
 	dispose(): void {
 		void this.stop();
 	}
@@ -1796,9 +1818,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		if (this.state.archived === archived) {
 			return;
 		}
-		this.write({ kind: "archive", archived });
+		const at = this.now();
+		this.write({ kind: "archive", archived, at });
 		this.saves.flush();
 		await this.saving;
+		this.archivedAt = archived ? at : null;
 		this.set({ archived });
 	}
 
@@ -1937,7 +1961,11 @@ function messageOf(error: unknown): string {
 	return String(error);
 }
 
-export type ConversationsEvents = { changed: string };
+/** How many archived conversations are kept; older archived ones are deleted. */
+export const ARCHIVED_KEPT = 50;
+
+/** `changed` and `removed` each carry a conversation's id. */
+export type ConversationsEvents = { changed: string; removed: string };
 
 /**
  * Every conversation in the repo: the live ones this process started, and
@@ -1959,6 +1987,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly root: string | null;
 	/** The read of the records on disk, shared by every caller until it settles. */
 	private loaded: Promise<void> | null = null;
+	/** The last deletion of archived conversations past `ARCHIVED_KEPT`, so they run one at a time. */
+	private pruning: Promise<void> = Promise.resolve();
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
 
@@ -2141,6 +2171,18 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		return conversation;
 	}
 
+	/**
+	 * Deletes the archived conversations past the `ARCHIVED_KEPT` archived
+	 * most recently, so their logs do not pile up.
+	 */
+	prune(): Promise<void> {
+		this.pruning = this.pruning.then(async () => {
+			await this.load();
+			await this.trim();
+		});
+		return this.pruning;
+	}
+
 	/** Stops every live conversation, so no agent outlives the server. */
 	async disposeAsync(): Promise<void> {
 		await Promise.all([...this.known.values()].map((each) => each.stop()));
@@ -2155,20 +2197,39 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		// Only what changes from here: a log read back may be older than what
 		// another project's sessions offered since.
 		let remembered = conversation.state.settings;
+		let archived = conversation.state.archived;
 		conversation.events.on("changed", () => {
 			const { agent, settings } = conversation.state;
 			if (settings !== remembered && settings.length > 0) {
 				remembered = settings;
 				void this.offered?.remember(agent, settings).catch(() => {});
 			}
+			if (conversation.state.archived && !archived) {
+				void this.prune().catch(() => {});
+			}
+			archived = conversation.state.archived;
 			this.dispatcher.dispatch("changed", conversation.id);
 		});
 		this.dispatcher.dispatch("changed", conversation.id);
 	}
 
 	private load(): Promise<void> {
-		this.loaded ??= this.read();
+		// Logs archived before any were deleted go as they are read back.
+		this.loaded ??= this.read().then(() => this.trim());
 		return this.loaded;
+	}
+
+	private async trim(): Promise<void> {
+		const archived = [...this.known.values()]
+			.filter((each) => each.state.archived)
+			.sort((one, other) =>
+				(other.archivedSince ?? "").localeCompare(one.archivedSince ?? ""),
+			);
+		for (const each of archived.slice(ARCHIVED_KEPT)) {
+			this.known.delete(each.id);
+			await each.delete();
+			this.dispatcher.dispatch("removed", each.id);
+		}
 	}
 
 	private async read(): Promise<void> {

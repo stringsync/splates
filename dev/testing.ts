@@ -41,6 +41,8 @@ export interface Stream {
 	onmessage: ((event?: { data: string }) => void) | null;
 	onopen: (() => void) | null;
 	onerror: (() => void) | null;
+	/** The listeners for named events, such as `removed`. */
+	named?: Map<string, (event: { data: string }) => void>;
 }
 
 /**
@@ -155,6 +157,7 @@ export class Testing implements Resource {
 			onmessage: (() => void) | null = null;
 			onopen: (() => void) | null = null;
 			onerror: (() => void) | null = null;
+			readonly named = new Map<string, (event: { data: string }) => void>();
 
 			constructor(url: string) {
 				if (url === "/api/conversations/events") {
@@ -162,6 +165,13 @@ export class Testing implements Resource {
 				} else {
 					testing.stream = this;
 				}
+			}
+
+			addEventListener(
+				name: string,
+				listener: (event: { data: string }) => void,
+			): void {
+				this.named.set(name, listener);
 			}
 
 			// `EventSource`'s own name for it, which `Feed` calls; nothing is held.
@@ -179,6 +189,13 @@ export class Testing implements Resource {
 	async say(state: ConversationState): Promise<void> {
 		await act(async () =>
 			this.talkStream?.onmessage?.({ data: JSON.stringify(state) }),
+		);
+	}
+
+	/** Streams the deletion of conversation `id`, as the server does for an older archived one. */
+	async remove(id: string): Promise<void> {
+		await act(async () =>
+			this.talkStream?.named?.get("removed")?.({ data: id }),
 		);
 	}
 
