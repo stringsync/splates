@@ -79,7 +79,7 @@ import {
 import { Switch } from "#dev/components/ui/switch.tsx";
 import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { type Ending, stretches } from "../asked";
+import { type Ending, type Report, stretches } from "../asked";
 import type {
 	Answer,
 	Ask,
@@ -2139,15 +2139,21 @@ function Thread({
 				]
 			: liked;
 	}, [conversation.messages, conversation.id, writing, running]);
-	// Its last word asks questions or for a review: the card takes the focus,
-	// not the composer, unless it holds a draft.
+	// Its last word asks questions, escalates, or asks for a review, or it
+	// asks as it works: the card takes the focus, not the composer, unless it
+	// holds a draft, nor the open questions' dialog.
 	const last = messages.at(-1);
 	const asking =
-		last?.role === "assistant" &&
-		typeof last.content !== "string" &&
-		last.content.some(
-			(part) => part.type === "data-questions" || part.type === "data-review",
-		);
+		conversation.ask !== null ||
+		(last?.role === "assistant" &&
+			typeof last.content !== "string" &&
+			last.content.some(
+				(part) =>
+					part.type === "data-questions" ||
+					part.type === "data-review" ||
+					(part.type === "data-report" &&
+						(part.data as { report: Report }).report.ending === "escalated"),
+			));
 	const restore = useRef<(text: string, images: File[]) => void>(() => {});
 	const send = useCallback(
 		async (text: string, images: File[]) => {
@@ -2263,15 +2269,16 @@ function Thread({
 		writing,
 	);
 	// Opened from the first render on ⌥⌘M, so the composer leaves them the
-	// focus.
+	// focus. Never while a card asks, which goes first, though one that comes
+	// once they are open leaves them open.
 	const [answering, setAnswering] = useState(
-		() => arriving(id) && open.uncarded.length > 0 && !archived,
+		() => arriving(id) && open.uncarded.length > 0 && !archived && !asking,
 	);
-	// The card the thread ends on first, then those no card asks, apart from
-	// the conversation, then any other card it waits on you through.
+	// The card the thread asks through first, then those no card asks, apart
+	// from the conversation, then any other card it waits on you through.
 	const toAsked = () => {
-		if (asking && toWaiting(section.current)) {
-			return true;
+		if (asking) {
+			return toWaiting(section.current);
 		}
 		if (open.uncarded.length > 0 && !archived) {
 			setAnswering(true);
@@ -2457,15 +2464,17 @@ function Thread({
 				</Dialog>
 			)}
 			{task !== null && (
+				// Once open, it keeps the questions it opened on, those a card
+				// that comes since asks among them, until they are answered.
 				<Dialog
-					open={answering && open.uncarded.length > 0}
+					open={answering && open.unanswered.length > 0}
 					onOpenChange={setAnswering}
 				>
 					{answering && (
 						<ReplyContext value={reply}>
 							<OpenQuestions
 								task={task.task}
-								questions={open.uncarded}
+								questions={open.unanswered}
 								onSent={() => setAnswering(false)}
 							/>
 						</ReplyContext>

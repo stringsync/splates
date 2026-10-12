@@ -124,7 +124,8 @@ function useKept(
 /**
  * Focuses what `first` finds as a card comes up to be answered, which the
  * composer leaves to it, and scrolls the card to its top, unless the person
- * is typing elsewhere, as in a composer holding a draft.
+ * is typing elsewhere, as in a composer holding a draft, or is in a dialog,
+ * such as the open questions'.
  */
 function useArrival(
 	live: boolean,
@@ -132,6 +133,9 @@ function useArrival(
 ): void {
 	const arrive = useEffectEvent(() => {
 		const typing = document.activeElement;
+		if (typing?.closest('[role="dialog"]') != null) {
+			return;
+		}
 		if (
 			(typing instanceof HTMLTextAreaElement ||
 				typing instanceof HTMLInputElement) &&

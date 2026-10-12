@@ -4551,7 +4551,7 @@ Cap upload retries
 			).toEqual(["question 2"]);
 		});
 
-		it("asks in a dialog the open questions of an escalation that did not list them", async () => {
+		it("goes to an escalation that did not list the open questions, not their dialog, which it keeps shut", async () => {
 			const view = await sidebar(
 				[
 					conversation({
@@ -4588,13 +4588,85 @@ Cap upload retries
 				),
 			);
 
+			expect(view.queryByRole("dialog", { name: "Open questions" })).toBeNull();
 			expect(
-				(
-					await waitFor(() =>
-						view.getByRole("dialog", { name: "Open questions" }),
-					)
-				).textContent,
-			).toContain("How many retries?");
+				view.getByRole("region", { name: "escalated alpha" }),
+			).toBeTruthy();
+		});
+
+		it("goes on ⌥⌘M to what the agent asks as it works, not the open questions' dialog", async () => {
+			const view = await sidebar(
+				[
+					conversation({
+						id: "c1",
+						task: "alpha",
+						status: "running",
+						messages: [message("user", "cap the retries")],
+						ask,
+					}),
+				],
+				[details({ task: "alpha", plan: PLAN })],
+			);
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyM",
+				}),
+			);
+
+			expect(location.hash).toBe("#conversations/c1");
+			await waitFor(() =>
+				expect(
+					view
+						.getByRole("generic", { name: "permission" })
+						.contains(document.activeElement),
+				).toBe(true),
+			);
+			expect(view.queryByRole("dialog", { name: "Open questions" })).toBeNull();
+		});
+
+		it("keeps the open questions' dialog open, and its focus, when the agent escalates with them", async () => {
+			const working = conversation({
+				id: "c1",
+				task: "alpha",
+				status: "running",
+				messages: [message("user", "cap the retries")],
+			});
+			const view = await sidebar(
+				[working],
+				[details({ task: "alpha", plan: PLAN })],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			);
+			await act(async () => fireEvent.click(questionsButton(view)));
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: "Open questions" }),
+			);
+			const answer = within(dialog).getByRole("textbox", {
+				name: "Answer to 1",
+			});
+			await waitFor(() => expect(document.activeElement).toBe(answer));
+
+			await testing.say({
+				...working,
+				status: "idle",
+				messages: [
+					...working.messages,
+					message(
+						"agent",
+						"## ⚠️ Escalated alpha: needs a call\n\nIt caps.\n\n1. How many retries?",
+					),
+				],
+			});
+
+			// Behind the dialog, which hides the rest of the page.
+			await waitFor(() =>
+				view.getByRole("region", { name: "escalated alpha", hidden: true }),
+			);
+			expect(view.getByRole("dialog", { name: "Open questions" })).toBe(dialog);
+			expect(document.activeElement).toBe(answer);
 		});
 
 		it("counts the agents waiting on you on the tab and in the title", async () => {

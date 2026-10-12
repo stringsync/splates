@@ -3,14 +3,19 @@ import type { Message } from "../conversations";
 import type { Question } from "../plan";
 
 /**
- * The line a reply from the open questions' dialog opens with: its numbers are those of
+ * How a reply from the open questions' dialog opens: its numbers are those of
  * `## Blocked`, not of the agent's latest report, as the arbor skill reads it.
  */
-export const BLOCKED_REPLY = "Answers to `## Blocked`, by its numbers there:";
+export const BLOCKED_REPLY = "Answers to `## Blocked`, by its numbers there";
 
-/** `lines` as that dialog's card sends them, headed so the agent reads them right. */
+/**
+ * `lines` as that dialog's card sends them, headed so the agent reads them
+ * right: answered ahead of its report, from `ARBOR.md` as the page last read
+ * it, so a question the agent changed or added since may be answered stale or
+ * not at all.
+ */
 export function blockedReply(lines: string): string {
-	return `${BLOCKED_REPLY}\n${lines}`;
+	return `${BLOCKED_REPLY}, answered ahead of your report from \`ARBOR.md\` as the page last read it: a question you changed since may have a stale answer, and one you added none.\n${lines}`;
 }
 
 /**
