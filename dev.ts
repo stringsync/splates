@@ -96,6 +96,13 @@ export async function dev(
 	let release: Release | null = null;
 	/** Whether `arbor dev` restarts once the checkpoint under way ends. */
 	let restarting = false;
+	/** This run of `arbor dev`, so a page can tell it has restarted. */
+	const run = crypto.randomUUID();
+	/**
+	 * The other projects whose agents a restart stopped, kept beside the
+	 * registry, so the next run opens them at once for each to carry on.
+	 */
+	const reopen = `${projects.path.slice(0, projects.path.lastIndexOf("/"))}/restart.json`;
 
 	const asset = (body: string, type: string): Response =>
 		new Response(body, { headers: { "content-type": type } });
@@ -1091,7 +1098,8 @@ export async function dev(
 
 	// Each with the conversations a checkpoint would ask, or has asked, in
 	// it: only those of a project this server has opened, since one not yet
-	// opened has none running.
+	// opened has none running. Says whether a restart is to follow the
+	// checkpoint, and which run this is, for the page to see it come back.
 	const listProjects = async (): Promise<Response> =>
 		Response.json({
 			projects: await Promise.all(
@@ -1101,6 +1109,10 @@ export async function dev(
 					conversations: await checkpointable(each.root),
 				})),
 			),
+			restarting,
+			run,
+			running,
+			newest: release?.newest ?? null,
 		});
 	const checkpointable = async (root: string) => {
 		const project = await served.get(root)?.catch(() => null);
@@ -1173,6 +1185,17 @@ export async function dev(
 		void Promise.all(asked).then(async () => {
 			if (!restarting) {
 				return;
+			}
+			const roots: string[] = [];
+			for (const [root, opened] of served) {
+				const project = await opened.catch(() => null);
+				const all = (await project?.conversations?.list()) ?? [];
+				if (root !== here && all.some((each) => each.resumes)) {
+					roots.push(root);
+				}
+			}
+			if (roots.length > 0) {
+				await fs.write(reopen, `${JSON.stringify(roots)}\n`);
 			}
 			const code = release === null ? RESTART : UPDATE;
 			log.info(
@@ -1455,6 +1478,17 @@ export async function dev(
 	url = `http://localhost:${port}`;
 	// Open now, so the page's first request finds it ready.
 	await servedAt(here);
+	// And those a restart stopped agents in, which carry on once served.
+	const stopped = await fs.read(reopen).catch(() => null);
+	if (stopped !== null) {
+		await fs.rm(reopen, { force: true });
+		const registered = await projects.list();
+		for (const root of parseRoots(stopped)) {
+			if (registered.some((each) => each.root === root && !each.gone)) {
+				void servedAt(root).catch(() => {});
+			}
+		}
+	}
 
 	log.info(`arbor dev on http://localhost:${port}`);
 	const disposer = new AsyncDisposer();
@@ -1498,6 +1532,16 @@ export async function dev(
 		port,
 		disposeAsync: disposer.disposeAsync,
 	};
+}
+
+/** The roots `restart.json` lists, or none when it is not a list of them. */
+function parseRoots(raw: string): string[] {
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return Array.isArray(parsed) ? parsed.map(String) : [];
+	} catch {
+		return [];
+	}
 }
 
 /** How often an open page hears about one conversation while its agent streams. */

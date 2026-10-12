@@ -81,6 +81,10 @@ export class Testing implements Resource {
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
 	projects: ProjectChoice[] = [];
+	/** Whether `/api/projects` says a restart follows the checkpoint. */
+	restarting = false;
+	/** The run of `arbor dev` `/api/projects` names: a test changes it to restart. */
+	run = "run-1";
 	/** The conversations `/api/release` says a restart would stop. */
 	interrupted: Interrupted[] = [];
 	/** Every terminal the page opened, oldest first. */
@@ -94,7 +98,8 @@ export class Testing implements Resource {
 	constructor() {
 		globalThis.fetch = (async (path: string, init?: RequestInit) => {
 			if (this.#down) {
-				throw new Error("no server");
+				// As `fetch` does when nothing listens.
+				throw new TypeError("no server");
 			}
 			if (init?.method !== undefined && init.method !== "GET") {
 				this.posts.push({ path, method: init.method, body: init.body });
@@ -105,7 +110,13 @@ export class Testing implements Resource {
 			// The project a page names is the page's business, not the fake's.
 			const route = path.split("?")[0];
 			if (route === "/api/projects") {
-				return Response.json({ projects: this.projects });
+				return Response.json({
+					projects: this.projects,
+					restarting: this.restarting,
+					run: this.run,
+					running: this.served.release?.running ?? "0.0.1",
+					newest: this.served.release?.newest ?? null,
+				});
 			}
 			if (route === "/api/release") {
 				return Response.json({
@@ -171,6 +182,11 @@ export class Testing implements Resource {
 	/** Fails every fetch from now on, standing in for a server that went away. */
 	goAway(): void {
 		this.#down = true;
+	}
+
+	/** Answers again, as a server back from a restart. */
+	comeBack(): void {
+		this.#down = false;
 	}
 
 	/** Refuses the snapshot from now on, as a server does with `reason`. */

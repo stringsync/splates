@@ -461,13 +461,27 @@ export interface ProjectConversation {
 	checkpoint: Checkpoint | null;
 }
 
-/** Every arbor project on this machine, in the order each joined. */
-export async function listProjects(): Promise<ProjectChoice[]> {
+/** The projects on this machine, and the `arbor dev` serving them. */
+export interface Projects {
+	/** Every arbor project, in the order each joined. */
+	projects: ProjectChoice[];
+	/** Whether `arbor dev` restarts once the checkpoint under way ends. */
+	restarting: boolean;
+	/** This run of `arbor dev`: another once it has restarted. */
+	run: string;
+	/** The version of arbor it runs. */
+	running: string;
+	/** A newer arbor, which a restart lands on; null when none is out. */
+	newest: string | null;
+}
+
+/** Every arbor project on this machine, and the `arbor dev` serving them. */
+export async function listProjects(): Promise<Projects> {
 	const response = await fetch("/api/projects");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/projects: ${response.status}`);
 	}
-	return ((await response.json()) as { projects: ProjectChoice[] }).projects;
+	return (await response.json()) as Projects;
 }
 
 /** Drops a project from the registry, as for one that is gone for good. */

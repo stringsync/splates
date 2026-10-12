@@ -48,8 +48,9 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 
 	const load = useCallback(
 		() =>
-			listProjects().then(setProjects, (error: unknown) =>
-				refused("Projects not listed", error),
+			listProjects().then(
+				(listed) => setProjects(listed.projects),
+				(error: unknown) => refused("Projects not listed", error),
 			),
 		[refused],
 	);

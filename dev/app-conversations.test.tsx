@@ -612,7 +612,9 @@ describe("App's conversations", () => {
 		);
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Checkpoint 2 projects" }),
+				within(dialog).getByRole("button", {
+					name: "Checkpoint 2 projects and restart",
+				}),
 			),
 		);
 
@@ -752,9 +754,19 @@ describe("App's conversations", () => {
 		expect(
 			view.getByRole("button", { name: "Checkpoint done", hidden: true }),
 		).toBeTruthy();
+
+		// Seen and closed, it leaves the button for the next checkpoint.
+		await act(async () =>
+			fireEvent.click(
+				within(dialog)
+					.getAllByRole("button", { name: "Close" })
+					.at(-1) as Element,
+			),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Checkpoint" }));
 	});
 
-	it("retries those a checkpoint missed, restarts, or closes, leaving them stopped", async () => {
+	it("retries those a checkpoint missed, or closes, leaving them stopped", async () => {
 		testing.projects = [
 			project(
 				"webappwiz",
@@ -800,10 +812,6 @@ describe("App's conversations", () => {
 				method: "POST",
 				body: { projects: ["webappwiz"], after: "stop", conversations: ["c2"] },
 			},
-		]);
-		await click("Restart");
-		expect(posted("/api/checkpoint/restart")).toEqual([
-			{ method: "POST", body: {} },
 		]);
 		await click("Close");
 		expect(posted("/api/conversations/checkpoint?project=webappwiz")).toEqual([
@@ -855,7 +863,7 @@ describe("App's conversations", () => {
 		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint done" }));
 	});
 
-	it("says a checkpoint is done, without reloading, once its agents are back from a restart", async () => {
+	it("restarts from a done checkpoint, saying so until arbor dev is back", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "done")], true),
 		];
@@ -863,24 +871,152 @@ describe("App's conversations", () => {
 			[conversation({ id: "c1", status: "stopped", checkpoint: "done" })],
 			null,
 		);
-		const reload = spyOn(location, "reload").mockImplementation(() => {});
-		await waitFor(() => view.getByRole("button", { name: "Checkpoint done" }));
-		await act(async () => testing.talkStream?.onerror?.());
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
-		await act(async () => testing.talkStream?.onopen?.());
-		await testing.say(conversation({ id: "c1", status: "running" }));
-
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Checkpoint done" })),
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Checkpoint done" }),
+				),
+			),
 		);
-		const dialog = await waitFor(() =>
+		const done = await waitFor(() =>
 			view.getByRole("dialog", { name: "Checkpoint done" }),
 		);
-		expect(dialog.textContent).toContain(
-			"1 agent checkpointed and carried on.",
+
+		await act(async () =>
+			fireEvent.click(within(done).getByRole("button", { name: "Restart" })),
 		);
+
+		expect(posted("/api/checkpoint/restart")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+		const restarting = await waitFor(() =>
+			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+		);
+		expect(
+			within(restarting).queryByRole("button", { name: "Resume" }),
+		).toBeNull();
+		// Closing it leaves the restart to go on, rather than forgetting it.
+		await act(async () =>
+			fireEvent.click(
+				within(restarting)
+					.getAllByRole("button", { name: "Close" })
+					.at(-1) as Element,
+			),
+		);
+		expect(posted("/api/conversations/checkpoint?project=webappwiz")).toEqual(
+			[],
+		);
+		await waitFor(() =>
+			view.getByRole("button", { name: "Restarting arbor dev" }),
+		);
+	});
+
+	it("says arbor dev is restarting once a checkpoint asked to restart is done, then that it restarted", async () => {
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		testing.restarting = true;
+		const view = await conversations(
+			[conversation({ id: "c1", status: "running" })],
+			null,
+		);
+		const reload = spyOn(location, "reload").mockImplementation(() => {});
+		await waitFor(() =>
+			view.getByRole("button", { name: "Checkpoint under way" }),
+		);
+
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
+		await testing.say(
+			conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Restarting arbor dev" }),
+				),
+			),
+		);
+		const restarting = await waitFor(() =>
+			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+		);
+		expect(restarting.textContent).toContain(
+			"arbor dev is restarting, and each agent carries on once it is back.",
+		);
+		for (const name of ["Restart", "Resume"]) {
+			expect(within(restarting).queryByRole("button", { name })).toBeNull();
+		}
+
+		// Back, as another run, and its agents not yet told to carry on.
+		await act(async () => testing.talkStream?.onerror?.());
+		testing.restarting = false;
+		testing.run = "run-2";
+		await act(async () => testing.talkStream?.onopen?.());
+		await testing.say(
+			conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
+		);
+
+		const restarted = await waitFor(() =>
+			view.getByRole("dialog", { name: "arbor dev restarted" }),
+		);
+		expect(restarted.textContent).toContain(
+			"Now on arbor 0.0.1. 0 of 1 agent carried on so far.",
+		);
+		expect(within(restarted).getByText("Checkpointed")).toBeTruthy();
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await testing.say(conversation({ id: "c1", status: "running" }));
+		await waitFor(() =>
+			expect(restarted.textContent).toContain(
+				"Now on arbor 0.0.1. 1 agent carried on.",
+			),
+		);
+		expect(within(restarted).getByText("Carried on")).toBeTruthy();
+		expect(
+			view.getByRole("button", { name: "arbor dev restarted", hidden: true }),
+		).toBeTruthy();
 		expect(reload).not.toHaveBeenCalled();
 		reload.mockRestore();
+	});
+
+	it("says arbor dev is restarting once it goes away, though the page never saw the last agent answer", async () => {
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		testing.restarting = true;
+		const view = await conversations(
+			[conversation({ id: "c1", status: "running" })],
+			null,
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: "Checkpoint under way" }),
+				),
+			),
+		);
+		const going = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint under way" }),
+		);
+		expect(going.textContent).toContain(
+			"Each agent is bringing its ARBOR.md up to date, then arbor dev restarts.",
+		);
+
+		testing.goAway();
+
+		const restarting = await waitFor(
+			() => view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			{ timeout: 3000 },
+		);
+		expect(within(restarting).queryByText("Checkpointing")).toBeNull();
+		testing.restarting = false;
+		testing.run = "run-2";
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		testing.comeBack();
+		await waitFor(
+			() => view.getByRole("dialog", { name: "arbor dev restarted" }),
+			{ timeout: 3000 },
+		);
 	});
 
 	it("renames a conversation from its menu", async () => {

@@ -1403,6 +1403,94 @@ describe("dev", () => {
 			}
 		});
 
+		it("says a restart is to follow the checkpoint, then opens each other project it stopped agents in at once, for each to carry on", async () => {
+			await using other = await Testing.open();
+			await deps.projects.register(deps.root);
+			await deps.projects.register(other.root);
+			const said: string[] = [];
+			let answer = () => {};
+			const answered = new Promise<void>((resolve) => {
+				answer = resolve;
+			});
+			agent.turn = async (_, __, text) => {
+				said.push(text);
+				if (text === CHECKPOINT) {
+					await answered;
+				}
+				return "end_turn";
+			};
+			const opened = new Map<string, Conversations>();
+			const converse = ({ arborDir }: { arborDir: string }) => {
+				const found =
+					opened.get(arborDir) ??
+					new Conversations(`${arborDir}/conversations`, [AGENT], {
+						launch: agent.launch,
+					});
+				opened.set(arborDir, found);
+				return found;
+			};
+			const exits: number[] = [];
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: converse,
+				exit: (code) => exits.push(code),
+			});
+			const listed = async (port: number) =>
+				(await (
+					await fetch(`http://127.0.0.1:${port}/api/projects`)
+				).json()) as { restarting: boolean; run: string };
+			let run = "";
+			try {
+				const { port } = server;
+				const started = await json(
+					port,
+					"/api/conversations?project=repo-2",
+					"POST",
+					{ agent: "fake" },
+				);
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await converse(other).find(id);
+				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+					await Bun.sleep(5);
+				}
+				expect((await listed(port)).restarting).toBe(false);
+
+				await json(port, "/api/checkpoint", "POST", {
+					projects: ["repo-2"],
+					after: "restart",
+				});
+
+				({ run } = await listed(port));
+				expect((await listed(port)).restarting).toBe(true);
+				answer();
+				for (let i = 0; i < 100 && exits.length === 0; i++) {
+					await Bun.sleep(5);
+				}
+				expect(exits).toEqual([RESTART]);
+			} finally {
+				if (exits.length === 0) {
+					await server.disposeAsync();
+				}
+			}
+
+			opened.clear();
+			const restarted = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				conversations: converse,
+			});
+			try {
+				for (let i = 0; i < 100 && said.length < 2; i++) {
+					await Bun.sleep(5);
+				}
+				expect(said).toEqual([CHECKPOINT, RESUME]);
+				const again = await listed(restarted.port);
+				expect(again.run).not.toBe(run);
+				expect(again.restarting).toBe(false);
+			} finally {
+				await restarted.disposeAsync();
+			}
+		});
+
 		it("tells each one done with a checkpoint to carry on", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {
