@@ -346,9 +346,11 @@ reply lists every letter in the order picked, `4. b, a, c`.
 
 Show what a question is about whenever it is something to see: a screenshot,
 or a short recording when it moves or takes steps. Save it outside the
-worktree, `arbor attach` it, and name the path it prints. Only attached files
-show on the `arbor dev` page, and they go when the task does, so never point
-a question at a file anywhere else.
+worktree, `arbor attach` it, and name the path it prints as
+`![what](/abs/path.png)`. The `arbor dev` page shows an attached file inline,
+in `ARBOR.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
+as a video. Only attached files show there, and they go when the task does,
+so never point a question at a file anywhere else.
 
 Put each screenshot in the question it is for, under what it shows: under the
 question's line for what it asks about, or indented under a choice for what
@@ -553,9 +555,9 @@ item carries what is needed to answer it: its subject, at most one line of
 body under it, the choices exactly as in `ARBOR.md` (so a reply of `2. b`
 names one), and each screenshot or file by absolute path, under the question
 or choice it shows as in `ARBOR.md`. Inline a screenshot as
-`![what](/abs/path.png)` when your harness shows images in chat; otherwise
-link it as `[what](/abs/path.png)`. Leave an item bare when its subject says
-it all.
+`![what](/abs/path.png)` when the `arbor dev` page or your harness shows
+images in chat; otherwise link it as `[what](/abs/path.png)`. Leave an item
+bare when its subject says it all.
 
 ```markdown
 ## 🔍 Ready to merge <task> onto <base>
