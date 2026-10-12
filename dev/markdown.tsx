@@ -71,7 +71,7 @@ export function Markdown({
 // so a heading here is a section marker, not a hierarchy, and a run of
 // title-sized lines would shout over the content. The tag still says the
 // level for a reader.
-const HEADING =
+export const HEADING =
 	"mt-[0.9rem] mb-[0.3rem] first:mt-0 font-bold text-[0.8rem] uppercase tracking-[0.08em] opacity-55";
 
 const OPTIONS: MarkdownToJSX.Options = {

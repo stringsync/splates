@@ -1,4 +1,9 @@
-import { CheckIcon, FileDiffIcon, RotateCcwIcon } from "lucide-react";
+import {
+	CheckIcon,
+	FileDiffIcon,
+	MessageCircleQuestionIcon,
+	RotateCcwIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Badge } from "#dev/components/ui/badge.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -7,18 +12,22 @@ import {
 	DialogClose,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
 import { Progress as Bar } from "#dev/components/ui/progress.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { type Question, questions } from "../plan";
 import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
 import { retryTask } from "./api";
 import { ReviewChanges } from "./changes";
 import { Dispatching, OnIt, StartMenu } from "./dispatching";
-import { Markdown } from "./markdown";
+import { HEADING, Markdown } from "./markdown";
 import { type Nested, nest } from "./parts";
+import { QuestionCards } from "./question-cards";
+import { arriveAt, TASK } from "./task-view";
 
 /** A tree in one of these needs fixing rather than driving. */
 const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
@@ -28,10 +37,17 @@ const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
  * when the status is news. The rest (branch, paths, the whole plan) waits
  * behind a tap.
  */
-export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
-	// By name, so the dialog follows the task as the page reads it again.
-	const [named, setOpened] = useState<string | null>(null);
-	const opened = tasks.find((task) => task.task === named) ?? null;
+export function Tasks({
+	tasks,
+	open,
+	onOpen,
+}: {
+	tasks: Details[];
+	/** The task whose dialog is open, by name, so it follows the task as the page reads it again. */
+	open: string | null;
+	onOpen: (task: string | null) => void;
+}): JSX.Element {
+	const opened = tasks.find((task) => task.task === open) ?? null;
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
@@ -47,14 +63,14 @@ export function Tasks({ tasks }: { tasks: Details[] }): JSX.Element {
 				<TaskRows
 					label="task list"
 					rows={nest(tasks, tasks, (task) => task.task)}
-					onOpen={setOpened}
+					onOpen={onOpen}
 				/>
 			)}
 			<Dialog
 				open={opened !== null}
-				onOpenChange={(open) => {
-					if (!open) {
-						setOpened(null);
+				onOpenChange={(opening) => {
+					if (!opening) {
+						onOpen(null);
 					}
 				}}
 			>
@@ -169,33 +185,36 @@ export function Progress({ done, total }: Counted): JSX.Element {
 
 /**
  * One task, all of it, in a dialog over the task list or a todo that names
- * it: who is on it first, then where it stands, then its plan.
+ * it: its plan as its ARBOR.md has it, then what arbor knows of it as one
+ * more section, and everything to do with it in the footer.
  */
 export function Task({ task }: { task: Details }): JSX.Element {
+	const retry = useRetry(task);
+	// Answered here only when the page has nowhere else to answer them.
+	const [answering, setAnswering] = useState(false);
+	const open =
+		task.plan === null
+			? []
+			: questions(task.plan).filter(
+					(each) => !each.done && each.reply === null,
+				);
 	return (
-		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl">
+		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-xl">
 			<DialogHeader>
 				<DialogTitle>{task.task}</DialogTitle>
 			</DialogHeader>
-			<div className="flex min-w-0 flex-col gap-6 text-sm">
-				<OnTask task={task.task} />
-				<div className="flex flex-col gap-2">
-					<div className="flex flex-col gap-0.5">
-						<DialogDescription>
-							{task.review === null
-								? (task.escalation ?? task.status)
-								: `Ready to merge: ${task.review}`}
-						</DialogDescription>
-						<Facts task={task} />
-					</div>
-					<Retry task={task} />
-				</div>
+			<div className="-mx-4 flex min-w-0 flex-col gap-4 overflow-y-auto px-4 text-sm">
+				{answering && open.length > 0 && (
+					<QuestionCards questions={open} copy blocked />
+				)}
 				{task.plan === null ? (
 					<p className="text-muted-foreground">
 						No ARBOR.md: whoever picks this up starts from the diff.
 					</p>
 				) : (
-					<Markdown text={task.plan.replace(/^\s*#\s[^\n]*/, "")} />
+					<Markdown
+						text={inlineNumbers(task.plan.replace(/^\s*#\s[^\n]*/, ""))}
+					/>
 				)}
 				{task.planProblems.length > 0 && (
 					<ul className="flex flex-col gap-1 text-muted-foreground text-xs">
@@ -204,8 +223,99 @@ export function Task({ task }: { task: Details }): JSX.Element {
 						))}
 					</ul>
 				)}
+				<Facts task={task} retry={retry.note} />
 			</div>
+			<DialogFooter className="sm:justify-between">
+				<ActionBar
+					task={task}
+					open={open}
+					retry={retry.button}
+					onAnswer={() => setAnswering(true)}
+				/>
+			</DialogFooter>
 		</DialogContent>
+	);
+}
+
+/**
+ * `- [ ] 2. Why?` with its number escaped, so the item reads as its box and
+ * `2. Why?` on one line, not a box above a list that starts at 2.
+ */
+function inlineNumbers(plan: string): string {
+	return plan.replace(/^([ \t]*- \[[ xX]\] [Qq]?\d+)\. /gm, "$1\\. ");
+}
+
+/**
+ * Everything to do with a task, in one row: the conversations on it, or a
+ * way to start one; its open questions; its changes; another round of
+ * merges once it is out of them.
+ */
+function ActionBar({
+	task,
+	open,
+	retry,
+	onAnswer,
+}: {
+	task: Details;
+	open: Question[];
+	retry: ReactNode;
+	/** Answers them in the dialog, when the page runs no conversations. */
+	onAnswer: () => void;
+}): JSX.Element | null {
+	const context = useContext(Dispatching);
+	const review = useContext(ReviewChanges);
+	const answer =
+		open.length === 0
+			? null
+			: context === null
+				? onAnswer
+				: () => {
+						const address =
+							context.dispatch.on(task.task)[0]?.conversation?.id ??
+							`${TASK}${task.task}`;
+						arriveAt(address);
+						context.open(address);
+					};
+	const answerLabel = `Answer ${open.length === 1 ? "a question" : `${open.length} questions`}`;
+	return (
+		<div
+			role="toolbar"
+			aria-label="actions"
+			className="flex w-full flex-wrap items-center justify-between gap-1.5"
+		>
+			<div className="flex flex-wrap items-center gap-1.5">
+				<OnTask task={task.task} />
+			</div>
+			<div className="flex flex-wrap items-center gap-1.5">
+				{retry}
+				{review !== null && (task.ahead ?? 0) > 0 && (
+					<DialogClose
+						render={
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => review(task.task)}
+							/>
+						}
+					>
+						<FileDiffIcon />
+						Review changes
+					</DialogClose>
+				)}
+				{answer !== null &&
+					(context === null ? (
+						<Button size="sm" onClick={answer}>
+							<MessageCircleQuestionIcon />
+							{answerLabel}
+						</Button>
+					) : (
+						<DialogClose render={<Button size="sm" onClick={answer} />}>
+							<MessageCircleQuestionIcon />
+							{answerLabel}
+						</DialogClose>
+					))}
+			</div>
+		</div>
 	);
 }
 
@@ -219,23 +329,30 @@ function OnTask({ task }: { task: string }): JSX.Element | null {
 		return null;
 	}
 	if (context.dispatch.on(task).some((row) => row.conversation !== null)) {
-		return <OnIt task={task} variant="rows" className="-mx-2" />;
+		return <OnIt task={task} variant="chips" />;
 	}
 	return (
 		<StartMenu
 			assignment={{ kind: "task", task }}
 			label="Start a conversation"
+			size="sm"
 		/>
 	);
 }
 
 /**
- * The rest of what arbor knows of a task, in two muted lines rather than a
- * table: its branch onto its base and how much it holds, with its changes a
- * click away, then its tree. The merges tried show only once there are some.
+ * What arbor knows of a task that its ARBOR.md does not say, as one more of
+ * its sections: where it stands, its branch and how much it holds, and its
+ * tree. The merges tried show only once there are some.
  */
-function Facts({ task }: { task: Details }): JSX.Element {
-	const review = useContext(ReviewChanges);
+function Facts({
+	task,
+	retry,
+}: {
+	task: Details;
+	/** What Retry in the footer gives, or gave, once it is out of merges. */
+	retry: ReactNode;
+}): JSX.Element {
 	const facts: [string, ReactNode][] = [
 		["branch", `${task.branch} → ${task.base}`],
 		["commits", `${task.ahead ?? "?"} commit${task.ahead === 1 ? "" : "s"}`],
@@ -246,20 +363,6 @@ function Facts({ task }: { task: Details }): JSX.Element {
 			<>
 				<span className="text-success">+{task.added}</span>{" "}
 				<span className="text-destructive">-{task.removed ?? 0}</span>
-				{review !== null && task.ahead !== null && (
-					<DialogClose
-						render={
-							<button
-								type="button"
-								className="ml-1.5 inline-flex items-center gap-1 rounded-sm text-foreground underline-offset-2 hover:underline"
-								onClick={() => review(task.task)}
-							/>
-						}
-					>
-						<FileDiffIcon className="size-3" />
-						Review changes
-					</DialogClose>
-				)}
 			</>,
 		]);
 	}
@@ -273,36 +376,46 @@ function Facts({ task }: { task: Details }): JSX.Element {
 		facts.push(["age", `started ${task.age} ago`]);
 	}
 	return (
-		<div className="flex min-w-0 flex-col gap-0.5 text-muted-foreground text-xs tabular-nums">
-			<p className="flex min-w-0 flex-wrap gap-x-1">
-				{facts.map(([name, fact], i) => (
-					<span key={name} className="min-w-0 truncate">
-						{i > 0 && (
-							<span aria-hidden className="mr-1">
-								·
-							</span>
-						)}
-						{fact}
-					</span>
-				))}
-			</p>
-			<p className="truncate" title={task.worktree}>
-				{task.worktree}
-			</p>
-		</div>
+		<section aria-label="about the task" className="flex min-w-0 flex-col">
+			<h2 className={HEADING}>Task</h2>
+			<DialogDescription className="text-foreground">
+				{task.review === null
+					? (task.escalation ?? task.status)
+					: `Ready to merge: ${task.review}`}
+			</DialogDescription>
+			<div className="mt-1 flex min-w-0 flex-col gap-0.5 text-muted-foreground text-xs tabular-nums">
+				<p className="flex min-w-0 flex-wrap gap-x-1">
+					{facts.map(([name, fact], i) => (
+						<span key={name} className="min-w-0 truncate">
+							{i > 0 && (
+								<span aria-hidden className="mr-1">
+									·
+								</span>
+							)}
+							{fact}
+						</span>
+					))}
+				</p>
+				<p className="truncate" title={task.worktree}>
+					{task.worktree}
+				</p>
+			</div>
+			{retry}
+		</section>
 	);
 }
 
 /**
  * Another round of merge attempts for a task out of them, as `arbor retry`
- * gives. Once granted the task is working again, so the button stays only to
- * say so, and what picks it up.
+ * gives: its button for the action bar, and the line under the bar on what
+ * it gives, or once granted, that the task is working again and what picks
+ * it up. Nothing while the task has merges left.
  */
-function Retry({ task }: { task: Details }): JSX.Element | null {
+function useRetry(task: Details): { button: ReactNode; note: ReactNode } {
 	const [state, setState] = useState<"idle" | "retrying" | "retried">("idle");
 	const [failed, setFailed] = useState<string | null>(null);
 	if (state === "idle" && !outOfMerges(task)) {
-		return null;
+		return { button: null, note: null };
 	}
 	const retry = () => {
 		setState("retrying");
@@ -315,32 +428,34 @@ function Retry({ task }: { task: Details }): JSX.Element | null {
 			},
 		);
 	};
-	return (
-		<div className="flex flex-col gap-1">
-			<div className="flex items-center gap-3">
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={state !== "idle"}
-					onClick={retry}
-				>
-					{state === "retried" ? <CheckIcon /> : <RotateCcwIcon />}
-					{state === "retried" ? "Retried" : "Retry"}
-				</Button>
-				<span className="text-muted-foreground text-xs">
+	return {
+		button: (
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={state !== "idle"}
+				onClick={retry}
+			>
+				{state === "retried" ? <CheckIcon /> : <RotateCcwIcon />}
+				{state === "retried" ? "Retried" : "Retry"}
+			</Button>
+		),
+		note: (
+			<div className="mt-1 flex flex-col gap-1 text-xs">
+				<p className="text-muted-foreground">
 					{state === "retried" ? (
 						<>
 							Working again: <code>arbor claim {task.task}</code> picks it up.
 						</>
 					) : (
 						<>
-							Another {task.mergeAttemptLimit} merge attempts, as{" "}
-							<code>arbor retry</code> gives.
+							Retry gives another {task.mergeAttemptLimit} merge attempts, as{" "}
+							<code>arbor retry</code> does.
 						</>
 					)}
-				</span>
+				</p>
+				{failed !== null && <p className="text-destructive">{failed}</p>}
 			</div>
-			{failed !== null && <p className="text-destructive text-xs">{failed}</p>}
-		</div>
-	);
+		),
+	};
 }

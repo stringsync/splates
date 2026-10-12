@@ -65,16 +65,23 @@ import { Todos } from "./todos";
 import { TreesContext } from "./work-row";
 
 /**
- * The page's pages, the one in the address first: `#tasks`,
- * `#conversations` (or `#conversations/<id>` for one open), or the board.
+ * The page's pages, the one in the address first: `#tasks` (or
+ * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
+ * for one open), or the board.
  */
 type Page = "todos" | "tasks" | "conversations";
 
 function pageIn(hash: string): Page {
-	if (hash === "#tasks") {
+	if (hash === "#tasks" || hash.startsWith("#tasks/")) {
 		return "tasks";
 	}
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
+}
+
+/** The task `#tasks/<name>` has open, or null. */
+function taskIn(hash: string): string | null {
+	const [, task] = hash.match(/^#tasks\/(.+)$/) ?? [];
+	return task ?? null;
 }
 
 /** Each page with the key that opens it with ⌥⌘, if any. */
@@ -181,10 +188,12 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	// Kept in the address, so a reload or a link lands on the same page.
 	const [page, setPage] = useState<Page>(() => pageIn(location.hash));
 	const [open, setOpen] = useState(() => conversationIn(location.hash));
+	const [task, setTask] = useState(() => taskIn(location.hash));
 	useEffect(() => {
 		const follow = () => {
 			setPage(pageIn(location.hash));
 			setOpen(conversationIn(location.hash));
+			setTask(taskIn(location.hash));
 		};
 		window.addEventListener("hashchange", follow);
 		return () => window.removeEventListener("hashchange", follow);
@@ -192,11 +201,24 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	const go = (next: Page, conversation: string | null = open) => {
 		setPage(next);
 		setOpen(conversation);
+		setTask(null);
 		const hash =
 			next === "conversations" && conversation !== null
 				? `#conversations/${conversation}`
 				: `#${next}`;
 		history.replaceState(null, "", next === "todos" ? " " : hash);
+	};
+	const openTask = (name: string | null) => {
+		setTask(name);
+		// A dialog closing as it goes elsewhere, such as to its questions,
+		// leaves the address to where it went.
+		if (name !== null || taskIn(location.hash) !== null) {
+			history.replaceState(
+				null,
+				"",
+				name === null ? "#tasks" : `#tasks/${name}`,
+			);
+		}
 	};
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// Before the first snapshot, the name this tab last saw the project by,
@@ -534,7 +556,11 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 											value="tasks"
 											className="mx-auto w-full max-w-xl px-4 py-6"
 										>
-											<Tasks tasks={snapshot.tasks} />
+											<Tasks
+												tasks={snapshot.tasks}
+												open={task}
+												onOpen={openTask}
+											/>
 										</TabsContent>
 										{available && (
 											<TabsContent

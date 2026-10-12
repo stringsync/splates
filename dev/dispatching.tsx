@@ -136,12 +136,15 @@ export function StartMenu({
 	assignment,
 	assignee = null,
 	label = "Start",
+	size = "xs",
 	className,
 }: {
 	assignment: Assignment;
 	/** The agent that should work it, offered first, on its model. */
 	assignee?: AgentPick | null;
 	label?: string;
+	/** `sm` beside a dialog's other actions in its footer. */
+	size?: "xs" | "sm";
 	className?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
@@ -160,7 +163,7 @@ export function StartMenu({
 			<DropdownMenuTrigger
 				render={
 					<Button
-						size="xs"
+						size={size}
 						variant="outline"
 						className={cn("w-fit gap-1 bg-transparent", className)}
 						{...still}
