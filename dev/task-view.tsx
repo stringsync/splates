@@ -17,7 +17,6 @@ import { age } from "../age";
 import type { ConversationState, Session } from "../conversations";
 import type { Need } from "../needs";
 import type { Question } from "../plan";
-import { progress } from "../progress";
 import type { Details } from "../show";
 import type { Action } from "./actions";
 import { AgentIcon } from "./agent-icons";
@@ -145,8 +144,8 @@ function waitingOn(need: Need): string | null {
 }
 
 /**
- * The line under a header's title: the branch, and how far its task is,
- * which opens the task's details on a click.
+ * The line under a header's title: the branch, which opens the task's
+ * details on a click.
  */
 export function TaskLine({
 	branch,
@@ -178,7 +177,6 @@ export function TaskLine({
 			</p>
 		);
 	}
-	const counted = task.plan === null ? null : progress(task.plan);
 	return (
 		<button
 			type="button"
@@ -187,11 +185,6 @@ export function TaskLine({
 			className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
 		>
 			{line}
-			{counted && (
-				<span className="shrink-0 tabular-nums">
-					· {counted.done}/{counted.total}
-				</span>
-			)}
 		</button>
 	);
 }

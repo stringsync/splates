@@ -4047,7 +4047,7 @@ Cap upload retries
 			);
 		});
 
-		it("heads a conversation with its branch and progress, which open its task", async () => {
+		it("heads a conversation with its branch, which opens its task", async () => {
 			const view = await sidebar(
 				[
 					conversation({
@@ -4064,7 +4064,7 @@ Cap upload retries
 			);
 			const about = view.getByRole("button", { name: "About alpha" });
 
-			expect(about.textContent).toBe("task/alpha· 1/3");
+			expect(about.textContent).toBe("task/alpha");
 			await act(async () => fireEvent.click(about));
 			const dialog = await waitFor(() =>
 				view.getByRole("dialog", { name: "alpha" }),
