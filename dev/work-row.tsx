@@ -4,6 +4,7 @@ import {
 	ChevronRightIcon,
 	CircleIcon,
 	LoaderIcon,
+	TerminalIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import {
@@ -25,7 +26,6 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Edit, Step, Tool } from "../conversations";
 import { editLines } from "../diff";
 import { FileChip } from "./file-chip";
-import { Markdown } from "./markdown";
 import {
 	decided,
 	files,
@@ -46,9 +46,9 @@ import {
 } from "./work";
 
 /**
- * Renders a `data-work` part: what an agent did before its reply, as one
- * line that says how long it took and, once done, what it added up to, with the files it edited, and
- * the whole timeline a click away.
+ * Renders a `data-work` part: what an agent did between two things it said,
+ * as one line that says how long it took and, once done, what it added up
+ * to, with its timeline a click away.
  */
 export const WorkUI = makeAssistantDataUI<{ work: Work }>({
 	name: "work",
@@ -69,21 +69,19 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
-	// Open while the agent works with nothing said yet, so there is
-	// something to watch, and folded the first time it starts writing: its
-	// words come and go below while it narrates, and a row the person opens
-	// again stays open.
-	const [open, setOpen] = useState(work.running && work.reply === null);
-	const replied = work.reply !== null;
-	const folded = useRef(replied);
+	// Open while the agent works, so there is something to watch, and folded
+	// the first time it stops, as when it starts to say something: its words
+	// show below, and a row the person opens again stays open.
+	const [open, setOpen] = useState(work.running);
+	const folded = useRef(!work.running);
 	useEffect(() => {
-		if (replied && !folded.current) {
+		if (!work.running && !folded.current) {
 			folded.current = true;
 			setOpen(false);
 		}
-	}, [replied]);
+	}, [work.running]);
 	return (
-		<Going value={work.running}>
+		<Going value={work.going}>
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
 				<details
 					open={open}
@@ -116,7 +114,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						// Under the line's words, clear of its chevron.
 						className="mt-2 flex flex-col gap-1.5 pl-5"
 					>
-						{!work.running && work.plan !== null && (
+						{!work.going && work.plan !== null && (
 							<li>
 								<Plan steps={work.plan} />
 							</li>
@@ -130,7 +128,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						))}
 					</ol>
 				</details>
-				{work.running && work.plan !== null && <Plan steps={work.plan} />}
+				{work.going && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
 			</div>
 		</Going>
@@ -213,13 +211,6 @@ function Row({
 	short: (path: string) => string;
 }): JSX.Element {
 	switch (item.type) {
-		case "text":
-			return (
-				<Markdown
-					text={item.text}
-					className="text-muted-foreground text-sm [&_p]:my-0.5"
-				/>
-			);
 		case "thought":
 			return (
 				<Line
@@ -244,7 +235,6 @@ function Row({
 			return (
 				<Call
 					tool={tool}
-					short={short}
 					code
 					after={item.runs.length > 1 && <span>×{item.runs.length}</span>}
 				>
@@ -294,7 +284,7 @@ function Row({
 		}
 		case "edit":
 			return (
-				<Call tool={item.tool} short={short}>
+				<Call tool={item.tool}>
 					{item.tool.edits.length > 0 && (
 						<Edits edits={item.tool.edits} short={short} />
 					)}
@@ -304,7 +294,6 @@ function Row({
 			return (
 				<Call
 					tool={item.tool}
-					short={short}
 					subagent
 					after={
 						<span>
@@ -317,7 +306,7 @@ function Row({
 						<ul className="flex flex-col gap-0.5">
 							{item.calls.map((call) => (
 								<li key={call.id}>
-									<Call tool={call} short={short} />
+									<Call tool={call} />
 								</li>
 							))}
 						</ul>
@@ -326,7 +315,7 @@ function Row({
 			);
 		case "tool":
 			return (
-				<Call tool={item.tool} short={short}>
+				<Call tool={item.tool}>
 					{/* A read's output is only the end of the file it read. */}
 					{item.tool.kind !== "read" && item.tool.output !== "" && (
 						<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-xs">
@@ -353,14 +342,12 @@ function Row({
  */
 function Call({
 	tool,
-	short,
 	code = false,
 	subagent = false,
 	after,
 	children,
 }: {
 	tool: Tool;
-	short: (path: string) => string;
 	/** What it works on is a command, set as code. */
 	code?: boolean;
 	subagent?: boolean;
@@ -379,15 +366,19 @@ function Call({
 			resource={
 				named.length > 0 ? (
 					named.map(({ path, lines }) => (
-						<FileChip
-							key={path}
-							path={path}
-							shown={short(path)}
-							lines={lines}
-						/>
+						<FileChip key={path} path={path} lines={lines} />
 					))
 				) : what === "" ? null : code ? (
-					<code className="min-w-0 truncate font-mono">{what}</code>
+					// A size down from the words, where monospace reads as large as they do.
+					<span className="flex min-w-0 items-center gap-1">
+						<TerminalIcon
+							aria-hidden
+							className="size-3 shrink-0 text-muted-foreground"
+						/>
+						<code className="min-w-0 truncate font-mono text-muted-foreground text-xs">
+							{what}
+						</code>
+					</span>
 				) : (
 					<span className="min-w-0 truncate">{what}</span>
 				)
@@ -405,9 +396,9 @@ function Call({
 }
 
 /**
- * A timeline row in words: a verb, dimmed, then what it acts on. It
- * shimmers while it goes, turns red when it failed, and ends in a caret
- * when it opens to more.
+ * A timeline row in words: a verb, set apart in weight, then what it acts
+ * on. Its verb shimmers while it goes, the row turns red when it failed,
+ * and ends in a caret when it opens to more.
  */
 function Line({
 	state,
@@ -425,13 +416,15 @@ function Line({
 	const opens = children !== undefined && children !== false;
 	const head = (
 		<>
-			<span
-				className={cn(
-					"flex min-w-0 items-center gap-1",
-					state === "running" && "shimmer motion-reduce:animate-none",
-				)}
-			>
-				<span className="shrink-0 text-muted-foreground">{verb}</span>
+			<span className="flex min-w-0 items-center gap-1.5">
+				<span
+					className={cn(
+						"shrink-0 font-medium text-foreground/90",
+						state === "running" && "shimmer motion-reduce:animate-none",
+					)}
+				>
+					{verb}
+				</span>
 				{resource}
 			</span>
 			{opens && (

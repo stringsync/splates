@@ -131,44 +131,16 @@ const chip =
 	"flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted";
 
 /**
- * What a file chip says: the logo of its language, its name, with the lines
- * it covers, then its directory dimmed. Only the directory gives way when
- * they do not fit, so the name always shows.
+ * A file a tool call worked on, opening in the person's editor at its first
+ * line: the logo of its language, then its name with the lines it covers.
+ * The whole path is its tooltip.
  */
-function FileLabel({
-	path,
-	shown,
-	lines = null,
-}: {
-	path: string;
-	/** The path as the page shows it, from the top of its tree. */
-	shown: string;
-	/** The lines it covers, "1-80". */
-	lines?: string | null;
-}): JSX.Element {
-	const { name, dir } = split(shown);
-	return (
-		<>
-			<FileIcon path={path} className="size-3" />
-			<span className="max-w-full shrink-0 truncate">
-				{name}
-				{lines !== null && `#L${lines}`}
-			</span>
-			{dir !== "" && (
-				<span className="min-w-0 truncate text-muted-foreground">{dir}</span>
-			)}
-		</>
-	);
-}
-
-/** A file a tool call worked on, opening in the person's editor at its first line. */
 export function FileChip({
 	path,
-	shown,
 	lines = null,
 }: {
 	path: string;
-	shown: string;
+	/** The lines it covers, "1-80". */
 	lines?: string | null;
 }): JSX.Element {
 	return (
@@ -181,7 +153,11 @@ export function FileChip({
 			onClick={(event) => event.stopPropagation()}
 			className={cn(chip, "min-w-0 text-foreground/90")}
 		>
-			<FileLabel path={path} shown={shown} lines={lines} />
+			<FileIcon path={path} className="size-3" />
+			<span className="min-w-0 truncate">
+				{split(path).name}
+				{lines !== null && `#L${lines}`}
+			</span>
 		</a>
 	);
 }

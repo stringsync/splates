@@ -172,7 +172,7 @@ import { TodoDialog } from "./todos";
 import { unanswered } from "./unanswered";
 import { ContextMeter } from "./usage";
 import { WaitingLine } from "./waiting-line";
-import type { Work } from "./work";
+import { stretchesOf } from "./work";
 import { WorkUI } from "./work-row";
 
 /** What `#conversations/archived` opens: every archived conversation. */
@@ -2902,8 +2902,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 
 /**
  * A message as assistant-ui takes one, the one place ACP's shape meets
- * assistant-ui's. An agent's turn is its reply, the last text it said, after
- * one `data-work` part holding everything else it did.
+ * assistant-ui's. An agent's turn is what it said, a `data-work` part for
+ * each run of work between, its reply the last thing it said.
  */
 function like(
 	message: Message,
@@ -2930,35 +2930,21 @@ function like(
 			),
 		};
 	}
-	// Once the turn is over, the last thing it said, even with tool calls
-	// after it, since a turn that ends on one would otherwise fold its words
-	// away. While it goes on, only words still coming: what it said before
-	// its latest call or thought is narration, kept in the timeline.
-	const said = message.parts.findLastIndex(
-		(part, index) =>
-			part.type === "text" &&
-			part.text.trim() !== "" &&
-			(settled || index === message.parts.length - 1),
-	);
-	const last = message.parts[said];
-	const reply = last?.type === "text" ? last.text : "";
-	const work: Work = {
-		parts: message.parts,
-		reply: said === -1 ? null : said,
-		plan: message.plan,
-		at: began,
-		until: message.until,
-		running: !settled,
-	};
+	// The words between its work as it said them, each run of work a row
+	// between them. Once the turn is over, the last thing it said is its
+	// reply, read for cards, even with tool calls after it.
+	const all = stretchesOf(message, began, !settled);
+	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
 		id,
 		role: "assistant",
-		content: [
-			...(message.parts.length > (said === -1 ? 0 : 1) || message.plan !== null
-				? [{ type: "data-work" as const, data: { work } }]
-				: []),
-			...(reply === "" ? [] : replied(reply, settled)),
-		],
+		content: all.flatMap((stretch, at): LikePart[] =>
+			stretch.type === "work"
+				? [{ type: "data-work", data: { work: stretch.work } }]
+				: at === reply
+					? replied(stretch.text, settled)
+					: [{ type: "text", text: stretch.text }],
+		),
 	};
 }
 

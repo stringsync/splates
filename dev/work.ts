@@ -1,22 +1,96 @@
-import type { Decision, Part, Step, Tool } from "../conversations";
+import type { Decision, Message, Part, Step, Tool } from "../conversations";
 import type { Flag } from "../watch";
 
 /**
- * What an agent did in a turn before its reply: its thoughts, what it said
- * along the way, and its tool calls, which the page folds into one row.
+ * What an agent did between two things it said: its thoughts and its tool
+ * calls, which the page folds into one row.
  */
 export interface Work {
-	/** Every part of the turn, its reply among them. */
+	/** Its thoughts and tool calls, with none of the agent's words. */
 	parts: Part[];
-	/** Which part is the reply, shown below the row; null before it says any. */
-	reply: number | null;
+	/** The turn's plan, on its last row; null on the others. */
 	plan: Step[] | null;
-	/** When the person's prompt went, which the turn's time counts from. */
+	/** When it began: for a turn's first, the person's prompt it answers. */
 	at: string | null;
-	/** When the agent last moved. */
+	/** When the agent last moved in it. */
 	until: string | null;
-	/** Still going: the row counts up; once over, it adds up what the turn did. */
+	/** Still going, with nothing said since: the row counts up; once over, it adds up what it did. */
 	running: boolean;
+	/** The turn is still going, so a call yet to finish is running, not stopped. */
+	going: boolean;
+}
+
+/** A stretch of an agent's turn: words it said, or the work between them. */
+export type Stretch =
+	| { type: "said"; text: string }
+	| { type: "work"; work: Work };
+
+/**
+ * The agent's turn in the order it went, each run of thoughts and calls a
+ * row of work between the words it said.
+ */
+export function stretchesOf(
+	message: Message,
+	/** When the turn began: the person's prompt it answers. */
+	began: string | null,
+	going: boolean,
+): Stretch[] {
+	const runs: (Part[] | string)[] = [];
+	for (const part of message.parts) {
+		const last = runs.at(-1);
+		if (part.type === "text") {
+			if (part.text.trim() !== "") {
+				runs.push(part.text);
+			}
+		} else if (part.type !== "image") {
+			if (Array.isArray(last)) {
+				last.push(part);
+			} else {
+				runs.push([part]);
+			}
+		}
+	}
+	const works = runs.filter((run) => Array.isArray(run));
+	// Its plan shows on a row of its own, above what it said.
+	if (works.length === 0 && message.plan !== null) {
+		const none: Part[] = [];
+		runs.unshift(none);
+		works.push(none);
+	}
+	const final = works.at(-1);
+	return runs.map((run, index): Stretch => {
+		if (!Array.isArray(run)) {
+			return { type: "said", text: run };
+		}
+		const next = runs.slice(index + 1).find((each) => Array.isArray(each));
+		const ended = run.flatMap((part) =>
+			part.type === "tool" && part.until !== null ? [part.until] : [],
+		);
+		return {
+			type: "work",
+			work: {
+				parts: run,
+				plan: run === final ? message.plan : null,
+				at: index === 0 ? began : startOf(run),
+				until:
+					index === runs.length - 1
+						? message.until
+						: (ended.sort().at(-1) ?? startOf(next ?? []) ?? message.until),
+				running: going && index === runs.length - 1,
+				going,
+			},
+		};
+	});
+}
+
+/** When the first of `parts` to say so began. */
+function startOf(parts: Part[]): string | null {
+	for (const part of parts) {
+		if ((part.type === "tool" || part.type === "thought") && part.at !== null) {
+			return part.at;
+		}
+	}
+	return null;
 }
 
 /** One row of a turn's timeline. */
@@ -29,7 +103,6 @@ export type Item =
 			/** The agent is thinking it still: nothing has come after it in a turn under way. */
 			thinking: boolean;
 	  }
-	| { type: "text"; text: string }
 	/** The same command run again and again in a row: the last run shows. */
 	| { type: "command"; runs: Tool[] }
 	| { type: "edit"; tool: Tool }
@@ -54,13 +127,7 @@ export function timeline(work: Work): Item[] {
 	parts.forEach((part, index) => {
 		const last = items.at(-1);
 		// Only the person sends images, and this is the agent's turn.
-		if (part.type === "image") {
-			return;
-		}
-		if (part.type === "text") {
-			if (part.text.trim() !== "" && index !== work.reply) {
-				items.push({ type: "text", text: part.text });
-			}
+		if (part.type === "image" || part.type === "text") {
 			return;
 		}
 		if (part.type === "thought") {
@@ -272,58 +339,23 @@ export function warning(flag: Flag): string {
 	}
 }
 
-/** What the turn added up to, for the row's one line. */
-export interface Summary {
-	commands: number;
-	failed: number;
-	/** Each file changed, with how many tool calls changed it. */
-	edited: { path: string; count: number }[];
-	read: number;
-	searched: number;
-	subagents: number;
-}
-
-export function summarize(work: Work): Summary {
-	const items = timeline(work);
-	const tools = items.flatMap((item) =>
+/**
+ * The finished row's line: "Worked 3m 12s · 6 actions (1 failed)". A
+ * subagent is one action, whatever it did under it.
+ */
+export function worked(work: Work): string {
+	const actions = timeline(work).flatMap((item) =>
 		item.type === "command" ? item.runs : "tool" in item ? [item.tool] : [],
 	);
-	const edited = new Map<string, number>();
-	for (const tool of tools) {
-		if (EDITS.has(tool.kind ?? "") || tool.edits.length > 0) {
-			for (const path of tool.paths) {
-				edited.set(path, (edited.get(path) ?? 0) + 1);
-			}
-		}
-	}
-	const commands = tools.filter((tool) => tool.kind === "execute");
-	const reads = tools.filter((tool) => tool.kind === "read");
-	return {
-		commands: commands.length,
-		failed: commands.filter((tool) => tool.status === "failed").length,
-		edited: [...edited].map(([path, count]) => ({ path, count })),
-		read: new Set(reads.flatMap((tool) => tool.paths)).size || reads.length,
-		searched: tools.filter((tool) => tool.kind === "search").length,
-		subagents: items.filter((item) => item.type === "subagent").length,
-	};
-}
-
-/** The finished row's line: "Worked 3m 12s · 6 commands (1 failed) · …". */
-export function worked(work: Work): string {
-	const { commands, failed, edited, read, searched, subagents } =
-		summarize(work);
+	const failed = actions.filter((tool) => tool.status === "failed").length;
 	const took =
 		work.at === null || work.until === null
 			? "Worked"
 			: `Worked ${span(work.at, work.until)}`;
 	return [
 		took,
-		commands > 0 &&
-			`${count(commands, "command")}${failed > 0 ? ` (${failed} failed)` : ""}`,
-		edited.length > 0 && `edited ${count(edited.length, "file")}`,
-		read > 0 && `read ${count(read, "file")}`,
-		searched > 0 && `searched ${count(searched, "time")}`,
-		subagents > 0 && count(subagents, "subagent"),
+		actions.length > 0 &&
+			`${count(actions.length, "action")}${failed > 0 ? ` (${failed} failed)` : ""}`,
 	]
 		.filter(Boolean)
 		.join(" · ");
