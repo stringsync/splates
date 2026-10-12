@@ -20,6 +20,12 @@ import { Media } from "#dev/media.tsx";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
 	components?: Parameters<typeof memoizeMarkdownComponents>[0];
+	/**
+	 * What the person typed rather than what an agent wrote: each line break
+	 * kept as typed, and the text `typed` keeps of it, such as all but its
+	 * directives, revealed at once rather than streamed in.
+	 */
+	typed?: (text: string) => string;
 };
 
 const useShallowStable = <T extends Record<string, unknown> | undefined>(
@@ -40,7 +46,7 @@ const useShallowStable = <T extends Record<string, unknown> | undefined>(
 	return ref.current;
 };
 
-const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
+const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, typed }) => {
 	const stableComponents = useShallowStable(components);
 	const markdownComponents = useMemo(() => {
 		if (!stableComponents) {
@@ -56,11 +62,14 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
 	return (
 		<div {...{ [GROUP]: "" }}>
 			<MarkdownTextPrimitive
-				remarkPlugins={[remarkGfm]}
+				remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
 				// Each `#N` a link to that todo, which `a` draws as a mention.
-				preprocess={linkMentions}
+				preprocess={
+					typed ? (text: string) => linkMentions(typed(text)) : linkMentions
+				}
 				className="aui-md"
 				components={markdownComponents}
+				smooth={typed === undefined}
 				defer
 			/>
 		</div>
@@ -68,6 +77,41 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
 };
 
 export const MarkdownText = memo(MarkdownTextImpl);
+
+/** The shape of the mdast nodes `keepBreaks` reads and writes. */
+interface MdNode {
+	type: string;
+	value?: string;
+	children?: MdNode[];
+}
+
+/**
+ * A remark plugin keeping each line break within a paragraph as a break, as
+ * a message box shows what was typed, where markdown would join the lines.
+ */
+const keepBreaks = () => (tree: MdNode) => {
+	const visit = (node: MdNode) => {
+		if (node.children === undefined) {
+			return;
+		}
+		node.children = node.children.flatMap((child) => {
+			if (child.type !== "text" || !child.value?.includes("\n")) {
+				visit(child);
+				return [child];
+			}
+			return child.value
+				.split(/\r?\n/)
+				.flatMap((line, at): MdNode[] => [
+					...(at > 0 ? [{ type: "break" }] : []),
+					...(line === "" ? [] : [{ type: "text", value: line }]),
+				]);
+		});
+	};
+	visit(tree);
+};
+
+const PLUGINS = [remarkGfm];
+const TYPED_PLUGINS = [remarkGfm, keepBreaks];
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
 	const { isCopied, copyToClipboard } = useCopyToClipboard();

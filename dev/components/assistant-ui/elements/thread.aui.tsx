@@ -82,7 +82,6 @@ import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import { DirectiveChip } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
-import { Mentioned } from "#dev/markdown.tsx";
 import type { References } from "#dev/references.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
@@ -1387,8 +1386,9 @@ const unstuckTop = (element: HTMLDivElement | null) => {
 };
 
 /**
- * What the person typed, as typed, each todo it mentions a link to it, and
- * the directives it starts with as the chips the composer showed them as.
+ * What the person typed, as markdown with each line break kept, each todo it
+ * mentions a link to it, and the directives it starts with as the chips the
+ * composer showed them as.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
 	const { directives, rest } = leadingDirectives(text);
@@ -1404,14 +1404,13 @@ const UserText: TextMessagePartComponent = ({ text }) => {
 					))}
 				</span>
 			)}
-			{rest !== "" && (
-				<p className="whitespace-pre-line">
-					<Mentioned text={rest} />
-				</p>
-			)}
+			{rest !== "" && <MarkdownText typed={afterDirectives} />}
 		</>
 	);
 };
+
+/** A message's text past the directives `UserText` shows as chips. */
+const afterDirectives = (text: string) => leadingDirectives(text).rest;
 
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
@@ -1551,7 +1550,14 @@ const Clamped: FC<
 			tabIndex={more || open ? 0 : undefined}
 			aria-expanded={more || open ? open : undefined}
 			aria-label={more || open ? (open ? "Show less" : "Show all") : undefined}
-			onClick={toggle}
+			// A link or a button in the words, such as a code block's copy,
+			// does its own thing rather than open or close the message.
+			onClick={(event) =>
+				event.target instanceof Element &&
+				event.target.closest("a, button") !== null
+					? undefined
+					: toggle()
+			}
 			onKeyDown={(event) => {
 				if (event.key === "Enter" || event.key === " ") {
 					event.preventDefault();

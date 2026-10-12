@@ -1978,6 +1978,40 @@ describe("App's conversations", () => {
 		).toEqual(["POST"]);
 	});
 
+	it("shows the person's message as markdown, each line break as typed", async () => {
+		const view = await conversations([
+			conversation({
+				title: "Reply",
+				messages: [
+					message(
+						"user",
+						"> **How should it land?**\n\nAs one commit:\n\n- squash\n- `merge`\n\nfirst line\nsecond line",
+					),
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Reply" });
+		const box = await waitFor(() => {
+			const found = thread.querySelector(".aui-user-message-content");
+			expect(found?.querySelector("blockquote strong")?.textContent).toBe(
+				"How should it land?",
+			);
+			return found as HTMLElement;
+		});
+		expect(
+			[...box.querySelectorAll("li")].map((item) => item.textContent),
+		).toEqual(["squash", "merge"]);
+		expect(box.querySelector("li code")?.textContent).toBe("merge");
+		const last = [...box.querySelectorAll("p")].at(-1);
+		expect(last?.querySelector("br")).not.toBeNull();
+		expect(last?.textContent?.split(/\s+/)).toEqual([
+			"first",
+			"line",
+			"second",
+			"line",
+		]);
+	});
+
 	it("sends an image pasted into the composer, and shows the images the person sent on their message", async () => {
 		const view = await conversations([
 			conversation({
