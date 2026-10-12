@@ -15,7 +15,7 @@ export interface Action {
 }
 
 /**
- * Everything to do with a conversation, in a panel in its upper right, many
+ * Everything to do with a conversation, in a panel in its upper left, many
  * of them opening the pane beside the page: the first, what it waits on you
  * for, above a rule, the rest below it. Only where the conversation leaves
  * room beside its messages, `ActionButtons` standing in for it elsewhere.
@@ -25,7 +25,7 @@ export function Actions({ actions }: { actions: Action[] }): JSX.Element {
 	return (
 		<nav
 			aria-label="actions"
-			className="absolute top-2 right-2 z-10 hidden w-60 flex-col divide-y overflow-hidden rounded-lg border bg-background @6xl:flex"
+			className="absolute top-2 left-2 z-10 hidden w-60 flex-col divide-y overflow-hidden rounded-lg border bg-background @6xl:flex"
 		>
 			{status !== undefined && (
 				<div className="py-1">
