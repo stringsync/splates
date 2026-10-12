@@ -33,23 +33,23 @@ import { editLines } from "../diff";
 import { Markdown } from "./markdown";
 import {
 	decided,
-	edited,
 	flagged,
 	type Item,
 	label,
 	relative,
 	span,
 	split,
+	summarize,
 	type Trees,
 	timeline,
-	took,
 	type Work,
 	warning,
+	worked,
 } from "./work";
 
 /**
  * Renders a `data-work` part: what an agent did before its reply, as one
- * line that says how long it took, with the files it edited, and
+ * line that says how long it took and, once done, what it added up to, with the files it edited, and
  * the whole timeline a click away.
  */
 export const WorkUI = makeAssistantDataUI<{ work: Work }>({
@@ -68,7 +68,7 @@ export const TreesContext = createContext<Trees | null>(null);
 
 export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const now = useNow(work.running);
-	const files = edited(work);
+	const { edited } = summarize(work);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -102,7 +102,11 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 								work.running && "shimmer motion-reduce:animate-none",
 							)}
 						>
-							{took(work, now)}
+							{work.running
+								? work.at === null
+									? "Working"
+									: `Working ${span(work.at, now)}`
+								: worked(work)}
 						</span>
 					</summary>
 					<ol
@@ -126,9 +130,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				</details>
 				{work.running && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
-				{files.length > 0 && (
+				{edited.length > 0 && (
 					<ul aria-label="edited files" className="flex flex-wrap gap-1">
-						{files.map(({ path, count }) => (
+						{edited.map(({ path, count }) => (
 							<li key={path} className="min-w-0 max-w-full">
 								<button
 									type="button"

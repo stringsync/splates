@@ -15,7 +15,7 @@ export interface Work {
 	at: string | null;
 	/** When the agent last moved. */
 	until: string | null;
-	/** Still going: the row counts up. */
+	/** Still going: the row counts up; once over, it adds up what the turn did. */
 	running: boolean;
 }
 
@@ -171,37 +171,67 @@ export function warning(flag: Flag): string {
 	}
 }
 
-/** Each file the turn changed, with how many tool calls changed it. */
-export function edited(work: Work): { path: string; count: number }[] {
-	const paths = new Map<string, number>();
-	for (const item of timeline(work)) {
-		const tools =
-			item.type === "reads"
-				? item.tools
-				: item.type === "command"
-					? item.runs
-					: "tool" in item
-						? [item.tool]
-						: [];
-		for (const tool of tools) {
-			if (EDITS.has(tool.kind ?? "") || tool.edits.length > 0) {
-				for (const path of tool.paths) {
-					paths.set(path, (paths.get(path) ?? 0) + 1);
-				}
+/** What the turn added up to, for the row's one line. */
+export interface Summary {
+	commands: number;
+	failed: number;
+	/** Each file changed, with how many tool calls changed it. */
+	edited: { path: string; count: number }[];
+	read: number;
+	searched: number;
+	subagents: number;
+}
+
+export function summarize(work: Work): Summary {
+	const items = timeline(work);
+	const tools = items.flatMap((item) =>
+		item.type === "reads"
+			? item.tools
+			: item.type === "command"
+				? item.runs
+				: "tool" in item
+					? [item.tool]
+					: [],
+	);
+	const edited = new Map<string, number>();
+	for (const tool of tools) {
+		if (EDITS.has(tool.kind ?? "") || tool.edits.length > 0) {
+			for (const path of tool.paths) {
+				edited.set(path, (edited.get(path) ?? 0) + 1);
 			}
 		}
 	}
-	return [...paths].map(([path, count]) => ({ path, count }));
+	const commands = tools.filter((tool) => tool.kind === "execute");
+	const reads = tools.filter((tool) => tool.kind === "read");
+	return {
+		commands: commands.length,
+		failed: commands.filter((tool) => tool.status === "failed").length,
+		edited: [...edited].map(([path, count]) => ({ path, count })),
+		read: new Set(reads.flatMap((tool) => tool.paths)).size || reads.length,
+		searched: tools.filter((tool) => tool.kind === "search").length,
+		subagents: items.filter((item) => item.type === "subagent").length,
+	};
 }
 
-/** The row's line: "Working 1m 5s" as of `now` while it runs, then "Worked 3m 12s". */
-export function took(work: Work, now: number): string {
-	if (work.running) {
-		return work.at === null ? "Working" : `Working ${span(work.at, now)}`;
-	}
-	return work.at === null || work.until === null
-		? "Worked"
-		: `Worked ${span(work.at, work.until)}`;
+/** The finished row's line: "Worked 3m 12s · 6 commands (1 failed) · …". */
+export function worked(work: Work): string {
+	const { commands, failed, edited, read, searched, subagents } =
+		summarize(work);
+	const took =
+		work.at === null || work.until === null
+			? "Worked"
+			: `Worked ${span(work.at, work.until)}`;
+	return [
+		took,
+		commands > 0 &&
+			`${count(commands, "command")}${failed > 0 ? ` (${failed} failed)` : ""}`,
+		edited.length > 0 && `edited ${count(edited.length, "file")}`,
+		read > 0 && `read ${count(read, "file")}`,
+		searched > 0 && `searched ${count(searched, "time")}`,
+		subagents > 0 && count(subagents, "subagent"),
+	]
+		.filter(Boolean)
+		.join(" · ");
 }
 
 /** How long from `from` to `to`, to the second: "41s", "2m 14s", "1h 3m". */

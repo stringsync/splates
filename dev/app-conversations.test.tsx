@@ -2132,7 +2132,11 @@ describe("App's conversations", () => {
 			);
 
 			await waitFor(() =>
-				expect(within(thread).getByText("Worked 1m 5s").tagName).toBe("SPAN"),
+				expect(
+					within(thread).getByText(
+						"Worked 1m 5s · 2 commands (1 failed) · edited 1 file · read 2 files",
+					).tagName,
+				).toBe("SPAN"),
 			);
 			expect(thread.textContent).toContain("All tests pass.");
 			const timeline = within(thread).getByRole("list", { name: "timeline" });
