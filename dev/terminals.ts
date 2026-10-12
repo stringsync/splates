@@ -2,7 +2,11 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { TerminalSession } from "./terminal-session";
 
-export type TerminalsEvents = { changed: undefined };
+export type TerminalsEvents = {
+	changed: undefined;
+	/** A shell exited, by its key, and its session is gone. */
+	exited: string;
+};
 
 /**
  * The page's shells, one per conversation, each started in that
@@ -11,8 +15,9 @@ export type TerminalsEvents = { changed: undefined };
  * closes. Whether the pane is open is one setting for every conversation, the
  * way an editor's side panel stays put as you switch files, and outlives a
  * reload in `storage`. The main tree's own terminals, opened from New, are
- * more shells, kept under `terminal/<n>` until closed. It changes whenever
- * one of its shells does.
+ * more shells, kept under `terminal/<n>` until closed. A shell that exits is
+ * closed with it, as a terminal's window would be. It changes whenever one of
+ * its shells does.
  */
 export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<TerminalsEvents>();
@@ -47,8 +52,15 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		}
 		let session = this.sessions.get(conversation);
 		if (session === undefined) {
-			session = new TerminalSession(task);
-			session.events.on("changed", () => this.dispatcher.dispatch("changed"));
+			const made = new TerminalSession(task);
+			made.events.on("changed", () => {
+				if (made.status === "exited") {
+					this.exited(conversation);
+				} else {
+					this.dispatcher.dispatch("changed");
+				}
+			});
+			session = made;
 			this.sessions.set(conversation, session);
 		}
 		return session;
@@ -64,7 +76,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		this.set(true, conversation);
 	}
 
-	private set(open: boolean, conversation: string): void {
+	private set(open: boolean, conversation: string | null): void {
 		this.open = open;
 		this.focusing = open ? conversation : null;
 		try {
@@ -75,9 +87,14 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		this.dispatcher.dispatch("changed");
 	}
 
+	/** Hides the pane, for the conversation whose shell just exited. */
+	hide(): void {
+		this.set(false, null);
+	}
+
 	/**
 	 * Hangs up on `conversation`'s shell; the next one starts in whatever tree
-	 * the conversation is in then, which is how an exited shell comes back and
+	 * the conversation is in then, which is how a lost shell comes back and
 	 * how one follows its agent into a task.
 	 */
 	restart(conversation: string): void {
@@ -126,6 +143,20 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		if (this.sessions.has(conversation)) {
 			this.restart(conversation);
 		}
+	}
+
+	/**
+	 * Drops the shell `key` ran, which just exited, and its row if it is one of
+	 * the main tree's. Whoever shows it hears first, so a pane hides before the
+	 * conversation it showed would start another.
+	 */
+	private exited(key: string): void {
+		const session = this.sessions.get(key);
+		this.sessions.delete(key);
+		this.mains = this.mains.filter((each) => each !== key);
+		this.dispatcher.dispatch("exited", key);
+		this.dispatcher.dispatch("changed");
+		session?.dispose();
 	}
 
 	private stored(): string | null {

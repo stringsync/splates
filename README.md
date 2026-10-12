@@ -470,7 +470,9 @@ the pane shows. The pane stays shown or hidden as you move between
 conversations and through a reload, and each one's shell keeps running while it is hidden or another conversation is up, until
 the browser tab closes, which hangs it up. A shell stays in the tree it
 started in: once the agent moves the conversation into a task, Restart starts
-one there, as it does once the shell exits.
+one there, as it does once the page loses the shell. When the shell exits, the
+pane closes, and showing it again starts a fresh one; a main-tree terminal
+opened from New closes the same way, its row going with it.
 
 Everything you type goes to the shell, Escape and Tab included, so vim and
 completion work as in any terminal. Ctrl+` is the way out: hiding the pane

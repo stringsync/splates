@@ -261,7 +261,7 @@ describe("App's terminal", () => {
 		);
 	});
 
-	it("says how the shell exited, and starts another on Restart", async () => {
+	it("hides the pane once the shell exits, and starts another when shown again", async () => {
 		const view = await reading();
 		await press(TOGGLE);
 		const [shell] = testing.shells;
@@ -270,14 +270,38 @@ describe("App's terminal", () => {
 			shell?.exit(3);
 		});
 
-		expect(view.getByText("Exited with 3")).toBeTruthy();
-
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Restart" })),
+		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+		expect(document.activeElement).toBe(
+			view.getByRole("textbox", { name: "Message input" }),
 		);
+		expect(testing.shells).toHaveLength(1);
+
+		await press(TOGGLE);
 
 		expect(testing.shells).toHaveLength(2);
-		expect(view.queryByText("Exited with 3")).toBeNull();
+		expect(
+			within(view.getByRole("complementary", { name: "terminal" })).getByRole(
+				"status",
+			).textContent,
+		).toBe("Connecting");
+	});
+
+	it("drops the shell of a conversation not up once it exits, leaving the pane shown", async () => {
+		const view = await reading([
+			conversation({ id: "c1", title: "One" }),
+			conversation({ id: "c2", title: "Two" }),
+		]);
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+		await go("#conversations/c2");
+		await act(async () => testing.shells[1]?.accept());
+
+		await act(async () => shell?.exit(0));
+
+		expect(view.getByRole("complementary", { name: "terminal" })).toBeTruthy();
+		await go("#conversations/c1");
+		expect(testing.shells).toHaveLength(3);
 	});
 
 	it("offers a shell where the conversation moved to, once its agent took a task", async () => {
@@ -406,6 +430,20 @@ describe("App's terminal", () => {
 			).toContain("Terminal 1");
 			expect(testing.shells).toHaveLength(2);
 			expect(testing.shells[0]?.readyState).toBe(1);
+		});
+
+		it("closes a shell's page and drops its row once it exits", async () => {
+			const view = await reading();
+			await openTerminal(view);
+			await openTerminal(view);
+			await act(async () => testing.shells[1]?.accept());
+
+			await act(async () => testing.shells[1]?.exit(0));
+
+			expect(rows(view)).toEqual(["Terminal 1"]);
+			expect(view.queryByRole("region", { name: "terminal" })).toBeNull();
+			expect(location.hash).toBe("#conversations/new");
+			expect(testing.shells).toHaveLength(2);
 		});
 
 		it("hangs up on a shell and drops its row when closed, numbering the next past those left", async () => {

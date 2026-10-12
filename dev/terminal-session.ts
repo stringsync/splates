@@ -22,8 +22,6 @@ export class TerminalSession
 	readonly events = this.dispatcher.events;
 
 	status: TerminalStatus = "connecting";
-	/** The shell's exit code, once it has one. */
-	code: number | null = null;
 	/** What the page draws the terminal into; mount it with `attach`. */
 	readonly element = document.createElement("div");
 
@@ -150,9 +148,8 @@ export class TerminalSession
 				this.terminal.write(new Uint8Array(data as ArrayBuffer));
 				return;
 			}
-			const control = JSON.parse(data) as { type: string; code?: number };
+			const control = JSON.parse(data) as { type: string };
 			if (control.type === "exit") {
-				this.code = control.code ?? null;
 				this.set("exited");
 			}
 		};

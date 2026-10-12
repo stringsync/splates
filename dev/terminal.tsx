@@ -25,7 +25,8 @@ export const ShellRunning = createContext<(conversation: string) => boolean>(
 /**
  * `conversation`'s shell, in the pane down the right of the page (the whole
  * screen on a phone), with where it runs and how it stands above it. Unlike
- * the changes that pane also shows, Escape here is the shell's.
+ * the changes that pane also shows, Escape here is the shell's. The pane
+ * hides once the shell exits.
  */
 export function TerminalPane({
 	terminals,
@@ -35,18 +36,56 @@ export function TerminalPane({
 	terminals: Terminals;
 	conversation: ConversationState;
 	phone: boolean;
-}): JSX.Element {
-	// The session too, since Restart swaps it for the same conversation.
+}): JSX.Element | null {
+	// The session too, since Restart swaps it for the same conversation. None
+	// once hidden, so the exit that hid it does not start another.
 	const { session } = useReactive(
 		terminals,
 		(terminals) => ({
-			session: terminals.sessionFor(conversation.id, conversation.task),
+			session: terminals.open
+				? terminals.sessionFor(conversation.id, conversation.task)
+				: null,
 		}),
 		["changed"],
 	);
-	const { status, code } = useReactive(
+	useEffect(
+		() =>
+			terminals.events.on("exited", (key) => {
+				if (key === conversation.id) {
+					terminals.hide();
+					focusComposer();
+				}
+			}),
+		[terminals, conversation.id],
+	);
+	if (session === null) {
+		return null;
+	}
+	return (
+		<PaneScreen
+			terminals={terminals}
+			conversation={conversation}
+			session={session}
+			phone={phone}
+		/>
+	);
+}
+
+/** The terminal pane, once its shell is made. */
+function PaneScreen({
+	terminals,
+	conversation,
+	session,
+	phone,
+}: {
+	terminals: Terminals;
+	conversation: ConversationState;
+	session: TerminalSession;
+	phone: boolean;
+}): JSX.Element {
+	const { status } = useReactive(
 		session,
-		(session) => ({ status: session.status, code: session.code }),
+		(session) => ({ status: session.status }),
 		["changed"],
 	);
 
@@ -65,14 +104,11 @@ export function TerminalPane({
 				</h2>
 				<span role="status" className="text-muted-foreground text-xs">
 					{status === "connecting" && "Connecting"}
-					{status === "exited" && `Exited with ${code ?? "?"}`}
 					{status === "closed" && "Disconnected"}
 				</span>
 				{/* A shell stays where it started, so once the agent has moved the
 				    conversation into a task, Restart starts one there. */}
-				{(status === "exited" ||
-					status === "closed" ||
-					session.task !== conversation.task) && (
+				{(status === "closed" || session.task !== conversation.task) && (
 					<Button
 						size="sm"
 						variant="outline"
@@ -110,13 +146,14 @@ export function TerminalPane({
 /**
  * One of the main tree's own terminals, opened from New, filling the page: a
  * shell on trunk that no conversation owns, kept running while another page
- * is up.
+ * is up, and closed once it exits.
  */
 export function MainTerminal({
 	terminals,
 	terminal,
 	trunk,
 	onBack,
+	onExit,
 }: {
 	terminals: Terminals;
 	/** Its key, `terminal/<n>`. */
@@ -124,8 +161,21 @@ export function MainTerminal({
 	/** The main tree's branch. */
 	trunk: string;
 	onBack: (() => void) | null;
+	/** Leaves the page, once the shell has exited and its row gone. */
+	onExit: () => void;
 }): JSX.Element {
 	useEffect(() => terminals.keep(terminal), [terminals, terminal]);
+	const exit = useRef(onExit);
+	exit.current = onExit;
+	useEffect(
+		() =>
+			terminals.events.on("exited", (key) => {
+				if (key === terminal) {
+					exit.current();
+				}
+			}),
+		[terminals, terminal],
+	);
 	// None once closed, so the close it hears does not start it again.
 	const { session } = useReactive(
 		terminals,
@@ -164,9 +214,9 @@ function MainScreen({
 	trunk: string;
 	onBack: (() => void) | null;
 }): JSX.Element {
-	const { status, code } = useReactive(
+	const { status } = useReactive(
 		session,
-		(session) => ({ status: session.status, code: session.code }),
+		(session) => ({ status: session.status }),
 		["changed"],
 	);
 
@@ -186,10 +236,9 @@ function MainScreen({
 				</h2>
 				<span role="status" className="text-muted-foreground text-xs">
 					{status === "connecting" && "Connecting"}
-					{status === "exited" && `Exited with ${code ?? "?"}`}
 					{status === "closed" && "Disconnected"}
 				</span>
-				{(status === "exited" || status === "closed") && (
+				{status === "closed" && (
 					<Button
 						size="sm"
 						variant="outline"
