@@ -2533,6 +2533,11 @@ describe("App's conversations", () => {
 				view.getByRole("region", { name: state.title ?? "" }),
 			);
 		};
+		/** Each row's line, as it reads folded. */
+		const lines = (list: Element) =>
+			[...list.children].map(
+				(row) => (row.querySelector("summary") ?? row).textContent,
+			);
 
 		it("folds what the agent did into one line, and shows only its reply", async () => {
 			const thread = await opened(
@@ -2578,7 +2583,131 @@ describe("App's conversations", () => {
 			);
 			expect(within(timeline).getByText("Thought for 1s")).toBeTruthy();
 			expect(within(timeline).getByText("Let me run them.")).toBeTruthy();
-			expect(within(timeline).getByText("Read 2 files")).toBeTruthy();
+			expect(lines(timeline)).toEqual([
+				"Thought for 1s",
+				"Let me run them.",
+				"Reada.ts",
+				"Readb.ts",
+				"Failed to runbun test28s",
+				"Editeda.tssrc",
+				"Ranbun test29s",
+			]);
+		});
+
+		it("says what each call does while it runs, and what it did once done", async () => {
+			const calls = (status: "in_progress" | "completed") => [
+				tool({
+					id: "r1",
+					kind: "read",
+					title: "Read /repo/a.ts (1 - 80)",
+					paths: ["/repo/a.ts"],
+					status,
+				}),
+				tool({ id: "g1", kind: "search", target: "fold\\(", status }),
+				tool({
+					id: "m1",
+					kind: "other",
+					title: "mcp__playwright__browser_click",
+					status,
+				}),
+				tool({ id: "x1", kind: "execute", title: "Terminal", status }),
+			];
+			const thread = await opened(
+				turn(calls("in_progress"), { status: "running" }),
+			);
+			const rows = () =>
+				lines(within(thread).getByRole("list", { name: "timeline" }));
+
+			await waitFor(() =>
+				expect(rows()).toEqual([
+					"Readinga.ts#L1-80",
+					"Searchingfold\\(",
+					"Usingbrowser_click (playwright)",
+					"Running",
+				]),
+			);
+
+			await testing.say(turn([...calls("completed"), "Done."]));
+			await waitFor(() =>
+				expect(rows()).toEqual([
+					"Reada.ts#L1-80",
+					"Searchedfold\\(",
+					"Usedbrowser_click (playwright)",
+					"Ran",
+				]),
+			);
+		});
+
+		const reading = () =>
+			turn([
+				tool({
+					id: "r1",
+					kind: "read",
+					title: "Read /repo/src/a.ts (12 - 80)",
+					paths: ["/repo/src/a.ts"],
+				}),
+				"Done.",
+			]);
+
+		it("opens a file chip in the editor the settings pick", async () => {
+			localStorage.setItem(
+				"arbor.settings",
+				JSON.stringify({ "editor.opener": "vscode" }),
+			);
+			const thread = await opened(reading());
+
+			const chip = await waitFor(() => within(thread).getByRole("link"));
+			expect(chip.getAttribute("href")).toBe("vscode://file/repo/src/a.ts:12");
+		});
+
+		it("shows each file a call names as a chip, opening in Zed at its lines", async () => {
+			const thread = await opened(
+				turn([
+					tool({
+						id: "r1",
+						kind: "read",
+						title: "Read /repo/src/a.ts (12 - 80)",
+						paths: ["/repo/src/a.ts"],
+					}),
+					tool({ id: "r2", kind: "read", paths: ["/repo/notes.xyz"] }),
+					"Done.",
+				]),
+			);
+
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
+			const [code, other] = within(timeline).getAllByRole("link");
+			expect([code?.textContent, code?.getAttribute("href")]).toEqual([
+				"a.ts#L12-80src",
+				"zed://file/repo/src/a.ts:12",
+			]);
+			// TypeScript's icon, not the plain page of a file it cannot tell.
+			const icon = (chip: Element | undefined) =>
+				chip?.querySelector("img")?.getAttribute("src");
+			expect(icon(code)).toStartWith("data:image/svg+xml,");
+			expect(icon(code)).not.toBe(icon(other));
+			expect(other?.textContent).toBe("notes.xyz");
+		});
+
+		it("gives a caret only to a row that opens to more", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"], output: "x" }),
+					tool({ id: "x1", command: "bun test", output: "1 pass" }),
+					"Done.",
+				]),
+			);
+
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
+			const [read, command] = within(timeline).getAllByRole("listitem");
+			expect(read?.querySelector("details")).toBeNull();
+			expect(read?.querySelector(".lucide-chevron-right")).toBeNull();
+			expect(
+				command?.querySelector("summary .lucide-chevron-right"),
+			).not.toBeNull();
 		});
 
 		it("warns of a command that did to git what it should not have, opening to the command", async () => {
@@ -2690,9 +2819,9 @@ describe("App's conversations", () => {
 			const timeline = await waitFor(() =>
 				within(thread).getByRole("list", { name: "timeline" }),
 			);
-			expect(within(timeline).getByLabelText("passed")).toBeTruthy();
-			expect(within(timeline).getByLabelText("stopped")).toBeTruthy();
-			expect(within(timeline).queryByLabelText("running")).toBeNull();
+			expect(within(timeline).getByText("Ran")).toBeTruthy();
+			expect(within(timeline).getByText("Stopped running")).toBeTruthy();
+			expect(within(timeline).queryByText("Running")).toBeNull();
 			expect(within(timeline).getByText("No output")).toBeTruthy();
 		});
 
@@ -2713,13 +2842,13 @@ describe("App's conversations", () => {
 
 			const row = await waitFor(() => within(thread).getByText("×3"));
 			const command = row.closest("details") as HTMLDetailsElement;
-			expect(within(command).getByLabelText("failed")).toBeTruthy();
+			expect(within(command).getByText("Failed to run")).toBeTruthy();
 			expect(within(command).getByLabelText("output").textContent).toBe(
 				"1 fail",
 			);
 		});
 
-		it("lists the files edited from the top of their tree, each opening to its edits", async () => {
+		it("names each edited file in its row from the top of its tree, opening to the edit", async () => {
 			const thread = await opened(
 				turn([
 					tool({
@@ -2752,26 +2881,31 @@ describe("App's conversations", () => {
 				]),
 			);
 
-			const files = await waitFor(() =>
-				within(thread).getByRole("list", { name: "edited files" }),
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
 			);
 			expect(
-				within(files)
-					.getAllByRole("button")
-					.map((file) => [file.title, file.textContent]),
+				within(thread).queryByRole("list", { name: "edited files" }),
+			).toBeNull();
+			expect(
+				within(timeline)
+					.getAllByRole("link")
+					.map((chip) => [chip.title, chip.textContent]),
 			).toEqual([
-				["/repo/src/a.ts", "a.tssrc×2"],
+				["/repo/src/a.ts", "a.tssrc"],
+				["/repo/src/a.ts", "a.tssrc"],
 				["/repo-arbor/gone/lib/b.ts", "b.tslib"],
 				["/tmp/c.ts", "c.ts/tmp"],
 			]);
-			await act(async () =>
-				fireEvent.click(within(files).getByTitle("/repo/src/a.ts")),
-			);
+			const first = within(timeline).getAllByRole("listitem")[0] as HTMLElement;
+			await act(async () => {
+				(first.querySelector("details") as HTMLDetailsElement).open = true;
+			});
 			expect(
-				within(within(thread).getByLabelText("edits to /repo/src/a.ts"))
+				within(first)
 					.getAllByLabelText("edit to /repo/src/a.ts")
 					.map((edit) => edit.textContent),
-			).toEqual(["src/a.ts+1 −1−one+two", "src/a.ts+1 −1−two+three"]);
+			).toEqual(["src/a.ts+1 −1−one+two"]);
 		});
 
 		it("says only how long it has worked while it works, shimmering, with its plan", async () => {
@@ -2926,8 +3060,13 @@ describe("App's conversations", () => {
 			const timeline = await waitFor(() =>
 				within(thread).getByRole("list", { name: "timeline" }),
 			);
-			expect(timeline.textContent).toContain("Find the callers· 2 tool calls");
-			expect(timeline.textContent).not.toContain("Read 1 file");
+			expect(lines(timeline)).toEqual([
+				"Ran subagentFind the callers· 2 tool calls",
+			]);
+			expect(lines(timeline.querySelector("details ul") as Element)).toEqual([
+				"Searchedgrep fold",
+				"Read",
+			]);
 		});
 	});
 

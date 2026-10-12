@@ -354,6 +354,7 @@ export function tool(overrides: Partial<Tool> = {}): Tool {
 		status: "completed",
 		kind: "execute",
 		command: null,
+		target: null,
 		output: "",
 		edits: [],
 		paths: [],

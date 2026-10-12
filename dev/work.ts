@@ -21,20 +21,26 @@ export interface Work {
 
 /** One row of a turn's timeline. */
 export type Item =
-	| { type: "thought"; text: string; at: string | null; until: string | null }
+	| {
+			type: "thought";
+			text: string;
+			at: string | null;
+			until: string | null;
+			/** The agent is thinking it still: nothing has come after it in a turn under way. */
+			thinking: boolean;
+	  }
 	| { type: "text"; text: string }
 	/** The same command run again and again in a row: the last run shows. */
 	| { type: "command"; runs: Tool[] }
 	| { type: "edit"; tool: Tool }
-	/** Reads and searches in a row, as one. */
-	| { type: "reads"; tools: Tool[] }
 	| { type: "subagent"; tool: Tool; calls: Tool[] }
 	| { type: "tool"; tool: Tool }
 	/** How the person answered the agent asking permission for the call `label`. */
 	| { type: "decision"; label: string; decision: Decision };
 
-const READS = new Set(["read", "search", "fetch"]);
 const EDITS = new Set(["edit", "delete", "move"]);
+/** The kinds whose titles only restate the kind. */
+const UNTITLED = new Set(["read", "execute", ...EDITS]);
 
 /** The turn as rows, a subagent's calls under it rather than among them. */
 export function timeline(work: Work): Item[] {
@@ -73,6 +79,7 @@ export function timeline(work: Work): Item[] {
 					(next?.type === "thought" || next?.type === "tool"
 						? next.at
 						: null) ?? work.until,
+				thinking: work.running && index === parts.length - 1,
 			});
 			return;
 		}
@@ -103,12 +110,6 @@ export function timeline(work: Work): Item[] {
 				last.runs.push(part);
 			} else {
 				items.push({ type: "command", runs: [part] });
-			}
-		} else if (READS.has(part.kind ?? "")) {
-			if (last?.type === "reads") {
-				last.tools.push(part);
-			} else {
-				items.push({ type: "reads", tools: [part] });
 			}
 		} else if (EDITS.has(part.kind ?? "") || part.edits.length > 0) {
 			items.push({ type: "edit", tool: part });
@@ -142,6 +143,106 @@ export function decided(decision: Decision): string {
 /** What a tool call is, in a line: the command for one that runs one. */
 export function label(tool: Tool): string {
 	return tool.command ?? tool.title;
+}
+
+/**
+ * The files a call works on, for one that names its files rather than a
+ * command or a pattern, with the lines a read covers ("1-80") when the agent
+ * says.
+ */
+export function files(tool: Tool): { path: string; lines: string | null }[] {
+	if (
+		tool.command !== null ||
+		tool.target !== null ||
+		tool.kind === "execute"
+	) {
+		return [];
+	}
+	// Claude says which lines it read at the end of the title: "(1 - 80)".
+	const range = /\((\d+) - (\d+)\)$/.exec(tool.title);
+	const lines =
+		tool.kind === "read" && range !== null ? `${range[1]}-${range[2]}` : null;
+	return tool.paths.map((path) => ({ path, lines }));
+}
+
+/** How a call went, or goes: one still running once its turn is over has stopped. */
+export type State = "running" | "done" | "failed" | "stopped";
+
+export function stateOf(tool: Tool, going: boolean): State {
+	switch (tool.status) {
+		case "completed":
+			return "done";
+		case "failed":
+			return "failed";
+		// Claude leaves a command pending, never in progress, while it runs.
+		default:
+			return going ? "running" : "stopped";
+	}
+}
+
+/** Each kind's verb as it goes, once it has gone, and after "Failed to". */
+const VERBS: Record<string, [string, string, string]> = {
+	read: ["Reading", "Read", "read"],
+	edit: ["Editing", "Edited", "edit"],
+	delete: ["Deleting", "Deleted", "delete"],
+	move: ["Moving", "Moved", "move"],
+	search: ["Searching", "Searched", "search"],
+	execute: ["Running", "Ran", "run"],
+	fetch: ["Fetching", "Fetched", "fetch"],
+	subagent: ["Running subagent", "Ran subagent", "run subagent"],
+	other: ["Using", "Used", "use"],
+};
+
+/**
+ * What a call does, or did, in a word or two: "Reading", "Read",
+ * "Failed to read", "Stopped reading". A subagent's call says so, whatever
+ * its kind.
+ */
+export function verb(tool: Tool, state: State, subagent = false): string {
+	const [doing, did, base] =
+		VERBS[subagent ? "subagent" : (tool.kind ?? "other")] ??
+		(VERBS.other as [string, string, string]);
+	switch (state) {
+		case "running":
+			return doing;
+		case "done":
+			return did;
+		case "failed":
+			return `Failed to ${base}`;
+		case "stopped":
+			return `Stopped ${doing.toLowerCase()}`;
+		default:
+			return state satisfies never;
+	}
+}
+
+/**
+ * What a call works on, after its verb: the command it runs, the files it
+ * reads or edits by name (a read's lines as `#L1-80`, when the agent says),
+ * what it searches for or fetches, or else its title, an MCP tool's as
+ * `name (server)`. Nothing, for a read, edit or command yet to say what it
+ * works on: Claude titles one "Read File", "Edit" or "Terminal" until then.
+ */
+export function resource(tool: Tool): string {
+	if (tool.command !== null) {
+		return tool.command;
+	}
+	if (tool.target !== null) {
+		return tool.target;
+	}
+	const named = files(tool);
+	if (named.length > 0) {
+		return named
+			.map(({ path, lines }) =>
+				lines === null ? split(path).name : `${split(path).name}#L${lines}`,
+			)
+			.join(", ");
+	}
+	if (UNTITLED.has(tool.kind ?? "")) {
+		return "";
+	}
+	const mcp = /^mcp__(.+?)__(.+)$/.exec(tool.title);
+	return mcp === null ? tool.title : `${mcp[2]} (${mcp[1]})`;
 }
 
 /** The turn's commands that did to git what they should not have, subagents' among them. */
@@ -185,13 +286,7 @@ export interface Summary {
 export function summarize(work: Work): Summary {
 	const items = timeline(work);
 	const tools = items.flatMap((item) =>
-		item.type === "reads"
-			? item.tools
-			: item.type === "command"
-				? item.runs
-				: "tool" in item
-					? [item.tool]
-					: [],
+		item.type === "command" ? item.runs : "tool" in item ? [item.tool] : [],
 	);
 	const edited = new Map<string, number>();
 	for (const tool of tools) {

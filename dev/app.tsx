@@ -42,6 +42,7 @@ import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
 import { Feed } from "./feed";
 import { useFullscreenKey } from "./fullscreen";
+import { OpenerContext, openerOf } from "./openers";
 import {
 	ProjectSwitcher,
 	placeOf,
@@ -180,6 +181,11 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(() => new Terminals(localStorage));
 	useDisposerEffect((disposer) => disposer.use(terminals), [terminals]);
+	const { opener } = useReactive(
+		settings,
+		(settings) => ({ opener: settings.get("editor.opener") }),
+		["changed"],
+	);
 	const { terminal } = useReactive(
 		terminals,
 		(terminals) => ({ terminal: terminals.open }),
@@ -589,18 +595,20 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													className="min-w-0 px-4 py-4"
 												>
 													<TreesContext value={snapshot}>
-														<Conversations
-															feed={talk}
-															terminals={terminals}
-															drafts={drafts}
-															tasks={snapshot.tasks}
-															todos={snapshot.todos}
-															lanes={snapshot.lanes}
-															trunk={snapshot.trunk}
-															open={open}
-															onOpen={(id) => go("conversations", id)}
-															phone={!wide}
-														/>
+														<OpenerContext value={openerOf(opener)}>
+															<Conversations
+																feed={talk}
+																terminals={terminals}
+																drafts={drafts}
+																tasks={snapshot.tasks}
+																todos={snapshot.todos}
+																lanes={snapshot.lanes}
+																trunk={snapshot.trunk}
+																open={open}
+																onOpen={(id) => go("conversations", id)}
+																phone={!wide}
+															/>
+														</OpenerContext>
 													</TreesContext>
 												</TabsContent>
 											)}

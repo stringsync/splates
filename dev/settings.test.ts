@@ -76,7 +76,7 @@ describe("Settings", () => {
 	});
 
 	it("searches by every word, in titles, descriptions and categories", () => {
-		expect(search("")).toHaveLength(9);
+		expect(search("")).toHaveLength(10);
 		expect(search("quiet")).toEqual([
 			"notifications.on",
 			"notifications.quiet",

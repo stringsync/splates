@@ -118,6 +118,8 @@ export interface Tool {
 	kind: string | null;
 	/** The command it runs, for one that runs one. */
 	command: string | null;
+	/** What it searches for or fetches, as its input names it: a pattern, a query or a URL. */
+	target: string | null;
 	/** The end of what it printed, at most `TOOL_CHARS`. */
 	output: string;
 	/** The changes it made to files. */
@@ -380,6 +382,7 @@ export function fold(
 				status: "pending",
 				kind: update.kind ?? null,
 				command: null,
+				target: null,
 				output: "",
 				edits: [],
 				paths: [],
@@ -544,11 +547,18 @@ function fill(
 ): void {
 	tool.title = update.title ?? tool.title;
 	tool.kind = update.kind ?? tool.kind;
-	const input = update.rawInput as { command?: unknown } | null | undefined;
+	const input = update.rawInput as
+		| { command?: unknown; pattern?: unknown; query?: unknown; url?: unknown }
+		| null
+		| undefined;
 	if (typeof input?.command === "string") {
 		tool.command = input.command;
 	} else if (Array.isArray(input?.command)) {
 		tool.command = input.command.join(" ");
+	}
+	const target = input?.pattern ?? input?.query ?? input?.url;
+	if (typeof target === "string") {
+		tool.target = target;
 	}
 	if (update.locations != null && update.locations.length > 0) {
 		tool.paths = [...new Set(update.locations.map((each) => each.path))];

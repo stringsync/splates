@@ -1,9 +1,10 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { OPENERS, ZED } from "./openers";
 
 export type SettingsEvents = { changed: undefined };
 
 /** The groups the Settings dialog lists down its left, in order. */
-export const CATEGORIES = ["Appearance", "Notifications"] as const;
+export const CATEGORIES = ["Appearance", "Editor", "Notifications"] as const;
 
 export type Category = (typeof CATEGORIES)[number];
 
@@ -90,6 +91,14 @@ export const SETTINGS = {
 		default: "graphite",
 		choices: ACCENTS,
 		swatches: true,
+	},
+	"editor.opener": {
+		category: "Editor",
+		title: "Open files in",
+		description:
+			"Where a file an agent read or edited opens when you click it in a conversation.",
+		default: ZED.id,
+		choices: OPENERS.map(({ id, label }) => ({ value: id, label })),
 	},
 	"notifications.on": {
 		category: "Notifications",

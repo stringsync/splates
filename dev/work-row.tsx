@@ -1,20 +1,10 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
-	BotIcon,
-	BrainIcon,
 	CheckIcon,
 	ChevronRightIcon,
 	CircleIcon,
-	CircleStopIcon,
-	FileTextIcon,
-	KeyRoundIcon,
 	LoaderIcon,
-	PencilIcon,
-	SearchIcon,
-	SquareTerminalIcon,
 	TriangleAlertIcon,
-	WrenchIcon,
-	XIcon,
 } from "lucide-react";
 import {
 	createContext,
@@ -34,18 +24,22 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import type { Edit, Step, Tool } from "../conversations";
 import { editLines } from "../diff";
+import { FileChip } from "./file-chip";
 import { Markdown } from "./markdown";
 import {
 	decided,
+	files,
 	flagged,
 	type Item,
 	label,
 	relative,
+	resource,
+	type State,
 	span,
-	split,
-	summarize,
+	stateOf,
 	type Trees,
 	timeline,
+	verb,
 	type Work,
 	warning,
 	worked,
@@ -72,11 +66,9 @@ export const TreesContext = createContext<Trees | null>(null);
 
 export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const now = useNow(work.running);
-	const { edited } = summarize(work);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
-	const [file, setFile] = useState<string | null>(null);
 	// Open while the agent works with nothing said yet, so there is
 	// something to watch, and folded the first time it starts writing: its
 	// words come and go below while it narrates, and a row the person opens
@@ -121,8 +113,8 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 					</summary>
 					<ol
 						aria-label="timeline"
-						// A line down the left, each call's dot on it.
-						className="relative mt-2 ml-1.5 flex flex-col gap-1.5 pl-4 before:absolute before:top-2 before:bottom-2 before:left-[3px] before:w-px before:bg-border"
+						// Under the line's words, clear of its chevron.
+						className="mt-2 flex flex-col gap-1.5 pl-5"
 					>
 						{!work.running && work.plan !== null && (
 							<li>
@@ -140,43 +132,6 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				</details>
 				{work.running && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
-				{edited.length > 0 && (
-					<ul aria-label="edited files" className="flex flex-wrap gap-1">
-						{edited.map(({ path, count }) => (
-							<li key={path} className="min-w-0 max-w-full">
-								<button
-									type="button"
-									title={path}
-									aria-pressed={file === path}
-									onClick={() => setFile(file === path ? null : path)}
-									className={cn(
-										"flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted",
-										file === path && "bg-muted",
-									)}
-								>
-									<FileTextIcon className="size-3 shrink-0 text-muted-foreground" />
-									<Place path={short(path)} />
-									{count > 1 && (
-										<span className="shrink-0 text-muted-foreground">
-											×{count}
-										</span>
-									)}
-								</button>
-							</li>
-						))}
-					</ul>
-				)}
-				{file !== null && (
-					<Edits
-						short={short}
-						label={`edits to ${file}`}
-						edits={work.parts.flatMap((part) =>
-							part.type === "tool"
-								? part.edits.filter((edit) => edit.path === file)
-								: [],
-						)}
-					/>
-				)}
 			</div>
 		</Going>
 	);
@@ -234,22 +189,6 @@ function Flags({
 	);
 }
 
-/**
- * A file's name, then its directory dimmed: only the directory gives way
- * when they do not fit, so the name always shows.
- */
-function Place({ path }: { path: string }): JSX.Element {
-	const { name, dir } = split(path);
-	return (
-		<>
-			<span className="max-w-full shrink-0 truncate">{name}</span>
-			{dir !== "" && (
-				<span className="min-w-0 truncate text-muted-foreground">{dir}</span>
-			)}
-		</>
-	);
-}
-
 /** The clock, as epoch ms, moving each second while `running`. */
 function useNow(running: boolean): number {
 	const [now, setNow] = useState(() => Date.now());
@@ -283,34 +222,31 @@ function Row({
 			);
 		case "thought":
 			return (
-				<Fold
-					icon={<BrainIcon className="size-3" />}
-					head={
-						item.at === null || item.until === null
-							? "Thought"
-							: `Thought for ${span(item.at, item.until)}`
+				<Line
+					state={item.thinking ? "running" : "done"}
+					verb={
+						item.thinking
+							? "Thinking"
+							: item.at === null || item.until === null
+								? "Thought"
+								: `Thought for ${span(item.at, item.until)}`
 					}
 				>
-					<p className="whitespace-pre-wrap text-muted-foreground text-xs">
-						{item.text.trim()}
-					</p>
-				</Fold>
+					{item.text.trim() !== "" && (
+						<p className="whitespace-pre-wrap text-muted-foreground text-xs">
+							{item.text.trim()}
+						</p>
+					)}
+				</Line>
 			);
 		case "command": {
 			const tool = item.runs.at(-1) as Tool;
 			return (
-				<Fold
-					icon={<Kind tool={tool} icon={<SquareTerminalIcon />} />}
-					state={stateOf(tool)}
-					head={
-						<>
-							<code className="min-w-0 truncate font-mono text-xs">
-								{label(tool)}
-							</code>
-							{item.runs.length > 1 && <span>×{item.runs.length}</span>}
-							<Took tool={tool} />
-						</>
-					}
+				<Call
+					tool={tool}
+					short={short}
+					code
+					after={item.runs.length > 1 && <span>×{item.runs.length}</span>}
 				>
 					<div
 						className={cn(
@@ -353,87 +289,55 @@ function Row({
 							)
 						)}
 					</div>
-				</Fold>
+				</Call>
 			);
 		}
 		case "edit":
 			return (
-				<Fold
-					icon={<Kind tool={item.tool} icon={<PencilIcon />} />}
-					state={stateOf(item.tool)}
-					head={
-						<span className="min-w-0 truncate">
-							{item.tool.paths.length > 0
-								? `Edited ${item.tool.paths.map(short).join(", ")}`
-								: item.tool.title}
+				<Call tool={item.tool} short={short}>
+					{item.tool.edits.length > 0 && (
+						<Edits edits={item.tool.edits} short={short} />
+					)}
+				</Call>
+			);
+		case "subagent":
+			return (
+				<Call
+					tool={item.tool}
+					short={short}
+					subagent
+					after={
+						<span>
+							· {item.calls.length} tool call
+							{item.calls.length === 1 ? "" : "s"}
 						</span>
 					}
 				>
-					<Edits edits={item.tool.edits} short={short} />
-				</Fold>
-			);
-		case "reads": {
-			const read = item.tools.filter((tool) => tool.kind === "read").length;
-			const searched = item.tools.length - read;
-			return (
-				<Fold
-					icon={<SearchIcon className="size-3" />}
-					head={[
-						read > 0 && `Read ${read} file${read === 1 ? "" : "s"}`,
-						searched > 0 &&
-							`searched ${searched} time${searched === 1 ? "" : "s"}`,
-					]
-						.filter(Boolean)
-						.join(", ")}
-				>
-					<Calls tools={item.tools} />
-				</Fold>
-			);
-		}
-		case "subagent":
-			return (
-				<Fold
-					icon={<Kind tool={item.tool} icon={<BotIcon />} />}
-					state={stateOf(item.tool)}
-					head={
-						<>
-							<span className="min-w-0 truncate">{item.tool.title}</span>
-							<span>
-								· {item.calls.length} tool call
-								{item.calls.length === 1 ? "" : "s"}
-							</span>
-							<Took tool={item.tool} />
-						</>
-					}
-				>
-					<Calls tools={item.calls} />
-				</Fold>
+					{item.calls.length > 0 && (
+						<ul className="flex flex-col gap-0.5">
+							{item.calls.map((call) => (
+								<li key={call.id}>
+									<Call tool={call} short={short} />
+								</li>
+							))}
+						</ul>
+					)}
+				</Call>
 			);
 		case "tool":
 			return (
-				<Fold
-					icon={<Kind tool={item.tool} icon={<WrenchIcon />} />}
-					state={stateOf(item.tool)}
-					head={
-						<>
-							<span className="min-w-0 truncate">{item.tool.title}</span>
-							<Took tool={item.tool} />
-						</>
-					}
-				>
-					{item.tool.output !== "" && (
+				<Call tool={item.tool} short={short}>
+					{/* A read's output is only the end of the file it read. */}
+					{item.tool.kind !== "read" && item.tool.output !== "" && (
 						<pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2 font-mono text-xs">
 							{plain(item.tool.output)}
 						</pre>
 					)}
-				</Fold>
+				</Call>
 			);
 		case "decision":
 			return (
 				<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-					<span className="flex size-3.5 shrink-0 items-center justify-center [&_svg]:size-3">
-						<KeyRoundIcon aria-label="permission" />
-					</span>
 					<span className="shrink-0">{decided(item.decision)}</span>
 					<code className="min-w-0 truncate font-mono">{item.label}</code>
 				</div>
@@ -443,71 +347,122 @@ function Row({
 	}
 }
 
-/** A timeline row that opens to show more. */
-function Fold({
-	icon,
-	head,
-	state = null,
+/**
+ * A tool call as what it does and what to: "Reading a.ts" while it runs,
+ * "Read a.ts" once done.
+ */
+function Call({
+	tool,
+	short,
+	code = false,
+	subagent = false,
+	after,
 	children,
 }: {
-	icon: ReactNode;
-	head: ReactNode;
-	/** How its call went; null for a row that is not one, such as a thought. */
-	state?: State | null;
-	children: ReactNode;
+	tool: Tool;
+	short: (path: string) => string;
+	/** What it works on is a command, set as code. */
+	code?: boolean;
+	subagent?: boolean;
+	/** Said after what it works on, before how long it took. */
+	after?: ReactNode;
+	/** What it opens to; a row with none does not open. */
+	children?: ReactNode;
 }): JSX.Element {
-	const going = use(Going);
-	const shown = state === "running" && !going ? "stopped" : state;
+	const state = stateOf(tool, use(Going));
+	const what = resource(tool);
+	const named = files(tool);
+	return (
+		<Line
+			state={state}
+			verb={verb(tool, state, subagent)}
+			resource={
+				named.length > 0 ? (
+					named.map(({ path, lines }) => (
+						<FileChip
+							key={path}
+							path={path}
+							shown={short(path)}
+							lines={lines}
+						/>
+					))
+				) : what === "" ? null : code ? (
+					<code className="min-w-0 truncate font-mono">{what}</code>
+				) : (
+					<span className="min-w-0 truncate">{what}</span>
+				)
+			}
+			after={
+				<>
+					{after}
+					<Took tool={tool} />
+				</>
+			}
+		>
+			{children}
+		</Line>
+	);
+}
+
+/**
+ * A timeline row in words: a verb, dimmed, then what it acts on. It
+ * shimmers while it goes, turns red when it failed, and ends in a caret
+ * when it opens to more.
+ */
+function Line({
+	state,
+	verb,
+	resource,
+	after,
+	children,
+}: {
+	state: State;
+	verb: string;
+	resource?: ReactNode;
+	after?: ReactNode;
+	children?: ReactNode;
+}): JSX.Element {
+	const opens = children !== undefined && children !== false;
+	const head = (
+		<>
+			<span
+				className={cn(
+					"flex min-w-0 items-center gap-1",
+					state === "running" && "shimmer motion-reduce:animate-none",
+				)}
+			>
+				<span className="shrink-0 text-muted-foreground">{verb}</span>
+				{resource}
+			</span>
+			{opens && (
+				<ChevronRightIcon
+					aria-hidden
+					className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-open/row:rotate-90 motion-reduce:transition-none"
+				/>
+			)}
+			{after}
+		</>
+	);
+	const line = cn(
+		"flex items-center gap-1.5 text-foreground/80 text-xs",
+		state === "failed" && "text-destructive [&_*]:text-destructive",
+	);
+	if (!opens) {
+		return <div className={line}>{head}</div>;
+	}
 	return (
 		<details className="group/row">
 			<summary
 				className={cn(
-					"relative flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground text-xs hover:text-foreground [&::-webkit-details-marker]:hidden",
-					shown === "failed" && "text-destructive",
+					line,
+					"cursor-pointer list-none hover:text-foreground [&::-webkit-details-marker]:hidden",
 				)}
 			>
-				{/* Its dot on the timeline's line, colored by how it went. */}
-				{shown === null ? (
-					<span aria-hidden className={cn(DOT, "bg-muted-foreground/50")} />
-				) : (
-					<span
-						role="img"
-						aria-label={SAID[shown]}
-						className={cn(
-							DOT,
-							shown === "done" && "bg-muted-foreground/50",
-							shown === "failed" && "bg-destructive",
-							shown === "running" && "animate-pulse bg-primary",
-							shown === "stopped" && "bg-warning",
-						)}
-					/>
-				)}
-				<span className="flex size-3.5 shrink-0 items-center justify-center [&_svg]:size-3">
-					{icon}
-				</span>
 				{head}
 			</summary>
-			<div className="mt-1 mb-2 flex flex-col gap-1.5 pl-5">{children}</div>
+			<div className="mt-1 mb-2 flex flex-col gap-1.5">{children}</div>
 		</details>
 	);
-}
-
-/** ✓ or ✗ once a call has finished, a spinner until then. */
-function Status({ tool }: { tool: Tool }): JSX.Element {
-	const going = use(Going);
-	switch (tool.status) {
-		case "completed":
-			return <CheckIcon aria-label="passed" className="text-success" />;
-		case "failed":
-			return <XIcon aria-label="failed" className="text-destructive" />;
-		// Claude leaves a command pending, never in progress, while it runs.
-		default:
-			return going ? (
-				<LoaderIcon aria-label="running" className="animate-spin" />
-			) : (
-				<CircleStopIcon aria-label="stopped" />
-			);
-	}
 }
 
 function Took({ tool }: { tool: Tool }): JSX.Element | null {
@@ -515,69 +470,9 @@ function Took({ tool }: { tool: Tool }): JSX.Element | null {
 		return null;
 	}
 	return (
-		<span className="ml-auto shrink-0 pl-2 tabular-nums">
+		<span className="ml-auto shrink-0 pl-2 text-muted-foreground tabular-nums">
 			{span(tool.at, tool.until)}
 		</span>
-	);
-}
-
-/** How a row's call went, for its dot on the timeline. */
-type State = "done" | "failed" | "running" | "stopped";
-
-const DOT = "absolute top-1.5 -left-4 size-[7px] rounded-full";
-
-/** Each state as its dot reads aloud. */
-const SAID: Record<State, string> = {
-	done: "passed",
-	failed: "failed",
-	running: "running",
-	stopped: "stopped",
-};
-
-function stateOf(tool: Tool): State {
-	return tool.status === "completed"
-		? "done"
-		: tool.status === "failed"
-			? "failed"
-			: "running";
-}
-
-/**
- * What kind of call a row is, red when it failed, and a spinner while it
- * runs; its dot on the line says how it went.
- */
-function Kind({ tool, icon }: { tool: Tool; icon: ReactNode }): JSX.Element {
-	const going = use(Going);
-	const done = tool.status === "completed" || tool.status === "failed";
-	if (!done && going) {
-		return <LoaderIcon aria-hidden className="animate-spin" />;
-	}
-	return (
-		<span
-			className={cn(
-				"flex [&_svg]:size-3",
-				tool.status === "failed" && "text-destructive",
-			)}
-		>
-			{icon}
-		</span>
-	);
-}
-
-/** Calls as a plain list, for reads and a subagent's work. */
-function Calls({ tools }: { tools: Tool[] }): JSX.Element {
-	return (
-		<ul className="flex flex-col gap-0.5">
-			{tools.map((tool) => (
-				<li
-					key={tool.id}
-					className="flex items-center gap-1.5 text-muted-foreground text-xs [&_svg]:size-3"
-				>
-					<Status tool={tool} />
-					<span className="min-w-0 truncate font-mono">{label(tool)}</span>
-				</li>
-			))}
-		</ul>
 	);
 }
 
@@ -585,14 +480,12 @@ function Calls({ tools }: { tools: Tool[] }): JSX.Element {
 function Edits({
 	edits,
 	short,
-	label,
 }: {
 	edits: Edit[];
 	short: (path: string) => string;
-	label?: string;
 }): JSX.Element {
 	return (
-		<section aria-label={label} className="flex flex-col gap-2">
+		<section className="flex flex-col gap-2">
 			{edits.map((edit, index) => {
 				const lines = editLines(edit.old, edit.new);
 				return (

@@ -1755,6 +1755,7 @@ describe("fold", () => {
 				status: "failed",
 				kind: "execute",
 				command: "bun test",
+				target: null,
 				output: "1 fail",
 				edits: [],
 				paths: [],
@@ -1795,6 +1796,30 @@ describe("fold", () => {
 			output: "no such file\n",
 			status: "failed",
 		});
+	});
+
+	it("keeps what a call searches for or fetches, as its input names it", () => {
+		const into = state();
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "g1",
+			title: "grep",
+			kind: "search",
+			rawInput: { pattern: "fold\\(" },
+		});
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "f1",
+			title: "Fetch",
+			kind: "fetch",
+			rawInput: { url: "https://example.com" },
+		});
+
+		expect(
+			into.messages[0]?.parts.map((part) =>
+				part.type === "tool" ? part.target : null,
+			),
+		).toEqual(["fold\\(", "https://example.com"]);
 	});
 
 	it("keeps an edit's file and its change", () => {
