@@ -50,11 +50,7 @@ export async function snapshot({
 	home?: string;
 	release?: Release | null;
 }): Promise<Snapshot> {
-	const details = new TaskDetails({ fs });
-	const tasks: Details[] = [];
-	for (const worktree of await service.list()) {
-		tasks.push(await details.get(worktree));
-	}
+	const tasks = await tasksOf({ service, fs });
 	return {
 		repo: basename(service.git.root),
 		path: tilde(service.git.root, home),
@@ -67,6 +63,22 @@ export async function snapshot({
 		trunk: service.config.trunk,
 		release,
 	};
+}
+
+/** `list` and `show` for each task, as {@link snapshot} reads them. */
+export async function tasksOf({
+	service,
+	fs,
+}: {
+	service: WorktreeService;
+	fs: Fs;
+}): Promise<Details[]> {
+	const details = new TaskDetails({ fs });
+	const tasks: Details[] = [];
+	for (const worktree of await service.list()) {
+		tasks.push(await details.get(worktree));
+	}
+	return tasks;
 }
 
 /**

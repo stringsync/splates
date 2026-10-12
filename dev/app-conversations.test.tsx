@@ -585,6 +585,7 @@ describe("App's conversations", () => {
 		gone: false,
 		here,
 		conversations: listed,
+		waiting: 0,
 	});
 
 	it("checkpoints the projects picked in a dialog, this one picked to start, then what follows", async () => {

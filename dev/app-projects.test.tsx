@@ -28,6 +28,7 @@ describe("App's projects", () => {
 				gone: false,
 				here: true,
 				conversations: [],
+				waiting: 0,
 			},
 			{
 				slug: "shop",
@@ -35,6 +36,7 @@ describe("App's projects", () => {
 				gone: false,
 				here: false,
 				conversations: [],
+				waiting: 2,
 			},
 			{
 				slug: "old",
@@ -42,6 +44,7 @@ describe("App's projects", () => {
 				gone: true,
 				here: false,
 				conversations: [],
+				waiting: 0,
 			},
 		];
 	});
@@ -73,6 +76,21 @@ describe("App's projects", () => {
 			"?project=shop",
 		);
 		assign.mockRestore();
+	});
+
+	it("marks each project with how many agents wait on you there", async () => {
+		const view = await testing.open();
+
+		await act(async () =>
+			fireEvent.keyDown(window, { key: "k", metaKey: true }),
+		);
+		const waiting = await waitFor(() =>
+			view.getByRole("status", { name: "2 waiting on you" }),
+		);
+		expect(waiting.closest("li")?.textContent).toContain("shop");
+		expect(
+			view.queryAllByRole("status", { name: /waiting on you/ }),
+		).toHaveLength(1);
 	});
 
 	it("asks the server for the project the address names", async () => {

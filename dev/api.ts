@@ -450,6 +450,8 @@ export interface ProjectChoice {
 	here: boolean;
 	/** Its live conversations, and those a checkpoint has asked. */
 	conversations: ProjectConversation[];
+	/** How many of its agents wait on you. */
+	waiting: number;
 }
 
 /** A conversation a checkpoint of its project asks, or has asked. */

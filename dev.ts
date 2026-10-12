@@ -20,6 +20,7 @@ import {
 	type Answer,
 	type Checkpoint,
 	type Conversation,
+	type ConversationState,
 	type Conversations,
 	RESUME,
 } from "./conversations";
@@ -28,6 +29,7 @@ import { startDispatched } from "./dispatched";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
 import type { Git } from "./git";
+import { needs } from "./needs";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
 import { Pty } from "./pty";
@@ -35,7 +37,8 @@ import { isNewer, type Release, RUNNING } from "./release";
 import { openRepository, type Repository } from "./repository";
 import { grantRetry } from "./retry";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
-import { fingerprint, snapshot } from "./snapshot";
+import type { Details } from "./show";
+import { fingerprint, snapshot, tasksOf } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
@@ -936,6 +939,11 @@ export async function dev(
 			conversations,
 			refresh: changed,
 			snapshot: async () => Response.json(await read()),
+			waiting: async () =>
+				waitingOn(
+					await tasksOf({ service, fs }),
+					((await conversations?.list()) ?? []).map(({ state }) => state),
+				),
 			events: async () => events(),
 			file,
 			paths,
@@ -1098,8 +1106,9 @@ export async function dev(
 
 	// Each with the conversations a checkpoint would ask, or has asked, in
 	// it: only those of a project this server has opened, since one not yet
-	// opened has none running. Says whether a restart is to follow the
-	// checkpoint, and which run this is, for the page to see it come back.
+	// opened has none running. And with how many agents wait on the person
+	// there. Says whether a restart is to follow the checkpoint, and which run
+	// this is, for the page to see it come back.
 	const listProjects = async (): Promise<Response> => {
 		if (restarted === "resuming" && (await checkpointed()).length === 0) {
 			restarted = null;
@@ -1110,6 +1119,7 @@ export async function dev(
 					...each,
 					here: each.root === here,
 					conversations: await checkpointable(each.root),
+					waiting: each.gone ? 0 : await waitingIn(each.root),
 				})),
 			),
 			restarting,
@@ -1134,6 +1144,26 @@ export async function dev(
 				status,
 				checkpoint,
 			}));
+	};
+
+	// Projects read for their tasks alone, by root: opened, never served, so
+	// listing them starts none of their agents.
+	const peeked = new Map<string, Promise<Project>>();
+	// A served project counts its own; one not is read for its tasks alone,
+	// where only an external agent can be at work.
+	const waitingIn = async (root: string): Promise<number> => {
+		const project = await served.get(root)?.catch(() => null);
+		if (project) {
+			return project.waiting();
+		}
+		let found = peeked.get(root);
+		if (found === undefined) {
+			found = open(root);
+			found.catch(() => peeked.delete(root));
+			peeked.set(root, found);
+		}
+		const opened = await found.catch(() => null);
+		return opened === null ? 0 : waitingOn(await tasksOf(opened), []);
 	};
 
 	// Read when the page opens its hint, so the conversations it lists are the
@@ -1687,6 +1717,8 @@ interface Served extends AsyncResource {
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;
+	/** How many of its agents wait on the person. */
+	waiting: () => Promise<number>;
 	events: Handler;
 	file: Handler;
 	paths: Handler;
@@ -1727,6 +1759,20 @@ interface Served extends AsyncResource {
 	archiveConversation: Handler;
 	conversationEvents: Handler;
 	terminalTree: (request: Request) => Promise<string>;
+}
+
+/**
+ * How many agents wait on the person, as the page's own waiting line counts
+ * them, but for an external agent whose reply the page copied: only the page
+ * knows that.
+ */
+function waitingOn(
+	tasks: Details[],
+	conversations: ConversationState[],
+): number {
+	return needs({ tasks, conversations }).filter(
+		({ need }) => need.kind === "waiting",
+	).length;
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */

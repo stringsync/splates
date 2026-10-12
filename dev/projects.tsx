@@ -1,4 +1,9 @@
-import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
+import {
+	CheckIcon,
+	ChevronsUpDownIcon,
+	CircleAlertIcon,
+	XIcon,
+} from "lucide-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
@@ -76,7 +81,8 @@ export function projectUrl(project: ProjectChoice): string {
 
 /**
  * The project's name, heading the page, as a picker of every project on this
- * machine: ⌘K (Ctrl+K) opens it, typing narrows it, the arrows and Enter pick.
+ * machine, each marked with how many agents wait on you there: ⌘K (Ctrl+K)
+ * opens it, typing narrows it, the arrows and Enter pick.
  */
 export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -212,6 +218,17 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 										{each.root}
 									</span>
 								</span>
+								{each.waiting > 0 && (
+									<span
+										role="status"
+										aria-label={`${each.waiting} waiting on you`}
+										title={`${each.waiting} waiting on you`}
+										className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums"
+									>
+										<CircleAlertIcon className="size-3.5 text-warning" />
+										{each.waiting}
+									</span>
+								)}
 							</button>
 							{!each.here && !current(each) && (
 								<Button

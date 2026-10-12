@@ -177,6 +177,41 @@ describe("dev", () => {
 			});
 		});
 
+		it("counts the agents waiting on the person in each project, opened or not", async () => {
+			await using other = await another();
+			const escalate = async (project: typeof other, task: string) => {
+				await add(project, task);
+				await (await project.service.find(task)).save({
+					status: "escalated",
+					escalations: [
+						{ reason: "needs a human", at: new Date().toISOString() },
+					],
+				});
+			};
+			await escalate(other, "beta");
+			await escalate(other, "gamma");
+			await add(other, "delta");
+
+			await serving(async (_, port) => {
+				const waiting = async () =>
+					(
+						(await (
+							await fetch(`http://localhost:${port}/api/projects`)
+						).json()) as { projects: { slug: string; waiting: number }[] }
+					).projects.map(({ slug, waiting }) => [slug, waiting]);
+				expect(await waiting()).toEqual([
+					["repo", 0],
+					["repo-2", 2],
+				]);
+
+				await escalate(deps, "alpha");
+				expect(await waiting()).toEqual([
+					["repo", 1],
+					["repo-2", 2],
+				]);
+			});
+		});
+
 		it("finds a conversation by its id in the project it started in", async () => {
 			await using other = await another();
 			const agent = new FakeAgent();
