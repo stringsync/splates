@@ -12,11 +12,6 @@ import { table } from "./table";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
 
-/** What a chat with an agent takes to mean "work down lane `id`". */
-export function laneReference(id: number): string {
-	return `[ARBOR LANE ${id}]`;
-}
-
 export interface LaneListOptions {
 	/** Print the lanes as JSON instead of a table. */
 	json?: boolean;

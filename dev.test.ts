@@ -1117,9 +1117,7 @@ describe("dev", () => {
 				const alpha = await deps.service.find("alpha");
 				const [started] = await conversations.list();
 
-				expect(said).toEqual([
-					"Run `arbor claim alpha` and carry on from its ARBOR.md.\n\nDo the part.",
-				]);
+				expect(said).toEqual(["[ARBOR TASK alpha]\n\nDo the part."]);
 				expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
 				expect(agent.chosen).toEqual([{ configId: "model", value: "small" }]);
 				expect(started?.state.task).toBe("alpha");
@@ -1132,9 +1130,7 @@ describe("dev", () => {
 				});
 				await until(() => said.length === 2);
 
-				expect(said[1]).toBe(
-					"Run `arbor claim beta` and carry on from its ARBOR.md.",
-				);
+				expect(said[1]).toBe("[ARBOR TASK beta]");
 			} finally {
 				await server.disposeAsync();
 			}

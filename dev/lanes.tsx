@@ -52,10 +52,11 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { LaneState } from "../lanes";
+import { laneReference } from "../prompts";
 import type { TodoState } from "../todo";
 import { addLane, assignLane, dropLane, joinLanes, renameLane } from "./api";
 import { Board, still } from "./board";
-import { Card, copiedLabel, laneReference, Sortable, useCopy } from "./card";
+import { Card, copiedLabel, Sortable, useCopy } from "./card";
 import { AssigneeItems, Dispatching, OnIt, StartMenu } from "./dispatching";
 import { type Drafts, todoDraft } from "./drafts";
 import { AttachButton, Dropped, FileList } from "./files";

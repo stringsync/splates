@@ -1,7 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Conversations } from "./conversations";
 import { modelOption } from "./models";
-import { claimPrompt } from "./prompts";
+import { taskReference } from "./prompts";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -41,7 +41,7 @@ export async function startDispatched({
 		// Each agent takes its time to start, so none waits on another's.
 		void (async () => {
 			await conversation.prompt(
-				[claimPrompt(worktree.task), dispatch.prompt ?? ""]
+				[taskReference(worktree.task), dispatch.prompt ?? ""]
 					.filter((each) => each !== "")
 					.join("\n\n"),
 			);

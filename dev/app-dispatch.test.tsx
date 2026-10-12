@@ -202,7 +202,7 @@ describe("App's controls that put agents to work", () => {
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([
-				{ text: "Run `arbor claim alpha` and carry on from its ARBOR.md." },
+				{ text: "[ARBOR TASK alpha]" },
 			]),
 		);
 	});

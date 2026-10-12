@@ -88,6 +88,7 @@ import { type LaneRecord, named } from "../lanes";
 import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Question as Asked } from "../plan";
+import { taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { type Action, ActionButtons, Actions } from "./actions";
@@ -107,7 +108,7 @@ import {
 } from "./api";
 import { Back } from "./back";
 import { Board } from "./board";
-import { copiedLabel, todoReference, useCopy } from "./card";
+import { copiedLabel, useCopy } from "./card";
 import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import { CheckpointButton } from "./checkpoint";
@@ -2352,11 +2353,6 @@ function OpenQuestions({
 	);
 }
 
-/** What a conversation's agent is asked to take `task` up with. */
-export function claimPrompt(task: string): string {
-	return `Claim task ${task} with \`arbor claim ${task}\` and carry on with it.`;
-}
-
 /**
  * The line under a main-tree conversation's title: the trunk's branch, which
  * opens a menu of the tasks and open todos its agent can take up. Picking one
@@ -2408,7 +2404,7 @@ function TakeUp({
 						{tasks.map((each) => (
 							<DropdownMenuItem
 								key={each.task}
-								onClick={() => onTake(claimPrompt(each.task))}
+								onClick={() => onTake(taskReference(each.task))}
 							>
 								<GitBranchIcon aria-hidden />
 								<span className="truncate">{each.task}</span>

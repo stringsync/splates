@@ -61,7 +61,8 @@ rather than on trunk.
 `--agent claude` (or any agent on the roster, `arbor agents`) hands the task to another agent: once
 `postCheckout` has readied the worktree, the record names the agent, and
 `arbor dev` starts a conversation with it in the worktree,
-told to `arbor claim` the task and then whatever `--prompt` says. `--model`
+sent `[ARBOR TASK <task>]`, which the agent skill reads as "claim it and
+carry on", and then whatever `--prompt` says. `--model`
 picks its model by its id or name on the roster, refusing one the roster
 does not list; the agent's own model stays when its session offers no such
 model. The server watches the records whether or not

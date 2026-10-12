@@ -16,11 +16,11 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { LaneState } from "../lanes";
+import { laneReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import { AgentIcon } from "./agent-icons";
 import { promptConversation, startConversation } from "./api";
 import { Board, still } from "./board";
-import { laneReference } from "./card";
 import { Mark, nameOf, reportedAs } from "./conversations";
 import type { Assignment, Dispatch } from "./dispatch";
 

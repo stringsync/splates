@@ -1,9 +1,8 @@
 import type { ConversationState } from "../conversations";
 import { type Needing, need } from "../needs";
-import { claimPrompt } from "../prompts";
+import { laneReference, taskReference, todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
-import { laneReference, todoReference } from "./card";
 import type { AgentChoice } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
 
@@ -115,6 +114,6 @@ export function promptFor(assignment: Assignment): string {
 		case "lane":
 			return laneReference(assignment.id);
 		case "task":
-			return claimPrompt(assignment.task);
+			return taskReference(assignment.task);
 	}
 }

@@ -83,7 +83,7 @@ describe("Dispatch", () => {
 
 	it("asks for a task by claiming it", () => {
 		expect(promptFor({ kind: "task", task: "alpha" })).toBe(
-			"Run `arbor claim alpha` and carry on from its ARBOR.md.",
+			"[ARBOR TASK alpha]",
 		);
 	});
 });

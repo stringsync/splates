@@ -27,21 +27,12 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import { blockerLabel } from "../lanes";
+import { todoReference } from "../prompts";
 import type { TodoState } from "../todo";
 import { Board, still } from "./board";
 import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
-
-/** What a chat with an agent takes to mean this todo. */
-export function todoReference(id: number): string {
-	return `[ARBOR TODO #${id}]`;
-}
-
-/** What a chat with an agent takes to mean "work down this lane". */
-export function laneReference(id: number): string {
-	return `[ARBOR LANE ${id}]`;
-}
 
 /** How long a control that copied says so before it goes back. */
 const COPIED_MS = 1500;

@@ -357,7 +357,7 @@ describe("App's conversations", () => {
 			{
 				method: "POST",
 				body: {
-					text: "Claim task beta with `arbor claim beta` and carry on with it.",
+					text: "[ARBOR TASK beta]",
 				},
 			},
 			{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
