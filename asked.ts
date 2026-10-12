@@ -63,13 +63,20 @@ const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
 /** An item's line that asks: it ends in `?`, or in `?` and an aside. */
 const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
+/**
+ * An item's line that goes on past its question: `How should I …? You turned
+ * down …`, split after the first `?` (and any aside) that a space follows.
+ */
+const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
 
 /**
  * `text` cut where it asks questions: a list numbered from 1 at the margin,
- * outside code blocks, every item a question (its line ends in `?`, or in
- * `?` and an aside in parentheses: `(all that apply)`), the
- * lines indented under each its body and its `- (a)` or `- [a]` choices,
- * read as `## Blocked` reads them. Any other list is only text.
+ * outside code blocks, every item a question, the lines indented under each
+ * its body and its `- (a)` or `- [a]` choices, read as `## Blocked` reads
+ * them. An item is a question when its line ends in `?`, or in `?` and an
+ * aside in parentheses: `(all that apply)`; when it goes on past a `?`, which
+ * leaves the rest to its body; or when it offers choices. Any other list is
+ * only text.
  */
 export function stretches(text: string): Stretch[] {
 	const lines = text.split("\n");
@@ -235,13 +242,32 @@ function listAt(
 		}
 		end = i + 1;
 	}
-	if (!items.every(({ asked }) => ASKS.test(asked.text))) {
+	if (!items.every(asks)) {
 		return null;
 	}
 	return {
 		questions: items.map(({ asked, body }) => settled(asked, body)),
 		end,
 	};
+}
+
+/**
+ * Whether an item asks, moving what its line says past its question to the
+ * top of its body.
+ */
+function asks({ asked, body }: { asked: Question; body: string[] }): boolean {
+	if (ASKS.test(asked.text)) {
+		return true;
+	}
+	const then = ASKS_THEN.exec(asked.text);
+	if (then !== null) {
+		asked.text = then[1] as string;
+		// Indented past the margin, as it would be under the line.
+		const indent = /^[ \t]*/.exec(body.find((line) => line.trim()) ?? "");
+		body.unshift(`${indent?.[0] ?? ""}${then[2]}`);
+		return true;
+	}
+	return asked.choices.length > 0;
 }
 
 function question(number: string, text: string): Question {

@@ -320,8 +320,9 @@ plan allows, so an answer that overturns it costs little.
 
 Number questions 1, 2, … in the order you ask them; numbers never change, and
 new ones continue from the highest. A question's line is its subject, short
-enough to scan and ending in the question; everything else goes in markdown
-lines indented under it, code blocks included. Ask for what is wrong rather
+enough to scan and ending at its `?`, with nothing after it; everything else,
+the why included, goes in markdown lines indented under it, code blocks
+included. Ask for what is wrong rather
 than a bare yes or no. When the answer is one of a few, end with `- (a) ...`
 lines (pick one, or none), or `- [a] ...` lines for all that apply. Describe
 every choice, the one you went with too, and mark that one `(chosen)`: never
@@ -548,7 +549,9 @@ line exactly, so every review reads the same.
 Number questions the same way wherever you ask them: a mid-task reply, a
 merge report, or a message outside any task. The user answers by number, so
 two or more questions always go in a list numbered from 1, never a bulleted
-one, never several in one item, and never one tucked into a sentence.
+one, never several in one item, and never one tucked into a sentence. Each
+item's line ends at its `?`, as under `## Blocked`, so the page can show it
+as a question.
 
 ## ARBOR.md
 

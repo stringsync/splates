@@ -240,6 +240,71 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads a question whose line goes on past its question mark, the rest as its body", () => {
+		const found = stretches(
+			[
+				"1. How should I reproduce the jank? You turned down the demo agent.",
+				"   - (a) A scripted fake agent",
+				"   - (b) You tell me what jumps",
+				"2. Should output wrap? (pick one) Terminals scroll sideways.",
+				"   Tables line up when it scrolls.",
+				"3. Which pages need it? Both have a header?",
+			].join("\n"),
+		);
+
+		const questions = found[0]?.type === "questions" ? found[0].questions : [];
+		expect(
+			questions.map(({ text, body, choices }) => ({
+				text,
+				body,
+				choices: choices.length,
+			})),
+		).toEqual([
+			{
+				text: "How should I reproduce the jank?",
+				body: "You turned down the demo agent.",
+				choices: 2,
+			},
+			{
+				text: "Should output wrap? (pick one)",
+				body: "Terminals scroll sideways.\nTables line up when it scrolls.",
+				choices: 0,
+			},
+			{
+				text: "Which pages need it? Both have a header?",
+				body: "",
+				choices: 0,
+			},
+		]);
+	});
+
+	it("reads an item that offers choices as a question without a question mark", () => {
+		const found = stretches(
+			[
+				"1. Pick how a stale todo shows:",
+				"   - (a) A muted card",
+				"   - (b) A badge",
+				"2. Does it need a tooltip?",
+			].join("\n"),
+		);
+
+		const questions = found[0]?.type === "questions" ? found[0].questions : [];
+		expect(questions.map(({ text, pick }) => ({ text, pick }))).toEqual([
+			{ text: "Pick how a stale todo shows:", pick: "one" },
+			{ text: "Does it need a tooltip?", pick: null },
+		]);
+	});
+
+	it("leaves a numbered list whose items neither ask nor offer choices as text", () => {
+		const text = [
+			"1. Built it. Does that matter? Not really.",
+			"2. Shipped it",
+			"   - a note",
+		].join("\n");
+
+		expect(stretches(text)).toEqual([{ type: "text", text }]);
+	});
+
 	it("reads choices that pick any, a blank line inside a body, and text after the list", () => {
 		const found = stretches(
 			[
