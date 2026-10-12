@@ -3,13 +3,14 @@ import type { Message } from "../conversations";
 import type { Question } from "../plan";
 
 /**
- * How a reply from the open questions' dialog opens: its numbers are those of
- * `## Blocked`, not of the agent's latest report, as the arbor skill reads it.
+ * How a reply to the questions in `## Blocked` opens, as their cards outside
+ * a conversation copy it: its numbers are those of `## Blocked`, not of the
+ * agent's latest report, as the arbor skill reads it.
  */
 export const BLOCKED_REPLY = "Answers to `## Blocked`, by its numbers there";
 
 /**
- * `lines` as that dialog's card sends them, headed so the agent reads them
+ * `lines` as those cards copy them, headed so the agent reads them
  * right: answered ahead of its report, from `ARBOR.md` as the page last read
  * it, so a question the agent changed or added since may be answered stale or
  * not at all.
@@ -20,18 +21,11 @@ export function blockedReply(lines: string): string {
 
 /**
  * Of `open`, a task's open questions in `## Blocked`, those no reply in
- * `messages` has answered yet, and of them, those no card lets the person
- * answer: what the page asks in a dialog of its own. A question is on a card
- * while the thread ends on the agent's message asking it, and answered once a
- * reply to a card asking it, or from their dialog, says so, until the
- * agent records the answer.
+ * `messages` has answered yet. A question is answered once a reply to a card
+ * asking it, or by the numbers in `## Blocked`, says so, until the agent
+ * records the answer.
  */
-export function unanswered(
-	open: Question[],
-	messages: Message[],
-	/** Whether the agent is still writing its last message. */
-	running: boolean,
-): { unanswered: Question[]; uncarded: Question[] } {
+export function unanswered(open: Question[], messages: Message[]): Question[] {
 	const done = new Set<Question>();
 	messages.forEach((message, at) => {
 		if (message.role !== "user") {
@@ -54,15 +48,7 @@ export function unanswered(
 			}
 		}
 	});
-	const last = messages.at(-1);
-	const carded = last?.role === "agent" && !running ? asks(last) : [];
-	const left = open.filter((asked) => !done.has(asked));
-	return {
-		unanswered: left,
-		uncarded: left.filter(
-			(asked) => !carded.some((card) => alike(asked, card)),
-		),
-	};
+	return open.filter((asked) => !done.has(asked));
 }
 
 /** The questions an agent's message asks as cards, in its last words. */

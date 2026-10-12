@@ -68,13 +68,35 @@ export function replyCopied(drafts: Drafts, task: string, need: Need): boolean {
 	);
 }
 
-/** Renders again as a reply is copied for an external agent, or let go. */
+/**
+ * Whether every question task `task`'s external agent has open was shown in
+ * its view, which the person opened since it asked; a question asked since,
+ * not.
+ */
+export function questionsSeen(
+	drafts: Drafts,
+	task: string,
+	need: Need,
+): boolean {
+	const open = openQuestions(need);
+	return (
+		open.length > 0 && drafts.read(`${draftOf(task)}:seen`) === asking(open)
+	);
+}
+
+/**
+ * Renders again as a reply is copied for an external agent, or let go, or
+ * its questions are seen.
+ */
 export function useCopiedReplies(drafts: Drafts): void {
 	const [, setWrites] = useState(0);
 	useEffect(
 		() =>
 			drafts.events.on("written", (key) => {
-				if (key.startsWith("external:") && key.endsWith(":copied")) {
+				if (
+					key.startsWith("external:") &&
+					(key.endsWith(":copied") || key.endsWith(":seen"))
+				) {
 					setWrites((writes) => writes + 1);
 				}
 			}),
@@ -124,11 +146,6 @@ let opening: string | null = null;
 export function arriveAt(open: string): void {
 	opening = open;
 	arrivals.dispatchEvent(new Event("arrive"));
-}
-
-/** Whether ⌥⌘M is opening agent `open`, before its view goes there. */
-export function arriving(open: string): boolean {
-	return opening === open;
 }
 
 /**
@@ -275,13 +292,16 @@ export function TaskView({
 		}),
 		[drafts, kept],
 	);
-	// Its agent recorded every answer: nothing is left to keep.
+	// Seen as they show, so they wait on you no longer. Once its agent
+	// recorded every answer, nothing is left to keep.
+	const shown = asking(open);
 	useEffect(() => {
-		if (open.length === 0) {
+		drafts.write(`${kept}:seen`, shown);
+		if (shown === "") {
 			drafts.write(`${kept}:questions`, "");
 			drafts.write(`${kept}:copied`, "");
 		}
-	}, [open.length, drafts, kept]);
+	}, [shown, drafts, kept]);
 	useArrived(`${TASK}${task.task}`, () => toWaiting(section.current));
 	return (
 		<section

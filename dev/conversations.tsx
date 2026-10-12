@@ -92,7 +92,6 @@ import type {
 import { type LaneRecord, named } from "../lanes";
 import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
-import type { Question as Asked } from "../plan";
 import { leadingDirectives, taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
@@ -137,7 +136,6 @@ import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Nested, nest } from "./parts";
 import {
-	QuestionCards,
 	QuestionsUI,
 	type Reply,
 	ReplyContext,
@@ -154,9 +152,9 @@ import {
 import type { Settings } from "./settings";
 import {
 	arriveAt,
-	arriving,
 	openQuestions,
 	questionsAction,
+	questionsSeen,
 	replyCopied,
 	TASK,
 	TaskLine,
@@ -562,6 +560,7 @@ export function ConversationList({
 								task={row.task}
 								need={row.need}
 								copied={copiedFor(drafts, null, row.task, row.need)}
+								seen={seenFor(drafts, null, row.task, row.need)}
 								current={`${TASK}${row.task.task}` === open}
 								onOpen={() => openRow(row)}
 								hint={held ? hintOf(shown, row) : null}
@@ -863,7 +862,8 @@ function Rows({
 
 /**
  * How many agents wait on the person: conversations, and tasks whose agents
- * run outside the page, but for those whose reply was copied.
+ * run outside the page, but for those whose questions were seen or reply
+ * copied.
  */
 export function useWaiting(
 	feed: ConversationFeed,
@@ -878,7 +878,7 @@ export function useWaiting(
 	useCopiedReplies(drafts);
 	return needs({ tasks, conversations }).filter(
 		({ conversation, task, need }) =>
-			need.kind === "waiting" && !copiedFor(drafts, conversation, task, need),
+			need.kind === "waiting" && !seenFor(drafts, conversation, task, need),
 	).length;
 }
 
@@ -893,6 +893,24 @@ function copiedFor(
 		conversation === null &&
 		task !== null &&
 		replyCopied(drafts, task.task, need)
+	);
+}
+
+/**
+ * Whether a row is an external agent whose open questions were seen in its
+ * view, or their reply copied: it waits on you no longer.
+ */
+function seenFor(
+	drafts: Drafts,
+	conversation: ConversationState | null,
+	task: Details | null,
+	need: Need,
+): boolean {
+	return (
+		conversation === null &&
+		task !== null &&
+		(questionsSeen(drafts, task.task, need) ||
+			replyCopied(drafts, task.task, need))
 	);
 }
 
@@ -918,6 +936,7 @@ function External({
 	task,
 	need,
 	copied,
+	seen,
 	current,
 	onOpen,
 	hint = null,
@@ -926,6 +945,8 @@ function External({
 	need: Need;
 	/** Whether the reply to its open questions was copied, to paste. */
 	copied: boolean;
+	/** Whether its open questions were seen, or their reply copied. */
+	seen: boolean;
 	current: boolean;
 	onOpen: () => void;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
@@ -954,7 +975,7 @@ function External({
 				<Elsewhere />
 			) : copied ? (
 				<Copied />
-			) : (
+			) : seen ? null : (
 				<Mark need={need} />
 			)}
 		</button>
@@ -2331,7 +2352,7 @@ function Thread({
 	);
 	// Its last word asks questions, escalates, or asks for a review, or it
 	// asks as it works: the card takes the focus, not the composer, unless it
-	// holds a draft, nor the open questions' dialog.
+	// holds a draft.
 	const last = messages.at(-1);
 	const asking =
 		conversation.ask !== null ||
@@ -2454,37 +2475,15 @@ function Thread({
 	const [details, setDetails] = useState(false);
 	const needed = need(task, conversation);
 	// Those the person answered and the agent has yet to record wait on nobody.
-	const open = unanswered(
-		openQuestions(needed),
-		conversation.messages,
-		writing,
-	);
-	// Opened from the first render on ⌥⌘M, so the composer leaves them the
-	// focus. Never while a card asks, which goes first, though one that comes
-	// once they are open leaves them open.
-	const [answering, setAnswering] = useState(
-		() => arriving(id) && open.uncarded.length > 0 && !archived && !asking,
-	);
-	// The card the thread asks through first, then those no card asks, apart
-	// from the conversation, then any other card it waits on you through.
-	const toAsked = () => {
-		if (asking) {
-			return toWaiting(section.current);
-		}
-		if (open.uncarded.length > 0 && !archived) {
-			setAnswering(true);
-			return true;
-		}
-		return toWaiting(section.current);
-	};
-	useArrived(id, toAsked);
-	// With none open, the plan.
-	const toQuestions = () => toAsked() || setDetails(task !== null);
+	const open = unanswered(openQuestions(needed), conversation.messages);
+	// The newest card it waits on you through.
+	useArrived(id, () => toWaiting(section.current));
+	// With no card, the plan, its questions in it.
+	const toQuestions = () =>
+		toWaiting(section.current) || setDetails(task !== null);
 	const actions: Action[] = [
 		questionsAction(
-			"questions" in needed
-				? { ...needed, questions: open.unanswered }
-				: needed,
+			"questions" in needed ? { ...needed, questions: open } : needed,
 			toQuestions,
 		),
 		...(review !== null && task !== null && task.ahead !== null
@@ -2654,24 +2653,6 @@ function Thread({
 					{details && <Task task={task} />}
 				</Dialog>
 			)}
-			{task !== null && (
-				// Once open, it keeps the questions it opened on, those a card
-				// that comes since asks among them, until they are answered.
-				<Dialog
-					open={answering && open.unanswered.length > 0}
-					onOpenChange={setAnswering}
-				>
-					{answering && (
-						<ReplyContext value={reply}>
-							<OpenQuestions
-								task={task.task}
-								questions={open.unanswered}
-								onSent={() => setAnswering(false)}
-							/>
-						</ReplyContext>
-					)}
-				</Dialog>
-			)}
 			{conversation.error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{conversation.error}
@@ -2691,7 +2672,7 @@ function Thread({
 								<ReplyContext value={reply}>
 									<ThreadView
 										openAt={openAt}
-										autoFocus={!(asking || answering) || typed}
+										autoFocus={!asking || typed}
 										mentions={mentions ?? undefined}
 										references={references}
 										commands={commands ?? undefined}
@@ -2758,64 +2739,29 @@ function Thread({
 }
 
 /**
- * Whether ⌥⌘M stops on `row`: an agent stopped on you, or one asking as it
- * works, while it has questions no reply has answered yet, nor for an
- * external agent, copied.
+ * Whether ⌥⌘M stops on `row`: an agent stopped on you, or an external one
+ * asking as it works, while it has questions no reply has answered yet, nor
+ * for an external agent, seen in its view or copied. One the page runs asks as it works only in
+ * its plan, until its report asks again as it stops.
  */
 function waitsOnYou(
 	{ conversation, task, need }: Needing,
 	drafts: Drafts,
 ): boolean {
-	if (copiedFor(drafts, conversation, task, need)) {
+	if (seenFor(drafts, conversation, task, need)) {
 		return false;
 	}
 	if (need.kind === "waiting" && need.why !== "questions") {
 		return true;
 	}
-	if (need.kind !== "waiting" && need.kind !== "assuming") {
+	if (
+		need.kind === "idle" ||
+		need.kind === "working" ||
+		(need.kind === "assuming" && conversation !== null)
+	) {
 		return false;
 	}
-	const running =
-		conversation?.status === "running" || conversation?.status === "starting";
-	return (
-		unanswered(need.questions, conversation?.messages ?? [], running).unanswered
-			.length > 0
-	);
-}
-
-/**
- * Open questions in the task's `## Blocked` that no card in the thread asks,
- * as one put while the agent works on a guess, or left once the person
- * answered the rest: answered in a dialog, apart from the conversation, by
- * their numbers there.
- */
-function OpenQuestions({
-	task,
-	questions,
-	onSent,
-}: {
-	task: string;
-	questions: Asked[];
-	onSent: () => void;
-}): JSX.Element {
-	return (
-		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl">
-			<DialogHeader>
-				<DialogTitle>Open questions</DialogTitle>
-				<DialogDescription>
-					In {task}'s plan, not yet asked in the conversation.
-				</DialogDescription>
-			</DialogHeader>
-			<QuestionCards
-				// Afresh as the questions change, so answers sent go with them.
-				key={questions.map((asked) => asked.number).join(",")}
-				questions={questions}
-				draft="questions:blocked"
-				blocked
-				onSent={onSent}
-			/>
-		</DialogContent>
-	);
+	return unanswered(need.questions, conversation?.messages ?? []).length > 0;
 }
 
 /**

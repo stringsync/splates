@@ -14,80 +14,53 @@ const open = questions(`# a task
   - (b) Only on phones
 `).filter((asked) => !asked.done && asked.reply === null);
 
-const numbers = (found: ReturnType<typeof unanswered>) => ({
-	unanswered: found.unanswered.map((asked) => asked.number),
-	uncarded: found.uncarded.map((asked) => asked.number),
-});
+const numbers = (found: ReturnType<typeof unanswered>) =>
+	found.map((asked) => asked.number);
 
 describe("unanswered", () => {
-	it("leaves every open question uncarded while the agent works, as none is on a card", () => {
+	it("leaves every open question no reply answered", () => {
 		expect(
 			numbers(
-				unanswered(
-					open,
-					[message("user", "cap retries"), message("agent", "On it.")],
-					true,
-				),
+				unanswered(open, [
+					message("user", "cap retries"),
+					message("agent", "1. Should it  wrap?\n   - (a) Always"),
+				]),
 			),
-		).toEqual({ unanswered: ["2", "3"], uncarded: ["2", "3"] });
+		).toEqual(["2", "3"]);
 	});
 
-	it("leaves out those the card the thread ends on asks, by their lines", () => {
+	it("takes a reply to a card for the answer to its questions, by their lines", () => {
 		expect(
 			numbers(
-				unanswered(
-					open,
-					[
-						message("user", "cap retries"),
-						message("agent", "1. Should it  wrap?\n   - (a) Always"),
-					],
-					false,
-				),
+				unanswered(open, [
+					message("agent", "1. How many retries?\n2. Should it wrap?"),
+					message("user", "1. three"),
+					message("agent", "Capping them."),
+				]),
 			),
-		).toEqual({ unanswered: ["2", "3"], uncarded: ["2"] });
+		).toEqual(["3"]);
 	});
 
-	it("leaves uncarded only the questions a reply to a card left unanswered", () => {
+	it("reads a reply by the numbers in Blocked", () => {
 		expect(
 			numbers(
-				unanswered(
-					open,
-					[
-						message("agent", "1. How many retries?\n2. Should it wrap?"),
-						message("user", "1. three"),
-						message("agent", "Capping them."),
-					],
-					false,
-				),
+				unanswered(open, [
+					message("agent", "On it."),
+					message("user", blockedReply("3. b")),
+					message("agent", "Still on it."),
+				]),
 			),
-		).toEqual({ unanswered: ["3"], uncarded: ["3"] });
+		).toEqual(["2"]);
 	});
 
-	it("reads a reply from their dialog by the numbers in Blocked", () => {
+	it("takes numbers outside a reply to a card or to Blocked for no answer", () => {
 		expect(
 			numbers(
-				unanswered(
-					open,
-					[
-						message("agent", "On it."),
-						message("user", blockedReply("3. b")),
-						message("agent", "Still on it."),
-					],
-					true,
-				),
+				unanswered(open, [
+					message("agent", "On it."),
+					message("user", "2. three"),
+				]),
 			),
-		).toEqual({ unanswered: ["2"], uncarded: ["2"] });
-	});
-
-	it("takes numbers outside a reply to a card or their dialog for no answer", () => {
-		expect(
-			numbers(
-				unanswered(
-					open,
-					[message("agent", "On it."), message("user", "2. three")],
-					true,
-				),
-			),
-		).toEqual({ unanswered: ["2", "3"], uncarded: ["2", "3"] });
+		).toEqual(["2", "3"]);
 	});
 });
