@@ -37,13 +37,13 @@ describe("App's terminal", () => {
 		};
 		const view = await testing.open({ tasks: [details({ task: "alpha" })] });
 		await go(`#conversations/${id}`);
-		await waitFor(() => view.getByRole("navigation", { name: "overview" }));
+		await waitFor(() => view.getByRole("navigation", { name: "actions" }));
 		return view;
 	};
 
-	/** The Terminal action in the conversation's Overview card. */
+	/** The Terminal action in the conversation's actions card. */
 	const terminalAction = (view: Awaited<ReturnType<typeof reading>>) =>
-		within(view.getByRole("navigation", { name: "overview" })).getByRole(
+		within(view.getByRole("navigation", { name: "actions" })).getByRole(
 			"button",
 			{ name: /Terminal/ },
 		);
@@ -104,7 +104,7 @@ describe("App's terminal", () => {
 		expect(testing.shells.map((shell) => shell.task)).toEqual(["alpha"]);
 	});
 
-	it("opens and hides from the Overview card's Terminal too, and from the pane's own X", async () => {
+	it("opens and hides from the actions card's Terminal too, and from the pane's own X", async () => {
 		const view = await reading();
 
 		await act(async () => fireEvent.click(terminalAction(view)));
@@ -126,7 +126,7 @@ describe("App's terminal", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				within(view.getByRole("navigation", { name: "overview" })).getByRole(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
 					"button",
 					{ name: /Review changes/ },
 				),
@@ -187,7 +187,7 @@ describe("App's terminal", () => {
 		expect(shell?.readyState).toBe(3);
 		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
 		expect(
-			within(view.getByRole("navigation", { name: "overview" })).queryByRole(
+			within(view.getByRole("navigation", { name: "actions" })).queryByRole(
 				"button",
 				{ name: /Terminal/ },
 			),
@@ -204,7 +204,7 @@ describe("App's terminal", () => {
 		const archive = () =>
 			act(async () =>
 				fireEvent.click(
-					within(view.getByRole("navigation", { name: "overview" })).getByRole(
+					within(view.getByRole("navigation", { name: "actions" })).getByRole(
 						"button",
 						{ name: "Archive" },
 					),

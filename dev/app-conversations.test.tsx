@@ -313,7 +313,7 @@ describe("App's conversations", () => {
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 			conversation({ id: "c2", title: "Look around" }),
 		]);
-		const overview = view.getByRole("navigation", { name: "overview" });
+		const overview = view.getByRole("navigation", { name: "actions" });
 
 		await act(async () =>
 			fireEvent.click(
@@ -329,7 +329,7 @@ describe("App's conversations", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Claude Look around" })),
 		);
-		const main = view.getByRole("navigation", { name: "overview" });
+		const main = view.getByRole("navigation", { name: "actions" });
 		expect(
 			within(main)
 				.getAllByRole("button")
@@ -1329,6 +1329,13 @@ describe("App's conversations", () => {
 			expect(
 				view.queryByRole("region", { name: "questions for you" }),
 			).toBeNull();
+			// Alt+Q goes to its first question, from wherever the focus is.
+			box(view).focus();
+			await act(async () =>
+				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
+			);
+			expect(document.activeElement?.getAttribute("data-stop")).toBe("1");
+			expect(escalated.contains(document.activeElement)).toBe(true);
 		});
 
 		it("asks questions outside an escalation in a card of their own", async () => {
@@ -2758,7 +2765,7 @@ describe("App's conversations", () => {
 		);
 		await act(async () =>
 			fireEvent.click(
-				within(view.getByRole("navigation", { name: "overview" })).getByRole(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
 					"button",
 					{ name: "Archive" },
 				),
@@ -2887,7 +2894,7 @@ describe("App's conversations", () => {
 		).toBe(true);
 		await act(async () =>
 			fireEvent.click(
-				within(view.getByRole("navigation", { name: "overview" })).getByRole(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
 					"button",
 					{ name: "Unarchive" },
 				),
@@ -3114,6 +3121,13 @@ Cap upload retries
 				),
 			);
 			expect(copied).toEqual(["1. three"]);
+			// Alt+Q goes to the open question.
+			await act(async () =>
+				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
+			);
+			expect(document.activeElement).toBe(
+				within(alone).getByRole("textbox", { name: "Answer to 1" }),
+			);
 			expect(
 				within(alone).getByRole("button", { name: "Copied" }),
 			).toBeTruthy();
@@ -3151,6 +3165,41 @@ Cap upload retries
 				view.getByRole("dialog", { name: "alpha" }),
 			);
 			expect(dialog.textContent).toContain("Cap upload retries");
+		});
+
+		it("says among a conversation's actions whether it has open questions, and Alt+Q opens the plan they are in", async () => {
+			const view = await sidebar(
+				[
+					conversation({ id: "c1", task: "alpha", status: "running" }),
+					conversation({ id: "c2", task: null, title: "Look around" }),
+				],
+				[details({ task: "alpha", plan: PLAN })],
+			);
+			await act(async () =>
+				fireEvent.click(
+					view.getByRole("button", { name: "Claude Look around" }),
+				),
+			);
+			expect(
+				view.getByRole("region", { name: "Look around" }).textContent,
+			).toContain("No open questions");
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			);
+			expect(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: /1 open question/ },
+				).textContent,
+			).toBe("1 open questionAlt+Q");
+			// No card of them in the thread yet: the plan they are in opens.
+			await act(async () =>
+				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
+			);
+			expect(
+				(await waitFor(() => view.getByRole("dialog", { name: "alpha" })))
+					.textContent,
+			).toContain("How many retries?");
 		});
 
 		it("counts the agents waiting on you on the tab and in the title", async () => {

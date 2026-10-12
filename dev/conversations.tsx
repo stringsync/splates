@@ -83,6 +83,7 @@ import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
+import { type Action, ActionButtons, Actions } from "./actions";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import {
 	answerConversation,
@@ -106,7 +107,6 @@ import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
-import { type Action, Overview, OverviewButtons } from "./overview";
 import { type Nested, nest } from "./parts";
 import {
 	QuestionsUI,
@@ -123,7 +123,14 @@ import {
 	TodoUI,
 } from "./report-cards";
 import type { Settings } from "./settings";
-import { TASK, TaskLine, TaskView } from "./task-view";
+import {
+	questionsAction,
+	TASK,
+	TaskLine,
+	TaskView,
+	toWaiting,
+	useToQuestions,
+} from "./task-view";
 import { Task } from "./tasks";
 import { ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
@@ -1908,7 +1915,13 @@ function Thread({
 	const review = useContext(ReviewChanges);
 	const terminal = useContext(ToggleTerminal);
 	const archive = useArchive(conversation, refused);
+	const [details, setDetails] = useState(false);
+	// With no card of them in the thread yet, the plan they are in.
+	const toQuestions = () =>
+		toWaiting(section.current) || setDetails(task !== null);
+	useToQuestions(toQuestions);
 	const actions: Action[] = [
+		questionsAction(need(task, conversation), toQuestions),
 		...(review !== null && task !== null && task.ahead !== null
 			? [
 					{
@@ -1963,7 +1976,6 @@ function Thread({
 		},
 		[drafts, onOpen, conversation.agent],
 	);
-	const [details, setDetails] = useState(false);
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
 	return (
 		<section
@@ -2035,7 +2047,7 @@ function Thread({
 				) : (
 					<StatusBadge status={status} />
 				)}
-				<OverviewButtons actions={actions} />
+				<ActionButtons actions={actions} />
 			</header>
 			{archive.confirm}
 			{task !== null && (
@@ -2049,7 +2061,7 @@ function Thread({
 				</p>
 			)}
 			<div className="relative min-h-0 flex-1">
-				<Overview actions={actions} />
+				<Actions actions={actions} />
 				<AssistantRuntimeProvider runtime={runtime}>
 					<QuestionsUI />
 					<ReviewUI />

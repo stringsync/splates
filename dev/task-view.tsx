@@ -1,19 +1,23 @@
 import {
+	CircleAlertIcon,
+	CircleCheckIcon,
 	GitBranchIcon,
 	SquareArrowOutUpRightIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import { type JSX, useState } from "react";
+import { type JSX, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
 	Alert,
 	AlertDescription,
 	AlertTitle,
 } from "#dev/components/ui/alert.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import type { Need } from "../needs";
 import type { Question } from "../plan";
 import { progress } from "../progress";
 import type { Details } from "../show";
+import type { Action } from "./actions";
 import { Back } from "./back";
 import { QuestionCards } from "./question-cards";
 import { Task } from "./tasks";
@@ -24,6 +28,109 @@ export const TASK = "task/";
 /** The questions an agent has open: unchecked and unanswered in its plan. */
 export function openQuestions(need: Need): Question[] {
 	return "questions" in need ? need.questions : [];
+}
+
+/**
+ * The chord that goes to what an agent waits on you for, beside Alt+N, which
+ * opens the next conversation waiting.
+ */
+export const TO_QUESTIONS = "Alt+Q";
+
+/**
+ * The cards an agent waits on you through, newest last: its questions, an
+ * escalation, a review, or a live ask.
+ */
+const WAITING_CARDS = [
+	'section[aria-label="questions for you"]',
+	'section[aria-label^="escalated "]',
+	'section[aria-label^="review "]',
+	'[aria-label="permission"]',
+	'form[aria-label="question"]',
+].join(", ");
+
+/**
+ * Scrolls to the newest card in `within` that an agent waits on you through
+ * and focuses its first stop, false when there is none.
+ */
+export function toWaiting(within: HTMLElement | null): boolean {
+	const cards = within?.querySelectorAll<HTMLElement>(WAITING_CARDS) ?? [];
+	const card = cards[cards.length - 1];
+	if (card === undefined) {
+		return false;
+	}
+	const stop = card.querySelector<HTMLElement>(
+		"[data-stop], textarea, input, button:not([disabled])",
+	);
+	// What is focused in the middle, as a tall card's middle can leave it out of sight.
+	(stop ?? card).scrollIntoView({ block: "center", behavior: "smooth" });
+	stop?.focus({ preventScroll: true });
+	return true;
+}
+
+/**
+ * Goes to what the agent waits on you for on Alt+Q, beside Alt+N, which opens
+ * the next conversation waiting.
+ */
+export function useToQuestions(go: () => void): void {
+	const press = useEffectEvent(go);
+	useEffect(() => {
+		const down = (event: KeyboardEvent) => {
+			// By the key's place, since Alt+Q types œ on a Mac.
+			if (
+				event.code === "KeyQ" &&
+				event.altKey &&
+				!event.metaKey &&
+				!event.ctrlKey &&
+				!event.shiftKey
+			) {
+				event.preventDefault();
+				press();
+			}
+		};
+		document.addEventListener("keydown", down);
+		return () => document.removeEventListener("keydown", down);
+	}, []);
+}
+
+/**
+ * The actions' row on whether the agent has open questions, or waits on you
+ * otherwise, which goes there as Alt+Q does.
+ */
+export function questionsAction(need: Need, go: () => void): Action {
+	const said = waitingOn(need);
+	if (said === null) {
+		return {
+			label: "No open questions",
+			icon: <CircleCheckIcon />,
+			run: null,
+		};
+	}
+	return {
+		label: said,
+		// The sidebar's mark for an agent waiting on you.
+		icon: <CircleAlertIcon className="text-warning" />,
+		detail: <Kbd className="h-4">{TO_QUESTIONS}</Kbd>,
+		run: go,
+		count: Math.max(openQuestions(need).length, 1),
+	};
+}
+
+/** What the agent waits on you for, in a few words, or null when nothing. */
+function waitingOn(need: Need): string | null {
+	const open = openQuestions(need).length;
+	if (need.kind === "waiting" && need.why === "ask") {
+		return "Waiting on your answer";
+	}
+	if (open > 0) {
+		return `${open} open question${open === 1 ? "" : "s"}`;
+	}
+	if (need.kind === "waiting" && need.why === "escalated") {
+		return "Escalated";
+	}
+	if (need.kind === "waiting" && need.why === "review") {
+		return "Ready to merge";
+	}
+	return null;
 }
 
 /**
@@ -97,8 +204,11 @@ export function TaskView({
 }): JSX.Element {
 	const [details, setDetails] = useState(false);
 	const open = openQuestions(need);
+	const section = useRef<HTMLElement>(null);
+	useToQuestions(() => toWaiting(section.current) || setDetails(true));
 	return (
 		<section
+			ref={section}
 			aria-label={task.task}
 			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
