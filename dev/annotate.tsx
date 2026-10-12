@@ -11,6 +11,7 @@ import {
 	type KeyboardEvent,
 	type PointerEvent,
 	type ReactNode,
+	type RefObject,
 	useEffect,
 	useRef,
 	useState,
@@ -34,9 +35,11 @@ const TOOLS: { tool: Tool; label: string; icon: JSX.Element }[] = [
 /**
  * An annotator to render beside an image, and `open`, which marks up `file`
  * and settles on what to send in its place once the person is done: the
- * image with the marks drawn in, or `file` itself when there are none.
+ * image with the marks drawn in, or `file` itself when there are none. The
+ * keyboard goes back to `finalFocus` once it closes, when there is one, and
+ * otherwise to where it was before.
  */
-export function useAnnotate(): {
+export function useAnnotate(finalFocus?: RefObject<HTMLElement | null>): {
 	open: (file: File) => Promise<File>;
 	annotate: JSX.Element;
 } {
@@ -62,7 +65,13 @@ export function useAnnotate(): {
 	};
 	return {
 		open,
-		annotate: <Annotate annotation={annotation} onDone={() => void done()} />,
+		annotate: (
+			<Annotate
+				annotation={annotation}
+				onDone={() => void done()}
+				finalFocus={finalFocus}
+			/>
+		),
 	};
 }
 
@@ -75,10 +84,13 @@ export function useAnnotate(): {
 export function Annotate({
 	annotation,
 	onDone,
+	finalFocus,
 }: {
 	/** What is being marked up, or `null` when the dialog is closed. */
 	annotation: Annotation | null;
 	onDone: () => void;
+	/** Where the keyboard goes once it closes, rather than where it was. */
+	finalFocus?: RefObject<HTMLElement | null> | undefined;
 }): JSX.Element {
 	// The board stays while the dialog closes: base-ui holds the backdrop until
 	// the popup's own closing animation ends, and a popup gone never ends it.
@@ -106,7 +118,11 @@ export function Annotate({
 					className="fixed inset-0 z-50 bg-black/85 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
 				/>
 				{last.current !== null && (
-					<Board annotation={last.current} onDone={onDone} />
+					<Board
+						annotation={last.current}
+						onDone={onDone}
+						finalFocus={finalFocus}
+					/>
 				)}
 			</DialogPrimitive.Portal>
 		</DialogPrimitive.Root>
@@ -116,9 +132,11 @@ export function Annotate({
 function Board({
 	annotation,
 	onDone,
+	finalFocus,
 }: {
 	annotation: Annotation;
 	onDone: () => void;
+	finalFocus: RefObject<HTMLElement | null> | undefined;
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
@@ -178,6 +196,7 @@ function Board({
 			data-slot="annotate"
 			ref={popup}
 			initialFocus={popup}
+			finalFocus={finalFocus}
 			onKeyDown={onKeyDown}
 			className="fixed inset-0 z-50 flex flex-col items-center gap-4 px-8 pt-4 pb-8 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
 		>

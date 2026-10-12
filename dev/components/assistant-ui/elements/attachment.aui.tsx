@@ -15,7 +15,7 @@ import {
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import { type FC, useState } from "react";
+import { type FC, useRef, useState } from "react";
 import { useAnnotate } from "#dev/annotate.tsx";
 import { Annotation } from "#dev/annotation.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -94,7 +94,9 @@ const AttachmentTile: FC = () => {
 	const isComposer = aui.attachment.source !== "message";
 	const src = useAttachmentSrc();
 	const { open, lightbox } = useLightbox();
-	const annotator = useAnnotate();
+	// Marked up from the composer, the keyboard goes back to writing.
+	const input = useRef<HTMLTextAreaElement | null>(null);
+	const annotator = useAnnotate(input);
 
 	const isImage = useAuiState((s) => s.attachment.type === "image");
 	const name = useAuiState((s) => s.attachment.name);
@@ -102,10 +104,15 @@ const AttachmentTile: FC = () => {
 	const file = useAuiState((s) =>
 		isComposer && s.attachment.type === "image" ? s.attachment.file : undefined,
 	);
-	const annotate = async (image: File) => {
+	const annotate = async (tile: HTMLElement, image: File) => {
+		input.current =
+			tile.closest("form")?.querySelector<HTMLTextAreaElement>("textarea") ??
+			null;
 		const marked = await annotator.open(image);
 		if (marked !== image) {
 			await replace(aui.composer(), aui.attachment().getState().id, marked);
+			// The tile, and the annotator with it, went with the image it showed.
+			input.current?.focus();
 		}
 	};
 	const typeLabel = useAuiState((s) => {
@@ -163,7 +170,7 @@ const AttachmentTile: FC = () => {
 								{...(src ? shown(src, name) : {})}
 								onClick={
 									file
-										? () => void annotate(file)
+										? (e) => void annotate(e.currentTarget, file)
 										: src
 											? (e) => open(e.currentTarget)
 											: undefined
