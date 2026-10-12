@@ -35,6 +35,7 @@ import { copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
+import { blockedReply } from "./unanswered";
 
 /** What the cards in a conversation answer through. */
 export interface Reply {
@@ -206,6 +207,8 @@ export function QuestionCards({
 	escalation = null,
 	draft = null,
 	copy = false,
+	blocked = false,
+	onSent,
 }: {
 	questions: Question[];
 	/** The escalation they end, which heads them in its place. */
@@ -214,6 +217,13 @@ export function QuestionCards({
 	draft?: string | null;
 	/** Copy the reply rather than send it: its agent runs outside the page. */
 	copy?: boolean;
+	/**
+	 * Numbered as in the task's `## Blocked` rather than the agent's latest
+	 * report, which the reply opens by saying.
+	 */
+	blocked?: boolean;
+	/** Once the reply is sent from it. */
+	onSent?: () => void;
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
 	const live = sent === null && (copy || reply !== null);
@@ -246,10 +256,18 @@ export function QuestionCards({
 		if (!live || out === "") {
 			return;
 		}
+		const text = blocked ? blockedReply(out) : out;
 		if (send === null) {
-			copyOut(out);
+			copyOut(text);
 		} else {
-			void attempt(send(out), "Not sent");
+			// Sent from outside a message, nothing else drops what it kept.
+			void attempt(
+				send(text).then(() => {
+					kept.write("");
+					onSent?.();
+				}),
+				"Not sent",
+			);
 		}
 	};
 	const panel = useRef<HTMLDivElement>(null);

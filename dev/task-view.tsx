@@ -255,7 +255,7 @@ export function TaskView({
 					</Alert>
 					{open.length > 0 && (
 						<div id={`questions-${task.task}`} className="flex flex-col gap-2">
-							<QuestionCards questions={open} copy />
+							<QuestionCards questions={open} copy blocked />
 						</div>
 					)}
 					{open.length === 0 && (

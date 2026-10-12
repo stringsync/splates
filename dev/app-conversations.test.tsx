@@ -17,6 +17,7 @@ import {
 	waitFor,
 	within,
 } from "./testing";
+import { blockedReply } from "./unanswered";
 
 /** Sizes the window, as a phone held upright or a laptop. */
 const resize = (width: number, height: number) =>
@@ -3473,7 +3474,8 @@ Cap upload retries
 					within(alone).getByRole("button", { name: "Copy reply" }),
 				),
 			);
-			expect(copied).toEqual(["1. three"]);
+			// Numbered as in its Blocked, which may not be how it last asked them.
+			expect(copied).toEqual([blockedReply("1. three")]);
 			// Alt+Q goes to the open question.
 			await act(async () =>
 				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
@@ -3587,7 +3589,7 @@ Cap upload retries
 			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
-		it("says among a conversation's actions whether it has open questions, and Alt+Q opens the plan they are in", async () => {
+		it("says among a conversation's actions whether it has open questions, and Alt+Q answers them in a dialog while no card in the thread asks them", async () => {
 			const view = await sidebar(
 				[
 					conversation({ id: "c1", task: "alpha", status: "running" }),
@@ -3612,13 +3614,147 @@ Cap upload retries
 					{ name: /1 open question/ },
 				).textContent,
 			).toBe("1 open questionAlt+Q");
-			// No card of them in the thread yet: the plan they are in opens.
+			// At work on a guess, it has asked them only in its plan: no card
+			// crowds the conversation.
+			expect(
+				view.queryByRole("region", { name: "questions for you" }),
+			).toBeNull();
 			await act(async () =>
 				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
 			);
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: "Open questions" }),
+			);
+			const answer = within(dialog).getByRole("textbox", {
+				name: "Answer to 1",
+			});
+			await waitFor(() => expect(document.activeElement).toBe(answer));
+			await act(async () =>
+				fireEvent.change(answer, { target: { value: "three" } }),
+			);
+			await act(async () =>
+				fireEvent.click(within(dialog).getByRole("button", { name: "Send" })),
+			);
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: blockedReply("1. three") } },
+			]);
+			await waitFor(() =>
+				expect(
+					view.queryByRole("dialog", { name: "Open questions" }),
+				).toBeNull(),
+			);
+		});
+
+		it("asks in a dialog only the open questions a reply to a card left unanswered, and none a card still asks", async () => {
+			const blocked = `${PLAN}- [ ] 2. Should it wrap?\n`;
+			const asked = message(
+				"agent",
+				"1. How many retries?\n2. Should it wrap?",
+			);
+			const view = await sidebar(
+				[
+					conversation({
+						id: "c1",
+						task: "alpha",
+						title: "Asked",
+						messages: [message("user", "cap retries"), asked],
+					}),
+				],
+				[details({ task: "alpha", plan: blocked })],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			);
+			// The card the thread ends on asks them all: Alt+Q goes there.
+			await act(async () =>
+				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
+			);
+			expect(view.queryByRole("dialog", { name: "Open questions" })).toBeNull();
 			expect(
-				(await waitFor(() => view.getByRole("dialog", { name: "alpha" })))
-					.textContent,
+				view
+					.getByRole("region", { name: "questions for you" })
+					.contains(document.activeElement),
+			).toBe(true);
+
+			await testing.say(
+				conversation({
+					id: "c1",
+					task: "alpha",
+					title: "Asked",
+					status: "running",
+					messages: [
+						message("user", "cap retries"),
+						asked,
+						message("user", "1. three"),
+						message("agent", "Capping them."),
+					],
+				}),
+			);
+
+			await waitFor(() => view.getByText("Capping them."));
+			// The one answered waits on the agent, not on you.
+			expect(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: /1 open question/ },
+				),
+			).toBeTruthy();
+			await act(async () =>
+				fireEvent.keyDown(document, { code: "KeyQ", altKey: true }),
+			);
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: "Open questions" }),
+			);
+			expect(
+				within(dialog)
+					.getAllByRole("listitem")
+					.map((card) => card.getAttribute("aria-label")),
+			).toEqual(["question 2"]);
+		});
+
+		it("asks in a dialog the open questions of an escalation that did not list them", async () => {
+			const view = await sidebar(
+				[
+					conversation({
+						id: "c1",
+						task: "alpha",
+						title: "Stuck",
+						messages: [
+							message(
+								"agent",
+								"## ⚠️ Escalated alpha: needs a call\n\nIt caps.",
+							),
+						],
+					}),
+				],
+				[
+					details({
+						task: "alpha",
+						status: "escalated",
+						escalation: "needs a call",
+						escalatedAt: "2026-10-11T10:00:00.000Z",
+						plan: PLAN,
+					}),
+				],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
+			);
+			await act(async () =>
+				fireEvent.click(
+					within(view.getByRole("navigation", { name: "actions" })).getByRole(
+						"button",
+						{ name: /1 open question/ },
+					),
+				),
+			);
+
+			expect(
+				(
+					await waitFor(() =>
+						view.getByRole("dialog", { name: "Open questions" }),
+					)
+				).textContent,
 			).toContain("How many retries?");
 		});
 

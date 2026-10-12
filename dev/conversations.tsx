@@ -87,6 +87,7 @@ import type {
 import { type LaneRecord, named } from "../lanes";
 import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
+import type { Question as Asked } from "../plan";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { type Action, ActionButtons, Actions } from "./actions";
@@ -120,6 +121,7 @@ import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Nested, nest } from "./parts";
 import {
+	QuestionCards,
 	QuestionsUI,
 	type Reply,
 	ReplyContext,
@@ -134,6 +136,7 @@ import {
 } from "./report-cards";
 import type { Settings } from "./settings";
 import {
+	openQuestions,
 	questionsAction,
 	TASK,
 	TaskLine,
@@ -146,6 +149,7 @@ import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
 import { isMain, numberOf, type Terminals } from "./terminals";
 import { TodoDialog } from "./todos";
+import { unanswered } from "./unanswered";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
 
@@ -2062,12 +2066,29 @@ function Thread({
 	const terminal = useContext(ToggleTerminal);
 	const archive = useArchive(conversation, refused);
 	const [details, setDetails] = useState(false);
-	// With no card of them in the thread yet, the plan they are in.
+	const needed = need(task, conversation);
+	// Those the person answered and the agent has yet to record wait on nobody.
+	const open = unanswered(
+		openQuestions(needed),
+		conversation.messages,
+		writing,
+	);
+	const [answering, setAnswering] = useState(false);
+	// The card the thread ends on first, then those no card asks, apart from
+	// the conversation, then with none open, the plan.
 	const toQuestions = () =>
-		toWaiting(section.current) || setDetails(task !== null);
+		(asking && toWaiting(section.current)) ||
+		(open.uncarded.length > 0 && !archived
+			? setAnswering(true)
+			: toWaiting(section.current) || setDetails(task !== null));
 	useToQuestions(toQuestions);
 	const actions: Action[] = [
-		questionsAction(need(task, conversation), toQuestions),
+		questionsAction(
+			"questions" in needed
+				? { ...needed, questions: open.unanswered }
+				: needed,
+			toQuestions,
+		),
 		...(review !== null && task !== null && task.ahead !== null
 			? [
 					{
@@ -2211,6 +2232,22 @@ function Thread({
 					{details && <Task task={task} />}
 				</Dialog>
 			)}
+			{task !== null && (
+				<Dialog
+					open={answering && open.uncarded.length > 0}
+					onOpenChange={setAnswering}
+				>
+					{answering && (
+						<ReplyContext value={reply}>
+							<OpenQuestions
+								task={task.task}
+								questions={open.uncarded}
+								onSent={() => setAnswering(false)}
+							/>
+						</ReplyContext>
+					)}
+				</Dialog>
+			)}
 			{conversation.error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{conversation.error}
@@ -2277,6 +2314,41 @@ function Thread({
 				</AssistantRuntimeProvider>
 			</div>
 		</section>
+	);
+}
+
+/**
+ * Open questions in the task's `## Blocked` that no card in the thread asks,
+ * as one put while the agent works on a guess, or left once the person
+ * answered the rest: answered in a dialog, apart from the conversation, by
+ * their numbers there.
+ */
+function OpenQuestions({
+	task,
+	questions,
+	onSent,
+}: {
+	task: string;
+	questions: Asked[];
+	onSent: () => void;
+}): JSX.Element {
+	return (
+		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl">
+			<DialogHeader>
+				<DialogTitle>Open questions</DialogTitle>
+				<DialogDescription>
+					In {task}'s plan, not yet asked in the conversation.
+				</DialogDescription>
+			</DialogHeader>
+			<QuestionCards
+				// Afresh as the questions change, so answers sent go with them.
+				key={questions.map((asked) => asked.number).join(",")}
+				questions={questions}
+				draft="questions:blocked"
+				blocked
+				onSent={onSent}
+			/>
+		</DialogContent>
 	);
 }
 
