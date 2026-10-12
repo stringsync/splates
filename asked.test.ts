@@ -21,7 +21,11 @@ describe("stretches", () => {
 
 		const found = stretches(example);
 
-		expect(found.map((each) => each.type)).toEqual(["report", "questions"]);
+		expect(found.map((each) => each.type)).toEqual([
+			"report",
+			"demo",
+			"questions",
+		]);
 		expect(found[0]).toEqual({
 			type: "report",
 			report: {
@@ -32,7 +36,22 @@ describe("stretches", () => {
 				body: "One sentence on what changed.",
 			},
 		});
-		const questions = found[1]?.type === "questions" ? found[1].questions : [];
+		expect(found[1]).toEqual({
+			type: "demo",
+			demo: {
+				title: "dragging a card on a phone",
+				intro:
+					"Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).",
+				steps: [
+					{
+						number: "1",
+						action: "Press and hold a card, then drag it to another lane.",
+						expect: "It lands where you drop it.",
+					},
+				],
+			},
+		});
+		const questions = found[2]?.type === "questions" ? found[2].questions : [];
 		expect(
 			questions.map(({ number, text, body, choices, pick }) => ({
 				number,
@@ -45,7 +64,7 @@ describe("stretches", () => {
 			{
 				number: "1",
 				text: "Does dragging a card feel right on a phone?",
-				body: "Press and hold a card, then drag it.\n![dragging a card](/abs/path/drag.png)",
+				body: "",
 				choices: [],
 				pick: null,
 			},
@@ -85,19 +104,25 @@ describe("stretches", () => {
 				review: {
 					task: "<task>",
 					base: "<base>",
-					body: [
-						"One sentence on what changed.",
-						"",
-						"- A todo dropped between two others lands between them, as you picked.",
-						"- A drag on a phone starts on press and hold, so the board still scrolls.",
-						"",
-						"Open http://localhost:4310 (a demo repo, nothing of yours):",
-						"",
-						"1. Drag a todo to another lane: it lands where you drop it.",
-						"2. Reload: it stays there.",
-						"",
-						"![the board after a drag](/abs/path/board.png)",
-					].join("\n"),
+					body: "One sentence on what changed.",
+					demo: {
+						title: "moving todos between lanes",
+						intro:
+							"Open http://localhost:4310 (a demo repo, nothing of yours).",
+						steps: [
+							{
+								number: "1",
+								action: "Drag a todo to another lane.",
+								expect: "It lands where you drop it.",
+							},
+							{
+								number: "2",
+								action: "Reload.",
+								expect:
+									"It stays there.\n![the board after a drag](/abs/path/board.png)",
+							},
+						],
+					},
 				},
 			},
 		]);
@@ -131,7 +156,7 @@ describe("stretches", () => {
 				task: "<task>",
 				base: "<base>",
 				reason: null,
-				body: "One sentence on what changed.\n\nStale: todo <id> (remove?).",
+				body: "One sentence on what changed.\n\n- Restart `arbor dev` to see it.",
 			},
 		});
 		expect(stretches(removed)[0]).toEqual({
@@ -144,6 +169,57 @@ describe("stretches", () => {
 				body: "One sentence on what the task set out to do.",
 			},
 		});
+	});
+
+	it("reads the skill's own demo, alone in a message, as a demo", async () => {
+		const example = (await skillExamples()).find((each) =>
+			each.startsWith("### 🎬 Demo"),
+		);
+		if (example === undefined) {
+			throw new Error("the skill has no demo example");
+		}
+
+		const found = stretches(example);
+
+		expect(found.map((each) => each.type)).toEqual(["demo"]);
+		const steps = found[0]?.type === "demo" ? found[0].demo.steps : [];
+		expect(steps.map((step) => [step.action, step.expect])).toEqual([
+			["Press and hold a card.", "It lifts after half a second."],
+			[
+				"Drag it to another lane.",
+				"It lands where you drop it.\n![dropped in Doing](/abs/path/drop.png)",
+			],
+		]);
+	});
+
+	it("ends a demo with its steps, leaving what follows as text", () => {
+		expect(
+			stretches(
+				[
+					"### 🎬 Demo",
+					"",
+					"1. Open the board.",
+					"",
+					"   It loads.",
+					"2. Reload.",
+					"",
+					"That is all.",
+				].join("\n"),
+			),
+		).toEqual([
+			{
+				type: "demo",
+				demo: {
+					title: null,
+					intro: "",
+					steps: [
+						{ number: "1", action: "Open the board.", expect: "It loads." },
+						{ number: "2", action: "Reload.", expect: "" },
+					],
+				},
+			},
+			{ type: "text", text: "That is all." },
+		]);
 	});
 
 	it("reads a proposed todo anywhere in a message, up to the next heading or questions", () => {

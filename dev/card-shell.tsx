@@ -221,10 +221,12 @@ function Chip({ children }: { children: ReactNode }): JSX.Element {
 export function CardBody({
 	text,
 	lead = false,
+	className,
 }: {
 	text: string;
 	/** Whether its first paragraph leads, set in a heavier weight. */
 	lead?: boolean;
+	className?: string;
 }): JSX.Element {
 	return (
 		<Markdown
@@ -233,6 +235,7 @@ export function CardBody({
 				"px-4 py-3.5 text-sm leading-relaxed [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
 				lead &&
 					"[&_p:first-child]:font-medium [&_p:first-child]:first-letter:uppercase",
+				className,
 			)}
 		/>
 	);

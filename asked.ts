@@ -4,14 +4,15 @@ import { offers, type Question, settled } from "./plan";
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, its report of how a task ended or what it
- * waits on, or a todo it proposes.
+ * waits on, a todo it proposes, or a demo for the person to try.
  */
 export type Stretch =
 	| { type: "text"; text: string }
 	| { type: "questions"; questions: Question[] }
 	| { type: "review"; review: Review }
 	| { type: "report"; report: Report }
-	| { type: "todo"; todo: Proposal };
+	| { type: "todo"; todo: Proposal }
+	| { type: "demo"; demo: Demo };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -19,6 +20,28 @@ export interface Review {
 	base: string;
 	/** What changed, and what to look at and where, as markdown. */
 	body: string;
+	/** The demo it holds, to try before merging. */
+	demo: Demo | null;
+}
+
+/**
+ * Something to try, as the skill writes it under `### 🎬 Demo: <title>`:
+ * where, then numbered steps.
+ */
+export interface Demo {
+	/** What it shows, from its heading; null when the heading says none. */
+	title: string | null;
+	/** Where to try it and anything said before the steps, as markdown. */
+	intro: string;
+	steps: Step[];
+}
+
+/** A step of a demo: what to do, on its line, and what to see, under it. */
+export interface Step {
+	number: string;
+	action: string;
+	/** What should happen, screenshots included, as markdown. */
+	expect: string;
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title it. */
@@ -52,6 +75,7 @@ const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
+const DEMO = /^### 🎬 Demo(?::[ \t]*(.*?))?[ \t]*$/;
 const HEADING = /^#{1,6}[ \t]/;
 
 /** A review report's title, and the line every one ends with. */
@@ -103,14 +127,19 @@ export function stretches(text: string): Stretch[] {
 				review: {
 					task: title[1] as string,
 					base: title[2] as string,
-					body: lines
-						.slice(i + 1, end)
-						.join("\n")
-						.replace(/^\n+|\s+$/g, ""),
+					...withDemo(lines.slice(i + 1, end)),
 				},
 			});
 			from = end + 1;
 			i = end;
+			continue;
+		}
+		const demo = demoAt(lines, i);
+		if (demo !== null) {
+			found.push(...prose(lines.slice(from, i)));
+			found.push({ type: "demo", demo: demo.demo });
+			from = demo.end;
+			i = demo.end - 1;
 			continue;
 		}
 		const kept = keptAt(lines, i);
@@ -187,6 +216,93 @@ function keptAt(
 					body,
 				};
 	return { stretch: { type: "report", report }, end };
+}
+
+/**
+ * A review's `lines`: what they say, with the demo among them taken out,
+ * along with anything after it.
+ */
+function withDemo(lines: string[]): { body: string; demo: Demo | null } {
+	const at = lines.findIndex((_, index) => demoAt(lines, index) !== null);
+	const found = at === -1 ? null : demoAt(lines, at);
+	if (found === null) {
+		return { body: trimmed(lines), demo: null };
+	}
+	return {
+		body: trimmed([...lines.slice(0, at), ...lines.slice(found.end)]),
+		demo: found.demo,
+	};
+}
+
+/**
+ * The demo titled at `start`: what it says up to its steps, the next
+ * heading, or a list of questions, then its steps, and the line after them;
+ * null for any other line.
+ */
+function demoAt(
+	lines: string[],
+	start: number,
+): { demo: Demo; end: number } | null {
+	const title = DEMO.exec(lines[start] as string);
+	if (title === null) {
+		return null;
+	}
+	const until = endAt(lines, start + 1);
+	const first = lines.findIndex(
+		(line, at) => at > start && at < until && ITEM.exec(line)?.[1] === "1",
+	);
+	const steps: Step[] = [];
+	let end = first === -1 ? until : first;
+	if (first !== -1) {
+		let body: string[] = [];
+		for (let i = first; i < lines.length; i += 1) {
+			const line = lines[i] as string;
+			const item = ITEM.exec(line);
+			if (item !== null && item[1] === String(steps.length + 1)) {
+				body = [];
+				steps.push({
+					number: item[1],
+					action: (item[2] ?? "").trim(),
+					expect: "",
+				});
+				end = i + 1;
+				continue;
+			}
+			if (line.trim() === "") {
+				continue;
+			}
+			// Back at the margin, and not the next step: the steps are over.
+			if (!/^[ \t]/.test(line)) {
+				break;
+			}
+			body.push(...lines.slice(end, i).map(() => ""), line);
+			(steps.at(-1) as Step).expect = dedented(body);
+			end = i + 1;
+		}
+	}
+	return {
+		demo: {
+			title: title[1] || null,
+			intro: trimmed(lines.slice(start + 1, first === -1 ? until : first)),
+			steps,
+		},
+		end,
+	};
+}
+
+/** `lines` without the indent they share, as markdown of their own. */
+function dedented(lines: string[]): string {
+	const indent = Math.min(
+		...lines
+			.filter((line) => line.trim() !== "")
+			.map((line) => /^[ \t]*/.exec(line)?.[0].length ?? 0),
+	);
+	return trimmed(lines.map((line) => line.slice(indent)));
+}
+
+/** `lines` as one text, without blank lines at either end. */
+function trimmed(lines: string[]): string {
+	return lines.join("\n").replace(/^\n+|\s+$/g, "");
 }
 
 /**

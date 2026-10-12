@@ -3387,6 +3387,108 @@ describe("App's conversations", () => {
 		});
 	});
 
+	describe("demo cards", () => {
+		const demo = [
+			"### 🎬 Demo: dragging a card",
+			"",
+			"Open http://localhost:4310 (a demo repo).",
+			"",
+			"1. Press and hold a card.",
+			"   It lifts.",
+			"2. Drag it to another lane.",
+			"   It lands where you drop it.",
+		];
+
+		it("shows a demo as steps to tick off, where it runs a click away", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Demo",
+					messages: [message("agent", demo.join("\n"))],
+				}),
+			]);
+
+			const card = await waitFor(() =>
+				view.getByRole("region", { name: "demo dragging a card" }),
+			);
+			expect(
+				within(card).getByRole("link", { name: "Open" }).getAttribute("href"),
+			).toBe("http://localhost:4310");
+			expect(card.textContent).toContain("It lands where you drop it.");
+			expect(card.textContent).toContain("0 of 2 tried");
+			const first = within(card).getByRole("checkbox", {
+				name: "Step 1 tried",
+			}) as HTMLInputElement;
+
+			await act(async () => fireEvent.click(first));
+
+			expect(first.checked).toBe(true);
+			expect(card.textContent).toContain("1 of 2 tried");
+		});
+
+		it("shows an escalation's demo in its questions' card, above them", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Demo",
+					messages: [
+						message(
+							"agent",
+							[
+								"## ⚠️ Escalated board: needs a phone check",
+								"",
+								"Cards drag on phones now.",
+								"",
+								...demo,
+								"",
+								"1. Does dragging feel right?",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+
+			const card = await waitFor(() =>
+				view.getByRole("region", { name: "escalated board" }),
+			);
+			const shown = within(card).getByRole("region", {
+				name: "demo dragging a card",
+			});
+			expect(shown.textContent).toContain("Press and hold a card.");
+			expect(card.textContent).toContain("Does dragging feel right?");
+			expect(view.getAllByRole("region", { name: /^demo/ })).toEqual([shown]);
+		});
+
+		it("shows a review's demo in its panel, above Merge", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Demo",
+					messages: [
+						message(
+							"agent",
+							[
+								"## 🔍 Ready to merge board onto main",
+								"",
+								"Cards drag on phones now.",
+								"",
+								...demo,
+								"",
+								'Reply "merge", or say what to change.',
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+
+			const panel = await waitFor(() =>
+				view.getByRole("region", { name: "review board" }),
+			);
+			expect(
+				within(panel).getByRole("region", { name: "demo dragging a card" })
+					.textContent,
+			).toContain("Drag it to another lane.");
+			expect(within(panel).getByRole("button", { name: "Merge" })).toBeTruthy();
+		});
+	});
+
 	describe("todo cards", () => {
 		const proposing = conversation({
 			title: "Next",

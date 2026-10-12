@@ -27,6 +27,7 @@
 @source "./lanes.tsx";
 @source "./links.tsx";
 @source "./conversations.tsx";
+@source "./demo-cards.tsx";
 @source "./directives.tsx";
 @source "./agent-icons.tsx";
 @source "./projects.tsx";

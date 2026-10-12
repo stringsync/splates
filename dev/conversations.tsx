@@ -121,6 +121,7 @@ import {
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
+import { DemoUI } from "./demo-cards";
 import {
 	DIRECTIVE_TYPE,
 	DirectiveChip,
@@ -2681,6 +2682,7 @@ function Thread({
 						<ReviewUI />
 						<ReportUI />
 						<TodoUI />
+						<DemoUI />
 						<WorkUI />
 						<ArchiveContext value={filing}>
 							<StartNewContext value={startNew}>
@@ -2978,8 +2980,9 @@ function attached(
 /**
  * The agent's reply, its questions and review as cards once it has stopped
  * writing them: a list mid-stream may yet turn out not to ask any. An
- * escalation's questions come right after it, so the two are one card: the
- * questions, headed as the escalation.
+ * escalation's questions come right after it, or after the demo they ask
+ * about, so they are one card: the questions, headed as the escalation, the
+ * demo above them.
  */
 function replied(text: string, settled: boolean): LikePart[] {
 	if (!settled) {
@@ -2989,28 +2992,38 @@ function replied(text: string, settled: boolean): LikePart[] {
 	return all.flatMap((stretch, at): LikePart[] => {
 		const before = all[at - 1];
 		const after = all[at + 1];
+		// The questions an escalation ends, past the demo between them.
+		const asking = after?.type === "demo" ? all[at + 2] : after;
 		switch (stretch.type) {
 			case "text":
 				return [{ type: "text", text: stretch.text }];
-			case "questions":
+			case "questions": {
+				const demo = before?.type === "demo" ? before.demo : null;
+				const heading = demo === null ? before : all[at - 2];
 				return [
 					{
 						type: "data-questions",
 						data: {
 							questions: stretch.questions,
 							escalation:
-								before?.type === "report" &&
-								before.report.ending === "escalated"
-									? before.report
+								heading?.type === "report" &&
+								heading.report.ending === "escalated"
+									? heading.report
 									: null,
+							demo,
 						},
 					},
 				];
+			}
+			case "demo":
+				return after?.type === "questions"
+					? []
+					: [{ type: "data-demo", data: { demo: stretch.demo } }];
 			case "review":
 				return [{ type: "data-review", data: { review: stretch.review } }];
 			case "report":
 				return stretch.report.ending === "escalated" &&
-					after?.type === "questions"
+					asking?.type === "questions"
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
 			case "todo":

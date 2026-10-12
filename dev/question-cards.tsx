@@ -26,6 +26,7 @@ import {
 	type Answer,
 	answerIn,
 	besides,
+	type Demo,
 	type Report,
 	type Review,
 	withAnswer,
@@ -39,6 +40,7 @@ import {
 	reportText,
 	toCardTop,
 } from "./card-shell";
+import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
 import { blockedReply } from "./unanswered";
@@ -159,11 +161,13 @@ function useArrival(
 
 /**
  * The data a `data-questions` part carries: one message's questions, in
- * order, and the escalation they end, when they do.
+ * order, the escalation they end, when they do, and the demo they follow,
+ * which is what they ask about.
  */
 export interface QuestionsData {
 	questions: Question[];
 	escalation: Report | null;
+	demo: Demo | null;
 }
 
 /**
@@ -183,12 +187,14 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 function MessageQuestions({
 	questions,
 	escalation,
+	demo,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
 	return (
 		<QuestionCards
 			questions={questions}
 			escalation={escalation}
+			demo={demo}
 			// Its first question too, as a message can ask more than one list.
 			draft={`questions:${message}:${questions[0]?.text ?? ""}`}
 		/>
@@ -220,6 +226,7 @@ function replyOf(lines: string, more: string): string {
 export function QuestionCards({
 	questions,
 	escalation = null,
+	demo = null,
 	draft = null,
 	copy = false,
 	blocked = false,
@@ -228,6 +235,8 @@ export function QuestionCards({
 	questions: Question[];
 	/** The escalation they end, which heads them in its place. */
 	escalation?: Report | null;
+	/** The demo they ask about, shown above them. */
+	demo?: Demo | null;
 	/** The name it keeps what is written under in the conversation's drafts. */
 	draft?: string | null;
 	/** Copy the reply rather than send it: its agent runs outside the page. */
@@ -357,6 +366,12 @@ export function QuestionCards({
 					<div className="border-b">
 						<CardBody text={reported} lead={escalation?.reason != null} />
 					</div>
+				)}
+				{demo !== null && (
+					<DemoSection
+						demo={demo}
+						kept={draft === null ? null : `${draft}:demo`}
+					/>
 				)}
 				<ol aria-label="questions" className="divide-y">
 					{questions.map((asked, at) => (
@@ -915,7 +930,17 @@ export function ReviewPanel({
 				)
 			}
 		>
-			{review.body !== "" && <CardBody text={review.body} />}
+			{review.body !== "" && (
+				<div className={cn(review.demo !== null && "border-b")}>
+					<CardBody text={review.body} />
+				</div>
+			)}
+			{review.demo !== null && (
+				<DemoSection
+					demo={review.demo}
+					kept={draft === null ? null : `${draft}:demo`}
+				/>
+			)}
 			{sent !== null && (
 				// What the person replied, as it was sent: the card keeps it.
 				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
