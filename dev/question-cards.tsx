@@ -117,8 +117,8 @@ function useKept(
 
 /**
  * Focuses what `first` finds as a card comes up to be answered, which the
- * composer leaves to it, unless the person is typing elsewhere, as in a
- * composer holding a draft.
+ * composer leaves to it, and scrolls its question into view, unless the
+ * person is typing elsewhere, as in a composer holding a draft.
  */
 function useArrival(
 	live: boolean,
@@ -133,7 +133,13 @@ function useArrival(
 		) {
 			return;
 		}
-		first()?.focus({ preventScroll: true });
+		const stop = first();
+		// In view whole, as Enter brings each later question, rather than
+		// focused off screen above the foot of the card.
+		stop?.focus({ preventScroll: true });
+		(stop?.closest("li, footer") ?? stop)?.scrollIntoView({
+			block: "nearest",
+		});
 	});
 	useEffect(() => {
 		if (live) {

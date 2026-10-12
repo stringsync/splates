@@ -1789,6 +1789,28 @@ describe("App's conversations", () => {
 			]);
 		});
 
+		it("scrolls the whole first question into view as the card arrives", async () => {
+			const scrolled: Element[] = [];
+			const scroll = spyOn(
+				HTMLElement.prototype,
+				"scrollIntoView",
+			).mockImplementation(function (this: HTMLElement) {
+				scrolled.push(this);
+			});
+			try {
+				const view = await conversations([asking()]);
+				const first = await waitFor(() =>
+					within(card(view, "1")).getByRole("button", { name: /Todos/ }),
+				);
+				await waitFor(() =>
+					expect(document.activeElement === first).toBe(true),
+				);
+				expect(scrolled).toEqual([card(view, "1")]);
+			} finally {
+				scroll.mockRestore();
+			}
+		});
+
 		it("scrolls the whole next question into view on Enter, clear of the composer", async () => {
 			const view = await conversations([asking()]);
 			const first = await waitFor(() =>
