@@ -91,7 +91,7 @@ import { type LaneRecord, named } from "../lanes";
 import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Question as Asked } from "../plan";
-import { taskReference, todoReference } from "../prompts";
+import { leadingDirectives, taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { type Action, ActionButtons, Actions } from "./actions";
@@ -120,6 +120,12 @@ import {
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
+import {
+	DIRECTIVE_TYPE,
+	directivesOf,
+	liftDirectives,
+	withDirectives,
+} from "./directives";
 import { type Drafts, newDraft } from "./drafts";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
@@ -1400,10 +1406,7 @@ function Home({
 		convertMessage: (message: ThreadMessageLike) => message,
 		adapters: { attachments: IMAGES },
 		onNew: async (message) => {
-			const text = message.content
-				.map((part) => (part.type === "text" ? part.text : ""))
-				.join("")
-				.trim();
+			const text = said(message);
 			const images = imagesOf(message);
 			setStarting(true);
 			// Each as shown: where it was left, unless picked here.
@@ -1853,14 +1856,21 @@ function useDraft(
 		// Into an empty composer only: what is typed there is the newer draft.
 		const fill = () => {
 			const kept = drafts.read(key);
-			if (kept !== "" && composer.getState().text === "") {
+			if (kept !== "" && composer.getState().isEmpty) {
 				composer.setText(kept);
 			}
 		};
+		// Kept with its directives as text, ahead of what is typed.
+		const unsubscribe = composer.subscribe(() => {
+			const { text, attachments } = composer.getState();
+			if (leadingDirectives(text).directives.length > 0) {
+				// Each change it makes comes back here, to be kept.
+				liftDirectives(composer);
+				return;
+			}
+			drafts.write(key, withDirectives(directivesOf(attachments), text));
+		});
 		fill();
-		const unsubscribe = composer.subscribe(() =>
-			drafts.write(key, composer.getState().text),
-		);
 		// Written from elsewhere: a message Home could not send to it.
 		const unlisten = drafts.events.on("written", (written) => {
 			if (written === key) {
@@ -1886,11 +1896,25 @@ function useDraft(
 }
 
 /**
+ * What `message` says, its directives ahead of its words; its images go
+ * apart.
+ */
+function said(message: AppendMessage): string {
+	const text = message.content
+		.map((part) => (part.type === "text" ? part.text : ""))
+		.join("")
+		.trim();
+	return withDirectives(directivesOf(message.attachments ?? []), text);
+}
+
+/**
  * The images the agent can be sent, held as files until the message goes:
  * PNG, JPEG, GIF and WebP, the ones the server keeps.
  */
 class ImageAttachments extends SimpleImageAttachmentAdapter {
-	override accept = "image/png,image/jpeg,image/gif,image/webp";
+	// Directives too, which are text only and never come from a file.
+	override accept =
+		`image/png,image/jpeg,image/gif,image/webp,${DIRECTIVE_TYPE}`;
 }
 
 const IMAGES = new ImageAttachments();
@@ -2038,14 +2062,7 @@ function Thread({
 		[id, status, feed, refused],
 	);
 	const say = useCallback(
-		(message: AppendMessage) =>
-			send(
-				message.content
-					.map((part) => (part.type === "text" ? part.text : ""))
-					.join("")
-					.trim(),
-				imagesOf(message),
-			),
+		(message: AppendMessage) => send(said(message), imagesOf(message)),
 		[send],
 	);
 	const runtime = useExternalStoreRuntime({

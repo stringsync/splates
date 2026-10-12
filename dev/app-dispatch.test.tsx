@@ -95,12 +95,19 @@ describe("App's controls that put agents to work", () => {
 			}) as HTMLTextAreaElement
 		).value;
 
+	/** The directives the composer holds as chips, each by its title. */
+	const chips = (view: Awaited<ReturnType<typeof board>>) =>
+		Array.from(
+			view.container.querySelectorAll<HTMLElement>('[title^="[ARBOR "]'),
+			(chip) => chip.title,
+		);
+
 	const posted = (path: string) =>
 		testing.posts
 			.filter((post) => post.path === path)
 			.map((post) => JSON.parse(String(post.body ?? "{}")));
 
-	it("starts an open todo in a new conversation with the agent picked, its reference typed in and nothing sent", async () => {
+	it("starts an open todo in a new conversation with the agent picked, its reference held as a chip and nothing sent", async () => {
 		const view = await board([]);
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Fix the upload" })),
@@ -114,7 +121,11 @@ describe("App's controls that put agents to work", () => {
 		);
 
 		expect(location.hash).toBe("#conversations/new/codex");
-		expect(composer(view)).toBe("[ARBOR TODO #3]");
+		expect(chips(view)).toEqual(["[ARBOR TODO #3]"]);
+		expect(composer(view)).toBe("");
+		expect(view.getByTitle("[ARBOR TODO #3]").textContent).toBe(
+			"Todo #3Fix the upload",
+		);
 		expect(posted("/api/conversations")).toEqual([]);
 	});
 
@@ -135,7 +146,7 @@ describe("App's controls that put agents to work", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("puts a conversation already going on a lane, its reference typed ahead of its draft", async () => {
+	it("puts a conversation already going on a lane, its reference held as a chip ahead of its draft", async () => {
 		localStorage.setItem("arbor.draft.c2", "then stop");
 		const view = await board(
 			[conversation({ id: "c2", title: "Tidy the docs" })],
@@ -163,7 +174,8 @@ describe("App's controls that put agents to work", () => {
 		);
 
 		expect(location.hash).toBe("#conversations/c2");
-		expect(composer(view)).toBe("[ARBOR LANE 1]\n\nthen stop");
+		expect(chips(view)).toEqual(["[ARBOR LANE 1]"]);
+		expect(composer(view)).toBe("then stop");
 	});
 
 	it("lists a task's conversations in its dialog, in place of starting another", async () => {

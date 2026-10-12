@@ -12,3 +12,27 @@ export function laneReference(id: number): string {
 export function taskReference(task: string): string {
 	return `[ARBOR TASK ${task}]`;
 }
+
+/** One `[ARBOR ...]` directive at the start of a text, and the space after it. */
+const LEADING = /^\s*(\[ARBOR [A-Z]+(?: [^\]\s]+)?\])(?:\s+|$)/;
+
+/**
+ * The directives `text` starts with, in order, and what follows them; none
+ * when it starts with anything else.
+ */
+export function leadingDirectives(text: string): {
+	directives: string[];
+	rest: string;
+} {
+	const directives: string[] = [];
+	let rest = text;
+	for (
+		let found = LEADING.exec(rest);
+		found !== null;
+		found = LEADING.exec(rest)
+	) {
+		directives.push(found[1] as string);
+		rest = rest.slice(found[0].length);
+	}
+	return { directives, rest };
+}

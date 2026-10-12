@@ -2786,7 +2786,8 @@ describe("App's conversations", () => {
 						name: "Message input",
 					}) as HTMLTextAreaElement
 				).value,
-			).toBe("[ARBOR TODO #12]\n\nand keep it small");
+			).toBe("and keep it small");
+			expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy();
 			expect(posted("/api/conversations")).toEqual([]);
 			expect(posted("/api/conversations/c1/prompt")).toEqual([]);
 		});
@@ -2949,6 +2950,61 @@ describe("App's conversations", () => {
 			await go(again, "Tidy tests");
 			await go(again, "Fix login");
 			await waitFor(() => expect(box(again).value).toBe(""));
+		});
+
+		it("holds a directive typed at the start as a chip, and sends it ahead of the words", async () => {
+			const view = await conversations(held, "c1");
+			await type(view, "[ARBOR TODO #12] and keep it small");
+
+			await waitFor(() => expect(box(view).value).toBe("and keep it small"));
+			expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy();
+			expect(localStorage.getItem("arbor.draft.c1")).toBe(
+				"[ARBOR TODO #12]\n\nand keep it small",
+			);
+
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: { text: "[ARBOR TODO #12]\n\nand keep it small" },
+				},
+			]);
+			await waitFor(() =>
+				expect(view.queryByTitle("[ARBOR TODO #12]")).toBeNull(),
+			);
+			expect(localStorage.getItem("arbor.draft.c1") ?? "").toBe("");
+		});
+
+		it("sends a directive kept in a draft with nothing typed", async () => {
+			localStorage.setItem("arbor.draft.c1", "[ARBOR TASK alpha]");
+			const view = await conversations(held, "c1");
+			await waitFor(() =>
+				expect(view.getByTitle("[ARBOR TASK alpha]").textContent).toBe(
+					"Taskalpha",
+				),
+			);
+			expect(box(view).value).toBe("");
+
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "[ARBOR TASK alpha]" } },
+			]);
+		});
+
+		it("drops a directive from the draft when its chip is removed", async () => {
+			const view = await conversations(held, "c1");
+			await type(view, "[ARBOR LANE 2]");
+			await type(view, "then stop");
+
+			await act(async () =>
+				fireEvent.click(
+					view.getByRole("button", { name: "Remove [ARBOR LANE 2]" }),
+				),
+			);
+
+			expect(view.queryByTitle("[ARBOR LANE 2]")).toBeNull();
+			expect(box(view).value).toBe("then stop");
+			expect(localStorage.getItem("arbor.draft.c1")).toBe("then stop");
 		});
 
 		it("puts a message back in the composer when the server refuses it", async () => {

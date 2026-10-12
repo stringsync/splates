@@ -23,6 +23,7 @@
 @source "./lanes.tsx";
 @source "./links.tsx";
 @source "./conversations.tsx";
+@source "./directives.tsx";
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
 @source "./checkpoint.tsx";
