@@ -1533,7 +1533,9 @@ describe("App's conversations", () => {
 		);
 
 		await waitFor(() =>
-			expect(within(thread).getByText("running")).toBeTruthy(),
+			expect(
+				within(thread).getByRole("button", { name: "Stop generating" }),
+			).toBeTruthy(),
 		);
 		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
 	});
@@ -1608,7 +1610,9 @@ describe("App's conversations", () => {
 		);
 
 		await waitFor(() =>
-			expect(within(thread).getByText("running")).toBeTruthy(),
+			expect(
+				within(thread).getByRole("button", { name: "Stop generating" }),
+			).toBeTruthy(),
 		);
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 	});
@@ -1738,7 +1742,7 @@ describe("App's conversations", () => {
 			expect(within(thread).getByText("hi").tagName).toBe("STRONG"),
 		);
 		expect(thread.textContent).toContain("Working");
-		expect(within(thread).getByText("running")).toBeTruthy();
+		expect(within(thread).queryByText("running")).toBeNull();
 	});
 
 	it("says Working under a reply while its text streams", async () => {

@@ -3044,9 +3044,12 @@ function useFileMentions(task: string | null): TriggerAdapter | null {
 
 const MENTIONS_SHOWN = 8;
 
-/** Where the agent is, unless at rest: idle, or stopped until the next prompt. */
+/**
+ * Where the agent is, unless at rest (idle, or stopped until the next prompt)
+ * or running, which the thread and the conversation list already show.
+ */
 function StatusBadge({ status }: { status: Status }): JSX.Element | null {
-	if (status === "idle" || status === "stopped") {
+	if (status === "idle" || status === "stopped" || status === "running") {
 		return null;
 	}
 	return (
