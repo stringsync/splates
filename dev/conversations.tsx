@@ -2320,6 +2320,12 @@ function Thread({
 				]
 			: liked;
 	}, [conversation.messages, conversation.id, writing, running]);
+	// Where the person left off, as it opens: the first message they have yet
+	// to see, read on from there, else the bottom. Opening marks it read, so
+	// this holds what it was before.
+	const [openAt] = useState(() =>
+		conversation.unread ? String(conversation.seen) : undefined,
+	);
 	// Its last word asks questions, escalates, or asks for a review, or it
 	// asks as it works: the card takes the focus, not the composer, unless it
 	// holds a draft, nor the open questions' dialog.
@@ -2679,6 +2685,7 @@ function Thread({
 							<StartNewContext value={startNew}>
 								<ReplyContext value={reply}>
 									<ThreadView
+										openAt={openAt}
 										autoFocus={!(asking || answering) || typed}
 										mentions={mentions ?? undefined}
 										references={references}

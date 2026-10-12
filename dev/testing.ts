@@ -318,6 +318,7 @@ export function conversation(
 		name: null,
 		archived: false,
 		unread: false,
+		seen: 0,
 		messages: [],
 		ask: null,
 		settings: [],

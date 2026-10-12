@@ -253,6 +253,11 @@ export interface ConversationState {
 	 */
 	unread: boolean;
 	/**
+	 * How many of its messages, those not queued, the person had seen when it
+	 * was last marked read: an unread one opens at the one after.
+	 */
+	seen: number;
+	/**
 	 * Where the last checkpoint asked stands, kept in the log so a restart
 	 * still shows it; null when none was, or once the work went on past it.
 	 */
@@ -830,6 +835,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.name = entry.name;
 			} else if (entry.kind === "unread") {
 				state.unread = entry.unread;
+				if (!entry.unread) {
+					state.seen = sent(state.messages);
+				}
 			} else if (entry.kind === "checkpoint") {
 				state.checkpoint = entry.checkpoint;
 			} else if (entry.kind === "flags") {
@@ -1811,7 +1819,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			return;
 		}
 		this.write({ kind: "unread", unread });
-		this.set({ unread });
+		this.set(unread ? { unread } : { unread, seen: sent(this.state.messages) });
 	}
 
 	private async put({ archived }: { archived: boolean }): Promise<void> {
@@ -1903,8 +1911,14 @@ function blank(
 		createdAt,
 		archived: false,
 		unread: false,
+		seen: 0,
 		checkpoint: null,
 	};
+}
+
+/** How many of `messages` went out, as the thread shows them. */
+function sent(messages: Message[]): number {
+	return messages.filter((each) => !each.queued).length;
 }
 
 /** A prompt entry's images, left out of the log when there are none. */

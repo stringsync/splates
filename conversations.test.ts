@@ -1334,6 +1334,27 @@ describe("Conversations", () => {
 		expect((await reread())[0]?.state.unread).toBe(true);
 	});
 
+	it("counts the messages seen when last marked read, and reads it back", async () => {
+		const conversation = await started();
+		await conversation.prompt("hello");
+		await until(conversation, "idle");
+		await conversation.markUnread(false);
+		const seen = conversation.state.messages.length;
+		expect(conversation.state.seen).toBe(seen);
+
+		await conversation.prompt("again");
+		await until(conversation, "idle");
+
+		expect(conversation.state.seen).toBe(seen);
+		const reread = await new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch },
+		).list();
+		expect(reread[0]?.state.seen).toBe(seen);
+		expect(reread[0]?.state.messages.length).toBeGreaterThan(seen);
+	});
+
 	it("archives by stopping the agent, and takes no prompt until unarchived", async () => {
 		const conversation = await started();
 
@@ -1607,6 +1628,7 @@ describe("fold", () => {
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
 		unread: false,
+		seen: 0,
 		checkpoint: null,
 	});
 	const at = (secs: number) =>

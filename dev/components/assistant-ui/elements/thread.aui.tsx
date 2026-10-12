@@ -159,6 +159,8 @@ export type ThreadProps = {
 	references?: References | undefined;
 	/** The empty composer's hint, such as why it takes nothing. */
 	placeholder?: string | undefined;
+	/** The id of the message to open at, rather than the bottom. */
+	openAt?: string | undefined;
 };
 
 const ThreadExtrasContext = createContext<
@@ -216,6 +218,7 @@ export const Thread: FC<ThreadProps> = ({
 	mentions,
 	references,
 	placeholder,
+	openAt,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
 
@@ -231,16 +234,17 @@ export const Thread: FC<ThreadProps> = ({
 					placeholder,
 				}}
 			>
-				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} />
+				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} openAt={openAt} />
 			</ThreadExtrasContext.Provider>
 		</ThreadComponentsContext.Provider>
 	);
 };
 
-const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
-	isEmpty,
-	autoFocus,
-}) => {
+const ThreadRoot: FC<{
+	isEmpty: boolean;
+	autoFocus: boolean;
+	openAt: string | undefined;
+}> = ({ isEmpty, autoFocus, openAt }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -267,9 +271,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
 			delete (element as Partial<HTMLDivElement>).scrollTo;
 		};
 	}, []);
-	// First, so the room it leaves below a report is gone before a new turn
-	// is measured to anchor.
-	useOpenAt(viewport);
+	useOpenAt(viewport, openAt);
 	useAnchorAtOnce(viewport);
 	const footer = useRef<HTMLDivElement>(null);
 	useClearOf(viewport, footer);
@@ -383,9 +385,6 @@ function useClearOf(
 	}, [viewport, footer]);
 }
 
-/** What a turn opens the thread at, if it holds one: its last such card. */
-const OPENS_THREAD = "[data-opens-thread]";
-
 /**
  * How far down `element` sits in `scroller`, by layout, as assistant-ui
  * measures, so a fade's slide counts for nothing.
@@ -420,20 +419,19 @@ function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
 }
 
 /**
- * Opens `viewport` at the top of what its last turn marks to open at, just
- * clear of the person's message stuck above it, as on a report, else at the
- * bottom, as assistant-ui would. A report too near the foot of the thread to
- * reach the top gets room below it, as assistant-ui leaves below a new turn,
- * until another message comes. It holds there while what is above settles,
- * as markdown and cards render, until the person scrolls, clicks or types, or
- * a reply starts and `useAnchorAtOnce` takes over.
+ * Opens `viewport` at the top of message `at`, the first the person has yet
+ * to see, so they read on from where they left off, or else at the bottom, as
+ * assistant-ui would. It holds there while what is above settles, as markdown
+ * and cards render, until the person scrolls, clicks or types, or a reply
+ * starts and `useAnchorAtOnce` takes over.
  */
-function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
-	const count = useAuiState((s) => s.thread.messages.length);
-	const loaded = count > 0;
+function useOpenAt(
+	viewport: RefObject<HTMLDivElement | null>,
+	at: string | undefined,
+): void {
+	const loaded = useAuiState((s) => s.thread.messages.length > 0);
 	const running = useAuiState((s) => s.thread.isRunning);
 	const release = useRef(() => {});
-	const room = useRef<HTMLDivElement | null>(null);
 	useLayoutEffect(() => {
 		const scroller = viewport.current;
 		const content = scroller?.firstElementChild;
@@ -441,40 +439,25 @@ function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
 			return;
 		}
 		const place = () => {
-			const turn = [
-				...scroller.querySelectorAll<HTMLElement>('[data-slot="aui_turn"]'),
-			].at(-1);
-			const card = [
-				...(turn?.querySelectorAll<HTMLElement>(OPENS_THREAD) ?? []),
-			].at(-1)?.firstElementChild;
-			if (turn === undefined || !(card instanceof HTMLElement)) {
-				room.current?.remove();
+			const message =
+				at === undefined
+					? null
+					: scroller.querySelector<HTMLElement>(
+							`[data-message-id="${CSS.escape(at)}"]`,
+						);
+			const turn = message?.closest<HTMLElement>('[data-slot="aui_turn"]');
+			if (message == null || turn == null) {
 				scroller.scrollTop = scroller.scrollHeight;
-				return;
+			} else if (message === turn.firstElementChild) {
+				// The person's message that opens a turn reads from the turn's top.
+				scroller.scrollTop = layoutTop(turn, scroller);
+			} else {
+				toCardTop(message);
 			}
-			if (room.current === null) {
-				room.current = document.createElement("div");
-				room.current.setAttribute("aria-hidden", "true");
-				room.current.style.flexShrink = "0";
-				room.current.style.pointerEvents = "none";
-			}
-			// Inside the turn, so the person's message stays stuck above it.
-			if (room.current.parentElement !== turn) {
-				turn.append(room.current);
-			}
-			// Sets the card's scroll margin, which the room is sized to.
-			toCardTop(card);
-			makeRoom(
-				scroller,
-				room.current,
-				layoutTop(card, scroller) -
-					(Number.parseFloat(card.style.scrollMarginTop) || 0),
-			);
-			toCardTop(card);
 		};
 		place();
 		// Again once the parts assistant-ui renders through a renderer, as a
-		// report is, have come: it registers them a commit late.
+		// card is, have come: it registers them a commit late.
 		const frame = requestAnimationFrame(place);
 		const watching = new ResizeObserver(place);
 		watching.observe(scroller);
@@ -492,10 +475,7 @@ function useOpenAt(viewport: RefObject<HTMLDivElement | null>): void {
 		}
 		release.current = stop;
 		return stop;
-	}, [loaded, viewport]);
-	// Before a new turn is measured, so it anchors as if the room were never
-	// there.
-	useLayoutEffect(() => () => room.current?.remove(), [count]);
+	}, [loaded, at, viewport]);
 	useEffect(() => {
 		if (running) {
 			release.current();
@@ -1188,11 +1168,14 @@ const AssistantMessage: FC = () => {
 		TaskGroup: TaskGroupComponent,
 	} = useContext(ThreadComponentsContext);
 	const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
+	const id = useAuiState((s) => s.message.id);
 
 	return (
 		<MessagePrimitive.Root
 			data-slot="aui_assistant-message-root"
 			data-role="assistant"
+			// What `useOpenAt` finds the first unseen message by.
+			data-message-id={id}
 			// Always laid out, never `content-visibility: auto`: a reply it skips
 			// stands in at a guessed height for a frame, whenever it mounts or
 			// stops being the last, and a new turn is anchored against that.
@@ -1347,7 +1330,8 @@ const UserMessage: FC = () => {
 		<MessagePrimitive.Root
 			ref={unstuckTop}
 			data-slot="aui_user-message-root"
-			// What `useAnchorAtOnce` finds a new turn's start by.
+			// What `useAnchorAtOnce` finds a new turn's start by, and `useOpenAt`
+			// the first unseen message.
 			data-message-id={id}
 			className={cn(
 				"fade-in slide-in-from-bottom-1 animate-in flex flex-col gap-y-2 px-2 duration-150",

@@ -3072,52 +3072,42 @@ describe("App's conversations", () => {
 			return scrolled;
 		};
 
-		it("opens a conversation at its last turn's last report, clear of the person's message", async () => {
-			let header: HTMLElement | undefined;
+		const talk = [
+			message("user", "fix the footer"),
+			message("agent", "It moved."),
+			message("user", "fix the header"),
+			message("agent", "It wraps."),
+		];
+
+		it("opens an unread conversation at the first message its person has yet to see, clear of their message", async () => {
+			let reply: Element | null = null;
 			const scrolled = await scrollingIntoView(async (seen) => {
 				await conversations([
-					conversation({
-						messages: [
-							message("user", "fix the footer"),
-							message("agent", "## ✅ Merged footer onto main\n\nIt moved."),
-							message("user", "fix the header"),
-							message(
-								"agent",
-								[
-									"## 🛑 Removed sidebar: superseded by a fix on main",
-									"",
-									"## ✅ Merged header onto main",
-									"",
-									"It wraps.",
-								].join("\n"),
-							),
-						],
-					}),
+					conversation({ messages: talk, unread: true, seen: 3 }),
 				]);
-				header = await waitFor(() =>
-					within(document.body).getByRole("region", { name: "merged header" }),
-				);
-				await waitFor(() => expect(seen.at(-1)).toBe(header));
+				reply = await waitFor(() => {
+					const found = document.querySelector(
+						'[data-role="assistant"][data-message-id="3"]',
+					);
+					expect(found).not.toBeNull();
+					return found;
+				});
+				await waitFor(() => expect(seen.at(-1)).toBe(reply as Element));
 			});
 
-			expect(new Set<Element | undefined>(scrolled)).toEqual(new Set([header]));
-			expect(header?.style.scrollMarginTop).toMatch(/^\d+(\.\d+)?px$/);
+			expect(new Set<Element | null>(scrolled)).toEqual(new Set([reply]));
+			expect((reply as HTMLElement | null)?.style.scrollMarginTop).toMatch(
+				/^\d+(\.\d+)?px$/,
+			);
 		});
 
-		it("opens a conversation that talked on after a report at the bottom", async () => {
+		it("opens a conversation read to its end at the bottom", async () => {
 			const scrolled = await scrollingIntoView(async () => {
 				await conversations([
-					conversation({
-						messages: [
-							message("user", "fix the footer"),
-							message("agent", "## ✅ Merged footer onto main\n\nIt moved."),
-							message("user", "thanks"),
-							message("agent", "Any time."),
-						],
-					}),
+					conversation({ messages: talk, unread: false, seen: 1 }),
 				]);
 				await waitFor(() =>
-					within(document.body).getByRole("region", { name: "merged footer" }),
+					expect(within(document.body).getByText("It wraps.")).toBeTruthy(),
 				);
 				await act(() => new Promise((done) => requestAnimationFrame(done)));
 			});
