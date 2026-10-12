@@ -61,10 +61,13 @@ const REVIEW_END = 'Reply "merge", or say what to change.';
 /** An item of a numbered list, at the margin: `2. How should …?`. */
 const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
+/** An item's line that asks: it ends in `?`, or in `?` and an aside. */
+const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
 
 /**
  * `text` cut where it asks questions: a list numbered from 1 at the margin,
- * outside code blocks, every item a question (its line ends in `?`), the
+ * outside code blocks, every item a question (its line ends in `?`, or in
+ * `?` and an aside in parentheses: `(all that apply)`), the
  * lines indented under each its body and its `- (a)` or `- [a]` choices,
  * read as `## Blocked` reads them. Any other list is only text.
  */
@@ -232,7 +235,7 @@ function listAt(
 		}
 		end = i + 1;
 	}
-	if (!items.every(({ asked }) => asked.text.endsWith("?"))) {
+	if (!items.every(({ asked }) => ASKS.test(asked.text))) {
 		return null;
 	}
 	return {

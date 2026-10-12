@@ -212,6 +212,26 @@ describe("stretches", () => {
 		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 
+	it("reads a question with an aside after its question mark", () => {
+		const found = stretches(
+			[
+				"1. Should the Then choice move?",
+				"2. Which actions belong on the Done slide? (all that apply)",
+				"   - [a] Resume all",
+				"   - [b] Close",
+			].join("\n"),
+		);
+
+		const questions = found[0]?.type === "questions" ? found[0].questions : [];
+		expect(questions.map(({ text, pick }) => ({ text, pick }))).toEqual([
+			{ text: "Should the Then choice move?", pick: null },
+			{
+				text: "Which actions belong on the Done slide? (all that apply)",
+				pick: "any",
+			},
+		]);
+	});
+
 	it("reads choices that pick any, a blank line inside a body, and text after the list", () => {
 		const found = stretches(
 			[
