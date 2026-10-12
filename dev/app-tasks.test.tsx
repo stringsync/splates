@@ -183,7 +183,7 @@ describe("App's tasks", () => {
 			fireEvent.click(view.getByRole("button", { name: /beta/ })),
 		);
 		const other = await waitFor(() => view.getByRole("dialog"));
-		expect(other.textContent).toContain("1 of 3 tried");
+		expect(other.textContent).toContain("1 of 3 merges tried");
 		expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Close" })),

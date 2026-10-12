@@ -58,6 +58,22 @@ describe("App's controls that put agents to work", () => {
 		return view;
 	};
 
+	/** Opens task alpha's dialog from the Tasks page. */
+	const taskDialog = async (view: Awaited<ReturnType<typeof board>>) => {
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "tasks" })).getByRole(
+					"button",
+					{ name: /alpha/ },
+				),
+			),
+		);
+		return waitFor(() => view.getByRole("dialog"));
+	};
+
 	/** Picks `item` from the menu `trigger` opens. */
 	const choose = async (
 		view: Awaited<ReturnType<typeof board>>,
@@ -150,25 +166,22 @@ describe("App's controls that put agents to work", () => {
 		expect(composer(view)).toBe("[ARBOR LANE 1]\n\nthen stop");
 	});
 
-	it("lists a task's conversations in its dialog, and starts another in its tree", async () => {
+	it("lists a task's conversations in its dialog, in place of starting another", async () => {
 		const view = await board([
 			conversation({ id: "c1", task: "alpha", status: "running" }),
 		]);
-		await act(async () =>
-			fireEvent.click(view.getByRole("tab", { name: /Tasks/ })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("region", { name: "tasks" })).getByRole(
-					"button",
-					{ name: /alpha/ },
-				),
-			),
-		);
-		const dialog = await waitFor(() => view.getByRole("dialog"));
+		const dialog = await taskDialog(view);
 		expect(
 			within(dialog).getByRole("button", { name: "Open alpha" }),
 		).toBeTruthy();
+		expect(
+			within(dialog).queryByRole("button", { name: "Start a conversation" }),
+		).toBeNull();
+	});
+
+	it("starts a conversation in a task's tree from its dialog when none is on it", async () => {
+		const view = await board([]);
+		const dialog = await taskDialog(view);
 		testing.reply = conversation({
 			id: "c9",
 			task: "alpha",

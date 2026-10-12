@@ -16,7 +16,7 @@ import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
 import { retryTask } from "./api";
 import { ReviewChanges } from "./changes";
-import { OnIt, StartMenu } from "./dispatching";
+import { Dispatching, OnIt, StartMenu } from "./dispatching";
 import { Markdown } from "./markdown";
 import { type Nested, nest } from "./parts";
 
@@ -158,66 +158,29 @@ export function Progress({ done, total }: Counted): JSX.Element {
 	);
 }
 
-/** One task, all of it, in a dialog over the task list or a todo that names it. */
+/**
+ * One task, all of it, in a dialog over the task list or a todo that names
+ * it: who is on it first, then where it stands, then its plan.
+ */
 export function Task({ task }: { task: Details }): JSX.Element {
-	const review = useContext(ReviewChanges);
-	const fields: [string, ReactNode][] = [
-		["status", task.status],
-		["branch", task.branch],
-		["base", task.base],
-		["worktree", task.worktree],
-		["commits", String(task.ahead ?? "?")],
-		["merges", `${task.mergeAttempts} of ${task.mergeAttemptLimit} tried`],
-
-		[
-			"diff",
-			task.added === null ? (
-				"?"
-			) : (
-				<span key="diff" className="tabular-nums">
-					<span className="text-success">+{task.added}</span>{" "}
-					<span className="text-destructive">-{task.removed ?? 0}</span>
-				</span>
-			),
-		],
-		["age", task.age ?? "?"],
-	];
 	return (
 		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl">
 			<DialogHeader>
 				<DialogTitle>{task.task}</DialogTitle>
-				<DialogDescription>
-					{task.review === null
-						? (task.escalation ?? task.status)
-						: `Ready to merge: ${task.review}`}
-				</DialogDescription>
 			</DialogHeader>
 			<div className="flex min-w-0 flex-col gap-6 text-sm">
-				<dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1">
-					{fields.map(([name, value]) => (
-						<div key={name} className="contents">
-							<dt className="text-muted-foreground">{name}</dt>
-							<dd className="truncate">{value}</dd>
-						</div>
-					))}
-				</dl>
-				<Retry task={task} />
-				<Conversations task={task.task} />
-				{review !== null && task.ahead !== null && (
-					<DialogClose
-						render={
-							<Button
-								variant="outline"
-								size="sm"
-								className="self-start"
-								onClick={() => review(task.task)}
-							/>
-						}
-					>
-						<FileDiffIcon />
-						Review changes
-					</DialogClose>
-				)}
+				<OnTask task={task.task} />
+				<div className="flex flex-col gap-2">
+					<div className="flex flex-col gap-0.5">
+						<DialogDescription>
+							{task.review === null
+								? (task.escalation ?? task.status)
+								: `Ready to merge: ${task.review}`}
+						</DialogDescription>
+						<Facts task={task} />
+					</div>
+					<Retry task={task} />
+				</div>
 				{task.plan === null ? (
 					<p className="text-muted-foreground">
 						No ARBOR.md: whoever picks this up starts from the diff.
@@ -238,18 +201,85 @@ export function Task({ task }: { task: Details }): JSX.Element {
 }
 
 /**
- * Every conversation on the task, newest first, each opening on a click, and
- * a way to put another agent on it, in its tree.
+ * The conversations on the task, each opening on a click, or, when it has
+ * none, a way to put an agent on it: one or the other, never both.
  */
-function Conversations({ task }: { task: string }): JSX.Element {
+function OnTask({ task }: { task: string }): JSX.Element | null {
+	const context = useContext(Dispatching);
+	if (context === null) {
+		return null;
+	}
+	if (context.dispatch.on(task).some((row) => row.conversation !== null)) {
+		return <OnIt task={task} variant="rows" className="-mx-2" />;
+	}
 	return (
-		<div className="flex flex-col gap-1">
-			<OnIt task={task} variant="rows" className="-mx-2" />
-			<StartMenu
-				assignment={{ kind: "task", task }}
-				label="Start a conversation"
-				className="self-start"
-			/>
+		<StartMenu
+			assignment={{ kind: "task", task }}
+			label="Start a conversation"
+		/>
+	);
+}
+
+/**
+ * The rest of what arbor knows of a task, in two muted lines rather than a
+ * table: its branch onto its base and how much it holds, with its changes a
+ * click away, then its tree. The merges tried show only once there are some.
+ */
+function Facts({ task }: { task: Details }): JSX.Element {
+	const review = useContext(ReviewChanges);
+	const facts: [string, ReactNode][] = [
+		["branch", `${task.branch} → ${task.base}`],
+		["commits", `${task.ahead ?? "?"} commit${task.ahead === 1 ? "" : "s"}`],
+	];
+	if (task.added !== null) {
+		facts.push([
+			"diff",
+			<>
+				<span className="text-success">+{task.added}</span>{" "}
+				<span className="text-destructive">-{task.removed ?? 0}</span>
+				{review !== null && task.ahead !== null && (
+					<DialogClose
+						render={
+							<button
+								type="button"
+								className="ml-1.5 inline-flex items-center gap-1 rounded-sm text-foreground underline-offset-2 hover:underline"
+								onClick={() => review(task.task)}
+							/>
+						}
+					>
+						<FileDiffIcon className="size-3" />
+						Review changes
+					</DialogClose>
+				)}
+			</>,
+		]);
+	}
+	if (task.mergeAttempts > 0) {
+		facts.push([
+			"merges",
+			`${task.mergeAttempts} of ${task.mergeAttemptLimit} merges tried`,
+		]);
+	}
+	if (task.age !== null) {
+		facts.push(["age", `started ${task.age} ago`]);
+	}
+	return (
+		<div className="flex min-w-0 flex-col gap-0.5 text-muted-foreground text-xs tabular-nums">
+			<p className="flex min-w-0 flex-wrap gap-x-1">
+				{facts.map(([name, fact], i) => (
+					<span key={name} className="min-w-0 truncate">
+						{i > 0 && (
+							<span aria-hidden className="mr-1">
+								·
+							</span>
+						)}
+						{fact}
+					</span>
+				))}
+			</p>
+			<p className="truncate" title={task.worktree}>
+				{task.worktree}
+			</p>
 		</div>
 	);
 }
