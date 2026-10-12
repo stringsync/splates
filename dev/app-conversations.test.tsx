@@ -4188,6 +4188,79 @@ Cap upload retries
 			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
+		it("keeps the answers to an external agent across a reload, and marks its row once the reply is copied, until it asks again", async () => {
+			const gamma = (plan: string) =>
+				details({
+					task: "gamma",
+					status: "escalated",
+					escalation: "needs a call",
+					escalatedAt: "2026-10-11T10:00:00.000Z",
+					plan,
+				});
+			const opened = async (plan: string) => {
+				const view = await sidebar([], [gamma(plan)]);
+				await act(async () =>
+					fireEvent.click(view.getByRole("button", { name: /gamma/ })),
+				);
+				return view;
+			};
+			const answer = (view: Awaited<ReturnType<typeof sidebar>>) =>
+				(
+					within(view.getByRole("region", { name: "gamma" })).getByRole(
+						"textbox",
+						{ name: "Answer to 1" },
+					) as HTMLTextAreaElement
+				).value;
+			Object.defineProperty(navigator, "clipboard", {
+				configurable: true,
+				value: { writeText: async () => {} },
+			});
+
+			let view = await opened(PLAN);
+			await act(async () =>
+				fireEvent.change(view.getByRole("textbox", { name: "Answer to 1" }), {
+					target: { value: "three" },
+				}),
+			);
+			cleanup();
+			view = await opened(PLAN);
+			expect(answer(view)).toBe("three");
+			expect(rows(view)).toEqual([["gamma", "waiting on you"]]);
+
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Copy reply" })),
+			);
+			await waitFor(() =>
+				expect(rows(view)).toEqual([["gamma", "reply copied"]]),
+			);
+			// With you to paste, it no longer waits on you, nor does ⌥⌘M stop on it.
+			expect(view.getByText("Nothing waiting on you")).toBeTruthy();
+			expect(document.title).not.toContain("(1)");
+			await act(async () => {
+				location.hash = "#conversations/new";
+				window.dispatchEvent(new HashChangeEvent("hashchange"));
+			});
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					code: "KeyM",
+					altKey: true,
+					metaKey: true,
+				}),
+			);
+			expect(location.hash).toBe("#conversations/new");
+			// Kept, to copy again until its agent records it.
+			cleanup();
+			view = await opened(PLAN);
+			expect(answer(view)).toBe("three");
+			expect(rows(view)).toEqual([["gamma", "reply copied"]]);
+
+			// A question asked since waits on you again.
+			cleanup();
+			view = await opened(`${PLAN}- [ ] 2. Which errors count?\n`);
+			expect(rows(view)).toEqual([["gamma", "waiting on you"]]);
+			expect(answer(view)).toBe("three");
+		});
+
 		it("brings a session in from a task whose agent runs outside the page, and opens it", async () => {
 			testing.sessions = [
 				{

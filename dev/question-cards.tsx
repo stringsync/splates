@@ -237,7 +237,7 @@ export function QuestionCards({
 	 * report, which the reply opens by saying.
 	 */
 	blocked?: boolean;
-	/** Once the reply is sent from it. */
+	/** Once the reply is sent from it, or copied. */
 	onSent?: () => void;
 }): JSX.Element {
 	const { reply, sent } = useCardReply();
@@ -273,7 +273,8 @@ export function QuestionCards({
 		}
 		const text = blocked ? blockedReply(out) : out;
 		if (send === null) {
-			copyOut(text);
+			// Kept, to copy again until its agent records it.
+			copyOut(text, onSent);
 		} else {
 			// Sent from outside a message, nothing else drops what it kept.
 			void attempt(

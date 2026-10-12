@@ -5,7 +5,14 @@ import {
 	SquareArrowOutUpRightIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+	type JSX,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	Alert,
 	AlertDescription,
@@ -24,7 +31,8 @@ import { bringSession, listSessions } from "./api";
 import { Back } from "./back";
 import { toCardTop } from "./card-shell";
 import { type AgentChoice, agentName } from "./conversation-feed";
-import { QuestionCards } from "./question-cards";
+import { type Drafts, externalDraft } from "./drafts";
+import { QuestionCards, type Reply, ReplyContext } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { Task } from "./tasks";
 
@@ -34,6 +42,44 @@ export const TASK = "task/";
 /** The questions an agent has open: unchecked and unanswered in its plan. */
 export function openQuestions(need: Need): Question[] {
 	return "questions" in need ? need.questions : [];
+}
+
+/** Where the reply to task `task`'s external agent is kept in the page's drafts. */
+function draftOf(task: string): string {
+	return externalDraft(
+		new URLSearchParams(location.search).get("project"),
+		task,
+	);
+}
+
+/** The questions a copied reply answered, as kept beside it. */
+function asking(questions: Question[]): string {
+	return questions.map((asked) => `${asked.number}. ${asked.text}`).join("\n");
+}
+
+/**
+ * Whether the reply to every question task `task`'s external agent has open
+ * was copied, to paste into its session; a question asked since, not.
+ */
+export function replyCopied(drafts: Drafts, task: string, need: Need): boolean {
+	const open = openQuestions(need);
+	return (
+		open.length > 0 && drafts.read(`${draftOf(task)}:copied`) === asking(open)
+	);
+}
+
+/** Renders again as a reply is copied for an external agent, or let go. */
+export function useCopiedReplies(drafts: Drafts): void {
+	const [, setWrites] = useState(0);
+	useEffect(
+		() =>
+			drafts.events.on("written", (key) => {
+				if (key.startsWith("external:") && key.endsWith(":copied")) {
+					setWrites((writes) => writes + 1);
+				}
+			}),
+		[drafts],
+	);
 }
 
 /**
@@ -195,18 +241,21 @@ export function TaskLine({
  * cards, and what the page knows of the agent beyond its plan, whose details
  * the header's task line opens. The page cannot message that agent, so the cards
  * copy their answers to paste into its own session, unless its session is
- * brought in.
+ * brought in. What is written in them is kept in `drafts` until the agent
+ * has none open, so a reload loses nothing.
  */
 export function TaskView({
 	task,
 	need,
 	agents,
+	drafts,
 	onBrought,
 	onBack,
 }: {
 	task: Details;
 	need: Need;
 	agents: AgentChoice[];
+	drafts: Drafts;
 	/** Opens a session brought in, as the conversation it now is. */
 	onBrought: (conversation: ConversationState) => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
@@ -215,6 +264,24 @@ export function TaskView({
 	const [details, setDetails] = useState(false);
 	const open = openQuestions(need);
 	const section = useRef<HTMLElement>(null);
+	const kept = draftOf(task.task);
+	const reply = useMemo<Reply>(
+		() => ({
+			send: null,
+			drafts: {
+				read: (name) => drafts.read(`${kept}:${name}`),
+				write: (name, text) => drafts.write(`${kept}:${name}`, text),
+			},
+		}),
+		[drafts, kept],
+	);
+	// Its agent recorded every answer: nothing is left to keep.
+	useEffect(() => {
+		if (open.length === 0) {
+			drafts.write(`${kept}:questions`, "");
+			drafts.write(`${kept}:copied`, "");
+		}
+	}, [open.length, drafts, kept]);
 	useArrived(`${TASK}${task.task}`, () => toWaiting(section.current));
 	return (
 		<section
@@ -252,7 +319,15 @@ export function TaskView({
 					</Alert>
 					{open.length > 0 && (
 						<div id={`questions-${task.task}`} className="flex flex-col gap-2">
-							<QuestionCards questions={open} copy blocked />
+							<ReplyContext value={reply}>
+								<QuestionCards
+									questions={open}
+									draft="questions"
+									copy
+									blocked
+									onSent={() => drafts.write(`${kept}:copied`, asking(open))}
+								/>
+							</ReplyContext>
 						</div>
 					)}
 					{open.length === 0 && (

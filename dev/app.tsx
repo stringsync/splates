@@ -256,7 +256,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 
 	useFullscreenKey();
 
-	const waiting = useWaiting(talk, tasks);
+	const waiting = useWaiting(talk, drafts, tasks);
 	const counted = available && waiting > 0;
 	useEffect(() => {
 		document.title = counted ? `(${waiting}) ${name}` : name;
@@ -458,6 +458,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 													<ConversationList
 														feed={talk}
 														terminals={terminals}
+														drafts={drafts}
 														tasks={snapshot.tasks}
 														settings={settings}
 														open={page === "conversations" ? open : null}
@@ -472,6 +473,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 														<div className="border-t px-3 py-2">
 															<ConversationActions
 																feed={talk}
+																drafts={drafts}
 																tasks={snapshot.tasks}
 																open={page === "conversations" ? open : null}
 																onOpen={(id) => go("conversations", id)}

@@ -17,6 +17,7 @@ import {
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleDotIcon,
+	ClipboardCheckIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
 	GitBranchIcon,
@@ -154,11 +155,13 @@ import {
 	arriving,
 	openQuestions,
 	questionsAction,
+	replyCopied,
 	TASK,
 	TaskLine,
 	TaskView,
 	toWaiting,
 	useArrived,
+	useCopiedReplies,
 } from "./task-view";
 import { Task, TaskStatus } from "./tasks";
 import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
@@ -310,6 +313,7 @@ function openingOf(conversation: ConversationState): string | null {
 export function ConversationList({
 	feed,
 	terminals,
+	drafts,
 	tasks,
 	settings,
 	open,
@@ -318,6 +322,8 @@ export function ConversationList({
 	feed: ConversationFeed;
 	/** The page's shells, the main tree's among them. */
 	terminals: Terminals;
+	/** Where a reply copied for an external agent is kept. */
+	drafts: Drafts;
 	tasks: Details[];
 	/** What to notify of, or null for a list that notifies of nothing. */
 	settings: Settings | null;
@@ -338,6 +344,7 @@ export function ConversationList({
 
 	const listed = conversations.filter((each) => !each.archived);
 	const rows = rowsOf(tasks, conversations);
+	useCopiedReplies(drafts);
 	const archived = conversations.length - listed.length;
 	const nested = nest(rows, tasks, taskOfRow);
 	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
@@ -489,6 +496,7 @@ export function ConversationList({
 							<External
 								task={row.task}
 								need={row.need}
+								copied={copiedFor(drafts, null, row.task, row.need)}
 								current={`${TASK}${row.task.task}` === open}
 								onOpen={() => openRow(row)}
 								hint={held ? hintOf(shown, row) : null}
@@ -524,11 +532,14 @@ export function ConversationList({
  */
 export function ConversationActions({
 	feed,
+	drafts,
 	tasks,
 	open,
 	onOpen,
 }: {
 	feed: ConversationFeed;
+	/** Where a reply copied for an external agent is kept. */
+	drafts: Drafts;
 	tasks: Details[];
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
@@ -540,13 +551,14 @@ export function ConversationActions({
 		["changed"],
 	);
 	const rows = rowsOf(tasks, conversations);
+	useCopiedReplies(drafts);
 	const held = useHeld();
 	// Each time ⌥⌘M finds nothing to open, for the waiting line to say so.
 	const [nudges, setNudges] = useState(0);
 	// The latest, for the listener below, which outlives a render.
 	const next = useRef(() => {});
 	next.current = () => {
-		const waiting = nextWaiting(rows, open, true);
+		const waiting = nextWaiting(rows, drafts, open, true);
 		if (waiting !== undefined) {
 			arriveAt(openedBy(waiting));
 			onOpen(openedBy(waiting));
@@ -573,7 +585,7 @@ export function ConversationActions({
 	return (
 		<div className="flex flex-col gap-0.5">
 			<WaitingLine
-				waiting={rows.filter(waitsOnYou).length}
+				waiting={rows.filter((row) => waitsOnYou(row, drafts)).length}
 				nudges={nudges}
 				held={held}
 				onNext={() => next.current()}
@@ -702,12 +714,13 @@ function openedBy(row: Needing): string {
  */
 function nextWaiting(
 	rows: Needing[],
+	drafts: Drafts,
 	open: string | null,
 	settled = false,
 ): Needing | undefined {
 	const at = rows.findIndex((row) => openedBy(row) === open);
 	const around = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
-	const waiting = around.find(waitsOnYou);
+	const waiting = around.find((row) => waitsOnYou(row, drafts));
 	if (waiting !== undefined || !settled) {
 		return waiting;
 	}
@@ -785,17 +798,37 @@ function Rows({
 
 /**
  * How many agents wait on the person: conversations, and tasks whose agents
- * run outside the page.
+ * run outside the page, but for those whose reply was copied.
  */
-export function useWaiting(feed: ConversationFeed, tasks: Details[]): number {
+export function useWaiting(
+	feed: ConversationFeed,
+	drafts: Drafts,
+	tasks: Details[],
+): number {
 	const { conversations } = useReactive(
 		feed,
 		(feed) => ({ conversations: feed.conversations }),
 		["changed"],
 	);
+	useCopiedReplies(drafts);
 	return needs({ tasks, conversations }).filter(
-		(each) => each.need.kind === "waiting",
+		({ conversation, task, need }) =>
+			need.kind === "waiting" && !copiedFor(drafts, conversation, task, need),
 	).length;
+}
+
+/** Whether a row is an external agent whose reply was copied, to paste. */
+function copiedFor(
+	drafts: Drafts,
+	conversation: ConversationState | null,
+	task: Details | null,
+	need: Need,
+): boolean {
+	return (
+		conversation === null &&
+		task !== null &&
+		replyCopied(drafts, task.task, need)
+	);
 }
 
 /** When a row's conversation or task began; a task from before that, never. */
@@ -819,12 +852,15 @@ function needOf(tasks: Details[], conversation: ConversationState): Need {
 function External({
 	task,
 	need,
+	copied,
 	current,
 	onOpen,
 	hint = null,
 }: {
 	task: Details;
 	need: Need;
+	/** Whether the reply to its open questions was copied, to paste. */
+	copied: boolean;
 	current: boolean;
 	onOpen: () => void;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
@@ -851,10 +887,30 @@ function External({
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : need.kind === "working" || need.kind === "assuming" ? (
 				<Elsewhere />
+			) : copied ? (
+				<Copied />
 			) : (
 				<Mark need={need} />
 			)}
 		</button>
+	);
+}
+
+/**
+ * What a list shows of an external agent whose questions were all answered
+ * and the reply copied, in place of its alert: the page cannot tell whether
+ * it was pasted, only that it is with you to.
+ */
+function Copied(): JSX.Element {
+	return (
+		<span
+			role="status"
+			aria-label="reply copied"
+			title="Reply copied: paste it into its session"
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<ClipboardCheckIcon className="size-3.5 text-foreground/60" />
+		</span>
 	);
 }
 
@@ -1348,6 +1404,7 @@ export function Conversations({
 						<ConversationList
 							feed={feed}
 							terminals={terminals}
+							drafts={drafts}
 							tasks={tasks}
 							// A phone's browser notifies only from a service worker, and
 							// this list comes and goes with what is open.
@@ -1359,6 +1416,7 @@ export function Conversations({
 						<div className="border-t pt-3">
 							<ConversationActions
 								feed={feed}
+								drafts={drafts}
 								tasks={tasks}
 								open={open}
 								onOpen={onOpen}
@@ -1406,6 +1464,7 @@ export function Conversations({
 							task={external}
 							need={need(external, null)}
 							agents={agents}
+							drafts={drafts}
 							onBrought={(state) => {
 								feed.put(state);
 								onOpen(state.id);
@@ -1429,7 +1488,11 @@ export function Conversations({
 						refuseIn={refuse}
 						onArchived={() => onOpen(NEW)}
 						onLeft={() => {
-							const waiting = nextWaiting(rowsOf(tasks, conversations), open);
+							const waiting = nextWaiting(
+								rowsOf(tasks, conversations),
+								drafts,
+								open,
+							);
 							if (waiting === undefined || openedBy(waiting) === open) {
 								onOpen(NEW);
 							} else {
@@ -2616,9 +2679,16 @@ function Thread({
 
 /**
  * Whether ⌥⌘M stops on `row`: an agent stopped on you, or one asking as it
- * works, while it has questions no reply has answered yet.
+ * works, while it has questions no reply has answered yet, nor for an
+ * external agent, copied.
  */
-function waitsOnYou({ conversation, need }: Needing): boolean {
+function waitsOnYou(
+	{ conversation, task, need }: Needing,
+	drafts: Drafts,
+): boolean {
+	if (copiedFor(drafts, conversation, task, need)) {
+		return false;
+	}
 	if (need.kind === "waiting" && need.why !== "questions") {
 		return true;
 	}

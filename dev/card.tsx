@@ -47,7 +47,11 @@ export type Copied =
  * Copies text for pasting into a chat; `copied` says how it went, for a
  * moment, so the control that was clicked can say so in place.
  */
-export function useCopy(): { copied: Copied; copy: (text: string) => void } {
+export function useCopy(): {
+	copied: Copied;
+	/** Copies `text`, then once it is on the clipboard, `then`. */
+	copy: (text: string, then?: () => void) => void;
+} {
 	const [copied, setCopied] = useState<Copied>({ state: "idle" });
 	useEffect(() => {
 		if (copied.state === "idle") {
@@ -56,9 +60,12 @@ export function useCopy(): { copied: Copied; copy: (text: string) => void } {
 		const back = setTimeout(() => setCopied({ state: "idle" }), COPIED_MS);
 		return () => clearTimeout(back);
 	}, [copied]);
-	const copy = (text: string) =>
+	const copy = (text: string, then?: () => void) =>
 		void navigator.clipboard.writeText(text).then(
-			() => setCopied({ state: "copied" }),
+			() => {
+				setCopied({ state: "copied" });
+				then?.();
+			},
 			(error: unknown) =>
 				setCopied({
 					state: "failed",

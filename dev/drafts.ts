@@ -87,6 +87,14 @@ export function newDraft(
 		: `new:${project ?? ""}:${task}`;
 }
 
+/**
+ * The key what is written to task `task`'s agent, which runs outside the
+ * page, is kept under, each thing under a name of its own after it.
+ */
+export function externalDraft(project: string | null, task: string): string {
+	return `external:${project ?? ""}:${task}`;
+}
+
 /** The key of the todo being added at the foot of `lane`, null the untriaged one. */
 export function todoDraft(project: string | null, lane: number | null): string {
 	return `todo:new:${project ?? ""}:${lane ?? "untriaged"}`;
