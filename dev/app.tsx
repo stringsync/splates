@@ -2,6 +2,7 @@ import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	GitBranchIcon,
 	KanbanIcon,
+	Loader2Icon,
 	type LucideIcon,
 	MessagesSquareIcon,
 	SettingsIcon,
@@ -38,7 +39,7 @@ import { Dispatch } from "./dispatch";
 import { Dispatching } from "./dispatching";
 import { Drafts } from "./drafts";
 import { Feed } from "./feed";
-import { ProjectSwitcher } from "./projects";
+import { ProjectSwitcher, shownProject } from "./projects";
 import { ReleaseHint } from "./release";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
@@ -179,6 +180,9 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		history.replaceState(null, "", next === "todos" ? " " : hash);
 	};
 	const tasks = snapshot?.tasks ?? NO_TASKS;
+	// Before the first snapshot, the project the address names, so a switch
+	// heads the page with where it is going rather than "arbor".
+	const name = snapshot?.repo ?? shownProject() ?? "arbor";
 	const dispatching = useMemo(
 		() =>
 			available
@@ -217,9 +221,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	const waiting = useWaiting(talk, tasks);
 	const counted = available && waiting > 0;
 	useEffect(() => {
-		const name = snapshot?.repo ?? "arbor";
 		document.title = counted ? `(${waiting}) ${name}` : name;
-	}, [snapshot?.repo, counted, waiting]);
+	}, [name, counted, waiting]);
 
 	const wide = useWide();
 	// Dragged wider or narrower by its edge, and kept for the next visit.
@@ -323,7 +326,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 											)}
 										>
 											<div className="flex min-w-0 items-center gap-2">
-												<ProjectSwitcher name={snapshot?.repo ?? "arbor"} />
+												<ProjectSwitcher name={name} />
 												{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it
 									    shows may no longer be true. */}
@@ -434,7 +437,21 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 										{wide && <SidebarHandle sidebar={sidebar} />}
 									</>
 								)}
-								{snapshot === null ? null : (
+								{snapshot === null ? (
+									// The server opens a project on its first read, which takes
+									// seconds. Offline or outdated, the header already says why
+									// nothing came.
+									!offline &&
+									outdated === null && (
+										<div
+											role="status"
+											className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+										>
+											<Loader2Icon className="size-4 animate-spin" />
+											Opening {name}
+										</div>
+									)
+								) : (
 									<>
 										{/* The board runs as wide as its lanes, the way a Trello board
 						    scrolls sideways. */}

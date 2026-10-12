@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { act, cleanup, fireEvent, snapshot, Testing, waitFor } from "./testing";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	snapshot,
+	Testing,
+	waitFor,
+	within,
+} from "./testing";
 
 /** Puts the page at `url`, which `history` cannot do from `about:blank`. */
 function visit(url: string): void {
@@ -79,6 +87,34 @@ describe("App's projects", () => {
 		await testing.open();
 
 		expect(asked).toContain("/api/snapshot?project=shop");
+		globalThis.fetch = fetched;
+	});
+
+	it("says it is opening the project the address names until its snapshot arrives", async () => {
+		visit("http://localhost/?project=shop");
+		let arrive = () => {};
+		const held = new Promise<void>((resolve) => {
+			arrive = resolve;
+		});
+		const fetched = globalThis.fetch;
+		globalThis.fetch = (async (path: string, init?: RequestInit) => {
+			if (path.startsWith("/api/snapshot")) {
+				await held;
+			}
+			return fetched(path, init);
+		}) as typeof fetch;
+
+		const opening = testing.open();
+		const screen = within(document.body);
+		const status = await waitFor(() => screen.getByText("Opening shop"));
+		expect(status.getAttribute("role")).toBe("status");
+		expect(
+			screen.getByRole("button", { name: "Switch project" }).textContent,
+		).toBe("shop");
+		arrive();
+		await opening;
+
+		expect(screen.queryByText("Opening shop")).toBeNull();
 		globalThis.fetch = fetched;
 	});
 
