@@ -39,13 +39,13 @@ const shown = (src: string, name: string) => ({
 
 const AttachmentThumb: FC<{ src: string | undefined }> = ({ src }) => {
 	return (
-		<Avatar className="aui-attachment-tile-avatar h-full w-full rounded-none">
+		<Avatar className="aui-attachment-tile-avatar h-full w-full rounded-none after:hidden">
 			<AvatarImage
 				src={src}
 				alt=""
 				className="aui-attachment-tile-image rounded-none object-cover"
 			/>
-			<AvatarFallback>
+			<AvatarFallback className="rounded-none">
 				<FileText className="aui-attachment-tile-fallback-icon text-muted-foreground/80 size-6 stroke-[1.5]" />
 			</AvatarFallback>
 		</Avatar>
