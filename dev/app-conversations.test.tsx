@@ -1475,6 +1475,112 @@ describe("App's conversations", () => {
 			).toBe("false");
 		});
 
+		it("labels how each question picks, and marks the agent's pick", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message("user", "fix the header"),
+						message(
+							"agent",
+							[
+								"1. How should a stale todo be shown?",
+								"   - (a) A muted card (chosen)",
+								"   - (b) A badge",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+			const first = await waitFor(() => card(view, "1"));
+
+			expect(within(first).getByText("Pick one")).toBeTruthy();
+			expect(
+				within(first).getByRole("button", { name: /A muted card/ }).textContent,
+			).toContain("Recommended");
+			expect(within(first).queryByText(/\(chosen\)/)).toBeNull();
+			expect(
+				within(card(view, "1")).queryByText("Select all that apply"),
+			).toBeNull();
+		});
+
+		it("puts an order question's choices in order by its buttons and Alt with the arrows, sending the letters", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Settings",
+					messages: [
+						message("user", "add settings pages"),
+						message(
+							"agent",
+							[
+								"1. In what order should the pages land?",
+								"   - a. Profile",
+								"   - b. Billing",
+								"   - c. Notifications",
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+			const first = await waitFor(() => card(view, "1"));
+			const order = () =>
+				within(first)
+					.getAllByRole("listitem")
+					.map(
+						(row) =>
+							row.textContent?.match(/Profile|Billing|Notifications/)?.[0],
+					);
+
+			expect(
+				within(first).getByText("Put in order, first at the top"),
+			).toBeTruthy();
+			await act(async () =>
+				fireEvent.click(
+					within(first).getByRole("button", { name: "Move c up" }),
+				),
+			);
+			expect(order()).toEqual(["Profile", "Notifications", "Billing"]);
+			const top = within(first).getAllByRole("listitem")[0] as HTMLElement;
+			await act(async () => top.focus());
+			await act(async () =>
+				fireEvent.keyDown(top, { key: "ArrowDown", altKey: true }),
+			);
+			expect(order()).toEqual(["Notifications", "Profile", "Billing"]);
+			await act(async () =>
+				fireEvent.keyDown(top, { key: "Enter", metaKey: true }),
+			);
+
+			expect(posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "1. c, a, b" } },
+			]);
+		});
+
+		it("answers an order question with the order as it stands", async () => {
+			const view = await conversations([
+				conversation({
+					title: "Settings",
+					messages: [
+						message("user", "add settings pages"),
+						message(
+							"agent",
+							"1. In what order?\n   - a. Profile\n   - b. Billing",
+						),
+					],
+				}),
+			]);
+			const first = await waitFor(() => card(view, "1"));
+			await act(async () =>
+				fireEvent.click(
+					within(first).getByRole("button", { name: "Keep this order" }),
+				),
+			);
+
+			expect(
+				within(first).getByRole("button", { name: "Clear order" }),
+			).toBeTruthy();
+			expect(view.getByText("1 of 1 answered")).toBeTruthy();
+		});
+
 		it("folds questions once replied to, opening on the answers sent, never asking them again", async () => {
 			const view = await conversations([
 				conversation({

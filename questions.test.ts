@@ -76,7 +76,7 @@ Prose back at the margin ends it.
 					"",
 					"![before](/tmp/before.png) ![after](/tmp/after.png)",
 				].join("\n"),
-				choices: [{ key: "a", text: "Ship it" }],
+				choices: [{ key: "a", text: "Ship it", chosen: false }],
 				pick: "one",
 			}),
 		]);
@@ -86,8 +86,8 @@ Prose back at the margin ends it.
 		const [first, second, third, fourth, fifth] = questions(CHOICES);
 		expect(first).toMatchObject({
 			choices: [
-				{ key: "a", text: "Force everyone to sign in again" },
-				{ key: "b", text: "Migrate on next login" },
+				{ key: "a", text: "Force everyone to sign in again", chosen: false },
+				{ key: "b", text: "Migrate on next login", chosen: true },
 			],
 			pick: "one",
 		});
@@ -95,6 +95,23 @@ Prose back at the margin ends it.
 		expect(third).toMatchObject({ choices: [], pick: null });
 		expect(fourth?.pick).toBe("one");
 		expect(fifth).toMatchObject({ pick: "any" });
+	});
+
+	it("reads `- a.` choices as ones a reply puts in order", () => {
+		const [asked] = questions(`${GOOD}
+## Blocked
+
+- [ ] 1. In what order should these land?
+  - a. The schema
+  - b. The API (chosen)
+`);
+		expect(asked).toMatchObject({
+			choices: [
+				{ key: "a", text: "The schema", chosen: false },
+				{ key: "b", text: "The API", chosen: true },
+			],
+			pick: "order",
+		});
 	});
 });
 
@@ -128,7 +145,7 @@ const CHOICES = `${GOOD}
 
 - [ ] 1. How do old sessions move over?
   - (a) Force everyone to sign in again
-  - (b) Migrate on next login
+  - (b) Migrate on next login (chosen)
 - [ ] 2. Which table? → b (users): and backfill
   - (a) sessions
   - (b) users

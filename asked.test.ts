@@ -56,8 +56,8 @@ describe("stretches", () => {
 				text: "How should a stale todo be shown?",
 				body: "",
 				choices: [
-					{ key: "a", text: "A muted card" },
-					{ key: "b", text: 'A "stale" badge' },
+					{ key: "a", text: "A muted card", chosen: false },
+					{ key: "b", text: 'A "stale" badge', chosen: false },
 				],
 				pick: "one",
 			},
@@ -237,7 +237,7 @@ describe("stretches", () => {
 
 describe("withAnswer", () => {
 	const choices = (keys: string) =>
-		[...keys].map((key) => ({ key, text: `choice ${key}` }));
+		[...keys].map((key) => ({ key, text: `choice ${key}`, chosen: false }));
 	const one = { number: "1", choices: choices("ab") };
 	const two = { number: "2", choices: choices("abc") };
 	const three = { number: "3", choices: [] };
@@ -304,6 +304,14 @@ describe("withAnswer", () => {
 		expect(withAnswer("", two, { picks: ["a"], words: "a lot" })).toBe(
 			"2. a: a lot",
 		);
+	});
+
+	it("keeps the order a reply puts choices in", () => {
+		const order = { number: "4", choices: choices("abc") };
+		const reply = withAnswer("", order, { picks: ["c", "a", "b"], words: "" });
+
+		expect(reply).toBe("4. c, a, b");
+		expect(answerIn(reply, order)?.picks).toEqual(["c", "a", "b"]);
 	});
 
 	it("reads what a reply says besides its answers", () => {

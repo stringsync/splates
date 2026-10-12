@@ -1,5 +1,7 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import {
+	ArrowDownIcon,
+	ArrowUpIcon,
 	CheckIcon,
 	CopyIcon,
 	GitMergeIcon,
@@ -502,66 +504,77 @@ function QuestionCard({
 						/>
 					)}
 				</div>
-				{choices.length > 0 && (
-					<fieldset
-						aria-label={text}
-						onKeyDown={keys}
-						className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
-					>
-						{pick === "any" && (
+				{pick === "order" ? (
+					<Ranking
+						asked={asked}
+						answer={said}
+						live={live}
+						onAnswer={onAnswer}
+						onNext={onNext}
+					/>
+				) : (
+					choices.length > 0 && (
+						<fieldset
+							aria-label={text}
+							onKeyDown={keys}
+							className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+						>
 							<legend className="mb-1.5 text-muted-foreground text-xs">
-								Pick any
+								{pick === "any" ? "Select all that apply" : "Pick one"}
 							</legend>
-						)}
-						{choices.map((choice, index) => {
-							const on = said.picks.includes(choice.key);
-							return (
-								<button
-									key={choice.key}
-									type="button"
-									aria-pressed={on}
-									disabled={!live}
-									// One stop per question for Tab; the arrows and letters move
-									// within it.
-									tabIndex={index === at ? 0 : -1}
-									data-stop={index === at ? number : undefined}
-									onFocus={() => setAt(index)}
-									onClick={() => toggle(choice.key)}
-									// Ringed on any focus, not just a keyboard one, since a card
-									// that comes up focuses its first choice itself.
-									className={cn(
-										"group flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition-[background-color,border-color,box-shadow,transform] duration-150 focus:ring-3 focus:ring-ring/40 active:scale-[0.99] disabled:cursor-default",
-										on
-											? "border-primary/60 bg-primary/[0.04] shadow-xs ring-1 ring-primary/15"
-											: "border-border/70 bg-background hover:border-border hover:bg-muted/50",
-									)}
-								>
-									<span
+							{choices.map((choice, index) => {
+								const on = said.picks.includes(choice.key);
+								return (
+									<button
+										key={choice.key}
+										type="button"
+										aria-pressed={on}
+										disabled={!live}
+										// One stop per question for Tab; the arrows and letters move
+										// within it.
+										tabIndex={index === at ? 0 : -1}
+										data-stop={index === at ? number : undefined}
+										onFocus={() => setAt(index)}
+										onClick={() => toggle(choice.key)}
+										// Ringed on any focus, not just a keyboard one, since a card
+										// that comes up focuses its first choice itself.
 										className={cn(
-											"flex size-5 shrink-0 items-center justify-center rounded-md border font-medium font-mono text-[11px] transition-colors duration-150",
+											"group flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm outline-none transition-[background-color,border-color,box-shadow,transform] duration-150 focus:ring-3 focus:ring-ring/40 active:scale-[0.99] disabled:cursor-default",
 											on
-												? "border-primary bg-primary text-primary-foreground"
-												: "bg-muted/60 text-muted-foreground group-hover:bg-background",
+												? "border-primary/60 bg-primary/[0.04] shadow-xs ring-1 ring-primary/15"
+												: "border-border/70 bg-background hover:border-border hover:bg-muted/50",
 										)}
 									>
-										{choice.key}
-									</span>
-									<Markdown
-										text={choice.text}
-										inline
-										unlinked
-										className="flex-1"
-									/>
-									<CheckIcon
-										className={cn(
-											"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",
-											on ? "scale-100 opacity-100" : "scale-75 opacity-0",
-										)}
-									/>
-								</button>
-							);
-						})}
-					</fieldset>
+										<span
+											className={cn(
+												"flex size-5 shrink-0 items-center justify-center border font-medium font-mono text-[11px] transition-colors duration-150",
+												// A circle picks one, as a radio does; a square any.
+												pick === "any" ? "rounded-md" : "rounded-full",
+												on
+													? "border-primary bg-primary text-primary-foreground"
+													: "bg-muted/60 text-muted-foreground group-hover:bg-background",
+											)}
+										>
+											{choice.key}
+										</span>
+										<Markdown
+											text={choice.text}
+											inline
+											unlinked
+											className="flex-1"
+										/>
+										{choice.chosen && <Chosen />}
+										<CheckIcon
+											className={cn(
+												"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",
+												on ? "scale-100 opacity-100" : "scale-75 opacity-0",
+											)}
+										/>
+									</button>
+								);
+							})}
+						</fieldset>
+					)
 				)}
 				{live ? (
 					<textarea
@@ -587,6 +600,169 @@ function QuestionCard({
 				)}
 			</div>
 		</li>
+	);
+}
+
+/** Marks the choice the agent went with while it waits for the reply. */
+function Chosen(): JSX.Element {
+	return (
+		<span className="shrink-0 rounded-full border px-1.5 py-px text-[11px] text-muted-foreground">
+			Recommended
+		</span>
+	);
+}
+
+/**
+ * The choices in the order an answer puts them, those it leaves out after in
+ * the order they were offered: the agent's order until the person moves one.
+ */
+function ranked(asked: Question, answer: Answer): Question["choices"] {
+	const placed = answer.picks.flatMap(
+		(key) => asked.choices.find((choice) => choice.key === key) ?? [],
+	);
+	return [
+		...placed,
+		...asked.choices.filter((choice) => !placed.includes(choice)),
+	];
+}
+
+/**
+ * A question whose choices are put in order: each moves up or down by its
+ * buttons, or with Alt and the arrows, and the answer is every choice's
+ * letter in the order they end up in. "Keep this order" answers with the
+ * order as it stands.
+ */
+function Ranking({
+	asked,
+	answer,
+	live,
+	onAnswer,
+	onNext,
+}: {
+	asked: Question;
+	answer: Answer;
+	live: boolean;
+	onAnswer: (answer: Answer) => void;
+	onNext: () => void;
+}): JSX.Element {
+	const { number, text } = asked;
+	const order = ranked(asked, answer);
+	const answered = answer.picks.length > 0;
+	const [at, setAt] = useState(0);
+	const list = useRef<HTMLOListElement>(null);
+	const focus = (index: number) => {
+		setAt(index);
+		list.current?.querySelectorAll<HTMLElement>("[data-row]")[index]?.focus();
+	};
+	const move = (from: number, step: number) => {
+		const to = from + step;
+		if (to < 0 || to >= order.length) {
+			return;
+		}
+		const next = order.map((choice) => choice.key);
+		next.splice(to, 0, ...next.splice(from, 1));
+		onAnswer({ ...answer, picks: next });
+		// The focus goes with the choice it was on.
+		setAt(to);
+		requestAnimationFrame(() => focus(to));
+	};
+	const keys = (event: KeyboardEvent<HTMLOListElement>) => {
+		if (event.metaKey || event.ctrlKey) {
+			return;
+		}
+		const step =
+			event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+		if (step !== 0) {
+			event.preventDefault();
+			if (event.altKey) {
+				move(at, step);
+			} else {
+				focus((at + step + order.length) % order.length);
+			}
+		} else if (event.key === "Enter") {
+			event.preventDefault();
+			onNext();
+		}
+	};
+	return (
+		<div className="flex flex-col gap-1.5">
+			<p className="text-muted-foreground text-xs">
+				Put in order, first at the top
+			</p>
+			<ol
+				ref={list}
+				aria-label={text}
+				onKeyDown={live ? keys : undefined}
+				className="flex flex-col gap-1.5"
+			>
+				{order.map((choice, index) => (
+					<li
+						key={choice.key}
+						data-row
+						tabIndex={live ? (index === at ? 0 : -1) : undefined}
+						data-stop={live && index === at ? number : undefined}
+						onFocus={() => setAt(index)}
+						className={cn(
+							"flex items-center gap-3 rounded-lg border px-3 py-1.5 text-sm outline-none transition-[background-color,border-color,box-shadow] duration-150 focus:ring-3 focus:ring-ring/40",
+							answered
+								? "border-primary/60 bg-primary/[0.04]"
+								: "border-border/70 bg-background",
+						)}
+					>
+						<span className="w-3 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+							{index + 1}
+						</span>
+						<span className="flex size-5 shrink-0 items-center justify-center rounded-md border bg-muted/60 font-medium font-mono text-[11px] text-muted-foreground">
+							{choice.key}
+						</span>
+						<Markdown text={choice.text} inline unlinked className="flex-1" />
+						{live && (
+							<span className="flex shrink-0">
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									tabIndex={-1}
+									aria-label={`Move ${choice.key} up`}
+									disabled={index === 0}
+									onClick={() => move(index, -1)}
+								>
+									<ArrowUpIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									tabIndex={-1}
+									aria-label={`Move ${choice.key} down`}
+									disabled={index === order.length - 1}
+									onClick={() => move(index, 1)}
+								>
+									<ArrowDownIcon />
+								</Button>
+							</span>
+						)}
+					</li>
+				))}
+			</ol>
+			{live && (
+				<div className="flex items-center gap-3">
+					<p className="flex-1 text-muted-foreground text-xs">
+						<Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> moves
+					</p>
+					<Button
+						variant="outline"
+						size="xs"
+						onClick={() =>
+							onAnswer({
+								...answer,
+								picks: answered ? [] : order.map((choice) => choice.key),
+							})
+						}
+					>
+						{answered ? "Clear order" : "Keep this order"}
+					</Button>
+				</div>
+			)}
+		</div>
 	);
 }
 

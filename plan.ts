@@ -30,7 +30,8 @@ export function goalLine(text: string): string | null {
 /**
  * One `- [ ] 9.` item under `## Blocked`: something only a person can do.
  * The item's line is its subject; lines indented under it are its body, and
- * `- (a) ...` or `- [a] ...` lines among them are the answers it offers.
+ * `- (a) ...`, `- [a] ...` or `- a. ...` lines among them are the answers it
+ * offers.
  */
 export interface Question {
 	/** As the plan numbers it, `9`: the name a reply goes by. */
@@ -59,16 +60,24 @@ export interface Question {
 	choices: Choice[];
 	/**
 	 * `one` for `- (a)` choices, at most one of which a reply picks; `any` for
-	 * `- [a]` choices, where it picks all that apply. Null without choices.
+	 * `- [a]` choices, where it picks all that apply; `order` for `- a.`
+	 * choices, which a reply puts in order, every one of them, as `b, a, c`.
+	 * Null without choices.
 	 */
-	pick: "one" | "any" | null;
+	pick: "one" | "any" | "order" | null;
 }
 
 /** One answer a question offers: `- (b) Migrate on next login`. */
 export interface Choice {
 	/** The letter it goes by: `b`. */
 	key: string;
+	/** What it says, without the `(chosen)` that may end it. */
 	text: string;
+	/**
+	 * Marked `(chosen)`: what the agent went with while it waits for the reply,
+	 * which picks nothing for the person.
+	 */
+	chosen: boolean;
 }
 
 const ITEM = /^[ \t]*- \[([ xX])\] [Qq]?(\d+)\.[ \t]*(.*)$/;
@@ -76,8 +85,11 @@ const ITEM = /^[ \t]*- \[([ xX])\] [Qq]?(\d+)\.[ \t]*(.*)$/;
 const ARROW = " → ";
 /** A follow-up: a line of its own under the question, led by the arrow. */
 const FOLLOW_UP = /^[ \t]+→[ \t]+(.*)$/;
-/** `- (a) text` picks one, `- [a] text` picks any. */
-const CHOICE = /^[ \t]+- (?:\(([a-z])\)|\[([a-z])\])[ \t]+(.+)$/;
+/** `- (a) text` picks one, `- [a] text` picks any, `- a. text` is put in order. */
+const CHOICE =
+	/^[ \t]+- (?:\(([a-z])\)|\[([a-z])\]|([a-z])\.)[ \t]+(.+?)[ \t]*$/;
+/** What ends the choice the agent went with. */
+const CHOSEN = /[ \t]*\(chosen\)$/i;
 
 /**
  * Every numbered item under `## Blocked`, open or checked off, each with the
@@ -118,8 +130,9 @@ export function questions(text: string): Question[] {
 
 /**
  * Adds the choice `line` offers to `asked`, saying whether it was one: an
- * indented `- (a) text` picks one, `- [a] text` picks any. The same in a plan
- * and in a conversation, which `asked.ts` reads with this.
+ * indented `- (a) text` picks one, `- [a] text` picks any, and `- a. text` is
+ * put in order. The first choice says which for the question. The same in a
+ * plan and in a conversation, which `asked.ts` reads with this.
  */
 export function offers(
 	asked: Pick<Question, "choices" | "pick">,
@@ -129,11 +142,14 @@ export function offers(
 	if (choice === null) {
 		return false;
 	}
+	const [, one, any, order, text = ""] = choice;
 	asked.choices.push({
-		key: choice[1] ?? choice[2] ?? "",
-		text: (choice[3] ?? "").trim(),
+		key: one ?? any ?? order ?? "",
+		text: text.replace(CHOSEN, ""),
+		chosen: CHOSEN.test(text),
 	});
-	asked.pick ??= choice[1] === undefined ? "any" : "one";
+	asked.pick ??=
+		one !== undefined ? "one" : any !== undefined ? "any" : "order";
 	return true;
 }
 
