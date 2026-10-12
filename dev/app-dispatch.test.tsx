@@ -129,6 +129,21 @@ describe("App's controls that put agents to work", () => {
 		expect(posted("/api/conversations")).toEqual([]);
 	});
 
+	it("shows only a spinner, not its agent's logo, on a taken todo whose agent works", async () => {
+		const view = await board([
+			conversation({ id: "c1", task: "alpha", status: "running" }),
+		]);
+		const card = within(
+			view.getByRole("list", { name: "Uploads todos" }),
+		).getAllByRole("listitem")[1] as HTMLElement;
+		const chip = within(card).getByRole("button", { name: "Open alpha" });
+
+		expect(within(chip).getByRole("status").getAttribute("aria-label")).toBe(
+			"working",
+		);
+		expect(within(chip).queryByRole("img")).toBeNull();
+	});
+
 	it("shows the conversation on a taken todo, and opens it, saying Resume once its agent stopped", async () => {
 		const view = await board([
 			conversation({ id: "c1", task: "alpha", status: "stopped" }),

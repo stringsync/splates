@@ -68,7 +68,10 @@ export function OnIt({
 				if (conversation === null) {
 					return null;
 				}
-				const icon = (
+				// Beside a spinner, that it is being worked on is all there is to
+				// say; rows keep the logo, which goes with the name there.
+				const spins = need.kind === "working" || need.kind === "assuming";
+				const icon = (!spins || variant === "rows") && (
 					<AgentIcon
 						agent={conversation.agent}
 						name={dispatch.agentName(conversation.agent)}
