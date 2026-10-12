@@ -25,16 +25,48 @@ Conflicts between agents are expected, not a process failure. Discarding a task
 and redoing it against current trunk is cheap and often better than a hard
 rebase, and that is what `remove` is for.
 
+## Getting started
+
+In the repository your agents work in, with nothing installed:
+
+```bash
+bunx @webappwiz/arbor init
+```
+
+Then commit the files it lists, and that is all a repository needs. Your agents, Claude Code, Codex, or any other
+that reads `.agents/skills`, now start each change with `arbor add` and land
+it with `arbor merge`. `arbor dev` is optional: it serves the todos, the tasks
+and conversations with agents as a page, but agents you run in your own
+terminals work through arbor just the same.
+
+When a new arbor comes out, `bunx @webappwiz/arbor update` and commit what it
+changed. A `preMerge` gate in `arbor.config.ts` (see Configuration) is worth
+setting up next, so no task lands without the tests passing.
+
 ## Commands
 
 ### `arbor init`
 
 Makes the repository an arbor project: sets up its records under `.git/arbor`
-when it has none, and registers its main tree in `~/.arbor/projects.json` (see
-Leases and locks), so `arbor dev` serves it beside every other. Run in a
-project already under way, or again, it only registers. Every other command
-refuses a repository `arbor init` never ran in (`uninitialized`), and
-`arbor dev` one it never registered.
+when it has none, installs the agent skill, and registers its main tree in
+`~/.arbor/projects.json` (see Leases and locks), so `arbor dev` serves it
+beside every other. Every other command refuses a repository `arbor init`
+never ran in (`uninitialized`), and `arbor dev` one it never registered.
+
+The skill is what teaches an agent to work through arbor. `init` writes it to
+`.agents/skills/arbor/SKILL.md`, where Codex and most agents look, and
+`.claude/skills/arbor/SKILL.md`, where Claude Code does, over any copy already
+there. The skill's description is what has an agent reach for it, so
+`AGENTS.md` and `CLAUDE.md` are left as they are. It commits nothing: commit what it wrote, so each task's worktree, which
+starts from trunk, has the skill too. Run again, it changes only what is not
+so already.
+
+### `arbor update`
+
+Brings the repository up to the newest arbor on npm. When npm has a newer
+release than the one running, it runs `bunx @webappwiz/arbor@<newest> update`,
+which does the rest; otherwise, or offline, it writes the running release's
+skill over the copies `init` wrote. Commit what changed.
 
 ### `arbor forget`
 

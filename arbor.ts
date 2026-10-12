@@ -41,6 +41,7 @@ import {
 	todoTake,
 	todoUpdate,
 } from "./todo";
+import { update } from "./update";
 import { DEFAULT_TIMEOUT, todoWait, wait } from "./wait";
 import { Watch } from "./watch";
 
@@ -61,9 +62,28 @@ arbor
 	.command("init")
 	.use(repository({ creates: true }))
 	.description(
-		"make this repository an arbor project: set up its records under .git/arbor when it has none, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run in one already under way, it only registers",
+		"make this repository an arbor project: set up its records under .git/arbor when it has none, write the arbor skill to .agents/skills and .claude/skills, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run again, it changes only what is not so already",
 	)
 	.action((_opts, ctx) => init(ctx));
+
+arbor
+	.command("update")
+	.use(repository())
+	.description(
+		"bring this repository up to the newest arbor on npm: run `update` on that release when it is newer than this one, which writes its arbor skill over the copies `arbor init` wrote; commit what changed",
+	)
+	.action(async (_opts, ctx) => {
+		const code = await update({
+			root: ctx.git.root,
+			fs: ctx.fs,
+			ps: ctx.ps,
+			log: ctx.log,
+			newest: () => newest(),
+		});
+		if (code !== 0) {
+			ctx.ps.exit(code);
+		}
+	});
 
 arbor
 	.command("forget")

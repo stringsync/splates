@@ -7,3 +7,9 @@ declare module "*.txt" {
 	const text: string;
 	export default text;
 }
+
+// The agent skill `skill.ts` bundles, for the same reason.
+declare module "*.md" {
+	const text: string;
+	export default text;
+}
