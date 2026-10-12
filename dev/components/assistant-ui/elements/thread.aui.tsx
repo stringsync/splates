@@ -1082,13 +1082,18 @@ const AssistantMessage: FC = () => {
 
 /**
  * The shimmering Working label under a busy reply, there while its text streams
- * too, except under streaming reasoning, whose own label already says so.
+ * too, except under streaming reasoning or the row of what the agent is doing,
+ * whose own labels already say so.
  */
 const WorkingIndicator: FC = () => {
-	const thinking = useAuiState(
-		(s) => s.message.parts.at(-1)?.type === "reasoning",
-	);
-	if (thinking) {
+	const labelled = useAuiState((s) => {
+		const last = s.message.parts.at(-1);
+		return (
+			last?.type === "reasoning" ||
+			(last?.type === "data" && last.name === "work")
+		);
+	});
+	if (labelled) {
 		return null;
 	}
 	return (

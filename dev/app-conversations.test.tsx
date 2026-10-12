@@ -2343,6 +2343,19 @@ describe("App's conversations", () => {
 			).toBe("Run the testsFix what fails");
 		});
 
+		it("says Working once while it works, on its line rather than under it too", async () => {
+			const thread = await opened(
+				turn([tool({ id: "x1", command: "bun test", status: "in_progress" })], {
+					status: "running",
+				}),
+			);
+
+			await waitFor(() =>
+				expect(thread.textContent).toMatch(/Working .+ · bun test/),
+			);
+			expect(thread.textContent?.match(/Working/g)).toHaveLength(1);
+		});
+
 		it("opens while the agent works with nothing said, folding once it replies", async () => {
 			const working = turn([tool({ id: "x1", command: "bun test" })], {
 				status: "running",
