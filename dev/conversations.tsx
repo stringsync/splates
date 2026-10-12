@@ -49,7 +49,6 @@ import { Annotation } from "#dev/annotation.ts";
 import { PermissionGrant } from "#dev/components/assistant-ui/elements/permission-grant.tsx";
 import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flow.tsx";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
-import { Badge } from "#dev/components/ui/badge.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -88,7 +87,6 @@ import type {
 	Image,
 	Message,
 	Setting,
-	Status,
 } from "../conversations";
 import { type LaneRecord, named } from "../lanes";
 import { modelOption } from "../models";
@@ -2638,11 +2636,6 @@ function Thread({
 						/>
 					)}
 				</div>
-				{archived ? (
-					<Badge variant="secondary">archived</Badge>
-				) : (
-					<StatusBadge status={status} />
-				)}
 				<ActionButtons actions={actions} />
 			</header>
 			{archive.confirm}
@@ -3044,21 +3037,6 @@ function useFileMentions(task: string | null): TriggerAdapter | null {
 }
 
 const MENTIONS_SHOWN = 8;
-
-/**
- * Where the agent is, unless at rest (idle, or stopped until the next prompt)
- * or running, which the thread and the conversation list already show.
- */
-function StatusBadge({ status }: { status: Status }): JSX.Element | null {
-	if (status === "idle" || status === "stopped" || status === "running") {
-		return null;
-	}
-	return (
-		<Badge variant={status === "failed" ? "destructive" : "secondary"}>
-			{status}
-		</Badge>
-	);
-}
 
 /** What the agent is waiting on, answered in place or skipped. */
 function AskPanel({

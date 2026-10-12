@@ -1517,7 +1517,6 @@ describe("App's conversations", () => {
 		);
 		// Its title, and the message.
 		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
-		expect(within(thread).getByText("starting")).toBeTruthy();
 		expect(
 			within(view.getByRole("list", { name: "conversation list" })).getByText(
 				"fix the login",
@@ -1742,7 +1741,6 @@ describe("App's conversations", () => {
 			expect(within(thread).getByText("hi").tagName).toBe("STRONG"),
 		);
 		expect(thread.textContent).toContain("Working");
-		expect(within(thread).queryByText("running")).toBeNull();
 	});
 
 	it("says Working under a reply while its text streams", async () => {
@@ -4449,8 +4447,11 @@ Cap upload retries
 			// Its thread, named for its task, as one started here is.
 			await waitFor(() =>
 				expect(
-					view.getByRole("region", { name: "beta" }).textContent,
-				).toContain("starting"),
+					within(view.getByRole("region", { name: "beta" })).getByRole(
+						"heading",
+						{ name: "beta" },
+					),
+				).toBeTruthy(),
 			);
 		});
 
