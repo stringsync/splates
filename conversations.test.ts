@@ -727,6 +727,26 @@ describe("Conversations", () => {
 		});
 	});
 
+	it("finds one while another caller is still reading them back", async () => {
+		const conversation = await started();
+		await conversation.stop();
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+
+		// As a page listing a project just opened while it prompts one.
+		const [listed, found] = await Promise.all([
+			reread.list(),
+			reread.find(conversation.id),
+		]);
+
+		expect(found.id).toBe(conversation.id);
+		expect(listed.map((each) => each.id)).toEqual([conversation.id]);
+		await reread.disposeAsync();
+	});
+
 	it("holds a permission request until the person picks an option", async () => {
 		const seen: { outcome?: acp.RequestPermissionOutcome } = {};
 		agent.turn = async (client, sessionId) => {

@@ -1968,7 +1968,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly watch: Watch | null;
 	private readonly offered: Offered | null;
 	private readonly root: string | null;
-	private loaded = false;
+	/** The read of the records on disk, shared by every caller until it settles. */
+	private loaded: Promise<void> | null = null;
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
 
@@ -2176,11 +2177,12 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.dispatcher.dispatch("changed", conversation.id);
 	}
 
-	private async load(): Promise<void> {
-		if (this.loaded) {
-			return;
-		}
-		this.loaded = true;
+	private load(): Promise<void> {
+		this.loaded ??= this.read();
+		return this.loaded;
+	}
+
+	private async read(): Promise<void> {
 		const names = (await this.fs.exists(this.dir))
 			? await this.fs.readdir(this.dir)
 			: [];
