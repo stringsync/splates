@@ -271,6 +271,7 @@ arbor
 					fs: ctx.fs,
 					offered,
 					watch: new Watch(git),
+					root: git.root,
 				}),
 			// A login shell, as a terminal window opens, so the person's PATH
 			// and aliases are there.

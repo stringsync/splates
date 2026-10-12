@@ -47,17 +47,22 @@ export const launch: Launch = (argv, cwd, env) => {
 	// as this one's child.
 	const child = new NodePs().start(argv, { cwd, env, unset: [SERVING] });
 	let tail = "";
+	// One that never started, as in a directory since removed, aborts its
+	// pipes and rejects its exit: it ends as one that exited saying why.
 	void (async () => {
 		const decoder = new TextDecoder();
 		for await (const chunk of child.stderr) {
 			tail = (tail + decoder.decode(chunk)).slice(-STDERR_CHARS);
 		}
-	})();
+	})().catch(() => {});
 	return {
 		input: child.stdin,
 		output: child.stdout,
 		stderr: () => tail,
-		exited: child.exited,
+		exited: child.exited.catch((error: unknown) => {
+			tail = `cannot start ${argv[0]} in ${cwd}: ${error instanceof Error ? error.message : String(error)}`;
+			return 127;
+		}),
 		kill: () => child.kill(),
 	};
 };
@@ -693,6 +698,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		private readonly url: string | null,
 		/** What watches the agent's commands; null to leave them be. */
 		private readonly watch: Watch | null,
+		/** The main tree, where it carries on once its worktree is gone. */
+		private readonly root: string | null,
 	) {
 		this.saves = new Throttler(timer, SAVE_EVERY);
 	}
@@ -721,6 +728,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			launch: run,
 			url,
 			watch = null,
+			root = null,
 		}: {
 			fs: Fs;
 			timer: Timer;
@@ -729,6 +737,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			launch: Launch;
 			url: string | null;
 			watch?: Watch | null;
+			root?: string | null;
 		},
 	): Promise<Conversation | null> {
 		const text = await fs.read(log);
@@ -755,6 +764,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			run,
 			url,
 			watch,
+			root,
 		);
 		// A line cut short, as by a crash mid-save, stays apart from the next.
 		if (text !== "" && !text.endsWith("\n")) {
@@ -847,6 +857,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			launch: run,
 			url,
 			watch = null,
+			root = null,
 		}: {
 			fs: Fs;
 			timer: Timer;
@@ -854,6 +865,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			launch: Launch;
 			url: string | null;
 			watch?: Watch | null;
+			root?: string | null;
 		},
 	): Promise<Conversation> {
 		const conversation = new Conversation(
@@ -867,6 +879,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			run,
 			url,
 			watch,
+			root,
 		);
 		conversation.write({
 			kind: "start",
@@ -915,6 +928,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			launch: run,
 			url,
 			watch = null,
+			root = null,
 		}: {
 			fs: Fs;
 			timer: Timer;
@@ -922,6 +936,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			launch: Launch;
 			url: string | null;
 			watch?: Watch | null;
+			root?: string | null;
 		},
 	): Promise<Conversation> {
 		const conversation = new Conversation(
@@ -935,6 +950,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			run,
 			url,
 			watch,
+			root,
 		);
 		conversation.write({
 			kind: "start",
@@ -1681,6 +1697,18 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				{ conversation: this.id },
 			);
 		}
+		// Its task landed or went without the agent's `arbor` reaching this
+		// server to move it, so it carries on in the main tree.
+		if (!(await this.fs.exists(this.cwd))) {
+			if (this.root === null) {
+				fail(
+					"not_found",
+					`conversation ${this.id} cannot resume: ${this.cwd} is gone`,
+					{ conversation: this.id },
+				);
+			}
+			this.move(null, this.root);
+		}
 		this.opening ??= this.open(this.agent, this.cwd).finally(() => {
 			this.opening = null;
 		});
@@ -1890,6 +1918,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly clock: WallClock;
 	private readonly watch: Watch | null;
 	private readonly offered: Offered | null;
+	private readonly root: string | null;
 	private loaded = false;
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
@@ -1906,6 +1935,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.clock = opts.clock ?? new SystemWallClock();
 		this.watch = opts.watch ?? null;
 		this.offered = opts.offered ?? null;
+		this.root = opts.root ?? null;
 	}
 
 	/**
@@ -1980,6 +2010,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				launch: this.run,
 				url: this.url,
 				watch: this.watch,
+				root: this.root,
 			},
 		);
 		this.track(conversation);
@@ -2064,6 +2095,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				launch: this.run,
 				url: this.url,
 				watch: this.watch,
+				root: this.root,
 			},
 		);
 		this.track(conversation);
@@ -2112,6 +2144,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				launch: this.run,
 				url: this.url,
 				watch: this.watch,
+				root: this.root,
 			});
 			if (read !== null && !this.known.has(read.id)) {
 				this.track(read);
@@ -2218,4 +2251,10 @@ export interface ConversationsOptions {
 	watch?: Watch | null;
 	/** Where what each agent's sessions offer is kept across projects; nowhere by default. */
 	offered?: Offered | null;
+	/**
+	 * The main tree, where a conversation carries on once its task's worktree
+	 * is gone, as when the task landed while `arbor dev` was not there to hear
+	 * of it; without it, such a conversation cannot resume.
+	 */
+	root?: string | null;
 }

@@ -11,6 +11,7 @@ import {
 	type ConversationState,
 	Conversations,
 	fold,
+	launch,
 	RESUME,
 	type Status,
 } from "./conversations";
@@ -26,8 +27,12 @@ describe("Conversations", () => {
 	let agent: FakeAgent;
 	let conversations: Conversations;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		fs = new FakeFs();
+		// The trees the agents run in, which a resume looks for.
+		for (const tree of ["/repo", "/repo-arbor/login", "/repo-arbor/signup"]) {
+			await fs.mkdir(tree);
+		}
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
@@ -918,6 +923,39 @@ describe("Conversations", () => {
 		await reread.disposeAsync();
 	});
 
+	it("resumes in the main tree once its task's worktree is gone", async () => {
+		agent.turn = async () => "end_turn";
+		const conversation = await started();
+		await conversation.stop();
+		await fs.rm("/repo-arbor/login", { recursive: true });
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, clock, launch: agent.launch, root: "/repo" },
+		);
+		const [read] = await reread.list();
+
+		await read?.prompt("go on");
+		await until(read as Conversation, "idle");
+
+		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
+		expect(read?.state.task).toBeNull();
+		expect(read?.state.lastTask).toBe("login");
+		await reread.disposeAsync();
+	});
+
+	it("says why it cannot resume once its tree is gone and no main tree is known", async () => {
+		agent.turn = async () => "end_turn";
+		const conversation = await started();
+		await conversation.stop();
+		await fs.rm("/repo-arbor/login", { recursive: true });
+
+		await expect(conversation.prompt("go on")).rejects.toThrow(
+			"/repo-arbor/login is gone",
+		);
+		expect(agent.launched).toHaveLength(1);
+	});
+
 	it("takes a prompt while still starting, and says it once the session is open", async () => {
 		agent.turn = async (client, sessionId) => {
 			await client.sessionUpdate({ sessionId, update: say("Hi.") });
@@ -1352,6 +1390,16 @@ describe("Conversations", () => {
 			{ type: "stashed", count: 1 },
 		]);
 		await watching.disposeAsync();
+	});
+});
+
+describe("launch", () => {
+	it("ends an agent that cannot start as one that exited saying why", async () => {
+		const agent = launch(["sh"], "/no/such/tree", {});
+
+		expect(await agent.exited).toBe(127);
+		expect(agent.stderr()).toStartWith("cannot start sh in /no/such/tree: ");
+		expect(agent.output.getReader().read()).rejects.toThrow();
 	});
 });
 
