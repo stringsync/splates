@@ -364,7 +364,7 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("offers its actions in a panel to the left of its messages, its task's changes among them, closing them on Escape", async () => {
+	it("offers its actions in a panel just right of its messages, its task's changes among them, closing them on Escape", async () => {
 		const view = await conversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
 			conversation({ id: "c2", title: "Look around" }),

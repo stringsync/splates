@@ -15,18 +15,22 @@ export interface Action {
 }
 
 /**
- * Everything to do with a conversation, in a panel to the left of its
+ * Everything to do with a conversation, in a panel just right of its
  * messages, many of them opening the pane beside the page: the first, what it
  * waits on you for, above a rule, the rest below it. Only where the
  * conversation leaves room beside its messages, `ActionButtons` standing in
  * for it elsewhere.
+ *
+ * The messages keep to the middle of the thread, 44rem wide (the thread's
+ * `--thread-max-width`), so the panel starts half that and a gap right of
+ * the middle, and shows only once the thread is wide enough to hold it there.
  */
 export function Actions({ actions }: { actions: Action[] }): JSX.Element {
 	const [status, ...rest] = actions;
 	return (
 		<nav
 			aria-label="actions"
-			className="hidden w-60 shrink-0 flex-col self-start divide-y overflow-hidden rounded-lg border bg-background @6xl:flex"
+			className="absolute top-0 left-[calc(50%+22.75rem)] z-10 hidden w-60 flex-col divide-y overflow-hidden rounded-lg border bg-background @min-[76rem]:flex"
 		>
 			{status !== undefined && (
 				<div className="py-1">
@@ -78,7 +82,7 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 /** The actions as icons, for a conversation too narrow for their card. */
 export function ActionButtons({ actions }: { actions: Action[] }): JSX.Element {
 	return (
-		<div className="flex gap-1 @6xl:hidden">
+		<div className="flex gap-1 @min-[76rem]:hidden">
 			{actions.map(({ label, icon, run, count }) =>
 				run === null ? null : (
 					<Button
