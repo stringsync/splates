@@ -18,7 +18,7 @@ import {
 	CheckIcon,
 	ChevronDownIcon,
 	CircleMinusIcon,
-	LoaderIcon,
+	WrenchIcon,
 	XCircleIcon,
 } from "lucide-react";
 import { memo, useCallback, useRef, useState } from "react";
@@ -95,7 +95,7 @@ function ToolFallbackRoot({
 type ToolStatus = ToolCallMessagePartStatus["type"];
 
 const statusIconMap: Record<ToolStatus, React.ElementType> = {
-	running: LoaderIcon,
+	running: WrenchIcon,
 	complete: CheckIcon,
 	incomplete: XCircleIcon,
 	"requires-action": AlertCircleIcon,
@@ -176,7 +176,6 @@ function ToolFallbackTrigger({
 				className={cn(
 					"aui-tool-fallback-trigger-icon size-4 shrink-0",
 					isCancelled && "text-muted-foreground",
-					isRunning && "animate-spin",
 				)}
 			/>
 			<span

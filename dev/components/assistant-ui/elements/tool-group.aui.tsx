@@ -2,7 +2,7 @@
 
 import { useScrollLock } from "@assistant-ui/react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { ChevronDownIcon, LoaderIcon } from "lucide-react";
+import { ChevronDownIcon, WrenchIcon } from "lucide-react";
 import {
 	type FC,
 	memo,
@@ -116,9 +116,9 @@ function ToolGroupTrigger({
 			{...props}
 		>
 			{active && (
-				<LoaderIcon
-					data-slot="tool-group-trigger-loader"
-					className="aui-tool-group-trigger-loader size-3 shrink-0 animate-spin"
+				<WrenchIcon
+					data-slot="tool-group-trigger-icon"
+					className="aui-tool-group-trigger-icon size-3 shrink-0"
 				/>
 			)}
 			<span
