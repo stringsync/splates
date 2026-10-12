@@ -382,9 +382,6 @@ export function QuestionCards({
 						<div className="flex items-center gap-3">
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 								<span>
-									<Kbd>a</Kbd> picks
-								</span>
-								<span>
 									<Kbd>↵</Kbd> next
 								</span>
 								<span>
