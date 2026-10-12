@@ -865,6 +865,13 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
+		const markUnread = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { unread } = await body(request);
+			await conversation.markUnread(unread === true);
+			return Response.json(conversation.state);
+		};
+
 		const archiveConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const { archived } = await body(request);
@@ -954,6 +961,7 @@ export async function dev(
 			sendQueuedNow,
 			chooseSetting,
 			renameConversation,
+			markUnread,
 			archiveConversation,
 			conversationEvents,
 			terminalTree,
@@ -1386,6 +1394,9 @@ export async function dev(
 			"/api/conversations/:id/archived": {
 				PUT: talk(owned((project) => project.archiveConversation)),
 			},
+			"/api/conversations/:id/unread": {
+				PUT: talk(owned((project) => project.markUnread)),
+			},
 			"/api/conversations/:id/name": {
 				PUT: talk(owned((project) => project.renameConversation)),
 			},
@@ -1654,6 +1665,7 @@ interface Served extends AsyncResource {
 	sendQueuedNow: Handler;
 	chooseSetting: Handler;
 	renameConversation: Handler;
+	markUnread: Handler;
 	archiveConversation: Handler;
 	conversationEvents: Handler;
 	terminalTree: (request: Request) => Promise<string>;

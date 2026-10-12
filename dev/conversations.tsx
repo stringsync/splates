@@ -15,6 +15,8 @@ import {
 	CheckIcon,
 	ChevronDownIcon,
 	CircleAlertIcon,
+	CircleCheckIcon,
+	CircleDotIcon,
 	EllipsisVerticalIcon,
 	FileDiffIcon,
 	GitBranchIcon,
@@ -41,6 +43,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { WindowBackgroundObserver } from "webappwiz/browser";
 import { PermissionGrant } from "#dev/components/assistant-ui/elements/permission-grant.tsx";
 import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flow.tsx";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
@@ -99,6 +102,7 @@ import {
 	cancelConversation,
 	chooseSetting,
 	conversationImage,
+	markUnread,
 	paths,
 	promptConversation,
 	renameConversation,
@@ -109,7 +113,6 @@ import {
 import { Back } from "./back";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
-import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import { CheckpointButton } from "./checkpoint";
 import {
@@ -815,7 +818,10 @@ function Item({
 					renaming && "hidden",
 					menu
 						? "pr-14"
-						: need.kind === "idle" && reported === null && hint === null
+						: need.kind === "idle" &&
+								reported === null &&
+								!conversation.unread &&
+								hint === null
 							? "pr-3"
 							: "pr-6",
 				)}
@@ -852,7 +858,7 @@ function Item({
 				{hint !== null ? (
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
-					<Mark need={need} reported={reported} />
+					<Mark need={need} reported={reported} unread={conversation.unread} />
 				)}
 			</span>
 			<span
@@ -893,6 +899,19 @@ function Item({
 							<PencilIcon />
 							Rename
 						</DropdownMenuItem>
+						{/* The one open would be read again at once. */}
+						{!current && !conversation.unread && !archived && (
+							<DropdownMenuItem
+								onClick={() =>
+									void markUnread(id, true).catch((error: unknown) =>
+										refuse("Not marked unread", error),
+									)
+								}
+							>
+								<CircleDotIcon />
+								Mark as unread
+							</DropdownMenuItem>
+						)}
 						<DropdownMenuItem onClick={file}>
 							<Put />
 							{put}
@@ -1021,32 +1040,45 @@ function Rename({
 }
 
 /**
- * What a list shows of an agent, one of three marks: an amber alert when it
- * waits on you, whatever for, a spinner while it works, assuming or not, and
- * the merge icon once its task merged. Anything else, idle or removed, shows
- * an empty space. A report in its last word decides the mark over a wait it
- * ended, though not over a live ask or a failure, which are newer. What it
- * waits on is in its tooltip. Each sits centered in a box of one size, so
- * marks line up down a list whichever kind they are.
+ * What a list shows of an agent, one of four marks: an amber alert when it
+ * waits on you, whatever for, a spinner while it works, assuming or not, a
+ * blue dot when it answered and you have not looked since, and a green
+ * check once its task merged, over the dot. Anything else, idle or removed, shows an empty
+ * space. A report in its last word decides the mark over a wait it ended,
+ * though not over a live ask or a failure, which are newer. What it waits on
+ * is in its tooltip. Each sits centered in a box of one size, so marks line
+ * up down a list whichever kind they are.
  */
 export function Mark({
 	need,
 	reported = null,
+	unread = false,
 }: {
 	need: Need;
 	reported?: Ending | null;
+	unread?: boolean;
 }): JSX.Element {
 	const shows =
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
 	if (reported === "merged" && shows) {
-		const { title, Icon, tone } = ENDINGS.merged;
 		return (
-			<Icon
+			<CircleCheckIcon
 				role="img"
-				aria-label={title.toLowerCase()}
-				className={cn("size-3.5 shrink-0", TONES[tone].icon)}
+				aria-label="merged"
+				className="size-3.5 shrink-0 text-success"
 			/>
+		);
+	}
+	if (unread && need.kind === "idle" && reported !== "escalated") {
+		return (
+			<span
+				role="status"
+				aria-label="unread"
+				className="flex size-3.5 shrink-0 items-center justify-center"
+			>
+				<span className="size-2 rounded-full bg-info" />
+			</span>
 		);
 	}
 	if (need.kind === "waiting" || (reported === "escalated" && shows)) {
@@ -1175,6 +1207,7 @@ export function Conversations({
 	// By conversation, so a message Home sends to one it just started can be
 	// refused in that one's thread.
 	const { refusals, refuse } = useRefusals<string>();
+	useRead(shown);
 
 	return (
 		<Board value={board}>
@@ -1267,6 +1300,29 @@ export function Conversations({
 			</Dialog>
 		</Board>
 	);
+}
+
+/**
+ * Marks `conversation` read while it shows on a page in front: once it is
+ * opened, and again as each turn ends while you watch.
+ */
+function useRead(conversation: ConversationState | null): void {
+	const [inFront, setInFront] = useState(true);
+	useEffect(() => {
+		const observer = new WindowBackgroundObserver();
+		const check = () => setInFront(!observer.isBackgrounded());
+		check();
+		observer.events.on("change", check);
+		return () => observer.dispose();
+	}, []);
+	const id = conversation?.id ?? null;
+	const unread = conversation?.unread ?? false;
+	useEffect(() => {
+		if (id !== null && unread && inFront) {
+			// Nothing to tell anyone: the dot stays until the next try.
+			markUnread(id, false).catch(() => {});
+		}
+	}, [id, unread, inFront]);
 }
 
 /** How many conversations the home screen offers to pick back up. */

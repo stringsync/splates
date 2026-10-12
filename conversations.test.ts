@@ -1315,6 +1315,28 @@ describe("Conversations", () => {
 		expect(conversation.state.name).toBeNull();
 	});
 
+	it("is unread once a turn ends until marked read, and reads it back", async () => {
+		const conversation = await started();
+		expect(conversation.state.unread).toBe(false);
+
+		await conversation.prompt("hello");
+		await until(conversation, "idle");
+
+		expect(conversation.state.unread).toBe(true);
+		await conversation.markUnread(false);
+		expect(conversation.state.unread).toBe(false);
+		const reread = () =>
+			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+				fs,
+				timer,
+				clock,
+				launch: agent.launch,
+			}).list();
+		expect((await reread())[0]?.state.unread).toBe(false);
+		await conversation.markUnread(true);
+		expect((await reread())[0]?.state.unread).toBe(true);
+	});
+
 	it("archives by stopping the agent, and takes no prompt until unarchived", async () => {
 		const conversation = await started();
 
@@ -1400,6 +1422,7 @@ describe("Conversations", () => {
 			"update",
 			"update",
 			"update",
+			"unread",
 			"end",
 		]);
 	});
@@ -1507,6 +1530,7 @@ describe("fold", () => {
 		settings: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
+		unread: false,
 		checkpoint: null,
 	});
 	const at = (secs: number) =>

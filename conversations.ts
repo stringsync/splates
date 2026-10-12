@@ -247,6 +247,11 @@ export interface ConversationState {
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
 	/**
+	 * The agent ended a turn the person has not seen yet: set as each turn
+	 * ends, and cleared once the page shows it.
+	 */
+	unread: boolean;
+	/**
 	 * Where the last checkpoint asked stands, kept in the log so a restart
 	 * still shows it; null when none was, or once the work went on past it.
 	 */
@@ -271,6 +276,7 @@ type Entry =
 	| { kind: "settings"; settings: Setting[] }
 	| { kind: "archive"; archived: boolean }
 	| { kind: "rename"; name: string | null }
+	| { kind: "unread"; unread: boolean }
 	/** `at` is missing from logs written before the page showed how long things took. */
 	| {
 			kind: "prompt";
@@ -820,6 +826,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.archived = entry.archived;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
+			} else if (entry.kind === "unread") {
+				state.unread = entry.unread;
 			} else if (entry.kind === "checkpoint") {
 				state.checkpoint = entry.checkpoint;
 				conversation.after = entry.after ?? "stop";
@@ -1475,6 +1483,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 		this.unprompted = false;
 		this.set({ status: "idle", ...(error === null ? {} : { error }) });
+		this.flag(true);
 		if (!this.held && this.state.messages.some((each) => each.queued)) {
 			this.send([]);
 		}
@@ -1797,8 +1806,23 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		await this.put({ archived: false });
 	}
 
+	/** Marks it seen, or unseen again for the person to come back to. */
+	async markUnread(unread: boolean): Promise<void> {
+		this.flag(unread);
+		this.saves.flush();
+		await this.saving;
+	}
+
 	dispose(): void {
 		void this.stop();
+	}
+
+	private flag(unread: boolean): void {
+		if (this.state.unread === unread) {
+			return;
+		}
+		this.write({ kind: "unread", unread });
+		this.set({ unread });
 	}
 
 	private async put({ archived }: { archived: boolean }): Promise<void> {
@@ -1887,6 +1911,7 @@ function blank(
 		settings: [],
 		createdAt,
 		archived: false,
+		unread: false,
 		checkpoint: null,
 	};
 }

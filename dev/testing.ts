@@ -281,6 +281,7 @@ export function conversation(
 		error: null,
 		name: null,
 		archived: false,
+		unread: false,
 		messages: [],
 		ask: null,
 		settings: [],

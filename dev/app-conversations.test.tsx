@@ -796,6 +796,47 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("marks a conversation read once opened, and one not open unread from its menu", async () => {
+		const view = await conversations(
+			[
+				conversation({ id: "c1", title: "Fix login", unread: true }),
+				conversation({ id: "c2", title: "Fix footer" }),
+			],
+			"c1",
+		);
+
+		await waitFor(() =>
+			expect(posted("/api/conversations/c1/unread")).toEqual([
+				{ method: "PUT", body: { unread: false } },
+			]),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More for Fix login" })),
+		);
+		expect(view.queryByRole("menuitem", { name: "Mark as unread" })).toBeNull();
+		await act(async () =>
+			fireEvent.keyDown(document.activeElement ?? document.body, {
+				key: "Escape",
+			}),
+		);
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "More for Fix footer" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "Mark as unread" }),
+				),
+			),
+		);
+
+		expect(posted("/api/conversations/c2/unread")).toEqual([
+			{ method: "PUT", body: { unread: true } },
+		]);
+	});
+
 	it("renames on a double click, in the list and on the open conversation's title", async () => {
 		const view = await conversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
@@ -3510,6 +3551,43 @@ Cap upload retries
 				"Carried on": null,
 				alpha: "waiting on you",
 			});
+		});
+
+		it("marks an agent that answered unseen with a blue dot, though not over a merge, waiting on you, or working", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Answered", unread: true }),
+					conversation({
+						id: "c2",
+						title: "Landed",
+						unread: true,
+						messages: [
+							message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+						],
+					}),
+					conversation({
+						id: "c3",
+						title: "Broke",
+						status: "failed",
+						unread: true,
+					}),
+					conversation({
+						id: "c4",
+						title: "Runs",
+						status: "running",
+						unread: true,
+					}),
+				]),
+				[],
+			);
+
+			expect(rows(view)).toEqual([
+				["Answered", "unread"],
+				["Landed", null],
+				["Broke", "waiting on you"],
+				["Runs", "working"],
+			]);
+			expect(view.getByRole("img", { name: "merged" })).toBeDefined();
 		});
 
 		it("lists a task whose agent runs outside the page as working elsewhere, waiting once it escalates, and opens it alone with its questions, not its plan", async () => {

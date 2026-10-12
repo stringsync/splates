@@ -427,6 +427,11 @@ export async function renameConversation(
 	await sendJson(`/api/conversations/${id}/name`, "PUT", { name });
 }
 
+/** Marks conversation `id` seen, or unseen again. */
+export async function markUnread(id: string, unread: boolean): Promise<void> {
+	await sendJson(`/api/conversations/${id}/unread`, "PUT", { unread });
+}
+
 /** Puts conversation `id` away, stopping its agent, or back on the list. */
 export async function archiveConversation(
 	id: string,
