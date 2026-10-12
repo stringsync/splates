@@ -9,20 +9,14 @@ import {
 	AlertDescription,
 	AlertTitle,
 } from "#dev/components/ui/alert.tsx";
-import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "#dev/components/ui/popover.tsx";
 import type { Need } from "../needs";
-import { goalLine, type Question, unfinished } from "../plan";
+import type { Question } from "../plan";
 import { progress } from "../progress";
 import type { Details } from "../show";
 import { Back } from "./back";
 import { QuestionCards } from "./question-cards";
-import { Progress, Task } from "./tasks";
+import { Task } from "./tasks";
 
 /** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
 export const TASK = "task/";
@@ -33,30 +27,19 @@ export function openQuestions(need: Need): Question[] {
 }
 
 /**
- * The line under a header's title: the branch, and how far its task is.
- * For a task it opens the rest: the Goal, what the agent does next or needs,
- * its open questions, and the task's details.
+ * The line under a header's title: the branch, and how far its task is,
+ * which opens the task's details on a click.
  */
 export function TaskLine({
 	branch,
 	task,
-	need,
-	onQuestions,
 	onDetails,
 }: {
 	/** Null once its task is gone. */
 	branch: string | null;
 	task: Details | null;
-	need: Need;
-	onQuestions: () => void;
 	onDetails: () => void;
 }): JSX.Element | null {
-	const [shown, setShow] = useState(false);
-	// Out of the way of what it goes to.
-	const then = (go: () => void) => () => {
-		setShow(false);
-		go();
-	};
 	if (branch === null) {
 		return null;
 	}
@@ -77,71 +60,29 @@ export function TaskLine({
 			</p>
 		);
 	}
-	const plan = task.plan;
-	const counted = plan === null ? null : progress(plan);
-	const goal = plan === null ? null : goalLine(plan);
-	// Plain text: markdown's backticks would show as they are.
-	const doing = doingOf(need, plan)?.replaceAll("`", "") ?? null;
-	const open = openQuestions(need).length;
+	const counted = task.plan === null ? null : progress(task.plan);
 	return (
-		<Popover open={shown} onOpenChange={setShow}>
-			<PopoverTrigger
-				aria-label={`About ${task.task}`}
-				className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
-			>
-				{line}
-				{counted && (
-					<span className="shrink-0 tabular-nums">
-						· {counted.done}/{counted.total}
-					</span>
-				)}
-			</PopoverTrigger>
-			<PopoverContent
-				aria-label={`About ${task.task}`}
-				align="start"
-				className="w-80"
-			>
-				{goal !== null && <p>{goal}</p>}
-				{counted && <Progress {...counted} />}
-				{doing !== null && (
-					<p className="text-muted-foreground text-xs">{doing}</p>
-				)}
-				<div className="flex gap-2">
-					{open > 0 && (
-						<Button variant="outline" size="sm" onClick={then(onQuestions)}>
-							{open} open question{open === 1 ? "" : "s"}
-						</Button>
-					)}
-					<Button variant="outline" size="sm" onClick={then(onDetails)}>
-						Details
-					</Button>
-				</div>
-			</PopoverContent>
-		</Popover>
+		<button
+			type="button"
+			aria-label={`About ${task.task}`}
+			onClick={onDetails}
+			className="flex min-w-0 items-center gap-1 self-start rounded-sm text-muted-foreground text-xs hover:text-foreground"
+		>
+			{line}
+			{counted && (
+				<span className="shrink-0 tabular-nums">
+					· {counted.done}/{counted.total}
+				</span>
+			)}
+		</button>
 	);
-}
-
-/** One line on where the agent is: waiting on you, assuming, or what is next. */
-function doingOf(need: Need, plan: string | null): string | null {
-	switch (need.kind) {
-		case "waiting":
-			return `Waiting on you: ${need.subject}`;
-		case "assuming":
-			return `Assuming: ${need.subject}`;
-		case "working":
-			return need.subject === null ? null : `Next: ${need.subject}`;
-		case "idle": {
-			const [step] = plan === null ? [] : unfinished(plan).steps;
-			return step === undefined ? null : `Next: ${step}`;
-		}
-	}
 }
 
 /**
  * A task whose agent runs outside the page, such as in Claude Code or Codex,
  * where its conversation would be: the same header, its open questions as
- * cards, and what the page knows of the agent beyond its plan, which the
- * header's task line opens. The page cannot message that agent, so the cards
+ * cards, and what the page knows of the agent beyond its plan, whose details
+ * the header's task line opens. The page cannot message that agent, so the cards
  * copy their answers to paste into its own session.
  */
 export function TaskView({
@@ -175,12 +116,6 @@ export function TaskView({
 					<TaskLine
 						branch={task.branch}
 						task={task}
-						need={need}
-						onQuestions={() =>
-							document
-								.getElementById(`questions-${task.task}`)
-								?.scrollIntoView({ block: "start", behavior: "smooth" })
-						}
 						onDetails={() => setDetails(true)}
 					/>
 				</div>

@@ -1961,21 +1961,7 @@ function Thread({
 		[drafts, onOpen, conversation.agent],
 	);
 	const [details, setDetails] = useState(false);
-	const needed = need(task, conversation);
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
-	// The latest panel of them the agent wrote, else the plan they are in.
-	const toQuestions = () => {
-		const panels = section.current?.querySelectorAll(
-			'[aria-label="questions"]',
-		);
-		const last = panels?.[panels.length - 1];
-		if (last === undefined) {
-			setDetails(true);
-		} else {
-			last.scrollIntoView({ block: "start", behavior: "smooth" });
-		}
-	};
-
 	return (
 		<section
 			ref={section}
@@ -2038,8 +2024,6 @@ function Thread({
 					<TaskLine
 						branch={branch}
 						task={task}
-						need={needed}
-						onQuestions={toQuestions}
 						onDetails={() => setDetails(true)}
 					/>
 				</div>

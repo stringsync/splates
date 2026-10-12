@@ -3100,18 +3100,13 @@ Cap upload retries
 					within(alone).getByRole("button", { name: "About gamma" }),
 				),
 			);
-			const popup = await waitFor(() =>
-				view.getByRole("dialog", { name: "About gamma" }),
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: "gamma" }),
 			);
-			expect(popup.textContent).toContain("Waiting on you: How many retries?");
-			expect(popup.textContent).toContain("Cap upload retries");
-			await act(async () =>
-				fireEvent.click(within(popup).getByRole("button", { name: "Details" })),
-			);
-			expect(view.getByRole("dialog", { name: "gamma" })).toBeTruthy();
+			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
-		it("heads a conversation with its branch and progress, which open its Goal, next step and open questions", async () => {
+		it("heads a conversation with its branch and progress, which open its task", async () => {
 			const view = await sidebar(
 				[
 					conversation({
@@ -3130,18 +3125,10 @@ Cap upload retries
 
 			expect(about.textContent).toBe("task/alpha· 1/3");
 			await act(async () => fireEvent.click(about));
-			const popup = await waitFor(() =>
-				view.getByRole("dialog", { name: "About alpha" }),
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: "alpha" }),
 			);
-			expect(popup.textContent).toContain("Cap upload retries");
-			expect(popup.textContent).toContain("Assuming: How many retries?");
-			// No panel of them in the thread yet: the plan they are in opens.
-			await act(async () =>
-				fireEvent.click(
-					within(popup).getByRole("button", { name: "1 open question" }),
-				),
-			);
-			expect(view.getByRole("dialog", { name: "alpha" })).toBeTruthy();
+			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
 		it("counts the agents waiting on you on the tab and in the title", async () => {
