@@ -217,7 +217,7 @@ function Row({
 			return (
 				<Markdown
 					text={item.text}
-					className="text-muted-foreground text-xs [&_p]:my-0.5"
+					className="text-muted-foreground text-sm [&_p]:my-0.5"
 				/>
 			);
 		case "thought":
@@ -337,7 +337,7 @@ function Row({
 			);
 		case "decision":
 			return (
-				<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+				<div className="flex items-center gap-1.5 text-muted-foreground text-sm">
 					<span className="shrink-0">{decided(item.decision)}</span>
 					<code className="min-w-0 truncate font-mono">{item.label}</code>
 				</div>
@@ -444,7 +444,7 @@ function Line({
 		</>
 	);
 	const line = cn(
-		"flex items-center gap-1.5 text-foreground/80 text-xs",
+		"flex items-center gap-1.5 text-foreground/80 text-sm",
 		state === "failed" && "text-destructive [&_*]:text-destructive",
 	);
 	if (!opens) {
