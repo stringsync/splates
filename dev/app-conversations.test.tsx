@@ -79,7 +79,7 @@ describe("App's conversations", () => {
 		agent: string,
 	) => {
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+			fireEvent.click(view.getByRole("button", { name: "New" })),
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -913,7 +913,7 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("starts a conversation from the home composer, in the main tree with the agent picked beside New conversation and its settings, and says the message", async () => {
+	it("starts a conversation from the home composer, in the main tree with the agent picked from New and its settings, and says the message", async () => {
 		const view = await conversations(
 			[
 				conversation({ id: "c1", title: "Latest" }),
@@ -3756,7 +3756,7 @@ Cap upload retries
 			).toContain("Small");
 		});
 
-		it("shows ⌥⌘N in the New conversation menu beside the agent it starts", async () => {
+		it("shows ⌥⌘N in the New menu beside the agent it starts", async () => {
 			const view = await sidebar(
 				newestFirst([
 					conversation({ id: "c1", agent: "codex", title: "Latest" }),
@@ -3765,7 +3765,7 @@ Cap upload retries
 			);
 
 			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+				fireEvent.click(view.getByRole("button", { name: "New" })),
 			);
 			const item = (name: string) =>
 				waitFor(() => view.getByRole("menuitem", { name: new RegExp(name) }));

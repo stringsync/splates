@@ -10,7 +10,9 @@ export type TerminalsEvents = { changed: undefined };
  * the pane is shut or another conversation is up, until the browser tab
  * closes. Whether the pane is open is one setting for every conversation, the
  * way an editor's side panel stays put as you switch files, and outlives a
- * reload in `storage`.
+ * reload in `storage`. The main tree's own terminals, opened from New, are
+ * more shells, kept under `terminal/<n>` until closed. It changes whenever
+ * one of its shells does.
  */
 export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<TerminalsEvents>();
@@ -25,6 +27,9 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	 * in that one's composer, where it lands.
 	 */
 	focusing: string | null = null;
+
+	/** The main tree's own terminals' keys, oldest first. */
+	mains: string[] = [];
 
 	private readonly sessions = new Map<string, TerminalSession>();
 
@@ -43,6 +48,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		let session = this.sessions.get(conversation);
 		if (session === undefined) {
 			session = new TerminalSession(task);
+			session.events.on("changed", () => this.dispatcher.dispatch("changed"));
 			this.sessions.set(conversation, session);
 		}
 		return session;
@@ -89,8 +95,34 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		return status === "connecting" || status === "open";
 	}
 
-	/** Hangs up on `conversation`'s shell, if it has one, as it is archived. */
+	/**
+	 * Starts another shell in the main tree, numbered one past the highest
+	 * open, and returns its key.
+	 */
+	another(): string {
+		const next = Math.max(0, ...this.mains.map(numberOf)) + 1;
+		const key = `${MAIN}/${next}`;
+		this.keep(key);
+		return key;
+	}
+
+	/**
+	 * Lists `key` among the main tree's terminals, as one opened by its address
+	 * is after a reload; its shell starts once its page shows.
+	 */
+	keep(key: string): void {
+		if (!this.mains.includes(key)) {
+			this.mains = [...this.mains, key];
+			this.dispatcher.dispatch("changed");
+		}
+	}
+
+	/**
+	 * Hangs up on `conversation`'s shell, if it has one, as it is archived or
+	 * a main-tree terminal is closed.
+	 */
 	close(conversation: string): void {
+		this.mains = this.mains.filter((each) => each !== conversation);
 		if (this.sessions.has(conversation)) {
 			this.restart(conversation);
 		}
@@ -111,6 +143,22 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		this.sessions.clear();
 		this.dispatcher.dispose();
 	}
+}
+
+/**
+ * What the main tree's own terminals' keys start with, before `/<n>`, which
+ * no conversation id does.
+ */
+export const MAIN = "terminal";
+
+/** Whether `key` is one of the main tree's own terminals. */
+export function isMain(key: string): boolean {
+	return key.startsWith(`${MAIN}/`);
+}
+
+/** The number a main-tree terminal goes by, from its key. */
+export function numberOf(key: string): number {
+	return Number(key.slice(MAIN.length + 1)) || 0;
 }
 
 /** Where the pane's state is kept, beside the drafts' `arbor.draft.` keys. */

@@ -28,6 +28,7 @@ import {
 	SquareArrowOutUpRightIcon,
 	SquareTerminalIcon,
 	Trash2Icon,
+	XIcon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -141,8 +142,9 @@ import {
 	useToQuestions,
 } from "./task-view";
 import { Task } from "./tasks";
-import { ShellRunning, ToggleTerminal } from "./terminal";
+import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
+import { isMain, numberOf, type Terminals } from "./terminals";
 import { TodoDialog } from "./todos";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
@@ -269,8 +271,9 @@ function openingOf(conversation: ConversationState): string | null {
 }
 
 /**
- * The sidebar's conversations, under New conversation, in one list, newest
- * first, each row named alone, with its task on hover. A conversation follows its agent
+ * The sidebar's conversations, under New, in one list, newest first, after
+ * the main tree's own terminals, oldest first, until each is closed. Each
+ * row is named alone, with its task on hover. A conversation follows its agent
  * as it takes and lands tasks. A task whose agent runs outside the page is a
  * row of its own. Rows stay put as their agents change state; each one's mark
  * says whether it works or waits on you. Archived ones sit behind a link at
@@ -285,12 +288,15 @@ function openingOf(conversation: ConversationState): string | null {
  */
 export function ConversationList({
 	feed,
+	terminals,
 	tasks,
 	settings,
 	open,
 	onOpen,
 }: {
 	feed: ConversationFeed;
+	/** The page's shells, the main tree's among them. */
+	terminals: Terminals;
 	tasks: Details[];
 	/** What to notify of, or null for a list that notifies of nothing. */
 	settings: Settings | null;
@@ -303,6 +309,12 @@ export function ConversationList({
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
+	const { mains } = useReactive(
+		terminals,
+		(terminals) => ({ mains: terminals.mains }),
+		["changed"],
+	);
+
 	const listed = conversations.filter((each) => !each.archived);
 	const external = needs({ tasks, conversations }).filter(
 		(each) => each.conversation === null,
@@ -423,7 +435,7 @@ export function ConversationList({
 					}
 				>
 					<PlusIcon className="size-3.5" />
-					<span className="flex-1">New conversation</span>
+					<span className="flex-1">New</span>
 					{held ? (
 						<Kbd aria-hidden>N</Kbd>
 					) : (
@@ -443,9 +455,28 @@ export function ConversationList({
 							)}
 						</DropdownMenuItem>
 					))}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onClick={() => onOpen(terminals.another())}>
+						<SquareTerminalIcon />
+						Terminal
+					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<CheckpointButton conversations={listed} />
+			{mains.map((each) => (
+				<TerminalRow
+					key={each}
+					name={`Terminal ${numberOf(each)}`}
+					current={open === each}
+					onOpen={() => onOpen(each)}
+					onClose={() => {
+						if (open === each) {
+							onOpen(NEW);
+						}
+						terminals.close(each);
+					}}
+				/>
+			))}
 			<Rows
 				label="conversation list"
 				rows={nested}
@@ -492,6 +523,49 @@ export function ConversationList({
 
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
+
+/** A main-tree terminal in the list, with an X that hangs up its shell. */
+function TerminalRow({
+	name,
+	current,
+	onOpen,
+	onClose,
+}: {
+	name: string;
+	current: boolean;
+	onOpen: () => void;
+	onClose: () => void;
+}): JSX.Element {
+	return (
+		<div
+			className={cn(
+				"group/item relative flex items-center rounded-md text-foreground hover:bg-foreground/[0.05]",
+				current && "bg-accent hover:bg-accent",
+			)}
+		>
+			<button
+				type="button"
+				data-row
+				aria-current={current ? "page" : undefined}
+				onClick={onOpen}
+				className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-8 pl-3 text-left"
+			>
+				<SquareTerminalIcon className="size-3.5 text-foreground/70" />
+				<span className="min-w-0 flex-1 truncate text-sm">{name}</span>
+			</button>
+			<Button
+				size="icon-xs"
+				variant="ghost"
+				aria-label={`Close ${name}`}
+				title={`Close ${name}`}
+				className="absolute right-1 opacity-0 group-focus-within/item:opacity-100 group-hover/item:opacity-100 pointer-coarse:opacity-100"
+				onClick={onClose}
+			>
+				<XIcon />
+			</Button>
+		</div>
+	);
+}
 
 /** Nested rows in the order they show, each part under its task. */
 function flatten<Row>(rows: Nested<Row>[]): Row[] {
@@ -1019,6 +1093,7 @@ export function reportedAs(conversation: ConversationState): Ending | null {
  */
 export function Conversations({
 	feed,
+	terminals,
 	drafts,
 	tasks,
 	todos,
@@ -1029,6 +1104,8 @@ export function Conversations({
 	phone,
 }: {
 	feed: ConversationFeed;
+	/** The page's shells, the main tree's among them. */
+	terminals: Terminals;
 	/**
 	 * What was typed and not sent, by conversation: the page's, so a prompt
 	 * composed elsewhere on it reaches the composer it was meant for.
@@ -1095,6 +1172,7 @@ export function Conversations({
 				{phone && open === null ? (
 					<ConversationList
 						feed={feed}
+						terminals={terminals}
 						tasks={tasks}
 						// A phone's browser notifies only from a service worker, and
 						// this list comes and goes with what is open.
@@ -1117,6 +1195,14 @@ export function Conversations({
 						conversations={conversations}
 						refuseIn={refuse}
 						onOpen={onOpen}
+						onBack={phone ? () => onOpen(null) : null}
+					/>
+				) : open !== null && isMain(open) ? (
+					<MainTerminal
+						key={open}
+						terminals={terminals}
+						terminal={open}
+						trunk={trunk}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
 				) : open === ARCHIVED ? (

@@ -453,6 +453,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 												<div className="-mx-3 mt-4 min-h-0 flex-1 overflow-y-auto border-t px-3 pt-4 pb-6">
 													<ConversationList
 														feed={talk}
+														terminals={terminals}
 														tasks={snapshot.tasks}
 														settings={settings}
 														open={page === "conversations" ? open : null}
@@ -511,6 +512,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 												<TreesContext value={snapshot}>
 													<Conversations
 														feed={talk}
+														terminals={terminals}
 														drafts={drafts}
 														tasks={snapshot.tasks}
 														todos={snapshot.todos}
