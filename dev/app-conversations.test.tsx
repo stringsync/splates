@@ -615,6 +615,63 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	describe("back from a restart", () => {
+		/** Opens the page on `held`, then drops the stream and brings it back. */
+		const restart = async (held: ConversationState[]) => {
+			await conversations(held, null);
+			const reload = spyOn(location, "reload").mockImplementation(() => {});
+			await act(async () => testing.talkStream?.onerror?.());
+			await act(async () => testing.talkStream?.onerror?.());
+			testing.talk = { agents: AGENTS, conversations: held };
+			await act(async () => testing.talkStream?.onopen?.());
+			return reload;
+		};
+
+		it("reloads the page once each agent a checkpoint stopped has resumed", async () => {
+			const stopped = (id: string) =>
+				conversation({ id, status: "stopped", checkpoint: "done" });
+			const reload = await restart([stopped("c1"), stopped("c2")]);
+
+			await testing.say(conversation({ id: "c1", status: "running" }));
+			expect(reload).not.toHaveBeenCalled();
+			await testing.say(conversation({ id: "c2", status: "running" }));
+
+			expect(reload).toHaveBeenCalledTimes(1);
+			reload.mockRestore();
+		});
+
+		it("stays while an agent fails to resume", async () => {
+			const reload = await restart([
+				conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
+				conversation({ id: "c2", status: "stopped", checkpoint: "done" }),
+			]);
+
+			await testing.say(conversation({ id: "c1", status: "running" }));
+			await testing.say(
+				conversation({
+					id: "c2",
+					status: "failed",
+					error: "agent exited",
+					checkpoint: "done",
+				}),
+			);
+
+			expect(reload).not.toHaveBeenCalled();
+			reload.mockRestore();
+		});
+
+		it("stays when no checkpoint had stopped an agent", async () => {
+			const reload = await restart([
+				conversation({ id: "c1", status: "running" }),
+			]);
+
+			await testing.say(conversation({ id: "c1", status: "idle" }));
+
+			expect(reload).not.toHaveBeenCalled();
+			reload.mockRestore();
+		});
+	});
+
 	it("renames a conversation from its menu", async () => {
 		const view = await conversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],

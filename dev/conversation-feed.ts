@@ -53,6 +53,16 @@ export class ConversationFeed
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
 	private stream: EventSource | null = null;
+	/**
+	 * Those a checkpoint had stopped when the stream dropped, as `arbor dev`
+	 * stops to restart after one; null while the stream is up.
+	 */
+	private dropped: Set<string> | null = null;
+	/**
+	 * Those a restart is to resume, once the stream is back: the page reloads,
+	 * onto what the restarted `arbor dev` serves, once each has.
+	 */
+	private resuming: Set<string> | null = null;
 
 	start(): void {
 		// React runs a mount effect twice in StrictMode, and a second stream would
@@ -143,6 +153,18 @@ export class ConversationFeed
 
 	private show(recorded: ConversationState[]): void {
 		this.recorded = recorded;
+		// Each resumed clears its checkpoint; one whose agent failed to start
+		// keeps it, and the page stays to show that.
+		const resuming = this.resuming;
+		if (
+			resuming !== null &&
+			recorded.every(
+				(each) => !resuming.has(each.id) || each.checkpoint === null,
+			)
+		) {
+			this.resuming = null;
+			location.reload();
+		}
 		this.conversations = recorded.map((each) => {
 			const sending = this.sending.get(each.id);
 			if (sending === undefined) {
@@ -188,9 +210,26 @@ export class ConversationFeed
 		this.stream = stream;
 		stream.onmessage = (event: MessageEvent<string>) =>
 			this.put(JSON.parse(event.data) as ConversationState);
+		// The first of the retries after a drop, so the stopped are as they
+		// were before it.
+		stream.onerror = () => {
+			this.dropped ??= new Set(
+				this.recorded
+					.filter(
+						({ checkpoint }) => checkpoint !== null && checkpoint !== "asked",
+					)
+					.map((each) => each.id),
+			);
+		};
 		// Back after the stream dropped, as when `arbor dev` restarts: what the
 		// page holds may have moved meanwhile, so it is read again whole.
-		stream.onopen = () => void this.list();
+		stream.onopen = () => {
+			if (this.dropped !== null && this.dropped.size > 0) {
+				this.resuming = this.dropped;
+			}
+			this.dropped = null;
+			void this.list();
+		};
 	}
 
 	/** Reads every conversation afresh; false when they are off. */
