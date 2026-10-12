@@ -1158,20 +1158,20 @@ function Home({
 }): JSX.Element {
 	const { refusal, refuse } = useRefusal();
 	// What the agent's sessions offer is known from its latest conversation
-	// that got as far as a session, archived or not, and each setting starts
-	// where that one left it; the first one with an agent starts with the
+	// here that got as far as a session, archived or not, and each setting
+	// starts where that one left it; failing that, from its sessions in any
+	// project; the first one with an agent on this machine starts with the
 	// agent's own defaults.
 	const offered =
 		conversations.find(
 			(each) => each.agent === agent && each.settings.length > 0,
-		)?.settings ?? [];
+		)?.settings ??
+		agents.find((each) => each.id === agent)?.settings ??
+		[];
 	// A model asked for, as by a todo's agent, shows picked where it is offered.
 	const [picks, setPicks] = useState<Record<string, string>>(() => {
 		const asked = model === null ? null : modelOption(offered, model);
-		return {
-			...Object.fromEntries(offered.map((each) => [each.id, each.current])),
-			...(asked === null ? {} : { [asked.setting]: asked.value }),
-		};
+		return asked === null ? {} : { [asked.setting]: asked.value };
 	});
 	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
@@ -1193,10 +1193,15 @@ function Home({
 				.trim();
 			const images = imagesOf(message);
 			setStarting(true);
+			// Each as shown: where it was left, unless picked here.
+			const settings = {
+				...Object.fromEntries(offered.map((each) => [each.id, each.current])),
+				...picks,
+			};
 			const state = await startConversation(
 				agent,
 				task,
-				picks,
+				settings,
 				// Until a session has offered its settings, the server picks it.
 				model !== null && offered.length === 0 ? model : undefined,
 			).catch((error: unknown) => {
@@ -1285,16 +1290,24 @@ function Home({
 							)}
 						</div>
 					}
-					controls={offered.map((setting) => (
-						<SettingControl
-							key={setting.id}
-							setting={setting}
-							value={picks[setting.id] ?? setting.current}
-							onChange={(value) =>
-								setPicks((picks) => ({ ...picks, [setting.id]: value }))
-							}
-						/>
-					))}
+					controls={
+						offered.length > 0 ? (
+							offered.map((setting) => (
+								<SettingControl
+									key={setting.id}
+									setting={setting}
+									value={picks[setting.id] ?? setting.current}
+									onChange={(value) =>
+										setPicks((picks) => ({ ...picks, [setting.id]: value }))
+									}
+								/>
+							))
+						) : (
+							<span className="px-1.5 text-[11px] text-muted-foreground">
+								Settings appear once {agentName(agents, agent)} starts
+							</span>
+						)
+					}
 				/>
 			</AssistantRuntimeProvider>
 		</section>

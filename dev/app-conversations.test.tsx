@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { Checkpoint, ConversationState } from "../conversations";
+import type { Checkpoint, ConversationState, Setting } from "../conversations";
 import type { Snapshot } from "../snapshot";
 import type { ProjectChoice } from "./api";
+import type { AgentChoice } from "./conversation-feed";
 import {
 	act,
 	cleanup,
@@ -24,9 +25,9 @@ const resize = (width: number, height: number) =>
 		}
 	).happyDOM.setViewport({ width, height });
 
-const AGENTS = [
-	{ id: "claude", name: "Claude" },
-	{ id: "codex", name: "Codex" },
+const AGENTS: AgentChoice[] = [
+	{ id: "claude", name: "Claude", settings: [] },
+	{ id: "codex", name: "Codex", settings: [] },
 ];
 
 describe("App's conversations", () => {
@@ -46,8 +47,9 @@ describe("App's conversations", () => {
 		held: ConversationState[],
 		open: string | null = held[0]?.id ?? null,
 		overrides: Partial<Snapshot> = {},
+		agents: AgentChoice[] = AGENTS,
 	) => {
-		testing.talk = { agents: AGENTS, conversations: held };
+		testing.talk = { agents, conversations: held };
 		const view = await testing.open({
 			tasks: [details({ task: "alpha" })],
 			...overrides,
@@ -772,6 +774,47 @@ describe("App's conversations", () => {
 		);
 		expect(location.hash).toBe("#conversations/c9");
 		expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy();
+	});
+
+	it("starts an agent's first conversation in a project with the settings its sessions left elsewhere, and says when none are known", async () => {
+		const model: Setting = {
+			id: "model",
+			name: "Model",
+			type: "select",
+			category: "model",
+			current: "big",
+			options: [
+				{ value: "big", name: "Big", description: null },
+				{ value: "small", name: "Small", description: null },
+			],
+		};
+		const view = await conversations([], null, {}, [
+			{ id: "claude", name: "Claude", settings: [] },
+			{ id: "codex", name: "Codex", settings: [model] },
+		]);
+		testing.reply = conversation({ id: "c9", agent: "codex", task: null });
+
+		expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
+		expect(view.getByText("Settings appear once Claude starts")).toBeTruthy();
+
+		await newWith(view, "Codex");
+		expect(view.queryByText(/Settings appear once/)).toBeNull();
+		expect(view.getByRole("combobox", { name: "model" }).textContent).toContain(
+			"Big",
+		);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "fix the login" } }),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		// As shown, though never touched.
+		expect(posted("/api/conversations")).toEqual([
+			{
+				method: "POST",
+				body: { agent: "codex", task: null, settings: { model: "big" } },
+			},
+		]);
 	});
 
 	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {

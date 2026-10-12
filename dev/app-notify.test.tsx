@@ -44,7 +44,7 @@ describe("App's settings and notifications", () => {
 	const settings = async () => {
 		const runs = conversation({ id: "c1", title: "Fix", status: "running" });
 		testing.talk = {
-			agents: [{ id: "claude", name: "Claude" }],
+			agents: [{ id: "claude", name: "Claude", settings: [] }],
 			conversations: [runs],
 		};
 		const view = await testing.open({ tasks: [details({ task: "alpha" })] });

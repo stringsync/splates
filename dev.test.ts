@@ -1025,6 +1025,7 @@ describe("dev", () => {
 							{ id: "big", name: "Big" },
 							{ id: "small", name: "Small" },
 						],
+						settings: [],
 					},
 				]);
 
@@ -1404,7 +1405,7 @@ describe("dev", () => {
 					await fetch(`http://localhost:${port}/api/conversations`)
 				).json();
 				expect(listed).toEqual({
-					agents: [{ id: "fake", name: "Fake", models: [] }],
+					agents: [{ id: "fake", name: "Fake", models: [], settings: [] }],
 					conversations: [],
 				});
 

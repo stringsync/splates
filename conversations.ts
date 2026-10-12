@@ -14,6 +14,7 @@ import {
 } from "webappwiz/time";
 import { fail } from "./exit";
 import { modelOption } from "./models";
+import type { Offered } from "./offered";
 import type { Flag, Watch, Watched } from "./watch";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
@@ -1763,6 +1764,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly timer: Timer;
 	private readonly clock: WallClock;
 	private readonly watch: Watch | null;
+	private readonly offered: Offered | null;
 	private loaded = false;
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
@@ -1778,6 +1780,15 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemWallClock();
 		this.watch = opts.watch ?? null;
+		this.offered = opts.offered ?? null;
+	}
+
+	/**
+	 * What each agent's sessions last offered, from any project, by its id:
+	 * what a first conversation with one shows before it starts.
+	 */
+	async settings(): Promise<Record<string, Setting[]>> {
+		return (await this.offered?.all()) ?? {};
 	}
 
 	/** Every conversation, newest first. */
@@ -1861,9 +1872,17 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 	private track(conversation: Conversation): void {
 		this.known.set(conversation.id, conversation);
-		conversation.events.on("changed", () =>
-			this.dispatcher.dispatch("changed", conversation.id),
-		);
+		// Only what changes from here: a log read back may be older than what
+		// another project's sessions offered since.
+		let remembered = conversation.state.settings;
+		conversation.events.on("changed", () => {
+			const { agent, settings } = conversation.state;
+			if (settings !== remembered && settings.length > 0) {
+				remembered = settings;
+				void this.offered?.remember(agent, settings).catch(() => {});
+			}
+			this.dispatcher.dispatch("changed", conversation.id);
+		});
 		this.dispatcher.dispatch("changed", conversation.id);
 	}
 
@@ -1900,4 +1919,6 @@ export interface ConversationsOptions {
 	clock?: WallClock;
 	/** What watches the agents' commands for what they do to git; none by default. */
 	watch?: Watch | null;
+	/** Where what each agent's sessions offer is kept across projects; nowhere by default. */
+	offered?: Offered | null;
 }

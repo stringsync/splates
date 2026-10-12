@@ -17,6 +17,7 @@ import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
+import { Offered } from "./offered";
 import { path } from "./path";
 import { newest } from "./release";
 import { remove } from "./remove";
@@ -252,6 +253,10 @@ arbor
 		}
 		// Read once: a roster edited while it serves applies from the restart.
 		const roster = opts.experimental ? await seeded(rosterOf(ctx)) : [];
+		// One for every project's conversations, so none overwrites another's.
+		const offered = new Offered(`${arborHome(ctx.ps)}/offered.json`, {
+			fs: ctx.fs,
+		});
 		return dev(ctx, {
 			ports: devPorts(opts.port),
 			hosts: opts["allow-hosts"]
@@ -262,6 +267,7 @@ arbor
 				? ({ arborDir, git }) =>
 						new Conversations(`${arborDir}/conversations`, roster, {
 							fs: ctx.fs,
+							offered,
 							watch: new Watch(git),
 						})
 				: null,

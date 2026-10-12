@@ -21,8 +21,9 @@ const AGENTS = [
 			{ id: "opus", name: "Opus" },
 			{ id: "haiku", name: "Haiku" },
 		],
+		settings: [],
 	},
-	{ id: "codex", name: "Codex" },
+	{ id: "codex", name: "Codex", settings: [] },
 ];
 
 describe("App's controls that put agents to work", () => {

@@ -15,6 +15,7 @@ import {
 	type Status,
 } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
+import { Offered } from "./offered";
 import { Testing } from "./testing";
 import { Watch } from "./watch";
 
@@ -134,6 +135,40 @@ describe("Conversations", () => {
 		expect(
 			conversation.state.settings.find((each) => each.id === "fast")?.current,
 		).toBe("off");
+	});
+
+	it("remembers what an agent's sessions offer for every project, as last left", async () => {
+		const offered = new Offered("/home/.arbor/offered.json", { fs });
+		const project = (dir: string) =>
+			new Conversations(dir, [AGENT], {
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				offered,
+			});
+		const shop = project("/shop/.git/arbor/conversations");
+		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });
+		await until(conversation, "idle");
+		await conversation.choose("model", "small");
+		await shop.disposeAsync();
+
+		// Another project, and another process, as after a restart.
+		const blog = project("/blog/.git/arbor/conversations");
+		const later = new Offered(offered.path, { fs });
+		expect(await blog.settings()).toEqual(await later.all());
+		const settings = (await later.all()).fake ?? [];
+		expect(settings.map((each) => [each.id, each.current])).toEqual([
+			["mode", "ask"],
+			["model", "small"],
+			["fast", "off"],
+		]);
+
+		// A log read back, older than what was offered since, changes nothing.
+		await offered.remember("fake", []);
+		await project("/shop/.git/arbor/conversations").list();
+		expect((await offered.all()).fake).toEqual([]);
 	});
 
 	it("refuses an agent it does not know", async () => {

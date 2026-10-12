@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { ConversationState, Image } from "../conversations";
+import type { ConversationState, Image, Setting } from "../conversations";
 import { scoped } from "./api";
 
 export type ConversationFeedEvents = { changed: undefined };
@@ -17,6 +17,11 @@ export interface AgentChoice {
 	name: string;
 	/** The models the roster lists for it, by the ids its Model setting takes. */
 	models?: { id: string; name: string }[];
+	/**
+	 * What its sessions last offered, from any project, each where it was
+	 * left; none until it has had one on this machine.
+	 */
+	settings: Setting[];
 }
 
 /**

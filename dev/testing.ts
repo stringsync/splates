@@ -10,6 +10,7 @@ import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import type { Interrupted, ProjectChoice } from "./api";
+import type { AgentChoice } from "./conversation-feed";
 import { FakeShell } from "./fake-shell";
 import { Settings } from "./settings";
 
@@ -65,7 +66,7 @@ export class Testing implements Resource {
 	 * null, the default, answers as `arbor dev` without `--experimental` does.
 	 */
 	talk: {
-		agents: { id: string; name: string }[];
+		agents: AgentChoice[];
 		conversations: ConversationState[];
 	} | null = null;
 	/** The conversations' own stream, once the page opens it. */
