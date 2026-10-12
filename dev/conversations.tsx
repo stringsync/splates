@@ -393,6 +393,9 @@ export function ConversationList({
 						>
 							<AgentIcon agent={each.id} name={each.name} />
 							{each.name}
+							{each.id === agentFor(NEW, agents, conversations) && (
+								<Kbd className="ml-auto">⌥⌘N</Kbd>
+							)}
 						</DropdownMenuItem>
 					))}
 				</DropdownMenuContent>

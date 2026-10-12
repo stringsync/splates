@@ -3085,5 +3085,22 @@ Cap upload retries
 				view.getByRole("combobox", { name: "model" }).textContent,
 			).toContain("Small");
 		});
+
+		it("shows ⌥⌘N in the New conversation menu beside the agent it starts", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", agent: "codex", title: "Latest" }),
+					conversation({ id: "c2", title: "Earlier" }),
+				]),
+			);
+
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+			);
+			const item = (name: string) =>
+				waitFor(() => view.getByRole("menuitem", { name: new RegExp(name) }));
+			expect((await item("Codex")).textContent).toContain("⌥⌘N");
+			expect((await item("Claude")).textContent).not.toContain("⌥⌘N");
+		});
 	});
 });
