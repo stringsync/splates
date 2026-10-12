@@ -86,6 +86,8 @@ export class FakeAgent {
 	private options = structuredClone(OPTIONS);
 	launched: { argv: string[]; cwd: string; env: Record<string, string> }[] = [];
 	killed = 0;
+	/** The pid each process it launches says it has. */
+	pid: number | null = null;
 	private exit: (code: number) => void = () => {};
 
 	launch = (
@@ -104,6 +106,7 @@ export class FakeAgent {
 			this.exit = resolve;
 		});
 		return {
+			pid: this.pid,
 			input: toAgent.writable,
 			output: toClient.readable,
 			stderr: () => "fake agent fell over",

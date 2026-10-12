@@ -258,12 +258,14 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 }
 
 /**
- * Whether no agent is at work in any project, and no checkpoint or restart
- * is under way, which a restart would cut into.
+ * Whether no agent is at work in any project, no command runs that a restart
+ * would kill, and no checkpoint or restart is under way, which a restart
+ * would cut into.
  */
 function idleIn(listed: Projects): boolean {
 	return (
 		listed.restarting === null &&
+		listed.held.length === 0 &&
 		listed.projects.every((project) =>
 			project.conversations.every(
 				(each) =>

@@ -28,6 +28,8 @@ export interface Agent {
 
 /** A running agent: bytes in, bytes out, and a way to stop it. */
 export interface AgentProcess {
+	/** Its pid, for what runs under it; null for one that never started. */
+	pid: number | null;
 	input: WritableStream<Uint8Array>;
 	output: ReadableStream<Uint8Array>;
 	/** What it last wrote to stderr, for when it dies before saying why. */
@@ -57,6 +59,7 @@ export const launch: Launch = (argv, cwd, env) => {
 		}
 	})().catch(() => {});
 	return {
+		pid: child.pid,
 		input: child.stdin,
 		output: child.stdout,
 		stderr: () => tail,
@@ -812,6 +815,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	get id(): string {
 		return this.state.id;
+	}
+
+	/** The agent's pid while it runs, for the commands it left running. */
+	get pid(): number | null {
+		return this.process?.pid ?? null;
 	}
 
 	/** The agent's session, once it has opened one. */

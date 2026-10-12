@@ -28,6 +28,7 @@ import { startDispatched } from "./dispatched";
 import { Exit, fail, type Reason } from "./exit";
 import type { Format } from "./format";
 import type { Git } from "./git";
+import { type Held, heldBy } from "./held";
 import { needs } from "./needs";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
@@ -1159,6 +1160,39 @@ export async function dev(
 			newest: release?.newest ?? null,
 			behind,
 			restartable: exit !== null,
+			held: await holding(),
+		});
+	};
+
+	/**
+	 * What a restart would kill: the job in front in each of the page's
+	 * shells, and each command an idle agent left running. An agent at work
+	 * holds a restart off on its own.
+	 */
+	const holding = async (): Promise<Held[]> => {
+		const agents: { name: string; pid: number }[] = [];
+		for (const settled of await Promise.allSettled(served.values())) {
+			const project = settled.status === "fulfilled" ? settled.value : null;
+			for (const each of (await project?.conversations?.list()) ?? []) {
+				const { state, pid } = each;
+				if (
+					pid !== null &&
+					state.status !== "running" &&
+					state.status !== "starting"
+				) {
+					agents.push({
+						name: state.name ?? state.lastTask ?? state.title ?? state.agent,
+						pid,
+					});
+				}
+			}
+		}
+		if (shells.size === 0 && agents.length === 0) {
+			return [];
+		}
+		return heldBy(await ps.processes(), {
+			shells: [...shells].map((pty) => pty.pid),
+			agents,
 		});
 	};
 	const checkpointable = async (root: string) => {
@@ -1369,8 +1403,9 @@ export async function dev(
 	};
 
 	/**
-	 * Restarts `arbor dev` now, refused while any agent is at work, since
-	 * only a turn under way has anything to lose.
+	 * Restarts `arbor dev` now, refused while any agent is at work, or a
+	 * command it would kill runs: a job in front in a shell, or one an idle
+	 * agent left running.
 	 */
 	const restartIdle = async (): Promise<Response> => {
 		if (exit === null) {
@@ -1393,6 +1428,14 @@ export async function dev(
 				"usage",
 				`agents are at work: ${working.map((each) => each.name).join(", ")}`,
 				{ conversations: working.map((each) => each.id) },
+			);
+		}
+		const held = await holding();
+		if (held.length > 0) {
+			fail(
+				"usage",
+				`commands are running: ${held.map((each) => `${each.command} (${each.where})`).join(", ")}`,
+				{ held },
 			);
 		}
 		restartAfter([], false, { reopens: false });

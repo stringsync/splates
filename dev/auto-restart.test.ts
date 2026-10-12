@@ -27,6 +27,7 @@ class FakeServer implements AutoRestartServer {
 		newest: null,
 		behind: { running: "a".repeat(40), newest: "b".repeat(40) },
 		restartable: true,
+		held: [],
 	};
 	restarts = 0;
 	down = false;
@@ -214,6 +215,25 @@ describe("AutoRestart", () => {
 		expect(restart.state.step).toBe("watching");
 		await pass(6);
 		expect(restart.state.step).toBe("counting");
+	});
+
+	it("holds off while a command runs that a restart would kill", async () => {
+		server.listed = {
+			...server.listed,
+			held: [{ where: "fixer", command: "bun run dev" }],
+		};
+		await pass(125);
+		expect(restart.state.step).toBe("watching");
+
+		server.listed = { ...server.listed, held: [] };
+		await pass(65);
+		expect(restart.state.step).toBe("counting");
+		server.listed = {
+			...server.listed,
+			held: [{ where: "terminal", command: "vim" }],
+		};
+		await pass(1);
+		expect(restart.state.step).toBe("watching");
 	});
 
 	it("waits on the restart when the server goes before it answers", async () => {

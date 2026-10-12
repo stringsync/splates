@@ -14,6 +14,7 @@ import type {
 	Session,
 } from "../conversations";
 import type { FileDiff } from "../diff";
+import type { Held } from "../held";
 import type { Behind } from "../release";
 import type { AgentPick } from "../roster";
 
@@ -496,6 +497,11 @@ export interface Projects {
 	behind: Behind | null;
 	/** Whether `arbor dev` can restart itself, as under its supervisor. */
 	restartable: boolean;
+	/**
+	 * What a restart would kill, which holds an auto restart off: jobs in
+	 * front in the page's shells, and commands idle agents left running.
+	 */
+	held: Held[];
 }
 
 /** Every arbor project on this machine, and the `arbor dev` serving them. */

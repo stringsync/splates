@@ -1752,6 +1752,72 @@ describe("dev", () => {
 			}
 		});
 
+		it.skipIf(process.platform === "win32")(
+			"refuses to restart while an idle agent's command still runs, and lists it",
+			async () => {
+				// The agent is this process, so what it starts runs under it.
+				agent.pid = process.pid;
+				const exits: number[] = [];
+				const server = await dev(deps, {
+					ports: OpenPortProvider.any(),
+					conversations: () => conversations,
+					exit: (code) => exits.push(code),
+				});
+				// In a session of its own, as an agent runs each command.
+				const command = Bun.spawn(["sh", "-c", "sleep 30; true"], {
+					detached: true,
+				});
+				try {
+					const { port } = server;
+					const started = await json(port, "/api/conversations", "POST", {
+						agent: "fake",
+					});
+					const { id } = (await started.json()) as { id: string };
+					const conversation = await conversations.find(id);
+					for (
+						let i = 0;
+						i < 100 && conversation.state.status !== "idle";
+						i++
+					) {
+						await Bun.sleep(5);
+					}
+
+					const held = async () =>
+						(
+							(await (
+								await fetch(`http://127.0.0.1:${port}/api/projects`)
+							).json()) as { held: { where: string; command: string }[] }
+						).held;
+					// Until the shell has started the command it runs.
+					let listed = await held();
+					for (let i = 0; i < 100 && listed[0]?.command !== "sleep 30"; i++) {
+						await Bun.sleep(5);
+						listed = await held();
+					}
+					const refused = await json(port, "/api/restart", "POST");
+
+					expect(listed).toEqual([{ where: "fake", command: "sleep 30" }]);
+					expect(refused.status).toBe(400);
+					expect(exits).toEqual([]);
+
+					command.kill();
+					await command.exited;
+					const restarted = await json(port, "/api/restart", "POST");
+
+					expect(restarted.status).toBe(200);
+					for (let i = 0; i < 100 && exits.length === 0; i++) {
+						await Bun.sleep(5);
+					}
+					expect(exits).toEqual([RESTART]);
+				} finally {
+					command.kill();
+					if (exits.length === 0) {
+						await server.disposeAsync();
+					}
+				}
+			},
+		);
+
 		it("restarts once a checkpoint has ended, each one done with it waiting after to be resumed", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {

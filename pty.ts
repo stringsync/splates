@@ -55,6 +55,11 @@ export class Pty implements AsyncResource, Eventful<PtyEvents> {
 		void child.exited.then((code) => this.dispatcher.dispatch("exit", code));
 	}
 
+	/** The shell's pid, for the job it runs. */
+	get pid(): number {
+		return this.child.pid;
+	}
+
 	/** Types `data` at the program, keys and pastes alike. */
 	write(data: string | Uint8Array): void {
 		this.child.write(data);
