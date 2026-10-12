@@ -510,6 +510,30 @@ describe("App's conversations", () => {
 		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
 	});
 
+	it("archives on ⌥⌘⌫ to a new conversation past merged and unread ones, which only ⌥⌘M opens", async () => {
+		await conversations([
+			conversation({ id: "c1", title: "Done", status: "stopped" }),
+			conversation({
+				id: "c2",
+				title: "Merged",
+				status: "stopped",
+				messages: [
+					message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+				],
+			}),
+			conversation({
+				id: "c3",
+				title: "Unread",
+				status: "stopped",
+				unread: true,
+			}),
+		]);
+		expect(location.hash).toBe("#conversations/c1");
+
+		await pressArchive();
+		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
+	});
+
 	it("brings an archived conversation back on ⌥⌘⌫, staying on it", async () => {
 		await conversations([], null);
 		await testing.say(conversation({ status: "stopped", archived: true }));
@@ -4398,6 +4422,90 @@ Cap upload retries
 				}),
 			);
 			expect(location.hash).toBe("#conversations/c3");
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					altKey: true,
+					metaKey: true,
+					code: "KeyM",
+				}),
+			);
+			expect(location.hash).toBe("#conversations/c2");
+		});
+
+		it("opens merged conversations with ⌥⌘M once none waits on you, then unread ones", async () => {
+			const merged = (id: string) =>
+				conversation({
+					id,
+					title: id,
+					messages: [
+						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+					],
+				});
+			await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Unread", unread: true }),
+					merged("c2"),
+					conversation({ id: "c3", title: "Asks", status: "running", ask }),
+					merged("c4"),
+				]),
+			);
+			const press = () =>
+				act(async () =>
+					fireEvent.keyDown(document.body, {
+						altKey: true,
+						metaKey: true,
+						code: "KeyM",
+					}),
+				);
+			await press();
+			expect(location.hash).toBe("#conversations/c3");
+			// The one asking still comes first, from wherever you are.
+			await press();
+			expect(location.hash).toBe("#conversations/c3");
+		});
+
+		it("goes round the merged conversations with ⌥⌘M, then the unread ones", async () => {
+			const merged = (id: string) =>
+				conversation({
+					id,
+					title: id,
+					messages: [
+						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+					],
+				});
+			await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Unread", unread: true }),
+					merged("c2"),
+					conversation({ id: "c3", title: "Read" }),
+					merged("c4"),
+				]),
+			);
+			const press = () =>
+				act(async () =>
+					fireEvent.keyDown(document.body, {
+						altKey: true,
+						metaKey: true,
+						code: "KeyM",
+					}),
+				);
+			await press();
+			const first = location.hash;
+			expect(["#conversations/c2", "#conversations/c4"]).toContain(first);
+			await press();
+			expect(location.hash).not.toBe(first);
+			expect(["#conversations/c2", "#conversations/c4"]).toContain(
+				location.hash,
+			);
+		});
+
+		it("opens an unread conversation with ⌥⌘M once none waits on you or merged", async () => {
+			await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "Read" }),
+					conversation({ id: "c2", title: "Unread", unread: true }),
+				]),
+			);
 			await act(async () =>
 				fireEvent.keyDown(document.body, {
 					altKey: true,

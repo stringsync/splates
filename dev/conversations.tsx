@@ -299,7 +299,7 @@ function openingOf(conversation: ConversationState): string | null {
  * the bottom.
  *
  * The arrow keys move between rows, ⌥⌘M (Ctrl+Alt+M off a Mac) opens the
- * next one waiting, ⌥⌘N starts a new one as the last was started, and
+ * next one waiting, or else the next merged, then unread, one, ⌥⌘N starts a new one as the last was started, and
  * ⌥⌘0 to ⌥⌘9 open the first ten rows, top to bottom. Holding ⌥⌘ shows each
  * of those keys beside what it opens.
  * As `settings` say, it notifies of an agent that comes to wait on you,
@@ -364,7 +364,7 @@ export function ConversationList({
 	shownRef.current = shown;
 	const next = useRef(() => {});
 	next.current = () => {
-		const waiting = nextWaiting(rows, open);
+		const waiting = nextWaiting(rows, open, true);
 		if (waiting !== undefined) {
 			arriveAt(openedBy(waiting));
 			openRow(waiting);
@@ -634,15 +634,41 @@ function openedBy(row: Needing): string {
 
 /**
  * The next of `rows` that waits on you after the one `open` shows, around to
- * the top: what ⌥⌘M opens. The one open comes last, so ⌥⌘M on the only one
- * waiting goes back to its questions.
+ * the top, or with `settled` and none waiting, the next merged one, then the
+ * next unread one: what ⌥⌘M opens. The one open comes last, so ⌥⌘M on the
+ * only one waiting goes back to its questions.
  */
 function nextWaiting(
 	rows: Needing[],
 	open: string | null,
+	settled = false,
 ): Needing | undefined {
 	const at = rows.findIndex((row) => openedBy(row) === open);
-	return [...rows.slice(at + 1), ...rows.slice(0, at + 1)].find(waitsOnYou);
+	const around = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
+	const waiting = around.find(waitsOnYou);
+	if (waiting !== undefined || !settled) {
+		return waiting;
+	}
+	return around.find(wasMerged) ?? around.find(isUnread);
+}
+
+/** Whether `row` shows as merged in the sidebar. */
+function wasMerged({ conversation, need }: Needing): boolean {
+	return (
+		conversation !== null &&
+		reportedAs(conversation) === "merged" &&
+		(need.kind === "idle" ||
+			(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed"))
+	);
+}
+
+/** Whether `row` shows as unread in the sidebar. */
+function isUnread({ conversation, need }: Needing): boolean {
+	return (
+		conversation?.unread === true &&
+		need.kind === "idle" &&
+		reportedAs(conversation) !== "escalated"
+	);
 }
 
 /** The task a sidebar row is on, which its parts nest under. */
