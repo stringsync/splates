@@ -81,8 +81,10 @@ export class Testing implements Resource {
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
 	projects: ProjectChoice[] = [];
-	/** Whether `/api/projects` says a restart follows the checkpoint. */
-	restarting = false;
+	/** The restart `/api/projects` says follows the checkpoint, if any. */
+	restarting: { resume: boolean } | null = null;
+	/** How `/api/projects` says this run began, after a checkpoint's restart. */
+	restarted: "waiting" | "resuming" | null = null;
 	/** The run of `arbor dev` `/api/projects` names: a test changes it to restart. */
 	run = "run-1";
 	/** The conversations `/api/release` says a restart would stop. */
@@ -113,6 +115,7 @@ export class Testing implements Resource {
 				return Response.json({
 					projects: this.projects,
 					restarting: this.restarting,
+					restarted: this.restarted,
 					run: this.run,
 					running: this.served.release?.running ?? "0.0.1",
 					newest: this.served.release?.newest ?? null,

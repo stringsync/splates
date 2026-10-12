@@ -623,35 +623,13 @@ describe("Conversations", () => {
 				await finish(conversation);
 			});
 
-			it("resumes after a restart it was not asked for, once done", async () => {
+			it("keeps where it stands in the log, carrying on after a restart only when told", async () => {
 				const conversation = await started();
 				await conversation.checkpoint(false);
 				for (let i = 0; i < 100 && held.finish === undefined; i++) {
 					await Bun.sleep(1);
 				}
 				await finish(conversation);
-				expect(conversation.resumes).toBe(false);
-
-				conversation.resumeAfterRestart();
-
-				expect(conversation.resumes).toBe(true);
-				await conversation.stop();
-				const [read] = await new Conversations(
-					"/repo/.git/arbor/conversations",
-					[AGENT],
-					{ fs, timer, clock, launch: agent.launch },
-				).list();
-				expect(read?.resumes).toBe(true);
-			});
-
-			it("keeps where it stands in the log, to resume after the restart it was for", async () => {
-				const conversation = await started();
-				await conversation.checkpoint(false, "restart");
-				for (let i = 0; i < 100 && held.finish === undefined; i++) {
-					await Bun.sleep(1);
-				}
-				await finish(conversation);
-				expect(conversation.resumes).toBe(true);
 
 				await conversation.stop();
 				const [read] = await new Conversations(
@@ -661,10 +639,9 @@ describe("Conversations", () => {
 				).list();
 
 				expect(read?.state.checkpoint).toBe("done");
-				expect(read?.resumes).toBe(true);
+				expect(read?.stoppedByCheckpoint).toBe(true);
 				await read?.prompt(RESUME);
 				expect(read?.state.checkpoint).toBeNull();
-				expect(read?.resumes).toBe(false);
 				for (let i = 0; i < 100 && said.length < 2; i++) {
 					await Bun.sleep(1);
 				}

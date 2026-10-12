@@ -291,7 +291,7 @@ type Entry =
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
 	/** Where a checkpoint stands, and what comes after it. */
-	| { kind: "checkpoint"; checkpoint: Checkpoint | null; after?: After }
+	| { kind: "checkpoint"; checkpoint: Checkpoint | null }
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	/** What a finished command did to git that it should not have. */
 	| { kind: "flags"; tool: string; flags: Flag[] }
@@ -663,10 +663,11 @@ export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
 export const RESUME = "[ARBOR RESUME]";
 
 /**
- * What follows a checkpoint: the agent stops, or `arbor dev` restarts once
- * every agent is done, and each carries on after.
+ * What follows a checkpoint: the agents stop; or `arbor dev` restarts once
+ * every agent is done, and they wait to be told to carry on; or it
+ * restarts and tells each to carry on itself.
  */
-export type After = "stop" | "restart";
+export type After = "stop" | "restart" | "resume";
 
 /**
  * One conversation with one agent. Live, it holds the agent's process; read
@@ -705,8 +706,6 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	private waiting: Resource | null = null;
 	/** Whether a checkpoint is cancelling the turn, whose end is not its own. */
 	private interrupting = false;
-	/** What follows the checkpoint asked last. */
-	private after: After = "stop";
 	/** The commands running, by tool call, each watched since it started. */
 	private readonly watching = new Map<string, Watched>();
 	/** Whether the next open loads the session, replaying it, rather than resuming it. */
@@ -830,7 +829,6 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.unread = entry.unread;
 			} else if (entry.kind === "checkpoint") {
 				state.checkpoint = entry.checkpoint;
-				conversation.after = entry.after ?? "stop";
 			} else if (entry.kind === "flags") {
 				const tool = toolIn(state, entry.tool);
 				if (tool !== null) {
@@ -1497,25 +1495,6 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 	}
 
-	/**
-	 * Whether this stopped for a checkpoint that a restart was to follow, to
-	 * carry on once served again.
-	 */
-	get resumes(): boolean {
-		return this.after === "restart" && this.stoppedByCheckpoint;
-	}
-
-	/**
-	 * Carries on once served again, when done with a checkpoint that asked
-	 * for no restart and `arbor dev` restarts after all.
-	 */
-	resumeAfterRestart(): void {
-		if (this.state.checkpoint === "done") {
-			this.after = "restart";
-			this.mark("done");
-		}
-	}
-
 	/** Whether a checkpoint has ended and nothing has been said since. */
 	get stoppedByCheckpoint(): boolean {
 		const { checkpoint } = this.state;
@@ -1528,7 +1507,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	 * the checkpoint into, or queues it after. What the person queued stays
 	 * queued, for the next prompt to send.
 	 */
-	async checkpoint(merging: boolean, after: After = "stop"): Promise<void> {
+	async checkpoint(merging: boolean): Promise<void> {
 		await this.opening;
 		if (
 			this.state.checkpoint === "asked" ||
@@ -1538,7 +1517,6 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		}
 		// Asked from the start, so an agent slow to stop shows as on its way,
 		// and one that never stops runs out the same wait.
-		this.after = after;
 		this.mark("asked");
 		this.waiting?.dispose();
 		this.waiting = this.timer.setTimeout(() => {
@@ -1589,7 +1567,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			this.waiting?.dispose();
 			this.waiting = null;
 		}
-		this.write({ kind: "checkpoint", checkpoint, after: this.after });
+		this.write({ kind: "checkpoint", checkpoint });
 		this.set({ checkpoint });
 	}
 

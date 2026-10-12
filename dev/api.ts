@@ -465,8 +465,16 @@ export interface ProjectConversation {
 export interface Projects {
 	/** Every arbor project, in the order each joined. */
 	projects: ProjectChoice[];
-	/** Whether `arbor dev` restarts once the checkpoint under way ends. */
-	restarting: boolean;
+	/**
+	 * The restart to follow the checkpoint under way, and whether the next
+	 * run resumes its agents; null for none.
+	 */
+	restarting: { resume: boolean } | null;
+	/**
+	 * How this run began, when a checkpoint's restart started it: its agents
+	 * `waiting` to be resumed, or `resuming`, told to carry on, until each has.
+	 */
+	restarted: "waiting" | "resuming" | null;
 	/** This run of `arbor dev`: another once it has restarted. */
 	run: string;
 	/** The version of arbor it runs. */

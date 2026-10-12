@@ -99,7 +99,9 @@ describe("App's feed", () => {
 		testing.interrupted = [{ ...live, checkpoint: "done" }];
 		await act(async () => button.click());
 
-		await waitFor(() => expect(view.getByText("Checkpointed")).toBeTruthy());
+		await waitFor(() =>
+			expect(view.getByRole("img", { name: "Checkpointed" })).toBeTruthy(),
+		);
 		expect(testing.posts.map((each) => each.path)).toContain(
 			"/api/release/checkpoint",
 		);

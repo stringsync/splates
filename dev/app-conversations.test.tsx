@@ -617,15 +617,18 @@ describe("App's conversations", () => {
 		await act(async () => fireEvent.click(box("shop")));
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("radio", { name: /^Checkpoint and restart/ }),
+				within(dialog).getByRole("radio", {
+					name: /^Checkpoint, restart and resume/,
+				}),
 			),
 		);
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", {
-					name: "Checkpoint 2 projects and restart",
-				}),
+				within(dialog).getByRole("radio", { name: /^Checkpoint and restart/ }),
 			),
+		);
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" })),
 		);
 
 		expect(posted("/api/checkpoint")).toEqual([
@@ -680,9 +683,15 @@ describe("App's conversations", () => {
 			view.getByRole("dialog", { name: "Checkpoint under way" }),
 		);
 		expect(within(dialog).queryByRole("checkbox")).toBeNull();
-		expect(within(dialog).getByText("Checkpointed")).toBeTruthy();
-		expect(within(dialog).getByText("Checkpointing")).toBeTruthy();
-		expect(within(dialog).getByText("No response")).toBeTruthy();
+		expect(
+			within(dialog).getByRole("img", { name: "Checkpointed" }),
+		).toBeTruthy();
+		expect(
+			within(dialog).getByRole("img", { name: "Checkpointing" }),
+		).toBeTruthy();
+		expect(
+			within(dialog).getByRole("img", { name: "No response" }),
+		).toBeTruthy();
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
 
 		await act(async () =>
@@ -755,10 +764,9 @@ describe("App's conversations", () => {
 			conversation({ id: "c1", title: "One", status: "running" }),
 		);
 		await waitFor(() =>
-			expect(dialog.textContent).toContain(
-				"1 agent checkpointed and carried on.",
-			),
+			expect(dialog.textContent).toContain("1 agent resumed."),
 		);
+		expect(within(dialog).getByRole("img", { name: "Resumed" })).toBeTruthy();
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
 		// Behind the dialog, so hidden from the accessibility tree.
 		expect(
@@ -921,16 +929,15 @@ describe("App's conversations", () => {
 		);
 	});
 
-	it("says arbor dev is restarting once a checkpoint asked to restart is done, then that it restarted", async () => {
+	it("says arbor dev is restarting once a checkpoint asked to restart is done, then offers to resume its agents", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
-		testing.restarting = true;
+		testing.restarting = { resume: false };
 		const view = await conversations(
 			[conversation({ id: "c1", status: "running" })],
 			null,
 		);
-		const reload = spyOn(location, "reload").mockImplementation(() => {});
 		await waitFor(() =>
 			view.getByRole("button", { name: "Checkpoint under way" }),
 		);
@@ -952,15 +959,16 @@ describe("App's conversations", () => {
 			view.getByRole("dialog", { name: "Restarting arbor dev" }),
 		);
 		expect(restarting.textContent).toContain(
-			"arbor dev is restarting, and each agent carries on once it is back.",
+			"arbor dev is restarting, then you pick what comes next.",
 		);
 		for (const name of ["Restart", "Resume"]) {
 			expect(within(restarting).queryByRole("button", { name })).toBeNull();
 		}
 
-		// Back, as another run, and its agents not yet told to carry on.
+		// Back, as another run, its agents waiting to be resumed.
 		await act(async () => testing.talkStream?.onerror?.());
-		testing.restarting = false;
+		testing.restarting = null;
+		testing.restarted = "waiting";
 		testing.run = "run-2";
 		await act(async () => testing.talkStream?.onopen?.());
 		await testing.say(
@@ -971,29 +979,43 @@ describe("App's conversations", () => {
 			view.getByRole("dialog", { name: "arbor dev restarted" }),
 		);
 		expect(restarted.textContent).toContain(
-			"Now on arbor 0.0.1. 0 of 1 agent carried on so far.",
+			"Now on arbor 0.0.1. 1 agent checkpointed and waiting to resume.",
 		);
-		expect(within(restarted).getByText("Checkpointed")).toBeTruthy();
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
-		await testing.say(conversation({ id: "c1", status: "running" }));
-		await waitFor(() =>
-			expect(restarted.textContent).toContain(
-				"Now on arbor 0.0.1. 1 agent carried on.",
-			),
-		);
-		expect(within(restarted).getByText("Carried on")).toBeTruthy();
 		expect(
 			view.getByRole("button", { name: "arbor dev restarted", hidden: true }),
 		).toBeTruthy();
-		expect(reload).not.toHaveBeenCalled();
-		reload.mockRestore();
+		for (const name of ["Restart", "Retry missed"]) {
+			expect(within(restarted).queryByRole("button", { name })).toBeNull();
+		}
+		await act(async () =>
+			fireEvent.click(
+				within(restarted).getByRole("button", { name: "Resume" }),
+			),
+		);
+		expect(posted("/api/checkpoint/resume")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+
+		// Each one resumed says so, still as after the restart.
+		testing.restarted = null;
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await testing.say(conversation({ id: "c1", status: "running" }));
+		const resumed = await waitFor(() =>
+			view.getByRole("dialog", { name: "arbor dev restarted" }),
+		);
+		await waitFor(() =>
+			expect(resumed.textContent).toContain(
+				"Now on arbor 0.0.1. 1 agent resumed.",
+			),
+		);
+		expect(within(resumed).getByRole("img", { name: "Resumed" })).toBeTruthy();
 	});
 
-	it("says arbor dev is restarting once it goes away, though the page never saw the last agent answer", async () => {
+	it("restarts and resumes, showing each agent carry on, though the page never saw the last answer", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
-		testing.restarting = true;
+		testing.restarting = { resume: true };
 		const view = await conversations(
 			[conversation({ id: "c1", status: "running" })],
 			null,
@@ -1009,7 +1031,7 @@ describe("App's conversations", () => {
 			view.getByRole("dialog", { name: "Checkpoint under way" }),
 		);
 		expect(going.textContent).toContain(
-			"Each agent is bringing its ARBOR.md up to date, then arbor dev restarts.",
+			"Each agent is bringing its ARBOR.md up to date, then arbor dev restarts and each resumes.",
 		);
 
 		testing.goAway();
@@ -1018,15 +1040,43 @@ describe("App's conversations", () => {
 			() => view.getByRole("dialog", { name: "Restarting arbor dev" }),
 			{ timeout: 3000 },
 		);
-		expect(within(restarting).queryByText("Checkpointing")).toBeNull();
-		testing.restarting = false;
+		expect(restarting.textContent).toContain(
+			"arbor dev is restarting, then each agent resumes.",
+		);
+		expect(
+			within(restarting).queryByRole("img", { name: "Checkpointing" }),
+		).toBeNull();
+		testing.restarting = null;
+		testing.restarted = "resuming";
 		testing.run = "run-2";
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
 		testing.comeBack();
-		await waitFor(
+		const restarted = await waitFor(
 			() => view.getByRole("dialog", { name: "arbor dev restarted" }),
 			{ timeout: 3000 },
 		);
+		expect(restarted.textContent).toContain(
+			"Now on arbor 0.0.1. 0 of 1 agent resumed so far.",
+		);
+		expect(
+			within(restarted).getByRole("img", { name: "Resuming" }),
+		).toBeTruthy();
+
+		testing.restarted = null;
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await testing.say(conversation({ id: "c1", status: "running" }));
+		await waitFor(
+			() =>
+				expect(restarted.textContent).toContain(
+					"Now on arbor 0.0.1. 1 agent resumed.",
+				),
+			{ timeout: 3000 },
+		);
+		expect(
+			within(restarted).getByRole("img", { name: "Resumed" }),
+		).toBeTruthy();
 	});
 
 	it("renames a conversation from its menu", async () => {

@@ -1,4 +1,9 @@
-import { CheckIcon, CopyIcon, Loader2Icon } from "lucide-react";
+import {
+	CheckIcon,
+	CircleAlertIcon,
+	CopyIcon,
+	Loader2Icon,
+} from "lucide-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -161,7 +166,10 @@ const SAYS: Record<Checkpoint, string> = {
 	unanswered: "No response",
 };
 
-/** How far one conversation's checkpoint has got. */
+/**
+ * How far one conversation's checkpoint has got, as an icon, the word in its
+ * name and tooltip.
+ */
 export function CheckpointState({
 	checkpoint,
 }: {
@@ -169,8 +177,11 @@ export function CheckpointState({
 }): JSX.Element {
 	return (
 		<span
+			role="img"
+			aria-label={SAYS[checkpoint]}
+			title={SAYS[checkpoint]}
 			className={cn(
-				"flex shrink-0 items-center gap-1 self-center text-xs",
+				"flex shrink-0 self-center",
 				checkpoint === "done"
 					? "text-success"
 					: checkpoint === "asked"
@@ -178,11 +189,13 @@ export function CheckpointState({
 						: "text-destructive",
 			)}
 		>
-			{checkpoint === "asked" && (
-				<Loader2Icon className="size-3 animate-spin" />
+			{checkpoint === "asked" ? (
+				<Loader2Icon className="size-3.5 animate-spin" />
+			) : checkpoint === "done" ? (
+				<CheckIcon className="size-3.5" />
+			) : (
+				<CircleAlertIcon className="size-3.5" />
 			)}
-			{checkpoint === "done" && <CheckIcon className="size-3" />}
-			{SAYS[checkpoint]}
 		</span>
 	);
 }

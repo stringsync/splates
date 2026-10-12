@@ -1340,7 +1340,7 @@ describe("dev", () => {
 			}
 		});
 
-		it("restarts once every live one has checkpointed, and each carries on when served again", async () => {
+		it("restarts once every live one has checkpointed, each waiting after to be resumed", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {
 				said.push(text);
@@ -1394,6 +1394,15 @@ describe("dev", () => {
 				conversations: () => again,
 			});
 			try {
+				await Bun.sleep(50);
+				expect(said).toEqual([CHECKPOINT]);
+				const listed = (await (
+					await fetch(`http://127.0.0.1:${restarted.port}/api/projects`)
+				).json()) as { restarted: string | null };
+				expect(listed.restarted).toBe("waiting");
+
+				await json(restarted.port, "/api/checkpoint/resume", "POST");
+
 				for (let i = 0; i < 100 && said.length < 2; i++) {
 					await Bun.sleep(5);
 				}
@@ -1403,7 +1412,7 @@ describe("dev", () => {
 			}
 		});
 
-		it("says a restart is to follow the checkpoint, then opens each other project it stopped agents in at once, for each to carry on", async () => {
+		it("says a restart that resumes is to follow the checkpoint, then opens each other project it stopped agents in at once, for each to carry on", async () => {
 			await using other = await Testing.open();
 			await deps.projects.register(deps.root);
 			await deps.projects.register(other.root);
@@ -1438,7 +1447,11 @@ describe("dev", () => {
 			const listed = async (port: number) =>
 				(await (
 					await fetch(`http://127.0.0.1:${port}/api/projects`)
-				).json()) as { restarting: boolean; run: string };
+				).json()) as {
+					restarting: { resume: boolean } | null;
+					restarted: string | null;
+					run: string;
+				};
 			let run = "";
 			try {
 				const { port } = server;
@@ -1453,15 +1466,15 @@ describe("dev", () => {
 				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
 					await Bun.sleep(5);
 				}
-				expect((await listed(port)).restarting).toBe(false);
+				expect((await listed(port)).restarting).toBeNull();
 
 				await json(port, "/api/checkpoint", "POST", {
 					projects: ["repo-2"],
-					after: "restart",
+					after: "resume",
 				});
 
 				({ run } = await listed(port));
-				expect((await listed(port)).restarting).toBe(true);
+				expect((await listed(port)).restarting).toEqual({ resume: true });
 				answer();
 				for (let i = 0; i < 100 && exits.length === 0; i++) {
 					await Bun.sleep(5);
@@ -1485,7 +1498,15 @@ describe("dev", () => {
 				expect(said).toEqual([CHECKPOINT, RESUME]);
 				const again = await listed(restarted.port);
 				expect(again.run).not.toBe(run);
-				expect(again.restarting).toBe(false);
+				expect(again.restarting).toBeNull();
+				for (
+					let i = 0;
+					i < 100 && (await listed(restarted.port)).restarted !== null;
+					i++
+				) {
+					await Bun.sleep(5);
+				}
+				expect((await listed(restarted.port)).restarted).toBeNull();
 			} finally {
 				await restarted.disposeAsync();
 			}
@@ -1578,7 +1599,7 @@ describe("dev", () => {
 			}
 		});
 
-		it("restarts once a checkpoint has ended, each one done with it carrying on when served again", async () => {
+		it("restarts once a checkpoint has ended, each one done with it waiting after to be resumed", async () => {
 			const said: string[] = [];
 			agent.turn = async (_, __, text) => {
 				said.push(text);
@@ -1632,6 +1653,15 @@ describe("dev", () => {
 				conversations: () => again,
 			});
 			try {
+				await Bun.sleep(50);
+				expect(said).toEqual([CHECKPOINT]);
+				const listed = (await (
+					await fetch(`http://127.0.0.1:${restarted.port}/api/projects`)
+				).json()) as { restarted: string | null };
+				expect(listed.restarted).toBe("waiting");
+
+				await json(restarted.port, "/api/checkpoint/resume", "POST");
+
 				for (let i = 0; i < 100 && said.length < 2; i++) {
 					await Bun.sleep(5);
 				}

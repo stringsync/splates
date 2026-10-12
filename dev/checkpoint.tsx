@@ -28,7 +28,11 @@ import { Refusal, useRefusal } from "./refusal";
 import { CheckpointState } from "./release";
 
 /** What a checkpoint does once its agents have answered. */
-const AFTERWARDS: { after: After; label: string; detail: string }[] = [
+const AFTERWARDS: {
+	after: After;
+	label: string;
+	detail: string;
+}[] = [
 	{
 		after: "stop",
 		label: "Checkpoint",
@@ -39,7 +43,13 @@ const AFTERWARDS: { after: After; label: string; detail: string }[] = [
 		after: "restart",
 		label: "Checkpoint and restart",
 		detail:
-			"Then arbor dev restarts, on a newer arbor if one is out, and each carries on. Agents in projects left unpicked stop as they are.",
+			"Then arbor dev restarts, on a newer arbor if one is out, and you pick what comes next.",
+	},
+	{
+		after: "resume",
+		label: "Checkpoint, restart and resume",
+		detail:
+			"Then arbor dev restarts, on a newer arbor if one is out, and each agent resumes.",
 	},
 ];
 
@@ -65,9 +75,10 @@ function standing(conversations: ProjectConversation[]): Standing {
 
 /**
  * Where the dialog is: picking projects, waiting on agents, done with them
- * stopped, waiting on `arbor dev` to restart, or ended with them carrying on.
+ * stopped, waiting on `arbor dev` to restart, its agents being told to carry
+ * on after the restart, or ended with them carrying on.
  */
-type Slide = "pick" | "going" | "done" | "restarting" | "ended";
+type Slide = "pick" | "going" | "done" | "restarting" | "resuming" | "ended";
 
 function slideOf({ asked, going }: Standing): Slide {
 	return asked.length === 0 ? "pick" : going > 0 ? "going" : "done";
@@ -78,6 +89,12 @@ interface Ended {
 	projects: ProjectChoice[];
 	/** The arbor it restarted on; null when it did not restart. */
 	restarted: string | null;
+}
+
+/** A restart on its way: the run it replaces, and whether the next resumes. */
+interface Restarting {
+	run: string;
+	resume: boolean;
 }
 
 /** How long a checkpoint whose agents carried on still says it is done. */
@@ -92,11 +109,12 @@ function offered(projects: ProjectChoice[]): ProjectChoice[] {
  * The sidebar's Checkpoint, opening, as ⌥⌘C does, a dialog to checkpoint any of the
  * projects with agents running, which says how one under way gets on, then
  * slides on to what to do once it is done, or to `arbor dev` restarting
- * when that was asked for. The button says how it stands, so the dialog can
- * be closed meanwhile and opened again from it, and still says it is done,
- * or restarted, for a minute after its agents carry on. Asks the server for
- * every project again as `conversations`, this project's, change, and each
- * second while a checkpoint or restart is under way or the dialog is open.
+ * when that was asked for, and from there to what to do after the restart,
+ * or to each agent carrying on. The button says how it stands, so the
+ * dialog can be closed meanwhile and opened again from it, and still says it
+ * is done for a minute after its agents carry on. Asks the server for every
+ * project again as `conversations`, this project's, change, and each second
+ * while a checkpoint or restart is under way or the dialog is open.
  */
 export function CheckpointButton({
 	conversations,
@@ -126,16 +144,17 @@ export function CheckpointButton({
 	}, []);
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
-	// The run of `arbor dev` a restart is to replace, once one is coming.
-	const [restarting, setRestarting] = useState<string | null>(null);
+	const [restarting, setRestarting] = useState<Restarting | null>(null);
+	// Whether the server stopped answering, as while it restarts.
+	const [unreachable, setUnreachable] = useState(false);
 	// Those of the checkpoint under way or done, for when it ends.
 	const last = useRef<ProjectChoice[]>([]);
 	// Closed once done, so its end says nothing, stopped as its agents are.
 	const forgotten = useRef(false);
-	// Back from a restart, while its agents have yet to be told to carry on.
-	const back = useRef(false);
-	// Whether the server stopped answering, as while it restarts.
-	const [unreachable, setUnreachable] = useState(false);
+	// Seen telling its agents to carry on after a restart, until each has.
+	const resumed = useRef(false);
+	// Back from a restart whose agents waited to be resumed, until they are.
+	const waited = useRef(false);
 	const { refusal, refuse } = useRefusal();
 	const load = useCallback(
 		() =>
@@ -174,9 +193,8 @@ export function CheckpointButton({
 				? "ended"
 				: restarting !== null
 					? "restarting"
-					: // Back from a restart, its agents about to be told to carry on.
-						live === "done" && back.current
-						? "pick"
+					: listed?.restarted === "resuming"
+						? "resuming"
 						: live;
 	useEffect(() => {
 		if (listed === null) {
@@ -184,32 +202,45 @@ export function CheckpointButton({
 		}
 		const shown = offered(listed.projects);
 		const live = slideOf(standing(shown.flatMap((each) => each.conversations)));
-		if (restarting !== null && listed.run !== restarting) {
+		if (restarting !== null && listed.run !== restarting.run) {
 			setRestarting(null);
-			setEnded({ projects: last.current, restarted: listed.running });
-			back.current = true;
+			// Carried on before the page saw them told to.
+			if (restarting.resume && listed.restarted === null) {
+				setEnded({ projects: last.current, restarted: listed.running });
+				last.current = [];
+			}
 			return;
 		}
-		if (listed.restarting && restarting === null) {
-			setRestarting(listed.run);
+		if (listed.restarting !== null && restarting === null) {
+			setRestarting({ run: listed.run, ...listed.restarting });
 		}
-		if (live === "going") {
-			last.current = shown;
-			back.current = false;
-			setEnded(null);
-		} else if (live === "done") {
-			// Done still, until each agent back from the restart is told so.
-			if (!back.current) {
+		if (listed.restarted === "resuming") {
+			resumed.current = true;
+			if (last.current.length === 0) {
 				last.current = shown;
-				setEnded(null);
 			}
+			return;
+		}
+		if (resumed.current) {
+			resumed.current = false;
+			setEnded({ projects: last.current, restarted: listed.running });
+			last.current = [];
+			return;
+		}
+		if (live !== "pick") {
+			last.current = shown;
+			waited.current = listed.restarted === "waiting";
+			setEnded(null);
 		} else {
-			if (last.current.length > 0 && !forgotten.current && !back.current) {
-				setEnded({ projects: last.current, restarted: null });
+			if (last.current.length > 0 && !forgotten.current) {
+				setEnded({
+					projects: last.current,
+					restarted: waited.current ? listed.running : null,
+				});
 			}
 			last.current = [];
 			forgotten.current = false;
-			back.current = false;
+			waited.current = false;
 		}
 	}, [listed, restarting]);
 	useEffect(() => {
@@ -220,7 +251,12 @@ export function CheckpointButton({
 		return () => shown.dispose();
 	}, [ended]);
 	useEffect(() => {
-		if (all.going === 0 && !open && restarting === null) {
+		if (
+			all.going === 0 &&
+			!open &&
+			restarting === null &&
+			slide !== "resuming"
+		) {
 			return;
 		}
 		const tick = new SystemTimer().setInterval(
@@ -228,7 +264,14 @@ export function CheckpointButton({
 			Duration.secs(1),
 		);
 		return () => tick.dispose();
-	}, [all.going, open, restarting, load]);
+	}, [all.going, open, restarting, slide, load]);
+	const restarted =
+		slide === "ended"
+			? (ended?.restarted ?? null)
+			: slide === "resuming" ||
+					(slide === "done" && listed?.restarted === "waiting")
+				? (listed?.running ?? null)
+				: null;
 	return (
 		<>
 			<button
@@ -237,14 +280,24 @@ export function CheckpointButton({
 				onClick={() => setOpen(true)}
 				className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
 			>
-				{slide === "going" || slide === "restarting" ? (
+				{slide === "going" || slide === "restarting" || slide === "resuming" ? (
 					<Loader2Icon className="size-3.5 animate-spin" />
 				) : slide === "pick" ? (
 					<FlagIcon className="size-3.5" />
 				) : (
 					<CheckIcon className="size-3.5 text-success" />
 				)}
-				<span className="flex-1 truncate">{BUTTON[slide](ended)}</span>
+				<span className="flex-1 truncate">
+					{slide === "pick"
+						? "Checkpoint"
+						: slide === "going"
+							? "Checkpoint under way"
+							: slide === "restarting"
+								? "Restarting arbor dev"
+								: restarted !== null
+									? "arbor dev restarted"
+									: "Checkpoint done"}
+				</span>
 				{held && (
 					// Its own height, taller than the line, would push the rows below.
 					<Kbd aria-hidden className="-my-0.5">
@@ -265,11 +318,21 @@ export function CheckpointButton({
 				onForget={() => {
 					forgotten.current = true;
 				}}
-				onRestart={() => setRestarting(listed?.run ?? null)}
-				projects={slide === "ended" ? (ended?.projects ?? []) : shown}
+				onRestart={() =>
+					setRestarting(
+						listed === null ? null : { run: listed.run, resume: false },
+					)
+				}
+				projects={
+					slide === "ended"
+						? (ended?.projects ?? [])
+						: slide === "resuming" && last.current.length > 0
+							? last.current
+							: shown
+				}
 				slide={slide}
-				restarting={restarting !== null}
-				ended={ended}
+				restarting={restarting}
+				restarted={restarted}
 				newest={listed?.newest ?? null}
 				current={listed?.projects ?? []}
 				onChange={load}
@@ -278,23 +341,14 @@ export function CheckpointButton({
 	);
 }
 
-/** What the sidebar's button says on each slide. */
-const BUTTON: Record<Slide, (ended: Ended | null) => string> = {
-	pick: () => "Checkpoint",
-	going: () => "Checkpoint under way",
-	done: () => "Checkpoint done",
-	restarting: () => "Restarting arbor dev",
-	ended: (ended) =>
-		ended?.restarted == null ? "Checkpoint done" : "arbor dev restarted",
-};
-
 /**
  * Picks projects to checkpoint and what follows, this one picked to start
  * with; then lists how each agent asked gets on; then, once all have
- * answered, offers to resume them, restart, or retry those it missed, or
- * says `arbor dev` is restarting when that was asked for; and once they
- * carry on, says so, and whether it restarted, while `ended`. Closing it
- * once done leaves the agents stopped and forgets the checkpoint.
+ * answered, offers to resume them, restart, or retry those it missed; or
+ * says `arbor dev` is restarting when that was asked for, then offers to
+ * resume them after it, or shows each carry on; and once they have, says
+ * so, while `ended`. Closing it once done leaves the agents stopped and
+ * forgets the checkpoint.
  */
 function CheckpointDialog({
 	open,
@@ -304,7 +358,7 @@ function CheckpointDialog({
 	projects,
 	slide,
 	restarting,
-	ended,
+	restarted,
 	newest,
 	current,
 	onChange,
@@ -317,9 +371,10 @@ function CheckpointDialog({
 	onRestart: () => void;
 	projects: ProjectChoice[];
 	slide: Slide;
-	/** Whether a restart follows the checkpoint. */
-	restarting: boolean;
-	ended: Ended | null;
+	/** The restart to follow the checkpoint, if any. */
+	restarting: Restarting | null;
+	/** The arbor a restart came back on; null when none did. */
+	restarted: string | null;
 	/** A newer arbor, which a restart lands on. */
 	newest: string | null;
 	/** The projects as the server lists them now, after a restart too. */
@@ -327,7 +382,9 @@ function CheckpointDialog({
 	onChange: () => Promise<void>;
 }): JSX.Element {
 	const all = standing(projects.flatMap((each) => each.conversations));
-	const carried = all.asked.filter((each) => back(current, each.id)).length;
+	// Those told to carry on, and how many of them have.
+	const resumable = all.asked.filter((each) => !all.missed.includes(each));
+	const carried = resumable.filter((each) => back(current, each.id)).length;
 	const { refusal, refuse } = useRefusal();
 	const [busy, setBusy] = useState(false);
 	/** Does `write`, then asks again, saying why when refused. */
@@ -354,24 +411,23 @@ function CheckpointDialog({
 			"Not dismissed",
 		).then(onClose);
 	};
-	const restarted = ended?.restarted ?? null;
 	// A restart follows the last answer at once, which the page may not see.
 	const state =
 		slide === "restarting"
 			? (each: ProjectConversation) =>
 					each.checkpoint === "asked" ? null : checkpointed(each)
-			: slide === "ended"
-				? (each: ProjectConversation) => {
-						const now = current
-							.flatMap((one) => one.conversations)
-							.find((one) => one.id === each.id);
-						return back(current, each.id) ? (
-							<CarriedOn />
-						) : now === undefined ? null : (
-							checkpointed(now)
-						);
-					}
+			: slide === "resuming" || slide === "ended"
+				? (each: ProjectConversation) =>
+						all.missed.includes(each) ? (
+							checkpointed(each)
+						) : back(current, each.id) ? (
+							<CheckpointResumed />
+						) : (
+							<Resuming />
+						)
 				: checkpointed;
+	const on = (version: string | null) =>
+		version === null ? "" : ` on arbor ${version}`;
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && close()}>
 			<DialogContent className="sm:max-w-md">
@@ -402,15 +458,14 @@ function CheckpointDialog({
 								</DialogTitle>
 								<DialogDescription>
 									{slide === "going"
-										? `Each agent is bringing its ARBOR.md up to date${restarting ? ", then arbor dev restarts" : ""}.`
+										? `Each agent is bringing its ARBOR.md up to date${restarting === null ? "" : restarting.resume ? ", then arbor dev restarts and each resumes" : ", then arbor dev restarts"}.`
 										: slide === "restarting"
-											? `arbor dev is restarting${newest === null ? "" : ` on arbor ${newest}`}, and each agent carries on once it is back.`
-											: restarted !== null
-												? `Now on arbor ${restarted}. ${carried === all.asked.length ? `${plural(carried)} carried on.` : `${carried} of ${plural(all.asked.length)} carried on so far.`}`
-												: summary(
-														all,
-														slide === "ended" ? "carried on" : "stopped",
-													)}
+											? `arbor dev is restarting${on(newest)}${restarting?.resume ? ", then each agent resumes" : ", then you pick what comes next"}.`
+											: slide === "resuming" || slide === "ended"
+												? `${restarted === null ? "" : `Now${on(restarted)}. `}${carried === resumable.length ? `${plural(carried)} resumed.` : `${carried} of ${plural(resumable.length)} resumed so far.`}${missing(all)}`
+												: restarted !== null
+													? `Now${on(restarted)}. ${summary(all, "waiting to resume")}`
+													: summary(all, "stopped")}
 								</DialogDescription>
 							</DialogHeader>
 							<AskedList projects={projects} onOpen={onClose} state={state} />
@@ -427,6 +482,7 @@ function CheckpointDialog({
 									projects={projects}
 									busy={busy}
 									newest={newest}
+									restarted={restarted !== null}
 									onClose={close}
 									onRestart={() =>
 										act(
@@ -448,13 +504,17 @@ function CheckpointDialog({
 
 /** What a done checkpoint came to, in a sentence, its agents `then`. */
 function summary(
-	{ asked, missed }: Standing,
-	then: "stopped" | "carried on",
+	standing: Standing,
+	then: "stopped" | "waiting to resume",
 ): string {
-	const said = `${plural(asked.length - missed.length)} checkpointed and ${then}.`;
+	return `${plural(standing.asked.length - standing.missed.length)} checkpointed and ${then}.${missing(standing)}`;
+}
+
+/** Those a checkpoint missed, in a sentence after another, if any. */
+function missing({ missed }: Standing): string {
 	return missed.length === 0
-		? said
-		: `${said} ${missed.length} missed: ${missed.map((each) => each.name).join(", ")}.`;
+		? ""
+		: ` ${missed.length} missed: ${missed.map((each) => each.name).join(", ")}.`;
 }
 
 /** `count` agents, in words. */
@@ -558,8 +618,7 @@ function PickSlide({
 						disabled={go.length === 0}
 						onClick={() => void onAsk(go, after)}
 					>
-						{go.length > 1 ? `Checkpoint ${go.length} projects` : "Checkpoint"}
-						{after === "restart" && " and restart"}
+						Proceed
 					</Button>
 				)}
 			</DialogFooter>
@@ -567,12 +626,16 @@ function PickSlide({
 	);
 }
 
-/** The Done slide's way on: resume, restart, retry those missed, or close. */
+/**
+ * The Done slide's way on: resume, restart, retry those missed, or close;
+ * once `restarted`, only resume or close.
+ */
 function DoneActions({
 	standing: { asked, missed },
 	projects,
 	busy,
 	newest,
+	restarted,
 	onClose,
 	onRestart,
 	act,
@@ -582,6 +645,8 @@ function DoneActions({
 	busy: boolean;
 	/** A newer arbor, which a restart lands on. */
 	newest: string | null;
+	/** Back from the restart that followed the checkpoint. */
+	restarted: boolean;
 	onClose: () => void;
 	onRestart: () => Promise<void>;
 	act: (write: () => Promise<void>, failed: string) => Promise<void>;
@@ -602,24 +667,26 @@ function DoneActions({
 			<Button variant="outline" disabled={busy} onClick={onClose}>
 				Close
 			</Button>
-			{missed.length > 0 && (
+			{missed.length > 0 && !restarted && (
 				<Button variant="outline" disabled={busy} onClick={() => void retry()}>
 					Retry missed
 				</Button>
 			)}
-			<Button
-				variant="outline"
-				disabled={busy}
-				onClick={() => void onRestart()}
-			>
-				{newest === null ? "Restart" : `Restart on ${newest}`}
-			</Button>
+			{!restarted && (
+				<Button
+					variant="outline"
+					disabled={busy}
+					onClick={() => void onRestart()}
+				>
+					{newest === null ? "Restart" : `Restart on ${newest}`}
+				</Button>
+			)}
 			{done > 0 && (
 				<Button
 					disabled={busy}
 					onClick={() => void act(resumeCheckpoint, "Not resumed")}
 				>
-					Resume
+					{done > 1 ? "Resume all" : "Resume"}
 				</Button>
 			)}
 		</DialogFooter>
@@ -682,12 +749,30 @@ function checkpointed({ checkpoint }: ProjectConversation): JSX.Element | null {
 	);
 }
 
-/** Said of an agent back at work since `arbor dev` restarted. */
-function CarriedOn(): JSX.Element {
+/** An agent back at work after its checkpoint. */
+function CheckpointResumed(): JSX.Element {
 	return (
-		<span className="flex shrink-0 items-center gap-1 self-center text-success text-xs">
-			<CheckIcon className="size-3" />
-			Carried on
+		<span
+			role="img"
+			aria-label="Resumed"
+			title="Resumed"
+			className="flex shrink-0 self-center text-success"
+		>
+			<CheckIcon className="size-3.5" />
+		</span>
+	);
+}
+
+/** An agent told to carry on after its checkpoint, not yet back, as an icon. */
+function Resuming(): JSX.Element {
+	return (
+		<span
+			role="img"
+			aria-label="Resuming"
+			title="Resuming"
+			className="flex shrink-0 self-center text-muted-foreground"
+		>
+			<Loader2Icon className="size-3.5 animate-spin" />
 		</span>
 	);
 }
