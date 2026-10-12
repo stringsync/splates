@@ -258,8 +258,10 @@ function openingOf(conversation: ConversationState): string | null {
  * says whether it works or waits on you. Archived ones sit behind a link at
  * the bottom.
  *
- * The arrow keys move between rows, Alt+N opens the next one waiting, and
- * ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new one as the last was started.
+ * The arrow keys move between rows, Alt+N opens the next one waiting,
+ * ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new one as the last was started, and
+ * ⌥⌘0 to ⌥⌘9 open the first ten rows, top to bottom. Holding ⌥⌘ shows each
+ * of those keys beside what it opens.
  * As `settings` say, it notifies of an agent that comes to wait on you,
  * finishes its turn, or goes quiet.
  */
@@ -296,6 +298,10 @@ export function ConversationList({
 		...external,
 	].toSorted((one, other) => started(other).localeCompare(started(one)));
 	const archived = conversations.length - listed.length;
+	const nested = nest(rows, tasks, taskOfRow);
+	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
+	const shown = flatten(nested).slice(0, DIGITS);
+	const held = useHeld();
 	const openRow = (row: Needing) => {
 		if (row.conversation !== null) {
 			onOpen(row.conversation.id);
@@ -313,6 +319,10 @@ export function ConversationList({
 	// The latest, for the listener below, which outlives a render.
 	const onOpenRef = useRef(onOpen);
 	onOpenRef.current = onOpen;
+	const openRowRef = useRef(openRow);
+	openRowRef.current = openRow;
+	const shownRef = useRef(shown);
+	shownRef.current = shown;
 	const next = useRef(() => {});
 	next.current = () => {
 		const at = rows.findIndex(
@@ -329,6 +339,19 @@ export function ConversationList({
 	};
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
+			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
+			if (
+				digit !== undefined &&
+				event.altKey &&
+				(event.metaKey || event.ctrlKey)
+			) {
+				const row = shownRef.current[Number(digit)];
+				if (row !== undefined) {
+					event.preventDefault();
+					openRowRef.current(row);
+				}
+				return;
+			}
 			// By the key's place, since Alt+N types a tilde on a Mac.
 			if (!event.altKey || event.code !== "KeyN") {
 				return;
@@ -383,7 +406,11 @@ export function ConversationList({
 				>
 					<PlusIcon className="size-3.5" />
 					<span className="flex-1">New conversation</span>
-					<ChevronDownIcon className="size-3.5 text-muted-foreground" />
+					{held ? (
+						<Kbd aria-hidden>N</Kbd>
+					) : (
+						<ChevronDownIcon className="size-3.5 text-muted-foreground" />
+					)}
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start" className="w-44">
 					{agents.map((each) => (
@@ -403,7 +430,7 @@ export function ConversationList({
 			<CheckpointButton conversations={listed} />
 			<Rows
 				label="conversation list"
-				rows={nest(rows, tasks, taskOfRow)}
+				rows={nested}
 				render={(row) =>
 					row.conversation !== null ? (
 						<Item
@@ -412,6 +439,7 @@ export function ConversationList({
 							need={row.need}
 							current={row.conversation.id === open}
 							onOpen={() => openRow(row)}
+							hint={held ? hintOf(shown, row) : null}
 						/>
 					) : (
 						row.task !== null && (
@@ -420,6 +448,7 @@ export function ConversationList({
 								need={row.need}
 								current={`${TASK}${row.task.task}` === open}
 								onOpen={() => openRow(row)}
+								hint={held ? hintOf(shown, row) : null}
 							/>
 						)
 					)
@@ -441,6 +470,42 @@ export function ConversationList({
 			</button>
 		</nav>
 	);
+}
+
+/** How many rows ⌥⌘ and a digit can open. */
+const DIGITS = 10;
+
+/** Nested rows in the order they show, each part under its task. */
+function flatten<Row>(rows: Nested<Row>[]): Row[] {
+	return rows.flatMap(({ row, parts }) => [row, ...flatten(parts)]);
+}
+
+/** The digit that opens `row` with ⌥⌘, or null past the tenth. */
+function hintOf(shown: Needing[], row: Needing): string | null {
+	const at = shown.indexOf(row);
+	return at === -1 ? null : String(at);
+}
+
+/**
+ * Whether ⌥⌘ (Ctrl+Alt off a Mac) is held down, to show the keys that go
+ * with it. Leaving the window lets go, since its key-ups go elsewhere.
+ */
+function useHeld(): boolean {
+	const [held, setHeld] = useState(false);
+	useEffect(() => {
+		const check = (event: KeyboardEvent) =>
+			setHeld(event.altKey && (event.metaKey || event.ctrlKey));
+		const release = () => setHeld(false);
+		window.addEventListener("keydown", check);
+		window.addEventListener("keyup", check);
+		window.addEventListener("blur", release);
+		return () => {
+			window.removeEventListener("keydown", check);
+			window.removeEventListener("keyup", check);
+			window.removeEventListener("blur", release);
+		};
+	}, []);
+	return held;
 }
 
 /** The task a sidebar row is on, which its parts nest under. */
@@ -531,11 +596,14 @@ function External({
 	need,
 	current,
 	onOpen,
+	hint = null,
 }: {
 	task: Details;
 	need: Need;
 	current: boolean;
 	onOpen: () => void;
+	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
+	hint?: string | null;
 }): JSX.Element {
 	return (
 		<button
@@ -554,7 +622,9 @@ function External({
 				className="size-3.5 text-foreground/70"
 			/>
 			<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
-			{need.kind === "working" || need.kind === "assuming" ? (
+			{hint !== null ? (
+				<Kbd aria-hidden>{hint}</Kbd>
+			) : need.kind === "working" || need.kind === "assuming" ? (
 				<Elsewhere />
 			) : (
 				<Mark need={need} />
@@ -592,6 +662,7 @@ function Item({
 	current,
 	onOpen,
 	where = false,
+	hint = null,
 }: {
 	conversation: ConversationState;
 	agent: string;
@@ -600,6 +671,8 @@ function Item({
 	onOpen: () => void;
 	/** Whether to say where it ran, rather than only on hover. */
 	where?: boolean;
+	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
+	hint?: string | null;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const [renaming, setRenaming] = useState(false);
@@ -640,7 +713,7 @@ function Item({
 					renaming && "hidden",
 					menu
 						? "pr-14"
-						: need.kind === "idle" && reported === null
+						: need.kind === "idle" && reported === null && hint === null
 							? "pr-3"
 							: "pr-6",
 				)}
@@ -670,15 +743,21 @@ function Item({
 					renaming && "hidden",
 					menu
 						? "hidden"
-						: "group-focus-within/item:hidden group-hover/item:hidden",
+						: hint === null &&
+								"group-focus-within/item:hidden group-hover/item:hidden",
 				)}
 			>
-				<Mark need={need} reported={reported} />
+				{hint !== null ? (
+					<Kbd aria-hidden>{hint}</Kbd>
+				) : (
+					<Mark need={need} reported={reported} />
+				)}
 			</span>
 			<span
 				className={cn(
 					"absolute right-1 flex items-center",
-					renaming && "hidden",
+					// Its keys show in their place while ⌥⌘ is held.
+					(renaming || (hint !== null && !menu)) && "hidden",
 					!menu &&
 						"opacity-0 group-focus-within/item:opacity-100 group-hover/item:opacity-100 pointer-coarse:opacity-100",
 				)}

@@ -3042,6 +3042,46 @@ Cap upload retries
 			expect(location.hash).toBe("#conversations/c2");
 		});
 
+		it("shows each key while ⌥⌘ is held, and opens a row with ⌥⌘ and its digit", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "First" }),
+					conversation({ id: "c2", title: "Second" }),
+				]),
+				[details({ task: "beta", status: "escalated" })],
+			);
+			const nav = view.getByRole("navigation", { name: "conversations" });
+			const keys = () =>
+				[...nav.querySelectorAll("kbd")].map((each) => each.textContent);
+			expect(keys()).toEqual([]);
+
+			await act(async () =>
+				fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
+			);
+			expect(keys()).toEqual(["N", "0", "1", "2"]);
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					code: "Digit1",
+					altKey: true,
+					metaKey: true,
+				}),
+			);
+			expect(location.hash).toBe("#conversations/c2");
+			await act(async () =>
+				fireEvent.keyDown(document.body, {
+					code: "Digit2",
+					altKey: true,
+					ctrlKey: true,
+				}),
+			);
+			expect(location.hash).toBe("#conversations/task/beta");
+
+			await act(async () =>
+				fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
+			);
+			expect(keys()).toEqual([]);
+		});
+
 		it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {
 			const view = await sidebar(
 				newestFirst([
