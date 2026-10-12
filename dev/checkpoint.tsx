@@ -54,6 +54,9 @@ interface Standing {
 	live: number;
 }
 
+/** How long the button says a checkpoint is done before it reads Checkpoint again. */
+const DONE_FOR = Duration.secs(5);
+
 function standing(conversations: ProjectConversation[]): Standing {
 	const asked = conversations.filter((each) => each.checkpoint !== null);
 	const count = (checkpoint: string) =>
@@ -72,19 +75,20 @@ function standing(conversations: ProjectConversation[]): Standing {
 
 /**
  * The sidebar's Checkpoint, opening a dialog to checkpoint any of the
- * projects with agents running, and saying how one under way gets on. Asks
- * the server for every project again as `conversations`, this project's,
- * change, and each second while a checkpoint is under way, closing the
- * dialog once it ends. Shown while any project has an agent running, or a
- * checkpoint asked.
+ * projects with agents running, and saying how one under way gets on, then
+ * for a moment that it is done, or which agents it missed until dismissed.
+ * Asks the server for every project again as `conversations`, this
+ * project's, change, and each second while a checkpoint is under way,
+ * closing the dialog once it ends.
  */
 export function CheckpointButton({
 	conversations,
 }: {
 	conversations: ConversationState[];
-}): JSX.Element | null {
+}): JSX.Element {
 	const [projects, setProjects] = useState<ProjectChoice[]>([]);
 	const [open, setOpen] = useState(false);
+	const [done, setDone] = useState(false);
 	const { refusal, refuse } = useRefusal();
 	const load = useCallback(
 		() =>
@@ -115,17 +119,26 @@ export function CheckpointButton({
 		);
 		return () => tick.dispose();
 	}, [all.going, open, load]);
-	// Closes the dialog once a checkpoint under way ends.
+	// Says a checkpoint under way is done for a moment once it ends, and
+	// closes the dialog.
 	const going = useRef(all.going);
 	useEffect(() => {
-		if (going.current > 0 && all.going === 0) {
+		if (all.going > 0) {
+			setDone(false);
+		} else if (going.current > 0) {
+			setDone(true);
 			setOpen(false);
 		}
 		going.current = all.going;
 	}, [all.going]);
-	if (shown.length === 0) {
-		return null;
-	}
+	useEffect(() => {
+		if (!done) {
+			return;
+		}
+		const shown = new SystemTimer().setTimeout(() => setDone(false), DONE_FOR);
+		return () => shown.dispose();
+	}, [done]);
+	const missed = all.going === 0 ? all.missed : [];
 	return (
 		<>
 			<button
@@ -133,30 +146,30 @@ export function CheckpointButton({
 				data-row
 				onClick={() => setOpen(true)}
 				title={
-					all.missed.length > 0
-						? `Not checkpointed: ${all.missed.map((each) => each.name).join(", ")}`
+					missed.length > 0
+						? `Not checkpointed: ${missed.map((each) => each.name).join(", ")}`
 						: undefined
 				}
 				className={cn(
 					"flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted",
-					all.going === 0 && all.missed.length > 0 && "text-destructive",
+					missed.length > 0 && "text-destructive",
 				)}
 			>
 				{all.going > 0 ? (
 					<Loader2Icon className="size-3.5 animate-spin" />
-				) : all.asked.length > 0 && all.missed.length === 0 ? (
-					<CheckIcon className="size-3.5 text-success" />
+				) : done && missed.length === 0 ? (
+					<CheckIcon className="size-3.5" />
 				) : (
 					<FlagIcon className="size-3.5" />
 				)}
 				<span className="flex-1 truncate">
 					{all.going > 0
 						? `Checkpointing ${all.asked.length - all.going} of ${all.asked.length}`
-						: all.asked.length === 0
-							? "Checkpoint"
-							: all.missed.length === 0
-								? `Checkpointed ${all.done}`
-								: `Checkpointed ${all.done}, ${all.missed.length} not`}
+						: missed.length > 0
+							? `Checkpoint done, ${missed.length} missed`
+							: done
+								? "Checkpoint done"
+								: "Checkpoint"}
 				</span>
 			</button>
 			<Refusal refusal={refusal} className="px-3 pb-1.5" />
@@ -165,6 +178,10 @@ export function CheckpointButton({
 				onOpenChange={setOpen}
 				projects={shown}
 				onChange={load}
+				onDismiss={() => {
+					setDone(false);
+					void load();
+				}}
 			/>
 		</>
 	);
@@ -180,11 +197,13 @@ function CheckpointDialog({
 	onOpenChange,
 	projects,
 	onChange,
+	onDismiss,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	projects: ProjectChoice[];
 	onChange: () => void;
+	onDismiss: () => void;
 }): JSX.Element {
 	const [picked, setPicked] = useState<Set<string> | null>(null);
 	const [after, setAfter] = useState<After>("stop");
@@ -222,6 +241,9 @@ function CheckpointDialog({
 						so the next one can carry on from it.
 					</DialogDescription>
 				</DialogHeader>
+				{projects.length === 0 && (
+					<p className="text-muted-foreground text-sm">No agent is running.</p>
+				)}
 				<ul aria-label="projects" className="flex flex-col gap-1">
 					{projects.map((project) => (
 						<ProjectRow
@@ -230,7 +252,7 @@ function CheckpointDialog({
 							picked={chosen.has(project.slug)}
 							onPick={() => toggle(project.slug)}
 							onOpen={() => onOpenChange(false)}
-							onChange={onChange}
+							onDismiss={onDismiss}
 							refuse={refuse}
 						/>
 					))}
@@ -299,14 +321,14 @@ function ProjectRow({
 	picked,
 	onPick,
 	onOpen,
-	onChange,
+	onDismiss,
 	refuse,
 }: {
 	project: ProjectChoice;
 	picked: boolean;
 	onPick: () => void;
 	onOpen: () => void;
-	onChange: () => void;
+	onDismiss: () => void;
 	refuse: (what: string, error: unknown) => void;
 }): JSX.Element {
 	const { asked, live } = standing(project.conversations);
@@ -352,7 +374,7 @@ function ProjectRow({
 					size="xs"
 					variant="ghost"
 					onClick={() =>
-						dismissCheckpoint(project.slug).then(onChange, (error: unknown) =>
+						dismissCheckpoint(project.slug).then(onDismiss, (error: unknown) =>
 							refuse("Not dismissed", error),
 						)
 					}

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { SystemTimer } from "webappwiz/time";
 import type { Checkpoint, ConversationState, Setting } from "../conversations";
 import type { Snapshot } from "../snapshot";
 import type { ProjectChoice } from "./api";
@@ -534,14 +535,22 @@ describe("App's conversations", () => {
 		]);
 	});
 
-	it("shows no Checkpoint while no project has an agent running", async () => {
+	it("shows Checkpoint while no project has an agent running, with nothing to pick", async () => {
 		testing.projects = [project("webappwiz", [], true)];
 		const view = await conversations(
 			[conversation({ id: "c2", title: "Old one", status: "stopped" })],
 			null,
 		);
 
-		expect(view.queryByRole("button", { name: /Checkpoint/ })).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Checkpoint" })),
+		);
+
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint" }),
+		);
+		expect(within(dialog).getByText("No agent is running.")).toBeTruthy();
+		expect(within(dialog).queryByRole("checkbox")).toBeNull();
 	});
 
 	it("says how each agent of a checkpoint under way gets on, until dismissed", async () => {
@@ -597,7 +606,7 @@ describe("App's conversations", () => {
 			null,
 		);
 		const row = await waitFor(() =>
-			view.getByRole("button", { name: "Checkpointed 1, 1 not" }),
+			view.getByRole("button", { name: "Checkpoint done, 1 missed" }),
 		);
 		expect(row.title).toBe("Not checkpointed: Two");
 
@@ -609,7 +618,7 @@ describe("App's conversations", () => {
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
 	});
 
-	it("closes the dialog once the checkpoint under way ends", async () => {
+	it("closes the dialog once the checkpoint under way ends, saying it is done after its agents carry on", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
@@ -641,6 +650,48 @@ describe("App's conversations", () => {
 		await waitFor(() =>
 			expect(view.queryByRole("dialog", { name: "Checkpoint" })).toBeNull(),
 		);
+		expect(view.getByRole("button", { name: "Checkpoint done" })).toBeTruthy();
+
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await testing.say(
+			conversation({ id: "c1", title: "One", status: "running" }),
+		);
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("button", { name: "Checkpoint done" }),
+			).toBeTruthy(),
+		);
+	});
+
+	it("says a checkpoint is done for five seconds, even when its agents carry on before the page hears it end", async () => {
+		const timeouts = spyOn(SystemTimer.prototype, "setTimeout");
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		const view = await conversations(
+			[conversation({ id: "c1", title: "One", status: "running" })],
+			null,
+		);
+		await waitFor(() =>
+			view.getByRole("button", { name: "Checkpointing 0 of 1" }),
+		);
+
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		await testing.say(conversation({ id: "c1", title: "One", status: "idle" }));
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("button", { name: "Checkpoint done" }),
+			).toBeTruthy(),
+		);
+		const [shown] = timeouts.mock.calls.filter(
+			([, delay]) => delay.ms === 5000,
+		);
+		timeouts.mockRestore();
+		await act(async () => shown?.[0]());
+
+		expect(view.getByRole("button", { name: "Checkpoint" })).toBeTruthy();
 	});
 
 	describe("back from a restart", () => {
