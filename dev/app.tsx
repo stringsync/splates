@@ -17,7 +17,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { SystemClock, SystemTimer } from "webappwiz/time";
+import { SystemClock, SystemTimer, SystemWallClock } from "webappwiz/time";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
 	Tabs,
@@ -189,6 +189,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 			new AutoRestart({ list: listProjects, restart: restartIdle }, settings, {
 				timer: new SystemTimer(),
 				clock: new SystemClock(),
+				wall: new SystemWallClock(),
 				storage: sessionStorage,
 				reload: () => location.reload(),
 			}),

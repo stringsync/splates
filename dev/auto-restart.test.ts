@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
-import { FakeClock, FakeTimer } from "webappwiz/time/testing";
+import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import type { ProjectConversation, Projects } from "./api";
 import { AutoRestart, type AutoRestartServer } from "./auto-restart";
 import { Settings } from "./settings";
@@ -73,6 +73,7 @@ describe("AutoRestart", () => {
 	let settings: Settings;
 	let timer: FakeTimer;
 	let clock: FakeClock;
+	let wall: FakeWallClock;
 	let reloads: number;
 	let restart: AutoRestart;
 
@@ -84,10 +85,12 @@ describe("AutoRestart", () => {
 		await settings.set("restart.auto", "reload");
 		timer = new FakeTimer();
 		clock = new FakeClock();
+		wall = new FakeWallClock(1_000_000);
 		reloads = 0;
 		restart = new AutoRestart(server, settings, {
 			timer,
 			clock,
+			wall,
 			storage: sessionStorage,
 			reload: () => {
 				reloads += 1;
@@ -100,6 +103,7 @@ describe("AutoRestart", () => {
 	const pass = async (secs: number) => {
 		for (let i = 0; i < secs; i++) {
 			clock.advance(Duration.secs(1));
+			wall.advance(Duration.secs(1));
 			timer.fireIntervals();
 			await Bun.sleep(0);
 		}
@@ -123,14 +127,20 @@ describe("AutoRestart", () => {
 		server.back();
 		await pass(1);
 		expect(reloads).toBe(1);
-		expect(sessionStorage.getItem("arbor.autoRestarted")).toBe("bbbbbbbb");
+		expect(
+			JSON.parse(sessionStorage.getItem("arbor.autoRestarted") ?? "null"),
+		).toEqual({ onto: "bbbbbbbb", at: wall.now() });
 	});
 
-	it("says it is back after the reload, once", () => {
-		sessionStorage.setItem("arbor.autoRestarted", "bbbbbbbb");
+	it("says it is back after the reload, once, and how long ago", () => {
+		sessionStorage.setItem(
+			"arbor.autoRestarted",
+			JSON.stringify({ onto: "bbbbbbbb", at: wall.now() }),
+		);
 		const after = new AutoRestart(server, settings, {
 			timer,
 			clock,
+			wall,
 			storage: sessionStorage,
 			reload: () => {},
 		});
@@ -140,8 +150,12 @@ describe("AutoRestart", () => {
 			step: "back",
 			reloaded: true,
 			onto: "bbbbbbbb",
+			at: wall.now(),
 		});
+		wall.advance(Duration.mins(3));
+		expect(after.ago()?.mins).toBe(3);
 		after.dismiss();
+		expect(after.ago()).toBeNull();
 		expect(after.state.step).toBe("watching");
 		expect(sessionStorage.getItem("arbor.autoRestarted")).toBeNull();
 	});
@@ -158,7 +172,26 @@ describe("AutoRestart", () => {
 			step: "back",
 			reloaded: false,
 			onto: "bbbbbbbb",
+			at: wall.now(),
 		});
+	});
+
+	it("counts down to the next restart while still saying it is back", async () => {
+		await settings.set("restart.auto", "restart");
+		await pass(65);
+		await restart.restartNow();
+		server.back();
+		await pass(1);
+		expect(restart.state.step).toBe("back");
+
+		server.listed = {
+			...server.listed,
+			behind: { running: "b".repeat(40), newest: "c".repeat(40) },
+		};
+		await pass(55);
+		expect(restart.state.step).toBe("back");
+		await pass(10);
+		expect(restart.state).toMatchObject({ step: "counting", onto: "cccccccc" });
 	});
 
 	it("does not offer a cancelled restart again", async () => {
