@@ -13,8 +13,7 @@ import { createContext, type JSX, useContext } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Proposal, Report } from "../asked";
-import type { LaneRecord } from "../lanes";
-import type { TodoState } from "../todo";
+import { Board } from "./board";
 import { Badge, todoReference } from "./card";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { Markdown } from "./markdown";
@@ -94,12 +93,6 @@ function Archive({
 	);
 }
 
-/** The todos and lanes a proposed todo is read from; none outside the page. */
-export const TodosContext = createContext<{
-	todos: TodoState[];
-	lanes: LaneRecord[];
-} | null>(null);
-
 /**
  * Opens the new conversation screen with `text` typed in, to start it there;
  * none outside a conversation.
@@ -125,19 +118,18 @@ export const TodoUI = makeAssistantDataUI<{ todo: Proposal }>({
 });
 
 export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
-	const board = useContext(TodosContext);
+	const board = useContext(Board);
 	const { reply, sent } = useCardReply();
 	const reference = todoReference(proposal.id);
 	const settled = sent !== null;
 	const started = sent?.includes(reference) ?? false;
-	const todo = settled
-		? null
-		: (board?.todos.find((each) => each.id === proposal.id) ?? null);
-	const gone = !settled && board !== null && todo === null;
+	const live = board.todos.find((each) => each.id === proposal.id) ?? null;
+	const todo = settled ? null : live;
+	const gone = !settled && board.linked && todo === null;
 	const lane =
 		todo?.lane == null
 			? null
-			: (board?.lanes.find((each) => each.id === todo.lane) ?? null);
+			: (board.lanes.find((each) => each.id === todo.lane) ?? null);
 	const send = reply?.send ?? null;
 	const { refusal, attempt } = useRefusal();
 	const startNew = useContext(StartNewContext);
@@ -155,9 +147,18 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 				className="mt-0.5 size-4 shrink-0 text-muted-foreground"
 			/>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
-				<p className="font-medium text-sm">
-					{todo?.subject ?? proposal.subject}
-				</p>
+				{live === null ? (
+					<p className="font-medium text-sm">{proposal.subject}</p>
+				) : (
+					// Opens it while it is on the list, replied to or not.
+					<button
+						type="button"
+						onClick={() => board.open(proposal.id)}
+						className="cursor-pointer self-start rounded text-left font-medium text-sm outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						{todo?.subject ?? proposal.subject}
+					</button>
+				)}
 				{proposal.body !== "" && (
 					<Markdown
 						text={proposal.body}
@@ -186,7 +187,15 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 							{todo.takenBy}
 						</Badge>
 					)}
-					{gone && <span>gone: merged or removed</span>}
+					{gone && (
+						<span
+							title="No longer on the list: merged or removed"
+							className="flex items-center gap-1"
+						>
+							<ArchiveIcon aria-hidden className="size-3" />
+							archived
+						</span>
+					)}
 				</span>
 				<Refusal refusal={refusal} />
 			</div>

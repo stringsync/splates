@@ -148,7 +148,6 @@ export function Todos({
 			refuseLane,
 		],
 	);
-	const popup = useRef<HTMLDivElement>(null);
 	return (
 		<BoardContext value={context}>
 			<Drag
@@ -201,29 +200,7 @@ export function Todos({
 					/>
 				</div>
 			</Drag>
-			<Dialog
-				open={current !== undefined}
-				onOpenChange={(open) => {
-					if (!open) {
-						view.close();
-					}
-				}}
-			>
-				{current && (
-					// Held here rather than in Edit, so opening another todo from a
-					// mention swaps what the dialog shows without opening it again.
-					<DialogContent
-						ref={popup}
-						// The dialog itself, not its subject: a phone keeps its
-						// keyboard down until a field is tapped.
-						initialFocus={popup}
-						className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl"
-					>
-						{/* Keyed, so another todo starts on its own words. */}
-						<Edit key={current.id} todo={current} onDone={() => view.close()} />
-					</DialogContent>
-				)}
-			</Dialog>
+			<TodoDialog todo={current} onClose={() => view.close()} />
 			<Dialog
 				open={task !== undefined}
 				onOpenChange={(open) => {
@@ -358,6 +335,45 @@ const collide: CollisionDetection = (args) => {
 	const card = within.find((hit) => columnOf(hit.id) === undefined);
 	return card ? [card] : within.length > 0 ? within : closestCenter(args);
 };
+
+/**
+ * `todo` open in its dialog, to change it, link it or drop it, from the board
+ * or from wherever it is mentioned; closed while there is none.
+ */
+export function TodoDialog({
+	todo,
+	onClose,
+}: {
+	todo: TodoState | undefined;
+	onClose: () => void;
+}): JSX.Element {
+	const popup = useRef<HTMLDivElement>(null);
+	return (
+		<Dialog
+			open={todo !== undefined}
+			onOpenChange={(open) => {
+				if (!open) {
+					onClose();
+				}
+			}}
+		>
+			{todo && (
+				// Held here rather than in Edit, so opening another todo from a
+				// mention swaps what the dialog shows without opening it again.
+				<DialogContent
+					ref={popup}
+					// The dialog itself, not its subject: a phone keeps its
+					// keyboard down until a field is tapped.
+					initialFocus={popup}
+					className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl"
+				>
+					{/* Keyed, so another todo starts on its own words. */}
+					<Edit key={todo.id} todo={todo} onDone={onClose} />
+				</DialogContent>
+			)}
+		</Dialog>
+	);
+}
 
 /**
  * One todo opened: its words and files to change, where it sits on the board

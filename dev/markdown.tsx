@@ -1,3 +1,4 @@
+import { ArchiveIcon } from "lucide-react";
 import { type MarkdownToJSX, Markdown as Render } from "markdown-to-jsx/react";
 import { type ComponentProps, type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
@@ -41,7 +42,9 @@ export function Markdown({
 	if (inline) {
 		return (
 			<span className={cn("min-w-0 break-words", className)}>
-				<Render options={unlinked ? UNLINKED : INLINE}>{linked(text)}</Render>
+				<Render options={unlinked ? UNLINKED : INLINE}>
+					{linkMentions(text)}
+				</Render>
 			</span>
 		);
 	}
@@ -56,7 +59,9 @@ export function Markdown({
 				className,
 			)}
 		>
-			<Render options={preview ? GLIMPSE : OPTIONS}>{linked(text)}</Render>
+			<Render options={preview ? GLIMPSE : OPTIONS}>
+				{linkMentions(text)}
+			</Render>
 		</div>
 	);
 }
@@ -140,14 +145,14 @@ function heading(tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") {
 	return { component: tag, props: { className: HEADING } };
 }
 
-/** Where a mention of todo `#N` links to, read back by `Link`. */
+/** Where a mention of todo `#N` links to, read back by `mentionIn`. */
 const TODO_LINK = /^#todo-(\d+)$/;
 
 /**
- * `text` with each `#N` outside code made a link to that todo, which `Link`
- * draws as one.
+ * `text` with each `#N` outside code made a link to that todo, which a link
+ * drawn through `mentionIn` shows as a `Mention`.
  */
-function linked(text: string): string {
+export function linkMentions(text: string): string {
 	return text
 		.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/)
 		.map((part, i) =>
@@ -158,11 +163,37 @@ function linked(text: string): string {
 }
 
 /**
- * A todo mentioned as `#N`: a tap opens it while it is on the list, and once
- * it is gone (merged or removed, since ids never come back) it is struck
- * through, so nobody reads it as still to do.
+ * Plain `text`, as the person typed it, with each `#N` in it a `Mention`.
  */
-function Mention({ id }: { id: number }): JSX.Element {
+export function Mentioned({ text }: { text: string }): JSX.Element {
+	// Split on the mention's own group, so the odd parts are the ids.
+	const parts = text.split(new RegExp(MENTION.source));
+	return (
+		<>
+			{parts.map((part, i) =>
+				i % 2 === 1 ? (
+					// biome-ignore lint/suspicious/noArrayIndexKey: the parts never move
+					<Mention key={i} id={Number(part)} />
+				) : (
+					part
+				),
+			)}
+		</>
+	);
+}
+
+/** The todo a link written by `linkMentions` mentions, or null for another. */
+export function mentionIn(href: string | undefined): number | null {
+	const mention = TODO_LINK.exec(href ?? "");
+	return mention ? Number(mention[1]) : null;
+}
+
+/**
+ * A todo mentioned as `#N`: a tap opens it while it is on the list, and once
+ * it is gone (merged or removed, since ids never come back) it is archived,
+ * struck through beside an archive box, so nobody reads it as still to do.
+ */
+export function Mention({ id }: { id: number }): JSX.Element {
 	const board = useContext(Board);
 	const todo = board.todos.find((each) => each.id === id);
 	if (!board.linked) {
@@ -171,10 +202,11 @@ function Mention({ id }: { id: number }): JSX.Element {
 	if (todo === undefined) {
 		return (
 			<span
-				title={`#${id} is no longer on the list: merged or removed`}
-				className="text-muted-foreground line-through"
+				title={`#${id} is archived: merged or removed`}
+				className="inline-flex items-baseline gap-0.5 text-muted-foreground"
 			>
-				#{id}
+				<ArchiveIcon aria-hidden className="size-3 self-center" />
+				<span className="line-through">#{id}</span>
 			</span>
 		);
 	}
@@ -196,9 +228,9 @@ function Mention({ id }: { id: number }): JSX.Element {
 
 /** A link opens in a new tab, so the page keeps its place. */
 function Link(props: ComponentProps<"a">): JSX.Element {
-	const mention = TODO_LINK.exec(props.href ?? "");
-	if (mention) {
-		return <Mention id={Number(mention[1])} />;
+	const mention = mentionIn(props.href);
+	if (mention !== null) {
+		return <Mention id={mention} />;
 	}
 	return (
 		<a

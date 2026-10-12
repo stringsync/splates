@@ -77,6 +77,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
+import { Mentioned } from "#dev/markdown.tsx";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
@@ -1023,6 +1024,13 @@ const unstuckTop = (element: HTMLDivElement | null) => {
 	};
 };
 
+/** What the person typed, as typed, each todo it mentions a link to it. */
+const UserText: TextMessagePartComponent = ({ text }) => (
+	<p className="whitespace-pre-line">
+		<Mentioned text={text} />
+	</p>
+);
+
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
 	const attachments = useAuiState((s) => s.message.attachments);
@@ -1049,7 +1057,7 @@ const UserMessage: FC = () => {
 				<Clamped watch={id} head={<ImageTiles attachments={attachments} />}>
 					{/* Only words: the images it carries are attachments, shown as
 					the tiles above. */}
-					<MessagePrimitive.Parts />
+					<MessagePrimitive.Parts components={{ Text: UserText }} />
 				</Clamped>
 				<UserCopy />
 			</div>

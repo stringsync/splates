@@ -323,7 +323,7 @@ describe("App's lanes", () => {
 		expect(again.queryByRole("list", { name: "Untriaged todos" })).toBeNull();
 	});
 
-	it("links a mention to its todo, and strikes one that is gone", async () => {
+	it("links a mention to its todo, and shows one that is gone as archived", async () => {
 		const view = await testing.open({
 			todos: [
 				todo({ id: 1, subject: "first" }),
@@ -338,7 +338,7 @@ describe("App's lanes", () => {
 
 		const mention = view.getByRole("button", { name: "#1" });
 		expect(mention.title).toBe("first");
-		expect(view.getByTitle(/#9 is no longer on the list/).className).toContain(
+		expect(view.getByTitle(/#9 is archived/).innerHTML).toContain(
 			"line-through",
 		);
 		expect(view.getByText("#3")).toBeTruthy();

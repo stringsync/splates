@@ -83,7 +83,7 @@ import type {
 	Setting,
 	Status,
 } from "../conversations";
-import type { LaneRecord } from "../lanes";
+import { type LaneRecord, named } from "../lanes";
 import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
@@ -104,6 +104,7 @@ import {
 	unqueueConversation,
 } from "./api";
 import { Back } from "./back";
+import { Board } from "./board";
 import { copiedLabel, todoReference, useCopy } from "./card";
 import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
@@ -128,7 +129,6 @@ import {
 	ArchiveContext,
 	ReportUI,
 	StartNewContext,
-	TodosContext,
 	TodoUI,
 } from "./report-cards";
 import type { Settings } from "./settings";
@@ -143,6 +143,7 @@ import {
 import { Task } from "./tasks";
 import { ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
+import { TodoDialog } from "./todos";
 import type { Work } from "./work";
 import { WorkUI } from "./work-row";
 
@@ -1051,7 +1052,27 @@ export function Conversations({
 	);
 	const shown = conversations.find((each) => each.id === open) ?? null;
 	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
-	const board = useMemo(() => ({ todos, lanes }), [todos, lanes]);
+	// A todo a conversation mentions opens over it, and the task that took
+	// one over that, so the conversation keeps its place.
+	const [openedTodo, setOpenedTodo] = useState<number | null>(null);
+	const [openedTask, setOpenedTask] = useState<string | null>(null);
+	const board = useMemo(
+		() => ({
+			linked: true,
+			todos,
+			lanes: named(todos, lanes),
+			open: setOpenedTodo,
+			openTask: setOpenedTask,
+			moveLane: () => {},
+			refusedTodos: new Map(),
+			refusedLanes: new Map(),
+			refuseLane: () => {},
+			drafts,
+		}),
+		[todos, lanes, drafts],
+	);
+	const todo = todos.find((each) => each.id === openedTodo);
+	const task = tasks.find((each) => each.task === openedTask);
 	// What a main-tree conversation can take up: a live task no listed
 	// conversation runs in, nor one about to. `arbor claim` refuses one an
 	// external agent still holds, so its agent says so.
@@ -1069,7 +1090,7 @@ export function Conversations({
 	const { refusals, refuse } = useRefusals<string>();
 
 	return (
-		<TodosContext value={board}>
+		<Board value={board}>
 			<div className="flex flex-col gap-4">
 				{phone && open === null ? (
 					<ConversationList
@@ -1141,7 +1162,14 @@ export function Conversations({
 					/>
 				)}
 			</div>
-		</TodosContext>
+			<TodoDialog todo={todo} onClose={() => setOpenedTodo(null)} />
+			<Dialog
+				open={task !== undefined}
+				onOpenChange={(open) => open || setOpenedTask(null)}
+			>
+				{task && <Task task={task} />}
+			</Dialog>
+		</Board>
 	);
 }
 
@@ -2184,8 +2212,8 @@ function TakeUp({
 	/** Sends the prompt that takes it up. */
 	onTake: (text: string) => void;
 }): JSX.Element {
-	const board = useContext(TodosContext);
-	const todos = (board?.todos ?? [])
+	const board = useContext(Board);
+	const todos = board.todos
 		.filter((each) => each.takenBy === null)
 		.sort((one, other) => one.position - other.position);
 	return (

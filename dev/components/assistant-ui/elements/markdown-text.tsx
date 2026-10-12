@@ -15,6 +15,7 @@ import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
+import { linkMentions, Mention, mentionIn } from "#dev/markdown.tsx";
 import { Media } from "#dev/media.tsx";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
@@ -56,6 +57,8 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components }) => {
 		<div {...{ [GROUP]: "" }}>
 			<MarkdownTextPrimitive
 				remarkPlugins={[remarkGfm]}
+				// Each `#N` a link to that todo, which `a` draws as a mention.
+				preprocess={linkMentions}
 				className="aui-md"
 				components={markdownComponents}
 				defer
@@ -161,19 +164,26 @@ const defaultComponents = memoizeMarkdownComponents({
 		/>
 	),
 	// A link opens in a new tab, so the conversation keeps its place; one to a
-	// spot on the page, such as a footnote, stays in it.
-	a: ({ className, ...props }) => (
-		<a
-			className={cn(
-				"aui-md-a text-blue-600 hover:text-blue-600/80 dark:text-blue-400 dark:hover:text-blue-400/80 underline underline-offset-2",
-				className,
-			)}
-			{...(props.href?.startsWith("#")
-				? {}
-				: { target: "_blank", rel: "noreferrer noopener" })}
-			{...props}
-		/>
-	),
+	// spot on the page, such as a footnote, stays in it. A todo's opens it over
+	// the conversation.
+	a: ({ className, ...props }) => {
+		const mention = mentionIn(props.href);
+		if (mention !== null) {
+			return <Mention id={mention} />;
+		}
+		return (
+			<a
+				className={cn(
+					"aui-md-a text-blue-600 hover:text-blue-600/80 dark:text-blue-400 dark:hover:text-blue-400/80 underline underline-offset-2",
+					className,
+				)}
+				{...(props.href?.startsWith("#")
+					? {}
+					: { target: "_blank", rel: "noreferrer noopener" })}
+				{...props}
+			/>
+		);
+	},
 	blockquote: ({ className, ...props }) => (
 		<blockquote
 			className={cn(

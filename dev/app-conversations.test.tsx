@@ -2374,8 +2374,8 @@ describe("App's conversations", () => {
 			expect(taken.textContent).toContain("limits");
 			expect(within(taken).queryByRole("button", { name: /Start/ })).toBeNull();
 			const gone = view.getByRole("region", { name: "todo 15" });
-			expect(gone.textContent).toContain("gone");
-			expect(within(gone).queryByRole("button", { name: /Start/ })).toBeNull();
+			expect(gone.textContent).toContain("archived");
+			expect(within(gone).queryByRole("button")).toBeNull();
 			const box = view.getByRole("textbox", {
 				name: "Message input",
 			}) as HTMLTextAreaElement;
@@ -2458,10 +2458,77 @@ describe("App's conversations", () => {
 			// As proposed, not as the board has it now.
 			expect(started.textContent).not.toContain("Uploads");
 			expect(started.textContent).toContain("Started");
-			expect(within(started).queryByRole("button")).toBeNull();
+			expect(
+				within(started).queryByRole("button", { name: /Start/ }),
+			).toBeNull();
 			const other = view.getByRole("region", { name: "todo 15" });
-			expect(other.textContent).not.toContain("gone");
+			expect(other.textContent).not.toContain("archived");
 			expect(other.textContent).not.toContain("Started");
+		});
+
+		it("opens a proposed todo from its subject, over the conversation", async () => {
+			const view = await conversations([proposing], undefined, board);
+			const open = await waitFor(() =>
+				view.getByRole("region", { name: "todo 12" }),
+			);
+
+			await act(async () =>
+				fireEvent.click(
+					within(open).getByRole("button", {
+						name: "Retry the upload on a 413",
+					}),
+				),
+			);
+
+			const dialog = await waitFor(() =>
+				view.getByRole("dialog", { name: /Todo 12/ }),
+			);
+			expect(
+				(
+					within(dialog).getByRole("textbox", {
+						name: "subject",
+					}) as HTMLInputElement
+				).value,
+			).toBe("Retry the upload on a 413");
+			// Over the conversation, which stays where it was.
+			expect(location.hash).toStartWith("#conversations/");
+		});
+
+		it("opens a todo mentioned in a message, and shows one that is gone as archived", async () => {
+			const view = await conversations(
+				[
+					conversation({
+						title: "Mentions",
+						messages: [
+							message("user", "[ARBOR TODO #14] and #15"),
+							message("agent", "Took #12, but not `#14`. #15 merged."),
+						],
+					}),
+				],
+				undefined,
+				board,
+			);
+			const twelve = await waitFor(() =>
+				view.getByRole("button", { name: "#12" }),
+			);
+			expect(twelve.title).toBe("Retry the upload on a 413");
+			// In code, it is only what was typed.
+			expect(view.getByText("#14", { selector: "code" })).toBeTruthy();
+			// Gone from the list, in both the person's words and the agent's.
+			expect(
+				view.getAllByTitle("#15 is archived: merged or removed"),
+			).toHaveLength(2);
+
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "#14" })),
+			);
+			await waitFor(() =>
+				expect(view.getByRole("dialog", { name: /Todo 14/ })).toBeTruthy(),
+			);
+			await act(async () => fireEvent.click(twelve));
+			await waitFor(() =>
+				expect(view.getByRole("dialog", { name: /Todo 12/ })).toBeTruthy(),
+			);
 		});
 	});
 
