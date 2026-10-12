@@ -4072,6 +4072,19 @@ Cap upload retries
 			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
+		it("heads a conversation with its task's arbor status beside the title", async () => {
+			const view = await sidebar(
+				[conversation({ id: "c1", task: "alpha", name: "Fix login" })],
+				[details({ task: "alpha", status: "escalated" })],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Claude Fix login" })),
+			);
+
+			const title = view.getByRole("heading", { name: "Fix login" });
+			expect(title.parentElement?.textContent).toBe("Fix loginescalated");
+		});
+
 		it("scrolls the card asking the open questions to its top from the actions", async () => {
 			const view = await sidebar(
 				[

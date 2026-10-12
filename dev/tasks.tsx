@@ -116,6 +116,15 @@ function TaskRows({
 
 /** Working and merging are the normal case, so they say nothing. */
 function Status({ task }: { task: Details }): JSX.Element | null {
+	const news =
+		task.review !== null ||
+		task.status === "escalated" ||
+		BROKEN.has(task.status);
+	return news ? <TaskStatus task={task} /> : null;
+}
+
+/** Where a task stands in arbor, normal case and all, as a conversation's header shows it. */
+export function TaskStatus({ task }: { task: Details }): JSX.Element {
 	const { status } = task;
 	if (task.review !== null) {
 		return <Badge>ready to merge</Badge>;
@@ -129,7 +138,7 @@ function Status({ task }: { task: Details }): JSX.Element | null {
 	if (BROKEN.has(status)) {
 		return <Badge variant="destructive">{status}</Badge>;
 	}
-	return null;
+	return <Badge variant="outline">{status}</Badge>;
 }
 
 /** Escalated with its merge attempts spent: what `arbor retry` is for. */

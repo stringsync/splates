@@ -159,7 +159,7 @@ import {
 	toWaiting,
 	useArrived,
 } from "./task-view";
-import { Task } from "./tasks";
+import { Task, TaskStatus } from "./tasks";
 import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
 import { isMain, numberOf, type Terminals } from "./terminals";
@@ -2404,16 +2404,19 @@ function Thread({
 						// A shortcut: the menu in the sidebar renames too. Capped, so a
 						// long name, such as a question it was named after, ends in an
 						// ellipsis rather than running across the pane.
-						<h2
-							onDoubleClick={() => setRenaming(true)}
-							title={`${nameOf(conversation)}\nDouble-click to rename`}
-							className={cn(
-								"max-w-md truncate font-medium text-sm",
-								unnamed(conversation) && "text-muted-foreground italic",
-							)}
-						>
-							{nameOf(conversation)}
-						</h2>
+						<div className="flex min-w-0 items-center gap-2">
+							<h2
+								onDoubleClick={() => setRenaming(true)}
+								title={`${nameOf(conversation)}\nDouble-click to rename`}
+								className={cn(
+									"max-w-md truncate font-medium text-sm",
+									unnamed(conversation) && "text-muted-foreground italic",
+								)}
+							>
+								{nameOf(conversation)}
+							</h2>
+							{task !== null && <TaskStatus task={task} />}
+						</div>
 					)}
 					{conversation.task === null && !archived ? (
 						<TakeUp
