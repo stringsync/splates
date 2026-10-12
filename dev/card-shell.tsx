@@ -1,7 +1,7 @@
 import {
 	ChevronRightIcon,
+	CircleCheckIcon,
 	CircleSlashIcon,
-	GitMergeIcon,
 	type LucideIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
@@ -55,7 +55,7 @@ export const ENDINGS: Record<
 	Ending,
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
-	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
+	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
 	escalated: {
 		title: "Escalated",
