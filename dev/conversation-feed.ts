@@ -8,6 +8,7 @@ import type {
 	Setting,
 } from "../conversations";
 import { scoped } from "./api";
+import { LiveStream } from "./live-stream";
 
 export type ConversationFeedEvents = { changed: undefined };
 
@@ -71,7 +72,7 @@ export class ConversationFeed
 	 */
 	private changes = 0;
 	private readonly changedAt = new Map<string, number>();
-	private stream: EventSource | null = null;
+	private stream: LiveStream | null = null;
 
 	start(): void {
 		// React runs a mount effect twice in StrictMode, and a second stream would
@@ -83,7 +84,7 @@ export class ConversationFeed
 	}
 
 	dispose(): void {
-		this.stream?.close();
+		this.stream?.dispose();
 		this.stream = null;
 		for (const { messages } of this.sending.values()) {
 			messages.forEach(forget);
@@ -216,16 +217,14 @@ export class ConversationFeed
 		if (!(await this.list())) {
 			return;
 		}
-		const stream = new EventSource(scoped("/api/conversations/events"));
-		this.stream = stream;
-		stream.onmessage = (event: MessageEvent<string>) =>
-			this.put(JSON.parse(event.data) as ConversationState);
-		stream.addEventListener("removed", (event: MessageEvent<string>) =>
-			this.drop(event.data),
-		);
-		// Back after the stream dropped, as when `arbor dev` restarts: what the
-		// page holds may have moved meanwhile, so it is read again whole.
-		stream.onopen = () => void this.list();
+		this.stream = new LiveStream(scoped("/api/conversations/events"), {
+			message: (event) => this.put(JSON.parse(event.data) as ConversationState),
+			named: { removed: (event) => this.drop(event.data) },
+			// Back after the stream dropped, as when `arbor dev` restarts or the
+			// machine wakes: what the page holds may have moved meanwhile, so it
+			// is read again whole.
+			open: () => void this.list(),
+		});
 	}
 
 	/** Reads every conversation afresh; false when they are off. */

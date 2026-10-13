@@ -2,6 +2,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Snapshot } from "../snapshot";
 import { scoped } from "./api";
+import { LiveStream } from "./live-stream";
 
 export type FeedEvents = { changed: undefined };
 
@@ -23,7 +24,7 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 	 */
 	outdated: string | null = null;
 
-	private stream: EventSource | null = null;
+	private stream: LiveStream | null = null;
 
 	start(): void {
 		// React runs a mount effect twice in StrictMode, and a second stream would
@@ -31,13 +32,16 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 		if (this.stream !== null) {
 			return;
 		}
-		const stream = new EventSource(scoped("/events"));
-		this.stream = stream;
-		stream.onmessage = () => void this.load();
-		stream.onopen = () => this.set({ offline: false });
-		// EventSource reconnects on its own, so this is a notice rather than an
-		// error to recover from: `onopen` clears it when the server comes back.
-		stream.onerror = () => this.set({ offline: true });
+		this.stream = new LiveStream(scoped("/events"), {
+			message: () => void this.load(),
+			// Back after the stream dropped, what moved meanwhile was never said.
+			open: (again) =>
+				again ? void this.load() : this.set({ offline: false }),
+			// The stream reconnects on its own, so this is a notice rather than
+			// an error to recover from: `open` clears it when the server comes
+			// back.
+			error: () => this.set({ offline: true }),
+		});
 		void this.load();
 	}
 
@@ -45,7 +49,7 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 		// Leaves the feed usable rather than spent: `useReactive` subscribes to
 		// the instance it saw on its first render, so a feed rebuilt after a
 		// remount would leave the page listening to the old one.
-		this.stream?.close();
+		this.stream?.dispose();
 		this.stream = null;
 	}
 

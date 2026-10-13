@@ -34,6 +34,7 @@ import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
 import { RESUME } from "./prompts";
 import { Pty } from "./pty";
+import { PULSE, PULSE_EVENT } from "./pulse";
 import { type Behind, isNewer, type Release, RUNNING } from "./release";
 import { remove } from "./remove";
 import { openRepository, type Repository } from "./repository";
@@ -372,10 +373,12 @@ export async function dev(
 
 		const events = (): Response => {
 			let self: ReadableStreamDefaultController<Uint8Array> | null = null;
+			let pulse: Resource | null = null;
 			return new Response(
 				new ReadableStream<Uint8Array>({
 					start: (stream) => {
 						self = stream;
+						pulse = pulsing(stream);
 						open.add(stream);
 						if (open.size === 1) {
 							arm();
@@ -386,6 +389,7 @@ export async function dev(
 						stream.enqueue(encoder.encode(": connected\n\n"));
 					},
 					cancel: () => {
+						pulse?.dispose();
 						if (self) {
 							open.delete(self);
 						}
@@ -1007,14 +1011,17 @@ export async function dev(
 		const conversationEvents = async (): Promise<Response> => {
 			held();
 			let self: ReadableStreamDefaultController<Uint8Array> | null = null;
+			let pulse: Resource | null = null;
 			return new Response(
 				new ReadableStream<Uint8Array>({
 					start: (stream) => {
 						self = stream;
+						pulse = pulsing(stream);
 						listeners.add(stream);
 						stream.enqueue(encoder.encode(": connected\n\n"));
 					},
 					cancel: () => {
+						pulse?.dispose();
 						if (self) {
 							listeners.delete(self);
 						}
@@ -2071,4 +2078,20 @@ function json(text: string): unknown {
 
 function refuse(status: number, reason: string, message: string): Response {
 	return Response.json({ reason, message }, { status });
+}
+
+/**
+ * Says to `stream`'s page, every pulse, that it is still there, so a page
+ * whose stream went quiet, as across a sleep, opens it again.
+ */
+function pulsing(
+	stream: ReadableStreamDefaultController<Uint8Array>,
+): Resource {
+	return new SystemTimer().setInterval(() => {
+		try {
+			stream.enqueue(PULSE_EVENT);
+		} catch {
+			// Closed on the way: its `cancel` stops this.
+		}
+	}, PULSE);
 }
