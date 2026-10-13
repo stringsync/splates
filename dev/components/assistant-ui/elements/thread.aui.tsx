@@ -1030,8 +1030,33 @@ const ReferenceList: FC<{
 	items: readonly TriggerItem[];
 	references: References;
 }> = ({ items, references }) => {
-	const { highlightedIndex } = unstable_useTriggerPopoverScopeContext();
+	const {
+		highlightedIndex,
+		query,
+		registerSelectItemOverride,
+		setCursorPosition,
+	} = unstable_useTriggerPopoverScopeContext();
 	const list = useRef<HTMLDivElement>(null);
+	// A system is written in as `#name`, where the popover would otherwise
+	// take what was typed away.
+	useEffect(
+		() =>
+			registerSelectItemOverride((item) => {
+				const typed = `#${query}`;
+				const box = document.activeElement;
+				const caret =
+					box instanceof HTMLTextAreaElement
+						? box.selectionStart
+						: Number.MAX_SAFE_INTEGER;
+				const after = references.write(item, typed, caret);
+				if (after === null) {
+					return false;
+				}
+				setCursorPosition(after);
+				return true;
+			}),
+		[registerSelectItemOverride, setCursorPosition, query, references],
+	);
 	useEffect(() => {
 		list.current
 			?.querySelector(`[data-index="${highlightedIndex}"]`)

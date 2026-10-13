@@ -1673,6 +1673,50 @@ describe("App's conversations", () => {
 			expect(box.value).toBe("see ");
 		});
 
+		it("writes a system picked after a #, by its name when an alias found it", async () => {
+			testing.systems = [
+				{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
+			];
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			await typeIn(box, "fix #playe");
+			const found = await waitFor(() =>
+				view.getByRole("listbox", { name: "references" }),
+			);
+			expect(
+				within(found)
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["playbackplayer"]);
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			await waitFor(() => expect(box.value).toBe("fix #playback "));
+		});
+
+		it("offers the systems as a category of their own", async () => {
+			testing.systems = [{ name: "mixer", globs: ["src/mixer/**"] }];
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			await typeIn(box, "#");
+			const categories = await waitFor(() =>
+				view.getByRole("listbox", { name: "references" }),
+			);
+			await act(async () =>
+				fireEvent.click(
+					within(categories).getByRole("option", { name: /Systems/ }),
+				),
+			);
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+			await waitFor(() => expect(box.value).toBe("#mixer "));
+		});
+
 		it("runs a conversation's action picked after a #, writing nothing", async () => {
 			const view = await conversations([conversation({ title: "alpha" })]);
 			const box = view.getByRole("textbox", {

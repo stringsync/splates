@@ -66,8 +66,45 @@ export class Systems {
 		);
 	}
 
+	/**
+	 * The systems `text` mentions as `#name` or `#alias`, each once, in the
+	 * order first mentioned. A `#` that names no system, such as `#12`, is
+	 * left alone.
+	 */
+	mentioned(text: string): NamedSystem[] {
+		const found: NamedSystem[] = [];
+		for (const [, , called = ""] of text.matchAll(MENTION)) {
+			const system = this.find(called);
+			if (system !== null && !found.includes(system)) {
+				found.push(system);
+			}
+		}
+		return found;
+	}
+
 	private contains(system: System, path: string): boolean {
 		const matches = (pattern: string) => this.glob.matches(pattern, path);
 		return system.globs.some(matches) && !(system.ignore ?? []).some(matches);
 	}
+}
+
+/** A `#` at the start or after a space, and the name after it, less trailing punctuation. */
+const MENTION = /(^|\s)#([^\s#]*[^\s#.,;:!?)\]'"])/g;
+
+/**
+ * One line telling an agent what a mentioned system is made of:
+ *
+ * ```
+ * #playback (player, audio engine): src/player/**, src/audio/**; not src/player/*.test.ts
+ * ```
+ */
+export function mentionLine(system: NamedSystem): string {
+	const aliases = system.aliases ?? [];
+	const ignore = system.ignore ?? [];
+	return [
+		`#${system.name}`,
+		aliases.length > 0 ? ` (${aliases.join(", ")})` : "",
+		`: ${system.globs.join(", ")}`,
+		ignore.length > 0 ? `; not ${ignore.join(", ")}` : "",
+	].join("");
 }

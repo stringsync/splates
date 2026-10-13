@@ -17,6 +17,7 @@ import { modelOption } from "./models";
 import type { Offered } from "./offered";
 import { CHECKPOINT } from "./prompts";
 import { SERVING } from "./supervise";
+import { mentionLine, Systems } from "./systems";
 import type { Flag, Watch, Watched } from "./watch";
 
 /** An agent arbor can hold a conversation with over ACP, and how to start it. */
@@ -1579,14 +1580,33 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					}),
 				),
 		);
-		const text = messages
+		const said = messages
 			.map(textOf)
+			.filter((each) => each !== "")
+			.join("\n\n");
+		const text = [said, await this.systemsIn(said)]
 			.filter((each) => each !== "")
 			.join("\n\n");
 		return [
 			...images,
 			...(text === "" ? [] : [{ type: "text" as const, text }]),
 		];
+	}
+
+	/**
+	 * A line on each system `text` mentions with `#`, for the agent alone: the
+	 * thread keeps the words as typed. Read from the tree it runs in as it
+	 * goes, so a system named there a moment ago counts.
+	 */
+	private async systemsIn(text: string): Promise<string> {
+		const tree = this.cwd ?? this.root;
+		if (tree === null || !text.includes("#")) {
+			return "";
+		}
+		// A config that will not load names none, rather than holding the
+		// message back.
+		const named = await Systems.at(tree, { fs: this.fs }).catch(() => null);
+		return (named?.mentioned(text) ?? []).map(mentionLine).join("\n");
 	}
 
 	/**

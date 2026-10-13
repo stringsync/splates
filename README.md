@@ -434,7 +434,11 @@ latest conversations to pick back up, those waiting on you first.
 The thread is [assistant-ui](https://www.assistant-ui.com)'s: the agent's
 words as markdown, its thinking and tool calls folded away, and a composer
 where Enter sends, Shift+Enter starts a new line, `@` names a file in the tree
-it works in, and Escape or Stop ends the agent's turn. The pickers in the
+it works in, `#` offers arbor's todos, lanes, tasks and systems, and Escape or
+Stop ends the agent's turn. A system picked after `#`, found by its name or an
+alias, is written as `#name`; the agent is sent a line after the message on
+what each `#name` in it is made of, read from the tree's `arbor.config.ts`,
+while the thread shows the message as typed. The pickers in the
 header switch what the session offers, its permission mode, model and effort
 among them; the same pickers on the new conversation screen, from what the
 agent offered last time, set them before the first message. A permission request offers Deny,

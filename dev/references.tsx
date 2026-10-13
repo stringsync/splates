@@ -6,6 +6,7 @@ import type {
 import {
 	ColumnsIcon,
 	GitBranchIcon,
+	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	SparklesIcon,
@@ -19,18 +20,26 @@ import {
 	todoReference,
 } from "../prompts";
 import type { Details } from "../show";
+import type { NamedSystem } from "../systems";
 import type { Action } from "./actions";
 import { Board } from "./board";
 import { addDirective } from "./directives";
 
 /**
  * What `#` offers in the composer, by category: picking an item adds its
- * directive as a chip, or runs it, for an action.
+ * directive as a chip, or runs it, for an action, or writes it in place of
+ * what was typed, for a system.
  */
 export interface References {
 	adapter: TriggerAdapter;
 	pick: (item: TriggerItem) => void;
 	icon: (item: TriggerItem) => ReactNode;
+	/**
+	 * Writes a system as `#name` in place of `typed`, the `#` and what follows
+	 * it, the last before `caret`, and gives where the caret belongs after it;
+	 * null for any other item, which `pick` takes instead.
+	 */
+	write: (item: TriggerItem, typed: string, caret: number) => number | null;
 }
 
 /** The categories, in the order the list shows them. */
@@ -39,6 +48,7 @@ const CATEGORIES = [
 	{ id: "todo", label: "Todos", icon: ListTodoIcon },
 	{ id: "lane", label: "Lanes", icon: ColumnsIcon },
 	{ id: "task", label: "Tasks", icon: GitBranchIcon },
+	{ id: "system", label: "Systems", icon: LayersIcon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
@@ -53,13 +63,14 @@ const DIRECTIVES = [
 ];
 
 /**
- * The board's todos and lanes, `tasks`, the directives, and `actions` for `#`
- * in `composer`, the conversation's actions run in place.
+ * The board's todos and lanes, `tasks`, `systems`, the directives, and
+ * `actions` for `#` in `composer`, the conversation's actions run in place.
  */
 export function useReferences(
 	composer: ThreadComposerRuntime,
 	tasks: readonly Details[],
 	actions: readonly Action[] = [],
+	systems: readonly NamedSystem[] = [],
 ): References {
 	const { todos, lanes } = useContext(Board);
 	return useMemo(() => {
@@ -93,6 +104,16 @@ export function useReferences(
 				description: task.status,
 				metadata: { directive: taskReference(task.task) },
 			})),
+			// Its aliases as its description, so typing one finds it too.
+			system: systems.map((system) => ({
+				id: `system:${system.name}`,
+				type: "system",
+				label: system.name,
+				...((system.aliases ?? []).length > 0
+					? { description: (system.aliases ?? []).join(", ") }
+					: {}),
+				metadata: { system: system.name },
+			})),
 			action: runnable.map((action, index) => ({
 				id: `action:${action.label}`,
 				type: "action",
@@ -115,6 +136,23 @@ export function useReferences(
 					runnable[action]?.run?.();
 				}
 			},
+			write: (item, typed, caret) => {
+				const { system } = item.metadata ?? {};
+				if (typeof system !== "string") {
+					return null;
+				}
+				const text = composer.getState().text;
+				const start = text.lastIndexOf(typed, caret - typed.length);
+				const at = start === -1 ? text.length : start;
+				const after = text.slice(start === -1 ? at : at + typed.length);
+				const written = `#${system}`;
+				composer.setText(
+					text.slice(0, at) +
+						written +
+						(after.startsWith(" ") ? after : ` ${after}`),
+				);
+				return at + written.length + 1;
+			},
 			icon: (item) => {
 				const { action } = item.metadata ?? {};
 				if (typeof action === "number") {
@@ -124,5 +162,5 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [composer, todos, lanes, tasks, actions]);
+	}, [composer, todos, lanes, tasks, actions, systems]);
 }

@@ -41,6 +41,7 @@ import { type AgentPick, modelsOf, pickAgent } from "./roster";
 import type { Details } from "./show";
 import { fingerprint, snapshot, tasksOf } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
+import { Systems } from "./systems";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
@@ -457,6 +458,20 @@ export async function dev(
 			return Response.json(
 				await service.git.paths(worktree?.path ?? service.git.root),
 			);
+		};
+
+		// Every system the tree's config names, for `#` to offer: its own
+		// worktree's for a task, so one named there counts at once.
+		const systems = async (request: Request): Promise<Response> => {
+			const task = new URL(request.url).searchParams.get("task") ?? "";
+			const worktree = task === "" ? null : await service.find(task);
+			if (worktree !== null && !worktree.exists) {
+				fail("not_found", `no worktree for '${task}'`, { task });
+			}
+			const named = await Systems.at(worktree?.path ?? service.git.root, {
+				fs,
+			});
+			return Response.json(named.all());
 		};
 
 		// What a task changed against its base, for its review in the page.
@@ -1000,6 +1015,7 @@ export async function dev(
 			events: async () => events(),
 			file,
 			paths,
+			systems,
 			diff,
 			retryTask,
 			addTodo,
@@ -1526,6 +1542,7 @@ export async function dev(
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
 			"/api/paths": scoped((project) => project.paths),
+			"/api/systems": scoped((project) => project.systems),
 			"/api/tasks/:task/diff": scoped((project) => project.diff),
 			"/api/tasks/:task/retry": {
 				POST: scoped((project) => project.retryTask),
@@ -1903,6 +1920,7 @@ interface Served extends AsyncResource {
 	events: Handler;
 	file: Handler;
 	paths: Handler;
+	systems: Handler;
 	diff: Handler;
 	retryTask: Handler;
 	addTodo: Handler;

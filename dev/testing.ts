@@ -14,6 +14,7 @@ import type {
 import type { FileDiff } from "../diff";
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
+import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import type { Interrupted, ProjectChoice } from "./api";
 import type { AgentChoice } from "./conversation-feed";
@@ -59,6 +60,8 @@ export class Testing implements Resource {
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
 	tree: string[] = [];
+	/** What `/api/systems` lists, for `#`. */
+	systems: NamedSystem[] = [];
 	/** Each task's diff, by task, for `/api/tasks/:task/diff`. */
 	diffs: Record<string, FileDiff[]> = {};
 	/** What every write answers with; a test sets it when the page reads it. */
@@ -137,6 +140,9 @@ export class Testing implements Resource {
 			}
 			if (path.startsWith("/api/paths")) {
 				return Response.json(this.tree);
+			}
+			if (path.startsWith("/api/systems")) {
+				return Response.json(this.systems);
 			}
 			const diff = /^\/api\/tasks\/([^/]+)\/diff$/.exec(route ?? "");
 			if (diff !== null) {

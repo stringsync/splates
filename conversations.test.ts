@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
@@ -187,6 +189,59 @@ describe("Conversations", () => {
 		await expect(
 			conversations.start("nobody", { task: null, cwd: "/repo" }),
 		).rejects.toThrow("no agent 'nobody': use one of fake");
+	});
+
+	describe("systems mentioned with #", () => {
+		let tree: string;
+
+		beforeEach(async () => {
+			// Imported from disk, and read through `fs` to tell when it changed.
+			tree = await mkdtemp(join(tmpdir(), "arbor-mentions-"));
+			const config = `export default { systems: { playback: { aliases: ["player"], globs: ["src/audio/**"] } } };\n`;
+			await writeFile(join(tree, "arbor.config.ts"), config);
+			await fs.mkdir(tree);
+			await fs.write(join(tree, "arbor.config.ts"), config);
+		});
+
+		afterEach(() => rm(tree, { recursive: true, force: true }));
+
+		it("tells the agent what each one is made of, and keeps the words as typed in the thread", async () => {
+			const conversation = await conversations.start("fake", {
+				task: "login",
+				cwd: tree,
+			});
+			await until(conversation, "idle");
+
+			await conversation.prompt("Fix the gap in #player between tracks.");
+			await until(conversation, "idle");
+
+			expect(agent.prompts.at(-1)).toEqual([
+				{
+					type: "text",
+					text: "Fix the gap in #player between tracks.\n\n#playback (player): src/audio/**",
+				},
+			]);
+			expect(conversation.state.messages[0]).toMatchObject({
+				parts: [
+					{ type: "text", text: "Fix the gap in #player between tracks." },
+				],
+			});
+		});
+
+		it("adds nothing for a # that names no system", async () => {
+			const conversation = await conversations.start("fake", {
+				task: "login",
+				cwd: tree,
+			});
+			await until(conversation, "idle");
+
+			await conversation.prompt("See #12 and #mixer");
+			await until(conversation, "idle");
+
+			expect(agent.prompts.at(-1)).toEqual([
+				{ type: "text", text: "See #12 and #mixer" },
+			]);
+		});
 	});
 
 	it("runs a turn, folding streamed text and tool calls into one message", async () => {

@@ -17,6 +17,7 @@ import type { FileDiff } from "../diff";
 import type { Held } from "../held";
 import type { Behind } from "../release";
 import type { AgentPick } from "../roster";
+import type { NamedSystem } from "../systems";
 
 export class ApiError extends Error {
 	constructor(
@@ -215,6 +216,17 @@ export async function paths(task = ""): Promise<string[]> {
 		throw new ApiError("error", `/api/paths: ${response.status}`);
 	}
 	return (await response.json()) as string[];
+}
+
+/** Every system `task`'s worktree names, or the main tree's for none. */
+export async function systems(task = ""): Promise<NamedSystem[]> {
+	const response = await fetch(
+		scoped(`/api/systems?${new URLSearchParams({ task })}`),
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `/api/systems: ${response.status}`);
+	}
+	return (await response.json()) as NamedSystem[];
 }
 
 /** What `task` changed against its base, uncommitted edits included. */

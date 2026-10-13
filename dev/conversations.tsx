@@ -94,6 +94,7 @@ import { modelOption } from "../models";
 import { type Need, type Needing, need, needs } from "../needs";
 import { leadingDirectives, taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
+import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import { type Action, ActionButtons, Actions } from "./actions";
 import { AgentBrand, AgentIcon } from "./agent-icons";
@@ -103,6 +104,7 @@ import {
 	cancelConversation,
 	chooseSetting,
 	conversationImage,
+	systems as fetchSystems,
 	markUnread,
 	paths,
 	promptConversation,
@@ -1768,7 +1770,8 @@ function Home({
 		newDraft(new URLSearchParams(location.search).get("project"), task),
 	);
 	const mentions = useFileMentions(task);
-	const references = useReferences(runtime.thread.composer, tasks);
+	const systems = useSystems(task, tasks);
+	const references = useReferences(runtime.thread.composer, tasks, [], systems);
 
 	return (
 		<section
@@ -2536,7 +2539,13 @@ function Thread({
 			run: () => archive.file(),
 		},
 	];
-	const references = useReferences(runtime.thread.composer, tasks, actions);
+	const systems = useSystems(conversation.task, tasks);
+	const references = useReferences(
+		runtime.thread.composer,
+		tasks,
+		actions,
+		systems,
+	);
 	// Archived, on to the next. Already archived, the key does nothing.
 	const fileByKey = () => {
 		if (!archived) {
@@ -3030,6 +3039,30 @@ function useFileMentions(task: string | null): TriggerAdapter | null {
 }
 
 const MENTIONS_SHOWN = 8;
+
+/**
+ * The systems the tree `task` runs in names, for `#`; none until they come,
+ * or when they cannot. Asked again whenever the tasks move, which an edit to
+ * a worktree's config does.
+ */
+function useSystems(
+	task: string | null,
+	tasks: readonly Details[],
+): NamedSystem[] {
+	const [named, setNamed] = useState<NamedSystem[]>([]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `tasks` only says when to ask again.
+	useEffect(() => {
+		let current = true;
+		fetchSystems(task ?? "").then(
+			(found) => current && setNamed(found),
+			() => undefined,
+		);
+		return () => {
+			current = false;
+		};
+	}, [task, tasks]);
+	return named;
+}
 
 /**
  * The agent's skills and commands for the composer's `/`, those whose name

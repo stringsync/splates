@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
-import { Systems } from "./systems";
+import { mentionLine, Systems } from "./systems";
 
 const PLAYBACK = {
 	aliases: ["player", "audio engine"],
@@ -35,6 +35,40 @@ describe("Systems", () => {
 	it("leaves out a system whose only matches it ignores", () => {
 		expect(systems.touchedBy(["packages/player/queue.test.ts"])).toEqual([]);
 		expect(systems.touchedBy(["README.md"])).toEqual([]);
+	});
+});
+
+describe("Systems.mentioned", () => {
+	const systems = Systems.of({
+		playback: PLAYBACK,
+		mixer: { globs: ["src/mixer/**"] },
+	});
+	const names = (text: string) =>
+		systems.mentioned(text).map((system) => system.name);
+
+	it("finds each system a # names, by name or alias, once, in order", () => {
+		expect(names("Fix #mixer, then #player and #playback.")).toEqual([
+			"mixer",
+			"playback",
+		]);
+	});
+
+	it("leaves alone a # that names no system, or sits inside a word", () => {
+		expect(names("[ARBOR TODO #12] see issue#mixer and #nothing")).toEqual([]);
+	});
+});
+
+describe("mentionLine", () => {
+	it("names the system, its aliases, globs, and ignores", () => {
+		expect(mentionLine({ name: "playback", ...PLAYBACK })).toBe(
+			"#playback (player, audio engine): packages/player/**, src/audio/**; not packages/player/**/*.test.ts",
+		);
+	});
+
+	it("leaves out what the system does not have", () => {
+		expect(mentionLine({ name: "mixer", globs: ["src/mixer/**"] })).toBe(
+			"#mixer: src/mixer/**",
+		);
 	});
 });
 
