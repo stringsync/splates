@@ -5,9 +5,11 @@ import {
 	type ConversationsView,
 	cleanup,
 	conversation,
+	details,
 	fireEvent,
 	message,
 	newWith,
+	snapshot,
 	Testing,
 	textIn,
 	todo,
@@ -202,6 +204,49 @@ describe("App's conversations", () => {
 			expect(highlighted()).toBe("Todo 3#3");
 			await point("Todo 1", 121);
 			expect(highlighted()).toBe("Todo 1#1");
+		});
+
+		it("keeps the row the arrow keys are on as the board changes", async () => {
+			const todos = [1, 2, 3].map((id) => todo({ id, subject: `Todo ${id}` }));
+			const view = await testing.openConversations([], null, {
+				todos,
+				lanes: [],
+			});
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			});
+			const key = (name: string) =>
+				act(async () => fireEvent.keyDown(box, { key: name }));
+			const list = () => view.getByRole("listbox", { name: "references" });
+			const highlighted = () =>
+				list().querySelector("[data-highlighted]")?.textContent;
+
+			await typeIn(box, "#");
+			await waitFor(list);
+			await key("ArrowDown");
+			await key("Enter");
+			await key("ArrowDown");
+			expect(highlighted()).toBe("Todo 2#2");
+
+			// A todo added above it, as another agent might while the list is open.
+			testing.served = snapshot({
+				todos: [todo({ id: 4, subject: "Todo 4" }), ...todos],
+				lanes: [],
+				tasks: [details({ task: "alpha" })],
+			});
+			await act(async () => testing.stream?.onmessage?.());
+			await waitFor(() =>
+				expect(
+					within(list()).getByRole("option", { name: /Todo 4/ }),
+				).toBeTruthy(),
+			);
+			expect(highlighted()).toBe("Todo 2#2");
+			await key("ArrowDown");
+			expect(highlighted()).toBe("Todo 3#3");
+
+			// A search still starts on its first match.
+			await typeIn(box, "#Todo");
+			await waitFor(() => expect(highlighted()).toBe("Todo 4#4"));
 		});
 
 		it("searches every category for what follows the #", async () => {

@@ -17,6 +17,7 @@ import {
 	ThreadPrimitive,
 	type ToolCallMessagePartComponent,
 	type TriggerAdapter,
+	type TriggerCategory,
 	type TriggerItem,
 	type TriggerMatcher,
 	type Unstable_DirectiveFormatter,
@@ -54,9 +55,11 @@ import {
 	useEffect,
 	useLayoutEffect,
 	useMemo,
+	useReducer,
 	useRef,
 	useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { toCardTop } from "#dev/card-shell.tsx";
 import {
 	ComposerAddAttachment,
@@ -1040,20 +1043,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 								removeOnExecute
 							/>
 							<ComposerPrimitive.TriggerPopoverCategories>
-								{(categories) => (
-									<div className={POPOVER_LIST}>
-										{categories.map((category) => (
-											<ComposerPrimitive.TriggerPopoverCategoryItem
-												key={category.id}
-												categoryId={category.id}
-												className={cn(POPOVER_ROW, "justify-between text-sm")}
-											>
-												{category.label}
-												<ChevronRightIcon className="text-muted-foreground size-4" />
-											</ComposerPrimitive.TriggerPopoverCategoryItem>
-										))}
-									</div>
-								)}
+								{(categories) => <CategoryList categories={categories} />}
 							</ComposerPrimitive.TriggerPopoverCategories>
 							<ComposerPrimitive.TriggerPopoverItems>
 								{(items) => (
@@ -1137,6 +1127,88 @@ const POPOVER_ROW =
 	"data-[highlighted]:bg-accent flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start outline-none";
 
 /**
+ * Keeps the highlight on the row it was on when the open list's `rows` are
+ * built again with that row still in them, as they are each time the board or
+ * the tasks change, where assistant-ui would put it back on the first row; and
+ * scrolls the row `selector` finds in `list` into view as it changes. Typing,
+ * or moving to another category, still starts again on the first row.
+ */
+function useKeptHighlight(
+	rows: readonly { id: string }[],
+	list?: { ref: RefObject<HTMLElement | null>; selector: string },
+): void {
+	const { activeCategoryId, highlightIndex, highlightedIndex, query } =
+		unstable_useTriggerPopoverScopeContext();
+	const kept = useRef<{
+		rows: readonly { id: string }[];
+		id: string | undefined;
+		query: string;
+		category: string | null;
+	} | null>(null);
+	// Whether the row is to be highlighted again once assistant-ui has settled.
+	const waiting = useRef(false);
+	const [, settle] = useReducer((renders: number) => renders + 1, 0);
+	const scrolled = useRef<string | null>(null);
+	// Before paint, so the first row never shows highlighted between the two.
+	useLayoutEffect(() => {
+		const was = kept.current;
+		const id = rows[highlightedIndex]?.id;
+		const at =
+			was !== null &&
+			(was.rows !== rows || waiting.current) &&
+			was.id !== id &&
+			was.query === query &&
+			was.category === activeCategoryId
+				? rows.findIndex((row) => row.id === was.id)
+				: -1;
+		if (was !== null && at !== -1) {
+			kept.current = { ...was, rows };
+			if (waiting.current) {
+				waiting.current = false;
+				highlightIndex(at);
+			} else {
+				// `highlightIndex` still holds the row before the reset until the
+				// popover's effects have run, after this one, and would take the
+				// row it was on as nothing to do: render again once they have,
+				// which a synchronous render does first, still before paint.
+				waiting.current = true;
+				queueMicrotask(() => flushSync(settle));
+			}
+			return;
+		}
+		waiting.current = false;
+		kept.current = { rows, id, query, category: activeCategoryId };
+		if (list !== undefined && scrolled.current !== list.selector) {
+			scrolled.current = list.selector;
+			list.ref.current
+				?.querySelector(list.selector)
+				?.scrollIntoView?.({ block: "nearest" });
+		}
+	});
+}
+
+/** The `#` categories, the highlight kept as the board changes. */
+const CategoryList: FC<{ categories: readonly TriggerCategory[] }> = ({
+	categories,
+}) => {
+	useKeptHighlight(categories);
+	return (
+		<div className={POPOVER_LIST}>
+			{categories.map((category) => (
+				<ComposerPrimitive.TriggerPopoverCategoryItem
+					key={category.id}
+					categoryId={category.id}
+					className={cn(POPOVER_ROW, "justify-between text-sm")}
+				>
+					{category.label}
+					<ChevronRightIcon className="text-muted-foreground size-4" />
+				</ComposerPrimitive.TriggerPopoverCategoryItem>
+			))}
+		</div>
+	);
+};
+
+/**
  * What a `#` category holds, or what matches what was typed after it, the row
  * the arrow keys are on kept in view. In a category, the arrow keys reach Back
  * too, up from the first row or down from the last, and Enter or Tab on it
@@ -1217,13 +1289,10 @@ const ReferenceList: FC<{
 			}),
 		[registerSelectItemOverride, query, references, writer],
 	);
-	useEffect(() => {
-		list.current
-			?.querySelector(
-				onBack ? "[data-back]" : `[data-index="${highlightedIndex}"]`,
-			)
-			?.scrollIntoView?.({ block: "nearest" });
-	}, [highlightedIndex, onBack]);
+	useKeptHighlight(items, {
+		ref: list,
+		selector: onBack ? "[data-back]" : `[data-index="${highlightedIndex}"]`,
+	});
 	return (
 		<div ref={list} className={cn(POPOVER_LIST, "max-h-80 overflow-y-auto")}>
 			<ComposerPrimitive.TriggerPopoverBack
@@ -1274,11 +1343,10 @@ const ReferenceList: FC<{
 const CommandList: FC<{ items: readonly TriggerItem[] }> = ({ items }) => {
 	const { highlightedIndex } = unstable_useTriggerPopoverScopeContext();
 	const list = useRef<HTMLDivElement>(null);
-	useEffect(() => {
-		list.current
-			?.querySelector(`[data-index="${highlightedIndex}"]`)
-			?.scrollIntoView?.({ block: "nearest" });
-	}, [highlightedIndex]);
+	useKeptHighlight(items, {
+		ref: list,
+		selector: `[data-index="${highlightedIndex}"]`,
+	});
 	if (items.length === 0) {
 		return null;
 	}
