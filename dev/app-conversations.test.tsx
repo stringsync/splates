@@ -808,7 +808,7 @@ describe("App's conversations", () => {
 		);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint under way" }),
+			view.getByRole("dialog", { name: "Checkpoint" }),
 		);
 		expect(within(dialog).queryByRole("checkbox")).toBeNull();
 		expect(
@@ -833,9 +833,7 @@ describe("App's conversations", () => {
 		await act(async () =>
 			fireEvent.click(await menuItem(view, "Checkpoint under way")),
 		);
-		await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint under way" }),
-		);
+		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
 	});
 
 	it("says a checkpoint is done on the button, opening Done, and resumes its agents", async () => {
@@ -866,7 +864,7 @@ describe("App's conversations", () => {
 		);
 		expect(view.queryAllByRole("dialog")).toHaveLength(1);
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint done" }),
+			view.getByRole("dialog", { name: "Checkpoint" }),
 		);
 		expect(dialog.textContent).toContain("1 agent checkpointed and stopped.");
 		expect(
@@ -888,7 +886,7 @@ describe("App's conversations", () => {
 		);
 		expect(within(dialog).getByRole("img", { name: "Resumed" })).toBeTruthy();
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
-		expect(view.getByRole("dialog", { name: "Agents resumed" })).toBe(dialog);
+		expect(view.getByRole("dialog", { name: "Resume" })).toBe(dialog);
 
 		// Seen and closed, it leaves the button for the next checkpoint.
 		await act(async () =>
@@ -926,7 +924,7 @@ describe("App's conversations", () => {
 		);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint done" }),
+			view.getByRole("dialog", { name: "Checkpoint" }),
 		);
 		expect(dialog.textContent).toContain("1 missed: Two.");
 		// The footer's, not the corner's, which does the same.
@@ -973,7 +971,7 @@ describe("App's conversations", () => {
 			fireEvent.click(await menuItem(view, "Checkpoint done")),
 		);
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint done" }),
+			view.getByRole("dialog", { name: "Checkpoint" }),
 		);
 
 		await act(async () =>
@@ -987,7 +985,7 @@ describe("App's conversations", () => {
 		await act(async () =>
 			fireEvent.click(await menuItem(view, "Checkpoint done")),
 		);
-		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint done" }));
+		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
 	});
 
 	it("restarts from a done checkpoint, saying so until arbor dev is back", async () => {
@@ -1002,7 +1000,7 @@ describe("App's conversations", () => {
 			fireEvent.click(await menuItem(view, "Checkpoint done")),
 		);
 		const done = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint done" }),
+			view.getByRole("dialog", { name: "Checkpoint" }),
 		);
 
 		await act(async () =>
@@ -1013,7 +1011,7 @@ describe("App's conversations", () => {
 			{ method: "POST", body: {} },
 		]);
 		const restarting = await waitFor(() =>
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			view.getByRole("dialog", { name: "Restart" }),
 		);
 		expect(
 			within(restarting).queryByRole("button", { name: "Resume" }),
@@ -1053,7 +1051,7 @@ describe("App's conversations", () => {
 			fireEvent.click(await menuItem(view, "Restarting arbor dev")),
 		);
 		const restarting = await waitFor(() =>
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			view.getByRole("dialog", { name: "Restart" }),
 		);
 		expect(restarting.textContent).toContain(
 			"arbor dev is restarting, then you pick what comes next.",
@@ -1073,7 +1071,7 @@ describe("App's conversations", () => {
 		);
 
 		const restarted = await waitFor(() =>
-			view.getByRole("dialog", { name: "arbor dev restarted" }),
+			view.getByRole("dialog", { name: "Restart" }),
 		);
 		expect(restarted.textContent).toContain(
 			"Now on arbor 0.0.1. 1 agent checkpointed and waiting to resume.",
@@ -1095,7 +1093,7 @@ describe("App's conversations", () => {
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
 		await testing.say(conversation({ id: "c1", status: "running" }));
 		const resumed = await waitFor(() =>
-			view.getByRole("dialog", { name: "Agents resumed" }),
+			view.getByRole("dialog", { name: "Resume" }),
 		);
 		await waitFor(() =>
 			expect(resumed.textContent).toContain(
@@ -1121,7 +1119,7 @@ describe("App's conversations", () => {
 			fireEvent.click(await menuItem(view, "Checkpoint under way")),
 		);
 		const going = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint under way" }),
+			view.getByRole("dialog", { name: "Checkpoint" }),
 		);
 		expect(going.textContent).toContain(
 			"Each agent is bringing its ARBOR.md up to date, then arbor dev restarts and each resumes.",
@@ -1130,7 +1128,7 @@ describe("App's conversations", () => {
 		testing.goAway();
 
 		const restarting = await waitFor(
-			() => view.getByRole("dialog", { name: "Restarting arbor dev" }),
+			() => view.getByRole("dialog", { name: "Restart" }),
 			{ timeout: 3000 },
 		);
 		expect(restarting.textContent).toContain(
@@ -1147,7 +1145,7 @@ describe("App's conversations", () => {
 		];
 		testing.comeBack();
 		const restarted = await waitFor(
-			() => view.getByRole("dialog", { name: "Resuming agents" }),
+			() => view.getByRole("dialog", { name: "Resume" }),
 			{ timeout: 3000 },
 		);
 		expect(restarted.textContent).toContain(
@@ -1167,9 +1165,7 @@ describe("App's conversations", () => {
 				),
 			{ timeout: 3000 },
 		);
-		expect(view.getByRole("dialog", { name: "Agents resumed" })).toBe(
-			restarted,
-		);
+		expect(view.getByRole("dialog", { name: "Resume" })).toBe(restarted);
 		expect(
 			within(restarted).getByRole("img", { name: "Resumed" }),
 		).toBeTruthy();

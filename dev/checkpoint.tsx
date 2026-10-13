@@ -3,6 +3,8 @@ import {
 	CircleAlertIcon,
 	FlagIcon,
 	Loader2Icon,
+	PlayIcon,
+	RotateCwIcon,
 } from "lucide-react";
 import {
 	createContext,
@@ -102,8 +104,9 @@ function slideOf({ asked, going }: Standing): Slide {
 }
 
 /**
- * Each slide's title, its own so moving on is plain to see; done says
- * `arbor dev` restarted when its agents wait to resume on the new run.
+ * How each slide stands, for the title menu's Checkpoint, its own so moving
+ * on is plain to see; done says `arbor dev` restarted when its agents wait to
+ * resume on the new run. The dialog itself is titled by its phase.
  */
 function titleOf(slide: Slide, restarted: string | null): string {
 	switch (slide) {
@@ -120,6 +123,49 @@ function titleOf(slide: Slide, restarted: string | null): string {
 		case "ended":
 			return "Agents resumed";
 	}
+}
+
+/**
+ * The three phases the dialog walks through, as "Checkpoint, restart and
+ * resume" names them, each with its icon; done is still the checkpoint until
+ * a restart has followed it.
+ */
+const PHASES = {
+	checkpoint: { title: "Checkpoint", Icon: FlagIcon },
+	restart: { title: "Restart", Icon: RotateCwIcon },
+	resume: { title: "Resume", Icon: PlayIcon },
+};
+
+function phaseOf(slide: Slide, restarted: string | null): keyof typeof PHASES {
+	switch (slide) {
+		case "pick":
+		case "going":
+			return "checkpoint";
+		case "done":
+			return restarted === null ? "checkpoint" : "restart";
+		case "restarting":
+			return "restart";
+		case "resuming":
+		case "ended":
+			return "resume";
+	}
+}
+
+/** The dialog's title: the phase it is in, with its icon. */
+function PhaseTitle({
+	slide,
+	restarted,
+}: {
+	slide: Slide;
+	restarted: string | null;
+}): JSX.Element {
+	const { title, Icon } = PHASES[phaseOf(slide, restarted)];
+	return (
+		<DialogTitle className="flex items-center gap-2">
+			<Icon aria-hidden className="size-4" />
+			{title}
+		</DialogTitle>
+	);
 }
 
 /** A checkpoint whose agents carried on, after `arbor dev` restarted or not. */
@@ -174,7 +220,7 @@ export function useCheckpoint(): Checkpointing {
  * `arbor dev` restarting when that was asked for, and from there to what to
  * do after the restart, or to each agent carrying on. Says how it stands to
  * `children`, so the dialog can be closed meanwhile and opened again from
- * them, and still says it is done for a minute after its agents carry on.
+ * them, and still says it is done while open, and for a minute once closed, after its agents carry on.
  * Asks the server for every project again as `conversations`, this
  * project's, change, and every `every`, a second by default, while a
  * checkpoint or restart is under way or the dialog is open.
@@ -310,13 +356,14 @@ export function CheckpointProvider({
 			waited.current = false;
 		}
 	}, [listed, restarting]);
+	// Open, it stays until closed, rather than going back to the start.
 	useEffect(() => {
-		if (ended === null) {
+		if (ended === null || open) {
 			return;
 		}
 		const shown = new SystemTimer().setTimeout(() => setEnded(null), ENDED);
 		return () => shown.dispose();
-	}, [ended]);
+	}, [ended, open]);
 	useEffect(() => {
 		if (
 			all.going === 0 &&
@@ -545,7 +592,7 @@ function CheckpointDialog({
 					) : (
 						<>
 							<DialogHeader>
-								<DialogTitle>{titleOf(slide, restarted)}</DialogTitle>
+								<PhaseTitle slide={slide} restarted={restarted} />
 								<DialogDescription>
 									{slide === "going"
 										? `Each agent is bringing its ARBOR.md up to date${restarting === null ? "" : restarting.resume ? ", then arbor dev restarts and each resumes" : ", then arbor dev restarts"}.`
@@ -661,7 +708,7 @@ function PickSlide({
 	return (
 		<>
 			<DialogHeader>
-				<DialogTitle>Checkpoint</DialogTitle>
+				<PhaseTitle slide="pick" restarted={null} />
 				<DialogDescription>
 					Each agent in the projects you pick brings its ARBOR.md up to date, so
 					the next one can carry on from it.
