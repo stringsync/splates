@@ -87,11 +87,14 @@ import {
 	ComposerChip,
 	chipFormatter,
 	FileNames,
+	ForgetImage,
+	ImageChipsPlugin,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
 import { DirectiveChip, linkDirectives } from "#dev/directives.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
+import { linkImages } from "#dev/image-chips.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { filesIn, NamedContext } from "#dev/mentioned.tsx";
@@ -932,7 +935,9 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					/>
 				}
 			>
-				<ComposerAttachments />
+				<ForgetImage value={(at) => writer.current?.forget(at)}>
+					<ComposerAttachments />
+				</ForgetImage>
 				<FileNames value={names}>
 					<LexicalComposerInput
 						placeholder={placeholder}
@@ -947,6 +952,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					>
 						<ChipWriterPlugin writer={writer} />
 						<PasteFilesPlugin />
+						<ImageChipsPlugin />
 						<TypedDirectivesPlugin />
 					</LexicalComposerInput>
 				</FileNames>
@@ -1615,7 +1621,7 @@ const UserText: TextMessagePartComponent = ({ text }) => {
  * directive after them a link the markdown draws as its chip.
  */
 const afterDirectives = (text: string) =>
-	linkDirectives(leadingDirectives(text).rest);
+	linkImages(linkDirectives(leadingDirectives(text).rest));
 
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
@@ -1691,8 +1697,13 @@ const ImageTiles: FC<{
 			onKeyDown={(event) => event.stopPropagation()}
 			className="flex flex-wrap gap-2 pb-2"
 		>
-			{images.map((image) => (
-				<ImageTile key={image.src} src={image.src} name={image.name} />
+			{images.map((image, place) => (
+				<ImageTile
+					key={image.src}
+					src={image.src}
+					name={image.name}
+					place={place}
+				/>
 			))}
 		</div>
 	);

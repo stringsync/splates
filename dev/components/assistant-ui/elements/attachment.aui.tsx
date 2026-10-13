@@ -15,7 +15,7 @@ import {
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import { type FC, useRef, useState } from "react";
+import { type FC, useContext, useRef, useState } from "react";
 import { useAnnotate } from "#dev/annotate.tsx";
 import { Annotation } from "#dev/annotation.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -39,8 +39,9 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "#dev/components/ui/tooltip.tsx";
-import { composerIn } from "#dev/composer-editor.tsx";
+import { composerIn, ForgetImage } from "#dev/composer-editor.tsx";
 import { useAttachmentSrc } from "#dev/hooks/use-attachment-src.ts";
+import { chippedAlready, imageName } from "#dev/image-chips.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP, ITEM, type Shown, useLightbox } from "#dev/lightbox.tsx";
 
@@ -64,6 +65,16 @@ const AttachmentThumb: FC<{ src: string | undefined }> = ({ src }) => {
 	);
 };
 
+/** An image's name, along the foot of its tile, as its chips name it. */
+const TileName: FC<{ name: string }> = ({ name }) => (
+	<span
+		aria-hidden="true"
+		className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 text-center font-medium text-[10px] text-white leading-4"
+	>
+		{name}
+	</span>
+);
+
 const AttachmentTile: FC = () => {
 	const aui = useAui();
 	const isComposer = aui.attachment.source !== "message";
@@ -75,6 +86,12 @@ const AttachmentTile: FC = () => {
 
 	const isImage = useAuiState((s) => s.attachment.type === "image");
 	const name = useAuiState((s) => s.attachment.name);
+	// The composer's images are named by their place, as the agent gets them.
+	const place = useAuiState((s) =>
+		isComposer
+			? s.composer.attachments.findIndex((each) => each.id === s.attachment.id)
+			: -1,
+	);
 	// An image on its way opens to be marked up rather than only looked at.
 	const file = useAuiState((s) =>
 		isComposer && s.attachment.type === "image" ? s.attachment.file : undefined,
@@ -84,6 +101,8 @@ const AttachmentTile: FC = () => {
 		input.current = form === null ? null : composerIn(form);
 		const marked = await annotator.open(image);
 		if (marked !== image) {
+			// It keeps the chip the image it stands in for has.
+			chippedAlready(marked);
 			await replace(aui.composer(), aui.attachment().getState().id, marked);
 			// The tile, and the annotator with it, went with the image it showed.
 			input.current?.focus();
@@ -189,6 +208,7 @@ const AttachmentTile: FC = () => {
 						}
 					>
 						<AttachmentThumb src={src} />
+						{place >= 0 && <TileName name={imageName(place)} />}
 						{file && !isUploading && (
 							<div
 								aria-hidden="true"
@@ -217,10 +237,15 @@ const AttachmentTile: FC = () => {
 					{lightbox}
 					{annotator.annotate}
 					{isComposer && (
-						<AttachmentRemove name={name} marks={Annotation.marksOn(file)} />
+						<AttachmentRemove
+							name={name}
+							place={place}
+							marks={Annotation.marksOn(file)}
+						/>
 					)}
 				</AttachmentPrimitive.Root>
 				<TooltipContent side="top">
+					{place >= 0 && `${imageName(place)}: `}
 					<AttachmentPrimitive.Name />
 					{file && <p className="text-muted-foreground">Click to mark up</p>}
 					{errorMessage && (
@@ -236,33 +261,22 @@ const REMOVE =
 	"aui-attachment-tile-remove absolute end-1 top-1 size-5 rounded-full bg-black/50! text-white after:absolute after:-inset-1.5 hover:bg-black/70! hover:text-white! active:scale-[0.96] motion-reduce:transition-none";
 
 /**
- * The tile's remove button. An image with marks drawn on it asks first, since
- * the marks go with it.
+ * The tile's remove button, which takes the image's chips out of the text
+ * with it. An image with marks drawn on it asks first, since the marks go
+ * with it.
  */
-const AttachmentRemove: FC<{ name: string; marks: number }> = ({
+const AttachmentRemove: FC<{ name: string; place: number; marks: number }> = ({
 	name,
+	place,
 	marks,
 }) => {
 	const aui = useAui();
+	const forget = useContext(ForgetImage);
 	const [asking, setAsking] = useState(false);
-	const icon = (
-		<XIcon className="aui-attachment-remove-icon size-3 stroke-[2.5]" />
-	);
-	if (marks === 0) {
-		return (
-			<AttachmentPrimitive.Remove
-				render={
-					<TooltipIconButton
-						tooltip={`Remove ${name}`}
-						className={REMOVE}
-						side="top"
-					/>
-				}
-			>
-				{icon}
-			</AttachmentPrimitive.Remove>
-		);
-	}
+	const remove = () => {
+		forget(place + 1);
+		void aui.attachment().remove();
+	};
 	const many = marks === 1 ? "its mark" : `its ${marks} marks`;
 	return (
 		<>
@@ -270,9 +284,9 @@ const AttachmentRemove: FC<{ name: string; marks: number }> = ({
 				tooltip={`Remove ${name}`}
 				className={REMOVE}
 				side="top"
-				onClick={() => setAsking(true)}
+				onClick={() => (marks === 0 ? remove() : setAsking(true))}
 			>
-				{icon}
+				<XIcon className="aui-attachment-remove-icon size-3 stroke-[2.5]" />
 			</TooltipIconButton>
 			<Dialog open={asking} onOpenChange={setAsking}>
 				<DialogContent showCloseButton={false}>
@@ -290,7 +304,7 @@ const AttachmentRemove: FC<{ name: string; marks: number }> = ({
 							variant="destructive"
 							onClick={() => {
 								setAsking(false);
-								void aui.attachment().remove();
+								remove();
 							}}
 						>
 							Remove
@@ -352,7 +366,11 @@ export const ComposerAddAttachment: FC = () => {
  * size of the composer's, which opens in the lightbox among the others beside
  * it.
  */
-export const ImageTile: FC<{ src: string; name: string }> = ({ src, name }) => {
+export const ImageTile: FC<{ src: string; name: string; place: number }> = ({
+	src,
+	name,
+	place,
+}) => {
 	const { open, lightbox } = useLightbox();
 	return (
 		<>
@@ -364,6 +382,7 @@ export const ImageTile: FC<{ src: string; name: string }> = ({ src, name }) => {
 				className="aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 cursor-zoom-in overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 active:scale-[0.96] motion-reduce:transition-none dark:after:ring-white/10"
 			>
 				<AttachmentThumb src={src} />
+				<TileName name={imageName(place)} />
 			</button>
 			{lightbox}
 		</>

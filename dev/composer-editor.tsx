@@ -2,15 +2,17 @@ import type {
 	TriggerItem,
 	Unstable_DirectiveFormatter,
 } from "@assistant-ui/react";
-import { useAui } from "@assistant-ui/react";
+import { useAui, useAuiState } from "@assistant-ui/react";
 import {
 	$createDirectiveNodeWithFormatter,
 	$isDirectiveNode,
 	type DirectiveChipProps,
 } from "@assistant-ui/react-lexical";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { $dfs } from "@lexical/utils";
 import {
 	$createTextNode,
+	$getRoot,
 	$getSelection,
 	$isElementNode,
 	$isRangeSelection,
@@ -27,6 +29,13 @@ import { createContext, type JSX, type RefObject, use, useEffect } from "react";
 import { DIRECTIVES } from "../prompts";
 import { DirectiveChip } from "./directives";
 import {
+	IMAGE_REFERENCE,
+	ImageChip,
+	imageName,
+	imageNumber,
+	wantsChip,
+} from "./image-chips";
+import {
 	NAMING,
 	type Named,
 	NamedChip,
@@ -37,15 +46,25 @@ import {
 
 /**
  * A reference as the agent reads it: `@path` for a file, `#name` for a
- * system, `/name` for a command, and an `[ARBOR ...]` directive as itself.
+ * system, `/name` for a command, `[Image 2]` for an attached image, and an
+ * `[ARBOR ...]` directive as itself.
  */
 function serialize(item: TriggerItem): string {
+	if (item.type === "image") {
+		return `[${item.id}]`;
+	}
 	const sign = { file: "@", system: "#", command: "/" }[item.type] ?? "";
 	return `${sign}${item.id}`;
 }
 
-/** An `[ARBOR ...]` directive, or a `#` or `@` reference, in a line. */
-const REFERENCES = new RegExp(`${DIRECTIVES.source}|${NAMING.source}`, "gu");
+/**
+ * An `[ARBOR ...]` directive, a `#` or `@` reference, or an image's
+ * `[Image 2]`, in a line.
+ */
+const REFERENCES = new RegExp(
+	`${DIRECTIVES.source}|${NAMING.source}|${IMAGE_REFERENCE.source}`,
+	"gu",
+);
 
 /** What a system's name could be, for a `#` read before the systems come. */
 const NAME = /^\p{L}[\p{L}\p{N}_-]*$/u;
@@ -53,7 +72,8 @@ const NAME = /^\p{L}[\p{L}\p{N}_-]*$/u;
 /**
  * Reads the `[ARBOR ...]` directives, and the `@path` and `#system`
  * references, in a line of the composer's text, set from outside it, as a
- * draft or a prompt is, into chips. A directive is always one; a reference
+ * draft or a prompt is, into chips. A directive or an image is always one; a
+ * reference
  * that names a path or system of `named` is a chip, and so is any while what it
  * could name is still on its way, for its chip to resolve; one that names
  * nothing, such as `#12`, stays text.
@@ -75,7 +95,20 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 			const segments: Segment[] = [];
 			let at = 0;
 			for (const found of text.matchAll(REFERENCES)) {
-				const [whole, before = "", sign, called = ""] = found;
+				const [whole, before = "", sign, called = "", image] = found;
+				if (image !== undefined) {
+					if (found.index > at) {
+						segments.push({ kind: "text", text: text.slice(at, found.index) });
+					}
+					segments.push({
+						kind: "mention",
+						type: "image",
+						id: image,
+						label: image,
+					});
+					at = found.index + whole.length;
+					continue;
+				}
 				const as = sign === undefined ? whole : chipped(sign, called);
 				if (as === undefined) {
 					continue;
@@ -126,6 +159,9 @@ export function ComposerChip({
 	if (directiveType === "command") {
 		return <span className={CHIP}>/{label}</span>;
 	}
+	if (directiveType === "image") {
+		return <AttachedImageChip name={directiveId} />;
+	}
 	const file = directiveType === "file";
 	if (file ? named.resolving.paths : named.resolving.systems) {
 		return (
@@ -153,6 +189,19 @@ export function ComposerChip({
 			named={file ? { file: found, name: names.get(found) } : { system: found }}
 		/>
 	);
+}
+
+/**
+ * An attached image's chip; as it was written, once the image it names is no
+ * longer attached, as after a draft comes back without its images.
+ */
+function AttachedImageChip({ name }: { name: string }): JSX.Element {
+	const attached = useAuiState((state) => state.composer.attachments.length);
+	const at = imageNumber(name);
+	if (at === null || at > attached) {
+		return <span>[{name}]</span>;
+	}
+	return <ImageChip at={at} />;
 }
 
 const CHIP =
@@ -235,6 +284,57 @@ export function PasteFilesPlugin(): null {
 	return null;
 }
 
+/**
+ * Writes the chip of each image as it is attached, at the caret, once: not
+ * when it comes back, marked up or with an unsent draft, or when its chip is
+ * in the text already.
+ */
+export function ImageChipsPlugin(): null {
+	const [editor] = useLexicalComposerContext();
+	const attachments = useAuiState((state) => state.composer.attachments);
+	useEffect(() => {
+		attachments.forEach((attachment, at) => {
+			if (attachment.file === undefined || !wantsChip(attachment.file)) {
+				return;
+			}
+			const id = imageName(at);
+			editor.update(() => {
+				if ($imageChips().some((chip) => chip.getDirectiveItem().id === id)) {
+					return;
+				}
+				const chip = $createDirectiveNodeWithFormatter(
+					{ id, type: "image", label: id },
+					{ serialize, parse: () => [] },
+				);
+				const found = $getSelection();
+				const selection = $isRangeSelection(found)
+					? found
+					: $getRoot().selectEnd();
+				// Apart from a word it would otherwise run into.
+				const { anchor } = selection;
+				const node = anchor.getNode();
+				if (
+					$isTextNode(node) &&
+					/\S$/.test(node.getTextContent().slice(0, anchor.offset))
+				) {
+					selection.insertText(" ");
+				}
+				selection.insertNodes([chip]);
+				$spaceAfter(chip);
+			});
+		});
+	}, [editor, attachments]);
+	return null;
+}
+
+/** The image chips in the composer's editor, in the order they stand. */
+function $imageChips() {
+	return $dfs()
+		.map(({ node }) => node)
+		.filter($isDirectiveNode)
+		.filter((node) => node.getDirectiveItem().type === "image");
+}
+
 /** The composer's box, as the page finds it. */
 const COMPOSER = '[aria-label="Message input"][contenteditable]';
 
@@ -270,7 +370,18 @@ export interface ChipWriter {
 	write(typed: string, item: TriggerItem): boolean;
 	/** Writes a space after the chip just before the caret, unless one is there. */
 	space(): void;
+	/**
+	 * Takes out the chips of image `at`, counted from 1, as it is removed, and
+	 * names those after it one lower, as they now are.
+	 */
+	forget(at: number): void;
 }
+
+/**
+ * Takes the chips of image `at`, counted from 1, out of the composer, as the
+ * image is removed.
+ */
+export const ForgetImage = createContext<(at: number) => void>(() => undefined);
 
 /** Wires the composer's editor to `writer`. */
 export function ChipWriterPlugin({
@@ -289,12 +400,35 @@ export function ChipWriterPlugin({
 						$spaceAfter(chip);
 					}
 				}),
+			forget: (at) => editor.update(() => $forget(at)),
 		};
 		return () => {
 			writer.current = null;
 		};
 	}, [editor, writer]);
 	return null;
+}
+
+function $forget(at: number): void {
+	for (const chip of $imageChips()) {
+		const number = imageNumber(chip.getDirectiveItem().id) ?? 0;
+		if (number === at) {
+			// With the space written after it.
+			const next = chip.getNextSibling();
+			if ($isTextNode(next) && next.getTextContent().startsWith(" ")) {
+				next.spliceText(0, 1, "");
+			}
+			chip.remove();
+		} else if (number > at) {
+			const id = imageName(number - 2);
+			chip.replace(
+				$createDirectiveNodeWithFormatter(
+					{ id, type: "image", label: id },
+					{ serialize, parse: () => [] },
+				),
+			);
+		}
+	}
 }
 
 function write(

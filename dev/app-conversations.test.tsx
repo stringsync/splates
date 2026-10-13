@@ -1734,7 +1734,7 @@ describe("App's conversations", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		const thread = await waitFor(() =>
-			view.getByRole("region", { name: "Not started" }),
+			view.getByRole("region", { name: "[Image 1]" }),
 		);
 		await waitFor(() =>
 			expect(
@@ -2224,6 +2224,86 @@ describe("App's conversations", () => {
 					},
 				},
 			]),
+		);
+	});
+
+	it("names each image attached, on its tile and in a chip at the caret, renumbering the rest when one goes", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Look" }),
+		]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		const png = (name: string) => new File([name], name, { type: "image/png" });
+		await typeIn(box, "compare");
+		for (const name of ["a.png", "b.png", "c.png"]) {
+			await act(async () =>
+				fireEvent.paste(box, { clipboardData: { files: [png(name)] } }),
+			);
+		}
+
+		await waitFor(() =>
+			expect(textIn(box)).toBe("compare [Image 1] [Image 2] [Image 3] "),
+		);
+		const tiles = view.container.ownerDocument.querySelector(
+			".aui-composer-attachments",
+		) as HTMLElement;
+		const names = () =>
+			[...tiles.querySelectorAll(".aui-attachment-tile")].map(
+				(tile) => tile.textContent,
+			);
+		expect(names()).toEqual(["Image 1", "Image 2", "Image 3"]);
+
+		await act(async () =>
+			fireEvent.click(
+				within(tiles).getByRole("button", { name: "Remove a.png" }),
+			),
+		);
+
+		await waitFor(() =>
+			expect(textIn(box)).toBe("compare [Image 1] [Image 2] "),
+		);
+		await waitFor(() => expect(names()).toEqual(["Image 1", "Image 2"]));
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: "compare [Image 1] [Image 2]",
+						images: [
+							{ mimeType: "image/png", data: btoa("b.png") },
+							{ mimeType: "image/png", data: btoa("c.png") },
+						],
+					},
+				},
+			]),
+		);
+	});
+
+	it("draws the images a sent message names as chips that open them", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Look",
+				messages: [
+					{
+						...message("user", "see [Image 1]"),
+						parts: [
+							{ type: "image", name: "ab12.png", mimeType: "image/png" },
+							{ type: "text", text: "see [Image 1]" },
+						],
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Look" });
+
+		const chip = await waitFor(() =>
+			within(thread).getByRole("button", { name: "Image 1" }),
+		);
+		await act(async () => fireEvent.click(chip));
+
+		await waitFor(() =>
+			expect(view.getByRole("dialog", { name: "ab12.png" })).toBeTruthy(),
 		);
 	});
 
