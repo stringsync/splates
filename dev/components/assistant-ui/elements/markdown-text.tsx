@@ -8,7 +8,7 @@ import {
 	useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { type FC, memo, useMemo, useRef } from "react";
+import { type FC, memo, useContext, useMemo, useRef } from "react";
 import remarkGfm from "remark-gfm";
 
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -17,6 +17,12 @@ import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { linkMentions, Mention, mentionIn } from "#dev/markdown.tsx";
 import { Media } from "#dev/media.tsx";
+import {
+	linkNamed,
+	NamedChip,
+	NamedContext,
+	namedIn,
+} from "#dev/mentioned.tsx";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
 	components?: Parameters<typeof memoizeMarkdownComponents>[0];
@@ -48,6 +54,7 @@ const useShallowStable = <T extends Record<string, unknown> | undefined>(
 
 const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, typed }) => {
 	const stableComponents = useShallowStable(components);
+	const named = useContext(NamedContext);
 	const markdownComponents = useMemo(() => {
 		if (!stableComponents) {
 			return defaultComponents;
@@ -63,9 +70,10 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, typed }) => {
 		<div {...{ [GROUP]: "" }}>
 			<MarkdownTextPrimitive
 				remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
-				// Each `#N` a link to that todo, which `a` draws as a mention.
-				preprocess={
-					typed ? (text: string) => linkMentions(typed(text)) : linkMentions
+				// Each `#N` a link to that todo, which `a` draws as a mention, and
+				// each system and path the tree names one `a` draws as its chip.
+				preprocess={(text: string) =>
+					linkMentions(linkNamed(typed ? typed(text) : text, named))
 				}
 				className="aui-md"
 				components={markdownComponents}
@@ -209,11 +217,15 @@ const defaultComponents = memoizeMarkdownComponents({
 	),
 	// A link opens in a new tab, so the conversation keeps its place; one to a
 	// spot on the page, such as a footnote, stays in it. A todo's opens it over
-	// the conversation.
+	// the conversation, and a system or file a person named shows as its chip.
 	a: ({ className, ...props }) => {
 		const mention = mentionIn(props.href);
 		if (mention !== null) {
 			return <Mention id={mention} />;
+		}
+		const named = namedIn(props.href);
+		if (named !== null) {
+			return <NamedChip named={named} />;
 		}
 		return (
 			<a

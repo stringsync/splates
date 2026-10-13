@@ -21,6 +21,7 @@
 @source "./files.tsx";
 @source "./file-chip.tsx";
 @source "./fullscreen.tsx";
+@source "./mentioned.tsx";
 @source "./mentions.tsx";
 @source "./notifications.tsx";
 @source "./card.tsx";

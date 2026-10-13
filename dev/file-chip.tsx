@@ -1,3 +1,4 @@
+import { FolderIcon } from "lucide-react";
 import { type JSX, use } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { MATERIAL_ICONS, type MaterialIcon } from "./material-icons";
@@ -131,18 +132,22 @@ const chip =
 	"flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs hover:bg-muted";
 
 /**
- * A file a tool call worked on, opening in the person's editor at its first
- * line: the logo of its language, then its name with the lines it covers.
- * The whole path is its tooltip.
+ * A file a tool call worked on or a message names, opening in the person's
+ * editor at its first line: the logo of its language, then its name with the
+ * lines it covers. A directory, its path ending in `/`, shows a folder. The
+ * whole path is its tooltip.
  */
 export function FileChip({
 	path,
 	lines = null,
+	className,
 }: {
 	path: string;
 	/** The lines it covers, "1-80". */
 	lines?: string | null;
+	className?: string;
 }): JSX.Element {
+	const directory = path.endsWith("/");
 	return (
 		<a
 			href={use(OpenerContext).url(
@@ -151,11 +156,18 @@ export function FileChip({
 			)}
 			title={path}
 			onClick={(event) => event.stopPropagation()}
-			className={cn(chip, "min-w-0 text-foreground/90")}
+			className={cn(chip, "min-w-0 text-foreground/90", className)}
 		>
-			<FileIcon path={path} className="size-3" />
+			{directory ? (
+				<FolderIcon
+					aria-hidden
+					className="size-3 shrink-0 text-muted-foreground"
+				/>
+			) : (
+				<FileIcon path={path} className="size-3" />
+			)}
 			<span className="min-w-0 truncate">
-				{split(path).name}
+				{directory ? `${split(path.slice(0, -1)).name}/` : split(path).name}
 				{lines !== null && `#L${lines}`}
 			</span>
 		</a>

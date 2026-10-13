@@ -153,11 +153,21 @@ const TODO_LINK = /^#todo-(\d+)$/;
  * drawn through `mentionIn` shows as a `Mention`.
  */
 export function linkMentions(text: string): string {
+	return outsideCode(text, (prose) =>
+		prose.replace(MENTION, "[#$1](#todo-$1)"),
+	);
+}
+
+/** `text` with `change` made to each stretch of it outside code. */
+export function outsideCode(
+	text: string,
+	change: (prose: string) => string,
+): string {
 	return text
 		.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/)
 		.map((part, i) =>
 			// The odd parts are the code the split kept, left as written.
-			i % 2 === 1 ? part : part.replace(MENTION, "[#$1](#todo-$1)"),
+			i % 2 === 1 ? part : change(part),
 		)
 		.join("");
 }

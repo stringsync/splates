@@ -1546,8 +1546,8 @@ const unstuckTop = (element: HTMLDivElement | null) => {
 
 /**
  * What the person typed, as markdown with each line break kept, each todo it
- * mentions a link to it, and the directives it starts with as the chips the
- * composer showed them as.
+ * mentions a link to it, each system and file a chip, and the directives it
+ * starts with as the chips the composer showed them as.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
 	const { directives, rest } = leadingDirectives(text);

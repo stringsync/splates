@@ -107,27 +107,72 @@ function SystemRow({ system }: { system: NamedSystem }): JSX.Element {
 					/>
 				</CollapsibleTrigger>
 				<CollapsibleContent>
-					<ul
-						aria-label={`${system.name} globs`}
-						className="flex flex-col gap-0.5 pt-0.5 pr-3 pb-2 pl-7 font-mono text-muted-foreground text-xs"
-					>
-						{system.globs.map((glob) => (
-							<li key={glob} className="break-all">
-								{glob}
-							</li>
-						))}
-						{(system.ignore ?? []).map((glob) => (
-							<li
-								key={`!${glob}`}
-								className="break-all text-muted-foreground/60"
-							>
-								!{glob}
-							</li>
-						))}
-					</ul>
+					<Globs system={system} className="pt-0.5 pr-3 pb-2 pl-7" />
 				</CollapsibleContent>
 			</Collapsible>
 		</li>
+	);
+}
+
+/**
+ * A system a message mentions as `#name`: its color and name, opening to its
+ * aliases and the globs it is made of.
+ */
+export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
+	const aliases = system.aliases ?? [];
+	return (
+		<Popover>
+			<PopoverTrigger
+				onClick={(event) => event.stopPropagation()}
+				className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-md border px-1.5 py-0.5 align-middle font-mono text-foreground/90 text-xs hover:bg-muted"
+			>
+				<span
+					aria-hidden
+					className="size-2 shrink-0 rounded-full"
+					style={{ backgroundColor: dot(system.name) }}
+				/>
+				<span className="min-w-0 truncate">{system.name}</span>
+			</PopoverTrigger>
+			<PopoverContent align="start" className="w-72 gap-1 p-3">
+				<div className="flex items-center gap-2 font-medium text-sm">
+					<LayersIcon aria-hidden className="size-4 text-muted-foreground" />
+					{system.name}
+				</div>
+				{aliases.length > 0 && (
+					<p className="text-muted-foreground text-xs">
+						Also {aliases.join(", ")}
+					</p>
+				)}
+				<Globs system={system} className="pt-1" />
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+/** The globs `system` is made of, those it ignores faded after them with a `!`. */
+function Globs({
+	system,
+	className,
+}: {
+	system: NamedSystem;
+	className: string;
+}): JSX.Element {
+	return (
+		<ul
+			aria-label={`${system.name} globs`}
+			className={`flex flex-col gap-0.5 font-mono text-muted-foreground text-xs ${className}`}
+		>
+			{system.globs.map((glob) => (
+				<li key={glob} className="break-all">
+					{glob}
+				</li>
+			))}
+			{(system.ignore ?? []).map((glob) => (
+				<li key={`!${glob}`} className="break-all text-muted-foreground/60">
+					!{glob}
+				</li>
+			))}
+		</ul>
 	);
 }
 

@@ -135,6 +135,7 @@ import {
 import { Trunk, whereRuns } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { FullscreenButton } from "./fullscreen";
+import { NamedContext } from "./mentioned";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Nested, nest } from "./parts";
@@ -176,7 +177,7 @@ import { unanswered } from "./unanswered";
 import { ContextMeter } from "./usage";
 import { WaitingLine } from "./waiting-line";
 import { stretchesOf } from "./work";
-import { StoppedUI, WorkUI } from "./work-row";
+import { StoppedUI, TreesContext, WorkUI } from "./work-row";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
@@ -1770,7 +1771,7 @@ function Home({
 		drafts,
 		newDraft(new URLSearchParams(location.search).get("project"), task),
 	);
-	const mentions = useFileMentions(task);
+	const { adapter: mentions } = useFileMentions(task);
 	const systems = useSystems(task, tasks);
 	const references = useReferences(runtime.thread.composer, tasks, [], systems);
 
@@ -2454,7 +2455,7 @@ function Thread({
 	const section = useRef<HTMLElement>(null);
 	const reply = useReply(id, drafts);
 	const typed = useTyped(runtime);
-	const mentions = useFileMentions(conversation.task);
+	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);
 	const [renaming, setRenaming] = useState(false);
 	// Stops the turn so what is queued goes out now.
@@ -2546,6 +2547,15 @@ function Thread({
 		tasks,
 		actions,
 		systems,
+	);
+	const root = useContext(TreesContext)?.root ?? null;
+	const named = useMemo(
+		() => ({
+			systems,
+			paths,
+			tree: task?.worktree ?? (conversation.task === null ? root : null),
+		}),
+		[systems, paths, task, conversation.task, root],
 	);
 	// Archived, on to the next. Already archived, the key does nothing.
 	const fileByKey = () => {
@@ -2704,63 +2714,65 @@ function Thread({
 						<ArchiveContext value={filing}>
 							<StartNewContext value={startNew}>
 								<ReplyContext value={reply}>
-									<ThreadView
-										openAt={openAt}
-										autoFocus={!asking || typed}
-										mentions={mentions ?? undefined}
-										references={references}
-										commands={commands ?? undefined}
-										placeholder={
-											archived ? "Archived: unarchive to continue" : undefined
-										}
-										controls={
-											!archived && (
+									<NamedContext value={named}>
+										<ThreadView
+											openAt={openAt}
+											autoFocus={!asking || typed}
+											mentions={mentions ?? undefined}
+											references={references}
+											commands={commands ?? undefined}
+											placeholder={
+												archived ? "Archived: unarchive to continue" : undefined
+											}
+											controls={
+												!archived && (
+													<>
+														<ContextMeter usage={conversation.usage} />
+														{settings.map((setting) => (
+															<SettingControl
+																key={setting.id}
+																setting={setting}
+																value={setting.current}
+																onChange={(value) =>
+																	chooseSetting(id, setting.id, value).catch(
+																		(error: unknown) =>
+																			refused(
+																				`${setting.name} not switched`,
+																				error,
+																			),
+																	)
+																}
+															/>
+														))}
+													</>
+												)
+											}
+											above={
 												<>
-													<ContextMeter usage={conversation.usage} />
-													{settings.map((setting) => (
-														<SettingControl
-															key={setting.id}
-															setting={setting}
-															value={setting.current}
-															onChange={(value) =>
-																chooseSetting(id, setting.id, value).catch(
-																	(error: unknown) =>
-																		refused(
-																			`${setting.name} not switched`,
-																			error,
-																		),
-																)
-															}
+													<Refusal refusal={refusal} className="px-2" />
+													{queued.length > 0 && (
+														<Queued
+															conversation={id}
+															messages={queued}
+															pending={feed.unrecorded(id)}
+															onEdit={(index) => void edit(index)}
+															onDiscard={(index) => void discard(index)}
+															onSendNow={() => void sendNow()}
 														/>
-													))}
+													)}
+													{conversation.ask !== null && (
+														<AskPanel
+															key={conversation.ask.id}
+															drafts={drafts}
+															conversation={conversation}
+															agent={agent}
+															ask={conversation.ask}
+														/>
+													)}
 												</>
-											)
-										}
-										above={
-											<>
-												<Refusal refusal={refusal} className="px-2" />
-												{queued.length > 0 && (
-													<Queued
-														conversation={id}
-														messages={queued}
-														pending={feed.unrecorded(id)}
-														onEdit={(index) => void edit(index)}
-														onDiscard={(index) => void discard(index)}
-														onSendNow={() => void sendNow()}
-													/>
-												)}
-												{conversation.ask !== null && (
-													<AskPanel
-														key={conversation.ask.id}
-														drafts={drafts}
-														conversation={conversation}
-														agent={agent}
-														ask={conversation.ask}
-													/>
-												)}
-											</>
-										}
-									/>
+											}
+										/>
+									</NamedContext>
 								</ReplyContext>
 							</StartNewContext>
 						</ArchiveContext>
@@ -3021,8 +3033,14 @@ function replied(text: string, settled: boolean): LikePart[] {
 	});
 }
 
-/** The tree's paths for the composer's `@`, once they have loaded. */
-function useFileMentions(task: string | null): TriggerAdapter | null {
+/**
+ * The tree's paths for the composer's `@`, once they have loaded, and as the
+ * set a sent message's `@` mentions are found in.
+ */
+function useFileMentions(task: string | null): {
+	adapter: TriggerAdapter | null;
+	paths: ReadonlySet<string>;
+} {
 	const [all, setAll] = useState<string[] | null>(null);
 	useEffect(() => {
 		let current = true;
@@ -3036,17 +3054,20 @@ function useFileMentions(task: string | null): TriggerAdapter | null {
 		};
 	}, [task]);
 	return useMemo(
-		() =>
-			all === null
-				? null
-				: {
-						categories: () => [],
-						categoryItems: () => [],
-						search: (query: string) =>
-							(query === "" ? all : rank(all, query))
-								.slice(0, MENTIONS_SHOWN)
-								.map((path) => ({ id: path, type: "file", label: path })),
-					},
+		() => ({
+			adapter:
+				all === null
+					? null
+					: {
+							categories: () => [],
+							categoryItems: () => [],
+							search: (query: string) =>
+								(query === "" ? all : rank(all, query))
+									.slice(0, MENTIONS_SHOWN)
+									.map((path) => ({ id: path, type: "file", label: path })),
+						},
+			paths: new Set(all),
+		}),
 		[all],
 	);
 }
