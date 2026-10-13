@@ -1468,9 +1468,16 @@ export function Conversations({
 	const shown = conversations.find((each) => each.id === open) ?? null;
 	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
 	// A todo a conversation mentions opens over it, and the task that took
-	// one over that, so the conversation keeps its place.
+	// one over that, so the conversation keeps its place. Both go once
+	// another conversation opens, as one started from them does.
 	const [openedTodo, setOpenedTodo] = useState<number | null>(null);
 	const [openedTask, setOpenedTask] = useState<string | null>(null);
+	const [openedOver, setOpenedOver] = useState(open);
+	if (openedOver !== open) {
+		setOpenedOver(open);
+		setOpenedTodo(null);
+		setOpenedTask(null);
+	}
 	const board = useMemo(
 		() => ({
 			linked: true,

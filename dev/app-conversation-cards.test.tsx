@@ -1809,6 +1809,19 @@ describe("App's conversations", () => {
 			).toBe("Retry the upload on a 413");
 			// Over the conversation, which stays where it was.
 			expect(location.hash).toStartWith("#conversations/");
+
+			// Starting it in a new conversation leaves the dialog behind.
+			await act(async () =>
+				fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
+			);
+			const codex = await waitFor(() =>
+				view.getByRole("menuitem", { name: /Codex/ }),
+			);
+			await act(async () => fireEvent.click(codex));
+			expect(location.hash).toBe("#conversations/new/codex");
+			await waitFor(() =>
+				expect(view.queryByRole("dialog", { name: /Todo 12/ })).toBeNull(),
+			);
 		});
 
 		it("opens a todo mentioned in a message, and shows one that is gone as archived", async () => {
