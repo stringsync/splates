@@ -4,7 +4,9 @@ import "../../../setup";
 import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
+import { Duration } from "webappwiz/time";
 import type {
+	Checkpoint,
 	ConversationState,
 	Message,
 	Part,
@@ -29,6 +31,12 @@ import { Settings } from "./settings";
 export const { act, cleanup, fireEvent, render, waitFor, within } =
 	await import("@testing-library/react");
 const { App } = await import("./app");
+
+/**
+ * How often the page asks after a checkpoint under way: a tick a test waits
+ * through, so far shorter than the page's second.
+ */
+const CHECKPOINT_EVERY = Duration.ms(50);
 
 /** A write the page made. */
 export interface Post {
@@ -232,7 +240,10 @@ export class Testing implements Resource {
 		// the project the test put there.
 		history.replaceState(null, "", `${location.pathname}${location.search}`);
 		const view = render(
-			createElement(App, { settings: new Settings(localStorage) }),
+			createElement(App, {
+				settings: new Settings(localStorage),
+				checkpointEvery: CHECKPOINT_EVERY,
+			}),
 		);
 		await waitFor(() =>
 			expect(view.getByRole("region", { name: "Untriaged" })).toBeTruthy(),
@@ -249,6 +260,46 @@ export class Testing implements Resource {
 		return view;
 	}
 
+	/** Opens the page with conversations on, holding `held`, on their tab. */
+	async openConversations(
+		held: ConversationState[],
+		open: string | null = held[0]?.id ?? null,
+		overrides: Partial<Snapshot> = {},
+		agents: AgentChoice[] = AGENTS,
+	) {
+		this.talk = { agents, conversations: held };
+		const view = await this.open({
+			tasks: [details({ task: "alpha" })],
+			...overrides,
+		});
+		const tab = await waitFor(() =>
+			view.getByRole("tab", { name: /Conversations/ }),
+		);
+		await act(async () => fireEvent.click(tab));
+		if (open !== null) {
+			const nav = view.getByRole("navigation", { name: "conversations" });
+			const item = within(nav)
+				.getAllByRole("listitem")
+				.flatMap((row) => within(row).getAllByRole("button"))
+				.find((button) => button.textContent?.includes(nameIn(held, open)));
+			if (item === undefined) {
+				throw new Error(`no conversation ${open} listed`);
+			}
+			await act(async () => fireEvent.click(item));
+		}
+		return view;
+	}
+
+	/** What the page posted to `path`, each body parsed. */
+	posted(path: string) {
+		return this.posts
+			.filter((post) => post.path === path)
+			.map((post) => ({
+				method: post.method,
+				body: JSON.parse(String(post.body ?? "{}")),
+			}));
+	}
+
 	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
 	dispose(): void {
 		localStorage.clear();
@@ -256,6 +307,106 @@ export class Testing implements Resource {
 		globalThis.EventSource = this.#eventSource;
 		globalThis.WebSocket = this.#webSocket;
 	}
+}
+
+export const AGENTS: AgentChoice[] = [
+	{ id: "claude", name: "Claude", settings: [] },
+	{ id: "codex", name: "Codex", settings: [] },
+];
+
+/** The name the sidebar lists conversation `id` of `held` under. */
+function nameIn(held: ConversationState[], id: string): string {
+	const found = held.find((each) => each.id === id);
+	const opening = found?.messages
+		.filter((message) => message.role === "user")
+		.flatMap((message) => message.parts)
+		.flatMap((part) => (part.type === "text" ? [part.text.trim()] : []))
+		.find((text) => text !== "")
+		?.split("\n")[0];
+	return found?.name ?? found?.task ?? found?.title ?? opening ?? "Not started";
+}
+
+/** The page as `openConversations` rendered it. */
+export type ConversationsView = Awaited<
+	ReturnType<Testing["openConversations"]>
+>;
+
+/** Opens the new conversation screen with `agent`, from the sidebar. */
+export async function newWith(
+	view: ConversationsView,
+	agent: string,
+): Promise<void> {
+	await act(async () =>
+		fireEvent.click(view.getByRole("button", { name: "New" })),
+	);
+	await act(async () =>
+		fireEvent.click(
+			await waitFor(() =>
+				view.getByRole("menuitem", { name: new RegExp(agent) }),
+			),
+		),
+	);
+}
+
+/** Picks an option of a Select: Base UI picks on the pointer let go. */
+export function pick(option: HTMLElement): Promise<void> {
+	return act(async () => {
+		fireEvent.pointerDown(option, { pointerType: "mouse" });
+		fireEvent.mouseDown(option);
+		fireEvent.pointerUp(option, { pointerType: "mouse" });
+		fireEvent.mouseUp(option);
+		fireEvent.click(option);
+	});
+}
+
+/** Presses ⌥⌘⌫, by the key's place as on a Mac. */
+export function pressArchive(): Promise<void> {
+	return act(async () => {
+		fireEvent.keyDown(document.body, {
+			code: "Backspace",
+			altKey: true,
+			metaKey: true,
+		});
+	});
+}
+
+/** Sizes the window, as a phone held upright or a laptop. */
+export function resize(width: number, height: number): void {
+	(
+		window as unknown as {
+			happyDOM: { setViewport(size: { width: number; height: number }): void };
+		}
+	).happyDOM.setViewport({ width, height });
+}
+
+/** A conversation of a project's, as the projects route lists it. */
+export function live(
+	id: string,
+	name: string,
+	checkpoint: Checkpoint | null = null,
+) {
+	return {
+		id,
+		name,
+		status: checkpoint === "done" ? "stopped" : "running",
+		checkpoint,
+	};
+}
+
+/** A project as the projects route lists it, holding `listed`. */
+export function project(
+	slug: string,
+	listed: ProjectChoice["conversations"],
+	here = false,
+): ProjectChoice {
+	return {
+		slug,
+		root: `/code/${slug}`,
+		gone: false,
+		here,
+		conversations: listed,
+		waiting: 0,
+	};
 }
 
 export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {

@@ -135,6 +135,9 @@ interface Restarting {
 /** How long a checkpoint whose agents carried on still says it is done. */
 const ENDED = Duration.mins(1);
 
+/** How often the projects are asked for while a checkpoint is under way. */
+const EVERY = Duration.secs(1);
+
 /** The projects the dialog offers: those with agents running. */
 function offered(projects: ProjectChoice[]): ProjectChoice[] {
 	return projects.filter((each) => !each.gone && each.conversations.length > 0);
@@ -170,14 +173,16 @@ export function useCheckpoint(): Checkpointing {
  * `children`, so the dialog can be closed meanwhile and opened again from
  * them, and still says it is done for a minute after its agents carry on.
  * Asks the server for every project again as `conversations`, this
- * project's, change, and each second while a checkpoint or restart is under
- * way or the dialog is open.
+ * project's, change, and every `every`, a second by default, while a
+ * checkpoint or restart is under way or the dialog is open.
  */
 export function CheckpointProvider({
 	conversations,
+	every = EVERY,
 	children,
 }: {
 	conversations: ConversationState[];
+	every?: Duration;
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
@@ -318,12 +323,9 @@ export function CheckpointProvider({
 		) {
 			return;
 		}
-		const tick = new SystemTimer().setInterval(
-			() => void load(),
-			Duration.secs(1),
-		);
+		const tick = new SystemTimer().setInterval(() => void load(), every);
 		return () => tick.dispose();
-	}, [all.going, open, restarting, slide, load]);
+	}, [all.going, open, restarting, slide, load, every]);
 	const restarted =
 		slide === "ended"
 			? (ended?.restarted ?? null)

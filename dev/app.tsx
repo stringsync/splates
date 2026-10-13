@@ -17,7 +17,12 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { SystemClock, SystemTimer, SystemWallClock } from "webappwiz/time";
+import {
+	type Duration,
+	SystemClock,
+	SystemTimer,
+	SystemWallClock,
+} from "webappwiz/time";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
 	Tabs,
@@ -130,7 +135,14 @@ function useWide(): boolean {
 const OFFLINE_ICON =
 	"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><filter id='gray'><feColorMatrix type='saturate' values='0'/></filter><text y='26' font-size='28' filter='url(%23gray)' opacity='0.5'>🌲</text></svg>";
 
-export function App({ settings }: { settings: Settings }): JSX.Element {
+export function App({
+	settings,
+	checkpointEvery,
+}: {
+	settings: Settings;
+	/** How often a checkpoint under way is asked after; a second by default. */
+	checkpointEvery?: Duration;
+}): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
 	// would leave the page listening to the one it replaced, showing nothing.
@@ -444,6 +456,7 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 										conversations={conversations.filter(
 											(each) => !each.archived,
 										)}
+										every={checkpointEvery}
 									>
 										<Tabs
 											value={page}
