@@ -79,8 +79,8 @@ export function useAnnotate(finalFocus?: RefObject<HTMLElement | null>): {
 /**
  * The image at the size of the window, to mark up: a drag draws a box or an
  * arrow, picked with R and A, a click drops a pin, and each mark takes a
- * note. Done, the close button or Escape keeps what is drawn; Escape with a
- * note open closes only the note.
+ * note. Done, the close button, a click on the dimmed space around it or
+ * Escape keeps what is drawn; Escape with a note open closes only the note.
  */
 export function Annotate({
 	annotation,
@@ -140,6 +140,7 @@ function Board({
 	finalFocus: RefObject<HTMLElement | null> | undefined;
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);
+	const stage = useRef<HTMLDivElement>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
 	const { marks, tool, selected, draft } = useReactive(
 		annotation,
@@ -219,6 +220,16 @@ function Board({
 			initialFocus={popup}
 			finalFocus={finalFocus}
 			onKeyDown={onKeyDown}
+			// A click on the dimmed space around the image keeps what is drawn, as
+			// Done does: the popup covers the backdrop.
+			onClick={(event) => {
+				if (
+					event.target === event.currentTarget ||
+					event.target === stage.current
+				) {
+					onDone();
+				}
+			}}
 			className="fixed inset-0 z-50 flex flex-col items-center gap-4 px-8 pt-4 pb-8 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
 		>
 			<DialogPrimitive.Title className="sr-only">
@@ -280,7 +291,10 @@ function Board({
 					</Button>
 				</div>
 			</div>
-			<div className="flex min-h-0 w-full flex-1 items-center justify-center">
+			<div
+				ref={stage}
+				className="flex min-h-0 w-full flex-1 items-center justify-center"
+			>
 				<div className="relative">
 					<canvas
 						ref={canvas}
