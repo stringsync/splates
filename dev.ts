@@ -754,12 +754,14 @@ export async function dev(
 		const listConversations = async (): Promise<Response> => {
 			const all = held();
 			const offered = await all.settings();
+			const limits = await all.limits();
 			return Response.json({
 				agents: all.agents.map((each) => ({
 					id: each.id,
 					name: each.name,
 					models: modelsOf(each).map(({ id, name }) => ({ id, name })),
 					settings: offered[each.id] ?? [],
+					limits: limits[each.id] ?? [],
 				})),
 				conversations: (await all.list()).map((each) => each.state),
 			});

@@ -13,6 +13,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import { fail } from "./exit";
+import type { Limits } from "./limits";
 import { modelOption } from "./models";
 import type { Offered } from "./offered";
 import { CHECKPOINT } from "./prompts";
@@ -291,6 +292,23 @@ export interface Usage {
 		 */
 		said: number;
 	} | null;
+	/** The plan's windows of use, as the agent last said; none from Codex. */
+	limits: Limit[];
+}
+
+/**
+ * One window of the plan's use, as Claude says with each reply: the account's,
+ * not the session's, so every conversation with the agent shares it.
+ */
+export interface Limit {
+	/** As Claude names it: `five_hour`, `seven_day`, `seven_day_opus`. */
+	window: string;
+	/** How much of it is used, from 0 to 1. */
+	used: number;
+	/** When it starts over, as an ISO timestamp. */
+	resets: string;
+	/** When the agent said so; null in logs written before it was kept. */
+	at: string | null;
 }
 
 /** Everything the page shows of one conversation. */
@@ -394,6 +412,8 @@ type Entry =
 	| { kind: "update"; update: acp.SessionUpdate; at?: string }
 	/** The tokens a turn used, as the agent said when it ended. */
 	| { kind: "usage"; usage: acp.Usage }
+	/** The plan's windows, as asked of an agent that does not send them. */
+	| { kind: "limits"; limits: Limit[] }
 	/** What a finished command did to git that it should not have. */
 	| { kind: "flags"; tool: string; flags: Flag[] }
 	/** How the person answered the agent asking permission for a tool call. */
@@ -490,6 +510,8 @@ export function fold(
 			}));
 			return;
 		case "usage_update":
+			// The plan's, whoever's turn it came in.
+			state.usage.limits = heard(state.usage.limits, limitsIn(update, at));
 			// A subagent's context is its own.
 			if (parentOf(update) !== null) {
 				return;
@@ -515,6 +537,57 @@ export function fold(
 		default:
 			return;
 	}
+}
+
+/**
+ * The windows Claude's rate limit info in `update` tells of: every one in
+ * `unifiedWindows` when it sends them, else the one it names. Its
+ * `utilization` runs from 0 to 1, and `resetsAt` is in seconds.
+ */
+function limitsIn(update: acp.UsageUpdate, at: string | null): Limit[] {
+	const info = update._meta?.["_claude/rateLimit"] as
+		| {
+				rateLimitType?: unknown;
+				utilization?: unknown;
+				resetsAt?: unknown;
+				unifiedWindows?: Record<
+					string,
+					{ utilization?: unknown; resetsAt?: unknown } | undefined
+				>;
+		  }
+		| undefined;
+	if (info == null) {
+		return [];
+	}
+	const windows: [string, { utilization?: unknown; resetsAt?: unknown }][] =
+		info.unifiedWindows != null
+			? Object.entries(info.unifiedWindows).flatMap(([window, each]) =>
+					each == null ? [] : [[window, each]],
+				)
+			: typeof info.rateLimitType === "string"
+				? [[info.rateLimitType, info]]
+				: [];
+	return windows.flatMap(([window, { utilization, resetsAt }]) =>
+		typeof utilization === "number" && typeof resetsAt === "number"
+			? [
+					{
+						window,
+						used: utilization,
+						resets: new Date(resetsAt * 1000).toISOString(),
+						at,
+					},
+				]
+			: [],
+	);
+}
+
+/** `limits`, each window in `news` replaced by what it says now. */
+export function heard(limits: Limit[], news: Limit[]): Limit[] {
+	if (news.length === 0) {
+		return limits;
+	}
+	const said = new Set(news.map((each) => each.window));
+	return [...limits.filter((each) => !said.has(each.window)), ...news];
 }
 
 /** Folds an update on a background command into those the agent left. */
@@ -1005,6 +1078,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				fold(state, entry.update, entry.at ?? null);
 			} else if (entry.kind === "usage") {
 				tally(state, entry.usage);
+			} else if (entry.kind === "limits") {
+				state.usage.limits = heard(state.usage.limits, entry.limits);
 			} else if (entry.kind === "session") {
 				conversation.session = entry.session;
 			} else if (entry.kind === "task") {
@@ -1744,6 +1819,19 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			);
 	}
 
+	/** Keeps the plan's windows in `limits`, asked of the agent's maker. */
+	hear(limits: Limit[]): void {
+		if (limits.length === 0) {
+			return;
+		}
+		this.write({ kind: "limits", limits });
+		this.state.usage = {
+			...this.state.usage,
+			limits: heard(this.state.usage.limits, limits),
+		};
+		this.changed();
+	}
+
 	/**
 	 * Back to idle once a turn ends, then on to what was queued meanwhile,
 	 * unless the person cancelled the turn: that holds the queue until they
@@ -2280,7 +2368,14 @@ function sent(messages: Message[]): number {
 
 /** What a session has used before its agent says anything of it. */
 export function unused(): Usage {
-	return { context: null, input: 0, cached: 0, output: 0, cost: null };
+	return {
+		context: null,
+		input: 0,
+		cached: 0,
+		output: 0,
+		cost: null,
+		limits: [],
+	};
 }
 
 /** A prompt entry's images, left out of the log when there are none. */
@@ -2429,6 +2524,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly clock: WallClock;
 	private readonly watch: Watch | null;
 	private readonly offered: Offered | null;
+	private readonly limited: Limits | null;
+	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	/** The read of the records on disk, shared by every caller until it settles. */
 	private loaded: Promise<void> | null = null;
@@ -2449,6 +2546,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.clock = opts.clock ?? new SystemWallClock();
 		this.watch = opts.watch ?? null;
 		this.offered = opts.offered ?? null;
+		this.limited = opts.limits ?? null;
+		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
 	}
 
@@ -2458,6 +2557,14 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	 */
 	async settings(): Promise<Record<string, Setting[]>> {
 		return (await this.offered?.all()) ?? {};
+	}
+
+	/**
+	 * Each agent's plan limits as it last said, from any project, by its id:
+	 * what a new conversation shows before one here says.
+	 */
+	async limits(): Promise<Record<string, Limit[]>> {
+		return (await this.limited?.all()) ?? {};
 	}
 
 	/** Every conversation, newest first. */
@@ -2655,11 +2762,25 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		// another project's sessions offered since.
 		let remembered = conversation.state.settings;
 		let archived = conversation.state.archived;
+		let limits = conversation.state.usage.limits;
+		let status = conversation.state.status;
+		void this.limited
+			?.remember(conversation.state.agent, limits)
+			.catch(() => {});
 		conversation.events.on("changed", () => {
 			const { agent, settings } = conversation.state;
 			if (settings !== remembered && settings.length > 0) {
 				remembered = settings;
 				void this.offered?.remember(agent, settings).catch(() => {});
+			}
+			// A turn ended: what the agent does not send is asked for.
+			if (status === "running" && conversation.state.status === "idle") {
+				this.askLimits(conversation);
+			}
+			status = conversation.state.status;
+			if (conversation.state.usage.limits !== limits) {
+				limits = conversation.state.usage.limits;
+				void this.limited?.remember(agent, limits).catch(() => {});
 			}
 			if (conversation.state.archived && !archived) {
 				void this.prune().catch(() => {});
@@ -2668,6 +2789,19 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			this.dispatcher.dispatch("changed", conversation.id);
 		});
 		this.dispatcher.dispatch("changed", conversation.id);
+	}
+
+	/** Asks for `conversation`'s agent's limits, when it does not send them. */
+	private askLimits(conversation: Conversation): void {
+		const agent = this.agents.find(
+			(each) => each.id === conversation.state.agent,
+		);
+		if (agent === undefined || this.readLimits === null) {
+			return;
+		}
+		void this.readLimits(agent)
+			.then((limits) => conversation.hear(limits))
+			.catch(() => {});
 	}
 
 	private load(): Promise<void> {
@@ -2809,6 +2943,13 @@ export interface ConversationsOptions {
 	watch?: Watch | null;
 	/** Where what each agent's sessions offer is kept across projects; nowhere by default. */
 	offered?: Offered | null;
+	/** Where each agent's plan limits are kept across projects; nowhere by default. */
+	limits?: Limits | null;
+	/**
+	 * Asks an agent that does not send its plan's windows for them, after
+	 * each of its turns; none by default.
+	 */
+	readLimits?: ((agent: Agent) => Promise<Limit[]>) | null;
 	/**
 	 * The main tree, where a conversation carries on once its task's worktree
 	 * is gone, as when the task landed while `arbor dev` was not there to hear

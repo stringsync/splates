@@ -133,6 +133,7 @@ import { type Named, NamedContext } from "./mentioned";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Nested, nest } from "./parts";
+import { limitsOf, PlanLimits } from "./plan-limits";
 import {
 	QuestionsUI,
 	type Reply,
@@ -1824,27 +1825,30 @@ function Home({
 								</div>
 							}
 							below={
-								recent.length > 0 && (
-									<section
-										aria-label="recent conversations"
-										className="mt-4 flex flex-col gap-1 px-2"
-									>
-										<h3 className="pl-3 font-medium text-muted-foreground text-xs">
-											Pick back up
-										</h3>
-										<ul className="flex flex-col">
-											{recent.map((each) => (
-												<li key={each.id}>
-													<Recent
-														conversation={each}
-														agent={agentName(agents, each.agent)}
-														onOpen={() => onOpen(each.id)}
-													/>
-												</li>
-											))}
-										</ul>
-									</section>
-								)
+								<>
+									<PlanLimits limits={limitsOf(agents, conversations, agent)} />
+									{recent.length > 0 && (
+										<section
+											aria-label="recent conversations"
+											className="mt-4 flex flex-col gap-1 px-2"
+										>
+											<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+												Pick back up
+											</h3>
+											<ul className="flex flex-col">
+												{recent.map((each) => (
+													<li key={each.id}>
+														<Recent
+															conversation={each}
+															agent={agentName(agents, each.agent)}
+															onOpen={() => onOpen(each.id)}
+														/>
+													</li>
+												))}
+											</ul>
+										</section>
+									)}
+								</>
 							}
 							controls={
 								offered.length > 0 ? (

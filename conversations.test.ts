@@ -26,6 +26,7 @@ import {
 	heard,
 	say,
 } from "./fake-agent";
+import { Limits } from "./limits";
 import { Offered } from "./offered";
 import { CHECKPOINT, RESUME } from "./prompts";
 import { unknownLine } from "./systems";
@@ -203,6 +204,128 @@ describe("Conversations", () => {
 		await offered.remember("fake", []);
 		await project("/shop/.git/arbor/conversations").list();
 		expect((await offered.all()).fake).toEqual([]);
+	});
+
+	it("remembers an agent's plan limits for every project, the newest of each window", async () => {
+		const limits = new Limits("/home/.arbor/limits.json", { fs });
+		agent.turn = async (connection) => {
+			await connection.sessionUpdate({
+				sessionId: "s1",
+				update: {
+					sessionUpdate: "usage_update",
+					used: 1,
+					size: 10,
+					_meta: {
+						"_claude/rateLimit": {
+							status: "allowed",
+							unifiedWindows: {
+								five_hour: { utilization: 0.42, resetsAt: 1_791_730_800 },
+								seven_day: { utilization: 0.18, resetsAt: 1_792_000_000 },
+							},
+						},
+					},
+				},
+			});
+			return "end_turn";
+		};
+		const shop = new Conversations("/shop/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+			limits,
+		});
+		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });
+		await until(conversation, "idle");
+		await conversation.prompt("one");
+		await until(conversation, "idle");
+		await shop.disposeAsync();
+
+		// Another project, and another process, as after a restart.
+		const later = new Limits(limits.path, { fs });
+		const blog = new Conversations("/blog/.git/arbor/conversations", [AGENT], {
+			fs,
+			limits: later,
+		});
+		expect(await blog.limits()).toEqual({
+			fake: [
+				{
+					window: "five_hour",
+					used: 0.42,
+					resets: "2026-10-11T15:00:00.000Z",
+					at: "2026-10-11T10:00:00.000Z",
+				},
+				{
+					window: "seven_day",
+					used: 0.18,
+					resets: "2026-10-14T17:46:40.000Z",
+					at: "2026-10-11T10:00:00.000Z",
+				},
+			],
+		});
+
+		// What is older than what is known of a window changes nothing.
+		await later.remember("fake", [
+			{
+				window: "five_hour",
+				used: 0.9,
+				resets: "2026-10-11T15:00:00.000Z",
+				at: "2026-10-11T09:00:00.000Z",
+			},
+		]);
+		expect((await later.all()).fake?.[0]?.used).toBe(0.42);
+	});
+
+	it("asks an agent that does not send its plan limits for them after each turn, and keeps them in the log", async () => {
+		const asked: string[] = [];
+		const window = {
+			window: "43200_minutes",
+			used: 0.07,
+			resets: "2026-11-08T13:47:41.000Z",
+			at: "2026-10-11T10:00:00.000Z",
+		};
+		const asking = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				readLimits: async (each) => {
+					asked.push(each.id);
+					return [window];
+				},
+			},
+		);
+		const conversation = await asking.start("fake", {
+			task: null,
+			cwd: "/repo",
+		});
+		await until(conversation, "idle");
+		expect(asked).toEqual([]);
+
+		await conversation.prompt("one");
+		await until(conversation, "idle");
+		for (
+			let i = 0;
+			i < 100 && conversation.state.usage.limits.length === 0;
+			i++
+		) {
+			await Bun.sleep(1);
+		}
+
+		expect(asked).toEqual(["fake"]);
+		expect(conversation.state.usage.limits).toEqual([window]);
+		await asking.disposeAsync();
+		const [read] = await new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		).list();
+		expect(read?.state.usage.limits).toEqual([window]);
 	});
 
 	it("refuses an agent it does not know", async () => {
@@ -1003,6 +1126,7 @@ describe("Conversations", () => {
 			cached: 2700,
 			output: 150,
 			cost: { amount: 1.5, currency: "USD", said: 0.5 },
+			limits: [],
 		};
 		expect(conversation.state.usage).toEqual(usage);
 		await conversation.stop();
@@ -1999,6 +2123,63 @@ describe("fold", () => {
 			...unused(),
 			context: { used: 10, size: 100 },
 		});
+	});
+
+	it("keeps each window of the plan Claude says, from any turn", () => {
+		const into = state();
+		const limited = (info: object, parent?: string): acp.SessionUpdate => ({
+			sessionUpdate: "usage_update",
+			used: 10,
+			size: 100,
+			_meta: {
+				"_claude/rateLimit": info,
+				...(parent === undefined
+					? {}
+					: { claudeCode: { parentToolUseId: parent } }),
+			},
+		});
+
+		fold(
+			into,
+			limited({
+				status: "allowed",
+				unifiedWindows: {
+					five_hour: { utilization: 0.42, resetsAt: 1_791_730_800 },
+					seven_day: { utilization: 0.18, resetsAt: 1_792_000_000 },
+				},
+			}),
+			at(0),
+		);
+		// Older CLIs name one window; a subagent's turn uses the same plan.
+		fold(
+			into,
+			limited(
+				{
+					status: "allowed_warning",
+					rateLimitType: "five_hour",
+					utilization: 0.85,
+					resetsAt: 1_791_730_800,
+				},
+				"t1",
+			),
+			at(60),
+		);
+		fold(into, limited({ status: "allowed" }), at(120));
+
+		expect(into.usage.limits).toEqual([
+			{
+				window: "seven_day",
+				used: 0.18,
+				resets: "2026-10-14T17:46:40.000Z",
+				at: at(0),
+			},
+			{
+				window: "five_hour",
+				used: 0.85,
+				resets: "2026-10-11T15:00:00.000Z",
+				at: at(60),
+			},
+		]);
 	});
 
 	it("keeps the skills and commands the agent last said it has", () => {

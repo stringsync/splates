@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { Setting } from "../conversations";
+import type { Limit, Setting } from "../conversations";
 import {
 	act,
 	cleanup,
@@ -251,6 +251,7 @@ describe("App's conversations", () => {
 					cached: 1_200_000,
 					output: 34_000,
 					cost: { amount: 3.214, currency: "USD", said: 3.214 },
+					limits: [],
 				},
 			}),
 			conversation({ id: "c2", title: "Look around" }),
@@ -1567,8 +1568,8 @@ describe("App's conversations", () => {
 			],
 		};
 		const view = await testing.openConversations([], null, {}, [
-			{ id: "claude", name: "Claude", settings: [] },
-			{ id: "codex", name: "Codex", settings: [model] },
+			{ id: "claude", name: "Claude", settings: [], limits: [] },
+			{ id: "codex", name: "Codex", settings: [model], limits: [] },
 		]);
 		testing.reply = conversation({ id: "c9", agent: "codex", task: null });
 
@@ -1591,6 +1592,72 @@ describe("App's conversations", () => {
 				body: { agent: "codex", task: null, settings: { model: "big" } },
 			},
 		]);
+	});
+
+	it("shows how much of the plan is used and when each window resets, the newest said, yellow from 80% and red from 90%, for each agent that says", async () => {
+		const hours = (count: number) =>
+			new Date(Date.now() + count * 3_600_000).toISOString();
+		const limit = (window: string, used: number, at: string): Limit => ({
+			window,
+			used,
+			resets: hours(window === "five_hour" ? 2 : 50),
+			at,
+		});
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					usage: {
+						context: null,
+						input: 0,
+						cached: 0,
+						output: 0,
+						cost: null,
+						limits: [limit("five_hour", 0.95, "2026-10-11T11:00:00.000Z")],
+					},
+				}),
+			],
+			null,
+			{},
+			[
+				{
+					id: "claude",
+					name: "Claude",
+					settings: [],
+					limits: [
+						limit("five_hour", 0.5, "2026-10-11T10:00:00.000Z"),
+						limit("seven_day", 0.82, "2026-10-11T10:00:00.000Z"),
+					],
+				},
+				{
+					id: "codex",
+					name: "Codex",
+					settings: [],
+					limits: [limit("43200_minutes", 0.07, "2026-10-11T10:00:00.000Z")],
+				},
+				{ id: "gemini", name: "Gemini", settings: [], limits: [] },
+			],
+		);
+
+		const limits = view.getByRole("region", { name: "plan limits" });
+		const row = (name: string) => within(limits).getByLabelText(name);
+		expect(row("5-hour").textContent).toEndWith(", in 2h 0m");
+		expect(within(row("5-hour")).getByText("95%").className).toContain(
+			"text-destructive",
+		);
+		expect(row("Weekly").textContent).toEndWith(", in 2d 2h");
+		expect(within(row("Weekly")).getByText("82%").className).toContain(
+			"text-warning",
+		);
+
+		// Codex's windows go by their length, Claude's not among them.
+		await newWith(view, "Codex");
+		const codex = view.getByRole("region", { name: "plan limits" });
+		expect(within(codex).getByLabelText("30-day").textContent).toContain("7%");
+		expect(within(codex).queryByLabelText("5-hour")).toBeNull();
+
+		await newWith(view, "Gemini");
+		expect(view.queryByRole("region", { name: "plan limits" })).toBeNull();
 	});
 
 	it("offers the tree's files for an @ in the composer, over the composer, and writes the one picked", async () => {

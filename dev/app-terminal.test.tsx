@@ -32,7 +32,7 @@ describe("App's terminal", () => {
 		id = "c1",
 	) => {
 		testing.talk = {
-			agents: [{ id: "claude", name: "Claude", settings: [] }],
+			agents: [{ id: "claude", name: "Claude", settings: [], limits: [] }],
 			conversations: held,
 		};
 		const view = await testing.open({ tasks: [details({ task: "alpha" })] });

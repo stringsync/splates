@@ -23,8 +23,9 @@ const AGENTS = [
 			{ id: "haiku", name: "Haiku" },
 		],
 		settings: [],
+		limits: [],
 	},
-	{ id: "codex", name: "Codex", settings: [] },
+	{ id: "codex", name: "Codex", settings: [], limits: [] },
 ];
 
 describe("App's controls that put agents to work", () => {

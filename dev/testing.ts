@@ -328,8 +328,8 @@ export class Testing implements Resource {
 }
 
 export const AGENTS: AgentChoice[] = [
-	{ id: "claude", name: "Claude", settings: [] },
-	{ id: "codex", name: "Codex", settings: [] },
+	{ id: "claude", name: "Claude", settings: [], limits: [] },
+	{ id: "codex", name: "Codex", settings: [], limits: [] },
 ];
 
 /** The name the sidebar lists conversation `id` of `held` under. */
@@ -577,7 +577,14 @@ export function conversation(
 		commands: [],
 		createdAt: new Date().toISOString(),
 		checkpoint: null,
-		usage: { context: null, input: 0, cached: 0, output: 0, cost: null },
+		usage: {
+			context: null,
+			input: 0,
+			cached: 0,
+			output: 0,
+			cost: null,
+			limits: [],
+		},
 		lastTask: overrides.task ?? null,
 		lastBase: null,
 		background: [],

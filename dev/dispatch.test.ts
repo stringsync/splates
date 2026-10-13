@@ -10,7 +10,7 @@ const nowhere = {
 	removeItem: () => {},
 } as unknown as Storage;
 
-const AGENTS = [{ id: "claude", name: "Claude", settings: [] }];
+const AGENTS = [{ id: "claude", name: "Claude", settings: [], limits: [] }];
 
 describe("Dispatch", () => {
 	it("lists the listed conversations on a task, newest first, with what each needs", () => {

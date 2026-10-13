@@ -1,6 +1,11 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { ConversationState, Image, Setting } from "../conversations";
+import type {
+	ConversationState,
+	Image,
+	Limit,
+	Setting,
+} from "../conversations";
 import { scoped } from "./api";
 
 export type ConversationFeedEvents = { changed: undefined };
@@ -22,6 +27,11 @@ export interface AgentChoice {
 	 * left; none until it has had one on this machine.
 	 */
 	settings: Setting[];
+	/**
+	 * The plan's windows of use, as it last said in any project; none until
+	 * it has, and never from an agent that does not say.
+	 */
+	limits: Limit[];
 }
 
 /** What to call agent `id`: its name, or its id once it is off the roster. */

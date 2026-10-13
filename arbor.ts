@@ -1,12 +1,13 @@
 import { cli, type Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
-import { Duration } from "webappwiz/time";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
 import { attach } from "./attach";
 import { claim } from "./claim";
-import { Conversations } from "./conversations";
+import { codexLimits, isCodex } from "./codex-limits";
+import { Conversations, launch } from "./conversations";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
@@ -14,6 +15,7 @@ import { exits, fail } from "./exit";
 import { follow } from "./follow";
 import { forget, init } from "./init";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
+import { Limits } from "./limits";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
@@ -312,6 +314,9 @@ arbor
 		const offered = new Offered(`${arborHome(ctx.ps)}/offered.json`, {
 			fs: ctx.fs,
 		});
+		const limits = new Limits(`${arborHome(ctx.ps)}/limits.json`, {
+			fs: ctx.fs,
+		});
 		return dev(ctx, {
 			ports: devPorts(opts.port),
 			hosts: opts["allow-hosts"]
@@ -322,6 +327,17 @@ arbor
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,
 					offered,
+					limits,
+					readLimits: async (agent) =>
+						isCodex(agent)
+							? codexLimits({
+									launch,
+									timer: new SystemTimer(),
+									now: () => Date.now(),
+									cwd: git.root,
+									codex: ctx.ps.env("CODEX_PATH"),
+								})
+							: [],
 					watch: new Watch(git),
 					root: git.root,
 				}),

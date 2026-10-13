@@ -83,6 +83,7 @@ describe("dev", () => {
 							{ id: "small", name: "Small" },
 						],
 						settings: [],
+						limits: [],
 					},
 				]);
 
@@ -830,7 +831,9 @@ describe("dev", () => {
 					await fetch(`http://localhost:${port}/api/conversations`)
 				).json();
 				expect(listed).toEqual({
-					agents: [{ id: "fake", name: "Fake", models: [], settings: [] }],
+					agents: [
+						{ id: "fake", name: "Fake", models: [], settings: [], limits: [] },
+					],
 					conversations: [],
 				});
 
