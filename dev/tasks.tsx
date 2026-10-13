@@ -3,6 +3,7 @@ import {
 	FileDiffIcon,
 	MessageCircleQuestionIcon,
 	RotateCcwIcon,
+	Trash2Icon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -18,12 +19,13 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import { type Question, questions } from "../plan";
 import type { Details } from "../show";
-import { retryTask } from "./api";
+import { removeTask, retryTask } from "./api";
 import { ReviewChanges } from "./changes";
 import { Dispatching, OnIt, StartMenu } from "./dispatching";
 import { HEADING, Markdown } from "./markdown";
 import { type Nested, nest } from "./parts";
 import { QuestionCards } from "./question-cards";
+import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, TASK } from "./task-view";
 
 /**
@@ -241,6 +243,7 @@ function ActionBar({
 				<OnTask task={task.task} />
 			</div>
 			<div className="flex flex-wrap items-center gap-1.5">
+				<Remove task={task} />
 				{retry}
 				{review !== null && (task.ahead ?? 0) > 0 && (
 					<DialogClose
@@ -270,6 +273,74 @@ function ActionBar({
 					))}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Removes the task as `arbor remove` does, asking first while an agent works
+ * on it (a conversation here mid-turn, which stops and carries on in the main
+ * tree, or an external agent holding its lease, which the page cannot stop) or
+ * while it has commits its base lacks, which go with its branch.
+ */
+function Remove({ task }: { task: Details }): JSX.Element {
+	const context = useContext(Dispatching);
+	const [asking, setAsking] = useState(false);
+	const [removing, setRemoving] = useState(false);
+	const { refusal, refuse } = useRefusal();
+	const working = (context?.dispatch.on(task.task) ?? []).filter(
+		({ conversation }) =>
+			conversation?.status === "starting" || conversation?.status === "running",
+	).length;
+	const external = task.lease === "held";
+	const ahead = task.ahead ?? 0;
+	const go = () => {
+		setAsking(false);
+		setRemoving(true);
+		removeTask(task.task).catch((error: unknown) => {
+			setRemoving(false);
+			refuse("Not removed", error);
+		});
+	};
+	return (
+		<>
+			<Button
+				size="sm"
+				variant="outline"
+				disabled={removing}
+				onClick={() =>
+					working > 0 || external || ahead > 0 ? setAsking(true) : go()
+				}
+			>
+				<Trash2Icon />
+				{removing ? "Removing…" : "Remove"}
+			</Button>
+			<Refusal refusal={refusal} className="w-full" />
+			<Dialog open={asking} onOpenChange={setAsking}>
+				<DialogContent showCloseButton={false}>
+					<DialogHeader>
+						<DialogTitle>Remove {task.task}?</DialogTitle>
+						<DialogDescription>
+							{working > 0
+								? `${working === 1 ? "An agent is" : `${working} agents are`} still working on it. Removing stops ${working === 1 ? "it" : "them"} and moves ${working === 1 ? "its conversation" : "their conversations"} to the main tree. `
+								: external
+									? "An agent outside the page is working on it, which the page cannot stop: its next arbor command finds the task gone. "
+									: ""}
+							{ahead > 0
+								? `Its ${ahead} commit${ahead === 1 ? "" : "s"} not on ${task.base}, its worktree and any uncommitted changes are discarded.`
+								: "Its worktree, branch and uncommitted changes are discarded."}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<DialogClose render={<Button variant="outline" />}>
+							Cancel
+						</DialogClose>
+						<Button variant="destructive" onClick={go}>
+							Remove
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }
 

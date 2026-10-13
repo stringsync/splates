@@ -934,6 +934,51 @@ describe("dev", () => {
 			}
 		});
 
+		it("removes a task, stopping each conversation in its tree and moving it to the main tree", async () => {
+			await add(deps, "alpha");
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				hosts: ["repo.arbor.example"],
+				conversations: () => conversations,
+			});
+			try {
+				const { port } = server;
+				const started = await json(port, "/api/conversations", "POST", {
+					agent: "fake",
+					task: "alpha",
+				});
+				const { id } = (await started.json()) as { id: string };
+				const conversation = await conversations.find(id);
+				while (conversation.state.status === "starting") {
+					await Bun.sleep(5);
+				}
+				const removeAs = (host: string) =>
+					fetch(`http://127.0.0.1:${port}/api/tasks/alpha`, {
+						method: "DELETE",
+						headers: { host, origin: `http://${host}` },
+					});
+
+				// It discards work, so it answers only to this machine.
+				expect((await removeAs("repo.arbor.example")).status).toBe(403);
+				expect((await deps.service.find("alpha")).gone).toBe(false);
+
+				expect((await removeAs(`localhost:${port}`)).status).toBe(200);
+				expect((await deps.service.find("alpha")).gone).toBe(true);
+				expect(conversation.state).toMatchObject({
+					task: null,
+					lastTask: "alpha",
+					status: "stopped",
+					archived: false,
+				});
+				expect(agent.killed).toBe(1);
+				expect(
+					await (await removeAs(`localhost:${port}`)).json(),
+				).toMatchObject({ reason: "already_removed" });
+			} finally {
+				await server.disposeAsync();
+			}
+		});
+
 		it("answers only to this machine, even for a host the board lets in", async () => {
 			const server = await dev(deps, {
 				ports: OpenPortProvider.any(),

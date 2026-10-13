@@ -35,6 +35,7 @@ import type { Projects } from "./projects";
 import { RESUME } from "./prompts";
 import { Pty } from "./pty";
 import { type Behind, isNewer, type Release, RUNNING } from "./release";
+import { remove } from "./remove";
 import { openRepository, type Repository } from "./repository";
 import { grantRetry } from "./retry";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
@@ -52,8 +53,9 @@ export const PORT_SPAN = 20;
 /**
  * Serves what `todo list`, `list` and `show` print as one page that refetches
  * when the repo changes, where a person adds, edits, reorders and removes
- * todos. Anything that moves a task (merge, remove, claim) stays in the CLI,
- * so a page that should not have been reachable can at worst change a todo.
+ * todos. Anything that moves a task (merge, claim) stays in the CLI, and
+ * removing one answers only to this machine's own names, so a page that
+ * should not have been reachable can at worst change a todo.
  *
  * Given `conversations`, the page also talks to agents, which run commands on
  * this machine. Those routes answer only to this machine's own names, never to
@@ -469,6 +471,30 @@ export async function dev(
 			);
 			await tick();
 			return Response.json(worktree.state);
+		};
+
+		// `arbor remove` from the page, which asks first while an agent works on
+		// the task, so it goes past an external agent's lease. Each conversation
+		// in its tree stops before the tree goes, and carries on in the main tree.
+		const removeTask = async (request: Request): Promise<Response> => {
+			const task = decodeURIComponent(
+				new URL(request.url).pathname.split("/")[3] ?? "",
+			);
+			const on = (await (conversations?.list() ?? [])).filter(
+				(each) => each.state.task === task,
+			);
+			for (const conversation of on) {
+				await conversation.cancel();
+				await conversation.stop();
+			}
+			await journal.record("remove", task, () =>
+				remove({ service, log, todos }, task, { force: true }),
+			);
+			for (const conversation of on) {
+				conversation.move(null, service.git.root);
+			}
+			await tick();
+			return Response.json({});
 		};
 
 		const addTodo = async (request: Request): Promise<Response> => {
@@ -1020,6 +1046,7 @@ export async function dev(
 			systems,
 			diff,
 			retryTask,
+			removeTask,
 			addTodo,
 			updateTodo,
 			moveTodo,
@@ -1498,6 +1525,9 @@ export async function dev(
 			"/api/tasks/:task/retry": {
 				POST: scoped((project) => project.retryTask),
 			},
+			"/api/tasks/:task": {
+				DELETE: talk(scoped((project) => project.removeTask)),
+			},
 			"/api/todos": { POST: scoped((project) => project.addTodo) },
 			"/api/todos/:id": {
 				PATCH: scoped((project) => project.updateTodo),
@@ -1885,6 +1915,7 @@ interface Served extends AsyncResource {
 	systems: Handler;
 	diff: Handler;
 	retryTask: Handler;
+	removeTask: Handler;
 	addTodo: Handler;
 	updateTodo: Handler;
 	moveTodo: Handler;

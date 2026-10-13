@@ -397,4 +397,111 @@ see the header
 		expect(dialog.textContent).toContain("0 commits");
 		expect(within(dialog).queryByText("Review changes")).toBeNull();
 	});
+
+	it("removes a task no agent works on, with no commits its base lacks, at once", async () => {
+		testing.talk = {
+			agents: [],
+			conversations: [conversation({ id: "c1", task: "beta", status: "idle" })],
+		};
+		const view = await testing.openTasks({
+			tasks: [{ ...escalated, ahead: 0 }],
+		});
+		const dialog = await openBeta(view);
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
+		);
+
+		await waitFor(() =>
+			expect(testing.posts).toEqual([
+				{ path: "/api/tasks/beta", method: "DELETE", body: undefined },
+			]),
+		);
+		expect(view.queryByRole("heading", { name: "Remove beta?" })).toBeNull();
+	});
+
+	it("asks before removing a task an agent here works on, and removes it only once told to", async () => {
+		testing.talk = {
+			agents: [],
+			conversations: [
+				conversation({ id: "c1", task: "beta", status: "running" }),
+			],
+		};
+		const view = await testing.openTasks({ tasks: [escalated] });
+		const dialog = await openBeta(view);
+		const remove = () =>
+			act(async () =>
+				fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
+			);
+
+		await remove();
+		const asked = await waitFor(() =>
+			view.getByRole("dialog", { name: "Remove beta?" }),
+		);
+		expect(asked.textContent).toContain(
+			"An agent is still working on it. Removing stops it and moves its conversation to the main tree.",
+		);
+		await act(async () =>
+			fireEvent.click(within(asked).getByRole("button", { name: "Cancel" })),
+		);
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "Remove beta?" })).toBeNull(),
+		);
+		expect(testing.posts).toEqual([]);
+
+		await remove();
+		await act(async () =>
+			fireEvent.click(
+				within(
+					await waitFor(() =>
+						view.getByRole("dialog", { name: "Remove beta?" }),
+					),
+				).getByRole("button", { name: "Remove" }),
+			),
+		);
+		await waitFor(() =>
+			expect(testing.posts.map((post) => post.path)).toEqual([
+				"/api/tasks/beta",
+			]),
+		);
+	});
+
+	it("asks before removing a task with commits its base lacks, saying how many go", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.openTasks({
+			tasks: [{ ...escalated, ahead: 2 }],
+		});
+		const dialog = await openBeta(view);
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
+		);
+
+		const asked = await waitFor(() =>
+			view.getByRole("dialog", { name: "Remove beta?" }),
+		);
+		expect(asked.textContent).toContain(
+			"Its 2 commits not on main, its worktree and any uncommitted changes are discarded.",
+		);
+		expect(asked.textContent).not.toContain("working");
+		expect(testing.posts).toEqual([]);
+	});
+
+	it("asks before removing a task an external agent holds, saying the page cannot stop it", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const view = await testing.openTasks({
+			tasks: [{ ...escalated, lease: "held" }],
+		});
+		const dialog = await openBeta(view);
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Remove" })),
+		);
+
+		const asked = await waitFor(() =>
+			view.getByRole("dialog", { name: "Remove beta?" }),
+		);
+		expect(asked.textContent).toContain("which the page cannot stop");
+		expect(testing.posts).toEqual([]);
+	});
 });

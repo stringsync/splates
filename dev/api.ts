@@ -253,6 +253,14 @@ export async function retryTask(task: string): Promise<void> {
 }
 
 /**
+ * `arbor remove` for `task`, past any lease, stopping each conversation in
+ * its tree and moving it to the main tree.
+ */
+export async function removeTask(task: string): Promise<void> {
+	await send(`/api/tasks/${encodeURIComponent(task)}`, { method: "DELETE" });
+}
+
+/**
  * Starts a conversation with `agent`, in `task`'s tree or the main tree for
  * null, with `settings` (by id) set once its session offers them.
  */
