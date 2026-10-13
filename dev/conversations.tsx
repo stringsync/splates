@@ -2900,6 +2900,8 @@ function like(
 			attachments: message.parts.flatMap((part) =>
 				part.type === "image" ? [attached(conversation, part)] : [],
 			),
+			// Marked as taken into the turn the agent was running.
+			metadata: { custom: { steered: message.steered ?? false } },
 		};
 	}
 	// The words between its work as it said them, each run of work a row

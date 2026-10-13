@@ -305,6 +305,28 @@ describe("Conversations", () => {
 			expect(said).toEqual(["one"]);
 		});
 
+		it("marks a message the agent steered in, after a restart too", async () => {
+			agent.steering = "injected";
+			const conversation = await working();
+
+			await conversation.prompt("two");
+			await finish(conversation);
+			await conversation.stop();
+			const [read] = await new Conversations(
+				"/repo/.git/arbor/conversations",
+				[AGENT],
+				{ fs, timer, clock, launch: agent.launch },
+			).list();
+
+			for (const each of [conversation, read]) {
+				expect(
+					each?.state.messages
+						.filter((message) => message.role === "user")
+						.map((message) => message.steered ?? false),
+				).toEqual([false, true]);
+			}
+		});
+
 		it("gives each message said while the agent starts a turn of its own, even when it steers", async () => {
 			agent.steering = "injected";
 			const conversation = await conversations.start("fake", {

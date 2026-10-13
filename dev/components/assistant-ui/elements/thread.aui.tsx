@@ -31,6 +31,7 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	CopyIcon,
+	CornerDownRightIcon,
 	DownloadIcon,
 	MicIcon,
 	MoreHorizontalIcon,
@@ -1421,6 +1422,9 @@ const afterDirectives = (text: string) => leadingDirectives(text).rest;
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
 	const attachments = useAuiState((s) => s.message.attachments);
+	const steered = useAuiState(
+		(s) => s.message.metadata.custom.steered === true,
+	);
 	return (
 		<MessagePrimitive.Root
 			ref={unstuckTop}
@@ -1449,6 +1453,15 @@ const UserMessage: FC = () => {
 				</Clamped>
 				<UserCopy />
 			</div>
+			{steered && (
+				<div
+					data-slot="aui_user-message-steered"
+					className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
+				>
+					<CornerDownRightIcon className="size-3" aria-hidden />
+					Steered into the running turn
+				</div>
+			)}
 		</MessagePrimitive.Root>
 	);
 };

@@ -1847,6 +1847,29 @@ describe("App's conversations", () => {
 		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
 	});
 
+	it("marks a message the agent took into its running turn as steered", async () => {
+		const view = await conversations([
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [
+					message("user", "fix the login"),
+					message("agent", "On it."),
+					{ ...message("user", "and the logout"), steered: true },
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+
+		const marks = await within(thread).findAllByText(
+			"Steered into the running turn",
+		);
+		expect(marks).toHaveLength(1);
+		expect(marks[0]?.closest('[data-role="user"]')?.textContent).toContain(
+			"and the logout",
+		);
+	});
+
 	it("takes a message to a stopped conversation back out of its thread when the server refuses it", async () => {
 		const view = await conversations([
 			conversation({ title: "Login", status: "stopped" }),

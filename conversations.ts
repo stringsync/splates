@@ -176,6 +176,8 @@ export interface Message {
 	queued?: true;
 	/** When the person stopped the agent's turn, for one they stopped. */
 	stopped?: string;
+	/** Said while the agent worked, and taken into the turn it was running. */
+	steered?: true;
 }
 
 /** A field of a question an agent asks, answered with one of `choices` or in words. */
@@ -346,6 +348,7 @@ type Entry =
 			text: string;
 			at?: string;
 			queued?: true;
+			steered?: true;
 			/** Missing from logs written before the page sent images. */
 			images?: Image[];
 	  }
@@ -917,6 +920,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.messages.push({
 					...said(entry.text, entry.at ?? null, entry.images),
 					...(entry.queued ? { queued: true } : {}),
+					...(entry.steered ? { steered: true } : {}),
 				});
 			} else if (entry.kind === "sent") {
 				delivered(state.messages);
@@ -1469,8 +1473,17 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			);
 			if (outcome === "injected" || outcome === "startedNewTurn") {
 				const at = this.now();
-				this.write({ kind: "prompt", text: words, at, ...shown(kept) });
-				this.state.messages.push(said(words, at, kept));
+				// A new turn it started is a turn like any other.
+				const steered =
+					outcome === "injected" ? { steered: true as const } : {};
+				this.write({
+					kind: "prompt",
+					text: words,
+					at,
+					...steered,
+					...shown(kept),
+				});
+				this.state.messages.push({ ...said(words, at, kept), ...steered });
 				this.changed();
 				return;
 			}
