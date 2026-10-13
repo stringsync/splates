@@ -161,7 +161,7 @@ import {
 	useArrived,
 	useCopiedReplies,
 } from "./task-view";
-import { Task, TaskStatus } from "./tasks";
+import { Task } from "./tasks";
 import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
 import { TOGGLE } from "./terminal-session";
 import { isMain, numberOf, type Terminals } from "./terminals";
@@ -2642,7 +2642,6 @@ function Thread({
 							>
 								{nameOf(conversation)}
 							</h2>
-							{task !== null && <TaskStatus task={task} />}
 						</div>
 					)}
 					{conversation.task === null && !archived ? (

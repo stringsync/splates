@@ -5,7 +5,6 @@ import {
 	RotateCcwIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
-import { Badge } from "#dev/components/ui/badge.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -26,9 +25,6 @@ import { HEADING, Markdown } from "./markdown";
 import { type Nested, nest } from "./parts";
 import { QuestionCards } from "./question-cards";
 import { arriveAt, TASK } from "./task-view";
-
-/** A tree in one of these needs fixing rather than driving. */
-const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
 
 /**
  * Every task in a line: its name and the marks of the conversations on it.
@@ -127,24 +123,6 @@ function TaskRows({
 			))}
 		</ul>
 	);
-}
-
-/** Where a task stands in arbor, normal case and all, as a conversation's header shows it. */
-export function TaskStatus({ task }: { task: Details }): JSX.Element {
-	const { status } = task;
-	if (task.review !== null) {
-		return <Badge>ready to merge</Badge>;
-	}
-	if (outOfMerges(task)) {
-		return <Badge variant="secondary">out of merges</Badge>;
-	}
-	if (status === "escalated") {
-		return <Badge variant="secondary">escalated</Badge>;
-	}
-	if (BROKEN.has(status)) {
-		return <Badge variant="destructive">{status}</Badge>;
-	}
-	return <Badge variant="outline">{status}</Badge>;
 }
 
 /** Escalated with its merge attempts spent: what `arbor retry` is for. */

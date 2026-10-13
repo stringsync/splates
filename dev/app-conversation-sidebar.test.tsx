@@ -498,7 +498,7 @@ Cap upload retries
 			expect(dialog.textContent).toContain("Cap upload retries");
 		});
 
-		it("heads a conversation with its task's arbor status beside the title", async () => {
+		it("heads a conversation with its title alone, leaving its task's status to the conversation", async () => {
 			const view = await sidebar(
 				[conversation({ id: "c1", task: "alpha", name: "Fix login" })],
 				[details({ task: "alpha", status: "escalated" })],
@@ -508,7 +508,7 @@ Cap upload retries
 			);
 
 			const title = view.getByRole("heading", { name: "Fix login" });
-			expect(title.parentElement?.textContent).toBe("Fix loginescalated");
+			expect(title.parentElement?.textContent).toBe("Fix login");
 		});
 
 		it("scrolls the card asking the open questions to its top from the actions", async () => {
