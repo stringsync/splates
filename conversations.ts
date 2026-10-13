@@ -75,6 +75,15 @@ export const launch: Launch = (argv, cwd, env) => {
 /** How much of an agent's stderr is kept to explain how it died. */
 const STDERR_CHARS = 2_000;
 
+/**
+ * What every session is opened with. Claude's AskUserQuestion is off, so its
+ * questions go under `## Blocked` and into its reply, as the arbor skill asks,
+ * rather than into a form `ARBOR.md` never sees. Other agents ignore it.
+ */
+const SESSION_META = {
+	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
+};
+
 /** How much of a tool call's output, and of each side of an edit, is kept. */
 const TOOL_CHARS = 20_000;
 
@@ -1235,8 +1244,9 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			this.connection = connection;
 			const initialized = await connection.initialize({
 				protocolVersion: acp.PROTOCOL_VERSION,
-				// A form is how an agent asks the person a question, Claude's
-				// AskUserQuestion among them; without it the agent asks in prose.
+				// A form is how an agent asks the person something, as an MCP
+				// server or a refusal's fallback does, though never a question
+				// (see `SESSION_META`).
 				clientCapabilities: {
 					elicitation: { form: {} },
 					session: { configOptions: { boolean: {} } },
@@ -1252,7 +1262,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			this.sees =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
 			if (this.session === null) {
-				const session = await connection.newSession({ cwd, mcpServers: [] });
+				const session = await connection.newSession({
+					cwd,
+					mcpServers: [],
+					_meta: SESSION_META,
+				});
 				this.session = session.sessionId;
 				this.write({ kind: "session", session: session.sessionId });
 				this.state.settings = settingsIn(session.configOptions);
@@ -1261,6 +1275,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					sessionId: this.session,
 					cwd,
 					mcpServers: [],
+					_meta: SESSION_META,
 				});
 				this.loading = false;
 				this.logHeard();
@@ -1270,6 +1285,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					sessionId: this.session,
 					cwd,
 					mcpServers: [],
+					_meta: SESSION_META,
 				});
 				this.state.settings = settingsIn(session.configOptions);
 			}

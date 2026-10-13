@@ -32,6 +32,11 @@ import { unknownLine } from "./systems";
 import { Testing } from "./testing";
 import { Watch } from "./watch";
 
+/** What each session is opened with, so Claude asks the arbor way. */
+const ASK_IN_ARBOR = {
+	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
+};
+
 describe("Conversations", () => {
 	let fs: FakeFs;
 	let timer: FakeTimer;
@@ -122,6 +127,12 @@ describe("Conversations", () => {
 				},
 			],
 		});
+	});
+
+	it("turns Claude's AskUserQuestion off, so it asks under ## Blocked instead", async () => {
+		await started();
+
+		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
 	});
 
 	it("sets the settings picked up front once the session is open, skipping what it already is", async () => {
@@ -1275,6 +1286,7 @@ describe("Conversations", () => {
 		await until(read as Conversation, "idle");
 
 		expect(agent.resumed).toEqual(["s1"]);
+		expect(agent.opened).toEqual([ASK_IN_ARBOR, ASK_IN_ARBOR]);
 		expect(agent.launched.at(-1)?.cwd).toBe(agent.launched[0]?.cwd ?? "");
 		expect(read?.state.messages.at(-1)).toMatchObject({
 			role: "agent",
@@ -1501,6 +1513,7 @@ describe("Conversations", () => {
 			await until(conversation, "idle");
 
 			expect(agent.loaded).toEqual(["cli-1"]);
+			expect(agent.opened).toEqual([ASK_IN_ARBOR]);
 			expect(conversation.state).toMatchObject({
 				task: "login",
 				title: "Fix login",

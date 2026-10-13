@@ -83,6 +83,8 @@ export class FakeAgent {
 	held: (acp.SessionInfo & { replay: acp.SessionUpdate[] })[] | null = null;
 	/** The sessions loaded, by id, in order. */
 	loaded: string[] = [];
+	/** The `_meta` each session was opened, loaded or resumed with, in order. */
+	opened: unknown[] = [];
 	/** Every prompt it was sent, block by block, in order. */
 	prompts: acp.ContentBlock[][] = [];
 	/** The settings set, in order. */
@@ -175,16 +177,17 @@ export class FakeAgent {
 				}
 				return { outcome: this.steering };
 			},
-			newSession: async () => ({
-				sessionId: "s1",
-				configOptions: this.options,
-			}),
+			newSession: async ({ _meta }) => {
+				this.opened.push(_meta);
+				return { sessionId: "s1", configOptions: this.options };
+			},
 			listSessions: async ({ cwd }) => ({
 				sessions: (this.held ?? [])
 					.filter((each) => cwd == null || each.cwd === cwd)
 					.map(({ replay: _, ...info }) => info),
 			}),
-			loadSession: async ({ sessionId }) => {
+			loadSession: async ({ sessionId, _meta }) => {
+				this.opened.push(_meta);
 				const session = this.held?.find((each) => each.sessionId === sessionId);
 				if (session === undefined) {
 					throw acp.RequestError.resourceNotFound(sessionId);
@@ -195,7 +198,8 @@ export class FakeAgent {
 				}
 				return { configOptions: this.options };
 			},
-			resumeSession: async ({ sessionId }) => {
+			resumeSession: async ({ sessionId, _meta }) => {
+				this.opened.push(_meta);
 				this.resumed.push(sessionId);
 				return { configOptions: this.options };
 			},
