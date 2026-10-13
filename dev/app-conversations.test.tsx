@@ -1687,6 +1687,23 @@ describe("App's conversations", () => {
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 
+	it("shows no list over the composer for an @ no file matches, as right after a file's chip, and sends on Enter", async () => {
+		testing.tree = ["README.md", "src/", "src/index.ts"];
+		const view = await testing.openConversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		});
+
+		await typeIn(box, "see @src/index.ts");
+
+		expect(view.queryByLabelText("mentions")).toBeNull();
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations")).toHaveLength(1),
+		);
+	});
+
 	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {
 		const view = await testing.openConversations([], null);
 		testing.reply = conversation({ id: "c9", status: "starting" });

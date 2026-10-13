@@ -925,6 +925,10 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		() => distinctNames(filesIn(text, named)),
 		[text, named],
 	);
+	const mentioned = useMemo(
+		() => (mentions === undefined ? undefined : matching(mentions)),
+		[mentions],
+	);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -996,6 +1000,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					{mentions !== undefined && (
 						<ComposerPrimitive.TriggerPopover
 							char="@"
+							matcher={mentioned}
 							adapter={mentions}
 							className="absolute inset-x-0 bottom-full z-10 mb-2"
 						>
@@ -1314,6 +1319,22 @@ const AT_START: TriggerMatcher = (text, _char, cursor) => {
 		? null
 		: { query: typed[1] ?? "", offset: 0, endOffset: cursor };
 };
+
+/**
+ * An `@` at the start or after a space, as typed, while some file matches
+ * what follows it: none matches the one written in for a file's chip, with
+ * the caret right after it, where an open list, even one with nothing in it,
+ * would show an empty box over the composer and take the Enter that sends.
+ */
+const matching =
+	(mentions: TriggerAdapter): TriggerMatcher =>
+	(text, _char, cursor) => {
+		const typed = /(^|\s)@(\S*)$/.exec(text.slice(0, cursor));
+		const query = typed?.[2] ?? "";
+		return typed === null || (mentions.search?.(query).length ?? 0) === 0
+			? null
+			: { query, offset: cursor - query.length - 1, endOffset: cursor };
+	};
 
 /**
  * A `#` at the start or after a space, as typed, but not the one in a todo's
