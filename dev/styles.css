@@ -28,6 +28,7 @@
 @source "./notifications.tsx";
 @source "./page-menu.tsx";
 @source "./card.tsx";
+@source "./dot.tsx";
 @source "./board.ts";
 @source "./lanes.tsx";
 @source "./links.tsx";

@@ -110,7 +110,7 @@ Cap upload retries
 			]);
 		});
 
-		it("marks a conversation whose task merged with the merge icon until the person carries on, one that escalated as waiting on you, and one removed not at all", async () => {
+		it("marks a conversation whose task merged green and one removed red until the person carries on, and one that escalated as waiting on you", async () => {
 			const view = await sidebar(
 				newestFirst([
 					conversation({
@@ -165,7 +165,7 @@ Cap upload retries
 					.map((row) => [
 						row.textContent,
 						(
-							within(row).queryByRole("img", { name: "merged" }) ??
+							within(row).queryByRole("img", { name: /^(merged|removed)$/ }) ??
 							within(row).queryByRole("status")
 						)?.getAttribute("aria-label") ?? null,
 					]),
@@ -173,7 +173,7 @@ Cap upload retries
 
 			expect(marks).toEqual({
 				Landed: "merged",
-				Dropped: null,
+				Dropped: "removed",
 				"Carried on": null,
 				alpha: "waiting on you",
 			});

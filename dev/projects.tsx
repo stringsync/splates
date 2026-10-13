@@ -1,9 +1,4 @@
-import {
-	CheckIcon,
-	ChevronsUpDownIcon,
-	CircleAlertIcon,
-	XIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -16,6 +11,7 @@ import {
 } from "#dev/components/ui/popover.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { forgetProject, listProjects, type ProjectChoice } from "./api";
+import { Dot } from "./dot";
 import { Refusal, useRefusal } from "./refusal";
 
 /** The project the page shows: `?project=`, or none for the one started in. */
@@ -206,12 +202,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 				}
 			>
 				<h1 className="truncate font-medium text-sm">{name}</h1>
-				{elsewhere.length > 0 && (
-					<CircleAlertIcon
-						aria-hidden
-						className="size-3.5 shrink-0 text-warning"
-					/>
-				)}
+				{elsewhere.length > 0 && <Dot aria-hidden color="bg-warning" />}
 				<ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80 gap-2 p-2">
@@ -277,7 +268,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 										title={`${each.waiting} waiting on you`}
 										className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs tabular-nums"
 									>
-										<CircleAlertIcon className="size-3.5 text-warning" />
+										<Dot aria-hidden color="bg-warning" />
 										{each.waiting}
 									</span>
 								)}

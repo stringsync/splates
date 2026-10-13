@@ -14,8 +14,6 @@ import {
 	ArchiveRestoreIcon,
 	CheckIcon,
 	ChevronDownIcon,
-	CircleAlertIcon,
-	CircleCheckIcon,
 	CircleDotIcon,
 	ClipboardCheckIcon,
 	EllipsisVerticalIcon,
@@ -129,6 +127,7 @@ import {
 import { DemoUI } from "./demo-cards";
 import { Directed, DirectiveChip } from "./directives";
 import { Trunk, whereRuns } from "./dispatching";
+import { Dot } from "./dot";
 import { type Drafts, newDraft } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { type Named, NamedContext } from "./mentioned";
@@ -1342,14 +1341,14 @@ function Rename({
 }
 
 /**
- * What a list shows of an agent, one of four marks: an amber alert when it
- * waits on you, whatever for, a spinner while it works, assuming or not, a
- * blue dot when it answered and you have not looked since, and a green
- * check once its task merged, over the dot. Anything else, idle or removed, shows an empty
- * space. A report in its last word decides the mark over a wait it ended,
- * though not over a live ask or a failure, which are newer. What it waits on
- * is in its tooltip. Each sits centered in a box of one size, so marks line
- * up down a list whichever kind they are.
+ * What a list shows of an agent: a yellow dot when it waits on you, whatever
+ * for, a spinner while it works, assuming or not, a blue dot when it answered
+ * and you have not looked since, and a green or red dot once its task merged
+ * or was removed, over the blue one. Anything else, idle and read, shows an
+ * empty space. A report in its last word decides the mark over a wait it
+ * ended, though not over a live ask or a failure, which are newer. What it
+ * waits on is in its tooltip. Each sits centered in a box of one size, so
+ * marks line up down a list whichever kind they are.
  */
 export function Mark({
 	need,
@@ -1364,35 +1363,22 @@ export function Mark({
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");
 	if (reported === "merged" && shows) {
-		return (
-			<CircleCheckIcon
-				role="img"
-				aria-label="merged"
-				className="size-3.5 shrink-0 text-success"
-			/>
-		);
+		return <Dot role="img" aria-label="merged" color="bg-success" />;
+	}
+	if (reported === "removed" && shows) {
+		return <Dot role="img" aria-label="removed" color="bg-destructive" />;
 	}
 	if (unread && need.kind === "idle" && reported !== "escalated") {
-		return (
-			<span
-				role="status"
-				aria-label="unread"
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<span className="size-2 rounded-full bg-info" />
-			</span>
-		);
+		return <Dot role="status" aria-label="unread" color="bg-info" />;
 	}
 	if (need.kind === "waiting" || (reported === "escalated" && shows)) {
 		return (
-			<span
+			<Dot
 				role="status"
 				aria-label="waiting on you"
 				title={need.kind === "waiting" ? need.subject : undefined}
-				className="flex size-3.5 shrink-0 items-center justify-center"
-			>
-				<CircleAlertIcon className="size-3.5 text-warning" />
-			</span>
+				color="bg-warning"
+			/>
 		);
 	}
 	if (need.kind === "idle") {
