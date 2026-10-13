@@ -560,6 +560,11 @@ export function ConversationList({
 							need={row.need}
 							current={row.conversation.id === open}
 							onOpen={() => openRow(row)}
+							onLeft={
+								row.conversation.id === open
+									? () => goOn(rows, drafts, open, onOpen)
+									: undefined
+							}
 							hint={held ? hintOf(shown, row) : null}
 						/>
 					) : (
@@ -788,6 +793,25 @@ function nextWaiting(
 		return waiting;
 	}
 	return around.find(wasMerged) ?? around.find(isUnread);
+}
+
+/**
+ * Once the conversation `open` shows is archived, on to the next agent
+ * waiting on you, or a new conversation with none.
+ */
+function goOn(
+	rows: Needing[],
+	drafts: Drafts,
+	open: string | null,
+	onOpen: (id: string) => void,
+): void {
+	const waiting = nextWaiting(rows, drafts, open);
+	if (waiting === undefined || openedBy(waiting) === open) {
+		onOpen(NEW);
+	} else {
+		arriveAt(openedBy(waiting));
+		onOpen(openedBy(waiting));
+	}
 }
 
 /** Whether `row` shows as merged in the sidebar. */
@@ -1044,6 +1068,7 @@ function Item({
 	need,
 	current,
 	onOpen,
+	onLeft,
 	where = false,
 	hint = null,
 }: {
@@ -1052,6 +1077,8 @@ function Item({
 	need: Need;
 	current: boolean;
 	onOpen: () => void;
+	/** Once archived, to go on from it, as for the one open. */
+	onLeft?: () => void;
 	/** Whether to say where it ran, rather than only on hover. */
 	where?: boolean;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
@@ -1191,7 +1218,9 @@ function Item({
 								Mark as unread
 							</DropdownMenuItem>
 						)}
-						<DropdownMenuItem onClick={() => file()}>
+						<DropdownMenuItem
+							onClick={() => file(archived ? undefined : onLeft)}
+						>
 							<Put />
 							{put}
 						</DropdownMenuItem>
@@ -1201,7 +1230,7 @@ function Item({
 					size="icon-xs"
 					variant="ghost"
 					aria-label={`${put} ${nameOf(conversation)}`}
-					onClick={() => file()}
+					onClick={() => file(archived ? undefined : onLeft)}
 				>
 					<Put />
 				</Button>
@@ -1586,20 +1615,9 @@ export function Conversations({
 						trunk={trunk}
 						refusal={refusals.get(shown.id) ?? null}
 						refuseIn={refuse}
-						onArchived={() => onOpen(NEW)}
-						onLeft={() => {
-							const waiting = nextWaiting(
-								rowsOf(tasks, conversations),
-								drafts,
-								open,
-							);
-							if (waiting === undefined || openedBy(waiting) === open) {
-								onOpen(NEW);
-							} else {
-								arriveAt(openedBy(waiting));
-								onOpen(openedBy(waiting));
-							}
-						}}
+						onLeft={() =>
+							goOn(rowsOf(tasks, conversations), drafts, open, onOpen)
+						}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}
 					/>
@@ -2306,7 +2324,6 @@ function Thread({
 	trunk,
 	refusal,
 	refuseIn,
-	onArchived,
 	onLeft,
 	onOpen,
 	onBack,
@@ -2332,11 +2349,9 @@ function Thread({
 	/** A write to it the server refused, said above the composer for a moment. */
 	refusal: string | null;
 	refuseIn: (id: string, title: string, error: unknown) => void;
-	/** Once a report card has archived it, to start the next. */
-	onArchived: () => void;
 	/**
-	 * Once ⌥⌘⌫ has archived it, to go on to the next agent waiting on you, or
-	 * a new conversation with none.
+	 * Once it is archived, to go on to the next agent waiting on you, or a new
+	 * conversation with none.
 	 */
 	onLeft: () => void;
 	onOpen: (id: string) => void;
@@ -2543,7 +2558,7 @@ function Thread({
 			label: archived ? "Unarchive" : "Archive",
 			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
 			detail: archived ? undefined : <Kbd>{ARCHIVE}</Kbd>,
-			run: () => archive.file(),
+			run: () => archive.file(archived ? undefined : onLeft),
 		},
 	];
 	const systems = useSystems(conversation.task, tasks);
@@ -2554,7 +2569,7 @@ function Thread({
 		systems,
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
-	// Archived, on to the next. Already archived, the key does nothing.
+	// Already archived, the key does nothing.
 	const fileByKey = () => {
 		if (!archived) {
 			archive.file(onLeft);
@@ -2579,14 +2594,13 @@ function Thread({
 		return () => document.removeEventListener("keydown", file);
 	}, []);
 	// The latest, so the card's callback stays the same across renders.
-	const onArchivedRef = useRef(onArchived);
-	onArchivedRef.current = onArchived;
+	const onLeftRef = useRef(onLeft);
+	onLeftRef.current = onLeft;
 	const filing = useMemo(
 		() => ({
 			archived,
-			// With the agent, model, and settings the last one started with.
 			archive: () =>
-				archiveConversation(id, true).then(() => onArchivedRef.current()),
+				archiveConversation(id, true).then(() => onLeftRef.current()),
 		}),
 		[id, archived],
 	);

@@ -1488,7 +1488,7 @@ describe("App's conversations", () => {
 			expect(card.querySelector("strong")?.textContent).toBe("wraps");
 		});
 
-		it("offers to archive the conversation from each report of a task that is over, then starts the next", async () => {
+		it("offers to archive the conversation from each report of a task that is over, then goes on to a new one with none waiting", async () => {
 			const view = await testing.openConversations([
 				conversation({
 					messages: [

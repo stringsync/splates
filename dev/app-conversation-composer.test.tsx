@@ -314,7 +314,9 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 				{ method: "PUT", body: { archived: true } },
 			]);
-			expect(textIn(box)).toBe("");
+			// Archived, it goes on to a new conversation, leaving no draft behind.
+			await waitFor(() => expect(location.hash).toBe("#conversations/new"));
+			expect(localStorage.getItem("arbor.draft.c1") ?? "").toBe("");
 		});
 	});
 

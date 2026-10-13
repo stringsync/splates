@@ -637,6 +637,58 @@ describe("App's conversations", () => {
 		expect(view.getByRole("heading", { name: "Broke" })).toBeTruthy();
 	});
 
+	it("goes on to the next agent waiting on you from the actions' Archive, and from the open row's in the list", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Done", status: "stopped" }),
+			conversation({ id: "c2", title: "Broke", status: "failed" }),
+			conversation({ id: "c3", title: "Asks", status: "failed" }),
+		]);
+		expect(location.hash).toBe("#conversations/c1");
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: /^Archive/ },
+				),
+			),
+		);
+		await waitFor(() => expect(location.hash).toBe("#conversations/c2"));
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive Broke" }),
+			),
+		);
+		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+		await waitFor(() => expect(location.hash).toBe("#conversations/c3"));
+	});
+
+	it("stays on the open conversation when the list archives another", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Done", status: "stopped" }),
+			conversation({ id: "c2", title: "Broke", status: "failed" }),
+		]);
+		expect(location.hash).toBe("#conversations/c1");
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive Broke" }),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+		expect(location.hash).toBe("#conversations/c1");
+	});
+
 	it("archives the open conversation on ⌥⌘⌫ to a new one with none waiting, asking first while its agent runs", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Fix login", status: "running" }),
