@@ -53,6 +53,40 @@ describe("loadConfig", () => {
 		expect(config.leaseStalenessMs).toBe(90_000);
 	});
 
+	it("names no systems until arbor.config.ts names some", async () => {
+		const config = await loadConfig(root, { fs, git });
+
+		expect(config.systems).toEqual({});
+	});
+
+	it("refuses a system not in the shape a system takes", async () => {
+		await fs.write(
+			join(root, "arbor.config.ts"),
+			`export default { systems: { playback: { globs: "src/audio/**" } } };\n`,
+		);
+
+		const failure = await loadConfig(root, { fs, git }).catch(
+			(entry: Error) => entry,
+		);
+
+		expect((failure as Error).message).toContain("systems.playback.globs");
+	});
+
+	it("refuses two systems that answer to the same name", async () => {
+		await fs.write(
+			join(root, "arbor.config.ts"),
+			`export default { systems: { playback: { globs: ["a/**"], aliases: ["mixer"] }, mixer: { globs: ["b/**"] } } };\n`,
+		);
+
+		const failure = await loadConfig(root, { fs, git }).catch(
+			(entry: Error) => entry,
+		);
+
+		expect((failure as Error).message).toContain(
+			"'playback' and 'mixer' both answer to 'mixer'",
+		);
+	});
+
 	it("falls back to main when the repo has no origin/HEAD", async () => {
 		const config = await loadConfig(root, { fs, git });
 

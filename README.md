@@ -252,6 +252,23 @@ and anything off is printed under it.
 Warnings only, never a refusal: the agent that wrote the file is the one that
 runs `show` on it, and a rough plan still beats none.
 
+### `arbor systems [name] [--task <task>] [--json]`
+
+The systems `arbor.config.ts` names (see Configuration): every one, one by its
+name or an alias, or with `--task` only those the task's changed files
+(committed or not, the set `list --files` shows) fall in.
+
+```
+playback (player, audio engine)
+  globs   packages/player/**, src/audio/**
+  ignore  packages/player/**/*.test.ts
+```
+
+It reads the config in the current task's worktree, or `--task`'s, rather than
+trunk's, so a system named during a task counts there at once. The file is
+read afresh whenever it changes, so a long-running `arbor dev` needs no restart
+to see one.
+
 ### `arbor wait <task> [--timeout-secs 900]`
 
 Blocks until a task stops moving, then prints where it stopped.
@@ -748,6 +765,13 @@ export default defineConfig({
 	logCapacity: 1000,              // entries `arbor log` keeps before the oldest fall off
 	todoStalenessMs: 2_592_000_000, // 30 days: past this, merge offers a todo for removal
 	attachmentCapacity: 104_857_600, // 100 MB: what `arbor attach` lets one task hold
+	systems: {
+		playback: {
+			aliases: ["player", "audio engine"],
+			globs: ["packages/player/**", "src/audio/**"],
+			ignore: ["packages/player/**/*.test.ts"],
+		},
+	},
 });
 ```
 
@@ -770,6 +794,12 @@ whether it has tests at all. Configure `preMerge` and a nonzero exit rolls the
 branch back and spends an attempt, leaving the base untouched; `postRewrite`
 fails the same gate the same way. Configure neither and a task lands on a clean
 rebase alone.
+
+`systems` names parts of the code, so people and agents can call each one
+thing: a system is the files its `globs` match, less those its `ignore`
+matches, and answers to its name and its `aliases`, no two systems sharing one.
+Name them a few at a time as they come up; none at all is the usual start.
+`arbor systems` prints them.
 
 arbor does not allocate ports. Several worktrees running at once will collide on
 whatever they bind, and the thing that binds (docker-compose, a dev server, a

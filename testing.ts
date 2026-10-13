@@ -72,6 +72,7 @@ export class Testing implements AsyncDisposable {
 			logCapacity: 200,
 			todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 			attachmentCapacity: 100 * 1024 * 1024,
+			systems: {},
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
 		this.service = new WorktreeService(this.git, this.config, this.arborDir, {

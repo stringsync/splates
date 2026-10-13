@@ -32,6 +32,7 @@ import {
 } from "./roster";
 import { show } from "./show";
 import { SERVING, supervise } from "./supervise";
+import { systems } from "./system";
 import {
 	todoAdd,
 	todoList,
@@ -212,6 +213,28 @@ arbor
 			"add each task's Goal and changed files (committed or not), to check for overlap before starting",
 	})
 	.action((opts, ctx) => list(ctx, { json: opts.json, files: opts.files }));
+
+arbor
+	.command("systems")
+	.use(repository())
+	.description(
+		"print the systems arbor.config.ts names, the parts of the code each name stands for: every one, one by its name or an alias, or with --task those a task's changed files (committed or not) fall in; read from the current task's worktree, or --task's, so one named during a task counts at once",
+	)
+	.arg("name", z.optional(z.string()), {
+		description: "a system to print alone, by its name or an alias",
+	})
+	.option("task", z.optional(z.string()), {
+		description: "print only the systems this task touches",
+	})
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action(async (opts, ctx) =>
+		systems(ctx, {
+			name: opts.name,
+			task: opts.task,
+			here: await here(ctx),
+			json: opts.json,
+		}),
+	);
 
 arbor
 	.command("show")
