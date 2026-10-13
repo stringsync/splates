@@ -6,7 +6,7 @@ import { EXIT, exits, fail } from "./exit";
 
 it("keeps the exit codes stable", () => {
 	// pinned: these codes are arbor's API and an agent branches on them, so a
-	// renumbering has to be deliberate, and README.md's table has one source
+	// renumbering has to be deliberate
 	expect(EXIT).toEqual({
 		usage: 1,
 		conflict: 2,

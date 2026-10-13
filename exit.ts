@@ -2,8 +2,7 @@ import type { Deps, Middleware } from "webappwiz/cmd";
 
 /** Exit codes are the API: an agent branches on these, not on prose. */
 export const EXIT = {
-	// Stable by contract: keep them as they are, and keep README.md's table in
-	// sync.
+	// Stable by contract: keep them as they are.
 	usage: 1,
 	conflict: 2,
 	tests_failed: 3,
