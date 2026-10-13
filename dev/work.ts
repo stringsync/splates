@@ -339,26 +339,11 @@ export function warning(flag: Flag): string {
 	}
 }
 
-/**
- * The finished row's line: "Worked 3m 12s · 6 actions (1 failed)". A
- * subagent is one action, whatever it did under it.
- */
+/** The finished row's line: "Worked 3m 12s". */
 export function worked(work: Work): string {
-	const actions = timeline(work).flatMap((item) =>
-		item.type === "command" ? item.runs : "tool" in item ? [item.tool] : [],
-	);
-	const failed = actions.filter((tool) => tool.status === "failed").length;
-	const took =
-		work.at === null || work.until === null
-			? "Worked"
-			: `Worked ${span(work.at, work.until)}`;
-	return [
-		took,
-		actions.length > 0 &&
-			`${count(actions.length, "action")}${failed > 0 ? ` (${failed} failed)` : ""}`,
-	]
-		.filter(Boolean)
-		.join(" · ");
+	return work.at === null || work.until === null
+		? "Worked"
+		: `Worked ${span(work.at, work.until)}`;
 }
 
 /** How long from `from` to `to`, to the second: "41s", "2m 14s", "1h 3m". */

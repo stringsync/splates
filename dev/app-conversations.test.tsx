@@ -2822,9 +2822,7 @@ describe("App's conversations", () => {
 			);
 
 			await waitFor(() =>
-				expect(
-					within(thread).getByText("Worked 58s · 5 actions (1 failed)").tagName,
-				).toBe("SPAN"),
+				expect(within(thread).getByText("Worked 58s").tagName).toBe("SPAN"),
 			);
 			expect(within(thread).getByText("Worked 2s")).toBeTruthy();
 			expect(thread.textContent).toContain("All tests pass.");
