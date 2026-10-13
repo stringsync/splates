@@ -4,13 +4,24 @@ import { Position } from "webappwiz/geometry";
 
 /**
  * One mark: a box between two corners, an arrow from its tail to its head, or
- * a pin at `from`. Its number is its place in the list.
+ * a pin at `from`. Its number is its place in the list, shown at `label` once
+ * the person drags it there, and otherwise just off the mark.
  */
 export interface Mark {
 	kind: "box" | "arrow" | "pin";
 	from: Position;
 	to: Position;
 	note: string;
+	label?: Position;
+}
+
+/** A press on a mark's number or note, which drags them rather than drawing. */
+interface Hold {
+	at: number;
+	from: Position;
+	/** From the press to the number, so the number keeps its place under it. */
+	offset: Position;
+	moved: boolean;
 }
 
 /** What a drag draws; a click pins whatever the tool. */
@@ -38,6 +49,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	selected: number | null = null;
 	/** The mark being dragged out, not yet among `marks`. */
 	draft: Mark | null = null;
+	private held: Hold | null = null;
 
 	constructor(
 		/** The image as the person attached it, which the marks go over. */
@@ -102,26 +114,36 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	}
 
 	/**
-	 * Where mark `at`'s number sits: on a box's top left corner, an arrow's
-	 * tail, or just above a pin's spot, never off the image.
+	 * Where mark `at`'s number sits: where the person dragged it, or else
+	 * outside a box by its top corner on the side with more room, behind an
+	 * arrow's tail, or just above a pin's spot, never off the image.
 	 */
 	anchor(at: number): Position {
 		const mark = this.marks[at];
 		if (mark === undefined) {
 			return Position.origin();
 		}
-		const { from, to } = mark;
-		const spot =
-			mark.kind === "box"
-				? new Position(Math.min(from.x, to.x), Math.min(from.y, to.y))
-				: mark.kind === "pin"
-					? from.translate(0, -this.badge * 1.8)
-					: from;
-		const edge = this.badge + this.stroke;
-		return new Position(
-			Math.min(Math.max(spot.x, edge), this.width - edge),
-			Math.min(Math.max(spot.y, edge), this.height - edge),
-		);
+		return this.onImage(mark.label ?? this.spot(mark));
+	}
+
+	/**
+	 * Which side of mark `at`'s number its note goes: away from the mark, so
+	 * it covers none of it, unless the image all but ends that way.
+	 */
+	side(at: number): "left" | "right" {
+		const mark = this.marks[at];
+		if (mark === undefined) {
+			return "right";
+		}
+		const { x } = this.anchor(at);
+		const middle = (mark.from.x + mark.to.x) / 2;
+		const away =
+			x < middle || (x === middle && x > this.width * 0.6) ? "left" : "right";
+		const room = away === "left" ? x : this.width - x;
+		if (room < this.width / 4 && room < this.width - room) {
+			return away === "left" ? "right" : "left";
+		}
+		return away;
 	}
 
 	use(tool: Tool): void {
@@ -150,11 +172,27 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		return null;
 	}
 
+	/** The mark whose number is under `point`, or within `slop` pixels of it. */
+	labelAt(point: Position, slop = 0): number | null {
+		for (let at = this.marks.length - 1; at >= 0; at--) {
+			if (distance(point, this.anchor(at)) <= this.badge + slop) {
+				return at;
+			}
+		}
+		return null;
+	}
+
 	/**
-	 * A press at `point`: on a mark, by its number or its line within `slop`
-	 * pixels, opens its note; anywhere else, starts a new mark there.
+	 * A press at `point`: on a mark's number, within `slop` pixels, holds it
+	 * to drag; on its line, opens its note; anywhere else, starts a new mark
+	 * there.
 	 */
 	press(point: Position, slop = 0): void {
+		const label = this.labelAt(point, slop);
+		if (label !== null) {
+			this.hold(label, point);
+			return;
+		}
 		const hit = this.markAt(point, slop);
 		if (hit !== null) {
 			this.set({ selected: hit, draft: null });
@@ -166,7 +204,30 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		});
 	}
 
+	/**
+	 * A press at `point` on mark `at`'s number or note: dragged, it moves them
+	 * and leaves the mark where it is; let go where it was, it opens the note.
+	 */
+	hold(at: number, point: Position): void {
+		this.held = {
+			at,
+			from: point,
+			offset: this.anchor(at).relativeTo(point),
+			moved: false,
+		};
+		this.set({ draft: null });
+	}
+
 	move(point: Position): void {
+		const held = this.held;
+		if (held !== null) {
+			// A press that wobbles a little is still a click.
+			if (held.moved || distance(held.from, point) > this.stroke) {
+				held.moved = true;
+				this.place(held.at, point.translate(held.offset.x, held.offset.y));
+			}
+			return;
+		}
 		if (this.draft !== null) {
 			this.set({ draft: { ...this.draft, to: point } });
 		}
@@ -177,6 +238,14 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	 * when it barely moved.
 	 */
 	release(): void {
+		const held = this.held;
+		if (held !== null) {
+			this.held = null;
+			if (!held.moved) {
+				this.select(held.at);
+			}
+			return;
+		}
 		const draft = this.draft;
 		if (draft === null) {
 			return;
@@ -188,6 +257,15 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 			marks: [...this.marks, mark],
 			selected: this.marks.length,
 			draft: null,
+		});
+	}
+
+	/** Moves mark `at`'s number, and its note with it, to `label`. */
+	place(at: number, label: Position): void {
+		this.set({
+			marks: this.marks.map((mark, each) =>
+				each === at ? { ...mark, label: this.onImage(label) } : mark,
+			),
 		});
 	}
 
@@ -272,35 +350,50 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		this.image.close();
 	}
 
+	/** Where `mark`'s number goes until the person drags it somewhere. */
+	private spot(mark: Mark): Position {
+		const { from, to } = mark;
+		const off = this.badge + this.stroke * 2;
+		if (mark.kind === "pin") {
+			return from.translate(0, -this.badge * 1.8);
+		}
+		if (mark.kind === "arrow") {
+			const length = distance(from, to) || 1;
+			return from.translate(
+				((from.x - to.x) / length) * off,
+				((from.y - to.y) / length) * off,
+			);
+		}
+		const left = Math.min(from.x, to.x);
+		const right = Math.max(from.x, to.x);
+		const top = Math.min(from.y, to.y) + this.badge;
+		return left >= this.width - right
+			? new Position(left - off, top)
+			: new Position(right + off, top);
+	}
+
+	/** `spot`, moved in just far enough that a number there shows whole. */
+	private onImage(spot: Position): Position {
+		const edge = this.badge + this.stroke;
+		return new Position(
+			Math.min(Math.max(spot.x, edge), this.width - edge),
+			Math.min(Math.max(spot.y, edge), this.height - edge),
+		);
+	}
+
 	/** The straight pieces mark `at`'s line is made of, to find it by. */
 	private segments(at: number): [Position, Position][] {
 		const mark = this.marks[at];
 		if (mark === undefined) {
 			return [];
 		}
-		const { from, to } = mark;
-		if (mark.kind === "arrow") {
-			return [[from, to]];
-		}
-		if (mark.kind === "pin") {
-			return [[this.anchor(at), from]];
-		}
-		const corners = [
-			from,
-			new Position(to.x, from.y),
-			to,
-			new Position(from.x, to.y),
-		];
-		return corners.map((corner, each) => [
-			corner,
-			corners[(each + 1) % 4] as Position,
-		]);
+		return mark.kind === "pin" ? [[this.anchor(at), mark.from]] : outline(mark);
 	}
 
 	/**
 	 * Mark `at`'s line: a box's edges, an arrow, or the stem from a pin's
-	 * number down to a ring on its spot. A dark shadow, then a white halo, then the ink:
-	 * it reads on any background, light, dark or busy.
+	 * number down to a ring on its spot. A dark shadow, then a white halo,
+	 * then the ink: it reads on any background, light, dark or busy.
 	 */
 	private line(
 		context: CanvasRenderingContext2D,
@@ -386,6 +479,24 @@ function numbered(marks: readonly Mark[]): string[] {
 
 function distance(start: Position, end: Position): number {
 	return Math.hypot(end.x - start.x, end.y - start.y);
+}
+
+/** The straight pieces a box's edges or an arrow's shaft are made of. */
+function outline(mark: Mark): [Position, Position][] {
+	const { from, to } = mark;
+	if (mark.kind !== "box") {
+		return [[from, to]];
+	}
+	const corners = [
+		from,
+		new Position(to.x, from.y),
+		to,
+		new Position(from.x, to.y),
+	];
+	return corners.map((corner, each) => [
+		corner,
+		corners[(each + 1) % 4] as Position,
+	]);
 }
 
 /** How far `point` is from the nearest spot on the line from `start` to `end`. */

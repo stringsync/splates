@@ -7,6 +7,7 @@ import {
 	Undo2Icon,
 } from "lucide-react";
 import {
+	type DOMAttributes,
 	type JSX,
 	type KeyboardEvent,
 	type PointerEvent,
@@ -175,6 +176,19 @@ function Board({
 		const width = canvas.current?.getBoundingClientRect().width ?? 0;
 		return width === 0 ? 0 : (SLOP * annotation.width) / width;
 	};
+	/** What drags mark `each`'s note card, and its number with it. */
+	const grip = (each: number): Grip => ({
+		onPointerDown: (event) => {
+			if (event.button !== 0) {
+				return;
+			}
+			event.currentTarget.setPointerCapture(event.pointerId);
+			annotation.hold(each, at(event));
+		},
+		onPointerMove: (event) => annotation.move(at(event)),
+		onPointerUp: () => annotation.release(),
+		onPointerCancel: () => annotation.release(),
+	});
 	const onKeyDown = (event: KeyboardEvent) => {
 		if (event.target instanceof HTMLInputElement) {
 			return;
@@ -283,11 +297,16 @@ function Board({
 						}}
 						onPointerMove={(event) => {
 							annotation.move(at(event));
-							// Over a mark, a press picks it rather than drawing.
+							// Over a number, a press drags it; over a line, picks its mark.
+							const point = at(event);
 							event.currentTarget.style.cursor =
-								draft === null && annotation.markAt(at(event), slop()) !== null
-									? "pointer"
-									: "";
+								draft !== null
+									? ""
+									: annotation.labelAt(point, slop()) !== null
+										? "grab"
+										: annotation.markAt(point, slop()) !== null
+											? "pointer"
+											: "";
 						}}
 						onPointerUp={() => annotation.release()}
 						onPointerCancel={() => annotation.release()}
@@ -298,12 +317,14 @@ function Board({
 								key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
 								annotation={annotation}
 								at={each}
+								grip={grip(each)}
 							/>
 						) : mark.note.trim() !== "" ? (
 							<Label
 								key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
 								annotation={annotation}
 								at={each}
+								grip={grip(each)}
 							/>
 						) : null,
 					)}
@@ -313,19 +334,32 @@ function Board({
 	);
 }
 
-/** Mark `at`'s note being written, beside its number. */
+/** The pointer handlers that drag a note card. */
+type Grip = Pick<
+	DOMAttributes<HTMLElement>,
+	"onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel"
+>;
+
+/** Mark `at`'s note being written, beside its number, which drags it. */
 function Note({
 	annotation,
 	at,
+	grip,
 }: {
 	annotation: Annotation;
 	at: number;
+	grip: Grip;
 }): JSX.Element {
 	const note = useReactive(annotation, (each) => each.marks[at]?.note ?? "", [
 		"changed",
 	]);
 	return (
-		<Beside annotation={annotation} at={at} className="w-72 ring-2">
+		<Beside
+			annotation={annotation}
+			at={at}
+			className="w-72 ring-2"
+			numberProps={grip}
+		>
 			<input
 				// biome-ignore lint/a11y/noAutofocus: a mark just drawn is there to be written about
 				autoFocus
@@ -358,22 +392,38 @@ function Note({
 	);
 }
 
-/** Mark `at`'s note as written, beside its number; a click opens it again. */
+/**
+ * Mark `at`'s note as written, beside its number: a drag moves it, a click
+ * opens it again.
+ */
 function Label({
 	annotation,
 	at,
+	grip,
 }: {
 	annotation: Annotation;
 	at: number;
+	grip: Grip;
 }): JSX.Element {
 	const note = annotation.marks[at]?.note.trim() ?? "";
 	return (
-		<Beside annotation={annotation} at={at} className="max-w-60 ring-1">
+		<Beside
+			annotation={annotation}
+			at={at}
+			className="max-w-60 cursor-grab touch-none ring-1"
+			{...grip}
+		>
 			<button
 				type="button"
 				aria-label={`edit note on mark ${at + 1}: ${note}`}
-				onClick={() => annotation.select(at)}
-				className="line-clamp-3 min-w-0 cursor-pointer px-1 text-left text-black text-sm"
+				// The pointer opens it on letting go of a press that never
+				// moved; this is the keyboard's click, which has no press.
+				onClick={(event) => {
+					if (event.detail === 0) {
+						annotation.select(at);
+					}
+				}}
+				className="line-clamp-3 min-w-0 cursor-grab px-1 text-left text-black text-sm"
 			>
 				{note}
 			</button>
@@ -382,18 +432,22 @@ function Label({
 }
 
 /**
- * A card beside mark `at`'s number, led by that number, on whichever side of
- * it has room.
+ * A card beside mark `at`'s number, led by that number, on the side of it
+ * away from the mark.
  */
 function Beside({
 	annotation,
 	at,
 	className,
+	numberProps,
 	children,
-}: {
+	...grip
+}: Grip & {
 	annotation: Annotation;
 	at: number;
 	className: string;
+	/** What the number leading the card does, such as drag it. */
+	numberProps?: Grip;
 	children: ReactNode;
 }): JSX.Element {
 	const anchor = annotation.anchor(at);
@@ -407,12 +461,19 @@ function Beside({
 			)}
 			style={{
 				top: `${(anchor.y / annotation.height) * 100}%`,
-				...(left < 0.6
+				...(annotation.side(at) === "right"
 					? { left: `calc(${left * 100}% + ${gap})` }
 					: { right: `calc(${(1 - left) * 100}% + ${gap})` }),
 			}}
+			{...grip}
 		>
-			<span className="flex size-6 shrink-0 items-center justify-center self-start rounded-full bg-[#ff1f8f] font-bold text-white text-xs">
+			<span
+				{...numberProps}
+				className={cn(
+					"flex size-6 shrink-0 items-center justify-center self-start rounded-full bg-[#ff1f8f] font-bold text-white text-xs",
+					numberProps !== undefined && "cursor-grab touch-none",
+				)}
+			>
 				{at + 1}
 			</span>
 			{children}
