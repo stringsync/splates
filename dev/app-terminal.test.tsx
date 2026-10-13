@@ -153,7 +153,9 @@ describe("App's terminal", () => {
 		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
 		expect(shell?.sent).toEqual([sized]);
 		expect(shell?.readyState).toBe(1);
-		expect(document.activeElement?.tagName).toBe("TEXTAREA");
+		expect(document.activeElement?.getAttribute("aria-label")).toBe(
+			"Message input",
+		);
 
 		await press(TOGGLE);
 

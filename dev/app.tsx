@@ -38,6 +38,7 @@ import { AutoRestartDialog } from "./auto-restart-dialog";
 import { BackgroundPane, WatchBackground } from "./background";
 import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
 import { CheckpointProvider, CheckpointRefusal } from "./checkpoint";
+import { focusComposer } from "./composer-editor";
 import { ConversationFeed } from "./conversation-feed";
 import {
 	ConversationList,
@@ -63,12 +64,7 @@ import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { SidebarHandle, SidebarWidth } from "./sidebar";
 import { Tasks } from "./tasks";
-import {
-	focusComposer,
-	ShellRunning,
-	TerminalPane,
-	ToggleTerminal,
-} from "./terminal";
+import { ShellRunning, TerminalPane, ToggleTerminal } from "./terminal";
 import { isToggle } from "./terminal-session";
 import { Terminals } from "./terminals";
 import { Todos } from "./todos";

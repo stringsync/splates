@@ -1,6 +1,6 @@
 import { createContext, type JSX, use } from "react";
 import type { NamedSystem } from "../systems";
-import { FileChip } from "./file-chip";
+import { distinctNames, FileChip } from "./file-chip";
 import { outsideCode } from "./markdown";
 import { SystemChip } from "./systems";
 
@@ -14,22 +14,25 @@ export interface Named {
 	paths: ReadonlySet<string>;
 	/** The tree's absolute path; null until it is known. */
 	tree: string | null;
+	/** Whether the paths and the systems are still on their way. */
+	resolving: { paths: boolean; systems: boolean };
 }
 
 export const NamedContext = createContext<Named>({
 	systems: [],
 	paths: new Set(),
 	tree: null,
+	resolving: { paths: false, systems: false },
 });
 
 /** A `#` or `@` at the start or after a space, and what follows it. */
-const NAMING = /(^|\s)([#@])([^\s#@]+)/g;
+export const NAMING = /(^|\s)([#@])([^\s#@]+)/g;
 
 /** What a sentence may put after a mention, which is not part of it. */
 const TRAILING = /[.,;:!?)\]'"]+$/;
 
 /** Where a link written by `linkNamed` points, read back by `namedIn`. */
-const NAMED_LINK = /^#(system|file)=(.+)$/;
+const NAMED_LINK = /^#(system|file)=([^&]+)(?:&name=(.+))?$/;
 
 /**
  * `text` with each `#name` naming one of `named`'s systems, by its name or an
@@ -37,50 +40,102 @@ const NAMED_LINK = /^#(system|file)=(.+)$/;
  * code, made a link that `namedIn` reads back. A mention that names nothing,
  * such as `#12` or a path not in the tree, is left alone.
  */
-export function linkNamed(text: string, named: Named): string {
+export function linkNamed(
+	text: string,
+	named: Pick<Named, "systems" | "paths">,
+): string {
+	const names = distinctNames(filesIn(text, named));
 	return outsideCode(text, (prose) =>
 		prose.replace(NAMING, (whole, before: string, sign: string, called) => {
-			// The longest reading that names something: as typed, or less what a
-			// sentence put after it.
-			for (const each of new Set([called, called.replace(TRAILING, "")])) {
-				const target =
-					sign === "#"
-						? systemCalled(named.systems, each)?.name
-						: pathCalled(named.paths, each);
-				if (target !== undefined) {
-					const kind = sign === "#" ? "system" : "file";
-					const label = `${sign}${each}`.replace(/[[\]\\]/g, "\\$&");
-					return `${before}[${label}](#${kind}=${encode(target)})${called.slice(each.length)}`;
-				}
+			const found = reading(named, sign, called);
+			if (found === undefined) {
+				return whole;
 			}
-			return whole;
+			const label = `${sign}${found.as}`.replace(/[[\]\\]/g, "\\$&");
+			const href =
+				sign === "#"
+					? `#system=${encode(found.target)}`
+					: `#file=${encode(found.target)}&name=${encode(names.get(found.target) ?? "")}`;
+			return `${before}[${label}](${href})${called.slice(found.as.length)}`;
 		}),
 	);
+}
+
+/** The files and directories the `@` mentions in `text` name, outside code. */
+export function filesIn(
+	text: string,
+	named: Pick<Named, "systems" | "paths">,
+): string[] {
+	const found: string[] = [];
+	outsideCode(text, (prose) => {
+		for (const [, , sign, called = ""] of prose.matchAll(NAMING)) {
+			const target =
+				sign === "@" ? reading(named, sign, called)?.target : undefined;
+			if (target !== undefined) {
+				found.push(target);
+			}
+		}
+		return prose;
+	});
+	return found;
+}
+
+/**
+ * The longest reading of `called`, after a `#` or `@` `sign`, that names one
+ * of `named`'s systems or paths: as typed, or less what a sentence put after
+ * it. With the system's name, or the path as `@` lists it.
+ */
+export function reading(
+	named: Pick<Named, "systems" | "paths">,
+	sign: string,
+	called: string,
+): { as: string; target: string } | undefined {
+	for (const as of new Set([called, untrailed(called)])) {
+		const target =
+			sign === "#"
+				? systemCalled(named.systems, as)?.name
+				: pathCalled(named.paths, as);
+		if (target !== undefined) {
+			return { as, target };
+		}
+	}
+	return undefined;
+}
+
+/** `called` less what a sentence may put after a mention. */
+export function untrailed(called: string): string {
+	return called.replace(TRAILING, "");
 }
 
 /** The system or file a link written by `linkNamed` names, or null for another. */
 export function namedIn(
 	href: string | undefined,
-): { system: string } | { file: string } | null {
+): { system: string } | { file: string; name?: string } | null {
 	const link = NAMED_LINK.exec(href ?? "");
 	if (link === null) {
 		return null;
 	}
 	const target = decodeURIComponent(link[2] ?? "");
-	return link[1] === "system" ? { system: target } : { file: target };
+	if (link[1] === "system") {
+		return { system: target };
+	}
+	return link[3] === undefined
+		? { file: target }
+		: { file: target, name: decodeURIComponent(link[3]) };
 }
 
 /** A mention `linkNamed` linked, as its chip. */
 export function NamedChip({
 	named,
 }: {
-	named: { system: string } | { file: string };
+	named: { system: string } | { file: string; name?: string | undefined };
 }): JSX.Element {
 	const { systems, tree } = use(NamedContext);
 	if ("file" in named) {
 		return (
 			<FileChip
 				path={tree === null ? named.file : `${tree}/${named.file}`}
+				name={named.name}
 				className="inline-flex align-middle"
 			/>
 		);

@@ -118,22 +118,17 @@ import { BackgroundMenu, BackgroundRow } from "./background";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
 import { ReviewChanges } from "./changes";
+import { composerIn, focusComposer } from "./composer-editor";
 import {
 	type AgentChoice,
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
 import { DemoUI } from "./demo-cards";
-import {
-	DIRECTIVE_TYPE,
-	DirectiveChip,
-	directivesOf,
-	liftDirectives,
-	withDirectives,
-} from "./directives";
+import { DirectiveChip } from "./directives";
 import { Trunk, whereRuns } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
-import { NamedContext } from "./mentioned";
+import { type Named, NamedContext } from "./mentioned";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
 import { type Nested, nest } from "./parts";
@@ -504,11 +499,10 @@ export function ConversationList({
 								return true;
 							}
 							picked.current = false;
-							return (
-								document.querySelector<HTMLTextAreaElement>(
-									'section[aria-label="new conversation"] textarea[aria-label="Message input"]',
-								) ?? true
+							const section = document.querySelector(
+								'section[aria-label="new conversation"]',
 							);
+							return (section === null ? null : composerIn(section)) ?? true;
 						}}
 					>
 						{agents.map((each) => (
@@ -1766,9 +1760,17 @@ function Home({
 		drafts,
 		newDraft(new URLSearchParams(location.search).get("project"), task),
 	);
-	const { adapter: mentions } = useFileMentions(task);
+	const { adapter: mentions, paths } = useFileMentions(task);
 	const systems = useSystems(task, tasks);
-	const references = useReferences(runtime.thread.composer, tasks, [], systems);
+	const references = useReferences(tasks, [], systems ?? undefined);
+	const root = useContext(TreesContext)?.root ?? null;
+	const named = useNamed(
+		paths,
+		systems,
+		task === null
+			? root
+			: (tasks.find((each) => each.task === task)?.worktree ?? null),
+	);
 
 	return (
 		<section
@@ -1786,63 +1788,65 @@ function Home({
 			)}
 			<AssistantRuntimeProvider runtime={runtime}>
 				<Composing.Provider value={runtime.thread.composer}>
-					<ThreadView
-						mentions={mentions ?? undefined}
-						references={references}
-						above={<Refusal refusal={refusal} className="px-2" />}
-						welcome={
-							<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
-								<span>Start a conversation with</span>
-								<AgentBrand agent={agent} name={agentName(agents, agent)} />
-								{task !== null && (
-									<span>
-										in <span className="font-mono text-xl">{task}</span>
+					<NamedContext value={named}>
+						<ThreadView
+							mentions={mentions ?? undefined}
+							references={references}
+							above={<Refusal refusal={refusal} className="px-2" />}
+							welcome={
+								<div className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 font-medium text-2xl tracking-tight duration-200">
+									<span>Start a conversation with</span>
+									<AgentBrand agent={agent} name={agentName(agents, agent)} />
+									{task !== null && (
+										<span>
+											in <span className="font-mono text-xl">{task}</span>
+										</span>
+									)}
+								</div>
+							}
+							below={
+								recent.length > 0 && (
+									<section
+										aria-label="recent conversations"
+										className="mt-4 flex flex-col gap-1 px-2"
+									>
+										<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+											Pick back up
+										</h3>
+										<ul className="flex flex-col">
+											{recent.map((each) => (
+												<li key={each.id}>
+													<Recent
+														conversation={each}
+														agent={agentName(agents, each.agent)}
+														onOpen={() => onOpen(each.id)}
+													/>
+												</li>
+											))}
+										</ul>
+									</section>
+								)
+							}
+							controls={
+								offered.length > 0 ? (
+									offered.map((setting) => (
+										<SettingControl
+											key={setting.id}
+											setting={setting}
+											value={picks[setting.id] ?? setting.current}
+											onChange={(value) =>
+												setPicks((picks) => ({ ...picks, [setting.id]: value }))
+											}
+										/>
+									))
+								) : (
+									<span className="px-1.5 text-[11px] text-muted-foreground">
+										Settings appear once {agentName(agents, agent)} starts
 									</span>
-								)}
-							</div>
-						}
-						below={
-							recent.length > 0 && (
-								<section
-									aria-label="recent conversations"
-									className="mt-4 flex flex-col gap-1 px-2"
-								>
-									<h3 className="pl-3 font-medium text-muted-foreground text-xs">
-										Pick back up
-									</h3>
-									<ul className="flex flex-col">
-										{recent.map((each) => (
-											<li key={each.id}>
-												<Recent
-													conversation={each}
-													agent={agentName(agents, each.agent)}
-													onOpen={() => onOpen(each.id)}
-												/>
-											</li>
-										))}
-									</ul>
-								</section>
-							)
-						}
-						controls={
-							offered.length > 0 ? (
-								offered.map((setting) => (
-									<SettingControl
-										key={setting.id}
-										setting={setting}
-										value={picks[setting.id] ?? setting.current}
-										onChange={(value) =>
-											setPicks((picks) => ({ ...picks, [setting.id]: value }))
-										}
-									/>
-								))
-							) : (
-								<span className="px-1.5 text-[11px] text-muted-foreground">
-									Settings appear once {agentName(agents, agent)} starts
-								</span>
-							)
-						}
-					/>
+								)
+							}
+						/>
+					</NamedContext>
 				</Composing.Provider>
 			</AssistantRuntimeProvider>
 		</section>
@@ -2169,16 +2173,9 @@ function useDraft(
 				composer.setText(kept);
 			}
 		};
-		// Kept with its directives as text, ahead of what is typed.
-		const unsubscribe = composer.subscribe(() => {
-			const { text, attachments } = composer.getState();
-			if (leadingDirectives(text).directives.length > 0) {
-				// Each change it makes comes back here, to be kept.
-				liftDirectives(composer);
-				return;
-			}
-			drafts.write(key, withDirectives(directivesOf(attachments), text));
-		});
+		const unsubscribe = composer.subscribe(() =>
+			drafts.write(key, composer.getState().text),
+		);
 		fill();
 		// Written from elsewhere: a message Home could not send to it.
 		const unlisten = drafts.events.on("written", (written) => {
@@ -2204,16 +2201,12 @@ function useDraft(
 	};
 }
 
-/**
- * What `message` says, its directives ahead of its words; its images go
- * apart.
- */
+/** What `message` says, its directives among its words; its images go apart. */
 function said(message: AppendMessage): string {
-	const text = message.content
+	return message.content
 		.map((part) => (part.type === "text" ? part.text : ""))
 		.join("")
 		.trim();
-	return withDirectives(directivesOf(message.attachments ?? []), text);
 }
 
 /**
@@ -2233,9 +2226,7 @@ function noted(text: string, images: readonly File[]): string {
  * PNG, JPEG, GIF and WebP, the ones the server keeps.
  */
 class ImageAttachments extends SimpleImageAttachmentAdapter {
-	// Directives too, which are text only and never come from a file.
-	override accept =
-		`image/png,image/jpeg,image/gif,image/webp,${DIRECTIVE_TYPE}`;
+	override accept = "image/png,image/jpeg,image/gif,image/webp";
 }
 
 const IMAGES = new ImageAttachments();
@@ -2476,11 +2467,7 @@ function Thread({
 		for (const image of images) {
 			void composer.addAttachment(image);
 		}
-		section.current
-			?.querySelector<HTMLTextAreaElement>(
-				'textarea[aria-label="Message input"]',
-			)
-			?.focus();
+		focusComposer(section.current);
 	};
 	// Gone before the agent hears it, its words with it.
 	const discard = (index: number) =>
@@ -2537,20 +2524,12 @@ function Thread({
 		},
 	];
 	const systems = useSystems(conversation.task, tasks);
-	const references = useReferences(
-		runtime.thread.composer,
-		tasks,
-		actions,
-		systems,
-	);
+	const references = useReferences(tasks, actions, systems ?? undefined);
 	const root = useContext(TreesContext)?.root ?? null;
-	const named = useMemo(
-		() => ({
-			systems,
-			paths,
-			tree: task?.worktree ?? (conversation.task === null ? root : null),
-		}),
-		[systems, paths, task, conversation.task, root],
+	const named = useNamed(
+		paths,
+		systems,
+		task?.worktree ?? (conversation.task === null ? root : null),
 	);
 	// Archived, on to the next. Already archived, the key does nothing.
 	const fileByKey = () => {
@@ -3030,11 +3009,11 @@ function replied(text: string, settled: boolean): LikePart[] {
 
 /**
  * The tree's paths for the composer's `@`, once they have loaded, and as the
- * set a sent message's `@` mentions are found in.
+ * set a sent message's `@` mentions are found in; null while they load.
  */
 function useFileMentions(task: string | null): {
 	adapter: TriggerAdapter | null;
-	paths: ReadonlySet<string>;
+	paths: ReadonlySet<string> | null;
 } {
 	const [all, setAll] = useState<string[] | null>(null);
 	useEffect(() => {
@@ -3042,7 +3021,7 @@ function useFileMentions(task: string | null): {
 		paths(task ?? "").then(
 			(found) => current && setAll(found),
 			// Without the list, `@` is only a character: nothing else breaks.
-			() => undefined,
+			() => current && setAll([]),
 		);
 		return () => {
 			current = false;
@@ -3051,7 +3030,7 @@ function useFileMentions(task: string | null): {
 	return useMemo(
 		() => ({
 			adapter:
-				all === null
+				all === null || all.length === 0
 					? null
 					: {
 							categories: () => [],
@@ -3061,7 +3040,7 @@ function useFileMentions(task: string | null): {
 									.slice(0, MENTIONS_SHOWN)
 									.map((path) => ({ id: path, type: "file", label: path })),
 						},
-			paths: new Set(all),
+			paths: all === null ? null : new Set(all),
 		}),
 		[all],
 	);
@@ -3070,21 +3049,41 @@ function useFileMentions(task: string | null): {
 const MENTIONS_SHOWN = 8;
 
 /**
- * The systems the tree `task` runs in names, for `#`; none until they come,
- * or when they cannot. Asked again whenever the tasks move, which an edit to
- * a worktree's config does.
+ * What a tree names, for `NamedContext`, from its `paths` and `systems`, each
+ * null while it loads, and where it sits.
+ */
+function useNamed(
+	paths: ReadonlySet<string> | null,
+	systems: NamedSystem[] | null,
+	tree: string | null,
+): Named {
+	return useMemo(
+		() => ({
+			systems: systems ?? [],
+			paths: paths ?? new Set(),
+			tree,
+			resolving: { paths: paths === null, systems: systems === null },
+		}),
+		[paths, systems, tree],
+	);
+}
+
+/**
+ * The systems the tree `task` runs in names, for `#`; null until they come,
+ * and none when they cannot. Asked again whenever the tasks move, which an
+ * edit to a worktree's config does.
  */
 function useSystems(
 	task: string | null,
 	tasks: readonly Details[],
-): NamedSystem[] {
-	const [named, setNamed] = useState<NamedSystem[]>([]);
+): NamedSystem[] | null {
+	const [named, setNamed] = useState<NamedSystem[] | null>(null);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `tasks` only says when to ask again.
 	useEffect(() => {
 		let current = true;
 		fetchSystems(task ?? "").then(
 			(found) => current && setNamed(found),
-			() => undefined,
+			() => current && setNamed((named) => named ?? []),
 		);
 		return () => {
 			current = false;
@@ -3234,7 +3233,8 @@ function Permission({
 			];
 			const typing =
 				event.target instanceof HTMLElement &&
-				event.target.closest("input, textarea, select") !== null;
+				event.target.closest("input, textarea, select, [contenteditable]") !==
+					null;
 			if (scope !== undefined && !typing) {
 				event.preventDefault();
 				grant(scope);

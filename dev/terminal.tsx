@@ -6,6 +6,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import { Back } from "./back";
 import { PANE_WIDTH } from "./changes";
+import { focusComposer } from "./composer-editor";
 import { type TerminalSession, TOGGLE } from "./terminal-session";
 import { numberOf, type Terminals } from "./terminals";
 
@@ -288,14 +289,4 @@ function Screen({
 		[session, focused],
 	);
 	return <div ref={container} data-testid="terminal" className={className} />;
-}
-
-/**
- * Puts the keyboard in the open conversation's composer, since a terminal
- * hidden while it had it would leave it nowhere.
- */
-export function focusComposer(): void {
-	document
-		.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message input"]')
-		?.focus();
 }

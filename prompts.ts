@@ -25,6 +25,9 @@ export const CHECKPOINT = "[ARBOR CHECKPOINT]";
  */
 export const RESUME = "[ARBOR RESUME]";
 
+/** Each `[ARBOR ...]` directive in a text, wherever it stands. */
+export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)?\]/g;
+
 /** One `[ARBOR ...]` directive at the start of a text, and the space after it. */
 const LEADING = /^\s*(\[ARBOR [A-Z]+(?: [^\]\s]+)?\])(?:\s+|$)/;
 

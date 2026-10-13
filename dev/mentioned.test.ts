@@ -3,26 +3,32 @@ import { linkNamed, namedIn } from "./mentioned";
 
 const named = {
 	systems: [{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] }],
-	paths: new Set(["src/", "src/a.ts", "app/(shop)/[id]/page.tsx"]),
+	paths: new Set(["src/", "src/a.ts", "lib/a.ts", "app/(shop)/[id]/page.tsx"]),
 	tree: "/repo",
 };
 
 describe("linkNamed", () => {
 	it("links a system by its name or an alias, and a file in the tree", () => {
 		expect(linkNamed("fix #player in @src/a.ts", named)).toBe(
-			"fix [#player](#system=playback) in [@src/a.ts](#file=src%2Fa.ts)",
+			"fix [#player](#system=playback) in [@src/a.ts](#file=src%2Fa.ts&name=a.ts)",
 		);
 	});
 
 	it("leaves what a sentence puts after a mention outside it", () => {
 		expect(linkNamed("see @src/a.ts. And #playback!", named)).toBe(
-			"see [@src/a.ts](#file=src%2Fa.ts). And [#playback](#system=playback)!",
+			"see [@src/a.ts](#file=src%2Fa.ts&name=a.ts). And [#playback](#system=playback)!",
+		);
+	});
+
+	it("names files that share a name by the directories above them", () => {
+		expect(linkNamed("@src/a.ts and @lib/a.ts", named)).toBe(
+			"[@src/a.ts](#file=src%2Fa.ts&name=src%2Fa.ts) and [@lib/a.ts](#file=lib%2Fa.ts&name=lib%2Fa.ts)",
 		);
 	});
 
 	it("links a directory, with its slash or without", () => {
 		expect(linkNamed("@src/ and @src", named)).toBe(
-			"[@src/](#file=src%2F) and [@src](#file=src%2F)",
+			"[@src/](#file=src%2F&name=src%2F) and [@src](#file=src%2F&name=src%2F)",
 		);
 	});
 
@@ -36,6 +42,9 @@ describe("linkNamed", () => {
 		const href = /\]\((#file=[^)]*)\)$/.exec(linked)?.[1];
 
 		expect(linked.startsWith("[@app/(shop)/\\[id\\]/page.tsx]")).toBe(true);
-		expect(namedIn(href)).toEqual({ file: "app/(shop)/[id]/page.tsx" });
+		expect(namedIn(href)).toEqual({
+			file: "app/(shop)/[id]/page.tsx",
+			name: "page.tsx",
+		});
 	});
 });

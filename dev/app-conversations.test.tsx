@@ -15,8 +15,10 @@ import {
 	project,
 	resize,
 	Testing,
+	textIn,
 	todo,
 	tool,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -700,7 +702,7 @@ describe("App's conversations", () => {
 		});
 
 		const box = await view.findByRole("textbox", { name: "Message input" });
-		expect(box.getAttribute("placeholder")).toBe(
+		expect(box.getAttribute("aria-placeholder")).toBe(
 			"Archived: unarchive to continue",
 		);
 	});
@@ -1456,9 +1458,7 @@ describe("App's conversations", () => {
 			await waitFor(() => view.getByRole("option", { name: "Small" })),
 		);
 		const box = view.getByRole("textbox", { name: "Message input" });
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "fix the login" } }),
-		);
+		await typeIn(box, "fix the login");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		expect(testing.posted("/api/conversations")).toEqual([
@@ -1503,9 +1503,7 @@ describe("App's conversations", () => {
 			"Big",
 		);
 		const box = view.getByRole("textbox", { name: "Message input" });
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "fix the login" } }),
-		);
+		await typeIn(box, "fix the login");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		// As shown, though never touched.
@@ -1522,14 +1520,9 @@ describe("App's conversations", () => {
 		const view = await testing.openConversations([]);
 		const box = view.getByRole("textbox", {
 			name: "Message input",
-		}) as HTMLTextAreaElement;
-
-		await act(async () => {
-			box.focus();
-			fireEvent.change(box, { target: { value: "see @comp" } });
-			box.setSelectionRange(9, 9);
-			fireEvent.select(box);
 		});
+
+		await typeIn(box, "see @comp");
 		const list = await waitFor(() => view.getByRole("listbox"));
 		expect(
 			within(list)
@@ -1545,7 +1538,7 @@ describe("App's conversations", () => {
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		expect(box.value).toBe("see @src/components/ ");
+		expect(textIn(box)).toBe("see @src/components/ ");
 		expect(testing.posted("/api/conversations")).toEqual([]);
 	});
 
@@ -1553,9 +1546,7 @@ describe("App's conversations", () => {
 		const view = await testing.openConversations([], null);
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		const box = view.getByRole("textbox", { name: "Message input" });
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "fix the login" } }),
-		);
+		await typeIn(box, "fix the login");
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
@@ -1636,9 +1627,7 @@ describe("App's conversations", () => {
 		]);
 		const thread = view.getByRole("region", { name: "Login" });
 		const box = view.getByRole("textbox", { name: "Message input" });
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "and the logout" } }),
-		);
+		await typeIn(box, "and the logout");
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
@@ -1672,7 +1661,7 @@ describe("App's conversations", () => {
 		const box = view.getByRole("textbox", { name: "Message input" });
 
 		for (const text of ["and the logout", "and the signup"]) {
-			await act(async () => fireEvent.change(box, { target: { value: text } }));
+			await typeIn(box, text);
 			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 		}
 
@@ -1770,15 +1759,13 @@ describe("App's conversations", () => {
 		const thread = view.getByRole("region", { name: "Login" });
 		const box = view.getByRole("textbox", {
 			name: "Message input",
-		}) as HTMLTextAreaElement;
+		});
 		testing.refuseWrites = { reason: "usage", message: "cannot resume" };
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "and the logout" } }),
-		);
+		await typeIn(box, "and the logout");
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		await waitFor(() => expect(box.value).toBe("and the logout"));
+		await waitFor(() => expect(textIn(box)).toBe("and the logout"));
 		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
 		// Said above the composer it was sent from, not in a toast.
 		expect(within(thread).getByRole("alert").textContent).toBe(
@@ -1958,11 +1945,9 @@ describe("App's conversations", () => {
 		const view = await testing.openConversations([conversation()]);
 		const box = view.getByRole("textbox", {
 			name: "Message input",
-		}) as HTMLTextAreaElement;
+		});
 
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "hello" } }),
-		);
+		await typeIn(box, "hello");
 		await act(async () =>
 			fireEvent.keyDown(box, { key: "Enter", shiftKey: true }),
 		);
@@ -2081,9 +2066,7 @@ describe("App's conversations", () => {
 		await act(async () =>
 			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
 		);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "and this" } }),
-		);
+		await typeIn(box, "and this");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
@@ -2375,12 +2358,10 @@ describe("App's conversations", () => {
 		});
 
 		expect(
-			(
-				view.getByRole("textbox", {
-					name: "Message input",
-				}) as HTMLTextAreaElement
-			).disabled,
-		).toBe(true);
+			view
+				.getByRole("textbox", { name: "Message input" })
+				.getAttribute("contenteditable"),
+		).toBe("false");
 		await act(async () =>
 			fireEvent.click(
 				within(view.getByRole("navigation", { name: "actions" })).getByRole(
@@ -2403,11 +2384,9 @@ describe("App's conversations", () => {
 			"Claude exited with code 1",
 		);
 		expect(
-			(
-				view.getByRole("textbox", {
-					name: "Message input",
-				}) as HTMLTextAreaElement
-			).disabled,
-		).toBe(false);
+			view
+				.getByRole("textbox", { name: "Message input" })
+				.getAttribute("contenteditable"),
+		).toBe("true");
 	});
 });

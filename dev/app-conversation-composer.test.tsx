@@ -9,7 +9,9 @@ import {
 	message,
 	newWith,
 	Testing,
+	textIn,
 	todo,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -33,19 +35,11 @@ describe("App's conversations", () => {
 				{ name: "init", description: "Write a CLAUDE.md", hint: null },
 			],
 		});
-		/** Types `text` into the composer, the caret at its end. */
-		const typeIn = async (box: HTMLTextAreaElement, text: string) =>
-			act(async () => {
-				box.focus();
-				fireEvent.change(box, { target: { value: text } });
-				box.setSelectionRange(text.length, text.length);
-				fireEvent.select(box);
-			});
 		const composer = async () => {
 			const view = await testing.openConversations([held]);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 			return { view, box };
 		};
 
@@ -72,7 +66,7 @@ describe("App's conversations", () => {
 			).toEqual(["/code-reviewReview the diff"]);
 			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-			expect(box.value).toBe("/code-review ");
+			expect(textIn(box)).toBe("/code-review ");
 			// Enter picked a command; it did not send.
 			expect(testing.posted(`/api/conversations/${held.id}/prompt`)).toEqual(
 				[],
@@ -94,20 +88,12 @@ describe("App's conversations", () => {
 			todos: [todo({ id: 12, subject: "Retry the upload on a 413", lane: 3 })],
 			lanes: [{ id: 3, name: "Uploads" }],
 		};
-		/** Types `text` into the composer, the caret at its end. */
-		const typeIn = async (box: HTMLTextAreaElement, text: string) =>
-			act(async () => {
-				box.focus();
-				fireEvent.change(box, { target: { value: text } });
-				box.setSelectionRange(text.length, text.length);
-				fireEvent.select(box);
-			});
 
-		it("lists arbor's items by category for a #, and holds the one picked as a chip", async () => {
+		it("lists arbor's items by category for a #, and writes the one picked as a chip", async () => {
 			const view = await testing.openConversations([], null, board);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 			await typeIn(box, "#");
 			const categories = await waitFor(() =>
@@ -133,9 +119,9 @@ describe("App's conversations", () => {
 			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 			await waitFor(() =>
-				expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+				expect(within(box).getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
 			);
-			expect(box.value).toBe("");
+			expect(textIn(box)).toBe("[ARBOR TODO #12] ");
 			expect(testing.posted("/api/conversations")).toEqual([]);
 		});
 
@@ -143,7 +129,7 @@ describe("App's conversations", () => {
 			const view = await testing.openConversations([], null, board);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 			const key = (name: string) =>
 				act(async () => fireEvent.keyDown(box, { key: name }));
 			const highlighted = () =>
@@ -170,7 +156,7 @@ describe("App's conversations", () => {
 					.getAllByRole("option")
 					.map((option) => option.textContent),
 			).toEqual(["Directives", "Todos", "Lanes", "Tasks"]);
-			expect(box.value).toBe("#");
+			expect(textIn(box)).toBe("#");
 			expect(testing.posted("/api/conversations")).toEqual([]);
 		});
 
@@ -181,7 +167,7 @@ describe("App's conversations", () => {
 			});
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 			const key = (name: string) =>
 				act(async () => fireEvent.keyDown(box, { key: name }));
 			const list = () => view.getByRole("listbox", { name: "references" });
@@ -222,7 +208,7 @@ describe("App's conversations", () => {
 			const view = await testing.openConversations([], null, board);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 			await typeIn(box, "see #upl");
 			const found = await waitFor(() =>
@@ -239,7 +225,7 @@ describe("App's conversations", () => {
 			await waitFor(() =>
 				expect(view.getByTitle("[ARBOR LANE 3]")).toBeTruthy(),
 			);
-			expect(box.value).toBe("see ");
+			expect(textIn(box)).toBe("see [ARBOR LANE 3] ");
 		});
 
 		it("writes a system picked after a #, by its name when an alias found it", async () => {
@@ -249,7 +235,7 @@ describe("App's conversations", () => {
 			const view = await testing.openConversations([], null, board);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 			await typeIn(box, "fix #playe");
 			const found = await waitFor(() =>
@@ -262,7 +248,10 @@ describe("App's conversations", () => {
 			).toEqual(["playbackplayer"]);
 			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-			await waitFor(() => expect(box.value).toBe("fix #playback "));
+			await waitFor(() => expect(textIn(box)).toBe("fix #playback "));
+			expect(
+				within(box).getByRole("button", { name: "playback" }),
+			).toBeTruthy();
 		});
 
 		it("offers no system its name or alias calls without a #, and sends on Enter", async () => {
@@ -272,11 +261,10 @@ describe("App's conversations", () => {
 			const view = await testing.openConversations([], null, board);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 			for (const text of ["fix playback", "the Player"]) {
 				await typeIn(box, text);
-				await act(async () => fireEvent.select(box));
 				expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
 			}
 
@@ -295,7 +283,7 @@ describe("App's conversations", () => {
 			const view = await testing.openConversations([], null, board);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 			await typeIn(box, "#");
 			const categories = await waitFor(() =>
@@ -308,7 +296,7 @@ describe("App's conversations", () => {
 			);
 			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-			await waitFor(() => expect(box.value).toBe("#mixer "));
+			await waitFor(() => expect(textIn(box)).toBe("#mixer "));
 		});
 
 		it("runs a conversation's action picked after a #, writing nothing", async () => {
@@ -317,7 +305,7 @@ describe("App's conversations", () => {
 			]);
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 			await typeIn(box, "#archi");
 			await waitFor(() => view.getByRole("listbox", { name: "references" }));
@@ -326,7 +314,7 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 				{ method: "PUT", body: { archived: true } },
 			]);
-			expect(box.value).toBe("");
+			expect(textIn(box)).toBe("");
 		});
 	});
 
@@ -349,27 +337,27 @@ describe("App's conversations", () => {
 		const box = (view: ConversationsView) =>
 			view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 		const type = (view: ConversationsView, text: string) =>
-			act(async () => fireEvent.change(box(view), { target: { value: text } }));
+			typeIn(box(view), text);
 
 		it("keeps what was typed in each conversation, and a new one, while switching", async () => {
 			const view = await testing.openConversations(held, "c1");
 			await type(view, "half a thought");
 
 			await go(view, "Tidy tests");
-			await waitFor(() => expect(box(view).value).toBe(""));
+			await waitFor(() => expect(textIn(box(view))).toBe(""));
 			await type(view, "another");
 			await newWith(view, "Claude");
-			await waitFor(() => expect(box(view).value).toBe(""));
+			await waitFor(() => expect(textIn(box(view))).toBe(""));
 			await type(view, "a fresh start");
 
 			await go(view, "Fix login");
-			await waitFor(() => expect(box(view).value).toBe("half a thought"));
+			await waitFor(() => expect(textIn(box(view))).toBe("half a thought"));
 			await go(view, "Tidy tests");
-			await waitFor(() => expect(box(view).value).toBe("another"));
+			await waitFor(() => expect(textIn(box(view))).toBe("another"));
 			await newWith(view, "Claude");
-			await waitFor(() => expect(box(view).value).toBe("a fresh start"));
+			await waitFor(() => expect(textIn(box(view))).toBe("a fresh start"));
 		});
 
 		it("keeps a draft across a reload, and drops it once sent", async () => {
@@ -378,32 +366,31 @@ describe("App's conversations", () => {
 			cleanup();
 
 			const again = await testing.openConversations(held, "c1");
-			await waitFor(() => expect(box(again).value).toBe("before the reload"));
+			await waitFor(() => expect(textIn(box(again))).toBe("before the reload"));
 			await act(async () => fireEvent.keyDown(box(again), { key: "Enter" }));
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: "before the reload" } },
 			]);
 			await go(again, "Tidy tests");
 			await go(again, "Fix login");
-			await waitFor(() => expect(box(again).value).toBe(""));
+			await waitFor(() => expect(textIn(box(again))).toBe(""));
 		});
 
-		it("holds a directive typed at the start as a chip, and sends it ahead of the words", async () => {
+		it("makes a directive typed anywhere a chip, and sends it where it stands", async () => {
 			const view = await testing.openConversations(held, "c1");
-			await type(view, "[ARBOR TODO #12] and keep it small");
+			await type(view, "keep [ARBOR TODO #12] small");
 
-			await waitFor(() => expect(box(view).value).toBe("and keep it small"));
-			expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy();
+			await waitFor(() =>
+				expect(within(box(view)).getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+			);
+			expect(textIn(box(view))).toBe("keep [ARBOR TODO #12] small");
 			expect(localStorage.getItem("arbor.draft.c1")).toBe(
-				"[ARBOR TODO #12]\n\nand keep it small",
+				"keep [ARBOR TODO #12] small",
 			);
 
 			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-				{
-					method: "POST",
-					body: { text: "[ARBOR TODO #12]\n\nand keep it small" },
-				},
+				{ method: "POST", body: { text: "keep [ARBOR TODO #12] small" } },
 			]);
 			await waitFor(() =>
 				expect(view.queryByTitle("[ARBOR TODO #12]")).toBeNull(),
@@ -440,7 +427,7 @@ describe("App's conversations", () => {
 					"Taskalpha",
 				),
 			);
-			expect(box(view).value).toBe("");
+			expect(textIn(box(view))).toBe("[ARBOR TASK alpha]");
 
 			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -448,20 +435,18 @@ describe("App's conversations", () => {
 			]);
 		});
 
-		it("drops a directive from the draft when its chip is removed", async () => {
+		it("drops a directive from the draft when Backspace takes its chip", async () => {
 			const view = await testing.openConversations(held, "c1");
-			await type(view, "[ARBOR LANE 2]");
-			await type(view, "then stop");
-
-			await act(async () =>
-				fireEvent.click(
-					view.getByRole("button", { name: "Remove [ARBOR LANE 2]" }),
-				),
+			await type(view, "then stop [ARBOR LANE 2]");
+			await waitFor(() =>
+				expect(within(box(view)).getByTitle("[ARBOR LANE 2]")).toBeTruthy(),
 			);
 
+			await act(async () => fireEvent.keyDown(box(view), { key: "Backspace" }));
+
 			expect(view.queryByTitle("[ARBOR LANE 2]")).toBeNull();
-			expect(box(view).value).toBe("then stop");
-			expect(localStorage.getItem("arbor.draft.c1")).toBe("then stop");
+			expect(textIn(box(view))).toBe("then stop ");
+			expect(localStorage.getItem("arbor.draft.c1")).toBe("then stop ");
 		});
 
 		it("puts a message back in the composer when the server refuses it", async () => {
@@ -471,7 +456,7 @@ describe("App's conversations", () => {
 
 			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 
-			await waitFor(() => expect(box(view).value).toBe("try this"));
+			await waitFor(() => expect(textIn(box(view))).toBe("try this"));
 		});
 
 		it("sends while the agent works, offering Send over Stop once something is typed", async () => {
@@ -569,7 +554,7 @@ describe("App's conversations", () => {
 				]),
 			);
 			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1);
-			await waitFor(() => expect(box(view).value).toBe(""));
+			await waitFor(() => expect(textIn(box(view))).toBe(""));
 			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(2);
 			testing.reply = { text: "the second note", images: [] };
@@ -577,7 +562,7 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/unqueue")).toEqual([
 				{ method: "POST", body: { index: 0 } },
 			]);
-			await waitFor(() => expect(box(view).value).toBe("the second note"));
+			await waitFor(() => expect(textIn(box(view))).toBe("the second note"));
 		});
 
 		it("throws a queued message away, leaving the composer as it was", async () => {
@@ -611,7 +596,7 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/unqueue")).toEqual([
 				{ method: "POST", body: { index: 1 } },
 			]);
-			expect(box(view).value).toBe("still typing");
+			expect(textIn(box(view))).toBe("still typing");
 		});
 
 		it("keeps what was typed into a question's box while away", async () => {
@@ -645,6 +630,81 @@ describe("App's conversations", () => {
 			expect(
 				(view.getByRole("textbox", { name: "Note" }) as HTMLInputElement).value,
 			).toBe("the second one");
+		});
+	});
+
+	describe("chips", () => {
+		const held = [conversation({ id: "c1", title: "Fix login" })];
+		const box = (view: ConversationsView) =>
+			view.getByRole("textbox", { name: "Message input" });
+
+		it("shows a file picked after an @ as its chip, the text reading its path", async () => {
+			testing.tree = ["src/", "src/index.ts"];
+			const view = await testing.openConversations(held, "c1");
+
+			await typeIn(box(view), "see @ind");
+			await waitFor(() => view.getByRole("listbox"));
+			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+
+			await waitFor(() => expect(textIn(box(view))).toBe("see @src/index.ts "));
+			expect(
+				within(box(view)).getByTitle(/\/src\/index\.ts$/).textContent,
+			).toBe("index.ts");
+		});
+
+		it("names file chips that share a name by the directories above them", async () => {
+			testing.tree = [
+				"app/",
+				"app/index.ts",
+				"server/",
+				"server/index.ts",
+				"a.ts",
+			];
+			localStorage.setItem(
+				"arbor.draft.c1",
+				"@app/index.ts @server/index.ts @a.ts",
+			);
+			const view = await testing.openConversations(held, "c1");
+
+			await waitFor(() =>
+				expect(
+					within(box(view))
+						.getAllByRole("link")
+						.map((chip) => chip.textContent),
+				).toEqual(["app/index.ts", "server/index.ts", "a.ts"]),
+			);
+		});
+
+		it("shows the references in a draft as Resolving… until the paths and systems come, then as their chips", async () => {
+			let list = () => {};
+			testing.listing = new Promise((resolve) => {
+				list = resolve;
+			});
+			testing.tree = ["src/", "src/index.ts"];
+			testing.systems = [
+				{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
+			];
+			const draft = "fix #player in @src/index.ts, not #12 or @gone.ts";
+			localStorage.setItem("arbor.draft.c1", draft);
+			const view = await testing.openConversations(held, "c1");
+
+			await waitFor(() =>
+				expect(within(box(view)).getAllByText("Resolving…")).toHaveLength(3),
+			);
+			expect(textIn(box(view))).toBe(draft);
+
+			await act(async () => list());
+
+			await waitFor(() =>
+				expect(within(box(view)).queryByText("Resolving…")).toBeNull(),
+			);
+			expect(
+				within(box(view)).getByRole("button", { name: "playback" }),
+			).toBeTruthy();
+			expect(within(box(view)).getByTitle(/\/src\/index\.ts$/)).toBeTruthy();
+			// Named nothing once they came: as written.
+			expect(within(box(view)).getByText("@gone.ts")).toBeTruthy();
+			expect(textIn(box(view))).toBe(draft);
 		});
 	});
 });

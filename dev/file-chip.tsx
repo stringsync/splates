@@ -139,10 +139,13 @@ const chip =
  */
 export function FileChip({
 	path,
+	name,
 	lines = null,
 	className,
 }: {
 	path: string;
+	/** What it is called, its own name unless another beside it shares that. */
+	name?: string | undefined;
 	/** The lines it covers, "1-80". */
 	lines?: string | null;
 	className?: string;
@@ -167,9 +170,44 @@ export function FileChip({
 				<FileIcon path={path} className="size-3" />
 			)}
 			<span className="min-w-0 truncate">
-				{directory ? `${split(path.slice(0, -1)).name}/` : split(path).name}
+				{name ?? distinctNames([path]).get(path)}
 				{lines !== null && `#L${lines}`}
 			</span>
 		</a>
 	);
+}
+
+/**
+ * What each of `paths` is called on its chip: its own name, a directory's
+ * with its `/`, and where two or more share one, as many of the directories
+ * above as it takes to tell them apart.
+ */
+export function distinctNames(paths: readonly string[]): Map<string, string> {
+	const parts = new Map(
+		[...new Set(paths)].map((path) => [
+			path,
+			path.replace(/\/$/, "").split("/"),
+		]),
+	);
+	const depth = new Map([...parts.keys()].map((path) => [path, 1]));
+	const nameOf = (path: string) =>
+		(parts.get(path) ?? []).slice(-(depth.get(path) ?? 1)).join("/") +
+		(path.endsWith("/") ? "/" : "");
+	for (let grew = true; grew; ) {
+		grew = false;
+		const byName = new Map<string, string[]>();
+		for (const path of parts.keys()) {
+			byName.set(nameOf(path), [...(byName.get(nameOf(path)) ?? []), path]);
+		}
+		for (const alike of byName.values()) {
+			for (const path of alike.length < 2 ? [] : alike) {
+				const at = depth.get(path) ?? 1;
+				if (at < (parts.get(path)?.length ?? 1)) {
+					depth.set(path, at + 1);
+					grew = true;
+				}
+			}
+		}
+	}
+	return new Map([...parts.keys()].map((path) => [path, nameOf(path)]));
 }

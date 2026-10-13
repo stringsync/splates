@@ -8,6 +8,7 @@ import {
 	details,
 	fireEvent,
 	Testing,
+	textIn,
 	todo,
 	waitFor,
 	within,
@@ -89,11 +90,7 @@ describe("App's controls that put agents to work", () => {
 	};
 
 	const composer = (view: Awaited<ReturnType<typeof board>>) =>
-		(
-			view.getByRole("textbox", {
-				name: "Message input",
-			}) as HTMLTextAreaElement
-		).value;
+		textIn(view.getByRole("textbox", { name: "Message input" }));
 
 	/** The directives the composer holds as chips, each by its title. */
 	const chips = (view: Awaited<ReturnType<typeof board>>) =>
@@ -122,7 +119,7 @@ describe("App's controls that put agents to work", () => {
 
 		expect(location.hash).toBe("#conversations/new/codex");
 		expect(chips(view)).toEqual(["[ARBOR TODO #3]"]);
-		expect(composer(view)).toBe("");
+		expect(composer(view)).toBe("[ARBOR TODO #3]");
 		expect(view.getByTitle("[ARBOR TODO #3]").textContent).toBe(
 			"Todo #3Fix the upload",
 		);
@@ -190,7 +187,7 @@ describe("App's controls that put agents to work", () => {
 
 		expect(location.hash).toBe("#conversations/c2");
 		expect(chips(view)).toEqual(["[ARBOR LANE 1]"]);
-		expect(composer(view)).toBe("then stop");
+		expect(composer(view)).toBe("[ARBOR LANE 1]\n\nthen stop");
 	});
 
 	it("lists a task's conversations in its dialog, in place of starting another", async () => {

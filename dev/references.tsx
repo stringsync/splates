@@ -1,8 +1,4 @@
-import type {
-	ThreadComposerRuntime,
-	TriggerAdapter,
-	TriggerItem,
-} from "@assistant-ui/react";
+import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
 	ColumnsIcon,
 	GitBranchIcon,
@@ -23,23 +19,22 @@ import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import type { Action } from "./actions";
 import { Board } from "./board";
-import { addDirective } from "./directives";
 
 /**
- * What `#` offers in the composer, by category: picking an item adds its
- * directive as a chip, or runs it, for an action, or writes it in place of
- * what was typed, for a system.
+ * What `#` offers in the composer, by category: picking an item writes it
+ * as a chip in place of what was typed, its directive or a system, or runs
+ * it, for an action.
  */
 export interface References {
 	adapter: TriggerAdapter;
+	/** Runs an action. */
 	pick: (item: TriggerItem) => void;
 	icon: (item: TriggerItem) => ReactNode;
 	/**
-	 * Writes a system as `#name` in place of `typed`, the `#` and what follows
-	 * it, the last before `caret`, and gives where the caret belongs after it;
-	 * null for any other item, which `pick` takes instead.
+	 * An item as the composer writes it: a chip that reads as its directive,
+	 * or `#name` for a system; null for an action, which `pick` runs instead.
 	 */
-	write: (item: TriggerItem, typed: string, caret: number) => number | null;
+	chip: (item: TriggerItem) => TriggerItem | null;
 }
 
 /** The categories, in the order the list shows them. */
@@ -64,10 +59,9 @@ const DIRECTIVES = [
 
 /**
  * The board's todos and lanes, `tasks`, `systems`, the directives, and
- * `actions` for `#` in `composer`, the conversation's actions run in place.
+ * `actions` for `#` in the composer, the conversation's actions run in place.
  */
 export function useReferences(
-	composer: ThreadComposerRuntime,
 	tasks: readonly Details[],
 	actions: readonly Action[] = [],
 	systems: readonly NamedSystem[] = [],
@@ -129,29 +123,19 @@ export function useReferences(
 				categoryItems: (id) => items[id] ?? [],
 			},
 			pick: (item) => {
-				const { directive, action } = item.metadata ?? {};
-				if (typeof directive === "string") {
-					addDirective(composer, directive);
-				} else if (typeof action === "number") {
+				const { action } = item.metadata ?? {};
+				if (typeof action === "number") {
 					runnable[action]?.run?.();
 				}
 			},
-			write: (item, typed, caret) => {
-				const { system } = item.metadata ?? {};
-				if (typeof system !== "string") {
-					return null;
+			chip: (item) => {
+				const { directive, system } = item.metadata ?? {};
+				if (typeof directive === "string") {
+					return { id: directive, type: "directive", label: directive };
 				}
-				const text = composer.getState().text;
-				const start = text.lastIndexOf(typed, caret - typed.length);
-				const at = start === -1 ? text.length : start;
-				const after = text.slice(start === -1 ? at : at + typed.length);
-				const written = `#${system}`;
-				composer.setText(
-					text.slice(0, at) +
-						written +
-						(after.startsWith(" ") ? after : ` ${after}`),
-				);
-				return at + written.length + 1;
+				return typeof system === "string"
+					? { id: system, type: "system", label: system }
+					: null;
 			},
 			icon: (item) => {
 				const { action } = item.metadata ?? {};
@@ -162,5 +146,5 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [composer, todos, lanes, tasks, actions, systems]);
+	}, [todos, lanes, tasks, actions, systems]);
 }

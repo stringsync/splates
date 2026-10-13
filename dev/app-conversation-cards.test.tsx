@@ -8,8 +8,10 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	textIn,
 	todo,
 	tool,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -48,7 +50,7 @@ describe("App's conversations", () => {
 		const box = (view: ConversationsView) =>
 			view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 		it("shows each question as a card, the text around them as written", async () => {
 			const view = await testing.openConversations([asking()]);
@@ -235,7 +237,7 @@ describe("App's conversations", () => {
 					target: { value: "Also the footer." },
 				}),
 			);
-			expect(box(view).value).toBe("");
+			expect(textIn(box(view))).toBe("");
 			expect(
 				localStorage.getItem("arbor.draft.c1:questions:1:Which pages need it?"),
 			).toBe(QUOTED);
@@ -572,7 +574,7 @@ describe("App's conversations", () => {
 			expect(within(second).getByText("only on phones")).toBeTruthy();
 			expect(within(panel).queryByRole("textbox")).toBeNull();
 			expect(within(panel).getByText("Also the footer.")).toBeTruthy();
-			expect(box(view).value).toBe("");
+			expect(textIn(box(view))).toBe("");
 		});
 
 		it("waits for the agent to finish writing before showing cards", async () => {
@@ -1193,7 +1195,7 @@ describe("App's conversations", () => {
 		const box = (view: ConversationsView) =>
 			view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
+			});
 
 		it("shows a review apart from questions, merging from the card", async () => {
 			const view = await testing.openConversations([reviewing]);
@@ -1210,7 +1212,7 @@ describe("App's conversations", () => {
 				fireEvent.click(within(panel).getByRole("button", { name: "Merge" })),
 			);
 
-			expect(box(view).value).toBe("");
+			expect(textIn(box(view))).toBe("");
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: "merge" } },
 			]);
@@ -1241,7 +1243,7 @@ describe("App's conversations", () => {
 			expect(changes.value).toBe("merge the header first");
 			// Merging would leave the changes unsaid.
 			expect(merge.disabled).toBe(true);
-			expect(box(view).value).toBe("");
+			expect(textIn(box(view))).toBe("");
 			expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
 				"merge the header first",
 			);
@@ -1277,9 +1279,7 @@ describe("App's conversations", () => {
 			expect(fold.textContent).toContain("Merge approved");
 			expect(panel.textContent).not.toContain("The header wraps on phones.");
 
-			await act(async () =>
-				fireEvent.change(box(view), { target: { value: "merge" } }),
-			);
+			await typeIn(box(view), "merge");
 			await act(async () => fireEvent.click(fold));
 
 			expect(panel.textContent).toContain("The header wraps on phones.");
@@ -1690,10 +1690,8 @@ describe("App's conversations", () => {
 			expect(within(gone).queryByRole("button")).toBeNull();
 			const box = view.getByRole("textbox", {
 				name: "Message input",
-			}) as HTMLTextAreaElement;
-			await act(async () =>
-				fireEvent.change(box, { target: { value: "half a thought" } }),
-			);
+			});
+			await typeIn(box, "half a thought");
 
 			await act(async () =>
 				fireEvent.click(within(open).getByRole("button", { name: "Start" })),
@@ -1702,7 +1700,7 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
 			]);
-			expect(box.value).toBe("half a thought");
+			expect(textIn(box)).toBe("half a thought");
 		});
 
 		it("opens a new conversation with a proposed todo's reference typed in, ahead of its draft, and this conversation's agent picked", async () => {
@@ -1737,13 +1735,9 @@ describe("App's conversations", () => {
 						.parentElement as HTMLElement,
 				).getByLabelText("Codex"),
 			).toBeTruthy();
-			expect(
-				(
-					view.getByRole("textbox", {
-						name: "Message input",
-					}) as HTMLTextAreaElement
-				).value,
-			).toBe("and keep it small");
+			expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
+				"[ARBOR TODO #12]\n\nand keep it small",
+			);
 			expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy();
 			expect(testing.posted("/api/conversations")).toEqual([]);
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);

@@ -39,7 +39,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "#dev/components/ui/tooltip.tsx";
-import { DIRECTIVE_TYPE, DirectiveChip } from "#dev/directives.tsx";
+import { composerIn } from "#dev/composer-editor.tsx";
 import { useAttachmentSrc } from "#dev/hooks/use-attachment-src.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP, ITEM, type Shown, useLightbox } from "#dev/lightbox.tsx";
@@ -64,38 +64,13 @@ const AttachmentThumb: FC<{ src: string | undefined }> = ({ src }) => {
 	);
 };
 
-/** An attachment: a directive as its chip, anything else as a tile. */
-const AttachmentUI: FC = () => {
-	const isComposer = useAui().attachment.source !== "message";
-	const directive = useAuiState((s) =>
-		s.attachment.contentType === DIRECTIVE_TYPE ? s.attachment.name : null,
-	);
-	if (directive === null) {
-		return <AttachmentTile />;
-	}
-	return (
-		<AttachmentPrimitive.Root className="aui-attachment-root animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none">
-			<DirectiveChip directive={directive}>
-				{isComposer ? (
-					<AttachmentPrimitive.Remove
-						aria-label={`Remove ${directive}`}
-						className="flex size-5 shrink-0 items-center justify-center rounded-sm text-primary/70 hover:bg-primary/15 hover:text-primary"
-					>
-						<XIcon className="size-3 stroke-[2.5]" />
-					</AttachmentPrimitive.Remove>
-				) : undefined}
-			</DirectiveChip>
-		</AttachmentPrimitive.Root>
-	);
-};
-
 const AttachmentTile: FC = () => {
 	const aui = useAui();
 	const isComposer = aui.attachment.source !== "message";
 	const src = useAttachmentSrc();
 	const { open, lightbox } = useLightbox();
 	// Marked up from the composer, the keyboard goes back to writing.
-	const input = useRef<HTMLTextAreaElement | null>(null);
+	const input = useRef<HTMLElement | null>(null);
 	const annotator = useAnnotate(input);
 
 	const isImage = useAuiState((s) => s.attachment.type === "image");
@@ -105,9 +80,8 @@ const AttachmentTile: FC = () => {
 		isComposer && s.attachment.type === "image" ? s.attachment.file : undefined,
 	);
 	const annotate = async (tile: HTMLElement, image: File) => {
-		input.current =
-			tile.closest("form")?.querySelector<HTMLTextAreaElement>("textarea") ??
-			null;
+		const form = tile.closest("form");
+		input.current = form === null ? null : composerIn(form);
 		const marked = await annotator.open(image);
 		if (marked !== image) {
 			await replace(aui.composer(), aui.attachment().getState().id, marked);
@@ -335,7 +309,7 @@ export const UserMessageAttachments: FC = () => {
 			className="aui-user-message-attachments-end col-span-full col-start-1 row-start-1 flex w-full flex-row justify-end gap-2 empty:hidden"
 		>
 			<MessagePrimitive.Attachments>
-				{() => <AttachmentUI />}
+				{() => <AttachmentTile />}
 			</MessagePrimitive.Attachments>
 		</div>
 	);
@@ -348,7 +322,7 @@ export const ComposerAttachments: FC = () => {
 			className="aui-composer-attachments flex w-full flex-row items-center gap-2 overflow-x-auto empty:hidden"
 		>
 			<ComposerPrimitive.Attachments>
-				{() => <AttachmentUI />}
+				{() => <AttachmentTile />}
 			</ComposerPrimitive.Attachments>
 		</div>
 	);

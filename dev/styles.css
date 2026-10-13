@@ -17,6 +17,7 @@
 @source "./media.tsx";
 @source "./lightbox.tsx";
 @source "./annotate.tsx";
+@source "./composer-editor.tsx";
 @source "./composing.tsx";
 @source "./files.tsx";
 @source "./file-chip.tsx";

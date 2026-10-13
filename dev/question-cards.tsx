@@ -143,9 +143,12 @@ function useArrival(
 			return;
 		}
 		if (
-			(typing instanceof HTMLTextAreaElement ||
+			((typing instanceof HTMLTextAreaElement ||
 				typing instanceof HTMLInputElement) &&
-			typing.value !== ""
+				typing.value !== "") ||
+			(typing instanceof HTMLElement &&
+				typing.isContentEditable &&
+				typing.textContent !== "")
 		) {
 			return;
 		}

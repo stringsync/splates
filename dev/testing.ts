@@ -31,6 +31,13 @@ import { Settings } from "./settings";
 export const { act, cleanup, fireEvent, render, waitFor, within } =
 	await import("@testing-library/react");
 const { App } = await import("./app");
+const {
+	$createParagraphNode,
+	$createTextNode,
+	$getRoot,
+	$isElementNode,
+	getNearestEditorFromDOMNode,
+} = await import("lexical");
 
 /**
  * How often the page asks after a checkpoint under way: a tick a test waits
@@ -76,6 +83,8 @@ export class Testing implements Resource {
 	tree: string[] = [];
 	/** What `/api/systems` lists, for `#`. */
 	systems: NamedSystem[] = [];
+	/** What `/api/paths` and `/api/systems` wait on, for a test to hold them back. */
+	listing: Promise<void> = Promise.resolve();
 	/** Each task's diff, by task, for `/api/tasks/:task/diff`. */
 	diffs: Record<string, FileDiff[]> = {};
 	/** What every write answers with; a test sets it when the page reads it. */
@@ -145,9 +154,11 @@ export class Testing implements Resource {
 				});
 			}
 			if (path.startsWith("/api/paths")) {
+				await this.listing;
 				return Response.json(this.tree);
 			}
 			if (path.startsWith("/api/systems")) {
+				await this.listing;
 				return Response.json(this.systems);
 			}
 			const diff = /^\/api\/tasks\/([^/]+)\/diff$/.exec(route ?? "");
@@ -353,6 +364,57 @@ export async function newWith(
 			),
 		),
 	);
+}
+
+/**
+ * Types `text` into the composer `box` in place of what it holds, the caret
+ * at its end, as its editor takes typing.
+ */
+export function typeIn(box: HTMLElement, text: string): Promise<void> {
+	return act(async () => {
+		box.focus();
+		editorOf(box).update(
+			() => {
+				const root = $getRoot().clear();
+				for (const line of text.split("\n")) {
+					root.append(
+						$createParagraphNode().append(
+							...(line === "" ? [] : [$createTextNode(line)]),
+						),
+					);
+				}
+				root.selectEnd();
+			},
+			{ discrete: true },
+		);
+	});
+}
+
+/** What the composer `box` holds, as its text: a chip as what it reads. */
+export function textIn(box: HTMLElement): string {
+	return editorOf(box)
+		.getEditorState()
+		.read(() =>
+			$getRoot()
+				.getChildren()
+				.map((line) =>
+					$isElementNode(line)
+						? line
+								.getChildren()
+								.map((child) => child.getTextContent())
+								.join("")
+						: "",
+				)
+				.join("\n"),
+		);
+}
+
+function editorOf(box: HTMLElement) {
+	const editor = getNearestEditorFromDOMNode(box);
+	if (editor === null) {
+		throw new Error("not a composer");
+	}
+	return editor;
 }
 
 /** Picks an option of a Select: Base UI picks on the pointer let go. */

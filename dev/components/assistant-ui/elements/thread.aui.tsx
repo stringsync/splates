@@ -23,6 +23,7 @@ import {
 	unstable_useTriggerPopoverScopeContext,
 	useAuiState,
 } from "@assistant-ui/react";
+import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import {
 	ArrowDownIcon,
 	ArrowUpIcon,
@@ -80,9 +81,20 @@ import {
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Skeleton } from "#dev/components/ui/skeleton.tsx";
+import {
+	type ChipWriter,
+	ChipWriterPlugin,
+	ComposerChip,
+	chipFormatter,
+	FileNames,
+	PasteFilesPlugin,
+	TypedDirectivesPlugin,
+} from "#dev/composer-editor.tsx";
 import { DirectiveChip } from "#dev/directives.tsx";
+import { distinctNames } from "#dev/file-chip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
+import { filesIn, NamedContext } from "#dev/mentioned.tsx";
 import type { References } from "#dev/references.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
@@ -750,7 +762,7 @@ const SpokenActionBar: FC = () => {
 };
 
 const FOCUSABLE_SELECTOR =
-	"a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1']):not([disabled])";
+	"a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [contenteditable='true'], [tabindex]:not([tabindex='-1']):not([disabled])";
 
 const nextFocusable = (start: Element) => {
 	for (
@@ -900,6 +912,14 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	} = useContext(ThreadExtrasContext);
 	const popoverKeys = useRef<PopoverKey | null>(null);
 	const [pointer] = useState(steadyPointer);
+	const writer = useRef<ChipWriter | null>(null);
+	const named = useContext(NamedContext);
+	const formatter = useMemo(() => chipFormatter(named), [named]);
+	const text = useAuiState((s) => s.composer.text);
+	const names = useMemo(
+		() => distinctNames(filesIn(text, named)),
+		[text, named],
+	);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -911,14 +931,23 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 				}
 			>
 				<ComposerAttachments />
-				<ComposerPrimitive.Input
-					placeholder={placeholder}
-					className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
-					rows={1}
-					autoFocus={autoFocus}
-					enterKeyHint="send"
-					aria-label="Message input"
-				/>
+				<FileNames value={names}>
+					<LexicalComposerInput
+						placeholder={placeholder}
+						className="aui-composer-input caret-primary relative max-h-48 min-h-10 w-full bg-transparent px-2.5 py-1 text-base leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-1 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
+						autoFocus={autoFocus}
+						aria-label="Message input"
+						formatter={formatter}
+						directiveChip={ComposerChip}
+						directivePluginProps={{
+							onDirectiveSelect: () => writer.current?.space(),
+						}}
+					>
+						<ChipWriterPlugin writer={writer} />
+						<PasteFilesPlugin />
+						<TypedDirectivesPlugin />
+					</LexicalComposerInput>
+				</FileNames>
 				<ComposerAction />
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>
@@ -986,6 +1015,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					{references !== undefined && (
 						<ComposerPrimitive.TriggerPopover
 							char="#"
+							matcher={NOT_IN_DIRECTIVE}
 							adapter={references.adapter}
 							aria-label="references"
 							className="absolute inset-x-0 bottom-full z-10 mb-2"
@@ -1014,7 +1044,11 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							</ComposerPrimitive.TriggerPopoverCategories>
 							<ComposerPrimitive.TriggerPopoverItems>
 								{(items) => (
-									<ReferenceList items={items} references={references} />
+									<ReferenceList
+										items={items}
+										references={references}
+										writer={writer}
+									/>
 								)}
 							</ComposerPrimitive.TriggerPopoverItems>
 						</ComposerPrimitive.TriggerPopover>
@@ -1098,7 +1132,8 @@ const POPOVER_ROW =
 const ReferenceList: FC<{
 	items: readonly TriggerItem[];
 	references: References;
-}> = ({ items, references }) => {
+	writer: RefObject<ChipWriter | null>;
+}> = ({ items, references, writer }) => {
 	const {
 		activeCategoryId,
 		goBack,
@@ -1157,25 +1192,17 @@ const ReferenceList: FC<{
 		goBack,
 		popoverKeys,
 	]);
-	// A system is written in as `#name`, where the popover would otherwise
+	// A system is written in as a chip, where the popover would otherwise
 	// take what was typed away.
 	useEffect(
 		() =>
 			registerSelectItemOverride((item) => {
-				const typed = `#${query}`;
-				const box = document.activeElement;
-				const caret =
-					box instanceof HTMLTextAreaElement
-						? box.selectionStart
-						: Number.MAX_SAFE_INTEGER;
-				const after = references.write(item, typed, caret);
-				if (after === null) {
-					return false;
-				}
-				setCursorPosition(after);
-				return true;
+				const chip = references.chip(item);
+				return (
+					chip !== null && (writer.current?.write(`#${query}`, chip) ?? false)
+				);
 			}),
-		[registerSelectItemOverride, setCursorPosition, query, references],
+		[registerSelectItemOverride, query, references, writer],
 	);
 	useEffect(() => {
 		list.current
@@ -1278,6 +1305,18 @@ const AT_START: TriggerMatcher = (text, _char, cursor) => {
 	return typed === null
 		? null
 		: { query: typed[1] ?? "", offset: 0, endOffset: cursor };
+};
+
+/**
+ * A `#` at the start or after a space, as typed, but not the one in a todo's
+ * `[ARBOR TODO #N]` just before the caret, which a chip reads as.
+ */
+const NOT_IN_DIRECTIVE: TriggerMatcher = (text, _char, cursor) => {
+	const typed = /(^|\s)#([^\s#\]]*)$/.exec(text.slice(0, cursor));
+	const query = typed?.[2] ?? "";
+	return typed === null
+		? null
+		: { query, offset: cursor - query.length - 1, endOffset: cursor };
 };
 
 /** A command written as `/name`, the way the agent reads it. */
