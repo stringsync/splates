@@ -898,6 +898,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		commands,
 		placeholder = "Send a message...",
 	} = useContext(ThreadExtrasContext);
+	const popoverKeys = useRef<PopoverKey | null>(null);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -929,93 +930,112 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		return composer;
 	}
 	return (
-		<ComposerPrimitive.TriggerPopoverRoot>
-			{/* The lists float over the thread above the composer, held to the
-			    composer's edges, so opening one moves nothing. */}
-			<div className="relative w-full">
-				{mentions !== undefined && (
-					<ComposerPrimitive.TriggerPopover
-						char="@"
-						adapter={mentions}
-						className="absolute inset-x-0 bottom-full z-10 mb-2"
-					>
-						<ComposerPrimitive.TriggerPopover.Directive
-							formatter={PLAIN_MENTION}
-						/>
-						<ComposerPrimitive.TriggerPopoverItems>
-							{(items) => (
-								<div aria-label="mentions" className={POPOVER_LIST}>
-									{items.map((item, index) => (
-										<ComposerPrimitive.TriggerPopoverItem
-											key={item.id}
-											item={item}
-											index={index}
-											className={cn(POPOVER_ROW, "font-mono text-xs")}
-										>
-											<span className="truncate">{item.label}</span>
-										</ComposerPrimitive.TriggerPopoverItem>
-									))}
-								</div>
-							)}
-						</ComposerPrimitive.TriggerPopoverItems>
-					</ComposerPrimitive.TriggerPopover>
-				)}
-				{references !== undefined && (
-					<ComposerPrimitive.TriggerPopover
-						char="#"
-						adapter={references.adapter}
-						aria-label="references"
-						className="absolute inset-x-0 bottom-full z-10 mb-2"
-					>
-						{/* Nothing of the `#` stays: a directive goes in as a chip,
+		<PopoverKeys.Provider value={popoverKeys}>
+			<ComposerPrimitive.TriggerPopoverRoot>
+				{/* The lists float over the thread above the composer, held to the
+			    composer's edges, so opening one moves nothing. A key the open
+			    list takes stops here, on the way down, before the box sees it. */}
+				<div
+					className="relative w-full"
+					onKeyDownCapture={(event) => {
+						if (popoverKeys.current?.(event) === true) {
+							event.preventDefault();
+							event.stopPropagation();
+						}
+					}}
+				>
+					{mentions !== undefined && (
+						<ComposerPrimitive.TriggerPopover
+							char="@"
+							adapter={mentions}
+							className="absolute inset-x-0 bottom-full z-10 mb-2"
+						>
+							<ComposerPrimitive.TriggerPopover.Directive
+								formatter={PLAIN_MENTION}
+							/>
+							<ComposerPrimitive.TriggerPopoverItems>
+								{(items) => (
+									<div aria-label="mentions" className={POPOVER_LIST}>
+										{items.map((item, index) => (
+											<ComposerPrimitive.TriggerPopoverItem
+												key={item.id}
+												item={item}
+												index={index}
+												className={cn(POPOVER_ROW, "font-mono text-xs")}
+											>
+												<span className="truncate">{item.label}</span>
+											</ComposerPrimitive.TriggerPopoverItem>
+										))}
+									</div>
+								)}
+							</ComposerPrimitive.TriggerPopoverItems>
+						</ComposerPrimitive.TriggerPopover>
+					)}
+					{references !== undefined && (
+						<ComposerPrimitive.TriggerPopover
+							char="#"
+							adapter={references.adapter}
+							aria-label="references"
+							className="absolute inset-x-0 bottom-full z-10 mb-2"
+						>
+							{/* Nothing of the `#` stays: a directive goes in as a chip,
 						    an action only runs. */}
-						<ComposerPrimitive.TriggerPopover.Action
-							onExecute={references.pick}
-							removeOnExecute
-						/>
-						<ComposerPrimitive.TriggerPopoverCategories>
-							{(categories) => (
-								<div className={POPOVER_LIST}>
-									{categories.map((category) => (
-										<ComposerPrimitive.TriggerPopoverCategoryItem
-											key={category.id}
-											categoryId={category.id}
-											className={cn(POPOVER_ROW, "justify-between text-sm")}
-										>
-											{category.label}
-											<ChevronRightIcon className="text-muted-foreground size-4" />
-										</ComposerPrimitive.TriggerPopoverCategoryItem>
-									))}
-								</div>
-							)}
-						</ComposerPrimitive.TriggerPopoverCategories>
-						<ComposerPrimitive.TriggerPopoverItems>
-							{(items) => (
-								<ReferenceList items={items} references={references} />
-							)}
-						</ComposerPrimitive.TriggerPopoverItems>
-					</ComposerPrimitive.TriggerPopover>
-				)}
-				{commands !== undefined && (
-					<ComposerPrimitive.TriggerPopover
-						char="/"
-						matcher={AT_START}
-						adapter={commands}
-						className="absolute inset-x-0 bottom-full z-10 mb-2"
-					>
-						<ComposerPrimitive.TriggerPopover.Directive
-							formatter={PLAIN_COMMAND}
-						/>
-						<ComposerPrimitive.TriggerPopoverItems>
-							{(items) => <CommandList items={items} />}
-						</ComposerPrimitive.TriggerPopoverItems>
-					</ComposerPrimitive.TriggerPopover>
-				)}
-				{composer}
-			</div>
-		</ComposerPrimitive.TriggerPopoverRoot>
+							<ComposerPrimitive.TriggerPopover.Action
+								onExecute={references.pick}
+								removeOnExecute
+							/>
+							<ComposerPrimitive.TriggerPopoverCategories>
+								{(categories) => (
+									<div className={POPOVER_LIST}>
+										{categories.map((category) => (
+											<ComposerPrimitive.TriggerPopoverCategoryItem
+												key={category.id}
+												categoryId={category.id}
+												className={cn(POPOVER_ROW, "justify-between text-sm")}
+											>
+												{category.label}
+												<ChevronRightIcon className="text-muted-foreground size-4" />
+											</ComposerPrimitive.TriggerPopoverCategoryItem>
+										))}
+									</div>
+								)}
+							</ComposerPrimitive.TriggerPopoverCategories>
+							<ComposerPrimitive.TriggerPopoverItems>
+								{(items) => (
+									<ReferenceList items={items} references={references} />
+								)}
+							</ComposerPrimitive.TriggerPopoverItems>
+						</ComposerPrimitive.TriggerPopover>
+					)}
+					{commands !== undefined && (
+						<ComposerPrimitive.TriggerPopover
+							char="/"
+							matcher={AT_START}
+							adapter={commands}
+							className="absolute inset-x-0 bottom-full z-10 mb-2"
+						>
+							<ComposerPrimitive.TriggerPopover.Directive
+								formatter={PLAIN_COMMAND}
+							/>
+							<ComposerPrimitive.TriggerPopoverItems>
+								{(items) => <CommandList items={items} />}
+							</ComposerPrimitive.TriggerPopoverItems>
+						</ComposerPrimitive.TriggerPopover>
+					)}
+					{composer}
+				</div>
+			</ComposerPrimitive.TriggerPopoverRoot>
+		</PopoverKeys.Provider>
 	);
 };
+
+/** Takes a key pressed in the composer for the open list, true if it did. */
+type PopoverKey = (event: { key: string; shiftKey: boolean }) => boolean;
+
+/** Where the open list puts its `PopoverKey`, read by the composer. */
+const PopoverKeys = createContext<RefObject<PopoverKey | null>>({
+	current: null,
+});
 
 const POPOVER_LIST =
 	"bg-popover text-popover-foreground w-full max-w-md rounded-xl border p-1 shadow-md";
@@ -1024,19 +1044,72 @@ const POPOVER_ROW =
 
 /**
  * What a `#` category holds, or what matches what was typed after it, the row
- * the arrow keys are on kept in view.
+ * the arrow keys are on kept in view. In a category, the arrow keys reach Back
+ * too, up from the first row or down from the last, and Enter or Tab on it
+ * goes back to the categories.
  */
 const ReferenceList: FC<{
 	items: readonly TriggerItem[];
 	references: References;
 }> = ({ items, references }) => {
 	const {
+		activeCategoryId,
+		goBack,
+		highlightIndex,
 		highlightedIndex,
+		isSearchMode,
 		query,
 		registerSelectItemOverride,
 		setCursorPosition,
 	} = unstable_useTriggerPopoverScopeContext();
 	const list = useRef<HTMLDivElement>(null);
+	const popoverKeys = useContext(PopoverKeys);
+	// Whether Back is the row the arrow keys are on, rather than an item.
+	const [back, setBack] = useState(false);
+	const backShown = activeCategoryId !== null && !isSearchMode;
+	const onBack = back && backShown;
+	// Typing, or moving to another category, starts again on the first item.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resets on change
+	useEffect(() => setBack(false), [query, activeCategoryId]);
+	useEffect(() => {
+		if (!backShown) {
+			return;
+		}
+		const last = items.length - 1;
+		popoverKeys.current = ({ key, shiftKey }) => {
+			if (onBack) {
+				if (key === "ArrowDown" || key === "ArrowUp") {
+					setBack(false);
+					highlightIndex(key === "ArrowDown" ? 0 : last);
+					return true;
+				}
+				if ((key === "Enter" || key === "Tab") && !shiftKey) {
+					goBack();
+					return true;
+				}
+				return false;
+			}
+			if (
+				(key === "ArrowUp" && highlightedIndex <= 0) ||
+				(key === "ArrowDown" && highlightedIndex >= last)
+			) {
+				setBack(true);
+				return true;
+			}
+			return false;
+		};
+		return () => {
+			popoverKeys.current = null;
+		};
+	}, [
+		backShown,
+		onBack,
+		items.length,
+		highlightedIndex,
+		highlightIndex,
+		goBack,
+		popoverKeys,
+	]);
 	// A system is written in as `#name`, where the popover would otherwise
 	// take what was typed away.
 	useEffect(
@@ -1059,12 +1132,17 @@ const ReferenceList: FC<{
 	);
 	useEffect(() => {
 		list.current
-			?.querySelector(`[data-index="${highlightedIndex}"]`)
+			?.querySelector(
+				onBack ? "[data-back]" : `[data-index="${highlightedIndex}"]`,
+			)
 			?.scrollIntoView?.({ block: "nearest" });
-	}, [highlightedIndex]);
+	}, [highlightedIndex, onBack]);
 	return (
 		<div ref={list} className={cn(POPOVER_LIST, "max-h-80 overflow-y-auto")}>
 			<ComposerPrimitive.TriggerPopoverBack
+				data-back=""
+				data-highlighted={onBack ? "" : undefined}
+				onMouseMove={() => setBack(true)}
 				className={cn(POPOVER_ROW, "text-muted-foreground text-xs")}
 			>
 				<ChevronLeftIcon className="size-3.5" />
@@ -1081,9 +1159,11 @@ const ReferenceList: FC<{
 					item={item}
 					index={index}
 					data-index={index}
+					onMouseMove={() => setBack(false)}
 					className={cn(
 						POPOVER_ROW,
 						"text-sm [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+						onBack && "data-[highlighted]:bg-transparent",
 					)}
 				>
 					{references.icon(item)}

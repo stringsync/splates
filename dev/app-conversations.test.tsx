@@ -1769,6 +1769,41 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations")).toEqual([]);
 		});
 
+		it("reaches Back with the arrow keys in a category, and goes back on Enter", async () => {
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+			const key = (name: string) =>
+				act(async () => fireEvent.keyDown(box, { key: name }));
+			const highlighted = () =>
+				view
+					.getByRole("listbox", { name: "references" })
+					.querySelector("[data-highlighted]")?.textContent;
+
+			await typeIn(box, "#");
+			await waitFor(() => view.getByRole("listbox", { name: "references" }));
+			await key("ArrowDown");
+			await key("Enter");
+			expect(highlighted()).toBe("Retry the upload on a 413#12");
+
+			await key("ArrowUp");
+			expect(highlighted()).toBe("Back");
+			await key("ArrowDown");
+			expect(highlighted()).toBe("Retry the upload on a 413#12");
+			await key("ArrowDown");
+			expect(highlighted()).toBe("Back");
+
+			await key("Enter");
+			expect(
+				within(view.getByRole("listbox", { name: "references" }))
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["Directives", "Todos", "Lanes", "Tasks"]);
+			expect(box.value).toBe("#");
+			expect(posted("/api/conversations")).toEqual([]);
+		});
+
 		it("searches every category for what follows the #", async () => {
 			const view = await conversations([], null, board);
 			const box = view.getByRole("textbox", {
