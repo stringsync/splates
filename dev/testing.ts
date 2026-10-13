@@ -291,6 +291,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		plan: null,
 		planProblems: [],
 		dispatched: false,
+		systems: [],
 		...overrides,
 	};
 }

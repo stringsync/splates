@@ -25,26 +25,36 @@ export interface Action {
  * `--thread-max-width`), so the panel starts half that and a gap right of
  * the middle, and shows only once the thread is wide enough to hold it there.
  */
-export function Actions({ actions }: { actions: Action[] }): JSX.Element {
+export function Actions({
+	actions,
+	children,
+}: {
+	actions: Action[];
+	/** Cards stacked under the panel, such as the systems a task touches. */
+	children?: ReactNode;
+}): JSX.Element {
 	const [status, ...rest] = actions;
 	return (
-		<nav
-			aria-label="actions"
-			className="absolute top-0 left-[calc(50%+22.75rem)] z-10 hidden w-60 flex-col divide-y overflow-hidden rounded-lg border bg-background @min-[76rem]:flex"
-		>
-			{status !== undefined && (
-				<div className="py-1">
-					<ActionRow action={status} />
-				</div>
-			)}
-			{rest.length > 0 && (
-				<div className="py-1">
-					{rest.map((action) => (
-						<ActionRow key={action.label} action={action} />
-					))}
-				</div>
-			)}
-		</nav>
+		<div className="absolute top-0 left-[calc(50%+22.75rem)] z-10 hidden w-60 flex-col gap-3 @min-[76rem]:flex">
+			<nav
+				aria-label="actions"
+				className="flex flex-col divide-y overflow-hidden rounded-lg border bg-background"
+			>
+				{status !== undefined && (
+					<div className="py-1">
+						<ActionRow action={status} />
+					</div>
+				)}
+				{rest.length > 0 && (
+					<div className="py-1">
+						{rest.map((action) => (
+							<ActionRow key={action.label} action={action} />
+						))}
+					</div>
+				)}
+			</nav>
+			{children}
+		</div>
 	);
 }
 

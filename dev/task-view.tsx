@@ -34,6 +34,7 @@ import { type AgentChoice, agentName } from "./conversation-feed";
 import { type Drafts, externalDraft } from "./drafts";
 import { QuestionCards, type Reply, ReplyContext } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
+import { SystemsButton, SystemsCard } from "./systems";
 import { Task } from "./tasks";
 
 /** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
@@ -307,7 +308,7 @@ export function TaskView({
 		<section
 			ref={section}
 			aria-label={task.task}
-			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
 			<header className="flex min-h-9 items-center gap-2">
 				{onBack !== null && <Back onBack={onBack} />}
@@ -326,8 +327,13 @@ export function TaskView({
 						onDetails={() => setDetails(true)}
 					/>
 				</div>
+				<SystemsButton systems={task.systems} />
 			</header>
-			<div className="min-h-0 flex-1 overflow-y-auto">
+			<div className="relative min-h-0 flex-1 overflow-y-auto">
+				{/* Where a conversation's actions card stands, beside the column. */}
+				<div className="absolute top-4 left-[calc(50%+22.75rem)] hidden w-60 @min-[76rem]:block">
+					<SystemsCard systems={task.systems} />
+				</div>
 				<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
 					<Alert variant="warning">
 						<TriangleAlertIcon />

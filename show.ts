@@ -3,6 +3,7 @@ import { type Fs, NodeFs } from "webappwiz/system";
 import { age } from "./age";
 import { fail } from "./exit";
 import { checkPlan, PLAN_FILE, ready, unfinished } from "./plan";
+import { type NamedSystem, Systems } from "./systems";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -43,6 +44,11 @@ export interface Details {
 	 * yet to start a conversation with.
 	 */
 	dispatched: boolean;
+	/**
+	 * The systems its changed files fall in, committed or not, in the order
+	 * its worktree's `arbor.config.ts` names them.
+	 */
+	systems: NamedSystem[];
 }
 
 export interface ShowOptions {
@@ -136,7 +142,28 @@ export class TaskDetails {
 			dispatched:
 				state?.dispatch !== undefined &&
 				state.dispatch.conversation === undefined,
+			systems: await this.systems(worktree),
 		};
+	}
+
+	/**
+	 * Read from its own worktree, so a system named during the task counts at
+	 * once. Its changed files cost three git calls, spent only once there is a
+	 * system to match them against.
+	 */
+	private async systems(worktree: Worktree): Promise<NamedSystem[]> {
+		if (!worktree.exists) {
+			return [];
+		}
+		// A config the agent is halfway through editing names none for now,
+		// rather than taking the whole page down with it.
+		const named = await Systems.at(worktree.path, { fs: this.fs }).catch(
+			() => null,
+		);
+		if (named === null || named.all().length === 0) {
+			return [];
+		}
+		return named.touchedBy((await worktree.changedFiles()) ?? []);
 	}
 }
 
@@ -149,6 +176,11 @@ function report(details: Details): string {
 		`  lease:     ${details.lease}`,
 		`  ahead:     ${details.ahead === null ? "?" : details.ahead}  ${diff(details)}`,
 		`  age:       ${details.age ?? "?"}`,
+		...(details.systems.length > 0
+			? [
+					`  systems:   ${details.systems.map((system) => system.name).join(", ")}`,
+				]
+			: []),
 	];
 	if (details.review !== null) {
 		lines.push(`  ${color.green(`ready to merge: ${details.review}`)}`);

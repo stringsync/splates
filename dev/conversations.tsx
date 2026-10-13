@@ -150,6 +150,7 @@ import {
 	TodoUI,
 } from "./report-cards";
 import type { Settings } from "./settings";
+import { SystemsButton, SystemsCard } from "./systems";
 import {
 	arriveAt,
 	openQuestions,
@@ -2662,6 +2663,7 @@ function Thread({
 						/>
 					)}
 				</div>
+				<SystemsButton systems={task?.systems ?? []} />
 				<ActionButtons actions={actions} />
 			</header>
 			{archive.confirm}
@@ -2749,7 +2751,9 @@ function Thread({
 						</ArchiveContext>
 					</Composing.Provider>
 				</AssistantRuntimeProvider>
-				<Actions actions={actions} />
+				<Actions actions={actions}>
+					<SystemsCard systems={task?.systems ?? []} />
+				</Actions>
 			</div>
 		</section>
 	);

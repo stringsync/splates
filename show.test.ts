@@ -73,6 +73,35 @@ describe("show", () => {
 		});
 	});
 
+	it("names the systems a task's changed files fall in, from its own config", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		await deps.fs.write(
+			`${alpha}/arbor.config.ts`,
+			`export default { systems: { docs: { globs: ["*.md"] }, code: { globs: ["*.ts"], ignore: ["arbor.config.ts"] } } };\n`,
+		);
+		await deps.fs.write(`${alpha}/notes.md`, "a\n");
+		deps.log.clear();
+
+		await show(deps, "alpha");
+
+		expect(deps.out()).toContain("systems:   docs\n");
+	});
+
+	it("names no systems while its config will not load", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		await deps.fs.write(
+			`${alpha}/arbor.config.ts`,
+			`import "./nowhere";\nexport default {};\n`,
+		);
+		deps.log.clear();
+
+		await show(deps, "alpha", { json: true });
+
+		expect(JSON.parse(deps.out()).systems).toEqual([]);
+	});
+
 	it("says a task waiting on approval is ready to merge, and what to look at", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;

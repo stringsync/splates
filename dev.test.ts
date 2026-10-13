@@ -513,6 +513,30 @@ describe("dev", () => {
 			});
 		}, 15_000);
 
+		it("hears of an uncommitted edit in a worktree, and the systems it falls in", async () => {
+			await add(deps, "alpha");
+			const tree = (await deps.service.find("alpha")).path;
+
+			await serving(async (_, port) => {
+				const reader = await listen(port);
+
+				await deps.fs.write(
+					`${tree}/arbor.config.ts`,
+					`export default { systems: { docs: { globs: ["docs/**"] } } };\n`,
+				);
+				await deps.fs.mkdir(`${tree}/docs/deep`, { recursive: true });
+				await deps.fs.write(`${tree}/docs/deep/notes.md`, "a\n");
+				expect(await within(reader, "data: changed", 5_000)).toBe(true);
+				const snapshot = await (
+					await fetch(`http://localhost:${port}/api/snapshot`)
+				).json();
+				expect(snapshot.tasks[0].systems).toEqual([
+					{ name: "docs", globs: ["docs/**"] },
+				]);
+				await reader.cancel();
+			});
+		}, 15_000);
+
 		it("stays quiet while only a conversation's log grows", async () => {
 			await deps.fs.mkdir(`${deps.arborDir}/conversations`);
 			await serving(async (_, port) => {

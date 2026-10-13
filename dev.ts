@@ -268,6 +268,10 @@ export async function dev(
 			settle.call(() => {
 				tick().catch((error: unknown) => log.error(String(error)));
 			});
+		// An agent's edits come in bursts, each one re-reading every task's
+		// changed files, so they wait for a longer quiet than a record does.
+		const edits = new Debouncer(new SystemTimer(), EDITS_SETTLE);
+		const edited = () => edits.call(changed);
 		const gitDir = dirname(arborDir);
 		const conversationsDir = `${arborDir}/conversations`;
 		let watches: Resource[] = [];
@@ -315,12 +319,16 @@ export async function dev(
 			watches = [];
 			trees.clear();
 			settle.cancel();
+			edits.cancel();
 			if (poll !== null) {
 				clearInterval(poll);
 				poll = null;
 			}
 		};
-		/** Watches the ARBOR.md of each worktree in `paths`, and no other. */
+		/**
+		 * Watches each worktree in `paths`, and no other: its ARBOR.md, and its
+		 * files as they are edited, which move its counts and its systems.
+		 */
 		const follow = (paths: string[]): void => {
 			if (open.size === 0 || poll !== null) {
 				return;
@@ -338,11 +346,17 @@ export async function dev(
 				try {
 					trees.set(
 						path,
-						fs.watch(path, (file) => {
-							if (basename(file) === PLAN_FILE) {
-								changed();
-							}
-						}),
+						fs.watch(
+							path,
+							(file) => {
+								if (basename(file) === PLAN_FILE) {
+									changed();
+								} else if (!file.includes("/node_modules/")) {
+									edited();
+								}
+							},
+							{ recursive: true },
+						),
 					);
 				} catch {
 					// Its worktree is gone: the task shows as orphaned, which no
@@ -1756,6 +1770,9 @@ const SOURCE_CHECK = Duration.secs(15);
 
 /** How long changes to a repo's files settle before it is read again. */
 const SETTLE = Duration.ms(50);
+
+/** How long edits to a worktree's files settle before the repo is read again. */
+const EDITS_SETTLE = Duration.ms(500);
 
 /** The one address the server binds: this machine, and nothing else. */
 const LOOPBACK = "127.0.0.1";

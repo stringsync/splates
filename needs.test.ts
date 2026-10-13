@@ -46,6 +46,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		plan: null,
 		planProblems: [],
 		dispatched: false,
+		systems: [],
 		...overrides,
 	};
 }

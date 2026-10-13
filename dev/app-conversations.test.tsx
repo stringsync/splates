@@ -449,6 +449,62 @@ describe("App's conversations", () => {
 		).toEqual(["TerminalCtrl+`", "Archive⌥⌘⌫"]);
 	});
 
+	it("lists the systems its task touches in a card under the actions, each opening to its globs, and as a button when narrow", async () => {
+		const view = await conversations(
+			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			"c1",
+			{
+				tasks: [
+					details({
+						task: "alpha",
+						systems: [
+							{
+								name: "auth",
+								globs: ["src/auth/**"],
+								ignore: ["src/auth/**/*.test.ts"],
+							},
+							{ name: "sessions", globs: ["src/sessions/**"] },
+						],
+					}),
+				],
+			},
+		);
+
+		const card = view.getByRole("region", { name: "systems" });
+		expect(
+			within(card)
+				.getAllByRole("button")
+				.map((row) => row.textContent),
+		).toEqual(["auth", "sessions"]);
+		expect(within(card).queryByRole("list", { name: "auth globs" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "auth" })),
+		);
+		expect(
+			within(card)
+				.getByRole("list", { name: "auth globs" })
+				.querySelectorAll("li")
+				.values()
+				.map((item) => item.textContent)
+				.toArray(),
+		).toEqual(["src/auth/**", "!src/auth/**/*.test.ts"]);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Systems" })),
+		);
+		await waitFor(() =>
+			expect(view.getAllByRole("button", { name: "sessions" })).toHaveLength(2),
+		);
+	});
+
+	it("shows no systems card for a task that touches none", async () => {
+		const view = await conversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+		]);
+
+		expect(view.queryByRole("region", { name: "systems" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Systems" })).toBeNull();
+	});
+
 	it("archives a stopped conversation from the list, with the agent's mark in place of its name", async () => {
 		const view = await conversations(
 			[
@@ -4826,6 +4882,29 @@ Cap upload retries
 				view.getByRole("dialog", { name: "gamma" }),
 			);
 			expect(dialog.textContent).toContain("Cap upload retries");
+		});
+
+		it("lists the systems an external agent's task touches beside its view", async () => {
+			const view = await sidebar(
+				[],
+				[
+					details({
+						task: "beta",
+						systems: [{ name: "uploads", globs: ["src/upload/**"] }],
+					}),
+				],
+			);
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: /beta/ })),
+			);
+
+			const alone = view.getByRole("region", { name: "beta" });
+			expect(
+				within(alone).getByRole("region", { name: "systems" }).textContent,
+			).toContain("uploads");
+			expect(
+				within(alone).getByRole("button", { name: "Systems" }),
+			).toBeTruthy();
 		});
 
 		it("keeps the answers to an external agent across a reload, waiting on you no longer once its questions are seen, and marks its row once the reply is copied, until it asks again", async () => {
