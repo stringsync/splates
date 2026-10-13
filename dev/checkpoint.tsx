@@ -562,6 +562,11 @@ function CheckpointDialog({
 							<Refusal refusal={refusal} />
 							{slide !== "done" ? (
 								<DialogFooter>
+									{slide === "ended" && (
+										<Button variant="outline" onClick={() => location.reload()}>
+											Reload page
+										</Button>
+									)}
 									<Button variant="outline" onClick={onClose}>
 										Close
 									</Button>

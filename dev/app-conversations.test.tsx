@@ -1103,6 +1103,9 @@ describe("App's conversations", () => {
 			),
 		);
 		expect(within(resumed).getByRole("img", { name: "Resumed" })).toBeTruthy();
+		expect(
+			within(resumed).getByRole("button", { name: "Reload page" }),
+		).toBeTruthy();
 	});
 
 	it("restarts and resumes, showing each agent carry on, though the page never saw the last answer", async () => {
