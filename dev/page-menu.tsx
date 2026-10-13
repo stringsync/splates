@@ -35,7 +35,7 @@ export function PageMenu({
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				aria-label={why === null ? "More" : "More: restart to update"}
-				className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+				className="-mr-1.5 ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
 			>
 				<span className="relative flex">
 					<EllipsisVerticalIcon className="size-4" />
