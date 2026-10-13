@@ -5,8 +5,8 @@ import { imageName } from "./image-chips";
 
 /**
  * One mark: a box between two corners, an arrow from its tail to its head, or
- * a pin at `from`. Its number is its place in the list, shown at `label` once
- * the person drags it there, and otherwise just off the mark.
+ * a pin at `from`. Its number is its place in the list, shown just off the
+ * mark, with its note beside the number until the person drags it to `label`.
  */
 export interface Mark {
 	kind: "box" | "arrow" | "pin";
@@ -16,11 +16,11 @@ export interface Mark {
 	label?: Position;
 }
 
-/** A press on a mark's number or note, which drags them rather than drawing. */
+/** A press on a mark's note, which drags it rather than drawing. */
 interface Hold {
 	at: number;
 	from: Position;
-	/** From the press to the number, so the number keeps its place under it. */
+	/** From the press to the note's place, so the note keeps its place under it. */
 	offset: Position;
 	moved: boolean;
 }
@@ -114,20 +114,26 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	}
 
 	/**
-	 * Where mark `at`'s number sits: where the person dragged it, or else
-	 * outside a box by its top corner on the side with more room, behind an
-	 * arrow's tail, or just above a pin's spot, never off the image.
+	 * Where mark `at`'s number sits: outside a box by its top corner on the
+	 * side with more room, behind an arrow's tail, or just above a pin's spot,
+	 * never off the image. Dragging its note leaves it there.
 	 */
 	anchor(at: number): Position {
 		const mark = this.marks[at];
 		if (mark === undefined) {
 			return Position.origin();
 		}
-		return this.onImage(mark.label ?? this.spot(mark));
+		return this.onImage(this.spot(mark));
+	}
+
+	/** Where mark `at`'s note sits beside: where the person dragged it, or its number. */
+	label(at: number): Position {
+		const label = this.marks[at]?.label;
+		return label === undefined ? this.anchor(at) : this.onImage(label);
 	}
 
 	/**
-	 * Which side of mark `at`'s number its note goes: away from the mark, so
+	 * Which side of `label(at)` mark `at`'s note goes: away from the mark, so
 	 * it covers none of it, unless the image all but ends that way.
 	 */
 	side(at: number): "left" | "right" {
@@ -135,7 +141,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		if (mark === undefined) {
 			return "right";
 		}
-		const { x } = this.anchor(at);
+		const { x } = this.label(at);
 		const middle = (mark.from.x + mark.to.x) / 2;
 		const away =
 			x < middle || (x === middle && x > this.width * 0.6) ? "left" : "right";
@@ -172,27 +178,11 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		return null;
 	}
 
-	/** The mark whose number is under `point`, or within `slop` pixels of it. */
-	labelAt(point: Position, slop = 0): number | null {
-		for (let at = this.marks.length - 1; at >= 0; at--) {
-			if (distance(point, this.anchor(at)) <= this.badge + slop) {
-				return at;
-			}
-		}
-		return null;
-	}
-
 	/**
-	 * A press at `point`: on a mark's number, within `slop` pixels, holds it
-	 * to drag; on its line, opens its note; anywhere else, starts a new mark
-	 * there.
+	 * A press at `point`: on a mark's number or line, within `slop` pixels,
+	 * opens its note; anywhere else, starts a new mark there.
 	 */
 	press(point: Position, slop = 0): void {
-		const label = this.labelAt(point, slop);
-		if (label !== null) {
-			this.hold(label, point);
-			return;
-		}
 		const hit = this.markAt(point, slop);
 		if (hit !== null) {
 			this.set({ selected: hit, draft: null });
@@ -205,14 +195,15 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	}
 
 	/**
-	 * A press at `point` on mark `at`'s number or note: dragged, it moves them
-	 * and leaves the mark where it is; let go where it was, it opens the note.
+	 * A press at `point` on mark `at`'s note: dragged, it moves the note and
+	 * leaves the mark and its number where they are; let go where it was, it
+	 * opens the note.
 	 */
 	hold(at: number, point: Position): void {
 		this.held = {
 			at,
 			from: point,
-			offset: this.anchor(at).relativeTo(point),
+			offset: this.label(at).relativeTo(point),
 			moved: false,
 		};
 		this.set({ draft: null });
@@ -260,7 +251,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		});
 	}
 
-	/** Moves mark `at`'s number, and its note with it, to `label`. */
+	/** Moves mark `at`'s note to sit beside `label`, leaving its number. */
 	place(at: number, label: Position): void {
 		this.set({
 			marks: this.marks.map((mark, each) =>

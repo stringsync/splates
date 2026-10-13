@@ -111,31 +111,36 @@ describe("Annotation", () => {
 		expect(marks.side(0)).toBe("left");
 	});
 
-	it("drags a number without moving its mark", () => {
+	it("drags a note without moving its mark or its number", () => {
 		const marks = annotation();
-		drag(marks, at(100, 100), at(300, 200));
+		marks.use("arrow");
+		drag(marks, at(400, 300), at(700, 300));
 		marks.select(null);
-		const from = marks.anchor(0);
-		drag(marks, from.translate(3, 3), at(600, 450));
-		expect(marks.anchor(0)).toEqual(at(597, 447));
+		const number = marks.anchor(0);
+		expect(marks.label(0)).toEqual(number);
+		// The card is beside the number, not on it.
+		marks.hold(0, number.translate(-100, 0));
+		marks.move(number.translate(-150, -50));
+		marks.release();
+		expect(marks.label(0)).toEqual(number.translate(-50, -50));
+		expect(marks.anchor(0)).toEqual(number);
 		expect(marks.marks[0]).toMatchObject({
-			from: at(100, 100),
-			to: at(300, 200),
+			from: at(400, 300),
+			to: at(700, 300),
 		});
 		expect(marks.selected).toBeNull();
 	});
 
-	it("drags a number from its note card", () => {
+	it("opens a note from a number dragged, rather than moving it", () => {
 		const marks = annotation();
-		marks.use("arrow");
-		drag(marks, at(400, 300), at(700, 300));
-		const from = marks.anchor(0);
-		// The card is beside the number, not on it.
-		marks.hold(0, from.translate(-100, 0));
-		marks.move(from.translate(-150, -50));
-		marks.release();
-		expect(marks.anchor(0)).toEqual(from.translate(-50, -50));
-		expect(marks.marks[0]?.from).toEqual(at(400, 300));
+		drag(marks, at(100, 100), at(300, 200));
+		marks.select(null);
+		const number = marks.anchor(0);
+		drag(marks, number, at(600, 450));
+		expect(marks.anchor(0)).toEqual(number);
+		expect(marks.label(0)).toEqual(number);
+		expect(marks.marks).toHaveLength(1);
+		expect(marks.selected).toBe(0);
 	});
 
 	it("opens a note held but not moved", () => {
@@ -149,14 +154,16 @@ describe("Annotation", () => {
 		expect(marks.selected).toBe(0);
 	});
 
-	it("keeps each number on the image", () => {
+	it("keeps each number and note on the image", () => {
 		const marks = annotation();
 		drag(marks, at(0, 0), at(1100, 200));
 		marks.select(null);
 		const edge = marks.badge + marks.stroke;
 		expect(marks.anchor(0).x).toBe(edge);
-		drag(marks, marks.anchor(0), at(-50, 900));
-		expect(marks.anchor(0)).toEqual(at(edge, 550 - edge));
+		marks.hold(0, marks.label(0));
+		marks.move(at(-50, 900));
+		marks.release();
+		expect(marks.label(0)).toEqual(at(edge, 550 - edge));
 	});
 
 	it("sits a pin's number above its spot", () => {

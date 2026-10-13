@@ -177,7 +177,7 @@ function Board({
 		const width = canvas.current?.getBoundingClientRect().width ?? 0;
 		return width === 0 ? 0 : (SLOP * annotation.width) / width;
 	};
-	/** What drags mark `each`'s note card, and its number with it. */
+	/** What drags mark `each`'s note card, leaving its number by the mark. */
 	const grip = (each: number): Grip => ({
 		onPointerDown: (event) => {
 			if (event.button !== 0) {
@@ -311,16 +311,11 @@ function Board({
 						}}
 						onPointerMove={(event) => {
 							annotation.move(at(event));
-							// Over a number, a press drags it; over a line, picks its mark.
-							const point = at(event);
+							// Over a number or a line, a press picks its mark.
 							event.currentTarget.style.cursor =
-								draft !== null
-									? ""
-									: annotation.labelAt(point, slop()) !== null
-										? "grab"
-										: annotation.markAt(point, slop()) !== null
-											? "pointer"
-											: "";
+								draft === null && annotation.markAt(at(event), slop()) !== null
+									? "pointer"
+									: "";
 						}}
 						onPointerUp={() => annotation.release()}
 						onPointerCancel={() => annotation.release()}
@@ -354,7 +349,7 @@ type Grip = Pick<
 	"onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel"
 >;
 
-/** Mark `at`'s note being written, beside its number, which drags it. */
+/** Mark `at`'s note being written, led by its number, which drags it. */
 function Note({
 	annotation,
 	at,
@@ -407,7 +402,7 @@ function Note({
 }
 
 /**
- * Mark `at`'s note as written, beside its number: a drag moves it, a click
+ * Mark `at`'s note as written, led by its number: a drag moves it, a click
  * opens it again.
  */
 function Label({
@@ -446,8 +441,8 @@ function Label({
 }
 
 /**
- * A card beside mark `at`'s number, led by that number, on the side of it
- * away from the mark.
+ * A card led by mark `at`'s number, beside where its note was dragged, or
+ * else beside the number on the image, on the side away from the mark.
  */
 function Beside({
 	annotation,
@@ -464,8 +459,8 @@ function Beside({
 	numberProps?: Grip;
 	children: ReactNode;
 }): JSX.Element {
-	const anchor = annotation.anchor(at);
-	const left = anchor.x / annotation.width;
+	const label = annotation.label(at);
+	const left = label.x / annotation.width;
 	const gap = `calc(${((annotation.badge * 1.4) / annotation.width) * 100}% + 0.5rem)`;
 	return (
 		<div
@@ -474,7 +469,7 @@ function Beside({
 				className,
 			)}
 			style={{
-				top: `${(anchor.y / annotation.height) * 100}%`,
+				top: `${(label.y / annotation.height) * 100}%`,
 				...(annotation.side(at) === "right"
 					? { left: `calc(${left * 100}% + ${gap})` }
 					: { right: `calc(${(1 - left) * 100}% + ${gap})` }),
