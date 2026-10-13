@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import type { SpawnOptions } from "webappwiz/system";
 import { FakePs } from "webappwiz/system/testing";
-import { RESTART, supervise, UPDATE } from "./supervise";
+import { RESTART, supervise, UNBUILT, UPDATE } from "./supervise";
 
 describe("supervise", () => {
 	const exiting = (ps: FakePs, ...codes: number[]) => {
@@ -32,18 +33,38 @@ describe("supervise", () => {
 		]);
 	});
 
+	const build = { argv: ["bun", "install"], cwd: "/fake/arbor" };
+
 	it("builds the page before each start of the same arbor, and no more once it updates", async () => {
 		const ps = new FakePs();
 		ps.args = ["dev"];
 		exiting(ps, 0, RESTART, 0, UPDATE, 0);
 
-		expect(await supervise(ps, { build: ["bun", "/fake/build.ts"] })).toBe(0);
+		expect(await supervise(ps, { build })).toBe(0);
 		expect(ps.getCalls()).toEqual([
-			"bun /fake/build.ts",
+			"bun install",
 			"bun /fake/entry.ts dev",
-			"bun /fake/build.ts",
+			"bun install",
 			"bun /fake/entry.ts dev",
 			"bunx @webappwiz/arbor@latest dev",
 		]);
+		expect(ps.getCallDirs()[0]).toBe("/fake/arbor");
+	});
+
+	it("still serves when the build fails, telling the server so, and stops telling it once a build passes", async () => {
+		const ps = new FakePs();
+		ps.args = ["dev"];
+		exiting(ps, 1, RESTART, 0, 0);
+		const told: (string | undefined)[] = [];
+		const spawn = ps.spawn.bind(ps);
+		ps.spawn = (argv: string[], opts?: SpawnOptions) => {
+			if (argv[1] === "/fake/entry.ts") {
+				told.push(opts?.env?.[UNBUILT]);
+			}
+			return spawn(argv, opts);
+		};
+
+		expect(await supervise(ps, { build })).toBe(0);
+		expect(told).toEqual(["1", undefined]);
 	});
 });

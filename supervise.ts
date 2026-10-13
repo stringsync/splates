@@ -12,6 +12,12 @@ export const UPDATE = 76;
  */
 export const SERVING = "ARBOR_DEV_SERVING";
 
+/**
+ * Set in the server's environment when building its page failed, so the page
+ * it serves, the one built before, says it may be out of date.
+ */
+export const UNBUILT = "ARBOR_DEV_UNBUILT";
+
 /** What starts `arbor dev` on the newest arbor, with `args` after `dev`. */
 const NEWEST = ["bunx", "@webappwiz/arbor@latest"];
 
@@ -20,9 +26,10 @@ export interface SuperviseOptions {
 	/**
 	 * Builds the page, run before each start of the same arbor, as from a
 	 * checkout, whose page `bun install` built last and the commits since may
-	 * have changed; null for one installed from npm, whose page shipped built.
+	 * have changed, packages they added included; null for one installed from
+	 * npm, whose page shipped built.
 	 */
-	build?: string[] | null;
+	build?: { argv: string[]; cwd: string } | null;
 }
 
 /**
@@ -43,11 +50,13 @@ export async function supervise(
 	try {
 		for (;;) {
 			// A failed build has said why on the terminal, and the page it left
-			// behind is still one to serve.
-			if (building !== null) {
-				await ps.spawn(building);
-			}
-			const { exitCode } = await ps.spawn(argv, { env: { [SERVING]: "1" } });
+			// behind is still one to serve, saying it failed.
+			const built =
+				building === null ||
+				(await ps.spawn(building.argv, { cwd: building.cwd })).exitCode === 0;
+			const { exitCode } = await ps.spawn(argv, {
+				env: { [SERVING]: "1", ...(built ? {} : { [UNBUILT]: "1" }) },
+			});
 			if (exitCode === UPDATE) {
 				argv = [...NEWEST, ...ps.args];
 				building = null;

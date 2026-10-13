@@ -509,6 +509,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		trunk: "main",
 		release: null,
 		behind: null,
+		unbuilt: false,
 		...overrides,
 	};
 }

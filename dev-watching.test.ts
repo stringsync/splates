@@ -186,5 +186,20 @@ describe("dev", () => {
 				await server.disposeAsync();
 			}
 		});
+
+		it("says on every page when building it failed as it started", async () => {
+			const server = await dev(deps, {
+				ports: OpenPortProvider.any(),
+				unbuilt: true,
+			});
+			try {
+				const snapshot = (await (
+					await fetch(`http://localhost:${server.port}/api/snapshot`)
+				).json()) as Snapshot;
+				expect(snapshot.unbuilt).toBe(true);
+			} finally {
+				await server.disposeAsync();
+			}
+		});
 	});
 });

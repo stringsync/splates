@@ -32,6 +32,11 @@ export interface Snapshot {
 	release: Release | null;
 	/** Commits to arbor's own source since `arbor dev` started from it. */
 	behind: Behind | null;
+	/**
+	 * Whether building the page failed as `arbor dev` started, so the page
+	 * serving is the one built before, and may be out of date.
+	 */
+	unbuilt: boolean;
 }
 
 /**
@@ -45,6 +50,7 @@ export async function snapshot({
 	home,
 	release = null,
 	behind = null,
+	unbuilt = false,
 }: {
 	service: WorktreeService;
 	todos: Todos;
@@ -53,6 +59,7 @@ export async function snapshot({
 	home?: string;
 	release?: Release | null;
 	behind?: Behind | null;
+	unbuilt?: boolean;
 }): Promise<Snapshot> {
 	const tasks = await tasksOf({ service, fs });
 	return {
@@ -67,6 +74,7 @@ export async function snapshot({
 		trunk: service.config.trunk,
 		release,
 		behind,
+		unbuilt,
 	};
 }
 

@@ -31,7 +31,7 @@ import {
 	type RosterAgent,
 } from "./roster";
 import { show } from "./show";
-import { SERVING, supervise } from "./supervise";
+import { SERVING, supervise, UNBUILT } from "./supervise";
 import { systems } from "./system";
 import {
 	todoAdd,
@@ -294,12 +294,14 @@ arbor
 	.action(async (opts, ctx) => {
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
-			// A checkout's page is as its last `bun install` built it: built
-			// again before each start, a restart onto new source serves its page.
+			// A checkout's page is as its last `bun install` built it: installed
+			// again before each start, whose postinstall builds the page, a
+			// restart onto new source serves its page, even one whose commits
+			// added a package.
 			const checkout = (await sourceCommit(ctx.ps)) !== null;
 			const [runtime = "bun"] = ctx.ps.self;
 			const build = checkout
-				? [runtime, `${import.meta.dirname}/build.ts`]
+				? { argv: [runtime, "install"], cwd: import.meta.dirname }
 				: null;
 			ctx.ps.exit(await supervise(ctx.ps, { build }));
 			return;
@@ -328,6 +330,7 @@ arbor
 			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
 			newest: () => newest(),
 			source: () => sourceCommit(ctx.ps),
+			unbuilt: ctx.ps.env(UNBUILT) !== undefined,
 			exit: (code) => ctx.ps.exit(code),
 		});
 	});

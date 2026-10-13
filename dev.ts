@@ -70,6 +70,7 @@ export async function dev(
 		checkEvery = CHECK,
 		source = async () => null,
 		sourceEvery = SOURCE_CHECK,
+		unbuilt = false,
 		exit = null,
 		open = async (root) => ({
 			...home,
@@ -206,6 +207,7 @@ export async function dev(
 				home: ps.env("HOME"),
 				release,
 				behind,
+				unbuilt,
 			});
 		const open = new Set<ReadableStreamDefaultController<Uint8Array>>();
 		let last = fingerprint(await read());
@@ -1867,6 +1869,11 @@ export interface DevOptions {
 	source?: () => Promise<string | null>;
 	/** How often `source` is asked after the first time. */
 	sourceEvery?: Duration;
+	/**
+	 * Whether building the page failed before this start, so what it serves
+	 * is the page built before; the page says so.
+	 */
+	unbuilt?: boolean;
 	/**
 	 * Ends the process with `RESTART` or `UPDATE` once the server has
 	 * stopped, for its supervisor to start another; without it, the page

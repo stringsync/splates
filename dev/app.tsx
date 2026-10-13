@@ -522,6 +522,20 @@ export function App({
 																	Outdated
 																</span>
 															)}
+															{/* Up, but serving the page built before, since building this
+									    one failed, as when a merge added a package. */}
+															{snapshot?.unbuilt === true &&
+																outdated === null &&
+																!offline && (
+																	<span
+																		role="status"
+																		title="Building this page failed as arbor dev started, so it may be out of date: the terminal running arbor dev says why"
+																		className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
+																	>
+																		<span className="size-1.5 rounded-full bg-amber-500" />
+																		Build failed
+																	</span>
+																)}
 															{offline && (
 																<span
 																	role="status"

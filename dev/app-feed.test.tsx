@@ -60,6 +60,17 @@ describe("App's feed", () => {
 		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 
+	it("says the build failed when the page it serves is the one built before", async () => {
+		const view = await testing.open();
+		expect(view.queryByText("Build failed")).toBeNull();
+
+		testing.served = snapshot({ unbuilt: true });
+		await act(async () => testing.stream?.onmessage?.());
+
+		const badge = await waitFor(() => view.getByText("Build failed"));
+		expect(badge.title).toContain("the terminal running arbor dev says why");
+	});
+
 	it("keeps a Restart in the sidebar, offering a newer arbor on it, opening Checkpoint with restart and resume picked", async () => {
 		testing.projects = [
 			{
