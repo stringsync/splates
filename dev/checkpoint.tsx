@@ -84,6 +84,27 @@ function slideOf({ asked, going }: Standing): Slide {
 	return asked.length === 0 ? "pick" : going > 0 ? "going" : "done";
 }
 
+/**
+ * Each slide's title, its own so moving on is plain to see; done says
+ * `arbor dev` restarted when its agents wait to resume on the new run.
+ */
+function titleOf(slide: Slide, restarted: string | null): string {
+	switch (slide) {
+		case "pick":
+			return "Checkpoint";
+		case "going":
+			return "Checkpoint under way";
+		case "done":
+			return restarted === null ? "Checkpoint done" : "arbor dev restarted";
+		case "restarting":
+			return "Restarting arbor dev";
+		case "resuming":
+			return "Resuming agents";
+		case "ended":
+			return "Agents resumed";
+	}
+}
+
 /** A checkpoint whose agents carried on, after `arbor dev` restarted or not. */
 interface Ended {
 	projects: ProjectChoice[];
@@ -287,17 +308,7 @@ export function CheckpointButton({
 				) : (
 					<CheckIcon className="size-3.5 text-success" />
 				)}
-				<span className="flex-1 truncate">
-					{slide === "pick"
-						? "Checkpoint"
-						: slide === "going"
-							? "Checkpoint under way"
-							: slide === "restarting"
-								? "Restarting arbor dev"
-								: restarted !== null
-									? "arbor dev restarted"
-									: "Checkpoint done"}
-				</span>
+				<span className="flex-1 truncate">{titleOf(slide, restarted)}</span>
 				{held && (
 					// Its own height, taller than the line, would push the rows below.
 					<Kbd aria-hidden className="-my-0.5">
@@ -431,9 +442,9 @@ function CheckpointDialog({
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && close()}>
 			<DialogContent className="sm:max-w-md">
-				{/* Keyed, so each slide comes in on its own; ended is done still. */}
+				{/* Keyed, so each slide comes in on its own. */}
 				<div
-					key={slide === "ended" && restarted === null ? "done" : slide}
+					key={slide}
 					className="grid gap-4 duration-200 animate-in fade-in-0 slide-in-from-right-8"
 				>
 					{slide === "pick" ? (
@@ -447,15 +458,7 @@ function CheckpointDialog({
 					) : (
 						<>
 							<DialogHeader>
-								<DialogTitle>
-									{slide === "going"
-										? "Checkpoint under way"
-										: slide === "restarting"
-											? "Restarting arbor dev"
-											: restarted !== null
-												? "arbor dev restarted"
-												: "Checkpoint done"}
-								</DialogTitle>
+								<DialogTitle>{titleOf(slide, restarted)}</DialogTitle>
 								<DialogDescription>
 									{slide === "going"
 										? `Each agent is bringing its ARBOR.md up to date${restarting === null ? "" : restarting.resume ? ", then arbor dev restarts and each resumes" : ", then arbor dev restarts"}.`

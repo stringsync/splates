@@ -879,9 +879,10 @@ describe("App's conversations", () => {
 		);
 		expect(within(dialog).getByRole("img", { name: "Resumed" })).toBeTruthy();
 		expect(within(dialog).queryByRole("button", { name: "Resume" })).toBeNull();
+		expect(view.getByRole("dialog", { name: "Agents resumed" })).toBe(dialog);
 		// Behind the dialog, so hidden from the accessibility tree.
 		expect(
-			view.getByRole("button", { name: "Checkpoint done", hidden: true }),
+			view.getByRole("button", { name: "Agents resumed", hidden: true }),
 		).toBeTruthy();
 
 		// Seen and closed, it leaves the button for the next checkpoint.
@@ -1112,7 +1113,7 @@ describe("App's conversations", () => {
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
 		await testing.say(conversation({ id: "c1", status: "running" }));
 		const resumed = await waitFor(() =>
-			view.getByRole("dialog", { name: "arbor dev restarted" }),
+			view.getByRole("dialog", { name: "Agents resumed" }),
 		);
 		await waitFor(() =>
 			expect(resumed.textContent).toContain(
@@ -1165,7 +1166,7 @@ describe("App's conversations", () => {
 		];
 		testing.comeBack();
 		const restarted = await waitFor(
-			() => view.getByRole("dialog", { name: "arbor dev restarted" }),
+			() => view.getByRole("dialog", { name: "Resuming agents" }),
 			{ timeout: 3000 },
 		);
 		expect(restarted.textContent).toContain(
@@ -1184,6 +1185,9 @@ describe("App's conversations", () => {
 					"Now on arbor 0.0.1. 1 agent resumed.",
 				),
 			{ timeout: 3000 },
+		);
+		expect(view.getByRole("dialog", { name: "Agents resumed" })).toBe(
+			restarted,
 		);
 		expect(
 			within(restarted).getByRole("img", { name: "Resumed" }),
