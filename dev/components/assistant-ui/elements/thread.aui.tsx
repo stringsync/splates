@@ -90,7 +90,7 @@ import {
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
-import { DirectiveChip } from "#dev/directives.tsx";
+import { DirectiveChip, linkDirectives } from "#dev/directives.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
@@ -1585,8 +1585,9 @@ const unstuckTop = (element: HTMLDivElement | null) => {
 
 /**
  * What the person typed, as markdown with each line break kept, each todo it
- * mentions a link to it, each system and file a chip, and the directives it
- * starts with as the chips the composer showed them as.
+ * mentions a link to it, each system and file a chip, and its directives as
+ * the chips the composer showed them as: those it starts with in a row above
+ * its words, the rest where they stand.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
 	const { directives, rest } = leadingDirectives(text);
@@ -1607,8 +1608,12 @@ const UserText: TextMessagePartComponent = ({ text }) => {
 	);
 };
 
-/** A message's text past the directives `UserText` shows as chips. */
-const afterDirectives = (text: string) => leadingDirectives(text).rest;
+/**
+ * A message's text past the directives `UserText` shows in a row, each
+ * directive after them a link the markdown draws as its chip.
+ */
+const afterDirectives = (text: string) =>
+	linkDirectives(leadingDirectives(text).rest);
 
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);

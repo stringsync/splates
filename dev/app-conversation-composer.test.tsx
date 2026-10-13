@@ -405,7 +405,6 @@ describe("App's conversations", () => {
 					title: "Fix login",
 					messages: [
 						message("user", "[ARBOR TASK alpha]\n\nand keep it small"),
-						message("user", "not [ARBOR TASK alpha] here"),
 					],
 				}),
 			]);
@@ -416,7 +415,28 @@ describe("App's conversations", () => {
 				),
 			);
 			expect(view.getByText("and keep it small")).toBeTruthy();
-			expect(view.getByText("not [ARBOR TASK alpha] here")).toBeTruthy();
+		});
+
+		it("shows a directive mid-message as a chip where it stands, and one in code as written", async () => {
+			const view = await testing.openConversations([
+				conversation({
+					id: "c1",
+					title: "Fix login",
+					messages: [
+						message(
+							"user",
+							"then [ARBOR LANE 2] here, not `[ARBOR TASK alpha]`",
+						),
+					],
+				}),
+			]);
+
+			const chip = await waitFor(() => view.getByTitle("[ARBOR LANE 2]"));
+			expect(chip.textContent).toBe("Lane 2");
+			expect(chip.parentElement?.textContent).toBe(
+				"then Lane 2 here, not [ARBOR TASK alpha]",
+			);
+			expect(view.queryByTitle("[ARBOR TASK alpha]")).toBeNull();
 		});
 
 		it("sends a directive kept in a draft with nothing typed", async () => {
@@ -507,6 +527,28 @@ describe("App's conversations", () => {
 				"Taskalpha",
 			);
 			expect(within(queued).getByText("then stop")).toBeTruthy();
+		});
+
+		it("shows a directive mid-way through a queued message as a chip where it stands", async () => {
+			const view = await testing.openConversations(
+				[
+					conversation({
+						id: "c1",
+						title: "Fix login",
+						status: "running",
+						messages: [
+							message("user", "go"),
+							{ ...message("user", "then [ARBOR LANE 2] next"), queued: true },
+						],
+					}),
+				],
+				"c1",
+			);
+
+			const queued = view.getByRole("region", { name: "queued messages" });
+			const chip = within(queued).getByTitle("[ARBOR LANE 2]");
+			expect(chip.textContent).toBe("Lane 2");
+			expect(chip.parentElement?.textContent).toBe("then Lane 2 next");
 		});
 
 		it("holds a queued message above the composer, out of the thread, to send now or take back with Up", async () => {

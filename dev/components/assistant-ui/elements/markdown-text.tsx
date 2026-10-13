@@ -10,8 +10,8 @@ import {
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { type FC, memo, useContext, useMemo, useRef } from "react";
 import remarkGfm from "remark-gfm";
-
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
+import { DirectiveChip, directiveIn } from "#dev/directives.tsx";
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
@@ -226,6 +226,10 @@ const defaultComponents = memoizeMarkdownComponents({
 		const named = namedIn(props.href);
 		if (named !== null) {
 			return <NamedChip named={named} />;
+		}
+		const directive = directiveIn(props.href);
+		if (directive !== null) {
+			return <DirectiveChip directive={directive} opens inline />;
 		}
 		return (
 			<a

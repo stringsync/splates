@@ -125,7 +125,7 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { DemoUI } from "./demo-cards";
-import { DirectiveChip } from "./directives";
+import { Directed, DirectiveChip } from "./directives";
 import { Trunk, whereRuns } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { type Named, NamedContext } from "./mentioned";
@@ -2076,7 +2076,9 @@ function Queued({
 							{directives.map((directive) => (
 								<DirectiveChip key={directive} directive={directive} />
 							))}
-							<span className="min-w-0 flex-1 truncate text-sm">{rest}</span>
+							<span className="min-w-0 flex-1 truncate text-sm">
+								<Directed text={rest} />
+							</span>
 							<Button
 								size="icon-xs"
 								variant="ghost"

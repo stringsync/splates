@@ -7,7 +7,51 @@ import {
 } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
+import { DIRECTIVES } from "../prompts";
 import { Board, type BoardContext } from "./board";
+import { outsideCode } from "./markdown";
+
+/** Where a link written by `linkDirectives` points, read back by `directiveIn`. */
+const DIRECTIVE_LINK = /^#directive=(.+)$/;
+
+/**
+ * `text` with each directive outside code made a link that `directiveIn`
+ * reads back, so a message draws it as its chip where it stands.
+ */
+export function linkDirectives(text: string): string {
+	return outsideCode(text, (prose) =>
+		prose.replace(
+			DIRECTIVES,
+			// A label with no `#` or `@`, which `linkMentions` and `linkNamed`
+			// would link again.
+			(directive) => `[directive](#directive=${encodeURIComponent(directive)})`,
+		),
+	);
+}
+
+/** The directive a link written by `linkDirectives` names, or null for another. */
+export function directiveIn(href: string | undefined): string | null {
+	const link = DIRECTIVE_LINK.exec(href ?? "");
+	return link === null ? null : decodeURIComponent(link[1] ?? "");
+}
+
+/** Plain `text` with each directive in it an inline `DirectiveChip`. */
+export function Directed({ text }: { text: string }): JSX.Element {
+	// Split on a group around the directive, so the odd parts are directives.
+	const parts = text.split(new RegExp(`(${DIRECTIVES.source})`));
+	return (
+		<>
+			{parts.map((part, i) =>
+				i % 2 === 1 ? (
+					// biome-ignore lint/suspicious/noArrayIndexKey: the parts never move
+					<DirectiveChip key={i} directive={part} inline />
+				) : (
+					part
+				),
+			)}
+		</>
+	);
+}
 
 /**
  * What a directive is about, as its chip names it, and how to open it when the
