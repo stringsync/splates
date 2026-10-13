@@ -6,6 +6,7 @@ import {
 	CopyIcon,
 	GitBranchIcon,
 	HourglassIcon,
+	ListPlusIcon,
 	ListTodoIcon,
 	MessageSquarePlusIcon,
 	PaperclipIcon,
@@ -16,6 +17,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Proposal, Report } from "../asked";
 import { todoReference } from "../prompts";
+import type { TodoState } from "../todo";
 import { Board } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
@@ -147,22 +149,121 @@ export const StartNewContext = createContext<((text: string) => void) | null>(
 );
 
 /**
- * Renders a `data-todo` part as the todo it proposes. Until the person
- * replies it is read live as the board has it: a proposal another task has
- * since taken says so, and one merged or removed says it is gone. Start sends
- * the todo's reference at once, as the reply asking the agent to take it;
- * beside it, the reference is typed into a new conversation instead. Once replied to, it keeps the todo as proposed, and whether it was started.
+ * The reply a todo is written in: the task it ran in, when the prompt it
+ * answers was sent, and when it last moved; each null where the log cannot say.
  */
-export const TodoUI = makeAssistantDataUI<{ todo: Proposal }>({
+export interface Turn {
+	task: string | null;
+	began: string | null;
+	until: string | null;
+}
+
+/**
+ * Renders a `data-todo` part, a run of todos proposed one after another, as
+ * the cards for them. Those the reply's own task added while it ran are
+ * gathered by the lane they went to, Untriaged for none, under a line saying
+ * so, for as long as the board has them; the rest stand alone.
+ */
+export const TodoUI = makeAssistantDataUI<{
+	todos: Proposal[];
+	turn?: Turn;
+}>({
 	name: "todo",
 	render: ({ data }) => (
 		<InMessage>
-			<TodoCard proposal={data.todo} />
+			<TodoRun proposals={data.todos} turn={data.turn ?? null} />
 		</InMessage>
 	),
 });
 
-export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
+/** Whether `todo` came up in `turn`'s task while it ran. */
+function addedIn(todo: TodoState, turn: Turn | null): boolean {
+	if (
+		turn === null ||
+		turn.task === null ||
+		todo.from !== turn.task ||
+		turn.began === null ||
+		turn.until === null
+	) {
+		return false;
+	}
+	const at = Date.parse(todo.createdAt);
+	return Date.parse(turn.began) <= at && at <= Date.parse(turn.until);
+}
+
+/**
+ * `proposals` in order, each next to another added to the same lane joined
+ * to it: `lane` is undefined for one not added, null for one added to none.
+ */
+function gathered(
+	proposals: Proposal[],
+	todos: TodoState[],
+	turn: Turn | null,
+): { lane: number | null | undefined; proposals: Proposal[] }[] {
+	const groups: { lane: number | null | undefined; proposals: Proposal[] }[] =
+		[];
+	for (const proposal of proposals) {
+		const live = todos.find((each) => each.id === proposal.id);
+		const lane =
+			live !== undefined && addedIn(live, turn) ? live.lane : undefined;
+		const last = groups.at(-1);
+		if (last !== undefined && lane !== undefined && last.lane === lane) {
+			last.proposals.push(proposal);
+		} else {
+			groups.push({ lane, proposals: [proposal] });
+		}
+	}
+	return groups;
+}
+
+function TodoRun({
+	proposals,
+	turn,
+}: {
+	proposals: Proposal[];
+	turn: Turn | null;
+}): JSX.Element {
+	const board = useContext(Board);
+	return (
+		<>
+			{gathered(proposals, board.todos, turn).map(({ lane, proposals }) =>
+				lane === undefined ? (
+					proposals.map((proposal) => (
+						<TodoCard key={proposal.id} proposal={proposal} />
+					))
+				) : (
+					<div key={proposals[0]?.id} className="my-3">
+						<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
+							<ListPlusIcon aria-hidden className="size-3.5 text-primary" />
+							<span>
+								<span className="font-medium text-foreground">
+									Added {proposals.length > 1 && `${proposals.length} `}to{" "}
+									{board.lanes.find((each) => each.id === lane)?.name ??
+										"Untriaged"}
+								</span>{" "}
+								by this task
+							</span>
+						</p>
+						<div className="ml-[11px] flex flex-col gap-2 border-primary/30 border-l-2 pl-3">
+							{proposals.map((proposal) => (
+								<TodoCard key={proposal.id} proposal={proposal} grouped />
+							))}
+						</div>
+					</div>
+				),
+			)}
+		</>
+	);
+}
+
+export function TodoCard({
+	proposal,
+	grouped = false,
+}: {
+	proposal: Proposal;
+	/** Whether it stands in a group, which spaces it. */
+	grouped?: boolean;
+}): JSX.Element {
 	const board = useContext(Board);
 	const { reply, sent } = useCardReply();
 	const reference = todoReference(proposal.id);
@@ -183,7 +284,8 @@ export function TodoCard({ proposal }: { proposal: Proposal }): JSX.Element {
 		<section
 			aria-label={`todo ${proposal.id}`}
 			className={cn(
-				"my-3 flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
+				"flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
+				!grouped && "my-3",
 				gone && "opacity-60",
 			)}
 		>

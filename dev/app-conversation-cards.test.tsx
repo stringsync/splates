@@ -1804,6 +1804,65 @@ describe("App's conversations", () => {
 			expect(other.textContent).not.toContain("Started");
 		});
 
+		it("gathers the todos the reply's task added while it ran under the lane they went to, and not one from before or elsewhere", async () => {
+			const at = (minute: number) =>
+				new Date(Date.UTC(2026, 9, 13, 12, minute)).toISOString();
+			const proposed = (id: number) => `### 📝 Todo ${id} [#${id}]\n\nWhy.`;
+			const view = await testing.openConversations(
+				[
+					conversation({
+						task: "uploads",
+						lastTask: "uploads",
+						messages: [
+							{
+								...message("user", "Fix the backoff"),
+								at: at(0),
+								until: at(0),
+							},
+							{
+								...message(
+									"agent",
+									[12, 13, 14, 15, 16].map(proposed).join("\n\n"),
+								),
+								at: at(1),
+								until: at(9),
+							},
+						],
+					}),
+				],
+				undefined,
+				{
+					todos: [
+						todo({ id: 12, from: "uploads", createdAt: at(5), lane: 3 }),
+						todo({ id: 13, from: "uploads", createdAt: at(6), lane: 3 }),
+						todo({ id: 14, from: "uploads", createdAt: at(7) }),
+						// Added by the task, but in an earlier turn.
+						todo({ id: 15, from: "uploads", createdAt: at(-30) }),
+						// Added in the turn, by another task.
+						todo({ id: 16, from: "logs", createdAt: at(5) }),
+					],
+					lanes: [{ id: 3, name: "Uploads" }],
+				},
+			);
+			await waitFor(() => view.getByRole("region", { name: "todo 12" }));
+
+			// Each line, with the cards on the rail under it.
+			const groups = view.getAllByText(/^Added /).map((each) => {
+				const line = each.closest("p");
+				return [
+					line?.textContent,
+					[...(line?.nextElementSibling?.children ?? [])].map((card) =>
+						card.getAttribute("aria-label"),
+					),
+				];
+			});
+			expect(groups).toEqual([
+				["Added 2 to Uploads by this task", ["todo 12", "todo 13"]],
+				["Added to Untriaged by this task", ["todo 14"]],
+			]);
+			expect(view.getByRole("region", { name: "todo 16" })).toBeTruthy();
+		});
+
 		it("opens a proposed todo from its subject, over the conversation", async () => {
 			const view = await testing.openConversations(
 				[proposing],

@@ -149,6 +149,7 @@ import {
 	ReportUI,
 	StartNewContext,
 	TodoUI,
+	type Turn,
 } from "./report-cards";
 import type { Settings } from "./settings";
 import { SystemsButton, SystemsCard } from "./systems";
@@ -2408,6 +2409,7 @@ function Thread({
 				!writing || index < said.length - 1,
 				said[index - 1]?.at ?? message.at,
 				now,
+				conversation.lastTask,
 			),
 		);
 		// The reply's place while the agent has yet to say anything, under the
@@ -2419,7 +2421,14 @@ function Thread({
 					{ id: String(said.length), role: "assistant" as const, content: [] },
 				]
 			: liked;
-	}, [conversation.messages, conversation.id, writing, running, shown]);
+	}, [
+		conversation.messages,
+		conversation.id,
+		conversation.lastTask,
+		writing,
+		running,
+		shown,
+	]);
 	// Where the person left off, as it opens: the first message they have yet
 	// to see, read on from there, else the bottom. Opening marks it read, so
 	// this holds what it was before.
@@ -2963,6 +2972,8 @@ function like(
 	began: string | null = message.at,
 	/** The clock, as epoch ms, the latest words of a turn still going wait on. */
 	now = Number.POSITIVE_INFINITY,
+	/** The task it runs in, or last ran in, whose todos it can have added. */
+	task: string | null = null,
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -2997,7 +3008,11 @@ function like(
 				stretch.type === "work"
 					? [{ type: "data-work", data: { work: stretch.work } }]
 					: at === reply
-						? replied(stretch.text, settled)
+						? replied(stretch.text, settled, {
+								task,
+								began,
+								until: message.until,
+							})
 						: [{ type: "text", text: stretch.text }],
 			),
 			...(message.stopped === undefined
@@ -3039,9 +3054,10 @@ function attached(
  * writing them: a list mid-stream may yet turn out not to ask any. An
  * escalation's questions come right after it, or after the demo they ask
  * about, so they are one card: the questions, headed as the escalation, the
- * demo above them.
+ * demo above them. A run of todos is one part, with `turn` to say which
+ * of them it added.
  */
-function replied(text: string, settled: boolean): LikePart[] {
+function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 	if (!settled) {
 		return [{ type: "text", text }];
 	}
@@ -3083,8 +3099,18 @@ function replied(text: string, settled: boolean): LikePart[] {
 					asking?.type === "questions"
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
-			case "todo":
-				return [{ type: "data-todo", data: { todo: stretch.todo } }];
+			case "todo": {
+				// A run of todos is one part, to gather those added to a lane.
+				if (before?.type === "todo") {
+					return [];
+				}
+				const run = all.slice(at);
+				const end = run.findIndex((each) => each.type !== "todo");
+				const todos = (end === -1 ? run : run.slice(0, end)).flatMap((each) =>
+					each.type === "todo" ? [each.todo] : [],
+				);
+				return [{ type: "data-todo", data: { todos, turn } }];
+			}
 			default:
 				return stretch satisfies never;
 		}

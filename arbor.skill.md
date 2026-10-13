@@ -46,7 +46,8 @@ stderr says.
    as you commit it; arbor never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `arbor todo add` it from your worktree and move on,
-   so the task stays one coherent change. Ask about each call the request
+   so the task stays one coherent change, and name it in the reply that
+   ends your turn (see Proposing a todo). Ask about each call the request
    does not settle as you make it, and keep going (see Asking as you go),
    bringing `## Blocked` up to date before each step.
 5. **Land.** Once every step under `## Next` and every question under
@@ -212,6 +213,11 @@ shows the todo itself.
 
 It touches the retry loop this task just rewrote.
 ```
+
+Every todo you add, put in front of the user this way in the reply that
+ends the turn you added it in, even one that ends no task: the `arbor dev`
+page heads it as added by your task, so they see what went on the list
+without reading the board.
 
 The 📝 belongs to the heading: leave it out of `arbor todo add` and
 `--subject`.
