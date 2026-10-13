@@ -777,6 +777,29 @@ describe("App's conversations", () => {
 			fireEvent.click(within(dialog).getByRole("button", { name: "Restart" })),
 		);
 		expect(testing.posted("/api/checkpoint/restart")).toHaveLength(1);
+		await waitFor(() => view.getByRole("dialog", { name: "Restart" }));
+
+		// Back as another run, it says so rather than offering to checkpoint.
+		testing.run = "run-2";
+		const restarted = await waitFor(() => {
+			const shown = view.getByRole("dialog", { name: "Restart" });
+			expect(shown.textContent).toContain(
+				"arbor dev restarted on arbor 0.0.1.",
+			);
+			return shown;
+		});
+		expect(within(restarted).queryByText("No agent is running.")).toBeNull();
+		expect(
+			within(restarted).getByRole("button", { name: "Reload page" }),
+		).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(
+				within(restarted)
+					.getAllByRole("button", { name: "Close" })
+					.at(-1) as Element,
+			),
+		);
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
 	});
 
 	it("offers no restart with no agent running where arbor dev cannot make one", async () => {

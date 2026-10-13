@@ -94,10 +94,18 @@ function standing(conversations: ProjectConversation[]): Standing {
 
 /**
  * Where the dialog is: picking projects, waiting on agents, done with them
- * stopped, waiting on `arbor dev` to restart, its agents being told to carry
- * on after the restart, or ended with them carrying on.
+ * stopped, waiting on `arbor dev` to restart, back from a restart with no
+ * agent to resume, its agents being told to carry on after the restart, or
+ * ended with them carrying on.
  */
-type Slide = "pick" | "going" | "done" | "restarting" | "resuming" | "ended";
+type Slide =
+	| "pick"
+	| "going"
+	| "done"
+	| "restarting"
+	| "restarted"
+	| "resuming"
+	| "ended";
 
 function slideOf({ asked, going }: Standing): Slide {
 	return asked.length === 0 ? "pick" : going > 0 ? "going" : "done";
@@ -118,6 +126,8 @@ function titleOf(slide: Slide, restarted: string | null): string {
 			return restarted === null ? "Checkpoint done" : "arbor dev restarted";
 		case "restarting":
 			return "Restarting arbor dev";
+		case "restarted":
+			return "arbor dev restarted";
 		case "resuming":
 			return "Resuming agents";
 		case "ended":
@@ -144,6 +154,7 @@ function phaseOf(slide: Slide, restarted: string | null): keyof typeof PHASES {
 		case "done":
 			return restarted === null ? "checkpoint" : "restart";
 		case "restarting":
+		case "restarted":
 			return "restart";
 		case "resuming":
 		case "ended":
@@ -268,6 +279,9 @@ export function CheckpointProvider({
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	const [restarting, setRestarting] = useState<Restarting | null>(null);
+	// The arbor a restart with no agent to resume came back on, while it says
+	// so.
+	const [back, setBack] = useState<string | null>(null);
 	// When the Restart slide first showed, or the restart was seen to be over
 	// without it having shown.
 	const restartSince = useRef<Duration | null>(null);
@@ -321,9 +335,11 @@ export function CheckpointProvider({
 				? "ended"
 				: restarting !== null
 					? "restarting"
-					: listed?.restarted === "resuming"
-						? "resuming"
-						: live;
+					: back !== null
+						? "restarted"
+						: listed?.restarted === "resuming"
+							? "resuming"
+							: live;
 	useEffect(() => {
 		if (listed === null) {
 			return;
@@ -351,6 +367,8 @@ export function CheckpointProvider({
 			if (restarting.resume && listed.restarted === null) {
 				setEnded({ projects: last.current, restarted: listed.running });
 				last.current = [];
+			} else if (!restarting.resume && live === "pick") {
+				setBack(listed.running);
 			}
 			return;
 		}
@@ -374,6 +392,7 @@ export function CheckpointProvider({
 			last.current = shown;
 			waited.current = listed.restarted === "waiting";
 			setEnded(null);
+			setBack(null);
 		} else {
 			if (last.current.length > 0 && !forgotten.current) {
 				setEnded({
@@ -393,12 +412,15 @@ export function CheckpointProvider({
 		}
 	}, [slide]);
 	useEffect(() => {
-		if (ended === null || open) {
+		if ((ended === null && back === null) || open) {
 			return;
 		}
-		const shown = new SystemTimer().setTimeout(() => setEnded(null), ENDED);
+		const shown = new SystemTimer().setTimeout(() => {
+			setEnded(null);
+			setBack(null);
+		}, ENDED);
 		return () => shown.dispose();
-	}, [ended, open]);
+	}, [ended, back, open]);
 	useEffect(() => {
 		if (
 			all.going === 0 &&
@@ -414,10 +436,12 @@ export function CheckpointProvider({
 	const restarted =
 		slide === "ended"
 			? (ended?.restarted ?? null)
-			: slide === "resuming" ||
-					(slide === "done" && listed?.restarted === "waiting")
-				? (listed?.running ?? null)
-				: null;
+			: slide === "restarted"
+				? back
+				: slide === "resuming" ||
+						(slide === "done" && listed?.restarted === "waiting")
+					? (listed?.running ?? null)
+					: null;
 	const opened = useCallback((after: After = "stop") => {
 		setAfter(after);
 		setOpen(true);
@@ -440,6 +464,7 @@ export function CheckpointProvider({
 					if (slide === "ended") {
 						setEnded(null);
 					}
+					setBack(null);
 				}}
 				onForget={() => {
 					forgotten.current = true;
@@ -452,9 +477,11 @@ export function CheckpointProvider({
 				projects={
 					slide === "ended"
 						? (ended?.projects ?? [])
-						: slide === "resuming" && last.current.length > 0
-							? last.current
-							: shown
+						: slide === "restarted"
+							? []
+							: slide === "resuming" && last.current.length > 0
+								? last.current
+								: shown
 				}
 				slide={slide}
 				restarting={restarting}
@@ -633,18 +660,20 @@ function CheckpointDialog({
 										? `Each agent is bringing its ARBOR.md up to date${restarting === null ? "" : restarting.resume ? ", then arbor dev restarts and each resumes" : ", then arbor dev restarts"}.`
 										: slide === "restarting"
 											? `arbor dev is restarting${on(newest)}${restarting?.resume ? ", then each agent resumes" : ", then you pick what comes next"}.`
-											: slide === "resuming" || slide === "ended"
-												? `${restarted === null ? "" : `Now${on(restarted)}. `}${carried === resumable.length ? `${plural(carried)} resumed.` : `${carried} of ${plural(resumable.length)} resumed so far.`}${missing(all)}`
-												: restarted !== null
-													? `Now${on(restarted)}. ${summary(all, "waiting to resume")}`
-													: summary(all, "stopped")}
+											: slide === "restarted"
+												? `arbor dev restarted${on(restarted)}.`
+												: slide === "resuming" || slide === "ended"
+													? `${restarted === null ? "" : `Now${on(restarted)}. `}${carried === resumable.length ? `${plural(carried)} resumed.` : `${carried} of ${plural(resumable.length)} resumed so far.`}${missing(all)}`
+													: restarted !== null
+														? `Now${on(restarted)}. ${summary(all, "waiting to resume")}`
+														: summary(all, "stopped")}
 								</DialogDescription>
 							</DialogHeader>
 							<AskedList projects={projects} onOpen={onClose} state={state} />
 							<Refusal refusal={refusal} />
 							{slide !== "done" ? (
 								<DialogFooter>
-									{slide === "ended" && (
+									{(slide === "ended" || slide === "restarted") && (
 										<Button variant="outline" onClick={() => location.reload()}>
 											Reload page
 										</Button>
