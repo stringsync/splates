@@ -94,8 +94,9 @@ arbor todo add "Upload retries forever on a 413" 'The client retries on any 4xx 
 - [ ] tell the user the file is too big'
 ```
 
-Name the files and the feature in the detail, so whoever grooms the list
-later can tell the todo is about their area.
+Name the files and the feature in the detail, the feature by its system name
+when one covers it (see Systems), so whoever grooms the list later can tell
+the todo is about their area.
 
 `arbor todo update <id> '<detail>'` replaces the whole detail, so pass all of
 it: what still holds and what you learned. Merging removes every todo the task
@@ -214,6 +215,38 @@ It touches the retry loop this task just rewrote.
 
 The 📝 belongs to the heading: leave it out of `arbor todo add` and
 `--subject`.
+
+## Systems
+
+A repo can name parts of its code as systems in `arbor.config.ts`, each a
+name, its aliases, and the globs of the files it is made of. `arbor systems`
+prints them, `arbor systems <name>` one by its name or an alias, and
+`arbor systems --task <task>` those a task's changed files fall in. Read them
+when you need them, never up front. Wherever a system covers what you mean,
+call it by its name in Goals, todos, questions and reports, so the user and
+every agent use one word for one part of the code. A prompt from the
+`arbor dev` page that mentions `#name` ends with a line on what that system
+is made of.
+
+Systems are named a few at a time as they come up, never all at once, and
+only the user names one. Offer to as a question under `## Blocked`, and write
+`arbor.config.ts` only once they pick a choice that does:
+
+- when the user keeps calling one part of the code by a phrase no system has;
+- when your task touches files no system covers, at most once per task;
+- when a phrase the user uses means a system that already has another name:
+  offer the phrase as an alias.
+
+```markdown
+- [ ] 3. Should the mixing code have a name?
+  You have called `src/mixer/**` "the mixer" three times, and no system covers it.
+  - (a) Name it `mixer`, for `src/mixer/**` (chosen)
+  - (b) Add `src/mixer/**` to `playback`, with `mixer` as an alias
+  - (c) Leave it unnamed
+```
+
+Here `(chosen)` is what you would pick, not what you did: write nothing until
+the answer comes, then commit the change to `arbor.config.ts` with your task.
 
 ## Working a lane
 
