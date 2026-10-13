@@ -31,4 +31,19 @@ describe("supervise", () => {
 			"bunx @webappwiz/arbor@latest dev --port 4400",
 		]);
 	});
+
+	it("builds the page before each start of the same arbor, and no more once it updates", async () => {
+		const ps = new FakePs();
+		ps.args = ["dev"];
+		exiting(ps, 0, RESTART, 0, UPDATE, 0);
+
+		expect(await supervise(ps, { build: ["bun", "/fake/build.ts"] })).toBe(0);
+		expect(ps.getCalls()).toEqual([
+			"bun /fake/build.ts",
+			"bun /fake/entry.ts dev",
+			"bun /fake/build.ts",
+			"bun /fake/entry.ts dev",
+			"bunx @webappwiz/arbor@latest dev",
+		]);
+	});
 });

@@ -294,7 +294,14 @@ arbor
 	.action(async (opts, ctx) => {
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
-			ctx.ps.exit(await supervise(ctx.ps));
+			// A checkout's page is as its last `bun install` built it: built
+			// again before each start, a restart onto new source serves its page.
+			const checkout = (await sourceCommit(ctx.ps)) !== null;
+			const [runtime = "bun"] = ctx.ps.self;
+			const build = checkout
+				? [runtime, `${import.meta.dirname}/build.ts`]
+				: null;
+			ctx.ps.exit(await supervise(ctx.ps, { build }));
 			return;
 		}
 		// Read once: a roster edited while it serves applies from the restart.
