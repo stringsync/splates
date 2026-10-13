@@ -17,8 +17,8 @@ export interface Action {
 /**
  * Everything to do with a conversation, in a panel just right of its
  * messages, many of them opening the pane beside the page: the first, what it
- * waits on you for, above a rule, the rest below it, then any commands it
- * left running in the background below another. Only where the
+ * waits on you for, above a rule, the rest below it, then a menu of the
+ * commands it left in the background below another. Only where the
  * conversation leaves room beside its messages, `ActionButtons` standing in
  * for it elsewhere.
  *
@@ -32,7 +32,7 @@ export function Actions({
 	children,
 }: {
 	actions: Action[];
-	/** Below another rule: the commands the agent left running, while any do. */
+	/** Below another rule: a menu of the commands the agent left, while any are. */
 	background?: ReactNode;
 	/** Cards stacked under the panel, such as the systems a task touches. */
 	children?: ReactNode;

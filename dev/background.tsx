@@ -3,6 +3,7 @@ import { CheckIcon, SquareIcon, TerminalIcon, XIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
+	type ReactNode,
 	useContext,
 	useEffect,
 	useRef,
@@ -40,11 +41,11 @@ const SAID: Record<BackgroundState, string> = {
 };
 
 /**
- * The commands an agent left in the background, in the actions card, each
- * with how it stands and opening what it printed. Nothing at all while it
+ * The commands an agent left in the background, as one row of the actions
+ * card saying how many run, opening a menu of them. Nothing at all while it
  * has left none.
  */
-export function BackgroundRows({
+export function BackgroundRow({
 	conversation,
 	background,
 }: {
@@ -52,35 +53,48 @@ export function BackgroundRows({
 	background: Background[];
 }): JSX.Element | null {
 	const watch = useContext(WatchBackground);
-	if (background.length === 0) {
+	if (background.length === 0 || watch === null) {
 		return null;
 	}
+	const running = background.filter((each) => each.state === "running");
 	return (
-		<ul aria-label="background commands" className="py-1">
-			{background.map((each) => (
-				<li key={each.id}>
+		<div className="py-1">
+			<BackgroundMenuOf
+				conversation={conversation}
+				background={background}
+				watch={watch}
+				trigger={
 					<button
 						type="button"
-						title={each.command ?? each.name}
-						disabled={watch === null}
-						onClick={() => watch?.(conversation, each.id)}
-						className="flex h-8 w-full items-center gap-2 px-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-					>
-						<StateMark state={each.state} />
-						<span className="flex-1 truncate">{each.name}</span>
-						<span className="text-muted-foreground text-xs">
-							{SAID[each.state]}
-						</span>
-					</button>
-				</li>
-			))}
-		</ul>
+						aria-label="Background commands"
+						title={`Background commands: ${running.length} running`}
+						className="flex h-8 w-full items-center gap-2 px-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-popup-open:bg-accent [&_svg]:size-4 [&_svg]:text-muted-foreground"
+					/>
+				}
+			>
+				<TerminalIcon />
+				<span className="flex-1">Background</span>
+				<span className="flex items-center gap-1.5 text-muted-foreground">
+					{running.length > 0 ? (
+						<>
+							<span
+								aria-hidden
+								className="size-2 animate-pulse rounded-full bg-success"
+							/>
+							{running.length} running
+						</>
+					) : (
+						background.length
+					)}
+				</span>
+			</BackgroundMenuOf>
+		</div>
 	);
 }
 
 /**
- * The rows as one button, beside `ActionButtons` in a conversation too narrow
- * for the card, opening a menu of the commands, each opening what it printed.
+ * The row as one icon button, beside `ActionButtons` in a conversation too
+ * narrow for the card, opening the same menu.
  */
 export function BackgroundMenu({
 	conversation,
@@ -96,46 +110,71 @@ export function BackgroundMenu({
 	const running = background.filter((each) => each.state === "running");
 	return (
 		<div className="@min-[76rem]:hidden">
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					render={
-						<Button
-							variant="outline"
-							size="icon-sm"
-							aria-label="Background commands"
-							title={`Background commands: ${running.length} running`}
-							className="relative"
-						/>
-					}
-				>
-					<TerminalIcon />
-					{running.length > 0 && (
-						<span
-							aria-hidden
-							className="-top-1 -right-1 absolute size-2 animate-pulse rounded-full bg-success"
-						/>
-					)}
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-64">
-					<DropdownMenuGroup>
-						<DropdownMenuLabel>Background commands</DropdownMenuLabel>
-						{background.map((each) => (
-							<DropdownMenuItem
-								key={each.id}
-								title={each.command ?? each.name}
-								onClick={() => watch(conversation, each.id)}
-							>
-								<StateMark state={each.state} />
-								<span className="flex-1 truncate">{each.name}</span>
-								<span className="text-muted-foreground text-xs">
-									{SAID[each.state]}
-								</span>
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuGroup>
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<BackgroundMenuOf
+				conversation={conversation}
+				background={background}
+				watch={watch}
+				trigger={
+					<Button
+						variant="outline"
+						size="icon-sm"
+						aria-label="Background commands"
+						title={`Background commands: ${running.length} running`}
+						className="relative"
+					/>
+				}
+			>
+				<TerminalIcon />
+				{running.length > 0 && (
+					<span
+						aria-hidden
+						className="-top-1 -right-1 absolute size-2 animate-pulse rounded-full bg-success"
+					/>
+				)}
+			</BackgroundMenuOf>
 		</div>
+	);
+}
+
+/**
+ * A menu of the commands from `trigger`, each saying how it stands and
+ * opening what it printed.
+ */
+function BackgroundMenuOf({
+	conversation,
+	background,
+	watch,
+	trigger,
+	children,
+}: {
+	conversation: string;
+	background: Background[];
+	watch: (conversation: string, background: string) => void;
+	trigger: JSX.Element;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="w-64">
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>Background commands</DropdownMenuLabel>
+					{background.map((each) => (
+						<DropdownMenuItem
+							key={each.id}
+							title={each.command ?? each.name}
+							onClick={() => watch(conversation, each.id)}
+						>
+							<StateMark state={each.state} />
+							<span className="flex-1 truncate">{each.name}</span>
+							<span className="text-muted-foreground text-xs">
+								{SAID[each.state]}
+							</span>
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 

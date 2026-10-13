@@ -505,7 +505,7 @@ describe("App's conversations", () => {
 		expect(view.queryByRole("button", { name: "Systems" })).toBeNull();
 	});
 
-	it("lists the commands it left in the background in the actions card, each saying how it stands", async () => {
+	it("lists the commands it left in the background in a menu from the actions card, each saying how it stands", async () => {
 		const view = await conversations([
 			conversation({
 				id: "c1",
@@ -529,13 +529,16 @@ describe("App's conversations", () => {
 			}),
 		]);
 
-		const list = within(
+		const row = within(
 			view.getByRole("navigation", { name: "actions" }),
-		).getByRole("list", { name: "background commands" });
+		).getByRole("button", { name: "Background commands" });
+		expect(row.textContent).toBe("Background1 running");
+		await act(async () => fireEvent.click(row));
+		const menu = await waitFor(() => view.getByRole("menu"));
 		expect(
-			within(list)
-				.getAllByRole("button")
-				.map((row) => [row.title, row.textContent]),
+			within(menu)
+				.getAllByRole("menuitem")
+				.map((item) => [item.title, item.textContent]),
 		).toEqual([
 			["bun dev", "Start the dev serverRunning"],
 			["Run the tests", "Run the testsFailed"],
@@ -543,14 +546,11 @@ describe("App's conversations", () => {
 
 		await testing.say(conversation({ id: "c1", title: "Serve it" }));
 		expect(
-			view.queryByRole("list", { name: "background commands" }),
-		).toBeNull();
-		expect(
 			view.queryByRole("button", { name: "Background commands" }),
 		).toBeNull();
 	});
 
-	it("opens a command's output beside the page, from the card or the narrow menu, with a Stop while it runs", async () => {
+	it("opens a command's output beside the page, from the card's menu or the narrow one, with a Stop while it runs", async () => {
 		testing.outputs = { b1: "listening on 3000" };
 		const running = {
 			id: "b1",
@@ -565,9 +565,18 @@ describe("App's conversations", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				within(
-					view.getByRole("list", { name: "background commands" }),
-				).getByRole("button"),
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: "Background commands" },
+				),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(await waitFor(() => view.getByRole("menu"))).getByRole(
+					"menuitem",
+					{ name: /Start the dev server/ },
+				),
 			),
 		);
 		const pane = view.getByRole("complementary", {
@@ -607,7 +616,10 @@ describe("App's conversations", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				view.getByRole("button", { name: "Background commands" }),
+				// The narrow one, in the thread's header ahead of the card.
+				view.getAllByRole("button", {
+					name: "Background commands",
+				})[0] as HTMLElement,
 			),
 		);
 		const menu = await waitFor(() => view.getByRole("menu"));

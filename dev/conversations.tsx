@@ -114,7 +114,7 @@ import {
 	unqueueConversation,
 } from "./api";
 import { Back } from "./back";
-import { BackgroundMenu, BackgroundRows } from "./background";
+import { BackgroundMenu, BackgroundRow } from "./background";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
 import { ReviewChanges } from "./changes";
@@ -2769,7 +2769,7 @@ function Thread({
 				<Actions
 					actions={actions}
 					background={
-						<BackgroundRows
+						<BackgroundRow
 							conversation={id}
 							background={conversation.background}
 						/>
