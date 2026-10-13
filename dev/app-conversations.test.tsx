@@ -1804,6 +1804,50 @@ describe("App's conversations", () => {
 			expect(posted("/api/conversations")).toEqual([]);
 		});
 
+		it("keeps the row the arrow keys are on while the pointer rests on the list", async () => {
+			const view = await conversations([], null, {
+				todos: [1, 2, 3].map((id) => todo({ id, subject: `Todo ${id}` })),
+				lanes: [],
+			});
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+			const key = (name: string) =>
+				act(async () => fireEvent.keyDown(box, { key: name }));
+			const list = () => view.getByRole("listbox", { name: "references" });
+			const highlighted = () =>
+				list().querySelector("[data-highlighted]")?.textContent;
+			const point = (subject: string, left: number) =>
+				act(async () =>
+					fireEvent.mouseMove(
+						within(list()).getByRole("option", {
+							name: new RegExp(subject),
+						}),
+						{ clientX: left, clientY: 10 },
+					),
+				);
+
+			await typeIn(box, "#");
+			await waitFor(list);
+			await key("ArrowDown");
+			await key("Enter");
+			expect(highlighted()).toBe("Todo 1#1");
+
+			// Rows scrolling under a pointer that stays put, or only trembles.
+			await point("Todo 3", 100);
+			await point("Todo 3", 102);
+			expect(highlighted()).toBe("Todo 1#1");
+			await key("ArrowDown");
+			await point("Todo 1", 101);
+			expect(highlighted()).toBe("Todo 2#2");
+
+			// A pointer that really moves takes the highlight.
+			await point("Todo 3", 120);
+			expect(highlighted()).toBe("Todo 3#3");
+			await point("Todo 1", 121);
+			expect(highlighted()).toBe("Todo 1#1");
+		});
+
 		it("searches every category for what follows the #", async () => {
 			const view = await conversations([], null, board);
 			const box = view.getByRole("textbox", {

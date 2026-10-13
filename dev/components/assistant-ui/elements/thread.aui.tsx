@@ -899,6 +899,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		placeholder = "Send a message...",
 	} = useContext(ThreadExtrasContext);
 	const popoverKeys = useRef<PopoverKey | null>(null);
+	const [pointer] = useState(steadyPointer);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -934,10 +935,21 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 			<ComposerPrimitive.TriggerPopoverRoot>
 				{/* The lists float over the thread above the composer, held to the
 			    composer's edges, so opening one moves nothing. A key the open
-			    list takes stops here, on the way down, before the box sees it. */}
+			    list takes stops here, on the way down, before the box sees it,
+			    and so does a move of a pointer resting on the list. */}
 				<div
 					className="relative w-full"
+					onMouseMoveCapture={(event) => {
+						if (
+							!pointer.moved(event.clientX, event.clientY) &&
+							event.target instanceof Element &&
+							event.target.closest('[role="listbox"]') !== null
+						) {
+							event.stopPropagation();
+						}
+					}}
 					onKeyDownCapture={(event) => {
+						pointer.keyed();
 						if (popoverKeys.current?.(event) === true) {
 							event.preventDefault();
 							event.stopPropagation();
@@ -1036,6 +1048,41 @@ type PopoverKey = (event: { key: string; shiftKey: boolean }) => boolean;
 const PopoverKeys = createContext<RefObject<PopoverKey | null>>({
 	current: null,
 });
+
+/** How far the pointer goes after a key before a row under it takes the highlight. */
+const STEADY_PX = 4;
+
+/**
+ * Keeps the highlight where the keys put it while the pointer rests on the open
+ * list. A row takes the highlight on `mousemove`, which also comes as the keys
+ * scroll rows under a pointer that has not moved, or one that only trembles,
+ * and would move the highlight on past the row the keys were going to next.
+ */
+function steadyPointer() {
+	let last: { left: number; top: number } | null = null;
+	let anchor: { left: number; top: number } | null = null;
+	let free = false;
+	return {
+		/** Notes a key, after which the pointer has to move again to count. */
+		keyed(): void {
+			free = false;
+			anchor = last;
+		},
+		/** Notes the pointer at `left`, `top`, true if it has moved enough to count. */
+		moved(left: number, top: number): boolean {
+			last = { left, top };
+			if (free) {
+				return true;
+			}
+			if (anchor === null) {
+				anchor = last;
+				return false;
+			}
+			free = Math.hypot(left - anchor.left, top - anchor.top) >= STEADY_PX;
+			return free;
+		},
+	};
+}
 
 const POPOVER_LIST =
 	"bg-popover text-popover-foreground w-full max-w-md rounded-xl border p-1 shadow-md";
