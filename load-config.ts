@@ -82,15 +82,15 @@ export async function readConfig(
 const SYSTEMS = z.record(
 	z.string().min(1),
 	z.strictObject({
-		aliases: z.array(z.string().min(1)).optional(),
+		aliases: z.array(z.string().min(1)).max(2).optional(),
 		globs: z.array(z.string().min(1)).min(1),
 		ignore: z.array(z.string().min(1)).optional(),
 	}),
 );
 
 /**
- * Refuses systems that are not in the shape `System` names, or two that
- * answer to the same name, which would leave `arbor systems <name>` guessing.
+ * Refuses systems that are not in the shape `System` names, one with more
+ * than two aliases, or two that answer to the same name, which would leave `arbor systems <name>` guessing.
  */
 function checkSystems(path: string, systems: unknown): void {
 	const parsed = SYSTEMS.safeParse(systems);

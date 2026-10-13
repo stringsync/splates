@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeFs } from "webappwiz/system";
-import { mentionLine, Systems } from "./systems";
+import { mentionLine, Systems, unknownLine } from "./systems";
 
 const PLAYBACK = {
 	aliases: ["player", "audio engine"],
@@ -55,6 +55,30 @@ describe("Systems.mentioned", () => {
 
 	it("leaves alone a # that names no system, or sits inside a word", () => {
 		expect(names("[ARBOR TODO #12] see issue#mixer and #nothing")).toEqual([]);
+	});
+});
+
+describe("Systems.unknown", () => {
+	const systems = Systems.of({ playback: PLAYBACK });
+
+	it("finds each # that names no system, once, in order", () => {
+		expect(
+			systems.unknown("Fix #mixer and #player, then #queue and #mixer."),
+		).toEqual(["mixer", "queue"]);
+	});
+
+	it("leaves alone a todo's number, a # inside a word, and code", () => {
+		expect(
+			systems.unknown(
+				"[ARBOR TODO #12] see #3, issue#mixer, `#fff` and\n```\n#queue\n```",
+			),
+		).toEqual([]);
+	});
+});
+
+describe("unknownLine", () => {
+	it("asks the agent to find the code and offer a name", () => {
+		expect(unknownLine("mixer")).toStartWith("#mixer names no system: ");
 	});
 });
 

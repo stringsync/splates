@@ -28,6 +28,7 @@ import {
 } from "./fake-agent";
 import { Offered } from "./offered";
 import { CHECKPOINT, RESUME } from "./prompts";
+import { unknownLine } from "./systems";
 import { Testing } from "./testing";
 import { Watch } from "./watch";
 
@@ -236,18 +237,21 @@ describe("Conversations", () => {
 			});
 		});
 
-		it("adds nothing for a # that names no system", async () => {
+		it("asks the agent to find the code a # naming no system means, and leaves a todo's number alone", async () => {
 			const conversation = await conversations.start("fake", {
 				task: "login",
 				cwd: tree,
 			});
 			await until(conversation, "idle");
 
-			await conversation.prompt("See #12 and #mixer");
+			await conversation.prompt("See #12, #player and #mixer");
 			await until(conversation, "idle");
 
 			expect(agent.prompts.at(-1)).toEqual([
-				{ type: "text", text: "See #12 and #mixer" },
+				{
+					type: "text",
+					text: `See #12, #player and #mixer\n\n#playback (player): src/audio/**\n${unknownLine("mixer")}`,
+				},
 			]);
 		});
 	});

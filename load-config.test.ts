@@ -71,6 +71,19 @@ describe("loadConfig", () => {
 		expect((failure as Error).message).toContain("systems.playback.globs");
 	});
 
+	it("refuses a system with more than two aliases", async () => {
+		await fs.write(
+			join(root, "arbor.config.ts"),
+			`export default { systems: { playback: { globs: ["a/**"], aliases: ["player", "audio", "sound"] } } };\n`,
+		);
+
+		const failure = await loadConfig(root, { fs, git }).catch(
+			(entry: Error) => entry,
+		);
+
+		expect((failure as Error).message).toContain("systems.playback.aliases");
+	});
+
 	it("refuses two systems that answer to the same name", async () => {
 		await fs.write(
 			join(root, "arbor.config.ts"),

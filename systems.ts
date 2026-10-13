@@ -82,6 +82,26 @@ export class Systems {
 		return found;
 	}
 
+	/**
+	 * The words `text` mentions as `#word` that no system answers to, each
+	 * once, in the order first mentioned. A number, such as `#12`, is a todo
+	 * rather than a system, and one in code means something else.
+	 */
+	unknown(text: string): string[] {
+		const prose = text.replace(/```[\s\S]*?(```|$)|`[^`\n]*`/g, " ");
+		const found: string[] = [];
+		for (const [, , called = ""] of prose.matchAll(MENTION)) {
+			if (
+				!/^\d+$/.test(called) &&
+				this.find(called) === null &&
+				!found.includes(called)
+			) {
+				found.push(called);
+			}
+		}
+		return found;
+	}
+
 	private contains(system: System, path: string): boolean {
 		const matches = (pattern: string) => this.glob.matches(pattern, path);
 		return system.globs.some(matches) && !(system.ignore ?? []).some(matches);
@@ -107,4 +127,12 @@ export function mentionLine(system: NamedSystem): string {
 		`: ${system.globs.join(", ")}`,
 		ignore.length > 0 ? `; not ${ignore.join(", ")}` : "",
 	].join("");
+}
+
+/**
+ * One line asking an agent to find the code an unknown `#name` means, so the
+ * user can name it as a system, or give one that covers it the alias.
+ */
+export function unknownLine(name: string): string {
+	return `#${name} names no system: find the code it means, and offer to name it as the arbor skill's Systems section says.`;
 }

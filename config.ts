@@ -55,7 +55,10 @@ export interface Config {
 
 /** One named part of the code: the files it is made of. */
 export interface System {
-	/** Other names people call it by. */
+	/**
+	 * Other names people call it by, at most two, so one part of the code
+	 * keeps one word for it.
+	 */
 	aliases?: string[];
 	/** Repo-relative globs of the files it is made of. */
 	globs: string[];

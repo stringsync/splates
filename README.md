@@ -437,8 +437,9 @@ where Enter sends, Shift+Enter starts a new line, `@` names a file in the tree
 it works in, `#` offers arbor's todos, lanes, tasks and systems, and Escape or
 Stop ends the agent's turn. A system picked after `#`, found by its name or an
 alias, is written as `#name`; the agent is sent a line after the message on
-what each `#name` in it is made of, read from the tree's `arbor.config.ts`,
-while the thread shows the message as typed. The pickers in the
+what each `#name` in it is made of, read from the tree's `arbor.config.ts`, or,
+for one no system answers to, asking it to find the code meant and offer a
+name, while the thread shows the message as typed. The pickers in the
 header switch what the session offers, its permission mode, model and effort
 among them; the same pickers on the new conversation screen, from what the
 agent offered last time, set them before the first message. A permission request offers Deny,
@@ -798,7 +799,8 @@ rebase alone.
 
 `systems` names parts of the code, so people and agents can call each one
 thing: a system is the files its `globs` match, less those its `ignore`
-matches, and answers to its name and its `aliases`, no two systems sharing one.
+matches, and answers to its name and at most two `aliases`, no two systems
+sharing one.
 Name them a few at a time as they come up; none at all is the usual start.
 `arbor systems` prints them.
 
