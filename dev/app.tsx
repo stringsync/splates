@@ -454,12 +454,13 @@ export function App({
 	// On a phone, an open conversation takes the whole screen: no header, and
 	// no bar along the bottom, which its own Back replaces.
 	const reading = !wide && page === "conversations" && open !== null;
-	// Conversations counts only the agents waiting on you, so it reads as an
-	// alert; the others count what they list. None shows for nothing.
+	// The others count what they list; Conversations counts only the agents
+	// waiting on you, and only on a phone, since on a wide screen the
+	// sidebar's own list says so. None shows for nothing.
 	const count = (page: Page) => {
 		const counting =
 			page === "conversations"
-				? counted
+				? counted && !wide
 					? waiting
 					: 0
 				: snapshot === null
@@ -602,23 +603,11 @@ export function App({
 																	<Kbd aria-hidden>{key}</Kbd>
 																) : (
 																	wide &&
-																	count(value) !== null &&
-																	(value === "conversations" ? (
-																		<span
-																			title={`${count(value)} waiting on you`}
-																			className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning/15 px-1.5 font-medium text-[11px] text-warning tabular-nums"
-																		>
-																			{count(value)}
-																			<span className="sr-only">
-																				{" "}
-																				waiting on you
-																			</span>
-																		</span>
-																	) : (
+																	count(value) !== null && (
 																		<span className="text-muted-foreground tabular-nums">
 																			{count(value)}
 																		</span>
-																	))
+																	)
 																)}
 															</TabsTrigger>
 														))}
