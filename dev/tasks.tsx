@@ -16,10 +16,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
-import { Progress as Bar } from "#dev/components/ui/progress.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { type Question, questions } from "../plan";
-import { type Progress as Counted, progress } from "../progress";
 import type { Details } from "../show";
 import { retryTask } from "./api";
 import { ReviewChanges } from "./changes";
@@ -33,9 +31,8 @@ import { arriveAt, TASK } from "./task-view";
 const BROKEN = new Set(["orphaned", "stray", "unrecorded", "unknown"]);
 
 /**
- * Every task in a line: its name, a bar for how far along its plan is, and a status only
- * when the status is news. The rest (branch, paths, the whole plan) waits
- * behind a tap.
+ * Every task in a line: its name and the marks of the conversations on it.
+ * Where the task stands in arbor (its status, its plan) waits behind a tap.
  */
 export function Tasks({
 	tasks,
@@ -117,8 +114,6 @@ function TaskRows({
 						<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
 						{/* Only marks, since the row is a button: its dialog opens them. */}
 						<OnIt task={task.task} variant="marks" />
-						<Status task={task} />
-						<PlanProgress plan={task.plan} />
 					</button>
 					{parts.length > 0 && (
 						<TaskRows
@@ -132,15 +127,6 @@ function TaskRows({
 			))}
 		</ul>
 	);
-}
-
-/** Working and merging are the normal case, so they say nothing. */
-function Status({ task }: { task: Details }): JSX.Element | null {
-	const news =
-		task.review !== null ||
-		task.status === "escalated" ||
-		BROKEN.has(task.status);
-	return news ? <TaskStatus task={task} /> : null;
 }
 
 /** Where a task stands in arbor, normal case and all, as a conversation's header shows it. */
@@ -167,31 +153,6 @@ function outOfMerges(task: Details): boolean {
 		task.status === "escalated" &&
 		task.review === null &&
 		task.mergeAttempts >= task.mergeAttemptLimit
-	);
-}
-
-function PlanProgress({ plan }: { plan: string | null }): JSX.Element | null {
-	const counted = plan === null ? null : progress(plan);
-	return counted && <Progress {...counted} />;
-}
-
-/** A bar and its count, the end of a task's or a tag's row. */
-export function Progress({ done, total }: Counted): JSX.Element {
-	return (
-		<span
-			title={`${done} of ${total} plan steps done`}
-			className="flex w-28 shrink-0 items-center gap-2"
-		>
-			<Bar
-				value={done}
-				max={total}
-				aria-label="plan steps done"
-				className="flex-1"
-			/>
-			<span className="w-8 text-right text-muted-foreground text-xs tabular-nums">
-				{done}/{total}
-			</span>
-		</span>
 	);
 }
 

@@ -28,7 +28,7 @@ describe("App's tasks", () => {
 		expect(view.getByText(/No tasks/)).toBeTruthy();
 	});
 
-	it("flags only the statuses that are news, and opens a task's plan", async () => {
+	it("opens a task's plan, and where it stands", async () => {
 		const view = await testing.openTasks({
 			tasks: [
 				details({ task: "alpha" }),
@@ -40,10 +40,6 @@ describe("App's tasks", () => {
 				}),
 			],
 		});
-
-		expect(view.queryByText("working")).toBeNull();
-		expect(view.queryByRole("progressbar")).toBeNull();
-		expect(view.getByText("escalated")).toBeTruthy();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /beta/ })),
@@ -83,9 +79,6 @@ describe("App's tasks", () => {
 				}),
 			],
 		});
-
-		expect(view.getByText("ready to merge")).toBeTruthy();
-		expect(view.queryByText("escalated")).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /alpha/ })),
@@ -185,8 +178,6 @@ describe("App's tasks", () => {
 		});
 
 		// Escalated for some other reason, a task has no use for more attempts.
-		expect(view.getByText("out of merges")).toBeTruthy();
-		expect(view.getByText("escalated")).toBeTruthy();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /beta/ })),
 		);
@@ -251,20 +242,21 @@ describe("App's tasks", () => {
 		expect(view.getByRole("button", { name: "Retry" })).toBeTruthy();
 	});
 
-	it("fills a bar with the steps its plan has checked off", async () => {
+	it("shows only the conversations on a task in its row, not where it stands", async () => {
 		const view = await testing.openTasks({
 			tasks: [
 				details({
 					task: "alpha",
-					plan: "# alpha\n\n## Done\n\n- [x] one\n\n## Next\n\n- [ ] two\n- [ ] three\n- [ ] four\n",
+					status: "escalated",
+					review: "drag a todo",
+					plan: "# alpha\n\n## Done\n\n- [x] one\n\n## Next\n\n- [ ] two\n",
 				}),
 			],
 		});
 
-		const bar = view.getByRole("progressbar", { name: "plan steps done" });
-		expect(bar.getAttribute("aria-valuenow")).toBe("1");
-		expect(bar.getAttribute("aria-valuemax")).toBe("4");
-		expect(view.getByText("1/4")).toBeTruthy();
+		const row = view.getByRole("button", { name: /alpha/ });
+		expect(row.textContent).toBe("alpha");
+		expect(view.queryByRole("progressbar")).toBeNull();
 	});
 
 	const BLOCKED = `# beta
