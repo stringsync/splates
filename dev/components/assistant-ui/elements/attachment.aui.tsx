@@ -19,6 +19,13 @@ import {
 import { type FC, useContext, useEffect, useRef, useState } from "react";
 import { useAnnotate } from "#dev/annotate.tsx";
 import { Annotation } from "#dev/annotation.ts";
+import {
+	attachmentName,
+	chippedAlready,
+	type Placed,
+	shelfOf,
+	TILE,
+} from "#dev/attachment-chips.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
 	Avatar,
@@ -41,11 +48,10 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "#dev/components/ui/tooltip.tsx";
-import { composerIn, ForgetImage } from "#dev/composer-editor.tsx";
+import { composerIn, ForgetAttachment } from "#dev/composer-editor.tsx";
 import { FileIcon } from "#dev/file-chip.tsx";
 import { useAttachmentSrc } from "#dev/hooks/use-attachment-src.ts";
 import { useHeld } from "#dev/hooks/use-held.ts";
-import { chippedAlready, imageName } from "#dev/image-chips.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP, ITEM, type Shown, useLightbox } from "#dev/lightbox.tsx";
 
@@ -121,11 +127,14 @@ const AttachmentThumb: FC<{
 	);
 };
 
-/** An image's name, along the foot of its tile, as its chips name it. */
+/**
+ * An attachment's name, under its tile, as its chips name it: over an image,
+ * it was too small to read and hid the image's foot.
+ */
 const TileName: FC<{ name: string }> = ({ name }) => (
 	<span
 		aria-hidden="true"
-		className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 text-center font-medium text-[10px] text-white leading-4"
+		className="aui-attachment-tile-name text-muted-foreground max-w-14 truncate text-center text-xs leading-4"
 	>
 		{name}
 	</span>
@@ -145,12 +154,13 @@ const AttachmentTile: FC = () => {
 	);
 	const isImage = kind === "image";
 	const name = useAuiState((s) => s.attachment.name);
-	// The composer's images are named by their place among its images, as the
-	// agent gets them; any other file has no place.
+	// The composer's attachments are named by their place on their shelf,
+	// images apart from other files, as the agent gets them.
+	const shelf = useAuiState((s) => shelfOf(s.attachment.type));
 	const place = useAuiState((s) =>
-		isComposer && s.attachment.type === "image"
+		isComposer
 			? s.composer.attachments
-					.filter((each) => each.type === "image")
+					.filter((each) => shelfOf(each.type) === shelf)
 					.findIndex((each) => each.id === s.attachment.id)
 			: -1,
 	);
@@ -214,6 +224,7 @@ const AttachmentTile: FC = () => {
 				<AttachmentPrimitive.Root
 					className={cn(
 						"aui-attachment-root relative",
+						place >= 0 && "flex flex-col items-center gap-1",
 						isComposer &&
 							"animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none",
 						isImage &&
@@ -275,7 +286,6 @@ const AttachmentTile: FC = () => {
 						}
 					>
 						<AttachmentThumb src={src} kind={kind} name={name} />
-						{place >= 0 && <TileName name={imageName(place)} />}
 						{file && !isUploading && (
 							<div
 								aria-hidden="true"
@@ -301,18 +311,19 @@ const AttachmentTile: FC = () => {
 							</div>
 						)}
 					</TooltipTrigger>
+					{place >= 0 && <TileName name={attachmentName(shelf, place)} />}
 					{lightbox}
 					{annotator.annotate}
 					{isComposer && (
 						<AttachmentRemove
 							name={name}
-							place={place}
+							placed={{ shelf, at: place + 1 }}
 							marks={Annotation.marksOn(file)}
 						/>
 					)}
 				</AttachmentPrimitive.Root>
 				<TooltipContent side="top">
-					{place >= 0 && `${imageName(place)}: `}
+					{place >= 0 && `${attachmentName(shelf, place)}: `}
 					<AttachmentPrimitive.Name />
 					{file && <p className="text-muted-foreground">Click to mark up</p>}
 					{errorMessage && (
@@ -328,23 +339,20 @@ const REMOVE =
 	"aui-attachment-tile-remove absolute end-1 top-1 size-5 rounded-full bg-black/50! text-white after:absolute after:-inset-1.5 hover:bg-black/70! hover:text-white! active:scale-[0.96] motion-reduce:transition-none";
 
 /**
- * The tile's remove button, which takes the image's chips out of the text
- * with it. An image with marks drawn on it asks first, since the marks go
- * with it.
+ * The tile's remove button, which takes the attachment's chips out of the
+ * text with it. An image with marks drawn on it asks first, since the marks
+ * go with it.
  */
-const AttachmentRemove: FC<{ name: string; place: number; marks: number }> = ({
+const AttachmentRemove: FC<{ name: string; placed: Placed; marks: number }> = ({
 	name,
-	place,
+	placed,
 	marks,
 }) => {
 	const aui = useAui();
-	const forget = useContext(ForgetImage);
+	const forget = useContext(ForgetAttachment);
 	const [asking, setAsking] = useState(false);
 	const remove = () => {
-		// Any other file has no chips to take out.
-		if (place >= 0) {
-			forget(place + 1);
-		}
+		forget(placed);
 		void aui.attachment().remove();
 	};
 	const many = marks === 1 ? "its mark" : `its ${marks} marks`;
@@ -403,7 +411,7 @@ export const ComposerAttachments: FC = () => {
 	return (
 		<div
 			{...{ [GROUP]: "" }}
-			className="aui-composer-attachments flex w-full flex-row items-center gap-2 overflow-x-auto empty:hidden"
+			className="aui-composer-attachments flex w-full flex-row items-start gap-2 overflow-x-auto empty:hidden"
 		>
 			<ComposerPrimitive.Attachments>
 				{() => <AttachmentTile />}
@@ -488,38 +496,40 @@ export const SentTile: FC<{
 	name: string;
 	type: string;
 	contentType: string | undefined;
-	/** Its place among the message's images, which its chips name; -1 for any other file. */
+	/** Its place on its shelf of the message's attachments, which its chips name. */
 	place: number;
 }> = ({ src, name, type, contentType, place }) => {
 	const { open, lightbox } = useLightbox();
 	const kind = kindOf(type, contentType);
-	if (kind === "file") {
-		return (
-			<a
-				href={src}
-				target="_blank"
-				rel="noreferrer"
-				title={name}
-				className={cn(SENT, tileSize(kind), "block")}
-			>
-				<AttachmentThumb src={src} kind={kind} name={name} />
-			</a>
-		);
-	}
+	const called = attachmentName(shelfOf(type), place);
 	return (
-		<>
-			<button
-				type="button"
-				{...shown(src, name, kind)}
-				aria-label={`Preview ${name}`}
-				onClick={(e) => open(e.currentTarget)}
-				className={cn(SENT, tileSize(kind), "cursor-zoom-in")}
-			>
-				<AttachmentThumb src={src} kind={kind} name={name} />
-				{place >= 0 && <TileName name={imageName(place)} />}
-			</button>
+		<span className="flex flex-col items-center gap-1">
+			{kind === "file" ? (
+				<a
+					href={src}
+					target="_blank"
+					rel="noreferrer"
+					title={name}
+					{...{ [TILE]: called }}
+					className={cn(SENT, tileSize(kind), "block")}
+				>
+					<AttachmentThumb src={src} kind={kind} name={name} />
+				</a>
+			) : (
+				<button
+					type="button"
+					{...shown(src, name, kind)}
+					{...{ [TILE]: called }}
+					aria-label={`Preview ${name}`}
+					onClick={(e) => open(e.currentTarget)}
+					className={cn(SENT, tileSize(kind), "cursor-zoom-in")}
+				>
+					<AttachmentThumb src={src} kind={kind} name={name} />
+				</button>
+			)}
+			<TileName name={called} />
 			{lightbox}
-		</>
+		</span>
 	);
 };
 

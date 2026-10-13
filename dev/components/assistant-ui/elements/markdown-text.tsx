@@ -10,10 +10,10 @@ import {
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { type FC, memo, useContext, useMemo, useRef } from "react";
 import remarkGfm from "remark-gfm";
+import { AttachmentChip, attachmentIn } from "#dev/attachment-chips.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { DirectiveChip, directiveIn } from "#dev/directives.tsx";
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
-import { ImageChip, imageIn } from "#dev/image-chips.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { linkMentions, Mention, mentionIn } from "#dev/markdown.tsx";
@@ -232,9 +232,9 @@ const defaultComponents = memoizeMarkdownComponents({
 		if (directive !== null) {
 			return <DirectiveChip directive={directive} opens inline />;
 		}
-		const image = imageIn(props.href);
-		if (image !== null) {
-			return <ImageChip at={image} opens />;
+		const attachment = attachmentIn(props.href);
+		if (attachment !== null) {
+			return <AttachmentChip {...attachment} opens />;
 		}
 		return (
 			<a

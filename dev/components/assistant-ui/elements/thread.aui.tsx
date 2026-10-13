@@ -60,6 +60,7 @@ import {
 	useState,
 } from "react";
 import { flushSync } from "react-dom";
+import { linkAttachments, shelfOf } from "#dev/attachment-chips.tsx";
 import { toCardTop } from "#dev/card-shell.tsx";
 import {
 	ComposerAddAttachment,
@@ -85,19 +86,18 @@ import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip
 import { Button } from "#dev/components/ui/button.tsx";
 import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import {
+	AttachmentChipsPlugin,
 	type ChipWriter,
 	ChipWriterPlugin,
 	ComposerChip,
 	chipFormatter,
 	FileNames,
-	ForgetImage,
-	ImageChipsPlugin,
+	ForgetAttachment,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
 import { DirectiveChip, linkDirectives } from "#dev/directives.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
-import { linkImages } from "#dev/image-chips.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { filesIn, NamedContext } from "#dev/mentioned.tsx";
@@ -942,9 +942,9 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					/>
 				}
 			>
-				<ForgetImage value={(at) => writer.current?.forget(at)}>
+				<ForgetAttachment value={(at) => writer.current?.forget(at)}>
 					<ComposerAttachments />
-				</ForgetImage>
+				</ForgetAttachment>
 				<FileNames value={names}>
 					<LexicalComposerInput
 						placeholder={placeholder}
@@ -959,7 +959,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					>
 						<ChipWriterPlugin writer={writer} />
 						<PasteFilesPlugin />
-						<ImageChipsPlugin />
+						<AttachmentChipsPlugin />
 						<TypedDirectivesPlugin />
 					</LexicalComposerInput>
 				</FileNames>
@@ -1710,7 +1710,7 @@ const UserText: TextMessagePartComponent = ({ text }) => {
  * directive after them a link the markdown draws as its chip.
  */
 const afterDirectives = (text: string) =>
-	linkImages(linkDirectives(leadingDirectives(text).rest));
+	linkAttachments(linkDirectives(leadingDirectives(text).rest));
 
 const UserMessage: FC = () => {
 	const id = useAuiState((s) => s.message.id);
@@ -1800,8 +1800,11 @@ const SentTiles: FC<{
 					name={each.name}
 					type={each.type}
 					contentType={each.contentType}
-					// Its images come first, in the order the agent is sent them.
-					place={each.type === "image" ? sent.indexOf(each) : -1}
+					// Its images come first, then its other files, each in the
+					// order the agent is sent them.
+					place={sent
+						.filter((other) => shelfOf(other.type) === shelfOf(each.type))
+						.indexOf(each)}
 				/>
 			))}
 		</div>

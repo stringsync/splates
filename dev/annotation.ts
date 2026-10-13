@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Position } from "webappwiz/geometry";
-import { imageName } from "./image-chips";
+import { attachmentName } from "./attachment-chips";
 
 /**
  * One mark: a box between two corners, an arrow from its tail to its head, or
@@ -85,7 +85,9 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 				if (notes.length === 0) {
 					return [];
 				}
-				return [`Marks on [${imageName(at)}]:\n${notes.join("\n")}`];
+				return [
+					`Marks on [${attachmentName("image", at)}]:\n${notes.join("\n")}`,
+				];
 			})
 			.join("\n\n");
 	}

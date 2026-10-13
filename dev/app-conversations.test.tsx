@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from "bun:test";
 import type { Limit, Setting } from "../conversations";
 import {
 	act,
@@ -2318,41 +2326,50 @@ describe("App's conversations", () => {
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-				{ method: "POST", body: { text: "", file: [clip] } },
+				{ method: "POST", body: { text: "[File 1]", file: [clip] } },
 			]),
 		);
 	});
 
-	it("names each image attached, on its tile and in a chip at the caret, renumbering the rest when one goes, and counts no other file", async () => {
+	it("names each file attached, under its tile and in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Look" }),
 		]);
 		const box = view.getByRole("textbox", { name: "Message input" });
 		const png = (name: string) => new File([name], name, { type: "image/png" });
-		const [first, csv, second, third] = [
+		const [first, csv, second, json, third] = [
 			png("a.png"),
 			new File(["x,y"], "notes.csv", { type: "text/csv" }),
 			png("b.png"),
+			new File(["{}"], "data.json", { type: "application/json" }),
 			png("c.png"),
 		];
 		await typeIn(box, "compare");
-		for (const file of [first, csv, second, third]) {
+		for (const file of [first, csv, second, json, third]) {
 			await act(async () =>
 				fireEvent.paste(box, { clipboardData: { files: [file] } }),
 			);
 		}
 
 		await waitFor(() =>
-			expect(textIn(box)).toBe("compare [Image 1] [Image 2] [Image 3] "),
+			expect(textIn(box)).toBe(
+				"compare [Image 1] [File 1] [Image 2] [File 2] [Image 3] ",
+			),
 		);
 		const tiles = view.container.ownerDocument.querySelector(
 			".aui-composer-attachments",
 		) as HTMLElement;
 		const names = () =>
-			[...tiles.querySelectorAll(".aui-attachment-tile")].map(
-				(tile) => tile.textContent,
+			[...tiles.querySelectorAll(".aui-attachment-tile-name")].map(
+				(name) => name.textContent,
 			);
-		expect(names()).toEqual(["Image 1", "notes.csv", "Image 2", "Image 3"]);
+		expect(names()).toEqual([
+			"Image 1",
+			"File 1",
+			"Image 2",
+			"File 2",
+			"Image 3",
+		]);
 
 		await act(async () =>
 			fireEvent.click(
@@ -2360,9 +2377,9 @@ describe("App's conversations", () => {
 			),
 		);
 		await waitFor(() =>
-			expect(names()).toEqual(["Image 1", "Image 2", "Image 3"]),
+			expect(names()).toEqual(["Image 1", "Image 2", "File 1", "Image 3"]),
 		);
-		expect(textIn(box)).toBe("compare [Image 1] [Image 2] [Image 3] ");
+		expect(textIn(box)).toBe("compare [Image 1] [Image 2] [File 1] [Image 3] ");
 		await act(async () =>
 			fireEvent.click(
 				within(tiles).getByRole("button", { name: "Remove a.png" }),
@@ -2370,16 +2387,21 @@ describe("App's conversations", () => {
 		);
 
 		await waitFor(() =>
-			expect(textIn(box)).toBe("compare [Image 1] [Image 2] "),
+			expect(textIn(box)).toBe("compare [Image 1] [File 1] [Image 2] "),
 		);
-		await waitFor(() => expect(names()).toEqual(["Image 1", "Image 2"]));
+		await waitFor(() =>
+			expect(names()).toEqual(["Image 1", "File 1", "Image 2"]),
+		);
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{
 					method: "POST",
-					body: { text: "compare [Image 1] [Image 2]", file: [second, third] },
+					body: {
+						text: "compare [Image 1] [File 1] [Image 2]",
+						file: [second, json, third],
+					},
 				},
 			]),
 		);
@@ -2410,6 +2432,43 @@ describe("App's conversations", () => {
 		await waitFor(() =>
 			expect(view.getByRole("dialog", { name: "ab12.png" })).toBeTruthy(),
 		);
+	});
+
+	it("draws the other files a sent message names as chips on the tiles they open", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Look",
+				messages: [
+					{
+						...message("user", "see [File 1]"),
+						parts: [
+							{
+								type: "file",
+								name: "cd34.csv",
+								title: "notes.csv",
+								mimeType: "text/csv",
+							},
+							{ type: "text", text: "see [File 1]" },
+						],
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Look" });
+
+		const chip = await waitFor(() =>
+			within(thread).getByRole("button", { name: "File 1" }),
+		);
+		const tile = thread.querySelector('[data-attachment="File 1"]');
+		expect(tile?.getAttribute("title")).toBe("notes.csv");
+		const opened = mock();
+		tile?.addEventListener("click", (event) => {
+			event.preventDefault();
+			opened();
+		});
+		await act(async () => fireEvent.click(chip));
+
+		expect(opened).toHaveBeenCalledTimes(1);
 	});
 
 	it("scrolls the thread at once, even when asked to glide", async () => {
