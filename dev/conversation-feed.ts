@@ -1,6 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type {
+	Attached,
 	ConversationState,
 	Image,
 	Limit,
@@ -10,10 +11,11 @@ import { scoped } from "./api";
 
 export type ConversationFeedEvents = { changed: undefined };
 
-/** A message on its way: its words, and its images read from the page's own copies. */
+/** A message on its way: its words, and its files read from the page's own copies. */
 export interface Sending {
 	text: string;
 	images: Image[];
+	files: Attached[];
 }
 
 /** An agent a conversation can be started with. */
@@ -107,23 +109,25 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Shows `text` and `images` as said in conversation `id`, whose server holds it
+	 * Shows `text` and `files` as said in conversation `id`, whose server holds it
 	 * unrecorded until the agent is up, starting or resuming, so the thread
 	 * does not sit as it was meanwhile. The first held there starts a turn and
 	 * the rest wait for its end, so they show as queued, as the server will
 	 * record them. Each goes once the server has recorded as many more
 	 * messages from the person there, or `sent` says it was refused. The
-	 * images show from the files themselves, as the server has yet to keep
-	 * them.
+	 * files show from the page's own, as the server has yet to keep them.
 	 */
-	send(id: string, text: string, images: File[] = []): Sending {
+	send(id: string, text: string, files: File[] = []): Sending {
+		const kept = files.map((file) => ({
+			name: file.name,
+			title: file.name,
+			mimeType: file.type,
+			url: URL.createObjectURL(file),
+		}));
 		const message = {
 			text,
-			images: images.map((file) => ({
-				name: file.name,
-				mimeType: file.type,
-				url: URL.createObjectURL(file),
-			})),
+			images: kept.filter((each) => SEEN.includes(each.mimeType)),
+			files: kept.filter((each) => !SEEN.includes(each.mimeType)),
 		};
 		const held = this.recorded.find((each) => each.id === id);
 		const sending = this.sending.get(id);
@@ -188,6 +192,10 @@ export class ConversationFeed
 							...message.images.map((image) => ({
 								type: "image" as const,
 								...image,
+							})),
+							...message.files.map((file) => ({
+								type: "file" as const,
+								...file,
 							})),
 							...(message.text === ""
 								? []
@@ -259,9 +267,12 @@ function said(conversation: ConversationState | undefined): number {
 	);
 }
 
-/** Lets go of the page's copies of `message`'s images. */
+/** The images an agent that takes images is sent as such, as the server keeps them. */
+export const SEEN = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+/** Lets go of the page's copies of `message`'s files. */
 function forget(message: Sending): void {
-	for (const image of message.images) {
+	for (const image of [...message.images, ...message.files]) {
 		if (image.url !== undefined) {
 			URL.revokeObjectURL(image.url);
 		}

@@ -8,6 +8,7 @@
 import type {
 	After,
 	Answer,
+	Attached,
 	Checkpoint,
 	ConversationState,
 	Image,
@@ -51,7 +52,10 @@ async function send(path: string, init: RequestInit): Promise<unknown> {
 	if (!response.ok) {
 		throw new ApiError(
 			body.reason ?? "error",
-			body.message ?? `${path}: ${response.status}`,
+			body.message ??
+				(response.status === 413
+					? "too big to send"
+					: `${path}: ${response.status}`),
 		);
 	}
 	return body;
@@ -291,42 +295,27 @@ export async function bringSession(
 	})) as ConversationState;
 }
 
-/** Says `text` to the agent in conversation `id`, with `images`. */
+/** Says `text` to the agent in conversation `id`, with `files`. */
 export async function promptConversation(
 	id: string,
 	text: string,
-	images: File[] = [],
+	files: File[] = [],
 ): Promise<void> {
-	await sendJson(`/api/conversations/${id}/prompt`, "POST", {
-		text,
-		...(images.length === 0
-			? {}
-			: {
-					images: await Promise.all(
-						images.map(async (file) => ({
-							mimeType: file.type,
-							data: (await dataUrl(file)).split(",")[1] ?? "",
-						})),
-					),
-				}),
-	});
+	const form = new FormData();
+	form.set("text", text);
+	for (const file of files) {
+		form.append("file", file, file.name);
+	}
+	await send(`/api/conversations/${id}/prompt`, { body: form });
 }
 
-/** `file` as a `data:` URL, its bytes in base64 after the comma. */
-function dataUrl(file: File): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => resolve(String(reader.result));
-		reader.onerror = () => reject(reader.error);
-		reader.readAsDataURL(file);
-	});
-}
-
-/** Where the page reads `image`, one the person sent in conversation `id`. */
-export function conversationImage(id: string, image: Image): string {
+/** Where the page reads `file`, one the person sent in conversation `id`. */
+export function conversationAttachment(id: string, file: Image): string {
 	return (
-		image.url ??
-		scoped(`/api/conversations/${id}/images/${encodeURIComponent(image.name)}`)
+		file.url ??
+		scoped(
+			`/api/conversations/${id}/attachments/${encodeURIComponent(file.name)}`,
+		)
 	);
 }
 
@@ -415,19 +404,19 @@ export async function stopBackground(
 export async function unqueueConversation(
 	id: string,
 	index: number,
-): Promise<{ text: string; images: File[] }> {
-	const { text, images } = (await sendJson(
+): Promise<{ text: string; files: File[] }> {
+	const { text, files } = (await sendJson(
 		`/api/conversations/${id}/unqueue`,
 		"POST",
 		{ index },
-	)) as { text: string; images: Image[] };
+	)) as { text: string; files: Attached[] };
 	return {
 		text,
-		images: await Promise.all(
-			images.map(async (image) => {
-				const response = await fetch(conversationImage(id, image));
-				return new File([await response.blob()], image.name, {
-					type: image.mimeType,
+		files: await Promise.all(
+			files.map(async (file) => {
+				const response = await fetch(conversationAttachment(id, file));
+				return new File([await response.blob()], file.title, {
+					type: file.mimeType,
 				});
 			}),
 		),

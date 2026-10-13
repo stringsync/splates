@@ -2,7 +2,7 @@ import {
 	type AppendMessage,
 	type AssistantRuntime,
 	AssistantRuntimeProvider,
-	SimpleImageAttachmentAdapter,
+	type AttachmentAdapter,
 	type ThreadMessageLike,
 	type TriggerAdapter,
 	useAuiState,
@@ -86,8 +86,8 @@ import type {
 	Ask,
 	Command,
 	ConversationState,
-	Image,
 	Message,
+	Part,
 	Setting,
 } from "../conversations";
 import { type LaneRecord, named } from "../lanes";
@@ -104,7 +104,7 @@ import {
 	archiveConversation,
 	cancelConversation,
 	chooseSetting,
-	conversationImage,
+	conversationAttachment,
 	systems as fetchSystems,
 	markUnread,
 	paths,
@@ -124,11 +124,13 @@ import {
 	type AgentChoice,
 	agentName,
 	type ConversationFeed,
+	SEEN,
 } from "./conversation-feed";
 import { DemoUI } from "./demo-cards";
 import { Directed, DirectiveChip } from "./directives";
 import { Trunk, whereRuns } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
+import { useHeld } from "./hooks/use-held";
 import { type Named, NamedContext } from "./mentioned";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
@@ -727,28 +729,6 @@ function flatten<Row>(rows: Nested<Row>[]): Row[] {
 function hintOf(shown: Needing[], row: Needing): string | null {
 	const at = shown.indexOf(row);
 	return at === -1 ? null : String(at);
-}
-
-/**
- * Whether ⌥⌘ (Ctrl+Alt off a Mac) is held down, to show the keys that go
- * with it. Leaving the window lets go, since its key-ups go elsewhere.
- */
-export function useHeld(): boolean {
-	const [held, setHeld] = useState(false);
-	useEffect(() => {
-		const check = (event: KeyboardEvent) =>
-			setHeld(event.altKey && (event.metaKey || event.ctrlKey));
-		const release = () => setHeld(false);
-		window.addEventListener("keydown", check);
-		window.addEventListener("keyup", check);
-		window.addEventListener("blur", release);
-		return () => {
-			window.removeEventListener("keydown", check);
-			window.removeEventListener("keyup", check);
-			window.removeEventListener("blur", release);
-		};
-	}, []);
-	return held;
 }
 
 /** The sidebar's rows, newest first: the conversations listed, then external agents. */
@@ -1719,7 +1699,7 @@ function Home({
 	});
 	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
-	const restore = useRef<(text: string, images: File[]) => void>(() => {});
+	const restore = useRef<(text: string, files: File[]) => void>(() => {});
 	// Only unfinished work at rest: one at work or waiting on the person is in
 	// the sidebar already, and one whose task merged is done.
 	const recent = listed
@@ -1732,10 +1712,10 @@ function Home({
 		messages: NO_MESSAGES,
 		isRunning: starting,
 		convertMessage: (message: ThreadMessageLike) => message,
-		adapters: { attachments: IMAGES },
+		adapters: { attachments: FILES },
 		onNew: async (message) => {
 			const text = said(message);
-			const images = imagesOf(message);
+			const files = filesOf(message);
 			setStarting(true);
 			// Each as shown: where it was left, unless picked here.
 			const settings = {
@@ -1750,7 +1730,7 @@ function Home({
 				model !== null && offered.length === 0 ? model : undefined,
 			).catch((error: unknown) => {
 				setStarting(false);
-				restore.current(text, images);
+				restore.current(text, files);
 				refuse("Not started", error);
 				throw error;
 			});
@@ -1758,11 +1738,11 @@ function Home({
 			// Shown at once in its thread, so the person watches the agent come
 			// up; the message waits on the server for the session to open.
 			const sending =
-				text !== "" || images.length > 0
-					? feed.send(state.id, noted(text, images), images)
+				text !== "" || files.length > 0
+					? feed.send(state.id, noted(text, files), files)
 					: null;
 			onOpen(state.id);
-			await promptConversation(state.id, noted(text, images), images).catch(
+			await promptConversation(state.id, noted(text, files), files).catch(
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its
 					// composer, its words only.
@@ -2073,10 +2053,20 @@ function Queued({
 					const images = message.parts.flatMap((part) =>
 						part.type === "image" ? [part] : [],
 					);
+					const files = message.parts.flatMap((part) =>
+						part.type === "file" ? [part] : [],
+					);
 					const { directives, rest } = leadingDirectives(text);
+					const sent = images.length + files.length;
 					const label =
 						text ||
-						(images.length === 1 ? "an image" : `${images.length} images`);
+						(files.length === 0
+							? images.length === 1
+								? "an image"
+								: `${images.length} images`
+							: sent === 1
+								? (files[0]?.title ?? "a file")
+								: `${sent} files`);
 					// Still on its way while the agent starts: the server has nothing
 					// to take back yet.
 					const unrecorded = index >= messages.length - pending;
@@ -2091,7 +2081,7 @@ function Queued({
 							{images.map((image) => (
 								<img
 									key={image.name}
-									src={conversationImage(conversation, image)}
+									src={conversationAttachment(conversation, image)}
 									alt=""
 									className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
 								/>
@@ -2209,7 +2199,7 @@ function useDraft(
 	runtime: AssistantRuntime,
 	drafts: Drafts,
 	key: string,
-): (text: string, images: File[]) => void {
+): (text: string, files: File[]) => void {
 	useEffect(() => {
 		const composer = runtime.thread.composer;
 		// Into an empty composer only: what is typed there is the newer draft.
@@ -2234,20 +2224,20 @@ function useDraft(
 			unlisten();
 		};
 	}, [runtime, drafts, key]);
-	return (text, images) => {
+	return (text, files) => {
 		const composer = runtime.thread.composer;
 		// Typed again since it was sent: that is the newer draft.
 		if (!composer.getState().isEmpty) {
 			return;
 		}
 		composer.setText(text);
-		for (const image of images) {
-			void composer.addAttachment(image);
+		for (const file of files) {
+			void composer.addAttachment(file);
 		}
 	};
 }
 
-/** What `message` says, its directives among its words; its images go apart. */
+/** What `message` says, its directives among its words; its files go apart. */
 function said(message: AppendMessage): string {
 	return message.content
 		.map((part) => (part.type === "text" ? part.text : ""))
@@ -2256,29 +2246,45 @@ function said(message: AppendMessage): string {
 }
 
 /**
- * `text` as the agent is sent it: then the notes on the marks drawn on
- * `images`, which it reads beside the numbers drawn in. A message that comes
+ * `text` as the agent is sent it: then the notes on the marks drawn on the
+ * images among `files`, which it reads beside the numbers drawn in. A message that comes
  * back to the composer unsent comes back as `text`, its images still marked
  * up, so the notes are not said twice.
  */
-function noted(text: string, images: readonly File[]): string {
+function noted(text: string, files: readonly File[]): string {
+	// Counted among the images, as their chips are.
+	const images = files.filter((file) => SEEN.includes(file.type));
 	return [text, Annotation.notesFor(images)]
 		.filter((each) => each !== "")
 		.join("\n\n");
 }
 
 /**
- * The images the agent can be sent, held as files until the message goes:
- * PNG, JPEG, GIF and WebP, the ones the server keeps.
+ * Any file, held as it is until the message goes: an image the agent can be
+ * sent as one is an image, to mark up, and the server sends the agent a link
+ * to anything else.
  */
-class ImageAttachments extends SimpleImageAttachmentAdapter {
-	override accept = "image/png,image/jpeg,image/gif,image/webp";
-}
+const FILES: AttachmentAdapter = {
+	accept: "*",
+	add: async ({ file }) => ({
+		id: crypto.randomUUID(),
+		type: SEEN.includes(file.type) ? "image" : "file",
+		name: file.name,
+		contentType: file.type,
+		file,
+		status: { type: "requires-action", reason: "composer-send" },
+	}),
+	// Read from the file itself as the message goes, so never into memory here.
+	send: async (attachment) => ({
+		...attachment,
+		status: { type: "complete" },
+		content: [],
+	}),
+	remove: async () => {},
+};
 
-const IMAGES = new ImageAttachments();
-
-/** The files of the images attached to `message`. */
-function imagesOf(message: AppendMessage): File[] {
+/** The files attached to `message`. */
+function filesOf(message: AppendMessage): File[] {
 	return (message.attachments ?? []).flatMap((each) =>
 		each.file === undefined ? [] : [each.file],
 	);
@@ -2435,22 +2441,22 @@ function Thread({
 					(part.type === "data-report" &&
 						(part.data as { report: Report }).report.ending === "escalated"),
 			));
-	const restore = useRef<(text: string, images: File[]) => void>(() => {});
+	const restore = useRef<(text: string, files: File[]) => void>(() => {});
 	const send = useCallback(
-		async (text: string, images: File[]) => {
+		async (text: string, files: File[]) => {
 			// The server says nothing of it until the agent is back up.
 			const sending =
 				status !== "idle" &&
 				status !== "running" &&
-				(text !== "" || images.length > 0)
-					? feed.send(id, noted(text, images), images)
+				(text !== "" || files.length > 0)
+					? feed.send(id, noted(text, files), files)
 					: null;
-			await promptConversation(id, noted(text, images), images).catch(
+			await promptConversation(id, noted(text, files), files).catch(
 				(error: unknown) => {
 					if (sending !== null) {
 						feed.sent(id, sending);
 					}
-					restore.current(text, images);
+					restore.current(text, files);
 					refused("Not sent", error);
 					throw error;
 				},
@@ -2459,7 +2465,7 @@ function Thread({
 		[id, status, feed, refused],
 	);
 	const say = useCallback(
-		(message: AppendMessage) => send(said(message), imagesOf(message)),
+		(message: AppendMessage) => send(said(message), filesOf(message)),
 		[send],
 	);
 	const runtime = useExternalStoreRuntime({
@@ -2469,7 +2475,7 @@ function Thread({
 		// an archived one, and one still starting holds it until the session
 		// opens.
 		convertMessage: (message: ThreadMessageLike) => message,
-		adapters: { attachments: IMAGES },
+		adapters: { attachments: FILES },
 		onNew: say,
 		// So the composer takes a message while the agent works. The server
 		// decides whether it joins the turn or waits for its end, and shows it
@@ -2519,14 +2525,14 @@ function Thread({
 		if (taken === null) {
 			return;
 		}
-		const { text, images } = taken;
+		const { text, files } = taken;
 		const composer = runtime.thread.composer;
 		const typed = composer.getState().text;
 		composer.setText(
 			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`,
 		);
-		for (const image of images) {
-			void composer.addAttachment(image);
+		for (const file of files) {
+			void composer.addAttachment(file);
 		}
 		focusComposer(section.current);
 	};
@@ -2970,7 +2976,9 @@ function like(
 			),
 			// Shown as tiles above the words, each opening full size.
 			attachments: message.parts.flatMap((part) =>
-				part.type === "image" ? [attached(conversation, part)] : [],
+				part.type === "image" || part.type === "file"
+					? [attached(conversation, part)]
+					: [],
 			),
 			// Marked as taken into the turn the agent was running.
 			metadata: { custom: { steered: message.steered ?? false } },
@@ -2999,18 +3007,30 @@ function like(
 	};
 }
 
-/** An image the person sent, as assistant-ui shows an attachment. */
+/** A file the person sent, as assistant-ui shows an attachment. */
 function attached(
 	conversation: string,
-	image: Image,
+	part: Extract<Part, { type: "image" | "file" }>,
 ): NonNullable<ThreadMessageLike["attachments"]>[number] {
+	const url = conversationAttachment(conversation, part);
 	return {
-		id: image.name,
-		type: "image",
-		name: image.name,
-		contentType: image.mimeType,
+		id: part.name,
+		type: part.type,
+		name: part.type === "file" ? part.title : part.name,
+		contentType: part.mimeType,
 		status: { type: "complete" },
-		content: [{ type: "image", image: conversationImage(conversation, image) }],
+		content:
+			part.type === "image"
+				? [{ type: "image", image: url }]
+				: [
+						{
+							type: "file",
+							data: url,
+							mimeType: part.mimeType,
+							filename: part.title,
+							sourceType: "url",
+						},
+					],
 	};
 }
 

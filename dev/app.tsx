@@ -40,13 +40,13 @@ import { AutoRestartDialog } from "./auto-restart-dialog";
 import { BackgroundPane, WatchBackground } from "./background";
 import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
 import { CheckpointProvider, CheckpointRefusal } from "./checkpoint";
+import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
 import { focusComposer } from "./composer-editor";
 import { ConversationFeed } from "./conversation-feed";
 import {
 	ConversationList,
 	Conversations,
 	conversationIn,
-	useHeld,
 	useWaiting,
 } from "./conversations";
 import { Dispatch } from "./dispatch";
@@ -54,6 +54,7 @@ import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
 import { Feed } from "./feed";
 import { useFullscreenKey } from "./fullscreen";
+import { useHeld } from "./hooks/use-held";
 import { OpenerContext, openerOf } from "./openers";
 import { PageMenu } from "./page-menu";
 import {
@@ -346,6 +347,7 @@ export function App({
 	}, []);
 
 	useFullscreenKey();
+	useAttachKey();
 
 	const waiting = useWaiting(talk, drafts, tasks);
 	const counted = available && waiting > 0;

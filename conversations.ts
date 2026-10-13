@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -95,6 +97,7 @@ export type Part =
 	/** `at` is when the agent began it; null in a log too old to say. */
 	| { type: "thought"; text: string; at: string | null }
 	| ({ type: "image" } & Image)
+	| ({ type: "file" } & Attached)
 	| Tool;
 
 /** An image the person sent, kept beside the conversation's log as `name`. */
@@ -108,12 +111,25 @@ export interface Image {
 	url?: string;
 }
 
-/** An image as the page sends it, before it is kept. */
-export interface Upload {
-	mimeType: string;
-	/** Its bytes, in base64. */
-	data: string;
+/**
+ * A file the person sent, other than an image the agent sees, kept beside
+ * the conversation's log as `name`; the agent is sent a link to it.
+ */
+export interface Attached extends Image {
+	/** What the person called it. */
+	title: string;
 }
+
+/** A file the person sent, as the page sends it, before it is kept. */
+export interface Upload {
+	/** What the person called it. */
+	title: string;
+	mimeType: string;
+	bytes: Uint8Array;
+}
+
+/** What the person sent with their words, as their message holds it. */
+type Sent = Extract<Part, { type: "image" | "file" }>;
 
 /** The images an agent can be sent, by media type, with the extension each is kept under. */
 const IMAGE_TYPES: Record<string, string> = {
@@ -400,6 +416,8 @@ type Entry =
 			steered?: true;
 			/** Missing from logs written before the page sent images. */
 			images?: Image[];
+			/** Missing from logs written before the page sent other files. */
+			files?: Attached[];
 	  }
 	/** Every queued prompt went out. */
 	| { kind: "sent" }
@@ -1064,7 +1082,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		for (const entry of entries) {
 			if (entry.kind === "prompt") {
 				state.messages.push({
-					...said(entry.text, entry.at ?? null, entry.images),
+					...said(entry.text, entry.at ?? null, [
+						...(entry.images ?? []).map(
+							(image) => ({ type: "image", ...image }) as const,
+						),
+						...(entry.files ?? []).map(
+							(file) => ({ type: "file", ...file }) as const,
+						),
+					]),
 					...(entry.queued ? { queued: true } : {}),
 					...(entry.steered ? { steered: true } : {}),
 				});
@@ -1579,24 +1604,16 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 
 	/**
-	 * Says `text` to the agent, with `images`, once it has started, resuming
+	 * Says `text` to the agent, with `files`, once it has started, resuming
 	 * the session first when it stopped and unarchiving it when archived.
 	 * While the agent works, it joins the
 	 * running turn when the agent can take it there, and otherwise waits for
 	 * the turn to end.
 	 */
-	async prompt(text: string, images: Upload[] = []): Promise<void> {
+	async prompt(text: string, files: Upload[] = []): Promise<void> {
 		const words = text.trim();
-		if (words === "" && images.length === 0) {
+		if (words === "" && files.length === 0) {
 			fail("usage", "say something to the agent", { conversation: this.id });
-		}
-		const unknown = images.find((each) => !(each.mimeType in IMAGE_TYPES));
-		if (unknown !== undefined) {
-			fail(
-				"usage",
-				`send a PNG, JPEG, GIF or WebP image, not ${unknown.mimeType || "an untyped file"}`,
-				{ conversation: this.id },
-			);
 		}
 		// Said to an archived one, it goes back on the list to carry on.
 		await this.unarchive();
@@ -1626,12 +1643,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				{ conversation: this.id },
 			);
 		}
-		if (images.length > 0 && !this.sees) {
-			fail("usage", `${this.agent?.name ?? "the agent"} does not take images`, {
-				conversation: this.id,
-			});
-		}
-		const kept = await this.keep(images);
+		const kept = await this.keep(files);
 		if (this.state.status === "running") {
 			if (!this.steers || waited) {
 				this.queue(words, kept);
@@ -1683,76 +1695,98 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		this.send([message]);
 	}
 
-	/** Holds `words` and `images` for when the turn ends, shown as said. */
-	private queue(words: string, images: Image[]): void {
+	/** Holds `words` and `sent` for when the turn ends, shown as said. */
+	private queue(words: string, sent: Sent[]): void {
 		const at = this.now();
 		this.write({
 			kind: "prompt",
 			text: words,
 			at,
 			queued: true,
-			...shown(images),
+			...shown(sent),
 		});
-		this.state.messages.push({ ...said(words, at, images), queued: true });
+		this.state.messages.push({ ...said(words, at, sent), queued: true });
 		this.changed();
 	}
 
 	/**
-	 * Saves each image beside the log, named for what is in it, so the page
+	 * Saves each file beside the log, named for what is in it, so the page
 	 * reads it by name rather than with every change to the conversation.
+	 * An image goes to the agent as itself when it takes images; anything
+	 * else, as a link to where it is kept, which every agent takes.
 	 */
-	private async keep(images: Upload[]): Promise<Image[]> {
-		if (images.length === 0) {
+	private async keep(files: Upload[]): Promise<Sent[]> {
+		if (files.length === 0) {
 			return [];
 		}
-		await this.fs.mkdir(this.images());
+		await this.fs.mkdir(this.kept());
 		return Promise.all(
-			images.map(async ({ mimeType, data }) => {
-				const bytes = new Uint8Array(Buffer.from(data, "base64"));
+			files.map(async ({ title, mimeType, bytes }): Promise<Sent> => {
 				const hash = createHash("sha256").update(bytes).digest("hex");
-				const name = `${hash.slice(0, 16)}.${IMAGE_TYPES[mimeType]}`;
-				await this.fs.writeBytes(`${this.images()}/${name}`, bytes);
-				return { name, mimeType };
+				const seen = this.sees && mimeType in IMAGE_TYPES;
+				const name = `${hash.slice(0, 16)}.${seen ? IMAGE_TYPES[mimeType] : extensionOf(title)}`;
+				await this.fs.writeBytes(`${this.kept()}/${name}`, bytes);
+				return seen
+					? { type: "image", name, mimeType }
+					: { type: "file", name, title, mimeType };
 			}),
 		);
 	}
 
-	/** Where its images are kept. */
-	private images(): string {
-		return this.log.replace(/\.jsonl$/, "");
+	/** Where the files the person sent are kept. */
+	private kept(): string {
+		return resolve(this.log.replace(/\.jsonl$/, ""));
 	}
 
-	/** The image `name` the person sent, or null when they sent none by that name. */
-	async image(
+	/** The file `name` the person sent, or null when they sent none by that name. */
+	async attachment(
 		name: string,
 	): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
 		const part = this.state.messages
 			.flatMap((message) => message.parts)
-			.find((each) => each.type === "image" && each.name === name);
-		if (part?.type !== "image") {
+			.find(
+				(each): each is Sent =>
+					(each.type === "image" || each.type === "file") && each.name === name,
+			);
+		if (part === undefined) {
 			return null;
 		}
 		const bytes = await this.fs
-			.readBytes(`${this.images()}/${name}`)
+			.readBytes(`${this.kept()}/${name}`)
 			.catch(() => null);
 		return bytes === null ? null : { bytes, mimeType: part.mimeType };
 	}
 
-	/** What `messages` say, as one prompt: their images, then their words. */
+	/**
+	 * What `messages` say, as one prompt: their images, links to their other
+	 * files, then their words.
+	 */
 	private async content(messages: Message[]): Promise<acp.ContentBlock[]> {
+		const parts = messages.flatMap((message) => message.parts);
 		const images = await Promise.all(
-			messages
-				.flatMap((message) => message.parts)
+			parts
 				.flatMap((part) => (part.type === "image" ? [part] : []))
 				.map(
 					async (part): Promise<acp.ContentBlock> => ({
 						type: "image",
 						mimeType: part.mimeType,
 						data: Buffer.from(
-							await this.fs.readBytes(`${this.images()}/${part.name}`),
+							await this.fs.readBytes(`${this.kept()}/${part.name}`),
 						).toString("base64"),
 					}),
 				),
+		);
+		const links = parts.flatMap((part): acp.ContentBlock[] =>
+			part.type === "file"
+				? [
+						{
+							type: "resource_link",
+							uri: pathToFileURL(`${this.kept()}/${part.name}`).href,
+							name: part.title,
+							...(part.mimeType === "" ? {} : { mimeType: part.mimeType }),
+						},
+					]
+				: [],
 		);
 		const said = messages
 			.map(textOf)
@@ -1763,6 +1797,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			.join("\n\n");
 		return [
 			...images,
+			...links,
 			...(text === "" ? [] : [{ type: "text" as const, text }]),
 		];
 	}
@@ -1966,10 +2001,10 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	/**
 	 * Takes back the `index`th queued message before the agent hears it,
-	 * answering with its words and images, for the person to edit and send
+	 * answering with its words and files, for the person to edit and send
 	 * again.
 	 */
-	unqueue(index: number): { text: string; images: Image[] } {
+	unqueue(index: number): { text: string; files: Attached[] } {
 		const message = takeBack(this.state.messages, index);
 		if (message === null) {
 			fail(
@@ -1984,9 +2019,15 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		this.changed();
 		return {
 			text: textOf(message),
-			images: message.parts.flatMap((part) =>
-				part.type === "image"
-					? [{ name: part.name, mimeType: part.mimeType }]
+			files: message.parts.flatMap((part) =>
+				part.type === "image" || part.type === "file"
+					? [
+							{
+								name: part.name,
+								title: part.type === "file" ? part.title : part.name,
+								mimeType: part.mimeType,
+							},
+						]
 					: [],
 			),
 		};
@@ -2246,7 +2287,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		await this.stop();
 		await this.saving;
 		await this.fs.rm(this.log, { force: true });
-		await this.fs.rm(this.images(), { recursive: true, force: true });
+		await this.fs.rm(this.kept(), { recursive: true, force: true });
 	}
 
 	dispose(): void {
@@ -2316,12 +2357,15 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 }
 
-/** What the person said, `at`: their images, then their words. */
-function said(text: string, at: string | null, images: Image[] = []): Message {
+/** What the person said, `at`: what they sent with it, then their words. */
+function said(text: string, at: string | null, sent: Sent[] = []): Message {
 	return {
 		role: "user",
 		parts: [
-			...images.map((image) => ({ type: "image" as const, ...image })),
+			// Its images first, the order the agent is sent them in, which their
+			// chips count by.
+			...sent.filter((each) => each.type === "image"),
+			...sent.filter((each) => each.type === "file"),
 			...(text === "" ? [] : [{ type: "text" as const, text }]),
 		],
 		plan: null,
@@ -2378,12 +2422,34 @@ export function unused(): Usage {
 	};
 }
 
-/** A prompt entry's images, left out of the log when there are none. */
-function shown(images: Image[]): { images?: Image[] } {
-	return images.length === 0 ? {} : { images };
+/** A prompt entry's images and files, each left out of the log when there are none. */
+function shown(sent: Sent[]): { images?: Image[]; files?: Attached[] } {
+	const images = sent.flatMap(({ type, ...image }) =>
+		type === "image" ? [image] : [],
+	);
+	const files = sent.flatMap((each) => {
+		if (each.type !== "file") {
+			return [];
+		}
+		const { type: _, ...file } = each;
+		return [file];
+	});
+	return {
+		...(images.length === 0 ? {} : { images }),
+		...(files.length === 0 ? {} : { files }),
+	};
 }
 
-/** The words of `message`, without its images. */
+/**
+ * The extension a file the person called `title` is kept under: its own, when
+ * it reads as one, so the agent can tell what it holds.
+ */
+function extensionOf(title: string): string {
+	const extension = /\.([a-z0-9]{1,10})$/i.exec(title)?.[1];
+	return extension === undefined ? "bin" : extension.toLowerCase();
+}
+
+/** The words of `message`, without what was sent with them. */
 function textOf(message: Message): string {
 	return message.parts
 		.map((part) => (part.type === "text" ? part.text : ""))

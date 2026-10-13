@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
-import { Conversations } from "./conversations";
+import { type ConversationState, Conversations } from "./conversations";
 import { dev } from "./dev";
 import { readUntil, serving } from "./dev-testing";
 import { AGENT, FakeAgent, heard, ROSTERED, say } from "./fake-agent";
@@ -859,13 +859,19 @@ describe("dev", () => {
 				if (!reader) {
 					throw new Error("no event stream");
 				}
+				const form = new FormData();
+				form.set("text", "hi");
+				form.append(
+					"file",
+					new File(["mp4 bytes"], "bug.mp4", { type: "video/mp4" }),
+				);
 				for (let i = 0; i < 100; i++) {
-					const response = await json(
-						port,
-						`/api/conversations/${id}/prompt`,
-						"POST",
+					const response = await fetch(
+						`http://localhost:${port}/api/conversations/${id}/prompt`,
 						{
-							text: "hi",
+							method: "POST",
+							headers: { origin: `http://localhost:${port}` },
+							body: form,
 						},
 					);
 					if (response.status === 200) {
@@ -879,6 +885,20 @@ describe("dev", () => {
 					'"role":"agent"',
 				);
 				await reader.cancel();
+				// The file sent with it plays from the server, a part at a time.
+				const { conversations } = (await (
+					await fetch(`http://localhost:${port}/api/conversations`)
+				).json()) as { conversations: ConversationState[] };
+				const sent = conversations.find((each) => each.id === id)?.messages[0]
+					?.parts[0];
+				expect(sent).toMatchObject({ type: "file", title: "bug.mp4" });
+				const played = await fetch(
+					`http://localhost:${port}/api/conversations/${id}/attachments/${sent?.type === "file" ? sent.name : ""}`,
+					{ headers: { range: "bytes=0-2" } },
+				);
+				expect(played.status).toBe(206);
+				expect(played.headers.get("content-type")).toBe("video/mp4");
+				expect(await played.text()).toBe("mp4");
 				const archived = await json(
 					port,
 					`/api/conversations/${id}/archived`,

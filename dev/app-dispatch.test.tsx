@@ -101,9 +101,7 @@ describe("App's controls that put agents to work", () => {
 		);
 
 	const posted = (path: string) =>
-		testing.posts
-			.filter((post) => post.path === path)
-			.map((post) => JSON.parse(String(post.body ?? "{}")));
+		testing.posted(path).map((post) => post.body);
 
 	it("starts an open todo in a new conversation with the agent picked, its reference held as a chip and nothing sent", async () => {
 		const view = await board([]);

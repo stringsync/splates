@@ -308,13 +308,19 @@ export class Testing implements Resource {
 		return view;
 	}
 
-	/** What the page posted to `path`, each body parsed. */
+	/**
+	 * What the page posted to `path`, each body parsed: a form as its fields,
+	 * the files it carries as `file`.
+	 */
 	posted(path: string) {
 		return this.posts
 			.filter((post) => post.path === path)
 			.map((post) => ({
 				method: post.method,
-				body: JSON.parse(String(post.body ?? "{}")),
+				body:
+					post.body instanceof FormData
+						? fields(post.body)
+						: JSON.parse(String(post.body ?? "{}")),
 			}));
 	}
 
@@ -626,5 +632,16 @@ export function tool(overrides: Partial<Tool> = {}): Tool {
 		flags: [],
 		decision: null,
 		...overrides,
+	};
+}
+
+/** `form`'s fields, each by its name, and the files it carries as `file`. */
+function fields(form: FormData): Record<string, unknown> {
+	const files = form.getAll("file");
+	return {
+		...Object.fromEntries(
+			[...form.entries()].filter(([name]) => name !== "file"),
+		),
+		...(files.length === 0 ? {} : { file: files }),
 	};
 }

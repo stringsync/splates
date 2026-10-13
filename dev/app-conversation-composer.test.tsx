@@ -601,7 +601,7 @@ describe("App's conversations", () => {
 			await waitFor(() => expect(textIn(box(view))).toBe(""));
 			await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(2);
-			testing.reply = { text: "the second note", images: [] };
+			testing.reply = { text: "the second note", files: [] };
 			await act(async () => fireEvent.keyDown(box(view), { key: "ArrowUp" }));
 			expect(testing.posted("/api/conversations/c1/unqueue")).toEqual([
 				{ method: "POST", body: { index: 0 } },
@@ -628,7 +628,7 @@ describe("App's conversations", () => {
 			await type(view, "still typing");
 
 			const queued = view.getByRole("region", { name: "queued messages" });
-			testing.reply = { text: "the second note", images: [] };
+			testing.reply = { text: "the second note", files: [] };
 			await act(async () =>
 				fireEvent.click(
 					within(queued).getByRole("button", {

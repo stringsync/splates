@@ -95,11 +95,12 @@ export function stretchesOf(
 /** How long the latest words go without anything after them to show as the reply. */
 export const SAID = Duration.secs(1);
 
-/** `message`'s parts as its turn shows them: no images, no empty words. */
+/** `message`'s parts as its turn shows them: nothing sent, no empty words. */
 function spoken(message: Message): Part[] {
 	return message.parts.filter(
 		(part) =>
 			part.type !== "image" &&
+			part.type !== "file" &&
 			(part.type !== "text" || part.text.trim() !== ""),
 	);
 }
@@ -161,8 +162,8 @@ export function timeline(work: Work): Item[] {
 	const items: Item[] = [];
 	parts.forEach((part, index) => {
 		const last = items.at(-1);
-		// Only the person sends images, and this is the agent's turn.
-		if (part.type === "image") {
+		// Only the person sends files, and this is the agent's turn.
+		if (part.type === "image" || part.type === "file") {
 			return;
 		}
 		if (part.type === "text") {

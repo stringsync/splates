@@ -12,10 +12,11 @@ import {
 	FileText,
 	Loader2Icon,
 	PencilIcon,
+	PlayIcon,
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import { type FC, useContext, useRef, useState } from "react";
+import { type FC, useContext, useEffect, useRef, useState } from "react";
 import { useAnnotate } from "#dev/annotate.tsx";
 import { Annotation } from "#dev/annotation.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -33,6 +34,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -40,17 +42,71 @@ import {
 	TooltipTrigger,
 } from "#dev/components/ui/tooltip.tsx";
 import { composerIn, ForgetImage } from "#dev/composer-editor.tsx";
+import { FileIcon } from "#dev/file-chip.tsx";
 import { useAttachmentSrc } from "#dev/hooks/use-attachment-src.ts";
+import { useHeld } from "#dev/hooks/use-held.ts";
 import { chippedAlready, imageName } from "#dev/image-chips.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP, ITEM, type Shown, useLightbox } from "#dev/lightbox.tsx";
 
-/** What the lightbox shows of an image attachment, on the tile that opens it. */
-const shown = (src: string, name: string) => ({
-	[ITEM]: JSON.stringify({ url: src, alt: name, video: false } satisfies Shown),
+/**
+ * How a tile shows what it holds: an image or a recording as itself, opening
+ * in the lightbox, and any other file by its name.
+ */
+type Kind = "image" | "video" | "file";
+
+/** The kind of tile for an attachment of `type` holding `contentType`. */
+const kindOf = (type: string, contentType: string | undefined): Kind =>
+	contentType?.startsWith("video/")
+		? "video"
+		: type === "image" || contentType?.startsWith("image/")
+			? "image"
+			: "file";
+
+/** What the lightbox shows of an attachment, on the tile that opens it. */
+const shown = (src: string, name: string, kind: Kind) => ({
+	[ITEM]: JSON.stringify({
+		url: src,
+		alt: name,
+		video: kind === "video",
+	} satisfies Shown),
 });
 
-const AttachmentThumb: FC<{ src: string | undefined }> = ({ src }) => {
+/** A tile's look for each kind: a file is wide enough to name. */
+const tileSize = (kind: Kind) =>
+	kind === "file" ? "h-14 w-auto max-w-48" : "size-14";
+
+const AttachmentThumb: FC<{
+	src: string | undefined;
+	kind: Kind;
+	name: string;
+}> = ({ src, kind, name }) => {
+	if (kind === "file") {
+		return (
+			<span className="flex h-full items-center gap-2 px-3">
+				<FileIcon path={name} className="size-5" />
+				<span className="truncate text-xs">{name}</span>
+			</span>
+		);
+	}
+	if (kind === "video") {
+		return (
+			<span className="relative block h-full w-full">
+				{src !== undefined && (
+					// biome-ignore lint/a11y/useMediaCaption: a still of the recording, played in the lightbox
+					<video
+						src={src}
+						muted
+						preload="metadata"
+						className="aui-attachment-tile-image h-full w-full object-cover"
+					/>
+				)}
+				<span className="absolute inset-0 flex items-center justify-center">
+					<PlayIcon className="size-5 fill-white text-white drop-shadow" />
+				</span>
+			</span>
+		);
+	}
 	return (
 		<Avatar className="aui-attachment-tile-avatar h-full w-full rounded-none after:hidden">
 			<AvatarImage
@@ -84,14 +140,22 @@ const AttachmentTile: FC = () => {
 	const input = useRef<HTMLElement | null>(null);
 	const annotator = useAnnotate(input);
 
-	const isImage = useAuiState((s) => s.attachment.type === "image");
+	const kind = useAuiState((s) =>
+		kindOf(s.attachment.type, s.attachment.contentType),
+	);
+	const isImage = kind === "image";
 	const name = useAuiState((s) => s.attachment.name);
-	// The composer's images are named by their place, as the agent gets them.
+	// The composer's images are named by their place among its images, as the
+	// agent gets them; any other file has no place.
 	const place = useAuiState((s) =>
-		isComposer
-			? s.composer.attachments.findIndex((each) => each.id === s.attachment.id)
+		isComposer && s.attachment.type === "image"
+			? s.composer.attachments
+					.filter((each) => each.type === "image")
+					.findIndex((each) => each.id === s.attachment.id)
 			: -1,
 	);
+	// Only an image or a recording opens in the lightbox.
+	const shows = src !== undefined && kind !== "file";
 	// An image on its way opens to be marked up rather than only looked at.
 	const file = useAuiState((s) =>
 		isComposer && s.attachment.type === "image" ? s.attachment.file : undefined,
@@ -160,28 +224,31 @@ const AttachmentTile: FC = () => {
 					<TooltipTrigger
 						render={
 							<div
-								{...(src ? shown(src, name) : {})}
+								{...(shows ? shown(src, name, kind) : {})}
 								onClick={
 									file
 										? (e) => void annotate(e.currentTarget, file)
-										: src
+										: shows
 											? (e) => open(e.currentTarget)
 											: undefined
 								}
 								className={cn(
-									"aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 motion-reduce:transition-none dark:after:ring-white/10",
+									tileSize(kind),
+									// Clear of the remove button in its corner.
+									isComposer && kind === "file" && "pe-4",
+									"aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 motion-reduce:transition-none dark:after:ring-white/10",
 									file
 										? "group/annotate cursor-pointer active:scale-[0.96]"
-										: src
+										: shows
 											? "cursor-zoom-in active:scale-[0.96]"
 											: "cursor-default",
 									isError &&
 										"after:ring-destructive/60 dark:after:ring-destructive/60",
 								)}
-								role={src ? "button" : "group"}
+								role={shows ? "button" : "group"}
 								tabIndex={0}
 								onKeyDown={
-									src
+									shows
 										? (e) => {
 												if (e.key === "Enter") {
 													e.preventDefault();
@@ -193,7 +260,7 @@ const AttachmentTile: FC = () => {
 										: undefined
 								}
 								onKeyUp={
-									src
+									shows
 										? (e) => {
 												if (e.key === " ") {
 													e.currentTarget.click();
@@ -201,13 +268,13 @@ const AttachmentTile: FC = () => {
 											}
 										: undefined
 								}
-								aria-label={`${file ? `Mark up ${name}` : src ? `Preview ${name}` : `${typeLabel} attachment ${name}`}${
+								aria-label={`${file ? `Mark up ${name}` : shows ? `Preview ${name}` : `${typeLabel} attachment ${name}`}${
 									isError ? ", upload failed" : isUploading ? ", uploading" : ""
 								}`}
 							/>
 						}
 					>
-						<AttachmentThumb src={src} />
+						<AttachmentThumb src={src} kind={kind} name={name} />
 						{place >= 0 && <TileName name={imageName(place)} />}
 						{file && !isUploading && (
 							<div
@@ -274,7 +341,10 @@ const AttachmentRemove: FC<{ name: string; place: number; marks: number }> = ({
 	const forget = useContext(ForgetImage);
 	const [asking, setAsking] = useState(false);
 	const remove = () => {
-		forget(place + 1);
+		// Any other file has no chips to take out.
+		if (place >= 0) {
+			forget(place + 1);
+		}
 		void aui.attachment().remove();
 	};
 	const many = marks === 1 ? "its mark" : `its ${marks} marks`;
@@ -342,47 +412,111 @@ export const ComposerAttachments: FC = () => {
 	);
 };
 
+/** Picks files to attach, as ⌥⌘; does, showing `;` while ⌥⌘ is held. */
 export const ComposerAddAttachment: FC = () => {
+	const held = useHeld();
 	return (
 		<ComposerPrimitive.AddAttachment
 			render={
 				<TooltipIconButton
-					tooltip="Add Attachment"
+					tooltip="Attach files (⌥⌘;)"
 					side="bottom"
 					variant="ghost"
 					size="icon"
-					className="aui-composer-add-attachment text-muted-foreground hover:text-foreground size-7 rounded-full"
-					aria-label="Add Attachment"
+					className={cn(
+						ATTACH,
+						"text-muted-foreground hover:text-foreground size-7 rounded-full",
+					)}
+					aria-label="Attach files"
 				/>
 			}
 		>
-			<PlusIcon className="aui-attachment-add-icon size-4" />
+			{held ? (
+				<Kbd aria-hidden>;</Kbd>
+			) : (
+				<PlusIcon className="aui-attachment-add-icon size-4" />
+			)}
 		</ComposerPrimitive.AddAttachment>
 	);
 };
 
+/** Marks each composer's attach button, for ⌥⌘; to find. */
+const ATTACH = "aui-composer-add-attachment";
+
 /**
- * An image sent in a message, outside any attachment's context: a tile the
- * size of the composer's, which opens in the lightbox among the others beside
- * it.
+ * ⌥⌘; (Ctrl+Alt+; off a Mac) picks files to attach in the composer being
+ * written in, or else the first one showing. Once per page, so one press
+ * opens one picker.
  */
-export const ImageTile: FC<{ src: string; name: string; place: number }> = ({
-	src,
-	name,
-	place,
-}) => {
+export function useAttachKey(): void {
+	useEffect(() => {
+		// By the key's place, as ⌥⌘M, since Alt types another character on a Mac.
+		const listen = (event: KeyboardEvent) => {
+			if (
+				event.code !== "Semicolon" ||
+				!event.altKey ||
+				!(event.metaKey || event.ctrlKey)
+			) {
+				return;
+			}
+			const shown = [
+				...document.querySelectorAll<HTMLButtonElement>(`.${ATTACH}`),
+			].filter((each) => each.getClientRects().length > 0);
+			const focused = document.activeElement?.closest("form");
+			const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
+			if (button !== undefined) {
+				event.preventDefault();
+				button.click();
+			}
+		};
+		document.addEventListener("keydown", listen);
+		return () => document.removeEventListener("keydown", listen);
+	}, []);
+}
+
+const SENT =
+	"aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 active:scale-[0.96] motion-reduce:transition-none dark:after:ring-white/10";
+
+/**
+ * A file sent in a message, outside any attachment's context: a tile the
+ * size of the composer's. An image or a recording opens in the lightbox among
+ * the others beside it; any other file opens from where it is kept, or
+ * downloads when the browser cannot show it.
+ */
+export const SentTile: FC<{
+	src: string;
+	name: string;
+	type: string;
+	contentType: string | undefined;
+	/** Its place among the message's images, which its chips name; -1 for any other file. */
+	place: number;
+}> = ({ src, name, type, contentType, place }) => {
 	const { open, lightbox } = useLightbox();
+	const kind = kindOf(type, contentType);
+	if (kind === "file") {
+		return (
+			<a
+				href={src}
+				target="_blank"
+				rel="noreferrer"
+				title={name}
+				className={cn(SENT, tileSize(kind), "block")}
+			>
+				<AttachmentThumb src={src} kind={kind} name={name} />
+			</a>
+		);
+	}
 	return (
 		<>
 			<button
 				type="button"
-				{...shown(src, name)}
+				{...shown(src, name, kind)}
 				aria-label={`Preview ${name}`}
 				onClick={(e) => open(e.currentTarget)}
-				className="aui-attachment-tile bg-muted hover:after:bg-foreground/10 focus-visible:ring-ring/50 relative size-14 cursor-zoom-in overflow-hidden rounded-[calc(var(--composer-radius,1rem)-var(--composer-padding,8px))] transition-transform outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-black/10 after:transition-colors after:ring-inset focus-visible:ring-1 active:scale-[0.96] motion-reduce:transition-none dark:after:ring-white/10"
+				className={cn(SENT, tileSize(kind), "cursor-zoom-in")}
 			>
-				<AttachmentThumb src={src} />
-				<TileName name={imageName(place)} />
+				<AttachmentThumb src={src} kind={kind} name={name} />
+				{place >= 0 && <TileName name={imageName(place)} />}
 			</button>
 			{lightbox}
 		</>

@@ -21,6 +21,7 @@ import type {
 	Conversation,
 	ConversationState,
 	Conversations,
+	Upload,
 } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { startDispatched } from "./dispatched";
@@ -414,38 +415,7 @@ export async function dev(
 			if (bytes === null) {
 				return refuse(404, "not_found", `nothing here shows ${path}`);
 			}
-			// Safari plays a video only from a server that hands out its parts.
-			const range = /^bytes=(\d*)-(\d*)$/.exec(
-				request.headers.get("range") ?? "",
-			);
-			const start = range?.[1] ? Number(range[1]) : null;
-			const end = range?.[2] ? Number(range[2]) : null;
-			const first =
-				start ?? (end === null ? 0 : Math.max(bytes.length - end, 0));
-			const last =
-				start !== null && end !== null
-					? Math.min(end, bytes.length - 1)
-					: bytes.length - 1;
-			const partial = range !== null && first <= last;
-			const body = partial ? bytes.subarray(first, last + 1) : bytes;
-			return new Response(new Blob([body as Uint8Array<ArrayBuffer>]), {
-				status: partial ? 206 : 200,
-				headers: {
-					"content-type": type ?? "application/octet-stream",
-					"accept-ranges": "bytes",
-					...(partial
-						? { "content-range": `bytes ${first}-${last}/${bytes.length}` }
-						: {}),
-					// Anything not an image or a recording downloads rather than rendering here.
-					...(type === undefined
-						? { "content-disposition": "attachment" }
-						: {}),
-					// An svg opened on its own could otherwise run a script.
-					"content-security-policy":
-						"default-src 'none'; style-src 'unsafe-inline'",
-					"x-content-type-options": "nosniff",
-				},
-			});
+			return fileResponse(request, bytes, type, {});
 		};
 
 		// Names only, and only what git would show anyone with the repo: enough to
@@ -849,38 +819,44 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
+		// A form: the words as `text`, and each file sent with them as `file`.
 		const promptConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
-			const { text, images } = await body(request);
-			await conversation.prompt(
-				String(text ?? ""),
-				(Array.isArray(images) ? images : []).map((each) => ({
-					mimeType: String(each?.mimeType ?? ""),
-					data: String(each?.data ?? ""),
-				})),
-			);
+			const form = await request.formData();
+			const files: Upload[] = [];
+			for (const file of form.getAll("file")) {
+				if (file instanceof File) {
+					files.push({
+						title: file.name || "pasted",
+						mimeType: file.type,
+						bytes: new Uint8Array(await file.arrayBuffer()),
+					});
+				}
+			}
+			await conversation.prompt(String(form.get("text") ?? ""), files);
 			return Response.json(conversation.state);
 		};
 
-		// Only an image the person sent in it, by the name its message gives.
-		const conversationImage = async (request: Request): Promise<Response> => {
+		// Only a file the person sent in it, by the name its message gives.
+		const conversationAttachment = async (
+			request: Request,
+		): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const name = new URL(request.url).pathname.split("/")[5] ?? "";
-			const image = await conversation.image(decodeURIComponent(name));
-			if (image === null) {
+			const attachment = await conversation.attachment(
+				decodeURIComponent(name),
+			);
+			if (attachment === null) {
 				return refuse(
 					404,
 					"not_found",
-					`conversation ${conversation.id} sent no image ${name}`,
+					`conversation ${conversation.id} sent no file ${name}`,
 				);
 			}
-			return new Response(new Blob([image.bytes as Uint8Array<ArrayBuffer>]), {
-				headers: {
-					"content-type": image.mimeType,
-					// Named for what is in it, so it never changes.
-					"cache-control": "private, max-age=31536000, immutable",
-					"x-content-type-options": "nosniff",
-				},
+			const type = MEDIA_TYPES[name.split(".").at(-1)?.toLowerCase() ?? ""];
+			return fileResponse(request, attachment.bytes, type, {
+				// Named for what is in it, so it never changes.
+				"cache-control": "private, max-age=31536000, immutable",
 			});
 		};
 
@@ -1063,7 +1039,7 @@ export async function dev(
 			checkpoint,
 			moveConversation,
 			promptConversation,
-			conversationImage,
+			conversationAttachment,
 			answerConversation,
 			cancelConversation,
 			stopBackground,
@@ -1562,8 +1538,8 @@ export async function dev(
 			"/api/conversations/:id/prompt": {
 				POST: talk(owned((project) => project.promptConversation)),
 			},
-			"/api/conversations/:id/images/:name": {
-				GET: talk(owned((project) => project.conversationImage)),
+			"/api/conversations/:id/attachments/:name": {
+				GET: talk(owned((project) => project.conversationAttachment)),
 			},
 			"/api/conversations/:id/answer": {
 				POST: talk(owned((project) => project.answerConversation)),
@@ -1796,7 +1772,7 @@ const TerminalMessage = z.object({
 	rows: z.number().int().min(1).max(MAX_SIZE),
 });
 
-/** A phone photo fits; a stray video does not. */
+/** A phone photo or a short screen recording fits; a long video does not. */
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
 
 /**
@@ -1933,7 +1909,7 @@ interface Served extends AsyncResource {
 	dismissCheckpoint: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;
-	conversationImage: Handler;
+	conversationAttachment: Handler;
 	answerConversation: Handler;
 	cancelConversation: Handler;
 	stopBackground: Handler;
@@ -1997,6 +1973,45 @@ async function uploads(form: FormData): Promise<Attachment[]> {
 		}
 	}
 	return files;
+}
+
+/**
+ * `bytes`, served as `type`, or to download when it is not an image or a
+ * recording, in the part `request` asks for: Safari plays a video only from a
+ * server that hands out its parts.
+ */
+function fileResponse(
+	request: Request,
+	bytes: Uint8Array,
+	type: string | undefined,
+	headers: Record<string, string>,
+): Response {
+	const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
+	const start = range?.[1] ? Number(range[1]) : null;
+	const end = range?.[2] ? Number(range[2]) : null;
+	const first = start ?? (end === null ? 0 : Math.max(bytes.length - end, 0));
+	const last =
+		start !== null && end !== null
+			? Math.min(end, bytes.length - 1)
+			: bytes.length - 1;
+	const partial = range !== null && first <= last;
+	const body = partial ? bytes.subarray(first, last + 1) : bytes;
+	return new Response(new Blob([body as Uint8Array<ArrayBuffer>]), {
+		status: partial ? 206 : 200,
+		headers: {
+			...headers,
+			"content-type": type ?? "application/octet-stream",
+			"accept-ranges": "bytes",
+			...(partial
+				? { "content-range": `bytes ${first}-${last}/${bytes.length}` }
+				: {}),
+			...(type === undefined ? { "content-disposition": "attachment" } : {}),
+			// An svg opened on its own could otherwise run a script.
+			"content-security-policy":
+				"default-src 'none'; style-src 'unsafe-inline'",
+			"x-content-type-options": "nosniff",
+		},
+	});
 }
 
 /** The host a Host header names, without its port. */

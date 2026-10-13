@@ -2233,27 +2233,112 @@ describe("App's conversations", () => {
 
 		await waitFor(() =>
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-				{
-					method: "POST",
-					body: {
-						text: "and this",
-						images: [{ mimeType: "image/png", data: btoa("png bytes") }],
-					},
-				},
+				{ method: "POST", body: { text: "and this", file: [shot] } },
 			]),
 		);
 	});
 
-	it("names each image attached, on its tile and in a chip at the caret, renumbering the rest when one goes", async () => {
+	it("attaches any file with ⌥⌘;, plays a recording the person sent, and links any other file", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Look",
+				messages: [
+					{
+						...message("user", "these"),
+						parts: [
+							{
+								type: "file",
+								name: "ab12.mp4",
+								title: "bug.mp4",
+								mimeType: "video/mp4",
+							},
+							{
+								type: "file",
+								name: "cd34.pdf",
+								title: "spec.pdf",
+								mimeType: "application/pdf",
+							},
+							{ type: "text", text: "these" },
+						],
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Look" });
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					within(thread).getByRole("button", { name: "Preview bug.mp4" }),
+				),
+			),
+		);
+		const lightbox = await waitFor(() =>
+			view.getByRole("dialog", { name: "bug.mp4" }),
+		);
+		expect(lightbox.querySelector("video")).not.toBeNull();
+		await act(async () =>
+			fireEvent.click(within(lightbox).getByRole("button", { name: "close" })),
+		);
+		expect(
+			within(thread)
+				.getByRole("link", { name: "spec.pdf" })
+				.getAttribute("href"),
+		).toContain("/api/conversations/c1/attachments/cd34.pdf");
+
+		const picked: HTMLInputElement[] = [];
+		const click = spyOn(HTMLInputElement.prototype, "click").mockImplementation(
+			function (this: HTMLInputElement) {
+				picked.push(this);
+			},
+		);
+		await act(async () =>
+			fireEvent.keyDown(document.body, {
+				key: "…",
+				code: "Semicolon",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+		click.mockRestore();
+		const input = picked[0];
+		expect(input?.type).toBe("file");
+		expect(input?.accept).toBe("");
+		const clip = new File(["mp4 bytes"], "clip.mp4", { type: "video/mp4" });
+		await act(async () => {
+			Object.defineProperty(input, "files", { value: [clip] });
+			input?.dispatchEvent(new Event("change"));
+		});
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await waitFor(() =>
+			expect(
+				view.getByRole("button", { name: "Preview clip.mp4" }),
+			).toBeTruthy(),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: "", file: [clip] } },
+			]),
+		);
+	});
+
+	it("names each image attached, on its tile and in a chip at the caret, renumbering the rest when one goes, and counts no other file", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Look" }),
 		]);
 		const box = view.getByRole("textbox", { name: "Message input" });
 		const png = (name: string) => new File([name], name, { type: "image/png" });
+		const [first, csv, second, third] = [
+			png("a.png"),
+			new File(["x,y"], "notes.csv", { type: "text/csv" }),
+			png("b.png"),
+			png("c.png"),
+		];
 		await typeIn(box, "compare");
-		for (const name of ["a.png", "b.png", "c.png"]) {
+		for (const file of [first, csv, second, third]) {
 			await act(async () =>
-				fireEvent.paste(box, { clipboardData: { files: [png(name)] } }),
+				fireEvent.paste(box, { clipboardData: { files: [file] } }),
 			);
 		}
 
@@ -2267,8 +2352,17 @@ describe("App's conversations", () => {
 			[...tiles.querySelectorAll(".aui-attachment-tile")].map(
 				(tile) => tile.textContent,
 			);
-		expect(names()).toEqual(["Image 1", "Image 2", "Image 3"]);
+		expect(names()).toEqual(["Image 1", "notes.csv", "Image 2", "Image 3"]);
 
+		await act(async () =>
+			fireEvent.click(
+				within(tiles).getByRole("button", { name: "Remove notes.csv" }),
+			),
+		);
+		await waitFor(() =>
+			expect(names()).toEqual(["Image 1", "Image 2", "Image 3"]),
+		);
+		expect(textIn(box)).toBe("compare [Image 1] [Image 2] [Image 3] ");
 		await act(async () =>
 			fireEvent.click(
 				within(tiles).getByRole("button", { name: "Remove a.png" }),
@@ -2285,13 +2379,7 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{
 					method: "POST",
-					body: {
-						text: "compare [Image 1] [Image 2]",
-						images: [
-							{ mimeType: "image/png", data: btoa("b.png") },
-							{ mimeType: "image/png", data: btoa("c.png") },
-						],
-					},
+					body: { text: "compare [Image 1] [Image 2]", file: [second, third] },
 				},
 			]),
 		);

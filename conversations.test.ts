@@ -599,15 +599,23 @@ describe("Conversations", () => {
 		it("holds a queued message's images for the turn's end, and hands them back when it is taken back", async () => {
 			agent.sees = true;
 			const conversation = await working();
-			const png = { mimeType: "image/png", data: btoa("png bytes") };
+			const png = {
+				title: "shot.png",
+				mimeType: "image/png",
+				bytes: new TextEncoder().encode("png bytes"),
+			};
 
 			await conversation.prompt("two", [png]);
 			await conversation.prompt("three", [png]);
 
 			expect(conversation.unqueue(1)).toEqual({
 				text: "three",
-				images: [
-					{ name: expect.stringMatching(/\.png$/), mimeType: "image/png" },
+				files: [
+					{
+						name: expect.stringMatching(/\.png$/),
+						title: expect.stringMatching(/\.png$/),
+						mimeType: "image/png",
+					},
 				],
 			});
 			held.finish?.("end_turn");
@@ -615,7 +623,7 @@ describe("Conversations", () => {
 				await Bun.sleep(1);
 			}
 			expect(agent.prompts.at(-1)).toEqual([
-				{ type: "image", mimeType: "image/png", data: png.data },
+				{ type: "image", mimeType: "image/png", data: btoa("png bytes") },
 				{ type: "text", text: "two" },
 			]);
 			await finish(conversation);
@@ -912,7 +920,7 @@ describe("Conversations", () => {
 			await conversation.prompt("two");
 			await conversation.prompt("three");
 
-			expect(conversation.unqueue(0)).toEqual({ text: "two", images: [] });
+			expect(conversation.unqueue(0)).toEqual({ text: "two", files: [] });
 
 			expect(thread(conversation)).toEqual([
 				["one", false],
@@ -1688,8 +1696,18 @@ describe("Conversations", () => {
 		});
 	});
 
-	describe("images", () => {
-		const PNG = { mimeType: "image/png", data: btoa("png bytes") };
+	describe("files", () => {
+		const PNG = {
+			title: "shot.png",
+			mimeType: "image/png",
+			bytes: new TextEncoder().encode("png bytes"),
+		};
+		const DATA = btoa("png bytes");
+		const MP4 = {
+			title: "Bug Repro.MP4",
+			mimeType: "video/mp4",
+			bytes: new TextEncoder().encode("mp4 bytes"),
+		};
 
 		it("sends images ahead of the words, keeps them beside the log, and reads them back", async () => {
 			agent.sees = true;
@@ -1700,7 +1718,7 @@ describe("Conversations", () => {
 
 			expect(agent.prompts).toEqual([
 				[
-					{ type: "image", mimeType: "image/png", data: PNG.data },
+					{ type: "image", mimeType: "image/png", data: DATA },
 					{ type: "text", text: "look" },
 				],
 			]);
@@ -1711,10 +1729,10 @@ describe("Conversations", () => {
 				mimeType: "image/png",
 			});
 			const name = image?.type === "image" ? image.name : "";
-			const kept = await conversation.image(name);
+			const kept = await conversation.attachment(name);
 			expect(new TextDecoder().decode(kept?.bytes)).toBe("png bytes");
 			expect(kept?.mimeType).toBe("image/png");
-			expect(await conversation.image("other.png")).toBeNull();
+			expect(await conversation.attachment("other.png")).toBeNull();
 			await conversation.stop();
 			const reread = new Conversations(
 				"/repo/.git/arbor/conversations",
@@ -1726,7 +1744,7 @@ describe("Conversations", () => {
 				{ type: "image", name, mimeType: "image/png" },
 				{ type: "text", text: "look" },
 			]);
-			expect((await read?.image(name))?.mimeType).toBe("image/png");
+			expect((await read?.attachment(name))?.mimeType).toBe("image/png");
 		});
 
 		it("sends an image with no words", async () => {
@@ -1737,23 +1755,63 @@ describe("Conversations", () => {
 			await until(conversation, "idle");
 
 			expect(agent.prompts).toEqual([
-				[{ type: "image", mimeType: "image/png", data: PNG.data }],
+				[{ type: "image", mimeType: "image/png", data: DATA }],
 			]);
 		});
 
-		it("refuses images to an agent that does not take them, and images it cannot be sent", async () => {
+		it("sends any other file as a link to where it is kept, under the name the person gave it, and reads it back", async () => {
+			agent.sees = true;
 			const conversation = await started();
 
-			await expect(conversation.prompt("look", [PNG])).rejects.toThrow(
-				"Fake does not take images",
-			);
-			await expect(
-				conversation.prompt("look", [{ mimeType: "image/svg+xml", data: "" }]),
-			).rejects.toThrow(
-				"send a PNG, JPEG, GIF or WebP image, not image/svg+xml",
-			);
-			expect(conversation.state.messages).toEqual([]);
-			expect(agent.prompts).toEqual([]);
+			await conversation.prompt("why", [MP4]);
+			await until(conversation, "idle");
+
+			const file = conversation.state.messages[0]?.parts[0];
+			expect(file).toEqual({
+				type: "file",
+				name: expect.stringMatching(/^[0-9a-f]{16}\.mp4$/),
+				title: "Bug Repro.MP4",
+				mimeType: "video/mp4",
+			});
+			const name = file?.type === "file" ? file.name : "";
+			expect(agent.prompts).toEqual([
+				[
+					{
+						type: "resource_link",
+						uri: `file:///repo/.git/arbor/conversations/${conversation.id}/${name}`,
+						name: "Bug Repro.MP4",
+						mimeType: "video/mp4",
+					},
+					{ type: "text", text: "why" },
+				],
+			]);
+			const kept = await conversation.attachment(name);
+			expect(new TextDecoder().decode(kept?.bytes)).toBe("mp4 bytes");
+			await conversation.stop();
+			const [read] = await new Conversations(
+				"/repo/.git/arbor/conversations",
+				[AGENT],
+				{ fs, timer, clock, launch: agent.launch },
+			).list();
+			expect(read?.state.messages[0]?.parts[0]).toEqual(file);
+		});
+
+		it("links an image to an agent that does not take images", async () => {
+			const conversation = await started();
+
+			await conversation.prompt("look", [PNG]);
+			await until(conversation, "idle");
+
+			expect(agent.prompts).toEqual([
+				[
+					expect.objectContaining({
+						type: "resource_link",
+						name: "shot.png",
+						mimeType: "image/png",
+					}),
+					{ type: "text", text: "look" },
+				],
+			]);
 		});
 	});
 

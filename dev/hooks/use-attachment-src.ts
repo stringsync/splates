@@ -30,17 +30,22 @@ const useFileSrc = (file: File | undefined) => {
 	return entry !== undefined && entry.file === file ? entry.url : undefined;
 };
 
+/** Where the page reads the attachment, whatever it holds: its file, or where it was kept. */
 export const useAttachmentSrc = () => {
 	const { file, src } = useAuiState(
 		useShallow((s): { file?: File; src?: string } => {
-			if (s.attachment.type !== "image") {
-				return {};
-			}
 			if (s.attachment.file) {
 				return { file: s.attachment.file };
 			}
-			const src = s.attachment.content?.filter((c) => c.type === "image")[0]
-				?.image;
+			const part = s.attachment.content?.find(
+				(c) => c.type === "image" || c.type === "file",
+			);
+			const src =
+				part?.type === "image"
+					? part.image
+					: part?.type === "file"
+						? part.data
+						: undefined;
 			if (!src) {
 				return {};
 			}

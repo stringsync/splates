@@ -293,7 +293,9 @@ export function ImageChipsPlugin(): null {
 	const [editor] = useLexicalComposerContext();
 	const attachments = useAuiState((state) => state.composer.attachments);
 	useEffect(() => {
-		attachments.forEach((attachment, at) => {
+		// Only images have chips, named by their place among the images.
+		const images = attachments.filter((each) => each.type === "image");
+		images.forEach((attachment, at) => {
 			if (attachment.file === undefined || !wantsChip(attachment.file)) {
 				return;
 			}

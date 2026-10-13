@@ -61,7 +61,7 @@ import { toCardTop } from "#dev/card-shell.tsx";
 import {
 	ComposerAddAttachment,
 	ComposerAttachments,
-	ImageTile,
+	SentTile,
 } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { ThreadFollowupSuggestions } from "#dev/components/assistant-ui/elements/follow-up-suggestions.aui.tsx";
 import { MarkdownText } from "#dev/components/assistant-ui/elements/markdown-text.tsx";
@@ -1673,7 +1673,7 @@ const UserMessage: FC = () => {
 			data-role="user"
 		>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
-				<Clamped watch={id} head={<ImageTiles attachments={attachments} />}>
+				<Clamped watch={id} head={<SentTiles attachments={attachments} />}>
 					{/* Only words: the images it carries are attachments, shown as
 					the tiles above. */}
 					<MessagePrimitive.Parts components={{ Text: UserText }} />
@@ -1694,36 +1694,46 @@ const UserMessage: FC = () => {
 };
 
 /**
- * The images a message holds, at its start as the composer shows them, each
+ * The files a message holds, at its start as the composer shows them, each
  * opening full size; nothing for a message without any.
  */
-const ImageTiles: FC<{
+const SentTiles: FC<{
 	attachments: readonly CompleteAttachment[] | undefined;
 }> = ({ attachments = [] }) => {
-	const images = attachments.flatMap((attachment) =>
+	const sent = attachments.flatMap((attachment) =>
 		(attachment.content ?? []).flatMap((part) =>
-			part.type === "image" ? [{ name: attachment.name, src: part.image }] : [],
+			part.type === "image" || part.type === "file"
+				? [
+						{
+							...attachment,
+							src: part.type === "image" ? part.image : part.data,
+						},
+					]
+				: [],
 		),
 	);
-	if (images.length === 0) {
+	if (sent.length === 0) {
 		return null;
 	}
 	return (
 		<div
 			data-slot="aui_user-message-images"
-			// The lightbox steps through the images of one message.
+			// The lightbox steps through the images and recordings of one message.
 			{...{ [GROUP]: "" }}
-			// A tile opens the image, rather than the message it sits in.
+			// A tile opens the file, rather than the message it sits in.
 			onClick={(event) => event.stopPropagation()}
 			onKeyDown={(event) => event.stopPropagation()}
 			className="flex flex-wrap gap-2 pb-2"
 		>
-			{images.map((image, place) => (
-				<ImageTile
-					key={image.src}
-					src={image.src}
-					name={image.name}
-					place={place}
+			{sent.map((each) => (
+				<SentTile
+					key={each.src}
+					src={each.src}
+					name={each.name}
+					type={each.type}
+					contentType={each.contentType}
+					// Its images come first, in the order the agent is sent them.
+					place={each.type === "image" ? sent.indexOf(each) : -1}
 				/>
 			))}
 		</div>
