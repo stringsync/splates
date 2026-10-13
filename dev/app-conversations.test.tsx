@@ -2063,6 +2063,31 @@ describe("App's conversations", () => {
 		).toEqual(["POST"]);
 	});
 
+	it("ends a turn the person stopped with a line that says so", async () => {
+		const view = await conversations([
+			conversation({
+				title: "Stopped",
+				messages: [
+					message("user", "go"),
+					{
+						...message("agent", "Starting on it."),
+						stopped: "2026-10-12T10:00:00.000Z",
+					},
+					message("user", "again"),
+					message("agent", "Done."),
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Stopped" });
+
+		await waitFor(() =>
+			expect(thread.querySelectorAll('[data-slot="stopped"]')).toHaveLength(1),
+		);
+		expect(thread.querySelector('[data-slot="stopped"]')?.textContent).toBe(
+			"Stopped by you",
+		);
+	});
+
 	it("shows the person's message as markdown, each line break as typed", async () => {
 		const view = await conversations([
 			conversation({

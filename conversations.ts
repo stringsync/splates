@@ -174,6 +174,8 @@ export interface Message {
 	 * it goes out when the turn ends.
 	 */
 	queued?: true;
+	/** When the person stopped the agent's turn, for one they stopped. */
+	stopped?: string;
 }
 
 /** A field of a question an agent asks, answered with one of `choices` or in words. */
@@ -349,6 +351,8 @@ type Entry =
 	  }
 	/** Every queued prompt went out. */
 	| { kind: "sent" }
+	/** The person stopped the agent's turn. */
+	| { kind: "stopped"; at: string }
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
 	/** Where a checkpoint stands, and what comes after it. */
@@ -916,6 +920,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				});
 			} else if (entry.kind === "sent") {
 				delivered(state.messages);
+			} else if (entry.kind === "stopped") {
+				agentTurn(state, entry.at).stopped = entry.at;
 			} else if (entry.kind === "unqueue") {
 				takeBack(state.messages, entry.index);
 			} else if (entry.kind === "update") {
@@ -1656,7 +1662,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		if (this.state.status === "running" && !merging) {
 			this.interrupting = true;
 			try {
-				await this.cancel();
+				await this.halt();
 				await this.idle();
 			} finally {
 				this.interrupting = false;
@@ -1768,8 +1774,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			return;
 		}
 		if (this.state.status === "running") {
-			await this.cancel();
-			// After `cancel`, which holds the queue for a stop.
+			await this.halt();
+			// After `halt`, which holds the queue for a stop.
 			this.held = false;
 			return;
 		}
@@ -1796,8 +1802,22 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		settle?.(answer);
 	}
 
-	/** Stops the agent's turn, leaving the conversation open for the next. */
+	/**
+	 * Stops the agent's turn for the person, marking the turn as one they
+	 * stopped, and leaves the conversation open for the next.
+	 */
 	async cancel(): Promise<void> {
+		if (this.state.status === "running") {
+			const at = this.now();
+			this.write({ kind: "stopped", at });
+			agentTurn(this.state, at).stopped = at;
+			this.changed();
+		}
+		await this.halt();
+	}
+
+	/** Stops the agent's turn, holding what is queued for the next prompt. */
+	private async halt(): Promise<void> {
 		this.held = true;
 		if (this.settle !== null) {
 			this.answer(this.state.ask?.id ?? "", { type: "dismiss" });

@@ -518,6 +518,27 @@ describe("Conversations", () => {
 			await finish(conversation);
 		});
 
+		it("marks the turn the person stopped, and reads the mark back from its log", async () => {
+			const conversation = await working();
+
+			await conversation.cancel();
+			await finish(conversation);
+
+			const [, reply] = conversation.state.messages;
+			const stopped = reply?.stopped;
+			expect(reply?.role).toBe("agent");
+			expect(typeof stopped).toBe("string");
+			await conversation.stop();
+			const reread = new Conversations(
+				"/repo/.git/arbor/conversations",
+				[AGENT],
+				{ fs, timer, launch: agent.launch },
+			);
+			const [read] = await reread.list();
+			expect(read?.state.messages.at(-1)?.stopped).toBe(stopped);
+			await reread.disposeAsync();
+		});
+
 		describe("checkpoint", () => {
 			it("cancels the turn and says the checkpoint alone, leaving what waited queued", async () => {
 				const conversation = await working();
@@ -538,6 +559,9 @@ describe("Conversations", () => {
 				expect(said).toEqual(["one", CHECKPOINT]);
 				await finish(conversation);
 				expect(conversation.state.checkpoint).toBe("done");
+				expect(conversation.state.messages.some((each) => each.stopped)).toBe(
+					false,
+				);
 				expect(thread(conversation)).toEqual([
 					["one", false],
 					["two", true],
@@ -705,6 +729,10 @@ describe("Conversations", () => {
 
 			expect(agent.cancelled).toBe(1);
 			expect(said).toEqual(["one", "two"]);
+			// Stopped to send, not by the person.
+			expect(conversation.state.messages.some((each) => each.stopped)).toBe(
+				false,
+			);
 			await finish(conversation);
 		});
 

@@ -173,7 +173,7 @@ import { unanswered } from "./unanswered";
 import { ContextMeter } from "./usage";
 import { WaitingLine } from "./waiting-line";
 import { stretchesOf } from "./work";
-import { WorkUI } from "./work-row";
+import { StoppedUI, WorkUI } from "./work-row";
 
 /** What `#conversations/archived` opens: every archived conversation. */
 export const ARCHIVED = "archived";
@@ -2686,6 +2686,7 @@ function Thread({
 						<TodoUI />
 						<DemoUI />
 						<WorkUI />
+						<StoppedUI />
 						<ArchiveContext value={filing}>
 							<StartNewContext value={startNew}>
 								<ReplyContext value={reply}>
@@ -2873,7 +2874,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 /**
  * A message as assistant-ui takes one, the one place ACP's shape meets
  * assistant-ui's. An agent's turn is what it said, a `data-work` part for
- * each run of work between, its reply the last thing it said.
+ * each run of work between, its reply the last thing it said, and a
+ * `data-stopped` part when the person stopped it.
  */
 function like(
 	message: Message,
@@ -2908,13 +2910,18 @@ function like(
 	return {
 		id,
 		role: "assistant",
-		content: all.flatMap((stretch, at): LikePart[] =>
-			stretch.type === "work"
-				? [{ type: "data-work", data: { work: stretch.work } }]
-				: at === reply
-					? replied(stretch.text, settled)
-					: [{ type: "text", text: stretch.text }],
-		),
+		content: [
+			...all.flatMap((stretch, at): LikePart[] =>
+				stretch.type === "work"
+					? [{ type: "data-work", data: { work: stretch.work } }]
+					: at === reply
+						? replied(stretch.text, settled)
+						: [{ type: "text", text: stretch.text }],
+			),
+			...(message.stopped === undefined
+				? []
+				: [{ type: "data-stopped" as const, data: { at: message.stopped } }]),
+		],
 	};
 }
 

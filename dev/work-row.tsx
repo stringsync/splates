@@ -4,6 +4,7 @@ import {
 	ChevronRightIcon,
 	CircleIcon,
 	LoaderIcon,
+	SquareIcon,
 	TerminalIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
@@ -53,6 +54,23 @@ import {
 export const WorkUI = makeAssistantDataUI<{ work: Work }>({
 	name: "work",
 	render: ({ data }) => <WorkRow work={data.work} />,
+});
+
+/**
+ * Renders a `data-stopped` part: the line that ends a turn the person
+ * stopped, as with Escape, so the thread says why it ends where it does.
+ */
+export const StoppedUI = makeAssistantDataUI<{ at: string }>({
+	name: "stopped",
+	render: () => (
+		<div
+			data-slot="stopped"
+			className="my-2 flex items-center gap-1.5 text-muted-foreground text-sm"
+		>
+			<SquareIcon className="size-3 shrink-0 fill-current" />
+			Stopped by you
+		</div>
+	),
 });
 
 /**
