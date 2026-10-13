@@ -38,6 +38,12 @@ const { App } = await import("./app");
  */
 const CHECKPOINT_EVERY = Duration.ms(50);
 
+/**
+ * How long a checkpoint's Restart slide shows at least: long enough for a
+ * test to see it, far shorter than the page's three seconds.
+ */
+const CHECKPOINT_RESTART_SHOWN = Duration.ms(300);
+
 /** A write the page made. */
 export interface Post {
 	path: string;
@@ -243,6 +249,7 @@ export class Testing implements Resource {
 			createElement(App, {
 				settings: new Settings(localStorage),
 				checkpointEvery: CHECKPOINT_EVERY,
+				checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
 			}),
 		);
 		await waitFor(() =>

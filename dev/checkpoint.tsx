@@ -17,7 +17,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -184,6 +184,12 @@ interface Restarting {
 /** How long a checkpoint whose agents carried on still says it is done. */
 const ENDED = Duration.mins(1);
 
+/**
+ * How long the Restart slide shows at least, so a restart quicker than the
+ * page can see is still seen.
+ */
+const RESTART_SHOWN = Duration.secs(3);
+
 /** How often the projects are asked for while a checkpoint is under way. */
 const EVERY = Duration.secs(1);
 
@@ -223,15 +229,19 @@ export function useCheckpoint(): Checkpointing {
  * them, and still says it is done while open, and for a minute once closed, after its agents carry on.
  * Asks the server for every project again as `conversations`, this
  * project's, change, and every `every`, a second by default, while a
- * checkpoint or restart is under way or the dialog is open.
+ * checkpoint or restart is under way or the dialog is open. Holds the
+ * Restart slide for `restartShown` at least, three seconds by default, even
+ * once `arbor dev` is back.
  */
 export function CheckpointProvider({
 	conversations,
 	every = EVERY,
+	restartShown = RESTART_SHOWN,
 	children,
 }: {
 	conversations: ConversationState[];
 	every?: Duration;
+	restartShown?: Duration;
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
@@ -258,6 +268,11 @@ export function CheckpointProvider({
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	const [restarting, setRestarting] = useState<Restarting | null>(null);
+	// When the Restart slide first showed, or the restart was seen to be over
+	// without it having shown.
+	const restartSince = useRef<Duration | null>(null);
+	// Bumped once the Restart slide has shown long enough.
+	const [shownLong, setShownLong] = useState(0);
 	// Whether the server stopped answering, as while it restarts.
 	const [unreachable, setUnreachable] = useState(false);
 	// Those of the checkpoint under way or done, for when it ends.
@@ -315,7 +330,22 @@ export function CheckpointProvider({
 		}
 		const shown = offered(listed.projects);
 		const live = slideOf(standing(shown.flatMap((each) => each.conversations)));
+		// Asks again once the Restart slide has shown long enough.
+		void shownLong;
 		if (restarting !== null && listed.run !== restarting.run) {
+			const clock = new SystemClock();
+			restartSince.current ??= clock.now();
+			const left = restartShown.subtract(
+				clock.now().subtract(restartSince.current),
+			);
+			if (left.isGreaterThan(Duration.zero())) {
+				const wait = new SystemTimer().setTimeout(
+					() => setShownLong((count) => count + 1),
+					left,
+				);
+				return () => wait.dispose();
+			}
+			restartSince.current = null;
 			setRestarting(null);
 			// Carried on before the page saw them told to.
 			if (restarting.resume && listed.restarted === null) {
@@ -355,8 +385,13 @@ export function CheckpointProvider({
 			forgotten.current = false;
 			waited.current = false;
 		}
-	}, [listed, restarting]);
+	}, [listed, restarting, restartShown, shownLong]);
 	// Open, it stays until closed, rather than going back to the start.
+	useEffect(() => {
+		if (slide === "restarting") {
+			restartSince.current ??= new SystemClock().now();
+		}
+	}, [slide]);
 	useEffect(() => {
 		if (ended === null || open) {
 			return;

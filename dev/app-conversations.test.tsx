@@ -1070,11 +1070,12 @@ describe("App's conversations", () => {
 			conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
 		);
 
-		const restarted = await waitFor(() =>
-			view.getByRole("dialog", { name: "Restart" }),
-		);
-		expect(restarted.textContent).toContain(
-			"Now on arbor 0.0.1. 1 agent checkpointed and waiting to resume.",
+		// Restart shows a while longer, then says it is back.
+		const restarted = view.getByRole("dialog", { name: "Restart" });
+		await waitFor(() =>
+			expect(restarted.textContent).toContain(
+				"Now on arbor 0.0.1. 1 agent checkpointed and waiting to resume.",
+			),
 		);
 		for (const name of ["Restart", "Retry missed"]) {
 			expect(within(restarted).queryByRole("button", { name })).toBeNull();
@@ -1169,6 +1170,36 @@ describe("App's conversations", () => {
 		expect(
 			within(restarted).getByRole("img", { name: "Resumed" }),
 		).toBeTruthy();
+	});
+
+	it("shows Restart for a while, though arbor dev came back before the page saw it go", async () => {
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		testing.restarting = { resume: true };
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", status: "running" })],
+			null,
+		);
+		await act(async () =>
+			fireEvent.click(await menuItem(view, "Checkpoint under way")),
+		);
+		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
+
+		// Back as another run between two asks, its agents already resuming.
+		testing.restarting = null;
+		testing.restarted = "resuming";
+		testing.run = "run-2";
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
+		const restarting = await waitFor(() =>
+			view.getByRole("dialog", { name: "Restart" }),
+		);
+		expect(restarting.textContent).toContain(
+			"arbor dev is restarting, then each agent resumes.",
+		);
+		await waitFor(() => view.getByRole("dialog", { name: "Resume" }));
 	});
 
 	it("renames a conversation from its menu", async () => {
