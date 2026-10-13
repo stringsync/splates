@@ -335,6 +335,8 @@ export function QuestionCards({
 						task: escalation.task,
 					})}
 			folded={sent !== null}
+			// Each question marks itself while it has the focus.
+			ringed={false}
 			aside={
 				<span className="flex items-center gap-2">
 					<span className="text-muted-foreground text-xs tabular-nums">

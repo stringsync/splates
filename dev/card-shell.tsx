@@ -102,6 +102,7 @@ export function CardShell({
 	base = null,
 	aside,
 	folded = false,
+	ringed = true,
 	children,
 }: {
 	label: string;
@@ -115,13 +116,18 @@ export function CardShell({
 	aside?: ReactNode;
 	/** Whether it starts closed, opened by its header: once it is answered. */
 	folded?: boolean;
+	/**
+	 * Whether it is ringed in its tone while focus is inside it; off for a
+	 * card that marks the part of it with the focus instead.
+	 */
+	ringed?: boolean;
 	children?: ReactNode;
 }): JSX.Element {
 	// Ringed in its tone while focus is inside it, as when it comes up to be
 	// answered, so it is plain where the keys go.
 	const frame = cn(
-		"group/card my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:ring-3",
-		TONES[tone].focus,
+		"group/card my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
+		ringed && ["focus-within:ring-3", TONES[tone].focus],
 	);
 	const header = (
 		<Header
