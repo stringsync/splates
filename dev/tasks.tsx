@@ -220,7 +220,8 @@ function inlineNumbers(plan: string): string {
 
 /**
  * Everything to do with a task, in one row: the conversations on it, or a
- * way to start one; its open questions; its changes; another round of
+ * way to start one; its open questions, when no conversation here asks
+ * them; its changes; another round of
  * merges once it is out of them.
  */
 function ActionBar({
@@ -237,18 +238,20 @@ function ActionBar({
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	const review = useContext(ReviewChanges);
+	// An arbor dev agent on the task asks its questions in its conversation,
+	// so only an external agent's need answering from here.
 	const answer =
 		open.length === 0
 			? null
 			: context === null
 				? onAnswer
-				: () => {
-						const address =
-							context.dispatch.on(task.task)[0]?.conversation?.id ??
-							`${TASK}${task.task}`;
-						arriveAt(address);
-						context.open(address);
-					};
+				: context.dispatch.on(task.task).length > 0
+					? null
+					: () => {
+							const address = `${TASK}${task.task}`;
+							arriveAt(address);
+							context.open(address);
+						};
 	const answerLabel = `Answer ${open.length === 1 ? "a question" : `${open.length} questions`}`;
 	return (
 		<div

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	conversation,
 	details,
 	fireEvent,
 	Testing,
@@ -352,6 +353,20 @@ see the header
 				name: "questions for you",
 			}),
 		).toBeTruthy();
+	});
+
+	it("leaves a task's open questions to the arbor dev conversation on it, which asks them itself", async () => {
+		testing.talk = {
+			agents: [],
+			conversations: [conversation({ id: "c1", task: "beta" })],
+		};
+		const view = await testing.openTasks({ tasks: [escalated] });
+		const dialog = await openBeta(view);
+
+		// toBeNull passes on an element here, so count them instead.
+		expect(
+			within(dialog).queryAllByRole("button", { name: "Answer a question" }),
+		).toHaveLength(0);
 	});
 
 	it("keeps the open task in the address, and opens the one it names", async () => {
