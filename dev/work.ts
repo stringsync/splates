@@ -2,11 +2,11 @@ import type { Decision, Message, Part, Step, Tool } from "../conversations";
 import type { Flag } from "../watch";
 
 /**
- * What an agent did between two things it said: its thoughts and its tool
- * calls, which the page folds into one row.
+ * What an agent did before its reply: its thoughts, its tool calls, and the
+ * words it said between them, which the page folds into one row.
  */
 export interface Work {
-	/** Its thoughts and tool calls, with none of the agent's words. */
+	/** Its thoughts, tool calls, and words, in the order it went. */
 	parts: Part[];
 	/** The turn's plan, on its last row; null on the others. */
 	plan: Step[] | null;
@@ -20,14 +20,15 @@ export interface Work {
 	going: boolean;
 }
 
-/** A stretch of an agent's turn: words it said, or the work between them. */
+/** A stretch of an agent's turn: words it said, or the work around them. */
 export type Stretch =
 	| { type: "said"; text: string }
 	| { type: "work"; work: Work };
 
 /**
- * The agent's turn in the order it went, each run of thoughts and calls a
- * row of work between the words it said.
+ * The agent's turn as one row of work, the words it said along the way
+ * inside it, then the last thing it said, and, once the turn is over, a row
+ * for any work after that.
  */
 export function stretchesOf(
 	message: Message,
@@ -35,34 +36,36 @@ export function stretchesOf(
 	began: string | null,
 	going: boolean,
 ): Stretch[] {
-	const runs: (Part[] | string)[] = [];
-	for (const part of message.parts) {
-		const last = runs.at(-1);
-		if (part.type === "text") {
-			if (part.text.trim() !== "") {
-				runs.push(part.text);
-			}
-		} else if (part.type !== "image") {
-			if (Array.isArray(last)) {
-				last.push(part);
-			} else {
-				runs.push([part]);
-			}
-		}
+	const parts = message.parts.filter(
+		(part) =>
+			part.type !== "image" &&
+			(part.type !== "text" || part.text.trim() !== ""),
+	);
+	// While the turn goes on, words with work after them were on the way;
+	// once over, the last words are its reply, even with work after them.
+	const spoke = parts.findLastIndex((part) => part.type === "text");
+	const last = going && spoke !== parts.length - 1 ? -1 : spoke;
+	const said = parts[last];
+	const before = last === -1 ? parts : parts.slice(0, last);
+	const after = last === -1 ? [] : parts.slice(last + 1);
+	const kept: (Part[] | string)[] = [];
+	// Its plan shows on a row of its own, above what it said, even with no work.
+	if (before.length > 0 || (after.length === 0 && message.plan !== null)) {
+		kept.push(before);
 	}
-	const works = runs.filter((run) => Array.isArray(run));
-	// Its plan shows on a row of its own, above what it said.
-	if (works.length === 0 && message.plan !== null) {
-		const none: Part[] = [];
-		runs.unshift(none);
-		works.push(none);
+	if (said?.type === "text") {
+		kept.push(said.text);
 	}
+	if (after.length > 0) {
+		kept.push(after);
+	}
+	const works = kept.filter((run) => Array.isArray(run));
 	const final = works.at(-1);
-	return runs.map((run, index): Stretch => {
+	return kept.map((run, index): Stretch => {
 		if (!Array.isArray(run)) {
 			return { type: "said", text: run };
 		}
-		const next = runs.slice(index + 1).find((each) => Array.isArray(each));
+		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
 		const ended = run.flatMap((part) =>
 			part.type === "tool" && part.until !== null ? [part.until] : [],
 		);
@@ -73,10 +76,10 @@ export function stretchesOf(
 				plan: run === final ? message.plan : null,
 				at: index === 0 ? began : startOf(run),
 				until:
-					index === runs.length - 1
+					index === kept.length - 1
 						? message.until
 						: (ended.sort().at(-1) ?? startOf(next ?? []) ?? message.until),
-				running: going && index === runs.length - 1,
+				running: going && index === kept.length - 1,
 				going,
 			},
 		};
@@ -109,7 +112,9 @@ export type Item =
 	| { type: "subagent"; tool: Tool; calls: Tool[] }
 	| { type: "tool"; tool: Tool }
 	/** How the person answered the agent asking permission for the call `label`. */
-	| { type: "decision"; label: string; decision: Decision };
+	| { type: "decision"; label: string; decision: Decision }
+	/** Words the agent said between its calls, on the way to its reply. */
+	| { type: "said"; text: string };
 
 const EDITS = new Set(["edit", "delete", "move"]);
 /** The kinds whose titles only restate the kind. */
@@ -127,7 +132,11 @@ export function timeline(work: Work): Item[] {
 	parts.forEach((part, index) => {
 		const last = items.at(-1);
 		// Only the person sends images, and this is the agent's turn.
-		if (part.type === "image" || part.type === "text") {
+		if (part.type === "image") {
+			return;
+		}
+		if (part.type === "text") {
+			items.push({ type: "said", text: part.text.trim() });
 			return;
 		}
 		if (part.type === "thought") {

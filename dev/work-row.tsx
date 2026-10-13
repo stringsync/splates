@@ -27,6 +27,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Edit, Step, Tool } from "../conversations";
 import { editLines } from "../diff";
 import { FileChip } from "./file-chip";
+import { Markdown } from "./markdown";
 import {
 	decided,
 	files,
@@ -47,8 +48,8 @@ import {
 } from "./work";
 
 /**
- * Renders a `data-work` part: what an agent did between two things it said,
- * as one line that says how long it took and, once done, what it added up
+ * Renders a `data-work` part: what an agent did before its reply, the words
+ * it said along the way included, as one line that says how long it took and, once done, what it added up
  * to, with its timeline a click away.
  */
 export const WorkUI = makeAssistantDataUI<{ work: Work }>({
@@ -138,9 +139,13 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							</li>
 						)}
 						{items.map((item, index) => (
-							// The timeline only grows at its end, so an index is stable.
-							// biome-ignore lint/suspicious/noArrayIndexKey: as above
-							<li key={index}>
+							<li
+								// The timeline only grows at its end, so an index is stable.
+								// biome-ignore lint/suspicious/noArrayIndexKey: as above
+								key={index}
+								// The agent's words stand apart from the calls around them.
+								className={cn(item.type === "said" && "py-2")}
+							>
 								<Row item={item} short={short} />
 							</li>
 						))}
@@ -341,6 +346,13 @@ function Row({
 						</pre>
 					)}
 				</Call>
+			);
+		case "said":
+			return (
+				<Markdown
+					text={item.text}
+					className="text-foreground/80 text-sm [&_p]:my-0"
+				/>
 			);
 		case "decision":
 			return (

@@ -2913,9 +2913,9 @@ function like(
 			metadata: { custom: { steered: message.steered ?? false } },
 		};
 	}
-	// The words between its work as it said them, each run of work a row
-	// between them. Once the turn is over, the last thing it said is its
-	// reply, read for cards, even with tool calls after it.
+	// Its work and the words it said along the way as one row, then the last
+	// thing it said. Once the turn is over, that is its reply, read for
+	// cards, even with tool calls after it.
 	const all = stretchesOf(message, began, !settled);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {

@@ -2858,7 +2858,7 @@ describe("App's conversations", () => {
 				(row) => (row.querySelector("summary") ?? row).textContent,
 			);
 
-		it("folds each run of work between what the agent said into a line of its own", async () => {
+		it("folds everything before the agent's reply, its words along the way included, into one line", async () => {
 			const thread = await opened(
 				turn([
 					{ type: "thought", text: "Which tests?", at: second(1) },
@@ -2889,31 +2889,25 @@ describe("App's conversations", () => {
 			);
 
 			await waitFor(() =>
-				expect(within(thread).getByText("Worked 58s").tagName).toBe("SPAN"),
+				expect(within(thread).getByText("Worked 1m 0s").tagName).toBe("SPAN"),
 			);
-			expect(within(thread).getByText("Worked 2s")).toBeTruthy();
-			expect(thread.textContent).toContain("All tests pass.");
-			const [thought, work] = within(thread).getAllByRole("list", {
-				name: "timeline",
-			}) as [HTMLElement, HTMLElement];
-			for (const timeline of [thought, work]) {
-				expect((timeline.closest("details") as HTMLDetailsElement).open).toBe(
-					false,
-				);
-			}
-			expect(lines(thought)).toEqual(["Thought for 1s"]);
+			expect(within(thread).queryAllByText(/^Worked/)).toHaveLength(1);
+			const work = within(thread).getByRole("list", { name: "timeline" });
+			expect((work.closest("details") as HTMLDetailsElement).open).toBe(false);
 			expect(lines(work)).toEqual([
+				"Thought for 1s",
+				"Let me run them.",
 				"Reada.ts",
 				"Readb.ts",
 				"Failed to runbun test28s",
 				"Editeda.ts",
 				"Ranbun test29s",
 			]);
-			// Said in the thread, between the two.
+			// Its reply, under the line.
 			expect(thread.textContent).toMatch(
-				/Worked 2s.*Let me run them\..*Worked 58s.*All tests pass\./,
+				/Worked 1m 0s.*Ranbun test29s.*All tests pass\./,
 			);
-			expect(thought.textContent).not.toContain("Let me run them.");
+			expect(work.textContent).not.toContain("All tests pass.");
 		});
 
 		it("says what each call does while it runs, and what it did once done", async () => {
@@ -3111,7 +3105,7 @@ describe("App's conversations", () => {
 			]);
 		});
 
-		it("shows what the agent said in the thread, in order, even with tool calls after its last words", async () => {
+		it("shows the last thing the agent said in the thread, even with tool calls after it", async () => {
 			const thread = await opened(
 				turn([
 					"Let me look.",
@@ -3128,11 +3122,11 @@ describe("App's conversations", () => {
 				name: "timeline",
 			});
 			expect(timelines.map((each) => each.textContent)).toEqual([
-				"Reada.ts",
+				"Let me look.Reada.ts",
 				expect.stringContaining("bun test"),
 			]);
 			expect(thread.textContent).toMatch(
-				/Let me look\..*Worked.*No, I'm not waiting on you\..*Worked/,
+				/Worked.*No, I'm not waiting on you\..*Worked/,
 			);
 		});
 
@@ -3297,7 +3291,7 @@ describe("App's conversations", () => {
 			expect(details().open).toBe(false);
 		});
 
-		it("shows what the agent said before its latest call in the thread while it works", async () => {
+		it("folds what the agent said before its latest call into the row while it works", async () => {
 			const thread = await opened(
 				turn(
 					[
@@ -3312,25 +3306,26 @@ describe("App's conversations", () => {
 			const timeline = await waitFor(() =>
 				within(thread).getByRole("list", { name: "timeline" }),
 			);
-			expect(timeline.textContent).not.toContain("Let me look.");
+			expect(timeline.textContent).toContain("Let me look.");
 			expect(within(thread).getAllByText("Let me look.")).toHaveLength(1);
 		});
 
-		it("folds a row once the agent speaks after it, so one opened again stays open as it goes on", async () => {
+		it("folds the row once the agent speaks, taking in its words as it goes on, and one opened again stays open", async () => {
 			const thread = await opened(
 				turn([tool({ id: "x1", command: "bun test" }), "Checking."], {
 					status: "running",
 				}),
 			);
-			const details = (index: number) =>
-				within(thread)
-					.getAllByRole("list", { name: "timeline" })
-					[index]?.closest("details") as HTMLDetailsElement;
+			const timelines = () =>
+				within(thread).getAllByRole("list", { name: "timeline" });
+			const details = () =>
+				timelines()[0]?.closest("details") as HTMLDetailsElement;
 			await waitFor(() => expect(thread.textContent).toContain("Checking."));
-			expect(details(0).open).toBe(false);
+			expect(details().open).toBe(false);
+			expect(timelines()[0]?.textContent).not.toContain("Checking.");
 			await act(async () => {
-				details(0).open = true;
-				details(0).dispatchEvent(new Event("toggle"));
+				details().open = true;
+				details().dispatchEvent(new Event("toggle"));
 			});
 
 			await testing.say(
@@ -3344,7 +3339,9 @@ describe("App's conversations", () => {
 				),
 			);
 			await waitFor(() => expect(thread.textContent).toContain("bun run demo"));
-			expect(details(1).open).toBe(true);
+			expect(timelines()).toHaveLength(1);
+			expect(timelines()[0]?.textContent).toContain("Checking.");
+			expect(details().open).toBe(true);
 			await testing.say(
 				turn(
 					[
@@ -3359,8 +3356,9 @@ describe("App's conversations", () => {
 			await waitFor(() =>
 				expect(thread.textContent).toContain("Still checking."),
 			);
-			expect(details(0).open).toBe(true);
-			expect(details(1).open).toBe(false);
+			expect(timelines()).toHaveLength(1);
+			expect(timelines()[0]?.textContent).not.toContain("Still checking.");
+			expect(details().open).toBe(true);
 		});
 
 		it("stops saying it is thinking once it replies", async () => {
