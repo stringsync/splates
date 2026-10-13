@@ -1488,7 +1488,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 
 	/**
 	 * Says `text` to the agent, with `images`, once it has started, resuming
-	 * the session first when it stopped. While the agent works, it joins the
+	 * the session first when it stopped and unarchiving it when archived.
+	 * While the agent works, it joins the
 	 * running turn when the agent can take it there, and otherwise waits for
 	 * the turn to end.
 	 */
@@ -1505,6 +1506,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				{ conversation: this.id },
 			);
 		}
+		// Said to an archived one, it goes back on the list to carry on.
+		await this.unarchive();
 		if (this.state.status === "stopped" || this.state.status === "failed") {
 			await this.resume();
 		}

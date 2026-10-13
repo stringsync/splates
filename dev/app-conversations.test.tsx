@@ -693,7 +693,7 @@ describe("App's conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
-	it("says in an archived conversation's composer how to carry on", async () => {
+	it("says atop an archived conversation, and in its composer, that sending unarchives it", async () => {
 		const view = await testing.openConversations([], null);
 		await testing.say(conversation({ status: "stopped", archived: true }));
 		await act(async () => {
@@ -703,8 +703,11 @@ describe("App's conversations", () => {
 
 		const box = await view.findByRole("textbox", { name: "Message input" });
 		expect(box.getAttribute("aria-placeholder")).toBe(
-			"Archived: unarchive to continue",
+			"Send a message to unarchive and continue",
 		);
+		expect(
+			view.getByText("This conversation is archived.").closest("[role=status]"),
+		).not.toBeNull();
 	});
 
 	it("checkpoints the projects picked in a dialog, this one picked to start, then what follows", async () => {
@@ -2349,7 +2352,7 @@ describe("App's conversations", () => {
 		);
 	});
 
-	it("shows an archived conversation shut, to unarchive", async () => {
+	it("takes a message in an archived conversation, and unarchives it from its actions", async () => {
 		const view = await testing.openConversations([], null);
 		await testing.say(conversation({ status: "stopped", archived: true }));
 		await act(async () => {
@@ -2361,7 +2364,7 @@ describe("App's conversations", () => {
 			view
 				.getByRole("textbox", { name: "Message input" })
 				.getAttribute("contenteditable"),
-		).toBe("false");
+		).toBe("true");
 		await act(async () =>
 			fireEvent.click(
 				within(view.getByRole("navigation", { name: "actions" })).getByRole(

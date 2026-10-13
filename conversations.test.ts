@@ -1679,7 +1679,7 @@ describe("Conversations", () => {
 		expect(reread[0]?.state.messages.length).toBeGreaterThan(seen);
 	});
 
-	it("archives by stopping the agent, and takes no prompt until unarchived", async () => {
+	it("archives by stopping the agent, and is unarchived by a prompt", async () => {
 		const conversation = await started();
 
 		await conversation.archive();
@@ -1689,9 +1689,18 @@ describe("Conversations", () => {
 			status: "stopped",
 			archived: true,
 		});
-		await expect(conversation.prompt("again")).rejects.toThrow(
-			"is archived: unarchive it first",
-		);
+
+		await conversation.prompt("again");
+
+		expect(conversation.state.archived).toBe(false);
+		expect(conversation.state.status).not.toBe("stopped");
+	});
+
+	it("archives until unarchived, even across a reread", async () => {
+		const conversation = await started();
+
+		await conversation.archive();
+
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],

@@ -2106,6 +2106,27 @@ function Queued({
 }
 
 /**
+ * Atop an archived conversation, across the pane's padding to its edges,
+ * saying so and how it comes back.
+ */
+function ArchivedBanner(): JSX.Element {
+	return (
+		<p
+			role="status"
+			className="-mx-4 -mt-4 flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm"
+		>
+			<ArchiveIcon className="size-4 shrink-0" />
+			<span>
+				<span className="font-medium text-foreground">
+					This conversation is archived.
+				</span>{" "}
+				Sending a message unarchives it.
+			</span>
+		</p>
+	);
+}
+
+/**
  * The archived conversations, newest first, to read or bring back: every one
  * kept, since arbor deletes the older ones.
  */
@@ -2406,9 +2427,9 @@ function Thread({
 	const runtime = useExternalStoreRuntime({
 		messages,
 		isRunning: running,
-		// A stopped conversation takes a prompt, which resumes it, and one
-		// still starting holds it until the session opens.
-		isDisabled: archived,
+		// A stopped conversation takes a prompt, which resumes it, unarchiving
+		// an archived one, and one still starting holds it until the session
+		// opens.
 		convertMessage: (message: ThreadMessageLike) => message,
 		adapters: { attachments: IMAGES },
 		onNew: say,
@@ -2618,6 +2639,7 @@ function Thread({
 			}}
 			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
+			{archived && <ArchivedBanner />}
 			<header className="flex min-h-9 items-center gap-2">
 				{onBack !== null && <Back onBack={onBack} />}
 				<div className="flex min-w-0 flex-1 flex-col">
@@ -2697,7 +2719,9 @@ function Thread({
 											references={references}
 											commands={commands ?? undefined}
 											placeholder={
-												archived ? "Archived: unarchive to continue" : undefined
+												archived
+													? "Send a message to unarchive and continue"
+													: undefined
 											}
 											controls={
 												!archived && (
