@@ -40,18 +40,6 @@ export interface References {
 	 * null for any other item, which `pick` takes instead.
 	 */
 	write: (item: TriggerItem, typed: string, caret: number) => number | null;
-	/**
-	 * The systems the words just before `caret` call by name or alias without
-	 * a `#`, each with the words that called it, for the composer to offer as
-	 * `#name`; none while the caret is inside a word.
-	 */
-	named: (text: string, caret: number) => Named[];
-}
-
-/** A system called by name without a `#`, and the words that called it. */
-export interface Named {
-	item: TriggerItem;
-	typed: string;
 }
 
 /** The categories, in the order the list shows them. */
@@ -165,7 +153,6 @@ export function useReferences(
 				);
 				return at + written.length + 1;
 			},
-			named: (text, caret) => named(systems, items.system ?? [], text, caret),
 			icon: (item) => {
 				const { action } = item.metadata ?? {};
 				if (typeof action === "number") {
@@ -176,35 +163,4 @@ export function useReferences(
 			},
 		};
 	}, [composer, todos, lanes, tasks, actions, systems]);
-}
-
-/** What a name ends at: the end, or anything but a letter, digit, `-` or `_`. */
-const ENDS = /^(?:$|[^\p{L}\p{N}_-])/u;
-/** What a name starts after: the start, a space, or an opening mark. */
-const STARTS = /(?:^|[\s("'`[{])$/u;
-
-function named(
-	systems: readonly NamedSystem[],
-	items: readonly TriggerItem[],
-	text: string,
-	caret: number,
-): Named[] {
-	if (!ENDS.test(text.slice(caret))) {
-		return [];
-	}
-	const before = text.slice(0, caret);
-	const lower = before.toLowerCase();
-	const found: Named[] = [];
-	systems.forEach((system, index) => {
-		const item = items[index];
-		const called = [system.name, ...(system.aliases ?? [])].find(
-			(called) =>
-				lower.endsWith(called.toLowerCase()) &&
-				STARTS.test(before.slice(0, before.length - called.length)),
-		);
-		if (item !== undefined && called !== undefined) {
-			found.push({ item, typed: before.slice(before.length - called.length) });
-		}
-	});
-	return found;
 }

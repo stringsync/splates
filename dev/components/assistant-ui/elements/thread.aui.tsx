@@ -83,7 +83,7 @@ import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import { DirectiveChip } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
-import type { Named, References } from "#dev/references.tsx";
+import type { References } from "#dev/references.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
@@ -900,7 +900,6 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	} = useContext(ThreadExtrasContext);
 	const popoverKeys = useRef<PopoverKey | null>(null);
 	const [pointer] = useState(steadyPointer);
-	const offer = useNamedOffer(references);
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -949,10 +948,9 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							event.stopPropagation();
 						}
 					}}
-					onSelectCapture={offer.track}
 					onKeyDownCapture={(event) => {
 						pointer.keyed();
-						if (offer.key(event) || popoverKeys.current?.(event) === true) {
+						if (popoverKeys.current?.(event) === true) {
 							event.preventDefault();
 							event.stopPropagation();
 						}
@@ -1021,7 +1019,6 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							</ComposerPrimitive.TriggerPopoverItems>
 						</ComposerPrimitive.TriggerPopover>
 					)}
-					{offer.list}
 					{commands !== undefined && (
 						<ComposerPrimitive.TriggerPopover
 							char="/"
@@ -1043,102 +1040,6 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		</PopoverKeys.Provider>
 	);
 };
-
-/**
- * Offers the systems the word before the caret calls by name or alias, typed
- * without a `#`, in a list like the `#` menu's; picking one writes `#name` in
- * its place. Tab picks, since Enter has to send a message that only ends in a
- * system's name, and Escape puts the offer away until the words change.
- */
-function useNamedOffer(references: References | undefined) {
-	const text = useAuiState((s) => s.composer.text);
-	const [caret, setCaret] = useState(0);
-	const [chosen, setChosen] = useState(0);
-	const [dismissed, setDismissed] = useState<string | null>(null);
-	const box = useRef<HTMLTextAreaElement | null>(null);
-	const found = references?.named(text, caret) ?? [];
-	const key = `${caret}:${found.map(({ item }) => item.id).join()}`;
-	const offered = key === dismissed ? [] : found;
-	const active = Math.min(chosen, offered.length - 1);
-	// A new offer starts on its first system.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: resets on change
-	useEffect(() => setChosen(0), [key]);
-
-	const pick = (named: Named) => {
-		const after = references?.write(named.item, named.typed, caret) ?? null;
-		if (after === null) {
-			return;
-		}
-		setCaret(after);
-		requestAnimationFrame(() => {
-			box.current?.focus();
-			box.current?.setSelectionRange(after, after);
-		});
-	};
-	return {
-		track: (event: { target: EventTarget }) => {
-			if (event.target instanceof HTMLTextAreaElement) {
-				box.current = event.target;
-				setCaret(event.target.selectionStart);
-			}
-		},
-		/** Takes a key the offer handles, true if it did. */
-		key: (event: { key: string; shiftKey: boolean }): boolean => {
-			const named = offered[active];
-			if (named === undefined) {
-				return false;
-			}
-			if (event.key === "Tab" && !event.shiftKey) {
-				pick(named);
-			} else if (event.key === "Escape") {
-				setDismissed(key);
-			} else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-				const by = event.key === "ArrowDown" ? 1 : -1;
-				setChosen((active + by + offered.length) % offered.length);
-			} else {
-				return false;
-			}
-			return true;
-		},
-		list:
-			references === undefined || offered.length === 0 ? null : (
-				<div className="absolute inset-x-0 bottom-full z-10 mb-2">
-					<div role="listbox" aria-label="references" className={POPOVER_LIST}>
-						{offered.map((named, index) => (
-							<div
-								key={named.item.id}
-								role="option"
-								tabIndex={-1}
-								aria-selected={index === active}
-								data-highlighted={index === active ? "" : undefined}
-								// Down, not click, so the box keeps its focus and caret.
-								onMouseDown={(event) => {
-									event.preventDefault();
-									pick(named);
-								}}
-								onMouseEnter={() => setChosen(index)}
-								className={cn(
-									POPOVER_ROW,
-									"cursor-default text-sm [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
-								)}
-							>
-								{references.icon(named.item)}
-								<span className="truncate">{named.item.label}</span>
-								{named.item.description !== undefined && (
-									<span className="text-muted-foreground shrink-1000 truncate text-xs">
-										{named.item.description}
-									</span>
-								)}
-								<kbd className="text-muted-foreground ml-auto shrink-0 font-sans text-xs">
-									Tab
-								</kbd>
-							</div>
-						))}
-					</div>
-				</div>
-			),
-	};
-}
 
 /** Takes a key pressed in the composer for the open list, true if it did. */
 type PopoverKey = (event: { key: string; shiftKey: boolean }) => boolean;
