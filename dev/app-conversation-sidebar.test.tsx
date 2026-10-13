@@ -933,11 +933,9 @@ Cap upload retries
 				]),
 			);
 			const nav = view.getByRole("navigation", { name: "conversations" });
-			// An action, so beside the list of where to go rather than in it.
-			expect(
-				within(nav).queryByRole("button", { name: /waiting on you/ }),
-			).toBeNull();
-			const line = view.getByRole("button", { name: /waiting on you/ });
+			// Under New, as ⌥⌘M under ⌥⌘N.
+			const line = within(nav).getByRole("button", { name: /waiting on you/ });
+			expect(line.previousElementSibling?.textContent).toContain("New");
 			expect(line.textContent).toContain("1 waiting on you");
 
 			await act(async () => fireEvent.click(line));
@@ -978,10 +976,7 @@ Cap upload retries
 			await act(async () =>
 				fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 			);
-			expect(keys()).toEqual(["N", "0", "1", "2"]);
-			expect(
-				view.getByRole("button", { name: /waiting on you/ }).textContent,
-			).toContain("M");
+			expect(keys()).toEqual(["N", "M", "0", "1", "2"]);
 			await act(async () =>
 				fireEvent.keyDown(document.body, {
 					code: "Digit1",
@@ -1033,7 +1028,7 @@ Cap upload retries
 			expect(location.hash).toBe("#conversations/task/beta");
 		});
 
-		it("opens Todos with ⌥⌘T and Checkpoint with ⌥⌘C, showing each key while ⌥⌘ is held", async () => {
+		it("opens Todos with ⌥⌘T and Checkpoint with ⌥⌘C, showing a tab's key while ⌥⌘ is held", async () => {
 			const view = await sidebar(
 				newestFirst([conversation({ id: "c1", title: "First" })]),
 			);
@@ -1048,10 +1043,6 @@ Cap upload retries
 			expect(key(/Todos/)).toBe("T");
 			expect(key(/Conversations/)).toBeNull();
 			expect(key(/Tasks/)).toBeNull();
-			expect(
-				view.getByRole("button", { name: /Checkpoint/ }).querySelector("kbd")
-					?.textContent,
-			).toBe("C");
 
 			await act(async () =>
 				fireEvent.keyDown(document.body, {

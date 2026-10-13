@@ -25,7 +25,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
-import { Kbd } from "#dev/components/ui/kbd.tsx";
+import {
+	DropdownMenuItem,
+	DropdownMenuShortcut,
+} from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { After, Checkpoint, ConversationState } from "../conversations";
 import {
@@ -384,42 +387,37 @@ export function CheckpointProvider({
 }
 
 /**
- * The sidebar's Checkpoint, opening the dialog as ⌥⌘C does, and saying how
- * the checkpoint stands.
+ * The title menu's Checkpoint, opening the dialog as ⌥⌘C does, and saying
+ * how the checkpoint stands.
  */
-export function CheckpointButton({
-	held = false,
-}: {
-	/** Whether ⌥⌘ is held, to show the key that opens it with ⌥⌘. */
-	held?: boolean;
-}): JSX.Element {
-	const { slide, title, refusal, open } = useCheckpoint();
+export function CheckpointItem(): JSX.Element {
+	const { slide, title, open } = useCheckpoint();
 	return (
-		<>
-			<button
-				type="button"
-				data-row
-				onClick={() => open()}
-				className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
-			>
-				{slide === "going" || slide === "restarting" || slide === "resuming" ? (
-					<Loader2Icon className="size-3.5 animate-spin" />
-				) : slide === "pick" ? (
-					<FlagIcon className="size-3.5" />
-				) : (
-					<CheckIcon className="size-3.5 text-success" />
-				)}
-				<span className="flex-1 truncate">{title}</span>
-				{held && (
-					// Its own height, taller than the line, would push the rows below.
-					<Kbd aria-hidden className="-my-0.5">
-						C
-					</Kbd>
-				)}
-			</button>
-			<Refusal refusal={refusal} className="px-3 pb-1.5" />
-		</>
+		<DropdownMenuItem onClick={() => open()}>
+			{slide === "going" || slide === "restarting" || slide === "resuming" ? (
+				<Loader2Icon className="animate-spin" />
+			) : slide === "pick" ? (
+				<FlagIcon />
+			) : (
+				<CheckIcon className="text-success" />
+			)}
+			{title}
+			<DropdownMenuShortcut aria-hidden>⌥⌘C</DropdownMenuShortcut>
+		</DropdownMenuItem>
 	);
+}
+
+/**
+ * Why the projects could not be listed for a checkpoint, for a moment, under
+ * the title, since the menu that asked has closed.
+ */
+export function CheckpointRefusal({
+	className,
+}: {
+	className?: string;
+}): JSX.Element {
+	const { refusal } = useCheckpoint();
+	return <Refusal refusal={refusal} className={className} />;
 }
 
 /**

@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
+	fireEvent,
+	menuItem,
+	resize,
 	snapshot,
 	Testing,
 	todo,
@@ -57,7 +60,7 @@ describe("App's feed", () => {
 		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 
-	it("offers a newer arbor, opening Checkpoint with restart and resume picked", async () => {
+	it("keeps a Restart in the sidebar, offering a newer arbor on it, opening Checkpoint with restart and resume picked", async () => {
 		testing.projects = [
 			{
 				slug: "shop",
@@ -77,14 +80,15 @@ describe("App's feed", () => {
 		];
 		const view = await testing.open();
 		expect(view.queryByText("Restart to update")).toBeNull();
+		expect((await menuItem(view, "Restart arbor dev")).textContent).toBe(
+			"Restart",
+		);
 
 		testing.served = snapshot({
 			release: { running: "0.0.43", newest: "0.0.44" },
 		});
 		await act(async () => testing.stream?.onmessage?.());
-		const badge = await waitFor(() =>
-			view.getByRole("button", { name: "Restart to update" }),
-		);
+		const badge = await menuItem(view, "Restart to update");
 		expect(badge.title).toBe("arbor 0.0.44 is out (this runs 0.0.43)");
 		await act(async () => badge.click());
 
@@ -116,15 +120,59 @@ describe("App's feed", () => {
 			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
 		});
 		await act(async () => testing.stream?.onmessage?.());
-		const badge = await waitFor(() =>
-			view.getByRole("button", { name: "Restart to update" }),
-		);
+		const badge = await menuItem(view, "Restart to update");
 		expect(badge.title).toBe(
 			"arbor's source is at bbbbbbbb (this runs aaaaaaaa)",
 		);
 		await act(async () => badge.click());
 
 		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
+	});
+
+	it("keeps Restart and Settings in a phone's menu", async () => {
+		try {
+			resize(390, 844);
+			const view = await testing.open();
+			const more = view.getByRole("button", { name: "More" });
+			expect(more.querySelector(".bg-warning")).toBeNull();
+			await act(async () => fireEvent.click(more));
+			await waitFor(() => view.getByRole("menuitem", { name: "Settings" }));
+			await act(async () =>
+				fireEvent.click(
+					view.getByRole("menuitem", { name: "Restart arbor dev" }),
+				),
+			);
+			await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
+		} finally {
+			// Unmounted first, so going wide again redraws nothing.
+			cleanup();
+			resize(1024, 768);
+		}
+	});
+
+	it("dots a phone's menu, and the Restart in it, once a restart would update", async () => {
+		try {
+			resize(390, 844);
+			const view = await testing.open();
+			testing.served = snapshot({
+				release: { running: "0.0.43", newest: "0.0.44" },
+			});
+			await act(async () => testing.stream?.onmessage?.());
+			const more = await waitFor(() =>
+				view.getByRole("button", { name: "More: restart to update" }),
+			);
+			expect(more.querySelector(".bg-warning")).not.toBeNull();
+			await act(async () => fireEvent.click(more));
+			const restart = await waitFor(() =>
+				view.getByRole("menuitem", { name: "Restart to update" }),
+			);
+			expect(restart.title).toBe("arbor 0.0.44 is out (this runs 0.0.43)");
+			expect(restart.querySelector(".bg-warning")).not.toBeNull();
+		} finally {
+			// Unmounted first, so going wide again redraws nothing.
+			cleanup();
+			resize(1024, 768);
+		}
 	});
 
 	it("grays out the tab's icon while offline, and brings it back", async () => {

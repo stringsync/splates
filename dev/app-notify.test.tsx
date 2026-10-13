@@ -5,6 +5,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	menuItem,
 	Testing,
 	waitFor,
 	within,
@@ -48,11 +49,7 @@ describe("App's settings and notifications", () => {
 			conversations: [runs],
 		};
 		const view = await testing.open({ tasks: [details({ task: "alpha" })] });
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() => view.getByRole("button", { name: "Settings" })),
-			),
-		);
+		await act(async () => fireEvent.click(await menuItem(view, "Settings")));
 		return {
 			view,
 			runs,

@@ -4,6 +4,7 @@ import {
 	cleanup,
 	details,
 	fireEvent,
+	menuItem,
 	Testing,
 	todo,
 	waitFor,
@@ -142,14 +143,10 @@ describe("App", () => {
 			const view = await testing.open();
 
 			await act(async () =>
-				fireEvent.click(
-					await waitFor(() => view.getByRole("button", { name: "Fullscreen" })),
-				),
+				fireEvent.click(await menuItem(view, "Fullscreen")),
 			);
 			expect(document.fullscreenElement).toBe(document.documentElement);
-			expect(
-				view.getByRole("button", { name: "Exit fullscreen" }),
-			).toBeTruthy();
+			expect(await menuItem(view, "Exit fullscreen")).toBeTruthy();
 			await act(async () =>
 				fireEvent.keyDown(document, {
 					code: "KeyF",
@@ -158,7 +155,7 @@ describe("App", () => {
 				}),
 			);
 			expect(document.fullscreenElement).toBeNull();
-			expect(view.getByRole("button", { name: "Fullscreen" })).toBeTruthy();
+			expect(await menuItem(view, "Fullscreen")).toBeTruthy();
 		} finally {
 			restore();
 		}
@@ -168,7 +165,7 @@ describe("App", () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.open();
 
-		await waitFor(() => view.getByRole("button", { name: "Checkpoint" }));
+		await menuItem(view, "Checkpoint");
 		expect(view.queryByRole("button", { name: "Fullscreen" })).toBeNull();
 	});
 });

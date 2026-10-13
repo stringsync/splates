@@ -11,8 +11,7 @@ const NUDGE = Duration.secs(1.5);
  * A line of one height that always says how many agents wait on you, so
  * nothing moves as the count changes. Clicking it opens the next one, as
  * ⌥⌘M does. Each time `nudges` goes up, as when ⌥⌘M finds nothing to open,
- * it lights up in place, as Checkpoint does under the pointer, and fades
- * back.
+ * it lights up in place, as under the pointer, and fades back.
  */
 export function WaitingLine({
 	waiting,

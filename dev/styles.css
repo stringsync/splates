@@ -24,6 +24,7 @@
 @source "./mentioned.tsx";
 @source "./mentions.tsx";
 @source "./notifications.tsx";
+@source "./page-menu.tsx";
 @source "./card.tsx";
 @source "./board.ts";
 @source "./lanes.tsx";

@@ -118,7 +118,6 @@ import { BackgroundMenu, BackgroundRow } from "./background";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
 import { ReviewChanges } from "./changes";
-import { CheckpointButton } from "./checkpoint";
 import {
 	type AgentChoice,
 	agentName,
@@ -134,7 +133,6 @@ import {
 } from "./directives";
 import { Trunk, whereRuns } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
-import { FullscreenButton } from "./fullscreen";
 import { NamedContext } from "./mentioned";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
@@ -315,8 +313,9 @@ function openingOf(conversation: ConversationState): string | null {
  * The arrow keys move between rows, ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new
  * one as the last was started, ⌥⌘0 to ⌥⌘9 open the first ten rows, top
  * to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
- * terminals among them, round past either end. Holding ⌥⌘ shows each of those keys beside what it opens. Its
- * actions, ⌥⌘M among them, are `ConversationActions`, apart from it.
+ * terminals among them, round past either end. Holding ⌥⌘ shows each of those keys beside what it opens.
+ * Under New, `NextWaiting` says how many wait on you, opening the
+ * next as ⌥⌘M does.
  * As `settings` say, it notifies of an agent that comes to wait on you,
  * finishes its turn, or goes quiet.
  */
@@ -471,67 +470,77 @@ export function ConversationList({
 				}
 			}}
 		>
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					render={
-						<button
-							type="button"
-							data-row
-							aria-current={startsOne(open) ? "page" : undefined}
-							className={cn(
-								"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
-								startsOne(open) && "bg-accent",
-							)}
-						/>
-					}
-				>
-					<PlusIcon className="size-3.5" />
-					<span className="flex-1">New</span>
-					{held ? (
-						<Kbd aria-hidden>N</Kbd>
-					) : (
-						<ChevronDownIcon className="size-3.5 text-muted-foreground" />
-					)}
-				</DropdownMenuTrigger>
-				<DropdownMenuContent
-					align="start"
-					className="w-44"
-					// Into the composer of the conversation picked, ready to type, rather
-					// than back to New; otherwise as usual.
-					finalFocus={() => {
-						if (!picked.current) {
-							return true;
+			{/* Waiting on you under New, as ⌥⌘M under ⌥⌘N. */}
+			<div className="flex flex-col gap-0.5">
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						render={
+							<button
+								type="button"
+								data-row
+								aria-current={startsOne(open) ? "page" : undefined}
+								className={cn(
+									"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
+									startsOne(open) && "bg-accent",
+								)}
+							/>
 						}
-						picked.current = false;
-						return (
-							document.querySelector<HTMLTextAreaElement>(
-								'section[aria-label="new conversation"] textarea[aria-label="Message input"]',
-							) ?? true
-						);
-					}}
-				>
-					{agents.map((each) => (
-						<DropdownMenuItem
-							key={each.id}
-							onClick={() => {
-								picked.current = true;
-								onOpen(`${NEW}/${each.id}`);
-							}}
-						>
-							<AgentIcon agent={each.id} name={each.name} />
-							{each.name}
-							{each.id === agentFor(NEW, agents, conversations) && (
-								<Kbd className="ml-auto">⌥⌘N</Kbd>
-							)}
+					>
+						<PlusIcon className="size-3.5" />
+						<span className="flex-1">New</span>
+						{held ? (
+							<Kbd aria-hidden>N</Kbd>
+						) : (
+							<ChevronDownIcon className="size-3.5 text-muted-foreground" />
+						)}
+					</DropdownMenuTrigger>
+					<DropdownMenuContent
+						align="start"
+						className="w-44"
+						// Into the composer of the conversation picked, ready to type, rather
+						// than back to New; otherwise as usual.
+						finalFocus={() => {
+							if (!picked.current) {
+								return true;
+							}
+							picked.current = false;
+							return (
+								document.querySelector<HTMLTextAreaElement>(
+									'section[aria-label="new conversation"] textarea[aria-label="Message input"]',
+								) ?? true
+							);
+						}}
+					>
+						{agents.map((each) => (
+							<DropdownMenuItem
+								key={each.id}
+								onClick={() => {
+									picked.current = true;
+									onOpen(`${NEW}/${each.id}`);
+								}}
+							>
+								<AgentIcon agent={each.id} name={each.name} />
+								{each.name}
+								{each.id === agentFor(NEW, agents, conversations) && (
+									<Kbd className="ml-auto">⌥⌘N</Kbd>
+								)}
+							</DropdownMenuItem>
+						))}
+						<DropdownMenuSeparator />
+						<DropdownMenuItem onClick={() => onOpen(terminals.another())}>
+							<SquareTerminalIcon />
+							Terminal
 						</DropdownMenuItem>
-					))}
-					<DropdownMenuSeparator />
-					<DropdownMenuItem onClick={() => onOpen(terminals.another())}>
-						<SquareTerminalIcon />
-						Terminal
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
+					</DropdownMenuContent>
+				</DropdownMenu>
+				<NextWaiting
+					feed={feed}
+					drafts={drafts}
+					tasks={tasks}
+					open={open}
+					onOpen={onOpen}
+				/>
+			</div>
 			{mains.map((each) => (
 				<TerminalRow
 					key={each}
@@ -593,13 +602,11 @@ export function ConversationList({
 }
 
 /**
- * What the conversations can be asked to do as a whole, kept apart from the
- * list, which holds only where to go: a line saying how many agents wait on
- * you, which opens the next as ⌥⌘M (Ctrl+Alt+M off a Mac) does, and
- * Checkpoint, which ⌥⌘C opens. ⌥⌘M opens the next one waiting, or else the next merged, then
- * unread, one, and lights the line when there is none.
+ * A line under New saying how many agents wait on you, which opens the next
+ * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting, or else the next
+ * merged, then unread, one, lighting the line when there is none.
  */
-export function ConversationActions({
+function NextWaiting({
 	feed,
 	drafts,
 	tasks,
@@ -652,16 +659,12 @@ export function ConversationActions({
 	}, []);
 
 	return (
-		<div className="flex flex-col gap-0.5">
-			<WaitingLine
-				waiting={rows.filter((row) => waitsOnYou(row, drafts)).length}
-				nudges={nudges}
-				held={held}
-				onNext={() => next.current()}
-			/>
-			<CheckpointButton held={held} />
-			<FullscreenButton held={held} />
-		</div>
+		<WaitingLine
+			waiting={rows.filter((row) => waitsOnYou(row, drafts)).length}
+			nudges={nudges}
+			held={held}
+			onNext={() => next.current()}
+		/>
 	);
 }
 
@@ -1506,29 +1509,17 @@ export function Conversations({
 		<Board value={board}>
 			<div className="flex flex-col gap-4">
 				{phone && open === null ? (
-					<>
-						<ConversationList
-							feed={feed}
-							terminals={terminals}
-							drafts={drafts}
-							tasks={tasks}
-							// A phone's browser notifies only from a service worker, and
-							// this list comes and goes with what is open.
-							settings={null}
-							open={open}
-							onOpen={onOpen}
-						/>
-						{/* At its foot, as at the sidebar's beside it. */}
-						<div className="border-t pt-3">
-							<ConversationActions
-								feed={feed}
-								drafts={drafts}
-								tasks={tasks}
-								open={open}
-								onOpen={onOpen}
-							/>
-						</div>
-					</>
+					<ConversationList
+						feed={feed}
+						terminals={terminals}
+						drafts={drafts}
+						tasks={tasks}
+						// A phone's browser notifies only from a service worker, and
+						// this list comes and goes with what is open.
+						settings={null}
+						open={open}
+						onOpen={onOpen}
+					/>
 				) : startsOne(open) || (open === null && !phone) ? (
 					<Home
 						// Its picks are for one agent's settings, and its draft for one

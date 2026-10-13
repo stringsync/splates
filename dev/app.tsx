@@ -5,7 +5,6 @@ import {
 	Loader2Icon,
 	type LucideIcon,
 	MessagesSquareIcon,
-	SettingsIcon,
 } from "lucide-react";
 import {
 	type CSSProperties,
@@ -38,10 +37,9 @@ import { AutoRestart } from "./auto-restart";
 import { AutoRestartDialog } from "./auto-restart-dialog";
 import { BackgroundPane, WatchBackground } from "./background";
 import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
-import { CheckpointProvider } from "./checkpoint";
+import { CheckpointProvider, CheckpointRefusal } from "./checkpoint";
 import { ConversationFeed } from "./conversation-feed";
 import {
-	ConversationActions,
 	ConversationList,
 	Conversations,
 	conversationIn,
@@ -54,13 +52,13 @@ import { Drafts } from "./drafts";
 import { Feed } from "./feed";
 import { useFullscreenKey } from "./fullscreen";
 import { OpenerContext, openerOf } from "./openers";
+import { PageMenu } from "./page-menu";
 import {
 	ProjectSwitcher,
 	placeOf,
 	rememberPlace,
 	shownProject,
 } from "./projects";
-import { ReleaseHint } from "./release";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { SidebarHandle, SidebarWidth } from "./sidebar";
@@ -332,7 +330,7 @@ export function App({
 	}, [name, counted, waiting]);
 
 	const wide = useWide();
-	// Whether the header offers a restart onto a newer arbor.
+	// Whether Restart says a restart would update arbor, with a dot.
 	const hinted =
 		(snapshot?.release != null || snapshot?.behind != null) &&
 		outdated === null &&
@@ -509,35 +507,24 @@ export function App({
 																	Offline
 																</span>
 															)}
-															{/* At the foot of the sidebar when there is one. */}
-															{!wide && (
-																<button
-																	type="button"
-																	aria-label="Settings"
-																	title="Settings"
-																	onClick={() => setSetting(true)}
-																	className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-																>
-																	<SettingsIcon className="size-4" />
-																</button>
-															)}
+															<PageMenu
+																release={
+																	hinted ? (snapshot?.release ?? null) : null
+																}
+																behind={
+																	hinted ? (snapshot?.behind ?? null) : null
+																}
+																conversations={available}
+																onSettings={() => setSetting(true)}
+															/>
 														</div>
 														{snapshot && (
 															<span className="truncate text-muted-foreground text-xs">
 																{snapshot.path}
 															</span>
 														)}
-														{/* A newer arbor is out, or its source moved on: restarting
-														    onto it is the person's call. On a line of its own, so the
-														    project's name keeps the room it needs. */}
-														{hinted && (
-															<div className="flex pt-1.5">
-																<ReleaseHint
-																	release={snapshot?.release ?? null}
-																	behind={snapshot?.behind ?? null}
-																/>
-															</div>
-														)}
+														{/* Out of the menu that asked, which has closed. */}
+														<CheckpointRefusal className="pt-1" />
 													</header>
 													{/* With room to spare, a sidebar down the left. On a phone, a bar
 								    along the bottom, where a thumb already is; a dialog sits over
@@ -546,11 +533,8 @@ export function App({
 														variant="line"
 														className={
 															wide
-																? cn(
-																		"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 group-data-vertical/tabs:h-dvh",
-																		// Below the header, taller by the restart's line.
-																		hinted ? "pt-28" : "pt-20",
-																	)
+																? // Below the header.
+																	"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
 																: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
 														}
 													>
@@ -609,36 +593,6 @@ export function App({
 																	open={page === "conversations" ? open : null}
 																	onOpen={(id) => go("conversations", id)}
 																/>
-															</div>
-														)}
-														{/* The page's actions, apart from the list of where to go. */}
-														{wide && (
-															<div className="-mx-3 mt-auto flex shrink-0 flex-col">
-																{available && snapshot !== null && (
-																	<div className="border-t px-3 py-2">
-																		<ConversationActions
-																			feed={talk}
-																			drafts={drafts}
-																			tasks={snapshot.tasks}
-																			open={
-																				page === "conversations" ? open : null
-																			}
-																			onOpen={(id) => go("conversations", id)}
-																		/>
-																	</div>
-																)}
-																<button
-																	type="button"
-																	aria-label="Settings"
-																	onClick={() => setSetting(true)}
-																	className="flex h-12 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
-																>
-																	<SettingsIcon className="size-4" />
-																	<span className="flex-1 text-left">
-																		Settings
-																	</span>
-																	<Kbd>⌘,</Kbd>
-																</button>
 															</div>
 														)}
 													</TabsList>

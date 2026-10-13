@@ -370,6 +370,24 @@ export function pressArchive(): Promise<void> {
 	});
 }
 
+/**
+ * Opens the menu beside the project's name, unless open already, and waits
+ * for its item named `name`, for a test to click or read.
+ */
+export async function menuItem(
+	view: ConversationsView,
+	name: string | RegExp,
+): Promise<HTMLElement> {
+	if (view.queryByRole("menu") === null) {
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: /^More(: restart to update)?$/ }),
+			),
+		);
+	}
+	return await waitFor(() => view.getByRole("menuitem", { name }));
+}
+
 /** Sizes the window, as a phone held upright or a laptop. */
 export function resize(width: number, height: number): void {
 	(
