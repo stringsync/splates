@@ -5,7 +5,6 @@ import {
 	CircleIcon,
 	LoaderIcon,
 	SquareIcon,
-	TerminalIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import {
@@ -400,15 +399,9 @@ function Call({
 					))
 				) : what === "" ? null : code ? (
 					// A size down from the words, where monospace reads as large as they do.
-					<span className="flex min-w-0 items-center gap-1">
-						<TerminalIcon
-							aria-hidden
-							className="size-3 shrink-0 text-muted-foreground"
-						/>
-						<code className="min-w-0 truncate font-mono text-muted-foreground text-xs">
-							{what}
-						</code>
-					</span>
+					<code className="min-w-0 truncate font-mono text-muted-foreground text-xs">
+						{what}
+					</code>
 				) : (
 					<span className="min-w-0 truncate">{what}</span>
 				)

@@ -3353,7 +3353,6 @@ describe("App's conversations", () => {
 			expect(
 				command?.querySelector("summary .lucide-chevron-right"),
 			).not.toBeNull();
-			expect(command?.querySelector("summary .lucide-terminal")).not.toBeNull();
 		});
 
 		it("warns of a command that did to git what it should not have, opening to the command", async () => {
