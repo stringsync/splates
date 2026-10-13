@@ -56,12 +56,17 @@ describe("App's projects", () => {
 		sessionStorage.clear();
 	});
 
-	it("opens the switcher on ⌘K, narrows it as you type, and goes to the pick on Enter", async () => {
+	it("opens the switcher on ⌥⌘R, narrows it as you type, and goes to the pick on Enter", async () => {
 		const view = await testing.open();
 		const assign = spyOn(location, "assign").mockImplementation(() => {});
 
 		await act(async () =>
-			fireEvent.keyDown(window, { key: "k", metaKey: true }),
+			fireEvent.keyDown(window, {
+				key: "®",
+				code: "KeyR",
+				altKey: true,
+				metaKey: true,
+			}),
 		);
 		const find = await waitFor(() =>
 			view.getByRole("textbox", { name: "find a project" }),
@@ -82,7 +87,12 @@ describe("App's projects", () => {
 		const view = await testing.open();
 
 		await act(async () =>
-			fireEvent.keyDown(window, { key: "k", metaKey: true }),
+			fireEvent.keyDown(window, {
+				key: "®",
+				code: "KeyR",
+				altKey: true,
+				metaKey: true,
+			}),
 		);
 		const waiting = await waitFor(() =>
 			view.getByRole("status", { name: "2 waiting on you" }),

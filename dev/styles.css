@@ -41,6 +41,7 @@
 @source "./card-shell.tsx";
 @source "./refusal.tsx";
 @source "./release.tsx";
+@source "./search-dialog.tsx";
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";
 @source "./systems.tsx";

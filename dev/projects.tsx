@@ -88,8 +88,8 @@ export function projectUrl(project: ProjectChoice): string {
 
 /**
  * The project's name, heading the page, as a picker of every project on this
- * machine, each marked with how many agents wait on you there: ⌘K (Ctrl+K)
- * opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
+ * machine, each marked with how many agents wait on you there: ⌥⌘R
+ * (Ctrl+Alt+R) opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
  * while another project has agents waiting on you.
  */
 export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
@@ -132,7 +132,12 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	}, []);
 	useEffect(() => {
 		const toggle = (event: KeyboardEvent) => {
-			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+			// By the key's place, since Alt types another letter on a Mac.
+			if (
+				event.altKey &&
+				(event.metaKey || event.ctrlKey) &&
+				event.code === "KeyR"
+			) {
 				event.preventDefault();
 				setOpen((was) => !was);
 			}
@@ -192,8 +197,8 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 						}
 						title={
 							elsewhere.length > 0
-								? `Switch project (⌘K): ${waitingElsewhere}`
-								: "Switch project (⌘K)"
+								? `Switch project (⌥⌘R): ${waitingElsewhere}`
+								: "Switch project (⌥⌘R)"
 						}
 						className="-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left hover:bg-muted"
 					/>
@@ -305,7 +310,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 				</ul>
 				<Refusal refusal={refusal} className="px-2" />
 				<p className="px-2 text-muted-foreground text-xs">
-					<Kbd>⌘K</Kbd> opens this anywhere
+					<Kbd>⌥⌘R</Kbd> opens this anywhere
 				</p>
 			</PopoverContent>
 		</Popover>

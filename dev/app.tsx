@@ -31,7 +31,9 @@ import {
 } from "#dev/components/ui/tabs.tsx";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
+import type { TodoState } from "../todo";
 import { listProjects, restartIdle } from "./api";
 import { AutoRestart } from "./auto-restart";
 import { AutoRestartDialog } from "./auto-restart-dialog";
@@ -60,6 +62,8 @@ import {
 	rememberPlace,
 	shownProject,
 } from "./projects";
+import type { Found } from "./search";
+import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { SidebarHandle, SidebarWidth } from "./sidebar";
@@ -67,6 +71,7 @@ import { Tasks } from "./tasks";
 import { ShellRunning, TerminalPane, ToggleTerminal } from "./terminal";
 import { isToggle } from "./terminal-session";
 import { Terminals } from "./terminals";
+import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
 import { TreesContext } from "./work-row";
 
@@ -112,6 +117,8 @@ const WIDE = "(min-width: 768px)";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
+const NO_TODOS: TodoState[] = [];
+const NO_CONVERSATIONS: ConversationState[] = [];
 
 /** Whether the window is `WIDE` right now, following it as it resizes. */
 function useWide(): boolean {
@@ -252,6 +259,24 @@ export function App({
 		}
 	};
 	const tasks = snapshot?.tasks ?? NO_TASKS;
+	// The page's, so ⌘K can open a todo on the board.
+	const [todoView] = useState(() => new TodoView(localStorage));
+	const searched = {
+		tasks,
+		todos: snapshot?.todos ?? NO_TODOS,
+		conversations: available ? conversations : NO_CONVERSATIONS,
+	};
+	const pick = (found: Found) => {
+		if (found.kind === "task") {
+			go("tasks");
+			openTask(found.task);
+		} else if (found.kind === "conversation") {
+			go("conversations", found.conversation);
+		} else if (found.kind === "todo") {
+			go("todos");
+			todoView.open(found.todo);
+		}
+	};
 	// Before the first snapshot, the name this tab last saw the project by,
 	// else the one the address names, so a switch heads the page with where it
 	// is going rather than "arbor".
@@ -621,7 +646,11 @@ export function App({
 														value="todos"
 														className="min-w-0 px-4 py-4"
 													>
-														<Todos snapshot={snapshot} drafts={drafts} />
+														<Todos
+															snapshot={snapshot}
+															drafts={drafts}
+															view={todoView}
+														/>
 													</TabsContent>
 													<TabsContent
 														value="tasks"
@@ -687,6 +716,7 @@ export function App({
 												/>
 											)
 										)}
+										<SearchDialog searched={searched} pick={pick} />
 										<SettingsDialog
 											settings={settings}
 											open={setting}

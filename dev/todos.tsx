@@ -75,7 +75,7 @@ import { Refusal, useRefusal, useRefusals } from "./refusal";
 import { Task } from "./tasks";
 import { TodoBoard } from "./todo-board";
 import { TodoEditor } from "./todo-editor";
-import { TodoView } from "./todo-view";
+import type { TodoView } from "./todo-view";
 
 /**
  * Work deferred for later as a board, a Trello lite: the untriaged todos
@@ -89,11 +89,13 @@ import { TodoView } from "./todo-view";
 export function Todos({
 	snapshot,
 	drafts,
+	view,
 }: {
 	snapshot: Snapshot;
 	drafts: Drafts;
+	/** The page's, so ⌘K can open a todo. */
+	view: TodoView;
 }): JSX.Element {
-	const [view] = useState(() => new TodoView(localStorage));
 	const [board] = useState(() => new TodoBoard());
 	// Every choice is read, so any of them changing renders again; `show` then
 	// applies them to whichever snapshot came last.
