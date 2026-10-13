@@ -56,15 +56,15 @@ describe("App's projects", () => {
 		sessionStorage.clear();
 	});
 
-	it("opens the switcher on ⌥⌘R, narrows it as you type, and goes to the pick on Enter", async () => {
+	it("opens the switcher on ⌃⌘P, narrows it as you type, and goes to the pick on Enter", async () => {
 		const view = await testing.open();
 		const assign = spyOn(location, "assign").mockImplementation(() => {});
 
 		await act(async () =>
 			fireEvent.keyDown(window, {
-				key: "®",
-				code: "KeyR",
-				altKey: true,
+				key: "p",
+				code: "KeyP",
+				ctrlKey: true,
 				metaKey: true,
 			}),
 		);
@@ -88,9 +88,9 @@ describe("App's projects", () => {
 
 		await act(async () =>
 			fireEvent.keyDown(window, {
-				key: "®",
-				code: "KeyR",
-				altKey: true,
+				key: "p",
+				code: "KeyP",
+				ctrlKey: true,
 				metaKey: true,
 			}),
 		);
