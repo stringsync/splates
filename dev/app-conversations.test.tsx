@@ -505,6 +505,122 @@ describe("App's conversations", () => {
 		expect(view.queryByRole("button", { name: "Systems" })).toBeNull();
 	});
 
+	it("lists the commands it left in the background in the actions card, each saying how it stands", async () => {
+		const view = await conversations([
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [
+					{
+						id: "b1",
+						name: "Start the dev server",
+						command: "bun dev",
+						state: "running",
+						output: "/tmp/b1.output",
+					},
+					{
+						id: "b2",
+						name: "Run the tests",
+						command: null,
+						state: "failed",
+						output: null,
+					},
+				],
+			}),
+		]);
+
+		const list = within(
+			view.getByRole("navigation", { name: "actions" }),
+		).getByRole("list", { name: "background commands" });
+		expect(
+			within(list)
+				.getAllByRole("button")
+				.map((row) => [row.title, row.textContent]),
+		).toEqual([
+			["bun dev", "Start the dev serverRunning"],
+			["Run the tests", "Run the testsFailed"],
+		]);
+
+		await testing.say(conversation({ id: "c1", title: "Serve it" }));
+		expect(
+			view.queryByRole("list", { name: "background commands" }),
+		).toBeNull();
+		expect(
+			view.queryByRole("button", { name: "Background commands" }),
+		).toBeNull();
+	});
+
+	it("opens a command's output beside the page, from the card or the narrow menu, with a Stop while it runs", async () => {
+		testing.outputs = { b1: "listening on 3000" };
+		const running = {
+			id: "b1",
+			name: "Start the dev server",
+			command: "bun dev",
+			state: "running" as const,
+			output: "/tmp/b1.output",
+		};
+		const view = await conversations([
+			conversation({ id: "c1", title: "Serve it", background: [running] }),
+		]);
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("list", { name: "background commands" }),
+				).getByRole("button"),
+			),
+		);
+		const pane = view.getByRole("complementary", {
+			name: "background command",
+		});
+		expect(within(pane).getByRole("heading").textContent).toBe(
+			"Start the dev server",
+		);
+		await waitFor(() =>
+			expect(within(pane).getByTestId("output").textContent).toContain(
+				"listening on 3000",
+			),
+		);
+		await act(async () =>
+			fireEvent.click(within(pane).getByRole("button", { name: "Stop" })),
+		);
+		expect(posted("/api/conversations/c1/stop-background")).toEqual([
+			{ method: "POST", body: { background: "b1" } },
+		]);
+		expect(within(pane).getByRole("button", { name: "Stopping" })).toBeTruthy();
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [{ ...running, state: "stopped" }],
+			}),
+		);
+		expect(within(pane).queryByRole("button", { name: /Stop/ })).toBeNull();
+		expect(within(pane).getByRole("status").textContent).toBe("Stopped");
+		await act(async () =>
+			fireEvent.click(within(pane).getByRole("button", { name: "Close" })),
+		);
+		expect(
+			view.queryByRole("complementary", { name: "background command" }),
+		).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Background commands" }),
+			),
+		);
+		const menu = await waitFor(() => view.getByRole("menu"));
+		await act(async () =>
+			fireEvent.click(
+				within(menu).getByRole("menuitem", { name: /Start the dev server/ }),
+			),
+		);
+		expect(
+			view.getByRole("complementary", { name: "background command" }),
+		).toBeTruthy();
+	});
+
 	it("archives a stopped conversation from the list, with the agent's mark in place of its name", async () => {
 		const view = await conversations(
 			[

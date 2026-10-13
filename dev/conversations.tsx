@@ -114,6 +114,7 @@ import {
 	unqueueConversation,
 } from "./api";
 import { Back } from "./back";
+import { BackgroundMenu, BackgroundRows } from "./background";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
 import { ReviewChanges } from "./changes";
@@ -2673,6 +2674,10 @@ function Thread({
 					)}
 				</div>
 				<SystemsButton systems={task?.systems ?? []} />
+				<BackgroundMenu
+					conversation={id}
+					background={conversation.background}
+				/>
 				<ActionButtons actions={actions} />
 			</header>
 			{archive.confirm}
@@ -2761,7 +2766,15 @@ function Thread({
 						</ArchiveContext>
 					</Composing.Provider>
 				</AssistantRuntimeProvider>
-				<Actions actions={actions}>
+				<Actions
+					actions={actions}
+					background={
+						<BackgroundRows
+							conversation={id}
+							background={conversation.background}
+						/>
+					}
+				>
 					<SystemsCard systems={task?.systems ?? []} />
 				</Actions>
 			</div>

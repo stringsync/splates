@@ -31,6 +31,7 @@ import type { Details } from "../show";
 import { listProjects, restartIdle } from "./api";
 import { AutoRestart } from "./auto-restart";
 import { AutoRestartDialog } from "./auto-restart-dialog";
+import { BackgroundPane, WatchBackground } from "./background";
 import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
 import { ConversationFeed } from "./conversation-feed";
 import {
@@ -328,6 +329,12 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	// The task whose changes are open beside the page, whatever the page.
 	const [reviewing, setReviewing] = useState<string | null>(null);
 	const reviewed = snapshot?.tasks.find((task) => task.task === reviewing);
+	// The background command whose output is open beside the page, by its
+	// conversation, in place of that conversation's terminal.
+	const [watching, setWatching] = useState<{
+		conversation: string;
+		background: string;
+	} | null>(null);
 	// The conversation up, unless archived, whose terminal the pane shows when the changes
 	// do not have it.
 	const shown =
@@ -347,7 +354,30 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		(conversation: string) => terminals.running(conversation),
 		[terminals],
 	);
+	const watched =
+		shown !== null && watching?.conversation === shown.id
+			? (shown.background.find((each) => each.id === watching.background) ??
+				null)
+			: null;
+	const watch = useCallback(
+		(conversation: string, background: string) => {
+			setReviewing(null);
+			terminals.hide();
+			setWatching({ conversation, background });
+		},
+		[terminals],
+	);
+	const closeWatching = useCallback(() => setWatching(null), []);
+	const review = useCallback((task: string) => {
+		setWatching(null);
+		setReviewing(task);
+	}, []);
 	const toggleTerminal = (conversation: string) => {
+		if (watched !== null) {
+			setWatching(null);
+			terminals.show(conversation);
+			return;
+		}
 		if (reviewing !== null) {
 			setReviewing(null);
 			terminals.show(conversation);
@@ -377,7 +407,8 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 		window.addEventListener("keydown", listen);
 		return () => window.removeEventListener("keydown", listen);
 	}, [toggled]);
-	const paned = reviewed !== undefined || (terminal && shown !== null);
+	const paned =
+		reviewed !== undefined || watched !== null || (terminal && shown !== null);
 	// On a phone, an open conversation takes the whole screen: no header, and
 	// no bar along the bottom, which its own Back replaces.
 	const reading = !wide && page === "conversations" && open !== null;
@@ -398,270 +429,287 @@ export function App({ settings }: { settings: Settings }): JSX.Element {
 	return (
 		<Dispatching value={dispatching}>
 			<Trunk value={snapshot?.trunk ?? null}>
-				<ReviewChanges value={setReviewing}>
-					<ToggleTerminal value={shown === null ? null : toggleTerminal}>
-						<ShellRunning value={shellRunning}>
-							<TooltipProvider>
-								<Tabs
-									value={page}
-									onValueChange={(value) => go(value as Page)}
-									orientation={wide ? "vertical" : "horizontal"}
-									// Clear of the sidebar, or of the bar along the bottom.
-									className={cn(
-										"min-h-dvh gap-0",
-										wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
-										wide && paned && BESIDE_PANE,
-									)}
-									style={{ "--sidebar-width": `${width}px` } as CSSProperties}
-								>
-									{!reading && (
-										<>
-											{/* Heads the sidebar when there is one, and the page on a phone. */}
-											<header
-												className={cn(
-													"flex min-w-0 flex-col gap-0.5",
-													wide
-														? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
-														: "border-b px-4 py-2.5",
-												)}
-											>
-												<div className="flex min-w-0 items-center gap-2">
-													<ProjectSwitcher name={name} />
-													{/* Silent while connected, which is the normal case. Once the
+				<ReviewChanges value={review}>
+					<WatchBackground value={watch}>
+						<ToggleTerminal value={shown === null ? null : toggleTerminal}>
+							<ShellRunning value={shellRunning}>
+								<TooltipProvider>
+									<Tabs
+										value={page}
+										onValueChange={(value) => go(value as Page)}
+										orientation={wide ? "vertical" : "horizontal"}
+										// Clear of the sidebar, or of the bar along the bottom.
+										className={cn(
+											"min-h-dvh gap-0",
+											wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
+											wide && paned && BESIDE_PANE,
+										)}
+										style={{ "--sidebar-width": `${width}px` } as CSSProperties}
+									>
+										{!reading && (
+											<>
+												{/* Heads the sidebar when there is one, and the page on a phone. */}
+												<header
+													className={cn(
+														"flex min-w-0 flex-col gap-0.5",
+														wide
+															? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
+															: "border-b px-4 py-2.5",
+													)}
+												>
+													<div className="flex min-w-0 items-center gap-2">
+														<ProjectSwitcher name={name} />
+														{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it
 									    shows may no longer be true. */}
-													{/* Up but refusing: a newer arbor moved the records on. */}
-													{outdated !== null && !offline && (
-														<span
-															role="status"
-															title={outdated}
-															className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
-														>
-															<span className="size-1.5 rounded-full bg-amber-500" />
-															Outdated
-														</span>
-													)}
-													{/* A newer arbor is out, or its source moved on: restarting
-													    onto it is the person's call. */}
-													{(snapshot?.release || snapshot?.behind) &&
-														outdated === null &&
-														!offline && (
-															<ReleaseHint
-																release={snapshot.release}
-																behind={snapshot.behind}
-															/>
+														{/* Up but refusing: a newer arbor moved the records on. */}
+														{outdated !== null && !offline && (
+															<span
+																role="status"
+																title={outdated}
+																className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
+															>
+																<span className="size-1.5 rounded-full bg-amber-500" />
+																Outdated
+															</span>
 														)}
-													{offline && (
-														<span
-															role="status"
-															title="arbor dev stopped answering: is it still running?"
-															className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
-														>
-															<span className="size-1.5 rounded-full bg-destructive" />
-															Offline
+														{/* A newer arbor is out, or its source moved on: restarting
+													    onto it is the person's call. */}
+														{(snapshot?.release || snapshot?.behind) &&
+															outdated === null &&
+															!offline && (
+																<ReleaseHint
+																	release={snapshot.release}
+																	behind={snapshot.behind}
+																/>
+															)}
+														{offline && (
+															<span
+																role="status"
+																title="arbor dev stopped answering: is it still running?"
+																className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
+															>
+																<span className="size-1.5 rounded-full bg-destructive" />
+																Offline
+															</span>
+														)}
+														{/* At the foot of the sidebar when there is one. */}
+														{!wide && (
+															<button
+																type="button"
+																aria-label="Settings"
+																title="Settings"
+																onClick={() => setSetting(true)}
+																className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+															>
+																<SettingsIcon className="size-4" />
+															</button>
+														)}
+													</div>
+													{snapshot && (
+														<span className="truncate text-muted-foreground text-xs">
+															{snapshot.path}
 														</span>
 													)}
-													{/* At the foot of the sidebar when there is one. */}
-													{!wide && (
-														<button
-															type="button"
-															aria-label="Settings"
-															title="Settings"
-															onClick={() => setSetting(true)}
-															className="ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-														>
-															<SettingsIcon className="size-4" />
-														</button>
-													)}
-												</div>
-												{snapshot && (
-													<span className="truncate text-muted-foreground text-xs">
-														{snapshot.path}
-													</span>
-												)}
-											</header>
-											{/* With room to spare, a sidebar down the left. On a phone, a bar
+												</header>
+												{/* With room to spare, a sidebar down the left. On a phone, a bar
 								    along the bottom, where a thumb already is; a dialog sits over
 								    it. */}
-											<TabsList
-												variant="line"
-												className={
-													wide
-														? "fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
-														: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
-												}
-											>
-												{pages.map(({ value, label, Icon, key }) => (
-													<TabsTrigger
-														key={value}
-														value={value}
-														className={
-															wide
-																? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
-																: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
-														}
-													>
-														<Icon className={cn(!wide && "size-5")} />
-														<span className={cn(wide && "flex-1 text-left")}>
-															{label}
-															{!wide &&
-																count(value) !== null &&
-																` ${count(value)}`}
-														</span>
-														{wide && held && key !== undefined ? (
-															<Kbd aria-hidden>{key}</Kbd>
-														) : (
-															wide &&
-															count(value) !== null &&
-															(value === "conversations" ? (
-																<span
-																	title={`${count(value)} waiting on you`}
-																	className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning/15 px-1.5 font-medium text-[11px] text-warning tabular-nums"
-																>
-																	{count(value)}
-																	<span className="sr-only">
-																		{" "}
-																		waiting on you
-																	</span>
-																</span>
-															) : (
-																<span className="text-muted-foreground tabular-nums">
-																	{count(value)}
-																</span>
-															))
-														)}
-													</TabsTrigger>
-												))}
-												{/* Under their tab, so one is a click away from any page. */}
-												{wide && available && snapshot !== null && (
-													<div className="-mx-3 mt-4 min-h-0 flex-1 overflow-y-auto border-t px-3 pt-4 pb-6">
-														<ConversationList
-															feed={talk}
-															terminals={terminals}
-															drafts={drafts}
-															tasks={snapshot.tasks}
-															settings={settings}
-															open={page === "conversations" ? open : null}
-															onOpen={(id) => go("conversations", id)}
-														/>
-													</div>
-												)}
-												{/* The page's actions, apart from the list of where to go. */}
-												{wide && (
-													<div className="-mx-3 mt-auto flex shrink-0 flex-col">
-														{available && snapshot !== null && (
-															<div className="border-t px-3 py-2">
-																<ConversationActions
-																	feed={talk}
-																	drafts={drafts}
-																	tasks={snapshot.tasks}
-																	open={page === "conversations" ? open : null}
-																	onOpen={(id) => go("conversations", id)}
-																/>
-															</div>
-														)}
-														<button
-															type="button"
-															aria-label="Settings"
-															onClick={() => setSetting(true)}
-															className="flex h-12 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
-														>
-															<SettingsIcon className="size-4" />
-															<span className="flex-1 text-left">Settings</span>
-															<Kbd>⌘,</Kbd>
-														</button>
-													</div>
-												)}
-											</TabsList>
-											{wide && <SidebarHandle sidebar={sidebar} />}
-										</>
-									)}
-									{snapshot === null ? (
-										// The server opens a project on its first read, which takes
-										// seconds. Offline or outdated, the header already says why
-										// nothing came.
-										!offline &&
-										outdated === null && (
-											<div
-												role="status"
-												className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
-											>
-												<Loader2Icon className="size-4 animate-spin" />
-												Opening {name}
-											</div>
-										)
-									) : (
-										<>
-											{/* The board runs as wide as its lanes, the way a Trello board
-						    scrolls sideways. */}
-											<TabsContent value="todos" className="min-w-0 px-4 py-4">
-												<Todos snapshot={snapshot} drafts={drafts} />
-											</TabsContent>
-											<TabsContent
-												value="tasks"
-												className="mx-auto w-full max-w-xl px-4 py-6"
-											>
-												<Tasks
-													tasks={snapshot.tasks}
-													open={task}
-													onOpen={openTask}
-												/>
-											</TabsContent>
-											{available && (
-												<TabsContent
-													value="conversations"
-													className="min-w-0 px-4 py-4"
+												<TabsList
+													variant="line"
+													className={
+														wide
+															? "fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
+															: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
+													}
 												>
-													<TreesContext value={snapshot}>
-														<OpenerContext value={openerOf(opener)}>
-															<Conversations
+													{pages.map(({ value, label, Icon, key }) => (
+														<TabsTrigger
+															key={value}
+															value={value}
+															className={
+																wide
+																	? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+																	: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
+															}
+														>
+															<Icon className={cn(!wide && "size-5")} />
+															<span className={cn(wide && "flex-1 text-left")}>
+																{label}
+																{!wide &&
+																	count(value) !== null &&
+																	` ${count(value)}`}
+															</span>
+															{wide && held && key !== undefined ? (
+																<Kbd aria-hidden>{key}</Kbd>
+															) : (
+																wide &&
+																count(value) !== null &&
+																(value === "conversations" ? (
+																	<span
+																		title={`${count(value)} waiting on you`}
+																		className="flex h-5 min-w-5 items-center justify-center rounded-full bg-warning/15 px-1.5 font-medium text-[11px] text-warning tabular-nums"
+																	>
+																		{count(value)}
+																		<span className="sr-only">
+																			{" "}
+																			waiting on you
+																		</span>
+																	</span>
+																) : (
+																	<span className="text-muted-foreground tabular-nums">
+																		{count(value)}
+																	</span>
+																))
+															)}
+														</TabsTrigger>
+													))}
+													{/* Under their tab, so one is a click away from any page. */}
+													{wide && available && snapshot !== null && (
+														<div className="-mx-3 mt-4 min-h-0 flex-1 overflow-y-auto border-t px-3 pt-4 pb-6">
+															<ConversationList
 																feed={talk}
 																terminals={terminals}
 																drafts={drafts}
 																tasks={snapshot.tasks}
-																todos={snapshot.todos}
-																lanes={snapshot.lanes}
-																trunk={snapshot.trunk}
-																open={open}
+																settings={settings}
+																open={page === "conversations" ? open : null}
 																onOpen={(id) => go("conversations", id)}
-																phone={!wide}
 															/>
-														</OpenerContext>
-													</TreesContext>
+														</div>
+													)}
+													{/* The page's actions, apart from the list of where to go. */}
+													{wide && (
+														<div className="-mx-3 mt-auto flex shrink-0 flex-col">
+															{available && snapshot !== null && (
+																<div className="border-t px-3 py-2">
+																	<ConversationActions
+																		feed={talk}
+																		drafts={drafts}
+																		tasks={snapshot.tasks}
+																		open={
+																			page === "conversations" ? open : null
+																		}
+																		onOpen={(id) => go("conversations", id)}
+																	/>
+																</div>
+															)}
+															<button
+																type="button"
+																aria-label="Settings"
+																onClick={() => setSetting(true)}
+																className="flex h-12 items-center gap-3 border-t px-6 text-muted-foreground text-sm hover:text-foreground"
+															>
+																<SettingsIcon className="size-4" />
+																<span className="flex-1 text-left">
+																	Settings
+																</span>
+																<Kbd>⌘,</Kbd>
+															</button>
+														</div>
+													)}
+												</TabsList>
+												{wide && <SidebarHandle sidebar={sidebar} />}
+											</>
+										)}
+										{snapshot === null ? (
+											// The server opens a project on its first read, which takes
+											// seconds. Offline or outdated, the header already says why
+											// nothing came.
+											!offline &&
+											outdated === null && (
+												<div
+													role="status"
+													className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+												>
+													<Loader2Icon className="size-4 animate-spin" />
+													Opening {name}
+												</div>
+											)
+										) : (
+											<>
+												{/* The board runs as wide as its lanes, the way a Trello board
+						    scrolls sideways. */}
+												<TabsContent
+													value="todos"
+													className="min-w-0 px-4 py-4"
+												>
+													<Todos snapshot={snapshot} drafts={drafts} />
 												</TabsContent>
-											)}
-										</>
-									)}
-								</Tabs>
-								{reviewed !== undefined ? (
-									<ChangesPane
-										key={reviewed.task}
-										task={reviewed.task}
-										version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
-										phone={!wide}
-										onClose={() => setReviewing(null)}
-									/>
-								) : (
-									terminal &&
-									shown !== null && (
-										// One per conversation: its projections are of that one's shell.
-										<TerminalPane
-											key={shown.id}
-											terminals={terminals}
-											conversation={shown}
+												<TabsContent
+													value="tasks"
+													className="mx-auto w-full max-w-xl px-4 py-6"
+												>
+													<Tasks
+														tasks={snapshot.tasks}
+														open={task}
+														onOpen={openTask}
+													/>
+												</TabsContent>
+												{available && (
+													<TabsContent
+														value="conversations"
+														className="min-w-0 px-4 py-4"
+													>
+														<TreesContext value={snapshot}>
+															<OpenerContext value={openerOf(opener)}>
+																<Conversations
+																	feed={talk}
+																	terminals={terminals}
+																	drafts={drafts}
+																	tasks={snapshot.tasks}
+																	todos={snapshot.todos}
+																	lanes={snapshot.lanes}
+																	trunk={snapshot.trunk}
+																	open={open}
+																	onOpen={(id) => go("conversations", id)}
+																	phone={!wide}
+																/>
+															</OpenerContext>
+														</TreesContext>
+													</TabsContent>
+												)}
+											</>
+										)}
+									</Tabs>
+									{reviewed !== undefined ? (
+										<ChangesPane
+											key={reviewed.task}
+											task={reviewed.task}
+											version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
 											phone={!wide}
+											onClose={() => setReviewing(null)}
 										/>
-									)
-								)}
-								<SettingsDialog
-									settings={settings}
-									open={setting}
-									onOpenChange={setSetting}
-								/>
-								<AutoRestartDialog restart={autoRestart} />
-							</TooltipProvider>
-						</ShellRunning>
-					</ToggleTerminal>
+									) : watched !== null && shown !== null ? (
+										<BackgroundPane
+											key={`${shown.id}:${watched.id}`}
+											conversation={shown.id}
+											background={watched}
+											phone={!wide}
+											onClose={closeWatching}
+										/>
+									) : (
+										terminal &&
+										shown !== null && (
+											// One per conversation: its projections are of that one's shell.
+											<TerminalPane
+												key={shown.id}
+												terminals={terminals}
+												conversation={shown}
+												phone={!wide}
+											/>
+										)
+									)}
+									<SettingsDialog
+										settings={settings}
+										open={setting}
+										onOpenChange={setSetting}
+									/>
+									<AutoRestartDialog restart={autoRestart} />
+								</TooltipProvider>
+							</ShellRunning>
+						</ToggleTerminal>
+					</WatchBackground>
 				</ReviewChanges>
 			</Trunk>
 		</Dispatching>

@@ -894,6 +894,29 @@ export async function dev(
 			return Response.json(conversation.state);
 		};
 
+		/** What a background command prints, as it prints it, until it ends. */
+		const backgroundOutput = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const background = new URL(request.url).pathname.split("/")[5] ?? "";
+			return new Response(
+				conversation.backgroundOutput(decodeURIComponent(background)),
+				{
+					headers: {
+						"content-type": "text/plain; charset=utf-8",
+						"cache-control": "no-cache",
+						"x-content-type-options": "nosniff",
+					},
+				},
+			);
+		};
+
+		const stopBackground = async (request: Request): Promise<Response> => {
+			const conversation = await conversationAt(request);
+			const { background } = await body(request);
+			await conversation.stopBackground(String(background ?? ""));
+			return Response.json(conversation.state);
+		};
+
 		/** Forgets the checkpoint here, so the next click starts a new one. */
 		const dismissCheckpoint = async (): Promise<Response> => {
 			restarting = null;
@@ -1040,6 +1063,8 @@ export async function dev(
 			conversationImage,
 			answerConversation,
 			cancelConversation,
+			stopBackground,
+			backgroundOutput,
 			dismissCheckpoint,
 			unqueueConversation,
 			sendQueuedNow,
@@ -1596,6 +1621,12 @@ export async function dev(
 			"/api/conversations/:id/cancel": {
 				POST: talk(owned((project) => project.cancelConversation)),
 			},
+			"/api/conversations/:id/background/:background": {
+				GET: talk(owned((project) => project.backgroundOutput)),
+			},
+			"/api/conversations/:id/stop-background": {
+				POST: talk(owned((project) => project.stopBackground)),
+			},
 			"/api/conversations/:id/unqueue": {
 				POST: talk(owned((project) => project.unqueueConversation)),
 			},
@@ -1950,6 +1981,8 @@ interface Served extends AsyncResource {
 	conversationImage: Handler;
 	answerConversation: Handler;
 	cancelConversation: Handler;
+	stopBackground: Handler;
+	backgroundOutput: Handler;
 	unqueueConversation: Handler;
 	sendQueuedNow: Handler;
 	chooseSetting: Handler;

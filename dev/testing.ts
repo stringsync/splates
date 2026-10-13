@@ -82,6 +82,8 @@ export class Testing implements Resource {
 	} | null = null;
 	/** The sessions `/api/conversations/sessions` lists for any task. */
 	sessions: Session[] = [];
+	/** What each background command printed, by its id, as the server reads it. */
+	outputs: Record<string, string> = {};
 	/** The conversations' own stream, once the page opens it. */
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
@@ -152,6 +154,14 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/conversations/sessions") {
 				return Response.json(this.sessions);
+			}
+			const output = /^\/api\/conversations\/[^/]+\/background\/([^/]+)$/.exec(
+				route ?? "",
+			);
+			if (output !== null) {
+				return new Response(
+					this.outputs[decodeURIComponent(output[1] ?? "")] ?? "",
+				);
 			}
 			if (route === "/api/conversations") {
 				return this.talk === null
@@ -341,6 +351,7 @@ export function conversation(
 		usage: { context: null, input: 0, cached: 0, output: 0, cost: null },
 		lastTask: overrides.task ?? null,
 		lastBase: null,
+		background: [],
 		...overrides,
 	};
 }

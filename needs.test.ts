@@ -72,6 +72,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		seen: 0,
 		checkpoint: null,
 		usage: unused(),
+		background: [],
 		...overrides,
 	};
 }

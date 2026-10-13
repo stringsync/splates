@@ -68,6 +68,10 @@ export class FakeAgent {
 	steering: "injected" | "promptRequired" | null = null;
 	/** What was steered into a turn, in order. */
 	steered: string[] = [];
+	/** What arbor said it can take, as it started the last process. */
+	capabilities: acp.ClientCapabilities | null = null;
+	/** The background commands stopped, by id, in order. */
+	stoppedBackground: string[] = [];
 	/** Whether it says it takes images in a prompt. */
 	sees = false;
 	/** The tokens it says each turn used; none, the default, says nothing. */
@@ -122,21 +126,42 @@ export class FakeAgent {
 		this.exit(1);
 	}
 
+	/** Says `update` outside any turn, as Claude does of a background command. */
+	async say(update: acp.SessionUpdate): Promise<void> {
+		await this.client?.sessionUpdate({ sessionId: "s1", update });
+	}
+
+	private client: acp.AgentSideConnection | null = null;
+
 	private agent(client: acp.AgentSideConnection): acp.Agent {
+		this.client = client;
 		return {
-			initialize: async () => ({
-				protocolVersion: acp.PROTOCOL_VERSION,
-				agentCapabilities: {
-					...(this.sees ? { promptCapabilities: { image: true } } : {}),
-					...(this.held === null
+			initialize: async ({ clientCapabilities }) => {
+				this.capabilities = clientCapabilities ?? null;
+				return {
+					protocolVersion: acp.PROTOCOL_VERSION,
+					agentCapabilities: {
+						...(this.sees ? { promptCapabilities: { image: true } } : {}),
+						...(this.held === null
+							? {}
+							: { loadSession: true, sessionCapabilities: { list: {} } }),
+					},
+					...(this.steering === null
 						? {}
-						: { loadSession: true, sessionCapabilities: { list: {} } }),
-				},
-				...(this.steering === null
-					? {}
-					: { _meta: { steering: { supported: true } } }),
-			}),
+						: { _meta: { steering: { supported: true } } }),
+				};
+			},
 			extMethod: async (method, params) => {
+				// Stopped, it says so, as Claude's adapter does.
+				if (method === "_session/async_task/stop") {
+					const id = String(params.asyncTaskId);
+					this.stoppedBackground.push(id);
+					await client.sessionUpdate({
+						sessionId: String(params.sessionId),
+						update: backgroundEnded(id, "stopped"),
+					});
+					return { stopped: true };
+				}
 				if (method !== "_session/steering" || this.steering === null) {
 					throw acp.RequestError.methodNotFound(method);
 				}
@@ -221,4 +246,52 @@ export function say(text: string): acp.SessionUpdate {
 		sessionUpdate: "agent_message_chunk",
 		content: { type: "text", text },
 	};
+}
+
+/**
+ * Claude's adapter saying it left a command running in the background as
+ * `id`, started by tool call `tool`: a draft the SDK's types leave out.
+ */
+export function backgroundStarted(
+	id: string,
+	description: string,
+	tool: string,
+	taskType = "shell",
+	output?: string,
+): acp.SessionUpdate {
+	return {
+		sessionUpdate: "async_task_spawned",
+		asyncTaskId: id,
+		name: description,
+		taskType,
+		description,
+		showInTranscript: true,
+		canStop: true,
+		toolCallId: tool,
+		...(output === undefined ? {} : { outputFilePath: output }),
+	} as unknown as acp.SessionUpdate;
+}
+
+/** Claude's adapter saying background command `id` ended as `state`. */
+export function backgroundEnded(
+	id: string,
+	state: "completed" | "failed" | "stopped",
+): acp.SessionUpdate {
+	return {
+		sessionUpdate: "async_task_state_update",
+		asyncTaskId: id,
+		state,
+	} as unknown as acp.SessionUpdate;
+}
+
+/** Claude's adapter saying where background command `id` writes its output. */
+export function backgroundWrites(
+	id: string,
+	output: string,
+): acp.SessionUpdate {
+	return {
+		sessionUpdate: "async_task_progress",
+		asyncTaskId: id,
+		outputFilePath: output,
+	} as unknown as acp.SessionUpdate;
 }

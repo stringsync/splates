@@ -398,6 +398,16 @@ export async function cancelConversation(id: string): Promise<void> {
 	await send(`/api/conversations/${id}/cancel`, {});
 }
 
+/** Stops command `background` the agent in conversation `id` left running. */
+export async function stopBackground(
+	id: string,
+	background: string,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/stop-background`, "POST", {
+		background,
+	});
+}
+
 /**
  * Takes back the `index`th message queued in conversation `id`, answering
  * with its words and images.

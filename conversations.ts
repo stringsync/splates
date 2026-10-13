@@ -141,6 +141,24 @@ export interface Tool {
 	decision: Decision | null;
 }
 
+/**
+ * A command the agent left running in the background, as Claude's Bash with
+ * `run_in_background`, kept once it ends until the agent's process does.
+ */
+export interface Background {
+	/** The agent's id for it, which stopping it names. */
+	id: string;
+	/** What the agent said it is for. */
+	name: string;
+	/** The command it runs, from the tool call that started it; null when unknown. */
+	command: string | null;
+	state: BackgroundState;
+	/** The file the agent writes what it prints to; null until it says. */
+	output: string | null;
+}
+
+export type BackgroundState = "running" | "completed" | "failed" | "stopped";
+
 /** How the person answered an agent asking permission for a tool call. */
 export interface Decision {
 	/** The option they picked; null for an ask dismissed, as by stopping the turn. */
@@ -313,6 +331,8 @@ export interface ConversationState {
 	 */
 	checkpoint: Checkpoint | null;
 	usage: Usage;
+	/** The commands the agent left in the background, oldest first. */
+	background: Background[];
 }
 
 /** A line of a conversation's log: what was said, in the order it was. */
@@ -485,6 +505,45 @@ export function fold(
 		default:
 			return;
 	}
+}
+
+/** Folds an update on a background command into those the agent left. */
+function foldBackground(
+	state: ConversationState,
+	update: AsyncTaskUpdate,
+): void {
+	if (update.sessionUpdate === ASYNC_TASK_SPAWNED) {
+		if (update.taskType === "shell") {
+			state.background = [
+				...state.background.filter((each) => each.id !== update.asyncTaskId),
+				{
+					id: update.asyncTaskId,
+					name: update.description || update.name,
+					command:
+						update.toolCallId === undefined
+							? null
+							: (toolIn(state, update.toolCallId)?.command ?? null),
+					state: "running",
+					output: update.outputFilePath ?? null,
+				},
+			];
+		}
+		return;
+	}
+	state.background = state.background.map((each) =>
+		each.id !== update.asyncTaskId
+			? each
+			: {
+					...each,
+					output: update.outputFilePath ?? each.output,
+					state:
+						update.sessionUpdate === ASYNC_TASK_STATE &&
+						update.state !== "running" &&
+						update.state !== "paused"
+							? update.state
+							: each.state,
+				},
+	);
 }
 
 /** Adds the tokens a turn used to those of the turns before it. */
@@ -754,6 +813,9 @@ const SAVE_EVERY = Duration.ms(500);
 /** How long an agent has to answer a checkpoint before it is unanswered. */
 const CHECKPOINT_WAIT = Duration.mins(2);
 
+/** How often a background command's output is read again while it runs. */
+const OUTPUT_EVERY = Duration.ms(250);
+
 /**
  * Where a checkpoint stands: asked of the agent, done once its turn ends,
  * failed with the turn, or unanswered after `CHECKPOINT_WAIT`.
@@ -970,6 +1032,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			}
 		}
 		state.status = state.error === null ? "stopped" : "failed";
+		// Its commands ended with its process, though a crash said nothing.
+		state.background = [];
 		// Its process ended before the agent answered.
 		if (state.checkpoint === "asked") {
 			state.checkpoint = "unanswered";
@@ -1163,10 +1227,11 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 					);
 				}
 			});
-			const connection = new acp.ClientSideConnection(
-				() => this.client(),
-				acp.ndJsonStream(process.input, process.output),
-			);
+			const stream = acp.ndJsonStream(process.input, process.output);
+			const connection = new acp.ClientSideConnection(() => this.client(), {
+				writable: stream.writable,
+				readable: asyncTasks(stream.readable),
+			});
 			this.connection = connection;
 			const initialized = await connection.initialize({
 				protocolVersion: acp.PROTOCOL_VERSION,
@@ -1175,6 +1240,12 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				clientCapabilities: {
 					elicitation: { form: {} },
 					session: { configOptions: { boolean: {} } },
+					// Claude says when a command it left in the background
+					// starts and ends only to a client that asks, and stops one
+					// on `ASYNC_TASK_STOP`.
+					_meta: {
+						jetbrains: { air: { version: 1, capabilities: ["asyncTasks"] } },
+					},
 				},
 			});
 			this.steers = steers(initialized);
@@ -1358,6 +1429,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				return answer.type === "question"
 					? { action: "accept", content: answer.values }
 					: { action: "decline" };
+			},
+			// Left out of the log: its commands end with its process, so one
+			// read back has none running.
+			extNotification: async (method, params) => {
+				if (method === ASYNC_TASK_UPDATE && !this.loading) {
+					foldBackground(this.state, params.update as AsyncTaskUpdate);
+					this.changed();
+				}
 			},
 		};
 	}
@@ -1849,6 +1928,76 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		await this.halt();
 	}
 
+	/** Stops background command `id`, leaving the agent's turn as it is. */
+	async stopBackground(id: string): Promise<void> {
+		if (this.backgroundCommand(id).state !== "running") {
+			return;
+		}
+		if (this.connection === null || this.session === null) {
+			return;
+		}
+		// The agent says it ended as it stops it, which takes it off the list.
+		await this.connection.extMethod(ASYNC_TASK_STOP, {
+			sessionId: this.session,
+			asyncTaskId: id,
+		});
+	}
+
+	/**
+	 * What background command `id` has printed, then more as it prints it,
+	 * ending once the command has and all of it is read.
+	 */
+	backgroundOutput(id: string): ReadableStream<Uint8Array> {
+		this.backgroundCommand(id);
+		let read = 0;
+		let waiting: Resource | null = null;
+		let cancelled = false;
+		const next = async (
+			stream: ReadableStreamDefaultController<Uint8Array>,
+		): Promise<void> => {
+			if (cancelled) {
+				return;
+			}
+			const command = this.state.background.find((each) => each.id === id);
+			const path = command?.output ?? null;
+			const size =
+				path !== null && (await this.fs.exists(path))
+					? (await this.fs.stat(path)).size
+					: 0;
+			if (path !== null && size > read) {
+				const bytes = await this.fs.readBytes(path);
+				stream.enqueue(bytes.slice(read));
+				read = bytes.length;
+			}
+			// Read once more after it ends, for what it printed last.
+			if (command?.state !== "running" && size <= read) {
+				stream.close();
+				return;
+			}
+			waiting = this.timer.setTimeout(() => {
+				void next(stream).catch((error: unknown) => stream.error(error));
+			}, OUTPUT_EVERY);
+		};
+		return new ReadableStream<Uint8Array>({
+			start: (stream) => next(stream),
+			cancel: () => {
+				cancelled = true;
+				waiting?.dispose();
+			},
+		});
+	}
+
+	/** Background command `id`, refusing one the agent never left. */
+	private backgroundCommand(id: string): Background {
+		const command = this.state.background.find((each) => each.id === id);
+		if (command === undefined) {
+			fail("usage", `conversation ${this.id} has no background command ${id}`, {
+				conversation: this.id,
+			});
+		}
+		return command;
+	}
+
 	/** Stops the agent's turn, holding what is queued for the next prompt. */
 	private async halt(): Promise<void> {
 		this.held = true;
@@ -2028,6 +2177,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			status: error === null ? "stopped" : "failed",
 			error,
 			ask: null,
+			background: [],
 		});
 	}
 
@@ -2092,6 +2242,7 @@ function blank(
 		seen: 0,
 		checkpoint: null,
 		usage: unused(),
+		background: [],
 	};
 }
 
@@ -2119,6 +2270,75 @@ function textOf(message: Message): string {
 
 /** The ACP extension that says a prompt into the turn the agent is running. */
 const STEER = "_session/steering";
+
+/**
+ * The updates and request, an ACP draft Claude's adapter speaks ahead of the
+ * SDK, that say when a background command starts and ends, and stop one.
+ */
+const ASYNC_TASK_SPAWNED = "async_task_spawned";
+const ASYNC_TASK_STATE = "async_task_state_update";
+const ASYNC_TASK_PROGRESS = "async_task_progress";
+const ASYNC_TASK_STOP = "_session/async_task/stop";
+
+/**
+ * Where `asyncTasks` moves those updates: the SDK refuses a session update it
+ * does not know, so they reach the client as a notification of their own.
+ */
+const ASYNC_TASK_UPDATE = "_arbor/async_task";
+
+/**
+ * The messages from an agent, each update on a background command moved to
+ * `ASYNC_TASK_UPDATE`, ahead of the SDK's checks.
+ */
+function asyncTasks(
+	messages: ReadableStream<acp.AnyMessage>,
+): ReadableStream<acp.AnyMessage> {
+	return messages.pipeThrough(
+		new TransformStream<acp.AnyMessage, acp.AnyMessage>({
+			transform(message, controller) {
+				const kind =
+					"method" in message && message.method === "session/update"
+						? (message.params as { update?: { sessionUpdate?: unknown } })
+								?.update?.sessionUpdate
+						: undefined;
+				controller.enqueue(
+					kind === ASYNC_TASK_SPAWNED ||
+						kind === ASYNC_TASK_STATE ||
+						kind === ASYNC_TASK_PROGRESS
+						? { ...message, method: ASYNC_TASK_UPDATE }
+						: message,
+				);
+			},
+		}),
+	);
+}
+
+interface AsyncTaskSpawned {
+	sessionUpdate: typeof ASYNC_TASK_SPAWNED;
+	asyncTaskId: string;
+	name: string;
+	/** `shell` for a command, else a workflow or the like. */
+	taskType: string;
+	description: string;
+	toolCallId?: string;
+	outputFilePath?: string;
+}
+
+interface AsyncTaskState {
+	sessionUpdate: typeof ASYNC_TASK_STATE;
+	asyncTaskId: string;
+	state: "running" | "paused" | "completed" | "failed" | "stopped";
+	outputFilePath?: string;
+}
+
+/** What the agent says as a command goes on: here, only where its output is. */
+interface AsyncTaskProgress {
+	sessionUpdate: typeof ASYNC_TASK_PROGRESS;
+	asyncTaskId: string;
+	outputFilePath?: string;
+}
+
+type AsyncTaskUpdate = AsyncTaskSpawned | AsyncTaskState | AsyncTaskProgress;
 
 /** Whether an agent says, as it starts, that it takes `STEER`. */
 function steers(initialized: acp.InitializeResponse): boolean {

@@ -49,6 +49,7 @@
 @source "./references.tsx";
 @source "./task-view.tsx";
 @source "./back.tsx";
+@source "./background.tsx";
 @source "./terminal.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";
