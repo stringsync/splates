@@ -552,39 +552,3 @@ export async function forgetProject(slug: string): Promise<void> {
 		}
 	});
 }
-
-/** A live conversation, whose agent a restart of `arbor dev` would stop. */
-export interface Interrupted {
-	/** The project it runs in, by the slug `?project=` names it with. */
-	project: string;
-	id: string;
-	name: string;
-	status: string;
-	/** Where its checkpoint stands; null when none was asked for. */
-	checkpoint: Checkpoint | null;
-}
-
-/** What a restart would bring, and what it would stop right now. */
-export interface ReleaseState {
-	running: string;
-	newest: string | null;
-	behind: Behind | null;
-	interrupted: Interrupted[];
-}
-
-/** Asked as the hint opens, so its list is the one a restart would stop then. */
-export async function showRelease(): Promise<ReleaseState> {
-	const response = await fetch("/api/release");
-	if (!response.ok) {
-		throw new ApiError("error", `/api/release: ${response.status}`);
-	}
-	return (await response.json()) as ReleaseState;
-}
-
-/**
- * Asks every live conversation, in every project, to bring its `ARBOR.md` up
- * to date and stop, for `showRelease` to say how each is getting on.
- */
-export async function checkpointAll(): Promise<void> {
-	await send("/api/release/checkpoint", {});
-}

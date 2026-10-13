@@ -659,10 +659,7 @@ export function ConversationActions({
 				held={held}
 				onNext={() => next.current()}
 			/>
-			<CheckpointButton
-				conversations={conversations.filter((each) => !each.archived)}
-				held={held}
-			/>
+			<CheckpointButton held={held} />
 			<FullscreenButton held={held} />
 		</div>
 	);

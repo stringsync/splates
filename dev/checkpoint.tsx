@@ -1,5 +1,20 @@
-import { CheckIcon, FlagIcon, Loader2Icon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import {
+	CheckIcon,
+	CircleAlertIcon,
+	FlagIcon,
+	Loader2Icon,
+} from "lucide-react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
@@ -12,7 +27,7 @@ import {
 } from "#dev/components/ui/dialog.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { After, ConversationState } from "../conversations";
+import type { After, Checkpoint, ConversationState } from "../conversations";
 import {
 	checkpointProjects,
 	dismissCheckpoint,
@@ -25,7 +40,6 @@ import {
 } from "./api";
 import { projectUrl } from "./projects";
 import { Refusal, useRefusal } from "./refusal";
-import { CheckpointState } from "./release";
 
 /** What a checkpoint does once its agents have answered. */
 const AFTERWARDS: {
@@ -126,27 +140,50 @@ function offered(projects: ProjectChoice[]): ProjectChoice[] {
 	return projects.filter((each) => !each.gone && each.conversations.length > 0);
 }
 
+/** How a checkpoint stands, and what opens its dialog. */
+interface Checkpointing {
+	slide: Slide;
+	title: string;
+	/** Why the projects could not be listed, for a moment. */
+	refusal: string | null;
+	/** Opens the dialog, with `after` picked when it offers projects. */
+	open: (after?: After) => void;
+}
+
+const Checkpointing = createContext<Checkpointing | null>(null);
+
+/** The checkpoint `CheckpointProvider` holds, for a control that opens its dialog. */
+export function useCheckpoint(): Checkpointing {
+	const found = useContext(Checkpointing);
+	if (found === null) {
+		throw new Error("useCheckpoint outside a CheckpointProvider");
+	}
+	return found;
+}
+
 /**
- * The sidebar's Checkpoint, opening, as ⌥⌘C does, a dialog to checkpoint any of the
- * projects with agents running, which says how one under way gets on, then
- * slides on to what to do once it is done, or to `arbor dev` restarting
- * when that was asked for, and from there to what to do after the restart,
- * or to each agent carrying on. The button says how it stands, so the
- * dialog can be closed meanwhile and opened again from it, and still says it
- * is done for a minute after its agents carry on. Asks the server for every
- * project again as `conversations`, this project's, change, and each second
- * while a checkpoint or restart is under way or the dialog is open.
+ * The page's one checkpoint, and the dialog, opened by ⌥⌘C or `open`, to
+ * checkpoint any of the projects with agents running, which says how one
+ * under way gets on, then slides on to what to do once it is done, or to
+ * `arbor dev` restarting when that was asked for, and from there to what to
+ * do after the restart, or to each agent carrying on. Says how it stands to
+ * `children`, so the dialog can be closed meanwhile and opened again from
+ * them, and still says it is done for a minute after its agents carry on.
+ * Asks the server for every project again as `conversations`, this
+ * project's, change, and each second while a checkpoint or restart is under
+ * way or the dialog is open.
  */
-export function CheckpointButton({
+export function CheckpointProvider({
 	conversations,
-	held = false,
+	children,
 }: {
 	conversations: ConversationState[];
-	/** Whether ⌥⌘ is held, to show the key that opens it with ⌥⌘. */
-	held?: boolean;
+	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
 	const [open, setOpen] = useState(false);
+	// What follows the checkpoint, as the dialog was opened to pick.
+	const [after, setAfter] = useState<After>("stop");
 	// ⌥⌘C (Ctrl+Alt+C off a Mac), by the key's place, since Alt types another
 	// letter on a Mac.
 	useEffect(() => {
@@ -157,6 +194,7 @@ export function CheckpointButton({
 				(event.metaKey || event.ctrlKey)
 			) {
 				event.preventDefault();
+				setAfter("stop");
 				setOpen(true);
 			}
 		};
@@ -293,32 +331,22 @@ export function CheckpointButton({
 					(slide === "done" && listed?.restarted === "waiting")
 				? (listed?.running ?? null)
 				: null;
+	const opened = useCallback((after: After = "stop") => {
+		setAfter(after);
+		setOpen(true);
+	}, []);
+	const title = titleOf(slide, restarted);
+	const value = useMemo(
+		() => ({ slide, title, refusal, open: opened }),
+		[slide, title, refusal, opened],
+	);
 	return (
-		<>
-			<button
-				type="button"
-				data-row
-				onClick={() => setOpen(true)}
-				className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
-			>
-				{slide === "going" || slide === "restarting" || slide === "resuming" ? (
-					<Loader2Icon className="size-3.5 animate-spin" />
-				) : slide === "pick" ? (
-					<FlagIcon className="size-3.5" />
-				) : (
-					<CheckIcon className="size-3.5 text-success" />
-				)}
-				<span className="flex-1 truncate">{titleOf(slide, restarted)}</span>
-				{held && (
-					// Its own height, taller than the line, would push the rows below.
-					<Kbd aria-hidden className="-my-0.5">
-						C
-					</Kbd>
-				)}
-			</button>
-			<Refusal refusal={refusal} className="px-3 pb-1.5" />
+		<Checkpointing.Provider value={value}>
+			{children}
 			<CheckpointDialog
 				open={open}
+				after={after}
+				onAfter={setAfter}
 				onClose={() => {
 					setOpen(false);
 					// Seen, so the button is free for the next one.
@@ -346,8 +374,48 @@ export function CheckpointButton({
 				restarted={restarted}
 				newest={listed?.newest ?? null}
 				current={listed?.projects ?? []}
+				restartable={listed?.restartable ?? false}
 				onChange={load}
 			/>
+		</Checkpointing.Provider>
+	);
+}
+
+/**
+ * The sidebar's Checkpoint, opening the dialog as ⌥⌘C does, and saying how
+ * the checkpoint stands.
+ */
+export function CheckpointButton({
+	held = false,
+}: {
+	/** Whether ⌥⌘ is held, to show the key that opens it with ⌥⌘. */
+	held?: boolean;
+}): JSX.Element {
+	const { slide, title, refusal, open } = useCheckpoint();
+	return (
+		<>
+			<button
+				type="button"
+				data-row
+				onClick={() => open()}
+				className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
+			>
+				{slide === "going" || slide === "restarting" || slide === "resuming" ? (
+					<Loader2Icon className="size-3.5 animate-spin" />
+				) : slide === "pick" ? (
+					<FlagIcon className="size-3.5" />
+				) : (
+					<CheckIcon className="size-3.5 text-success" />
+				)}
+				<span className="flex-1 truncate">{title}</span>
+				{held && (
+					// Its own height, taller than the line, would push the rows below.
+					<Kbd aria-hidden className="-my-0.5">
+						C
+					</Kbd>
+				)}
+			</button>
+			<Refusal refusal={refusal} className="px-3 pb-1.5" />
 		</>
 	);
 }
@@ -363,6 +431,8 @@ export function CheckpointButton({
  */
 function CheckpointDialog({
 	open,
+	after,
+	onAfter,
 	onClose,
 	onForget,
 	onRestart,
@@ -372,9 +442,13 @@ function CheckpointDialog({
 	restarted,
 	newest,
 	current,
+	restartable,
 	onChange,
 }: {
 	open: boolean;
+	/** What follows the checkpoint, as picked. */
+	after: After;
+	onAfter: (after: After) => void;
 	onClose: () => void;
 	/** Forgets a done checkpoint, whose agents stay stopped. */
 	onForget: () => void;
@@ -390,6 +464,8 @@ function CheckpointDialog({
 	newest: string | null;
 	/** The projects as the server lists them now, after a restart too. */
 	current: ProjectChoice[];
+	/** Whether `arbor dev` can restart itself. */
+	restartable: boolean;
 	onChange: () => Promise<void>;
 }): JSX.Element {
 	const all = standing(projects.flatMap((each) => each.conversations));
@@ -450,9 +526,20 @@ function CheckpointDialog({
 					{slide === "pick" ? (
 						<PickSlide
 							projects={projects}
+							after={after}
+							onAfter={onAfter}
+							busy={busy}
+							newest={newest}
+							restartable={restartable}
 							onClose={onClose}
-							onAsk={(go, after) =>
+							onAsk={(go) =>
 								act(() => checkpointProjects(go, after), "Not checkpointed")
+							}
+							onRestart={() =>
+								act(
+									() => restartFromCheckpoint().then(onRestart),
+									"Not restarted",
+								)
 							}
 						/>
 					) : (
@@ -525,18 +612,33 @@ function plural(count: number): string {
 	return `${count} ${count === 1 ? "agent" : "agents"}`;
 }
 
-/** The projects to pick, with what follows, and the button that asks. */
+/**
+ * The projects to pick, with what follows, and the button that asks; with no
+ * agent running, a restart straight away when `arbor dev` can make one.
+ */
 function PickSlide({
 	projects,
+	after,
+	onAfter,
+	busy,
+	newest,
+	restartable,
 	onClose,
 	onAsk,
+	onRestart,
 }: {
 	projects: ProjectChoice[];
+	after: After;
+	onAfter: (after: After) => void;
+	busy: boolean;
+	/** A newer arbor, which a restart lands on. */
+	newest: string | null;
+	restartable: boolean;
 	onClose: () => void;
-	onAsk: (projects: string[], after: After) => Promise<void>;
+	onAsk: (projects: string[]) => Promise<void>;
+	onRestart: () => Promise<void>;
 }): JSX.Element {
 	const [picked, setPicked] = useState<Set<string> | null>(null);
-	const [after, setAfter] = useState<After>("stop");
 	// This project to start with, once the dialog knows which there are.
 	const chosen =
 		picked ??
@@ -598,7 +700,7 @@ function PickSlide({
 									name="after"
 									value={each.after}
 									checked={after === each.after}
-									onChange={() => setAfter(each.after)}
+									onChange={() => onAfter(each.after)}
 									className="mt-1 accent-primary"
 								/>
 								<span className="flex flex-col gap-0.5">
@@ -616,13 +718,19 @@ function PickSlide({
 				<Button variant="outline" onClick={onClose}>
 					Close
 				</Button>
-				{projects.length > 0 && (
+				{projects.length > 0 ? (
 					<Button
-						disabled={go.length === 0}
-						onClick={() => void onAsk(go, after)}
+						disabled={go.length === 0 || busy}
+						onClick={() => void onAsk(go)}
 					>
 						Proceed
 					</Button>
+				) : (
+					restartable && (
+						<Button disabled={busy} onClick={() => void onRestart()}>
+							{newest === null ? "Restart" : `Restart on ${newest}`}
+						</Button>
+					)
 				)}
 			</DialogFooter>
 		</>
@@ -800,6 +908,47 @@ function ProjectName({ project }: { project: ProjectChoice }): JSX.Element {
 				<span className="shrink-0 text-muted-foreground text-xs">
 					this project
 				</span>
+			)}
+		</span>
+	);
+}
+
+const SAYS: Record<Checkpoint, string> = {
+	asked: "Checkpointing",
+	done: "Checkpointed",
+	failed: "Failed",
+	unanswered: "No response",
+};
+
+/**
+ * How far one conversation's checkpoint has got, as an icon, the word in its
+ * name and tooltip.
+ */
+function CheckpointState({
+	checkpoint,
+}: {
+	checkpoint: Checkpoint;
+}): JSX.Element {
+	return (
+		<span
+			role="img"
+			aria-label={SAYS[checkpoint]}
+			title={SAYS[checkpoint]}
+			className={cn(
+				"flex shrink-0 self-center",
+				checkpoint === "done"
+					? "text-success"
+					: checkpoint === "asked"
+						? "text-muted-foreground"
+						: "text-destructive",
+			)}
+		>
+			{checkpoint === "asked" ? (
+				<Loader2Icon className="size-3.5 animate-spin" />
+			) : checkpoint === "done" ? (
+				<CheckIcon className="size-3.5" />
+			) : (
+				<CircleAlertIcon className="size-3.5" />
 			)}
 		</span>
 	);

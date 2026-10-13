@@ -894,6 +894,28 @@ describe("App's conversations", () => {
 		);
 		expect(within(dialog).getByText("No agent is running.")).toBeTruthy();
 		expect(within(dialog).queryByRole("checkbox")).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Restart" })),
+		);
+		expect(posted("/api/checkpoint/restart")).toHaveLength(1);
+	});
+
+	it("offers no restart with no agent running where arbor dev cannot make one", async () => {
+		testing.projects = [project("webappwiz", [], true)];
+		testing.restartable = false;
+		const view = await conversations([], null);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Checkpoint" })),
+		);
+
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint" }),
+		);
+		expect(
+			within(dialog).queryByRole("button", { name: "Restart" }),
+		).toBeNull();
 	});
 
 	it("says how each agent of a checkpoint under way gets on, closing and opening again from the button", async () => {

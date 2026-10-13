@@ -961,14 +961,6 @@ describe("dev", () => {
 						).json()) as Snapshot
 					).release;
 				expect(await read()).toBeNull();
-				expect(
-					await (await fetch(`http://localhost:${port}/api/release`)).json(),
-				).toEqual({
-					running: "0.0.43",
-					newest: null,
-					behind: null,
-					interrupted: [],
-				});
 
 				const events = await fetch(`http://localhost:${port}/events`);
 				const reader = events.body?.getReader();
@@ -1070,76 +1062,6 @@ describe("dev", () => {
 					message: "conversations are off",
 				});
 			});
-		});
-
-		it("lists the live ones as what a restart would stop", async () => {
-			let finish = () => {};
-			agent.turn = () =>
-				new Promise((resolve) => {
-					finish = () => resolve("end_turn");
-				});
-			const server = await dev(deps, {
-				ports: OpenPortProvider.any(),
-				conversations: () => conversations,
-			});
-			try {
-				const { port } = server;
-				const started = await json(port, "/api/conversations", "POST", {
-					agent: "fake",
-				});
-				const { id } = (await started.json()) as { id: string };
-				const release = async () =>
-					(
-						(await (
-							await fetch(`http://localhost:${port}/api/release`)
-						).json()) as { interrupted: unknown[] }
-					).interrupted;
-				for (let i = 0; i < 100; i++) {
-					const response = await json(
-						port,
-						`/api/conversations/${id}/prompt`,
-						"POST",
-						{ text: "hi" },
-					);
-					if (response.status === 200) {
-						break;
-					}
-					await Bun.sleep(5);
-				}
-
-				expect(await release()).toEqual([
-					{
-						project: "repo",
-						id,
-						name: "fake",
-						status: "running",
-						checkpoint: null,
-					},
-				]);
-				finish();
-				const idle = {
-					project: "repo",
-					id,
-					name: "fake",
-					status: "idle",
-					checkpoint: null,
-				};
-				for (
-					let i = 0;
-					i < 100 && JSON.stringify(await release()) !== JSON.stringify([idle]);
-					i++
-				) {
-					await Bun.sleep(5);
-				}
-				expect(await release()).toEqual([idle]);
-				await json(port, `/api/conversations/${id}/archived`, "PUT", {
-					archived: true,
-				});
-				expect(await release()).toEqual([]);
-			} finally {
-				finish();
-				await server.disposeAsync();
-			}
 		});
 
 		it("assigns a todo and a lane an agent off the roster, and starts a conversation on a model", async () => {
@@ -1325,58 +1247,6 @@ describe("dev", () => {
 					],
 				});
 				expect(agent.launched.at(-1)?.cwd).toBe(tree);
-			} finally {
-				await server.disposeAsync();
-			}
-		});
-
-		it("checkpoints every live one, saying how each is getting on", async () => {
-			const said: string[] = [];
-			agent.turn = async (_, __, text) => {
-				said.push(text);
-				return "end_turn";
-			};
-			const server = await dev(deps, {
-				ports: OpenPortProvider.any(),
-				conversations: () => conversations,
-			});
-			try {
-				const { port } = server;
-				const started = await json(port, "/api/conversations", "POST", {
-					agent: "fake",
-				});
-				const { id } = (await started.json()) as { id: string };
-				const conversation = await conversations.find(id);
-				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-					await Bun.sleep(5);
-				}
-
-				const response = await json(port, "/api/release/checkpoint", "POST");
-
-				expect(response.status).toBe(200);
-				for (
-					let i = 0;
-					i < 100 && conversation.state.checkpoint !== "done";
-					i++
-				) {
-					await Bun.sleep(5);
-				}
-				expect(said).toEqual(["[ARBOR CHECKPOINT]"]);
-				expect(
-					(
-						(await (
-							await fetch(`http://localhost:${port}/api/release`)
-						).json()) as { interrupted: unknown[] }
-					).interrupted,
-				).toEqual([
-					{
-						project: "repo",
-						id,
-						name: "fake",
-						status: "idle",
-						checkpoint: "done",
-					},
-				]);
 			} finally {
 				await server.disposeAsync();
 			}

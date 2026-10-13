@@ -18,7 +18,6 @@ import type { Attachment } from "./attachments";
 import type {
 	After,
 	Answer,
-	Checkpoint,
 	Conversation,
 	ConversationState,
 	Conversations,
@@ -1296,52 +1295,6 @@ export async function dev(
 		return opened === null ? 0 : waitingOn(await tasksOf(opened), []);
 	};
 
-	// Read when the page opens its hint, so the conversations it lists are the
-	// ones a restart would stop right then.
-	const showRelease = async (): Promise<Response> => {
-		const interrupted: {
-			project: string;
-			id: string;
-			name: string;
-			status: string;
-			checkpoint: Checkpoint | null;
-		}[] = [];
-		const slugs = new Map(
-			(await projects.list()).map((each) => [each.root, each.slug]),
-		);
-		for (const settled of await Promise.allSettled(served.values())) {
-			const project = settled.status === "fulfilled" ? settled.value : null;
-			for (const conversation of (await project?.conversations?.list()) ?? []) {
-				const { id, name, lastTask, title, agent, status } = conversation.state;
-				// An idle one loses its agent too, even with no turn to cut off.
-				if (status !== "stopped" && status !== "failed") {
-					interrupted.push({
-						project: slugs.get(project?.root ?? "") ?? "",
-						id,
-						name: name ?? lastTask ?? title ?? agent,
-						status,
-						checkpoint: conversation.state.checkpoint,
-					});
-				}
-			}
-		}
-		return Response.json({
-			running,
-			newest: release?.newest ?? null,
-			behind,
-			interrupted,
-		});
-	};
-
-	/** Asks every live conversation in every project for a checkpoint. */
-	const checkpointAll = async (): Promise<void> => {
-		for (const settled of await Promise.allSettled(served.values())) {
-			if (settled.status === "fulfilled") {
-				await settled.value.checkpoint();
-			}
-		}
-	};
-
 	/**
 	 * Restarts `arbor dev` once each checkpoint `asked` has been answered,
 	 * unless dismissed meanwhile. Without `reopen`, the next run starts as if
@@ -1506,11 +1459,6 @@ export async function dev(
 		return Response.json({});
 	};
 
-	const checkpointRelease = async (): Promise<Response> => {
-		await checkpointAll();
-		return showRelease();
-	};
-
 	const forgetProject = async (request: Request): Promise<Response> => {
 		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
 		const found = (await projects.list()).find((each) => each.slug === slug);
@@ -1555,8 +1503,6 @@ export async function dev(
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/projects": guarded(listProjects),
-			"/api/release": guarded(showRelease),
-			"/api/release/checkpoint": { POST: guarded(checkpointRelease) },
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },

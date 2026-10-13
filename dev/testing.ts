@@ -16,7 +16,7 @@ import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
-import type { Interrupted, ProjectChoice } from "./api";
+import type { ProjectChoice } from "./api";
 import type { AgentChoice } from "./conversation-feed";
 import { FakeShell } from "./fake-shell";
 import { Settings } from "./settings";
@@ -96,8 +96,6 @@ export class Testing implements Resource {
 	run = "run-1";
 	/** Whether `/api/projects` says `arbor dev` can restart itself. */
 	restartable = true;
-	/** The conversations `/api/release` says a restart would stop. */
-	interrupted: Interrupted[] = [];
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
@@ -130,14 +128,6 @@ export class Testing implements Resource {
 					newest: this.served.release?.newest ?? null,
 					behind: this.served.behind,
 					restartable: this.restartable,
-				});
-			}
-			if (route === "/api/release") {
-				return Response.json({
-					running: this.served.release?.running ?? "0.0.1",
-					newest: this.served.release?.newest ?? null,
-					behind: this.served.behind,
-					interrupted: this.interrupted,
 				});
 			}
 			if (path.startsWith("/api/paths")) {
