@@ -52,6 +52,13 @@ export class ConversationFeed
 
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
+	/**
+	 * How many changes `put` and `drop` have made, and the count at each
+	 * conversation's last, so a listing knows what moved while it was on its
+	 * way.
+	 */
+	private changes = 0;
+	private readonly changedAt = new Map<string, number>();
 	private stream: EventSource | null = null;
 
 	start(): void {
@@ -74,6 +81,7 @@ export class ConversationFeed
 
 	/** Puts `state` in place of what the page had of it, or first when new. */
 	put(state: ConversationState): void {
+		this.changedAt.set(state.id, this.changes++);
 		const at = this.recorded.findIndex((each) => each.id === state.id);
 		this.show(
 			at === -1
@@ -84,6 +92,7 @@ export class ConversationFeed
 
 	/** Drops conversation `id`, deleted as an older archived one. */
 	drop(id: string): void {
+		this.changedAt.set(id, this.changes++);
 		this.show(this.recorded.filter((each) => each.id !== id));
 	}
 
@@ -203,6 +212,7 @@ export class ConversationFeed
 
 	/** Reads every conversation afresh; false when they are off. */
 	private async list(): Promise<boolean> {
+		const since = this.changes;
 		const response = await fetch(scoped("/api/conversations")).catch(
 			() => null,
 		);
@@ -215,7 +225,18 @@ export class ConversationFeed
 			conversations: ConversationState[];
 		};
 		Object.assign(this, { available: true, agents });
-		this.show(conversations);
+		// What streamed while the listing was on its way is newer than it, as
+		// when the stream reopens and a message is said before this answers.
+		const moved = (id: string) => (this.changedAt.get(id) ?? -1) >= since;
+		const listed = new Set(conversations.map((each) => each.id));
+		this.show([
+			...this.recorded.filter((each) => moved(each.id) && !listed.has(each.id)),
+			...conversations.flatMap((each) =>
+				moved(each.id)
+					? this.recorded.filter((kept) => kept.id === each.id)
+					: [each],
+			),
+		]);
 		return true;
 	}
 }
