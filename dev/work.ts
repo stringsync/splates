@@ -1,3 +1,4 @@
+import { Duration } from "webappwiz/time";
 import type { Decision, Message, Part, Step, Tool } from "../conversations";
 import type { Flag } from "../watch";
 
@@ -35,16 +36,21 @@ export function stretchesOf(
 	/** When the turn began: the person's prompt it answers. */
 	began: string | null,
 	going: boolean,
+	/** The clock, as epoch ms, which words said while it goes are held by. */
+	now = Number.POSITIVE_INFINITY,
 ): Stretch[] {
-	const parts = message.parts.filter(
-		(part) =>
-			part.type !== "image" &&
-			(part.type !== "text" || part.text.trim() !== ""),
-	);
-	// While the turn goes on, words with work after them were on the way;
-	// once over, the last words are its reply, even with work after them.
+	const parts = spoken(message);
+	// While the turn goes on, words with work after them were on the way, and
+	// so are the latest until a moment has passed with nothing after them:
+	// an agent says what it will do next as it does it, and showing those
+	// words as its reply would only take them back as the next call starts.
+	// Once over, the last words are its reply, even with work after them.
 	const spoke = parts.findLastIndex((part) => part.type === "text");
-	const last = going && spoke !== parts.length - 1 ? -1 : spoke;
+	const due = going ? replyDue(message) : null;
+	const last =
+		going && (spoke !== parts.length - 1 || (due !== null && now < due))
+			? -1
+			: spoke;
 	const said = parts[last];
 	const before = last === -1 ? parts : parts.slice(0, last);
 	const after = last === -1 ? [] : parts.slice(last + 1);
@@ -84,6 +90,30 @@ export function stretchesOf(
 			},
 		};
 	});
+}
+
+/** How long the latest words go without anything after them to show as the reply. */
+export const SAID = Duration.secs(1);
+
+/** `message`'s parts as its turn shows them: no images, no empty words. */
+function spoken(message: Message): Part[] {
+	return message.parts.filter(
+		(part) =>
+			part.type !== "image" &&
+			(part.type !== "text" || part.text.trim() !== ""),
+	);
+}
+
+/**
+ * When the words that end `message`, a turn still going, are to show as its
+ * reply, as epoch ms; null when nothing ends it that waits, as words a log
+ * too old to say when they began.
+ */
+export function replyDue(message: Message): number | null {
+	const last = spoken(message).at(-1);
+	return last?.type === "text" && last.at != null
+		? Date.parse(last.at) + SAID.ms
+		: null;
 }
 
 /** When the first of `parts` to say so began. */

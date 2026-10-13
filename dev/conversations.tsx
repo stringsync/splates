@@ -45,6 +45,7 @@ import {
 	useState,
 } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { Annotation } from "#dev/annotation.ts";
 import { PermissionGrant } from "#dev/components/assistant-ui/elements/permission-grant.tsx";
 import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flow.tsx";
@@ -169,7 +170,7 @@ import { TodoDialog } from "./todos";
 import { unanswered } from "./unanswered";
 import { ContextMeter } from "./usage";
 import { WaitingLine } from "./waiting-line";
-import { stretchesOf } from "./work";
+import { replyDue, stretchesOf } from "./work";
 import { StoppedUI, TreesContext, WorkUI } from "./work-row";
 
 /** What `#conversations/archived` opens: every archived conversation. */
@@ -2370,7 +2371,24 @@ function Thread({
 	// thread: the agent has yet to hear it, and the thread would take it for
 	// a turn the agent is answering.
 	const queued = conversation.messages.filter((each) => each.queued);
+	// The latest words wait a moment to show as the reply: shown again once due.
+	const latest = conversation.messages.findLast((each) => !each.queued);
+	const due = writing && latest?.role === "agent" ? replyDue(latest) : null;
+	const [shown, show] = useState(0);
+	useEffect(() => {
+		const wait = due === null ? 0 : due - Date.now();
+		if (wait <= 0) {
+			return;
+		}
+		const timer = new SystemTimer().setTimeout(
+			() => show((times) => times + 1),
+			Duration.ms(wait),
+		);
+		return () => timer.dispose();
+	}, [due]);
 	const messages = useMemo(() => {
+		void shown;
+		const now = Date.now();
 		const said = conversation.messages.filter((each) => !each.queued);
 		const liked = said.map((message, index) =>
 			like(
@@ -2379,6 +2397,7 @@ function Thread({
 				conversation.id,
 				!writing || index < said.length - 1,
 				said[index - 1]?.at ?? message.at,
+				now,
 			),
 		);
 		// The reply's place while the agent has yet to say anything, under the
@@ -2390,7 +2409,7 @@ function Thread({
 					{ id: String(said.length), role: "assistant" as const, content: [] },
 				]
 			: liked;
-	}, [conversation.messages, conversation.id, writing, running]);
+	}, [conversation.messages, conversation.id, writing, running, shown]);
 	// Where the person left off, as it opens: the first message they have yet
 	// to see, read on from there, else the bottom. Opening marks it read, so
 	// this holds what it was before.
@@ -2932,6 +2951,8 @@ function like(
 	settled = true,
 	/** When the turn began: the person's prompt it answers. */
 	began: string | null = message.at,
+	/** The clock, as epoch ms, the latest words of a turn still going wait on. */
+	now = Number.POSITIVE_INFINITY,
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -2954,7 +2975,7 @@ function like(
 	// Its work and the words it said along the way as one row, then the last
 	// thing it said. Once the turn is over, that is its reply, read for
 	// cards, even with tool calls after it.
-	const all = stretchesOf(message, began, !settled);
+	const all = stretchesOf(message, began, !settled, now);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
 		id,

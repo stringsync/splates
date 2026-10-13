@@ -1631,7 +1631,9 @@ const UserMessage: FC = () => {
 			// the first unseen message.
 			data-message-id={id}
 			className={cn(
-				"fade-in slide-in-from-bottom-1 animate-in flex flex-col gap-y-2 px-2 duration-150",
+				// No entrance: the thread jumps to it as it comes, with nothing
+				// else in view, so a fade would show an empty thread for a frame.
+				"flex flex-col gap-y-2 px-2",
 				// Stuck atop the thread for as long as its turn is in view. Opaque,
 				// so the reply cannot show past its rounded corners, then fading
 				// the reply out over the 2rem below it, which the margin and the

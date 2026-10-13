@@ -1066,6 +1066,37 @@ describe("App's conversations", () => {
 			expect(details().open).toBe(false);
 		});
 
+		it("keeps the agent's latest words in the row while it works, until a moment passes with nothing after them", async () => {
+			const thread = await opened(
+				turn(
+					[
+						tool({ id: "x1", command: "bun test" }),
+						{
+							type: "text",
+							text: "Now the fix.",
+							at: new Date(Date.now() - 500).toISOString(),
+						},
+					],
+					{ status: "running" },
+				),
+			);
+
+			const timeline = await waitFor(() =>
+				within(thread).getByRole("list", { name: "timeline" }),
+			);
+			expect(timeline.textContent).toContain("Now the fix.");
+			expect(within(thread).getByText(/^Working /)).toBeTruthy();
+			await waitFor(
+				() =>
+					expect(
+						within(thread).getByRole("list", { name: "timeline" }).textContent,
+					).not.toContain("Now the fix."),
+				{ timeout: 2000 },
+			);
+			await waitFor(() => expect(thread.textContent).toContain("Now the fix."));
+			expect(within(thread).queryByText(/^Working /)).toBeNull();
+		});
+
 		it("folds what the agent said before its latest call into the row while it works", async () => {
 			const thread = await opened(
 				turn(

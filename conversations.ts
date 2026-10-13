@@ -89,7 +89,8 @@ const TOOL_CHARS = 20_000;
 
 /** One piece of what someone in a conversation said or did. */
 export type Part =
-	| { type: "text"; text: string }
+	/** `at` is when the agent began saying it, where the server knows. */
+	| { type: "text"; text: string; at?: string | null }
 	/** `at` is when the agent began it; null in a log too old to say. */
 	| { type: "thought"; text: string; at: string | null }
 	| ({ type: "image" } & Image)
@@ -422,7 +423,7 @@ export function fold(
 				if (last?.type === "text") {
 					last.text += update.content.text;
 				} else {
-					turn.parts.push({ type: "text", text: update.content.text });
+					turn.parts.push({ type: "text", text: update.content.text, at });
 				}
 			} else if (last?.type === "thought") {
 				last.text += update.content.text;

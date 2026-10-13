@@ -2202,6 +2202,27 @@ describe("fold", () => {
 		]);
 	});
 
+	it("keeps when the agent began saying something, not when it went on", () => {
+		const into = state();
+		for (const [text, second] of [
+			["Now ", 0],
+			["the fix.", 3],
+		] as const) {
+			fold(
+				into,
+				{
+					sessionUpdate: "agent_message_chunk",
+					content: { type: "text", text },
+				},
+				at(second),
+			);
+		}
+
+		expect(into.messages[0]?.parts).toEqual([
+			{ type: "text", text: "Now the fix.", at: at(0) },
+		]);
+	});
+
 	it("keeps the plan as last sent, and when a thought began", () => {
 		const into = state();
 		fold(
