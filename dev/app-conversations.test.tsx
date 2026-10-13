@@ -1929,6 +1929,68 @@ describe("App's conversations", () => {
 			await waitFor(() => expect(box.value).toBe("fix #playback "));
 		});
 
+		it("offers a system its name or alias calls without a #, writing it by name in place of the word on Tab", async () => {
+			testing.systems = [
+				{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
+			];
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			await typeIn(box, "the Player");
+			const found = await waitFor(() =>
+				view.getByRole("listbox", { name: "references" }),
+			);
+			expect(
+				within(found)
+					.getAllByRole("option")
+					.map((option) => option.textContent),
+			).toEqual(["playbackplayerTab"]);
+			await act(async () => fireEvent.keyDown(box, { key: "Tab" }));
+
+			await waitFor(() => expect(box.value).toBe("the #playback "));
+			await waitFor(() =>
+				expect(box.selectionStart).toBe("the #playback ".length),
+			);
+			// What a browser's selectionchange would bring.
+			await act(async () => fireEvent.select(box));
+			await waitFor(() =>
+				expect(view.queryByRole("listbox", { name: "references" })).toBeNull(),
+			);
+		});
+
+		it("offers no system for part of a word or a path, nor once dismissed, and sends on Enter", async () => {
+			testing.systems = [
+				{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
+			];
+			const view = await conversations([], null, board);
+			const box = view.getByRole("textbox", {
+				name: "Message input",
+			}) as HTMLTextAreaElement;
+
+			for (const text of ["the players", "replayer", "src/player"]) {
+				await typeIn(box, text);
+				expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
+			}
+
+			await typeIn(box, "fix playback");
+			await waitFor(() => view.getByRole("listbox", { name: "references" }));
+			await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
+			expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
+			expect(box.value).toBe("fix playback");
+
+			testing.reply = conversation({ id: "c9", status: "starting" });
+			await typeIn(box, "fix player");
+			await waitFor(() => view.getByRole("listbox", { name: "references" }));
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+			await waitFor(() =>
+				expect(posted("/api/conversations/c9/prompt")).toEqual([
+					{ method: "POST", body: { text: "fix player" } },
+				]),
+			);
+		});
+
 		it("offers the systems as a category of their own", async () => {
 			testing.systems = [{ name: "mixer", globs: ["src/mixer/**"] }];
 			const view = await conversations([], null, board);
