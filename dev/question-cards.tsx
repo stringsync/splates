@@ -1,10 +1,14 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import {
 	ArrowDownIcon,
+	ArrowUpDownIcon,
 	ArrowUpIcon,
 	CheckIcon,
+	CircleDotIcon,
 	CopyIcon,
 	GitMergeIcon,
+	ListChecksIcon,
+	type LucideIcon,
 	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
@@ -542,9 +546,11 @@ function QuestionCard({
 	return (
 		<li
 			aria-label={`question ${number}`}
-			className="group/question flex gap-3 px-4 py-4 transition-colors duration-150 focus-within:bg-muted/30"
+			// Barred down its side while focus is inside it, so it is plain which
+			// question the keys go to.
+			className="relative flex gap-3 px-4 py-4 transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100"
 		>
-			<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums transition-colors duration-150 group-focus-within/question:bg-primary group-focus-within/question:text-primary-foreground">
+			<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums">
 				{number}
 				{answer !== null && <span className="sr-only"> answered</span>}
 			</span>
@@ -575,8 +581,15 @@ function QuestionCard({
 							onKeyDown={keys}
 							className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
 						>
-							<legend className="mb-1.5 text-muted-foreground text-xs">
-								{pick === "any" ? "Select all that apply" : "Pick one"}
+							<legend className="mb-1.5">
+								{pick === "any" ? (
+									<HowToPick
+										Icon={ListChecksIcon}
+										text="Select all that apply"
+									/>
+								) : (
+									<HowToPick Icon={CircleDotIcon} text="Pick one" />
+								)}
 							</legend>
 							{choices.map((choice, index) => {
 								const on = said.picks.includes(choice.key);
@@ -610,7 +623,7 @@ function QuestionCard({
 												className={cn(
 													"flex size-5 shrink-0 items-center justify-center border font-medium font-mono text-[11px] transition-colors duration-150",
 													// A circle picks one, as a radio does; a square any.
-													pick === "any" ? "rounded-md" : "rounded-full",
+													pick === "any" ? "rounded-sm" : "rounded-full",
 													on
 														? "border-primary bg-primary text-primary-foreground"
 														: "bg-muted/60 text-muted-foreground group-hover:bg-background",
@@ -686,6 +699,25 @@ function ChoiceBody({
 				inset && "pr-3 pb-2 pl-11",
 			)}
 		/>
+	);
+}
+
+/**
+ * How a question's choices are answered, led by an icon of its own, so a
+ * question taking one choice reads apart from one taking any at a glance.
+ */
+function HowToPick({
+	Icon,
+	text,
+}: {
+	Icon: LucideIcon;
+	text: string;
+}): JSX.Element {
+	return (
+		<span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-1.5 py-0.5 font-medium text-[11px] text-muted-foreground">
+			<Icon className="size-3.5" />
+			{text}
+		</span>
 	);
 }
 
@@ -777,8 +809,11 @@ function Ranking({
 	};
 	return (
 		<div className="flex flex-col gap-1.5">
-			<p className="text-muted-foreground text-xs">
-				Put in order, first at the top
+			<p>
+				<HowToPick
+					Icon={ArrowUpDownIcon}
+					text="Put in order, first at the top"
+				/>
 			</p>
 			<ol
 				ref={list}
