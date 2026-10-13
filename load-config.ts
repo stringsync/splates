@@ -37,7 +37,6 @@ function defaults(root: string, trunk: string): Config {
 		postCheckout: null,
 		postRewrite: null,
 		preMerge: null,
-		postMerge: null,
 		leaseStalenessMs: 90_000,
 		mergeRetryCount: 3,
 		removedCapacity: 50,

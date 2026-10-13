@@ -208,40 +208,6 @@ describe.concurrent("merge", () => {
 		expect((await deps.service.find("beta")).state?.mergeAttempts).toBe(1);
 	});
 
-	it("runs postMerge in the main tree after landing", async () => {
-		await using deps = await Testing.open();
-
-		deps.config.postMerge = 'echo "$ARBOR_TASK" > post-merge.txt';
-		await add(deps, "alpha");
-		const worktree = (await deps.service.find("alpha")).path;
-		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
-
-		await deps.finish(worktree);
-		await merge(deps, worktree);
-
-		expect(await deps.fs.read(join(deps.root, "post-merge.txt"))).toBe(
-			"alpha\n",
-		);
-	});
-
-	it("reports a failed postMerge without disturbing the landed branch", async () => {
-		await using deps = await Testing.open();
-
-		deps.config.postMerge = "echo boom-after-land; exit 1";
-		await add(deps, "alpha");
-		const worktree = (await deps.service.find("alpha")).path;
-		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
-
-		await deps.finish(worktree);
-		await expect(merge(deps, worktree)).toBail("hook_failed", {
-			message: "boom-after-land",
-		});
-		expect(await deps.gitCli(deps.root, "log", "--oneline", "main")).toContain(
-			"add alpha",
-		);
-		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
-	});
-
 	it("refuses to land while a question is open or an answer unchecked", async () => {
 		await using deps = await Testing.open();
 

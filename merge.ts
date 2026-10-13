@@ -231,25 +231,6 @@ export async function merge(
 			{ task },
 		);
 	}
-	// After the land, in the main tree: the merge can bring the main tree a
-	// dependency change the way a rebase brings the worktree one. The branch is
-	// already on the base, so a failure here reports and rolls nothing back.
-	if (config.postMerge) {
-		const ran = await shell.run(config.postMerge, landing, {
-			env: { ARBOR_TASK: task },
-		});
-		if (ran.exitCode !== 0) {
-			fail(
-				"hook_failed",
-				[
-					`landed '${task}' on ${base} (${head}) but the postMerge hook failed (exit ${ran.exitCode}).`,
-					"",
-					tail(`${ran.stdout}\n${ran.stderr}`),
-				].join("\n"),
-				{ task, exitCode: ran.exitCode },
-			);
-		}
-	}
 	// Done is done: the todos this task took up leave the list with it.
 	const done = await todos.takenBy(task);
 	// Read before the todos go, since a lane they empty ends with them.

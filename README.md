@@ -733,7 +733,7 @@ The agent's control flow runs on these.
 | 6    | `lease_held`        | Another agent is driving this tree.                                |
 | 7    | `dirty`             | Uncommitted changes. Commit before merging.                       |
 | 8    | `not_found`         | No such task, or not run from a task worktree. |
-| 9    | `hook_failed`       | `postCheckout` failed (worktree still exists; fix and re-run the hook), or `postMerge` failed (the branch already landed; nothing rolled back). |
+| 9    | `hook_failed`       | `postCheckout` failed. The worktree still exists: fix it and re-run the hook. |
 | 10   | `exists`            | Task already exists. `arbor claim` it, or `arbor remove` first. |
 | 11   | `orphaned`          | Record with no worktree. `arbor remove` it.                     |
 | 12   | `merge_failed`      | The base could not be fast-forwarded (usually uncommitted changes in the worktree holding it). |
@@ -762,7 +762,6 @@ export default defineConfig({
 	postCheckout: "bun install && cp ../../myrepo/.env .env",
 	postRewrite: "bun install",     // after each rebase, before preMerge
 	preMerge: "bun test",           // the last gate before the branch lands
-	postMerge: "bun install",       // in the main tree, after the branch lands
 	leaseStalenessMs: 90_000,
 	mergeRetryCount: 3,
 	removedCapacity: 50,            // removed names kept, so remove can say "already removed"
@@ -787,11 +786,9 @@ The hooks are named for the git events they sit around: `postCheckout` runs
 once, when `add` checks the worktree out; `postRewrite` runs after every rebase
 `merge` does; `preMerge` runs after that, and is the last thing between the
 branch and the base. They all run through `sh -c` in the worktree with
-`ARBOR_TASK` and `ARBOR_WORKTREE` in the environment. `postMerge` is the
-exception: it runs in the main tree after the branch lands and the worktree is
-gone (so only `ARBOR_TASK` is set), for keeping the main tree current the way
-`postRewrite` keeps the worktree current. It reports failure but rolls nothing
-back; the landing already happened.
+`ARBOR_TASK` and `ARBOR_WORKTREE` in the environment. arbor runs nothing in
+the main tree after a branch lands: the fast-forward there is a `git merge`, so
+git's own `post-merge` hook is the place for keeping it current.
 
 Every hook is unset by default: arbor has no opinion about what a repo runs, or
 whether it has tests at all. Configure `preMerge` and a nonzero exit rolls the
