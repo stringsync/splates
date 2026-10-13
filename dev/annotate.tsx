@@ -27,9 +27,9 @@ const LIGHT = "text-white hover:bg-white/15 hover:text-white";
 /** How far off a mark, in screen pixels, a press still picks it. */
 const SLOP = 10;
 
-const TOOLS: { tool: Tool; label: string; icon: JSX.Element }[] = [
-	{ tool: "box", label: "Box", icon: <SquareIcon /> },
-	{ tool: "arrow", label: "Arrow", icon: <MoveUpRightIcon /> },
+const TOOLS: { tool: Tool; label: string; key: string; icon: JSX.Element }[] = [
+	{ tool: "box", label: "Box", key: "r", icon: <SquareIcon /> },
+	{ tool: "arrow", label: "Arrow", key: "a", icon: <MoveUpRightIcon /> },
 ];
 
 /**
@@ -77,9 +77,9 @@ export function useAnnotate(finalFocus?: RefObject<HTMLElement | null>): {
 
 /**
  * The image at the size of the window, to mark up: a drag draws a box or an
- * arrow, a click drops a pin, and each mark takes a note. Done, the close
- * button or Escape keeps what is drawn; Escape with a note open closes only
- * the note.
+ * arrow, picked with R and A, a click drops a pin, and each mark takes a
+ * note. Done, the close button or Escape keeps what is drawn; Escape with a
+ * note open closes only the note.
  */
 export function Annotate({
 	annotation,
@@ -179,9 +179,16 @@ function Board({
 		if (event.target instanceof HTMLInputElement) {
 			return;
 		}
+		const picked = TOOLS.find((each) => each.key === event.key.toLowerCase());
 		if ((event.metaKey || event.ctrlKey) && event.key === "z") {
 			event.preventDefault();
 			annotation.undo();
+		} else if (
+			picked !== undefined &&
+			!(event.metaKey || event.ctrlKey || event.altKey)
+		) {
+			event.preventDefault();
+			annotation.use(picked.tool);
 		} else if (
 			(event.key === "Backspace" || event.key === "Delete") &&
 			selected !== null
@@ -214,6 +221,8 @@ function Board({
 							variant="ghost"
 							size="sm"
 							aria-pressed={tool === each.tool}
+							aria-keyshortcuts={each.key.toUpperCase()}
+							title={`${each.label} (${each.key.toUpperCase()})`}
 							onClick={() => annotation.use(each.tool)}
 							className={cn(
 								LIGHT,
