@@ -13,7 +13,6 @@ import {
 	type ReactNode,
 	use,
 	useEffect,
-	useRef,
 	useState,
 } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
@@ -87,17 +86,9 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
-	// Open while the agent works, so there is something to watch, and folded
-	// the first time it stops, as when it starts to say something: its words
-	// show below, and a row the person opens again stays open.
-	const [open, setOpen] = useState(work.running);
-	const folded = useRef(!work.running);
-	useEffect(() => {
-		if (!work.running && !folded.current) {
-			folded.current = true;
-			setOpen(false);
-		}
-	}, [work.running]);
+	// Folded until the person opens it, while the agent works too, and open
+	// from then on.
+	const [open, setOpen] = useState(false);
 	return (
 		<Going value={work.going}>
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">

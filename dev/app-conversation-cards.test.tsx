@@ -1043,7 +1043,7 @@ describe("App's conversations", () => {
 			expect(thread.textContent?.match(/Working/g)).toHaveLength(1);
 		});
 
-		it("opens while the agent works with nothing said, folding once it replies", async () => {
+		it("stays folded while the agent works, and once it replies", async () => {
 			const working = turn([tool({ id: "x1", command: "bun test" })], {
 				status: "running",
 			});
@@ -1052,7 +1052,8 @@ describe("App's conversations", () => {
 				within(thread)
 					.getByRole("list", { name: "timeline" })
 					.closest("details") as HTMLDetailsElement;
-			await waitFor(() => expect(details().open).toBe(true));
+			await waitFor(() => within(thread).getByText(/^Working/));
+			expect(details().open).toBe(false);
 
 			await testing.say(
 				turn([tool({ id: "x1", command: "bun test" }), "Tests pass."], {
