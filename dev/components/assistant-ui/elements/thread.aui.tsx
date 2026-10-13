@@ -350,8 +350,10 @@ const ThreadRoot: FC<{
 						ref={footer}
 						className={cn(
 							"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2",
+							// Above a user message, which sticks at z-10, so one passing
+							// behind the footer does not show over the composer.
 							!isEmpty &&
-								"sticky bottom-0 mt-auto rounded-t-(--composer-radius)",
+								"sticky bottom-0 z-20 mt-auto rounded-t-(--composer-radius)",
 						)}
 					>
 						<ThreadScrollToBottom />
