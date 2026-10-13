@@ -2,16 +2,15 @@ import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import { cn } from "#dev/lib/utils.ts";
 
-/** How long the line stays lit once ⌥⌘M finds nothing, before it fades. */
-const NUDGE = Duration.secs(1.5);
+/** How long the line blinks once ⌥⌘M finds nothing: three blinks of `animate-blink`. */
+const NUDGE = Duration.ms(600);
 
 /**
  * A line of one height that always says how many agents wait on you, so
  * nothing moves as the count changes. Clicking it opens the next one, as
  * ⌥⌘M does. Each time `nudges` goes up, as when ⌥⌘M finds nothing to open,
- * it lights up in place, as under the pointer, and fades back.
+ * it blinks a few times in place, to catch the eye, starting over on a repeat.
  */
 export function WaitingLine({
 	waiting,
@@ -42,11 +41,17 @@ export function WaitingLine({
 			type="button"
 			data-lit={lit || undefined}
 			onClick={onNext}
-			className={cn(
-				"flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs transition-colors duration-700 hover:bg-muted",
-				lit && "bg-muted duration-0",
-			)}
+			className="relative isolate flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground text-xs hover:bg-muted"
 		>
+			{lit && (
+				// Keyed by the nudge, so a repeat starts the blinks over without
+				// remounting the button, which may hold focus.
+				<span
+					key={nudges}
+					aria-hidden
+					className="-z-10 pointer-events-none absolute inset-0 animate-blink rounded-md bg-foreground/15 motion-reduce:animate-none"
+				/>
+			)}
 			{waiting > 0 ? (
 				<CircleAlertIcon className="size-3.5 text-warning" />
 			) : (

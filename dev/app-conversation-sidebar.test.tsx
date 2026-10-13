@@ -925,7 +925,7 @@ Cap upload retries
 			expect(location.hash).toBe("#conversations/c2");
 		});
 
-		it("counts the agents waiting on you in the sidebar, and lights the line when ⌥⌘M finds none", async () => {
+		it("counts the agents waiting on you in the sidebar, and blinks the line when a click or ⌥⌘M finds none", async () => {
 			const view = await sidebar(
 				newestFirst([
 					conversation({ id: "c1", title: "Runs", status: "running" }),
@@ -949,6 +949,9 @@ Cap upload retries
 			const none = quiet.getByRole("button", { name: /waiting on you/ });
 			expect(none.textContent).toContain("Nothing waiting on you");
 			const before = location.hash;
+			await act(async () => fireEvent.click(none));
+			expect(location.hash).toBe(before);
+			expect(none.hasAttribute("data-lit")).toBe(true);
 			await act(async () =>
 				fireEvent.keyDown(document.body, {
 					altKey: true,

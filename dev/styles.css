@@ -212,6 +212,20 @@
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
+	/*
+	 * Three blinks, on and off with nothing between, as a menu item blinks once
+	 * picked: WaitingLine's, when nothing waits.
+	 */
+	--animate-blink: blink 200ms step-end 3 both;
+	@keyframes blink {
+		0% {
+			opacity: 1;
+		}
+		50%,
+		100% {
+			opacity: 0;
+		}
+	}
 	@keyframes collapsible-down {
 		from {
 			height: 0;
