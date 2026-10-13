@@ -233,6 +233,36 @@ describe("App's conversations", () => {
 		).toEqual(["alpha-api"]);
 	});
 
+	it("keeps a part's conversation under its caller's once both merged", async () => {
+		const view = await conversations(
+			[
+				conversation({
+					id: "c1",
+					task: null,
+					lastTask: "alpha",
+					lastBase: "main",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					agent: "codex",
+					task: null,
+					lastTask: "alpha-api",
+					lastBase: "task/alpha",
+					createdAt: "2026-10-11T10:03:00.000Z",
+				}),
+			],
+			null,
+			{ tasks: [] },
+		);
+
+		expect(
+			within(view.getByRole("list", { name: "parts of alpha" }))
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["alpha-api"]);
+	});
+
 	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
 		const view = await conversations(
 			[

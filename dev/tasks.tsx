@@ -62,7 +62,11 @@ export function Tasks({
 			) : (
 				<TaskRows
 					label="task list"
-					rows={nest(tasks, tasks, (task) => task.task)}
+					rows={nest(
+						tasks,
+						(task) => task.task,
+						(task) => task.base,
+					)}
 					onOpen={onOpen}
 				/>
 			)}

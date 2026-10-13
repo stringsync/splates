@@ -351,7 +351,7 @@ export function ConversationList({
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);
 	const archived = conversations.length - listed.length;
-	const nested = nest(rows, tasks, taskOfRow);
+	const nested = nest(rows, lastTaskOfRow, (row) => baseOfRow(tasks, row));
 	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
 	const shown = flatten(nested).slice(0, DIGITS);
 	const held = useHeld();
@@ -810,9 +810,26 @@ function isUnread({ conversation, need }: Needing): boolean {
 	);
 }
 
-/** The task a sidebar row is on, which its parts nest under. */
-function taskOfRow(row: Needing): string | null {
-	return row.conversation?.task ?? row.task?.task ?? null;
+/**
+ * The task a sidebar row is on, or its conversation last ran in, which its
+ * parts nest under: so a part stays under its caller once either merges.
+ */
+function lastTaskOfRow(row: Needing): string | null {
+	return row.conversation?.lastTask ?? row.task?.task ?? null;
+}
+
+/**
+ * The branch a row's task, or the one its conversation last ran in, was cut
+ * from: what it remembers, else what the task says, as for a conversation
+ * from before it remembered.
+ */
+function baseOfRow(tasks: Details[], row: Needing): string | null {
+	const task = lastTaskOfRow(row);
+	return (
+		row.conversation?.lastBase ??
+		tasks.find((each) => each.task === task)?.base ??
+		null
+	);
 }
 
 /** A row's key: its conversation's id, or its external agent's task. */
@@ -848,7 +865,7 @@ function Rows({
 					{render(row)}
 					{parts.length > 0 && (
 						<Rows
-							label={`parts of ${taskOfRow(row) ?? ""}`}
+							label={`parts of ${lastTaskOfRow(row) ?? ""}`}
 							rows={parts}
 							render={render}
 							nested

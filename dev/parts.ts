@@ -1,30 +1,28 @@
-import type { Details } from "../show";
-
 /** A row and the rows of the parts handed out from its task, nested alike. */
 export interface Nested<Row> {
 	row: Row;
 	parts: Nested<Row>[];
 }
 
-/** The task `task` is a part of, by its base `task/<parent>`, or null. */
-export function parentOf(tasks: Details[], task: string | null): string | null {
-	const base = tasks.find((each) => each.task === task)?.base ?? "";
-	return base.startsWith("task/") ? base.slice("task/".length) : null;
+/** The task a base of `task/<parent>` was handed out from, or null. */
+function parentOf(base: string | null): string | null {
+	return base?.startsWith("task/") ? base.slice("task/".length) : null;
 }
 
 /**
  * `rows` with each part's rows under the first row of the task it was handed
- * out from, in their order; a part whose parent has no row stays at the top,
- * as does any row a loop of bases would otherwise hide.
+ * out from, by its base `task/<parent>`, in their order; a part whose parent
+ * has no row stays at the top, as does any row a loop of bases would
+ * otherwise hide.
  */
 export function nest<Row>(
 	rows: Row[],
-	tasks: Details[],
 	taskOf: (row: Row) => string | null,
+	baseOf: (row: Row) => string | null,
 ): Nested<Row>[] {
 	const nested = rows.map((row) => ({ row, parts: [] as Nested<Row>[] }));
 	const hostOf = (at: number): Nested<Row> | undefined => {
-		const parent = parentOf(tasks, taskOf(rows[at] as Row));
+		const parent = parentOf(baseOf(rows[at] as Row));
 		return parent === null
 			? undefined
 			: nested.find((each) => taskOf(each.row) === parent);

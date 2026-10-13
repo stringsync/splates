@@ -333,6 +333,7 @@ export function conversation(
 		checkpoint: null,
 		usage: { context: null, input: 0, cached: 0, output: 0, cost: null },
 		lastTask: overrides.task ?? null,
+		lastBase: null,
 		...overrides,
 	};
 }

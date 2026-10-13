@@ -736,13 +736,20 @@ export async function dev(
 		};
 
 		/** Where a conversation for `task` runs: its worktree, or the main tree. */
-		const treeFor = async (task: unknown): Promise<[string | null, string]> => {
+		/** `task`'s name, worktree, and the branch it was cut from. */
+		const treeFor = async (
+			task: unknown,
+		): Promise<[string | null, string, string | null]> => {
 			const named = typeof task === "string" && task !== "" ? task : null;
 			const worktree = named === null ? null : await service.find(named);
 			if (worktree !== null && !worktree.exists) {
 				fail("not_found", `no worktree for '${named}'`, { task: named });
 			}
-			return [named, worktree?.path ?? service.git.root];
+			return [
+				named,
+				worktree?.path ?? service.git.root,
+				worktree?.base ?? null,
+			];
 		};
 
 		/** The tree a terminal opens in: `?task=`'s worktree, or the main tree. */
@@ -755,9 +762,10 @@ export async function dev(
 
 		const startConversation = async (request: Request): Promise<Response> => {
 			const { agent, task, settings, model } = await body(request);
-			const [named, cwd] = await treeFor(task);
+			const [named, cwd, base] = await treeFor(task);
 			const conversation = await held().start(String(agent ?? ""), {
 				task: named,
+				base,
 				cwd,
 				model: typeof model === "string" && model !== "" ? model : undefined,
 				settings: Object.fromEntries(
@@ -783,12 +791,13 @@ export async function dev(
 		/** Brings in a session an agent holds, as a conversation in `task`'s tree. */
 		const bringSession = async (request: Request): Promise<Response> => {
 			const { agent, session, task, title } = await body(request);
-			const [named, cwd] = await treeFor(task);
+			const [named, cwd, base] = await treeFor(task);
 			const conversation = await held().bring(
 				String(agent ?? ""),
 				String(session ?? ""),
 				{
 					task: named,
+					base,
 					cwd,
 					title: typeof title === "string" && title !== "" ? title : null,
 				},
@@ -801,9 +810,9 @@ export async function dev(
 		const moveConversation = async (request: Request): Promise<Response> => {
 			const conversation = await conversationAt(request);
 			const { task, from } = await body(request);
-			const [named, cwd] = await treeFor(task);
+			const [named, cwd, base] = await treeFor(task);
 			if (from === undefined || from === conversation.state.task) {
-				conversation.move(named, cwd);
+				conversation.move(named, cwd, base);
 			}
 			return Response.json(conversation.state);
 		};

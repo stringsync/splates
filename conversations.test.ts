@@ -1037,10 +1037,11 @@ describe("Conversations", () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();
 
-		conversation.move("signup", "/repo-arbor/signup");
+		conversation.move("signup", "/repo-arbor/signup", "task/auth");
 
 		expect(conversation.state.task).toBe("signup");
 		expect(conversation.state.lastTask).toBe("signup");
+		expect(conversation.state.lastBase).toBe("task/auth");
 		await conversation.stop();
 		await conversation.prompt("go on");
 		await until(conversation, "idle");
@@ -1048,6 +1049,7 @@ describe("Conversations", () => {
 
 		conversation.move(null, "/repo");
 		expect(conversation.state.lastTask).toBe("signup");
+		expect(conversation.state.lastBase).toBe("task/auth");
 		await conversation.stop();
 		const reread = new Conversations(
 			"/repo/.git/arbor/conversations",
@@ -1057,6 +1059,7 @@ describe("Conversations", () => {
 		const [read] = await reread.list();
 		expect(read?.state.task).toBeNull();
 		expect(read?.state.lastTask).toBe("signup");
+		expect(read?.state.lastBase).toBe("task/auth");
 		await read?.prompt("and on");
 		await until(read as Conversation, "idle");
 		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
@@ -1672,6 +1675,7 @@ describe("fold", () => {
 		agent: "claude",
 		task: null,
 		lastTask: null,
+		lastBase: null,
 		title: null,
 		name: null,
 		status: "running",
