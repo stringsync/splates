@@ -362,7 +362,7 @@ describe("App's conversations", () => {
 		).toEqual(["TerminalCtrl+`", "Archive⌥⌘⌫"]);
 	});
 
-	it("lists the systems its task touches in a card under the actions, each opening to its globs, and as a button when narrow", async () => {
+	it("lists the systems its task touches as chips in a card under the actions, each opening to its globs, and as a button when narrow", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			"c1",
@@ -387,14 +387,14 @@ describe("App's conversations", () => {
 		expect(
 			within(card)
 				.getAllByRole("button")
-				.map((row) => row.textContent),
+				.map((chip) => chip.textContent),
 		).toEqual(["auth", "sessions"]);
-		expect(within(card).queryByRole("list", { name: "auth globs" })).toBeNull();
+		expect(view.queryByRole("list", { name: "auth globs" })).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: "auth" })),
 		);
 		expect(
-			within(card)
+			view
 				.getByRole("list", { name: "auth globs" })
 				.querySelectorAll("li")
 				.values()
