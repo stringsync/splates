@@ -1422,7 +1422,7 @@ const ComposerAction: FC = () => {
 						render={
 							<Button
 								type="button"
-								variant="default"
+								variant="destructive"
 								size="icon"
 								className="aui-composer-cancel size-7 rounded-full"
 								aria-label={isSending ? "Cancel sending" : "Stop generating"}
