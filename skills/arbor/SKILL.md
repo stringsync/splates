@@ -98,6 +98,9 @@ far. Say it once per task, never for a claim.
 Stop retrying an upload the server refused as too big, and tell the user why.
 ```
 
+When the todo you took names a model other than yours, end the card with a
+`- ` line saying so, such as `- #12 names Sonnet; I run as Opus.`
+
 ## Todos
 
 Write a todo's subject the way you write a question's, short enough to scan.
@@ -121,6 +124,11 @@ mechanical change, a strong one for a design call or a long, tangled change.
 Keep the agent you run as unless another fits clearly better. When grooming
 changes what a todo takes, `arbor todo update <id> --agent <id> --model <m>`
 picks again.
+
+When you take a todo that names a model other than the one you run as, take
+it anyway: whoever handed it to you chose you. Say so in your Added card (see
+Saying what you added), so the user can stop you and start the model it
+names instead.
 
 Name the files and the feature in the detail, the feature by its system name
 when one covers it (see Systems), so whoever grooms the list later can tell
@@ -312,8 +320,9 @@ time:
    order for reasons the board knows and you do not. When the wait ends
    because the other task is escalated, tell the user you are blocked on it
    and stop.
-3. Take the next todo with `arbor add <task> --todo <id>`, and do it as any
-   other task (see Workflow), through `arbor merge`.
+3. Take the next todo with `arbor add <task> --todo <id>`, even one that
+   names another model (see Todos), and do it as any other task (see
+   Workflow), through `arbor merge`.
 4. After the merge, `cd` to the main tree and go back to step 1. Report each
    merge as usual, but do not wait for the user between steps unless a task
    escalates.
