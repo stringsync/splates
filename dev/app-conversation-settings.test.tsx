@@ -161,4 +161,69 @@ describe("App's conversation settings", () => {
 			).toContain("Luna"),
 		);
 	});
+
+	it("puts the settings behind one button on a phone, opening them in a dialog", async () => {
+		// happy-dom's own handle on its window, which sizes what `matchMedia` reads.
+		const { happyDOM } = window as unknown as {
+			happyDOM: { setInnerWidth: (width: number) => void };
+		};
+		const wide = window.innerWidth;
+		happyDOM.setInnerWidth(390);
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					settings: [
+						{
+							id: "model",
+							name: "Model",
+							type: "select",
+							category: "model",
+							current: "big",
+							options: [
+								{ value: "big", name: "Big", description: null },
+								{ value: "small", name: "Small", description: null },
+							],
+						},
+						{
+							id: "fast",
+							name: "Fast mode",
+							type: "boolean",
+							category: "model_config",
+							current: "off",
+							options: [
+								{ value: "on", name: "On", description: null },
+								{ value: "off", name: "Off", description: null },
+							],
+						},
+					],
+				}),
+			]);
+
+			expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
+			const settings = view.getByRole("button", { name: "settings" });
+			expect(settings.textContent).toContain("Big");
+			await act(async () => fireEvent.click(settings));
+			const dialog = await waitFor(() => view.getByRole("dialog"));
+			await act(async () =>
+				fireEvent.click(
+					within(dialog).getByRole("switch", { name: "Fast mode" }),
+				),
+			);
+			await act(async () =>
+				fireEvent.click(
+					within(dialog).getByRole("combobox", { name: "model" }),
+				),
+			);
+			await pick(
+				await waitFor(() => view.getByRole("option", { name: "Small" })),
+			);
+
+			expect(testing.posted("/api/conversations/c1/setting")).toEqual([
+				{ method: "PUT", body: { id: "fast", value: "on" } },
+				{ method: "PUT", body: { id: "model", value: "small" } },
+			]);
+		} finally {
+			happyDOM.setInnerWidth(wide);
+		}
+	});
 });

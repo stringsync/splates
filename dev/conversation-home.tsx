@@ -38,36 +38,13 @@ import { limitsOf, PlanLimits } from "./plan-limits";
 import { Recommended } from "./recommended";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
-import { SettingControl } from "./setting-controls";
+import { SettingControls } from "./setting-controls";
 import { TreesContext } from "./work-row";
 
 /** How many conversations the home screen offers to pick back up. */
 const RECENT = 5;
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
-
-/**
- * Runs `change` in a view transition, which moves each element named on both
- * sides of it, such as the composer, and fades the rest; at once where the
- * browser has none or motion is unwelcome. Settles once it has played.
- */
-async function slide(change: () => void): Promise<void> {
-	if (
-		!("startViewTransition" in document) ||
-		matchMedia("(prefers-reduced-motion: reduce)").matches
-	) {
-		change();
-		return;
-	}
-	await document
-		.startViewTransition(async () => {
-			flushSync(change);
-			// assistant-ui's runtime takes up a change a task later, as with
-			// `isRunning`: wait it out, so the transition ends where the page does.
-			await new Promise((resolve) => setTimeout(resolve));
-		})
-		.finished.catch(() => {});
-}
 
 /**
  * The screen with no conversation open: an empty thread whose first message
@@ -275,16 +252,13 @@ export function Home({
 							}
 							controls={
 								offered.length > 0 ? (
-									offered.map((setting) => (
-										<SettingControl
-											key={setting.id}
-											setting={setting}
-											value={picks[setting.id] ?? setting.current}
-											onChange={(value) =>
-												setPicks((picks) => ({ ...picks, [setting.id]: value }))
-											}
-										/>
-									))
+									<SettingControls
+										settings={offered}
+										current={(setting) => picks[setting.id] ?? setting.current}
+										onChange={(setting, value) =>
+											setPicks((picks) => ({ ...picks, [setting.id]: value }))
+										}
+									/>
 								) : (
 									<span className="px-1.5 text-[11px] text-muted-foreground">
 										Settings appear once {agentName(agents, agent)} starts
@@ -341,4 +315,27 @@ function Recent({
 			)}
 		</button>
 	);
+}
+
+/**
+ * Runs `change` in a view transition, which moves each element named on both
+ * sides of it, such as the composer, and fades the rest; at once where the
+ * browser has none or motion is unwelcome. Settles once it has played.
+ */
+async function slide(change: () => void): Promise<void> {
+	if (
+		!("startViewTransition" in document) ||
+		matchMedia("(prefers-reduced-motion: reduce)").matches
+	) {
+		change();
+		return;
+	}
+	await document
+		.startViewTransition(async () => {
+			flushSync(change);
+			// assistant-ui's runtime takes up a change a task later, as with
+			// `isRunning`: wait it out, so the transition ends where the page does.
+			await new Promise((resolve) => setTimeout(resolve));
+		})
+		.finished.catch(() => {});
 }

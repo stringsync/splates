@@ -1,4 +1,12 @@
+import { SlidersHorizontalIcon } from "lucide-react";
 import { type JSX, useId } from "react";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "#dev/components/ui/dialog.tsx";
 import {
 	Select,
 	SelectContent,
@@ -9,6 +17,7 @@ import {
 import { Switch } from "#dev/components/ui/switch.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Setting } from "../conversations";
+import { useWide } from "./app-nav";
 
 /**
  * A picker in the composer's bottom row: quiet until hovered, as in Zed, and
@@ -17,17 +26,108 @@ import type { Setting } from "../conversations";
 const IN_COMPOSER =
 	"h-6 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
+/**
+ * A session's settings in the composer's bottom row: each inline where the
+ * window is wide, else behind one button that opens them in a dialog, since a
+ * phone's row has no room for a model, a mode and an effort side by side.
+ */
+export function SettingControls({
+	settings,
+	current,
+	onChange,
+}: {
+	settings: Setting[];
+	current: (setting: Setting) => string;
+	onChange: (setting: Setting, value: string) => void;
+}): JSX.Element | null {
+	const wide = useWide();
+	if (settings.length === 0) {
+		return null;
+	}
+	if (wide) {
+		return (
+			<>
+				{settings.map((setting) => (
+					<SettingControl
+						key={setting.id}
+						setting={setting}
+						value={current(setting)}
+						onChange={(value) => onChange(setting, value)}
+					/>
+				))}
+			</>
+		);
+	}
+	const model = settings.find((setting) => setting.category === "model");
+	return (
+		<Dialog>
+			<DialogTrigger
+				aria-label="settings"
+				title="Settings"
+				className={cn(IN_COMPOSER, "inline-flex items-center rounded-md")}
+			>
+				<SlidersHorizontalIcon />
+				{/* The model says the most about how the next reply goes. */}
+				{model !== undefined && (
+					<span className="truncate">
+						{model.options.find((option) => option.value === current(model))
+							?.name ?? current(model)}
+					</span>
+				)}
+			</DialogTrigger>
+			<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+				<DialogHeader>
+					<DialogTitle>Settings</DialogTitle>
+				</DialogHeader>
+				<div className="flex flex-col gap-3">
+					{settings.map((setting) => (
+						<SettingControl
+							key={setting.id}
+							setting={setting}
+							value={current(setting)}
+							onChange={(value) => onChange(setting, value)}
+							inDialog
+						/>
+					))}
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+/**
+ * A setting in the dialog: its name on the left and its control on the right,
+ * at full size, since it has the room the composer's row lacks.
+ */
+const IN_DIALOG_ROW = "flex items-center justify-between gap-3";
+
 /** One of a session's settings: a switch for a toggle, else a picker. */
-export function SettingControl({
+function SettingControl({
 	setting,
 	value,
 	onChange,
+	inDialog = false,
 }: {
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
+	inDialog?: boolean;
 }): JSX.Element {
 	const id = useId();
+	if (setting.type === "boolean" && inDialog) {
+		return (
+			<div className={IN_DIALOG_ROW}>
+				<label htmlFor={id} className="cursor-pointer">
+					{setting.name}
+				</label>
+				<Switch
+					id={id}
+					checked={value === "on"}
+					onCheckedChange={(checked) => onChange(checked ? "on" : "off")}
+				/>
+			</div>
+		);
+	}
 	if (setting.type === "boolean") {
 		return (
 			<span
@@ -49,6 +149,19 @@ export function SettingControl({
 			</span>
 		);
 	}
+	if (inDialog) {
+		return (
+			<div className={IN_DIALOG_ROW}>
+				<span>{setting.name}</span>
+				<SettingSelect
+					setting={setting}
+					value={value}
+					onChange={onChange}
+					inDialog
+				/>
+			</div>
+		);
+	}
 	return <SettingSelect setting={setting} value={value} onChange={onChange} />;
 }
 
@@ -60,10 +173,12 @@ function SettingSelect({
 	setting,
 	value,
 	onChange,
+	inDialog = false,
 }: {
 	setting: Setting;
 	value: string;
 	onChange: (value: string) => void;
+	inDialog?: boolean;
 }): JSX.Element {
 	const known = setting.options.some((option) => option.value === value);
 	return (
@@ -87,18 +202,18 @@ function SettingSelect({
 				size="sm"
 				aria-label={setting.name.toLowerCase()}
 				title={setting.name}
-				className={IN_COMPOSER}
+				className={inDialog ? "min-w-0 max-w-[60%]" : IN_COMPOSER}
 			>
 				{/* A mode, model, or effort says what it is by its value; "Off"
-				    alone would not. */}
-				{!UNLABELED.has(setting.category ?? "") && (
+				    alone would not. The dialog names each beside it. */}
+				{!inDialog && !UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent
-				side="top"
-				align="start"
+				side={inDialog ? "bottom" : "top"}
+				align={inDialog ? "end" : "start"}
 				alignItemWithTrigger={false}
 				className="w-auto"
 			>

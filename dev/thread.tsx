@@ -39,7 +39,7 @@ import { useReferences } from "./references";
 import { Refusal, type Refuse } from "./refusal";
 import { ReportUI, StartNewContext, StartUI, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
-import { SettingControl } from "./setting-controls";
+import { SettingControls } from "./setting-controls";
 import { SystemsCard } from "./systems";
 import { TakeUp } from "./take-up";
 import { TaskLine, toWaiting, useArrived } from "./task-view";
@@ -255,22 +255,19 @@ export function Thread({
 													!archived && (
 														<>
 															<ContextMeter usage={conversation.usage} />
-															{settings.map((setting) => (
-																<SettingControl
-																	key={setting.id}
-																	setting={setting}
-																	value={setting.current}
-																	onChange={(value) =>
-																		chooseSetting(id, setting.id, value).catch(
-																			(error: unknown) =>
-																				refused(
-																					`${setting.name} not switched`,
-																					error,
-																				),
-																		)
-																	}
-																/>
-															))}
+															<SettingControls
+																settings={settings}
+																current={(setting) => setting.current}
+																onChange={(setting, value) =>
+																	chooseSetting(id, setting.id, value).catch(
+																		(error: unknown) =>
+																			refused(
+																				`${setting.name} not switched`,
+																				error,
+																			),
+																	)
+																}
+															/>
 														</>
 													)
 												}
