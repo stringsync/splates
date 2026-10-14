@@ -95,7 +95,10 @@ export function attachmentIn(href: string | undefined): Placed | null {
 		: { shelf: link[1] as Shelf, at: Number(link[2]) };
 }
 
-/** Marks a sent attachment's tile with its name, for its chips to open it by. */
+/**
+ * Marks an attachment's tile with its name, which its tooltip shows, for a
+ * sent message's chips to open it by.
+ */
 export const TILE = "data-attachment";
 
 /**

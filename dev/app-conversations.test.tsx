@@ -2402,7 +2402,7 @@ describe("App's conversations", () => {
 		);
 	});
 
-	it("names each file attached, under its tile and in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes", async () => {
+	it("names each file attached, on its tile and in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Look" }),
 		]);
@@ -2431,8 +2431,8 @@ describe("App's conversations", () => {
 			".aui-composer-attachments",
 		) as HTMLElement;
 		const names = () =>
-			[...tiles.querySelectorAll(".aui-attachment-tile-name")].map(
-				(name) => name.textContent,
+			[...tiles.querySelectorAll("[data-attachment]")].map((tile) =>
+				tile.getAttribute("data-attachment"),
 			);
 		expect(names()).toEqual([
 			"Image 1",
@@ -2531,7 +2531,7 @@ describe("App's conversations", () => {
 			within(thread).getByRole("button", { name: "File 1" }),
 		);
 		const tile = thread.querySelector('[data-attachment="File 1"]');
-		expect(tile?.getAttribute("title")).toBe("notes.csv");
+		expect(tile?.textContent).toBe("notes.csv");
 		const opened = mock();
 		tile?.addEventListener("click", (event) => {
 			event.preventDefault();

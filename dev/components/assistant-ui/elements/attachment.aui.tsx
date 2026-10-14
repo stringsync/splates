@@ -132,19 +132,6 @@ const AttachmentThumb: FC<{
 	);
 };
 
-/**
- * An attachment's name, under its tile, as its chips name it: over an image,
- * it was too small to read and hid the image's foot.
- */
-const TileName: FC<{ name: string }> = ({ name }) => (
-	<span
-		aria-hidden="true"
-		className="aui-attachment-tile-name text-muted-foreground max-w-14 truncate text-center text-xs leading-4"
-	>
-		{name}
-	</span>
-);
-
 const AttachmentTile: FC = () => {
 	const aui = useAui();
 	const isComposer = aui.attachment.source !== "message";
@@ -229,7 +216,6 @@ const AttachmentTile: FC = () => {
 				<AttachmentPrimitive.Root
 					className={cn(
 						"aui-attachment-root relative",
-						place >= 0 && "flex flex-col items-center gap-1",
 						isComposer &&
 							"animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none",
 						isImage &&
@@ -241,6 +227,9 @@ const AttachmentTile: FC = () => {
 						render={
 							<div
 								{...(shows ? shown(src, name, kind) : {})}
+								{...(place >= 0
+									? { [TILE]: attachmentName(shelf, place) }
+									: {})}
 								onClick={
 									file
 										? (e) => void annotate(e.currentTarget, file)
@@ -316,7 +305,6 @@ const AttachmentTile: FC = () => {
 							</div>
 						)}
 					</TooltipTrigger>
-					{place >= 0 && <TileName name={attachmentName(shelf, place)} />}
 					{lightbox}
 					{annotator.annotate}
 					{isComposer && (
@@ -501,33 +489,38 @@ export const SentTile: FC<{
 	const kind = kindOf(type, contentType);
 	const called = attachmentName(shelfOf(type), place);
 	return (
-		<span className="flex flex-col items-center gap-1">
-			{kind === "file" ? (
-				<a
-					href={src}
-					target="_blank"
-					rel="noreferrer"
-					title={name}
-					{...{ [TILE]: called }}
-					className={cn(SENT, tileSize(kind), "block")}
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						kind === "file" ? (
+							<a
+								href={src}
+								target="_blank"
+								rel="noreferrer"
+								{...{ [TILE]: called }}
+								className={cn(SENT, tileSize(kind), "block")}
+							/>
+						) : (
+							<button
+								type="button"
+								{...shown(src, name, kind)}
+								{...{ [TILE]: called }}
+								aria-label={`Preview ${name}`}
+								onClick={(e) => open(e.currentTarget)}
+								className={cn(SENT, tileSize(kind), "cursor-zoom-in")}
+							/>
+						)
+					}
 				>
 					<AttachmentThumb src={src} kind={kind} name={name} />
-				</a>
-			) : (
-				<button
-					type="button"
-					{...shown(src, name, kind)}
-					{...{ [TILE]: called }}
-					aria-label={`Preview ${name}`}
-					onClick={(e) => open(e.currentTarget)}
-					className={cn(SENT, tileSize(kind), "cursor-zoom-in")}
-				>
-					<AttachmentThumb src={src} kind={kind} name={name} />
-				</button>
-			)}
-			<TileName name={called} />
+				</TooltipTrigger>
+				<TooltipContent side="top">
+					{called}: {name}
+				</TooltipContent>
+			</Tooltip>
 			{lightbox}
-		</span>
+		</TooltipProvider>
 	);
 };
 
