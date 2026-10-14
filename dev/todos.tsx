@@ -1,81 +1,25 @@
-// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
-import {
-	type CollisionDetection,
-	closestCenter,
-	DndContext,
-	type DragEndEvent,
-	DragOverlay,
-	KeyboardSensor,
-	MouseSensor,
-	pointerWithin,
-	TouchSensor,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core";
 import {
 	horizontalListSortingStrategy,
 	SortableContext,
-	sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { useReactive } from "@webappwiz/react";
-import { Trash2Icon } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	type RefObject,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
-import { Button } from "#dev/components/ui/button.tsx";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "#dev/components/ui/dialog.tsx";
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupTextarea,
-} from "#dev/components/ui/input-group.tsx";
-import {
-	type LaneRecord,
-	type LaneState,
-	lanes as laneList,
-	named,
-} from "../lanes";
+import { type JSX, useEffect, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent } from "#dev/components/ui/dialog.tsx";
+import { lanes as laneList, named } from "../lanes";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
-import { assignTodo } from "./api";
+import { AddLane } from "./add-lane";
 import { Board as BoardContext } from "./board";
-import { Card, CopyLink } from "./card";
-import { AssigneeMenu, OnIt, StartLanes, StartMenu } from "./dispatching";
-import { type Drafts, todoEdit } from "./drafts";
-import { AttachButton, Dropped, FileList } from "./files";
-import {
-	AddLane,
-	columnId,
-	columnOf,
-	Lane,
-	LiftedLane,
-	laneOf,
-	ShownLanes,
-	Untriaged,
-} from "./lanes";
-import { Links } from "./links";
-import { Markdown } from "./markdown";
-import { MentionAnchor, useMentions } from "./mentions";
-import { Refusal, useRefusal, useRefusals } from "./refusal";
+import { BoardDrag } from "./board-drag";
+import { StartLanes } from "./dispatching";
+import type { Drafts } from "./drafts";
+import { fadeOf, useEdges } from "./hooks/use-edges";
+import { columnId, Lane, Untriaged } from "./lanes";
+import { useRefusals } from "./refusal";
+import { ShownLanes } from "./shown-lanes";
 import { Task } from "./tasks";
 import { TodoBoard } from "./todo-board";
-import { TodoEditor } from "./todo-editor";
+import { Edit } from "./todo-edit";
 import type { TodoView } from "./todo-view";
 
 /**
@@ -185,7 +129,7 @@ export function Todos({
 	}, [shown, untriaged, hidden]);
 	return (
 		<BoardContext value={context}>
-			<Drag
+			<BoardDrag
 				board={board}
 				refuseTodo={refuseTodo}
 				refuseLane={refuseLane}
@@ -241,7 +185,7 @@ export function Todos({
 						onUnname={() => board.unname()}
 					/>
 				</div>
-			</Drag>
+			</BoardDrag>
 			<TodoDialog todo={current} onClose={() => view.close()} />
 			<Dialog
 				open={task !== undefined}
@@ -256,190 +200,6 @@ export function Todos({
 		</BoardContext>
 	);
 }
-
-/** Whether there is more of `board` to scroll to on its left and its right. */
-interface Edges {
-	left: boolean;
-	right: boolean;
-}
-
-function edgesOf(board: HTMLElement | null): Edges {
-	if (board === null) {
-		return { left: false, right: false };
-	}
-	return {
-		left: board.scrollLeft > 1,
-		right: board.scrollLeft + board.clientWidth < board.scrollWidth - 1,
-	};
-}
-
-/**
- * `board`'s edges, read again as it resizes or its columns change, and by
- * `read`, which its scrolling calls.
- */
-function useEdges(board: RefObject<HTMLElement | null>): {
-	edges: Edges;
-	read: () => void;
-} {
-	const [edges, setEdges] = useState<Edges>({ left: false, right: false });
-	const read = useCallback(() => {
-		const next = edgesOf(board.current);
-		setEdges((was) =>
-			was.left === next.left && was.right === next.right ? was : next,
-		);
-	}, [board]);
-	useEffect(() => {
-		const element = board.current;
-		if (element === null) {
-			return;
-		}
-		const observer = new ResizeObserver(read);
-		observer.observe(element);
-		for (const column of element.children) {
-			observer.observe(column);
-		}
-		read();
-		return () => observer.disconnect();
-	});
-	return { edges, read };
-}
-
-/** A mask fading out each edge with more beyond it. */
-function fadeOf({ left, right }: Edges): string | undefined {
-	if (!left && !right) {
-		return undefined;
-	}
-	return `linear-gradient(to right, ${left ? "transparent, black 2.5rem" : "black"}, ${right ? "black calc(100% - 2.5rem), transparent" : "black"})`;
-}
-
-/**
- * Lets a card be dragged anywhere on the board: up or down its column, onto
- * a card in a lane to join it there, onto a column's space for its bottom,
- * or onto the new lane column; and a lane, by its header, left or right
- * past the others. A mouse drags once it moves a few pixels and a finger
- * after a short press, so a tap still opens the card and a swipe still
- * scrolls; a keyboard picks a card up by its grip with Space and moves it
- * with the arrows.
- */
-function Drag({
-	board,
-	refuseTodo,
-	refuseLane,
-	todos,
-	lanes,
-	staleness,
-	lifted,
-	liftedLane,
-	children,
-}: {
-	board: TodoBoard;
-	/** Says on a card that it was not moved. */
-	refuseTodo: (id: number, title: string, error: unknown) => void;
-	/** Says under a lane's header that it was not moved. */
-	refuseLane: (id: number, title: string, error: unknown) => void;
-	todos: TodoState[];
-	lanes: LaneRecord[];
-	staleness: number;
-	lifted?: TodoState;
-	liftedLane?: LaneState;
-	children: ReactNode;
-}): JSX.Element {
-	const sensors = useSensors(
-		useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
-		useSensor(TouchSensor, {
-			activationConstraint: { delay: 200, tolerance: 6 },
-		}),
-		useSensor(KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		}),
-	);
-
-	const drop = ({ active, over }: DragEndEvent) => {
-		const moving = laneOf(active.id);
-		if (moving !== undefined) {
-			board
-				.dropLane(
-					lanes,
-					moving,
-					over === null ? null : (laneOf(over.id) ?? null),
-				)
-				?.catch((error: unknown) => refuseLane(moving, "Not moved", error));
-			return;
-		}
-		const lane = over === null ? undefined : columnOf(over.id);
-		board
-			.drop(
-				todos,
-				Number(active.id),
-				over === null
-					? null
-					: lane === undefined
-						? { card: Number(over.id) }
-						: { lane },
-			)
-			?.catch((error: unknown) =>
-				refuseTodo(Number(active.id), "Not moved", error),
-			);
-	};
-
-	return (
-		<DndContext
-			sensors={sensors}
-			collisionDetection={collide}
-			onDragStart={({ active }) => {
-				const lane = laneOf(active.id);
-				if (lane === undefined) {
-					board.lift(Number(active.id));
-				} else {
-					board.liftLane(lane);
-				}
-			}}
-			onDragCancel={() => board.cancel()}
-			onDragEnd={drop}
-		>
-			{children}
-			{/* Lifted off the column, tilted, the way a card in hand looks: as it
-			    was in its column, numbered and without its detail in a lane. */}
-			<DragOverlay>
-				{lifted && (
-					<Card
-						todo={lifted}
-						staleness={staleness}
-						step={
-							lifted.lane === null
-								? undefined
-								: todos
-										.filter((other) => other.lane === lifted.lane)
-										.findIndex((other) => other.id === lifted.id) + 1
-						}
-						className="rotate-2 cursor-grabbing shadow-lg"
-					/>
-				)}
-				{liftedLane && <LiftedLane lane={liftedLane} staleness={staleness} />}
-			</DragOverlay>
-		</DndContext>
-	);
-}
-
-/**
- * The card under the pointer, or failing one the column, so a card dropped
- * between two lands in the column it is over; the nearest card when the
- * pointer is over neither, as when a keyboard moves it. A lane in hand
- * looks only at the other lanes, nearest first.
- */
-const collide: CollisionDetection = (args) => {
-	if (laneOf(args.active.id) !== undefined) {
-		return closestCenter({
-			...args,
-			droppableContainers: args.droppableContainers.filter(
-				(container) => laneOf(container.id) !== undefined,
-			),
-		});
-	}
-	const within = pointerWithin(args);
-	const card = within.find((hit) => columnOf(hit.id) === undefined);
-	return card ? [card] : within.length > 0 ? within : closestCenter(args);
-};
 
 /**
  * `todo` open in its dialog, to change it, link it or drop it, from the board
@@ -477,202 +237,5 @@ export function TodoDialog({
 				</DialogContent>
 			)}
 		</Dialog>
-	);
-}
-
-/**
- * One todo opened: its words and files to change, where it sits on the board
- * and what it waits on, between its subject and detail, and a way to drop it.
- */
-function Edit({
-	todo,
-	onDone,
-}: {
-	todo: TodoState;
-	onDone: () => void;
-}): JSX.Element {
-	const board = useContext(BoardContext);
-	const [editor] = useState(
-		() =>
-			new TodoEditor(
-				todo,
-				board.drafts,
-				todoEdit(new URLSearchParams(location.search).get("project"), todo.id),
-			),
-	);
-	const { busy, confirming, changed, restored, dropped } = useReactive(
-		editor,
-		(editor) => ({
-			busy: editor.busy,
-			confirming: editor.confirming,
-			changed: editor.changed,
-			restored: editor.restored,
-			dropped: editor.dropped,
-		}),
-		["changed"],
-	);
-	// Its step in its lane says more than its place in the whole list. An
-	// untriaged todo is in no sequence, so it says only that.
-	const steps = board.todos.filter((other) => other.lane === todo.lane);
-	const lane = board.lanes.find((record) => record.id === todo.lane);
-	const place =
-		lane === undefined
-			? "Untriaged"
-			: `Step ${steps.findIndex((other) => other.id === todo.id) + 1} of ${steps.length} in ${lane.name}`;
-	const mentions = useMentions<HTMLInputElement>(editor.subject);
-
-	const { refusal, refuse } = useRefusal();
-	const settle = (writing: Promise<void> | null, failed: string): void => {
-		writing?.then(onDone, (error: unknown) => refuse(failed, error));
-	};
-	return (
-		<>
-			<DialogHeader>
-				<DialogTitle className="flex items-center gap-2">
-					Todo {todo.id}
-					<span className="font-normal text-muted-foreground text-xs">
-						<CopyLink id={todo.id} />
-					</span>
-				</DialogTitle>
-				<DialogDescription>
-					{todo.takenBy ? `Taken by ${todo.takenBy}` : place}
-				</DialogDescription>
-			</DialogHeader>
-			<div className="flex min-w-0 flex-col gap-3">
-				{restored && (
-					<p className="flex items-center gap-2 text-muted-foreground text-xs">
-						Unsaved changes kept from before
-						<Button size="xs" variant="ghost" onClick={() => editor.discard()}>
-							Discard
-						</Button>
-					</p>
-				)}
-				<MentionAnchor mentions={mentions}>
-					<InputGroup>
-						<InputGroupInput
-							ref={mentions.ref}
-							aria-label="subject"
-							value={mentions.value}
-							onChange={mentions.onChange}
-							onSelect={mentions.onSelect}
-							onClick={mentions.onClick}
-							onKeyDown={mentions.onKeyDown}
-							onPaste={(event) => editor.files.paste(event)}
-						/>
-					</InputGroup>
-				</MentionAnchor>
-				{todo.takenBy === null ? (
-					<div className="flex flex-wrap items-center gap-2">
-						<StartMenu
-							assignment={{ kind: "todo", id: todo.id }}
-							assignee={todo.assignee ?? lane?.assignee ?? null}
-						/>
-						<AssigneeMenu
-							assignee={todo.assignee ?? null}
-							onPick={(pick) =>
-								void assignTodo(todo.id, pick).catch((error: unknown) =>
-									refuse("Not assigned", error),
-								)
-							}
-						/>
-					</div>
-				) : (
-					<OnIt task={todo.takenBy} variant="rows" className="-mx-2" />
-				)}
-				<Links todo={todo} />
-				<Detail editor={editor} />
-				<FileList files={editor.files} />
-				<Dropped names={dropped} />
-				<Refusal refusal={refusal} className="text-right" />
-			</div>
-			<DialogFooter className="flex-row justify-between sm:justify-between">
-				<Button
-					variant={confirming ? "destructive" : "ghost"}
-					disabled={busy}
-					onClick={() => settle(editor.remove(), "Not removed")}
-				>
-					<Trash2Icon data-icon="inline-start" />
-					{confirming ? "Remove for good" : "Remove"}
-				</Button>
-				<Button
-					disabled={!changed || busy}
-					onClick={() => settle(editor.save(), "Not saved")}
-				>
-					Save
-				</Button>
-			</DialogFooter>
-		</>
-	);
-}
-
-/**
- * A todo's detail, read as it renders, the way a Trello card opens; a click
- * on it, but on a link in it, writes its markdown, until focus leaves.
- */
-function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
-	const detail = useMentions<HTMLTextAreaElement>(editor.detail);
-	const [writing, setWriting] = useState(false);
-	if (writing) {
-		return (
-			<MentionAnchor mentions={detail}>
-				<InputGroup
-					onBlur={(event) => {
-						if (!event.currentTarget.contains(event.relatedTarget)) {
-							setWriting(false);
-						}
-					}}
-				>
-					<InputGroupTextarea
-						ref={detail.ref}
-						autoFocus
-						aria-label="detail"
-						placeholder="More to say in markdown, if any"
-						value={detail.value}
-						onChange={detail.onChange}
-						onSelect={detail.onSelect}
-						onClick={detail.onClick}
-						onKeyDown={detail.onKeyDown}
-						onPaste={(event) => editor.files.paste(event)}
-						className="min-h-32"
-					/>
-					<InputGroupAddon align="block-end">
-						<AttachButton files={editor.files} />
-					</InputGroupAddon>
-				</InputGroup>
-			</MentionAnchor>
-		);
-	}
-	if (detail.value.trim() === "") {
-		return (
-			<button
-				type="button"
-				onClick={() => setWriting(true)}
-				className="flex min-h-40 items-start rounded-md border border-dashed px-3 py-2 text-left text-muted-foreground text-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				Add more detail
-			</button>
-		);
-	}
-	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: a click anywhere on the words writes them, but a link in them still opens; its own button is what a keyboard reaches
-		// biome-ignore lint/a11y/useKeyWithClickEvents: as above
-		<div
-			className="relative min-h-40 cursor-text rounded-md border px-3 py-2 text-sm transition-colors hover:bg-muted/30"
-			onClick={(event) => {
-				if (!(event.target as HTMLElement).closest("a, button")) {
-					setWriting(true);
-				}
-			}}
-		>
-			<Markdown text={detail.value} />
-			<Button
-				size="xs"
-				variant="ghost"
-				className="sr-only absolute top-1 right-1 focus-visible:not-sr-only"
-				onClick={() => setWriting(true)}
-			>
-				Edit
-			</Button>
-		</div>
 	);
 }

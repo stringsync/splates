@@ -11,6 +11,8 @@
 @source "./app.tsx";
 @source "./auto-restart-dialog.tsx";
 @source "./todos.tsx";
+@source "./board-drag.tsx";
+@source "./todo-edit.tsx";
 @source "./tasks.tsx";
 @source "./dispatching.tsx";
 @source "./markdown.tsx";
@@ -32,6 +34,11 @@
 @source "./dot.tsx";
 @source "./board.ts";
 @source "./lanes.tsx";
+@source "./lane-column.tsx";
+@source "./lane-menu.tsx";
+@source "./add-todo.tsx";
+@source "./add-lane.tsx";
+@source "./shown-lanes.tsx";
 @source "./links.tsx";
 @source "./conversations.tsx";
 @source "./demo-cards.tsx";
