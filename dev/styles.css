@@ -42,6 +42,8 @@
 @source "./shown-lanes.tsx";
 @source "./links.tsx";
 @source "./conversations.tsx";
+@source "./thread.tsx";
+@source "./thread-actions.tsx";
 @source "./conversation-home.tsx";
 @source "./setting-controls.tsx";
 @source "./take-up.tsx";

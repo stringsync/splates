@@ -1,11 +1,16 @@
-import { useAuiState } from "@assistant-ui/react";
+import { type AssistantRuntime, useAuiState } from "@assistant-ui/react";
 import { PencilIcon, SendHorizontalIcon, Trash2Icon } from "lucide-react";
-import type { JSX } from "react";
+import type { JSX, RefObject } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import type { Message } from "../conversations";
 import { leadingDirectives } from "../prompts";
-import { conversationAttachment } from "./api";
+import {
+	conversationAttachment,
+	sendQueuedNow,
+	unqueueConversation,
+} from "./api";
+import { focusComposer } from "./composer-editor";
 import { Directed, DirectiveChip } from "./directives";
 
 /**
@@ -117,4 +122,54 @@ export function Queued({
 			</ul>
 		</section>
 	);
+}
+
+/**
+ * What can be done to the messages `Queued` shows: send them all now, take one
+ * back into the composer to edit, or throw one away.
+ */
+export function useQueueEdits(
+	id: string,
+	runtime: AssistantRuntime,
+	section: RefObject<HTMLElement | null>,
+	refused: (title: string, error: unknown) => void,
+): QueueEdits {
+	// Stops the turn so what is queued goes out now.
+	const sendNow = () =>
+		sendQueuedNow(id).catch((error: unknown) => refused("Not sent", error));
+	// Back into the composer to edit, ahead of anything typed there since.
+	const edit = async (index: number) => {
+		const taken = await unqueueConversation(id, index).catch(
+			(error: unknown) => {
+				refused("Not taken back", error);
+				return null;
+			},
+		);
+		if (taken === null) {
+			return;
+		}
+		const { text, files } = taken;
+		const composer = runtime.thread.composer;
+		const typed = composer.getState().text;
+		composer.setText(
+			typed === "" || text === "" ? `${text}${typed}` : `${text}\n\n${typed}`,
+		);
+		for (const file of files) {
+			void composer.addAttachment(file);
+		}
+		focusComposer(section.current);
+	};
+	// Gone before the agent hears it, its words with it.
+	const discard = (index: number) =>
+		unqueueConversation(id, index).catch((error: unknown) =>
+			refused("Not discarded", error),
+		);
+	return { sendNow, edit, discard };
+}
+
+/** What `useQueueEdits` gives a thread. */
+export interface QueueEdits {
+	sendNow: () => Promise<void>;
+	edit: (index: number) => Promise<void>;
+	discard: (index: number) => Promise<unknown>;
 }

@@ -1,12 +1,128 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
-import { stretches } from "../asked";
-import type { Message, Part } from "../conversations";
+import { useEffect, useMemo, useState } from "react";
+import { Duration, SystemTimer } from "webappwiz/time";
+import { type Report, stretches } from "../asked";
+import type { ConversationState, Message, Part } from "../conversations";
 import { conversationAttachment } from "./api";
+import type { ConversationFeed } from "./conversation-feed";
 import type { Turn } from "./report-cards";
-import { stretchesOf } from "./work";
+import { replyDue, stretchesOf } from "./work";
 
 /** One part of a message as assistant-ui takes it. */
 type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
+
+/**
+ * What a conversation's thread shows: its messages as assistant-ui takes
+ * them, with the reply's place held while the agent has yet to speak, and
+ * what waits for the turn's end apart, for above the composer.
+ */
+export function useThreadMessages(
+	conversation: ConversationState,
+	feed: ConversationFeed,
+): ThreadMessages {
+	const { id, status } = conversation;
+	const running = status === "running" || feed.sending.has(id);
+	// The last message is still being written while the agent works.
+	const writing = status === "running" || status === "starting";
+	// What waits for the turn's end sits above the composer, not in the
+	// thread: the agent has yet to hear it, and the thread would take it for
+	// a turn the agent is answering.
+	const queued = conversation.messages.filter((each) => each.queued);
+	// The latest words wait a moment to show as the reply: shown again once due.
+	const latest = conversation.messages.findLast((each) => !each.queued);
+	const due = writing && latest?.role === "agent" ? replyDue(latest) : null;
+	const [shown, show] = useState(0);
+	useEffect(() => {
+		const wait = due === null ? 0 : due - Date.now();
+		if (wait <= 0) {
+			return;
+		}
+		const timer = new SystemTimer().setTimeout(
+			() => show((times) => times + 1),
+			Duration.ms(wait),
+		);
+		return () => timer.dispose();
+	}, [due]);
+	const messages = useMemo(() => {
+		void shown;
+		const now = Date.now();
+		const said = conversation.messages.filter((each) => !each.queued);
+		const liked = said.map((message, index) =>
+			like(
+				message,
+				index,
+				conversation.id,
+				!writing || index < said.length - 1,
+				said[index - 1]?.at ?? message.at,
+				now,
+				conversation.lastTask,
+			),
+		);
+		// The reply's place while the agent has yet to say anything, under the
+		// id the reply will take: assistant-ui's own placeholder has an id of its
+		// own, so the reply would mount afresh in its place and fade in again.
+		// It holds the work row already, so the
+		// agent's first move fills that row rather than putting one in its place.
+		const prompt = said.at(-1);
+		return running && prompt?.role === "user"
+			? [
+					...liked,
+					like(
+						{ role: "agent", parts: [], plan: null, at: null, until: null },
+						said.length,
+						conversation.id,
+						false,
+						prompt.at,
+						now,
+					),
+				]
+			: liked;
+	}, [
+		conversation.messages,
+		conversation.id,
+		conversation.lastTask,
+		writing,
+		running,
+		shown,
+	]);
+	// Where the person left off, as it opens: the first message they have yet
+	// to see, read on from there, else the bottom. Opening marks it read, so
+	// this holds what it was before.
+	const [openAt] = useState(() =>
+		conversation.unread ? String(conversation.seen) : undefined,
+	);
+	// Its last word asks questions, escalates, or asks for a review, or it
+	// asks as it works: the card takes the focus, not the composer, unless it
+	// holds a draft.
+	const last = messages.at(-1);
+	const asking =
+		conversation.ask !== null ||
+		(last?.role === "assistant" &&
+			typeof last.content !== "string" &&
+			last.content.some(
+				(part) =>
+					part.type === "data-questions" ||
+					part.type === "data-review" ||
+					(part.type === "data-report" &&
+						(part.data as { report: Report }).report.ending === "escalated"),
+			));
+	return { running, writing, queued, messages, openAt, asking };
+}
+
+/** What `useThreadMessages` gives a thread. */
+export interface ThreadMessages {
+	/** Whether the agent is at work, or a message is on its way to it. */
+	running: boolean;
+	/** Whether the last message is still being written. */
+	writing: boolean;
+	/** What waits for the turn's end, shown above the composer. */
+	queued: Message[];
+	messages: ThreadMessageLike[];
+	/** The message to open at, the first unseen, or undefined for the bottom. */
+	openAt: string | undefined;
+	/** Whether a card asks the person something, to take the focus. */
+	asking: boolean;
+}
 
 /**
  * A message as assistant-ui takes one, the one place ACP's shape meets
