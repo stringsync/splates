@@ -1,20 +1,15 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Position, Rect } from "webappwiz/geometry";
+import {
+	around,
+	distance,
+	type Mark,
+	outline,
+	toSegment,
+} from "./annotation-mark";
+import { drawMarks } from "./annotation-painter";
 import { attachmentName } from "./attachment-chips";
-
-/**
- * One mark: a box between two corners, an arrow from its tail to its head, or
- * a pin at `from`. Its number is its place in the list, shown just off the
- * mark, with its note beside the number until the person drags it to `label`.
- */
-export interface Mark {
-	kind: "box" | "arrow" | "pin";
-	from: Position;
-	to: Position;
-	note: string;
-	label?: Position;
-}
 
 /** A press on a mark's note, which drags it rather than drawing. */
 interface Hold {
@@ -29,9 +24,6 @@ interface Hold {
 export type Tool = "box" | "arrow";
 
 export type AnnotationEvents = { changed: undefined };
-
-/** The marks' color: vivid magenta, which a screenshot of a UI rarely has. */
-const INK = "#ff1f8f";
 
 /** Each image the person annotated, by the flattened file sent in its place. */
 const annotated = new WeakMap<File, { original: File; marks: Mark[] }>();
@@ -349,18 +341,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	 * image's pixels: the image's top left corner at `context`'s origin.
 	 */
 	draw(context: CanvasRenderingContext2D): void {
-		context.drawImage(this.image, 0, 0);
-		context.save();
-		context.lineCap = "round";
-		context.lineJoin = "round";
-		const all = this.draft === null ? this.marks : [...this.marks, this.draft];
-		all.forEach((mark, at) => {
-			this.line(context, mark, at);
-			if (mark !== this.draft) {
-				this.number(context, at);
-			}
-		});
-		context.restore();
+		drawMarks(context, this);
 	}
 
 	/**
@@ -444,78 +425,6 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		return mark.kind === "pin" ? [[this.anchor(at), mark.from]] : outline(mark);
 	}
 
-	/**
-	 * Mark `at`'s line: a box's edges, an arrow, or the stem from a pin's
-	 * number down to a ring on its spot. A dark shadow, then a white halo,
-	 * then the ink: it reads on any background, light, dark or busy.
-	 */
-	private line(
-		context: CanvasRenderingContext2D,
-		mark: Mark,
-		at: number,
-	): void {
-		const { from, to } = mark;
-		const path = new Path2D();
-		if (mark.kind === "box") {
-			path.rect(
-				Math.min(from.x, to.x),
-				Math.min(from.y, to.y),
-				Math.abs(to.x - from.x),
-				Math.abs(to.y - from.y),
-			);
-		} else if (mark.kind === "arrow") {
-			const angle = Math.atan2(to.y - from.y, to.x - from.x);
-			const head = this.stroke * 4;
-			path.moveTo(from.x, from.y);
-			path.lineTo(to.x, to.y);
-			for (const side of [-1, 1]) {
-				path.moveTo(to.x, to.y);
-				path.lineTo(
-					to.x - head * Math.cos(angle + side * 0.5),
-					to.y - head * Math.sin(angle + side * 0.5),
-				);
-			}
-		} else {
-			const anchor = this.anchor(at);
-			path.moveTo(anchor.x, anchor.y);
-			path.lineTo(from.x, from.y);
-			// A ring on the spot itself, so the stem plainly ends somewhere.
-			path.moveTo(from.x + this.stroke, from.y);
-			path.arc(from.x, from.y, this.stroke, 0, Math.PI * 2);
-		}
-		context.shadowColor = "rgba(0, 0, 0, 0.55)";
-		context.shadowBlur = this.stroke * 1.5;
-		context.strokeStyle = "white";
-		context.lineWidth = this.stroke * 2;
-		context.stroke(path);
-		context.shadowColor = "transparent";
-		context.strokeStyle = INK;
-		context.lineWidth = this.stroke;
-		context.stroke(path);
-	}
-
-	/** Mark `at`'s number in a ringed disc, at its anchor. */
-	private number(context: CanvasRenderingContext2D, at: number): void {
-		const { x, y } = this.anchor(at);
-		const radius = this.badge;
-		context.shadowColor = "rgba(0, 0, 0, 0.55)";
-		context.shadowBlur = this.stroke * 1.5;
-		context.fillStyle = "white";
-		context.beginPath();
-		context.arc(x, y, radius + this.stroke * 0.6, 0, Math.PI * 2);
-		context.fill();
-		context.shadowColor = "transparent";
-		context.fillStyle = at === this.selected ? "#c2006a" : INK;
-		context.beginPath();
-		context.arc(x, y, radius, 0, Math.PI * 2);
-		context.fill();
-		context.fillStyle = "white";
-		context.font = `700 ${Math.round(radius * 1.15)}px system-ui, sans-serif`;
-		context.textAlign = "center";
-		context.textBaseline = "middle";
-		context.fillText(String(at + 1), x, y + radius * 0.06);
-	}
-
 	private set(
 		next: Partial<Pick<Annotation, "marks" | "tool" | "selected" | "draft">>,
 	): void {
@@ -531,56 +440,5 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 export function numbered(marks: readonly Mark[]): string[] {
 	return marks.map(
 		(mark, at) => `${at + 1}. ${mark.note.trim() || "(no note)"}`,
-	);
-}
-
-/** The square `reach` pixels each way from `point`. */
-function around(point: Position, reach: number): Rect {
-	return new Rect(point.x - reach, point.y - reach, reach * 2, reach * 2);
-}
-
-function distance(start: Position, end: Position): number {
-	return Math.hypot(end.x - start.x, end.y - start.y);
-}
-
-/** The straight pieces a box's edges or an arrow's shaft are made of. */
-function outline(mark: Mark): [Position, Position][] {
-	const { from, to } = mark;
-	if (mark.kind !== "box") {
-		return [[from, to]];
-	}
-	const corners = [
-		from,
-		new Position(to.x, from.y),
-		to,
-		new Position(from.x, to.y),
-	];
-	return corners.map((corner, each) => [
-		corner,
-		corners[(each + 1) % 4] as Position,
-	]);
-}
-
-/** How far `point` is from the nearest spot on the line from `start` to `end`. */
-function toSegment(point: Position, start: Position, end: Position): number {
-	const length = (end.x - start.x) ** 2 + (end.y - start.y) ** 2;
-	if (length === 0) {
-		return distance(point, start);
-	}
-	const along = Math.min(
-		1,
-		Math.max(
-			0,
-			((point.x - start.x) * (end.x - start.x) +
-				(point.y - start.y) * (end.y - start.y)) /
-				length,
-		),
-	);
-	return distance(
-		point,
-		new Position(
-			start.x + along * (end.x - start.x),
-			start.y + along * (end.y - start.y),
-		),
 	);
 }

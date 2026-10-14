@@ -23,6 +23,8 @@
 @source "./media.tsx";
 @source "./lightbox.tsx";
 @source "./annotate.tsx";
+@source "./annotate-board.tsx";
+@source "./mark-notes.tsx";
 @source "./composer-editor.tsx";
 @source "./composer-chips.tsx";
 @source "./composing.tsx";
