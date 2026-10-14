@@ -6,6 +6,7 @@ import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Review } from "../asked";
 import { assumptions, type Question } from "../plan";
+import { MERGE } from "../prompts";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
 import { AssumptionList, challengeOf } from "./assumption-list";
 import { Board } from "./board";
@@ -15,8 +16,8 @@ import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
 
-/** What the reply to a review says to merge, as the skill asks for it. */
-const MERGE = "merge";
+/** What a reply typed by hand says to merge, as the review's last line asks. */
+const TYPED_MERGE = "merge";
 
 /** What is written in a review: each challenge by its line, and the changes. */
 interface Written {
@@ -82,7 +83,8 @@ export function ReviewPanel({
 	};
 	const box = useRef<HTMLTextAreaElement>(null);
 	useArrival(send !== null, () => box.current);
-	const approved = sent?.trim().toLowerCase() === MERGE;
+	const approved =
+		sent?.trim() === MERGE || sent?.trim().toLowerCase() === TYPED_MERGE;
 	return (
 		<CardShell
 			label={`review ${review.task}`}

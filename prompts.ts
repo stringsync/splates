@@ -25,6 +25,12 @@ export const CHECKPOINT = "[ARBOR CHECKPOINT]";
  */
 export const RESUME = "[ARBOR RESUME]";
 
+/**
+ * What approves a task's review and asks the agent to merge it, as the Ready
+ * to merge card's Merge button sends: the arbor skill says what it means.
+ */
+export const MERGE = "[ARBOR MERGE]";
+
 /** Each `[ARBOR ...]` directive in a text, wherever it stands. */
 export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)?\]/g;
 

@@ -607,7 +607,9 @@ Give one demo per message, right before the questions it is for, or inside a
 review before its last line. The steps are the demo's only numbered list:
 never number steps elsewhere in a report, where they would read as questions.
 
-When the user approves, `arbor claim <task>` and merge. When that merge
+When the user approves, by replying "merge" or with `[ARBOR MERGE]`, which
+the Merge button on the `arbor dev` page's Ready to merge card sends,
+`arbor claim <task>` and merge. When that merge
 stops on a conflict, name each file you resolved in the merge report, since
 that code changed after the user looked. When they ask for
 changes, `arbor claim <task>`, add each as a step under `## Next`, and work

@@ -63,7 +63,7 @@ describe("App's review panel and demo cards", () => {
 
 		expect(textIn(box(view))).toBe("");
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
-			{ method: "POST", body: { text: "merge" } },
+			{ method: "POST", body: { text: "[ARBOR MERGE]" } },
 		]);
 	});
 
@@ -248,6 +248,25 @@ describe("App's review panel and demo cards", () => {
 				) as HTMLButtonElement
 			).disabled,
 		).toBe(true);
+	});
+
+	it("folds as approved once Merge has sent its directive, shown as a merge card", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				...reviewing,
+				messages: [...reviewing.messages, message("user", "[ARBOR MERGE]")],
+			}),
+		]);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		expect(
+			within(panel).getByRole("button", { name: /Ready to merge/ }).textContent,
+		).toContain("Merge approved");
+		expect(view.getByRole("region", { name: "merge" }).textContent).toContain(
+			"Asked the agent to merge the task it had reviewed.",
+		);
+		expect(view.queryByTitle("[ARBOR MERGE]")).toBeNull();
 	});
 
 	it("folds once the person has replied, opening on the reply that was sent, whatever is typed after", async () => {

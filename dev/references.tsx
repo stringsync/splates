@@ -1,18 +1,17 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
-	BookmarkIcon,
 	ColumnsIcon,
 	GitBranchIcon,
 	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
-	PlayIcon,
-	SparklesIcon,
+	TreePineIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
 import {
 	CHECKPOINT,
 	laneReference,
+	MERGE,
 	RESUME,
 	taskReference,
 	todoReference,
@@ -21,6 +20,7 @@ import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import type { Action } from "./actions";
 import { Board } from "./board";
+import type { Tone } from "./card-shell";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
@@ -41,7 +41,7 @@ export interface References {
 
 /** The categories, in the order the list shows them. */
 const CATEGORIES = [
-	{ id: "directive", label: "Directives", icon: SparklesIcon },
+	{ id: "directive", label: "Directives", icon: TreePineIcon },
 	{ id: "todo", label: "Todos", icon: ListTodoIcon },
 	{ id: "lane", label: "Lanes", icon: ColumnsIcon },
 	{ id: "task", label: "Tasks", icon: GitBranchIcon },
@@ -58,15 +58,26 @@ export const BARE_DIRECTIVES = [
 		directive: CHECKPOINT,
 		label: "Checkpoint",
 		about: "update ARBOR.md and stop",
-		icon: BookmarkIcon,
+		tone: "neutral",
 	},
 	{
 		directive: RESUME,
 		label: "Resume",
 		about: "carry on from ARBOR.md",
-		icon: PlayIcon,
+		tone: "neutral",
 	},
-];
+	{
+		directive: MERGE,
+		label: "Merge",
+		about: "merge the task it had reviewed",
+		tone: "success",
+	},
+] as const satisfies {
+	directive: string;
+	label: string;
+	about: string;
+	tone: Tone;
+}[];
 
 /**
  * The board's todos and lanes, `tasks`, `systems`, the directives, and

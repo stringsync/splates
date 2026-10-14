@@ -316,7 +316,7 @@ describe("App's report cards", () => {
 		expect(added.textContent).toContain("Wrap the header on phones.");
 	});
 
-	it("shows a message of a checkpoint or resume alone as a card", async () => {
+	it("shows a message of a checkpoint, resume, or merge alone as a card under the tree-pine", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				messages: [
@@ -324,6 +324,8 @@ describe("App's report cards", () => {
 					message("user", "[ARBOR CHECKPOINT]"),
 					message("agent", "Stopped before the tests."),
 					message("user", "[ARBOR RESUME]"),
+					message("agent", "Ready to merge."),
+					message("user", "[ARBOR MERGE]"),
 				],
 			}),
 		]);
@@ -340,6 +342,14 @@ describe("App's report cards", () => {
 		expect(checkpoint.closest('[data-role="user"]')?.className).not.toContain(
 			"sticky",
 		);
+		expect(view.getByRole("region", { name: "merge" }).textContent).toContain(
+			"Asked the agent to merge the task it had reviewed.",
+		);
+		for (const name of ["checkpoint", "resume", "merge"]) {
+			expect(
+				view.getByRole("region", { name }).querySelector(".lucide-tree-pine"),
+			).not.toBeNull();
+		}
 		expect(view.queryByTitle("[ARBOR CHECKPOINT]")).toBeNull();
 	});
 
@@ -376,6 +386,9 @@ describe("App's report cards", () => {
 		const task = view.getByRole("region", { name: "claim task header" });
 		expect(task.textContent).toContain("Asked the agent to claim");
 		expect(task.textContent).toContain("header");
+		for (const card of [taken, lane, task]) {
+			expect(card.querySelector("header .lucide-tree-pine")).not.toBeNull();
+		}
 
 		fireEvent.click(within(taken).getByTitle("[ARBOR TODO #12]"));
 		await waitFor(() =>
