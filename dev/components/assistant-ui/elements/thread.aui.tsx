@@ -1793,7 +1793,11 @@ const UserMessage: FC = () => {
 			data-role="user"
 		>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
-				<Clamped watch={id} head={<SentTiles attachments={attachments} />}>
+				<Clamped
+					watch={id}
+					head={<SentTiles attachments={attachments} />}
+					files={(attachments ?? []).length > 0}
+				>
 					{/* Only words: the images it carries are attachments, shown as
 					the tiles above. */}
 					<MessagePrimitive.Parts components={{ Text: UserText }} />
@@ -1902,17 +1906,26 @@ const USER_BOX =
 const CLAMP = "max-h-24";
 
 /**
- * A message cut to four lines, fading out where it is cut, and opened or
- * closed again by a click (or Enter) when there is more than fits.
+ * How much of a message with files is shown before it is clicked open: a row
+ * of tiles and a line or two under it.
+ */
+const CLAMP_WITH_FILES = "max-h-32";
+
+/**
+ * A message cut to four lines, or to its files and a line or two, fading out
+ * where it is cut, and opened or closed again by a click (or Enter) when
+ * there is more than fits.
  */
 const Clamped: FC<
 	PropsWithChildren<{
 		/** Changes when the words do, to measure them again. */
 		watch: string;
-		/** Above the words and never cut: the images the message holds. */
+		/** Above the words, and cut with them: the files the message holds. */
 		head?: ReactNode;
+		/** Whether there are files above the words, which take more room. */
+		files: boolean;
 	}>
-> = ({ watch, head, children }) => {
+> = ({ watch, head, files, children }) => {
 	const text = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
 	const [more, setMore] = useState(false);
@@ -1956,19 +1969,21 @@ const Clamped: FC<
 				(more || open) && "cursor-pointer",
 			)}
 		>
-			{head}
 			<div
 				ref={text}
 				className={cn(
-					!open && [CLAMP, "overflow-hidden"],
+					// The files are cut with the words, so a message stuck atop the
+					// thread is no taller for holding them.
+					!open && [files ? CLAMP_WITH_FILES : CLAMP, "overflow-hidden"],
 					// Open, it still sticks atop the thread, so it scrolls past half
 					// the screen rather than hide the reply.
 					open && "max-h-[50dvh] overflow-y-auto",
 					!open &&
 						more &&
-						"[mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
+						"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]",
 				)}
 			>
+				{head}
 				{children}
 			</div>
 		</div>
