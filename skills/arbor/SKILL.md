@@ -479,6 +479,12 @@ Keep each assumed choice in one place (a constant, a config value, a single
 component), so a challenge costs a small fix rather than a rewrite. When an
 answer or a challenge overturns a choice, redo that part.
 
+Say each assumption in the conversation too, in the reply that ends the turn
+you wrote it in, so the user sees the call while it is cheap to undo: a
+`- Assumed <number>: <what you chose>` line each, beyond any cap on `- `
+lines, after the others and before any todo, demo or question. A review leaves
+them out, since its Ready to merge card lists them.
+
 An answer can reach you mid-turn, as a message that arrives while you work.
 Read it at the next step rather than at the end: record it (see Keeping
 Blocked current), and redo at once what it overturns, before building more on
@@ -687,8 +693,8 @@ on or would be caught out without: a restart to pick the change up, a file
 resolved in a conflict after their review, a todo gone stale. Leave out what
 the page, the diff, or `ARBOR.md` already says: that tests pass (but for a
 review's checks), that nothing is merged yet, the files touched, how you did
-it, and calls you made, which are assumptions or questions in `ARBOR.md`, the
-questions asked as questions.
+it, and calls you made, the questions asked as questions and the assumptions
+said as in Asking as you go.
 
 When the user has answered questions since your last report, add a `- `
 line for each answer you did not follow as given, or that changed more than

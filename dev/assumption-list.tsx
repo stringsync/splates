@@ -4,19 +4,8 @@ import {
 	RotateCwIcon,
 	UndoIcon,
 } from "lucide-react";
-import {
-	type JSX,
-	type ReactNode,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
@@ -24,7 +13,7 @@ import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 
 /** The answer that leaves `assumed` as the agent took it: its `(chosen)` choices. */
-export function takenOf(assumed: Question): Answer {
+function takenOf(assumed: Question): Answer {
 	return {
 		picks: assumed.choices
 			.filter((choice) => choice.chosen)
@@ -186,10 +175,10 @@ export function useChallenges(
 }
 
 /**
- * Says, in the actions beside Send or Merge, that the agent changed its
- * assumptions since the person started challenging them, reassures them
- * their challenges carry over to those still there, and offers to show them
- * as they are now.
+ * Says, in the review card's actions beside Send and Merge, that the agent
+ * changed its assumptions since the person started challenging them,
+ * reassures them their challenges carry over to those still there, and
+ * offers to show them as they are now.
  */
 export function AssumptionsChanged({
 	dropped,
@@ -222,8 +211,8 @@ export function AssumptionsChanged({
 }
 
 /**
- * A task's assumptions, a line each: what it asked and the choice the agent
- * took, with a Challenge control that opens it as a question card offering
+ * A task's assumptions, each what it asked over the choice the agent took,
+ * with a Challenge control that opens it as a question card offering
  * the rest, and Keep to put that away again. `answers` are the challenges
  * written, by position.
  */
@@ -231,31 +220,16 @@ export function AssumptionList({
 	assumptions,
 	answers,
 	live,
-	heading = true,
-	whole = false,
 	onAnswer,
 	onNext,
-	onChallenge,
 }: {
 	assumptions: Question[];
 	answers: (Answer | null)[];
 	/** Whether a challenge can still be written. */
 	live: boolean;
-	/** Whether it titles itself, rather than sitting under a card's title. */
-	heading?: boolean;
-	/**
-	 * Whether each shows whole, what it asked over the choice taken, rather
-	 * than on one line cut to fit.
-	 */
-	whole?: boolean;
 	onAnswer: (assumed: Question, answer: Answer) => void;
 	/** Once Enter is pressed in an open challenge. */
 	onNext: () => void;
-	/**
-	 * Challenges an assumption somewhere else, such as a dialog, rather than
-	 * opening it in place.
-	 */
-	onChallenge?: (number: string) => void;
 }): JSX.Element {
 	// Open with a challenge already written, as from a kept draft.
 	const [opened, setOpened] = useState(
@@ -281,17 +255,13 @@ export function AssumptionList({
 			aria-label="Assumptions"
 			className="@container flex flex-col py-1.5"
 		>
-			{heading && (
-				<h3 className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
-					Assumptions
-				</h3>
-			)}
+			<h3 className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
+				Assumptions
+			</h3>
 			<ol className="flex flex-col">
 				{assumptions.map((assumed, at) => {
 					const answer = answers[at] ?? null;
-					const open =
-						onChallenge === undefined &&
-						(opened.has(assumed.number) || answer !== null);
+					const open = opened.has(assumed.number) || answer !== null;
 					return open ? (
 						<ChallengeCard
 							key={assumed.number}
@@ -324,12 +294,7 @@ export function AssumptionList({
 							assumed={assumed}
 							challenge={answer}
 							live={live}
-							whole={whole}
-							onChallenge={() =>
-								onChallenge === undefined
-									? toggle(assumed.number, true)
-									: onChallenge(assumed.number)
-							}
+							onChallenge={() => toggle(assumed.number, true)}
 						/>
 					);
 				})}
@@ -343,7 +308,7 @@ export function AssumptionList({
  * took tagged Assumed and picked until another is. Picking it again
  * withdraws the challenge.
  */
-export function ChallengeCard({
+function ChallengeCard({
 	assumed,
 	answer,
 	...card
@@ -366,22 +331,17 @@ export function ChallengeCard({
 	);
 }
 
-/**
- * One assumption: what it asked, then what the agent took, on one line cut
- * to fit, or `whole`, the choice taken under what it asked.
- */
+/** One assumption: what it asked, over the choice the agent took. */
 function AssumptionRow({
 	assumed,
 	challenge,
 	live,
-	whole,
 	onChallenge,
 }: {
 	assumed: Question;
 	/** The challenge written to it, shown in place of what it took; null for none. */
 	challenge: Answer | null;
 	live: boolean;
-	whole: boolean;
 	onChallenge: () => void;
 }): JSX.Element {
 	const { number, text, choices } = assumed;
@@ -427,95 +387,27 @@ function AssumptionRow({
 			<span className="hidden @sm:inline">Challenge</span>
 		</Button>
 	);
-	if (whole) {
-		return (
-			<li
-				aria-label={`assumption ${number}`}
-				className="flex items-start gap-2 px-4 py-1.5 text-sm"
-			>
-				<span className="flex h-6 items-center">{numeral}</span>
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
-					<Markdown text={text} inline className="text-muted-foreground" />
-					{shown !== null && (
-						<span
-							className={cn(
-								"flex items-start gap-1 font-medium",
-								challenge !== null && "text-warning",
-							)}
-						>
-							<span className="flex h-5 items-center">{mark}</span>
-							<Markdown text={shown} inline />
-						</span>
-					)}
-				</div>
-				{button}
-			</li>
-		);
-	}
 	return (
 		<li
 			aria-label={`assumption ${number}`}
-			// One line where there is room; in a narrow column, what it asked
-			// over the choice taken.
-			className="flex min-h-8 flex-wrap items-center gap-x-2 px-4 py-0.5 text-sm"
+			className="flex items-start gap-2 px-4 py-1.5 text-sm"
 		>
-			<span className="flex min-w-0 basis-full items-center gap-2 @sm:flex-1 @sm:basis-0">
-				{numeral}
-				<Clipped text={text} className="flex-1 text-muted-foreground" />
-			</span>
-			{shown !== null && (
-				<span
-					className={cn(
-						"flex min-w-0 flex-1 items-center gap-1 pl-7 font-medium @sm:max-w-1/2 @sm:flex-none @sm:pl-0",
-						challenge !== null && "text-warning",
-					)}
-				>
-					{mark}
-					<Clipped text={shown} />
-				</span>
-			)}
+			<span className="flex h-6 items-center">{numeral}</span>
+			<div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
+				<Markdown text={text} inline className="text-muted-foreground" />
+				{shown !== null && (
+					<span
+						className={cn(
+							"flex items-start gap-1 font-medium",
+							challenge !== null && "text-warning",
+						)}
+					>
+						<span className="flex h-5 items-center">{mark}</span>
+						<Markdown text={shown} inline />
+					</span>
+				)}
+			</div>
 			{button}
 		</li>
-	);
-}
-
-/**
- * `text` on one line, cut off with "…" when it is too long, and then shown
- * whole on hover.
- */
-function Clipped({
-	text,
-	className,
-}: {
-	text: string;
-	className?: string;
-}): JSX.Element {
-	const [cut, setCut] = useState(false);
-	const shown = useRef<HTMLSpanElement>(null);
-	// Measured whenever its width changes, so the tooltip is ready before the
-	// pointer arrives.
-	useLayoutEffect(() => {
-		const element = shown.current;
-		if (element === null) {
-			return;
-		}
-		const measure = () => setCut(element.scrollWidth > element.clientWidth);
-		measure();
-		const observer = new ResizeObserver(measure);
-		observer.observe(element);
-		return () => observer.disconnect();
-	}, []);
-	return (
-		<Tooltip disabled={!cut}>
-			<TooltipTrigger
-				render={<span ref={shown} />}
-				className={cn("min-w-0 truncate", className)}
-			>
-				<Markdown text={text} inline />
-			</TooltipTrigger>
-			<TooltipContent className="max-w-sm">
-				<Markdown text={text} inline />
-			</TooltipContent>
-		</Tooltip>
 	);
 }

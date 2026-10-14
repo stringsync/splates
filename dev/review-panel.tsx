@@ -110,7 +110,6 @@ export function ReviewPanel({
 								: assumed.map((asked) => answerIn(sent, asked))
 						}
 						live={send !== null}
-						whole
 						onAnswer={challenge}
 						onNext={() => box.current?.focus()}
 					/>

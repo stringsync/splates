@@ -43,57 +43,6 @@ Cap upload retries
 - [ ] 1. How many retries?
 `;
 
-	it("lists what a task outside the page assumed, copying a challenge to paste into its session", async () => {
-		const view = await testing.openConversations([], null, {
-			tasks: [
-				details({
-					task: "gamma",
-					plan: "# gamma\n\n## Assumptions\n\n- [ ] 1. How many retries?\n  - (a) Three (chosen)\n  - (b) Five\n",
-				}),
-			],
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(
-					view.getByRole("navigation", { name: "conversations" }),
-				).getByRole("button", { name: /gamma/ }),
-			),
-		);
-		const card = within(view.getByRole("region", { name: "gamma" })).getByRole(
-			"region",
-			{ name: "assumptions" },
-		);
-		const copied: string[] = [];
-		Object.defineProperty(navigator, "clipboard", {
-			configurable: true,
-			value: { writeText: async (text: string) => void copied.push(text) },
-		});
-		await act(async () =>
-			fireEvent.click(
-				within(card).getByRole("button", { name: "Challenge assumption 1" }),
-			),
-		);
-		// All of them at once, in a dialog, the one clicked first in view.
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(
-			within(dialog)
-				.getByRole("button", { name: /Three/ })
-				.getAttribute("aria-pressed"),
-		).toBe("true");
-		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: /Five/ })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Copy challenges" }),
-			),
-		);
-
-		expect(copied).toEqual(["> **How many retries?**\n\n- (b) Five"]);
-		// Kept, to copy again until its agent records it.
-		expect(within(dialog).getByRole("button", { name: "Copied" })).toBeTruthy();
-	});
-
 	const rows = (view: ConversationsView) =>
 		within(view.getByRole("navigation", { name: "conversations" }))
 			.getAllByRole("listitem")

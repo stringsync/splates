@@ -24,7 +24,6 @@ import type { Need } from "../needs";
 import type { Question } from "../plan";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
-import { AssumptionsCard } from "./assumptions-card";
 import { Back } from "./back";
 import { type Reply, ReplyContext } from "./card-reply";
 import { toCardTop } from "./card-shell";
@@ -321,7 +320,6 @@ export function TaskView({
 						{open.length === 0 && (
 							<p className="text-muted-foreground">No open questions.</p>
 						)}
-						<AssumptionsCard task={task.task} plan={task.plan} reply={reply} />
 						<Agent task={task} />
 						<Sessions task={task.task} agents={agents} onBrought={onBrought} />
 					</div>
