@@ -7,9 +7,9 @@ import {
 } from "#dev/components/ui/dialog.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { After } from "../conversations";
-import type { ProjectChoice } from "./api";
 import { ProjectName } from "./checkpoint-asked";
 import { PhaseTitle } from "./checkpoint-slide";
+import type { ProjectChoice } from "./project-api";
 
 /** What a checkpoint does once its agents have answered. */
 const AFTERWARDS: {

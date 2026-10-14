@@ -11,8 +11,8 @@ import {
 } from "#dev/components/ui/popover.tsx";
 import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
-import { forgetProject, listProjects, type ProjectChoice } from "./api";
 import { Dot } from "./dot";
+import { forgetProject, listProjects, type ProjectChoice } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 
 /** The project the page shows: `?project=`, or none for the one started in. */

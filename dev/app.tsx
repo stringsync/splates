@@ -37,7 +37,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
-import { listProjects, restartIdle, stats } from "./api";
+import { stats } from "./api";
 import { AutoRestart } from "./auto-restart";
 import { AutoRestartDialog } from "./auto-restart-dialog";
 import { BackgroundPane, WatchBackground } from "./background";
@@ -62,6 +62,7 @@ import {
 } from "./hooks/use-shortcut";
 import { OpenerContext, openerOf } from "./openers";
 import { PageMenu } from "./page-menu";
+import { listProjects, restartIdle } from "./project-api";
 import {
 	ProjectSwitcher,
 	placeOf,

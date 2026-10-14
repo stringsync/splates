@@ -1,7 +1,7 @@
 import { FlagIcon, Loader2Icon, PlayIcon, RotateCwIcon } from "lucide-react";
 import type { JSX } from "react";
 import { DialogTitle } from "#dev/components/ui/dialog.tsx";
-import type { ProjectConversation } from "./api";
+import type { ProjectConversation } from "./project-api";
 
 /** How a checkpoint stands. */
 export interface Standing {

@@ -2,8 +2,8 @@ import { CheckIcon, CircleAlertIcon, Loader2Icon } from "lucide-react";
 import type { JSX } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Checkpoint } from "../conversations";
-import type { ProjectChoice, ProjectConversation } from "./api";
 import { standing } from "./checkpoint-slide";
+import type { ProjectChoice, ProjectConversation } from "./project-api";
 import { projectUrl } from "./projects";
 
 /** Each project's agents a checkpoint asked, and how each got on. */

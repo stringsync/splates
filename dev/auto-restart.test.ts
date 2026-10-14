@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Duration } from "webappwiz/time";
 import { FakeClock, FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import type { ProjectConversation, Projects } from "./api";
 import { AutoRestart, type AutoRestartServer } from "./auto-restart";
+import type { ProjectConversation, Projects } from "./project-api";
 import { Settings } from "./settings";
 import "./testing";
 

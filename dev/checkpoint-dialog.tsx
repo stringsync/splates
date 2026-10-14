@@ -9,14 +9,6 @@ import {
 } from "#dev/components/ui/dialog.tsx";
 import type { After } from "../conversations";
 import {
-	checkpointProjects,
-	dismissCheckpoint,
-	type ProjectChoice,
-	type ProjectConversation,
-	restartFromCheckpoint,
-	resumeCheckpoint,
-} from "./api";
-import {
 	AskedList,
 	CheckpointResumed,
 	checkpointed,
@@ -32,6 +24,14 @@ import {
 	standing,
 	summary,
 } from "./checkpoint-slide";
+import {
+	checkpointProjects,
+	dismissCheckpoint,
+	type ProjectChoice,
+	type ProjectConversation,
+	restartFromCheckpoint,
+	resumeCheckpoint,
+} from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 
 /** A restart on its way: the run it replaces, and whether the next resumes. */

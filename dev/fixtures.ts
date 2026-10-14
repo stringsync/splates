@@ -8,7 +8,7 @@ import type {
 import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
-import type { ProjectChoice } from "./api";
+import type { ProjectChoice } from "./project-api";
 
 /** A conversation of a project's, as the projects route lists it. */
 export function live(

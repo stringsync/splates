@@ -6,7 +6,7 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
-import type { Projects } from "./api";
+import type { Projects } from "./project-api";
 import type { Settings } from "./settings";
 
 export type AutoRestartEvents = { changed: undefined };

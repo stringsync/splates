@@ -17,9 +17,9 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import type { After, ConversationState } from "../conversations";
-import { listProjects, type ProjectChoice, type Projects } from "./api";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
 import { type Slide, slideOf, standing, titleOf } from "./checkpoint-slide";
+import { listProjects, type ProjectChoice, type Projects } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 
 /** A checkpoint whose agents carried on, after `arbor dev` restarted or not. */

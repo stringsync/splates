@@ -9,10 +9,10 @@ import type { ConversationState, Session } from "../conversations";
 import type { FileDiff } from "../diff";
 import type { Snapshot } from "../snapshot";
 import type { NamedSystem } from "../systems";
-import type { ProjectChoice } from "./api";
 import type { AgentChoice } from "./conversation-feed";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
+import type { ProjectChoice } from "./project-api";
 import { Settings } from "./settings";
 import { App, act, fireEvent, render, waitFor, within } from "./testing-dom";
 
