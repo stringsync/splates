@@ -12,11 +12,12 @@ import {
 	MessageSquarePlusIcon,
 	PaperclipIcon,
 	PlayIcon,
+	SproutIcon,
 } from "lucide-react";
 import { createContext, type JSX, useContext, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { Proposal, Report } from "../asked";
+import type { Proposal, Report, Start } from "../asked";
 import { todoReference } from "../prompts";
 import type { TodoState } from "../todo";
 import { Board } from "./board";
@@ -35,6 +36,29 @@ export const ReportUI = makeAssistantDataUI<{ report: Report }>({
 	name: "report",
 	render: ({ data }) => <ReportCard report={data.report} />,
 });
+
+/**
+ * Renders a `data-start` part: the task the agent added, and its Goal, as it
+ * said when it began, whether that ends its turn or comes along the way.
+ */
+export const StartUI = makeAssistantDataUI<{ start: Start }>({
+	name: "start",
+	render: ({ data }) => <StartCard start={data.start} />,
+});
+
+export function StartCard({ start }: { start: Start }): JSX.Element {
+	return (
+		<CardShell
+			label={`added ${start.task}`}
+			Icon={SproutIcon}
+			title="Added"
+			tone="info"
+			task={start.task}
+		>
+			{start.goal === "" ? undefined : <CardBody text={start.goal} />}
+		</CardShell>
+	);
+}
 
 /** The open conversation, to archive; none outside one. */
 export const ArchiveContext = createContext<{

@@ -47,7 +47,8 @@ names, never up front:
    task under way. `[ARBOR LANE N]` hands you a whole lane instead (see
    `references/lanes.md`). Pass `--base <branch>` only when invoked with a branch
    (`/arbor feature/auth`) or the user names one; never guess a base from the
-   checked-out branch.
+   checked-out branch. Once `arbor add` succeeds, say what you added before
+   anything else (see Saying what you added).
 2. **Plan.** Once you know what done means, fill in `ARBOR.md` before
    touching code (see ARBOR.md below), then groom the todos your work touches
    (see Grooming related todos in `references/todos.md`).
@@ -95,6 +96,19 @@ which puts them back on the list.
 `escalated` (the other task needs the user: tell them you are blocked on it),
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
+
+## Saying what you added
+
+When `arbor add` makes your task, say so in a message of its own, which the
+`arbor dev` page shows as a card: a `## 🌱 Added <task>` title, a blank line,
+and the Goal, one or two lines on what done means as you understand it so
+far. Say it once per task, never for a claim.
+
+```markdown
+## 🌱 Added <task>
+
+Stop retrying an upload the server refused as too big, and tell the user why.
+```
 
 ## Systems
 

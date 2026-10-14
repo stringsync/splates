@@ -4,13 +4,15 @@ import { offers, type Question, settled } from "./plan";
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, its report of how a task ended or what it
- * waits on, a todo it proposes, or a demo for the person to try.
+ * waits on, its word that it added a task, a todo it proposes, or a demo for
+ * the person to try.
  */
 export type Stretch =
 	| { type: "text"; text: string }
 	| { type: "questions"; questions: Question[] }
 	| { type: "review"; review: Review }
 	| { type: "report"; report: Report }
+	| { type: "start"; start: Start }
 	| { type: "todo"; todo: Proposal }
 	| { type: "demo"; demo: Demo };
 
@@ -64,6 +66,13 @@ export interface Report {
 	source: string;
 }
 
+/** A task the skill says it added as `## 🌱 Added <task>`, its Goal under it. */
+export interface Start {
+	task: string;
+	/** What done means, as the task's Goal says, as markdown. */
+	goal: string;
+}
+
 /** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
 export interface Proposal {
 	id: number;
@@ -76,6 +85,7 @@ export interface Proposal {
 const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 const DEMO = /^### 🎬 Demo(?::[ \t]*(.*?))?[ \t]*$/;
 const HEADING = /^#{1,6}[ \t]/;
@@ -169,8 +179,9 @@ export function stretches(text: string): Stretch[] {
 }
 
 /**
- * The report or proposed todo titled at `start`, which runs until the next
- * heading or list of questions, and the line after it; null for any other line.
+ * The report, added task or proposed todo titled at `start`, which runs until
+ * the next heading or list of questions, and the line after it; null for any
+ * other line.
  */
 function keptAt(
 	lines: string[],
@@ -179,8 +190,14 @@ function keptAt(
 	const line = lines[start] as string;
 	const merged = MERGED.exec(line);
 	const ended = ENDED.exec(line);
+	const added = ADDED.exec(line);
 	const proposed = PROPOSAL.exec(line);
-	if (merged === null && ended === null && proposed === null) {
+	if (
+		merged === null &&
+		ended === null &&
+		added === null &&
+		proposed === null
+	) {
 		return null;
 	}
 	const end = endAt(lines, start + 1);
@@ -188,6 +205,15 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
+	if (added !== null) {
+		return {
+			stretch: {
+				type: "start",
+				start: { task: added[1] as string, goal: body },
+			},
+			end,
+		};
+	}
 	if (proposed !== null) {
 		return {
 			stretch: {

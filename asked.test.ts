@@ -186,6 +186,26 @@ describe("stretches", () => {
 		});
 	});
 
+	it("reads the skill's word that it added a task, its Goal under it", async () => {
+		const example = (await skillExamples()).find((each) =>
+			each.startsWith("## 🌱 Added"),
+		);
+		if (example === undefined) {
+			throw new Error("the skill has no added example");
+		}
+
+		expect(stretches(`On it.\n\n${example}`)).toEqual([
+			{ type: "text", text: "On it." },
+			{
+				type: "start",
+				start: {
+					task: "<task>",
+					goal: "Stop retrying an upload the server refused as too big, and tell the user why.",
+				},
+			},
+		]);
+	});
+
 	it("reads the skill's own demo, alone in a message, as a demo", async () => {
 		const example = (await skillExamples()).find((each) =>
 			each.startsWith("### 🎬 Demo"),

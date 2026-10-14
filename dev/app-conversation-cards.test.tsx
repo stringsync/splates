@@ -685,6 +685,55 @@ describe("App's conversations", () => {
 			expect(work.textContent).not.toContain("All tests pass.");
 		});
 
+		it("shows the task the agent added along the way as a card between its work", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "x1", command: "arbor add upload-limit" }),
+					"## 🌱 Added upload-limit\n\nStop retrying an upload refused as too big.",
+					tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"] }),
+					"It stops now.",
+				]),
+			);
+
+			const added = await waitFor(() =>
+				within(thread).getByRole("region", { name: "added upload-limit" }),
+			);
+			expect(added.textContent).toContain("Added");
+			expect(added.textContent).toContain(
+				"Stop retrying an upload refused as too big.",
+			);
+			const works = within(thread).getAllByRole("list", { name: "timeline" });
+			expect(works.map(lines)).toEqual([
+				["Ranarbor add upload-limit"],
+				["Reada.ts"],
+			]);
+			expect(thread.textContent).toMatch(
+				/arbor add upload-limit.*Added.*Reada\.ts.*It stops now\./,
+			);
+			expect(thread.textContent).not.toContain("## 🌱");
+		});
+
+		it("keeps words along the way that say a task was added folded in while they are still being written", async () => {
+			const thread = await opened(
+				turn(
+					[
+						tool({ id: "x1", command: "arbor add upload-limit" }),
+						"## 🌱 Added upload-limit\n\nStop retrying",
+					],
+					{ status: "running" },
+				),
+			);
+
+			await waitFor(() =>
+				expect(
+					within(thread).getAllByRole("list", { name: "timeline" }),
+				).toHaveLength(1),
+			);
+			expect(
+				within(thread).queryByRole("region", { name: "added upload-limit" }),
+			).toBeNull();
+		});
+
 		it("says what each call does while it runs, and what it did once done", async () => {
 			const calls = (status: "in_progress" | "completed") => [
 				tool({
@@ -1565,6 +1614,28 @@ describe("App's conversations", () => {
 			]);
 			await waitFor(() => expect(location.hash).toBe("#conversations/new"));
 			expect(view.getByText("Start a conversation with")).toBeTruthy();
+		});
+	});
+
+	describe("added cards", () => {
+		it("shows the task a reply says it added, with its Goal, as a card", async () => {
+			await testing.openConversations([
+				conversation({
+					title: "Added",
+					messages: [
+						message(
+							"agent",
+							"## 🌱 Added header\n\nWrap the header on phones.",
+						),
+					],
+				}),
+			]);
+
+			const added = await waitFor(() =>
+				within(document.body).getByRole("region", { name: "added header" }),
+			);
+			expect(added.textContent).toContain("header");
+			expect(added.textContent).toContain("Wrap the header on phones.");
 		});
 	});
 

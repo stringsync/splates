@@ -1,4 +1,5 @@
 import { Duration } from "webappwiz/time";
+import { stretches } from "../asked";
 import type { Decision, Message, Part, Step, Tool } from "../conversations";
 import type { Flag } from "../watch";
 
@@ -21,9 +22,13 @@ export interface Work {
 	going: boolean;
 }
 
-/** A stretch of an agent's turn: words it said, or the work around them. */
+/**
+ * A stretch of an agent's turn: words it said, the words along the way that
+ * say it added a task, or the work around them.
+ */
 export type Stretch =
 	| { type: "said"; text: string }
+	| { type: "added"; text: string }
 	| { type: "work"; work: Work };
 
 /**
@@ -54,7 +59,7 @@ export function stretchesOf(
 	const said = parts[last];
 	const before = last === -1 ? parts : parts.slice(0, last);
 	const after = last === -1 ? [] : parts.slice(last + 1);
-	const kept: (Part[] | string)[] = [];
+	const kept: (Part[] | Exclude<Stretch, { type: "work" }>)[] = [];
 	// Its plan shows on a row of its own, above what it said, even with no work,
 	// and so does a turn going with nothing to show yet, so the row says Working
 	// in the place its work will fill.
@@ -63,10 +68,10 @@ export function stretchesOf(
 		(after.length === 0 && message.plan !== null) ||
 		(going && last === -1)
 	) {
-		kept.push(before);
+		kept.push(...cut(before, parts));
 	}
 	if (said?.type === "text") {
-		kept.push(said.text);
+		kept.push({ type: "said", text: said.text });
 	}
 	if (after.length > 0) {
 		kept.push(after);
@@ -75,7 +80,7 @@ export function stretchesOf(
 	const final = works.at(-1);
 	return kept.map((run, index): Stretch => {
 		if (!Array.isArray(run)) {
-			return { type: "said", text: run };
+			return run;
 		}
 		const next = kept.slice(index + 1).find((each) => Array.isArray(each));
 		const ended = run.flatMap((part) =>
@@ -86,7 +91,7 @@ export function stretchesOf(
 			work: {
 				parts: run,
 				plan: run === final ? message.plan : null,
-				at: index === 0 ? began : startOf(run),
+				at: run === works[0] ? began : startOf(run),
 				until:
 					index === kept.length - 1
 						? message.until
@@ -96,6 +101,43 @@ export function stretchesOf(
 			},
 		};
 	});
+}
+
+/**
+ * `run` cut at the words in it that say the agent added a task, so they show
+ * as a card between the work before and after them rather than folded in.
+ * Words still being written, the last of the turn's `parts`, stay in.
+ */
+function cut(
+	run: Part[],
+	parts: Part[],
+): (Part[] | { type: "added"; text: string })[] {
+	const pieces: (Part[] | { type: "added"; text: string })[] = [];
+	let from = 0;
+	run.forEach((part, at) => {
+		if (part.type !== "text" || part === parts.at(-1) || !adds(part.text)) {
+			return;
+		}
+		if (at > from) {
+			pieces.push(run.slice(from, at));
+		}
+		pieces.push({ type: "added", text: part.text });
+		from = at + 1;
+	});
+	// Kept even empty when nothing was cut, for the row that says Working.
+	if (from < run.length || pieces.length === 0) {
+		pieces.push(run.slice(from));
+	}
+	return pieces;
+}
+
+/** Whether `text` says a task was added, and says nothing else a card would. */
+function adds(text: string): boolean {
+	const found = stretches(text);
+	return (
+		found.some((each) => each.type === "start") &&
+		found.every((each) => each.type === "start" || each.type === "text")
+	);
 }
 
 /** How long the latest words go without anything after them to show as the reply. */

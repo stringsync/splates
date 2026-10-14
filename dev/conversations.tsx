@@ -147,6 +147,7 @@ import {
 	ArchiveContext,
 	ReportUI,
 	StartNewContext,
+	StartUI,
 	TodoUI,
 	type Turn,
 } from "./report-cards";
@@ -2740,6 +2741,7 @@ function Thread({
 						<QuestionsUI />
 						<ReviewUI />
 						<ReportUI />
+						<StartUI />
 						<TodoUI />
 						<DemoUI />
 						<WorkUI />
@@ -2979,9 +2981,9 @@ function like(
 			metadata: { custom: { steered: message.steered ?? false } },
 		};
 	}
-	// Its work and the words it said along the way as one row, then the last
-	// thing it said. Once the turn is over, that is its reply, read for
-	// cards, even with tool calls after it.
+	// Its work and the words it said along the way as one row, but for its
+	// word that it added a task, then the last thing it said. Once the turn is
+	// over, that is its reply, read for cards, even with tool calls after it.
 	const all = stretchesOf(message, began, !settled, now);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
@@ -2991,13 +2993,21 @@ function like(
 			...all.flatMap((stretch, at): LikePart[] =>
 				stretch.type === "work"
 					? [{ type: "data-work", data: { work: stretch.work } }]
-					: at === reply
-						? replied(stretch.text, settled, {
-								task,
-								began,
-								until: message.until,
-							})
-						: [{ type: "text", text: stretch.text }],
+					: stretch.type === "added"
+						? stretches(stretch.text).flatMap((each): LikePart[] =>
+								each.type === "start"
+									? [{ type: "data-start", data: { start: each.start } }]
+									: each.type === "text"
+										? [{ type: "text", text: each.text }]
+										: [],
+							)
+						: at === reply
+							? replied(stretch.text, settled, {
+									task,
+									began,
+									until: message.until,
+								})
+							: [{ type: "text", text: stretch.text }],
 			),
 			...(message.stopped === undefined
 				? []
@@ -3078,6 +3088,8 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 					: [{ type: "data-demo", data: { demo: stretch.demo } }];
 			case "review":
 				return [{ type: "data-review", data: { review: stretch.review } }];
+			case "start":
+				return [{ type: "data-start", data: { start: stretch.start } }];
 			case "report":
 				return stretch.report.ending === "escalated" &&
 					asking?.type === "questions"
