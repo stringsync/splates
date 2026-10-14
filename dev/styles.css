@@ -304,6 +304,15 @@
 	body {
 		@apply bg-background text-foreground antialiased wrap-anywhere;
 	}
+	/* On a phone the page holds still like an app: it never scrolls sideways,
+	   never rubber-bands past its ends, and a double tap is just two taps.
+	   index.html and main.tsx turn off pinch zoom. */
+	html,
+	body {
+		overflow-x: clip;
+		overscroll-behavior: none;
+		touch-action: manipulation;
+	}
 	::selection {
 		background: color-mix(in oklab, var(--brand) 30%, transparent);
 	}

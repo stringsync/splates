@@ -38,6 +38,10 @@ document.addEventListener(
 	true,
 );
 
+// iOS Safari pinch-zooms whatever the viewport meta says, so the page cancels
+// the pinch itself. gesturestart is WebKit's alone; elsewhere it never fires.
+document.addEventListener("gesturestart", (event) => event.preventDefault());
+
 createRoot(root).render(
 	<StrictMode>
 		<App settings={settings} />
