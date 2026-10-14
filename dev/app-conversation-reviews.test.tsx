@@ -4,6 +4,7 @@ import {
 	type ConversationsView,
 	cleanup,
 	conversation,
+	details,
 	fireEvent,
 	message,
 	Testing,
@@ -102,6 +103,151 @@ describe("App's review panel and demo cards", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "merge the header first" } },
 		]);
+	});
+
+	const assumed = {
+		tasks: [
+			details({
+				task: "header",
+				plan: [
+					"# header",
+					"",
+					"## Assumptions",
+					"",
+					"- [ ] 1. Where should the header wrap?",
+					"  - (a) Below 400px (chosen)",
+					"  - (b) Below 600px",
+					"- [ ] 2. What should the menu be called?",
+					"  - (a) Menu (chosen)",
+					"  - (b) More",
+				].join("\n"),
+			}),
+		],
+	};
+
+	it("lists what the task assumed, from its plan, and sends a challenge with the changes", async () => {
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		expect(within(list).getByText("Below 400px")).toBeTruthy();
+		// What it passed over waits for a challenge.
+		expect(within(list).queryByText("Below 600px")).toBeNull();
+		const merge = within(panel).getByRole("button", {
+			name: "Merge",
+		}) as HTMLButtonElement;
+		expect(merge.disabled).toBe(false);
+
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", {
+					name: "Challenge assumption 1",
+				}),
+			),
+		);
+		const challenge = within(list).getByRole("listitem", {
+			name: "question 1",
+		});
+		// Only what it passed over is offered.
+		expect(
+			within(challenge).queryByRole("button", { name: /Below 400px/ }),
+		).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(challenge).getByRole("button", { name: /Below 600px/ }),
+			),
+		);
+		// Merging would leave the challenge unsaid.
+		expect(merge.disabled).toBe(true);
+		await act(async () =>
+			fireEvent.change(
+				within(panel).getByRole("textbox", { name: "Changes to header" }),
+				{ target: { value: "and bolder" } },
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(panel).getByRole("button", { name: "Send changes" }),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{
+				method: "POST",
+				body: {
+					text: [
+						"and bolder",
+						"",
+						"> **Where should the header wrap?**",
+						"",
+						"- (b) Below 600px",
+					].join("\n"),
+				},
+			},
+		]);
+	});
+
+	it("puts a challenge away with Keep, leaving the assumption as it was", async () => {
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Challenge assumption 2" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
+		);
+		const merge = within(panel).getByRole("button", {
+			name: "Merge",
+		}) as HTMLButtonElement;
+		expect(merge.disabled).toBe(true);
+
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Keep assumption 2" }),
+			),
+		);
+
+		expect(
+			within(list).queryByRole("listitem", { name: "question 2" }),
+		).toBeNull();
+		expect(
+			within(list).getByRole("listitem", { name: "assumption 2" }),
+		).toBeTruthy();
+		expect(merge.disabled).toBe(false);
+		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBeNull();
+	});
+
+	it("keeps a challenge written as a draft, open again on return", async () => {
+		localStorage.setItem(
+			"arbor.draft.c1:review:0",
+			"> **What should the menu be called?**\n\n- (b) More",
+		);
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const list = await waitFor(() =>
+			view.getByRole("region", { name: "Assumptions" }),
+		);
+		const challenge = within(list).getByRole("listitem", {
+			name: "question 2",
+		});
+		expect(
+			within(challenge)
+				.getByRole("button", { name: /More/ })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+		expect(
+			(
+				within(view.getByRole("region", { name: "review header" })).getByRole(
+					"button",
+					{ name: "Merge" },
+				) as HTMLButtonElement
+			).disabled,
+		).toBe(true);
 	});
 
 	it("folds once the person has replied, opening on the reply that was sent, whatever is typed after", async () => {

@@ -8,7 +8,7 @@ import { need } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { Back } from "./back";
-import { Board } from "./board";
+import { Board, plansOf } from "./board";
 import {
 	ARCHIVED,
 	agentFor,
@@ -98,6 +98,7 @@ export function Conversations({
 			open: setOpenedTodo,
 			openTask: setOpenedTask,
 			tasks: tasks.map((each) => each.task),
+			plans: plansOf(tasks),
 			moveLane: () => {},
 			refusedTodos: new Map(),
 			refusedLanes: new Map(),

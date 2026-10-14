@@ -1,5 +1,6 @@
 import { createContext } from "react";
 import type { LaneRecord } from "../lanes";
+import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { Drafts } from "./drafts";
 
@@ -17,6 +18,8 @@ export interface BoardContext {
 	openTask: (task: string) => void;
 	/** Every live task, by name: those a chip naming one opens. */
 	tasks: readonly string[];
+	/** Each live task's `ARBOR.md`, by its name, for what it assumed. */
+	plans: ReadonlyMap<string, string>;
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane: (id: number, position: number) => void;
 	/** What was refused of each card, by its id, said on the card. */
@@ -36,6 +39,7 @@ export const NO_BOARD: BoardContext = {
 	open: () => {},
 	openTask: () => {},
 	tasks: [],
+	plans: new Map(),
 	moveLane: () => {},
 	refusedTodos: new Map(),
 	refusedLanes: new Map(),
@@ -44,6 +48,15 @@ export const NO_BOARD: BoardContext = {
 };
 
 export const Board = createContext<BoardContext>(NO_BOARD);
+
+/** Each of `tasks` that has an `ARBOR.md`, by its name. */
+export function plansOf(
+	tasks: readonly Pick<Details, "task" | "plan">[],
+): ReadonlyMap<string, string> {
+	return new Map(
+		tasks.flatMap(({ task, plan }) => (plan === null ? [] : [[task, plan]])),
+	);
+}
 
 /**
  * Keeps a press on a button inside a card from starting a drag of the card,

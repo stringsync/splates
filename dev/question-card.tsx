@@ -1,5 +1,5 @@
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
-import { type JSX, type KeyboardEvent, useState } from "react";
+import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
@@ -15,6 +15,7 @@ export function QuestionCard({
 	live,
 	onAnswer,
 	onNext,
+	action,
 }: {
 	asked: Question;
 	/** Its answer, being written or sent; null while it has none. */
@@ -23,6 +24,8 @@ export function QuestionCard({
 	live: boolean;
 	onAnswer: (answer: Answer) => void;
 	onNext: () => void;
+	/** Beside its line, at the end: a way to put the card away. */
+	action?: ReactNode;
 }): JSX.Element {
 	const { number, text, body, choices, pick } = asked;
 	const said: Answer = answer ?? UNANSWERED;
@@ -103,9 +106,12 @@ export function QuestionCard({
 			</span>
 			<div className="flex min-w-0 flex-1 flex-col gap-3">
 				<div className="flex flex-col gap-1">
-					<p className="font-medium text-sm leading-snug">
-						<Markdown text={text} inline />
-					</p>
+					<div className="flex items-start gap-2">
+						<p className="flex-1 font-medium text-sm leading-snug">
+							<Markdown text={text} inline />
+						</p>
+						{action}
+					</div>
 					{body !== "" && (
 						<Markdown
 							text={body}

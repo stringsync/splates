@@ -1,10 +1,14 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import { CheckIcon, GitMergeIcon, SendHorizontalIcon } from "lucide-react";
-import { type JSX, useRef, useState } from "react";
+import { type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Review } from "../asked";
+import { assumptions, type Question } from "../plan";
+import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
+import { AssumptionList, challengeOf } from "./assumption-list";
+import { Board } from "./board";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { DemoSection } from "./demo-cards";
@@ -14,10 +18,18 @@ import { Refusal, useRefusal } from "./refusal";
 /** What the reply to a review says to merge, as the skill asks for it. */
 const MERGE = "merge";
 
+/** What is written in a review: each challenge by its line, and the changes. */
+interface Written {
+	challenges: Record<string, Answer>;
+	changes: string;
+}
+
 /**
  * A review answered by keyboard alone: it comes up in its changes box, where
  * Enter sends them, and Merge is a Tab away. What is written stays in the
- * panel, never the composer, until it is sent.
+ * panel, never the composer, until it is sent. It lists what the task
+ * assumed, read from its `ARBOR.md` so the list is current, and a challenge
+ * to one goes out with the changes, quoting its line as an answer would.
  */
 export function ReviewPanel({
 	review,
@@ -30,12 +42,38 @@ export function ReviewPanel({
 	const { reply, sent } = useCardReply();
 	const send = sent === null ? (reply?.send ?? null) : null;
 	const kept = useKept(draft, sent);
-	const [changes, setChanges] = useState(() => kept.read());
-	const write = (text: string) => {
-		setChanges(text);
-		kept.write(text);
+	const plan = useContext(Board).plans.get(review.task) ?? "";
+	const challenges = assumptions(plan).map(challengeOf);
+	const [written, setWritten] = useState((): Written => {
+		const before = kept.read();
+		return {
+			challenges: Object.fromEntries(
+				challenges.flatMap((asked) => {
+					const answer = answerIn(before, asked);
+					return answer === null ? [] : [[asked.text, answer]];
+				}),
+			),
+			changes: besides(before, challenges),
+		};
+	});
+	const replyFrom = ({ challenges: by, changes }: Written) =>
+		replyOf(
+			challenges,
+			challenges.map((asked) => by[asked.text] ?? null),
+			changes,
+		);
+	const write = (next: Written) => {
+		setWritten(next);
+		kept.write(replyFrom(next));
 	};
-	const asked = changes.trim();
+	const challenge = (assumed: Question, answer: Answer) => {
+		const { [assumed.text]: _, ...rest } = written.challenges;
+		write({
+			...written,
+			challenges: isEmpty(answer) ? rest : { ...rest, [assumed.text]: answer },
+		});
+	};
+	const asked = replyFrom(written).trim();
 	const { refusal, attempt } = useRefusal();
 	const ask = () => {
 		if (asked !== "" && send !== null) {
@@ -73,6 +111,25 @@ export function ReviewPanel({
 					kept={draft === null ? null : `${draft}:demo`}
 				/>
 			)}
+			{challenges.length > 0 && (
+				<div
+					className={cn(
+						(review.body !== "" || review.demo !== null) && "border-t",
+					)}
+				>
+					<AssumptionList
+						assumptions={assumptions(plan)}
+						answers={challenges.map((asked) =>
+							sent === null
+								? (written.challenges[asked.text] ?? null)
+								: answerIn(sent, asked),
+						)}
+						live={send !== null}
+						onAnswer={challenge}
+						onNext={() => box.current?.focus()}
+					/>
+				</div>
+			)}
 			{sent !== null && (
 				// What the person replied, as it was sent: the card keeps it.
 				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
@@ -101,9 +158,11 @@ export function ReviewPanel({
 						ref={box}
 						aria-label={`Changes to ${review.task}`}
 						rows={1}
-						value={changes}
+						value={written.changes}
 						placeholder="Say what to change…"
-						onChange={(event) => write(event.target.value)}
+						onChange={(event) =>
+							write({ ...written, changes: event.target.value })
+						}
 						onKeyDown={(event) => {
 							// Enter sends, as in the composer; Shift+Enter is a new line.
 							if (event.key === "Enter" && !event.shiftKey) {
@@ -135,9 +194,14 @@ export function ReviewPanel({
 						</Button>
 						<Button
 							size="sm"
-							// Changes written would go unsaid: merging means none.
+							// Changes or challenges written would go unsaid: merging
+							// means none.
 							disabled={asked !== ""}
-							title={asked === "" ? undefined : "Clear the changes to merge"}
+							title={
+								asked === ""
+									? undefined
+									: "Clear the changes and challenges to merge"
+							}
 							onClick={() => void attempt(send(MERGE), "Not sent")}
 							className="bg-success text-white hover:bg-success/90"
 						>
