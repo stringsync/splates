@@ -51,6 +51,10 @@
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
 @source "./checkpoint.tsx";
+@source "./checkpoint-asked.tsx";
+@source "./checkpoint-dialog.tsx";
+@source "./checkpoint-pick.tsx";
+@source "./checkpoint-slide.tsx";
 @source "./question-cards.tsx";
 @source "./report-cards.tsx";
 @source "./card-shell.tsx";
