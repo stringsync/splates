@@ -1697,7 +1697,10 @@ describe("App's conversations", () => {
 		expect(within(row("Weekly")).getByText("82%").className).toContain(
 			"text-warning",
 		);
-		expect(row("Weekly extra usage").textContent).toContain("10%");
+		// Extra usage, which claude.ai's usage settings leave out, is left out.
+		expect(
+			within(limits).queryByLabelText("seven_day_overage_included"),
+		).toBeNull();
 
 		// Codex's windows go by their length, Claude's not among them.
 		await newWith(view, "Codex");

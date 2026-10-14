@@ -10,8 +10,13 @@ const WINDOWS: [string, string][] = [
 	["seven_day", "Weekly"],
 	["seven_day_opus", "Weekly Opus"],
 	["seven_day_sonnet", "Weekly Sonnet"],
-	["seven_day_overage_included", "Weekly extra usage"],
 ];
+
+/**
+ * Windows Claude reports that claude.ai's usage settings leave out, so they
+ * stay out here too.
+ */
+const UNSHOWN = new Set(["seven_day_overage_included"]);
 
 /**
  * What a window is called: its name when Claude has one for it, else its
@@ -57,6 +62,9 @@ export function limitsOf(
 		...new Set(said.map((each) => each.window)),
 	];
 	return [...new Set(windows)].flatMap((window) => {
+		if (UNSHOWN.has(window)) {
+			return [];
+		}
 		const newest = said
 			.filter((each) => each.window === window)
 			.reduce<Limit | null>(
