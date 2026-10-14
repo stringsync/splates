@@ -57,7 +57,19 @@ describe("App's settings and notifications", () => {
 		};
 	};
 
-	it("opens from the header or with ⌘, listing settings by category", async () => {
+	/** Shows one category's page. */
+	const page = async (dialog: HTMLElement, category: string) =>
+		act(async () =>
+			fireEvent.click(
+				within(
+					within(dialog).getByRole("navigation", {
+						name: "setting categories",
+					}),
+				).getByRole("button", { name: category }),
+			),
+		);
+
+	it("opens from the header or with ⌘, showing one category at a time, the one picked kept", async () => {
 		const { view, dialog } = await settings();
 		expect(
 			within(
@@ -72,7 +84,11 @@ describe("App's settings and notifications", () => {
 			"Restart",
 			"Shortcuts",
 		]);
-		expect(within(dialog).getAllByRole("switch")).toHaveLength(7);
+		expect(within(dialog).getByRole("group", { name: "Theme" })).toBeTruthy();
+
+		await page(dialog, "Notifications");
+		expect(within(dialog).queryByRole("group", { name: "Theme" })).toBeNull();
+		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 		await waitFor(() =>
@@ -85,11 +101,14 @@ describe("App's settings and notifications", () => {
 				metaKey: true,
 			}),
 		);
-		expect(view.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+		const reopened = view.getByRole("dialog", { name: "Settings" });
+		expect(within(reopened).getAllByRole("switch").length).toBeGreaterThan(0);
+		expect(within(reopened).queryByRole("group", { name: "Theme" })).toBeNull();
 	});
 
 	it("records a shortcut, taking it from the one that had it, and unsets one", async () => {
 		const { view, dialog } = await settings();
+		await page(dialog, "Shortcuts");
 		const field = (name: string) =>
 			within(dialog).getByRole("button", { name: new RegExp(`^${name}: `) });
 		const record = async (name: string, keys: KeyboardEventInit) => {
@@ -234,6 +253,7 @@ describe("App's settings and notifications", () => {
 			JSON.stringify({ "notifications.sound": true }),
 		);
 		const { dialog } = await settings();
+		await page(dialog, "Notifications");
 		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });
 		expect(sound.getAttribute("aria-checked")).toBe("false");
 
@@ -250,6 +270,7 @@ describe("App's settings and notifications", () => {
 
 	it("turns notifications on, then notifies of an agent that comes to wait, opening it on a click", async () => {
 		const { view, runs, dialog } = await settings();
+		await page(dialog, "Notifications");
 		const sound = within(dialog).getByRole("switch", { name: "Play a sound" });
 		expect(sound.hasAttribute("data-disabled")).toBe(true);
 

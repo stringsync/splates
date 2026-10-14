@@ -26,8 +26,9 @@ import { label, NONE, recorded, type Shortcut, valid } from "./shortcuts";
 
 /**
  * The page's settings, the way an IDE lays out its options: categories down
- * the left, each one's settings on the right, and a search over all of them
- * that keeps only the settings, and the categories, it matches.
+ * the left (along the top on a phone), the picked one's settings on the right,
+ * and a search over all of them that shows every setting it matches, under
+ * its category. The category picked outlives the dialog closing.
  */
 export function SettingsDialog({
 	settings,
@@ -45,6 +46,10 @@ export function SettingsDialog({
 		category,
 		keys: found.filter((key) => definitionOf(key).category === category),
 	})).filter(({ keys }) => keys.length > 0);
+	const searching = query !== "";
+	const pages = searching
+		? shown
+		: shown.filter(({ category }) => category === picked);
 
 	return (
 		<Dialog
@@ -71,10 +76,10 @@ export function SettingsDialog({
 						/>
 					</div>
 				</div>
-				<div className="flex min-h-0 flex-1">
+				<div className="flex min-h-0 flex-1 flex-col sm:flex-row">
 					<nav
 						aria-label="setting categories"
-						className="hidden w-48 shrink-0 flex-col gap-0.5 border-r p-2 sm:flex"
+						className="flex shrink-0 gap-0.5 overflow-x-auto border-b p-2 sm:w-48 sm:flex-col sm:overflow-x-visible sm:border-r sm:border-b-0"
 					>
 						{shown.map(({ category, keys }) => (
 							<button
@@ -83,18 +88,20 @@ export function SettingsDialog({
 								aria-current={category === picked ? "true" : undefined}
 								onClick={() => {
 									setPicked(category);
-									document
-										.getElementById(sectionId(category))
-										?.scrollIntoView({ block: "start" });
+									if (searching) {
+										document
+											.getElementById(sectionId(category))
+											?.scrollIntoView({ block: "start" });
+									}
 								}}
 								className={cn(
-									"flex items-center rounded-md px-3 py-1.5 text-left hover:bg-muted",
+									"flex shrink-0 items-center rounded-md px-3 py-1.5 text-left hover:bg-muted",
 									category === picked &&
 										"bg-accent font-medium hover:bg-accent",
 								)}
 							>
 								<span className="flex-1">{category}</span>
-								{query !== "" && (
+								{searching && (
 									<span className="text-muted-foreground text-xs tabular-nums">
 										{keys.length}
 									</span>
@@ -103,12 +110,12 @@ export function SettingsDialog({
 						))}
 					</nav>
 					<div className="min-w-0 flex-1 overflow-y-auto px-6 py-4">
-						{shown.length === 0 ? (
+						{pages.length === 0 ? (
 							<p className="py-8 text-center text-muted-foreground">
 								No settings match “{query}”
 							</p>
 						) : (
-							shown.map(({ category, keys }) => (
+							pages.map(({ category, keys }) => (
 								<section
 									key={category}
 									id={sectionId(category)}
