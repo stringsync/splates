@@ -108,8 +108,17 @@ shell off the backticks:
 arbor todo add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
 
 - [ ] stop retrying on 413
-- [ ] tell the user the file is too big'
+- [ ] tell the user the file is too big' --agent claude --model sonnet
 ```
+
+Every todo you add names the model to run it with, `--agent <id> --model
+<m>`, since you know what it takes better than whoever starts it later. Read
+`arbor agents` once per task for what each model is good at and what it
+costs, and pick the cheapest one the todo is worth: a cheap one for a
+mechanical change, a strong one for a design call or a long, tangled change.
+Keep the agent you run as unless another fits clearly better. When grooming
+changes what a todo takes, `arbor todo update <id> --agent <id> --model <m>`
+picks again.
 
 Name the files and the feature in the detail, the feature by its system name
 when one covers it (see Systems), so whoever grooms the list later can tell
