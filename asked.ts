@@ -1,3 +1,4 @@
+import { type Demo, demoAt, isDemoTitle } from "./demo";
 import { offers, type Question, settled } from "./plan";
 
 /**
@@ -24,26 +25,6 @@ export interface Review {
 	body: string;
 	/** The demo it holds, to try before merging. */
 	demo: Demo | null;
-}
-
-/**
- * Something to try, as the skill writes it under `### 🎬 Demo: <title>`:
- * where, then numbered steps.
- */
-export interface Demo {
-	/** What it shows, from its heading; null when the heading says none. */
-	title: string | null;
-	/** Where to try it and anything said before the steps, as markdown. */
-	intro: string;
-	steps: Step[];
-}
-
-/** A step of a demo: what to do, on its line, and what to see, under it. */
-export interface Step {
-	number: string;
-	action: string;
-	/** What should happen, screenshots included, as markdown. */
-	expect: string;
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title it. */
@@ -87,7 +68,6 @@ const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
-const DEMO = /^### 🎬 Demo(?::[ \t]*(.*?))?[ \t]*$/;
 const HEADING = /^#{1,6}[ \t]/;
 
 /** A review report's title, and the line every one ends with. */
@@ -146,7 +126,7 @@ export function stretches(text: string): Stretch[] {
 			i = end;
 			continue;
 		}
-		const demo = demoAt(lines, i);
+		const demo = demoHere(lines, i);
 		if (demo !== null) {
 			found.push(...prose(lines.slice(from, i)));
 			found.push({ type: "demo", demo: demo.demo });
@@ -254,8 +234,8 @@ function keptAt(
  * along with anything after it.
  */
 function withDemo(lines: string[]): { body: string; demo: Demo | null } {
-	const at = lines.findIndex((_, index) => demoAt(lines, index) !== null);
-	const found = at === -1 ? null : demoAt(lines, at);
+	const at = lines.findIndex((_, index) => demoHere(lines, index) !== null);
+	const found = at === -1 ? null : demoHere(lines, at);
 	if (found === null) {
 		return { body: trimmed(lines), demo: null };
 	}
@@ -266,69 +246,16 @@ function withDemo(lines: string[]): { body: string; demo: Demo | null } {
 }
 
 /**
- * The demo titled at `start`: what it says up to its steps, the next
- * heading, or a list of questions, then its steps, and the line after them;
+ * The demo titled at `start`, up to the next heading or list of questions;
  * null for any other line.
  */
-function demoAt(
+function demoHere(
 	lines: string[],
 	start: number,
 ): { demo: Demo; end: number } | null {
-	const title = DEMO.exec(lines[start] as string);
-	if (title === null) {
-		return null;
-	}
-	const until = endAt(lines, start + 1);
-	const first = lines.findIndex(
-		(line, at) => at > start && at < until && ITEM.exec(line)?.[1] === "1",
-	);
-	const steps: Step[] = [];
-	let end = first === -1 ? until : first;
-	if (first !== -1) {
-		let body: string[] = [];
-		for (let i = first; i < lines.length; i += 1) {
-			const line = lines[i] as string;
-			const item = ITEM.exec(line);
-			if (item !== null && item[1] === String(steps.length + 1)) {
-				body = [];
-				steps.push({
-					number: item[1],
-					action: (item[2] ?? "").trim(),
-					expect: "",
-				});
-				end = i + 1;
-				continue;
-			}
-			if (line.trim() === "") {
-				continue;
-			}
-			// Back at the margin, and not the next step: the steps are over.
-			if (!/^[ \t]/.test(line)) {
-				break;
-			}
-			body.push(...lines.slice(end, i).map(() => ""), line);
-			(steps.at(-1) as Step).expect = dedented(body);
-			end = i + 1;
-		}
-	}
-	return {
-		demo: {
-			title: title[1] || null,
-			intro: trimmed(lines.slice(start + 1, first === -1 ? until : first)),
-			steps,
-		},
-		end,
-	};
-}
-
-/** `lines` without the indent they share, as markdown of their own. */
-function dedented(lines: string[]): string {
-	const indent = Math.min(
-		...lines
-			.filter((line) => line.trim() !== "")
-			.map((line) => /^[ \t]*/.exec(line)?.[0].length ?? 0),
-	);
-	return trimmed(lines.map((line) => line.slice(indent)));
+	return isDemoTitle(lines[start] as string)
+		? demoAt(lines, start, endAt(lines, start + 1))
+		: null;
 }
 
 /** `lines` as one text, without blank lines at either end. */
@@ -434,188 +361,4 @@ function question(number: string, text: string): Question {
 function prose(lines: string[]): Stretch[] {
 	const text = lines.join("\n").replace(/^\n+|\s+$/g, "");
 	return text === "" ? [] : [{ type: "text", text }];
-}
-
-/** What a reply says to one question: the letters it picks, then its words. */
-export interface Answer {
-	picks: string[];
-	words: string;
-}
-
-/**
- * The question an answer is for: its number, its line, and the letters it
- * offers and how they are picked.
- */
-type Asked = Pick<Question, "number" | "text" | "choices" | "pick">;
-
-/** A question's line, quoted in a reply: `> **How should …?**`. */
-const QUOTED = /^> \*\*(.+)\*\*[ \t]*$/;
-/** A pick under a quoted question: `- (b) …`, or in order, `2. (b) …`. */
-const PICKED = /^(?:-|\d+\.)[ \t]+\(([a-z])\)(?=[ \t]|$)/;
-
-/**
- * `answers` to `questions` as a reply, quote and reply: what else the person
- * says first, then each question answered, its line quoted in bold, its picks
- * under it as a list spelled out with their text, numbered when in order, and
- * then its words. Unanswered questions are left out, so nothing in the reply
- * goes by a number or a letter alone.
- */
-export function replyOf(
-	questions: Asked[],
-	answers: (Answer | null)[],
-	more: string,
-): string {
-	const parts = more.trim() === "" ? [] : [escaped(more.trim(), [])];
-	questions.forEach((asked, at) => {
-		const answer = answers[at] ?? null;
-		if (answer === null || isEmpty(answer)) {
-			return;
-		}
-		const picks = answer.picks.map((key, index) => {
-			const choice = asked.choices.find((each) => each.key === key);
-			const mark = asked.pick === "order" ? `${index + 1}.` : "-";
-			return `${mark} (${key}) ${choice?.text ?? ""}`.trimEnd();
-		});
-		parts.push(
-			[
-				`> **${asked.text}**`,
-				picks.join("\n"),
-				escaped(answer.words.trim(), asked.choices),
-			]
-				.filter((part) => part !== "")
-				.join("\n\n"),
-		);
-	});
-	return parts.join("\n\n");
-}
-
-/** Whether `answer` says nothing: no picks, and no words but spaces. */
-export function isEmpty(answer: Answer): boolean {
-	return answer.picks.length === 0 && answer.words.trim() === "";
-}
-
-/**
- * `words` with a `\` before each line that would read as a quoted question,
- * or, first, as a pick of `choices`, so they read back as words.
- */
-function escaped(words: string, choices: Asked["choices"]): string {
-	return words
-		.split("\n")
-		.map((line, at) =>
-			QUOTED.test(line) || (at === 0 && picked(line, choices) !== null)
-				? `\\${line}`
-				: line,
-		)
-		.join("\n");
-}
-
-/** `line` without the `\` that `escaped` put before it. */
-function unescaped(line: string): string {
-	const rest = line.slice(1);
-	return line.startsWith("\\") && (QUOTED.test(rest) || PICKED.test(rest))
-		? rest
-		: line;
-}
-
-/** The letter `line` picks among `choices`, or null when it picks none. */
-function picked(line: string, choices: Asked["choices"]): string | null {
-	const key = PICKED.exec(line)?.[1];
-	return choices.some((choice) => choice.key === key) ? (key ?? null) : null;
-}
-
-/** The same question's line, give or take spacing and case. */
-function sameLine(one: string, other: string): boolean {
-	const plain = (text: string) =>
-		text.replace(/\s+/g, " ").trim().toLowerCase();
-	return plain(one) === plain(other);
-}
-
-/**
- * What a quote-and-reply reply in `text` says to `asked`, found by its line
- * rather than its number, or null when it quotes another: what follows its
- * quote, up to the next question's.
- */
-export function quotedIn(text: string, asked: Asked): Answer | null {
-	const lines = text.split("\n");
-	const at = lines.findIndex((line) => {
-		const quoted = QUOTED.exec(line);
-		return quoted !== null && sameLine(quoted[1] as string, asked.text);
-	});
-	if (at === -1) {
-		return null;
-	}
-	const next = lines.findIndex(
-		(line, index) => index > at && QUOTED.test(line),
-	);
-	const rest = lines.slice(at + 1, next === -1 ? lines.length : next);
-	let from = rest.findIndex((line) => line.trim() !== "");
-	from = from === -1 ? rest.length : from;
-	const picks: string[] = [];
-	for (; from < rest.length; from += 1) {
-		const key = picked(rest[from] as string, asked.choices);
-		if (key === null) {
-			break;
-		}
-		picks.push(key);
-	}
-	return {
-		picks,
-		words: rest.slice(from).map(unescaped).join("\n").trim(),
-	};
-}
-
-/**
- * A hand-typed reply's line for `asked`: `2. b`, then any words. Only letters
- * it offers are picks, so `3. a quick fix` to a question without choices is
- * words.
- */
-function replyLine({ number, choices }: Asked): RegExp {
-	const keys = choices.map((choice) => choice.key).join("");
-	const picks =
-		keys === ""
-			? ""
-			: `(?:[ \\t]+([${keys}](?:[ \\t]*,[ \\t]*[${keys}])*)(?![a-z]))?`;
-	return new RegExp(`^${number}\\.${picks}(.*)$`);
-}
-
-/**
- * What the reply in `text` says to `asked`, or null when it has nothing for
- * it: quoted, as the question cards write it, or a line typed by hand as the
- * arbor skill reads one, `2. b`, `1. a, c`, `2. b: only on phones`, or
- * `3. after a phone check`, by the number of the report it answers.
- */
-export function answerIn(text: string, asked: Asked): Answer | null {
-	const quoted = quotedIn(text, asked);
-	if (quoted !== null) {
-		return quoted;
-	}
-	for (const line of text.split("\n")) {
-		const found = replyLine(asked).exec(line);
-		if (found !== null) {
-			const [picks, rest] =
-				asked.choices.length === 0
-					? [undefined, found[1]]
-					: [found[1], found[2]];
-			return {
-				picks: (picks ?? "").split(/[ \t]*,[ \t]*/).filter(Boolean),
-				// After picks a colon sets the words apart; without, a space.
-				words: (rest ?? "").replace(picks ? /^:?[ \t]?/ : /^[ \t]/, "").trim(),
-			};
-		}
-	}
-	return null;
-}
-
-/**
- * What `text`, a reply, says besides its answers to `asked`: what comes
- * before its first quoted question, or around the lines typed by hand.
- */
-export function besides(text: string, asked: Asked[]): string {
-	const lines = text.split("\n");
-	const quoted = lines.findIndex((line) => QUOTED.test(line));
-	return (quoted === -1 ? lines : lines.slice(0, quoted))
-		.filter((line) => !asked.some((each) => replyLine(each).test(line)))
-		.map(unescaped)
-		.join("\n")
-		.trim();
 }

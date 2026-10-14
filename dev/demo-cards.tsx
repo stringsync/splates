@@ -3,7 +3,7 @@ import { CheckIcon, ClapperboardIcon, ExternalLinkIcon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { buttonVariants } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { Demo } from "../asked";
+import type { Demo } from "../demo";
 import { CardBody, CardShell } from "./card-shell";
 import { Markdown } from "./markdown";
 import { ReplyContext } from "./question-cards";

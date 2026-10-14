@@ -27,17 +27,10 @@ import {
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import {
-	type Answer,
-	answerIn,
-	besides,
-	type Demo,
-	isEmpty,
-	type Report,
-	type Review,
-	replyOf,
-} from "../asked";
+import type { Report, Review } from "../asked";
+import type { Demo } from "../demo";
 import type { Question } from "../plan";
+import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
 import { copiedLabel, useCopy } from "./card";
 import {
 	CardBody,

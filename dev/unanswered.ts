@@ -1,6 +1,7 @@
-import { answerIn, quotedIn, stretches } from "../asked";
+import { stretches } from "../asked";
 import type { Message } from "../conversations";
 import type { Question } from "../plan";
+import { answerIn, quotedIn } from "../reply";
 
 /**
  * Of `open`, a task's open questions in `## Blocked`, those no reply in
