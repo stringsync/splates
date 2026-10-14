@@ -76,7 +76,7 @@ describe("startTunnel", () => {
 });
 
 describe("CloudflaredTunnelProvider", () => {
-	it("runs cloudflared at the url, says where it is up, and stops on dispose", async () => {
+	it("runs cloudflared at the url, says once where it is up, and stops on dispose", async () => {
 		const ps = new FakePs();
 		const log = new MemoryLogger();
 		const run = new CloudflaredTunnelProvider(ps, "mine").run({
@@ -89,12 +89,20 @@ describe("CloudflaredTunnelProvider", () => {
 		expect(ps.getCalls()).toEqual([
 			"cloudflared tunnel --no-autoupdate run --url http://localhost:4269 mine",
 		]);
-		child?.printError("INF Registered tunnel connection connIndex=0\n");
+		child?.printError(
+			[0, 1, 2, 3]
+				.map((index) => `INF Registered tunnel connection connIndex=${index}\n`)
+				.join(""),
+		);
 		await Bun.sleep(10);
 		await run.disposeAsync();
 
 		expect(child?.signals).toEqual(["SIGTERM"]);
-		expect(JSON.stringify(log.entries)).toContain("https://arbor.example.com");
+		expect(log.entries).toEqual([
+			expect.objectContaining({
+				message: "arbor dev reachable at https://arbor.example.com",
+			}),
+		]);
 	});
 
 	it("hands a token over in the environment, never the argv", async () => {

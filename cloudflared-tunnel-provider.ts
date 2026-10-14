@@ -56,6 +56,9 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 			this.token === null ? undefined : { env: { TUNNEL_TOKEN: this.token } },
 		);
 		let tail = "";
+		// cloudflared opens several connections to the edge, each registered
+		// on a line of its own, so only the first says the page is up.
+		let reached = false;
 		const watched = (async () => {
 			const decoder = new TextDecoder();
 			let line = "";
@@ -65,7 +68,8 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 				line += text;
 				const lines = line.split("\n");
 				line = lines.pop() ?? "";
-				if (lines.some((each) => each.includes(REGISTERED))) {
+				if (!reached && lines.some((each) => each.includes(REGISTERED))) {
+					reached = true;
 					log.info(`arbor dev reachable at https://${host}`);
 				}
 			}
