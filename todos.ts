@@ -1,23 +1,18 @@
-// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Attachments } from "./attachments";
 import { fail } from "./exit";
-import {
-	aptName,
-	cycle,
-	type LaneRecord,
-	misordered,
-	named,
-	settle,
-} from "./lanes";
+import { cycle, type LaneRecord, misordered, settle } from "./lanes";
 import type { AgentPick } from "./roster";
 import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";
+import { parseTodoFile } from "./todo-file";
+import { TodoLanes } from "./todo-lanes";
 
 /** Every todo in the repo, one JSON file each under `.git/arbor/todos`. */
 export class Todos {
 	private readonly fs: Fs;
 	private readonly ids: IdProvider;
+	private readonly laneFiles: TodoLanes;
 
 	constructor(
 		readonly dir: string,
@@ -31,6 +26,7 @@ export class Todos {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
+		this.laneFiles = new TodoLanes(this, this.fs);
 	}
 
 	/** Where a todo's files live, beside its record. */
@@ -86,7 +82,10 @@ export class Todos {
 			};
 			const todo = await this.save(
 				assigned(
-					{ ...state, lane: await this.laneId(lane, stored, [state]) },
+					{
+						...state,
+						lane: await this.laneFiles.laneId(lane, stored, [state]),
+					},
 					assignee,
 				),
 			);
@@ -192,7 +191,7 @@ export class Todos {
 			const state = states.find((other) => other.id === id) ?? missing(id);
 			const moved = {
 				...state,
-				lane: await this.laneId(lane, states, [state], name),
+				lane: await this.laneFiles.laneId(lane, states, [state], name),
 			};
 			const rest = states.filter((other) => other.id !== id);
 			let at: number;
@@ -216,148 +215,52 @@ export class Todos {
 		});
 	}
 
-	/**
-	 * Moves every todo in lane `from` to the bottom of lane `into`, in the
-	 * order they had, and the lane `from` is gone.
-	 */
-	async joinLanes(from: number, into: number): Promise<void> {
-		await this.locked(async () => {
-			const states = await this.stored();
-			const records = await this.records(states);
-			for (const lane of [from, into]) {
-				lacking(records, lane);
-			}
-			const moving = states
-				.filter((state) => state.lane === from)
-				.map((state) => ({ ...state, lane: into }));
-			const rest = states.filter((state) => state.lane !== from);
-			const tail = rest.findLastIndex((state) => state.lane === into);
-			const order = settle([
-				...rest.slice(0, tail + 1),
-				...moving,
-				...rest.slice(tail + 1),
-			]);
-			for (const state of moving) {
-				await this.save(state);
-			}
-			await this.renumber(order);
-			await this.writeLanes(records.filter((record) => record.id !== from));
-		});
-	}
-
 	/** Every lane, in board order. */
 	async lanes(): Promise<LaneRecord[]> {
-		return this.records(await this.stored());
+		return this.laneFiles.records(await this.stored());
 	}
 
-	/**
-	 * Starts an empty lane called `name`, after the others, worked by
-	 * `assignee` when there is one.
-	 */
-	async addLane(
+	/** Moves every todo in lane `from` to the bottom of lane `into`; `from` is gone. */
+	joinLanes(from: number, into: number): Promise<void> {
+		return this.laneFiles.joinLanes(from, into);
+	}
+
+	/** Starts an empty lane called `name`, after the others. */
+	addLane(
 		name: string,
 		assignee: AgentPick | null = null,
 	): Promise<LaneRecord> {
-		return this.locked(async () => {
-			const states = await this.stored();
-			const records = await this.records(states);
-			// Named first, so a name refused never uses up a number.
-			const called = laneName(name, records);
-			const record = assigned<LaneRecord>(
-				{ id: await this.nextLaneId(states), name: called },
-				assignee,
-			);
-			await this.writeLanes([...records, record]);
-			return record;
-		});
+		return this.laneFiles.addLane(name, assignee);
 	}
 
 	/** Calls lane `id` by another name. */
-	async renameLane(id: number, name: string): Promise<LaneRecord> {
-		return this.locked(async () => {
-			const records = await this.records(await this.stored());
-			lacking(records, id);
-			const others = records.filter((record) => record.id !== id);
-			const renamed = {
-				...(records.find((record) => record.id === id) as LaneRecord),
-				name: laneName(name, others),
-			};
-			await this.writeLanes(
-				records.map((record) => (record.id === id ? renamed : record)),
-			);
-			return renamed;
-		});
+	renameLane(id: number, name: string): Promise<LaneRecord> {
+		return this.laneFiles.renameLane(id, name);
 	}
 
 	/** Has `assignee` work lane `id`, or nobody in particular for null. */
-	async assignLane(
-		id: number,
-		assignee: AgentPick | null,
-	): Promise<LaneRecord> {
-		return this.locked(async () => {
-			const records = await this.records(await this.stored());
-			lacking(records, id);
-			const changed = assigned(
-				records.find((record) => record.id === id) as LaneRecord,
-				assignee,
-			);
-			await this.writeLanes(
-				records.map((record) => (record.id === id ? changed : record)),
-			);
-			return changed;
-		});
+	assignLane(id: number, assignee: AgentPick | null): Promise<LaneRecord> {
+		return this.laneFiles.assignLane(id, assignee);
 	}
 
-	/**
-	 * Puts lane `id` at `position` among the lanes, 1 the first column, past
-	 * the last meaning the last; the others close up around it.
-	 */
-	async moveLane(id: number, position: number): Promise<LaneRecord[]> {
-		if (!Number.isInteger(position) || position <= 0) {
-			fail("usage", `'${position}' is not a position: 1 is the first lane`, {
-				position,
-			});
-		}
-		return this.locked(async () => {
-			const records = await this.records(await this.stored());
-			lacking(records, id);
-			const moved = records.find((record) => record.id === id) as LaneRecord;
-			const rest = records.filter((record) => record.id !== id);
-			const at = Math.min(position - 1, rest.length);
-			const order = [...rest.slice(0, at), moved, ...rest.slice(at)];
-			await this.writeLanes(order);
-			return order;
-		});
+	/** Puts lane `id` at `position` among the lanes, 1 the first column. */
+	moveLane(id: number, position: number): Promise<LaneRecord[]> {
+		return this.laneFiles.moveLane(id, position);
 	}
 
 	/** Removes lane `id`, putting its todos back in none, untriaged. */
-	async dropLane(id: number): Promise<void> {
-		await this.locked(async () => {
-			const states = await this.stored();
-			const records = await this.records(states);
-			lacking(records, id);
-			for (const state of states.filter((state) => state.lane === id)) {
-				await this.save({ ...state, lane: null });
-			}
-			await this.writeLanes(records.filter((record) => record.id !== id));
-		});
+	dropLane(id: number): Promise<void> {
+		return this.laneFiles.dropLane(id);
 	}
 
-	/**
-	 * @internal Removes each lane in `ids` that no todo is in any more: a lane
-	 * whose last todo merged is done. One emptied by hand stays, to be filled.
-	 */
-	async endLanes(ids: number[]): Promise<void> {
-		await this.locked(async () => {
-			const states = await this.stored();
-			const records = await this.records(states);
-			const done = new Set(
-				ids.filter((id) => !states.some((state) => state.lane === id)),
-			);
-			if (done.size > 0) {
-				await this.writeLanes(records.filter((record) => !done.has(record.id)));
-			}
-		});
+	/** @internal Removes each lane in `ids` that no todo is in any more. */
+	endLanes(ids: number[]): Promise<void> {
+		return this.laneFiles.endLanes(ids);
+	}
+
+	/** Moves todos saved while arbor kept tags into lanes, one lane a tag. */
+	moveTagsToLanes(): Promise<{ lane: LaneRecord; todos: number[] }[]> {
+		return this.laneFiles.moveTagsToLanes();
 	}
 
 	/**
@@ -369,71 +272,6 @@ export class Todos {
 		change: (state: TodoState) => TodoState,
 	): Promise<Todo> {
 		return this.locked(async () => this.save(change(await this.state(id))));
-	}
-
-	/**
-	 * Moves todos saved while arbor kept tags into lanes, one lane a tag,
-	 * and drops their tags, which arbor refuses to read until then. A todo
-	 * in no lane goes to the lane of its tag the most todos share, at the
-	 * bottom, in list order, below anything in that lane blocking it; a lane
-	 * already called that takes them. Gives back each lane it filled, with
-	 * the todos it put there, in board order; none once no todo has tags.
-	 */
-	async moveTagsToLanes(): Promise<{ lane: LaneRecord; todos: number[] }[]> {
-		return this.locked(async () => {
-			const entries = await this.fs.readdir(this.dir).catch(() => []);
-			const parsed: { state: TodoState; tags: string[] }[] = [];
-			for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
-				const raw = await this.fs.read(`${this.dir}/${entry}`).catch(() => "");
-				const found = parse(raw);
-				if (found !== null && found.tags.length > 0) {
-					parsed.push(found);
-				}
-			}
-			if (parsed.length === 0) {
-				return [];
-			}
-			const counts = new Map<string, number>();
-			for (const { tags } of parsed) {
-				for (const tag of tags) {
-					counts.set(tag, (counts.get(tag) ?? 0) + 1);
-				}
-			}
-			const states = await this.stored(parsed.map(({ state }) => state.id));
-			const records = await this.records(states);
-			const filled = new Map<number, number[]>();
-			for (const state of states) {
-				const tags = parsed.find((each) => each.state.id === state.id)?.tags;
-				if (tags === undefined) {
-					continue;
-				}
-				let lane = state.lane;
-				if (lane === null) {
-					const [tag] = [...tags].sort(
-						(left, right) =>
-							(counts.get(right) ?? 0) - (counts.get(left) ?? 0) ||
-							left.localeCompare(right),
-					) as [string];
-					const name = tagName(tag);
-					let record = records.find(
-						(each) => each.name.toLowerCase() === name.toLowerCase(),
-					);
-					if (record === undefined) {
-						record = { id: await this.nextLaneId(states), name };
-						records.push(record);
-						await this.writeLanes(records);
-					}
-					lane = record.id;
-					filled.set(lane, [...(filled.get(lane) ?? []), state.id]);
-				}
-				// Saved even when its lane stays, so its tags are gone.
-				await this.save({ ...state, lane });
-			}
-			await this.renumber(settle(await this.stored()));
-			return records
-				.filter((record) => filled.has(record.id))
-				.map((lane) => ({ lane, todos: filled.get(lane.id) ?? [] }));
-		});
 	}
 
 	/** @internal Writes one todo. Rename makes the swap atomic for readers. */
@@ -470,7 +308,8 @@ export class Todos {
 		});
 	}
 
-	private async locked<T>(run: () => Promise<T>): Promise<T> {
+	/** @internal Runs `run` holding the lock every write goes through. */
+	async locked<T>(run: () => Promise<T>): Promise<T> {
 		await this.lock.acquire();
 		try {
 			return await run();
@@ -505,97 +344,6 @@ export class Todos {
 		}
 	}
 
-	/**
-	 * The lane `lane` names: null for none, one there is, or for `"new"` one
-	 * started for `todos`, called `name` or named after them. Call it under
-	 * the lock.
-	 */
-	private async laneId(
-		lane: number | "new" | null,
-		states: TodoState[],
-		todos: TodoState[],
-		name?: string,
-	): Promise<number | null> {
-		if (lane === null) {
-			return null;
-		}
-		if (lane !== "new") {
-			lacking(await this.records(states), lane);
-			return lane;
-		}
-		return (await this.newLane(states, todos, name)).id;
-	}
-
-	/**
-	 * Starts a lane for `todos` after the others, called `name`, or aptly
-	 * named without one. Call it under the lock.
-	 */
-	private async newLane(
-		states: TodoState[],
-		todos: TodoState[],
-		name?: string,
-	): Promise<LaneRecord> {
-		const records = await this.records(states);
-		// Named first, so a name refused never uses up a number.
-		const called =
-			name === undefined
-				? aptName(
-						todos,
-						records.map((each) => each.name),
-					)
-				: laneName(name, records);
-		const record = { id: await this.nextLaneId(states), name: called };
-		await this.writeLanes([...records, record]);
-		return record;
-	}
-
-	/**
-	 * A lane id never handed out before, so a lane's number never comes back
-	 * meaning another. Call it under the lock.
-	 */
-	private async nextLaneId(states: TodoState[]): Promise<number> {
-		const last = Number(
-			await this.fs.read(`${this.dir}/last-lane`).catch(() => 0),
-		);
-		const records = await this.records(states);
-		const id =
-			Math.max(
-				Number.isInteger(last) ? last : 0,
-				...records.map((record) => record.id),
-			) + 1;
-		await this.fs.mkdir(this.dir);
-		await this.fs.write(`${this.dir}/last-lane`, String(id));
-		return id;
-	}
-
-	/**
-	 * The lanes as stored, and after them any lane a todo is in that has no
-	 * record. A file that will not parse reads as none.
-	 */
-	private async records(states: TodoState[]): Promise<LaneRecord[]> {
-		const raw = await this.fs.read(`${this.dir}/lanes`).catch(() => "[]");
-		let stored: LaneRecord[] = [];
-		try {
-			const parsed: unknown = JSON.parse(raw);
-			if (Array.isArray(parsed)) {
-				stored = parsed.filter(
-					(each): each is LaneRecord =>
-						Number.isInteger(each?.id) && typeof each?.name === "string",
-				);
-			}
-		} catch {}
-		return named(states, stored);
-	}
-
-	/** Writes the lanes, in board order. Call it under the lock. */
-	private async writeLanes(records: LaneRecord[]): Promise<void> {
-		await this.fs.mkdir(this.dir);
-		const path = `${this.dir}/lanes`;
-		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
-		await this.fs.write(tmp, `${JSON.stringify(records, null, "\t")}\n`);
-		await this.fs.rename(tmp, path);
-	}
-
 	/** One todo as it stands on disk; call it under the lock. */
 	private async state(id: number): Promise<TodoState> {
 		const state = await this.read(this.path(id));
@@ -624,10 +372,10 @@ export class Todos {
 	}
 
 	/**
-	 * Every todo in list order, with the positions it has on disk. `tagged`
+	 * @internal Every todo in list order, with the positions it has on disk. `tagged`
 	 * are read though they still have tags, to move them into lanes.
 	 */
-	private async stored(tagged: number[] = []): Promise<TodoState[]> {
+	async stored(tagged: number[] = []): Promise<TodoState[]> {
 		const entries = await this.fs.readdir(this.dir).catch(() => []);
 		const states: TodoState[] = [];
 		for (const entry of entries.filter((entry) => entry.endsWith(".json"))) {
@@ -643,8 +391,8 @@ export class Todos {
 		);
 	}
 
-	/** Saves each todo in `order` whose position on disk is not its place there. */
-	private async renumber(order: TodoState[]): Promise<void> {
+	/** @internal Saves each todo in `order` whose position on disk is not its place there. */
+	async renumber(order: TodoState[]): Promise<void> {
 		for (const [i, state] of order.entries()) {
 			if (state.position !== i + 1) {
 				await this.save({ ...state, position: i + 1 });
@@ -672,7 +420,7 @@ export class Todos {
 		tagged: number[] = [],
 	): Promise<TodoState | null> {
 		const raw = await this.fs.read(path).catch(() => null);
-		const found = raw === null ? null : parse(raw);
+		const found = raw === null ? null : parseTodoFile(raw);
 		if (
 			found !== null &&
 			found.tags.length > 0 &&
@@ -691,48 +439,6 @@ export class Todos {
 	}
 }
 
-/** A todo as stored, with any tags it was saved with; null when it will not parse. */
-function parse(raw: string): { state: TodoState; tags: string[] } | null {
-	try {
-		// One saved before todos took files has none, rather than no list; one
-		// saved before they had subjects has its first line as one; one saved
-		// before they had positions has 0 until `all` places it; and one saved
-		// before links and lanes is blocked by nothing, in none.
-		const { tags = [], ...state } = JSON.parse(raw) as Omit<
-			TodoState,
-			"files" | "subject" | "position" | "blockedBy" | "lane"
-		> & {
-			files?: string[];
-			tags?: string[];
-			subject?: string;
-			position?: number;
-			blockedBy?: number[];
-			lane?: number | null;
-		};
-		return {
-			state: {
-				...state,
-				...(state.subject === undefined
-					? wording(state.text, "")
-					: { subject: state.subject, text: state.text }),
-				position: state.position ?? 0,
-				files: state.files ?? [],
-				blockedBy: state.blockedBy ?? [],
-				lane: state.lane ?? null,
-			},
-			tags,
-		};
-	} catch {
-		return null;
-	}
-}
-
-/** The lane a tag becomes: `dark-mode` is `Dark mode`. */
-function tagName(tag: string): string {
-	const words = tag.replaceAll("-", " ");
-	return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
 /** What `Todos` is stored through; the real filesystem by default. */
 export interface TodosOptions {
 	fs?: Fs;
@@ -749,36 +455,6 @@ function slot(
 	const rest = states.filter((other) => other.id !== state.id);
 	const at = Math.min((position ?? Infinity) - 1, rest.length);
 	return [...rest.slice(0, at), state, ...rest.slice(at)];
-}
-
-/** Refuses a lane `records` lacks. */
-function lacking(records: LaneRecord[], id: number): void {
-	if (!records.some((record) => record.id === id)) {
-		fail(
-			"not_found",
-			`no lane ${id}: run \`arbor lane list\`, or pass \`new\` to start one`,
-			{ lane: id },
-		);
-	}
-}
-
-/** `name` trimmed, refused when empty or when another lane has it. */
-function laneName(name: string, others: LaneRecord[]): string {
-	const trimmed = name.trim();
-	if (trimmed === "") {
-		fail("usage", "a lane needs a name: say what its todos are for", {});
-	}
-	const same = others.find(
-		(other) => other.name.toLowerCase() === trimmed.toLowerCase(),
-	);
-	if (same) {
-		fail(
-			"exists",
-			`lane ${same.id} is already called '${same.name}': pick another name`,
-			{ lane: same.id, name: same.name },
-		);
-	}
-	return trimmed;
 }
 
 function missing(id: number): never {
