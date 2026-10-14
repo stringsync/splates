@@ -5,7 +5,7 @@ import {
 	GitMergeIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useContext, useRef, useState } from "react";
+import { type JSX, useContext, useRef } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Collapsible,
@@ -14,10 +14,14 @@ import {
 } from "#dev/components/ui/collapsible.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import type { Review } from "../asked";
-import { assumptions, type Question } from "../plan";
+import { assumptions } from "../plan";
 import { MERGE } from "../prompts";
-import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
-import { AssumptionList, challengeOf } from "./assumption-list";
+import { answerIn } from "../reply";
+import {
+	AssumptionList,
+	AssumptionsChanged,
+	useChallenges,
+} from "./assumption-list";
 import { Board } from "./board";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
@@ -27,12 +31,6 @@ import { Refusal, useRefusal } from "./refusal";
 
 /** What a reply typed by hand says to merge, as the review's last line asks. */
 const TYPED_MERGE = "merge";
-
-/** What is written in a review: each challenge by its line, and the changes. */
-interface Written {
-	challenges: Record<string, Answer>;
-	changes: string;
-}
 
 /**
  * A review answered by keyboard alone: it comes up in its changes box, where
@@ -53,37 +51,17 @@ export function ReviewPanel({
 	const send = sent === null ? (reply?.send ?? null) : null;
 	const kept = useKept(draft, sent);
 	const plan = useContext(Board).plans.get(review.task) ?? "";
-	const challenges = assumptions(plan).map(challengeOf);
-	const [written, setWritten] = useState((): Written => {
-		const before = kept.read();
-		return {
-			challenges: Object.fromEntries(
-				challenges.flatMap((asked) => {
-					const answer = answerIn(before, asked);
-					return answer === null ? [] : [[asked.text, answer]];
-				}),
-			),
-			changes: besides(before, challenges),
-		};
-	});
-	const replyFrom = ({ challenges: by, changes }: Written) =>
-		replyOf(
-			challenges,
-			challenges.map((asked) => by[asked.text] ?? null),
-			changes,
-		);
-	const write = (next: Written) => {
-		setWritten(next);
-		kept.write(replyFrom(next));
-	};
-	const challenge = (assumed: Question, answer: Answer) => {
-		const { [assumed.text]: _, ...rest } = written.challenges;
-		write({
-			...written,
-			challenges: isEmpty(answer) ? rest : { ...rest, [assumed.text]: answer },
-		});
-	};
-	const asked = replyFrom(written).trim();
+	const {
+		assumptions: assumed,
+		answers,
+		changes,
+		setChanges,
+		challenge,
+		reply: asked,
+		changed,
+		dropped,
+		reload,
+	} = useChallenges(assumptions(plan), kept);
 	const { refusal, attempt } = useRefusal();
 	const ask = () => {
 		if (asked !== "" && send !== null) {
@@ -122,14 +100,14 @@ export function ReviewPanel({
 						className="last:border-b-0"
 					/>
 				)}
-				{challenges.length > 0 && (
+				{assumed.length > 0 && (
 					<AssumptionList
-						assumptions={assumptions(plan)}
-						answers={challenges.map((asked) =>
+						assumptions={assumed}
+						answers={
 							sent === null
-								? (written.challenges[asked.text] ?? null)
-								: answerIn(sent, asked),
-						)}
+								? answers
+								: assumed.map((asked) => answerIn(sent, asked))
+						}
 						live={send !== null}
 						onAnswer={challenge}
 						onNext={() => box.current?.focus()}
@@ -166,11 +144,9 @@ export function ReviewPanel({
 						ref={box}
 						aria-label={`Changes to ${review.task}`}
 						rows={1}
-						value={written.changes}
+						value={changes}
 						placeholder="Say what to change…"
-						onChange={(event) =>
-							write({ ...written, changes: event.target.value })
-						}
+						onChange={(event) => setChanges(event.target.value)}
 						onKeyDown={(event) => {
 							// Enter sends, as in the composer; Shift+Enter is a new line.
 							if (event.key === "Enter" && !event.shiftKey) {
@@ -181,16 +157,24 @@ export function ReviewPanel({
 						className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
 					/>
 					<div className="flex items-center gap-2">
-						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-							<span>
-								<Kbd>↵</Kbd> sends changes
-							</span>
-							{asked === "" && (
+						{changed ? (
+							<AssumptionsChanged
+								dropped={dropped}
+								onReload={reload}
+								className="flex-1"
+							/>
+						) : (
+							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
 								<span>
-									<Kbd>Tab</Kbd> to merge
+									<Kbd>↵</Kbd> sends changes
 								</span>
-							)}
-						</p>
+								{asked === "" && (
+									<span>
+										<Kbd>Tab</Kbd> to merge
+									</span>
+								)}
+							</p>
+						)}
 						<Button
 							variant="outline"
 							size="sm"

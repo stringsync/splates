@@ -77,6 +77,7 @@
 @source "./choice-body.tsx";
 @source "./review-panel.tsx";
 @source "./assumption-list.tsx";
+@source "./assumptions-card.tsx";
 @source "./report-cards.tsx";
 @source "./card-shell.tsx";
 @source "./refusal.tsx";

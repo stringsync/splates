@@ -12,6 +12,7 @@ import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import { useWidgets, WIDGETS_ROOM, Widgets, WidgetsButton } from "./actions";
 import { AskPanel } from "./ask-panel";
+import { AssumptionsCard } from "./assumptions-card";
 import { Back } from "./back";
 import { BackgroundRow } from "./background";
 import { ReplyContext } from "./card-reply";
@@ -316,6 +317,13 @@ export function Thread({
 							}
 						>
 							<SystemsCard systems={task?.systems ?? []} />
+							{task !== null && (
+								<AssumptionsCard
+									task={task.task}
+									plan={task.plan}
+									reply={reply}
+								/>
+							)}
 							<CurrentTask version={version} />
 						</Widgets>
 					</div>

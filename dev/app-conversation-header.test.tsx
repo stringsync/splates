@@ -232,6 +232,66 @@ describe("App's conversation header", () => {
 		).toEqual(["src/auth/**", "!src/auth/**/*.test.ts"]);
 	});
 
+	it("lists what its task assumed in a card beside the thread, sending a challenge to its agent", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			"c1",
+			{
+				tasks: [
+					details({
+						task: "alpha",
+						plan: "# alpha\n\n## Assumptions\n\n- [ ] 1. How many retries?\n  - (a) Three (chosen)\n  - (b) Five\n",
+					}),
+				],
+			},
+		);
+
+		const card = view.getByRole("region", { name: "assumptions" });
+		expect(
+			within(card).getByRole("listitem", { name: "assumption 1" }).textContent,
+		).toContain("Three");
+		// Nothing to send until a challenge is written.
+		expect(within(card).queryByRole("button", { name: /Send/ })).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(card).getByRole("button", { name: "Challenge assumption 1" }),
+			),
+		);
+		// All of them at once, in a dialog, the one clicked first in view.
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(
+			within(dialog)
+				.getByRole("button", { name: /Three/ })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: /Five/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Send challenges" }),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{
+				method: "POST",
+				body: { text: "> **How many retries?**\n\n- (b) Five" },
+			},
+		]);
+		// Sent, the dialog shuts and nothing is left to send.
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(within(card).queryByRole("button", { name: /Send/ })).toBeNull();
+	});
+
+	it("shows no assumptions card for a task that assumed nothing", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+		]);
+
+		expect(view.queryByRole("region", { name: "assumptions" })).toBeNull();
+	});
+
 	it("shows no systems card for a task that touches none", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),

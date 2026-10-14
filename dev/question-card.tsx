@@ -16,6 +16,7 @@ export function QuestionCard({
 	onAnswer,
 	onNext,
 	action,
+	chosenLabel = "Recommended",
 }: {
 	asked: Question;
 	/** Its answer, being written or sent; null while it has none. */
@@ -26,6 +27,8 @@ export function QuestionCard({
 	onNext: () => void;
 	/** Beside its line, at the end: a way to put the card away. */
 	action?: ReactNode;
+	/** What tags the `(chosen)` choice: the agent's pick while it waits, or what it went with. */
+	chosenLabel?: string;
 }): JSX.Element {
 	const { number, text, body, choices, pick } = asked;
 	const said: Answer = answer ?? UNANSWERED;
@@ -190,7 +193,7 @@ export function QuestionCard({
 												unlinked
 												className="flex-1"
 											/>
-											{choice.chosen && <Chosen />}
+											{choice.chosen && <Chosen label={chosenLabel} />}
 											<CheckIcon
 												className={cn(
 													"size-4 shrink-0 text-primary transition-[opacity,transform] duration-150",
@@ -233,11 +236,11 @@ export function QuestionCard({
 	);
 }
 
-/** Marks the choice the agent went with while it waits for the reply. */
-function Chosen(): JSX.Element {
+/** Marks the choice the agent went with, while it waits for the reply or since. */
+function Chosen({ label }: { label: string }): JSX.Element {
 	return (
 		<span className="shrink-0 rounded-full border px-1.5 py-px text-[11px] text-muted-foreground">
-			Recommended
+			{label}
 		</span>
 	);
 }

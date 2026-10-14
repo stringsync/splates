@@ -1,5 +1,16 @@
-import { CheckIcon, MessageSquareWarningIcon, UndoIcon } from "lucide-react";
-import { type JSX, useLayoutEffect, useRef, useState } from "react";
+import {
+	CheckIcon,
+	MessageSquareWarningIcon,
+	RotateCwIcon,
+	UndoIcon,
+} from "lucide-react";
+import {
+	type JSX,
+	type ReactNode,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Tooltip,
@@ -8,30 +19,206 @@ import {
 } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
-import type { Answer } from "../reply";
+import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 
-/**
- * What challenging `assumed` asks: its line, what the agent took, and the
- * choices it passed over. A reply quotes its line, as it would a question's,
- * so the agent can match it whether it is still an assumption or has moved
- * to `## Blocked`.
- */
-export function challengeOf(assumed: Question): Question {
-	const taken = assumed.choices.filter((choice) => choice.chosen);
+/** The answer that leaves `assumed` as the agent took it: its `(chosen)` choices. */
+export function takenOf(assumed: Question): Answer {
 	return {
-		...assumed,
-		body: [
-			taken.length === 0
-				? ""
-				: `Assumed ${taken.map((choice) => choice.text).join(", ")}.`,
-			assumed.body,
-		]
-			.filter((part) => part !== "")
-			.join("\n\n"),
-		choices: assumed.choices.filter((choice) => !choice.chosen),
+		picks: assumed.choices
+			.filter((choice) => choice.chosen)
+			.map((choice) => choice.key),
+		words: "",
 	};
+}
+
+/** Whether `answer` challenges `assumed`: says anything but what it took. */
+function challenges(assumed: Question, answer: Answer): boolean {
+	const taken = takenOf(assumed).picks;
+	return (
+		!isEmpty(answer) &&
+		(answer.words.trim() !== "" ||
+			answer.picks.length !== taken.length ||
+			answer.picks.some((key) => !taken.includes(key)))
+	);
+}
+
+/** What is written against a task's assumptions: each challenge by its line, and any words. */
+interface Written {
+	challenges: Record<string, Answer>;
+	changes: string;
+}
+
+/** Whether two lists of assumptions say the same: their lines, choices and picks. */
+function alike(one: Question[], other: Question[]): boolean {
+	const said = (list: Question[]) =>
+		JSON.stringify(
+			list.map(({ number, text, body, choices }) => [
+				number,
+				text,
+				body,
+				choices.map(({ key, text, chosen }) => [key, text, chosen]),
+			]),
+		);
+	return said(one) === said(other);
+}
+
+/**
+ * `answer` to `before` moved onto `after`, the same assumption since
+ * changed: each pick by its choice's text, as its letter may have moved.
+ * Null when nothing of it is left.
+ */
+function carried(
+	before: Question,
+	after: Question,
+	answer: Answer,
+): Answer | null {
+	const picks = answer.picks.flatMap((key) => {
+		const text = before.choices.find((choice) => choice.key === key)?.text;
+		const now = after.choices.find((choice) => choice.text === text);
+		return now === undefined ? [] : [now.key];
+	});
+	const moved = { picks, words: answer.words };
+	return challenges(after, moved) ? moved : null;
+}
+
+/**
+ * The challenges written against a task's assumptions, `live` as its plan
+ * says them now, with any words besides, kept in `kept` as the reply they
+ * make, so leaving and coming back loses nothing. Once a challenge is
+ * written, the assumptions shown hold still, so nothing moves under the
+ * person; `changed` says the plan has moved on, and `reload` takes it up,
+ * carrying each challenge whose assumption is still there.
+ */
+export function useChallenges(
+	live: Question[],
+	kept: { read(): string; write(text: string): void },
+): {
+	/** The assumptions shown: as the plan says them, or as they were when the first challenge was written. */
+	assumptions: Question[];
+	/** The challenge written to each, by position; null for none. */
+	answers: (Answer | null)[];
+	changes: string;
+	setChanges: (text: string) => void;
+	/** Writes `answer` to `assumed`; one that says only what it took withdraws the challenge. */
+	challenge: (assumed: Question, answer: Answer) => void;
+	/** All of it as a reply, quoting each challenged line; empty for none. */
+	reply: string;
+	/** Drops everything written, once it is sent. */
+	clear: () => void;
+	/** Whether the plan's assumptions moved on from those shown. */
+	changed: boolean;
+	/** How many challenges `reload` would drop, their assumptions gone. */
+	dropped: number;
+	/** Shows the plan's assumptions as they are now. */
+	reload: () => void;
+} {
+	const [written, setWritten] = useState((): Written => {
+		const before = kept.read();
+		return {
+			challenges: Object.fromEntries(
+				live.flatMap((asked) => {
+					const answer = answerIn(before, asked);
+					return answer === null || !challenges(asked, answer)
+						? []
+						: [[asked.text, answer]];
+				}),
+			),
+			changes: besides(before, live),
+		};
+	});
+	const [held, setHeld] = useState<Question[] | null>(() =>
+		Object.keys(written.challenges).length === 0 ? null : live,
+	);
+	const shown = held ?? live;
+	const replyFrom = (list: Question[], { challenges: by, changes }: Written) =>
+		replyOf(
+			list,
+			list.map((asked) => by[asked.text] ?? null),
+			changes,
+		).trim();
+	const write = (list: Question[], next: Written) => {
+		setWritten(next);
+		setHeld(Object.keys(next.challenges).length === 0 ? null : list);
+		kept.write(replyFrom(list, next));
+	};
+	const lines = new Set(live.map((asked) => asked.text));
+	return {
+		assumptions: shown,
+		answers: shown.map((asked) => written.challenges[asked.text] ?? null),
+		changes: written.changes,
+		setChanges: (changes) => write(shown, { ...written, changes }),
+		challenge: (assumed, answer) => {
+			const rest = Object.fromEntries(
+				Object.entries(written.challenges).filter(
+					([text]) => text !== assumed.text,
+				),
+			);
+			write(shown, {
+				...written,
+				challenges: challenges(assumed, answer)
+					? { ...rest, [assumed.text]: answer }
+					: rest,
+			});
+		},
+		reply: replyFrom(shown, written),
+		clear: () => write(live, { challenges: {}, changes: "" }),
+		changed: held !== null && !alike(held, live),
+		dropped: Object.keys(written.challenges).filter((text) => !lines.has(text))
+			.length,
+		reload: () =>
+			write(live, {
+				...written,
+				challenges: Object.fromEntries(
+					live.flatMap((after) => {
+						const before = shown.find((asked) => asked.text === after.text);
+						const answer = written.challenges[after.text];
+						const moved =
+							before === undefined || answer === undefined
+								? null
+								: carried(before, after, answer);
+						return moved === null ? [] : [[after.text, moved]];
+					}),
+				),
+			}),
+	};
+}
+
+/**
+ * Says, in the actions beside Send or Merge, that the agent changed its
+ * assumptions since the person started challenging them, reassures them
+ * their challenges carry over to those still there, and offers to show them
+ * as they are now.
+ */
+export function AssumptionsChanged({
+	dropped,
+	onReload,
+	className,
+}: {
+	dropped: number;
+	onReload: () => void;
+	className?: string;
+}): JSX.Element {
+	return (
+		<p
+			role="status"
+			className={cn("flex min-w-0 items-center gap-2 text-xs", className)}
+		>
+			<span className="min-w-0 flex-1">
+				<span className="font-medium">Assumptions changed.</span>{" "}
+				<span className="text-muted-foreground">
+					{dropped === 0
+						? "Reloading keeps your challenges."
+						: `Reloading keeps your challenges to those still there, and drops ${dropped === 1 ? "the one" : dropped} now gone.`}
+				</span>
+			</span>
+			<Button size="xs" variant="outline" onClick={onReload}>
+				<RotateCwIcon data-icon="inline-start" />
+				Reload
+			</Button>
+		</p>
+	);
 }
 
 /**
@@ -44,16 +231,25 @@ export function AssumptionList({
 	assumptions,
 	answers,
 	live,
+	heading = true,
 	onAnswer,
 	onNext,
+	onChallenge,
 }: {
 	assumptions: Question[];
 	answers: (Answer | null)[];
 	/** Whether a challenge can still be written. */
 	live: boolean;
+	/** Whether it titles itself, rather than sitting under a card's title. */
+	heading?: boolean;
 	onAnswer: (assumed: Question, answer: Answer) => void;
 	/** Once Enter is pressed in an open challenge. */
 	onNext: () => void;
+	/**
+	 * Challenges an assumption somewhere else, such as a dialog, rather than
+	 * opening it in place.
+	 */
+	onChallenge?: (number: string) => void;
 }): JSX.Element {
 	// Open with a challenge already written, as from a kept draft.
 	const [opened, setOpened] = useState(
@@ -75,17 +271,25 @@ export function AssumptionList({
 			return after;
 		});
 	return (
-		<section aria-label="Assumptions" className="flex flex-col py-1.5">
-			<h3 className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
-				Assumptions
-			</h3>
+		<section
+			aria-label="Assumptions"
+			className="@container flex flex-col py-1.5"
+		>
+			{heading && (
+				<h3 className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
+					Assumptions
+				</h3>
+			)}
 			<ol className="flex flex-col">
 				{assumptions.map((assumed, at) => {
 					const answer = answers[at] ?? null;
-					return opened.has(assumed.number) || answer !== null ? (
-						<QuestionCard
+					const open =
+						onChallenge === undefined &&
+						(opened.has(assumed.number) || answer !== null);
+					return open ? (
+						<ChallengeCard
 							key={assumed.number}
-							asked={challengeOf(assumed)}
+							assumed={assumed}
 							answer={answer}
 							live={live}
 							onAnswer={(next) => onAnswer(assumed, next)}
@@ -97,7 +301,7 @@ export function AssumptionList({
 										size="xs"
 										aria-label={`Keep assumption ${assumed.number}`}
 										onClick={() => {
-											onAnswer(assumed, { picks: [], words: "" });
+											onAnswer(assumed, takenOf(assumed));
 											toggle(assumed.number, false);
 										}}
 										className="shrink-0 text-muted-foreground"
@@ -112,8 +316,13 @@ export function AssumptionList({
 						<AssumptionRow
 							key={assumed.number}
 							assumed={assumed}
+							challenge={answer}
 							live={live}
-							onChallenge={() => toggle(assumed.number, true)}
+							onChallenge={() =>
+								onChallenge === undefined
+									? toggle(assumed.number, true)
+									: onChallenge(assumed.number)
+							}
 						/>
 					);
 				})}
@@ -122,43 +331,100 @@ export function AssumptionList({
 	);
 }
 
+/**
+ * An assumption as a question card: every choice offered, the one the agent
+ * took tagged Assumed and picked until another is. Picking it again
+ * withdraws the challenge.
+ */
+export function ChallengeCard({
+	assumed,
+	answer,
+	...card
+}: {
+	assumed: Question;
+	/** The challenge written to it; null for none. */
+	answer: Answer | null;
+	live: boolean;
+	onAnswer: (answer: Answer) => void;
+	onNext: () => void;
+	action?: ReactNode;
+}): JSX.Element {
+	return (
+		<QuestionCard
+			{...card}
+			asked={assumed}
+			answer={answer ?? takenOf(assumed)}
+			chosenLabel="Assumed"
+		/>
+	);
+}
+
 /** One assumption on one line: what it asked, then what the agent took. */
 function AssumptionRow({
 	assumed,
+	challenge,
 	live,
 	onChallenge,
 }: {
 	assumed: Question;
+	/** The challenge written to it, shown in place of what it took; null for none. */
+	challenge: Answer | null;
 	live: boolean;
 	onChallenge: () => void;
 }): JSX.Element {
 	const { number, text, choices } = assumed;
 	const taken = choices.filter((choice) => choice.chosen);
+	const picked = choices.filter((choice) =>
+		challenge?.picks.includes(choice.key),
+	);
 	return (
 		<li
 			aria-label={`assumption ${number}`}
-			className="group/row flex min-h-8 items-center gap-2 px-4 py-0.5 text-sm"
+			// One line where there is room; in a narrow column, what it asked
+			// over the choice taken.
+			className="flex min-h-8 flex-wrap items-center gap-x-2 px-4 py-0.5 text-sm"
 		>
-			<span className="w-5 shrink-0 text-center font-semibold text-[11px] text-muted-foreground tabular-nums">
-				{number}
-			</span>
-			<Clipped text={text} className="flex-1 text-muted-foreground" />
-			{taken.length > 0 && (
-				<span className="flex max-w-1/2 shrink-0 items-center gap-1 font-medium">
-					<CheckIcon className="size-3.5 shrink-0 text-success" />
-					<Clipped text={taken.map((choice) => choice.text).join(", ")} />
+			<span className="flex min-w-0 basis-full items-center gap-2 @sm:flex-1 @sm:basis-0">
+				<span className="w-5 shrink-0 text-center font-semibold text-[11px] text-muted-foreground tabular-nums">
+					{number}
 				</span>
+				<Clipped text={text} className="flex-1 text-muted-foreground" />
+			</span>
+			{challenge !== null ? (
+				<span className="flex min-w-0 flex-1 items-center gap-1 pl-7 font-medium text-warning @sm:max-w-1/2 @sm:flex-none @sm:pl-0">
+					<MessageSquareWarningIcon
+						role="img"
+						aria-label="challenged"
+						className="size-3.5 shrink-0"
+					/>
+					<Clipped
+						text={
+							picked.length > 0
+								? picked.map((choice) => choice.text).join(", ")
+								: challenge.words
+						}
+					/>
+				</span>
+			) : (
+				taken.length > 0 && (
+					<span className="flex min-w-0 flex-1 items-center gap-1 pl-7 font-medium @sm:max-w-1/2 @sm:flex-none @sm:pl-0">
+						<CheckIcon className="size-3.5 shrink-0 text-success" />
+						<Clipped text={taken.map((choice) => choice.text).join(", ")} />
+					</span>
+				)
 			)}
 			{live && (
 				<Button
 					variant="ghost"
 					size="xs"
 					aria-label={`Challenge assumption ${number}`}
+					// Its name, for where it shows as an icon alone.
+					title="Challenge"
 					onClick={onChallenge}
 					className="shrink-0 text-muted-foreground"
 				>
 					<MessageSquareWarningIcon data-icon="inline-start" />
-					Challenge
+					<span className="hidden @sm:inline">Challenge</span>
 				</Button>
 			)}
 		</li>

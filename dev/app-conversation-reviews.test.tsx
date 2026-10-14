@@ -149,10 +149,10 @@ describe("App's review panel and demo cards", () => {
 		const challenge = within(list).getByRole("listitem", {
 			name: "question 1",
 		});
-		// Only what it passed over is offered.
-		expect(
-			within(challenge).queryByRole("button", { name: /Below 400px/ }),
-		).toBeNull();
+		// Every choice is offered, the one it took tagged and picked.
+		const took = within(challenge).getByRole("button", { name: /Below 400px/ });
+		expect(took.textContent).toContain("Assumed");
+		expect(took.getAttribute("aria-pressed")).toBe("true");
 		await act(async () =>
 			fireEvent.click(
 				within(challenge).getByRole("button", { name: /Below 600px/ }),
@@ -186,6 +186,112 @@ describe("App's review panel and demo cards", () => {
 				},
 			},
 		]);
+	});
+
+	it("withdraws a challenge when the assumed choice is picked again", async () => {
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Challenge assumption 2" }),
+			),
+		);
+		const merge = within(panel).getByRole("button", {
+			name: "Merge",
+		}) as HTMLButtonElement;
+		await act(async () =>
+			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
+		);
+		expect(merge.disabled).toBe(true);
+
+		await act(async () =>
+			fireEvent.click(within(list).getByRole("button", { name: /Menu/ })),
+		);
+
+		expect(merge.disabled).toBe(false);
+		expect(
+			within(list)
+				.getByRole("button", { name: /Menu/ })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+	});
+
+	it("holds the assumptions still while one is challenged, offering to reload once its agent changes them", async () => {
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		for (const [number, pick] of [
+			["1", /Below 600px/],
+			["2", /More/],
+		] as const) {
+			await act(async () =>
+				fireEvent.click(
+					within(list).getByRole("button", {
+						name: `Challenge assumption ${number}`,
+					}),
+				),
+			);
+			await act(async () =>
+				fireEvent.click(
+					within(
+						within(list).getByRole("listitem", { name: `question ${number}` }),
+					).getByRole("button", { name: pick }),
+				),
+			);
+		}
+
+		// Its agent drops the first, and moves the second's choices around.
+		testing.served = {
+			...testing.served,
+			tasks: [
+				details({
+					task: "header",
+					plan: [
+						"# header",
+						"",
+						"## Assumptions",
+						"",
+						"- [ ] 2. What should the menu be called?",
+						"  - (a) More",
+						"  - (b) Menu (chosen)",
+					].join("\n"),
+				}),
+			],
+		};
+		await act(async () => testing.stream?.onmessage?.());
+
+		// Nothing moved under the person.
+		// Said beside Merge, which stays put too.
+		const banner = await waitFor(() => within(panel).getByRole("status"));
+		expect(
+			within(list).getByRole("listitem", { name: "question 1" }),
+		).toBeTruthy();
+		expect(banner.textContent).toBe(
+			"Assumptions changed. Reloading keeps your challenges to those still there, and drops the one now gone.Reload",
+		);
+
+		await act(async () =>
+			fireEvent.click(within(banner).getByRole("button", { name: "Reload" })),
+		);
+
+		expect(within(panel).queryByRole("status")).toBeNull();
+		expect(
+			within(list).queryByRole("listitem", { name: "question 1" }),
+		).toBeNull();
+		// Carried by its text, now under another letter.
+		expect(
+			within(within(list).getByRole("listitem", { name: "question 2" }))
+				.getByRole("button", { name: /More/ })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
+			"> **What should the menu be called?**\n\n- (a) More",
+		);
 	});
 
 	it("puts a challenge away with Keep, leaving the assumption as it was", async () => {
