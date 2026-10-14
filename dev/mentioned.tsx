@@ -136,7 +136,7 @@ export function NamedChip({
 			<FileChip
 				path={tree === null ? named.file : `${tree}/${named.file}`}
 				name={named.name}
-				className="inline-flex align-middle"
+				className="inline-flex h-6 align-middle"
 			/>
 		);
 	}

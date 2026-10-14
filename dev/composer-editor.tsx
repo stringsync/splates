@@ -147,9 +147,18 @@ export const FileNames = createContext<ReadonlyMap<string, string>>(new Map());
 /**
  * A reference in the composer, drawn as a message draws it: a file or system
  * chip, "Resolving…" while the paths or systems it could name are on their
- * way, and as it was written once they came without it.
+ * way, and as it was written once they came without it. It sits in a box one
+ * line of the composer's text tall, so a chip never makes its line taller.
  */
-export function ComposerChip({
+export function ComposerChip(props: DirectiveChipProps): JSX.Element {
+	return (
+		<span className="inline-flex h-lh items-center align-top">
+			<Chip {...props} />
+		</span>
+	);
+}
+
+function Chip({
 	directiveId,
 	directiveType,
 	label,
@@ -212,7 +221,7 @@ function AttachedChip({ name }: { name: string }): JSX.Element {
 }
 
 const CHIP =
-	"inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 align-middle font-mono text-xs";
+	"inline-flex h-6 items-center gap-1 rounded-md border px-1.5 align-middle font-mono text-xs";
 
 /**
  * Makes each `[ARBOR ...]` directive typed or pasted into the composer's

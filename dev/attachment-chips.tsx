@@ -111,7 +111,7 @@ export function AttachmentChip({
 	const Icon = shelf === "image" ? ImageIcon : FileIcon;
 	const inside = (
 		<>
-			<Icon aria-hidden className="size-3.5 shrink-0" />
+			<Icon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
 			{name}
 		</>
 	);
@@ -126,7 +126,7 @@ export function AttachmentChip({
 				event.stopPropagation();
 				tileOf(event.currentTarget, name)?.click();
 			}}
-			className={cn(CHIP, "cursor-pointer hover:bg-primary/15")}
+			className={cn(CHIP, "cursor-pointer hover:bg-muted")}
 		>
 			{inside}
 		</button>
@@ -134,7 +134,7 @@ export function AttachmentChip({
 }
 
 const CHIP =
-	"inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 ps-1.5 pe-2 align-middle font-medium text-primary text-xs";
+	"inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 align-middle font-medium text-foreground/90 text-xs";
 
 /** The tile of the attachment called `name` in the message `chip` sits in. */
 function tileOf(chip: HTMLElement, name: string): HTMLElement | null {

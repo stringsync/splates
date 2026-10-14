@@ -124,15 +124,15 @@ export function DirectiveChip({
 	const { icon: Icon, kind, name, open } = about(directive, board);
 	const inside = (
 		<>
-			<Icon aria-hidden className="size-3.5 shrink-0" />
+			<Icon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
 			<span className="shrink-0 font-medium">{kind}</span>
 			{name !== "" && (
-				<span className="min-w-0 truncate text-foreground/80">{name}</span>
+				<span className="min-w-0 truncate text-muted-foreground">{name}</span>
 			)}
 		</>
 	);
 	const look = cn(
-		"max-w-80 min-w-0 shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 ps-2 pe-1 text-primary text-xs",
+		"max-w-80 min-w-0 shrink-0 items-center gap-1 rounded-md border px-1.5 text-foreground/90 text-xs",
 		inline ? "inline-flex h-6 align-middle" : "flex h-7",
 	);
 	if (opens && board.linked && open !== undefined) {
@@ -145,7 +145,7 @@ export function DirectiveChip({
 					event.stopPropagation();
 					open();
 				}}
-				className={`${look} cursor-pointer hover:bg-primary/15`}
+				className={`${look} cursor-pointer hover:bg-muted`}
 			>
 				{inside}
 			</button>

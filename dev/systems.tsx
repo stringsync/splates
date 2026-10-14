@@ -99,7 +99,7 @@ export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
 		<Popover>
 			<PopoverTrigger
 				onClick={(event) => event.stopPropagation()}
-				className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-md border px-1.5 py-0.5 align-middle font-mono text-foreground/90 text-xs hover:bg-muted"
+				className="inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-md border px-1.5 align-middle font-mono text-foreground/90 text-xs hover:bg-muted"
 			>
 				<span
 					aria-hidden
