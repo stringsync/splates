@@ -318,6 +318,20 @@ Each lane you are sent adds one more to work side by side, a todo out on each
 at once. The lane is arbor's, not the prompt's, so read it from arbor each
 time:
 
+Once you have first read the lanes you were sent, before handing anything
+out, say so in a message of its own, which the `arbor dev` page shows as a
+card, as a task's Added card is (see Saying what you added), and beside the
+thread until your finished report: a `## 🌱 Started lanes` title with the
+lanes' names as the board shows them, a blank line, and one or two lines on
+what they add up to. A lane you are sent later gets a Started card of its
+own; placing the untriaged todos, start the lanes you placed them in.
+
+```markdown
+## 🌱 Started lanes Stats, Licensing
+
+Make the Stats page say what to act on, then renew licenses on their own.
+```
+
 1. `arbor lane show N` prints the steps and what to do next. When it says
    the lane is done or gone, done by you or by agents you never started, say
    so in a line. Once every lane you work is, end on a finished report (see

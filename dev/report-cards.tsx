@@ -39,8 +39,9 @@ export const ReportUI = makeAssistantDataUI<{ report: Report }>({
 });
 
 /**
- * Renders a `data-start` part: the task the agent added, and its Goal, as it
- * said when it began, whether that ends its turn or comes along the way.
+ * Renders a `data-start` part: the task the agent added, and its Goal, or the
+ * lanes it started to orchestrate and what they add up to, as it said when it
+ * began, whether that ends its turn or comes along the way.
  */
 export const StartUI = makeAssistantDataUI<{ start: Start }>({
 	name: "start",
@@ -48,14 +49,19 @@ export const StartUI = makeAssistantDataUI<{ start: Start }>({
 });
 
 export function StartCard({ start }: { start: Start }): JSX.Element {
-	// Its task shows beside the thread once it scrolls up out of sight.
+	// Its task, or its lanes, show beside the thread once it scrolls up out
+	// of sight.
 	return (
 		<div ref={useStartCard(start)}>
 			<CardShell
-				label={`added ${start.task}`}
+				{...("lanes" in start
+					? {
+							label: `started ${start.lanes.join(", ")}`,
+							title: "Started",
+							lanes: start.lanes,
+						}
+					: { label: `added ${start.task}`, title: "Added", task: start.task })}
 				Icon={SproutIcon}
-				title="Added"
-				task={start.task}
 			>
 				{start.goal === "" ? undefined : <CardBody text={start.goal} />}
 			</CardShell>

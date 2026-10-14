@@ -226,6 +226,25 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads the skill's word that an orchestrator started lanes, what they add up to under it", async () => {
+		const example = (await skillExamples()).find((each) =>
+			each.startsWith("## 🌱 Started lanes"),
+		);
+		if (example === undefined) {
+			throw new Error("the skill has no started lanes example");
+		}
+
+		expect(stretches(example)).toEqual([
+			{
+				type: "start",
+				start: {
+					lanes: ["Stats", "Licensing"],
+					goal: "Make the Stats page say what to act on, then renew licenses on their own.",
+				},
+			},
+		]);
+	});
+
 	it("reads the skill's word that it added a task, its Goal under it", async () => {
 		const example = (await skillExamples()).find((each) =>
 			each.startsWith("## 🌱 Added"),

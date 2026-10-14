@@ -6,7 +6,7 @@ import { offers, type Question, settled } from "./plan";
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it added
- * a task, a todo it proposes, a demo for the person to try, or its word that
+ * a task or started lanes, a todo it proposes, a demo for the person to try, or its word that
  * it requested a cred.
  */
 export type Stretch =
@@ -76,10 +76,24 @@ export interface LanesReport {
 	source: string;
 }
 
+/** What an agent says it is starting on: a task, or a lane orchestrator's lanes. */
+export type Start = TaskStart | LanesStart;
+
 /** A task the skill says it added as `## 🌱 Added <task>`, its Goal under it. */
-export interface Start {
+export interface TaskStart {
 	task: string;
 	/** What done means, as the task's Goal says, as markdown. */
+	goal: string;
+}
+
+/**
+ * The lanes an orchestrator says it is starting to work, as `## 🌱 Started
+ * lanes <name>, <name>`, what they add up to under it.
+ */
+export interface LanesStart {
+	/** The lanes' names, as the title lists them. */
+	lanes: string[];
+	/** What the lanes add up to, as markdown. */
 	goal: string;
 }
 
@@ -97,6 +111,7 @@ const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
 const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
+const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
 /** The skill's word that it requested a cred, which the page shows as the request. */
 const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
@@ -203,7 +218,7 @@ export function stretches(text: string): Stretch[] {
 }
 
 /**
- * The report, added task or proposed todo titled at `start`, which runs until
+ * The report, added task, started lanes or proposed todo titled at `start`, which runs until
  * the next heading or list of questions, and the line after it; null for any
  * other line.
  */
@@ -216,12 +231,14 @@ function keptAt(
 	const ended = ENDED.exec(line);
 	const finished = FINISHED.exec(line);
 	const added = ADDED.exec(line);
+	const started = STARTED.exec(line);
 	const proposed = PROPOSAL.exec(line);
 	if (
 		merged === null &&
 		ended === null &&
 		finished === null &&
 		added === null &&
+		started === null &&
 		proposed === null
 	) {
 		return null;
@@ -236,6 +253,15 @@ function keptAt(
 			stretch: {
 				type: "start",
 				start: { task: added[1] as string, goal: body },
+			},
+			end,
+		};
+	}
+	if (started !== null) {
+		return {
+			stretch: {
+				type: "start",
+				start: { lanes: lanesOf(started[1] as string), goal: body },
 			},
 			end,
 		};
@@ -258,10 +284,7 @@ function keptAt(
 		finished !== null
 			? {
 					ending: "finished",
-					lanes: (finished[1] as string)
-						.split(",")
-						.map((lane) => lane.trim())
-						.filter((lane) => lane !== ""),
+					lanes: lanesOf(finished[1] as string),
 					body,
 					source,
 				}
@@ -283,6 +306,14 @@ function keptAt(
 						source,
 					};
 	return { stretch: { type: "report", report }, end };
+}
+
+/** The lanes a title lists by name, comma separated. */
+function lanesOf(listed: string): string[] {
+	return listed
+		.split(",")
+		.map((lane) => lane.trim())
+		.filter((lane) => lane !== "");
 }
 
 /**
