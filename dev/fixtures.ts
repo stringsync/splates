@@ -174,7 +174,7 @@ export function tool(overrides: Partial<Tool> = {}): Tool {
 }
 
 /** `at` seconds after a fixed start, as a message's timestamp reads. */
-function second(secs: number): string {
+export function second(secs: number): string {
 	return new Date(
 		Date.parse("2026-10-11T10:00:00Z") + secs * 1000,
 	).toISOString();
