@@ -71,6 +71,25 @@ describe("add", () => {
 		});
 	});
 
+	it("refuses every add of a name but one when several race", async () => {
+		const results = await Promise.allSettled(
+			[1, 2, 3].map(() => add(deps, "alpha")),
+		);
+
+		expect(
+			results.filter((result) => result.status === "fulfilled"),
+		).toHaveLength(1);
+		await Promise.all(
+			results
+				.filter((result) => result.status === "rejected")
+				.map((result) =>
+					expect(Promise.reject(result.reason)).toBail("exists", {
+						message: "arbor claim alpha",
+					}),
+				),
+		);
+	});
+
 	it("rejects names that are not legal branch or directory names", async () => {
 		const names = ["Alpha", "a b", "feature/x", "-alpha", ""];
 

@@ -8,7 +8,7 @@ import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
 import { blockedWarning, type Todo } from "./todo";
 import type { Todos } from "./todos";
-import type { Dispatched } from "./worktree";
+import type { Dispatched, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -97,11 +97,7 @@ export async function add(
 		);
 	}
 	if (!found.gone) {
-		fail(
-			"exists",
-			`task '${task}' already exists: run \`arbor claim ${task}\``,
-			{ task, worktree: found.path },
-		);
+		refuseTaken(found);
 	}
 
 	// Looked up before anything is created, so a todo that is gone or taken
@@ -119,6 +115,11 @@ export async function add(
 
 	const added = await service.add(task, { base });
 	if (added.code !== 0) {
+		// Another add of this name got its branch in first, after we looked.
+		const raced = await service.find(task);
+		if (!raced.gone) {
+			refuseTaken(raced);
+		}
 		// git's own "invalid reference" sends people to the branch, when what is
 		// wrong is which branch arbor thinks the trunk is.
 		const missingTrunk =
@@ -209,6 +210,14 @@ export async function add(
 					]),
 			...blocked,
 		].join("\n"),
+	);
+}
+
+function refuseTaken(found: Worktree): never {
+	fail(
+		"exists",
+		`task '${found.task}' already exists: run \`arbor claim ${found.task}\``,
+		{ task: found.task, worktree: found.path },
 	);
 }
 
