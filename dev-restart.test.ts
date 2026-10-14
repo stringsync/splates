@@ -97,6 +97,72 @@ describe("dev restart", () => {
 		}
 	});
 
+	it("shuts down once every live one has checkpointed, the next start finding each waiting to be resumed", async () => {
+		const said: string[] = [];
+		agent.turn = async (_, __, text) => {
+			said.push(text);
+			return "end_turn";
+		};
+		const { promise: exited, resolve: exit } = Promise.withResolvers<number>();
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+			exit,
+		});
+		const started = await json(server.port, "/api/conversations", "POST", {
+			agent: "fake",
+		});
+		const { id } = (await started.json()) as { id: string };
+		const conversation = await conversations.find(id);
+		for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
+			await Bun.sleep(5);
+		}
+
+		const response = await json(server.port, "/api/checkpoint", "POST", {
+			projects: ["repo"],
+			after: "shutdown",
+		});
+
+		expect(response.status).toBe(200);
+		expect(await exited).toBe(0);
+		expect(said).toEqual([CHECKPOINT]);
+
+		const again = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () =>
+				new Conversations(`${deps.arborDir}/conversations`, [AGENT], {
+					launch: agent.launch,
+				}),
+		});
+		try {
+			const listed = (await (
+				await fetch(`http://127.0.0.1:${again.port}/api/projects`)
+			).json()) as { restarted: string | null };
+			expect(listed.restarted).toBe("waiting");
+			expect(said).toEqual([CHECKPOINT]);
+		} finally {
+			await again.disposeAsync();
+		}
+	});
+
+	it("refuses to shut down where arbor dev cannot exit itself", async () => {
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			const response = await json(server.port, "/api/checkpoint", "POST", {
+				projects: ["repo"],
+				after: "shutdown",
+			});
+
+			expect(response.status).toBe(400);
+			expect(await response.text()).toContain("cannot shut itself down");
+		} finally {
+			await server.disposeAsync();
+		}
+	});
+
 	it("says a restart that resumes is to follow the checkpoint, then opens each other project it stopped agents in at once, for each to carry on", async () => {
 		await using other = await Testing.open();
 		await deps.projects.register(deps.root);
@@ -131,7 +197,7 @@ describe("dev restart", () => {
 		});
 		const listed = async (port: number) =>
 			(await (await fetch(`http://127.0.0.1:${port}/api/projects`)).json()) as {
-				restarting: { resume: boolean } | null;
+				restarting: { resume: boolean; shutdown: boolean } | null;
 				restarted: string | null;
 				run: string;
 			};
@@ -157,7 +223,10 @@ describe("dev restart", () => {
 			});
 
 			({ run } = await listed(port));
-			expect((await listed(port)).restarting).toEqual({ resume: true });
+			expect((await listed(port)).restarting).toEqual({
+				resume: true,
+				shutdown: false,
+			});
 			answer();
 			for (let i = 0; i < 100 && exits.length === 0; i++) {
 				await Bun.sleep(5);

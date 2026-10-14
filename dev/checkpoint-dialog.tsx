@@ -34,10 +34,14 @@ import {
 } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 
-/** A restart on its way: the run it replaces, and whether the next resumes. */
+/**
+ * A restart on its way: the run it replaces, and whether the next resumes,
+ * or whether it shuts down instead.
+ */
 export interface Restarting {
 	run: string;
 	resume: boolean;
+	shutdown: boolean;
 }
 
 /**
@@ -120,7 +124,7 @@ export function CheckpointDialog({
 	};
 	// A restart follows the last answer at once, which the page may not see.
 	const state =
-		slide === "restarting"
+		slide === "restarting" || slide === "shuttingDown" || slide === "shutDown"
 			? (each: ProjectConversation) =>
 					each.checkpoint === "asked" ? null : checkpointed(each)
 			: slide === "resuming" || slide === "ended"
@@ -169,16 +173,20 @@ export function CheckpointDialog({
 								<PhaseTitle slide={slide} restarted={restarted} />
 								<DialogDescription>
 									{slide === "going"
-										? `Each agent is bringing its ARBOR.md up to date${restarting === null ? "" : restarting.resume ? ", then arbor dev restarts and each resumes" : ", then arbor dev restarts"}.`
-										: slide === "restarting"
-											? `arbor dev is restarting${on(newest)}${restarting?.resume ? ", then each agent resumes" : ", then you pick what comes next"}.`
-											: slide === "restarted"
-												? `arbor dev restarted${on(restarted)}.`
-												: slide === "resuming" || slide === "ended"
-													? `${restarted === null ? "" : `Now${on(restarted)}. `}${carried === resumable.length ? `${plural(carried)} resumed.` : `${carried} of ${plural(resumable.length)} resumed so far.`}${missing(all)}`
-													: restarted !== null
-														? `Now${on(restarted)}. ${summary(all, "waiting to resume")}`
-														: summary(all, "stopped")}
+										? `Each agent is bringing its ARBOR.md up to date${restarting === null ? "" : restarting.shutdown ? ", then arbor dev shuts down" : restarting.resume ? ", then arbor dev restarts and each resumes" : ", then arbor dev restarts"}.`
+										: slide === "shuttingDown"
+											? "arbor dev is shutting down."
+											: slide === "shutDown"
+												? "arbor dev shut down. Start it again to resume each agent."
+												: slide === "restarting"
+													? `arbor dev is restarting${on(newest)}${restarting?.resume ? ", then each agent resumes" : ", then you pick what comes next"}.`
+													: slide === "restarted"
+														? `arbor dev restarted${on(restarted)}.`
+														: slide === "resuming" || slide === "ended"
+															? `${restarted === null ? "" : `Now${on(restarted)}. `}${carried === resumable.length ? `${plural(carried)} resumed.` : `${carried} of ${plural(resumable.length)} resumed so far.`}${missing(all)}`
+															: restarted !== null
+																? `Now${on(restarted)}. ${summary(all, "waiting to resume")}`
+																: summary(all, "stopped")}
 								</DialogDescription>
 							</DialogHeader>
 							<AskedList projects={projects} onOpen={onClose} state={state} />

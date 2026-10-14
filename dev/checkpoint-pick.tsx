@@ -35,6 +35,12 @@ const AFTERWARDS: {
 		detail:
 			"Then arbor dev restarts, on a newer arbor if one is out, and each agent resumes.",
 	},
+	{
+		after: "shutdown",
+		label: "Checkpoint and shut down",
+		detail:
+			"Then arbor dev shuts down, and the next time it starts, you resume them.",
+	},
 ];
 
 /**

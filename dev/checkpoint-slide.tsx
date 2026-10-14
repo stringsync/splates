@@ -1,4 +1,10 @@
-import { FlagIcon, Loader2Icon, PlayIcon, RotateCwIcon } from "lucide-react";
+import {
+	FlagIcon,
+	Loader2Icon,
+	PlayIcon,
+	PowerIcon,
+	RotateCwIcon,
+} from "lucide-react";
 import type { JSX } from "react";
 import { DialogTitle } from "#dev/components/ui/dialog.tsx";
 import type { ProjectConversation } from "./project-api";
@@ -15,7 +21,8 @@ export interface Standing {
  * Where the dialog is: picking projects, waiting on agents, done with them
  * stopped, waiting on `arbor dev` to restart, back from a restart with no
  * agent to resume, its agents being told to carry on after the restart, or
- * ended with them carrying on.
+ * ended with them carrying on; or waiting on `arbor dev` to shut down, and
+ * gone once it has.
  */
 export type Slide =
 	| "pick"
@@ -24,7 +31,9 @@ export type Slide =
 	| "restarting"
 	| "restarted"
 	| "resuming"
-	| "ended";
+	| "ended"
+	| "shuttingDown"
+	| "shutDown";
 
 export function slideOf({ asked, going }: Standing): Slide {
 	return asked.length === 0 ? "pick" : going > 0 ? "going" : "done";
@@ -51,23 +60,28 @@ export function titleOf(slide: Slide, restarted: string | null): string {
 			return "Resuming agents";
 		case "ended":
 			return "Agents resumed";
+		case "shuttingDown":
+			return "Shutting down arbor dev";
+		case "shutDown":
+			return "arbor dev shut down";
 	}
 }
 
 /**
- * The three phases the dialog walks through, as "Checkpoint, restart and
- * resume" names them, each with its icon; done is still the checkpoint until
- * a restart has followed it.
+ * The phases the dialog walks through, as "Checkpoint, restart and resume"
+ * and "Checkpoint and shut down" name them, each with its icon; done is still
+ * the checkpoint until a restart has followed it.
  */
 const PHASES = {
 	checkpoint: { title: "Checkpoint", Icon: FlagIcon },
 	restart: { title: "Restart", Icon: RotateCwIcon },
 	resume: { title: "Resume", Icon: PlayIcon },
+	shutdown: { title: "Shut down", Icon: PowerIcon },
 };
 
 /**
  * The dialog's title: the phase it is in, with its icon, which spins while
- * `arbor dev` restarts.
+ * `arbor dev` restarts or shuts down.
  */
 export function PhaseTitle({
 	slide,
@@ -79,7 +93,7 @@ export function PhaseTitle({
 	const { title, Icon } = PHASES[phaseOf(slide, restarted)];
 	return (
 		<DialogTitle className="flex items-center gap-2">
-			{slide === "restarting" ? (
+			{slide === "restarting" || slide === "shuttingDown" ? (
 				<Loader2Icon aria-hidden className="size-4 animate-spin" />
 			) : (
 				<Icon aria-hidden className="size-4" />
@@ -134,5 +148,8 @@ function phaseOf(slide: Slide, restarted: string | null): keyof typeof PHASES {
 		case "resuming":
 		case "ended":
 			return "resume";
+		case "shuttingDown":
+		case "shutDown":
+			return "shutdown";
 	}
 }

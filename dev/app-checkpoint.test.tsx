@@ -98,7 +98,7 @@ describe("App's checkpoint dialog", () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
-		testing.restarting = { resume: true };
+		testing.restarting = { resume: true, shutdown: false };
 
 		await act(async () =>
 			fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" })),

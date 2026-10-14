@@ -78,9 +78,10 @@ export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
 /**
  * What follows a checkpoint: the agents stop; or `arbor dev` restarts once
  * every agent is done, and they wait to be told to carry on; or it
- * restarts and tells each to carry on itself.
+ * restarts and tells each to carry on itself; or it shuts down, and the next
+ * start finds them waiting to be told to carry on.
  */
-export type After = "stop" | "restart" | "resume";
+export type After = "stop" | "restart" | "resume" | "shutdown";
 
 /** One turn's worth of words, the person's or the agent's. */
 export interface Message {

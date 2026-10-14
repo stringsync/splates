@@ -197,13 +197,17 @@ export function CheckpointProvider({
 			? "going"
 			: ending !== null
 				? "ended"
-				: restarting !== null
-					? "restarting"
-					: back !== null
-						? "restarted"
-						: listed?.restarted === "resuming"
-							? "resuming"
-							: live;
+				: restarting?.shutdown
+					? unreachable
+						? "shutDown"
+						: "shuttingDown"
+					: restarting !== null
+						? "restarting"
+						: back !== null
+							? "restarted"
+							: listed?.restarted === "resuming"
+								? "resuming"
+								: live;
 	useEffect(() => {
 		if (listed === null) {
 			return;
@@ -332,7 +336,9 @@ export function CheckpointProvider({
 				}}
 				onRestart={() =>
 					setRestarting(
-						listed === null ? null : { run: listed.run, resume: false },
+						listed === null
+							? null
+							: { run: listed.run, resume: false, shutdown: false },
 					)
 				}
 				projects={
@@ -365,7 +371,10 @@ export function CheckpointItem(): JSX.Element {
 	const shortcut = useShortcutLabel("shortcuts.checkpoint");
 	return (
 		<DropdownMenuItem onClick={() => open()}>
-			{slide === "going" || slide === "restarting" || slide === "resuming" ? (
+			{slide === "going" ||
+			slide === "restarting" ||
+			slide === "resuming" ||
+			slide === "shuttingDown" ? (
 				<Loader2Icon className="animate-spin" />
 			) : slide === "pick" ? (
 				<FlagIcon />

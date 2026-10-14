@@ -121,7 +121,7 @@ export class Testing implements Resource {
 	/** What the page is told of the projects on this machine. */
 	projects: ProjectChoice[] = [];
 	/** The restart `/api/projects` says follows the checkpoint, if any. */
-	restarting: { resume: boolean } | null = null;
+	restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/** How `/api/projects` says this run began, after a checkpoint's restart. */
 	restarted: "waiting" | "resuming" | null = null;
 	/** The run of `arbor dev` `/api/projects` names: a test changes it to restart. */

@@ -16,7 +16,7 @@ export interface Projects {
 	 * The restart to follow the checkpoint under way, and whether the next
 	 * run resumes its agents; null for none.
 	 */
-	restarting: { resume: boolean } | null;
+	restarting: { resume: boolean; shutdown: boolean } | null;
 	/**
 	 * How this run began, when a checkpoint's restart started it: its agents
 	 * `waiting` to be resumed, or `resuming`, told to carry on, until each has.

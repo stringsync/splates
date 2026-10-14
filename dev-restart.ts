@@ -51,9 +51,10 @@ export interface RestartsOptions {
 export class Restarts {
 	/**
 	 * The restart to follow the checkpoint under way, once every agent has
-	 * answered, and whether the next run resumes them; null for none.
+	 * answered, and whether the next run resumes them, or whether it shuts
+	 * down instead, for the next start to find them waiting; null for none.
 	 */
-	private restarting: { resume: boolean } | null = null;
+	private restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/**
 	 * How this run began, when a checkpoint's restart started it: its agents
 	 * `waiting` to be resumed, until the checkpoint ends or another is asked
@@ -161,12 +162,22 @@ export class Restarts {
 			fail("usage", "name a project to checkpoint", {});
 		}
 		const after: After =
-			read.after === "restart" || read.after === "resume" ? read.after : "stop";
+			read.after === "restart" ||
+			read.after === "resume" ||
+			read.after === "shutdown"
+				? read.after
+				: "stop";
 		const only = Array.isArray(read.conversations)
 			? read.conversations.map(String)
 			: undefined;
 		if (after !== "stop" && this.opts.exit === null) {
-			fail("usage", "arbor dev cannot restart itself here: restart it", {});
+			fail(
+				"usage",
+				after === "shutdown"
+					? "arbor dev cannot shut itself down here: stop it"
+					: "arbor dev cannot restart itself here: restart it",
+				{},
+			);
 		}
 		const chosen = await Promise.all(
 			slugs.map((slug) => this.home.served.projectNamed(slug)),
@@ -177,7 +188,9 @@ export class Restarts {
 			asked.push(...(await project.checkpoint(only)));
 		}
 		if (after !== "stop") {
-			this.restartAfter(asked, after === "resume");
+			this.restartAfter(asked, after === "resume", {
+				shutdown: after === "shutdown",
+			});
 		}
 		return Response.json({});
 	};
@@ -350,16 +363,20 @@ export class Restarts {
 
 	/**
 	 * Restarts `arbor dev` once each checkpoint `asked` has been answered,
-	 * unless dismissed meanwhile. Without `reopen`, the next run starts as if
-	 * started afresh, as for a restart with every agent idle.
+	 * unless dismissed meanwhile, or with `shutdown`, exits for good, the
+	 * next start reopening as a restart would. Without `reopen`, the next run
+	 * starts as if started afresh, as for a restart with every agent idle.
 	 */
 	private restartAfter(
 		asked: Promise<void>[],
 		resume: boolean,
-		{ reopens = true }: { reopens?: boolean } = {},
+		{
+			reopens = true,
+			shutdown = false,
+		}: { reopens?: boolean; shutdown?: boolean } = {},
 	): void {
 		const { fs, log, here, served, server } = this.home;
-		this.restarting = { resume };
+		this.restarting = { resume, shutdown };
 		void Promise.all(asked).then(async () => {
 			if (this.restarting === null) {
 				return;
@@ -376,11 +393,13 @@ export class Restarts {
 				await fs.write(this.reopen, `${JSON.stringify({ roots, resume })}\n`);
 			}
 			const { release } = this.versions;
-			const code = release === null ? RESTART : UPDATE;
+			const code = shutdown ? 0 : release === null ? RESTART : UPDATE;
 			log.info(
-				release === null
-					? "arbor dev restarting"
-					: `arbor dev restarting on arbor ${release.newest}`,
+				shutdown
+					? "arbor dev shutting down after a checkpoint"
+					: release === null
+						? "arbor dev restarting"
+						: `arbor dev restarting on arbor ${release.newest}`,
 			);
 			await server.disposeAsync();
 			this.opts.exit?.(code);
