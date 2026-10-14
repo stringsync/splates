@@ -959,6 +959,7 @@ export function ReviewPanel({
 			label={`review ${review.task}`}
 			Icon={GitMergeIcon}
 			title="Ready to merge"
+			tone="success"
 			task={review.task}
 			base={review.base}
 			folded={sent !== null}
