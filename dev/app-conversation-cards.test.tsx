@@ -713,6 +713,82 @@ describe("App's conversations", () => {
 			expect(thread.textContent).not.toContain("## 🌱");
 		});
 
+		it("shows the task added along the way beside the thread while its card is scrolled up out of sight, until a report that it merged comes up", async () => {
+			const thread = await opened(
+				turn([
+					tool({ id: "x1", command: "arbor add upload-limit" }),
+					"## 🌱 Added upload-limit\n\nStop retrying an upload refused as too big.",
+					tool({ id: "x2", command: "arbor merge" }),
+					"## ✅ Merged upload-limit onto main\n\nUploads stop retrying.",
+				]),
+			);
+			const added = await waitFor(() =>
+				within(thread).getByRole("region", { name: "added upload-limit" }),
+			);
+			const merged = within(thread).getByRole("region", {
+				name: "merged upload-limit",
+			});
+			const viewport = thread.querySelector(
+				'[data-slot="aui_thread-viewport"]',
+			) as HTMLElement;
+			// Laid out, as happy-dom never does: the thread 800px tall, the
+			// Added card in view or above it, the report below or in view.
+			const card = added.parentElement as HTMLElement;
+			const report = merged.parentElement as HTMLElement;
+			Object.defineProperty(card, "offsetHeight", { value: 120 });
+			let cardTop = 200;
+			let reportTop = 2000;
+			const rect = HTMLElement.prototype.getBoundingClientRect;
+			const placed = spyOn(
+				HTMLElement.prototype,
+				"getBoundingClientRect",
+			).mockImplementation(function (this: HTMLElement) {
+				return this === viewport
+					? new DOMRect(0, 0, 600, 800)
+					: this === card
+						? new DOMRect(0, cardTop, 600, 120)
+						: this === report
+							? new DOMRect(0, reportTop, 600, 120)
+							: rect.call(this);
+			});
+			const current = () =>
+				view().queryByRole("region", {
+					name: "current upload-limit",
+					hidden: true,
+				});
+			const view = () => within(document.body);
+			const shown = () => current()?.parentElement?.getAttribute("aria-hidden");
+			const scroll = () => act(async () => fireEvent.scroll(viewport));
+			try {
+				await scroll();
+				expect(current()).toBeNull();
+
+				cardTop = -500;
+				await scroll();
+				await waitFor(() => expect(shown()).toBe("false"));
+				expect(current()?.textContent).toContain(
+					"Stop retrying an upload refused as too big.",
+				);
+
+				// Over once its merge comes into view.
+				reportTop = 400;
+				await scroll();
+				await waitFor(() => expect(shown()).toBe("true"));
+
+				// And back when scrolled up above the merge again.
+				reportTop = 2000;
+				await scroll();
+				await waitFor(() => expect(shown()).toBe("false"));
+
+				// Fading out, the card saying it in the thread again.
+				cardTop = 200;
+				await scroll();
+				await waitFor(() => expect(shown()).toBe("true"));
+			} finally {
+				placed.mockRestore();
+			}
+		});
+
 		it("keeps words along the way that say a task was added folded in while they are still being written", async () => {
 			const thread = await opened(
 				turn(

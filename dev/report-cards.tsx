@@ -23,6 +23,7 @@ import type { TodoState } from "../todo";
 import { Board } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
+import { useEndCard, useStartCard } from "./current-task";
 import { Markdown } from "./markdown";
 import { InMessage, useCardReply } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
@@ -47,15 +48,18 @@ export const StartUI = makeAssistantDataUI<{ start: Start }>({
 });
 
 export function StartCard({ start }: { start: Start }): JSX.Element {
+	// Its task shows beside the thread once it scrolls up out of sight.
 	return (
-		<CardShell
-			label={`added ${start.task}`}
-			Icon={SproutIcon}
-			title="Added"
-			task={start.task}
-		>
-			{start.goal === "" ? undefined : <CardBody text={start.goal} />}
-		</CardShell>
+		<div ref={useStartCard(start)}>
+			<CardShell
+				label={`added ${start.task}`}
+				Icon={SproutIcon}
+				title="Added"
+				task={start.task}
+			>
+				{start.goal === "" ? undefined : <CardBody text={start.goal} />}
+			</CardShell>
+		</div>
 	);
 }
 
@@ -65,34 +69,38 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	// Shows the markdown the agent wrote in place of the card's body, until
 	// toggled back; never kept, so the card opens rendered.
 	const [showing, setShowing] = useState(false);
+	// One that merged or removed its task ends it beside the thread too.
+	const ended = useEndCard(report.task, report.ending);
 	return (
-		<CardShell
-			label={`${report.ending} ${report.task}`}
-			Icon={Icon}
-			title={title}
-			tone={tone}
-			task={report.task}
-			base={report.base}
-			aside={
-				<Button
-					size="icon-xs"
-					variant="ghost"
-					aria-label="Show source"
-					aria-pressed={showing}
-					title={showing ? "Hide source" : "Show source"}
-					onClick={() => setShowing(!showing)}
-					className={cn(showing && "bg-accent text-accent-foreground")}
-				>
-					<CodeIcon />
-				</Button>
-			}
-		>
-			{showing ? (
-				<Source text={report.source} />
-			) : text === "" ? undefined : (
-				<CardBody text={text} lead={report.reason !== null} />
-			)}
-		</CardShell>
+		<div ref={ended}>
+			<CardShell
+				label={`${report.ending} ${report.task}`}
+				Icon={Icon}
+				title={title}
+				tone={tone}
+				task={report.task}
+				base={report.base}
+				aside={
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						aria-label="Show source"
+						aria-pressed={showing}
+						title={showing ? "Hide source" : "Show source"}
+						onClick={() => setShowing(!showing)}
+						className={cn(showing && "bg-accent text-accent-foreground")}
+					>
+						<CodeIcon />
+					</Button>
+				}
+			>
+				{showing ? (
+					<Source text={report.source} />
+				) : text === "" ? undefined : (
+					<CardBody text={text} lead={report.reason !== null} />
+				)}
+			</CardShell>
+		</div>
 	);
 }
 

@@ -99,6 +99,7 @@ import {
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
+import { useTaskViewport } from "#dev/current-task.tsx";
 import {
 	bareDirective,
 	DirectiveCard,
@@ -291,6 +292,8 @@ const ThreadRoot: FC<{
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
+	// What the current task card beside the thread reads its cards against.
+	useTaskViewport(viewport);
 	// Every scroll jumps rather than glides: assistant-ui scrolls a new message
 	// to the top with `behavior: "smooth"`, which no stylesheet can override.
 	useEffect(() => {

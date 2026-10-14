@@ -126,6 +126,7 @@ import {
 	type ConversationFeed,
 	SEEN,
 } from "./conversation-feed";
+import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import { Directed, DirectiveChip } from "./directives";
 import { Trunk, whereRuns } from "./dispatching";
@@ -2738,102 +2739,107 @@ function Thread({
 					{conversation.error}
 				</p>
 			)}
-			<div className="relative min-h-0 flex-1">
-				<AssistantRuntimeProvider runtime={runtime}>
-					<Composing.Provider value={runtime.thread.composer}>
-						<QuestionsUI />
-						<ReviewUI />
-						<ReportUI />
-						<StartUI />
-						<TodoUI />
-						<DemoUI />
-						<WorkUI />
-						<StoppedUI />
-						<StartNewContext value={startNew}>
-							<ReplyContext value={reply}>
-								<NamedContext value={named}>
-									<ThreadView
-										openAt={openAt}
-										autoFocus={!asking || typed}
-										mentions={mentions ?? undefined}
-										references={references}
-										commands={commands ?? undefined}
-										placeholder={
-											archived
-												? "Send a message to unarchive and continue"
-												: undefined
-										}
-										controls={
-											!archived && (
-												<>
-													<ContextMeter usage={conversation.usage} />
-													{settings.map((setting) => (
-														<SettingControl
-															key={setting.id}
-															setting={setting}
-															value={setting.current}
-															onChange={(value) =>
-																chooseSetting(id, setting.id, value).catch(
-																	(error: unknown) =>
-																		refused(
-																			`${setting.name} not switched`,
-																			error,
-																		),
-																)
-															}
-														/>
-													))}
-												</>
-											)
-										}
-										above={
-											<>
-												<Refusal refusal={refusal} className="px-2" />
-												{ended !== null && (
-													<ArchiveBar
-														report={ended}
-														onArchive={() => archive.file(onLeft)}
-													/>
-												)}
-												{queued.length > 0 && (
-													<Queued
-														conversation={id}
-														messages={queued}
-														pending={feed.unrecorded(id)}
-														onEdit={(index) => void edit(index)}
-														onDiscard={(index) => void discard(index)}
-														onSendNow={() => void sendNow()}
-													/>
-												)}
-												{conversation.ask !== null && (
-													<AskPanel
-														key={conversation.ask.id}
-														drafts={drafts}
-														conversation={conversation}
-														agent={agent}
-														ask={conversation.ask}
-													/>
-												)}
-											</>
-										}
-									/>
-								</NamedContext>
-							</ReplyContext>
-						</StartNewContext>
-					</Composing.Provider>
-				</AssistantRuntimeProvider>
-				<Actions
-					actions={actions}
-					background={
-						<BackgroundRow
-							conversation={id}
-							background={conversation.background}
-						/>
-					}
-				>
-					<SystemsCard systems={task?.systems ?? []} />
-				</Actions>
-			</div>
+			<TaskRegistry>
+				{(version) => (
+					<div className="relative min-h-0 flex-1">
+						<AssistantRuntimeProvider runtime={runtime}>
+							<Composing.Provider value={runtime.thread.composer}>
+								<QuestionsUI />
+								<ReviewUI />
+								<ReportUI />
+								<StartUI />
+								<TodoUI />
+								<DemoUI />
+								<WorkUI />
+								<StoppedUI />
+								<StartNewContext value={startNew}>
+									<ReplyContext value={reply}>
+										<NamedContext value={named}>
+											<ThreadView
+												openAt={openAt}
+												autoFocus={!asking || typed}
+												mentions={mentions ?? undefined}
+												references={references}
+												commands={commands ?? undefined}
+												placeholder={
+													archived
+														? "Send a message to unarchive and continue"
+														: undefined
+												}
+												controls={
+													!archived && (
+														<>
+															<ContextMeter usage={conversation.usage} />
+															{settings.map((setting) => (
+																<SettingControl
+																	key={setting.id}
+																	setting={setting}
+																	value={setting.current}
+																	onChange={(value) =>
+																		chooseSetting(id, setting.id, value).catch(
+																			(error: unknown) =>
+																				refused(
+																					`${setting.name} not switched`,
+																					error,
+																				),
+																		)
+																	}
+																/>
+															))}
+														</>
+													)
+												}
+												above={
+													<>
+														<Refusal refusal={refusal} className="px-2" />
+														{ended !== null && (
+															<ArchiveBar
+																report={ended}
+																onArchive={() => archive.file(onLeft)}
+															/>
+														)}
+														{queued.length > 0 && (
+															<Queued
+																conversation={id}
+																messages={queued}
+																pending={feed.unrecorded(id)}
+																onEdit={(index) => void edit(index)}
+																onDiscard={(index) => void discard(index)}
+																onSendNow={() => void sendNow()}
+															/>
+														)}
+														{conversation.ask !== null && (
+															<AskPanel
+																key={conversation.ask.id}
+																drafts={drafts}
+																conversation={conversation}
+																agent={agent}
+																ask={conversation.ask}
+															/>
+														)}
+													</>
+												}
+											/>
+										</NamedContext>
+									</ReplyContext>
+								</StartNewContext>
+							</Composing.Provider>
+						</AssistantRuntimeProvider>
+						<Actions
+							actions={actions}
+							background={
+								<BackgroundRow
+									conversation={id}
+									background={conversation.background}
+								/>
+							}
+						>
+							<SystemsCard systems={task?.systems ?? []} />
+							<CurrentTask version={version} />
+						</Actions>
+					</div>
+				)}
+			</TaskRegistry>
 		</section>
 	);
 }
