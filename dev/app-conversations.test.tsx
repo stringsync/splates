@@ -1668,7 +1668,7 @@ describe("App's conversations", () => {
 		expect(view.queryByRole("region", { name: "plan limits" })).toBeNull();
 	});
 
-	it("offers the tree's files for an @ in the composer, over the composer, and writes the one picked", async () => {
+	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {
 		testing.tree = ["README.md", "src/", "src/components/", "src/index.ts"];
 		const view = await testing.openConversations([]);
 		const box = view.getByRole("textbox", {
@@ -1677,11 +1677,14 @@ describe("App's conversations", () => {
 
 		await typeIn(box, "see @comp");
 		const list = await waitFor(() => view.getByRole("listbox"));
+		// The name first, so a long path loses its folder rather than its name.
 		expect(
 			within(list)
 				.getAllByRole("option")
-				.map((option) => option.textContent),
-		).toEqual(["src/components/"]);
+				.map((option) =>
+					[...option.querySelectorAll("span")].map((span) => span.textContent),
+				),
+		).toEqual([["components/", "src/"]]);
 		// Out of the flow, held to a box of the composer's own, so it floats
 		// over the thread rather than pushing the composer down or anchoring
 		// to the thread's scroller, off the top of the page.

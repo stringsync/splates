@@ -35,6 +35,7 @@ import {
 	CopyIcon,
 	CornerDownRightIcon,
 	DownloadIcon,
+	FolderIcon,
 	MicIcon,
 	MoreHorizontalIcon,
 	PencilIcon,
@@ -48,6 +49,7 @@ import {
 	type ComponentType,
 	createContext,
 	type FC,
+	type JSX,
 	type PropsWithChildren,
 	type ReactNode,
 	type RefObject,
@@ -102,10 +104,11 @@ import {
 	DirectiveChip,
 	linkDirectives,
 } from "#dev/directives.tsx";
-import { distinctNames } from "#dev/file-chip.tsx";
+import { distinctNames, FileIcon } from "#dev/file-chip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
 import { filesIn, NamedContext } from "#dev/mentioned.tsx";
+import { split } from "#dev/mentions.tsx";
 import type { References } from "#dev/references.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
@@ -1025,7 +1028,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 												index={index}
 												className={cn(POPOVER_ROW, "font-mono text-xs")}
 											>
-												<span className="truncate">{item.label}</span>
+												<MentionRow path={item.label} />
 											</ComposerPrimitive.TriggerPopoverItem>
 										))}
 									</div>
@@ -1124,6 +1127,30 @@ function steadyPointer() {
 			return free;
 		},
 	};
+}
+
+/**
+ * A path in the `@` list: its logo, its name, then its folder, which gives way
+ * first, so a long path loses its folder rather than its name.
+ */
+function MentionRow({ path }: { path: string }): JSX.Element {
+	const [folder, name] = split(path);
+	return (
+		<>
+			{path.endsWith("/") ? (
+				<FolderIcon
+					aria-hidden
+					className="size-3.5 shrink-0 text-muted-foreground"
+				/>
+			) : (
+				<FileIcon path={path} className="size-3.5" />
+			)}
+			<span className="truncate">{name}</span>
+			<span className="shrink-1000 truncate text-muted-foreground">
+				{folder}
+			</span>
+		</>
+	);
 }
 
 const POPOVER_LIST =

@@ -412,7 +412,7 @@ export function rank(paths: string[], query: string): string[] {
 }
 
 /** A path as its folder and its own name, a directory's with its `/`. */
-function split(path: string): [string, string] {
+export function split(path: string): [string, string] {
 	const trimmed = path.endsWith("/") ? path.slice(0, -1) : path;
 	const cut = trimmed.lastIndexOf("/");
 	return [
