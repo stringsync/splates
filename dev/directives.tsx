@@ -136,14 +136,24 @@ export function DirectiveChip({
 	);
 }
 
-/** A todo or lane directive, which a message of it alone shows as a card. */
-const CARDED = /^\[ARBOR (TODO #\d+|LANE \d+)\]$/;
+/** A todo, lane, or task directive, which a message of it alone shows as a card. */
+const CARDED = /^\[ARBOR (TODO|LANE|TASK) (#\d+|\d+|[^\]\s]+)\]$/;
+
+/** How the card for each kind of directive in `CARDED` says what it asked. */
+const CARDS = {
+	TODO: { title: "Todo", Icon: ListTodoIcon, asked: "take" },
+	LANE: { title: "Lane", Icon: ColumnsIcon, asked: "work down" },
+	TASK: { title: "Task", Icon: GitBranchIcon, asked: "claim" },
+} as const satisfies Record<
+	string,
+	{ title: string; Icon: LucideIcon; asked: string }
+>;
 
 /**
  * The directive that `text` holds and nothing else, when it is one a card
  * shows: one about no todo, lane, or task, such as the checkpoint `arbor dev`
- * sends before a restart, or one handing the agent a todo or a lane; null for
- * any other text.
+ * sends before a restart, or one handing the agent a todo, a lane, or a task;
+ * null for any other text.
  */
 export function soleDirective(text: string): string | null {
 	const trimmed = text.trim();
@@ -155,8 +165,8 @@ export function soleDirective(text: string): string | null {
 
 /**
  * A message of `directive` alone, read by `soleDirective`, as a card saying
- * what it asked of the agent, in place of the message: for a todo or a lane,
- * its chip, which opens a todo still on the board.
+ * what it asked of the agent, in place of the message: for a todo, a lane, or
+ * a task, its chip, which opens a todo still on the board or a live task.
  */
 export function DirectiveCard({
 	directive,
@@ -178,19 +188,19 @@ export function DirectiveCard({
 			</CardShell>
 		);
 	}
-	const [, carded = ""] = CARDED.exec(directive) ?? [];
-	if (carded === "") {
+	const [, kind, argument = ""] = CARDED.exec(directive) ?? [];
+	if (kind === undefined) {
 		return null;
 	}
-	const todo = carded.startsWith("TODO");
+	const { title, Icon, asked } = CARDS[kind as keyof typeof CARDS];
 	return (
 		<CardShell
-			label={`${todo ? "take" : "work down"} ${carded.toLowerCase()}`}
-			Icon={todo ? ListTodoIcon : ColumnsIcon}
-			title={todo ? "Todo" : "Lane"}
+			label={`${asked} ${title.toLowerCase()} ${argument}`}
+			Icon={Icon}
+			title={title}
 		>
 			<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
-				{todo ? "Asked the agent to take " : "Asked the agent to work down "}
+				Asked the agent to {asked}{" "}
 				<DirectiveChip directive={directive} opens inline />.
 			</p>
 		</CardShell>

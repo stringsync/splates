@@ -343,7 +343,7 @@ describe("App's report cards", () => {
 		expect(view.queryByTitle("[ARBOR CHECKPOINT]")).toBeNull();
 	});
 
-	it("shows a message of a todo or lane alone as a card, its chip opening the todo", async () => {
+	it("shows a message of a todo, lane, or task alone as a card, its chip opening the todo", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -351,6 +351,7 @@ describe("App's report cards", () => {
 						message("user", "[ARBOR TODO #12]"),
 						message("agent", "Took it."),
 						message("user", "[ARBOR LANE 3]"),
+						message("user", "[ARBOR TASK header]"),
 					],
 				}),
 			],
@@ -372,6 +373,9 @@ describe("App's report cards", () => {
 		const lane = view.getByRole("region", { name: "work down lane 3" });
 		expect(lane.textContent).toContain("Asked the agent to work down");
 		expect(lane.textContent).toContain("Uploads");
+		const task = view.getByRole("region", { name: "claim task header" });
+		expect(task.textContent).toContain("Asked the agent to claim");
+		expect(task.textContent).toContain("header");
 
 		fireEvent.click(within(taken).getByTitle("[ARBOR TODO #12]"));
 		await waitFor(() =>
