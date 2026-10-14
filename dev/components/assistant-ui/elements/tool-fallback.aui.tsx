@@ -1,4 +1,4 @@
-// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
+// scry-ignore-file compact-files: vendored from the assistant-ui registry with a few local edits; splitting it would make updating from upstream harder
 "use client";
 
 import {
