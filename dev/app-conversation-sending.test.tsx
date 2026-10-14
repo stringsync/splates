@@ -1,0 +1,352 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+	act,
+	cleanup,
+	conversation,
+	fireEvent,
+	message,
+	Testing,
+	textIn,
+	typeIn,
+	waitFor,
+	within,
+} from "./testing";
+
+describe("App's sending messages", () => {
+	let testing: Testing;
+
+	beforeEach(() => {
+		testing = new Testing();
+	});
+
+	afterEach(() => {
+		cleanup();
+		testing.dispose();
+	});
+
+	it("offers the tree's files for an @ in the composer, over the composer, each its name before its folder, and writes the one picked", async () => {
+		testing.tree = ["README.md", "src/", "src/components/", "src/index.ts"];
+		const view = await testing.openConversations([]);
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		});
+
+		await typeIn(box, "see @comp");
+		const list = await waitFor(() => view.getByRole("listbox"));
+		// The name first, so a long path loses its folder rather than its name.
+		expect(
+			within(list)
+				.getAllByRole("option")
+				.map((option) =>
+					[...option.querySelectorAll("span")].map((span) => span.textContent),
+				),
+		).toEqual([["components/", "src/"]]);
+		// Out of the flow, held to a box of the composer's own, so it floats
+		// over the thread rather than pushing the composer down or anchoring
+		// to the thread's scroller, off the top of the page.
+		expect(list.classList.contains("absolute")).toBe(true);
+		expect(list.parentElement?.classList.contains("relative")).toBe(true);
+		expect(list.parentElement?.contains(box)).toBe(true);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(textIn(box)).toBe("see @src/components/ ");
+		expect(testing.posted("/api/conversations")).toEqual([]);
+	});
+
+	it("shows no list over the composer for an @ no file matches, as right after a file's chip, and sends on Enter", async () => {
+		testing.tree = ["README.md", "src/", "src/index.ts"];
+		const view = await testing.openConversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		});
+
+		await typeIn(box, "see @src/index.ts");
+
+		expect(view.queryByLabelText("mentions")).toBeNull();
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations")).toHaveLength(1),
+		);
+	});
+
+	it("shows the first message in the new conversation's thread and row while its agent starts, then as the server has it", async () => {
+		const view = await testing.openConversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "fix the login");
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: "fix the login" }),
+		);
+		// Its title, and the message.
+		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
+		expect(
+			within(view.getByRole("list", { name: "conversation list" })).getByText(
+				"fix the login",
+			),
+		).toBeTruthy();
+
+		await testing.say(
+			conversation({
+				id: "c9",
+				status: "running",
+				messages: [message("user", "fix the login")],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("button", { name: "Stop generating" }),
+			).toBeTruthy(),
+		);
+		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
+	});
+
+	it("shows the images sent with the first message in the new conversation's thread while its agent starts, then as the server keeps them", async () => {
+		const view = await testing.openConversations([], null);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+		await act(async () =>
+			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
+		);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		const thread = await waitFor(() =>
+			view.getByRole("region", { name: "[Image 1]" }),
+		);
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("button", { name: "Preview shot.png" }),
+			).toBeTruthy(),
+		);
+
+		await testing.say(
+			conversation({
+				id: "c9",
+				status: "running",
+				messages: [
+					{
+						...message("user", ""),
+						parts: [{ type: "image", name: "ab12.png", mimeType: "image/png" }],
+					},
+				],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("button", { name: "Preview ab12.png" }),
+			).toBeTruthy(),
+		);
+		expect(
+			within(thread).queryByRole("button", { name: "Preview shot.png" }),
+		).toBeNull();
+	});
+
+	it("shows a message to a stopped conversation in its thread while its agent resumes, then as the server has it", async () => {
+		const said = [message("user", "fix the login"), message("agent", "Done.")];
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "stopped", messages: said }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "and the logout");
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() =>
+			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		);
+		expect(thread.textContent).toContain("Done.");
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [...said, message("user", "and the logout")],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("button", { name: "Stop generating" }),
+			).toBeTruthy(),
+		);
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+	});
+
+	it("shows each message to a stopped conversation at once while its agent resumes, those after the first as queued until the server has them", async () => {
+		const said = [message("user", "fix the login"), message("agent", "Done.")];
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "stopped", messages: said }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+
+		for (const text of ["and the logout", "and the signup"]) {
+			await typeIn(box, text);
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		}
+
+		await waitFor(() =>
+			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		);
+		const queued = within(thread).getByRole("region", {
+			name: "queued messages",
+		});
+		expect(within(queued).getByText("and the signup")).toBeTruthy();
+		// The server has nothing of it to take back yet.
+		const discard = within(queued).getByRole("button", {
+			name: "Discard and the signup",
+		}) as HTMLButtonElement;
+		expect(discard.disabled).toBe(true);
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [
+					...said,
+					message("user", "and the logout"),
+					{ ...message("user", "and the signup"), queued: true },
+				],
+			}),
+		);
+
+		await waitFor(() => expect(discard.disabled).toBe(false));
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
+	});
+
+	it("marks a message the agent took into its running turn as steered", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [
+					message("user", "fix the login"),
+					message("agent", "On it."),
+					{ ...message("user", "and the logout"), steered: true },
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+
+		const marks = await within(thread).findAllByText(
+			"Steered into the running turn",
+		);
+		expect(marks).toHaveLength(1);
+		expect(marks[0]?.closest('[data-role="user"]')?.textContent).toContain(
+			"and the logout",
+		);
+	});
+
+	it("shows each system, file and directory a message names as a chip, the agent's too", async () => {
+		testing.systems = [
+			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
+		];
+		testing.tree = ["src/", "src/index.ts"];
+		const view = await testing.openConversations([
+			conversation({
+				title: "Login",
+				messages: [
+					message("user", "fix #player in @src/index.ts, not @src/gone.ts"),
+					message("agent", "The stutter is in #playback, under @src/."),
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+
+		const file = await waitFor(() =>
+			within(thread).getByTitle("/repo/src/index.ts"),
+		);
+		expect(file.textContent).toBe("index.ts");
+		expect(file.getAttribute("href")).toBe("zed://file/repo/src/index.ts");
+		const [system, replied] = within(thread).getAllByRole("button", {
+			name: "playback",
+		});
+		expect(replied).toBeTruthy();
+		await act(async () => fireEvent.click(system as HTMLElement));
+		expect(
+			(await view.findByRole("list", { name: "playback globs" })).textContent,
+		).toBe("src/audio/**");
+		expect(within(thread).getByText(/not @src\/gone\.ts/)).toBeTruthy();
+		const folder = within(thread).getByTitle("/repo/src/");
+		expect(folder.textContent).toBe("src/");
+	});
+
+	it("takes a message to a stopped conversation back out of its thread when the server refuses it", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "stopped" }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		});
+		testing.refuseWrites = { reason: "usage", message: "cannot resume" };
+		await typeIn(box, "and the logout");
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() => expect(textIn(box)).toBe("and the logout"));
+		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
+		// Said above the composer it was sent from, not in a toast.
+		expect(within(thread).getByRole("alert").textContent).toBe(
+			"Not sent: cannot resume",
+		);
+	});
+
+	it("sends on Enter, keeps a new line on Shift+Enter, and stops a turn on Escape", async () => {
+		const view = await testing.openConversations([conversation()]);
+		const box = view.getByRole("textbox", {
+			name: "Message input",
+		});
+
+		await typeIn(box, "hello");
+		await act(async () =>
+			fireEvent.keyDown(box, { key: "Enter", shiftKey: true }),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "hello" } },
+		]);
+
+		await testing.say(conversation({ status: "running" }));
+		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
+		expect(
+			testing.posted("/api/conversations/c1/cancel").map((post) => post.method),
+		).toEqual(["POST"]);
+	});
+
+	it("ends a turn the person stopped with a line that says so", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Stopped",
+				messages: [
+					message("user", "go"),
+					{
+						...message("agent", "Starting on it."),
+						stopped: "2026-10-12T10:00:00.000Z",
+					},
+					message("user", "again"),
+					message("agent", "Done."),
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Stopped" });
+
+		await waitFor(() =>
+			expect(thread.querySelectorAll('[data-slot="stopped"]')).toHaveLength(1),
+		);
+		expect(thread.querySelector('[data-slot="stopped"]')?.textContent).toBe(
+			"Stopped by you",
+		);
+	});
+});

@@ -1,0 +1,257 @@
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import {
+	act,
+	cleanup,
+	conversation,
+	fireEvent,
+	message,
+	Testing,
+	tool,
+	waitFor,
+	within,
+} from "./testing";
+
+describe("App's conversation thread", () => {
+	let testing: Testing;
+
+	beforeEach(() => {
+		testing = new Testing();
+	});
+
+	afterEach(() => {
+		cleanup();
+		testing.dispose();
+	});
+
+	it("shows what was said as the server streams it", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [
+					message("user", "what does it say?"),
+					message(
+						"agent",
+						tool({ command: "cat note.txt", status: "in_progress" }),
+						"It says **hi**.",
+					),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		await waitFor(() =>
+			expect(thread.textContent).toContain("what does it say?"),
+		);
+		await waitFor(() =>
+			expect(within(thread).getByText("hi").tagName).toBe("STRONG"),
+		);
+		expect(thread.textContent).toContain("Working");
+	});
+
+	it("shows the work row the agent's work will fill, saying only Working, while it has yet to do anything", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [message("user", "what does it say?")],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		await waitFor(() =>
+			expect(thread.querySelector('[data-slot="work"]')?.textContent).toBe(
+				"Working",
+			),
+		);
+		expect(
+			thread.querySelector('[data-slot="aui_assistant-message-indicator"]'),
+		).toBeNull();
+	});
+
+	it("says Working under a reply while its text streams", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [
+					message("user", "what does it say?"),
+					message("agent", "It says"),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		await waitFor(() => expect(thread.textContent).toContain("It says"));
+		expect(within(thread).getByText("Working").getAttribute("role")).toBe(
+			"status",
+		);
+	});
+
+	it("copies what the person said from a button on their message, which says it copied", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+		const copied: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText: async (text: string) => void copied.push(text) },
+		});
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				messages: [
+					message("user", "what does it say?"),
+					message("agent", "It says hi."),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const copy = await within(thread).findByRole("button", { name: "Copy" });
+		await act(async () => fireEvent.click(copy));
+		expect(copied).toEqual(["what does it say?"]);
+		await waitFor(() => expect(copy.getAttribute("data-copied")).toBe("true"));
+	});
+
+	it("opens a link the agent wrote in a new tab, and a footnote in place", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				messages: [
+					message("user", "where is it?"),
+					message(
+						"agent",
+						"See [the docs](https://example.com) and [the note](#note).",
+					),
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const docs = await within(thread).findByRole("link", { name: "the docs" });
+		expect(docs.getAttribute("target")).toBe("_blank");
+		expect(docs.getAttribute("rel")).toBe("noreferrer noopener");
+		const note = within(thread).getByRole("link", { name: "the note" });
+		expect(note.getAttribute("target")).toBeNull();
+	});
+
+	it("keeps the reply in the place it held before the agent said anything", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+		const asked = message("user", "what does it say?");
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [asked],
+			}),
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const reply = () =>
+			thread.querySelector('[data-slot="aui_assistant-message-root"]');
+		await waitFor(() => expect(reply()).not.toBeNull());
+		const held = reply();
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [asked, message("agent", "It says hi.")],
+			}),
+		);
+
+		await waitFor(() => expect(thread.textContent).toContain("It says hi."));
+		// The same element, so it neither fades in again nor moves.
+		expect(held?.isConnected).toBe(true);
+	});
+
+	it("shows the person's message as markdown, each line break as typed", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Reply",
+				messages: [
+					message(
+						"user",
+						"> **How should it land?**\n\nAs one commit:\n\n- squash\n- `merge`\n\nfirst line\nsecond line",
+					),
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Reply" });
+		const box = await waitFor(() => {
+			const found = thread.querySelector(".aui-user-message-content");
+			expect(found?.querySelector("blockquote strong")?.textContent).toBe(
+				"How should it land?",
+			);
+			return found as HTMLElement;
+		});
+		expect(
+			[...box.querySelectorAll("li")].map((item) => item.textContent),
+		).toEqual(["squash", "merge"]);
+		expect(box.querySelector("li code")?.textContent).toBe("merge");
+		const last = [...box.querySelectorAll("p")].at(-1);
+		expect(last?.querySelector("br")).not.toBeNull();
+		expect(last?.textContent?.split(/\s+/)).toEqual([
+			"first",
+			"line",
+			"second",
+			"line",
+		]);
+	});
+
+	it("scrolls the thread at once, even when asked to glide", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Fix login" }),
+		]);
+		const thread = view.container.ownerDocument.querySelector(
+			'[data-slot="aui_thread-viewport"]',
+		) as HTMLElement;
+		const scrolled: unknown[] = [];
+		const scroll = spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(
+			(options?: unknown) => {
+				scrolled.push(options);
+			},
+		);
+		try {
+			thread.scrollTo({ top: 40, behavior: "smooth" });
+		} finally {
+			scroll.mockRestore();
+		}
+
+		expect(scrolled).toEqual([{ top: 40, behavior: "instant" }]);
+	});
+
+	it("shows why a conversation failed, and takes a prompt to resume it", async () => {
+		const view = await testing.openConversations([
+			conversation({ status: "failed", error: "Claude exited with code 1" }),
+		]);
+
+		expect(view.getByRole("alert").textContent).toBe(
+			"Claude exited with code 1",
+		);
+		expect(
+			view
+				.getByRole("textbox", { name: "Message input" })
+				.getAttribute("contenteditable"),
+		).toBe("true");
+	});
+});
