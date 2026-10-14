@@ -176,11 +176,14 @@ export class ConversationRoutes {
 
 	// The agent's own `arbor` sends this as it takes or lands a task. `from`
 	// names the task it is leaving, so removing some other task moves nothing.
+	// A subagent runs with its caller's env, so its claim of a part of the
+	// conversation's task arrives here too, and leaves the conversation be.
 	readonly moveConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { task, from } = await body(request);
 		const [named, cwd, base, caller] = await this.treeFor(task);
-		if (from === undefined || from === conversation.state.task) {
+		const leaving = from === undefined || from === conversation.state.task;
+		if (leaving && !(await this.isPartOf(base, conversation.state.task))) {
 			conversation.move(named, cwd, base, caller);
 		}
 		return Response.json(conversation.state);
@@ -350,6 +353,29 @@ export class ConversationRoutes {
 			worktree?.base ?? null,
 			worktree?.caller ?? null,
 		];
+	}
+
+	/**
+	 * Whether a task landing on `base` is a part of `task`, or a part of one
+	 * of its parts, following each base back while it is a task's branch.
+	 */
+	private async isPartOf(
+		base: string | null,
+		task: string | null,
+	): Promise<boolean> {
+		const { service } = this.#project;
+		const seen = new Set<string>();
+		for (
+			let parent = service.taskFor(base);
+			parent !== null && !seen.has(parent);
+			parent = service.taskFor((await service.find(parent)).base)
+		) {
+			if (parent === task) {
+				return true;
+			}
+			seen.add(parent);
+		}
+		return false;
 	}
 
 	/** The conversation a `/api/conversations/<id>` path names. */

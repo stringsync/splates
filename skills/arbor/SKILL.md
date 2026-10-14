@@ -426,7 +426,10 @@ Write each call it lists under your own `## Assumptions` or `## Blocked`,
 as you would your own (see Asking as you go), and redo the part when an
 answer overturns one. A subagent that only reads needs no part. When the
 user asks for the subagents' work to land on its own, give each one a task of
-its own on trunk instead, and let it follow this skill as written.
+its own on trunk instead, and let it follow this skill as written. A
+subagent of your harness runs with your env, so under `arbor dev` its claim
+of a task on trunk moves this conversation into that task, though a part's
+leaves it be: there, hand each one out with `arbor add <task> --agent`.
 
 ## Asking as you go
 

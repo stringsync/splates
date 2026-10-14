@@ -325,6 +325,38 @@ describe("dev conversations", () => {
 		}
 	});
 
+	it("follows its agent into a task, but not into a part of its own task", async () => {
+		await add(deps, "alpha");
+		await add(deps, "part", { base: "task/alpha" });
+		await add(deps, "subpart", { base: "task/part" });
+		await add(deps, "beta");
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			const { port } = server;
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+				task: "alpha",
+			});
+			const { id } = (await started.json()) as { id: string };
+			const moveTo = async (task: string) =>
+				(
+					(await (
+						await json(port, `/api/conversations/${id}/task`, "PUT", { task })
+					).json()) as ConversationState
+				).task;
+
+			// A subagent claiming a part runs with this conversation's env.
+			expect(await moveTo("part")).toBe("alpha");
+			expect(await moveTo("subpart")).toBe("alpha");
+			expect(await moveTo("beta")).toBe("beta");
+		} finally {
+			await server.disposeAsync();
+		}
+	});
+
 	it("answers only to this machine, even for a host the board lets in", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
