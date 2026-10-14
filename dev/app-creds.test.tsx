@@ -143,6 +143,24 @@ describe("App's creds", () => {
 		]);
 	});
 
+	it("removes a cred being added without saving it", async () => {
+		const view = await openCreds([]);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add" })),
+		);
+		fireEvent.change(view.getByLabelText("Name"), {
+			target: { value: "STRIPE_KEY" },
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Remove" })),
+		);
+
+		expect(view.queryByLabelText("Name")).toBeNull();
+		expect(view.queryByLabelText("Value of STRIPE_KEY")).toBeNull();
+		expect(testing.posts).toHaveLength(0);
+	});
+
 	it("shows the request an agent said it made as a card in its thread, between its work", async () => {
 		const view = await testing.openConversations(
 			[

@@ -293,13 +293,18 @@ function KeptRow({
 	);
 }
 
-/** A cred the person adds of their own accord: a name, where, and the value. */
+/**
+ * A cred the person adds of their own accord: a name, where, and the value,
+ * with Remove to drop it unsaved.
+ */
 function AddCred({
 	project,
 	onAdded,
+	onRemoved,
 }: {
 	project: string;
 	onAdded: () => void;
+	onRemoved: () => void;
 }): JSX.Element {
 	const [name, setName] = useState("");
 	const [scope, setScope] = useState<Scope>("project");
@@ -327,6 +332,14 @@ function AddCred({
 						</button>
 					))}
 				</fieldset>
+				<Button
+					variant="ghost"
+					size="sm"
+					className="ml-auto text-muted-foreground hover:text-destructive"
+					onClick={onRemoved}
+				>
+					Remove
+				</Button>
 			</div>
 			{name !== "" && (
 				<Paste
@@ -420,6 +433,7 @@ export function CredsPage({
 							setAdding(false);
 							read();
 						}}
+						onRemoved={() => setAdding(false)}
 					/>
 				)}
 				{error !== null && (
