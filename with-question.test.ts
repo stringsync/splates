@@ -17,6 +17,11 @@ describe("withQuestion", () => {
 		expect(questions(added.plan)).toHaveLength(questions(BLOCKED).length + 1);
 	});
 
+	it("numbers past the assumptions too, which share the sequence", () => {
+		const assumed = `${GOOD}\n## Assumptions\n\n- [ ] 7. Which name?\n  - (a) foo (chosen)\n`;
+		expect(withQuestion(assumed, "Ready to merge?").number).toBe("8");
+	});
+
 	it("makes ## Blocked when there is none", () => {
 		const added = withQuestion(GOOD, "Ready to merge?");
 		expect(added).toEqual({

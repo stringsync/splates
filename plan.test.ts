@@ -1,5 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { checkPlan, goalLine, ready, unfinished, whatIsLeft } from "./plan";
+import {
+	assumptions,
+	checkPlan,
+	goalLine,
+	questions,
+	ready,
+	unfinished,
+	whatIsLeft,
+} from "./plan";
 
 const GOOD = `# alpha
 
@@ -113,6 +121,58 @@ describe("unfinished", () => {
 	it("ignores an unchecked box outside Next and Blocked", () => {
 		const noted = `${GOOD.replace("- [ ] wire it up", "")}\n- [ ] an aside\n`;
 		expect(unfinished(noted).steps).toEqual([]);
+	});
+});
+
+const ASSUMED = `${GOOD.replace("- [ ] wire it up", "- [x] wire it up")}
+## Assumptions
+
+- [ ] 1. What should the flag be called?
+  - (a) \`--dry-run\` (chosen)
+  - (b) \`--preview\`
+
+## Blocked
+
+- [x] 2. Should it run by default? → b
+  - (a) Yes
+  - (b) No (chosen)
+`;
+
+describe("assumptions", () => {
+	it("reads the calls made without asking, apart from the questions", () => {
+		expect(assumptions(ASSUMED)).toMatchObject([
+			{
+				number: "1",
+				text: "What should the flag be called?",
+				choices: [
+					{ key: "a", text: "`--dry-run`", chosen: true },
+					{ key: "b", text: "`--preview`", chosen: false },
+				],
+			},
+		]);
+		expect(questions(ASSUMED).map((asked) => asked.number)).toEqual(["2"]);
+	});
+
+	it("leaves a task ready to merge with its assumptions unchallenged", () => {
+		expect(ready(unfinished(ASSUMED))).toBe(true);
+		expect(checkPlan(ASSUMED, { task: "alpha" })).toEqual([]);
+	});
+
+	it("wants each one to mark the choice it took", () => {
+		const unmarked = ASSUMED.replace(
+			" (chosen)\n  - (b) `--preview`",
+			"\n  - (b) `--preview`",
+		);
+		expect(checkPlan(unmarked, { task: "alpha" })).toEqual([
+			"## Assumptions item 1 marks no choice `(chosen)`: offer what else it could have been, and mark the one taken",
+		]);
+	});
+
+	it("catches a number used in both sections", () => {
+		const copied = ASSUMED.replace("- [x] 2.", "- [x] 1.");
+		expect(checkPlan(copied, { task: "alpha" })).toEqual([
+			"1 numbered twice across ## Assumptions and ## Blocked: a challenged assumption moves to ## Blocked rather than being copied, and new items continue from the highest",
+		]);
 	});
 });
 

@@ -48,11 +48,13 @@ stderr says.
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `arbor todo add` it from your worktree and move on,
    so the task stays one coherent change, and name it in the reply that
-   ends your turn (see Proposing a todo). Ask about each call the request
-   does not settle as you make it, and keep going (see Asking as you go),
-   bringing `## Blocked` up to date before each step.
+   ends your turn (see Proposing a todo). Write down each call the request
+   does not settle as you make it, as an assumption or a question, and keep
+   going (see Asking as you go), bringing `## Blocked` up to date before
+   each step.
 5. **Land.** Once every step under `## Next` and every question under
-   `## Blocked` is checked, the task is ready to merge: `arbor todo add`
+   `## Blocked` is checked, the task is ready to merge, whatever stands
+   under `## Assumptions`: `arbor todo add`
    any step you will not do, then check it off. Groom again, release each
    todo you only partly did (see Todos), squash to one commit (see
    Committing), and `arbor merge`, or ask for a review first (see Merge or
@@ -370,8 +372,9 @@ mechanical part, and ask about that choice under `## Blocked`.
 its calls in the part's commit message, `arbor wait <part>` for it to land,
 and read them in `git log`.
 
-Write each call it lists under your own `## Blocked`, and redo the part when
-an answer overturns one. A subagent that only reads needs no part. When the
+Write each call it lists under your own `## Assumptions` or `## Blocked`,
+as you would your own (see Asking as you go), and redo the part when an
+answer overturns one. A subagent that only reads needs no part. When the
 user asks for the subagents' work to land on its own, give each one a task of
 its own on trunk instead, and let it follow this skill as written.
 
@@ -379,10 +382,22 @@ its own on trunk instead, and let it follow this skill as written.
 
 Do not save questions for escalation. Whenever you make a decision that does
 not clearly follow from what the user asked (a name, a default, behavior they
-never mentioned, one reading of an ambiguous ask), write a question under
-`## Blocked` in `ARBOR.md` right away, saying what you chose and what else you
-could have done, and carry on: the user can answer in chat while you work.
-When an answer overturns a choice, redo that part.
+never mentioned, one reading of an ambiguous ask), write it down in
+`ARBOR.md` right away, saying what you chose and what else you could have
+done, and carry on. Write it as one of two kinds:
+
+- **An assumption**, under `## Assumptions`, when the call can be undone and
+  you have a clear pick. Nothing waits on it: `arbor merge` and `arbor
+  escalate --review` pass over it, and the user challenges it only if they
+  disagree.
+- **A question**, under `## Blocked`, when the call is hard to undo or
+  outward-facing, has no clear pick or is a close call, or goes against
+  something the user said before. The task cannot merge until it is
+  answered, though the user can answer in chat while you work.
+
+Keep each assumed choice in one place (a constant, a config value, a single
+component), so a challenge costs a small fix rather than a rewrite. When an
+answer or a challenge overturns a choice, redo that part.
 
 An answer can reach you mid-turn, as a message that arrives while you work.
 Read it at the next step rather than at the end: record it (see Keeping
@@ -390,8 +405,10 @@ Blocked current), and redo at once what it overturns, before building more on
 the choice. While a question is open, do the work it touches last where your
 plan allows, so an answer that overturns it costs little.
 
-Number questions 1, 2, … in the order you ask them; numbers never change, and
-new ones continue from the highest. A question's line is its subject, short
+Number assumptions and questions in one sequence, 1, 2, … in the order you
+write them; numbers never change, and new ones continue from the highest in
+either section. An assumption is written the way a question is, its
+`(chosen)` choice the one you took. A question's line is its subject, short
 enough to scan and ending at its `?`, with nothing after it; everything else,
 the why included, goes in markdown lines indented under it, code blocks
 included. When checking your own work, ask for what is wrong rather than
@@ -422,6 +439,15 @@ reply lists every letter in the order picked, `4. b, a, c`.
   - c. Notifications
 ```
 
+```markdown
+## Assumptions
+
+- [ ] 5. What should the retry limit be?
+  Kept in `MAX_RETRIES` in `src/upload.ts`.
+  - (a) Three tries, a second apart (chosen)
+  - (b) Five tries, backing off
+```
+
 Show what a question is about whenever it is something to see: a screenshot,
 or a short recording when it moves or takes steps. Save it outside the
 worktree, `arbor attach` it, and name the path it prints as
@@ -437,7 +463,7 @@ Never gather them above the questions, or ask about them apart from the
 question they are for.
 
 ```markdown
-- [ ] 5. Which style should the action list take?
+- [ ] 6. Which style should the action list take?
   - (a) A rail beside the thread (chosen)
     ![rail](/abs/path/rail.png)
   - (b) A bordered panel
@@ -460,6 +486,9 @@ replies, after `arbor claim` returns, and between steps), bring it up to date:
 - retake each screenshot an open question shows once your work has changed
   what it shows, attach it in place of the old one (`arbor attach new.png
   --remove <old path>`), and point the question at the new one;
+- move each assumption the user challenges to the end of `## Blocked`,
+  keeping its number, and treat it as a question from then on: write what
+  the challenge says after `→`, and check it off once you have acted on it;
 - add each question you now need.
 
 The user answers in chat. From the `arbor dev` page, a reply quotes each
@@ -480,6 +509,9 @@ anything else stays open and leads your next report. A reply about something
 you did is an instruction. When the user defers or skips a question, check it
 off and carry on without it (for a defer, `arbor todo add` it first). Only
 the user answers questions, yours or another agent's.
+
+A challenge comes the same way, naming an assumption by its number or its
+line, and you act on it at your next step, as you would an answer.
 
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.
@@ -573,7 +605,7 @@ on or would be caught out without: a restart to pick the change up, a file
 resolved in a conflict after their review, a todo gone stale. Leave out what
 the page, the diff, or `ARBOR.md` already says: that tests pass, that nothing
 is merged yet, the files touched, how you did it, and calls you made, which
-are questions under `## Blocked` and asked as questions.
+are assumptions or questions in `ARBOR.md`, the questions asked as questions.
 
 When the user has answered questions since your last report, add a `- `
 line for each answer you did not follow as given, or that changed more than
@@ -689,6 +721,14 @@ One or two lines on what done means.
 ## Notes
 
 Decisions, dead ends, and how to verify.
+
+## Assumptions
+
+- [ ] calls you made without asking, numbered with `## Blocked`
+
+## Blocked
+
+- [ ] questions the user must answer before the task merges
 ````
 
 The Goal's first line is what other agents see of your task in `arbor list
@@ -708,6 +748,10 @@ the base gains, not the path you took:
 ```sh
 git reset --soft "$(git merge-base <base> HEAD)" && git commit -m "<message>"
 ```
+
+End the message with the assumptions that went unchallenged, one `- ` line
+each saying what you chose, under an `Assumed:` line, so the history records
+the calls nobody looked at.
 
 `<base>` is what `arbor show <task>` prints: trunk unless the task was created
 with `--base`.

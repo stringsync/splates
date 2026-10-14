@@ -4,7 +4,7 @@ import { Markdown } from "webappwiz/md";
 export const PLAN_FILE = "ARBOR.md";
 
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
-const SECTIONS = ["Goal", "Done", "Next", "Notes", "Blocked"];
+const SECTIONS = ["Goal", "Done", "Next", "Notes", "Assumptions", "Blocked"];
 const REQUIRED = ["Goal", "Next"];
 const UNCHECKED = /^[ \t]*- \[ \]/m;
 // A `Q` before the number is how plans were numbered once, and still reads.
@@ -103,10 +103,25 @@ const CHOSEN = /[ \t]*\(chosen\)$/i;
  * user's reply in chat.
  */
 export function questions(text: string): Question[] {
+	return items(sectionLines(text, "Blocked"));
+}
+
+/**
+ * Every numbered item under `## Assumptions`: a call the agent made without
+ * asking, written as a question is, its `(chosen)` choice the one it took.
+ * Numbered in the same sequence as `## Blocked`, since a challenged one moves
+ * there under its number. None of them hold up a merge.
+ */
+export function assumptions(text: string): Question[] {
+	return items(sectionLines(text, "Assumptions"));
+}
+
+/** The numbered items among `lines`, each with the indented lines under it. */
+function items(lines: { line: string }[]): Question[] {
 	const found: { asked: Question; body: string[] }[] = [];
 	// The question the lines being read sit under, if they still do.
 	let last: { asked: Question; body: string[] } | undefined;
-	for (const { line } of blockedLines(text)) {
+	for (const { line } of lines) {
 		const asked = question(line);
 		if (asked !== null) {
 			last = { asked, body: [] };
@@ -284,22 +299,24 @@ export function whatIsLeft({ questions, steps }: Unfinished): string {
 
 /**
  * The plan with a new open question at the end of `## Blocked`, the section
- * made if missing, numbered after the highest there. Returns the plan and
- * the number it went by.
+ * made if missing, numbered after the highest there or under
+ * `## Assumptions`. Returns the plan and the number it went by.
  */
 export function withQuestion(
 	text: string,
 	subject: string,
 	body = "",
 ): { plan: string; number: string } {
-	const numbers = questions(text).map((asked) => Number(asked.number));
+	const numbers = [...questions(text), ...assumptions(text)].map((asked) =>
+		Number(asked.number),
+	);
 	const number = String(Math.max(0, ...numbers) + 1);
 	const detail = body.trim() === "" ? [] : body.trim().split("\n");
 	const item = [
 		`- [ ] ${number}. ${subject.trim()}`,
 		...detail.map((line) => `  ${line}`.trimEnd()),
 	];
-	const blocked = blockedLines(text);
+	const blocked = sectionLines(text, "Blocked");
 	if (blocked.length === 0 && !/^## Blocked[ \t]*$/im.test(text)) {
 		return {
 			plan: `${text.trimEnd()}\n\n## Blocked\n\n${item.join("\n")}\n`,
@@ -343,13 +360,16 @@ function question(line: string): Question | null {
 }
 
 /**
- * The lines under `## Blocked`, with where each sits in the whole file so a
- * reply can be written back in place.
+ * The lines under the section headed `name`, with where each sits in the
+ * whole file so a reply can be written back in place.
  */
-function blockedLines(text: string): { index: number; line: string }[] {
+function sectionLines(
+	text: string,
+	name: string,
+): { index: number; line: string }[] {
 	const { sections } = Markdown.parse(text);
 	const at = sections.findIndex(
-		(section) => section.heading.toLowerCase() === "blocked",
+		(section) => section.heading.toLowerCase() === name.toLowerCase(),
 	);
 	const blocked = sections[at];
 	if (blocked === undefined) {
@@ -431,6 +451,24 @@ export function checkPlan(
 		const numbers = open.map((asked) => asked.number).join(", ");
 		problems.push(
 			`## Blocked has open questions ${numbers}: ask the reviewer before merging`,
+		);
+	}
+	for (const assumed of assumptions(text)) {
+		if (!assumed.choices.some((choice) => choice.chosen)) {
+			problems.push(
+				`## Assumptions item ${assumed.number} marks no choice \`(chosen)\`: offer what else it could have been, and mark the one taken`,
+			);
+		}
+	}
+	const numbers = [...questions(text), ...assumptions(text)].map(
+		(item) => item.number,
+	);
+	const twice = [
+		...new Set(numbers.filter((each, at) => numbers.indexOf(each) !== at)),
+	];
+	if (twice.length > 0) {
+		problems.push(
+			`${twice.join(", ")} numbered twice across ## Assumptions and ## Blocked: a challenged assumption moves to ## Blocked rather than being copied, and new items continue from the highest`,
 		);
 	}
 	const known = SECTIONS.map((section) => section.toLowerCase());
