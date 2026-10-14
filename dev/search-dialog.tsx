@@ -1,5 +1,6 @@
 import {
 	GitBranchIcon,
+	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	MessageSquareIcon,
@@ -26,17 +27,19 @@ const HEADINGS: Record<Kind, string> = {
 	task: "Tasks",
 	conversation: "Conversations",
 	todo: "Todos",
+	system: "Systems",
 };
 
 const ICONS: Record<Kind, LucideIcon> = {
 	task: GitBranchIcon,
 	conversation: MessageSquareIcon,
 	todo: ListTodoIcon,
+	system: LayersIcon,
 };
 
 /**
- * Its shortcut, ⌘K (Ctrl+K) unless set otherwise: one box over the shown project's tasks, conversations and
- * todos, grouped by kind, the best match first (see `search`). The arrows and
+ * Its shortcut, ⌘K (Ctrl+K) unless set otherwise: one box over the shown project's tasks, conversations,
+ * todos and systems, grouped by kind, the best match first (see `search`). The arrows and
  * Enter pick.
  */
 export function SearchDialog({
@@ -63,11 +66,11 @@ export function SearchDialog({
 	const list = useRef<HTMLUListElement>(null);
 	useShortcut("shortcuts.search", () => show(!opened.current));
 
-	const { tasks, todos, conversations, lanes } = searched;
+	const { systems, tasks, todos, conversations, lanes } = searched;
 	// Kept while it closes too, so the list does not empty as it fades.
 	const groups = useMemo(
-		() => search(query, { tasks, todos, conversations, lanes }),
-		[query, tasks, todos, conversations, lanes],
+		() => search(query, { systems, tasks, todos, conversations, lanes }),
+		[query, systems, tasks, todos, conversations, lanes],
 	);
 	const rows = groups.flatMap((group) => group.found);
 	const shown = Math.min(active, rows.length - 1);
@@ -95,7 +98,7 @@ export function SearchDialog({
 				<Input
 					autoFocus
 					aria-label="search"
-					placeholder="Search tasks, conversations, todos"
+					placeholder="Search tasks, conversations, todos, systems"
 					value={query}
 					onChange={(event) => {
 						setQuery(event.target.value);

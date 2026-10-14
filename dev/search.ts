@@ -2,11 +2,14 @@ import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 import { goalLine } from "../plan";
 import type { Details } from "../show";
+import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import { nameOf } from "./conversation-names";
 
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
 export interface Searched {
+	/** The systems the main tree names. */
+	systems: readonly NamedSystem[];
 	tasks: Details[];
 	todos: TodoState[];
 	conversations: ConversationState[];
@@ -14,7 +17,7 @@ export interface Searched {
 	lanes: readonly LaneRecord[];
 }
 
-export type Kind = "task" | "conversation" | "todo";
+export type Kind = "task" | "conversation" | "todo" | "system";
 
 /** One thing found, and how well: the higher `score`, the better the match. */
 export type Found = {
@@ -30,6 +33,7 @@ export type Found = {
 	| { kind: "task"; task: string }
 	| { kind: "conversation"; conversation: string }
 	| { kind: "todo"; todo: number }
+	| { kind: "system"; system: string }
 );
 
 /** One kind's matches, best first. */
@@ -38,25 +42,11 @@ export interface Group {
 	found: Found[];
 }
 
-/** The order kinds go in when their best matches tie, and with no words. */
-const KINDS: Kind[] = ["task", "conversation", "todo"];
-
-/** How many of each kind an empty search lists. */
-const UNASKED = 3;
-/** How many of each kind a search lists at most. */
-const LISTED = 8;
-/** How much of a body a snippet shows either side of the words. */
-const AROUND = 40;
-
 /**
- * Where a word lands in a title scores it: the whole title, its start, the
- * start of a word in it, anywhere in it, and last only in the body.
+ * The order kinds go in when their best matches tie, and with no words,
+ * which lists no systems: they stand still, so none is "latest".
  */
-const WHOLE = 100;
-const START = 80;
-const WORD = 60;
-const ANYWHERE = 40;
-const BODY = 20;
+const KINDS: Kind[] = ["task", "conversation", "todo", "system"];
 
 /**
  * Everything in `searched` that `query` matches, grouped by kind: groups by
@@ -73,13 +63,21 @@ export function search(query: string, searched: Searched): Group[] {
 			conversationOf(each, searched.lanes),
 		),
 		...searched.todos.map(todoOf),
+		...searched.systems.map(systemOf),
 	];
 	const groups: Group[] = [];
 	for (const kind of KINDS) {
 		const found = candidates
 			.filter((each) => each.found.kind === kind)
-			.flatMap(({ found, body }) => {
-				const scored = scoreOf(words, found.title, body);
+			.flatMap(({ found, body, also = [] }) => {
+				// Its best reading, by its title or any other name it goes by.
+				const scored = [found.title, ...also]
+					.map((title) => scoreOf(words, title, body))
+					.reduce((best, each) =>
+						each !== null && (best === null || each.score > best.score)
+							? each
+							: best,
+					);
 				return scored === null ? [] : [{ ...found, ...scored }];
 			})
 			.sort(
@@ -102,6 +100,8 @@ export function search(query: string, searched: Searched): Group[] {
 interface Candidate {
 	found: Found;
 	body: string;
+	/** Other names it goes by, matched as its title is. */
+	also?: string[];
 }
 
 function taskOf(task: Details): Candidate {
@@ -159,6 +159,24 @@ function todoOf(todo: TodoState): Candidate {
 			at: todo.createdAt,
 		},
 		body: todo.text,
+	};
+}
+
+/** A system, found by its name or an alias alike. */
+function systemOf(system: NamedSystem): Candidate {
+	const aliases = system.aliases ?? [];
+	return {
+		found: {
+			kind: "system",
+			key: `system:${system.name}`,
+			system: system.name,
+			title: system.name,
+			detail: aliases.length > 0 ? `Also ${aliases.join(", ")}` : null,
+			score: 0,
+			at: null,
+		},
+		body: "",
+		also: aliases,
 	};
 }
 
@@ -289,3 +307,20 @@ function unasked(searched: Searched): Group[] {
 	];
 	return groups.filter((group) => group.found.length > 0);
 }
+
+/** How many of each kind an empty search lists. */
+const UNASKED = 3;
+/** How many of each kind a search lists at most. */
+const LISTED = 8;
+/** How much of a body a snippet shows either side of the words. */
+const AROUND = 40;
+
+/**
+ * Where a word lands in a title scores it: the whole title, its start, the
+ * start of a word in it, anywhere in it, and last only in the body.
+ */
+const WHOLE = 100;
+const START = 80;
+const WORD = 60;
+const ANYWHERE = 40;
+const BODY = 20;

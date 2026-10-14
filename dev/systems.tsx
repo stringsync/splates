@@ -115,6 +115,13 @@ export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
 					</p>
 				)}
 				<Globs system={system} className="pt-1" />
+				{/* The address change is all it takes: the page follows it. */}
+				<a
+					href={`#systems/${encodeURIComponent(system.name)}`}
+					className="pt-1 text-primary text-xs hover:underline"
+				>
+					Recent changes and todos
+				</a>
 			</PopoverContent>
 		</Popover>
 	);
@@ -146,7 +153,7 @@ const CHIP =
 	"inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border px-1.5 align-middle font-mono text-foreground/90 text-xs";
 
 /** What a system's chip shows: its color, then its name. */
-function ChipFace({ name }: { name: string }): JSX.Element {
+export function ChipFace({ name }: { name: string }): JSX.Element {
 	return (
 		<>
 			<span
@@ -160,7 +167,7 @@ function ChipFace({ name }: { name: string }): JSX.Element {
 }
 
 /** The globs `system` is made of, those it ignores faded after them with a `!`. */
-function Globs({
+export function Globs({
 	system,
 	className,
 }: {

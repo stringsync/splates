@@ -90,6 +90,7 @@
 @source "./cred-privacy.tsx";
 @source "./creds.tsx";
 @source "./systems.tsx";
+@source "./systems-page.tsx";
 @source "./usage.tsx";
 @source "./plan-limits.tsx";
 @source "./waiting-line.tsx";

@@ -57,6 +57,7 @@ import { useSidePanes } from "./side-panes";
 import { SidebarWidth } from "./sidebar";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
+import { SystemsPage } from "./systems-page";
 import { TASK } from "./task-view";
 import { Tasks } from "./tasks";
 import { ShellRunning, ToggleTerminal } from "./terminal";
@@ -168,11 +169,14 @@ export function App({
 		(settings) => ({ opener: settings.get("editor.opener") }),
 		["changed"],
 	);
-	const { page, open, task, go, openTask } = usePageRoute();
+	const { page, open, task, go, openTask, system, openSystem } = usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
 	const [todoView] = useState(() => new TodoView(localStorage));
+	// The systems the main tree names, for the Systems and Stats pages and ⌘K.
+	const named = useSystems(null, tasks) ?? NO_SYSTEMS;
 	const searched = {
+		systems: named,
 		tasks,
 		todos: snapshot?.todos ?? NO_TODOS,
 		conversations: available ? conversations : NO_CONVERSATIONS,
@@ -187,6 +191,8 @@ export function App({
 		} else if (found.kind === "todo") {
 			go("todos");
 			todoView.open(found.todo);
+		} else if (found.kind === "system") {
+			openSystem(found.system);
 		}
 	};
 	// Before the first snapshot, the name this tab last saw the project by,
@@ -222,8 +228,6 @@ export function App({
 	// history, past any since archived or merged away.
 	const [visits] = useState(() => new Visits());
 	const [report] = useState(() => new StatsReport({ stats }));
-	// The systems the main tree names, for the Stats page's chips.
-	const named = useSystems(null, tasks) ?? NO_SYSTEMS;
 	useEffect(() => {
 		if (open === null || open === NEW) {
 			visits.leave();
@@ -396,6 +400,26 @@ export function App({
 																		tasks={snapshot.tasks}
 																		open={task}
 																		onOpen={openTask}
+																	/>
+																</TabsContent>
+																<TabsContent
+																	value="systems"
+																	className="mx-auto w-full min-w-0 max-w-xl px-4 py-6"
+																>
+																	<SystemsPage
+																		systems={named}
+																		tasks={snapshot.tasks}
+																		todos={snapshot.todos}
+																		open={system}
+																		onOpen={openSystem}
+																		onTask={(name) => {
+																			go("tasks");
+																			openTask(name);
+																		}}
+																		onTodo={(id) => {
+																			go("todos");
+																			todoView.open(id);
+																		}}
 																	/>
 																</TabsContent>
 																<TabsContent

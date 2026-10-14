@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { add } from "./add";
 import { serving } from "./dev-testing";
 import type { FileDiff } from "./diff";
+import type { SystemsReport } from "./system-changes";
 import { Testing } from "./testing";
 
 describe("dev tasks", () => {
@@ -103,6 +104,59 @@ describe("dev tasks", () => {
 				"src/lib/a.ts",
 			);
 			expect((await paths("nope")).status).toBe(404);
+		});
+	});
+
+	it("serves each system's files on trunk and the commits that changed it", async () => {
+		const root = deps.service.git.root;
+		await deps.commit(
+			root,
+			"arbor.systems.ts",
+			`export default ${JSON.stringify({
+				docs: { globs: ["docs/**", "guides/**"] },
+				src: { globs: ["src/**"], ignore: ["src/*.test.ts"] },
+			})};\n`,
+			"name the systems",
+		);
+		await deps.fs.mkdir(`${root}/docs`);
+		await deps.fs.mkdir(`${root}/src`);
+		await deps.commit(root, "docs/a.md", "a\n", "write a");
+		await deps.commit(root, "src/a.ts", "a\n", "add a");
+		await deps.commit(root, "src/a.test.ts", "a\n", "test a");
+		await deps.commit(root, "docs/b.md", "b\n", "write b");
+		// Uncommitted, so not on trunk.
+		await deps.fs.write(`${root}/src/b.ts`, "b\n");
+
+		await serving(deps, async (_snapshot, port) => {
+			const report = (await (
+				await fetch(`http://127.0.0.1:${port}/api/systems/changes`)
+			).json()) as SystemsReport;
+
+			expect(
+				report.systems.map(({ name, files, unmatched, changed, changes }) => ({
+					name,
+					files,
+					unmatched,
+					changed,
+					subjects: changes.map((change) => change.subject),
+				})),
+			).toEqual([
+				{
+					name: "docs",
+					files: 2,
+					unmatched: ["guides/**"],
+					changed: 2,
+					subjects: ["write b", "write a"],
+				},
+				{
+					name: "src",
+					files: 1,
+					unmatched: [],
+					changed: 1,
+					subjects: ["add a"],
+				},
+			]);
+			expect(report.scanned).toBe(6);
 		});
 	});
 

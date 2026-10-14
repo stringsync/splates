@@ -47,69 +47,6 @@ export interface SystemsOptions {
  */
 export type SystemsFile = Record<string, System>;
 
-const SYSTEMS = z.record(
-	z.string().min(1),
-	z.strictObject({
-		aliases: z.array(z.string().min(1)).max(2).optional(),
-		globs: z.array(z.string().min(1)).min(1),
-		ignore: z.array(z.string().min(1)).optional(),
-	}),
-);
-
-/**
- * The systems `root`'s `arbor.systems.ts` names, checked, or none when there
- * is no such file. Read afresh each time, so a long-running `arbor dev` sees a
- * system named mid-task without a restart. Throws while `arbor.config.ts`
- * still names systems, which `arbor update` moves.
- */
-export async function readSystems(
-	root: string,
-	fs: Fs = new NodeFs(),
-): Promise<Record<string, System>> {
-	if ((await importConfig(root, fs)).systems !== undefined) {
-		throw new Error(
-			`${root}/${CONFIG_FILE} names systems, which arbor now reads from ${SYSTEMS_FILE}: run \`arbor update\` to move them`,
-		);
-	}
-	return checkSystems(
-		`${root}/${SYSTEMS_FILE}`,
-		await importDefault(root, SYSTEMS_FILE, fs),
-	);
-}
-
-/**
- * `systems` in the shape {@link System} names, or throws
- * naming `path` for one that is not, one with more than two aliases, or two
- * that answer to the same name, which would leave `arbor systems <name>`
- * guessing.
- */
-export function checkSystems(
-	path: string,
-	systems: unknown,
-): Record<string, System> {
-	const parsed = SYSTEMS.safeParse(systems);
-	if (!parsed.success) {
-		const issue = parsed.error.issues[0];
-		throw new Error(`${path}: ${issue?.path.join(".")}: ${issue?.message}`);
-	}
-	const owners = new Map<string, string>();
-	for (const [name, system] of Object.entries(parsed.data) as [
-		string,
-		System,
-	][]) {
-		for (const called of [name, ...(system.aliases ?? [])]) {
-			const owner = owners.get(called);
-			if (owner !== undefined) {
-				throw new Error(
-					`${path}: systems '${owner}' and '${name}' both answer to '${called}': give each its own names`,
-				);
-			}
-			owners.set(called, name);
-		}
-	}
-	return parsed.data;
-}
-
 /**
  * The systems one tree's `arbor.systems.ts` names, and which of them a set of
  * paths falls in.
@@ -157,6 +94,21 @@ export class Systems {
 	touchedBy(paths: string[]): NamedSystem[] {
 		return this.named.filter((system) =>
 			paths.some((path) => this.contains(system, path)),
+		);
+	}
+
+	/** Those of `paths`, repo-relative, that fall in `system`. */
+	within(system: System, paths: string[]): string[] {
+		return paths.filter((path) => this.contains(system, path));
+	}
+
+	/**
+	 * The globs of `system` that take in none of `paths`: as a rule, ones
+	 * left behind when the files they named moved.
+	 */
+	unmatched(system: System, paths: string[]): string[] {
+		return system.globs.filter(
+			(pattern) => !paths.some((path) => this.glob.matches(pattern, path)),
 		);
 	}
 
@@ -229,4 +181,67 @@ export function mentionLine(system: NamedSystem): string {
  */
 export function unknownLine(name: string): string {
 	return `#${name} names no system: find the code it means, and offer to name it as the arbor skill's Systems section says.`;
+}
+
+const SYSTEMS = z.record(
+	z.string().min(1),
+	z.strictObject({
+		aliases: z.array(z.string().min(1)).max(2).optional(),
+		globs: z.array(z.string().min(1)).min(1),
+		ignore: z.array(z.string().min(1)).optional(),
+	}),
+);
+
+/**
+ * The systems `root`'s `arbor.systems.ts` names, checked, or none when there
+ * is no such file. Read afresh each time, so a long-running `arbor dev` sees a
+ * system named mid-task without a restart. Throws while `arbor.config.ts`
+ * still names systems, which `arbor update` moves.
+ */
+export async function readSystems(
+	root: string,
+	fs: Fs = new NodeFs(),
+): Promise<Record<string, System>> {
+	if ((await importConfig(root, fs)).systems !== undefined) {
+		throw new Error(
+			`${root}/${CONFIG_FILE} names systems, which arbor now reads from ${SYSTEMS_FILE}: run \`arbor update\` to move them`,
+		);
+	}
+	return checkSystems(
+		`${root}/${SYSTEMS_FILE}`,
+		await importDefault(root, SYSTEMS_FILE, fs),
+	);
+}
+
+/**
+ * `systems` in the shape {@link System} names, or throws
+ * naming `path` for one that is not, one with more than two aliases, or two
+ * that answer to the same name, which would leave `arbor systems <name>`
+ * guessing.
+ */
+export function checkSystems(
+	path: string,
+	systems: unknown,
+): Record<string, System> {
+	const parsed = SYSTEMS.safeParse(systems);
+	if (!parsed.success) {
+		const issue = parsed.error.issues[0];
+		throw new Error(`${path}: ${issue?.path.join(".")}: ${issue?.message}`);
+	}
+	const owners = new Map<string, string>();
+	for (const [name, system] of Object.entries(parsed.data) as [
+		string,
+		System,
+	][]) {
+		for (const called of [name, ...(system.aliases ?? [])]) {
+			const owner = owners.get(called);
+			if (owner !== undefined) {
+				throw new Error(
+					`${path}: systems '${owner}' and '${name}' both answer to '${called}': give each its own names`,
+				);
+			}
+			owners.set(called, name);
+		}
+	}
+	return parsed.data;
 }

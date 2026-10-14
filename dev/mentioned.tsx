@@ -80,6 +80,27 @@ export function filesIn(
 	return found;
 }
 
+/** The names of the systems `text` mentions as `#name` or `#alias`, outside code, each once. */
+export function systemsIn(
+	text: string,
+	systems: readonly NamedSystem[],
+): string[] {
+	const found = new Set<string>();
+	outsideCode(text, (prose) => {
+		for (const [, , sign, called = ""] of prose.matchAll(NAMING)) {
+			const target =
+				sign === "#"
+					? reading({ systems, paths: new Set() }, sign, called)?.target
+					: undefined;
+			if (target !== undefined) {
+				found.add(target);
+			}
+		}
+		return prose;
+	});
+	return [...found];
+}
+
 /**
  * The longest reading of `called`, after a `#` or `@` `sign`, that names one
  * of `named`'s systems or paths: as typed, or less what a sentence put after

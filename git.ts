@@ -17,6 +17,18 @@ export interface GitOptions {
 	fs?: Fs;
 }
 
+/** One commit as `Git.log` reads it. */
+export interface Commit {
+	hash: string;
+	/** When it was written, as ISO 8601. */
+	at: string;
+	author: string;
+	/** Its message's first line. */
+	subject: string;
+	/** The paths it changed, repo-relative. */
+	files: string[];
+}
+
 export class Git {
 	private readonly ps: Ps;
 	private readonly fs: Fs;
@@ -240,6 +252,52 @@ export class Git {
 			}
 		}
 		return [...found].sort();
+	}
+
+	/**
+	 * The latest `count` commits on `ref`, newest first, each with the paths
+	 * it changed. Empty when `ref` names nothing, as in a repo with no commit.
+	 */
+	async log(ref: string, count: number): Promise<Commit[]> {
+		const { code, stdout } = await this.run(
+			this.root,
+			"log",
+			`-${count}`,
+			"--name-only",
+			"--format=%x1e%H%x1f%aI%x1f%an%x1f%s",
+			ref,
+			"--",
+		);
+		if (code !== 0) {
+			return [];
+		}
+		return stdout
+			.split("\x1e")
+			.filter((record) => record.trim() !== "")
+			.map((record) => {
+				const [head = "", ...files] = record.trim().split("\n");
+				const [hash = "", at = "", author = "", subject = ""] =
+					head.split("\x1f");
+				return {
+					hash,
+					at,
+					author,
+					subject,
+					files: files.filter((file) => file !== ""),
+				};
+			});
+	}
+
+	/** Every path git tracks at `ref`, or none when `ref` names nothing. */
+	async files(ref: string): Promise<string[]> {
+		const { code, stdout } = await this.run(
+			this.root,
+			"ls-tree",
+			"-r",
+			"--name-only",
+			ref,
+		);
+		return code === 0 ? lines(stdout) : [];
 	}
 
 	rebase(cwd: string, onto: string): Promise<GitResult> {

@@ -5,6 +5,7 @@ import type { ProjectWatch } from "./dev-project-watch";
 import { fail } from "./exit";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
+import { RECENT_COMMITS, systemsReport } from "./system-changes";
 import { Systems } from "./systems";
 
 /**
@@ -72,6 +73,19 @@ export class TaskRoutes {
 			fs,
 		});
 		return Response.json(named.all());
+	};
+
+	// The Systems page: what each system the main tree names holds on trunk,
+	// and the commits that lately changed it.
+	readonly systemChanges = async (): Promise<Response> => {
+		const { service, fs } = this.#project;
+		const { git, trunk } = service;
+		const [named, files, commits] = await Promise.all([
+			Systems.at(git.root, { fs }),
+			git.files(trunk),
+			git.log(trunk, RECENT_COMMITS),
+		]);
+		return Response.json(systemsReport(named, files, commits));
 	};
 
 	// What a task changed against its base, for its review in the page.

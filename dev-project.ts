@@ -126,6 +126,7 @@ export interface Served extends AsyncResource {
 	file: Handler;
 	paths: Handler;
 	systems: Handler;
+	systemChanges: Handler;
 	diff: Handler;
 	retryTask: Handler;
 	removeTask: Handler;

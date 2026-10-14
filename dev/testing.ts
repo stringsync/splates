@@ -9,6 +9,7 @@ import type { ConversationState, Session } from "../conversations";
 import type { FileDiff } from "../diff";
 import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
+import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
 import type { KeptCreds } from "./api";
 import type { AgentChoice } from "./conversation-feed";
@@ -88,6 +89,8 @@ export class Testing implements Resource {
 	tree: string[] = [];
 	/** What `/api/systems` lists, for `#`. */
 	systems: NamedSystem[] = [];
+	/** What `/api/systems/changes` says, for the Systems page. */
+	changes: SystemsReport = { systems: [], since: null, scanned: 0 };
 	/** What `/api/paths` and `/api/systems` wait on, for a test to hold them back. */
 	listing: Promise<void> = Promise.resolve();
 	/**
@@ -183,6 +186,9 @@ export class Testing implements Resource {
 			if (path.startsWith("/api/paths")) {
 				await this.listing;
 				return Response.json(this.tree);
+			}
+			if (route === "/api/systems/changes") {
+				return Response.json(this.changes);
 			}
 			if (path.startsWith("/api/systems")) {
 				await this.listing;

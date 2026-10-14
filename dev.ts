@@ -310,6 +310,7 @@ export async function dev(
 			"/api/file": scoped((project) => project.file),
 			"/api/paths": scoped((project) => project.paths),
 			"/api/systems": scoped((project) => project.systems),
+			"/api/systems/changes": scoped((project) => project.systemChanges),
 			"/api/tasks/:task/diff": scoped((project) => project.diff),
 			"/api/tasks/:task/retry": {
 				POST: scoped((project) => project.retryTask),

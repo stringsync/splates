@@ -64,7 +64,10 @@ export function AppNav({
 				? !wide
 					? waiting
 					: 0
-				: snapshot === null || page === "stats" || page === "creds"
+				: snapshot === null ||
+						page === "systems" ||
+						page === "stats" ||
+						page === "creds"
 					? 0
 					: (page === "todos" ? snapshot.todos : snapshot.tasks).length;
 		return counting === 0 ? null : counting;

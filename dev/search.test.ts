@@ -4,6 +4,7 @@ import { conversation, details, todo } from "./testing";
 
 function searched(overrides: Partial<Searched> = {}): Searched {
 	return {
+		systems: [],
 		tasks: [],
 		todos: [],
 		conversations: [],
@@ -19,6 +20,19 @@ const titles = (query: string, of: Searched) =>
 	]);
 
 describe("search", () => {
+	it("finds a system by an alias as well as by its name", () => {
+		const of = searched({
+			systems: [
+				{ name: "board", aliases: ["lanes"], globs: ["board/**"] },
+				{ name: "lanes-sync", globs: ["sync/**"] },
+			],
+		});
+		expect(titles("lanes", of)).toEqual([["system", ["board", "lanes-sync"]]]);
+		expect(search("lanes", of)[0]?.found[0]?.detail).toBe("Also lanes");
+		// Nothing typed lists what moved lately, which systems never do.
+		expect(titles("", of)).toEqual([]);
+	});
+
 	it("ranks a title's start over a word in it over anywhere in it", () => {
 		const of = searched({
 			todos: [

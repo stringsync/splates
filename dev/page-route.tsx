@@ -3,6 +3,7 @@ import {
 	GitBranchIcon,
 	KanbanIcon,
 	KeyRoundIcon,
+	LayersIcon,
 	type LucideIcon,
 	MessagesSquareIcon,
 } from "lucide-react";
@@ -16,9 +17,16 @@ import type { ShortcutKey } from "./settings";
 /**
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
- * for one open), `#stats`, or the board.
+ * for one open), `#systems` (or `#systems/<name>` for one open), `#stats`,
+ * or the board.
  */
-export type Page = "todos" | "tasks" | "conversations" | "stats" | "creds";
+export type Page =
+	| "todos"
+	| "tasks"
+	| "conversations"
+	| "systems"
+	| "stats"
+	| "creds";
 
 /** Each page with the shortcut that opens it, if any. */
 export const PAGES: {
@@ -39,22 +47,10 @@ export const PAGES: {
 		shortcut: "shortcuts.todos",
 	},
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
+	{ value: "systems", label: "Systems", Icon: LayersIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 ];
-
-/** Where the page is, as its address says, and the ways to move it. */
-export interface PageRoute {
-	page: Page;
-	/** The conversation open, by its address, or null. */
-	open: string | null;
-	/** The task open on the Tasks page, or null. */
-	task: string | null;
-	/** Goes to `next`, with `conversation` open, the one open by default. */
-	go: (next: Page, conversation?: string | null) => void;
-	/** Opens task `name` on the Tasks page, or closes the one open for null. */
-	openTask: (name: string | null) => void;
-}
 
 /**
  * The page, conversation and task the address names, kept in the address, so
@@ -65,11 +61,13 @@ export function usePageRoute(): PageRoute {
 	const [page, setPage] = useState<Page>(() => pageIn(location.hash));
 	const [open, setOpen] = useState(() => conversationIn(location.hash));
 	const [task, setTask] = useState(() => taskIn(location.hash));
+	const [system, setSystem] = useState(() => systemIn(location.hash));
 	useEffect(() => {
 		const follow = () => {
 			setPage(pageIn(location.hash));
 			setOpen(conversationIn(location.hash));
 			setTask(taskIn(location.hash));
+			setSystem(systemIn(location.hash));
 		};
 		window.addEventListener("hashchange", follow);
 		return () => window.removeEventListener("hashchange", follow);
@@ -78,6 +76,7 @@ export function usePageRoute(): PageRoute {
 		setPage(next);
 		setOpen(conversation);
 		setTask(null);
+		setSystem(null);
 		const hash =
 			next === "conversations" && conversation !== null
 				? `#conversations/${conversation}`
@@ -96,7 +95,16 @@ export function usePageRoute(): PageRoute {
 			);
 		}
 	};
-	return { page, open, task, go, openTask };
+	const openSystem = (name: string | null) => {
+		setPage("systems");
+		setSystem(name);
+		history.replaceState(
+			null,
+			"",
+			name === null ? "#systems" : `#systems/${encodeURIComponent(name)}`,
+		);
+	};
+	return { page, open, task, go, openTask, system, openSystem };
 }
 
 /**
@@ -133,6 +141,9 @@ function pageIn(hash: string): Page {
 	if (hash === "#tasks" || hash.startsWith("#tasks/")) {
 		return "tasks";
 	}
+	if (hash === "#systems" || hash.startsWith("#systems/")) {
+		return "systems";
+	}
 	if (hash === "#stats") {
 		return "stats";
 	}
@@ -146,4 +157,27 @@ function pageIn(hash: string): Page {
 function taskIn(hash: string): string | null {
 	const [, task] = hash.match(/^#tasks\/(.+)$/) ?? [];
 	return task ?? null;
+}
+
+/** The system `#systems/<name>` has open, or null. */
+function systemIn(hash: string): string | null {
+	const [, system] = hash.match(/^#systems\/(.+)$/) ?? [];
+	return system === undefined ? null : decodeURIComponent(system);
+}
+
+/** Where the page is, as its address says, and the ways to move it. */
+export interface PageRoute {
+	page: Page;
+	/** The conversation open, by its address, or null. */
+	open: string | null;
+	/** The task open on the Tasks page, or null. */
+	task: string | null;
+	/** Goes to `next`, with `conversation` open, the one open by default. */
+	go: (next: Page, conversation?: string | null) => void;
+	/** Opens task `name` on the Tasks page, or closes the one open for null. */
+	openTask: (name: string | null) => void;
+	/** The system open on the Systems page, by name, or null. */
+	system: string | null;
+	/** Opens system `name` on the Systems page, or the list of them for null. */
+	openSystem: (name: string | null) => void;
 }

@@ -10,6 +10,7 @@ import type { FileDiff } from "../diff";
 import type { MachineReading } from "../machine";
 import type { AgentPick } from "../roster";
 import type { PeriodId, Stats } from "../stats";
+import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
 
 export class ApiError extends Error {
@@ -216,6 +217,15 @@ export async function systems(task = ""): Promise<NamedSystem[]> {
 		throw new ApiError("error", `/api/systems: ${response.status}`);
 	}
 	return (await response.json()) as NamedSystem[];
+}
+
+/** What each system holds on trunk, and the commits that lately changed it. */
+export async function systemChanges(): Promise<SystemsReport> {
+	const response = await fetch(scoped("/api/systems/changes"));
+	if (!response.ok) {
+		throw new ApiError("error", `/api/systems/changes: ${response.status}`);
+	}
+	return (await response.json()) as SystemsReport;
 }
 
 /** What `task` changed against its base, uncommitted edits included. */
