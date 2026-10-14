@@ -6,7 +6,7 @@ import * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import { type Fs, NodeFs, NodePs } from "webappwiz/system";
+import { type Fs, NodeFs } from "webappwiz/system";
 import {
 	Duration,
 	SystemTimer,
@@ -15,122 +15,102 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
+import {
+	ASYNC_TASK_STOP,
+	ASYNC_TASK_UPDATE,
+	type AsyncTaskUpdate,
+	asyncTasks,
+	foldBackground,
+	SESSION_META,
+	STEER,
+	steers,
+} from "./acp-extensions";
+import {
+	type Agent,
+	type AgentProcess,
+	type Launch,
+	launch,
+	listSessions,
+	type Session,
+} from "./agent-process";
+import {
+	delivered,
+	messageOf,
+	said,
+	sent,
+	shown,
+	takeBack,
+	textOf,
+} from "./conversation-messages";
+import {
+	type Answer,
+	type Asked,
+	type Attached,
+	type Background,
+	blank,
+	type Checkpoint,
+	type ConversationState,
+	type Decision,
+	type Field,
+	type Image,
+	type Limit,
+	type Message,
+	type Sent,
+	type Setting,
+	type Status,
+	type Upload,
+} from "./conversation-state";
 import { fail } from "./exit";
+import {
+	agentTurn,
+	fold,
+	heard,
+	result,
+	settingsIn,
+	starts,
+	tally,
+} from "./fold";
 import type { Limits } from "./limits";
 import { modelOption } from "./models";
 import type { Offered } from "./offered";
 import { CHECKPOINT } from "./prompts";
-import { SERVING } from "./supervise";
 import { mentionLine, Systems, unknownLine } from "./systems";
+import { toolIn } from "./tool-calls";
 import type { Flag, Watch, Watched } from "./watch";
 
-/** An agent arbor can hold a conversation with over ACP, and how to start it. */
-export interface Agent {
-	id: string;
-	name: string;
-	argv: string[];
-}
-
-/** A running agent: bytes in, bytes out, and a way to stop it. */
-export interface AgentProcess {
-	/** Its pid, for what runs under it; null for one that never started. */
-	pid: number | null;
-	input: WritableStream<Uint8Array>;
-	output: ReadableStream<Uint8Array>;
-	/** What it last wrote to stderr, for when it dies before saying why. */
-	stderr(): string;
-	exited: Promise<number>;
-	kill(): void;
-}
-
-/** Starts `argv` in `cwd`, with `env` added to its own, its stdio piped. */
-export type Launch = (
-	argv: string[],
-	cwd: string,
-	env: Record<string, string>,
-) => AgentProcess;
-
-export const launch: Launch = (argv, cwd, env) => {
-	// So an `arbor dev` the agent runs supervises itself rather than serving
-	// as this one's child.
-	const child = new NodePs().start(argv, { cwd, env, unset: [SERVING] });
-	let tail = "";
-	// One that never started, as in a directory since removed, aborts its
-	// pipes and rejects its exit: it ends as one that exited saying why.
-	void (async () => {
-		const decoder = new TextDecoder();
-		for await (const chunk of child.stderr) {
-			tail = (tail + decoder.decode(chunk)).slice(-STDERR_CHARS);
-		}
-	})().catch(() => {});
-	return {
-		pid: child.pid,
-		input: child.stdin,
-		output: child.stdout,
-		stderr: () => tail,
-		exited: child.exited.catch((error: unknown) => {
-			tail = `cannot start ${argv[0]} in ${cwd}: ${error instanceof Error ? error.message : String(error)}`;
-			return 127;
-		}),
-		kill: () => child.kill(),
-	};
-};
-
-/** How much of an agent's stderr is kept to explain how it died. */
-const STDERR_CHARS = 2_000;
-
-/**
- * What every session is opened with. Claude's AskUserQuestion is off, so its
- * questions go under `## Blocked` and into its reply, as the arbor skill asks,
- * rather than into a form `ARBOR.md` never sees. Other agents ignore it.
- */
-const SESSION_META = {
-	claudeCode: { options: { disallowedTools: ["AskUserQuestion"] } },
-};
-
-/** How much of a tool call's output, and of each side of an edit, is kept. */
-const TOOL_CHARS = 20_000;
-
-/** One piece of what someone in a conversation said or did. */
-export type Part =
-	/** `at` is when the agent began saying it, where the server knows. */
-	| { type: "text"; text: string; at?: string | null }
-	/** `at` is when the agent began it; null in a log too old to say. */
-	| { type: "thought"; text: string; at: string | null }
-	| ({ type: "image" } & Image)
-	| ({ type: "file" } & Attached)
-	| Tool;
-
-/** An image the person sent, kept beside the conversation's log as `name`. */
-export interface Image {
-	name: string;
-	mimeType: string;
-	/**
-	 * Where the page reads one still on its way, before the server keeps it;
-	 * the server never sets it.
-	 */
-	url?: string;
-}
-
-/**
- * A file the person sent, other than an image the agent sees, kept beside
- * the conversation's log as `name`; the agent is sent a link to it.
- */
-export interface Attached extends Image {
-	/** What the person called it. */
-	title: string;
-}
-
-/** A file the person sent, as the page sends it, before it is kept. */
-export interface Upload {
-	/** What the person called it. */
-	title: string;
-	mimeType: string;
-	bytes: Uint8Array;
-}
-
-/** What the person sent with their words, as their message holds it. */
-type Sent = Extract<Part, { type: "image" | "file" }>;
+export type {
+	Agent,
+	AgentProcess,
+	Launch,
+	Session,
+} from "./agent-process";
+export { launch } from "./agent-process";
+export type {
+	After,
+	Answer,
+	Ask,
+	Attached,
+	Background,
+	BackgroundState,
+	Checkpoint,
+	Command,
+	ConversationState,
+	Decision,
+	Edit,
+	Field,
+	Image,
+	Limit,
+	Message,
+	Part,
+	Setting,
+	Status,
+	Step,
+	Tool,
+	Upload,
+	Usage,
+} from "./conversation-state";
+export { unused } from "./conversation-state";
+export { fold, heard } from "./fold";
 
 /** The images an agent can be sent, by media type, with the extension each is kept under. */
 const IMAGE_TYPES: Record<string, string> = {
@@ -139,246 +119,6 @@ const IMAGE_TYPES: Record<string, string> = {
 	"image/gif": "gif",
 	"image/webp": "webp",
 };
-
-/** A tool call the agent made, as much of it as the page shows. */
-export interface Tool {
-	type: "tool";
-	id: string;
-	title: string;
-	status: "pending" | "in_progress" | "completed" | "failed";
-	/** What ACP says it does: read, edit, execute, search, think, and so on. */
-	kind: string | null;
-	/** The command it runs, for one that runs one. */
-	command: string | null;
-	/** What it searches for or fetches, as its input names it: a pattern, a query or a URL. */
-	target: string | null;
-	/** The end of what it printed, at most `TOOL_CHARS`. */
-	output: string;
-	/** The changes it made to files. */
-	edits: Edit[];
-	/** The files it touched. */
-	paths: string[];
-	/** The subagent's tool call it was made under, if one made it. */
-	parent: string | null;
-	/** When it began and finished; null in a log too old to say, or until it has. */
-	at: string | null;
-	until: string | null;
-	/** What a command did to git that it should not have. */
-	flags: Flag[];
-	/** How the person answered the agent asking to make it; null when it never asked. */
-	decision: Decision | null;
-}
-
-/**
- * A command the agent left running in the background, as Claude's Bash with
- * `run_in_background`, kept once it ends until the agent's process does.
- */
-export interface Background {
-	/** The agent's id for it, which stopping it names. */
-	id: string;
-	/** What the agent said it is for. */
-	name: string;
-	/** The command it runs, from the tool call that started it; null when unknown. */
-	command: string | null;
-	state: BackgroundState;
-	/** The file the agent writes what it prints to; null until it says. */
-	output: string | null;
-}
-
-export type BackgroundState = "running" | "completed" | "failed" | "stopped";
-
-/** How the person answered an agent asking permission for a tool call. */
-export interface Decision {
-	/** The option they picked; null for an ask dismissed, as by stopping the turn. */
-	option: { name: string; kind: string } | null;
-	at: string;
-}
-
-/** A change to one file: `old` is null for a file the edit created. */
-export interface Edit {
-	path: string;
-	old: string | null;
-	new: string;
-}
-
-/** A step of the agent's plan for the turn. */
-export interface Step {
-	text: string;
-	status: "pending" | "in_progress" | "completed";
-}
-
-/** One turn's worth of words, the person's or the agent's. */
-export interface Message {
-	role: "user" | "agent";
-	parts: Part[];
-	/** The agent's plan, as last sent; null when it sent none. */
-	plan: Step[] | null;
-	/** When it began and last moved; null in a log too old to say. */
-	at: string | null;
-	until: string | null;
-	/**
-	 * Said while the agent worked, to an agent that cannot take it mid-turn:
-	 * it goes out when the turn ends.
-	 */
-	queued?: true;
-	/** When the person stopped the agent's turn, for one they stopped. */
-	stopped?: string;
-	/** Said while the agent worked, and taken into the turn it was running. */
-	steered?: true;
-}
-
-/** A field of a question an agent asks, answered with one of `choices` or in words. */
-export interface Field {
-	key: string;
-	title: string;
-	description: string | null;
-	/** Absent for a field answered in words. */
-	choices:
-		| { value: string; title: string; description: string | null }[]
-		| null;
-}
-
-/** What the agent is waiting on the person for, since `at`. */
-export type Ask = Asked & { at: string };
-
-/** What the agent asks, before it is stamped with when. */
-type Asked =
-	| {
-			type: "permission";
-			id: string;
-			title: string;
-			options: { id: string; name: string; kind: string }[];
-	  }
-	| { type: "question"; id: string; message: string; fields: Field[] };
-
-/** How an `Ask` was answered. */
-export type Answer =
-	| { type: "permission"; option: string }
-	| { type: "question"; values: Record<string, string> }
-	| { type: "dismiss" };
-
-/** A choice the agent offers for the session, like its model. */
-export interface Setting {
-	id: string;
-	name: string;
-	/**
-	 * A pick among its options, or an on/off toggle, like fast mode, whose
-	 * options are `on` and `off`.
-	 */
-	type: "select" | "boolean";
-	/** What it sets, as ACP names it: mode, model, thought_level, or its own. */
-	category: string | null;
-	current: string;
-	options: { value: string; name: string; description: string | null }[];
-}
-
-/** A command the agent runs when a message starts with `/` and its name. */
-export interface Command {
-	name: string;
-	description: string;
-	/** What to write after its name, for one that takes input. */
-	hint: string | null;
-}
-
-/**
- * Where the agent is: `stopped` and `failed` have no process, and the next
- * prompt resumes the session in a new one.
- */
-export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
-
-/** What a session has used, as far as its agent says. */
-export interface Usage {
-	/** Tokens in the context window, of the most it holds; null until said. */
-	context: { used: number; size: number } | null;
-	/** Tokens read over every turn the agent counted, those from cache among them. */
-	input: number;
-	/** Of `input`, those read from cache. */
-	cached: number;
-	/** Tokens written over every turn the agent counted. */
-	output: number;
-	/**
-	 * What the session cost, over every process it ran in; null for an agent
-	 * that never says, as Codex does not.
-	 */
-	cost: {
-		amount: number;
-		currency: string;
-		/**
-		 * What the agent last said it had cost: Claude counts from naught in
-		 * each new process, so a figure below it starts a new count.
-		 */
-		said: number;
-	} | null;
-	/** The plan's windows of use, as the agent last said; none from Codex. */
-	limits: Limit[];
-}
-
-/**
- * One window of the plan's use, as Claude says with each reply: the account's,
- * not the session's, so every conversation with the agent shares it.
- */
-export interface Limit {
-	/** As Claude names it: `five_hour`, `seven_day`, `seven_day_opus`. */
-	window: string;
-	/** How much of it is used, from 0 to 1. */
-	used: number;
-	/** When it starts over, as an ISO timestamp. */
-	resets: string;
-	/** When the agent said so; null in logs written before it was kept. */
-	at: string | null;
-}
-
-/** Everything the page shows of one conversation. */
-export interface ConversationState {
-	id: string;
-	agent: string;
-	/** The task whose worktree it runs in; null for the main tree. */
-	task: string | null;
-	/**
-	 * The task it runs in, or last ran in once that task merged or went; null
-	 * until it runs in one.
-	 */
-	lastTask: string | null;
-	/**
-	 * The branch `lastTask` was cut from, `task/<caller>` for a part, kept once
-	 * it merges so the page still nests it under its caller; null for none.
-	 */
-	lastBase: string | null;
-	/** What the agent calls it, once it says. */
-	title: string | null;
-	/** What the person renamed it to, over the agent's title. */
-	name: string | null;
-	status: Status;
-	/** Why it failed, for `failed`. */
-	error: string | null;
-	messages: Message[];
-	ask: Ask | null;
-	/** What the session lets the person pick: its mode, model, effort. */
-	settings: Setting[];
-	/** The skills and commands a message can start with, as the agent last said. */
-	commands: Command[];
-	createdAt: string;
-	/** Put away: stopped, kept off the list, shown with the archived ones. */
-	archived: boolean;
-	/**
-	 * The agent ended a turn the person has not seen yet: set as each turn
-	 * ends, and cleared once the page shows it.
-	 */
-	unread: boolean;
-	/**
-	 * How many of its messages, those not queued, the person had seen when it
-	 * was last marked read: an unread one opens at the one after.
-	 */
-	seen: number;
-	/**
-	 * Where the last checkpoint asked stands, kept in the log so a restart
-	 * still shows it; null when none was, or once the work went on past it.
-	 */
-	checkpoint: Checkpoint | null;
-	usage: Usage;
-	/** The commands the agent left in the background, oldest first. */
-	background: Background[];
-}
 
 /** A line of a conversation's log: what was said, in the order it was. */
 type Entry =
@@ -439,464 +179,6 @@ type Entry =
 	| { kind: "decision"; tool: string; decision: Decision }
 	| { kind: "end"; error: string | null };
 
-/**
- * Folds one ACP update, sent `at`, into the messages: text runs on in the
- * message it started, and a tool call is one part that fills in as it runs.
- */
-export function fold(
-	state: ConversationState,
-	update: acp.SessionUpdate,
-	at: string | null = null,
-): void {
-	switch (update.sessionUpdate) {
-		case "agent_message_chunk":
-		case "agent_thought_chunk": {
-			// A subagent's words are its own, kept in the log but out of the
-			// conversation's: its tool call stands for it.
-			if (update.content.type !== "text" || parentOf(update) !== null) {
-				return;
-			}
-			const turn = agentTurn(state, at);
-			const last = turn.parts.at(-1);
-			if (update.sessionUpdate === "agent_message_chunk") {
-				if (last?.type === "text") {
-					last.text += update.content.text;
-				} else {
-					turn.parts.push({ type: "text", text: update.content.text, at });
-				}
-			} else if (last?.type === "thought") {
-				last.text += update.content.text;
-			} else {
-				turn.parts.push({ type: "thought", text: update.content.text, at });
-			}
-			return;
-		}
-		case "tool_call": {
-			// Already made, when asking permission for it came first.
-			const made = toolIn(state, update.toolCallId);
-			if (made !== null) {
-				fill(made, update, at);
-				return;
-			}
-			const tool: Tool = {
-				type: "tool",
-				id: update.toolCallId,
-				title: update.title,
-				status: "pending",
-				kind: update.kind ?? null,
-				command: null,
-				target: null,
-				output: "",
-				edits: [],
-				paths: [],
-				parent: parentOf(update),
-				at,
-				until: null,
-				flags: [],
-				decision: null,
-			};
-			const place =
-				tool.parent === null ? null : besideSpawn(state, tool.parent);
-			if (place === null) {
-				agentTurn(state, at).parts.push(tool);
-			} else {
-				place.parts.splice(place.at, 0, tool);
-				moved(state, at);
-			}
-			fill(tool, update, at);
-			return;
-		}
-		case "tool_call_update": {
-			const part = toolIn(state, update.toolCallId);
-			if (part !== null) {
-				fill(part, update, at);
-				moved(state, at);
-			}
-			return;
-		}
-		case "plan":
-			agentTurn(state, at).plan = update.entries.map((entry) => ({
-				text: entry.content,
-				status: entry.status,
-			}));
-			return;
-		case "session_info_update":
-			if (update.title !== undefined) {
-				state.title = update.title;
-			}
-			return;
-		case "config_option_update":
-			state.settings = settingsIn(update.configOptions);
-			return;
-		case "available_commands_update":
-			state.commands = update.availableCommands.map((command) => ({
-				name: command.name,
-				description: command.description,
-				hint: command.input?.hint ?? null,
-			}));
-			return;
-		case "usage_update":
-			// The plan's, whoever's turn it came in.
-			state.usage.limits = heard(state.usage.limits, limitsIn(update, at));
-			// A subagent's context is its own.
-			if (parentOf(update) !== null) {
-				return;
-			}
-			state.usage.context = { used: update.used, size: update.size };
-			if (update.cost != null) {
-				const { amount, currency } = update.cost;
-				const before = state.usage.cost;
-				const carried =
-					before === null
-						? 0
-						: before.amount - (amount < before.said ? 0 : before.said);
-				state.usage.cost = { amount: carried + amount, currency, said: amount };
-			}
-			return;
-		case "current_mode_update":
-			state.settings = state.settings.map((setting) =>
-				setting.category === "mode"
-					? { ...setting, current: update.currentModeId }
-					: setting,
-			);
-			return;
-		default:
-			return;
-	}
-}
-
-/**
- * The windows Claude's rate limit info in `update` tells of: every one in
- * `unifiedWindows` when it sends them, else the one it names. Its
- * `utilization` runs from 0 to 1, and `resetsAt` is in seconds.
- */
-function limitsIn(update: acp.UsageUpdate, at: string | null): Limit[] {
-	const info = update._meta?.["_claude/rateLimit"] as
-		| {
-				rateLimitType?: unknown;
-				utilization?: unknown;
-				resetsAt?: unknown;
-				unifiedWindows?: Record<
-					string,
-					{ utilization?: unknown; resetsAt?: unknown } | undefined
-				>;
-		  }
-		| undefined;
-	if (info == null) {
-		return [];
-	}
-	const windows: [string, { utilization?: unknown; resetsAt?: unknown }][] =
-		info.unifiedWindows != null
-			? Object.entries(info.unifiedWindows).flatMap(([window, each]) =>
-					each == null ? [] : [[window, each]],
-				)
-			: typeof info.rateLimitType === "string"
-				? [[info.rateLimitType, info]]
-				: [];
-	return windows.flatMap(([window, { utilization, resetsAt }]) =>
-		typeof utilization === "number" && typeof resetsAt === "number"
-			? [
-					{
-						window,
-						used: utilization,
-						resets: new Date(resetsAt * 1000).toISOString(),
-						at,
-					},
-				]
-			: [],
-	);
-}
-
-/** `limits`, each window in `news` replaced by what it says now. */
-export function heard(limits: Limit[], news: Limit[]): Limit[] {
-	if (news.length === 0) {
-		return limits;
-	}
-	const said = new Set(news.map((each) => each.window));
-	return [...limits.filter((each) => !said.has(each.window)), ...news];
-}
-
-/** Folds an update on a background command into those the agent left. */
-function foldBackground(
-	state: ConversationState,
-	update: AsyncTaskUpdate,
-): void {
-	if (update.sessionUpdate === ASYNC_TASK_SPAWNED) {
-		if (update.taskType === "shell") {
-			state.background = [
-				...state.background.filter((each) => each.id !== update.asyncTaskId),
-				{
-					id: update.asyncTaskId,
-					name: update.description || update.name,
-					command:
-						update.toolCallId === undefined
-							? null
-							: (toolIn(state, update.toolCallId)?.command ?? null),
-					state: "running",
-					output: update.outputFilePath ?? null,
-				},
-			];
-		}
-		return;
-	}
-	state.background = state.background.map((each) =>
-		each.id !== update.asyncTaskId
-			? each
-			: {
-					...each,
-					output: update.outputFilePath ?? each.output,
-					state:
-						update.sessionUpdate === ASYNC_TASK_STATE &&
-						update.state !== "running" &&
-						update.state !== "paused"
-							? update.state
-							: each.state,
-				},
-	);
-}
-
-/** Adds the tokens a turn used to those of the turns before it. */
-function tally(state: ConversationState, usage: acp.Usage): void {
-	const cached = usage.cachedReadTokens ?? 0;
-	state.usage.input +=
-		usage.inputTokens + cached + (usage.cachedWriteTokens ?? 0);
-	state.usage.cached += cached;
-	state.usage.output += usage.outputTokens;
-}
-
-/**
- * The agent's message at the end, started if the person spoke last, marked
- * as having moved `at`. Queued messages stay below it: the agent has yet to
- * hear them, so nothing it says meanwhile answers them.
- */
-function agentTurn(state: ConversationState, at: string | null): Message {
-	const { messages } = state;
-	let end = messages.length;
-	while (messages[end - 1]?.queued) {
-		end--;
-	}
-	const last = messages[end - 1];
-	if (last?.role === "agent") {
-		last.until = at ?? last.until;
-		return last;
-	}
-	const turn: Message = {
-		role: "agent",
-		parts: [],
-		plan: null,
-		at,
-		until: at,
-	};
-	messages.splice(end, 0, turn);
-	return turn;
-}
-
-/** The tool call `id`, wherever in the conversation it was made. */
-function toolIn(state: ConversationState, id: string): Tool | null {
-	for (const message of state.messages) {
-		for (const part of message.parts) {
-			if (part.type === "tool" && part.id === id) {
-				return part;
-			}
-		}
-	}
-	return null;
-}
-
-/**
- * Where a call made by the subagent tool call `parent` goes: after that call
- * and the subagent's calls before it, in the turn it was made in, so a
- * subagent still at work once the agent has replied, or in a later turn,
- * keeps every call under it. Null when no such call was made.
- */
-function besideSpawn(
-	state: ConversationState,
-	parent: string,
-): { parts: Part[]; at: number } | null {
-	for (const { parts } of state.messages) {
-		const last = parts.findLastIndex(
-			(part) =>
-				part.type === "tool" && (part.id === parent || part.parent === parent),
-		);
-		if (last !== -1) {
-			return { parts, at: last + 1 };
-		}
-	}
-	return null;
-}
-
-/** Marks the agent's message at the end, if it is the last, as having moved `at`. */
-function moved(state: ConversationState, at: string | null): void {
-	const last = state.messages.at(-1);
-	if (last?.role === "agent" && at !== null) {
-		last.until = at;
-	}
-}
-
-/** Whether `update` is the agent at work, as it is only in a turn. */
-function starts(update: acp.SessionUpdate): boolean {
-	return (
-		(update.sessionUpdate === "agent_message_chunk" ||
-			update.sessionUpdate === "agent_thought_chunk" ||
-			update.sessionUpdate === "tool_call") &&
-		parentOf(update) === null
-	);
-}
-
-/**
- * Whether `update` ends a turn: Claude says where each turn came from in the
- * usage it sends at the turn's end, and only then.
- */
-function result(update: acp.SessionUpdate): boolean {
-	return (
-		update.sessionUpdate === "usage_update" &&
-		update._meta?.["_claude/origin"] != null
-	);
-}
-
-/** The subagent's tool call an update came from: Claude stamps it in `_meta`. */
-function parentOf(update: {
-	_meta?: { [key: string]: unknown } | null;
-}): string | null {
-	const claude = update._meta?.claudeCode as
-		| { parentToolUseId?: unknown }
-		| undefined;
-	return typeof claude?.parentToolUseId === "string"
-		? claude.parentToolUseId
-		: null;
-}
-
-/**
- * Takes what an update says of a tool call into it. Adapters say it in
- * different places: Claude sends a command's output whole as `rawOutput`
- * once it ends, Codex streams it in `_meta` and says how it exited there.
- */
-function fill(
-	tool: Tool,
-	update: acp.ToolCall | acp.ToolCallUpdate,
-	at: string | null,
-): void {
-	tool.title = update.title ?? tool.title;
-	tool.kind = update.kind ?? tool.kind;
-	const input = update.rawInput as
-		| { command?: unknown; pattern?: unknown; query?: unknown; url?: unknown }
-		| null
-		| undefined;
-	if (typeof input?.command === "string") {
-		tool.command = input.command;
-	} else if (Array.isArray(input?.command)) {
-		tool.command = input.command.join(" ");
-	}
-	const target = input?.pattern ?? input?.query ?? input?.url;
-	if (typeof target === "string") {
-		tool.target = target;
-	}
-	if (update.locations != null && update.locations.length > 0) {
-		tool.paths = [...new Set(update.locations.map((each) => each.path))];
-	}
-	const edits = (update.content ?? []).flatMap((each): Edit[] =>
-		each.type === "diff"
-			? [
-					{
-						path: each.path,
-						old:
-							each.oldText == null ? null : each.oldText.slice(0, TOOL_CHARS),
-						new: each.newText.slice(0, TOOL_CHARS),
-					},
-				]
-			: [],
-	);
-	if (edits.length > 0) {
-		tool.edits = edits;
-		tool.paths = [
-			...new Set([...tool.paths, ...edits.map((each) => each.path)]),
-		];
-	}
-	const meta = update._meta as
-		| {
-				terminal_output_delta?: { data?: unknown };
-				terminal_exit?: { exit_code?: unknown };
-		  }
-		| null
-		| undefined;
-	const delta = meta?.terminal_output_delta?.data;
-	if (typeof delta === "string") {
-		tool.output = (tool.output + delta).slice(-TOOL_CHARS);
-	}
-	const ended = update.status === "completed" || update.status === "failed";
-	if (typeof update.rawOutput === "string") {
-		tool.output = update.rawOutput.slice(-TOOL_CHARS);
-	} else if (ended && tool.output === "") {
-		// Until it ends, Claude's content is what the command is for, not what
-		// it printed.
-		tool.output = (update.content ?? [])
-			.flatMap((each) =>
-				each.type === "content" && each.content.type === "text"
-					? [unfenced(each.content.text)]
-					: [],
-			)
-			.join("\n")
-			.slice(-TOOL_CHARS);
-	}
-	const code = meta?.terminal_exit?.exit_code;
-	tool.status =
-		typeof code === "number" && code !== 0
-			? "failed"
-			: (update.status ?? tool.status);
-	if (ended) {
-		tool.until = at;
-	}
-}
-
-/** `text` without the code fence an adapter wrapped a command's output in. */
-function unfenced(text: string): string {
-	const fenced = /^```[^\n]*\n([\s\S]*?)\n?```$/.exec(text.trim());
-	return fenced?.[1] ?? text;
-}
-
-/** The session's settings the agent lets the person pick from, in its order. */
-function settingsIn(
-	options: acp.SessionConfigOption[] | null | undefined,
-): Setting[] {
-	return (options ?? []).flatMap((option): Setting[] => {
-		if (option.type === "boolean") {
-			return [
-				{
-					id: option.id,
-					name: option.name,
-					type: "boolean",
-					category: option.category ?? null,
-					current: option.currentValue ? "on" : "off",
-					options: [
-						{ value: "on", name: "On", description: null },
-						{ value: "off", name: "Off", description: null },
-					],
-				},
-			];
-		}
-		if (option.type !== "select") {
-			return [];
-		}
-		const flat = option.options.flatMap((each) =>
-			"group" in each ? each.options : [each],
-		);
-		return [
-			{
-				id: option.id,
-				name: option.name,
-				type: "select",
-				category: option.category ?? null,
-				current: option.currentValue,
-				options: flat.map((each) => ({
-					value: each.value,
-					name: each.name,
-					description: each.description ?? null,
-				})),
-			},
-		];
-	});
-}
-
 /** `value` for `setting` as ACP sets it: a toggle's as a boolean. */
 function configValue(
 	setting: Setting,
@@ -946,19 +228,6 @@ const CHECKPOINT_WAIT = Duration.mins(2);
 
 /** How often a background command's output is read again while it runs. */
 const OUTPUT_EVERY = Duration.ms(250);
-
-/**
- * Where a checkpoint stands: asked of the agent, done once its turn ends,
- * failed with the turn, or unanswered after `CHECKPOINT_WAIT`.
- */
-export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
-
-/**
- * What follows a checkpoint: the agents stop; or `arbor dev` restarts once
- * every agent is done, and they wait to be told to carry on; or it
- * restarts and tells each to carry on itself.
- */
-export type After = "stop" | "restart" | "resume";
 
 /**
  * One conversation with one agent. Live, it holds the agent's process; read
@@ -2387,89 +1656,6 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	}
 }
 
-/** What the person said, `at`: what they sent with it, then their words. */
-function said(text: string, at: string | null, sent: Sent[] = []): Message {
-	return {
-		role: "user",
-		parts: [
-			// Its images first, the order the agent is sent them in, which their
-			// chips count by.
-			...sent.filter((each) => each.type === "image"),
-			...sent.filter((each) => each.type === "file"),
-			...(text === "" ? [] : [{ type: "text" as const, text }]),
-		],
-		plan: null,
-		at,
-		until: at,
-	};
-}
-
-function blank(
-	id: string,
-	agent: string,
-	task: string | null,
-	createdAt: string,
-	base: string | null = null,
-): ConversationState {
-	return {
-		id,
-		agent,
-		task,
-		lastTask: task,
-		lastBase: task === null ? null : base,
-		title: null,
-		name: null,
-		status: "starting",
-		error: null,
-		messages: [],
-		ask: null,
-		settings: [],
-		commands: [],
-		createdAt,
-		archived: false,
-		unread: false,
-		seen: 0,
-		checkpoint: null,
-		usage: unused(),
-		background: [],
-	};
-}
-
-/** How many of `messages` went out, as the thread shows them. */
-function sent(messages: Message[]): number {
-	return messages.filter((each) => !each.queued).length;
-}
-
-/** What a session has used before its agent says anything of it. */
-export function unused(): Usage {
-	return {
-		context: null,
-		input: 0,
-		cached: 0,
-		output: 0,
-		cost: null,
-		limits: [],
-	};
-}
-
-/** A prompt entry's images and files, each left out of the log when there are none. */
-function shown(sent: Sent[]): { images?: Image[]; files?: Attached[] } {
-	const images = sent.flatMap(({ type, ...image }) =>
-		type === "image" ? [image] : [],
-	);
-	const files = sent.flatMap((each) => {
-		if (each.type !== "file") {
-			return [];
-		}
-		const { type: _, ...file } = each;
-		return [file];
-	});
-	return {
-		...(images.length === 0 ? {} : { images }),
-		...(files.length === 0 ? {} : { files }),
-	};
-}
-
 /**
  * The extension a file the person called `title` is kept under: its own, when
  * it reads as one, so the agent can tell what it holds.
@@ -2477,124 +1663,6 @@ function shown(sent: Sent[]): { images?: Image[]; files?: Attached[] } {
 function extensionOf(title: string): string {
 	const extension = /\.([a-z0-9]{1,10})$/i.exec(title)?.[1];
 	return extension === undefined ? "bin" : extension.toLowerCase();
-}
-
-/** The words of `message`, without what was sent with them. */
-function textOf(message: Message): string {
-	return message.parts
-		.map((part) => (part.type === "text" ? part.text : ""))
-		.join("");
-}
-
-/** The ACP extension that says a prompt into the turn the agent is running. */
-const STEER = "_session/steering";
-
-/**
- * The updates and request, an ACP draft Claude's adapter speaks ahead of the
- * SDK, that say when a background command starts and ends, and stop one.
- */
-const ASYNC_TASK_SPAWNED = "async_task_spawned";
-const ASYNC_TASK_STATE = "async_task_state_update";
-const ASYNC_TASK_PROGRESS = "async_task_progress";
-const ASYNC_TASK_STOP = "_session/async_task/stop";
-
-/**
- * Where `asyncTasks` moves those updates: the SDK refuses a session update it
- * does not know, so they reach the client as a notification of their own.
- */
-const ASYNC_TASK_UPDATE = "_arbor/async_task";
-
-/**
- * The messages from an agent, each update on a background command moved to
- * `ASYNC_TASK_UPDATE`, ahead of the SDK's checks.
- */
-function asyncTasks(
-	messages: ReadableStream<acp.AnyMessage>,
-): ReadableStream<acp.AnyMessage> {
-	return messages.pipeThrough(
-		new TransformStream<acp.AnyMessage, acp.AnyMessage>({
-			transform(message, controller) {
-				const kind =
-					"method" in message && message.method === "session/update"
-						? (message.params as { update?: { sessionUpdate?: unknown } })
-								?.update?.sessionUpdate
-						: undefined;
-				controller.enqueue(
-					kind === ASYNC_TASK_SPAWNED ||
-						kind === ASYNC_TASK_STATE ||
-						kind === ASYNC_TASK_PROGRESS
-						? { ...message, method: ASYNC_TASK_UPDATE }
-						: message,
-				);
-			},
-		}),
-	);
-}
-
-interface AsyncTaskSpawned {
-	sessionUpdate: typeof ASYNC_TASK_SPAWNED;
-	asyncTaskId: string;
-	name: string;
-	/** `shell` for a command, else a workflow or the like. */
-	taskType: string;
-	description: string;
-	toolCallId?: string;
-	outputFilePath?: string;
-}
-
-interface AsyncTaskState {
-	sessionUpdate: typeof ASYNC_TASK_STATE;
-	asyncTaskId: string;
-	state: "running" | "paused" | "completed" | "failed" | "stopped";
-	outputFilePath?: string;
-}
-
-/** What the agent says as a command goes on: here, only where its output is. */
-interface AsyncTaskProgress {
-	sessionUpdate: typeof ASYNC_TASK_PROGRESS;
-	asyncTaskId: string;
-	outputFilePath?: string;
-}
-
-type AsyncTaskUpdate = AsyncTaskSpawned | AsyncTaskState | AsyncTaskProgress;
-
-/** Whether an agent says, as it starts, that it takes `STEER`. */
-function steers(initialized: acp.InitializeResponse): boolean {
-	const steering = initialized._meta?.steering;
-	return (
-		typeof steering === "object" &&
-		steering !== null &&
-		"supported" in steering &&
-		steering.supported === true
-	);
-}
-
-/** Marks every queued message as gone out. */
-function delivered(messages: Message[]): void {
-	for (const each of messages) {
-		delete each.queued;
-	}
-}
-
-/** Removes the `index`th queued message, returning it if there was one. */
-function takeBack(messages: Message[], index: number): Message | null {
-	const queued = messages.filter((each) => each.queued);
-	const message = queued[index];
-	if (message === undefined) {
-		return null;
-	}
-	messages.splice(messages.indexOf(message), 1);
-	return message;
-}
-
-function messageOf(error: unknown): string {
-	if (error instanceof Error) {
-		return error.message;
-	}
-	if (typeof error === "object" && error !== null && "message" in error) {
-		return String(error.message);
-	}
-	return String(error);
 }
 
 /** How many archived conversations are kept; older archived ones are deleted. */
@@ -2938,94 +2006,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				this.track(read);
 			}
 		}
-	}
-}
-
-/** A session an agent holds that arbor could bring in. */
-export interface Session {
-	agent: string;
-	session: string;
-	title: string | null;
-	/** When it was last active, as the agent says; null when it does not. */
-	updatedAt: string | null;
-}
-
-/** How long an agent has to start and list its sessions. */
-const LIST_WAIT = Duration.secs(30);
-
-/** How many pages of sessions are read from an agent, at most. */
-const LIST_PAGES = 10;
-
-/**
- * The sessions `agent` holds in `cwd`, asked of a process of its own that
- * stops once it answers; none when it cannot both list and load them.
- */
-async function listSessions(
-	agent: Agent,
-	cwd: string,
-	run: Launch,
-	timer: Timer,
-): Promise<Session[]> {
-	const process = run(agent.argv, cwd, {});
-	let timeout: Resource | null = null;
-	try {
-		const connection = new acp.ClientSideConnection(
-			() => ({
-				sessionUpdate: async () => {},
-				requestPermission: async () => ({ outcome: { outcome: "cancelled" } }),
-			}),
-			acp.ndJsonStream(process.input, process.output),
-		);
-		const listing = (async () => {
-			const initialized = await connection.initialize({
-				protocolVersion: acp.PROTOCOL_VERSION,
-				clientCapabilities: {},
-			});
-			const capabilities = initialized.agentCapabilities;
-			if (
-				capabilities?.loadSession !== true ||
-				capabilities.sessionCapabilities?.list == null
-			) {
-				return [];
-			}
-			const sessions: Session[] = [];
-			let cursor: string | null = null;
-			for (let page = 0; page < LIST_PAGES; page++) {
-				const listed: acp.ListSessionsResponse = await connection.listSessions({
-					cwd,
-					cursor,
-				});
-				for (const each of listed.sessions) {
-					// An agent may list more than it was asked for.
-					if (each.cwd === cwd) {
-						sessions.push({
-							agent: agent.id,
-							session: each.sessionId,
-							title: each.title ?? null,
-							updatedAt: each.updatedAt ?? null,
-						});
-					}
-				}
-				cursor = listed.nextCursor ?? null;
-				if (cursor === null) {
-					break;
-				}
-			}
-			return sessions;
-		})();
-		const gaveUp = new Promise<never>((_, reject) => {
-			timeout = timer.setTimeout(
-				() => reject(new Error(`${agent.name} did not list its sessions`)),
-				LIST_WAIT,
-			);
-		});
-		const died = process.exited.then((code): never => {
-			throw new Error(`${agent.name} exited with code ${code}`);
-		});
-		return await Promise.race([listing, gaveUp, died]);
-	} finally {
-		(timeout as Resource | null)?.dispose();
-		process.kill();
 	}
 }
 
