@@ -5,7 +5,8 @@ import { offers, type Question, settled } from "./plan";
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, its report of how a task ended or what it
- * waits on, its word that it added a task, a todo it proposes, or a demo for
+ * waits on or that the lanes it orchestrated are done, its word that it added
+ * a task, a todo it proposes, or a demo for
  * the person to try.
  */
 export type Stretch =
@@ -33,21 +34,42 @@ export interface Review {
 	details: string;
 }
 
-/** How a task ended, or what it waits on, as the skill's reports title it. */
-export type Ending = "merged" | "removed" | "escalated";
+/**
+ * How a task ended, or what it waits on, or that a lane orchestrator is done
+ * with its lanes, as the skill's reports title them.
+ */
+export type Ending = "merged" | "removed" | "escalated" | "finished";
+
+/** A report on a task, or a lane orchestrator's last word on its lanes. */
+export type Report = TaskReport | LanesReport;
 
 /**
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
  * <task>: <why>`, or `## ⚠️ Escalated <task>: <what it needs>`.
  */
-export interface Report {
-	ending: Ending;
+export interface TaskReport {
+	ending: Exclude<Ending, "finished">;
 	task: string;
 	/** Where it merged; null for the others. */
 	base: string | null;
 	/** What the title says after its colon, if anything. */
 	reason: string | null;
 	/** What changed, and anything else said before what follows, as markdown. */
+	body: string;
+	/** The markdown the agent wrote for it, from its title to its end. */
+	source: string;
+}
+
+/**
+ * The report a lane orchestrator ends on once every lane it works is done,
+ * titled `## 🏁 Finished lanes <name>, <name>`: there is nothing left for it
+ * to hand out.
+ */
+export interface LanesReport {
+	ending: "finished";
+	/** The lanes' names, as the title lists them. */
+	lanes: string[];
+	/** How each lane ended, and anything else said, as markdown. */
 	body: string;
 	/** The markdown the agent wrote for it, from its title to its end. */
 	source: string;
@@ -72,6 +94,7 @@ export interface Proposal {
 const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
 const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 const HEADING = /^#{1,6}[ \t]/;
@@ -180,11 +203,13 @@ function keptAt(
 	const line = lines[start] as string;
 	const merged = MERGED.exec(line);
 	const ended = ENDED.exec(line);
+	const finished = FINISHED.exec(line);
 	const added = ADDED.exec(line);
 	const proposed = PROPOSAL.exec(line);
 	if (
 		merged === null &&
 		ended === null &&
+		finished === null &&
 		added === null &&
 		proposed === null
 	) {
@@ -219,23 +244,33 @@ function keptAt(
 	}
 	const source = lines.slice(start, end).join("\n").replace(/\s+$/, "");
 	const report: Report =
-		merged !== null
+		finished !== null
 			? {
-					ending: "merged",
-					task: merged[1] as string,
-					base: merged[2] as string,
-					reason: null,
+					ending: "finished",
+					lanes: (finished[1] as string)
+						.split(",")
+						.map((lane) => lane.trim())
+						.filter((lane) => lane !== ""),
 					body,
 					source,
 				}
-			: {
-					ending: ended?.[1] === undefined ? "escalated" : "removed",
-					task: ended?.[2] as string,
-					base: null,
-					reason: ended?.[3] || null,
-					body,
-					source,
-				};
+			: merged !== null
+				? {
+						ending: "merged",
+						task: merged[1] as string,
+						base: merged[2] as string,
+						reason: null,
+						body,
+						source,
+					}
+				: {
+						ending: ended?.[1] === undefined ? "escalated" : "removed",
+						task: ended?.[2] as string,
+						base: null,
+						reason: ended?.[3] || null,
+						body,
+						source,
+					};
 	return { stretch: { type: "report", report }, end };
 }
 

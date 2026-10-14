@@ -67,6 +67,38 @@ describe("App's report cards", () => {
 		expect(view.textContent).not.toContain("## ✅");
 	});
 
+	it("shows a lane orchestrator's finished report as a card naming each lane, and offers to archive it", async () => {
+		await testing.openConversations([
+			conversation({
+				title: "Lanes",
+				messages: [
+					message(
+						"agent",
+						[
+							"## 🏁 Finished lanes Stats, Licensing",
+							"",
+							"Both lanes landed.",
+							"",
+							"- Stats: #155 merged.",
+						].join("\n"),
+					),
+				],
+			}),
+		]);
+		const view = document.body;
+
+		const finished = await waitFor(() =>
+			within(view).getByRole("region", { name: "finished Stats, Licensing" }),
+		);
+		expect(finished.textContent).toContain("Finished");
+		expect(within(finished).getByTitle("Stats").textContent).toContain("Lane");
+		expect(within(finished).getByTitle("Licensing")).toBeTruthy();
+		expect(finished.textContent).toContain("Both lanes landed.");
+		expect(
+			within(view).getByRole("region", { name: "archive" }).textContent,
+		).toContain("Finished Stats, Licensing");
+	});
+
 	/** Records each element scrolled into view while `run` runs, in `scrolled`. */
 	const scrollingIntoView = async (
 		run: (scrolled: Element[]) => Promise<void>,

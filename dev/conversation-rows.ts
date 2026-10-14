@@ -2,7 +2,7 @@ import type { ConversationState } from "../conversations";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
 import { NEW } from "./conversation-address";
-import { reportedAs } from "./conversation-names";
+import { reportedAs, reportsDone } from "./conversation-names";
 import type { Drafts } from "./drafts";
 import { isPartOf, type Nested, nest } from "./parts";
 import { arriveAt, questionsSeen, replyCopied, TASK } from "./task-view";
@@ -46,7 +46,7 @@ export function openedBy(row: Needing): string {
 
 /**
  * The next of `rows` after the one `open` shows, around to the top, that
- * waits on you, or with none waiting, the next merged one, then the next
+ * waits on you, or with none waiting, the next merged or finished one, then the next
  * unread one: what ⌥⌘M opens, and archiving goes on to. The one open is
  * passed over, so ⌥⌘M on an escalated task moves on, and comes back to its
  * questions only when nothing else is left.
@@ -87,11 +87,11 @@ export function goOn(
 	}
 }
 
-/** Whether `row` shows as merged in the sidebar. */
+/** Whether `row` shows as merged, or its lanes finished, in the sidebar. */
 function wasMerged({ conversation, need }: Needing): boolean {
 	return (
 		conversation !== null &&
-		reportedAs(conversation) === "merged" &&
+		reportsDone(conversation) &&
 		(need.kind === "idle" ||
 			(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed"))
 	);

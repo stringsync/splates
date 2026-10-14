@@ -319,7 +319,9 @@ at once. The lane is arbor's, not the prompt's, so read it from arbor each
 time:
 
 1. `arbor lane show N` prints the steps and what to do next. When it says
-   the lane is done or gone, say so, and stop once every lane you work is.
+   the lane is done or gone, done by you or by agents you never started, say
+   so in a line. Once every lane you work is, end on a finished report (see
+   Reporting), so the `arbor dev` page shows you as done.
 2. When its next todo is blocked by a todo in another lane, `arbor todo wait
    <id>` for that one, again on `timeout`, rather than skip ahead: a lane is in
    order for reasons the board knows and you do not. Meanwhile, go on with
@@ -368,8 +370,8 @@ You place them in lanes first, then work those lanes as above:
    that no agent is on, as if sent `[ARBOR LANE N]` for it. Leave a lane
    another agent is on to that agent.
 4. Each time you go back to step 1 of a lane, `arbor lane show untriaged`
-   again, and place any todo added since the same way. Stop once nothing is
-   left to place and every lane you work is done.
+   again, and place any todo added since the same way. Once nothing is left
+   to place and every lane you work is done, end on a finished report.
 
 ## Remote access
 
@@ -408,7 +410,8 @@ where you are and start nothing new:
 
 `[ARBOR RESUME]`, sent after a checkpoint, means carry on: read `ARBOR.md`
 again and go on from where `## Notes` says you stopped. With no task, carry on
-with what you were asked.
+with what you were asked; a lane orchestrator reads `arbor lane show` for each
+lane again first, since its tasks may have moved on without it.
 
 ## Handing out part of your task
 
@@ -726,6 +729,22 @@ Why it is a good next step.
 
 A merge or remove report ends with the proposed todos, the best one first,
 each kept to its one sentence; leave them out only when no todo is open.
+
+A lane orchestrator has no task of its own to report on. Once every lane it
+works is done, it ends on one report for them all, the page's sign that it is
+done: `## 🏁 Finished lanes` and the lanes' names as the board shows them,
+then one sentence on what they added up to, and a `- ` line per lane on what
+became of each todo, including those another agent took and landed. It ends
+with the proposed todos, as a merge report does.
+
+```markdown
+## 🏁 Finished lanes Stats, Licensing
+
+The Stats page leads with what to act on, and licenses renew on their own.
+
+- Stats: #155 merged as stats-action-oriented; #152 and #160 landed by another conversation.
+- Licensing: #171 and #172 merged; #173 removed as moot.
+```
 
 ```markdown
 ## ⚠️ Escalated <task>: needs two calls on the todo board

@@ -70,16 +70,17 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	// toggled back; never kept, so the card opens rendered.
 	const [showing, setShowing] = useState(false);
 	// One that merged or removed its task ends it beside the thread too.
-	const ended = useEndCard(report.task, report.ending);
+	const ended = useEndCard(report);
 	return (
 		<div ref={ended}>
 			<CardShell
-				label={`${report.ending} ${report.task}`}
+				label={`${report.ending} ${report.ending === "finished" ? report.lanes.join(", ") : report.task}`}
 				Icon={Icon}
 				title={title}
 				tone={tone}
-				task={report.task}
-				base={report.base}
+				{...(report.ending === "finished"
+					? { lanes: report.lanes }
+					: { task: report.task, base: report.base })}
 				aside={
 					<Button
 						size="icon-xs"
@@ -97,7 +98,10 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 				{showing ? (
 					<Source text={report.source} />
 				) : text === "" ? undefined : (
-					<CardBody text={text} lead={report.reason !== null} />
+					<CardBody
+						text={text}
+						lead={report.ending !== "finished" && report.reason !== null}
+					/>
 				)}
 			</CardShell>
 		</div>

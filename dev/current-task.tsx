@@ -11,7 +11,7 @@ import {
 	useState,
 } from "react";
 import { cn } from "#dev/lib/utils.ts";
-import type { Ending, Start } from "../asked";
+import type { Ending, Report, Start } from "../asked";
 import { CardShell, toCardTop } from "./card-shell";
 import { Markdown } from "./markdown";
 
@@ -81,11 +81,11 @@ export function useStartCard(
 
 /** Gives a report card's element to the registry, if it ends its task. */
 export function useEndCard(
-	task: string,
-	ending: Ending,
+	report: Report,
 ): ((element: HTMLElement | null) => void) | undefined {
-	const ref = useRegistered((registry) => registry.ends, task);
-	return OVER.has(ending) ? ref : undefined;
+	const task = report.ending === "finished" ? null : report.task;
+	const ref = useRegistered((registry) => registry.ends, task ?? "");
+	return task !== null && OVER.has(report.ending) ? ref : undefined;
 }
 
 function useRegistered<T>(

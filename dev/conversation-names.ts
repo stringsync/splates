@@ -101,6 +101,15 @@ export function reportedAs(conversation: ConversationState): Ending | null {
 	return lastReport(conversation)?.ending ?? null;
 }
 
+/**
+ * Whether the conversation's work is done, as `reportedAs` reads it: its task
+ * merged, or the lanes it orchestrated are finished.
+ */
+export function reportsDone(conversation: ConversationState): boolean {
+	const reported = reportedAs(conversation);
+	return reported === "merged" || reported === "finished";
+}
+
 /** The report that is the conversation's last word, as for `reportedAs`. */
 export function lastReport(conversation: ConversationState): Report | null {
 	const last = conversation.messages.at(-1);

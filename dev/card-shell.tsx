@@ -2,6 +2,8 @@ import {
 	ChevronRightIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
+	ColumnsIcon,
+	FlagIcon,
 	GitBranchIcon,
 	type LucideIcon,
 	TriangleAlertIcon,
@@ -64,10 +66,14 @@ export const ENDINGS: Record<
 		Icon: TriangleAlertIcon,
 		tone: "warning",
 	},
+	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
 };
 
 /** What a report says: why it went, or what it waits on, leading the rest. */
 export function reportText(report: Report): string {
+	if (report.ending === "finished") {
+		return report.body;
+	}
 	return [report.reason, report.body]
 		.filter((each) => each !== null && each !== "")
 		.join("\n\n");
@@ -101,6 +107,7 @@ export function CardShell({
 	title,
 	tone = "neutral",
 	task,
+	lanes = [],
 	base = null,
 	aside,
 	folded = false,
@@ -112,6 +119,8 @@ export function CardShell({
 	title: string;
 	tone?: Tone;
 	task?: string;
+	/** The lanes it is about, by name, in place of a task. */
+	lanes?: string[];
 	/** Where the task merges, shown after it. */
 	base?: string | null;
 	/** At the header's end. */
@@ -137,6 +146,7 @@ export function CardShell({
 			title={title}
 			tone={tone}
 			task={task}
+			lanes={lanes}
 			base={base}
 			aside={aside}
 			folded={folded}
@@ -173,6 +183,7 @@ function Header({
 	title,
 	tone,
 	task,
+	lanes,
 	base,
 	aside,
 	folded,
@@ -182,6 +193,7 @@ function Header({
 	title: string;
 	tone: Tone;
 	task: string | undefined;
+	lanes: string[];
 	base: string | null;
 	aside: ReactNode;
 	folded: boolean;
@@ -218,6 +230,16 @@ function Header({
 					)}
 				</span>
 			)}
+			{lanes.map((lane) => (
+				<ReferenceChip
+					key={lane}
+					Icon={ColumnsIcon}
+					kind="Lane"
+					name={lane}
+					title={lane}
+					inline
+				/>
+			))}
 			{aside !== undefined && <span className="ml-auto">{aside}</span>}
 		</div>
 	);

@@ -8,7 +8,7 @@ import {
 import { type JSX, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import type { Report } from "../asked";
+import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Question } from "../plan";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
@@ -27,7 +27,7 @@ import { Refusal, useRefusal } from "./refusal";
  */
 export interface QuestionsData {
 	questions: Question[];
-	escalation: Report | null;
+	escalation: TaskReport | null;
 	demo: Demo | null;
 }
 
@@ -48,7 +48,7 @@ export function QuestionCards({
 }: {
 	questions: Question[];
 	/** The escalation they end, which heads them in its place. */
-	escalation?: Report | null;
+	escalation?: TaskReport | null;
 	/** The demo they ask about, shown above them. */
 	demo?: Demo | null;
 	/** The name it keeps what is written under in the conversation's drafts. */

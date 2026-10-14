@@ -144,7 +144,7 @@ export function Thread({
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
 	// What the conversation's last word reports, to offer archiving it when
-	// the task is over.
+	// the task is over, or the lanes it worked are.
 	const report = lastReport(conversation);
 	const ended =
 		report !== null && report.ending !== "escalated" && !archived
@@ -425,7 +425,10 @@ function ArchiveBar({
 		>
 			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 truncate">
-				{title} <span className="font-mono text-xs">{report.task}</span>
+				{title}{" "}
+				<span className="font-mono text-xs">
+					{report.ending === "finished" ? report.lanes.join(", ") : report.task}
+				</span>
 			</span>
 			{shortcut !== null && <Kbd className="ml-auto">{shortcut}</Kbd>}
 			<Button

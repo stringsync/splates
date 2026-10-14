@@ -82,7 +82,7 @@ Cap upload retries
 		]);
 	});
 
-	it("marks a conversation whose task merged green and one removed red until the person carries on, and one that escalated as waiting on you", async () => {
+	it("marks a conversation whose task merged, or whose lanes finished, green and one removed red until the person carries on, and one that escalated as waiting on you", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({
@@ -99,6 +99,16 @@ Cap upload retries
 						message(
 							"agent",
 							"## 🛑 Removed footer: superseded\n\nIt moved the footer.",
+						),
+					],
+				}),
+				conversation({
+					id: "c5",
+					title: "Orchestrated",
+					messages: [
+						message(
+							"agent",
+							"## 🏁 Finished lanes Stats, Licensing\n\nBoth landed.",
 						),
 					],
 				}),
@@ -140,8 +150,9 @@ Cap upload retries
 				.map((row) => [
 					row.textContent,
 					(
-						within(row).queryByRole("img", { name: /^(merged|removed)$/ }) ??
-						within(row).queryByRole("status")
+						within(row).queryByRole("img", {
+							name: /^(merged|removed|finished)$/,
+						}) ?? within(row).queryByRole("status")
 					)?.getAttribute("aria-label") ?? null,
 				]),
 		);
@@ -149,6 +160,7 @@ Cap upload retries
 		expect(marks).toEqual({
 			Landed: "merged",
 			Dropped: "removed",
+			Orchestrated: "finished",
 			"Carried on": null,
 			alpha: "waiting on you",
 		});

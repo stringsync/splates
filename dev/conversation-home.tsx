@@ -23,7 +23,12 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { whereOf } from "./conversation-item";
-import { reportedAs, unnamed, useNameOf } from "./conversation-names";
+import {
+	reportedAs,
+	reportsDone,
+	unnamed,
+	useNameOf,
+} from "./conversation-names";
 import { hostingWork, needOf } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
@@ -117,14 +122,14 @@ export function Home({
 	const restore = useRef<(text: string, files: File[]) => void>(() => {});
 	// Only unfinished work at rest: one at work, through its subagents too, or
 	// waiting on the person is in the sidebar already, and one whose task
-	// merged is done.
+	// merged, or whose lanes finished, is done.
 	const hosting = hostingWork(tasks, conversations);
 	const recent = listed
 		.filter(
 			(each) =>
 				needOf(tasks, each).kind === "idle" &&
 				!hosting.has(each.id) &&
-				reportedAs(each) !== "merged",
+				!reportsDone(each),
 		)
 		.slice(0, RECENT);
 	const runtime = useExternalStoreRuntime({

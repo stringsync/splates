@@ -182,6 +182,36 @@ describe("stretches", () => {
 		});
 	});
 
+	it("reads the skill's finished lanes report, naming each lane", async () => {
+		const example = (await skillExamples()).find((each) =>
+			each.startsWith("## 🏁 Finished lanes"),
+		);
+		if (example === undefined) {
+			throw new Error("the skill has no finished lanes example");
+		}
+
+		expect(stretches(example)).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "finished",
+					lanes: ["Stats", "Licensing"],
+					body: expect.stringContaining("- Stats: #155 merged"),
+					source: example,
+				},
+			},
+		]);
+		expect(stretches("## 🏁 Finished lane Stats\n\nIt leads.")[0]).toEqual({
+			type: "report",
+			report: {
+				ending: "finished",
+				lanes: ["Stats"],
+				body: "It leads.",
+				source: "## 🏁 Finished lane Stats\n\nIt leads.",
+			},
+		});
+	});
+
 	it("reads the skill's word that it added a task, its Goal under it", async () => {
 		const example = (await skillExamples()).find((each) =>
 			each.startsWith("## 🌱 Added"),
