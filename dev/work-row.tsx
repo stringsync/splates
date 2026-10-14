@@ -1,4 +1,4 @@
-import { makeAssistantDataUI } from "@assistant-ui/react";
+import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import {
 	CheckIcon,
 	ChevronRightIcon,
@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import { createContext, type JSX, use, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
+import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Step, Tool } from "../conversations";
+import { InMessage, useCardReply } from "./card-reply";
 import {
 	flagged,
 	label,
@@ -59,15 +61,43 @@ export const StoppedUI = makeAssistantDataUI<{ at: string }>({
 export const InterruptedUI = makeAssistantDataUI<{ at: string }>({
 	name: "interrupted",
 	render: () => (
-		<div
-			data-slot="interrupted"
-			className="my-2 flex items-center gap-1.5 text-muted-foreground text-sm"
-		>
-			<UnplugIcon className="size-3 shrink-0" />
-			Interrupted, connection lost
-		</div>
+		<InMessage>
+			<Interrupted />
+		</InMessage>
 	),
 });
+
+/** The line, with a button to carry on while the person has said nothing since. */
+function Interrupted(): JSX.Element {
+	const { reply, sent } = useCardReply();
+	const last = useAuiState(
+		(state) => state.message.index === state.thread.messages.length - 1,
+	);
+	return (
+		<div
+			data-slot="interrupted"
+			className="my-2 flex flex-col items-start gap-2 text-muted-foreground text-sm"
+		>
+			<span className="flex items-center gap-1.5">
+				<UnplugIcon className="size-3 shrink-0" />
+				Interrupted, connection lost
+			</span>
+			{last && sent === null && reply?.send != null ? (
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => void reply.send?.(CONTINUE)}
+				>
+					Resume
+				</Button>
+			) : null}
+		</div>
+	);
+}
+
+/** What the agent hears when the person resumes it. */
+const CONTINUE =
+	"Your connection was interrupted. Carry on from where you were.";
 
 /** Where the project's trees sit, so a path can show from the top of its own. */
 export const TreesContext = createContext<Trees | null>(null);

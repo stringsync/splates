@@ -370,8 +370,40 @@ describe("App's sending messages", () => {
 				1,
 			),
 		);
-		expect(thread.querySelector('[data-slot="interrupted"]')?.textContent).toBe(
-			"Interrupted, connection lost",
+		expect(
+			thread.querySelector('[data-slot="interrupted"]')?.textContent,
+		).toContain("Interrupted, connection lost");
+	});
+
+	it("offers to resume the turn a lost connection cut short, until something is said", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Cut short",
+				status: "failed",
+				messages: [
+					message("user", "go"),
+					{
+						...message("agent", "Starting on it."),
+						interrupted: "2026-10-12T10:00:00.000Z",
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Cut short" });
+
+		await act(async () =>
+			fireEvent.click(
+				await within(thread).findByRole("button", { name: "Resume" }),
+			),
 		);
+
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{
+				method: "POST",
+				body: {
+					text: "Your connection was interrupted. Carry on from where you were.",
+				},
+			},
+		]);
 	});
 });
