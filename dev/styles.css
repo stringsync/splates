@@ -83,6 +83,7 @@
 @source "./plan-limits.tsx";
 @source "./waiting-line.tsx";
 @source "./work-row.tsx";
+@source "./work-timeline.tsx";
 @source "./changes.tsx";
 @source "./actions.tsx";
 @source "./references.tsx";
