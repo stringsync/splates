@@ -90,7 +90,9 @@ never its lease: `stale` is normal for one mid-edit.
 When `arbor add` makes your task, say so in a message of its own, which the
 `arbor dev` page shows as a card: a `## 🌱 Added <task>` title, a blank line,
 and the Goal, one or two lines on what done means as you understand it so
-far. Say it once per task, never for a claim.
+far. Say it once per task, never for a claim. Say it next, before any other
+words: when your harness asks you to say what you are doing, this card is
+that word, never a line on what you will read first.
 
 ```markdown
 ## 🌱 Added <task>

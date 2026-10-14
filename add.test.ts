@@ -176,6 +176,15 @@ describe("add", () => {
 			pending: true,
 		});
 		expect(deps.out()).toContain("agent:    fake (small)");
+		expect(deps.out()).not.toContain("🌱 Added");
+	});
+
+	it("tells the agent that added the task to say so as its Added card", async () => {
+		await add(deps, "alpha");
+
+		expect(deps.out()).toContain(
+			'next:     say "## 🌱 Added alpha" and its Goal before anything else',
+		);
 	});
 
 	it("hands the task to no agent when its hook fails", async () => {
