@@ -35,6 +35,7 @@
 @source "./conversations.tsx";
 @source "./demo-cards.tsx";
 @source "./directives.tsx";
+@source "./reference-chip.tsx";
 @source "./agent-icons.tsx";
 @source "./projects.tsx";
 @source "./checkpoint.tsx";

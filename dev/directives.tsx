@@ -6,11 +6,11 @@ import {
 	SparklesIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
-import { cn } from "#dev/lib/utils.ts";
 import { DIRECTIVES } from "../prompts";
 import { Board, type BoardContext } from "./board";
 import { CardBody, CardShell } from "./card-shell";
 import { outsideCode } from "./markdown";
+import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
 
 /** Where a link written by `linkDirectives` points, read back by `directiveIn`. */
@@ -94,7 +94,9 @@ function about(
 				icon: GitBranchIcon,
 				kind: "Task",
 				name: argument,
-				open: () => board.openTask(argument),
+				open: board.tasks.includes(argument)
+					? () => board.openTask(argument)
+					: undefined,
 			};
 		default:
 			return {
@@ -121,40 +123,16 @@ export function DirectiveChip({
 	inline?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
-	const { icon: Icon, kind, name, open } = about(directive, board);
-	const inside = (
-		<>
-			<Icon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
-			<span className="shrink-0 font-medium">{kind}</span>
-			{name !== "" && (
-				<span className="min-w-0 truncate text-muted-foreground">{name}</span>
-			)}
-		</>
-	);
-	const look = cn(
-		"max-w-80 min-w-0 shrink-0 items-center gap-1 rounded-md border px-1.5 text-foreground/90 text-xs",
-		inline ? "inline-flex h-6 align-middle" : "flex h-7",
-	);
-	if (opens && board.linked && open !== undefined) {
-		return (
-			<button
-				type="button"
-				title={directive}
-				onClick={(event) => {
-					// Opens what it names, rather than the message it sits in.
-					event.stopPropagation();
-					open();
-				}}
-				className={`${look} cursor-pointer hover:bg-muted`}
-			>
-				{inside}
-			</button>
-		);
-	}
+	const { icon, kind, name, open } = about(directive, board);
 	return (
-		<span title={directive} className={look}>
-			{inside}
-		</span>
+		<ReferenceChip
+			Icon={icon}
+			kind={kind}
+			name={name}
+			title={directive}
+			open={opens && board.linked ? open : undefined}
+			inline={inline}
+		/>
 	);
 }
 

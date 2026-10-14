@@ -1518,13 +1518,14 @@ export function Conversations({
 			lanes: named(todos, lanes),
 			open: setOpenedTodo,
 			openTask: setOpenedTask,
+			tasks: tasks.map((each) => each.task),
 			moveLane: () => {},
 			refusedTodos: new Map(),
 			refusedLanes: new Map(),
 			refuseLane: () => {},
 			drafts,
 		}),
-		[todos, lanes, drafts],
+		[todos, lanes, drafts, tasks],
 	);
 	const todo = todos.find((each) => each.id === openedTodo);
 	const task = tasks.find((each) => each.task === openedTask);

@@ -4,7 +4,8 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 // `screen` is deliberately unused: it binds to `document.body` when this module
 // is imported, which happens before `./dom` registers one. The queries that
 // `render` hands back bind on call instead.
-import { Markdown } from "./markdown";
+import { Board, NO_BOARD } from "./board";
+import { linkTasks, Markdown } from "./markdown";
 
 describe("Markdown", () => {
 	it("renders a heading at its own level", () => {
@@ -201,5 +202,46 @@ describe("Markdown", () => {
 
 		expect(container.querySelector("a")).toBeNull();
 		expect(container.textContent).toBe("See the docs");
+	});
+});
+
+describe("linkTasks", () => {
+	it("links a task's branch in prose or as inline code alone", () => {
+		expect(
+			linkTasks("Merged task/fix-login, then `task/fix-login-page`."),
+		).toBe(
+			"Merged [fix-login](#task=fix-login), then [fix-login-page](#task=fix-login-page).",
+		);
+	});
+
+	it("leaves a bare name, a path, a longer command and a code block", () => {
+		const text =
+			"fix-login, `fix-login`, `git checkout task/fix-login`, src/task/fix-login, task/fix-login.ts, [x](#task=fix-login)\n\n```\ntask/fix-login\n```";
+
+		expect(linkTasks(text)).toBe(text);
+	});
+});
+
+describe("Markdown's task mentions", () => {
+	it("draws a task's branch as its chip, which opens a live task", () => {
+		const opened: string[] = [];
+		const page = render(
+			<Board
+				value={{
+					...NO_BOARD,
+					linked: true,
+					tasks: ["fix-login"],
+					openTask: (task) => opened.push(task),
+				}}
+			>
+				<Markdown text="Landed `task/fix-login` after task/gone-now." />
+			</Board>,
+		);
+
+		fireEvent.click(page.getByTitle("fix-login"));
+
+		expect(opened).toEqual(["fix-login"]);
+		expect(page.getByTitle("gone-now").tagName).toBe("SPAN");
+		expect(page.container.querySelector("code")).toBeNull();
 	});
 });

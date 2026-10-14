@@ -15,6 +15,8 @@ export interface BoardContext {
 	lanes: LaneRecord[];
 	open: (id: number) => void;
 	openTask: (task: string) => void;
+	/** Every live task, by name: those a chip naming one opens. */
+	tasks: readonly string[];
 	/** Puts a lane at a position among the lanes, 1 the first column. */
 	moveLane: (id: number, position: number) => void;
 	/** What was refused of each card, by its id, said on the card. */
@@ -26,18 +28,22 @@ export interface BoardContext {
 	drafts: Drafts;
 }
 
-export const Board = createContext<BoardContext>({
+/** No board, as outside one: nothing to name and nothing to open. */
+export const NO_BOARD: BoardContext = {
 	linked: false,
 	todos: [],
 	lanes: [],
 	open: () => {},
 	openTask: () => {},
+	tasks: [],
 	moveLane: () => {},
 	refusedTodos: new Map(),
 	refusedLanes: new Map(),
 	refuseLane: () => {},
 	drafts: new Drafts(),
-});
+};
+
+export const Board = createContext<BoardContext>(NO_BOARD);
 
 /**
  * Keeps a press on a button inside a card from starting a drag of the card,

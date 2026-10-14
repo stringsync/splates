@@ -2,6 +2,7 @@ import {
 	ChevronRightIcon,
 	CircleCheckIcon,
 	CircleSlashIcon,
+	GitBranchIcon,
 	type LucideIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import type { Ending, Report } from "../asked";
 import { Markdown } from "./markdown";
+import { ReferenceChip, TaskChip } from "./reference-chip";
 
 /** How a card's header is tinted: by what the person is to make of it. */
 export type Tone = "neutral" | "success" | "warning" | "destructive" | "info";
@@ -200,26 +202,24 @@ function Header({
 			<Icon className={cn("size-4", TONES[tone].icon)} />
 			<span className="font-medium text-[13px]">{title}</span>
 			{task !== undefined && (
-				<span className="flex min-w-0 items-center gap-1.5 font-mono text-[12px] text-muted-foreground">
-					<Chip>{task}</Chip>
+				<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+					<TaskChip task={task} inline />
 					{base !== null && (
 						<>
-							<span aria-hidden>→</span>
-							<Chip>{base}</Chip>
+							<span>onto</span>
+							<ReferenceChip
+								Icon={GitBranchIcon}
+								kind=""
+								name={base}
+								title={base}
+								inline
+							/>
 						</>
 					)}
 				</span>
 			)}
 			{aside !== undefined && <span className="ml-auto">{aside}</span>}
 		</div>
-	);
-}
-
-function Chip({ children }: { children: ReactNode }): JSX.Element {
-	return (
-		<span className="truncate rounded-md bg-background px-1.5 py-0.5 ring-1 ring-border">
-			{children}
-		</span>
 	);
 }
 

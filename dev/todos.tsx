@@ -133,6 +133,7 @@ export function Todos({
 			lanes: records,
 			open: (id: number) => view.open(id),
 			openTask: (name: string) => view.openTask(snapshot, name),
+			tasks: snapshot.tasks.map((each) => each.task),
 			moveLane: (id: number, position: number) =>
 				void board
 					.moveLane(snapshot.lanes, id, position)

@@ -16,7 +16,13 @@ import { DirectiveChip, directiveIn } from "#dev/directives.tsx";
 import { useCopyToClipboard } from "#dev/hooks/use-copy-to-clipboard.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
-import { linkMentions, Mention, mentionIn } from "#dev/markdown.tsx";
+import {
+	linkMentions,
+	linkTasks,
+	Mention,
+	mentionIn,
+	taskIn,
+} from "#dev/markdown.tsx";
 import { Media } from "#dev/media.tsx";
 import {
 	linkNamed,
@@ -24,6 +30,7 @@ import {
 	NamedContext,
 	namedIn,
 } from "#dev/mentioned.tsx";
+import { TaskChip } from "#dev/reference-chip.tsx";
 
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
 	components?: Parameters<typeof memoizeMarkdownComponents>[0];
@@ -72,9 +79,10 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, typed }) => {
 			<MarkdownTextPrimitive
 				remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
 				// Each `#N` a link to that todo, which `a` draws as a mention, and
-				// each system and path the tree names one `a` draws as its chip.
+				// each system, path and task the page names one `a` draws as its
+				// chip.
 				preprocess={(text: string) =>
-					linkMentions(linkNamed(typed ? typed(text) : text, named))
+					linkMentions(linkNamed(linkTasks(typed ? typed(text) : text), named))
 				}
 				className="aui-md"
 				components={markdownComponents}
@@ -231,6 +239,10 @@ const defaultComponents = memoizeMarkdownComponents({
 		const directive = directiveIn(props.href);
 		if (directive !== null) {
 			return <DirectiveChip directive={directive} opens inline />;
+		}
+		const task = taskIn(props.href);
+		if (task !== null) {
+			return <TaskChip task={task} inline />;
 		}
 		const attachment = attachmentIn(props.href);
 		if (attachment !== null) {

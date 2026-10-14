@@ -6,6 +6,7 @@ import { MENTION } from "../lanes";
 import { Board, still } from "./board";
 import { GROUP } from "./lightbox";
 import { Alt, Media } from "./media";
+import { TaskChip } from "./reference-chip";
 
 export interface MarkdownProps {
 	text: string;
@@ -39,12 +40,11 @@ export function Markdown({
 	inline = false,
 	unlinked = false,
 }: MarkdownProps): JSX.Element {
+	const linked = linkMentions(linkTasks(text));
 	if (inline) {
 		return (
 			<span className={cn("min-w-0 break-words", className)}>
-				<Render options={unlinked ? UNLINKED : INLINE}>
-					{linkMentions(text)}
-				</Render>
+				<Render options={unlinked ? UNLINKED : INLINE}>{linked}</Render>
 			</span>
 		);
 	}
@@ -59,9 +59,7 @@ export function Markdown({
 				className,
 			)}
 		>
-			<Render options={preview ? GLIMPSE : OPTIONS}>
-				{linkMentions(text)}
-			</Render>
+			<Render options={preview ? GLIMPSE : OPTIONS}>{linked}</Render>
 		</div>
 	);
 }
@@ -158,18 +156,63 @@ export function linkMentions(text: string): string {
 	);
 }
 
+/** A fenced block or inline code, kept by a split as its odd parts. */
+const CODE = /(```[\s\S]*?(?:```|$)|`[^`\n]*`)/;
+
 /** `text` with `change` made to each stretch of it outside code. */
 export function outsideCode(
 	text: string,
 	change: (prose: string) => string,
 ): string {
 	return text
-		.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/)
+		.split(CODE)
 		.map((part, i) =>
 			// The odd parts are the code the split kept, left as written.
 			i % 2 === 1 ? part : change(part),
 		)
 		.join("");
+}
+
+/** Where a mention of a task links to, read back by `taskIn`. */
+const TASK_LINK = /^#task=(.+)$/;
+
+/** A task's branch, `task/<name>`, and the name in it. */
+const TASK_BRANCH = /^task\/([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
+/**
+ * A task's branch standing as a word of its own in prose, not inside a path,
+ * a link or another word: `src/task/a`, `=task/a`, `task/a.ts`.
+ */
+const TASK_WORD =
+	/(?<![\w/.=#@[-])task\/([a-z0-9]+(?:-[a-z0-9]+)*)(?![\w/\]-]|\.\w)/g;
+
+/**
+ * `text` with each task it mentions by its branch, `task/<name>`, made a link
+ * that `taskIn` reads back, so it draws as the task's chip: in prose, or as
+ * inline code holding the branch alone.
+ */
+export function linkTasks(text: string): string {
+	return text
+		.split(CODE)
+		.map((part, i) => {
+			// The odd parts are the code the split kept.
+			if (i % 2 === 0) {
+				return part.replace(TASK_WORD, (_, task: string) => taskLink(task));
+			}
+			const task = TASK_BRANCH.exec(/^`([^`\n]*)`$/.exec(part)?.[1] ?? "")?.[1];
+			return task === undefined ? part : taskLink(task);
+		})
+		.join("");
+}
+
+function taskLink(task: string): string {
+	return `[${task}](#task=${encodeURIComponent(task)})`;
+}
+
+/** The task a link written by `linkTasks` mentions, or null for another. */
+export function taskIn(href: string | undefined): string | null {
+	const link = TASK_LINK.exec(href ?? "");
+	return link === null ? null : decodeURIComponent(link[1] ?? "");
 }
 
 /**
@@ -241,6 +284,10 @@ function Link(props: ComponentProps<"a">): JSX.Element {
 	const mention = mentionIn(props.href);
 	if (mention !== null) {
 		return <Mention id={mention} />;
+	}
+	const task = taskIn(props.href);
+	if (task !== null) {
+		return <TaskChip task={task} inline />;
 	}
 	return (
 		<a
