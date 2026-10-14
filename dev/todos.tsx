@@ -69,7 +69,9 @@ export function Todos({
 	const lanes = laneList(all, records);
 	const shown = lanes.filter((lane) => !hidden.includes(lane.id));
 	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
-	const { refusals: refusedLanes, refuse: refuseLane } = useRefusals<number>();
+	const { refusals: refusedLanes, refuse: refuseLane } = useRefusals<
+		number | null
+	>();
 	const context = useMemo(
 		() => ({
 			linked: true,
@@ -148,7 +150,12 @@ export function Todos({
 						onToggle={(lane) => view.toggleLane(lane)}
 						onHide={(lanes) => view.hide(lanes)}
 					/>
-					<StartLanes lanes={lanes} />
+					<StartLanes
+						lanes={lanes}
+						untriaged={all.some(
+							(todo) => todo.lane === null && todo.takenBy === null,
+						)}
+					/>
 				</div>
 				<div
 					ref={scroller}

@@ -3,12 +3,13 @@ import { z } from "zod";
 import type { ArborDeps } from "./arbor";
 import { position } from "./arbor-flags";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
+import { UNTRIAGED } from "./prompts";
 import { repository } from "./repository";
 
 /** `arbor lane`, which the root cli mounts after `arbor todo`. */
 export const arborLane = cli<ArborDeps>("lane")
 	.description(
-		"lanes: named runs of todos, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing each todo to an agent on the model it names. A todo in no lane is untriaged",
+		"lanes: named runs of todos, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing each todo to an agent on the model it names. A todo in no lane is untriaged, and `[ARBOR LANE untriaged]` starts one that places those in lanes first",
 	)
 	.use(repository());
 
@@ -23,11 +24,19 @@ arborLane
 arborLane
 	.command("show")
 	.description(
-		"one lane step by step, and what its agent does next: start the next todo, or wait for the one blocking it in another lane to land first",
+		"one lane step by step, and what its agent does next: start the next todo, or wait for the one blocking it in another lane to land first; `untriaged` lists the todos in no lane, to place in lanes",
 	)
-	.arg("lane", z.coerce.number().int().positive(), {
-		description: "lane number",
-	})
+	.arg(
+		"lane",
+		z.union(
+			[
+				z.literal(UNTRIAGED).transform(() => null),
+				z.coerce.number().int().positive(),
+			],
+			{ error: "pass a lane's number, or untriaged" },
+		),
+		{ description: "lane number, or `untriaged`" },
+	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action((opts, ctx) => laneShow(ctx, opts.lane, { json: opts.json }));
 

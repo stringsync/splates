@@ -9,7 +9,8 @@ import { type Drafts, newDraft } from "./drafts";
 /** What a todo, a lane or a task is, to put an agent to work on it. */
 export type Assignment =
 	| { kind: "todo"; id: number }
-	| { kind: "lane"; id: number }
+	/** A lane by its number, or null for the untriaged todos. */
+	| { kind: "lane"; id: number | null }
 	| { kind: "task"; task: string };
 
 /**

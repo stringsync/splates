@@ -6,7 +6,7 @@ import {
 	TreePineIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
-import { DIRECTIVES } from "../prompts";
+import { DIRECTIVES, UNTRIAGED } from "../prompts";
 import { Board, type BoardContext } from "./board";
 import { CardBody, CardShell } from "./card-shell";
 import { outsideCode } from "./markdown";
@@ -82,6 +82,9 @@ function about(
 			};
 		}
 		case "LANE": {
+			if (argument === UNTRIAGED) {
+				return { icon: ColumnsIcon, kind: "Untriaged", name: "" };
+			}
 			const id = Number(argument);
 			return {
 				icon: ColumnsIcon,
@@ -191,7 +194,10 @@ export function DirectiveCard({
 	if (kind === undefined) {
 		return null;
 	}
-	const { title, asked } = CARDS[kind as keyof typeof CARDS];
+	const { title, asked } =
+		argument === UNTRIAGED
+			? { title: "Lane", asked: "triage and work down" }
+			: CARDS[kind as keyof typeof CARDS];
 	return (
 		<CardShell
 			label={`${asked} ${title.toLowerCase()} ${argument}`}

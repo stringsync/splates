@@ -235,6 +235,41 @@ describe.concurrent("lanes", () => {
 		await expect(laneShow(deps, 9)).toBail("not_found");
 	});
 
+	it("shows the untriaged todos and how to place them in lanes", async () => {
+		await using deps = await Testing.open();
+		await seed(
+			deps.todos,
+			sound2score().map((todo) =>
+				todo.id === 198 || todo.id === 201
+					? { ...todo, lane: null, blockedBy: todo.id === 201 ? [177] : [] }
+					: todo,
+			),
+		);
+		deps.log.clear();
+
+		await laneShow(deps, null);
+
+		const out = color.strip(deps.out());
+		expect(out).toContain("untriaged: 2 todos in no lane");
+		expect(out).toContain("2. #198 Detect tempo in swing rhythms");
+		expect(out).toContain(
+			"1. #201 Rename the export menu  (blocked by #177 in Licensing)",
+		);
+		expect(out).toContain(
+			"next: place each in a lane, linking what blocks each:",
+		);
+		expect(out).toContain("arbor todo update <id> --lane new");
+
+		for (const id of [198, 201]) {
+			await todoUpdate(deps, id, { lane: 3 });
+		}
+		deps.log.clear();
+		await laneShow(deps, null);
+		expect(color.strip(deps.out())).toContain(
+			"Nothing to place: work down each lane you placed one in that no agent is on",
+		);
+	});
+
 	it("goes on down the lane after a merge, waiting on another lane when it must", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.todos, sound2score());

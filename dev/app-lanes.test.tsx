@@ -93,6 +93,42 @@ describe("App's lanes", () => {
 		).toBeTruthy();
 	});
 
+	it("offers the untriaged lane's prompt while one of its todos is open", async () => {
+		const copied: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText: async (text: string) => void copied.push(text) },
+		});
+		const view = await testing.open({
+			todos: [
+				todo({ id: 4, subject: "Retry the upload" }),
+				todo({ id: 5, subject: "Sign in", takenBy: "auth" }),
+			],
+		});
+		const untriaged = view.getByRole("region", { name: "Untriaged" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(untriaged).getByRole("button", { name: "Start lane" }),
+			),
+		);
+
+		expect(copied).toEqual(["[ARBOR LANE untriaged]"]);
+	});
+
+	it("offers no untriaged prompt once every todo in no lane is taken", async () => {
+		const view = await testing.open({
+			todos: [todo({ id: 5, subject: "Sign in", takenBy: "auth" })],
+		});
+
+		expect(
+			within(view.getByRole("region", { name: "Untriaged" })).queryByRole(
+				"button",
+				{ name: "Start lane" },
+			),
+		).toBeNull();
+	});
+
 	it("unblocks with one tap in the dialog, sending what is left", async () => {
 		const view = await testing.open({
 			todos: sound2score(),

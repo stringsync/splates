@@ -7,6 +7,7 @@ import {
 	lane,
 	lanes,
 } from "./lanes";
+import { UNTRIAGED } from "./prompts";
 import { table } from "./table";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
@@ -58,15 +59,20 @@ export interface LaneShowOptions {
 
 /**
  * One lane in full, step by step: what an agent handed `[ARBOR LANE N]`
- * reads to know which todo is next, and whether it is blocked first.
+ * reads to know which todo is next, and whether it is blocked first. For
+ * null, the untriaged todos, and how to place them in lanes.
  */
 export async function laneShow(
 	{ todos, log }: { todos: Todos; log: Logger },
-	id: number,
+	id: number | null,
 	{ json = false }: LaneShowOptions = {},
 ): Promise<void> {
 	const states = (await todos.all()).map((todo) => todo.state);
 	const records = await todos.lanes();
+	if (id === null) {
+		log.info(untriagedShow(states, records, json));
+		return;
+	}
 	const record = records.find((each) => each.id === id);
 	if (record === undefined) {
 		fail(
@@ -90,6 +96,68 @@ export async function laneShow(
 	}
 	lines.push("", ...nextLines(found, records));
 	log.info(lines.join("\n"));
+}
+
+/**
+ * The untriaged todos, in list order, and what an agent handed
+ * `[ARBOR LANE untriaged]` does with them: place each open one in a lane,
+ * then work down the lanes it placed them in.
+ */
+function untriagedShow(
+	states: TodoState[],
+	records: LaneRecord[],
+	json: boolean,
+): string {
+	const found = states
+		.filter((todo) => todo.lane === null)
+		.sort((left, right) => left.position - right.position);
+	const open = found.filter((todo) => todo.takenBy === null);
+	if (json) {
+		return JSON.stringify(
+			{
+				lane: null,
+				name: "Untriaged",
+				todos: found.map((todo) => todo.id),
+				open: open.map((todo) => todo.id),
+			},
+			null,
+			"\t",
+		);
+	}
+	const lines = [
+		`${color.bold(UNTRIAGED)}: ${found.length} todo${found.length === 1 ? "" : "s"} in no lane`,
+	];
+	for (const [i, todo] of found.entries()) {
+		const blockers = states.filter((other) =>
+			todo.blockedBy.includes(other.id),
+		);
+		lines.push(
+			`  ${i + 1}. #${todo.id} ${todo.subject}${
+				todo.takenBy !== null
+					? color.green(`  (taken by ${todo.takenBy})`)
+					: blockers.length === 0
+						? ""
+						: color.yellow(
+								`  (blocked by ${blockers.map((other) => blockerLabel(other, records)).join(", ")})`,
+							)
+			}`,
+		);
+	}
+	const work =
+		"work down each lane you placed one in that no agent is on: arbor lane show <n>";
+	lines.push(
+		"",
+		...(open.length === 0
+			? [`Nothing to place: ${work}`]
+			: [
+					`next: place ${open.length === 1 ? "it" : "each"} in a lane, linking what blocks ${open.length === 1 ? "it" : "each"}:`,
+					"  arbor todo update <id> --lane <n>         a lane it builds on (`arbor lane list`)",
+					"  arbor todo update <id> --lane new         a lane of its own, for a chain of them",
+					"  arbor todo update <id> --blocked-by <id>  a todo it needs merged first",
+					`then ${work}`,
+				]),
+	);
+	return lines.join("\n");
 }
 
 /** What the lane's orchestrator does now, in a line or two. */

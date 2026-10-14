@@ -278,6 +278,38 @@ describe("App's controls that put agents to work", () => {
 		expect(location.hash).not.toContain("conversations");
 	});
 
+	it("offers Untriaged first among the lanes to start while a todo in no lane is open", async () => {
+		const view = await board([], {
+			todos: [
+				todo({ id: 2, subject: "Retry the upload" }),
+				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
+			],
+			lanes: [{ id: 1, name: "Uploads" }],
+		});
+		testing.reply = conversation({ id: "c7", status: "starting" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
+		);
+		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
+		expect(ticks.map((each) => each.textContent)).toEqual([
+			"Untriaged",
+			"Uploads",
+		]);
+
+		for (const tick of ticks) {
+			await act(async () => fireEvent.click(tick));
+		}
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
+		);
+
+		await waitFor(() =>
+			expect(posted("/api/conversations/c7/prompt")).toEqual([
+				{ text: "[ARBOR LANE untriaged]\n[ARBOR LANE 1]" },
+			]),
+		);
+	});
+
 	it("offers a todo's assigned agent first, on its model, and assigns one from the dialog", async () => {
 		const view = await board([], {
 			todos: [

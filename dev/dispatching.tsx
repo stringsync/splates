@@ -261,22 +261,26 @@ export function StartMenu({
 
 /**
  * Puts one orchestrator on several lanes at once, from above the board: the
- * lanes ticked among those with a todo next and no agent, in a new
- * conversation with the agent picked, sent `[ARBOR LANE <n>]` for each
- * straight away, since the prompt says only that. Each lane that does not
- * start says so on its header.
+ * lanes ticked among those with a todo next and no agent, and Untriaged while
+ * it holds an open todo, in a new conversation with the agent picked, sent
+ * `[ARBOR LANE <n>]` for each straight away, since the prompt says only that.
+ * Each lane that does not start says so on its header.
  */
 export function StartLanes({
 	lanes,
+	untriaged,
 }: {
 	lanes: LaneState[];
+	/** Whether a todo in no lane is open, for an orchestrator to place. */
+	untriaged: boolean;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	const { refuseLane } = useContext(Board);
-	const [picked, setPicked] = useState<number[]>([]);
-	const idle = lanes.filter(
-		(lane) => lane.agents.length === 0 && lane.next !== null,
-	);
+	const [picked, setPicked] = useState<(number | null)[]>([]);
+	const idle: { id: number | null; name: string; ready: boolean }[] = [
+		...(untriaged ? [{ id: null, name: "Untriaged", ready: true }] : []),
+		...lanes.filter((lane) => lane.agents.length === 0 && lane.next !== null),
+	];
 	if (context === null || idle.length === 0) {
 		return null;
 	}
@@ -309,7 +313,7 @@ export function StartLanes({
 					<DropdownMenuLabel>Lanes with no agent</DropdownMenuLabel>
 					{idle.map((lane) => (
 						<DropdownMenuCheckboxItem
-							key={lane.id}
+							key={lane.id ?? "untriaged"}
 							closeOnClick={false}
 							checked={picked.includes(lane.id)}
 							onCheckedChange={(checked) =>

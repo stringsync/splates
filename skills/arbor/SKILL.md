@@ -167,7 +167,8 @@ then for each todo you add:
 - **A new lane** when it starts a chain that more todos will follow:
   `arbor lane add '<name>'`, named for what the chain adds up to, then
   `--lane <n>`.
-- **Untriaged** otherwise, the default, for the user to place.
+- **Untriaged** otherwise, the default, for the user or an orchestrator of
+  the untriaged lane to place (see Working the untriaged lane).
 
 `arbor todo update <id> --lane <n>` moves one that exists.
 
@@ -344,6 +345,29 @@ yourself, saying so as for any todo that names another model.
 Never hand out a todo from a lane you were not sent, or one the lane has not
 reached; when the user moves todos while you work, the next `lane show` has
 them.
+
+### Working the untriaged lane
+
+`[ARBOR LANE untriaged]` makes you the orchestrator of the todos in no lane.
+You place them in lanes first, then work those lanes as above:
+
+1. `arbor lane show untriaged` lists them. For each open one, read `arbor
+   todo show <id>`, `arbor lane list`, and `arbor list --files` for the
+   tasks under way, then place it as for a todo you add (see Lanes): in a
+   lane whose work it builds on, or `--lane new` for one of its own when it
+   starts a chain. Todos that touch the same files go in one lane, in the
+   order they should land, so their agents never fight over rebases.
+2. Link what blocks each: `arbor todo update <id> --blocked-by <id>` when it
+   needs another todo's code or data merged first, in any lane, never for
+   priority. When two todos ask for opposite things, or one undoes a task
+   under way, leave them untriaged and ask the user which wins, as numbered
+   questions in your reply, placing the rest meanwhile.
+3. Say in a line where each went, then work down each lane you placed one in
+   that no agent is on, as if sent `[ARBOR LANE N]` for it. Leave a lane
+   another agent is on to that agent.
+4. Each time you go back to step 1 of a lane, `arbor lane show untriaged`
+   again, and place any todo added since the same way. Stop once nothing is
+   left to place and every lane you work is done.
 
 ## Checkpoint
 

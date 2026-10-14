@@ -106,13 +106,22 @@ export function useReferences(
 				description: `#${todo.id}`,
 				metadata: { directive: todoReference(todo.id) },
 			})),
-			lane: lanes.map((lane) => ({
-				id: laneReference(lane.id),
-				type: "lane",
-				label: lane.name,
-				description: `lane ${lane.id}`,
-				metadata: { directive: laneReference(lane.id) },
-			})),
+			lane: [
+				{
+					id: laneReference(null),
+					type: "lane",
+					label: "Untriaged",
+					description: "todos in no lane",
+					metadata: { directive: laneReference(null) },
+				},
+				...lanes.map((lane) => ({
+					id: laneReference(lane.id),
+					type: "lane",
+					label: lane.name,
+					description: `lane ${lane.id}`,
+					metadata: { directive: laneReference(lane.id) },
+				})),
+			],
 			task: tasks.map((task) => ({
 				id: taskReference(task.task),
 				type: "task",

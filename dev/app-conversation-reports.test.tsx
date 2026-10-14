@@ -362,6 +362,7 @@ describe("App's report cards", () => {
 						message("agent", "Took it."),
 						message("user", "[ARBOR LANE 3]"),
 						message("user", "[ARBOR TASK header]"),
+						message("user", "[ARBOR LANE untriaged]"),
 					],
 				}),
 			],
@@ -383,6 +384,13 @@ describe("App's report cards", () => {
 		const lane = view.getByRole("region", { name: "work down lane 3" });
 		expect(lane.textContent).toContain("Asked the agent to work down");
 		expect(lane.textContent).toContain("Uploads");
+		const untriaged = view.getByRole("region", {
+			name: "triage and work down lane untriaged",
+		});
+		expect(untriaged.textContent).toContain(
+			"Asked the agent to triage and work down",
+		);
+		expect(untriaged.textContent).toContain("Untriaged");
 		const task = view.getByRole("region", { name: "claim task header" });
 		expect(task.textContent).toContain("Asked the agent to claim");
 		expect(task.textContent).toContain("header");

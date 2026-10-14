@@ -58,6 +58,7 @@ export function Untriaged({
 	staleness: number;
 }): JSX.Element {
 	const board = useContext(Board);
+	const open = todos.some((todo) => todo.takenBy === null);
 	const { setNodeRef, isOver, active } = useDroppable({
 		id: columnId(null),
 	});
@@ -71,6 +72,8 @@ export function Untriaged({
 					</span>
 				</h3>
 				<p className="text-muted-foreground text-xs">Not in a lane yet.</p>
+				{open && <StartLane id={null} />}
+				<Refusal refusal={board.refusedLanes.get(null)} />
 			</header>
 			<Cards
 				todos={todos}
@@ -184,7 +187,7 @@ export function Lane({
 								</span>
 							);
 						})
-					: lane.next !== null && <StartLane lane={lane} />}
+					: lane.next !== null && <StartLane id={lane.id} />}
 				<Refusal refusal={refusedLanes.get(lane.id)} />
 			</header>
 			<Cards
@@ -200,30 +203,28 @@ export function Lane({
 }
 
 /**
- * While no agent is on the lane, puts one on it with `[ARBOR LANE <n>]`,
+ * While no agent is on lane `id`, puts one on it with `[ARBOR LANE <n>]`,
  * which starts at the top and works down: in a conversation, or, while the
- * page holds none, copied to paste into an agent's chat.
+ * page holds none, copied to paste into an agent's chat. For null, the
+ * Untriaged column, `[ARBOR LANE untriaged]`, which places its todos in
+ * lanes and then works those down.
  */
-function StartLane({ lane }: { lane: LaneState }): JSX.Element {
+function StartLane({ id }: { id: number | null }): JSX.Element {
 	const { copied, copy } = useCopy();
+	const reference = laneReference(id);
 	if (useContext(Dispatching) !== null) {
-		return (
-			<StartMenu
-				assignment={{ kind: "lane", id: lane.id }}
-				label="Start lane"
-			/>
-		);
+		return <StartMenu assignment={{ kind: "lane", id }} label="Start lane" />;
 	}
 	return (
 		<Button
 			size="xs"
 			variant="outline"
 			className="w-fit bg-transparent"
-			onClick={() => copy(laneReference(lane.id))}
+			onClick={() => copy(reference)}
 			title={
 				copied.state === "failed"
 					? copied.error
-					: `No agent is on it yet. Copies ${laneReference(lane.id)} to paste into an agent's chat`
+					: `No agent is on it yet. Copies ${reference} to paste into an agent's chat`
 			}
 		>
 			{copied.state === "copied" ? (

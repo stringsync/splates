@@ -3,9 +3,18 @@ export function todoReference(id: number): string {
 	return `[ARBOR TODO #${id}]`;
 }
 
-/** What a chat with an agent takes to mean "work down lane `id`". */
-export function laneReference(id: number): string {
-	return `[ARBOR LANE ${id}]`;
+/**
+ * What the untriaged lane, the todos in no lane, goes by where a lane's
+ * number would: `[ARBOR LANE untriaged]`, `arbor lane show untriaged`.
+ */
+export const UNTRIAGED = "untriaged";
+
+/**
+ * What a chat with an agent takes to mean "work down lane `id`", or, for
+ * null, "place the untriaged todos in lanes, then work those down".
+ */
+export function laneReference(id: number | null): string {
+	return `[ARBOR LANE ${id ?? UNTRIAGED}]`;
 }
 
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
