@@ -18,7 +18,7 @@ import {
 	useState,
 } from "react";
 import { linkAttachments, shelfOf } from "#dev/attachment-chips.tsx";
-import { SentTile } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
+import { SentTile } from "#dev/components/assistant-ui/elements/attachment-thumb.tsx";
 import { MarkdownText } from "#dev/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	useAnchorAtOnce,
