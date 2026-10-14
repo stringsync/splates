@@ -100,14 +100,9 @@ export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
 		<Popover>
 			<PopoverTrigger
 				onClick={(event) => event.stopPropagation()}
-				className="inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-md border px-1.5 align-middle font-mono text-foreground/90 text-xs hover:bg-muted"
+				className={`${CHIP} cursor-pointer hover:bg-muted`}
 			>
-				<span
-					aria-hidden
-					className="size-2 shrink-0 rounded-full"
-					style={{ backgroundColor: dot(system.name) }}
-				/>
-				<span className="min-w-0 truncate">{system.name}</span>
+				<ChipFace name={system.name} />
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-72 gap-1 p-3">
 				<div className="flex items-center gap-2 font-medium text-sm">
@@ -122,6 +117,45 @@ export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
 				<Globs system={system} className="pt-1" />
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+/**
+ * The system called `name` as its chip, opening to its globs when `systems`,
+ * the ones this project names, has it; otherwise, as for one another project
+ * names or a name since dropped, the same chip opening to nothing.
+ */
+export function SystemNameChip({
+	name,
+	systems,
+}: {
+	name: string;
+	systems: readonly NamedSystem[];
+}): JSX.Element {
+	const system = systems.find((each) => each.name === name);
+	return system === undefined ? (
+		<span className={CHIP}>
+			<ChipFace name={name} />
+		</span>
+	) : (
+		<SystemChip system={system} />
+	);
+}
+
+const CHIP =
+	"inline-flex h-6 max-w-full items-center gap-1.5 rounded-md border px-1.5 align-middle font-mono text-foreground/90 text-xs";
+
+/** What a system's chip shows: its color, then its name. */
+function ChipFace({ name }: { name: string }): JSX.Element {
+	return (
+		<>
+			<span
+				aria-hidden
+				className="size-2 shrink-0 rounded-full"
+				style={{ backgroundColor: dot(name) }}
+			/>
+			<span className="min-w-0 truncate">{name}</span>
+		</>
 	);
 }
 

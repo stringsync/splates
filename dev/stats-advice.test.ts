@@ -50,6 +50,22 @@ describe("advise", () => {
 		).toBeNull();
 	});
 
+	it("says how much more each card needs before it can say anything", () => {
+		const few = period({ merged: 3, picksAsked: 4, timed: 3 });
+
+		expect(card("Questions per task", few)?.short).toBe(
+			"Needs 2 more tasks ended to say",
+		);
+		expect(card("Picks you overturned", few)?.short).toBe(
+			"Needs 1 more question offering a pick to say",
+		);
+		expect(card("Questions by system", few)?.short).toContain("one system");
+		// Nothing failed or was removed, so nothing is missing to say why.
+		expect(card("Why merges failed", few)?.short).toBeNull();
+		expect(card("Why tasks were removed", few)?.short).toBeNull();
+		expect(card("Questions per task", period({ merged: 5 }))?.short).toBeNull();
+	});
+
 	it("says nothing to act on with too few picks to read", () => {
 		expect(
 			card(
@@ -87,8 +103,10 @@ describe("advise", () => {
 				systems,
 			),
 		).toMatchObject({
-			figure: "#mixer",
-			act: expect.stringContaining("#mixer draws the most questions"),
+			system: "mixer",
+			figure: "2.0",
+			detail: "questions a task, against 1.1 overall",
+			act: expect.stringContaining("draws the most questions"),
 		});
 	});
 

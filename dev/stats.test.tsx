@@ -16,36 +16,111 @@ const tally = {
 };
 
 describe("StatsPage", () => {
-	it("shows the headline figures, a bar a span, and a row per model", async () => {
+	it("leads with what stands out, its bars charted, and folds the rest away", async () => {
+		const busy = { ...tally, merged: 6, questionRounds: 6 };
 		const stats: Stats = {
 			buckets: [
-				{ start: "2026-10-14T06:00:00.000Z", ...tally },
-				{ start: "2026-10-14T12:00:00.000Z", ...tally },
+				{ start: "2026-10-14T00:00:00.000Z", ...busy },
+				{ start: "2026-10-14T06:00:00.000Z", ...busy },
+				{ start: "2026-10-14T12:00:00.000Z", ...busy, questionRounds: 3 },
 			],
-			previous: null,
+			previous: { ...tally, merged: 10, questionRounds: 30 },
 			models: [{ model: "Opus 5.5", ...tally }],
 			projects: [{ project: "/repo", ...tally }],
 			systems: [],
-			since: "2026-10-06T10:00:00.000Z",
+			since: "2026-09-28T10:00:00.000Z",
 		};
 		const page = render(
-			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
+			<StatsPage
+				report={new StatsReport({ stats: async () => stats })}
+				systems={[]}
+			/>,
 		);
 
-		await waitFor(() => page.getByText("Tasks ended"));
-		expect(page.getByText("Tasks ended").parentElement?.textContent).toBe(
-			"Tasks ended4last 7 days",
-		);
+		await waitFor(() => page.getByRole("region", { name: "act on" }));
+		const lead = page.getByRole("region", { name: "act on" });
+		expect(lead.textContent).toContain("Questions per task");
 		const at = new Date("2026-10-14T12:00:00.000Z").toLocaleString(undefined, {
 			weekday: "short",
 			hour: "numeric",
 			minute: "2-digit",
 		});
 		expect(
-			page.getByLabelText(`${at}: questions per task 0.5, of 2 tasks`),
+			page.getByLabelText(`${at}: questions per task 0.5, of 6 tasks`),
 		).toBeTruthy();
-		expect(page.getAllByText("Now")).toHaveLength(2);
-		expect(page.getByRole("cell", { name: "Opus 5.5" })).toBeTruthy();
+		expect(page.queryByRole("cell", { name: "Opus 5.5" })).toBeNull();
+		expect(page.getByText(/18 tasks ended in the last 7 days/)).toBeTruthy();
+
+		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
+
+		await waitFor(() => page.getByRole("cell", { name: "Opus 5.5" }));
+		expect(page.getByLabelText("Picks you overturned").textContent).toContain(
+			"Needs 5 more questions offering a pick to say",
+		);
+	});
+
+	it("shows each system as its chip, opening to its globs where this project names it", async () => {
+		const stats: Stats = {
+			buckets: [
+				{
+					start: "2026-10-14T12:00:00.000Z",
+					...tally,
+					merged: 10,
+					questionRounds: 11,
+				},
+			],
+			previous: null,
+			models: [],
+			projects: [],
+			systems: [
+				{ system: "mixer", ...tally, merged: 5, questionRounds: 10 },
+				{ system: "docs", ...tally, merged: 5, questionRounds: 1 },
+			],
+			since: "2026-10-12T10:00:00.000Z",
+		};
+		const page = render(
+			<StatsPage
+				report={new StatsReport({ stats: async () => stats })}
+				systems={[{ name: "mixer", globs: ["src/mixer/**"] }]}
+			/>,
+		);
+
+		await waitFor(() => page.getByLabelText("Questions by system"));
+		const card = page.getByLabelText("Questions by system");
+		expect(card.textContent).not.toContain("#");
+		// The card names mixer beside its title, and its table lists it again.
+		const chips = page.getAllByRole("button", { name: "mixer" });
+		expect(chips).toHaveLength(2);
+		fireEvent.click(chips[0] as HTMLElement);
+		await waitFor(() => page.getByText("src/mixer/**"));
+		// docs is no system this project names, so its chip opens to nothing.
+		expect(page.queryByRole("button", { name: "docs" })).toBeNull();
+		expect(page.getByText("docs")).toBeTruthy();
+	});
+
+	it("says when nothing stands out, and charts no bar too few to read", async () => {
+		const stats: Stats = {
+			buckets: [{ start: "2026-10-14T12:00:00.000Z", ...tally }],
+			previous: null,
+			models: [],
+			projects: [],
+			systems: [],
+			since: "2026-10-12T10:00:00.000Z",
+		};
+		const page = render(
+			<StatsPage
+				report={new StatsReport({ stats: async () => stats })}
+				systems={[]}
+			/>,
+		);
+
+		await waitFor(() => page.getByText("Nothing stands out this period."));
+		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
+		await waitFor(() => page.getByLabelText("Questions per task"));
+		expect(page.getByLabelText("Questions per task").textContent).toContain(
+			"Needs 3 more tasks ended to say",
+		);
+		expect(page.queryByLabelText(/: questions per task/)).toBeNull();
 	});
 
 	it("says on each card how its figure moved since the span before", async () => {
@@ -65,7 +140,10 @@ describe("StatsPage", () => {
 			since: "2026-07-01T10:00:00.000Z",
 		};
 		const page = render(
-			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
+			<StatsPage
+				report={new StatsReport({ stats: async () => stats })}
+				systems={[]}
+			/>,
 		);
 
 		await waitFor(() => page.getByLabelText("Questions per task"));
@@ -84,7 +162,10 @@ describe("StatsPage", () => {
 			since: null,
 		};
 		const page = render(
-			<StatsPage report={new StatsReport({ stats: async () => empty })} />,
+			<StatsPage
+				report={new StatsReport({ stats: async () => empty })}
+				systems={[]}
+			/>,
 		);
 
 		await waitFor(() => page.getByText(/No task has ended/));
@@ -110,9 +191,10 @@ describe("StatsPage", () => {
 						},
 					})
 				}
+				systems={[]}
 			/>,
 		);
-		await waitFor(() => page.getByText("Tasks ended"));
+		await waitFor(() => page.getByText(/tasks ended/));
 
 		fireEvent.click(page.getByRole("button", { name: "All time" }));
 
@@ -124,11 +206,8 @@ describe("StatsPage", () => {
 			).toBe("true"),
 		);
 		expect(asked).toEqual(["7d", "all"]);
-		expect(page.getByText("Tasks ended").parentElement?.textContent).toContain(
-			"all time",
+		expect(page.getByText(/tasks ended/).textContent).toMatch(
+			/^2 tasks ended counting since/,
 		);
-		expect(page.getAllByText("This week")).toHaveLength(2);
-		// Its axis tops out at a round number above the one week's 0.5.
-		expect(page.getByText("0.25")).toBeTruthy();
 	});
 });

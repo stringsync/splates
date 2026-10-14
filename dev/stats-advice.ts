@@ -1,14 +1,28 @@
 import type { Tally } from "../stats";
 
+/** Which card an `Advice` is, for the page to rank it and give it its chart. */
+export type AdviceId =
+	| "course"
+	| "picks"
+	| "waiting"
+	| "hotspot"
+	| "failures"
+	| "removals";
+
 /** One figure worth acting on, and what to do about it. */
 export interface Advice {
+	id: AdviceId;
 	title: string;
 	/** Shown large: `12%`; null when too little was kept to say. */
 	figure: string | null;
 	/** What the figure counts, in a line. */
 	detail: string;
+	/** The system the card is about, shown as its chip beside the title. */
+	system?: string;
 	/** What to change, given the figure; null when nothing stands out. */
 	act: string | null;
+	/** How much more the card needs before it can say anything; null when it has enough. */
+	short: string | null;
 	/**
 	 * How the figure moved since the as long a span before, and whether that is
 	 * better; null for all time, or with too little before to compare.
@@ -175,6 +189,7 @@ function course(period: Tally, before: Before): Advice {
 	const now = QUESTIONS.of(period);
 	const direction = before.direction(period, QUESTIONS);
 	return {
+		id: "course",
 		title: "Questions per task",
 		figure: now === null ? null : decimal(now),
 		detail: `times a task was handed to you, over ${plural(ended(period), "task")}`,
@@ -184,6 +199,11 @@ function course(period: Tally, before: Before): Advice {
 				: direction === "up"
 					? "Agents need you more than before: look at By model and By system for where, and at what changed in prompts or the work."
 					: null,
+		short: needs(
+			ENOUGH - ended(period),
+			"more task ended to say",
+			"more tasks ended to say",
+		),
 		trend: before.trend(period, QUESTIONS),
 	};
 }
@@ -192,6 +212,7 @@ function picks(period: Tally, before: Before): Advice {
 	const { picksAsked, picksOverturned, picksAmended } = period;
 	const share = OVERTURNED.of(period);
 	return {
+		id: "picks",
 		title: "Picks you overturned",
 		figure: share === null ? null : percent(share),
 		detail: `${picksOverturned} of ${picksAsked} questions where the agent said what it would pick; ${picksAmended} more you took with words added`,
@@ -205,6 +226,11 @@ function picks(period: Tally, before: Before): Advice {
 						: share <= AGREE
 							? "You almost always agree: let agents make these calls without asking, in the arbor skill's Asking as you go."
 							: null,
+		short: needs(
+			ENOUGH - picksAsked,
+			"more question offering a pick to say",
+			"more questions offering a pick to say",
+		),
 		trend: before.trend(period, OVERTURNED),
 	};
 }
@@ -213,6 +239,7 @@ function waiting(period: Tally, before: Before): Advice {
 	const { timed, waitedMs } = period;
 	const share = WAITED.of(period);
 	return {
+		id: "waiting",
 		title: "Time waiting on you",
 		figure: share === null ? null : percent(share),
 		detail: `of the time from add to end, over ${plural(timed, "task")}; ${duration(waitedMs / Math.max(timed, 1))} a task`,
@@ -220,6 +247,11 @@ function waiting(period: Tally, before: Before): Advice {
 			share === null || timed < ENOUGH || share < WAITING
 				? null
 				: "Tasks spend most of their time waiting on you: answer them in batches, or let agents decide more.",
+		short: needs(
+			ENOUGH - timed,
+			"more task timed to say",
+			"more tasks timed to say",
+		),
 		trend: before.trend(period, WAITED),
 	};
 }
@@ -235,15 +267,20 @@ function hotspot(
 		.sort((one, other) => other.rate - one.rate);
 	const top = named[0];
 	return {
+		id: "hotspot",
 		title: "Questions by system",
-		figure: top ? `#${top.system}` : null,
+		figure: top ? decimal(top.rate) : null,
 		detail: top
-			? `${decimal(top.rate)} questions a task, against ${decimal(average ?? 0)} overall`
+			? `questions a task, against ${decimal(average ?? 0)} overall`
 			: `No system has ${ENOUGH} tasks yet`,
+		...(top?.system ? { system: top.system } : {}),
 		act:
 			top && average !== null && top.rate >= average * HOTSPOT && top.rate > 0
-				? `#${top.system} draws the most questions: write down what agents keep asking, in CLAUDE.md or a scry rule.`
+				? "It draws the most questions: write down what agents keep asking about it, in CLAUDE.md or a scry rule."
 				: null,
+		short: top
+			? null
+			: `Needs ${ENOUGH} tasks ended in one system to say where questions come from`,
 		// Which system tops the list moves with the work, not with how agents
 		// do, so it is not compared.
 		trend: null,
@@ -256,6 +293,7 @@ function failures(period: Tally, before: Before): Advice {
 		([, one], [, other]) => other - one,
 	)[0] ?? ["", 0];
 	return {
+		id: "failures",
 		title: "Why merges failed",
 		figure: String(failedMerges),
 		detail:
@@ -270,6 +308,15 @@ function failures(period: Tally, before: Before): Advice {
 					: reason === "tests_failed"
 						? "Most failures are failed checks: have agents run the project's checks before they merge."
 						: "Most failures are a base that would not move: commit or clear what sits in the main tree.",
+		// With none failed there is nothing to explain, so nothing is short.
+		short:
+			failedMerges === 0
+				? null
+				: needs(
+						ENOUGH - count,
+						"more failure of one kind to say why",
+						"more failures of one kind to say why",
+					),
 		trend: before.trend(period, FAILURES),
 	};
 }
@@ -281,6 +328,7 @@ function removals(period: Tally, before: Before): Advice {
 		.filter(([key]) => key !== "unsaid")
 		.sort(([, one], [, other]) => other - one)[0] ?? ["", 0];
 	return {
+		id: "removals",
 		title: "Why tasks were removed",
 		figure: String(removed),
 		detail:
@@ -297,12 +345,28 @@ function removals(period: Tally, before: Before): Advice {
 						: count > 0
 							? "Tasks start on work nobody needs: settle what done means before starting."
 							: null,
+		short:
+			removed === 0
+				? null
+				: needs(
+						ENOUGH - said,
+						"more removal with a reason to say why",
+						"more removals with a reason to say why",
+					),
 		trend: before.trend(period, REMOVED),
 	};
 }
 
 function ended(tally: Tally): number {
 	return tally.merged + tally.removed;
+}
+
+/** `Needs 3 more tasks ended to say`, or null with none missing. */
+function needs(missing: number, one: string, many: string): string | null {
+	if (missing <= 0) {
+		return null;
+	}
+	return `Needs ${missing} ${missing === 1 ? one : many}`;
 }
 
 function plural(count: number, noun: string): string {

@@ -46,24 +46,66 @@ const stats: Stats = {
 	models: [
 		{ model: null, ...bar("", { merged: 2, removed: 2, reviewRounds: 2 }) },
 	],
-	previous: bar("", { merged: 4, clean: 1, questionRounds: 6 }),
+	previous: bar("", { merged: 6, clean: 1, questionRounds: 9 }),
 	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
 	systems: [],
 	since: "2026-08-25T10:00:00.000Z",
 };
 
 describe("StatsReport", () => {
-	it("compares the period with the as long a span before", async () => {
+	it("leads with the acts that stand out, in the order the person acts on them", async () => {
 		const report = new StatsReport(new FakeSource(stats));
 
 		await report.refresh();
 
-		expect(report.tiles).toMatchObject([
-			{ label: "Tasks ended", now: "5", was: "4" },
-			{ label: "Merged without questions", now: "75%", was: "25%" },
-			{ label: "Questions per task", now: "0.6", was: "1.5" },
-			{ label: "Removed", now: "20%", was: "0%" },
+		// Questions per task fell from 1.5 to 0.6, so it leads alone.
+		expect(report.ended).toBe(5);
+		expect(report.lead.map((each) => each.id)).toEqual(["course"]);
+		expect(report.rest.map((each) => each.id)).toEqual([
+			"picks",
+			"waiting",
+			"hotspot",
+			"failures",
+			"removals",
 		]);
+
+		const busy = new StatsReport(
+			new FakeSource({
+				...stats,
+				buckets: [
+					bar("2026-10-12T00:00:00.000Z", {
+						merged: 10,
+						questionRounds: 20,
+						picksAsked: 20,
+						picksOverturned: 1,
+						failedMerges: 6,
+						failedBy: { conflict: 6, tests_failed: 0, merge_failed: 0 },
+					}),
+				],
+				systems: [
+					{ system: "ui", ...bar("", { merged: 5, questionRounds: 20 }) },
+					{ system: "cli", ...bar("", { merged: 5, questionRounds: 0 }) },
+				],
+			}),
+		);
+		await busy.refresh();
+
+		// Four cards have an act, but only two lead, and never Why merges failed.
+		expect(busy.lead.map((each) => each.id)).toEqual(["picks", "hotspot"]);
+		expect(busy.rest.map((each) => each.id)).toContain("failures");
+	});
+
+	it("charts a figure only once enough bars have it", async () => {
+		const report = new StatsReport(new FakeSource(stats));
+
+		await report.refresh();
+
+		// Two of the four bars ended a task, one short of charting.
+		expect(report.charted((each) => each.questionsPerTask)).toBe(false);
+		expect(
+			report.charted((each) => (each.ended === 0 ? null : each.ended)),
+		).toBe(false);
+		expect(report.charted(() => 1)).toBe(true);
 	});
 
 	it("leaves a bar with nothing ended unmeasured, rather than zero", async () => {
@@ -75,12 +117,12 @@ describe("StatsReport", () => {
 			start: "2026-10-13T18:00:00.000Z",
 			ended: 0,
 			questionsPerTask: null,
-			cleanShare: null,
+			overturnedShare: null,
 		});
 		expect(report.buckets.at(-1)).toMatchObject({
 			ended: 1,
 			questionsPerTask: 2,
-			cleanShare: 0,
+			overturnedShare: null,
 		});
 	});
 

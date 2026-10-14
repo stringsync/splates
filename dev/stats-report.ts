@@ -1,6 +1,12 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { combine, type PeriodId, type Stats, type Tally } from "../stats";
-import { type Advice, advise, decimal, percent } from "./stats-advice";
+import {
+	type Advice,
+	type AdviceId,
+	advise,
+	decimal,
+	percent,
+} from "./stats-advice";
 
 export { decimal, percent };
 
@@ -34,15 +40,19 @@ export interface Axis {
 	ticks: { at: number; label: string }[];
 }
 
-/** One headline figure over the period, and over the as long a span before. */
-export interface Tile {
-	label: string;
-	/** What it measures, for a reader new to the page. */
-	hint: string;
-	/** Shown as is: `12`, `54%`, `0.8`; null with nothing ended to measure. */
-	now: string | null;
-	was: string | null;
-}
+/**
+ * The cards that may lead the page, most worth acting on first: those backing
+ * what the person said they would do after reading it (let agents decide
+ * what they ask, write down what one system draws, and check whether a
+ * change helped). The rest always fold away.
+ */
+export const LEADS: AdviceId[] = ["picks", "hotspot", "course"];
+
+/** How many cards lead the page at most. */
+export const LEADING = 2;
+
+/** A figure is charted bar by bar once this many bars have it. */
+export const CHARTED = 3;
 
 /** One bar of the trend, for its height and its tooltip. */
 export interface Bucket {
@@ -52,13 +62,15 @@ export interface Bucket {
 	ended: number;
 	/** Question rounds over every task ended in it; null when none did. */
 	questionsPerTask: number | null;
-	/** Of the tasks merged in it, the share no question held up; null when none merged. */
-	cleanShare: number | null;
+	/** Of the questions offering the agent's pick in it, the share you answered otherwise; null when none did. */
+	overturnedShare: number | null;
 }
 
-/** A model or project, with the same figures as the tiles over the period. */
+/** A model, project or system, with its figures over the period. */
 export interface Row {
 	name: string;
+	/** The system the row is, shown as its chip; absent for a model, a project or no system. */
+	system?: string;
 	ended: number;
 	cleanShare: number | null;
 	questionsPerTask: number | null;
@@ -117,47 +129,10 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		return this.stats !== null && this.stats.since === null;
 	}
 
-	get tiles(): Tile[] {
-		const recent = combine(this.stats?.buckets ?? []);
-		const before = this.stats?.previous ?? null;
-		const figure = (
-			of: (tally: Tally) => number | null,
-			shown: (value: number) => string,
-		) => {
-			// A span before outcomes were written reads as nothing ended, which
-			// says nothing about them, so they compare with nothing.
-			const now = of(recent);
-			const was =
-				before === null || before.merged + before.removed === 0
-					? null
-					: of(before);
-			return {
-				now: now === null ? null : shown(now),
-				was: was === null ? null : shown(was),
-			};
-		};
-		return [
-			{
-				label: "Tasks ended",
-				hint: "Merged or removed",
-				...figure((tally) => tally.merged + tally.removed, String),
-			},
-			{
-				label: "Merged without questions",
-				hint: "Of the tasks merged, those no question held up",
-				...figure(cleanShare, percent),
-			},
-			{
-				label: "Questions per task",
-				hint: "Times a task was handed to you with questions",
-				...figure(questionsPerTask, decimal),
-			},
-			{
-				label: "Removed",
-				hint: "Of the tasks ended, those thrown away",
-				...figure(removedShare, percent),
-			},
-		];
+	/** How many tasks ended in the period, merged or removed. */
+	get ended(): number {
+		const tally = combine(this.stats?.buckets ?? []);
+		return tally.merged + tally.removed;
 	}
 
 	get buckets(): Bucket[] {
@@ -173,7 +148,7 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 					}),
 			ended: bucket.merged + bucket.removed,
 			questionsPerTask: questionsPerTask(bucket),
-			cleanShare: cleanShare(bucket),
+			overturnedShare: overturnedShare(bucket),
 		}));
 	}
 
@@ -195,6 +170,30 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		};
 	}
 
+	/**
+	 * The cards worth acting on first: of `LEADS`, in its order, those with
+	 * an act, at most `LEADING` of them.
+	 */
+	get lead(): Advice[] {
+		const advice = this.advice;
+		return LEADS.flatMap((id) =>
+			advice.filter((each) => each.id === id && each.act !== null),
+		).slice(0, LEADING);
+	}
+
+	/** Every card not leading, in `advise`'s order, folded away on the page. */
+	get rest(): Advice[] {
+		const lead = this.lead.map((each) => each.id);
+		return this.advice.filter((each) => !lead.includes(each.id));
+	}
+
+	/** Whether `value` has enough bars to chart, `CHARTED` or more. */
+	charted(value: (bucket: Bucket) => number | null): boolean {
+		return (
+			this.buckets.filter((bucket) => value(bucket) !== null).length >= CHARTED
+		);
+	}
+
 	/** What the period says to change, a card a figure. */
 	get advice(): Advice[] {
 		return advise({
@@ -211,7 +210,9 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	/** By system, a task counting in each it touched; "No system" for none. */
 	get systems(): Row[] {
 		return (this.stats?.systems ?? []).map((each) =>
-			row(each.system === null ? "No system" : `#${each.system}`, each),
+			each.system === null
+				? row("No system", each)
+				: { ...row(each.system, each), system: each.system },
 		);
 	}
 
@@ -256,9 +257,14 @@ function row(name: string, tally: Tally): Row {
 		reviewsPerTask: ended === 0 ? null : tally.reviewRounds / ended,
 		failedMerges: tally.failedMerges,
 		removedShare: removedShare(tally),
-		overturnedShare:
-			tally.picksAsked === 0 ? null : tally.picksOverturned / tally.picksAsked,
+		overturnedShare: overturnedShare(tally),
 	};
+}
+
+function overturnedShare(tally: Tally): number | null {
+	return tally.picksAsked === 0
+		? null
+		: tally.picksOverturned / tally.picksAsked;
 }
 
 function cleanShare(tally: Tally): number | null {

@@ -1,11 +1,19 @@
 import { useReactive } from "@webappwiz/react";
+import { ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#dev/components/ui/collapsible.tsx";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import type { NamedSystem } from "../systems";
+import type { Advice } from "./stats-advice";
 import {
 	type Axis,
 	type Bucket,
@@ -15,43 +23,37 @@ import {
 	type Row,
 	type StatsReport,
 } from "./stats-report";
+import { SystemNameChip } from "./systems";
 
 /**
- * How tasks have ended, across every project: whether they land with fewer
- * questions as the prompts and the work around them change.
+ * What to change, from how tasks have ended across every project: the one or
+ * two acts that stand out this period, each with the figures behind it, and
+ * everything else folded away.
  */
-export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
-	const {
-		stats,
-		error,
-		empty,
-		period,
-		tiles,
-		buckets,
-		questionsAxis,
-		shareAxis,
-		models,
-		projects,
-		systems,
-		advice,
-	} = useReactive(
-		report,
-		(report) => ({
-			stats: report.stats,
-			error: report.error,
-			empty: report.empty,
-			period: report.period,
-			tiles: report.tiles,
-			buckets: report.buckets,
-			questionsAxis: report.questionsAxis,
-			shareAxis: report.shareAxis,
-			models: report.models,
-			projects: report.projects,
-			systems: report.systems,
-			advice: report.advice,
-		}),
-		["changed"],
-	);
+export function StatsPage({
+	report,
+	systems,
+}: {
+	report: StatsReport;
+	/** The systems this project names, for each system's chip to open to. */
+	systems: readonly NamedSystem[];
+}): JSX.Element {
+	const { stats, error, empty, period, ended, lead, rest, models, projects } =
+		useReactive(
+			report,
+			(report) => ({
+				stats: report.stats,
+				error: report.error,
+				empty: report.empty,
+				period: report.period,
+				ended: report.ended,
+				lead: report.lead,
+				rest: report.rest,
+				models: report.models,
+				projects: report.projects,
+			}),
+			["changed"],
+		);
 	// Read each time the page is shown: tasks end while it is away.
 	useEffect(() => {
 		void report.refresh();
@@ -91,85 +93,141 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 				</p>
 			) : (
 				<>
-					<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-						{tiles.map((tile) => (
-							<div
-								key={tile.label}
-								title={tile.hint}
-								className="flex flex-col gap-1 rounded-lg border p-3"
-							>
-								<span className="text-muted-foreground text-xs">
-									{tile.label}
-								</span>
-								<span className="font-medium text-2xl tabular-nums">
-									{tile.now ?? "–"}
-								</span>
-								<span className="text-muted-foreground text-xs tabular-nums">
-									{tile.was === null
-										? period.span === null
-											? "all time"
-											: `last ${period.span}`
-										: `was ${tile.was} the ${period.span} before`}
-								</span>
-							</div>
-						))}
-					</div>
 					<section aria-label="act on" className="flex flex-col gap-2">
 						<h3 className="font-medium text-xs">Act on</h3>
-						<div className="grid gap-3 sm:grid-cols-2">
-							{advice.map((each) => (
-								<article
-									key={each.title}
-									aria-label={each.title}
-									className={cn(
-										"flex flex-col gap-1 rounded-lg border p-3",
-										each.act === null && "text-muted-foreground",
-									)}
-								>
-									<div className="flex items-baseline justify-between gap-2">
-										<span className="text-xs">{each.title}</span>
-										<span className="font-medium text-lg tabular-nums">
-											{each.figure ?? "–"}
-										</span>
-									</div>
-									<p className="text-muted-foreground text-xs">{each.detail}</p>
-									{each.trend !== null && (
-										<p className="text-xs">{each.trend}</p>
-									)}
-									{each.act !== null && (
-										<p className="text-foreground text-sm">{each.act}</p>
-									)}
-								</article>
-							))}
-						</div>
+						{lead.length === 0 ? (
+							<p className="text-muted-foreground text-sm">
+								Nothing stands out this period.
+							</p>
+						) : (
+							lead.map((each) => (
+								<AdviceCard
+									key={each.id}
+									advice={each}
+									report={report}
+									named={systems}
+								/>
+							))
+						)}
 					</section>
-					<Trend
-						title="Questions per task"
-						buckets={buckets}
-						weekly={period.id === "all"}
-						value={(bucket) => bucket.questionsPerTask}
-						shown={decimal}
-						axis={questionsAxis}
-					/>
-					<Trend
-						title="Merged without questions"
-						buckets={buckets}
-						weekly={period.id === "all"}
-						value={(bucket) => bucket.cleanShare}
-						shown={percent}
-						axis={shareAxis}
-					/>
-					<Breakdown title="By model" rows={models} />
-					<Breakdown title="By project" rows={projects} />
-					<Breakdown title="By system" rows={systems} />
+					<Collapsible
+						render={<section aria-label="Everything else" />}
+						className="group/rest flex flex-col gap-3"
+					>
+						<CollapsibleTrigger className="flex cursor-pointer items-center gap-1.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+							<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/rest:rotate-90" />
+							Everything else
+						</CollapsibleTrigger>
+						<CollapsibleContent className="flex flex-col gap-6">
+							<div className="grid items-start gap-3 sm:grid-cols-2">
+								{rest.map((each) => (
+									<AdviceCard
+										key={each.id}
+										advice={each}
+										report={report}
+										named={systems}
+										className={cn(each.id === "hotspot" && "sm:col-span-2")}
+									/>
+								))}
+							</div>
+							{/* Which model to name on a todo, by how each did. */}
+							<Breakdown title="By model" rows={models} named={systems} />
+							<Breakdown title="By project" rows={projects} named={systems} />
+						</CollapsibleContent>
+					</Collapsible>
 					{stats.since && (
 						<p className="text-muted-foreground text-xs">
-							Counting since {new Date(stats.since).toLocaleDateString()}
+							{ended} task{ended === 1 ? "" : "s"} ended{" "}
+							{period.span === null ? "" : `in the last ${period.span}, `}
+							counting since {new Date(stats.since).toLocaleDateString()}
 						</p>
 					)}
 				</>
 			)}
 		</section>
+	);
+}
+
+/**
+ * One card of advice, with what backs it: Questions per task and Picks you
+ * overturned chart their figure bar by bar, once there are bars enough,
+ * and Questions by system lists every system.
+ */
+function AdviceCard({
+	advice,
+	report,
+	named,
+	className,
+}: {
+	advice: Advice;
+	report: StatsReport;
+	named: readonly NamedSystem[];
+	className?: string;
+}): JSX.Element {
+	const { period, buckets, questionsAxis, shareAxis, systems } = useReactive(
+		report,
+		(report) => ({
+			period: report.period,
+			buckets: report.buckets,
+			questionsAxis: report.questionsAxis,
+			shareAxis: report.shareAxis,
+			systems: report.systems,
+		}),
+		["changed"],
+	);
+	const questions = (bucket: Bucket) => bucket.questionsPerTask;
+	const overturned = (bucket: Bucket) => bucket.overturnedShare;
+	return (
+		<article
+			aria-label={advice.title}
+			className={cn(
+				"flex min-w-0 flex-col gap-1 rounded-lg border p-3",
+				advice.act === null && "text-muted-foreground",
+				className,
+			)}
+		>
+			<div className="flex items-baseline gap-2">
+				<span className="text-xs">{advice.title}</span>
+				{advice.system !== undefined && (
+					<SystemNameChip name={advice.system} systems={named} />
+				)}
+				<span className="flex-1" />
+				<span className="font-medium text-lg tabular-nums">
+					{advice.figure ?? "–"}
+				</span>
+			</div>
+			<p className="text-muted-foreground text-xs">{advice.detail}</p>
+			{advice.trend !== null && <p className="text-xs">{advice.trend}</p>}
+			{advice.short !== null && (
+				<p className="text-muted-foreground text-xs">{advice.short}</p>
+			)}
+			{advice.act !== null && (
+				<p className="text-foreground text-sm">{advice.act}</p>
+			)}
+			{advice.id === "course" && report.charted(questions) && (
+				<Trend
+					title="Questions per task"
+					buckets={buckets}
+					weekly={period.id === "all"}
+					value={questions}
+					shown={decimal}
+					axis={questionsAxis}
+				/>
+			)}
+			{advice.id === "picks" && report.charted(overturned) && (
+				<Trend
+					title="Picks you overturned"
+					buckets={buckets}
+					weekly={period.id === "all"}
+					value={overturned}
+					shown={percent}
+					axis={shareAxis}
+				/>
+			)}
+			{advice.id === "hotspot" && systems.length > 0 && (
+				<Breakdown title="By system" rows={systems} named={named} />
+			)}
+		</article>
 	);
 }
 
@@ -194,8 +252,11 @@ function Trend({
 	axis: Axis;
 }): JSX.Element {
 	return (
-		<figure className="flex flex-col gap-2">
-			<figcaption className="font-medium text-xs">{title}</figcaption>
+		<figure className="mt-2 flex flex-col gap-2 text-foreground">
+			{/* The card it sits in names the figure. */}
+			<figcaption className="font-medium text-xs">
+				{weekly ? "Week by week" : "Over the period"}
+			</figcaption>
 			<div className="mt-1.5 flex gap-2">
 				{/* The axis's labels, each level with its gridline. */}
 				<div
@@ -261,18 +322,21 @@ function Trend({
 	);
 }
 
-/** Every model or project, with the tiles' figures over the period. */
+/** Every model, project or system, with its figures over the period. */
 function Breakdown({
 	title,
 	rows,
+	named,
 }: {
 	title: string;
 	rows: Row[];
+	/** The systems this project names, for a system row's chip. */
+	named: readonly NamedSystem[];
 }): JSX.Element {
 	const cell = (value: number | null, shown: (value: number) => string) =>
 		value === null ? "–" : shown(value);
 	return (
-		<div className="flex min-w-0 flex-col gap-2">
+		<div className="mt-2 flex min-w-0 flex-col gap-2 text-foreground">
 			<h3 className="font-medium text-xs">{title}</h3>
 			<div className="overflow-x-auto">
 				<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
@@ -291,7 +355,13 @@ function Breakdown({
 					<tbody>
 						{rows.map((row) => (
 							<tr key={row.name} className="border-b text-right last:border-0">
-								<td className="max-w-40 truncate py-1 text-left">{row.name}</td>
+								<td className="max-w-40 truncate py-1 text-left">
+									{row.system === undefined ? (
+										row.name
+									) : (
+										<SystemNameChip name={row.system} systems={named} />
+									)}
+								</td>
 								<td className="py-1">{row.ended}</td>
 								<td className="py-1">{cell(row.cleanShare, percent)}</td>
 								<td className="py-1">{cell(row.questionsPerTask, decimal)}</td>

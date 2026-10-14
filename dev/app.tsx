@@ -20,6 +20,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 import type { Details } from "../show";
+import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import { stats } from "./api";
 import { AppHeader } from "./app-header";
@@ -29,6 +30,7 @@ import { AutoRestartDialog } from "./auto-restart-dialog";
 import { WatchBackground } from "./background";
 import { BESIDE_PANE, ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
+import { useSystems } from "./composer-triggers";
 import { NEW } from "./conversation-address";
 import { ConversationFeed } from "./conversation-feed";
 import { useWaiting } from "./conversation-list";
@@ -63,6 +65,7 @@ import { TreesContext } from "./work-row";
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
+const NO_SYSTEMS: NamedSystem[] = [];
 const NO_TODOS: TodoState[] = [];
 const NO_CONVERSATIONS: ConversationState[] = [];
 const NO_LANES: LaneRecord[] = [];
@@ -213,6 +216,8 @@ export function App({
 	// history, past any since archived or merged away.
 	const [visits] = useState(() => new Visits());
 	const [report] = useState(() => new StatsReport({ stats }));
+	// The systems the main tree names, for the Stats page's chips.
+	const named = useSystems(null, tasks) ?? NO_SYSTEMS;
 	useEffect(() => {
 		if (open === null || open === NEW) {
 			visits.leave();
@@ -378,7 +383,7 @@ export function App({
 																value="stats"
 																className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
 															>
-																<StatsPage report={report} />
+																<StatsPage report={report} systems={named} />
 															</TabsContent>
 															{available && (
 																<TabsContent
