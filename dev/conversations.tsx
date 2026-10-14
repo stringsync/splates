@@ -208,8 +208,12 @@ export function Conversations({
 						trunk={trunk}
 						refusal={refusals.get(shown.id) ?? null}
 						refuseIn={refuse}
+						// On a phone, back to the list, so it is plain what became of it:
+						// opening the next one in its place reads as a jump.
 						onLeft={() =>
-							goOn(rowsOf(tasks, conversations), drafts, open, onOpen)
+							phone
+								? onOpen(null)
+								: goOn(rowsOf(tasks, conversations), drafts, open, onOpen)
 						}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}

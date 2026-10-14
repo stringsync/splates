@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	message,
 	pressArchive,
+	resize,
 	Testing,
 	waitFor,
 	within,
@@ -141,6 +142,34 @@ describe("App's archiving conversations", () => {
 			{ method: "PUT", body: { archived: true } },
 		]);
 		await waitFor(() => expect(location.hash).toBe("#conversations/c3"));
+	});
+
+	it("goes back to the list on a phone, rather than on to the next agent waiting on you", async () => {
+		resize(390, 844);
+		try {
+			const view = await testing.openConversations([
+				conversation({ id: "c1", title: "Done", status: "stopped" }),
+				conversation({ id: "c2", title: "Broke", status: "failed" }),
+			]);
+			expect(location.hash).toBe("#conversations/c1");
+
+			await act(async () =>
+				fireEvent.click(
+					within(view.getByRole("navigation", { name: "actions" })).getByRole(
+						"button",
+						{ name: /^Archive/ },
+					),
+				),
+			);
+			await waitFor(() =>
+				expect(
+					view.getByRole("navigation", { name: "conversations" }),
+				).toBeTruthy(),
+			);
+			expect(location.hash).toBe("#conversations");
+		} finally {
+			resize(1024, 768);
+		}
 	});
 
 	it("stays on the open conversation when the list archives another", async () => {
