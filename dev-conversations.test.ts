@@ -341,16 +341,29 @@ describe("dev conversations", () => {
 				task: "alpha",
 			});
 			const { id } = (await started.json()) as { id: string };
-			const moveTo = async (task: string) =>
+			const moveTo = async (task: string, base?: string) =>
 				(
 					(await (
-						await json(port, `/api/conversations/${id}/task`, "PUT", { task })
+						await json(port, `/api/conversations/${id}/task`, "PUT", {
+							task,
+							base,
+						})
 					).json()) as ConversationState
 				).task;
 
 			// A subagent claiming a part runs with this conversation's env.
 			expect(await moveTo("part")).toBe("alpha");
 			expect(await moveTo("subpart")).toBe("alpha");
+			// Handing a part out tells the server before its record names the
+			// base, so the add sends the base itself.
+			const added: (string | null)[] = [];
+			await add(deps, "late", {
+				base: "task/alpha",
+				onTree: async () => {
+					added.push(await moveTo("late", "task/alpha"));
+				},
+			});
+			expect(added).toEqual(["alpha"]);
 			expect(await moveTo("beta")).toBe("beta");
 		} finally {
 			await server.disposeAsync();

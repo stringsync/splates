@@ -181,10 +181,13 @@ export class ConversationRoutes {
 	// names the task it is leaving, so removing some other task moves nothing.
 	// A subagent runs with its caller's env, so its claim of a part of the
 	// conversation's task arrives here too, and leaves the conversation be.
+	// `add` sends `base` itself, since it tells this before the record that
+	// names the base is written, and handing out a part leaves it be as well.
 	readonly moveConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		const { task, from } = await body(request);
-		const [named, cwd, base, caller] = await this.treeFor(task);
+		const { task, from, base: sent } = await body(request);
+		const [named, cwd, recorded, caller] = await this.treeFor(task);
+		const base = typeof sent === "string" ? sent : recorded;
 		const leaving = from === undefined || from === conversation.state.task;
 		if (leaving && !(await this.isPartOf(base, conversation.state.task))) {
 			conversation.move(named, cwd, base, caller);

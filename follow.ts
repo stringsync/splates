@@ -15,8 +15,18 @@ type Send = (url: string, init: RequestInit) => Promise<Response>;
 export async function follow(
 	{ ps, log, send = fetch }: { ps: Ps; log: Logger; send?: Send },
 	task: string | null,
-	/** The task being left; given, the conversation moves only out of it. */
-	from?: string,
+	{
+		from,
+		base,
+	}: {
+		/** The task being left; given, the conversation moves only out of it. */
+		from?: string;
+		/**
+		 * The branch `task` lands on, for an add to send before the task's
+		 * record names it, so the server can tell a part from a task to follow.
+		 */
+		base?: string;
+	} = {},
 ): Promise<void> {
 	const id = ps.env("ARBOR_CONVERSATION");
 	const url = ps.env("ARBOR_DEV");
@@ -28,7 +38,7 @@ export async function follow(
 			method: "PUT",
 			// The server refuses a write from any other origin than its own.
 			headers: { "content-type": "application/json", origin: url },
-			body: JSON.stringify(from === undefined ? { task } : { task, from }),
+			body: JSON.stringify({ task, from, base }),
 		});
 		if (!response.ok) {
 			log.error(`arbor dev did not move the conversation: ${response.status}`);

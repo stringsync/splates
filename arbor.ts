@@ -143,7 +143,9 @@ arbor
 				// external agent's. A task handed to another agent is that
 				// agent's, so this conversation stays where it is.
 				onTree:
-					dispatch === undefined ? () => follow(ctx, opts.task) : undefined,
+					dispatch === undefined
+						? () => follow(ctx, opts.task, { base: opts.base || undefined })
+						: undefined,
 			}),
 		);
 	});
@@ -172,7 +174,7 @@ arbor
 		const landing = task === null ? null : await ctx.service.find(task);
 		await ctx.journal.record("merge", task, () => merge(ctx, ctx.ps.cwd()));
 		if (task !== null) {
-			await follow(ctx, null, task);
+			await follow(ctx, null, { from: task });
 		}
 		if (landing !== null) {
 			await reportToCaller(ctx, landing);
@@ -199,7 +201,7 @@ arbor
 		await ctx.journal.record("remove", opts.task, () =>
 			remove(ctx, opts.task, { force: opts.force, reason: opts.reason }),
 		);
-		await follow(ctx, null, opts.task);
+		await follow(ctx, null, { from: opts.task });
 		await reportToCaller(ctx, removing);
 	});
 
