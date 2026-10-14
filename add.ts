@@ -68,6 +68,17 @@ export async function add(
 			{ task },
 		);
 	}
+	// An agent another one started hands nothing to agents of its own, so
+	// they never multiply: it does the work itself, or with its harness's
+	// subagents, which start none either.
+	const handedBy = service.ps.env("ARBOR_CALLER");
+	if (dispatch !== undefined && handedBy !== undefined) {
+		fail(
+			"usage",
+			`this agent was started by conversation ${handedBy}, and an agent another started cannot start one: drop --agent and do the work yourself`,
+			{ task, caller: handedBy },
+		);
+	}
 	const handOff =
 		dispatch === undefined
 			? undefined

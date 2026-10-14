@@ -418,6 +418,11 @@ tree committed (a part lands by fast-forwarding your checkout), re-read files
 before editing them, and squash only after every part has landed. Hand a
 part out only when describing it is shorter than doing it.
 
+Agents start agents one level deep, so they never multiply. When another
+conversation added the task you work, as an orchestrator or a caller handing
+you a part does, `arbor add --agent` refuses: do the work yourself, never
+through another agent. Your harness's own subagents start none either.
+
 A subagent that may change code works in a part, never its own task on
 trunk, so the user reviews one body of work rather than many small ones.
 Add the part yourself, then tell the subagent:

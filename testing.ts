@@ -112,8 +112,10 @@ export class Testing implements AsyncDisposable {
 		// So a command run here, or a CLI it spawns, registers the test's
 		// repository in the test's registry rather than the user's. Run from an
 		// agent in `arbor dev`, it leaves out that agent's conversation too, so
-		// a command's `follow` never reaches the live server.
-		const { ARBOR_CONVERSATION, ARBOR_DEV, ...inherited } = process.env;
+		// a command's `follow` never reaches the live server, nor its caller
+		// refuses the test an `--agent`.
+		const { ARBOR_CONVERSATION, ARBOR_CALLER, ARBOR_DEV, ...inherited } =
+			process.env;
 		this.proc.env = { ...inherited, ARBOR_HOME: this.arborHome };
 		this.projects = new Projects(join(this.arborHome, "projects.json"), {
 			fs: this.fs,

@@ -118,9 +118,15 @@ export class AgentConnection {
 		host.set({ status: "starting", error: null });
 		try {
 			// The agent's `arbor` finds its conversation, and the server, in its
-			// env, to move the conversation as it takes or lands a task.
+			// env, to move the conversation as it takes or lands a task. One
+			// working a task another conversation added also finds that one, so
+			// its `arbor add --agent` refuses: agents start agents one level deep.
+			const { id, lastCaller } = host.state;
 			const process = this.deps.launch(agent.argv, cwd, {
-				ARBOR_CONVERSATION: host.state.id,
+				ARBOR_CONVERSATION: id,
+				...(lastCaller === null || lastCaller === id
+					? {}
+					: { ARBOR_CALLER: lastCaller }),
 				...(this.deps.url === null ? {} : { ARBOR_DEV: this.deps.url }),
 			});
 			this.process = process;

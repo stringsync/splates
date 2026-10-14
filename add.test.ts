@@ -214,6 +214,18 @@ describe("add", () => {
 		expect((await deps.service.find("alpha")).gone).toBe(true);
 	});
 
+	it("refuses to hand the task to an agent from one another agent started, before making anything", async () => {
+		deps.proc.env.ARBOR_CONVERSATION = "c2";
+		deps.proc.env.ARBOR_CALLER = "c1";
+
+		await expect(
+			add(deps, "alpha", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),
+		).toBail("usage", { message: ["started by conversation c1", "--agent"] });
+		expect((await deps.service.find("alpha")).gone).toBe(true);
+		await add(deps, "alpha");
+		expect((await deps.service.find("alpha")).caller).toBe("c2");
+	});
+
 	it("names the trunk and the config when the trunk is not a branch", async () => {
 		deps.config.trunk = "master";
 
