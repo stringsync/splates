@@ -31,11 +31,16 @@ export interface Action {
 
 /**
  * The thread's width, in rem, that holds the widgets docked beside its
- * messages: the messages keep to the middle, 44rem wide (the thread's
- * `--thread-max-width`), and the widgets start half that and a gap right of
- * the middle, 15rem wide, with room to spare.
+ * messages: the widgets take `WIDGETS_ROOM` at the right, and the messages
+ * keep to the middle of what is left, with at least 44rem of it.
  */
-const ROOMY_REM = 76;
+const ROOMY_REM = 61;
+
+/**
+ * What the docked widgets take from the right of the thread: their 15rem, a
+ * 1rem margin clear of its scrollbar, and a gap before the messages.
+ */
+export const WIDGETS_ROOM = "16.75rem";
 
 /**
  * Whether a conversation's widgets show, and where: docked beside its
@@ -131,10 +136,10 @@ export function WidgetsButton({
  * Everything to do with a conversation, as widgets, each a card of its own:
  * the actions, many of them opening the pane beside the page, then a menu of
  * the commands it left in the background below a rule, and cards such as the
- * systems its task touches. Docked just right of its messages where the
- * thread is `roomy`; elsewhere floating, frosted, over the thread's top
- * right, like the Control Center, gone on Escape, a click outside, or an
- * action run.
+ * systems its task touches. Docked at the thread's right where it is
+ * `roomy`, its messages centered in the room left of them; elsewhere
+ * floating, frosted, over the thread's top right, like the Control Center,
+ * gone on Escape, a click outside, or an action run.
  */
 export function Widgets({
 	actions,
@@ -201,7 +206,7 @@ export function Widgets({
 				"[&_[data-card]]:my-0 [&_[data-card]]:rounded-2xl [&_[data-widget]]:rounded-2xl",
 				roomy
 					? [
-							"absolute top-0 left-[calc(50%+22.75rem)] z-10 flex w-60 flex-col gap-3",
+							"absolute top-0 right-4 z-10 flex w-60 flex-col gap-3",
 							!open && "hidden",
 						]
 					: [

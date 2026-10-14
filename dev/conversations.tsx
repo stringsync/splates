@@ -96,7 +96,13 @@ import { leadingDirectives, taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
-import { type Action, useWidgets, Widgets, WidgetsButton } from "./actions";
+import {
+	type Action,
+	useWidgets,
+	WIDGETS_ROOM,
+	Widgets,
+	WidgetsButton,
+} from "./actions";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import {
 	answerConversation,
@@ -2743,7 +2749,13 @@ function Thread({
 			)}
 			<TaskRegistry>
 				{(version) => (
-					<div className="relative min-h-0 flex-1">
+					<div
+						className="relative min-h-0 flex-1"
+						style={{
+							["--thread-inset-end" as string]:
+								widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+						}}
+					>
 						<AssistantRuntimeProvider runtime={runtime}>
 							<Composing.Provider value={runtime.thread.composer}>
 								<QuestionsUI />

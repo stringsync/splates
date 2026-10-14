@@ -326,7 +326,7 @@ const ThreadRoot: FC<{
 		<ThreadPrimitive.Root
 			className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
 			style={{
-				["--thread-max-width" as string]: "44rem",
+				["--thread-max-width" as string]: "48rem",
 				["--composer-bg" as string]:
 					"color-mix(in oklab, var(--color-muted) 30%, transparent)",
 				["--composer-radius" as string]: "1rem",
@@ -340,7 +340,9 @@ const ThreadRoot: FC<{
 				// `useOpenAt` places the thread as it opens instead.
 				scrollToBottomOnInitialize={false}
 				data-slot="aui_thread-viewport"
-				className="relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll"
+				// Clear of what sits over its right, such as docked widgets, which
+				// set `--thread-inset-end`, so the messages center beside them.
+				className="relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll pe-(--thread-inset-end,0px)"
 			>
 				<div
 					className={cn(
