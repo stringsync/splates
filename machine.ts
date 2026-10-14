@@ -1,5 +1,6 @@
 import os from "node:os";
 import type { Fs } from "webappwiz/system";
+import { darwinTemperature } from "./darwin-temperature";
 
 /** How hard the machine `arbor dev` runs on is working right now. */
 export interface MachineReading {
@@ -73,7 +74,7 @@ export class Machine {
 
 /**
  * The machine this process runs on. Temperature is read from Linux's thermal
- * zones; macOS keeps its sensors behind a private API, so there it is null.
+ * zones, and from the CPU die sensors on Apple Silicon; null elsewhere.
  */
 export function osSensors(fs: Fs): MachineSensors {
 	return {
@@ -82,10 +83,12 @@ export function osSensors(fs: Fs): MachineSensors {
 		loadavg: () => os.loadavg(),
 		freemem: () => os.freemem(),
 		totalmem: () => os.totalmem(),
-		temperature: () =>
+		temperature: async () =>
 			process.platform === "linux"
 				? thermalZones(fs, THERMAL)
-				: Promise.resolve(null),
+				: process.platform === "darwin"
+					? darwinTemperature()
+					: null,
 	};
 }
 

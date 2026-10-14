@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { FakeFs } from "webappwiz/system/testing";
+import { darwinTemperature } from "./darwin-temperature";
 import { dev } from "./dev";
 import { Machine, type MachineSensors, thermalZones } from "./machine";
 import { Testing } from "./testing";
@@ -57,6 +58,15 @@ describe("machine", () => {
 	it("reads none without thermal zones", async () => {
 		expect(await thermalZones(new FakeFs(), "/thermal")).toBeNull();
 	});
+
+	it.if(process.platform === "darwin" && process.arch === "arm64")(
+		"reads the hottest CPU die on Apple Silicon, without sudo",
+		() => {
+			const degrees = darwinTemperature();
+			expect(degrees).toBeGreaterThan(15);
+			expect(degrees).toBeLessThan(120);
+		},
+	);
 
 	it("answers /api/machine with the machine's reading", async () => {
 		await using deps = await Testing.open();
