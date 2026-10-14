@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CloudflareError } from "./cloudflare-error";
 
 /** Where Cloudflare's v4 API answers. */
 export const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
@@ -12,16 +13,6 @@ const Envelope = z.object({
 	result: z.unknown(),
 	result_info: z.object({ total_pages: z.number().optional() }).optional(),
 });
-
-/** A call Cloudflare refused, with the HTTP status it answered. */
-export class CloudflareError extends Error {
-	constructor(
-		readonly status: number,
-		message: string,
-	) {
-		super(message);
-	}
-}
 
 /** How many items a list asks for at once, the most every list allows. */
 const PER_PAGE = 50;
@@ -73,6 +64,11 @@ export class CloudflareApi {
 
 	async patch<T>(path: string, body: unknown, shape: z.ZodType<T>): Promise<T> {
 		return (await this.call("PATCH", path, shape, body)).result;
+	}
+
+	/** Deletes what is at `path`, whatever Cloudflare answers with. */
+	async delete(path: string): Promise<void> {
+		await this.call("DELETE", path, z.unknown());
 	}
 
 	private async call<T>(

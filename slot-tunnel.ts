@@ -1,6 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import { z } from "zod";
-import { type CloudflareApi, CloudflareError } from "./cloudflare-api";
+import type { CloudflareApi } from "./cloudflare-api";
+import { CloudflareError } from "./cloudflare-error";
 import type { Creds } from "./creds";
 import { Exit, fail } from "./exit";
 import type { SavedTunnel, TunnelRecord } from "./saved-tunnel";
@@ -15,7 +16,7 @@ import {
 } from "./tunnel-setup";
 
 /** What the Access application in front of every slot is called. */
-const SLOTS_APP = "arbor-slots";
+export const SLOTS_APP = "arbor-slots";
 
 /** The cred a slot's tunnel token is kept as, on the device. */
 export function slotToken({ word }: Slot): string {

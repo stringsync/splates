@@ -11,6 +11,7 @@ import {
 	type RosterAgent,
 } from "./roster";
 import { SavedTunnel } from "./saved-tunnel";
+import { SLOT_POOL } from "./slots";
 
 /** A place in the todo list, 1 at the top; absent leaves it to the command. */
 export const position = z.coerce.number().int().positive().optional();
@@ -55,6 +56,21 @@ export function savedTunnelOf({
 		fs,
 		store: secrets.device,
 	});
+}
+
+/** The tunnel each slot's home may have saved, for every word of the pool. */
+export function slotTunnelsOf({
+	ps,
+	fs,
+	secrets = SYSTEM_STORES,
+}: ArborDeps): SavedTunnel[] {
+	return SLOT_POOL.map(
+		({ word }) =>
+			new SavedTunnel(`${arborHome(ps)}/slots/${word}/tunnel.json`, {
+				fs,
+				store: secrets.device,
+			}),
+	);
 }
 
 /** The roster's agents, written out as the defaults first when there is none. */

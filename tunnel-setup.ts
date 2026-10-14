@@ -1,7 +1,8 @@
 import { color, type Logger } from "webappwiz/log";
 import { z } from "zod";
 import { commaList } from "./arbor-flags";
-import { CloudflareApi, CloudflareError } from "./cloudflare-api";
+import { CloudflareApi } from "./cloudflare-api";
+import { CloudflareError } from "./cloudflare-error";
 import type { Creds } from "./creds";
 import { hostName } from "./dev-tunnel";
 import { Exit, fail } from "./exit";

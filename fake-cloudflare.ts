@@ -112,6 +112,9 @@ export class FakeCloudflare {
 				this.records.push(made);
 				return made;
 			}
+			if (method === "DELETE") {
+				return this.keep(this.records, method, parts[3], body, id);
+			}
 			return record && Object.assign(record, body);
 		}
 		const [, , area, kind, item, extra] = parts;
@@ -122,6 +125,12 @@ export class FakeCloudflare {
 			return this.team === null ? undefined : { auth_domain: this.team };
 		}
 		if (area === "cfd_tunnel") {
+			if (method === "DELETE") {
+				// Cutting a tunnel's connections leaves it, as Cloudflare does.
+				return item === "connections"
+					? {}
+					: this.keep(this.tunnels, method, kind, body, id);
+			}
 			if (method === "POST") {
 				const made = { id: id(), ...body } as Tunnel;
 				this.tunnels.push(made);
@@ -137,7 +146,10 @@ export class FakeCloudflare {
 		}
 		if (area === "access" && kind === "apps" && extra === undefined) {
 			if (method === "GET") {
-				return this.apps.filter((app) => app.domain === query.get("domain"));
+				const domain = query.get("domain");
+				return this.apps.filter(
+					(app) => domain === null || app.domain === domain,
+				);
 			}
 			return this.keep(
 				this.apps,
@@ -167,6 +179,13 @@ export class FakeCloudflare {
 			return made;
 		}
 		const found = items.find((each) => each.id === item);
+		if (method === "DELETE") {
+			if (found === undefined) {
+				return undefined;
+			}
+			items.splice(items.indexOf(found), 1);
+			return { id: found.id };
+		}
 		return found && Object.assign(found, body);
 	}
 }

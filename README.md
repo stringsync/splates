@@ -91,7 +91,9 @@ differs, such as the emails. The first run has no API token yet, so it
 requests one on the Creds page of `arbor dev`, with how to make it; paste it
 there, and run it again. An account with no Zero Trust organization gets one
 with `--team <name>`, for `<name>.cloudflareaccess.com`. `arbor tunnel status`
-shows what is saved.
+shows what is saved, and `arbor tunnel remove` deletes it all again: the tunnels
+of the machine and of every slot, their DNS records, the Access applications
+and their policy, and the saved files and tunnel tokens. The API token stays.
 
 To run several at once, as when trying changes to arbor from a few worktrees,
 give each its own slot:

@@ -1,8 +1,9 @@
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import type { ArborDeps } from "./arbor";
-import { here, savedTunnelOf } from "./arbor-flags";
+import { here, savedTunnelOf, slotTunnelsOf } from "./arbor-flags";
 import { repository } from "./repository";
+import { tunnelRemove } from "./tunnel-remove";
 import { API_TOKEN, tunnelSetup } from "./tunnel-setup";
 
 /** `arbor tunnel`, which the root cli mounts after `arbor lane`. */
@@ -79,3 +80,23 @@ arborTunnel
 			].join("\n"),
 		);
 	});
+
+arborTunnel
+	.command("remove")
+	.use(repository())
+	.description(
+		`delete what \`arbor tunnel setup\` and \`arbor dev --slot\` made in Cloudflare by what they saved: each tunnel, the DNS record routing to it, the Access applications and their policy, then forget the saved files and the tunnels' tokens; the API token kept as ${API_TOKEN} stays. Run again after a failure, it finishes what is left`,
+	)
+	.action(async (_opts, ctx) =>
+		ctx.journal.record("tunnel remove", null, async () =>
+			tunnelRemove({
+				saved: savedTunnelOf(ctx),
+				slots: slotTunnelsOf(ctx),
+				creds: ctx.creds,
+				task: await here(ctx),
+				fs: ctx.fs,
+				log: ctx.log,
+				fetch: ctx.fetch,
+			}),
+		),
+	);
