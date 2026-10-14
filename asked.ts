@@ -21,10 +21,14 @@ export type Stretch =
 export interface Review {
 	task: string;
 	base: string;
-	/** What changed, and what to look at and where, as markdown. */
-	body: string;
+	/** Its first paragraph: what changed, in a sentence, as markdown. */
+	summary: string;
 	/** The demo it holds, to try before merging. */
 	demo: Demo | null;
+	/** The commands its `Checks:` line says passed, in order. */
+	checks: string[];
+	/** Whatever else it says, past the summary, as markdown. */
+	details: string;
 }
 
 /** How a task ended, or what it waits on, as the skill's reports title it. */
@@ -73,6 +77,8 @@ const HEADING = /^#{1,6}[ \t]/;
 /** A review report's title, and the line every one ends with. */
 const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
 const REVIEW_END = 'Reply "merge", or say what to change.';
+/** A review's line naming the checks that passed, each in a code span. */
+const CHECKS = /^Checks:[ \t]*(.*)$/;
 
 /** An item of a numbered list, at the margin: `2. How should …?`. */
 const ITEM = /^(\d+)\.[ \t]+(.+)$/;
@@ -119,7 +125,7 @@ export function stretches(text: string): Stretch[] {
 				review: {
 					task: title[1] as string,
 					base: title[2] as string,
-					...withDemo(lines.slice(i + 1, end)),
+					...reviewOf(lines.slice(i + 1, end)),
 				},
 			});
 			from = end + 1;
@@ -227,6 +233,35 @@ function keptAt(
 					source,
 				};
 	return { stretch: { type: "report", report }, end };
+}
+
+/**
+ * What a review's `lines` say: its first paragraph, its demo and its checks
+ * taken out, and the rest.
+ */
+function reviewOf(
+	lines: string[],
+): Pick<Review, "summary" | "demo" | "checks" | "details"> {
+	const { body, demo } = withDemo(lines);
+	const said = body.split("\n");
+	const at = said.findIndex((line) => CHECKS.test(line));
+	const checks =
+		at === -1
+			? []
+			: Array.from(
+					(said[at] as string).matchAll(/`([^`]+)`/g),
+					(found) => found[1] as string,
+				);
+	// The line goes with the blank line after it, so no gap is left doubled.
+	const rest =
+		at === -1 ? said : said.toSpliced(at, said[at + 1]?.trim() === "" ? 2 : 1);
+	const gap = rest.findIndex((line) => line.trim() === "");
+	return {
+		summary: trimmed(gap === -1 ? rest : rest.slice(0, gap)),
+		demo,
+		checks,
+		details: gap === -1 ? "" : trimmed(rest.slice(gap)),
+	};
 }
 
 /**

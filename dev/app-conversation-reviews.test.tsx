@@ -397,4 +397,64 @@ describe("App's review panel and demo cards", () => {
 		).toContain("Drag it to another lane.");
 		expect(within(panel).getByRole("button", { name: "Merge" })).toBeTruthy();
 	});
+
+	it("orders a review by what deciding takes: summary, demo, assumptions, checks, then the details folded", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					title: "Header",
+					messages: [
+						message(
+							"agent",
+							[
+								"## 🔍 Ready to merge header onto main",
+								"",
+								"The header wraps on phones.",
+								"",
+								...demo,
+								"",
+								"Checks: `bun run typecheck`, `bun test`",
+								"",
+								"It breaks at 400px, kept in one constant.",
+								"",
+								'Reply "merge", or say what to change.',
+							].join("\n"),
+						),
+					],
+				}),
+			],
+			"c1",
+			assumed,
+		);
+
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const regions = within(panel)
+			.getAllByRole("region")
+			.map((each) => each.getAttribute("aria-label"));
+		expect(regions).toEqual([
+			"demo dragging a card",
+			"Assumptions",
+			"Checks",
+			"Details",
+		]);
+		const text = panel.textContent ?? "";
+		expect(text.indexOf("The header wraps on phones.")).toBeLessThan(
+			text.indexOf("Drag it to another lane."),
+		);
+		const checks = within(panel).getByRole("region", { name: "Checks" });
+		expect(within(checks).getByText("bun run typecheck")).toBeTruthy();
+		expect(within(checks).getByText("bun test")).toBeTruthy();
+		// The details wait behind its toggle.
+		expect(
+			view.queryByText("It breaks at 400px, kept in one constant."),
+		).toBeNull();
+		fireEvent.click(within(panel).getByRole("button", { name: "Details" }));
+		await waitFor(() =>
+			expect(
+				view.getByText("It breaks at 400px, kept in one constant."),
+			).toBeTruthy(),
+		);
+	});
 });

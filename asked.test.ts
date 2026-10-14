@@ -108,7 +108,7 @@ describe("stretches", () => {
 				review: {
 					task: "<task>",
 					base: "<base>",
-					body: "One sentence on what changed.",
+					summary: "One sentence on what changed.",
 					demo: {
 						title: "moving todos between lanes",
 						intro:
@@ -127,6 +127,8 @@ describe("stretches", () => {
 							},
 						],
 					},
+					checks: ["bun run typecheck", "bun test"],
+					details: "",
 				},
 			},
 		]);
@@ -303,6 +305,37 @@ describe("stretches", () => {
 				},
 			},
 		]);
+	});
+
+	it("reads a review's summary, checks, and details wherever they stand", () => {
+		const [stretch] = stretches(
+			[
+				"## 🔍 Ready to merge header onto main",
+				"",
+				"The header wraps on phones.",
+				"",
+				"It breaks at 390px rather than 420px.",
+				"",
+				"Checks: `bun run typecheck`, `bun test`",
+				"",
+				"The old breakpoint stays for tablets.",
+				"",
+				'Reply "merge", or say what to change.',
+			].join("\n"),
+		);
+
+		expect(stretch).toEqual({
+			type: "review",
+			review: {
+				task: "header",
+				base: "main",
+				summary: "The header wraps on phones.",
+				demo: null,
+				checks: ["bun run typecheck", "bun test"],
+				details:
+					"It breaks at 390px rather than 420px.\n\nThe old breakpoint stays for tablets.",
+			},
+		});
 	});
 
 	it("leaves a review title without the line every review ends with as text", () => {

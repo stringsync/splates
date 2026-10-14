@@ -54,14 +54,16 @@ export function DemoCard({
 
 /**
  * A demo inside another card: its title over its steps, set apart from what
- * the card says around it.
+ * the card says around it by a rule below, unless `className` says otherwise.
  */
 export function DemoSection({
 	demo,
 	kept,
+	className,
 }: {
 	demo: Demo;
 	kept: string | null;
+	className?: string;
 }): JSX.Element {
 	const ticks = useTicks(kept);
 	const done = demo.steps.filter((step) =>
@@ -70,7 +72,7 @@ export function DemoSection({
 	return (
 		<section
 			aria-label={`demo${demo.title === null ? "" : ` ${demo.title}`}`}
-			className="border-b"
+			className={cn("border-b", className)}
 		>
 			<div className="flex items-center gap-2 px-4 pt-3">
 				<ClapperboardIcon className="size-4 text-info" />

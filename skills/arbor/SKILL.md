@@ -655,9 +655,10 @@ punctuation.
 Then stop, but for a `- ` line, at most three, on anything the user must act
 on or would be caught out without: a restart to pick the change up, a file
 resolved in a conflict after their review, a todo gone stale. Leave out what
-the page, the diff, or `ARBOR.md` already says: that tests pass, that nothing
-is merged yet, the files touched, how you did it, and calls you made, which
-are assumptions or questions in `ARBOR.md`, the questions asked as questions.
+the page, the diff, or `ARBOR.md` already says: that tests pass (but for a
+review's checks), that nothing is merged yet, the files touched, how you did
+it, and calls you made, which are assumptions or questions in `ARBOR.md`, the
+questions asked as questions.
 
 When the user has answered questions since your last report, add a `- `
 line for each answer you did not follow as given, or that changed more than
@@ -736,11 +737,18 @@ Open http://localhost:4310 (a demo repo, nothing of yours).
    It stays there.
    ![the board after a drag](/abs/path/board.png)
 
+Checks: `bun run typecheck`, `bun test`
+
 Reply "merge", or say what to change.
 ```
 
 A review asks no numbered question: after its sentence comes the demo of
-what to check, then that last line exactly, so every review reads the same.
+what to check, then a `Checks:` line naming each check you ran that passed,
+as the project's instructions name them, each in backticks, then that last
+line exactly, so every review reads the same. Anything more the user may
+want before merging, such as how it works, goes between the checks and the
+last line: the `arbor dev` page folds it away as its details, below the
+assumptions it lists from `ARBOR.md` and the checks.
 
 Number questions the same way wherever you ask them: a mid-task reply, a
 merge report, or a message outside any task. The user answers by number, so

@@ -1,9 +1,18 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import { CheckIcon, GitMergeIcon, SendHorizontalIcon } from "lucide-react";
+import {
+	CheckIcon,
+	ChevronRightIcon,
+	GitMergeIcon,
+	SendHorizontalIcon,
+} from "lucide-react";
 import { type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#dev/components/ui/collapsible.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import { cn } from "#dev/lib/utils.ts";
 import type { Review } from "../asked";
 import { assumptions, type Question } from "../plan";
 import { MERGE } from "../prompts";
@@ -102,23 +111,18 @@ export function ReviewPanel({
 				)
 			}
 		>
-			{review.body !== "" && (
-				<div className={cn(review.demo !== null && "border-b")}>
-					<CardBody text={review.body} />
-				</div>
-			)}
-			{review.demo !== null && (
-				<DemoSection
-					demo={review.demo}
-					kept={draft === null ? null : `${draft}:demo`}
-				/>
-			)}
-			{challenges.length > 0 && (
-				<div
-					className={cn(
-						(review.body !== "" || review.demo !== null) && "border-t",
-					)}
-				>
+			{/* What deciding to merge takes, in order: what changed, how to see
+			it, what was assumed, what passed, and the details, folded. */}
+			<div className="divide-y">
+				{review.summary !== "" && <CardBody text={review.summary} />}
+				{review.demo !== null && (
+					<DemoSection
+						demo={review.demo}
+						kept={draft === null ? null : `${draft}:demo`}
+						className="last:border-b-0"
+					/>
+				)}
+				{challenges.length > 0 && (
 					<AssumptionList
 						assumptions={assumptions(plan)}
 						answers={challenges.map((asked) =>
@@ -130,8 +134,10 @@ export function ReviewPanel({
 						onAnswer={challenge}
 						onNext={() => box.current?.focus()}
 					/>
-				</div>
-			)}
+				)}
+				{review.checks.length > 0 && <Checks checks={review.checks} />}
+				{review.details !== "" && <Details text={review.details} />}
+			</div>
 			{sent !== null && (
 				// What the person replied, as it was sent: the card keeps it.
 				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
@@ -215,6 +221,49 @@ export function ReviewPanel({
 				</footer>
 			)}
 		</CardShell>
+	);
+}
+
+/** The checks a review says passed, a line each. */
+function Checks({ checks }: { checks: string[] }): JSX.Element {
+	return (
+		<section aria-label="Checks" className="flex flex-col gap-1 px-4 py-3">
+			<h3 className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
+				Checks
+			</h3>
+			<ul className="flex flex-col gap-1">
+				{checks.map((check) => (
+					<li key={check} className="flex items-center gap-2 text-sm">
+						<CheckIcon
+							aria-label="passed"
+							className="size-3.5 shrink-0 text-success"
+							strokeWidth={3}
+						/>
+						<code className="min-w-0 truncate font-mono text-[13px]">
+							{check}
+						</code>
+					</li>
+				))}
+			</ul>
+		</section>
+	);
+}
+
+/** Whatever else a review says past its summary, closed until opened. */
+function Details({ text }: { text: string }): JSX.Element {
+	return (
+		<Collapsible
+			render={<section aria-label="Details" />}
+			className="group/details"
+		>
+			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
+				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/details:rotate-90" />
+				Details
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				<CardBody text={text} className="pt-0" />
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }
 
