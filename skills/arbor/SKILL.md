@@ -574,7 +574,8 @@ replies, after `arbor claim` returns, and between steps), bring it up to date:
   --remove <old path>`), and point the question at the new one;
 - move each assumption the user challenges to the end of `## Blocked`,
   keeping its number, and treat it as a question from then on: write what
-  the challenge says after `→`, and check it off once you have acted on it;
+  the challenge says after `→`, starting it with `challenged:` so the Stats
+  page can count it, and check it off once you have acted on it;
 - add each question you now need.
 
 The user answers in chat. From the `arbor dev` page, a reply quotes each

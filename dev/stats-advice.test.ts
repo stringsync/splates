@@ -23,6 +23,24 @@ function card(
 }
 
 describe("advise", () => {
+	it("says to let agents assume more when you rarely challenge them, and to ask more when you often do", () => {
+		expect(
+			card(
+				"Assumptions you challenged",
+				period({ assumptionsMade: 20, assumptionsChallenged: 1 }),
+			),
+		).toMatchObject({
+			figure: "5%",
+			act: expect.stringContaining("assume more"),
+		});
+		expect(
+			card(
+				"Assumptions you challenged",
+				period({ assumptionsMade: 10, assumptionsChallenged: 4 }),
+			)?.act,
+		).toContain("assume wrong");
+	});
+
 	it("says to let agents decide when you almost always agree, and to give context when you often do not", () => {
 		expect(
 			card(

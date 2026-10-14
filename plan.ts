@@ -249,6 +249,21 @@ export function picks(text: string): {
 	return { asked: asked.length, picked, overturned, amended };
 }
 
+/**
+ * How many calls the agent made without asking, and how many of them the
+ * person challenged. A challenged one moves to `## Blocked` under its number
+ * with a reply starting `challenged:`, so it counts in both.
+ */
+export function assumptionCounts(text: string): {
+	made: number;
+	challenged: number;
+} {
+	const challenged = questions(text).filter((each) =>
+		/^challenged\b/i.test(each.reply ?? ""),
+	).length;
+	return { made: assumptions(text).length + challenged, challenged };
+}
+
 /** What still stands between a task and trunk, as its plan tells it. */
 export interface Unfinished {
 	/** Each unchecked question under `## Blocked`, by number: `["2", "4"]`. */

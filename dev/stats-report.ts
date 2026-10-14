@@ -46,7 +46,7 @@ export interface Axis {
  * what they ask, write down what one system draws, and check whether a
  * change helped). The rest always fold away.
  */
-export const LEADS: AdviceId[] = ["picks", "hotspot", "course"];
+export const LEADS: AdviceId[] = ["picks", "assumptions", "hotspot", "course"];
 
 /** How many cards lead the page at most. */
 export const LEADING = 2;

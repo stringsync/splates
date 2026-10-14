@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+	assumptionCounts,
 	assumptions,
 	checkPlan,
 	goalLine,
@@ -173,6 +174,26 @@ describe("assumptions", () => {
 		expect(checkPlan(copied, { task: "alpha" })).toEqual([
 			"1 numbered twice across ## Assumptions and ## Blocked: a challenged assumption moves to ## Blocked rather than being copied, and new items continue from the highest",
 		]);
+	});
+});
+
+describe("assumptionCounts", () => {
+	it("counts those left under Assumptions and those challenged out to Blocked", () => {
+		const plan = [
+			"## Assumptions",
+			"",
+			"- [ ] 1. Retry limit?",
+			"  - (a) Three (chosen)",
+			"  - (b) Five",
+			"",
+			"## Blocked",
+			"",
+			"- [x] 2. Keep the endpoint? → a",
+			"  - (a) Keep (chosen)",
+			"- [x] 3. Name it? → challenged: call it mixer",
+			"  - (a) Mixer (chosen)",
+		].join("\n");
+		expect(assumptionCounts(plan)).toEqual({ made: 2, challenged: 1 });
 	});
 });
 

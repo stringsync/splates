@@ -32,6 +32,10 @@ export interface Outcome {
 	picksOverturned?: number;
 	/** Of `picksAsked`, those answered with the agent's choice but with words added. */
 	picksAmended?: number;
+	/** The calls its plan made without asking, under `## Assumptions` or challenged out of it. Absent from older lines. */
+	assumptionsMade?: number;
+	/** Of `assumptionsMade`, those the person challenged. */
+	assumptionsChallenged?: number;
 	/** The systems its changed files fall in, by name. Absent from older lines. */
 	systems?: string[];
 	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */

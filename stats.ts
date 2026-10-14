@@ -21,6 +21,10 @@ export interface Tally {
 	picksOverturned: number;
 	/** Of `picksAsked`, those answered with the agent's choice and words added. */
 	picksAmended: number;
+	/** Calls made without asking. */
+	assumptionsMade: number;
+	/** Of `assumptionsMade`, those challenged. */
+	assumptionsChallenged: number;
 	/** Tasks whose time waiting on a person was kept; older ones were not. */
 	timed: number;
 	/** Of the `timed` tasks, how long they waited on a person, in milliseconds. */
@@ -181,6 +185,11 @@ function tally(outcomes: Outcome[]): Tally {
 		picksAsked: sum(outcomes, (each) => each.picksAsked ?? 0),
 		picksOverturned: sum(outcomes, (each) => each.picksOverturned ?? 0),
 		picksAmended: sum(outcomes, (each) => each.picksAmended ?? 0),
+		assumptionsMade: sum(outcomes, (each) => each.assumptionsMade ?? 0),
+		assumptionsChallenged: sum(
+			outcomes,
+			(each) => each.assumptionsChallenged ?? 0,
+		),
 		timed: timed.length,
 		waitedMs: sum(timed, (each) => each.waitedMs ?? 0),
 		spentMs: sum(
@@ -220,6 +229,8 @@ const SUMMED = [
 	"picksAsked",
 	"picksOverturned",
 	"picksAmended",
+	"assumptionsMade",
+	"assumptionsChallenged",
 	"timed",
 	"waitedMs",
 	"spentMs",

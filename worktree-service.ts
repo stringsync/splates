@@ -5,7 +5,7 @@ import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { ranWith } from "./models";
 import type { Outcomes } from "./outcomes";
-import { PLAN_FILE, picks } from "./plan";
+import { assumptionCounts, PLAN_FILE, picks } from "./plan";
 import { Systems } from "./systems";
 import { type DiscardOptions, type TaskState, Worktree } from "./worktree";
 
@@ -228,6 +228,7 @@ export class WorktreeService {
 		const escalations = state.escalations ?? [];
 		const endedAt = new Date().toISOString();
 		const asked = picks(ending.plan);
+		const assuming = assumptionCounts(ending.plan);
 		const reviews = escalations.filter((each) => each.review).length;
 		// A dispatched task names its conversation once `arbor dev` started
 		// it; any other agent from the page has it in its env.
@@ -260,6 +261,8 @@ export class WorktreeService {
 			picksAsked: asked.picked,
 			picksOverturned: asked.overturned,
 			picksAmended: asked.amended,
+			assumptionsMade: assuming.made,
+			assumptionsChallenged: assuming.challenged,
 			systems: ending.systems,
 			// Each escalation waits until claimed, or until the task ended
 			// while it still waited.
