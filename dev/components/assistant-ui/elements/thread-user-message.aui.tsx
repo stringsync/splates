@@ -69,7 +69,10 @@ const UserText: TextMessagePartComponent = ({ text }) => {
 			{directives.length > 0 && (
 				<span
 					data-slot="aui_user-message-directives"
-					className={cn("flex flex-wrap gap-2", rest !== "" && "pb-2")}
+					className={cn(
+						"aui-user-message-directives flex flex-wrap gap-2",
+						rest !== "" && "pb-2",
+					)}
 				>
 					{directives.map((directive) => (
 						<DirectiveChip key={directive} directive={directive} opens />
@@ -127,9 +130,10 @@ export const UserMessage: FC = () => {
 				// the reply out over the 2rem below it, which the margin and the
 				// gap keep clear while it is not stuck. The margin alone is what
 				// its turn holds it by, so the fade comes to the next message's
-				// top as that pushes it out.
+				// top as that pushes it out. On a phone the fade is half that, so
+				// it hides less of a short screen.
 				"bg-background sticky top-0 z-10 mb-2 [container-type:scroll-state]",
-				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 after:bg-linear-to-b after:from-background after:to-transparent",
+				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 max-sm:after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
 			)}
 			data-role="user"
 		>
@@ -235,21 +239,34 @@ const UserCopy: FC = () => (
 /**
  * What the person said, across the thread's full width like the reply: the
  * theme's muted fill, set apart from the page, with room at its end for the
- * copy button.
+ * copy button. Smaller and tighter on a phone, where it sits atop a short
+ * screen.
  */
 const USER_BOX =
-	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 wrap-break-word";
-/** Lines of a message shown before it is clicked open. */
-const CLAMP = "max-h-24";
+	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:ps-3 max-sm:py-1.5 max-sm:text-sm wrap-break-word";
 /**
- * How much of a message with files is shown before it is clicked open: a row
- * of tiles and a line or two under it.
+ * Lines of a message shown before it is clicked open: one on a phone, four
+ * on a wider screen. On a phone it sets the words' line height, so `1lh` is
+ * one line of them, or shows the row of chips a message starts with, which
+ * stands taller than a line.
  */
-const CLAMP_WITH_FILES = "max-h-32";
+const CLAMP =
+	"max-h-24 max-sm:max-h-[1lh] max-sm:leading-relaxed max-sm:has-[.aui-user-message-directives]:max-h-7";
 /**
- * A message cut to four lines, or to its files and a line or two, fading out
- * where it is cut, and opened or closed again by a click (or Enter) when
- * there is more than fits.
+ * How much of a message with files is shown before it is clicked open: its
+ * row of tiles on a phone, and a line or two under it on a wider screen.
+ */
+const CLAMP_WITH_FILES = "max-h-32 max-sm:max-h-14";
+/**
+ * Where a cut message fades: the end of its one line on a phone, its last
+ * lines on a wider screen.
+ */
+const CUT_FADE =
+	"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-3rem),transparent)]";
+/**
+ * A message cut to four lines, or to its files and a line or two (one line,
+ * or its files alone, on a phone), fading out where it is cut, and opened or
+ * closed again by a click (or Enter) when there is more than fits.
  */
 const Clamped: FC<
 	PropsWithChildren<{
@@ -313,9 +330,7 @@ const Clamped: FC<
 					// Open, it still sticks atop the thread, so it scrolls past half
 					// the screen rather than hide the reply.
 					open && "max-h-[50dvh] overflow-y-auto",
-					!open &&
-						more &&
-						"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]",
+					!open && more && CUT_FADE,
 				)}
 			>
 				{head}
