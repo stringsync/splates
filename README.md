@@ -69,6 +69,48 @@ arrow, pin a note to each, and send it back.
 
 ![An agent's screenshot, marked up](https://raw.githubusercontent.com/jaredjj3/webappwiz/main/packages/arbor/screenshots/annotate.png)
 
+### Remote access
+
+To open the page from another machine, put it behind a Cloudflare tunnel and
+Cloudflare Access, which decides who may enter:
+
+```bash
+bunx @webappwiz/arbor dev --tunnel arbor.example.com \
+  --access-team my-team --access-aud <the application's AUD tag>
+```
+
+`--tunnel` runs `cloudflared tunnel run` against the page for as long as the
+server lives (`--tunnel-name` picks the named tunnel, else cloudflared's own
+config does), and is refused without both Access flags. Requests to that host
+must carry a verified Access token; with one, conversations and terminals
+work too.
+
+To use another tunnel, give `arbor.config.ts` a `tunnel`, any object that
+implements `TunnelProvider`:
+
+```ts
+import type { ConfigFile } from "@webappwiz/arbor/config";
+import type { TunnelProvider } from "@webappwiz/arbor/tunnel-provider";
+
+const myTunnel: TunnelProvider = {
+	// throw, saying what to do, unless the tunnel can run
+	async ready() {},
+	// carry route.host to route.url until the returned resource is disposed
+	run: ({ host, url, log }) => {
+		const child = Bun.spawn(["my-tunnel", "--host", host, "--to", url]);
+		return { disposeAsync: async () => void child.kill() };
+	},
+};
+
+export default { tunnel: myTunnel } satisfies ConfigFile;
+```
+
+`--tunnel <host>` then runs yours instead of cloudflared. Access is still
+required, since arbor verifies Cloudflare Access tokens whatever carries the
+traffic, and `--tunnel-name` is refused beside a provider of your own. One
+that is not ready, or fails to start, is logged and skipped: the page keeps
+serving on this machine.
+
 ### Stats
 
 As each task merges or is removed, arbor writes down how it went in

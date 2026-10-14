@@ -19,6 +19,7 @@
 		"./config": "./config.ts",
 		"./skills": "./skills.ts",
 		"./systems": "./systems.ts",
+		"./tunnel-provider": "./tunnel-provider.ts",
 		"./update": "./update.ts"
 	},
 	"imports": {

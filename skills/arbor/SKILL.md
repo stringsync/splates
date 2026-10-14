@@ -371,6 +371,28 @@ You place them in lanes first, then work those lanes as above:
    again, and place any todo added since the same way. Stop once nothing is
    left to place and every lane you work is done.
 
+## Remote access
+
+When the user asks to reach `arbor dev` from elsewhere, or for a tunnel other
+than cloudflared, it is `arbor dev --tunnel <host> --access-team <team>
+--access-aud <aud>`: it runs `cloudflared tunnel run` against the page and
+allows that host, and it refuses to start without both Access flags, since
+who may enter is wholly the Cloudflare Access policy's call (`--tunnel-name`
+picks a named tunnel). Never run a tunnel by hand with `--allow-hosts` and no
+Access: that host then reaches only the todos.
+
+A tunnel of their own is a `tunnel` in the repo's `arbor.config.ts`, an object
+implementing `TunnelProvider` from `@webappwiz/arbor/tunnel-provider`:
+`ready()` throws, saying what to do, unless the tunnel can run, and
+`run({ host, url, log })` carries `host` to `url` and returns a resource
+whose `disposeAsync()` stops it. Type the config with `satisfies ConfigFile`.
+`--tunnel` runs it in place of cloudflared and still needs the Access flags;
+`--tunnel-name` is refused beside it. Write one only when asked, as a
+separate task from whatever else is under way, and read
+`packages/arbor/tunnel-provider.ts` first. A provider that is not ready is
+logged and skipped, so check the `arbor dev` log, not the page, to see
+whether it came up.
+
 ## Checkpoint
 
 `[ARBOR CHECKPOINT]`, sent by the `arbor dev` page, means your process is
