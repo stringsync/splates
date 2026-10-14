@@ -21,8 +21,9 @@ import type { AgentPick } from "../roster";
 import { AgentIcon } from "./agent-icons";
 import { promptConversation, startConversation } from "./api";
 import { Board, still } from "./board";
-import { Mark, nameOf, reportedAs } from "./conversations";
+import { nameOf, reportedAs } from "./conversation-names";
 import type { Assignment, Dispatch } from "./dispatch";
+import { Mark } from "./mark";
 
 /**
  * The main tree's branch, which names it where a conversation's place is

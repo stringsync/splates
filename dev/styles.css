@@ -41,6 +41,10 @@
 @source "./shown-lanes.tsx";
 @source "./links.tsx";
 @source "./conversations.tsx";
+@source "./conversation-list.tsx";
+@source "./conversation-item.tsx";
+@source "./list-rows.tsx";
+@source "./mark.tsx";
 @source "./demo-cards.tsx";
 @source "./directives.tsx";
 @source "./reference-chip.tsx";

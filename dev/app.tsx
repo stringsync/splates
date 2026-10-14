@@ -45,14 +45,10 @@ import { BESIDE_PANE, ChangesPane, ReviewChanges } from "./changes";
 import { CheckpointProvider, CheckpointRefusal } from "./checkpoint";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
 import { focusComposer } from "./composer-editor";
+import { conversationIn, NEW } from "./conversation-address";
 import { ConversationFeed } from "./conversation-feed";
-import {
-	ConversationList,
-	Conversations,
-	conversationIn,
-	NEW,
-	useWaiting,
-} from "./conversations";
+import { ConversationList, useWaiting } from "./conversation-list";
+import { Conversations } from "./conversations";
 import { Dispatch } from "./dispatch";
 import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
