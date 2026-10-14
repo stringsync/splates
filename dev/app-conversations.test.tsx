@@ -2004,6 +2004,30 @@ describe("App's conversations", () => {
 		expect(thread.textContent).toContain("Working");
 	});
 
+	it("shows the work row the agent's work will fill while it has yet to do anything", async () => {
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [message("user", "what does it say?")],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		await waitFor(() =>
+			expect(thread.querySelector('[data-slot="work"]')?.textContent).toBe(
+				"Working",
+			),
+		);
+		expect(
+			thread.querySelector('[data-slot="aui_assistant-message-indicator"]'),
+		).toBeNull();
+	});
+
 	it("says Working under a reply while its text streams", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Read the note" }),

@@ -2399,10 +2399,20 @@ function Thread({
 		// The reply's place while the agent has yet to say anything, under the
 		// id the reply will take: assistant-ui's own placeholder has an id of its
 		// own, so the reply would mount afresh in its place and fade in again.
-		return running && said.at(-1)?.role === "user"
+		// It holds the work row already, counting up from the prompt, so the
+		// agent's first move fills that row rather than putting one in its place.
+		const prompt = said.at(-1);
+		return running && prompt?.role === "user"
 			? [
 					...liked,
-					{ id: String(said.length), role: "assistant" as const, content: [] },
+					like(
+						{ role: "agent", parts: [], plan: null, at: null, until: null },
+						said.length,
+						conversation.id,
+						false,
+						prompt.at,
+						now,
+					),
 				]
 			: liked;
 	}, [

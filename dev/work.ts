@@ -55,8 +55,14 @@ export function stretchesOf(
 	const before = last === -1 ? parts : parts.slice(0, last);
 	const after = last === -1 ? [] : parts.slice(last + 1);
 	const kept: (Part[] | string)[] = [];
-	// Its plan shows on a row of its own, above what it said, even with no work.
-	if (before.length > 0 || (after.length === 0 && message.plan !== null)) {
+	// Its plan shows on a row of its own, above what it said, even with no work,
+	// and so does a turn going with nothing to show yet, so the row counts up
+	// from the prompt in the place its work will fill.
+	if (
+		before.length > 0 ||
+		(after.length === 0 && message.plan !== null) ||
+		(going && last === -1)
+	) {
 		kept.push(before);
 	}
 	if (said?.type === "text") {
