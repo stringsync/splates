@@ -248,7 +248,7 @@ describe.concurrent("todo", () => {
 		await expect(deps.todos.all()).toBail("outdated", {
 			message: [
 				"was saved with tags, and arbor now groups todos in lanes instead",
-				"Run `bunx @webappwiz/cli update` in this repository",
+				"Run `arbor update` in this repository",
 			],
 		});
 

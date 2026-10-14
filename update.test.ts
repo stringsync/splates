@@ -69,4 +69,37 @@ describe("update", () => {
 			await rm(root, { recursive: true, force: true });
 		}
 	});
+
+	it("installs the skill of the release it is named, asking npm nothing", async () => {
+		expect(
+			await update({ root: "/repo", fs, ps, log, release: "999.0.0" }),
+		).toBe(0);
+		expect(ps.getCalls()).toEqual([
+			"bunx skills@1 add jaredjj3/webappwiz#v999.0.0 --yes --skill arbor",
+		]);
+	});
+
+	it("moves todos saved with tags into a lane a tag", async () => {
+		await fs.mkdir("/repo/.git/arbor/todos", { recursive: true });
+		await fs.write(
+			"/repo/.git/arbor/todos/1.json",
+			JSON.stringify({
+				id: 1,
+				subject: "retry uploads",
+				text: "",
+				position: 1,
+				from: null,
+				createdAt: "2026-01-01T00:00:00.000Z",
+				takenBy: null,
+				files: [],
+				tags: ["uploads"],
+			}),
+		);
+
+		await run(RUNNING);
+
+		expect(log.entries.map((entry) => String(entry.message))).toContain(
+			"moved #1 into lane 1 Uploads, from their tag",
+		);
+	});
 });

@@ -430,7 +430,7 @@ export class Todos {
 				"outdated",
 				[
 					`todo ${found.state.id} was saved with tags, and arbor now groups todos in lanes instead, so it reads no todos until their tags are moved.`,
-					"Run `bunx @webappwiz/cli update` in this repository: it puts each tag's todos in a lane named after the tag, then arbor works as before.",
+					"Run `arbor update` in this repository: it puts each tag's todos in a lane named after the tag, then arbor works as before.",
 				].join("\n"),
 				{ todo: found.state.id },
 			);
