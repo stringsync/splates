@@ -32,6 +32,8 @@ export async function startDispatched({
 		}
 		const conversation = await conversations.start(dispatch.agent, {
 			task: worktree.task,
+			base: worktree.base,
+			caller: worktree.caller,
 			cwd: worktree.path,
 			model: dispatch.model,
 		});

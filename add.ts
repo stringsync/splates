@@ -135,8 +135,12 @@ export async function add(
 	}
 
 	await onTree?.();
+	// An agent `arbor dev` started has its conversation in its env: the page
+	// nests the task under it, as for a subagent's task landing on trunk.
+	const caller = service.ps.env("ARBOR_CONVERSATION");
 	const worktree = await (await service.find(task)).take({
 		base,
+		...(caller === undefined ? {} : { caller }),
 		...(handOff === undefined
 			? {}
 			: { dispatch: { ...handOff, pending: true } }),

@@ -11,6 +11,7 @@ import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Need, Needing } from "../needs";
 import type { Details } from "../show";
+import { nameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
 import { Mark } from "./mark";
 import type { Nested } from "./parts";
@@ -43,7 +44,7 @@ export function Rows({
 					{render(row)}
 					{parts.length > 0 && (
 						<Rows
-							label={`parts of ${lastTaskOfRow(row) ?? ""}`}
+							label={`parts of ${lastTaskOfRow(row) ?? (row.conversation === null ? "" : nameOf(row.conversation))}`}
 							rows={parts}
 							render={render}
 							nested

@@ -12,6 +12,8 @@ export interface Details {
 	status: string;
 	branch: string;
 	base: string;
+	/** The `arbor dev` conversation whose agent added it, or null. */
+	caller: string | null;
 	worktree: string;
 	lease: "held" | "stale" | "none";
 	ahead: number | null;
@@ -117,6 +119,7 @@ export class TaskDetails {
 			status: worktree.status,
 			branch: worktree.branch,
 			base: worktree.base,
+			caller: worktree.caller,
 			worktree: worktree.path,
 			lease: worktree.leaseStatus,
 			ahead: worktree.hasBranch ? await worktree.commitsAhead() : null,

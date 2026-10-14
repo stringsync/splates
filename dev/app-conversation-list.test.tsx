@@ -168,6 +168,77 @@ describe("App's conversation list", () => {
 		).toEqual(["alpha-api"]);
 	});
 
+	it("nests the tasks a conversation's agent added for its subagents under it, though they land on trunk", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					task: "split-b",
+					lastCaller: "c1",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					task: null,
+					title: "Look around",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+			],
+			null,
+			{
+				tasks: [
+					details({ task: "split-a", caller: "c1" }),
+					details({ task: "split-b", caller: "c1" }),
+					details({ task: "split-c", caller: "c1" }),
+					details({ task: "loose" }),
+				],
+			},
+		);
+		const list = view.getByRole("list", { name: "conversation list" });
+
+		expect(
+			within(list)
+				.getAllByRole("listitem")
+				.filter((item) => item.parentElement === list)
+				.map((item) => item.querySelector("span.truncate")?.textContent),
+		).toEqual(["Look around", "split-b", "loose"]);
+		expect(
+			within(view.getByRole("list", { name: "parts of split-b" }))
+				.getAllByRole("listitem")
+				.map((item) => item.querySelector("span.truncate")?.textContent),
+		).toEqual(["split-a", "split-c"]);
+	});
+
+	it("keeps a subagent's conversation under its caller's once its task merged", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					task: null,
+					title: "Orchestrate",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					agent: "codex",
+					task: null,
+					lastTask: "split-a",
+					lastBase: "main",
+					lastCaller: "c1",
+					createdAt: "2026-10-11T10:03:00.000Z",
+				}),
+			],
+			null,
+			{ tasks: [] },
+		);
+
+		expect(
+			within(view.getByRole("list", { name: "parts of Orchestrate" }))
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["split-a"]);
+	});
+
 	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
 		const view = await testing.openConversations(
 			[

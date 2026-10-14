@@ -129,10 +129,11 @@ export class ConversationRoutes {
 
 	readonly startConversation = async (request: Request): Promise<Response> => {
 		const { agent, task, settings, model } = await body(request);
-		const [named, cwd, base] = await this.treeFor(task);
+		const [named, cwd, base, caller] = await this.treeFor(task);
 		const conversation = await this.held().start(String(agent ?? ""), {
 			task: named,
 			base,
+			caller,
 			cwd,
 			model: typeof model === "string" && model !== "" ? model : undefined,
 			settings: Object.fromEntries(
@@ -158,13 +159,14 @@ export class ConversationRoutes {
 	/** Brings in a session an agent holds, as a conversation in `task`'s tree. */
 	readonly bringSession = async (request: Request): Promise<Response> => {
 		const { agent, session, task, title } = await body(request);
-		const [named, cwd, base] = await this.treeFor(task);
+		const [named, cwd, base, caller] = await this.treeFor(task);
 		const conversation = await this.held().bring(
 			String(agent ?? ""),
 			String(session ?? ""),
 			{
 				task: named,
 				base,
+				caller,
 				cwd,
 				title: typeof title === "string" && title !== "" ? title : null,
 			},
@@ -177,9 +179,9 @@ export class ConversationRoutes {
 	readonly moveConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		const { task, from } = await body(request);
-		const [named, cwd, base] = await this.treeFor(task);
+		const [named, cwd, base, caller] = await this.treeFor(task);
 		if (from === undefined || from === conversation.state.task) {
-			conversation.move(named, cwd, base);
+			conversation.move(named, cwd, base, caller);
 		}
 		return Response.json(conversation.state);
 	};
@@ -329,17 +331,25 @@ export class ConversationRoutes {
 	}
 
 	/** Where a conversation for `task` runs: its worktree, or the main tree. */
-	/** `task`'s name, worktree, and the branch it was cut from. */
+	/**
+	 * `task`'s name, worktree, the branch it was cut from, and the
+	 * conversation whose agent added it.
+	 */
 	private async treeFor(
 		task: unknown,
-	): Promise<[string | null, string, string | null]> {
+	): Promise<[string | null, string, string | null, string | null]> {
 		const { service } = this.#project;
 		const named = typeof task === "string" && task !== "" ? task : null;
 		const worktree = named === null ? null : await service.find(named);
 		if (worktree !== null && !worktree.exists) {
 			fail("not_found", `no worktree for '${named}'`, { task: named });
 		}
-		return [named, worktree?.path ?? service.git.root, worktree?.base ?? null];
+		return [
+			named,
+			worktree?.path ?? service.git.root,
+			worktree?.base ?? null,
+			worktree?.caller ?? null,
+		];
 	}
 
 	/** The conversation a `/api/conversations/<id>` path names. */

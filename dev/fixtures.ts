@@ -64,6 +64,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		status: "working",
 		branch: "task/alpha",
 		base: "main",
+		caller: null,
 		worktree: "/tmp/repo-arbor/alpha",
 		lease: "none",
 		ahead: 1,
@@ -131,6 +132,7 @@ export function conversation(
 		},
 		lastTask: overrides.task ?? null,
 		lastBase: null,
+		lastCaller: null,
 		background: [],
 		...overrides,
 	};

@@ -27,6 +27,11 @@ export class Worktree {
 		return this.snapshot.state?.base ?? this.service.trunk;
 	}
 
+	/** The conversation whose agent added the task, or null. */
+	get caller(): string | null {
+		return this.snapshot.state?.caller ?? null;
+	}
+
 	get path(): string {
 		return this.snapshot.path;
 	}
@@ -267,6 +272,12 @@ export interface TaskState {
 	escalations?: Escalation[];
 	/** The agent `arbor add --agent` handed the task to, for `arbor dev` to start. */
 	dispatch?: Dispatched;
+	/**
+	 * The `arbor dev` conversation whose agent added the task, which the page
+	 * nests it under. Absent for one added outside a conversation, or before
+	 * tasks remembered it.
+	 */
+	caller?: string;
 }
 
 /**

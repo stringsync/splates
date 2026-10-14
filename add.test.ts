@@ -37,6 +37,16 @@ describe("add", () => {
 		expect(deps.out()).toContain("added alpha");
 	});
 
+	it("remembers the conversation whose agent added it, for the page to nest it under", async () => {
+		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		await add(deps, "alpha");
+		delete deps.proc.env.ARBOR_CONVERSATION;
+		await add(deps, "beta");
+
+		expect((await deps.service.find("alpha")).caller).toBe("c1");
+		expect((await deps.service.find("beta")).caller).toBeNull();
+	});
+
 	it("leaves a stub ARBOR.md for the agent to fill in", async () => {
 		await add(deps, "alpha");
 

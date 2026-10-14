@@ -4,7 +4,7 @@ import type { Details } from "../show";
 import { NEW } from "./conversation-address";
 import { reportedAs } from "./conversation-names";
 import type { Drafts } from "./drafts";
-import type { Nested } from "./parts";
+import { isPartOf, type Nested } from "./parts";
 import { arriveAt, questionsSeen, replyCopied, TASK } from "./task-view";
 import { unanswered } from "./unanswered";
 
@@ -142,12 +142,43 @@ export function lastTaskOfRow(row: Needing): string | null {
  * from: what it remembers, else what the task says, as for a conversation
  * from before it remembered.
  */
-export function baseOfRow(tasks: Details[], row: Needing): string | null {
+function baseOfRow(tasks: Details[], row: Needing): string | null {
 	const task = lastTaskOfRow(row);
 	return (
 		row.conversation?.lastBase ??
 		tasks.find((each) => each.task === task)?.base ??
 		null
+	);
+}
+
+/**
+ * The conversation whose agent added a row's task, or the one its
+ * conversation last ran in: what it remembers, else what the task says.
+ */
+function callerOfRow(tasks: Details[], row: Needing): string | null {
+	const task = lastTaskOfRow(row);
+	return (
+		row.conversation?.lastCaller ??
+		tasks.find((each) => each.task === task)?.caller ??
+		null
+	);
+}
+
+/**
+ * Whether `part` nests under `host`: its task is a part of host's, or host's
+ * agent added it, as when it handed a subagent a task that lands on trunk.
+ */
+export function isHostOf(
+	tasks: Details[],
+	host: Needing,
+	part: Needing,
+): boolean {
+	const caller = callerOfRow(tasks, part);
+	return (
+		isPartOf(baseOfRow(tasks, part), lastTaskOfRow(host)) ||
+		(caller !== null &&
+			caller === host.conversation?.id &&
+			caller !== part.conversation?.id)
 	);
 }
 

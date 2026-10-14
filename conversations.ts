@@ -131,6 +131,8 @@ type Entry =
 			cwd?: string;
 			/** The task's base; missing from logs written before parts nested. */
 			base?: string | null;
+			/** Who added the task; missing from logs written before tasks remembered it. */
+			caller?: string | null;
 			createdAt: string;
 	  }
 	| { kind: "session"; session: string }
@@ -141,6 +143,8 @@ type Entry =
 			cwd: string;
 			/** The task's base; missing from logs written before parts nested. */
 			base?: string | null;
+			/** Who added the task; missing from logs written before tasks remembered it. */
+			caller?: string | null;
 	  }
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }
@@ -361,7 +365,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			return null;
 		}
 		const conversation = new Conversation(
-			blank(start.id, start.agent, start.task, start.createdAt, start.base),
+			blank(
+				start.id,
+				start.agent,
+				start.task,
+				start.createdAt,
+				start.base,
+				start.caller,
+			),
 			log,
 			fs,
 			timer,
@@ -411,6 +422,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 				state.lastTask = entry.task ?? state.lastTask;
 				state.lastBase =
 					entry.task === null ? state.lastBase : (entry.base ?? null);
+				state.lastCaller =
+					entry.task === null ? state.lastCaller : (entry.caller ?? null);
 				conversation.cwd = entry.cwd;
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;
@@ -462,6 +475,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			agent,
 			task,
 			base = null,
+			caller = null,
 			cwd,
 			log,
 			settings = {},
@@ -472,6 +486,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			task: string | null;
 			/** The branch `task` was cut from. */
 			base?: string | null;
+			/** The conversation whose agent added `task`. */
+			caller?: string | null;
 			cwd: string;
 			log: string;
 			/** Values to set, by setting id, once the session offers them. */
@@ -502,7 +518,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		},
 	): Promise<Conversation> {
 		const conversation = new Conversation(
-			blank(id, agent.id, task, new Date(clock.now()).toISOString(), base),
+			blank(
+				id,
+				agent.id,
+				task,
+				new Date(clock.now()).toISOString(),
+				base,
+				caller,
+			),
 			log,
 			fs,
 			timer,
@@ -521,6 +544,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			task,
 			cwd,
 			base,
+			caller,
 			createdAt: conversation.state.createdAt,
 		});
 		conversation.picks = settings;
@@ -544,6 +568,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			title,
 			task,
 			base = null,
+			caller = null,
 			cwd,
 			log,
 		}: {
@@ -555,6 +580,8 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			task: string | null;
 			/** The branch `task` was cut from. */
 			base?: string | null;
+			/** The conversation whose agent added `task`. */
+			caller?: string | null;
 			cwd: string;
 			log: string;
 		},
@@ -577,7 +604,14 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 		},
 	): Promise<Conversation> {
 		const conversation = new Conversation(
-			blank(id, agent.id, task, new Date(clock.now()).toISOString(), base),
+			blank(
+				id,
+				agent.id,
+				task,
+				new Date(clock.now()).toISOString(),
+				base,
+				caller,
+			),
 			log,
 			fs,
 			timer,
@@ -596,6 +630,7 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 			task,
 			cwd,
 			base,
+			caller,
 			createdAt: conversation.state.createdAt,
 		});
 		conversation.session = session;
@@ -1539,13 +1574,19 @@ export class Conversation implements Eventful<ConversationEvents>, Resource {
 	 * running session keeps the directory it opened in, and the agent works by
 	 * absolute path; a resumed one opens in the new.
 	 */
-	move(task: string | null, cwd: string, base: string | null = null): void {
+	move(
+		task: string | null,
+		cwd: string,
+		base: string | null = null,
+		caller: string | null = null,
+	): void {
 		this.cwd = cwd;
-		this.write({ kind: "task", task, cwd, base });
+		this.write({ kind: "task", task, cwd, base, caller });
 		this.set({
 			task,
 			lastTask: task ?? this.state.lastTask,
 			lastBase: task === null ? this.state.lastBase : base,
+			lastCaller: task === null ? this.state.lastCaller : caller,
 		});
 	}
 
@@ -1757,6 +1798,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		{
 			task,
 			base,
+			caller,
 			cwd,
 			settings,
 			model,
@@ -1764,6 +1806,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			task: string | null;
 			/** The branch `task` was cut from. */
 			base?: string | null;
+			/** The conversation whose agent added `task`. */
+			caller?: string | null;
 			cwd: string;
 			settings?: Record<string, string>;
 			/** The model to start on, by its value or name in the model setting. */
@@ -1787,6 +1831,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				agent: chosen,
 				task,
 				base,
+				caller,
 				cwd,
 				log: `${this.dir}/${id}.jsonl`,
 				settings,
@@ -1843,12 +1888,15 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		{
 			task,
 			base,
+			caller,
 			cwd,
 			title = null,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
 			base?: string | null;
+			/** The conversation whose agent added `task`. */
+			caller?: string | null;
 			cwd: string;
 			title?: string | null;
 		},
@@ -1882,6 +1930,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				title,
 				task,
 				base,
+				caller,
 				cwd,
 				log: `${this.dir}/${id}.jsonl`,
 			},

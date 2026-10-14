@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { nest } from "./parts";
+import { isPartOf, nest } from "./parts";
 
 const bases: Record<string, string> = {
 	app: "main",
@@ -7,6 +7,11 @@ const bases: Record<string, string> = {
 	db: "task/api",
 	lone: "task/gone",
 };
+
+const byBase =
+	(baseOf: (row: string) => string | null) =>
+	(host: string, part: string): boolean =>
+		isPartOf(baseOf(part), host.split(" ")[0] ?? null);
 
 const shape = (rows: ReturnType<typeof nest<string>>): unknown[] =>
 	rows.map((each) =>
@@ -19,8 +24,7 @@ describe("nest", () => {
 			shape(
 				nest(
 					["db", "app", "lone", "api", "app 2"],
-					(row) => row.split(" ")[0] ?? null,
-					(row) => bases[row.split(" ")[0] ?? ""] ?? null,
+					byBase((row) => bases[row.split(" ")[0] ?? ""] ?? null),
 				),
 			),
 		).toEqual([["app", [["api", ["db"]]]], "lone", "app 2"]);
@@ -31,8 +35,7 @@ describe("nest", () => {
 			shape(
 				nest(
 					["db", "main"],
-					(row) => row,
-					(row) => bases[row] ?? null,
+					byBase((row) => bases[row] ?? null),
 				),
 			),
 		).toEqual(["db", "main"]);
@@ -45,8 +48,7 @@ describe("nest", () => {
 			shape(
 				nest(
 					["a", "b"],
-					(row) => row,
-					(row) => loop[row] ?? null,
+					byBase((row) => loop[row] ?? null),
 				),
 			),
 		).toEqual([["a", ["b"]]]);

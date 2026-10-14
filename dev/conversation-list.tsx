@@ -24,12 +24,11 @@ import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
 import { nameOf } from "./conversation-names";
 import {
-	baseOfRow,
 	copiedFor,
 	flatten,
 	goOn,
 	hintOf,
-	lastTaskOfRow,
+	isHostOf,
 	nextWaiting,
 	openedBy,
 	rowsOf,
@@ -109,7 +108,7 @@ export function ConversationList({
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);
 	const archived = conversations.length - listed.length;
-	const nested = nest(rows, lastTaskOfRow, (row) => baseOfRow(tasks, row));
+	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
 	const shown = flatten(nested).slice(0, DIGITS);
 	const held = useHeld();

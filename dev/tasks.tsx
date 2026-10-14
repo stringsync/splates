@@ -23,7 +23,7 @@ import { removeTask, retryTask } from "./api";
 import { ReviewChanges } from "./changes";
 import { Dispatching, OnIt, StartMenu } from "./dispatching";
 import { HEADING, Markdown } from "./markdown";
-import { type Nested, nest } from "./parts";
+import { isPartOf, type Nested, nest } from "./parts";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, TASK } from "./task-view";
@@ -57,11 +57,7 @@ export function Tasks({
 			) : (
 				<TaskRows
 					label="task list"
-					rows={nest(
-						tasks,
-						(task) => task.task,
-						(task) => task.base,
-					)}
+					rows={nest(tasks, (host, part) => isPartOf(part.base, host.task))}
 					onOpen={onOpen}
 				/>
 			)}

@@ -1297,11 +1297,12 @@ describe("Conversations", () => {
 		agent.turn = async () => "end_turn";
 		const conversation = await started();
 
-		conversation.move("signup", "/repo-arbor/signup", "task/auth");
+		conversation.move("signup", "/repo-arbor/signup", "task/auth", "c0");
 
 		expect(conversation.state.task).toBe("signup");
 		expect(conversation.state.lastTask).toBe("signup");
 		expect(conversation.state.lastBase).toBe("task/auth");
+		expect(conversation.state.lastCaller).toBe("c0");
 		await conversation.stop();
 		await conversation.prompt("go on");
 		await until(conversation, "idle");
@@ -1320,6 +1321,7 @@ describe("Conversations", () => {
 		expect(read?.state.task).toBeNull();
 		expect(read?.state.lastTask).toBe("signup");
 		expect(read?.state.lastBase).toBe("task/auth");
+		expect(read?.state.lastCaller).toBe("c0");
 		await read?.prompt("and on");
 		await until(read as Conversation, "idle");
 		expect(agent.launched.at(-1)?.cwd).toBe("/repo");
@@ -2147,6 +2149,7 @@ describe("fold", () => {
 		task: null,
 		lastTask: null,
 		lastBase: null,
+		lastCaller: null,
 		title: null,
 		name: null,
 		status: "running",

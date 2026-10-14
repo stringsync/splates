@@ -16,6 +16,11 @@ export interface ConversationState {
 	 * it merges so the page still nests it under its caller; null for none.
 	 */
 	lastBase: string | null;
+	/**
+	 * The conversation whose agent added `lastTask`, kept once it merges so
+	 * the page still nests it under that one; null for none.
+	 */
+	lastCaller: string | null;
 	/** What the agent calls it, once it says. */
 	title: string | null;
 	/** What the person renamed it to, over the agent's title. */
@@ -313,6 +318,7 @@ export function blank(
 	task: string | null,
 	createdAt: string,
 	base: string | null = null,
+	caller: string | null = null,
 ): ConversationState {
 	return {
 		id,
@@ -320,6 +326,7 @@ export function blank(
 		task,
 		lastTask: task,
 		lastBase: task === null ? null : base,
+		lastCaller: task === null ? null : caller,
 		title: null,
 		name: null,
 		status: "starting",
