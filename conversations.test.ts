@@ -2441,6 +2441,57 @@ describe("fold", () => {
 		]);
 	});
 
+	it("files a subagent's calls under its own after the agent replied, and in a later turn", () => {
+		const into = state();
+		const under = { claudeCode: { parentToolUseId: "a1" } };
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "a1",
+			title: "Find the callers",
+			kind: "think",
+		});
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "g1",
+			title: "grep fold",
+			kind: "search",
+			_meta: under,
+		});
+		fold(into, {
+			sessionUpdate: "agent_message_chunk",
+			content: { type: "text", text: "Started it." },
+		});
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "g2",
+			title: "grep agentTurn",
+			kind: "search",
+			_meta: under,
+		});
+		into.messages.push({
+			role: "user",
+			parts: [{ type: "text", text: "Anything yet?" }],
+			plan: null,
+			at: null,
+			until: null,
+		});
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "r1",
+			title: "Read conversations.ts",
+			kind: "read",
+			_meta: under,
+		});
+
+		expect(
+			into.messages.map((message) =>
+				message.parts.map((part) =>
+					part.type === "tool" ? part.id : part.type,
+				),
+			),
+		).toEqual([["a1", "g1", "g2", "r1", "text"], ["text"]]);
+	});
+
 	it("keeps when the agent began saying something, not when it went on", () => {
 		const into = state();
 		for (const [text, second] of [

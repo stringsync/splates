@@ -494,7 +494,14 @@ export function fold(
 				flags: [],
 				decision: null,
 			};
-			agentTurn(state, at).parts.push(tool);
+			const place =
+				tool.parent === null ? null : besideSpawn(state, tool.parent);
+			if (place === null) {
+				agentTurn(state, at).parts.push(tool);
+			} else {
+				place.parts.splice(place.at, 0, tool);
+				moved(state, at);
+			}
 			fill(tool, update, at);
 			return;
 		}
@@ -690,6 +697,28 @@ function toolIn(state: ConversationState, id: string): Tool | null {
 			if (part.type === "tool" && part.id === id) {
 				return part;
 			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Where a call made by the subagent tool call `parent` goes: after that call
+ * and the subagent's calls before it, in the turn it was made in, so a
+ * subagent still at work once the agent has replied, or in a later turn,
+ * keeps every call under it. Null when no such call was made.
+ */
+function besideSpawn(
+	state: ConversationState,
+	parent: string,
+): { parts: Part[]; at: number } | null {
+	for (const { parts } of state.messages) {
+		const last = parts.findLastIndex(
+			(part) =>
+				part.type === "tool" && (part.id === parent || part.parent === parent),
+		);
+		if (last !== -1) {
+			return { parts, at: last + 1 };
 		}
 	}
 	return null;
