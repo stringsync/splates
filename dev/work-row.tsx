@@ -7,15 +7,7 @@ import {
 	SquareIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import {
-	createContext,
-	type JSX,
-	type ReactNode,
-	use,
-	useEffect,
-	useState,
-} from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { createContext, type JSX, type ReactNode, use, useState } from "react";
 import { CodeDiff } from "#dev/components/assistant-ui/elements/code-diff.tsx";
 import {
 	field,
@@ -82,7 +74,6 @@ const Going = createContext(true);
 export const TreesContext = createContext<Trees | null>(null);
 
 export function WorkRow({ work }: { work: Work }): JSX.Element {
-	const now = useNow(work.running);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -111,11 +102,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 								work.running && "shimmer motion-reduce:animate-none",
 							)}
 						>
-							{work.running
-								? work.at === null
-									? "Working"
-									: `Working ${span(work.at, now)}`
-								: worked(work)}
+							{work.running ? "Working" : worked(work)}
 						</span>
 					</summary>
 					<ol
@@ -198,22 +185,6 @@ function Flags({
 			})}
 		</ul>
 	);
-}
-
-/** The clock, as epoch ms, moving each second while `running`. */
-function useNow(running: boolean): number {
-	const [now, setNow] = useState(() => Date.now());
-	useEffect(() => {
-		if (!running) {
-			return;
-		}
-		const tick = new SystemTimer().setInterval(
-			() => setNow(Date.now()),
-			Duration.secs(1),
-		);
-		return () => tick.dispose();
-	}, [running]);
-	return now;
 }
 
 function Row({

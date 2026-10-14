@@ -2399,7 +2399,7 @@ function Thread({
 		// The reply's place while the agent has yet to say anything, under the
 		// id the reply will take: assistant-ui's own placeholder has an id of its
 		// own, so the reply would mount afresh in its place and fade in again.
-		// It holds the work row already, counting up from the prompt, so the
+		// It holds the work row already, so the
 		// agent's first move fills that row rather than putting one in its place.
 		const prompt = said.at(-1);
 		return running && prompt?.role === "user"

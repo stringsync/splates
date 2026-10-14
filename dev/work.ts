@@ -15,7 +15,7 @@ export interface Work {
 	at: string | null;
 	/** When the agent last moved in it. */
 	until: string | null;
-	/** Still going, with nothing said since: the row counts up; once over, it adds up what it did. */
+	/** Still going, with nothing said since: the row says Working; once over, it adds up what it did. */
 	running: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
@@ -56,8 +56,8 @@ export function stretchesOf(
 	const after = last === -1 ? [] : parts.slice(last + 1);
 	const kept: (Part[] | string)[] = [];
 	// Its plan shows on a row of its own, above what it said, even with no work,
-	// and so does a turn going with nothing to show yet, so the row counts up
-	// from the prompt in the place its work will fill.
+	// and so does a turn going with nothing to show yet, so the row says Working
+	// in the place its work will fill.
 	if (
 		before.length > 0 ||
 		(after.length === 0 && message.plan !== null) ||
