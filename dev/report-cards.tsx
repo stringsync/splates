@@ -296,7 +296,14 @@ function TodoRun({
 								by this task
 							</span>
 						</p>
-						<div className="ml-[11px] flex flex-col gap-2 border-primary/30 border-l-2 pl-3">
+						<div
+							className={cn(
+								"flex flex-col gap-2",
+								// A rail ties two or more cards to the line; one needs none.
+								proposals.length > 1 &&
+									"ml-[11px] border-primary/30 border-l-2 pl-3",
+							)}
+						>
 							{proposals.map((proposal) => (
 								<TodoCard key={proposal.id} proposal={proposal} grouped />
 							))}

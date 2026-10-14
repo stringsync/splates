@@ -1962,6 +1962,15 @@ describe("App's conversations", () => {
 				["Added 2 to Uploads by this task", ["todo 12", "todo 13"]],
 				["Added to Untriaged by this task", ["todo 14"]],
 			]);
+			// Only a line over two or more cards draws a rail.
+			const railed = view
+				.getAllByText(/^Added /)
+				.map((each) =>
+					each
+						.closest("p")
+						?.nextElementSibling?.classList.contains("border-l-2"),
+				);
+			expect(railed).toEqual([true, false]);
 			expect(view.getByRole("region", { name: "todo 16" })).toBeTruthy();
 		});
 
