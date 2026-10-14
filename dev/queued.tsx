@@ -1,0 +1,120 @@
+import { useAuiState } from "@assistant-ui/react";
+import { PencilIcon, SendHorizontalIcon, Trash2Icon } from "lucide-react";
+import type { JSX } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
+import type { Message } from "../conversations";
+import { leadingDirectives } from "../prompts";
+import { conversationAttachment } from "./api";
+import { Directed, DirectiveChip } from "./directives";
+
+/**
+ * What the person said while the agent worked, to an agent that cannot take
+ * it mid-turn, until the turn ends and it goes out: each one can be taken
+ * back to edit or thrown away, and all of them sent now, which stops the turn.
+ */
+export function Queued({
+	conversation,
+	messages,
+	pending,
+	onEdit,
+	onDiscard,
+	onSendNow,
+}: {
+	conversation: string;
+	messages: Message[];
+	/** How many of `messages`, the last ones, the server has yet to record. */
+	pending: number;
+	onEdit: (index: number) => void;
+	onDiscard: (index: number) => void;
+	onSendNow: () => void;
+}): JSX.Element {
+	// Enter sends the queue only with nothing typed; otherwise it queues what is.
+	const empty = useAuiState((state) => state.composer.isEmpty);
+	return (
+		<section
+			aria-label="queued messages"
+			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2"
+		>
+			<header className="flex items-center gap-2 pl-2">
+				<h3 className="flex-1 text-muted-foreground text-xs">
+					Queued for when the agent's turn ends
+				</h3>
+				<Button size="xs" variant="outline" onClick={onSendNow}>
+					<SendHorizontalIcon />
+					Send now
+					{empty && <Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>}
+				</Button>
+			</header>
+			<ul className="flex flex-col">
+				{messages.map((message, index) => {
+					const text = message.parts
+						.map((part) => (part.type === "text" ? part.text : ""))
+						.join("");
+					const images = message.parts.flatMap((part) =>
+						part.type === "image" ? [part] : [],
+					);
+					const files = message.parts.flatMap((part) =>
+						part.type === "file" ? [part] : [],
+					);
+					const { directives, rest } = leadingDirectives(text);
+					const sent = images.length + files.length;
+					const label =
+						text ||
+						(files.length === 0
+							? images.length === 1
+								? "an image"
+								: `${images.length} images`
+							: sent === 1
+								? (files[0]?.title ?? "a file")
+								: `${sent} files`);
+					// Still on its way while the agent starts: the server has nothing
+					// to take back yet.
+					const unrecorded = index >= messages.length - pending;
+					return (
+						<li
+							// Only ever added at the end and taken from anywhere, but
+							// each one's words are what the person sees.
+							// biome-ignore lint/suspicious/noArrayIndexKey: see above
+							key={index}
+							className="group/queued flex items-center gap-2 rounded-lg py-1 pr-1 pl-2 hover:bg-foreground/[0.04]"
+						>
+							{images.map((image) => (
+								<img
+									key={image.name}
+									src={conversationAttachment(conversation, image)}
+									alt=""
+									className="size-6 shrink-0 rounded object-cover ring-1 ring-foreground/10"
+								/>
+							))}
+							{directives.map((directive) => (
+								<DirectiveChip key={directive} directive={directive} />
+							))}
+							<span className="min-w-0 flex-1 truncate text-sm">
+								<Directed text={rest} />
+							</span>
+							<Button
+								size="icon-xs"
+								variant="ghost"
+								aria-label={`Edit ${label}`}
+								disabled={unrecorded}
+								onClick={() => onEdit(index)}
+							>
+								<PencilIcon />
+							</Button>
+							<Button
+								size="icon-xs"
+								variant="ghost"
+								aria-label={`Discard ${label}`}
+								disabled={unrecorded}
+								onClick={() => onDiscard(index)}
+							>
+								<Trash2Icon />
+							</Button>
+						</li>
+					);
+				})}
+			</ul>
+		</section>
+	);
+}

@@ -41,6 +41,11 @@
 @source "./shown-lanes.tsx";
 @source "./links.tsx";
 @source "./conversations.tsx";
+@source "./conversation-home.tsx";
+@source "./setting-controls.tsx";
+@source "./take-up.tsx";
+@source "./ask-panel.tsx";
+@source "./queued.tsx";
 @source "./conversation-list.tsx";
 @source "./conversation-item.tsx";
 @source "./list-rows.tsx";
