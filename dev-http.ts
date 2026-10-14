@@ -2,14 +2,17 @@ import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { SystemTimer } from "webappwiz/time";
 import type { Attachment } from "./attachments";
+import type { Access } from "./dev-access";
 import { Exit, type Reason } from "./exit";
 import { PULSE, PULSE_EVENT } from "./pulse";
 
 /**
  * Which requests `arbor dev` answers at all: those to a host it may be
- * reached by, and writes only from its own page. Conversations and terminals
- * answer only to this machine's own names, never to a host `hosts` lets in,
- * so a tunnel still reaches no further than the todos.
+ * reached by, and writes only from its own page. Given `access`, a host
+ * `hosts` lets in answers only to a request Cloudflare Access verified, and
+ * such a request may use conversations and terminals too; without it,
+ * those answer only to this machine's own names, so a tunnel still reaches
+ * no further than the todos.
  */
 export class HostGate {
 	private readonly allowed: Set<string>;
@@ -17,6 +20,7 @@ export class HostGate {
 	constructor(
 		hosts: string[],
 		private readonly log: Logger,
+		readonly access: Access | null = null,
 	) {
 		this.allowed = new Set([...LOCAL_HOSTS, ...hosts]);
 	}
@@ -45,6 +49,12 @@ export class HostGate {
 			) {
 				return refuse(403, "forbidden", "cross-origin writes are refused");
 			}
+			if (this.access !== null && !isLocal(host)) {
+				const verified = await this.access.verify(request);
+				if (verified.refused !== undefined) {
+					return refuse(403, "forbidden", verified.refused);
+				}
+			}
 			try {
 				return await handle(request);
 			} catch (error) {
@@ -60,20 +70,33 @@ export class HostGate {
 			}
 		};
 
-	// Refused, rather than missing, for any name but this machine's own: a
-	// tunnel's visitor learns the feature exists, and nothing more.
+	// Refused, rather than missing, for any name but this machine's own and
+	// no verified Access token: a tunnel's visitor learns the feature exists,
+	// and nothing more.
 	readonly local =
 		<Answered extends Response | undefined>(
 			handle: (request: Request) => Promise<Answered>,
 		) =>
-		async (request: Request): Promise<Answered | Response> =>
-			LOCAL_HOSTS.includes(hostname(request.headers.get("host") ?? ""))
+		async (request: Request): Promise<Answered | Response> => {
+			if (isLocal(request.headers.get("host") ?? "")) {
+				return handle(request);
+			}
+			if (this.access === null) {
+				return refuse(
+					403,
+					"forbidden",
+					"conversations and terminals run commands on this machine: open the page on it, or put Cloudflare Access in front with --access-team and --access-aud",
+				);
+			}
+			const verified = await this.access.verify(request);
+			return verified.refused === undefined
 				? handle(request)
-				: refuse(
-						403,
-						"forbidden",
-						"conversations and terminals run commands on this machine: open the page on it",
-					);
+				: refuse(403, "forbidden", verified.refused);
+		};
+}
+
+function isLocal(host: string): boolean {
+	return LOCAL_HOSTS.includes(hostname(host));
 }
 
 /** The one address the server binds: this machine, and nothing else. */

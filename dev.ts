@@ -7,6 +7,7 @@ import {
 import { Duration } from "webappwiz/time";
 import type { Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
+import { Access, type AccessConfig } from "./dev-access";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import {
 	type DevContext,
@@ -41,14 +42,16 @@ export const PORT_SPAN = 20;
  * should not have been reachable can at worst change a todo.
  *
  * Given `conversations`, the page also talks to agents, which run commands on
- * this machine. Those routes answer only to this machine's own names, never to
- * a host `hosts` lets in, so a tunnel still reaches no further than the todos.
+ * this machine. Those routes answer only to this machine's own names, or,
+ * given `access`, to a host `hosts` lets in once Cloudflare Access verified
+ * who is asking; without it, a tunnel still reaches no further than the todos.
  */
 export async function dev(
 	home: Project & { assets: Assets; projects: Projects },
 	{
 		ports = devPorts(DEFAULT_PORT),
 		hosts = [],
+		access = null,
 		conversations: converse = null,
 		shell = null,
 		newest = async () => null,
@@ -78,7 +81,11 @@ export async function dev(
 			{ root: here },
 		);
 	}
-	const gate = new HostGate(hosts, log);
+	const gate = new HostGate(
+		hosts,
+		log,
+		access === null ? null : new Access(access),
+	);
 	const { guarded, local } = gate;
 	const talk = local;
 	/** Where the agents' own `arbor` reaches this server, once it listens. */
@@ -390,9 +397,17 @@ export interface DevOptions {
 	 * Host names besides this machine's own that the page may be reached by,
 	 * like the hostname of a tunnel. Anything else is refused, which is what
 	 * stops another site from reading the repo through a browser pointed at
-	 * localhost. Who may use those names is the tunnel's business, not arbor's.
+	 * localhost. Who may use those names is the Access policy's business, not
+	 * arbor's.
 	 */
 	hosts?: string[];
+	/**
+	 * The Cloudflare Access application in front of `hosts`, or null for none.
+	 * Given one, a request to those hosts must carry a token it signed, and
+	 * then may use conversations and terminals too. Anything that exposes the
+	 * page beyond this machine refuses to without it.
+	 */
+	access?: AccessConfig | null;
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
 	 * records in `arborDir`, its commands watched through `git`; without it no page has any to show, and the routes

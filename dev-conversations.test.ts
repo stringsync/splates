@@ -376,7 +376,7 @@ describe("dev conversations", () => {
 			expect(refused.status).toBe(403);
 			expect(await refused.json()).toMatchObject({
 				message:
-					"conversations and terminals run commands on this machine: open the page on it",
+					"conversations and terminals run commands on this machine: open the page on it, or put Cloudflare Access in front with --access-team and --access-aud",
 			});
 			expect(
 				(await as(`localhost:${server.port}`, "/api/conversations")).status,

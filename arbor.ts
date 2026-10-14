@@ -13,6 +13,7 @@ import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations, launch } from "./conversations";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
+import { accessConfig } from "./dev-access";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
@@ -283,9 +284,20 @@ arbor
 	.option("allow-hosts", z.string(), {
 		default: "",
 		description:
-			"comma-separated host names the page may also be reached by, like a tunnel's; putting a login in front of them is the tunnel's job",
+			"comma-separated host names the page may also be reached by, like a tunnel's; put Cloudflare Access in front of them with --access-team and --access-aud",
+	})
+	.option("access-team", z.string(), {
+		default: "",
+		description:
+			"the Cloudflare Access team in front of --allow-hosts, as in <team>.cloudflareaccess.com; with --access-aud, those hosts answer only to a verified Access token, and may then use conversations and terminals",
+	})
+	.option("access-aud", z.string(), {
+		default: "",
+		description: "the AUD tag of that Access application",
 	})
 	.action(async (opts, ctx) => {
+		// Read before the child starts, so a half-given pair fails once.
+		const access = accessConfig(opts["access-team"], opts["access-aud"]);
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
 			// A checkout's page is as its last `bun install` built it: installed
@@ -315,6 +327,7 @@ arbor
 				.split(",")
 				.map((host) => host.trim())
 				.filter(Boolean),
+			access,
 			conversations: ({ arborDir, git }) =>
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,
