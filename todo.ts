@@ -24,7 +24,7 @@ export interface TodoState {
 	 * the list when it merges or is removed, and with it every link to it.
 	 */
 	blockedBy: number[];
-	/** The lane it runs in, one agent's queue, or null for none. */
+	/** The lane it runs in, or null for none. */
 	lane: number | null;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;

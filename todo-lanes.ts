@@ -1,8 +1,7 @@
 import type { Fs } from "webappwiz/system";
 import { fail } from "./exit";
 import { aptName, type LaneRecord, named, settle } from "./lanes";
-import type { AgentPick } from "./roster";
-import { assigned, type TodoState } from "./todo";
+import type { TodoState } from "./todo";
 import { parseTodoFile } from "./todo-file";
 import type { Todos } from "./todos";
 
@@ -45,23 +44,14 @@ export class TodoLanes {
 		});
 	}
 
-	/**
-	 * Starts an empty lane called `name`, after the others, worked by
-	 * `assignee` when there is one.
-	 */
-	async addLane(
-		name: string,
-		assignee: AgentPick | null = null,
-	): Promise<LaneRecord> {
+	/** Starts an empty lane called `name`, after the others. */
+	async addLane(name: string): Promise<LaneRecord> {
 		return this.todos.locked(async () => {
 			const states = await this.todos.stored();
 			const records = await this.records(states);
 			// Named first, so a name refused never uses up a number.
 			const called = laneName(name, records);
-			const record = assigned<LaneRecord>(
-				{ id: await this.nextLaneId(states), name: called },
-				assignee,
-			);
+			const record = { id: await this.nextLaneId(states), name: called };
 			await this.writeLanes([...records, record]);
 			return record;
 		});
@@ -81,25 +71,6 @@ export class TodoLanes {
 				records.map((record) => (record.id === id ? renamed : record)),
 			);
 			return renamed;
-		});
-	}
-
-	/** Has `assignee` work lane `id`, or nobody in particular for null. */
-	async assignLane(
-		id: number,
-		assignee: AgentPick | null,
-	): Promise<LaneRecord> {
-		return this.todos.locked(async () => {
-			const records = await this.records(await this.todos.stored());
-			lacking(records, id);
-			const changed = assigned(
-				records.find((record) => record.id === id) as LaneRecord,
-				assignee,
-			);
-			await this.writeLanes(
-				records.map((record) => (record.id === id ? changed : record)),
-			);
-			return changed;
 		});
 	}
 
@@ -297,10 +268,14 @@ export class TodoLanes {
 		try {
 			const parsed: unknown = JSON.parse(raw);
 			if (Array.isArray(parsed)) {
-				stored = parsed.filter(
-					(each): each is LaneRecord =>
-						Number.isInteger(each?.id) && typeof each?.name === "string",
-				);
+				// Only the id and name, so a field lanes no longer have, such as
+				// the agent one was once assigned, goes the next time they are written.
+				stored = parsed
+					.filter(
+						(each) =>
+							Number.isInteger(each?.id) && typeof each?.name === "string",
+					)
+					.map(({ id, name }) => ({ id, name }));
 			}
 		} catch {}
 		return named(states, stored);

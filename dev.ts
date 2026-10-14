@@ -277,9 +277,6 @@ export async function dev(
 			"/api/todos/:id/assignee": {
 				PUT: scoped((project) => project.assignTodo),
 			},
-			"/api/lanes/:id/assignee": {
-				PUT: scoped((project) => project.assignLane),
-			},
 			"/api/lanes/:id/join": { POST: scoped((project) => project.joinLane) },
 			"/api/lanes": { POST: scoped((project) => project.addLane) },
 			"/api/lanes/:id": {

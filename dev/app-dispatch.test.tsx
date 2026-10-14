@@ -230,7 +230,7 @@ describe("App's controls that put agents to work", () => {
 		);
 	});
 
-	it("starts the lanes ticked with no agent on them, each in a conversation of its own, sent at once", async () => {
+	it("starts one orchestrator on the lanes ticked with no agent on them, sent them all at once", async () => {
 		const view = await board([], {
 			todos: [
 				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
@@ -267,12 +267,10 @@ describe("App's controls that put agents to work", () => {
 
 		expect(posted("/api/conversations")).toEqual([
 			{ agent: "codex", task: null, settings: {} },
-			{ agent: "codex", task: null, settings: {} },
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c7/prompt")).toEqual([
-				{ text: "[ARBOR LANE 1]" },
-				{ text: "[ARBOR LANE 2]" },
+				{ text: "[ARBOR LANE 1]\n[ARBOR LANE 2]" },
 			]),
 		);
 		expect(location.hash).not.toContain("conversations");
@@ -330,42 +328,5 @@ describe("App's controls that put agents to work", () => {
 		);
 
 		expect(posted("/api/todos/3/assignee")).toEqual([{ agent: "codex" }]);
-	});
-
-	it("starts a lane with its assigned agent, the agent picked taking the rest", async () => {
-		const view = await board([], {
-			todos: [
-				todo({ id: 3, subject: "Fix the upload", lane: 1 }),
-				todo({ id: 5, subject: "Sign in", lane: 2 }),
-			],
-			lanes: [
-				{
-					id: 1,
-					name: "Uploads",
-					assignee: { agent: "claude", model: "opus" },
-				},
-				{ id: 2, name: "Accounts" },
-			],
-		});
-		testing.reply = conversation({ id: "c7", status: "starting" });
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Start lanes" })),
-		);
-		const ticks = await waitFor(() => view.getAllByRole("menuitemcheckbox"));
-		expect(ticks[0]?.textContent).toBe("UploadsClaude · Opus");
-		for (const tick of ticks) {
-			await act(async () => fireEvent.click(tick));
-		}
-		expect(
-			view.getByText("Start 1 lane with no agent assigned with"),
-		).toBeTruthy();
-		await act(async () =>
-			fireEvent.click(view.getByRole("menuitem", { name: /Codex/ })),
-		);
-
-		expect(posted("/api/conversations")).toEqual([
-			{ agent: "claude", task: null, settings: {}, model: "opus" },
-			{ agent: "codex", task: null, settings: {} },
-		]);
 	});
 });

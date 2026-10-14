@@ -1,4 +1,3 @@
-import type { AgentPick } from "./roster";
 import type { TodoState } from "./todo";
 
 /**
@@ -24,20 +23,16 @@ export interface Blocker {
 export interface LaneRecord {
 	id: number;
 	name: string;
-	/** The agent, and model, that should work it; absent for none. */
-	assignee?: AgentPick;
 }
 
-/** One agent's queue: the todos it works through, top first. */
+/** A queue of todos that build on each other, worked top first. */
 export interface LaneState {
 	id: number;
 	name: string;
 	todos: TodoState[];
 	/** The tasks at work on its todos now, top first: who is on the lane. */
 	agents: string[];
-	/** The agent, and model, that should work it, or null for none. */
-	assignee: AgentPick | null;
-	/** The first todo no task has taken: what the lane's agent does next. */
+	/** The first todo no task has taken: what the lane's orchestrator hands out next. */
 	next: TodoState | null;
 	/**
 	 * Todos in other lanes, or in none, blocking `next` that have
@@ -72,10 +67,7 @@ export function named(todos: TodoState[], records: LaneRecord[]): LaneRecord[] {
 }
 
 /** The lane `record` stands for, empty when no todo is in it. */
-export function lane(
-	todos: TodoState[],
-	{ id, name, assignee }: LaneRecord,
-): LaneState {
+export function lane(todos: TodoState[], { id, name }: LaneRecord): LaneState {
 	const steps = todos
 		.filter((todo) => todo.lane === id)
 		.sort((left, right) => left.position - right.position);
@@ -96,7 +88,6 @@ export function lane(
 		name,
 		todos: steps,
 		agents,
-		assignee: assignee ?? null,
 		next,
 		blockers,
 		ready: next !== null && blockersOf(todos, next).length === 0,

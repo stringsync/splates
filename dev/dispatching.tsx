@@ -260,11 +260,11 @@ export function StartMenu({
 }
 
 /**
- * Puts an agent on each of several lanes at once, from above the board: the
- * lanes ticked among those with a todo next and no agent, each in a new
- * conversation with the agent picked, sent `[ARBOR LANE <n>]` straight away,
- * since there is one prompt per lane to review and it says only that. A lane
- * that does not start says so on its header.
+ * Puts one orchestrator on several lanes at once, from above the board: the
+ * lanes ticked among those with a todo next and no agent, in a new
+ * conversation with the agent picked, sent `[ARBOR LANE <n>]` for each
+ * straight away, since the prompt says only that. Each lane that does not
+ * start says so on its header.
  */
 export function StartLanes({
 	lanes,
@@ -282,22 +282,21 @@ export function StartLanes({
 	}
 	const { dispatch } = context;
 	const chosen = idle.filter((lane) => picked.includes(lane.id));
-	// A lane with an agent assigned starts with it; the one picked takes the rest.
 	const start = (agent: string): void => {
 		setPicked([]);
-		for (const lane of chosen) {
-			const pick = assigneeOf(lane) ?? { agent };
-			void startConversation(pick.agent, null, {}, pick.model)
-				.then(({ id }) => promptConversation(id, laneReference(lane.id)))
-				.catch((error: unknown) => refuseLane(lane.id, "Not started", error));
-		}
+		void startConversation(agent, null)
+			.then(({ id }) =>
+				promptConversation(
+					id,
+					chosen.map((lane) => laneReference(lane.id)).join("\n"),
+				),
+			)
+			.catch((error: unknown) => {
+				for (const lane of chosen) {
+					refuseLane(lane.id, "Not started", error);
+				}
+			});
 	};
-	const assigneeOf = (lane: LaneState): AgentPick | null =>
-		lane.assignee !== null &&
-		dispatch.agents.some((each) => each.id === lane.assignee?.agent)
-			? lane.assignee
-			: null;
-	const rest = chosen.filter((lane) => assigneeOf(lane) === null);
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
@@ -322,11 +321,6 @@ export function StartLanes({
 							}
 						>
 							<span className="min-w-0 flex-1 truncate">{lane.name}</span>
-							{assigneeOf(lane) !== null && (
-								<span className="shrink-0 truncate text-muted-foreground text-xs">
-									{dispatch.pickName(assigneeOf(lane) as AgentPick)}
-								</span>
-							)}
 							{!lane.ready && (
 								<span className="text-muted-foreground text-xs">waits</span>
 							)}
@@ -335,31 +329,21 @@ export function StartLanes({
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
-					{chosen.length > 0 && rest.length === 0 ? (
-						<DropdownMenuItem onClick={() => start("")}>
-							<PlayIcon />
-							Start {chosen.length === 1 ? "1 lane" : `${chosen.length} lanes`}{" "}
-							with their agents
+					<DropdownMenuLabel>
+						{chosen.length === 0
+							? "Tick the lanes to start"
+							: `Start ${chosen.length === 1 ? "1 lane" : `${chosen.length} lanes`} with`}
+					</DropdownMenuLabel>
+					{dispatch.agents.map((each) => (
+						<DropdownMenuItem
+							key={each.id}
+							disabled={chosen.length === 0}
+							onClick={() => start(each.id)}
+						>
+							<AgentIcon agent={each.id} name={each.name} />
+							{each.name}
 						</DropdownMenuItem>
-					) : (
-						<>
-							<DropdownMenuLabel>
-								{chosen.length === 0
-									? "Tick the lanes to start"
-									: `Start ${rest.length === 1 ? "1 lane" : `${rest.length} lanes`}${rest.length < chosen.length ? " with no agent assigned" : ""} with`}
-							</DropdownMenuLabel>
-							{dispatch.agents.map((each) => (
-								<DropdownMenuItem
-									key={each.id}
-									disabled={chosen.length === 0}
-									onClick={() => start(each.id)}
-								>
-									<AgentIcon agent={each.id} name={each.name} />
-									{each.name}
-								</DropdownMenuItem>
-							))}
-						</>
-					)}
+					))}
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -367,7 +351,7 @@ export function StartLanes({
 }
 
 /**
- * The items that say which agent, and model, should work a todo or a lane:
+ * The items that say which agent, and model, should work a todo:
  * any agent, or one on the roster, on its own model or one it lists. For a
  * menu of its own or a submenu of another.
  */

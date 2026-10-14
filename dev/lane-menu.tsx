@@ -7,7 +7,6 @@ import {
 	MoreHorizontalIcon,
 	PencilIcon,
 	Undo2Icon,
-	UserIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -18,17 +17,13 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import type { LaneState } from "../lanes";
 import { laneReference } from "../prompts";
-import { assignLane, dropLane, joinLanes } from "./api";
+import { dropLane, joinLanes } from "./api";
 import { Board, still } from "./board";
 import { copiedLabel, useCopy } from "./card";
-import { AssigneeItems, Dispatching } from "./dispatching";
 
 /** What can be done to a whole lane: start it, rename it, move it, fold it into another, or remove it. */
 export function LaneMenu({
@@ -41,7 +36,6 @@ export function LaneMenu({
 	onRename: () => void;
 }): JSX.Element {
 	const { moveLane, refuseLane } = useContext(Board);
-	const dispatching = useContext(Dispatching);
 	const { copied, copy } = useCopy();
 	const others = lanes.filter((other) => other.id !== lane.id);
 	const at = lanes.findIndex((other) => other.id === lane.id);
@@ -74,29 +68,6 @@ export function LaneMenu({
 					<PencilIcon />
 					Rename
 				</DropdownMenuItem>
-				{dispatching !== null && (
-					<DropdownMenuSub>
-						<DropdownMenuSubTrigger>
-							<UserIcon />
-							<span className="flex-1">Assign to</span>
-							<span className="truncate text-muted-foreground text-xs">
-								{lane.assignee === null
-									? "any agent"
-									: dispatching.dispatch.pickName(lane.assignee)}
-							</span>
-						</DropdownMenuSubTrigger>
-						<DropdownMenuSubContent className="w-52">
-							<AssigneeItems
-								assignee={lane.assignee}
-								onPick={(pick) =>
-									void assignLane(lane.id, pick).catch((error: unknown) =>
-										refuseLane(lane.id, "Not assigned", error),
-									)
-								}
-							/>
-						</DropdownMenuSubContent>
-					</DropdownMenuSub>
-				)}
 				{others.length > 0 && (
 					<>
 						<DropdownMenuSeparator />

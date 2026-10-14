@@ -24,8 +24,8 @@ import type { TodoView } from "./todo-view";
 
 /**
  * Work deferred for later as a board, a Trello lite: the untriaged todos
- * first, where new ones land, then a column for each lane, one agent's
- * queue, then a way to add another. Picking one up takes an agent (`arbor
+ * first, where new ones land, then a column for each lane, a queue an
+ * orchestrator works, then a way to add another. Picking one up takes an agent (`arbor
  * add <task> --todo <id>`), and `merge` recommends the highest open one, so
  * the order is the priority: drag a card up or down, or into a lane, or tap
  * one to reword, link, place or remove it. A lane moves by its header, as a

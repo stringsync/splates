@@ -30,7 +30,7 @@ stderr says.
    show N` prints what is asked; if it names another task that took it, tell
    the user rather than start on it. Otherwise take it now, so no other agent
    starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a
-   task under way. `[ARBOR LANE N]` hands you a whole lane instead (see
+   task under way. `[ARBOR LANE N]` makes you a lane's orchestrator instead (see
    Working a lane). Pass `--base <branch>` only when invoked with a branch
    (`/arbor feature/auth`) or the user names one; never guess a base from the
    checked-out branch. Once `arbor add` succeeds, say what you added before
@@ -156,8 +156,9 @@ so in your report.
 
 ### Lanes
 
-A lane is one agent's queue of todos that build on each other, worked top to
-bottom (see Working a lane). Groom lanes as you add todos: you know what each
+A lane is a queue of todos that build on each other, worked top to bottom by
+an orchestrator (see Working a lane). A lane has no model of its own: each
+todo names its own. Groom lanes as you add todos: you know what each
 new one builds on, and nobody lays lanes out for you. Read `arbor lane list`,
 then for each todo you add:
 
@@ -229,8 +230,7 @@ also propose the next one or two when they are as related, so the user can
 choose.
 
 A task whose todos were in a lane is the exception: propose that lane's next
-todo, even one another lane still blocks, so the lane stays with the agent
-that has its context. `merge` prints it; after a `remove`, read it from
+todo, even one another lane still blocks, so the lane goes on in order. `merge` prints it; after a `remove`, read it from
 `arbor lane show <n>`. When the todos were in more than one lane, propose each
 lane's next todo and let the user choose. Only when the lane is done, fall
 back to the most related todo.
@@ -301,34 +301,49 @@ mistake, and `arbor systems` reads it back.
 
 ## Working a lane
 
-A lane is a named, ordered queue of todos for one agent, worked top to
-bottom, one task per todo. It keeps a chain of todos that build on each other
-with one agent, so each step starts from the context the last one built, and
-runs beside other lanes without the agents stepping on each other. Lanes are
-the columns of the `arbor dev` board; a todo in none is untriaged. Agents
-place the todos they add (see Lanes), and the user rearranges them. Each has a number, which commands and the prompt use, and a name,
-which says what its todos are for: `arbor lane list` shows both.
+A lane is a named, ordered queue of todos that build on each other, worked
+top to bottom, one task per todo. Lanes are the columns of the `arbor dev`
+board; a todo in none is untriaged. Agents place the todos they add (see
+Lanes), and the user rearranges them. Each has a number, which commands and
+the prompt use, and a name, which says what its todos are for: `arbor lane
+list` shows both.
 
-`[ARBOR LANE N]`, copied from the `arbor dev` page, asks you to work down
-lane N. The lane is arbor's, not the prompt's, so read it from arbor each
+`[ARBOR LANE N]`, copied from the `arbor dev` page, makes you lane N's
+orchestrator. You do not do its todos yourself: you hand each to an agent on
+the model the todo names, see it land, and carry what it learned to the next.
+Each lane you are sent adds one more to work side by side, a todo out on each
+at once. The lane is arbor's, not the prompt's, so read it from arbor each
 time:
 
 1. `arbor lane show N` prints the steps and what to do next. When it says
-   the lane is done or gone, stop and say so.
+   the lane is done or gone, say so, and stop once every lane you work is.
 2. When its next todo is blocked by a todo in another lane, `arbor todo wait
    <id>` for that one, again on `timeout`, rather than skip ahead: a lane is in
-   order for reasons the board knows and you do not. When the wait ends
-   because the other task is escalated, tell the user you are blocked on it
-   and stop.
-3. Take the next todo with `arbor add <task> --todo <id>`, even one that
-   names another model (see Todos), and do it as any other task (see
-   Workflow), through `arbor merge`.
-4. After the merge, `cd` to the main tree and go back to step 1. Report each
-   merge as usual, but do not wait for the user between steps unless a task
-   escalates.
+   order for reasons the board knows and you do not. Meanwhile, go on with
+   your other lanes. When the wait ends because the other task is escalated,
+   tell the user the lane is blocked on it.
+3. Hand the next todo out. `arbor todo show <id>` names its agent and model;
+   when it names none, pick one as for a todo you add (see Todos), and say
+   which in your report. Then `arbor add <task> --todo <id> --agent <a>
+   --model <m> --prompt '<what>'`, where `<what>` holds what the lane's
+   earlier steps taught you that the todo's detail does not: names chosen,
+   files moved, answers the user gave. The agent works it as a task of its
+   own (see Workflow): it asks the user, reports, and merges or escalates
+   itself, and proposes no next todo, since you hand that out.
+4. `arbor wait <task>`, and on `timeout` again. When it ends on `removed`,
+   read in `git log` what landed, say so in a line, and go back to step 1
+   without waiting for the user. When it ends on `escalated`, tell the user the lane waits on that
+   task, and wait again once they have answered it.
 
-Never take a todo from another lane, or one the lane has not reached; when
-the user moves todos while you work, the next `lane show` has them.
+`arbor dev` starts the agent you name, and sets `$ARBOR_CONVERSATION` in
+yours; without it, nothing will start one. Hand the todo to a subagent of
+your own harness on the model it names instead, told to `arbor claim <task>`
+and work it as above, or, when your harness cannot run that model, work it
+yourself, saying so as for any todo that names another model.
+
+Never hand out a todo from a lane you were not sent, or one the lane has not
+reached; when the user moves todos while you work, the next `lane show` has
+them.
 
 ## Checkpoint
 

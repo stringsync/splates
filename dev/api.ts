@@ -138,18 +138,6 @@ export async function assignTodo(
 	);
 }
 
-/** Has `assignee` work lane `id`, or nobody in particular for null. */
-export async function assignLane(
-	id: number,
-	assignee: AgentPick | null,
-): Promise<void> {
-	await sendJson(
-		`/api/lanes/${id}/assignee`,
-		"PUT",
-		assignee ?? { agent: null },
-	);
-}
-
 /** Moves lane `from`'s todos to the bottom of lane `into`. */
 export async function joinLanes(from: number, into: number): Promise<void> {
 	await sendJson(`/api/lanes/${from}/join`, "POST", { into });

@@ -3,7 +3,6 @@ import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Attachments } from "./attachments";
 import { fail } from "./exit";
 import { cycle, type LaneRecord, misordered, settle } from "./lanes";
-import type { AgentPick } from "./roster";
 import { assigned, Todo, type TodoNew, type TodoState, wording } from "./todo";
 import { parseTodoFile } from "./todo-file";
 import { TodoLanes } from "./todo-lanes";
@@ -226,21 +225,13 @@ export class Todos {
 	}
 
 	/** Starts an empty lane called `name`, after the others. */
-	addLane(
-		name: string,
-		assignee: AgentPick | null = null,
-	): Promise<LaneRecord> {
-		return this.laneFiles.addLane(name, assignee);
+	addLane(name: string): Promise<LaneRecord> {
+		return this.laneFiles.addLane(name);
 	}
 
 	/** Calls lane `id` by another name. */
 	renameLane(id: number, name: string): Promise<LaneRecord> {
 		return this.laneFiles.renameLane(id, name);
-	}
-
-	/** Has `assignee` work lane `id`, or nobody in particular for null. */
-	assignLane(id: number, assignee: AgentPick | null): Promise<LaneRecord> {
-		return this.laneFiles.assignLane(id, assignee);
 	}
 
 	/** Puts lane `id` at `position` among the lanes, 1 the first column. */

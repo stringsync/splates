@@ -210,7 +210,6 @@ function StartLane({ lane }: { lane: LaneState }): JSX.Element {
 		return (
 			<StartMenu
 				assignment={{ kind: "lane", id: lane.id }}
-				assignee={lane.assignee}
 				label="Start lane"
 			/>
 		);

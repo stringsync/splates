@@ -130,7 +130,6 @@ export interface Served extends AsyncResource {
 	linkTodo: Handler;
 	arrangeTodo: Handler;
 	assignTodo: Handler;
-	assignLane: Handler;
 	joinLane: Handler;
 	addLane: Handler;
 	updateLane: Handler;

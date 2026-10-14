@@ -159,17 +159,6 @@ export class TodoRoutes {
 		return Response.json(todo.state);
 	};
 
-	readonly assignLane = async (request: Request): Promise<Response> => {
-		const { journal, todos } = this.#project;
-		const id = laneAt(request);
-		const assignee = await this.assigneeIn(request);
-		const lane = await journal.record("lane update", null, () =>
-			todos.assignLane(id, assignee),
-		);
-		await this.#watch.tick();
-		return Response.json(lane);
-	};
-
 	readonly dropLane = async (request: Request): Promise<Response> => {
 		const { journal, todos } = this.#project;
 		const id = laneAt(request);

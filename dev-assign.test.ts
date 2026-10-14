@@ -25,7 +25,7 @@ describe("dev assign", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("assigns a todo and a lane an agent off the roster, and starts a conversation on a model", async () => {
+	it("assigns a todo an agent off the roster, and starts a conversation on a model", async () => {
 		const rostered = new Conversations(
 			`${deps.arborDir}/conversations`,
 			[ROSTERED],
@@ -59,14 +59,10 @@ describe("dev assign", () => {
 				agent: "fake",
 				model: "Small",
 			});
-			await json(port, "/api/lanes/1/assignee", "PUT", { agent: "fake" });
 			expect((await deps.todos.find(1)).state.assignee).toEqual({
 				agent: "fake",
 				model: "small",
 			});
-			expect(await deps.todos.lanes()).toEqual([
-				{ id: 1, name: "Licensing", assignee: { agent: "fake" } },
-			]);
 			const refused = await json(port, "/api/todos/1/assignee", "PUT", {
 				agent: "nobody",
 			});

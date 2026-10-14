@@ -112,7 +112,7 @@ export function Edit({
 					<div className="flex flex-wrap items-center gap-2">
 						<StartMenu
 							assignment={{ kind: "todo", id: todo.id }}
-							assignee={todo.assignee ?? lane?.assignee ?? null}
+							assignee={todo.assignee ?? null}
 						/>
 						<AssigneeMenu
 							assignee={todo.assignee ?? null}

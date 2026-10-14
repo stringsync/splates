@@ -1,14 +1,14 @@
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import type { ArborDeps } from "./arbor";
-import { assigneeIn, position } from "./arbor-flags";
+import { position } from "./arbor-flags";
 import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { repository } from "./repository";
 
 /** `arbor lane`, which the root cli mounts after `arbor todo`. */
 export const arborLane = cli<ArborDeps>("lane")
 	.description(
-		"lanes: named runs of todos, one agent's queue each, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an agent on one. A todo in no lane is untriaged",
+		"lanes: named runs of todos, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing each todo to an agent on the model it names. A todo in no lane is untriaged",
 	)
 	.use(repository());
 
@@ -37,27 +37,13 @@ arborLane
 	.arg("name", z.string(), {
 		description: "what its todos are for, like `Licensing`",
 	})
-	.option("agent", z.string(), {
-		default: "",
-		description:
-			"the agent on the roster (`arbor agents`) that should work its todos, which Start on the `arbor dev` board offers first",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "with --agent: the model, by its id or name on the roster",
-	})
 	.action(async (opts, ctx) => {
-		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
-		await ctx.journal.record("lane add", null, () =>
-			laneAdd(ctx, opts.name, assignee ?? null),
-		);
+		await ctx.journal.record("lane add", null, () => laneAdd(ctx, opts.name));
 	});
 
 arborLane
 	.command("update")
-	.description(
-		"rename a lane, move it among the others, or say which agent should work it",
-	)
+	.description("rename a lane, or move it among the others")
 	.arg("lane", z.coerce.number().int().positive(), {
 		description: "lane number",
 	})
@@ -68,22 +54,11 @@ arborLane
 		description:
 			"where to move it among the lanes, 1 the first column on the board; the others close up around it",
 	})
-	.option("agent", z.string(), {
-		default: "",
-		description:
-			"the agent on the roster (`arbor agents`) that should work its todos, which Start on the `arbor dev` board offers first, or `none`",
-	})
-	.option("model", z.string(), {
-		default: "",
-		description: "with --agent: the model, by its id or name on the roster",
-	})
 	.action(async (opts, ctx) => {
-		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
 		await ctx.journal.record("lane update", null, () =>
 			laneUpdate(ctx, opts.lane, {
 				name: opts.name,
 				position: opts.position,
-				assignee,
 			}),
 		);
 	});

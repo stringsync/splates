@@ -335,32 +335,53 @@ describe.concurrent("lanes", () => {
 		await expect(laneUpdate(deps, 1)).toBail("usage");
 	});
 
-	it("says which agent should work a todo and a lane, keeping it through a rename, until cleared", async () => {
+	it("says which agent should work a todo in a lane, keeping it until cleared", async () => {
 		await using deps = await Testing.open();
-		const claude = { agent: "claude", model: "opus" };
-		await laneAdd(deps, "Licensing", claude);
+		await laneAdd(deps, "Licensing");
 		await todoAdd(deps, "first", null, {
 			lane: 1,
 			assignee: { agent: "codex" },
 		});
-		await laneUpdate(deps, 1, { name: "Licenses" });
-
-		expect(await deps.todos.lanes()).toEqual([
-			{ id: 1, name: "Licenses", assignee: claude },
-		]);
 		deps.log.clear();
 		await todoShow(deps, 1);
-		await laneShow(deps, 1);
 		expect(color.strip(deps.out())).toContain("assignee:  codex");
-		expect(color.strip(deps.out())).toContain("assignee: claude (opus)");
 
 		await todoUpdate(deps, 1, { subject: "the first" });
 		expect((await deps.todos.find(1)).state.assignee).toEqual({
 			agent: "codex",
 		});
 		await todoUpdate(deps, 1, { assignee: null });
-		await laneUpdate(deps, 1, { assignee: null });
 		expect((await deps.todos.find(1)).state.assignee).toBeUndefined();
+	});
+
+	it("hands the next todo out to the agent and model it names", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await todoAdd(deps, "first", null, {
+			lane: 1,
+			assignee: { agent: "claude", model: "sonnet" },
+		});
+		deps.log.clear();
+		await laneShow(deps, 1);
+		expect(color.strip(deps.out())).toContain(
+			"next: arbor add <task> --todo 1 --agent claude --model sonnet",
+		);
+	});
+
+	it("drops the agent a lane was once assigned, since lanes have none", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await deps.fs.write(
+			`${deps.todos.dir}/lanes`,
+			JSON.stringify([
+				{ id: 1, name: "Licensing", assignee: { agent: "claude" } },
+			]),
+		);
+		await laneUpdate(deps, 1, { name: "Licenses" });
+
 		expect(await deps.todos.lanes()).toEqual([{ id: 1, name: "Licenses" }]);
+		expect(await deps.fs.read(`${deps.todos.dir}/lanes`)).not.toContain(
+			"assignee",
+		);
 	});
 });
