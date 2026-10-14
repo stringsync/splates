@@ -47,10 +47,12 @@ export function PageMenu({
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				aria-label={why === null ? "More" : "More: restart to update"}
-				className="-mr-1.5 ml-auto flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+				// A finger's worth on a touch screen, overhanging the row rather
+				// than growing it, with the icon still flush with the edge.
+				className="-mr-1.5 pointer-coarse:-mr-2.5 pointer-coarse:-my-1.5 ml-auto flex size-7 pointer-coarse:size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
 			>
 				<span className="relative flex">
-					<EllipsisVerticalIcon className="size-4" />
+					<EllipsisVerticalIcon className="size-4 pointer-coarse:size-5" />
 					{why !== null && <UpdateDot />}
 				</span>
 			</DropdownMenuTrigger>
