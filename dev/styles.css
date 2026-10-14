@@ -9,6 +9,10 @@
    renders has to be listed: one that nobody lists comes out of the compiler as
    nothing at all. */
 @source "./app.tsx";
+@source "./app-header.tsx";
+@source "./app-nav.tsx";
+@source "./page-route.tsx";
+@source "./side-panes.tsx";
 @source "./auto-restart-dialog.tsx";
 @source "./todos.tsx";
 @source "./board-drag.tsx";
