@@ -25,6 +25,7 @@ export function SystemsCard({
 	return (
 		<section
 			aria-label="systems"
+			data-widget
 			className="overflow-hidden rounded-lg border bg-background py-1"
 		>
 			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm [&_svg]:size-4 [&_svg]:text-muted-foreground">

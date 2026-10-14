@@ -72,7 +72,7 @@ describe("App's settings and notifications", () => {
 			"Restart",
 			"Shortcuts",
 		]);
-		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
+		expect(within(dialog).getAllByRole("switch")).toHaveLength(7);
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 		await waitFor(() =>

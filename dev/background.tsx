@@ -93,50 +93,6 @@ export function BackgroundRow({
 }
 
 /**
- * The row as one icon button, beside `ActionButtons` in a conversation too
- * narrow for the card, opening the same menu.
- */
-export function BackgroundMenu({
-	conversation,
-	background,
-}: {
-	conversation: string;
-	background: Background[];
-}): JSX.Element | null {
-	const watch = useContext(WatchBackground);
-	if (background.length === 0 || watch === null) {
-		return null;
-	}
-	const running = background.filter((each) => each.state === "running");
-	return (
-		<div className="@min-[76rem]:hidden">
-			<BackgroundMenuOf
-				conversation={conversation}
-				background={background}
-				watch={watch}
-				trigger={
-					<Button
-						variant="outline"
-						size="icon-sm"
-						aria-label="Background commands"
-						title={`Background commands: ${running.length} running`}
-						className="relative"
-					/>
-				}
-			>
-				<TerminalIcon />
-				{running.length > 0 && (
-					<span
-						aria-hidden
-						className="-top-1 -right-1 absolute size-2 animate-pulse rounded-full bg-success"
-					/>
-				)}
-			</BackgroundMenuOf>
-		</div>
-	);
-}
-
-/**
  * A menu of the commands from `trigger`, each saying how it stands and
  * opening what it printed.
  */

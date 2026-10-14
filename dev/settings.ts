@@ -101,6 +101,13 @@ export const SETTINGS = {
 		choices: ACCENTS,
 		swatches: true,
 	},
+	"conversation.widgets": {
+		category: "Appearance",
+		title: "Widgets beside conversations",
+		description:
+			"Show a conversation's actions, background commands and task beside its messages where there is room for them. Elsewhere they float over the conversation while you open them.",
+		default: true,
+	},
 	"editor.opener": {
 		category: "Editor",
 		title: "Open files in",
@@ -231,6 +238,11 @@ export const SETTINGS = {
 		"Attach files",
 		"Pick files to attach to the message being written.",
 		"Alt+Mod+Semicolon",
+	),
+	"shortcuts.widgets": shortcut(
+		"Widgets",
+		"Show or hide the open conversation's widgets.",
+		"Alt+Mod+Slash",
 	),
 	"shortcuts.terminal": shortcut(
 		"Terminal",

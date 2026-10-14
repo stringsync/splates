@@ -373,7 +373,49 @@ describe("App's conversations", () => {
 		).toEqual(["Terminal⌃`", "Archive⌥⌘⌫"]);
 	});
 
-	it("lists the systems its task touches as chips in a card under the actions, each opening to its globs, and as a button when narrow", async () => {
+	it("floats its widgets over the thread where they cannot dock, from the one button in its header or ⌥⌘/, until Escape, a click outside, or an action", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+		]);
+		const toggle = view.getByRole("button", { name: "Widgets" });
+		const widgets = view.getByRole("region", { name: "widgets" });
+
+		// The widgets' button in place of one per action.
+		expect(
+			within(toggle.closest("header") as HTMLElement).queryByRole("button", {
+				name: /Terminal|Archive|Systems|Background/,
+			}),
+		).toBeNull();
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+		expect(widgets.inert).toBe(true);
+
+		await act(async () => fireEvent.click(toggle));
+		expect(toggle.getAttribute("aria-expanded")).toBe("true");
+		expect(widgets.inert).toBe(false);
+		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+		await act(async () =>
+			fireEvent.keyDown(document.body, {
+				code: "Slash",
+				altKey: true,
+				metaKey: true,
+			}),
+		);
+		expect(toggle.getAttribute("aria-expanded")).toBe("true");
+		await act(async () => fireEvent.pointerDown(document.body));
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+		await act(async () => fireEvent.click(toggle));
+		await act(async () =>
+			fireEvent.click(
+				within(widgets).getByRole("button", { name: /Terminal/ }),
+			),
+		);
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+	});
+
+	it("lists the systems its task touches as chips in a card under the actions, each opening to its globs", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 			"c1",
@@ -412,12 +454,6 @@ describe("App's conversations", () => {
 				.map((item) => item.textContent)
 				.toArray(),
 		).toEqual(["src/auth/**", "!src/auth/**/*.test.ts"]);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Systems" })),
-		);
-		await waitFor(() =>
-			expect(view.getAllByRole("button", { name: "sessions" })).toHaveLength(2),
-		);
 	});
 
 	it("shows no systems card for a task that touches none", async () => {
@@ -426,7 +462,6 @@ describe("App's conversations", () => {
 		]);
 
 		expect(view.queryByRole("region", { name: "systems" })).toBeNull();
-		expect(view.queryByRole("button", { name: "Systems" })).toBeNull();
 	});
 
 	it("lists the commands it left in the background in a menu from the actions card, each saying how it stands", async () => {

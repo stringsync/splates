@@ -96,7 +96,7 @@ import { leadingDirectives, taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
-import { type Action, ActionButtons, Actions } from "./actions";
+import { type Action, useWidgets, Widgets, WidgetsButton } from "./actions";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import {
 	answerConversation,
@@ -114,7 +114,7 @@ import {
 	unqueueConversation,
 } from "./api";
 import { Back } from "./back";
-import { BackgroundMenu, BackgroundRow } from "./background";
+import { BackgroundRow } from "./background";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
 import { ENDINGS, TONES } from "./card-shell";
@@ -159,7 +159,7 @@ import {
 	type Turn,
 } from "./report-cards";
 import type { Settings } from "./settings";
-import { SystemsButton, SystemsCard } from "./systems";
+import { SystemsCard } from "./systems";
 import {
 	arriveAt,
 	questionsSeen,
@@ -2643,6 +2643,7 @@ function Thread({
 		[drafts, onOpen, conversation.agent],
 	);
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
+	const widgets = useWidgets(section);
 	return (
 		<section
 			ref={section}
@@ -2721,12 +2722,13 @@ function Thread({
 						/>
 					)}
 				</div>
-				<SystemsButton systems={task?.systems ?? []} />
-				<BackgroundMenu
-					conversation={id}
-					background={conversation.background}
+				<WidgetsButton
+					open={widgets.open}
+					onToggle={widgets.toggle}
+					busy={conversation.background.some(
+						(each) => each.state === "running",
+					)}
 				/>
-				<ActionButtons actions={actions} />
 			</header>
 			{archive.confirm}
 			{task !== null && (
@@ -2825,7 +2827,10 @@ function Thread({
 								</StartNewContext>
 							</Composing.Provider>
 						</AssistantRuntimeProvider>
-						<Actions
+						<Widgets
+							roomy={widgets.roomy}
+							open={widgets.open}
+							onClose={widgets.close}
 							actions={actions}
 							background={
 								<BackgroundRow
@@ -2836,7 +2841,7 @@ function Thread({
 						>
 							<SystemsCard systems={task?.systems ?? []} />
 							<CurrentTask version={version} />
-						</Actions>
+						</Widgets>
 					</div>
 				)}
 			</TaskRegistry>
