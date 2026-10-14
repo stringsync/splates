@@ -1,6 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type {
 	ConversationState,
+	Field,
 	Limit,
 	Message,
 	Part,
@@ -316,5 +317,44 @@ export function settingsIn(
 				})),
 			},
 		];
+	});
+}
+
+/** `value` for `setting` as ACP sets it: a toggle's as a boolean. */
+export function configValue(
+	setting: Setting,
+	value: string,
+): { type: "boolean"; value: boolean } | { value: string } {
+	return setting.type === "boolean"
+		? { type: "boolean", value: value === "on" }
+		: { value };
+}
+
+/** A form an agent asks with, as the fields the page shows. */
+export function fieldsIn(schema: unknown): Field[] {
+	const properties =
+		typeof schema === "object" && schema !== null && "properties" in schema
+			? (schema.properties as Record<string, Record<string, unknown>>)
+			: {};
+	return Object.entries(properties).map(([key, property]) => {
+		const oneOf = property.oneOf as
+			| { const: string; title?: string; description?: string }[]
+			| undefined;
+		const enums = property.enum as string[] | undefined;
+		const choices =
+			oneOf?.map((choice) => ({
+				value: String(choice.const),
+				title: choice.title ?? String(choice.const),
+				description: choice.description ?? null,
+			})) ??
+			enums?.map((value) => ({ value, title: value, description: null })) ??
+			null;
+		return {
+			key,
+			title: String(property.title ?? key),
+			description:
+				typeof property.description === "string" ? property.description : null,
+			choices,
+		};
 	});
 }
