@@ -1,44 +1,31 @@
-// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
-// Imported for the side effect, and before anything that touches a global:
-// it is what puts a DOM on `globalThis` for React to render into.
-import "../../../setup";
+// Imported for the side effect, and first: the DOM it sets up must be in place
+// before anything below loads react-dom.
+import "./testing-dom";
 import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
-import type {
-	Checkpoint,
-	ConversationState,
-	Message,
-	Part,
-	Session,
-	Tool,
-} from "../conversations";
+import type { ConversationState, Session } from "../conversations";
 import type { FileDiff } from "../diff";
-import type { Details } from "../show";
 import type { Snapshot } from "../snapshot";
 import type { NamedSystem } from "../systems";
-import type { TodoState } from "../todo";
 import type { ProjectChoice } from "./api";
 import type { AgentChoice } from "./conversation-feed";
 import { FakeShell } from "./fake-shell";
+import { details, snapshot } from "./fixtures";
 import { Settings } from "./settings";
+import { App, act, fireEvent, render, waitFor, within } from "./testing-dom";
 
-// Loaded only once the DOM above is in place, and handed on from here so a test
-// file need not load them itself. Bun loads a package's CommonJS while it links
-// the static imports, before even this file's own `setup` import has run, and
-// react-dom decides at load time whether the browser has `input` events:
-// loaded too early, it concludes it does not, and no `onChange` ever fires.
-export const { act, cleanup, fireEvent, render, waitFor, within } =
-	await import("@testing-library/react");
-const { App } = await import("./app");
-const {
-	$createParagraphNode,
-	$createTextNode,
-	$getRoot,
-	$isElementNode,
-	getNearestEditorFromDOMNode,
-} = await import("lexical");
+export * from "./drivers";
+export * from "./fixtures";
+export {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	waitFor,
+	within,
+} from "./testing-dom";
 
 /**
  * How often the page asks after a checkpoint under way: a tick a test waits
@@ -296,15 +283,7 @@ export class Testing implements Resource {
 		);
 		await act(async () => fireEvent.click(tab));
 		if (open !== null) {
-			const nav = view.getByRole("navigation", { name: "conversations" });
-			const item = within(nav)
-				.getAllByRole("listitem")
-				.flatMap((row) => within(row).getAllByRole("button"))
-				.find((button) => button.textContent?.includes(nameIn(held, open)));
-			if (item === undefined) {
-				throw new Error(`no conversation ${open} listed`);
-			}
-			await act(async () => fireEvent.click(item));
+			await openRow(view, nameIn(held, open));
 		}
 		return view;
 	}
@@ -356,284 +335,20 @@ export type ConversationsView = Awaited<
 	ReturnType<Testing["openConversations"]>
 >;
 
-/** Opens the new conversation screen with `agent`, from the sidebar. */
-export async function newWith(
+/** Opens the conversation listed by `name`, as a click in the sidebar does. */
+export async function openRow(
 	view: ConversationsView,
-	agent: string,
-): Promise<void> {
-	await act(async () =>
-		fireEvent.click(view.getByRole("button", { name: "New" })),
-	);
-	await act(async () =>
-		fireEvent.click(
-			await waitFor(() =>
-				view.getByRole("menuitem", { name: new RegExp(agent) }),
-			),
-		),
-	);
-}
-
-/**
- * Types `text` into the composer `box` in place of what it holds, the caret
- * at its end, as its editor takes typing.
- */
-export function typeIn(box: HTMLElement, text: string): Promise<void> {
-	return act(async () => {
-		box.focus();
-		editorOf(box).update(
-			() => {
-				const root = $getRoot().clear();
-				for (const line of text.split("\n")) {
-					root.append(
-						$createParagraphNode().append(
-							...(line === "" ? [] : [$createTextNode(line)]),
-						),
-					);
-				}
-				root.selectEnd();
-			},
-			{ discrete: true },
-		);
-	});
-}
-
-/** What the composer `box` holds, as its text: a chip as what it reads. */
-export function textIn(box: HTMLElement): string {
-	return editorOf(box)
-		.getEditorState()
-		.read(() =>
-			$getRoot()
-				.getChildren()
-				.map((line) =>
-					$isElementNode(line)
-						? line
-								.getChildren()
-								.map((child) => child.getTextContent())
-								.join("")
-						: "",
-				)
-				.join("\n"),
-		);
-}
-
-function editorOf(box: HTMLElement) {
-	const editor = getNearestEditorFromDOMNode(box);
-	if (editor === null) {
-		throw new Error("not a composer");
-	}
-	return editor;
-}
-
-/** Picks an option of a Select: Base UI picks on the pointer let go. */
-export function pick(option: HTMLElement): Promise<void> {
-	return act(async () => {
-		fireEvent.pointerDown(option, { pointerType: "mouse" });
-		fireEvent.mouseDown(option);
-		fireEvent.pointerUp(option, { pointerType: "mouse" });
-		fireEvent.mouseUp(option);
-		fireEvent.click(option);
-	});
-}
-
-/** Presses ⌥⌘⌫, by the key's place as on a Mac. */
-export function pressArchive(): Promise<void> {
-	return act(async () => {
-		fireEvent.keyDown(document.body, {
-			code: "Backspace",
-			altKey: true,
-			metaKey: true,
-		});
-	});
-}
-
-/**
- * Opens the menu beside the project's name, unless open already, and waits
- * for its item named `name`, for a test to click or read.
- */
-export async function menuItem(
-	view: ConversationsView,
-	name: string | RegExp,
-): Promise<HTMLElement> {
-	if (view.queryByRole("menu") === null) {
-		await act(async () =>
-			fireEvent.click(
-				view.getByRole("button", { name: /^More(: restart to update)?$/ }),
-			),
-		);
-	}
-	return await waitFor(() => view.getByRole("menuitem", { name }));
-}
-
-/** Sizes the window, as a phone held upright or a laptop. */
-export function resize(width: number, height: number): void {
-	(
-		window as unknown as {
-			happyDOM: { setViewport(size: { width: number; height: number }): void };
-		}
-	).happyDOM.setViewport({ width, height });
-}
-
-/** A conversation of a project's, as the projects route lists it. */
-export function live(
-	id: string,
 	name: string,
-	checkpoint: Checkpoint | null = null,
-) {
-	return {
-		id,
-		name,
-		status: checkpoint === "done" ? "stopped" : "running",
-		checkpoint,
-	};
-}
-
-/** A project as the projects route lists it, holding `listed`. */
-export function project(
-	slug: string,
-	listed: ProjectChoice["conversations"],
-	here = false,
-): ProjectChoice {
-	return {
-		slug,
-		root: `/code/${slug}`,
-		gone: false,
-		here,
-		conversations: listed,
-		waiting: 0,
-	};
-}
-
-export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
-	return {
-		repo: "webappwiz",
-		path: "~/Projects/webappwiz",
-		root: "/repo",
-		worktreeRoot: "/repo-arbor",
-		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
-		todos: [],
-		lanes: [],
-		tasks: [],
-		trunk: "main",
-		release: null,
-		behind: null,
-		unbuilt: false,
-		...overrides,
-	};
-}
-
-export function details(overrides: Partial<Details> = {}): Details {
-	return {
-		task: "alpha",
-		status: "working",
-		branch: "task/alpha",
-		base: "main",
-		worktree: "/tmp/repo-arbor/alpha",
-		lease: "none",
-		ahead: 1,
-		added: 2,
-		removed: 1,
-		age: "3m",
-		createdAt: "2026-10-11T09:57:00.000Z",
-		escalation: null,
-		mergeAttempts: 0,
-		mergeAttemptLimit: 3,
-		escalatedAt: null,
-		review: null,
-		ready: true,
-		plan: null,
-		planProblems: [],
-		dispatched: false,
-		systems: [],
-		...overrides,
-	};
-}
-
-export function todo(overrides: Partial<TodoState> = {}): TodoState {
-	return {
-		id: 1,
-		subject: "retry the upload",
-		text: "",
-		position: 1,
-		from: null,
-		createdAt: new Date().toISOString(),
-		takenBy: null,
-		files: [],
-		blockedBy: [],
-		lane: null,
-		...overrides,
-	};
-}
-
-export function conversation(
-	overrides: Partial<ConversationState> = {},
-): ConversationState {
-	return {
-		id: "c1",
-		agent: "claude",
-		task: null,
-		title: null,
-		status: "idle",
-		error: null,
-		name: null,
-		archived: false,
-		unread: false,
-		seen: 0,
-		messages: [],
-		ask: null,
-		settings: [],
-		commands: [],
-		createdAt: new Date().toISOString(),
-		checkpoint: null,
-		usage: {
-			context: null,
-			input: 0,
-			cached: 0,
-			output: 0,
-			cost: null,
-			limits: [],
-		},
-		lastTask: overrides.task ?? null,
-		lastBase: null,
-		background: [],
-		...overrides,
-	};
-}
-
-/** A message of `role` made of `parts`, a string standing for its text. */
-export function message(
-	role: Message["role"],
-	...parts: (Part | string)[]
-): Message {
-	return {
-		role,
-		parts: parts.map((part) =>
-			typeof part === "string" ? { type: "text", text: part } : part,
-		),
-		plan: null,
-		at: null,
-		until: null,
-	};
-}
-
-export function tool(overrides: Partial<Tool> = {}): Tool {
-	return {
-		type: "tool",
-		id: "t1",
-		title: "cat note.txt",
-		status: "completed",
-		kind: "execute",
-		command: null,
-		target: null,
-		output: "",
-		edits: [],
-		paths: [],
-		parent: null,
-		at: null,
-		until: null,
-		flags: [],
-		decision: null,
-		...overrides,
-	};
+): Promise<void> {
+	const nav = view.getByRole("navigation", { name: "conversations" });
+	const item = within(nav)
+		.getAllByRole("listitem")
+		.flatMap((row) => within(row).getAllByRole("button"))
+		.find((button) => button.textContent?.includes(name));
+	if (item === undefined) {
+		throw new Error(`no conversation ${name} listed`);
+	}
+	await act(async () => fireEvent.click(item));
 }
 
 /** `form`'s fields, each by its name, and the files it carries as `file`. */

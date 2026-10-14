@@ -9,6 +9,7 @@ import {
 	fireEvent,
 	message,
 	newWith,
+	openRow,
 	snapshot,
 	Testing,
 	textIn,
@@ -370,17 +371,6 @@ describe("App's conversations", () => {
 			conversation({ id: "c1", title: "Fix login" }),
 			conversation({ id: "c2", title: "Tidy tests" }),
 		];
-		/** Opens the conversation listed by `name`, as a click in the sidebar does. */
-		const go = async (view: ConversationsView, name: string) => {
-			const nav = view.getByRole("navigation", { name: "conversations" });
-			const item = within(nav)
-				.getAllByRole("button")
-				.find((button) => button.textContent?.includes(name));
-			if (item === undefined) {
-				throw new Error(`no ${name} listed`);
-			}
-			await act(async () => fireEvent.click(item));
-		};
 		const box = (view: ConversationsView) =>
 			view.getByRole("textbox", {
 				name: "Message input",
@@ -392,16 +382,16 @@ describe("App's conversations", () => {
 			const view = await testing.openConversations(held, "c1");
 			await type(view, "half a thought");
 
-			await go(view, "Tidy tests");
+			await openRow(view, "Tidy tests");
 			await waitFor(() => expect(textIn(box(view))).toBe(""));
 			await type(view, "another");
 			await newWith(view, "Claude");
 			await waitFor(() => expect(textIn(box(view))).toBe(""));
 			await type(view, "a fresh start");
 
-			await go(view, "Fix login");
+			await openRow(view, "Fix login");
 			await waitFor(() => expect(textIn(box(view))).toBe("half a thought"));
-			await go(view, "Tidy tests");
+			await openRow(view, "Tidy tests");
 			await waitFor(() => expect(textIn(box(view))).toBe("another"));
 			await newWith(view, "Claude");
 			await waitFor(() => expect(textIn(box(view))).toBe("a fresh start"));
@@ -418,8 +408,8 @@ describe("App's conversations", () => {
 			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 				{ method: "POST", body: { text: "before the reload" } },
 			]);
-			await go(again, "Tidy tests");
-			await go(again, "Fix login");
+			await openRow(again, "Tidy tests");
+			await openRow(again, "Fix login");
 			await waitFor(() => expect(textIn(box(again))).toBe(""));
 		});
 
@@ -713,8 +703,8 @@ describe("App's conversations", () => {
 				}),
 			);
 
-			await go(view, "Tidy tests");
-			await go(view, "Fix login");
+			await openRow(view, "Tidy tests");
+			await openRow(view, "Fix login");
 
 			expect(
 				(view.getByRole("textbox", { name: "Note" }) as HTMLInputElement).value,
