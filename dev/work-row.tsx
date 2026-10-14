@@ -341,7 +341,10 @@ function Row({
 			return (
 				<Markdown
 					text={item.text}
-					className="text-foreground/80 text-sm [&_p]:my-0"
+					// Set in behind a rule, apart from the calls; its paragraphs and
+					// lists, under the div Markdown renders them in, half a line
+					// apart in place of their own margins.
+					className="border-foreground/20 border-l-2 pl-3 text-foreground text-sm [&>*>*]:my-0! [&>*>*:not(:first-child)]:mt-[0.5lh]!"
 				/>
 			);
 		case "decision":
