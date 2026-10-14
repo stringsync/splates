@@ -110,7 +110,17 @@ export async function dev(
 	const asset = (
 		body: string | Uint8Array<ArrayBuffer>,
 		type: string,
-	): Response => new Response(body, { headers: { "content-type": type } });
+	): Response =>
+		new Response(body, {
+			headers: {
+				"content-type": type,
+				// Ask again each time, so a restart's build reaches the page. Bun
+				// answers the ETag with a 304, so asking is cheap. Without it,
+				// Cloudflare keeps the .js, .css and .png at its edge, and has a
+				// phone keep them too, for hours after the server moved on.
+				"cache-control": "no-cache",
+			},
+		});
 
 	const context: DevContext = {
 		get url() {
