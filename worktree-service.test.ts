@@ -105,7 +105,7 @@ describe("WorktreeService", () => {
 		await fs.write(`${removed}/middle`, "2026-02-01T00:00:00.000Z\n");
 		await fs.write(`${removed}/newest`, "2026-03-01T00:00:00.000Z\n");
 
-		await worktrees.discard(await worktrees.find("alpha"));
+		await worktrees.discard(await worktrees.find("alpha"), "removed");
 
 		expect((await fs.readdir(removed)).sort()).toEqual(["alpha", "newest"]);
 	});

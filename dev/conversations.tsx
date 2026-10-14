@@ -550,39 +550,42 @@ export function ConversationList({
 					}}
 				/>
 			))}
-			<Rows
-				label="conversation list"
-				rows={nested}
-				render={(row) =>
-					row.conversation !== null ? (
-						<Item
-							conversation={row.conversation}
-							agent={agentName(agents, row.conversation.agent)}
-							need={row.need}
-							current={row.conversation.id === open}
-							onOpen={() => openRow(row)}
-							onLeft={
-								row.conversation.id === open
-									? () => goOn(rows, drafts, open, onOpen)
-									: undefined
-							}
-							hint={held ? hintOf(shown, row) : null}
-						/>
-					) : (
-						row.task !== null && (
-							<External
-								task={row.task}
+			{/* None, and no list either: an empty one would still take a gap. */}
+			{nested.length > 0 && (
+				<Rows
+					label="conversation list"
+					rows={nested}
+					render={(row) =>
+						row.conversation !== null ? (
+							<Item
+								conversation={row.conversation}
+								agent={agentName(agents, row.conversation.agent)}
 								need={row.need}
-								copied={copiedFor(drafts, null, row.task, row.need)}
-								seen={seenFor(drafts, null, row.task, row.need)}
-								current={`${TASK}${row.task.task}` === open}
+								current={row.conversation.id === open}
 								onOpen={() => openRow(row)}
+								onLeft={
+									row.conversation.id === open
+										? () => goOn(rows, drafts, open, onOpen)
+										: undefined
+								}
 								hint={held ? hintOf(shown, row) : null}
 							/>
+						) : (
+							row.task !== null && (
+								<External
+									task={row.task}
+									need={row.need}
+									copied={copiedFor(drafts, null, row.task, row.need)}
+									seen={seenFor(drafts, null, row.task, row.need)}
+									current={`${TASK}${row.task.task}` === open}
+									onOpen={() => openRow(row)}
+									hint={held ? hintOf(shown, row) : null}
+								/>
+							)
 						)
-					)
-				}
-			/>
+					}
+				/>
+			)}
 			<button
 				type="button"
 				data-row

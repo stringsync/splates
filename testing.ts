@@ -12,6 +12,7 @@ import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
+import { Outcomes } from "./outcomes";
 import { PLAN_FILE } from "./plan";
 import { Projects } from "./projects";
 import { Shell } from "./shell";
@@ -53,6 +54,8 @@ export class Testing implements AsyncDisposable {
 	readonly arborHome: string;
 	/** Kept in `arborHome`, never the user's home. */
 	readonly projects: Projects;
+	/** How each task ended, kept in `arborHome`. */
+	readonly outcomes: Outcomes;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -74,9 +77,15 @@ export class Testing implements AsyncDisposable {
 			systems: {},
 		};
 		this.git = new Git(this.root, { ps: this.ps, fs: this.fs });
+		this.arborHome = join(base, "home", ".arbor");
+		this.outcomes = new Outcomes(
+			join(this.arborHome, "outcomes.jsonl"),
+			this.fs,
+		);
 		this.service = new WorktreeService(this.git, this.config, this.arborDir, {
 			fs: this.fs,
 			ps: this.ps,
+			outcomes: this.outcomes,
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.journal = new Journal(
@@ -100,7 +109,6 @@ export class Testing implements AsyncDisposable {
 			}),
 			{ fs: this.fs, ids: this.ids },
 		);
-		this.arborHome = join(base, "home", ".arbor");
 		// So a command run here, or a CLI it spawns, registers the test's
 		// repository in the test's registry rather than the user's. Run from an
 		// agent in `arbor dev`, it leaves out that agent's conversation too, so

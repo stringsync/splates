@@ -18,6 +18,7 @@ import type { FileDiff } from "../diff";
 import type { Held } from "../held";
 import type { Behind } from "../release";
 import type { AgentPick } from "../roster";
+import type { Stats } from "../stats";
 import type { NamedSystem } from "../systems";
 
 export class ApiError extends Error {
@@ -548,4 +549,17 @@ export async function forgetProject(slug: string): Promise<void> {
 			);
 		}
 	});
+}
+
+/**
+ * How tasks ended across every project, summed for the Stats page over the
+ * last `weeks`, or all time for null.
+ */
+export async function stats(weeks: number | null): Promise<Stats> {
+	const path = `/api/stats?weeks=${weeks ?? "all"}`;
+	const response = await fetch(path);
+	if (!response.ok) {
+		throw new ApiError("error", `${path}: ${response.status}`);
+	}
+	return (await response.json()) as Stats;
 }

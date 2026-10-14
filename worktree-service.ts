@@ -3,7 +3,9 @@ import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import { Attachments } from "./attachments";
 import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
-import { type TaskState, Worktree } from "./worktree";
+import { ranWith } from "./models";
+import type { Outcomes } from "./outcomes";
+import { type DiscardOptions, type TaskState, Worktree } from "./worktree";
 
 const BRANCH_PREFIX = "task/";
 
@@ -21,12 +23,16 @@ export interface AddOptions {
 export interface WorktreeServiceOptions {
 	fs?: Fs;
 	ps?: Ps;
+	/** Where each task's ending is written down; none, and nothing is. */
+	outcomes?: Outcomes;
 }
 
 export class WorktreeService {
 	private readonly tasksDir: string;
 	private readonly removedDir: string;
+	private readonly conversationsDir: string;
 	private readonly fs: Fs;
+	private readonly outcomes: Outcomes | null;
 	readonly ps: Ps;
 
 	// scry-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
@@ -38,8 +44,10 @@ export class WorktreeService {
 	) {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ps = opts.ps ?? new NodePs();
+		this.outcomes = opts.outcomes ?? null;
 		this.tasksDir = `${arborDir}/tasks`;
 		this.removedDir = `${arborDir}/removed`;
+		this.conversationsDir = `${arborDir}/conversations`;
 	}
 
 	async init(): Promise<void> {
@@ -140,7 +148,11 @@ export class WorktreeService {
 		return this.git.addWorktree(this.branchFor(task), this.pathFor(task), base);
 	}
 
-	async discard(worktree: Worktree): Promise<GitResult> {
+	async discard(
+		worktree: Worktree,
+		ended: "merged" | "removed",
+		opts: DiscardOptions = {},
+	): Promise<GitResult> {
 		const removed = worktree.exists
 			? await this.git.removeWorktree(worktree.path)
 			: // Directory gone by other means: drop the metadata git still holds.
@@ -157,6 +169,7 @@ export class WorktreeService {
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
 		await this.files(worktree.task).clear();
 		await this.rememberRemoved(worktree.task);
+		await this.recordOutcome(worktree, ended, opts);
 		return removed;
 	}
 
@@ -168,6 +181,52 @@ export class WorktreeService {
 		const tmp = `${path}.${this.ps.pid}.tmp`;
 		await this.fs.write(tmp, `${JSON.stringify(state, null, "\t")}\n`);
 		await this.fs.rename(tmp, path);
+	}
+
+	/**
+	 * Writes down how a task with a record ended. One with none, a stray
+	 * branch or a bare directory, never ran as a task, so says nothing.
+	 */
+	private async recordOutcome(
+		{ task, base, state }: Worktree,
+		ended: "merged" | "removed",
+		opts: DiscardOptions,
+	): Promise<void> {
+		if (!this.outcomes || !state) {
+			return;
+		}
+		const escalations = state.escalations ?? [];
+		const reviews = escalations.filter((each) => each.review).length;
+		// A dispatched task names its conversation once `arbor dev` started
+		// it; any other agent from the page has it in its env.
+		const conversation =
+			opts.conversation ??
+			state.dispatch?.conversation ??
+			this.ps.env("ARBOR_CONVERSATION") ??
+			null;
+		// What the conversation ran is what did the work; the handover only
+		// says what was asked for, and is all an unstarted one has.
+		const ran =
+			conversation === null
+				? null
+				: await ranWith(
+						`${this.conversationsDir}/${conversation}.jsonl`,
+						this.fs,
+					);
+		await this.outcomes.record({
+			project: this.git.root,
+			task,
+			base,
+			ended,
+			startedAt: state.createdAt,
+			endedAt: new Date().toISOString(),
+			questionRounds: escalations.length - reviews,
+			reviewRounds: reviews,
+			failedMerges: state.mergeFailures ?? 0,
+			conversation,
+			agent: ran?.agent ?? state.dispatch?.agent ?? null,
+			model: ran?.model ?? state.dispatch?.model ?? null,
+		});
 	}
 
 	private async readRecord(task: string): Promise<TaskState | null> {

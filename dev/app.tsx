@@ -1,6 +1,7 @@
 // scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
+	ChartColumnIcon,
 	GitBranchIcon,
 	KanbanIcon,
 	Loader2Icon,
@@ -36,7 +37,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
-import { listProjects, restartIdle } from "./api";
+import { listProjects, restartIdle, stats } from "./api";
 import { AutoRestart } from "./auto-restart";
 import { AutoRestartDialog } from "./auto-restart-dialog";
 import { BackgroundPane, WatchBackground } from "./background";
@@ -77,6 +78,8 @@ import type { Settings, ShortcutKey } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { matches } from "./shortcuts";
 import { SidebarHandle, SidebarWidth } from "./sidebar";
+import { StatsPage } from "./stats";
+import { StatsReport } from "./stats-report";
 import { TASK } from "./task-view";
 import { Tasks } from "./tasks";
 import { ShellRunning, TerminalPane, ToggleTerminal } from "./terminal";
@@ -89,13 +92,16 @@ import { TreesContext } from "./work-row";
 /**
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
- * for one open), or the board.
+ * for one open), `#stats`, or the board.
  */
-type Page = "todos" | "tasks" | "conversations";
+type Page = "todos" | "tasks" | "conversations" | "stats";
 
 function pageIn(hash: string): Page {
 	if (hash === "#tasks" || hash.startsWith("#tasks/")) {
 		return "tasks";
+	}
+	if (hash === "#stats") {
+		return "stats";
 	}
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
 }
@@ -125,6 +131,7 @@ const PAGES: {
 		shortcut: "shortcuts.todos",
 	},
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
+	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 ];
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
@@ -333,6 +340,7 @@ export function App({
 	// Back through the conversations opened and forward, as in a browser's
 	// history, past any since archived or merged away.
 	const [visits] = useState(() => new Visits());
+	const [report] = useState(() => new StatsReport({ stats }));
 	useEffect(() => {
 		if (open === null || open === NEW) {
 			visits.leave();
@@ -449,7 +457,7 @@ export function App({
 				? counted && !wide
 					? waiting
 					: 0
-				: snapshot === null
+				: snapshot === null || page === "stats"
 					? 0
 					: (page === "todos" ? snapshot.todos : snapshot.tasks).length;
 		return counting === 0 ? null : counting;
@@ -671,6 +679,12 @@ export function App({
 																open={task}
 																onOpen={openTask}
 															/>
+														</TabsContent>
+														<TabsContent
+															value="stats"
+															className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
+														>
+															<StatsPage report={report} />
 														</TabsContent>
 														{available && (
 															<TabsContent

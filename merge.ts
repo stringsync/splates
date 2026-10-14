@@ -222,7 +222,7 @@ export async function merge(
 	// to delete, and spawning git from a directory that no longer exists fails
 	// with ENOENT before git is even reached.
 	service.ps.cd(git.root);
-	const discarded = await current.discard();
+	const discarded = await current.discard("merged");
 	await lock.release();
 	if (discarded.code !== 0) {
 		fail(
@@ -263,6 +263,7 @@ async function bump(worktree: Worktree): Promise<void> {
 	await worktree.take({
 		status: "working",
 		mergeAttempts: worktree.mergeAttempts + 1,
+		mergeFailures: (worktree.state?.mergeFailures ?? 0) + 1,
 	});
 }
 

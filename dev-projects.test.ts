@@ -6,6 +6,7 @@ import { dev } from "./dev";
 import { serving } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
+import type { Stats } from "./stats";
 import { Testing } from "./testing";
 
 describe("dev", () => {
@@ -110,6 +111,37 @@ describe("dev", () => {
 					"repo",
 					"repo-2",
 				]);
+			});
+		});
+
+		it("sums how tasks ended in every project, opened or not", async () => {
+			await using other = await another();
+			// As the CLI writes it there, into the home the server shares.
+			await deps.outcomes.record({
+				project: other.root,
+				task: "there",
+				base: "main",
+				ended: "removed",
+				startedAt: "2026-10-14T09:00:00.000Z",
+				endedAt: new Date().toISOString(),
+				questionRounds: 1,
+				reviewRounds: 0,
+				failedMerges: 0,
+				conversation: null,
+				agent: null,
+				model: null,
+			});
+
+			await serving(deps, async (_, port) => {
+				const stats = (await (
+					await fetch(`http://localhost:${port}/api/stats`)
+				).json()) as Stats;
+				expect(stats.projects).toMatchObject([
+					{ project: other.root, removed: 1, questionRounds: 1 },
+				]);
+				expect(
+					(await fetch(`http://localhost:${port}/api/stats?weeks=soon`)).status,
+				).toBe(400);
 			});
 		});
 

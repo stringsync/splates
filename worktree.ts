@@ -156,9 +156,15 @@ export class Worktree {
 		return this.service.find(this.task);
 	}
 
-	/** Removes the directory, the branch, and the record; remembers the name. */
-	discard(): Promise<GitResult> {
-		return this.service.discard(this);
+	/**
+	 * Removes the directory, the branch, and the record; remembers the name,
+	 * and how the task ended.
+	 */
+	discard(
+		ended: "merged" | "removed",
+		opts: DiscardOptions = {},
+	): Promise<GitResult> {
+		return this.service.discard(this, ended, opts);
 	}
 
 	commitsAhead(): Promise<number | null> {
@@ -213,6 +219,14 @@ export class Worktree {
 	}
 }
 
+export interface DiscardOptions {
+	/**
+	 * The `arbor dev` conversation working on it, when ended from the page
+	 * rather than by the agent, whose env names it.
+	 */
+	conversation?: string;
+}
+
 /** The status a task's own record carries. */
 export type RecordStatus = "working" | "merging" | "escalated";
 
@@ -243,6 +257,11 @@ export interface TaskState {
 	status: RecordStatus;
 	lease: LeaseState | null;
 	mergeAttempts: number;
+	/**
+	 * Every merge that failed, which `retry` leaves alone while it hands back
+	 * the attempts. Absent in old records: none counted yet.
+	 */
+	mergeFailures?: number;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];

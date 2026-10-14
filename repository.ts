@@ -6,6 +6,7 @@ import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
+import { Outcomes } from "./outcomes";
 import { Projects } from "./projects";
 import { arborHome } from "./roster";
 import { Shell } from "./shell";
@@ -103,13 +104,17 @@ export async function openRepository(
 		await format.create();
 	}
 	await (migrates ? format.migrate() : format.check());
-	const service = new WorktreeService(git, config, arborDir, { fs, ps });
+	// The user's, shared by every repository on this machine: the registry,
+	// which only `arbor init` writes this one into, and how each task ended.
+	// `ARBOR_HOME` moves it, as the tests do to keep theirs out of the user's.
+	const registry = arborHome(ps);
+	const service = new WorktreeService(git, config, arborDir, {
+		fs,
+		ps,
+		outcomes: new Outcomes(`${registry}/outcomes.jsonl`, fs),
+	});
 	await service.init();
 
-	// The user's, shared by every repository on this machine, which only
-	// `arbor init` writes this one into. `ARBOR_HOME` moves it, as the tests
-	// do to keep theirs out of the user's.
-	const registry = arborHome(ps);
 	const projects = new Projects(`${registry}/projects.json`, {
 		fs,
 		lock: new FileLock(`${registry}/projects.lock`, {

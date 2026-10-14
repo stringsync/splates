@@ -6,6 +6,8 @@ import type { WorktreeService } from "./worktree-service";
 export interface RemoveOptions {
 	/** Discard the tree even when another agent holds its lease. */
 	force?: boolean;
+	/** The `arbor dev` conversation working on it, when removed from the page. */
+	conversation?: string;
 }
 
 /**
@@ -22,7 +24,7 @@ export async function remove(
 		todos,
 	}: { service: WorktreeService; log: Logger; todos: Todos },
 	task: string,
-	{ force = false }: RemoveOptions = {},
+	{ force = false, conversation }: RemoveOptions = {},
 ): Promise<void> {
 	const worktree = await service.find(task);
 
@@ -55,7 +57,7 @@ export async function remove(
 	// Counted before the branch goes, so the report can say what was lost.
 	const unlanded = worktree.hasBranch ? await worktree.commitsAhead() : 0;
 
-	const discarded = await worktree.discard();
+	const discarded = await worktree.discard("removed", { conversation });
 	if (discarded.code !== 0) {
 		fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
 			task,

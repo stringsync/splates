@@ -68,3 +68,11 @@ Mark up any image, one you upload or one an agent shows you. Draw a box or an
 arrow, pin a note to each, and send it back.
 
 ![An agent's screenshot, marked up](https://raw.githubusercontent.com/jaredjj3/webappwiz/main/packages/arbor/screenshots/annotate.png)
+
+### Stats
+
+As each task merges or is removed, arbor writes down how it went in
+`~/.arbor/outcomes.jsonl`: how many times it came to you with questions or for
+a review, how many merges failed, and the agent and model behind it. The Stats
+page sums it week by week, by model and by project, so you can tell whether
+tasks are landing with fewer questions as your prompts and setup change.

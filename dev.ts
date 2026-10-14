@@ -31,6 +31,7 @@ import type { Format } from "./format";
 import type { Git } from "./git";
 import { type Held, heldBy } from "./held";
 import { needs } from "./needs";
+import { Outcomes } from "./outcomes";
 import { PLAN_FILE } from "./plan";
 import type { Projects } from "./projects";
 import { RESUME } from "./prompts";
@@ -40,9 +41,10 @@ import { type Behind, isNewer, type Release, RUNNING } from "./release";
 import { remove } from "./remove";
 import { openRepository, type Repository } from "./repository";
 import { grantRetry } from "./retry";
-import { type AgentPick, modelsOf, pickAgent } from "./roster";
+import { type AgentPick, arborHome, modelsOf, pickAgent } from "./roster";
 import type { Details } from "./show";
 import { fingerprint, snapshot, tasksOf } from "./snapshot";
+import { summarize } from "./stats";
 import { RESTART, UPDATE } from "./supervise";
 import { Systems } from "./systems";
 
@@ -493,7 +495,10 @@ export async function dev(
 				await conversation.stop();
 			}
 			await journal.record("remove", task, () =>
-				remove({ service, log, todos }, task, { force: true }),
+				remove({ service, log, todos }, task, {
+					force: true,
+					conversation: on[0]?.id,
+				}),
 			);
 			for (const conversation of on) {
 				conversation.move(null, service.git.root);
@@ -1244,6 +1249,21 @@ export async function dev(
 		});
 	};
 
+	// Every project's, from the record the CLI writes as each task ends, so
+	// one that is not open here still counts.
+	const outcomes = new Outcomes(`${arborHome(ps)}/outcomes.jsonl`, fs);
+	// `?weeks=` names the period, `all` for all time; 12 weeks for none.
+	const listStats = async (request: Request): Promise<Response> => {
+		const asked = new URL(request.url).searchParams.get("weeks") ?? "12";
+		const weeks = asked === "all" ? null : Number(asked);
+		if (weeks !== null && !(Number.isInteger(weeks) && weeks > 0)) {
+			fail("usage", `weeks is a whole number of weeks, or all: not ${asked}`, {
+				weeks: asked,
+			});
+		}
+		return Response.json(summarize(await outcomes.list(), { weeks }));
+	};
+
 	/**
 	 * What a restart would kill: the job in front in each of the page's
 	 * shells, and each command an idle agent left running. An agent at work
@@ -1520,6 +1540,7 @@ export async function dev(
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/projects": guarded(listProjects),
+			"/api/stats": guarded(listStats),
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },
