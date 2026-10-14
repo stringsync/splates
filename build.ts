@@ -21,6 +21,9 @@ import { compile } from "tailwindcss";
 const here = import.meta.dirname;
 const out = `${here}/dev/build`;
 
+/** The app icon's sizes, the two a manifest needs for an install. */
+const ICON_SIZES = [192, 512] as const;
+
 /** The browser script, as one file with React and the page's modules in it. */
 async function script(): Promise<string> {
 	const built = await Bun.build({
@@ -95,7 +98,7 @@ async function styles(): Promise<string> {
 	return compiler.build(new Scanner({ sources: compiler.sources }).scan());
 }
 
-// All three as `.txt`: what they hold is a blob the server hands to a browser,
+// All of them as `.txt`: what they hold is a blob the server hands to a browser,
 // and the extensions they were authored under mean something else to a
 // compiler. `.js` would have tsc typecheck a bundle that already compiled, and
 // Bun's own types read `.html` and `.css` imports as something other than text.
@@ -105,3 +108,16 @@ await Bun.write(
 );
 await Bun.write(`${out}/main.txt`, await script());
 await Bun.write(`${out}/styles.txt`, await styles());
+await Bun.write(
+	`${out}/manifest.txt`,
+	await Bun.file(`${here}/dev/manifest.webmanifest`).text(),
+);
+// The icons as base64, so they travel as text like the rest. The PNGs are
+// committed rather than drawn here, since rasterizing icon.svg would put an
+// image toolchain in the build for three files that rarely change: after
+// editing it, `magick -background none -density 300 icon.svg -resize 512x512
+// -strip PNG32:icon-512.png`, and the same for 192.
+for (const size of ICON_SIZES) {
+	const png = await Bun.file(`${here}/dev/icons/icon-${size}.png`).bytes();
+	await Bun.write(`${out}/icon-${size}.txt`, png.toBase64());
+}

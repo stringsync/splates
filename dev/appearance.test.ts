@@ -37,6 +37,23 @@ describe("followAppearance", () => {
 		expect(root.classList.contains("dark")).toBe(true);
 	});
 
+	it("paints the browser's bar in the theme's background", async () => {
+		const settings = new Settings(localStorage);
+		const root = document.createElement("html");
+		const meta = document.createElement("meta");
+		meta.name = "theme-color";
+		root.append(meta);
+		const { media, set } = device();
+		followAppearance(settings, root, media);
+		expect(meta.content).toBe("#f3f4f7");
+
+		set(true);
+		expect(meta.content).toBe("#1d1f23");
+
+		await settings.set("appearance.theme", "light");
+		expect(meta.content).toBe("#f3f4f7");
+	});
+
 	it("wears the accent set, and stops once told to", async () => {
 		const settings = new Settings(localStorage);
 		const root = document.createElement("html");

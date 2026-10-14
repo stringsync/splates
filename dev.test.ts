@@ -137,6 +137,48 @@ describe("dev", () => {
 		});
 	});
 
+	it("serves a manifest and icons the page can be installed as an app with", async () => {
+		await add(deps, "alpha");
+
+		await serving(deps, async (_snapshot, port) => {
+			const at = `http://localhost:${port}`;
+			const html = await (await fetch(`${at}/`)).text();
+			// Without credentials, Cloudflare Access would turn the manifest away.
+			expect(html).toContain(
+				`<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />`,
+			);
+
+			const response = await fetch(`${at}/manifest.webmanifest`);
+			expect(response.headers.get("content-type")).toContain(
+				"application/manifest+json",
+			);
+			const manifest = await response.json();
+			expect(manifest.display).toBe("standalone");
+			expect(manifest.start_url).toBe("/");
+			// What each icon turns out to be: a PNG, by its signature, as wide as
+			// the manifest says, by the width in its IHDR chunk.
+			const served = await Promise.all(
+				manifest.icons.map(async ({ src }: { src: string }) => {
+					const icon = await fetch(`${at}${src}`);
+					const bytes = new Uint8Array(await icon.arrayBuffer());
+					const width = new DataView(bytes.buffer).getUint32(16);
+					return {
+						type: icon.headers.get("content-type"),
+						png: new TextDecoder().decode(bytes.slice(1, 4)) === "PNG",
+						sizes: `${width}x${width}`,
+					};
+				}),
+			);
+			expect(served).toEqual(
+				manifest.icons.map(({ sizes }: { sizes: string }) => ({
+					type: "image/png",
+					png: true,
+					sizes,
+				})),
+			);
+		});
+	});
+
 	it("answers a path it does not serve with a 404", async () => {
 		await add(deps, "alpha");
 

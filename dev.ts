@@ -103,8 +103,10 @@ export async function dev(
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
 	// off disk.
-	const asset = (body: string, type: string): Response =>
-		new Response(body, { headers: { "content-type": type } });
+	const asset = (
+		body: string | Uint8Array<ArrayBuffer>,
+		type: string,
+	): Response => new Response(body, { headers: { "content-type": type } });
 
 	const context: DevContext = {
 		get url() {
@@ -257,12 +259,18 @@ export async function dev(
 		// Zero never closes an idle connection, which is what the SSE stream needs:
 		// it is idle by design between the things it has to say.
 		idleTimeout: 0,
-		// The static three are handed over without entering JS; the other two have
+		// The static files are handed over without entering JS; the rest have
 		// to be asked for, since they answer with the state of the repo right now.
 		routes: {
 			"/": asset(assets.shell, "text/html; charset=utf-8"),
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
+			"/manifest.webmanifest": asset(
+				assets.manifest,
+				"application/manifest+json; charset=utf-8",
+			),
+			"/icon-192.png": asset(assets.icons[192], "image/png"),
+			"/icon-512.png": asset(assets.icons[512], "image/png"),
 			"/api/projects": guarded(listProjects),
 			"/api/stats": guarded(listStats),
 			"/api/identity": guarded(async (request) =>
