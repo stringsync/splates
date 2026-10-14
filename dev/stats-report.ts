@@ -54,33 +54,6 @@ export const LEADING = 2;
 /** A figure is charted bar by bar once this many bars have it. */
 export const CHARTED = 3;
 
-/** One bar of the trend, for its height and its tooltip. */
-export interface Bucket {
-	start: string;
-	/** When it starts, as a person reads it: `Week of 2026-10-12`, `Tue 3:00 PM`. */
-	label: string;
-	ended: number;
-	/** Question rounds over every task ended in it; null when none did. */
-	questionsPerTask: number | null;
-	/** Of the questions offering the agent's pick in it, the share you answered otherwise; null when none did. */
-	overturnedShare: number | null;
-}
-
-/** A model, project or system, with its figures over the period. */
-export interface Row {
-	name: string;
-	/** The system the row is, shown as its chip; absent for a model, a project or no system. */
-	system?: string;
-	ended: number;
-	cleanShare: number | null;
-	questionsPerTask: number | null;
-	reviewsPerTask: number | null;
-	failedMerges: number;
-	removedShare: number | null;
-	/** Of the questions offering the agent's pick, the share you answered otherwise. */
-	overturnedShare: number | null;
-}
-
 /**
  * What the Stats page shows of how tasks ended: whether questions are getting
  * rarer, bar by bar, by model and by project. Loads once, and again on `refresh`.
@@ -148,7 +121,6 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 					}),
 			ended: bucket.merged + bucket.removed,
 			questionsPerTask: questionsPerTask(bucket),
-			overturnedShare: overturnedShare(bucket),
 		}));
 	}
 
@@ -160,14 +132,6 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 				...this.buckets.map((bucket) => bucket.questionsPerTask ?? 0),
 			),
 		);
-	}
-
-	/** The y-axis for a share: always 0% to 100%, so bars compare at a glance. */
-	get shareAxis(): Axis {
-		return {
-			max: 1,
-			ticks: [0, 0.5, 1].map((at) => ({ at, label: percent(at) })),
-		};
 	}
 
 	/**
@@ -229,6 +193,29 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	}
 }
 
+/** One bar of the trend, for its height and its tooltip. */
+export interface Bucket {
+	start: string;
+	/** When it starts, as a person reads it: `Week of 2026-10-12`, `Tue 3:00 PM`. */
+	label: string;
+	ended: number;
+	/** Question rounds over every task ended in it; null when none did. */
+	questionsPerTask: number | null;
+}
+
+/** A model, project or system, with its figures over the period. */
+export interface Row {
+	name: string;
+	/** The system the row is, shown as its chip; absent for a model, a project or no system. */
+	system?: string;
+	ended: number;
+	questionsPerTask: number | null;
+	reviewsPerTask: number | null;
+	removedShare: number | null;
+	/** Of the questions offering the agent's pick, the share you answered otherwise. */
+	overturnedShare: number | null;
+}
+
 /**
  * An axis from 0 to the first round number at or above `top`, 1, 2 or 5
  * times a power of ten, marked at 0, halfway and the top.
@@ -252,10 +239,8 @@ function row(name: string, tally: Tally): Row {
 	return {
 		name,
 		ended,
-		cleanShare: cleanShare(tally),
 		questionsPerTask: questionsPerTask(tally),
 		reviewsPerTask: ended === 0 ? null : tally.reviewRounds / ended,
-		failedMerges: tally.failedMerges,
 		removedShare: removedShare(tally),
 		overturnedShare: overturnedShare(tally),
 	};
@@ -265,10 +250,6 @@ function overturnedShare(tally: Tally): number | null {
 	return tally.picksAsked === 0
 		? null
 		: tally.picksOverturned / tally.picksAsked;
-}
-
-function cleanShare(tally: Tally): number | null {
-	return tally.merged === 0 ? null : tally.clean / tally.merged;
 }
 
 function questionsPerTask(tally: Tally): number | null {

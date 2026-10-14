@@ -59,6 +59,45 @@ describe("StatsPage", () => {
 		);
 	});
 
+	it("heads each breakdown with only the figures it is read for, each saying what it counts", async () => {
+		const stats: Stats = {
+			buckets: [],
+			previous: null,
+			models: [{ model: "Opus 5.5", ...tally }],
+			projects: [{ project: "/repo", ...tally }],
+			systems: [],
+			since: "2026-10-12T10:00:00.000Z",
+		};
+		const page = render(
+			<StatsPage
+				report={new StatsReport({ stats: async () => stats })}
+				systems={[]}
+			/>,
+		);
+
+		await waitFor(() => page.getByRole("region", { name: "act on" }));
+		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
+		await waitFor(() => page.getByRole("cell", { name: "Opus 5.5" }));
+
+		const heads = (name: string) =>
+			Array.from(
+				page.getByText(name).parentElement?.querySelectorAll("th") ?? [],
+			).map((each) => each.textContent);
+		expect(heads("By model")).toEqual([
+			"Name",
+			"Tasks ended",
+			"Questions per task",
+			"Reviews per task",
+			"Picks overturned",
+			"Tasks removed",
+		]);
+		expect(heads("By project")).toEqual([
+			"Name",
+			"Tasks ended",
+			"Tasks removed",
+		]);
+	});
+
 	it("shows each system as its chip, opening to its globs where this project names it", async () => {
 		const stats: Stats = {
 			buckets: [

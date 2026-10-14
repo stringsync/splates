@@ -131,8 +131,18 @@ export function StatsPage({
 								))}
 							</div>
 							{/* Which model to name on a todo, by how each did. */}
-							<Breakdown title="By model" rows={models} named={systems} />
-							<Breakdown title="By project" rows={projects} named={systems} />
+							<Breakdown
+								title="By model"
+								rows={models}
+								columns={BY_MODEL}
+								named={systems}
+							/>
+							<Breakdown
+								title="By project"
+								rows={projects}
+								columns={BY_PROJECT}
+								named={systems}
+							/>
 						</CollapsibleContent>
 					</Collapsible>
 					{stats.since && (
@@ -149,9 +159,9 @@ export function StatsPage({
 }
 
 /**
- * One card of advice, with what backs it: Questions per task and Picks you
- * overturned chart their figure bar by bar, once there are bars enough,
- * and Questions by system lists every system.
+ * One card of advice, with what backs it: Questions per task charts its
+ * figure bar by bar, once there are bars enough, the page's only chart, and
+ * Questions by system lists every system.
  */
 function AdviceCard({
 	advice,
@@ -164,19 +174,17 @@ function AdviceCard({
 	named: readonly NamedSystem[];
 	className?: string;
 }): JSX.Element {
-	const { period, buckets, questionsAxis, shareAxis, systems } = useReactive(
+	const { period, buckets, questionsAxis, systems } = useReactive(
 		report,
 		(report) => ({
 			period: report.period,
 			buckets: report.buckets,
 			questionsAxis: report.questionsAxis,
-			shareAxis: report.shareAxis,
 			systems: report.systems,
 		}),
 		["changed"],
 	);
 	const questions = (bucket: Bucket) => bucket.questionsPerTask;
-	const overturned = (bucket: Bucket) => bucket.overturnedShare;
 	return (
 		<article
 			aria-label={advice.title}
@@ -193,7 +201,7 @@ function AdviceCard({
 				)}
 				<span className="flex-1" />
 				<span className="font-medium text-lg tabular-nums">
-					{advice.figure ?? "–"}
+					{advice.figure ?? NONE}
 				</span>
 			</div>
 			<p className="text-muted-foreground text-xs">{advice.detail}</p>
@@ -214,18 +222,13 @@ function AdviceCard({
 					axis={questionsAxis}
 				/>
 			)}
-			{advice.id === "picks" && report.charted(overturned) && (
-				<Trend
-					title="Picks you overturned"
-					buckets={buckets}
-					weekly={period.id === "all"}
-					value={overturned}
-					shown={percent}
-					axis={shareAxis}
-				/>
-			)}
 			{advice.id === "hotspot" && systems.length > 0 && (
-				<Breakdown title="By system" rows={systems} named={named} />
+				<Breakdown
+					title="By system"
+					rows={systems}
+					columns={BY_SYSTEM}
+					named={named}
+				/>
 			)}
 		</article>
 	);
@@ -322,19 +325,58 @@ function Trend({
 	);
 }
 
-/** Every model, project or system, with its figures over the period. */
+/** A figure there is not enough data for. */
+const NONE = "\u2013";
+
+/** A column of a breakdown, headed by what its figure counts. */
+interface Column {
+	head: string;
+	cell: (row: Row) => string;
+}
+
+const ENDED: Column = { head: "Tasks ended", cell: (row) => String(row.ended) };
+const QUESTIONS: Column = {
+	head: "Questions per task",
+	cell: (row) => figure(row.questionsPerTask, decimal),
+};
+const REVIEWS: Column = {
+	head: "Reviews per task",
+	cell: (row) => figure(row.reviewsPerTask, decimal),
+};
+const OVERTURNED: Column = {
+	head: "Picks overturned",
+	cell: (row) => figure(row.overturnedShare, percent),
+};
+const REMOVED: Column = {
+	head: "Tasks removed",
+	cell: (row) => figure(row.removedShare, percent),
+};
+
+/** Only what each table is read for: where questions come from, which model to name, nothing for a project. */
+const BY_SYSTEM = [ENDED, QUESTIONS];
+const BY_MODEL = [ENDED, QUESTIONS, REVIEWS, OVERTURNED, REMOVED];
+const BY_PROJECT = [ENDED, REMOVED];
+
+function figure(
+	value: number | null,
+	shown: (value: number) => string,
+): string {
+	return value === null ? NONE : shown(value);
+}
+
+/** Every model, project or system, with the figures it is read for over the period. */
 function Breakdown({
 	title,
 	rows,
+	columns,
 	named,
 }: {
 	title: string;
 	rows: Row[];
+	columns: Column[];
 	/** The systems this project names, for a system row's chip. */
 	named: readonly NamedSystem[];
 }): JSX.Element {
-	const cell = (value: number | null, shown: (value: number) => string) =>
-		value === null ? "–" : shown(value);
 	return (
 		<div className="mt-2 flex min-w-0 flex-col gap-2 text-foreground">
 			<h3 className="font-medium text-xs">{title}</h3>
@@ -343,13 +385,11 @@ function Breakdown({
 					<thead className="text-muted-foreground text-xs">
 						<tr className="whitespace-nowrap border-b text-right">
 							<th className="py-1 text-left font-normal">Name</th>
-							<th className="py-1 font-normal">Ended</th>
-							<th className="py-1 font-normal">No questions</th>
-							<th className="py-1 font-normal">Questions</th>
-							<th className="py-1 font-normal">Reviews</th>
-							<th className="py-1 font-normal">Failed merges</th>
-							<th className="py-1 font-normal">Removed</th>
-							<th className="py-1 font-normal">Overturned</th>
+							{columns.map((column) => (
+								<th key={column.head} className="py-1 font-normal">
+									{column.head}
+								</th>
+							))}
 						</tr>
 					</thead>
 					<tbody>
@@ -362,13 +402,11 @@ function Breakdown({
 										<SystemNameChip name={row.system} systems={named} />
 									)}
 								</td>
-								<td className="py-1">{row.ended}</td>
-								<td className="py-1">{cell(row.cleanShare, percent)}</td>
-								<td className="py-1">{cell(row.questionsPerTask, decimal)}</td>
-								<td className="py-1">{cell(row.reviewsPerTask, decimal)}</td>
-								<td className="py-1">{row.failedMerges}</td>
-								<td className="py-1">{cell(row.removedShare, percent)}</td>
-								<td className="py-1">{cell(row.overturnedShare, percent)}</td>
+								{columns.map((column) => (
+									<td key={column.head} className="py-1">
+										{column.cell(row)}
+									</td>
+								))}
 							</tr>
 						))}
 					</tbody>

@@ -117,12 +117,10 @@ describe("StatsReport", () => {
 			start: "2026-10-13T18:00:00.000Z",
 			ended: 0,
 			questionsPerTask: null,
-			overturnedShare: null,
 		});
 		expect(report.buckets.at(-1)).toMatchObject({
 			ended: 1,
 			questionsPerTask: 2,
-			overturnedShare: null,
 		});
 	});
 
@@ -135,10 +133,8 @@ describe("StatsReport", () => {
 			{
 				name: "Unknown",
 				ended: 4,
-				cleanShare: 0,
 				questionsPerTask: 0,
 				reviewsPerTask: 0.5,
-				failedMerges: 0,
 				removedShare: 0.5,
 				overturnedShare: null,
 			},
