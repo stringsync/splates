@@ -2,7 +2,12 @@ import { CopyIcon, GitBranchIcon, ListTodoIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { age } from "../age";
 import type { Details } from "../show";
-import type { Change, SystemChanges, SystemsReport } from "../system-changes";
+import type {
+	Change,
+	SystemChanges,
+	SystemsReport,
+	Uncovered,
+} from "../system-changes";
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import { systemChanges } from "./api";
@@ -10,6 +15,9 @@ import { Back } from "./back";
 import { copiedLabel, useCopy } from "./card";
 import { systemsIn } from "./mentioned";
 import { ChipFace, Globs } from "./systems";
+
+/** How many globs of uncovered files the list shows. */
+const UNCOVERED_SHOWN = 8;
 
 /**
  * Every system `arbor.systems.ts` names, a line each with how it moved
@@ -83,8 +91,67 @@ export function SystemsPage({
 					))}
 				</ul>
 			)}
+			{report !== null && report.groups.length > 0 && (
+				<UncoveredList report={report} />
+			)}
 			{report !== null && <Scanned report={report} />}
 		</section>
+	);
+}
+
+/**
+ * The files no system covers, as globs, those changed most lately first:
+ * what is worth naming next. Each glob copies, for `arbor.systems.ts` or a
+ * conversation.
+ */
+function UncoveredList({ report }: { report: SystemsReport }): JSX.Element {
+	const shown = report.groups.slice(0, UNCOVERED_SHOWN);
+	const more = report.groups.length - shown.length;
+	return (
+		<section aria-label="In no system" className="flex flex-col gap-2 pt-4">
+			<h3 className="font-medium text-xs">
+				In no system{" "}
+				<span className="font-normal text-muted-foreground">
+					{counted(report.uncovered, "file")}
+				</span>
+			</h3>
+			<ul aria-label="uncovered globs" className="flex flex-col">
+				{shown.map((group) => (
+					<li key={group.glob}>
+						<UncoveredLine group={group} />
+					</li>
+				))}
+			</ul>
+			{more > 0 && (
+				<p className="text-muted-foreground text-xs">
+					And {counted(more, "more glob")}.
+				</p>
+			)}
+		</section>
+	);
+}
+
+function UncoveredLine({ group }: { group: Uncovered }): JSX.Element {
+	const { copied, copy } = useCopy();
+	return (
+		<button
+			type="button"
+			aria-label={`copy ${group.glob}`}
+			title={copied.state === "failed" ? copied.error : "Copy"}
+			onClick={() => copy(group.glob)}
+			className="-mx-2 flex w-[calc(100%+1rem)] cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			<CopyIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+			<span
+				aria-live="polite"
+				className="min-w-0 flex-1 truncate font-mono text-xs"
+			>
+				{copiedLabel(copied, group.glob)}
+			</span>
+			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+				{counted(group.files, "file")} · {counted(group.changed, "change")}
+			</span>
+		</button>
 	);
 }
 

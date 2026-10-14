@@ -157,6 +157,12 @@ describe("dev tasks", () => {
 				},
 			]);
 			expect(report.scanned).toBe(6);
+			// The test file `src` ignores is in no system.
+			expect(report.groups).toContainEqual({
+				glob: "src/*",
+				files: 1,
+				changed: 1,
+			});
 		});
 	});
 

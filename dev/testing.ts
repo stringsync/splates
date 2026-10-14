@@ -90,7 +90,13 @@ export class Testing implements Resource {
 	/** What `/api/systems` lists, for `#`. */
 	systems: NamedSystem[] = [];
 	/** What `/api/systems/changes` says, for the Systems page. */
-	changes: SystemsReport = { systems: [], since: null, scanned: 0 };
+	changes: SystemsReport = {
+		systems: [],
+		since: null,
+		scanned: 0,
+		uncovered: 0,
+		groups: [],
+	};
 	/** What `/api/paths` and `/api/systems` wait on, for a test to hold them back. */
 	listing: Promise<void> = Promise.resolve();
 	/**

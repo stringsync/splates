@@ -44,6 +44,12 @@ describe("App's Systems page", () => {
 			],
 			since: "2026-09-01T00:00:00Z",
 			scanned: 500,
+			uncovered: 40,
+			groups: Array.from({ length: 10 }, (_, at) => ({
+				glob: `src/part${at}/*`,
+				files: 4,
+				changed: 10 - at,
+			})),
 		};
 	});
 
@@ -126,6 +132,30 @@ describe("App's Systems page", () => {
 
 		await act(async () => fireEvent.click(within(tasks).getByText("drag-fix")));
 		expect(location.hash).toBe("#tasks/drag-fix");
+	});
+
+	it("lists the globs no system covers, the most changed first, each copied", async () => {
+		const copied: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: { writeText: async (text: string) => void copied.push(text) },
+		});
+		const view = await openSystems();
+		const globs = await waitFor(() =>
+			view.getByRole("list", { name: "uncovered globs" }),
+		);
+
+		expect(view.getByText("40 files")).toBeTruthy();
+		const rows = within(globs).getAllByRole("button");
+		expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual(
+			Array.from({ length: 8 }, (_, at) => `copy src/part${at}/*`),
+		);
+		expect(within(globs).getByText("4 files · 10 changes")).toBeTruthy();
+		expect(view.getByText("And 2 more globs.")).toBeTruthy();
+
+		await act(async () => fireEvent.click(rows[0] as HTMLElement));
+		expect(copied).toEqual(["src/part0/*"]);
+		expect(rows[0]?.textContent).toContain("Copied");
 	});
 
 	it("goes back to the list", async () => {
