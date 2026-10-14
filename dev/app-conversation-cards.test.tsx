@@ -1506,16 +1506,16 @@ describe("App's conversations", () => {
 				const composer = within(view.container).getByRole("textbox", {
 					name: "Message input",
 				});
-				const archive = await waitFor(() =>
+				const source = await waitFor(() =>
 					within(view.getByRole("region", { name: "merged footer" })).getByRole(
 						"button",
-						{ name: "Archive" },
+						{ name: "Show source" },
 					),
 				);
 
 				act(() => composer.focus());
 				expect(thread.style.scrollPaddingBottom).toBe("0px");
-				act(() => archive.focus());
+				act(() => source.focus());
 				expect(thread.style.scrollPaddingBottom).toBe("120px");
 			} finally {
 				Object.defineProperty(HTMLElement.prototype, "offsetHeight", height);
@@ -1569,7 +1569,7 @@ describe("App's conversations", () => {
 			expect(card.querySelector("strong")?.textContent).toBe("wraps");
 		});
 
-		it("offers to archive the conversation from each report of a task that is over, then goes on to a new one with none waiting", async () => {
+		it("offers to archive the conversation above the composer while its last word reports a task that is over, then goes on to a new one with none waiting", async () => {
 			const view = await testing.openConversations([
 				conversation({
 					messages: [
@@ -1593,27 +1593,63 @@ describe("App's conversations", () => {
 					],
 				}),
 			]);
-			const archive = (name: string) =>
-				within(view.getByRole("region", { name })).queryByRole("button", {
-					name: "Archive",
-				});
 
-			const removed = await waitFor(() =>
-				within(view.getByRole("region", { name: "removed sidebar" })).getByRole(
-					"button",
-					{ name: "Archive" },
-				),
+			const bar = await waitFor(() =>
+				view.getByRole("region", { name: "archive" }),
 			);
-			expect(archive("merged header")).not.toBeNull();
-			expect(archive("escalated footer")).toBeNull();
+			// The last report names the task, and no card offers it.
+			expect(bar.textContent).toContain("Removed");
+			expect(bar.textContent).toContain("sidebar");
+			for (const name of ["merged header", "removed sidebar"]) {
+				expect(
+					within(view.getByRole("region", { name })).queryByRole("button", {
+						name: "Archive",
+					}),
+				).toBeNull();
+			}
 
-			await act(async () => fireEvent.click(removed));
+			await act(async () =>
+				fireEvent.click(within(bar).getByRole("button", { name: "Archive" })),
+			);
 
 			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 				{ method: "PUT", body: { archived: true } },
 			]);
 			await waitFor(() => expect(location.hash).toBe("#conversations/new"));
 			expect(view.getByText("Start a conversation with")).toBeTruthy();
+		});
+		it("offers no archiving once the conversation carries on past a report, or when the task escalated", async () => {
+			const view = await testing.openConversations([
+				conversation({
+					id: "c1",
+					title: "Carried on",
+					messages: [
+						message("agent", "## ✅ Merged header onto main\n\nIt wraps."),
+						message("user", "how far does it wrap?"),
+						message("agent", "To two lines."),
+					],
+				}),
+				conversation({
+					id: "c2",
+					title: "Escalated",
+					messages: [
+						message(
+							"agent",
+							"## ⚠️ Escalated footer: needs a call on the color\n\nIt is gray.",
+						),
+					],
+				}),
+			]);
+
+			await waitFor(() => view.getByText("To two lines."));
+			expect(view.queryByRole("region", { name: "archive" })).toBeNull();
+			await act(async () => {
+				location.hash = "#conversations/c2";
+			});
+			await waitFor(() =>
+				view.getByRole("region", { name: "escalated footer" }),
+			);
+			expect(view.queryByRole("region", { name: "archive" })).toBeNull();
 		});
 	});
 
@@ -1786,7 +1822,7 @@ describe("App's conversations", () => {
 			expect(open.textContent).toContain("Uploads");
 			expect(open.textContent).toContain("It fails on a 413.");
 			// Proposed with no report above, they go unheaded.
-			expect(view.queryByText("Suggested next")).toBeNull();
+			expect(view.queryByText("Next up")).toBeNull();
 			const taken = view.getByRole("region", { name: "todo 14" });
 			expect(taken.textContent).toContain("limits");
 			expect(within(taken).queryByRole("button", { name: /Start/ })).toBeNull();
@@ -1808,7 +1844,7 @@ describe("App's conversations", () => {
 			expect(textIn(box)).toBe("half a thought");
 		});
 
-		it("heads the todos proposed after a merge Suggested next", async () => {
+		it("heads the todos proposed after a merge Next up", async () => {
 			const view = await testing.openConversations(
 				[
 					conversation({
@@ -1833,7 +1869,7 @@ describe("App's conversations", () => {
 				board,
 			);
 			await waitFor(() => view.getByRole("region", { name: "todo 12" }));
-			expect(view.getByText("Suggested next")).toBeTruthy();
+			expect(view.getByText("Next up")).toBeTruthy();
 		});
 
 		it("opens a new conversation with a proposed todo's reference typed in, ahead of its draft, and this conversation's agent picked", async () => {

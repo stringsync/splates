@@ -117,6 +117,7 @@ import { Back } from "./back";
 import { BackgroundMenu, BackgroundRow } from "./background";
 import { Board } from "./board";
 import { copiedLabel, useCopy } from "./card";
+import { ENDINGS, TONES } from "./card-shell";
 import { ReviewChanges } from "./changes";
 import { composerIn, focusComposer } from "./composer-editor";
 import {
@@ -145,7 +146,6 @@ import {
 import { useReferences } from "./references";
 import { Refusal, type Refuse, useRefusal, useRefusals } from "./refusal";
 import {
-	ArchiveContext,
 	ReportUI,
 	StartNewContext,
 	StartUI,
@@ -673,6 +673,42 @@ function NextWaiting({
 
 /** What archives the open conversation, or brings it back. */
 const ARCHIVE = "⌥⌘⌫";
+
+/**
+ * A bar above the composer while the conversation's last word is the report
+ * of a task that is over, offering to put the conversation away: what to do
+ * once nothing is left to say. It goes as the conversation carries on.
+ */
+function ArchiveBar({
+	report,
+	onArchive,
+}: {
+	report: Report;
+	onArchive: () => void;
+}): JSX.Element {
+	const { title, Icon, tone } = ENDINGS[report.ending];
+	return (
+		<section
+			aria-label="archive"
+			className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm shadow-xs"
+		>
+			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
+			<span className="min-w-0 truncate">
+				{title} <span className="font-mono text-xs">{report.task}</span>
+			</span>
+			<Kbd className="ml-auto">{ARCHIVE}</Kbd>
+			<Button
+				size="sm"
+				variant="outline"
+				onClick={onArchive}
+				className="h-7 gap-1.5 bg-background"
+			>
+				<ArchiveIcon data-icon="inline-start" />
+				Archive
+			</Button>
+		</section>
+	);
+}
 
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
@@ -1402,6 +1438,11 @@ export function Mark({
  * the conversation on, and the report goes.
  */
 export function reportedAs(conversation: ConversationState): Ending | null {
+	return lastReport(conversation)?.ending ?? null;
+}
+
+/** The report that is the conversation's last word, as for `reportedAs`. */
+function lastReport(conversation: ConversationState): Report | null {
 	const last = conversation.messages.at(-1);
 	if (last === undefined || last.role !== "agent") {
 		return null;
@@ -1413,7 +1454,7 @@ export function reportedAs(conversation: ConversationState): Ending | null {
 		reply?.type === "text"
 			? stretches(reply.text).findLast((each) => each.type === "report")
 			: undefined;
-	return report?.type === "report" ? report.report.ending : null;
+	return report?.type === "report" ? report.report : null;
 }
 
 /**
@@ -2617,17 +2658,13 @@ function Thread({
 		document.addEventListener("keydown", file);
 		return () => document.removeEventListener("keydown", file);
 	}, []);
-	// The latest, so the card's callback stays the same across renders.
-	const onLeftRef = useRef(onLeft);
-	onLeftRef.current = onLeft;
-	const filing = useMemo(
-		() => ({
-			archived,
-			archive: () =>
-				archiveConversation(id, true).then(() => onLeftRef.current()),
-		}),
-		[id, archived],
-	);
+	// What the conversation's last word reports, to offer archiving it when
+	// the task is over.
+	const report = lastReport(conversation);
+	const ended =
+		report !== null && report.ending !== "escalated" && !archived
+			? report
+			: null;
 	// The new conversation screen, with this one's agent picked and `text`
 	// typed ahead of anything already waiting there.
 	const startNew = useCallback(
@@ -2747,73 +2784,77 @@ function Thread({
 						<DemoUI />
 						<WorkUI />
 						<StoppedUI />
-						<ArchiveContext value={filing}>
-							<StartNewContext value={startNew}>
-								<ReplyContext value={reply}>
-									<NamedContext value={named}>
-										<ThreadView
-											openAt={openAt}
-											autoFocus={!asking || typed}
-											mentions={mentions ?? undefined}
-											references={references}
-											commands={commands ?? undefined}
-											placeholder={
-												archived
-													? "Send a message to unarchive and continue"
-													: undefined
-											}
-											controls={
-												!archived && (
-													<>
-														<ContextMeter usage={conversation.usage} />
-														{settings.map((setting) => (
-															<SettingControl
-																key={setting.id}
-																setting={setting}
-																value={setting.current}
-																onChange={(value) =>
-																	chooseSetting(id, setting.id, value).catch(
-																		(error: unknown) =>
-																			refused(
-																				`${setting.name} not switched`,
-																				error,
-																			),
-																	)
-																}
-															/>
-														))}
-													</>
-												)
-											}
-											above={
+						<StartNewContext value={startNew}>
+							<ReplyContext value={reply}>
+								<NamedContext value={named}>
+									<ThreadView
+										openAt={openAt}
+										autoFocus={!asking || typed}
+										mentions={mentions ?? undefined}
+										references={references}
+										commands={commands ?? undefined}
+										placeholder={
+											archived
+												? "Send a message to unarchive and continue"
+												: undefined
+										}
+										controls={
+											!archived && (
 												<>
-													<Refusal refusal={refusal} className="px-2" />
-													{queued.length > 0 && (
-														<Queued
-															conversation={id}
-															messages={queued}
-															pending={feed.unrecorded(id)}
-															onEdit={(index) => void edit(index)}
-															onDiscard={(index) => void discard(index)}
-															onSendNow={() => void sendNow()}
+													<ContextMeter usage={conversation.usage} />
+													{settings.map((setting) => (
+														<SettingControl
+															key={setting.id}
+															setting={setting}
+															value={setting.current}
+															onChange={(value) =>
+																chooseSetting(id, setting.id, value).catch(
+																	(error: unknown) =>
+																		refused(
+																			`${setting.name} not switched`,
+																			error,
+																		),
+																)
+															}
 														/>
-													)}
-													{conversation.ask !== null && (
-														<AskPanel
-															key={conversation.ask.id}
-															drafts={drafts}
-															conversation={conversation}
-															agent={agent}
-															ask={conversation.ask}
-														/>
-													)}
+													))}
 												</>
-											}
-										/>
-									</NamedContext>
-								</ReplyContext>
-							</StartNewContext>
-						</ArchiveContext>
+											)
+										}
+										above={
+											<>
+												<Refusal refusal={refusal} className="px-2" />
+												{ended !== null && (
+													<ArchiveBar
+														report={ended}
+														onArchive={() => archive.file(onLeft)}
+													/>
+												)}
+												{queued.length > 0 && (
+													<Queued
+														conversation={id}
+														messages={queued}
+														pending={feed.unrecorded(id)}
+														onEdit={(index) => void edit(index)}
+														onDiscard={(index) => void discard(index)}
+														onSendNow={() => void sendNow()}
+													/>
+												)}
+												{conversation.ask !== null && (
+													<AskPanel
+														key={conversation.ask.id}
+														drafts={drafts}
+														conversation={conversation}
+														agent={agent}
+														ask={conversation.ask}
+													/>
+												)}
+											</>
+										}
+									/>
+								</NamedContext>
+							</ReplyContext>
+						</StartNewContext>
 					</Composing.Provider>
 				</AssistantRuntimeProvider>
 				<Actions

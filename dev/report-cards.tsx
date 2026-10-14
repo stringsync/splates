@@ -60,18 +60,8 @@ export function StartCard({ start }: { start: Start }): JSX.Element {
 	);
 }
 
-/** The open conversation, to archive; none outside one. */
-export const ArchiveContext = createContext<{
-	archived: boolean;
-	archive: () => Promise<void>;
-} | null>(null);
-
 export function ReportCard({ report }: { report: Report }): JSX.Element {
-	const conversation = useContext(ArchiveContext);
 	const { title, Icon, tone } = ENDINGS[report.ending];
-	// An escalated task still waits on the person; only one that is over offers
-	// to put its conversation away.
-	const over = report.ending !== "escalated";
 	const text = reportText(report);
 	// Shows the markdown the agent wrote in place of the card's body, until
 	// toggled back; never kept, so the card opens rendered.
@@ -85,20 +75,17 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 			task={report.task}
 			base={report.base}
 			aside={
-				<span className="flex items-center gap-2">
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label="Show source"
-						aria-pressed={showing}
-						title={showing ? "Hide source" : "Show source"}
-						onClick={() => setShowing(!showing)}
-						className={cn(showing && "bg-accent text-accent-foreground")}
-					>
-						<CodeIcon />
-					</Button>
-					{conversation !== null && over && <Archive {...conversation} />}
-				</span>
+				<Button
+					size="icon-xs"
+					variant="ghost"
+					aria-label="Show source"
+					aria-pressed={showing}
+					title={showing ? "Hide source" : "Show source"}
+					onClick={() => setShowing(!showing)}
+					className={cn(showing && "bg-accent text-accent-foreground")}
+				>
+					<CodeIcon />
+				</Button>
 			}
 		>
 			{showing ? (
@@ -136,35 +123,6 @@ function Source({ text }: { text: string }): JSX.Element {
 	);
 }
 
-function Archive({
-	archived,
-	archive,
-}: {
-	archived: boolean;
-	archive: () => Promise<void>;
-}): JSX.Element {
-	const { refusal, attempt } = useRefusal();
-	return archived ? (
-		<span className="flex h-7 items-center gap-1 text-muted-foreground text-xs">
-			<CheckIcon className="size-3.5" strokeWidth={3} />
-			Archived
-		</span>
-	) : (
-		<span className="flex items-center gap-2">
-			<Refusal refusal={refusal} />
-			<Button
-				size="sm"
-				variant="outline"
-				onClick={() => void attempt(archive(), "Not archived")}
-				className="h-7 gap-1.5 bg-background"
-			>
-				<ArchiveIcon data-icon="inline-start" />
-				Archive
-			</Button>
-		</span>
-	);
-}
-
 /**
  * Opens the new conversation screen with `text` typed in, to start it there;
  * none outside a conversation.
@@ -187,8 +145,8 @@ export interface Turn {
  * Renders a `data-todo` part, a run of todos proposed one after another, as
  * the cards for them. Those the reply's own task added while it ran are
  * gathered by the lane they went to, Untriaged for none, under a line saying
- * so, for as long as the board has them; the rest stand alone, under "Suggested
- * next" when `next` says the run follows a task's end.
+ * so, for as long as the board has them; the rest stand alone, under "Next
+ * up" when `next` says the run follows a task's end.
  */
 export const TodoUI = makeAssistantDataUI<{
 	todos: Proposal[];
@@ -268,9 +226,7 @@ function TodoRun({
 						<div key={proposals[0]?.id} className="mt-6 mb-3">
 							<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
 								<ArrowRightIcon aria-hidden className="size-3.5 text-primary" />
-								<span className="font-medium text-foreground">
-									Suggested next
-								</span>
+								<span className="font-medium text-foreground">Next up</span>
 							</p>
 							<div className="flex flex-col gap-2">
 								{proposals.map((proposal) => (
