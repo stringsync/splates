@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { lanesFromTags } from "./lanes-from-tags";
-import { moveSystems } from "./move-systems";
+import { moveSystems, typeConfig } from "./migrate-config";
 import { isNewer, RUNNING } from "./release";
 import { ProjectSkills } from "./skills";
 
@@ -58,5 +58,7 @@ export async function update({
 		["arbor"],
 		release ?? RUNNING,
 	);
-	return await moveSystems({ root, fs, log });
+	const code = await moveSystems({ root, fs, log });
+	await typeConfig({ root, fs, log });
+	return code;
 }

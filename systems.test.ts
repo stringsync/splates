@@ -128,6 +128,18 @@ describe("Systems.at", () => {
 		expect(now.all().map((each) => each.name)).toEqual(["playback"]);
 	});
 
+	it("reads a systems file made after arbor read the config beside it", async () => {
+		// On macOS the temporary directory is reached through a symlink, which
+		// is where Bun's resolver missed a file made after it listed the
+		// directory.
+		await fs.write(join(root, "arbor.config.ts"), "export default {};\n");
+		expect((await Systems.at(root, { fs })).all()).toEqual([]);
+
+		await named({ mixer: { globs: ["src/mixer/**"] } });
+
+		expect((await Systems.at(root, { fs })).find("mixer")).not.toBeNull();
+	});
+
 	it("refuses a system not in the shape a system takes", async () => {
 		await named({ playback: { globs: "src/audio/**" } });
 

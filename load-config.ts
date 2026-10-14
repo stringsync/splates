@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
 import type { Config } from "./config";
@@ -90,9 +91,13 @@ export async function importDefault(
 	// it was asked for, so asking by the file's contents re-imports it only
 	// once it has changed.
 	const version = Bun.hash(await fs.read(path)).toString(36);
+	// Asked through a symlinked directory, such as macOS's `/var`, Bun's
+	// resolver misses a file made after it first listed the directory. Not on
+	// disk, as a fake `fs` has it, the path stays as it is.
+	const real = await realpath(path).catch(() => path);
 	// Falling back to the defaults would be worse than failing: a config arbor
 	// silently ignored is a `preMerge` gate that silently stopped running.
-	const mod = (await import(`${path}?v=${version}`).catch((cause: unknown) => {
+	const mod = (await import(`${real}?v=${version}`).catch((cause: unknown) => {
 		throw new Error(
 			`could not load ${path}: ${cause}. Its imports may be stale: try \`bun install\` in ${root}.`,
 			{ cause },

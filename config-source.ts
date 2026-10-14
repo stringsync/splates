@@ -1,80 +1,43 @@
-import { color, type Logger } from "webappwiz/log";
-import type { Fs } from "webappwiz/system";
-import { CONFIG_FILE, importConfig } from "./load-config";
-import { checkSystems, SYSTEMS_FILE, type SystemsFile } from "./systems";
-
 /**
- * Moves the systems an older `arbor.config.ts` names into `arbor.systems.ts`,
- * taking the `systems` key out of the config. Does nothing when the config
- * names none. Rewrites the config only once re-importing it shows the rest of
- * it unchanged, and puts it back otherwise. Answers with the exit code to end
- * on.
+ * `source` typed by a type-only import of `ConfigFile` and `satisfies` rather
+ * than by calling `defineConfig`, so a reader can import it without arbor
+ * installed; or null unless it imports `defineConfig` alone and calls it
+ * once.
  */
-export async function moveSystems({
-	root,
-	fs,
-	log,
-}: {
-	/** The repository's main tree. */
-	root: string;
-	fs: Fs;
-	log: Logger;
-}): Promise<number> {
-	const config = await importConfig(root, fs);
-	if (config.systems === undefined) {
-		return 0;
-	}
-	const configPath = `${root}/${CONFIG_FILE}`;
-	const systemsPath = `${root}/${SYSTEMS_FILE}`;
-	const byHand = `move \`systems\` from ${CONFIG_FILE} into ${SYSTEMS_FILE} by hand`;
-	if (await fs.exists(systemsPath)) {
-		log.error(
-			`both ${CONFIG_FILE} and ${SYSTEMS_FILE} name systems: ${byHand}`,
-		);
-		return 1;
-	}
-	const systems = checkSystems(`${configPath}: systems`, config.systems);
-
-	const before = await fs.read(configPath);
-	const after = withoutSystems(before);
-	if (after === null) {
-		log.error(
-			`could not find \`systems\` to take out of ${CONFIG_FILE}: ${byHand}`,
-		);
-		return 1;
-	}
-	await fs.write(configPath, after);
-	const { systems: _, ...rest } = config;
-	const rewritten = await importConfig(root, fs).catch(() => null);
-	if (
-		rewritten === null ||
-		JSON.stringify(rewritten) !== JSON.stringify(rest)
-	) {
-		await fs.write(configPath, before);
-		log.error(
-			`taking \`systems\` out of ${CONFIG_FILE} changed the rest of it: ${byHand}`,
-		);
-		return 1;
-	}
-	await fs.write(systemsPath, systemsSource(systems));
-	const count = Object.keys(systems).length;
-	log.info(
-		`${color.green("moved")} ${count} ${count === 1 ? "system" : "systems"} from ${CONFIG_FILE} to ${SYSTEMS_FILE}`,
+export function typedConfig(source: string): string | null {
+	const imported = source.match(DEFINE_CONFIG_IMPORT);
+	const code = [...codeOf(source)];
+	const calls = code.filter(
+		({ index }, at) =>
+			source.startsWith("defineConfig(", index) &&
+			!/[\w$.]/.test(source[code[at - 1]?.index ?? -1] ?? ""),
 	);
-	return 0;
+	if (imported?.index === undefined || calls.length !== 1) {
+		return null;
+	}
+	const from = imported.index;
+	const [call] = calls as [Code];
+	const open = call.index + "defineConfig".length;
+	const close = code.find(
+		({ index, depth }) =>
+			index > open && source[index] === ")" && depth === call.depth,
+	);
+	if (close === undefined) {
+		return null;
+	}
+	return (
+		source.slice(0, from) +
+		'import type { ConfigFile } from "@webappwiz/arbor/config";' +
+		source.slice(from + imported[0].length, call.index) +
+		source.slice(open + 1, close.index).trim() +
+		" satisfies ConfigFile" +
+		source.slice(close.index + 1)
+	);
 }
 
-/** An `arbor.systems.ts` that names `systems`, keys unquoted where they can be. */
-export function systemsSource(systems: SystemsFile): string {
-	const literal = JSON.stringify(systems, null, "\t").replace(
-		/^(\s*)"([A-Za-z_$][\w$]*)":/gm,
-		"$1$2:",
-	);
-	return `import type { SystemsFile } from "@webappwiz/arbor/systems";
-
-export default ${literal} satisfies SystemsFile;
-`;
-}
+/** An import of `defineConfig` alone from arbor's config. */
+const DEFINE_CONFIG_IMPORT =
+	/import\s*\{\s*defineConfig\s*\}\s*from\s*["']@webappwiz\/arbor\/config["'];?/;
 
 /**
  * `source` with the `systems` property of its outermost object taken out,

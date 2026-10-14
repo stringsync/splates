@@ -48,9 +48,22 @@ export interface Config {
 }
 
 /**
- * Identity, for the types. `export default defineConfig({ ... })` in
- * `arbor.config.ts` gets the key names and their types checked, and completion
- * while writing it; a bare object literal gets neither.
+ * What `arbor.config.ts` exports as its default, typed by a type-only import
+ * so a reader can import the file without arbor installed:
+ *
+ * ```ts
+ * import type { ConfigFile } from "@webappwiz/arbor/config";
+ *
+ * export default { preMerge: "bun test" } satisfies ConfigFile;
+ * ```
+ */
+export type ConfigFile = Partial<Config>;
+
+/**
+ * Identity, for the types: what configs called before `ConfigFile`, kept so
+ * they still load for `arbor update` to rewrite.
+ *
+ * @deprecated `satisfies ConfigFile` instead.
  */
 export function defineConfig(config: Partial<Config>): Partial<Config> {
 	return config;
