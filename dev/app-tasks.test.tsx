@@ -260,6 +260,38 @@ describe("App's tasks", () => {
 		expect(view.queryByRole("progressbar")).toBeNull();
 	});
 
+	it("shows how each conversation on a task stands in its row, not whose agent it is", async () => {
+		testing.talk = {
+			agents: [],
+			conversations: [
+				conversation({
+					id: "c1",
+					task: "alpha",
+					status: "running",
+					ask: {
+						type: "permission",
+						id: "t1",
+						at: "2026-10-11T10:00:00.000Z",
+						title: "rm -rf build",
+						options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
+					},
+				}),
+			],
+		};
+		const view = await testing.openTasks({
+			tasks: [details({ task: "alpha" })],
+		});
+
+		const row = within(view.getByRole("list", { name: "task list" })).getByRole(
+			"button",
+			{ name: /alpha/ },
+		);
+		await waitFor(() =>
+			within(row).getByRole("status", { name: "waiting on you" }),
+		);
+		expect(within(row).queryByRole("img")).toBeNull();
+	});
+
 	const BLOCKED = `# beta
 
 ## Goal

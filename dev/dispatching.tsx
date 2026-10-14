@@ -50,7 +50,8 @@ export const Dispatching = createContext<{
  * whether it needs you. As `chips` or `rows`, each opens its conversation on
  * a click, and one whose agent has stopped says Resume, since sending to it
  * starts the agent again; `rows` say each one's name too, for a dialog with
- * room for it. As `marks` they only show, for inside a button of their own.
+ * room for it. As `marks` they only show, for inside a button of their own,
+ * and only as how each stands, not whose agent it is.
  * `spinning` keeps only those whose agent is at work, or with false, the rest.
  */
 export function OnIt({
@@ -96,11 +97,7 @@ export function OnIt({
 				const mark = <Mark need={need} reported={reportedAs(conversation)} />;
 				if (variant === "marks") {
 					return (
-						<span
-							key={conversation.id}
-							className="inline-flex items-center gap-1"
-						>
-							{icon}
+						<span key={conversation.id} className="inline-flex items-center">
 							{mark}
 						</span>
 					);
