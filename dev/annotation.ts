@@ -1,6 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Position } from "webappwiz/geometry";
+import { Position, Rect } from "webappwiz/geometry";
 import { attachmentName } from "./attachment-chips";
 
 /**
@@ -50,6 +50,11 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	selected: number | null = null;
 	/** The mark being dragged out, not yet among `marks`. */
 	draft: Mark | null = null;
+	/**
+	 * Where marks, their numbers and notes may go, in the image's pixels: the
+	 * image itself until `widen` lets them out around it.
+	 */
+	area: Rect;
 	private held: Hold | null = null;
 
 	constructor(
@@ -58,7 +63,9 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		/** `original`, decoded. */
 		readonly image: ImageBitmap,
 		public marks: Mark[] = [],
-	) {}
+	) {
+		this.area = new Rect(0, 0, image.width, image.height);
+	}
 
 	/**
 	 * Opens `file` to annotate: one already annotated again from its original,
@@ -116,27 +123,65 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	}
 
 	/**
+	 * The part of `area` the image sent covers: the image, grown to take in
+	 * each mark and its number drawn outside it, in whole pixels.
+	 */
+	get bounds(): Rect {
+		const line = this.stroke * 3;
+		const disc = this.badge + line;
+		const image = new Rect(0, 0, this.width, this.height);
+		const all = this.marks.flatMap((mark, at) => {
+			const ends = [around(mark.from, line), around(this.anchor(at), disc)];
+			if (mark.kind === "box") {
+				ends.push(around(mark.to, line));
+			} else if (mark.kind === "arrow") {
+				ends.push(around(mark.to, line + this.stroke * 4));
+			}
+			return ends;
+		});
+		const grown = all.reduce((each, next) => each.union(next), image);
+		const fit = grown.intersection(this.area.union(image)) ?? image;
+		const left = Math.floor(fit.left);
+		const top = Math.floor(fit.top);
+		return new Rect(
+			left,
+			top,
+			Math.ceil(fit.right) - left,
+			Math.ceil(fit.bottom) - top,
+		);
+	}
+
+	/**
+	 * Lets marks, their numbers and notes go anywhere in `area` rather than
+	 * only on the image, such as the space around it on the screen.
+	 */
+	widen(area: Rect): void {
+		this.area = area;
+		this.dispatcher.dispatch("changed");
+	}
+
+	/**
 	 * Where mark `at`'s number sits: outside a box by its top corner on the
 	 * side with more room, behind an arrow's tail, or just above a pin's spot,
-	 * never off the image. Dragging its note leaves it there.
+	 * never outside `area`. Dragging its note leaves it there.
 	 */
 	anchor(at: number): Position {
 		const mark = this.marks[at];
 		if (mark === undefined) {
 			return Position.origin();
 		}
-		return this.onImage(this.spot(mark));
+		return this.inArea(this.spot(mark));
 	}
 
 	/** Where mark `at`'s note sits beside: where the person dragged it, or its number. */
 	label(at: number): Position {
 		const label = this.marks[at]?.label;
-		return label === undefined ? this.anchor(at) : this.onImage(label);
+		return label === undefined ? this.anchor(at) : this.inArea(label);
 	}
 
 	/**
 	 * Which side of `label(at)` mark `at`'s note goes: away from the mark, so
-	 * it covers none of it, unless the image all but ends that way.
+	 * it covers none of it, unless `area` all but ends that way.
 	 */
 	side(at: number): "left" | "right" {
 		const mark = this.marks[at];
@@ -145,10 +190,11 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		}
 		const { x } = this.label(at);
 		const middle = (mark.from.x + mark.to.x) / 2;
+		const { left, right, w } = this.area;
 		const away =
-			x < middle || (x === middle && x > this.width * 0.6) ? "left" : "right";
-		const room = away === "left" ? x : this.width - x;
-		if (room < this.width / 4 && room < this.width - room) {
+			x < middle || (x === middle && x > left + w * 0.6) ? "left" : "right";
+		const room = away === "left" ? x - left : right - x;
+		if (room < w / 4 && room < w - room) {
 			return away === "left" ? "right" : "left";
 		}
 		return away;
@@ -182,7 +228,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 
 	/**
 	 * A press at `point`: on a mark's number or line, within `slop` pixels,
-	 * opens its note; anywhere else, starts a new mark there.
+	 * opens its note; anywhere else, starts a new mark there, kept in `area`.
 	 */
 	press(point: Position, slop = 0): void {
 		const hit = this.markAt(point, slop);
@@ -192,7 +238,12 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		}
 		this.set({
 			selected: null,
-			draft: { kind: this.tool, from: point, to: point, note: "" },
+			draft: {
+				kind: this.tool,
+				from: this.within(point),
+				to: this.within(point),
+				note: "",
+			},
 		});
 	}
 
@@ -222,7 +273,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 			return;
 		}
 		if (this.draft !== null) {
-			this.set({ draft: { ...this.draft, to: point } });
+			this.set({ draft: { ...this.draft, to: this.within(point) } });
 		}
 	}
 
@@ -257,7 +308,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	place(at: number, label: Position): void {
 		this.set({
 			marks: this.marks.map((mark, each) =>
-				each === at ? { ...mark, label: this.onImage(label) } : mark,
+				each === at ? { ...mark, label: this.inArea(label) } : mark,
 			),
 		});
 	}
@@ -293,9 +344,11 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 		this.set({ marks: [], selected: null, draft: null });
 	}
 
-	/** Draws the image, then its marks and the one being dragged out, at full size. */
+	/**
+	 * Draws the image, then its marks and the one being dragged out, in the
+	 * image's pixels: the image's top left corner at `context`'s origin.
+	 */
 	draw(context: CanvasRenderingContext2D): void {
-		context.clearRect(0, 0, this.width, this.height);
 		context.drawImage(this.image, 0, 0);
 		context.save();
 		context.lineCap = "round";
@@ -312,20 +365,23 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 
 	/**
 	 * The image with its marks drawn in, as a PNG named for the original, or
-	 * the original itself when there are none.
+	 * the original itself when there are none. It grows to `bounds` to take in
+	 * marks outside the image, clear around it.
 	 */
 	async flatten(): Promise<File> {
 		if (this.marks.length === 0) {
 			return this.original;
 		}
+		const bounds = this.bounds;
 		const canvas = document.createElement("canvas");
-		canvas.width = this.width;
-		canvas.height = this.height;
+		canvas.width = bounds.w;
+		canvas.height = bounds.h;
 		const context = canvas.getContext("2d");
 		if (context === null) {
 			throw new Error("this browser cannot draw the marks");
 		}
 		this.set({ selected: null, draft: null });
+		context.translate(-bounds.left, -bounds.top);
 		this.draw(context);
 		const blob = await new Promise<Blob | null>((done) =>
 			canvas.toBlob(done, "image/png"),
@@ -366,11 +422,16 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	}
 
 	/** `spot`, moved in just far enough that a number there shows whole. */
-	private onImage(spot: Position): Position {
-		const edge = this.badge + this.stroke;
+	private inArea(spot: Position): Position {
+		return this.within(spot, this.badge + this.stroke);
+	}
+
+	/** `point`, moved into `area`, and at least `edge` in from its sides. */
+	private within(point: Position, edge = 0): Position {
+		const { left, top, right, bottom } = this.area;
 		return new Position(
-			Math.min(Math.max(spot.x, edge), this.width - edge),
-			Math.min(Math.max(spot.y, edge), this.height - edge),
+			Math.min(Math.max(point.x, left + edge), right - edge),
+			Math.min(Math.max(point.y, top + edge), bottom - edge),
 		);
 	}
 
@@ -468,6 +529,11 @@ function numbered(marks: readonly Mark[]): string[] {
 	return marks.flatMap((mark, at) =>
 		mark.note.trim() === "" ? [] : [`${at + 1}. ${mark.note.trim()}`],
 	);
+}
+
+/** The square `reach` pixels each way from `point`. */
+function around(point: Position, reach: number): Rect {
+	return new Rect(point.x - reach, point.y - reach, reach * 2, reach * 2);
 }
 
 function distance(start: Position, end: Position): number {

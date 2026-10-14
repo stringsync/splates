@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Position } from "webappwiz/geometry";
+import { Position, Rect } from "webappwiz/geometry";
 import { Annotation } from "./annotation";
 
 /** An annotation of a 1100 by 550 image, whose marks are 5px thick. */
@@ -164,6 +164,51 @@ describe("Annotation", () => {
 		marks.move(at(-50, 900));
 		marks.release();
 		expect(marks.label(0)).toEqual(at(edge, 550 - edge));
+	});
+
+	it("draws past the image, as far as it was widened", () => {
+		const marks = annotation();
+		marks.widen(new Rect(-200, -100, 1500, 750));
+		drag(marks, at(-50, -40), at(1300, 900));
+		expect(marks.marks[0]).toMatchObject({
+			from: at(-50, -40),
+			to: at(1300, 650),
+		});
+	});
+
+	it("keeps a mark on the image until widened", () => {
+		const marks = annotation();
+		drag(marks, at(-50, 100), at(300, 900));
+		expect(marks.marks[0]).toMatchObject({
+			from: at(0, 100),
+			to: at(300, 550),
+		});
+	});
+
+	it("lets each number and note off the image once widened", () => {
+		const marks = annotation();
+		marks.widen(new Rect(-200, -100, 1500, 750));
+		drag(marks, at(0, 0), at(1100, 200));
+		marks.select(null);
+		expect(marks.anchor(0).x).toBeLessThan(0);
+		marks.hold(0, marks.label(0));
+		marks.move(at(-50, 600));
+		marks.release();
+		expect(marks.label(0)).toEqual(at(-50, 600));
+	});
+
+	it("grows what it sends to take in each mark off the image", () => {
+		const marks = annotation();
+		expect(marks.bounds).toEqual(new Rect(0, 0, 1100, 550));
+		marks.widen(new Rect(-200, -100, 1500, 750));
+		drag(marks, at(100, 100), at(300, 200));
+		expect(marks.bounds).toEqual(new Rect(0, 0, 1100, 550));
+		drag(marks, at(1000, 400), at(1150, 600));
+		const { left, top, right, bottom } = marks.bounds;
+		expect([left, top]).toEqual([0, 0]);
+		expect(right).toBeGreaterThan(1150);
+		expect(bottom).toBeGreaterThan(600);
+		expect(bottom).toBeLessThanOrEqual(650);
 	});
 
 	it("sits a pin's number above its spot", () => {

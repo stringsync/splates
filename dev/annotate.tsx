@@ -17,7 +17,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Position } from "webappwiz/geometry";
+import { Position, Rect } from "webappwiz/geometry";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { Annotation, type Tool } from "./annotation";
@@ -79,8 +79,10 @@ export function useAnnotate(finalFocus?: RefObject<HTMLElement | null>): {
 /**
  * The image at the size of the window, to mark up: a drag draws a box or an
  * arrow, picked with R and A, a click drops a pin, and each mark takes a
- * note. Done, the close button, a click on the dimmed space around it or
- * Escape keeps what is drawn; Escape with a note open closes only the note.
+ * note. Marks may go past the image onto the dimmed space around it, which
+ * the image sent grows to take in. Done, the close button, a click on the
+ * margin around that space or Escape keeps what is drawn; Escape with a note
+ * open closes only the note.
  */
 export function Annotate({
 	annotation,
@@ -142,6 +144,7 @@ function Board({
 	const popup = useRef<HTMLDivElement>(null);
 	const stage = useRef<HTMLDivElement>(null);
 	const canvas = useRef<HTMLCanvasElement>(null);
+	const view = useView(annotation, stage);
 	const { marks, tool, selected, draft } = useReactive(
 		annotation,
 		(each) => ({
@@ -156,27 +159,36 @@ function Board({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: each is a change to paint
 	useEffect(() => {
 		const context = canvas.current?.getContext("2d");
-		if (context) {
-			annotation.draw(context);
+		if (!context || view === null) {
+			return;
 		}
-	}, [annotation, marks, selected, draft]);
+		const { scale, image, pixels } = view;
+		context.setTransform(1, 0, 0, 1, 0, 0);
+		context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+		context.setTransform(
+			pixels * scale,
+			0,
+			0,
+			pixels * scale,
+			pixels * image.left,
+			pixels * image.top,
+		);
+		annotation.draw(context);
+	}, [annotation, view, marks, selected, draft]);
 
 	/** Where `event` is on the image, in its own pixels. */
 	const at = (event: PointerEvent): Position => {
 		const box = canvas.current?.getBoundingClientRect();
-		if (!box || box.width === 0 || box.height === 0) {
+		if (!box || view === null) {
 			return Position.origin();
 		}
 		return new Position(
-			((event.clientX - box.left) * annotation.width) / box.width,
-			((event.clientY - box.top) * annotation.height) / box.height,
+			(event.clientX - box.left - view.image.left) / view.scale,
+			(event.clientY - box.top - view.image.top) / view.scale,
 		);
 	};
 	/** How far off a mark a press may land and still pick it: 10px on screen. */
-	const slop = (): number => {
-		const width = canvas.current?.getBoundingClientRect().width ?? 0;
-		return width === 0 ? 0 : (SLOP * annotation.width) / width;
-	};
+	const slop = (): number => (view === null ? 0 : SLOP / view.scale);
 	/** What drags mark `each`'s note card, leaving its number by the mark. */
 	const grip = (each: number): Grip => ({
 		onPointerDown: (event) => {
@@ -220,13 +232,10 @@ function Board({
 			initialFocus={popup}
 			finalFocus={finalFocus}
 			onKeyDown={onKeyDown}
-			// A click on the dimmed space around the image keeps what is drawn, as
-			// Done does: the popup covers the backdrop.
+			// A click on the margin around the board keeps what is drawn, as Done
+			// does: the popup covers the backdrop.
 			onClick={(event) => {
-				if (
-					event.target === event.currentTarget ||
-					event.target === stage.current
-				) {
+				if (event.target === event.currentTarget) {
 					onDone();
 				}
 			}}
@@ -291,56 +300,132 @@ function Board({
 					</Button>
 				</div>
 			</div>
-			<div
-				ref={stage}
-				className="flex min-h-0 w-full flex-1 items-center justify-center"
-			>
-				<div className="relative">
-					<canvas
-						ref={canvas}
-						width={annotation.width}
-						height={annotation.height}
-						aria-label={`${annotation.original.name}, with ${marks.length} ${marks.length === 1 ? "mark" : "marks"}`}
-						className="block max-h-[calc(100dvh-7rem)] max-w-[calc(100vw-4rem)] cursor-crosshair touch-none rounded-md"
-						onPointerDown={(event) => {
-							if (event.button !== 0) {
-								return;
-							}
-							event.currentTarget.setPointerCapture(event.pointerId);
-							annotation.press(at(event), slop());
+			<div ref={stage} className="relative min-h-0 w-full flex-1">
+				<canvas
+					ref={canvas}
+					width={Math.round((view?.stage.w ?? 0) * (view?.pixels ?? 1))}
+					height={Math.round((view?.stage.h ?? 0) * (view?.pixels ?? 1))}
+					aria-label={`${annotation.original.name}, with ${marks.length} ${marks.length === 1 ? "mark" : "marks"}`}
+					className="absolute inset-0 size-full cursor-crosshair touch-none"
+					onPointerDown={(event) => {
+						if (event.button !== 0) {
+							return;
+						}
+						event.currentTarget.setPointerCapture(event.pointerId);
+						annotation.press(at(event), slop());
+					}}
+					onPointerMove={(event) => {
+						annotation.move(at(event));
+						// Over a number or a line, a press picks its mark.
+						event.currentTarget.style.cursor =
+							draft === null && annotation.markAt(at(event), slop()) !== null
+								? "pointer"
+								: "";
+					}}
+					onPointerUp={() => annotation.release()}
+					onPointerCancel={() => annotation.release()}
+				/>
+				{view !== null && (
+					// Where the image shows, so each note sits by its mark.
+					<div
+						className="pointer-events-none absolute"
+						style={{
+							left: view.image.left,
+							top: view.image.top,
+							width: view.image.w,
+							height: view.image.h,
 						}}
-						onPointerMove={(event) => {
-							annotation.move(at(event));
-							// Over a number or a line, a press picks its mark.
-							event.currentTarget.style.cursor =
-								draft === null && annotation.markAt(at(event), slop()) !== null
-									? "pointer"
-									: "";
-						}}
-						onPointerUp={() => annotation.release()}
-						onPointerCancel={() => annotation.release()}
-					/>
-					{marks.map((mark, each) =>
-						each === selected ? (
-							<Note
-								key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
-								annotation={annotation}
-								at={each}
-								grip={grip(each)}
-							/>
-						) : mark.note.trim() !== "" ? (
-							<Label
-								key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
-								annotation={annotation}
-								at={each}
-								grip={grip(each)}
-							/>
-						) : null,
-					)}
-				</div>
+					>
+						{marks.map((mark, each) =>
+							each === selected ? (
+								<Note
+									key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
+									annotation={annotation}
+									at={each}
+									grip={grip(each)}
+								/>
+							) : mark.note.trim() !== "" ? (
+								<Label
+									key={`${mark.kind} ${mark.from.x} ${mark.from.y}`}
+									annotation={annotation}
+									at={each}
+									grip={grip(each)}
+								/>
+							) : null,
+						)}
+					</div>
+				)}
 			</div>
 		</DialogPrimitive.Popup>
 	);
+}
+
+/** How the board shows the image, in CSS pixels on `stage`. */
+interface View {
+	stage: Rect;
+	/** Where the image shows on the stage, shrunk to fit it. */
+	image: Rect;
+	/** Screen pixels to one of the image's. */
+	scale: number;
+	/** Device pixels to a CSS pixel, so the canvas draws sharp. */
+	pixels: number;
+}
+
+/**
+ * The image fit in the middle of `stage`, never past its own size, and the
+ * whole stage given to `annotation` to draw on: `null` until it is laid out.
+ */
+function useView(
+	annotation: Annotation,
+	stage: RefObject<HTMLDivElement | null>,
+): View | null {
+	const [view, setView] = useState<View | null>(null);
+	useEffect(() => {
+		const element = stage.current;
+		if (element === null) {
+			return;
+		}
+		const read = () => {
+			// Its layout size, not its box: the dialog opens zooming in.
+			const width = element.clientWidth;
+			const height = element.clientHeight;
+			if (width === 0 || height === 0) {
+				return;
+			}
+			const scale = Math.min(
+				1,
+				width / annotation.width,
+				height / annotation.height,
+			);
+			const across = annotation.width * scale;
+			const down = annotation.height * scale;
+			const image = new Rect(
+				(width - across) / 2,
+				(height - down) / 2,
+				across,
+				down,
+			);
+			annotation.widen(
+				new Rect(
+					-image.left / scale,
+					-image.top / scale,
+					width / scale,
+					height / scale,
+				),
+			);
+			setView({
+				stage: new Rect(0, 0, width, height),
+				image,
+				scale,
+				pixels: window.devicePixelRatio || 1,
+			});
+		};
+		const observer = new ResizeObserver(read);
+		observer.observe(element);
+		read();
+		return () => observer.disconnect();
+	}, [annotation, stage]);
+	return view;
 }
 
 /** The pointer handlers that drag a note card. */
@@ -419,7 +504,7 @@ function Label({
 		<Beside
 			annotation={annotation}
 			at={at}
-			className="max-w-60 cursor-grab touch-none ring-1"
+			className="w-max max-w-60 cursor-grab touch-none ring-1"
 			{...grip}
 		>
 			<button
@@ -465,7 +550,7 @@ function Beside({
 	return (
 		<div
 			className={cn(
-				"absolute z-10 flex -translate-y-1/2 items-center gap-1 rounded-lg bg-white p-1 shadow-xl ring-[#ff1f8f]",
+				"pointer-events-auto absolute z-10 flex -translate-y-1/2 items-center gap-1 rounded-lg bg-white p-1 shadow-xl ring-[#ff1f8f]",
 				className,
 			)}
 			style={{
