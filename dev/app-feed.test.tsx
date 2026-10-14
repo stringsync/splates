@@ -4,6 +4,7 @@ import {
 	cleanup,
 	fireEvent,
 	menuItem,
+	OFFLINE_AFTER,
 	resize,
 	snapshot,
 	Testing,
@@ -43,6 +44,20 @@ describe("App's feed", () => {
 		await act(async () => testing.stream?.onmessage?.());
 
 		await waitFor(() => expect(view.getByText(/Offline/)).toBeTruthy());
+	});
+
+	it("waits out a blip, as a tunnel reconnecting, before saying it is offline", async () => {
+		const view = await testing.open();
+
+		testing.goAway();
+		await act(async () => testing.stream?.onerror?.());
+		await Bun.sleep(OFFLINE_AFTER.ms / 2);
+		expect(view.queryByText(/Offline/)).toBeNull();
+		testing.comeBack();
+		await act(async () => testing.stream?.onopen?.());
+		await Bun.sleep(OFFLINE_AFTER.ms);
+
+		expect(view.queryByText(/Offline/)).toBeNull();
 	});
 
 	it("says it is outdated, with what to run, when a newer arbor moved the records on", async () => {

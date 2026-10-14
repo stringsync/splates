@@ -79,17 +79,20 @@ export function App({
 	settings,
 	checkpointEvery,
 	checkpointRestartShown,
+	offlineAfter,
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
 	checkpointEvery?: Duration;
 	/** How long a checkpoint's Restart slide shows at least; three seconds by default. */
 	checkpointRestartShown?: Duration;
+	/** How long the server stays unreachable before the page says so; ten seconds by default. */
+	offlineAfter?: Duration;
 }): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
 	// would leave the page listening to the one it replaced, showing nothing.
-	const [feed] = useState(() => new Feed());
+	const [feed] = useState(() => new Feed(offlineAfter));
 	useDisposerEffect(
 		(disposer) => {
 			feed.start();

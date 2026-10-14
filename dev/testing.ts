@@ -40,6 +40,13 @@ const CHECKPOINT_EVERY = Duration.ms(50);
  */
 const CHECKPOINT_RESTART_SHOWN = Duration.ms(300);
 
+/**
+ * How long the server stays unreachable before the page says it is offline:
+ * long enough for a test to bring it back first, far shorter than the page's
+ * ten seconds.
+ */
+export const OFFLINE_AFTER = Duration.ms(200);
+
 /** A write the page made. */
 export interface Post {
 	path: string;
@@ -273,6 +280,7 @@ export class Testing implements Resource {
 				settings: new Settings(localStorage),
 				checkpointEvery: CHECKPOINT_EVERY,
 				checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
+				offlineAfter: OFFLINE_AFTER,
 			}),
 		);
 		await waitFor(() =>
