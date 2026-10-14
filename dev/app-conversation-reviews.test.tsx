@@ -136,7 +136,7 @@ describe("App's review panel and demo cards", () => {
 	const demo = [
 		"### 🎬 Demo: dragging a card",
 		"",
-		"Open http://localhost:4310 (a demo repo).",
+		"Open http://localhost:4310. It's a demo repo.",
 		"",
 		"1. Press and hold a card.",
 		"   It lifts.",

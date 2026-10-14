@@ -138,9 +138,15 @@ function Progress({ done, of }: { done: number; of: number }): JSX.Element {
 	);
 }
 
-/** The first web address a demo's intro names: where it runs. */
+/**
+ * The first web address a demo's intro names: where it runs. Punctuation that
+ * ends the sentence around it is not part of it, as in "Open
+ * http://localhost:4410."
+ */
 function whereIn(intro: string): string | null {
-	return /https?:\/\/[^\s)>\]]+/.exec(intro)?.[0] ?? null;
+	return (
+		/https?:\/\/[^\s)>\]]+/.exec(intro)?.[0].replace(/[.,;:!?'"]+$/, "") ?? null
+	);
 }
 
 function DemoSteps({ demo, ticks }: { demo: Demo; ticks: Ticks }): JSX.Element {
