@@ -7,11 +7,14 @@ import {
 import { type JSX, useCallback, useContext } from "react";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import type { ConversationState } from "../conversations";
+import type { AgentPick } from "../roster";
 import type { Details } from "../show";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";
 import { NEW } from "./conversation-address";
 import { useArchive } from "./conversation-item";
+import { promptFor } from "./dispatch";
+import { Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Refuse } from "./refusal";
@@ -77,16 +80,34 @@ export function useThreadActions(
 		}
 	};
 	useShortcut("shortcuts.archive", fileByKey);
-	// The new conversation screen, with this one's agent picked and `text`
-	// typed ahead of anything already waiting there.
+	// A new conversation started on todo `id`, with the agent it is assigned
+	// to on its model, else with this one's agent; without dispatching, the
+	// new conversation screen with its prompt typed ahead of what waits there.
+	const dispatching = useContext(Dispatching);
 	const startNew = useCallback(
-		(text: string) => {
+		(todo: number, assignee: AgentPick | null) => {
+			const assignment = { kind: "todo", id: todo } as const;
+			if (dispatching !== null) {
+				const onRoster =
+					assignee !== null &&
+					dispatching.dispatch.agents.some(
+						(each) => each.id === assignee.agent,
+					);
+				void dispatching.dispatch
+					.begin(
+						onRoster ? assignee : { agent: conversation.agent },
+						assignment,
+					)
+					.then(onOpen);
+				return;
+			}
+			const text = promptFor(assignment);
 			const key = newDraft(new URLSearchParams(location.search).get("project"));
 			const kept = drafts.read(key);
 			drafts.write(key, kept.trim() === "" ? text : `${text}\n\n${kept}`);
 			onOpen(`${NEW}/${conversation.agent}`);
 		},
-		[drafts, onOpen, conversation.agent],
+		[dispatching, drafts, onOpen, conversation.agent],
 	);
 	return { actions, archive, startNew };
 }
@@ -96,6 +117,6 @@ export interface ThreadActions {
 	actions: Action[];
 	/** Archives the conversation, asking first while its shell runs. */
 	archive: { file: (then?: () => void) => void; confirm: JSX.Element };
-	/** Opens the new conversation screen with `text` typed. */
-	startNew: (text: string) => void;
+	/** Starts todo `id` in a new conversation, with `assignee` when on the roster. */
+	startNew: (id: number, assignee: AgentPick | null) => void;
 }

@@ -115,11 +115,22 @@ describe("App's todo cards", () => {
 		expect(view.getByText("Next up")).toBeTruthy();
 	});
 
-	it("opens a new conversation with a proposed todo's reference typed in, ahead of its draft, and this conversation's agent picked", async () => {
+	it("starts a proposed todo in a new conversation straight away, on the agent and model it is assigned to", async () => {
 		const view = await testing.openConversations(
 			[conversation({ ...proposing, agent: "codex" })],
 			undefined,
-			board,
+			{
+				...board,
+				todos: [
+					todo({
+						id: 12,
+						subject: "Retry the upload on a 413",
+						lane: 3,
+						assignee: { agent: "claude", model: "haiku" },
+					}),
+					...board.todos.slice(1),
+				],
+			},
 		);
 		const open = await waitFor(() =>
 			view.getByRole("region", { name: "todo 12" }),
@@ -130,7 +141,7 @@ describe("App's todo cards", () => {
 				name: "Start in a new conversation",
 			}),
 		).toBeNull();
-		localStorage.setItem("arbor.draft.new:", "and keep it small");
+		testing.reply = conversation({ id: "c9", status: "starting" });
 
 		await act(async () =>
 			fireEvent.click(
@@ -140,19 +151,54 @@ describe("App's todo cards", () => {
 			),
 		);
 
-		expect(location.hash).toBe("#conversations/new/codex");
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		expect(
-			within(
-				view.getByText("Start a conversation with")
-					.parentElement as HTMLElement,
-			).getByLabelText("Codex"),
-		).toBeTruthy();
-		expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
-			"[ARBOR TODO #12]\n\nand keep it small",
+			testing.posted("/api/conversations").map((each) => each.body),
+		).toEqual([
+			{
+				agent: "claude",
+				task: null,
+				settings: {},
+				model: "haiku",
+				assigned: true,
+			},
+		]);
+		await waitFor(() =>
+			expect(
+				testing.posted("/api/conversations/c9/prompt").map((each) => each.body),
+			).toEqual([{ text: "[ARBOR TODO #12]" }]),
 		);
-		expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy();
-		expect(testing.posted("/api/conversations")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+	});
+
+	it("starts a proposed todo no one is assigned to with this conversation's agent", async () => {
+		const view = await testing.openConversations(
+			[conversation({ ...proposing, agent: "codex" })],
+			undefined,
+			board,
+		);
+		const open = await waitFor(() =>
+			view.getByRole("region", { name: "todo 12" }),
+		);
+		testing.reply = conversation({ id: "c9", status: "starting" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(open).getByRole("button", {
+					name: "Start in a new conversation",
+				}),
+			),
+		);
+
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
+		expect(
+			testing.posted("/api/conversations").map((each) => each.body.agent),
+		).toEqual(["codex"]);
+		await waitFor(() =>
+			expect(
+				testing.posted("/api/conversations/c9/prompt").map((each) => each.body),
+			).toEqual([{ text: "[ARBOR TODO #12]" }]),
+		);
 	});
 
 	it("keeps a todo as proposed once the person has replied, and says whether it was started", async () => {

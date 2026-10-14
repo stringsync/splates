@@ -19,6 +19,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Proposal, Report, Start } from "../asked";
 import { todoReference } from "../prompts";
+import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
 import { Board } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
@@ -138,12 +139,12 @@ function Source({ text }: { text: string }): JSX.Element {
 }
 
 /**
- * Opens the new conversation screen with `text` typed in, to start it there;
- * none outside a conversation.
+ * Starts todo `id` in a new conversation, with `assignee` when given; none
+ * outside a conversation.
  */
-export const StartNewContext = createContext<((text: string) => void) | null>(
-	null,
-);
+export const StartNewContext = createContext<
+	((id: number, assignee: AgentPick | null) => void) | null
+>(null);
 
 /**
  * The reply a todo is written in: the task it ran in, when the prompt it
@@ -400,7 +401,7 @@ export function TodoCard({
 							variant="outline"
 							aria-label="Start in a new conversation"
 							title="Start in a new conversation"
-							onClick={() => startNew(reference)}
+							onClick={() => startNew(proposal.id, todo.assignee ?? null)}
 						>
 							<MessageSquarePlusIcon />
 						</Button>
