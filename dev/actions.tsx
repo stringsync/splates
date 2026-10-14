@@ -8,17 +8,14 @@ export interface Action {
 	icon: ReactNode;
 	/** Beside the label, such as a task's +/- counts. */
 	detail?: ReactNode;
-	/** Null for a row that only says something, such as "No open questions". */
+	/** Null for a row that only says something. */
 	run: (() => void) | null;
-	/** Calls for you, as open questions do: its count on its icon button. */
-	count?: number;
 }
 
 /**
  * Everything to do with a conversation, in a panel just right of its
- * messages, many of them opening the pane beside the page: the first, what it
- * waits on you for, above a rule, the rest below it, then a menu of the
- * commands it left in the background below another. Only where the
+ * messages, many of them opening the pane beside the page, then a menu of the
+ * commands it left in the background below a rule. Only where the
  * conversation leaves room beside its messages, `ActionButtons` standing in
  * for it elsewhere.
  *
@@ -37,21 +34,15 @@ export function Actions({
 	/** Cards stacked under the panel, such as the systems a task touches. */
 	children?: ReactNode;
 }): JSX.Element {
-	const [status, ...rest] = actions;
 	return (
 		<div className="absolute top-0 left-[calc(50%+22.75rem)] z-10 hidden w-60 flex-col gap-3 @min-[76rem]:flex">
 			<nav
 				aria-label="actions"
 				className="flex flex-col divide-y overflow-hidden rounded-lg border bg-background"
 			>
-				{status !== undefined && (
+				{actions.length > 0 && (
 					<div className="py-1">
-						<ActionRow action={status} />
-					</div>
-				)}
-				{rest.length > 0 && (
-					<div className="py-1">
-						{rest.map((action) => (
+						{actions.map((action) => (
 							<ActionRow key={action.label} action={action} />
 						))}
 					</div>
@@ -82,9 +73,7 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 			onClick={action.run}
 			className={cn(
 				row,
-				"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none",
-				// A count's icon keeps its own color.
-				action.count === undefined && "[&_svg]:text-muted-foreground",
+				"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none [&_svg]:text-muted-foreground",
 			)}
 		>
 			{action.icon}
@@ -98,7 +87,7 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 export function ActionButtons({ actions }: { actions: Action[] }): JSX.Element {
 	return (
 		<div className="flex gap-1 @min-[76rem]:hidden">
-			{actions.map(({ label, icon, run, count }) =>
+			{actions.map(({ label, icon, run }) =>
 				run === null ? null : (
 					<Button
 						key={label}
@@ -107,17 +96,8 @@ export function ActionButtons({ actions }: { actions: Action[] }): JSX.Element {
 						title={label}
 						aria-label={label}
 						onClick={run}
-						className={cn(count !== undefined && "relative")}
 					>
 						{icon}
-						{count !== undefined && count > 0 && (
-							<span
-								aria-hidden
-								className="-top-1.5 -right-1.5 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 font-medium text-[10px] text-background tabular-nums"
-							>
-								{count}
-							</span>
-						)}
 					</Button>
 				),
 			)}

@@ -1,6 +1,4 @@
 import {
-	CircleAlertIcon,
-	CircleCheckIcon,
 	GitBranchIcon,
 	SquareArrowOutUpRightIcon,
 	TriangleAlertIcon,
@@ -25,7 +23,6 @@ import type { ConversationState, Session } from "../conversations";
 import type { Need } from "../needs";
 import type { Question } from "../plan";
 import type { Details } from "../show";
-import type { Action } from "./actions";
 import { AgentIcon } from "./agent-icons";
 import { bringSession, listSessions } from "./api";
 import { Back } from "./back";
@@ -165,46 +162,6 @@ export function useArrived(open: string, go: () => void): void {
 		arrivals.addEventListener("arrive", arrive);
 		return () => arrivals.removeEventListener("arrive", arrive);
 	}, []);
-}
-
-/**
- * The actions' row on whether the agent has open questions, or waits on you
- * otherwise, which goes there.
- */
-export function questionsAction(need: Need, go: () => void): Action {
-	const said = waitingOn(need);
-	if (said === null) {
-		return {
-			label: "No open questions",
-			icon: <CircleCheckIcon />,
-			run: null,
-		};
-	}
-	return {
-		label: said,
-		// The sidebar's mark for an agent waiting on you.
-		icon: <CircleAlertIcon className="text-warning" />,
-		run: go,
-		count: Math.max(openQuestions(need).length, 1),
-	};
-}
-
-/** What the agent waits on you for, in a few words, or null when nothing. */
-function waitingOn(need: Need): string | null {
-	const open = openQuestions(need).length;
-	if (need.kind === "waiting" && need.why === "ask") {
-		return "Waiting on your answer";
-	}
-	if (open > 0) {
-		return `${open} open question${open === 1 ? "" : "s"}`;
-	}
-	if (need.kind === "waiting" && need.why === "escalated") {
-		return "Escalated";
-	}
-	if (need.kind === "waiting" && need.why === "review") {
-		return "Ready to merge";
-	}
-	return null;
 }
 
 /**

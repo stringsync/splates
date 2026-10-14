@@ -154,8 +154,6 @@ import type { Settings } from "./settings";
 import { SystemsButton, SystemsCard } from "./systems";
 import {
 	arriveAt,
-	openQuestions,
-	questionsAction,
 	questionsSeen,
 	replyCopied,
 	TASK,
@@ -2540,19 +2538,9 @@ function Thread({
 	const terminal = useContext(ToggleTerminal);
 	const archive = useArchive(conversation, refused);
 	const [details, setDetails] = useState(false);
-	const needed = need(task, conversation);
-	// Those the person answered and the agent has yet to record wait on nobody.
-	const open = unanswered(openQuestions(needed), conversation.messages);
 	// The newest card it waits on you through.
 	useArrived(id, () => toWaiting(section.current));
-	// With no card, the plan, its questions in it.
-	const toQuestions = () =>
-		toWaiting(section.current) || setDetails(task !== null);
 	const actions: Action[] = [
-		questionsAction(
-			"questions" in needed ? { ...needed, questions: open } : needed,
-			toQuestions,
-		),
 		...(review !== null && task !== null && task.ahead !== null
 			? [
 					{

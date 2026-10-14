@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "../conversations";
 import {
 	AGENTS,
@@ -75,12 +75,6 @@ Cap upload retries
 
 - [ ] 1. How many retries?
 `;
-
-		/** The actions' first button: what the agent waits on you for. */
-		const questionsButton = (view: Awaited<ReturnType<typeof sidebar>>) =>
-			within(view.getByRole("navigation", { name: "actions" })).getAllByRole(
-				"button",
-			)[0] as HTMLElement;
 
 		const rows = (view: Awaited<ReturnType<typeof sidebar>>) =>
 			within(view.getByRole("navigation", { name: "conversations" }))
@@ -511,88 +505,6 @@ Cap upload retries
 			expect(title.parentElement?.textContent).toBe("Fix login");
 		});
 
-		it("scrolls the card asking the open questions to its top from the actions", async () => {
-			const view = await sidebar(
-				[
-					conversation({
-						id: "c1",
-						task: "alpha",
-						messages: [
-							message("user", "cap the retries"),
-							message(
-								"agent",
-								"## ⚠️ Escalated alpha: needs a call\n\nIt caps.\n\n1. How many retries?",
-							),
-						],
-					}),
-				],
-				[details({ task: "alpha", plan: PLAN })],
-			);
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
-			);
-			const escalated = await waitFor(() =>
-				view.getByRole("region", { name: "escalated alpha" }),
-			);
-			const scrolled: [string | null, unknown][] = [];
-			const scroll = spyOn(
-				HTMLElement.prototype,
-				"scrollIntoView",
-			).mockImplementation(function (this: HTMLElement, options) {
-				scrolled.push([this.getAttribute("aria-label"), options]);
-			});
-			try {
-				await act(async () => fireEvent.click(questionsButton(view)));
-			} finally {
-				scroll.mockRestore();
-			}
-
-			expect(scrolled).toEqual([
-				["escalated alpha", { block: "start", behavior: "smooth" }],
-			]);
-			expect(escalated.contains(document.activeElement)).toBe(true);
-		});
-
-		it("says among a conversation's actions whether it has open questions, opening the plan while no card in the thread asks them", async () => {
-			const view = await sidebar(
-				[
-					conversation({ id: "c1", task: "alpha", status: "running" }),
-					conversation({ id: "c2", task: null, title: "Look around" }),
-				],
-				[details({ task: "alpha", plan: PLAN })],
-			);
-			await act(async () =>
-				fireEvent.click(
-					view.getByRole("button", { name: "Claude Look around" }),
-				),
-			);
-			expect(
-				view.getByRole("region", { name: "Look around" }).textContent,
-			).toContain("No open questions");
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
-			);
-			expect(
-				within(view.getByRole("navigation", { name: "actions" })).getByRole(
-					"button",
-					{ name: /1 open question/ },
-				).textContent,
-			).toBe("1 open question");
-			// At work on a guess, it has asked them only in its plan: no card
-			// crowds the conversation.
-			expect(
-				view.queryByRole("region", { name: "questions for you" }),
-			).toBeNull();
-			await act(async () => fireEvent.click(questionsButton(view)));
-			const plan = await waitFor(() =>
-				view.getByRole("dialog", { name: "alpha" }),
-			);
-			expect(plan.textContent).toContain("How many retries?");
-			expect(
-				within(plan).queryByRole("textbox", { name: "Answer to 1" }),
-			).toBeNull();
-		});
-
 		it("passes over an agent asking only in its plan as it works on ⌥⌘M, though not one stopped on its questions", async () => {
 			const plan = PLAN.replace(
 				"- [ ] 1. How many retries?",
@@ -650,103 +562,6 @@ Cap upload retries
 						.contains(document.activeElement),
 				).toBe(true),
 			);
-		});
-
-		it("counts only the open questions a reply to a card left unanswered, going to the card that asks them", async () => {
-			const blocked = `${PLAN}- [ ] 2. Should it wrap?\n`;
-			const asked = message(
-				"agent",
-				"1. How many retries?\n2. Should it wrap?",
-			);
-			const view = await sidebar(
-				[
-					conversation({
-						id: "c1",
-						task: "alpha",
-						title: "Asked",
-						messages: [message("user", "cap retries"), asked],
-					}),
-				],
-				[details({ task: "alpha", plan: blocked })],
-			);
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
-			);
-			// The card the thread ends on asks them all: its action goes there.
-			await act(async () => fireEvent.click(questionsButton(view)));
-			expect(view.queryByRole("dialog")).toBeNull();
-			expect(
-				view
-					.getByRole("region", { name: "questions for you" })
-					.contains(document.activeElement),
-			).toBe(true);
-
-			await testing.say(
-				conversation({
-					id: "c1",
-					task: "alpha",
-					title: "Asked",
-					status: "running",
-					messages: [
-						message("user", "cap retries"),
-						asked,
-						message("user", "1. three"),
-						message("agent", "Capping them."),
-					],
-				}),
-			);
-
-			await waitFor(() => view.getByText("Capping them."));
-			// The one answered waits on the agent, not on you.
-			expect(
-				within(view.getByRole("navigation", { name: "actions" })).getByRole(
-					"button",
-					{ name: /1 open question/ },
-				),
-			).toBeTruthy();
-		});
-
-		it("goes to an escalation that did not list the open questions", async () => {
-			const view = await sidebar(
-				[
-					conversation({
-						id: "c1",
-						task: "alpha",
-						title: "Stuck",
-						messages: [
-							message(
-								"agent",
-								"## ⚠️ Escalated alpha: needs a call\n\nIt caps.",
-							),
-						],
-					}),
-				],
-				[
-					details({
-						task: "alpha",
-						status: "escalated",
-						escalation: "needs a call",
-						escalatedAt: "2026-10-11T10:00:00.000Z",
-						plan: PLAN,
-					}),
-				],
-			);
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Claude alpha" })),
-			);
-			await act(async () =>
-				fireEvent.click(
-					within(view.getByRole("navigation", { name: "actions" })).getByRole(
-						"button",
-						{ name: /1 open question/ },
-					),
-				),
-			);
-
-			expect(view.queryByRole("dialog")).toBeNull();
-			expect(
-				view.getByRole("region", { name: "escalated alpha" }),
-			).toBeTruthy();
 		});
 
 		it("goes on ⌥⌘M to what the agent asks as it works", async () => {
