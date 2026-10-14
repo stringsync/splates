@@ -1,0 +1,173 @@
+import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
+import { CheckIcon, GitMergeIcon, SendHorizontalIcon } from "lucide-react";
+import { type JSX, useRef, useState } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { cn } from "#dev/lib/utils.ts";
+import type { Review } from "../asked";
+import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
+import { CardBody, CardShell } from "./card-shell";
+import { DemoSection } from "./demo-cards";
+import { Markdown } from "./markdown";
+import { Refusal, useRefusal } from "./refusal";
+
+/** What the reply to a review says to merge, as the skill asks for it. */
+const MERGE = "merge";
+
+/**
+ * A review answered by keyboard alone: it comes up in its changes box, where
+ * Enter sends them, and Merge is a Tab away. What is written stays in the
+ * panel, never the composer, until it is sent.
+ */
+export function ReviewPanel({
+	review,
+	draft = null,
+}: {
+	review: Review;
+	/** The name it keeps what is written under in the conversation's drafts. */
+	draft?: string | null;
+}): JSX.Element {
+	const { reply, sent } = useCardReply();
+	const send = sent === null ? (reply?.send ?? null) : null;
+	const kept = useKept(draft, sent);
+	const [changes, setChanges] = useState(() => kept.read());
+	const write = (text: string) => {
+		setChanges(text);
+		kept.write(text);
+	};
+	const asked = changes.trim();
+	const { refusal, attempt } = useRefusal();
+	const ask = () => {
+		if (asked !== "" && send !== null) {
+			void attempt(send(asked), "Not sent");
+		}
+	};
+	const box = useRef<HTMLTextAreaElement>(null);
+	useArrival(send !== null, () => box.current);
+	const approved = sent?.trim().toLowerCase() === MERGE;
+	return (
+		<CardShell
+			label={`review ${review.task}`}
+			Icon={GitMergeIcon}
+			title="Ready to merge"
+			tone="success"
+			task={review.task}
+			base={review.base}
+			folded={sent !== null}
+			aside={
+				sent === null ? undefined : (
+					<span className="text-muted-foreground text-xs">
+						{approved ? "Merge approved" : "Changes asked"}
+					</span>
+				)
+			}
+		>
+			{review.body !== "" && (
+				<div className={cn(review.demo !== null && "border-b")}>
+					<CardBody text={review.body} />
+				</div>
+			)}
+			{review.demo !== null && (
+				<DemoSection
+					demo={review.demo}
+					kept={draft === null ? null : `${draft}:demo`}
+				/>
+			)}
+			{sent !== null && (
+				// What the person replied, as it was sent: the card keeps it.
+				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
+					{approved ? (
+						<>
+							<CheckIcon
+								className="mt-0.5 size-4 text-success"
+								strokeWidth={3}
+							/>
+							<span>Merge approved</span>
+						</>
+					) : (
+						<>
+							<span className="shrink-0 text-muted-foreground">Asked for</span>
+							<Markdown
+								text={sent}
+								className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+							/>
+						</>
+					)}
+				</footer>
+			)}
+			{send !== null && (
+				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
+					<textarea
+						ref={box}
+						aria-label={`Changes to ${review.task}`}
+						rows={1}
+						value={changes}
+						placeholder="Say what to change…"
+						onChange={(event) => write(event.target.value)}
+						onKeyDown={(event) => {
+							// Enter sends, as in the composer; Shift+Enter is a new line.
+							if (event.key === "Enter" && !event.shiftKey) {
+								event.preventDefault();
+								ask();
+							}
+						}}
+						className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
+					/>
+					<div className="flex items-center gap-2">
+						<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+							<span>
+								<Kbd>↵</Kbd> sends changes
+							</span>
+							{asked === "" && (
+								<span>
+									<Kbd>Tab</Kbd> to merge
+								</span>
+							)}
+						</p>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={asked === ""}
+							onClick={ask}
+						>
+							<SendHorizontalIcon data-icon="inline-start" />
+							Send changes
+						</Button>
+						<Button
+							size="sm"
+							// Changes written would go unsaid: merging means none.
+							disabled={asked !== ""}
+							title={asked === "" ? undefined : "Clear the changes to merge"}
+							onClick={() => void attempt(send(MERGE), "Not sent")}
+							className="bg-success text-white hover:bg-success/90"
+						>
+							<GitMergeIcon data-icon="inline-start" />
+							Merge
+						</Button>
+					</div>
+					<Refusal refusal={refusal} className="text-right" />
+				</footer>
+			)}
+		</CardShell>
+	);
+}
+
+/**
+ * Renders a `data-review` part as a review panel while it is mounted in a
+ * thread: apart from questions, since approving is one decision about the
+ * whole task. Merge, or what to change, is sent from the panel itself.
+ */
+export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
+	name: "review",
+	render: ({ data }) => (
+		<InMessage>
+			<MessageReview review={data.review} />
+		</InMessage>
+	),
+});
+
+/** The review of the message it is in, kept as a draft under that message. */
+function MessageReview({ review }: { review: Review }): JSX.Element {
+	const message = useAuiState((state) => state.message.id);
+	return <ReviewPanel review={review} draft={`review:${message}`} />;
+}

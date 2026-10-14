@@ -70,6 +70,11 @@
 @source "./checkpoint-pick.tsx";
 @source "./checkpoint-slide.tsx";
 @source "./question-cards.tsx";
+@source "./card-reply.tsx";
+@source "./question-card.tsx";
+@source "./question-ranking.tsx";
+@source "./choice-body.tsx";
+@source "./review-panel.tsx";
 @source "./report-cards.tsx";
 @source "./card-shell.tsx";
 @source "./refusal.tsx";

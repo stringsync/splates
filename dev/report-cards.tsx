@@ -22,10 +22,10 @@ import { todoReference } from "../prompts";
 import type { TodoState } from "../todo";
 import { Board } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
+import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard, useStartCard } from "./current-task";
 import { Markdown } from "./markdown";
-import { InMessage, useCardReply } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 
 /**

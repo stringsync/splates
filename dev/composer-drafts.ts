@@ -6,9 +6,9 @@ import type {
 import { useEffect, useMemo, useState } from "react";
 import { Annotation } from "#dev/annotation.ts";
 import { promptConversation } from "./api";
+import type { Reply } from "./card-reply";
 import { SEEN } from "./conversation-feed";
 import type { Drafts } from "./drafts";
-import type { Reply } from "./question-cards";
 
 /**
  * Keeps what is typed in `runtime`'s composer in `drafts` under `key`, and
