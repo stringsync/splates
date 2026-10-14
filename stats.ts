@@ -33,12 +33,15 @@ export interface Tally {
 	removedFor: Record<RemoveReason | "unsaid", number>;
 }
 
-/** What the Stats page shows: how tasks ended, week by week and by who did them. */
+/** What the Stats page shows: how tasks ended, bar by bar and by who did them. */
 export interface Stats {
-	/** Each week of the period, oldest first, those with nothing ended among them. */
-	weeks: ({ start: string } & Tally)[];
 	/**
-	 * The as many weeks before the period, summed, to compare it with; null
+	 * Each bar of the period, oldest first, those with nothing ended among
+	 * them: `start` is when it starts, as an ISO time.
+	 */
+	buckets: ({ start: string } & Tally)[];
+	/**
+	 * The as long a span before the period, summed, to compare it with; null
 	 * for all time, which has nothing before it.
 	 */
 	previous: Tally | null;
@@ -56,57 +59,82 @@ export interface Stats {
 	since: string | null;
 }
 
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+/** A week in milliseconds: weeks start on a UTC Monday, so none is short. */
+const WEEK = 7 * DAY;
+
+/**
+ * The spans the page can look at, as `?period=` names them: how long each
+ * runs back from now, and how long each of its bars is.
+ */
+export const PERIODS = {
+	"6h": { span: 6 * HOUR, bucket: 30 * MINUTE },
+	"1d": { span: DAY, bucket: HOUR },
+	"3d": { span: 3 * DAY, bucket: 3 * HOUR },
+	"7d": { span: 7 * DAY, bucket: 6 * HOUR },
+} as const;
+
+/** A span in `PERIODS`, or `all` for all time, a bar a week. */
+export type PeriodId = keyof typeof PERIODS | "all";
+
+export function isPeriodId(value: string): value is PeriodId {
+	return value === "all" || Object.hasOwn(PERIODS, value);
+}
+
 export interface SummarizeOptions {
-	/** How many weeks to sum, this one among them; null for all time. */
-	weeks?: number | null;
+	period?: PeriodId;
 	now?: Date;
 }
 
 /**
- * Sums the outcomes written so far for the page, over the last `weeks`. A
- * part, which lands on its caller's branch rather than trunk, is left out: it
- * is a piece of a task that is counted when its caller ends.
+ * Sums the outcomes written so far for the page, over `period`. A part,
+ * which lands on its caller's branch rather than trunk, is left out: it is a
+ * piece of a task that is counted when its caller ends.
  */
 export function summarize(
 	outcomes: Outcome[],
-	{ weeks = 12, now = new Date() }: SummarizeOptions = {},
+	{ period = "7d", now = new Date() }: SummarizeOptions = {},
 ): Stats {
 	const tasks = outcomes.filter((each) => !each.base.startsWith("task/"));
 	const since = tasks[0]?.endedAt ?? null;
-	const thisWeek = weekOf(now);
-	// All time runs from the week the first task ended, or this one alone.
+	// All time runs a week a bar from the week the first task ended, or this
+	// week alone; the rest a bar each `bucket`, cut on the clock.
+	const bucket = period === "all" ? WEEK : PERIODS[period].bucket;
+	const floor =
+		period === "all"
+			? (at: number) => weekOf(new Date(at)).getTime()
+			: (at: number) => Math.floor(at / bucket) * bucket;
+	const last = floor(now.getTime());
 	const length =
-		weeks ??
-		(since === null
-			? 1
-			: Math.round(
-					(thisWeek.getTime() - weekOf(new Date(since)).getTime()) / WEEK,
-				) + 1);
-	const first = new Date(thisWeek.getTime() - (length - 1) * WEEK);
+		period === "all"
+			? since === null
+				? 1
+				: Math.round((last - floor(Date.parse(since))) / WEEK) + 1
+			: PERIODS[period].span / bucket;
+	const first = last - (length - 1) * bucket;
 	const inPeriod = tasks.filter(
-		(each) => weekOf(new Date(each.endedAt)) >= first,
+		(each) => floor(Date.parse(each.endedAt)) >= first,
 	);
-	const before = new Date(first.getTime() - length * WEEK);
+	const before = first - length * bucket;
 	return {
-		weeks: Array.from({ length }, (_, index) => {
-			const start = new Date(first.getTime() + index * WEEK);
+		buckets: Array.from({ length }, (_, index) => {
+			const start = first + index * bucket;
 			return {
-				start: start.toISOString().slice(0, 10),
+				start: new Date(start).toISOString(),
 				...tally(
-					inPeriod.filter(
-						(each) =>
-							weekOf(new Date(each.endedAt)).getTime() === start.getTime(),
-					),
+					inPeriod.filter((each) => floor(Date.parse(each.endedAt)) === start),
 				),
 			};
 		}),
 		previous:
-			weeks === null
+			period === "all"
 				? null
 				: tally(
 						tasks.filter((each) => {
-							const week = weekOf(new Date(each.endedAt));
-							return week >= before && week < first;
+							const at = floor(Date.parse(each.endedAt));
+							return at >= before && at < first;
 						}),
 					),
 		models: grouped(inPeriod, (each) => each.model).map(([model, tally]) => ({
@@ -127,9 +155,6 @@ export function summarize(
 		since,
 	};
 }
-
-/** A week in milliseconds: weeks start on a UTC Monday, so none is short. */
-const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 function tally(outcomes: Outcome[]): Tally {
 	const merged = outcomes.filter((each) => each.ended === "merged");
@@ -167,7 +192,7 @@ function tally(outcomes: Outcome[]): Tally {
 	};
 }
 
-/** Tallies added up, as for the weeks of a period. */
+/** Tallies added up, as for the bars of a period. */
 export function combine(tallies: Tally[]): Tally {
 	const total = tally([]);
 	for (const each of tallies) {

@@ -1,5 +1,5 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { combine, type Stats, type Tally } from "../stats";
+import { combine, type PeriodId, type Stats, type Tally } from "../stats";
 import { type Advice, advise, decimal, percent } from "./stats-advice";
 
 export { decimal, percent };
@@ -8,24 +8,24 @@ export type StatsReportEvents = { changed: undefined };
 
 /** Where the summary comes from: `arbor dev`, or a test's own. */
 export interface StatsSource {
-	/** Over the last `weeks`, or all time for null. */
-	stats(weeks: number | null): Promise<Stats>;
+	stats(period: PeriodId): Promise<Stats>;
 }
 
 /** A span of time the page can look at, as its control names it. */
 export interface Period {
-	/** Null for all time. */
-	weeks: number | null;
+	id: PeriodId;
 	label: string;
+	/** How a sentence names it, as in "the day before"; null for all time. */
+	span: string | null;
 }
 
 /** What the period control offers, shortest first. */
 export const PERIODS: Period[] = [
-	{ weeks: 4, label: "4 weeks" },
-	{ weeks: 12, label: "12 weeks" },
-	{ weeks: 26, label: "6 months" },
-	{ weeks: 52, label: "1 year" },
-	{ weeks: null, label: "All time" },
+	{ id: "6h", label: "6 hours", span: "6 hours" },
+	{ id: "1d", label: "1 day", span: "day" },
+	{ id: "3d", label: "3 days", span: "3 days" },
+	{ id: "7d", label: "7 days", span: "7 days" },
+	{ id: "all", label: "All time", span: null },
 ];
 
 /** A y-axis: where it tops out, and the values it marks, from 0 up. */
@@ -34,7 +34,7 @@ export interface Axis {
 	ticks: { at: number; label: string }[];
 }
 
-/** One headline figure over the period, and over the as many weeks before. */
+/** One headline figure over the period, and over the as long a span before. */
 export interface Tile {
 	label: string;
 	/** What it measures, for a reader new to the page. */
@@ -44,13 +44,15 @@ export interface Tile {
 	was: string | null;
 }
 
-/** One week of the trend, for its bars and its tooltip. */
-export interface Week {
+/** One bar of the trend, for its height and its tooltip. */
+export interface Bucket {
 	start: string;
+	/** When it starts, as a person reads it: `Week of 2026-10-12`, `Tue 3:00 PM`. */
+	label: string;
 	ended: number;
-	/** Question rounds over every task ended that week; null when none did. */
+	/** Question rounds over every task ended in it; null when none did. */
 	questionsPerTask: number | null;
-	/** Of the tasks merged that week, the share no question held up; null when none merged. */
+	/** Of the tasks merged in it, the share no question held up; null when none merged. */
 	cleanShare: number | null;
 }
 
@@ -69,7 +71,7 @@ export interface Row {
 
 /**
  * What the Stats page shows of how tasks ended: whether questions are getting
- * rarer, by week, model and project. Loads once, and again on `refresh`.
+ * rarer, bar by bar, by model and by project. Loads once, and again on `refresh`.
  */
 export class StatsReport implements Eventful<StatsReportEvents> {
 	private readonly dispatcher = new Dispatcher<StatsReportEvents>();
@@ -78,8 +80,8 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	stats: Stats | null = null;
 	/** Why the last load failed, until one succeeds. */
 	error: string | null = null;
-	/** What the page looks at: 12 weeks, until the person picks another. */
-	period: Period = PERIODS[1] as Period;
+	/** What the page looks at: 7 days, until the person picks another. */
+	period: Period = PERIODS[3] as Period;
 	/** The last load asked for, so an earlier one landing late is dropped. */
 	private asked = 0;
 
@@ -95,7 +97,7 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	async refresh(): Promise<void> {
 		const asked = ++this.asked;
 		try {
-			const stats = await this.source.stats(this.period.weeks);
+			const stats = await this.source.stats(this.period.id);
 			if (asked !== this.asked) {
 				return;
 			}
@@ -116,13 +118,13 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	}
 
 	get tiles(): Tile[] {
-		const recent = combine(this.stats?.weeks ?? []);
+		const recent = combine(this.stats?.buckets ?? []);
 		const before = this.stats?.previous ?? null;
 		const figure = (
 			of: (tally: Tally) => number | null,
 			shown: (value: number) => string,
 		) => {
-			// Weeks before outcomes were written read as nothing ended, which
+			// A span before outcomes were written reads as nothing ended, which
 			// says nothing about them, so they compare with nothing.
 			const now = of(recent);
 			const was =
@@ -158,23 +160,34 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		];
 	}
 
-	get weeks(): Week[] {
-		return (this.stats?.weeks ?? []).map((week) => ({
-			start: week.start,
-			ended: week.merged + week.removed,
-			questionsPerTask: questionsPerTask(week),
-			cleanShare: cleanShare(week),
+	get buckets(): Bucket[] {
+		const weekly = this.period.id === "all";
+		return (this.stats?.buckets ?? []).map((bucket) => ({
+			start: bucket.start,
+			label: weekly
+				? `Week of ${bucket.start.slice(0, 10)}`
+				: new Date(bucket.start).toLocaleString(undefined, {
+						weekday: "short",
+						hour: "numeric",
+						minute: "2-digit",
+					}),
+			ended: bucket.merged + bucket.removed,
+			questionsPerTask: questionsPerTask(bucket),
+			cleanShare: cleanShare(bucket),
 		}));
 	}
 
-	/** The y-axis for questions per task: a round number above the highest week. */
+	/** The y-axis for questions per task: a round number above the highest bar. */
 	get questionsAxis(): Axis {
 		return axis(
-			Math.max(0, ...this.weeks.map((week) => week.questionsPerTask ?? 0)),
+			Math.max(
+				0,
+				...this.buckets.map((bucket) => bucket.questionsPerTask ?? 0),
+			),
 		);
 	}
 
-	/** The y-axis for a share: always 0% to 100%, so weeks compare at a glance. */
+	/** The y-axis for a share: always 0% to 100%, so bars compare at a glance. */
 	get shareAxis(): Axis {
 		return {
 			max: 1,
@@ -185,13 +198,13 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	/** What the period says to change, a card a figure. */
 	get advice(): Advice[] {
 		return advise({
-			period: combine(this.stats?.weeks ?? []),
+			period: combine(this.stats?.buckets ?? []),
 			previous: this.stats?.previous ?? null,
 			systems: (this.stats?.systems ?? []).map(({ system, ...tally }) => ({
 				system,
 				tally,
 			})),
-			span: this.period.label,
+			span: this.period.span ?? this.period.label,
 		});
 	}
 

@@ -75,10 +75,11 @@ As each task merges or is removed, arbor writes down how it went in
 `~/.arbor/outcomes.jsonl`: how many times it came to you with questions or for
 a review, how many merges failed and why, how many of the agent's picks you
 overturned or took with words added, how long it waited on you, the systems it touched, why it was
-removed, and the agent and model behind it. The Stats page sums it week by
-week, by model, project and system, so you can tell whether tasks are landing
+removed, and the agent and model behind it. The Stats page sums it over the
+last 6 hours, day, 3 days or 7 days, cut into bars of half an hour to six
+hours, or over all time a bar a week, by model, project and system, so you can tell whether tasks are landing
 with fewer questions as your prompts and setup change. Its Act on cards
-compare each figure with the as many weeks before, saying whether it got
+compare each figure with the as long a span before, saying whether it got
 better or worse, and say what to change when one stands out. Fixed rules over
 the counts make those calls, not a model, so the same outcomes always read
 the same.

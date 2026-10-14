@@ -7,7 +7,7 @@
 
 import type { FileDiff } from "../diff";
 import type { AgentPick } from "../roster";
-import type { Stats } from "../stats";
+import type { PeriodId, Stats } from "../stats";
 import type { NamedSystem } from "../systems";
 
 export class ApiError extends Error {
@@ -244,11 +244,11 @@ export async function removeTask(task: string): Promise<void> {
 }
 
 /**
- * How tasks ended across every project, summed for the Stats page over the
- * last `weeks`, or all time for null.
+ * How tasks ended across every project, summed for the Stats page over
+ * `period`.
  */
-export async function stats(weeks: number | null): Promise<Stats> {
-	const path = `/api/stats?weeks=${weeks ?? "all"}`;
+export async function stats(period: PeriodId): Promise<Stats> {
+	const path = `/api/stats?period=${period}`;
 	const response = await fetch(path);
 	if (!response.ok) {
 		throw new ApiError("error", `${path}: ${response.status}`);

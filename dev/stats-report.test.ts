@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { combine, type Stats, type Tally } from "../stats";
+import { combine, type PeriodId, type Stats, type Tally } from "../stats";
 import {
 	axis,
 	PERIODS,
@@ -8,22 +8,22 @@ import {
 	type StatsSource,
 } from "./stats-report";
 
-/** A week where nothing ended; a test fills in what it is about. */
-function week(start: string, changes: Partial<Tally> = {}) {
+/** A bar where nothing ended; a test fills in what it is about. */
+function bar(start: string, changes: Partial<Tally> = {}) {
 	return { start, ...combine([]), ...changes };
 }
 
 /** Answers with `stats`, or fails with `error` when given one; keeps what it was asked. */
 class FakeSource implements StatsSource {
-	readonly asked: (number | null)[] = [];
+	readonly asked: PeriodId[] = [];
 
 	constructor(
 		private readonly answer: Stats | null,
 		private readonly error = "unreachable",
 	) {}
 
-	async stats(weeks: number | null): Promise<Stats> {
-		this.asked.push(weeks);
+	async stats(period: PeriodId): Promise<Stats> {
+		this.asked.push(period);
 		if (this.answer === null) {
 			throw new Error(this.error);
 		}
@@ -32,23 +32,28 @@ class FakeSource implements StatsSource {
 }
 
 const stats: Stats = {
-	weeks: [
-		week("2026-09-21", { merged: 3, removed: 1, clean: 3, questionRounds: 1 }),
-		week("2026-09-28"),
-		week("2026-10-05"),
-		week("2026-10-12", { merged: 1, clean: 0, questionRounds: 2 }),
+	buckets: [
+		bar("2026-10-13T12:00:00.000Z", {
+			merged: 3,
+			removed: 1,
+			clean: 3,
+			questionRounds: 1,
+		}),
+		bar("2026-10-13T18:00:00.000Z"),
+		bar("2026-10-14T00:00:00.000Z"),
+		bar("2026-10-14T06:00:00.000Z", { merged: 1, clean: 0, questionRounds: 2 }),
 	],
 	models: [
-		{ model: null, ...week("", { merged: 2, removed: 2, reviewRounds: 2 }) },
+		{ model: null, ...bar("", { merged: 2, removed: 2, reviewRounds: 2 }) },
 	],
-	previous: week("", { merged: 4, clean: 1, questionRounds: 6 }),
-	projects: [{ project: "/Users/me/webappwiz", ...week("", { merged: 1 }) }],
+	previous: bar("", { merged: 4, clean: 1, questionRounds: 6 }),
+	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
 	systems: [],
 	since: "2026-08-25T10:00:00.000Z",
 };
 
 describe("StatsReport", () => {
-	it("compares the period with the as many weeks before", async () => {
+	it("compares the period with the as long a span before", async () => {
 		const report = new StatsReport(new FakeSource(stats));
 
 		await report.refresh();
@@ -61,18 +66,18 @@ describe("StatsReport", () => {
 		]);
 	});
 
-	it("leaves a week with nothing ended unmeasured, rather than zero", async () => {
+	it("leaves a bar with nothing ended unmeasured, rather than zero", async () => {
 		const report = new StatsReport(new FakeSource(stats));
 
 		await report.refresh();
 
-		expect(report.weeks[1]).toEqual({
-			start: "2026-09-28",
+		expect(report.buckets[1]).toMatchObject({
+			start: "2026-10-13T18:00:00.000Z",
 			ended: 0,
 			questionsPerTask: null,
 			cleanShare: null,
 		});
-		expect(report.weeks.at(-1)).toMatchObject({
+		expect(report.buckets.at(-1)).toMatchObject({
 			ended: 1,
 			questionsPerTask: 2,
 			cleanShare: 0,
@@ -103,7 +108,7 @@ describe("StatsReport", () => {
 		const failing = new StatsReport(new FakeSource(null, "offline"));
 		const fresh = new StatsReport(
 			new FakeSource({
-				weeks: [],
+				buckets: [],
 				previous: null,
 				models: [],
 				projects: [],
@@ -119,15 +124,16 @@ describe("StatsReport", () => {
 		expect(fresh.empty).toBe(true);
 	});
 
-	it("asks for the period picked, 12 weeks until one is", async () => {
+	it("asks for the period picked, 7 days until one is", async () => {
 		const source = new FakeSource(stats);
 		const report = new StatsReport(source);
 
 		await report.refresh();
 		await report.choose(PERIODS.at(-1) as Period);
 
-		expect(source.asked).toEqual([12, null]);
+		expect(source.asked).toEqual(["7d", "all"]);
 		expect(report.period.label).toBe("All time");
+		expect(report.buckets[0]?.label).toBe("Week of 2026-10-13");
 	});
 
 	it("drops a load that lands after a later one was asked for", async () => {
@@ -146,7 +152,7 @@ describe("StatsReport", () => {
 		expect(report.stats?.since).toBe("later");
 	});
 
-	it("tops an axis at a round number at or above the highest week", () => {
+	it("tops an axis at a round number at or above the highest bar", () => {
 		const marks = (top: number) => {
 			const { max, ticks } = axis(top);
 			return [max, ...ticks.map((tick) => tick.label)];

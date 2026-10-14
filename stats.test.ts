@@ -21,78 +21,79 @@ function ended(changes: Partial<Outcome>): Outcome {
 	};
 }
 
-// A Wednesday: its week starts on Monday the 12th.
+// A Wednesday, on the hour: its week starts on Monday the 12th.
 const now = new Date("2026-10-14T12:00:00.000Z");
 
 describe("summarize", () => {
-	it("sums each week, those with nothing ended included, oldest first", () => {
+	it("sums each bar, those with nothing ended included, oldest first", () => {
 		const stats = summarize(
 			[
-				ended({ endedAt: "2026-10-05T08:00:00.000Z", questionRounds: 2 }),
-				ended({ endedAt: "2026-10-12T00:00:00.000Z" }),
-				ended({ ended: "removed", questionRounds: 1, failedMerges: 2 }),
-				ended({ questionRounds: 1, reviewRounds: 1 }),
+				ended({ endedAt: "2026-10-14T06:10:00.000Z", questionRounds: 2 }),
+				ended({ endedAt: "2026-10-14T11:00:00.000Z" }),
+				ended({
+					endedAt: "2026-10-14T11:59:00.000Z",
+					ended: "removed",
+					questionRounds: 1,
+					failedMerges: 2,
+				}),
 			],
-			{ weeks: 3, now },
+			{ period: "6h", now: new Date("2026-10-14T12:20:00.000Z") },
 		);
 
-		expect(stats.weeks).toMatchObject([
-			{
-				start: "2026-09-28",
-				merged: 0,
-				removed: 0,
-				clean: 0,
-				questionRounds: 0,
-				reviewRounds: 0,
-				failedMerges: 0,
-			},
-			{
-				start: "2026-10-05",
-				merged: 1,
-				removed: 0,
-				clean: 0,
-				questionRounds: 2,
-				reviewRounds: 0,
-				failedMerges: 0,
-			},
-			{
-				start: "2026-10-12",
-				merged: 2,
-				removed: 1,
-				clean: 1,
-				questionRounds: 2,
-				reviewRounds: 1,
-				failedMerges: 2,
-			},
-		]);
-		expect(stats.since).toBe("2026-10-05T08:00:00.000Z");
+		expect(stats.buckets.map((bucket) => bucket.start)).toEqual(
+			Array.from({ length: 12 }, (_, index) =>
+				new Date(
+					Date.parse("2026-10-14T06:30:00.000Z") + index * 30 * 60 * 1000,
+				).toISOString(),
+			),
+		);
+		expect(stats.buckets.at(-2)).toMatchObject({
+			merged: 0,
+			removed: 1,
+			questionRounds: 1,
+			failedMerges: 2,
+		});
+		expect(stats.buckets.at(-3)).toMatchObject({ merged: 1, clean: 1 });
+		// Before the first bar, so it is the span before.
+		expect(stats.previous).toMatchObject({ merged: 1, questionRounds: 2 });
+		expect(stats.since).toBe("2026-10-14T06:10:00.000Z");
 	});
 
-	it("sums the as many weeks before to compare with, and counts only the period by model", () => {
+	it("cuts each period into bars of its own length", () => {
+		const bars = (period: "1d" | "3d" | "7d") => {
+			const { buckets } = summarize([], { period, now });
+			return [buckets.length, buckets.at(-1)?.start];
+		};
+
+		expect(bars("1d")).toEqual([24, "2026-10-14T12:00:00.000Z"]);
+		expect(bars("3d")).toEqual([24, "2026-10-14T12:00:00.000Z"]);
+		expect(bars("7d")).toEqual([28, "2026-10-14T12:00:00.000Z"]);
+	});
+
+	it("sums as long a span before to compare with, and counts only the period by model", () => {
 		const stats = summarize(
 			[
-				ended({ endedAt: "2026-09-29T08:00:00.000Z", questionRounds: 3 }),
-				ended({ endedAt: "2026-10-06T08:00:00.000Z", model: "Sonnet 5.5" }),
+				ended({ endedAt: "2026-10-12T08:00:00.000Z", questionRounds: 3 }),
+				ended({ endedAt: "2026-10-13T08:00:00.000Z", model: "Sonnet 5.5" }),
 				ended({}),
 			],
-			{ weeks: 1, now },
+			{ period: "1d", now },
 		);
 
-		expect(stats.weeks.map((week) => week.start)).toEqual(["2026-10-12"]);
 		expect(stats.previous).toMatchObject({ merged: 1, questionRounds: 0 });
 		expect(stats.models).toMatchObject([{ model: "Opus 5.5", merged: 1 }]);
 	});
 
-	it("runs all time from the week the first task ended, with nothing before", () => {
+	it("runs all time a bar a week from the week the first task ended, with nothing before", () => {
 		const stats = summarize(
 			[ended({ endedAt: "2026-09-29T08:00:00.000Z" }), ended({})],
-			{ weeks: null, now },
+			{ period: "all", now },
 		);
 
-		expect(stats.weeks.map((week) => week.start)).toEqual([
-			"2026-09-28",
-			"2026-10-05",
-			"2026-10-12",
+		expect(stats.buckets.map((bucket) => bucket.start)).toEqual([
+			"2026-09-28T00:00:00.000Z",
+			"2026-10-05T00:00:00.000Z",
+			"2026-10-12T00:00:00.000Z",
 		]);
 		expect(stats.previous).toBeNull();
 		expect(stats.models).toMatchObject([{ merged: 2 }]);
@@ -144,7 +145,9 @@ describe("summarize", () => {
 			{ now },
 		);
 
-		expect(stats.weeks.at(-1)).toMatchObject({
+		expect(
+			stats.buckets.find((bucket) => bucket.merged + bucket.removed > 0),
+		).toMatchObject({
 			picksAsked: 3,
 			picksOverturned: 1,
 			picksAmended: 1,

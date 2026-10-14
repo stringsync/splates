@@ -1,7 +1,7 @@
 import "../../../setup";
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { combine, type Stats } from "../stats";
+import { combine, type PeriodId, type Stats } from "../stats";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 
@@ -16,11 +16,11 @@ const tally = {
 };
 
 describe("StatsPage", () => {
-	it("shows the headline figures, a bar a week, and a row per model", async () => {
+	it("shows the headline figures, a bar a span, and a row per model", async () => {
 		const stats: Stats = {
-			weeks: [
-				{ start: "2026-10-05", ...tally },
-				{ start: "2026-10-12", ...tally },
+			buckets: [
+				{ start: "2026-10-14T06:00:00.000Z", ...tally },
+				{ start: "2026-10-14T12:00:00.000Z", ...tally },
 			],
 			previous: null,
 			models: [{ model: "Opus 5.5", ...tally }],
@@ -34,19 +34,30 @@ describe("StatsPage", () => {
 
 		await waitFor(() => page.getByText("Tasks ended"));
 		expect(page.getByText("Tasks ended").parentElement?.textContent).toBe(
-			"Tasks ended4last 12 weeks",
+			"Tasks ended4last 7 days",
 		);
+		const at = new Date("2026-10-14T12:00:00.000Z").toLocaleString(undefined, {
+			weekday: "short",
+			hour: "numeric",
+			minute: "2-digit",
+		});
 		expect(
-			page.getByLabelText(
-				"Week of 2026-10-12: questions per task 0.5, of 2 tasks",
-			),
+			page.getByLabelText(`${at}: questions per task 0.5, of 2 tasks`),
 		).toBeTruthy();
+		expect(page.getAllByText("Now")).toHaveLength(2);
 		expect(page.getByRole("cell", { name: "Opus 5.5" })).toBeTruthy();
 	});
 
-	it("says on each card how its figure moved since the weeks before", async () => {
+	it("says on each card how its figure moved since the span before", async () => {
 		const stats: Stats = {
-			weeks: [{ start: "2026-10-12", ...tally, merged: 10, questionRounds: 5 }],
+			buckets: [
+				{
+					start: "2026-10-14T12:00:00.000Z",
+					...tally,
+					merged: 10,
+					questionRounds: 5,
+				},
+			],
 			previous: { ...tally, merged: 10, questionRounds: 10 },
 			models: [],
 			projects: [],
@@ -59,13 +70,13 @@ describe("StatsPage", () => {
 
 		await waitFor(() => page.getByLabelText("Questions per task"));
 		expect(page.getByLabelText("Questions per task").textContent).toContain(
-			"Down from 1.0 the 12 weeks before: better",
+			"Down from 1.0 the 7 days before: better",
 		);
 	});
 
 	it("says nothing has ended yet, before any task has", async () => {
 		const empty: Stats = {
-			weeks: [],
+			buckets: [],
 			previous: null,
 			models: [],
 			projects: [],
@@ -80,9 +91,9 @@ describe("StatsPage", () => {
 	});
 
 	it("looks at the period picked, and says which", async () => {
-		const asked: (number | null)[] = [];
+		const asked: PeriodId[] = [];
 		const stats: Stats = {
-			weeks: [{ start: "2026-10-12", ...tally }],
+			buckets: [{ start: "2026-10-12T00:00:00.000Z", ...tally }],
 			previous: null,
 			models: [],
 			projects: [],
@@ -93,8 +104,8 @@ describe("StatsPage", () => {
 			<StatsPage
 				report={
 					new StatsReport({
-						stats: async (weeks) => {
-							asked.push(weeks);
+						stats: async (period) => {
+							asked.push(period);
 							return stats;
 						},
 					})
@@ -112,10 +123,11 @@ describe("StatsPage", () => {
 					.getAttribute("aria-pressed"),
 			).toBe("true"),
 		);
-		expect(asked).toEqual([12, null]);
+		expect(asked).toEqual(["7d", "all"]);
 		expect(page.getByText("Tasks ended").parentElement?.textContent).toContain(
 			"all time",
 		);
+		expect(page.getAllByText("This week")).toHaveLength(2);
 		// Its axis tops out at a round number above the one week's 0.5.
 		expect(page.getByText("0.25")).toBeTruthy();
 	});

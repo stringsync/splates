@@ -27,7 +27,7 @@ import type { Projects } from "./projects";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
 import { arborHome } from "./roster";
-import { summarize } from "./stats";
+import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
@@ -233,16 +233,18 @@ export async function dev(
 	// Every project's, from the record the CLI writes as each task ends, so
 	// one that is not open here still counts.
 	const outcomes = new Outcomes(`${arborHome(ps)}/outcomes.jsonl`, fs);
-	// `?weeks=` names the period, `all` for all time; 12 weeks for none.
+	// `?period=` names the period, as `PERIODS` does, or `all` for all time;
+	// 7 days for none.
 	const listStats = async (request: Request): Promise<Response> => {
-		const asked = new URL(request.url).searchParams.get("weeks") ?? "12";
-		const weeks = asked === "all" ? null : Number(asked);
-		if (weeks !== null && !(Number.isInteger(weeks) && weeks > 0)) {
-			fail("usage", `weeks is a whole number of weeks, or all: not ${asked}`, {
-				weeks: asked,
-			});
+		const period = new URL(request.url).searchParams.get("period") ?? "7d";
+		if (!isPeriodId(period)) {
+			fail(
+				"usage",
+				`period is one of ${[...Object.keys(PERIODS), "all"].join(", ")}: not ${period}`,
+				{ period },
+			);
 		}
-		return Response.json(summarize(await outcomes.list(), { weeks }));
+		return Response.json(summarize(await outcomes.list(), { period }));
 	};
 
 	const requested = await ports.get();

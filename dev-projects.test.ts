@@ -140,7 +140,8 @@ describe("dev", () => {
 					{ project: other.root, removed: 1, questionRounds: 1 },
 				]);
 				expect(
-					(await fetch(`http://localhost:${port}/api/stats?weeks=soon`)).status,
+					(await fetch(`http://localhost:${port}/api/stats?period=soon`))
+						.status,
 				).toBe(400);
 			});
 		});

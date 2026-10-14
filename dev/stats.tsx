@@ -8,12 +8,12 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import {
 	type Axis,
+	type Bucket,
 	decimal,
 	PERIODS,
 	percent,
 	type Row,
 	type StatsReport,
-	type Week,
 } from "./stats-report";
 
 /**
@@ -27,7 +27,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		empty,
 		period,
 		tiles,
-		weeks,
+		buckets,
 		questionsAxis,
 		shareAxis,
 		models,
@@ -42,7 +42,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 			empty: report.empty,
 			period: report.period,
 			tiles: report.tiles,
-			weeks: report.weeks,
+			buckets: report.buckets,
 			questionsAxis: report.questionsAxis,
 			shareAxis: report.shareAxis,
 			models: report.models,
@@ -106,10 +106,10 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 								</span>
 								<span className="text-muted-foreground text-xs tabular-nums">
 									{tile.was === null
-										? period.weeks === null
+										? period.span === null
 											? "all time"
-											: `last ${period.label}`
-										: `was ${tile.was} the ${period.label} before`}
+											: `last ${period.span}`
+										: `was ${tile.was} the ${period.span} before`}
 								</span>
 							</div>
 						))}
@@ -145,15 +145,17 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 					</section>
 					<Trend
 						title="Questions per task"
-						weeks={weeks}
-						value={(week) => week.questionsPerTask}
+						buckets={buckets}
+						weekly={period.id === "all"}
+						value={(bucket) => bucket.questionsPerTask}
 						shown={decimal}
 						axis={questionsAxis}
 					/>
 					<Trend
 						title="Merged without questions"
-						weeks={weeks}
-						value={(week) => week.cleanShare}
+						buckets={buckets}
+						weekly={period.id === "all"}
+						value={(bucket) => bucket.cleanShare}
 						shown={percent}
 						axis={shareAxis}
 					/>
@@ -172,19 +174,22 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 }
 
 /**
- * One figure week by week, a bar each, the oldest on the left, against a
- * y-axis marked at 0, halfway and its top.
+ * One figure bar by bar, the oldest on the left, against a y-axis marked at
+ * 0, halfway and its top.
  */
 function Trend({
 	title,
-	weeks,
+	buckets,
+	weekly,
 	value,
 	shown,
 	axis,
 }: {
 	title: string;
-	weeks: Week[];
-	value: (week: Week) => number | null;
+	buckets: Bucket[];
+	/** Whether a bar is a week, so the newest is "This week" rather than "Now". */
+	weekly: boolean;
+	value: (bucket: Bucket) => number | null;
 	shown: (value: number) => string;
 	axis: Axis;
 }): JSX.Element {
@@ -216,14 +221,14 @@ function Trend({
 							style={{ bottom: `${(tick.at / axis.max) * 100}%` }}
 						/>
 					))}
-					{weeks.map((week) => {
-						const figure = value(week);
+					{buckets.map((bucket) => {
+						const figure = value(bucket);
 						const label =
 							figure === null
-								? `Week of ${week.start}: no tasks ended`
-								: `Week of ${week.start}: ${title.toLowerCase()} ${shown(figure)}, of ${week.ended} task${week.ended === 1 ? "" : "s"}`;
+								? `${bucket.label}: no tasks ended`
+								: `${bucket.label}: ${title.toLowerCase()} ${shown(figure)}, of ${bucket.ended} task${bucket.ended === 1 ? "" : "s"}`;
 						return (
-							<Tooltip key={week.start}>
+							<Tooltip key={bucket.start}>
 								<TooltipTrigger
 									render={<div />}
 									aria-label={label}
@@ -249,8 +254,8 @@ function Trend({
 				</div>
 			</div>
 			<div className="flex justify-between pl-11 text-muted-foreground text-xs tabular-nums">
-				<span>Week of {weeks[0]?.start}</span>
-				<span>This week</span>
+				<span>{buckets[0]?.label}</span>
+				<span>{weekly ? "This week" : "Now"}</span>
 			</div>
 		</figure>
 	);

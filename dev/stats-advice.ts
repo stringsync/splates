@@ -10,19 +10,19 @@ export interface Advice {
 	/** What to change, given the figure; null when nothing stands out. */
 	act: string | null;
 	/**
-	 * How the figure moved since the as many weeks before, and whether that is
+	 * How the figure moved since the as long a span before, and whether that is
 	 * better; null for all time, or with too little before to compare.
 	 */
 	trend: string | null;
 }
 
-/** What `advise` reads: the period, the weeks before it, and its systems. */
+/** What `advise` reads: the period, the span before it, and its systems. */
 export interface AdviseInput {
 	period: Tally;
-	/** The as many weeks before; null for all time, which has nothing before. */
+	/** The as long a span before; null for all time, which has nothing before. */
 	previous: Tally | null;
 	systems: { system: string | null; tally: Tally }[];
-	/** The period's name, for "the 12 weeks before". */
+	/** The period's name, for "the 7 days before". */
 	span: string;
 }
 
@@ -81,7 +81,7 @@ interface Measure {
 	apart?: string;
 }
 
-/** The weeks before the period, which each figure is compared with. */
+/** The span before the period, which each figure is compared with. */
 class Before {
 	constructor(
 		private readonly tally: Tally | null,
@@ -90,7 +90,7 @@ class Before {
 
 	/**
 	 * How `measure` moved into `period`, every figure here being better lower:
-	 * `Down from 18% the 12 weeks before: better`.
+	 * `Down from 18% the 7 days before: better`.
 	 */
 	trend(period: Tally, measure: Measure): string | null {
 		const now = measure.of(period);
