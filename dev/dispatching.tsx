@@ -87,9 +87,8 @@ export function OnIt({
 				if (conversation === null) {
 					return null;
 				}
-				// Beside a spinner, that it is being worked on is all there is to
-				// say; rows keep the logo, which goes with the name there.
-				const icon = (!spins(need) || variant === "rows") && (
+				// Only rows, with room for the name, show whose agent it is.
+				const icon = variant === "rows" && (
 					<AgentIcon
 						agent={conversation.agent}
 						name={dispatch.agentName(conversation.agent)}
@@ -127,7 +126,7 @@ export function OnIt({
 							</span>
 						)}
 						{stopped ? (
-							<span className="flex items-center gap-0.5 text-xs">
+							<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs">
 								<PlayIcon className="size-3" />
 								Resume
 							</span>
