@@ -43,6 +43,7 @@ import { Drafts } from "./drafts";
 import { Feed } from "./feed";
 import { Held } from "./handed-out";
 import { ShortcutSettings } from "./hooks/use-shortcut";
+import { Notifications } from "./notifications";
 import { OpenerContext, openerOf } from "./openers";
 import { type Page, PageShortcuts, usePageRoute } from "./page-route";
 import { listProjects, restartIdle } from "./project-api";
@@ -274,6 +275,15 @@ export function App({
 	return (
 		<Held value={conversations}>
 			<Lanes value={searched.lanes}>
+				{/* Here rather than in the sidebar's list, which a phone has none of. */}
+				{available && snapshot !== null && (
+					<Notifications
+						feed={talk}
+						tasks={snapshot.tasks}
+						settings={settings}
+						onOpen={(id) => go("conversations", id)}
+					/>
+				)}
 				<Dispatching value={dispatching}>
 					<Trunk value={snapshot?.trunk ?? null}>
 						<ReviewChanges value={review}>
@@ -346,7 +356,6 @@ export function App({
 																	talk={talk}
 																	terminals={terminals}
 																	drafts={drafts}
-																	settings={settings}
 																	sidebar={sidebar}
 																/>
 															</>

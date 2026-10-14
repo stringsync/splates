@@ -273,6 +273,8 @@ export async function dev(
 			"/": asset(assets.shell, "text/html; charset=utf-8"),
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
+			// At the root, so its scope is the whole page.
+			"/worker.js": asset(assets.worker, "text/javascript; charset=utf-8"),
 			"/manifest.webmanifest": asset(
 				assets.manifest,
 				"application/manifest+json; charset=utf-8",

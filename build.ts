@@ -24,10 +24,13 @@ const out = `${here}/dev/build`;
 /** The app icon's sizes, the two a manifest needs for an install. */
 const ICON_SIZES = [192, 512] as const;
 
-/** The browser script, as one file with React and the page's modules in it. */
-async function script(): Promise<string> {
+/**
+ * A browser script, as one file with what it imports in it: the page's, with
+ * React and its modules, or the service worker's.
+ */
+async function script(entry: string): Promise<string> {
 	const built = await Bun.build({
-		entrypoints: [`${here}/dev/main.tsx`],
+		entrypoints: [`${here}/dev/${entry}`],
 		target: "browser",
 		// React's production build: the development one is several times the
 		// size, slower, and asks the person on the page to install DevTools.
@@ -106,7 +109,8 @@ await Bun.write(
 	`${out}/shell.txt`,
 	await Bun.file(`${here}/dev/index.html`).text(),
 );
-await Bun.write(`${out}/main.txt`, await script());
+await Bun.write(`${out}/main.txt`, await script("main.tsx"));
+await Bun.write(`${out}/worker.txt`, await script("worker.ts"));
 await Bun.write(`${out}/styles.txt`, await styles());
 await Bun.write(
 	`${out}/manifest.txt`,

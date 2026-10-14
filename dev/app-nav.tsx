@@ -11,7 +11,7 @@ import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
-import type { Settings, ShortcutKey } from "./settings";
+import type { ShortcutKey } from "./settings";
 import { SidebarHandle, type SidebarWidth } from "./sidebar";
 import type { Terminals } from "./terminals";
 
@@ -34,7 +34,6 @@ export function AppNav({
 	talk,
 	terminals,
 	drafts,
-	settings,
 	sidebar,
 }: {
 	wide: boolean;
@@ -50,7 +49,6 @@ export function AppNav({
 	talk: ConversationFeed;
 	terminals: Terminals;
 	drafts: Drafts;
-	settings: Settings;
 	sidebar: SidebarWidth;
 }): JSX.Element {
 	const held = useHeld();
@@ -129,7 +127,6 @@ export function AppNav({
 							terminals={terminals}
 							drafts={drafts}
 							tasks={snapshot.tasks}
-							settings={settings}
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>

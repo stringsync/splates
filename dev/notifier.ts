@@ -1,6 +1,8 @@
 import { Duration, SystemTimer } from "webappwiz/time";
 import type { Needing } from "../needs";
+import { openedBy } from "./conversation-rows";
 import type { Settings } from "./settings";
+import type { Opening } from "./worker";
 
 /** Something a row did worth telling the person about, away from the page. */
 export interface Notice {
@@ -92,9 +94,11 @@ export class Notifier {
 
 	/**
 	 * Shows `notices` as browser notifications, while on and, unless the
-	 * settings say otherwise, the page is not in front of the person, each
-	 * opening its row with `open` when clicked; with a sound once when it is
-	 * on.
+	 * settings say otherwise, the page is not in front of the person; with a
+	 * sound once when it is on. Each goes through the page's service worker
+	 * where one is registered, since a phone shows them no other way, and its
+	 * click comes back as a message `useNotifier` opens the row for; without
+	 * one, as a plain notification, opening its row with `open` when clicked.
 	 */
 	show(notices: Notice[], open: (row: Needing) => void): void {
 		if (
@@ -105,16 +109,7 @@ export class Notifier {
 			return;
 		}
 		for (const notice of notices) {
-			const shown = new Notification(notice.title, {
-				body: notice.body,
-				// One per row: a newer one replaces what it said before.
-				tag: keyOf(notice.row),
-			});
-			shown.onclick = () => {
-				window.focus();
-				open(notice.row);
-				shown.close();
-			};
+			post(notice, open);
 		}
 		if (this.settings.get("notifications.sound")) {
 			chime();
@@ -122,7 +117,52 @@ export class Notifier {
 	}
 }
 
-function keyOf(row: Needing): string {
+/**
+ * Shows `notice` through the page's service worker, or else on its own,
+ * at once where the browser has no workers at all.
+ */
+function post(notice: Notice, open: (row: Needing) => void): void {
+	const workers = navigator.serviceWorker;
+	if (workers === undefined) {
+		alone(notice, open);
+		return;
+	}
+	void workers.getRegistration().then((registration) => {
+		if (registration === undefined) {
+			alone(notice, open);
+			return;
+		}
+		const data: Opening = {
+			key: keyOf(notice.row),
+			url: `${location.origin}${location.pathname}${location.search}#conversations/${openedBy(notice.row)}`,
+		};
+		return registration.showNotification(notice.title, {
+			...optionsOf(notice),
+			data,
+		});
+	});
+}
+
+/** Shows `notice` as the page's own notification, opening its row with `open` on a click. */
+function alone(notice: Notice, open: (row: Needing) => void): void {
+	const shown = new Notification(notice.title, optionsOf(notice));
+	shown.onclick = () => {
+		window.focus();
+		open(notice.row);
+		shown.close();
+	};
+}
+
+function optionsOf(notice: Notice): NotificationOptions {
+	return {
+		body: notice.body,
+		// One per row: a newer one replaces what it said before.
+		tag: keyOf(notice.row),
+	};
+}
+
+/** What tells `row` apart from the others, in a notification and its click. */
+export function keyOf(row: Needing): string {
 	return row.conversation !== null
 		? `conversation ${row.conversation.id}`
 		: `task ${row.task?.task}`;

@@ -4,6 +4,7 @@ import script from "./build/main.txt" with { type: "text" };
 import manifest from "./build/manifest.txt" with { type: "text" };
 import shell from "./build/shell.txt" with { type: "text" };
 import styles from "./build/styles.txt" with { type: "text" };
+import worker from "./build/worker.txt" with { type: "text" };
 
 /** The files the browser asks for, as the server hands them over. */
 export interface Assets {
@@ -13,6 +14,8 @@ export interface Assets {
 	script: string;
 	/** The stylesheet, with Tailwind already compiled. */
 	styles: string;
+	/** The service worker, through which a phone shows notifications. */
+	worker: string;
 	/** The web app manifest, which makes the page installable as an app. */
 	manifest: string;
 	/** The app icon as PNG, at 192px and 512px square. */
@@ -24,6 +27,7 @@ export const assets: Assets = {
 	shell,
 	script,
 	styles,
+	worker,
 	manifest,
 	icons: {
 		192: Uint8Array.fromBase64(icon192),

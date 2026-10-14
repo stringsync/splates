@@ -42,6 +42,10 @@ document.addEventListener(
 // the pinch itself. gesturestart is WebKit's alone; elsewhere it never fires.
 document.addEventListener("gesturestart", (event) => event.preventDefault());
 
+// The worker a phone shows notifications through. A browser only allows one
+// on https or localhost; elsewhere, notifications fall back to the page's own.
+void navigator.serviceWorker?.register("/worker.js").catch(() => {});
+
 createRoot(root).render(
 	<StrictMode>
 		<App settings={settings} />

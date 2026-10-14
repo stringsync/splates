@@ -22,7 +22,6 @@ import { composerIn } from "./composer-editor";
 import { ARCHIVED, agentFor, NEW, startsOne } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
-import { useNameOf } from "./conversation-names";
 import {
 	copiedFor,
 	flatten,
@@ -44,9 +43,7 @@ import {
 } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
 import { External, Rows, TerminalRow } from "./list-rows";
-import { useNotifier } from "./notifications";
 import { nest } from "./parts";
-import type { Settings } from "./settings";
 import { arriveAt, TASK, useCopiedReplies } from "./task-view";
 import { numberOf, type Terminals } from "./terminals";
 import { WaitingLine } from "./waiting-line";
@@ -70,15 +67,12 @@ const DIGITS = 10;
  * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
  * Under New, `NextWaiting` says how many wait on you, opening the
  * next as ⌥⌘M does.
- * As `settings` say, it notifies of an agent that comes to wait on you,
- * finishes its turn, or goes quiet.
  */
 export function ConversationList({
 	feed,
 	terminals,
 	drafts,
 	tasks,
-	settings,
 	open,
 	onOpen,
 }: {
@@ -88,8 +82,6 @@ export function ConversationList({
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
 	tasks: Details[];
-	/** What to notify of, or null for a list that notifies of nothing. */
-	settings: Settings | null;
 	/** The conversation shown, by id, or `ARCHIVED`. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
@@ -105,7 +97,6 @@ export function ConversationList({
 		["changed"],
 	);
 
-	const nameOf = useNameOf();
 	const listed = conversations.filter((each) => !each.archived);
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);
@@ -121,13 +112,6 @@ export function ConversationList({
 			onOpen(`${TASK}${row.task.task}`);
 		}
 	};
-	useNotifier(
-		settings,
-		rows,
-		(row) =>
-			(row.conversation ? nameOf(row.conversation) : row.task?.task) ?? "",
-		openRow,
-	);
 	// The latest, for the listener below, which outlives a render.
 	const openRowRef = useRef(openRow);
 	openRowRef.current = openRow;

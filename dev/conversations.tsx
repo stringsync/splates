@@ -140,9 +140,6 @@ export function Conversations({
 						terminals={terminals}
 						drafts={drafts}
 						tasks={tasks}
-						// A phone's browser notifies only from a service worker, and
-						// this list comes and goes with what is open.
-						settings={null}
 						open={open}
 						onOpen={onOpen}
 					/>
