@@ -5,6 +5,7 @@ import {
 	conversation,
 	fireEvent,
 	menuItem,
+	newWith,
 	Testing,
 	within,
 } from "./testing";
@@ -56,5 +57,21 @@ describe("App on a touch device", () => {
 				.getAllByRole("button")
 				.map((each) => each.textContent),
 		).toEqual(["Appearance", "Editor", "Notifications", "Restart"]);
+	});
+
+	it("leaves the composer for a tap, in a conversation opened or new", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Latest" })],
+			"c1",
+		);
+		const opened = view.getByRole("textbox", { name: "Message input" });
+		// Not the element, whose printout on a failure overwhelms Bun.
+		expect(document.activeElement === opened).toBe(false);
+
+		await newWith(view, "Codex");
+		const started = within(
+			view.getByRole("region", { name: "new conversation" }),
+		).getByRole("textbox", { name: "Message input" });
+		expect(document.activeElement === started).toBe(false);
 	});
 });

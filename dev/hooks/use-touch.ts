@@ -4,8 +4,8 @@ import { useSyncExternalStore } from "react";
 const TOUCH = "(pointer: coarse)";
 
 /**
- * Whether the page is on a touch device, where keyboard shortcuts go unshown,
- * following it as it changes.
+ * Whether the page is on a touch device, where keyboard shortcuts go unshown
+ * and the composer waits to be tapped, following it as it changes.
  */
 export function useTouch(): boolean {
 	return useSyncExternalStore(

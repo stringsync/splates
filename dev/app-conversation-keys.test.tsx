@@ -266,17 +266,21 @@ describe("App's sidebar keys", () => {
 				{ name: "Message input" },
 			);
 
-		for (const agent of ["Codex", "Codex"]) {
+		// Picked twice: the second time, the conversation is already open.
+		const pick = async () => {
 			view.getByRole("button", { name: "New" }).focus();
-			await newWith(view, agent);
-			// Not `toBe` the element, whose printout on a failure overwhelms Bun.
-			expect(document.activeElement === composer()).toBe(true);
-			expect(
-				within(
-					view.getByText("Start a conversation with")
-						.parentElement as HTMLElement,
-				).getByLabelText(agent),
-			).toBeTruthy();
-		}
+			await newWith(view, "Codex");
+			return {
+				// Not the element, whose printout on a failure overwhelms Bun.
+				focused: document.activeElement === composer(),
+				shown:
+					within(
+						view.getByText("Start a conversation with")
+							.parentElement as HTMLElement,
+					).queryByLabelText("Codex") !== null,
+			};
+		};
+		const picked = { focused: true, shown: true };
+		expect([await pick(), await pick()]).toEqual([picked, picked]);
 	});
 });

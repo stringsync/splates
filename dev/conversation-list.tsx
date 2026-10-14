@@ -42,6 +42,7 @@ import {
 	useShortcut,
 	useShortcutLabel,
 } from "./hooks/use-shortcut";
+import { useTouch } from "./hooks/use-touch";
 import { External, Rows, TerminalRow } from "./list-rows";
 import { useNotifier } from "./notifications";
 import { nest } from "./parts";
@@ -145,6 +146,7 @@ export function ConversationList({
 	];
 	// Whether the New menu last closed on an agent, which its focus follows.
 	const picked = useRef(false);
+	const touch = useTouch();
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -236,12 +238,15 @@ export function ConversationList({
 						align="start"
 						className="w-44"
 						// Into the composer of the conversation picked, ready to type, rather
-						// than back to New; otherwise as usual.
+						// than back to New, unless a finger is to tap it; otherwise as usual.
 						finalFocus={() => {
 							if (!picked.current) {
 								return true;
 							}
 							picked.current = false;
+							if (touch) {
+								return true;
+							}
 							const section = document.querySelector(
 								'section[aria-label="new conversation"]',
 							);
