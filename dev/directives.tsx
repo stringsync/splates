@@ -63,7 +63,6 @@ function about(
 	directive: string,
 	board: BoardContext,
 ): {
-	icon: LucideIcon;
 	kind: string;
 	name: string;
 	open?: (() => void) | undefined;
@@ -75,7 +74,6 @@ function about(
 			const id = Number(argument.replace("#", ""));
 			const todo = board.todos.find((each) => each.id === id);
 			return {
-				icon: ListTodoIcon,
 				kind: `Todo ${argument}`,
 				name: todo?.subject ?? "",
 				open: todo === undefined ? undefined : () => board.open(id),
@@ -83,18 +81,16 @@ function about(
 		}
 		case "LANE": {
 			if (argument === UNTRIAGED) {
-				return { icon: ColumnsIcon, kind: "Untriaged", name: "" };
+				return { kind: "Untriaged", name: "" };
 			}
 			const id = Number(argument);
 			return {
-				icon: ColumnsIcon,
 				kind: `Lane ${argument}`,
 				name: board.lanes.find((each) => each.id === id)?.name ?? "",
 			};
 		}
 		case "TASK":
 			return {
-				icon: GitBranchIcon,
 				kind: "Task",
 				name: argument,
 				open: board.tasks.includes(argument)
@@ -103,7 +99,6 @@ function about(
 			};
 		default:
 			return {
-				icon: TreePineIcon,
 				kind: kind.charAt(0) + kind.slice(1).toLowerCase(),
 				name: argument,
 			};
@@ -111,8 +106,9 @@ function about(
 }
 
 /**
- * A directive as the composer shows it: what it is about, named from the
- * board, the directive itself in its title. Given `opens`, as in a sent
+ * A directive as the composer shows it: under the tree-pine every directive
+ * chip shares, what it is about, named from the board, the directive itself
+ * in its title. Given `opens`, as in a sent
  * message, a tap opens the todo or task it names; given `inline`, it sits in
  * a line of text.
  */
@@ -126,10 +122,10 @@ export function DirectiveChip({
 	inline?: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
-	const { icon, kind, name, open } = about(directive, board);
+	const { kind, name, open } = about(directive, board);
 	return (
 		<ReferenceChip
-			Icon={icon}
+			Icon={TreePineIcon}
 			kind={kind}
 			name={name}
 			title={directive}
@@ -144,10 +140,13 @@ const CARDED = /^\[ARBOR (TODO|LANE|TASK) (#\d+|\d+|[^\]\s]+)\]$/;
 
 /** How the card for each kind of directive in `CARDED` says what it asked. */
 const CARDS = {
-	TODO: { title: "Todo", asked: "take" },
-	LANE: { title: "Lane", asked: "work down" },
-	TASK: { title: "Task", asked: "claim" },
-} as const satisfies Record<string, { title: string; asked: string }>;
+	TODO: { title: "Todo", Icon: ListTodoIcon, asked: "take" },
+	LANE: { title: "Lane", Icon: ColumnsIcon, asked: "work down" },
+	TASK: { title: "Task", Icon: GitBranchIcon, asked: "claim" },
+} as const satisfies Record<
+	string,
+	{ title: string; Icon: LucideIcon; asked: string }
+>;
 
 /**
  * The directive that `text` holds and nothing else, when it is one a card
@@ -165,9 +164,8 @@ export function soleDirective(text: string): string | null {
 
 /**
  * A message of `directive` alone, read by `soleDirective`, as a card saying
- * what it asked of the agent, in place of the message, under the tree-pine
- * every directive card shares: for a todo, a lane, or a task, its chip, which
- * opens a todo still on the board or a live task.
+ * what it asked of the agent, in place of the message: for a todo, a lane, or
+ * a task, its chip, which opens a todo still on the board or a live task.
  */
 export function DirectiveCard({
 	directive,
@@ -179,7 +177,7 @@ export function DirectiveCard({
 		return (
 			<CardShell
 				label={bare.label.toLowerCase()}
-				Icon={TreePineIcon}
+				Icon={bare.icon}
 				title={bare.label}
 				tone={bare.tone}
 			>
@@ -194,14 +192,14 @@ export function DirectiveCard({
 	if (kind === undefined) {
 		return null;
 	}
-	const { title, asked } =
+	const { title, Icon, asked } =
 		argument === UNTRIAGED
-			? { title: "Lane", asked: "triage and work down" }
+			? { title: "Lane", Icon: ColumnsIcon, asked: "triage and work down" }
 			: CARDS[kind as keyof typeof CARDS];
 	return (
 		<CardShell
 			label={`${asked} ${title.toLowerCase()} ${argument}`}
-			Icon={TreePineIcon}
+			Icon={Icon}
 			title={title}
 		>
 			<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">

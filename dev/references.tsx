@@ -1,10 +1,13 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
+	BookmarkIcon,
 	ColumnsIcon,
 	GitBranchIcon,
+	GitMergeIcon,
 	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	PlayIcon,
 	TreePineIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
@@ -58,24 +61,28 @@ export const BARE_DIRECTIVES = [
 		directive: CHECKPOINT,
 		label: "Checkpoint",
 		about: "update ARBOR.md and stop",
+		icon: BookmarkIcon,
 		tone: "neutral",
 	},
 	{
 		directive: RESUME,
 		label: "Resume",
 		about: "carry on from ARBOR.md",
+		icon: PlayIcon,
 		tone: "neutral",
 	},
 	{
 		directive: MERGE,
 		label: "Merge",
 		about: "merge the task it had reviewed",
+		icon: GitMergeIcon,
 		tone: "success",
 	},
 ] as const satisfies {
 	directive: string;
 	label: string;
 	about: string;
+	icon: LucideIcon;
 	tone: Tone;
 }[];
 
