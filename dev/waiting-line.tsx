@@ -1,8 +1,7 @@
-import { CircleCheckIcon } from "lucide-react";
+import { CircleAlertIcon, CircleCheckIcon } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import { Dot } from "./dot";
 
 /** How long the line blinks once ⌥⌘M finds nothing: three blinks of `animate-blink`. */
 const NUDGE = Duration.ms(600);
@@ -54,7 +53,7 @@ export function WaitingLine({
 				/>
 			)}
 			{waiting > 0 ? (
-				<Dot aria-hidden color="bg-warning" />
+				<CircleAlertIcon className="size-3.5 text-warning" />
 			) : (
 				<CircleCheckIcon className="size-3.5" />
 			)}
