@@ -216,7 +216,7 @@ export const SETTINGS = {
 	),
 	"shortcuts.waiting": shortcut(
 		"Next waiting on you",
-		"Open the next conversation waiting on you, or else the next unread one.",
+		"Open the next conversation waiting on you, or else the next merged, then unread, one.",
 		"Alt+Mod+KeyM",
 	),
 	"shortcuts.next": shortcut(

@@ -209,7 +209,7 @@ Cap upload retries
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
-	it("opens merged conversations with ⌥⌘M once none waits on you, then unread ones", async () => {
+	it("opens merged conversations with ⌥⌘M once none but the open one waits on you", async () => {
 		const merged = (id: string) =>
 			conversation({
 				id,
@@ -237,7 +237,10 @@ Cap upload retries
 			);
 		await press();
 		expect(location.hash).toBe("#conversations/c3");
-		// The one asking still comes first, from wherever you are.
+		// On the one asking, it moves on to a merged one, as from an escalated task.
+		await press();
+		expect(location.hash).toBe("#conversations/c4");
+		// The one asking still comes first from anywhere else.
 		await press();
 		expect(location.hash).toBe("#conversations/c3");
 	});

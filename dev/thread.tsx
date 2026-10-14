@@ -91,7 +91,7 @@ export function Thread({
 	refusal: string | null;
 	refuseIn: (id: string, title: string, error: unknown) => void;
 	/**
-	 * Once it is archived, to go on to the next agent waiting on you, or a new
+	 * Once it is archived, to go on to what ⌥⌘M would open, or a new
 	 * conversation with none.
 	 */
 	onLeft: () => void;

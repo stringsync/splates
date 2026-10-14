@@ -182,7 +182,7 @@ describe("App's archiving conversations", () => {
 		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
 	});
 
-	it("archives on ⌥⌘⌫ to a new conversation past merged and unread ones, which only ⌥⌘M opens", async () => {
+	it("archives on ⌥⌘⌫ to a merged conversation with none waiting, as ⌥⌘M would", async () => {
 		await testing.openConversations([
 			conversation({ id: "c1", title: "Done", status: "stopped" }),
 			conversation({
@@ -203,7 +203,7 @@ describe("App's archiving conversations", () => {
 		expect(location.hash).toBe("#conversations/c1");
 
 		await pressArchive();
-		await waitFor(() => expect(location.hash).toBe("#conversations/new"));
+		await waitFor(() => expect(location.hash).toBe("#conversations/c2"));
 	});
 
 	it("leaves an archived conversation archived on ⌥⌘⌫", async () => {

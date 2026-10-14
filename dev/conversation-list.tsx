@@ -381,7 +381,7 @@ function NextWaiting({
 	// The latest, for the listener below, which outlives a render.
 	const next = useRef(() => {});
 	next.current = () => {
-		const waiting = nextWaiting(rows, drafts, open, true);
+		const waiting = nextWaiting(rows, drafts, open);
 		if (waiting !== undefined) {
 			arriveAt(openedBy(waiting));
 			onOpen(openedBy(waiting));

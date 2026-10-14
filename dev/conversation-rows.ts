@@ -45,29 +45,32 @@ export function openedBy(row: Needing): string {
 }
 
 /**
- * The next of `rows` that waits on you after the one `open` shows, around to
- * the top, or with `settled` and none waiting, the next merged one, then the
- * next unread one: what ⌥⌘M opens. The one open comes last, so ⌥⌘M on the
- * only one waiting goes back to its questions.
+ * The next of `rows` after the one `open` shows, around to the top, that
+ * waits on you, or with none waiting, the next merged one, then the next
+ * unread one: what ⌥⌘M opens, and archiving goes on to. The one open is
+ * passed over, so ⌥⌘M on an escalated task moves on, and comes back to its
+ * questions only when nothing else is left.
  */
 export function nextWaiting(
 	rows: Needing[],
 	drafts: Drafts,
 	open: string | null,
-	settled = false,
 ): Needing | undefined {
 	const at = rows.findIndex((row) => openedBy(row) === open);
-	const around = [...rows.slice(at + 1), ...rows.slice(0, at + 1)];
-	const waiting = around.find((row) => waitsOnYou(row, drafts));
-	if (waiting !== undefined || !settled) {
-		return waiting;
-	}
-	return around.find(wasMerged) ?? around.find(isUnread);
+	const others = [...rows.slice(at + 1), ...rows.slice(0, at + 1)].filter(
+		(row) => openedBy(row) !== open,
+	);
+	return (
+		others.find((row) => waitsOnYou(row, drafts)) ??
+		others.find(wasMerged) ??
+		others.find(isUnread) ??
+		rows.find((row) => openedBy(row) === open && waitsOnYou(row, drafts))
+	);
 }
 
 /**
- * Once the conversation `open` shows is archived, on to the next agent
- * waiting on you, or a new conversation with none.
+ * Once the conversation `open` shows is archived, on to what ⌥⌘M would open,
+ * or a new conversation with none.
  */
 export function goOn(
 	rows: Needing[],
@@ -75,12 +78,12 @@ export function goOn(
 	open: string | null,
 	onOpen: (id: string) => void,
 ): void {
-	const waiting = nextWaiting(rows, drafts, open);
-	if (waiting === undefined || openedBy(waiting) === open) {
+	const next = nextWaiting(rows, drafts, open);
+	if (next === undefined || openedBy(next) === open) {
 		onOpen(NEW);
 	} else {
-		arriveAt(openedBy(waiting));
-		onOpen(openedBy(waiting));
+		arriveAt(openedBy(next));
+		onOpen(openedBy(next));
 	}
 }
 
