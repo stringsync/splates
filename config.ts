@@ -1,3 +1,5 @@
+import type { TunnelProvider } from "./tunnel-provider";
+
 export interface Config {
 	/**
 	 * The integration branch name. `merge` rebases a task onto this branch and
@@ -45,6 +47,11 @@ export interface Config {
 	 * together: a screen recording is the one thing here that grows fast.
 	 */
 	attachmentCapacity: number;
+	/**
+	 * What carries `arbor dev --tunnel` to its public host, a TunnelProvider
+	 * of your own for any tunnel; null runs `cloudflared`.
+	 */
+	tunnel: TunnelProvider | null;
 }
 
 /**

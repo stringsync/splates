@@ -1,26 +1,30 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import type { Child, Ps } from "webappwiz/system";
+import type { Ps } from "webappwiz/system";
+import { CloudflaredTunnelProvider } from "./cloudflared-tunnel-provider";
 import type { AccessConfig } from "./dev-access";
 import { fail } from "./exit";
+import type { TunnelProvider } from "./tunnel-provider";
 
-/** The Cloudflare tunnel `arbor dev` runs to reach the page from elsewhere. */
+/** The tunnel `arbor dev` runs to reach the page from elsewhere. */
 export interface TunnelConfig {
-	/** The public hostname the tunnel's DNS route points at. */
+	/** The public hostname the tunnel carries to the page. */
 	host: string;
-	/** The named tunnel to run, or null for the one `cloudflared`'s config names. */
-	name: string | null;
+	provider: TunnelProvider;
 }
 
 /**
  * The tunnel `--tunnel` and `--tunnel-name` ask for, or null when no host is
- * given. Refused without `access`, so a tunnel never exposes the page to
- * anyone Cloudflare Access has not let in.
+ * given, run by `custom`, the provider `arbor.config.ts` names, or else by
+ * `cloudflared`. Refused without `access`, so a tunnel never exposes the page
+ * to anyone Cloudflare Access has not let in.
  */
 export function tunnelConfig(
 	host: string,
 	name: string,
 	access: AccessConfig | null,
+	custom: TunnelProvider | null,
+	ps: Ps,
 ): TunnelConfig | null {
 	host = host.trim().toLowerCase();
 	name = name.trim();
@@ -46,85 +50,37 @@ export function tunnelConfig(
 			{ host },
 		);
 	}
-	return { host, name: name === "" ? null : name };
+	if (custom !== null && name !== "") {
+		fail(
+			"usage",
+			"--tunnel-name names a cloudflared tunnel, but arbor.config.ts gives its own tunnel provider",
+			{ name },
+		);
+	}
+	return {
+		host,
+		provider: custom ?? new CloudflaredTunnelProvider(ps, name || null),
+	};
 }
-
-/** What `cloudflared` prints once a connection to Cloudflare's edge is up. */
-const REGISTERED = "Registered tunnel connection";
-
-/** How much of `cloudflared`'s stderr is kept to explain how it died. */
-const STDERR_CHARS = 2_000;
 
 /**
- * A `cloudflared tunnel run` carrying `config.host` to `port` on this machine,
- * for as long as the server lives. One that cannot start or dies later is
- * logged, never fatal: the page still answers on this machine.
+ * Starts `tunnel` carrying its host to `url`, once the page listens. A provider
+ * that is not ready, or that cannot start, is logged and skipped, never fatal:
+ * the page still answers on this machine. The run is what to dispose of with
+ * the server, or null when there is none.
  */
-export class Tunnel implements AsyncResource {
-	private constructor(private readonly child: Child) {}
-
-	static start(
-		ps: Ps,
-		log: Logger,
-		config: TunnelConfig,
-		port: number,
-	): Tunnel {
-		const argv = [
-			"cloudflared",
-			"tunnel",
-			"--no-autoupdate",
-			"run",
-			"--url",
-			`http://localhost:${port}`,
-			...(config.name === null ? [] : [config.name]),
-		];
-		const child = ps.start(argv);
-		let tail = "";
-		const watched = (async () => {
-			const decoder = new TextDecoder();
-			let line = "";
-			for await (const chunk of child.stderr) {
-				const text = decoder.decode(chunk);
-				tail = (tail + text).slice(-STDERR_CHARS);
-				line += text;
-				const lines = line.split("\n");
-				line = lines.pop() ?? "";
-				if (lines.some((each) => each.includes(REGISTERED))) {
-					log.info(`arbor dev reachable at https://${config.host}`);
-				}
-			}
-		})().catch(() => {});
-		void (async () => {
-			let code: number;
-			try {
-				code = await child.exited;
-			} catch (error) {
-				log.error(
-					`cloudflared did not start: ${error instanceof Error ? error.message : String(error)}. Install it from https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ to use --tunnel.`,
-				);
-				return;
-			}
-			await watched;
-			// A stop the server asked for is no failure.
-			if (code === 0 || code === 143) {
-				return;
-			}
-			log.error(
-				`cloudflared exited with ${code}, so ${config.host} is not served.${hint(tail)}\n${tail.trim()}`,
-			);
-		})();
-		return new Tunnel(child);
+export async function startTunnel(
+	tunnel: TunnelConfig,
+	url: string,
+	log: Logger,
+): Promise<AsyncResource | null> {
+	try {
+		await tunnel.provider.ready();
+		return tunnel.provider.run({ host: tunnel.host, url, log });
+	} catch (error) {
+		log.error(
+			`${tunnel.host} is not served: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return null;
 	}
-
-	async disposeAsync(): Promise<void> {
-		this.child.kill();
-		await this.child.exited.catch(() => 0);
-	}
-}
-
-/** What to do about the way `cloudflared` said it failed. */
-function hint(stderr: string): string {
-	return /cert\.pem|credentials|origin certificate|login/i.test(stderr)
-		? " It is not logged in or lacks that tunnel's credentials: run `cloudflared tunnel login` and `cloudflared tunnel create`."
-		: "";
 }

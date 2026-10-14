@@ -18,7 +18,7 @@ import {
 } from "./dev-project";
 import { Restarts } from "./dev-restart";
 import { type TerminalData, Terminals } from "./dev-terminal";
-import { Tunnel, type TunnelConfig } from "./dev-tunnel";
+import { startTunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { fail } from "./exit";
 import type { Git } from "./git";
@@ -383,8 +383,10 @@ export async function dev(
 
 	log.info(`arbor dev on http://localhost:${port}`);
 	if (tunnel !== null) {
-		const carrying = Tunnel.start(ps, log, tunnel, port);
-		disposer.defer(() => carrying.disposeAsync());
+		const carrying = await startTunnel(tunnel, url, log);
+		if (carrying !== null) {
+			disposer.defer(() => carrying.disposeAsync());
+		}
 	}
 	const checks = versions.check();
 	disposer.defer(async () => checks.dispose());

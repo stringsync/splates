@@ -299,17 +299,23 @@ arbor
 	.option("tunnel", z.string(), {
 		default: "",
 		description:
-			"the public host name of a Cloudflare tunnel to run with cloudflared, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated",
+			"the public host name of a tunnel to run, with cloudflared or the tunnel provider arbor.config.ts names, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated",
 	})
 	.option("tunnel-name", z.string(), {
 		default: "",
 		description:
-			"the named tunnel cloudflared runs for --tunnel; by default the one its own config names",
+			"the named tunnel cloudflared runs for --tunnel, by default the one its own config names; not with a tunnel provider of arbor.config.ts",
 	})
 	.action(async (opts, ctx) => {
 		// Read before the child starts, so a half-given pair fails once.
 		const access = accessConfig(opts["access-team"], opts["access-aud"]);
-		const tunnel = tunnelConfig(opts.tunnel, opts["tunnel-name"], access);
+		const tunnel = tunnelConfig(
+			opts.tunnel,
+			opts["tunnel-name"],
+			access,
+			ctx.config.tunnel,
+			ctx.ps,
+		);
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
 			// A checkout's page is as its last `bun install` built it: installed
