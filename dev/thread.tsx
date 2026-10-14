@@ -27,7 +27,7 @@ import {
 import { chooseSetting } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Rename } from "./conversation-item";
-import { lastReport, nameOf, unnamed } from "./conversation-names";
+import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
@@ -152,6 +152,7 @@ export function Thread({
 			? report
 			: null;
 	const widgets = useWidgets(section);
+	const nameOf = useNameOf();
 	return (
 		<section
 			ref={section}
@@ -366,6 +367,7 @@ function ThreadHeader({
 }): JSX.Element {
 	const { archived } = conversation;
 	const [renaming, setRenaming] = useState(false);
+	const nameOf = useNameOf();
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
 	return (
 		<header className="flex min-h-9 items-center gap-2">

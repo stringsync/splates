@@ -1,4 +1,5 @@
 import type { ConversationState } from "../conversations";
+import type { LaneRecord } from "../lanes";
 import { goalLine } from "../plan";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
@@ -9,6 +10,8 @@ export interface Searched {
 	tasks: Details[];
 	todos: TodoState[];
 	conversations: ConversationState[];
+	/** Every lane, to name a lane's orchestrator after it. */
+	lanes: readonly LaneRecord[];
 }
 
 export type Kind = "task" | "conversation" | "todo";
@@ -66,7 +69,9 @@ export function search(query: string, searched: Searched): Group[] {
 	}
 	const candidates = [
 		...searched.tasks.map(taskOf),
-		...searched.conversations.map(conversationOf),
+		...searched.conversations.map((each) =>
+			conversationOf(each, searched.lanes),
+		),
 		...searched.todos.map(todoOf),
 	];
 	const groups: Group[] = [];
@@ -114,7 +119,10 @@ function taskOf(task: Details): Candidate {
 	};
 }
 
-function conversationOf(conversation: ConversationState): Candidate {
+function conversationOf(
+	conversation: ConversationState,
+	lanes: readonly LaneRecord[],
+): Candidate {
 	const said = conversation.messages
 		.flatMap((message) =>
 			message.parts.flatMap((part) =>
@@ -127,7 +135,7 @@ function conversationOf(conversation: ConversationState): Candidate {
 			kind: "conversation",
 			key: `conversation:${conversation.id}`,
 			conversation: conversation.id,
-			title: nameOf(conversation),
+			title: nameOf(conversation, lanes),
 			detail: conversation.archived ? "Archived" : null,
 			score: 0,
 			at: latest(conversation),
@@ -244,7 +252,7 @@ function unasked(searched: Searched): Group[] {
 		.filter((each) => !each.archived)
 		.map((each) => ({
 			waiting: each.ask !== null || each.unread,
-			...conversationOf(each),
+			...conversationOf(each, searched.lanes),
 		}));
 	const groups: Group[] = [
 		{

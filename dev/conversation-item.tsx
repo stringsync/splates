@@ -35,7 +35,12 @@ import {
 	markUnread,
 	renameConversation,
 } from "./conversation-api";
-import { nameOf, openingOf, reportedAs, unnamed } from "./conversation-names";
+import {
+	openingOf,
+	reportedAs,
+	unnamed,
+	useNameOf,
+} from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
@@ -68,6 +73,7 @@ export function Item({
 	hint?: string | null;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
+	const nameOf = useNameOf();
 	const [renaming, setRenaming] = useState(false);
 	const { copied, copy } = useCopy();
 	const trunk = useContext(Trunk);
@@ -240,6 +246,7 @@ export function useArchive(
 	// Held while `confirm` asks.
 	const after = useRef<(() => void) | undefined>(undefined);
 	const shellRunning = useContext(ShellRunning);
+	const nameOf = useNameOf();
 	const { id, archived } = conversation;
 	const put = () =>
 		void archiveConversation(id, !archived).then(
@@ -306,6 +313,7 @@ export function Rename({
 	refuse: Refuse;
 	onDone: () => void;
 }): JSX.Element {
+	const nameOf = useNameOf();
 	// "Not started" is no name to edit from.
 	const [value, setValue] = useState(
 		unnamed(conversation)
@@ -349,7 +357,10 @@ export function whereOf(
 	conversation: ConversationState,
 	trunk: string | null,
 ): string | null {
-	if (nameOf(conversation) === conversation.lastTask) {
+	if (
+		conversation.lastTask !== null &&
+		(conversation.name ?? conversation.lastTask) === conversation.lastTask
+	) {
 		return null;
 	}
 	return whereRuns(conversation.task, trunk);

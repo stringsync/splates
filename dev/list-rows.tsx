@@ -11,7 +11,7 @@ import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Need, Needing } from "../needs";
 import type { Details } from "../show";
-import { nameOf } from "./conversation-names";
+import { useNameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
 import { Mark } from "./mark";
 import type { Nested } from "./parts";
@@ -31,6 +31,7 @@ export function Rows({
 	render: (row: Needing) => ReactNode;
 	nested?: boolean;
 }): JSX.Element {
+	const nameOf = useNameOf();
 	return (
 		<ul
 			aria-label={label}

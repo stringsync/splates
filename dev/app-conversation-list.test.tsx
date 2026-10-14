@@ -285,6 +285,51 @@ describe("App's conversation list", () => {
 		]);
 	});
 
+	it("names a lane's orchestrator after its lanes, over the agent's title", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					task: null,
+					title: "Arbor Lane 22",
+					messages: [message("user", "[ARBOR LANE 22]")],
+					createdAt: "2026-10-11T10:03:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					task: null,
+					messages: [message("user", "[ARBOR LANE 20]\n[ARBOR LANE 9]")],
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "c3",
+					task: null,
+					messages: [message("user", "[ARBOR LANE untriaged]")],
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
+			],
+			null,
+			{
+				lanes: [
+					{ id: 22, name: "Cloudflare Access" },
+					{ id: 20, name: "Stats" },
+				],
+			},
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const names = within(nav)
+			.getAllByRole("listitem")
+			.map((item) => item.querySelector("span.truncate") as HTMLElement);
+
+		expect(names.map((name) => name.textContent)).toEqual([
+			"Cloudflare Access",
+			"Stats, Lane 9",
+			"Untriaged",
+			"alpha",
+		]);
+		expect(names.some((name) => name.classList.contains("italic"))).toBe(false);
+	});
+
 	it("names the branch under an open conversation's title, the trunk's for the main tree", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", task: "alpha", title: "Fix login" }),

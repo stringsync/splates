@@ -21,7 +21,7 @@ import type { AgentPick } from "../roster";
 import { AgentIcon } from "./agent-icons";
 import { Board, still } from "./board";
 import { promptConversation, startConversation } from "./conversation-api";
-import { nameOf, reportedAs } from "./conversation-names";
+import { reportedAs, useNameOf } from "./conversation-names";
 import type { Assignment, Dispatch } from "./dispatch";
 import { Mark } from "./mark";
 
@@ -67,6 +67,7 @@ export function OnIt({
 	className?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
+	const nameOf = useNameOf();
 	const rows = (context?.dispatch.on(task) ?? []).filter(
 		({ need }) => spinning === undefined || spins(need) === spinning,
 	);
@@ -171,6 +172,7 @@ export function StartMenu({
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	const trunk = useContext(Trunk);
+	const nameOf = useNameOf();
 	if (context === null) {
 		return null;
 	}

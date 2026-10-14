@@ -3,7 +3,13 @@ import { type Searched, search } from "./search";
 import { conversation, details, todo } from "./testing";
 
 function searched(overrides: Partial<Searched> = {}): Searched {
-	return { tasks: [], todos: [], conversations: [], ...overrides };
+	return {
+		tasks: [],
+		todos: [],
+		conversations: [],
+		lanes: [],
+		...overrides,
+	};
 }
 
 const titles = (query: string, of: Searched) =>

@@ -22,7 +22,7 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { whereOf } from "./conversation-item";
-import { nameOf, reportedAs, unnamed } from "./conversation-names";
+import { reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { needOf } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
@@ -309,6 +309,7 @@ function Recent({
 }): JSX.Element {
 	const reported = reportedAs(conversation);
 	const trunk = useContext(Trunk);
+	const nameOf = useNameOf();
 	return (
 		<button
 			type="button"

@@ -18,6 +18,7 @@ import { Tabs, TabsContent } from "#dev/components/ui/tabs.tsx";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
+import type { LaneRecord } from "../lanes";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { stats } from "./api";
@@ -31,6 +32,7 @@ import { CheckpointProvider } from "./checkpoint";
 import { NEW } from "./conversation-address";
 import { ConversationFeed } from "./conversation-feed";
 import { useWaiting } from "./conversation-list";
+import { Lanes } from "./conversation-names";
 import { Conversations } from "./conversations";
 import { Dispatch } from "./dispatch";
 import { Dispatching, Trunk } from "./dispatching";
@@ -63,6 +65,7 @@ import { TreesContext } from "./work-row";
 const NO_TASKS: Details[] = [];
 const NO_TODOS: TodoState[] = [];
 const NO_CONVERSATIONS: ConversationState[] = [];
+const NO_LANES: LaneRecord[] = [];
 
 /** The page's tree, drawn gray and faded: `index.html` has it in color. */
 const OFFLINE_ICON =
@@ -164,6 +167,7 @@ export function App({
 		tasks,
 		todos: snapshot?.todos ?? NO_TODOS,
 		conversations: available ? conversations : NO_CONVERSATIONS,
+		lanes: snapshot?.lanes ?? NO_LANES,
 	};
 	const pick = (found: Found) => {
 		if (found.kind === "task") {
@@ -258,165 +262,167 @@ export function App({
 	const reading = !wide && page === "conversations" && open !== null;
 
 	return (
-		<Dispatching value={dispatching}>
-			<Trunk value={snapshot?.trunk ?? null}>
-				<ReviewChanges value={review}>
-					<WatchBackground value={watch}>
-						<ToggleTerminal value={shown === null ? null : toggleTerminal}>
-							<ShellRunning value={shellRunning}>
-								<ShortcutSettings value={settings}>
-									<PageShortcuts
-										onPage={go}
-										onBack={
-											available
-												? () => visit(visits.back(existsRef.current))
-												: null
-										}
-										onForward={
-											available
-												? () => visit(visits.forward(existsRef.current))
-												: null
-										}
-										onSettings={() => setSetting(true)}
-										onTerminal={
-											shown === null ? null : () => toggleTerminal(shown.id)
-										}
-									/>
-									<TooltipProvider>
-										<CheckpointProvider
-											conversations={conversations.filter(
-												(each) => !each.archived,
-											)}
-											every={checkpointEvery}
-											restartShown={checkpointRestartShown}
-										>
-											<Tabs
-												value={page}
-												onValueChange={(value) => go(value as Page)}
-												orientation={wide ? "vertical" : "horizontal"}
-												// Clear of the sidebar, or of the bar along the bottom.
-												className={cn(
-													"min-h-dvh gap-0",
-													wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
-													wide && paned && BESIDE_PANE,
+		<Lanes value={searched.lanes}>
+			<Dispatching value={dispatching}>
+				<Trunk value={snapshot?.trunk ?? null}>
+					<ReviewChanges value={review}>
+						<WatchBackground value={watch}>
+							<ToggleTerminal value={shown === null ? null : toggleTerminal}>
+								<ShellRunning value={shellRunning}>
+									<ShortcutSettings value={settings}>
+										<PageShortcuts
+											onPage={go}
+											onBack={
+												available
+													? () => visit(visits.back(existsRef.current))
+													: null
+											}
+											onForward={
+												available
+													? () => visit(visits.forward(existsRef.current))
+													: null
+											}
+											onSettings={() => setSetting(true)}
+											onTerminal={
+												shown === null ? null : () => toggleTerminal(shown.id)
+											}
+										/>
+										<TooltipProvider>
+											<CheckpointProvider
+												conversations={conversations.filter(
+													(each) => !each.archived,
 												)}
-												style={
-													{ "--sidebar-width": `${width}px` } as CSSProperties
-												}
+												every={checkpointEvery}
+												restartShown={checkpointRestartShown}
 											>
-												{!reading && (
-													<>
-														<AppHeader
-															name={name}
-															snapshot={snapshot}
-															outdated={outdated}
-															offline={offline}
-															conversations={available}
-															wide={wide}
-															onSettings={() => setSetting(true)}
-														/>
-														<AppNav
-															wide={wide}
-															available={available}
-															waiting={counted ? waiting : 0}
-															snapshot={snapshot}
-															page={page}
-															open={open}
-															onOpen={(id) => go("conversations", id)}
-															talk={talk}
-															terminals={terminals}
-															drafts={drafts}
-															settings={settings}
-															sidebar={sidebar}
-														/>
-													</>
-												)}
-												{snapshot === null ? (
-													// The server opens a project on its first read, which takes
-													// seconds. Offline or outdated, the header already says why
-													// nothing came.
-													!offline &&
-													outdated === null && (
-														<div
-															role="status"
-															className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
-														>
-															<Loader2Icon className="size-4 animate-spin" />
-															Opening {name}
-														</div>
-													)
-												) : (
-													<>
-														{/* The board runs as wide as its lanes, the way a Trello board
-						    scrolls sideways. */}
-														<TabsContent
-															value="todos"
-															className="min-w-0 px-4 py-4"
-														>
-															<Todos
+												<Tabs
+													value={page}
+													onValueChange={(value) => go(value as Page)}
+													orientation={wide ? "vertical" : "horizontal"}
+													// Clear of the sidebar, or of the bar along the bottom.
+													className={cn(
+														"min-h-dvh gap-0",
+														wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
+														wide && paned && BESIDE_PANE,
+													)}
+													style={
+														{ "--sidebar-width": `${width}px` } as CSSProperties
+													}
+												>
+													{!reading && (
+														<>
+															<AppHeader
+																name={name}
 																snapshot={snapshot}
+																outdated={outdated}
+																offline={offline}
+																conversations={available}
+																wide={wide}
+																onSettings={() => setSetting(true)}
+															/>
+															<AppNav
+																wide={wide}
+																available={available}
+																waiting={counted ? waiting : 0}
+																snapshot={snapshot}
+																page={page}
+																open={open}
+																onOpen={(id) => go("conversations", id)}
+																talk={talk}
+																terminals={terminals}
 																drafts={drafts}
-																view={todoView}
+																settings={settings}
+																sidebar={sidebar}
 															/>
-														</TabsContent>
-														<TabsContent
-															value="tasks"
-															className="mx-auto w-full max-w-xl px-4 py-6"
-														>
-															<Tasks
-																tasks={snapshot.tasks}
-																open={task}
-																onOpen={openTask}
-															/>
-														</TabsContent>
-														<TabsContent
-															value="stats"
-															className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
-														>
-															<StatsPage report={report} />
-														</TabsContent>
-														{available && (
+														</>
+													)}
+													{snapshot === null ? (
+														// The server opens a project on its first read, which takes
+														// seconds. Offline or outdated, the header already says why
+														// nothing came.
+														!offline &&
+														outdated === null && (
+															<div
+																role="status"
+																className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+															>
+																<Loader2Icon className="size-4 animate-spin" />
+																Opening {name}
+															</div>
+														)
+													) : (
+														<>
+															{/* The board runs as wide as its lanes, the way a Trello board
+						    scrolls sideways. */}
 															<TabsContent
-																value="conversations"
+																value="todos"
 																className="min-w-0 px-4 py-4"
 															>
-																<TreesContext value={snapshot}>
-																	<OpenerContext value={openerOf(opener)}>
-																		<Conversations
-																			feed={talk}
-																			terminals={terminals}
-																			drafts={drafts}
-																			tasks={snapshot.tasks}
-																			todos={snapshot.todos}
-																			lanes={snapshot.lanes}
-																			trunk={snapshot.trunk}
-																			open={open}
-																			onOpen={(id) => go("conversations", id)}
-																			phone={!wide}
-																		/>
-																	</OpenerContext>
-																</TreesContext>
+																<Todos
+																	snapshot={snapshot}
+																	drafts={drafts}
+																	view={todoView}
+																/>
 															</TabsContent>
-														)}
-													</>
-												)}
-											</Tabs>
-											{pane}
-											<SearchDialog searched={searched} pick={pick} />
-											<SettingsDialog
-												settings={settings}
-												open={setting}
-												onOpenChange={setSetting}
-											/>
-											<AutoRestartDialog restart={autoRestart} />
-										</CheckpointProvider>
-									</TooltipProvider>
-								</ShortcutSettings>
-							</ShellRunning>
-						</ToggleTerminal>
-					</WatchBackground>
-				</ReviewChanges>
-			</Trunk>
-		</Dispatching>
+															<TabsContent
+																value="tasks"
+																className="mx-auto w-full max-w-xl px-4 py-6"
+															>
+																<Tasks
+																	tasks={snapshot.tasks}
+																	open={task}
+																	onOpen={openTask}
+																/>
+															</TabsContent>
+															<TabsContent
+																value="stats"
+																className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
+															>
+																<StatsPage report={report} />
+															</TabsContent>
+															{available && (
+																<TabsContent
+																	value="conversations"
+																	className="min-w-0 px-4 py-4"
+																>
+																	<TreesContext value={snapshot}>
+																		<OpenerContext value={openerOf(opener)}>
+																			<Conversations
+																				feed={talk}
+																				terminals={terminals}
+																				drafts={drafts}
+																				tasks={snapshot.tasks}
+																				todos={snapshot.todos}
+																				lanes={snapshot.lanes}
+																				trunk={snapshot.trunk}
+																				open={open}
+																				onOpen={(id) => go("conversations", id)}
+																				phone={!wide}
+																			/>
+																		</OpenerContext>
+																	</TreesContext>
+																</TabsContent>
+															)}
+														</>
+													)}
+												</Tabs>
+												{pane}
+												<SearchDialog searched={searched} pick={pick} />
+												<SettingsDialog
+													settings={settings}
+													open={setting}
+													onOpenChange={setSetting}
+												/>
+												<AutoRestartDialog restart={autoRestart} />
+											</CheckpointProvider>
+										</TooltipProvider>
+									</ShortcutSettings>
+								</ShellRunning>
+							</ToggleTerminal>
+						</WatchBackground>
+					</ReviewChanges>
+				</Trunk>
+			</Dispatching>
+		</Lanes>
 	);
 }

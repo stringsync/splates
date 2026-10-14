@@ -22,7 +22,7 @@ import { composerIn } from "./composer-editor";
 import { ARCHIVED, agentFor, NEW, startsOne } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
-import { nameOf } from "./conversation-names";
+import { useNameOf } from "./conversation-names";
 import {
 	copiedFor,
 	flatten,
@@ -104,6 +104,7 @@ export function ConversationList({
 		["changed"],
 	);
 
+	const nameOf = useNameOf();
 	const listed = conversations.filter((each) => !each.archived);
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);

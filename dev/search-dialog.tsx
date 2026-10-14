@@ -63,11 +63,11 @@ export function SearchDialog({
 	const list = useRef<HTMLUListElement>(null);
 	useShortcut("shortcuts.search", () => show(!opened.current));
 
-	const { tasks, todos, conversations } = searched;
+	const { tasks, todos, conversations, lanes } = searched;
 	// Kept while it closes too, so the list does not empty as it fades.
 	const groups = useMemo(
-		() => search(query, { tasks, todos, conversations }),
-		[query, tasks, todos, conversations],
+		() => search(query, { tasks, todos, conversations, lanes }),
+		[query, tasks, todos, conversations, lanes],
 	);
 	const rows = groups.flatMap((group) => group.found);
 	const shown = Math.min(active, rows.length - 1);
