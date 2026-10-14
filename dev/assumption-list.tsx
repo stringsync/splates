@@ -1,11 +1,17 @@
 import {
 	CheckIcon,
+	ChevronRightIcon,
 	MessageSquareWarningIcon,
 	RotateCwIcon,
 	UndoIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "#dev/components/ui/collapsible.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
@@ -211,10 +217,11 @@ export function AssumptionsChanged({
 }
 
 /**
- * A task's assumptions, each what it asked over the choice the agent took,
- * with a Challenge control that opens it as a question card offering
- * the rest, and Keep to put that away again. `answers` are the challenges
- * written, by position.
+ * A task's assumptions, closed until opened under a title that counts them,
+ * and held open while any is challenged, so a challenge written never hides.
+ * Each is what it asked over the choice the agent took, with a Challenge
+ * control that opens it as a question card offering the rest, and Keep to
+ * put that away again. `answers` are the challenges written, by position.
  */
 export function AssumptionList({
 	assumptions,
@@ -250,15 +257,22 @@ export function AssumptionList({
 			}
 			return after;
 		});
+	const [unfolded, setUnfolded] = useState(false);
+	const challenged = answers.some((answer) => answer != null);
 	return (
-		<section
-			aria-label="Assumptions"
-			className="@container flex flex-col py-1.5"
+		<Collapsible
+			open={unfolded || challenged}
+			onOpenChange={setUnfolded}
+			disabled={challenged}
+			render={<section aria-label="Assumptions" />}
+			className="@container group/assumptions flex flex-col"
 		>
-			<h3 className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 font-medium text-muted-foreground text-xs">
+			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 aria-disabled:cursor-default aria-disabled:hover:text-muted-foreground">
+				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/assumptions:rotate-90" />
 				Assumptions
-			</h3>
-			<ol className="flex flex-col">
+				<span className="tabular-nums">{assumptions.length}</span>
+			</CollapsibleTrigger>
+			<CollapsibleContent render={<ol />} className="flex flex-col pb-1.5">
 				{assumptions.map((assumed, at) => {
 					const answer = answers[at] ?? null;
 					const open = opened.has(assumed.number) || answer !== null;
@@ -298,8 +312,8 @@ export function AssumptionList({
 						/>
 					);
 				})}
-			</ol>
-		</section>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }
 

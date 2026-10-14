@@ -125,12 +125,63 @@ describe("App's review panel and demo cards", () => {
 		],
 	};
 
-	it("lists what the task assumed, from its plan, and sends a challenge with the changes", async () => {
+	/** The review's assumptions, opened from the fold they wait behind. */
+	async function unfold(panel: HTMLElement): Promise<HTMLElement> {
+		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Assumptions 2" }),
+			),
+		);
+		return list;
+	}
+
+	it("folds what the task assumed under a title that counts them", async () => {
 		const view = await testing.openConversations([reviewing], "c1", assumed);
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
 		);
 		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		expect(within(list).queryByText("Below 400px")).toBeNull();
+
+		await unfold(panel);
+
+		expect(within(list).getByText("Below 400px")).toBeTruthy();
+		expect(within(list).getByText("Menu")).toBeTruthy();
+	});
+
+	it("holds the assumptions open while one is challenged", async () => {
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const list = await unfold(panel);
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", { name: "Challenge assumption 2" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
+		);
+		const toggle = within(list).getByRole("button", {
+			name: "Assumptions 2",
+		});
+
+		await act(async () => fireEvent.click(toggle));
+
+		expect(toggle.getAttribute("aria-disabled")).toBe("true");
+		expect(
+			within(list).getByRole("listitem", { name: "question 2" }),
+		).toBeTruthy();
+	});
+
+	it("lists what the task assumed, from its plan, and sends a challenge with the changes", async () => {
+		const view = await testing.openConversations([reviewing], "c1", assumed);
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		const list = await unfold(panel);
 		expect(within(list).getByText("Below 400px")).toBeTruthy();
 		// What it passed over waits for a challenge.
 		expect(within(list).queryByText("Below 600px")).toBeNull();
@@ -193,7 +244,7 @@ describe("App's review panel and demo cards", () => {
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
 		);
-		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		const list = await unfold(panel);
 		await act(async () =>
 			fireEvent.click(
 				within(list).getByRole("button", { name: "Challenge assumption 2" }),
@@ -224,7 +275,7 @@ describe("App's review panel and demo cards", () => {
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
 		);
-		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		const list = await unfold(panel);
 		for (const [number, pick] of [
 			["1", /Below 600px/],
 			["2", /More/],
@@ -299,7 +350,7 @@ describe("App's review panel and demo cards", () => {
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
 		);
-		const list = within(panel).getByRole("region", { name: "Assumptions" });
+		const list = await unfold(panel);
 		await act(async () =>
 			fireEvent.click(
 				within(list).getByRole("button", { name: "Challenge assumption 2" }),
