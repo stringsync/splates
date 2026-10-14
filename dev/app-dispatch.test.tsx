@@ -339,7 +339,13 @@ describe("App's controls that put agents to work", () => {
 
 		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		expect(posted("/api/conversations")).toEqual([
-			{ agent: "claude", task: null, settings: {}, model: "haiku" },
+			{
+				agent: "claude",
+				task: null,
+				settings: {},
+				model: "haiku",
+				assigned: true,
+			},
 		]);
 		await waitFor(() =>
 			expect(posted("/api/conversations/c9/prompt")).toEqual([

@@ -168,6 +168,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			cwd,
 			settings,
 			model,
+			assigned,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
@@ -178,6 +179,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			settings?: Record<string, string>;
 			/** The model to start on, by its value or name in the model setting. */
 			model?: string;
+			/** Whether a todo or `arbor add --agent` assigned the agent and model. */
+			assigned?: boolean;
 		},
 	): Promise<Conversation> {
 		const chosen = this.agents.find((each) => each.id === agent);
@@ -202,6 +205,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				log: `${this.dir}/${id}.jsonl`,
 				settings,
 				model,
+				assigned,
 			},
 			this.deps,
 		);
@@ -331,10 +335,14 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			?.remember(conversation.state.agent, limits)
 			.catch(() => {});
 		conversation.events.on("changed", () => {
-			const { agent, settings } = conversation.state;
+			const { agent, settings, assigned } = conversation.state;
 			if (settings !== remembered && settings.length > 0) {
 				remembered = settings;
-				void this.offered?.remember(agent, settings).catch(() => {});
+				// An assignment's model is not the person's pick: it only says what
+				// an agent never started otherwise offers.
+				void this.offered
+					?.remember(agent, settings, { unlessKnown: assigned })
+					.catch(() => {});
 			}
 			// A turn ended: what the agent does not send is asked for.
 			if (status === "running" && conversation.state.status === "idle") {

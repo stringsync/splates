@@ -3,6 +3,7 @@ import { type Needing, need } from "../needs";
 import { laneReference, taskReference, todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
+import { settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
@@ -85,25 +86,21 @@ export class Dispatch {
 	/**
 	 * Starts a conversation with `pick`'s agent on its model, and sends it
 	 * `assignment`'s prompt, answering its address once it is started, with the
-	 * prompt showing as sent. Each setting starts where the agent's latest
-	 * conversation left it. When it does not start, the address of the screen
+	 * prompt showing as sent. Each setting starts where a new conversation's
+	 * would. When it does not start, the address of the screen
 	 * that does, the prompt in its composer; when the prompt is refused, it
 	 * waits in the conversation's composer.
 	 */
 	async begin(pick: AgentPick, assignment: Assignment): Promise<string> {
 		const task = assignment.kind === "task" ? assignment.task : null;
 		const text = promptFor(assignment);
-		const left =
-			this.conversations.find(
-				(each) => each.agent === pick.agent && each.settings.length > 0,
-			)?.settings ??
-			this.agents.find((each) => each.id === pick.agent)?.settings ??
-			[];
+		const left = settingsFor(pick.agent, this.agents, this.conversations);
 		const started = await startConversation(
 			pick.agent,
 			task,
 			Object.fromEntries(left.map((each) => [each.id, each.current])),
 			pick.model,
+			true,
 		).catch(() => null);
 		if (started === null) {
 			return this.start(pick.agent, assignment, pick.model);

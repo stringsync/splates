@@ -114,6 +114,7 @@ export function conversation(
 		error: null,
 		name: null,
 		archived: false,
+		assigned: false,
 		unread: false,
 		seen: 0,
 		messages: [],

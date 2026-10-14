@@ -36,6 +36,7 @@ export async function startDispatched({
 			caller: worktree.caller,
 			cwd: worktree.path,
 			model: dispatch.model,
+			assigned: true,
 		});
 		await worktree.save({
 			dispatch: { ...dispatch, conversation: conversation.id },

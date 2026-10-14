@@ -23,12 +23,18 @@ export async function startConversation(
 	settings: Record<string, string> = {},
 	/** The model to start on, by its id on the roster. */
 	model?: string,
+	/**
+	 * Whether a todo assigned the agent and model, so a new conversation does
+	 * not start where this one leaves its settings.
+	 */
+	assigned = false,
 ): Promise<ConversationState> {
 	return (await sendJson("/api/conversations", "POST", {
 		agent,
 		task,
 		settings,
 		...(model === undefined ? {} : { model }),
+		...(assigned ? { assigned } : {}),
 	})) as ConversationState;
 }
 

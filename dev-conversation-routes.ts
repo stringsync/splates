@@ -128,7 +128,7 @@ export class ConversationRoutes {
 	};
 
 	readonly startConversation = async (request: Request): Promise<Response> => {
-		const { agent, task, settings, model } = await body(request);
+		const { agent, task, settings, model, assigned } = await body(request);
 		const [named, cwd, base, caller] = await this.treeFor(task);
 		const conversation = await this.held().start(String(agent ?? ""), {
 			task: named,
@@ -136,6 +136,7 @@ export class ConversationRoutes {
 			caller,
 			cwd,
 			model: typeof model === "string" && model !== "" ? model : undefined,
+			assigned: assigned === true,
 			settings: Object.fromEntries(
 				Object.entries(
 					typeof settings === "object" && settings !== null ? settings : {},

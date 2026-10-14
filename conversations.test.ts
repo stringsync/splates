@@ -132,6 +132,64 @@ describe("Conversations", () => {
 		expect((await offered.all()).fake).toEqual([]);
 	});
 
+	it("leaves what an agent's sessions offer as the person left it when a todo assigned the model", async () => {
+		const offered = new Offered("/home/.arbor/offered.json", { fs });
+		const shop = new Conversations("/shop/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+			offered,
+		});
+		const currents = async () => {
+			// Remembered as each change lands, without waiting on it.
+			await Bun.sleep(10);
+			return ((await offered.all()).fake ?? []).map((each) => [
+				each.id,
+				each.current,
+			]);
+		};
+
+		// With nothing kept yet, an assigned one says what the agent offers.
+		const first = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			model: "small",
+			assigned: true,
+		});
+		await until(first, "idle");
+		expect(await currents()).toContainEqual(["model", "small"]);
+
+		const picked = await shop.start("fake", { task: null, cwd: "/shop" });
+		await until(picked, "idle");
+		await picked.choose("model", "big");
+		const assigned = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			model: "small",
+			assigned: true,
+		});
+		await until(assigned, "idle");
+		expect(await currents()).toContainEqual(["model", "big"]);
+		expect([picked.state.assigned, assigned.state.assigned]).toEqual([
+			false,
+			true,
+		]);
+		await shop.disposeAsync();
+
+		// Read back from its log, as after a restart.
+		const later = new Conversations("/shop/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+		});
+		expect((await later.find(assigned.id)).state.assigned).toBe(true);
+		await later.disposeAsync();
+	});
+
 	it("remembers an agent's plan limits for every project, the newest of each window", async () => {
 		const limits = new Limits("/home/.arbor/limits.json", { fs });
 		agent.turn = async (connection) => {

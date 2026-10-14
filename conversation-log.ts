@@ -67,6 +67,7 @@ export class ConversationLog {
 			start.createdAt,
 			start.base,
 			start.caller,
+			start.assigned,
 		);
 		const replayed: Replayed = {
 			state,
@@ -205,6 +206,8 @@ export type Entry =
 			/** Who added the task; missing from logs written before tasks remembered it. */
 			caller?: string | null;
 			createdAt: string;
+			/** Missing from logs written before assignments were kept apart. */
+			assigned?: boolean;
 	  }
 	| { kind: "session"; session: string }
 	/** Moved into a task's worktree, or back to the main tree. */

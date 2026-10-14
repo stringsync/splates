@@ -38,6 +38,12 @@ export interface ConversationState {
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
 	/**
+	 * Started on the agent and model a todo or `arbor add --agent` assigned,
+	 * rather than ones the person picked, so a new conversation does not start
+	 * where this one left its settings.
+	 */
+	assigned: boolean;
+	/**
 	 * The agent ended a turn the person has not seen yet: set as each turn
 	 * ends, and cleared once the page shows it.
 	 */
@@ -319,6 +325,7 @@ export function blank(
 	createdAt: string,
 	base: string | null = null,
 	caller: string | null = null,
+	assigned = false,
 ): ConversationState {
 	return {
 		id,
@@ -337,6 +344,7 @@ export function blank(
 		commands: [],
 		createdAt,
 		archived: false,
+		assigned,
 		unread: false,
 		seen: 0,
 		checkpoint: null,

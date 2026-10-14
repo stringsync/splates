@@ -1,4 +1,4 @@
-import type { ConversationState } from "../conversations";
+import type { ConversationState, Setting } from "../conversations";
 import type { AgentChoice } from "./conversation-feed";
 
 /** What `#conversations/archived` opens: every archived conversation. */
@@ -27,7 +27,7 @@ export function startsOne(open: string | null): boolean {
 
 /**
  * The agent a new conversation starts with: the one `open` names, else the
- * newest conversation's, else the first.
+ * newest conversation's the person picked, else the newest's, else the first.
  */
 export function agentFor(
 	open: string | null,
@@ -41,10 +41,43 @@ export function agentFor(
 		: null;
 	return (
 		agents.find((each) => each.id === named)?.id ??
-		agents.find((each) => each.id === conversations[0]?.agent)?.id ??
+		agents.find((each) => each.id === picked(conversations)[0]?.agent)?.id ??
 		agents[0]?.id ??
 		""
 	);
+}
+
+/**
+ * The settings a new conversation with `agent` starts from: as its newest
+ * conversation the person picked it for left them, else its newest one
+ * that got as far as a session; failing that, from its sessions in any
+ * project; the first one with an agent on this machine, none, for its own
+ * defaults.
+ */
+export function settingsFor(
+	agent: string,
+	agents: AgentChoice[],
+	conversations: ConversationState[],
+): Setting[] {
+	return (
+		picked(conversations).find(
+			(each) => each.agent === agent && each.settings.length > 0,
+		)?.settings ??
+		agents.find((each) => each.id === agent)?.settings ??
+		[]
+	);
+}
+
+/**
+ * `conversations` with those started on an assignment last, since what a
+ * todo assigned is no pick of the person's: those count only for an agent
+ * never started otherwise.
+ */
+function picked(conversations: ConversationState[]): ConversationState[] {
+	return [
+		...conversations.filter((each) => !each.assigned),
+		...conversations.filter((each) => each.assigned),
+	];
 }
 
 /** The task a new conversation starts in, from `open`; null for the main tree. */

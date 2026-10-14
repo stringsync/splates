@@ -155,14 +155,23 @@ export class Conversation
 
 	/** A new conversation with `agent` in `cwd`, its log begun, not yet opened. */
 	private static begin(
-		{ id, agent, task, base = null, caller = null, cwd, log: path }: Opening,
+		{
+			id,
+			agent,
+			task,
+			base = null,
+			caller = null,
+			cwd,
+			log: path,
+			assigned = false,
+		}: Opening,
 		deps: ConversationDeps,
 		from: From,
 	): Conversation {
 		const log = new ConversationLog(path, deps.fs, deps.timer);
 		const createdAt = new Date(deps.clock.now()).toISOString();
 		const conversation = new Conversation(
-			blank(id, agent.id, task, createdAt, base, caller),
+			blank(id, agent.id, task, createdAt, base, caller, assigned),
 			log,
 			deps,
 			agent,
@@ -178,6 +187,7 @@ export class Conversation
 			base,
 			caller,
 			createdAt,
+			...(assigned ? { assigned } : {}),
 		});
 		return conversation;
 	}
@@ -478,6 +488,8 @@ interface Opening {
 	caller?: string | null;
 	cwd: string;
 	log: string;
+	/** Started on what a todo or `arbor add --agent` assigned. */
+	assigned?: boolean;
 }
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */

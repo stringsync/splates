@@ -29,9 +29,20 @@ export class Offered {
 		return this.known;
 	}
 
-	/** Keeps `settings` as what `agent`'s sessions offer from now on. */
-	async remember(agent: string, settings: Setting[]): Promise<void> {
-		const known = { ...(await this.all()), [agent]: settings };
+	/**
+	 * Keeps `settings` as what `agent`'s sessions offer from now on, or, with
+	 * `unlessKnown`, only when nothing is kept for it yet.
+	 */
+	async remember(
+		agent: string,
+		settings: Setting[],
+		{ unlessKnown = false }: { unlessKnown?: boolean } = {},
+	): Promise<void> {
+		const all = await this.all();
+		if (unlessKnown && all[agent] !== undefined) {
+			return this.writing;
+		}
+		const known = { ...all, [agent]: settings };
 		this.known = Promise.resolve(known);
 		if (!this.newer) {
 			this.writing = this.writing.then(() => this.write(known));

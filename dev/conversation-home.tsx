@@ -15,6 +15,7 @@ import { AgentBrand, AgentIcon } from "./agent-icons";
 import { Back } from "./back";
 import { FILES, filesOf, noted, said, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
+import { settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import {
 	type AgentChoice,
@@ -105,17 +106,7 @@ export function Home({
 	onBack: (() => void) | null;
 }): JSX.Element {
 	const { refusal, refuse } = useRefusal();
-	// What the agent's sessions offer is known from its latest conversation
-	// here that got as far as a session, archived or not, and each setting
-	// starts where that one left it; failing that, from its sessions in any
-	// project; the first one with an agent on this machine starts with the
-	// agent's own defaults.
-	const offered =
-		conversations.find(
-			(each) => each.agent === agent && each.settings.length > 0,
-		)?.settings ??
-		agents.find((each) => each.id === agent)?.settings ??
-		[];
+	const offered = settingsFor(agent, agents, conversations);
 	// A model asked for, as by a todo's agent, shows picked where it is offered.
 	const [picks, setPicks] = useState<Record<string, string>>(() => {
 		const asked = model === null ? null : modelOption(offered, model);
@@ -158,6 +149,8 @@ export function Home({
 				settings,
 				// Until a session has offered its settings, the server picks it.
 				model !== null && offered.length === 0 ? model : undefined,
+				// Asked for by a todo's agent, so no pick of the person's.
+				model !== null,
 			).catch((error: unknown) => {
 				void slide(() => setStarting(false));
 				restore.current(text, files);

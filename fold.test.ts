@@ -21,6 +21,7 @@ describe("fold", () => {
 		commands: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
+		assigned: false,
 		unread: false,
 		seen: 0,
 		checkpoint: null,
