@@ -36,15 +36,9 @@ import {
 import { show } from "./show";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import { systems } from "./system";
-import {
-	todoAdd,
-	todoList,
-	todoRelease,
-	todoRemove,
-	todoShow,
-	todoTake,
-	todoUpdate,
-} from "./todo";
+import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
+import { todoList, todoShow } from "./todo-list";
+import { todoRelease, todoTake } from "./todo-take";
 import { update } from "./update";
 import { DEFAULT_TIMEOUT, todoWait, wait } from "./wait";
 import { Watch } from "./watch";

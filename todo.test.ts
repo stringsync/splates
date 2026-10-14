@@ -3,19 +3,13 @@ import { color } from "webappwiz/log";
 import { add } from "./add";
 import { merge } from "./merge";
 import { PLAN_FILE } from "./plan";
+import { recommend } from "./recommend";
 import { remove } from "./remove";
 import { Testing } from "./testing";
-import {
-	recommend,
-	type TodoState,
-	todoAdd,
-	todoList,
-	todoRelease,
-	todoRemove,
-	todoShow,
-	todoTake,
-	todoUpdate,
-} from "./todo";
+import type { TodoState } from "./todo";
+import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
+import { todoList, todoShow } from "./todo-list";
+import { todoRelease, todoTake } from "./todo-take";
 
 const DAY = 24 * 60 * 60 * 1000;
 

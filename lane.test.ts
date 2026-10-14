@@ -8,14 +8,9 @@ import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
 import { lanes } from "./lanes";
 import { merge } from "./merge";
 import { Testing } from "./testing";
-import {
-	todoAdd,
-	todoList,
-	todoRemove,
-	todoShow,
-	todoTake,
-	todoUpdate,
-} from "./todo";
+import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
+import { todoList, todoShow } from "./todo-list";
+import { todoTake } from "./todo-take";
 import { todoWait } from "./wait";
 
 /** Each lane's todo ids, top first, as stored. */
