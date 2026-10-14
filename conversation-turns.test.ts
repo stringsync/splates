@@ -4,13 +4,14 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
+	eventually,
 	finish,
 	type Held,
 	thread,
 	until,
 	working,
 } from "./conversation-testing";
-import { Conversations } from "./conversations";
+import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
 
 describe("Conversation turns", () => {
@@ -180,13 +181,14 @@ describe("Conversation turns", () => {
 			{ fs, timer, clock, launch: agent.launch },
 		).list();
 
-		for (const each of [conversation, read]) {
-			expect(
-				each?.state.messages
-					.filter((message) => message.role === "user")
-					.map((message) => message.steered ?? false),
-			).toEqual([false, true]);
-		}
+		const steered = (each: Conversation | undefined) =>
+			each?.state.messages
+				.filter((message) => message.role === "user")
+				.map((message) => message.steered ?? false);
+		expect([steered(conversation), steered(read)]).toEqual([
+			[false, true],
+			[false, true],
+		]);
 	});
 
 	it("gives each message said while the agent starts a turn of its own, even when it steers", async () => {
@@ -203,13 +205,9 @@ describe("Conversation turns", () => {
 			["one", false],
 			["two", true],
 		]);
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => held.finish !== undefined);
 		held.finish?.("end_turn");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 		expect(said).toEqual(["one", "two"]);
 		await finish(conversation, held);
 	});
@@ -223,9 +221,7 @@ describe("Conversation turns", () => {
 
 		expect(thread(conversation).at(-1)).toEqual(["two", true]);
 		held.finish?.("end_turn");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 		expect(said).toEqual(["one", "two"]);
 		await finish(conversation, held);
 	});
@@ -271,9 +267,7 @@ describe("Conversation turns", () => {
 		expect(thread(conversation).at(-1)).toEqual(["two", true]);
 		expect(said).toEqual(["one"]);
 		await update(result("task-notification"));
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 		expect(said).toEqual(["one", "two"]);
 		await finish(conversation, held);
 	});
@@ -332,5 +326,47 @@ describe("Conversation turns", () => {
 		const [read] = await reread.list();
 		expect(read?.state.messages.at(-1)?.interrupted).toBe(interrupted);
 		await reread.disposeAsync();
+	});
+
+	it("marks the turn running when the server stops it", async () => {
+		const conversation = await working(conversations, held);
+
+		await conversations.disposeAsync();
+
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(typeof read?.state.messages.at(-1)?.interrupted).toBe("string");
+		expect(conversation.state.status).toBe("stopped");
+		await reread.disposeAsync();
+	});
+
+	it("marks the turn running when the server is killed, and keeps the mark when read again", async () => {
+		await working(conversations, held);
+		// What the throttled log has yet to save, saved as the agent streams.
+		timer.fireTimeouts();
+		await Bun.sleep(1);
+
+		// Read as the next server would, the first never having stopped.
+		const next = () =>
+			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+				fs,
+				timer,
+				launch: agent.launch,
+			});
+		const reread = next();
+		const [read] = await reread.list();
+		const interrupted = read?.state.messages.at(-1)?.interrupted;
+		expect(typeof interrupted).toBe("string");
+		expect(read?.state.messages.at(-1)?.role).toBe("agent");
+		await reread.disposeAsync();
+
+		const again = next();
+		const [after] = await again.list();
+		expect(after?.state.messages.at(-1)?.interrupted).toBe(interrupted);
+		await again.disposeAsync();
 	});
 });

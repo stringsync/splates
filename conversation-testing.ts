@@ -11,9 +11,17 @@ export function until(
 	conversation: Conversation,
 	status: Status,
 ): Promise<void> {
+	return once(conversation, () => conversation.state.status === status);
+}
+
+/** Settles once `done` holds of `conversation`; a test that never sees it times out. */
+export function once(
+	conversation: Conversation,
+	done: () => boolean,
+): Promise<void> {
 	return new Promise<void>((resolve) => {
 		const check = () => {
-			if (conversation.state.status === status) {
+			if (done()) {
 				off();
 				resolve();
 			}
@@ -37,10 +45,15 @@ export async function working(
 	});
 	await until(conversation, "idle");
 	await conversation.prompt("one");
-	for (let i = 0; i < 100 && held.finish === undefined; i++) {
+	await eventually(() => held.finish !== undefined);
+	return conversation;
+}
+
+/** Settles once `done` holds, or after a hundred tries a millisecond apart. */
+export async function eventually(done: () => boolean): Promise<void> {
+	for (let i = 0; i < 100 && !done(); i++) {
 		await Bun.sleep(1);
 	}
-	return conversation;
 }
 
 /** Ends the turn `held`, and waits for `conversation` to be idle. */

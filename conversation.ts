@@ -436,9 +436,7 @@ export class Conversation
 			return;
 		}
 		this.connection.close();
-		if (error !== null) {
-			this.turns.interrupt();
-		}
+		this.turns.interrupt();
 		if (this.state.checkpoint === "asked") {
 			this.turns.mark("failed");
 		}
@@ -453,6 +451,14 @@ export class Conversation
 	}
 
 	set(next: Partial<ConversationState>): void {
+		// Kept, so a log whose process died mid-turn reads back as cut short.
+		const running = next.status === "running";
+		if (
+			next.status !== undefined &&
+			running !== (this.state.status === "running")
+		) {
+			this.log.write({ kind: "turn", running });
+		}
 		Object.assign(this.state, next);
 		this.changed();
 	}

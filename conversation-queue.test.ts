@@ -4,6 +4,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
+	eventually,
 	finish,
 	type Held,
 	thread,
@@ -56,19 +57,22 @@ describe("Conversation queue", () => {
 	let held: Held;
 	let said: string[];
 
-	let client: acp.AgentSideConnection | undefined;
-
 	beforeEach(() => {
 		held = {};
 		said = [];
-		agent.turn = (connection, _session, text) => {
-			client = connection;
+		agent.turn = (_client, _session, text) => {
 			said.push(text);
 			return new Promise((resolve) => (held.finish = resolve));
 		};
 	});
 
 	it("waits for the turn to end when the agent cannot steer, then says all that waited as one prompt", async () => {
+		let client: acp.AgentSideConnection | undefined;
+		agent.turn = (connection, _session, text) => {
+			client = connection;
+			said.push(text);
+			return new Promise((resolve) => (held.finish = resolve));
+		};
 		const conversation = await working(conversations, held);
 
 		await conversation.prompt("two");
@@ -83,9 +87,7 @@ describe("Conversation queue", () => {
 			sessionId: "s1",
 			update: say("Still on one."),
 		});
-		for (let i = 0; i < 100 && conversation.state.messages.length < 4; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => conversation.state.messages.length === 4);
 		// Below what the agent says meanwhile, since it has yet to hear them.
 		expect(thread(conversation)).toEqual([
 			["one", false],
@@ -94,9 +96,7 @@ describe("Conversation queue", () => {
 			["three", true],
 		]);
 		held.finish?.("end_turn");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 		expect(said).toEqual(["one", "two\n\nthree"]);
 		expect(conversation.state.status).toBe("running");
 		expect(thread(conversation)).toEqual([
@@ -131,9 +131,7 @@ describe("Conversation queue", () => {
 			],
 		});
 		held.finish?.("end_turn");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 		expect(agent.prompts.at(-1)).toEqual([
 			{ type: "image", mimeType: "image/png", data: btoa("png bytes") },
 			{ type: "text", text: "two" },
@@ -151,9 +149,7 @@ describe("Conversation queue", () => {
 		expect(said).toEqual(["one"]);
 		expect(thread(conversation).at(-1)).toEqual(["two", true]);
 		await conversation.prompt("three");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 		expect(said).toEqual(["one", "two\n\nthree"]);
 		await finish(conversation, held);
 	});
@@ -179,8 +175,10 @@ describe("Conversation queue", () => {
 			{ fs, timer, launch: agent.launch },
 		);
 		const [read] = await reread.list();
+		// Stopped mid-turn, the turn reads back as cut short.
 		expect(read && thread(read)).toEqual([
 			["one", false],
+			["", false],
 			["three", true],
 		]);
 		await reread.disposeAsync();
@@ -197,9 +195,7 @@ describe("Conversation queue", () => {
 		await conversation.sendNow();
 		// The agent stops the turn it was asked to cancel.
 		held.finish?.("cancelled");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 2);
 
 		expect(agent.cancelled).toBe(1);
 		expect(said).toEqual(["one", "two"]);
@@ -222,8 +218,10 @@ describe("Conversation queue", () => {
 		);
 		const [read] = await reread.list();
 
+		// Stopped mid-turn, the turn reads back as cut short.
 		expect(read && thread(read)).toEqual([
 			["one", false],
+			["", false],
 			["two", true],
 		]);
 		await reread.disposeAsync();

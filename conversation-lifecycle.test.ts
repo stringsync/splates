@@ -5,7 +5,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { until } from "./conversation-testing";
+import { once, until } from "./conversation-testing";
 import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
 import { Testing } from "./testing";
@@ -327,9 +327,9 @@ describe("Conversation lifecycle", () => {
 
 	it("saves a streaming log at most once per interval, and all of it on stop", async () => {
 		agent.turn = async (client, sessionId) => {
-			for (const word of ["a", "b", "c"]) {
-				await client.sessionUpdate({ sessionId, update: say(word) });
-			}
+			await client.sessionUpdate({ sessionId, update: say("a") });
+			await client.sessionUpdate({ sessionId, update: say("b") });
+			await client.sessionUpdate({ sessionId, update: say("c") });
 			return "end_turn";
 		};
 		const conversation = await started();
@@ -347,9 +347,11 @@ describe("Conversation lifecycle", () => {
 			"session",
 			"settings",
 			"prompt",
+			"turn",
 			"update",
 			"update",
 			"update",
+			"turn",
 			"unread",
 			"end",
 		]);
@@ -404,31 +406,27 @@ describe("Conversation lifecycle", () => {
 
 		await conversation.prompt("stash it");
 		await until(conversation, "idle");
-		const flagged = (each: Conversation) =>
-			new Promise<unknown>((resolve) => {
-				const check = () => {
-					const part = each.state.messages[1]?.parts[0];
-					if (part?.type === "tool" && part.flags.length > 0) {
-						off();
-						resolve(part.flags);
-					}
-				};
-				const off = each.events.on("changed", check);
-				check();
+		const flagged = async (each: Conversation) => {
+			const part = () => each.state.messages[1]?.parts[0];
+			await once(each, () => {
+				const tool = part();
+				return tool?.type === "tool" && tool.flags.length > 0;
 			});
+			return part();
+		};
 
-		expect(await flagged(conversation)).toEqual([
-			{ type: "stashed", count: 1 },
-		]);
+		expect(await flagged(conversation)).toMatchObject({
+			flags: [{ type: "stashed", count: 1 }],
+		});
 		await conversation.stop();
 		const [read] = await new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
 			{ fs, timer, clock, launch: agent.launch },
 		).list();
-		expect(await flagged(read as Conversation)).toEqual([
-			{ type: "stashed", count: 1 },
-		]);
+		expect(await flagged(read as Conversation)).toMatchObject({
+			flags: [{ type: "stashed", count: 1 }],
+		});
 		await watching.disposeAsync();
 	});
 });

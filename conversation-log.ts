@@ -76,7 +76,12 @@ export class ConversationLog {
 			archivedAt: null,
 			picks: {},
 		};
+		let running = false;
+		let last: string | null = null;
 		for (const entry of entries) {
+			if ("at" in entry && typeof entry.at === "string") {
+				last = entry.at;
+			}
 			if (entry.kind === "prompt") {
 				state.messages.push({
 					...said(entry.text, entry.at ?? null, [
@@ -138,9 +143,23 @@ export class ConversationLog {
 				if (tool !== null) {
 					tool.decision = entry.decision;
 				}
+			} else if (entry.kind === "turn") {
+				running = entry.running;
 			} else if (entry.kind === "end") {
 				state.error = entry.error;
 			}
+		}
+		// Its process died mid-turn, as when `arbor dev` was killed: kept, so
+		// the mark outlives the turns that follow.
+		if (running) {
+			const turn = agentTurn(state, null);
+			if (turn.stopped === undefined) {
+				const at = last ?? turn.at ?? start.createdAt;
+				turn.interrupted = at;
+				this.write({ kind: "interrupted", at });
+			}
+			this.write({ kind: "turn", running: false });
+			await this.flush();
 		}
 		state.status = state.error === null ? "stopped" : "failed";
 		// Its commands ended with its process, though a crash said nothing.
@@ -246,6 +265,8 @@ export type Entry =
 	| { kind: "stopped"; at: string }
 	/** The agent's turn ended early, its connection lost or its process gone. */
 	| { kind: "interrupted"; at: string }
+	/** A turn started or ended, so one a dead process left running shows as cut short. */
+	| { kind: "turn"; running: boolean }
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
 	/** Where a checkpoint stands, and what comes after it. */
