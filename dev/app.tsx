@@ -48,6 +48,7 @@ import {
 	ConversationList,
 	Conversations,
 	conversationIn,
+	NEW,
 	useWaiting,
 } from "./conversations";
 import { Dispatch } from "./dispatch";
@@ -69,12 +70,14 @@ import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { SidebarHandle, SidebarWidth } from "./sidebar";
+import { TASK } from "./task-view";
 import { Tasks } from "./tasks";
 import { ShellRunning, TerminalPane, ToggleTerminal } from "./terminal";
 import { isToggle } from "./terminal-session";
 import { Terminals } from "./terminals";
 import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
+import { Visits } from "./visits";
 import { TreesContext } from "./work-row";
 
 /**
@@ -333,13 +336,58 @@ export function App({
 		document.addEventListener("keydown", open);
 		return () => document.removeEventListener("keydown", open);
 	}, [available]);
+	// ⌥⌘, goes back through the conversations opened and ⌥⌘. forward, as in
+	// a browser's history, past any since archived or merged away.
+	const [visits] = useState(() => new Visits());
+	useEffect(() => {
+		if (open === null || open === NEW) {
+			visits.leave();
+		} else {
+			visits.visit(open);
+		}
+	}, [open, visits]);
+	const existsRef = useRef<(id: string) => boolean>(() => false);
+	existsRef.current = (id: string) =>
+		id.startsWith(TASK)
+			? tasks.some(({ task }) => `${TASK}${task}` === id)
+			: conversations.some((each) => each.id === id && !each.archived);
+	useEffect(() => {
+		if (!available) {
+			return;
+		}
+		// By the key's place, since Alt types another letter on a Mac.
+		const step = (event: KeyboardEvent) => {
+			if (!event.altKey || !(event.metaKey || event.ctrlKey)) {
+				return;
+			}
+			const to =
+				event.code === "Comma"
+					? visits.back(existsRef.current)
+					: event.code === "Period"
+						? visits.forward(existsRef.current)
+						: undefined;
+			if (to === undefined) {
+				return;
+			}
+			event.preventDefault();
+			if (to !== null) {
+				goRef.current("conversations", to);
+			}
+		};
+		document.addEventListener("keydown", step);
+		return () => document.removeEventListener("keydown", step);
+	}, [available, visits]);
 	const held = useHeld();
 
 	const [setting, setSetting] = useState(false);
-	// ⌘, or Ctrl+, as in an IDE.
+	// ⌘, or Ctrl+, as in an IDE, leaving ⌥⌘, to go back.
 	useEffect(() => {
 		const open = (event: KeyboardEvent) => {
-			if ((event.metaKey || event.ctrlKey) && event.key === ",") {
+			if (
+				(event.metaKey || event.ctrlKey) &&
+				!event.altKey &&
+				event.key === ","
+			) {
 				event.preventDefault();
 				setSetting(true);
 			}

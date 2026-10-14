@@ -846,6 +846,53 @@ Cap upload retries
 			expect(location.hash).toBe("#conversations/task/beta");
 		});
 
+		it("goes back through the conversations opened with ⌥⌘, and forward with ⌥⌘., leaving ⌘, to Settings", async () => {
+			const view = await sidebar(
+				newestFirst([
+					conversation({ id: "c1", title: "First" }),
+					conversation({ id: "c2", title: "Second" }),
+					conversation({ id: "c3", title: "Third" }),
+				]),
+			);
+			const press = (code: string, ctrl = false) =>
+				act(async () =>
+					fireEvent.keyDown(document.body, {
+						code,
+						key: ",",
+						altKey: true,
+						metaKey: !ctrl,
+						ctrlKey: ctrl,
+					}),
+				);
+			await press("BracketRight");
+			await press("BracketRight");
+			await press("BracketRight");
+			expect(location.hash).toBe("#conversations/c3");
+
+			await press("Comma");
+			expect(location.hash).toBe("#conversations/c2");
+			await press("Comma", true);
+			expect(location.hash).toBe("#conversations/c1");
+			await press("Comma");
+			expect(location.hash).toBe("#conversations/c1");
+			expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull();
+
+			await press("Period");
+			expect(location.hash).toBe("#conversations/c2");
+			await press("Period");
+			expect(location.hash).toBe("#conversations/c3");
+			await press("Period");
+			expect(location.hash).toBe("#conversations/c3");
+
+			await press("Comma");
+			await press("Digit0");
+			expect(location.hash).toBe("#conversations/c1");
+			await press("Period");
+			expect(location.hash).toBe("#conversations/c1");
+			await press("Comma");
+			expect(location.hash).toBe("#conversations/c2");
+		});
+
 		it("opens Todos with ⌥⌘T and Checkpoint with ⌥⌘C, showing a tab's key while ⌥⌘ is held", async () => {
 			const view = await sidebar(
 				newestFirst([conversation({ id: "c1", title: "First" })]),
