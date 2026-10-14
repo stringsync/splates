@@ -54,8 +54,8 @@ export function AutoRestartDialog({
 								in <span className="tabular-nums">{clock(state.left.ms)}</span>
 							</DialogTitle>
 							<DialogDescription>
-								arbor dev is behind <Onto onto={state.onto} />, and every agent
-								has been idle for a minute.{" "}
+								arbor dev is behind <Onto onto={state.onto} />, and you and
+								every agent have been idle for a minute.{" "}
 								{state.reload
 									? "It restarts, then this page reloads."
 									: "It restarts, and this page stays as it is."}

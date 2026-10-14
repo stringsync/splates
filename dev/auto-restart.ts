@@ -30,11 +30,17 @@ export interface AutoRestartServer {
 	restart(): Promise<void>;
 }
 
-/** How long every agent stays idle before a countdown starts. */
+/**
+ * How long every agent, and the person on the page, stay idle before a
+ * countdown starts.
+ */
 export const IDLE = Duration.mins(1);
 
 /** How long the countdown gives the person to cancel. */
 export const COUNTDOWN = Duration.mins(1);
+
+/** What counts as the person at work on the page. */
+const INPUT = ["keydown", "pointerdown", "wheel", "touchstart"];
 
 /** How often the projects are asked for while nothing is under way. */
 const WATCH = Duration.secs(5);
@@ -55,8 +61,8 @@ export function short(commit: string): string {
 
 /**
  * Restarts `arbor dev` on its own once it is out of date, a newer arbor out
- * or commits on the source it runs from, and every agent has been idle for
- * `IDLE`, after a `COUNTDOWN` the person can cancel, as the `restart.auto`
+ * or commits on the source it runs from, and every agent and the person on
+ * the page have been idle for `IDLE`, after a `COUNTDOWN` the person can cancel, as the `restart.auto`
  * setting asks; then reloads the page too when it asks for that, and says it
  * is back either way, until the next countdown. Cancelled, it waits for the
  * next thing to restart onto.
@@ -69,6 +75,8 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 
 	/** When every agent was last seen to go idle; null while one works. */
 	private idleSince: Duration | null = null;
+	/** When the person last pressed, clicked, scrolled or touched the page. */
+	private inputAt: Duration;
 	private listedAt: Duration | null = null;
 	private deadline: Duration | null = null;
 	/** The run of `arbor dev` last listed, which a restart replaces. */
@@ -87,11 +95,15 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 			clock: Clock;
 			/** When a restart came back, as the dialog says how long ago. */
 			wall: WallClock;
+			/** Where the person's input is heard: the window. */
+			input: EventTarget;
 			/** Where what a reload is back from is kept: the tab's own. */
 			storage: Storage;
 			reload: () => void;
 		},
-	) {}
+	) {
+		this.inputAt = opts.clock.now();
+	}
 
 	/** Watches until disposed, saying first what a reload came back from. */
 	start(): Resource {
@@ -106,6 +118,9 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 		}
 		this.ticking?.dispose();
 		this.ticking = this.opts.timer.setInterval(() => void this.tick(), TICK);
+		for (const each of INPUT) {
+			this.opts.input.addEventListener(each, this.heard, { passive: true });
+		}
 		return { dispose: () => this.dispose() };
 	}
 
@@ -154,7 +169,14 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 	dispose(): void {
 		this.ticking?.dispose();
 		this.ticking = null;
+		for (const each of INPUT) {
+			this.opts.input.removeEventListener(each, this.heard);
+		}
 	}
+
+	private readonly heard = (): void => {
+		this.inputAt = this.opts.clock.now();
+	};
 
 	private async tick(): Promise<void> {
 		const now = this.opts.clock.now();
@@ -238,7 +260,8 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 			onto === this.cancelled ||
 			!listed.restartable ||
 			this.idleSince === null ||
-			now.subtract(this.idleSince).isLessThan(IDLE)
+			now.subtract(this.idleSince).isLessThan(IDLE) ||
+			now.subtract(this.inputAt).isLessThan(IDLE)
 		) {
 			return;
 		}

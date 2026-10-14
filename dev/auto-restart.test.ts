@@ -75,6 +75,7 @@ describe("AutoRestart", () => {
 	let timer: FakeTimer;
 	let clock: FakeClock;
 	let wall: FakeWallClock;
+	let input: EventTarget;
 	let reloads: number;
 	let restart: AutoRestart;
 
@@ -87,11 +88,13 @@ describe("AutoRestart", () => {
 		timer = new FakeTimer();
 		clock = new FakeClock();
 		wall = new FakeWallClock(1_000_000);
+		input = new EventTarget();
 		reloads = 0;
 		restart = new AutoRestart(server, settings, {
 			timer,
 			clock,
 			wall,
+			input,
 			storage: sessionStorage,
 			reload: () => {
 				reloads += 1;
@@ -142,6 +145,7 @@ describe("AutoRestart", () => {
 			timer,
 			clock,
 			wall,
+			input,
 			storage: sessionStorage,
 			reload: () => {},
 		});
@@ -211,6 +215,20 @@ describe("AutoRestart", () => {
 		expect(restart.state.step).toBe("watching");
 
 		server.working(false);
+		await pass(59);
+		expect(restart.state.step).toBe("watching");
+		await pass(6);
+		expect(restart.state.step).toBe("counting");
+	});
+
+	it("waits for a minute without the person pressing, clicking, scrolling or touching", async () => {
+		await pass(30);
+		input.dispatchEvent(new Event("keydown"));
+		await pass(35);
+		expect(restart.state.step).toBe("watching");
+
+		await pass(20);
+		input.dispatchEvent(new Event("wheel"));
 		await pass(59);
 		expect(restart.state.step).toBe("watching");
 		await pass(6);

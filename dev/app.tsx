@@ -209,6 +209,7 @@ export function App({
 				timer: new SystemTimer(),
 				clock: new SystemClock(),
 				wall: new SystemWallClock(),
+				input: window,
 				storage: sessionStorage,
 				reload: () => location.reload(),
 			}),
