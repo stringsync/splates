@@ -87,12 +87,13 @@ export function useStartCard(
 export function useEndCard(
 	report: Report,
 ): ((element: HTMLElement | null) => void) | undefined {
-	const finished = report.ending === "finished";
 	const ref = useRegistered(
 		(registry) => registry.ends,
-		finished ? null : report.task,
+		"lanes" in report ? null : report.task,
 	);
-	return finished || OVER.has(report.ending) ? ref : undefined;
+	return report.ending === "finished" || OVER.has(report.ending)
+		? ref
+		: undefined;
 }
 
 function useRegistered<T>(

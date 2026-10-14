@@ -110,6 +110,14 @@ export function reportsDone(conversation: ConversationState): boolean {
 	return reported === "merged" || reported === "finished";
 }
 
+/**
+ * Whether a report `reported` leaves the person to act: its task escalated,
+ * or the lanes it orchestrates wait on a task that did.
+ */
+export function waitsOn(reported: Ending | null): boolean {
+	return reported === "escalated" || reported === "waiting";
+}
+
 /** The report that is the conversation's last word, as for `reportedAs`. */
 export function lastReport(conversation: ConversationState): Report | null {
 	const last = conversation.messages.at(-1);

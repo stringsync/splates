@@ -2,7 +2,7 @@ import type { ConversationState } from "../conversations";
 import { type Need, type Needing, need, needs } from "../needs";
 import type { Details } from "../show";
 import { NEW } from "./conversation-address";
-import { reportedAs, reportsDone } from "./conversation-names";
+import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
 import type { Drafts } from "./drafts";
 import { isPartOf, type Nested, nest } from "./parts";
 import { arriveAt, questionsSeen, replyCopied, TASK } from "./task-view";
@@ -102,7 +102,7 @@ function isUnread({ conversation, need }: Needing): boolean {
 	return (
 		conversation?.unread === true &&
 		need.kind === "idle" &&
-		reportedAs(conversation) !== "escalated"
+		!waitsOn(reportedAs(conversation))
 	);
 }
 

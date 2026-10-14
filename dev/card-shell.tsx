@@ -1,6 +1,7 @@
 import {
 	ChevronRightIcon,
 	CircleCheckIcon,
+	CirclePauseIcon,
 	CircleSlashIcon,
 	ColumnsIcon,
 	FlagIcon,
@@ -67,13 +68,11 @@ export const ENDINGS: Record<
 		tone: "warning",
 	},
 	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
+	waiting: { title: "Waiting", Icon: CirclePauseIcon, tone: "warning" },
 };
 
 /** What a report says: why it went, or what it waits on, leading the rest. */
 export function reportText(report: Report): string {
-	if (report.ending === "finished") {
-		return report.body;
-	}
 	return [report.reason, report.body]
 		.filter((each) => each !== null && each !== "")
 		.join("\n\n");

@@ -37,9 +37,14 @@ export interface Review {
 
 /**
  * How a task ended, or what it waits on, or that a lane orchestrator is done
- * with its lanes, as the skill's reports title them.
+ * with its lanes or waits on the person, as the skill's reports title them.
  */
-export type Ending = "merged" | "removed" | "escalated" | "finished";
+export type Ending =
+	| "merged"
+	| "removed"
+	| "escalated"
+	| "finished"
+	| "waiting";
 
 /** A report on a task, or a lane orchestrator's last word on its lanes. */
 export type Report = TaskReport | LanesReport;
@@ -49,7 +54,7 @@ export type Report = TaskReport | LanesReport;
  * <task>: <why>`, or `## ⚠️ Escalated <task>: <what it needs>`.
  */
 export interface TaskReport {
-	ending: Exclude<Ending, "finished">;
+	ending: Exclude<Ending, LanesReport["ending"]>;
 	task: string;
 	/** Where it merged; null for the others. */
 	base: string | null;
@@ -62,15 +67,19 @@ export interface TaskReport {
 }
 
 /**
- * The report a lane orchestrator ends on once every lane it works is done,
- * titled `## 🏁 Finished lanes <name>, <name>`: there is nothing left for it
- * to hand out.
+ * The report a lane orchestrator ends on: once every lane it works is done,
+ * titled `## 🏁 Finished lanes <name>, <name>`, as there is nothing left for
+ * it to hand out; or once each lane not done waits on a task that escalated,
+ * titled `## ⏸️ Waiting lanes <name>, <name>: <on what>`, as the person must
+ * answer that task before it can go on.
  */
 export interface LanesReport {
-	ending: "finished";
+	ending: "finished" | "waiting";
 	/** The lanes' names, as the title lists them. */
 	lanes: string[];
-	/** How each lane ended, and anything else said, as markdown. */
+	/** What the title says after its colon, if anything. */
+	reason: string | null;
+	/** How each lane stands, and anything else said, as markdown. */
 	body: string;
 	/** The markdown the agent wrote for it, from its title to its end. */
 	source: string;
@@ -110,6 +119,7 @@ const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
+const WAITING = /^## ⏸\uFE0F? Waiting lanes? (.*?)(?::[ \t]*(.*?))?[ \t]*$/;
 const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
 const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
 /** The skill's word that it requested a cred, which the page shows as the request. */
@@ -230,6 +240,7 @@ function keptAt(
 	const merged = MERGED.exec(line);
 	const ended = ENDED.exec(line);
 	const finished = FINISHED.exec(line);
+	const waiting = WAITING.exec(line);
 	const added = ADDED.exec(line);
 	const started = STARTED.exec(line);
 	const proposed = PROPOSAL.exec(line);
@@ -237,6 +248,7 @@ function keptAt(
 		merged === null &&
 		ended === null &&
 		finished === null &&
+		waiting === null &&
 		added === null &&
 		started === null &&
 		proposed === null
@@ -285,26 +297,35 @@ function keptAt(
 			? {
 					ending: "finished",
 					lanes: lanesOf(finished[1] as string),
+					reason: null,
 					body,
 					source,
 				}
-			: merged !== null
+			: waiting !== null
 				? {
-						ending: "merged",
-						task: merged[1] as string,
-						base: merged[2] as string,
-						reason: null,
+						ending: "waiting",
+						lanes: lanesOf(waiting[1] as string),
+						reason: waiting[2] || null,
 						body,
 						source,
 					}
-				: {
-						ending: ended?.[1] === undefined ? "escalated" : "removed",
-						task: ended?.[2] as string,
-						base: null,
-						reason: ended?.[3] || null,
-						body,
-						source,
-					};
+				: merged !== null
+					? {
+							ending: "merged",
+							task: merged[1] as string,
+							base: merged[2] as string,
+							reason: null,
+							body,
+							source,
+						}
+					: {
+							ending: ended?.[1] === undefined ? "escalated" : "removed",
+							task: ended?.[2] as string,
+							base: null,
+							reason: ended?.[3] || null,
+							body,
+							source,
+						};
 	return { stretch: { type: "report", report }, end };
 }
 

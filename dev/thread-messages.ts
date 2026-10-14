@@ -299,9 +299,12 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 				const todos = (end === -1 ? run : run.slice(0, end)).flatMap((each) =>
 					each.type === "todo" ? [each.todo] : [],
 				);
-				// Those right after a task ended are what to take up next.
+				// Those right after a task ended, or lanes finished, are what to
+				// take up next.
 				const next =
-					before?.type === "report" && before.report.ending !== "escalated";
+					before?.type === "report" &&
+					before.report.ending !== "escalated" &&
+					before.report.ending !== "waiting";
 				return [{ type: "data-todo", data: { todos, turn, next } }];
 			}
 			default:

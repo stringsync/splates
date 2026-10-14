@@ -196,6 +196,7 @@ describe("stretches", () => {
 				report: {
 					ending: "finished",
 					lanes: ["Stats", "Licensing"],
+					reason: null,
 					body: expect.stringContaining("- Stats: #155 merged"),
 					source: example,
 				},
@@ -206,6 +207,7 @@ describe("stretches", () => {
 			report: {
 				ending: "finished",
 				lanes: ["Stats"],
+				reason: null,
 				body: "It leads.",
 				source: "## 🏁 Finished lane Stats\n\nIt leads.",
 			},
@@ -224,6 +226,40 @@ describe("stretches", () => {
 			{ type: "cred", name: "CLOUDFLARE_TUNNEL_TOKEN" },
 			{ type: "text", text: "I wait for it now." },
 		]);
+	});
+
+	it("reads the skill's waiting lanes report, naming each lane and what they wait on", async () => {
+		const example = (await skillExamples()).find((each) =>
+			each.startsWith("## ⏸️ Waiting lanes"),
+		);
+		if (example === undefined) {
+			throw new Error("the skill has no waiting lanes example");
+		}
+
+		expect(stretches(example)).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "waiting",
+					lanes: ["Stats", "Licensing"],
+					reason: "on stats-breakdowns-clear",
+					body: expect.stringContaining(
+						"- Stats: waits on stats-breakdowns-clear",
+					),
+					source: example,
+				},
+			},
+		]);
+		expect(stretches("## ⏸ Waiting lane Stats\n\nIt waits.")[0]).toEqual({
+			type: "report",
+			report: {
+				ending: "waiting",
+				lanes: ["Stats"],
+				reason: null,
+				body: "It waits.",
+				source: "## ⏸ Waiting lane Stats\n\nIt waits.",
+			},
+		});
 	});
 
 	it("reads the skill's word that an orchestrator started lanes, what they add up to under it", async () => {

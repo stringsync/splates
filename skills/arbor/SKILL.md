@@ -340,7 +340,7 @@ Make the Stats page say what to act on, then renew licenses on their own.
    <id>` for that one, again on `timeout`, rather than skip ahead: a lane is in
    order for reasons the board knows and you do not. Meanwhile, go on with
    your other lanes. When the wait ends because the other task is escalated,
-   tell the user the lane is blocked on it.
+   the lane waits on that task, as in step 4.
 3. Hand the next todo out. `arbor todo show <id>` names its agent and model;
    when it names none, pick one as for a todo you add (see Todos), and say
    which in your report. Then `arbor add <task> --todo <id> --agent <a>
@@ -351,8 +351,12 @@ Make the Stats page say what to act on, then renew licenses on their own.
    itself, and proposes no next todo, since you hand that out.
 4. `arbor wait <task>`, and on `timeout` again. When it ends on `removed`,
    read in `git log` what landed, say so in a line, and go back to step 1
-   without waiting for the user. When it ends on `escalated`, tell the user the lane waits on that
-   task, and wait again once they have answered it.
+   without waiting for the user. When it ends on `escalated`, the lane waits
+   on that task: say so in a line and go on with your other lanes. Once every
+   lane you work that is not done waits on an escalated task, end on a
+   waiting report (see Reporting), so the `arbor dev` page shows you waiting
+   on the user, while the task's own conversation holds the questions. Once
+   they have answered it and sent you on, `arbor wait` again.
 
 `arbor dev` starts the agent you name, and sets `$ARBOR_CONVERSATION` in
 yours; without it, nothing will start one. Hand the todo to a subagent of
@@ -781,8 +785,22 @@ Why it is a good next step.
 A merge or remove report ends with the proposed todos, the best one first,
 each kept to its one sentence; leave them out only when no todo is open.
 
-A lane orchestrator has no task of its own to report on. Once every lane it
-works is done, it ends on one report for them all, the page's sign that it is
+A lane orchestrator has no task of its own to report on. When every lane it
+works that is not done waits on an escalated task, it ends on one report for
+them all: `## ⏸️ Waiting lanes`, the lanes' names, and after a colon, the
+tasks they wait on, then one sentence on what the user has to answer, and a
+`- ` line per lane on where it stands.
+
+```markdown
+## ⏸️ Waiting lanes Stats, Licensing: on stats-breakdowns-clear
+
+Answer stats-breakdowns-clear's question on the breakdown tables, then send me on.
+
+- Stats: waits on stats-breakdowns-clear, escalated on what reads wrong.
+- Licensing: done; #171 and #172 merged.
+```
+
+Once every lane it works is done, it ends on one report for them all, the page's sign that it is
 done: `## 🏁 Finished lanes` and the lanes' names as the board shows them,
 then one sentence on what they added up to, and a `- ` line per lane on what
 became of each todo, including those another agent took and landed. It ends

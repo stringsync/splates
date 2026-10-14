@@ -80,11 +80,11 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	return (
 		<div ref={ended}>
 			<CardShell
-				label={`${report.ending} ${report.ending === "finished" ? report.lanes.join(", ") : report.task}`}
+				label={`${report.ending} ${"lanes" in report ? report.lanes.join(", ") : report.task}`}
 				Icon={Icon}
 				title={title}
 				tone={tone}
-				{...(report.ending === "finished"
+				{...("lanes" in report
 					? { lanes: report.lanes }
 					: { task: report.task, base: report.base })}
 				aside={
@@ -104,10 +104,7 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 				{showing ? (
 					<Source text={report.source} />
 				) : text === "" ? undefined : (
-					<CardBody
-						text={text}
-						lead={report.ending !== "finished" && report.reason !== null}
-					/>
+					<CardBody text={text} lead={report.reason !== null} />
 				)}
 			</CardShell>
 		</div>

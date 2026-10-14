@@ -148,7 +148,10 @@ export function Thread({
 	// the task is over, or the lanes it worked are.
 	const report = lastReport(conversation);
 	const ended =
-		report !== null && report.ending !== "escalated" && !archived
+		report !== null &&
+		report.ending !== "escalated" &&
+		report.ending !== "waiting" &&
+		!archived
 			? report
 			: null;
 	const widgets = useWidgets(section);
@@ -429,7 +432,7 @@ function ArchiveBar({
 			<span className="min-w-0 truncate">
 				{title}{" "}
 				<span className="font-mono text-xs">
-					{report.ending === "finished" ? report.lanes.join(", ") : report.task}
+					{"lanes" in report ? report.lanes.join(", ") : report.task}
 				</span>
 			</span>
 			{shortcut !== null && <Kbd className="ml-auto">{shortcut}</Kbd>}

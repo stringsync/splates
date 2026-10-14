@@ -82,7 +82,7 @@ Cap upload retries
 		]);
 	});
 
-	it("marks a conversation whose task merged, or whose lanes finished, green and one removed red until the person carries on, and one that escalated as waiting on you", async () => {
+	it("marks a conversation whose task merged, or whose lanes finished, green and one removed red until the person carries on, and one that escalated, or whose lanes wait, as waiting on you", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				conversation({
@@ -99,6 +99,16 @@ Cap upload retries
 						message(
 							"agent",
 							"## 🛑 Removed footer: superseded\n\nIt moved the footer.",
+						),
+					],
+				}),
+				conversation({
+					id: "c6",
+					title: "Paused",
+					messages: [
+						message(
+							"agent",
+							"## ⏸️ Waiting lanes Stats: on stats-breakdowns-clear\n\nAnswer it.",
 						),
 					],
 				}),
@@ -161,6 +171,7 @@ Cap upload retries
 			Landed: "merged",
 			Dropped: "removed",
 			Orchestrated: "finished",
+			Paused: "waiting on you",
 			"Carried on": null,
 			alpha: "waiting on you",
 		});
