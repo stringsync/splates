@@ -38,10 +38,14 @@ export class BackgroundOutput
 	private readonly disposer = new Disposer();
 	private readonly reading = new AbortController();
 
-	/** Background command `background` of conversation `conversation`. */
+	/**
+	 * Background command `background` of conversation `conversation`, led by
+	 * `command` after a `$` as a shell would echo it, where it has one.
+	 */
 	constructor(
 		readonly conversation: string,
 		readonly background: string,
+		readonly command: string | null = null,
 	) {
 		this.element.className = "h-full w-full";
 		this.terminal.loadAddon(this.fit);
@@ -57,6 +61,9 @@ export class BackgroundOutput
 		if (this.terminal.element === undefined) {
 			this.terminal.open(this.element);
 			this.fitted();
+			if (this.command !== null) {
+				this.terminal.write(`$ ${this.command}\n`);
+			}
 			void this.read();
 		} else {
 			this.fitted();

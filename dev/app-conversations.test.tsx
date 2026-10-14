@@ -511,7 +511,7 @@ describe("App's conversations", () => {
 		);
 		await waitFor(() =>
 			expect(within(pane).getByTestId("output").textContent).toContain(
-				"listening on 3000",
+				"$ bun devlistening on 3000",
 			),
 		);
 		await act(async () =>

@@ -180,8 +180,8 @@ function BackgroundMenuOf({
 
 /**
  * What background command `background` printed, in the pane down the right
- * of the page (the whole screen on a phone), following it as it prints, with
- * a Stop while it runs.
+ * of the page (the whole screen on a phone), after its command as a shell
+ * echoes it, following it as it prints, with a Stop while it runs.
  */
 export function BackgroundPane({
 	conversation,
@@ -195,7 +195,7 @@ export function BackgroundPane({
 	onClose: () => void;
 }): JSX.Element {
 	const [output] = useState(
-		() => new BackgroundOutput(conversation, background.id),
+		() => new BackgroundOutput(conversation, background.id, background.command),
 	);
 	useEffect(() => () => output.dispose(), [output]);
 	const { status } = useReactive(
@@ -225,14 +225,9 @@ export function BackgroundPane({
 		>
 			<header className="flex min-h-8 items-center gap-2">
 				<StateMark state={background.state} />
-				<div className="flex min-w-0 flex-1 flex-col">
-					<h2 className="truncate font-medium text-sm">{background.name}</h2>
-					{background.command !== null && (
-						<code className="truncate text-muted-foreground text-xs">
-							{background.command}
-						</code>
-					)}
-				</div>
+				<h2 className="min-w-0 flex-1 truncate font-medium text-sm">
+					{background.name}
+				</h2>
 				<span role="status" className="text-muted-foreground text-xs">
 					{refused ??
 						(status === "closed" && running
