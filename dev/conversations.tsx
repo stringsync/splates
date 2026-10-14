@@ -127,7 +127,8 @@ export function Conversations({
 
 	return (
 		<Board value={board}>
-			<div className="flex flex-col gap-4">
+			{/* What a view transition fades, as `slide` starts a conversation. */}
+			<div className="flex flex-col gap-4 [view-transition-name:conversation]">
 				{phone && open === null ? (
 					<ConversationList
 						feed={feed}

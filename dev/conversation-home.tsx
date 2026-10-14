@@ -4,6 +4,7 @@ import {
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
 import { type JSX, useContext, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -37,6 +38,29 @@ import { TreesContext } from "./work-row";
 const RECENT = 5;
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
+
+/**
+ * Runs `change` in a view transition, which moves each element named on both
+ * sides of it, such as the composer, and fades the rest; at once where the
+ * browser has none or motion is unwelcome. Settles once it has played.
+ */
+async function slide(change: () => void): Promise<void> {
+	if (
+		!("startViewTransition" in document) ||
+		matchMedia("(prefers-reduced-motion: reduce)").matches
+	) {
+		change();
+		return;
+	}
+	await document
+		.startViewTransition(async () => {
+			flushSync(change);
+			// assistant-ui's runtime takes up a change a task later, as with
+			// `isRunning`: wait it out, so the transition ends where the page does.
+			await new Promise((resolve) => setTimeout(resolve));
+		})
+		.finished.catch(() => {});
+}
 
 /**
  * The screen with no conversation open: an empty thread whose first message
@@ -112,7 +136,9 @@ export function Home({
 		onNew: async (message) => {
 			const text = said(message);
 			const files = filesOf(message);
-			setStarting(true);
+			// Running, the thread drops its composer to the bottom: it slides
+			// there at once, rather than when the server answers.
+			const dropped = slide(() => setStarting(true));
 			// Each as shown: where it was left, unless picked here.
 			const settings = {
 				...Object.fromEntries(offered.map((each) => [each.id, each.current])),
@@ -125,7 +151,7 @@ export function Home({
 				// Until a session has offered its settings, the server picks it.
 				model !== null && offered.length === 0 ? model : undefined,
 			).catch((error: unknown) => {
-				setStarting(false);
+				void slide(() => setStarting(false));
 				restore.current(text, files);
 				refuse("Not started", error);
 				throw error;
@@ -137,7 +163,9 @@ export function Home({
 				text !== "" || files.length > 0
 					? feed.send(state.id, noted(text, files), files)
 					: null;
-			onOpen(state.id);
+			// After the drop, or the thread would cut it short.
+			await dropped;
+			void slide(() => onOpen(state.id));
 			await promptConversation(state.id, noted(text, files), files).catch(
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its

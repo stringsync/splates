@@ -312,3 +312,18 @@
 @custom-variant data-closed (
 	&:where([data-state="closed"], [data-closed]:not([data-closed="false"]))
 );
+
+/* A conversation started from the home screen: its composer slides from the
+   middle to the bottom, easing out, while the conversation pane cross-fades.
+   The sidebar and header swap at once, or a row added to the list would show
+   twice as it faded. */
+::view-transition-group(*) {
+	animation-duration: 250ms;
+	animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+::view-transition-old(root) {
+	display: none;
+}
+::view-transition-new(root) {
+	animation: none;
+}
