@@ -1,4 +1,9 @@
-import { EllipsisVerticalIcon, PowerIcon, SettingsIcon } from "lucide-react";
+import {
+	EllipsisVerticalIcon,
+	LogOutIcon,
+	PowerIcon,
+	SettingsIcon,
+} from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
 import {
 	DropdownMenu,
@@ -18,7 +23,7 @@ import { type Update, UpdateDot, update } from "./release";
 
 /**
  * The menu beside the project's name, holding what the page can do as a
- * whole, under who Cloudflare Access signed in, if anyone: Checkpoint, where the agents of `arbor dev` run; Fullscreen;
+ * whole, under who Cloudflare Access signed in, if anyone, and Sign out: Checkpoint, where the agents of `arbor dev` run; Fullscreen;
  * Settings; and last, apart, Restart, opening the Checkpoint dialog to
  * checkpoint, restart and resume whenever the person likes. Dotted, and its
  * Restart too, once a restart would update.
@@ -53,9 +58,16 @@ export function PageMenu({
 				{email !== null && (
 					<>
 						<DropdownMenuGroup>
-							<DropdownMenuLabel className="truncate font-normal">
-								Signed in as {email}
+							<DropdownMenuLabel
+								title={`Signed in as ${email}`}
+								className="break-all font-normal"
+							>
+								{email}
 							</DropdownMenuLabel>
+							<DropdownMenuItem onClick={() => location.assign(SIGN_OUT)}>
+								<LogOutIcon />
+								Sign out
+							</DropdownMenuItem>
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />
 					</>
@@ -88,6 +100,9 @@ export function PageMenu({
 		</DropdownMenu>
 	);
 }
+
+/** Cloudflare Access's own sign-out, which ends the session on any host it guards. */
+const SIGN_OUT = "/cdn-cgi/access/logout";
 
 /**
  * Who Cloudflare Access signed in, when the page came through it; null on

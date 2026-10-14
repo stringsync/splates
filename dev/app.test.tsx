@@ -56,13 +56,14 @@ describe("App", () => {
 		expect(view.getByText("~/Projects/webappwiz")).toBeTruthy();
 	});
 
-	it("says in the page menu who Cloudflare Access signed in, and nothing on this machine", async () => {
+	it("says in the page menu who Cloudflare Access signed in, with Sign out, and nothing on this machine", async () => {
 		const local = await testing.open();
 		await act(async () =>
 			fireEvent.click(local.getByRole("button", { name: "More" })),
 		);
 		await waitFor(() => local.getByRole("menuitem", { name: "Settings" }));
-		expect(local.queryByText(/Signed in as/)).toBeNull();
+		expect(local.queryByTitle(/Signed in as/)).toBeNull();
+		expect(local.queryByRole("menuitem", { name: "Sign out" })).toBeNull();
 		cleanup();
 
 		testing.email = "me@example.com";
@@ -72,10 +73,12 @@ describe("App", () => {
 		);
 
 		const line = await waitFor(() =>
-			view.getByText("Signed in as me@example.com"),
+			view.getByTitle("Signed in as me@example.com"),
 		);
+		expect(line.textContent).toBe("me@example.com");
 		// Out of the header, where it pushed into the tabs below.
 		expect(line.closest("header")).toBeNull();
+		expect(view.getByRole("menuitem", { name: "Sign out" })).toBeTruthy();
 	});
 
 	it("shows the todos and the tasks on pages of their own, kept in the address", async () => {
