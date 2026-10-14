@@ -75,8 +75,29 @@ describe("Settings", () => {
 		);
 	});
 
+	it("binds a shortcut, taking it from the one that had it, and keeps only one it can press", async () => {
+		const settings = new Settings(localStorage);
+		expect(settings.get("shortcuts.checkpoint")).toBe("Alt+Mod+KeyC");
+
+		expect(await settings.bind("shortcuts.search", "Alt+Mod+KeyC")).toBe(
+			"shortcuts.checkpoint",
+		);
+		expect(settings.get("shortcuts.search")).toBe("Alt+Mod+KeyC");
+		expect(settings.get("shortcuts.checkpoint")).toBe("");
+		expect(await settings.bind("shortcuts.fullscreen", "")).toBeNull();
+		const next = new Settings(localStorage);
+		expect(next.get("shortcuts.checkpoint")).toBe("");
+		expect(next.get("shortcuts.fullscreen")).toBe("");
+
+		localStorage.setItem(
+			"arbor.settings",
+			JSON.stringify({ "shortcuts.search": "KeyK" }),
+		);
+		expect(new Settings(localStorage).get("shortcuts.search")).toBe("Mod+KeyK");
+	});
+
 	it("searches by every word, in titles, descriptions and categories", () => {
-		expect(search("")).toHaveLength(11);
+		expect(search("")).toHaveLength(26);
 		expect(search("quiet")).toEqual([
 			"notifications.on",
 			"notifications.quiet",

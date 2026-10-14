@@ -8,6 +8,7 @@ import {
 	DropdownMenuShortcut,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import { useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { CheckpointItem, useCheckpoint } from "./checkpoint";
 import { FullscreenItem } from "./fullscreen";
 import { type Update, UpdateDot, update } from "./release";
@@ -31,6 +32,7 @@ export function PageMenu({
 }): JSX.Element {
 	const { open } = useCheckpoint();
 	const why = update(release, behind);
+	const settingsKey = useShortcutLabel("shortcuts.settings");
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -48,7 +50,11 @@ export function PageMenu({
 				<DropdownMenuItem onClick={onSettings}>
 					<SettingsIcon />
 					Settings
-					<DropdownMenuShortcut aria-hidden>⌘,</DropdownMenuShortcut>
+					{settingsKey !== null && (
+						<DropdownMenuShortcut aria-hidden>
+							{settingsKey}
+						</DropdownMenuShortcut>
+					)}
 				</DropdownMenuItem>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem

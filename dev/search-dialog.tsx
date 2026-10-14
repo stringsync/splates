@@ -18,6 +18,7 @@ import {
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
+import { useShortcut } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { type Found, type Kind, type Searched, search } from "./search";
 
@@ -34,7 +35,7 @@ const ICONS: Record<Kind, LucideIcon> = {
 };
 
 /**
- * ⌘K (Ctrl+K): one box over the shown project's tasks, conversations and
+ * Its shortcut, ⌘K (Ctrl+K) unless set otherwise: one box over the shown project's tasks, conversations and
  * todos, grouped by kind, the best match first (see `search`). The arrows and
  * Enter pick.
  */
@@ -60,20 +61,7 @@ export function SearchDialog({
 	const [query, setQuery] = useState("");
 	const [active, setActive] = useState(0);
 	const list = useRef<HTMLUListElement>(null);
-	useEffect(() => {
-		const toggle = (event: KeyboardEvent) => {
-			if (
-				(event.metaKey || event.ctrlKey) &&
-				!event.altKey &&
-				event.key.toLowerCase() === "k"
-			) {
-				event.preventDefault();
-				show(!opened.current);
-			}
-		};
-		window.addEventListener("keydown", toggle);
-		return () => window.removeEventListener("keydown", toggle);
-	}, [show]);
+	useShortcut("shortcuts.search", () => show(!opened.current));
 
 	const { tasks, todos, conversations } = searched;
 	// Kept while it closes too, so the list does not empty as it fades.

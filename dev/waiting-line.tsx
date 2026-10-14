@@ -3,27 +3,27 @@ import { type JSX, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 
-/** How long the line blinks once ⌥⌘M finds nothing: three blinks of `animate-blink`. */
+/** How long the line blinks once its shortcut finds nothing: three blinks of `animate-blink`. */
 const NUDGE = Duration.ms(600);
 
 /**
  * A line of one height that always says how many agents wait on you, so
  * nothing moves as the count changes. Clicking it opens the next one, as
- * ⌥⌘M does. Each time `nudges` goes up, as when ⌥⌘M finds nothing to open,
+ * its shortcut does. Each time `nudges` goes up, as when that finds nothing to open,
  * it blinks a few times in place, to catch the eye, starting over on a repeat.
  */
 export function WaitingLine({
 	waiting,
 	nudges,
-	held,
+	hint,
 	onNext,
 }: {
 	/** How many agents wait on you. */
 	waiting: number;
-	/** How many times ⌥⌘M has found nothing, so far. */
+	/** How many times its shortcut has found nothing, so far. */
 	nudges: number;
-	/** Whether ⌥⌘ is held, to show the key that goes with it. */
-	held: boolean;
+	/** The key to show while ⌥⌘ is held, or null. */
+	hint: string | null;
 	onNext: () => void;
 }): JSX.Element {
 	const [lit, setLit] = useState(false);
@@ -60,10 +60,10 @@ export function WaitingLine({
 			<span role="status" className="flex-1 truncate">
 				{waiting > 0 ? `${waiting} waiting on you` : "Nothing waiting on you"}
 			</span>
-			{held && (
+			{hint !== null && (
 				// Its own height, taller than the line, would push the rows below.
 				<Kbd aria-hidden className="-my-0.5">
-					M
+					{hint}
 				</Kbd>
 			)}
 		</button>

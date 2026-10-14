@@ -7,7 +7,8 @@ import type { ConversationState } from "../conversations";
 import { Back } from "./back";
 import { PANE_WIDTH } from "./changes";
 import { focusComposer } from "./composer-editor";
-import { type TerminalSession, TOGGLE } from "./terminal-session";
+import { useShortcutLabel } from "./hooks/use-shortcut";
+import type { TerminalSession } from "./terminal-session";
 import { numberOf, type Terminals } from "./terminals";
 
 /**
@@ -89,6 +90,7 @@ function PaneScreen({
 		(session) => ({ status: session.status }),
 		["changed"],
 	);
+	const shortcut = useShortcutLabel("shortcuts.terminal");
 
 	return (
 		<aside
@@ -122,7 +124,11 @@ function PaneScreen({
 					size="icon-sm"
 					variant="ghost"
 					aria-label="Hide the terminal"
-					title={`Hide the terminal (${TOGGLE})`}
+					title={
+						shortcut === null
+							? "Hide the terminal"
+							: `Hide the terminal (${shortcut})`
+					}
 					className="ml-auto"
 					onClick={() => {
 						terminals.toggle(conversation.id);

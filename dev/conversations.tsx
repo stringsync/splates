@@ -132,6 +132,11 @@ import { Trunk, whereRuns } from "./dispatching";
 import { Dot } from "./dot";
 import { type Drafts, newDraft } from "./drafts";
 import { useHeld } from "./hooks/use-held";
+import {
+	useHeldKey,
+	useShortcut,
+	useShortcutLabel,
+} from "./hooks/use-shortcut";
 import { type Named, NamedContext } from "./mentioned";
 import { rank } from "./mentions";
 import { useNotifier } from "./notifications";
@@ -167,7 +172,6 @@ import {
 } from "./task-view";
 import { Task } from "./tasks";
 import { MainTerminal, ShellRunning, ToggleTerminal } from "./terminal";
-import { TOGGLE } from "./terminal-session";
 import { isMain, numberOf, type Terminals } from "./terminals";
 import { TodoDialog } from "./todos";
 import { unanswered } from "./unanswered";
@@ -312,7 +316,8 @@ function openingOf(conversation: ConversationState): string | null {
  * The arrow keys move between rows, ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new
  * one as the last was started, ⌥⌘0 to ⌥⌘9 open the first ten rows, top
  * to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
- * terminals among them, round past either end. Holding ⌥⌘ shows each of those keys beside what it opens.
+ * terminals among them, round past either end; each but the digits as the
+ * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
  * Under New, `NextWaiting` says how many wait on you, opening the
  * next as ⌥⌘M does.
  * As `settings` say, it notifies of an agent that comes to wait on you,
@@ -373,8 +378,6 @@ export function ConversationList({
 		openRow,
 	);
 	// The latest, for the listener below, which outlives a render.
-	const onOpenRef = useRef(onOpen);
-	onOpenRef.current = onOpen;
 	const openRowRef = useRef(openRow);
 	openRowRef.current = openRow;
 	const shownRef = useRef(shown);
@@ -390,10 +393,6 @@ export function ConversationList({
 					: [],
 		),
 	];
-	const stopsRef = useRef(stops);
-	stopsRef.current = stops;
-	const openRef = useRef(open);
-	openRef.current = open;
 	// Whether the New menu last closed on an agent, which its focus follows.
 	const picked = useRef(false);
 	useEffect(() => {
@@ -409,43 +408,33 @@ export function ConversationList({
 					event.preventDefault();
 					openRowRef.current(row);
 				}
-				return;
 			}
-			// By the key's place, since Alt types another letter on a Mac.
-			if (!event.altKey || !(event.metaKey || event.ctrlKey)) {
-				return;
-			}
-			if (event.code === "KeyN") {
-				event.preventDefault();
-				// With the agent, model, and settings the last one started with.
-				onOpenRef.current(NEW);
-				return;
-			}
-			const step =
-				event.code === "BracketRight"
-					? 1
-					: event.code === "BracketLeft"
-						? -1
-						: 0;
-			const stops = stopsRef.current;
-			if (step === 0 || stops.length === 0) {
-				return;
-			}
-			event.preventDefault();
-			// From a row, round past either end; from no row, in from the top or
-			// the bottom.
-			const at = stops.indexOf(openRef.current ?? "");
-			const to =
-				at === -1
-					? step === 1
-						? 0
-						: stops.length - 1
-					: (at + step + stops.length) % stops.length;
-			onOpenRef.current(stops[to] ?? null);
 		};
 		document.addEventListener("keydown", jump);
 		return () => document.removeEventListener("keydown", jump);
 	}, []);
+	// With the agent, model, and settings the last one started with.
+	useShortcut("shortcuts.new", () => onOpen(NEW));
+	// From a row, round past either end; from no row, in from the top or the
+	// bottom.
+	const step = (by: 1 | -1) => {
+		if (stops.length === 0) {
+			return false;
+		}
+		const at = stops.indexOf(open ?? "");
+		const to =
+			at === -1
+				? by === 1
+					? 0
+					: stops.length - 1
+				: (at + by + stops.length) % stops.length;
+		onOpen(stops[to] ?? null);
+		return true;
+	};
+	useShortcut("shortcuts.next", () => step(1));
+	useShortcut("shortcuts.previous", () => step(-1));
+	const newKey = useHeldKey("shortcuts.new");
+	const newShortcut = useShortcutLabel("shortcuts.new");
 
 	return (
 		<nav
@@ -487,8 +476,8 @@ export function ConversationList({
 					>
 						<PlusIcon className="size-3.5" />
 						<span className="flex-1">New</span>
-						{held ? (
-							<Kbd aria-hidden>N</Kbd>
+						{held && newKey !== null ? (
+							<Kbd aria-hidden>{newKey}</Kbd>
 						) : (
 							<ChevronDownIcon className="size-3.5 text-muted-foreground" />
 						)}
@@ -519,9 +508,10 @@ export function ConversationList({
 							>
 								<AgentIcon agent={each.id} name={each.name} />
 								{each.name}
-								{each.id === agentFor(NEW, agents, conversations) && (
-									<Kbd className="ml-auto">⌥⌘N</Kbd>
-								)}
+								{newShortcut !== null &&
+									each.id === agentFor(NEW, agents, conversations) && (
+										<Kbd className="ml-auto">{newShortcut}</Kbd>
+									)}
 							</DropdownMenuItem>
 						))}
 						<DropdownMenuSeparator />
@@ -632,7 +622,8 @@ function NextWaiting({
 	const rows = rowsOf(tasks, conversations);
 	useCopiedReplies(drafts);
 	const held = useHeld();
-	// Each time ⌥⌘M finds nothing to open, for the waiting line to say so.
+	const waitingKey = useHeldKey("shortcuts.waiting");
+	// Each time its shortcut finds nothing to open, for the waiting line to say so.
 	const [nudges, setNudges] = useState(0);
 	// The latest, for the listener below, which outlives a render.
 	const next = useRef(() => {});
@@ -645,34 +636,17 @@ function NextWaiting({
 			setNudges((nudges) => nudges + 1);
 		}
 	};
-	useEffect(() => {
-		const jump = (event: KeyboardEvent) => {
-			// By the key's place, since Alt types another letter on a Mac.
-			if (
-				event.code === "KeyM" &&
-				event.altKey &&
-				(event.metaKey || event.ctrlKey)
-			) {
-				event.preventDefault();
-				next.current();
-			}
-		};
-		document.addEventListener("keydown", jump);
-		return () => document.removeEventListener("keydown", jump);
-	}, []);
+	useShortcut("shortcuts.waiting", () => next.current());
 
 	return (
 		<WaitingLine
 			waiting={rows.filter((row) => waitsOnYou(row, drafts)).length}
 			nudges={nudges}
-			held={held}
+			hint={held ? waitingKey : null}
 			onNext={() => next.current()}
 		/>
 	);
 }
-
-/** What archives the open conversation, or brings it back. */
-const ARCHIVE = "⌥⌘⌫";
 
 /**
  * A bar above the composer while the conversation's last word is the report
@@ -687,6 +661,7 @@ function ArchiveBar({
 	onArchive: () => void;
 }): JSX.Element {
 	const { title, Icon, tone } = ENDINGS[report.ending];
+	const shortcut = useShortcutLabel("shortcuts.archive");
 	return (
 		<section
 			aria-label="archive"
@@ -696,12 +671,15 @@ function ArchiveBar({
 			<span className="min-w-0 truncate">
 				{title} <span className="font-mono text-xs">{report.task}</span>
 			</span>
-			<Kbd className="ml-auto">{ARCHIVE}</Kbd>
+			{shortcut !== null && <Kbd className="ml-auto">{shortcut}</Kbd>}
 			<Button
 				size="sm"
 				variant="outline"
 				onClick={onArchive}
-				className="h-7 gap-1.5 bg-background"
+				className={cn(
+					"h-7 gap-1.5 bg-background",
+					shortcut === null && "ml-auto",
+				)}
 			>
 				<ArchiveIcon data-icon="inline-start" />
 				Archive
@@ -2592,6 +2570,8 @@ function Thread({
 	const terminal = useContext(ToggleTerminal);
 	const archive = useArchive(conversation, refused);
 	const [details, setDetails] = useState(false);
+	const archiveKey = useShortcutLabel("shortcuts.archive");
+	const terminalKey = useShortcutLabel("shortcuts.terminal");
 	// The newest card it waits on you through.
 	useArrived(id, () => toWaiting(section.current));
 	const actions: Action[] = [
@@ -2615,7 +2595,7 @@ function Thread({
 					{
 						label: "Terminal",
 						icon: <SquareTerminalIcon />,
-						detail: <Kbd>{TOGGLE}</Kbd>,
+						detail: terminalKey !== null && <Kbd>{terminalKey}</Kbd>,
 						run: () => terminal(id),
 					},
 				]
@@ -2623,7 +2603,8 @@ function Thread({
 		{
 			label: archived ? "Unarchive" : "Archive",
 			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
-			detail: archived ? undefined : <Kbd>{ARCHIVE}</Kbd>,
+			detail:
+				archived || archiveKey === null ? undefined : <Kbd>{archiveKey}</Kbd>,
 			run: () => archive.file(archived ? undefined : onLeft),
 		},
 	];
@@ -2641,24 +2622,7 @@ function Thread({
 			archive.file(onLeft);
 		}
 	};
-	// The latest, for the listener below, which outlives a render.
-	const fileRef = useRef(fileByKey);
-	fileRef.current = fileByKey;
-	useEffect(() => {
-		// By the key's place, as ⌥⌘N and ⌥⌘M.
-		const file = (event: KeyboardEvent) => {
-			if (
-				event.code === "Backspace" &&
-				event.altKey &&
-				(event.metaKey || event.ctrlKey)
-			) {
-				event.preventDefault();
-				fileRef.current();
-			}
-		};
-		document.addEventListener("keydown", file);
-		return () => document.removeEventListener("keydown", file);
-	}, []);
+	useShortcut("shortcuts.archive", fileByKey);
 	// What the conversation's last word reports, to offer archiving it when
 	// the task is over.
 	const report = lastReport(conversation);

@@ -9,6 +9,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
+import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { forgetProject, listProjects, type ProjectChoice } from "./api";
 import { Dot } from "./dot";
@@ -84,8 +85,8 @@ export function projectUrl(project: ProjectChoice): string {
 
 /**
  * The project's name, heading the page, as a picker of every project on this
- * machine, each marked with how many agents wait on you there: ⌃⌘P, which
- * no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
+ * machine, each marked with how many agents wait on you there: its
+ * shortcut, ⌃⌘P unless set otherwise, which no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
  * while another project has agents waiting on you.
  */
 export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
@@ -126,22 +127,8 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 		}, LISTED);
 		return () => tick.dispose();
 	}, []);
-	useEffect(() => {
-		const toggle = (event: KeyboardEvent) => {
-			// By the key's place, whatever the layout prints on it.
-			if (
-				event.ctrlKey &&
-				event.metaKey &&
-				!event.altKey &&
-				event.code === "KeyP"
-			) {
-				event.preventDefault();
-				setOpen((was) => !was);
-			}
-		};
-		window.addEventListener("keydown", toggle);
-		return () => window.removeEventListener("keydown", toggle);
-	}, []);
+	useShortcut("shortcuts.projects", () => setOpen((was) => !was));
+	const shortcut = useShortcutLabel("shortcuts.projects");
 
 	const words = query.trim().toLowerCase();
 	const matching = (projects ?? []).filter(
@@ -192,11 +179,9 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 								? `Switch project: ${waitingElsewhere}`
 								: "Switch project"
 						}
-						title={
-							elsewhere.length > 0
-								? `Switch project (⌃⌘P): ${waitingElsewhere}`
-								: "Switch project (⌃⌘P)"
-						}
+						title={`Switch project${shortcut === null ? "" : ` (${shortcut})`}${
+							elsewhere.length > 0 ? `: ${waitingElsewhere}` : ""
+						}`}
 						className="-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left hover:bg-muted"
 					/>
 				}
@@ -301,9 +286,11 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 					))}
 				</ul>
 				<Refusal refusal={refusal} className="px-2" />
-				<p className="px-2 text-muted-foreground text-xs">
-					<Kbd>⌃⌘P</Kbd> opens this anywhere
-				</p>
+				{shortcut !== null && (
+					<p className="px-2 text-muted-foreground text-xs">
+						<Kbd>{shortcut}</Kbd> opens this anywhere
+					</p>
+				)}
 			</PopoverContent>
 		</Popover>
 	);

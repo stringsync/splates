@@ -10,6 +10,7 @@ import {
 import {
 	type CSSProperties,
 	type JSX,
+	type ReactNode,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -57,6 +58,11 @@ import { Drafts } from "./drafts";
 import { Feed } from "./feed";
 import { useFullscreenKey } from "./fullscreen";
 import { useHeld } from "./hooks/use-held";
+import {
+	ShortcutSettings,
+	useHeldKey,
+	useShortcut,
+} from "./hooks/use-shortcut";
 import { OpenerContext, openerOf } from "./openers";
 import { PageMenu } from "./page-menu";
 import {
@@ -67,13 +73,13 @@ import {
 } from "./projects";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
-import type { Settings } from "./settings";
+import type { Settings, ShortcutKey } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
+import { matches } from "./shortcuts";
 import { SidebarHandle, SidebarWidth } from "./sidebar";
 import { TASK } from "./task-view";
 import { Tasks } from "./tasks";
 import { ShellRunning, TerminalPane, ToggleTerminal } from "./terminal";
-import { isToggle } from "./terminal-session";
 import { Terminals } from "./terminals";
 import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
@@ -100,20 +106,24 @@ function taskIn(hash: string): string | null {
 	return task ?? null;
 }
 
-/** Each page with the key that opens it with ⌥⌘, if any. */
+/** Each page with the shortcut that opens it, if any. */
 const PAGES: {
 	value: Page;
 	label: string;
 	Icon: LucideIcon;
-	key?: string;
+	shortcut?: ShortcutKey;
 }[] = [
 	{
 		value: "conversations",
 		label: "Conversations",
 		Icon: MessagesSquareIcon,
-		// None: ⌥⌘C opens Checkpoint.
 	},
-	{ value: "todos", label: "Todos", Icon: KanbanIcon, key: "T" },
+	{
+		value: "todos",
+		label: "Todos",
+		Icon: KanbanIcon,
+		shortcut: "shortcuts.todos",
+	},
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
 ];
 
@@ -206,7 +216,12 @@ export function App({
 	// so a prompt composed on the board reaches the composer it opens.
 	const [drafts] = useState(() => new Drafts(localStorage));
 	// A shell per conversation, kept until the tab closes.
-	const [terminals] = useState(() => new Terminals(localStorage));
+	const [terminals] = useState(
+		() =>
+			new Terminals(localStorage, (event) =>
+				matches(event, settings.get("shortcuts.terminal")),
+			),
+	);
 	const [autoRestart] = useState(
 		() =>
 			new AutoRestart({ list: listProjects, restart: restartIdle }, settings, {
@@ -315,29 +330,8 @@ export function App({
 	const pages = PAGES.filter(
 		({ value }) => value !== "conversations" || available,
 	);
-	// ⌥⌘ and a page's key opens it, by the key's place, since Alt types
-	// another letter on a Mac.
-	const goRef = useRef(go);
-	goRef.current = go;
-	useEffect(() => {
-		const open = (event: KeyboardEvent) => {
-			if (!event.altKey || !(event.metaKey || event.ctrlKey)) {
-				return;
-			}
-			const found = PAGES.find(({ key }) => event.code === `Key${key}`);
-			if (
-				found !== undefined &&
-				(found.value !== "conversations" || available)
-			) {
-				event.preventDefault();
-				goRef.current(found.value);
-			}
-		};
-		document.addEventListener("keydown", open);
-		return () => document.removeEventListener("keydown", open);
-	}, [available]);
-	// ⌥⌘, goes back through the conversations opened and ⌥⌘. forward, as in
-	// a browser's history, past any since archived or merged away.
+	// Back through the conversations opened and forward, as in a browser's
+	// history, past any since archived or merged away.
 	const [visits] = useState(() => new Visits());
 	useEffect(() => {
 		if (open === null || open === NEW) {
@@ -351,53 +345,14 @@ export function App({
 		id.startsWith(TASK)
 			? tasks.some(({ task }) => `${TASK}${task}` === id)
 			: conversations.some((each) => each.id === id && !each.archived);
-	useEffect(() => {
-		if (!available) {
-			return;
+	const visit = (to: string | null) => {
+		if (to !== null) {
+			go("conversations", to);
 		}
-		// By the key's place, since Alt types another letter on a Mac.
-		const step = (event: KeyboardEvent) => {
-			if (!event.altKey || !(event.metaKey || event.ctrlKey)) {
-				return;
-			}
-			const to =
-				event.code === "Comma"
-					? visits.back(existsRef.current)
-					: event.code === "Period"
-						? visits.forward(existsRef.current)
-						: undefined;
-			if (to === undefined) {
-				return;
-			}
-			event.preventDefault();
-			if (to !== null) {
-				goRef.current("conversations", to);
-			}
-		};
-		document.addEventListener("keydown", step);
-		return () => document.removeEventListener("keydown", step);
-	}, [available, visits]);
+	};
 	const held = useHeld();
 
 	const [setting, setSetting] = useState(false);
-	// ⌘, or Ctrl+, as in an IDE, leaving ⌥⌘, to go back.
-	useEffect(() => {
-		const open = (event: KeyboardEvent) => {
-			if (
-				(event.metaKey || event.ctrlKey) &&
-				!event.altKey &&
-				event.key === ","
-			) {
-				event.preventDefault();
-				setSetting(true);
-			}
-		};
-		document.addEventListener("keydown", open);
-		return () => document.removeEventListener("keydown", open);
-	}, []);
-
-	useFullscreenKey();
-	useAttachKey();
 
 	const waiting = useWaiting(talk, drafts, tasks);
 	const counted = available && waiting > 0;
@@ -480,25 +435,6 @@ export function App({
 			focusComposer();
 		}
 	};
-	// The latest, for the listener below, which outlives a render.
-	const toggleRef = useRef(toggleTerminal);
-	toggleRef.current = toggleTerminal;
-	// From anywhere on the page, the terminal included, which leaves the chord
-	// to bubble up here.
-	const toggled = shown === null ? null : shown.id;
-	useEffect(() => {
-		if (toggled === null) {
-			return;
-		}
-		const listen = (event: KeyboardEvent) => {
-			if (isToggle(event)) {
-				event.preventDefault();
-				toggleRef.current(toggled);
-			}
-		};
-		window.addEventListener("keydown", listen);
-		return () => window.removeEventListener("keydown", listen);
-	}, [toggled]);
 	const paned =
 		reviewed !== undefined || watched !== null || (terminal && shown !== null);
 	// On a phone, an open conversation takes the whole screen: no header, and
@@ -526,260 +462,280 @@ export function App({
 					<WatchBackground value={watch}>
 						<ToggleTerminal value={shown === null ? null : toggleTerminal}>
 							<ShellRunning value={shellRunning}>
-								<TooltipProvider>
-									<CheckpointProvider
-										conversations={conversations.filter(
-											(each) => !each.archived,
-										)}
-										every={checkpointEvery}
-										restartShown={checkpointRestartShown}
-									>
-										<Tabs
-											value={page}
-											onValueChange={(value) => go(value as Page)}
-											orientation={wide ? "vertical" : "horizontal"}
-											// Clear of the sidebar, or of the bar along the bottom.
-											className={cn(
-												"min-h-dvh gap-0",
-												wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
-												wide && paned && BESIDE_PANE,
+								<ShortcutSettings value={settings}>
+									<PageShortcuts
+										onPage={go}
+										onBack={
+											available
+												? () => visit(visits.back(existsRef.current))
+												: null
+										}
+										onForward={
+											available
+												? () => visit(visits.forward(existsRef.current))
+												: null
+										}
+										onSettings={() => setSetting(true)}
+										onTerminal={
+											shown === null ? null : () => toggleTerminal(shown.id)
+										}
+									/>
+									<TooltipProvider>
+										<CheckpointProvider
+											conversations={conversations.filter(
+												(each) => !each.archived,
 											)}
-											style={
-												{ "--sidebar-width": `${width}px` } as CSSProperties
-											}
+											every={checkpointEvery}
+											restartShown={checkpointRestartShown}
 										>
-											{!reading && (
-												<>
-													{/* Heads the sidebar when there is one, and the page on a phone. */}
-													<header
-														className={cn(
-															"flex min-w-0 flex-col gap-0.5",
-															wide
-																? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
-																: "border-b px-4 py-2.5",
-														)}
-													>
-														<div className="flex min-w-0 items-center gap-2">
-															<ProjectSwitcher name={name} />
-															{/* Silent while connected, which is the normal case. Once the
+											<Tabs
+												value={page}
+												onValueChange={(value) => go(value as Page)}
+												orientation={wide ? "vertical" : "horizontal"}
+												// Clear of the sidebar, or of the bar along the bottom.
+												className={cn(
+													"min-h-dvh gap-0",
+													wide ? "pl-(--sidebar-width)" : !reading && "pb-20",
+													wide && paned && BESIDE_PANE,
+												)}
+												style={
+													{ "--sidebar-width": `${width}px` } as CSSProperties
+												}
+											>
+												{!reading && (
+													<>
+														{/* Heads the sidebar when there is one, and the page on a phone. */}
+														<header
+															className={cn(
+																"flex min-w-0 flex-col gap-0.5",
+																wide
+																	? "fixed top-0 left-0 z-50 w-(--sidebar-width) px-6 pt-5"
+																	: "border-b px-4 py-2.5",
+															)}
+														>
+															<div className="flex min-w-0 items-center gap-2">
+																<ProjectSwitcher name={name} />
+																{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it
 									    shows may no longer be true. */}
-															{/* Up but refusing: a newer arbor moved the records on. */}
-															{outdated !== null && !offline && (
-																<span
-																	role="status"
-																	title={outdated}
-																	className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
-																>
-																	<span className="size-1.5 rounded-full bg-amber-500" />
-																	Outdated
-																</span>
-															)}
-															{/* Up, but serving the page built before, since building this
-									    one failed, as when a merge added a package. */}
-															{snapshot?.unbuilt === true &&
-																outdated === null &&
-																!offline && (
+																{/* Up but refusing: a newer arbor moved the records on. */}
+																{outdated !== null && !offline && (
 																	<span
 																		role="status"
-																		title="Building this page failed as arbor dev started, so it may be out of date: the terminal running arbor dev says why"
+																		title={outdated}
 																		className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
 																	>
 																		<span className="size-1.5 rounded-full bg-amber-500" />
-																		Build failed
+																		Outdated
 																	</span>
 																)}
-															{offline && (
-																<span
-																	role="status"
-																	title="arbor dev stopped answering: is it still running?"
-																	className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
-																>
-																	<span className="size-1.5 rounded-full bg-destructive" />
-																	Offline
-																</span>
-															)}
-															<PageMenu
-																release={
-																	hinted ? (snapshot?.release ?? null) : null
-																}
-																behind={
-																	hinted ? (snapshot?.behind ?? null) : null
-																}
-																conversations={available}
-																onSettings={() => setSetting(true)}
-															/>
-														</div>
-														{snapshot && (
-															<span className="truncate text-muted-foreground text-xs">
-																{snapshot.path}
-															</span>
-														)}
-														{/* Out of the menu that asked, which has closed. */}
-														<CheckpointRefusal className="pt-1" />
-													</header>
-													{/* With room to spare, a sidebar down the left. On a phone, a bar
-								    along the bottom, where a thumb already is; a dialog sits over
-								    it. */}
-													<TabsList
-														variant="line"
-														className={
-															wide
-																? // Below the header.
-																	"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
-																: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
-														}
-													>
-														{pages.map(({ value, label, Icon, key }) => (
-															<TabsTrigger
-																key={value}
-																value={value}
-																className={
-																	wide
-																		? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
-																		: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
-																}
-															>
-																<Icon className={cn(!wide && "size-5")} />
-																<span
-																	className={cn(wide && "flex-1 text-left")}
-																>
-																	{label}
-																	{!wide &&
-																		count(value) !== null &&
-																		` ${count(value)}`}
-																</span>
-																{wide && held && key !== undefined ? (
-																	<Kbd aria-hidden>{key}</Kbd>
-																) : (
-																	wide &&
-																	count(value) !== null && (
-																		<span className="text-muted-foreground tabular-nums">
-																			{count(value)}
+																{/* Up, but serving the page built before, since building this
+									    one failed, as when a merge added a package. */}
+																{snapshot?.unbuilt === true &&
+																	outdated === null &&
+																	!offline && (
+																		<span
+																			role="status"
+																			title="Building this page failed as arbor dev started, so it may be out of date: the terminal running arbor dev says why"
+																			className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 leading-none dark:text-amber-400"
+																		>
+																			<span className="size-1.5 rounded-full bg-amber-500" />
+																			Build failed
 																		</span>
-																	)
+																	)}
+																{offline && (
+																	<span
+																		role="status"
+																		title="arbor dev stopped answering: is it still running?"
+																		className="flex shrink-0 items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-medium text-[11px] text-destructive leading-none"
+																	>
+																		<span className="size-1.5 rounded-full bg-destructive" />
+																		Offline
+																	</span>
 																)}
-															</TabsTrigger>
-														))}
-														{/* Under their tab, so one is a click away from any page. */}
-														{wide && available && snapshot !== null && (
-															<div className="-mx-3 mt-4 min-h-0 flex-1 overflow-y-auto border-t px-3 pt-4 pb-6">
-																<ConversationList
-																	feed={talk}
-																	terminals={terminals}
-																	drafts={drafts}
-																	tasks={snapshot.tasks}
-																	settings={settings}
-																	open={page === "conversations" ? open : null}
-																	onOpen={(id) => go("conversations", id)}
+																<PageMenu
+																	release={
+																		hinted ? (snapshot?.release ?? null) : null
+																	}
+																	behind={
+																		hinted ? (snapshot?.behind ?? null) : null
+																	}
+																	conversations={available}
+																	onSettings={() => setSetting(true)}
 																/>
 															</div>
-														)}
-													</TabsList>
-													{wide && <SidebarHandle sidebar={sidebar} />}
-												</>
-											)}
-											{snapshot === null ? (
-												// The server opens a project on its first read, which takes
-												// seconds. Offline or outdated, the header already says why
-												// nothing came.
-												!offline &&
-												outdated === null && (
-													<div
-														role="status"
-														className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
-													>
-														<Loader2Icon className="size-4 animate-spin" />
-														Opening {name}
-													</div>
-												)
-											) : (
-												<>
-													{/* The board runs as wide as its lanes, the way a Trello board
-						    scrolls sideways. */}
-													<TabsContent
-														value="todos"
-														className="min-w-0 px-4 py-4"
-													>
-														<Todos
-															snapshot={snapshot}
-															drafts={drafts}
-															view={todoView}
-														/>
-													</TabsContent>
-													<TabsContent
-														value="tasks"
-														className="mx-auto w-full max-w-xl px-4 py-6"
-													>
-														<Tasks
-															tasks={snapshot.tasks}
-															open={task}
-															onOpen={openTask}
-														/>
-													</TabsContent>
-													{available && (
-														<TabsContent
-															value="conversations"
-															className="min-w-0 px-4 py-4"
+															{snapshot && (
+																<span className="truncate text-muted-foreground text-xs">
+																	{snapshot.path}
+																</span>
+															)}
+															{/* Out of the menu that asked, which has closed. */}
+															<CheckpointRefusal className="pt-1" />
+														</header>
+														{/* With room to spare, a sidebar down the left. On a phone, a bar
+								    along the bottom, where a thumb already is; a dialog sits over
+								    it. */}
+														<TabsList
+															variant="line"
+															className={
+																wide
+																	? // Below the header.
+																		"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
+																	: "fixed inset-x-0 bottom-0 z-40 w-full justify-around rounded-none border-t bg-background/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur group-data-horizontal/tabs:h-auto"
+															}
 														>
-															<TreesContext value={snapshot}>
-																<OpenerContext value={openerOf(opener)}>
-																	<Conversations
+															{pages.map(({ value, label, Icon, shortcut }) => (
+																<TabsTrigger
+																	key={value}
+																	value={value}
+																	className={
+																		wide
+																			? "h-9 flex-none gap-3 px-3 after:hidden group-data-[variant=line]/tabs-list:data-active:bg-accent dark:group-data-[variant=line]/tabs-list:data-active:bg-accent data-active:[&_svg]:text-primary"
+																			: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
+																	}
+																>
+																	<Icon className={cn(!wide && "size-5")} />
+																	<span
+																		className={cn(wide && "flex-1 text-left")}
+																	>
+																		{label}
+																		{!wide &&
+																			count(value) !== null &&
+																			` ${count(value)}`}
+																	</span>
+																	{wide && (
+																		<HeldOr shortcut={shortcut} held={held}>
+																			{count(value) !== null && (
+																				<span className="text-muted-foreground tabular-nums">
+																					{count(value)}
+																				</span>
+																			)}
+																		</HeldOr>
+																	)}
+																</TabsTrigger>
+															))}
+															{/* Under their tab, so one is a click away from any page. */}
+															{wide && available && snapshot !== null && (
+																<div className="-mx-3 mt-4 min-h-0 flex-1 overflow-y-auto border-t px-3 pt-4 pb-6">
+																	<ConversationList
 																		feed={talk}
 																		terminals={terminals}
 																		drafts={drafts}
 																		tasks={snapshot.tasks}
-																		todos={snapshot.todos}
-																		lanes={snapshot.lanes}
-																		trunk={snapshot.trunk}
-																		open={open}
+																		settings={settings}
+																		open={
+																			page === "conversations" ? open : null
+																		}
 																		onOpen={(id) => go("conversations", id)}
-																		phone={!wide}
 																	/>
-																</OpenerContext>
-															</TreesContext>
+																</div>
+															)}
+														</TabsList>
+														{wide && <SidebarHandle sidebar={sidebar} />}
+													</>
+												)}
+												{snapshot === null ? (
+													// The server opens a project on its first read, which takes
+													// seconds. Offline or outdated, the header already says why
+													// nothing came.
+													!offline &&
+													outdated === null && (
+														<div
+															role="status"
+															className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+														>
+															<Loader2Icon className="size-4 animate-spin" />
+															Opening {name}
+														</div>
+													)
+												) : (
+													<>
+														{/* The board runs as wide as its lanes, the way a Trello board
+						    scrolls sideways. */}
+														<TabsContent
+															value="todos"
+															className="min-w-0 px-4 py-4"
+														>
+															<Todos
+																snapshot={snapshot}
+																drafts={drafts}
+																view={todoView}
+															/>
 														</TabsContent>
-													)}
-												</>
-											)}
-										</Tabs>
-										{reviewed !== undefined ? (
-											<ChangesPane
-												key={reviewed.task}
-												task={reviewed.task}
-												version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
-												phone={!wide}
-												onClose={() => setReviewing(null)}
-											/>
-										) : watched !== null && shown !== null ? (
-											<BackgroundPane
-												key={`${shown.id}:${watched.id}`}
-												conversation={shown.id}
-												background={watched}
-												phone={!wide}
-												onClose={closeWatching}
-											/>
-										) : (
-											terminal &&
-											shown !== null && (
-												// One per conversation: its projections are of that one's shell.
-												<TerminalPane
-													key={shown.id}
-													terminals={terminals}
-													conversation={shown}
+														<TabsContent
+															value="tasks"
+															className="mx-auto w-full max-w-xl px-4 py-6"
+														>
+															<Tasks
+																tasks={snapshot.tasks}
+																open={task}
+																onOpen={openTask}
+															/>
+														</TabsContent>
+														{available && (
+															<TabsContent
+																value="conversations"
+																className="min-w-0 px-4 py-4"
+															>
+																<TreesContext value={snapshot}>
+																	<OpenerContext value={openerOf(opener)}>
+																		<Conversations
+																			feed={talk}
+																			terminals={terminals}
+																			drafts={drafts}
+																			tasks={snapshot.tasks}
+																			todos={snapshot.todos}
+																			lanes={snapshot.lanes}
+																			trunk={snapshot.trunk}
+																			open={open}
+																			onOpen={(id) => go("conversations", id)}
+																			phone={!wide}
+																		/>
+																	</OpenerContext>
+																</TreesContext>
+															</TabsContent>
+														)}
+													</>
+												)}
+											</Tabs>
+											{reviewed !== undefined ? (
+												<ChangesPane
+													key={reviewed.task}
+													task={reviewed.task}
+													version={`${reviewed.ahead}:${reviewed.added}:${reviewed.removed}`}
 													phone={!wide}
+													onClose={() => setReviewing(null)}
 												/>
-											)
-										)}
-										<SearchDialog searched={searched} pick={pick} />
-										<SettingsDialog
-											settings={settings}
-											open={setting}
-											onOpenChange={setSetting}
-										/>
-										<AutoRestartDialog restart={autoRestart} />
-									</CheckpointProvider>
-								</TooltipProvider>
+											) : watched !== null && shown !== null ? (
+												<BackgroundPane
+													key={`${shown.id}:${watched.id}`}
+													conversation={shown.id}
+													background={watched}
+													phone={!wide}
+													onClose={closeWatching}
+												/>
+											) : (
+												terminal &&
+												shown !== null && (
+													// One per conversation: its projections are of that one's shell.
+													<TerminalPane
+														key={shown.id}
+														terminals={terminals}
+														conversation={shown}
+														phone={!wide}
+													/>
+												)
+											)}
+											<SearchDialog searched={searched} pick={pick} />
+											<SettingsDialog
+												settings={settings}
+												open={setting}
+												onOpenChange={setSetting}
+											/>
+											<AutoRestartDialog restart={autoRestart} />
+										</CheckpointProvider>
+									</TooltipProvider>
+								</ShortcutSettings>
 							</ShellRunning>
 						</ToggleTerminal>
 					</WatchBackground>
@@ -787,4 +743,48 @@ export function App({
 			</Trunk>
 		</Dispatching>
 	);
+}
+
+/**
+ * The shortcuts that work from anywhere on the page, as the settings bind
+ * them: each page's, back and forward through the conversations opened,
+ * Settings, fullscreen, attaching files, and the open
+ * conversation's terminal, from the terminal too, which leaves its key to
+ * bubble up here.
+ */
+function PageShortcuts({
+	onPage,
+	onBack,
+	onForward,
+	onSettings,
+	onTerminal,
+}: {
+	onPage: (page: Page) => void;
+	onBack: (() => void) | null;
+	onForward: (() => void) | null;
+	onSettings: () => void;
+	onTerminal: (() => void) | null;
+}): null {
+	useShortcut("shortcuts.todos", () => onPage("todos"));
+	useShortcut("shortcuts.back", () => onBack?.(), onBack !== null);
+	useShortcut("shortcuts.forward", () => onForward?.(), onForward !== null);
+	useShortcut("shortcuts.settings", onSettings);
+	useShortcut("shortcuts.terminal", () => onTerminal?.(), onTerminal !== null);
+	useFullscreenKey();
+	useAttachKey();
+	return null;
+}
+
+/** A page's shortcut key while ⌥⌘ is held, or else `children`. */
+function HeldOr({
+	shortcut,
+	held,
+	children,
+}: {
+	shortcut: ShortcutKey | undefined;
+	held: boolean;
+	children: ReactNode;
+}): ReactNode {
+	const key = useHeldKey(shortcut);
+	return held && key !== null ? <Kbd aria-hidden>{key}</Kbd> : children;
 }

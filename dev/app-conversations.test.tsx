@@ -370,7 +370,7 @@ describe("App's conversations", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["TerminalCtrl+`", "Archive⌥⌘⌫"]);
+		).toEqual(["Terminal⌃`", "Archive⌥⌘⌫"]);
 	});
 
 	it("lists the systems its task touches as chips in a card under the actions, each opening to its globs, and as a button when narrow", async () => {

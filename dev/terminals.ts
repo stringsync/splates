@@ -38,7 +38,12 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 
 	private readonly sessions = new Map<string, TerminalSession>();
 
-	constructor(private readonly storage: Storage) {
+	/** Its shells leave to the page each key `toggles` says shows or hides one. */
+	constructor(
+		private readonly storage: Storage,
+		// scry-ignore objects-over-callbacks: a test of one key, handed to each shell
+		private readonly toggles: (event: KeyboardEvent) => boolean,
+	) {
 		this.open = this.stored() === "open";
 	}
 
@@ -52,7 +57,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		}
 		let session = this.sessions.get(conversation);
 		if (session === undefined) {
-			const made = new TerminalSession(task);
+			const made = new TerminalSession(task, this.toggles);
 			made.events.on("changed", () => {
 				if (made.status === "exited") {
 					this.exited(conversation);

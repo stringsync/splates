@@ -65,7 +65,13 @@ describe("App's settings and notifications", () => {
 			)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual(["Appearance", "Editor", "Notifications", "Restart"]);
+		).toEqual([
+			"Appearance",
+			"Editor",
+			"Notifications",
+			"Restart",
+			"Shortcuts",
+		]);
 		expect(within(dialog).getAllByRole("switch")).toHaveLength(6);
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
@@ -73,9 +79,109 @@ describe("App's settings and notifications", () => {
 			expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull(),
 		);
 		await act(async () =>
-			fireEvent.keyDown(document.body, { key: ",", metaKey: true }),
+			fireEvent.keyDown(document.body, {
+				key: ",",
+				code: "Comma",
+				metaKey: true,
+			}),
 		);
 		expect(view.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+	});
+
+	it("records a shortcut, taking it from the one that had it, and unsets one", async () => {
+		const { view, dialog } = await settings();
+		const field = (name: string) =>
+			within(dialog).getByRole("button", { name: new RegExp(`^${name}: `) });
+		const record = async (name: string, keys: KeyboardEventInit) => {
+			await act(async () => fireEvent.click(field(name)));
+			expect(field(name).getAttribute("aria-label")).toBe(
+				`${name}: press a shortcut`,
+			);
+			await act(async () => fireEvent.keyDown(field(name), keys));
+		};
+		const search = (keys: KeyboardEventInit) =>
+			act(async () => fireEvent.keyDown(window, keys));
+		const searching = () => view.queryByRole("textbox", { name: "search" });
+
+		// Only modifiers, or a key with none of ⌘, ⌃ or ⌥, records nothing yet.
+		await record("Search", { key: "Meta", code: "MetaLeft", metaKey: true });
+		await act(async () =>
+			fireEvent.keyDown(field("Search"), { key: "j", code: "KeyJ" }),
+		);
+		expect(field("Search").getAttribute("aria-label")).toBe(
+			"Search: press a shortcut",
+		);
+		await act(async () =>
+			fireEvent.keyDown(field("Search"), {
+				key: "j",
+				code: "KeyJ",
+				metaKey: true,
+			}),
+		);
+		expect(field("Search").getAttribute("aria-label")).toBe("Search: ⌘J");
+
+		await record("Fullscreen", {
+			key: "∆",
+			code: "KeyJ",
+			altKey: true,
+			metaKey: true,
+		});
+		await record("Search", {
+			key: "ç",
+			code: "KeyC",
+			altKey: true,
+			metaKey: true,
+		});
+		expect(field("Search").getAttribute("aria-label")).toBe("Search: ⌥⌘C");
+		expect(field("Checkpoint").getAttribute("aria-label")).toBe(
+			"Checkpoint: none",
+		);
+		expect(within(dialog).getByText("Was Checkpoint's")).toBeTruthy();
+
+		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
+		await waitFor(() =>
+			expect(view.queryByRole("dialog", { name: "Settings" })).toBeNull(),
+		);
+		await search({ key: "k", code: "KeyK", metaKey: true });
+		expect(searching()).toBeNull();
+		await search({ key: "ç", code: "KeyC", altKey: true, metaKey: true });
+		await waitFor(() => expect(searching()).toBeTruthy());
+		await search({ key: "ç", code: "KeyC", altKey: true, metaKey: true });
+		await waitFor(() => expect(searching()).toBeNull());
+		// Checkpoint lost its shortcut, so its menu item shows none.
+		expect((await menuItem(view, "Checkpoint")).textContent).toBe("Checkpoint");
+
+		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
+		await act(async () =>
+			fireEvent.keyDown(document.body, {
+				key: ",",
+				code: "Comma",
+				metaKey: true,
+			}),
+		);
+		const again = await waitFor(() =>
+			view.getByRole("dialog", { name: "Settings" }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(again).getByRole("button", { name: "Unset Search" }),
+			),
+		);
+		expect(
+			within(again)
+				.getByRole("button", { name: /^Search: / })
+				.getAttribute("aria-label"),
+		).toBe("Search: none");
+		await act(async () =>
+			fireEvent.click(
+				within(again).getByRole("button", { name: "Reset Checkpoint to ⌥⌘C" }),
+			),
+		);
+		expect(
+			within(again)
+				.getByRole("button", { name: /^Checkpoint: / })
+				.getAttribute("aria-label"),
+		).toBe("Checkpoint: ⌥⌘C");
 	});
 
 	it("keeps only the settings a search matches, marking the words", async () => {

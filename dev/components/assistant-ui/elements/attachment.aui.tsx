@@ -16,7 +16,7 @@ import {
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import { type FC, useContext, useEffect, useRef, useState } from "react";
+import { type FC, useContext, useRef, useState } from "react";
 import { useAnnotate } from "#dev/annotate.tsx";
 import { Annotation } from "#dev/annotation.ts";
 import {
@@ -52,6 +52,11 @@ import { composerIn, ForgetAttachment } from "#dev/composer-editor.tsx";
 import { FileIcon } from "#dev/file-chip.tsx";
 import { useAttachmentSrc } from "#dev/hooks/use-attachment-src.ts";
 import { useHeld } from "#dev/hooks/use-held.ts";
+import {
+	useHeldKey,
+	useShortcut,
+	useShortcutLabel,
+} from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP, ITEM, type Shown, useLightbox } from "#dev/lightbox.tsx";
 
@@ -420,14 +425,21 @@ export const ComposerAttachments: FC = () => {
 	);
 };
 
-/** Picks files to attach, as ⌥⌘; does, showing `;` while ⌥⌘ is held. */
+/**
+ * Picks files to attach, as its shortcut does, showing its key while ⌥⌘ is
+ * held.
+ */
 export const ComposerAddAttachment: FC = () => {
 	const held = useHeld();
+	const shortcut = useShortcutLabel("shortcuts.attach");
+	const key = useHeldKey("shortcuts.attach");
 	return (
 		<ComposerPrimitive.AddAttachment
 			render={
 				<TooltipIconButton
-					tooltip="Attach files (⌥⌘;)"
+					tooltip={
+						shortcut === null ? "Attach files" : `Attach files (${shortcut})`
+					}
 					side="bottom"
 					variant="ghost"
 					size="icon"
@@ -439,8 +451,8 @@ export const ComposerAddAttachment: FC = () => {
 				/>
 			}
 		>
-			{held ? (
-				<Kbd aria-hidden>;</Kbd>
+			{held && key !== null ? (
+				<Kbd aria-hidden>{key}</Kbd>
 			) : (
 				<PlusIcon className="aui-attachment-add-icon size-4" />
 			)}
@@ -452,34 +464,20 @@ export const ComposerAddAttachment: FC = () => {
 const ATTACH = "aui-composer-add-attachment";
 
 /**
- * ⌥⌘; (Ctrl+Alt+; off a Mac) picks files to attach in the composer being
- * written in, or else the first one showing. Once per page, so one press
- * opens one picker.
+ * Its shortcut, ⌥⌘; unless set otherwise, picks files to attach in the
+ * composer being written in, or else the first one showing. Once per page,
+ * so one press opens one picker.
  */
 export function useAttachKey(): void {
-	useEffect(() => {
-		// By the key's place, as ⌥⌘M, since Alt types another character on a Mac.
-		const listen = (event: KeyboardEvent) => {
-			if (
-				event.code !== "Semicolon" ||
-				!event.altKey ||
-				!(event.metaKey || event.ctrlKey)
-			) {
-				return;
-			}
-			const shown = [
-				...document.querySelectorAll<HTMLButtonElement>(`.${ATTACH}`),
-			].filter((each) => each.getClientRects().length > 0);
-			const focused = document.activeElement?.closest("form");
-			const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
-			if (button !== undefined) {
-				event.preventDefault();
-				button.click();
-			}
-		};
-		document.addEventListener("keydown", listen);
-		return () => document.removeEventListener("keydown", listen);
-	}, []);
+	useShortcut("shortcuts.attach", () => {
+		const shown = [
+			...document.querySelectorAll<HTMLButtonElement>(`.${ATTACH}`),
+		].filter((each) => each.getClientRects().length > 0);
+		const focused = document.activeElement?.closest("form");
+		const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
+		button?.click();
+		return button !== undefined;
+	});
 }
 
 const SENT =

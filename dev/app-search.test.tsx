@@ -34,7 +34,7 @@ describe("App's search", () => {
 			todos: [todo({ id: 7, subject: "Retry the upload" })],
 		});
 		await act(async () =>
-			fireEvent.keyDown(window, { key: "k", metaKey: true }),
+			fireEvent.keyDown(window, { key: "k", code: "KeyK", metaKey: true }),
 		);
 		const box = await waitFor(() =>
 			view.getByRole("textbox", { name: "search" }),

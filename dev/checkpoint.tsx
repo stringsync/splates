@@ -32,6 +32,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuShortcut,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { After, Checkpoint, ConversationState } from "../conversations";
 import {
@@ -239,7 +240,7 @@ export function useCheckpoint(): Checkpointing {
 }
 
 /**
- * The page's one checkpoint, and the dialog, opened by ⌥⌘C or `open`, to
+ * The page's one checkpoint, and the dialog, opened by its shortcut or `open`, to
  * checkpoint any of the projects with agents running, which says how one
  * under way gets on, then slides on to what to do once it is done, or to
  * `arbor dev` restarting when that was asked for, and from there to what to
@@ -267,23 +268,10 @@ export function CheckpointProvider({
 	const [open, setOpen] = useState(false);
 	// What follows the checkpoint, as the dialog was opened to pick.
 	const [after, setAfter] = useState<After>("stop");
-	// ⌥⌘C (Ctrl+Alt+C off a Mac), by the key's place, since Alt types another
-	// letter on a Mac.
-	useEffect(() => {
-		const press = (event: KeyboardEvent) => {
-			if (
-				event.code === "KeyC" &&
-				event.altKey &&
-				(event.metaKey || event.ctrlKey)
-			) {
-				event.preventDefault();
-				setAfter("stop");
-				setOpen(true);
-			}
-		};
-		document.addEventListener("keydown", press);
-		return () => document.removeEventListener("keydown", press);
-	}, []);
+	useShortcut("shortcuts.checkpoint", () => {
+		setAfter("stop");
+		setOpen(true);
+	});
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	const [restarting, setRestarting] = useState<Restarting | null>(null);
@@ -504,11 +492,12 @@ export function CheckpointProvider({
 }
 
 /**
- * The title menu's Checkpoint, opening the dialog as ⌥⌘C does, and saying
+ * The title menu's Checkpoint, opening the dialog as its shortcut does, and saying
  * how the checkpoint stands.
  */
 export function CheckpointItem(): JSX.Element {
 	const { slide, title, open } = useCheckpoint();
+	const shortcut = useShortcutLabel("shortcuts.checkpoint");
 	return (
 		<DropdownMenuItem onClick={() => open()}>
 			{slide === "going" || slide === "restarting" || slide === "resuming" ? (
@@ -519,7 +508,9 @@ export function CheckpointItem(): JSX.Element {
 				<CheckIcon className="text-success" />
 			)}
 			{title}
-			<DropdownMenuShortcut aria-hidden>⌥⌘C</DropdownMenuShortcut>
+			{shortcut !== null && (
+				<DropdownMenuShortcut aria-hidden>{shortcut}</DropdownMenuShortcut>
+			)}
 		</DropdownMenuItem>
 	);
 }

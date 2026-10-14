@@ -1,5 +1,6 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { OPENERS, ZED } from "./openers";
+import { NONE, type Shortcut, valid } from "./shortcuts";
 
 export type SettingsEvents = { changed: undefined };
 
@@ -9,6 +10,7 @@ export const CATEGORIES = [
 	"Editor",
 	"Notifications",
 	"Restart",
+	"Shortcuts",
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number];
@@ -45,6 +47,8 @@ export interface Definition {
 	/** What a number counts, and the least it can be. */
 	unit?: string;
 	min?: number;
+	/** A keyboard shortcut, its default the one the page starts with. */
+	shortcut?: boolean;
 	/** The switch this one does nothing without. */
 	under?: string;
 	browser?: Allowance;
@@ -172,9 +176,96 @@ export const SETTINGS = {
 			{ value: "reload", label: "Restart and reload" },
 		],
 	},
+	"shortcuts.search": shortcut(
+		"Search",
+		"Find a task, conversation or todo.",
+		"Mod+KeyK",
+	),
+	"shortcuts.settings": shortcut(
+		"Settings",
+		"Open these settings.",
+		"Mod+Comma",
+	),
+	"shortcuts.projects": shortcut(
+		"Switch project",
+		"Open the list of projects on this machine.",
+		"Ctrl+Mod+KeyP",
+	),
+	"shortcuts.todos": shortcut("Todos", "Open the todo board.", "Alt+Mod+KeyT"),
+	"shortcuts.new": shortcut(
+		"New conversation",
+		"Start one with the agent, model and settings the last one started with.",
+		"Alt+Mod+KeyN",
+	),
+	"shortcuts.back": shortcut(
+		"Back",
+		"Go back to the conversation opened before, as in a browser's history.",
+		"Alt+Mod+Comma",
+	),
+	"shortcuts.forward": shortcut(
+		"Forward",
+		"Go forward again after going back.",
+		"Alt+Mod+Period",
+	),
+	"shortcuts.waiting": shortcut(
+		"Next waiting on you",
+		"Open the next conversation waiting on you, or else the next unread one.",
+		"Alt+Mod+KeyM",
+	),
+	"shortcuts.next": shortcut(
+		"Next conversation",
+		"Open the conversation below the one open, round past the end.",
+		"Alt+Mod+BracketRight",
+	),
+	"shortcuts.previous": shortcut(
+		"Previous conversation",
+		"Open the conversation above the one open, round past the top.",
+		"Alt+Mod+BracketLeft",
+	),
+	"shortcuts.archive": shortcut(
+		"Archive conversation",
+		"Archive the conversation open.",
+		"Alt+Mod+Backspace",
+	),
+	"shortcuts.attach": shortcut(
+		"Attach files",
+		"Pick files to attach to the message being written.",
+		"Alt+Mod+Semicolon",
+	),
+	"shortcuts.terminal": shortcut(
+		"Terminal",
+		"Show or hide the open conversation's terminal.",
+		"Ctrl+Backquote",
+	),
+	"shortcuts.checkpoint": shortcut(
+		"Checkpoint",
+		"Stop every agent where it stands, to pick up after a restart.",
+		"Alt+Mod+KeyC",
+	),
+	"shortcuts.fullscreen": shortcut(
+		"Fullscreen",
+		"Go fullscreen, or back.",
+		"Alt+Mod+KeyF",
+	),
 } satisfies Record<string, Definition>;
 
+/** A setting for a shortcut, which the dialog records by pressing it. */
+function shortcut(title: string, description: string, fallback: Shortcut) {
+	return {
+		category: "Shortcuts",
+		title,
+		description,
+		default: fallback,
+		shortcut: true,
+	} as const satisfies Definition;
+}
+
 export type Key = keyof typeof SETTINGS;
+
+/** The settings that hold a keyboard shortcut. */
+export type ShortcutKey = {
+	[K in Key]: (typeof SETTINGS)[K] extends { shortcut: true } ? K : never;
+}[Key];
 
 /** What a setting holds: a switch's boolean, a number, or a choice's value. */
 export type Value<K extends Key> = K extends Key
@@ -233,6 +324,35 @@ export class Settings implements Eventful<SettingsEvents> {
 		this.dispatcher.dispatch("changed");
 		return true;
 	}
+
+	/**
+	 * Sets shortcut `key` to `shortcut`, taking it from whichever other
+	 * shortcut had it, which this returns, left with none.
+	 */
+	async bind(
+		key: ShortcutKey,
+		shortcut: Shortcut,
+	): Promise<ShortcutKey | null> {
+		const had =
+			shortcut === NONE
+				? undefined
+				: shortcutKeys().find(
+						(other) => other !== key && this.get(other) === shortcut,
+					);
+		if (had !== undefined) {
+			await this.set(had, NONE);
+		}
+		await this.set(key, shortcut);
+		return had ?? null;
+	}
+}
+
+/** Every setting that holds a shortcut, in the order the dialog shows them. */
+export function shortcutKeys(): ShortcutKey[] {
+	return (Object.keys(SETTINGS) as Key[]).filter(
+		(key): key is ShortcutKey =>
+			(SETTINGS[key] as Definition).shortcut === true,
+	);
 }
 
 /**
@@ -261,16 +381,21 @@ function storedIn(
 		if (typeof stored !== "object" || stored === null) {
 			return {};
 		}
-		// Only what the page still knows of, of the right kind, and for a
-		// choice, one it still offers.
+		// Only what the page still knows of, of the right kind, for a choice,
+		// one it still offers, and for a shortcut, one it can press.
 		return Object.fromEntries(
 			Object.entries(stored).filter(([key, value]) => {
 				if (!(key in SETTINGS)) {
 					return false;
 				}
-				const { default: fallback, choices }: Definition = SETTINGS[key as Key];
+				const {
+					default: fallback,
+					choices,
+					shortcut,
+				}: Definition = SETTINGS[key as Key];
 				return (
 					typeof value === typeof fallback &&
+					(!shortcut || valid(value as Shortcut)) &&
 					(choices === undefined ||
 						choices.some((choice) => choice.value === value))
 				);

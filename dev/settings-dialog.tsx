@@ -1,12 +1,14 @@
 import { useReactive } from "@webappwiz/react";
-import { CheckIcon, SearchIcon } from "lucide-react";
+import { CheckIcon, RotateCcwIcon, SearchIcon, XIcon } from "lucide-react";
 import { type JSX, useState } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { Switch } from "#dev/components/ui/switch.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { Refusal, useRefusal } from "./refusal";
@@ -17,8 +19,10 @@ import {
 	definitionOf,
 	type Key,
 	type Settings,
+	type ShortcutKey,
 	search,
 } from "./settings";
+import { label, NONE, recorded, type Shortcut, valid } from "./shortcuts";
 
 /**
  * The page's settings, the way an IDE lays out its options: categories down
@@ -180,7 +184,16 @@ function SettingRow({
 				</p>
 				<Refusal refusal={refusal} className="mt-1" />
 			</div>
-			{typeof value === "string" ? (
+			{definition.shortcut ? (
+				<ShortcutField
+					id={id}
+					title={definition.title}
+					value={value as Shortcut}
+					fallback={definition.default as Shortcut}
+					refuse={refuse}
+					onBind={(next) => settings.bind(name as ShortcutKey, next)}
+				/>
+			) : typeof value === "string" ? (
 				<Choices
 					id={id}
 					label={definition.title}
@@ -343,6 +356,116 @@ function Choices({
 				);
 			})}
 		</fieldset>
+	);
+}
+
+/**
+ * A shortcut as it reads, which records the next one pressed once clicked,
+ * Escape or leaving it giving up; and beside it, Reset to put back the one
+ * the page starts with, and Unset to have none. A shortcut taken from another
+ * says whose it was, under it.
+ */
+function ShortcutField({
+	id,
+	title,
+	value,
+	fallback,
+	refuse,
+	onBind,
+}: {
+	id: string;
+	title: string;
+	value: Shortcut;
+	fallback: Shortcut;
+	refuse: (title: string, error: unknown) => void;
+	onBind: (shortcut: Shortcut) => Promise<ShortcutKey | null>;
+}): JSX.Element {
+	const [recording, setRecording] = useState(false);
+	const [taken, setTaken] = useState<ShortcutKey | null>(null);
+	const bind = async (next: Shortcut) => {
+		setTaken(await onBind(next));
+	};
+	return (
+		<span className="flex shrink-0 flex-col items-end gap-1">
+			<span className="flex items-center gap-1">
+				<Button
+					id={id}
+					variant="outline"
+					size="sm"
+					aria-pressed={recording}
+					aria-label={
+						recording
+							? `${title}: press a shortcut`
+							: `${title}: ${value === NONE ? "none" : label(value)}`
+					}
+					onClick={() => setRecording(true)}
+					onBlur={() => setRecording(false)}
+					onKeyDown={(event) => {
+						if (!recording) {
+							return;
+						}
+						// Every key is the recording's, none the page's or the dialog's.
+						event.preventDefault();
+						event.stopPropagation();
+						if (event.key === "Escape") {
+							setRecording(false);
+							return;
+						}
+						const pressed = recorded(event.nativeEvent);
+						if (pressed === null) {
+							return;
+						}
+						if (!valid(pressed)) {
+							refuse("Not set", "hold ⌘, ⌃ or ⌥ with a key");
+						} else if (/^Alt\+Mod\+Digit\d$/.test(pressed)) {
+							refuse("Not set", `${label(pressed)} opens a conversation`);
+						} else {
+							setRecording(false);
+							void bind(pressed);
+						}
+					}}
+					className={cn(
+						"w-32 justify-center",
+						recording && "ring-2 ring-ring",
+					)}
+				>
+					{recording ? (
+						<span className="text-muted-foreground text-xs">
+							Press a shortcut
+						</span>
+					) : value === NONE ? (
+						<span className="text-muted-foreground text-xs">None</span>
+					) : (
+						<Kbd>{label(value)}</Kbd>
+					)}
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label={`Reset ${title} to ${label(fallback)}`}
+					title={`Reset to ${label(fallback)}`}
+					disabled={value === fallback}
+					onClick={() => void bind(fallback)}
+				>
+					<RotateCcwIcon />
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label={`Unset ${title}`}
+					title="Unset"
+					disabled={value === NONE}
+					onClick={() => void bind(NONE)}
+				>
+					<XIcon />
+				</Button>
+			</span>
+			{taken !== null && (
+				<span className="text-muted-foreground text-xs">
+					Was {definitionOf(taken).title}'s
+				</span>
+			)}
+		</span>
 	);
 }
 

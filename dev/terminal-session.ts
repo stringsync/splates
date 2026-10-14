@@ -30,8 +30,15 @@ export class TerminalSession
 	private readonly disposer = new Disposer();
 	private socket: WebSocket | null = null;
 
-	/** A shell in `task`'s worktree, or the main tree for null. */
-	constructor(readonly task: string | null) {
+	/**
+	 * A shell in `task`'s worktree, or the main tree for null, which leaves to
+	 * the page each key `toggles` says shows or hides it.
+	 */
+	constructor(
+		readonly task: string | null,
+		// scry-ignore objects-over-callbacks: a test of one key, read as each key comes
+		toggles: (event: KeyboardEvent) => boolean,
+	) {
 		this.element.className = "h-full w-full";
 		this.terminal = new Terminal({
 			cursorBlink: true,
@@ -42,7 +49,9 @@ export class TerminalSession
 		this.terminal.loadAddon(this.fit);
 		// Every key is the shell's, Escape and Tab included, for vim and
 		// completion, but the toggle, which goes on up to the page's listener.
-		this.terminal.attachCustomKeyEventHandler((event) => !isToggle(event));
+		this.terminal.attachCustomKeyEventHandler(
+			(event) => event.type !== "keydown" || !toggles(event),
+		);
 		const encoder = new TextEncoder();
 		// xterm's own disposables are `Resource`s already.
 		this.disposer.use(this.terminal);
@@ -171,22 +180,4 @@ export class TerminalSession
 		this.status = status;
 		this.dispatcher.dispatch("changed");
 	}
-}
-
-/**
- * The chord that shows or hides a conversation's terminal, as it reads: VS
- * Code's, which no browser keeps for itself, as they do ⌥⌘B for bookmarks.
- */
-export const TOGGLE = "Ctrl+`";
-
-/** Control and the key left of 1, by `code`, whatever the layout prints on it. */
-export function isToggle(event: KeyboardEvent): boolean {
-	return (
-		event.type === "keydown" &&
-		event.code === "Backquote" &&
-		event.ctrlKey &&
-		!event.altKey &&
-		!event.metaKey &&
-		!event.shiftKey
-	);
 }
