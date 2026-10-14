@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 // Imported for the side effect, and before anything that touches a global:
 // it is what puts a DOM on `globalThis` for React to render into.
 import "../../../setup";

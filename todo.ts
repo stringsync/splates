@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 import { basename } from "node:path";
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";

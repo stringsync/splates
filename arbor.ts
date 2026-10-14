@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 import { cli, type Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
 import { Duration, SystemTimer } from "webappwiz/time";

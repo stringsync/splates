@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

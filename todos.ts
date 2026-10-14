@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: split by a todo in arbor lanes 11 to 19, which removes this line
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import { type Fs, type Lock, NodeFs } from "webappwiz/system";
 import { Attachments } from "./attachments";
