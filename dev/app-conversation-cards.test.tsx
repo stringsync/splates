@@ -1713,6 +1713,8 @@ describe("App's conversations", () => {
 			expect(open.textContent).toContain("Retry the upload on a 413");
 			expect(open.textContent).toContain("Uploads");
 			expect(open.textContent).toContain("It fails on a 413.");
+			// Proposed with no report above, they go unheaded.
+			expect(view.queryByText("Suggested next")).toBeNull();
 			const taken = view.getByRole("region", { name: "todo 14" });
 			expect(taken.textContent).toContain("limits");
 			expect(within(taken).queryByRole("button", { name: /Start/ })).toBeNull();
@@ -1732,6 +1734,34 @@ describe("App's conversations", () => {
 				{ method: "POST", body: { text: "[ARBOR TODO #12]" } },
 			]);
 			expect(textIn(box)).toBe("half a thought");
+		});
+
+		it("heads the todos proposed after a merge Suggested next", async () => {
+			const view = await testing.openConversations(
+				[
+					conversation({
+						title: "Merged",
+						messages: [
+							message(
+								"agent",
+								[
+									"## ✅ Merged uploads onto main",
+									"",
+									"Uploads retry now.",
+									"",
+									"### 📝 Retry the upload [#12]",
+									"",
+									"It touches the retry loop.",
+								].join("\n"),
+							),
+						],
+					}),
+				],
+				undefined,
+				board,
+			);
+			await waitFor(() => view.getByRole("region", { name: "todo 12" }));
+			expect(view.getByText("Suggested next")).toBeTruthy();
 		});
 
 		it("opens a new conversation with a proposed todo's reference typed in, ahead of its draft, and this conversation's agent picked", async () => {

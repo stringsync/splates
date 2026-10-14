@@ -1,6 +1,7 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import {
 	ArchiveIcon,
+	ArrowRightIcon,
 	CheckIcon,
 	CodeIcon,
 	CopyIcon,
@@ -162,16 +163,22 @@ export interface Turn {
  * Renders a `data-todo` part, a run of todos proposed one after another, as
  * the cards for them. Those the reply's own task added while it ran are
  * gathered by the lane they went to, Untriaged for none, under a line saying
- * so, for as long as the board has them; the rest stand alone.
+ * so, for as long as the board has them; the rest stand alone, under "Suggested
+ * next" when `next` says the run follows a task's end.
  */
 export const TodoUI = makeAssistantDataUI<{
 	todos: Proposal[];
 	turn?: Turn;
+	next?: boolean;
 }>({
 	name: "todo",
 	render: ({ data }) => (
 		<InMessage>
-			<TodoRun proposals={data.todos} turn={data.turn ?? null} />
+			<TodoRun
+				proposals={data.todos}
+				turn={data.turn ?? null}
+				next={data.next ?? false}
+			/>
 		</InMessage>
 	),
 });
@@ -219,18 +226,39 @@ function gathered(
 function TodoRun({
 	proposals,
 	turn,
+	next,
 }: {
 	proposals: Proposal[];
 	turn: Turn | null;
+	next: boolean;
 }): JSX.Element {
 	const board = useContext(Board);
+	const groups = gathered(proposals, board.todos, turn);
+	const first = groups.find(({ lane }) => lane === undefined);
 	return (
 		<>
-			{gathered(proposals, board.todos, turn).map(({ lane, proposals }) =>
-				lane === undefined ? (
-					proposals.map((proposal) => (
-						<TodoCard key={proposal.id} proposal={proposal} />
-					))
+			{groups.map((group) => {
+				const { lane, proposals } = group;
+				return lane === undefined ? (
+					next && group === first ? (
+						<div key={proposals[0]?.id} className="mt-6 mb-3">
+							<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
+								<ArrowRightIcon aria-hidden className="size-3.5 text-primary" />
+								<span className="font-medium text-foreground">
+									Suggested next
+								</span>
+							</p>
+							<div className="flex flex-col gap-2">
+								{proposals.map((proposal) => (
+									<TodoCard key={proposal.id} proposal={proposal} grouped />
+								))}
+							</div>
+						</div>
+					) : (
+						proposals.map((proposal) => (
+							<TodoCard key={proposal.id} proposal={proposal} />
+						))
+					)
 				) : (
 					<div key={proposals[0]?.id} className="my-3">
 						<p className="mb-1 flex items-center gap-1.5 pl-1 text-muted-foreground text-xs">
@@ -250,8 +278,8 @@ function TodoRun({
 							))}
 						</div>
 					</div>
-				),
-			)}
+				);
+			})}
 		</>
 	);
 }

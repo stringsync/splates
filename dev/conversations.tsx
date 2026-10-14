@@ -3029,7 +3029,7 @@ function attached(
  * escalation's questions come right after it, or after the demo they ask
  * about, so they are one card: the questions, headed as the escalation, the
  * demo above them. A run of todos is one part, with `turn` to say which
- * of them it added.
+ * of them it added, and `next` whether it follows a merge or remove report.
  */
 function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 	if (!settled) {
@@ -3083,7 +3083,10 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 				const todos = (end === -1 ? run : run.slice(0, end)).flatMap((each) =>
 					each.type === "todo" ? [each.todo] : [],
 				);
-				return [{ type: "data-todo", data: { todos, turn } }];
+				// Those right after a task ended are what to take up next.
+				const next =
+					before?.type === "report" && before.report.ending !== "escalated";
+				return [{ type: "data-todo", data: { todos, turn, next } }];
 			}
 			default:
 				return stretch satisfies never;
