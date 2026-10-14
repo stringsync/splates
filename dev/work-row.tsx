@@ -7,7 +7,15 @@ import {
 	SquareIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
-import { createContext, type JSX, type ReactNode, use, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	use,
+	useEffect,
+	useState,
+} from "react";
+import { Duration, SystemTimer } from "webappwiz/time";
 import { CodeDiff } from "#dev/components/assistant-ui/elements/code-diff.tsx";
 import {
 	field,
@@ -74,6 +82,10 @@ const Going = createContext(true);
 export const TreesContext = createContext<Trees | null>(null);
 
 export function WorkRow({ work }: { work: Work }): JSX.Element {
+	// It counts up only once the agent has moved, so the row never sits at
+	// 0s while the agent has yet to start.
+	const since = work.until === null ? null : work.at;
+	const now = useNow(work.running && since !== null);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -102,7 +114,11 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 								work.running && "shimmer motion-reduce:animate-none",
 							)}
 						>
-							{work.running ? "Working" : worked(work)}
+							{!work.running
+								? worked(work)
+								: since === null
+									? "Working"
+									: `Working ${span(since, now)}`}
 						</span>
 					</summary>
 					<ol
@@ -185,6 +201,23 @@ function Flags({
 			})}
 		</ul>
 	);
+}
+
+/** The clock, as epoch ms, moving each second while `ticking`. */
+function useNow(ticking: boolean): number {
+	const [now, setNow] = useState(() => Date.now());
+	useEffect(() => {
+		if (!ticking) {
+			return;
+		}
+		setNow(Date.now());
+		const tick = new SystemTimer().setInterval(
+			() => setNow(Date.now()),
+			Duration.secs(1),
+		);
+		return () => tick.dispose();
+	}, [ticking]);
+	return now;
 }
 
 function Row({

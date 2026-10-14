@@ -2013,7 +2013,7 @@ describe("App's conversations", () => {
 		expect(thread.textContent).toContain("Working");
 	});
 
-	it("shows the work row the agent's work will fill while it has yet to do anything", async () => {
+	it("shows the work row the agent's work will fill, saying only Working, while it has yet to do anything", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Read the note" }),
 		]);

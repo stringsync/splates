@@ -1054,7 +1054,7 @@ describe("App's conversations", () => {
 			).toEqual(["src/a.ts+1 −1−one+two"]);
 		});
 
-		it("says only Working while it works, shimmering, with its plan", async () => {
+		it("says only Working and how long it has worked while it works, shimmering, with its plan", async () => {
 			const thread = await opened(
 				turn(
 					[
@@ -1075,7 +1075,10 @@ describe("App's conversations", () => {
 				),
 			);
 
-			const line = await waitFor(() => within(thread).getByText("Working"));
+			const line = await waitFor(() =>
+				within(thread).getByText(/^Working \d+(h|m|s)/),
+			);
+			expect(line.textContent).not.toContain("bun test");
 			expect(line.className).toContain("shimmer");
 			expect(
 				within(thread).getByRole("list", { name: "plan" }).textContent,
@@ -1089,7 +1092,7 @@ describe("App's conversations", () => {
 				}),
 			);
 
-			await waitFor(() => within(thread).getByText("Working"));
+			await waitFor(() => within(thread).getByText(/^Working /));
 			expect(thread.textContent?.match(/Working/g)).toHaveLength(1);
 		});
 
@@ -1135,7 +1138,7 @@ describe("App's conversations", () => {
 				within(thread).getByRole("list", { name: "timeline" }),
 			);
 			expect(timeline.textContent).toContain("Now the fix.");
-			expect(line()).toBe("Working");
+			expect(line()).toMatch(/^Working /);
 			await waitFor(
 				() =>
 					expect(
@@ -1144,7 +1147,7 @@ describe("App's conversations", () => {
 				{ timeout: 2000 },
 			);
 			await waitFor(() => expect(thread.textContent).toContain("Now the fix."));
-			expect(line()).not.toBe("Working");
+			expect(line()).not.toMatch(/^Working/);
 		});
 
 		it("folds what the agent said before its latest call into the row while it works", async () => {

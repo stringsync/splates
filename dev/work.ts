@@ -16,7 +16,7 @@ export interface Work {
 	at: string | null;
 	/** When the agent last moved in it. */
 	until: string | null;
-	/** Still going, with nothing said since: the row says Working; once over, it adds up what it did. */
+	/** Still going, with nothing said since: the row says Working, counting up once the agent has moved; once over, it adds up what it did. */
 	running: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
