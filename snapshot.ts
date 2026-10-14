@@ -4,6 +4,7 @@ import type { CredRequest, Creds } from "./creds";
 import type { LaneRecord } from "./lanes";
 import type { Behind, Release } from "./release";
 import { type Details, TaskDetails } from "./show";
+import type { Slot } from "./slots";
 import type { TodoState } from "./todo";
 import type { Todos } from "./todos";
 import type { WorktreeService } from "./worktree-service";
@@ -40,6 +41,8 @@ export interface Snapshot {
 	 * serving is the one built before, and may be out of date.
 	 */
 	unbuilt: boolean;
+	/** The slot `arbor dev --slot` serves under, shown beside the project's name. */
+	slot: Slot | null;
 }
 
 /**
@@ -55,6 +58,7 @@ export async function snapshot({
 	release = null,
 	behind = null,
 	unbuilt = false,
+	slot = null,
 }: {
 	service: WorktreeService;
 	todos: Todos;
@@ -65,6 +69,7 @@ export async function snapshot({
 	release?: Release | null;
 	behind?: Behind | null;
 	unbuilt?: boolean;
+	slot?: Slot | null;
 }): Promise<Snapshot> {
 	const tasks = await tasksOf({ service, fs });
 	return {
@@ -81,6 +86,7 @@ export async function snapshot({
 		release,
 		behind,
 		unbuilt,
+		slot,
 	};
 }
 

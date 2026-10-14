@@ -55,16 +55,41 @@ describe("supervise", () => {
 		const ps = new FakePs();
 		ps.args = ["dev"];
 		exiting(ps, 1, RESTART, 0, 0);
-		const told: (string | undefined)[] = [];
+		const told: [string, string | undefined][] = [];
 		const spawn = ps.spawn.bind(ps);
 		ps.spawn = (argv: string[], opts?: SpawnOptions) => {
-			if (argv[1] === "/fake/entry.ts") {
-				told.push(opts?.env?.[UNBUILT]);
-			}
+			told.push([argv.join(" "), opts?.env?.[UNBUILT]]);
 			return spawn(argv, opts);
 		};
 
 		expect(await supervise(ps, { build })).toBe(0);
-		expect(told).toEqual(["1", undefined]);
+		expect(told).toEqual([
+			["bun install", undefined],
+			["bun /fake/entry.ts dev", "1"],
+			["bun install", undefined],
+			["bun /fake/entry.ts dev", undefined],
+		]);
+	});
+
+	it("serves where it is told, with what it is told added, as a slot's server", async () => {
+		const ps = new FakePs();
+		ps.args = ["dev", "--slot"];
+		exiting(ps, RESTART, 0);
+		const told: (string | undefined)[] = [];
+		const spawn = ps.spawn.bind(ps);
+		ps.spawn = (argv: string[], opts?: SpawnOptions) => {
+			told.push(opts?.env?.ARBOR_HOME);
+			return spawn(argv, opts);
+		};
+
+		await supervise(ps, {
+			env: { ARBOR_HOME: "/home/.arbor/slots/fox" },
+			cwd: "/home/.arbor/slots/fox/project",
+		});
+		expect(told).toEqual(["/home/.arbor/slots/fox", "/home/.arbor/slots/fox"]);
+		expect(ps.getCallDirs()).toEqual([
+			"/home/.arbor/slots/fox/project",
+			"/home/.arbor/slots/fox/project",
+		]);
 	});
 });

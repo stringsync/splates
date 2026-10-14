@@ -14,6 +14,7 @@ import { needs } from "./needs";
 import type { Behind, Release } from "./release";
 import type { Repository } from "./repository";
 import type { Details } from "./show";
+import type { Slot } from "./slots";
 import { tasksOf } from "./snapshot";
 
 /**
@@ -100,6 +101,8 @@ export interface DevContext {
 	readonly behind: Behind | null;
 	/** Whether building the page failed, so it serves the one built before. */
 	readonly unbuilt: boolean;
+	/** The slot `arbor dev --slot` serves under, or null. */
+	readonly slot: Slot | null;
 	/** The conversations `project`'s page may hold, or null when they are off. */
 	conversationsFor(project: Project): Conversations | null;
 	/** Forgets the restart a checkpoint would follow, and how this run began. */

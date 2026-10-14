@@ -55,6 +55,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		release: null,
 		behind: null,
 		unbuilt: false,
+		slot: null,
 		...overrides,
 	};
 }

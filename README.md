@@ -93,6 +93,23 @@ there, and run it again. An account with no Zero Trust organization gets one
 with `--team <name>`, for `<name>.cloudflareaccess.com`. `arbor tunnel status`
 shows what is saved.
 
+To run several at once, as when trying changes to arbor from a few worktrees,
+give each its own slot:
+
+```bash
+bunx @webappwiz/arbor dev --slot
+```
+
+`--slot` claims a short animal word for the checkout it runs in, as `fox`, and
+serves it at `https://fox.<zone>`, on the zone `tunnel setup` used, behind the
+same Access policy, so a phone opens each by name. The checkout keeps its word
+until it no longer exists. A word's tunnel and DNS record are made on its first
+claim and kept, and one wildcard Access application covers every slot. A slot
+keeps its own projects, roster and tunnel in `~/.arbor/slots/<word>`, apart
+from yours, and starts in a throwaway project there, unless that home
+registers the project it is run in (`ARBOR_HOME=~/.arbor/slots/fox arbor
+init`). The page shows the slot's emoji beside the project's name.
+
 Or give the tunnel and the Access application by hand, over what is saved:
 
 ```bash

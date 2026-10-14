@@ -18,6 +18,11 @@ export interface TunnelRecord {
 	aud: string;
 	/** The Cloudflare tunnel's id. */
 	tunnel: string;
+	/**
+	 * The cred its token is kept as, when not `TUNNEL_TOKEN`: a slot's own,
+	 * since every slot runs a tunnel of its own.
+	 */
+	token?: string;
 }
 
 const Saved = z.object({
@@ -26,6 +31,7 @@ const Saved = z.object({
 	team: z.string(),
 	aud: z.string(),
 	tunnel: z.string(),
+	token: z.string().optional(),
 });
 
 /**
@@ -65,8 +71,9 @@ export class SavedTunnel {
 	}
 
 	/** The token that runs the saved tunnel, or undefined when the store lost it. */
-	token(): Promise<string | undefined> {
-		return this.deps.store.get(TUNNEL_TOKEN);
+	async token(): Promise<string | undefined> {
+		const record = await this.read();
+		return this.deps.store.get(record?.token ?? TUNNEL_TOKEN);
 	}
 
 	/** Keeps `record` in the file, over what was there; its token is a cred. */

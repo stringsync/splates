@@ -28,6 +28,7 @@ import type { Projects } from "./projects";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
 import { arborHome } from "./roster";
+import type { Slot } from "./slots";
 import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
@@ -63,6 +64,7 @@ export async function dev(
 		source = async () => null,
 		sourceEvery = SOURCE_CHECK,
 		unbuilt = false,
+		slot = null,
 		exit = null,
 		sensors = null,
 		open = async (root) => ({
@@ -121,6 +123,7 @@ export async function dev(
 			return versions.behind;
 		},
 		unbuilt,
+		slot,
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
 		dismiss: () => restarts.dismiss(),
@@ -500,6 +503,8 @@ export interface DevOptions {
 	 * is the page built before; the page says so.
 	 */
 	unbuilt?: boolean;
+	/** The slot `arbor dev --slot` serves under, which the page shows; null for none. */
+	slot?: Slot | null;
 	/**
 	 * Ends the process with `RESTART` or `UPDATE` once the server has
 	 * stopped, for its supervisor to start another; without it, the page

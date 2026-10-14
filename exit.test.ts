@@ -31,6 +31,7 @@ it("keeps the exit codes stable", () => {
 		no_secret_store: 23,
 		cloudflare: 24,
 		requested: 25,
+		slots_full: 26,
 	});
 });
 

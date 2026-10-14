@@ -57,23 +57,7 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 	if (name === "") {
 		fail("usage", "--name cannot be empty", {});
 	}
-	const apiToken = await creds.credentials.get(API_TOKEN);
-	if (apiToken === undefined) {
-		await creds.request(API_TOKEN, {
-			scope: "device",
-			instructions: tokenInstructions(host),
-			task: opts.task,
-		});
-		fail(
-			"requested",
-			[
-				`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`arbor dev\`.`,
-				`Say \`## 🔑 Requested ${API_TOKEN}\`, \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
-			].join("\n"),
-			{ host, name: API_TOKEN },
-		);
-	}
-	const api = new CloudflareApi(apiToken, { fetch: opts.fetch });
+	const api = await cloudflareApi(creds, host, opts.task, opts.fetch);
 	try {
 		const zone = await findZone(api, host);
 		const account = zone.account.id;
@@ -115,6 +99,36 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 	log.info(
 		`${color.green("saved")} ${host} in ${saved.path}, its token in the device's store: \`arbor dev\` now serves https://${host} to ${emails.join(", ")}`,
 	);
+}
+
+/**
+ * The Cloudflare API, with the token kept as `API_TOKEN`. Without it, requests
+ * it with instructions for making it, and refuses with `requested`, to run
+ * again once it is saved.
+ */
+export async function cloudflareApi(
+	creds: Creds,
+	host: string,
+	task: string | null,
+	fetch?: typeof globalThis.fetch,
+): Promise<CloudflareApi> {
+	const apiToken = await creds.credentials.get(API_TOKEN);
+	if (apiToken === undefined) {
+		await creds.request(API_TOKEN, {
+			scope: "device",
+			instructions: tokenInstructions(host),
+			task,
+		});
+		fail(
+			"requested",
+			[
+				`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`arbor dev\`.`,
+				`Say \`## 🔑 Requested ${API_TOKEN}\`, \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
+			].join("\n"),
+			{ host, name: API_TOKEN },
+		);
+	}
+	return new CloudflareApi(apiToken, { fetch });
 }
 
 /**
@@ -182,7 +196,7 @@ const Policy = z.object({
 	include: Include,
 });
 
-const App = z.object({
+export const App = z.object({
 	id: z.string(),
 	domain: z.string().optional(),
 	aud: z.string(),
@@ -190,7 +204,7 @@ const App = z.object({
 });
 
 /** The zone serving `host`: the longest of its suffixes the account has. */
-async function findZone(
+export async function findZone(
 	api: CloudflareApi,
 	host: string,
 ): Promise<z.infer<typeof Zone>> {
@@ -269,7 +283,7 @@ function teamOf({ auth_domain }: z.infer<typeof Organization>): string {
  * `cloudflared` carries the host to whichever port `arbor dev` bound, which
  * its `--url` says, rather than to one the dashboard pins.
  */
-async function ensureTunnel(
+export async function ensureTunnel(
 	api: CloudflareApi,
 	account: string,
 	name: string,
@@ -297,7 +311,7 @@ async function ensureTunnel(
  * another tunnel is moved to this one; any other record for `host` is someone
  * else's, and refused rather than replaced.
  */
-async function ensureRoute(
+export async function ensureRoute(
 	api: CloudflareApi,
 	zone: string,
 	host: string,
@@ -395,7 +409,7 @@ function sameEmails(
  * The self-hosted Access application in front of `host`, guarded by
  * `policy` alone, and its AUD tag, which Cloudflare assigns when it is made.
  */
-async function ensureApp(
+export async function ensureApp(
 	api: CloudflareApi,
 	account: string,
 	name: string,

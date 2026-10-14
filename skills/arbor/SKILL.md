@@ -708,7 +708,9 @@ When the user has to see a change to judge it, make that cheap: run it for
 them where they can open it (a dev server on throwaway data that shows each
 case, never their own), and give them a demo (see Demos). Run arbor in a
 throwaway repository with `ARBOR_HOME` set to a throwaway directory, so it
-stays out of the user's `arbor dev` project list.
+stays out of the user's `arbor dev` project list. When `arbor tunnel status`
+shows a tunnel, `arbor dev --slot` from your worktree does both and prints a
+`https://<word>.<zone>` the user can open on their phone too: give them that.
 
 ## Demos
 

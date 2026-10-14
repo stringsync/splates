@@ -30,6 +30,10 @@ export interface SuperviseOptions {
 	 * npm, whose page shipped built.
 	 */
 	build?: { argv: string[]; cwd: string } | null;
+	/** Added to the server's environment, as a slot's home is. */
+	env?: Record<string, string>;
+	/** Where the server runs, the working directory by default. */
+	cwd?: string;
 }
 
 /**
@@ -40,7 +44,7 @@ export interface SuperviseOptions {
  */
 export async function supervise(
 	ps: Ps,
-	{ build = null }: SuperviseOptions = {},
+	{ build = null, env = {}, cwd }: SuperviseOptions = {},
 ): Promise<number> {
 	let argv = [...ps.self, ...ps.args];
 	// Built until it updates: npm's arbor ships its page.
@@ -55,7 +59,12 @@ export async function supervise(
 				building === null ||
 				(await ps.spawn(building.argv, { cwd: building.cwd })).exitCode === 0;
 			const { exitCode } = await ps.spawn(argv, {
-				env: { [SERVING]: "1", ...(built ? {} : { [UNBUILT]: "1" }) },
+				env: {
+					...env,
+					[SERVING]: "1",
+					...(built ? {} : { [UNBUILT]: "1" }),
+				},
+				cwd,
 			});
 			if (exitCode === UPDATE) {
 				argv = [...NEWEST, ...ps.args];

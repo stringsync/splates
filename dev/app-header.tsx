@@ -48,6 +48,17 @@ export function AppHeader({
 			)}
 		>
 			<div className="flex min-w-0 items-center gap-2">
+				{/* Which `arbor dev --slot` this is, when several are open. */}
+				{snapshot?.slot != null && (
+					<span
+						role="img"
+						aria-label={`slot ${snapshot.slot.word}`}
+						title={`Served by the ${snapshot.slot.word} slot of arbor dev`}
+						className="shrink-0 text-base leading-none"
+					>
+						{snapshot.slot.emoji}
+					</span>
+				)}
 				<ProjectSwitcher name={name} />
 				{/* Silent while connected, which is the normal case. Once the
 									    server stops answering, the page says so, since what it

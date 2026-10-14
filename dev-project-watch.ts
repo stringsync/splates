@@ -55,6 +55,7 @@ export class ProjectWatch implements StreamWatcher {
 			release: this.context.release,
 			behind: this.context.behind,
 			unbuilt: this.context.unbuilt,
+			slot: this.context.slot,
 		});
 	}
 

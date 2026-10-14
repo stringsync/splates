@@ -24,6 +24,7 @@ import type { SecretStores } from "./creds";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { accessConfig } from "./dev-access";
+import { devSlot, SLOT } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
@@ -41,6 +42,7 @@ import { repository } from "./repository";
 import { retry } from "./retry";
 import { arborHome } from "./roster";
 import { show } from "./show";
+import { slotOf } from "./slots";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import { systems } from "./system";
 import { update } from "./update";
@@ -320,6 +322,11 @@ arbor
 		description:
 			"the named tunnel cloudflared runs for --tunnel, by default the one its own config names; not with a tunnel provider of arbor.config.ts",
 	})
+	.option("slot", z.boolean(), {
+		default: false,
+		description:
+			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: the checkout keeps its word, as fox, until it no longer exists. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, and starts in a throwaway project there unless that home registers the one it is run in; not with the tunnel and Access flags",
+	})
 	.action(async (opts, ctx) => {
 		// Read before the child starts, so a half-given pair fails once.
 		let access = accessConfig(opts["access-team"], opts["access-aud"]);
@@ -330,6 +337,21 @@ arbor
 			ctx.config.tunnel,
 			ctx.ps,
 		);
+		if (
+			opts.slot &&
+			[
+				opts.tunnel,
+				opts["tunnel-name"],
+				opts["access-team"],
+				opts["access-aud"],
+			].some((flag) => flag.trim() !== "")
+		) {
+			fail(
+				"usage",
+				"--slot runs a tunnel of its own: leave off the tunnel and Access flags",
+				{},
+			);
+		}
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
 			// A checkout's page is as its last `bun install` built it: installed
@@ -341,7 +363,16 @@ arbor
 			const build = checkout
 				? { argv: [runtime, "install"], cwd: import.meta.dirname }
 				: null;
-			ctx.ps.exit(await supervise(ctx.ps, { build }));
+			// The slot is readied here, once, and its child serves it as a bare
+			// `arbor dev` serves the machine's tunnel, from the slot's home.
+			const slot = opts.slot ? await devSlot(ctx) : null;
+			ctx.ps.exit(
+				await supervise(ctx.ps, {
+					build,
+					env: slot?.env,
+					cwd: slot?.cwd,
+				}),
+			);
 			return;
 		}
 		// The saved tunnel only when no flag says how to reach the page, so a
@@ -402,6 +433,7 @@ arbor
 			newest: () => newest(),
 			source: () => sourceCommit(ctx.ps),
 			unbuilt: ctx.ps.env(UNBUILT) !== undefined,
+			slot: slotOf(ctx.ps.env(SLOT) ?? ""),
 			exit: (code) => ctx.ps.exit(code),
 		});
 	});
