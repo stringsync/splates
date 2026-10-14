@@ -2,13 +2,20 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { answerIn, besides, replyOf, stretches } from "./asked";
 
-/** The report examples the arbor skill shows agents, as agents copy them. */
+/**
+ * The report examples the arbor skill shows agents, as agents copy them,
+ * from its SKILL.md and every reference file alike.
+ */
 async function skillExamples(): Promise<string[]> {
-	const skill = await Bun.file(
-		join(import.meta.dir, "../../skills/arbor/SKILL.md"),
-	).text();
-	return [...skill.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map(
-		(match) => match[1] as string,
+	const dir = join(import.meta.dir, "../../skills/arbor");
+	const files = await Array.fromAsync(new Bun.Glob("**/*.md").scan(dir));
+	const texts = await Promise.all(
+		files.toSorted().map((file) => Bun.file(join(dir, file)).text()),
+	);
+	return texts.flatMap((skill) =>
+		[...skill.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map(
+			(match) => match[1] as string,
+		),
 	);
 }
 

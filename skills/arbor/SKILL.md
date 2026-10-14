@@ -17,6 +17,20 @@ progress (`git add`, `git rebase --continue`), then merging again. A failed
 command prints `{reason}` JSON on stdout and instructions on stderr: do what
 stderr says.
 
+The rest of the skill is in `references/`, each file read at the moment it
+names, never up front:
+
+- [`todos.md`](references/todos.md): before you add, update, groom or
+  propose a todo.
+- [`questions.md`](references/questions.md): before you first write a
+  question under `## Blocked`, and whenever the user replies.
+- [`landing.md`](references/landing.md): before you merge, ask for a review,
+  escalate, or report a task's end.
+- [`lanes.md`](references/lanes.md): on `[ARBOR LANE N]`.
+- [`parts.md`](references/parts.md): before you hand work to a subagent or
+  another agent.
+- [`systems.md`](references/systems.md): before you offer to name a system.
+
 ## Workflow
 
 1. **Start before you look.** When a request may end in a code change,
@@ -31,12 +45,12 @@ stderr says.
    the user rather than start on it. Otherwise take it now, so no other agent
    starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a
    task under way. `[ARBOR LANE N]` hands you a whole lane instead (see
-   Working a lane). Pass `--base <branch>` only when invoked with a branch
+   `references/lanes.md`). Pass `--base <branch>` only when invoked with a branch
    (`/arbor feature/auth`) or the user names one; never guess a base from the
    checked-out branch.
 2. **Plan.** Once you know what done means, fill in `ARBOR.md` before
    touching code (see ARBOR.md below), then groom the todos your work touches
-   (see Grooming related todos).
+   (see Grooming related todos in `references/todos.md`).
 3. **Check for overlap.** Read `arbor list --files`: each task's Goal and
    the files it has changed so far. Some overlap is normal: work alongside,
    accept the rebase, and note it in `ARBOR.md`. Only when conflicts would be hard to resolve, `arbor wait
@@ -47,21 +61,23 @@ stderr says.
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `arbor todo add` it from your worktree and move on,
    so the task stays one coherent change, and name it in the reply that
-   ends your turn (see Proposing a todo). Ask about each call the request
-   does not settle as you make it, and keep going (see Asking as you go),
-   bringing `## Blocked` up to date before each step.
+   ends your turn (see Proposing a todo in
+   `references/todos.md`). Ask about each call the request
+   does not settle as you make it, and keep going (see Asking as you go
+   below), bringing `## Blocked` up to date before each step.
 5. **Land.** Once every step under `## Next` and every question under
    `## Blocked` is checked, the task is ready to merge: `arbor todo add`
    any step you will not do, then check it off. Groom again, release each
-   todo you only partly did (see Todos), squash to one commit (see
+   todo you only partly did (see `references/todos.md`), squash to one commit (see
    Committing), and `arbor merge`, or ask for a review first (see Merge or
-   review). On failure, do what stderr says and merge again. A successful
+   review in `references/landing.md`). On failure, do what stderr says and merge again. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else.
 
    Each `conflict`, `tests_failed` or `merge_failed` spends one of the
    task's merge attempts, so write under `## Notes` what each one failed
-   on. When `merge` stops on `budget_exhausted`, escalate (see Escalation)
+   on. When `merge` stops on `budget_exhausted`, escalate (see Escalation
+   in `references/landing.md`)
    and tell the user why merging keeps failing: a `- ` line per attempt on
    what it failed on (the files that conflicted, the check that broke, the
    tree in the way), then one on what would get it through, so they can
@@ -80,148 +96,6 @@ which puts them back on the list.
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
 
-## Todos
-
-Write a todo's subject the way you write a question's, short enough to scan.
-Put the why, the where, and anything else in its detail, as markdown the
-`arbor dev` page renders: paragraphs, lists, `- [ ]` steps, inline code for
-paths and commands, and fenced blocks for snippets. Single quotes keep the
-shell off the backticks:
-
-```sh
-arbor todo add "Upload retries forever on a 413" 'The client retries on any 4xx in `src/upload.ts`.
-
-- [ ] stop retrying on 413
-- [ ] tell the user the file is too big'
-```
-
-Name the files and the feature in the detail, the feature by its system name
-when one covers it (see Systems), so whoever grooms the list later can tell
-the todo is about their area.
-
-`arbor todo update <id> '<detail>'` replaces the whole detail, so pass all of
-it: what still holds and what you learned. Merging removes every todo the task
-holds: update one you only partly did with what is left, then
-`arbor todo release` it, so it stays on the list.
-
-### Links
-
-When a todo cannot start before another merges, it is blocked by that one:
-say so with `--blocked-by` (`arbor todo add <subject> --blocked-by 12`, or
-`arbor todo update 14 --blocked-by 12`), rather than in its detail. arbor
-then warns whoever takes it early, drops the link when 12 merges or is
-removed, and shows it on the board. `--remove-blocked-by 12` undoes one.
-Link only for a real order (one needs the other's code or data), never for
-priority, which is the position's job.
-
-When `arbor add --todo` or `arbor todo take` warns that a todo is blocked,
-what blocks it has yet to merge: `arbor todo wait <id>` for it, or, when the
-user asked for this todo now, do only what does not need the blocker and say
-so in your report.
-
-### Lanes
-
-A lane is one agent's queue of todos that build on each other, worked top to
-bottom (see Working a lane). Groom lanes as you add todos: you know what each
-new one builds on, and nobody lays lanes out for you. Read `arbor lane list`,
-then for each todo you add:
-
-- **An existing lane** when it builds on that lane's work, needing its code,
-  files, or context: `--lane <n>` puts it at the bottom.
-- **A new lane** when it starts a chain that more todos will follow:
-  `arbor lane add '<name>'`, named for what the chain adds up to, then
-  `--lane <n>`.
-- **Untriaged** otherwise, the default, for the user to place.
-
-`arbor todo update <id> --lane <n>` moves one that exists.
-
-The order of the lanes, the board's columns left to right, is the user's to
-set, like a todo's position: only when they ask ("put Licensing first"),
-`arbor lane update <n> --position <p>`, 1 the first column, then read
-`arbor lane list` to check the order is the one asked for.
-
-### Positions
-
-Only the user's priorities decide a position, so a new todo goes to the
-bottom unless they say otherwise:
-
-- "urgent", "next", "before anything else": `--position 1`.
-- "fast follow", "right after this", "soon": just below the urgent todos at
-  the top. Read `arbor todo list` to find the spot.
-- "deferred", "someday", "later", "nice to have", or nothing at all: the
-  bottom, the default.
-
-To move one that exists ("bump 12", "push the upload one down", "do 7 before
-4"), read `arbor todo list` to turn the ask into a number, `arbor todo update
-<id> --position <n>`, then read the list again to check the order is the one
-asked for.
-
-### Grooming related todos
-
-Todos about the same area as yours: your change can settle them, shrink
-them, move what they point at, or make them wrong, and you hold the context
-that makes each one cheap right now. Groom them once you have planned, and
-again just before merging:
-
-1. **Find the related todos**: read `arbor todo list`, leaving off `--open`,
-   since a todo another task has taken can still be affected by yours. Those
-   in your todos' lanes, those blocking or blocked by them, and those whose
-   subject names your files or feature are related. `arbor todo show` each
-   one your work might touch.
-2. **Act on each one**, in this order of preference:
-   - **Claim it** when it is open and your change settles it, makes it moot,
-     or would with a little more work in the same files: `arbor todo take
-     <id>` and add it to your Goal. Claim every one you can, since the next
-     agent would have to rebuild the context you have now, as long as the
-     task stays one coherent change: that is grooming, not growth.
-   - **Update it** when your change alters it without settling it (a path
-     moved, a step is done, the approach no longer fits), ticking off the
-     `- [ ]` steps you did.
-   - **Place it** when it is untriaged and belongs in a lane (see Lanes).
-   - **Coordinate** when another task has taken it and your change affects
-     it: never take it, read its Goal in `arbor list --files`, and note it
-     in `ARBOR.md`.
-
-### The next todo
-
-Whenever a task ends, merged or removed, propose the next todo, so the
-context this conversation built up gets used before it is gone: from
-`arbor todo list --open`, the one most related to the work just done (the
-same files, feature, or problem; `arbor todo show` one to be sure), preferring
-one that came up in the task; among equally related ones, or when none is related, the top of the list.
-`merge` prints its pick by that order; `remove` prints none. After a merge,
-also propose the next one or two when they are as related, so the user can
-choose.
-
-A task whose todos were in a lane is the exception: propose that lane's next
-todo, even one another lane still blocks, so the lane stays with the agent
-that has its context. `merge` prints it; after a `remove`, read it from
-`arbor lane show <n>`. When the todos were in more than one lane, propose each
-lane's next todo and let the user choose. Only when the lane is done, fall
-back to the most related todo.
-
-### Proposing a todo
-
-Whenever you put a todo in front of the user, one you propose or one you just
-added, head it one level below the report's title with 📝, its subject
-exactly as `arbor todo show` prints it, and its id, then write one sentence on
-why it matters now, such as what it shares with the work just done. The page
-shows the todo itself.
-
-```markdown
-### 📝 Upload retries forever on a 413 [#12]
-
-It touches the retry loop this task just rewrote.
-```
-
-Every todo you add, put in front of the user this way in the reply that
-ends the turn you added it in, even one that ends no task: the `arbor dev`
-page heads it as added by your task, so they see what went on the list
-without reading the board.
-
-The 📝 belongs to the heading: leave it out of `arbor todo add` and
-`--subject`.
-
 ## Systems
 
 A repo can name parts of its code as systems in `arbor.config.ts`, each a
@@ -234,63 +108,10 @@ every agent use one word for one part of the code. A prompt from the
 `arbor dev` page that mentions `#name` ends with a line on what that system
 is made of, or, when no system answers to it, a line saying so.
 
-Systems are named a few at a time as they come up, never all at once, and
-only the user names one. Offer to as a question under `## Blocked`, and write
-`arbor.config.ts` only once they pick a choice that does:
-
-- when the user keeps calling one part of the code by a phrase no system has;
-- when your task touches files no system covers, at most once per task;
-- when a phrase the user uses means a system that already has another name:
-  offer the phrase as an alias;
-- when the user writes `#name` and no system answers to it: find the code
-  they mean, then, if no system covers it, offer to name it, recommending the
-  name that code already goes by (its directory, module or main type) over
-  theirs; if one does, offer `name` as its alias.
-
-A system has at most two aliases, and arbor refuses a config with more: to
-offer a third, offer to swap it for one it has, or to call the system by its
-name instead.
-
-```markdown
-- [ ] 3. Should the mixing code have a name?
-  You have called `src/mixer/**` "the mixer" three times, and no system covers it.
-  - (a) Name it `mixer`, for `src/mixer/**` (chosen)
-  - (b) Add `src/mixer/**` to `playback`, with `mixer` as an alias
-  - (c) Leave it unnamed
-```
-
-Here `(chosen)` is what you would pick, not what you did: write nothing until
-the answer comes, then commit the change to `arbor.config.ts` with your task.
-
-## Working a lane
-
-A lane is a named, ordered queue of todos for one agent, worked top to
-bottom, one task per todo. It keeps a chain of todos that build on each other
-with one agent, so each step starts from the context the last one built, and
-runs beside other lanes without the agents stepping on each other. Lanes are
-the columns of the `arbor dev` board; a todo in none is untriaged. Agents
-place the todos they add (see Lanes), and the user rearranges them. Each has a number, which commands and the prompt use, and a name,
-which says what its todos are for: `arbor lane list` shows both.
-
-`[ARBOR LANE N]`, copied from the `arbor dev` page, asks you to work down
-lane N. The lane is arbor's, not the prompt's, so read it from arbor each
-time:
-
-1. `arbor lane show N` prints the steps and what to do next. When it says
-   the lane is done or gone, stop and say so.
-2. When its next todo is blocked by a todo in another lane, `arbor todo wait
-   <id>` for that one, again on `timeout`, rather than skip ahead: a lane is in
-   order for reasons the board knows and you do not. When the wait ends
-   because the other task is escalated, tell the user you are blocked on it
-   and stop.
-3. Take the next todo with `arbor add <task> --todo <id>`, and do it as any
-   other task (see Workflow), through `arbor merge`.
-4. After the merge, `cd` to the main tree and go back to step 1. Report each
-   merge as usual, but do not wait for the user between steps unless a task
-   escalates.
-
-Never take a todo from another lane, or one the lane has not reached; when
-the user moves todos while you work, the next `lane show` has them.
+Only the user names a system, and you offer to (see `references/systems.md`)
+when they keep calling code by a phrase no system has, use a phrase or
+`#name` no system answers to, or when your task touches files no system
+covers, at most once per task.
 
 ## Checkpoint
 
@@ -309,45 +130,6 @@ where you are and start nothing new:
 again and go on from where `## Notes` says you stopped. With no task, carry on
 with what you were asked.
 
-## Handing out part of your task
-
-`arbor add <part> --base task/<your task>` from inside your tree makes a task
-that lands on your branch instead of trunk. While parts are out, keep your
-tree committed (a part lands by fast-forwarding your checkout), re-read files
-before editing them, and squash only after every part has landed. Hand a
-part out only when describing it is shorter than doing it.
-
-A subagent that may change code works in a part, never its own task on
-trunk, so the user reviews one body of work rather than many small ones.
-Add the part yourself, then tell the subagent:
-
-- to `arbor claim <part>` and work only in the worktree it prints;
-- not to escalate, report to the user, or take todos: it is your part, and
-  you are the one the user hears from;
-- to make each call the request does not settle as it sees fit, listing in
-  its reply what it chose and what else it could have done, never under
-  `## Blocked`, which would stop `arbor merge`;
-- to squash and `arbor merge` the part when done, landing it on your branch.
-
-When the user asks for the part to go to another agent, such as one of
-another model family, run by `arbor dev`, hand it over as you add it:
-`arbor add <part> --base task/<your task> --agent <id> --prompt '<what to
-do, and the rules above>'`, with `--model <m>`. Read `arbor agents` first:
-it lists each agent you can name and its models, with what each is good at
-and what it costs. Take the agent and model the user names, else the
-assignee `arbor todo show` gives for the part's todo, else the model whose
-strengths fit the part at the lowest cost it is worth, a cheap one for a
-mechanical part, and ask about that choice under `## Blocked`.
-`arbor dev` starts that agent in the part's tree, sent `[ARBOR TASK
-<part>]` and then your prompt. Its replies never reach you, so have the prompt ask it to list
-its calls in the part's commit message, `arbor wait <part>` for it to land,
-and read them in `git log`.
-
-Write each call it lists under your own `## Blocked`, and redo the part when
-an answer overturns one. A subagent that only reads needs no part. When the
-user asks for the subagents' work to land on its own, give each one a task of
-its own on trunk instead, and let it follow this skill as written.
-
 ## Asking as you go
 
 Do not save questions for escalation. Whenever you make a decision that does
@@ -357,282 +139,9 @@ never mentioned, one reading of an ambiguous ask), write a question under
 could have done, and carry on: the user can answer in chat while you work.
 When an answer overturns a choice, redo that part.
 
-An answer can reach you mid-turn, as a message that arrives while you work.
-Read it at the next step rather than at the end: record it (see Keeping
-Blocked current), and redo at once what it overturns, before building more on
-the choice. While a question is open, do the work it touches last where your
-plan allows, so an answer that overturns it costs little.
-
-Number questions 1, 2, … in the order you ask them; numbers never change, and
-new ones continue from the highest. A question's line is its subject, short
-enough to scan and ending at its `?`, with nothing after it; everything else,
-the why included, goes in markdown lines indented under it, code blocks
-included. Ask for what is wrong rather
-than a bare yes or no. When the answer is one of a few, end with `- (a) ...`
-lines (pick one, or none), or `- [a] ...` lines for all that apply. Describe
-every choice, the one you went with too, and mark that one `(chosen)`: never
-a bare "That". When the answer is an order (what lands first, which todo
-matters most), end with `- a. ...` lines in the order you would go with: the
-reply lists every letter in the order picked, `4. b, a, c`.
-
-```markdown
-## Blocked
-
-- [x] 1. Do the live tests pass against staging? → yes
-- [ ] 2. Does the header wrap to two lines?
-  ![header at 390px](/abs/path/shot.png)
-- [ ] 3. How should existing sessions move to the new tokens?
-  Sessions are keyed by the old cookie.
-  - (a) Sign everyone out once
-  - (b) Migrate each session on its next request (chosen)
-- [ ] 4. In what order should the settings pages land?
-  - a. Profile
-  - b. Billing
-  - c. Notifications
-```
-
-Show what a question is about whenever it is something to see: a screenshot,
-or a short recording when it moves or takes steps. Save it outside the
-worktree, `arbor attach` it, and name the path it prints as
-`![what](/abs/path.png)`. The `arbor dev` page shows an attached file inline,
-in `ARBOR.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
-as a video. Only attached files show there, and they go when the task does,
-so never point a question at a file anywhere else.
-
-Put each screenshot in the question it is for, under what it shows: under the
-question's line for what it asks about, or indented under a choice for what
-that choice looks like, which the `arbor dev` page shows with the choice.
-Never gather them above the questions, or ask about them apart from the
-question they are for.
-
-```markdown
-- [ ] 5. Which style should the action list take?
-  - (a) A rail beside the thread (chosen)
-    ![rail](/abs/path/rail.png)
-  - (b) A bordered panel
-    ![panel](/abs/path/panel.png)
-```
-
-## Keeping Blocked current
-
-`## Blocked` is where every question the user sees comes from, so it must say
-what you need right now. Before you continue with any work (after the user
-replies, after `arbor claim` returns, and between steps), bring it up to date:
-
-- write every answer the user gave after `→` on its question's line, and
-  check off each question you have acted on;
-- write a follow-up to an answer, even a checked one, on a `→ ` line of its
-  own under the question, and uncheck the question until you have acted on
-  the follow-up;
-- check off any question that no longer applies, with why after `→`
-  (`→ moot: the header was removed`), rather than deleting it;
-- retake each screenshot an open question shows once your work has changed
-  what it shows, attach it in place of the old one (`arbor attach new.png
-  --remove <old path>`), and point the question at the new one;
-- add each question you now need.
-
-The user answers in chat. From the `arbor dev` page, a reply quotes each
-question it answers, its line in bold (`> **How should …?**`), and answers
-under it: the choices picked as `- (b) <its text>`, numbered in the order
-picked for an order, then any words. Anything else they say comes before the
-first quote. Match each quote to an open question by its line, whatever its
-number; questions not quoted stay open. A quote can come from `ARBOR.md` as
-the page last read it, ahead of your report: when it matches no question you
-have open, as one you changed since, ask again rather than guess what it
-answers. Typed by hand, a reply is a list matching your latest report: `2.`
-is its second question, whatever its number in `ARBOR.md`, and items left out
-stay open. When a reply does not fit your latest report, ask rather than
-guess. Whenever anything the user says settles an open question, even
-without naming it, write that answer after `→` and check it off, so it is not
-asked again. Check an item off only when its answer is one you can act on;
-anything else stays open and leads your next report. A reply about something
-you did is an instruction. When the user defers or skips a question, check it
-off and carry on without it (for a defer, `arbor todo add` it first). Only
-the user answers questions, yours or another agent's.
-
-When the user asks to see the work before it lands, write `Review:
-requested` under `## Notes` at once, so the request outlives your session.
-
-## Escalation
-
-Escalate when questions are still open once everything else is done, or when
-you cannot go on without the user (access, a decision, a test only they can
-run).
-
-1. Leave something to look at, by **absolute path** (start from
-   `arbor path <task>`): for anything visual, a screenshot or recording you
-   `arbor attach`. Ask first if producing it is expensive.
-2. Write each question not already there under `## Blocked`.
-3. `arbor escalate <reason>`.
-4. Report, end your turn, and wait for the user to answer in chat. Do not run
-   `arbor wait` or poll `ARBOR.md`: answers only come in chat. Then
-   `arbor claim <task>` to carry on. `arbor retry`, for `budget_exhausted`, is
-   the user's to run, before you claim.
-
-Never ask whether the work is ready to merge among other questions, or as a
-question at all: once they are answered and the work is done, merge or ask
-for a review (see Merge or review).
-
-## Merge or review
-
-A task ready to merge has every step under `## Next` and every question under
-`## Blocked` checked; `arbor merge` and `arbor escalate --review` both refuse
-one that is not. Whether the user looks first is yours to decide:
-
-- **Merge** work you verified yourself. This is the default, and the usual
-  end of a small change.
-- **Ask for a review** when verification needs the user (external services,
-  destructive migrations, visual changes), when `## Notes` says `Review:
-  requested`, or, absent instructions, when the change is complex enough
-  that correctness needs a reader rather than a test. Leave something to
-  look at (step 1 of Escalation), `arbor escalate --review "<what to look
-  at>"`, report it (see Reporting), and end your turn.
-
-When the user has to see a change to judge it, make that cheap: run it for
-them where they can open it (a dev server on throwaway data that shows each
-case, never their own), and give them a demo (see Demos). Run arbor in a
-throwaway repository with `ARBOR_HOME` set to a throwaway directory, so it
-stays out of the user's `arbor dev` project list.
-
-## Demos
-
-Whenever the user is to try something (a review, a question on how something
-looks or feels, a test only they can run), show it as a demo rather than
-describing it: a `### 🎬 Demo: <what it shows>` heading, a line on where to
-open it, then the steps, numbered from 1. Each step's line is one thing to
-do; indented under it, one line on what they should see, and a screenshot or
-recording when it helps. The `arbor dev` page shows a demo as a checklist
-they tick off as they go.
-
-```markdown
-### 🎬 Demo: dragging a card on a phone
-
-Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
-
-1. Press and hold a card.
-   It lifts after half a second.
-2. Drag it to another lane.
-   It lands where you drop it.
-   ![dropped in Doing](/abs/path/drop.png)
-```
-
-Give one demo per message, right before the questions it is for, or inside a
-review before its last line. The steps are the demo's only numbered list:
-never number steps elsewhere in a report, where they would read as questions.
-
-When the user approves, `arbor claim <task>` and merge. When that merge
-stops on a conflict, name each file you resolved in the merge report, since
-that code changed after the user looked. When they ask for
-changes, `arbor claim <task>`, add each as a step under `## Next`, and work
-through them as before.
-
-## Reporting
-
-The user reads a report at a glance, so it holds only what they need to act
-on. However a task ends, say so in one block: a `##` title, a blank line, and
-one plain sentence, under 25 words, on what changed for the user. The title is
-the emoji, the outcome, and the bare task name, then the base for a merge, or
-otherwise, after a colon, what it waits on or why it went, led by what it
-needs from the user (a review, a decision, access, a test only they can run).
-Keep the title to about eight words, lowercase after the colon, with no ending
-punctuation.
-
-Then stop, but for a `- ` line, at most three, on anything the user must act
-on or would be caught out without: a restart to pick the change up, a file
-resolved in a conflict after their review, a todo gone stale. Leave out what
-the page, the diff, or `ARBOR.md` already says: that tests pass, that nothing
-is merged yet, the files touched, how you did it, and calls you made, which
-are questions under `## Blocked` and asked as questions.
-
-When the user has answered questions since your last report, add a `- `
-line for each answer you did not follow as given, or that changed more than
-it named, saying what you did instead and why. Answers followed as given need
-no line.
-
-```markdown
-## ✅ Merged <task> onto <base>
-
-One sentence on what changed.
-
-- Restart `arbor dev` to see it.
-
-### 📝 <subject> [#<id>]
-
-Why it is a good next step.
-```
-
-```markdown
-## 🛑 Removed <task>: superseded by a fix on main
-
-One sentence on what the task set out to do.
-
-### 📝 <subject> [#<id>]
-
-Why it is a good next step.
-```
-
-A merge or remove report ends with the proposed todos, the best one first,
-each kept to its one sentence; leave them out only when no todo is open.
-
-```markdown
-## ⚠️ Escalated <task>: needs two calls on the todo board
-
-One sentence on what changed.
-
-### 🎬 Demo: dragging a card on a phone
-
-Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
-
-1. Press and hold a card, then drag it to another lane.
-   It lands where you drop it.
-
-1. Does dragging a card feel right on a phone?
-2. How should a stale todo be shown?
-   - (a) A muted card
-     ![muted card](/abs/path/muted.png)
-   - (b) A "stale" badge
-     ![stale badge](/abs/path/badge.png)
-```
-
-An escalation ends with every open question, those left open from earlier
-reports first, as a list numbered from 1 whatever their numbers in
-`ARBOR.md`, after the demo they ask about, if any. Ask every question you need
-answered there, never in prose. The user answers from the report, so each
-item carries what is needed to answer it: its subject, at most one line of
-body under it, the choices exactly as in `ARBOR.md` (so a reply of `2. b`
-names one), and each screenshot or file by absolute path, under the question
-or choice it shows as in `ARBOR.md`. Inline a screenshot as
-`![what](/abs/path.png)` when the `arbor dev` page or your harness shows
-images in chat; otherwise link it as `[what](/abs/path.png)`. Leave an item
-bare when its subject says it all.
-
-```markdown
-## 🔍 Ready to merge <task> onto <base>
-
-One sentence on what changed.
-
-### 🎬 Demo: moving todos between lanes
-
-Open http://localhost:4310 (a demo repo, nothing of yours).
-
-1. Drag a todo to another lane.
-   It lands where you drop it.
-2. Reload.
-   It stays there.
-   ![the board after a drag](/abs/path/board.png)
-
-Reply "merge", or say what to change.
-```
-
-A review asks no numbered question: after its sentence comes the demo of
-what to check, then that last line exactly, so every review reads the same.
-
-Number questions the same way wherever you ask them: a mid-task reply, a
-merge report, or a message outside any task. The user answers by number, so
-two or more questions always go in a list numbered from 1, never a bulleted
-one, never several in one item, and never one tucked into a sentence. Each
-item's line ends at its `?`, as under `## Blocked`, so the page can show it
-as a question.
+The format the `arbor dev` page reads questions in, and how to read the
+user's answers, are in `references/questions.md`. In any message, two or more
+questions go in a list numbered from 1, never a bulleted one.
 
 ## ARBOR.md
 
