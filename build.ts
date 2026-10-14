@@ -113,10 +113,8 @@ await Bun.write(
 	await Bun.file(`${here}/dev/manifest.webmanifest`).text(),
 );
 // The icons as base64, so they travel as text like the rest. The PNGs are
-// committed rather than drawn here, since rasterizing icon.svg would put an
-// image toolchain in the build for three files that rarely change: after
-// editing it, `magick -background none -density 300 icon.svg -resize 512x512
-// -strip PNG32:icon-512.png`, and the same for 192.
+// committed rather than drawn here, since `dev/icons/render.swift` draws them
+// with macOS's own emoji, which only a Mac has.
 for (const size of ICON_SIZES) {
 	const png = await Bun.file(`${here}/dev/icons/icon-${size}.png`).bytes();
 	await Bun.write(`${out}/icon-${size}.txt`, png.toBase64());
