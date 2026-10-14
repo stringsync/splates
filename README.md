@@ -72,7 +72,28 @@ arrow, pin a note to each, and send it back.
 ### Remote access
 
 To open the page from another machine, put it behind a Cloudflare tunnel and
-Cloudflare Access, which decides who may enter:
+Cloudflare Access, which decides who may enter. Set it up once per machine:
+
+```bash
+bunx @webappwiz/arbor tunnel setup arbor.example.com --email me@example.com
+bunx @webappwiz/arbor creds wait ARBOR_CLOUDFLARE_API_TOKEN
+bunx @webappwiz/arbor tunnel setup arbor.example.com --email me@example.com
+bunx @webappwiz/arbor dev
+```
+
+`tunnel setup` makes, through Cloudflare's API, a tunnel, the DNS record
+routing the host to it, and an Access application letting in only those
+emails, and saves them: the host, team and AUD tag in
+`~/.arbor/tunnel.json`, the tunnel's token in the system's secret store (the
+Keychain on macOS). From then on a bare `arbor dev` runs the tunnel with
+`cloudflared`, no `cloudflared login` needed. Run again, it changes only what
+differs, such as the emails. The first run has no API token yet, so it
+requests one on the Creds page of `arbor dev`, with how to make it; paste it
+there, and run it again. An account with no Zero Trust organization gets one
+with `--team <name>`, for `<name>.cloudflareaccess.com`. `arbor tunnel status`
+shows what is saved.
+
+Or give the tunnel and the Access application by hand, over what is saved:
 
 ```bash
 bunx @webappwiz/arbor dev --tunnel arbor.example.com \

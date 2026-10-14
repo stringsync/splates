@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ArborDeps } from "./arbor";
+import { SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
 import type { Repository } from "./repository";
 import {
@@ -9,6 +10,7 @@ import {
 	Roster,
 	type RosterAgent,
 } from "./roster";
+import { SavedTunnel } from "./saved-tunnel";
 
 /** A place in the todo list, 1 at the top; absent leaves it to the command. */
 export const position = z.coerce.number().int().positive().optional();
@@ -41,6 +43,18 @@ export async function assigneeIn(
 /** The user's roster, beside the project registry. */
 export function rosterOf({ ps, fs }: ArborDeps): Roster {
 	return new Roster(`${arborHome(ps)}/agents.json`, { fs });
+}
+
+/** The tunnel `arbor tunnel setup` saved for this machine. */
+export function savedTunnelOf({
+	ps,
+	fs,
+	secrets = SYSTEM_STORES,
+}: ArborDeps): SavedTunnel {
+	return new SavedTunnel(`${arborHome(ps)}/tunnel.json`, {
+		fs,
+		store: secrets.device,
+	});
 }
 
 /** The roster's agents, written out as the defaults first when there is none. */

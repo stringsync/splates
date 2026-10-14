@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import { FakeSecretStore } from "webappwiz/creds/testing";
 import { MemoryLogger } from "webappwiz/log";
-import { FakePs } from "webappwiz/system/testing";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
 import { CloudflaredTunnelProvider } from "./cloudflared-tunnel-provider";
-import { startTunnel, tunnelConfig } from "./dev-tunnel";
+import { savedTunnelConfig, startTunnel, tunnelConfig } from "./dev-tunnel";
 import { Exit } from "./exit";
 import { FakeTunnelProvider } from "./fake-tunnel-provider";
+import { SavedTunnel, TUNNEL_TOKEN } from "./saved-tunnel";
 
 const ps = new FakePs();
 const access = { issuer: "https://team.cloudflareaccess.com", aud: "app-aud" };
@@ -93,5 +95,61 @@ describe("CloudflaredTunnelProvider", () => {
 
 		expect(child?.signals).toEqual(["SIGTERM"]);
 		expect(JSON.stringify(log.entries)).toContain("https://arbor.example.com");
+	});
+
+	it("hands a token over in the environment, never the argv", async () => {
+		const ps = new FakePs();
+		const run = new CloudflaredTunnelProvider(ps, null, "secret").run({
+			host: "arbor.example.com",
+			url: "http://localhost:4270",
+			log: new MemoryLogger(),
+		});
+		await run.disposeAsync();
+
+		expect(ps.getCalls()).toEqual([
+			"cloudflared tunnel --no-autoupdate run --url http://localhost:4270",
+		]);
+		expect(ps.getCallEnvs()).toEqual([{ TUNNEL_TOKEN: "secret" }]);
+	});
+});
+
+describe("savedTunnelConfig", () => {
+	const record = {
+		host: "arbor.example.com",
+		team: "team",
+		aud: "app-aud",
+		tunnel: "tunnel-id",
+	};
+
+	it("is null with nothing saved, and runs what was saved with its token", async () => {
+		const store = new FakeSecretStore();
+		const saved = new SavedTunnel("/home/.arbor/tunnel.json", {
+			fs: new FakeFs(),
+			store,
+		});
+		expect(await savedTunnelConfig(saved, ps, new MemoryLogger())).toBeNull();
+
+		await saved.save(record);
+		await store.set(TUNNEL_TOKEN, "secret");
+		const config = await savedTunnelConfig(saved, ps, new MemoryLogger());
+
+		expect(config?.access).toEqual(access);
+		expect(config?.tunnel.host).toBe("arbor.example.com");
+		expect(config?.tunnel.provider).toBeInstanceOf(CloudflaredTunnelProvider);
+	});
+
+	it("logs a saved tunnel whose token is gone, and runs none", async () => {
+		const store = new FakeSecretStore();
+		const saved = new SavedTunnel("/home/.arbor/tunnel.json", {
+			fs: new FakeFs(),
+			store,
+		});
+		await saved.save(record);
+		const log = new MemoryLogger();
+
+		expect(await savedTunnelConfig(saved, ps, log)).toBeNull();
+		expect(JSON.stringify(log.entries)).toContain(
+			"run `arbor tunnel setup` again",
+		);
 	});
 });

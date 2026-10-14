@@ -5,9 +5,17 @@ import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
 import { arborCreds } from "./arbor-creds";
-import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
+import {
+	commaList,
+	here,
+	rosterOf,
+	savedTunnelOf,
+	seeded,
+	todoIds,
+} from "./arbor-flags";
 import { arborLane } from "./arbor-lane";
 import { arborTodo } from "./arbor-todo";
+import { arborTunnel } from "./arbor-tunnel";
 import { attach } from "./attach";
 import { claim } from "./claim";
 import { codexLimits, isCodex } from "./codex-limits";
@@ -16,7 +24,7 @@ import type { SecretStores } from "./creds";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { accessConfig } from "./dev-access";
-import { tunnelConfig } from "./dev-tunnel";
+import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
@@ -47,6 +55,8 @@ export interface ArborDeps extends Deps {
 	assets: Assets;
 	/** Where creds are kept; the system's stores by default. */
 	secrets?: SecretStores;
+	/** How `arbor tunnel setup` reaches Cloudflare's API; the global one by default. */
+	fetch?: typeof fetch;
 }
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and
@@ -303,7 +313,7 @@ arbor
 	.option("tunnel", z.string(), {
 		default: "",
 		description:
-			"the public host name of a tunnel to run, with cloudflared or the tunnel provider arbor.config.ts names, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated",
+			"the public host name of a tunnel to run, with cloudflared or the tunnel provider arbor.config.ts names, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated. With none of the tunnel and Access flags, the tunnel `arbor tunnel setup` saved runs, if any",
 	})
 	.option("tunnel-name", z.string(), {
 		default: "",
@@ -312,8 +322,8 @@ arbor
 	})
 	.action(async (opts, ctx) => {
 		// Read before the child starts, so a half-given pair fails once.
-		const access = accessConfig(opts["access-team"], opts["access-aud"]);
-		const tunnel = tunnelConfig(
+		let access = accessConfig(opts["access-team"], opts["access-aud"]);
+		let tunnel = tunnelConfig(
 			opts.tunnel,
 			opts["tunnel-name"],
 			access,
@@ -333,6 +343,23 @@ arbor
 				: null;
 			ctx.ps.exit(await supervise(ctx.ps, { build }));
 			return;
+		}
+		// The saved tunnel only when no flag says how to reach the page, so a
+		// flag never mixes with what was saved.
+		const flagged = [
+			opts.tunnel,
+			opts["tunnel-name"],
+			opts["access-team"],
+			opts["access-aud"],
+		].some((flag) => flag.trim() !== "");
+		if (!flagged) {
+			const saved = await savedTunnelConfig(
+				savedTunnelOf(ctx),
+				ctx.ps,
+				ctx.log,
+			);
+			access = saved?.access ?? null;
+			tunnel = saved?.tunnel ?? null;
 		}
 		// Read once: a roster edited while it serves applies from the restart.
 		const roster = await seeded(rosterOf(ctx));
@@ -471,4 +498,5 @@ arbor
 arbor
 	.mount("todo", arborTodo)
 	.mount("lane", arborLane)
-	.mount("creds", arborCreds);
+	.mount("creds", arborCreds)
+	.mount("tunnel", arborTunnel);

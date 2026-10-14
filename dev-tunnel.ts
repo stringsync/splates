@@ -2,8 +2,9 @@ import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { CloudflaredTunnelProvider } from "./cloudflared-tunnel-provider";
-import type { AccessConfig } from "./dev-access";
+import { type AccessConfig, accessConfig } from "./dev-access";
 import { fail } from "./exit";
+import type { SavedTunnel } from "./saved-tunnel";
 import type { TunnelProvider } from "./tunnel-provider";
 
 /** The tunnel `arbor dev` runs to reach the page from elsewhere. */
@@ -36,13 +37,7 @@ export function tunnelConfig(
 		}
 		return null;
 	}
-	if (!/^([a-z0-9-]+\.)+[a-z0-9-]+$/.test(host)) {
-		fail(
-			"usage",
-			`invalid tunnel host '${host}': use a host name, as in arbor.example.com`,
-			{ host },
-		);
-	}
+	hostName(host);
 	if (access === null) {
 		fail(
 			"usage",
@@ -61,6 +56,60 @@ export function tunnelConfig(
 		host,
 		provider: custom ?? new CloudflaredTunnelProvider(ps, name || null),
 	};
+}
+
+/** `host`, lowercased, refused unless it is a host name. */
+export function hostName(host: string): string {
+	host = host.trim().toLowerCase();
+	if (!/^([a-z0-9-]+\.)+[a-z0-9-]+$/.test(host)) {
+		fail(
+			"usage",
+			`invalid tunnel host '${host}': use a host name, as in arbor.example.com`,
+			{ host },
+		);
+	}
+	return host;
+}
+
+/**
+ * The tunnel `arbor tunnel setup` saved, and the Access application in front
+ * of it, which a bare `arbor dev` runs; null when none was saved. One whose
+ * token the secret store cannot give is logged and left off, never fatal: the
+ * page still answers on this machine.
+ */
+export async function savedTunnelConfig(
+	saved: SavedTunnel,
+	ps: Ps,
+	log: Logger,
+): Promise<{ access: AccessConfig; tunnel: TunnelConfig } | null> {
+	try {
+		const record = await saved.read();
+		if (record === null) {
+			return null;
+		}
+		const token = await saved.token();
+		if (token === undefined) {
+			throw new Error(
+				"its token is gone from the system's secret store: run `arbor tunnel setup` again",
+			);
+		}
+		const access = accessConfig(record.team, record.aud);
+		if (access === null) {
+			throw new Error(`${saved.path} names no Access application`);
+		}
+		return {
+			access,
+			tunnel: {
+				host: record.host,
+				provider: new CloudflaredTunnelProvider(ps, null, token),
+			},
+		};
+	} catch (error) {
+		log.error(
+			`the saved tunnel is not served: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		return null;
+	}
 }
 
 /**

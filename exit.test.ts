@@ -29,6 +29,8 @@ it("keeps the exit codes stable", () => {
 		too_large: 21,
 		dismissed: 22,
 		no_secret_store: 23,
+		cloudflare: 24,
+		requested: 25,
 	});
 });
 

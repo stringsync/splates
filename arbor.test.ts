@@ -21,6 +21,11 @@ describe("arbor cli", () => {
 			fs: env.fs,
 			ps: env.ps,
 			assets: env.assets,
+			secrets: env.secrets,
+			fetch: Object.assign(
+				() => Promise.reject(new Error("no network in a test")),
+				{ preconnect: () => {} },
+			),
 		};
 	});
 
@@ -130,5 +135,23 @@ describe("arbor cli", () => {
 
 		expect(env.out()).not.toContain("  reply ");
 		expect(env.proc.lastExit()).toBe(1);
+	});
+
+	it("says no tunnel is saved, and requests the token a setup needs", async () => {
+		await arbor.run(deps, ["tunnel", "status"]);
+		expect(env.out()).toContain("no tunnel saved");
+
+		await arbor.run(deps, [
+			"tunnel",
+			"setup",
+			"arbor.example.com",
+			"--email",
+			"me@example.com",
+		]);
+		expect(env.out()).toContain("requested on the Creds page");
+		expect(env.proc.lastExit()).toBe(25);
+		expect(await env.creds.requests()).toMatchObject([
+			{ name: "ARBOR_CLOUDFLARE_API_TOKEN", scope: "device", status: "open" },
+		]);
 	});
 });

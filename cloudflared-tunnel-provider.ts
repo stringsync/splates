@@ -14,14 +14,17 @@ const DOWNLOADS =
 
 /**
  * A TunnelProvider over the `cloudflared` binary, running the named tunnel
- * the account already has, or the one its own config names. One that dies
- * while running is logged, never fatal: the page still answers on this
- * machine.
+ * the account already has, or the one its own config names, or, given a
+ * token, the tunnel `arbor tunnel setup` made, with no login or credentials
+ * file. One that dies while running is logged, never fatal: the page still
+ * answers on this machine.
  */
 export class CloudflaredTunnelProvider implements TunnelProvider {
 	constructor(
 		private readonly ps: Ps,
 		private readonly name: string | null = null,
+		/** The tunnel's token, handed over in the environment, never the argv `ps` lists. */
+		private readonly token: string | null = null,
 	) {}
 
 	async ready(): Promise<void> {
@@ -48,7 +51,10 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 			url,
 			...(this.name === null ? [] : [this.name]),
 		];
-		const child = this.ps.start(argv);
+		const child = this.ps.start(
+			argv,
+			this.token === null ? undefined : { env: { TUNNEL_TOKEN: this.token } },
+		);
 		let tail = "";
 		const watched = (async () => {
 			const decoder = new TextDecoder();
@@ -80,7 +86,7 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 				return;
 			}
 			log.error(
-				`cloudflared exited with ${code}, so ${host} is not served.${hint(tail)}\n${tail.trim()}`,
+				`cloudflared exited with ${code}, so ${host} is not served.${this.token === null ? hint(tail) : TOKEN_HINT}\n${tail.trim()}`,
 			);
 		})();
 		return {
@@ -91,6 +97,10 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 		};
 	}
 }
+
+/** What to do about a tunnel `arbor tunnel setup` made that will not run. */
+const TOKEN_HINT =
+	" Run `arbor tunnel setup` again to check the tunnel and fetch its token anew.";
 
 /** What to do about the way `cloudflared` said it failed. */
 function hint(stderr: string): string {

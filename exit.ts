@@ -26,6 +26,8 @@ export const EXIT = {
 	too_large: 21,
 	dismissed: 22,
 	no_secret_store: 23,
+	cloudflare: 24,
+	requested: 25,
 } as const;
 
 export type Reason = keyof typeof EXIT;

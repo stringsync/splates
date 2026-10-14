@@ -429,8 +429,16 @@ kept.
 
 ## Remote access
 
-When the user asks to reach `arbor dev` from elsewhere, or for a tunnel other
-than cloudflared, it is `arbor dev --tunnel <host> --access-team <team>
+When the user asks to reach `arbor dev` from elsewhere, `arbor tunnel setup
+<host> --email <theirs>` makes the Cloudflare tunnel, its DNS record and its
+Access application with an API token kept as the cred
+`ARBOR_CLOUDFLARE_API_TOKEN`, and saves them for the machine, so a bare `arbor
+dev` comes up tunneled. Without the token it requests it, with how to make
+it, and exits `requested`: say so and wait as for any cred (see Creds), then
+run it again. When the account has no Zero Trust organization, it asks for
+`--team <name>` to make one. Ask the user for the host, the emails and any
+team name rather than guessing them. By hand, or for a tunnel other than
+cloudflared, it is `arbor dev --tunnel <host> --access-team <team>
 --access-aud <aud>`: it runs `cloudflared tunnel run` against the page and
 allows that host, and it refuses to start without both Access flags, since
 who may enter is wholly the Cloudflare Access policy's call (`--tunnel-name`
