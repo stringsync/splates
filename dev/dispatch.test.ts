@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { ConversationFeed } from "./conversation-feed";
 import { Dispatch, promptFor } from "./dispatch";
 import { Drafts, newDraft } from "./drafts";
 import { conversation, details } from "./testing";
@@ -16,6 +17,7 @@ describe("Dispatch", () => {
 	it("lists the listed conversations on a task, newest first, with what each needs", () => {
 		const dispatch = new Dispatch(
 			new Drafts(nowhere),
+			new ConversationFeed(),
 			null,
 			AGENTS,
 			[
@@ -40,6 +42,7 @@ describe("Dispatch", () => {
 	it("offers every listed conversation to take work on, but those on the task already", () => {
 		const dispatch = new Dispatch(
 			new Drafts(nowhere),
+			new ConversationFeed(),
 			null,
 			AGENTS,
 			[
@@ -60,7 +63,14 @@ describe("Dispatch", () => {
 
 	it("composes the prompt ahead of the draft a new conversation, one per tree, or a picked one already holds", () => {
 		const drafts = new Drafts(nowhere);
-		const dispatch = new Dispatch(drafts, "shop", AGENTS, [], []);
+		const dispatch = new Dispatch(
+			drafts,
+			new ConversationFeed(),
+			"shop",
+			AGENTS,
+			[],
+			[],
+		);
 		drafts.write("c1", "and keep it small");
 
 		expect([

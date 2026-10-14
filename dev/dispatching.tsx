@@ -148,7 +148,8 @@ function spins(need: { kind: string }): boolean {
 /**
  * Puts an agent to work on `assignment`: a new conversation with the agent
  * picked, or one already going, its prompt composed in the composer it opens
- * at, to send once the person has looked.
+ * at, to send once the person has looked. With the agent it is assigned to,
+ * the conversation starts straight away, the prompt sent.
  */
 export function StartMenu({
 	assignment,
@@ -156,11 +157,14 @@ export function StartMenu({
 	label = "Start",
 	size = "xs",
 	className,
+	onStart,
 }: {
 	assignment: Assignment;
 	/** The agent that should work it, offered first, on its model. */
 	assignee?: AgentPick | null;
 	label?: string;
+	/** Called as a pick opens its conversation, as to close a dialog. */
+	onStart?: () => void;
 	/** `sm` beside a dialog's other actions in its footer. */
 	size?: "xs" | "sm";
 	className?: string;
@@ -170,7 +174,11 @@ export function StartMenu({
 	if (context === null) {
 		return null;
 	}
-	const { dispatch, open } = context;
+	const { dispatch } = context;
+	const open = (address: string): void => {
+		onStart?.();
+		context.open(address);
+	};
 	const others = dispatch.others(assignment);
 	const set =
 		assignee !== null &&
@@ -198,9 +206,10 @@ export function StartMenu({
 					<DropdownMenuLabel>In a new conversation with</DropdownMenuLabel>
 					{set !== null && (
 						<DropdownMenuItem
-							onClick={() =>
-								open(dispatch.start(set.agent, assignment, set.model))
-							}
+							onClick={() => {
+								onStart?.();
+								void dispatch.begin(set, assignment).then(context.open);
+							}}
 						>
 							<AgentIcon
 								agent={set.agent}

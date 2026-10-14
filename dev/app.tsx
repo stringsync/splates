@@ -193,6 +193,7 @@ export function App({
 				? {
 						dispatch: new Dispatch(
 							drafts,
+							talk,
 							new URLSearchParams(location.search).get("project"),
 							agents,
 							conversations,
@@ -202,7 +203,7 @@ export function App({
 					}
 				: null,
 		// `go` is new each render, and only ever sets the page and the address.
-		[available, drafts, agents, conversations, tasks, go],
+		[available, drafts, talk, agents, conversations, tasks, go],
 	);
 	// Back through the conversations opened and forward, as in a browser's
 	// history, past any since archived or merged away.

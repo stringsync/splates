@@ -113,6 +113,7 @@ export function Edit({
 						<StartMenu
 							assignment={{ kind: "todo", id: todo.id }}
 							assignee={todo.assignee ?? null}
+							onStart={onDone}
 						/>
 						<AssigneeMenu
 							assignee={todo.assignee ?? null}

@@ -310,7 +310,7 @@ describe("App's controls that put agents to work", () => {
 		);
 	});
 
-	it("offers a todo's assigned agent first, on its model, and assigns one from the dialog", async () => {
+	it("starts a todo's assigned agent first, on its model, straight away, closing the dialog", async () => {
 		const view = await board([], {
 			todos: [
 				todo({
@@ -334,15 +334,23 @@ describe("App's controls that put agents to work", () => {
 		);
 		const items = await waitFor(() => view.getAllByRole("menuitem"));
 		expect(items[0]?.textContent).toBe("Claude · Haikuassigned");
+		testing.reply = conversation({ id: "c9", status: "starting" });
 		await act(async () => fireEvent.click(items[0] as HTMLElement));
 
-		expect(location.hash).toBe("#conversations/new/claude?model=haiku");
-		testing.reply = conversation({ id: "c9", status: "starting" });
-		const box = view.getByRole("textbox", { name: "Message input" });
-		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		expect(posted("/api/conversations")).toEqual([
 			{ agent: "claude", task: null, settings: {}, model: "haiku" },
 		]);
+		await waitFor(() =>
+			expect(posted("/api/conversations/c9/prompt")).toEqual([
+				{ text: "[ARBOR TODO #3]" },
+			]),
+		);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("tab", { name: /Todos/ })),
+		);
+		expect(view.queryByRole("dialog")).toBeNull();
 	});
 
 	it("puts an agent on a todo from its dialog, or any agent", async () => {

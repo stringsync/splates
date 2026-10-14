@@ -3,7 +3,8 @@ import { type Needing, need } from "../needs";
 import { laneReference, taskReference, todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
-import type { AgentChoice } from "./conversation-feed";
+import { promptConversation, startConversation } from "./conversation-api";
+import type { AgentChoice, ConversationFeed } from "./conversation-feed";
 import { type Drafts, newDraft } from "./drafts";
 
 /** What a todo, a lane or a task is, to put an agent to work on it. */
@@ -15,16 +16,19 @@ export type Assignment =
 
 /**
  * Puts agents to work from the board and the Tasks page: who is on a task
- * already, and a conversation for the rest, started or picked. Neither
- * sends anything: each writes the prompt into a composer and names the
- * conversation address (`#conversations/<address>`) to open it at, so the
- * person picks the agent's settings, or adds to the prompt, before sending.
+ * already, and a conversation for the rest, started or picked. Each writes
+ * the prompt into a composer and names the conversation address
+ * (`#conversations/<address>`) to open it at, so the person picks the agent's
+ * settings, or adds to the prompt, before sending; but `begin`, for the agent
+ * a todo is assigned to, which sends it straight away.
  * A link is only the prompt: the agent takes the work, and its conversation
  * follows it into the task, or it means nothing.
  */
 export class Dispatch {
 	constructor(
 		private readonly drafts: Drafts,
+		/** Where a conversation `begin` starts shows before the server says. */
+		private readonly feed: ConversationFeed,
 		/** The project the page shows, by its `?project=` slug, or null. */
 		private readonly project: string | null,
 		readonly agents: AgentChoice[],
@@ -76,6 +80,41 @@ export class Dispatch {
 		return model === undefined
 			? address
 			: `${address}?model=${encodeURIComponent(model)}`;
+	}
+
+	/**
+	 * Starts a conversation with `pick`'s agent on its model, and sends it
+	 * `assignment`'s prompt, answering its address once it is started, with the
+	 * prompt showing as sent. Each setting starts where the agent's latest
+	 * conversation left it. When it does not start, the address of the screen
+	 * that does, the prompt in its composer; when the prompt is refused, it
+	 * waits in the conversation's composer.
+	 */
+	async begin(pick: AgentPick, assignment: Assignment): Promise<string> {
+		const task = assignment.kind === "task" ? assignment.task : null;
+		const text = promptFor(assignment);
+		const left =
+			this.conversations.find(
+				(each) => each.agent === pick.agent && each.settings.length > 0,
+			)?.settings ??
+			this.agents.find((each) => each.id === pick.agent)?.settings ??
+			[];
+		const started = await startConversation(
+			pick.agent,
+			task,
+			Object.fromEntries(left.map((each) => [each.id, each.current])),
+			pick.model,
+		).catch(() => null);
+		if (started === null) {
+			return this.start(pick.agent, assignment, pick.model);
+		}
+		this.feed.put(started);
+		const sending = this.feed.send(started.id, text);
+		void promptConversation(started.id, text).catch(() => {
+			this.feed.sent(started.id, sending);
+			this.compose(started.id, text);
+		});
+		return started.id;
 	}
 
 	/** What `pick` reads as: "Claude", or "Claude · Opus 5.5" on a model. */
