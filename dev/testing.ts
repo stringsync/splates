@@ -9,6 +9,7 @@ import type { ConversationState, Session } from "../conversations";
 import type { FileDiff } from "../diff";
 import type { Snapshot } from "../snapshot";
 import type { NamedSystem } from "../systems";
+import type { KeptCreds } from "./api";
 import type { AgentChoice } from "./conversation-feed";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
@@ -65,6 +66,14 @@ export interface Stream {
  * `dev.test.ts` covers the half that does.
  */
 export class Testing implements Resource {
+	/** What `/api/creds` says the stores keep. */
+	kept: KeptCreds = {
+		kept: [],
+		labels: {
+			project: 'the macOS Keychain as "webappwiz:webappwiz"',
+			device: 'the macOS Keychain as "webappwiz"',
+		},
+	};
 	/** What the page reads; a test sets it before the page fetches again. */
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
@@ -149,6 +158,9 @@ export class Testing implements Resource {
 				};
 				await this.listingProjects;
 				return Response.json(listed);
+			}
+			if (route === "/api/creds") {
+				return Response.json(this.kept);
 			}
 			if (route === "/api/identity") {
 				return Response.json({ email: this.email });

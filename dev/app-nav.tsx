@@ -5,10 +5,12 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Snapshot } from "../snapshot";
 import type { ConversationFeed } from "./conversation-feed";
 import { ConversationList } from "./conversation-list";
+import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
 import { PAGES, type Page } from "./page-route";
+import { UpdateDot } from "./release";
 import type { Settings, ShortcutKey } from "./settings";
 import { SidebarHandle, type SidebarWidth } from "./sidebar";
 import type { Terminals } from "./terminals";
@@ -55,8 +57,8 @@ export function AppNav({
 	const pages = PAGES.filter(
 		({ value }) => value !== "conversations" || available,
 	);
-	// The others count what they list; Conversations counts only the agents
-	// waiting on you, and only on a phone, since on a wide screen the
+	// Todos and Tasks count what they list; Conversations counts only the
+	// agents waiting on you, and only on a phone, since on a wide screen the
 	// sidebar's own list says so. None shows for nothing.
 	const count = (page: Page) => {
 		const counting =
@@ -64,11 +66,14 @@ export function AppNav({
 				? !wide
 					? waiting
 					: 0
-				: snapshot === null || page === "stats"
+				: snapshot === null || page === "stats" || page === "creds"
 					? 0
 					: (page === "todos" ? snapshot.todos : snapshot.tasks).length;
 		return counting === 0 ? null : counting;
 	};
+	// Creds counts nothing: a dot says a request waits on the person.
+	const requested =
+		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	return (
 		<>
 			{/* With room to spare, a sidebar down the left. On a phone, a bar
@@ -93,7 +98,14 @@ export function AppNav({
 								: "h-auto flex-1 flex-col gap-0.5 py-1 text-xs after:hidden data-active:[&_svg]:text-primary"
 						}
 					>
-						<Icon className={cn(!wide && "size-5")} />
+						<span className="relative flex">
+							<Icon className={cn(!wide && "size-5")} />
+							{value === "creds" && requested && (
+								<span role="img" aria-label="creds requested">
+									<UpdateDot ring={wide ? "ring-sidebar" : "ring-background"} />
+								</span>
+							)}
+						</span>
 						<span className={cn(wide && "flex-1 text-left")}>
 							{label}
 							{!wide && count(value) !== null && ` ${count(value)}`}

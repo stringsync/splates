@@ -36,6 +36,7 @@ import { ConversationFeed } from "./conversation-feed";
 import { useWaiting } from "./conversation-list";
 import { Lanes } from "./conversation-names";
 import { Conversations } from "./conversations";
+import { CredsContext, CredsPage } from "./creds";
 import { Dispatch } from "./dispatch";
 import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
@@ -385,26 +386,44 @@ export function App({
 															>
 																<StatsPage report={report} systems={named} />
 															</TabsContent>
+															<TabsContent
+																value="creds"
+																className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
+															>
+																<CredsPage
+																	requests={snapshot.creds}
+																	project={snapshot.repo}
+																/>
+															</TabsContent>
 															{available && (
 																<TabsContent
 																	value="conversations"
 																	className="min-w-0 px-4 py-4"
 																>
 																	<TreesContext value={snapshot}>
-																		<OpenerContext value={openerOf(opener)}>
-																			<Conversations
-																				feed={talk}
-																				terminals={terminals}
-																				drafts={drafts}
-																				tasks={snapshot.tasks}
-																				todos={snapshot.todos}
-																				lanes={snapshot.lanes}
-																				trunk={snapshot.trunk}
-																				open={open}
-																				onOpen={(id) => go("conversations", id)}
-																				phone={!wide}
-																			/>
-																		</OpenerContext>
+																		<CredsContext
+																			value={{
+																				requests: snapshot.creds,
+																				project: snapshot.repo,
+																			}}
+																		>
+																			<OpenerContext value={openerOf(opener)}>
+																				<Conversations
+																					feed={talk}
+																					terminals={terminals}
+																					drafts={drafts}
+																					tasks={snapshot.tasks}
+																					todos={snapshot.todos}
+																					lanes={snapshot.lanes}
+																					trunk={snapshot.trunk}
+																					open={open}
+																					onOpen={(id) =>
+																						go("conversations", id)
+																					}
+																					phone={!wide}
+																				/>
+																			</OpenerContext>
+																		</CredsContext>
 																	</TreesContext>
 																</TabsContent>
 															)}

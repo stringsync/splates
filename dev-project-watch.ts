@@ -45,10 +45,11 @@ export class ProjectWatch implements StreamWatcher {
 
 	/** The whole repo, as a page shows it. */
 	read(): Promise<Snapshot> {
-		const { service, todos, fs, ps } = this.project;
+		const { service, todos, creds, fs, ps } = this.project;
 		return snapshot({
 			service,
 			todos,
+			creds,
 			fs,
 			home: ps.env("HOME"),
 			release: this.context.release,

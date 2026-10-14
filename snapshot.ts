@@ -1,5 +1,6 @@
 import { basename, resolve } from "node:path";
 import type { Fs } from "webappwiz/system";
+import type { CredRequest, Creds } from "./creds";
 import type { LaneRecord } from "./lanes";
 import type { Behind, Release } from "./release";
 import { type Details, TaskDetails } from "./show";
@@ -26,6 +27,8 @@ export interface Snapshot {
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
 	tasks: Details[];
+	/** Every cred agents requested, open or not, the latest first; never a value. */
+	creds: CredRequest[];
 	/** The branch tasks land on, which the main tree has checked out. */
 	trunk: string;
 	/** A newer arbor than the one serving, once `arbor dev` has seen one on npm. */
@@ -46,6 +49,7 @@ export interface Snapshot {
 export async function snapshot({
 	service,
 	todos,
+	creds,
 	fs,
 	home,
 	release = null,
@@ -54,6 +58,7 @@ export async function snapshot({
 }: {
 	service: WorktreeService;
 	todos: Todos;
+	creds: Creds;
 	fs: Fs;
 	/** The home directory to show as `~`, when there is one. */
 	home?: string;
@@ -71,6 +76,7 @@ export async function snapshot({
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),
 		tasks,
+		creds: await creds.requests(),
 		trunk: service.config.trunk,
 		release,
 		behind,
@@ -103,6 +109,7 @@ export function fingerprint({
 	todos,
 	lanes,
 	tasks,
+	creds,
 	release,
 	behind,
 }: Snapshot): string {
@@ -111,6 +118,7 @@ export function fingerprint({
 		behind,
 		todos,
 		lanes,
+		creds,
 		tasks.map((task) => [
 			task.task,
 			task.status,

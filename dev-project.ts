@@ -4,6 +4,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { ConversationState, Conversations } from "./conversations";
 import { ConversationRoutes } from "./dev-conversation-routes";
+import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
@@ -62,6 +63,7 @@ export async function serveProject(
 	return {
 		...new TaskRoutes(project, conversations, watch),
 		...new TodoRoutes(project, talks, watch),
+		...new CredRoutes(project, watch),
 		...talks,
 		root: service.git.root,
 		format,
@@ -85,7 +87,7 @@ export async function serveProject(
 /** What `dev` serves a project with: its own records, read and written. */
 export type Project = Pick<
 	Repository,
-	"service" | "journal" | "todos" | "format" | "arborDir" | "git"
+	"service" | "journal" | "todos" | "format" | "arborDir" | "git" | "creds"
 > & { fs: Fs; ps: Ps; log: Logger };
 
 /** What the server as a whole tells each project it serves. */
@@ -135,6 +137,10 @@ export interface Served extends AsyncResource {
 	updateLane: Handler;
 	dropLane: Handler;
 	removeTodo: Handler;
+	listCreds: Handler;
+	saveCred: Handler;
+	removeCred: Handler;
+	dismissCred: Handler;
 	listConversations: Handler;
 	startConversation: Handler;
 	listSessions: Handler;

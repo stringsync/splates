@@ -2,6 +2,7 @@ import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "webappwiz/system";
 import type { Config } from "./config";
+import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
 import { Format } from "./format";
 import { Git } from "./git";
 import { Journal } from "./journal";
@@ -28,6 +29,8 @@ export interface Repository {
 	todos: Todos;
 	/** Every arbor project on this machine, which `arbor init` joins this one to. */
 	projects: Projects;
+	/** The creds agents ask for, and the stores they are kept in. */
+	creds: Creds;
 }
 
 /** How `repository` treats records in an older format than this arbor's. */
@@ -52,7 +55,7 @@ export interface RepositoryOptions {
  * at all when that is not a repository, or its records are in a format this
  * arbor does not read.
  */
-export function repository<C extends Deps & { fs: Fs }>(
+export function repository<C extends Deps & { fs: Fs; secrets?: SecretStores }>(
 	opts: RepositoryOptions = {},
 ): Middleware<C, C & Repository> {
 	return async (ctx, next) =>
@@ -65,7 +68,12 @@ export function repository<C extends Deps & { fs: Fs }>(
  * dev` opens each project it serves with. Refuses what `repository` does.
  */
 export async function openRepository(
-	{ fs, ps, log }: Deps & { fs: Fs },
+	{
+		fs,
+		ps,
+		log,
+		secrets = SYSTEM_STORES,
+	}: Deps & { fs: Fs; secrets?: SecretStores },
 	{ migrates = false, creates = false, at }: RepositoryOptions = {},
 ): Promise<Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
@@ -127,6 +135,18 @@ export async function openRepository(
 
 	return {
 		projects,
+		creds: await Creds.open(
+			arborDir,
+			git.root,
+			new FileLock(`${arborDir}/creds.lock`, {
+				fs,
+				ps,
+				log,
+				stalenessMs: config.leaseStalenessMs,
+			}),
+			secrets,
+			{ fs },
+		),
 		arborDir,
 		config,
 		format,

@@ -212,6 +212,20 @@ describe("stretches", () => {
 		});
 	});
 
+	it("reads the skill's word that it requested a cred, leaving what follows as text", async () => {
+		const example = (await skillExamples()).find((each) =>
+			each.startsWith("## 🔑 Requested"),
+		);
+		if (example === undefined) {
+			throw new Error("the skill has no requested example");
+		}
+
+		expect(stretches(`${example}\n\nI wait for it now.`)).toEqual([
+			{ type: "cred", name: "CLOUDFLARE_TUNNEL_TOKEN" },
+			{ type: "text", text: "I wait for it now." },
+		]);
+	});
+
 	it("reads the skill's word that it added a task, its Goal under it", async () => {
 		const example = (await skillExamples()).find((each) =>
 			each.startsWith("## 🌱 Added"),

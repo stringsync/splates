@@ -4,6 +4,7 @@ import { Duration, SystemTimer } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
+import { arborCreds } from "./arbor-creds";
 import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
 import { arborLane } from "./arbor-lane";
 import { arborTodo } from "./arbor-todo";
@@ -11,6 +12,7 @@ import { attach } from "./attach";
 import { claim } from "./claim";
 import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations, launch } from "./conversations";
+import type { SecretStores } from "./creds";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { accessConfig } from "./dev-access";
@@ -43,6 +45,8 @@ export interface ArborDeps extends Deps {
 	fs: Fs;
 	/** The built page `dev` serves as its preview. */
 	assets: Assets;
+	/** Where creds are kept; the system's stores by default. */
+	secrets?: SecretStores;
 }
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and
@@ -464,4 +468,7 @@ arbor
 		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
 	);
 
-arbor.mount("todo", arborTodo).mount("lane", arborLane);
+arbor
+	.mount("todo", arborTodo)
+	.mount("lane", arborLane)
+	.mount("creds", arborCreds);

@@ -303,6 +303,16 @@ export async function dev(
 			},
 			"/api/lanes/:id/join": { POST: scoped((project) => project.joinLane) },
 			"/api/lanes": { POST: scoped((project) => project.addLane) },
+			// Through a tunnel only once Access verified who is asking, as a
+			// conversation is: a cred is worth as much as what it opens.
+			"/api/creds": talk(scoped((project) => project.listCreds)),
+			"/api/creds/:name": {
+				PUT: talk(scoped((project) => project.saveCred)),
+				DELETE: talk(scoped((project) => project.removeCred)),
+			},
+			"/api/creds/:name/dismiss": {
+				POST: talk(scoped((project) => project.dismissCred)),
+			},
 			"/api/lanes/:id": {
 				PUT: scoped((project) => project.updateLane),
 				DELETE: scoped((project) => project.dropLane),

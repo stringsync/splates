@@ -6,8 +6,8 @@ import { offers, type Question, settled } from "./plan";
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it added
- * a task, a todo it proposes, or a demo for
- * the person to try.
+ * a task, a todo it proposes, a demo for the person to try, or its word that
+ * it requested a cred.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -16,7 +16,8 @@ export type Stretch =
 	| { type: "report"; report: Report }
 	| { type: "start"; start: Start }
 	| { type: "todo"; todo: Proposal }
-	| { type: "demo"; demo: Demo };
+	| { type: "demo"; demo: Demo }
+	| { type: "cred"; name: string };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -96,6 +97,8 @@ const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
 const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
+/** The skill's word that it requested a cred, which the page shows as the request. */
+const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 const HEADING = /^#{1,6}[ \t]/;
 
@@ -157,6 +160,14 @@ export function stretches(text: string): Stretch[] {
 			});
 			from = end + 1;
 			i = end;
+			continue;
+		}
+		// A line alone: what the request says is the record's, not the message's.
+		const requested = REQUESTED.exec(line);
+		if (requested !== null) {
+			found.push(...prose(lines.slice(from, i)));
+			found.push({ type: "cred", name: requested[1] as string });
+			from = i + 1;
 			continue;
 		}
 		const demo = demoHere(lines, i);

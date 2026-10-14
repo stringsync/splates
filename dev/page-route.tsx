@@ -2,6 +2,7 @@ import {
 	ChartColumnIcon,
 	GitBranchIcon,
 	KanbanIcon,
+	KeyRoundIcon,
 	type LucideIcon,
 	MessagesSquareIcon,
 } from "lucide-react";
@@ -17,7 +18,7 @@ import type { ShortcutKey } from "./settings";
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#stats`, or the board.
  */
-export type Page = "todos" | "tasks" | "conversations" | "stats";
+export type Page = "todos" | "tasks" | "conversations" | "stats" | "creds";
 
 /** Each page with the shortcut that opens it, if any. */
 export const PAGES: {
@@ -39,6 +40,7 @@ export const PAGES: {
 	},
 	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
+	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
 ];
 
 /** Where the page is, as its address says, and the ways to move it. */
@@ -133,6 +135,9 @@ function pageIn(hash: string): Page {
 	}
 	if (hash === "#stats") {
 		return "stats";
+	}
+	if (hash === "#creds") {
+		return "creds";
 	}
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
 }

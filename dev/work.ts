@@ -24,7 +24,7 @@ export interface Work {
 
 /**
  * A stretch of an agent's turn: words it said, the words along the way that
- * say it added a task, or the work around them.
+ * say it added a task or requested a cred, or the work around them.
  */
 export type Stretch =
 	| { type: "said"; text: string }
@@ -104,7 +104,8 @@ export function stretchesOf(
 }
 
 /**
- * `run` cut at the words in it that say the agent added a task, so they show
+ * `run` cut at the words in it that say the agent added a task or requested a
+ * cred, so they show
  * as a card between the work before and after them rather than folded in.
  * Words still being written, the last of the turn's `parts`, stay in.
  */
@@ -131,12 +132,17 @@ function cut(
 	return pieces;
 }
 
-/** Whether `text` says a task was added, and says nothing else a card would. */
+/**
+ * Whether `text` says a task was added or a cred requested, which an agent
+ * says before working on or waiting, and says nothing else a card would.
+ */
 function adds(text: string): boolean {
 	const found = stretches(text);
+	const along = (each: (typeof found)[number]) =>
+		each.type === "start" || each.type === "cred";
 	return (
-		found.some((each) => each.type === "start") &&
-		found.every((each) => each.type === "start" || each.type === "text")
+		found.some(along) &&
+		found.every((each) => along(each) || each.type === "text")
 	);
 }
 

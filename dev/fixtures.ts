@@ -50,6 +50,7 @@ export function snapshot(overrides: Partial<Snapshot> = {}): Snapshot {
 		todos: [],
 		lanes: [],
 		tasks: [],
+		creds: [],
 		trunk: "main",
 		release: null,
 		behind: null,

@@ -27,6 +27,7 @@ import { chooseSetting } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Rename } from "./conversation-item";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
+import { CredUI } from "./creds";
 import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
@@ -227,6 +228,7 @@ export function Thread({
 								<ReviewUI />
 								<ReportUI />
 								<StartUI />
+								<CredUI />
 								<TodoUI />
 								<DemoUI />
 								<WorkUI />

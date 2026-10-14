@@ -373,6 +373,42 @@ You place them in lanes first, then work those lanes as above:
    again, and place any todo added since the same way. Once nothing is left
    to place and every lane you work is done, end on a finished report.
 
+## Creds
+
+When your work needs a secret only the user can get, such as an API token,
+request it rather than asking in chat or reading an environment variable,
+naming it as its environment variable would be, with instructions for
+getting it in markdown: where to go, what to pick, what to paste.
+
+```sh
+arbor creds request CLOUDFLARE_TUNNEL_TOKEN --device --instructions '1. Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token**.
+2. Add Zone · DNS · Edit, and pick your zone.
+3. Create it and paste it here.'
+```
+
+`--device` keeps it for every project on this machine, for the user's own
+account; leave it off for a cred of this project's alone. When the store
+already keeps it, `request` asks nothing; `--replace` asks again when the
+kept one does not work. Then say so in a message of its own, which the
+`arbor dev` page shows as a card with your instructions and a field to paste
+it in:
+
+```markdown
+## 🔑 Requested CLOUDFLARE_TUNNEL_TOKEN
+```
+
+The page's Creds item gets a yellow dot while any request is open, and its
+Creds page lists them too, with every cred kept, so a user outside the
+conversation finds it there. `arbor creds wait <NAME>` until the user saves
+it, again on `timeout`, doing meanwhile what does not need it; it ends on
+`dismissed` when they turn it down, so carry on without it or ask why.
+
+You never see the value: it goes into the system's store (the macOS
+Keychain, Windows Credential Manager, a Linux secret service), and code
+reads it in-process through `webappwiz/creds`, never through the
+environment, argv or a file. `arbor creds list` names what is requested and
+kept.
+
 ## Remote access
 
 When the user asks to reach `arbor dev` from elsewhere, or for a tunnel other
@@ -610,7 +646,8 @@ requested` under `## Notes` at once, so the request outlives your session.
 
 Escalate when questions are still open once everything else is done, or when
 you cannot go on without the user (access, a decision, a test only they can
-run).
+run). A secret, such as an API token, is a cred to request instead (see
+Creds).
 
 1. Leave something to look at, by **absolute path** (start from
    `arbor path <task>`): for anything visual, a screenshot or recording you

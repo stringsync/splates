@@ -2,11 +2,13 @@ import { afterAll, expect } from "bun:test";
 import { cp, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { FakeSecretStore } from "webappwiz/creds/testing";
 import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
 import { FileLock, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
 import type { Config } from "./config";
+import { Creds, type SecretStores } from "./creds";
 import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
@@ -56,6 +58,14 @@ export class Testing implements AsyncDisposable {
 	readonly projects: Projects;
 	/** How each task ended, kept in `arborHome`. */
 	readonly outcomes: Outcomes;
+	/** Maps for the system's stores, so no test reads or writes the user's. */
+	readonly projectStore = new FakeSecretStore({}, "the project's store");
+	readonly deviceStore = new FakeSecretStore({}, "the device's store");
+	readonly secrets: SecretStores = {
+		project: async () => this.projectStore,
+		device: this.deviceStore,
+	};
+	readonly creds: Creds;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -125,6 +135,16 @@ export class Testing implements AsyncDisposable {
 				log: this.log,
 			}),
 		});
+		this.creds = new Creds(
+			join(this.arborDir, "creds.json"),
+			new FileLock(join(this.arborDir, "creds.lock"), {
+				fs: this.fs,
+				ps: this.ps,
+				log: this.log,
+			}),
+			{ project: this.projectStore, device: this.deviceStore },
+			{ fs: this.fs },
+		);
 		this.format = new Format(this.arborDir, {
 			fs: this.fs,
 			lock: new FileLock(join(this.arborDir, "format.lock"), {

@@ -85,6 +85,7 @@
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";
 @source "./stats.tsx";
+@source "./creds.tsx";
 @source "./systems.tsx";
 @source "./usage.tsx";
 @source "./plan-limits.tsx";

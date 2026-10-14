@@ -27,6 +27,8 @@ it("keeps the exit codes stable", () => {
 		outdated: 19,
 		uninitialized: 20,
 		too_large: 21,
+		dismissed: 22,
+		no_secret_store: 23,
 	});
 });
 
