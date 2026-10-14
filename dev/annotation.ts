@@ -83,7 +83,7 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 
 	/**
 	 * What the person wrote about the images in `files`, in the order they go,
-	 * for the end of the message, or "" when none has a note.
+	 * for the end of the message, or "" when none has a mark.
 	 */
 	static notesFor(files: readonly File[]): string {
 		return files
@@ -524,10 +524,13 @@ export class Annotation implements Eventful<AnnotationEvents>, Resource {
 	}
 }
 
-/** Each of `marks`' notes, numbered as its mark is: "1. Too much padding". */
-function numbered(marks: readonly Mark[]): string[] {
-	return marks.flatMap((mark, at) =>
-		mark.note.trim() === "" ? [] : [`${at + 1}. ${mark.note.trim()}`],
+/**
+ * Each of `marks`' notes, numbered as its mark is: "1. Too much padding", or
+ * "2. (no note)" for a mark left without one, so every mark drawn is named.
+ */
+export function numbered(marks: readonly Mark[]): string[] {
+	return marks.map(
+		(mark, at) => `${at + 1}. ${mark.note.trim() || "(no note)"}`,
 	);
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Position, Rect } from "webappwiz/geometry";
-import { Annotation } from "./annotation";
+import { Annotation, numbered } from "./annotation";
 
 /** An annotation of a 1100 by 550 image, whose marks are 5px thick. */
 function annotation(): Annotation {
@@ -244,6 +244,17 @@ describe("Annotation", () => {
 
 	it("has no notes for images it never marked up", () => {
 		expect(Annotation.notesFor([new File([], "a.png")])).toBe("");
+	});
+
+	it("names a mark left without a note", () => {
+		const marks = annotation();
+		drag(marks, at(100, 100), at(300, 200));
+		marks.write(0, " Too much padding ");
+		drag(marks, at(500, 300), at(700, 400));
+		expect(numbered(marks.marks)).toEqual([
+			"1. Too much padding",
+			"2. (no note)",
+		]);
 	});
 
 	it("thickens its marks on a bigger image", () => {
