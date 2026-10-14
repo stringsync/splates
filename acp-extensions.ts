@@ -105,15 +105,24 @@ export function foldBackground(
 ): void {
 	if (update.sessionUpdate === ASYNC_TASK_SPAWNED) {
 		if (update.taskType === "shell") {
+			const tool =
+				update.toolCallId === undefined
+					? null
+					: toolIn(state, update.toolCallId);
+			const parent = tool?.parent ?? null;
 			state.background = [
 				...state.background.filter((each) => each.id !== update.asyncTaskId),
 				{
 					id: update.asyncTaskId,
 					name: update.description || update.name,
-					command:
-						update.toolCallId === undefined
+					command: tool?.command ?? null,
+					subagent:
+						parent === null
 							? null
-							: (toolIn(state, update.toolCallId)?.command ?? null),
+							: {
+									id: parent,
+									title: toolIn(state, parent)?.title ?? "Subagent",
+								},
 					state: "running",
 					output: update.outputFilePath ?? null,
 				},

@@ -310,6 +310,7 @@ describe("App's conversation header", () => {
 						id: "b1",
 						name: "Start the dev server",
 						command: "bun dev",
+						subagent: null,
 						state: "running",
 						output: "/tmp/b1.output",
 					},
@@ -317,6 +318,7 @@ describe("App's conversation header", () => {
 						id: "b2",
 						name: "Run the tests",
 						command: null,
+						subagent: null,
 						state: "failed",
 						output: null,
 					},
@@ -345,12 +347,58 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
+	it("lists the commands a subagent started under that subagent, after the agent's own", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [
+					{
+						id: "b1",
+						name: "Watch the build",
+						command: "bun build --watch",
+						subagent: { id: "a1", title: "Check the build" },
+						state: "running",
+						output: null,
+					},
+					{
+						id: "b2",
+						name: "Start the dev server",
+						command: "bun dev",
+						subagent: null,
+						state: "running",
+						output: null,
+					},
+				],
+			}),
+		]);
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: "Background commands" },
+				),
+			),
+		);
+		const menu = await waitFor(() => view.getByRole("menu"));
+		expect(
+			within(menu)
+				.getAllByRole("group")
+				.map((group) => group.textContent),
+		).toEqual([
+			"Background commandsStart the dev serverRunning",
+			"Check the buildWatch the buildRunning",
+		]);
+	});
+
 	it("opens a command's output beside the page, from the card's menu or the narrow one, with a Stop while it runs", async () => {
 		testing.outputs = { b1: "listening on 3000" };
 		const running = {
 			id: "b1",
 			name: "Start the dev server",
 			command: "bun dev",
+			subagent: null,
 			state: "running" as const,
 			output: "/tmp/b1.output",
 		};

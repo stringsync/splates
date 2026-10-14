@@ -101,10 +101,46 @@ describe("Conversation background", () => {
 				id: "b1",
 				name: "Run bun dev",
 				command: "bun dev",
+				subagent: null,
 				state: "running",
 				output: "/tmp/tasks/b1.output",
 			},
 		]);
+	});
+
+	it("says which subagent started one, by its tool call", async () => {
+		agent.turn = async (client, sessionId) => {
+			for (const update of [
+				{
+					sessionUpdate: "tool_call",
+					toolCallId: "a1",
+					title: "Check the build",
+					kind: "think",
+					status: "in_progress",
+				},
+				{
+					sessionUpdate: "tool_call",
+					toolCallId: "t-b1",
+					title: "bun build --watch",
+					kind: "execute",
+					status: "completed",
+					rawInput: { command: "bun build --watch", run_in_background: true },
+					_meta: { claudeCode: { parentToolUseId: "a1" } },
+				},
+				backgroundStarted("b1", "Watch the build", "t-b1"),
+			] as acp.SessionUpdate[]) {
+				await client.sessionUpdate({ sessionId, update });
+			}
+			return "end_turn";
+		};
+		const conversation = await started();
+
+		await conversation.prompt("check it");
+		await until(conversation, "idle");
+
+		expect(
+			conversation.state.background.map(({ subagent }) => subagent),
+		).toEqual([{ id: "a1", title: "Check the build" }]);
 	});
 
 	it("keeps one once it ends, as it ended, and leaves out what is not a command", async () => {

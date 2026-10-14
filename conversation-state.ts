@@ -183,6 +183,11 @@ export interface Background {
 	name: string;
 	/** The command it runs, from the tool call that started it; null when unknown. */
 	command: string | null;
+	/**
+	 * The subagent whose call started it, by that subagent's tool call; null
+	 * for one the agent started itself, or when the call is unknown.
+	 */
+	subagent: { id: string; title: string } | null;
 	state: BackgroundState;
 	/** The file the agent writes what it prints to; null until it says. */
 	output: string | null;

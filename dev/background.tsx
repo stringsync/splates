@@ -94,7 +94,8 @@ export function BackgroundRow({
 
 /**
  * A menu of the commands from `trigger`, each saying how it stands and
- * opening what it printed.
+ * opening what it printed: those the agent started first, then those each
+ * of its subagents started, under that subagent.
  */
 function BackgroundMenuOf({
 	conversation,
@@ -109,29 +110,58 @@ function BackgroundMenuOf({
 	trigger: JSX.Element;
 	children: ReactNode;
 }): JSX.Element {
+	const item = (each: Background) => (
+		<DropdownMenuItem
+			key={each.id}
+			title={each.command ?? each.name}
+			className={cn(each.subagent !== null && "pl-5")}
+			onClick={() => watch(conversation, each.id)}
+		>
+			<StateMark state={each.state} />
+			<span className="flex-1 truncate">{each.name}</span>
+			<span className="text-muted-foreground text-xs">{SAID[each.state]}</span>
+		</DropdownMenuItem>
+	);
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-64">
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>Background commands</DropdownMenuLabel>
-					{background.map((each) => (
-						<DropdownMenuItem
-							key={each.id}
-							title={each.command ?? each.name}
-							onClick={() => watch(conversation, each.id)}
-						>
-							<StateMark state={each.state} />
-							<span className="flex-1 truncate">{each.name}</span>
-							<span className="text-muted-foreground text-xs">
-								{SAID[each.state]}
-							</span>
-						</DropdownMenuItem>
-					))}
+					{background.filter((each) => each.subagent === null).map(item)}
 				</DropdownMenuGroup>
+				{bySubagent(background).map(({ subagent, started }) => (
+					<DropdownMenuGroup key={subagent.id}>
+						<DropdownMenuLabel className="truncate">
+							{subagent.title}
+						</DropdownMenuLabel>
+						{started.map(item)}
+					</DropdownMenuGroup>
+				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
+}
+
+/** The commands subagents started, by subagent, in the order each first started one. */
+function bySubagent(
+	background: Background[],
+): { subagent: NonNullable<Background["subagent"]>; started: Background[] }[] {
+	const groups = new Map<
+		string,
+		{ subagent: NonNullable<Background["subagent"]>; started: Background[] }
+	>();
+	for (const each of background) {
+		if (each.subagent !== null) {
+			const group = groups.get(each.subagent.id) ?? {
+				subagent: each.subagent,
+				started: [],
+			};
+			group.started.push(each);
+			groups.set(each.subagent.id, group);
+		}
+	}
+	return [...groups.values()];
 }
 
 /**
