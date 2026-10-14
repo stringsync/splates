@@ -7,6 +7,7 @@ import {
 	menuItem,
 	newWith,
 	Testing,
+	typeIn,
 	within,
 } from "./testing";
 
@@ -73,5 +74,18 @@ describe("App on a touch device", () => {
 			view.getByRole("region", { name: "new conversation" }),
 		).getByRole("textbox", { name: "Message input" });
 		expect(document.activeElement === started).toBe(false);
+	});
+
+	it("keeps the keyboard up for a message being typed as the agent starts", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Latest" })],
+			"c1",
+		);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "and then");
+
+		await testing.say(conversation({ id: "c1", status: "running" }));
+		await act(async () => {});
+		expect(document.activeElement === box).toBe(true);
 	});
 });

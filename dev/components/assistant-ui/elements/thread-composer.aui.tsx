@@ -39,6 +39,7 @@ import {
 	type ChipWriter,
 	ChipWriterPlugin,
 	ForgetAttachment,
+	NoRefocusOnTouchPlugin,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
@@ -96,6 +97,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 						<PasteFilesPlugin />
 						<AttachmentChipsPlugin />
 						<TypedDirectivesPlugin />
+						<NoRefocusOnTouchPlugin />
 					</LexicalComposerInput>
 				</FileNames>
 				<ComposerAction />

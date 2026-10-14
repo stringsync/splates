@@ -20,7 +20,12 @@ import {
 	PASTE_COMMAND,
 	TextNode,
 } from "lexical";
-import { createContext, type RefObject, useEffect } from "react";
+import {
+	createContext,
+	type RefObject,
+	useEffect,
+	useLayoutEffect,
+} from "react";
 import { DIRECTIVES } from "../prompts";
 import {
 	attachmentName,
@@ -30,6 +35,7 @@ import {
 	wantsChip,
 } from "./attachment-chips";
 import { serialize } from "./composer-chips";
+import { TOUCH } from "./hooks/use-touch";
 
 /**
  * Makes each `[ARBOR ...]` directive typed or pasted into the composer's
@@ -102,6 +108,33 @@ export function PasteFilesPlugin(): null {
 				},
 				COMMAND_PRIORITY_HIGH,
 			),
+		[editor, aui],
+	);
+	return null;
+}
+/**
+ * Keeps the composer's editor as it was when the agent starts a run on a touch
+ * device, where assistant-ui's focus then would raise the keyboard over the
+ * reply. Its listener focuses as the run starts, so this one, made in a layout
+ * effect to run ahead of it, notes whether the editor had focus, and takes back
+ * the focus it gave before the page paints.
+ */
+export function NoRefocusOnTouchPlugin(): null {
+	const [editor] = useLexicalComposerContext();
+	const aui = useAui();
+	useLayoutEffect(
+		() =>
+			aui.on("thread.runStart", () => {
+				const root = editor.getRootElement();
+				if (
+					!matchMedia(TOUCH).matches ||
+					root === null ||
+					root.contains(document.activeElement)
+				) {
+					return;
+				}
+				queueMicrotask(() => editor.blur());
+			}),
 		[editor, aui],
 	);
 	return null;

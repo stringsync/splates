@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /** A phone or tablet: its main pointer is a finger, as `pointer-coarse:` styles. */
-const TOUCH = "(pointer: coarse)";
+export const TOUCH = "(pointer: coarse)";
 
 /**
  * Whether the page is on a touch device, where keyboard shortcuts go unshown
