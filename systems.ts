@@ -1,22 +1,117 @@
 import { type Fs, type Glob, NodeFs, NodeGlob } from "webappwiz/system";
-import type { System } from "./config";
-import { readConfig } from "./load-config";
+import { z } from "zod";
+import { CONFIG_FILE, importConfig, importDefault } from "./load-config";
 
-/** A system with the name `arbor.config.ts` keys it by. */
+/** The file a repo names its systems in, at its root. */
+export const SYSTEMS_FILE = "arbor.systems.ts";
+
+/** One named part of the code: the files it is made of. */
+export interface System {
+	/**
+	 * Other names people call it by, at most two, so one part of the code
+	 * keeps one word for it.
+	 */
+	aliases?: string[];
+	/** Repo-relative globs of the files it is made of. */
+	globs: string[];
+	/** Globs of files the `globs` take in that are not part of it. */
+	ignore?: string[];
+}
+
+/** A system with the name `arbor.systems.ts` keys it by. */
 export interface NamedSystem extends System {
 	name: string;
 }
 
 /** Configures where {@link Systems.at} reads and how it matches. */
 export interface SystemsOptions {
-	/** What `arbor.config.ts` is read through; the real one by default. */
+	/** What `arbor.systems.ts` is read through; the real one by default. */
 	fs?: Fs;
 	/** What paths are matched against globs with; `node:path`'s by default. */
 	glob?: Glob;
 }
 
 /**
- * The systems one tree's `arbor.config.ts` names, and which of them a set of
+ * What `arbor.systems.ts` exports as its default, keyed by name:
+ *
+ * ```ts
+ * import type { SystemsFile } from "@webappwiz/arbor/systems";
+ *
+ * export default {
+ * 	playback: { aliases: ["player"], globs: ["src/audio/**"] },
+ * } satisfies SystemsFile;
+ * ```
+ *
+ * The import is only a type, so a reader can import the file without arbor
+ * installed.
+ */
+export type SystemsFile = Record<string, System>;
+
+const SYSTEMS = z.record(
+	z.string().min(1),
+	z.strictObject({
+		aliases: z.array(z.string().min(1)).max(2).optional(),
+		globs: z.array(z.string().min(1)).min(1),
+		ignore: z.array(z.string().min(1)).optional(),
+	}),
+);
+
+/**
+ * The systems `root`'s `arbor.systems.ts` names, checked, or none when there
+ * is no such file. Read afresh each time, so a long-running `arbor dev` sees a
+ * system named mid-task without a restart. Throws while `arbor.config.ts`
+ * still names systems, which `arbor update` moves.
+ */
+export async function readSystems(
+	root: string,
+	fs: Fs = new NodeFs(),
+): Promise<Record<string, System>> {
+	if ((await importConfig(root, fs)).systems !== undefined) {
+		throw new Error(
+			`${root}/${CONFIG_FILE} names systems, which arbor now reads from ${SYSTEMS_FILE}: run \`arbor update\` to move them`,
+		);
+	}
+	return checkSystems(
+		`${root}/${SYSTEMS_FILE}`,
+		await importDefault(root, SYSTEMS_FILE, fs),
+	);
+}
+
+/**
+ * `systems` in the shape {@link System} names, or throws
+ * naming `path` for one that is not, one with more than two aliases, or two
+ * that answer to the same name, which would leave `arbor systems <name>`
+ * guessing.
+ */
+export function checkSystems(
+	path: string,
+	systems: unknown,
+): Record<string, System> {
+	const parsed = SYSTEMS.safeParse(systems);
+	if (!parsed.success) {
+		const issue = parsed.error.issues[0];
+		throw new Error(`${path}: ${issue?.path.join(".")}: ${issue?.message}`);
+	}
+	const owners = new Map<string, string>();
+	for (const [name, system] of Object.entries(parsed.data) as [
+		string,
+		System,
+	][]) {
+		for (const called of [name, ...(system.aliases ?? [])]) {
+			const owner = owners.get(called);
+			if (owner !== undefined) {
+				throw new Error(
+					`${path}: systems '${owner}' and '${name}' both answer to '${called}': give each its own names`,
+				);
+			}
+			owners.set(called, name);
+		}
+	}
+	return parsed.data;
+}
+
+/**
+ * The systems one tree's `arbor.systems.ts` names, and which of them a set of
  * paths falls in.
  */
 export class Systems {
@@ -26,12 +121,11 @@ export class Systems {
 	) {}
 
 	/**
-	 * The systems the config at `root` names as it stands now: read afresh, so
+	 * The systems the tree at `root` names as it stands now: read afresh, so
 	 * one named in a task's worktree counts there at once.
 	 */
 	static async at(root: string, opts: SystemsOptions = {}): Promise<Systems> {
-		const { systems = {} } = await readConfig(root, opts.fs ?? new NodeFs());
-		return Systems.of(systems, opts.glob);
+		return Systems.of(await readSystems(root, opts.fs), opts.glob);
 	}
 
 	static of(
@@ -44,7 +138,7 @@ export class Systems {
 		);
 	}
 
-	/** Every system, in the order the config names them. */
+	/** Every system, in the order `arbor.systems.ts` names them. */
 	all(): NamedSystem[] {
 		return this.named;
 	}

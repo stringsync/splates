@@ -53,8 +53,8 @@ describe("dev", () => {
 				const reader = await listen(port);
 
 				await deps.fs.write(
-					`${tree}/arbor.config.ts`,
-					`export default { systems: { docs: { globs: ["docs/**"] } } };\n`,
+					`${tree}/arbor.systems.ts`,
+					`export default ${JSON.stringify({ docs: { globs: ["docs/**"] } })};\n`,
 				);
 				await deps.fs.mkdir(`${tree}/docs/deep`, { recursive: true });
 				await deps.fs.write(`${tree}/docs/deep/notes.md`, "a\n");

@@ -61,7 +61,7 @@ arbor
 	.command("update")
 	.use(repository())
 	.description(
-		"bring this repository up to the newest arbor on npm: run `update` on that release when it is newer than this one, which installs its arbor skill with `bunx skills add` over the copy there, leaving one that links to your own; commit what changed",
+		"bring this repository up to the newest arbor on npm: run `update` on that release when it is newer than this one, which installs its arbor skill with `bunx skills add` over the copy there, leaving one that links to your own, and moves systems an older arbor.config.ts names into arbor.systems.ts; commit what changed",
 	)
 	.action(async (_opts, ctx) => {
 		const code = await update({
@@ -212,7 +212,7 @@ arbor
 	.command("systems")
 	.use(repository())
 	.description(
-		"print the systems arbor.config.ts names, the parts of the code each name stands for: every one, one by its name or an alias, or with --task those a task's changed files (committed or not) fall in; read from the current task's worktree, or --task's, so one named during a task counts at once",
+		"print the systems arbor.systems.ts names, the parts of the code each name stands for: every one, one by its name or an alias, or with --task those a task's changed files (committed or not) fall in; read from the current task's worktree, or --task's, so one named during a task counts at once",
 	)
 	.arg("name", z.optional(z.string()), {
 		description: "a system to print alone, by its name or an alias",

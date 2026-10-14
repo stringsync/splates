@@ -77,8 +77,8 @@ describe("show", () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/arbor.config.ts`,
-			`export default { systems: { docs: { globs: ["*.md"] }, code: { globs: ["*.ts"], ignore: ["arbor.config.ts"] } } };\n`,
+			`${alpha}/arbor.systems.ts`,
+			`export default ${JSON.stringify({ docs: { globs: ["*.md"] }, code: { globs: ["*.ts"], ignore: ["arbor.systems.ts"] } })};\n`,
 		);
 		await deps.fs.write(`${alpha}/notes.md`, "a\n");
 		deps.log.clear();
@@ -88,11 +88,11 @@ describe("show", () => {
 		expect(deps.out()).toContain("systems:   docs\n");
 	});
 
-	it("names no systems while its config will not load", async () => {
+	it("names no systems while its systems file will not load", async () => {
 		await add(deps, "alpha");
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
-			`${alpha}/arbor.config.ts`,
+			`${alpha}/arbor.systems.ts`,
 			`import "./nowhere";\nexport default {};\n`,
 		);
 		deps.log.clear();

@@ -1,8 +1,10 @@
 import { basename, resolve } from "node:path";
 import { type Fs, NodeFs } from "webappwiz/system";
-import { z } from "zod";
-import type { Config, System } from "./config";
+import type { Config } from "./config";
 import { Git } from "./git";
+
+/** The file a repo's settings are in, at its root. */
+export const CONFIG_FILE = "arbor.config.ts";
 
 export interface LoadConfigOptions {
 	/** What `arbor.config.ts` is looked for through; the real one by default. */
@@ -43,20 +45,44 @@ function defaults(root: string, trunk: string): Config {
 		logCapacity: 1000,
 		todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 		attachmentCapacity: 100 * 1024 * 1024,
-		systems: {},
 	};
 }
 
 /**
- * What `root`'s `arbor.config.ts` names, checked, or nothing when there is no
- * such file. Read afresh whenever the file has changed, so a long-running
- * `arbor dev` sees a system named mid-task without a restart.
+ * What `root`'s `arbor.config.ts` names, or nothing when there is no such
+ * file. Systems live in `arbor.systems.ts` now: a config that still names
+ * them is read without them, so `arbor update` can run to move them.
  */
 export async function readConfig(
 	root: string,
 	fs: Fs = new NodeFs(),
 ): Promise<Partial<Config>> {
-	const path = `${root}/arbor.config.ts`;
+	const { systems: _, ...config } = await importConfig(root, fs);
+	return config as Partial<Config>;
+}
+
+/**
+ * Everything `root`'s `arbor.config.ts` exports as its default, unchecked, or
+ * nothing when there is no such file.
+ */
+export function importConfig(
+	root: string,
+	fs: Fs = new NodeFs(),
+): Promise<Record<string, unknown>> {
+	return importDefault(root, CONFIG_FILE, fs);
+}
+
+/**
+ * What the TypeScript file `file` at `root` exports as its default, unchecked,
+ * or nothing when there is no such file. Read afresh whenever the file has
+ * changed, so a long-running `arbor dev` sees an edit without a restart.
+ */
+export async function importDefault(
+	root: string,
+	file: string,
+	fs: Fs,
+): Promise<Record<string, unknown>> {
+	const path = `${root}/${file}`;
 	if (!(await fs.exists(path))) {
 		return {};
 	}
@@ -71,48 +97,6 @@ export async function readConfig(
 			`could not load ${path}: ${cause}. Its imports may be stale: try \`bun install\` in ${root}.`,
 			{ cause },
 		);
-	})) as { default?: Partial<Config> };
-	const config = mod.default ?? {};
-	if (config.systems !== undefined) {
-		checkSystems(path, config.systems);
-	}
-	return config;
-}
-
-const SYSTEMS = z.record(
-	z.string().min(1),
-	z.strictObject({
-		aliases: z.array(z.string().min(1)).max(2).optional(),
-		globs: z.array(z.string().min(1)).min(1),
-		ignore: z.array(z.string().min(1)).optional(),
-	}),
-);
-
-/**
- * Refuses systems that are not in the shape `System` names, one with more
- * than two aliases, or two that answer to the same name, which would leave `arbor systems <name>` guessing.
- */
-function checkSystems(path: string, systems: unknown): void {
-	const parsed = SYSTEMS.safeParse(systems);
-	if (!parsed.success) {
-		const issue = parsed.error.issues[0];
-		throw new Error(
-			`${path}: systems.${issue?.path.join(".")}: ${issue?.message}`,
-		);
-	}
-	const owners = new Map<string, string>();
-	for (const [name, system] of Object.entries(parsed.data) as [
-		string,
-		System,
-	][]) {
-		for (const called of [name, ...(system.aliases ?? [])]) {
-			const owner = owners.get(called);
-			if (owner !== undefined) {
-				throw new Error(
-					`${path}: systems '${owner}' and '${name}' both answer to '${called}': give each its own names`,
-				);
-			}
-			owners.set(called, name);
-		}
-	}
+	})) as { default?: Record<string, unknown> };
+	return mod.default ?? {};
 }

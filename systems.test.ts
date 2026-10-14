@@ -108,7 +108,7 @@ describe("Systems.at", () => {
 		await rm(root, { recursive: true, force: true });
 	});
 
-	it("names none when there is no config, or it names no systems", async () => {
+	it("names none when there is no systems file", async () => {
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 
 		await fs.write(join(root, "arbor.config.ts"), "export default {};\n");
@@ -116,21 +116,69 @@ describe("Systems.at", () => {
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 	});
 
-	it("reads the config afresh once it changes, as a long-running dev needs", async () => {
-		const config = join(root, "arbor.config.ts");
-		await fs.write(
-			config,
-			`export default { systems: { mixer: { globs: ["src/mixer/**"] } } };\n`,
-		);
+	it("reads the systems file afresh, as a long-running dev needs", async () => {
+		await named({ mixer: { globs: ["src/mixer/**"] } });
 		expect((await Systems.at(root, { fs })).find("mixer")).not.toBeNull();
 
-		await fs.write(
-			config,
-			`export default { systems: { playback: ${JSON.stringify(PLAYBACK)} } };\n`,
-		);
+		await named({ playback: PLAYBACK });
 		const now = await Systems.at(root, { fs });
 
 		expect(now.find("mixer")).toBeNull();
 		expect(now.find("player")?.name).toBe("playback");
+		expect(now.all().map((each) => each.name)).toEqual(["playback"]);
 	});
+
+	it("refuses a system not in the shape a system takes", async () => {
+		await named({ playback: { globs: "src/audio/**" } });
+
+		expect(await failure()).toContain("playback.globs");
+	});
+
+	it("refuses a system with more than two aliases", async () => {
+		await named({
+			playback: { globs: ["a/**"], aliases: ["player", "audio", "sound"] },
+		});
+
+		expect(await failure()).toContain("playback.aliases");
+	});
+
+	it("refuses two systems that answer to the same name", async () => {
+		await named({
+			playback: { globs: ["a/**"], aliases: ["mixer"] },
+			mixer: { globs: ["b/**"] },
+		});
+
+		expect(await failure()).toContain(
+			"'playback' and 'mixer' both answer to 'mixer'",
+		);
+	});
+
+	it("refuses a systems file that will not load, naming it", async () => {
+		await fs.write(
+			join(root, "arbor.systems.ts"),
+			`import "./nowhere";\nexport default {};\n`,
+		);
+
+		expect(await failure()).toContain("arbor.systems.ts");
+	});
+
+	it("refuses systems still in arbor.config.ts, saying to run `arbor update`", async () => {
+		await fs.write(
+			join(root, "arbor.config.ts"),
+			`export default { systems: { docs: { globs: ["*.md"] } } };\n`,
+		);
+
+		expect(await failure()).toContain("arbor update");
+	});
+
+	const named = (systems: unknown) =>
+		fs.write(
+			join(root, "arbor.systems.ts"),
+			`export default ${JSON.stringify(systems)};\n`,
+		);
+	const failure = () =>
+		Systems.at(root, { fs }).then(
+			() => "",
+			(error: Error) => error.message,
+		);
 });

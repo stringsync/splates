@@ -48,7 +48,7 @@ export interface Details {
 	dispatched: boolean;
 	/**
 	 * The systems its changed files fall in, committed or not, in the order
-	 * its worktree's `arbor.config.ts` names them.
+	 * its worktree's `arbor.systems.ts` names them.
 	 */
 	systems: NamedSystem[];
 }

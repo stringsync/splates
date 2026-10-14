@@ -53,8 +53,8 @@ describe.concurrent("outcomes", () => {
 		await using deps = await Testing.open();
 		await deps.commit(
 			deps.root,
-			"arbor.config.ts",
-			'export default { systems: { mixer: { globs: ["mixer-*.ts"] }, docs: { globs: ["*.md"] } } };\n',
+			"arbor.systems.ts",
+			`export default ${JSON.stringify({ mixer: { globs: ["mixer-*.ts"] }, docs: { globs: ["*.md"] } })};\n`,
 			"name systems",
 		);
 		await add(deps, "alpha");

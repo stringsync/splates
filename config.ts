@@ -45,25 +45,6 @@ export interface Config {
 	 * together: a screen recording is the one thing here that grows fast.
 	 */
 	attachmentCapacity: number;
-	/**
-	 * Parts of the code named so people and agents can call them one thing,
-	 * keyed by name. Named a few at a time as they come up, never all up front:
-	 * none at all is the usual start.
-	 */
-	systems: Record<string, System>;
-}
-
-/** One named part of the code: the files it is made of. */
-export interface System {
-	/**
-	 * Other names people call it by, at most two, so one part of the code
-	 * keeps one word for it.
-	 */
-	aliases?: string[];
-	/** Repo-relative globs of the files it is made of. */
-	globs: string[];
-	/** Globs of files the `globs` take in that are not part of it. */
-	ignore?: string[];
 }
 
 /**

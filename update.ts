@@ -1,5 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
+import { moveSystems } from "./move-systems";
 import { isNewer, RUNNING } from "./release";
 import { ProjectSkills } from "./skills";
 
@@ -14,7 +15,8 @@ export const UPDATING = "ARBOR_UPDATING";
  * Brings this repository up to the newest arbor: when npm has a newer release
  * than the one running, runs `update` again on that one, which installs its own
  * skill; otherwise installs this one's over whatever copy is there, through
- * `bunx skills add` from this release's tag. Offline, the running release is
+ * `bunx skills add` from this release's tag, and moves what an older config
+ * holds to where this one reads it. Offline, the running release is
  * the newest there is to have. Answers with the exit code to end on.
  */
 export async function update({
@@ -46,5 +48,5 @@ export async function update({
 		}
 	}
 	await new ProjectSkills(root, { fs, ps, log }).add(["arbor"], RUNNING);
-	return 0;
+	return await moveSystems({ root, fs, log });
 }

@@ -32,7 +32,6 @@ describe("WorktreeService", () => {
 			logCapacity: 200,
 			todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 			attachmentCapacity: 100 * 1024 * 1024,
-			systems: {},
 		};
 	});
 

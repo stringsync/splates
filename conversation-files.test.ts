@@ -67,10 +67,10 @@ describe("Conversation files", () => {
 	beforeEach(async () => {
 		// Imported from disk, and read through `fs` to tell when it changed.
 		tree = await mkdtemp(join(tmpdir(), "arbor-mentions-"));
-		const config = `export default { systems: { playback: { aliases: ["player"], globs: ["src/audio/**"] } } };\n`;
-		await writeFile(join(tree, "arbor.config.ts"), config);
+		const systems = `export default ${JSON.stringify({ playback: { aliases: ["player"], globs: ["src/audio/**"] } })};\n`;
+		await writeFile(join(tree, "arbor.systems.ts"), systems);
 		await fs.mkdir(tree);
-		await fs.write(join(tree, "arbor.config.ts"), config);
+		await fs.write(join(tree, "arbor.systems.ts"), systems);
 	});
 
 	afterEach(() => rm(tree, { recursive: true, force: true }));

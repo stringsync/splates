@@ -12,7 +12,7 @@ export interface ShowSystemsOptions {
 	task?: string;
 	/**
 	 * The task the command runs in, read off the current branch: with no
-	 * `task`, its worktree's config is the one read.
+	 * `task`, its worktree's systems are the ones read.
 	 */
 	here?: string | null;
 	/** Print the systems as JSON instead of prose. */
@@ -20,7 +20,7 @@ export interface ShowSystemsOptions {
 }
 
 /**
- * The systems `arbor.config.ts` names: every one, one by name, or those a
+ * The systems `arbor.systems.ts` names: every one, one by name, or those a
  * task touches. Read from the task's own worktree, so one it names counts
  * before it lands.
  */
@@ -73,7 +73,7 @@ export async function systems(
 	if (shown.length === 0) {
 		log.info(
 			task === undefined
-				? "no systems named yet: name one under `systems` in arbor.config.ts"
+				? "no systems named yet: name one in arbor.systems.ts"
 				: `${task} touches no named system`,
 		);
 		return;

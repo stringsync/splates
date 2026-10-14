@@ -240,8 +240,8 @@ The 📝 belongs to the heading: leave it out of `arbor todo add` and
 
 ## Systems
 
-A repo can name parts of its code as systems in `arbor.config.ts`, each a
-name, its aliases, and the globs of the files it is made of. `arbor systems`
+A repo can name parts of its code as systems in `arbor.systems.ts`, each a
+name keying its aliases, its globs, and globs to `ignore`. `arbor systems`
 prints them, `arbor systems <name>` one by its name or an alias, and
 `arbor systems --task <task>` those a task's changed files fall in. Read them
 when you need them, never up front. Wherever a system covers what you mean,
@@ -252,7 +252,7 @@ is made of, or, when no system answers to it, a line saying so.
 
 Systems are named a few at a time as they come up, never all at once, and
 only the user names one. Offer to as a question under `## Blocked`, and write
-`arbor.config.ts` only once they pick a choice that does:
+`arbor.systems.ts` only once they pick a choice that does:
 
 - when the user keeps calling one part of the code by a phrase no system has;
 - when your task touches files no system covers, at most once per task;
@@ -263,7 +263,7 @@ only the user names one. Offer to as a question under `## Blocked`, and write
   name that code already goes by (its directory, module or main type) over
   theirs; if one does, offer `name` as its alias.
 
-A system has at most two aliases, and arbor refuses a config with more: to
+A system has at most two aliases, and arbor refuses a file with more: to
 offer a third, offer to swap it for one it has, or to call the system by its
 name instead.
 
@@ -276,7 +276,9 @@ name instead.
 ```
 
 Here `(chosen)` is what you would pick, not what you did: write nothing until
-the answer comes, then commit the change to `arbor.config.ts` with your task.
+the answer comes, then commit the change to `arbor.systems.ts` with your
+task. `satisfies SystemsFile` types what you write, the typecheck catches a
+mistake, and `arbor systems` reads it back.
 
 ## Working a lane
 
