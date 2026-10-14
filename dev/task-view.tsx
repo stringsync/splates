@@ -289,37 +289,42 @@ export function TaskView({
 				<SystemsButton systems={task.systems} />
 			</header>
 			<div className="relative min-h-0 flex-1 overflow-y-auto">
-				{/* Where a conversation's actions card stands, beside the column. */}
-				<div className="absolute top-4 left-[calc(50%+22.75rem)] hidden w-60 @min-[76rem]:block">
+				{/* Where a conversation's widgets stand, at the right. */}
+				<div className="absolute top-4 right-4 hidden w-60 @min-[61rem]:block">
 					<SystemsCard systems={task.systems} />
 				</div>
-				<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
-					<Alert variant="warning">
-						<TriangleAlertIcon />
-						<AlertTitle>Its agent runs outside the page</AlertTitle>
-						<AlertDescription>
-							The page cannot message it: answer here, then paste the reply into
-							its own session, or bring that session in below.
-						</AlertDescription>
-					</Alert>
-					{open.length > 0 && (
-						<div id={`questions-${task.task}`} className="flex flex-col gap-2">
-							<ReplyContext value={reply}>
-								<QuestionCards
-									questions={open}
-									draft="questions"
-									copy
-									onSent={() => drafts.write(`${kept}:copied`, asking(open))}
-								/>
-							</ReplyContext>
-						</div>
-					)}
-					{open.length === 0 && (
-						<p className="text-muted-foreground">No open questions.</p>
-					)}
-					<AssumptionsCard task={task.task} plan={task.plan} reply={reply} />
-					<Agent task={task} />
-					<Sessions task={task.task} agents={agents} onBrought={onBrought} />
+				<div className="@min-[61rem]:pe-[16.75rem]">
+					<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
+						<Alert variant="warning">
+							<TriangleAlertIcon />
+							<AlertTitle>Its agent runs outside the page</AlertTitle>
+							<AlertDescription>
+								The page cannot message it: answer here, then paste the reply
+								into its own session, or bring that session in below.
+							</AlertDescription>
+						</Alert>
+						{open.length > 0 && (
+							<div
+								id={`questions-${task.task}`}
+								className="flex flex-col gap-2"
+							>
+								<ReplyContext value={reply}>
+									<QuestionCards
+										questions={open}
+										draft="questions"
+										copy
+										onSent={() => drafts.write(`${kept}:copied`, asking(open))}
+									/>
+								</ReplyContext>
+							</div>
+						)}
+						{open.length === 0 && (
+							<p className="text-muted-foreground">No open questions.</p>
+						)}
+						<AssumptionsCard task={task.task} plan={task.plan} reply={reply} />
+						<Agent task={task} />
+						<Sessions task={task.task} agents={agents} onBrought={onBrought} />
+					</div>
 				</div>
 			</div>
 			<Dialog open={details} onOpenChange={setDetails}>
