@@ -190,7 +190,7 @@ describe("App", () => {
 		testing.talk = { agents: [], conversations: [] };
 		const view = await testing.open();
 
-		await menuItem(view, "Checkpoint");
+		await menuItem(view, "Power");
 		expect(view.queryByRole("button", { name: "Fullscreen" })).toBeNull();
 	});
 });

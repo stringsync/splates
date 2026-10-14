@@ -152,10 +152,8 @@ describe("App's settings and notifications", () => {
 			metaKey: true,
 		});
 		expect(field("Search").getAttribute("aria-label")).toBe("Search: ⌥⌘C");
-		expect(field("Checkpoint").getAttribute("aria-label")).toBe(
-			"Checkpoint: none",
-		);
-		expect(within(dialog).getByText("Was Checkpoint's")).toBeTruthy();
+		expect(field("Power").getAttribute("aria-label")).toBe("Power: none");
+		expect(within(dialog).getByText("Was Power's")).toBeTruthy();
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 		await waitFor(() =>
@@ -167,8 +165,8 @@ describe("App's settings and notifications", () => {
 		await waitFor(() => expect(searching()).toBeTruthy());
 		await search({ key: "ç", code: "KeyC", altKey: true, metaKey: true });
 		await waitFor(() => expect(searching()).toBeNull());
-		// Checkpoint lost its shortcut, so its menu item shows none.
-		expect((await menuItem(view, "Checkpoint")).textContent).toBe("Checkpoint");
+		// Power lost its shortcut, so its menu item shows none.
+		expect((await menuItem(view, "Power")).textContent).toBe("Power");
 
 		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
 		await act(async () =>
@@ -193,14 +191,14 @@ describe("App's settings and notifications", () => {
 		).toBe("Search: none");
 		await act(async () =>
 			fireEvent.click(
-				within(again).getByRole("button", { name: "Reset Checkpoint to ⌥⌘C" }),
+				within(again).getByRole("button", { name: "Reset Power to ⌥⌘C" }),
 			),
 		);
 		expect(
 			within(again)
-				.getByRole("button", { name: /^Checkpoint: / })
+				.getByRole("button", { name: /^Power: / })
 				.getAttribute("aria-label"),
-		).toBe("Checkpoint: ⌥⌘C");
+		).toBe("Power: ⌥⌘C");
 	});
 
 	it("keeps only the settings a search matches, marking the words", async () => {

@@ -119,7 +119,7 @@ describe("App's feed", () => {
 		await act(async () => badge.click());
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Power" }),
 		);
 		expect(
 			(
@@ -152,7 +152,7 @@ describe("App's feed", () => {
 		);
 		await act(async () => badge.click());
 
-		await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
+		await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 	});
 
 	it("keeps Restart and Settings in a phone's menu", async () => {
@@ -168,7 +168,7 @@ describe("App's feed", () => {
 					view.getByRole("menuitem", { name: "Restart arbor dev" }),
 				),
 			);
-			await waitFor(() => view.getByRole("dialog", { name: "Checkpoint" }));
+			await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 		} finally {
 			// Unmounted first, so going wide again redraws nothing.
 			cleanup();

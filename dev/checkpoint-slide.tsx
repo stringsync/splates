@@ -40,14 +40,14 @@ export function slideOf({ asked, going }: Standing): Slide {
 }
 
 /**
- * How each slide stands, for the title menu's Checkpoint, its own so moving
+ * How each slide stands, for the title menu's Power, its own so moving
  * on is plain to see; done says `arbor dev` restarted when its agents wait to
  * resume on the new run. The dialog itself is titled by its phase.
  */
 export function titleOf(slide: Slide, restarted: string | null): string {
 	switch (slide) {
 		case "pick":
-			return "Checkpoint";
+			return "Power";
 		case "going":
 			return "Checkpoint under way";
 		case "done":
@@ -69,10 +69,12 @@ export function titleOf(slide: Slide, restarted: string | null): string {
 
 /**
  * The phases the dialog walks through, as "Checkpoint, restart and resume"
- * and "Checkpoint and shut down" name them, each with its icon; done is still
- * the checkpoint until a restart has followed it.
+ * and "Checkpoint and shut down" name them, each with its icon, after Power,
+ * where the person picks; done is still the checkpoint until a restart has
+ * followed it.
  */
 const PHASES = {
+	power: { title: "Power", Icon: PowerIcon },
 	checkpoint: { title: "Checkpoint", Icon: FlagIcon },
 	restart: { title: "Restart", Icon: RotateCwIcon },
 	resume: { title: "Resume", Icon: PlayIcon },
@@ -138,6 +140,7 @@ export function standing(conversations: ProjectConversation[]): Standing {
 function phaseOf(slide: Slide, restarted: string | null): keyof typeof PHASES {
 	switch (slide) {
 		case "pick":
+			return "power";
 		case "going":
 			return "checkpoint";
 		case "done":

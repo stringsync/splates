@@ -34,9 +34,9 @@ describe("App's checkpoint dialog", () => {
 			[conversation({ id: "c1", title: "Fix login", status: "running" })],
 			null,
 		);
-		await act(async () => fireEvent.click(await menuItem(view, "Checkpoint")));
+		await act(async () => fireEvent.click(await menuItem(view, "Power")));
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Power" }),
 		);
 		const box = (slug: string) =>
 			within(dialog).getByRole("checkbox", {
@@ -78,9 +78,9 @@ describe("App's checkpoint dialog", () => {
 			[conversation({ id: "c1", status: "running" })],
 			null,
 		);
-		await act(async () => fireEvent.click(await menuItem(view, "Checkpoint")));
+		await act(async () => fireEvent.click(await menuItem(view, "Power")));
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Power" }),
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -121,10 +121,10 @@ describe("App's checkpoint dialog", () => {
 			null,
 		);
 
-		await act(async () => fireEvent.click(await menuItem(view, "Checkpoint")));
+		await act(async () => fireEvent.click(await menuItem(view, "Power")));
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Power" }),
 		);
 		expect(within(dialog).getByText("No agent is running.")).toBeTruthy();
 		expect(within(dialog).queryByRole("checkbox")).toBeNull();
@@ -163,10 +163,10 @@ describe("App's checkpoint dialog", () => {
 		testing.restartable = false;
 		const view = await testing.openConversations([], null);
 
-		await act(async () => fireEvent.click(await menuItem(view, "Checkpoint")));
+		await act(async () => fireEvent.click(await menuItem(view, "Power")));
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Power" }),
 		);
 		expect(
 			within(dialog).queryByRole("button", { name: "Restart" }),
@@ -280,7 +280,7 @@ describe("App's checkpoint dialog", () => {
 					.at(-1) as Element,
 			),
 		);
-		await menuItem(view, "Checkpoint");
+		await menuItem(view, "Power");
 	});
 
 	it("retries those a checkpoint missed, or closes, leaving them stopped", async () => {

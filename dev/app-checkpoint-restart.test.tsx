@@ -251,9 +251,9 @@ describe("App's checkpoint restart", () => {
 			[conversation({ id: "c1", status: "running" })],
 			null,
 		);
-		await act(async () => fireEvent.click(await menuItem(view, "Checkpoint")));
+		await act(async () => fireEvent.click(await menuItem(view, "Power")));
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Checkpoint" }),
+			view.getByRole("dialog", { name: "Power" }),
 		);
 		await act(async () =>
 			fireEvent.click(

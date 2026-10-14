@@ -1,4 +1,4 @@
-import { CheckIcon, FlagIcon, Loader2Icon } from "lucide-react";
+import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -363,7 +363,7 @@ export function CheckpointProvider({
 }
 
 /**
- * The title menu's Checkpoint, opening the dialog as its shortcut does, and saying
+ * The title menu's Power, opening the dialog as its shortcut does, and saying
  * how the checkpoint stands.
  */
 export function CheckpointItem(): JSX.Element {
@@ -377,7 +377,7 @@ export function CheckpointItem(): JSX.Element {
 			slide === "shuttingDown" ? (
 				<Loader2Icon className="animate-spin" />
 			) : slide === "pick" ? (
-				<FlagIcon />
+				<PowerIcon />
 			) : (
 				<CheckIcon className="text-success" />
 			)}

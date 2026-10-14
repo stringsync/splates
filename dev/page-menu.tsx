@@ -1,7 +1,7 @@
 import {
 	EllipsisVerticalIcon,
 	LogOutIcon,
-	PowerIcon,
+	RotateCwIcon,
 	SettingsIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
@@ -23,7 +23,7 @@ import { type Update, UpdateDot, update } from "./release";
 
 /**
  * The menu beside the project's name, holding what the page can do as a
- * whole, under who Cloudflare Access signed in, if anyone, and Sign out: Checkpoint, where the agents of `arbor dev` run; Fullscreen;
+ * whole, under who Cloudflare Access signed in, if anyone, and Sign out: Power, to checkpoint, restart or shut down, where the agents of `arbor dev` run; Fullscreen;
  * Settings; and last, apart, Restart, opening the Checkpoint dialog to
  * checkpoint, restart and resume whenever the person likes. Dotted, and its
  * Restart too, once a restart would update.
@@ -34,7 +34,7 @@ export function PageMenu({
 	conversations,
 	onSettings,
 }: Update & {
-	/** Whether `arbor dev` runs agents, which Checkpoint is for. */
+	/** Whether `arbor dev` runs agents, which Power is for. */
 	conversations: boolean;
 	onSettings: () => void;
 }): JSX.Element {
@@ -93,7 +93,7 @@ export function PageMenu({
 					onClick={() => open("resume")}
 				>
 					<span className="relative flex">
-						<PowerIcon />
+						<RotateCwIcon />
 						{why !== null && <UpdateDot ring="ring-popover" />}
 					</span>
 					{why === null ? "Restart" : "Restart to update"}

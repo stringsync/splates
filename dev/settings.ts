@@ -250,8 +250,8 @@ export const SETTINGS = {
 		"Ctrl+Backquote",
 	),
 	"shortcuts.checkpoint": shortcut(
-		"Checkpoint",
-		"Stop every agent where it stands, to pick up after a restart.",
+		"Power",
+		"Checkpoint every agent, then restart or shut down arbor dev.",
 		"Alt+Mod+KeyC",
 	),
 	"shortcuts.fullscreen": shortcut(

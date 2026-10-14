@@ -150,7 +150,7 @@ describe("App's sidebar keys", () => {
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
-	it("opens Todos with ⌥⌘T and Checkpoint with ⌥⌘C, showing a tab's key while ⌥⌘ is held", async () => {
+	it("opens Todos with ⌥⌘T and Power with ⌥⌘C, showing a tab's key while ⌥⌘ is held", async () => {
 		const view = await testing.openConversations(
 			newestFirst([conversation({ id: "c1", title: "First" })]),
 			null,
@@ -188,7 +188,7 @@ describe("App's sidebar keys", () => {
 			}),
 		);
 		expect(
-			await waitFor(() => view.getByRole("dialog", { name: /Checkpoint/ })),
+			await waitFor(() => view.getByRole("dialog", { name: "Power" })),
 		).toBeTruthy();
 	});
 
