@@ -14,6 +14,7 @@ import {
 	CollapsibleTrigger,
 } from "#dev/components/ui/collapsible.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import type { Review } from "../asked";
 import { assumptions } from "../plan";
 import { MERGE } from "../prompts";
@@ -52,6 +53,7 @@ export function ReviewPanel({
 	const send = sent === null ? (reply?.send ?? null) : null;
 	const kept = useKept(draft, sent);
 	const plan = useContext(Board).plans.get(review.task) ?? "";
+	const touch = useTouch();
 	const {
 		assumptions: assumed,
 		answers,
@@ -168,10 +170,12 @@ export function ReviewPanel({
 							/>
 						) : (
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-								<span>
-									<Kbd>↵</Kbd> sends changes
-								</span>
-								{asked === "" && (
+								{!touch && (
+									<span>
+										<Kbd>↵</Kbd> sends changes
+									</span>
+								)}
+								{!touch && asked === "" && (
 									<span>
 										<Kbd>Tab</Kbd> to merge
 									</span>

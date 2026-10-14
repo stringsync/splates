@@ -3,6 +3,7 @@ import { PencilIcon, SendHorizontalIcon, Trash2Icon } from "lucide-react";
 import type { JSX, RefObject } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import type { Message } from "../conversations";
 import { leadingDirectives } from "../prompts";
 import { focusComposer } from "./composer-editor";
@@ -36,6 +37,7 @@ export function Queued({
 }): JSX.Element {
 	// Enter sends the queue only with nothing typed; otherwise it queues what is.
 	const empty = useAuiState((state) => state.composer.isEmpty);
+	const touch = useTouch();
 	return (
 		<section
 			aria-label="queued messages"
@@ -48,7 +50,7 @@ export function Queued({
 				<Button size="xs" variant="outline" onClick={onSendNow}>
 					<SendHorizontalIcon />
 					Send now
-					{empty && <Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>}
+					{empty && !touch && <Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>}
 				</Button>
 			</header>
 			<ul className="flex flex-col">

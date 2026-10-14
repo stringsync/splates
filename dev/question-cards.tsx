@@ -8,6 +8,7 @@ import {
 import { type JSX, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Question } from "../plan";
@@ -61,6 +62,7 @@ export function QuestionCards({
 	const { reply, sent } = useCardReply();
 	const live = sent === null && (copy || reply !== null);
 	const kept = useKept(draft, sent);
+	const touch = useTouch();
 	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
 		return {
@@ -238,12 +240,16 @@ export function QuestionCards({
 						/>
 						<div className="flex items-center gap-3">
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-								<span>
-									<Kbd>↵</Kbd> next
-								</span>
-								<span>
-									<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
-								</span>
+								{!touch && (
+									<>
+										<span>
+											<Kbd>↵</Kbd> next
+										</span>
+										<span>
+											<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
+										</span>
+									</>
+								)}
 							</p>
 							<Button
 								size="sm"

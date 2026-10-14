@@ -10,6 +10,7 @@ import {
 import { Input } from "#dev/components/ui/input.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { Switch } from "#dev/components/ui/switch.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { Refusal, useRefusal } from "./refusal";
 import {
@@ -41,7 +42,11 @@ export function SettingsDialog({
 }): JSX.Element {
 	const [query, setQuery] = useState("");
 	const [picked, setPicked] = useState<Category>(CATEGORIES[0]);
-	const found = search(query);
+	// A touch device has no keyboard to press them on.
+	const touch = useTouch();
+	const found = search(query).filter(
+		(key) => !(touch && definitionOf(key).shortcut),
+	);
 	const shown = CATEGORIES.map((category) => ({
 		category,
 		keys: found.filter((key) => definitionOf(key).category === category),

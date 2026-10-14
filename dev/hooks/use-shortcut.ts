@@ -5,6 +5,7 @@ import {
 	useRef,
 	useSyncExternalStore,
 } from "react";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import {
 	definitionOf,
 	type Settings,
@@ -65,9 +66,13 @@ export function useShortcut(
 	}, [shortcut, enabled]);
 }
 
-/** How shortcut `name` reads, as `⌥⌘C`, or null while it has none. */
+/**
+ * How shortcut `name` reads, as `⌥⌘C`, or null while it has none, or on a
+ * touch device, which shows no shortcuts.
+ */
 export function useShortcutLabel(name: ShortcutKey): string | null {
-	return label(useBinding(name)) || null;
+	const shown = label(useBinding(name)) || null;
+	return useTouch() ? null : shown;
 }
 
 /**

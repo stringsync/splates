@@ -2,6 +2,7 @@ import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
 import { type JSX, type KeyboardEvent, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
@@ -31,6 +32,7 @@ export function Ranking({
 	const order = ranked(asked, answer);
 	const answered = answer.picks.length > 0;
 	const [at, setAt] = useState(0);
+	const touch = useTouch();
 	const list = useRef<HTMLOListElement>(null);
 	const focus = (index: number) => {
 		setAt(index);
@@ -139,7 +141,11 @@ export function Ranking({
 			{live && (
 				<div className="flex items-center gap-3">
 					<p className="flex-1 text-muted-foreground text-xs">
-						<Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> moves
+						{!touch && (
+							<>
+								<Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> moves
+							</>
+						)}
 					</p>
 					<Button
 						variant="outline"
