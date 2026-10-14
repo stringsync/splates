@@ -4,7 +4,9 @@ import { answerIn, besides, replyOf, stretches } from "./asked";
 
 /** The report examples the arbor skill shows agents, as agents copy them. */
 async function skillExamples(): Promise<string[]> {
-	const skill = await Bun.file(join(import.meta.dir, "arbor.skill.md")).text();
+	const skill = await Bun.file(
+		join(import.meta.dir, "../../skills/arbor/SKILL.md"),
+	).text();
 	return [...skill.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map(
 		(match) => match[1] as string,
 	);

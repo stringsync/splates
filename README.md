@@ -7,9 +7,13 @@ worktree and lands its change on `main` itself, without pull requests.
 bunx @webappwiz/arbor init
 ```
 
-Run it in your repository and commit what it writes: the arbor skill, for
-Claude Code, Codex, and any agent that reads `.agents/skills`. From then on,
-your agents start each change with `arbor add` and land it with `arbor merge`.
+Run it in your repository and commit what it writes: the arbor skill, which it
+installs with [`skills`](https://skills.sh) from this release's tag into
+`.agents/skills` for Codex and most agents, linked from `.claude/skills` for
+Claude Code, and `skills-lock.json`. `arbor update` moves it to a newer release.
+Without arbor, `bunx skills add jaredjj3/webappwiz#v<release> --skill arbor`
+installs the same skill. From then on, your agents start each change with
+`arbor add` and land it with `arbor merge`.
 
 ## How it works
 

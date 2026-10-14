@@ -1,4 +1,5 @@
 import { describe, expect, it, setDefaultTimeout } from "bun:test";
+import { chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { ensure } from "webappwiz/assert";
 import { color } from "webappwiz/log";
@@ -315,11 +316,18 @@ const setup = async ({ init = true }: { init?: boolean } = {}) => {
 		`export default { preMerge: "true" };\n`,
 	);
 
+	// `arbor init` installs its skill with `bunx skills add`, which reaches
+	// GitHub: a `bunx` that does nothing keeps the tests off the network.
+	const bin = join(env.arborHome, "..", "bin");
+	await env.fs.mkdir(bin);
+	await env.fs.write(join(bin, "bunx"), "#!/bin/sh\nexit 0\n");
+	await chmod(join(bin, "bunx"), 0o755);
+
 	/** Runs the CLI the way an agent does: a fresh process, a cwd, an exit code. */
 	const arbor = async (cwd: string, ...args: string[]) => {
 		const { exitCode, stdout, stderr } = await env.ps.spawnCapture(
 			["bun", CLI, ...args],
-			{ cwd },
+			{ cwd, env: { PATH: `${bin}:${process.env.PATH}` } },
 		);
 		return { exitCode, stdout: color.strip(stdout), stderr };
 	};

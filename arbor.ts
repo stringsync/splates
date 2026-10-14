@@ -65,7 +65,7 @@ arbor
 	.command("init")
 	.use(repository({ creates: true }))
 	.description(
-		"make this repository an arbor project: set up its records under .git/arbor when it has none, write the arbor skill to .agents/skills and .claude/skills, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run again, it changes only what is not so already",
+		"make this repository an arbor project: set up its records under .git/arbor when it has none, install the arbor skill of this release with `bunx skills add`, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run again, it changes only what is not so already",
 	)
 	.action((_opts, ctx) => init(ctx));
 
@@ -73,7 +73,7 @@ arbor
 	.command("update")
 	.use(repository())
 	.description(
-		"bring this repository up to the newest arbor on npm: run `update` on that release when it is newer than this one, which writes its arbor skill over the copies `arbor init` wrote; commit what changed",
+		"bring this repository up to the newest arbor on npm: run `update` on that release when it is newer than this one, which installs its arbor skill with `bunx skills add` over the copy there, leaving one that links to your own; commit what changed",
 	)
 	.action(async (_opts, ctx) => {
 		const code = await update({

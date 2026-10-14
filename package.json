@@ -18,7 +18,7 @@
 		".": "./index.ts",
 		"./config": "./config.ts",
 		"./lanes-from-tags": "./lanes-from-tags.ts",
-		"./skill": "./skill.ts"
+		"./skills": "./skills.ts"
 	},
 	"imports": {
 		"#dev/*": "./dev/*"

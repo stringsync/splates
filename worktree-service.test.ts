@@ -154,6 +154,9 @@ class RecordingFs implements Fs {
 	rm(path: string, opts?: RmOptions): Promise<void> {
 		return this.inner.rm(path, opts);
 	}
+	isSymlink(path: string): Promise<boolean> {
+		return this.inner.isSymlink(path);
+	}
 	watch(
 		path: string,
 		onChange: (changed: string) => void,
