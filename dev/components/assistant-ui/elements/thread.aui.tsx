@@ -96,7 +96,12 @@ import {
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
-import { DirectiveChip, linkDirectives } from "#dev/directives.tsx";
+import {
+	bareDirective,
+	DirectiveCard,
+	DirectiveChip,
+	linkDirectives,
+} from "#dev/directives.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
@@ -1718,6 +1723,25 @@ const UserMessage: FC = () => {
 	const steered = useAuiState(
 		(s) => s.message.metadata.custom.steered === true,
 	);
+	const bare = useAuiState((s) => {
+		const [only, ...more] = s.message.parts;
+		return only?.type === "text" && more.length === 0
+			? bareDirective(only.text)
+			: null;
+	});
+	if (bare !== null && (attachments ?? []).length === 0) {
+		// A card, with nothing to stick atop its turn: what it asked is said once.
+		return (
+			<MessagePrimitive.Root
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				className="px-2"
+				data-role="user"
+			>
+				<DirectiveCard directive={bare} />
+			</MessagePrimitive.Root>
+		);
+	}
 	return (
 		<MessagePrimitive.Root
 			ref={unstuckTop}

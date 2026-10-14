@@ -1946,4 +1946,46 @@ describe("App's conversations", () => {
 			);
 		});
 	});
+
+	describe("checkpoint cards", () => {
+		it("shows a message of a checkpoint or resume alone as a card", async () => {
+			const view = await testing.openConversations([
+				conversation({
+					messages: [
+						message("user", "fix the header"),
+						message("user", "[ARBOR CHECKPOINT]"),
+						message("agent", "Stopped before the tests."),
+						message("user", "[ARBOR RESUME]"),
+					],
+				}),
+			]);
+
+			const checkpoint = await waitFor(() =>
+				view.getByRole("region", { name: "checkpoint" }),
+			);
+			expect(checkpoint.textContent).toContain(
+				"Asked the agent to update ARBOR.md and stop.",
+			);
+			expect(
+				view.getByRole("region", { name: "resume" }).textContent,
+			).toContain("Asked the agent to carry on from ARBOR.md.");
+			expect(checkpoint.closest('[data-role="user"]')?.className).not.toContain(
+				"sticky",
+			);
+			expect(view.queryByTitle("[ARBOR CHECKPOINT]")).toBeNull();
+		});
+
+		it("keeps a checkpoint said with more as a chip", async () => {
+			const view = await testing.openConversations([
+				conversation({
+					messages: [message("user", "[ARBOR CHECKPOINT] then wait")],
+				}),
+			]);
+
+			await waitFor(() =>
+				expect(view.getByTitle("[ARBOR CHECKPOINT]")).toBeTruthy(),
+			);
+			expect(view.queryByRole("region", { name: "checkpoint" })).toBeNull();
+		});
+	});
 });

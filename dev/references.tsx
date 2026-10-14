@@ -1,10 +1,12 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
+	BookmarkIcon,
 	ColumnsIcon,
 	GitBranchIcon,
 	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	PlayIcon,
 	SparklesIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
@@ -47,14 +49,23 @@ const CATEGORIES = [
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
-/** The directives that are about no todo, lane, or task. */
-const DIRECTIVES = [
+/**
+ * The directives that are about no todo, lane, or task, as the composer offers
+ * them and a message of one alone shows as its card.
+ */
+export const BARE_DIRECTIVES = [
 	{
 		directive: CHECKPOINT,
 		label: "Checkpoint",
 		about: "update ARBOR.md and stop",
+		icon: BookmarkIcon,
 	},
-	{ directive: RESUME, label: "Resume", about: "carry on from ARBOR.md" },
+	{
+		directive: RESUME,
+		label: "Resume",
+		about: "carry on from ARBOR.md",
+		icon: PlayIcon,
+	},
 ];
 
 /**
@@ -70,7 +81,7 @@ export function useReferences(
 	return useMemo(() => {
 		const runnable = actions.filter((action) => action.run !== null);
 		const items: Record<string, TriggerItem[]> = {
-			directive: DIRECTIVES.map(({ directive, label, about }) => ({
+			directive: BARE_DIRECTIVES.map(({ directive, label, about }) => ({
 				id: directive,
 				type: "directive",
 				label,

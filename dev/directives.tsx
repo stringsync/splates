@@ -9,7 +9,9 @@ import { type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { DIRECTIVES } from "../prompts";
 import { Board, type BoardContext } from "./board";
+import { CardBody, CardShell } from "./card-shell";
 import { outsideCode } from "./markdown";
+import { BARE_DIRECTIVES } from "./references";
 
 /** Where a link written by `linkDirectives` points, read back by `directiveIn`. */
 const DIRECTIVE_LINK = /^#directive=(.+)$/;
@@ -153,5 +155,45 @@ export function DirectiveChip({
 		<span title={directive} className={look}>
 			{inside}
 		</span>
+	);
+}
+
+/**
+ * The directive about no todo, lane, or task that `text` holds and nothing
+ * else, such as the checkpoint `arbor dev` sends before a restart; null for
+ * any other text.
+ */
+export function bareDirective(text: string): string | null {
+	const trimmed = text.trim();
+	return BARE_DIRECTIVES.some((each) => each.directive === trimmed)
+		? trimmed
+		: null;
+}
+
+/**
+ * A message of `directive` alone, read by `bareDirective`, as a card saying
+ * what it asked of the agent, in place of the message.
+ */
+export function DirectiveCard({
+	directive,
+}: {
+	directive: string;
+}): JSX.Element | null {
+	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
+	if (bare === undefined) {
+		return null;
+	}
+	return (
+		<CardShell
+			label={bare.label.toLowerCase()}
+			Icon={bare.icon}
+			title={bare.label}
+			tone="info"
+		>
+			<CardBody
+				text={`Asked the agent to ${bare.about}.`}
+				className="text-muted-foreground"
+			/>
+		</CardShell>
 	);
 }
