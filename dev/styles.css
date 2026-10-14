@@ -37,6 +37,7 @@
 @source "./mentions.tsx";
 @source "./notifications.tsx";
 @source "./page-menu.tsx";
+@source "./machine.tsx";
 @source "./card.tsx";
 @source "./dot.tsx";
 @source "./board.ts";

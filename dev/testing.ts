@@ -7,6 +7,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import type { ConversationState, Session } from "../conversations";
 import type { FileDiff } from "../diff";
+import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
 import type { NamedSystem } from "../systems";
 import type { KeptCreds } from "./api";
@@ -130,6 +131,8 @@ export class Testing implements Resource {
 	restartable = true;
 	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
 	email: string | null = null;
+	/** What `/api/machine` reads, or null for it to fail. */
+	machine: MachineReading | null = null;
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
@@ -171,6 +174,11 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/identity") {
 				return Response.json({ email: this.email });
+			}
+			if (route === "/api/machine") {
+				return this.machine === null
+					? new Response(null, { status: 500 })
+					: Response.json(this.machine);
 			}
 			if (path.startsWith("/api/paths")) {
 				await this.listing;

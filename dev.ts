@@ -22,6 +22,7 @@ import { startTunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { fail } from "./exit";
 import type { Git } from "./git";
+import { Machine, type MachineSensors, osSensors } from "./machine";
 import { Outcomes } from "./outcomes";
 import type { Projects } from "./projects";
 import { RUNNING } from "./release";
@@ -63,6 +64,7 @@ export async function dev(
 		sourceEvery = SOURCE_CHECK,
 		unbuilt = false,
 		exit = null,
+		sensors = null,
 		open = async (root) => ({
 			...home,
 			...(await openRepository(home, { at: root, migrates: true })),
@@ -249,6 +251,9 @@ export async function dev(
 		return Response.json(summarize(await outcomes.list(), { period }));
 	};
 
+	// Not any project's: every page on this server shares one machine.
+	const machine = new Machine(sensors ?? osSensors(fs));
+
 	const requested = await ports.get();
 	const server = Bun.serve<TerminalData>({
 		port: requested,
@@ -278,6 +283,7 @@ export async function dev(
 					email: (await gate.identity(request))?.email ?? null,
 				}),
 			),
+			"/api/machine": guarded(async () => Response.json(await machine.read())),
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },
@@ -500,6 +506,8 @@ export interface DevOptions {
 	 * cannot restart `arbor dev`.
 	 */
 	exit?: ((code: number) => void) | null;
+	/** Where the page's machine stats come from; this machine's OS for none. */
+	sensors?: MachineSensors | null;
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */

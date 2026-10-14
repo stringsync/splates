@@ -16,24 +16,30 @@ import {
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
+import type { MachineReading } from "../machine";
 import { identity } from "./api";
 import { CheckpointItem, useCheckpoint } from "./checkpoint";
 import { FullscreenItem } from "./fullscreen";
+import { MachineStats } from "./machine";
 import { type Update, UpdateDot, update } from "./release";
 
 /**
  * The menu beside the project's name, holding what the page can do as a
- * whole, under who Cloudflare Access signed in, if anyone, and Sign out: Power, to checkpoint, restart or shut down, where the agents of `arbor dev` run; Fullscreen;
+ * whole, under who Cloudflare Access signed in, if anyone, and Sign out, and
+ * how hard the machine is working: Power, to checkpoint, restart or shut down, where the agents of `arbor dev` run; Fullscreen;
  * Settings; and last, apart, Restart, opening the Checkpoint dialog to
  * checkpoint, restart and resume whenever the person likes. Dotted, and its
  * Restart too, once a restart would update.
  */
 export function PageMenu({
+	machine,
 	release,
 	behind,
 	conversations,
 	onSettings,
 }: Update & {
+	/** How hard the machine is working, or null before it has said. */
+	machine: MachineReading | null;
 	/** Whether `arbor dev` runs agents, which Power is for. */
 	conversations: boolean;
 	onSettings: () => void;
@@ -71,6 +77,12 @@ export function PageMenu({
 								Sign out
 							</DropdownMenuItem>
 						</DropdownMenuGroup>
+						<DropdownMenuSeparator />
+					</>
+				)}
+				{machine !== null && (
+					<>
+						<MachineStats reading={machine} className="px-1.5 py-1" />
 						<DropdownMenuSeparator />
 					</>
 				)}

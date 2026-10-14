@@ -7,6 +7,7 @@
 
 import type { KeptCred, Scope } from "../creds";
 import type { FileDiff } from "../diff";
+import type { MachineReading } from "../machine";
 import type { AgentPick } from "../roster";
 import type { PeriodId, Stats } from "../stats";
 import type { NamedSystem } from "../systems";
@@ -267,6 +268,15 @@ export async function identity(): Promise<string | null> {
 		throw new ApiError("error", `/api/identity: ${response.status}`);
 	}
 	return ((await response.json()) as { email: string | null }).email;
+}
+
+/** How hard the machine `arbor dev` runs on is working right now. */
+export async function machine(): Promise<MachineReading> {
+	const response = await fetch("/api/machine");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/machine: ${response.status}`);
+	}
+	return (await response.json()) as MachineReading;
 }
 
 /** What the project's store and the device's keep, by name, and what each store is called. */

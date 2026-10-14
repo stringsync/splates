@@ -2,13 +2,15 @@ import type { JSX } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Snapshot } from "../snapshot";
 import { CheckpointRefusal } from "./checkpoint";
+import { MachineBadge, useMachine } from "./machine";
 import { PageMenu } from "./page-menu";
 import { ProjectSwitcher } from "./projects";
 
 /**
  * Heads the sidebar when there is one, and the page on a phone: the project
- * switcher, a badge when the server is outdated, unbuilt or offline, the page
- * menu, the project's path, and why a checkpoint could not start.
+ * switcher, a badge when the server is outdated, unbuilt or offline, or the
+ * machine is strained, the page menu, the project's path, and why a
+ * checkpoint could not start.
  */
 export function AppHeader({
 	name,
@@ -34,6 +36,8 @@ export function AppHeader({
 		(snapshot?.release != null || snapshot?.behind != null) &&
 		outdated === null &&
 		!offline;
+	// Asked once here for the badge and the menu alike.
+	const machine = useMachine();
 	return (
 		<header
 			className={cn(
@@ -81,7 +85,9 @@ export function AppHeader({
 						Offline
 					</span>
 				)}
+				{!offline && <MachineBadge reading={machine} />}
 				<PageMenu
+					machine={offline ? null : machine}
 					release={hinted ? (snapshot?.release ?? null) : null}
 					behind={hinted ? (snapshot?.behind ?? null) : null}
 					conversations={conversations}
