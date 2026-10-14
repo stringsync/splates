@@ -136,21 +136,27 @@ export function DirectiveChip({
 	);
 }
 
+/** A todo or lane directive, which a message of it alone shows as a card. */
+const CARDED = /^\[ARBOR (TODO #\d+|LANE \d+)\]$/;
+
 /**
- * The directive about no todo, lane, or task that `text` holds and nothing
- * else, such as the checkpoint `arbor dev` sends before a restart; null for
+ * The directive that `text` holds and nothing else, when it is one a card
+ * shows: one about no todo, lane, or task, such as the checkpoint `arbor dev`
+ * sends before a restart, or one handing the agent a todo or a lane; null for
  * any other text.
  */
-export function bareDirective(text: string): string | null {
+export function soleDirective(text: string): string | null {
 	const trimmed = text.trim();
-	return BARE_DIRECTIVES.some((each) => each.directive === trimmed)
+	return BARE_DIRECTIVES.some((each) => each.directive === trimmed) ||
+		CARDED.test(trimmed)
 		? trimmed
 		: null;
 }
 
 /**
- * A message of `directive` alone, read by `bareDirective`, as a card saying
- * what it asked of the agent, in place of the message.
+ * A message of `directive` alone, read by `soleDirective`, as a card saying
+ * what it asked of the agent, in place of the message: for a todo or a lane,
+ * its chip, which opens a todo still on the board.
  */
 export function DirectiveCard({
 	directive,
@@ -158,19 +164,35 @@ export function DirectiveCard({
 	directive: string;
 }): JSX.Element | null {
 	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
-	if (bare === undefined) {
+	if (bare !== undefined) {
+		return (
+			<CardShell
+				label={bare.label.toLowerCase()}
+				Icon={bare.icon}
+				title={bare.label}
+			>
+				<CardBody
+					text={`Asked the agent to ${bare.about}.`}
+					className="text-muted-foreground"
+				/>
+			</CardShell>
+		);
+	}
+	const [, carded = ""] = CARDED.exec(directive) ?? [];
+	if (carded === "") {
 		return null;
 	}
+	const todo = carded.startsWith("TODO");
 	return (
 		<CardShell
-			label={bare.label.toLowerCase()}
-			Icon={bare.icon}
-			title={bare.label}
+			label={`${todo ? "take" : "work down"} ${carded.toLowerCase()}`}
+			Icon={todo ? ListTodoIcon : ColumnsIcon}
+			title={todo ? "Todo" : "Lane"}
 		>
-			<CardBody
-				text={`Asked the agent to ${bare.about}.`}
-				className="text-muted-foreground"
-			/>
+			<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
+				{todo ? "Asked the agent to take " : "Asked the agent to work down "}
+				<DirectiveChip directive={directive} opens inline />.
+			</p>
 		</CardShell>
 	);
 }

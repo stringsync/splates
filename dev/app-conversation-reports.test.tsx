@@ -6,6 +6,7 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	todo,
 	waitFor,
 	within,
 } from "./testing";
@@ -340,6 +341,55 @@ describe("App's report cards", () => {
 			"sticky",
 		);
 		expect(view.queryByTitle("[ARBOR CHECKPOINT]")).toBeNull();
+	});
+
+	it("shows a message of a todo or lane alone as a card, its chip opening the todo", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					messages: [
+						message("user", "[ARBOR TODO #12]"),
+						message("agent", "Took it."),
+						message("user", "[ARBOR LANE 3]"),
+					],
+				}),
+			],
+			undefined,
+			{
+				todos: [todo({ id: 12, subject: "Retry the upload", lane: 3 })],
+				lanes: [{ id: 3, name: "Uploads" }],
+			},
+		);
+
+		const taken = await waitFor(() =>
+			view.getByRole("region", { name: "take todo #12" }),
+		);
+		expect(taken.textContent).toContain("Asked the agent to take");
+		expect(taken.textContent).toContain("Retry the upload");
+		expect(taken.closest('[data-role="user"]')?.className).not.toContain(
+			"sticky",
+		);
+		const lane = view.getByRole("region", { name: "work down lane 3" });
+		expect(lane.textContent).toContain("Asked the agent to work down");
+		expect(lane.textContent).toContain("Uploads");
+
+		fireEvent.click(within(taken).getByTitle("[ARBOR TODO #12]"));
+		await waitFor(() =>
+			expect(view.getByRole("dialog").textContent).toContain("Todo 12"),
+		);
+	});
+
+	it("keeps a todo said with more as a chip", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [message("user", "[ARBOR TODO #12] but skip the tests")],
+			}),
+		]);
+
+		await waitFor(() =>
+			expect(view.getByTitle("[ARBOR TODO #12]")).toBeTruthy(),
+		);
+		expect(view.queryByRole("region", { name: "take todo #12" })).toBeNull();
 	});
 
 	it("keeps a checkpoint said with more as a chip", async () => {

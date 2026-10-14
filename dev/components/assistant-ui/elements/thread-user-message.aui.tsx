@@ -26,10 +26,10 @@ import {
 } from "#dev/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import {
-	bareDirective,
 	DirectiveCard,
 	DirectiveChip,
 	linkDirectives,
+	soleDirective,
 } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP } from "#dev/lightbox.tsx";
@@ -92,13 +92,13 @@ export const UserMessage: FC = () => {
 	const steered = useAuiState(
 		(s) => s.message.metadata.custom.steered === true,
 	);
-	const bare = useAuiState((s) => {
+	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
 		return only?.type === "text" && more.length === 0
-			? bareDirective(only.text)
+			? soleDirective(only.text)
 			: null;
 	});
-	if (bare !== null && (attachments ?? []).length === 0) {
+	if (sole !== null && (attachments ?? []).length === 0) {
 		// A card, with nothing to stick atop its turn: what it asked is said once.
 		return (
 			<MessagePrimitive.Root
@@ -107,7 +107,7 @@ export const UserMessage: FC = () => {
 				className="px-2"
 				data-role="user"
 			>
-				<DirectiveCard directive={bare} />
+				<DirectiveCard directive={sole} />
 			</MessagePrimitive.Root>
 		);
 	}
