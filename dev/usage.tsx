@@ -53,7 +53,7 @@ export function ContextMeter({ usage }: { usage: Usage }): JSX.Element | null {
 				delay={150}
 				aria-label={`${percent}% of context used`}
 				className={cn(
-					"inline-flex size-6 shrink-0 cursor-default items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+					"inline-flex size-6 pointer-coarse:size-9 shrink-0 cursor-default items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
 					share >= NEARLY_FULL && "text-warning hover:text-warning",
 				)}
 			>

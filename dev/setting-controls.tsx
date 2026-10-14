@@ -21,10 +21,11 @@ import { useWide } from "./app-nav";
 
 /**
  * A picker in the composer's bottom row: quiet until hovered, as in Zed, and
- * small, so the row holds them all on one line.
+ * small, so the row holds them all on one line; under a finger, tall enough
+ * to tap.
  */
 const IN_COMPOSER =
-	"h-6 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
+	"h-6 pointer-coarse:h-9 pointer-coarse:px-2 pointer-coarse:text-xs min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
 /**
  * A session's settings in the composer's bottom row: each inline where the

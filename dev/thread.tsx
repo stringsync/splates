@@ -33,6 +33,7 @@ import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { useShortcutLabel } from "./hooks/use-shortcut";
+import { useTouch } from "./hooks/use-touch";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./question-cards";
 import { Queued, useQueueEdits } from "./queued";
@@ -163,6 +164,7 @@ export function Thread({
 			: null;
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
+	const touch = useTouch();
 	return (
 		<section
 			ref={section}
@@ -171,11 +173,13 @@ export function Thread({
 			// terminal brings back the last command. Enter with nothing typed
 			// sends what is queued now, as in Zed; ⌘⇧↵ (Ctrl+Shift+Enter) with
 			// something typed sends that now too, as `useThreadRuntime` steers. On the
-			// way down, so the composer is read before it sends and empties.
+			// way down, so the composer is read before it sends and empties. A
+			// phone's Return only types a new line.
 			onKeyDownCapture={(event) => {
 				const box = event.target as HTMLElement;
 				if (
 					event.key === "Enter" &&
+					!touch &&
 					!event.shiftKey &&
 					box.getAttribute("aria-label") === "Message input" &&
 					runtime.thread.composer.getState().text === "" &&

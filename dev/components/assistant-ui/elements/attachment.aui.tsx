@@ -57,6 +57,70 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import { GROUP, useLightbox } from "#dev/lightbox.tsx";
 
+/** Marks each composer's attach button, for ⌥⌘; to find. */
+const ATTACH = "aui-composer-add-attachment";
+export const ComposerAttachments: FC = () => {
+	return (
+		<div
+			{...{ [GROUP]: "" }}
+			className="aui-composer-attachments flex w-full flex-row items-start gap-2 overflow-x-auto empty:hidden"
+		>
+			<ComposerPrimitive.Attachments>
+				{() => <AttachmentTile />}
+			</ComposerPrimitive.Attachments>
+		</div>
+	);
+};
+/**
+ * Picks files to attach, as its shortcut does, showing its key while ⌥⌘ is
+ * held.
+ */
+export const ComposerAddAttachment: FC = () => {
+	const held = useHeld();
+	const shortcut = useShortcutLabel("shortcuts.attach");
+	const key = useHeldKey("shortcuts.attach");
+	return (
+		<ComposerPrimitive.AddAttachment
+			render={
+				<TooltipIconButton
+					tooltip={
+						shortcut === null ? "Attach files" : `Attach files (${shortcut})`
+					}
+					side="bottom"
+					variant="ghost"
+					size="icon"
+					className={cn(
+						ATTACH,
+						"text-muted-foreground hover:text-foreground size-7 rounded-full pointer-coarse:size-9",
+					)}
+					aria-label="Attach files"
+				/>
+			}
+		>
+			{held && key !== null ? (
+				<Kbd aria-hidden>{key}</Kbd>
+			) : (
+				<PlusIcon className="aui-attachment-add-icon size-4" />
+			)}
+		</ComposerPrimitive.AddAttachment>
+	);
+};
+/**
+ * Its shortcut, ⌥⌘; unless set otherwise, picks files to attach in the
+ * composer being written in, or else the first one showing. Once per page,
+ * so one press opens one picker.
+ */
+export function useAttachKey(): void {
+	useShortcut("shortcuts.attach", () => {
+		const shown = [
+			...document.querySelectorAll<HTMLButtonElement>(`.${ATTACH}`),
+		].filter((each) => each.getClientRects().length > 0);
+		const focused = document.activeElement?.closest("form");
+		const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
+		button?.click();
+		return button !== undefined;
+	});
+}
 const AttachmentTile: FC = () => {
 	const aui = useAui();
 	const isComposer = aui.attachment.source !== "message";
@@ -309,70 +373,6 @@ const AttachmentRemove: FC<{ name: string; placed: Placed; marks: number }> = ({
 		</>
 	);
 };
-export const ComposerAttachments: FC = () => {
-	return (
-		<div
-			{...{ [GROUP]: "" }}
-			className="aui-composer-attachments flex w-full flex-row items-start gap-2 overflow-x-auto empty:hidden"
-		>
-			<ComposerPrimitive.Attachments>
-				{() => <AttachmentTile />}
-			</ComposerPrimitive.Attachments>
-		</div>
-	);
-};
-/**
- * Picks files to attach, as its shortcut does, showing its key while ⌥⌘ is
- * held.
- */
-export const ComposerAddAttachment: FC = () => {
-	const held = useHeld();
-	const shortcut = useShortcutLabel("shortcuts.attach");
-	const key = useHeldKey("shortcuts.attach");
-	return (
-		<ComposerPrimitive.AddAttachment
-			render={
-				<TooltipIconButton
-					tooltip={
-						shortcut === null ? "Attach files" : `Attach files (${shortcut})`
-					}
-					side="bottom"
-					variant="ghost"
-					size="icon"
-					className={cn(
-						ATTACH,
-						"text-muted-foreground hover:text-foreground size-7 rounded-full",
-					)}
-					aria-label="Attach files"
-				/>
-			}
-		>
-			{held && key !== null ? (
-				<Kbd aria-hidden>{key}</Kbd>
-			) : (
-				<PlusIcon className="aui-attachment-add-icon size-4" />
-			)}
-		</ComposerPrimitive.AddAttachment>
-	);
-};
-/** Marks each composer's attach button, for ⌥⌘; to find. */
-const ATTACH = "aui-composer-add-attachment";
-/**
- * Its shortcut, ⌥⌘; unless set otherwise, picks files to attach in the
- * composer being written in, or else the first one showing. Once per page,
- * so one press opens one picker.
- */
-export function useAttachKey(): void {
-	useShortcut("shortcuts.attach", () => {
-		const shown = [
-			...document.querySelectorAll<HTMLButtonElement>(`.${ATTACH}`),
-		].filter((each) => each.getClientRects().length > 0);
-		const focused = document.activeElement?.closest("form");
-		const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
-		button?.click();
-		return button !== undefined;
-	});
-}
 /**
  * Puts `file` in the place of attachment `id` in `composer`. Nothing replaces
  * an attachment where it is, so it goes, with those after it, and they come

@@ -44,6 +44,7 @@ import {
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { filesIn, NamedContext } from "#dev/mentioned.tsx";
 
@@ -68,6 +69,9 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		() => (mentions === undefined ? undefined : matching(mentions)),
 		[mentions],
 	);
+	// A phone's keyboard has no Shift for a new line, so its Return types one
+	// and Send sends.
+	const touch = useTouch();
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
@@ -84,8 +88,9 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 				<FileNames value={names}>
 					<LexicalComposerInput
 						placeholder={placeholder}
-						className="aui-composer-input caret-primary relative max-h-48 min-h-10 w-full bg-transparent px-2.5 py-1 text-base leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-1 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
+						className="aui-composer-input caret-primary relative max-h-48 min-h-10 pointer-coarse:max-h-32 w-full bg-transparent px-2.5 py-1 text-base leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-1 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
 						autoFocus={autoFocus}
+						submitMode={touch ? "none" : "enter"}
 						aria-label="Message input"
 						formatter={formatter}
 						directiveChip={ComposerChip}
@@ -289,7 +294,7 @@ const ComposerAction: FC = () => {
 									type="button"
 									variant="ghost"
 									size="icon"
-									className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full"
+									className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full pointer-coarse:size-9"
 									aria-label="Start voice input"
 								/>
 							}
@@ -306,7 +311,7 @@ const ComposerAction: FC = () => {
 									type="button"
 									variant="ghost"
 									size="icon"
-									className="aui-composer-stop-dictation text-destructive size-7 rounded-full"
+									className="aui-composer-stop-dictation text-destructive size-7 rounded-full pointer-coarse:size-9"
 									aria-label="Stop voice input"
 								/>
 							}
@@ -331,7 +336,7 @@ const ComposerAction: FC = () => {
 								type="button"
 								variant="default"
 								size="icon"
-								className="aui-composer-send size-7 rounded-full"
+								className="aui-composer-send size-7 rounded-full pointer-coarse:size-9"
 								aria-label="Send message"
 							/>
 						}
@@ -353,7 +358,7 @@ const ComposerAction: FC = () => {
 								type="button"
 								variant="destructive"
 								size="icon"
-								className="aui-composer-cancel size-7 rounded-full"
+								className="aui-composer-cancel size-7 rounded-full pointer-coarse:size-9"
 								aria-label={isSending ? "Cancel sending" : "Stop generating"}
 							/>
 						}

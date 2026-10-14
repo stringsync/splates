@@ -5,6 +5,7 @@ import {
 	conversation,
 	fireEvent,
 	menuItem,
+	message,
 	newWith,
 	Testing,
 	typeIn,
@@ -87,5 +88,39 @@ describe("App on a touch device", () => {
 		await testing.say(conversation({ id: "c1", status: "running" }));
 		await act(async () => {});
 		expect(document.activeElement === box).toBe(true);
+	});
+
+	it("types a new line on Return, sending only on Send", async () => {
+		const view = await testing.openConversations([conversation()]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+
+		await typeIn(box, "hello");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send message" })),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1);
+	});
+
+	it("sends nothing queued on Return with nothing typed", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					status: "running",
+					messages: [
+						message("user", "go"),
+						{ ...message("user", "the second note"), queued: true },
+					],
+				}),
+			],
+			"c1",
+		);
+		const box = view.getByRole("textbox", { name: "Message input" });
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		expect(testing.posted("/api/conversations/c1/send-now")).toEqual([]);
 	});
 });
