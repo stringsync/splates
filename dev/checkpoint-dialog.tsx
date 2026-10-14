@@ -138,9 +138,10 @@ export function CheckpointDialog({
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && close()}>
 			<DialogContent className="sm:max-w-md">
-				{/* Keyed, so each slide comes in on its own. */}
+				{/* Keyed, so each slide comes in on its own; ended is resuming
+				    once all are back, so it stays in place. */}
 				<div
-					key={slide}
+					key={slide === "ended" ? "resuming" : slide}
 					className="grid gap-4 duration-200 animate-in fade-in-0 slide-in-from-right-8"
 				>
 					{slide === "pick" ? (

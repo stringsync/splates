@@ -3,6 +3,7 @@ import {
 	createContext,
 	type JSX,
 	type ReactNode,
+	type RefObject,
 	useCallback,
 	useContext,
 	useEffect,
@@ -27,6 +28,33 @@ interface Ended {
 	projects: ProjectChoice[];
 	/** The arbor it restarted on; null when it did not restart. */
 	restarted: string | null;
+}
+
+/**
+ * The checkpoint `listed` ends, if it ends one, given what was seen before:
+ * its agents told to carry on after a restart now have, or it is no longer
+ * listed.
+ */
+function endOf(
+	listed: Projects,
+	live: Slide,
+	was: {
+		resumed: RefObject<boolean>;
+		last: RefObject<ProjectChoice[]>;
+		forgotten: RefObject<boolean>;
+		waited: RefObject<boolean>;
+	},
+): Ended | null {
+	return listed.restarted === "resuming"
+		? null
+		: was.resumed.current
+			? { projects: was.last.current, restarted: listed.running }
+			: live === "pick" && was.last.current.length > 0 && !was.forgotten.current
+				? {
+						projects: was.last.current,
+						restarted: was.waited.current ? listed.running : null,
+					}
+				: null;
 }
 
 /** How long a checkpoint whose agents carried on still says it is done. */
@@ -154,14 +182,20 @@ export function CheckpointProvider({
 		void here;
 		void load();
 	}, [here, load]);
+	const was = { resumed, last, forgotten, waited };
 	const shown = offered(listed?.projects ?? []);
 	const all = standing(shown.flatMap((each) => each.conversations));
 	const live = slideOf(all);
+	// Ended as of this listing, before the effect below says so, so the
+	// dialog goes straight to it rather than through the start.
+	const ending =
+		ended ??
+		(listed === null || restarting !== null ? null : endOf(listed, live, was));
 	// Gone to restart, its agents have answered, if not as the page last saw.
 	const slide: Slide =
 		live === "going" && !(restarting !== null && unreachable)
 			? "going"
-			: ended !== null
+			: ending !== null
 				? "ended"
 				: restarting !== null
 					? "restarting"
@@ -212,9 +246,12 @@ export function CheckpointProvider({
 			}
 			return;
 		}
+		const end = endOf(listed, live, { resumed, last, forgotten, waited });
+		if (end !== null) {
+			setEnded(end);
+		}
 		if (resumed.current) {
 			resumed.current = false;
-			setEnded({ projects: last.current, restarted: listed.running });
 			last.current = [];
 			return;
 		}
@@ -224,12 +261,6 @@ export function CheckpointProvider({
 			setEnded(null);
 			setBack(null);
 		} else {
-			if (last.current.length > 0 && !forgotten.current) {
-				setEnded({
-					projects: last.current,
-					restarted: waited.current ? listed.running : null,
-				});
-			}
 			last.current = [];
 			forgotten.current = false;
 			waited.current = false;
@@ -265,7 +296,7 @@ export function CheckpointProvider({
 	}, [all.going, open, restarting, slide, load, every]);
 	const restarted =
 		slide === "ended"
-			? (ended?.restarted ?? null)
+			? (ending?.restarted ?? null)
 			: slide === "restarted"
 				? back
 				: slide === "resuming" ||
@@ -306,7 +337,7 @@ export function CheckpointProvider({
 				}
 				projects={
 					slide === "ended"
-						? (ended?.projects ?? [])
+						? (ending?.projects ?? [])
 						: slide === "restarted"
 							? []
 							: slide === "resuming" && last.current.length > 0

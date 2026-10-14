@@ -191,6 +191,7 @@ describe("App's checkpoint restart", () => {
 		expect(
 			within(restarted).getByRole("img", { name: "Resuming" }),
 		).toBeTruthy();
+		const list = within(restarted).getByRole("list", { name: "agents" });
 
 		testing.restarted = null;
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
@@ -206,6 +207,13 @@ describe("App's checkpoint restart", () => {
 		expect(
 			within(restarted).getByRole("img", { name: "Resumed" }),
 		).toBeTruthy();
+		// The same slide, rather than a second one sliding in.
+		await waitFor(() =>
+			expect(
+				within(restarted).getByRole("button", { name: "Reload page" }),
+			).toBeTruthy(),
+		);
+		expect(within(restarted).getByRole("list", { name: "agents" })).toBe(list);
 	});
 
 	it("shows Restart for a while, though arbor dev came back before the page saw it go", async () => {
