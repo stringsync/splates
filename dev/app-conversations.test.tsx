@@ -1635,6 +1635,11 @@ describe("App's conversations", () => {
 					limits: [
 						limit("five_hour", 0.5, "2026-10-11T10:00:00.000Z"),
 						limit("seven_day", 0.82, "2026-10-11T10:00:00.000Z"),
+						limit(
+							"seven_day_overage_included",
+							0.1,
+							"2026-10-11T10:00:00.000Z",
+						),
 					],
 				},
 				{
@@ -1657,6 +1662,7 @@ describe("App's conversations", () => {
 		expect(within(row("Weekly")).getByText("82%").className).toContain(
 			"text-warning",
 		);
+		expect(row("Weekly extra usage").textContent).toContain("10%");
 
 		// Codex's windows go by their length, Claude's not among them.
 		await newWith(view, "Codex");

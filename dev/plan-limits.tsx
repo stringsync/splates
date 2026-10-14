@@ -10,6 +10,7 @@ const WINDOWS: [string, string][] = [
 	["seven_day", "Weekly"],
 	["seven_day_opus", "Weekly Opus"],
 	["seven_day_sonnet", "Weekly Sonnet"],
+	["seven_day_overage_included", "Weekly extra usage"],
 ];
 
 /**
