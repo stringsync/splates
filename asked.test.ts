@@ -67,7 +67,7 @@ describe("stretches", () => {
 		).toEqual([
 			{
 				number: "1",
-				text: "Does dragging a card feel right on a phone?",
+				text: "What feels off when dragging a card on a phone?",
 				body: "",
 				choices: [],
 				pick: null,

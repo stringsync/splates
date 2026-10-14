@@ -381,19 +381,23 @@ Number questions 1, 2, … in the order you ask them; numbers never change, and
 new ones continue from the highest. A question's line is its subject, short
 enough to scan and ending at its `?`, with nothing after it; everything else,
 the why included, goes in markdown lines indented under it, code blocks
-included. Ask for what is wrong rather
-than a bare yes or no. When the answer is one of a few, end with `- (a) ...`
-lines (pick one, or none), or `- [a] ...` lines for all that apply. Describe
-every choice, the one you went with too, and mark that one `(chosen)`: never
-a bare "That". When the answer is an order (what lands first, which todo
+included. When checking your own work, ask for what is wrong rather than
+a bare yes or no. A yes or no decision is one of a few: give it `- (a) ...`
+choices, each saying what happens, never a bare "Yes" or "No", so the answer
+cannot be read two ways. When the answer is one of a few, end with
+`- (a) ...` lines (pick one, or none), or `- [a] ...` lines for all that
+apply. Describe every choice, the one you went with too, and mark that one
+`(chosen)`: never a bare "That". When the answer is an order (what lands first, which todo
 matters most), end with `- a. ...` lines in the order you would go with: the
 reply lists every letter in the order picked, `4. b, a, c`.
 
 ```markdown
 ## Blocked
 
-- [x] 1. Do the live tests pass against staging? → yes
-- [ ] 2. Does the header wrap to two lines?
+- [x] 1. Should the old upload endpoint stay for a release? → a
+  - (a) Keep it for one release, logging each call (chosen)
+  - (b) Remove it now
+- [ ] 2. What looks wrong in the header at 390px?
   ![header at 390px](/abs/path/shot.png)
 - [ ] 3. How should existing sessions move to the new tokens?
   Sessions are keyed by the old cookie.
@@ -600,7 +604,7 @@ Open http://localhost:4310 at 390px wide (a demo repo, nothing of yours).
 1. Press and hold a card, then drag it to another lane.
    It lands where you drop it.
 
-1. Does dragging a card feel right on a phone?
+1. What feels off when dragging a card on a phone?
 2. How should a stale todo be shown?
    - (a) A muted card
      ![muted card](/abs/path/muted.png)
