@@ -27,6 +27,8 @@ export interface Review {
 	demo: Demo | null;
 	/** The commands its `Checks:` line says passed, in order. */
 	checks: string[];
+	/** The commands its `Failed:` line says failed, in order. */
+	failed: string[];
 	/** Whatever else it says, past the summary, as markdown. */
 	details: string;
 }
@@ -79,6 +81,8 @@ const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
 const REVIEW_END = 'Reply "merge", or say what to change.';
 /** A review's line naming the checks that passed, each in a code span. */
 const CHECKS = /^Checks:[ \t]*(.*)$/;
+/** A review's line naming the checks that failed, the same way. */
+const FAILED = /^Failed:[ \t]*(.*)$/;
 
 /** An item of a numbered list, at the margin: `2. How should …?`. */
 const ITEM = /^(\d+)\.[ \t]+(.+)$/;
@@ -241,25 +245,31 @@ function keptAt(
  */
 function reviewOf(
 	lines: string[],
-): Pick<Review, "summary" | "demo" | "checks" | "details"> {
+): Pick<Review, "summary" | "demo" | "checks" | "failed" | "details"> {
 	const { body, demo } = withDemo(lines);
-	const said = body.split("\n");
-	const at = said.findIndex((line) => CHECKS.test(line));
-	const checks =
-		at === -1
-			? []
-			: Array.from(
-					(said[at] as string).matchAll(/`([^`]+)`/g),
-					(found) => found[1] as string,
-				);
-	// The line goes with the blank line after it, so no gap is left doubled.
-	const rest =
-		at === -1 ? said : said.toSpliced(at, said[at + 1]?.trim() === "" ? 2 : 1);
+	let rest = body.split("\n");
+	// Each line naming checks taken out, along with the blank line after it,
+	// so no gap is left doubled.
+	const named = (line: RegExp): string[] => {
+		const at = rest.findIndex((said) => line.test(said));
+		if (at === -1) {
+			return [];
+		}
+		const found = Array.from(
+			(rest[at] as string).matchAll(/`([^`]+)`/g),
+			(code) => code[1] as string,
+		);
+		rest = rest.toSpliced(at, rest[at + 1]?.trim() === "" ? 2 : 1);
+		return found;
+	};
+	const checks = named(CHECKS);
+	const failed = named(FAILED);
 	const gap = rest.findIndex((line) => line.trim() === "");
 	return {
 		summary: trimmed(gap === -1 ? rest : rest.slice(0, gap)),
 		demo,
 		checks,
+		failed,
 		details: gap === -1 ? "" : trimmed(rest.slice(gap)),
 	};
 }

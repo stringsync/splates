@@ -549,8 +549,15 @@ describe("App's review panel and demo cards", () => {
 		expect(text.indexOf("The header wraps on phones.")).toBeLessThan(
 			text.indexOf("Drag it to another lane."),
 		);
+		// The checks wait behind their toggle, which says they passed.
+		expect(view.queryByText("bun run typecheck")).toBeNull();
+		fireEvent.click(
+			within(panel).getByRole("button", { name: "Checks passed" }),
+		);
 		const checks = within(panel).getByRole("region", { name: "Checks" });
-		expect(within(checks).getByText("bun run typecheck")).toBeTruthy();
+		await waitFor(() =>
+			expect(within(checks).getByText("bun run typecheck")).toBeTruthy(),
+		);
 		expect(within(checks).getByText("bun test")).toBeTruthy();
 		// The details wait behind its toggle.
 		expect(
@@ -562,5 +569,49 @@ describe("App's review panel and demo cards", () => {
 				view.getByText("It breaks at 400px, kept in one constant."),
 			).toBeTruthy(),
 		);
+	});
+
+	it("says on a review's folded checks when one failed, and which", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					title: "Header",
+					messages: [
+						message(
+							"agent",
+							[
+								"## 🔍 Ready to merge header onto main",
+								"",
+								"The header wraps on phones.",
+								"",
+								"Checks: `bun test`",
+								"",
+								"Failed: `bun run lint`",
+								"",
+								'Reply "merge", or say what to change.',
+							].join("\n"),
+						),
+					],
+				}),
+			],
+			"c1",
+		);
+
+		const panel = await waitFor(() =>
+			view.getByRole("region", { name: "review header" }),
+		);
+		fireEvent.click(
+			within(panel).getByRole("button", { name: "Checks failed" }),
+		);
+		const lint = await waitFor(() => within(panel).getByText("bun run lint"));
+		expect(
+			lint.closest("li")?.querySelector('[aria-label="failed"]'),
+		).toBeTruthy();
+		expect(
+			within(panel)
+				.getByText("bun test")
+				.closest("li")
+				?.querySelector('[aria-label="passed"]'),
+		).toBeTruthy();
 	});
 });

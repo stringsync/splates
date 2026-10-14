@@ -4,6 +4,7 @@ import {
 	ChevronRightIcon,
 	GitMergeIcon,
 	SendHorizontalIcon,
+	XIcon,
 } from "lucide-react";
 import { type JSX, useContext, useRef } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -109,11 +110,14 @@ export function ReviewPanel({
 								: assumed.map((asked) => answerIn(sent, asked))
 						}
 						live={send !== null}
+						whole
 						onAnswer={challenge}
 						onNext={() => box.current?.focus()}
 					/>
 				)}
-				{review.checks.length > 0 && <Checks checks={review.checks} />}
+				{review.checks.length + review.failed.length > 0 && (
+					<Checks passed={review.checks} failed={review.failed} />
+				)}
 				{review.details !== "" && <Details text={review.details} />}
 			</div>
 			{sent !== null && (
@@ -208,28 +212,61 @@ export function ReviewPanel({
 	);
 }
 
-/** The checks a review says passed, a line each. */
-function Checks({ checks }: { checks: string[] }): JSX.Element {
+/**
+ * The checks a review ran, closed until opened: its title says whether they
+ * all passed, and opened, each one's line says.
+ */
+function Checks({
+	passed,
+	failed,
+}: {
+	passed: string[];
+	failed: string[];
+}): JSX.Element {
+	const ran = [
+		...failed.map((check) => ({ check, passed: false })),
+		...passed.map((check) => ({ check, passed: true })),
+	];
 	return (
-		<section aria-label="Checks" className="flex flex-col gap-1 px-4 py-3">
-			<h3 className="flex items-center gap-1.5 font-medium text-muted-foreground text-xs">
+		<Collapsible
+			render={<section aria-label="Checks" />}
+			className="group/checks"
+		>
+			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
+				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/checks:rotate-90" />
 				Checks
-			</h3>
-			<ul className="flex flex-col gap-1">
-				{checks.map((check) => (
-					<li key={check} className="flex items-center gap-2 text-sm">
-						<CheckIcon
-							aria-label="passed"
-							className="size-3.5 shrink-0 text-success"
-							strokeWidth={3}
-						/>
-						<code className="min-w-0 truncate font-mono text-[13px]">
-							{check}
-						</code>
-					</li>
-				))}
-			</ul>
-		</section>
+				<Outcome passed={failed.length === 0} />
+			</CollapsibleTrigger>
+			<CollapsibleContent>
+				<ul className="flex flex-col gap-1 px-4 pb-3">
+					{ran.map(({ check, passed }) => (
+						<li key={check} className="flex items-center gap-2 text-sm">
+							<Outcome passed={passed} />
+							<code className="min-w-0 truncate font-mono text-[13px]">
+								{check}
+							</code>
+						</li>
+					))}
+				</ul>
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
+/** A green check for passed, a red x for failed. */
+function Outcome({ passed }: { passed: boolean }): JSX.Element {
+	return passed ? (
+		<CheckIcon
+			aria-label="passed"
+			className="size-3.5 shrink-0 text-success"
+			strokeWidth={3}
+		/>
+	) : (
+		<XIcon
+			aria-label="failed"
+			className="size-3.5 shrink-0 text-destructive"
+			strokeWidth={3}
+		/>
 	);
 }
 

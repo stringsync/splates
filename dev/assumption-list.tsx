@@ -232,6 +232,7 @@ export function AssumptionList({
 	answers,
 	live,
 	heading = true,
+	whole = false,
 	onAnswer,
 	onNext,
 	onChallenge,
@@ -242,6 +243,11 @@ export function AssumptionList({
 	live: boolean;
 	/** Whether it titles itself, rather than sitting under a card's title. */
 	heading?: boolean;
+	/**
+	 * Whether each shows whole, what it asked over the choice taken, rather
+	 * than on one line cut to fit.
+	 */
+	whole?: boolean;
 	onAnswer: (assumed: Question, answer: Answer) => void;
 	/** Once Enter is pressed in an open challenge. */
 	onNext: () => void;
@@ -318,6 +324,7 @@ export function AssumptionList({
 							assumed={assumed}
 							challenge={answer}
 							live={live}
+							whole={whole}
 							onChallenge={() =>
 								onChallenge === undefined
 									? toggle(assumed.number, true)
@@ -359,17 +366,22 @@ export function ChallengeCard({
 	);
 }
 
-/** One assumption on one line: what it asked, then what the agent took. */
+/**
+ * One assumption: what it asked, then what the agent took, on one line cut
+ * to fit, or `whole`, the choice taken under what it asked.
+ */
 function AssumptionRow({
 	assumed,
 	challenge,
 	live,
+	whole,
 	onChallenge,
 }: {
 	assumed: Question;
 	/** The challenge written to it, shown in place of what it took; null for none. */
 	challenge: Answer | null;
 	live: boolean;
+	whole: boolean;
 	onChallenge: () => void;
 }): JSX.Element {
 	const { number, text, choices } = assumed;
@@ -377,6 +389,69 @@ function AssumptionRow({
 	const picked = choices.filter((choice) =>
 		challenge?.picks.includes(choice.key),
 	);
+	// The challenge written, in place of what it took.
+	const shown =
+		challenge !== null
+			? picked.length > 0
+				? picked.map((choice) => choice.text).join(", ")
+				: challenge.words
+			: taken.length > 0
+				? taken.map((choice) => choice.text).join(", ")
+				: null;
+	const mark =
+		challenge !== null ? (
+			<MessageSquareWarningIcon
+				role="img"
+				aria-label="challenged"
+				className="size-3.5 shrink-0"
+			/>
+		) : (
+			<CheckIcon className="size-3.5 shrink-0 text-success" />
+		);
+	const numeral = (
+		<span className="w-5 shrink-0 text-center font-semibold text-[11px] text-muted-foreground tabular-nums">
+			{number}
+		</span>
+	);
+	const button = live && (
+		<Button
+			variant="ghost"
+			size="xs"
+			aria-label={`Challenge assumption ${number}`}
+			// Its name, for where it shows as an icon alone.
+			title="Challenge"
+			onClick={onChallenge}
+			className="shrink-0 text-muted-foreground"
+		>
+			<MessageSquareWarningIcon data-icon="inline-start" />
+			<span className="hidden @sm:inline">Challenge</span>
+		</Button>
+	);
+	if (whole) {
+		return (
+			<li
+				aria-label={`assumption ${number}`}
+				className="flex items-start gap-2 px-4 py-1.5 text-sm"
+			>
+				<span className="flex h-6 items-center">{numeral}</span>
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
+					<Markdown text={text} inline className="text-muted-foreground" />
+					{shown !== null && (
+						<span
+							className={cn(
+								"flex items-start gap-1 font-medium",
+								challenge !== null && "text-warning",
+							)}
+						>
+							<span className="flex h-5 items-center">{mark}</span>
+							<Markdown text={shown} inline />
+						</span>
+					)}
+				</div>
+				{button}
+			</li>
+		);
+	}
 	return (
 		<li
 			aria-label={`assumption ${number}`}
@@ -385,48 +460,21 @@ function AssumptionRow({
 			className="flex min-h-8 flex-wrap items-center gap-x-2 px-4 py-0.5 text-sm"
 		>
 			<span className="flex min-w-0 basis-full items-center gap-2 @sm:flex-1 @sm:basis-0">
-				<span className="w-5 shrink-0 text-center font-semibold text-[11px] text-muted-foreground tabular-nums">
-					{number}
-				</span>
+				{numeral}
 				<Clipped text={text} className="flex-1 text-muted-foreground" />
 			</span>
-			{challenge !== null ? (
-				<span className="flex min-w-0 flex-1 items-center gap-1 pl-7 font-medium text-warning @sm:max-w-1/2 @sm:flex-none @sm:pl-0">
-					<MessageSquareWarningIcon
-						role="img"
-						aria-label="challenged"
-						className="size-3.5 shrink-0"
-					/>
-					<Clipped
-						text={
-							picked.length > 0
-								? picked.map((choice) => choice.text).join(", ")
-								: challenge.words
-						}
-					/>
-				</span>
-			) : (
-				taken.length > 0 && (
-					<span className="flex min-w-0 flex-1 items-center gap-1 pl-7 font-medium @sm:max-w-1/2 @sm:flex-none @sm:pl-0">
-						<CheckIcon className="size-3.5 shrink-0 text-success" />
-						<Clipped text={taken.map((choice) => choice.text).join(", ")} />
-					</span>
-				)
-			)}
-			{live && (
-				<Button
-					variant="ghost"
-					size="xs"
-					aria-label={`Challenge assumption ${number}`}
-					// Its name, for where it shows as an icon alone.
-					title="Challenge"
-					onClick={onChallenge}
-					className="shrink-0 text-muted-foreground"
+			{shown !== null && (
+				<span
+					className={cn(
+						"flex min-w-0 flex-1 items-center gap-1 pl-7 font-medium @sm:max-w-1/2 @sm:flex-none @sm:pl-0",
+						challenge !== null && "text-warning",
+					)}
 				>
-					<MessageSquareWarningIcon data-icon="inline-start" />
-					<span className="hidden @sm:inline">Challenge</span>
-				</Button>
+					{mark}
+					<Clipped text={shown} />
+				</span>
 			)}
+			{button}
 		</li>
 	);
 }

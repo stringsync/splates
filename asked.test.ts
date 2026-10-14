@@ -128,6 +128,7 @@ describe("stretches", () => {
 						],
 					},
 					checks: ["bun run typecheck", "bun test"],
+					failed: [],
 					details: "",
 				},
 			},
@@ -307,7 +308,7 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads a review's summary, checks, and details wherever they stand", () => {
+	it("reads a review's summary, checks, failed checks, and details wherever they stand", () => {
 		const [stretch] = stretches(
 			[
 				"## 🔍 Ready to merge header onto main",
@@ -317,6 +318,8 @@ describe("stretches", () => {
 				"It breaks at 390px rather than 420px.",
 				"",
 				"Checks: `bun run typecheck`, `bun test`",
+				"",
+				"Failed: `bun run lint`",
 				"",
 				"The old breakpoint stays for tablets.",
 				"",
@@ -332,6 +335,7 @@ describe("stretches", () => {
 				summary: "The header wraps on phones.",
 				demo: null,
 				checks: ["bun run typecheck", "bun test"],
+				failed: ["bun run lint"],
 				details:
 					"It breaks at 390px rather than 420px.\n\nThe old breakpoint stays for tablets.",
 			},

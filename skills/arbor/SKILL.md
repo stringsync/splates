@@ -747,8 +747,9 @@ Reply "merge", or say what to change.
 
 A review asks no numbered question: after its sentence comes the demo of
 what to check, then a `Checks:` line naming each check you ran that passed,
-as the project's instructions name them, each in backticks, then that last
-line exactly, so every review reads the same. Anything more the user may
+as the project's instructions name them, each in backticks, and under it,
+when one failed for a reason outside the task, a `Failed:` line naming each
+that failed the same way, then that last line exactly, so every review reads the same. Anything more the user may
 want before merging, such as how it works, goes between the checks and the
 last line: the `arbor dev` page folds it away as its details, below the
 assumptions it lists from `ARBOR.md` and the checks.
