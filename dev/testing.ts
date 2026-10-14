@@ -73,6 +73,11 @@ export class Testing implements Resource {
 	systems: NamedSystem[] = [];
 	/** What `/api/paths` and `/api/systems` wait on, for a test to hold them back. */
 	listing: Promise<void> = Promise.resolve();
+	/**
+	 * What `/api/projects` waits on, for a test to hold one listing back, which
+	 * answers with the projects as they stood when asked.
+	 */
+	listingProjects: Promise<void> = Promise.resolve();
 	/** Each task's diff, by task, for `/api/tasks/:task/diff`. */
 	diffs: Record<string, FileDiff[]> = {};
 	/** What every write answers with; a test sets it when the page reads it. */
@@ -130,7 +135,7 @@ export class Testing implements Resource {
 			// The project a page names is the page's business, not the fake's.
 			const route = path.split("?")[0];
 			if (route === "/api/projects") {
-				return Response.json({
+				const listed = {
 					projects: this.projects,
 					restarting: this.restarting,
 					restarted: this.restarted,
@@ -139,7 +144,9 @@ export class Testing implements Resource {
 					newest: this.served.release?.newest ?? null,
 					behind: this.served.behind,
 					restartable: this.restartable,
-				});
+				};
+				await this.listingProjects;
+				return Response.json(listed);
 			}
 			if (path.startsWith("/api/paths")) {
 				await this.listing;

@@ -293,25 +293,36 @@ export function CheckpointProvider({
 	const resumed = useRef(false);
 	// Back from a restart whose agents waited to be resumed, until they are.
 	const waited = useRef(false);
+	// The last listing asked for, and the newest one shown, so one that lands
+	// after a newer one cannot take the dialog back.
+	const listings = useRef(0);
+	const applied = useRef(0);
 	const { refusal, refuse } = useRefusal();
-	const load = useCallback(
-		() =>
-			listProjects().then(
-				(next) => {
-					setListed(next);
-					setUnreachable(false);
-				},
-				(error: unknown) => {
-					// The next ask finds it once it is back.
-					if (error instanceof TypeError) {
-						setUnreachable(true);
-					} else {
-						refuse("Projects not listed", error);
-					}
-				},
-			),
-		[refuse],
-	);
+	const load = useCallback(() => {
+		const ask = ++listings.current;
+		return listProjects().then(
+			(next) => {
+				if (ask < applied.current) {
+					return;
+				}
+				applied.current = ask;
+				setListed(next);
+				setUnreachable(false);
+			},
+			(error: unknown) => {
+				if (ask < applied.current) {
+					return;
+				}
+				applied.current = ask;
+				// The next ask finds it once it is back.
+				if (error instanceof TypeError) {
+					setUnreachable(true);
+				} else {
+					refuse("Projects not listed", error);
+				}
+			},
+		);
+	}, [refuse]);
 	// A change here is the one the page hears of; others come by asking.
 	const here = conversations
 		.map((each) => `${each.id}:${each.status}:${each.checkpoint}`)

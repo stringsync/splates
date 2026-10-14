@@ -854,6 +854,48 @@ describe("App's conversations", () => {
 		]);
 	});
 
+	it("goes straight to Checkpointing, though a listing asked before the checkpoint lands after", async () => {
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", status: "running" })],
+			null,
+		);
+		await act(async () => fireEvent.click(await menuItem(view, "Checkpoint")));
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Checkpoint" }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("radio", {
+					name: /^Checkpoint, restart and resume/,
+				}),
+			),
+		);
+		let release = () => {};
+		testing.listingProjects = new Promise((resolve) => {
+			release = resolve;
+		});
+		await testing.say(conversation({ id: "c1", status: "idle" }));
+		testing.listingProjects = Promise.resolve();
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		testing.restarting = { resume: true };
+
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" })),
+		);
+		const going = await waitFor(() =>
+			view.getByText(
+				"Each agent is bringing its ARBOR.md up to date, then arbor dev restarts and each resumes.",
+			),
+		);
+		await act(async () => release());
+
+		expect(view.getByRole("dialog", { name: "Checkpoint" })).toBeTruthy();
+		expect(going.isConnected).toBe(true);
+	});
+
 	it("shows Checkpoint while no project has an agent running, with nothing to pick", async () => {
 		testing.projects = [project("webappwiz", [], true)];
 		const view = await testing.openConversations(

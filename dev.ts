@@ -1222,6 +1222,9 @@ export async function dev(
 		if (restarted === "resuming" && (await checkpointed()).length === 0) {
 			restarted = null;
 		}
+		// Read before the conversations, so a checkpoint asked meanwhile never
+		// pairs its restart with agents not yet asked, which reads as restarting.
+		const then = { restarting, restarted };
 		return Response.json({
 			projects: await Promise.all(
 				(await projects.list()).map(async (each) => ({
@@ -1231,8 +1234,7 @@ export async function dev(
 					waiting: each.gone ? 0 : await waitingIn(each.root),
 				})),
 			),
-			restarting,
-			restarted,
+			...then,
 			run,
 			running,
 			newest: release?.newest ?? null,
