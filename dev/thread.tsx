@@ -31,6 +31,7 @@ import { CredUI } from "./creds";
 import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
+import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./question-cards";
@@ -115,7 +116,12 @@ export function Thread({
 		refused,
 	);
 	const section = useRef<HTMLElement>(null);
-	const reply = useReply(id, drafts);
+	// The conversation it answers to, which the person talks to in its place.
+	const handedBy = useHandedOutBy(conversation);
+	const agentAsks = useHandedTo(conversation).filter(
+		(each) => each.ask !== null && !each.archived,
+	);
+	const reply = useReply(id, drafts, handedBy === null);
 	const typed = useTyped(runtime);
 	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);
@@ -151,6 +157,7 @@ export function Thread({
 		report !== null &&
 		report.ending !== "escalated" &&
 		report.ending !== "waiting" &&
+		report.ending !== "working" &&
 		!archived
 			? report
 			: null;
@@ -238,7 +245,8 @@ export function Thread({
 								<StoppedUI />
 								<InterruptedUI />
 								<StartNewContext value={startNew}>
-									<ReplyContext value={reply}>
+									{/* Its cards read-only: only its orchestrator replies to it. */}
+									<ReplyContext value={handedBy === null ? reply : null}>
 										<NamedContext value={named}>
 											<ThreadView
 												openAt={openAt}
@@ -246,6 +254,15 @@ export function Thread({
 												mentions={mentions ?? undefined}
 												references={references}
 												commands={commands ?? undefined}
+												composer={
+													handedBy === null ? undefined : (
+														<HandedOut
+															conversation={conversation}
+															by={handedBy}
+															onOpen={onOpen}
+														/>
+													)
+												}
 												placeholder={
 													archived
 														? "Send a message to unarchive and continue"
@@ -274,7 +291,7 @@ export function Thread({
 												above={
 													<>
 														<Refusal refusal={refusal} className="px-2" />
-														{ended !== null && (
+														{ended !== null && handedBy === null && (
 															<ArchiveBar
 																report={ended}
 																onArchive={() => archive.file(onLeft)}
@@ -285,12 +302,28 @@ export function Thread({
 																conversation={id}
 																messages={queued}
 																pending={feed.unrecorded(id)}
-																onEdit={(index) => void edit(index)}
-																onDiscard={(index) => void discard(index)}
-																onSendNow={() => void sendNow()}
+																edits={
+																	handedBy === null
+																		? {
+																				onEdit: (index) => void edit(index),
+																				onDiscard: (index) =>
+																					void discard(index),
+																				onSendNow: () => void sendNow(),
+																			}
+																		: null
+																}
 															/>
 														)}
-														{conversation.ask !== null && (
+														{/* Its agents' asks, which only the person answers. */}
+														{agentAsks.map((agent) => (
+															<AgentAsk
+																key={agent.id}
+																drafts={drafts}
+																conversation={agent}
+															/>
+														))}
+														{/* Answered where it answers to, beside that one's. */}
+														{conversation.ask !== null && handedBy === null && (
 															<AskPanel
 																key={conversation.ask.id}
 																drafts={drafts}
@@ -362,6 +395,8 @@ function ThreadHeader({
 }): JSX.Element {
 	const { archived } = conversation;
 	const [renaming, setRenaming] = useState(false);
+	// One that answers to another is that one's to rename and set to work.
+	const handedOut = useHandedOutBy(conversation) !== null;
 	const nameOf = useNameOf();
 	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
 	return (
@@ -380,8 +415,12 @@ function ThreadHeader({
 					// ellipsis rather than running across the pane.
 					<div className="flex min-w-0 items-center gap-2">
 						<h2
-							onDoubleClick={() => setRenaming(true)}
-							title={`${nameOf(conversation)}\nDouble-click to rename`}
+							onDoubleClick={() => setRenaming(!handedOut)}
+							title={
+								handedOut
+									? nameOf(conversation)
+									: `${nameOf(conversation)}\nDouble-click to rename`
+							}
 							className={cn(
 								"max-w-md truncate font-medium text-sm",
 								unnamed(conversation) && "text-muted-foreground italic",
@@ -391,7 +430,7 @@ function ThreadHeader({
 						</h2>
 					</div>
 				)}
-				{conversation.task === null && !archived ? (
+				{conversation.task === null && !archived && !handedOut ? (
 					<TakeUp trunk={trunk} tasks={free} onTake={onTake} />
 				) : (
 					<TaskLine branch={branch} task={task} onDetails={onDetails} />

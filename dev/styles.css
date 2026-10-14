@@ -31,6 +31,7 @@
 @source "./files.tsx";
 @source "./file-chip.tsx";
 @source "./fullscreen.tsx";
+@source "./handed-out.tsx";
 @source "./current-task.tsx";
 @source "./attachment-chips.tsx";
 @source "./mentioned.tsx";

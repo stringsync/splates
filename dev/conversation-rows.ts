@@ -1,5 +1,11 @@
 import type { ConversationState } from "../conversations";
-import { type Need, type Needing, need, needs } from "../needs";
+import {
+	answeredThrough,
+	type Need,
+	type Needing,
+	need,
+	needs,
+} from "../needs";
 import type { Details } from "../show";
 import { NEW } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
@@ -16,16 +22,16 @@ export function rowsOf(
 	const external = needs({ tasks, conversations }).filter(
 		(each) => each.conversation === null,
 	);
-	return [
-		...conversations
-			.filter((each) => !each.archived)
-			.map((conversation) => ({
-				conversation,
-				task: null,
-				need: needOf(tasks, conversation),
-			})),
-		...external,
-	].toSorted((one, other) => started(other).localeCompare(started(one)));
+	const listed = conversations
+		.filter((each) => !each.archived)
+		.map((conversation) => ({
+			conversation,
+			task: null,
+			need: needOf(tasks, conversation),
+		}));
+	return [...answeredThrough(listed, conversations), ...external].toSorted(
+		(one, other) => started(other).localeCompare(started(one)),
+	);
 }
 
 /** Nested rows in the order they show, each part under its task. */

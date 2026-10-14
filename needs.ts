@@ -83,7 +83,7 @@ export function needs({
 			.map((task) => ({ conversation: null, task, need: need(task, null) })),
 	];
 	// Stable, so equals keep the order they came in.
-	return found.sort(
+	return answeredThrough(found, conversations).sort(
 		(one, other) =>
 			KINDS.indexOf(one.need.kind) - KINDS.indexOf(other.need.kind) ||
 			pressing(one.need, other.need),
@@ -147,6 +147,65 @@ export function need(
 	return running
 		? { kind: "working", subject: task?.plan ? nextStep(task.plan) : null }
 		: { kind: "idle" };
+}
+
+/**
+ * `found` with each agent that answers to another conversation waiting on
+ * that one rather than on the person: only the person answers its asks, so
+ * one waits on that one's row, where they show, whatever it is doing; its
+ * escalations reach the person through that one's reports, so one waits on
+ * that one's row once it is idle, having relayed it. A failure stays the
+ * agent's own, since nothing tells that one of it.
+ */
+export function answeredThrough(
+	found: Needing[],
+	conversations: ConversationState[],
+): Needing[] {
+	const handedOut = (entry: Needing): string | null => {
+		const by = entry.conversation?.handedBy ?? null;
+		return by !== null && conversations.some((each) => each.id === by)
+			? by
+			: null;
+	};
+	const relayed = (entry: Needing): boolean =>
+		handedOut(entry) !== null &&
+		entry.need.kind === "waiting" &&
+		entry.need.why !== "failed";
+	// An ask before an escalation, as the agent is stuck mid-turn on it.
+	const lifted = new Map<string, Need>();
+	for (const entry of found
+		.filter(relayed)
+		.toSorted(
+			(one, other) =>
+				Number(other.need.kind === "waiting" && other.need.why === "ask") -
+				Number(one.need.kind === "waiting" && one.need.why === "ask"),
+		)) {
+		const by = handedOut(entry) as string;
+		if (!lifted.has(by)) {
+			lifted.set(by, entry.need);
+		}
+	}
+	return found.map((entry) => {
+		if (relayed(entry)) {
+			const running =
+				entry.conversation?.status === "running" ||
+				entry.conversation?.status === "starting";
+			const plan = entry.task?.plan;
+			return {
+				...entry,
+				need: running
+					? { kind: "working", subject: plan ? nextStep(plan) : null }
+					: { kind: "idle" },
+			};
+		}
+		const wait = lifted.get(entry.conversation?.id ?? "");
+		const takes =
+			wait?.kind === "waiting" &&
+			(wait.why === "ask"
+				? entry.need.kind !== "waiting"
+				: entry.need.kind === "idle");
+		return wait !== undefined && takes ? { ...entry, need: wait } : entry;
+	});
 }
 
 /** Negative when `one` should come before `other` among needs of a kind. */

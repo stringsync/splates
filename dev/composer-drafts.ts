@@ -114,17 +114,22 @@ export function filesOf(message: AppendMessage): File[] {
  * What the cards in conversation `id` answer through: what they send goes to
  * it, and what one keeps goes in `drafts` beside the composer's own.
  */
-export function useReply(id: string, drafts: Drafts): Reply {
+export function useReply(
+	id: string,
+	drafts: Drafts,
+	/** Whether its cards send anything, which a handed-out task's do not. */
+	sends = true,
+): Reply {
 	return useMemo(
 		() => ({
-			send: (said: string) => promptConversation(id, said),
+			send: sends ? (said: string) => promptConversation(id, said) : null,
 			drafts: {
 				read: (name: string) => drafts.read(`${id}:${name}`),
 				write: (name: string, kept: string) =>
 					drafts.write(`${id}:${name}`, kept),
 			},
 		}),
-		[id, drafts],
+		[id, drafts, sends],
 	);
 }
 

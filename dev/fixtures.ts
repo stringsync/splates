@@ -83,6 +83,7 @@ export function details(overrides: Partial<Details> = {}): Details {
 		plan: null,
 		planProblems: [],
 		dispatched: false,
+		handedTo: null,
 		systems: [],
 		...overrides,
 	};
@@ -116,6 +117,8 @@ export function conversation(
 		error: null,
 		name: null,
 		archived: false,
+		archivedWith: null,
+		handedBy: null,
 		assigned: false,
 		unread: false,
 		seen: 0,

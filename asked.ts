@@ -2,151 +2,6 @@ import { type Demo, demoAt, isDemoTitle } from "./demo";
 import { offers, type Question, settled } from "./plan";
 
 /**
- * A stretch of an agent's message: markdown as it was written, the questions
- * it asks the person in the arbor skill's format, its report asking them to
- * review a task before it merges, its report of how a task ended or what it
- * waits on or that the lanes it orchestrated are done, its word that it added
- * a task or started lanes, a todo it proposes, a demo for the person to try, or its word that
- * it requested a cred.
- */
-export type Stretch =
-	| { type: "text"; text: string }
-	| { type: "questions"; questions: Question[] }
-	| { type: "review"; review: Review }
-	| { type: "report"; report: Report }
-	| { type: "start"; start: Start }
-	| { type: "todo"; todo: Proposal }
-	| { type: "demo"; demo: Demo }
-	| { type: "cred"; name: string };
-
-/** A review the skill's `## 🔍 Ready to merge` report asks for. */
-export interface Review {
-	task: string;
-	base: string;
-	/** Its first paragraph: what changed, in a sentence, as markdown. */
-	summary: string;
-	/** The demo it holds, to try before merging. */
-	demo: Demo | null;
-	/** The commands its `Checks:` line says passed, in order. */
-	checks: string[];
-	/** The commands its `Failed:` line says failed, in order. */
-	failed: string[];
-	/** Whatever else it says, past the summary, as markdown. */
-	details: string;
-}
-
-/**
- * How a task ended, or what it waits on, or that a lane orchestrator is done
- * with its lanes or waits on the person, as the skill's reports title them.
- */
-export type Ending =
-	| "merged"
-	| "removed"
-	| "escalated"
-	| "finished"
-	| "waiting";
-
-/** A report on a task, or a lane orchestrator's last word on its lanes. */
-export type Report = TaskReport | LanesReport;
-
-/**
- * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
- * <task>: <why>`, or `## ⚠️ Escalated <task>: <what it needs>`.
- */
-export interface TaskReport {
-	ending: Exclude<Ending, LanesReport["ending"]>;
-	task: string;
-	/** Where it merged; null for the others. */
-	base: string | null;
-	/** What the title says after its colon, if anything. */
-	reason: string | null;
-	/** What changed, and anything else said before what follows, as markdown. */
-	body: string;
-	/** The markdown the agent wrote for it, from its title to its end. */
-	source: string;
-}
-
-/**
- * The report a lane orchestrator ends on: once every lane it works is done,
- * titled `## 🏁 Finished lanes <name>, <name>`, as there is nothing left for
- * it to hand out; or once each lane not done waits on a task that escalated,
- * titled `## ⏸️ Waiting lanes <name>, <name>: <on what>`, as the person must
- * answer that task before it can go on.
- */
-export interface LanesReport {
-	ending: "finished" | "waiting";
-	/** The lanes' names, as the title lists them. */
-	lanes: string[];
-	/** What the title says after its colon, if anything. */
-	reason: string | null;
-	/** How each lane stands, and anything else said, as markdown. */
-	body: string;
-	/** The markdown the agent wrote for it, from its title to its end. */
-	source: string;
-}
-
-/** What an agent says it is starting on: a task, or a lane orchestrator's lanes. */
-export type Start = TaskStart | LanesStart;
-
-/** A task the skill says it added as `## 🌱 Added <task>`, its Goal under it. */
-export interface TaskStart {
-	task: string;
-	/** What done means, as the task's Goal says, as markdown. */
-	goal: string;
-}
-
-/**
- * The lanes an orchestrator says it is starting to work, as `## 🌱 Started
- * lanes <name>, <name>`, what they add up to under it.
- */
-export interface LanesStart {
-	/** The lanes' names, as the title lists them. */
-	lanes: string[];
-	/** What the lanes add up to, as markdown. */
-	goal: string;
-}
-
-/** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
-export interface Proposal {
-	id: number;
-	/** The subject as the agent wrote it, which may since have changed. */
-	subject: string;
-	/** What the todo is and why it matters now, as markdown. */
-	body: string;
-}
-
-const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
-const ENDED =
-	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
-const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
-const WAITING = /^## ⏸\uFE0F? Waiting lanes? (.*?)(?::[ \t]*(.*?))?[ \t]*$/;
-const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
-const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
-/** The skill's word that it requested a cred, which the page shows as the request. */
-const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
-const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
-const HEADING = /^#{1,6}[ \t]/;
-
-/** A review report's title, and the line every one ends with. */
-const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
-const REVIEW_END = 'Reply "merge", or say what to change.';
-/** A review's line naming the checks that passed, each in a code span. */
-const CHECKS = /^Checks:[ \t]*(.*)$/;
-/** A review's line naming the checks that failed, the same way. */
-const FAILED = /^Failed:[ \t]*(.*)$/;
-
-/** An item of a numbered list, at the margin: `2. How should …?`. */
-const ITEM = /^(\d+)\.[ \t]+(.+)$/;
-const FENCE = /^[ \t]*(```|~~~)/;
-/** An item's line that asks: it ends in `?`, or in `?` and an aside. */
-const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
-/**
- * An item's line that goes on past its question: `How should I …? You turned
- * down …`, split after the first `?` (and any aside) that a space follows.
- */
-const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
-
-/**
  * `text` cut where it asks questions: a list numbered from 1 at the margin,
  * outside code blocks, every item a question, the lines indented under each
  * its body and its `- (a)` or `- [a]` choices, read as `## Blocked` reads
@@ -228,6 +83,154 @@ export function stretches(text: string): Stretch[] {
 }
 
 /**
+ * A stretch of an agent's message: markdown as it was written, the questions
+ * it asks the person in the arbor skill's format, its report asking them to
+ * review a task before it merges, its report of how a task ended or what it
+ * waits on or that the lanes it orchestrated are done, its word that it added
+ * a task or started lanes, a todo it proposes, a demo for the person to try, or its word that
+ * it requested a cred.
+ */
+export type Stretch =
+	| { type: "text"; text: string }
+	| { type: "questions"; questions: Question[] }
+	| { type: "review"; review: Review }
+	| { type: "report"; report: Report }
+	| { type: "start"; start: Start }
+	| { type: "todo"; todo: Proposal }
+	| { type: "demo"; demo: Demo }
+	| { type: "cred"; name: string };
+
+/** A review the skill's `## 🔍 Ready to merge` report asks for. */
+export interface Review {
+	task: string;
+	base: string;
+	/** Its first paragraph: what changed, in a sentence, as markdown. */
+	summary: string;
+	/** The demo it holds, to try before merging. */
+	demo: Demo | null;
+	/** The commands its `Checks:` line says passed, in order. */
+	checks: string[];
+	/** The commands its `Failed:` line says failed, in order. */
+	failed: string[];
+	/** Whatever else it says, past the summary, as markdown. */
+	details: string;
+}
+
+/**
+ * How a task ended, or what it waits on, or that a lane orchestrator is done
+ * with its lanes or waits on the person, as the skill's reports title them.
+ */
+export type Ending =
+	| "merged"
+	| "removed"
+	| "escalated"
+	| "finished"
+	| "waiting"
+	| "working";
+
+/** A report on a task, or a lane orchestrator's last word on its lanes. */
+export type Report = TaskReport | LanesReport;
+
+/**
+ * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
+ * <task>: <why>`, or `## ⚠️ Escalated <task>: <what it needs>`.
+ */
+export interface TaskReport {
+	ending: Exclude<Ending, LanesReport["ending"]>;
+	task: string;
+	/** Where it merged; null for the others. */
+	base: string | null;
+	/** What the title says after its colon, if anything. */
+	reason: string | null;
+	/** What changed, and anything else said before what follows, as markdown. */
+	body: string;
+	/** The markdown the agent wrote for it, from its title to its end. */
+	source: string;
+}
+
+/**
+ * The report a lane orchestrator ends on: once every lane it works is done,
+ * titled `## 🏁 Finished lanes <name>, <name>`, as there is nothing left for
+ * it to hand out; or once each lane not done waits on a task that escalated,
+ * titled `## ⏸️ Waiting lanes <name>, <name>: <on what>`, as the person must
+ * answer that task before it can go on.
+ */
+export interface LanesReport {
+	ending: "finished" | "waiting" | "working";
+	/** The lanes' names, as the title lists them. */
+	lanes: string[];
+	/** What the title says after its colon, if anything. */
+	reason: string | null;
+	/** How each lane stands, and anything else said, as markdown. */
+	body: string;
+	/** The markdown the agent wrote for it, from its title to its end. */
+	source: string;
+}
+
+/** What an agent says it is starting on: a task, or a lane orchestrator's lanes. */
+export type Start = TaskStart | LanesStart;
+
+/** A task the skill says it added as `## 🌱 Added <task>`, its Goal under it. */
+export interface TaskStart {
+	task: string;
+	/** What done means, as the task's Goal says, as markdown. */
+	goal: string;
+}
+
+/**
+ * The lanes an orchestrator says it is starting to work, as `## 🌱 Started
+ * lanes <name>, <name>`, what they add up to under it.
+ */
+export interface LanesStart {
+	/** The lanes' names, as the title lists them. */
+	lanes: string[];
+	/** What the lanes add up to, as markdown. */
+	goal: string;
+}
+
+/** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
+export interface Proposal {
+	id: number;
+	/** The subject as the agent wrote it, which may since have changed. */
+	subject: string;
+	/** What the todo is and why it matters now, as markdown. */
+	body: string;
+}
+
+/** An item's line that asks: it ends in `?`, or in `?` and an aside. */
+const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
+/**
+ * An item's line that goes on past its question: `How should I …? You turned
+ * down …`, split after the first `?` (and any aside) that a space follows.
+ */
+const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
+
+const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
+const ENDED =
+	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
+const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
+const WAITING = /^## ⏸\uFE0F? Waiting lanes? (.*?)(?::[ \t]*(.*?))?[ \t]*$/;
+const WORKING = /^## ⏳ Working lanes? (.*?)(?::[ \t]*(.*?))?[ \t]*$/;
+const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
+const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
+/** The skill's word that it requested a cred, which the page shows as the request. */
+const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
+const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
+const HEADING = /^#{1,6}[ \t]/;
+
+/** A review report's title, and the line every one ends with. */
+const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
+const REVIEW_END = 'Reply "merge", or say what to change.';
+/** A review's line naming the checks that passed, each in a code span. */
+const CHECKS = /^Checks:[ \t]*(.*)$/;
+/** A review's line naming the checks that failed, the same way. */
+const FAILED = /^Failed:[ \t]*(.*)$/;
+
+/** An item of a numbered list, at the margin: `2. How should …?`. */
+const ITEM = /^(\d+)\.[ \t]+(.+)$/;
+const FENCE = /^[ \t]*(```|~~~)/;
+
+/**
  * The report, added task, started lanes or proposed todo titled at `start`, which runs until
  * the next heading or list of questions, and the line after it; null for any
  * other line.
@@ -241,6 +244,7 @@ function keptAt(
 	const ended = ENDED.exec(line);
 	const finished = FINISHED.exec(line);
 	const waiting = WAITING.exec(line);
+	const working = WORKING.exec(line);
 	const added = ADDED.exec(line);
 	const started = STARTED.exec(line);
 	const proposed = PROPOSAL.exec(line);
@@ -249,6 +253,7 @@ function keptAt(
 		ended === null &&
 		finished === null &&
 		waiting === null &&
+		working === null &&
 		added === null &&
 		started === null &&
 		proposed === null
@@ -301,11 +306,11 @@ function keptAt(
 					body,
 					source,
 				}
-			: waiting !== null
+			: waiting !== null || working !== null
 				? {
-						ending: "waiting",
-						lanes: lanesOf(waiting[1] as string),
-						reason: waiting[2] || null,
+						ending: waiting !== null ? "waiting" : "working",
+						lanes: lanesOf((waiting ?? working)?.[1] as string),
+						reason: (waiting ?? working)?.[2] || null,
 						body,
 						source,
 					}

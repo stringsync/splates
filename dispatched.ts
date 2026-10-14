@@ -37,6 +37,8 @@ export async function startDispatched({
 			cwd: worktree.path,
 			model: dispatch.model,
 			assigned: true,
+			// It answers to whoever handed it out, not to the person.
+			handedBy: worktree.caller,
 		});
 		await worktree.save({
 			dispatch: { ...dispatch, conversation: conversation.id },

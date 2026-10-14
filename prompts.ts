@@ -23,6 +23,22 @@ export function taskReference(task: string): string {
 }
 
 /**
+ * What tells the conversation that handed `task` out that it stopped:
+ * escalated, merged or removed, which `arbor show` says.
+ */
+export function reportReference(task: string): string {
+	return `[ARBOR REPORT ${task}]`;
+}
+
+/**
+ * What tells the conversation that handed `task` out that the person
+ * terminated its agent, leaving the task as it stood.
+ */
+export function stoppedReference(task: string): string {
+	return `[ARBOR STOPPED ${task}]`;
+}
+
+/**
  * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
  * restart: the arbor skill says what it means.
  */

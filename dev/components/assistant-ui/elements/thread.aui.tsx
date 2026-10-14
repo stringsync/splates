@@ -50,6 +50,7 @@ export const Thread: FC<ThreadProps> = ({
 	references,
 	commands,
 	placeholder,
+	composer,
 	openAt,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
@@ -66,6 +67,7 @@ export const Thread: FC<ThreadProps> = ({
 					references,
 					commands,
 					placeholder,
+					composer,
 				}}
 			>
 				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} openAt={openAt} />
@@ -73,44 +75,13 @@ export const Thread: FC<ThreadProps> = ({
 		</ThreadComponentsContext.Provider>
 	);
 };
-// Startup exposes a loading placeholder thread; treat it as a new chat so
-// the composer mounts centered. Loads after startup keep the docked layout.
-const isNewChatView = (s: AssistantState) =>
-	s.thread.messages.length === 0 &&
-	(!s.thread.isLoading || s.threads.isLoading);
-// A switched thread that is still fetching its history: skeleton, not welcome.
-const isHistoryLoadingView = (s: AssistantState) =>
-	s.thread.messages.length === 0 &&
-	s.thread.isLoading &&
-	!s.thread.isDisabled &&
-	!s.threads.isLoading;
-const ThreadHistorySkeleton: FC = () => (
-	<div
-		data-slot="aui_thread-history-skeleton"
-		role="status"
-		className="animate-in fade-in fill-mode-both flex flex-col gap-y-6 [animation-delay:150ms] [animation-duration:200ms]"
-	>
-		<span className="sr-only">Loading conversation</span>
-		<Skeleton className="ml-auto h-9 w-2/5 rounded-xl motion-reduce:animate-none" />
-		<div className="flex flex-col gap-y-2">
-			<Skeleton className="h-4 w-11/12 motion-reduce:animate-none" />
-			<Skeleton className="h-4 w-4/5 motion-reduce:animate-none" />
-			<Skeleton className="h-4 w-3/5 motion-reduce:animate-none" />
-		</div>
-		<Skeleton className="ml-auto h-9 w-1/3 rounded-xl motion-reduce:animate-none" />
-		<div className="flex flex-col gap-y-2">
-			<Skeleton className="h-4 w-10/12 motion-reduce:animate-none" />
-			<Skeleton className="h-4 w-2/3 motion-reduce:animate-none" />
-		</div>
-	</div>
-);
 const ThreadRoot: FC<{
 	isEmpty: boolean;
 	autoFocus: boolean;
 	openAt: string | undefined;
 }> = ({ isEmpty, autoFocus, openAt }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
-	const { welcome, below } = useContext(ThreadExtrasContext);
+	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
 	// A finger taps the composer when it means to type: focus raises the
 	// keyboard over half the page.
@@ -202,7 +173,7 @@ const ThreadRoot: FC<{
 						<ThreadScrollToBottom />
 						<ThreadFollowupSuggestions />
 						<ThreadAbove />
-						<Composer autoFocus={autoFocus && !touch} />
+						{composer ?? <Composer autoFocus={autoFocus && !touch} />}
 						<AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
 							<ThreadSuggestions />
 						</AuiIf>
@@ -387,3 +358,35 @@ const ThreadAbove: FC = () => {
 	const { above } = useContext(ThreadExtrasContext);
 	return above ?? null;
 };
+
+// Startup exposes a loading placeholder thread; treat it as a new chat so
+// the composer mounts centered. Loads after startup keep the docked layout.
+const isNewChatView = (s: AssistantState) =>
+	s.thread.messages.length === 0 &&
+	(!s.thread.isLoading || s.threads.isLoading);
+// A switched thread that is still fetching its history: skeleton, not welcome.
+const isHistoryLoadingView = (s: AssistantState) =>
+	s.thread.messages.length === 0 &&
+	s.thread.isLoading &&
+	!s.thread.isDisabled &&
+	!s.threads.isLoading;
+const ThreadHistorySkeleton: FC = () => (
+	<div
+		data-slot="aui_thread-history-skeleton"
+		role="status"
+		className="animate-in fade-in fill-mode-both flex flex-col gap-y-6 [animation-delay:150ms] [animation-duration:200ms]"
+	>
+		<span className="sr-only">Loading conversation</span>
+		<Skeleton className="ml-auto h-9 w-2/5 rounded-xl motion-reduce:animate-none" />
+		<div className="flex flex-col gap-y-2">
+			<Skeleton className="h-4 w-11/12 motion-reduce:animate-none" />
+			<Skeleton className="h-4 w-4/5 motion-reduce:animate-none" />
+			<Skeleton className="h-4 w-3/5 motion-reduce:animate-none" />
+		</div>
+		<Skeleton className="ml-auto h-9 w-1/3 rounded-xl motion-reduce:animate-none" />
+		<div className="flex flex-col gap-y-2">
+			<Skeleton className="h-4 w-10/12 motion-reduce:animate-none" />
+			<Skeleton className="h-4 w-2/3 motion-reduce:animate-none" />
+		</div>
+	</div>
+);

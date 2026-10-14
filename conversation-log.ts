@@ -68,6 +68,7 @@ export class ConversationLog {
 			start.base,
 			start.caller,
 			start.assigned,
+			start.handedBy ?? null,
 		);
 		const replayed: Replayed = {
 			state,
@@ -123,6 +124,7 @@ export class ConversationLog {
 				state.settings = entry.settings;
 			} else if (entry.kind === "archive") {
 				state.archived = entry.archived;
+				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
 				replayed.archivedAt = entry.archived ? (entry.at ?? null) : null;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
@@ -229,6 +231,8 @@ export type Entry =
 			createdAt: string;
 			/** Missing from logs written before assignments were kept apart. */
 			assigned?: boolean;
+			/** Who handed it its task; missing for one nobody did. */
+			handedBy?: string;
 	  }
 	| { kind: "session"; session: string }
 	/** Moved into a task's worktree, or back to the main tree. */
@@ -244,7 +248,13 @@ export type Entry =
 	/** What the session offered and had set, kept so the next one can start alike. */
 	| { kind: "settings"; settings: Setting[] }
 	/** `at` is missing from logs written before older archived ones were deleted. */
-	| { kind: "archive"; archived: boolean; at?: string }
+	| {
+			kind: "archive";
+			archived: boolean;
+			at?: string;
+			/** The conversation whose archiving took this one with it. */
+			with?: string;
+	  }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
 	/** `at` is missing from logs written before the page showed how long things took. */

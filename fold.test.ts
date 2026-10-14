@@ -21,6 +21,8 @@ describe("fold", () => {
 		commands: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
+		archivedWith: null,
+		handedBy: null,
 		assigned: false,
 		unread: false,
 		seen: 0,
@@ -30,6 +32,15 @@ describe("fold", () => {
 	});
 	const at = (secs: number) =>
 		new Date(Date.parse("2026-10-11T10:00:00Z") + secs * 1000).toISOString();
+	/** Folds each update into `into` in order, each at the time beside it. */
+	const foldAll = (
+		into: ConversationState,
+		updates: [acp.SessionUpdate, string][],
+	) => {
+		for (const [update, when] of updates) {
+			fold(into, update, when);
+		}
+	};
 
 	it("keeps how full the context is, but not a subagent's", () => {
 		const into = state();
@@ -171,9 +182,10 @@ describe("fold", () => {
 				],
 			},
 		];
-		for (const [index, update] of updates.entries()) {
-			fold(into, update, at(index * 10));
-		}
+		foldAll(
+			into,
+			updates.map((update, index) => [update, at(index * 10)]),
+		);
 
 		expect(into.messages[0]?.parts).toEqual([
 			{
@@ -359,19 +371,22 @@ describe("fold", () => {
 
 	it("keeps when the agent began saying something, not when it went on", () => {
 		const into = state();
-		for (const [text, second] of [
-			["Now ", 0],
-			["the fix.", 3],
-		] as const) {
-			fold(
-				into,
+		foldAll(into, [
+			[
 				{
 					sessionUpdate: "agent_message_chunk",
-					content: { type: "text", text },
+					content: { type: "text", text: "Now " },
 				},
-				at(second),
-			);
-		}
+				at(0),
+			],
+			[
+				{
+					sessionUpdate: "agent_message_chunk",
+					content: { type: "text", text: "the fix." },
+				},
+				at(3),
+			],
+		]);
 
 		expect(into.messages[0]?.parts).toEqual([
 			{ type: "text", text: "Now the fix.", at: at(0) },

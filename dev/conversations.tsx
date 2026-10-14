@@ -78,6 +78,10 @@ export function Conversations({
 		["changed"],
 	);
 	const shown = conversations.find((each) => each.id === open) ?? null;
+	const shownTask =
+		shown === null
+			? null
+			: (tasks.find((each) => each.task === shown.task) ?? null);
 	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
 	// A todo a conversation mentions opens over it, and the task that took
 	// one over that, so the conversation keeps its place. Both go once
@@ -202,7 +206,7 @@ export function Conversations({
 						conversation={shown}
 						feed={feed}
 						agent={agentName(agents, shown.agent)}
-						task={tasks.find((each) => each.task === shown.task) ?? null}
+						task={shownTask}
 						tasks={tasks}
 						free={free}
 						trunk={trunk}

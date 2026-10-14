@@ -1,4 +1,5 @@
 import { Duration, SystemTimer, Throttler } from "webappwiz/time";
+import type { Conversation } from "./conversation";
 import type { Answer, Conversations, Upload } from "./conversations";
 import {
 	body,
@@ -10,6 +11,7 @@ import {
 } from "./dev-http";
 import type { DevContext, Project } from "./dev-project";
 import { fail } from "./exit";
+import { stoppedReference } from "./prompts";
 import { modelsOf } from "./roster";
 
 /**
@@ -193,6 +195,7 @@ export class ConversationRoutes {
 	// A form: the words as `text`, and each file sent with them as `file`.
 	readonly promptConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		const form = await request.formData();
 		const files: Upload[] = [];
 		for (const file of form.getAll("file")) {
@@ -238,6 +241,7 @@ export class ConversationRoutes {
 
 	readonly cancelConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		await conversation.cancel();
 		return Response.json(conversation.state);
 	};
@@ -260,6 +264,7 @@ export class ConversationRoutes {
 
 	readonly stopBackground = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		const { background } = await body(request);
 		await conversation.stopBackground(String(background ?? ""));
 		return Response.json(conversation.state);
@@ -278,18 +283,21 @@ export class ConversationRoutes {
 		request: Request,
 	): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		const { index } = await body(request);
 		return Response.json(conversation.unqueue(Number(index ?? -1)));
 	};
 
 	readonly sendQueuedNow = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		await conversation.sendNow();
 		return Response.json(conversation.state);
 	};
 
 	readonly chooseSetting = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		const { id, value } = await body(request);
 		await conversation.choose(String(id ?? ""), String(value ?? ""));
 		return Response.json(conversation.state);
@@ -297,6 +305,7 @@ export class ConversationRoutes {
 
 	readonly renameConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		const { name } = await body(request);
 		await conversation.rename(String(name ?? ""));
 		return Response.json(conversation.state);
@@ -313,12 +322,107 @@ export class ConversationRoutes {
 		request: Request,
 	): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
 		const { archived } = await body(request);
-		await (archived === false
-			? conversation.unarchive()
-			: conversation.archive());
+		const all = await this.held().list();
+		if (archived === false) {
+			await conversation.unarchive();
+			// Those its archiving took with it come back with it.
+			await Promise.all(
+				all
+					.filter((each) => each.state.archivedWith === conversation.id)
+					.map((each) => each.unarchive()),
+			);
+		} else {
+			// The agents it handed tasks to answer to it alone: they go with it,
+			// stopped mid-work if they were at it, as the page confirmed.
+			await Promise.all(
+				all
+					.filter(
+						(each) =>
+							each.state.handedBy === conversation.id && !each.state.archived,
+					)
+					.map((each) => each.archive(conversation.id)),
+			);
+			await conversation.archive();
+		}
 		return Response.json(conversation.state);
 	};
+
+	/**
+	 * Says `text` in a conversation as the person would, for the conversation
+	 * that handed it its task, as `arbor tell` does: the one way in to it.
+	 */
+	readonly tellConversation = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { from, text } = await body(request);
+		if (
+			conversation.state.handedBy === null ||
+			conversation.state.handedBy !== from
+		) {
+			fail(
+				"usage",
+				`conversation ${conversation.id} answers only to the one that handed it its task`,
+				{ conversation: conversation.id },
+			);
+		}
+		await conversation.prompt(String(text ?? ""));
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * The person's way out of a handed-out agent: stops its turn and its
+	 * process, and tells the conversation that handed it out, which decides
+	 * what becomes of the task. Its next word from that one resumes it.
+	 */
+	readonly terminateConversation = async (
+		request: Request,
+	): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { handedBy, task, lastTask } = conversation.state;
+		if (handedBy === null) {
+			fail(
+				"usage",
+				`conversation ${conversation.id} was handed nothing: stop its turn instead`,
+				{ conversation: conversation.id },
+			);
+		}
+		if (conversation.state.status === "running") {
+			await conversation.cancel();
+		}
+		await conversation.stop();
+		const caller = (await this.held().list()).find(
+			(each) => each.id === handedBy,
+		);
+		// An archived one took this one with it, and is told nothing.
+		if (caller !== undefined && !caller.state.archived) {
+			await caller.prompt(
+				stoppedReference(task ?? lastTask ?? conversation.id),
+			);
+		}
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * Refuses the page a write to a conversation another handed its task to,
+	 * while that one is there to answer to: the person talks to that one.
+	 */
+	async #refuseHandedOut(conversation: Conversation): Promise<void> {
+		const { handedBy } = conversation.state;
+		if (handedBy === null) {
+			return;
+		}
+		const caller = (await this.held().list()).find(
+			(each) => each.id === handedBy,
+		);
+		if (caller !== undefined) {
+			fail(
+				"blocked",
+				`conversation ${conversation.id} answers to conversation ${handedBy}: talk to it there`,
+				{ conversation: conversation.id, handedBy },
+			);
+		}
+	}
 
 	readonly conversationEvents = async (): Promise<Response> => {
 		this.held();

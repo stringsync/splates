@@ -47,6 +47,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		plan: null,
 		planProblems: [],
 		dispatched: false,
+		handedTo: null,
 		systems: [],
 		...overrides,
 	};
@@ -70,6 +71,8 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		commands: [],
 		createdAt: "2026-10-11T10:00:00.000Z",
 		archived: false,
+		archivedWith: null,
+		handedBy: null,
 		assigned: false,
 		unread: false,
 		seen: 0,
@@ -233,6 +236,68 @@ describe("needs", () => {
 			listed.map((each) => each.conversation?.id ?? each.task?.task),
 		).toEqual(["early", "late", "external", "many", "few", "idle"]);
 		expect(listed[2]?.conversation).toBeNull();
+	});
+
+	it("waits on the conversation that handed a task out, not on its agent", () => {
+		const listed = needs({
+			tasks: [
+				task({ task: "asking" }),
+				task({ task: "escalated", status: "escalated", escalation: "look" }),
+			],
+			conversations: [
+				talk({ id: "orch", task: null, status: "idle" }),
+				talk({
+					id: "asking",
+					task: "asking",
+					handedBy: "orch",
+					ask: {
+						type: "permission",
+						id: "t1",
+						title: "rm -rf build",
+						options: [],
+						at: "2026-10-11T10:05:00.000Z",
+					},
+				}),
+				talk({
+					id: "escalated",
+					task: "escalated",
+					status: "idle",
+					handedBy: "orch",
+				}),
+			],
+		});
+
+		expect(
+			listed.map((each) => [each.conversation?.id, each.need.kind]),
+		).toEqual([
+			["orch", "waiting"],
+			["asking", "working"],
+			["escalated", "idle"],
+		]);
+		expect(listed[0]?.need).toMatchObject({
+			why: "ask",
+			subject: "rm -rf build",
+		});
+	});
+
+	it("waits on an idle orchestrator for its agent's escalation, not while it relays it", () => {
+		const of = (status: ConversationState["status"]) =>
+			needs({
+				tasks: [task({ status: "escalated", escalation: "look" })],
+				conversations: [
+					talk({ id: "orch", task: null, status }),
+					talk({ id: "agent", status: "idle", handedBy: "orch" }),
+				],
+			}).map((each) => [each.conversation?.id, each.need.kind]);
+
+		expect(of("idle")).toEqual([
+			["orch", "waiting"],
+			["agent", "idle"],
+		]);
+		expect(of("running")).toEqual([
+			["orch", "working"],
+			["agent", "idle"],
+		]);
 	});
 
 	it("leaves out a task handed to an agent whose conversation has yet to start", () => {

@@ -42,6 +42,7 @@ import {
 	useNameOf,
 } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
+import { useHandedOutBy, useHandedTo } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
 import { ShellRunning } from "./terminal";
@@ -79,7 +80,9 @@ export function Item({
 	const trunk = useContext(Trunk);
 	const { id, archived } = conversation;
 	const { refusal, refuse } = useRefusal();
-	const { file, confirm } = useArchive(conversation, refuse);
+	const { file, confirm, files } = useArchive(conversation, refuse);
+	// One that answers to another is that one's to rename and archive.
+	const handedOut = useHandedOutBy(conversation) !== null;
 	const reported = reportedAs(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
@@ -103,7 +106,7 @@ export function Item({
 				data-row
 				aria-current={current ? "page" : undefined}
 				onClick={onOpen}
-				onDoubleClick={() => setRenaming(true)}
+				onDoubleClick={() => setRenaming(!handedOut)}
 				title={where ? undefined : (conversation.task ?? undefined)}
 				// Room for the buttons only while they show, and for a mark while
 				// there is one.
@@ -190,10 +193,12 @@ export function Item({
 							{copied.state === "copied" ? <CheckIcon /> : <LinkIcon />}
 							<span aria-live="polite">{copiedLabel(copied, "Copy link")}</span>
 						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => setRenaming(true)}>
-							<PencilIcon />
-							Rename
-						</DropdownMenuItem>
+						{!handedOut && (
+							<DropdownMenuItem onClick={() => setRenaming(true)}>
+								<PencilIcon />
+								Rename
+							</DropdownMenuItem>
+						)}
 						{/* The one open would be read again at once. */}
 						{!current && !conversation.unread && !archived && (
 							<DropdownMenuItem
@@ -207,22 +212,26 @@ export function Item({
 								Mark as unread
 							</DropdownMenuItem>
 						)}
-						<DropdownMenuItem
-							onClick={() => file(archived ? undefined : onLeft)}
-						>
-							<Put />
-							{put}
-						</DropdownMenuItem>
+						{files && (
+							<DropdownMenuItem
+								onClick={() => file(archived ? undefined : onLeft)}
+							>
+								<Put />
+								{put}
+							</DropdownMenuItem>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				<Button
-					size="icon-xs"
-					variant="ghost"
-					aria-label={`${put} ${nameOf(conversation)}`}
-					onClick={() => file(archived ? undefined : onLeft)}
-				>
-					<Put />
-				</Button>
+				{files && (
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						aria-label={`${put} ${nameOf(conversation)}`}
+						onClick={() => file(archived ? undefined : onLeft)}
+					>
+						<Put />
+					</Button>
+				)}
 			</span>
 			<Refusal refusal={refusal} className="w-full px-3 pb-1.5" />
 		</div>
@@ -241,6 +250,11 @@ export function useArchive(
 ): {
 	file: (then?: () => void) => void;
 	confirm: JSX.Element;
+	/**
+	 * Whether the person may archive it or bring it back: not one that answers
+	 * to another, which goes and comes back with that one.
+	 */
+	files: boolean;
 } {
 	const [asking, setAsking] = useState(false);
 	// Held while `confirm` asks.
@@ -248,6 +262,9 @@ export function useArchive(
 	const shellRunning = useContext(ShellRunning);
 	const nameOf = useNameOf();
 	const { id, archived } = conversation;
+	const files = useHandedOutBy(conversation) === null;
+	// The agents it handed tasks to go with it, any at work stopped.
+	const along = useHandedTo(conversation).filter((each) => !each.archived);
 	const put = () =>
 		void archiveConversation(id, !archived).then(
 			() => after.current?.(),
@@ -260,9 +277,14 @@ export function useArchive(
 	// as it is clicked, since the shell comes and goes without a render here.
 	const file = (then?: () => void) => {
 		after.current = then;
+		if (!files) {
+			return;
+		}
 		if (
 			!archived &&
-			(working || (conversation.status === "idle" && shellRunning(id)))
+			(working ||
+				along.length > 0 ||
+				(conversation.status === "idle" && shellRunning(id)))
 		) {
 			setAsking(true);
 		} else {
@@ -277,8 +299,23 @@ export function useArchive(
 					<DialogDescription>
 						{working
 							? "The agent is still running. Archiving stops it and closes its terminal."
-							: "Its terminal is still open. Archiving closes it, and stops the idle agent."}
+							: along.length > 0
+								? "Archiving stops its agent."
+								: "Its terminal is still open. Archiving closes it, and stops the idle agent."}
 					</DialogDescription>
+					{along.length > 0 && (
+						<DialogDescription>
+							It takes the agents it handed tasks to with it, stopping any at
+							work, and unarchiving it brings them back:{" "}
+							{along
+								.map(
+									(each) =>
+										`${nameOf(each)}${each.status === "running" || each.status === "starting" ? " (working)" : ""}`,
+								)
+								.join(", ")}
+							.
+						</DialogDescription>
+					)}
 				</DialogHeader>
 				<DialogFooter>
 					<DialogClose render={<Button variant="outline" />}>
@@ -297,7 +334,7 @@ export function useArchive(
 			</DialogContent>
 		</Dialog>
 	);
-	return { file, confirm };
+	return { file, confirm, files };
 }
 
 /**

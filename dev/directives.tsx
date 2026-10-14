@@ -3,6 +3,7 @@ import {
 	GitBranchIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	OctagonXIcon,
 	TreePineIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
@@ -89,7 +90,10 @@ function about(
 				name: board.lanes.find((each) => each.id === id)?.name ?? "",
 			};
 		}
+		// A report names the task that stopped.
 		case "TASK":
+		case "REPORT":
+		case "STOPPED":
 			return {
 				kind: "Task",
 				name: argument,
@@ -135,8 +139,12 @@ export function DirectiveChip({
 	);
 }
 
-/** A todo, lane, or task directive, which a message of it alone shows as a card. */
-const CARDED = /^\[ARBOR (TODO|LANE|TASK) (#\d+|\d+|[^\]\s]+)\]$/;
+/**
+ * A todo, lane, or task directive, or the report of a task handed out, or of
+ * its agent terminated, which a message of it alone shows as a card.
+ */
+const CARDED =
+	/^\[ARBOR (TODO|LANE|TASK|REPORT|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
 
 /** How the card for each kind of directive in `CARDED` says what it asked. */
 const CARDS = {
@@ -191,6 +199,36 @@ export function DirectiveCard({
 	const [, kind, argument = ""] = CARDED.exec(directive) ?? [];
 	if (kind === undefined) {
 		return null;
+	}
+	if (kind === "STOPPED") {
+		return (
+			<CardShell
+				label={`terminated ${argument}`}
+				Icon={OctagonXIcon}
+				title="Terminated"
+				tone="warning"
+			>
+				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
+					You terminated the agent on{" "}
+					<DirectiveChip directive={directive} opens inline />, handed out here.
+					Its task stands as it was.
+				</p>
+			</CardShell>
+		);
+	}
+	if (kind === "REPORT") {
+		return (
+			<CardShell
+				label={`report ${argument}`}
+				Icon={GitBranchIcon}
+				title="Report"
+			>
+				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
+					<DirectiveChip directive={directive} opens inline />, handed out here,
+					stopped: escalated, merged or removed.
+				</p>
+			</CardShell>
+		);
 	}
 	const { title, Icon, asked } =
 		argument === UNTRIAGED

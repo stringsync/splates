@@ -65,17 +65,23 @@ export function useThreadActions(
 					},
 				]
 			: []),
-		{
-			label: archived ? "Unarchive" : "Archive",
-			icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
-			detail:
-				archived || archiveKey === null ? undefined : <Kbd>{archiveKey}</Kbd>,
-			run: () => archive.file(archived ? undefined : onLeft),
-		},
+		...(archive.files
+			? [
+					{
+						label: archived ? "Unarchive" : "Archive",
+						icon: archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />,
+						detail:
+							archived || archiveKey === null ? undefined : (
+								<Kbd>{archiveKey}</Kbd>
+							),
+						run: () => archive.file(archived ? undefined : onLeft),
+					},
+				]
+			: []),
 	];
-	// Already archived, the key does nothing.
+	// Already archived, or not the person's to archive, the key does nothing.
 	const fileByKey = () => {
-		if (!archived) {
+		if (!archived && archive.files) {
 			archive.file(onLeft);
 		}
 	};
@@ -116,7 +122,11 @@ export function useThreadActions(
 export interface ThreadActions {
 	actions: Action[];
 	/** Archives the conversation, asking first while its shell runs. */
-	archive: { file: (then?: () => void) => void; confirm: JSX.Element };
+	archive: {
+		file: (then?: () => void) => void;
+		confirm: JSX.Element;
+		files: boolean;
+	};
 	/** Starts todo `id` in a new conversation, with `assignee` when on the roster. */
 	startNew: (id: number, assignee: AgentPick | null) => void;
 }

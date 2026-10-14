@@ -355,6 +355,12 @@ export async function dev(
 			"/api/conversations/:id/attachments/:name": {
 				GET: talk(owned((project) => project.conversationAttachment)),
 			},
+			"/api/conversations/:id/tell": {
+				POST: talk(owned((project) => project.tellConversation)),
+			},
+			"/api/conversations/:id/terminate": {
+				POST: talk(owned((project) => project.terminateConversation)),
+			},
 			"/api/conversations/:id/answer": {
 				POST: talk(owned((project) => project.answerConversation)),
 			},

@@ -23,17 +23,21 @@ export function Queued({
 	conversation,
 	messages,
 	pending,
-	onEdit,
-	onDiscard,
-	onSendNow,
+	edits,
 }: {
 	conversation: string;
 	messages: Message[];
 	/** How many of `messages`, the last ones, the server has yet to record. */
 	pending: number;
-	onEdit: (index: number) => void;
-	onDiscard: (index: number) => void;
-	onSendNow: () => void;
+	/**
+	 * How the person changes what waits; null where the page writes nothing,
+	 * as to a conversation that answers to another, which shows them only.
+	 */
+	edits: {
+		onEdit: (index: number) => void;
+		onDiscard: (index: number) => void;
+		onSendNow: () => void;
+	} | null;
 }): JSX.Element {
 	// Enter sends the queue only with nothing typed; otherwise it queues what is.
 	const empty = useAuiState((state) => state.composer.isEmpty);
@@ -47,11 +51,15 @@ export function Queued({
 				<h3 className="flex-1 text-muted-foreground text-xs">
 					Queued for when the agent's turn ends
 				</h3>
-				<Button size="xs" variant="outline" onClick={onSendNow}>
-					<SendHorizontalIcon />
-					Send now
-					{empty && !touch && <Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>}
-				</Button>
+				{edits !== null && (
+					<Button size="xs" variant="outline" onClick={edits.onSendNow}>
+						<SendHorizontalIcon />
+						Send now
+						{empty && !touch && (
+							<Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>
+						)}
+					</Button>
+				)}
 			</header>
 			<ul className="flex flex-col">
 				{messages.map((message, index) => {
@@ -100,24 +108,28 @@ export function Queued({
 							<span className="min-w-0 flex-1 truncate text-sm">
 								<Directed text={rest} />
 							</span>
-							<Button
-								size="icon-xs"
-								variant="ghost"
-								aria-label={`Edit ${label}`}
-								disabled={unrecorded}
-								onClick={() => onEdit(index)}
-							>
-								<PencilIcon />
-							</Button>
-							<Button
-								size="icon-xs"
-								variant="ghost"
-								aria-label={`Discard ${label}`}
-								disabled={unrecorded}
-								onClick={() => onDiscard(index)}
-							>
-								<Trash2Icon />
-							</Button>
+							{edits !== null && (
+								<>
+									<Button
+										size="icon-xs"
+										variant="ghost"
+										aria-label={`Edit ${label}`}
+										disabled={unrecorded}
+										onClick={() => edits.onEdit(index)}
+									>
+										<PencilIcon />
+									</Button>
+									<Button
+										size="icon-xs"
+										variant="ghost"
+										aria-label={`Discard ${label}`}
+										disabled={unrecorded}
+										onClick={() => edits.onDiscard(index)}
+									>
+										<Trash2Icon />
+									</Button>
+								</>
+							)}
 						</li>
 					);
 				})}

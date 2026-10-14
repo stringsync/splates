@@ -12,14 +12,20 @@ async function skillExamples(): Promise<string[]> {
 	);
 }
 
+/** The skill's example that starts with `title`; a skill without one fails. */
+async function skillExample(title: string): Promise<string> {
+	const example = (await skillExamples()).find((each) =>
+		each.startsWith(title),
+	);
+	if (example === undefined) {
+		throw new Error(`the skill has no example titled ${title}`);
+	}
+	return example;
+}
+
 describe("stretches", () => {
 	it("reads the questions of the skill's own escalation example", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("## ⚠️ Escalated"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no escalation example");
-		}
+		const example = await skillExample("## ⚠️ Escalated");
 
 		const found = stretches(example);
 
@@ -96,11 +102,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's own review report as a review, and nothing else as one", async () => {
-		const examples = await skillExamples();
-		const review = examples.find((each) => each.startsWith("## 🔍"));
-		if (review === undefined) {
-			throw new Error("the skill has no review example");
-		}
+		const review = await skillExample("## 🔍");
 
 		expect(stretches(review)).toEqual([
 			{
@@ -133,23 +135,17 @@ describe("stretches", () => {
 				},
 			},
 		]);
-		for (const example of examples) {
-			if (example === review) {
-				continue;
-			}
-			expect(
-				stretches(example).filter((each) => each.type === "review"),
-			).toEqual([]);
-		}
+		expect(
+			(await skillExamples())
+				.filter((each) => each !== review)
+				.flatMap((each) => stretches(each))
+				.filter((each) => each.type === "review"),
+		).toEqual([]);
 	});
 
 	it("reads the skill's merge and remove reports, and the todos they propose", async () => {
-		const examples = await skillExamples();
-		const merged = examples.find((each) => each.startsWith("## ✅ Merged"));
-		const removed = examples.find((each) => each.startsWith("## 🛑 Removed"));
-		if (merged === undefined || removed === undefined) {
-			throw new Error("the skill has no merge or remove example");
-		}
+		const merged = await skillExample("## ✅ Merged");
+		const removed = await skillExample("## 🛑 Removed");
 
 		// `[#<id>]` is a placeholder, not a number: only a real id makes a card.
 		expect(stretches(merged).map((each) => each.type)).toEqual([
@@ -183,12 +179,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's finished lanes report, naming each lane", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("## 🏁 Finished lanes"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no finished lanes example");
-		}
+		const example = await skillExample("## 🏁 Finished lanes");
 
 		expect(stretches(example)).toEqual([
 			{
@@ -215,12 +206,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's word that it requested a cred, leaving what follows as text", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("## 🔑 Requested"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no requested example");
-		}
+		const example = await skillExample("## 🔑 Requested");
 
 		expect(stretches(`${example}\n\nI wait for it now.`)).toEqual([
 			{ type: "cred", name: "CLOUDFLARE_TUNNEL_TOKEN" },
@@ -228,26 +214,46 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads the skill's waiting lanes report, naming each lane and what they wait on", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("## ⏸️ Waiting lanes"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no waiting lanes example");
-		}
+	it("reads the skill's working lanes report, naming each lane and the tasks out", async () => {
+		const example = await skillExample("## ⏳ Working lanes");
+
+		expect(stretches(example)).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "working",
+					lanes: ["Stats", "Licensing"],
+					reason: "on stats-breakdowns-clear, licensing-renew",
+					body: expect.stringContaining("- Stats: #155 out"),
+					source: example,
+				},
+			},
+		]);
+	});
+
+	it("reads the skill's waiting lanes report, naming each lane and what they wait on, then the questions it relays", async () => {
+		const example = await skillExample("## ⏸️ Waiting lanes");
 
 		expect(stretches(example)).toEqual([
 			{
 				type: "report",
 				report: {
 					ending: "waiting",
-					lanes: ["Stats", "Licensing"],
+					lanes: ["Stats"],
 					reason: "on stats-breakdowns-clear",
 					body: expect.stringContaining(
 						"- Stats: waits on stats-breakdowns-clear",
 					),
-					source: example,
+					source: example.slice(0, example.indexOf("\n\n1. ")),
 				},
+			},
+			{
+				type: "questions",
+				questions: [
+					expect.objectContaining({
+						text: "Which breakdown should lead the table?",
+					}),
+				],
 			},
 		]);
 		expect(stretches("## ⏸ Waiting lane Stats\n\nIt waits.")[0]).toEqual({
@@ -263,12 +269,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's word that an orchestrator started lanes, what they add up to under it", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("## 🌱 Started lanes"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no started lanes example");
-		}
+		const example = await skillExample("## 🌱 Started lanes");
 
 		expect(stretches(example)).toEqual([
 			{
@@ -282,12 +283,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's word that it added a task, its Goal under it", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("## 🌱 Added"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no added example");
-		}
+		const example = await skillExample("## 🌱 Added");
 
 		expect(stretches(`On it.\n\n${example}`)).toEqual([
 			{ type: "text", text: "On it." },
@@ -302,12 +298,7 @@ describe("stretches", () => {
 	});
 
 	it("reads the skill's own demo, alone in a message, as a demo", async () => {
-		const example = (await skillExamples()).find((each) =>
-			each.startsWith("### 🎬 Demo"),
-		);
-		if (example === undefined) {
-			throw new Error("the skill has no demo example");
-		}
+		const example = await skillExample("### 🎬 Demo");
 
 		const found = stretches(example);
 

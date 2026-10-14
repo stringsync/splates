@@ -164,6 +164,7 @@ export class Conversation
 			cwd,
 			log: path,
 			assigned = false,
+			handedBy = null,
 		}: Opening,
 		deps: ConversationDeps,
 		from: From,
@@ -171,7 +172,7 @@ export class Conversation
 		const log = new ConversationLog(path, deps.fs, deps.timer);
 		const createdAt = new Date(deps.clock.now()).toISOString();
 		const conversation = new Conversation(
-			blank(id, agent.id, task, createdAt, base, caller, assigned),
+			blank(id, agent.id, task, createdAt, base, caller, assigned, handedBy),
 			log,
 			deps,
 			agent,
@@ -188,6 +189,7 @@ export class Conversation
 			caller,
 			createdAt,
 			...(assigned ? { assigned } : {}),
+			...(handedBy === null ? {} : { handedBy }),
 		});
 		return conversation;
 	}
@@ -380,10 +382,13 @@ export class Conversation
 		await this.close(null);
 	}
 
-	/** Stops it and puts it away, off the list of conversations. */
-	async archive(): Promise<void> {
+	/**
+	 * Stops it and puts it away, off the list of conversations; `with`, the
+	 * conversation whose archiving takes it along, which brings it back.
+	 */
+	async archive(withConversation?: string): Promise<void> {
 		await this.stop();
-		await this.put({ archived: true });
+		await this.put({ archived: true, with: withConversation });
 	}
 
 	/** Names it `name` over the agent's title; blank goes back to the title. */
@@ -474,15 +479,29 @@ export class Conversation
 		});
 	}
 
-	private async put({ archived }: { archived: boolean }): Promise<void> {
+	private async put({
+		archived,
+		with: withConversation,
+	}: {
+		archived: boolean;
+		with?: string | undefined;
+	}): Promise<void> {
 		if (this.state.archived === archived) {
 			return;
 		}
 		const at = this.now();
-		this.log.write({ kind: "archive", archived, at });
+		this.log.write({
+			kind: "archive",
+			archived,
+			at,
+			...(withConversation === undefined ? {} : { with: withConversation }),
+		});
 		await this.log.flush();
 		this.archivedAt = archived ? at : null;
-		this.set({ archived });
+		this.set({
+			archived,
+			archivedWith: archived ? (withConversation ?? null) : null,
+		});
 	}
 }
 
@@ -499,6 +518,8 @@ interface Opening {
 	log: string;
 	/** Started on what a todo or `arbor add --agent` assigned. */
 	assigned?: boolean;
+	/** The conversation that handed it its task, which it answers to. */
+	handedBy?: string | null;
 }
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */

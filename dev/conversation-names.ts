@@ -95,10 +95,13 @@ export function openingOf(conversation: ConversationState): string | null {
 /**
  * How the task ended, or that it escalated, when the conversation's last word
  * is the agent's report saying so. Anything the person says after it carries
- * the conversation on, and the report goes.
+ * the conversation on, and the report goes. An escalation by one handed its
+ * task is left out: the one that handed it out relays it, and waits on the
+ * person for it in its place.
  */
 export function reportedAs(conversation: ConversationState): Ending | null {
-	return lastReport(conversation)?.ending ?? null;
+	const ending = lastReport(conversation)?.ending ?? null;
+	return conversation.handedBy !== null && waitsOn(ending) ? null : ending;
 }
 
 /**

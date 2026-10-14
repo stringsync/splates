@@ -6,6 +6,7 @@ import {
 	ColumnsIcon,
 	FlagIcon,
 	GitBranchIcon,
+	HourglassIcon,
 	type LucideIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
@@ -19,81 +20,6 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Ending, Report } from "../asked";
 import { Markdown } from "./markdown";
 import { ReferenceChip, TaskChip } from "./reference-chip";
-
-/** How a card's header is tinted: by what the person is to make of it. */
-export type Tone = "neutral" | "success" | "warning" | "destructive" | "info";
-
-export const TONES: Record<
-	Tone,
-	{ header: string; icon: string; focus: string }
-> = {
-	neutral: {
-		header: "bg-muted/40",
-		icon: "text-muted-foreground",
-		focus: "focus-within:border-ring/60 focus-within:ring-ring/20",
-	},
-	success: {
-		header: "bg-success/[0.07]",
-		icon: "text-success",
-		focus: "focus-within:border-success/50 focus-within:ring-success/15",
-	},
-	warning: {
-		header: "bg-warning/[0.08]",
-		icon: "text-warning",
-		focus: "focus-within:border-warning/50 focus-within:ring-warning/15",
-	},
-	destructive: {
-		header: "bg-destructive/[0.07]",
-		icon: "text-destructive",
-		focus:
-			"focus-within:border-destructive/50 focus-within:ring-destructive/15",
-	},
-	info: {
-		header: "bg-info/[0.07]",
-		icon: "text-info",
-		focus: "focus-within:border-info/50 focus-within:ring-info/15",
-	},
-};
-
-/** How each ending shows: on its report card, and beside its conversation. */
-export const ENDINGS: Record<
-	Ending,
-	{ title: string; Icon: LucideIcon; tone: Tone }
-> = {
-	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
-	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
-	escalated: {
-		title: "Escalated",
-		Icon: TriangleAlertIcon,
-		tone: "warning",
-	},
-	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
-	waiting: { title: "Waiting", Icon: CirclePauseIcon, tone: "warning" },
-};
-
-/** What a report says: why it went, or what it waits on, leading the rest. */
-export function reportText(report: Report): string {
-	return [report.reason, report.body]
-		.filter((each) => each !== null && each !== "")
-		.join("\n\n");
-}
-
-/**
- * Scrolls `card` to its top, just clear of the person's message stuck atop
- * its turn, with the fade `::after` paints below it, so a card that comes up
- * or takes the focus reads from its start.
- */
-export function toCardTop(
-	card: HTMLElement,
-	behavior: ScrollBehavior = "instant",
-): void {
-	const stuck = card.closest('[data-slot="aui_turn"]')?.firstElementChild;
-	if (stuck instanceof HTMLElement && stuck.dataset.role === "user") {
-		const fade = Number.parseFloat(getComputedStyle(stuck, "::after").height);
-		card.style.scrollMarginTop = `${stuck.offsetHeight + (fade || 0)}px`;
-	}
-	card.scrollIntoView({ block: "start", behavior });
-}
 
 /**
  * The frame every card in a conversation shares: a header with an icon, what
@@ -175,6 +101,82 @@ export function CardShell({
 			{children}
 		</section>
 	);
+}
+
+/** How a card's header is tinted: by what the person is to make of it. */
+export type Tone = "neutral" | "success" | "warning" | "destructive" | "info";
+
+export const TONES: Record<
+	Tone,
+	{ header: string; icon: string; focus: string }
+> = {
+	neutral: {
+		header: "bg-muted/40",
+		icon: "text-muted-foreground",
+		focus: "focus-within:border-ring/60 focus-within:ring-ring/20",
+	},
+	success: {
+		header: "bg-success/[0.07]",
+		icon: "text-success",
+		focus: "focus-within:border-success/50 focus-within:ring-success/15",
+	},
+	warning: {
+		header: "bg-warning/[0.08]",
+		icon: "text-warning",
+		focus: "focus-within:border-warning/50 focus-within:ring-warning/15",
+	},
+	destructive: {
+		header: "bg-destructive/[0.07]",
+		icon: "text-destructive",
+		focus:
+			"focus-within:border-destructive/50 focus-within:ring-destructive/15",
+	},
+	info: {
+		header: "bg-info/[0.07]",
+		icon: "text-info",
+		focus: "focus-within:border-info/50 focus-within:ring-info/15",
+	},
+};
+
+/** How each ending shows: on its report card, and beside its conversation. */
+export const ENDINGS: Record<
+	Ending,
+	{ title: string; Icon: LucideIcon; tone: Tone }
+> = {
+	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
+	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
+	escalated: {
+		title: "Escalated",
+		Icon: TriangleAlertIcon,
+		tone: "warning",
+	},
+	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
+	waiting: { title: "Waiting", Icon: CirclePauseIcon, tone: "warning" },
+	working: { title: "Working", Icon: HourglassIcon, tone: "info" },
+};
+
+/** What a report says: why it went, or what it waits on, leading the rest. */
+export function reportText(report: Report): string {
+	return [report.reason, report.body]
+		.filter((each) => each !== null && each !== "")
+		.join("\n\n");
+}
+
+/**
+ * Scrolls `card` to its top, just clear of the person's message stuck atop
+ * its turn, with the fade `::after` paints below it, so a card that comes up
+ * or takes the focus reads from its start.
+ */
+export function toCardTop(
+	card: HTMLElement,
+	behavior: ScrollBehavior = "instant",
+): void {
+	const stuck = card.closest('[data-slot="aui_turn"]')?.firstElementChild;
+	if (stuck instanceof HTMLElement && stuck.dataset.role === "user") {
+		const fade = Number.parseFloat(getComputedStyle(stuck, "::after").height);
+		card.style.scrollMarginTop = `${stuck.offsetHeight + (fade || 0)}px`;
+	}
+	card.scrollIntoView({ block: "start", behavior });
 }
 
 function Header({

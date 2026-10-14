@@ -1,5 +1,5 @@
 import type { ConversationState } from "../conversations";
-import { type Needing, need } from "../needs";
+import { type Needing, needs } from "../needs";
 import { laneReference, taskReference, todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
@@ -39,18 +39,22 @@ export class Dispatch {
 	) {}
 
 	/**
-	 * The conversations working `task`, newest first, with what each needs;
-	 * archived ones, put away, are not.
+	 * The conversations working `task`, newest first, with what each needs, as
+	 * the conversation list says it, so one handed out waits on the one that
+	 * handed it out, not on the person; archived ones, put away, are not.
 	 */
 	on(task: string): Needing[] {
-		const details = this.tasks.find((each) => each.task === task) ?? null;
-		return this.conversations
-			.filter((each) => each.task === task && !each.archived)
-			.map((conversation) => ({
-				conversation,
-				task: details,
-				need: need(details, conversation),
-			}));
+		const listed = needs({
+			tasks: this.tasks,
+			conversations: this.conversations,
+		});
+		return this.conversations.flatMap(
+			(conversation) =>
+				listed.find(
+					(each) =>
+						each.conversation === conversation && conversation.task === task,
+				) ?? [],
+		);
 	}
 
 	/**

@@ -4,8 +4,36 @@ import { age } from "./age";
 import { fail } from "./exit";
 import { checkPlan, PLAN_FILE, ready, unfinished } from "./plan";
 import { type NamedSystem, Systems } from "./systems";
+import { handOff } from "./tell";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
+
+/**
+ * One task in full: what `list` shows for it, plus the `ARBOR.md` its agent
+ * left at the worktree root. Reading a tree this way takes no lease, so it
+ * cannot knock the agent driving it off its own work.
+ */
+export async function show(
+	{ service, fs, log }: { service: WorktreeService; fs: Fs; log: Logger },
+	task: string,
+	opts: ShowOptions = {},
+): Promise<void> {
+	const worktree = await service.find(task);
+	if (worktree.gone) {
+		fail(
+			"not_found",
+			`no task '${task}': run \`arbor list\` to see what there is`,
+			{ task },
+		);
+	}
+	const details = await new TaskDetails({ fs }).get(worktree);
+
+	if (opts.json ?? false) {
+		log.info(JSON.stringify(details, null, "\t"));
+		return;
+	}
+	log.info(report(details));
+}
 
 export interface Details {
 	task: string;
@@ -47,6 +75,12 @@ export interface Details {
 	 */
 	dispatched: boolean;
 	/**
+	 * The conversation `arbor dev` started for the agent another conversation
+	 * handed it to, which answers to that one, its caller, rather than to the
+	 * user; null for any other task.
+	 */
+	handedTo: string | null;
+	/**
 	 * The systems its changed files fall in, committed or not, in the order
 	 * its worktree's `arbor.systems.ts` names them.
 	 */
@@ -56,33 +90,6 @@ export interface Details {
 export interface ShowOptions {
 	/** Print the details as JSON instead of prose. */
 	json?: boolean;
-}
-
-/**
- * One task in full: what `list` shows for it, plus the `ARBOR.md` its agent
- * left at the worktree root. Reading a tree this way takes no lease, so it
- * cannot knock the agent driving it off its own work.
- */
-export async function show(
-	{ service, fs, log }: { service: WorktreeService; fs: Fs; log: Logger },
-	task: string,
-	opts: ShowOptions = {},
-): Promise<void> {
-	const worktree = await service.find(task);
-	if (worktree.gone) {
-		fail(
-			"not_found",
-			`no task '${task}': run \`arbor list\` to see what there is`,
-			{ task },
-		);
-	}
-	const details = await new TaskDetails({ fs }).get(worktree);
-
-	if (opts.json ?? false) {
-		log.info(JSON.stringify(details, null, "\t"));
-		return;
-	}
-	log.info(report(details));
 }
 
 /** Configures how {@link TaskDetails} gathers a task's info. */
@@ -145,6 +152,7 @@ export class TaskDetails {
 			dispatched:
 				state?.dispatch !== undefined &&
 				state.dispatch.conversation === undefined,
+			handedTo: handOff(worktree)?.conversation ?? null,
 			systems: await this.systems(worktree),
 		};
 	}

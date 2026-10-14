@@ -304,7 +304,8 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 				const next =
 					before?.type === "report" &&
 					before.report.ending !== "escalated" &&
-					before.report.ending !== "waiting";
+					before.report.ending !== "waiting" &&
+					before.report.ending !== "working";
 				return [{ type: "data-todo", data: { todos, turn, next } }];
 			}
 			default:

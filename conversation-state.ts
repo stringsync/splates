@@ -38,6 +38,19 @@ export interface ConversationState {
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
 	/**
+	 * The conversation whose archiving put this one away with it, which
+	 * unarchiving that one brings back; null when it was archived alone, or
+	 * is not archived.
+	 */
+	archivedWith: string | null;
+	/**
+	 * The conversation that handed it its task with `arbor add --agent`, which
+	 * it answers to in place of the person: the page writes nothing to it but
+	 * an answer to what its agent asks permission for, and its terminating.
+	 * Set when it starts, and kept once the task is gone.
+	 */
+	handedBy: string | null;
+	/**
 	 * Started on the agent and model a todo or `arbor add --agent` assigned,
 	 * rather than ones the person picked, so a new conversation does not start
 	 * where this one left its settings.
@@ -334,6 +347,7 @@ export function blank(
 	base: string | null = null,
 	caller: string | null = null,
 	assigned = false,
+	handedBy: string | null = null,
 ): ConversationState {
 	return {
 		id,
@@ -352,6 +366,8 @@ export function blank(
 		commands: [],
 		createdAt,
 		archived: false,
+		archivedWith: null,
+		handedBy,
 		assigned,
 		unread: false,
 		seen: 0,

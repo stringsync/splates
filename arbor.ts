@@ -1,53 +1,37 @@
 import { cli, type Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
 import { arborCreds } from "./arbor-creds";
-import {
-	commaList,
-	here,
-	rosterOf,
-	savedTunnelOf,
-	seeded,
-	todoIds,
-} from "./arbor-flags";
+import { serveDev } from "./arbor-dev";
+import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
 import { arborLane } from "./arbor-lane";
 import { arborTodo } from "./arbor-todo";
 import { arborTunnel } from "./arbor-tunnel";
 import { attach } from "./attach";
 import { claim } from "./claim";
-import { codexLimits, isCodex } from "./codex-limits";
-import { Conversations, launch } from "./conversations";
 import type { SecretStores } from "./creds";
-import { DEFAULT_PORT, dev, devPorts } from "./dev";
+import { DEFAULT_PORT } from "./dev";
 import type { Assets } from "./dev/assets";
-import { accessConfig } from "./dev-access";
-import { devSlot, SLOT } from "./dev-slot";
-import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
 import { forget, init } from "./init";
-import { Limits } from "./limits";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
-import { Offered } from "./offered";
 import { path } from "./path";
-import { newest, sourceCommit } from "./release";
+import { newest } from "./release";
 import { remove } from "./remove";
 import { repository } from "./repository";
 import { retry } from "./retry";
-import { arborHome } from "./roster";
 import { show } from "./show";
-import { slotOf } from "./slots";
-import { SERVING, supervise, UNBUILT } from "./supervise";
 import { systems } from "./system";
+import { reportToCaller, tell } from "./tell";
 import { update } from "./update";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
-import { Watch } from "./watch";
 import { REMOVE_REASONS } from "./worktree";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
@@ -184,9 +168,14 @@ arbor
 	)
 	.action(async (_opts, ctx) => {
 		const task = await here(ctx);
+		// Read before the merge discards the record that names its caller.
+		const landing = task === null ? null : await ctx.service.find(task);
 		await ctx.journal.record("merge", task, () => merge(ctx, ctx.ps.cwd()));
 		if (task !== null) {
 			await follow(ctx, null, task);
+		}
+		if (landing !== null) {
+			await reportToCaller(ctx, landing);
 		}
 	});
 
@@ -206,10 +195,12 @@ arbor
 			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk)",
 	})
 	.action(async (opts, ctx) => {
+		const removing = await ctx.service.find(opts.task);
 		await ctx.journal.record("remove", opts.task, () =>
 			remove(ctx, opts.task, { force: opts.force, reason: opts.reason }),
 		);
 		await follow(ctx, null, opts.task);
+		await reportToCaller(ctx, removing);
 	});
 
 arbor
@@ -327,116 +318,7 @@ arbor
 		description:
 			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: the checkout keeps its word, as fox, until it no longer exists. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, and starts in a throwaway project there unless that home registers the one it is run in; not with the tunnel and Access flags",
 	})
-	.action(async (opts, ctx) => {
-		// Read before the child starts, so a half-given pair fails once.
-		let access = accessConfig(opts["access-team"], opts["access-aud"]);
-		let tunnel = tunnelConfig(
-			opts.tunnel,
-			opts["tunnel-name"],
-			access,
-			ctx.config.tunnel,
-			ctx.ps,
-		);
-		if (
-			opts.slot &&
-			[
-				opts.tunnel,
-				opts["tunnel-name"],
-				opts["access-team"],
-				opts["access-aud"],
-			].some((flag) => flag.trim() !== "")
-		) {
-			fail(
-				"usage",
-				"--slot runs a tunnel of its own: leave off the tunnel and Access flags",
-				{},
-			);
-		}
-		// Served from a child, so the page can restart it.
-		if (ctx.ps.env(SERVING) === undefined) {
-			// A checkout's page is as its last `bun install` built it: installed
-			// again before each start, whose postinstall builds the page, a
-			// restart onto new source serves its page, even one whose commits
-			// added a package.
-			const checkout = (await sourceCommit(ctx.ps)) !== null;
-			const [runtime = "bun"] = ctx.ps.self;
-			const build = checkout
-				? { argv: [runtime, "install"], cwd: import.meta.dirname }
-				: null;
-			// The slot is readied here, once, and its child serves it as a bare
-			// `arbor dev` serves the machine's tunnel, from the slot's home.
-			const slot = opts.slot ? await devSlot(ctx) : null;
-			ctx.ps.exit(
-				await supervise(ctx.ps, {
-					build,
-					env: slot?.env,
-					cwd: slot?.cwd,
-				}),
-			);
-			return;
-		}
-		// The saved tunnel only when no flag says how to reach the page, so a
-		// flag never mixes with what was saved.
-		const flagged = [
-			opts.tunnel,
-			opts["tunnel-name"],
-			opts["access-team"],
-			opts["access-aud"],
-		].some((flag) => flag.trim() !== "");
-		if (!flagged) {
-			const saved = await savedTunnelConfig(
-				savedTunnelOf(ctx),
-				ctx.ps,
-				ctx.log,
-			);
-			access = saved?.access ?? null;
-			tunnel = saved?.tunnel ?? null;
-		}
-		// Read once: a roster edited while it serves applies from the restart.
-		const roster = await seeded(rosterOf(ctx));
-		// One for every project's conversations, so none overwrites another's.
-		const offered = new Offered(`${arborHome(ctx.ps)}/offered.json`, {
-			fs: ctx.fs,
-		});
-		const limits = new Limits(`${arborHome(ctx.ps)}/limits.json`, {
-			fs: ctx.fs,
-		});
-		return dev(ctx, {
-			ports: devPorts(opts.port),
-			hosts: opts["allow-hosts"]
-				.split(",")
-				.map((host) => host.trim())
-				.filter(Boolean),
-			access,
-			tunnel,
-			conversations: ({ arborDir, git }) =>
-				new Conversations(`${arborDir}/conversations`, roster, {
-					fs: ctx.fs,
-					offered,
-					limits,
-					readLimits: async (agent) =>
-						isCodex(agent)
-							? codexLimits({
-									launch,
-									timer: new SystemTimer(),
-									now: () => Date.now(),
-									cwd: git.root,
-									codex: ctx.ps.env("CODEX_PATH"),
-								})
-							: [],
-					watch: new Watch(git),
-					root: git.root,
-				}),
-			// A login shell, as a terminal window opens, so the person's PATH
-			// and aliases are there.
-			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
-			newest: () => newest(),
-			source: () => sourceCommit(ctx.ps),
-			unbuilt: ctx.ps.env(UNBUILT) !== undefined,
-			slot: slotOf(ctx.ps.env(SLOT) ?? ""),
-			exit: (code) => ctx.ps.exit(code),
-		});
-	});
+	.action((opts, ctx) => serveDev(ctx, opts));
 
 arbor
 	.command("agents")
@@ -479,14 +361,28 @@ arbor
 		description:
 			"ask a person to approve merging, the reason saying what to look at, approved in chat; refused until the task is ready to merge, with every question under ## Blocked and step under ## Next checked",
 	})
-	.action(async (opts, ctx) =>
-		ctx.journal.record("escalate", opts.task || (await here(ctx)), () =>
+	.action(async (opts, ctx) => {
+		const task = opts.task || (await here(ctx));
+		await ctx.journal.record("escalate", task, () =>
 			escalate(ctx, opts.reason, ctx.ps.cwd(), {
 				task: opts.task || undefined,
 				review: opts.review,
 			}),
-		),
-	);
+		);
+		if (task !== null) {
+			await reportToCaller(ctx, await ctx.service.find(task));
+		}
+	});
+
+arbor
+	.command("tell")
+	.use(repository())
+	.description(
+		"say something in the conversation of the agent a task was handed to with `arbor add --agent`, as the user would: how an orchestrator passes on the user's answers, a merge, or what its lane taught it, since the agent answers to it alone; only the conversation that handed the task out may",
+	)
+	.arg("task", z.string(), { description: "task name" })
+	.arg("text", z.string(), { description: "what to say, as markdown" })
+	.action((opts, ctx) => tell(ctx, opts.task, opts.text));
 
 arbor
 	.command("attach")

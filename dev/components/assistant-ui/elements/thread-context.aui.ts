@@ -54,6 +54,8 @@ export type ThreadProps = {
 	commands?: TriggerAdapter | undefined;
 	/** The empty composer's hint, such as why it takes nothing. */
 	placeholder?: string | undefined;
+	/** Shown in place of the composer, as where the page sends nothing. */
+	composer?: ReactNode | undefined;
 	/** The id of the message to open at, rather than the bottom. */
 	openAt?: string | undefined;
 };
@@ -68,6 +70,7 @@ export const ThreadExtrasContext = createContext<
 		| "references"
 		| "commands"
 		| "placeholder"
+		| "composer"
 	>
 >({});
 export const EMPTY_COMPONENTS: ThreadComponents = {};

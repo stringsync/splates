@@ -17,12 +17,18 @@ export function AskPanel({
 	conversation,
 	agent,
 	ask,
+	keys = true,
 }: {
 	/** What was typed and not sent, by conversation. */
 	drafts: Drafts;
 	conversation: ConversationState;
 	agent: string;
 	ask: Ask;
+	/**
+	 * Whether 1, 2 and 3 answer it, as for the one ask of the conversation
+	 * open; off where several show, so one key answers one.
+	 */
+	keys?: boolean;
 }): JSX.Element {
 	// Its own draft beside the composer's: what is typed into its boxes.
 	const key = `${conversation.id}:${ask.id}`;
@@ -41,6 +47,7 @@ export function AskPanel({
 					agent={agent}
 					where={conversation.task ?? "the main tree"}
 					send={send}
+					keys={keys}
 				/>
 			) : (
 				<Question
@@ -90,12 +97,14 @@ function Permission({
 	agent,
 	where,
 	send,
+	keys,
 }: {
 	ask: Extract<Ask, { type: "permission" }>;
 	command: string | null;
 	agent: string;
 	where: string;
 	send: (answer: Answer) => Promise<unknown>;
+	keys: boolean;
 }): JSX.Element {
 	const grant = (scope: "denied" | "session" | "always") => {
 		const kinds = {
@@ -111,6 +120,9 @@ function Permission({
 		}
 	};
 	useEffect(() => {
+		if (!keys) {
+			return;
+		}
 		const pick = (event: KeyboardEvent) => {
 			const scope = (["denied", "session", "always"] as const)[
 				Number(event.key) - 1

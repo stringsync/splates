@@ -39,6 +39,22 @@ describe("Dispatch", () => {
 		]);
 	});
 
+	it("leaves a handed-out conversation's escalation to the one that handed it out", () => {
+		const dispatch = new Dispatch(
+			new Drafts(nowhere),
+			new ConversationFeed(),
+			null,
+			AGENTS,
+			[
+				conversation({ id: "agent", task: "alpha", handedBy: "orch" }),
+				conversation({ id: "orch", task: null }),
+			],
+			[details({ task: "alpha", status: "escalated", escalation: "look" })],
+		);
+
+		expect(dispatch.on("alpha").map((row) => row.need.kind)).toEqual(["idle"]);
+	});
+
 	it("offers every listed conversation to take work on, but those on the task already", () => {
 		const dispatch = new Dispatch(
 			new Drafts(nowhere),
