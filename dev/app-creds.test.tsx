@@ -206,4 +206,139 @@ describe("App's creds", () => {
 		expect(card.textContent).toContain("Saved");
 		expect(card.textContent).not.toContain("Open API Tokens");
 	});
+
+	it("says on a request's card that the value stays private, and opens how", async () => {
+		const view = await testing.openConversations(
+			[turn(["## 🔑 Requested CLOUDFLARE_TOKEN"])],
+			undefined,
+			{ creds: [REQUEST] },
+		);
+
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
+		);
+		expect(card.textContent).toContain(
+			"Private: the agent never sees it, and it is kept encrypted.",
+		);
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Learn more" })),
+		);
+
+		const dialog = await waitFor(() => view.getByRole("dialog"));
+		expect(
+			within(dialog).getByRole("heading", { name: "How creds stay private" }),
+		).toBeTruthy();
+		expect(
+			within(dialog)
+				.getAllByRole("term")
+				.map((each) => each.textContent),
+		).toEqual([
+			"The agent never sees it",
+			"It is in no conversation or log",
+			"It is never saved in plain text",
+			"Only code reads it",
+		]);
+	});
+
+	it("keeps a value pasted on a request's card to its store alone", async () => {
+		const view = await testing.openConversations(
+			[turn(["## 🔑 Requested CLOUDFLARE_TOKEN"])],
+			undefined,
+			{ creds: [REQUEST] },
+		);
+
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
+		);
+		await pasteAndSave(
+			testing,
+			within(card).getByLabelText("Value of CLOUDFLARE_TOKEN"),
+			"cf-card-secret",
+		);
+	});
+
+	it("keeps a value pasted on a requested cred to its store alone", async () => {
+		const view = await openCreds([REQUEST]);
+
+		const request = await waitFor(() =>
+			view.getByRole("listitem", { name: "requested CLOUDFLARE_TOKEN" }),
+		);
+		await pasteAndSave(
+			testing,
+			within(request).getByLabelText("Value of CLOUDFLARE_TOKEN"),
+			"cf-page-secret",
+		);
+	});
+
+	it("keeps a replaced value to its store alone", async () => {
+		testing.kept = {
+			...testing.kept,
+			kept: [{ name: "DATABASE_URL", scope: "project", savedBy: null }],
+		};
+		const view = await openCreds([]);
+
+		const row = await waitFor(() =>
+			view.getByRole("listitem", { name: "DATABASE_URL" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(row).getByRole("button", { name: "Replace" })),
+		);
+		await pasteAndSave(
+			testing,
+			within(row).getByLabelText("Value of DATABASE_URL"),
+			"postgres://replaced-secret",
+		);
+	});
+
+	it("keeps an added value to its store alone", async () => {
+		const view = await openCreds([]);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add" })),
+		);
+		fireEvent.change(view.getByLabelText("Name"), {
+			target: { value: "STRIPE_KEY" },
+		});
+		await pasteAndSave(
+			testing,
+			view.getByLabelText("Value of STRIPE_KEY"),
+			"sk-added-secret",
+		);
+	});
 });
+
+/**
+ * Pastes `value` into `field` and saves it, then checks it went nowhere but
+ * the one write to its store: a hidden field, emptied or gone once saved, with the
+ * value in no other write, no storage and nothing on the page. Each field
+ * says the value stays private.
+ */
+async function pasteAndSave(
+	testing: Testing,
+	field: HTMLElement,
+	value: string,
+): Promise<void> {
+	const input = field as HTMLInputElement;
+	expect(input.type).toBe("password");
+	expect(input.autocomplete).toBe("off");
+	const form = input.closest("form");
+	if (form === null) {
+		throw new Error("the field is in no form");
+	}
+	expect(form.textContent).toContain(
+		"Private: the agent never sees it, and it is kept encrypted. Learn more",
+	);
+	fireEvent.change(input, { target: { value } });
+	await act(async () => fireEvent.submit(form));
+
+	await waitFor(() => expect(input.isConnected ? input.value : "").toBe(""));
+	const carrying = testing.posts.filter((each) =>
+		JSON.stringify(each.body ?? "").includes(value),
+	);
+	expect(carrying.map((each) => [each.method, each.path])).toEqual([
+		["PUT", expect.stringMatching(/^\/api\/creds\/[A-Z_]+$/)],
+	]);
+	expect(JSON.stringify({ ...localStorage })).not.toContain(value);
+	expect(JSON.stringify({ ...sessionStorage })).not.toContain(value);
+	expect(document.body.innerHTML).not.toContain(value);
+}

@@ -26,6 +26,7 @@ import {
 	saveCred,
 } from "./api";
 import { CardShell } from "./card-shell";
+import { CredPrivacy } from "./cred-privacy";
 import { Markdown } from "./markdown";
 import { TaskChip } from "./reference-chip";
 
@@ -66,7 +67,7 @@ function ScopeChip({
 
 /**
  * A field to paste a value into, and Save, which reads Saved in place once
- * it is kept. The value goes to the store and the field empties: nothing
+ * it is kept, over a line on how the value stays private. The value goes to the store and the field empties: nothing
  * holds it after.
  */
 function Paste({
@@ -111,7 +112,7 @@ function Paste({
 					autoComplete="off"
 					aria-label={`Value of ${name}`}
 					placeholder={
-						saved ? "Saved. Paste again to replace it" : `Paste ${name}`
+						saved ? "Saved. Paste again to replace it" : "Paste the value"
 					}
 					value={value}
 					onChange={(event) => setValue(event.target.value)}
@@ -136,6 +137,7 @@ function Paste({
 					{error}
 				</p>
 			)}
+			<CredPrivacy />
 		</form>
 	);
 }
@@ -172,8 +174,9 @@ function RequestRow({
 				text={request.instructions}
 				className="px-4 py-3 text-sm leading-relaxed [&_p:first-child]:mt-0"
 			/>
-			<div className="flex items-start gap-2 px-4 pb-4">
-				<div className="flex-1">
+			{/* Dismiss goes under the field on a phone, leaving the field the width. */}
+			<div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row sm:items-start">
+				<div className="min-w-0 flex-1">
 					<Paste
 						name={request.name}
 						save={(value) => saveCred(request.name, value)}
@@ -183,7 +186,7 @@ function RequestRow({
 				<Button
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground"
+					className="self-end text-muted-foreground sm:self-auto"
 					onClick={() =>
 						dismissCred(request.name)
 							.then(onChanged)
@@ -409,10 +412,11 @@ export function CredsPage({
 				</div>
 			)}
 			<div className="flex flex-col gap-3">
-				<header className="flex items-center gap-2">
+				<header className="flex flex-wrap items-center gap-x-2 gap-y-1">
 					<h2 className="font-medium text-sm">Kept</h2>
 					{system !== null && (
-						<span className="text-muted-foreground text-xs">
+						// Under the heading on a phone, so neither is squeezed.
+						<span className="order-last w-full text-muted-foreground text-xs sm:order-none sm:w-auto">
 							in {system}. Values never come back to this page.
 						</span>
 					)}
