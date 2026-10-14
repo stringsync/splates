@@ -1,5 +1,8 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Stats, Tally } from "../stats";
+import { combine, type Stats, type Tally } from "../stats";
+import { type Advice, advise, decimal, percent } from "./stats-advice";
+
+export { decimal, percent };
 
 export type StatsReportEvents = { changed: undefined };
 
@@ -60,6 +63,8 @@ export interface Row {
 	reviewsPerTask: number | null;
 	failedMerges: number;
 	removedShare: number | null;
+	/** Of the questions offering the agent's pick, the share you answered otherwise. */
+	overturnedShare: number | null;
 }
 
 /**
@@ -111,7 +116,7 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	}
 
 	get tiles(): Tile[] {
-		const recent = total(this.stats?.weeks ?? []);
+		const recent = combine(this.stats?.weeks ?? []);
 		const before = this.stats?.previous ?? null;
 		const figure = (
 			of: (tally: Tally) => number | null,
@@ -177,6 +182,26 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		};
 	}
 
+	/** What the period says to change, a card a figure. */
+	get advice(): Advice[] {
+		return advise({
+			period: combine(this.stats?.weeks ?? []),
+			previous: this.stats?.previous ?? null,
+			systems: (this.stats?.systems ?? []).map(({ system, ...tally }) => ({
+				system,
+				tally,
+			})),
+			span: this.period.label,
+		});
+	}
+
+	/** By system, a task counting in each it touched; "No system" for none. */
+	get systems(): Row[] {
+		return (this.stats?.systems ?? []).map((each) =>
+			row(each.system === null ? "No system" : `#${each.system}`, each),
+		);
+	}
+
 	get models(): Row[] {
 		return (this.stats?.models ?? []).map((each) =>
 			row(each.model ?? "Unknown", each),
@@ -218,28 +243,9 @@ function row(name: string, tally: Tally): Row {
 		reviewsPerTask: ended === 0 ? null : tally.reviewRounds / ended,
 		failedMerges: tally.failedMerges,
 		removedShare: removedShare(tally),
+		overturnedShare:
+			tally.picksAsked === 0 ? null : tally.picksOverturned / tally.picksAsked,
 	};
-}
-
-function total(tallies: Tally[]): Tally {
-	return tallies.reduce(
-		(sum, each) => ({
-			merged: sum.merged + each.merged,
-			removed: sum.removed + each.removed,
-			clean: sum.clean + each.clean,
-			questionRounds: sum.questionRounds + each.questionRounds,
-			reviewRounds: sum.reviewRounds + each.reviewRounds,
-			failedMerges: sum.failedMerges + each.failedMerges,
-		}),
-		{
-			merged: 0,
-			removed: 0,
-			clean: 0,
-			questionRounds: 0,
-			reviewRounds: 0,
-			failedMerges: 0,
-		},
-	);
 }
 
 function cleanShare(tally: Tally): number | null {
@@ -254,12 +260,4 @@ function questionsPerTask(tally: Tally): number | null {
 function removedShare(tally: Tally): number | null {
 	const ended = tally.merged + tally.removed;
 	return ended === 0 ? null : tally.removed / ended;
-}
-
-export function percent(share: number): string {
-	return `${Math.round(share * 100)}%`;
-}
-
-export function decimal(value: number): string {
-	return value.toFixed(1);
 }

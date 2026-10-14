@@ -7,7 +7,7 @@ import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
 import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
 import type { Todos } from "./todos";
-import type { Worktree } from "./worktree";
+import type { MergeFailure, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 const TAIL_LINES = 40;
@@ -107,7 +107,7 @@ export async function merge(
 		// Left in progress on purpose: the agent needs the conflict markers.
 		const paths = await git.conflictedPaths(worktree.path);
 		await lock.release();
-		await bump(worktree);
+		await bump(worktree, "conflict");
 		fail(
 			"conflict",
 			[
@@ -148,7 +148,7 @@ export async function merge(
 		// to its previous state.
 		await git.resetHard(worktree.path, before);
 		await lock.release();
-		await bump(worktree);
+		await bump(worktree, "tests_failed");
 		fail(
 			"tests_failed",
 			[
@@ -179,6 +179,9 @@ export async function merge(
 	// leave its index and files on the old commit. For trunk that tree is the
 	// main one; for a task created with `--base task/<other>` it is that task's
 	// worktree, and the work lands there rather than on trunk.
+	// Read while the branch is still ahead of its base: once it lands there
+	// is nothing between them to read, and the outcome needs what it touched.
+	const changed = (await current.changedFiles()) ?? [];
 	const holder = await git.worktreeFor(base);
 	const landing = holder ?? git.root;
 	const checkout = holder ? null : await git.checkout(base);
@@ -188,7 +191,7 @@ export async function merge(
 			: await git.mergeFfOnly(landing, service.branchFor(task));
 	if (merged.code !== 0) {
 		await lock.release();
-		await bump(worktree);
+		await bump(worktree, "merge_failed");
 		// Said to the agent landing the part, not the one holding the tree: telling
 		// it to stash sends it into a tree it does not own, and a stash there is
 		// how another agent's work gets lost.
@@ -222,7 +225,7 @@ export async function merge(
 	// to delete, and spawning git from a directory that no longer exists fails
 	// with ENOENT before git is even reached.
 	service.ps.cd(git.root);
-	const discarded = await current.discard("merged");
+	const discarded = await current.discard("merged", { changed });
 	await lock.release();
 	if (discarded.code !== 0) {
 		fail(
@@ -259,11 +262,13 @@ export async function merge(
 	log.info(lines.join("\n"));
 }
 
-async function bump(worktree: Worktree): Promise<void> {
+async function bump(worktree: Worktree, reason: MergeFailure): Promise<void> {
+	const by = worktree.state?.mergeFailuresBy ?? {};
 	await worktree.take({
 		status: "working",
 		mergeAttempts: worktree.mergeAttempts + 1,
 		mergeFailures: (worktree.state?.mergeFailures ?? 0) + 1,
+		mergeFailuresBy: { ...by, [reason]: (by[reason] ?? 0) + 1 },
 	});
 }
 

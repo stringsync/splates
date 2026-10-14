@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
 import type { Todos } from "./todos";
+import type { RemoveReason } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 export interface RemoveOptions {
@@ -8,6 +9,8 @@ export interface RemoveOptions {
 	force?: boolean;
 	/** The `arbor dev` conversation working on it, when removed from the page. */
 	conversation?: string;
+	/** Why, kept in its outcome for the Stats page. */
+	reason?: RemoveReason;
 }
 
 /**
@@ -24,7 +27,7 @@ export async function remove(
 		todos,
 	}: { service: WorktreeService; log: Logger; todos: Todos },
 	task: string,
-	{ force = false, conversation }: RemoveOptions = {},
+	{ force = false, conversation, reason }: RemoveOptions = {},
 ): Promise<void> {
 	const worktree = await service.find(task);
 
@@ -57,7 +60,7 @@ export async function remove(
 	// Counted before the branch goes, so the report can say what was lost.
 	const unlanded = worktree.hasBranch ? await worktree.commitsAhead() : 0;
 
-	const discarded = await worktree.discard("removed", { conversation });
+	const discarded = await worktree.discard("removed", { conversation, reason });
 	if (discarded.code !== 0) {
 		fail("usage", `discarding '${task}' failed: ${discarded.stderr}`, {
 			task,

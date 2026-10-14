@@ -36,7 +36,7 @@ describe("summarize", () => {
 			{ weeks: 3, now },
 		);
 
-		expect(stats.weeks).toEqual([
+		expect(stats.weeks).toMatchObject([
 			{
 				start: "2026-09-28",
 				merged: 0,
@@ -123,5 +123,41 @@ describe("summarize", () => {
 
 		expect(stats.models).toEqual([]);
 		expect(stats.since).toBeNull();
+	});
+
+	it("sums picks, waits, failures and removals, and counts a task in each system it touched", () => {
+		const stats = summarize(
+			[
+				ended({
+					systems: ["mixer", "docs"],
+					picksAsked: 3,
+					picksOverturned: 1,
+					picksAmended: 1,
+					waitedMs: 1000,
+					startedAt: "2026-10-14T09:59:50.000Z",
+					failedMergesBy: { conflict: 2 },
+				}),
+				ended({ ended: "removed", removedFor: "redo", systems: [] }),
+				// Written before any of it was kept.
+				ended({ ended: "removed" }),
+			],
+			{ now },
+		);
+
+		expect(stats.weeks.at(-1)).toMatchObject({
+			picksAsked: 3,
+			picksOverturned: 1,
+			picksAmended: 1,
+			timed: 1,
+			waitedMs: 1000,
+			spentMs: 10_000,
+			failedBy: { conflict: 2, tests_failed: 0, merge_failed: 0 },
+			removedFor: { redo: 1, unsaid: 1, moot: 0 },
+		});
+		expect(stats.systems).toMatchObject([
+			{ system: null, merged: 0, removed: 2 },
+			{ system: "mixer", merged: 1 },
+			{ system: "docs", merged: 1 },
+		]);
 	});
 });

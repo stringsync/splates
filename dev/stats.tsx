@@ -32,6 +32,8 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 		shareAxis,
 		models,
 		projects,
+		systems,
+		advice,
 	} = useReactive(
 		report,
 		(report) => ({
@@ -45,6 +47,8 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 			shareAxis: report.shareAxis,
 			models: report.models,
 			projects: report.projects,
+			systems: report.systems,
+			advice: report.advice,
 		}),
 		["changed"],
 	);
@@ -110,6 +114,35 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 							</div>
 						))}
 					</div>
+					<section aria-label="act on" className="flex flex-col gap-2">
+						<h3 className="font-medium text-xs">Act on</h3>
+						<div className="grid gap-3 sm:grid-cols-2">
+							{advice.map((each) => (
+								<article
+									key={each.title}
+									aria-label={each.title}
+									className={cn(
+										"flex flex-col gap-1 rounded-lg border p-3",
+										each.act === null && "text-muted-foreground",
+									)}
+								>
+									<div className="flex items-baseline justify-between gap-2">
+										<span className="text-xs">{each.title}</span>
+										<span className="font-medium text-lg tabular-nums">
+											{each.figure ?? "–"}
+										</span>
+									</div>
+									<p className="text-muted-foreground text-xs">{each.detail}</p>
+									{each.trend !== null && (
+										<p className="text-xs">{each.trend}</p>
+									)}
+									{each.act !== null && (
+										<p className="text-foreground text-sm">{each.act}</p>
+									)}
+								</article>
+							))}
+						</div>
+					</section>
 					<Trend
 						title="Questions per task"
 						weeks={weeks}
@@ -126,6 +159,7 @@ export function StatsPage({ report }: { report: StatsReport }): JSX.Element {
 					/>
 					<Breakdown title="By model" rows={models} />
 					<Breakdown title="By project" rows={projects} />
+					<Breakdown title="By system" rows={systems} />
 					{stats.since && (
 						<p className="text-muted-foreground text-xs">
 							Counting since {new Date(stats.since).toLocaleDateString()}
@@ -246,6 +280,7 @@ function Breakdown({
 							<th className="py-1 font-normal">Reviews</th>
 							<th className="py-1 font-normal">Failed merges</th>
 							<th className="py-1 font-normal">Removed</th>
+							<th className="py-1 font-normal">Overturned</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -258,6 +293,7 @@ function Breakdown({
 								<td className="py-1">{cell(row.reviewsPerTask, decimal)}</td>
 								<td className="py-1">{row.failedMerges}</td>
 								<td className="py-1">{cell(row.removedShare, percent)}</td>
+								<td className="py-1">{cell(row.overturnedShare, percent)}</td>
 							</tr>
 						))}
 					</tbody>

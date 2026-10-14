@@ -1,11 +1,12 @@
 import "../../../setup";
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import type { Stats } from "../stats";
+import { combine, type Stats } from "../stats";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 
 const tally = {
+	...combine([]),
 	merged: 2,
 	removed: 0,
 	clean: 1,
@@ -24,6 +25,7 @@ describe("StatsPage", () => {
 			previous: null,
 			models: [{ model: "Opus 5.5", ...tally }],
 			projects: [{ project: "/repo", ...tally }],
+			systems: [],
 			since: "2026-10-06T10:00:00.000Z",
 		};
 		const page = render(
@@ -42,12 +44,32 @@ describe("StatsPage", () => {
 		expect(page.getByRole("cell", { name: "Opus 5.5" })).toBeTruthy();
 	});
 
+	it("says on each card how its figure moved since the weeks before", async () => {
+		const stats: Stats = {
+			weeks: [{ start: "2026-10-12", ...tally, merged: 10, questionRounds: 5 }],
+			previous: { ...tally, merged: 10, questionRounds: 10 },
+			models: [],
+			projects: [],
+			systems: [],
+			since: "2026-07-01T10:00:00.000Z",
+		};
+		const page = render(
+			<StatsPage report={new StatsReport({ stats: async () => stats })} />,
+		);
+
+		await waitFor(() => page.getByLabelText("Questions per task"));
+		expect(page.getByLabelText("Questions per task").textContent).toContain(
+			"Down from 1.0 the 12 weeks before: better",
+		);
+	});
+
 	it("says nothing has ended yet, before any task has", async () => {
 		const empty: Stats = {
 			weeks: [],
 			previous: null,
 			models: [],
 			projects: [],
+			systems: [],
 			since: null,
 		};
 		const page = render(
@@ -64,6 +86,7 @@ describe("StatsPage", () => {
 			previous: null,
 			models: [],
 			projects: [],
+			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
 		};
 		const page = render(

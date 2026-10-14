@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Stats, Tally } from "../stats";
+import { combine, type Stats, type Tally } from "../stats";
 import {
 	axis,
 	PERIODS,
@@ -10,16 +10,7 @@ import {
 
 /** A week where nothing ended; a test fills in what it is about. */
 function week(start: string, changes: Partial<Tally> = {}) {
-	return {
-		start,
-		merged: 0,
-		removed: 0,
-		clean: 0,
-		questionRounds: 0,
-		reviewRounds: 0,
-		failedMerges: 0,
-		...changes,
-	};
+	return { start, ...combine([]), ...changes };
 }
 
 /** Answers with `stats`, or fails with `error` when given one; keeps what it was asked. */
@@ -52,6 +43,7 @@ const stats: Stats = {
 	],
 	previous: week("", { merged: 4, clean: 1, questionRounds: 6 }),
 	projects: [{ project: "/Users/me/webappwiz", ...week("", { merged: 1 }) }],
+	systems: [],
 	since: "2026-08-25T10:00:00.000Z",
 };
 
@@ -101,6 +93,7 @@ describe("StatsReport", () => {
 				reviewsPerTask: 0.5,
 				failedMerges: 0,
 				removedShare: 0.5,
+				overturnedShare: null,
 			},
 		]);
 		expect(report.projects).toMatchObject([{ name: "webappwiz", ended: 1 }]);
@@ -114,6 +107,7 @@ describe("StatsReport", () => {
 				previous: null,
 				models: [],
 				projects: [],
+				systems: [],
 				since: null,
 			}),
 		);

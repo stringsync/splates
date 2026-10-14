@@ -193,6 +193,47 @@ export function dedent(lines: string[]): string {
 		.replace(/^\n+|\s+$/g, "");
 }
 
+/**
+ * How the person met the agent's picks under `## Blocked`: the questions
+ * asked, those that offered a `(chosen)` choice and were answered with a
+ * choice, and of those, the ones answered with another, and the ones answered
+ * with the agent's choice but with words added, in the reply or a follow-up.
+ * A moot question, or one answered in words alone, is asked but picks nothing.
+ */
+export function picks(text: string): {
+	asked: number;
+	picked: number;
+	overturned: number;
+	amended: number;
+} {
+	const asked = questions(text);
+	let picked = 0;
+	let overturned = 0;
+	let amended = 0;
+	for (const each of asked) {
+		const chosen = each.choices.find((choice) => choice.chosen);
+		// `(b) ...`, `- (b) ...`, or a lone `b` or `b.`, as replies are written
+		// back; never the `a` that starts "a lot".
+		const reply = each.reply ?? "";
+		const [lead, wrapped, bare] =
+			/^(?:- )?(?:\(([a-z])\)|([a-z])(?=[.,]|$))/i.exec(reply) ?? [];
+		const key = wrapped ?? bare;
+		if (chosen === undefined || key === undefined || each.pick !== "one") {
+			continue;
+		}
+		picked++;
+		if (key.toLowerCase() !== chosen.key) {
+			overturned++;
+		} else if (
+			/[a-z0-9]/i.test(reply.slice(lead?.length ?? 0)) ||
+			each.followUps.length > 0
+		) {
+			amended++;
+		}
+	}
+	return { asked: asked.length, picked, overturned, amended };
+}
+
 /** What still stands between a task and trunk, as its plan tells it. */
 export interface Unfinished {
 	/** Each unchecked question under `## Blocked`, by number: `["2", "4"]`. */

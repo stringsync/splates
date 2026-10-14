@@ -44,7 +44,25 @@ export async function claim(
 	// one rather than refusing the resume.
 	const rebuilt = found.state === null;
 	const escalated = found.status === "escalated";
-	const worktree = await found.take(escalated ? { status: "working" } : {});
+	// The person answered, or someone took it back up: either way the wait
+	// on them ends here.
+	const escalations = found.state?.escalations ?? [];
+	const waiting = escalations.at(-1);
+	const worktree = await found.take(
+		escalated
+			? {
+					status: "working",
+					...(waiting && !waiting.resumedAt
+						? {
+								escalations: [
+									...escalations.slice(0, -1),
+									{ ...waiting, resumedAt: new Date().toISOString() },
+								],
+							}
+						: {}),
+				}
+			: {},
+	);
 
 	const interrupted = await worktree.interruptedOps();
 	const changes = await worktree.uncommitted();

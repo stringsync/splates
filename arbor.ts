@@ -34,6 +34,7 @@ import { systems } from "./system";
 import { update } from "./update";
 import { DEFAULT_TIMEOUT, wait } from "./wait";
 import { Watch } from "./watch";
+import { REMOVE_REASONS } from "./worktree";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
@@ -182,9 +183,13 @@ arbor
 		default: false,
 		description: "discard even when another agent holds the lease",
 	})
+	.option("reason", z.optional(z.enum(REMOVE_REASONS)), {
+		description:
+			"why, for the Stats page: nothing (nothing to change), moot (no longer needed), superseded (done some other way), redo (better redone against current trunk)",
+	})
 	.action(async (opts, ctx) => {
 		await ctx.journal.record("remove", opts.task, () =>
-			remove(ctx, opts.task, { force: opts.force }),
+			remove(ctx, opts.task, { force: opts.force, reason: opts.reason }),
 		);
 		await follow(ctx, null, opts.task);
 	});

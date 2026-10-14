@@ -73,8 +73,10 @@ left behind; one escalated and waiting on the user is not done, so leave it
 for `arbor claim`. When investigating shows there is nothing to change, the
 work is moot, or it is better redone against current trunk, `arbor todo
 remove` each todo it holds that is done or moot, `arbor todo update` the rest
-with what you learned, then `cd "$(arbor path)"` and `arbor remove <task>`,
-which puts them back on the list.
+with what you learned, then `cd "$(arbor path)"` and `arbor remove <task>
+--reason <why>`, which puts them back on the list. The reason is `nothing`
+(nothing to change), `moot`, `superseded` (done some other way) or `redo`
+(better redone against current trunk); the Stats page counts them.
 
 `wait` ends on `removed` (landed or dropped: check for overlap again),
 `escalated` (the other task needs the user: tell them you are blocked on it),

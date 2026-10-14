@@ -230,7 +230,26 @@ export interface DiscardOptions {
 	 * rather than by the agent, whose env names it.
 	 */
 	conversation?: string;
+	/**
+	 * The repo-relative paths the task changed, for a merge, which reads them
+	 * before landing leaves nothing between the branch and its base. Read
+	 * from the branch when not given.
+	 */
+	changed?: string[];
+	/** Why it was removed, as `arbor remove --reason` gives it. */
+	reason?: RemoveReason;
 }
+
+/** Why a task can be removed rather than merged, as `--reason` names it. */
+export const REMOVE_REASONS = [
+	"nothing",
+	"moot",
+	"superseded",
+	"redo",
+] as const;
+
+/** Why a task was removed rather than merged. */
+export type RemoveReason = (typeof REMOVE_REASONS)[number];
 
 /** The status a task's own record carries. */
 export type RecordStatus = "working" | "merging" | "escalated";
@@ -251,7 +270,15 @@ export interface Escalation {
 	 * reviews were a state hold the number of the question that asked, `"4"`.
 	 */
 	review?: true | string;
+	/**
+	 * When `claim` took the task back up, ending the wait on a person; absent
+	 * while it waits, and in records from before it was kept.
+	 */
+	resumedAt?: string;
 }
+
+/** Why a merge failed, as `merge` refuses it. */
+export type MergeFailure = "conflict" | "tests_failed" | "merge_failed";
 
 export interface TaskState {
 	task: string;
@@ -267,6 +294,8 @@ export interface TaskState {
 	 * the attempts. Absent in old records: none counted yet.
 	 */
 	mergeFailures?: number;
+	/** `mergeFailures` by why each failed. Absent in old records. */
+	mergeFailuresBy?: Partial<Record<MergeFailure, number>>;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];

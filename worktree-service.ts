@@ -5,6 +5,8 @@ import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { ranWith } from "./models";
 import type { Outcomes } from "./outcomes";
+import { PLAN_FILE, picks } from "./plan";
+import { Systems } from "./systems";
 import { type DiscardOptions, type TaskState, Worktree } from "./worktree";
 
 const BRANCH_PREFIX = "task/";
@@ -153,6 +155,8 @@ export class WorktreeService {
 		ended: "merged" | "removed",
 		opts: DiscardOptions = {},
 	): Promise<GitResult> {
+		// What the outcome reads off the tree and branch, before they go.
+		const ending = await this.ending(worktree, opts);
 		const removed = worktree.exists
 			? await this.git.removeWorktree(worktree.path)
 			: // Directory gone by other means: drop the metadata git still holds.
@@ -169,7 +173,7 @@ export class WorktreeService {
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
 		await this.files(worktree.task).clear();
 		await this.rememberRemoved(worktree.task);
-		await this.recordOutcome(worktree, ended, opts);
+		await this.recordOutcome(worktree, ended, opts, ending);
 		return removed;
 	}
 
@@ -187,15 +191,43 @@ export class WorktreeService {
 	 * Writes down how a task with a record ended. One with none, a stray
 	 * branch or a bare directory, never ran as a task, so says nothing.
 	 */
+	/**
+	 * What a task leaves to read as it ends: its plan's questions, and the
+	 * systems its changes fall in, by the config in its own tree.
+	 */
+	private async ending(
+		worktree: Worktree,
+		{ changed }: DiscardOptions,
+	): Promise<Ending> {
+		if (!this.outcomes || !worktree.state) {
+			return { plan: "", systems: [] };
+		}
+		const paths =
+			changed ??
+			(worktree.hasBranch ? await worktree.changedFiles() : null) ??
+			[];
+		const root = worktree.exists ? worktree.path : this.git.root;
+		const systems = await Systems.at(root, { fs: this.fs }).catch(() => null);
+		return {
+			plan: worktree.exists
+				? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "")
+				: "",
+			systems: systems?.touchedBy(paths).map((each) => each.name) ?? [],
+		};
+	}
+
 	private async recordOutcome(
 		{ task, base, state }: Worktree,
 		ended: "merged" | "removed",
 		opts: DiscardOptions,
+		ending: Ending,
 	): Promise<void> {
 		if (!this.outcomes || !state) {
 			return;
 		}
 		const escalations = state.escalations ?? [];
+		const endedAt = new Date().toISOString();
+		const asked = picks(ending.plan);
 		const reviews = escalations.filter((each) => each.review).length;
 		// A dispatched task names its conversation once `arbor dev` started
 		// it; any other agent from the page has it in its env.
@@ -219,10 +251,28 @@ export class WorktreeService {
 			base,
 			ended,
 			startedAt: state.createdAt,
-			endedAt: new Date().toISOString(),
+			endedAt,
 			questionRounds: escalations.length - reviews,
 			reviewRounds: reviews,
 			failedMerges: state.mergeFailures ?? 0,
+			failedMergesBy: state.mergeFailuresBy ?? {},
+			questionsAsked: asked.asked,
+			picksAsked: asked.picked,
+			picksOverturned: asked.overturned,
+			picksAmended: asked.amended,
+			systems: ending.systems,
+			// Each escalation waits until claimed, or until the task ended
+			// while it still waited.
+			waitedMs: escalations.reduce(
+				(sum, each) =>
+					sum +
+					Math.max(
+						0,
+						Date.parse(each.resumedAt ?? endedAt) - Date.parse(each.at),
+					),
+				0,
+			),
+			removedFor: ended === "removed" ? (opts.reason ?? null) : null,
 			conversation,
 			agent: ran?.agent ?? state.dispatch?.agent ?? null,
 			model: ran?.model ?? state.dispatch?.model ?? null,
@@ -291,4 +341,10 @@ export class WorktreeService {
 			await this.fs.rm(this.removedPath(name), { force: true });
 		}
 	}
+}
+
+/** What `discard` reads off a task for its outcome before the tree goes. */
+interface Ending {
+	plan: string;
+	systems: string[];
 }

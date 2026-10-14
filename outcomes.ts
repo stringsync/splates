@@ -1,4 +1,5 @@
 import type { Fs } from "webappwiz/system";
+import type { MergeFailure, RemoveReason } from "./worktree";
 
 /**
  * How one task ended, written as it goes. Its record goes with it, so this is
@@ -21,6 +22,22 @@ export interface Outcome {
 	reviewRounds: number;
 	/** Merges that failed on a conflict, the gate, or a base that would not move. */
 	failedMerges: number;
+	/** `failedMerges` by why each failed. Absent from lines written before it was kept. */
+	failedMergesBy?: Partial<Record<MergeFailure, number>>;
+	/** The questions its plan asked under `## Blocked`. Absent from older lines. */
+	questionsAsked?: number;
+	/** Of those, the ones that offered a `(chosen)` pick and were answered with a choice. */
+	picksAsked?: number;
+	/** Of `picksAsked`, those answered with another choice than the agent's. */
+	picksOverturned?: number;
+	/** Of `picksAsked`, those answered with the agent's choice but with words added. */
+	picksAmended?: number;
+	/** The systems its changed files fall in, by name. Absent from older lines. */
+	systems?: string[];
+	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */
+	waitedMs?: number;
+	/** Why it was removed, when `arbor remove --reason` said; null when merged or unsaid. */
+	removedFor?: RemoveReason | null;
 	/** The `arbor dev` conversation that ended it; null for an external agent. */
 	conversation: string | null;
 	/** The agent `arbor add --agent` handed it to, if any. */
