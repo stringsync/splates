@@ -30,12 +30,14 @@ import {
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
-	AttachmentChipsPlugin,
-	type ChipWriter,
-	ChipWriterPlugin,
 	ComposerChip,
 	chipFormatter,
 	FileNames,
+} from "#dev/composer-chips.tsx";
+import {
+	AttachmentChipsPlugin,
+	type ChipWriter,
+	ChipWriterPlugin,
 	ForgetAttachment,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
