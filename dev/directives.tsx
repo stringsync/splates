@@ -166,7 +166,6 @@ export function DirectiveCard({
 			label={bare.label.toLowerCase()}
 			Icon={bare.icon}
 			title={bare.label}
-			tone="info"
 		>
 			<CardBody
 				text={`Asked the agent to ${bare.about}.`}

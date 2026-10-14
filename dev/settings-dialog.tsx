@@ -424,10 +424,7 @@ function ShortcutField({
 							void bind(pressed);
 						}
 					}}
-					className={cn(
-						"w-32 justify-center",
-						recording && "ring-2 ring-ring",
-					)}
+					className={cn("w-32 justify-center", recording && "ring-2 ring-ring")}
 				>
 					{recording ? (
 						<span className="text-muted-foreground text-xs">

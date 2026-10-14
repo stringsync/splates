@@ -52,7 +52,6 @@ export function StartCard({ start }: { start: Start }): JSX.Element {
 			label={`added ${start.task}`}
 			Icon={SproutIcon}
 			title="Added"
-			tone="info"
 			task={start.task}
 		>
 			{start.goal === "" ? undefined : <CardBody text={start.goal} />}
