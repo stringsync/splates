@@ -56,6 +56,19 @@ describe("App", () => {
 		expect(view.getByText("~/Projects/webappwiz")).toBeTruthy();
 	});
 
+	it("says who Cloudflare Access signed in, and nothing on this machine", async () => {
+		const local = await testing.open();
+		expect(local.queryByText(/Signed in as/)).toBeNull();
+		cleanup();
+
+		testing.email = "me@example.com";
+		const view = await testing.open();
+
+		await waitFor(() =>
+			expect(view.getByText("Signed in as me@example.com")).toBeTruthy(),
+		);
+	});
+
 	it("shows the todos and the tasks on pages of their own, kept in the address", async () => {
 		const view = await testing.open({
 			tasks: [details({ task: "alpha" })],

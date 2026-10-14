@@ -255,3 +255,15 @@ export async function stats(weeks: number | null): Promise<Stats> {
 	}
 	return (await response.json()) as Stats;
 }
+
+/**
+ * The email Cloudflare Access signed this page's visitor in with, or null
+ * when the page is opened on this machine or Access is off.
+ */
+export async function identity(): Promise<string | null> {
+	const response = await fetch("/api/identity");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/identity: ${response.status}`);
+	}
+	return ((await response.json()) as { email: string | null }).email;
+}

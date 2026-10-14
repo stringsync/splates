@@ -192,6 +192,33 @@ describe("HostGate with Access", () => {
 		expect((await through(request("localhost:4269"))).status).toBe(200);
 	});
 
+	it("says who a verified request comes from, and no one for this machine", async () => {
+		const { verifier } = await access();
+		const gate = new HostGate(
+			["arbor.example.com"],
+			new MemoryLogger(),
+			verifier,
+		);
+
+		expect(
+			await gate.identity(
+				request("arbor.example.com", {
+					"cf-access-jwt-assertion": await token(),
+				}),
+			),
+		).toEqual({ email: "me@example.com", sub: "user-1" });
+		expect(
+			await gate.identity(
+				request("localhost:4269", {
+					"cf-access-jwt-assertion": await token(),
+				}),
+			),
+		).toBeNull();
+		expect(
+			await new HostGate([], new MemoryLogger()).identity(request("localhost")),
+		).toBeNull();
+	});
+
 	it("asks for a token on every route from an allowed host", async () => {
 		const { verifier } = await access();
 		const gate = new HostGate(

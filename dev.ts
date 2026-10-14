@@ -263,6 +263,11 @@ export async function dev(
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			"/api/projects": guarded(listProjects),
 			"/api/stats": guarded(listStats),
+			"/api/identity": guarded(async (request) =>
+				Response.json({
+					email: (await gate.identity(request))?.email ?? null,
+				}),
+			),
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },

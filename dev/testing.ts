@@ -112,6 +112,8 @@ export class Testing implements Resource {
 	run = "run-1";
 	/** Whether `/api/projects` says `arbor dev` can restart itself. */
 	restartable = true;
+	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
+	email: string | null = null;
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
@@ -147,6 +149,9 @@ export class Testing implements Resource {
 				};
 				await this.listingProjects;
 				return Response.json(listed);
+			}
+			if (route === "/api/identity") {
+				return Response.json({ email: this.email });
 			}
 			if (path.startsWith("/api/paths")) {
 				await this.listing;

@@ -250,6 +250,10 @@ describe("dev", () => {
 			expect((await as("rebound.example")).status).toBe(403);
 			expect((await as("repo.arbor.example")).status).toBe(200);
 			expect((await as(`localhost:${server.port}`)).status).toBe(200);
+			const signedIn = await fetch(
+				`http://127.0.0.1:${server.port}/api/identity`,
+			);
+			expect(await signedIn.json()).toEqual({ email: null });
 		} finally {
 			await server.disposeAsync();
 		}

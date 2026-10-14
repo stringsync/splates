@@ -1,6 +1,7 @@
-import type { JSX } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Snapshot } from "../snapshot";
+import { identity } from "./api";
 import { CheckpointRefusal } from "./checkpoint";
 import { PageMenu } from "./page-menu";
 import { ProjectSwitcher } from "./projects";
@@ -8,7 +9,8 @@ import { ProjectSwitcher } from "./projects";
 /**
  * Heads the sidebar when there is one, and the page on a phone: the project
  * switcher, a badge when the server is outdated, unbuilt or offline, the page
- * menu, the project's path, and why a checkpoint could not start.
+ * menu, the project's path, who Cloudflare Access signed in, and why a
+ * checkpoint could not start.
  */
 export function AppHeader({
 	name,
@@ -93,8 +95,25 @@ export function AppHeader({
 					{snapshot.path}
 				</span>
 			)}
+			<SignedIn />
 			{/* Out of the menu that asked, which has closed. */}
 			<CheckpointRefusal className="pt-1" />
 		</header>
+	);
+}
+
+/**
+ * Who Cloudflare Access signed in, when the page came through it; nothing on
+ * this machine, where no one signs in.
+ */
+function SignedIn(): JSX.Element | null {
+	const [email, setEmail] = useState<string | null>(null);
+	useEffect(() => {
+		identity().then(setEmail, () => {});
+	}, []);
+	return email === null ? null : (
+		<span className="truncate text-muted-foreground text-xs">
+			Signed in as {email}
+		</span>
 	);
 }

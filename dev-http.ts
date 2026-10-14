@@ -2,7 +2,7 @@ import type { Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import { SystemTimer } from "webappwiz/time";
 import type { Attachment } from "./attachments";
-import type { Access } from "./dev-access";
+import type { Access, Identity } from "./dev-access";
 import { Exit, type Reason } from "./exit";
 import { PULSE, PULSE_EVENT } from "./pulse";
 
@@ -69,6 +69,15 @@ export class HostGate {
 				return refuse(500, "error", String(error));
 			}
 		};
+
+	/**
+	 * Who Cloudflare Access says `request` comes from, or null when it comes
+	 * to this machine's own names or no Access stands in front.
+	 */
+	readonly identity = async (request: Request): Promise<Identity | null> =>
+		this.access === null || isLocal(request.headers.get("host") ?? "")
+			? null
+			: ((await this.access.verify(request)).identity ?? null);
 
 	// Refused, rather than missing, for any name but this machine's own and
 	// no verified Access token: a tunnel's visitor learns the feature exists,
