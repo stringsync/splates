@@ -56,3 +56,53 @@ export async function serving(
 		await server.disposeAsync();
 	}
 }
+
+/** A JSON write the way the page makes one: same origin as the host it asked. */
+export function json(
+	port: number,
+	path: string,
+	method: string,
+	body = {},
+): Promise<Response> {
+	return fetch(`http://127.0.0.1:${port}${path}`, {
+		method,
+		headers: {
+			origin: `http://127.0.0.1:${port}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify(body),
+	});
+}
+
+/** A post the way the page makes one: same origin as the host it asked. */
+export function post(
+	port: number,
+	path: string,
+	body: BodyInit,
+	headers = {},
+): Promise<Response> {
+	return fetch(`http://127.0.0.1:${port}${path}`, {
+		method: "POST",
+		headers: { origin: `http://127.0.0.1:${port}`, ...headers },
+		body,
+	});
+}
+
+/** A todo write the way the page makes one. */
+export function todoForm(
+	subject: string | null,
+	files: File[] = [],
+	keep: string[] = [],
+): FormData {
+	const form = new FormData();
+	if (subject !== null) {
+		form.set("subject", subject);
+	}
+	for (const file of files) {
+		form.append("file", file);
+	}
+	for (const path of keep) {
+		form.append("keep", path);
+	}
+	return form;
+}
