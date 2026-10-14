@@ -162,7 +162,10 @@ function phaseOf(slide: Slide, restarted: string | null): keyof typeof PHASES {
 	}
 }
 
-/** The dialog's title: the phase it is in, with its icon. */
+/**
+ * The dialog's title: the phase it is in, with its icon, which spins while
+ * `arbor dev` restarts.
+ */
 function PhaseTitle({
 	slide,
 	restarted,
@@ -173,7 +176,11 @@ function PhaseTitle({
 	const { title, Icon } = PHASES[phaseOf(slide, restarted)];
 	return (
 		<DialogTitle className="flex items-center gap-2">
-			<Icon aria-hidden className="size-4" />
+			{slide === "restarting" ? (
+				<Loader2Icon aria-hidden className="size-4 animate-spin" />
+			) : (
+				<Icon aria-hidden className="size-4" />
+			)}
 			{title}
 		</DialogTitle>
 	);
