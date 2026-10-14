@@ -94,6 +94,8 @@ export class ConversationLog {
 				delivered(state.messages);
 			} else if (entry.kind === "stopped") {
 				agentTurn(state, entry.at).stopped = entry.at;
+			} else if (entry.kind === "interrupted") {
+				agentTurn(state, entry.at).interrupted = entry.at;
 			} else if (entry.kind === "unqueue") {
 				takeBack(state.messages, entry.index);
 			} else if (entry.kind === "update") {
@@ -242,6 +244,8 @@ export type Entry =
 	| { kind: "sent" }
 	/** The person stopped the agent's turn. */
 	| { kind: "stopped"; at: string }
+	/** The agent's turn ended early, its connection lost or its process gone. */
+	| { kind: "interrupted"; at: string }
 	/** The `index`th queued prompt was taken back. */
 	| { kind: "unqueue"; index: number }
 	/** Where a checkpoint stands, and what comes after it. */

@@ -146,6 +146,9 @@ export class ConversationTurns {
 		if (state.status !== "running") {
 			return;
 		}
+		if (error !== null) {
+			this.interrupt();
+		}
 		host.set({ status: "idle", ...(error === null ? {} : { error }) });
 		host.flag(true);
 		if (!this.held && state.messages.some((each) => each.queued)) {
@@ -159,6 +162,24 @@ export class ConversationTurns {
 		) {
 			this.mark(error === null ? "done" : "failed");
 		}
+	}
+
+	/**
+	 * Marks a running turn as cut short, as when the connection is lost or the
+	 * process exits, unless the person stopped it, which says so already.
+	 */
+	interrupt(): void {
+		const { host } = this;
+		if (host.state.status !== "running") {
+			return;
+		}
+		const at = host.now();
+		const turn = agentTurn(host.state, at);
+		if (turn.stopped !== undefined) {
+			return;
+		}
+		host.log.write({ kind: "interrupted", at });
+		turn.interrupted = at;
 	}
 
 	/** Whether a checkpoint has ended and nothing has been said since. */

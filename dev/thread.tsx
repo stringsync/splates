@@ -48,7 +48,7 @@ import { useThreadActions } from "./thread-actions";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { ContextMeter } from "./usage";
-import { StoppedUI, TreesContext, WorkUI } from "./work-row";
+import { InterruptedUI, StoppedUI, TreesContext, WorkUI } from "./work-row";
 
 /**
  * One conversation: its header, then assistant-ui's thread, fed by `like`,
@@ -232,6 +232,7 @@ export function Thread({
 								<DemoUI />
 								<WorkUI />
 								<StoppedUI />
+								<InterruptedUI />
 								<StartNewContext value={startNew}>
 									<ReplyContext value={reply}>
 										<NamedContext value={named}>

@@ -98,6 +98,8 @@ export interface Message {
 	queued?: true;
 	/** When the person stopped the agent's turn, for one they stopped. */
 	stopped?: string;
+	/** When the connection to the agent was lost mid-turn, for one it cut short. */
+	interrupted?: string;
 	/** Said while the agent worked, and taken into the turn it was running. */
 	steered?: true;
 }

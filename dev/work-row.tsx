@@ -6,6 +6,7 @@ import {
 	LoaderIcon,
 	SquareIcon,
 	TriangleAlertIcon,
+	UnplugIcon,
 } from "lucide-react";
 import { createContext, type JSX, use, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
@@ -47,6 +48,23 @@ export const StoppedUI = makeAssistantDataUI<{ at: string }>({
 		>
 			<SquareIcon className="size-3 shrink-0 fill-current" />
 			Stopped by you
+		</div>
+	),
+});
+
+/**
+ * Renders a `data-interrupted` part: the line that ends a turn cut short by a
+ * lost connection or a reset, so the thread says why it ends where it does.
+ */
+export const InterruptedUI = makeAssistantDataUI<{ at: string }>({
+	name: "interrupted",
+	render: () => (
+		<div
+			data-slot="interrupted"
+			className="my-2 flex items-center gap-1.5 text-muted-foreground text-sm"
+		>
+			<UnplugIcon className="size-3 shrink-0" />
+			Interrupted, connection lost
 		</div>
 	),
 });

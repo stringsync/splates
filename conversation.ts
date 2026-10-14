@@ -436,6 +436,9 @@ export class Conversation
 			return;
 		}
 		this.connection.close();
+		if (error !== null) {
+			this.turns.interrupt();
+		}
 		if (this.state.checkpoint === "asked") {
 			this.turns.mark("failed");
 		}

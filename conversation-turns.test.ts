@@ -311,4 +311,26 @@ describe("Conversation turns", () => {
 		expect(read?.state.messages.at(-1)?.stopped).toBe(stopped);
 		await reread.disposeAsync();
 	});
+
+	it("marks the turn a crash cut short, and reads the mark back from its log", async () => {
+		const conversation = await working(conversations, held);
+
+		agent.crash();
+		await until(conversation, "failed");
+
+		const [, reply] = conversation.state.messages;
+		const interrupted = reply?.interrupted;
+		expect(reply?.role).toBe("agent");
+		expect(typeof interrupted).toBe("string");
+		expect(reply?.stopped).toBeUndefined();
+		await conversation.stop();
+		const reread = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{ fs, timer, launch: agent.launch },
+		);
+		const [read] = await reread.list();
+		expect(read?.state.messages.at(-1)?.interrupted).toBe(interrupted);
+		await reread.disposeAsync();
+	});
 });

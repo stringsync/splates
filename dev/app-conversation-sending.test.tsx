@@ -349,4 +349,29 @@ describe("App's sending messages", () => {
 			"Stopped by you",
 		);
 	});
+
+	it("ends a turn a lost connection cut short with a line that says so", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Cut short",
+				messages: [
+					message("user", "go"),
+					{
+						...message("agent", "Starting on it."),
+						interrupted: "2026-10-12T10:00:00.000Z",
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Cut short" });
+
+		await waitFor(() =>
+			expect(thread.querySelectorAll('[data-slot="interrupted"]')).toHaveLength(
+				1,
+			),
+		);
+		expect(thread.querySelector('[data-slot="interrupted"]')?.textContent).toBe(
+			"Interrupted, connection lost",
+		);
+	});
 });

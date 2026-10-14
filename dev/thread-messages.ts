@@ -194,6 +194,14 @@ export function like(
 			...(message.stopped === undefined
 				? []
 				: [{ type: "data-stopped" as const, data: { at: message.stopped } }]),
+			...(message.interrupted === undefined
+				? []
+				: [
+						{
+							type: "data-interrupted" as const,
+							data: { at: message.interrupted },
+						},
+					]),
 		],
 	};
 }
