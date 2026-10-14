@@ -6,7 +6,7 @@ import type { TodoState } from "../todo";
 import { Board } from "./board";
 import { DirectiveChip } from "./directives";
 
-/** How many the home screen recommends: few, so the row never wraps. */
+/** How many the home screen recommends: few, so the row stays short. */
 const SHOWN = 2;
 
 /**
@@ -39,8 +39,8 @@ export function recommended(
 
 /**
  * The section under the home screen's composer recommending what no agent is
- * on; a tap starts a conversation that takes it up. Always one chip tall, so
- * what sits below stays put as work is taken up.
+ * on; a tap starts a conversation that takes it up. Its chips wrap onto more
+ * lines rather than overlap where the screen is narrow.
  */
 export function Recommended({
 	free,
@@ -61,21 +61,21 @@ export function Recommended({
 			<h3 className="pl-3 font-medium text-muted-foreground text-xs">
 				Recommended
 			</h3>
-			<div className="flex h-7 min-w-0 items-center pl-3">
+			<div className="flex min-h-7 min-w-0 items-center pl-3">
 				{shown.length === 0 ? (
 					<span className="truncate text-muted-foreground text-xs">
 						Nothing unclaimed
 					</span>
 				) : (
-					<ul className="flex min-w-0 gap-1.5 overflow-hidden">
+					<ul className="flex min-w-0 flex-wrap gap-1.5">
 						{shown.map((directive) => (
-							<li key={directive} className="flex min-w-0">
+							<li key={directive} className="flex min-w-0 max-w-full">
 								<button
 									type="button"
 									title={`Start a conversation with ${directive}`}
 									disabled={starting}
 									onClick={() => onStart(directive)}
-									className="flex min-w-0 cursor-pointer rounded-md hover:bg-muted disabled:cursor-default disabled:opacity-60"
+									className="flex min-w-0 cursor-pointer rounded-md *:shrink hover:bg-muted disabled:cursor-default disabled:opacity-60"
 								>
 									<DirectiveChip directive={directive} />
 								</button>
