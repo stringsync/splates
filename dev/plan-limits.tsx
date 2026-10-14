@@ -135,7 +135,7 @@ export function PlanLimits({
 			<h3 className="pl-3 font-medium text-muted-foreground text-xs">
 				Plan limits
 			</h3>
-			<ul className="flex flex-col">
+			<ul className="grid grid-cols-[max-content_1fr_3rem_14rem] gap-x-3">
 				{limits.map((limit) => {
 					const resets = Date.parse(limit.resets);
 					// Past its reset, it has started over since the agent said.
@@ -152,9 +152,9 @@ export function PlanLimits({
 						<li
 							key={limit.window}
 							aria-label={name}
-							className="grid grid-cols-[6rem_1fr_3rem_14rem] items-center gap-3 rounded-md px-3 py-1.5 text-sm tabular-nums"
+							className="col-span-full grid grid-cols-subgrid items-center rounded-md px-3 py-1.5 text-sm tabular-nums"
 						>
-							<span>{name}</span>
+							<span className="whitespace-nowrap">{name}</span>
 							<span
 								aria-hidden
 								className="relative h-1 overflow-hidden rounded-full bg-foreground/15"
