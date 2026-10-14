@@ -14,6 +14,7 @@ import { Conversations, launch } from "./conversations";
 import { DEFAULT_PORT, dev, devPorts } from "./dev";
 import type { Assets } from "./dev/assets";
 import { accessConfig } from "./dev-access";
+import { tunnelConfig } from "./dev-tunnel";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
@@ -295,9 +296,20 @@ arbor
 		default: "",
 		description: "the AUD tag of that Access application",
 	})
+	.option("tunnel", z.string(), {
+		default: "",
+		description:
+			"the public host name of a Cloudflare tunnel to run with cloudflared, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated",
+	})
+	.option("tunnel-name", z.string(), {
+		default: "",
+		description:
+			"the named tunnel cloudflared runs for --tunnel; by default the one its own config names",
+	})
 	.action(async (opts, ctx) => {
 		// Read before the child starts, so a half-given pair fails once.
 		const access = accessConfig(opts["access-team"], opts["access-aud"]);
+		const tunnel = tunnelConfig(opts.tunnel, opts["tunnel-name"], access);
 		// Served from a child, so the page can restart it.
 		if (ctx.ps.env(SERVING) === undefined) {
 			// A checkout's page is as its last `bun install` built it: installed
@@ -328,6 +340,7 @@ arbor
 				.map((host) => host.trim())
 				.filter(Boolean),
 			access,
+			tunnel,
 			conversations: ({ arborDir, git }) =>
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,

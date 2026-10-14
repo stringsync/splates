@@ -18,6 +18,7 @@ import {
 } from "./dev-project";
 import { Restarts } from "./dev-restart";
 import { type TerminalData, Terminals } from "./dev-terminal";
+import { Tunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { fail } from "./exit";
 import type { Git } from "./git";
@@ -52,6 +53,7 @@ export async function dev(
 		ports = devPorts(DEFAULT_PORT),
 		hosts = [],
 		access = null,
+		tunnel = null,
 		conversations: converse = null,
 		shell = null,
 		newest = async () => null,
@@ -81,8 +83,16 @@ export async function dev(
 			{ root: here },
 		);
 	}
+	// The page is the one thing a tunnel exposes, so no tunnel runs unguarded.
+	if (tunnel !== null && access === null) {
+		fail(
+			"usage",
+			"a tunnel needs Cloudflare Access in front: give --access-team and --access-aud",
+			{ host: tunnel.host },
+		);
+	}
 	const gate = new HostGate(
-		hosts,
+		tunnel === null ? hosts : [...hosts, tunnel.host],
 		log,
 		access === null ? null : new Access(access),
 	);
@@ -365,6 +375,10 @@ export async function dev(
 	await restarts.reopenStopped();
 
 	log.info(`arbor dev on http://localhost:${port}`);
+	if (tunnel !== null) {
+		const carrying = Tunnel.start(ps, log, tunnel, port);
+		disposer.defer(() => carrying.disposeAsync());
+	}
 	const checks = versions.check();
 	disposer.defer(async () => checks.dispose());
 	// true drains open connections rather than cutting them mid-response
@@ -408,6 +422,11 @@ export interface DevOptions {
 	 * page beyond this machine refuses to without it.
 	 */
 	access?: AccessConfig | null;
+	/**
+	 * The Cloudflare tunnel to run once listening, whose host `hosts` also
+	 * lets in. Refused without `access`.
+	 */
+	tunnel?: TunnelConfig | null;
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
 	 * records in `arborDir`, its commands watched through `git`; without it no page has any to show, and the routes
