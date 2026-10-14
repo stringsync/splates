@@ -4,7 +4,7 @@ import type { Details } from "../show";
 import { NEW } from "./conversation-address";
 import { reportedAs } from "./conversation-names";
 import type { Drafts } from "./drafts";
-import { isPartOf, type Nested } from "./parts";
+import { isPartOf, type Nested, nest } from "./parts";
 import { arriveAt, questionsSeen, replyCopied, TASK } from "./task-view";
 import { unanswered } from "./unanswered";
 
@@ -180,6 +180,30 @@ export function isHostOf(
 			caller === host.conversation?.id &&
 			caller !== part.conversation?.id)
 	);
+}
+
+/**
+ * The conversations with a subagent at work under them: a row nested under
+ * one, however deep, whose agent is working, as on a part it handed out.
+ */
+export function hostingWork(
+	tasks: Details[],
+	conversations: ConversationState[],
+): Set<string> {
+	const hosting = new Set<string>();
+	const atWork = ({ row, parts }: Nested<Needing>): boolean => {
+		const working = parts.map(atWork).some(Boolean);
+		if (working && row.conversation !== null) {
+			hosting.add(row.conversation.id);
+		}
+		return (
+			working || row.need.kind === "working" || row.need.kind === "assuming"
+		);
+	};
+	nest(rowsOf(tasks, conversations), (host, part) =>
+		isHostOf(tasks, host, part),
+	).forEach(atWork);
+	return hosting;
 }
 
 /** A row's key: its conversation's id, or its external agent's task. */

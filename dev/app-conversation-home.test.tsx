@@ -88,6 +88,38 @@ describe("App's conversation home", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("leaves out of picking back up a conversation with a subagent at work under it, in a conversation or outside the page", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", task: null, title: "Orchestrate" }),
+				conversation({
+					id: "c2",
+					task: "split-a",
+					lastCaller: "c1",
+					status: "running",
+				}),
+				conversation({ id: "c3", task: null, title: "Hand out" }),
+				conversation({ id: "c4", task: null, title: "Settled" }),
+				conversation({ id: "c5", task: "split-c", lastCaller: "c4" }),
+			],
+			null,
+			{
+				tasks: [
+					details({ task: "split-a", caller: "c1" }),
+					details({ task: "split-b", caller: "c3" }),
+					details({ task: "split-c", caller: "c4" }),
+				],
+			},
+		);
+		const recent = view.getByRole("region", { name: "recent conversations" });
+
+		expect(
+			within(recent)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["Settledmain", "split-c"]);
+	});
+
 	it("starts a conversation from the home composer, in the main tree with the agent picked from New and its settings, and says the message", async () => {
 		const view = await testing.openConversations(
 			[
