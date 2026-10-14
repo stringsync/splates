@@ -4,7 +4,7 @@ import { QuestionFlow } from "#dev/components/assistant-ui/elements/question-flo
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Answer, Ask, ConversationState } from "../conversations";
-import { answerConversation } from "./api";
+import { answerConversation } from "./conversation-api";
 import type { Drafts } from "./drafts";
 import { Refusal, useRefusal } from "./refusal";
 

@@ -20,9 +20,9 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Background, BackgroundState } from "../conversations";
-import { stopBackground } from "./api";
 import { BackgroundOutput } from "./background-output";
 import { PANE_WIDTH } from "./changes";
+import { stopBackground } from "./conversation-api";
 
 /**
  * Opens what a conversation's background command printed in the pane beside

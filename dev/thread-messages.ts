@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { type Report, stretches } from "../asked";
 import type { ConversationState, Message, Part } from "../conversations";
-import { conversationAttachment } from "./api";
+import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Turn } from "./report-cards";
 import { replyDue, stretchesOf } from "./work";

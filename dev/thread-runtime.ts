@@ -6,8 +6,12 @@ import {
 } from "@assistant-ui/react";
 import { useCallback, useMemo, useRef } from "react";
 import type { ConversationState } from "../conversations";
-import { cancelConversation, promptConversation, sendQueuedNow } from "./api";
 import { FILES, filesOf, noted, said, useDraft } from "./composer-drafts";
+import {
+	cancelConversation,
+	promptConversation,
+	sendQueuedNow,
+} from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import type { ThreadMessages } from "./thread-messages";

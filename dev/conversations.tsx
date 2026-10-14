@@ -7,7 +7,6 @@ import { type LaneRecord, named } from "../lanes";
 import { need } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
-import { markUnread } from "./api";
 import { Back } from "./back";
 import { Board } from "./board";
 import {
@@ -18,6 +17,7 @@ import {
 	startsOne,
 	taskFor,
 } from "./conversation-address";
+import { markUnread } from "./conversation-api";
 import {
 	type AgentChoice,
 	agentName,

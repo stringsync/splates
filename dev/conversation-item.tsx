@@ -29,8 +29,12 @@ import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { Need } from "../needs";
 import { AgentIcon } from "./agent-icons";
-import { archiveConversation, markUnread, renameConversation } from "./api";
 import { copiedLabel, useCopy } from "./card";
+import {
+	archiveConversation,
+	markUnread,
+	renameConversation,
+} from "./conversation-api";
 import { nameOf, openingOf, reportedAs, unnamed } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { Mark } from "./mark";

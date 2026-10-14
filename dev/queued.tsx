@@ -5,12 +5,12 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import type { Message } from "../conversations";
 import { leadingDirectives } from "../prompts";
+import { focusComposer } from "./composer-editor";
 import {
 	conversationAttachment,
 	sendQueuedNow,
 	unqueueConversation,
-} from "./api";
-import { focusComposer } from "./composer-editor";
+} from "./conversation-api";
 import { Directed, DirectiveChip } from "./directives";
 
 /**

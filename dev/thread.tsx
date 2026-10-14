@@ -11,7 +11,6 @@ import type { Report } from "../asked";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import { useWidgets, WIDGETS_ROOM, Widgets, WidgetsButton } from "./actions";
-import { chooseSetting } from "./api";
 import { AskPanel } from "./ask-panel";
 import { Back } from "./back";
 import { BackgroundRow } from "./background";
@@ -24,6 +23,7 @@ import {
 	useNamed,
 	useSystems,
 } from "./composer-triggers";
+import { chooseSetting } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Rename } from "./conversation-item";
 import { lastReport, nameOf, unnamed } from "./conversation-names";

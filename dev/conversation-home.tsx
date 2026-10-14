@@ -11,10 +11,10 @@ import type { ConversationState } from "../conversations";
 import { modelOption } from "../models";
 import type { Details } from "../show";
 import { AgentBrand, AgentIcon } from "./agent-icons";
-import { promptConversation, startConversation } from "./api";
 import { Back } from "./back";
 import { FILES, filesOf, noted, said, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
+import { promptConversation, startConversation } from "./conversation-api";
 import {
 	type AgentChoice,
 	agentName,
