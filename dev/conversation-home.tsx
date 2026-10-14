@@ -29,6 +29,7 @@ import { type Drafts, newDraft } from "./drafts";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
 import { limitsOf, PlanLimits } from "./plan-limits";
+import { Recommended } from "./recommended";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
 import { SettingControl } from "./setting-controls";
@@ -71,6 +72,7 @@ async function slide(change: () => void): Promise<void> {
 export function Home({
 	drafts,
 	tasks,
+	free,
 	feed,
 	agents,
 	agent,
@@ -84,6 +86,8 @@ export function Home({
 	/** What was typed and not sent, by conversation. */
 	drafts: Drafts;
 	tasks: Details[];
+	/** The live tasks no listed conversation runs in, to recommend. */
+	free: Details[];
 	feed: ConversationFeed;
 	agents: AgentChoice[];
 	/** The agent the conversation starts with, picked beside New conversation. */
@@ -231,6 +235,19 @@ export function Home({
 							below={
 								<>
 									<PlanLimits limits={limitsOf(agents, conversations, agent)} />
+									{task === null && (
+										<Recommended
+											free={free}
+											starting={starting}
+											// The draft stays in the composer for the next one.
+											onStart={(directive) =>
+												runtime.thread.append({
+													role: "user",
+													content: [{ type: "text", text: directive }],
+												})
+											}
+										/>
+									)}
 									{recent.length > 0 && (
 										<section
 											aria-label="recent conversations"

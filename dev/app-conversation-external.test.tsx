@@ -76,7 +76,11 @@ Cap upload retries
 			["gamma", "waiting on you"],
 		]);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /gamma/ })),
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /gamma/ }),
+			),
 		);
 		expect(location.hash).toBe("#conversations/task/gamma");
 		const alone = view.getByRole("region", { name: "gamma" });
@@ -138,7 +142,11 @@ Cap upload retries
 			],
 		});
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /beta/ })),
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /beta/ }),
+			),
 		);
 
 		const alone = view.getByRole("region", { name: "beta" });
@@ -159,7 +167,11 @@ Cap upload retries
 			});
 		const open = (view: ConversationsView) =>
 			act(async () =>
-				fireEvent.click(view.getByRole("button", { name: /gamma/ })),
+				fireEvent.click(
+					within(
+						view.getByRole("navigation", { name: "conversations" }),
+					).getByRole("button", { name: /gamma/ }),
+				),
 			);
 		const opened = async (plan: string) => {
 			const view = await testing.openConversations([], null, {
@@ -253,7 +265,11 @@ Cap upload retries
 			tasks: [details({ task: "beta" })],
 		});
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /beta/ })),
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /beta/ }),
+			),
 		);
 		const sessions = await waitFor(() =>
 			within(view.getByRole("region", { name: "beta" })).getByRole("region", {
@@ -304,7 +320,11 @@ Cap upload retries
 			tasks: [details({ task: "beta" })],
 		});
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: /beta/ })),
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /beta/ }),
+			),
 		);
 
 		await waitFor(() =>

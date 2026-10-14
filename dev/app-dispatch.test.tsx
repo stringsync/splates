@@ -96,7 +96,9 @@ describe("App's controls that put agents to work", () => {
 	/** The directives the composer holds as chips, each by its title. */
 	const chips = (view: Awaited<ReturnType<typeof board>>) =>
 		Array.from(
-			view.container.querySelectorAll<HTMLElement>('[title^="[ARBOR "]'),
+			view
+				.getByRole("textbox", { name: "Message input" })
+				.querySelectorAll<HTMLElement>('[title^="[ARBOR "]'),
 			(chip) => chip.title,
 		);
 

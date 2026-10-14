@@ -207,7 +207,9 @@ describe("App's composer references", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "ArrowDown" }));
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		await waitFor(() => expect(view.getByTitle("[ARBOR LANE 3]")).toBeTruthy());
+		await waitFor(() =>
+			expect(within(box).getByTitle("[ARBOR LANE 3]")).toBeTruthy(),
+		);
 		expect(textIn(box)).toBe("see [ARBOR LANE 3] ");
 	});
 

@@ -149,6 +149,7 @@ export function Conversations({
 						key={`${agentFor(open, agents, conversations)}/${taskFor(open)}/${modelFor(open)}`}
 						drafts={drafts}
 						tasks={tasks}
+						free={free}
 						feed={feed}
 						agents={agents}
 						agent={agentFor(open, agents, conversations)}
