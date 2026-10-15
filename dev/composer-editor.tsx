@@ -108,30 +108,39 @@ export function PasteFilesPlugin(): null {
 	return null;
 }
 /**
- * Keeps the composer's editor as it was when the agent starts a run on a touch
- * device, where assistant-ui's focus then would raise the keyboard over the
- * reply. Its listener focuses as the run starts, so this one, made in a layout
- * effect to run ahead of it, notes whether the editor had focus, and takes back
- * the focus it gave before the page paints.
+ * Keeps the keyboard down after a send on a touch device, so the reply can be
+ * read: the editor lets go of focus once its message is sent, and keeps it
+ * off when the agent starts a run, where assistant-ui's focus would raise the
+ * keyboard over the reply. A message being typed as the run starts keeps the
+ * focus it has. Its run listener focuses as the run starts, so this one, made
+ * in a layout effect to run ahead of it, notes whether the editor had focus,
+ * and takes back the focus it gave before the page paints.
  */
-export function NoRefocusOnTouchPlugin(): null {
+export function KeyboardDownOnTouchPlugin(): null {
 	const [editor] = useLexicalComposerContext();
 	const aui = useAui();
-	useLayoutEffect(
-		() =>
-			aui.on("thread.runStart", () => {
-				const root = editor.getRootElement();
-				if (
-					!matchMedia(TOUCH).matches ||
-					root === null ||
-					root.contains(document.activeElement)
-				) {
-					return;
-				}
+	useLayoutEffect(() => {
+		const sent = aui.on("composer.send", () => {
+			if (matchMedia(TOUCH).matches) {
 				queueMicrotask(() => editor.blur());
-			}),
-		[editor, aui],
-	);
+			}
+		});
+		const started = aui.on("thread.runStart", () => {
+			const root = editor.getRootElement();
+			if (
+				!matchMedia(TOUCH).matches ||
+				root === null ||
+				root.contains(document.activeElement)
+			) {
+				return;
+			}
+			queueMicrotask(() => editor.blur());
+		});
+		return () => {
+			sent();
+			started();
+		};
+	}, [editor, aui]);
 	return null;
 }
 /**

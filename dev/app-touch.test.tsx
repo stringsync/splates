@@ -137,6 +137,19 @@ describe("App on a touch device", () => {
 		expect(document.activeElement === box).toBe(true);
 	});
 
+	it("drops the keyboard once a message is sent", async () => {
+		const view = await testing.openConversations([conversation()]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "hello");
+		expect(document.activeElement === box).toBe(true);
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send message" })),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1);
+		expect(box.contains(document.activeElement)).toBe(false);
+	});
+
 	it("types a new line on Return, sending only on Send", async () => {
 		const view = await testing.openConversations([conversation()]);
 		const box = view.getByRole("textbox", { name: "Message input" });
