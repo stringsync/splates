@@ -109,6 +109,7 @@ describe("tunnelSetup", () => {
 			scope: "device",
 			status: "open",
 		});
+		expect(request?.purpose).toContain("arbor.example.com");
 		expect(request?.instructions).toContain("Cloudflare Tunnel · Edit");
 		expect(request?.instructions).toContain("arbor.example.com");
 		expect(cloudflare.changes).toEqual([]);

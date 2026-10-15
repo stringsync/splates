@@ -11,17 +11,22 @@ import { repository } from "./repository";
 /** `arbor creds`, which the root cli mounts after `arbor lane`. */
 export const arborCreds = cli<ArborDeps>("creds")
 	.description(
-		"creds an agent needs a person for, such as an API token: request one with instructions for getting it, which the Creds page of `arbor dev` shows for the person to paste, then wait for it; the value goes into the system's store (the macOS Keychain, Windows Credential Manager, a Linux secret service), never to the agent, and code reads it through webappwiz/creds",
+		"creds an agent needs a person for, such as an API token: request one saying what it is for, with instructions for getting it, which the Creds page of `arbor dev` shows for the person to paste, then wait for it; the value goes into the system's store (the macOS Keychain, Windows Credential Manager, a Linux secret service), never to the agent, and code reads it through webappwiz/creds",
 	)
 	.use(repository());
 
 arborCreds
 	.command("request")
 	.description(
-		"ask a person for a cred, with markdown instructions for getting it; returns at once, and does nothing when the store already keeps it unless --replace; run from a worktree, it records the task asking",
+		"ask a person for a cred, saying why it is needed and what it will be used for, with markdown instructions for getting it; returns at once, and does nothing when the store already keeps it unless --replace; run from a worktree, it records the task asking",
 	)
 	.arg("name", z.string(), {
 		description: "what it is kept as, an environment variable's name",
+	})
+	.option("purpose", z.string(), {
+		default: "",
+		description:
+			"why it is needed and what it will be used for, in a sentence the person reads before getting it",
 	})
 	.option("instructions", z.string(), {
 		default: "",
@@ -43,6 +48,7 @@ arborCreds
 		const request = await ctx.journal.record("creds request", null, async () =>
 			ctx.creds.request(opts.name, {
 				scope,
+				purpose: opts.purpose,
 				instructions: opts.instructions,
 				task: await here(ctx),
 				replace: opts.replace,
@@ -54,7 +60,9 @@ arborCreds
 			);
 			return;
 		}
-		ctx.log.info(`${color.yellow("requested")} ${opts.name}`);
+		ctx.log.info(
+			`${color.yellow("requested")} ${opts.name}  ${color.dim(request.purpose)}`,
+		);
 		ctx.log.error(
 			`It shows on the Creds page of \`arbor dev\`. \`arbor creds wait ${opts.name}\` until it is saved.`,
 		);
@@ -87,7 +95,7 @@ arborCreds
 arborCreds
 	.command("list")
 	.description(
-		"the creds requested and still open, and every cred the project's store and the device's keep, by name; never a value",
+		"the creds requested and still open, with what each is for, and every cred the project's store and the device's keep, by name; never a value",
 	)
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
 	.action(async (opts, ctx) => {
@@ -103,6 +111,9 @@ arborCreds
 			ctx.log.info(
 				`${color.yellow("requested")} ${each.name}  ${color.dim(each.scope)}${each.task === null ? "" : color.dim(`  by ${each.task}`)}`,
 			);
+			if (each.purpose !== "") {
+				ctx.log.info(`          ${each.purpose}`);
+			}
 		}
 		for (const each of kept) {
 			ctx.log.info(

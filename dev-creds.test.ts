@@ -41,6 +41,7 @@ describe("dev creds", () => {
 		deps = await Testing.open();
 		await deps.creds.request("API_TOKEN", {
 			scope: "device",
+			purpose: "To call the API.",
 			instructions: "Make one and paste it.",
 			task: null,
 		});

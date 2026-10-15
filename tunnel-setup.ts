@@ -117,6 +117,7 @@ export async function cloudflareApi(
 	if (apiToken === undefined) {
 		await creds.request(API_TOKEN, {
 			scope: "device",
+			purpose: `For \`arbor tunnel setup\` to make the tunnel, its DNS record and the Access application for \`${host}\` through the Cloudflare API.`,
 			instructions: tokenInstructions(host),
 			task,
 		});
@@ -154,8 +155,6 @@ export const TOKENS_PAGE = "https://dash.cloudflare.com/profile/api-tokens";
 /** How to make the API token, as its request shows on the Creds page. */
 function tokenInstructions(host: string): string {
 	return [
-		`For \`arbor tunnel setup\` to make the tunnel, its DNS record and the Access application for \`${host}\`.`,
-		"",
 		`1. Open [API Tokens](${TOKENS_PAGE}), then **Create Token** → **Create Custom Token**.`,
 		"2. Name it `arbor tunnel`, and add these permissions:",
 		...TOKEN_PERMISSIONS.map((permission) => `   - ${permission}`),

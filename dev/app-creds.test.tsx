@@ -15,6 +15,7 @@ import {
 const REQUEST: CredRequest = {
 	name: "CLOUDFLARE_TOKEN",
 	scope: "device",
+	purpose: "To route `arbor.example.com` to `arbor dev`.",
 	instructions: "Open **API Tokens** and create one.",
 	task: "alpha",
 	status: "open",
@@ -62,11 +63,14 @@ describe("App's creds", () => {
 		).toBeNull();
 	});
 
-	it("shows a request with how to get it, and saves what is pasted", async () => {
+	it("shows a request with what it is for and how to get it, and saves what is pasted", async () => {
 		const view = await openCreds([REQUEST]);
 
 		const request = await waitFor(() =>
 			view.getByRole("listitem", { name: "requested CLOUDFLARE_TOKEN" }),
+		);
+		expect(request.textContent).toContain(
+			"To route arbor.example.com to arbor dev.",
 		);
 		expect(request.textContent).toContain("Open API Tokens and create one.");
 		expect(request.textContent).toContain("this device");
@@ -180,6 +184,9 @@ describe("App's creds", () => {
 			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
 		);
 		expect(card.textContent).toContain("Requested");
+		expect(card.textContent).toContain(
+			"To route arbor.example.com to arbor dev.",
+		);
 		expect(card.textContent).toContain("Open API Tokens and create one.");
 		expect(view.container.textContent).not.toContain("## 🔑");
 		fireEvent.change(within(card).getByLabelText("Value of CLOUDFLARE_TOKEN"), {

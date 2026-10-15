@@ -8,10 +8,12 @@ import { vocabulary, words } from "./vocabulary";
 /** The cred a dictation transcribes with. */
 export const OPENAI_KEY = "OPENAI_API_KEY";
 
-/** How to get {@link OPENAI_KEY}, as the Creds page shows it. */
-const INSTRUCTIONS = `The mic in the composer transcribes with OpenAI's \`gpt-live-transcribe\`, on your key.
+/** What {@link OPENAI_KEY} is for, as the Creds page shows it. */
+const PURPOSE =
+	"The mic in the composer transcribes what you say with OpenAI's `gpt-live-transcribe`, on your key.";
 
-1. Open [API keys](https://platform.openai.com/api-keys), then **Create new secret key**.
+/** How to get {@link OPENAI_KEY}, as the Creds page shows it. */
+const INSTRUCTIONS = `1. Open [API keys](https://platform.openai.com/api-keys), then **Create new secret key**.
 2. Give it access to the Realtime API (or all), and create it.
 3. Paste it here.`;
 
@@ -34,6 +36,7 @@ export const transcriberFor: TranscriberFor = async (project, tick) => {
 		await project.journal.record("creds request", null, () =>
 			project.creds.request(OPENAI_KEY, {
 				scope: "device",
+				purpose: PURPOSE,
 				instructions: INSTRUCTIONS,
 				task: null,
 			}),

@@ -35,6 +35,8 @@ export const SYSTEM_STORES: SecretStores = {
 const REQUEST = z.object({
 	name: z.string(),
 	scope: z.enum(SCOPES),
+	/** Why it is needed and what for; empty in a record from before requests said. */
+	purpose: z.string().default(""),
 	/** How to get it, as markdown, from the agent that asked. */
 	instructions: z.string(),
 	/** The task that asked, or null for an agent in none. */
@@ -44,7 +46,7 @@ const REQUEST = z.object({
 	requestedAt: z.string(),
 });
 
-/** A cred an agent asked a person for, with how to get it. */
+/** A cred an agent asked a person for, with what for and how to get it. */
 export type CredRequest = z.infer<typeof REQUEST>;
 
 const FILE = z.object({
@@ -118,7 +120,7 @@ export class Creds {
 	}
 
 	/**
-	 * Asks a person for `name`, kept in `scope`'s store once they save it.
+	 * Asks a person for `name`, saying what for, kept in `scope`'s store once they save it.
 	 * Asks nothing, returning null, when that store already keeps it, unless
 	 * `replace` says the value kept there does not work.
 	 */
@@ -126,17 +128,26 @@ export class Creds {
 		name: string,
 		{
 			scope,
+			purpose,
 			instructions,
 			task,
 			replace = false,
 		}: {
 			scope: Scope;
+			purpose: string;
 			instructions: string;
 			task: string | null;
 			replace?: boolean;
 		},
 	): Promise<CredRequest | null> {
 		usable(name);
+		if (purpose.trim() === "") {
+			fail(
+				"usage",
+				`say why ${name} is needed and what it will be used for with --purpose`,
+				{ name },
+			);
+		}
 		if (instructions.trim() === "") {
 			fail(
 				"usage",
@@ -150,6 +161,7 @@ export class Creds {
 		const request: CredRequest = {
 			name,
 			scope,
+			purpose: purpose.trim(),
 			instructions: instructions.trim(),
 			task,
 			status: "open",
@@ -182,7 +194,7 @@ export class Creds {
 			if (found === undefined) {
 				fail(
 					"not_found",
-					`nothing requested ${name}: \`arbor creds request ${name} --instructions '<how to get it>'\` first`,
+					`nothing requested ${name}: \`arbor creds request ${name} --purpose '<what for>' --instructions '<how to get it>'\` first`,
 					{ name },
 				);
 			}

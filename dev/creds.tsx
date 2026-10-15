@@ -36,7 +36,27 @@ export const CredsContext = createContext<{
 export function openRequests(requests: CredRequest[]): CredRequest[] {
 	return requests.filter((each) => each.status === "open");
 }
-/** A request on the Creds page: what, for whom, how to get it, the field. */
+/**
+ * What a request is for, then how to get it, so the person knows why before
+ * going to get it. A record from before requests said what for shows only how.
+ */
+function RequestBody({ request }: { request: CredRequest }): JSX.Element {
+	return (
+		<div className="flex flex-col gap-2 px-4 py-3 text-sm leading-relaxed">
+			{request.purpose !== "" && (
+				<p className="font-medium">
+					<Markdown text={request.purpose} inline />
+				</p>
+			)}
+			<Markdown
+				text={request.instructions}
+				className="[&_p:first-child]:mt-0"
+			/>
+		</div>
+	);
+}
+
+/** A request on the Creds page: what, for whom, what for, how to get it, the field. */
 function RequestRow({
 	request,
 	project,
@@ -64,10 +84,7 @@ function RequestRow({
 					</span>
 				)}
 			</header>
-			<Markdown
-				text={request.instructions}
-				className="px-4 py-3 text-sm leading-relaxed [&_p:first-child]:mt-0"
-			/>
+			<RequestBody request={request} />
 			<div className="px-4 pb-4">
 				<Paste
 					name={request.name}
@@ -211,7 +228,7 @@ export function CredsPage({
 
 /**
  * The request an agent said it made, as `## 🔑 Requested <NAME>`, in its
- * thread: how to get it and a field to paste it in while it is open, then
+ * thread: what it is for, how to get it and a field to paste it in while it is open, then
  * what became of it, as its record says now.
  */
 function CredRequestCard({ name }: { name: string }): JSX.Element {
@@ -245,12 +262,7 @@ function CredRequestCard({ name }: { name: string }): JSX.Element {
 			tone={saved ? "success" : "warning"}
 			aside={aside}
 		>
-			{!saved && (
-				<Markdown
-					text={request.instructions}
-					className="px-4 py-3 text-sm leading-relaxed [&_p:first-child]:mt-0"
-				/>
-			)}
+			{!saved && <RequestBody request={request} />}
 			<div className={saved ? "px-4 py-3" : "px-4 pt-1 pb-4"}>
 				<Paste
 					// Anew when it is filled elsewhere, so it says Saved here too.

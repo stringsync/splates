@@ -3,6 +3,7 @@ import { Duration, sleep } from "webappwiz/time";
 import { arbor } from "./arbor";
 import { Testing } from "./testing";
 
+const WHY = "To read the build logs through the dashboard's API.";
 const HOW = "Open the dashboard, create a token, and paste it here.";
 
 /** Long enough that a test only reaches it when waiting is genuinely stuck. */
@@ -17,9 +18,10 @@ describe("creds", () => {
 
 	afterEach(() => deps.disposeAsync());
 
-	it("records a request, with how to get it, for the page to show", async () => {
+	it("records a request, with what for and how to get it, for the page to show", async () => {
 		await deps.creds.request("API_TOKEN", {
 			scope: "device",
+			purpose: WHY,
 			instructions: HOW,
 			task: "alpha",
 		});
@@ -28,6 +30,7 @@ describe("creds", () => {
 			{
 				name: "API_TOKEN",
 				scope: "device",
+				purpose: WHY,
 				instructions: HOW,
 				task: "alpha",
 				status: "open",
@@ -37,7 +40,12 @@ describe("creds", () => {
 
 	it("asks nothing for a cred already kept, unless told the kept one fails", async () => {
 		await deps.projectStore.set("API_TOKEN", "old");
-		const ask = { scope: "project" as const, instructions: HOW, task: null };
+		const ask = {
+			scope: "project" as const,
+			purpose: WHY,
+			instructions: HOW,
+			task: null,
+		};
 
 		expect(await deps.creds.request("API_TOKEN", ask)).toBeNull();
 		expect(
@@ -45,10 +53,22 @@ describe("creds", () => {
 		).toMatchObject({ status: "open" });
 	});
 
+	it("refuses a request that says nothing of what it is for", async () => {
+		await expect(
+			deps.creds.request("API_TOKEN", {
+				scope: "project",
+				purpose: " ",
+				instructions: HOW,
+				task: null,
+			}),
+		).toBail("usage");
+	});
+
 	it("refuses a request that says nothing of how to get it", async () => {
 		await expect(
 			deps.creds.request("API_TOKEN", {
 				scope: "project",
+				purpose: WHY,
 				instructions: " ",
 				task: null,
 			}),
@@ -59,6 +79,7 @@ describe("creds", () => {
 		await expect(
 			deps.creds.request("api-token", {
 				scope: "project",
+				purpose: WHY,
 				instructions: HOW,
 				task: null,
 			}),
@@ -68,6 +89,7 @@ describe("creds", () => {
 	it("keeps a value in the store its request asked for, and fills it", async () => {
 		await deps.creds.request("API_TOKEN", {
 			scope: "device",
+			purpose: WHY,
 			instructions: HOW,
 			task: null,
 		});
@@ -83,6 +105,7 @@ describe("creds", () => {
 	it("never writes a value into its record", async () => {
 		await deps.creds.request("API_TOKEN", {
 			scope: "project",
+			purpose: WHY,
 			instructions: HOW,
 			task: null,
 		});
@@ -94,6 +117,7 @@ describe("creds", () => {
 	it("ends a wait once the value is saved", async () => {
 		await deps.creds.request("API_TOKEN", {
 			scope: "project",
+			purpose: WHY,
 			instructions: HOW,
 			task: null,
 		});
@@ -108,6 +132,7 @@ describe("creds", () => {
 	it("ends a wait once the request is dismissed", async () => {
 		await deps.creds.request("API_TOKEN", {
 			scope: "project",
+			purpose: WHY,
 			instructions: HOW,
 			task: null,
 		});
@@ -119,6 +144,7 @@ describe("creds", () => {
 	it("gives up waiting on a request nobody fills", async () => {
 		await deps.creds.request("API_TOKEN", {
 			scope: "project",
+			purpose: WHY,
 			instructions: HOW,
 			task: null,
 		});
@@ -187,11 +213,13 @@ describe("arbor creds", () => {
 			"creds",
 			"request",
 			"API_TOKEN",
+			"--purpose",
+			WHY,
 			"--instructions",
 			HOW,
 			"--device",
 		]);
-		expect(env.out()).toContain("requested API_TOKEN");
+		expect(env.out()).toContain(`requested API_TOKEN  ${WHY}`);
 
 		const waiting = arbor.run(deps, ["creds", "wait", "API_TOKEN"]);
 		await sleep(Duration.ms(20));
@@ -207,6 +235,8 @@ describe("arbor creds", () => {
 			"creds",
 			"request",
 			"API_TOKEN",
+			"--purpose",
+			WHY,
 			"--instructions",
 			HOW,
 		]);
@@ -223,6 +253,8 @@ describe("arbor creds", () => {
 			"creds",
 			"request",
 			"API_TOKEN",
+			"--purpose",
+			WHY,
 			"--instructions",
 			HOW,
 		]);

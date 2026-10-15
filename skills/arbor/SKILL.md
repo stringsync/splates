@@ -319,11 +319,14 @@ write the file once the answer comes.
 
 When your work needs a secret only the user can get, such as an API token,
 request it rather than asking in chat or reading an environment variable,
-naming it as its environment variable would be, with instructions for
-getting it in markdown: where to go, what to pick, what to paste.
+naming it as its environment variable would be. Say in `--purpose`, in a
+sentence, why your work needs it and what it will be used for, so the user
+knows what they are handing over before they go to get it; then give
+instructions for getting it in markdown: where to go, what to pick, what to
+paste.
 
 ```sh
-arbor creds request CLOUDFLARE_TUNNEL_TOKEN --device --instructions '1. Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token**.
+arbor creds request CLOUDFLARE_TUNNEL_TOKEN --device --purpose 'To add the DNS record that routes `dev.example.com` to the tunnel, through the Cloudflare API.' --instructions '1. Open [API Tokens](https://dash.cloudflare.com/profile/api-tokens), then **Create Token**.
 2. Add Zone · DNS · Edit, and pick your zone.
 3. Create it and paste it here.'
 ```
@@ -332,8 +335,8 @@ arbor creds request CLOUDFLARE_TUNNEL_TOKEN --device --instructions '1. Open [AP
 account; leave it off for a cred of this project's alone. When the store
 already keeps it, `request` asks nothing; `--replace` asks again when the
 kept one does not work. Then say so in a message of its own, which the
-`arbor dev` page shows as a card with your instructions and a field to paste
-it in:
+`arbor dev` page shows as a card with what it is for, your instructions and
+a field to paste it in:
 
 ```markdown
 ## 🔑 Requested CLOUDFLARE_TUNNEL_TOKEN
