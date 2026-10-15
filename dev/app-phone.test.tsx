@@ -97,22 +97,38 @@ describe("App on a phone", () => {
 				.getAllByRole("listitem")
 				.map((card) => card.getAttribute("aria-label"));
 		expect(shown()).toEqual(["question 1"]);
-
-		await act(async () =>
-			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
-		);
-		expect(shown()).toEqual(["question 2"]);
-		expect(
-			within(sheet).queryByRole("textbox", { name: "Anything else" }),
-		).toBeNull();
-
-		await act(async () =>
-			fireEvent.click(within(sheet).getByRole("button", { name: "Next" })),
-		);
-		expect(shown()).toEqual(["question 3"]);
+		// Pinned under every question: what else to say, and Send.
 		expect(
 			within(sheet).getByRole("textbox", { name: "Anything else" }),
 		).toBeTruthy();
+		expect(within(sheet).getByRole("button", { name: "Send" })).toBeTruthy();
+
+		// Picking all that apply leaves it to the arrow to go on.
+		await act(async () =>
+			fireEvent.click(within(sheet).getByRole("button", { name: /Todos/ })),
+		);
+		expect(shown()).toEqual(["question 1"]);
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: "Next question" }),
+			),
+		);
+		expect(shown()).toEqual(["question 2"]);
+
+		// Picking one goes on by itself.
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: /A muted card/ }),
+			),
+		);
+		await waitFor(() => expect(shown()).toEqual(["question 3"]));
+
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: "Previous question" }),
+			),
+		);
+		expect(shown()).toEqual(["question 2"]);
 	});
 
 	it("goes from a sheet the inbox opened to the conversation behind it", async () => {

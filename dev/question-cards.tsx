@@ -1,14 +1,17 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import {
 	CheckIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
 	CopyIcon,
 	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { focusStop, useTouch } from "#dev/hooks/use-touch.ts";
+import { cn } from "#dev/lib/utils.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Question } from "../plan";
@@ -123,12 +126,24 @@ export function QuestionCards({
 		}
 	};
 	const panel = useRef<HTMLDivElement>(null);
-	// The question shown when paged; "Anything else" shows with the last.
+	// The question shown when paged, over a footer pinned to the sheet's foot.
 	const [page, setPage] = useState(0);
 	const last = questions.length - 1;
 	const turn = (to: number) => {
+		clearTimeout(going.current);
 		setPage(to);
 		panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
+	};
+	// A pick on a pick-one page goes on by itself, once the pick has shown.
+	const going = useRef<ReturnType<typeof setTimeout>>(undefined);
+	useEffect(() => () => clearTimeout(going.current), []);
+	const goOn = (from: number) => {
+		clearTimeout(going.current);
+		going.current = setTimeout(() => {
+			// Unless the person turned the page themselves meanwhile.
+			setPage((now) => (now === from ? from + 1 : now));
+			panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
+		}, GO_ON_MS);
 	};
 	// Each question's first stop, then "Anything else": where Enter goes next.
 	const stops = () => [
@@ -224,7 +239,13 @@ export function QuestionCards({
 								asked={asked}
 								answer={answers[at] ?? null}
 								live={live}
-								onAnswer={(answer) =>
+								onAnswer={(answer) => {
+									const picked = answer.picks.some(
+										(key) => !(writtenFor(asked)?.picks.includes(key) ?? false),
+									);
+									if (paged && asked.pick === "one" && picked && at < last) {
+										goOn(at);
+									}
 									write({
 										...written,
 										answers: isEmpty(answer)
@@ -234,41 +255,22 @@ export function QuestionCards({
 													),
 												)
 											: { ...written.answers, [asked.text]: answer },
-									})
-								}
+									});
+								}}
 								onNext={() => next(asked.number)}
 							/>
 						),
 					)}
 				</ol>
-				{paged && live && (
-					<nav
-						aria-label="questions"
-						className="flex items-center gap-2 border-t px-4 py-3"
+				{live ? (
+					<footer
+						// Paged in a sheet, it stays at the sheet's foot, as a composer does.
+						data-pinned={paged || undefined}
+						className={cn(
+							"flex flex-col gap-2.5 border-t px-4 py-3",
+							paged ? "sticky bottom-0 z-10 bg-background" : "bg-muted/20",
+						)}
 					>
-						<Button
-							variant="outline"
-							className="h-11 px-4"
-							disabled={page === 0}
-							onClick={() => turn(page - 1)}
-						>
-							Back
-						</Button>
-						<span className="flex-1 text-center text-muted-foreground text-sm tabular-nums">
-							{page + 1} of {questions.length}
-						</span>
-						<Button
-							variant="outline"
-							className="h-11 px-4"
-							disabled={page === last}
-							onClick={() => turn(page + 1)}
-						>
-							Next
-						</Button>
-					</nav>
-				)}
-				{live && paged && page !== last ? null : live ? (
-					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
 						<textarea
 							data-stop="more"
 							aria-label="Anything else"
@@ -288,18 +290,49 @@ export function QuestionCards({
 							className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
 						/>
 						<div className="flex items-center gap-3">
-							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-								{!touch && (
-									<>
-										<span>
-											<Kbd>↵</Kbd> next
-										</span>
-										<span>
-											<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
-										</span>
-									</>
-								)}
-							</p>
+							{paged ? (
+								<nav
+									aria-label="questions"
+									className="-ml-3 flex flex-1 items-center"
+								>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label="Previous question"
+										className="size-11"
+										disabled={page === 0}
+										onClick={() => turn(page - 1)}
+									>
+										<ChevronLeftIcon />
+									</Button>
+									<span className="text-muted-foreground text-sm tabular-nums">
+										{page + 1} of {questions.length}
+									</span>
+									<Button
+										variant="ghost"
+										size="icon"
+										aria-label="Next question"
+										className="size-11"
+										disabled={page === last}
+										onClick={() => turn(page + 1)}
+									>
+										<ChevronRightIcon />
+									</Button>
+								</nav>
+							) : (
+								<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+									{!touch && (
+										<>
+											<span>
+												<Kbd>↵</Kbd> next
+											</span>
+											<span>
+												<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
+											</span>
+										</>
+									)}
+								</p>
+							)}
 							<Button
 								size="sm"
 								disabled={out === ""}
@@ -336,6 +369,9 @@ export function QuestionCards({
 		</CardShell>
 	);
 }
+
+/** How long a pick shows before a paged panel goes on from it. */
+const GO_ON_MS = 300;
 
 /** What the panel holds before it is sent: answers by question line, and the rest. */
 interface Written {

@@ -17,6 +17,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { raises } from "#dev/hooks/use-touch.ts";
 import { useViewport } from "#dev/hooks/use-viewport.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { useCardReply } from "./card-reply";
@@ -120,6 +121,8 @@ export function Sheeted({
 	const id = useId();
 	// Pinned above the keyboard, so "Anything else" stays in sight as it is typed.
 	const { top, height, keyboard } = useViewport();
+	const [body, setBody] = useState<HTMLDivElement | null>(null);
+	useTypedInView(body, height);
 	const add = sheets?.add;
 	useEffect(() => {
 		if (add !== undefined && live) {
@@ -160,9 +163,11 @@ export function Sheeted({
 							</DialogPrimitive.Close>
 						</header>
 						<div
+							ref={setBody}
 							data-sheet
 							className={cn(
-								"min-h-0 flex-1 overflow-y-auto overscroll-contain [&_[data-card]]:my-0 [&_[data-card]]:rounded-none [&_[data-card]]:border-0 [&_[data-card]]:shadow-none [&_[data-card]]:ring-0",
+								// Unclipped, so a card's pinned footer can stick to the sheet's foot.
+								"min-h-0 flex-1 overflow-y-auto overscroll-contain [&_[data-card]]:my-0 [&_[data-card]]:overflow-visible [&_[data-card]]:rounded-none [&_[data-card]]:border-0 [&_[data-card]]:shadow-none [&_[data-card]]:ring-0",
 								!keyboard && "pb-[env(safe-area-inset-bottom)]",
 							)}
 						>
@@ -173,6 +178,61 @@ export function Sheeted({
 			</DialogPrimitive.Root>
 		</>
 	);
+}
+
+/**
+ * Keeps the field typed in within `sheet` in sight, above whatever is pinned
+ * to its foot, as the composer stays above the keyboard: as it is focused,
+ * as it grows, and as the keyboard comes up and shrinks the sheet to `height`.
+ */
+function useTypedInView(sheet: HTMLElement | null, _height: number): void {
+	useEffect(() => {
+		if (sheet === null) {
+			return;
+		}
+		let frame = 0;
+		// After the browser lays out what changed and pans to the focus itself.
+		const later = () => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(() => reveal(sheet));
+		};
+		later();
+		sheet.addEventListener("focusin", later);
+		sheet.addEventListener("input", later);
+		return () => {
+			cancelAnimationFrame(frame);
+			sheet.removeEventListener("focusin", later);
+			sheet.removeEventListener("input", later);
+		};
+	}, [sheet]);
+}
+
+/** Room left between a field and the edge it is scrolled to. */
+const MARGIN = 12;
+
+/** Scrolls `sheet` just enough to show the field in focus whole, its foot first. */
+function reveal(sheet: HTMLElement): void {
+	const field = document.activeElement;
+	if (
+		!(field instanceof HTMLElement) ||
+		!sheet.contains(field) ||
+		!raises(field) ||
+		// Pinned, it is always in sight.
+		field.closest("[data-pinned]") !== null
+	) {
+		return;
+	}
+	const pinned =
+		sheet.querySelector("[data-pinned]")?.getBoundingClientRect().height ?? 0;
+	const view = sheet.getBoundingClientRect();
+	const shown = field.getBoundingClientRect();
+	const below = shown.bottom - (view.bottom - pinned - MARGIN);
+	const above = view.top + MARGIN - shown.top;
+	if (below > 0) {
+		sheet.scrollTop += below;
+	} else if (above > 0) {
+		sheet.scrollTop -= above;
+	}
 }
 
 /**

@@ -37,7 +37,7 @@ export function focusStop(
 }
 
 /** Whether focusing `element` brings up a touch screen's keyboard. */
-function raises(element: Element | null | undefined): boolean {
+export function raises(element: Element | null | undefined): boolean {
 	return (
 		element instanceof HTMLTextAreaElement ||
 		(element instanceof HTMLInputElement &&
