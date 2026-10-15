@@ -3,6 +3,7 @@ import {
 	act,
 	cleanup,
 	conversation,
+	details,
 	fireEvent,
 	message,
 	resize,
@@ -112,6 +113,45 @@ describe("App on a phone", () => {
 		expect(
 			within(sheet).getByRole("textbox", { name: "Anything else" }),
 		).toBeTruthy();
+	});
+
+	it("goes from a sheet the inbox opened to the conversation behind it", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Header",
+					task: "alpha",
+					messages: [
+						message("user", "fix the header"),
+						message("agent", report),
+					],
+				}),
+			],
+			null,
+			{ tasks: [details({ task: "alpha", status: "escalated" })] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "Needs you" })).getByRole(
+					"button",
+					{ name: /alpha/ },
+				),
+			),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "3 questions for you" }),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(sheet).getByRole("button", { name: "Conversation" }),
+			),
+		);
+
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(location.hash).toBe("#conversations/c1");
+		expect(view.getByText("fix the header")).toBeTruthy();
 	});
 
 	it("goes on from its header to the next agent waiting on you", async () => {

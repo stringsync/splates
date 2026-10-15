@@ -1,5 +1,10 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { ChevronRightIcon, type LucideIcon, XIcon } from "lucide-react";
+import {
+	ChevronRightIcon,
+	type LucideIcon,
+	MessageSquareIcon,
+	XIcon,
+} from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -148,6 +153,11 @@ export function Sheeted({
 							<DialogPrimitive.Title className="flex-1 truncate font-semibold text-base">
 								{title}
 							</DialogPrimitive.Title>
+							{/* Closing does the same, but says nothing of where it goes. */}
+							<DialogPrimitive.Close className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium text-muted-foreground text-sm outline-none focus-visible:bg-muted active:bg-muted [&_svg]:size-4">
+								<MessageSquareIcon />
+								Conversation
+							</DialogPrimitive.Close>
 						</header>
 						<div
 							data-sheet
