@@ -7,5 +7,5 @@ release tag with `bunx skills add`.
 from a worktree merges with the code you are editing. Pin the main tree for the
 merge itself: `WEBAPPWIZ_ROOT="$(arbor path)" arbor merge`.
 
-To compare a change to the skill, the user runs `evals/arbor-skill` (see its
-README). Only they start it: it spends money.
+To compare a change to the skill, the user runs `bin/wiz dev eval` (see
+`evals/arbor-skill/README.md`). Only they start it: it spends money.

@@ -11,11 +11,15 @@ a terminal. Nothing here runs under `bin/wiz dev test` or CI but its unit
 tests.
 
 ```sh
-bun evals/arbor-skill/index.ts run                      # main's skill against this tree's
-bun evals/arbor-skill/index.ts run main ../other/skills/arbor --reps 5
-bun evals/arbor-skill/index.ts run --scenario lane      # whatever changed
-bun evals/arbor-skill/index.ts report                   # the kept runs; spends nothing
+bin/wiz dev eval                      # main's skill against this tree's
+bin/wiz dev eval main ../other/skills/arbor --reps 5
+bin/wiz dev eval --scenario lane      # whatever changed
+bin/wiz dev eval report               # the kept runs; spends nothing
 ```
+
+`bin/wiz dev eval` hands its arguments to `bun evals/arbor-skill/index.ts`
+(`run` unless the first is `report`), with your terminal, so the question
+before any spending is asked there.
 
 Each skill version is a directory holding `SKILL.md`, or a git ref whose
 `skills/arbor` is read; the first is the baseline. With two or more, only the
