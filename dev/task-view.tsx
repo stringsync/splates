@@ -326,23 +326,27 @@ export function toWaiting(within: HTMLElement | null): boolean {
  * what it waits on you for.
  */
 const arrivals = new EventTarget();
-let opening: string | null = null;
+let opening: { open: string; from: string } | null = null;
 
-/** Goes to what agent `open` waits on you for once its view shows. */
+/**
+ * Goes to what agent `open` waits on you for once its view shows, from the
+ * address the page is at, which is where to come back to.
+ */
 export function arriveAt(open: string): void {
-	opening = open;
+	opening = { open, from: location.hash };
 	arrivals.dispatchEvent(new Event("arrive"));
 }
 
 /**
  * Runs `go` once ⌥⌘M opens agent `open`: as its view shows, or at once
- * when it already does.
+ * when it already does, with the address it came from.
  */
-export function useArrived(open: string, go: () => void): void {
+export function useArrived(open: string, go: (from: string) => void): void {
 	const arrive = useEffectEvent(() => {
-		if (opening === open) {
+		if (opening?.open === open) {
+			const { from } = opening;
 			opening = null;
-			go();
+			go(from);
 		}
 	});
 	useEffect(() => {

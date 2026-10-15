@@ -23,6 +23,7 @@ import { useViewport } from "#dev/hooks/use-viewport.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { useCardReply } from "./card-reply";
 import { TONES, type Tone } from "./card-shell";
+import { backTo } from "./page-address";
 import { useArrived } from "./task-view";
 
 /** A card an agent waits on you through, opened in a sheet of its own. */
@@ -31,7 +32,11 @@ interface Sheet {
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
-	open: () => void;
+	/**
+	 * Opens it, over the thread, or over where the page was at `from` when it
+	 * came from there, going back to it on a close.
+	 */
+	open: (from?: string) => void;
 }
 
 /**
@@ -68,9 +73,9 @@ export function PhoneSheets({
 	children: ReactNode;
 }): JSX.Element {
 	const all = useRef<Sheet[]>([]);
-	// An arrival before any card came up, as while the thread loads: the
-	// first to come up opens.
-	const arriving = useRef(false);
+	// An arrival before any card came up, as while the thread loads, by the
+	// address it came from: the first to come up opens.
+	const arriving = useRef<string | null>(null);
 	const [shown, setShown] = useState<Sheet[]>([]);
 	const [inView, setInView] = useState<ReadonlySet<string>>(new Set());
 	const sight = useCallback((id: string, seen: boolean) => {
@@ -93,9 +98,9 @@ export function PhoneSheets({
 			sheet,
 		];
 		setShown(all.current);
-		if (arriving.current) {
-			arriving.current = false;
-			sheet.open();
+		if (arriving.current !== null) {
+			sheet.open(arriving.current);
+			arriving.current = null;
 		}
 		return () => {
 			all.current = all.current.filter((each) => each.id !== sheet.id);
@@ -107,12 +112,12 @@ export function PhoneSheets({
 		[add, shown, sight, inView],
 	);
 	// Beside a sidebar, the thread scrolls to it instead.
-	useArrived(on ? conversation : "", () => {
+	useArrived(on ? conversation : "", (from) => {
 		const latest = all.current.at(-1);
 		if (latest === undefined) {
-			arriving.current = true;
+			arriving.current = from;
 		} else {
-			latest.open();
+			latest.open(from);
 		}
 	});
 	return <SheetsContext value={on ? sheets : null}>{children}</SheetsContext>;
@@ -126,8 +131,10 @@ export function useSheeted(): boolean {
 /**
  * The card in `children`, while it waits on you in a phone's thread, as a
  * line saying so in the thread and the card itself in a sheet over the whole
- * screen, which that line or the bar above the composer opens. Anywhere else,
- * or once answered, the card as it is.
+ * screen, which that line or the bar above the composer opens. Opened from
+ * elsewhere, as the inbox does, it is a moment's look: closing goes back
+ * there, and only "Conversation" stays in the thread. Anywhere else, or once
+ * answered, the card as it is.
  */
 export function Sheeted({
 	title,
@@ -144,6 +151,20 @@ export function Sheeted({
 	const { reply, sent } = useCardReply();
 	const live = sent === null && reply?.send != null;
 	const [open, setOpen] = useState(false);
+	// The address it was opened from, to go back to on a close, or null.
+	const from = useRef<string | null>(null);
+	const show = useCallback((at?: string) => {
+		from.current = at ?? null;
+		setOpen(true);
+	}, []);
+	const close = (back: boolean) => {
+		setOpen(false);
+		const at = from.current;
+		from.current = null;
+		if (back && at !== null) {
+			backTo(at);
+		}
+	};
 	const id = useId();
 	// Pinned above the keyboard, so "Anything else" stays in sight as it is typed.
 	const { top, height, keyboard } = useViewport();
@@ -152,9 +173,9 @@ export function Sheeted({
 	const add = sheets?.add;
 	useEffect(() => {
 		if (add !== undefined && live) {
-			return add({ id, title, Icon, tone, open: () => setOpen(true) });
+			return add({ id, title, Icon, tone, open: show });
 		}
-	}, [add, live, id, title, Icon, tone]);
+	}, [add, live, id, title, Icon, tone, show]);
 	const [line, setLine] = useState<HTMLButtonElement | null>(null);
 	useLineInSight(line, id, sheets?.sight);
 	if (sheets === null || !live) {
@@ -167,9 +188,12 @@ export function Sheeted({
 				title={title}
 				Icon={Icon}
 				tone={tone}
-				onOpen={() => setOpen(true)}
+				onOpen={() => show()}
 			/>
-			<DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+			<DialogPrimitive.Root
+				open={open}
+				onOpenChange={(next) => (next ? setOpen(true) : close(true))}
+			>
 				<DialogPrimitive.Portal>
 					<DialogPrimitive.Popup
 						style={{ top, height }}
@@ -185,11 +209,15 @@ export function Sheeted({
 							<DialogPrimitive.Title className="flex-1 truncate font-semibold text-base">
 								{title}
 							</DialogPrimitive.Title>
-							{/* Closing does the same, but says nothing of where it goes. */}
-							<DialogPrimitive.Close className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium text-muted-foreground text-sm outline-none focus-visible:bg-muted active:bg-muted [&_svg]:size-4">
+							{/* Into the thread behind it, wherever it was opened from. */}
+							<button
+								type="button"
+								onClick={() => close(false)}
+								className="flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium text-muted-foreground text-sm outline-none focus-visible:bg-muted active:bg-muted [&_svg]:size-4"
+							>
 								<MessageSquareIcon />
 								Conversation
-							</DialogPrimitive.Close>
+							</button>
 						</header>
 						<div
 							ref={setBody}
@@ -287,7 +315,7 @@ export function NeedsYouBar(): ReactNode {
 		<aside aria-label="Waiting on you">
 			<button
 				type="button"
-				onClick={open}
+				onClick={() => open()}
 				className="group flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-left text-sm shadow-xs"
 			>
 				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />

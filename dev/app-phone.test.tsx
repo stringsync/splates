@@ -567,6 +567,47 @@ describe("App on a phone", () => {
 		expect(view.getByText("fix the header")).toBeTruthy();
 	});
 
+	it("goes back to the inbox on closing a sheet the inbox opened", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Header",
+					task: "alpha",
+					messages: [
+						message("user", "fix the header"),
+						message("agent", report),
+					],
+				}),
+			],
+			null,
+			{ tasks: [details({ task: "alpha", status: "escalated" })] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "Needs you" })).getByRole(
+					"button",
+					{ name: /alpha/ },
+				),
+			),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "3 questions for you" }),
+		);
+		await act(
+			() =>
+				new Promise<void>((resolve) => {
+					addEventListener("popstate", () => resolve(), { once: true });
+					fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+				}),
+		);
+
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+		expect(location.hash).toBe("#conversations");
+		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
+	});
+
 	it("counts on its header's way back the other agents waiting on you", async () => {
 		const view = await testing.openConversations([
 			conversation({

@@ -162,6 +162,19 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	}
 }
 
+/**
+ * Goes back to `hash` when the page pushed this entry from it, as a back
+ * button does, saying whether it did; never out of the page.
+ */
+export function backTo(hash: string): boolean {
+	const here = entry();
+	if (here?.at !== location.hash || here.back !== hash) {
+		return false;
+	}
+	history.back();
+	return true;
+}
+
 /** Whether the address names one of the main tree's terminals. */
 function leavingTerminal(): boolean {
 	const open = conversationIn(location.hash);
