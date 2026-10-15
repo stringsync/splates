@@ -31,6 +31,7 @@ export function handOff(
  * user would, for the conversation that handed it out to pass on answers, a
  * merge, or what the earlier steps of its lane taught it. Only that
  * conversation may: the agent answers to it, not to whoever else asks.
+ * Answers with that agent's conversation.
  */
 export async function tell(
 	{
@@ -40,7 +41,7 @@ export async function tell(
 	}: { ps: Ps; service: WorktreeService; send?: Send },
 	task: string,
 	text: string,
-): Promise<void> {
+): Promise<string> {
 	const url = ps.env("ARBOR_DEV");
 	const id = ps.env("ARBOR_CONVERSATION");
 	if (url === undefined || id === undefined) {
@@ -82,6 +83,7 @@ export async function tell(
 			{ task },
 		);
 	}
+	return ends.conversation;
 }
 
 /**

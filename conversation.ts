@@ -22,7 +22,7 @@ import {
 	type Limit,
 	type Upload,
 } from "./conversation-state";
-import { ConversationTurns } from "./conversation-turns";
+import { ConversationTurns, type PromptOptions } from "./conversation-turns";
 import { fail } from "./exit";
 import { fold, heard } from "./fold";
 
@@ -243,8 +243,13 @@ export class Conversation
 	}
 
 	/** Says `text` to the agent, with `files` (see `ConversationTurns`). */
-	prompt(text: string, files: Upload[] = [], from?: Device): Promise<void> {
-		return this.turns.prompt(text, files, from);
+	prompt(
+		text: string,
+		files: Upload[] = [],
+		from?: Device,
+		opts: PromptOptions = {},
+	): Promise<void> {
+		return this.turns.prompt(text, files, from, opts);
 	}
 
 	/** Takes back the `index`th queued message, answering with its words and files. */

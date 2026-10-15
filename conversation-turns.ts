@@ -27,6 +27,12 @@ import { CHECKPOINT } from "./prompts";
 /** How long an agent has to answer a checkpoint before it is unanswered. */
 const CHECKPOINT_WAIT = Duration.mins(2);
 
+/** What else a prompt says about who said it. */
+export interface PromptOptions {
+	/** The conversation that said it with `arbor tell`, when the person did not. */
+	told?: string;
+}
+
 /**
  * The turns of a conversation: what the person says goes to the agent as a
  * prompt, steered into the turn it is running or queued for when that ends,
@@ -58,6 +64,7 @@ export class ConversationTurns {
 		text: string,
 		files: Upload[] = [],
 		from?: Device,
+		{ told }: PromptOptions = {},
 	): Promise<void> {
 		const { host, connection } = this;
 		const { state } = host;
@@ -95,9 +102,10 @@ export class ConversationTurns {
 			this.mark(null);
 		}
 		const kept = await this.files.keep(files, connection.sees);
+		const byTold = told === undefined ? {} : { told };
 		if (state.status === "running") {
 			if (!connection.canSteer || waited) {
-				this.queue(words, kept, from);
+				this.queue(words, kept, from, told);
 				return;
 			}
 			// Said into the turn first, so a refusal leaves nothing in the thread.
@@ -115,9 +123,14 @@ export class ConversationTurns {
 					at,
 					...steered,
 					...(from === undefined ? {} : { from }),
+					...byTold,
 					...shown(kept),
 				});
-				state.messages.push({ ...said(words, at, kept), ...steered });
+				state.messages.push({
+					...said(words, at, kept),
+					...steered,
+					...byTold,
+				});
 				host.changed();
 				return;
 			}
@@ -130,18 +143,19 @@ export class ConversationTurns {
 			// next one if that has started.
 			// Read again: the turn may have ended while the agent answered.
 			if ((state.status as Status) !== "idle") {
-				this.queue(words, kept, from);
+				this.queue(words, kept, from, told);
 				return;
 			}
 		}
 		this.held = false;
 		const at = host.now();
-		const message = said(words, at, kept);
+		const message = { ...said(words, at, kept), ...byTold };
 		host.log.write({
 			kind: "prompt",
 			text: words,
 			at,
 			...(from === undefined ? {} : { from }),
+			...byTold,
 			...shown(kept),
 		});
 		state.messages.push(message);
@@ -363,7 +377,12 @@ export class ConversationTurns {
 	}
 
 	/** Holds `words` and `sent` for when the turn ends, shown as said. */
-	private queue(words: string, sent: Sent[], from?: Device): void {
+	private queue(
+		words: string,
+		sent: Sent[],
+		from?: Device,
+		told?: string,
+	): void {
 		const { host } = this;
 		const at = host.now();
 		host.log.write({
@@ -372,9 +391,14 @@ export class ConversationTurns {
 			at,
 			queued: true,
 			...(from === undefined ? {} : { from }),
+			...(told === undefined ? {} : { told }),
 			...shown(sent),
 		});
-		host.state.messages.push({ ...said(words, at, sent), queued: true });
+		host.state.messages.push({
+			...said(words, at, sent),
+			queued: true,
+			...(told === undefined ? {} : { told }),
+		});
 		host.changed();
 	}
 

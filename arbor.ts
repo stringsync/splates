@@ -413,7 +413,14 @@ arbor
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.arg("text", z.string(), { description: "what to say, as markdown" })
-	.action((opts, ctx) => tell(ctx, opts.task, opts.text));
+	.action((opts, ctx) =>
+		ctx.journal.record(
+			"tell",
+			opts.task,
+			() => tell(ctx, opts.task, opts.text),
+			(to) => ({ to }),
+		),
+	);
 
 arbor
 	.command("handoff")

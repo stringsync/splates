@@ -162,7 +162,11 @@ export function like(
 			// Marked as taken into the turn the agent was running, and stamped
 			// with when it was sent.
 			metadata: {
-				custom: { steered: message.steered ?? false, at: message.at },
+				custom: {
+					steered: message.steered ?? false,
+					at: message.at,
+					told: message.told ?? null,
+				},
 			},
 		};
 	}

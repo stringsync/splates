@@ -140,6 +140,8 @@ export interface Message {
 	interrupted?: string;
 	/** Said while the agent worked, and taken into the turn it was running. */
 	steered?: true;
+	/** The conversation that said it with `arbor tell`, for one the person did not say. */
+	told?: string;
 }
 
 /** One piece of what someone in a conversation said or did. */

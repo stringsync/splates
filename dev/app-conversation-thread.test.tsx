@@ -97,6 +97,34 @@ describe("App's conversation thread", () => {
 		expect(stamps()).toEqual([]);
 	});
 
+	it("labels a message another conversation told with a link back to it", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "orch", title: "Orchestrate" }),
+				conversation({
+					id: "c1",
+					title: "Read the note",
+					handedBy: "orch",
+					messages: [
+						{ ...message("user", "merge it"), told: "orch" },
+						{ ...message("user", "thanks") },
+					],
+				}),
+			],
+			"c1",
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+
+		await waitFor(() => expect(thread.textContent).toContain("merge it"));
+
+		const labels = thread.querySelectorAll("[data-slot=aui_user-message-told]");
+		expect(labels).toHaveLength(1);
+		expect(labels[0]?.textContent).toBe("from Orchestrate");
+		expect(labels[0]?.querySelector("a")?.getAttribute("href")).toBe(
+			"#conversations/orch",
+		);
+	});
+
 	it("leaves a reply unstamped while it is still being written", async () => {
 		localStorage.setItem(
 			"arbor.settings",

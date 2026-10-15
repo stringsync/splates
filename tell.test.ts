@@ -46,7 +46,13 @@ describe("tell", () => {
 	it("says it in the conversation of the agent the task was handed to", async () => {
 		runAs("orch");
 
-		await tell({ ...deps, send }, "alpha", "> **Keep it?**\n- (a) Keep it");
+		const to = await tell(
+			{ ...deps, send },
+			"alpha",
+			"> **Keep it?**\n- (a) Keep it",
+		);
+
+		expect(to).toBe("agent");
 
 		expect(sent).toEqual([
 			{

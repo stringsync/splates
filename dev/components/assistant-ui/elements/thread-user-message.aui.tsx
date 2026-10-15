@@ -12,6 +12,7 @@ import { CheckIcon, CopyIcon, CornerDownRightIcon } from "lucide-react";
 import {
 	type FC,
 	type PropsWithChildren,
+	useContext,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -23,6 +24,7 @@ import {
 	useOpenAt,
 } from "#dev/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
+import { useNameOf } from "#dev/conversation-names.ts";
 import {
 	DirectiveCard,
 	DirectiveChip,
@@ -30,6 +32,7 @@ import {
 	soleDirective,
 	unshown,
 } from "#dev/directives.tsx";
+import { Held } from "#dev/handed-out.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import {
 	type Sent,
@@ -122,6 +125,12 @@ export const UserMessage: FC = () => {
 		return typeof at === "string" ? at : null;
 	});
 	const at = stamps.shown ? stamped : null;
+	const told = useAuiState((s) => {
+		const from = s.message.metadata.custom.told;
+		return typeof from === "string" ? from : null;
+	});
+	const teller = useContext(Held).find((each) => each.id === told);
+	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
 		return only?.type === "text" && more.length === 0
@@ -192,10 +201,28 @@ export const UserMessage: FC = () => {
 				</Clamped>
 				<UserCopy />
 			</div>
-			{(steered || at !== null) && (
+			{(steered || at !== null || told !== null) && (
 				<div className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs">
 					{at !== null && <Stamp at={at} />}
-					{at !== null && steered && <span aria-hidden>·</span>}
+					{at !== null && told !== null && <span aria-hidden>·</span>}
+					{told !== null && (
+						<span data-slot="aui_user-message-told">
+							from{" "}
+							{teller === undefined ? (
+								"another conversation"
+							) : (
+								<a
+									href={`#conversations/${teller.id}`}
+									className="underline-offset-2 hover:underline focus-visible:underline"
+								>
+									{nameOf(teller)}
+								</a>
+							)}
+						</span>
+					)}
+					{(at !== null || told !== null) && steered && (
+						<span aria-hidden>·</span>
+					)}
 					{steered && (
 						<span
 							data-slot="aui_user-message-steered"

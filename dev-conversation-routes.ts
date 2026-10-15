@@ -371,7 +371,9 @@ export class ConversationRoutes {
 				{ conversation: conversation.id },
 			);
 		}
-		await conversation.prompt(String(text ?? ""));
+		await conversation.prompt(String(text ?? ""), [], undefined, {
+			told: String(from),
+		});
 		return Response.json(conversation.state);
 	};
 

@@ -20,6 +20,14 @@ export interface Facts {
 		/** Whether the task was escalated, so the claim ends a wait on the user. */
 		escalated: boolean;
 	};
+	tell: {
+		/**
+		 * The conversation it was said in, the agent the task was handed to. The
+		 * sender is the event's own `conversation`. The page shows it as no line
+		 * of its own: the receiving message says where it came from.
+		 */
+		to: string;
+	};
 	merge: None;
 	remove: None;
 	escalate: None;

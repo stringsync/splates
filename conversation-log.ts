@@ -97,6 +97,7 @@ export class ConversationLog {
 					]),
 					...(entry.queued ? { queued: true } : {}),
 					...(entry.steered ? { steered: true } : {}),
+					...(entry.told === undefined ? {} : { told: entry.told }),
 				});
 			} else if (entry.kind === "sent") {
 				delivered(state.messages);
@@ -268,6 +269,8 @@ export type Entry =
 			at?: string;
 			queued?: true;
 			steered?: true;
+			/** The conversation that said it with `arbor tell`. */
+			told?: string;
 			/** Where the person said it on the page; missing for an agent's word, or from older logs. */
 			from?: Device;
 			/** Missing from logs written before the page sent images. */
