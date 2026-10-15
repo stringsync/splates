@@ -63,7 +63,7 @@ describe("App's notifications through a service worker", () => {
 
 		await testing.say({ ...runs, status: "failed", error: "agent exited" });
 
-		expect(FakeNotification.shown).toEqual(["Fix failed"]);
+		expect(FakeNotification.shown).toEqual(["Fix"]);
 	});
 
 	it("shows a notice through the worker, carrying where it opens, and opens the row its click names", async () => {
@@ -75,7 +75,7 @@ describe("App's notifications through a service worker", () => {
 		await waitFor(() =>
 			expect(workers.shown).toEqual([
 				{
-					title: "Fix failed",
+					title: "Fix",
 					data: {
 						key: "conversation c1",
 						url: `${location.origin}${location.pathname}${location.search}#conversations/c1`,
@@ -94,7 +94,7 @@ describe("App's notifications through a service worker", () => {
 
 		await testing.say({ ...runs, status: "failed", error: "agent exited" });
 
-		await waitFor(() => expect(FakeNotification.shown).toEqual(["Fix failed"]));
+		await waitFor(() => expect(FakeNotification.shown).toEqual(["Fix"]));
 	});
 
 	it("subscribes to the server's pushes, and lets them show the notices", async () => {

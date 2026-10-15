@@ -79,7 +79,7 @@ describe("Pushes", () => {
 			"https://push.example/a",
 		]);
 		expect(JSON.parse(pusher.pushed[0]?.payload ?? "") as Pushed).toEqual({
-			title: "Fix finished",
+			title: "Fix",
 			body: "Merged it.",
 			key: "conversation c1",
 			url: `?project=${slug}#conversations/c1`,

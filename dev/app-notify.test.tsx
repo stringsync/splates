@@ -285,9 +285,7 @@ describe("App's settings and notifications", () => {
 		await testing.say({ ...runs, status: "failed", error: "agent exited" });
 		away.mockRestore();
 
-		expect(FakeNotification.shown.map((each) => each.title)).toEqual([
-			"Fix failed",
-		]);
+		expect(FakeNotification.shown.map((each) => each.title)).toEqual(["Fix"]);
 		await act(async () => FakeNotification.shown[0]?.onclick?.());
 		expect(location.hash).toBe("#conversations/c1");
 		expect(view.getByRole("tab", { name: /Conversations/ })).toBeTruthy();

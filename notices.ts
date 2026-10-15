@@ -1,5 +1,5 @@
 import { Duration } from "webappwiz/time";
-import type { Needing } from "./needs";
+import type { Need, Needing } from "./needs";
 
 /** Something a row did worth telling the person about, away from the page. */
 export interface Notice {
@@ -65,13 +65,7 @@ export class Notices {
 			const need = row.need;
 			if (need.kind === "waiting" && was.kind !== "waiting") {
 				return wants.waiting
-					? [
-							{
-								row,
-								title: `${name(row)} ${need.why === "failed" ? "failed" : "needs you"}`,
-								body: need.subject,
-							},
-						]
+					? [{ row, title: titleOf(row, name), body: wanted(row, need) }]
 					: [];
 			}
 			if (
@@ -80,15 +74,15 @@ export class Notices {
 				(was.kind === "working" || was.kind === "assuming")
 			) {
 				return wants.finished
-					? [{ row, title: `${name(row)} finished`, body: lastWords(row) }]
+					? [{ row, title: titleOf(row, name), body: lastWords(row) }]
 					: [];
 			}
 			if (is.quiet && !was.quiet && wants.quiet) {
 				return [
 					{
 						row,
-						title: `${name(row)} has gone quiet`,
-						body: `No word for ${after.mins} minutes`,
+						title: titleOf(row, name),
+						body: `Quiet for ${after.mins} minutes`,
 					},
 				];
 			}
@@ -116,14 +110,81 @@ function quiet(row: Needing, now: number, after: Duration): boolean {
 	return moved !== null && now - Date.parse(moved) >= after.ms;
 }
 
-/** The start of what the agent said last, or a stand-in when it said nothing. */
+/** Longest a notice's title runs, so a lock screen shows it whole. */
+const TITLE_LENGTH = 40;
+
+/** Longest a notice's body runs: one line on a lock screen. */
+const BODY_LENGTH = 80;
+
+/** `row`'s name, as a notice's title. */
+function titleOf(row: Needing, name: (row: Needing) => string): string {
+	return plain(name(row), TITLE_LENGTH);
+}
+
+/** One line on what a waiting `row` wants of the person. */
+function wanted(
+	row: Needing,
+	need: Extract<Need, { kind: "waiting" }>,
+): string {
+	const said = (lead: string, text: string) => {
+		const line = plain(text, BODY_LENGTH);
+		// A stand-in such as "Failed" says nothing past the lead.
+		return line === "" || line === lead
+			? lead
+			: plain(`${lead}: ${line}`, BODY_LENGTH);
+	};
+	switch (need.why) {
+		case "ask":
+			return row.conversation?.ask?.type === "permission"
+				? said("Wants to run", need.subject)
+				: said("Asks", need.subject);
+		case "review":
+			return "Ready for review";
+		case "failed":
+			return said("Failed", need.subject);
+		case "questions":
+			return said("Asks", need.subject);
+		case "escalated":
+			return need.questions.length > 0
+				? said("Asks", need.subject)
+				: said("Escalated", need.subject);
+	}
+}
+
+/**
+ * The first line of what the agent said last, such as its report's title,
+ * or a stand-in when it said nothing.
+ */
 function lastWords(row: Needing): string {
 	const said = row.conversation?.messages
 		.findLast((message) => message.role === "agent")
 		?.parts.findLast((part) => part.type === "text");
-	const text = said?.type === "text" ? said.text.trim() : "";
-	if (text === "") {
-		return "Its turn is over";
-	}
-	return text.length > 140 ? `${text.slice(0, 139)}…` : text;
+	const text = said?.type === "text" ? plain(said.text, BODY_LENGTH) : "";
+	return text === "" ? "Its turn is over" : text;
+}
+
+/**
+ * The first line of `markdown` with its marks taken out, cut to `length`:
+ * a notification shows plain text, and a phone only a line or so of it.
+ */
+export function plain(markdown: string, length: number): string {
+	const line =
+		markdown
+			.split("\n")
+			.map((each) =>
+				each
+					.replace(
+						/^\s*(?:#{1,6}\s+|>\s*|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+)/,
+						"",
+					)
+					.replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+					.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+					.replace(/(\*\*|__|`)/g, "")
+					.replace(/\s+/g, " ")
+					.trim(),
+			)
+			.find((each) => each !== "") ?? "";
+	return line.length > length
+		? `${line.slice(0, length - 1).trimEnd()}…`
+		: line;
 }

@@ -13,7 +13,14 @@ import type { Opening } from "./worker";
 export class Notifier {
 	private readonly notices = new Notices();
 
-	constructor(private readonly settings: Settings) {}
+	/**
+	 * `inFront` tells whether the page is in front of the person; the
+	 * document's focus by default.
+	 */
+	constructor(
+		private readonly settings: Settings,
+		private readonly inFront: () => boolean = () => document.hasFocus(),
+	) {}
 
 	/** What changed in `rows` since the last look, of the kinds the settings ask for (see `Notices.look`). */
 	look(rows: Needing[], name: (row: Needing) => string, now: number): Notice[] {
@@ -33,7 +40,7 @@ export class Notifier {
 		if (
 			notices.length === 0 ||
 			!this.settings.get("notifications.on") ||
-			(document.hasFocus() && !this.settings.get("notifications.inFront"))
+			(this.inFront() && !this.settings.get("notifications.inFront"))
 		) {
 			return;
 		}
