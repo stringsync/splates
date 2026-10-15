@@ -27,6 +27,12 @@ describe("remove", () => {
 		);
 	});
 
+	it("returns the todos it put back", async () => {
+		await add(deps, "alpha");
+
+		expect(await remove(deps, "alpha")).toEqual({ released: [] });
+	});
+
 	it("tells 'already removed' apart from 'never existed'", async () => {
 		await add(deps, "alpha");
 		await remove(deps, "alpha");

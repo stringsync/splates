@@ -160,6 +160,18 @@ describe("App's arbor events", () => {
 			"RemovedMetrics",
 		]);
 	});
+
+	it("draws a removed task as one line, its reason and the todos put back in its chip's title", async () => {
+		const thread = await opened(turn(["Gone."]), [removed()]);
+
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
+		);
+		expect(line.textContent).toBe("Removedalpha");
+		expect(line.querySelector("[title]")?.getAttribute("title")).toBe(
+			"Task alpha\nReason: redo\nTodo #7 open again: Seven",
+		);
+	});
 });
 
 /** What every lane event the agent ran at `secs` carries. */
@@ -171,6 +183,20 @@ function laneEvent(id: string, secs: number) {
 		reason: null,
 		conversation: "c1",
 	} as const;
+}
+
+/** The agent removing alpha for a redo, which put todo 7 back. */
+function removed(): Event {
+	return {
+		id: "rm",
+		at: second(2),
+		action: "remove",
+		task: "alpha",
+		reason: null,
+		conversation: "c1",
+		why: "redo",
+		released: [{ id: 7, subject: "Seven" }],
+	};
 }
 
 /** A todo update the agent ran at `secs`, moving todo `id` to position 2. */

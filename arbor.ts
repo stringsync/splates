@@ -232,8 +232,11 @@ arbor
 	})
 	.action(async (opts, ctx) => {
 		const removing = await ctx.service.find(opts.task);
-		await ctx.journal.record("remove", opts.task, () =>
-			remove(ctx, opts.task, { force: opts.force, reason: opts.reason }),
+		await ctx.journal.record(
+			"remove",
+			opts.task,
+			() => remove(ctx, opts.task, { force: opts.force, reason: opts.reason }),
+			({ released }) => ({ why: opts.reason ?? null, released }),
 		);
 		await follow(ctx, null, { from: opts.task });
 		await reportToCaller(ctx, removing);

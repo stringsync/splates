@@ -54,6 +54,7 @@ const LINES: {
 					words: ["Claim failed", task(event)],
 					at: event.at,
 				},
+	remove: removed,
 	"todo update": (event) =>
 		event.reason === null
 			? { words: ["Updated", todo(event)], at: event.at }
@@ -230,6 +231,27 @@ function waitedOn(event: Wait): Named {
 /** The task an event is about, as a chip. */
 function task(event: Event): { kind: "task"; task: string } {
 	return { kind: "task", task: event.task ?? "" };
+}
+
+/** The line of a task removed, its reason and the todos put back on its chip's hover. */
+function removed(event: EventOf<"remove">): ArborEventView {
+	return event.reason === null
+		? {
+				words: ["Removed", { ...task(event), note: removedNote(event) }],
+				at: event.at,
+			}
+		: { mark: "failed", words: ["Remove failed", task(event)], at: event.at };
+}
+
+/** Why a task was removed and the todos put back, for its chip's hover. */
+function removedNote(event: EventOf<"remove">): string | undefined {
+	const notes = [
+		event.why != null && `Reason: ${event.why}`,
+		...(event.released ?? []).map(
+			({ id, subject }) => `Todo #${id} open again: ${subject}`,
+		),
+	].filter((note) => typeof note === "string");
+	return notes.length === 0 ? undefined : notes.join("\n");
 }
 
 type Updated = Extract<Event, { action: "todo update"; reason: null }>;

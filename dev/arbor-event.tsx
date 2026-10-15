@@ -83,6 +83,8 @@ export type Named =
 			task: string;
 			/** What done means for it, shown on hover, when the event knows. */
 			goal?: string;
+			/** More for its hover, such as why it was removed. */
+			note?: string;
 	  }
 	| { kind: "todo"; id: number; subject: string; note?: string }
 	| {
@@ -235,11 +237,11 @@ function NamedChip({
 	const opener = use(OpenerContext);
 	switch (named.kind) {
 		case "task": {
-			const { task, goal = "" } = named;
+			const { task, goal = "", note } = named;
 			return (
 				<Chip
 					Icon={GitBranchIcon}
-					title={goal === "" ? `Task ${task}` : `Task ${task}: ${goal}`}
+					title={`Task ${task}${goal === "" ? "" : `: ${goal}`}${note === undefined ? "" : `\n${note}`}`}
 					open={
 						board.linked && board.tasks.includes(task)
 							? () => board.openTask(task)

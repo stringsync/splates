@@ -1,3 +1,5 @@
+import type { RemoveReason } from "./worktree";
+
 /**
  * What each action's event says beyond what every event does, keyed by the
  * action as `arbor log` names it. An action with nothing of its own yet maps
@@ -33,7 +35,12 @@ export interface Facts {
 	/** A wait on a task, the event's own: see `Waiting`. */
 	wait: Waiting;
 	merge: None;
-	remove: None;
+	remove: {
+		/** The `--reason` it gave, or null when it gave none. */
+		why: RemoveReason | null;
+		/** The todos it put back on the list, by id and subject. */
+		released: { id: number; subject: string }[];
+	};
 	escalate: None;
 	handoff: None;
 	attach: None;

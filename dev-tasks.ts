@@ -130,11 +130,15 @@ export class TaskRoutes {
 			await conversation.cancel();
 			await conversation.stop();
 		}
-		await journal.record("remove", task, () =>
-			remove({ service, log, todos }, task, {
-				force: true,
-				conversation: on[0]?.id,
-			}),
+		await journal.record(
+			"remove",
+			task,
+			() =>
+				remove({ service, log, todos }, task, {
+					force: true,
+					conversation: on[0]?.id,
+				}),
+			({ released }) => ({ why: null, released }),
 		);
 		for (const conversation of on) {
 			conversation.move(null, service.git.root);

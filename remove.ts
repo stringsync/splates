@@ -28,7 +28,7 @@ export async function remove(
 	}: { service: WorktreeService; log: Logger; todos: Todos },
 	task: string,
 	{ force = false, conversation, reason }: RemoveOptions = {},
-): Promise<void> {
+): Promise<{ released: { id: number; subject: string }[] }> {
 	const worktree = await service.find(task);
 
 	if (worktree.gone) {
@@ -90,4 +90,7 @@ export async function remove(
 		lines.push(`  todo ${todo.id} is open again: ${todo.subject}`);
 	}
 	log.info(lines.join("\n"));
+	return {
+		released: released.map(({ id, subject }) => ({ id, subject })),
+	};
 }
