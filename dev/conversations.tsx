@@ -1,6 +1,6 @@
 import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
-import { type JSX, useEffect, useMemo, useState } from "react";
+import { type JSX, useContext, useEffect, useMemo, useState } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import type { ConversationState } from "../conversations";
@@ -17,6 +17,7 @@ import {
 	startsOne,
 	TASK,
 	taskFor,
+	terminalOf,
 } from "./conversation-address";
 import { markUnread } from "./conversation-api";
 import {
@@ -33,7 +34,7 @@ import { PhoneHome } from "./phone-home";
 import { useRefusals } from "./refusal";
 import { TaskView } from "./task-view";
 import { Task } from "./tasks";
-import { MainTerminal } from "./terminal";
+import { ConversationTerminal, MainTerminal, ShowTerminal } from "./terminal";
 import { isMain, type Terminals } from "./terminals";
 import { Thread } from "./thread";
 import { TodoDialog } from "./todos";
@@ -90,6 +91,11 @@ export function Conversations({
 			? null
 			: (tasks.find((each) => each.task === shown.task) ?? null);
 	const external = tasks.find((each) => `${TASK}${each.task}` === open) ?? null;
+	// A conversation whose terminal has a page of its own, at `<id>/terminal`.
+	const shelled = terminalOf(open);
+	const shelledIn =
+		conversations.find((each) => each.id === shelled && !each.archived) ?? null;
+	const showTerminal = useContext(ShowTerminal);
 	// A todo a conversation mentions opens over it, and the task that took
 	// one over that, so the conversation keeps its place. Both go once
 	// another conversation opens, as one started from them does.
@@ -181,6 +187,36 @@ export function Conversations({
 							terminals.close(open);
 						}}
 					/>
+				) : shelled !== null ? (
+					shelledIn === null ? (
+						<Missing
+							what="conversation"
+							onBack={phone ? () => onOpen(null) : null}
+						/>
+					) : (
+						<ConversationTerminal
+							key={shelledIn.id}
+							terminals={terminals}
+							conversation={shelledIn}
+							trunk={trunk}
+							onBack={phone ? () => onOpen(null) : null}
+							onConversation={() =>
+								showTerminal === null
+									? onOpen(shelledIn.id)
+									: showTerminal(shelledIn.id)
+							}
+							// Hidden first, so the conversation's pane starts no other.
+							onExit={() => {
+								terminals.hide();
+								onOpen(shelledIn.id, "replace");
+							}}
+							onClose={() => {
+								terminals.hide();
+								terminals.close(shelledIn.id);
+								onOpen(shelledIn.id);
+							}}
+						/>
+					)
 				) : open === ARCHIVED ? (
 					<Archived
 						tasks={tasks}

@@ -29,6 +29,29 @@ export function conversationIn(hash: string): string | null {
 	return id ?? null;
 }
 
+/**
+ * After a conversation's id in the address, as `<id>/terminal`: its terminal
+ * on a page of its own, as one of the main tree's is.
+ */
+export const TERMINAL = "/terminal";
+
+/** The address of `conversation`'s terminal on a page of its own. */
+export function terminalAddress(conversation: string): string {
+	return `${conversation}${TERMINAL}`;
+}
+
+/**
+ * The conversation whose terminal `open` shows on a page of its own, or null.
+ * No id has a `/`, unlike the addresses of a task, a new conversation, or a
+ * main-tree terminal.
+ */
+export function terminalOf(open: string | null): string | null {
+	const [, id] = open?.match(/^([^/]+)\/terminal$/) ?? [];
+	return id === undefined || ["new", "task", "terminal"].includes(id)
+		? null
+		: id;
+}
+
 /** Whether `open` is the screen that starts a conversation, with any agent. */
 export function startsOne(open: string | null): boolean {
 	return open === NEW || (open?.startsWith(`${NEW}/`) ?? false);

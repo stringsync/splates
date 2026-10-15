@@ -1,21 +1,31 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	ChevronLeftIcon,
+	MessageSquareIcon,
+	PanelLeftCloseIcon,
 	RotateCcwIcon,
 	SquareIcon,
 	SquareTerminalIcon,
 	XIcon,
 } from "lucide-react";
-import { createContext, type JSX, useEffect, useRef } from "react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useRef,
+} from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import { PANE_WIDTH } from "./changes";
 import { focusComposer } from "./composer-editor";
+import { useNameOf } from "./conversation-names";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import type { TerminalSession } from "./terminal-session";
 import type { Terminals } from "./terminals";
-import { BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
+import { type BarAction, BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
 
 /**
  * Shows a conversation's terminal in the pane beside the page, or hides it;
@@ -30,6 +40,14 @@ export const ToggleTerminal = createContext<
  * has no shells.
  */
 export const ShowTerminal = createContext<
+	((conversation: string) => void) | null
+>(null);
+
+/**
+ * Opens a conversation's terminal on a page of its own, in place of the
+ * conversation; null where the page has no shells.
+ */
+export const OpenTerminalPage = createContext<
 	((conversation: string) => void) | null
 >(null);
 
@@ -99,6 +117,7 @@ function PaneScreen({
 	session: TerminalSession;
 	phone: boolean;
 }): JSX.Element {
+	const openPage = useContext(OpenTerminalPage);
 	const { status } = useReactive(
 		session,
 		(session) => ({ status: session.status }),
@@ -149,6 +168,17 @@ function PaneScreen({
 					>
 						<SquareIcon className="size-3 fill-current" />
 						Stop
+					</Button>
+				)}
+				{openPage !== null && (
+					<Button
+						size="icon-sm"
+						variant="ghost"
+						aria-label="Close the conversation"
+						title="Close the conversation, keeping the terminal"
+						onClick={() => openPage(conversation.id)}
+					>
+						<PanelLeftCloseIcon />
 					</Button>
 				)}
 				<Button
@@ -230,30 +260,141 @@ export function MainTerminal({
 		return <section aria-label="terminal" />;
 	}
 	return (
-		<MainScreen
+		<PageScreen
 			terminals={terminals}
 			terminal={terminal}
 			session={session}
-			trunk={trunk}
+			where={<OnTrunk trunk={trunk} />}
 			onBack={onBack}
 			onClose={onClose}
 		/>
 	);
 }
 
-/** A main-tree terminal's page, once its shell is kept. */
-function MainScreen({
+/**
+ * A conversation's terminal filling the page, as one of the main tree's
+ * does: the same shell its pane shows, in the conversation's tree, with a
+ * way to its conversation, which shows the shell in its pane.
+ */
+export function ConversationTerminal({
+	terminals,
+	conversation,
+	trunk,
+	onBack,
+	onConversation,
+	onExit,
+	onClose,
+}: {
+	terminals: Terminals;
+	conversation: ConversationState;
+	/** The main tree's branch. */
+	trunk: string;
+	onBack: (() => void) | null;
+	/** Opens the conversation, its pane showing this shell. */
+	onConversation: () => void;
+	/** Leaves the page, once the shell has exited. */
+	onExit: () => void;
+	/** Leaves the page, once the shell is hung up on. */
+	onClose: () => void;
+}): JSX.Element {
+	const nameOf = useNameOf();
+	// Set as the shell goes, so the change that says so starts no other.
+	const gone = useRef(false);
+	const exit = useRef(onExit);
+	exit.current = onExit;
+	useEffect(
+		() =>
+			terminals.events.on("exited", (key) => {
+				if (key === conversation.id) {
+					gone.current = true;
+					exit.current();
+				}
+			}),
+		[terminals, conversation.id],
+	);
+	const { session } = useReactive(
+		terminals,
+		(terminals) => ({
+			session: gone.current
+				? null
+				: terminals.sessionFor(conversation.id, conversation.task),
+		}),
+		["changed"],
+	);
+	if (session === null) {
+		return <section aria-label="terminal" />;
+	}
+	const name = nameOf(conversation);
+	return (
+		<PageScreen
+			terminals={terminals}
+			terminal={conversation.id}
+			session={session}
+			where={
+				<>
+					<span className="truncate">{name}</span>
+					{/* A conversation mostly goes by its task's name already. */}
+					{session.task !== name && (
+						<>
+							<span aria-hidden>·</span>
+							{session.task === null ? (
+								<OnTrunk trunk={trunk} />
+							) : (
+								<span className="truncate">
+									in <span className="font-mono">{session.task}</span>
+								</span>
+							)}
+						</>
+					)}
+				</>
+			}
+			moved={session.task !== conversation.task}
+			actions={[
+				{
+					label: "Open the conversation",
+					icon: <MessageSquareIcon />,
+					run: onConversation,
+				},
+			]}
+			onBack={onBack}
+			onClose={() => {
+				gone.current = true;
+				onClose();
+			}}
+		/>
+	);
+}
+
+/** Where a main-tree shell runs, as its page says. */
+function OnTrunk({ trunk }: { trunk: string }): JSX.Element {
+	return (
+		<span className="truncate">
+			in the main tree, on <span className="font-mono">{trunk}</span>
+		</span>
+	);
+}
+
+/**
+ * A terminal's page, once its shell is made: its name, `where` it runs, and
+ * `actions` ahead of Restart and Close. Restart shows once the shell is lost,
+ * or once it is `moved`: started in a tree its conversation has since left.
+ */
+function PageScreen({
 	terminals,
 	terminal,
 	session,
-	trunk,
+	where,
+	moved = false,
+	actions = [],
 	onBack,
 	onClose,
 }: {
 	terminals: Terminals;
 	terminal: string;
 	session: TerminalSession;
-	trunk: string;
+	where: ReactNode;
+	moved?: boolean;
+	actions?: BarAction[];
 	onBack: (() => void) | null;
 	onClose: () => void;
 }): JSX.Element {
@@ -292,9 +433,7 @@ function MainScreen({
 				}
 				detail={
 					<span className="flex min-w-0 items-center gap-2 text-sm">
-						<span className="truncate">
-							in the main tree, on <span className="font-mono">{trunk}</span>
-						</span>
+						{where}
 						<span role="status" className="shrink-0 text-xs">
 							{status === "connecting" && "Connecting"}
 							{status === "closed" && "Disconnected"}
@@ -302,7 +441,8 @@ function MainScreen({
 					</span>
 				}
 				actions={[
-					...(status === "closed"
+					...actions,
+					...(status === "closed" || moved
 						? [
 								{
 									label: "Restart",

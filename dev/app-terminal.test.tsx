@@ -418,7 +418,7 @@ describe("App's terminal", () => {
 		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
 	});
 
-	it("nests the shell under its conversation in the sidebar while it is up, opening it from there", async () => {
+	it("nests the shell under its conversation in the sidebar while it is up", async () => {
 		const view = await reading();
 		const nested = () =>
 			within(view.getByRole("navigation", { name: "conversations" }))
@@ -437,8 +437,6 @@ describe("App's terminal", () => {
 
 		await press(TOGGLE);
 		expect(row.getAttribute("aria-current")).toBeNull();
-		await act(async () => fireEvent.click(row));
-		expect(view.getByRole("complementary", { name: "terminal" })).toBeTruthy();
 
 		await act(async () => shell?.exit(0));
 		expect(nested()).toBeFalsy();

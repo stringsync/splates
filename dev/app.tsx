@@ -31,7 +31,7 @@ import { BudgetPage } from "./budget";
 import { ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
 import { useSystems } from "./composer-triggers";
-import { NEW, TASK } from "./conversation-address";
+import { NEW, TASK, terminalAddress } from "./conversation-address";
 import { ConversationFeed } from "./conversation-feed";
 import { useWaiting } from "./conversation-list";
 import { Lanes } from "./conversation-names";
@@ -66,7 +66,12 @@ import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 import { SystemsPage } from "./systems-page";
 import { Tasks } from "./tasks";
-import { ShellRunning, ShowTerminal, ToggleTerminal } from "./terminal";
+import {
+	OpenTerminalPage,
+	ShellRunning,
+	ShowTerminal,
+	ToggleTerminal,
+} from "./terminal";
 import { Terminals } from "./terminals";
 import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
@@ -410,91 +415,104 @@ export function App({
 															: null
 													}
 												>
-													<ShortcutSettings value={settings}>
-														<PageShortcuts
-															onPage={go}
-															onBack={
-																available
-																	? () => visit(visits.back(existsRef.current))
-																	: null
-															}
-															onForward={
-																available
-																	? () =>
-																			visit(visits.forward(existsRef.current))
-																	: null
-															}
-															onSettings={() => setSetting(true)}
-															onTerminal={
-																shown === null
-																	? null
-																	: () => toggleTerminal(shown.id)
-															}
-														/>
-														<TooltipProvider>
-															<CheckpointProvider
-																conversations={conversations.filter(
-																	(each) => !each.archived,
-																)}
-																every={checkpointEvery}
-																restartShown={checkpointRestartShown}
-																reload={reload}
-																autoRestart={autoRestart}
-															>
-																{wide ? (
-																	<DesktopApp
-																		page={page}
-																		open={open}
-																		go={go}
-																		name={name}
-																		bodies={bodies}
-																		opening={opening}
-																		paned={paned}
-																		available={available}
-																		snapshot={snapshot}
-																		outdated={outdated}
-																		offline={offline}
-																		talk={talk}
-																		drafts={drafts}
-																		terminals={terminals}
-																		menu={pageMenu}
+													<OpenTerminalPage
+														value={
+															available
+																? (id: string) =>
+																		go("conversations", terminalAddress(id))
+																: null
+														}
+													>
+														<ShortcutSettings value={settings}>
+															<PageShortcuts
+																onPage={go}
+																onBack={
+																	available
+																		? () =>
+																				visit(visits.back(existsRef.current))
+																		: null
+																}
+																onForward={
+																	available
+																		? () =>
+																				visit(visits.forward(existsRef.current))
+																		: null
+																}
+																onSettings={() => setSetting(true)}
+																onTerminal={
+																	shown === null
+																		? null
+																		: () => toggleTerminal(shown.id)
+																}
+															/>
+															<TooltipProvider>
+																<CheckpointProvider
+																	conversations={conversations.filter(
+																		(each) => !each.archived,
+																	)}
+																	every={checkpointEvery}
+																	restartShown={checkpointRestartShown}
+																	reload={reload}
+																	autoRestart={autoRestart}
+																>
+																	{wide ? (
+																		<DesktopApp
+																			page={page}
+																			open={open}
+																			go={go}
+																			name={name}
+																			bodies={bodies}
+																			opening={opening}
+																			paned={paned}
+																			available={available}
+																			snapshot={snapshot}
+																			outdated={outdated}
+																			offline={offline}
+																			talk={talk}
+																			drafts={drafts}
+																			terminals={terminals}
+																			menu={pageMenu}
+																		/>
+																	) : (
+																		<PhoneApp
+																			page={page}
+																			open={open}
+																			go={go}
+																			name={name}
+																			header={header}
+																			offline={offline}
+																			body={
+																				bodies === null ? (
+																					opening
+																				) : (
+																					<div className={PHONE_PAGES[page]}>
+																						{bodies[page]}
+																					</div>
+																				)
+																			}
+																			available={available}
+																			waiting={counted ? waiting : 0}
+																			snapshot={snapshot}
+																			talk={talk}
+																			drafts={drafts}
+																			terminals={terminals}
+																			pageMenu={pageMenu}
+																		/>
+																	)}
+																	{pane}
+																	<SearchDialog
+																		searched={searched}
+																		pick={pick}
 																	/>
-																) : (
-																	<PhoneApp
-																		page={page}
-																		open={open}
-																		go={go}
-																		name={name}
-																		header={header}
-																		offline={offline}
-																		body={
-																			bodies === null ? (
-																				opening
-																			) : (
-																				<div className={PHONE_PAGES[page]}>
-																					{bodies[page]}
-																				</div>
-																			)
-																		}
-																		available={available}
-																		waiting={counted ? waiting : 0}
-																		snapshot={snapshot}
-																		talk={talk}
-																		drafts={drafts}
-																		terminals={terminals}
-																		pageMenu={pageMenu}
+																	<SettingsDialog
+																		settings={settings}
+																		open={setting}
+																		onOpenChange={setSetting}
 																	/>
-																)}
-																{pane}
-																<SearchDialog searched={searched} pick={pick} />
-																<SettingsDialog
-																	settings={settings}
-																	open={setting}
-																	onOpenChange={setSetting}
-																/>
-															</CheckpointProvider>
-														</TooltipProvider>
-													</ShortcutSettings>
+																</CheckpointProvider>
+															</TooltipProvider>
+														</ShortcutSettings>
+													</OpenTerminalPage>
 												</ShowTerminal>
 											</ShellRunning>
 										</ToggleTerminal>

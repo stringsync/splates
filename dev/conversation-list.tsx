@@ -11,7 +11,13 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import { answersTo, type Needing, needs } from "../needs";
 import type { Details } from "../show";
-import { ARCHIVED, NEW, openedBy, TASK } from "./conversation-address";
+import {
+	ARCHIVED,
+	NEW,
+	openedBy,
+	TASK,
+	terminalAddress,
+} from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
 import {
@@ -33,6 +39,7 @@ import { CommandRow, External, Rows, TerminalRow } from "./list-rows";
 import { nest } from "./parts";
 import { NestedPanesContext } from "./side-panes";
 import { arriveAt, useCopiedReplies } from "./task-view";
+import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
 import { WaitingLine } from "./waiting-line";
 
@@ -91,6 +98,7 @@ export function ConversationList({
 		["changed"],
 	);
 	const panes = useContext(NestedPanesContext);
+	const openPage = useContext(OpenTerminalPage);
 	const shells = new Set(up.split(" "));
 	const beneath = ({ conversation }: Needing): ReactNode[] => {
 		if (conversation === null || panes === null) {
@@ -105,11 +113,8 @@ export function ConversationList({
 					<TerminalRow
 						name={terminals.nameOf(id)}
 						nested
-						current={shown?.kind === "terminal"}
-						onOpen={() => {
-							onOpen(id);
-							panes.showTerminal(id);
-						}}
+						current={shown?.kind === "terminal" || open === terminalAddress(id)}
+						onOpen={() => (openPage === null ? onOpen(id) : openPage(id))}
 						onClose={() => terminals.close(id)}
 						onRename={(name) => terminals.rename(id, name)}
 					/>
