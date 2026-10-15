@@ -189,6 +189,57 @@ describe("App's report cards", () => {
 		expect(scrolled).toEqual([]);
 	});
 
+	it("opens a conversation that ends on questions at their card's top, where the focus is", async () => {
+		// Resizes the page has no layout to make, as the cards above render.
+		const watchers = new Set<() => void>();
+		const real = globalThis.ResizeObserver;
+		globalThis.ResizeObserver = class {
+			private readonly fire: () => void;
+			constructor(changed: ResizeObserverCallback) {
+				this.fire = () => changed([], this as unknown as ResizeObserver);
+			}
+			observe() {
+				watchers.add(this.fire);
+			}
+			unobserve() {}
+			disconnect() {
+				watchers.delete(this.fire);
+			}
+		} as unknown as typeof ResizeObserver;
+		let card: Element | null = null;
+		const scrolled = await scrollingIntoView(async (seen) => {
+			await testing.openConversations([
+				conversation({
+					messages: [
+						message("user", "fix the header"),
+						message("agent", "1. Which pages need it?\n   - [a] Todos"),
+					],
+					unread: false,
+					seen: 1,
+				}),
+			]);
+			card = await waitFor(() => {
+				const found = document.activeElement?.closest("[data-card]");
+				expect(found).toBeTruthy();
+				return found as Element;
+			});
+			// The thread places itself again as what is above settles, keeping
+			// to the card rather than going on to the bottom.
+			seen.length = 0;
+			await act(async () => {
+				// scry-ignore matchers-over-test-logic: fires every resize watched, building no subject
+				for (const fire of watchers) {
+					fire();
+				}
+			});
+		}).finally(() => {
+			globalThis.ResizeObserver = real;
+		});
+
+		expect(scrolled).not.toEqual([]);
+		expect(new Set<Element | null>(scrolled)).toEqual(new Set([card]));
+	});
+
 	it("keeps the thread clear of the composer only while the focus is elsewhere, so typing never scrolls it", async () => {
 		// The footer's height, which the page has no layout to give.
 		const height = Object.getOwnPropertyDescriptor(

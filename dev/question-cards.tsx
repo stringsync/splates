@@ -7,10 +7,10 @@ import {
 	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import { focusStop, useTouch } from "#dev/hooks/use-touch.ts";
+import { focusStop, raises, useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
@@ -143,8 +143,13 @@ export function QuestionCards({
 	// The question shown when paged, over a footer pinned to the sheet's foot.
 	const [page, setPage] = useState(0);
 	const last = questions.length - 1;
-	const turn = (to: number) => {
+	// Whether the page turned to takes the focus, and raises the keyboard
+	// even on a touch screen, as when Enter turned it from a field; null when
+	// the focus stays where it is, as on the button that turned it.
+	const landing = useRef<{ typing: boolean } | null>(null);
+	const turn = (to: number, land: { typing: boolean } | null = null) => {
 		clearTimeout(going.current);
+		landing.current = land;
 		setPage(to);
 		panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
 	};
@@ -154,6 +159,8 @@ export function QuestionCards({
 	const goOn = (from: number) => {
 		clearTimeout(going.current);
 		going.current = setTimeout(() => {
+			// The choice picked goes with its page, so the next takes the focus.
+			landing.current = { typing: false };
 			// Unless the person turned the page themselves meanwhile.
 			setPage((now) => (now === from ? from + 1 : now));
 			panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
@@ -167,7 +174,7 @@ export function QuestionCards({
 		if (paged) {
 			const at = questions.findIndex((asked) => asked.number === number);
 			if (at < last) {
-				turn(at + 1);
+				turn(at + 1, { typing: raises(document.activeElement) });
 				return;
 			}
 		}
@@ -178,13 +185,24 @@ export function QuestionCards({
 		// browser would leave at the very foot of the thread.
 		focusStop(following, { preventScroll: true });
 		following?.closest("li, footer")?.scrollIntoView({ block: "nearest" });
-		if (following instanceof HTMLTextAreaElement) {
-			following.setSelectionRange(
-				following.value.length,
-				following.value.length,
-			);
-		}
+		toEnd(following);
 	};
+	// The page turned to, its question's first stop; the sheet keeps it in view.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: each turn is a page to land on
+	useLayoutEffect(() => {
+		const land = landing.current;
+		landing.current = null;
+		if (land === null) {
+			return;
+		}
+		const stop = panel.current?.querySelector<HTMLElement>("[data-stop]");
+		if (land.typing) {
+			stop?.focus();
+		} else {
+			focusStop(stop);
+		}
+		toEnd(stop);
+	}, [page]);
 	useArrival(live, () =>
 		panel.current?.querySelector<HTMLElement>("[data-stop]"),
 	);
@@ -410,6 +428,13 @@ export function QuestionCards({
 			</div>
 		</CardShell>
 	);
+}
+
+/** Puts the caret at the end of what `stop` holds, when it is a field. */
+function toEnd(stop: HTMLElement | null | undefined): void {
+	if (stop instanceof HTMLTextAreaElement) {
+		stop.setSelectionRange(stop.value.length, stop.value.length);
+	}
 }
 
 /** How long a pick shows before a paged panel goes on from it. */

@@ -128,6 +128,7 @@ describe("App's question card keys", () => {
 
 	it("scrolls the card to its top as it arrives, clear of the person's message", async () => {
 		const scrolled: Element[] = [];
+		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
 		const scroll = spyOn(
 			HTMLElement.prototype,
 			"scrollIntoView",
@@ -141,7 +142,8 @@ describe("App's question card keys", () => {
 			);
 			await waitFor(() => expect(document.activeElement === first).toBe(true));
 			const asked = view.getByRole("region", { name: "escalated header" });
-			expect(scrolled).toEqual([asked]);
+			// The thread keeps to it as it places itself.
+			expect(new Set(scrolled)).toEqual(new Set([asked]));
 			expect(asked.style.scrollMarginTop).toMatch(/^\d+(\.\d+)?px$/);
 		} finally {
 			scroll.mockRestore();
@@ -155,6 +157,7 @@ describe("App's question card keys", () => {
 		);
 		await waitFor(() => expect(document.activeElement === first).toBe(true));
 		const scrolled: Element[] = [];
+		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
 		const scroll = spyOn(
 			HTMLElement.prototype,
 			"scrollIntoView",
@@ -204,6 +207,7 @@ describe("App's question card keys", () => {
 		const second = await waitFor(() => card(view, "2"));
 		const note = within(second).getByRole("textbox") as HTMLTextAreaElement;
 
+		// scry-ignore matchers-over-test-logic: each step types on from the last, checked as typed
 		for (const typed of ["a", "a ", "a lot"]) {
 			await act(async () =>
 				fireEvent.change(note, { target: { value: typed } }),

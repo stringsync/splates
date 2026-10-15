@@ -79,7 +79,8 @@ function makeRoom(scroller: HTMLElement, room: HTMLElement, top: number): void {
 }
 /**
  * Opens `viewport` at the top of message `at`, the first the person has yet
- * to see, so they read on from where they left off, or else at the bottom, as
+ * to see, so they read on from where they left off, or else at the top of the
+ * card that took the focus as it came up, or else at the bottom, as
  * assistant-ui would. It holds there while what is above settles, as markdown
  * and cards render, until the person scrolls, clicks or types, or a reply
  * starts and `useAnchorAtOnce` takes over.
@@ -105,7 +106,16 @@ export function useOpenAt(
 							`[data-message-id="${CSS.escape(at)}"]`,
 						);
 			const turn = message?.closest<HTMLElement>('[data-slot="aui_turn"]');
-			if (message == null || turn == null) {
+			// A card that took the focus as it came up, as questions do.
+			const arrived =
+				document.activeElement?.closest<HTMLElement>("[data-card]");
+			if (
+				(message == null || turn == null) &&
+				arrived != null &&
+				scroller.contains(arrived)
+			) {
+				toCardTop(arrived);
+			} else if (message == null || turn == null) {
 				scroller.scrollTop = scroller.scrollHeight;
 			} else if (message === turn.firstElementChild) {
 				// The person's message that opens a turn reads from the turn's top.

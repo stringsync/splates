@@ -308,6 +308,53 @@ describe("App on a phone", () => {
 		expect(shown()).toEqual(["question 1"]);
 	});
 
+	it("goes on from a typed answer to the next question's field, keeping the keyboard up", async () => {
+		const media = window.matchMedia;
+		window.matchMedia = (query) =>
+			query === "(pointer: coarse)"
+				? ({
+						matches: true,
+						addEventListener: () => {},
+						removeEventListener: () => {},
+					} as unknown as MediaQueryList)
+				: media.call(window, query);
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message("user", "fix the header"),
+						message(
+							"agent",
+							"1. What looks wrong at 390px?\n2. What else should change?",
+						),
+					],
+				}),
+			]);
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() =>
+						view.getByRole("button", { name: /2 questions for you\s*Answer/ }),
+					),
+				),
+			);
+			const sheet = await waitFor(() =>
+				view.getByRole("dialog", { name: "2 questions for you" }),
+			);
+			const first = within(sheet).getByRole("textbox", { name: "Answer to 1" });
+			await act(async () => first.focus());
+
+			await act(async () => fireEvent.keyDown(first, { key: "Enter" }));
+
+			const second = within(sheet).getByRole("textbox", {
+				name: "Answer to 2",
+			});
+			expect(document.activeElement === second).toBe(true);
+		} finally {
+			window.matchMedia = media;
+		}
+	});
+
 	it("leaves the dots off a sheet of one question", async () => {
 		const view = await testing.openConversations([
 			conversation({
