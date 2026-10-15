@@ -28,6 +28,21 @@ describe("ZoomableImage", () => {
 		expect(within(view, 200, 100)).toEqual({ scale: 2, x: 0, y: -100 });
 	});
 
+	it("zooms in on a scroll up and a pinch out alike", () => {
+		const page = render(<ZoomableImage src="/shot.png" alt="shot" />);
+		const image = page.getByRole("img", { name: "shot" });
+		// Fingers moving up a trackpad, with natural scrolling.
+		fireEvent.wheel(image, { deltaY: 200 });
+		expect(image.style.transform).toContain("scale(1.4");
+		fireEvent.wheel(image, { deltaY: -200 });
+		expect(image.style.transform).toBe("");
+		// Fingers spreading apart. happy-dom's WheelEvent drops ctrlKey.
+		const pinch = new WheelEvent("wheel", { deltaY: -40, cancelable: true });
+		Object.defineProperty(pinch, "ctrlKey", { value: true });
+		fireEvent(image, pinch);
+		expect(image.style.transform).toContain("scale(1.4");
+	});
+
 	it("zooms in on a double tap, and back out on the next", () => {
 		const page = render(<ZoomableImage src="/shot.png" alt="shot" />);
 		const image = page.getByRole("img", { name: "shot" });

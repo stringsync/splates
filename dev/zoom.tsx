@@ -112,13 +112,16 @@ export function ZoomableImage({
 		const shown = image.current;
 		const onWheel = (event: WheelEvent) => {
 			event.preventDefault();
-			// A trackpad pinch comes as the wheel with ctrl held, in small steps.
-			const rate = event.ctrlKey ? 0.01 : 0.002;
+			// A trackpad pinch comes as the wheel with ctrl held, in small steps,
+			// spreading the fingers as a negative delta. A scroll zooms the other
+			// way, so fingers moving up a trackpad with macOS's natural scrolling
+			// zoom in.
+			const rate = event.ctrlKey ? -0.01 : 0.002;
 			show(
 				zoomAt(
 					view.current,
 					fromCorner({ x: event.clientX, y: event.clientY }),
-					view.current.scale * Math.exp(-event.deltaY * rate),
+					view.current.scale * Math.exp(event.deltaY * rate),
 				),
 			);
 		};
