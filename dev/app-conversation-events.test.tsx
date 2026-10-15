@@ -138,6 +138,26 @@ describe("App's arbor events", () => {
 		expect(thread.textContent).not.toContain("## 🔑");
 	});
 
+	it("draws an attach as the file it stored or dropped, or a count of several", async () => {
+		const thread = await opened(turn(["Done."]), [
+			attached(1, ["/git/arbor/a/shot.png"], []),
+			attached(2, ["/git/arbor/a/one.png", "/git/arbor/a/two.png"], []),
+			attached(3, [], ["old.png"]),
+			attached(4, [], []),
+		]);
+
+		const lines = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(3);
+			return found;
+		});
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Attachedshot.png",
+			"Attached 2 files",
+			"Removedold.png",
+		]);
+	});
+
 	it("draws nothing for an action no line is drawn for yet", async () => {
 		const thread = await opened(turn(["Done."]), [
 			{
@@ -376,5 +396,19 @@ function credRequest(id: string, name: string, asked: boolean): Event {
 		conversation: "c1",
 		name,
 		asked,
+	};
+}
+
+/** An attach at `secs` that stored `stored` and dropped `removed`. */
+function attached(secs: number, stored: string[], removed: string[]): Event {
+	return {
+		id: `attach${secs}`,
+		at: second(secs),
+		action: "attach",
+		task: "alpha",
+		reason: null,
+		conversation: "c1",
+		stored,
+		removed,
 	};
 }

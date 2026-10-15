@@ -1,7 +1,12 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { JSX } from "react";
 import type { Action, Event } from "../events";
-import { ArborEvent, type ArborEventView, type Named } from "./arbor-event";
+import {
+	ArborEvent,
+	type ArborEventView,
+	type Named,
+	type Words,
+} from "./arbor-event";
 import { useStartCard } from "./current-task";
 import { useNow } from "./hooks/use-now";
 
@@ -46,6 +51,21 @@ const LINES: {
 					at: event.at,
 				}
 			: { mark: "failed", words: ["Add failed", task(event)], at: event.at },
+	attach: (event) => {
+		if (event.reason !== null) {
+			return {
+				mark: "failed",
+				words: ["Attach failed", task(event)],
+				at: event.at,
+			};
+		}
+		const words = [
+			...filesWords("Attached", event.stored),
+			...filesWords("Removed", event.removed),
+		];
+		// A bare `arbor attach` only lists what the task holds.
+		return words.length === 0 ? null : { words, at: event.at };
+	},
 	merge: (event) =>
 		event.reason === null
 			? { mark: "landed", words: ["Merged", task(event)], at: event.at }
@@ -356,4 +376,18 @@ function todos(each: readonly { id: number; subject: string }[]): Named {
 	return only !== undefined && each.length === 1
 		? { kind: "todo", ...only }
 		: { kind: "todos", todos: each };
+}
+
+/**
+ * A verb and the files it was done to: a file chip for one, else the count,
+ * since a line of several chips may not fit on one. No thumbnails, which
+ * would break the one-line look.
+ */
+function filesWords(verb: string, paths: readonly string[]): Words {
+	if (paths.length === 0) {
+		return [];
+	}
+	return paths.length === 1
+		? [verb, { kind: "file", path: paths[0] ?? "" }]
+		: [`${verb} ${paths.length} files`];
 }

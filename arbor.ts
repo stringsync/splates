@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: the root roster of top-level commands and their flags, each body handed to its own module and each group mounted from its own file
 import { cli, type Deps } from "webappwiz/cmd";
 import type { Fs } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
@@ -513,11 +514,15 @@ arbor
 			"files it holds to drop first, comma separated, by path or stored name",
 	})
 	.action(async (opts, ctx) =>
-		ctx.journal.record("attach", opts.task || (await here(ctx)), () =>
-			attach(ctx, commaList(opts.files), ctx.ps.cwd(), {
-				task: opts.task || undefined,
-				remove: commaList(opts.remove),
-			}),
+		ctx.journal.record(
+			"attach",
+			opts.task || (await here(ctx)),
+			() =>
+				attach(ctx, commaList(opts.files), ctx.ps.cwd(), {
+					task: opts.task || undefined,
+					remove: commaList(opts.remove),
+				}),
+			(stored) => ({ stored, removed: commaList(opts.remove) }),
 		),
 	);
 

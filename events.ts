@@ -67,7 +67,12 @@ export interface Facts {
 		/** Whether the agent answers to the conversation that handed it on. */
 		relay: boolean;
 	};
-	attach: None;
+	attach: {
+		/** The paths it stored, in the order given. */
+		stored: string[];
+		/** What `--remove` named to drop, each by path or stored name. */
+		removed: string[];
+	};
 	retry: None;
 	"todo add": {
 		/** The todo it added, by id. */
