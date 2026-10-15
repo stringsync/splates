@@ -145,7 +145,8 @@ export function WidgetsButton({
  * the commands it left in the background below a rule, and cards such as the
  * systems its task touches. Docked at the thread's right where it is
  * `roomy`, its messages centered in the room left of them; elsewhere
- * floating, frosted, over the thread's top right, like the Control Center,
+ * floating, frosted, over the thread's top right with the thread veiled
+ * behind them, like the Control Center,
  * gone on Escape, a click outside, or an action run.
  */
 export function Widgets({
@@ -205,43 +206,58 @@ export function Widgets({
 					},
 				};
 	return (
-		<section
-			ref={panel}
-			aria-label="widgets"
-			inert={!open}
-			className={cn(
-				"[&_[data-card]]:my-0 [&_[data-card]]:rounded-2xl [&_[data-widget]]:rounded-2xl",
-				roomy
-					? [
-							"absolute top-0 right-4 z-10 flex w-60 flex-col gap-3",
-							!open && "hidden",
-						]
-					: [
-							// Padded for the cards' shadows, which a scroller would cut
-							// off, and clicked through there.
-							"-top-2 -right-2 pointer-events-none absolute z-20 flex max-h-[calc(100%+0.5rem)] w-76 max-w-full flex-col gap-2.5 overflow-y-auto px-2 pt-2 pb-10 *:pointer-events-auto",
-							"[&_[data-card]]:bg-background/80 [&_[data-card]]:shadow-xl [&_[data-card]]:backdrop-blur-xl [&_[data-widget]]:bg-background/80 [&_[data-widget]]:shadow-xl [&_[data-widget]]:backdrop-blur-xl",
-							"origin-top-right transition-[opacity,scale,visibility] duration-200 ease-out motion-reduce:transition-none",
-							open ? "scale-100 opacity-100" : "invisible scale-95 opacity-0",
-						],
+		<>
+			{/* Floating, a veil over the thread, so its text stays out of the
+			    cards' way, as the Control Center blurs the screen behind it. */}
+			{floating && (
+				<div
+					aria-hidden
+					data-widgets-veil
+					className={cn(
+						"absolute inset-0 z-20 bg-background/70 backdrop-blur-sm",
+						"transition-[opacity,visibility] duration-200 ease-out motion-reduce:transition-none",
+						open ? "opacity-100" : "invisible opacity-0",
+					)}
+				/>
 			)}
-		>
-			<nav
-				aria-label="actions"
-				data-widget
-				className="flex flex-col divide-y overflow-hidden rounded-lg border bg-background"
-			>
-				{actions.length > 0 && (
-					<div className="py-1">
-						{actions.map((action) => (
-							<ActionRow key={action.label} action={run(action)} />
-						))}
-					</div>
+			<section
+				ref={panel}
+				aria-label="widgets"
+				inert={!open}
+				className={cn(
+					"[&_[data-card]]:my-0 [&_[data-card]]:rounded-2xl [&_[data-widget]]:rounded-2xl",
+					roomy
+						? [
+								"absolute top-0 right-4 z-10 flex w-60 flex-col gap-3",
+								!open && "hidden",
+							]
+						: [
+								// Padded for the cards' shadows, which a scroller would cut
+								// off, and clicked through there.
+								"-top-2 -right-2 pointer-events-none absolute z-20 flex max-h-[calc(100%+0.5rem)] w-76 max-w-full flex-col gap-2.5 overflow-y-auto px-2 pt-2 pb-10 *:pointer-events-auto",
+								"[&_[data-card]]:bg-background/90 [&_[data-card]]:shadow-xl [&_[data-card]]:backdrop-blur-xl [&_[data-widget]]:bg-background/90 [&_[data-widget]]:shadow-xl [&_[data-widget]]:backdrop-blur-xl",
+								"origin-top-right transition-[opacity,scale,visibility] duration-200 ease-out motion-reduce:transition-none",
+								open ? "scale-100 opacity-100" : "invisible scale-95 opacity-0",
+							],
 				)}
-				{background}
-			</nav>
-			{children}
-		</section>
+			>
+				<nav
+					aria-label="actions"
+					data-widget
+					className="flex flex-col divide-y overflow-hidden rounded-lg border bg-background"
+				>
+					{actions.length > 0 && (
+						<div className="py-1">
+							{actions.map((action) => (
+								<ActionRow key={action.label} action={run(action)} />
+							))}
+						</div>
+					)}
+					{background}
+				</nav>
+				{children}
+			</section>
+		</>
 	);
 }
 
