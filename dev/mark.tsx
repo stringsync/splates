@@ -16,20 +16,33 @@ import { Dot } from "./dot";
  * escalation does. A report in its last word decides the mark over a wait it
  * ended, though not over a live ask or a failure, which are newer. What it
  * waits on is in its tooltip. Each sits centered in a box of one size, so
- * marks line up down a list whichever kind they are.
+ * marks line up down a list whichever kind they are. A subagent shows only
+ * its spinner, and its failure, which nothing else tells of: the rest of what
+ * it needs reaches you through the agent it answers to.
  */
 export function Mark({
 	need,
 	reported = null,
 	unread = false,
 	hosting = false,
+	subagent = false,
 }: {
 	need: Need;
 	reported?: Ending | null;
 	unread?: boolean;
 	/** Whether an agent it handed a task to is at work. */
 	hosting?: boolean;
+	/** Whether it answers to another agent rather than to you. */
+	subagent?: boolean;
 }): JSX.Element {
+	if (subagent && !(need.kind === "waiting" && need.why === "failed")) {
+		return (
+			<Mark
+				need={need.kind === "waiting" ? { kind: "idle" } : need}
+				hosting={hosting}
+			/>
+		);
+	}
 	const shows =
 		need.kind === "idle" ||
 		(need.kind === "waiting" && need.why !== "ask" && need.why !== "failed");

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
-import type { Needing } from "../needs";
+import { answersTo, type Needing } from "../needs";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
 import { NEW, openedBy } from "./conversation-address";
@@ -27,6 +27,7 @@ import {
 } from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import type { Drafts } from "./drafts";
+import { Held } from "./handed-out";
 import { Mark } from "./mark";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
@@ -240,7 +241,8 @@ function Group({
 
 /**
  * One agent: its mark, its name, what it waits on, and how long since it
- * moved. One handed out sits indented under the agent it answers to, smaller.
+ * moved. One handed out sits indented under the agent it answers to, smaller
+ * and muted.
  * Held down, a conversation's row opens its menu.
  */
 function Row({
@@ -262,6 +264,8 @@ function Row({
 	const nameOf = useNameOf();
 	const trunk = useContext(Trunk);
 	const { conversation, task, need } = row;
+	// One that answers to another is not yours to address.
+	const subagent = answersTo(row, useContext(Held)) !== null;
 	const reported =
 		conversation === null ? null : (lastReport(conversation)?.ending ?? null);
 	const name =
@@ -322,8 +326,8 @@ function Row({
 						<span
 							className={cn(
 								"min-w-0 flex-1 truncate font-medium text-[15px]",
-								conversation !== null &&
-									unnamed(conversation) &&
+								(subagent ||
+									(conversation !== null && unnamed(conversation))) &&
 									"text-muted-foreground italic",
 							)}
 						>
@@ -351,6 +355,7 @@ function Row({
 							reported={reported}
 							unread={conversation?.unread ?? false}
 							hosting={hosting}
+							subagent={subagent}
 						/>
 					</span>
 				</span>

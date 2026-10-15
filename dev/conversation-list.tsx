@@ -15,7 +15,7 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { type Needing, needs } from "../needs";
+import { answersTo, type Needing, needs } from "../needs";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
 import { composerIn } from "./composer-editor";
@@ -321,6 +321,7 @@ export function ConversationList({
 									current={`${TASK}${row.task.task}` === open}
 									onOpen={() => openRow(row)}
 									hint={held ? hintOf(shown, row) : null}
+									subagent={answersTo(row, conversations) !== null}
 								/>
 							)
 						)

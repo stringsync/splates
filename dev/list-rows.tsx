@@ -112,6 +112,7 @@ export function External({
 	current,
 	onOpen,
 	hint = null,
+	subagent = false,
 }: {
 	task: Details;
 	need: Need;
@@ -123,6 +124,8 @@ export function External({
 	onOpen: () => void;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
 	hint?: string | null;
+	/** Whether it answers to a conversation rather than to you. */
+	subagent?: boolean;
 }): JSX.Element {
 	return (
 		<button
@@ -140,7 +143,14 @@ export function External({
 				aria-label="external agent"
 				className="size-3.5 text-foreground/70"
 			/>
-			<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
+			<span
+				className={cn(
+					"min-w-0 flex-1 truncate text-sm",
+					subagent && "text-muted-foreground italic",
+				)}
+			>
+				{task.task}
+			</span>
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>
 			) : need.kind === "working" || need.kind === "assuming" ? (
@@ -148,7 +158,7 @@ export function External({
 			) : copied ? (
 				<Copied />
 			) : seen ? null : (
-				<Mark need={need} />
+				<Mark need={need} subagent={subagent} />
 			)}
 		</button>
 	);

@@ -59,6 +59,15 @@ describe("App's conversation of a task another handed out", () => {
 			),
 		],
 	};
+	const merged = {
+		...agent,
+		status: "idle" as const,
+		unread: true,
+		messages: [
+			message("user", "[ARBOR TASK alpha]"),
+			message("agent", "## ✅ Merged alpha onto main"),
+		],
+	};
 
 	const option = (value: string, name: string) => ({
 		value,
@@ -283,6 +292,23 @@ describe("App's conversation of a task another handed out", () => {
 					(each) => each.closest("li")?.querySelector("button")?.textContent,
 				),
 		).toEqual(["Stats lane", "alpha"]);
+	});
+
+	it("shows no dot for it in the list, its name muted, once it merged unread", async () => {
+		const view = await testing.openConversations(
+			newestFirst([orchestrator, merged]),
+			"orch",
+			{ tasks },
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		const more = await within(nav).findByRole("button", {
+			name: "More for alpha",
+		});
+
+		const row = more.closest("li") as HTMLElement;
+		expect(within(row).queryByRole("img", { name: "merged" })).toBeNull();
+		expect(within(row).queryByRole("status", { name: "unread" })).toBeNull();
+		expect(within(row).getByText("alpha").className).toContain("italic");
 	});
 
 	it("offers no archive or rename of it, only of the orchestrator", async () => {

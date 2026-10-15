@@ -45,7 +45,7 @@ import { ShellRunning } from "./terminal";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
- * needs you. Hovered or focused, it offers Archive (or Unarchive) and a menu.
+ * needs you, its name muted for one that answers to another. Hovered or focused, it offers Archive (or Unarchive) and a menu.
  */
 export function Item({
 	conversation,
@@ -117,8 +117,7 @@ export function Item({
 						? "pr-14"
 						: need.kind === "idle" &&
 								!hosting &&
-								reported === null &&
-								!conversation.unread &&
+								(handedOut || (reported === null && !conversation.unread)) &&
 								hint === null
 							? "pr-3"
 							: "pr-6",
@@ -132,7 +131,9 @@ export function Item({
 				<span
 					className={cn(
 						"min-w-0 flex-1 truncate text-sm",
-						unnamed(conversation) && "text-muted-foreground italic",
+						// One that answers to another is not yours to address.
+						(unnamed(conversation) || handedOut) &&
+							"text-muted-foreground italic",
 					)}
 				>
 					{nameOf(conversation)}
@@ -161,6 +162,7 @@ export function Item({
 						reported={reported}
 						unread={conversation.unread}
 						hosting={hosting}
+						subagent={handedOut}
 					/>
 				)}
 			</span>
