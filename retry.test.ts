@@ -28,6 +28,19 @@ describe("retry", () => {
 		});
 	});
 
+	it("hands back the attempts the task had spent before the grant", async () => {
+		await add(deps, "alpha");
+		const spent = await deps.service.find("alpha");
+		await spent.save({
+			status: "escalated",
+			mergeAttempts: deps.config.mergeRetryCount,
+		});
+
+		const granted = await retry(deps, "alpha");
+
+		expect(granted.attempts).toBe(deps.config.mergeRetryCount);
+	});
+
 	it("refuses a task nobody has escalated", async () => {
 		await add(deps, "alpha");
 

@@ -97,6 +97,14 @@ const LINES: {
 					words: ["Handoff failed", task(event)],
 					at: event.at,
 				},
+	retry: (event) =>
+		event.reason === null
+			? { words: ["Retried", task(event)], at: event.at }
+			: {
+					mark: "failed",
+					words: ["Retry failed", task(event)],
+					at: event.at,
+				},
 	"todo update": (event) =>
 		event.reason === null
 			? { words: ["Updated", todo(event)], at: event.at }

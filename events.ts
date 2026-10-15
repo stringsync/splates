@@ -73,7 +73,10 @@ export interface Facts {
 		/** What `--remove` named to drop, each by path or stored name. */
 		removed: string[];
 	};
-	retry: None;
+	retry: {
+		/** The merge attempts the task had spent, which the grant gives it more of. */
+		attempts: number;
+	};
 	"todo add": {
 		/** The todo it added, by id. */
 		todo: number;
@@ -181,9 +184,8 @@ export type StopWhy = "restart" | "update" | "shutdown" | "lost";
 type None = Record<never, never>;
 
 /**
- * A wait, logged twice in the append-only journal: as it begins, so the page
- * can count down to `until` while it runs, then as it ends, saying how, with
- * `began` naming the first. The page folds the two into one line.
+ * A wait the page counts down: its start shows a line that runs until `until`,
+ * and its end says how the wait went, pointing back at its start with `began`.
  */
 export interface Waiting {
 	/** When it gives up, as an ISO time. */

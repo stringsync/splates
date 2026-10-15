@@ -108,8 +108,11 @@ export class TaskRoutes {
 		const task = decodeURIComponent(
 			new URL(request.url).pathname.split("/")[3] ?? "",
 		);
-		const worktree = await journal.record("retry", task, () =>
-			grantRetry(service, task),
+		const { worktree } = await journal.record(
+			"retry",
+			task,
+			() => grantRetry(service, task),
+			({ attempts }) => ({ attempts }),
 		);
 		await this.#watch.tick();
 		return Response.json(worktree.state);

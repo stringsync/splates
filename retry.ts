@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Config } from "./config";
 import { fail } from "./exit";
+import type { Journal } from "./journal";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -20,8 +21,9 @@ export async function retry(
 		log,
 	}: { service: WorktreeService; config: Config; log: Logger },
 	task: string,
-): Promise<void> {
-	const worktree = await grantRetry(service, task);
+): Promise<Granted> {
+	const granted = await grantRetry(service, task);
+	const { worktree } = granted;
 
 	log.info(
 		[
@@ -32,13 +34,39 @@ export async function retry(
 			`Run \`arbor claim ${worktree.task}\` to pick it up.`,
 		].join("\n"),
 	);
+	return granted;
+}
+
+/** `retry`, recorded in the journal with the attempts the task had spent. */
+export function recordRetry(
+	ctx: {
+		journal: Journal;
+		service: WorktreeService;
+		config: Config;
+		log: Logger;
+	},
+	task: string,
+): Promise<Granted> {
+	return ctx.journal.record(
+		"retry",
+		task,
+		() => retry(ctx, task),
+		({ attempts }) => ({ attempts }),
+	);
+}
+
+/** A retry that was granted: the task back to working, and the attempts it had spent. */
+export interface Granted {
+	worktree: Worktree;
+	/** The merge attempts it had spent before the grant. */
+	attempts: number;
 }
 
 /** What `retry` does, without the printing, for `arbor dev`'s page too. */
 export async function grantRetry(
 	service: WorktreeService,
 	task: string,
-): Promise<Worktree> {
+): Promise<Granted> {
 	const found = await service.find(task);
 	if (found.gone) {
 		fail("not_found", `no task '${task}'`, { task });
@@ -53,5 +81,8 @@ export async function grantRetry(
 
 	// The lease stays as escalate left it: whoever picks the task up takes it
 	// with `claim`, the same as any other resume.
-	return found.save({ status: "working", mergeAttempts: 0 });
+	return {
+		worktree: await found.save({ status: "working", mergeAttempts: 0 }),
+		attempts: found.mergeAttempts,
+	};
 }

@@ -29,7 +29,7 @@ import { path } from "./path";
 import { newest } from "./release";
 import { remove } from "./remove";
 import { repository } from "./repository";
-import { retry } from "./retry";
+import { recordRetry } from "./retry";
 import { show } from "./show";
 import { systems } from "./system";
 import { reportToCaller, tell } from "./tell";
@@ -533,9 +533,7 @@ arbor
 		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not remove and redo, and only from escalated, so a human has seen the tree first",
 	)
 	.arg("task", z.string(), { description: "task name" })
-	.action((opts, ctx) =>
-		ctx.journal.record("retry", opts.task, () => retry(ctx, opts.task)),
-	);
+	.action((opts, ctx) => recordRetry(ctx, opts.task));
 
 arbor
 	.mount("todo", arborTodo)

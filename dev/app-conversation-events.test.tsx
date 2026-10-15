@@ -163,8 +163,8 @@ describe("App's arbor events", () => {
 			{
 				id: "r",
 				at: second(2),
-				action: "retry",
-				task: "alpha",
+				action: "tunnel remove",
+				task: null,
 				reason: null,
 				conversation: "c1",
 			},
@@ -208,6 +208,50 @@ describe("App's arbor events", () => {
 			"arbor dev stopped",
 			"arbor dev started",
 		]);
+	});
+
+	it("draws a retry as a line naming its task, a refused one marked", async () => {
+		const thread = await opened(
+			turn([
+				tool({
+					id: "x1",
+					command: "arbor retry alpha",
+					at: second(2),
+					until: second(3),
+				}),
+				"Retrying.",
+			]),
+			[
+				{
+					id: "r1",
+					at: second(3.5),
+					action: "retry",
+					task: "alpha",
+					reason: null,
+					conversation: "c1",
+					attempts: 3,
+				},
+				{
+					id: "r2",
+					at: second(4.5),
+					action: "retry",
+					task: "beta",
+					reason: "usage",
+					conversation: "c1",
+				},
+			],
+		);
+
+		const lines = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(2);
+			return found;
+		});
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Retriedalpha",
+			"Retry failedbeta",
+		]);
+		expect(lines[1]?.querySelector('[aria-label="Failed"]')).not.toBeNull();
 	});
 
 	it("folds todo updates in a row into one line listing each", async () => {

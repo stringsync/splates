@@ -15,7 +15,9 @@ describe("log", () => {
 	afterEach(() => deps.disposeAsync());
 
 	it("records how each command ended, refusals included", async () => {
-		await deps.journal.record("retry", "alpha", async () => {});
+		await deps.journal.record("retry", "alpha", async () => {}, {
+			attempts: 0,
+		});
 		await expect(
 			deps.journal.record("escalate", "alpha", () =>
 				Promise.reject(new Exit("tests_failed", "nope")),
@@ -69,9 +71,9 @@ describe("log", () => {
 			fs: deps.fs,
 			ps: deps.ps,
 		});
-		await journal.record("retry", "a", async () => {});
-		await journal.record("retry", "b", async () => {});
-		await journal.record("retry", "c", async () => {});
+		await journal.record("retry", "a", async () => {}, { attempts: 0 });
+		await journal.record("retry", "b", async () => {}, { attempts: 0 });
+		await journal.record("retry", "c", async () => {}, { attempts: 0 });
 
 		expect(await deps.fs.readdir(join(deps.arborDir, "log"))).toHaveLength(1);
 		expect((await journal.tail(10)).map((event) => event.task)).toEqual([
@@ -92,7 +94,7 @@ describe("log", () => {
 	it("loses no event to writers at the same instant", async () => {
 		await Promise.all(
 			Array.from({ length: 20 }, (_, i) =>
-				deps.journal.record("retry", `t${i}`, async () => {}),
+				deps.journal.record("retry", `t${i}`, async () => {}, { attempts: 0 }),
 			),
 		);
 
@@ -100,9 +102,9 @@ describe("log", () => {
 	});
 
 	it("stamps each event with the conversation that ran it", async () => {
-		await deps.journal.record("retry", "a", async () => {});
+		await deps.journal.record("retry", "a", async () => {}, { attempts: 0 });
 		deps.proc.env.ARBOR_CONVERSATION = "c1";
-		await deps.journal.record("retry", "b", async () => {});
+		await deps.journal.record("retry", "b", async () => {}, { attempts: 0 });
 		delete deps.proc.env.ARBOR_CONVERSATION;
 
 		expect(
