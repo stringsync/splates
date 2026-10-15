@@ -69,6 +69,13 @@ export const SETTINGS = {
 			"Show a conversation's actions, background commands and task beside its messages where there is room for them. Elsewhere they float over the conversation while you open them.",
 		default: true,
 	},
+	"conversation.timestamps": {
+		category: "Appearance",
+		title: "Timestamps on messages",
+		description:
+			"Show how long ago each message was said, the full date and time on hover. A conversation's actions turn them on and off too.",
+		default: false,
+	},
 	"editor.opener": {
 		category: "Editor",
 		title: "Open files in",

@@ -65,6 +65,7 @@ describe("App's conversation header", () => {
 		expect(view.queryByRole("button", { name: /of context used/ })).toBeNull();
 	});
 
+	// scry-ignore simple-test-setup: the tasks and todos it opens with are what it takes up, and no other test opens with them
 	it("takes up a task no conversation runs in, or an open todo, from a main-tree conversation's branch", async () => {
 		const view = await testing.openConversations(
 			[
@@ -146,7 +147,7 @@ describe("App's conversation header", () => {
 			within(main)
 				.getAllByRole("button")
 				.map((button) => button.textContent),
-		).toEqual(["Terminal⌃`", "Archive⌥⌘⌫"]);
+		).toEqual(["Terminal⌃`", "Show timestamps", "Archive⌥⌘⌫"]);
 	});
 
 	it("floats its widgets over the thread where they cannot dock, from the one button in its header or ⌥⌘/, until Escape, a click outside, or an action", async () => {
@@ -332,6 +333,7 @@ describe("App's conversation header", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: only this test reads a command's output, so it holds its own rather than share one every test ignores
 	it("opens a command's output beside the page, from the card's menu or the narrow one, with a Stop while it runs", async () => {
 		testing.outputs = { b1: "listening on 3000" };
 		const running = {

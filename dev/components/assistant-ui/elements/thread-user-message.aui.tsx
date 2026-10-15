@@ -37,6 +37,7 @@ import {
 	SentAttachments,
 	unnamed,
 } from "#dev/sent-attachments.tsx";
+import { Stamp, useStamps } from "#dev/stamp.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
 /**
@@ -115,6 +116,12 @@ export const UserMessage: FC = () => {
 	const steered = useAuiState(
 		(s) => s.message.metadata.custom.steered === true,
 	);
+	const stamps = useStamps();
+	const stamped = useAuiState((s) => {
+		const at = s.message.metadata.custom.at;
+		return typeof at === "string" ? at : null;
+	});
+	const at = stamps.shown ? stamped : null;
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
 		return only?.type === "text" && more.length === 0
@@ -185,13 +192,19 @@ export const UserMessage: FC = () => {
 				</Clamped>
 				<UserCopy />
 			</div>
-			{steered && (
-				<div
-					data-slot="aui_user-message-steered"
-					className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs"
-				>
-					<CornerDownRightIcon className="size-3" aria-hidden />
-					Steered into the running turn
+			{(steered || at !== null) && (
+				<div className="text-muted-foreground -mt-1 flex items-center gap-1 ps-1 text-xs">
+					{at !== null && <Stamp at={at} />}
+					{at !== null && steered && <span aria-hidden>·</span>}
+					{steered && (
+						<span
+							data-slot="aui_user-message-steered"
+							className="flex items-center gap-1"
+						>
+							<CornerDownRightIcon className="size-3" aria-hidden />
+							Steered into the running turn
+						</span>
+					)}
 				</div>
 			)}
 		</MessagePrimitive.Root>

@@ -1,6 +1,7 @@
 import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
+	ClockIcon,
 	FileDiffIcon,
 	HandshakeIcon,
 	SquareTerminalIcon,
@@ -21,11 +22,13 @@ import { AssigneeItems, Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Refuse } from "./refusal";
+import { useStamps } from "./stamp";
 import { ToggleTerminal } from "./terminal";
 
 /**
  * What a conversation's thread offers beside it: reviewing its task's
- * changes, its terminal, handing its task off to another agent, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
+ * changes, its terminal, handing its task off to another agent, showing
+ * its messages' timestamps, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
  * a Mac) does too; and starting a new conversation with its agent.
  */
 export function useThreadActions(
@@ -43,6 +46,7 @@ export function useThreadActions(
 	const archiveKey = useShortcutLabel("shortcuts.archive");
 	const terminalKey = useShortcutLabel("shortcuts.terminal");
 	const dispatching = useContext(Dispatching);
+	const stamps = useStamps();
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -97,6 +101,11 @@ export function useThreadActions(
 					},
 				]
 			: []),
+		{
+			label: stamps.shown ? "Hide timestamps" : "Show timestamps",
+			icon: <ClockIcon />,
+			run: stamps.toggle,
+		},
 		...(archive.files
 			? [
 					{

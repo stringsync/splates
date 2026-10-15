@@ -159,8 +159,11 @@ export function like(
 					? [attached(conversation, part)]
 					: [],
 			),
-			// Marked as taken into the turn the agent was running.
-			metadata: { custom: { steered: message.steered ?? false } },
+			// Marked as taken into the turn the agent was running, and stamped
+			// with when it was sent.
+			metadata: {
+				custom: { steered: message.steered ?? false, at: message.at },
+			},
 		};
 	}
 	// Its work and the words it said along the way as one row, but for its
@@ -171,6 +174,10 @@ export function like(
 	return {
 		id,
 		role: "assistant",
+		// Stamped with when it last moved, once it has stopped moving.
+		metadata: {
+			custom: { at: settled ? (message.until ?? message.at) : null },
+		},
 		content: [
 			...all.flatMap((stretch, at): LikePart[] =>
 				stretch.type === "work"

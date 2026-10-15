@@ -53,6 +53,82 @@ describe("App's conversation thread", () => {
 		expect(thread.textContent).toContain("Working");
 	});
 
+	it("stamps each message with how long ago it was said once the actions turn timestamps on, and a settled reply with when it ended", async () => {
+		const minutes = (ago: number) =>
+			new Date(Date.now() - ago * 60_000).toISOString();
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Read the note",
+					messages: [
+						{ ...message("user", "what does it say?"), at: minutes(9) },
+						{
+							...message("agent", "It says hi."),
+							at: minutes(8),
+							until: minutes(4),
+						},
+					],
+				}),
+			],
+			"c1",
+		);
+		const thread = view.getByRole("region", { name: "Read the note" });
+		const stamps = () =>
+			[...thread.querySelectorAll("time")].map((each) => each.textContent);
+		await waitFor(() =>
+			expect(thread.textContent).toContain("what does it say?"),
+		);
+		expect(stamps()).toEqual([]);
+
+		const actions = view.getByRole("navigation", { name: "actions" });
+		await act(async () =>
+			fireEvent.click(
+				within(actions).getByRole("button", { name: "Show timestamps" }),
+			),
+		);
+
+		await waitFor(() => expect(stamps()).toEqual(["9m ago", "4m ago"]));
+		await act(async () =>
+			fireEvent.click(
+				within(actions).getByRole("button", { name: "Hide timestamps" }),
+			),
+		);
+		expect(stamps()).toEqual([]);
+	});
+
+	it("leaves a reply unstamped while it is still being written", async () => {
+		localStorage.setItem(
+			"arbor.settings",
+			JSON.stringify({ "conversation.timestamps": true }),
+		);
+		const view = await testing.openConversations([
+			conversation({ title: "Read the note" }),
+		]);
+
+		await testing.say(
+			conversation({
+				title: "Read the note",
+				status: "running",
+				messages: [
+					{
+						...message("user", "what does it say?"),
+						at: new Date().toISOString(),
+					},
+					{ ...message("agent", "It says"), at: new Date().toISOString() },
+				],
+			}),
+		);
+
+		const thread = view.getByRole("region", { name: "Read the note" });
+		await waitFor(() =>
+			expect(thread.textContent).toContain("what does it say?"),
+		);
+		expect(
+			[...thread.querySelectorAll("time")].map((each) => each.textContent),
+		).toEqual(["just now"]);
+	});
+
 	it("shows the work row the agent's work will fill, saying only Working, while it has yet to do anything", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Read the note" }),

@@ -26,6 +26,7 @@ import {
 	ToolGroupRoot,
 	ToolGroupTrigger,
 } from "#dev/components/assistant-ui/elements/tool-group.aui.tsx";
+import { Stamp, useStamps } from "#dev/stamp.tsx";
 
 const reasoningDuration = (timing: ThreadGroupPart["timing"]) =>
 	timing?.completedAt === undefined
@@ -75,6 +76,12 @@ export const AssistantMessage: FC = () => {
 	} = useContext(ThreadComponentsContext);
 	const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
 	const id = useAuiState((s) => s.message.id);
+	const stamps = useStamps();
+	const stamped = useAuiState((s) => {
+		const at = s.message.metadata.custom.at;
+		return typeof at === "string" ? at : null;
+	});
+	const at = stamps.shown ? stamped : null;
 
 	return (
 		<MessagePrimitive.Root
@@ -148,6 +155,7 @@ export const AssistantMessage: FC = () => {
 					}}
 				</MessagePrimitive.GroupedParts>
 				<MessageError />
+				{at !== null && <Stamp at={at} className="mt-1 block w-fit" />}
 			</div>
 		</MessagePrimitive.Root>
 	);
