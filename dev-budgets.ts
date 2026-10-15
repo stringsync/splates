@@ -3,13 +3,14 @@ import type { Project } from "./dev-project";
 import { fail } from "./exit";
 
 /**
- * How a project's Budget page reads and changes its scry budgets: each
- * route runs `scry budgets` through the repo's `wiz` command, so the CLI
- * stays the one place that knows how budgets are kept, and answers with
- * the report it prints. Each handler is a property, so `serveProject`
- * spreads them into the project's routes.
+ * The routes a project's Budget page reads and changes its scry budgets
+ * through, each answering with the report `scry budgets` prints. Spread one
+ * into a project's routes.
  */
 export class BudgetRoutes {
+	// each route runs `scry budgets` through the repo's `wiz` command, so the
+	// CLI stays the one place that knows how budgets are kept; each handler is
+	// a property, so it can be spread
 	readonly #project: Project;
 
 	constructor(project: Project) {
@@ -37,6 +38,20 @@ export class BudgetRoutes {
 			...(span === undefined ? [] : ["--for", String(span)]),
 		]);
 	};
+
+	/** Stops a role asking anything for a while, like `1d`. */
+	readonly pauseBudget = async (request: Request): Promise<Response> => {
+		const role = roleIn(request);
+		const { for: span } = await body(request);
+		return this.#run([
+			"pause",
+			role,
+			...(span === undefined ? [] : ["--for", String(span)]),
+		]);
+	};
+
+	readonly resumeBudget = (request: Request): Promise<Response> =>
+		this.#run(["resume", roleIn(request)]);
 
 	readonly endRaise = (request: Request): Promise<Response> => {
 		const id = new URL(request.url).pathname.split("/")[4] ?? "";

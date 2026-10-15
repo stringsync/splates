@@ -400,6 +400,10 @@ export async function dev(
 			"/api/budgets/:role/raises": {
 				POST: scoped((project) => project.raiseBudget),
 			},
+			"/api/budgets/:role/pause": {
+				PUT: scoped((project) => project.pauseBudget),
+				DELETE: scoped((project) => project.resumeBudget),
+			},
 			"/api/budgets/raises/:id": {
 				DELETE: scoped((project) => project.endRaise),
 			},

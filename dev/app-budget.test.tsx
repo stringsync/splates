@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Budgets } from "./api";
+import type { Budgets, RoleBudget } from "./api";
 import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
 
 describe("App's budget", () => {
@@ -87,6 +87,62 @@ describe("App's budget", () => {
 		});
 	});
 
+	it("pauses a model for the span picked", async () => {
+		const view = await openBudget();
+		const som = await card(view, "som");
+		await act(async () =>
+			fireEvent.click(within(som).getByRole("button", { name: "Pause" })),
+		);
+		fireEvent.click(within(som).getByRole("radio", { name: "3 days" }));
+		testing.reply = declared();
+
+		await act(async () =>
+			fireEvent.submit(within(som).getByRole("form", { name: "pause" })),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/budgets/som/pause",
+			method: "PUT",
+			body: JSON.stringify({ for: "3d" }),
+		});
+	});
+
+	it("shows a paused model's pause, keeping its windows, and resumes it", async () => {
+		testing.budgets = declared({
+			from: Date.now(),
+			until: Date.now() + 5 * 3_600_000,
+		});
+		const view = await openBudget();
+		const paused = await card(view, "som");
+
+		expect(within(paused).getByRole("status").textContent).toContain(
+			"Paused: questions for it go unasked.",
+		);
+		expect(
+			within(paused).getByRole("listitem", { name: "today" }),
+		).toBeTruthy();
+
+		testing.reply = declared();
+		await act(async () =>
+			fireEvent.click(within(paused).getByRole("button", { name: "Resume" })),
+		);
+
+		expect(testing.posts.at(-1)).toMatchObject({
+			path: "/api/budgets/som/pause",
+			method: "DELETE",
+		});
+	});
+
+	it("cannot pause a model that spends nothing", async () => {
+		const view = await openBudget();
+		const llm = await card(view, "llm");
+
+		expect(
+			(within(llm).getByRole("button", { name: "Pause" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(true);
+	});
+
 	it("shows a refusal under the form, keeping it open", async () => {
 		const view = await openBudget();
 		const llm = await card(view, "llm");
@@ -147,8 +203,11 @@ describe("App's budget", () => {
 	});
 });
 
-/** The budgets the project declares: a daily som limit, an llm that spends nothing. */
-function declared(): Budgets {
+/**
+ * The budgets the project declares: a daily som limit, `paused` when given,
+ * and an llm that spends nothing.
+ */
+function declared(paused: RoleBudget["paused"] = null): Budgets {
 	return {
 		declared: true,
 		roles: [
@@ -174,6 +233,7 @@ function declared(): Budgets {
 						until: Date.now() + 86_400_000,
 					},
 				],
+				paused,
 			},
 			{
 				role: "llm",
@@ -182,6 +242,7 @@ function declared(): Budgets {
 				set: false,
 				standing: [],
 				raises: [],
+				paused: null,
 			},
 		],
 	};

@@ -389,6 +389,8 @@ export interface RoleBudget {
 		left: number;
 	}[];
 	raises: { id: number; tokens: number; from: number; until: number }[];
+	/** The pause stopping it asking anything; none when it asks as it may. */
+	paused: { from: number; until: number } | null;
 }
 
 export async function budgets(): Promise<Budgets> {
@@ -423,6 +425,23 @@ export async function raiseBudget(
 	return (await sendJson(`/api/budgets/${role}/raises`, "POST", {
 		tokens,
 		for: span,
+	})) as Budgets;
+}
+
+/** Stops `role` asking anything for `span`, like `1d`. */
+export async function pauseBudget(
+	role: RoleBudget["role"],
+	span: string,
+): Promise<Budgets> {
+	return (await sendJson(`/api/budgets/${role}/pause`, "PUT", {
+		for: span,
+	})) as Budgets;
+}
+
+/** Lets a paused `role` ask again before its pause ends. */
+export async function resumeBudget(role: RoleBudget["role"]): Promise<Budgets> {
+	return (await send(`/api/budgets/${role}/pause`, {
+		method: "DELETE",
 	})) as Budgets;
 }
 

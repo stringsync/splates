@@ -1,24 +1,26 @@
 import { useReactive } from "@webappwiz/react";
-import { PencilIcon, TrendingUpIcon, XIcon } from "lucide-react";
 import {
-	type FormEvent,
-	type JSX,
-	useCallback,
-	useEffect,
-	useState,
-} from "react";
+	PauseIcon,
+	PencilIcon,
+	PlayIcon,
+	TrendingUpIcon,
+	XIcon,
+} from "lucide-react";
+import { type JSX, useCallback, useEffect, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
-import { Input } from "#dev/components/ui/input.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { AgentBrand } from "./agent-icons";
 import {
 	type Budgets,
 	endRaise,
+	pauseBudget,
 	type RoleBudget,
 	raiseBudget,
 	budgets as readBudgets,
+	resumeBudget,
 	setBudget,
 } from "./api";
+import { EditForm, PauseForm, RaiseForm } from "./budget-forms";
 import type { ConversationFeed } from "./conversation-feed";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
@@ -37,20 +39,13 @@ const PLANS = [
 	{ agent: "codex", name: "Codex" },
 ];
 
-/** How long a raise can last, as the CLI's `--for` takes it. */
-const SPANS = [
-	["4h", "4 hours"],
-	["1d", "1 day"],
-	["3d", "3 days"],
-	["1w", "1 week"],
-] as const;
-
 /**
  * The Budget page: how much of the Claude and Codex plans is used, then what
  * scry's checks may spend on each model in this project, with how much of
- * each window is gone and a form to change it or raise it for a while. Plan
- * limits come first since their cards keep one shape, while the budgets
- * arrive from the CLI a moment later and would shift anything below them.
+ * each window is gone and a form to change it, raise it or pause it for a
+ * while. Plan limits come first since their cards keep one shape, while the
+ * budgets arrive from the CLI a moment later and would shift anything below
+ * them.
  */
 export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 	const [budgets, setBudgets] = useState<Budgets | null>(null);
@@ -110,7 +105,10 @@ export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 	);
 }
 
-/** One model's budget: its spend and where it came from, its windows, its raises. */
+/**
+ * One model's budget: its spend and where it came from, its windows, its
+ * raises, and its pause.
+ */
 function RoleCard({
 	role,
 	onChange,
@@ -119,7 +117,7 @@ function RoleCard({
 	onChange: (change: Promise<Budgets>) => Promise<void>;
 }): JSX.Element {
 	const now = useMinute();
-	const [form, setForm] = useState<"edit" | "raise" | null>(null);
+	const [form, setForm] = useState<"edit" | "raise" | "pause" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const act = (change: Promise<Budgets>) =>
 		onChange(change)
@@ -129,6 +127,8 @@ function RoleCard({
 			})
 			.catch((caught: Error) => setError(caught.message));
 	const raisable = role.spend !== null && role.spend !== "unlimited";
+	// a model that spends nothing asks nothing already
+	const pausable = role.spend !== null && role.spend !== "nothing";
 	return (
 		<li
 			aria-label={`${role.role} budget`}
@@ -149,6 +149,26 @@ function RoleCard({
 					</span>
 				</div>
 				<div className="ml-auto flex items-center gap-1">
+					{role.paused === null ? (
+						<Button
+							variant="ghost"
+							size="sm"
+							aria-expanded={form === "pause"}
+							disabled={!pausable}
+							title={pausable ? undefined : "Asks nothing already"}
+							onClick={() => setForm(form === "pause" ? null : "pause")}
+						>
+							<PauseIcon /> Pause
+						</Button>
+					) : (
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => act(resumeBudget(role.role))}
+						>
+							<PlayIcon /> Resume
+						</Button>
+					)}
 					<Button
 						variant="ghost"
 						size="sm"
@@ -170,6 +190,18 @@ function RoleCard({
 				</div>
 			</header>
 			<div className="flex flex-col gap-3 px-4 py-3">
+				{role.paused !== null && (
+					<p
+						role="status"
+						className="flex items-center gap-2 text-sm text-warning"
+					>
+						<PauseIcon className="size-3.5" />
+						<span>Paused: questions for it go unasked.</span>
+						<span className="text-muted-foreground text-xs tabular-nums">
+							ends {ends(role.paused.until, now)}
+						</span>
+					</p>
+				)}
 				<Windows role={role} />
 				{role.raises.length > 0 && (
 					<ul aria-label="raises" className="flex flex-col gap-1">
@@ -208,6 +240,12 @@ function RoleCard({
 						onRaise={(amount, span) =>
 							act(raiseBudget(role.role, amount, span))
 						}
+						onCancel={() => setForm(null)}
+					/>
+				)}
+				{form === "pause" && (
+					<PauseForm
+						onPause={(span) => act(pauseBudget(role.role, span))}
 						onCancel={() => setForm(null)}
 					/>
 				)}
@@ -276,131 +314,6 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 				);
 			})}
 		</ul>
-	);
-}
-
-/** What a role may spend, as the CLI writes it, with a way back to the configs. */
-function EditForm({
-	role,
-	onSave,
-	onCancel,
-}: {
-	role: RoleBudget;
-	onSave: (spend: string | null) => void;
-	onCancel: () => void;
-}): JSX.Element {
-	const [spend, setSpend] = useState(role.spend ?? "");
-	const submit = (event: FormEvent) => {
-		event.preventDefault();
-		onSave(spend.trim());
-	};
-	return (
-		<form
-			aria-label={`edit ${role.role} budget`}
-			onSubmit={submit}
-			className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3"
-		>
-			<Input
-				aria-label="spend"
-				value={spend}
-				autoFocus
-				onChange={(event) => setSpend(event.target.value)}
-				placeholder="5m/day"
-				className="font-mono max-md:h-10"
-			/>
-			<p className="text-muted-foreground text-xs">
-				<code>nothing</code>, <code>unlimited</code>, or limits joined by
-				commas, like <code>5m/day</code> or <code>2m/month,300k/7d</code>.
-			</p>
-			<div className="flex flex-wrap items-center gap-2">
-				{role.set && (
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						className="text-muted-foreground"
-						onClick={() => onSave(null)}
-					>
-						Use the configs'
-					</Button>
-				)}
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					className="ml-auto"
-					onClick={onCancel}
-				>
-					Cancel
-				</Button>
-				<Button type="submit" size="sm" disabled={spend.trim() === ""}>
-					Save
-				</Button>
-			</div>
-		</form>
-	);
-}
-
-/** More tokens on each of a role's limits, for a while. */
-function RaiseForm({
-	onRaise,
-	onCancel,
-}: {
-	onRaise: (tokens: string, span: string) => void;
-	onCancel: () => void;
-}): JSX.Element {
-	const [amount, setAmount] = useState("");
-	const [span, setSpan] = useState<string>("1d");
-	const submit = (event: FormEvent) => {
-		event.preventDefault();
-		onRaise(amount.trim(), span);
-	};
-	return (
-		<form
-			aria-label="raise"
-			onSubmit={submit}
-			className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3"
-		>
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="text-sm">Add</span>
-				<Input
-					aria-label="tokens"
-					value={amount}
-					autoFocus
-					onChange={(event) => setAmount(event.target.value)}
-					placeholder="2m"
-					className="w-24 font-mono max-md:h-10"
-				/>
-				<span className="text-sm">tokens for</span>
-				<div role="radiogroup" aria-label="for" className="flex gap-1">
-					{SPANS.map(([value, label]) => (
-						<Button
-							key={value}
-							type="button"
-							role="radio"
-							aria-checked={span === value}
-							aria-label={label}
-							variant={span === value ? "secondary" : "ghost"}
-							size="sm"
-							onClick={() => setSpan(value)}
-						>
-							{value}
-						</Button>
-					))}
-				</div>
-			</div>
-			<p className="text-muted-foreground text-xs">
-				Added to each of its limits until the raise ends.
-			</p>
-			<div className="flex items-center justify-end gap-2">
-				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-					Cancel
-				</Button>
-				<Button type="submit" size="sm" disabled={amount.trim() === ""}>
-					Raise
-				</Button>
-			</div>
-		</form>
 	);
 }
 
@@ -480,7 +393,7 @@ const ENDS = new Intl.DateTimeFormat("en", {
 	minute: "2-digit",
 });
 
-/** When a raise ends, and how long until then: `Thu 3:00 PM, in 5h`. */
+/** When a raise or a pause ends, and how long until then: `Thu 3:00 PM, in 5h`. */
 function ends(at: number, now: number): string {
 	const hours = Math.max(0, Math.round((at - now) / 3_600_000));
 	return `${ENDS.format(at)}, in ${hours >= 48 ? `${Math.round(hours / 24)}d` : `${hours}h`}`;

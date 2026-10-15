@@ -26,6 +26,8 @@ describe("dev budgets", () => {
 					for: "4h",
 				}),
 				json(port, "/api/budgets/raises/3", "DELETE"),
+				json(port, "/api/budgets/llm/pause", "PUT", { for: "1d" }),
+				json(port, "/api/budgets/llm/pause", "DELETE"),
 			]);
 
 			expect(
@@ -38,6 +40,8 @@ describe("dev budgets", () => {
 				"scry budgets reset llm --format json",
 				"scry budgets raise som 2m --for 4h --format json",
 				"scry budgets end 3 --format json",
+				"scry budgets pause llm --for 1d --format json",
+				"scry budgets resume llm --format json",
 			]);
 		});
 	});
