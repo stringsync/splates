@@ -103,7 +103,9 @@ describe("App on a touch device", () => {
 			await act(async () =>
 				fireEvent.click(
 					await waitFor(() =>
-						view.getByRole("button", { name: /Ready to merge\s*Answer/ }),
+						within(
+							view.getByRole("complementary", { name: "Waiting on you" }),
+						).getByRole("button", { name: /Ready to merge/ }),
 					),
 				),
 			);

@@ -249,7 +249,9 @@ describe("App on a phone", () => {
 		// In the thread, a line in place of the card.
 		expect(view.queryByRole("list", { name: "questions" })).toBeNull();
 		const bar = await waitFor(() =>
-			view.getByRole("button", { name: /3 questions for you\s*Answer/ }),
+			within(
+				view.getByRole("complementary", { name: "Waiting on you" }),
+			).getByRole("button", { name: /3 questions for you/ }),
 		);
 		await act(async () => fireEvent.click(bar));
 		const sheet = await waitFor(() =>
@@ -335,13 +337,14 @@ describe("App on a phone", () => {
 				}),
 			]);
 			const bar = () =>
-				view.queryByRole("button", { name: /3 questions for you\s*Answer/ });
+				view.queryByRole("complementary", { name: "Waiting on you" });
 			await waitFor(() => expect(bar()).toBeTruthy());
 
 			await scroll(1);
 			expect(bar()).toBeNull();
+			// The line reads as the bar did, so either is the same tap.
 			expect(
-				view.getByRole("button", { name: /3 questions for you\s*Open/ }),
+				view.getByRole("button", { name: /3 questions for you\s*Answer/ }),
 			).toBeTruthy();
 
 			await scroll(0.2);
@@ -377,7 +380,9 @@ describe("App on a phone", () => {
 			await act(async () =>
 				fireEvent.click(
 					await waitFor(() =>
-						view.getByRole("button", { name: /2 questions for you\s*Answer/ }),
+						within(
+							view.getByRole("complementary", { name: "Waiting on you" }),
+						).getByRole("button", { name: /2 questions for you/ }),
 					),
 				),
 			);
@@ -411,7 +416,9 @@ describe("App on a phone", () => {
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>
-					view.getByRole("button", { name: /1 question for you\s*Answer/ }),
+					within(
+						view.getByRole("complementary", { name: "Waiting on you" }),
+					).getByRole("button", { name: /1 question for you/ }),
 				),
 			),
 		);
@@ -454,7 +461,9 @@ describe("App on a phone", () => {
 		await act(async () =>
 			fireEvent.click(
 				await waitFor(() =>
-					view.getByRole("button", { name: /1 question for you\s*Answer/ }),
+					within(
+						view.getByRole("complementary", { name: "Waiting on you" }),
+					).getByRole("button", { name: /1 question for you/ }),
 				),
 			),
 		);

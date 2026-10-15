@@ -282,19 +282,32 @@ export function NeedsYouBar(): ReactNode {
 	// As quiet as the Archive bar beside it, the tone in its icon alone, so it
 	// never outshouts the composer; the whole bar is the tap.
 	const { title, Icon, tone, open } = latest;
+	// Its own landmark, apart from the line in the thread that reads the same.
 	return (
-		<button
-			type="button"
-			onClick={open}
-			className="group flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-left text-sm shadow-xs"
-		>
-			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
-			<span className="min-w-0 flex-1 truncate">{title}</span>
-			<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium shadow-xs group-active:bg-muted">
-				Answer
-				<ChevronRightIcon className="size-4 text-muted-foreground" />
-			</span>
-		</button>
+		<aside aria-label="Waiting on you">
+			<button
+				type="button"
+				onClick={open}
+				className="group flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-left text-sm shadow-xs"
+			>
+				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
+				<span className="min-w-0 flex-1 truncate">{title}</span>
+				<Answer />
+			</button>
+		</aside>
+	);
+}
+
+/**
+ * What a tap on a waiting card's line or bar does, the same on both, so
+ * either reads as the way to the sheet.
+ */
+function Answer(): JSX.Element {
+	return (
+		<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium text-sm shadow-xs group-active:bg-muted">
+			Answer
+			<ChevronRightIcon className="size-4 text-muted-foreground" />
+		</span>
 	);
 }
 
@@ -347,14 +360,11 @@ function SheetLine({
 			ref={ref}
 			type="button"
 			onClick={onOpen}
-			className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 text-left shadow-xs active:bg-muted"
+			className="group flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card pr-3 pl-4 text-left shadow-xs"
 		>
 			<Icon className={cn("size-5 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 flex-1 truncate font-medium">{title}</span>
-			<span className="flex shrink-0 items-center gap-0.5 text-muted-foreground text-sm">
-				Open
-				<ChevronRightIcon className="size-4" />
-			</span>
+			<Answer />
 		</button>
 	);
 }
