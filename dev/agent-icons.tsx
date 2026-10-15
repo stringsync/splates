@@ -1,5 +1,5 @@
 import { BotIcon } from "lucide-react";
-import type { JSX } from "react";
+import { type JSX, useId } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { BRANDS } from "./agent-brands";
 
@@ -50,6 +50,70 @@ export function AgentIcon({
 }
 
 /**
+ * The agent's mark in its maker's colors, named for screen readers by the
+ * agent's name, or hidden from them without one; an agent with no colors here
+ * gets its plain mark.
+ */
+export function AgentMark({
+	agent,
+	name,
+	className,
+}: {
+	agent: string;
+	name?: string;
+	className?: string;
+}): JSX.Element {
+	const gradient = useId();
+	const hidden = name === undefined;
+	if (agent === "claude") {
+		return (
+			<svg
+				role={hidden ? undefined : "img"}
+				aria-label={name}
+				aria-hidden={hidden || undefined}
+				viewBox="0 0 24 24"
+				className={cn("size-4 shrink-0", className)}
+			>
+				<path fill="#D97757" d={MARKS.claude?.path} />
+			</svg>
+		);
+	}
+	if (agent === "codex") {
+		return (
+			<svg
+				role={hidden ? undefined : "img"}
+				aria-label={name}
+				aria-hidden={hidden || undefined}
+				viewBox="0 0 24 24"
+				className={cn("size-4 shrink-0", className)}
+			>
+				<defs>
+					<linearGradient
+						id={gradient}
+						gradientUnits="userSpaceOnUse"
+						x1="12"
+						x2="12"
+						y1="3"
+						y2="21"
+					>
+						<stop stopColor="#B1A7FF" />
+						<stop offset=".5" stopColor="#7A9DFF" />
+						<stop offset="1" stopColor="#3941FF" />
+					</linearGradient>
+				</defs>
+				<path fill="#fff" d={BRANDS.codex.tile} />
+				<path fill={`url(#${gradient})`} d={BRANDS.codex.cloud} />
+			</svg>
+		);
+	}
+	return hidden ? (
+		<BotIcon aria-hidden className={cn("size-4", className)} />
+	) : (
+		<AgentIcon agent={agent} name={name} className={className} />
+	);
+}
+
+/**
  * The agent's mark in its maker's colors beside its wordmark, named for
  * screen readers by the agent's name; an agent with no wordmark here gets its
  * plain mark and name.
@@ -63,50 +127,7 @@ export function AgentBrand({
 	name: string;
 	className?: string;
 }): JSX.Element {
-	const wordmark = (path: string, width: number) => (
-		<svg
-			aria-hidden="true"
-			viewBox={`0 0 ${width} 24`}
-			fill="currentColor"
-			className="h-[1em] w-auto shrink-0"
-		>
-			<path d={path} />
-		</svg>
-	);
-	const mark =
-		agent === "claude" ? (
-			<svg
-				aria-hidden="true"
-				viewBox="0 0 24 24"
-				className="size-[1.1em] shrink-0"
-			>
-				<path fill="#D97757" d={MARKS.claude?.path} />
-			</svg>
-		) : agent === "codex" ? (
-			<svg
-				aria-hidden="true"
-				viewBox="0 0 24 24"
-				className="size-[1.1em] shrink-0"
-			>
-				<defs>
-					<linearGradient
-						id="codex-cloud"
-						gradientUnits="userSpaceOnUse"
-						x1="12"
-						x2="12"
-						y1="3"
-						y2="21"
-					>
-						<stop stopColor="#B1A7FF" />
-						<stop offset=".5" stopColor="#7A9DFF" />
-						<stop offset="1" stopColor="#3941FF" />
-					</linearGradient>
-				</defs>
-				<path fill="#fff" d={BRANDS.codex.tile} />
-				<path fill="url(#codex-cloud)" d={BRANDS.codex.cloud} />
-			</svg>
-		) : null;
-	if (mark === null) {
+	if (agent !== "claude" && agent !== "codex") {
 		return (
 			<span className={cn("flex items-center gap-2", className)}>
 				<AgentIcon agent={agent} name={name} className="size-[1em]" />
@@ -114,16 +135,25 @@ export function AgentBrand({
 			</span>
 		);
 	}
+	const [path, width] =
+		agent === "claude"
+			? [BRANDS.claude.wordmark, 97]
+			: [BRANDS.codex.wordmark, 91];
 	return (
 		<span
 			role="img"
 			aria-label={name}
 			className={cn("flex items-center gap-[0.3em]", className)}
 		>
-			{mark}
-			{agent === "claude"
-				? wordmark(BRANDS.claude.wordmark, 97)
-				: wordmark(BRANDS.codex.wordmark, 91)}
+			<AgentMark agent={agent} className="size-[1.1em]" />
+			<svg
+				aria-hidden="true"
+				viewBox={`0 0 ${width} 24`}
+				fill="currentColor"
+				className="h-[1em] w-auto shrink-0"
+			>
+				<path d={path} />
+			</svg>
 		</span>
 	);
 }

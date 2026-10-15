@@ -9,7 +9,7 @@ import {
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Composing } from "#dev/composing.tsx";
-import { AgentIcon } from "./agent-icons";
+import { AgentIcon, AgentMark } from "./agent-icons";
 import { composerIn } from "./composer-editor";
 import { NEW } from "./conversation-address";
 import { agentName } from "./conversation-feed";
@@ -74,7 +74,6 @@ export function PhoneHome({
 								/>
 							}
 						>
-							<AgentIcon agent={agent} name={name} className="size-4" />
 							{name}
 							<ChevronDownIcon className="size-4 text-muted-foreground" />
 						</DropdownMenuTrigger>
@@ -106,13 +105,9 @@ export function PhoneHome({
 								references={references}
 								welcome={
 									<div className="fade-in animate-in fill-mode-both flex flex-col items-center gap-3 px-6 text-center duration-200">
-										<AgentIcon
-											agent={agent}
-											name={name}
-											className="size-8 text-foreground/80"
-										/>
+										<AgentMark agent={agent} name={name} className="size-10" />
 										<p className="font-medium text-2xl tracking-tight">
-											What should {name} work on?
+											What should we work on?
 										</p>
 										{task !== null && (
 											<p className="text-muted-foreground">
