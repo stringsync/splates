@@ -155,8 +155,11 @@ export function App({
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(
 		() =>
-			new Terminals(localStorage, (event) =>
-				matches(event, settings.get("shortcuts.terminal")),
+			new Terminals(
+				localStorage,
+				(event) =>
+					matches(event, settings.get("shortcuts.terminal")) ||
+					matches(event, settings.get("shortcuts.newTerminal")),
 			),
 	);
 	const [autoRestart] = useState(

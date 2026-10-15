@@ -14,6 +14,9 @@ import {
 /** Ctrl+`, the chord that shows and hides the terminal. */
 const TOGGLE = { key: "`", code: "Backquote", ctrlKey: true };
 
+/** Alt+`, the chord that opens another terminal in the main tree. */
+const ANOTHER = { key: "`", code: "Backquote", altKey: true };
+
 describe("App's terminal", () => {
 	let testing: Testing;
 
@@ -465,6 +468,50 @@ describe("App's terminal", () => {
 
 			await openTerminal(view);
 			expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
+		});
+
+		it("hangs up on a shell and leaves its page from the X atop it", async () => {
+			const view = await reading();
+			await openTerminal(view);
+			await act(async () => testing.shells[0]?.accept());
+
+			await act(async () =>
+				fireEvent.click(
+					within(view.getByRole("region", { name: "terminal" })).getByRole(
+						"button",
+						{ name: "Close the terminal" },
+					),
+				),
+			);
+
+			expect(testing.shells[0]?.readyState).toBe(3);
+			expect(rows(view)).toEqual([]);
+			expect(view.queryByRole("region", { name: "terminal" })).toBeNull();
+			expect(location.hash).toBe("#conversations/new");
+		});
+
+		it("opens another from its shortcut, shown beside Terminal in New, even from inside a shell", async () => {
+			const view = await reading();
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "New" })),
+			);
+			const item = await waitFor(() =>
+				view.getByRole("menuitem", { name: "Terminal" }),
+			);
+			expect(item.textContent).toContain("⌥`");
+			await press({ key: "Escape", code: "Escape" });
+
+			await press(ANOTHER);
+			expect(location.hash).toBe("#conversations/terminal/1");
+			await act(async () => testing.shells[0]?.accept());
+
+			await press(
+				ANOTHER,
+				view.getByTestId("terminal").querySelector("textarea") ?? window,
+			);
+			expect(location.hash).toBe("#conversations/terminal/2");
+			expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
+			expect(testing.shells[0]?.sent).toEqual([sized]);
 		});
 	});
 });

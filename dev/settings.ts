@@ -217,6 +217,11 @@ export const SETTINGS = {
 		"Show or hide the open conversation's terminal.",
 		"Ctrl+Backquote",
 	),
+	"shortcuts.newTerminal": shortcut(
+		"New terminal",
+		"Open another terminal in the main tree.",
+		"Alt+Backquote",
+	),
 	"shortcuts.fullscreen": shortcut(
 		"Fullscreen",
 		"Go fullscreen, or back.",

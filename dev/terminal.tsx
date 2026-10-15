@@ -153,7 +153,7 @@ function PaneScreen({
 /**
  * One of the main tree's own terminals, opened from New, filling the page: a
  * shell on trunk that no conversation owns, kept running while another page
- * is up, and closed once it exits.
+ * is up, and closed once it exits or its X is clicked.
  */
 export function MainTerminal({
 	terminals,
@@ -161,6 +161,7 @@ export function MainTerminal({
 	trunk,
 	onBack,
 	onExit,
+	onClose,
 }: {
 	terminals: Terminals;
 	/** Its key, `terminal/<n>`. */
@@ -170,6 +171,8 @@ export function MainTerminal({
 	onBack: (() => void) | null;
 	/** Leaves the page, once the shell has exited and its row gone. */
 	onExit: () => void;
+	/** Leaves the page and hangs up on the shell, as its row's X does. */
+	onClose: () => void;
 }): JSX.Element {
 	useEffect(() => terminals.keep(terminal), [terminals, terminal]);
 	const exit = useRef(onExit);
@@ -203,6 +206,7 @@ export function MainTerminal({
 			session={session}
 			trunk={trunk}
 			onBack={onBack}
+			onClose={onClose}
 		/>
 	);
 }
@@ -214,12 +218,14 @@ function MainScreen({
 	session,
 	trunk,
 	onBack,
+	onClose,
 }: {
 	terminals: Terminals;
 	terminal: string;
 	session: TerminalSession;
 	trunk: string;
 	onBack: (() => void) | null;
+	onClose: () => void;
 }): JSX.Element {
 	const { status } = useReactive(
 		session,
@@ -255,6 +261,16 @@ function MainScreen({
 						Restart
 					</Button>
 				)}
+				<Button
+					size="icon-sm"
+					variant="ghost"
+					aria-label="Close the terminal"
+					title="Close the terminal"
+					className={cn(status !== "closed" && "ml-auto")}
+					onClick={onClose}
+				>
+					<XIcon />
+				</Button>
 			</header>
 			<Screen
 				session={session}

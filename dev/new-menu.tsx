@@ -27,7 +27,7 @@ import type { Terminals } from "./terminals";
  * New, atop the sidebar, boxed so it stands out from the tabs under it: a menu
  * of the agents to start a conversation with, and a terminal. ⌥⌘N (Ctrl+Alt+N
  * off a Mac), as the settings bind it, starts one as the last was started,
- * and shows beside New while ⌥⌘ is held.
+ * and shows beside New while ⌥⌘ is held; ⌥` opens another terminal.
  */
 export function NewMenu({
 	feed,
@@ -54,6 +54,8 @@ export function NewMenu({
 	useShortcut("shortcuts.new", () => onOpen(NEW));
 	const newKey = useHeldKey("shortcuts.new");
 	const newShortcut = useShortcutLabel("shortcuts.new");
+	useShortcut("shortcuts.newTerminal", () => onOpen(terminals.another()));
+	const terminalShortcut = useShortcutLabel("shortcuts.newTerminal");
 
 	return (
 		<DropdownMenu>
@@ -116,6 +118,11 @@ export function NewMenu({
 				<DropdownMenuItem onClick={() => onOpen(terminals.another())}>
 					<SquareTerminalIcon />
 					Terminal
+					{terminalShortcut !== null && (
+						<Kbd aria-hidden className="ml-auto">
+							{terminalShortcut}
+						</Kbd>
+					)}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

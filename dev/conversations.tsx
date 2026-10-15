@@ -175,6 +175,10 @@ export function Conversations({
 						trunk={trunk}
 						onBack={phone ? () => onOpen(null) : null}
 						onExit={() => onOpen(NEW, "replace")}
+						onClose={() => {
+							onOpen(NEW);
+							terminals.close(open);
+						}}
 					/>
 				) : open === ARCHIVED ? (
 					<Archived
