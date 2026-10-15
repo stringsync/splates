@@ -13,6 +13,26 @@ const DOWNLOADS =
 	"https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/";
 
 /**
+ * An `sh -c` script that runs the command after it, `sh -c GUARD sh <argv>`,
+ * until the guard's stdin closes or a SIGTERM reaches it, and exits with the
+ * command's status. Start it with stdin a pipe, so it dies with its parent.
+ */
+export const GUARD = [
+	// A pipe's write end closes however its owner dies, kill -9 included, so
+	// a crashed arbor dev leaves no connector serving its tunnel to a dead port.
+	"exec 3<&0",
+	'"$@" 3<&- & c=$!',
+	"trap 'kill $c 2>/dev/null' HUP INT TERM",
+	"{ cat <&3; kill $c; } >/dev/null 2>&1 & w=$!",
+	"exec 3<&-",
+	// a SIGTERM interrupts the wait, so wait again for the status
+	"while wait $c; s=$?; kill -0 $c 2>/dev/null; do :; done",
+	// so the watch never kills another process given the pid later
+	"kill $w 2>/dev/null",
+	"exit $s",
+].join("\n");
+
+/**
  * A TunnelProvider over the `cloudflared` binary, running the named tunnel
  * the account already has, or the one its own config names, or, given a
  * token, the tunnel `arbor tunnel setup` made, with no login or credentials
@@ -42,7 +62,7 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 	}
 
 	run({ host, url, log }: TunnelRoute): AsyncResource {
-		const argv = [
+		const command = [
 			"cloudflared",
 			"tunnel",
 			"--no-autoupdate",
@@ -51,6 +71,11 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 			url,
 			...(this.name === null ? [] : [this.name]),
 		];
+		// Windows has no sh, so there cloudflared runs bare and can outlive a crash.
+		const argv =
+			this.ps.platform === "win32"
+				? command
+				: ["sh", "-c", GUARD, "sh", ...command];
 		const child = this.ps.start(
 			argv,
 			this.token === null ? undefined : { env: { TUNNEL_TOKEN: this.token } },
@@ -95,6 +120,8 @@ export class CloudflaredTunnelProvider implements TunnelProvider {
 		})();
 		return {
 			disposeAsync: async () => {
+				// Closing stdin also ends the guard's watch on it.
+				void child.stdin.close().catch(() => {});
 				child.kill();
 				await child.exited.catch(() => 0);
 			},
