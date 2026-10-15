@@ -21,6 +21,7 @@ import {
 	TextNode,
 } from "lexical";
 import { type RefObject, useEffect, useLayoutEffect } from "react";
+import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import { DIRECTIVES } from "../prompts";
 import {
 	attachmentName,
@@ -142,6 +143,61 @@ export function KeyboardDownOnTouchPlugin(): null {
 		};
 	}, [editor, aui]);
 	return null;
+}
+/**
+ * Puts the caret back in the editor once what moved it settles, on a touch
+ * device. iOS Safari draws the caret where it was placed and leaves it there
+ * when the editor moves without an edit, as the keyboard resizes the screen
+ * or the thread scrolls under its sticky footer, so the caret floats over the
+ * thread. Setting the same selection again makes it draw the caret anew.
+ */
+export function CaretInPlacePlugin(): null {
+	const [editor] = useLexicalComposerContext();
+	useEffect(() => {
+		if (!matchMedia(TOUCH).matches) {
+			return;
+		}
+		const settled = new Debouncer(new SystemTimer(), CARET_SETTLE);
+		const moved = () => {
+			const root = editor.getRootElement();
+			if (root?.contains(document.activeElement)) {
+				settled.call(() => redrawCaret(root));
+			}
+		};
+		const viewport = window.visualViewport;
+		viewport?.addEventListener("resize", moved);
+		viewport?.addEventListener("scroll", moved);
+		// Captured, since a scroll does not bubble and the thread's scroller is
+		// an ancestor whose name this plugin need not know.
+		document.addEventListener("scroll", moved, {
+			capture: true,
+			passive: true,
+		});
+		return () => {
+			settled.dispose();
+			viewport?.removeEventListener("resize", moved);
+			viewport?.removeEventListener("scroll", moved);
+			document.removeEventListener("scroll", moved, { capture: true });
+		};
+	}, [editor]);
+	return null;
+}
+/** How long the screen must keep still before the caret is drawn again. */
+const CARET_SETTLE = Duration.ms(100);
+
+function redrawCaret(root: HTMLElement): void {
+	const selection = getSelection();
+	if (
+		selection === null ||
+		selection.rangeCount === 0 ||
+		!root.contains(selection.anchorNode) ||
+		!root.contains(document.activeElement)
+	) {
+		return;
+	}
+	const range = selection.getRangeAt(0);
+	selection.removeAllRanges();
+	selection.addRange(range);
 }
 /**
  * Writes the chip of each attachment as it is attached, at the caret, once:

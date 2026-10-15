@@ -34,6 +34,7 @@ import {
 } from "#dev/composer-chips.tsx";
 import {
 	AttachmentChipsPlugin,
+	CaretInPlacePlugin,
 	type ChipWriter,
 	ChipWriterPlugin,
 	KeyboardDownOnTouchPlugin,
@@ -100,6 +101,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 							<AttachmentChipsPlugin />
 							<TypedDirectivesPlugin />
 							<KeyboardDownOnTouchPlugin />
+							<CaretInPlacePlugin />
 						</LexicalComposerInput>
 					</FileNames>
 				</ForgetAttachment>
