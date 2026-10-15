@@ -83,6 +83,7 @@ describe("conversation events", () => {
 		});
 		await deps.journal.record("dev start", null, async () => {}, {
 			conversations: ["other"],
+			remote: null,
 		});
 		await claimed("beta", conversation.id);
 

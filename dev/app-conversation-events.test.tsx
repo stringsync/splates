@@ -198,6 +198,7 @@ describe("App's arbor events", () => {
 				reason: null,
 				conversation: null,
 				conversations: ["c1"],
+				remote: null,
 			},
 		]);
 
@@ -210,6 +211,30 @@ describe("App's arbor events", () => {
 			"arbor dev stopped",
 			"arbor dev started",
 		]);
+	});
+
+	it("links the remote address arbor dev started at", async () => {
+		const thread = await opened(turn(["Back."]), [
+			{
+				id: "s1",
+				at: second(3),
+				action: "dev start",
+				task: null,
+				reason: null,
+				conversation: null,
+				conversations: ["c1"],
+				remote: "https://dev.example.com",
+			},
+		]);
+
+		const link = await waitFor(() =>
+			within(thread).getByRole("link", { name: "dev.example.com" }),
+		);
+		expect(link.getAttribute("href")).toBe("https://dev.example.com");
+		expect(link.getAttribute("target")).toBe("_blank");
+		expect(
+			within(thread).getByRole("note", { name: "arbor" }).textContent,
+		).toBe("arbor dev startedatdev.example.com");
 	});
 
 	it("draws a retry as a line naming its task, a refused one marked", async () => {

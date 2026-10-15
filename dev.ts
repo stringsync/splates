@@ -141,6 +141,7 @@ export async function dev(
 		get url() {
 			return url;
 		},
+		remote: tunnel === null ? null : `https://${tunnel.host}`,
 		get release() {
 			return versions.release;
 		},

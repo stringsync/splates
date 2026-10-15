@@ -28,11 +28,14 @@ export class DevRun {
 		conversations,
 		fs,
 		arborDir,
+		remote,
 	}: {
 		journal: Journal;
 		conversations: Conversations;
 		fs: Fs;
 		arborDir: string;
+		/** Where its tunnel reaches the page from elsewhere, or null. */
+		remote: string | null;
 	}): Promise<DevRun> {
 		const run = new DevRun(
 			journal,
@@ -49,6 +52,7 @@ export class DevRun {
 		}
 		await journal.record("dev start", null, async () => {}, {
 			conversations: before?.conversations ?? [],
+			remote,
 		});
 		await run.remember();
 		conversations.events.on("changed", () => void run.remember());

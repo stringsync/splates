@@ -50,7 +50,13 @@ export async function serveProject(
 	let run: DevRun | null = null;
 	if (conversations !== null) {
 		handedOut = HandedOut.watch({ service, conversations, log });
-		run = await DevRun.start({ journal, conversations, fs, arborDir });
+		run = await DevRun.start({
+			journal,
+			conversations,
+			fs,
+			arborDir,
+			remote: context.remote,
+		});
 		events = await ConversationEvents.follow({
 			journal,
 			conversations,
@@ -153,6 +159,8 @@ export type DevMachine = Deps & {
 export interface DevContext {
 	/** Where the agents' own `arbor` reaches this server, once it listens. */
 	readonly url: string | null;
+	/** Where its tunnel reaches the page from elsewhere, or null when it runs none. */
+	readonly remote: string | null;
 	/** A newer arbor on npm, once a check has found one; every page says so. */
 	readonly release: Release | null;
 	/** Commits to arbor's own source since this run started, once seen. */

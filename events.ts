@@ -195,6 +195,8 @@ export interface Facts {
 	"dev start": {
 		/** The conversations that were running when the run before it ended. */
 		conversations: string[];
+		/** Where its tunnel reaches it from elsewhere, or null when it runs none. */
+		remote: string | null;
 	};
 	"dev stop": {
 		/** The conversations running as it stopped. */
@@ -260,7 +262,7 @@ export const FACTS = {
 	"creds wait": ["until", "began", "name"],
 	"tunnel setup": [],
 	"tunnel remove": [],
-	"dev start": ["conversations"],
+	"dev start": ["conversations", "remote"],
 	"dev stop": ["conversations", "why"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 

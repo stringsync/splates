@@ -3,6 +3,7 @@ import {
 	ColumnsIcon,
 	FileIcon,
 	GitBranchIcon,
+	GlobeIcon,
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
@@ -99,7 +100,9 @@ export type Named =
 	| { kind: "lane"; id: number; name: string }
 	| { kind: "branch"; branch: string }
 	| { kind: "file"; path: string }
-	| { kind: "cred"; name: string };
+	| { kind: "cred"; name: string }
+	/** A page elsewhere, by its host, opened in a tab of its own. */
+	| { kind: "url"; url: string };
 
 /**
  * What an event says, read in order: a verb and the thing it names, each
@@ -346,6 +349,18 @@ function NamedChip({
 					{named.name}
 				</Chip>
 			);
+		case "url":
+			return (
+				<Chip
+					Icon={GlobeIcon}
+					title={named.url}
+					href={named.url}
+					newTab
+					className={GIVES_WAY}
+				>
+					{new URL(named.url).host}
+				</Chip>
+			);
 	}
 }
 
@@ -358,6 +373,7 @@ function Chip({
 	title,
 	open,
 	href,
+	newTab = false,
 	whole = false,
 	className,
 	children,
@@ -366,6 +382,8 @@ function Chip({
 	title: string;
 	open?: (() => void) | undefined;
 	href?: string;
+	/** Whether `href` opens in a tab of its own, leaving this page be. */
+	newTab?: boolean;
 	/** Whether it shows all its name, wrapping, rather than cut short. */
 	whole?: boolean;
 	className?: string;
@@ -388,7 +406,12 @@ function Chip({
 	);
 	if (href !== undefined) {
 		return (
-			<a href={href} title={title} className={look}>
+			<a
+				href={href}
+				title={title}
+				className={look}
+				{...(newTab && { target: "_blank", rel: "noreferrer" })}
+			>
 				{inside}
 			</a>
 		);

@@ -128,7 +128,7 @@ const LINES: {
 			? { words: ["Updated", todo(event)], at: event.at }
 			: null,
 	"dev stop": (event) => server("stopped", event.at),
-	"dev start": (event) => server("started", event.at),
+	"dev start": (event) => server("started", event.at, event.remote),
 	// A refused add made no todo to name, and the agent says why itself.
 	"todo add": (event) =>
 		event.reason === null
@@ -400,9 +400,22 @@ function ids(todos: number[]): string {
 	return todos.map((id) => `#${id}`).join(", ");
 }
 
-/** The line of arbor dev itself stopping or starting, which names no chip. */
-function server(icon: "started" | "stopped", at: string): ArborEventView {
-	return { icon, words: [`arbor dev ${icon}`], at };
+/**
+ * The line of arbor dev itself stopping or starting, which names no chip but
+ * the remote address a start came up at, when its tunnel gave it one.
+ */
+function server(
+	icon: "started" | "stopped",
+	at: string,
+	remote: string | null = null,
+): ArborEventView {
+	const words: Words = [`arbor dev ${icon}`];
+	return {
+		icon,
+		words:
+			remote === null ? words : [...words, "at", { kind: "url", url: remote }],
+		at,
+	};
 }
 
 /** Todos as one chip: the todo itself when there is one, else a burst. */

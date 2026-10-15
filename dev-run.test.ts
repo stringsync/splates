@@ -22,12 +22,13 @@ describe("DevRun", () => {
 		await deps.disposeAsync();
 	});
 
-	const starting = () =>
+	const starting = (remote: string | null = null) =>
 		DevRun.start({
 			journal: deps.journal,
 			conversations,
 			fs: deps.fs,
 			arborDir: deps.arborDir,
+			remote,
 		});
 
 	const logged = async () =>
@@ -59,6 +60,14 @@ describe("DevRun", () => {
 		expect(await logged()).toEqual(["dev start", "dev stop", "dev start"]);
 		expect(await deps.journal.tail(1)).toMatchObject([
 			{ conversations: [running.id] },
+		]);
+	});
+
+	it("logs where its tunnel reaches it on its start", async () => {
+		await starting("https://dev.example.com");
+
+		expect(await deps.journal.tail(1)).toMatchObject([
+			{ action: "dev start", remote: "https://dev.example.com" },
 		]);
 	});
 
