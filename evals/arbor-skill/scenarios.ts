@@ -332,6 +332,7 @@ EOF`,
 		sections: [
 			"Using arbor",
 			"Directives",
+			"Reference files",
 			"Workflow",
 			"Checkpoint",
 			"ARBOR.md",

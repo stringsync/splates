@@ -20,10 +20,8 @@ stderr says.
 ## Directives
 
 A prompt that starts with `[ARBOR ...]` comes from the `arbor dev` page or
-from arbor itself, and asks what the table says. Some of this skill sits in
-reference files beside it, each read only when its moment comes: whenever a
-row or a line below names one, read the whole file before going on, even
-mid-task, and again in a later session.
+from arbor itself, and asks what the table says. A row that names a file
+asks you to read it as Reference files says.
 
 | Directive | What it asks | What to do |
 | --- | --- | --- |
@@ -43,13 +41,18 @@ mid-task, and again in a later session.
 | `[ARBOR RESUME]` | Carry on from where `ARBOR.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[ARBOR RECONNECT]` | A lost connection cut your last turn short, and the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
 
-Other moments have reference files too:
+## Reference files
+
+Some of this skill sits in files beside it, each read only when its moment
+comes: a directive whose row names it, or one of the moments below. Then read
+the whole file before going on, even mid-task, and again in a later session,
+which remembers none of it.
 
 - Before `arbor add <part> --base task/<your task>`, or handing a subagent
   work that may change code: [references/parts.md](references/parts.md).
 - Before `arbor handoff`, or when the task gives you a reason to hand it to
-  another model: [handoff.md](references/handoff.md), handing a task to another agent or taking one
-  over.
+  another model: [references/handoff.md](references/handoff.md), handing a
+  task to another agent or taking one over.
 - Before `arbor todo add`, `arbor lane add`, or `arbor todo update` or
   `arbor lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/todos.md](references/todos.md), linking, placing and ordering

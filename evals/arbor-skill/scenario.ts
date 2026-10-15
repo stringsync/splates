@@ -25,4 +25,10 @@ export const COMMON_RUBRIC = [
 ];
 
 /** Sections every scenario leans on, beyond its own. */
-export const CORE = ["Using arbor", "Directives", "Workflow", "Reporting"];
+export const CORE = [
+	"Using arbor",
+	"Directives",
+	"Reference files",
+	"Workflow",
+	"Reporting",
+];
