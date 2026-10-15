@@ -2,6 +2,7 @@ import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	ChevronLeftIcon,
 	RotateCcwIcon,
+	SquareIcon,
 	SquareTerminalIcon,
 	XIcon,
 } from "lucide-react";
@@ -21,6 +22,14 @@ import { BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
  * null where the page has none.
  */
 export const ToggleTerminal = createContext<
+	((conversation: string) => void) | null
+>(null);
+
+/**
+ * Opens a conversation and shows its terminal beside it; null where the page
+ * has no shells.
+ */
+export const ShowTerminal = createContext<
 	((conversation: string) => void) | null
 >(null);
 
@@ -107,7 +116,7 @@ function PaneScreen({
 		>
 			<header className="flex h-8 items-center gap-2">
 				<SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
-				<h2 className="min-w-0 truncate font-medium text-sm">
+				<h2 className="min-w-0 flex-1 truncate font-medium text-sm">
 					{session.task ?? "Main tree"}
 				</h2>
 				<span role="status" className="text-muted-foreground text-xs">
@@ -125,6 +134,23 @@ function PaneScreen({
 						Restart
 					</Button>
 				)}
+				{/* Hiding leaves the shell running; Stop hangs up on it, and on
+				    whatever runs in it, as archiving would. */}
+				{(status === "connecting" || status === "open") && (
+					<Button
+						size="sm"
+						variant="destructive"
+						title="Stop the shell and whatever runs in it"
+						onClick={() => {
+							terminals.hide();
+							terminals.close(conversation.id);
+							focusComposer();
+						}}
+					>
+						<SquareIcon className="size-3 fill-current" />
+						Stop
+					</Button>
+				)}
 				<Button
 					size="icon-sm"
 					variant="ghost"
@@ -134,7 +160,6 @@ function PaneScreen({
 							? "Hide the terminal"
 							: `Hide the terminal (${shortcut})`
 					}
-					className="ml-auto"
 					onClick={() => {
 						terminals.toggle(conversation.id);
 						focusComposer();

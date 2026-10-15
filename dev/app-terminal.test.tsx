@@ -231,6 +231,83 @@ describe("App's terminal", () => {
 		expect(archived()).toHaveLength(1);
 	});
 
+	it("asks before archiving a stopped conversation whose shell is up", async () => {
+		const view = await reading([
+			conversation({ id: "c1", title: "Fix it", status: "stopped" }),
+		]);
+		await press(TOGGLE);
+		await act(async () => testing.shells[0]?.accept());
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: /^Archive/ },
+				),
+			),
+		);
+
+		expect(view.getByRole("dialog").textContent).toContain(
+			"Its terminal is still open. Archiving closes it.",
+		);
+	});
+
+	it("stops the shell from the pane's Stop, so archiving asks nothing", async () => {
+		const view = await reading();
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /Stop/ })),
+		);
+
+		expect(shell?.readyState).toBe(3);
+		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "actions" })).getByRole(
+					"button",
+					{ name: /^Archive/ },
+				),
+			),
+		);
+		expect(view.queryByRole("dialog")).toBeNull();
+	});
+
+	it("shows the terminal from the archive dialog of a conversation whose shell is up", async () => {
+		const view = await reading([
+			conversation({ id: "c1", title: "One" }),
+			conversation({ id: "c2", title: "Two" }),
+		]);
+		await press(TOGGLE);
+		await act(async () => testing.shells[0]?.accept());
+		await press(TOGGLE);
+		await go("#conversations/c2");
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("navigation", { name: "conversations" }))
+					.getAllByRole("button", { name: /More/ })
+					.at(0) as HTMLElement,
+			),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: /Archive/ })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog")).getByRole("button", {
+					name: "Show the terminal",
+				}),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/c1");
+		view.getByRole("complementary", { name: "terminal" });
+		expect(testing.shells).toHaveLength(1);
+	});
+
 	it("keeps each conversation's shell while another is up", async () => {
 		await reading([
 			conversation({ id: "c1", title: "One" }),

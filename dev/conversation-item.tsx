@@ -6,6 +6,7 @@ import {
 	EllipsisVerticalIcon,
 	LinkIcon,
 	PencilIcon,
+	SquareTerminalIcon,
 } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -41,7 +42,7 @@ import { Trunk, whereRuns } from "./dispatching";
 import { useHandedOutBy, useHandedTo } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
-import { ShellRunning } from "./terminal";
+import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
@@ -247,7 +248,7 @@ export function Item({
 
 /**
  * Archives `conversation`, or brings it back, then runs `then`. While its
- * agent works, or sits idle with its shell up, `file` asks first in
+ * agent works, or its shell is up, `file` asks first in
  * `confirm`, since archiving stops both; render `confirm` beside whatever
  * calls `file`.
  */
@@ -267,6 +268,7 @@ export function useArchive(
 	// Held while `confirm` asks.
 	const after = useRef<(() => void) | undefined>(undefined);
 	const shellRunning = useContext(ShellRunning);
+	const showTerminal = useContext(ShowTerminal);
 	const nameOf = useNameOf();
 	const { id, archived } = conversation;
 	const files = useHandedOutBy(conversation) === null;
@@ -280,19 +282,14 @@ export function useArchive(
 		);
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
-	// Idle, only its shell can lose anything, like a dev server it runs; asked
-	// as it is clicked, since the shell comes and goes without a render here.
+	// Otherwise only its shell can lose anything, like a dev server it runs;
+	// asked as it is clicked, since the shell comes and goes without a render here.
 	const file = (then?: () => void) => {
 		after.current = then;
 		if (!files) {
 			return;
 		}
-		if (
-			!archived &&
-			(working ||
-				along.length > 0 ||
-				(conversation.status === "idle" && shellRunning(id)))
-		) {
+		if (!archived && (working || along.length > 0 || shellRunning(id))) {
 			setAsking(true);
 		} else {
 			put();
@@ -308,7 +305,9 @@ export function useArchive(
 							? "The agent is still running. Archiving stops it and closes its terminal."
 							: along.length > 0
 								? "Archiving stops its agent."
-								: "Its terminal is still open. Archiving closes it, and stops the idle agent."}
+								: conversation.status === "idle"
+									? "Its terminal is still open. Archiving closes it, and stops the idle agent."
+									: "Its terminal is still open. Archiving closes it."}
 					</DialogDescription>
 					{along.length > 0 && (
 						<DialogDescription>
@@ -325,6 +324,21 @@ export function useArchive(
 					)}
 				</DialogHeader>
 				<DialogFooter>
+					{/* Only its shell stands in the way: show it, to stop what runs
+					    there or see that nothing does. */}
+					{!working && along.length === 0 && showTerminal !== null && (
+						<Button
+							variant="outline"
+							className="sm:mr-auto"
+							onClick={() => {
+								setAsking(false);
+								showTerminal(id);
+							}}
+						>
+							<SquareTerminalIcon />
+							Show the terminal
+						</Button>
+					)}
 					<DialogClose render={<Button variant="outline" />}>
 						Cancel
 					</DialogClose>

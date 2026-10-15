@@ -19,6 +19,8 @@ export interface SidePanes {
 	shellRunning: (conversation: string) => boolean;
 	/** Shows or hides `conversation`'s terminal, in place of another pane. */
 	toggleTerminal: (conversation: string) => void;
+	/** Shows `conversation`'s terminal, in place of another pane. */
+	showTerminal: (conversation: string) => void;
 	/** The conversation up, unless archived, whose terminal the pane can show. */
 	shown: ConversationState | null;
 	/** Whether a pane is open, so the page makes room for it. */
@@ -102,15 +104,14 @@ export function useSidePanes({
 		setWatching(null);
 		setReviewing(task);
 	}, []);
+	const showTerminal = (conversation: string) => {
+		setWatching(null);
+		setReviewing(null);
+		terminals.show(conversation);
+	};
 	const toggleTerminal = (conversation: string) => {
-		if (watched !== null) {
-			setWatching(null);
-			terminals.show(conversation);
-			return;
-		}
-		if (reviewing !== null) {
-			setReviewing(null);
-			terminals.show(conversation);
+		if (watched !== null || reviewing !== null) {
+			showTerminal(conversation);
 			return;
 		}
 		terminals.toggle(conversation);
@@ -154,6 +155,7 @@ export function useSidePanes({
 		watch,
 		shellRunning,
 		toggleTerminal,
+		showTerminal,
 		shown,
 		paned,
 		pane,
