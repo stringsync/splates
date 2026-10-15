@@ -7,7 +7,8 @@ import { Dot } from "./dot";
 
 /**
  * What a list shows of an agent: a yellow dot when it waits on you, whatever
- * for, a spinner while it works, assuming or not, a blue dot when it answered
+ * for, a spinner while it or an agent it handed a task to works, assuming or
+ * not, as a lane orchestrator's agents do, a blue dot when it answered
  * and you have not looked since, and a green or red dot once its task merged
  * or was removed, over the blue one. Anything else, idle and read, shows an
  * empty space. A lane orchestrator done with its lanes shows green, as
@@ -21,10 +22,13 @@ export function Mark({
 	need,
 	reported = null,
 	unread = false,
+	hosting = false,
 }: {
 	need: Need;
 	reported?: Ending | null;
 	unread?: boolean;
+	/** Whether an agent it handed a task to is at work. */
+	hosting?: boolean;
 }): JSX.Element {
 	const shows =
 		need.kind === "idle" ||
@@ -35,7 +39,7 @@ export function Mark({
 	if (reported === "removed" && shows) {
 		return <Dot role="img" aria-label="removed" color="bg-destructive" />;
 	}
-	if (unread && need.kind === "idle" && !waitsOn(reported)) {
+	if (unread && need.kind === "idle" && !hosting && !waitsOn(reported)) {
 		return <Dot role="status" aria-label="unread" color="bg-info" />;
 	}
 	if (need.kind === "waiting" || (waitsOn(reported) && shows)) {
@@ -48,7 +52,7 @@ export function Mark({
 			/>
 		);
 	}
-	if (need.kind === "idle") {
+	if (need.kind === "idle" && !hosting) {
 		// Empty, so what sits beside it lines up with the rows that have one.
 		return <span className="size-3.5 shrink-0" />;
 	}

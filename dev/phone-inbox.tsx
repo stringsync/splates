@@ -20,6 +20,7 @@ import {
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
 import {
 	flatten,
+	hostsAtWork,
 	isHostOf,
 	openedBy,
 	rowsOf,
@@ -196,6 +197,7 @@ function Group({
 	if (trees.length === 0) {
 		return null;
 	}
+	const hosting = hostsAtWork(trees);
 	const lines = (
 		trees: Nested<Needing>[],
 		depth: number,
@@ -225,6 +227,9 @@ function Group({
 									? null
 									: agentName(agents, row.conversation.agent)
 							}
+							hosting={
+								row.conversation !== null && hosting.has(row.conversation.id)
+							}
 							onOpen={() => onOpen(row)}
 						/>
 					</li>
@@ -243,6 +248,7 @@ function Row({
 	row,
 	depth,
 	agent,
+	hosting,
 	onOpen,
 }: {
 	row: Needing;
@@ -250,6 +256,8 @@ function Row({
 	depth: number;
 	/** The agent's name; null for an external one. */
 	agent: string | null;
+	/** Whether an agent it handed a task to is at work. */
+	hosting: boolean;
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
@@ -343,6 +351,7 @@ function Row({
 							need={need}
 							reported={reported}
 							unread={conversation?.unread ?? false}
+							hosting={hosting}
 						/>
 					</span>
 				</span>

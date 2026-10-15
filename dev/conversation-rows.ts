@@ -199,6 +199,15 @@ export function hostingWork(
 	tasks: Details[],
 	conversations: ConversationState[],
 ): Set<string> {
+	return hostsAtWork(
+		nest(rowsOf(tasks, conversations), (host, part) =>
+			isHostOf(tasks, host, part),
+		),
+	);
+}
+
+/** What `hostingWork` reads, from the rows already nested. */
+export function hostsAtWork(trees: Nested<Needing>[]): Set<string> {
 	const hosting = new Set<string>();
 	const atWork = ({ row, parts }: Nested<Needing>): boolean => {
 		const working = parts.map(atWork).some(Boolean);
@@ -209,9 +218,7 @@ export function hostingWork(
 			working || row.need.kind === "working" || row.need.kind === "assuming"
 		);
 	};
-	nest(rowsOf(tasks, conversations), (host, part) =>
-		isHostOf(tasks, host, part),
-	).forEach(atWork);
+	trees.forEach(atWork);
 	return hosting;
 }
 

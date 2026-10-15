@@ -48,6 +48,17 @@ describe("App's conversation of a task another handed out", () => {
 		],
 	};
 	const tasks = [details({ task: "alpha", caller: "orch", handedTo: "agent" })];
+	const escalated = {
+		...agent,
+		status: "idle" as const,
+		messages: [
+			message("user", "[ARBOR TASK alpha]"),
+			message(
+				"agent",
+				"## ⚠️ Escalated alpha: on the wording\n\n1. Which wording?\n   - (a) Hey\n   - (b) Oi",
+			),
+		],
+	};
 
 	it("points to the orchestrator in place of the composer, and opens it", async () => {
 		const view = await testing.openConversations(
@@ -115,17 +126,6 @@ describe("App's conversation of a task another handed out", () => {
 	});
 
 	it("shows its escalation's questions read-only, answered through the orchestrator", async () => {
-		const escalated = {
-			...agent,
-			status: "idle" as const,
-			messages: [
-				message("user", "[ARBOR TASK alpha]"),
-				message(
-					"agent",
-					"## ⚠️ Escalated alpha: on the wording\n\n1. Which wording?\n   - (a) Hey\n   - (b) Oi",
-				),
-			],
-		};
 		const view = await testing.openConversations(
 			newestFirst([orchestrator, escalated]),
 			"agent",
@@ -180,6 +180,36 @@ describe("App's conversation of a task another handed out", () => {
 					(each) => each.closest("li")?.querySelector("button")?.textContent,
 				),
 		).toEqual(["Stats lane"]);
+	});
+
+	it("marks the orchestrator working in the list while its agent works", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				{
+					...orchestrator,
+					unread: true,
+					messages: [
+						message("user", "[ARBOR LANE 1]"),
+						message("agent", "## ⏳ Working lanes Stats: alpha on Opus"),
+					],
+				},
+				agent,
+			]),
+			"agent",
+			{ tasks },
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		await waitFor(() =>
+			within(nav).getByRole("button", { name: "More for alpha" }),
+		);
+		expect(
+			within(nav)
+				.getAllByRole("status", { name: "working" })
+				.map(
+					(each) => each.closest("li")?.querySelector("button")?.textContent,
+				),
+		).toEqual(["Stats lane", "alpha"]);
 	});
 
 	it("offers no archive or rename of it, only of the orchestrator", async () => {

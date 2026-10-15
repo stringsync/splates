@@ -27,6 +27,7 @@ import {
 	flatten,
 	goOn,
 	hintOf,
+	hostsAtWork,
 	isHostOf,
 	nextWaiting,
 	openedBy,
@@ -102,6 +103,7 @@ export function ConversationList({
 	useCopiedReplies(drafts);
 	const archived = conversations.length - listed.length;
 	const nested = nest(rows, (host, part) => isHostOf(tasks, host, part));
+	const hosting = hostsAtWork(nested);
 	// As they show, each part under its task: what ⌥⌘0 to ⌥⌘9 open.
 	const shown = flatten(nested).slice(0, DIGITS);
 	const held = useHeld();
@@ -301,6 +303,7 @@ export function ConversationList({
 										: undefined
 								}
 								hint={held ? hintOf(shown, row) : null}
+								hosting={hosting.has(row.conversation.id)}
 							/>
 						) : (
 							row.task !== null && (

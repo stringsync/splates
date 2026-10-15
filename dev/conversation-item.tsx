@@ -60,6 +60,7 @@ export function Item({
 	onLeft,
 	where = false,
 	hint = null,
+	hosting = false,
 }: {
 	conversation: ConversationState;
 	agent: string;
@@ -72,6 +73,8 @@ export function Item({
 	where?: boolean;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
 	hint?: string | null;
+	/** Whether an agent it handed a task to is at work. */
+	hosting?: boolean;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
@@ -117,6 +120,7 @@ export function Item({
 					menu
 						? "pr-14"
 						: need.kind === "idle" &&
+								!hosting &&
 								reported === null &&
 								!conversation.unread &&
 								hint === null
@@ -156,7 +160,12 @@ export function Item({
 				{hint !== null ? (
 					<Kbd aria-hidden>{hint}</Kbd>
 				) : (
-					<Mark need={need} reported={reported} unread={conversation.unread} />
+					<Mark
+						need={need}
+						reported={reported}
+						unread={conversation.unread}
+						hosting={hosting}
+					/>
 				)}
 			</span>
 			<span
