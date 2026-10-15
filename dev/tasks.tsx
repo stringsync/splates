@@ -1,15 +1,7 @@
-import {
-	CheckIcon,
-	FileDiffIcon,
-	MessageCircleQuestionIcon,
-	RotateCcwIcon,
-	Trash2Icon,
-} from "lucide-react";
-import { type JSX, type ReactNode, useContext, useState } from "react";
-import { Button } from "#dev/components/ui/button.tsx";
+import { GitBranchIcon } from "lucide-react";
+import { type CSSProperties, type JSX, type ReactNode, useState } from "react";
 import {
 	Dialog,
-	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
@@ -17,16 +9,14 @@ import {
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { type Question, questions } from "../plan";
+import { questions } from "../plan";
 import type { Details } from "../show";
-import { removeTask, retryTask } from "./api";
-import { ReviewChanges } from "./changes";
-import { Dispatching, OnIt, StartMenu } from "./dispatching";
+import { OnIt } from "./dispatching";
 import { HEADING, Markdown } from "./markdown";
 import { isPartOf, type Nested, nest } from "./parts";
+import { PHONE_NAME, PHONE_ROW, PHONE_TILE, PHONE_TITLED } from "./phone-rows";
 import { QuestionCards } from "./question-cards";
-import { Refusal, useRefusal } from "./refusal";
-import { arriveAt, TASK } from "./task-view";
+import { ActionBar, useRetry } from "./task-actions";
 
 /**
  * Every task in a line: its name and the marks of the conversations on it.
@@ -46,7 +36,7 @@ export function Tasks({
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
-			<header>
+			<header className={PHONE_TITLED}>
 				<h2 className="font-medium text-sm">Tasks</h2>
 			</header>
 			{/* One line, not a big empty state: the todos below it are the page then. */}
@@ -77,25 +67,29 @@ export function Tasks({
 
 /**
  * Tasks a line each, each part handed out from one in a list of its own
- * under it, indented.
+ * under it, indented. On a phone, a row is the inbox's, its name led by a
+ * tile; where it stands still waits behind a tap.
  */
 function TaskRows({
 	label,
 	rows,
 	onOpen,
-	nested = false,
+	depth = 0,
 }: {
 	label: string;
 	rows: Nested<Details>[];
 	onOpen: (task: string) => void;
-	nested?: boolean;
+	/** How many tasks it is a part of; 0 for one on its base. */
+	depth?: number;
 }): JSX.Element {
 	return (
 		<ul
 			aria-label={label}
 			className={cn(
 				"flex flex-col",
-				nested && "ml-2 border-foreground/10 border-l pl-3",
+				// A phone indents each row instead, so it still spans the screen.
+				depth > 0 &&
+					"ml-2 border-foreground/10 border-l pl-3 max-md:ml-0 max-md:border-l-0 max-md:pl-0",
 			)}
 		>
 			{rows.map(({ row: task, parts }) => (
@@ -103,9 +97,19 @@ function TaskRows({
 					<button
 						type="button"
 						onClick={() => onOpen(task.task)}
-						className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted"
+						style={{ "--depth": depth } as CSSProperties}
+						className={cn(
+							"-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-muted",
+							PHONE_ROW,
+							"max-md:pl-[calc(1rem+3.25rem*var(--depth))]",
+						)}
 					>
-						<span className="min-w-0 flex-1 truncate text-sm">{task.task}</span>
+						<span aria-hidden className={PHONE_TILE}>
+							<GitBranchIcon />
+						</span>
+						<span className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}>
+							{task.task}
+						</span>
 						{/* Only marks, since the row is a button: its dialog opens them. */}
 						<OnIt task={task.task} variant="marks" />
 					</button>
@@ -114,21 +118,12 @@ function TaskRows({
 							label={`parts of ${task.task}`}
 							rows={parts}
 							onOpen={onOpen}
-							nested
+							depth={depth + 1}
 						/>
 					)}
 				</li>
 			))}
 		</ul>
-	);
-}
-
-/** Escalated with its merge attempts spent: what `arbor retry` is for. */
-function outOfMerges(task: Details): boolean {
-	return (
-		task.status === "escalated" &&
-		task.review === null &&
-		task.mergeAttempts >= task.mergeAttemptLimit
 	);
 }
 
@@ -148,7 +143,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					(each) => !each.done && each.reply === null,
 				);
 	return (
-		<DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-xl">
+		<DialogContent className={cn(TASK_DIALOG, PHONE_SHEET)}>
 			<DialogHeader>
 				<DialogTitle>{task.task}</DialogTitle>
 			</DialogHeader>
@@ -178,7 +173,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 				<ActionBar
 					task={task}
 					open={open}
-					retry={retry.button}
+					retry={retry.action}
 					onAnswer={() => setAnswering(true)}
 				/>
 			</DialogFooter>
@@ -186,179 +181,22 @@ export function Task({ task }: { task: Details }): JSX.Element {
 	);
 }
 
+const TASK_DIALOG =
+	"max-h-[85dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-xl";
+
+/**
+ * The dialog on a phone: a sheet up from the bottom edge, within a thumb's
+ * reach, its footer clear of the home indicator.
+ */
+const PHONE_SHEET =
+	"max-md:top-auto max-md:bottom-0 max-md:max-h-[90dvh] max-md:max-w-full max-md:-translate-y-0 max-md:rounded-b-none max-md:data-closed:slide-out-to-bottom max-md:data-open:slide-in-from-bottom max-md:data-closed:zoom-out-100 max-md:data-open:zoom-in-100 max-md:[&_[data-slot=dialog-footer]]:pb-[max(1rem,env(safe-area-inset-bottom))]";
+
 /**
  * `- [ ] 2. Why?` with its number escaped, so the item reads as its box and
  * `2. Why?` on one line, not a box above a list that starts at 2.
  */
 function inlineNumbers(plan: string): string {
 	return plan.replace(/^([ \t]*- \[[ xX]\] [Qq]?\d+)\. /gm, "$1\\. ");
-}
-
-/**
- * Everything to do with a task, in one row: the conversations on it, or a
- * way to start one; its open questions, when no conversation here asks
- * them; its changes; another round of
- * merges once it is out of them.
- */
-function ActionBar({
-	task,
-	open,
-	retry,
-	onAnswer,
-}: {
-	task: Details;
-	open: Question[];
-	retry: ReactNode;
-	/** Answers them in the dialog, when the page runs no conversations. */
-	onAnswer: () => void;
-}): JSX.Element | null {
-	const context = useContext(Dispatching);
-	const review = useContext(ReviewChanges);
-	// An arbor dev agent on the task asks its questions in its conversation,
-	// so only an external agent's need answering from here.
-	const answer =
-		open.length === 0
-			? null
-			: context === null
-				? onAnswer
-				: context.dispatch.on(task.task).length > 0
-					? null
-					: () => {
-							const address = `${TASK}${task.task}`;
-							arriveAt(address);
-							context.open(address);
-						};
-	const answerLabel = `Answer ${open.length === 1 ? "a question" : `${open.length} questions`}`;
-	return (
-		<div
-			role="toolbar"
-			aria-label="actions"
-			className="flex w-full flex-wrap items-center justify-between gap-1.5"
-		>
-			<div className="flex flex-wrap items-center gap-1.5">
-				<OnTask task={task.task} />
-			</div>
-			<div className="flex flex-wrap items-center gap-1.5">
-				<Remove task={task} />
-				{retry}
-				{review !== null && (task.ahead ?? 0) > 0 && (
-					<DialogClose
-						render={
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => review(task.task)}
-							/>
-						}
-					>
-						<FileDiffIcon />
-						Review changes
-					</DialogClose>
-				)}
-				{answer !== null &&
-					(context === null ? (
-						<Button size="sm" onClick={answer}>
-							<MessageCircleQuestionIcon />
-							{answerLabel}
-						</Button>
-					) : (
-						<DialogClose render={<Button size="sm" onClick={answer} />}>
-							<MessageCircleQuestionIcon />
-							{answerLabel}
-						</DialogClose>
-					))}
-			</div>
-		</div>
-	);
-}
-
-/**
- * Removes the task as `arbor remove` does, asking first while an agent works
- * on it (a conversation here mid-turn, which stops and carries on in the main
- * tree, or an external agent holding its lease, which the page cannot stop) or
- * while it has commits its base lacks, which go with its branch.
- */
-function Remove({ task }: { task: Details }): JSX.Element {
-	const context = useContext(Dispatching);
-	const [asking, setAsking] = useState(false);
-	const [removing, setRemoving] = useState(false);
-	const { refusal, refuse } = useRefusal();
-	const working = (context?.dispatch.on(task.task) ?? []).filter(
-		({ conversation }) =>
-			conversation?.status === "starting" || conversation?.status === "running",
-	).length;
-	const external = task.lease === "held";
-	const ahead = task.ahead ?? 0;
-	const go = () => {
-		setAsking(false);
-		setRemoving(true);
-		removeTask(task.task).catch((error: unknown) => {
-			setRemoving(false);
-			refuse("Not removed", error);
-		});
-	};
-	return (
-		<>
-			<Button
-				size="sm"
-				variant="outline"
-				disabled={removing}
-				onClick={() =>
-					working > 0 || external || ahead > 0 ? setAsking(true) : go()
-				}
-			>
-				<Trash2Icon />
-				{removing ? "Removing…" : "Remove"}
-			</Button>
-			<Refusal refusal={refusal} className="w-full" />
-			<Dialog open={asking} onOpenChange={setAsking}>
-				<DialogContent showCloseButton={false}>
-					<DialogHeader>
-						<DialogTitle>Remove {task.task}?</DialogTitle>
-						<DialogDescription>
-							{working > 0
-								? `${working === 1 ? "An agent is" : `${working} agents are`} still working on it. Removing stops ${working === 1 ? "it" : "them"} and moves ${working === 1 ? "its conversation" : "their conversations"} to the main tree. `
-								: external
-									? "An agent outside the page is working on it, which the page cannot stop: its next arbor command finds the task gone. "
-									: ""}
-							{ahead > 0
-								? `Its ${ahead} commit${ahead === 1 ? "" : "s"} not on ${task.base}, its worktree and any uncommitted changes are discarded.`
-								: "Its worktree, branch and uncommitted changes are discarded."}
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<DialogClose render={<Button variant="outline" />}>
-							Cancel
-						</DialogClose>
-						<Button variant="destructive" onClick={go}>
-							Remove
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
-	);
-}
-
-/**
- * The conversations on the task, each opening on a click, or, when it has
- * none, a way to put an agent on it: one or the other, never both.
- */
-function OnTask({ task }: { task: string }): JSX.Element | null {
-	const context = useContext(Dispatching);
-	if (context === null) {
-		return null;
-	}
-	if (context.dispatch.on(task).some((row) => row.conversation !== null)) {
-		return <OnIt task={task} variant="chips" />;
-	}
-	return (
-		<StartMenu
-			assignment={{ kind: "task", task }}
-			label="Start a conversation"
-			size="sm"
-		/>
-	);
 }
 
 /**
@@ -424,59 +262,4 @@ function Facts({
 			{retry}
 		</section>
 	);
-}
-
-/**
- * Another round of merge attempts for a task out of them, as `arbor retry`
- * gives: its button for the action bar, and the line under the bar on what
- * it gives, or once granted, that the task is working again and what picks
- * it up. Nothing while the task has merges left.
- */
-function useRetry(task: Details): { button: ReactNode; note: ReactNode } {
-	const [state, setState] = useState<"idle" | "retrying" | "retried">("idle");
-	const [failed, setFailed] = useState<string | null>(null);
-	if (state === "idle" && !outOfMerges(task)) {
-		return { button: null, note: null };
-	}
-	const retry = () => {
-		setState("retrying");
-		setFailed(null);
-		retryTask(task.task).then(
-			() => setState("retried"),
-			(error: unknown) => {
-				setState("idle");
-				setFailed(error instanceof Error ? error.message : String(error));
-			},
-		);
-	};
-	return {
-		button: (
-			<Button
-				variant="outline"
-				size="sm"
-				disabled={state !== "idle"}
-				onClick={retry}
-			>
-				{state === "retried" ? <CheckIcon /> : <RotateCcwIcon />}
-				{state === "retried" ? "Retried" : "Retry"}
-			</Button>
-		),
-		note: (
-			<div className="mt-1 flex flex-col gap-1 text-xs">
-				<p className="text-muted-foreground">
-					{state === "retried" ? (
-						<>
-							Working again: <code>arbor claim {task.task}</code> picks it up.
-						</>
-					) : (
-						<>
-							Retry gives another {task.mergeAttemptLimit} merge attempts, as{" "}
-							<code>arbor retry</code> does.
-						</>
-					)}
-				</p>
-				{failed !== null && <p className="text-destructive">{failed}</p>}
-			</div>
-		),
-	};
 }

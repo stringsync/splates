@@ -19,6 +19,7 @@
 @source "./phone-sheets.tsx";
 @source "./phone-screen.tsx";
 @source "./phone-thread.tsx";
+@source "./phone-rows.ts";
 @source "./thread-header.tsx";
 @source "./page-route.tsx";
 @source "./side-panes.tsx";
@@ -27,6 +28,7 @@
 @source "./board-drag.tsx";
 @source "./todo-edit.tsx";
 @source "./tasks.tsx";
+@source "./task-actions.tsx";
 @source "./dispatching.tsx";
 @source "./markdown.tsx";
 @source "./media.tsx";

@@ -172,22 +172,9 @@ export function StartMenu({
 	className?: string;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
-	const trunk = useContext(Trunk);
-	const nameOf = useNameOf();
 	if (context === null) {
 		return null;
 	}
-	const { dispatch } = context;
-	const open = (address: string): void => {
-		onStart?.();
-		context.open(address);
-	};
-	const others = dispatch.others(assignment);
-	const set =
-		assignee !== null &&
-		dispatch.agents.some((each) => each.id === assignee.agent)
-			? assignee
-			: null;
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -208,71 +195,109 @@ export function StartMenu({
 				<ChevronDownIcon className="text-muted-foreground" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className={cn("w-56", touchItems)}>
-				<DropdownMenuGroup>
-					<DropdownMenuLabel>In a new conversation with</DropdownMenuLabel>
-					{set !== null && (
-						<DropdownMenuItem
-							onClick={() => {
-								onStart?.();
-								void dispatch.begin(set, assignment).then(context.open);
-							}}
-						>
-							<AgentIcon
-								agent={set.agent}
-								name={dispatch.agentName(set.agent)}
-							/>
-							<span className="min-w-0 flex-1 truncate">
-								{dispatch.pickName(set)}
-							</span>
-							<span className="shrink-0 text-muted-foreground text-xs">
-								assigned
-							</span>
-						</DropdownMenuItem>
-					)}
-					{dispatch.agents.map((each) => (
-						<DropdownMenuItem
-							key={each.id}
-							onClick={() => open(dispatch.start(each.id, assignment))}
-						>
-							<AgentIcon agent={each.id} name={each.name} />
-							{each.name}
-						</DropdownMenuItem>
-					))}
-				</DropdownMenuGroup>
-				{others.length > 0 && (
-					<>
-						<DropdownMenuSeparator />
-						<DropdownMenuSub>
-							<DropdownMenuSubTrigger>In a conversation</DropdownMenuSubTrigger>
-							<DropdownMenuSubContent
-								className={cn("max-h-80 w-64 overflow-y-auto", touchItems)}
-							>
-								{others.map((each) => (
-									<DropdownMenuItem
-										key={each.id}
-										onClick={() => open(dispatch.link(each.id, assignment))}
-									>
-										<AgentIcon
-											agent={each.agent}
-											name={dispatch.agentName(each.agent)}
-										/>
-										<span className="min-w-0 flex-1 truncate">
-											{nameOf(each)}
-										</span>
-										{/* Where it runs, unless its name says so. */}
-										{nameOf(each) !== each.task && (
-											<span className="shrink-0 text-muted-foreground text-xs">
-												{whereRuns(each.task, trunk)}
-											</span>
-										)}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuSubContent>
-						</DropdownMenuSub>
-					</>
-				)}
+				<StartItems
+					assignment={assignment}
+					assignee={assignee}
+					onStart={onStart}
+				/>
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+/**
+ * What `StartMenu` offers, for a menu of its own or one with more in it: each
+ * agent for a new conversation, then the conversations already going.
+ */
+export function StartItems({
+	assignment,
+	assignee = null,
+	onStart,
+}: {
+	assignment: Assignment;
+	assignee?: AgentPick | null;
+	onStart?: () => void;
+}): JSX.Element | null {
+	const context = useContext(Dispatching);
+	const trunk = useContext(Trunk);
+	const nameOf = useNameOf();
+	if (context === null) {
+		return null;
+	}
+	const { dispatch } = context;
+	const open = (address: string): void => {
+		onStart?.();
+		context.open(address);
+	};
+	const others = dispatch.others(assignment);
+	const set =
+		assignee !== null &&
+		dispatch.agents.some((each) => each.id === assignee.agent)
+			? assignee
+			: null;
+	return (
+		<>
+			<DropdownMenuGroup>
+				<DropdownMenuLabel>In a new conversation with</DropdownMenuLabel>
+				{set !== null && (
+					<DropdownMenuItem
+						onClick={() => {
+							onStart?.();
+							void dispatch.begin(set, assignment).then(context.open);
+						}}
+					>
+						<AgentIcon agent={set.agent} name={dispatch.agentName(set.agent)} />
+						<span className="min-w-0 flex-1 truncate">
+							{dispatch.pickName(set)}
+						</span>
+						<span className="shrink-0 text-muted-foreground text-xs">
+							assigned
+						</span>
+					</DropdownMenuItem>
+				)}
+				{dispatch.agents.map((each) => (
+					<DropdownMenuItem
+						key={each.id}
+						onClick={() => open(dispatch.start(each.id, assignment))}
+					>
+						<AgentIcon agent={each.id} name={each.name} />
+						{each.name}
+					</DropdownMenuItem>
+				))}
+			</DropdownMenuGroup>
+			{others.length > 0 && (
+				<>
+					<DropdownMenuSeparator />
+					<DropdownMenuSub>
+						<DropdownMenuSubTrigger>In a conversation</DropdownMenuSubTrigger>
+						<DropdownMenuSubContent
+							className={cn("max-h-80 w-64 overflow-y-auto", touchItems)}
+						>
+							{others.map((each) => (
+								<DropdownMenuItem
+									key={each.id}
+									onClick={() => open(dispatch.link(each.id, assignment))}
+								>
+									<AgentIcon
+										agent={each.agent}
+										name={dispatch.agentName(each.agent)}
+									/>
+									<span className="min-w-0 flex-1 truncate">
+										{nameOf(each)}
+									</span>
+									{/* Where it runs, unless its name says so. */}
+									{nameOf(each) !== each.task && (
+										<span className="shrink-0 text-muted-foreground text-xs">
+											{whereRuns(each.task, trunk)}
+										</span>
+									)}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuSubContent>
+					</DropdownMenuSub>
+				</>
+			)}
+		</>
 	);
 }
 
