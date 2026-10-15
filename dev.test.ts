@@ -1,9 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
 import { add } from "./add";
 import { dev, devPorts } from "./dev";
 import { post, readUntil, serving, todoForm } from "./dev-testing";
 import { Testing } from "./testing";
+import { WorktreeService } from "./worktree-service";
 
 describe("dev", () => {
 	let deps: Testing;
@@ -27,24 +28,27 @@ describe("dev", () => {
 	});
 
 	it("reads the repo only while a page listens", async () => {
-		// scry-ignore fakes-over-mocks: dev takes all of Testing, so no focused interface carries the read count yet (todo #184).
-		const list = spyOn(deps.service, "list");
+		const reads = new CountingService(deps);
+		const home = Object.assign(
+			Object.create(Object.getPrototypeOf(deps)),
+			deps,
+			{
+				service: reads,
+			},
+		) as Testing;
 
-		await serving(deps, async (_, port) => {
+		await serving(home, async (_, port) => {
 			// Long past the settle a change waits out before the read it starts.
-			const opened = list.mock.calls.length;
+			const opened = reads.count;
 			await Bun.sleep(250);
-			expect(list.mock.calls.length).toBe(opened);
+			expect(reads.count).toBe(opened);
 
+			const next = reads.nextRead();
 			const events = await fetch(`http://localhost:${port}/events`);
 			const reader = events.body?.getReader();
-			// scry-ignore matchers-over-test-logic: waits for the first read, which nothing announces (todo #184).
-			while (list.mock.calls.length === opened) {
-				await Bun.sleep(10);
-			}
+			await next;
 			await reader?.cancel();
 		});
-		list.mockRestore();
 	}, 15_000);
 
 	it("moves up to an open port when the one it asks for is taken", async () => {
@@ -303,3 +307,29 @@ describe("dev", () => {
 		}
 	});
 });
+
+/** The test repo's worktrees, counting each read and telling who waits for one. */
+class CountingService extends WorktreeService {
+	count = 0;
+	private waiting: (() => void)[] = [];
+
+	constructor(from: Testing) {
+		super(from.git, from.config, from.arborDir, {
+			fs: from.fs,
+			ps: from.ps,
+		});
+	}
+
+	/** Settles at the next read. */
+	nextRead(): Promise<void> {
+		return new Promise((resolve) => this.waiting.push(resolve));
+	}
+
+	override async list(...args: Parameters<WorktreeService["list"]>) {
+		this.count += 1;
+		for (const resolve of this.waiting.splice(0)) {
+			resolve();
+		}
+		return super.list(...args);
+	}
+}
