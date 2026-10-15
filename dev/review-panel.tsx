@@ -38,7 +38,8 @@ const TYPED_MERGE = "merge";
 
 /**
  * A review answered by keyboard alone: it comes up in its changes box, where
- * Enter sends them, and Merge is a Tab away. What is written stays in the
+ * Enter sends them, and Merge is a Tab away while the box is empty. It shows
+ * one button, Merge or Send changes, as the box is empty or not. What is written stays in the
  * panel, never the composer, until it is sent. It lists what the task
  * assumed, read from its `ARBOR.md` so the list is current, and a challenge
  * to one goes out with the changes, quoting its line as an answer would.
@@ -161,43 +162,35 @@ export function ReviewPanel({
 							/>
 						) : (
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-								{!touch && (
-									<span>
-										<Kbd>↵</Kbd> sends changes
-									</span>
-								)}
-								{!touch && asked === "" && (
-									<span>
-										<Kbd>Tab</Kbd> to merge
-									</span>
-								)}
+								{!touch &&
+									(asked === "" ? (
+										<span>
+											<Kbd>Tab</Kbd> to merge
+										</span>
+									) : (
+										<span>
+											<Kbd>↵</Kbd> sends changes
+										</span>
+									))}
 							</p>
 						)}
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={asked === ""}
-							onClick={ask}
-						>
-							<SendHorizontalIcon data-icon="inline-start" />
-							Send changes
-						</Button>
-						<Button
-							size="sm"
-							// Changes or challenges written would go unsaid: merging
-							// means none.
-							disabled={asked !== ""}
-							title={
-								asked === ""
-									? undefined
-									: "Clear the changes and challenges to merge"
-							}
-							onClick={() => void attempt(send(MERGE), "Not sent")}
-							className="bg-success text-white hover:bg-success/90"
-						>
-							<GitMergeIcon data-icon="inline-start" />
-							Merge
-						</Button>
+						{/* One button, for what the box holds: written changes or
+						challenges go out as they are, and nothing written merges. */}
+						{asked === "" ? (
+							<Button
+								size="sm"
+								onClick={() => void attempt(send(MERGE), "Not sent")}
+								className="bg-success text-white hover:bg-success/90"
+							>
+								<GitMergeIcon data-icon="inline-start" />
+								Merge
+							</Button>
+						) : (
+							<Button size="sm" onClick={ask}>
+								<SendHorizontalIcon data-icon="inline-start" />
+								Send changes
+							</Button>
+						)}
 					</div>
 					<Refusal refusal={refusal} className="text-right" />
 				</footer>

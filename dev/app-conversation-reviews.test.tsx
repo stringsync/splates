@@ -77,10 +77,7 @@ describe("App's review panel and demo cards", () => {
 		}) as HTMLTextAreaElement;
 		// Ready to answer as soon as it shows.
 		await waitFor(() => expect(document.activeElement === changes).toBe(true));
-		const merge = within(panel).getByRole("button", {
-			name: "Merge",
-		}) as HTMLButtonElement;
-		expect(merge.disabled).toBe(false);
+		expect(button(panel)).toBe("Merge");
 
 		await act(async () =>
 			fireEvent.change(changes, {
@@ -88,8 +85,8 @@ describe("App's review panel and demo cards", () => {
 			}),
 		);
 		expect(changes.value).toBe("merge the header first");
-		// Merging would leave the changes unsaid.
-		expect(merge.disabled).toBe(true);
+		// Merging would leave the changes unsaid, so Send stands in for it.
+		expect(button(panel)).toBe("Send changes");
 		expect(textIn(box(view))).toBe("");
 		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
 			"merge the header first",
@@ -185,10 +182,7 @@ describe("App's review panel and demo cards", () => {
 		expect(within(list).getByText("Below 400px")).toBeTruthy();
 		// What it passed over waits for a challenge.
 		expect(within(list).queryByText("Below 600px")).toBeNull();
-		const merge = within(panel).getByRole("button", {
-			name: "Merge",
-		}) as HTMLButtonElement;
-		expect(merge.disabled).toBe(false);
+		expect(button(panel)).toBe("Merge");
 
 		await act(async () =>
 			fireEvent.click(
@@ -209,8 +203,8 @@ describe("App's review panel and demo cards", () => {
 				within(challenge).getByRole("button", { name: /Below 600px/ }),
 			),
 		);
-		// Merging would leave the challenge unsaid.
-		expect(merge.disabled).toBe(true);
+		// Merging would leave the challenge unsaid, so Send stands in for it.
+		expect(button(panel)).toBe("Send changes");
 		await act(async () =>
 			fireEvent.change(
 				within(panel).getByRole("textbox", { name: "Changes to header" }),
@@ -250,19 +244,16 @@ describe("App's review panel and demo cards", () => {
 				within(list).getByRole("button", { name: "Challenge assumption 2" }),
 			),
 		);
-		const merge = within(panel).getByRole("button", {
-			name: "Merge",
-		}) as HTMLButtonElement;
 		await act(async () =>
 			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
 		);
-		expect(merge.disabled).toBe(true);
+		expect(button(panel)).toBe("Send changes");
 
 		await act(async () =>
 			fireEvent.click(within(list).getByRole("button", { name: /Menu/ })),
 		);
 
-		expect(merge.disabled).toBe(false);
+		expect(button(panel)).toBe("Merge");
 		expect(
 			within(list)
 				.getByRole("button", { name: /Menu/ })
@@ -316,7 +307,7 @@ describe("App's review panel and demo cards", () => {
 		await act(async () => testing.stream?.onmessage?.());
 
 		// Nothing moved under the person.
-		// Said beside Merge, which stays put too.
+		// Said beside Send changes, which stays put too.
 		const banner = await waitFor(() => within(panel).getByRole("status"));
 		expect(
 			within(list).getByRole("listitem", { name: "question 1" }),
@@ -358,10 +349,7 @@ describe("App's review panel and demo cards", () => {
 		await act(async () =>
 			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
 		);
-		const merge = within(panel).getByRole("button", {
-			name: "Merge",
-		}) as HTMLButtonElement;
-		expect(merge.disabled).toBe(true);
+		expect(button(panel)).toBe("Send changes");
 
 		await act(async () =>
 			fireEvent.click(
@@ -375,7 +363,7 @@ describe("App's review panel and demo cards", () => {
 		expect(
 			within(list).getByRole("listitem", { name: "assumption 2" }),
 		).toBeTruthy();
-		expect(merge.disabled).toBe(false);
+		expect(button(panel)).toBe("Merge");
 		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBeNull();
 	});
 
@@ -396,14 +384,9 @@ describe("App's review panel and demo cards", () => {
 				.getByRole("button", { name: /More/ })
 				.getAttribute("aria-pressed"),
 		).toBe("true");
-		expect(
-			(
-				within(view.getByRole("region", { name: "review header" })).getByRole(
-					"button",
-					{ name: "Merge" },
-				) as HTMLButtonElement
-			).disabled,
-		).toBe(true);
+		expect(button(view.getByRole("region", { name: "review header" }))).toBe(
+			"Send changes",
+		);
 	});
 
 	it("shows an approved review as a line of arbor's, in place of the Merge it sent", async () => {
@@ -678,3 +661,12 @@ describe("App's review panel and demo cards", () => {
 		).toBeTruthy();
 	});
 });
+
+/** The one button the review's footer shows: Merge, or Send changes. */
+function button(panel: HTMLElement): string {
+	const shown = ["Merge", "Send changes"].filter(
+		(name) => within(panel).queryByRole("button", { name }) !== null,
+	);
+	expect(shown).toHaveLength(1);
+	return shown[0] ?? "";
+}
