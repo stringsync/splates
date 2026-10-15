@@ -337,6 +337,12 @@
 		overscroll-behavior: none;
 		touch-action: manipulation;
 	}
+	/* A page that scrolls as a list, as Creds or Budget on a phone, bounces
+	   past its ends like a list in any app, even when it all fits. */
+	html:has([data-bounce]),
+	html:has([data-bounce]) body {
+		overscroll-behavior-y: auto;
+	}
 	::selection {
 		background: color-mix(in oklab, var(--brand) 30%, transparent);
 	}

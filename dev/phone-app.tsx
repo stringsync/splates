@@ -87,7 +87,7 @@ export function PhoneApp({
 			) : page === "conversations" ? (
 				<Screen className="px-1">{body}</Screen>
 			) : (
-				<>
+				<div data-bounce>
 					<header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b bg-background/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur">
 						<IconButton label="Open menu" onClick={menu}>
 							<MenuIcon />
@@ -100,7 +100,7 @@ export function PhoneApp({
 						</h1>
 					</header>
 					{body}
-				</>
+				</div>
 			)}
 			<Drawer
 				open={drawer}
