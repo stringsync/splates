@@ -161,6 +161,7 @@ export async function openRepository(
 		shell: new Shell({ ps }),
 		journal: new Journal(`${arborDir}/log.jsonl`, config.logCapacity, {
 			fs,
+			ps,
 		}),
 		todos: new Todos(
 			`${arborDir}/todos`,

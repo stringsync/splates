@@ -102,7 +102,7 @@ export class Testing implements AsyncDisposable {
 		this.journal = new Journal(
 			join(this.arborDir, "log.jsonl"),
 			this.config.logCapacity,
-			{ fs: this.fs },
+			{ fs: this.fs, ps: this.ps },
 		);
 		this.lockPath = join(this.arborDir, "merge.lock");
 		this.lock = new FileLock(this.lockPath, {
@@ -255,6 +255,7 @@ export class Testing implements AsyncDisposable {
 }
 
 /** Where the seeded repo lives: made at the first test, gone after the last. */
+// scry-ignore tests-own-their-state: each test copies it, so none shares the repo itself
 let template: Promise<string> | null = null;
 
 /**

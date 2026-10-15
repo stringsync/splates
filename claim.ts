@@ -10,7 +10,7 @@ import type { WorktreeService } from "./worktree-service";
 export async function claim(
 	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
-): Promise<void> {
+): Promise<{ escalated: boolean }> {
 	const found = await service.find(task);
 
 	if (found.gone) {
@@ -88,4 +88,5 @@ export async function claim(
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
 	log.info(lines.join("\n"));
+	return { escalated };
 }

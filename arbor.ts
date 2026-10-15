@@ -134,20 +134,29 @@ arbor
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 					};
 		const agents = dispatch === undefined ? [] : await seeded(rosterOf(ctx));
-		await ctx.journal.record("add", opts.task, () =>
-			add(ctx, opts.task, {
-				base: opts.base || undefined,
+		await ctx.journal.record(
+			"add",
+			opts.task,
+			() =>
+				add(ctx, opts.task, {
+					base: opts.base || undefined,
+					todos: todoIds(opts.todo),
+					dispatch,
+					agents,
+					// Before the task is live, or the page shows it a moment as an
+					// external agent's. A task handed to another agent is that
+					// agent's, so this conversation stays where it is.
+					onTree:
+						dispatch === undefined
+							? () => follow(ctx, opts.task, { base: opts.base || undefined })
+							: undefined,
+				}),
+			{
+				base: opts.base || ctx.config.trunk,
 				todos: todoIds(opts.todo),
-				dispatch,
-				agents,
-				// Before the task is live, or the page shows it a moment as an
-				// external agent's. A task handed to another agent is that
-				// agent's, so this conversation stays where it is.
-				onTree:
-					dispatch === undefined
-						? () => follow(ctx, opts.task, { base: opts.base || undefined })
-						: undefined,
-			}),
+				agent: dispatch?.agent ?? null,
+				model: dispatch?.model ?? null,
+			},
 		);
 	});
 
@@ -159,7 +168,12 @@ arbor
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.action(async (opts, ctx) => {
-		await ctx.journal.record("claim", opts.task, () => claim(ctx, opts.task));
+		await ctx.journal.record(
+			"claim",
+			opts.task,
+			() => claim(ctx, opts.task),
+			(claimed) => claimed,
+		);
 		await follow(ctx, opts.task);
 	});
 

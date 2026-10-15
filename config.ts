@@ -34,7 +34,10 @@ export interface Config {
 	 * oldest costs a nicer message and nothing else.
 	 */
 	removedCapacity: number;
-	/** How many entries `arbor log` keeps before the oldest fall off. */
+	/**
+	 * How many events the log holds before it is moved aside and a fresh one
+	 * starts; moved files are kept for `LOG_KEPT_MS` (`journal.ts`).
+	 */
 	logCapacity: number;
 	/**
 	 * How long a todo can wait before `merge` stops recommending it and offers

@@ -68,7 +68,12 @@ describe("dev", () => {
 	});
 
 	it("serves each task's fields and its ARBOR.md as data", async () => {
-		await deps.journal.record("add", "alpha", () => add(deps, "alpha"));
+		await deps.journal.record("add", "alpha", () => add(deps, "alpha"), {
+			base: "main",
+			todos: [],
+			agent: null,
+			model: null,
+		});
 		const alpha = (await deps.service.find("alpha")).path;
 		await deps.fs.write(
 			`${alpha}/ARBOR.md`,
