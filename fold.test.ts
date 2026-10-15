@@ -31,6 +31,7 @@ describe("fold", () => {
 		unread: false,
 		seen: 0,
 		checkpoint: null,
+		pausing: false,
 		usage: unused(),
 		background: [],
 	});

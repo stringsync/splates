@@ -79,7 +79,10 @@ export class ConversationRoutes {
 	 * what settles as each asked answers.
 	 */
 	readonly checkpoint = async (only?: string[]): Promise<Promise<void>[]> => {
-		const all = (await this.#conversations?.list()) ?? [];
+		// A pause is the person's, and goes on beside it.
+		const all = ((await this.#conversations?.list()) ?? []).filter(
+			(each) => !each.state.pausing,
+		);
 		if (all.some((each) => each.state.checkpoint === "asked")) {
 			return [];
 		}
@@ -257,6 +260,28 @@ export class ConversationRoutes {
 		const conversation = await this.conversationAt(request);
 		await this.#refuseHandedOut(conversation);
 		await conversation.cancel();
+		return Response.json(conversation.state);
+	};
+
+	/**
+	 * Checkpoints a running agent for the person and leaves it stopped,
+	 * answering without waiting on the agent; one whose task is merging gets
+	 * to finish the merge first.
+	 */
+	readonly pauseConversation = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
+		const { task, status } = conversation.state;
+		if (status !== "running" && status !== "starting") {
+			fail(
+				"usage",
+				`conversation ${conversation.id} is ${status}: only a running agent pauses`,
+				{ conversation: conversation.id },
+			);
+		}
+		const worktree =
+			task === null ? null : await this.#project.service.find(task);
+		void conversation.pause(worktree?.status === "merging").catch(() => {});
 		return Response.json(conversation.state);
 	};
 

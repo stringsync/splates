@@ -444,6 +444,9 @@ export async function dev(
 			"/api/conversations/:id/cancel": {
 				POST: talk(owned((project) => project.cancelConversation)),
 			},
+			"/api/conversations/:id/pause": {
+				POST: talk(owned((project) => project.pauseConversation)),
+			},
 			"/api/conversations/:id/background/:background": {
 				GET: talk(owned((project) => project.backgroundOutput)),
 			},

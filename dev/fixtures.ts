@@ -132,6 +132,7 @@ export function conversation(
 		commands: [],
 		createdAt: new Date().toISOString(),
 		checkpoint: null,
+		pausing: false,
 		usage: {
 			context: null,
 			input: 0,

@@ -241,6 +241,37 @@ describe("App's conversation header", () => {
 		expect(view.queryByRole("region", { name: "systems" })).toBeNull();
 	});
 
+	it("pauses a running agent from the actions card, saying so until its checkpoint ends", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Fix login", status: "running" }),
+		]);
+		const actions = () => view.getByRole("navigation", { name: "actions" });
+
+		await act(async () =>
+			fireEvent.click(within(actions()).getByRole("button", { name: "Pause" })),
+		);
+		expect(testing.posted("/api/conversations/c1/pause")).toEqual([
+			{ method: "POST", body: {} },
+		]);
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "running",
+				checkpoint: "asked",
+				pausing: true,
+			}),
+		);
+		expect(
+			within(actions()).queryByRole("button", { name: "Pause" }),
+		).toBeNull();
+		expect(within(actions()).getByText("Pausing…")).toBeTruthy();
+
+		await testing.say(conversation({ id: "c1", title: "Fix login" }));
+		expect(within(actions()).queryByText(/Paus/)).toBeNull();
+	});
+
 	it("lists the commands it left in the background in a menu from the actions card, each saying how it stands", async () => {
 		const view = await testing.openConversations([
 			conversation({

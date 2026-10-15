@@ -272,6 +272,14 @@ export class Conversation
 		return this.turns.checkpoint(merging);
 	}
 
+	/**
+	 * Checkpoints the agent for the person, as `checkpoint` does, and leaves
+	 * it stopped there: nothing resumes a pause, and Power leaves it alone.
+	 */
+	pause(merging: boolean): Promise<void> {
+		return this.turns.checkpoint(merging, true);
+	}
+
 	/** Forgets the checkpoint, done or not, so the next starts afresh. */
 	dismissCheckpoint(): void {
 		this.turns.dismissCheckpoint();

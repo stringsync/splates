@@ -220,15 +220,17 @@ export class ConversationTurns {
 	 * the turn it is on first, unless that turn is `merging`, which it says
 	 * the checkpoint into, or queues it after. An idle agent is not asked,
 	 * having ended its turn already. What the person queued stays queued, for
-	 * the next prompt to send.
+	 * the next prompt to send. A `pause` is forgotten once it ends, so
+	 * nothing resumes it.
 	 */
-	async checkpoint(merging: boolean): Promise<void> {
+	async checkpoint(merging: boolean, pause = false): Promise<void> {
 		const { host } = this;
 		const { state } = host;
 		await host.opening;
 		if (state.checkpoint === "asked" || state.status !== "running") {
 			return;
 		}
+		host.set({ pausing: pause });
 		// Asked from the start, so an agent slow to stop shows as on its way,
 		// and one that never stops runs out the same wait.
 		this.mark("asked");
@@ -276,14 +278,21 @@ export class ConversationTurns {
 		}
 	}
 
-	/** Keeps where the checkpoint stands, giving up the wait once it is past asked. */
+	/**
+	 * Keeps where the checkpoint stands, giving up the wait once it is past
+	 * asked; a pause past asked is forgotten.
+	 */
 	mark(checkpoint: Checkpoint | null): void {
-		if (checkpoint !== "asked") {
+		const ended = checkpoint !== "asked";
+		if (ended) {
 			this.waiting?.dispose();
 			this.waiting = null;
 		}
-		this.host.log.write({ kind: "checkpoint", checkpoint });
-		this.host.set({ checkpoint });
+		const kept = ended && this.host.state.pausing ? null : checkpoint;
+		this.host.log.write({ kind: "checkpoint", checkpoint: kept });
+		this.host.set(
+			ended ? { checkpoint: kept, pausing: false } : { checkpoint },
+		);
 	}
 
 	/** Settles once the checkpoint asked is no longer under way. */

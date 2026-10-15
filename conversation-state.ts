@@ -94,6 +94,11 @@ export interface ConversationState {
 	 * still shows it; null when none was, or once the work went on past it.
 	 */
 	checkpoint: Checkpoint | null;
+	/**
+	 * Whether the checkpoint asked is the person's pause, which Power leaves
+	 * alone and nothing resumes: forgotten once it ends.
+	 */
+	pausing: boolean;
 	usage: Usage;
 	/** The commands the agent left in the background, oldest first. */
 	background: Background[];
@@ -416,6 +421,7 @@ export function blank(
 		unread: false,
 		seen: 0,
 		checkpoint: null,
+		pausing: false,
 		usage: unused(),
 		background: [],
 	};

@@ -109,6 +109,14 @@ export async function cancelConversation(id: string): Promise<void> {
 }
 
 /**
+ * Checkpoints the agent of conversation `id` and leaves it stopped there,
+ * without resuming.
+ */
+export async function pauseConversation(id: string): Promise<void> {
+	await send(`/api/conversations/${id}/pause`, {});
+}
+
+/**
  * Stops the agent of conversation `id`, one another handed its task to,
  * telling that one so it decides what becomes of the task.
  */

@@ -102,6 +102,35 @@ describe("Conversation checkpoint", () => {
 		]);
 	});
 
+	it("pauses: checkpoints as asked, then forgets it, leaving what waited queued", async () => {
+		const conversation = await working(conversations, held);
+		await conversation.prompt("two");
+
+		const pausing = conversation.pause(false);
+		await eventually(() => agent.cancelled !== 0);
+		expect(conversation.state).toMatchObject({
+			checkpoint: "asked",
+			pausing: true,
+		});
+		held.finish?.("cancelled");
+		await pausing;
+		await eventually(() => said.length >= 2);
+		await finish(conversation, held);
+
+		expect(said).toEqual(["one", CHECKPOINT]);
+		expect(conversation.state).toMatchObject({
+			status: "idle",
+			checkpoint: null,
+			pausing: false,
+		});
+		expect(conversation.stoppedByCheckpoint).toBe(false);
+		expect(thread(conversation)).toEqual([
+			["one", false],
+			["two", true],
+			[CHECKPOINT, false],
+		]);
+	});
+
 	it("passes over an idle agent, whose turn has ended already", async () => {
 		const conversation = await started();
 

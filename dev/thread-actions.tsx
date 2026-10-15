@@ -4,6 +4,8 @@ import {
 	ClockIcon,
 	FileDiffIcon,
 	HandshakeIcon,
+	Loader2Icon,
+	PauseIcon,
 	SquareTerminalIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
@@ -15,7 +17,7 @@ import type { Details } from "../show";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";
 import { NEW } from "./conversation-address";
-import { promptConversation } from "./conversation-api";
+import { pauseConversation, promptConversation } from "./conversation-api";
 import { useArchive } from "./conversation-item";
 import { promptFor } from "./dispatch";
 import { AssigneeItems, Dispatching } from "./dispatching";
@@ -27,7 +29,8 @@ import { ToggleTerminal } from "./terminal";
 
 /**
  * What a conversation's thread offers beside it: reviewing its task's
- * changes, its terminal, handing its task off to another agent, showing
+ * changes, its terminal, pausing its agent at a checkpoint, handing its
+ * task off to another agent, showing
  * its messages' timestamps, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
  * a Mac) does too; and starting a new conversation with its agent.
  */
@@ -73,6 +76,7 @@ export function useThreadActions(
 					},
 				]
 			: []),
+		...pauseActions(conversation, refused),
 		// Its own task only: one an orchestrator handed it goes back through
 		// that conversation, which the page leaves the person no say in here.
 		...(dispatching !== null &&
@@ -169,4 +173,42 @@ export interface ThreadActions {
 	};
 	/** Starts todo `id` in a new conversation, with `assignee` when on the roster. */
 	startNew: (id: number, assignee: AgentPick | null) => void;
+}
+
+/**
+ * Pause, while its own agent runs, which checkpoints it and leaves it
+ * stopped; while it checkpoints for it, a row saying so in its place.
+ */
+function pauseActions(
+	conversation: ConversationState,
+	refused: Refuse,
+): Action[] {
+	const { id, status, checkpoint, pausing, handedBy, archived } = conversation;
+	if (pausing && checkpoint === "asked") {
+		return [
+			{
+				label: "Pausing…",
+				icon: <Loader2Icon className="animate-spin" />,
+				run: null,
+			},
+		];
+	}
+	if (
+		status !== "running" ||
+		checkpoint !== null ||
+		handedBy !== null ||
+		archived
+	) {
+		return [];
+	}
+	return [
+		{
+			label: "Pause",
+			icon: <PauseIcon />,
+			run: () =>
+				void pauseConversation(id).catch((error: unknown) =>
+					refused("Not paused", error),
+				),
+		},
+	];
 }

@@ -327,14 +327,16 @@ export class Restarts {
 		return heldBy(await this.home.ps.processes(), { shells, agents });
 	}
 
-	// Those at work, or asked already: an idle one has no turn to stop.
+	// Those at work, or asked already: an idle one has no turn to stop. A
+	// pause is the person's, not Power's.
 	private checkpointable(root: string) {
 		return this.conversationsIn(
 			root,
 			(state) =>
-				state.checkpoint !== null ||
-				state.status === "running" ||
-				state.status === "starting",
+				!state.pausing &&
+				(state.checkpoint !== null ||
+					state.status === "running" ||
+					state.status === "starting"),
 		);
 	}
 
@@ -433,7 +435,7 @@ export class Restarts {
 		for (const project of await this.opened()) {
 			const _lanes = await project.lanes();
 			for (const each of (await project.conversations?.list()) ?? []) {
-				if (each.state.checkpoint !== null) {
+				if (each.state.checkpoint !== null && !each.state.pausing) {
 					all.push(each);
 				}
 			}
