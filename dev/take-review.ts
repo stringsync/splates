@@ -16,6 +16,8 @@ export interface Mark {
 	suggested: boolean;
 	/** Whether the edit is in the text now. */
 	on: boolean;
+	/** Whether the mark only points at the words, so there is nothing to flip. */
+	flag: boolean;
 	/** Where the mark sits in the take's cleaned text. */
 	start: number;
 	end: number;
@@ -46,15 +48,17 @@ export class TakeReview {
 				edited: take.text.slice(edit.start, edit.end),
 				suggested: false,
 				on: true,
+				flag: false,
 				start: edit.start,
 				end: edit.end,
 			})),
 			...take.edits.map((edit) => ({
 				kind: edit.type,
 				original: take.text.slice(edit.start, edit.end),
-				edited: replacement(edit),
+				edited: replacement(edit, take.text),
 				suggested: true,
 				on: false,
+				flag: edit.type === "missing",
 				start: edit.start,
 				end: edit.end,
 			})),
@@ -63,11 +67,17 @@ export class TakeReview {
 			.sort((one, other) => one.start - other.start);
 		// Two edits over the same words cannot both show: the first stays.
 		const marks: Mark[] = [];
-		for (const mark of found) {
+		for (const mark of found.filter((each) => !each.flag)) {
 			if (mark.start >= (marks.at(-1)?.end ?? 0)) {
 				marks.push(mark);
 			}
 		}
+		// A flag sits on the words no edit covers, since it spans a whole
+		// sentence that edits may fall in.
+		for (const mark of found.filter((each) => each.flag)) {
+			marks.push(...uncovered(take.text, mark, marks));
+		}
+		marks.sort((one, other) => one.start - other.start);
 		return marks.length === 0
 			? undefined
 			: new TakeReview(take.text, take.said, marks, take.decisions);
@@ -104,7 +114,9 @@ export class TakeReview {
 
 	/** The review with mark `index` flipped. */
 	toggled(index: number): TakeReview {
-		return this.with((mark, at) => (at === index ? !mark.on : mark.on));
+		return this.with((mark, at) =>
+			at === index && !mark.flag ? !mark.on : mark.on,
+		);
 	}
 
 	/** Every edit undone, back to the words as said. */
@@ -119,7 +131,7 @@ export class TakeReview {
 
 	/** Whether every mark is where {@link asCleaned} puts it. */
 	get isCleaned(): boolean {
-		return this.marks.every((mark) => mark.on !== mark.suggested);
+		return this.marks.every((mark) => mark.flag || mark.on !== mark.suggested);
 	}
 
 	/** Whether no edit is in the text. */
@@ -137,7 +149,34 @@ export class TakeReview {
 	}
 }
 
-/** What `edit` would put where its words are. */
-function replacement(edit: DictationEdit): string {
-	return edit.type === "tag" ? `#${edit.system}` : edit.text;
+/** What `edit` would put where its words are, the words themselves for a flag. */
+function replacement(edit: DictationEdit, text: string): string {
+	switch (edit.type) {
+		case "tag":
+			return `#${edit.system}`;
+		case "missing":
+			return text.slice(edit.start, edit.end);
+		default:
+			return edit.text;
+	}
+}
+
+/** The pieces of `flag` that no mark in `marks` covers, each a flag of its own. */
+function uncovered(text: string, flag: Mark, marks: readonly Mark[]): Mark[] {
+	const pieces: Mark[] = [];
+	let from = flag.start;
+	const piece = (start: number, end: number) => {
+		const words = text.slice(start, end);
+		if (words.trim() !== "") {
+			pieces.push({ ...flag, original: words, edited: words, start, end });
+		}
+	};
+	for (const mark of marks.filter(
+		(each) => each.end > flag.start && each.start < flag.end,
+	)) {
+		piece(from, Math.max(from, mark.start));
+		from = Math.max(from, mark.end);
+	}
+	piece(from, Math.max(from, flag.end));
+	return pieces;
 }

@@ -15,6 +15,7 @@ const NAMES: Record<EditKind, string> = {
 	filler: "Filler",
 	tag: "Tag",
 	item: "List",
+	missing: "Missing word",
 };
 
 /**
@@ -128,6 +129,18 @@ function Choice({
  */
 function MarkButton({ mark, onClick }: { mark: Mark; onClick: () => void }) {
 	const name = NAMES[mark.kind];
+	if (mark.flag) {
+		return (
+			<span
+				role="img"
+				aria-label={`${name}: "${mark.original}" seems to be missing a word`}
+				title="Seems to be missing a word"
+				className="underline decoration-amber-600/80 decoration-wavy underline-offset-4 dark:decoration-amber-400/80"
+			>
+				{mark.original}
+			</span>
+		);
+	}
 	return (
 		<button
 			type="button"

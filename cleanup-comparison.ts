@@ -205,6 +205,8 @@ export function describeEdit(text: string, edit: DictationEdit): string {
 			return `tag ${span} as #${edit.system} (${sure})`;
 		case "item":
 			return `split ${span} into a list item (${sure})`;
+		case "missing":
+			return `flag ${span} as missing a word (${sure})`;
 		default:
 			return `${edit.type} ${span} (${sure})`;
 	}

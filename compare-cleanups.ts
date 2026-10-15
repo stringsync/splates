@@ -14,6 +14,7 @@ import {
 	CorrectionDropper,
 	FillerDropper,
 	ListFormatter,
+	MissingWordFlagger,
 } from "webappwiz/dictate";
 import { z } from "zod";
 import {
@@ -87,6 +88,7 @@ for (const [verb, spends] of [
 					clean: (text) => tagSystems(decider, basename(ROOT), systems, text),
 				},
 				lists: new ListFormatter(decider),
+				missing: new MissingWordFlagger(decider),
 			});
 			if (!spends) {
 				const counting = new CountingDecider();

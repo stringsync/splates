@@ -53,4 +53,22 @@ describe("TakeReview", () => {
 	it("is nothing when no edit was made or suggested", () => {
 		expect(TakeReview.of({ ...take, applied: [], edits: [] })).toBeUndefined();
 	});
+
+	it("flags a sentence on the words no edit covers, with nothing to flip", () => {
+		const review = TakeReview.of({
+			...take,
+			edits: [{ type: "missing", start: 0, end: 20, probability: 0.9 }],
+		});
+
+		expect(
+			review?.marks.map((mark) => [mark.kind, mark.flag, mark.original]),
+		).toEqual([
+			["missing", true, "run "],
+			["tag", false, "s cry"],
+			["missing", true, " now, so go"],
+		]);
+		expect(review?.toggled(0).text()).toBe(review?.text());
+		expect(review?.isCleaned).toBe(true);
+		expect(review?.undoneAll().text()).toBe("run s cry now, so go");
+	});
 });

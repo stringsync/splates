@@ -18,7 +18,13 @@ export function isCleanupModel(value: string): value is CleanupModel {
 }
 
 /** The cleanups a dictation runs, named by the edits each makes, in the order they run. */
-export const CLEANUP_KINDS = ["correction", "filler", "tag", "item"] as const;
+export const CLEANUP_KINDS = [
+	"correction",
+	"filler",
+	"tag",
+	"item",
+	"missing",
+] as const;
 
 export function isCleanupKind(value: string): value is EditKind {
 	return (CLEANUP_KINDS as readonly string[]).includes(value);

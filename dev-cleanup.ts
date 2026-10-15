@@ -8,6 +8,7 @@ import {
 	type EditKind,
 	FillerDropper,
 	ListFormatter,
+	MissingWordFlagger,
 } from "webappwiz/dictate";
 import type { Project } from "./dev-project";
 import { RecordingDecider } from "./dev-recording-decider";
@@ -16,7 +17,8 @@ import { SystemTagger } from "./dev-tag-systems";
 /**
  * What tidies a take's final text in `arbor dev`: dropping what its speaker
  * took back, then its filler, so tagging the systems it names and laying
- * out the lists it speaks see only what stays, all deciding with `decider`.
+ * out the lists it speaks see only what stays, and last flagging a sentence
+ * that seems to lack a word, so no cleanup rewrites what it flagged, all deciding with `decider`.
  * The text as heard while that is null, since the Creds page now asks for
  * its creds; one cleanup failing is logged and skipped, and one in `off`
  * never runs. What each asked of the decider goes back with the take.
@@ -57,6 +59,11 @@ export class DevCleanup implements Cleanup {
 				new SystemTagger(this.project, recorded("tag")),
 			],
 			["item", "formatting its lists", new ListFormatter(recorded("item"))],
+			[
+				"missing",
+				"flagging its missing words",
+				new MissingWordFlagger(recorded("missing")),
+			],
 		];
 		const cleaned = await new CleanupSequence(
 			...cleanups

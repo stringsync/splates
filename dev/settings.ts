@@ -49,6 +49,7 @@ export const CLEANUP_SWITCHES = {
 	filler: "dictation.filler",
 	tag: "dictation.tagging",
 	item: "dictation.lists",
+	missing: "dictation.missing",
 } as const satisfies Record<EditKind, keyof typeof SETTINGS>;
 
 /** Every setting, in the order the dialog shows them. */
@@ -113,6 +114,13 @@ export const SETTINGS = {
 		title: "Format lists",
 		description:
 			"Lay out a list you speak (first, then, finally) as a markdown list.",
+		default: true,
+	},
+	"dictation.missing": {
+		category: "Dictation",
+		title: "Flag missing words",
+		description:
+			"Mark a sentence that seems to be missing a word, since transcription loses some. It points at the sentence and changes nothing.",
 		default: true,
 	},
 	"editor.opener": {
