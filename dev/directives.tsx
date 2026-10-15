@@ -68,6 +68,10 @@ function about(
 	if (to !== null) {
 		return { kind: "Hand off to", name: to.slice(1).filter(Boolean).join(" ") };
 	}
+	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
+	if (bare !== undefined) {
+		return { kind: bare.label, name: "" };
+	}
 	switch (kind) {
 		case "TODO": {
 			const id = Number(argument.replace("#", ""));

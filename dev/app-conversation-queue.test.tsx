@@ -104,6 +104,27 @@ describe("App's composer queue", () => {
 		expect(chip.parentElement?.textContent).toBe("then Lane 2 next");
 	});
 
+	it("names a queued directive about no todo, lane or task by its label", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					status: "running",
+					messages: [
+						message("user", "go"),
+						{ ...message("user", "[ARBOR UPDATE]"), queued: true },
+					],
+				}),
+			],
+			"c1",
+		);
+
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(within(queued).getByTitle("[ARBOR UPDATE]").textContent).toBe(
+			"Check in",
+		);
+	});
+
 	it("holds a queued message above the composer, out of the thread, to send now or take back with Up", async () => {
 		const view = await testing.openConversations(
 			[
