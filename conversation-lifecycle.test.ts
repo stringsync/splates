@@ -5,7 +5,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { once, until } from "./conversation-testing";
+import { eventually, once, until } from "./conversation-testing";
 import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
 import { Testing } from "./testing";
@@ -288,6 +288,60 @@ describe("Conversation lifecycle", () => {
 		await conversation.unarchive();
 
 		expect(conversation.state.archived).toBe(false);
+	});
+
+	it("starts one agent at a time, the next once the one before answers", async () => {
+		const { promise: up, resolve: answer } = Promise.withResolvers<void>();
+		agent.hold = up;
+		const one = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		const two = await conversations.start("fake", {
+			task: "signup",
+			cwd: "/repo-arbor/signup",
+		});
+		await eventually(() => agent.launched.length !== 0);
+		await Bun.sleep(5);
+
+		expect(agent.launched).toHaveLength(1);
+		answer();
+		await until(one, "idle");
+		await until(two, "idle");
+		expect(agent.launched).toHaveLength(2);
+	});
+
+	it("starts the next agent once the one before dies starting", async () => {
+		agent.dying = 1;
+		const one = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		const two = await conversations.start("fake", {
+			task: "signup",
+			cwd: "/repo-arbor/signup",
+		});
+
+		await until(one, "failed");
+		await until(two, "idle");
+		expect(agent.launched).toHaveLength(2);
+	});
+
+	it("opens a new session for one whose agent died before opening its own", async () => {
+		agent.dying = 1;
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		await until(conversation, "failed");
+		expect(conversation.sessionId).toBeNull();
+
+		await conversation.prompt("again");
+		await until(conversation, "idle");
+
+		expect(conversation.sessionId).toBe("s1");
+		expect(agent.resumed).toEqual([]);
+		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
 	});
 
 	it("fails with the agent's last words when it dies on its own", async () => {

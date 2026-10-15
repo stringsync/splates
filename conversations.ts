@@ -1,7 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
-import { type Fs, NodeFs } from "webappwiz/system";
+import { type Fs, type Lock, MemoryLock, NodeFs } from "webappwiz/system";
 import {
 	SystemTimer,
 	SystemWallClock,
@@ -81,6 +81,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly fs: Fs;
 	private readonly ids: IdProvider;
 	private readonly run: Launch;
+	private readonly starting: Lock;
 	private readonly timer: Timer;
 	private readonly clock: WallClock;
 	private readonly watch: Watch | null;
@@ -104,6 +105,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ids = opts.ids ?? new UuidProvider();
 		this.run = opts.launch ?? launch;
+		this.starting = opts.starting ?? new MemoryLock();
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemWallClock();
 		this.watch = opts.watch ?? null;
@@ -121,6 +123,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			timer: this.timer,
 			clock: this.clock,
 			launch: this.run,
+			starting: this.starting,
 			url: this.url,
 			watch: this.watch,
 			root: this.root,
@@ -448,6 +451,11 @@ export interface ConversationsOptions {
 	fs?: Fs;
 	ids?: IdProvider;
 	launch?: Launch;
+	/**
+	 * Held while each agent starts, shared by every project's conversations
+	 * so no two start at once; one of their own by default.
+	 */
+	starting?: Lock;
 	timer?: Timer;
 	clock?: WallClock;
 	/** What watches the agents' commands for what they do to git; none by default. */

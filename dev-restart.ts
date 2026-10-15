@@ -443,11 +443,17 @@ export class Restarts {
 	/**
 	 * Tells each agent done with the checkpoint to carry on, which ends its
 	 * checkpoint once said, and forgets the checkpoint of those it missed.
+	 * One whose agent fails to come back keeps its checkpoint, and this run
+	 * goes back to waiting, for the page to offer Resume again.
 	 */
 	private async carryOn(): Promise<void> {
 		for (const conversation of await this.checkpointed()) {
 			if (conversation.state.checkpoint === "done") {
-				void conversation.prompt(RESUME).catch(() => {});
+				void conversation.prompt(RESUME).catch(() => {
+					if (this.restarted === "resuming") {
+						this.restarted = "waiting";
+					}
+				});
 			} else {
 				conversation.dismissCheckpoint();
 			}

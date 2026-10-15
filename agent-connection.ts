@@ -1,4 +1,5 @@
 import * as acp from "@agentclientprotocol/sdk";
+import { Duration } from "webappwiz/time";
 import {
 	ASYNC_TASK_STOP,
 	ASYNC_TASK_UPDATE,
@@ -25,6 +26,9 @@ import {
 import { modelOption } from "./models";
 import { toolIn } from "./tool-calls";
 import type { Watched } from "./watch";
+
+/** How long an agent starting holds up the next before it may start too. */
+const START_WAIT = Duration.secs(30);
 
 /**
  * A conversation's side of ACP: the agent's process and the connection to
@@ -116,6 +120,7 @@ export class AgentConnection {
 	async open(agent: Agent, cwd: string): Promise<void> {
 		const { host } = this;
 		host.set({ status: "starting", error: null });
+		const started = await this.startAlone();
 		try {
 			// The agent's `arbor` finds its conversation, and the server, in its
 			// env, to move the conversation as it takes or lands a task. One
@@ -130,6 +135,7 @@ export class AgentConnection {
 				...(this.deps.url === null ? {} : { ARBOR_DEV: this.deps.url }),
 			});
 			this.process = process;
+			void process.exited.then(started, started);
 			void process.exited.then((code) => {
 				if (this.process === process) {
 					void host.close(
@@ -159,6 +165,7 @@ export class AgentConnection {
 					},
 				},
 			});
+			started();
 			this.steering = steers(initialized);
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
@@ -218,8 +225,29 @@ export class AgentConnection {
 			host.log.write({ kind: "settings", settings: host.state.settings });
 			host.set({ status: "idle" });
 		} catch (error) {
+			started();
 			await host.close(messageOf(error));
 		}
+	}
+
+	/**
+	 * Waits for no other agent to be starting, answering with what lets the
+	 * next one start: once this one's process is up, has died, or has had
+	 * `START_WAIT` to answer, so one that hangs holds up no other for long.
+	 */
+	private async startAlone(): Promise<() => void> {
+		const { starting, timer } = this.deps;
+		await starting.acquire();
+		let held = true;
+		const done = () => {
+			if (held) {
+				held = false;
+				giveUp.dispose();
+				void starting.release();
+			}
+		};
+		const giveUp = timer.setTimeout(done, START_WAIT);
+		return done;
 	}
 
 	/** Says `prompt` to the agent as a turn, settling with what it answered once the turn ends. */

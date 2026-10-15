@@ -1,5 +1,5 @@
 import type { Events } from "webappwiz/events";
-import type { Fs } from "webappwiz/system";
+import type { Fs, Lock } from "webappwiz/system";
 import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch } from "./agent-process";
 import type { ConversationLog } from "./conversation-log";
@@ -28,7 +28,7 @@ export interface ConversationHost {
 	ended(error: string | null): void;
 	/** Ends the agent's process, with `error` for one that failed. */
 	close(error: string | null): Promise<void>;
-	/** Brings a stopped conversation back: a new process, the same session. */
+	/** Brings a stopped conversation back: a new process, the same session or a new one. */
 	resume(): Promise<void>;
 	/** Back on the list, stopped until the next prompt. */
 	unarchive(): Promise<void>;
@@ -44,6 +44,11 @@ export interface ConversationDeps {
 	timer: Timer;
 	clock: WallClock;
 	launch: Launch;
+	/**
+	 * Held while an agent's process starts, until it answers `initialize`:
+	 * agents launched through `bunx` at once race in its install, and most die.
+	 */
+	starting: Lock;
 	/** Where `arbor dev` answers, for the agent's CLI to tell it things. */
 	url: string | null;
 	/** What watches the agent's commands; null to leave them be. */

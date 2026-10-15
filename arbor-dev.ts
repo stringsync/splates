@@ -1,3 +1,4 @@
+import { MemoryLock } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
 import type { ArborDeps } from "./arbor";
@@ -106,6 +107,8 @@ export async function serveDev(
 		ctx.fs,
 		new Outcomes(`${arborHome(ctx.ps)}/outcomes.jsonl`, ctx.fs),
 	);
+	// One for every project, so agents resumed together start one at a time.
+	const starting = new MemoryLock();
 	return dev(ctx, {
 		ports: devPorts(opts.port),
 		hosts: opts["allow-hosts"]
@@ -117,6 +120,7 @@ export async function serveDev(
 		conversations: ({ arborDir, git }) =>
 			new Conversations(`${arborDir}/conversations`, roster, {
 				fs: ctx.fs,
+				starting,
 				offered,
 				limits,
 				adherence,

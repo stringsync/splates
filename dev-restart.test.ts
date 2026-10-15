@@ -408,4 +408,68 @@ describe("dev restart", () => {
 			await restarted.disposeAsync();
 		}
 	});
+
+	it("goes back to waiting when an agent fails to come back, keeping its checkpoint for Resume to try again", async () => {
+		const said: string[] = [];
+		agent.turn = async (_, __, text) => {
+			said.push(text);
+			return "end_turn";
+		};
+		const exits: number[] = [];
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+			exit: (code) => exits.push(code),
+		});
+		try {
+			const { port } = server;
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+			});
+			const { id } = (await started.json()) as { id: string };
+			const conversation = await conversations.find(id);
+			await eventually(() => conversation.state.status === "idle", 5);
+			await atWork(agent, conversation);
+
+			await json(port, "/api/checkpoint", "POST", {
+				projects: ["repo"],
+				after: "resume",
+			});
+
+			await eventually(() => exits.length !== 0, 5);
+			expect(exits).toEqual([RESTART]);
+		} finally {
+			await server.disposeAsync();
+		}
+
+		agent.dying = 1;
+		const again = new Conversations(`${deps.arborDir}/conversations`, [AGENT], {
+			launch: agent.launch,
+		});
+		const restarted = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => again,
+		});
+		const listed = async () =>
+			(await (
+				await fetch(`http://127.0.0.1:${restarted.port}/api/projects`)
+			).json()) as { restarted: string | null };
+		try {
+			const [conversation] = await again.list();
+			await eventually(async () => (await listed()).restarted === "waiting", 5);
+			expect((await listed()).restarted).toBe("waiting");
+			expect(conversation?.state).toMatchObject({
+				status: "failed",
+				checkpoint: "done",
+			});
+
+			await json(restarted.port, "/api/checkpoint/resume", "POST");
+
+			await eventually(() => said.length >= 2, 5);
+			expect(said).toEqual([CHECKPOINT, RESUME]);
+			expect(conversation?.state.checkpoint).toBeNull();
+		} finally {
+			await restarted.disposeAsync();
+		}
+	});
 });

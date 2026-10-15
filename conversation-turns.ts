@@ -75,14 +75,6 @@ export class ConversationTurns {
 		// steered in, it would join that message rather than follow it.
 		const waited = host.opening !== null;
 		await host.opening;
-		// Said after a checkpoint ended, the work goes on past it.
-		if (
-			words !== CHECKPOINT &&
-			state.checkpoint !== null &&
-			state.checkpoint !== "asked"
-		) {
-			this.mark(null);
-		}
 		if (
 			(state.status !== "idle" && state.status !== "running") ||
 			!connection.connected
@@ -92,6 +84,15 @@ export class ConversationTurns {
 				`conversation ${state.id} is ${state.status}: wait for the agent, or cancel its turn`,
 				{ conversation: state.id },
 			);
+		}
+		// Said after a checkpoint ended, the work goes on past it; one that
+		// failed to come back keeps it, for the next resume to try again.
+		if (
+			words !== CHECKPOINT &&
+			state.checkpoint !== null &&
+			state.checkpoint !== "asked"
+		) {
+			this.mark(null);
 		}
 		const kept = await this.files.keep(files, connection.sees);
 		if (state.status === "running") {

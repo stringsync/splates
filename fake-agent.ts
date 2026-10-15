@@ -20,38 +20,6 @@ export const ROSTERED: RosterAgent = {
 	],
 };
 
-const OPTIONS: acp.SessionConfigOption[] = [
-	{
-		id: "mode",
-		name: "Mode",
-		category: "mode",
-		type: "select",
-		currentValue: "ask",
-		options: [
-			{ value: "ask", name: "Ask" },
-			{ value: "auto", name: "Auto" },
-		],
-	},
-	{
-		id: "model",
-		name: "Model",
-		category: "model",
-		type: "select",
-		currentValue: "big",
-		options: [
-			{ value: "big", name: "Big" },
-			{ value: "small", name: "Small", description: "Fast" },
-		],
-	},
-	{
-		id: "fast",
-		name: "Fast mode",
-		category: "model_config",
-		type: "boolean",
-		currentValue: false,
-	},
-];
-
 /**
  * An ACP agent in this process, joined to the conversation by two pipes in
  * place of a child's stdio, and played by `turn`.
@@ -90,6 +58,10 @@ export class FakeAgent {
 	/** The settings set, in order. */
 	chosen: { configId: string; value: unknown }[] = [];
 	private options = structuredClone(OPTIONS);
+	/** What each start's `initialize` waits on; null, the default, answers at once. */
+	hold: Promise<void> | null = null;
+	/** How many starts to come die before answering `initialize`. */
+	dying = 0;
 	launched: { argv: string[]; cwd: string; env: Record<string, string> }[] = [];
 	killed = 0;
 	/** The pid each process it launches says it has. */
@@ -139,6 +111,11 @@ export class FakeAgent {
 		this.client = client;
 		return {
 			initialize: async ({ clientCapabilities }) => {
+				if (this.dying > 0) {
+					this.dying--;
+					throw new Error("ACP connection closed");
+				}
+				await this.hold;
 				this.capabilities = clientCapabilities ?? null;
 				return {
 					protocolVersion: acp.PROTOCOL_VERSION,
@@ -299,3 +276,36 @@ export function backgroundWrites(
 		outputFilePath: output,
 	} as unknown as acp.SessionUpdate;
 }
+
+/** The settings each session offers, as Claude's adapter does. */
+const OPTIONS: acp.SessionConfigOption[] = [
+	{
+		id: "mode",
+		name: "Mode",
+		category: "mode",
+		type: "select",
+		currentValue: "ask",
+		options: [
+			{ value: "ask", name: "Ask" },
+			{ value: "auto", name: "Auto" },
+		],
+	},
+	{
+		id: "model",
+		name: "Model",
+		category: "model",
+		type: "select",
+		currentValue: "big",
+		options: [
+			{ value: "big", name: "Big" },
+			{ value: "small", name: "Small", description: "Fast" },
+		],
+	},
+	{
+		id: "fast",
+		name: "Fast mode",
+		category: "model_config",
+		type: "boolean",
+		currentValue: false,
+	},
+];

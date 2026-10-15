@@ -333,14 +333,17 @@ export class Conversation
 		this.set({ settings });
 	}
 
-	/** Brings a stopped conversation back: a new process, the same session. */
+	/**
+	 * Brings a stopped conversation back: a new process, the same session, or
+	 * a new one when its agent died before opening one.
+	 */
 	async resume(): Promise<void> {
 		if (this.state.archived) {
 			fail("usage", `conversation ${this.id} is archived: unarchive it first`, {
 				conversation: this.id,
 			});
 		}
-		if (this.agent === null || this.dir === null || this.sessionId === null) {
+		if (this.agent === null || this.dir === null) {
 			fail(
 				"usage",
 				`conversation ${this.id} cannot resume: its log predates resuming`,
