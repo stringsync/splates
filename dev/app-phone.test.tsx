@@ -399,6 +399,78 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("keeps its drawer's header to one line, leaving out the project's path", async () => {
+		const view = await testing.openConversations([], null, {
+			path: "/work/demo-repo",
+		});
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		const drawer = await waitFor(() =>
+			view.getByRole("dialog", { name: "Pages" }),
+		);
+
+		expect(drawer.textContent).not.toContain("/work/demo-repo");
+	});
+
+	it("heads a conversation with its name alone, its task's branch atop its widgets", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
+			"c1",
+			{ tasks: [details({ task: "alpha" })] },
+		);
+		expect(view.queryByRole("img", { name: "branch" })).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "Show widgets" }),
+				),
+			),
+		);
+		const actions = view.getByRole("navigation", { name: "actions" });
+		await act(async () =>
+			fireEvent.click(
+				within(actions).getByRole("button", { name: "task/alpha" }),
+			),
+		);
+
+		expect(
+			await waitFor(() => view.getByRole("dialog", { name: "alpha" })),
+		).toBeDefined();
+	});
+
+	it("takes up a task from atop a main-tree conversation's widgets", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Look around" })],
+			"c1",
+			{ tasks: [details({ task: "beta", status: "escalated" })] },
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "Show widgets" }),
+				),
+			),
+		);
+		const actions = view.getByRole("navigation", { name: "actions" });
+		await act(async () =>
+			fireEvent.click(within(actions).getByRole("button", { name: /main/ })),
+		);
+
+		expect(
+			(await waitFor(() => view.getAllByRole("menuitem"))).map(
+				(each) => each.textContent,
+			),
+		).toContain("beta");
+	});
+
 	it("starts a new conversation with the same agent from a conversation's menu", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Broke", agent: "codex" }),

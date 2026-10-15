@@ -1,13 +1,14 @@
+import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
 import { type JSX, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
-import { WidgetsButton } from "./actions";
+import { type Action, WidgetsButton } from "./actions";
 import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useHandedOutBy } from "./handed-out";
 import type { Refuse } from "./refusal";
-import { TakeUp } from "./take-up";
+import { TakeUp, TakeUpItems } from "./take-up";
 import { TaskLine } from "./task-view";
 
 /**
@@ -94,7 +95,7 @@ export function ThreadHeader({
  * The line under a conversation's name: the task it runs in, or in the main
  * tree, one it can take up.
  */
-export function Where({
+function Where({
 	conversation,
 	task,
 	free,
@@ -116,4 +117,46 @@ export function Where({
 	) : (
 		<TaskLine branch={branch} task={task} onDetails={onDetails} />
 	);
+}
+
+/**
+ * `Where` as the first row of a phone's widgets, whose header keeps to the
+ * conversation's name: its task's branch, opening the task's details, or in
+ * the main tree, a menu of what it can take up.
+ */
+export function useWhereAction({
+	conversation,
+	task,
+	free,
+	trunk,
+	onTake,
+	onDetails,
+}: {
+	conversation: ConversationState;
+	task: Details | null;
+	free: Details[];
+	trunk: string;
+	onTake: (text: string) => void;
+	onDetails: () => void;
+}): Action | null {
+	const handedOut = useHandedOutBy(conversation) !== null;
+	if (conversation.task === null && !conversation.archived && !handedOut) {
+		return {
+			label: trunk,
+			icon: <GitBranchIcon />,
+			detail: <ChevronDownIcon className="size-4" />,
+			run: null,
+			menu: <TakeUpItems tasks={free} onTake={onTake} />,
+			menuClassName: "max-h-80 w-80 overflow-y-auto",
+		};
+	}
+	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
+	if (branch === null) {
+		return null;
+	}
+	return {
+		label: branch,
+		icon: <GitBranchIcon />,
+		run: task === null ? null : onDetails,
+	};
 }

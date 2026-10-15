@@ -47,7 +47,7 @@ import { SystemsCard } from "./systems";
 import { toWaiting, useArrived } from "./task-view";
 import { Task } from "./tasks";
 import { useThreadActions } from "./thread-actions";
-import { ThreadHeader, Where } from "./thread-header";
+import { ThreadHeader, useWhereAction } from "./thread-header";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { ContextMeter } from "./usage";
@@ -142,6 +142,14 @@ export function Thread({
 		onOpen,
 	);
 	const [details, setDetails] = useState(false);
+	const where = useWhereAction({
+		conversation,
+		task,
+		free,
+		trunk,
+		onTake: (text) => void send(text, []).catch(() => {}),
+		onDetails: () => setDetails(true),
+	});
 	// The newest card it waits on you through, which also focuses it. A phone
 	// opens its questions and review in a sheet instead, and shows a live ask
 	// at the foot of the thread it opens at, keeping the keyboard down.
@@ -226,16 +234,6 @@ export function Thread({
 			) : (
 				<PhoneThreadHeader
 					conversation={conversation}
-					where={
-						<Where
-							conversation={conversation}
-							task={task}
-							free={free}
-							trunk={trunk}
-							onTake={(text) => void send(text, []).catch(() => {})}
-							onDetails={() => setDetails(true)}
-						/>
-					}
 					next={
 						<NextWaiting
 							feed={feed}
@@ -401,7 +399,11 @@ export function Thread({
 								roomy={widgets.roomy}
 								open={widgets.open}
 								onClose={widgets.close}
-								actions={actions}
+								actions={
+									onBack !== null && where !== null
+										? [where, ...actions]
+										: actions
+								}
 								background={
 									<BackgroundRow
 										conversation={id}

@@ -9,8 +9,9 @@ import { ProjectSwitcher } from "./projects";
 /**
  * Heads the sidebar when there is one, and the page on a phone: the project
  * switcher, a badge when the server is outdated, unbuilt or offline, or the
- * machine is strained, the page menu, the project's path, or in its place
- * how a restart goes, and why a checkpoint could not start.
+ * machine is strained, the page menu, the project's path beside a sidebar,
+ * or in its place how a restart goes, and why a checkpoint could not start.
+ * A phone keeps to the one line, as every bar atop it does.
  */
 export function AppHeader({
 	name,
@@ -128,6 +129,7 @@ export function AppHeader({
 			{!offline && badge !== null ? (
 				<PowerBadge />
 			) : (
+				wide &&
 				snapshot && (
 					<span className="truncate text-muted-foreground text-xs">
 						{snapshot.path}

@@ -111,13 +111,28 @@ export function TaskView({
 							aria-label="external agent"
 							className="size-3.5 shrink-0 text-foreground/70"
 						/>
-						<span className="truncate">{task.task}</span>
+						{/* A phone keeps its header to one line: the name opens
+						    what the branch line would. */}
+						{onBack === null ? (
+							<span className="truncate">{task.task}</span>
+						) : (
+							<button
+								type="button"
+								aria-label={`About ${task.task}`}
+								onClick={() => setDetails(true)}
+								className="truncate rounded-sm text-left"
+							>
+								{task.task}
+							</button>
+						)}
 					</h2>
-					<TaskLine
-						branch={task.branch}
-						task={task}
-						onDetails={() => setDetails(true)}
-					/>
+					{onBack === null && (
+						<TaskLine
+							branch={task.branch}
+							task={task}
+							onDetails={() => setDetails(true)}
+						/>
+					)}
 				</div>
 				<SystemsButton systems={task.systems} />
 			</header>

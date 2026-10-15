@@ -34,6 +34,8 @@ export interface Action {
 	run: (() => void) | null;
 	/** The items of a menu the row opens in place of running anything. */
 	menu?: ReactNode;
+	/** Sizes `menu`, for items wider or more than the usual few. */
+	menuClassName?: string;
 }
 
 /**
@@ -279,10 +281,13 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 					render={<button type="button" className={button} />}
 				>
 					{action.icon}
-					<span className="flex-1">{action.label}</span>
+					<span className="min-w-0 flex-1 truncate">{action.label}</span>
 					{detail}
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-52">
+				<DropdownMenuContent
+					align="end"
+					className={action.menuClassName ?? "w-52"}
+				>
 					{action.menu}
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -291,13 +296,13 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 	return action.run === null ? (
 		<p className={cn(row, "text-muted-foreground")}>
 			{action.icon}
-			<span className="flex-1">{action.label}</span>
+			<span className="min-w-0 flex-1 truncate">{action.label}</span>
 			{detail}
 		</p>
 	) : (
 		<button type="button" onClick={action.run} className={button}>
 			{action.icon}
-			<span className="flex-1">{action.label}</span>
+			<span className="min-w-0 flex-1 truncate">{action.label}</span>
 			{detail}
 		</button>
 	);

@@ -27,13 +27,12 @@ import { IconButton } from "./phone-inbox";
 import { arriveAt, useCopiedReplies } from "./task-view";
 
 /**
- * A conversation's header on a phone: back to the inbox, its name over where
- * it runs, what else waits on you, then a menu for the rest, so it stays
- * calm with each a fingertip.
+ * A conversation's header on a phone: back to the inbox, its name on one
+ * line, what else waits on you, then a menu for the rest, so it stays calm
+ * with each a fingertip. Where it runs is the first of its widgets.
  */
 export function PhoneThreadHeader({
 	conversation,
-	where,
 	next,
 	widgets,
 	busy,
@@ -41,8 +40,6 @@ export function PhoneThreadHeader({
 	onNew,
 }: {
 	conversation: ConversationState;
-	/** The line under its name: its task, or one it can take up. */
-	where: ReactNode;
 	/** On to the next agent waiting on you. */
 	next: ReactNode;
 	/** Its widgets, which the menu shows or hides. */
@@ -59,17 +56,14 @@ export function PhoneThreadHeader({
 			<IconButton label="Back to conversations" onClick={onBack}>
 				<ChevronLeftIcon />
 			</IconButton>
-			<div className="flex min-w-0 flex-1 flex-col">
-				<h2
-					className={cn(
-						"truncate font-semibold text-base leading-tight",
-						unnamed(conversation) && "text-muted-foreground italic",
-					)}
-				>
-					{nameOf(conversation)}
-				</h2>
-				{where}
-			</div>
+			<h2
+				className={cn(
+					"min-w-0 flex-1 truncate font-semibold text-base leading-tight",
+					unnamed(conversation) && "text-muted-foreground italic",
+				)}
+			>
+				{nameOf(conversation)}
+			</h2>
 			{next}
 			<DropdownMenu>
 				<DropdownMenuTrigger
