@@ -1,6 +1,6 @@
 import "../../../setup";
 import { describe, expect, it } from "bun:test";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, within } from "@testing-library/react";
 import { Annotate } from "./annotate";
 import { Annotation } from "./annotation";
 
@@ -33,29 +33,23 @@ describe("Annotate", () => {
 		const { done, board } = opened();
 
 		fireEvent.click(board);
-		const canvas = board.querySelector("canvas");
-		const stage = canvas?.parentElement?.parentElement;
-		if (!stage) {
-			throw new Error("no space around the image");
-		}
-		fireEvent.click(stage);
 
-		expect(done()).toBe(2);
+		expect(done()).toBe(1);
 	});
 
-	it("stays open on a click on the image or its tools", () => {
+	it("is done on its close button", () => {
 		const { done, board } = opened();
 
-		const canvas = board.querySelector("canvas");
-		if (!canvas) {
-			throw new Error("no image");
-		}
-		fireEvent.click(canvas);
-		const fieldset = board.querySelector("fieldset");
-		if (!fieldset) {
-			throw new Error("no tools");
-		}
-		fireEvent.click(fieldset);
+		fireEvent.click(within(board).getByRole("button", { name: "close" }));
+
+		expect(done()).toBe(1);
+	});
+
+	it("stays open on a click in the frame around the image or on its tools", () => {
+		const { done, board } = opened();
+
+		fireEvent.click(within(board).getByLabelText(/^shot\.png, with/));
+		fireEvent.click(within(board).getByRole("group", { name: "tool" }));
 
 		expect(done()).toBe(0);
 	});

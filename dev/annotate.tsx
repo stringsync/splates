@@ -49,10 +49,10 @@ export function useAnnotate(finalFocus?: RefObject<HTMLElement | null>): {
 /**
  * The image at the size of the window, to mark up: a drag draws a box or an
  * arrow, picked with R and A, a click drops a pin, and each mark takes a
- * note. Marks may go past the image onto the dimmed space around it, which
- * the image sent grows to take in. Done, the close button, a click on the
- * margin around that space or Escape keeps what is drawn; Escape with a note
- * open closes only the note.
+ * note. Marks may go past the image into a framed margin around it, which
+ * the image sent grows to take in. Done, the close button, a click past that
+ * frame or Escape keeps what is drawn; Escape with a note open closes only
+ * the note.
  */
 export function Annotate({
 	annotation,
