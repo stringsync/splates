@@ -1,3 +1,4 @@
+import { isCleanupModel } from "./cleanup-models";
 import { DictationConnection } from "./dev-dictation-connection";
 import { type HostGate, refuse } from "./dev-http";
 import type { Served } from "./dev-project";
@@ -34,7 +35,12 @@ export class Dictations {
 					);
 				}
 				const project = await this.projects.projectFor(request);
-				const data = new DictationConnection(project.transcriber());
+				// The page names the model its Settings picked for the cleanups.
+				const model = new URL(request.url).searchParams.get("model") ?? "";
+				const data = new DictationConnection(
+					project.transcriber(),
+					project.cleanup(isCleanupModel(model) ? model : undefined),
+				);
 				// Bun answers an upgrade itself, so there is nothing to return.
 				return server.upgrade(request, { data })
 					? undefined

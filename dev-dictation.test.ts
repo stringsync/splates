@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { FakeDecider } from "webappwiz/decide/testing";
 import type { DictationMessage } from "webappwiz/dictate";
 import { FakeTranscriber } from "webappwiz/dictate/testing";
 import { OpenPortProvider } from "webappwiz/system";
+import type { CleanupModel } from "./cleanup-models";
 import { dev } from "./dev";
 import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
 import { Testing } from "./testing";
@@ -9,10 +11,15 @@ import { Testing } from "./testing";
 describe("dev dictation", () => {
 	let deps: Testing;
 	let transcriber: FakeTranscriber;
+	let decider: FakeDecider;
+	/** The model each take's cleanup asked to decide with. */
+	let models: (CleanupModel | undefined)[];
 
 	beforeEach(async () => {
 		deps = await Testing.open();
 		transcriber = new FakeTranscriber();
+		decider = new FakeDecider();
+		models = [];
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -24,6 +31,10 @@ describe("dev dictation", () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			transcriber: transcribe,
+			decider: async (_project, model) => {
+				models.push(model);
+				return decider;
+			},
 		});
 		try {
 			await body(server.port);
@@ -33,14 +44,14 @@ describe("dev dictation", () => {
 	};
 
 	/** A dictation open as the page opens one, with all it has said. */
-	const dictation = async (port: number) => {
+	const dictation = async (port: number, query = "") => {
 		// Bun's client sends no Origin of its own. The DOM's type for the
 		// constructor does not know Bun takes options here.
 		const options: Bun.WebSocketOptions = {
 			headers: { origin: `http://127.0.0.1:${port}` },
 		};
 		const socket = new WebSocket(
-			`ws://127.0.0.1:${port}/api/dictation`,
+			`ws://127.0.0.1:${port}/api/dictation${query}`,
 			options as string[],
 		);
 		const said: DictationMessage[] = [];
@@ -75,8 +86,38 @@ describe("dev dictation", () => {
 			expect(await ended()).toEqual([
 				{ type: "heard", text: "heard: one " },
 				{ type: "heard", text: "heard: one two" },
-				{ type: "done", text: "heard: one two" },
+				{ type: "done", text: "heard: one two", edits: [] },
 			]);
+		});
+	});
+
+	it("tags the systems the final text names, on the model the page picked", async () => {
+		await deps.commit(
+			deps.service.git.root,
+			"arbor.systems.ts",
+			`export default ${JSON.stringify({ scry: { globs: ["scry/**"] } })};\n`,
+			"name the systems",
+		);
+		decider.answers = {
+			"refers:scry": { type: "noul", noul: 0.99 },
+			"span:0": {
+				type: "choice",
+				choice: "scry",
+				probabilities: { scry: 0.99, none: 0.01 },
+				confidence: 1,
+			},
+		};
+		await opened(async (port) => {
+			const { socket, ended } = await dictation(port, "?model=jev-latest");
+			socket.send(new TextEncoder().encode("run scry"));
+			socket.send("finish");
+
+			expect((await ended()).at(-1)).toEqual({
+				type: "done",
+				text: "heard: run #scry",
+				edits: [],
+			});
+			expect(models).toEqual(["jev-latest"]);
 		});
 	});
 

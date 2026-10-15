@@ -58,7 +58,7 @@ const dictation =
 	typeof AudioWorkletNode !== "undefined"
 		? new Dictation(new BrowserMicrophone(), () =>
 				DictationSocket.open(
-					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped("/api/dictation")}`,
+					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped(`/api/dictation?${new URLSearchParams({ model: settings.get("dictation.cleanupModel") })}`)}`,
 				),
 			)
 		: null;
