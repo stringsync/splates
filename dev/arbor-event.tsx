@@ -115,6 +115,8 @@ export interface ArborEventView {
 	 * no time to show.
 	 */
 	at?: string | null;
+	/** What the line stands for, in full, on hover: a directive's text. */
+	title?: string;
 	/** A wait it counts down in its action's place, when it has one. */
 	deadline?: Deadline | null;
 	/** The one thing the person can do about it, when there is one. */
@@ -161,7 +163,10 @@ function Line({
 	const { mark = null, act = null } = event;
 	const stamped = useStamps().shown;
 	return (
-		<p className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap">
+		<p
+			title={event.title}
+			className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap"
+		>
 			{mark === "failed" && (
 				<XIcon
 					aria-label="Failed"

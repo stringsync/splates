@@ -190,7 +190,9 @@ export function DirectiveLine({
 	const dispatch = useContext(Dispatching)?.dispatch;
 	const board = useContext(Board);
 	const words = wordsOf(directive, board, (agent) => dispatch?.pickName(agent));
-	return words === null ? null : <ArborEvent event={{ words, at }} />;
+	return words === null ? null : (
+		<ArborEvent event={{ words, at, title: directive }} />
+	);
 }
 
 /**

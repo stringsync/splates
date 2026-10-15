@@ -421,7 +421,7 @@ describe("App's review panel and demo cards", () => {
 			within(panel).getByRole("button", { name: /Ready to merge/ }).textContent,
 		).toContain("Merge approved");
 		expect(view.getByRole("note", { name: "arbor" }).textContent).toBe("Merge");
-		expect(view.queryByTitle("[ARBOR MERGE]")).toBeNull();
+		expect(view.getByTitle("[ARBOR MERGE]").tagName).toBe("P");
 	});
 
 	it("folds once the person has replied, opening on the reply that was sent, whatever is typed after", async () => {

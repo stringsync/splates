@@ -399,7 +399,7 @@ describe("App's report cards", () => {
 		expect(lines[0]?.closest('[data-role="user"]')?.className).not.toContain(
 			"sticky",
 		);
-		expect(view.queryByTitle("[ARBOR CHECKPOINT]")).toBeNull();
+		expect(lines[0]?.querySelector("p")?.title).toBe("[ARBOR CHECKPOINT]");
 	});
 
 	it("shows a message of a todo, lane, or task alone as a line with its chip, opening the todo", async () => {
