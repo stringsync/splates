@@ -36,6 +36,9 @@ even mid-task, and again in a later session:
   todos.
 - Before offering to name a system, or writing `arbor.systems.ts`:
   [references/systems.md](references/systems.md).
+- Before squashing for `arbor merge`:
+  [references/assumptions.md](references/assumptions.md), checking your
+  calls against the assumptions recorded for the systems you touched.
 
 ## Workflow
 
@@ -78,8 +81,10 @@ even mid-task, and again in a later session:
    `## Blocked` is checked, the task is ready to merge, whatever stands
    under `## Assumptions`: `arbor todo add`
    any step you will not do, then check it off. Groom again, release each
-   todo you only partly did (see Todos), squash to one commit (see
-   Committing), and `arbor merge`, or ask for a review first (see Merge or
+   todo you only partly did (see Todos), check the assumptions of the
+   systems you touched (see
+   [references/assumptions.md](references/assumptions.md)), squash to one
+   commit (see Committing), and `arbor merge`, or ask for a review first (see Merge or
    review). On failure, do what stderr says and merge again. A successful
    merge deletes your worktree: `cd` to the main tree it prints before
    running anything else.
@@ -241,7 +246,9 @@ The 📝 belongs to the heading: leave it out of `arbor todo add` and
 A repo can name parts of its code as systems in `arbor.systems.ts`, each a
 name keying its aliases, its globs, and globs to `ignore`. `arbor systems`
 prints them, `arbor systems <name>` one by its name or an alias, and
-`arbor systems --task <task>` those a task's changed files fall in. Read them
+`arbor systems --task <task>` those a task's changed files fall in. Each
+system's assumptions, and the later decisions that went against them, are in
+`.arbor/assumptions/<system>.md`. Read them
 when you need them, never up front. Wherever a system covers what you mean,
 call it by its name in Goals, todos, questions and reports, so the user and
 every agent use one word for one part of the code. A prompt from the
