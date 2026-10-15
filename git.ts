@@ -215,19 +215,30 @@ export class Git {
 		if (worktree === null) {
 			return { text: stdout, uncommitted: [] };
 		}
-		const edited = lines(
-			await this.out(worktree, "diff", "--name-only", "HEAD"),
+		// A merge or remove can take the worktree away mid-read, which reads as
+		// no worktree at all rather than an error.
+		const edited = await this.run(worktree, "diff", "--name-only", "HEAD");
+		const untracked = await this.run(
+			worktree,
+			"ls-files",
+			"--others",
+			"--exclude-standard",
 		);
-		const untracked = lines(
-			await this.out(worktree, "ls-files", "--others", "--exclude-standard"),
-		);
+		if (edited.code !== 0 || untracked.code !== 0) {
+			return null;
+		}
 		let text = stdout;
-		for (const path of untracked) {
+		for (const path of lines(untracked.stdout)) {
 			// Exits 1 because the two differ, which is the point.
 			const added = await raw(worktree, "--no-index", "--", "/dev/null", path);
 			text += added.stdout;
 		}
-		return { text, uncommitted: [...new Set([...edited, ...untracked])] };
+		return {
+			text,
+			uncommitted: [
+				...new Set([...lines(edited.stdout), ...lines(untracked.stdout)]),
+			],
+		};
 	}
 
 	/**

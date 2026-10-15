@@ -52,5 +52,7 @@ describe("Git", () => {
 		expect(all?.text).toContain("+fresh\n");
 		expect(all?.uncommitted).toEqual(["a.txt", "new.txt"]);
 		expect(await env.git.diff("main", "gone", null)).toBeNull();
+		await env.gitCli(env.root, "worktree", "remove", "--force", tree);
+		expect(await env.git.diff("main", "feature", tree)).toBeNull();
 	});
 });

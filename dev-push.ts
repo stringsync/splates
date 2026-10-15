@@ -141,9 +141,17 @@ export class Pushes {
 	 * lets it pass.
 	 */
 	look(): Promise<void> {
-		this.looking ??= this.lookOnce().finally(() => {
-			this.looking = null;
-		});
+		this.looking ??= this.lookOnce()
+			.catch((error) => {
+				// The next look tries again; one that throws must not take the
+				// server down with it.
+				this.deps.log.error(
+					`arbor dev could not look for notices: ${String(error)}`,
+				);
+			})
+			.finally(() => {
+				this.looking = null;
+			});
 		return this.looking;
 	}
 
