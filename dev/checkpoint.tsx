@@ -1,3 +1,4 @@
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
 import {
 	createContext,
@@ -15,6 +16,7 @@ import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
 import { DropdownMenuItem } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
+import type { AutoRestart } from "./auto-restart";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
 import {
 	plural,
@@ -63,13 +65,16 @@ export function useCheckpoint(): Checkpointing {
  * project's, change, and every `every`, a second by default, while a
  * checkpoint or restart is under way or the dialog is open. Holds the
  * Restart slide for `restartShown` at least, three seconds by default, even
- * once `arbor dev` is back, then reloads the page.
+ * once `arbor dev` is back, then reloads the page. Shows `autoRestart`'s
+ * countdown too, opening for it, and its restart as its own, and holds it off
+ * while open.
  */
 export function CheckpointProvider({
 	conversations,
 	every = EVERY,
 	restartShown = RESTART_SHOWN,
 	reload = () => location.reload(),
+	autoRestart,
 	children,
 }: {
 	conversations: ConversationState[];
@@ -77,10 +82,21 @@ export function CheckpointProvider({
 	restartShown?: Duration;
 	/** Reloads the page, once a restart asked to is back. */
 	reload?: () => void;
+	autoRestart: AutoRestart;
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
 	const [open, setOpen] = useState(false);
+	useDisposerEffect(
+		(disposer) => disposer.use(autoRestart.start()),
+		[autoRestart],
+	);
+	const { auto } = useReactive(
+		autoRestart,
+		(autoRestart) => ({ auto: autoRestart.state }),
+		["changed"],
+	);
+	useEffect(() => autoRestart.hold(open), [autoRestart, open]);
 	// Back from a restart's reload, for the header to say so for a while.
 	const [fresh, setFresh] = useState(
 		() => sessionStorage.getItem(RESTARTED) !== null,
@@ -101,6 +117,13 @@ export function CheckpointProvider({
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	const [restarting, setRestarting] = useState<Restarting | null>(null);
+	// Gone to restart on its own, the restart is Power's to see through.
+	useEffect(() => {
+		if (auto.step === "restarting") {
+			setRestarting({ run: auto.run, resume: false, shutdown: false });
+			setOpen(true);
+		}
+	}, [auto]);
 	// The arbor a restart with no agent to resume came back on, while it says
 	// so.
 	const [back, setBack] = useState<string | null>(null);
@@ -178,7 +201,9 @@ export function CheckpointProvider({
 							? "restarted"
 							: listed?.restarted === "resuming"
 								? "resuming"
-								: live;
+								: live === "pick" && auto.step === "counting"
+									? "counting"
+									: live;
 	useEffect(() => {
 		if (listed === null) {
 			return;
@@ -297,11 +322,14 @@ export function CheckpointProvider({
 		<Checkpointing.Provider value={value}>
 			{children}
 			<CheckpointDialog
-				open={open}
+				open={open || slide === "counting"}
 				checkpoint={checkpoint}
 				onCheckpoint={setCheckpoint}
 				onClose={() => {
 					setOpen(false);
+					if (slide === "counting") {
+						autoRestart.cancel();
+					}
 					// Seen, so the button is free for the next one.
 					if (slide === "ended") {
 						setEnded(null);
@@ -333,6 +361,11 @@ export function CheckpointProvider({
 				current={listed?.projects ?? []}
 				restartable={listed?.restartable ?? false}
 				held={listed?.held ?? []}
+				countdown={
+					auto.step === "counting" ? { left: auto.left, onto: auto.onto } : null
+				}
+				onCancel={() => autoRestart.cancel()}
+				onRestartNow={() => void autoRestart.restartNow()}
 				onChange={load}
 			/>
 		</Checkpointing.Provider>
@@ -362,7 +395,7 @@ export function CheckpointItem({
 			slide === "resuming" ||
 			slide === "shuttingDown" ? (
 				<Loader2Icon className="animate-spin" />
-			) : slide === "pick" ? (
+			) : slide === "pick" || slide === "counting" ? (
 				<span className="relative flex">
 					<PowerIcon />
 					{update !== null && <UpdateDot ring="ring-popover" />}

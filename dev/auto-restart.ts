@@ -1,11 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import {
-	type Clock,
-	Duration,
-	type Timer,
-	type WallClock,
-} from "webappwiz/time";
+import { type Clock, Duration, type Timer } from "webappwiz/time";
 import type { Projects } from "./project-api";
 import { ontoOf } from "./release";
 import type { Settings } from "./settings";
@@ -13,16 +8,15 @@ import type { Settings } from "./settings";
 export type AutoRestartEvents = { changed: undefined };
 
 /**
- * Where an auto restart stands, as its dialog shows it: nothing to show,
- * counting down to one, waiting on `arbor dev` to come back, or back from
- * one, `at` epoch ms. `onto` names what the restart brings: a commit, or
- * `arbor 1.2.3`.
+ * Where an auto restart stands, as Power shows it: nothing to show, counting
+ * down to one, or gone to restart the `run` of `arbor dev` listed last, which
+ * Power then sees through. `onto` names what the restart brings: a commit,
+ * or `arbor 1.2.3`.
  */
 export type AutoRestartState =
 	| { step: "watching" }
-	| { step: "counting"; left: Duration; reload: boolean; onto: string }
-	| { step: "restarting"; reload: boolean; onto: string }
-	| { step: "back"; reloaded: boolean; onto: string; at: number };
+	| { step: "counting"; left: Duration; run: string; onto: string }
+	| { step: "restarting"; run: string; onto: string };
 
 /** What an auto restart asks of `arbor dev`. */
 export interface AutoRestartServer {
@@ -46,22 +40,16 @@ const INPUT = ["keydown", "pointerdown", "wheel", "touchstart"];
 /** How often the projects are asked for while nothing is under way. */
 const WATCH = Duration.secs(5);
 
-/** How often the countdown moves, and a restart is checked on. */
+/** How often the countdown moves. */
 const TICK = Duration.secs(1);
-
-/**
- * Where a restart that reloads the page leaves what it brought and when, for
- * after.
- */
-const STORED = "arbor.autoRestarted";
 
 /**
  * Restarts `arbor dev` on its own once it is out of date, a newer arbor out
  * or commits on the source it runs from, and every agent and the person on
- * the page have been idle for `IDLE`, after a `COUNTDOWN` the person can cancel, as the `restart.auto`
- * setting asks; then reloads the page too when it asks for that, and says it
- * is back either way, until the next countdown. Cancelled, it waits for the
- * next thing to restart onto.
+ * the page have been idle for `IDLE`, after a `COUNTDOWN` the person can
+ * cancel, as the `restart.auto` setting asks, and never while held, as while
+ * Power is open. Once gone to restart, Power waits on it and reloads the page.
+ * Cancelled, it waits for the next thing to restart onto.
  */
 export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<AutoRestartEvents>();
@@ -75,43 +63,25 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 	private inputAt: Duration;
 	private listedAt: Duration | null = null;
 	private deadline: Duration | null = null;
-	/** The run of `arbor dev` last listed, which a restart replaces. */
-	private run: string | null = null;
 	/** What a cancelled countdown was onto, so it is not offered again. */
 	private cancelled: string | null = null;
+	/** Whether no countdown may start, as while Power is open. */
+	private held = false;
+	/** Whether a restart has been asked for and not yet answered. */
+	private asking = false;
 	private listing = false;
 	private ticking: Resource | null = null;
-	private started = false;
 
 	constructor(
 		private readonly server: AutoRestartServer,
 		private readonly settings: Settings,
-		private readonly opts: {
-			timer: Timer;
-			clock: Clock;
-			/** When a restart came back, as the dialog says how long ago. */
-			wall: WallClock;
-			/** Where the person's input is heard: the window. */
-			input: EventTarget;
-			/** Where what a reload is back from is kept: the tab's own. */
-			storage: Storage;
-			reload: () => void;
-		},
+		private readonly opts: AutoRestartOptions,
 	) {
 		this.inputAt = opts.clock.now();
 	}
 
-	/** Watches until disposed, saying first what a reload came back from. */
+	/** Watches until disposed. */
 	start(): Resource {
-		if (!this.started) {
-			this.started = true;
-			const stored = this.opts.storage.getItem(STORED);
-			if (stored !== null) {
-				this.opts.storage.removeItem(STORED);
-				const { onto, at } = JSON.parse(stored) as { onto: string; at: number };
-				this.set({ step: "back", reloaded: true, onto, at });
-			}
-		}
 		this.ticking?.dispose();
 		this.ticking = this.opts.timer.setInterval(() => void this.tick(), TICK);
 		for (const each of INPUT) {
@@ -130,36 +100,31 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 
 	/** Restarts now rather than at the end of the countdown. */
 	async restartNow(): Promise<void> {
-		if (this.state.step !== "counting") {
+		if (this.state.step !== "counting" || this.asking) {
 			return;
 		}
-		const { reload, onto } = this.state;
-		this.set({ step: "restarting", reload, onto });
+		const { run, onto } = this.state;
+		this.asking = true;
 		try {
 			await this.server.restart();
+			this.set({ step: "restarting", run, onto });
 		} catch (error) {
 			// Gone before it answered, as it stopped to restart.
 			if (error instanceof TypeError) {
+				this.set({ step: "restarting", run, onto });
 				return;
 			}
 			// An agent went to work meanwhile: idle starts over.
 			this.idleSince = null;
 			this.set({ step: "watching" });
+		} finally {
+			this.asking = false;
 		}
 	}
 
-	/** How long ago the restart it is back from came back; null if not back. */
-	ago(): Duration | null {
-		return this.state.step === "back"
-			? Duration.ms(this.opts.wall.now() - this.state.at)
-			: null;
-	}
-
-	/** Closes what was said on coming back. */
-	dismiss(): void {
-		if (this.state.step === "back") {
-			this.set({ step: "watching" });
-		}
+	/** Starts no countdown while `held`, as while Power is open. */
+	hold(held: boolean): void {
+		this.held = held;
 	}
 
 	dispose(): void {
@@ -176,9 +141,9 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 
 	private async tick(): Promise<void> {
 		const now = this.opts.clock.now();
-		const mode = this.settings.get("restart.auto");
+		const on = this.settings.get("restart.auto");
 		if (this.state.step === "counting" && this.deadline !== null) {
-			if (mode === "off") {
+			if (!on) {
 				this.set({ step: "watching" });
 				return;
 			}
@@ -186,18 +151,13 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 				await this.restartNow();
 				return;
 			}
-			this.set({
-				...this.state,
-				left: this.deadline.subtract(now),
-				reload: mode === "reload",
-			});
-		}
-		if (mode === "off" && this.state.step !== "restarting") {
-			return;
+			this.set({ ...this.state, left: this.deadline.subtract(now) });
 		}
 		if (
+			!on ||
+			this.state.step === "restarting" ||
 			this.listing ||
-			((this.state.step === "watching" || this.state.step === "back") &&
+			(this.state.step === "watching" &&
 				this.listedAt !== null &&
 				now.subtract(this.listedAt).isLessThan(WATCH))
 		) {
@@ -220,24 +180,8 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 	private look(listed: Projects, now: Duration): void {
 		const state = this.state;
 		if (state.step === "restarting") {
-			if (listed.run !== this.run) {
-				this.run = listed.run;
-				// Idle counts afresh from the new run.
-				this.idleSince = null;
-				const at = this.opts.wall.now();
-				if (state.reload) {
-					this.opts.storage.setItem(
-						STORED,
-						JSON.stringify({ onto: state.onto, at }),
-					);
-					this.opts.reload();
-				} else {
-					this.set({ step: "back", reloaded: false, onto: state.onto, at });
-				}
-			}
 			return;
 		}
-		this.run = listed.run;
 		const idle = idleIn(listed);
 		this.idleSince = idle ? (this.idleSince ?? now) : null;
 		const onto = ontoOf(listed);
@@ -247,11 +191,9 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 			}
 			return;
 		}
-		const mode = this.settings.get("restart.auto");
-		// Watching, or back from the last restart, which gives way to the next
-		// one's countdown.
 		if (
-			mode === "off" ||
+			this.held ||
+			!this.settings.get("restart.auto") ||
 			onto === null ||
 			onto === this.cancelled ||
 			!listed.restartable ||
@@ -262,18 +204,21 @@ export class AutoRestart implements Eventful<AutoRestartEvents>, Resource {
 			return;
 		}
 		this.deadline = now.add(COUNTDOWN);
-		this.set({
-			step: "counting",
-			left: COUNTDOWN,
-			reload: mode === "reload",
-			onto,
-		});
+		this.set({ step: "counting", left: COUNTDOWN, run: listed.run, onto });
 	}
 
 	private set(state: AutoRestartState): void {
 		this.state = state;
 		this.dispatcher.dispatch("changed");
 	}
+}
+
+/** What an `AutoRestart` keeps time with, and hears the person on. */
+export interface AutoRestartOptions {
+	timer: Timer;
+	clock: Clock;
+	/** Where the person's input is heard: the window. */
+	input: EventTarget;
 }
 
 /**

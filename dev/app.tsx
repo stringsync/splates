@@ -9,12 +9,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	type Duration,
-	SystemClock,
-	SystemTimer,
-	SystemWallClock,
-} from "webappwiz/time";
+import { type Duration, SystemClock, SystemTimer } from "webappwiz/time";
 import { Tabs, TabsContent } from "#dev/components/ui/tabs.tsx";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -27,7 +22,6 @@ import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { AppNav, useWide } from "./app-nav";
 import { AutoRestart } from "./auto-restart";
-import { AutoRestartDialog } from "./auto-restart-dialog";
 import { WatchBackground } from "./background";
 import { BudgetPage } from "./budget";
 import { BESIDE_PANE, ReviewChanges } from "./changes";
@@ -92,6 +86,7 @@ export function App({
 	checkpointRestartShown,
 	offlineAfter,
 	reload = () => location.reload(),
+	autoRestart: given,
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
@@ -102,6 +97,8 @@ export function App({
 	offlineAfter?: Duration;
 	/** Reloads the page, once a restart asked to is back. */
 	reload?: () => void;
+	/** Restarts `arbor dev` once out of date; one on the system clock by default. */
+	autoRestart?: AutoRestart;
 }): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
@@ -165,13 +162,11 @@ export function App({
 	);
 	const [autoRestart] = useState(
 		() =>
+			given ??
 			new AutoRestart({ list: listProjects, restart: restartIdle }, settings, {
 				timer: new SystemTimer(),
 				clock: new SystemClock(),
-				wall: new SystemWallClock(),
 				input: window,
-				storage: sessionStorage,
-				reload,
 			}),
 	);
 	useDisposerEffect((disposer) => disposer.use(terminals), [terminals]);
@@ -397,6 +392,7 @@ export function App({
 													every={checkpointEvery}
 													restartShown={checkpointRestartShown}
 													reload={reload}
+													autoRestart={autoRestart}
 												>
 													{wide ? (
 														<Tabs
@@ -511,7 +507,6 @@ export function App({
 														open={setting}
 														onOpenChange={setSetting}
 													/>
-													<AutoRestartDialog restart={autoRestart} />
 												</CheckpointProvider>
 											</TooltipProvider>
 										</ShortcutSettings>

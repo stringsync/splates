@@ -25,7 +25,6 @@
 @source "./thread-header.tsx";
 @source "./page-route.tsx";
 @source "./side-panes.tsx";
-@source "./auto-restart-dialog.tsx";
 @source "./todos.tsx";
 @source "./board-drag.tsx";
 @source "./todo-edit.tsx";

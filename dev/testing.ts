@@ -14,6 +14,7 @@ import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
 import type { Budgets, KeptCreds } from "./api";
+import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
@@ -149,6 +150,8 @@ export class Testing implements Resource {
 	restartable = true;
 	/** How many times the page asked to reload. */
 	reloads = 0;
+	/** What restarts the page on its own; one on the system clock unless set. */
+	autoRestart: AutoRestart | undefined = undefined;
 	/** What the composers' mic records with; none unless a test gives one. */
 	dictation: Dictation | null = null;
 	/** What `/api/projects` says a restart would kill. */
@@ -332,6 +335,7 @@ export class Testing implements Resource {
 					reload: () => {
 						this.reloads++;
 					},
+					autoRestart: this.autoRestart,
 				}),
 			),
 		);

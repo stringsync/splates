@@ -15,45 +15,6 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
-/** Something the browser must allow before a setting can be on. */
-interface Allowance {
-	/** Whether this browser has it at all. */
-	supported(): boolean;
-	/** Whether it is allowed now. */
-	allowed(): boolean;
-	/** Asks for it, from a click, since browsers refuse otherwise. */
-	ask(): Promise<boolean>;
-	/** What to tell the person when it was refused. */
-	refused: string;
-}
-
-/** One of the values a choice can take, with what the dialog calls it. */
-export interface Choice {
-	value: string;
-	label: string;
-}
-
-/** A setting the person can change, as the dialog shows it. */
-export interface Definition {
-	category: Category;
-	title: string;
-	description: string;
-	/** A switch for a boolean, a field for a number, a pick for a string. */
-	default: boolean | number | string;
-	/** What a string can be, in the order the dialog offers them. */
-	choices?: readonly Choice[];
-	/** Show each choice as a swatch of the accent it names. */
-	swatches?: boolean;
-	/** What a number counts, and the least it can be. */
-	unit?: string;
-	min?: number;
-	/** A keyboard shortcut, its default the one the page starts with. */
-	shortcut?: boolean;
-	/** The switch this one does nothing without. */
-	under?: string;
-	browser?: Allowance;
-}
-
 const notifications: Allowance = {
 	supported: () => typeof Notification !== "undefined",
 	allowed: () =>
@@ -175,13 +136,8 @@ export const SETTINGS = {
 		category: "Restart",
 		title: "Restart when out of date",
 		description:
-			"Once a newer arbor is out, or commits land on the source arbor dev runs from, and every agent has been idle for a minute, restart arbor dev after a minute's countdown you can cancel.",
-		default: "off",
-		choices: [
-			{ value: "off", label: "Off" },
-			{ value: "restart", label: "Restart" },
-			{ value: "reload", label: "Restart and reload" },
-		],
+			"Once a newer arbor is out, or commits land on the source arbor dev runs from, and every agent has been idle for a minute, restart arbor dev after a minute's countdown you can cancel, then reload this page.",
+		default: false,
 	},
 	"shortcuts.search": shortcut(
 		"Search",
@@ -255,6 +211,45 @@ export const SETTINGS = {
 		"Alt+Mod+KeyF",
 	),
 } satisfies Record<string, Definition>;
+
+/** Something the browser must allow before a setting can be on. */
+interface Allowance {
+	/** Whether this browser has it at all. */
+	supported(): boolean;
+	/** Whether it is allowed now. */
+	allowed(): boolean;
+	/** Asks for it, from a click, since browsers refuse otherwise. */
+	ask(): Promise<boolean>;
+	/** What to tell the person when it was refused. */
+	refused: string;
+}
+
+/** One of the values a choice can take, with what the dialog calls it. */
+export interface Choice {
+	value: string;
+	label: string;
+}
+
+/** A setting the person can change, as the dialog shows it. */
+export interface Definition {
+	category: Category;
+	title: string;
+	description: string;
+	/** A switch for a boolean, a field for a number, a pick for a string. */
+	default: boolean | number | string;
+	/** What a string can be, in the order the dialog offers them. */
+	choices?: readonly Choice[];
+	/** Show each choice as a swatch of the accent it names. */
+	swatches?: boolean;
+	/** What a number counts, and the least it can be. */
+	unit?: string;
+	min?: number;
+	/** A keyboard shortcut, its default the one the page starts with. */
+	shortcut?: boolean;
+	/** The switch this one does nothing without. */
+	under?: string;
+	browser?: Allowance;
+}
 
 /** A setting for a shortcut, which the dialog records by pressing it. */
 function shortcut(title: string, description: string, fallback: Shortcut) {

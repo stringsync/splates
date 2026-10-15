@@ -1,4 +1,5 @@
 import { type JSX, useState } from "react";
+import type { Duration } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
@@ -36,9 +37,16 @@ export interface Restarting {
 	shutdown: boolean;
 }
 
+/** An auto restart counting down: how long is left, and what it brings. */
+export interface Countdown {
+	left: Duration;
+	onto: string;
+}
+
 /**
  * Power: restarts or shuts down `arbor dev`, checkpointing every agent at
- * work first unless unticked, and resuming them after a restart; then one
+ * work first unless unticked, and resuming them after a restart, or counts
+ * down to an auto restart, which can be cancelled or done now; then one
  * screen for the whole run, its title held throughout, its steps in a line
  * with the one under way spinning, a sentence on where it is, and only the
  * agents that missed. The agents carry on by themselves after the restart,
@@ -60,6 +68,9 @@ export function CheckpointDialog({
 	current,
 	restartable,
 	held,
+	countdown,
+	onCancel,
+	onRestartNow,
 	onChange,
 }: {
 	open: boolean;
@@ -86,6 +97,12 @@ export function CheckpointDialog({
 	restartable: boolean;
 	/** The commands a restart would kill. */
 	held: Held[];
+	/** The auto restart counting down, on the `counting` slide. */
+	countdown: Countdown | null;
+	/** Cancels the countdown. */
+	onCancel: () => void;
+	/** Restarts at once rather than at the end of the countdown. */
+	onRestartNow: () => void;
 	onChange: () => Promise<void>;
 }): JSX.Element {
 	const all = standing(projects.flatMap((each) => each.conversations));
@@ -110,23 +127,25 @@ export function CheckpointDialog({
 	const on = (version: string | null) =>
 		version === null ? "" : `Now on arbor ${version}. `;
 	const said =
-		slide === "going"
-			? `${all.asked.length - all.going - all.missed.length} of ${plural(all.asked.length)} checkpointed.`
-			: slide === "restarting"
-				? `arbor dev is restarting${onto === null ? "" : ` on ${onto}`}. This page reloads once it is back.`
-				: slide === "resuming"
-					? `${on(restarted)}${carried} of ${plural(resumable.length)} back at work.`
-					: slide === "ended"
-						? `${on(restarted)}${plural(carried)} back at work.`
-						: slide === "restarted"
-							? on(restarted).trim()
-							: slide === "shuttingDown"
-								? "arbor dev is shutting down."
-								: slide === "shutDown"
-									? all.asked.length > 0
-										? "Start arbor dev again to resume the agents."
-										: "Start arbor dev again from a terminal."
-									: `${plural(resumable.length)} checkpointed.`;
+		slide === "counting" && countdown !== null
+			? `arbor dev is behind ${countdown.onto}, and you and every agent have been idle for a minute. This page reloads once it is back.`
+			: slide === "going"
+				? `${all.asked.length - all.going - all.missed.length} of ${plural(all.asked.length)} checkpointed.`
+				: slide === "restarting"
+					? `arbor dev is restarting${onto === null ? "" : ` on ${onto}`}. This page reloads once it is back.`
+					: slide === "resuming"
+						? `${on(restarted)}${carried} of ${plural(resumable.length)} back at work.`
+						: slide === "ended"
+							? `${on(restarted)}${plural(carried)} back at work.`
+							: slide === "restarted"
+								? on(restarted).trim()
+								: slide === "shuttingDown"
+									? "arbor dev is shutting down."
+									: slide === "shutDown"
+										? all.asked.length > 0
+											? "Start arbor dev again to resume the agents."
+											: "Start arbor dev again from a terminal."
+										: `${plural(resumable.length)} checkpointed.`;
 	return (
 		<Dialog open={open} onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="sm:max-w-md">
@@ -165,16 +184,38 @@ export function CheckpointDialog({
 					) : (
 						<>
 							<DialogHeader>
-								<PowerTitle title={title} />
+								<PowerTitle
+									title={
+										slide === "counting" && countdown !== null ? (
+											<>
+												{title} in{" "}
+												<span className="tabular-nums">
+													{clock(countdown.left.ms)}
+												</span>
+											</>
+										) : (
+											title
+										)
+									}
+								/>
 								<DialogDescription>{said}</DialogDescription>
 							</DialogHeader>
 							<Steps steps={steps} />
 							<MissedList projects={projects} onOpen={onClose} />
 							<Refusal refusal={refusal} />
 							<DialogFooter>
-								<Button variant="outline" disabled={busy} onClick={onClose}>
-									Close
-								</Button>
+								{slide === "counting" ? (
+									<>
+										<Button variant="outline" onClick={onCancel}>
+											Cancel
+										</Button>
+										<Button onClick={onRestartNow}>Restart now</Button>
+									</>
+								) : (
+									<Button variant="outline" disabled={busy} onClick={onClose}>
+										Close
+									</Button>
+								)}
 							</DialogFooter>
 						</>
 					)}
@@ -183,6 +224,12 @@ export function CheckpointDialog({
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/** `ms` as minutes and seconds, rounded up, as a countdown shows it. */
+function clock(ms: number): string {
+	const secs = Math.ceil(ms / 1000);
+	return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }
 
 /** Whether `conversation` is back at work, as `current` lists it. */

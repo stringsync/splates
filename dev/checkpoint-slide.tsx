@@ -1,5 +1,5 @@
 import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import { DialogTitle } from "#dev/components/ui/dialog.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ProjectConversation } from "./project-api";
@@ -13,7 +13,8 @@ export interface Standing {
 }
 
 /**
- * Where the dialog is: picking projects, waiting on agents, done with them
+ * Where the dialog is: picking projects, counting down to an auto restart,
+ * waiting on agents, done with them
  * before `arbor dev` goes, waiting on it to restart, back from a restart with no
  * agent to resume, its agents being told to carry on after the restart, or
  * ended with them carrying on; or waiting on `arbor dev` to shut down, and
@@ -21,6 +22,7 @@ export interface Standing {
  */
 export type Slide =
 	| "pick"
+	| "counting"
 	| "going"
 	| "done"
 	| "restarting"
@@ -45,6 +47,8 @@ export function titleOf(slide: Slide, run: Run, restarted: boolean): string {
 	switch (slide) {
 		case "pick":
 			return "Power";
+		case "counting":
+			return "Restarting arbor dev";
 		case "going":
 			return run === "restart"
 				? "Restarting arbor dev"
@@ -68,7 +72,7 @@ export function titleOf(slide: Slide, run: Run, restarted: boolean): string {
 }
 
 /** The dialog's title, with Power's icon. */
-export function PowerTitle({ title }: { title: string }): JSX.Element {
+export function PowerTitle({ title }: { title: ReactNode }): JSX.Element {
 	return (
 		<DialogTitle className="flex items-center gap-2">
 			<PowerIcon aria-hidden className="size-4" />
@@ -97,13 +101,14 @@ export function stepsOf(
 	const restart =
 		!shutdown &&
 		(run === "restart" ||
+			slide === "counting" ||
 			slide === "restarting" ||
 			slide === "restarted" ||
 			slide === "resuming" ||
 			slide === "ended");
 	// How far along the run is: steps before it are done, it is under way.
 	const at =
-		slide === "going"
+		slide === "going" || slide === "counting"
 			? 0
 			: slide === "restarting" || slide === "shuttingDown"
 				? 1
