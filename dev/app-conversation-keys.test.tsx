@@ -49,7 +49,8 @@ describe("App's sidebar keys", () => {
 		await act(async () =>
 			fireEvent.keyDown(window, { key: "Alt", altKey: true, metaKey: true }),
 		);
-		expect(keys()).toEqual(["N", "M", "0", "1", "2"]);
+		expect(keys()).toEqual(["M", "0", "1", "2"]);
+		expect(view.getByRole("button", { name: /^New/ }).textContent).toBe("NewN");
 		await act(async () =>
 			fireEvent.keyDown(document.body, {
 				code: "Digit1",

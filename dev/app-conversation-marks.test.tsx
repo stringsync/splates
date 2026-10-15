@@ -277,9 +277,9 @@ Cap upload retries
 			null,
 		);
 		const nav = view.getByRole("navigation", { name: "conversations" });
-		// Under New, as ⌥⌘M under ⌥⌘N.
+		// Atop the list.
 		const line = within(nav).getByRole("button", { name: /waiting on you/ });
-		expect(line.previousElementSibling?.textContent).toContain("New");
+		expect(line.previousElementSibling).toBe(null);
 		expect(line.textContent).toContain("1 waiting on you");
 
 		await act(async () => fireEvent.click(line));

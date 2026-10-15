@@ -1,32 +1,10 @@
 import { useReactive } from "@webappwiz/react";
-import {
-	ArchiveIcon,
-	ChevronDownIcon,
-	PlusIcon,
-	SquareTerminalIcon,
-} from "lucide-react";
+import { ArchiveIcon } from "lucide-react";
 import { type JSX, useEffect, useRef, useState } from "react";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "#dev/components/ui/dropdown-menu.tsx";
-import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { answersTo, type Needing, needs } from "../needs";
 import type { Details } from "../show";
-import { AgentIcon } from "./agent-icons";
-import { composerIn } from "./composer-editor";
-import {
-	ARCHIVED,
-	agentFor,
-	NEW,
-	openedBy,
-	startsOne,
-	TASK,
-} from "./conversation-address";
+import { ARCHIVED, NEW, openedBy, TASK } from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
 import {
@@ -43,12 +21,7 @@ import {
 } from "./conversation-rows";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
-import {
-	useHeldKey,
-	useShortcut,
-	useShortcutLabel,
-} from "./hooks/use-shortcut";
-import { useTouch } from "./hooks/use-touch";
+import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
 import { External, Rows, TerminalRow } from "./list-rows";
 import { nest } from "./parts";
 import { arriveAt, useCopiedReplies } from "./task-view";
@@ -59,7 +32,7 @@ import { WaitingLine } from "./waiting-line";
 const DIGITS = 10;
 
 /**
- * The sidebar's conversations, under New, in one list, newest first, after
+ * The sidebar's conversations, in one list, newest first, after
  * the main tree's own terminals, oldest first, until each is closed. Each
  * row is named alone, with its task on hover. A conversation follows its agent
  * as it takes and lands tasks. A task whose agent runs outside the page is a
@@ -67,12 +40,11 @@ const DIGITS = 10;
  * says whether it works or waits on you. Archived ones sit behind a link at
  * the bottom.
  *
- * The arrow keys move between rows, ⌥⌘N (Ctrl+Alt+N off a Mac) starts a new
- * one as the last was started, ⌥⌘0 to ⌥⌘9 open the first ten rows, top
- * to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
+ * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
+ * the first ten rows, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
  * terminals among them, round past either end; each but the digits as the
  * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
- * Under New, `NextWaiting` says how many wait on you, opening the
+ * Atop it, `NextWaiting` says how many wait on you, opening the
  * next as ⌥⌘M does.
  */
 export function ConversationList({
@@ -136,9 +108,6 @@ export function ConversationList({
 					: [],
 		),
 	];
-	// Whether the New menu last closed on an agent, which its focus follows.
-	const picked = useRef(false);
-	const touch = useTouch();
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -157,8 +126,6 @@ export function ConversationList({
 		document.addEventListener("keydown", jump);
 		return () => document.removeEventListener("keydown", jump);
 	}, []);
-	// With the agent, model, and settings the last one started with.
-	useShortcut("shortcuts.new", () => onOpen(NEW));
 	// From a row, round past either end; from no row, in from the top or the
 	// bottom.
 	const step = (by: 1 | -1) => {
@@ -177,8 +144,6 @@ export function ConversationList({
 	};
 	useShortcut("shortcuts.next", () => step(1));
 	useShortcut("shortcuts.previous", () => step(-1));
-	const newKey = useHeldKey("shortcuts.new");
-	const newShortcut = useShortcutLabel("shortcuts.new");
 
 	return (
 		<nav
@@ -202,80 +167,13 @@ export function ConversationList({
 				}
 			}}
 		>
-			{/* Waiting on you under New, as ⌥⌘M under ⌥⌘N. */}
-			<div className="flex flex-col gap-0.5">
-				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<button
-								type="button"
-								data-row
-								aria-current={startsOne(open) ? "page" : undefined}
-								className={cn(
-									"flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-foreground/[0.05]",
-									startsOne(open) && "bg-accent",
-								)}
-							/>
-						}
-					>
-						<PlusIcon className="size-3.5" />
-						<span className="flex-1">New</span>
-						{held && newKey !== null ? (
-							<Kbd aria-hidden>{newKey}</Kbd>
-						) : (
-							<ChevronDownIcon className="size-3.5 text-muted-foreground" />
-						)}
-					</DropdownMenuTrigger>
-					<DropdownMenuContent
-						align="start"
-						className="w-44"
-						// Into the composer of the conversation picked, ready to type, rather
-						// than back to New, unless a finger is to tap it; otherwise as usual.
-						finalFocus={() => {
-							if (!picked.current) {
-								return true;
-							}
-							picked.current = false;
-							if (touch) {
-								return true;
-							}
-							const section = document.querySelector(
-								'section[aria-label="new conversation"]',
-							);
-							return (section === null ? null : composerIn(section)) ?? true;
-						}}
-					>
-						{agents.map((each) => (
-							<DropdownMenuItem
-								key={each.id}
-								onClick={() => {
-									picked.current = true;
-									onOpen(`${NEW}/${each.id}`);
-								}}
-							>
-								<AgentIcon agent={each.id} name={each.name} />
-								{each.name}
-								{newShortcut !== null &&
-									each.id === agentFor(NEW, agents, conversations) && (
-										<Kbd className="ml-auto">{newShortcut}</Kbd>
-									)}
-							</DropdownMenuItem>
-						))}
-						<DropdownMenuSeparator />
-						<DropdownMenuItem onClick={() => onOpen(terminals.another())}>
-							<SquareTerminalIcon />
-							Terminal
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-				<NextWaiting
-					feed={feed}
-					drafts={drafts}
-					tasks={tasks}
-					open={open}
-					onOpen={onOpen}
-				/>
-			</div>
+			<NextWaiting
+				feed={feed}
+				drafts={drafts}
+				tasks={tasks}
+				open={open}
+				onOpen={onOpen}
+			/>
 			{mains.map((each) => (
 				<TerminalRow
 					key={each}
@@ -347,7 +245,7 @@ export function ConversationList({
 }
 
 /**
- * A line under New saying how many agents wait on you, which opens the next
+ * A line atop the list saying how many agents wait on you, which opens the next
  * as ⌥⌘M (Ctrl+Alt+M off a Mac) does: the next one waiting, or else the next
  * merged, then unread, one, lighting the line when there is none.
  */

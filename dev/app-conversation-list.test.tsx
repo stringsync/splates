@@ -28,6 +28,19 @@ describe("App's conversation list", () => {
 		const view = await testing.open();
 
 		expect(view.queryByRole("tab", { name: /Conversations/ })).toBeNull();
+		expect(view.queryByRole("button", { name: "New" })).toBeNull();
+	});
+
+	it("puts New atop the sidebar, above its tabs and out of the list", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login" })],
+			null,
+		);
+		const tabs = view.getByRole("tablist");
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		expect(tabs.firstElementChild?.textContent).toBe("New");
+		expect(within(nav).queryByRole("button", { name: "New" })).toBeNull();
 	});
 
 	it("lists conversations newest first, each by name with its task on hover, and archived ones apart", async () => {

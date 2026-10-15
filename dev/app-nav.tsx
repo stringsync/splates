@@ -8,6 +8,7 @@ import { openRequests } from "./creds";
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey } from "./hooks/use-shortcut";
+import { NewMenu } from "./new-menu";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
@@ -18,8 +19,8 @@ import type { Terminals } from "./terminals";
 export const WIDE = "(min-width: 768px)";
 
 /**
- * The page's tabs in a sidebar down the left, each with what it counts, the
- * conversation list under them, and a handle to drag it wider. A phone has
+ * The page's tabs in a sidebar down the left, under New, each with what it
+ * counts, the conversation list under them, and a handle to drag it wider. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
 export function AppNav({
@@ -73,6 +74,14 @@ export function AppNav({
 				variant="line"
 				className="fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-[calc(var(--app-header-height,4rem)+1rem)] group-data-vertical/tabs:h-dvh"
 			>
+				{available && (
+					<NewMenu
+						feed={talk}
+						terminals={terminals}
+						open={page === "conversations" ? open : null}
+						onOpen={onOpen}
+					/>
+				)}
 				{pages.map(({ value, label, Icon, shortcut }) => (
 					<TabsTrigger
 						key={value}

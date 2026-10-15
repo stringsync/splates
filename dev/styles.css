@@ -75,6 +75,7 @@
 @source "./ask-panel.tsx";
 @source "./queued.tsx";
 @source "./conversation-list.tsx";
+@source "./new-menu.tsx";
 @source "./conversation-item.tsx";
 @source "./list-rows.tsx";
 @source "./mark.tsx";
