@@ -13,6 +13,7 @@ import { modelOption } from "../models";
 import type { Details } from "../show";
 import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
+import { WIDE } from "./app-nav";
 import { filesOf, noted, said, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
 import { settingsFor } from "./conversation-address";
@@ -320,11 +321,14 @@ function Recent({
 /**
  * Runs `change` in a view transition, which moves each element named on both
  * sides of it, such as the composer, and fades the rest; at once where the
- * browser has none or motion is unwelcome. Settles once it has played.
+ * browser has none or motion is unwelcome. A phone changes at once too: its
+ * keyboard closes as the message goes, and a composer sliding down beside it
+ * reads as jank. Settles once it has played.
  */
 async function slide(change: () => void): Promise<void> {
 	if (
 		!("startViewTransition" in document) ||
+		!matchMedia(WIDE).matches ||
 		matchMedia("(prefers-reduced-motion: reduce)").matches
 	) {
 		change();
