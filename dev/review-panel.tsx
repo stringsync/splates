@@ -1,4 +1,5 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
+import { useReactive, useResource } from "@webappwiz/react";
 import {
 	CheckIcon,
 	ChevronRightIcon,
@@ -26,12 +27,17 @@ import {
 	useChallenges,
 } from "./assumption-list";
 import { Board } from "./board";
+import { BoxFiles } from "./box-files";
+import { CardBox } from "./card-box";
 import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { Sheeted } from "./phone-sheets";
 import { Refusal, useRefusal } from "./refusal";
+
+/** The name of a review's changes box among its boxes. */
+const CHANGES = "changes";
 
 /** What a reply typed by hand says to merge, as the review's last line asks. */
 const TYPED_MERGE = "merge";
@@ -69,9 +75,16 @@ export function ReviewPanel({
 		reload,
 	} = useChallenges(assumptions(plan), kept);
 	const { refusal, attempt } = useRefusal();
+	// What is attached to the changes, which go with them.
+	const files = useResource(() => new BoxFiles(), []);
+	const attached = useReactive(files, (each) => each.any, ["changed"]);
 	const ask = () => {
-		if (asked !== "" && send !== null) {
-			void attempt(send(asked), "Not sent");
+		if ((asked !== "" || attached) && send !== null) {
+			const out = files.out([{ name: CHANGES, text: asked }]);
+			void attempt(
+				send(out.texts[0] ?? "", out.files).then(() => files.clear()),
+				"Not sent",
+			);
 		}
 	};
 	const box = useRef<HTMLTextAreaElement>(null);
@@ -137,13 +150,14 @@ export function ReviewPanel({
 			)}
 			{send !== null && (
 				<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
-					<textarea
+					<CardBox
 						ref={box}
 						aria-label={`Changes to ${review.task}`}
 						rows={1}
 						value={changes}
 						placeholder="Say what to change…"
-						onChange={(event) => setChanges(event.target.value)}
+						onValue={setChanges}
+						files={files.of(CHANGES)}
 						onKeyDown={(event) => {
 							// Enter sends, as in the composer; Shift+Enter is a new line.
 							if (event.key === "Enter" && !event.shiftKey) {
@@ -151,7 +165,7 @@ export function ReviewPanel({
 								ask();
 							}
 						}}
-						className="field-sizing-content min-h-9 pointer-coarse:min-h-11 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm pointer-coarse:text-base outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
+						className="min-h-9 pointer-coarse:min-h-11"
 					/>
 					<div className="flex items-center gap-2 pointer-coarse:[&_button]:h-10 pointer-coarse:[&_button]:px-3">
 						{changed ? (
@@ -176,7 +190,7 @@ export function ReviewPanel({
 						)}
 						{/* One button, for what the box holds: written changes or
 						challenges go out as they are, and nothing written merges. */}
-						{asked === "" ? (
+						{asked === "" && !attached ? (
 							<Button
 								size="sm"
 								onClick={() => void attempt(send(MERGE), "Not sent")}

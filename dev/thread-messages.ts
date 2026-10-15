@@ -7,7 +7,7 @@ import { type Event, isEscalation } from "../events";
 import { conversationAttachment } from "./conversation-api";
 import { type ConversationFeed, messageOf } from "./conversation-feed";
 import type { Written } from "./escalation-card";
-import type { QuestionsData } from "./question-cards";
+import type { QuestionsData } from "./message-questions";
 import type { Turn } from "./report-cards";
 import { replyDue, stretchesOf } from "./work";
 

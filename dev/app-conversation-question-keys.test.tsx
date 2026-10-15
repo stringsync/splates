@@ -73,9 +73,9 @@ describe("App's question card keys", () => {
 		await key("a");
 		expect(
 			within(card(view, "1"))
-				.getAllByRole("button")
-				.map((each) => each.getAttribute("aria-pressed")),
-		).toEqual(["true", "true"]);
+				.getAllByRole("button", { pressed: true })
+				.map((each) => each.textContent),
+		).toEqual(["aTodos", "bTasks"]);
 		expect(document.activeElement === first).toBe(true);
 		await key("Enter");
 		expect(document.activeElement?.textContent).toContain("A muted card");

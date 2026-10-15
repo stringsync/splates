@@ -154,7 +154,10 @@ export function useReply(
 ): Reply {
 	return useMemo(
 		() => ({
-			send: sends ? (said: string) => promptConversation(id, said) : null,
+			send: sends
+				? (said: string, files: readonly File[] = []) =>
+						promptConversation(id, noted(said, files), [...files])
+				: null,
 			drafts: {
 				read: (name: string) => drafts.read(`${id}:${name}`),
 				write: (name: string, kept: string) =>

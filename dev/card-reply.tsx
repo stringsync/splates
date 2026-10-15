@@ -15,10 +15,11 @@ import { toCardTop } from "./card-shell";
 /** What the cards in a conversation answer through. */
 export interface Reply {
 	/**
-	 * Sends `text` as a message of its own, leaving what is typed as it is;
-	 * null where nothing can be sent from the page, as to an external agent.
+	 * Sends `text` as a message of its own, with `files` attached, leaving what
+	 * is typed as it is; null where nothing can be sent from the page, as to
+	 * an external agent.
 	 */
-	send: ((text: string) => Promise<void>) | null;
+	send: ((text: string, files?: readonly File[]) => Promise<void>) | null;
 	/**
 	 * Where a card keeps what is written in it and not sent, under a name of
 	 * its own in the conversation, so leaving and coming back loses nothing.

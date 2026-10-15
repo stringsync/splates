@@ -3,7 +3,7 @@ import type { Review, TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Escalated } from "../events";
 import { InMessage } from "./card-reply";
-import { MessageQuestions } from "./question-cards";
+import { MessageQuestions } from "./message-questions";
 import { ReportCard } from "./report-cards";
 import { MessageReview } from "./review-panel";
 

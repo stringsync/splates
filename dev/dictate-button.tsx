@@ -11,6 +11,7 @@ import {
 	useShortcutLabel,
 } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
+import type { BoxDictation } from "./box-dictation";
 import type { Dictation, DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
 
@@ -118,6 +119,54 @@ function Mic({ dictation }: { dictation: Dictation }) {
 		>
 			<MicIcon className="size-4 pointer-coarse:size-5" />
 		</ComposerPrimitive.StopDictation>
+	);
+}
+
+/**
+ * The composer's mic for a box of its own, such as a card's answer: it looks
+ * and toggles as the composer's does, showing the phase of the last take
+ * only when that take was this box's.
+ */
+export function BoxMic({ box }: { box: BoxDictation }) {
+	const taking = useReactive(box, (each) => each.taking, ["changed"]);
+	const phase = useReactive(
+		box.dictation,
+		(each) => (each.owner === box.by ? each.state.phase : "idle"),
+		["changed"],
+	);
+	const held = useHeld();
+	const key = useHeldKey("shortcuts.dictate");
+	const shortcut = useShortcutLabel("shortcuts.dictate");
+	const action = ACTIONS[phase];
+	const live = taking && phase !== "denied" && phase !== "failed";
+	return (
+		<TooltipIconButton
+			tooltip={shortcut === null ? action : `${action} (${shortcut})`}
+			side="bottom"
+			type="button"
+			variant="ghost"
+			size="icon"
+			data-phase={live ? phase : undefined}
+			aria-pressed={live}
+			aria-disabled={phase === "finishing"}
+			aria-label={action}
+			onClick={() => (live ? box.stop() : box.start())}
+			className={cn(
+				MIC,
+				live
+					? cn("dictate relative transition-colors duration-200", LOOKS[phase])
+					: "text-muted-foreground hover:text-foreground",
+				SIZE,
+			)}
+		>
+			{held && key !== null && !live ? (
+				<Kbd aria-hidden>{key}</Kbd>
+			) : phase === "denied" ? (
+				<MicOffIcon className="size-4 pointer-coarse:size-5" />
+			) : (
+				<MicIcon className="size-4 pointer-coarse:size-5" />
+			)}
+		</TooltipIconButton>
 	);
 }
 

@@ -3,7 +3,9 @@ import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
+import { CardBox } from "./card-box";
 import { ChoiceBody, HowToPick } from "./choice-body";
+import type { Files } from "./files";
 import { Markdown } from "./markdown";
 import { Ranking } from "./question-ranking";
 
@@ -18,6 +20,7 @@ export function QuestionCard({
 	action,
 	chosenLabel = "Recommended",
 	roomy = false,
+	files = null,
 }: {
 	asked: Question;
 	/** Its answer, being written or sent; null while it has none. */
@@ -36,6 +39,8 @@ export function QuestionCard({
 	 * which the screen says.
 	 */
 	roomy?: boolean;
+	/** Where what is attached to its answer goes; null where a reply carries none. */
+	files?: Files | null;
 }): JSX.Element {
 	const { number, text, body, choices, pick } = asked;
 	const said: Answer = answer ?? UNANSWERED;
@@ -257,7 +262,8 @@ export function QuestionCard({
 					)
 				)}
 				{live ? (
-					<textarea
+					<CardBox
+						roomy={roomy}
 						data-stop={choices.length === 0 ? number : undefined}
 						aria-label={`Answer to ${number}`}
 						rows={roomy && choices.length === 0 ? 4 : 1}
@@ -265,20 +271,17 @@ export function QuestionCard({
 						placeholder={
 							choices.length > 0 ? "Add a note (optional)" : "Your answer"
 						}
-						onChange={(event) =>
-							onAnswer({ ...said, words: event.target.value })
-						}
+						onValue={(words) => onAnswer({ ...said, words })}
+						files={files}
 						onKeyDown={enter}
-						className={cn(
-							"field-sizing-content w-full resize-none border border-border/70 bg-muted/30 outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:bg-background focus:ring-3 focus:ring-ring/20",
+						className={
 							roomy
-								? cn(
-										"rounded-xl px-4 py-3 text-base",
-										// A typed answer is the screen's whole point; a note an aside.
-										choices.length === 0 ? "min-h-32" : "min-h-12",
-									)
-								: "min-h-9 pointer-coarse:min-h-11 rounded-lg px-3 py-2 text-sm pointer-coarse:text-base",
-						)}
+								? // A typed answer is the screen's whole point; a note an aside.
+									choices.length === 0
+									? "min-h-32"
+									: "min-h-12"
+								: "min-h-9 pointer-coarse:min-h-11"
+						}
 					/>
 				) : (
 					said.words !== "" && (

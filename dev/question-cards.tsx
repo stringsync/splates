@@ -1,4 +1,4 @@
-import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
+import { useReactive, useResource } from "@webappwiz/react";
 import {
 	CheckIcon,
 	ChevronLeftIcon,
@@ -14,35 +14,17 @@ import { focusStop, raises, useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
-import { type Event, isEscalation } from "../events";
 import type { Question } from "../plan";
-import { isUpdate } from "../prompts";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
+import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
-import {
-	InMessage,
-	textOf,
-	useArrival,
-	useCardReply,
-	useKept,
-} from "./card-reply";
+import { CardBox } from "./card-box";
+import { useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
-import { Sheeted, useSheeted } from "./phone-sheets";
 import { QuestionCard } from "./question-card";
 import { Refusal, useRefusal } from "./refusal";
-
-/**
- * The data a `data-questions` part carries: one message's questions, in
- * order, the escalation they end, when they do, and the demo they follow,
- * which is what they ask about.
- */
-export interface QuestionsData {
-	questions: Question[];
-	escalation: TaskReport | null;
-	demo: Demo | null;
-}
 
 /**
  * The questions as a panel answered by keyboard alone: a letter picks a
@@ -118,12 +100,16 @@ export function QuestionCards({
 	);
 	const more = sent === null ? written.more : besides(sent, questions);
 	const answered = answers.filter((answer) => answer !== null).length;
-	const out = replyOf(questions, questions.map(writtenFor), written.more);
 	const send = copy ? null : (reply?.send ?? null);
+	// What is attached to each box, where the reply can carry files.
+	const boxFiles = useResource(() => new BoxFiles(), []);
+	const files = send === null ? null : boxFiles;
+	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
+	const out = replyOf(questions, questions.map(writtenFor), written.more);
 	const { copied, copy: copyOut } = useCopy();
 	const { refusal, attempt } = useRefusal();
 	const submit = () => {
-		if (!live || out === "") {
+		if (!live || (out === "" && !attached)) {
 			return;
 		}
 		if (send === null) {
@@ -131,9 +117,15 @@ export function QuestionCards({
 			copyOut(out, onSent);
 		} else {
 			// Sent from outside a message, nothing else drops what it kept.
+			const { text, files: sending } = boxFiles.reply(
+				questions,
+				questions.map(writtenFor),
+				written.more,
+			);
 			void attempt(
-				send(out).then(() => {
+				send(text, sending).then(() => {
 					kept.write("");
+					boxFiles.clear();
 					onSent?.();
 				}),
 				"Not sent",
@@ -286,6 +278,7 @@ export function QuestionCards({
 									answer={answers[at] ?? null}
 									live={live}
 									roomy={paging}
+									files={files?.of(asked.text) ?? null}
 									onAnswer={(answer) => {
 										const picked = answer.picks.some(
 											(key) =>
@@ -316,22 +309,22 @@ export function QuestionCards({
 						aria-label="anything else"
 						className="flex flex-col gap-5 px-5 py-5"
 					>
-						<label className="flex flex-col gap-3">
+						<div className="flex flex-col gap-3">
 							<span className="font-semibold text-lg leading-snug">
 								Anything else?
 							</span>
-							<textarea
+							<CardBox
+								roomy
 								data-stop="more"
 								aria-label="Anything else"
 								rows={4}
 								value={written.more}
 								placeholder="Optional"
-								onChange={(event) =>
-									write({ ...written, more: event.target.value })
-								}
-								className="field-sizing-content min-h-28 w-full resize-none rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-base outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 focus:border-ring focus:bg-background focus:ring-3 focus:ring-ring/20"
+								onValue={(more) => write({ ...written, more })}
+								files={files?.of(MORE) ?? null}
+								className="min-h-28"
 							/>
-						</label>
+						</div>
 						{/* What is answered, a tap from going back to change it. */}
 						<ol aria-label="your answers" className="flex flex-col gap-2">
 							{questions.map((asked, at) => (
@@ -389,7 +382,7 @@ export function QuestionCards({
 							) : (
 								<Button
 									className="h-11 flex-1 text-base"
-									disabled={out === ""}
+									disabled={out === "" && !attached}
 									onClick={submit}
 								>
 									<SendHorizontalIcon data-icon="inline-start" />
@@ -401,15 +394,14 @@ export function QuestionCards({
 					</footer>
 				) : live ? (
 					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
-						<textarea
+						<CardBox
 							data-stop="more"
 							aria-label="Anything else"
 							rows={1}
 							value={written.more}
 							placeholder="Anything else?"
-							onChange={(event) =>
-								write({ ...written, more: event.target.value })
-							}
+							onValue={(more) => write({ ...written, more })}
+							files={files?.of(MORE) ?? null}
 							onKeyDown={(event) => {
 								// Enter sends, as in the composer; Shift+Enter is a new line.
 								if (event.key === "Enter" && !event.shiftKey) {
@@ -417,7 +409,7 @@ export function QuestionCards({
 									submit();
 								}
 							}}
-							className="field-sizing-content min-h-9 pointer-coarse:min-h-11 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm pointer-coarse:text-base outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
+							className="min-h-9 pointer-coarse:min-h-11"
 						/>
 						<div className="flex items-center gap-3">
 							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
@@ -434,7 +426,7 @@ export function QuestionCards({
 							</p>
 							<Button
 								size="sm"
-								disabled={out === ""}
+								disabled={out === "" && !attached}
 								title={copied.state === "failed" ? copied.error : undefined}
 								onClick={submit}
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
@@ -480,96 +472,8 @@ function toEnd(stop: HTMLElement | null | undefined): void {
 /** How long a pick shows before a paging panel goes on from it. */
 const GO_ON_MS = 300;
 
-/**
- * What the questions `message` asks keep what is written under: by its first
- * question too, as a message can ask more than one list.
- */
-function draftName(message: string, questions: Question[]): string {
-	return `questions:${message}:${questions[0]?.text ?? ""}`;
-}
-
-/** The questions an escalation it records asks; null for any other event. */
-function escalatedQuestions(event: Event): Question[] | null {
-	return isEscalation(event) && !event.review ? event.questions : null;
-}
-
 /** What the panel holds before it is sent: answers by question line, and the rest. */
 interface Written {
 	answers: Record<string, Answer>;
 	more: string;
-}
-
-/**
- * Renders a `data-questions` part as the questions' panel while it is
- * mounted in a thread, answered and sent from the panel itself.
- */
-export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
-	name: "questions",
-	render: ({ data }) => (
-		<InMessage>
-			<MessageQuestions {...data} />
-		</InMessage>
-	),
-});
-
-/** The questions of the message it is in, kept as a draft under that message. */
-export function MessageQuestions({
-	questions,
-	escalation,
-	demo,
-}: QuestionsData): JSX.Element {
-	const message = useAuiState((state) => state.message.id);
-	// The drafts of the questions asked before these since the person last
-	// replied, newest first, which these take over, as when arbor told the
-	// agent of a task's end meanwhile and it asked them again.
-	const before = useAuiState((state) => {
-		const names: string[] = [];
-		for (const earlier of state.thread.messages
-			.slice(0, state.message.index)
-			.toReversed()) {
-			if (earlier.role === "user" && !isUpdate(textOf(earlier))) {
-				break;
-			}
-			for (const part of earlier.content) {
-				const asked =
-					part.type !== "data"
-						? null
-						: part.name === "questions"
-							? (part.data as QuestionsData).questions
-							: part.name === "event"
-								? escalatedQuestions((part.data as { event: Event }).event)
-								: null;
-				if (asked !== null && asked.length > 0) {
-					names.push(draftName(earlier.id, asked));
-				}
-			}
-		}
-		return names.join("\n");
-	});
-	const sheeted = useSheeted();
-	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
-	return (
-		<Sheeted
-			{...(escalation === null
-				? {
-						title: `${count} for you`,
-						Icon: MessageCircleQuestionIcon,
-						tone: "info" as const,
-					}
-				: {
-						title: `${count} for you`,
-						Icon: ENDINGS.escalated.Icon,
-						tone: ENDINGS.escalated.tone,
-					})}
-		>
-			<QuestionCards
-				questions={questions}
-				escalation={escalation}
-				demo={demo}
-				draft={draftName(message, questions)}
-				earlier={before === "" ? [] : before.split("\n")}
-				paged={sheeted}
-			/>
-		</Sheeted>
-	);
 }

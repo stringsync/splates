@@ -98,7 +98,9 @@
 @source "./checkpoint-pick.tsx";
 @source "./checkpoint-slide.tsx";
 @source "./question-cards.tsx";
+@source "./message-questions.tsx";
 @source "./card-reply.tsx";
+@source "./card-box.tsx";
 @source "./question-card.tsx";
 @source "./question-ranking.tsx";
 @source "./choice-body.tsx";

@@ -3,7 +3,7 @@ import { XIcon } from "lucide-react";
 import { useContext, useMemo } from "react";
 import { Device } from "webappwiz/browser";
 import { Button } from "#dev/components/ui/button.tsx";
-import type { Dictation, DictationPhase } from "./dictation";
+import { COMPOSER, type Dictation, type DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
 
 /**
@@ -62,19 +62,22 @@ function Status({ dictation }: { dictation: Dictation }) {
 
 /**
  * What went wrong with the last take, above the composer's action row until
- * the next one or a dismiss: a blocked mic with how to allow it on this
- * device, a missing key with where to add it, a take stopped on its own.
+ * the next one or a dismiss, in the box `by` names that took it: a blocked
+ * mic with how to allow it on this device, a missing key with where to add
+ * it, a take stopped on its own.
  */
-export function DictationNotice() {
+export function DictationNotice({ by = COMPOSER }: { by?: string }) {
 	const dictation = useContext(DictationContext);
-	return dictation === null ? null : <Notice dictation={dictation} />;
+	return dictation === null ? null : <Notice dictation={dictation} by={by} />;
 }
 
-function Notice({ dictation }: { dictation: Dictation }) {
+function Notice({ dictation, by }: { dictation: Dictation; by: string }) {
 	const phase = useReactive(dictation, (each) => each.state.phase, ["changed"]);
 	const error = useReactive(dictation, (each) => each.state.error, ["changed"]);
 	const cred = useReactive(dictation, (each) => each.state.cred, ["changed"]);
-	if (error === undefined) {
+	const owner = useReactive(dictation, (each) => each.owner, ["changed"]);
+	// Only the box that took it says what went wrong.
+	if (error === undefined || owner !== by) {
 		return null;
 	}
 	return (

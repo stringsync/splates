@@ -26,6 +26,9 @@ export type DictationPhase =
 	| "finishing"
 	| "failed";
 
+/** Who a take the conversation's composer starts is by. */
+export const COMPOSER = "composer";
+
 /** How long the input may stay this quiet before the composer asks whether the mic hears. */
 export const SILENCE = Duration.secs(4);
 
@@ -63,6 +66,11 @@ export class Dictation
 	private current = IDLE;
 	/** The take under way, from the tap until it is done or given up. */
 	private take: TakeUnderWay | undefined;
+	/**
+	 * Who started the last take, {@link COMPOSER} or a box of its own, which
+	 * alone shows what it is doing and what went wrong with it.
+	 */
+	private by = COMPOSER;
 
 	constructor(
 		private readonly microphone: Microphone,
@@ -73,11 +81,17 @@ export class Dictation
 		return this.current;
 	}
 
+	/** Who started the last take: {@link COMPOSER}, or the name a box gave it. */
+	get owner(): string {
+		return this.by;
+	}
+
 	/**
 	 * Starts a take, as the composer's mic button asks on the tap itself: the
-	 * mic starts before any await, as a phone needs.
+	 * mic starts before any await, as a phone needs. `by` names a box other
+	 * than the composer that the take writes in.
 	 */
-	listen(): DictationSession {
+	listen(by = COMPOSER): DictationSession {
 		this.take?.session.ended("cancelled", undefined);
 		this.take?.dispose();
 		const sink = new BufferedSink();
@@ -94,6 +108,7 @@ export class Dictation
 			}),
 		);
 		this.take = take;
+		this.by = by;
 		this.set({ ...IDLE, phase: "opening" });
 		void this.microphone.permission().then((permission) => {
 			if (permission === "prompt" && this.take === take && !take.recording) {

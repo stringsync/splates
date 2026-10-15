@@ -14,7 +14,7 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 
 /** Marks each composer's attach button, for ⌥⌘; to find. */
-const ATTACH = "aui-composer-add-attachment";
+export const ATTACH = "aui-composer-add-attachment";
 /**
  * Picks files to attach, as its shortcut does, showing its key while ⌥⌘ is
  * held.
