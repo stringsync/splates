@@ -248,15 +248,6 @@ describe("stretches", () => {
 		});
 	});
 
-	it("reads the skill's word that it requested a cred, leaving what follows as text", async () => {
-		const example = await skillExample("## 🔑 Requested");
-
-		expect(stretches(`${example}\n\nI wait for it now.`)).toEqual([
-			{ type: "cred", name: "CLOUDFLARE_TUNNEL_TOKEN" },
-			{ type: "text", text: "I wait for it now." },
-		]);
-	});
-
 	it("reads the skill's working lanes report, naming each lane and the tasks out", async () => {
 		const example = await skillExample("## ⏳ Working lanes");
 

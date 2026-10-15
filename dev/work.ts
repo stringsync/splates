@@ -257,8 +257,7 @@ function cut(
  */
 function adds(text: string): boolean {
 	const found = stretches(text);
-	const along = (each: (typeof found)[number]) =>
-		each.type === "start" || each.type === "cred";
+	const along = (each: (typeof found)[number]) => each.type === "start";
 	return (
 		found.some(along) &&
 		found.every((each) => along(each) || each.type === "text")

@@ -120,6 +120,24 @@ describe("App's arbor events", () => {
 		expect(removed).toContain("Removed#12 Fix the lease");
 	});
 
+	it("draws a cred request as a chip opening it on the Creds page, and none for a cred already kept", async () => {
+		const thread = await opened(turn(["Waiting."]), [
+			credRequest("a", "CF_TOKEN", true),
+			credRequest("b", "KEPT_TOKEN", false),
+		]);
+
+		const line = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(1);
+			return found[0] as HTMLElement;
+		});
+		expect(line.textContent).toBe("RequestedCF_TOKEN");
+		expect(within(line).getByRole("link").getAttribute("href")).toBe(
+			"#creds/CF_TOKEN",
+		);
+		expect(thread.textContent).not.toContain("## 🔑");
+	});
+
 	it("draws nothing for an action no line is drawn for yet", async () => {
 		const thread = await opened(turn(["Done."]), [
 			{
@@ -345,4 +363,18 @@ function todoEvent(
 	return reason === undefined
 		? { ...common, reason: null, todos: todos ?? [] }
 		: { ...common, reason };
+}
+
+/** A cred request the agent ran, which asked for the cred or found it kept. */
+function credRequest(id: string, name: string, asked: boolean): Event {
+	return {
+		id,
+		at: second(3),
+		action: "creds request",
+		task: null,
+		reason: null,
+		conversation: "c1",
+		name,
+		asked,
+	};
 }

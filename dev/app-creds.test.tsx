@@ -1,16 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { CredRequest } from "../creds";
 import { pasteAndSave, REQUEST } from "./creds-testing";
-import {
-	act,
-	cleanup,
-	fireEvent,
-	Testing,
-	tool,
-	turn,
-	waitFor,
-	within,
-} from "./testing";
+import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
 
 describe("App's creds", () => {
 	let testing: Testing;
@@ -154,105 +145,6 @@ describe("App's creds", () => {
 		expect(view.queryByLabelText("Name")).toBeNull();
 		expect(view.queryByLabelText("Value of STRIPE_KEY")).toBeNull();
 		expect(testing.posts).toHaveLength(0);
-	});
-
-	it("shows the request an agent said it made as a card in its thread, between its work", async () => {
-		const view = await testing.openConversations(
-			[
-				turn([
-					tool({ id: "x1", command: "arbor creds request CLOUDFLARE_TOKEN" }),
-					"## 🔑 Requested CLOUDFLARE_TOKEN",
-					tool({ id: "x2", command: "arbor creds wait CLOUDFLARE_TOKEN" }),
-					"Saved, so I carry on.",
-				]),
-			],
-			undefined,
-			{ creds: [REQUEST] },
-		);
-
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
-		);
-		expect(card.textContent).toContain("Requested");
-		expect(card.textContent).toContain(
-			"To route arbor.example.com to arbor dev.",
-		);
-		expect(card.textContent).toContain("Open API Tokens and create one.");
-		expect(view.container.textContent).not.toContain("## 🔑");
-		fireEvent.change(within(card).getByLabelText("Value of CLOUDFLARE_TOKEN"), {
-			target: { value: "cf-secret" },
-		});
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Save" })),
-		);
-
-		expect(testing.posted("/api/creds/CLOUDFLARE_TOKEN")).toEqual([
-			{ method: "PUT", body: { value: "cf-secret", scope: "device" } },
-		]);
-	});
-
-	it("shows a filled request's card as saved", async () => {
-		const view = await testing.openConversations(
-			[turn(["## 🔑 Requested CLOUDFLARE_TOKEN"])],
-			undefined,
-			{ creds: [{ ...REQUEST, status: "saved" }] },
-		);
-
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
-		);
-		expect(card.textContent).toContain("Saved");
-		expect(card.textContent).not.toContain("Open API Tokens");
-	});
-
-	it("says on a request's card that the value stays private, and opens how", async () => {
-		const view = await testing.openConversations(
-			[turn(["## 🔑 Requested CLOUDFLARE_TOKEN"])],
-			undefined,
-			{ creds: [REQUEST] },
-		);
-
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
-		);
-		expect(card.textContent).toContain(
-			"Private: the agent never sees it, and it is kept encrypted.",
-		);
-		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Learn more" })),
-		);
-
-		const dialog = await waitFor(() => view.getByRole("dialog"));
-		expect(
-			within(dialog).getByRole("heading", { name: "How creds stay private" }),
-		).toBeTruthy();
-		expect(
-			within(dialog)
-				.getAllByRole("term")
-				.map((each) => each.textContent),
-		).toEqual([
-			"The agent never sees it",
-			"It is in no conversation or log",
-			"It is never saved in plain text",
-			"Only code reads it",
-		]);
-	});
-
-	it("keeps a value pasted on a request's card to its store alone", async () => {
-		const view = await testing.openConversations(
-			[turn(["## 🔑 Requested CLOUDFLARE_TOKEN"])],
-			undefined,
-			{ creds: [REQUEST] },
-		);
-
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "requested CLOUDFLARE_TOKEN" }),
-		);
-		await pasteAndSave(
-			testing,
-			within(card).getByLabelText("Value of CLOUDFLARE_TOKEN"),
-			"cf-card-secret",
-		);
 	});
 
 	it("keeps a value pasted on a requested cred to its store alone", async () => {

@@ -143,7 +143,12 @@ export interface Facts {
 		todos: number[];
 	};
 	"lane join": None;
-	"creds request": None;
+	"creds request": {
+		/** The cred asked for, as its environment variable. */
+		name: string;
+		/** Whether it asked, rather than finding the cred already kept. */
+		asked: boolean;
+	};
 	"creds save": None;
 	"creds remove": None;
 	"creds dismiss": None;

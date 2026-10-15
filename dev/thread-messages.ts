@@ -209,11 +209,9 @@ export function like(
 							? stretches(stretch.text).flatMap((each): LikePart[] =>
 									each.type === "start"
 										? [{ type: "data-start", data: { start: each.start } }]
-										: each.type === "cred"
-											? [{ type: "data-cred", data: { name: each.name } }]
-											: each.type === "text"
-												? [{ type: "text", text: each.text }]
-												: [],
+										: each.type === "text"
+											? [{ type: "text", text: each.text }]
+											: [],
 								)
 							: at === reply
 								? replied(stretch.text, settled, {
@@ -332,8 +330,6 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 				return [{ type: "data-review", data: { review: stretch.review } }];
 			case "start":
 				return [{ type: "data-start", data: { start: stretch.start } }];
-			case "cred":
-				return [{ type: "data-cred", data: { name: stretch.name } }];
 			case "report":
 				return stretch.report.ending === "escalated" &&
 					asking?.type === "questions"

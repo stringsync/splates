@@ -42,14 +42,6 @@ export function stretches(text: string): Stretch[] {
 			i = end;
 			continue;
 		}
-		// A line alone: what the request says is the record's, not the message's.
-		const requested = REQUESTED.exec(line);
-		if (requested !== null) {
-			found.push(...prose(lines.slice(from, i)));
-			found.push({ type: "cred", name: requested[1] as string });
-			from = i + 1;
-			continue;
-		}
 		const demo = demoHere(lines, i);
 		if (demo !== null) {
 			found.push(...prose(lines.slice(from, i)));
@@ -97,8 +89,7 @@ export type Stretch =
 	| { type: "report"; report: Report }
 	| { type: "start"; start: LanesStart }
 	| { type: "todo"; todo: Proposal }
-	| { type: "demo"; demo: Demo }
-	| { type: "cred"; name: string };
+	| { type: "demo"; demo: Demo };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -220,8 +211,6 @@ const WORKING = /^## ⏳ Working lanes? (.*?)(?::[ \t]*(.*?))?[ \t]*$/;
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const HANDED = /^## 🤝 Handed off (\S+) to (.+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
-/** The skill's word that it requested a cred, which the page shows as the request. */
-const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
 /**
  * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections

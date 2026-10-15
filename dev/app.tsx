@@ -32,7 +32,7 @@ import { ConversationFeed } from "./conversation-feed";
 import { useWaiting } from "./conversation-list";
 import { Lanes } from "./conversation-names";
 import { Conversations } from "./conversations";
-import { CredsContext, CredsPage } from "./creds";
+import { CredsPage } from "./creds";
 import { Dispatch } from "./dispatch";
 import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
@@ -309,28 +309,24 @@ export function App({
 					budget: <BudgetPage talk={talk} />,
 					conversations: available && (
 						<TreesContext value={snapshot}>
-							<CredsContext
-								value={{ requests: snapshot.creds, project: snapshot.repo }}
-							>
-								<OpenerContext value={openerOf(opener)}>
-									<Conversations
-										feed={talk}
-										terminals={terminals}
-										drafts={drafts}
-										tasks={snapshot.tasks}
-										todos={snapshot.todos}
-										lanes={snapshot.lanes}
-										trunk={snapshot.trunk}
-										open={open}
-										onOpen={(id, how) => go("conversations", id, how)}
-										onTodos={(ids) => {
-											go("todos");
-											todoView.filter(ids);
-										}}
-										phone={!wide}
-									/>
-								</OpenerContext>
-							</CredsContext>
+							<OpenerContext value={openerOf(opener)}>
+								<Conversations
+									feed={talk}
+									terminals={terminals}
+									drafts={drafts}
+									tasks={snapshot.tasks}
+									todos={snapshot.todos}
+									lanes={snapshot.lanes}
+									trunk={snapshot.trunk}
+									open={open}
+									onOpen={(id, how) => go("conversations", id, how)}
+									onTodos={(ids) => {
+										go("todos");
+										todoView.filter(ids);
+									}}
+									phone={!wide}
+								/>
+							</OpenerContext>
 						</TreesContext>
 					),
 				};

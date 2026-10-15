@@ -46,14 +46,18 @@ arborCreds
 	})
 	.action(async (opts, ctx) => {
 		const scope = opts.device ? "device" : "project";
-		const request = await ctx.journal.record("creds request", null, async () =>
-			ctx.creds.request(opts.name, {
-				scope,
-				purpose: opts.purpose,
-				instructions: opts.instructions,
-				task: await here(ctx),
-				replace: opts.replace,
-			}),
+		const request = await ctx.journal.record(
+			"creds request",
+			null,
+			async () =>
+				ctx.creds.request(opts.name, {
+					scope,
+					purpose: opts.purpose,
+					instructions: opts.instructions,
+					task: await here(ctx),
+					replace: opts.replace,
+				}),
+			(asked) => ({ name: opts.name, asked: asked !== null }),
 		);
 		if (request === null) {
 			ctx.log.info(

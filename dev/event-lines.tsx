@@ -101,6 +101,13 @@ const LINES: {
 	"todo take": (event) => todoLine("Took", event),
 	"todo release": (event) => todoLine("Released", event),
 	"todo remove": (event) => todoLine("Removed", event),
+	"creds request": (event) =>
+		event.reason === null && event.asked
+			? {
+					words: ["Requested", { kind: "cred", name: event.name }],
+					at: event.at,
+				}
+			: null,
 };
 
 /** The line a command on todos draws, none when it was refused. */

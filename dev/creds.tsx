@@ -1,37 +1,15 @@
-import { makeAssistantDataUI } from "@assistant-ui/react";
-import {
-	CheckIcon,
-	CircleSlashIcon,
-	KeyRoundIcon,
-	PlusIcon,
-} from "lucide-react";
-import {
-	createContext,
-	type JSX,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { KeyRoundIcon, PlusIcon } from "lucide-react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { CredRequest } from "../creds";
 import { dismissCred, type KeptCreds, keptCreds, saveCred } from "./api";
-import { CardShell } from "./card-shell";
 import { Paste } from "./cred-paste";
 import { ScopeChip } from "./cred-scope";
 import { AddCred, KeptRow } from "./kept-creds";
 import { Markdown } from "./markdown";
 import { PHONE_HEADING } from "./phone-rows";
 import { TaskChip } from "./reference-chip";
-
-/** The project's cred requests, for a card in a thread to follow its own. */
-export const CredsContext = createContext<{
-	requests: CredRequest[];
-	/** The project's name, which its own scope is shown as. */
-	project: string;
-} | null>(null);
 
 /** The requests still waiting on the person. */
 export function openRequests(requests: CredRequest[]): CredRequest[] {
@@ -257,59 +235,3 @@ export function CredsPage({
 		</section>
 	);
 }
-
-/**
- * The request an agent said it made, as `## 🔑 Requested <NAME>`, in its
- * thread: what it is for, how to get it and a field to paste it in while it is open, then
- * what became of it, as its record says now.
- */
-function CredRequestCard({ name }: { name: string }): JSX.Element {
-	const creds = useContext(CredsContext);
-	const request = creds?.requests.find((each) => each.name === name);
-	const project = creds?.project ?? "";
-	const aside = (
-		<span className="flex items-center gap-2">
-			<code className="font-mono text-xs">{name}</code>
-			{request !== undefined && (
-				<ScopeChip scope={request.scope} project={project} />
-			)}
-		</span>
-	);
-	if (request === undefined || request.status === "dismissed") {
-		return (
-			<CardShell
-				label={`requested ${name}`}
-				Icon={CircleSlashIcon}
-				title={request === undefined ? "No longer requested" : "Dismissed"}
-				aside={aside}
-			/>
-		);
-	}
-	const saved = request.status === "saved";
-	return (
-		<CardShell
-			label={`requested ${name}`}
-			Icon={saved ? CheckIcon : KeyRoundIcon}
-			title={saved ? "Saved" : "Requested"}
-			tone={saved ? "success" : "warning"}
-			aside={aside}
-		>
-			{!saved && <RequestBody request={request} />}
-			<div className={saved ? "px-4 py-3" : "px-4 pt-1 pb-4"}>
-				<Paste
-					// Anew when it is filled elsewhere, so it says Saved here too.
-					key={request.status}
-					name={name}
-					saved={saved}
-					save={(value) => saveCred(name, value, request.scope)}
-				/>
-			</div>
-		</CardShell>
-	);
-}
-
-/** Renders a `data-cred` part: the request an agent said it made. */
-export const CredUI = makeAssistantDataUI<{ name: string }>({
-	name: "cred",
-	render: ({ data }) => <CredRequestCard name={data.name} />,
-});

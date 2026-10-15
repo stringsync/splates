@@ -33,13 +33,17 @@ export type TranscriberFor = (
 export const transcriberFor: TranscriberFor = async (project, tick) => {
 	const key = await project.creds.credentials.get(OPENAI_KEY);
 	if (key === undefined) {
-		await project.journal.record("creds request", null, () =>
-			project.creds.request(OPENAI_KEY, {
-				scope: "device",
-				purpose: PURPOSE,
-				instructions: INSTRUCTIONS,
-				task: null,
-			}),
+		await project.journal.record(
+			"creds request",
+			null,
+			() =>
+				project.creds.request(OPENAI_KEY, {
+					scope: "device",
+					purpose: PURPOSE,
+					instructions: INSTRUCTIONS,
+					task: null,
+				}),
+			(asked) => ({ name: OPENAI_KEY, asked: asked !== null }),
 		);
 		await tick();
 		return null;
