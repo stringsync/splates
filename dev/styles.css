@@ -30,6 +30,7 @@
 @source "./markdown.tsx";
 @source "./media.tsx";
 @source "./lightbox.tsx";
+@source "./zoom.tsx";
 @source "./annotate.tsx";
 @source "./annotate-board.tsx";
 @source "./mark-notes.tsx";

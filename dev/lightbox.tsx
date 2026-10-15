@@ -17,6 +17,7 @@ import { useAnnotate } from "#dev/annotate.tsx";
 import { Button, buttonVariants } from "#dev/components/ui/button.tsx";
 import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { ZoomableImage } from "#dev/zoom.tsx";
 
 /** A control on the dark around the media, in either theme. */
 const LIGHT = "text-white hover:bg-white/15 hover:text-white";
@@ -93,8 +94,9 @@ export function useLightbox(markUp?: (image: Shown) => Promise<void>): {
 
 /**
  * A screenshot or recording at the size of the window over a dimmed page,
- * with its caption, and arrows to the others of its document. Escape, the
- * close button, or a click off the media closes it.
+ * with its caption, and arrows to the others of its document. An image zooms
+ * in with a pinch, a double tap or the wheel. Escape, the close button, or a
+ * click off the media closes it.
  */
 export function Lightbox({
 	items,
@@ -181,7 +183,7 @@ export function Lightbox({
 								onClose();
 							}
 						}}
-						className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 p-14 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+						className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-hidden p-14 text-white outline-none duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
 					>
 						{shown && (
 							<>
@@ -199,7 +201,7 @@ export function Lightbox({
 										className="min-h-0 max-w-full flex-1 rounded-md object-contain"
 									/>
 								) : (
-									<img
+									<ZoomableImage
 										key={shown.url}
 										src={shown.url}
 										alt={shown.alt}
