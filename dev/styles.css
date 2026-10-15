@@ -110,6 +110,8 @@
 @source "./systems-page.tsx";
 @source "./usage.tsx";
 @source "./plan-limits.tsx";
+@source "./budget.tsx";
+@source "./meter.tsx";
 @source "./waiting-line.tsx";
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";

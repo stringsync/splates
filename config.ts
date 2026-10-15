@@ -48,6 +48,12 @@ export interface Config {
 	 */
 	attachmentCapacity: number;
 	/**
+	 * The command the `arbor dev` Budget page runs `scry budgets` with, from
+	 * the repo's root. Leave it unset when the repo installs `@webappwiz/cli`;
+	 * name a wrapper of the repo's own otherwise, like `"./bin/wiz"`.
+	 */
+	wiz: string;
+	/**
 	 * What carries `arbor dev --tunnel` to its public host, a TunnelProvider
 	 * of your own for any tunnel; null runs `cloudflared`.
 	 */

@@ -1,8 +1,9 @@
-import { type JSX, useEffect, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
+import type { JSX } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState, Limit } from "../conversations";
 import type { AgentChoice } from "./conversation-feed";
+import { useMinute } from "./hooks/use-minute";
+import { METER_COLUMNS, Meter, toneOf } from "./meter";
 
 /** The windows shown, in this order, by what Claude calls each. */
 const WINDOWS: [string, string][] = [
@@ -19,28 +20,93 @@ const WINDOWS: [string, string][] = [
 const UNSHOWN = new Set(["seven_day_overage_included"]);
 
 /**
- * What a window is called: its name when Claude has one for it, else its
- * length, as Codex's `43200_minutes` is `30-day`.
+ * How much of the plan's windows is used and when each starts over, beside
+ * Pick back up: yellow from 80% used, red from 90%. Nothing until the agent
+ * has said, which only Claude does.
  */
-function nameOf(window: string): string {
-	const named = WINDOWS.find(([each]) => each === window)?.[1];
-	if (named !== undefined) {
-		return named;
+export function PlanLimits({
+	limits,
+	title = "Plan limits",
+	className,
+	aligned = false,
+}: {
+	limits: Limit[];
+	className?: string;
+	/**
+	 * Lays the rows out in `METER_COLUMNS`, each reset under its bar, so the
+	 * bars line up with the page's other meters.
+	 */
+	aligned?: boolean;
+	/** What the list is headed, like the agent whose plan it is. */
+	title?: string;
+}): JSX.Element | null {
+	const now = useMinute();
+	if (limits.length === 0) {
+		return null;
 	}
-	const minutes = Number(/^(\d+)_minutes$/.exec(window)?.[1]);
-	if (!Number.isFinite(minutes) || minutes <= 0) {
-		return window;
-	}
-	return minutes % 1440 === 0
-		? `${minutes / 1440}-day`
-		: minutes % 60 === 0
-			? `${minutes / 60}-hour`
-			: `${minutes}-minute`;
+	return (
+		<section
+			aria-label={
+				title === "Plan limits" ? "plan limits" : `${title} plan limits`
+			}
+			className={cn("mt-4 flex flex-col gap-1 px-2", className)}
+		>
+			<h3 className="pl-3 font-medium text-muted-foreground text-xs">
+				{title}
+			</h3>
+			{/* On a phone, when each window resets goes under it, so its bar keeps its width. */}
+			<ul
+				className={cn(
+					"grid gap-x-3",
+					aligned
+						? METER_COLUMNS
+						: "grid-cols-[max-content_1fr_3rem_14rem] max-md:grid-cols-[max-content_1fr_3rem]",
+				)}
+			>
+				{limits.map((limit) => {
+					const resets = Date.parse(limit.resets);
+					// Past its reset, it has started over since the agent said.
+					const over = resets <= now;
+					const used = over ? 0 : Math.min(Math.max(limit.used, 0), 1);
+					const tone = toneOf(used);
+					const name = nameOf(limit.window);
+					return (
+						<li
+							key={limit.window}
+							aria-label={name}
+							className={cn(
+								"col-span-full grid grid-cols-subgrid items-center rounded-md py-1.5 text-sm tabular-nums",
+								!aligned && "px-3",
+							)}
+						>
+							<span className="whitespace-nowrap">{name}</span>
+							<Meter used={used} />
+							<span
+								className={cn(
+									"text-right",
+									tone === "warning" && "text-warning",
+									tone === "destructive" && "text-destructive",
+								)}
+							>
+								{Math.round(used * 100)}%
+							</span>
+							<span
+								className={cn(
+									"text-muted-foreground text-xs",
+									aligned ? "col-span-2 col-start-2" : "max-md:col-span-full",
+								)}
+							>
+								{over
+									? `reset ${clock(resets, now)}`
+									: `resets ${clock(resets, now)}, in ${until(resets, now)}`}
+							</span>
+						</li>
+					);
+				})}
+			</ul>
+		</section>
+	);
 }
-
-/** How full a window may get before it warns, and before it alarms. */
-const NEARLY_FULL = 0.8;
-const ALL_BUT_FULL = 0.9;
 
 /**
  * What `agent` last said of each window of the plan: the newest of what it
@@ -76,6 +142,26 @@ export function limitsOf(
 	});
 }
 
+/**
+ * What a window is called: its name when Claude has one for it, else its
+ * length, as Codex's `43200_minutes` is `30-day`.
+ */
+function nameOf(window: string): string {
+	const named = WINDOWS.find(([each]) => each === window)?.[1];
+	if (named !== undefined) {
+		return named;
+	}
+	const minutes = Number(/^(\d+)_minutes$/.exec(window)?.[1]);
+	if (!Number.isFinite(minutes) || minutes <= 0) {
+		return window;
+	}
+	return minutes % 1440 === 0
+		? `${minutes / 1440}-day`
+		: minutes % 60 === 0
+			? `${minutes / 60}-hour`
+			: `${minutes}-minute`;
+}
+
 const CLOCK = new Intl.DateTimeFormat("en", {
 	hour: "numeric",
 	minute: "2-digit",
@@ -109,91 +195,4 @@ function until(at: number, now: number): string {
 		return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 	}
 	return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
-}
-
-/** The clock, as epoch ms, moving each minute. */
-function useMinute(): number {
-	const [now, setNow] = useState(() => Date.now());
-	useEffect(() => {
-		const tick = new SystemTimer().setInterval(
-			() => setNow(Date.now()),
-			Duration.mins(1),
-		);
-		return () => tick.dispose();
-	}, []);
-	return now;
-}
-
-/**
- * How much of the plan's windows is used and when each starts over, beside
- * Pick back up: yellow from 80% used, red from 90%. Nothing until the agent
- * has said, which only Claude does.
- */
-export function PlanLimits({
-	limits,
-}: {
-	limits: Limit[];
-}): JSX.Element | null {
-	const now = useMinute();
-	if (limits.length === 0) {
-		return null;
-	}
-	return (
-		<section aria-label="plan limits" className="mt-4 flex flex-col gap-1 px-2">
-			<h3 className="pl-3 font-medium text-muted-foreground text-xs">
-				Plan limits
-			</h3>
-			<ul className="grid grid-cols-[max-content_1fr_3rem_14rem] gap-x-3">
-				{limits.map((limit) => {
-					const resets = Date.parse(limit.resets);
-					// Past its reset, it has started over since the agent said.
-					const over = resets <= now;
-					const used = over ? 0 : Math.min(Math.max(limit.used, 0), 1);
-					const tone =
-						used >= ALL_BUT_FULL
-							? "destructive"
-							: used >= NEARLY_FULL
-								? "warning"
-								: null;
-					const name = nameOf(limit.window);
-					return (
-						<li
-							key={limit.window}
-							aria-label={name}
-							className="col-span-full grid grid-cols-subgrid items-center rounded-md px-3 py-1.5 text-sm tabular-nums"
-						>
-							<span className="whitespace-nowrap">{name}</span>
-							<span
-								aria-hidden
-								className="relative h-1 overflow-hidden rounded-full bg-foreground/15"
-							>
-								<span
-									className={cn(
-										"absolute inset-y-0 left-0 rounded-full bg-foreground",
-										tone === "warning" && "bg-warning",
-										tone === "destructive" && "bg-destructive",
-									)}
-									style={{ width: `${used * 100}%` }}
-								/>
-							</span>
-							<span
-								className={cn(
-									"text-right",
-									tone === "warning" && "text-warning",
-									tone === "destructive" && "text-destructive",
-								)}
-							>
-								{Math.round(used * 100)}%
-							</span>
-							<span className="text-muted-foreground text-xs">
-								{over
-									? `reset ${clock(resets, now)}`
-									: `resets ${clock(resets, now)}, in ${until(resets, now)}`}
-							</span>
-						</li>
-					);
-				})}
-			</ul>
-		</section>
-	);
 }

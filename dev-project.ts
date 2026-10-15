@@ -3,6 +3,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { ConversationState, Conversations } from "./conversations";
+import { BudgetRoutes } from "./dev-budgets";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
@@ -68,6 +69,7 @@ export async function serveProject(
 		...new TaskRoutes(project, conversations, watch),
 		...new TodoRoutes(project, talks, watch),
 		...new CredRoutes(project, watch),
+		...new BudgetRoutes(project),
 		...talks,
 		root: service.git.root,
 		format,
@@ -149,6 +151,10 @@ export interface Served extends AsyncResource {
 	saveCred: Handler;
 	removeCred: Handler;
 	dismissCred: Handler;
+	listBudgets: Handler;
+	setBudget: Handler;
+	raiseBudget: Handler;
+	endRaise: Handler;
 	listConversations: Handler;
 	startConversation: Handler;
 	listSessions: Handler;

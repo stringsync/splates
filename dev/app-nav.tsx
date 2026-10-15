@@ -57,7 +57,8 @@ export function AppNav({
 			page === "conversations" ||
 			page === "systems" ||
 			page === "stats" ||
-			page === "creds"
+			page === "creds" ||
+			page === "budget"
 				? 0
 				: (page === "todos" ? snapshot.todos : snapshot.tasks).length;
 		return counting === 0 ? null : counting;

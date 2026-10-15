@@ -13,7 +13,7 @@ import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
-import type { KeptCreds } from "./api";
+import type { Budgets, KeptCreds } from "./api";
 import type { AgentChoice } from "./conversation-feed";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
@@ -86,6 +86,8 @@ export class Testing implements Resource {
 			device: 'the macOS Keychain as "webappwiz"',
 		},
 	};
+	/** What `/api/budgets` says of the project's scry budgets. */
+	budgets: Budgets = { declared: false, roles: [] };
 	/** What the page reads; a test sets it before the page fetches again. */
 	served: Snapshot = snapshot();
 	/** What `/api/paths` lists, for `@`. */
@@ -196,6 +198,9 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/creds") {
 				return Response.json(this.kept);
+			}
+			if (route === "/api/budgets") {
+				return Response.json(this.budgets);
 			}
 			if (route === "/api/identity") {
 				return Response.json({ email: this.email });

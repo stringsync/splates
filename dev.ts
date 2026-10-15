@@ -370,6 +370,14 @@ export async function dev(
 			"/api/creds/:name/dismiss": {
 				POST: talk(scoped((project) => project.dismissCred)),
 			},
+			"/api/budgets": scoped((project) => project.listBudgets),
+			"/api/budgets/:role": { PUT: scoped((project) => project.setBudget) },
+			"/api/budgets/:role/raises": {
+				POST: scoped((project) => project.raiseBudget),
+			},
+			"/api/budgets/raises/:id": {
+				DELETE: scoped((project) => project.endRaise),
+			},
 			"/api/lanes/:id": {
 				PUT: scoped((project) => project.updateLane),
 				DELETE: scoped((project) => project.dropLane),

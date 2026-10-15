@@ -1,5 +1,6 @@
 import {
 	ChartColumnIcon,
+	GaugeIcon,
 	GitBranchIcon,
 	KanbanIcon,
 	KeyRoundIcon,
@@ -18,7 +19,7 @@ import type { ShortcutKey } from "./settings";
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#systems` (or `#systems/<name>` for one open), `#stats`,
- * or the board.
+ * `#creds`, `#budget`, or the board.
  */
 export type Page =
 	| "todos"
@@ -26,7 +27,8 @@ export type Page =
 	| "conversations"
 	| "systems"
 	| "stats"
-	| "creds";
+	| "creds"
+	| "budget";
 
 /** Each page with the shortcut that opens it, if any. */
 export const PAGES: {
@@ -50,6 +52,7 @@ export const PAGES: {
 	{ value: "systems", label: "Systems", Icon: LayersIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },
+	{ value: "budget", label: "Budget", Icon: GaugeIcon },
 ];
 
 /**
@@ -107,6 +110,17 @@ export function usePageRoute(): PageRoute {
 	return { page, open, task, go, openTask, system, openSystem };
 }
 
+/** How each page sits on a phone, under its bar; a conversation fills it. */
+export const PHONE_PAGES: Record<Page, string> = {
+	todos: "min-w-0 px-4 py-4",
+	tasks: "px-4 py-6",
+	systems: "min-w-0 px-4 py-6",
+	stats: "min-w-0 px-4 py-6",
+	creds: "min-w-0 px-4 py-6",
+	budget: "min-w-0 px-4 py-6",
+	conversations: "min-h-0 flex-1",
+};
+
 /**
  * The shortcuts that work from anywhere on the page, as the settings bind
  * them: each page's, back and forward through the conversations opened,
@@ -149,6 +163,9 @@ function pageIn(hash: string): Page {
 	}
 	if (hash === "#creds") {
 		return "creds";
+	}
+	if (hash === "#budget") {
+		return "budget";
 	}
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
 }

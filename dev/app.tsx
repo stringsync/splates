@@ -29,6 +29,7 @@ import { AppNav, useWide } from "./app-nav";
 import { AutoRestart } from "./auto-restart";
 import { AutoRestartDialog } from "./auto-restart-dialog";
 import { WatchBackground } from "./background";
+import { BudgetPage } from "./budget";
 import { BESIDE_PANE, ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
 import { useSystems } from "./composer-triggers";
@@ -46,7 +47,12 @@ import { Held } from "./handed-out";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { Notifications } from "./notifications";
 import { OpenerContext, openerOf } from "./openers";
-import { type Page, PageShortcuts, usePageRoute } from "./page-route";
+import {
+	type Page,
+	PageShortcuts,
+	PHONE_PAGES,
+	usePageRoute,
+} from "./page-route";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
 import { placeOf, rememberPlace, shownProject } from "./projects";
@@ -68,16 +74,6 @@ import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
 import { Visits } from "./visits";
 import { TreesContext } from "./work-row";
-
-/** How each page sits on a phone, under its bar; a conversation fills it. */
-const PHONE_PAGES: Record<Page, string> = {
-	todos: "min-w-0 px-4 py-4",
-	tasks: "px-4 py-6",
-	systems: "min-w-0 px-4 py-6",
-	stats: "min-w-0 px-4 py-6",
-	creds: "min-w-0 px-4 py-6",
-	conversations: "min-h-0 flex-1",
-};
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
@@ -315,6 +311,7 @@ export function App({
 					creds: (
 						<CredsPage requests={snapshot.creds} project={snapshot.repo} />
 					),
+					budget: <BudgetPage talk={talk} />,
 					conversations: available && (
 						<TreesContext value={snapshot}>
 							<CredsContext
@@ -468,6 +465,12 @@ export function App({
 																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
 																	>
 																		{bodies.creds}
+																	</TabsContent>
+																	<TabsContent
+																		value="budget"
+																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
+																	>
+																		{bodies.budget}
 																	</TabsContent>
 																	{available && (
 																		<TabsContent
