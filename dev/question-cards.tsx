@@ -76,8 +76,9 @@ export function QuestionCards({
 	/** Copy the reply rather than send it: its agent runs outside the page. */
 	copy?: boolean;
 	/**
-	 * Whether it shows one question at a time, going on to the next as each is
-	 * answered, as in a phone's sheet, rather than all of them down the card.
+	 * Whether it shows one question a screen, as a phone's form does, with
+	 * "Anything else" and Send on a last screen of their own, rather than all
+	 * of them down the card. Only while it can be answered.
 	 */
 	paged?: boolean;
 	/** Once the reply is sent from it, or copied. */
@@ -140,9 +141,12 @@ export function QuestionCards({
 		}
 	};
 	const panel = useRef<HTMLDivElement>(null);
-	// The question shown when paged, over a footer pinned to the sheet's foot.
+	// Answered, every question shows, as on any other card.
+	const paging = paged && live;
+	// The screen shown when paging, over a footer pinned to the sheet's foot:
+	// a question's index, or `end` for "Anything else" and Send.
 	const [page, setPage] = useState(0);
-	const last = questions.length - 1;
+	const end = questions.length;
 	// Whether the page turned to takes the focus, and raises the keyboard
 	// even on a touch screen, as when Enter turned it from a field; null when
 	// the focus stays where it is, as on the button that turned it.
@@ -171,12 +175,10 @@ export function QuestionCards({
 		...(panel.current?.querySelectorAll<HTMLElement>("[data-stop]") ?? []),
 	];
 	const next = (number: string) => {
-		if (paged) {
+		if (paging) {
 			const at = questions.findIndex((asked) => asked.number === number);
-			if (at < last) {
-				turn(at + 1, { typing: raises(document.activeElement) });
-				return;
-			}
+			turn(at + 1, { typing: raises(document.activeElement) });
+			return;
 		}
 		const all = stops();
 		const following =
@@ -226,9 +228,9 @@ export function QuestionCards({
 			folded={sent !== null || askedAgain}
 			// Each question marks itself while it has the focus.
 			ringed={false}
-			// Paged, the dots in its footer say it, so a narrow header never wraps.
+			// Paging, its footer says it, so a narrow header never wraps.
 			aside={
-				paged ? undefined : (
+				paging ? undefined : (
 					<span className="flex items-center gap-2">
 						<span className="text-muted-foreground text-xs tabular-nums">
 							{answered} of {questions.length} answered
@@ -248,8 +250,8 @@ export function QuestionCards({
 		>
 			<div
 				ref={panel}
-				// Paged, it fills its sheet, so its footer sits at the foot.
-				className={cn(paged && "flex flex-1 flex-col")}
+				// Paging, it fills its sheet, so its footer sits at the foot.
+				className={cn(paging && "flex flex-1 flex-col")}
 				onKeyDownCapture={(event) => {
 					if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 						event.preventDefault();
@@ -258,59 +260,147 @@ export function QuestionCards({
 					}
 				}}
 			>
-				{reported !== "" && (!paged || page === 0) && (
+				{reported !== "" && (!paging || page === 0) && (
 					<div className="border-b">
 						<CardBody text={reported} lead={escalation?.reason != null} />
 					</div>
 				)}
-				{demo !== null && (!paged || page === 0) && (
+				{demo !== null && (!paging || page === 0) && (
 					<DemoSection
 						demo={demo}
 						kept={draft === null ? null : `${draft}:demo`}
 					/>
 				)}
-				<ol aria-label="questions" className="divide-y">
-					{questions.map((asked, at) =>
-						paged && at !== page ? null : (
-							<QuestionCard
-								key={asked.number}
-								asked={asked}
-								answer={answers[at] ?? null}
-								live={live}
-								onAnswer={(answer) => {
-									const picked = answer.picks.some(
-										(key) => !(writtenFor(asked)?.picks.includes(key) ?? false),
-									);
-									if (paged && asked.pick === "one" && picked && at < last) {
-										goOn(at);
-									}
-									write({
-										...written,
-										answers: isEmpty(answer)
-											? Object.fromEntries(
-													Object.entries(written.answers).filter(
-														([text]) => text !== asked.text,
-													),
-												)
-											: { ...written.answers, [asked.text]: answer },
-									});
-								}}
-								onNext={() => next(asked.number)}
-							/>
-						),
-					)}
-				</ol>
-				{live ? (
-					<footer
-						// Paged in a sheet, it stays at the sheet's foot, as a composer does.
-						data-pinned={paged || undefined}
-						className={cn(
-							"flex flex-col gap-2.5 border-t px-4 py-3",
-							paged
-								? "sticky bottom-0 z-10 mt-auto bg-background"
-								: "bg-muted/20",
+				{paging && page < end && questions.length > 1 && (
+					<p className="px-5 pt-5 font-medium text-muted-foreground text-sm tabular-nums">
+						Question {page + 1} of {questions.length}
+					</p>
+				)}
+				{(!paging || page < end) && (
+					<ol aria-label="questions" className="divide-y">
+						{questions.map((asked, at) =>
+							paging && at !== page ? null : (
+								<QuestionCard
+									key={asked.number}
+									asked={asked}
+									answer={answers[at] ?? null}
+									live={live}
+									roomy={paging}
+									onAnswer={(answer) => {
+										const picked = answer.picks.some(
+											(key) =>
+												!(writtenFor(asked)?.picks.includes(key) ?? false),
+										);
+										if (paging && asked.pick === "one" && picked) {
+											goOn(at);
+										}
+										write({
+											...written,
+											answers: isEmpty(answer)
+												? Object.fromEntries(
+														Object.entries(written.answers).filter(
+															([text]) => text !== asked.text,
+														),
+													)
+												: { ...written.answers, [asked.text]: answer },
+										});
+									}}
+									onNext={() => next(asked.number)}
+								/>
+							),
 						)}
+					</ol>
+				)}
+				{paging && page === end && (
+					<section
+						aria-label="anything else"
+						className="flex flex-col gap-5 px-5 py-5"
 					>
+						<label className="flex flex-col gap-3">
+							<span className="font-semibold text-lg leading-snug">
+								Anything else?
+							</span>
+							<textarea
+								data-stop="more"
+								aria-label="Anything else"
+								rows={4}
+								value={written.more}
+								placeholder="Optional"
+								onChange={(event) =>
+									write({ ...written, more: event.target.value })
+								}
+								className="field-sizing-content min-h-28 w-full resize-none rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-base outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 focus:border-ring focus:bg-background focus:ring-3 focus:ring-ring/20"
+							/>
+						</label>
+						{/* What is answered, a tap from going back to change it. */}
+						<ol aria-label="your answers" className="flex flex-col gap-2">
+							{questions.map((asked, at) => (
+								<li key={asked.number}>
+									<button
+										type="button"
+										onClick={() => turn(at)}
+										className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 py-2 text-left active:bg-muted"
+									>
+										<span className="min-w-0 flex-1 truncate text-sm">
+											<Markdown text={asked.text} inline unlinked />
+										</span>
+										{answers[at] === null ? (
+											<span className="shrink-0 text-muted-foreground text-sm">
+												Not answered
+											</span>
+										) : (
+											<CheckIcon
+												aria-label="answered"
+												className="size-5 shrink-0 text-success"
+											/>
+										)}
+										<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+									</button>
+								</li>
+							))}
+						</ol>
+					</section>
+				)}
+				{paging ? (
+					<footer
+						// It stays at the sheet's foot, as a composer does.
+						data-pinned
+						className="sticky bottom-0 z-10 mt-auto flex flex-col gap-2 border-t bg-background px-4 py-3"
+					>
+						<div className="flex items-center gap-3">
+							{page > 0 && (
+								<Button
+									variant="outline"
+									className="h-11 px-4 text-base"
+									onClick={() => turn(page - 1)}
+								>
+									<ChevronLeftIcon data-icon="inline-start" />
+									Back
+								</Button>
+							)}
+							{page < end ? (
+								<Button
+									className="h-11 flex-1 text-base"
+									onClick={() => turn(page + 1)}
+								>
+									Next
+									<ChevronRightIcon data-icon="inline-end" />
+								</Button>
+							) : (
+								<Button
+									className="h-11 flex-1 text-base"
+									disabled={out === ""}
+									onClick={submit}
+								>
+									<SendHorizontalIcon data-icon="inline-start" />
+									Send
+								</Button>
+							)}
+						</div>
+						<Refusal refusal={refusal} className="text-right" />
+					</footer>
+				) : live ? (
+					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
 						<textarea
 							data-stop="more"
 							aria-label="Anything else"
@@ -330,68 +420,18 @@ export function QuestionCards({
 							className="field-sizing-content min-h-9 pointer-coarse:min-h-11 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm pointer-coarse:text-base outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
 						/>
 						<div className="flex items-center gap-3">
-							{paged && questions.length === 1 ? (
-								<span className="flex-1" />
-							) : paged ? (
-								<nav
-									aria-label="questions"
-									className="-ml-3 flex flex-1 items-center"
-								>
-									<Button
-										variant="ghost"
-										size="icon"
-										aria-label="Previous question"
-										className="size-11"
-										disabled={page === 0}
-										onClick={() => turn(page - 1)}
-									>
-										<ChevronLeftIcon />
-									</Button>
-									{/* A dot per question, filled once answered, the one shown ringed. */}
-									{questions.map((asked, at) => (
-										<button
-											key={asked.number}
-											type="button"
-											aria-label={`Question ${at + 1} of ${questions.length}${answers[at] === null ? "" : ", answered"}`}
-											aria-current={at === page ? "step" : undefined}
-											onClick={() => turn(at)}
-											className="flex size-7 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
-										>
-											<span
-												className={cn(
-													"block size-2.5 rounded-full transition-colors duration-150",
-													answers[at] === null ? "bg-border" : "bg-success",
-													at === page &&
-														"ring-2 ring-foreground/60 ring-offset-2 ring-offset-background",
-												)}
-											/>
-										</button>
-									))}
-									<Button
-										variant="ghost"
-										size="icon"
-										aria-label="Next question"
-										className="size-11"
-										disabled={page === last}
-										onClick={() => turn(page + 1)}
-									>
-										<ChevronRightIcon />
-									</Button>
-								</nav>
-							) : (
-								<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-									{!touch && (
-										<>
-											<span>
-												<Kbd>↵</Kbd> next
-											</span>
-											<span>
-												<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
-											</span>
-										</>
-									)}
-								</p>
-							)}
+							<p className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+								{!touch && (
+									<>
+										<span>
+											<Kbd>↵</Kbd> next
+										</span>
+										<span>
+											<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
+										</span>
+									</>
+								)}
+							</p>
 							<Button
 								size="sm"
 								disabled={out === ""}
@@ -437,7 +477,7 @@ function toEnd(stop: HTMLElement | null | undefined): void {
 	}
 }
 
-/** How long a pick shows before a paged panel goes on from it. */
+/** How long a pick shows before a paging panel goes on from it. */
 const GO_ON_MS = 300;
 
 /**

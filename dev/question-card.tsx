@@ -17,6 +17,7 @@ export function QuestionCard({
 	onNext,
 	action,
 	chosenLabel = "Recommended",
+	roomy = false,
 }: {
 	asked: Question;
 	/** Its answer, being written or sent; null while it has none. */
@@ -29,6 +30,12 @@ export function QuestionCard({
 	action?: ReactNode;
 	/** What tags the `(chosen)` choice: the agent's pick while it waits, or what it went with. */
 	chosenLabel?: string;
+	/**
+	 * Sized for a finger, as the one question on a phone's screen: larger
+	 * text and targets, a typed answer with room to grow, and no number,
+	 * which the screen says.
+	 */
+	roomy?: boolean;
 }): JSX.Element {
 	const { number, text, body, choices, pick } = asked;
 	const said: Answer = answer ?? UNANSWERED;
@@ -101,16 +108,33 @@ export function QuestionCard({
 			aria-label={`question ${number}`}
 			// Barred down its side while focus is inside it, so it is plain which
 			// question the keys go to.
-			className="relative flex gap-3 px-4 py-4 transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100"
+			className={cn(
+				"relative flex gap-3",
+				roomy
+					? "px-5 pt-2 pb-5"
+					: "px-4 py-4 transition-colors duration-150 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary before:opacity-0 before:transition-opacity before:duration-150 focus-within:bg-muted/40 focus-within:before:opacity-100",
+			)}
 		>
-			<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums">
-				{number}
-				{answer !== null && <span className="sr-only"> answered</span>}
-			</span>
-			<div className="flex min-w-0 flex-1 flex-col gap-3">
-				<div className="flex flex-col gap-1">
+			{!roomy && (
+				<span className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-muted-foreground tabular-nums">
+					{number}
+					{answer !== null && <span className="sr-only"> answered</span>}
+				</span>
+			)}
+			<div
+				className={cn(
+					"flex min-w-0 flex-1 flex-col",
+					roomy ? "gap-4" : "gap-3",
+				)}
+			>
+				<div className={cn("flex flex-col", roomy ? "gap-2" : "gap-1")}>
 					<div className="flex items-start gap-2">
-						<p className="flex-1 font-medium text-sm leading-snug">
+						<p
+							className={cn(
+								"flex-1 leading-snug",
+								roomy ? "font-semibold text-lg" : "font-medium text-sm",
+							)}
+						>
 							<Markdown text={text} inline />
 						</p>
 						{action}
@@ -118,7 +142,10 @@ export function QuestionCard({
 					{body !== "" && (
 						<Markdown
 							text={body}
-							className="text-[13px] text-muted-foreground leading-relaxed [&_p]:my-0"
+							className={cn(
+								"text-muted-foreground leading-relaxed [&_p]:my-0",
+								roomy ? "text-[15px]" : "text-[13px]",
+							)}
 						/>
 					)}
 				</div>
@@ -127,6 +154,7 @@ export function QuestionCard({
 						asked={asked}
 						answer={said}
 						live={live}
+						roomy={roomy}
 						onAnswer={onAnswer}
 						onNext={onNext}
 					/>
@@ -135,7 +163,10 @@ export function QuestionCard({
 						<fieldset
 							aria-label={text}
 							onKeyDown={keys}
-							className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+							className={cn(
+								"m-0 flex min-w-0 flex-col border-0 p-0",
+								roomy ? "gap-2.5" : "gap-1.5",
+							)}
 						>
 							<legend className="mb-1.5">
 								{pick === "any" ? (
@@ -157,7 +188,12 @@ export function QuestionCard({
 									<div
 										key={choice.key}
 										className={cn(
-											"group rounded-lg border transition-[background-color,border-color,box-shadow,transform] duration-150 has-[>button:active]:scale-[0.99] has-[>button:focus]:ring-3 has-[>button:focus]:ring-ring/40",
+											"group border transition-[background-color,border-color,box-shadow,transform] duration-150 has-[>button:active]:scale-[0.99]",
+											// On a phone's screen, only a keyboard's focus, so the
+											// choice focused as it comes up never reads as picked.
+											roomy
+												? "rounded-xl has-[>button:focus-visible]:ring-3 has-[>button:focus-visible]:ring-ring/40"
+												: "rounded-lg has-[>button:focus]:ring-3 has-[>button:focus]:ring-ring/40",
 											on
 												? "border-primary/60 bg-primary/[0.04] shadow-xs ring-1 ring-primary/15"
 												: "border-border/70 bg-background hover:border-border hover:bg-muted/50",
@@ -175,11 +211,17 @@ export function QuestionCard({
 											onClick={() => toggle(choice.key)}
 											// Where it is narrow, its badge wraps under its text rather
 											// than squeezing it; a finger gets a taller choice.
-											className="flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 text-left text-sm outline-none disabled:cursor-default pointer-coarse:py-3"
+											className={cn(
+												"flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 text-left outline-none disabled:cursor-default",
+												roomy
+													? "min-h-14 rounded-xl px-4 py-3 text-base"
+													: "rounded-lg px-3 py-2 text-sm pointer-coarse:py-3",
+											)}
 										>
 											<span
 												className={cn(
-													"flex size-5 shrink-0 items-center justify-center border font-medium font-mono text-[11px] transition-colors duration-150",
+													"flex shrink-0 items-center justify-center border font-medium font-mono transition-colors duration-150",
+													roomy ? "size-6 text-xs" : "size-5 text-[11px]",
 													// A circle picks one, as a radio does; a square any.
 													pick === "any" ? "rounded-sm" : "rounded-full",
 													on
@@ -193,7 +235,11 @@ export function QuestionCard({
 												text={choice.text}
 												inline
 												unlinked
-												className="min-w-0 flex-1 basis-32"
+												// Roomy, a badge beside it wraps under rather than squeezing it.
+												className={cn(
+													"min-w-0 flex-1",
+													roomy ? "basis-56" : "basis-32",
+												)}
 											/>
 											{choice.chosen && <Chosen label={chosenLabel} />}
 											<CheckIcon
@@ -214,7 +260,7 @@ export function QuestionCard({
 					<textarea
 						data-stop={choices.length === 0 ? number : undefined}
 						aria-label={`Answer to ${number}`}
-						rows={1}
+						rows={roomy && choices.length === 0 ? 4 : 1}
 						value={said.words}
 						placeholder={
 							choices.length > 0 ? "Add a note (optional)" : "Your answer"
@@ -223,7 +269,16 @@ export function QuestionCard({
 							onAnswer({ ...said, words: event.target.value })
 						}
 						onKeyDown={enter}
-						className="field-sizing-content min-h-9 pointer-coarse:min-h-11 w-full resize-none rounded-lg border border-border/70 bg-muted/30 px-3 py-2 text-sm pointer-coarse:text-base outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:bg-background focus:ring-3 focus:ring-ring/20"
+						className={cn(
+							"field-sizing-content w-full resize-none border border-border/70 bg-muted/30 outline-none transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:bg-background focus:ring-3 focus:ring-ring/20",
+							roomy
+								? cn(
+										"rounded-xl px-4 py-3 text-base",
+										// A typed answer is the screen's whole point; a note an aside.
+										choices.length === 0 ? "min-h-32" : "min-h-12",
+									)
+								: "min-h-9 pointer-coarse:min-h-11 rounded-lg px-3 py-2 text-sm pointer-coarse:text-base",
+						)}
 					/>
 				) : (
 					said.words !== "" && (

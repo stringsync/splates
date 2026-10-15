@@ -19,12 +19,15 @@ export function Ranking({
 	asked,
 	answer,
 	live,
+	roomy = false,
 	onAnswer,
 	onNext,
 }: {
 	asked: Question;
 	answer: Answer;
 	live: boolean;
+	/** Sized for a finger, as on a phone's screen of one question. */
+	roomy?: boolean;
 	onAnswer: (answer: Answer) => void;
 	onNext: () => void;
 }): JSX.Element {
@@ -74,7 +77,7 @@ export function Ranking({
 		}
 	};
 	return (
-		<div className="flex flex-col gap-1.5">
+		<div className={cn("flex flex-col", roomy ? "gap-2.5" : "gap-1.5")}>
 			<p>
 				<HowToPick
 					Icon={ArrowUpDownIcon}
@@ -85,7 +88,7 @@ export function Ranking({
 				ref={list}
 				aria-label={text}
 				onKeyDown={live ? keys : undefined}
-				className="flex flex-col gap-1.5"
+				className={cn("flex flex-col", roomy ? "gap-2.5" : "gap-1.5")}
 			>
 				{order.map((choice, index) => (
 					<li
@@ -95,7 +98,10 @@ export function Ranking({
 						data-stop={live && index === at ? number : undefined}
 						onFocus={() => setAt(index)}
 						className={cn(
-							"flex items-center gap-3 rounded-lg border px-3 py-1.5 text-sm outline-none transition-[background-color,border-color,box-shadow] duration-150 focus:ring-3 focus:ring-ring/40",
+							"flex items-center gap-3 border outline-none transition-[background-color,border-color,box-shadow] duration-150 focus:ring-3 focus:ring-ring/40",
+							roomy
+								? "min-h-14 rounded-xl py-1.5 pr-1.5 pl-4 text-base"
+								: "rounded-lg px-3 py-1.5 text-sm",
 							answered
 								? "border-primary/60 bg-primary/[0.04]"
 								: "border-border/70 bg-background",
@@ -115,7 +121,8 @@ export function Ranking({
 							<span className="flex shrink-0">
 								<Button
 									variant="ghost"
-									size="icon-sm"
+									size={roomy ? "icon-lg" : "icon-sm"}
+									className={cn(roomy && "size-11")}
 									tabIndex={-1}
 									aria-label={`Move ${choice.key} up`}
 									disabled={index === 0}
@@ -125,7 +132,8 @@ export function Ranking({
 								</Button>
 								<Button
 									variant="ghost"
-									size="icon-sm"
+									size={roomy ? "icon-lg" : "icon-sm"}
+									className={cn(roomy && "size-11")}
 									tabIndex={-1}
 									aria-label={`Move ${choice.key} down`}
 									disabled={index === order.length - 1}
@@ -149,7 +157,8 @@ export function Ranking({
 					</p>
 					<Button
 						variant="outline"
-						size="xs"
+						size={roomy ? "default" : "xs"}
+						className={cn(roomy && "h-10 px-3")}
 						onClick={() =>
 							onAnswer({
 								...answer,
