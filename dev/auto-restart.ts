@@ -7,6 +7,7 @@ import {
 	type WallClock,
 } from "webappwiz/time";
 import type { Projects } from "./project-api";
+import { ontoOf } from "./release";
 import type { Settings } from "./settings";
 
 export type AutoRestartEvents = { changed: undefined };
@@ -53,11 +54,6 @@ const TICK = Duration.secs(1);
  * after.
  */
 const STORED = "arbor.autoRestarted";
-
-/** The short form of a commit, as git prints it. */
-export function short(commit: string): string {
-	return commit.slice(0, 8);
-}
 
 /**
  * Restarts `arbor dev` on its own once it is out of date, a newer arbor out
@@ -298,13 +294,4 @@ function idleIn(listed: Projects): boolean {
 			),
 		)
 	);
-}
-
-/** What a restart now would bring, or null when `arbor dev` is up to date. */
-function ontoOf(listed: Projects): string | null {
-	return listed.behind !== null
-		? short(listed.behind.newest)
-		: listed.newest !== null
-			? `arbor ${listed.newest}`
-			: null;
 }

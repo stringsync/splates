@@ -56,7 +56,7 @@ export function CheckpointDialog({
 	run,
 	title,
 	restarted,
-	newest,
+	onto,
 	current,
 	restartable,
 	held,
@@ -79,7 +79,7 @@ export function CheckpointDialog({
 	/** The arbor a restart came back on; null when none did. */
 	restarted: string | null;
 	/** A newer arbor, which a restart lands on. */
-	newest: string | null;
+	onto: string | null;
 	/** The projects as the server lists them now, after a restart too. */
 	current: ProjectChoice[];
 	/** Whether `arbor dev` can restart itself. */
@@ -113,7 +113,7 @@ export function CheckpointDialog({
 		slide === "going"
 			? `${all.asked.length - all.going - all.missed.length} of ${plural(all.asked.length)} checkpointed.`
 			: slide === "restarting"
-				? `arbor dev is restarting${newest === null ? "" : ` on arbor ${newest}`}. This page reloads once it is back.`
+				? `arbor dev is restarting${onto === null ? "" : ` on ${onto}`}. This page reloads once it is back.`
 				: slide === "resuming"
 					? `${on(restarted)}${carried} of ${plural(resumable.length)} back at work.`
 					: slide === "ended"
@@ -142,7 +142,7 @@ export function CheckpointDialog({
 							checkpoint={checkpoint}
 							onCheckpoint={onCheckpoint}
 							busy={busy}
-							newest={newest}
+							onto={onto}
 							restartable={restartable}
 							held={held}
 							onClose={onClose}

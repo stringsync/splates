@@ -20,7 +20,7 @@ export function PickSlide({
 	checkpoint,
 	onCheckpoint,
 	busy,
-	newest,
+	onto,
 	restartable,
 	held,
 	onClose,
@@ -32,7 +32,7 @@ export function PickSlide({
 	onCheckpoint: (checkpoint: boolean) => void;
 	busy: boolean;
 	/** A newer arbor, which a restart lands on. */
-	newest: string | null;
+	onto: string | null;
 	restartable: boolean;
 	/** The commands a restart or shutdown would kill. */
 	held: Held[];
@@ -85,7 +85,7 @@ export function PickSlide({
 							Shut down
 						</Button>
 						<Button disabled={busy} onClick={() => void onPower(false)}>
-							{newest === null ? "Restart" : `Restart on ${newest}`}
+							{onto === null ? "Restart" : `Restart on ${onto}`}
 						</Button>
 					</>
 				)}

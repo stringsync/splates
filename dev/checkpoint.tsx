@@ -26,7 +26,7 @@ import {
 } from "./checkpoint-slide";
 import { listProjects, type ProjectChoice, type Projects } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
-import { UpdateDot } from "./release";
+import { ontoOf, UpdateDot } from "./release";
 
 /** How a checkpoint stands, and what opens its dialog. */
 interface Checkpointing {
@@ -329,7 +329,7 @@ export function CheckpointProvider({
 				run={run}
 				title={title}
 				restarted={restarted}
-				newest={listed?.newest ?? null}
+				onto={listed === null ? null : ontoOf(listed)}
 				current={listed?.projects ?? []}
 				restartable={listed?.restartable ?? false}
 				held={listed?.held ?? []}

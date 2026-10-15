@@ -1,7 +1,27 @@
 import type { JSX } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Behind, Release } from "../release";
-import { short } from "./auto-restart";
+import type { Projects } from "./project-api";
+
+/** The short form of a commit, as git prints it. */
+export function short(commit: string): string {
+	return commit.slice(0, 8);
+}
+
+/**
+ * What a restart now would bring, or null when `arbor dev` is up to date: its
+ * source commit from a checkout, else the newest npm release. Every place that
+ * names where a restart lands says it this way.
+ */
+export function ontoOf(
+	listed: Pick<Projects, "behind" | "newest">,
+): string | null {
+	return listed.behind !== null
+		? short(listed.behind.newest)
+		: listed.newest !== null
+			? `arbor ${listed.newest}`
+			: null;
+}
 
 /** What a restart would update to, or null when nothing newer is out. */
 export function update(
