@@ -1,18 +1,23 @@
 import {
 	ClipboardCheckIcon,
 	MonitorIcon,
+	MonitorPauseIcon,
 	SquareArrowOutUpRightIcon,
 	SquareTerminalIcon,
+	UnplugIcon,
 	XIcon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
+import { Duration } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { Need, Needing } from "../needs";
+import { age } from "../age";
+import { type Need, type Needing, quietSince } from "../needs";
 import type { Details } from "../show";
 import { useNameOf } from "./conversation-names";
 import { keyOfRow, lastTaskOfRow } from "./conversation-rows";
+import { useNow } from "./hooks/use-now";
 import { Mark } from "./mark";
 import type { Nested } from "./parts";
 
@@ -127,6 +132,8 @@ export function External({
 	/** Whether it answers to a conversation rather than to you. */
 	subagent?: boolean;
 }): JSX.Element {
+	const working = need.kind === "working" || need.kind === "assuming";
+	const quiet = quietSince({ task, need }, useNow(working, Duration.mins(1)));
 	return (
 		<button
 			type="button"
@@ -153,7 +160,11 @@ export function External({
 			</span>
 			{hint !== null ? (
 				<Kbd aria-hidden>{hint}</Kbd>
-			) : need.kind === "working" || need.kind === "assuming" ? (
+			) : need.kind === "waiting" && need.why === "abandoned" ? (
+				<Abandoned />
+			) : quiet !== null ? (
+				<Quiet since={quiet} />
+			) : working ? (
 				<Elsewhere />
 			) : copied ? (
 				<Copied />
@@ -178,6 +189,40 @@ function Copied(): JSX.Element {
 			className="flex size-3.5 shrink-0 items-center justify-center"
 		>
 			<ClipboardCheckIcon className="size-3.5 text-foreground/60" />
+		</span>
+	);
+}
+
+/**
+ * What a list shows of a task no agent is left on, in place of its alert: it
+ * waits on you to take it up or remove it, whatever its questions.
+ */
+function Abandoned(): JSX.Element {
+	return (
+		<span
+			role="status"
+			aria-label="abandoned"
+			title="Abandoned: no agent is left on it"
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<UnplugIcon className="size-3.5 text-foreground/60" />
+		</span>
+	);
+}
+
+/**
+ * What a list shows of an external agent's task with no sign of its agent
+ * for a while, in place of `Elsewhere`: it may be thinking, or gone.
+ */
+function Quiet({ since }: { since: string }): JSX.Element {
+	return (
+		<span
+			role="status"
+			aria-label={`no sign since ${age(since)}`}
+			title={`No sign of its agent for ${age(since)}`}
+			className="flex size-3.5 shrink-0 items-center justify-center"
+		>
+			<MonitorPauseIcon className="size-3.5 text-foreground/40" />
 		</span>
 	);
 }

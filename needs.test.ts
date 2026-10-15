@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "./conversations";
-import { need, needs } from "./needs";
+import { need, needs, QUIET_AFTER, quietSince } from "./needs";
 import { STUB_STEP } from "./plan";
 import type { Details } from "./show";
 
@@ -263,6 +263,69 @@ describe("needs", () => {
 		});
 	});
 
+	it("waits on you for a task its conversation left, archived or gone, keeping its questions", () => {
+		const of = (conversations: ConversationState[]) =>
+			needs({
+				tasks: [
+					task({
+						plan: PLAN,
+						takenBy: "c1",
+						activeAt: "2026-10-11T10:30:00.000Z",
+					}),
+				],
+				conversations,
+			})[0]?.need;
+
+		expect(of([talk({ archived: true })])).toMatchObject({
+			kind: "waiting",
+			why: "abandoned",
+			subject: "Its conversation was archived",
+			since: "2026-10-11T10:30:00.000Z",
+			questions: [{ number: "2" }, { number: "3" }],
+		});
+		expect(of([])).toMatchObject({
+			why: "abandoned",
+			subject: "Its conversation is gone",
+		});
+		// Listed on another task, it may have a subagent on this one.
+		expect(of([talk({ task: "beta" })])).toMatchObject({ kind: "assuming" });
+	});
+
+	it("takes an agent outside the page to be at work, whatever conversation took the task before", () => {
+		expect(
+			needs({
+				tasks: [task({ takenBy: null })],
+				conversations: [talk({ archived: true })],
+			})[0]?.need.kind,
+		).toBe("working");
+	});
+
+	it("says an external agent's task is quiet once nothing has moved in it for a while", () => {
+		const at = "2026-10-11T10:00:00.000Z";
+		const working = { kind: "working", subject: null } as const;
+		const after = Date.parse(at) + QUIET_AFTER.ms;
+
+		expect(
+			quietSince({ task: task({ activeAt: at }), need: working }, after),
+		).toBe(at);
+		expect(
+			quietSince({ task: task({ activeAt: at }), need: working }, after - 1),
+		).toBeNull();
+		expect(
+			quietSince({ task: task({ activeAt: null }), need: working }, after),
+		).toBeNull();
+		// One that waits on you is still for a reason.
+		expect(
+			quietSince(
+				{
+					task: task({ activeAt: at }),
+					need: need(task({ status: "escalated" }), null),
+				},
+				after,
+			),
+		).toBeNull();
+	});
+
 	it("leaves out a task handed to an agent whose conversation has yet to start", () => {
 		expect(
 			needs({ tasks: [task({ dispatched: true })], conversations: [] }),
@@ -298,6 +361,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		branch: "task/alpha",
 		base: "main",
 		caller: null,
+		takenBy: null,
 		worktree: "/tmp/alpha",
 		lease: "held",
 		ahead: 1,
@@ -305,6 +369,7 @@ function task(overrides: Partial<Details> = {}): Details {
 		removed: 0,
 		age: "3m",
 		createdAt: "2026-10-11T09:57:00.000Z",
+		activeAt: null,
 		escalation: null,
 		mergeAttempts: 0,
 		mergeAttemptLimit: 3,

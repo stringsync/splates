@@ -132,6 +132,51 @@ Cap upload retries
 		expect(dialog.textContent).toContain("Cap upload retries");
 	});
 
+	it("tells a task its conversation left, and one gone quiet, from an agent at work elsewhere, and offers to take up or remove the one left", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
+				conversation({ id: "c9", task: "delta", archived: true }),
+			],
+			null,
+			{
+				tasks: [
+					details({ task: "alpha" }),
+					details({ task: "beta", activeAt: new Date().toISOString() }),
+					details({ task: "delta", takenBy: "c9" }),
+					details({
+						task: "gamma",
+						activeAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+					}),
+				],
+			},
+		);
+
+		expect(rows(view)).toEqual([
+			["alpha", null],
+			["beta", "working elsewhere"],
+			["delta", "abandoned"],
+			["gamma", "no sign since 2h"],
+		]);
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: /delta/ }),
+			),
+		);
+		const alone = view.getByRole("region", { name: "delta" });
+		expect(alone.textContent).toContain(
+			"AbandonedIts conversation was archived, so no agent is left on it.",
+		);
+		const actions = within(alone).getByRole("toolbar", { name: "actions" });
+		expect(
+			within(actions)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["Take up", "Remove"]);
+	});
+
 	it("lists the systems an external agent's task touches beside its view", async () => {
 		const view = await testing.openConversations([], null, {
 			tasks: [

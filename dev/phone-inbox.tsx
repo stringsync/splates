@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { type JSX, type ReactNode, useContext, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
-import { answersTo, type Needing } from "../needs";
+import { age } from "../age";
+import { answersTo, type Needing, quietSince } from "../needs";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
 import { NEW, openedBy } from "./conversation-address";
@@ -350,13 +351,17 @@ function Row({
 						>
 							{text}
 						</span>
-						<Mark
-							need={need}
-							reported={reported}
-							unread={conversation?.unread ?? false}
-							hosting={hosting}
-							subagent={subagent}
-						/>
+						{/* A quiet external agent's status says so, rather than a spinner. */}
+						{(conversation !== null ||
+							quietSince(row, Date.now()) === null) && (
+							<Mark
+								need={need}
+								reported={reported}
+								unread={conversation?.unread ?? false}
+								hosting={hosting}
+								subagent={subagent}
+							/>
+						)}
 					</span>
 				</span>
 			</button>
@@ -439,13 +444,20 @@ export function statusOf(
 					? "Ready to merge"
 					: need.why === "failed"
 						? "Failed"
-						: open > 0
-							? `${open} ${open === 1 ? "question" : "questions"}`
-							: "Escalated";
+						: need.why === "abandoned"
+							? "Abandoned"
+							: open > 0
+								? `${open} ${open === 1 ? "question" : "questions"}`
+								: "Escalated";
 		// Named, when it waits for an agent this one handed out.
 		const subject =
 			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
 		return { text: `${label} · ${subject}`, urgent: true };
+	}
+	// An external agent with no sign of it at work for a while may be gone.
+	const quiet = quietSince({ task, need }, Date.now());
+	if (conversation === null && quiet !== null) {
+		return { text: `No sign since ${age(quiet)}`, urgent: false };
 	}
 	if (need.kind === "assuming") {
 		return { text: `Working · ${need.subject}`, urgent: false };
@@ -490,7 +502,11 @@ export function statusOf(
 function movedAt({ conversation, task }: Needing): string | null {
 	const last = conversation?.messages.at(-1);
 	const at =
-		last?.until ?? last?.at ?? conversation?.createdAt ?? task?.createdAt;
+		last?.until ??
+		last?.at ??
+		conversation?.createdAt ??
+		task?.activeAt ??
+		task?.createdAt;
 	if (at == null) {
 		return null;
 	}

@@ -42,6 +42,11 @@ export interface Details {
 	base: string;
 	/** The `arbor dev` conversation whose agent added it, or null. */
 	caller: string | null;
+	/**
+	 * The `arbor dev` conversation whose agent last took it, or its caller's
+	 * for a subagent; null for an agent outside the page.
+	 */
+	takenBy: string | null;
 	worktree: string;
 	lease: "held" | "stale" | "none";
 	ahead: number | null;
@@ -50,6 +55,12 @@ export interface Details {
 	age: string | null;
 	/** When it was added, which `age` counts from. */
 	createdAt: string | null;
+	/**
+	 * The last sign of an agent at work on it: an arbor command writing its
+	 * record, a commit on its branch, or an edit to its ARBOR.md or to a file
+	 * not yet committed. Null when nothing says.
+	 */
+	activeAt: string | null;
 	escalation: string | null;
 	/** The merges it has tried; at `mergeAttemptLimit`, only `arbor retry` lets it try again. */
 	mergeAttempts: number;
@@ -118,6 +129,7 @@ export class TaskDetails {
 		const plan = worktree.exists
 			? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
 			: null;
+		const ahead = worktree.hasBranch ? await worktree.commitsAhead() : null;
 		const last = state?.escalations?.at(-1);
 		const review =
 			state?.status === "escalated" && last?.review ? last.reason : null;
@@ -127,13 +139,15 @@ export class TaskDetails {
 			branch: worktree.branch,
 			base: worktree.base,
 			caller: worktree.caller,
+			takenBy: worktree.takenBy,
 			worktree: worktree.path,
 			lease: worktree.leaseStatus,
-			ahead: worktree.hasBranch ? await worktree.commitsAhead() : null,
+			ahead,
 			added: stat?.added ?? null,
 			removed: stat?.removed ?? null,
 			age: state ? age(state.createdAt) : null,
 			createdAt: state?.createdAt ?? null,
+			activeAt: await this.activeAt(worktree, ahead ?? 0),
 			escalation: last?.reason ?? null,
 			mergeAttempts: worktree.mergeAttempts,
 			mergeAttemptLimit: worktree.mergeAttemptLimit,
@@ -158,6 +172,41 @@ export class TaskDetails {
 	}
 
 	/**
+	 * The latest of its record's last write, its own latest commit, and the
+	 * edits to its ARBOR.md and uncommitted files, as `Details.activeAt`.
+	 */
+	private async activeAt(
+		worktree: Worktree,
+		ahead: number,
+	): Promise<string | null> {
+		const edited = worktree.exists
+			? [
+					PLAN_FILE,
+					...(await worktree.uncommitted().catch(() => [])).map(pathOf),
+				].map((path) =>
+					this.fs
+						.stat(`${worktree.path}/${path}`)
+						.then((stat) => stat.mtimeMs)
+						.catch(() => null),
+				)
+			: [];
+		const times = await Promise.all([
+			worktree.state ? Date.parse(worktree.state.updatedAt) : null,
+			// With none of its own, the branch's latest commit is its base's.
+			ahead > 0
+				? worktree.committedAt().then((at) => (at ? Date.parse(at) : null))
+				: null,
+			...edited,
+		]);
+		const known = times.filter(
+			(at): at is number => at !== null && Number.isFinite(at),
+		);
+		return known.length === 0
+			? null
+			: new Date(Math.max(...known)).toISOString();
+	}
+
+	/**
 	 * Read from its own worktree, so a system named during the task counts at
 	 * once. Its changed files cost three git calls, spent only once there is a
 	 * system to match them against.
@@ -176,6 +225,16 @@ export class TaskDetails {
 		}
 		return named.touchedBy((await worktree.changedFiles()) ?? []);
 	}
+}
+
+/**
+ * The path a `git status --porcelain` line names, the new one for a rename.
+ * One git quotes keeps its escapes, so it stats as missing and counts for
+ * nothing.
+ */
+function pathOf(line: string): string {
+	const path = line.slice(3).split(" -> ").at(-1) ?? "";
+	return path.startsWith('"') ? path.slice(1, -1) : path;
 }
 
 function report(details: Details): string {

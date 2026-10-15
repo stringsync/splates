@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { utimes } from "node:fs/promises";
 import { add } from "./add";
+import { claim } from "./claim";
 import { escalate } from "./escalate";
 import { ROSTERED } from "./fake-agent";
 import { show } from "./show";
@@ -13,6 +15,12 @@ describe("show", () => {
 	});
 
 	afterEach(() => deps.disposeAsync());
+
+	const takenBy = async (task: string) => {
+		deps.log.clear();
+		await show(deps, task, { json: true });
+		return JSON.parse(deps.out()).takenBy;
+	};
 
 	it("reports a task and prints the ARBOR.md left in its worktree", async () => {
 		await add(deps, "alpha");
@@ -71,6 +79,40 @@ describe("show", () => {
 			ahead: 0,
 			plan: "# alpha\n",
 		});
+	});
+
+	it("carries the page conversation that last took it, none once an agent outside the page claims it", async () => {
+		await deps.fs.mkdir(`${deps.arborDir}/conversations`);
+		await deps.fs.write(`${deps.arborDir}/conversations/c1.jsonl`, "");
+		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		await add(deps, "alpha");
+		delete deps.proc.env.ARBOR_CONVERSATION;
+
+		expect(await takenBy("alpha")).toBe("c1");
+		await claim(deps, "alpha");
+		expect(await takenBy("alpha")).toBeNull();
+	});
+
+	it("takes an agent from another project's page for one outside the page", async () => {
+		deps.proc.env.ARBOR_CONVERSATION = "elsewhere";
+		await add(deps, "alpha");
+		delete deps.proc.env.ARBOR_CONVERSATION;
+
+		expect(await takenBy("alpha")).toBeNull();
+	});
+
+	it("dates the last sign of work in it by its newest edit not yet committed", async () => {
+		await add(deps, "alpha");
+		const alpha = (await deps.service.find("alpha")).path;
+		await deps.fs.write(`${alpha}/notes.md`, "half done\n");
+		const later = new Date(Date.now() + 60 * 60 * 1000);
+		later.setMilliseconds(0);
+		await utimes(`${alpha}/notes.md`, later, later);
+		deps.log.clear();
+
+		await show(deps, "alpha", { json: true });
+
+		expect(JSON.parse(deps.out()).activeAt).toBe(later.toISOString());
 	});
 
 	it("names the systems a task's changed files fall in, from its own config", async () => {

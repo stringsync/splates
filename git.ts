@@ -142,6 +142,19 @@ export class Git {
 		return result.code === 0 ? Number(result.stdout) : null;
 	}
 
+	/** When `ref`'s latest commit was committed, as ISO 8601; null when git cannot say. */
+	async committedAt(ref: string): Promise<string | null> {
+		const { code, stdout } = await this.run(
+			this.root,
+			"log",
+			"-1",
+			"--format=%cI",
+			ref,
+			"--",
+		);
+		return code === 0 && stdout.trim() !== "" ? stdout.trim() : null;
+	}
+
 	/**
 	 * The message of each commit on `branch` since it left `trunk`, oldest
 	 * first; null when git cannot say.

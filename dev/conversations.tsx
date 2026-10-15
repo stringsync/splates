@@ -4,7 +4,7 @@ import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import type { ConversationState } from "../conversations";
 import { type LaneRecord, named } from "../lanes";
-import { need } from "../needs";
+import { needOfExternal } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { Back } from "./back";
@@ -190,7 +190,7 @@ export function Conversations({
 					) : (
 						<TaskView
 							task={external}
-							need={need(external, null)}
+							need={needOfExternal(external, conversations)}
 							agents={agents}
 							drafts={drafts}
 							onBrought={(state) => {

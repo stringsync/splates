@@ -62,6 +62,24 @@ describe("App on a phone", () => {
 		expect(waiting.textContent).toContain("Failed");
 	});
 
+	it("puts a task its conversation left in Needs you, and says how long one elsewhere has been quiet", async () => {
+		const left = details({ task: "delta", takenBy: "c9" });
+		const quiet = details({ task: "gamma", activeAt: hoursAgo(2) });
+		const view = await testing.openConversations(
+			[conversation({ id: "c9", task: "delta", archived: true })],
+			null,
+			{ tasks: [left, quiet] },
+		);
+
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const group = (name: string) =>
+			within(inbox).getByRole("region", { name }).textContent;
+		expect(group("Needs you")).toContain(
+			"Abandoned · Its conversation was archived",
+		);
+		expect(group("Working")).toContain("gamma2hNo sign since 2h");
+	});
+
 	it("nests a subagent under the agent it reports to, which is answered for it", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "orch", title: "Orchestrator", status: "idle" })],
@@ -542,3 +560,7 @@ describe("App on a phone", () => {
 		expect(view.queryByRole("region", { name: "Terminals" })).toBeNull();
 	});
 });
+
+function hoursAgo(hours: number): string {
+	return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}

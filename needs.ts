@@ -1,4 +1,5 @@
 import { Markdown } from "webappwiz/md";
+import { Duration } from "webappwiz/time";
 import type { ConversationState } from "./conversations";
 import { goalLine, type Question, questions, STUB_STEP } from "./plan";
 import type { Details } from "./show";
@@ -36,13 +37,6 @@ export type Need =
 			subject: string | null;
 	  }
 	| { kind: "idle" };
-
-/**
- * Why an agent waits: a live ACP ask (a permission or a form), a review it
- * escalated for, any other escalation, open questions it ended its turn on,
- * or a failure.
- */
-export type Why = "ask" | "review" | "escalated" | "questions" | "failed";
 
 /** One agent the page shows: a conversation, its task, or both. */
 export interface Needing {
@@ -84,6 +78,19 @@ export function needs({
 	);
 }
 
+/**
+ * Why an agent waits: a live ACP ask (a permission or a form), a review it
+ * escalated for, any other escalation, open questions it ended its turn on,
+ * a failure, or for a task, no agent left on it (see `abandoned`).
+ */
+export type Why =
+	| "ask"
+	| "review"
+	| "escalated"
+	| "questions"
+	| "failed"
+	| "abandoned";
+
 const KINDS: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
 
 /** Whether a task is under way, so an agent may yet need something for it. */
@@ -108,7 +115,78 @@ export function externals(
 				!task.dispatched &&
 				!listed.some((each) => each.task === task.task),
 		)
-		.map((task) => ({ conversation: null, task, need: need(task, null) }));
+		.map((task) => ({
+			conversation: null,
+			task,
+			need: needOfExternal(task, conversations),
+		}));
+}
+
+/** What a task no listed conversation runs in needs: see `externals`. */
+export function needOfExternal(
+	task: Details,
+	conversations: ConversationState[],
+): Need {
+	const left = abandoned(task, conversations);
+	if (left === null) {
+		return need(task, null);
+	}
+	const asked = need(task, null);
+	return {
+		kind: "waiting",
+		why: "abandoned",
+		subject: left.subject,
+		since: left.since,
+		questions: "questions" in asked ? asked.questions : [],
+	};
+}
+
+/**
+ * Whether no agent is left on an external task, for certain: the page
+ * conversation whose agent last took it is archived, or gone with the oldest
+ * archived ones, and no agent outside the page has taken it since. What it
+ * says of it, and since when; null while an agent may yet be on it. A
+ * conversation listed on another task may still have a subagent on this
+ * one, so only going quiet tells of it.
+ */
+export function abandoned(
+	task: Details,
+	conversations: ConversationState[],
+): { subject: string; since: string | null } | null {
+	if (task.takenBy === null) {
+		return null;
+	}
+	const by = conversations.find((each) => each.id === task.takenBy);
+	if (by === undefined) {
+		return { subject: "Its conversation is gone", since: task.activeAt };
+	}
+	return by.archived
+		? { subject: "Its conversation was archived", since: task.activeAt }
+		: null;
+}
+
+/**
+ * How long an external agent's task goes without a sign of it at work before
+ * it shows as quiet: long enough for a test run or a long think.
+ */
+export const QUIET_AFTER = Duration.mins(30);
+
+/**
+ * When an external agent's task last showed a sign of its agent at work, once
+ * that is `QUIET_AFTER` ago at `now`; null while it has lately, or nothing
+ * says. Only an agent taken to be at work goes quiet: one that waits on the
+ * person is still for a reason.
+ */
+export function quietSince(
+	{ task, need }: Pick<Needing, "task" | "need">,
+	now: number,
+): string | null {
+	const at = task?.activeAt ?? null;
+	return at !== null &&
+		(need.kind === "working" || need.kind === "assuming") &&
+		now - Date.parse(at) >= QUIET_AFTER.ms
+		? at
+		: null;
 }
 
 /**

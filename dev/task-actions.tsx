@@ -26,6 +26,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Details } from "../show";
 import { removeTask, retryTask } from "./api";
@@ -181,6 +182,34 @@ export function ActionBar({
 					</DropdownMenu>
 				</div>
 			)}
+			{remove.asking}
+		</div>
+	);
+}
+
+/**
+ * What to do with a task no agent is left on: put one on it, or remove it.
+ */
+export function TakeUpOrRemove({
+	task,
+	className,
+}: {
+	task: Details;
+	className?: string;
+}): JSX.Element {
+	const remove = useRemove(task);
+	return (
+		<div
+			role="toolbar"
+			aria-label="actions"
+			className={cn("flex flex-wrap gap-2", className)}
+		>
+			<StartMenu
+				assignment={{ kind: "task", task: task.task }}
+				label="Take up"
+				size="sm"
+			/>
+			<ActionButton action={remove.action} outline />
 			{remove.asking}
 		</div>
 	);

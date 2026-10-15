@@ -365,7 +365,8 @@ export class Restarts {
 	}
 
 	// A served project counts its own; one not is read for its tasks alone,
-	// where only an external agent can be at work.
+	// where only an external agent can be at work. Its conversations go
+	// unread, so none taken by one counts as abandoned.
 	private async waitingIn(root: string): Promise<number> {
 		const project = await this.home.served.served.get(root)?.catch(() => null);
 		if (project) {
@@ -378,7 +379,14 @@ export class Restarts {
 			this.peeked.set(root, found);
 		}
 		const opened = await found.catch(() => null);
-		return opened === null ? 0 : waitingOn(await tasksOf(opened), []);
+		if (opened === null) {
+			return 0;
+		}
+		const tasks = await tasksOf(opened);
+		return waitingOn(
+			tasks.map((task) => ({ ...task, takenBy: null })),
+			[],
+		);
 	}
 
 	/**

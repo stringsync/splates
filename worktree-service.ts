@@ -52,6 +52,19 @@ export class WorktreeService {
 		this.conversationsDir = `${arborDir}/conversations`;
 	}
 
+	/**
+	 * The `arbor dev` conversation whose agent runs this command, when it is
+	 * one of this repo's: an agent from another project's page working here
+	 * is, to this repo, an agent outside the page.
+	 */
+	async conversation(): Promise<string | undefined> {
+		const id = this.ps.env("ARBOR_CONVERSATION");
+		return id !== undefined &&
+			(await this.fs.exists(`${this.conversationsDir}/${id}.jsonl`))
+			? id
+			: undefined;
+	}
+
 	async init(): Promise<void> {
 		await this.fs.mkdir(this.tasksDir);
 		await this.fs.mkdir(this.removedDir);

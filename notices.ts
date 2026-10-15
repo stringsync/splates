@@ -63,7 +63,12 @@ export class Notices {
 				return [];
 			}
 			const need = row.need;
-			if (need.kind === "waiting" && was.kind !== "waiting") {
+			// A task left by archiving its conversation was the person's own doing.
+			if (
+				need.kind === "waiting" &&
+				was.kind !== "waiting" &&
+				need.why !== "abandoned"
+			) {
 				return wants.waiting
 					? [{ row, title: titleOf(row, name), body: wanted(row, need) }]
 					: [];
@@ -148,6 +153,8 @@ function wanted(
 			return need.questions.length > 0
 				? said("Asks", need.subject)
 				: said("Escalated", need.subject);
+		case "abandoned":
+			return said("Abandoned", need.subject);
 	}
 }
 

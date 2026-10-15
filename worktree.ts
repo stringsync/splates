@@ -44,6 +44,11 @@ export class Worktree {
 		return this.snapshot.state?.lease ?? null;
 	}
 
+	/** The `arbor dev` conversation whose agent last took the task, or null. */
+	get takenBy(): string | null {
+		return this.lease?.conversation ?? null;
+	}
+
 	get leaseHeld(): boolean {
 		// On this host the pid alone decides. Every arbor command is its own
 		// short-lived process, so a lease goes stale the moment its command
@@ -144,14 +149,16 @@ export class Worktree {
 		});
 	}
 
-	take(changes: Partial<TaskState> = {}): Promise<Worktree> {
+	async take(changes: Partial<TaskState> = {}): Promise<Worktree> {
 		const { ps } = this.service;
+		const conversation = await this.service.conversation();
 		return this.save({
 			...changes,
 			lease: {
 				pid: ps.pid,
 				hostname: ps.hostname,
 				heartbeatAt: new Date().toISOString(),
+				...(conversation === undefined ? {} : { conversation }),
 			},
 		});
 	}
@@ -224,6 +231,11 @@ export class Worktree {
 		return this.service.git.porcelain(this.path);
 	}
 
+	/** When its branch's latest commit was made, or null without a branch. */
+	committedAt(): Promise<string | null> {
+		return this.service.git.committedAt(this.branch);
+	}
+
 	interruptedOps(): Promise<string[]> {
 		return this.service.git.interruptedOps(this.path);
 	}
@@ -269,6 +281,11 @@ export interface LeaseState {
 	pid: number;
 	hostname: string;
 	heartbeatAt: string;
+	/**
+	 * The `arbor dev` conversation whose agent took it, or its caller's for a
+	 * subagent; absent for an agent outside the page, and in older records.
+	 */
+	conversation?: string;
 }
 
 export interface Escalation {

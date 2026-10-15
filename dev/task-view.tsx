@@ -2,6 +2,7 @@ import {
 	GitBranchIcon,
 	SquareArrowOutUpRightIcon,
 	TriangleAlertIcon,
+	UnplugIcon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -12,6 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Duration } from "webappwiz/time";
 import {
 	Alert,
 	AlertDescription,
@@ -21,7 +23,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import { age } from "../age";
 import type { ConversationState, Session } from "../conversations";
-import { answersTo, type Need } from "../needs";
+import { answersTo, type Need, quietSince } from "../needs";
 import type { Question } from "../plan";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
@@ -34,9 +36,11 @@ import { type AgentChoice, agentName } from "./conversation-feed";
 import { useNameOf } from "./conversation-names";
 import { type Drafts, externalDraft } from "./drafts";
 import { Held } from "./handed-out";
+import { useNow } from "./hooks/use-now";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { SystemsButton, SystemsCard } from "./systems";
+import { TakeUpOrRemove } from "./task-actions";
 import { Task } from "./tasks";
 
 /**
@@ -72,6 +76,10 @@ export function TaskView({
 }): JSX.Element {
 	const [details, setDetails] = useState(false);
 	const by = answersTo({ conversation: null, task }, useContext(Held));
+	const quiet = quietSince(
+		{ task, need },
+		useNow(need.kind !== "waiting", Duration.mins(1)),
+	);
 	const open = openQuestions(need);
 	const section = useRef<HTMLElement>(null);
 	const kept = draftOf(task.task);
@@ -143,13 +151,25 @@ export function TaskView({
 				</div>
 				<div className="@min-[61rem]:pe-[16.75rem]">
 					<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
-						{by !== null ? (
+						{need.kind === "waiting" && need.why === "abandoned" ? (
+							<Alert>
+								<UnplugIcon className="text-muted-foreground" />
+								<AlertTitle>Abandoned</AlertTitle>
+								<AlertDescription>
+									{need.subject}, so no agent is left on it. Take it up in a new
+									conversation, which picks up from its ARBOR.md, or remove it.
+								</AlertDescription>
+								<TakeUpOrRemove task={task} className="col-start-2 mt-2" />
+							</Alert>
+						) : by !== null ? (
 							<ReportsTo by={by} onOpen={onOpen} />
 						) : (
 							<Alert variant="warning">
 								<TriangleAlertIcon />
 								<AlertTitle>Its agent runs outside the page</AlertTitle>
 								<AlertDescription>
+									{quiet !== null &&
+										`No sign of it for ${age(quiet)}: no edit, commit or arbor command. `}
 									The page cannot message it: answer here, then paste the reply
 									into its own session, or bring that session in below.
 								</AlertDescription>
@@ -232,6 +252,10 @@ export class ExternalReplies {
 
 	private answers(task: string, need: Need, kept: "copied" | "seen"): boolean {
 		const open = openQuestions(need);
+		// With no agent left to paste it to, it waits on you all the same.
+		if (need.kind === "waiting" && need.why === "abandoned") {
+			return false;
+		}
 		return (
 			open.length > 0 &&
 			this.drafts.read(`${draftOf(task)}:${kept}`) === asking(open)

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "../conversations";
-import { type Needing, need } from "../needs";
+import { type Needing, need, needOfExternal } from "../needs";
 import type { Details } from "../show";
 import { Notifier } from "./notifier";
 import { Settings } from "./settings";
@@ -114,6 +114,25 @@ describe("Notifier", () => {
 				)
 				.map(({ title, body }) => [title, body]),
 		).toEqual([["beta", "Escalated: a call"]]);
+	});
+
+	it("tells nothing of a task left by archiving its conversation, the person's own doing", () => {
+		const taken = { ...beta, takenBy: "c1" };
+		notifier.look([row(null, taken)], name, NOW);
+
+		expect(
+			notifier.look(
+				[
+					{
+						conversation: null,
+						task: taken,
+						need: needOfExternal(taken, [{ ...runs, archived: true }]),
+					},
+				],
+				name,
+				NOW,
+			),
+		).toEqual([]);
 	});
 
 	it("says in one plain line what a waiting row wants, under a short name", () => {
