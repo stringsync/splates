@@ -1,6 +1,6 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import { useEffect, useMemo, useState } from "react";
-import { Duration, SystemTimer } from "webappwiz/time";
+import { Duration } from "webappwiz/time";
 import { type Report, type Review, stretches } from "../asked";
 import type { ConversationState, Message, Part } from "../conversations";
 import { type Event, isEscalation } from "../events";
@@ -36,19 +36,19 @@ export function useThreadMessages(
 	const due = writing && latest?.role === "agent" ? replyDue(latest) : null;
 	const [shown, show] = useState(0);
 	useEffect(() => {
-		const wait = due === null ? 0 : due - Date.now();
+		const wait = due === null ? 0 : due - feed.wall.now();
 		if (wait <= 0) {
 			return;
 		}
-		const timer = new SystemTimer().setTimeout(
+		const timer = feed.timer.setTimeout(
 			() => show((times) => times + 1),
 			Duration.ms(wait),
 		);
 		return () => timer.dispose();
-	}, [due]);
+	}, [due, feed]);
 	const messages = useMemo(() => {
 		void shown;
-		const now = Date.now();
+		const now = feed.wall.now();
 		const said = conversation.messages.filter((each) => !each.queued);
 		const happened = turnsOf(said, conversation.events);
 		const liked = said.map((message, index) =>
@@ -92,6 +92,7 @@ export function useThreadMessages(
 		writing,
 		running,
 		shown,
+		feed,
 	]);
 	// Where the person left off, as it opens: the first message they have yet
 	// to see, read on from there, else the bottom. Opening marks it read, so

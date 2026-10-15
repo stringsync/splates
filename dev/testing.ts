@@ -5,6 +5,7 @@ import { expect } from "bun:test";
 import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
+import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import type { ConversationState, Session } from "../conversations";
 import type { ServerChoice } from "../dev-servers";
 import type { FileDiff } from "../diff";
@@ -157,6 +158,10 @@ export class Testing implements Resource {
 	reloads = 0;
 	/** What restarts the page on its own; one on the system clock unless set. */
 	autoRestart: AutoRestart | undefined = undefined;
+	/** What threads wait by, so a test decides when a moment has passed. */
+	readonly timer = new FakeTimer();
+	/** The date threads read, frozen where the test began. */
+	readonly wall = new FakeWallClock(Date.now());
 	/** What the composers' mic records with; none unless a test gives one. */
 	dictation: Dictation | null = null;
 	/** What `/api/projects` says a restart would kill. */
@@ -363,6 +368,8 @@ export class Testing implements Resource {
 							this.reloads++;
 						},
 						autoRestart: this.autoRestart,
+						timer: this.timer,
+						wall: this.wall,
 					}),
 				),
 			),

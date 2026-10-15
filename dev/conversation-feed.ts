@@ -1,5 +1,11 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import {
+	SystemTimer,
+	SystemWallClock,
+	type Timer,
+	type WallClock,
+} from "webappwiz/time";
 import type {
 	Attached,
 	ConversationState,
@@ -73,6 +79,12 @@ export class ConversationFeed
 	private changes = 0;
 	private readonly changedAt = new Map<string, number>();
 	private stream: LiveStream | null = null;
+
+	/** `timer` and `wall` are what the thread waits and reads the date by. */
+	constructor(
+		readonly timer: Timer = new SystemTimer(),
+		readonly wall: WallClock = new SystemWallClock(),
+	) {}
 
 	start(): void {
 		// React runs a mount effect twice in StrictMode, and a second stream would

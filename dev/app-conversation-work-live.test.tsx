@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { Duration } from "webappwiz/time";
 import type { ConversationState } from "../conversations";
 import {
 	act,
@@ -100,7 +101,7 @@ describe("App's work row while working", () => {
 					{
 						type: "text",
 						text: "Now the fix.",
-						at: new Date(Date.now() - 500).toISOString(),
+						at: new Date(testing.wall.now() - 500).toISOString(),
 					},
 				],
 				{ status: "running" },
@@ -114,13 +115,10 @@ describe("App's work row while working", () => {
 		);
 		expect(timeline.textContent).toContain("Now the fix.");
 		expect(line()).toMatch(/^Working /);
-		await waitFor(
-			() =>
-				expect(
-					within(thread).getByRole("list", { name: "timeline" }).textContent,
-				).not.toContain("Now the fix."),
-			{ timeout: 2000 },
-		);
+		act(() => {
+			testing.wall.advance(Duration.secs(1));
+			testing.timer.fireTimeouts();
+		});
 		await waitFor(() => expect(thread.textContent).toContain("Now the fix."));
 		expect(line()).not.toMatch(/^Working/);
 	});

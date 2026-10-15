@@ -8,7 +8,13 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { type Duration, SystemClock, SystemTimer } from "webappwiz/time";
+import {
+	type Duration,
+	SystemClock,
+	SystemTimer,
+	type Timer,
+	type WallClock,
+} from "webappwiz/time";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
@@ -84,6 +90,8 @@ export function App({
 	offlineAfter,
 	reload = () => location.reload(),
 	autoRestart: given,
+	timer,
+	wall,
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
@@ -96,6 +104,9 @@ export function App({
 	reload?: () => void;
 	/** Restarts `arbor dev` once out of date; one on the system clock by default. */
 	autoRestart?: AutoRestart;
+	/** What the conversations' threads wait and read the date by; the system's by default. */
+	timer?: Timer;
+	wall?: WallClock;
 }): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
@@ -130,7 +141,7 @@ export function App({
 		};
 	}, [offline]);
 	// Its own feed, since `arbor dev` holds conversations only when asked to.
-	const [talk] = useState(() => new ConversationFeed());
+	const [talk] = useState(() => new ConversationFeed(timer, wall));
 	useDisposerEffect(
 		(disposer) => {
 			talk.start();
