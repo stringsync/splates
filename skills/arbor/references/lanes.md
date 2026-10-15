@@ -109,6 +109,15 @@ For (a), `arbor tell <task>` it to carry on, which wakes it; for (b) and
 (c), `arbor remove <task> --reason redo`, then for (b) hand the todo out as
 in step 3.
 
+`[ARBOR HEARTBEAT]` means you have sat idle ten minutes while an agent you
+handed a task to is still at work, so the user has heard nothing of your
+lanes for that long. Any turn you take first puts it off; the `arbor dev`
+page counts down to it. Read `arbor show` for each task you have out, and
+act on what you find as for `[ARBOR IDLE <task>]`: relay open questions,
+and `arbor tell` an agent whose `ARBOR.md` has not moved since the last
+heartbeat what to do next. Then end on a fresh working report, or a waiting
+one when a lane now waits on the user.
+
 `arbor dev` starts the agent you name, and sets `$ARBOR_CONVERSATION` in
 yours; without it, nothing will start one. Hand the todo to a subagent of
 your own harness on the model it names instead, told to `arbor claim <task>`
@@ -144,8 +153,8 @@ another model all the same, saying so in its Added card. Hand out what can
 go out first, so agents work while you do.
 
 Your agents still come first. Their reports reach you as messages while you
-work: at each step, act on every `[ARBOR REPORT]`, `[ARBOR IDLE]` or
-`[ARBOR STOPPED]` that came in before going on, so none of them waits on
+work: at each step, act on every `[ARBOR REPORT]`, `[ARBOR IDLE]`,
+`[ARBOR STOPPED]` or `[ARBOR HEARTBEAT]` that came in before going on, so none of them waits on
 your work. When your task needs the user, escalate it as any task, and say
 so in your waiting report as a lane line.
 

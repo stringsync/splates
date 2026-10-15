@@ -66,6 +66,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		status: "running",
 		error: null,
 		stoppedIdle: null,
+		heartbeat: null,
 		messages: [],
 		ask: null,
 		settings: [],

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { FakeTimer } from "webappwiz/time/testing";
+import { Duration } from "webappwiz/time";
+import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { add } from "./add";
+import { HEARTBEAT_IDLE } from "./conversation-state";
 import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";
@@ -13,6 +15,10 @@ describe("HandedOut", () => {
 	let said: string[];
 	let conversations: Conversations;
 	let watching: HandedOut | null;
+	let timer: FakeTimer;
+	let clock: FakeWallClock;
+	/** Lets the agent's turn on alpha end, which `atWork` holds until then. */
+	let release: () => void;
 
 	const until = async (done: () => boolean) => {
 		for (let i = 0; i < 200 && !done(); i++) {
@@ -30,7 +36,8 @@ describe("HandedOut", () => {
 			service: deps.service,
 			conversations,
 			log: deps.log,
-			timer: new FakeTimer(),
+			timer,
+			clock,
 		});
 		return watching;
 	};
@@ -45,10 +52,14 @@ describe("HandedOut", () => {
 		};
 		conversations = open();
 		watching = null;
+		timer = new FakeTimer();
+		clock = new FakeWallClock(Date.now());
+		release = () => {};
 		await add(deps, "alpha");
 	});
 
 	afterEach(async () => {
+		release();
 		watching?.dispose();
 		await conversations.disposeAsync();
 		await deps.disposeAsync();
@@ -134,5 +145,108 @@ describe("HandedOut", () => {
 			archived: true,
 			archivedWith: orchestrator.id,
 		});
+	});
+
+	/**
+	 * An orchestrator that took a turn, and an agent at work on alpha it
+	 * handed out, watched and swept once.
+	 */
+	const atWork = async (): Promise<{
+		orchestrator: Conversation;
+		working: Conversation;
+		watched: HandedOut;
+	}> => {
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		agent.turn = async (_, __, text) => {
+			said.push(text);
+			if (text === "[ARBOR TASK alpha]") {
+				await held;
+			}
+			return "end_turn";
+		};
+		const orchestrator = await conversations.start("fake", {
+			task: null,
+			cwd: deps.root,
+		});
+		await until(() => orchestrator.state.status === "idle");
+		await orchestrator.prompt("[ARBOR LANE 1]");
+		await until(() => orchestrator.state.status === "idle");
+		const working = await conversations.start("fake", {
+			task: "alpha",
+			cwd: (await deps.service.find("alpha")).path,
+			handedBy: orchestrator.id,
+		});
+		await until(() => working.state.status === "idle");
+		void working.prompt("[ARBOR TASK alpha]");
+		await until(() => working.state.status === "running");
+		const watched = watch();
+		await watched.sweep();
+		return { orchestrator, working, watched };
+	};
+
+	/** When the orchestrator's last turn ended, plus `HEARTBEAT_IDLE`. */
+	const due = (orchestrator: Conversation): string => {
+		const last = orchestrator.state.messages.at(-1);
+		return new Date(
+			Date.parse(last?.until ?? "") + HEARTBEAT_IDLE.ms,
+		).toISOString();
+	};
+
+	/** Fires the heartbeat's timeout, leaving the settling debounce be. */
+	const fire = () => {
+		for (const each of timer.timeouts.filter(
+			(entry) => entry.delay.ms > Duration.mins(1).ms,
+		)) {
+			if (!each.disposed) {
+				each.callback();
+			}
+		}
+	};
+
+	it("sends a heartbeat to an idle orchestrator to check on its agents once its last turn is HEARTBEAT_IDLE behind", async () => {
+		const { orchestrator } = await atWork();
+
+		expect(orchestrator.state.heartbeat).toBe(due(orchestrator));
+
+		clock.set(Date.parse(due(orchestrator)));
+		fire();
+		await until(() => said.includes("[ARBOR HEARTBEAT]"));
+
+		expect(said).toEqual([
+			"[ARBOR LANE 1]",
+			"[ARBOR TASK alpha]",
+			"[ARBOR HEARTBEAT]",
+		]);
+	});
+
+	it("puts the heartbeat off when the orchestrator takes a turn first", async () => {
+		const { orchestrator, watched } = await atWork();
+		const first = orchestrator.state.heartbeat;
+		await Bun.sleep(5);
+		await orchestrator.prompt("Where do the lanes stand?");
+		await until(() => orchestrator.state.status === "idle");
+		await watched.sweep();
+
+		expect(orchestrator.state.heartbeat).toBe(due(orchestrator));
+		expect(Date.parse(orchestrator.state.heartbeat ?? "")).toBeGreaterThan(
+			Date.parse(first ?? ""),
+		);
+
+		clock.set(Date.parse(first ?? ""));
+		fire();
+		await Bun.sleep(50);
+
+		expect(said).not.toContain("[ARBOR HEARTBEAT]");
+	});
+
+	it("has no heartbeat due once no agent it handed a task to is at work", async () => {
+		const { orchestrator, working, watched } = await atWork();
+		release();
+		await until(() => working.state.status === "idle");
+		await watched.sweep();
+
+		expect(orchestrator.state.heartbeat).toBeNull();
 	});
 });

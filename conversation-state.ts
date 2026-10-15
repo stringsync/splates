@@ -34,6 +34,11 @@ export interface ConversationState {
 	 * and again once it starts.
 	 */
 	stoppedIdle: string | null;
+	/**
+	 * When arbor next asks it, idle with an agent it handed a task to at
+	 * work, to check on its agents; null while none is due.
+	 */
+	heartbeat: string | null;
 	messages: Message[];
 	ask: Ask | null;
 	/** What the session lets the person pick: its mode, model, effort. */
@@ -96,6 +101,12 @@ export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
 
 /** How long an agent sits idle before arbor stops its process. */
 export const IDLE_STOP = Duration.mins(30);
+
+/**
+ * How long the conversation that handed tasks out sits idle, with an agent it
+ * handed one to at work, before arbor asks it to check on them.
+ */
+export const HEARTBEAT_IDLE = Duration.mins(10);
 
 /**
  * Where a checkpoint stands: asked of the agent, done once its turn ends,
@@ -382,6 +393,7 @@ export function blank(
 		status: "starting",
 		error: null,
 		stoppedIdle: null,
+		heartbeat: null,
 		messages: [],
 		ask: null,
 		settings: [],

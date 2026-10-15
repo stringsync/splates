@@ -116,6 +116,7 @@ export function conversation(
 		status: "idle",
 		error: null,
 		stoppedIdle: null,
+		heartbeat: null,
 		name: null,
 		archived: false,
 		archivedWith: null,

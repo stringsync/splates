@@ -31,6 +31,7 @@ import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
+import { HeartbeatBanner } from "./heartbeat-banner";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
@@ -275,6 +276,9 @@ export function Thread({
 						onOpen={onOpen}
 					/>
 				)}
+			{conversation.heartbeat !== null && (
+				<HeartbeatBanner at={conversation.heartbeat} phone={onBack !== null} />
+			)}
 			<PhoneSheets conversation={id} on={onBack !== null}>
 				<TaskRegistry>
 					{(version) => (

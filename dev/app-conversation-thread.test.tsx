@@ -273,6 +273,32 @@ describe("App's conversation thread", () => {
 		).toBeNull();
 	});
 
+	it("counts down to an orchestrator's next heartbeat", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				heartbeat: new Date(Date.now() + 9 * 60_000 + 30_000).toISOString(),
+			}),
+		]);
+
+		expect(
+			view.container.ownerDocument.querySelector(
+				'[data-slot="heartbeat-banner"]',
+			)?.textContent,
+		).toBe(
+			"Heartbeat in 9:30. It checks on its agents then, unless it speaks first.",
+		);
+	});
+
+	it("shows no heartbeat while none is due", async () => {
+		const view = await testing.openConversations([conversation()]);
+
+		expect(
+			view.container.ownerDocument.querySelector(
+				'[data-slot="heartbeat-banner"]',
+			),
+		).toBeNull();
+	});
+
 	it("says a failed turn takes another try, cut to a few lines until tapped", async () => {
 		const view = await testing.openConversations([
 			conversation({ error: "Internal error" }),

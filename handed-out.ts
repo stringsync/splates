@@ -1,8 +1,21 @@
 import { Disposer, type Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
-import { Debouncer, Duration, SystemTimer, type Timer } from "webappwiz/time";
+import {
+	Debouncer,
+	Duration,
+	SystemTimer,
+	SystemWallClock,
+	type Timer,
+	type WallClock,
+} from "webappwiz/time";
+import { HEARTBEAT_IDLE } from "./conversation-state";
 import type { Conversation, Conversations } from "./conversations";
-import { idleReference, reportReference, stoppedReference } from "./prompts";
+import {
+	HEARTBEAT,
+	idleReference,
+	reportReference,
+	stoppedReference,
+} from "./prompts";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -23,6 +36,11 @@ const SETTLE = Duration.secs(1);
  * the task since the agent last said anything. An agent whose task is gone is archived with that one,
  * off the list. Each is checked as its turn ends, once the conversations'
  * changes settle, as the project opens, and every `SWEEP`.
+ *
+ * A conversation idle `HEARTBEAT_IDLE` since its last turn, with an agent it
+ * handed a task to still at work, is told `[ARBOR HEARTBEAT]`, so it checks
+ * on them rather than wait out a long task with no word to the person. Any
+ * turn it takes before then puts the next one off again.
  */
 export class HandedOut implements Resource {
 	/**
@@ -35,12 +53,15 @@ export class HandedOut implements Resource {
 	readonly #disposer = new Disposer();
 	/** One check at a time, so no agent is told of twice. */
 	#checking = Promise.resolve();
+	/** Each conversation's next heartbeat, by its id. */
+	readonly #beats = new Map<string, Resource>();
 
 	private constructor(
 		private readonly service: WorktreeService,
 		private readonly conversations: Conversations,
 		private readonly log: Logger,
-		timer: Timer,
+		private readonly timer: Timer,
+		private readonly clock: WallClock,
 	) {
 		const settled = new Debouncer(timer, SETTLE);
 		this.#disposer.defer(() => settled.cancel());
@@ -55,6 +76,11 @@ export class HandedOut implements Resource {
 			),
 		);
 		this.#disposer.use(timer.setInterval(() => this.sweep(), SWEEP));
+		this.#disposer.defer(() => {
+			for (const beat of this.#beats.values()) {
+				beat.dispose();
+			}
+		});
 	}
 
 	/** Watches `conversations`, checking each handed-out agent at once. */
@@ -63,13 +89,15 @@ export class HandedOut implements Resource {
 		conversations,
 		log,
 		timer = new SystemTimer(),
+		clock = new SystemWallClock(),
 	}: {
 		service: WorktreeService;
 		conversations: Conversations;
 		log: Logger;
 		timer?: Timer;
+		clock?: WallClock;
 	}): HandedOut {
-		const watching = new HandedOut(service, conversations, log, timer);
+		const watching = new HandedOut(service, conversations, log, timer, clock);
 		watching.sweep();
 		return watching;
 	}
@@ -89,6 +117,9 @@ export class HandedOut implements Resource {
 			for (const conversation of all) {
 				await this.#check(conversation);
 			}
+			for (const conversation of all) {
+				this.#beat(conversation, all);
+			}
 		});
 	}
 
@@ -105,6 +136,44 @@ export class HandedOut implements Resource {
 				),
 			);
 		return this.#checking;
+	}
+
+	/** Keeps `conversation`'s next heartbeat, as `all` stand, on its state and the timer. */
+	#beat(conversation: Conversation, all: Conversation[]): void {
+		const { id, heartbeat } = conversation.state;
+		const at = nextHeartbeat(conversation, all);
+		if (at === heartbeat && (at === null || this.#beats.has(id))) {
+			return;
+		}
+		this.#beats.get(id)?.dispose();
+		this.#beats.delete(id);
+		if (at !== heartbeat) {
+			conversation.set({ heartbeat: at });
+		}
+		if (at === null) {
+			return;
+		}
+		const wait = Duration.ms(Math.max(0, Date.parse(at) - this.clock.now()));
+		this.#beats.set(
+			id,
+			this.timer.setTimeout(
+				() =>
+					void this.#queue(async () => {
+						this.#beats.delete(id);
+						// Its agents may have stopped, or it spoke, since.
+						const now = nextHeartbeat(
+							conversation,
+							await this.conversations.list(),
+						);
+						if (now === null || Date.parse(now) > this.clock.now()) {
+							return;
+						}
+						conversation.set({ heartbeat: null });
+						await conversation.prompt(HEARTBEAT);
+					}),
+				wait,
+			),
+		);
 	}
 
 	async #check(conversation: Conversation): Promise<void> {
@@ -147,6 +216,38 @@ export class HandedOut implements Resource {
 		}
 		await caller.prompt(idleReference(task));
 	}
+}
+
+/**
+ * When `caller` is next due a heartbeat: `HEARTBEAT_IDLE` after its last turn,
+ * while it sits idle with an agent it handed a task to at work; null while
+ * none is due.
+ */
+function nextHeartbeat(
+	caller: Conversation,
+	all: Conversation[],
+): string | null {
+	const { state } = caller;
+	const last = state.messages.at(-1);
+	const since = last?.until ?? last?.at ?? null;
+	const working = all.some(
+		({ state: each }) =>
+			each.handedBy === state.id &&
+			!each.archived &&
+			each.task !== null &&
+			(each.status === "running" || each.status === "starting"),
+	);
+	if (
+		!working ||
+		since === null ||
+		state.status !== "idle" ||
+		state.archived ||
+		state.ask !== null ||
+		state.checkpoint !== null
+	) {
+		return null;
+	}
+	return new Date(Date.parse(since) + HEARTBEAT_IDLE.ms).toISOString();
 }
 
 /**

@@ -25,8 +25,8 @@ even mid-task, and again in a later session:
 
 - `[ARBOR LANE untriaged]` in a prompt: Working the untriaged lane below
   first, then lanes.md as it says.
-- `[ARBOR LANE N]`, `[ARBOR REPORT <task>]`, `[ARBOR IDLE <task>]` or
-  `[ARBOR STOPPED <task>]` in a prompt:
+- `[ARBOR LANE N]`, `[ARBOR REPORT <task>]`, `[ARBOR IDLE <task>]`,
+  `[ARBOR STOPPED <task>]` or `[ARBOR HEARTBEAT]` in a prompt:
   [references/lanes.md](references/lanes.md), working a lane as its
   orchestrator, and for a task you handed on with `--relay`,
   [references/handoff.md](references/handoff.md) too.

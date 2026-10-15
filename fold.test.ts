@@ -16,6 +16,7 @@ describe("fold", () => {
 		status: "running",
 		error: null,
 		stoppedIdle: null,
+		heartbeat: null,
 		messages: [],
 		ask: null,
 		settings: [],

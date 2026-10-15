@@ -66,6 +66,13 @@ export function idleReference(task: string): string {
 }
 
 /**
+ * What asks the conversation that handed tasks out, idle `HEARTBEAT_IDLE` while
+ * an agent it handed one to is at work, to check on each and say where its
+ * lanes stand.
+ */
+export const HEARTBEAT = "[ARBOR HEARTBEAT]";
+
+/**
  * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
  * restart: the arbor skill says what it means.
  */

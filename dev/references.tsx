@@ -4,6 +4,7 @@ import {
 	ColumnsIcon,
 	GitBranchIcon,
 	GitMergeIcon,
+	HeartPulseIcon,
 	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
@@ -13,6 +14,7 @@ import {
 import { type ReactNode, useContext, useMemo } from "react";
 import {
 	CHECKPOINT,
+	HEARTBEAT,
 	laneReference,
 	MERGE,
 	RESUME,
@@ -51,40 +53,6 @@ const CATEGORIES = [
 	{ id: "system", label: "Systems", icon: LayersIcon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
-
-/**
- * The directives that are about no todo, lane, or task, as the composer offers
- * them and a message of one alone shows as its card.
- */
-export const BARE_DIRECTIVES = [
-	{
-		directive: CHECKPOINT,
-		label: "Checkpoint",
-		about: "update ARBOR.md and stop",
-		icon: BookmarkIcon,
-		tone: "neutral",
-	},
-	{
-		directive: RESUME,
-		label: "Resume",
-		about: "carry on from ARBOR.md",
-		icon: PlayIcon,
-		tone: "neutral",
-	},
-	{
-		directive: MERGE,
-		label: "Merge",
-		about: "merge the task it had reviewed",
-		icon: GitMergeIcon,
-		tone: "success",
-	},
-] as const satisfies {
-	directive: string;
-	label: string;
-	about: string;
-	icon: LucideIcon;
-	tone: Tone;
-}[];
 
 /**
  * The board's todos and lanes, `tasks`, `systems`, the directives, and
@@ -186,3 +154,44 @@ export function useReferences(
 		};
 	}, [todos, lanes, tasks, actions, systems]);
 }
+
+/**
+ * The directives that are about no todo, lane, or task, as the composer offers
+ * them and a message of one alone shows as its card.
+ */
+export const BARE_DIRECTIVES = [
+	{
+		directive: CHECKPOINT,
+		label: "Checkpoint",
+		about: "update ARBOR.md and stop",
+		icon: BookmarkIcon,
+		tone: "neutral",
+	},
+	{
+		directive: RESUME,
+		label: "Resume",
+		about: "carry on from ARBOR.md",
+		icon: PlayIcon,
+		tone: "neutral",
+	},
+	{
+		directive: HEARTBEAT,
+		label: "Heartbeat",
+		about: "check on the agents it handed tasks to",
+		icon: HeartPulseIcon,
+		tone: "neutral",
+	},
+	{
+		directive: MERGE,
+		label: "Merge",
+		about: "merge the task it had reviewed",
+		icon: GitMergeIcon,
+		tone: "success",
+	},
+] as const satisfies {
+	directive: string;
+	label: string;
+	about: string;
+	icon: LucideIcon;
+	tone: Tone;
+}[];
