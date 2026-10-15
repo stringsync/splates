@@ -50,6 +50,30 @@ describe("Dictation", () => {
 		expect(microphone.open).toBe(true);
 	});
 
+	it("cues the start when audio arrives and the stop when the take ends", async () => {
+		const { session } = listen();
+		expect(microphone.cues).toEqual([]);
+		await until(() => dictation.state.phase === "recording");
+		expect(microphone.cues).toEqual(["start"]);
+
+		await session.stop();
+		expect(microphone.cues).toEqual(["start", "stop"]);
+	});
+
+	it("cues the stop when the recording is interrupted", async () => {
+		await record();
+		microphone.interrupt("the page went to the background");
+		await until(() => dictation.state.phase !== "recording");
+		expect(microphone.cues).toEqual(["start", "stop"]);
+	});
+
+	it("plays no cue for a take stopped before any audio came", async () => {
+		microphone.said = "";
+		const { session } = listen();
+		await session.stop();
+		expect(microphone.cues).toEqual([]);
+	});
+
 	it("gives the composer the text as it is heard, then the final text", async () => {
 		const { session, said } = await record();
 		microphone.speak(" more");

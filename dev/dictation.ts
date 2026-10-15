@@ -182,6 +182,7 @@ export class Dictation
 			take.recording !== undefined
 		) {
 			this.set({ phase: "recording" });
+			take.recording.cue("start");
 			take.session.running();
 		}
 		if (this.current.phase === "recording") {
@@ -204,6 +205,9 @@ export class Dictation
 		this.take = undefined;
 		if (take === undefined) {
 			return;
+		}
+		if (this.current.phase === "recording") {
+			take.recording?.cue("stop");
 		}
 		take.recording?.dispose();
 		const { link } = take;
@@ -237,6 +241,9 @@ export class Dictation
 	private cancel(): void {
 		const { take } = this;
 		this.take = undefined;
+		if (this.current.phase === "recording") {
+			take?.recording?.cue("stop");
+		}
 		take?.dispose();
 		take?.session.ended("cancelled", undefined);
 		this.set(IDLE);
