@@ -151,29 +151,6 @@ The page leaves the agents' conversations read-only, yours to manage:
 archiving yours takes theirs with it, stopping any at work, and their
 permission asks, which only the user can answer, show above your composer.
 
-## Working the untriaged lane
-
-`[ARBOR LANE untriaged]` makes you the orchestrator of the todos in no lane.
-You place them in lanes first, then work those lanes as above:
-
-1. `arbor lane show untriaged` lists them. For each open one, read `arbor
-   todo show <id>`, `arbor lane list`, and `arbor list --files` for the
-   tasks under way, then place it as for a todo you add (see Lanes in
-   [references/todos.md](todos.md)): in a lane whose work it builds on, or
-   `--lane new` for one of its own when it starts a chain. Todos that touch the same files go in one lane, in the
-   order they should land, so their agents never fight over rebases.
-2. Link what blocks each: `arbor todo update <id> --blocked-by <id>` when it
-   needs another todo's code or data merged first, in any lane, never for
-   priority. When two todos ask for opposite things, or one undoes a task
-   under way, leave them untriaged and ask the user which wins, as numbered
-   questions in your reply, placing the rest meanwhile.
-3. Say in a line where each went, then work down each lane you placed one in
-   that no agent is on, as if sent `[ARBOR LANE N]` for it. Leave a lane
-   another agent is on to that agent.
-4. Each time you go back to step 1 of a lane, `arbor lane show untriaged`
-   again, and place any todo added since the same way. Once nothing is left
-   to place and every lane you work is done, end on a finished report.
-
 ## Reporting on lanes
 
 A lane orchestrator has no task of its own to report on. Whenever a task it

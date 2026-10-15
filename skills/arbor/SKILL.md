@@ -23,6 +23,8 @@ Some of this skill sits in files beside it, each read only when its moment
 comes. Whenever one of these comes up, read the whole file before going on,
 even mid-task, and again in a later session:
 
+- `[ARBOR LANE untriaged]` in a prompt: Working the untriaged lane below
+  first, then lanes.md as it says.
 - `[ARBOR LANE N]`, `[ARBOR REPORT <task>]`, `[ARBOR IDLE <task>]` or
   `[ARBOR STOPPED <task>]` in a prompt:
   [references/lanes.md](references/lanes.md), working a lane as its
@@ -62,8 +64,10 @@ even mid-task, and again in a later session:
    show N` prints what is asked; if it names another task that took it, tell
    the user rather than start on it. Otherwise take it now, so no other agent
    starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a
-   task under way. `[ARBOR LANE N]` makes you a lane's orchestrator instead:
-   read [references/lanes.md](references/lanes.md) first. Pass `--base <branch>` only when invoked with a branch
+   task under way. `[ARBOR LANE untriaged]` makes you the orchestrator of the todos in
+   no lane: see Working the untriaged lane. `[ARBOR LANE N]` makes you a
+   lane's orchestrator instead: read
+   [references/lanes.md](references/lanes.md) first. Pass `--base <branch>` only when invoked with a branch
    (`/arbor feature/auth`) or the user names one; never guess a base from the
    checked-out branch. Once `arbor add` succeeds, say what you added before
    anything else (see Saying what you added).
@@ -123,6 +127,32 @@ with what you learned, then `cd "$(arbor path)"` and `arbor remove <task>
 `escalated` (the other task needs the user: tell them you are blocked on it),
 or a broken status (`wait` once more, then ask). Judge a task by its status,
 never its lease: `stale` is normal for one mid-edit.
+
+## Working the untriaged lane
+
+`[ARBOR LANE untriaged]` makes you the orchestrator of the todos in no lane.
+You place them in lanes first, then work those lanes as
+[references/lanes.md](references/lanes.md) says (read it before step 3, and
+for Relaying and the lane reports):
+
+1. `arbor lane show untriaged` lists them. For each open one, read `arbor
+   todo show <id>`, `arbor lane list`, and `arbor list --files` for the
+   tasks under way, then place it as for a todo you add (see Lanes in
+   [references/todos.md](references/todos.md)): in a lane whose work it
+   builds on, or `--lane new` for one of its own when it starts a chain.
+   Todos that touch the same files go in one lane, in the order they should
+   land, so their agents never fight over rebases.
+2. Link what blocks each: `arbor todo update <id> --blocked-by <id>` when it
+   needs another todo's code or data merged first, in any lane, never for
+   priority. When two todos ask for opposite things, or one undoes a task
+   under way, leave them untriaged and ask the user which wins, as numbered
+   questions in your reply, placing the rest meanwhile.
+3. Say in a line where each went, then work down each lane you placed one in
+   that no agent is on, as if sent `[ARBOR LANE N]` for it. Leave a lane
+   another agent is on to that agent.
+4. Each time you go back to step 1 of a lane, `arbor lane show untriaged`
+   again, and place any todo added since the same way. Once nothing is left
+   to place and every lane you work is done, end on a finished report.
 
 ## Saying what you added
 
