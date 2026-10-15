@@ -26,6 +26,7 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { openingOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { Need } from "../needs";
 import { AgentIcon } from "./agent-icons";
@@ -35,12 +36,7 @@ import {
 	markUnread,
 	renameConversation,
 } from "./conversation-api";
-import {
-	openingOf,
-	reportedAs,
-	unnamed,
-	useNameOf,
-} from "./conversation-names";
+import { reportedAs, unnamed, useNameOf } from "./conversation-names";
 import { Trunk, whereRuns } from "./dispatching";
 import { useHandedOutBy, useHandedTo } from "./handed-out";
 import { Mark } from "./mark";

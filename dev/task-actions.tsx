@@ -32,9 +32,10 @@ import { removeTask, retryTask } from "./api";
 import { useWide } from "./app-nav";
 import { touchItems } from "./board";
 import { ReviewChanges } from "./changes";
+import { TASK } from "./conversation-address";
 import { Dispatching, OnIt, StartItems, StartMenu } from "./dispatching";
 import { Refusal, useRefusal } from "./refusal";
-import { arriveAt, TASK } from "./task-view";
+import { arriveAt } from "./task-view";
 
 /** Something to do with a task: a button in the bar, or an item in its menu. */
 interface Action {

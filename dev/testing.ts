@@ -163,6 +163,8 @@ export class Testing implements Resource {
 	held: Held[] = [];
 	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
 	email: string | null = null;
+	/** The public key `/api/push` hands out, which a device subscribes with. */
+	pushKey = PUSH_KEY;
 	/** What `/api/machine` reads, or null for it to fail. */
 	machine: MachineReading | null = null;
 	/** Every terminal the page opened, oldest first. */
@@ -221,6 +223,9 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/identity") {
 				return Response.json({ email: this.email });
+			}
+			if (route === "/api/push") {
+				return Response.json({ publicKey: this.pushKey });
 			}
 			if (route === "/api/machine") {
 				return this.machine === null
@@ -487,3 +492,7 @@ function fields(form: FormData): Record<string, unknown> {
 		...(files.length === 0 ? {} : { file: files }),
 	};
 }
+
+/** A server's public key, as `/api/push` hands it out. */
+export const PUSH_KEY =
+	"BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8";

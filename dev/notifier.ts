@@ -1,21 +1,9 @@
 import { Duration, SystemTimer } from "webappwiz/time";
 import type { Needing } from "../needs";
-import { openedBy } from "./conversation-rows";
+import { keyOf, type Notice, Notices, type Wants } from "../notices";
+import { openedBy } from "./conversation-address";
 import type { Settings } from "./settings";
 import type { Opening } from "./worker";
-
-/** Something a row did worth telling the person about, away from the page. */
-export interface Notice {
-	row: Needing;
-	title: string;
-	body: string;
-}
-
-/** What the last look saw of a row. */
-interface Seen {
-	kind: Needing["need"]["kind"];
-	quiet: boolean;
-}
 
 /**
  * Tells the person, with a browser notification and the sound they chose,
@@ -23,73 +11,13 @@ interface Seen {
  * as `settings` say.
  */
 export class Notifier {
-	/** By row, what the last look saw; null before the first. */
-	private seen: Map<string, Seen> | null = null;
+	private readonly notices = new Notices();
 
 	constructor(private readonly settings: Settings) {}
 
-	/**
-	 * Compares `rows`, named by `name`, with the last look at `now`, and
-	 * returns what changed worth telling, of the kinds the settings ask for: a
-	 * row that came to wait, a conversation that finished its turn, and one
-	 * running with no word for the quiet time. The first look tells nothing,
-	 * since it has nothing to compare.
-	 */
+	/** What changed in `rows` since the last look, of the kinds the settings ask for (see `Notices.look`). */
 	look(rows: Needing[], name: (row: Needing) => string, now: number): Notice[] {
-		const after = Duration.mins(this.settings.get("notifications.quietAfter"));
-		const before = this.seen;
-		this.seen = new Map(
-			rows.map((row) => [
-				keyOf(row),
-				{ kind: row.need.kind, quiet: quiet(row, now, after) },
-			]),
-		);
-		if (before === null) {
-			return [];
-		}
-		const wanted = {
-			waiting: this.settings.get("notifications.waiting"),
-			finished: this.settings.get("notifications.finished"),
-			quiet: this.settings.get("notifications.quiet"),
-		};
-		return rows.flatMap((row) => {
-			const was = before.get(keyOf(row));
-			const is = this.seen?.get(keyOf(row));
-			if (was === undefined || is === undefined) {
-				return [];
-			}
-			const need = row.need;
-			if (need.kind === "waiting" && was.kind !== "waiting") {
-				return wanted.waiting
-					? [
-							{
-								row,
-								title: `${name(row)} ${need.why === "failed" ? "failed" : "needs you"}`,
-								body: need.subject,
-							},
-						]
-					: [];
-			}
-			if (
-				row.conversation !== null &&
-				need.kind === "idle" &&
-				(was.kind === "working" || was.kind === "assuming")
-			) {
-				return wanted.finished
-					? [{ row, title: `${name(row)} finished`, body: lastWords(row) }]
-					: [];
-			}
-			if (is.quiet && !was.quiet && wanted.quiet) {
-				return [
-					{
-						row,
-						title: `${name(row)} has gone quiet`,
-						body: `No word for ${after.mins} minutes`,
-					},
-				];
-			}
-			return [];
-		});
+		return this.notices.look(rows, name, now, wantsOf(this.settings));
 	}
 
 	/**
@@ -99,8 +27,9 @@ export class Notifier {
 	 * where one is registered, since a phone shows them no other way, and its
 	 * click comes back as a message `useNotifier` opens the row for; without
 	 * one, as a plain notification, opening its row with `open` when clicked.
+	 * When `pushed`, the server's pushes show them, so this only chimes.
 	 */
-	show(notices: Notice[], open: (row: Needing) => void): void {
+	show(notices: Notice[], open: (row: Needing) => void, pushed = false): void {
 		if (
 			notices.length === 0 ||
 			!this.settings.get("notifications.on") ||
@@ -108,7 +37,7 @@ export class Notifier {
 		) {
 			return;
 		}
-		for (const notice of notices) {
+		for (const notice of pushed ? [] : notices) {
 			post(notice, open);
 		}
 		if (this.settings.get("notifications.sound")) {
@@ -161,35 +90,14 @@ function optionsOf(notice: Notice): NotificationOptions {
 	};
 }
 
-/** What tells `row` apart from the others, in a notification and its click. */
-export function keyOf(row: Needing): string {
-	return row.conversation !== null
-		? `conversation ${row.conversation.id}`
-		: `task ${row.task?.task}`;
-}
-
-/** Whether `row` is a conversation running with no word for `after`. */
-function quiet(row: Needing, now: number, after: Duration): boolean {
-	const conversation = row.conversation;
-	if (conversation?.status !== "running") {
-		return false;
-	}
-	const last = conversation.messages.at(-1);
-	const moved = last?.until ?? last?.at ?? null;
-	// A log too old to say never counts as quiet.
-	return moved !== null && now - Date.parse(moved) >= after.ms;
-}
-
-/** The start of what the agent said last, or a stand-in when it said nothing. */
-function lastWords(row: Needing): string {
-	const said = row.conversation?.messages
-		.findLast((message) => message.role === "agent")
-		?.parts.findLast((part) => part.type === "text");
-	const text = said?.type === "text" ? said.text.trim() : "";
-	if (text === "") {
-		return "Its turn is over";
-	}
-	return text.length > 140 ? `${text.slice(0, 139)}…` : text;
+/** Which notices `settings` ask for. */
+export function wantsOf(settings: Settings): Wants {
+	return {
+		waiting: settings.get("notifications.waiting"),
+		finished: settings.get("notifications.finished"),
+		quiet: settings.get("notifications.quiet"),
+		quietAfter: settings.get("notifications.quietAfter"),
+	};
 }
 
 /** Two short rising tones, made rather than loaded. */

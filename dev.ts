@@ -1,4 +1,5 @@
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
+import type { Pusher, VapidKeys } from "webappwiz/push";
 import {
 	MAX_PORT,
 	OpenPortProvider,
@@ -19,6 +20,7 @@ import {
 	type Served,
 	serveProject,
 } from "./dev-project";
+import { Pushes } from "./dev-push";
 import { Restarts } from "./dev-restart";
 import type { ServerChoice } from "./dev-servers";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
@@ -76,6 +78,7 @@ export async function dev(
 		servers = async () => [],
 		exit = null,
 		sensors = null,
+		pusher,
 		open = async (root) => ({
 			...home,
 			...(await openRepository(home, { at: root, migrates: true })),
@@ -296,6 +299,17 @@ export async function dev(
 		);
 	};
 
+	// Every project's, to each device that subscribed, whichever page it was on.
+	const pushes = await Pushes.start({
+		fs,
+		ps,
+		log,
+		projects,
+		served,
+		pusher,
+	});
+	disposer.defer(async () => pushes.dispose());
+
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
 
@@ -331,6 +345,13 @@ export async function dev(
 				}),
 			),
 			"/api/machine": guarded(async () => Response.json(await machine.read())),
+			// Through a tunnel only once Access verified who is asking, as a
+			// conversation is: what an agent said goes to the device.
+			"/api/push": talk(guarded(pushes.key)),
+			"/api/push/subscription": {
+				PUT: talk(guarded(pushes.subscribe)),
+				DELETE: talk(guarded(pushes.unsubscribe)),
+			},
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/power": { POST: talk(guarded(powerNow)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
@@ -590,6 +611,8 @@ export interface DevOptions {
 	exit?: ((code: number) => void) | null;
 	/** Where the page's machine stats come from; this machine's OS for none. */
 	sensors?: MachineSensors | null;
+	/** What pushes notices to the devices that subscribed; the Web Push services by default. */
+	pusher?: (keys: VapidKeys) => Pusher;
 }
 
 /** A running server, and the one thing a caller ever wants to do with it. */

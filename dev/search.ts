@@ -1,10 +1,10 @@
+import { nameOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 import { goalLine } from "../plan";
 import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
-import { nameOf } from "./conversation-names";
 
 /** What ⌘K searches: the shown project's, since the page holds no other's. */
 export interface Searched {

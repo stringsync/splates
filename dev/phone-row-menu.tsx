@@ -10,10 +10,11 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { cn } from "#dev/lib/utils.ts";
+import { openingOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import { markUnread, renameConversation } from "./conversation-api";
 import { useArchive } from "./conversation-item";
-import { openingOf, unnamed, useNameOf } from "./conversation-names";
+import { unnamed, useNameOf } from "./conversation-names";
 import { useHandedOutBy } from "./handed-out";
 import type { Refuse } from "./refusal";
 

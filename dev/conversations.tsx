@@ -15,6 +15,7 @@ import {
 	modelFor,
 	NEW,
 	startsOne,
+	TASK,
 	taskFor,
 } from "./conversation-address";
 import { markUnread } from "./conversation-api";
@@ -30,7 +31,7 @@ import type { Drafts } from "./drafts";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
 import { useRefusals } from "./refusal";
-import { TASK, TaskView } from "./task-view";
+import { TaskView } from "./task-view";
 import { Task } from "./tasks";
 import { MainTerminal } from "./terminal";
 import { isMain, type Terminals } from "./terminals";

@@ -19,7 +19,14 @@ import { type Needing, needs } from "../needs";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
 import { composerIn } from "./composer-editor";
-import { ARCHIVED, agentFor, NEW, startsOne } from "./conversation-address";
+import {
+	ARCHIVED,
+	agentFor,
+	NEW,
+	openedBy,
+	startsOne,
+	TASK,
+} from "./conversation-address";
 import { agentName, type ConversationFeed } from "./conversation-feed";
 import { Item } from "./conversation-item";
 import {
@@ -30,7 +37,6 @@ import {
 	hostsAtWork,
 	isHostOf,
 	nextWaiting,
-	openedBy,
 	rowsOf,
 	seenFor,
 	waitsOnYou,
@@ -45,7 +51,7 @@ import {
 import { useTouch } from "./hooks/use-touch";
 import { External, Rows, TerminalRow } from "./list-rows";
 import { nest } from "./parts";
-import { arriveAt, TASK, useCopiedReplies } from "./task-view";
+import { arriveAt, useCopiedReplies } from "./task-view";
 import { numberOf, type Terminals } from "./terminals";
 import { WaitingLine } from "./waiting-line";
 

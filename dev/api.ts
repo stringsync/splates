@@ -8,6 +8,7 @@
 import type { KeptCred, Scope } from "../creds";
 import type { FileDiff } from "../diff";
 import type { MachineReading } from "../machine";
+import type { Wants } from "../notices";
 import type { AgentPick } from "../roster";
 import type { PeriodId, Stats } from "../stats";
 import type { SystemsReport } from "../system-changes";
@@ -287,6 +288,28 @@ export async function machine(): Promise<MachineReading> {
 		throw new ApiError("error", `/api/machine: ${response.status}`);
 	}
 	return (await response.json()) as MachineReading;
+}
+
+/** The public key this device subscribes to the server's pushes with. */
+export async function pushKey(): Promise<string> {
+	const response = await fetch("/api/push");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/push: ${response.status}`);
+	}
+	return ((await response.json()) as { publicKey: string }).publicKey;
+}
+
+/** Has the server push this device the notices `wants` asks for, at `subscription`. */
+export async function subscribePush(
+	subscription: PushSubscriptionJSON,
+	wants: Wants & { inFront: boolean },
+): Promise<void> {
+	await sendJson("/api/push/subscription", "PUT", { subscription, wants });
+}
+
+/** Has the server stop pushing to the subscription `endpoint` names. */
+export async function unsubscribePush(endpoint: string): Promise<void> {
+	await sendJson("/api/push/subscription", "DELETE", { endpoint });
 }
 
 /** What the project's store and the device's keep, by name, and what each store is called. */

@@ -1,15 +1,24 @@
+import { FakeSubscription } from "./fake-subscription";
 import type { Opened, Opening } from "./worker";
 
 /**
- * `navigator.serviceWorker` for a test: registered or not, keeping what its
- * registration was asked to show, and passing on a click as the worker does.
+ * `navigator.serviceWorker` for a test: registered or not, pushable or not,
+ * keeping what its registration was asked to show and subscribed to, and
+ * passing on a click as the worker does.
  */
 export class FakeWorkers {
 	/** What the registration showed, by title and what its click opens. */
 	readonly shown: { title: string; data: Opening }[] = [];
+	/** The push subscription it holds, or null. */
+	subscription: FakeSubscription | null = null;
+	/** How many subscriptions it made. */
+	subscribed = 0;
 	private readonly listeners = new Set<(event: { data: Opened }) => void>();
 
-	constructor(private readonly registered: boolean) {}
+	constructor(
+		private readonly registered: boolean,
+		private readonly pushable = false,
+	) {}
 
 	/** Puts it in place of the browser's own, until the test deletes it. */
 	install(): this {
@@ -21,7 +30,10 @@ export class FakeWorkers {
 	}
 
 	async getRegistration(): Promise<
-		Pick<ServiceWorkerRegistration, "showNotification"> | undefined
+		| (Pick<ServiceWorkerRegistration, "showNotification"> & {
+				pushManager?: unknown;
+		  })
+		| undefined
 	> {
 		if (!this.registered) {
 			return undefined;
@@ -30,6 +42,22 @@ export class FakeWorkers {
 			showNotification: async (title, options) => {
 				this.shown.push({ title, data: options?.data as Opening });
 			},
+			pushManager: this.pushable
+				? {
+						getSubscription: async () =>
+							this.subscription?.unsubscribed === false
+								? this.subscription
+								: null,
+						subscribe: async (opts: PushSubscriptionOptionsInit) => {
+							this.subscribed += 1;
+							this.subscription = new FakeSubscription(
+								`https://push.example/${this.subscribed}`,
+								String(opts.applicationServerKey),
+							);
+							return this.subscription;
+						},
+					}
+				: undefined,
 		};
 	}
 

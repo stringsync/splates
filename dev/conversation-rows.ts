@@ -7,11 +7,11 @@ import {
 	need,
 } from "../needs";
 import type { Details } from "../show";
-import { NEW } from "./conversation-address";
+import { NEW, openedBy } from "./conversation-address";
 import { reportedAs, reportsDone, waitsOn } from "./conversation-names";
 import type { Drafts } from "./drafts";
 import { isPartOf, type Nested, nest } from "./parts";
-import { arriveAt, questionsSeen, replyCopied, TASK } from "./task-view";
+import { arriveAt, ExternalReplies } from "./task-view";
 import { unanswered } from "./unanswered";
 
 /** The sidebar's rows, newest first: the conversations listed, then external agents. */
@@ -43,11 +43,6 @@ export function flatten<Row>(rows: Nested<Row>[]): Row[] {
 export function hintOf(shown: Needing[], row: Needing): string | null {
 	const at = shown.indexOf(row);
 	return at === -1 ? null : String(at);
-}
-
-/** What opens `row`: its conversation's id, or its external agent's task. */
-export function openedBy(row: Needing): string {
-	return row.conversation?.id ?? `${TASK}${row.task?.task ?? ""}`;
 }
 
 /**
@@ -237,7 +232,7 @@ export function copiedFor(
 	return (
 		conversation === null &&
 		task !== null &&
-		replyCopied(drafts, task.task, need)
+		new ExternalReplies(drafts).copied(task.task, need)
 	);
 }
 
@@ -251,11 +246,11 @@ export function seenFor(
 	task: Details | null,
 	need: Need,
 ): boolean {
+	const replies = new ExternalReplies(drafts);
 	return (
 		conversation === null &&
 		task !== null &&
-		(questionsSeen(drafts, task.task, need) ||
-			replyCopied(drafts, task.task, need))
+		(replies.seen(task.task, need) || replies.copied(task.task, need))
 	);
 }
 

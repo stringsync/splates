@@ -11,7 +11,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Needing } from "../needs";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
-import { NEW } from "./conversation-address";
+import { NEW, openedBy } from "./conversation-address";
 import {
 	type AgentChoice,
 	agentName,
@@ -22,7 +22,6 @@ import {
 	flatten,
 	hostsAtWork,
 	isHostOf,
-	openedBy,
 	rowsOf,
 	waitsOnYou,
 } from "./conversation-rows";

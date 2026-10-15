@@ -18,7 +18,8 @@ import type { TranscriberFor } from "./dev-transcriber";
 import { startDispatched } from "./dispatched";
 import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
-import { needs } from "./needs";
+import type { LaneRecord } from "./lanes";
+import { type Needing, needs } from "./needs";
 import type { Behind, Release } from "./release";
 import type { Repository } from "./repository";
 import type { Details } from "./show";
@@ -87,6 +88,15 @@ export async function serveProject(
 				await tasksOf({ service, fs }),
 				((await conversations?.list()) ?? []).map(({ state }) => state),
 			),
+		needing: async () => ({
+			rows: needs({
+				tasks: await tasksOf({ service, fs }),
+				conversations: ((await conversations?.list()) ?? []).map(
+					({ state }) => state,
+				),
+			}),
+			lanes: await project.todos.lanes(),
+		}),
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		decider: (model) => context.deciderFor(project, model, () => watch.tick()),
@@ -143,6 +153,8 @@ export interface Served extends AsyncResource {
 	snapshot: Handler;
 	/** How many of its agents wait on the person. */
 	waiting: () => Promise<number>;
+	/** What each of its agents needs, and the lanes that name an orchestrator. */
+	needing: () => Promise<{ rows: Needing[]; lanes: LaneRecord[] }>;
 	events: Handler;
 	file: Handler;
 	paths: Handler;

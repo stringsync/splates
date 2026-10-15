@@ -28,6 +28,7 @@ import { AgentIcon } from "./agent-icons";
 import { Back } from "./back";
 import { type Reply, ReplyContext } from "./card-reply";
 import { toCardTop } from "./card-shell";
+import { TASK } from "./conversation-address";
 import { bringSession, listSessions } from "./conversation-api";
 import { type AgentChoice, agentName } from "./conversation-feed";
 import { useNameOf } from "./conversation-names";
@@ -37,9 +38,6 @@ import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { SystemsButton, SystemsCard } from "./systems";
 import { Task } from "./tasks";
-
-/** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
-export const TASK = "task/";
 
 /**
  * A task whose agent runs outside the page, such as in Claude Code or Codex,
@@ -196,31 +194,34 @@ function asking(questions: Question[]): string {
 	return questions.map((asked) => `${asked.number}. ${asked.text}`).join("\n");
 }
 
-/**
- * Whether the reply to every question task `task`'s external agent has open
- * was copied, to paste into its session; a question asked since, not.
- */
-export function replyCopied(drafts: Drafts, task: string, need: Need): boolean {
-	const open = openQuestions(need);
-	return (
-		open.length > 0 && drafts.read(`${draftOf(task)}:copied`) === asking(open)
-	);
-}
+/** What the page's drafts keep of the replies to external agents' questions. */
+export class ExternalReplies {
+	constructor(private readonly drafts: Drafts) {}
 
-/**
- * Whether every question task `task`'s external agent has open was shown in
- * its view, which the person opened since it asked; a question asked since,
- * not.
- */
-export function questionsSeen(
-	drafts: Drafts,
-	task: string,
-	need: Need,
-): boolean {
-	const open = openQuestions(need);
-	return (
-		open.length > 0 && drafts.read(`${draftOf(task)}:seen`) === asking(open)
-	);
+	/**
+	 * Whether the reply to every question task `task`'s external agent has
+	 * open was copied, to paste into its session; a question asked since, not.
+	 */
+	copied(task: string, need: Need): boolean {
+		return this.answers(task, need, "copied");
+	}
+
+	/**
+	 * Whether every question task `task`'s external agent has open was shown
+	 * in its view, which the person opened since it asked; a question asked
+	 * since, not.
+	 */
+	seen(task: string, need: Need): boolean {
+		return this.answers(task, need, "seen");
+	}
+
+	private answers(task: string, need: Need, kept: "copied" | "seen"): boolean {
+		const open = openQuestions(need);
+		return (
+			open.length > 0 &&
+			this.drafts.read(`${draftOf(task)}:${kept}`) === asking(open)
+		);
+	}
 }
 
 /**

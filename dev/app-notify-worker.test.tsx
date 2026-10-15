@@ -96,4 +96,21 @@ describe("App's notifications through a service worker", () => {
 
 		await waitFor(() => expect(FakeNotification.shown).toEqual(["Fix failed"]));
 	});
+
+	it("subscribes to the server's pushes, and lets them show the notices", async () => {
+		const workers = new FakeWorkers(true, true).install();
+		const { runs } = await open();
+		await waitFor(() =>
+			expect(
+				testing.posts.some((each) =>
+					each.path.startsWith("/api/push/subscription"),
+				),
+			).toBe(true),
+		);
+
+		await testing.say({ ...runs, status: "failed", error: "agent exited" });
+
+		expect(workers.shown).toEqual([]);
+		expect(FakeNotification.shown).toEqual([]);
+	});
 });
