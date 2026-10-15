@@ -210,7 +210,7 @@ function RenameBox({
 
 /**
  * A command a conversation's agent left running, nested under it, muted as a
- * subagent is, with a pulsing dot while it runs.
+ * subagent is. It shows only while it runs, so it needs no mark to say so.
  */
 export function CommandRow({
 	background,
@@ -237,11 +237,6 @@ export function CommandRow({
 			<span className="min-w-0 flex-1 truncate text-muted-foreground text-sm italic">
 				{background.name}
 			</span>
-			<span
-				role="img"
-				aria-label="running"
-				className="size-2 shrink-0 animate-pulse rounded-full bg-success"
-			/>
 		</button>
 	);
 }
