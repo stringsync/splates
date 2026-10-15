@@ -215,8 +215,10 @@ function Header({
 			)}
 			<Icon className={cn("size-4", TONES[tone].icon)} />
 			<span className="font-medium text-[13px]">{title}</span>
+			{/* In a narrow thread the chips take a row of their own beneath, so
+			    the aside stays beside the title rather than wrapping alone. */}
 			{task !== undefined && (
-				<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+				<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs @max-md:order-last @max-md:basis-full">
 					<TaskChip task={task} inline />
 					{base !== null && (
 						<>
@@ -232,16 +234,20 @@ function Header({
 					)}
 				</span>
 			)}
-			{lanes.map((lane) => (
-				<ReferenceChip
-					key={lane}
-					Icon={ColumnsIcon}
-					kind="Lane"
-					name={lane}
-					title={lane}
-					inline
-				/>
-			))}
+			{lanes.length > 0 && (
+				<span className="flex min-w-0 flex-wrap items-center gap-1.5 @max-md:order-last @max-md:basis-full">
+					{lanes.map((lane) => (
+						<ReferenceChip
+							key={lane}
+							Icon={ColumnsIcon}
+							kind="Lane"
+							name={lane}
+							title={lane}
+							inline
+						/>
+					))}
+				</span>
+			)}
 			{aside !== undefined && <span className="ml-auto">{aside}</span>}
 		</div>
 	);
