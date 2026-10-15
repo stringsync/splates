@@ -271,6 +271,7 @@ export function AnnotateBoard({
 									annotation={annotation}
 									at={each}
 									grip={grip(each)}
+									bounds={stage}
 								/>
 							) : mark.note.trim() !== "" ? (
 								<Label
@@ -278,6 +279,7 @@ export function AnnotateBoard({
 									annotation={annotation}
 									at={each}
 									grip={grip(each)}
+									bounds={stage}
 								/>
 							) : null,
 						)}
