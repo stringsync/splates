@@ -41,6 +41,7 @@ mid-task, and again in a later session.
 | `[ARBOR HEARTBEAT]` | Check on each task you handed out and say where your lanes stand | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
 | `[ARBOR CHECKPOINT]` | Bring `ARBOR.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[ARBOR RESUME]` | Carry on from where `ARBOR.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
+| `[ARBOR RECONNECT]` | A lost connection cut your last turn short, and the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
 
 Other moments have reference files too:
 

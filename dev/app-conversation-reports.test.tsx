@@ -411,7 +411,7 @@ describe("App's report cards", () => {
 		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
 	});
 
-	it("shows a message of a checkpoint, resume, or merge alone as a bare line", async () => {
+	it("shows a message of a checkpoint, resume, reconnect, or merge alone as a bare line", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				messages: [
@@ -419,6 +419,8 @@ describe("App's report cards", () => {
 					message("user", "[ARBOR CHECKPOINT]"),
 					message("agent", "Stopped before the tests."),
 					message("user", "[ARBOR RESUME]"),
+					message("agent", "Starting the tests."),
+					message("user", "[ARBOR RECONNECT]"),
 					message("agent", "Ready to merge."),
 					message("user", "[ARBOR MERGE]"),
 				],
@@ -430,6 +432,7 @@ describe("App's report cards", () => {
 		expect(lines.map((line) => line.textContent)).toEqual([
 			"Checkpoint",
 			"Resume",
+			"Reconnect",
 			"Merge",
 		]);
 		expect(lines[0]?.closest('[data-role="user"]')?.className).not.toContain(

@@ -28,7 +28,7 @@ export function hears(conversation: ConversationState): boolean {
 /**
  * Under the line of work begun at `since`, once it has gone on
  * `CHECK_IN_AFTER` by `now`, a button asking the agent where the work stands
- * with `CHECK_IN`: outlined where Resume is filled, since checking in is
+ * with `CHECK_IN`: outlined where Reconnect is filled, since checking in is
  * optional. There while the agent works and the person has sent nothing
  * since, queued or not.
  */

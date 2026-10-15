@@ -10,6 +10,7 @@ import {
 	laneReference,
 	leadingDirectives,
 	MERGE,
+	RECONNECT,
 	RESUME,
 	reportReference,
 	stoppedReference,
@@ -87,6 +88,7 @@ describe("the arbor skill's Directives table", () => {
 				HEARTBEAT,
 				CHECKPOINT,
 				RESUME,
+				RECONNECT,
 			].toSorted(),
 		);
 	});

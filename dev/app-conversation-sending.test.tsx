@@ -418,16 +418,14 @@ describe("App's sending messages", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				await within(thread).findByRole("button", { name: "Resume" }),
+				await within(thread).findByRole("button", { name: "Reconnect" }),
 			),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{
 				method: "POST",
-				body: {
-					text: "Your connection was interrupted. Carry on from where you were.",
-				},
+				body: { text: "[ARBOR RECONNECT]" },
 			},
 		]);
 	});

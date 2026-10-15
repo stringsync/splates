@@ -11,6 +11,7 @@ import {
 import { createContext, type JSX, use, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Step, Tool } from "../conversations";
+import { RECONNECT } from "../prompts";
 import { InMessage, useCardReply } from "./card-reply";
 import { CheckIn } from "./check-in";
 import { useNow } from "./hooks/use-now";
@@ -242,14 +243,13 @@ function Interrupted(): JSX.Element {
 				Interrupted, connection lost
 			</span>
 			{last && sent === null && reply?.send != null ? (
-				<ThreadAction onClick={() => void reply.send?.(CONTINUE)}>
-					Resume
+				<ThreadAction
+					title={RECONNECT}
+					onClick={() => void reply.send?.(RECONNECT)}
+				>
+					Reconnect
 				</ThreadAction>
 			) : null}
 		</div>
 	);
 }
-
-/** What the agent hears when the person resumes it. */
-const CONTINUE =
-	"Your connection was interrupted. Carry on from where you were.";

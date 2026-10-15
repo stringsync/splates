@@ -10,6 +10,7 @@ import {
 	type LucideIcon,
 	MessageCircleQuestionMarkIcon,
 	PlayIcon,
+	PlugIcon,
 	TreePineIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
@@ -19,6 +20,7 @@ import {
 	HEARTBEAT,
 	laneReference,
 	MERGE,
+	RECONNECT,
 	RESUME,
 	taskReference,
 	todoReference,
@@ -174,6 +176,13 @@ export const BARE_DIRECTIVES = [
 		label: "Resume",
 		about: "carry on from ARBOR.md",
 		icon: PlayIcon,
+		tone: "neutral",
+	},
+	{
+		directive: RECONNECT,
+		label: "Reconnect",
+		about: "carry on with a turn a lost connection cut short",
+		icon: PlugIcon,
 		tone: "neutral",
 	},
 	{

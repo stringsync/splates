@@ -95,6 +95,12 @@ export const CHECKPOINT = "[ARBOR CHECKPOINT]";
 export const RESUME = "[ARBOR RESUME]";
 
 /**
+ * What asks an agent to carry on with a turn a lost connection cut short, as
+ * the page's Reconnect button sends: the arbor skill says what it means.
+ */
+export const RECONNECT = "[ARBOR RECONNECT]";
+
+/**
  * What approves a task's review and asks the agent to merge it, as the Ready
  * to merge card's Merge button sends: the arbor skill says what it means.
  */
