@@ -121,7 +121,57 @@ describe("App's arbor events", () => {
 			"moved to position 2",
 		);
 	});
+
+	it("draws a lane started, updated and removed as a line naming it", async () => {
+		const thread = await opened(turn(["Done."]), [
+			{ ...laneEvent("a", 2), action: "lane add", lane: 4, name: "Stats" },
+			{
+				...laneEvent("b", 3),
+				action: "lane update",
+				lane: 4,
+				name: "Metrics",
+				changed: { name: "Metrics" },
+			},
+			{
+				...laneEvent("c", 4),
+				action: "lane remove",
+				lane: 4,
+				name: "Metrics",
+				todos: [7, 8],
+			},
+			{
+				id: "d",
+				at: second(5),
+				action: "lane remove",
+				task: null,
+				reason: "usage",
+				conversation: "c1",
+			},
+		]);
+
+		const lines = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(3);
+			return found;
+		});
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"StartedStats",
+			"UpdatedMetrics",
+			"RemovedMetrics",
+		]);
+	});
 });
+
+/** What every lane event the agent ran at `secs` carries. */
+function laneEvent(id: string, secs: number) {
+	return {
+		id,
+		at: second(secs),
+		task: null,
+		reason: null,
+		conversation: "c1",
+	} as const;
+}
 
 /** A todo update the agent ran at `secs`, moving todo `id` to position 2. */
 function update(id: number, secs: number, subject: string): Event {

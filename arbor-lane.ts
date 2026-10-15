@@ -2,7 +2,15 @@ import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import type { ArborDeps } from "./arbor";
 import { position } from "./arbor-flags";
-import { laneAdd, laneList, laneRemove, laneShow, laneUpdate } from "./lane";
+import {
+	laneAdd,
+	laneList,
+	laneRemove,
+	laneShow,
+	laneUpdate,
+	laneUpdated,
+	recordLaneRemove,
+} from "./lane";
 import { UNTRIAGED } from "./prompts";
 import { repository } from "./repository";
 
@@ -47,7 +55,12 @@ arborLane
 		description: "what its todos are for, like `Licensing`",
 	})
 	.action(async (opts, ctx) => {
-		await ctx.journal.record("lane add", null, () => laneAdd(ctx, opts.name));
+		await ctx.journal.record(
+			"lane add",
+			null,
+			() => laneAdd(ctx, opts.name),
+			(lane) => ({ lane: lane.id, name: lane.name }),
+		);
 	});
 
 arborLane
@@ -64,11 +77,12 @@ arborLane
 			"where to move it among the lanes, 1 the first column on the board; the others close up around it",
 	})
 	.action(async (opts, ctx) => {
-		await ctx.journal.record("lane update", null, () =>
-			laneUpdate(ctx, opts.lane, {
-				name: opts.name,
-				position: opts.position,
-			}),
+		const change = { name: opts.name, position: opts.position };
+		await ctx.journal.record(
+			"lane update",
+			null,
+			() => laneUpdate(ctx, opts.lane, change),
+			(record) => laneUpdated(opts.lane, record, change),
 		);
 	});
 
@@ -81,5 +95,7 @@ arborLane
 		description: "lane number",
 	})
 	.action((opts, ctx) =>
-		ctx.journal.record("lane remove", null, () => laneRemove(ctx, opts.lane)),
+		recordLaneRemove(ctx.journal, ctx.todos, opts.lane, () =>
+			laneRemove(ctx, opts.lane),
+		),
 	);

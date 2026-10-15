@@ -1,5 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
+import type { Facts } from "./events";
 import { fail } from "./exit";
+import type { Journal } from "./journal";
 import {
 	blockerLabel,
 	type LaneRecord,
@@ -248,7 +250,7 @@ export async function laneUpdate(
 	{ todos, log }: { todos: Todos; log: Logger },
 	id: number,
 	{ name, position }: LaneUpdateOptions = {},
-): Promise<void> {
+): Promise<LaneRecord> {
 	if (name === undefined && position === undefined) {
 		fail(
 			"usage",
@@ -270,6 +272,52 @@ export async function laneUpdate(
 						`  lanes in order: ${order.map((each) => `${each.id} ${each.name}`).join(", ")}`,
 					]),
 		].join("\n"),
+	);
+	return record ?? { id, name: "" };
+}
+
+/** What a lane update changed, for the event: only the parts it was asked to. */
+export function laneUpdated(
+	id: number,
+	record: LaneRecord,
+	{ name, position }: LaneUpdateOptions,
+): Facts["lane update"] {
+	return {
+		lane: id,
+		name: record.name,
+		changed: {
+			...(name === undefined ? {} : { name }),
+			...(position === undefined ? {} : { position }),
+		},
+	};
+}
+
+/**
+ * Runs `drop`, which removes lane `id`, and journals it with the lane's name
+ * and the todos it sent back to none, read before it went.
+ */
+export async function recordLaneRemove(
+	journal: Journal,
+	todos: Todos,
+	id: number,
+	drop: () => Promise<void>,
+): Promise<void> {
+	let before: Facts["lane remove"] | undefined;
+	await journal.record(
+		"lane remove",
+		null,
+		async () => {
+			const name = (await todos.lanes()).find((each) => each.id === id)?.name;
+			before = {
+				lane: id,
+				name: name ?? "",
+				todos: (await todos.all())
+					.filter((todo) => todo.state.lane === id)
+					.map((todo) => todo.state.id),
+			};
+			await drop();
+		},
+		() => before ?? { lane: id, name: "", todos: [] },
 	);
 }
 

@@ -54,6 +54,10 @@ const LINES: {
 					at: event.at,
 				}
 			: null,
+	// A refused lane command named no lane, and the agent says why itself.
+	"lane add": (event) => laned("Started", event),
+	"lane update": (event) => laned("Updated", event),
+	"lane remove": (event) => laned("Removed", event),
 };
 
 /** The line `event` draws, or null for an action with none. */
@@ -119,6 +123,19 @@ function AddedLine({
 /** What done means for the task an add made: its `--goal`, else the todos it took. */
 function goalOf(event: EventOf<"add">): string {
 	return event.goal ?? event.subjects?.join("\n\n") ?? "";
+}
+
+/** A lane command's line, "[verb] [lane chip]", or null once refused. */
+function laned(
+	verb: string,
+	event: EventOf<"lane add" | "lane update" | "lane remove">,
+): ArborEventView | null {
+	return event.reason === null
+		? {
+				words: [verb, { kind: "lane", id: event.lane, name: event.name }],
+				at: event.at,
+			}
+		: null;
 }
 
 type EventOf<A extends Action> = Extract<Event, { action: A }>;

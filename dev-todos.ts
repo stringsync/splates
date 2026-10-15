@@ -3,6 +3,7 @@ import { body, uploads } from "./dev-http";
 import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
 import { fail } from "./exit";
+import { laneUpdated, recordLaneRemove } from "./lane";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
 import { recordUpdate } from "./todo";
 import { addedFacts } from "./todo-edit";
@@ -132,8 +133,11 @@ export class TodoRoutes {
 	readonly addLane = async (request: Request): Promise<Response> => {
 		const { journal, todos } = this.#project;
 		const { name } = await body(request);
-		const lane = await journal.record("lane add", null, () =>
-			todos.addLane(String(name ?? "")),
+		const lane = await journal.record(
+			"lane add",
+			null,
+			() => todos.addLane(String(name ?? "")),
+			(added) => ({ lane: added.id, name: added.name }),
 		);
 		await this.#watch.tick();
 		return Response.json(lane);
@@ -144,17 +148,26 @@ export class TodoRoutes {
 		const { journal, todos } = this.#project;
 		const id = laneAt(request);
 		const { name, position } = await body(request);
-		const lane = await journal.record("lane update", null, async () => {
-			const renamed =
-				name === undefined
-					? undefined
-					: await todos.renameLane(id, String(name));
-			const order =
-				position === undefined
-					? undefined
-					: await todos.moveLane(id, Number(position));
-			return order?.find((each) => each.id === id) ?? renamed;
-		});
+		const change = {
+			name: name === undefined ? undefined : String(name),
+			position: position === undefined ? undefined : Number(position),
+		};
+		const lane = await journal.record(
+			"lane update",
+			null,
+			async () => {
+				const renamed =
+					change.name === undefined
+						? undefined
+						: await todos.renameLane(id, change.name);
+				const order =
+					change.position === undefined
+						? undefined
+						: await todos.moveLane(id, change.position);
+				return order?.find((each) => each.id === id) ?? renamed;
+			},
+			(record) => laneUpdated(id, record ?? { id, name: "" }, change),
+		);
 		await this.#watch.tick();
 		return Response.json(lane ?? { id });
 	};
@@ -175,7 +188,7 @@ export class TodoRoutes {
 	readonly dropLane = async (request: Request): Promise<Response> => {
 		const { journal, todos } = this.#project;
 		const id = laneAt(request);
-		await journal.record("lane remove", null, () => todos.dropLane(id));
+		await recordLaneRemove(journal, todos, id, () => todos.dropLane(id));
 		await this.#watch.tick();
 		return Response.json({ lane: id });
 	};

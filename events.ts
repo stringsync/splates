@@ -76,9 +76,33 @@ export interface Facts {
 	"todo take": None;
 	"todo release": None;
 	"todo remove": None;
-	"lane add": None;
-	"lane update": None;
-	"lane remove": None;
+	"lane add": {
+		/** The lane it started, by number. */
+		lane: number;
+		/** Its name. */
+		name: string;
+	};
+	"lane update": {
+		/** The lane, by number. */
+		lane: number;
+		/** Its name once updated, so a line names it though it was renamed. */
+		name: string;
+		/** Only what changed: a key is absent when it stayed as it was. */
+		changed: {
+			/** The new name. */
+			name?: string;
+			/** Where it moved to among the lanes, 1 the first column. */
+			position?: number;
+		};
+	};
+	"lane remove": {
+		/** The lane, by the number it had. */
+		lane: number;
+		/** Its name. */
+		name: string;
+		/** The todos it held, now in no lane. */
+		todos: number[];
+	};
 	"lane join": None;
 	"creds request": None;
 	"creds save": None;
