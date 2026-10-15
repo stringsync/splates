@@ -1,8 +1,15 @@
 import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
 import { useReactive } from "@webappwiz/react";
-import { MicIcon, MicOffIcon, SquareIcon } from "lucide-react";
+import { MicIcon, MicOffIcon } from "lucide-react";
 import { useContext } from "react";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
+import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { useHeld } from "#dev/hooks/use-held.ts";
+import {
+	useHeldKey,
+	useShortcut,
+	useShortcutLabel,
+} from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { Dictation, DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
@@ -20,23 +27,27 @@ const ACTIONS: Record<DictationPhase, string> = {
 
 const SIZE = "size-7 rounded-md pointer-coarse:size-9";
 
+/** Marks each composer's mic, whichever way it toggles, for ⌥⌘V to find. */
+const MIC = "aui-composer-mic";
+
 /** How the button looks in each phase of a take under way. */
 const LOOKS: Partial<Record<DictationPhase, string>> = {
 	// Waiting, on the browser's prompt or on the mic: the mic breathes.
 	asking: "text-foreground",
 	opening: "text-foreground",
-	// Hearing, then waiting on the final text: a still red stop on a red tint;
-	// the blinking dot in DictationStatus says it is live.
+	// Hearing, then waiting on the final text: a still red mic on a red tint,
+	// never a square, which is stop-generating's alone; the blinking dot in
+	// DictationStatus says it is live.
 	recording:
 		"bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
 	finishing: "bg-destructive/10 text-destructive",
 };
 
 /**
- * The composer's mic, in Send's place while the message is empty: an
- * icon-only mic to start, and a still red stop while it hears you and while
- * the final text comes. Waiting on the browser's prompt or the mic, the glyph
- * itself breathes, so nothing crowds it off center.
+ * The composer's mic, always beside Send: an icon-only mic to start, showing
+ * its key while ⌥⌘ is held, and pressed on a red tint while it hears you and
+ * while the final text comes. Waiting on the browser's prompt or the mic, the
+ * glyph itself breathes, so nothing crowds it off center.
  * Every state also has its words, beside it in {@link DictationStatus}.
  */
 export function DictateButton() {
@@ -47,18 +58,24 @@ export function DictateButton() {
 function Mic({ dictation }: { dictation: Dictation }) {
 	const phase = useReactive(dictation, (each) => each.state.phase, ["changed"]);
 	const dictating = useAuiState((state) => state.composer.dictation != null);
-	const waiting = phase === "asking" || phase === "opening";
+	const held = useHeld();
+	const key = useHeldKey("shortcuts.dictate");
+	const shortcut = useShortcutLabel("shortcuts.dictate");
+	const tooltip = (action: string) =>
+		shortcut === null ? action : `${action} (${shortcut})`;
 	if (!dictating || phase === "denied" || phase === "failed") {
 		return (
 			<ComposerPrimitive.Dictate
 				render={
 					<TooltipIconButton
-						tooltip={ACTIONS[phase]}
+						tooltip={tooltip(ACTIONS[phase])}
 						side="bottom"
 						type="button"
 						variant="ghost"
 						size="icon"
+						aria-pressed={false}
 						className={cn(
+							MIC,
 							"aui-composer-dictate text-muted-foreground hover:text-foreground",
 							SIZE,
 						)}
@@ -66,7 +83,9 @@ function Mic({ dictation }: { dictation: Dictation }) {
 					/>
 				}
 			>
-				{phase === "denied" ? (
+				{held && key !== null ? (
+					<Kbd aria-hidden>{key}</Kbd>
+				) : phase === "denied" ? (
 					<MicOffIcon className="size-4" />
 				) : (
 					<MicIcon className="size-4" />
@@ -78,14 +97,16 @@ function Mic({ dictation }: { dictation: Dictation }) {
 		<ComposerPrimitive.StopDictation
 			render={
 				<TooltipIconButton
-					tooltip={ACTIONS[phase]}
+					tooltip={tooltip(ACTIONS[phase])}
 					side="bottom"
 					type="button"
 					variant="ghost"
 					size="icon"
 					data-phase={phase}
+					aria-pressed={true}
 					aria-disabled={phase === "finishing"}
 					className={cn(
+						MIC,
 						"aui-composer-stop-dictation dictate relative transition-colors duration-200",
 						SIZE,
 						LOOKS[phase],
@@ -94,11 +115,24 @@ function Mic({ dictation }: { dictation: Dictation }) {
 				/>
 			}
 		>
-			{waiting ? (
-				<MicIcon className="size-4" />
-			) : (
-				<SquareIcon className="size-3 fill-current" />
-			)}
+			<MicIcon className="size-4" />
 		</ComposerPrimitive.StopDictation>
 	);
+}
+
+/**
+ * Its shortcut, ⌥⌘V unless set otherwise, starts or stops a take in the
+ * composer being written in, or else the first one showing. Once per page,
+ * so one press toggles one mic.
+ */
+export function useDictateKey(): void {
+	useShortcut("shortcuts.dictate", () => {
+		const shown = [
+			...document.querySelectorAll<HTMLButtonElement>(`.${MIC}`),
+		].filter((each) => each.getClientRects().length > 0);
+		const focused = document.activeElement?.closest("form");
+		const button = shown.find((each) => focused?.contains(each)) ?? shown[0];
+		button?.click();
+		return button !== undefined;
+	});
 }

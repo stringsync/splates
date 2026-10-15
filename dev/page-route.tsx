@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
+import { useDictateKey } from "./dictate-button";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
 import { type Move, PageAddress } from "./page-address";
@@ -123,6 +124,7 @@ export function PageShortcuts({
 	useShortcut("shortcuts.terminal", () => onTerminal?.(), onTerminal !== null);
 	useFullscreenKey();
 	useAttachKey();
+	useDictateKey();
 	return null;
 }
 

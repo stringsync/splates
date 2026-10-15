@@ -10,14 +10,7 @@ import {
 } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import { ArrowUpIcon, SquareIcon } from "lucide-react";
-import {
-	type ComponentProps,
-	type FC,
-	useContext,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { type FC, useContext, useMemo, useRef, useState } from "react";
 import { ForgetAttachment } from "#dev/attachment-chips.tsx";
 import { ComposerAddAttachment } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { ThreadExtrasContext } from "#dev/components/assistant-ui/elements/thread-context.aui.ts";
@@ -271,15 +264,6 @@ const PLAIN_MENTION: Unstable_DirectiveFormatter = {
 	serialize: (item) => `@${item.id}`,
 	parse: (text) => [{ kind: "text", text }],
 };
-/**
- * Whether the mic holds the slot Send would: while the message is empty, as
- * in Claude for desktop, and for as long as a take runs, though the take
- * fills the message as it goes.
- */
-const showsMic: ComponentProps<typeof AuiIf>["condition"] = (s) =>
-	s.thread.capabilities.dictation &&
-	(s.composer.isEmpty || s.composer.dictation != null);
-
 const ComposerAction: FC = () => {
 	// The stop control only cancels the send while no run it could stop is going.
 	const isSending = useAuiState(
@@ -308,19 +292,21 @@ const ComposerAction: FC = () => {
 				)}
 			</div>
 			<div className="flex items-center gap-1.5">
-				<AuiIf condition={showsMic}>
+				<AuiIf condition={(s) => s.thread.capabilities.dictation}>
 					<DictateButton />
 				</AuiIf>
+				{/* Always in place, empty or not, so nothing shifts; off while a
+				    take runs, since sending empties the message it writes into. */}
 				<AuiIf
 					condition={(s) =>
-						!showsMic(s) &&
-						(!s.composer.canCancel ||
-							(s.thread.capabilities.queue && !s.composer.isEmpty) ||
-							(s.thread.voice !== undefined &&
-								s.composer.submission === undefined))
+						!s.composer.canCancel ||
+						(s.thread.capabilities.queue && !s.composer.isEmpty) ||
+						(s.thread.voice !== undefined &&
+							s.composer.submission === undefined)
 					}
 				>
 					<ComposerPrimitive.Send
+						disabled={dictating}
 						render={
 							<TooltipIconButton
 								tooltip="Send message"

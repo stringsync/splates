@@ -57,20 +57,60 @@ describe("App's composer mic", () => {
 		expect(textIn(box)).toBe("something more");
 	});
 
-	it("shows the mic while the message is empty, and Send once something is typed", async () => {
+	it("shows the mic beside Send, empty or typed in", async () => {
 		const { view, box } = await composer();
 		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Send message" })).toBeNull();
+		expect(view.getByRole("button", { name: "Send message" })).toBeTruthy();
 
 		await typeIn(box, "hello");
 
-		await waitFor(() =>
-			expect(view.getByRole("button", { name: "Send message" })).toBeTruthy(),
-		);
-		expect(view.queryByRole("button", { name: "Dictate" })).toBeNull();
+		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "Send message" })).toBeTruthy();
 	});
 
-	it("keeps the stop in Send's place until the take ends, though it fills the message", async () => {
+	it("keeps Send in place but off until the take ends, though it fills the message", async () => {
+		const { view } = await composer();
+		const send = () =>
+			view.getByRole("button", { name: "Send message" }) as HTMLButtonElement;
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		const stop = await waitFor(() =>
+			view.getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+		await waitFor(() => expect(view.queryByText("Listening")).not.toBeNull());
+		expect(send().disabled).toBe(true);
+
+		await act(async () => fireEvent.click(stop));
+
+		await waitFor(() => expect(send().disabled).toBe(false));
+	});
+
+	it("starts and stops a take with ⌥⌘V", async () => {
+		const { view } = await composer();
+		const press = () =>
+			act(async () =>
+				fireEvent.keyDown(window, {
+					code: "KeyV",
+					key: "√",
+					altKey: true,
+					metaKey: true,
+				}),
+			);
+
+		await press();
+		const stop = await waitFor(() =>
+			view.getByRole("button", { name: "Stop dictation" }),
+		);
+		expect(stop.getAttribute("aria-pressed")).toBe("true");
+		await press();
+
+		await waitFor(() => expect(view.queryByText("Listening")).toBeNull());
+		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();
+	});
+
+	it("shows a pressed mic while it listens, leaving the square to stop generating", async () => {
 		const { view } = await composer();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
@@ -78,13 +118,8 @@ describe("App's composer mic", () => {
 		const stop = await waitFor(() =>
 			view.getByRole("button", { name: "Stop dictation" }),
 		);
-		expect(view.queryByRole("button", { name: "Send message" })).toBeNull();
-
-		await act(async () => fireEvent.click(stop));
-
-		await waitFor(() =>
-			expect(view.getByRole("button", { name: "Send message" })).toBeTruthy(),
-		);
+		expect(stop.querySelector(".lucide-mic")).not.toBeNull();
+		expect(stop.querySelector(".lucide-square")).toBeNull();
 	});
 
 	it("asks whether the mic hears when it hears nothing", async () => {

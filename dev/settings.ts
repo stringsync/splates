@@ -195,6 +195,11 @@ export const SETTINGS = {
 		"Pick files to attach to the message being written.",
 		"Alt+Mod+Semicolon",
 	),
+	"shortcuts.dictate": shortcut(
+		"Dictate",
+		"Start or stop dictating into the message being written.",
+		"Alt+Mod+KeyV",
+	),
 	"shortcuts.widgets": shortcut(
 		"Widgets",
 		"Show or hide the open conversation's widgets.",
