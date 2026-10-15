@@ -9,6 +9,7 @@ import { Adherence } from "./adherence";
 import type { Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Access, type AccessConfig } from "./dev-access";
+import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import {
 	type DevContext,
@@ -19,7 +20,9 @@ import {
 } from "./dev-project";
 import { Restarts } from "./dev-restart";
 import type { ServerChoice } from "./dev-servers";
-import { type TerminalData, Terminals } from "./dev-terminal";
+import { CONNECTIONS, type Connection } from "./dev-sockets";
+import { Terminals } from "./dev-terminal";
+import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
 import { startTunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { fail } from "./exit";
@@ -60,6 +63,7 @@ export async function dev(
 		tunnel = null,
 		conversations: converse = null,
 		shell = null,
+		transcriber = transcriberFor,
 		newest = async () => null,
 		running = RUNNING,
 		checkEvery = CHECK,
@@ -150,6 +154,7 @@ export async function dev(
 		slot,
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
+		transcriberFor: transcriber,
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
@@ -228,6 +233,7 @@ export async function dev(
 			})(request);
 
 	const terminals = new Terminals(gate, shell, { projectFor });
+	const dictations = new Dictations(gate, { projectFor });
 
 	const disposer = new AsyncDisposer();
 	const versions = await Versions.start(served, log, {
@@ -291,7 +297,7 @@ export async function dev(
 	const machine = new Machine(sensors ?? osSensors(fs));
 
 	const requested = await ports.get();
-	const server = Bun.serve<TerminalData>({
+	const server = Bun.serve<Connection>({
 		port: requested,
 		// This machine only. Reaching it from anywhere else is a tunnel's job,
 		// which connects from here too.
@@ -436,13 +442,19 @@ export async function dev(
 				PUT: talk(owned((project) => project.moveConversation)),
 			},
 		},
-		websocket: terminals.websocket,
+		websocket: CONNECTIONS,
 		// Here rather than among the routes, since only here may a request be
 		// answered with an upgrade instead of a response.
-		fetch: (request, server) =>
-			new URL(request.url).pathname === "/api/terminal"
-				? terminals.open(request, server)
-				: new Response("not found", { status: 404 }),
+		fetch: (request, server) => {
+			const { pathname } = new URL(request.url);
+			if (pathname === "/api/terminal") {
+				return terminals.open(request, server);
+			}
+			if (pathname === "/api/dictation") {
+				return dictations.open(request, server);
+			}
+			return new Response("not found", { status: 404 });
+		},
 	});
 	// Read back, because `ports` may hand over 0 to mean any port at all, and
 	// read now, because `server.port` is 0 once the server is stopped and this is
@@ -523,6 +535,11 @@ export interface DevOptions {
 	 * worktree; without it, the page has no terminal and the route says so.
 	 */
 	shell?: string[] | null;
+	/**
+	 * What a project's dictations transcribe with, by default OpenAI on the
+	 * key its creds keep; a test hands in a fake.
+	 */
+	transcriber?: TranscriberFor;
 	/** Opens a registered project other than the one started in, by its root. */
 	open?: (root: string) => Promise<Project>;
 	/**

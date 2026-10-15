@@ -15,6 +15,8 @@ import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
 import type { Budgets, KeptCreds } from "./api";
 import type { AgentChoice } from "./conversation-feed";
+import type { Dictation } from "./dictation";
+import { DictationContext } from "./dictation-context";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
 import type { ProjectChoice } from "./project-api";
@@ -147,6 +149,8 @@ export class Testing implements Resource {
 	restartable = true;
 	/** How many times the page asked to reload. */
 	reloads = 0;
+	/** What the composers' mic records with; none unless a test gives one. */
+	dictation: Dictation | null = null;
 	/** What `/api/projects` says a restart would kill. */
 	held: Held[] = [];
 	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
@@ -317,15 +321,19 @@ export class Testing implements Resource {
 		// the project the test put there.
 		history.replaceState(null, "", `${location.pathname}${location.search}`);
 		const view = render(
-			createElement(App, {
-				settings: new Settings(localStorage),
-				checkpointEvery: CHECKPOINT_EVERY,
-				checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
-				offlineAfter: OFFLINE_AFTER,
-				reload: () => {
-					this.reloads++;
-				},
-			}),
+			createElement(
+				DictationContext,
+				{ value: this.dictation },
+				createElement(App, {
+					settings: new Settings(localStorage),
+					checkpointEvery: CHECKPOINT_EVERY,
+					checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
+					offlineAfter: OFFLINE_AFTER,
+					reload: () => {
+						this.reloads++;
+					},
+				}),
+			),
 		);
 		// Hidden too, under a dialog the page opens on.
 		await waitFor(() =>
@@ -398,6 +406,7 @@ export class Testing implements Resource {
 	}
 }
 
+// scry-ignore tests-own-their-state: the roster every conversation test opens with by default; a test about the agents passes its own to openConversations
 export const AGENTS: AgentChoice[] = [
 	{ id: "claude", name: "Claude", settings: [], limits: [] },
 	{ id: "codex", name: "Codex", settings: [], limits: [] },

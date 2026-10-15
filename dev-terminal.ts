@@ -1,16 +1,9 @@
-import { z } from "zod";
-import { type HostGate, json, refuse } from "./dev-http";
+import { type HostGate, refuse } from "./dev-http";
 import type { Served } from "./dev-project";
+import type { Connection } from "./dev-sockets";
+import { MAX_SIZE, TerminalConnection } from "./dev-terminal-connection";
 import { fail } from "./exit";
-import { Pty } from "./pty";
-
-/** What a terminal's socket carries: where its shell runs, and the shell. */
-export interface TerminalData {
-	cwd: string;
-	cols: number;
-	rows: number;
-	pty: Pty | null;
-}
+import type { Pty } from "./pty";
 
 /** How a terminal finds the project its request names. */
 export interface TerminalProjects {
@@ -40,7 +33,7 @@ export class Terminals {
 	// machine's own names only) and an Origin check of its own: an upgrade is a
 	// GET, which `guarded` lets through from anywhere, and without the check any
 	// site the person visits could open a shell here.
-	readonly open = (request: Request, server: Bun.Server<TerminalData>) =>
+	readonly open = (request: Request, server: Bun.Server<Connection>) =>
 		this.gate.local(
 			this.gate.guarded(async (request): Promise<Response | undefined> => {
 				const host = request.headers.get("host") ?? "";
@@ -59,12 +52,13 @@ export class Terminals {
 				await project.format.check();
 				const cwd = await project.terminalTree(request);
 				const params = new URL(request.url).searchParams;
-				const data = {
+				const data = new TerminalConnection(
+					this.shells,
+					this.shell ?? [],
 					cwd,
-					cols: dimension(params.get("cols"), 80),
-					rows: dimension(params.get("rows"), 24),
-					pty: null,
-				};
+					dimension(params.get("cols"), 80),
+					dimension(params.get("rows"), 24),
+				);
 				// Bun answers an upgrade itself, so there is nothing to return.
 				return server.upgrade(request, { data })
 					? undefined
@@ -72,57 +66,10 @@ export class Terminals {
 			}),
 		)(request);
 
-	// Bytes both ways are the terminal's own; text is for what is not, as
-	// JSON: a resize from the page, the shell's exit code from here.
-	readonly websocket: Bun.WebSocketHandler<TerminalData> = {
-		open: (socket) => {
-			const { cwd, cols, rows } = socket.data;
-			const pty = new Pty({ argv: this.shell ?? [], cwd, cols, rows });
-			socket.data.pty = pty;
-			this.shells.add(pty);
-			pty.events.on("data", (bytes) => socket.sendBinary(bytes));
-			pty.events.on("exit", (code) => {
-				socket.send(JSON.stringify({ type: "exit", code }));
-				socket.close();
-			});
-		},
-		message: (socket, message) => {
-			const pty = socket.data.pty;
-			if (pty === null) {
-				return;
-			}
-			if (typeof message !== "string") {
-				pty.write(message);
-				return;
-			}
-			const parsed = TerminalMessage.safeParse(json(message));
-			if (parsed.success) {
-				pty.resize(parsed.data.cols, parsed.data.rows);
-			}
-		},
-		close: (socket) => {
-			const pty = socket.data.pty;
-			if (pty !== null) {
-				this.shells.delete(pty);
-				void pty.disposeAsync();
-			}
-		},
-	};
-
 	async disposeAsync(): Promise<void> {
 		await Promise.all([...this.shells].map((pty) => pty.disposeAsync()));
 	}
 }
-
-/** Bigger than any screen, and small enough that a typo cannot hurt. */
-const MAX_SIZE = 1000;
-
-/** The one thing a page says to its terminal that is not typing. */
-const TerminalMessage = z.object({
-	type: z.literal("resize"),
-	cols: z.number().int().min(1).max(MAX_SIZE),
-	rows: z.number().int().min(1).max(MAX_SIZE),
-});
 
 /** A terminal's size as the page asked for it, or `fallback` for nonsense. */
 function dimension(asked: string | null, fallback: number): number {

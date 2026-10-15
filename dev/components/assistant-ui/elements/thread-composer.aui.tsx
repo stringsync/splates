@@ -9,8 +9,15 @@ import {
 	useAuiState,
 } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
-import { ArrowUpIcon, MicIcon, SquareIcon } from "lucide-react";
-import { type FC, useContext, useMemo, useRef, useState } from "react";
+import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import {
+	type ComponentProps,
+	type FC,
+	useContext,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { ForgetAttachment } from "#dev/attachment-chips.tsx";
 import { ComposerAddAttachment } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { ThreadExtrasContext } from "#dev/components/assistant-ui/elements/thread-context.aui.ts";
@@ -40,6 +47,8 @@ import {
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
+import { DictateButton } from "#dev/dictate-button.tsx";
+import { DictationNotice, DictationStatus } from "#dev/dictation-status.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
 import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
@@ -101,6 +110,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 						</LexicalComposerInput>
 					</FileNames>
 				</ForgetAttachment>
+				<DictationNotice />
 				<ComposerAction />
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>
@@ -261,6 +271,15 @@ const PLAIN_MENTION: Unstable_DirectiveFormatter = {
 	serialize: (item) => `@${item.id}`,
 	parse: (text) => [{ kind: "text", text }],
 };
+/**
+ * Whether the mic holds the slot Send would: while the message is empty, as
+ * in Claude for desktop, and for as long as a take runs, though the take
+ * fills the message as it goes.
+ */
+const showsMic: ComponentProps<typeof AuiIf>["condition"] = (s) =>
+	s.thread.capabilities.dictation &&
+	(s.composer.isEmpty || s.composer.dictation != null);
+
 const ComposerAction: FC = () => {
 	// The stop control only cancels the send while no run it could stop is going.
 	const isSending = useAuiState(
@@ -270,58 +289,35 @@ const ComposerAction: FC = () => {
 	);
 
 	const { controls } = useContext(ThreadExtrasContext);
+	const dictating = useAuiState((s) => s.composer.dictation != null);
 
 	return (
 		<div className="aui-composer-action-wrapper relative flex items-center justify-between gap-2">
 			<div className="flex min-w-0 items-center gap-0 overflow-hidden">
-				<AuiIf condition={(s) => s.thread.capabilities.attachments}>
-					<ComposerAddAttachment />
-				</AuiIf>
-				{controls}
+				{/* While a take is under way, what the mic is doing takes the
+				    row's left side, where there is room to say it. */}
+				{dictating ? (
+					<DictationStatus />
+				) : (
+					<>
+						<AuiIf condition={(s) => s.thread.capabilities.attachments}>
+							<ComposerAddAttachment />
+						</AuiIf>
+						{controls}
+					</>
+				)}
 			</div>
 			<div className="flex items-center gap-1.5">
-				<AuiIf condition={(s) => s.thread.capabilities.dictation}>
-					<AuiIf condition={(s) => s.composer.dictation == null}>
-						<ComposerPrimitive.Dictate
-							render={
-								<TooltipIconButton
-									tooltip="Voice input"
-									side="bottom"
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="aui-composer-dictate text-muted-foreground hover:text-foreground size-7 rounded-full pointer-coarse:size-9"
-									aria-label="Start voice input"
-								/>
-							}
-						>
-							<MicIcon className="aui-composer-dictate-icon size-4" />
-						</ComposerPrimitive.Dictate>
-					</AuiIf>
-					<AuiIf condition={(s) => s.composer.dictation != null}>
-						<ComposerPrimitive.StopDictation
-							render={
-								<TooltipIconButton
-									tooltip="Stop dictation"
-									side="bottom"
-									type="button"
-									variant="ghost"
-									size="icon"
-									className="aui-composer-stop-dictation text-destructive size-7 rounded-full pointer-coarse:size-9"
-									aria-label="Stop voice input"
-								/>
-							}
-						>
-							<SquareIcon className="aui-composer-stop-dictation-icon size-3.5 animate-pulse fill-current" />
-						</ComposerPrimitive.StopDictation>
-					</AuiIf>
+				<AuiIf condition={showsMic}>
+					<DictateButton />
 				</AuiIf>
 				<AuiIf
 					condition={(s) =>
-						!s.composer.canCancel ||
-						(s.thread.capabilities.queue && !s.composer.isEmpty) ||
-						(s.thread.voice !== undefined &&
-							s.composer.submission === undefined)
+						!showsMic(s) &&
+						(!s.composer.canCancel ||
+							(s.thread.capabilities.queue && !s.composer.isEmpty) ||
+							(s.thread.voice !== undefined &&
+								s.composer.submission === undefined))
 					}
 				>
 					<ComposerPrimitive.Send

@@ -1,3 +1,4 @@
+import type { Transcriber } from "webappwiz/dictate";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
@@ -9,6 +10,7 @@ import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
+import type { TranscriberFor } from "./dev-transcriber";
 import { startDispatched } from "./dispatched";
 import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
@@ -82,6 +84,7 @@ export async function serveProject(
 				((await conversations?.list()) ?? []).map(({ state }) => state),
 			),
 		events: async () => watch.events(),
+		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
 			watch.dispose();
 			handOffs?.dispose();
@@ -111,6 +114,8 @@ export interface DevContext {
 	readonly slot: Slot | null;
 	/** The conversations `project`'s page may hold, or null when they are off. */
 	conversationsFor(project: Project): Conversations | null;
+	/** What `project`'s dictations transcribe with. */
+	readonly transcriberFor: TranscriberFor;
 }
 
 /** A route's work once its project is known. */
@@ -180,6 +185,11 @@ export interface Served extends AsyncResource {
 	archiveConversation: Handler;
 	conversationEvents: Handler;
 	terminalTree: (request: Request) => Promise<string>;
+	/**
+	 * What a dictation transcribes with, read afresh for each take; null,
+	 * after asking for the key on the Creds page, without one.
+	 */
+	transcriber: () => Promise<Transcriber | null>;
 }
 
 /**

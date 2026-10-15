@@ -1,7 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserMicrophone, DictationSocket } from "webappwiz/dictate/browser";
+import { scoped } from "./api";
 import { App } from "./app";
 import { followAppearance } from "./appearance";
+import { Dictation } from "./dictation";
+import { DictationContext } from "./dictation-context";
 import { Settings } from "./settings";
 
 const root = document.getElementById("root");
@@ -46,8 +50,23 @@ document.addEventListener("gesturestart", (event) => event.preventDefault());
 // on https or localhost; elsewhere, notifications fall back to the page's own.
 void navigator.serviceWorker?.register("/worker.js").catch(() => {});
 
+// The mic needs https or localhost, and a browser with an AudioWorklet to tap
+// it; elsewhere the composer has no mic button.
+const dictation =
+	window.isSecureContext &&
+	navigator.mediaDevices?.getUserMedia !== undefined &&
+	typeof AudioWorkletNode !== "undefined"
+		? new Dictation(new BrowserMicrophone(), () =>
+				DictationSocket.open(
+					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped("/api/dictation")}`,
+				),
+			)
+		: null;
+
 createRoot(root).render(
 	<StrictMode>
-		<App settings={settings} />
+		<DictationContext value={dictation}>
+			<App settings={settings} />
+		</DictationContext>
 	</StrictMode>,
 );

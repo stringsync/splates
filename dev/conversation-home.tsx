@@ -11,8 +11,9 @@ import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import { modelOption } from "../models";
 import type { Details } from "../show";
+import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
-import { FILES, filesOf, noted, said, useDraft } from "./composer-drafts";
+import { filesOf, noted, said, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
 import { settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
@@ -93,11 +94,12 @@ export function useNewConversation({
 	});
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string, files: File[]) => void>(() => {});
+	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
 		isRunning: starting,
 		convertMessage: (message: ThreadMessageLike) => message,
-		adapters: { attachments: FILES },
+		adapters,
 		onNew: async (message) => {
 			const text = said(message);
 			const files = filesOf(message);

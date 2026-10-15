@@ -6,7 +6,8 @@ import {
 } from "@assistant-ui/react";
 import { useCallback, useMemo, useRef } from "react";
 import type { ConversationState } from "../conversations";
-import { FILES, filesOf, noted, said, useDraft } from "./composer-drafts";
+import { useAdapters } from "./adapters";
+import { filesOf, noted, said, useDraft } from "./composer-drafts";
 import {
 	cancelConversation,
 	promptConversation,
@@ -57,6 +58,7 @@ export function useThreadRuntime(
 		(message: AppendMessage) => send(said(message), filesOf(message)),
 		[send],
 	);
+	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
 		messages,
 		isRunning: running,
@@ -64,7 +66,7 @@ export function useThreadRuntime(
 		// an archived one, and one still starting holds it until the session
 		// opens.
 		convertMessage: (message: ThreadMessageLike) => message,
-		adapters: { attachments: FILES },
+		adapters,
 		onNew: say,
 		// So the composer takes a message while the agent works. The server
 		// decides whether it joins the turn or waits for its end, and shows it
