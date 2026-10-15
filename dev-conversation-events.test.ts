@@ -75,4 +75,23 @@ describe("conversation events", () => {
 			"beta",
 		]);
 	});
+
+	it("hands the server's start and stop to each conversation they name as running", async () => {
+		await deps.journal.record("dev stop", null, async () => {}, {
+			conversations: [conversation.id, "other"],
+			why: "restart",
+		});
+		await deps.journal.record("dev start", null, async () => {}, {
+			conversations: ["other"],
+		});
+		await claimed("beta", conversation.id);
+
+		await eventually(() => conversation.state.events.length === 3, 10);
+
+		expect(conversation.state.events.map((event) => event.action)).toEqual([
+			"claim",
+			"dev stop",
+			"claim",
+		]);
+	});
 });

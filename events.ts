@@ -129,7 +129,20 @@ export interface Facts {
 	};
 	"tunnel setup": None;
 	"tunnel remove": None;
+	"dev start": {
+		/** The conversations that were running when the run before it ended. */
+		conversations: string[];
+	};
+	"dev stop": {
+		/** The conversations running as it stopped. */
+		conversations: string[];
+		/** Why it stopped. */
+		why: StopWhy;
+	};
 }
+
+/** Why `arbor dev` stopped: a restart, an update, a shutdown, or `lost` when it left no word. */
+export type StopWhy = "restart" | "update" | "shutdown" | "lost";
 
 type None = Record<never, never>;
 

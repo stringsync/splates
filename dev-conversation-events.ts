@@ -92,7 +92,10 @@ export class ConversationEvents implements Resource {
 		}
 		for (const conversation of await this.conversations.list()) {
 			const its = fresh.filter(
-				(event) => event.conversation === conversation.state.id,
+				(event) =>
+					event.conversation === conversation.state.id ||
+					((event.action === "dev start" || event.action === "dev stop") &&
+						event.conversations?.includes(conversation.state.id)),
 			);
 			if (its.length > 0) {
 				conversation.set({ events: [...conversation.state.events, ...its] });

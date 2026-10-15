@@ -9,10 +9,12 @@ import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
+import { DevRun } from "./dev-run";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
 import type { TranscriberFor } from "./dev-transcriber";
 import { startDispatched } from "./dispatched";
+import type { StopWhy } from "./events";
 import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
 import type { LaneRecord } from "./lanes";
@@ -41,8 +43,10 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let handedOut: Resource | null = null;
 	let events: Resource | null = null;
+	let run: DevRun | null = null;
 	if (conversations !== null) {
 		handedOut = HandedOut.watch({ service, conversations, log });
+		run = await DevRun.start({ journal, conversations, fs, arborDir });
 		events = await ConversationEvents.follow({
 			journal,
 			conversations,
@@ -106,6 +110,7 @@ export async function serveProject(
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
+			await run?.stop(context.stopping);
 			watch.dispose();
 			handOffs?.dispose();
 			handedOut?.dispose();
@@ -131,6 +136,8 @@ export interface DevContext {
 	readonly behind: Behind | null;
 	/** Whether building the page failed, so it serves the one built before. */
 	readonly unbuilt: boolean;
+	/** Why the server is stopping, as its projects log it. */
+	readonly stopping: StopWhy;
 	/** The slot `arbor dev --slot` serves under, or null. */
 	readonly slot: Slot | null;
 	/** The conversations `project`'s page may hold, or null when they are off. */

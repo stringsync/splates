@@ -86,6 +86,40 @@ describe("App's arbor events", () => {
 		);
 	});
 
+	it("draws arbor dev stopping and starting as lines with no chip", async () => {
+		const thread = await opened(turn(["Back."]), [
+			{
+				id: "s1",
+				at: second(2),
+				action: "dev stop",
+				task: null,
+				reason: null,
+				conversation: null,
+				conversations: ["c1"],
+				why: "restart",
+			},
+			{
+				id: "s2",
+				at: second(3),
+				action: "dev start",
+				task: null,
+				reason: null,
+				conversation: null,
+				conversations: ["c1"],
+			},
+		]);
+
+		const lines = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(2);
+			return found;
+		});
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"arbor dev stopped",
+			"arbor dev started",
+		]);
+	});
+
 	it("folds todo updates in a row into one line listing each", async () => {
 		const thread = await opened(
 			turn([

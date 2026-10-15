@@ -7,6 +7,7 @@ import { type Project, type Served, waitingOn } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
 import type { Terminals } from "./dev-terminal";
 import type { Versions } from "./dev-versions";
+import type { StopWhy } from "./events";
 import { fail } from "./exit";
 import { type Held, heldBy } from "./held";
 import type { Projects } from "./projects";
@@ -45,6 +46,8 @@ export interface RestartsOptions {
 	open: (root: string) => Promise<Project>;
 	/** Every `arbor dev` on this machine the page can switch to. */
 	servers: () => Promise<ServerChoice[]>;
+	/** Says why the server is about to stop, for each project to log. */
+	stopping: (why: StopWhy) => void;
 }
 
 /**
@@ -415,6 +418,9 @@ export class Restarts {
 					: release === null
 						? "arbor dev restarting"
 						: `arbor dev restarting on arbor ${release.newest}`,
+			);
+			this.opts.stopping(
+				shutdown ? "shutdown" : release === null ? "restart" : "update",
 			);
 			await server.disposeAsync();
 			this.opts.exit?.(code);

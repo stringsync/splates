@@ -59,6 +59,8 @@ const LINES: {
 		event.reason === null
 			? { words: ["Updated", todo(event)], at: event.at }
 			: null,
+	"dev stop": (event) => server("stopped", event.at),
+	"dev start": (event) => server("started", event.at),
 	// A refused add made no todo to name, and the agent says why itself.
 	"todo add": (event) =>
 		event.reason === null
@@ -291,4 +293,9 @@ function noteOf(event: Updated): string | undefined {
 
 function ids(todos: number[]): string {
 	return todos.map((id) => `#${id}`).join(", ");
+}
+
+/** The line of arbor dev itself stopping or starting, which names no chip. */
+function server(icon: "started" | "stopped", at: string): ArborEventView {
+	return { icon, words: [`arbor dev ${icon}`], at };
 }

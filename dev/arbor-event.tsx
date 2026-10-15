@@ -6,6 +6,8 @@ import {
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	PlayIcon,
+	PowerIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, use, useContext } from "react";
@@ -111,6 +113,11 @@ export type Words = readonly (string | Named)[];
 export interface ArborEventView {
 	/** The mark leading it, its line's only color, when it has one. */
 	mark?: Mark | null;
+	/**
+	 * A small muted icon of the line's own, for a line naming no chip to carry
+	 * one: arbor dev starting or stopping.
+	 */
+	icon?: "started" | "stopped";
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
 	/**
@@ -182,6 +189,12 @@ function Line({
 					aria-label="Landed"
 					className="size-3.5 shrink-0 text-success"
 				/>
+			)}
+			{event.icon === "started" && (
+				<PlayIcon aria-hidden className="size-3 shrink-0" />
+			)}
+			{event.icon === "stopped" && (
+				<PowerIcon aria-hidden className="size-3 shrink-0" />
 			)}
 			<Words words={event.words} />
 			{stamped && event.at != null && <Stamp at={event.at} />}
