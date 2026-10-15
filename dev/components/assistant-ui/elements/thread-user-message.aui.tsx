@@ -206,8 +206,8 @@ const sentOf = (
 	);
 /**
  * Copies what the person said, from the message's top corner: there only
- * while the message is hovered or the button has focus, and a check once it
- * has copied. Beside the box rather than in it, since the box is itself a
+ * while the message is hovered or the button has focus, or always under a
+ * finger, which cannot hover, and a check once it has copied. Beside the box rather than in it, since the box is itself a
  * button.
  */
 const UserCopy: FC = () => (
@@ -216,8 +216,8 @@ const UserCopy: FC = () => (
 			<TooltipIconButton
 				tooltip="Copy"
 				className={cn(
-					"aui-user-action-copy text-muted-foreground absolute end-1.5 top-1.5 size-6",
-					"opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100 data-copied:opacity-100",
+					"aui-user-action-copy text-muted-foreground absolute end-1.5 top-1.5 size-6 pointer-coarse:end-0 pointer-coarse:top-0 pointer-coarse:size-10",
+					"opacity-0 transition-opacity group-hover/user:opacity-100 focus-visible:opacity-100 data-copied:opacity-100 pointer-coarse:opacity-100",
 				)}
 			/>
 		}

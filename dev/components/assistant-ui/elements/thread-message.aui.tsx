@@ -126,7 +126,12 @@ const SpokenActionBar: FC = () => {
 			className="aui-spoken-action-bar text-muted-foreground flex shrink-0 gap-1"
 		>
 			<ActionBarPrimitive.Copy
-				render={<TooltipIconButton tooltip="Copy" className="size-6" />}
+				render={
+					<TooltipIconButton
+						tooltip="Copy"
+						className="size-6 pointer-coarse:size-10"
+					/>
+				}
 			>
 				<AuiIf condition={(s) => s.message.isCopied}>
 					<CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
