@@ -66,6 +66,7 @@ export async function merge(
 	const base = worktree.base;
 	facts.base = base;
 	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
+	facts.failedTests = [];
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(
@@ -158,15 +159,21 @@ export async function merge(
 		await lock.release();
 		await bump(worktree, "tests_failed");
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
+		const output = `${gated.stdout}\n${gated.stderr}`;
+		const failed = failedTests(output);
+		facts.failedTests = failed;
 		fail(
 			"tests_failed",
 			[
 				`\`${gate}\` failed after rebasing onto ${base} (exit ${gated.exitCode}).`,
 				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
 				"",
-				tail(`${gated.stdout}\n${gated.stderr}`),
+				...(failed.length > 0
+					? [`Failing tests (${failed.length}):`, ...failed, ""]
+					: []),
+				tail(output),
 			].join("\n"),
-			{ task, exitCode: gated.exitCode },
+			{ task, exitCode: gated.exitCode, failedTests: failed },
 		);
 	}
 
@@ -287,4 +294,17 @@ async function bump(worktree: Worktree, reason: MergeFailure): Promise<void> {
 
 function tail(output: string): string {
 	return output.trim().split("\n").slice(-TAIL_LINES).join("\n");
+}
+
+/**
+ * The tests a runner reported as failing, which the tail cuts off: bun prints
+ * each as a `(fail) name` line well before the summary. Another runner prints
+ * none, so the tail alone is what the agent gets.
+ */
+export function failedTests(output: string): string[] {
+	const names = output
+		.split("\n")
+		.map((line) => /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/.exec(line))
+		.flatMap((match) => (match?.[1] ? [match[1]] : []));
+	return [...new Set(names)];
 }

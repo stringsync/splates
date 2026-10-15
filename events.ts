@@ -60,6 +60,11 @@ export interface Facts {
 		files: string[];
 		/** The merge attempts it has left. */
 		attemptsLeft: number;
+		/**
+		 * The tests the gate named as failing when refused for `tests_failed`,
+		 * so the log shows which ones fail most. Empty when the runner named none.
+		 */
+		failedTests: string[];
 	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
@@ -232,7 +237,7 @@ export const FACTS = {
 	claim: ["escalated", "tookOver"],
 	tell: ["to"],
 	wait: ["until", "began"],
-	merge: ["base", "commit", "files", "attemptsLeft"],
+	merge: ["base", "commit", "files", "attemptsLeft", "failedTests"],
 	remove: ["why", "released"],
 	escalate: ["about", "review", "base", "questions"],
 	handoff: ["agent", "model", "relay"],

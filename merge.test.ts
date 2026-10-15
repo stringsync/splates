@@ -180,6 +180,21 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	it("names the failing tests ahead of the tail", async () => {
+		await using deps = await Testing.open();
+
+		deps.config.preMerge =
+			"printf '(fail) a > b [1.2ms]\\n'; yes noise | head -60; echo '1 fail'; exit 1";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await deps.finish(worktree);
+		await expect(merge(deps, worktree)).toBail("tests_failed", {
+			message: "Failing tests (1):\na > b\n",
+		});
+	});
+
 	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {
 		await using deps = await Testing.open();
 

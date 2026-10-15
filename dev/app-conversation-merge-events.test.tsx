@@ -27,6 +27,7 @@ describe("App's merge events", () => {
 				base: "main",
 				files: ["a.ts"],
 				attemptsLeft: 2,
+				failedTests: [],
 			},
 			{
 				id: "m2",
@@ -39,6 +40,7 @@ describe("App's merge events", () => {
 				commit: "abc1234",
 				files: ["a.ts"],
 				attemptsLeft: 2,
+				failedTests: [],
 			},
 		];
 	});
