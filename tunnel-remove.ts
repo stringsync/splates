@@ -11,7 +11,7 @@ import {
 	type TunnelRecord,
 } from "./saved-tunnel";
 import { SLOTS_APP } from "./slot-tunnel";
-import { API_TOKEN, App, cloudflareApi, findZone } from "./tunnel-setup";
+import { API_TOKEN, App, CloudflareTunnels } from "./tunnel-setup";
 
 /** What `arbor tunnel remove` is asked to remove, and what it runs with. */
 export interface RemoveOptions {
@@ -57,20 +57,22 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 		log.info("no tunnel saved, so nothing to remove");
 		return;
 	}
-	const api = await cloudflareApi(
+	const cloudflare = await CloudflareTunnels.open(
 		creds,
 		(machine ?? slots[0]?.record)?.host ?? "",
 		opts.task,
+		log,
 		opts.fetch,
 	);
+	const { api } = cloudflare;
 	const policies = new Map<string, string>();
 	try {
 		for (const slot of slots) {
-			await removeTunnel(api, slot.record, log);
+			await removeTunnel(cloudflare, slot.record, log);
 			await forget(opts.fs, creds, slot.saved, slot.record.token, log);
 		}
 		if (machine !== null) {
-			const zone = await findZone(api, machine.host);
+			const zone = await cloudflare.findZone(machine.host);
 			const account = zone.account.id;
 			const apps = await api.list(`/accounts/${account}/access/apps`, NamedApp);
 			const mine = [
@@ -98,7 +100,7 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 				await gone(api, `/accounts/${account}/access/policies/${id}`);
 				log.info(`${color.green("deleted")} Access policy ${name}`);
 			}
-			await removeTunnel(api, machine, log);
+			await removeTunnel(cloudflare, machine, log);
 			await forget(opts.fs, creds, saved, TUNNEL_TOKEN, log);
 		}
 	} catch (error) {
@@ -129,11 +131,12 @@ export async function tunnelRemove(opts: RemoveOptions): Promise<void> {
 
 /** Deletes a tunnel and the proxied CNAME routing `record.host` to it. */
 async function removeTunnel(
-	api: CloudflareApi,
+	cloudflare: CloudflareTunnels,
 	record: TunnelRecord,
 	log: Logger,
 ): Promise<void> {
-	const zone = await findZone(api, record.host);
+	const { api } = cloudflare;
+	const zone = await cloudflare.findZone(record.host);
 	const account = zone.account.id;
 	const target = `${record.tunnel}.cfargotunnel.com`;
 	const routes = await api.list(

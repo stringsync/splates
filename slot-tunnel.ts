@@ -6,14 +6,7 @@ import type { Creds } from "./creds";
 import { Exit, fail } from "./exit";
 import type { SavedTunnel, TunnelRecord } from "./saved-tunnel";
 import type { Slot } from "./slots";
-import {
-	App,
-	cloudflareApi,
-	ensureApp,
-	ensureRoute,
-	ensureTunnel,
-	findZone,
-} from "./tunnel-setup";
+import { App, CloudflareTunnels } from "./tunnel-setup";
 
 /** What the Access application in front of every slot is called. */
 export const SLOTS_APP = "arbor-slots";
@@ -49,26 +42,31 @@ export async function slotTunnelSetup({
 	log: Logger;
 	fetch?: typeof globalThis.fetch;
 }): Promise<TunnelRecord> {
-	const api = await cloudflareApi(creds, machine.host, null, fetch);
+	const cloudflare = await CloudflareTunnels.open(
+		creds,
+		machine.host,
+		null,
+		log,
+		fetch,
+	);
+	const { api } = cloudflare;
 	try {
-		const zone = await findZone(api, machine.host);
+		const zone = await cloudflare.findZone(machine.host);
 		const account = zone.account.id;
 		const host = `${slot.word}.${zone.name}`;
-		const tunnel = await ensureTunnel(api, account, `arbor-${slot.word}`, log);
-		await ensureRoute(api, zone.id, host, tunnel.id, log);
+		const tunnel = await cloudflare.ensureTunnel(account, `arbor-${slot.word}`);
+		await cloudflare.ensureRoute(zone.id, host, tunnel.id);
 		const [policy] = await machinePolicies(api, account, machine.host);
 		if (policy === undefined) {
 			throw new Error(
 				`no Access application lets anyone into ${machine.host}: run \`arbor tunnel setup\` again`,
 			);
 		}
-		const aud = await ensureApp(
-			api,
+		const aud = await cloudflare.ensureApp(
 			account,
 			SLOTS_APP,
 			`*.${zone.name}`,
 			policy,
-			log,
 		);
 		const token = await api.get(
 			`/accounts/${account}/cfd_tunnel/${tunnel.id}/token`,

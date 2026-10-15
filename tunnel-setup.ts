@@ -58,19 +58,26 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 	if (name === "") {
 		fail("usage", "--name cannot be empty", {});
 	}
-	const api = await cloudflareApi(creds, host, opts.task, opts.fetch);
+	const cloudflare = await CloudflareTunnels.open(
+		creds,
+		host,
+		opts.task,
+		log,
+		opts.fetch,
+	);
+	const { api } = cloudflare;
 	try {
-		const zone = await findZone(api, host);
+		const zone = await cloudflare.findZone(host);
 		const account = zone.account.id;
 		const team = await ensureTeam(api, account, opts.team.trim(), log);
-		const tunnel = await ensureTunnel(api, account, name, log);
+		const tunnel = await cloudflare.ensureTunnel(account, name);
 		const token = await api.get(
 			`/accounts/${account}/cfd_tunnel/${tunnel.id}/token`,
 			z.string(),
 		);
-		await ensureRoute(api, zone.id, host, tunnel.id, log);
+		await cloudflare.ensureRoute(zone.id, host, tunnel.id);
 		const policy = await ensurePolicy(api, account, name, emails, log);
-		const aud = await ensureApp(api, account, name, host, policy, log);
+		const aud = await cloudflare.ensureApp(account, name, host, policy);
 		await creds.save(TUNNEL_TOKEN, token, {
 			scope: "device",
 			by: "arbor tunnel setup",
@@ -100,37 +107,6 @@ export async function tunnelSetup(opts: SetupOptions): Promise<void> {
 	log.info(
 		`${color.green("saved")} ${host} in ${saved.path}, its token in the device's store: \`arbor dev\` now serves https://${host} to ${emails.join(", ")}`,
 	);
-}
-
-/**
- * The Cloudflare API, with the token kept as `API_TOKEN`. Without it, requests
- * it with instructions for making it, and refuses with `requested`, to run
- * again once it is saved.
- */
-export async function cloudflareApi(
-	creds: Creds,
-	host: string,
-	task: string | null,
-	fetch?: typeof globalThis.fetch,
-): Promise<CloudflareApi> {
-	const apiToken = await creds.credentials.get(API_TOKEN);
-	if (apiToken === undefined) {
-		await creds.request(API_TOKEN, {
-			scope: "device",
-			purpose: `For \`arbor tunnel setup\` to make the tunnel, its DNS record and the Access application for \`${host}\` through the Cloudflare API.`,
-			instructions: tokenInstructions(host),
-			task,
-		});
-		fail(
-			"requested",
-			[
-				`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`arbor dev\`.`,
-				`Run \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
-			].join("\n"),
-			{ host, name: API_TOKEN },
-		);
-	}
-	return new CloudflareApi(apiToken, { fetch });
 }
 
 /**
@@ -203,27 +179,6 @@ export const App = z.object({
 	policies: z.array(z.object({ id: z.string() })).default([]),
 });
 
-/** The zone serving `host`: the longest of its suffixes the account has. */
-export async function findZone(
-	api: CloudflareApi,
-	host: string,
-): Promise<z.infer<typeof Zone>> {
-	const labels = host.split(".");
-	for (let at = 0; at < labels.length - 1; at++) {
-		const name = labels.slice(at).join(".");
-		const [zone] = await api.list(
-			`/zones?name=${encodeURIComponent(name)}`,
-			Zone,
-		);
-		if (zone !== undefined) {
-			return zone;
-		}
-	}
-	throw new Error(
-		`no zone the token can read serves ${host}: give it Zone Read and DNS Edit on that zone`,
-	);
-}
-
 /**
  * The Zero Trust team's name, which Access tokens are issued by: the
  * account's organization's, or `team`'s, made when the account has none.
@@ -276,77 +231,6 @@ async function ensureTeam(
 /** The team an organization's `auth_domain` names. */
 function teamOf({ auth_domain }: z.infer<typeof Organization>): string {
 	return auth_domain.replace(/\.cloudflareaccess\.com$/, "");
-}
-
-/**
- * The tunnel called `name`, made when there is none. Configured locally, so
- * `cloudflared` carries the host to whichever port `arbor dev` bound, which
- * its `--url` says, rather than to one the dashboard pins.
- */
-export async function ensureTunnel(
-	api: CloudflareApi,
-	account: string,
-	name: string,
-	log: Logger,
-): Promise<z.infer<typeof Tunnel>> {
-	const [existing] = await api.list(
-		`/accounts/${account}/cfd_tunnel?name=${encodeURIComponent(name)}&is_deleted=false`,
-		Tunnel,
-	);
-	if (existing !== undefined) {
-		log.info(`tunnel ${name} is already there`);
-		return existing;
-	}
-	const made = await api.post(
-		`/accounts/${account}/cfd_tunnel`,
-		{ name, config_src: "local" },
-		Tunnel,
-	);
-	log.info(`${color.green("created")} tunnel ${name}`);
-	return made;
-}
-
-/**
- * The proxied CNAME routing `host` to the tunnel. One already pointing at
- * another tunnel is moved to this one; any other record for `host` is someone
- * else's, and refused rather than replaced.
- */
-export async function ensureRoute(
-	api: CloudflareApi,
-	zone: string,
-	host: string,
-	tunnel: string,
-	log: Logger,
-): Promise<void> {
-	const target = `${tunnel}.cfargotunnel.com`;
-	const want = { type: "CNAME", name: host, content: target, proxied: true };
-	const records = await api.list(
-		`/zones/${zone}/dns_records?name.exact=${encodeURIComponent(host)}`,
-		DnsRecord,
-	);
-	const [record, ...others] = records;
-	if (record === undefined) {
-		await api.post(`/zones/${zone}/dns_records`, want, DnsRecord);
-		log.info(`${color.green("routed")} ${host} to tunnel ${tunnel}`);
-		return;
-	}
-	if (
-		others.length > 0 ||
-		record.type !== "CNAME" ||
-		!record.content.endsWith(".cfargotunnel.com")
-	) {
-		throw new Error(
-			`${host} already has a ${record.type} record pointing at ${record.content}: pick another host, or delete that record first`,
-		);
-	}
-	if (record.content === target && record.proxied === true) {
-		log.info(`${host} already routes to tunnel ${tunnel}`);
-		return;
-	}
-	await api.patch(`/zones/${zone}/dns_records/${record.id}`, want, DnsRecord);
-	log.info(
-		`${color.green("routed")} ${host} to tunnel ${tunnel}, from ${record.content}`,
-	);
 }
 
 /** The allow policy called `name`, letting in exactly `emails`. */
@@ -406,48 +290,178 @@ function sameEmails(
 }
 
 /**
- * The self-hosted Access application in front of `host`, guarded by
- * `policy` alone, and its AUD tag, which Cloudflare assigns when it is made.
+ * The Cloudflare account `arbor tunnel` works in, through the API with the
+ * token kept as `API_TOKEN`, reporting what it makes to `log`.
  */
-export async function ensureApp(
-	api: CloudflareApi,
-	account: string,
-	name: string,
-	host: string,
-	policy: string,
-	log: Logger,
-): Promise<string> {
-	const want = {
-		type: "self_hosted",
-		name,
-		domain: host,
-		session_duration: SESSION,
-		policies: [{ id: policy, precedence: 1 }],
-	};
-	const existing = (
-		await api.list(
-			`/accounts/${account}/access/apps?domain=${encodeURIComponent(host)}&exact=true`,
-			App,
-		)
-	).find((app) => app.domain === host);
-	if (existing === undefined) {
-		const made = await api.post(`/accounts/${account}/access/apps`, want, App);
-		log.info(
-			`${color.green("created")} Access application ${name} for ${host}`,
+export class CloudflareTunnels {
+	private constructor(
+		readonly api: CloudflareApi,
+		private readonly log: Logger,
+	) {}
+
+	/**
+	 * Opens the account with the token kept as `API_TOKEN`. Without it,
+	 * requests it with instructions for making it, and refuses with
+	 * `requested`, to run again once it is saved.
+	 */
+	static async open(
+		creds: Creds,
+		host: string,
+		task: string | null,
+		log: Logger,
+		fetch?: typeof globalThis.fetch,
+	): Promise<CloudflareTunnels> {
+		const apiToken = await creds.credentials.get(API_TOKEN);
+		if (apiToken === undefined) {
+			await creds.request(API_TOKEN, {
+				scope: "device",
+				purpose: `For \`arbor tunnel setup\` to make the tunnel, its DNS record and the Access application for \`${host}\` through the Cloudflare API.`,
+				instructions: tokenInstructions(host),
+				task,
+			});
+			fail(
+				"requested",
+				[
+					`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`arbor dev\`.`,
+					`Run \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
+				].join("\n"),
+				{ host, name: API_TOKEN },
+			);
+		}
+		return new CloudflareTunnels(new CloudflareApi(apiToken, { fetch }), log);
+	}
+
+	/** The zone serving `host`: the longest of its suffixes the account has. */
+	async findZone(host: string): Promise<z.infer<typeof Zone>> {
+		const labels = host.split(".");
+		for (let at = 0; at < labels.length - 1; at++) {
+			const name = labels.slice(at).join(".");
+			const [zone] = await this.api.list(
+				`/zones?name=${encodeURIComponent(name)}`,
+				Zone,
+			);
+			if (zone !== undefined) {
+				return zone;
+			}
+		}
+		throw new Error(
+			`no zone the token can read serves ${host}: give it Zone Read and DNS Edit on that zone`,
 		);
-		return made.aud;
 	}
-	if (existing.policies.length === 1 && existing.policies[0]?.id === policy) {
-		log.info(`Access application for ${host} is already there`);
-		return existing.aud;
+
+	/**
+	 * The tunnel called `name`, made when there is none. Configured locally, so
+	 * `cloudflared` carries the host to whichever port `arbor dev` bound, which
+	 * its `--url` says, rather than to one the dashboard pins.
+	 */
+	async ensureTunnel(
+		account: string,
+		name: string,
+	): Promise<z.infer<typeof Tunnel>> {
+		const [existing] = await this.api.list(
+			`/accounts/${account}/cfd_tunnel?name=${encodeURIComponent(name)}&is_deleted=false`,
+			Tunnel,
+		);
+		if (existing !== undefined) {
+			this.log.info(`tunnel ${name} is already there`);
+			return existing;
+		}
+		const made = await this.api.post(
+			`/accounts/${account}/cfd_tunnel`,
+			{ name, config_src: "local" },
+			Tunnel,
+		);
+		this.log.info(`${color.green("created")} tunnel ${name}`);
+		return made;
 	}
-	const updated = await api.put(
-		`/accounts/${account}/access/apps/${existing.id}`,
-		want,
-		App,
-	);
-	log.info(
-		`${color.green("updated")} Access application for ${host} to use policy ${name}`,
-	);
-	return updated.aud;
+
+	/**
+	 * The proxied CNAME routing `host` to the tunnel. One already pointing at
+	 * another tunnel is moved to this one; any other record for `host` is someone
+	 * else's, and refused rather than replaced.
+	 */
+	async ensureRoute(zone: string, host: string, tunnel: string): Promise<void> {
+		const target = `${tunnel}.cfargotunnel.com`;
+		const want = { type: "CNAME", name: host, content: target, proxied: true };
+		const records = await this.api.list(
+			`/zones/${zone}/dns_records?name.exact=${encodeURIComponent(host)}`,
+			DnsRecord,
+		);
+		const [record, ...others] = records;
+		if (record === undefined) {
+			await this.api.post(`/zones/${zone}/dns_records`, want, DnsRecord);
+			this.log.info(`${color.green("routed")} ${host} to tunnel ${tunnel}`);
+			return;
+		}
+		if (
+			others.length > 0 ||
+			record.type !== "CNAME" ||
+			!record.content.endsWith(".cfargotunnel.com")
+		) {
+			throw new Error(
+				`${host} already has a ${record.type} record pointing at ${record.content}: pick another host, or delete that record first`,
+			);
+		}
+		if (record.content === target && record.proxied === true) {
+			this.log.info(`${host} already routes to tunnel ${tunnel}`);
+			return;
+		}
+		await this.api.patch(
+			`/zones/${zone}/dns_records/${record.id}`,
+			want,
+			DnsRecord,
+		);
+		this.log.info(
+			`${color.green("routed")} ${host} to tunnel ${tunnel}, from ${record.content}`,
+		);
+	}
+
+	/**
+	 * The self-hosted Access application in front of `host`, guarded by
+	 * `policy` alone, and its AUD tag, which Cloudflare assigns when it is made.
+	 */
+	async ensureApp(
+		account: string,
+		name: string,
+		host: string,
+		policy: string,
+	): Promise<string> {
+		const want = {
+			type: "self_hosted",
+			name,
+			domain: host,
+			session_duration: SESSION,
+			policies: [{ id: policy, precedence: 1 }],
+		};
+		const existing = (
+			await this.api.list(
+				`/accounts/${account}/access/apps?domain=${encodeURIComponent(host)}&exact=true`,
+				App,
+			)
+		).find((app) => app.domain === host);
+		if (existing === undefined) {
+			const made = await this.api.post(
+				`/accounts/${account}/access/apps`,
+				want,
+				App,
+			);
+			this.log.info(
+				`${color.green("created")} Access application ${name} for ${host}`,
+			);
+			return made.aud;
+		}
+		if (existing.policies.length === 1 && existing.policies[0]?.id === policy) {
+			this.log.info(`Access application for ${host} is already there`);
+			return existing.aud;
+		}
+		const updated = await this.api.put(
+			`/accounts/${account}/access/apps/${existing.id}`,
+			want,
+			App,
+		);
+		this.log.info(
+			`${color.green("updated")} Access application for ${host} to use policy ${name}`,
+		);
+		return updated.aud;
+	}
 }
