@@ -369,17 +369,16 @@ export function TodoCard({
 	return (
 		<section
 			aria-label={`todo ${proposal.id}`}
-			// In a narrow thread, as on a phone, its buttons go under its words
-			// rather than squeeze them.
 			className={cn(
-				"flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
+				"flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
 				!grouped && "my-3",
 				gone && "opacity-60",
 			)}
 		>
+			{/* On a phone the words take the icon's width, so they wrap less. */}
 			<ListTodoIcon
 				aria-hidden
-				className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+				className="mt-0.5 size-4 shrink-0 text-muted-foreground @max-md:hidden"
 			/>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				{live === null ? (
@@ -400,72 +399,76 @@ export function TodoCard({
 						className="text-muted-foreground text-xs leading-relaxed [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
 					/>
 				)}
-				<span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
-					<span className="tabular-nums">#{proposal.id}</span>
-					{lane !== null && (
-						<span title="lane" className="truncate">
-							{lane.name}
+				{/* Its buttons end the line that numbers it, rather than take a
+				    row of their own. */}
+				<div className="flex items-center gap-3">
+					<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5 text-muted-foreground text-xs">
+						<span className="tabular-nums">#{proposal.id}</span>
+						{lane !== null && (
+							<span title="lane" className="truncate">
+								{lane.name}
+							</span>
+						)}
+						{todo !== null && todo.blockedBy.length > 0 && (
+							<Badge Icon={HourglassIcon} label="blocked">
+								blocked by {todo.blockedBy.map((id) => `#${id}`).join(", ")}
+							</Badge>
+						)}
+						{todo !== null && todo.files.length > 0 && (
+							<Badge Icon={PaperclipIcon} label="files">
+								{todo.files.length}
+							</Badge>
+						)}
+						{todo?.takenBy != null && (
+							<Badge Icon={GitBranchIcon} label="taken by">
+								{todo.takenBy}
+							</Badge>
+						)}
+						{gone && (
+							<span
+								title="No longer on the list: merged or removed"
+								className="flex items-center gap-1"
+							>
+								<ArchiveIcon aria-hidden className="size-3" />
+								archived
+							</span>
+						)}
+					</span>
+					{started && (
+						<span className="flex shrink-0 items-center gap-1 text-success text-xs">
+							<CheckIcon className="size-3.5" strokeWidth={3} />
+							Started
 						</span>
 					)}
-					{todo !== null && todo.blockedBy.length > 0 && (
-						<Badge Icon={HourglassIcon} label="blocked">
-							blocked by {todo.blockedBy.map((id) => `#${id}`).join(", ")}
-						</Badge>
-					)}
-					{todo !== null && todo.files.length > 0 && (
-						<Badge Icon={PaperclipIcon} label="files">
-							{todo.files.length}
-						</Badge>
-					)}
-					{todo?.takenBy != null && (
-						<Badge Icon={GitBranchIcon} label="taken by">
-							{todo.takenBy}
-						</Badge>
-					)}
-					{gone && (
-						<span
-							title="No longer on the list: merged or removed"
-							className="flex items-center gap-1"
-						>
-							<ArchiveIcon aria-hidden className="size-3" />
-							archived
+					{open && (send !== null || startNew !== null) && (
+						<span className="flex shrink-0 items-center gap-1 pointer-coarse:[&_button]:h-9 pointer-coarse:[&_button]:min-w-9">
+							{send !== null && (
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => void attempt(send(reference), "Not started")}
+									className="gap-1.5"
+								>
+									<PlayIcon data-icon="inline-start" />
+									Start
+								</Button>
+							)}
+							{startNew !== null && (
+								<Button
+									size="icon-sm"
+									variant="outline"
+									aria-label="Start in a new conversation"
+									title="Start in a new conversation"
+									onClick={() => startNew(proposal.id, todo.assignee ?? null)}
+								>
+									<MessageSquarePlusIcon />
+								</Button>
+							)}
 						</span>
 					)}
-				</span>
+				</div>
 				<Refusal refusal={refusal} />
 			</div>
-			{started && (
-				<span className="flex shrink-0 items-center gap-1 py-1 text-success text-xs @max-md:basis-full @max-md:pl-7">
-					<CheckIcon className="size-3.5" strokeWidth={3} />
-					Started
-				</span>
-			)}
-			{open && (send !== null || startNew !== null) && (
-				<span className="flex shrink-0 items-center gap-1 @max-md:basis-full @max-md:pl-7 pointer-coarse:[&_button]:h-9 pointer-coarse:[&_button]:min-w-9">
-					{send !== null && (
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={() => void attempt(send(reference), "Not started")}
-							className="gap-1.5"
-						>
-							<PlayIcon data-icon="inline-start" />
-							Start
-						</Button>
-					)}
-					{startNew !== null && (
-						<Button
-							size="icon-sm"
-							variant="outline"
-							aria-label="Start in a new conversation"
-							title="Start in a new conversation"
-							onClick={() => startNew(proposal.id, todo.assignee ?? null)}
-						>
-							<MessageSquarePlusIcon />
-						</Button>
-					)}
-				</span>
-			)}
 		</section>
 	);
 }
