@@ -9,6 +9,7 @@ import { Adherence } from "./adherence";
 import type { Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Access, type AccessConfig } from "./dev-access";
+import { type DeciderFor, deciderFor } from "./dev-decider";
 import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import {
@@ -64,6 +65,7 @@ export async function dev(
 		conversations: converse = null,
 		shell = null,
 		transcriber = transcriberFor,
+		decider = deciderFor,
 		newest = async () => null,
 		running = RUNNING,
 		checkEvery = CHECK,
@@ -155,6 +157,7 @@ export async function dev(
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
 		transcriberFor: transcriber,
+		deciderFor: decider,
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
@@ -540,6 +543,11 @@ export interface DevOptions {
 	 * key its creds keep; a test hands in a fake.
 	 */
 	transcriber?: TranscriberFor;
+	/**
+	 * What a project's dictation cleanups decide with, by default Clef or Jev
+	 * on the creds it keeps; a test hands in a fake.
+	 */
+	decider?: DeciderFor;
 	/** Opens a registered project other than the one started in, by its root. */
 	open?: (root: string) => Promise<Project>;
 	/**

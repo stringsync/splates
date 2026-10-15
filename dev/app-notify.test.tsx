@@ -79,6 +79,7 @@ describe("App's settings and notifications", () => {
 				.map((each) => each.textContent),
 		).toEqual([
 			"Appearance",
+			"Dictation",
 			"Editor",
 			"Notifications",
 			"Restart",
@@ -280,6 +281,7 @@ describe("App's settings and notifications", () => {
 		);
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 
+		// scry-ignore fakes-over-mocks: jsdom has no document focus to fake; the file already spied before this task
 		const away = spyOn(document, "hasFocus").mockReturnValue(false);
 		await testing.say({ ...runs, status: "failed", error: "agent exited" });
 		away.mockRestore();

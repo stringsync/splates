@@ -1,4 +1,5 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { CLEANUP_MODELS, DEFAULT_CLEANUP_MODEL } from "../cleanup-models";
 import { OPENERS, ZED } from "./openers";
 import { NONE, type Shortcut, valid } from "./shortcuts";
 
@@ -7,6 +8,7 @@ export type SettingsEvents = { changed: undefined };
 /** The groups the Settings dialog lists down its left, in order. */
 export const CATEGORIES = [
 	"Appearance",
+	"Dictation",
 	"Editor",
 	"Notifications",
 	"Restart",
@@ -68,6 +70,14 @@ export const SETTINGS = {
 		description:
 			"Show a conversation's actions, background commands and task beside its messages where there is room for them. Elsewhere they float over the conversation while you open them.",
 		default: true,
+	},
+	"dictation.cleanupModel": {
+		category: "Dictation",
+		title: "Cleanup model",
+		description:
+			"The model that tidies a dictation's text. Clef Flash is the cheapest; each needs its own keys, which the Creds page asks for the first time a cleanup runs.",
+		default: DEFAULT_CLEANUP_MODEL,
+		choices: CLEANUP_MODELS,
 	},
 	"editor.opener": {
 		category: "Editor",
@@ -411,4 +421,43 @@ function storedIn(
 	} catch {
 		return {};
 	}
+}
+
+/** Something the browser must allow before a setting can be on. */
+interface Allowance {
+	/** Whether this browser has it at all. */
+	supported(): boolean;
+	/** Whether it is allowed now. */
+	allowed(): boolean;
+	/** Asks for it, from a click, since browsers refuse otherwise. */
+	ask(): Promise<boolean>;
+	/** What to tell the person when it was refused. */
+	refused: string;
+}
+
+/** One of the values a choice can take, with what the dialog calls it. */
+export interface Choice {
+	value: string;
+	label: string;
+}
+
+/** A setting the person can change, as the dialog shows it. */
+export interface Definition {
+	category: Category;
+	title: string;
+	description: string;
+	/** A switch for a boolean, a field for a number, a pick for a string. */
+	default: boolean | number | string;
+	/** What a string can be, in the order the dialog offers them. */
+	choices?: readonly Choice[];
+	/** Show each choice as a swatch of the accent it names. */
+	swatches?: boolean;
+	/** What a number counts, and the least it can be. */
+	unit?: string;
+	min?: number;
+	/** A keyboard shortcut, its default the one the page starts with. */
+	shortcut?: boolean;
+	/** The switch this one does nothing without. */
+	under?: string;
+	browser?: Allowance;
 }
