@@ -67,12 +67,22 @@ const LINES: {
 				at: event.at,
 			};
 		}
-		const words = [
-			...filesWords("Attached", event.stored),
-			...filesWords("Removed", event.removed),
-		];
+		const attached = filesWords("Attached", event.stored);
+		const removed = filesWords("Removed", event.removed);
 		// A bare `arbor attach` only lists what the task holds.
-		return words.length === 0 ? null : { words, at: event.at };
+		if (attached.length === 0 && removed.length === 0) {
+			return null;
+		}
+		const words =
+			attached.length === 0
+				? [...removed, "from", task(event)]
+				: [
+						...attached,
+						"to",
+						task(event),
+						...filesWords("and removed", event.removed),
+					];
+		return { words, at: event.at };
 	},
 	merge: (event) =>
 		event.reason === null
@@ -405,8 +415,9 @@ function todos(each: readonly { id: number; subject: string }[]): Named {
 
 /**
  * A verb and the files it was done to: a file chip for one, else the count,
- * since a line of several chips may not fit on one. No thumbnails, which
- * would break the one-line look.
+ * since a line of several chips may not fit on one, and the task they were
+ * done on says more than their names. No thumbnails, which would break the
+ * one-line look.
  */
 function filesWords(verb: string, paths: readonly string[]): Words {
 	if (paths.length === 0) {
