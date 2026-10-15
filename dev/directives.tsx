@@ -1,3 +1,4 @@
+import type { ThreadMessage } from "@assistant-ui/react";
 import { TreePineIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { DIRECTIVES, UNTRIAGED } from "../prompts";
@@ -162,11 +163,39 @@ const CARDED =
  */
 export function soleDirective(text: string): string | null {
 	const trimmed = text.trim();
-	return BARE_DIRECTIVES.some((each) => each.directive === trimmed) ||
-		CARDED.test(trimmed) ||
-		HANDOFF_TO.test(trimmed)
+	return isBare(trimmed) || CARDED.test(trimmed) || HANDOFF_TO.test(trimmed)
 		? trimmed
 		: null;
+}
+
+/** Whether `directive` is one about no todo, lane, or task, as a checkpoint is. */
+export function isBare(directive: string): boolean {
+	return BARE_DIRECTIVES.some((each) => each.directive === directive);
+}
+
+/**
+ * Whether `message` is a person's message of one bare directive alone, which
+ * shows as one of arbor's event lines, as a checkpoint, a resume, or a merge
+ * does. It carries on the turn it comes in rather than opening one, and takes
+ * none of the scroll a turn's start does, so the message stuck atop that turn
+ * stays there while the reply goes on.
+ */
+export function carriesOn(message: ThreadMessage): boolean {
+	if (message.role !== "user") {
+		return false;
+	}
+	const [only, ...more] = message.content;
+	const files = message.attachments.some((attachment) =>
+		(attachment.content ?? []).some(
+			(part) => part.type === "image" || part.type === "file",
+		),
+	);
+	return (
+		only?.type === "text" &&
+		more.length === 0 &&
+		!files &&
+		isBare(only.text.trim())
+	);
 }
 
 /**

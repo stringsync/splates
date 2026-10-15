@@ -36,6 +36,7 @@ import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip
 import { Button } from "#dev/components/ui/button.tsx";
 import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import { useTaskViewport } from "#dev/current-task.tsx";
+import { carriesOn } from "#dev/directives.tsx";
 import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 
@@ -204,11 +205,14 @@ const ThreadRoot: FC<{
  * The thread's messages, a box for each turn: the person's message and every
  * reply up to their next one. A turn's box is what holds its message stuck
  * atop the thread while the reply is read, until the box scrolls out and the
- * next turn's message pushes it along.
+ * next turn's message pushes it along. A bare line, as a checkpoint is, opens
+ * no turn of its own, so it never pushes the stuck message out.
  */
 const ThreadTurns: FC = () => {
 	const roster = useAuiState((s) =>
-		s.thread.messages.map((each) => `${each.role} ${each.id}`).join("\n"),
+		s.thread.messages
+			.map((each) => `${carriesOn(each) ? "line" : each.role} ${each.id}`)
+			.join("\n"),
 	);
 	const turns = useMemo(() => {
 		const all: { id: string; index: number }[][] = [];

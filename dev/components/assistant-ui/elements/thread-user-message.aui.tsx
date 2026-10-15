@@ -29,6 +29,7 @@ import { useNameOf } from "#dev/conversation-names.ts";
 import {
 	DirectiveChip,
 	DirectiveLine,
+	isBare,
 	linkDirectives,
 	soleDirective,
 	unshown,
@@ -154,7 +155,21 @@ export const UserMessage: FC = () => {
 			sole === MERGE && repliesToReview(s.thread.messages, s.message.index),
 	);
 	const sent = sentOf(attachments);
-	if (sole !== null && sent.length === 0 && (unshown(sole) || merged)) {
+	if (sole !== null && sent.length === 0 && isBare(sole)) {
+		// Not a primitive's root, which assistant-ui would anchor a reply's
+		// turn to: it carries on the turn it comes in (see `carriesOn`).
+		return (
+			<div
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				className={merged ? undefined : "px-2"}
+				data-role="user"
+			>
+				{!merged && <DirectiveLine directive={sole} at={at} />}
+			</div>
+		);
+	}
+	if (sole !== null && sent.length === 0 && unshown(sole)) {
 		// Nothing to see, but still where its turn starts.
 		return (
 			<MessagePrimitive.Root

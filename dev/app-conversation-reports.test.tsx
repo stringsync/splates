@@ -441,6 +441,32 @@ describe("App's report cards", () => {
 		expect(lines[0]?.querySelector("p")?.title).toBe("[ARBOR CHECKPOINT]");
 	});
 
+	it("keeps a checkpoint's and a resume's lines in the turn they come in, under its stuck message", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message("user", "fix the header"),
+					message("agent", "Looking at it."),
+					message("user", "[ARBOR CHECKPOINT]"),
+					message("agent", "Stopped before the tests."),
+					message("user", "[ARBOR RESUME]"),
+					message("agent", "Starting the tests."),
+					message("user", "and the footer"),
+				],
+			}),
+		]);
+
+		await waitFor(() => view.getAllByRole("note", { name: "arbor" }));
+		const turns = [...document.querySelectorAll('[data-slot="aui_turn"]')];
+		expect(turns.map((turn) => turn.firstElementChild?.textContent)).toEqual([
+			expect.stringContaining("fix the header"),
+			expect.stringContaining("and the footer"),
+		]);
+		const [checkpoint, resume] = view.getAllByRole("note", { name: "arbor" });
+		expect(checkpoint?.closest('[data-slot="aui_turn"]')).toBe(turns[0]);
+		expect(resume?.closest('[data-slot="aui_turn"]')).toBe(turns[0]);
+	});
+
 	it("shows a message of a todo, lane, or task alone as a line with its chip, opening the todo", async () => {
 		const view = await testing.openConversations(
 			[

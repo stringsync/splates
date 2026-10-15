@@ -1,6 +1,7 @@
 import { type AssistantState, useAuiState } from "@assistant-ui/react";
 import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
 import { toCardTop } from "#dev/card-shell.tsx";
+import { carriesOn } from "#dev/directives.tsx";
 
 /**
  * Keeps `viewport`'s scroll padding at the bottom as tall as `footer`, which
@@ -153,13 +154,15 @@ export function useOpenAt(
 }
 /**
  * The person's message that opens the turn assistant-ui anchors to the top:
- * the one before the last, a reply, while it runs.
+ * the one before the last, a reply, while it runs. None for a bare line, as a
+ * checkpoint is, which carries on the turn it comes in.
  */
 const anchoredTurn = (s: AssistantState) => {
 	const { messages, isRunning } = s.thread;
 	const anchor = messages.at(-2);
 	return isRunning &&
 		anchor?.role === "user" &&
+		!carriesOn(anchor) &&
 		messages.at(-1)?.role === "assistant"
 		? anchor.id
 		: undefined;
