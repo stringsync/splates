@@ -166,8 +166,8 @@ export function Sheeted({
 							ref={setBody}
 							data-sheet
 							className={cn(
-								// Unclipped, so a card's pinned footer can stick to the sheet's foot.
-								"min-h-0 flex-1 overflow-y-auto overscroll-contain [&_[data-card]]:my-0 [&_[data-card]]:overflow-visible [&_[data-card]]:rounded-none [&_[data-card]]:border-0 [&_[data-card]]:shadow-none [&_[data-card]]:ring-0",
+								// Unclipped and filling it, so a card's pinned footer sits at the sheet's foot.
+								"flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain [&_[data-card]]:my-0 [&_[data-card]]:flex [&_[data-card]]:min-h-full [&_[data-card]]:shrink-0 [&_[data-card]]:flex-col [&_[data-card]]:overflow-visible [&_[data-card]]:rounded-none [&_[data-card]]:border-0 [&_[data-card]]:shadow-none [&_[data-card]]:ring-0",
 								!keyboard && "pb-[env(safe-area-inset-bottom)]",
 							)}
 						>

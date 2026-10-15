@@ -102,6 +102,14 @@ describe("App on a phone", () => {
 			within(sheet).getByRole("textbox", { name: "Anything else" }),
 		).toBeTruthy();
 		expect(within(sheet).getByRole("button", { name: "Send" })).toBeTruthy();
+		// Its progress in the dots of its footer, not wrapping the header.
+		expect(sheet.textContent).not.toContain("answered");
+		const nav = within(sheet).getByRole("navigation", { name: "questions" });
+		expect(
+			within(nav)
+				.getByRole("button", { current: "step" })
+				.getAttribute("aria-label"),
+		).toBe("Question 1 of 3");
 
 		// Picking all that apply leaves it to the arrow to go on.
 		await act(async () =>
@@ -129,6 +137,38 @@ describe("App on a phone", () => {
 			),
 		);
 		expect(shown()).toEqual(["question 2"]);
+		await act(async () =>
+			fireEvent.click(
+				within(nav).getByRole("button", { name: "Question 1 of 3, answered" }),
+			),
+		);
+		expect(shown()).toEqual(["question 1"]);
+	});
+
+	it("leaves the dots off a sheet of one question", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Header",
+				messages: [
+					message("user", "fix the header"),
+					message("agent", "1. Which pages need it?\n   - [a] Todos"),
+				],
+			}),
+		]);
+
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: /1 question for you\s*Answer/ }),
+				),
+			),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "1 question for you" }),
+		);
+		expect(within(sheet).queryByRole("navigation")).toBeNull();
+		expect(sheet.textContent).not.toContain("answered");
+		expect(within(sheet).getByRole("button", { name: "Send" })).toBeTruthy();
 	});
 
 	it("goes from a sheet the inbox opened to the conversation behind it", async () => {

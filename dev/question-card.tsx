@@ -193,7 +193,7 @@ export function QuestionCard({
 												text={choice.text}
 												inline
 												unlinked
-												className="min-w-0 flex-1 basis-40"
+												className="min-w-0 flex-1 basis-32"
 											/>
 											{choice.chosen && <Chosen label={chosenLabel} />}
 											<CheckIcon

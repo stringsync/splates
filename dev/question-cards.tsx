@@ -193,25 +193,30 @@ export function QuestionCards({
 			folded={sent !== null}
 			// Each question marks itself while it has the focus.
 			ringed={false}
+			// Paged, the dots in its footer say it, so a narrow header never wraps.
 			aside={
-				<span className="flex items-center gap-2">
-					<span className="text-muted-foreground text-xs tabular-nums">
-						{answered} of {questions.length} answered
-					</span>
-					<span
-						aria-hidden
-						className="block h-1 w-14 overflow-hidden rounded-full bg-border"
-					>
+				paged ? undefined : (
+					<span className="flex items-center gap-2">
+						<span className="text-muted-foreground text-xs tabular-nums">
+							{answered} of {questions.length} answered
+						</span>
 						<span
-							className="block h-full rounded-full bg-success transition-[width] duration-300 ease-out"
-							style={{ width: `${(answered / questions.length) * 100}%` }}
-						/>
+							aria-hidden
+							className="block h-1 w-14 overflow-hidden rounded-full bg-border"
+						>
+							<span
+								className="block h-full rounded-full bg-success transition-[width] duration-300 ease-out"
+								style={{ width: `${(answered / questions.length) * 100}%` }}
+							/>
+						</span>
 					</span>
-				</span>
+				)
 			}
 		>
 			<div
 				ref={panel}
+				// Paged, it fills its sheet, so its footer sits at the foot.
+				className={cn(paged && "flex flex-1 flex-col")}
 				onKeyDownCapture={(event) => {
 					if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
 						event.preventDefault();
@@ -268,7 +273,9 @@ export function QuestionCards({
 						data-pinned={paged || undefined}
 						className={cn(
 							"flex flex-col gap-2.5 border-t px-4 py-3",
-							paged ? "sticky bottom-0 z-10 bg-background" : "bg-muted/20",
+							paged
+								? "sticky bottom-0 z-10 mt-auto bg-background"
+								: "bg-muted/20",
 						)}
 					>
 						<textarea
@@ -290,7 +297,9 @@ export function QuestionCards({
 							className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
 						/>
 						<div className="flex items-center gap-3">
-							{paged ? (
+							{paged && questions.length === 1 ? (
+								<span className="flex-1" />
+							) : paged ? (
 								<nav
 									aria-label="questions"
 									className="-ml-3 flex flex-1 items-center"
@@ -305,9 +314,26 @@ export function QuestionCards({
 									>
 										<ChevronLeftIcon />
 									</Button>
-									<span className="text-muted-foreground text-sm tabular-nums">
-										{page + 1} of {questions.length}
-									</span>
+									{/* A dot per question, filled once answered, the one shown ringed. */}
+									{questions.map((asked, at) => (
+										<button
+											key={asked.number}
+											type="button"
+											aria-label={`Question ${at + 1} of ${questions.length}${answers[at] === null ? "" : ", answered"}`}
+											aria-current={at === page ? "step" : undefined}
+											onClick={() => turn(at)}
+											className="flex size-7 items-center justify-center rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+										>
+											<span
+												className={cn(
+													"block size-2.5 rounded-full transition-colors duration-150",
+													answers[at] === null ? "bg-border" : "bg-success",
+													at === page &&
+														"ring-2 ring-foreground/60 ring-offset-2 ring-offset-background",
+												)}
+											/>
+										</button>
+									))}
 									<Button
 										variant="ghost"
 										size="icon"
