@@ -126,6 +126,7 @@ export function conversation(
 		unread: false,
 		seen: 0,
 		messages: [],
+		events: [],
 		ask: null,
 		settings: [],
 		commands: [],

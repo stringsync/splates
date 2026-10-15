@@ -5,6 +5,7 @@ import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { ConversationState, Conversations } from "./conversations";
 import { BudgetRoutes } from "./dev-budgets";
+import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
@@ -31,7 +32,7 @@ export async function serveProject(
 	project: Project,
 	context: DevContext,
 ): Promise<Served> {
-	const { service, format, arborDir, fs, log } = project;
+	const { service, format, arborDir, fs, log, journal } = project;
 	const watch = await ProjectWatch.start(project, context);
 	const conversations = context.conversationsFor(project);
 	// A task `arbor add --agent` handed to an agent starts it, whether or
@@ -39,8 +40,16 @@ export async function serveProject(
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
 	let handedOut: Resource | null = null;
+	let events: Resource | null = null;
 	if (conversations !== null) {
 		handedOut = HandedOut.watch({ service, conversations, log });
+		events = await ConversationEvents.follow({
+			journal,
+			conversations,
+			fs,
+			arborDir,
+			log,
+		});
 		conversations.url = context.url;
 		let starting = Promise.resolve();
 		const handOff = (): void => {
@@ -99,6 +108,7 @@ export async function serveProject(
 			watch.dispose();
 			handOffs?.dispose();
 			handedOut?.dispose();
+			events?.dispose();
 			await talks.disposeAsync();
 		},
 	};

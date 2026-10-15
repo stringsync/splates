@@ -3,90 +3,7 @@ import { type ConversationState, unused } from "./conversations";
 import { need, needs } from "./needs";
 import type { Details } from "./show";
 
-const PLAN = `# alpha
-
-## Goal
-
-ship it
-
-## Next
-
-- [x] the first step
-- [ ] wire the header
-- [ ] the rest
-
-## Blocked
-
-- [x] 1. Is staging up? → yes
-- [ ] 2. Does the header wrap?
-- [ ] 3. Which cookie?
-  - (a) old
-  - (b) new
-`;
-
-function task(overrides: Partial<Details> = {}): Details {
-	return {
-		task: "alpha",
-		status: "working",
-		branch: "task/alpha",
-		base: "main",
-		caller: null,
-		worktree: "/tmp/alpha",
-		lease: "held",
-		ahead: 1,
-		added: 1,
-		removed: 0,
-		age: "3m",
-		createdAt: "2026-10-11T09:57:00.000Z",
-		escalation: null,
-		mergeAttempts: 0,
-		mergeAttemptLimit: 3,
-		escalatedAt: null,
-		review: null,
-		ready: false,
-		plan: null,
-		planProblems: [],
-		dispatched: false,
-		handedTo: null,
-		systems: [],
-		...overrides,
-	};
-}
-
-function talk(overrides: Partial<ConversationState> = {}): ConversationState {
-	return {
-		id: "c1",
-		agent: "claude",
-		task: "alpha",
-		lastTask: "alpha",
-		lastBase: "main",
-		lastCaller: null,
-		title: null,
-		name: null,
-		status: "running",
-		error: null,
-		stoppedIdle: null,
-		heartbeat: null,
-		messages: [],
-		ask: null,
-		settings: [],
-		commands: [],
-		createdAt: "2026-10-11T10:00:00.000Z",
-		archived: false,
-		archivedWith: null,
-		handedBy: null,
-		skill: null,
-		assigned: false,
-		unread: false,
-		seen: 0,
-		checkpoint: null,
-		usage: unused(),
-		background: [],
-		...overrides,
-	};
-}
-
-describe("need", () => {
+describe("needs", () => {
 	it("waits on a live ask before anything in the plan", () => {
 		const asked = need(
 			task({ plan: PLAN }),
@@ -205,23 +122,12 @@ describe("need", () => {
 			kind: "idle",
 		});
 	});
-});
 
-describe("needs", () => {
 	it("lists waiting by oldest stop, then assuming by most questions, then the rest", () => {
-		const ask = (at: string) => ({
-			type: "question" as const,
-			id: at,
-			message: `asked at ${at}`,
-			fields: [],
-			at,
-		});
-		const one = "# t\n\n## Blocked\n\n- [ ] 1. One?\n";
-		const two = `${one}- [ ] 2. Two?\n`;
 		const listed = needs({
 			tasks: [
-				task({ task: "few", plan: one }),
-				task({ task: "many", plan: two }),
+				task({ task: "few", plan: ONE }),
+				task({ task: "many", plan: TWO }),
 				task({ task: "external", status: "escalated", escalation: "look" }),
 				task({ task: "gone", status: "orphaned" }),
 			],
@@ -347,3 +253,102 @@ describe("needs", () => {
 		).toEqual([]);
 	});
 });
+
+const PLAN = `# alpha
+
+## Goal
+
+ship it
+
+## Next
+
+- [x] the first step
+- [ ] wire the header
+- [ ] the rest
+
+## Blocked
+
+- [x] 1. Is staging up? → yes
+- [ ] 2. Does the header wrap?
+- [ ] 3. Which cookie?
+  - (a) old
+  - (b) new
+`;
+
+function task(overrides: Partial<Details> = {}): Details {
+	return {
+		task: "alpha",
+		status: "working",
+		branch: "task/alpha",
+		base: "main",
+		caller: null,
+		worktree: "/tmp/alpha",
+		lease: "held",
+		ahead: 1,
+		added: 1,
+		removed: 0,
+		age: "3m",
+		createdAt: "2026-10-11T09:57:00.000Z",
+		escalation: null,
+		mergeAttempts: 0,
+		mergeAttemptLimit: 3,
+		escalatedAt: null,
+		review: null,
+		ready: false,
+		plan: null,
+		planProblems: [],
+		dispatched: false,
+		handedTo: null,
+		systems: [],
+		...overrides,
+	};
+}
+
+function talk(overrides: Partial<ConversationState> = {}): ConversationState {
+	return {
+		id: "c1",
+		agent: "claude",
+		task: "alpha",
+		lastTask: "alpha",
+		lastBase: "main",
+		lastCaller: null,
+		title: null,
+		name: null,
+		status: "running",
+		error: null,
+		stoppedIdle: null,
+		heartbeat: null,
+		messages: [],
+		events: [],
+		ask: null,
+		settings: [],
+		commands: [],
+		createdAt: "2026-10-11T10:00:00.000Z",
+		archived: false,
+		archivedWith: null,
+		handedBy: null,
+		skill: null,
+		assigned: false,
+		unread: false,
+		seen: 0,
+		checkpoint: null,
+		usage: unused(),
+		background: [],
+		...overrides,
+	};
+}
+
+/** A question the agent asked at `at`. */
+function ask(at: string) {
+	return {
+		type: "question" as const,
+		id: at,
+		message: `asked at ${at}`,
+		fields: [],
+		at,
+	};
+}
+
+/** A plan asking one question, and one asking two. */
+const ONE = "# t\n\n## Blocked\n\n- [ ] 1. One?\n";
+const TWO = `${ONE}- [ ] 2. Two?\n`;

@@ -30,6 +30,7 @@ import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
+import { EventUI } from "./event-lines";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { HeartbeatBanner } from "./heartbeat-banner";
 import { useTouch } from "./hooks/use-touch";
@@ -299,6 +300,7 @@ export function Thread({
 									<TodoUI />
 									<DemoUI />
 									<WorkUI />
+									<EventUI />
 									<StoppedUI />
 									<InterruptedUI />
 									<StartNewContext value={startNew}>

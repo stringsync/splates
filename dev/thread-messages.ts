@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { type Report, stretches } from "../asked";
 import type { ConversationState, Message, Part } from "../conversations";
+import type { Event } from "../events";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Turn } from "./report-cards";
@@ -47,6 +48,7 @@ export function useThreadMessages(
 		void shown;
 		const now = Date.now();
 		const said = conversation.messages.filter((each) => !each.queued);
+		const happened = turnsOf(said, conversation.events);
 		const liked = said.map((message, index) =>
 			like(
 				message,
@@ -56,6 +58,7 @@ export function useThreadMessages(
 				said[index - 1]?.at ?? message.at,
 				now,
 				conversation.lastTask,
+				happened[index],
 			),
 		);
 		// The reply's place while the agent has yet to say anything, under the
@@ -74,11 +77,14 @@ export function useThreadMessages(
 						false,
 						prompt.at,
 						now,
+						null,
+						happened[said.length],
 					),
 				]
 			: liked;
 	}, [
 		conversation.messages,
+		conversation.events,
 		conversation.id,
 		conversation.lastTask,
 		writing,
@@ -142,6 +148,8 @@ export function like(
 	now = Number.POSITIVE_INFINITY,
 	/** The task it runs in, or last ran in, whose todos it can have added. */
 	task: string | null = null,
+	/** What arbor did at the agent's word in this turn, oldest first. */
+	events: readonly Event[] = [],
 ): ThreadMessageLike {
 	const id = String(index);
 	if (message.role === "user") {
@@ -173,7 +181,7 @@ export function like(
 	// Its work and the words it said along the way as one row, but for its
 	// word that it added a task, then the last thing it said. Once the turn is
 	// over, that is its reply, read for cards, even with tool calls after it.
-	const all = stretchesOf(message, began, !settled, now);
+	const all = stretchesOf(message, began, !settled, now, events);
 	const reply = all.findLastIndex((stretch) => stretch.type === "said");
 	return {
 		id,
@@ -186,23 +194,25 @@ export function like(
 			...all.flatMap((stretch, at): LikePart[] =>
 				stretch.type === "work"
 					? [{ type: "data-work", data: { work: stretch.work } }]
-					: stretch.type === "added"
-						? stretches(stretch.text).flatMap((each): LikePart[] =>
-								each.type === "start"
-									? [{ type: "data-start", data: { start: each.start } }]
-									: each.type === "cred"
-										? [{ type: "data-cred", data: { name: each.name } }]
-										: each.type === "text"
-											? [{ type: "text", text: each.text }]
-											: [],
-							)
-						: at === reply
-							? replied(stretch.text, settled, {
-									task,
-									began,
-									until: message.until,
-								})
-							: [{ type: "text", text: stretch.text }],
+					: stretch.type === "event"
+						? [{ type: "data-event", data: { event: stretch.event } }]
+						: stretch.type === "added"
+							? stretches(stretch.text).flatMap((each): LikePart[] =>
+									each.type === "start"
+										? [{ type: "data-start", data: { start: each.start } }]
+										: each.type === "cred"
+											? [{ type: "data-cred", data: { name: each.name } }]
+											: each.type === "text"
+												? [{ type: "text", text: each.text }]
+												: [],
+								)
+							: at === reply
+								? replied(stretch.text, settled, {
+										task,
+										began,
+										until: message.until,
+									})
+								: [{ type: "text", text: stretch.text }],
 			),
 			...(message.stopped === undefined
 				? []
@@ -217,6 +227,26 @@ export function like(
 					]),
 		],
 	};
+}
+
+/**
+ * Each event by the index of the agent's turn it came in: the turn going at
+ * the time, or the one answering a prompt it followed, which the reply's
+ * place holds until the agent speaks. Each turn's events stay oldest first.
+ */
+function turnsOf(
+	said: Message[],
+	events: readonly Event[],
+): Record<number, Event[]> {
+	const turns: Record<number, Event[]> = {};
+	for (const event of events) {
+		const last = said.findLastIndex(
+			(message) => message.at !== null && message.at <= event.at,
+		);
+		const turn = said[last]?.role === "agent" ? last : last + 1;
+		turns[turn] = [...(turns[turn] ?? []), event];
+	}
+	return turns;
 }
 
 /** A file the person sent, as assistant-ui shows an attachment. */

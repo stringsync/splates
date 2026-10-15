@@ -57,6 +57,8 @@ export type Action = keyof Facts;
 
 /** What every event carries, whatever its action. */
 interface Common<A extends Action> {
+	/** Its own, so a reader following the log takes each event once. */
+	id: string;
 	at: string;
 	action: A;
 	/** The task it was about, or null when the command names none. */

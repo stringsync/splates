@@ -1,6 +1,7 @@
 import { Duration } from "webappwiz/time";
 import { stretches } from "../asked";
 import type { Decision, Message, Part, Step, Tool } from "../conversations";
+import type { Event } from "../events";
 import type { Flag } from "../watch";
 
 /**
@@ -24,12 +25,17 @@ export interface Work {
 
 /**
  * A stretch of an agent's turn: words it said, the words along the way that
- * say it added a task or requested a cred, or the work around them.
+ * say it added a task or requested a cred, something arbor did at its word,
+ * or the work around them.
  */
 export type Stretch =
 	| { type: "said"; text: string }
 	| { type: "added"; text: string }
+	| { type: "event"; event: Event }
 	| { type: "work"; work: Work };
+
+/** A stretch before its work is summed up: the work still its parts. */
+type Piece = Part[] | Exclude<Stretch, { type: "work" }>;
 
 /**
  * The agent's turn as one row of work, the words it said along the way
@@ -43,6 +49,8 @@ export function stretchesOf(
 	going: boolean,
 	/** The clock, as epoch ms, which words said while it goes are held by. */
 	now = Number.POSITIVE_INFINITY,
+	/** What arbor did at its word during it, oldest first. */
+	events: readonly Event[] = [],
 ): Stretch[] {
 	const parts = spoken(message);
 	// While the turn goes on, words with work after them were on the way, and
@@ -59,7 +67,7 @@ export function stretchesOf(
 	const said = parts[last];
 	const before = last === -1 ? parts : parts.slice(0, last);
 	const after = last === -1 ? [] : parts.slice(last + 1);
-	const kept: (Part[] | Exclude<Stretch, { type: "work" }>)[] = [];
+	const pieces: Piece[] = [];
 	// Its plan shows on a row of its own, above what it said, even with no work,
 	// and so does a turn going with nothing to show yet, so the row says Working
 	// in the place its work will fill.
@@ -68,15 +76,20 @@ export function stretchesOf(
 		(after.length === 0 && message.plan !== null) ||
 		(going && last === -1)
 	) {
-		kept.push(...cut(before, parts));
+		pieces.push(...cut(before, parts));
 	}
 	if (said?.type === "text") {
-		kept.push({ type: "said", text: said.text });
+		pieces.push({ type: "said", text: said.text });
 	}
 	if (after.length > 0) {
-		kept.push(after);
+		pieces.push(after);
 	}
+	const kept = placed(pieces, events);
 	const works = kept.filter((run) => Array.isArray(run));
+	// The last stretch but for events, which leave the work before them as it was.
+	const end = kept.findLastIndex(
+		(run) => Array.isArray(run) || run.type !== "event",
+	);
 	const final = works.at(-1);
 	return kept.map((run, index): Stretch => {
 		if (!Array.isArray(run)) {
@@ -93,14 +106,65 @@ export function stretchesOf(
 				plan: run === final ? message.plan : null,
 				at: run === works[0] ? began : startOf(run),
 				until:
-					index === kept.length - 1
+					index === end
 						? message.until
 						: (ended.sort().at(-1) ?? startOf(next ?? []) ?? message.until),
-				running: going && index === kept.length - 1,
+				running: going && index === end,
 				going,
 			},
 		};
 	});
+}
+
+/**
+ * `pieces` with each event placed by its time: the work it fell in cut
+ * around it, after the work it came at the end of, and the rest after all.
+ */
+function placed(pieces: Piece[], events: readonly Event[]): Piece[] {
+	const left = [...events];
+	// The events left that came before `by`, or by it too when `by` is an end.
+	const due = (by: string | null, end = false): Piece[] => {
+		const later = left.findIndex(
+			(event) => by === null || (end ? event.at > by : event.at >= by),
+		);
+		return left
+			.splice(0, later === -1 ? left.length : later)
+			.map((event): Piece => ({ type: "event", event }));
+	};
+	const out: Piece[] = [];
+	for (const piece of pieces) {
+		if (!Array.isArray(piece)) {
+			out.push(piece);
+			continue;
+		}
+		let from = 0;
+		piece.forEach((part, index) => {
+			const before = due(startOf([part]));
+			if (before.length === 0) {
+				return;
+			}
+			if (index > from) {
+				out.push(piece.slice(from, index));
+			}
+			out.push(...before);
+			from = index;
+		});
+		out.push(piece.slice(from), ...due(endOf(piece), true));
+	}
+	return [...out, ...left.map((event): Piece => ({ type: "event", event }))];
+}
+
+/** When the last of `parts` to say so ended, or began. */
+function endOf(parts: Part[]): string | null {
+	for (const part of [...parts].reverse()) {
+		if (part.type === "tool" && (part.until ?? part.at) !== null) {
+			return part.until ?? part.at;
+		}
+		if (part.type === "thought" && part.at !== null) {
+			return part.at;
+		}
+	}
+	return null;
 }
 
 /**

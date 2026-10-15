@@ -1,4 +1,5 @@
 import { Duration } from "webappwiz/time";
+import type { Event } from "./events";
 import type { Flag } from "./watch";
 
 /** Everything the page shows of one conversation. */
@@ -40,6 +41,11 @@ export interface ConversationState {
 	 */
 	heartbeat: string | null;
 	messages: Message[];
+	/**
+	 * What arbor did at its agent's word, oldest first, read from the journal
+	 * rather than its log, so the page can show each among its messages.
+	 */
+	events: Event[];
 	ask: Ask | null;
 	/** What the session lets the person pick: its mode, model, effort. */
 	settings: Setting[];
@@ -397,6 +403,7 @@ export function blank(
 		stoppedIdle: null,
 		heartbeat: null,
 		messages: [],
+		events: [],
 		ask: null,
 		settings: [],
 		commands: [],

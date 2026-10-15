@@ -74,6 +74,19 @@ export class Journal {
 		return events.slice(-count);
 	}
 
+	/**
+	 * The events in the log and in the file moved aside last: every event
+	 * written since a reader last looked, so long as it looks before the log
+	 * fills twice over.
+	 */
+	async recent(): Promise<Event[]> {
+		const last = (await this.archived()).at(-1);
+		return [
+			...(last === undefined ? [] : await this.read(join(this.archive, last))),
+			...(await this.read(this.path)),
+		];
+	}
+
 	private async append(
 		action: Action,
 		task: string | null,
@@ -81,6 +94,7 @@ export class Journal {
 		facts: object,
 	): Promise<void> {
 		const event = {
+			id: randomUUID(),
 			at: new Date().toISOString(),
 			action,
 			task,
