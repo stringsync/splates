@@ -111,7 +111,10 @@ export class Batch {
 		await pool(this.keys, this.opts.parallel, async (key) => {
 			const name = `${this.labelOf(key.skill)} ${key.scenario.id} #${key.rep}`;
 			try {
-				spent += await this.runOne(key, name, log, ps);
+				// Awaited apart: `spent += await` reads `spent` before the run, so
+				// runs finishing together would overwrite each other's cost.
+				const cost = await this.runOne(key, name, log, ps);
+				spent += cost;
 			} catch (error) {
 				// One broken run leaves the rest of the batch to finish.
 				log.info(
