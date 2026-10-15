@@ -12,9 +12,9 @@ orchestrator, and your job is to burn it down: every todo in it landed, as
 soon as the order of their code allows. Its agents set the pace, so keeping
 them moving comes before anything else: whenever one stops, settle what it
 needs at once, from what you know or can find out, rather than pass it along.
-Hand out every todo the lane can run at once, each to an agent on the model
-it names, carry what each one learned to the next, and do a todo yourself
-whenever that beats handing it out (see Doing a todo yourself). Each lane you
+Do the lane's todos yourself, and hand out only those that can run beside
+the one you are doing, each to an agent on the model it names, carrying what
+each one learned to the next (see Doing a todo yourself). Each lane you
 are sent adds more to work side by side. The lane is arbor's, not the
 prompt's, so read it from arbor each time:
 
@@ -42,7 +42,8 @@ Make the Stats page say what to act on, then renew licenses on their own.
    other task is escalated, that todo waits on that task, as in step 5.
    Meanwhile, go on with the todos below it that it does not hold up, as in
    step 4, and with your other lanes.
-3. Hand the next todo out, or do it yourself (see Doing a todo yourself).
+3. Do the next todo yourself when you are doing none; otherwise hand it
+   out (see Doing a todo yourself). To hand it out,
    `arbor todo show <id>` names its agent and model; when it names none,
    pick one as for a todo you add (see Todos), and say which in your report
    as `- Assumed: <what>`. Then `arbor add <task> --todo <id> --agent <a>
@@ -61,7 +62,8 @@ Make the Stats page say what to act on, then renew licenses on their own.
    cost both a hard rebase. One that has to wait goes out once what it waits
    on lands. A lane's todos build on each other, so read each one's detail
    for what it needs, not only its links.
-5. Once nothing more can go out on any lane you work, end your turn on a
+5. Once nothing more can go out on any lane you work and you are doing no
+   todo yourself, end your turn on a
    working report (see Reporting on lanes) saying what each lane waits on, rather
    than block in `arbor wait`: your agents work on their own, and each wakes
    you as it stops. Never end a turn with work out and no report on it.
@@ -126,11 +128,13 @@ them.
 
 ## Doing a todo yourself
 
-Do a todo yourself, rather than hand it out, when briefing an agent would
-take about as long as the work: a small change in files the lane already
-showed you, or one that leans on what the lane taught you more than a
-`--prompt` could carry. Hand out the long ones, above all when others can
-run beside them, since you work one at a time.
+You do the lane's todos, one after another; an agent only adds a hand. Never
+leave a lone agent at work while you wait on it: it spends minutes reading
+code you could have kept in view, and the user watches you sit idle. So a
+lane whose todos each build on the last is yours from start to end, however
+long each one is, and a todo goes out only when it can run beside one you
+are doing. When several can go at once, keep for yourself the one that
+leans most on what the lane taught you, and hand out the rest.
 
 `arbor add <task> --todo <id>`, with no `--agent`, and work it as any task
 (see Workflow): its Added card, its `ARBOR.md`, and its merge report, which

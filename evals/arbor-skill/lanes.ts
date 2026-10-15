@@ -30,7 +30,7 @@ const STARTED: EvalCheck = {
 	},
 };
 
-/** Works lane 1 down: hands out #1, then #3 once #1 lands, never untriaged #2. */
+/** Works lane 1 down itself: #1, then #3 once #1 lands, never untriaged #2. */
 export const LANE: Scenario = {
 	id: "lane",
 	turns: ["[ARBOR LANE 1]"],
@@ -47,7 +47,7 @@ export const LANE: Scenario = {
 		STARTED,
 		{
 			id: "in-order",
-			rule: "Reads the lane, then hands out #1 and #3 in order, never #2",
+			rule: "Reads the lane, then takes #1 and #3 in order, never #2",
 			judge: ({ log }) => {
 				const runs = arborRuns(log.transcript.beats);
 				const show = runs.findIndex(
@@ -61,7 +61,30 @@ export const LANE: Scenario = {
 				return [
 					{
 						ok,
-						why: `lane show ${show === -1 ? "never" : "ran"}; handed out ${taken.join(", ") || "nothing"}`,
+						why: `lane show ${show === -1 ? "never" : "ran"}; took ${taken.join(", ") || "nothing"}`,
+					},
+				];
+			},
+		},
+		{
+			id: "does-chain",
+			rule: "Does #1 and #3 itself, since #3 builds on #1 and nothing runs beside either",
+			judge: ({ log }) => {
+				const handed = arborRuns(log.transcript.beats).some(
+					(run) => run.verb === "add" && run.args.includes("--agent"),
+				);
+				const spawned = log.tools.some(
+					(tool) => tool.name === "Agent" || tool.name === "Task",
+				);
+				const ok = !handed && !spawned;
+				return [
+					{
+						ok,
+						why: handed
+							? "handed a todo to an agent"
+							: spawned
+								? "ran a subagent"
+								: "did both itself",
 					},
 				];
 			},
