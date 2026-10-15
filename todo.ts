@@ -297,3 +297,10 @@ function updated(before: TodoState, after: TodoState): Facts["todo update"] {
 	};
 	return { todo: after.id, subject: after.subject, changed };
 }
+
+/** `todos` as an event names them: each by its id and subject. */
+export function todosNamed(
+	todos: readonly Todo[],
+): { id: number; subject: string }[] {
+	return todos.map(({ id, subject }) => ({ id, subject }));
+}

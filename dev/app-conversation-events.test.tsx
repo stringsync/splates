@@ -96,6 +96,30 @@ describe("App's arbor events", () => {
 		expect(within(lines[0] as HTMLElement).getByTitle(/codex \(gpt-5\.5\)/));
 	});
 
+	it("draws a todo or todos taken, released or removed as one chip, and nothing when refused", async () => {
+		const thread = await opened(turn(["Done."]), [
+			todoEvent("todo take", 3, [{ id: 12, subject: "Fix the lease" }]),
+			todoEvent("todo release", 4, [
+				{ id: 1, subject: "One" },
+				{ id: 2, subject: "Two" },
+				{ id: 3, subject: "Three" },
+			]),
+			todoEvent("todo remove", 5, [{ id: 12, subject: "Fix the lease" }]),
+			todoEvent("todo take", 6, undefined, "not_found"),
+		]);
+
+		const lines = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(3);
+			return found;
+		});
+		const [took, released, removed] = lines.map((line) => line.textContent);
+		expect(took).toContain("Took#12 Fix the lease");
+		expect(released).toContain("Released3 todos");
+		expect(released).toContain("Two");
+		expect(removed).toContain("Removed#12 Fix the lease");
+	});
+
 	it("draws nothing for an action no line is drawn for yet", async () => {
 		const thread = await opened(turn(["Done."]), [
 			{
@@ -302,4 +326,23 @@ function claim(
 				reason,
 				conversation: "c1",
 			};
+}
+
+/** A todo command the agent ran at `secs`, refused as `reason` when given. */
+function todoEvent(
+	action: "todo take" | "todo release" | "todo remove",
+	secs: number,
+	todos?: { id: number; subject: string }[],
+	reason?: string,
+): Event {
+	const common = {
+		id: `${action}-${secs}`,
+		at: second(secs),
+		action,
+		task: "alpha",
+		conversation: "c1",
+	};
+	return reason === undefined
+		? { ...common, reason: null, todos: todos ?? [] }
+		: { ...common, reason };
 }

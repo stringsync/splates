@@ -98,7 +98,20 @@ const LINES: {
 	"lane add": (event) => laned("Started", event),
 	"lane update": (event) => laned("Updated", event),
 	"lane remove": (event) => laned("Removed", event),
+	"todo take": (event) => todoLine("Took", event),
+	"todo release": (event) => todoLine("Released", event),
+	"todo remove": (event) => todoLine("Removed", event),
 };
+
+/** The line a command on todos draws, none when it was refused. */
+function todoLine(
+	verb: string,
+	event: EventOf<"todo take" | "todo release" | "todo remove">,
+): ArborEventView | null {
+	return event.todos === undefined
+		? null
+		: { words: [verb, todos(event.todos)], at: event.at };
+}
 
 /**
  * The line `event` draws with the `also` that follow it, which for a run of
@@ -328,4 +341,12 @@ function ids(todos: number[]): string {
 /** The line of arbor dev itself stopping or starting, which names no chip. */
 function server(icon: "started" | "stopped", at: string): ArborEventView {
 	return { icon, words: [`arbor dev ${icon}`], at };
+}
+
+/** Todos as one chip: the todo itself when there is one, else a burst. */
+function todos(each: readonly { id: number; subject: string }[]): Named {
+	const [only] = each;
+	return only !== undefined && each.length === 1
+		? { kind: "todo", ...only }
+		: { kind: "todos", todos: each };
 }

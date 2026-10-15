@@ -106,15 +106,15 @@ export interface Facts {
 			assignee?: { agent: string; model?: string } | null;
 		};
 	};
-	"todo take": None;
+	"todo take": TodosFacts;
 	"todo wait": Waiting & {
 		/** The todo, by id. */
 		todo: number;
 		/** Its subject as the wait began, or null for a todo there is no such thing as. */
 		subject: string | null;
 	};
-	"todo release": None;
-	"todo remove": None;
+	"todo release": TodosFacts;
+	"todo remove": TodosFacts;
 	"lane add": {
 		/** The lane it started, by number. */
 		lane: number;
@@ -180,6 +180,11 @@ export interface Waiting {
 	until: string;
 	/** The id of the event it began with, on the one it ends with; null on that first. */
 	began: string | null;
+}
+
+/** The todos a command took, released or removed, as they were named then. */
+interface TodosFacts {
+	todos: { id: number; subject: string }[];
 }
 
 export type Action = keyof Facts;

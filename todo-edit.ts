@@ -161,8 +161,9 @@ export async function todoUpdate(
 export async function todoRemove(
 	{ todos, log }: { todos: Todos; log: Logger },
 	id: number,
-): Promise<void> {
+): Promise<Todo> {
 	const todo = await todos.find(id);
 	await todo.remove();
 	log.info(`${color.green("removed")} todo ${id}: ${todo.subject}`);
+	return todo;
 }

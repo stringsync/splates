@@ -11,7 +11,7 @@ import {
 	todoIds,
 } from "./arbor-flags";
 import { repository } from "./repository";
-import { recordUpdate } from "./todo";
+import { recordUpdate, todosNamed } from "./todo";
 import { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";
 import { todoRelease, todoTake } from "./todo-take";
@@ -189,8 +189,11 @@ arborTodo
 	})
 	.action(async (opts, ctx) => {
 		const task = await here(ctx);
-		await ctx.journal.record("todo take", task, () =>
-			todoTake(ctx, opts.ids, task),
+		await ctx.journal.record(
+			"todo take",
+			task,
+			() => todoTake(ctx, opts.ids, task),
+			(taken) => ({ todos: todosNamed(taken) }),
 		);
 	});
 
@@ -204,8 +207,11 @@ arborTodo
 	})
 	.action(async (opts, ctx) => {
 		const task = await here(ctx);
-		await ctx.journal.record("todo release", task, () =>
-			todoRelease(ctx, opts.ids, task),
+		await ctx.journal.record(
+			"todo release",
+			task,
+			() => todoRelease(ctx, opts.ids, task),
+			(released) => ({ todos: todosNamed(released) }),
 		);
 	});
 
@@ -214,7 +220,12 @@ arborTodo
 	.description("drop a todo that was done some other way or no longer applies")
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.action((opts, ctx) =>
-		ctx.journal.record("todo remove", null, () => todoRemove(ctx, opts.id)),
+		ctx.journal.record(
+			"todo remove",
+			null,
+			() => todoRemove(ctx, opts.id),
+			(removed) => ({ todos: todosNamed([removed]) }),
+		),
 	);
 
 arborTodo

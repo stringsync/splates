@@ -5,7 +5,7 @@ import type { ProjectWatch } from "./dev-project-watch";
 import { fail } from "./exit";
 import { laneUpdated, recordLaneRemove } from "./lane";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
-import { recordUpdate } from "./todo";
+import { recordUpdate, todosNamed } from "./todo";
 import { addedFacts } from "./todo-edit";
 
 /**
@@ -195,8 +195,11 @@ export class TodoRoutes {
 
 	readonly removeTodo = async (request: Request): Promise<Response> => {
 		const found = await this.todoAt(request);
-		await this.#project.journal.record("todo remove", null, () =>
-			found.remove(),
+		await this.#project.journal.record(
+			"todo remove",
+			null,
+			() => found.remove(),
+			() => ({ todos: todosNamed([found]) }),
 		);
 		await this.#watch.tick();
 		return Response.json(found.state);
