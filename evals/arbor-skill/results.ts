@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EndRepo } from "./fixture";
 import type { Grade } from "./grader";
-import type { Scenario } from "./scenarios";
+import type { Scenario } from "./scenario";
 import type { Usage } from "./transcript";
 
 /**

@@ -2,27 +2,6 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { stretches } from "./asked";
 
-/** The report examples the arbor skill shows agents, as agents copy them. */
-async function skillExamples(): Promise<string[]> {
-	const skill = await Bun.file(
-		join(import.meta.dir, "../../skills/arbor/SKILL.md"),
-	).text();
-	return [...skill.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map(
-		(match) => match[1] as string,
-	);
-}
-
-/** The skill's example that starts with `title`; a skill without one fails. */
-async function skillExample(title: string): Promise<string> {
-	const example = (await skillExamples()).find((each) =>
-		each.startsWith(title),
-	);
-	if (example === undefined) {
-		throw new Error(`the skill has no example titled ${title}`);
-	}
-	return example;
-}
-
 describe("stretches", () => {
 	it("reads the questions of the skill's own escalation example", async () => {
 		const example = await skillExample("## ⚠️ Escalated");
@@ -438,3 +417,31 @@ describe("stretches", () => {
 		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 });
+
+/**
+ * The report examples the arbor skill shows agents, as agents copy them,
+ * from its SKILL.md and every reference file alike.
+ */
+async function skillExamples(): Promise<string[]> {
+	const dir = join(import.meta.dir, "../../skills/arbor");
+	const files = await Array.fromAsync(new Bun.Glob("**/*.md").scan(dir));
+	const texts = await Promise.all(
+		files.toSorted().map((file) => Bun.file(join(dir, file)).text()),
+	);
+	return texts.flatMap((skill) =>
+		[...skill.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map(
+			(match) => match[1] as string,
+		),
+	);
+}
+
+/** The skill's example that starts with `title`; a skill without one fails. */
+async function skillExample(title: string): Promise<string> {
+	const example = (await skillExamples()).find((each) =>
+		each.startsWith(title),
+	);
+	if (example === undefined) {
+		throw new Error(`the skill has no example titled ${title}`);
+	}
+	return example;
+}

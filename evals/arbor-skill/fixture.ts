@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EndState } from "@webappwiz/arbor/skill-checks";
 import { $, type ShellExpression } from "bun";
-import type { Scenario } from "./scenarios";
+import type { Scenario } from "./scenario";
 
 /**
  * A throwaway arbor repository for one run: an uploader whose retries never
@@ -193,6 +193,9 @@ it("returns once the server accepts", async () => {
 });
 `,
 };
+
+/** The commits on main before the agent starts. */
+export const SEEDED = 2;
 
 /** Seeded in order, so #1 and #3 make lane 1 and #2 is untriaged. */
 const TODOS = [

@@ -1,4 +1,6 @@
-import { type EvalCheck, STARTS } from "./checks";
+import { STARTS } from "./checks";
+import { SEEDED } from "./fixture";
+import { LANE, UNTRIAGED } from "./lanes";
 import {
 	arborRuns,
 	lastSaid,
@@ -6,33 +8,7 @@ import {
 	section,
 	turnsOf,
 } from "./reading";
-
-/**
- * One situation the skill has to handle, run from a fresh fixture: the
- * prompts it is given, the skill sections it exercises, which pick it for a
- * change, and how it is graded, by code wherever a program can tell and by
- * a model only for what takes judgment.
- */
-export interface Scenario {
-	id: string;
-	/** Each turn's prompt; a later turn resumes the session of the first. */
-	turns: string[];
-	/** Shell run in the repository after the todos are seeded. */
-	setup?: string;
-	/** Headings of the skill sections it exercises, wherever they live; a change to one runs it. */
-	sections: string[];
-	checks: EvalCheck[];
-	/** What a model grades, each `<id>: <what passes>`. */
-	rubric: string[];
-}
-
-/** What a model grades in every scenario. */
-export const COMMON_RUBRIC = [
-	"decisions: every call the request did not settle (a wording, a default, a number, one reading of an ambiguous ask) was written down in ARBOR.md, numbered: under `## Assumptions` when it can be undone and has a clear pick, under `## Blocked` as a question when it is hard to undo, outward-facing or a close call, each with `- (a)` choices and the one taken marked `(chosen)`; fail when a call was made silently or asked only in prose (n/a when no task was added or there were no such calls)",
-];
-
-/** Sections every scenario leans on, beyond its own. */
-const CORE = ["Using arbor", "Workflow", "Saying what you added", "Reporting"];
+import { CORE, type Scenario } from "./scenario";
 
 export const SCENARIOS: readonly Scenario[] = [
 	{
@@ -165,82 +141,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			"calls-right: the calls written down cover what the request leaves open, such as the cap's number and what happens once it is reached, and each sits where the skill puts it: an assumption when it can be undone and has a clear pick, a question under `## Blocked` when it is hard to undo, outward-facing or a close call",
 		],
 	},
-	{
-		id: "lane",
-		turns: ["[ARBOR LANE 1]"],
-		sections: [
-			...CORE,
-			"Working a lane",
-			"Relaying for a lane's agents",
-			"Handing out part of your task",
-			"Links",
-		],
-		checks: [
-			{
-				id: "started-card",
-				rule: "Says it started the lane before handing anything out",
-				judge: ({ log }) => {
-					const beats = log.transcript.beats;
-					const first =
-						arborRuns(beats).find((run) => run.verb === "add")?.at ??
-						beats.length;
-					const ok = beats
-						.slice(0, first)
-						.some(
-							(beat) =>
-								beat.kind === "say" &&
-								beat.text.trim().startsWith("## 🌱 Started lanes"),
-						);
-					return [
-						{
-							ok,
-							why: ok
-								? "Started card first"
-								: "no Started card before the first add",
-						},
-					];
-				},
-			},
-			{
-				id: "in-order",
-				rule: "Reads the lane, then hands out #1 and #3 in order, never #2",
-				judge: ({ log }) => {
-					const runs = arborRuns(log.transcript.beats);
-					const show = runs.findIndex(
-						(run) => run.verb === "lane" && run.args[0] === "show",
-					);
-					const taken = runs
-						.filter((run) => run.verb === "add")
-						.map((run) => run.args[run.args.indexOf("--todo") + 1]);
-					const first = runs.findIndex((run) => run.verb === "add");
-					const ok = show !== -1 && show < first && taken.join(",") === "1,3";
-					return [
-						{
-							ok,
-							why: `lane show ${show === -1 ? "never" : "ran"}; handed out ${taken.join(", ") || "nothing"}`,
-						},
-					];
-				},
-			},
-			{
-				id: "lane-done",
-				rule: "Lands both todos and ends on a Finished lanes report",
-				judge: ({ log, end }) => {
-					const landed = end.main.length - SEEDED;
-					const finished = lastSaid(log.transcript.beats).startsWith(
-						"## 🏁 Finished lanes",
-					);
-					return [
-						{
-							ok: landed === 2 && finished,
-							why: `${landed} landed; ${finished ? "Finished report" : "no Finished report"}`,
-						},
-					];
-				},
-			},
-		],
-		rubric: [],
-	},
+	LANE,
 	{
 		id: "defer",
 		turns: [
@@ -249,6 +150,7 @@ export const SCENARIOS: readonly Scenario[] = [
 		sections: [
 			...CORE,
 			"Todos",
+			"Linking, placing and ordering todos",
 			"Links",
 			"Lanes",
 			"Positions",
@@ -380,7 +282,7 @@ export const SCENARIOS: readonly Scenario[] = [
 		turns: [
 			"Make #retries back off exponentially between attempts.\n\n#retries: no system answers to this name.",
 		],
-		sections: [...CORE, "Systems", "Asking as you go"],
+		sections: [...CORE, "Systems", "Offering a system", "Asking as you go"],
 		checks: [
 			STARTS,
 			{
@@ -423,7 +325,13 @@ Stop retrying an upload the server refused as too big (413), and tell the user w
 
 ## Notes
 EOF`,
-		sections: ["Using arbor", "Workflow", "Checkpoint", "ARBOR.md"],
+		sections: [
+			"Using arbor",
+			"Reference files",
+			"Workflow",
+			"Checkpoint",
+			"ARBOR.md",
+		],
 		checks: [
 			{
 				id: "claimed",
@@ -495,10 +403,8 @@ EOF`,
 			"notes-say-where: in turn 2 the `## Notes` of ARBOR.md say what the agent was doing when stopped and what comes next, and `## Done` and `## Next` match where the work stands",
 		],
 	},
+	UNTRIAGED,
 ];
-
-/** The commits on main before the agent starts. */
-const SEEDED = 2;
 
 /** How many numbered items, questions or assumptions, a section of ARBOR.md holds. */
 function numbered(text: string): number {
