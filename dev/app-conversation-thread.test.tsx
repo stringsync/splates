@@ -273,10 +273,10 @@ describe("App's conversation thread", () => {
 		).toBeNull();
 	});
 
-	it("counts down to an orchestrator's next heartbeat", async () => {
+	it("counts down to an orchestrator's next heartbeat once it is five minutes out", async () => {
 		const view = await testing.openConversations([
 			conversation({
-				heartbeat: new Date(Date.now() + 9 * 60_000 + 30_000).toISOString(),
+				heartbeat: new Date(Date.now() + 4 * 60_000 + 30_000).toISOString(),
 			}),
 		]);
 
@@ -285,12 +285,16 @@ describe("App's conversation thread", () => {
 				'[data-slot="heartbeat-banner"]',
 			)?.textContent,
 		).toBe(
-			"Heartbeat in 9:30. It checks on its agents then, unless it speaks first.",
+			"Heartbeat in 4:30. It checks on its agents then, unless it speaks first.",
 		);
 	});
 
-	it("shows no heartbeat while none is due", async () => {
-		const view = await testing.openConversations([conversation()]);
+	it("shows no heartbeat more than five minutes out", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				heartbeat: new Date(Date.now() + 9 * 60_000).toISOString(),
+			}),
+		]);
 
 		expect(
 			view.container.ownerDocument.querySelector(
