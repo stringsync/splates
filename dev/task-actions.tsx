@@ -187,6 +187,9 @@ export function ActionBar({
 	);
 }
 
+/** On a phone, the two fill a column each, as one pair. */
+const touchSplit = "pointer-coarse:w-full pointer-coarse:justify-center";
+
 /**
  * What to do with a task no agent is left on: put one on it, or remove it.
  */
@@ -202,14 +205,25 @@ export function TakeUpOrRemove({
 		<div
 			role="toolbar"
 			aria-label="actions"
-			className={cn("flex flex-wrap gap-2", className)}
+			className={cn(
+				"flex flex-wrap gap-2 pointer-coarse:grid pointer-coarse:grid-cols-2",
+				className,
+			)}
 		>
 			<StartMenu
 				assignment={{ kind: "task", task: task.task }}
 				label="Take up"
 				size="sm"
+				className={touchSplit}
 			/>
-			<ActionButton action={remove.action} outline />
+			<ActionButton
+				action={remove.action}
+				outline
+				className={cn(
+					"bg-transparent pointer-coarse:h-10 pointer-coarse:px-3",
+					touchSplit,
+				)}
+			/>
 			{remove.asking}
 		</div>
 	);
@@ -322,7 +336,7 @@ function useRemove(task: Details): { action: Action; asking: ReactNode } {
 		},
 		asking: (
 			<>
-				<Refusal refusal={refusal} className="w-full" />
+				<Refusal refusal={refusal} className="col-span-full w-full" />
 				<Dialog open={asking} onOpenChange={setAsking}>
 					<DialogContent showCloseButton={false}>
 						<DialogHeader>
