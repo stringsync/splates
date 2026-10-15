@@ -10,13 +10,15 @@ import { PAGES, type Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
 import { IconButton, Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
+import { NextWaiting } from "./phone-thread";
 import type { Terminals } from "./terminals";
 
 /**
  * The page on a phone, a layout of its own beside the sidebar's: the inbox of
  * agents is home, an open conversation takes the whole screen with its own way
  * back, and every other page sits under a bar whose menu opens the drawer and
- * whose pen, as the inbox's, starts a new conversation.
+ * whose pen, as the inbox's, starts a new conversation, beside how many agents
+ * wait on you, as a thread's header says.
  * What each page shows, `body`, is the same as on a wide screen.
  */
 export function PhoneApp({
@@ -100,6 +102,15 @@ export function PhoneApp({
 							</span>
 							{status}
 						</h1>
+						{available && snapshot !== null && (
+							<NextWaiting
+								feed={talk}
+								drafts={drafts}
+								tasks={snapshot.tasks}
+								open={null}
+								onOpen={(id) => go("conversations", id)}
+							/>
+						)}
 						{available && (
 							<IconButton
 								label="New conversation"

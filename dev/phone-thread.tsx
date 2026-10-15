@@ -106,7 +106,8 @@ export function PhoneThreadHeader({
 
 /**
  * How many other agents wait on you, which a tap goes on to, the next of
- * them first, as ⌥⌘M does; nothing when none does.
+ * them first, as ⌥⌘M does; nothing when none does. Heads a thread, and the
+ * bar of every page but the inbox, which lists them itself.
  */
 export function NextWaiting({
 	feed,
@@ -118,8 +119,8 @@ export function NextWaiting({
 	feed: ConversationFeed;
 	drafts: Drafts;
 	tasks: Details[];
-	/** The conversation shown. */
-	open: string;
+	/** The conversation shown, or null on a page that shows none. */
+	open: string | null;
 	onOpen: (id: string) => void;
 }): ReactNode {
 	const { conversations } = useReactive(

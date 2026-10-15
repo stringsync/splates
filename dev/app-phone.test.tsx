@@ -371,6 +371,34 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
+	it("goes from atop any other page to the next agent waiting on you", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", title: "Broke", status: "failed" }),
+				conversation({ id: "c2", title: "Also broke", status: "failed" }),
+			],
+			null,
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		const drawer = await waitFor(() =>
+			view.getByRole("dialog", { name: "Pages" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
+		);
+		expect(location.hash).toBe("#tasks");
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Next waiting on you, of 2" }),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/c1");
+	});
+
 	it("starts a new conversation with the same agent from a conversation's menu", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Broke", agent: "codex" }),
