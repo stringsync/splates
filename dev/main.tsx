@@ -6,6 +6,7 @@ import { App } from "./app";
 import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
+import { EVENTS_PREVIEW, EventsPreview } from "./events-preview";
 import { Settings } from "./settings";
 
 const root = document.getElementById("root");
@@ -72,9 +73,15 @@ const dictation =
 		: null;
 
 createRoot(root).render(
-	<StrictMode>
-		<DictationContext value={dictation}>
-			<App settings={settings} />
-		</DictationContext>
-	</StrictMode>,
+	location.hash === EVENTS_PREVIEW ? (
+		<StrictMode>
+			<EventsPreview settings={settings} />
+		</StrictMode>
+	) : (
+		<StrictMode>
+			<DictationContext value={dictation}>
+				<App settings={settings} />
+			</DictationContext>
+		</StrictMode>
+	),
 );

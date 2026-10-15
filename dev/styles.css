@@ -126,6 +126,8 @@
 @source "./back.tsx";
 @source "./background.tsx";
 @source "./terminal.tsx";
+@source "./arbor-event.tsx";
+@source "./events-preview.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";
 
