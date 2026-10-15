@@ -163,9 +163,14 @@ export function KeyboardDownOnTouchPlugin(): null {
 /**
  * Puts the caret back in the editor once what moved it settles, on a touch
  * device. iOS Safari draws the caret where it was placed and leaves it there
- * when the editor moves without an edit, as the keyboard resizes the screen
- * or the thread scrolls under its sticky footer, so the caret floats over the
- * thread. Setting the same selection again makes it draw the caret anew.
+ * when the editor moves without an edit, so the caret floats over the thread
+ * or below the box. Setting the same selection again makes it draw the caret
+ * anew.
+ *
+ * The editor's place on the page is watched each frame while it has the
+ * focus, rather than the events that move it: the phone's screen is pinned to
+ * the keyboard by a style React sets after the viewport's events, and what
+ * sits in the footer can move the box with no event at all.
  */
 export function CaretInPlacePlugin(): null {
 	const [editor] = useLexicalComposerContext();
@@ -173,28 +178,48 @@ export function CaretInPlacePlugin(): null {
 		if (!matchMedia(TOUCH).matches) {
 			return;
 		}
-		const settled = new Debouncer(new SystemTimer(), CARET_SETTLE);
-		const moved = () => {
-			const root = editor.getRootElement();
-			if (root?.contains(document.activeElement)) {
-				settled.call(() => redrawCaret(root));
+		return editor.registerRootListener((root) => {
+			if (root === null) {
+				return;
 			}
-		};
-		const viewport = window.visualViewport;
-		viewport?.addEventListener("resize", moved);
-		viewport?.addEventListener("scroll", moved);
-		// Captured, since a scroll does not bubble and the thread's scroller is
-		// an ancestor whose name this plugin need not know.
-		document.addEventListener("scroll", moved, {
-			capture: true,
-			passive: true,
+			const settled = new Debouncer(new SystemTimer(), CARET_SETTLE);
+			let frame = 0;
+			let last = "";
+			const watch = () => {
+				const box = root.getBoundingClientRect();
+				// Where it sits on the page, which is where iOS keeps its caret:
+				// the page scrolls under a pinned screen as Safari pans.
+				const place = `${box.left + scrollX},${box.top + scrollY}`;
+				if (place !== last) {
+					if (last !== "") {
+						settled.call(() => redrawCaret(root));
+					}
+					last = place;
+				}
+				frame = requestAnimationFrame(watch);
+			};
+			const focused = () => {
+				cancelAnimationFrame(frame);
+				last = "";
+				frame = requestAnimationFrame(watch);
+			};
+			const blurred = (event: FocusEvent) => {
+				if (!root.contains(event.relatedTarget as Node | null)) {
+					cancelAnimationFrame(frame);
+				}
+			};
+			root.addEventListener("focusin", focused);
+			root.addEventListener("focusout", blurred);
+			if (root.contains(document.activeElement)) {
+				focused();
+			}
+			return () => {
+				cancelAnimationFrame(frame);
+				settled.dispose();
+				root.removeEventListener("focusin", focused);
+				root.removeEventListener("focusout", blurred);
+			};
 		});
-		return () => {
-			settled.dispose();
-			viewport?.removeEventListener("resize", moved);
-			viewport?.removeEventListener("scroll", moved);
-			document.removeEventListener("scroll", moved, { capture: true });
-		};
 	}, [editor]);
 	return null;
 }
