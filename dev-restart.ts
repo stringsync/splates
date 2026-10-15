@@ -173,6 +173,8 @@ export class Restarts {
 				{},
 			);
 		}
+		// Held commands do not refuse it, unlike restartIdle: the page warns
+		// of them first, and agents are asked only after this point.
 		// One under way already restarts once its agents answer.
 		if (this.restarting !== null) {
 			return Response.json({});
