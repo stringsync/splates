@@ -14,7 +14,6 @@ import {
 } from "react";
 import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
 import { DropdownMenuItem } from "#dev/components/ui/dropdown-menu.tsx";
-import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { AutoRestart } from "./auto-restart";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
@@ -33,8 +32,8 @@ import { ontoOf, UpdateDot } from "./release";
 /** How a checkpoint stands, and what opens its dialog. */
 interface Checkpointing {
 	slide: Slide;
-	/** What the header says of a run under way or just ended; null for nothing. */
-	badge: Badge | null;
+	/** What the header says of a run under way; null for nothing. */
+	badge: string | null;
 	title: string;
 	/** Why the projects could not be listed, for a moment. */
 	refusal: string | null;
@@ -54,20 +53,13 @@ export function useCheckpoint(): Checkpointing {
 }
 
 /**
- * The page's one checkpoint, and the dialog, opened by `open`, to
- * checkpoint any of the projects with agents running, which says how one
- * under way gets on, then slides on to what to do once it is done, or to
- * `arbor dev` restarting when that was asked for, and from there to what to
- * do after the restart, or to each agent carrying on. Says how it stands to
- * `children`, so the dialog can be closed meanwhile and opened again from
- * them, and still says it is done while open, and for a minute once closed, after its agents carry on.
- * Asks the server for every project again as `conversations`, this
- * project's, change, and every `every`, a second by default, while a
- * checkpoint or restart is under way or the dialog is open. Holds the
- * Restart slide for `restartShown` at least, three seconds by default, even
- * once `arbor dev` is back, then reloads the page. Shows `autoRestart`'s
- * countdown too, opening for it, and its restart as its own, and holds it off
- * while open.
+ * Holds the page's one checkpoint and Power's dialog: wrap the page in it,
+ * and read it through `useCheckpoint` from the controls that open the dialog
+ * or say how a restart stands. Pass this project's `conversations`, so a
+ * checkpoint hears of their answers at once, and `autoRestart`, whose
+ * countdown it shows; `every`, `restartShown` and `reload` are for tests.
+ * After a restart's reload, it opens on how the restart ended and the arbor
+ * it now runs.
  */
 export function CheckpointProvider({
 	conversations,
@@ -86,7 +78,10 @@ export function CheckpointProvider({
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
-	const [open, setOpen] = useState(false);
+	// Back from a restart's reload, the arbor it left ("" when unknown).
+	const [returned] = useState(() => sessionStorage.getItem(RESTARTED));
+	// Back from a restart's reload, open on how it ended.
+	const [open, setOpen] = useState(returned !== null);
 	useDisposerEffect(
 		(disposer) => disposer.use(autoRestart.start()),
 		[autoRestart],
@@ -97,18 +92,13 @@ export function CheckpointProvider({
 		["changed"],
 	);
 	useEffect(() => autoRestart.hold(open), [autoRestart, open]);
-	// Back from a restart's reload, for the header to say so for a while.
-	const [fresh, setFresh] = useState(
-		() => sessionStorage.getItem(RESTARTED) !== null,
-	);
-	useEffect(() => {
-		sessionStorage.removeItem(RESTARTED);
-		if (!fresh) {
-			return;
-		}
-		const shown = new SystemTimer().setTimeout(() => setFresh(false), ENDED);
-		return () => shown.dispose();
-	}, [fresh]);
+	// Back from a restart's reload, until the first listing says how it ended.
+	const returning = useRef(returned !== null);
+	// The arbor the restart left, for its last slide; null when unknown.
+	const [from, setFrom] = useState(returned || null);
+	useEffect(() => sessionStorage.removeItem(RESTARTED), []);
+	// The arbor this run runs, as the restart it may yet leave on finds it.
+	const running = useRef<string | null>(null);
 	// Whether a restart or shutdown checkpoints first, as last picked.
 	const [checkpoint, setCheckpoint] = useState(true);
 	// How to reload the page once a restart is back, as of the last render.
@@ -212,6 +202,9 @@ export function CheckpointProvider({
 		const live = slideOf(standing(shown.flatMap((each) => each.conversations)));
 		// Asks again once the Restart slide has shown long enough.
 		void shownLong;
+		if (restarting === null || listed.run === restarting.run) {
+			running.current = listed.running;
+		}
 		if (restarting !== null && listed.run !== restarting.run) {
 			const clock = new SystemClock();
 			restartSince.current ??= clock.now();
@@ -227,8 +220,9 @@ export function CheckpointProvider({
 			}
 			restartSince.current = null;
 			// Served afresh, so the page runs what the new run built, and
-			// says there that it restarted.
-			sessionStorage.setItem(RESTARTED, "1");
+			// opens there on how the restart ended.
+			sessionStorage.setItem(RESTARTED, running.current ?? "");
+			setFrom(running.current);
 			reloads.current();
 			setRestarting(null);
 			// Carried on before the page saw them told to.
@@ -253,6 +247,13 @@ export function CheckpointProvider({
 		const end = endOf(listed, live, { resumed, last });
 		if (end !== null) {
 			setEnded(end);
+		}
+		// Back after the agents carried on, or with none to: restarted, then.
+		if (returning.current) {
+			returning.current = false;
+			if (end === null && live === "pick") {
+				setBack(listed.running);
+			}
 		}
 		if (resumed.current) {
 			resumed.current = false;
@@ -309,11 +310,7 @@ export function CheckpointProvider({
 	const title = titleOf(slide, run, restarted !== null);
 	// Checkpointed and not yet told to carry on.
 	const waiting = all.asked.filter((each) => each.checkpoint === "done").length;
-	const badge = badgeOf(slide, run, {
-		waiting,
-		restarted: restarted !== null,
-		fresh,
-	});
+	const badge = badgeOf(slide, run, waiting);
 	const value = useMemo(
 		() => ({ slide, badge, title, refusal, open: opened }),
 		[slide, badge, title, refusal, opened],
@@ -335,6 +332,7 @@ export function CheckpointProvider({
 						setEnded(null);
 					}
 					setBack(null);
+					setFrom(null);
 				}}
 				onRestart={(shutdown = false) =>
 					setRestarting(
@@ -357,6 +355,7 @@ export function CheckpointProvider({
 				run={run}
 				title={title}
 				restarted={restarted}
+				from={from}
 				onto={listed === null ? null : ontoOf(listed)}
 				current={listed?.projects ?? []}
 				restartable={listed?.restartable ?? false}
@@ -409,8 +408,8 @@ export function CheckpointItem({
 }
 
 /**
- * The header's word on a restart under way or just ended, as plain text in
- * the path's place, opening Power; nothing otherwise.
+ * The header's word on a restart under way, as plain text in the path's
+ * place, opening Power; nothing otherwise.
  */
 export function PowerBadge(): JSX.Element | null {
 	const { badge, open } = useCheckpoint();
@@ -422,17 +421,10 @@ export function PowerBadge(): JSX.Element | null {
 			type="button"
 			title="Open Power"
 			onClick={() => open()}
-			className={cn(
-				"flex min-w-0 items-center gap-1.5 self-start text-xs hover:underline",
-				badge.tone === "busy" ? "text-muted-foreground" : "text-success",
-			)}
+			className="flex min-w-0 items-center gap-1.5 self-start text-muted-foreground text-xs hover:underline"
 		>
-			{badge.tone === "busy" ? (
-				<Loader2Icon aria-hidden className="size-3 shrink-0 animate-spin" />
-			) : (
-				<CheckIcon aria-hidden className="size-3 shrink-0" />
-			)}
-			<span className="truncate">{badge.label}</span>
+			<Loader2Icon aria-hidden className="size-3 shrink-0 animate-spin" />
+			<span className="truncate">{badge}</span>
 		</button>
 	);
 }
@@ -496,43 +488,26 @@ const RESTART_SHOWN = Duration.secs(3);
 /** How often the projects are asked for while a checkpoint is under way. */
 const EVERY = Duration.secs(1);
 
-/** Where a restart's reload leaves word that it restarted, for the tab alone. */
+/**
+ * Where a restart's reload leaves word that it restarted, and the arbor it
+ * left, for the tab alone.
+ */
 const RESTARTED = "arbor.power.restarted";
 
-/** What the header says of a run: a word, and how it went. */
-export interface Badge {
-	label: string;
-	tone: "busy" | "done";
-}
-
 /**
- * The header's word on the run `slide` is in, so a restart's end shows after
- * the reload too, whether or not Power is open: under way, its agents
- * `waiting` being resumed, or done, for a while once `fresh` from a reload.
+ * The header's word on the run `slide` is under way in, so it shows whether or
+ * not Power is open, with its agents `waiting` being resumed; null once done,
+ * which Power's last slide says instead.
  */
-function badgeOf(
-	slide: Slide,
-	run: Run,
-	{
-		waiting,
-		restarted,
-		fresh,
-	}: { waiting: number; restarted: boolean; fresh: boolean },
-): Badge | null {
+function badgeOf(slide: Slide, run: Run, waiting: number): string | null {
 	if ((slide === "going" && run === "restart") || slide === "restarting") {
-		return { label: "Restarting", tone: "busy" };
+		return "Restarting";
 	}
-	if (slide === "going" && run === "shutdown") {
-		return { label: "Shutting down", tone: "busy" };
-	}
-	if (slide === "shuttingDown") {
-		return { label: "Shutting down", tone: "busy" };
+	if ((slide === "going" && run === "shutdown") || slide === "shuttingDown") {
+		return "Shutting down";
 	}
 	if (slide === "resuming") {
-		return { label: `Resuming ${plural(waiting)}`, tone: "busy" };
-	}
-	if ((slide === "ended" && restarted) || (fresh && slide === "pick")) {
-		return { label: "Restarted", tone: "done" };
+		return `Resuming ${plural(waiting)}`;
 	}
 	return null;
 }

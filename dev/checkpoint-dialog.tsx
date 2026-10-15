@@ -64,6 +64,7 @@ export function CheckpointDialog({
 	run,
 	title,
 	restarted,
+	from,
 	onto,
 	current,
 	restartable,
@@ -89,6 +90,8 @@ export function CheckpointDialog({
 	title: string;
 	/** The arbor a restart came back on; null when none did. */
 	restarted: string | null;
+	/** The arbor the restart left; null when unknown. */
+	from: string | null;
 	/** A newer arbor, which a restart lands on. */
 	onto: string | null;
 	/** The projects as the server lists them now, after a restart too. */
@@ -124,8 +127,6 @@ export function CheckpointDialog({
 		checkpointed: all.asked.length > 0,
 		resumes,
 	});
-	const on = (version: string | null) =>
-		version === null ? "" : `Now on arbor ${version}. `;
 	const said =
 		slide === "counting" && countdown !== null
 			? `arbor dev is behind ${countdown.onto}, and you and every agent have been idle for a minute. This page reloads once it is back.`
@@ -134,11 +135,11 @@ export function CheckpointDialog({
 				: slide === "restarting"
 					? `arbor dev is restarting${onto === null ? "" : ` on ${onto}`}. This page reloads once it is back.`
 					: slide === "resuming"
-						? `${on(restarted)}${carried} of ${plural(resumable.length)} back at work.`
+						? `${carried} of ${plural(resumable.length)} back at work.`
 						: slide === "ended"
-							? `${on(restarted)}${plural(carried)} back at work.`
+							? `${plural(carried)} back at work.`
 							: slide === "restarted"
-								? on(restarted).trim()
+								? "arbor dev is back."
 								: slide === "shuttingDown"
 									? "arbor dev is shutting down."
 									: slide === "shutDown"
@@ -201,6 +202,9 @@ export function CheckpointDialog({
 								<DialogDescription>{said}</DialogDescription>
 							</DialogHeader>
 							<Steps steps={steps} />
+							{restarted !== null && (
+								<Version running={restarted} from={from} />
+							)}
 							<MissedList projects={projects} onOpen={onClose} />
 							<Refusal refusal={refusal} />
 							<DialogFooter>
@@ -223,6 +227,30 @@ export function CheckpointDialog({
 				{slide === "pick" && <Refusal refusal={refusal} />}
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+/**
+ * The arbor a restart came back on, plainly, and the one it left when that
+ * differs.
+ */
+function Version({
+	running,
+	from,
+}: {
+	running: string;
+	from: string | null;
+}): JSX.Element {
+	return (
+		<div className="rounded-md border bg-muted/40 px-3 py-2">
+			<p className="text-muted-foreground text-xs">Now running</p>
+			<p className="font-medium">arbor {running}</p>
+			{from !== null && from !== running && (
+				<p className="text-muted-foreground text-xs">
+					Updated from arbor {from}
+				</p>
+			)}
+		</div>
 	);
 }
 

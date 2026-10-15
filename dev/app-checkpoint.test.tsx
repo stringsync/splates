@@ -126,7 +126,8 @@ describe("App's checkpoint dialog", () => {
 		testing.run = "run-2";
 		const restarted = await waitFor(() => {
 			const shown = view.getByRole("dialog", { name: "arbor dev restarted" });
-			expect(shown.textContent).toContain("Now on arbor 0.0.1.");
+			expect(shown.textContent).toContain("arbor dev is back.");
+			within(shown).getByText("arbor 0.0.1");
 			return shown;
 		});
 		expect(within(restarted).queryByText("No agent is running.")).toBeNull();
