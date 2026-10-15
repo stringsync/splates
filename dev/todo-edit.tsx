@@ -18,13 +18,14 @@ import type { TodoState } from "../todo";
 import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
 import { CopyLink } from "./card";
-import { AssigneeMenu, OnIt, StartMenu } from "./dispatching";
+import { AssigneeMenu, OnIt } from "./dispatching";
 import { todoEdit } from "./drafts";
 import { AttachButton, Dropped, FileList } from "./files";
 import { Links } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
+import { StartAssigned, StartMenu } from "./start-menu";
 import { TodoEditor } from "./todo-editor";
 
 /**
@@ -115,6 +116,13 @@ export function Edit({
 				</MentionAnchor>
 				{todo.takenBy === null ? (
 					<div className="flex flex-wrap items-center gap-2">
+						{todo.assignee && (
+							<StartAssigned
+								assignment={{ kind: "todo", id: todo.id }}
+								assignee={todo.assignee}
+								onStart={onDone}
+							/>
+						)}
 						<StartMenu
 							assignment={{ kind: "todo", id: todo.id }}
 							assignee={todo.assignee ?? null}

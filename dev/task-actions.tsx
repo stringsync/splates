@@ -34,8 +34,9 @@ import { useWide } from "./app-nav";
 import { touchItems } from "./board";
 import { ReviewChanges } from "./changes";
 import { TASK } from "./conversation-address";
-import { Dispatching, OnIt, StartItems, StartMenu } from "./dispatching";
+import { Dispatching, OnIt } from "./dispatching";
 import { Refusal, useRefusal } from "./refusal";
+import { StartItems, StartMenu } from "./start-menu";
 import { arriveAt } from "./task-view";
 
 /** Something to do with a task: a button in the bar, or an item in its menu. */

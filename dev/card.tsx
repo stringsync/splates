@@ -32,6 +32,7 @@ import { Board, still, touchArea } from "./board";
 import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
+import { StartAssigned } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 
 export interface CardProps {
@@ -116,6 +117,14 @@ export function Card({
 						<Badge Icon={PaperclipIcon} label="files">
 							{todo.files.length}
 						</Badge>
+					)}
+					{/* Its assigned agent starts it in one tap; one blocked waits. */}
+					{todo.takenBy === null && todo.assignee && blockers.length === 0 && (
+						<StartAssigned
+							assignment={{ kind: "todo", id: todo.id }}
+							assignee={todo.assignee}
+							quiet
+						/>
 					)}
 					{todo.takenBy && <TakenBy task={todo.takenBy} />}
 					{todo.takenBy && <OnIt task={todo.takenBy} spinning={false} />}

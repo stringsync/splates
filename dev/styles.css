@@ -36,6 +36,7 @@
 @source "./tasks.tsx";
 @source "./task-actions.tsx";
 @source "./dispatching.tsx";
+@source "./start-menu.tsx";
 @source "./markdown.tsx";
 @source "./media.tsx";
 @source "./lightbox.tsx";

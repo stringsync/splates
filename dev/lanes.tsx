@@ -18,10 +18,11 @@ import { AddTodo } from "./add-todo";
 import { renameLane } from "./api";
 import { Board, still } from "./board";
 import { Card, copiedLabel, useCopy } from "./card";
-import { Dispatching, OnIt, StartMenu } from "./dispatching";
+import { Dispatching, OnIt } from "./dispatching";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu } from "./lane-menu";
 import { Refusal } from "./refusal";
+import { StartMenu } from "./start-menu";
 import { TaskIcon } from "./task-icon";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
