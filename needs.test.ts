@@ -301,6 +301,44 @@ describe("needs", () => {
 		]);
 	});
 
+	it("waits on the conversation whose agent added an external agent's task, naming it", () => {
+		const of = (archived: boolean) =>
+			needs({
+				tasks: [
+					task({
+						task: "sub",
+						status: "escalated",
+						escalation: "look",
+						caller: "orch",
+					}),
+				],
+				conversations: [
+					talk({ id: "orch", task: null, status: "idle", archived }),
+				],
+			});
+
+		const listed = of(false);
+		expect(
+			listed.map((each) => [
+				each.conversation?.id ?? each.task?.task,
+				each.need.kind,
+			]),
+		).toEqual([
+			["orch", "waiting"],
+			["sub", "idle"],
+		]);
+		expect(listed[0]?.need).toMatchObject({
+			why: "escalated",
+			subject: "look",
+			via: "sub",
+		});
+		// Its caller archived, it waits on the person again, never on no row.
+		expect(of(true)[0]).toMatchObject({
+			task: { task: "sub" },
+			need: { kind: "waiting", why: "escalated" },
+		});
+	});
+
 	it("leaves out a task handed to an agent whose conversation has yet to start", () => {
 		expect(
 			needs({ tasks: [task({ dispatched: true })], conversations: [] }),

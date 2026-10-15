@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import {
 	type JSX,
+	useContext,
 	useEffect,
 	useEffectEvent,
 	useMemo,
@@ -20,7 +21,7 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import { age } from "../age";
 import type { ConversationState, Session } from "../conversations";
-import type { Need } from "../needs";
+import { answersTo, type Need } from "../needs";
 import type { Question } from "../plan";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
@@ -29,7 +30,9 @@ import { type Reply, ReplyContext } from "./card-reply";
 import { toCardTop } from "./card-shell";
 import { bringSession, listSessions } from "./conversation-api";
 import { type AgentChoice, agentName } from "./conversation-feed";
+import { useNameOf } from "./conversation-names";
 import { type Drafts, externalDraft } from "./drafts";
+import { Held } from "./handed-out";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { SystemsButton, SystemsCard } from "./systems";
@@ -37,6 +40,143 @@ import { Task } from "./tasks";
 
 /** What `#conversations/task/<name>` opens: a task whose agent runs outside the page. */
 export const TASK = "task/";
+
+/**
+ * A task whose agent runs outside the page, such as in Claude Code or Codex,
+ * where its conversation would be: the same header, its open questions as
+ * cards, and what the page knows of the agent beyond its plan, whose details
+ * the header's task line opens. The page cannot message that agent, so the cards
+ * copy their answers to paste into its own session, unless its session is
+ * brought in. What is written in them is kept in `drafts` until the agent
+ * has none open, so a reload loses nothing. An agent that answers to a
+ * conversation, such as a subagent its harness started, is answered there,
+ * so its cards are read-only and the view links to that one.
+ */
+export function TaskView({
+	task,
+	need,
+	agents,
+	drafts,
+	onBrought,
+	onOpen,
+	onBack,
+}: {
+	task: Details;
+	need: Need;
+	agents: AgentChoice[];
+	drafts: Drafts;
+	/** Opens a session brought in, as the conversation it now is. */
+	onBrought: (conversation: ConversationState) => void;
+	/** Opens the conversation it answers to. */
+	onOpen: (id: string) => void;
+	/** Back to the list, on a phone; null beside a sidebar. */
+	onBack: (() => void) | null;
+}): JSX.Element {
+	const [details, setDetails] = useState(false);
+	const by = answersTo({ conversation: null, task }, useContext(Held));
+	const open = openQuestions(need);
+	const section = useRef<HTMLElement>(null);
+	const kept = draftOf(task.task);
+	const reply = useMemo<Reply>(
+		() => ({
+			send: null,
+			drafts: {
+				read: (name) => drafts.read(`${kept}:${name}`),
+				write: (name, text) => drafts.write(`${kept}:${name}`, text),
+			},
+		}),
+		[drafts, kept],
+	);
+	// Seen as they show, so they wait on you no longer. Once its agent
+	// recorded every answer, nothing is left to keep.
+	const shown = asking(open);
+	useEffect(() => {
+		drafts.write(`${kept}:seen`, shown);
+		if (shown === "") {
+			drafts.write(`${kept}:questions`, "");
+			drafts.write(`${kept}:copied`, "");
+		}
+	}, [shown, drafts, kept]);
+	useArrived(`${TASK}${task.task}`, () => toWaiting(section.current));
+	return (
+		<section
+			ref={section}
+			aria-label={task.task}
+			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+		>
+			<header className="flex min-h-9 items-center gap-2">
+				{onBack !== null && <Back onBack={onBack} />}
+				<div className="flex min-w-0 flex-1 flex-col">
+					<h2 className="flex min-w-0 items-center gap-1.5 font-medium text-sm">
+						<SquareArrowOutUpRightIcon
+							role="img"
+							aria-label="external agent"
+							className="size-3.5 shrink-0 text-foreground/70"
+						/>
+						<span className="truncate">{task.task}</span>
+					</h2>
+					<TaskLine
+						branch={task.branch}
+						task={task}
+						onDetails={() => setDetails(true)}
+					/>
+				</div>
+				<SystemsButton systems={task.systems} />
+			</header>
+			<div className="relative min-h-0 flex-1 overflow-y-auto">
+				{/* Where a conversation's widgets stand, at the right. */}
+				<div className="absolute top-4 right-4 hidden w-60 @min-[61rem]:block">
+					<SystemsCard systems={task.systems} />
+				</div>
+				<div className="@min-[61rem]:pe-[16.75rem]">
+					<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
+						{by !== null ? (
+							<ReportsTo by={by} onOpen={onOpen} />
+						) : (
+							<Alert variant="warning">
+								<TriangleAlertIcon />
+								<AlertTitle>Its agent runs outside the page</AlertTitle>
+								<AlertDescription>
+									The page cannot message it: answer here, then paste the reply
+									into its own session, or bring that session in below.
+								</AlertDescription>
+							</Alert>
+						)}
+						{open.length > 0 && (
+							<div
+								id={`questions-${task.task}`}
+								className="flex flex-col gap-2"
+							>
+								<ReplyContext value={by === null ? reply : null}>
+									<QuestionCards
+										questions={open}
+										draft="questions"
+										copy={by === null}
+										onSent={() => drafts.write(`${kept}:copied`, asking(open))}
+									/>
+								</ReplyContext>
+							</div>
+						)}
+						{open.length === 0 && (
+							<p className="text-muted-foreground">No open questions.</p>
+						)}
+						<Agent task={task} />
+						{by === null && (
+							<Sessions
+								task={task.task}
+								agents={agents}
+								onBrought={onBrought}
+							/>
+						)}
+					</div>
+				</div>
+			</div>
+			<Dialog open={details} onOpenChange={setDetails}>
+				{details && <Task task={task} />}
+			</Dialog>
+		</section>
+	);
+}
 
 /** The questions an agent has open: unchecked and unanswered in its plan. */
 export function openQuestions(need: Need): Question[] {
@@ -212,123 +352,38 @@ export function TaskLine({
 }
 
 /**
- * A task whose agent runs outside the page, such as in Claude Code or Codex,
- * where its conversation would be: the same header, its open questions as
- * cards, and what the page knows of the agent beyond its plan, whose details
- * the header's task line opens. The page cannot message that agent, so the cards
- * copy their answers to paste into its own session, unless its session is
- * brought in. What is written in them is kept in `drafts` until the agent
- * has none open, so a reload loses nothing.
+ * Where an external agent's warning would be, for one that answers to a
+ * conversation: its questions and reviews reach the person through that
+ * one's reports, so they answer it there.
  */
-export function TaskView({
-	task,
-	need,
-	agents,
-	drafts,
-	onBrought,
-	onBack,
+function ReportsTo({
+	by,
+	onOpen,
 }: {
-	task: Details;
-	need: Need;
-	agents: AgentChoice[];
-	drafts: Drafts;
-	/** Opens a session brought in, as the conversation it now is. */
-	onBrought: (conversation: ConversationState) => void;
-	/** Back to the list, on a phone; null beside a sidebar. */
-	onBack: (() => void) | null;
+	by: ConversationState;
+	onOpen: (id: string) => void;
 }): JSX.Element {
-	const [details, setDetails] = useState(false);
-	const open = openQuestions(need);
-	const section = useRef<HTMLElement>(null);
-	const kept = draftOf(task.task);
-	const reply = useMemo<Reply>(
-		() => ({
-			send: null,
-			drafts: {
-				read: (name) => drafts.read(`${kept}:${name}`),
-				write: (name, text) => drafts.write(`${kept}:${name}`, text),
-			},
-		}),
-		[drafts, kept],
-	);
-	// Seen as they show, so they wait on you no longer. Once its agent
-	// recorded every answer, nothing is left to keep.
-	const shown = asking(open);
-	useEffect(() => {
-		drafts.write(`${kept}:seen`, shown);
-		if (shown === "") {
-			drafts.write(`${kept}:questions`, "");
-			drafts.write(`${kept}:copied`, "");
-		}
-	}, [shown, drafts, kept]);
-	useArrived(`${TASK}${task.task}`, () => toWaiting(section.current));
+	const nameOf = useNameOf();
 	return (
-		<section
-			ref={section}
-			aria-label={task.task}
-			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+		<div
+			role="note"
+			aria-label="reports to"
+			className="flex flex-col gap-3 rounded-lg border px-4 py-3 text-muted-foreground"
 		>
-			<header className="flex min-h-9 items-center gap-2">
-				{onBack !== null && <Back onBack={onBack} />}
-				<div className="flex min-w-0 flex-1 flex-col">
-					<h2 className="flex min-w-0 items-center gap-1.5 font-medium text-sm">
-						<SquareArrowOutUpRightIcon
-							role="img"
-							aria-label="external agent"
-							className="size-3.5 shrink-0 text-foreground/70"
-						/>
-						<span className="truncate">{task.task}</span>
-					</h2>
-					<TaskLine
-						branch={task.branch}
-						task={task}
-						onDetails={() => setDetails(true)}
-					/>
-				</div>
-				<SystemsButton systems={task.systems} />
-			</header>
-			<div className="relative min-h-0 flex-1 overflow-y-auto">
-				{/* Where a conversation's widgets stand, at the right. */}
-				<div className="absolute top-4 right-4 hidden w-60 @min-[61rem]:block">
-					<SystemsCard systems={task.systems} />
-				</div>
-				<div className="@min-[61rem]:pe-[16.75rem]">
-					<div className="mx-auto flex w-full max-w-[44rem] flex-col gap-6 px-4 pt-4 pb-8 text-sm">
-						<Alert variant="warning">
-							<TriangleAlertIcon />
-							<AlertTitle>Its agent runs outside the page</AlertTitle>
-							<AlertDescription>
-								The page cannot message it: answer here, then paste the reply
-								into its own session, or bring that session in below.
-							</AlertDescription>
-						</Alert>
-						{open.length > 0 && (
-							<div
-								id={`questions-${task.task}`}
-								className="flex flex-col gap-2"
-							>
-								<ReplyContext value={reply}>
-									<QuestionCards
-										questions={open}
-										draft="questions"
-										copy
-										onSent={() => drafts.write(`${kept}:copied`, asking(open))}
-									/>
-								</ReplyContext>
-							</div>
-						)}
-						{open.length === 0 && (
-							<p className="text-muted-foreground">No open questions.</p>
-						)}
-						<Agent task={task} />
-						<Sessions task={task.task} agents={agents} onBrought={onBrought} />
-					</div>
-				</div>
-			</div>
-			<Dialog open={details} onOpenChange={setDetails}>
-				{details && <Task task={task} />}
-			</Dialog>
-		</section>
+			<p>
+				A subagent of{" "}
+				<span className="font-medium text-foreground">{nameOf(by)}</span>, which
+				it reports to: answer it there.
+			</p>
+			<Button
+				variant="outline"
+				size="sm"
+				className="self-start"
+				onClick={() => onOpen(by.id)}
+			>
+				Open {nameOf(by)}
+			</Button>
+		</div>
 	);
 }
 

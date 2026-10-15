@@ -62,6 +62,44 @@ describe("App on a phone", () => {
 		expect(waiting.textContent).toContain("Failed");
 	});
 
+	it("nests a subagent under the agent it reports to, which is answered for it", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "orch", title: "Orchestrator", status: "idle" })],
+			null,
+			{
+				tasks: [
+					details({
+						task: "sub",
+						status: "escalated",
+						escalation: "look",
+						caller: "orch",
+					}),
+				],
+			},
+		);
+
+		const waiting = within(
+			view.getByRole("region", { name: "inbox" }),
+		).getByRole("region", { name: "Needs you" });
+		expect(within(waiting).getByRole("heading").textContent).toBe(
+			"Needs you · 1",
+		);
+		const [orchestrator, sub] = within(waiting).getAllByRole("button");
+		expect(orchestrator?.textContent).toContain("Escalated · sub: look");
+		expect(sub?.textContent).toContain("sub");
+
+		await act(async () => fireEvent.click(sub as HTMLElement));
+		const note = view.getByRole("note", { name: "reports to" });
+		expect(view.queryByText("Its agent runs outside the page")).toBeNull();
+		await act(async () =>
+			fireEvent.click(
+				within(note).getByRole("button", { name: "Open Orchestrator" }),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/orch");
+	});
+
 	it("starts a new conversation from the composer along the inbox's bottom", async () => {
 		const view = await testing.openConversations([], null);
 

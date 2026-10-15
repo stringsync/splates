@@ -21,6 +21,8 @@ export type Need =
 			since: string | null;
 			/** The task's open questions, none for a task-less conversation. */
 			questions: Question[];
+			/** The agent handed out by this one it waits for, lifted onto it. */
+			via?: string;
 	  }
 	| {
 			kind: "assuming";
@@ -49,8 +51,6 @@ export interface Needing {
 	need: Need;
 }
 
-const KINDS: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
-
 /**
  * Every listed conversation, and every live task no listed conversation runs
  * in (an external agent, run outside the page) and none is about to, with
@@ -65,22 +65,16 @@ export function needs({
 	tasks: Details[];
 	conversations: ConversationState[];
 }): Needing[] {
-	const listed = conversations.filter((each) => !each.archived);
-	const live = tasks.filter((each) =>
-		["working", "merging", "escalated"].includes(each.status),
-	);
+	const live = tasks.filter(isLive);
 	const found: Needing[] = [
-		...listed.map((conversation) => {
-			const task = live.find((each) => each.task === conversation.task) ?? null;
-			return { conversation, task, need: need(task, conversation) };
-		}),
-		// One handed to an agent shows once its conversation starts.
-		...live
-			.filter(
-				(task) =>
-					!task.dispatched && !listed.some((each) => each.task === task.task),
-			)
-			.map((task) => ({ conversation: null, task, need: need(task, null) })),
+		...conversations
+			.filter((each) => !each.archived)
+			.map((conversation) => {
+				const task =
+					live.find((each) => each.task === conversation.task) ?? null;
+				return { conversation, task, need: need(task, conversation) };
+			}),
+		...externals(tasks, conversations),
 	];
 	// Stable, so equals keep the order they came in.
 	return answeredThrough(found, conversations).sort(
@@ -88,6 +82,33 @@ export function needs({
 			KINDS.indexOf(one.need.kind) - KINDS.indexOf(other.need.kind) ||
 			pressing(one.need, other.need),
 	);
+}
+
+const KINDS: Need["kind"][] = ["waiting", "assuming", "working", "idle"];
+
+/** Whether a task is under way, so an agent may yet need something for it. */
+function isLive(task: Details): boolean {
+	return ["working", "merging", "escalated"].includes(task.status);
+}
+
+/**
+ * Every live task no listed conversation runs in, an external agent's, with
+ * what it needs, before `answeredThrough`. One handed to an agent shows once
+ * its conversation starts.
+ */
+export function externals(
+	tasks: Details[],
+	conversations: ConversationState[],
+): Needing[] {
+	const listed = conversations.filter((each) => !each.archived);
+	return tasks
+		.filter(
+			(task) =>
+				isLive(task) &&
+				!task.dispatched &&
+				!listed.some((each) => each.task === task.task),
+		)
+		.map((task) => ({ conversation: null, task, need: need(task, null) }));
 }
 
 /**
@@ -154,19 +175,15 @@ export function need(
  * that one rather than on the person: only the person answers its asks, so
  * one waits on that one's row, where they show, whatever it is doing; its
  * escalations reach the person through that one's reports, so one waits on
- * that one's row once it is idle, having relayed it. A failure stays the
- * agent's own, since nothing tells that one of it.
+ * that one's row once it is idle, having relayed it, naming the agent. A
+ * failure stays the agent's own, since nothing tells that one of it.
  */
 export function answeredThrough(
 	found: Needing[],
 	conversations: ConversationState[],
 ): Needing[] {
-	const handedOut = (entry: Needing): string | null => {
-		const by = entry.conversation?.handedBy ?? null;
-		return by !== null && conversations.some((each) => each.id === by)
-			? by
-			: null;
-	};
+	const handedOut = (entry: Needing): string | null =>
+		answersTo(entry, conversations)?.id ?? null;
 	const relayed = (entry: Needing): boolean =>
 		handedOut(entry) !== null &&
 		entry.need.kind === "waiting" &&
@@ -181,8 +198,10 @@ export function answeredThrough(
 				Number(one.need.kind === "waiting" && one.need.why === "ask"),
 		)) {
 		const by = handedOut(entry) as string;
-		if (!lifted.has(by)) {
-			lifted.set(by, entry.need);
+		const via =
+			entry.task?.task ?? entry.conversation?.task ?? entry.conversation?.title;
+		if (!lifted.has(by) && entry.need.kind === "waiting") {
+			lifted.set(by, via == null ? entry.need : { ...entry.need, via: via });
 		}
 	}
 	return found.map((entry) => {
@@ -206,6 +225,29 @@ export function answeredThrough(
 				: entry.need.kind === "idle");
 		return wait !== undefined && takes ? { ...entry, need: wait } : entry;
 	});
+}
+
+/**
+ * The conversation an agent answers to, rather than to the person, while the
+ * page holds it: the one that handed its conversation the task, or for an
+ * external agent, such as a subagent its harness started, the listed one
+ * whose agent added its task.
+ */
+export function answersTo(
+	{ conversation, task }: Pick<Needing, "conversation" | "task">,
+	conversations: readonly ConversationState[],
+): ConversationState | null {
+	if (conversation !== null) {
+		const by = conversation.handedBy;
+		return by === null
+			? null
+			: (conversations.find((each) => each.id === by) ?? null);
+	}
+	const caller = task?.caller ?? null;
+	return caller === null
+		? null
+		: (conversations.find((each) => each.id === caller && !each.archived) ??
+				null);
 }
 
 /** Negative when `one` should come before `other` among needs of a kind. */

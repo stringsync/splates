@@ -12,10 +12,17 @@ import {
 	type ConversationFeed,
 } from "./conversation-feed";
 import { lastReport, unnamed, useNameOf } from "./conversation-names";
-import { openedBy, rowsOf, waitsOnYou } from "./conversation-rows";
+import {
+	flatten,
+	isHostOf,
+	openedBy,
+	rowsOf,
+	waitsOnYou,
+} from "./conversation-rows";
 import { Trunk } from "./dispatching";
 import type { Drafts } from "./drafts";
 import { Mark } from "./mark";
+import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import { unanswered } from "./unanswered";
@@ -23,8 +30,10 @@ import { unanswered } from "./unanswered";
 /**
  * The phone's home: every agent, sorted by what it asks of you. Those waiting
  * on you come first, then those at work, then the rest, newest first in each,
- * each row a finger's height saying what it waits on. A tap on one waiting
- * goes straight to what it asks. The menu opens the drawer, and the pen, like
+ * each row a finger's height saying what it waits on. The agents one handed
+ * out, its subagents and parts, sit under it, in its group, since they answer
+ * to it rather than to you. A tap on one waiting goes straight to what it
+ * asks. The menu opens the drawer, and the pen, like
  * the composer along the bottom, starts a new conversation.
  */
 export function Inbox({
@@ -54,17 +63,23 @@ export function Inbox({
 	);
 	useCopiedReplies(drafts);
 	const rows = rowsOf(tasks, conversations);
-	const waiting = rows.filter((row) => waitsOnYou(row, drafts));
-	const working = rows.filter(
-		(row) =>
-			!waiting.includes(row) &&
-			(row.need.kind === "working" || row.need.kind === "assuming"),
+	// Each with the agents it handed out, in the group of the most pressing.
+	const trees = nest(rows, (host, part) => isHostOf(tasks, host, part));
+	const waiting = trees.filter((tree) =>
+		flatten([tree]).some((row) => waitsOnYou(row, drafts)),
 	);
-	const rest = rows.filter(
-		(row) => !waiting.includes(row) && !working.includes(row),
+	const working = trees.filter(
+		(tree) =>
+			!waiting.includes(tree) &&
+			flatten([tree]).some(
+				(row) => row.need.kind === "working" || row.need.kind === "assuming",
+			),
+	);
+	const rest = trees.filter(
+		(tree) => !waiting.includes(tree) && !working.includes(tree),
 	);
 	const open = (row: Needing) => {
-		if (waiting.includes(row)) {
+		if (waitsOnYou(row, drafts)) {
 			arriveAt(openedBy(row));
 		}
 		onOpen(openedBy(row));
@@ -96,18 +111,18 @@ export function Inbox({
 					<>
 						<Group
 							title="Needs you"
-							rows={waiting}
+							trees={waiting}
 							agents={agents}
 							urgent
 							onOpen={open}
 						/>
 						<Group
 							title="Working"
-							rows={working}
+							trees={working}
 							agents={agents}
 							onOpen={open}
 						/>
-						<Group title="Recent" rows={rest} agents={agents} onOpen={open} />
+						<Group title="Recent" trees={rest} agents={agents} onOpen={open} />
 					</>
 				)}
 			</div>
@@ -138,23 +153,34 @@ export function Inbox({
 	);
 }
 
-/** A heading and its rows, or nothing when it has none. */
+/**
+ * A heading and its rows, each agent's subagents under it, or nothing when it
+ * has none. The count is of the agents at the top.
+ */
 function Group({
 	title,
-	rows,
+	trees,
 	agents,
 	urgent = false,
 	onOpen,
 }: {
 	agents: AgentChoice[];
 	title: string;
-	rows: Needing[];
+	trees: Nested<Needing>[];
 	urgent?: boolean;
 	onOpen: (row: Needing) => void;
 }): ReactNode {
-	if (rows.length === 0) {
+	if (trees.length === 0) {
 		return null;
 	}
+	const lines = (
+		trees: Nested<Needing>[],
+		depth: number,
+	): { row: Needing; depth: number }[] =>
+		trees.flatMap(({ row, parts }) => [
+			{ row, depth },
+			...lines(parts, depth + 1),
+		]);
 	return (
 		<section aria-label={title} className="pt-4">
 			<h2
@@ -163,13 +189,14 @@ function Group({
 					urgent && "text-warning",
 				)}
 			>
-				{title} · {rows.length}
+				{title} · {trees.length}
 			</h2>
 			<ul>
-				{rows.map((row) => (
+				{lines(trees, 0).map(({ row, depth }) => (
 					<li key={openedBy(row)}>
 						<Row
 							row={row}
+							depth={depth}
 							agent={
 								row.conversation === null
 									? null
@@ -184,13 +211,19 @@ function Group({
 	);
 }
 
-/** One agent: its mark, its name, what it waits on, and how long since it moved. */
+/**
+ * One agent: its mark, its name, what it waits on, and how long since it
+ * moved. One handed out sits indented under the agent it answers to, smaller.
+ */
 function Row({
 	row,
+	depth,
 	agent,
 	onOpen,
 }: {
 	row: Needing;
+	/** How many agents it is handed out under; 0 for one you talk to. */
+	depth: number;
 	/** The agent's name; null for an external one. */
 	agent: string | null;
 	onOpen: () => void;
@@ -208,17 +241,35 @@ function Row({
 		<button
 			type="button"
 			onClick={onOpen}
-			className="flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-muted"
+			className={cn(
+				"flex w-full items-center gap-3 py-2.5 pr-4 text-left active:bg-muted",
+				depth === 0 ? "min-h-16" : "min-h-14",
+			)}
+			// Under the name of the agent it answers to.
+			style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
 		>
-			<span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+			<span
+				className={cn(
+					"flex shrink-0 items-center justify-center rounded-full bg-muted",
+					depth === 0 ? "size-10" : "size-8",
+				)}
+			>
 				{conversation !== null && agent !== null ? (
 					<AgentIcon
 						agent={conversation.agent}
 						name={agent}
-						className="size-5 text-foreground/80"
+						className={cn(
+							"text-foreground/80",
+							depth === 0 ? "size-5" : "size-4",
+						)}
 					/>
 				) : (
-					<GitBranchIcon className="size-5 text-foreground/80" />
+					<GitBranchIcon
+						className={cn(
+							"text-foreground/80",
+							depth === 0 ? "size-5" : "size-4",
+						)}
+					/>
 				)}
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -280,7 +331,10 @@ export function statusOf(
 						: open > 0
 							? `${open} ${open === 1 ? "question" : "questions"}`
 							: "Escalated";
-		return { text: `${label} · ${need.subject}`, urgent: true };
+		// Named, when it waits for an agent this one handed out.
+		const subject =
+			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
+		return { text: `${label} · ${subject}`, urgent: true };
 	}
 	if (need.kind === "assuming") {
 		return { text: `Working · ${need.subject}`, urgent: false };
@@ -302,6 +356,10 @@ export function statusOf(
 			text: report.reason === null ? how : `${how} · ${report.reason}`,
 			urgent: false,
 		};
+	}
+	// An external agent whose escalation is answered through another's row.
+	if (conversation === null && task?.escalation != null) {
+		return { text: `Escalated · ${task.escalation}`, urgent: false };
 	}
 	if (conversation?.unread === true) {
 		return { text: "New reply", urgent: false };

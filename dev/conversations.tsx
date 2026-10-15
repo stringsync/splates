@@ -189,6 +189,7 @@ export function Conversations({
 								feed.put(state);
 								onOpen(state.id);
 							}}
+							onOpen={onOpen}
 							onBack={phone ? () => onOpen(null) : null}
 						/>
 					)
