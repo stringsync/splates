@@ -259,11 +259,14 @@ const CLAMP =
  */
 const CLAMP_WITH_FILES = "max-h-32 max-sm:max-h-14";
 /**
- * Where a cut message fades: the end of its one line on a phone, its last
- * lines on a wider screen.
+ * Where a cut message fades: its last lines on a wider screen. On a phone its
+ * one line ends in an ellipsis instead (`CUT_LINE`), since a fade at its end
+ * reads as a shadow over the copy button.
  */
 const CUT_FADE =
-	"[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-3rem),transparent)]";
+	"sm:[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]";
+/** A message cut to one line on a phone, ending in an ellipsis. */
+const CUT_LINE = "max-sm:line-clamp-1";
 /**
  * A message cut to four lines, or to its files and a line or two (one line,
  * or its files alone, on a phone), fading out where it is cut, and opened or
@@ -332,6 +335,7 @@ const Clamped: FC<
 					// the screen rather than hide the reply.
 					open && "max-h-[50dvh] overflow-y-auto",
 					!open && more && CUT_FADE,
+					!open && !files && CUT_LINE,
 				)}
 			>
 				{head}
