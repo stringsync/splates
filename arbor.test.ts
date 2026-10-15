@@ -37,7 +37,7 @@ describe("arbor cli", () => {
 
 		const rows = JSON.parse(String(env.log.entries.at(-1)?.message));
 		expect(rows).toMatchObject([{ task: "alpha", status: "working" }]);
-		expect(await env.fs.exists(join(`${env.root}-arbor`, "alpha"))).toBe(true);
+		expect(await env.fs.exists(join(`${env.root}-arbor.noindex`, "alpha"))).toBe(true);
 	});
 
 	it("prints the roster from outside any repository", async () => {

@@ -93,7 +93,7 @@ arbor
 	.command("add")
 	.use(repository())
 	.description(
-		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor/<task> and a state record",
+		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor.noindex/<task> and a state record",
 	)
 	.arg("task", z.string(), { description: "task name (lowercase-with-dashes)" })
 	.option("base", z.string(), {

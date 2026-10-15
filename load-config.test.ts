@@ -25,10 +25,10 @@ describe("loadConfig", () => {
 		await rm(root, { recursive: true, force: true });
 	});
 
-	it("defaults the worktree root to a sibling of the repo, named after it", async () => {
+	it("defaults the worktree root to a sibling of the repo, named after it, that Spotlight skips", async () => {
 		const config = await loadConfig(root, { fs, git });
 
-		expect(config.worktreeRoot).toBe(`${root}-arbor`);
+		expect(config.worktreeRoot).toBe(`${root}-arbor.noindex`);
 	});
 
 	it("leaves every hook unset, so a repo runs only what it asks for", async () => {

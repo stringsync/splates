@@ -36,7 +36,11 @@ export async function loadConfig(
 function defaults(root: string, trunk: string): Config {
 	return {
 		trunk,
-		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor`),
+		// Spotlight skips a folder named `*.noindex`, and only that: indexing
+		// every `bun install` and removal in the worktrees kept two cores busy
+		// and made timing tests fail the merge gate. A file marking the folder,
+		// `.metadata_never_index`, is ignored by macOS 26.
+		worktreeRoot: resolve(root, "..", `${basename(root)}-arbor.noindex`),
 		postCheckout: null,
 		postRewrite: null,
 		preMerge: null,
