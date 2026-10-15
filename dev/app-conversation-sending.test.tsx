@@ -319,7 +319,7 @@ describe("App's sending messages", () => {
 		expect(folder.textContent).toBe("src/");
 	});
 
-	it("takes a message to a stopped conversation back out of its thread when the server refuses it", async () => {
+	it("keeps a message the server refuses in the thread, saying it was not sent, to send again", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "Login", status: "stopped" }),
 		]);
@@ -332,12 +332,47 @@ describe("App's sending messages", () => {
 
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		await waitFor(() => expect(textIn(box)).toBe("and the logout"));
-		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(0);
-		// Said above the composer it was sent from, not in a toast.
-		expect(within(thread).getByRole("alert").textContent).toBe(
-			"Not sent: cannot resume",
+		const unsent = await waitFor(() =>
+			within(thread).getByText("Couldn't send"),
 		);
+		// Why, on hover, rather than a banner over the composer.
+		expect(unsent.title).toBe("cannot resume");
+		expect(within(thread).queryByRole("alert")).toBeNull();
+		expect(textIn(box)).toBe("");
+		const said = thread.querySelectorAll('[data-role="user"]');
+		expect([...said].map((each) => each.textContent)).toEqual([
+			expect.stringContaining("and the logout"),
+		]);
+
+		testing.refuseWrites = null;
+		await act(async () =>
+			fireEvent.click(within(thread).getByRole("button", { name: "Retry" })),
+		);
+
+		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(2);
+		expect(within(thread).queryByText("Couldn't send")).toBeNull();
+		expect(thread.querySelectorAll('[data-role="user"]')).toHaveLength(1);
+	});
+
+	it("shows a message sent mid-turn among the queued at once, before the server has it", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [message("user", "go")],
+			}),
+		]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "and the logout");
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		const queued = view.getByRole("region", { name: "queued messages" });
+		expect(
+			within(queued)
+				.getAllByRole("listitem")
+				.map((each) => each.textContent),
+		).toEqual([expect.stringContaining("and the logout")]);
 	});
 
 	it("names the layout each message is sent from, for the Stats page", async () => {

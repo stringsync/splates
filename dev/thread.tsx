@@ -1,6 +1,13 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ArchiveIcon } from "lucide-react";
-import { type JSX, useCallback, useContext, useRef, useState } from "react";
+import {
+	type JSX,
+	useCallback,
+	useContext,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
@@ -52,6 +59,7 @@ import { ThreadHeader, useWhereAction } from "./thread-header";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { BELOW_BAR } from "./top-bar";
+import { UnsentContext } from "./unsent";
 import { ContextMeter } from "./usage";
 import { InterruptedUI, StoppedUI, TreesContext, WorkUI } from "./work-row";
 
@@ -112,12 +120,16 @@ export function Thread({
 	);
 	const thread = useThreadMessages(conversation, feed);
 	const { queued, openAt, asking } = thread;
-	const { runtime, send } = useThreadRuntime(
-		conversation,
-		feed,
-		drafts,
-		thread,
-		refused,
+	const {
+		runtime,
+		send,
+		retry,
+		edit: editUnsent,
+	} = useThreadRuntime(conversation, feed, drafts, thread, refused);
+	const unsent = feed.unsent.get(id);
+	const unsentActions = useMemo(
+		() => ({ unsent: unsent ?? [], retry, edit: editUnsent }),
+		[unsent, retry, editUnsent],
 	);
 	const section = useRef<HTMLElement>(null);
 	// The conversation it answers to, which the person talks to in its place.
@@ -273,117 +285,120 @@ export function Thread({
 						>
 							<AssistantRuntimeProvider runtime={runtime}>
 								<Composing.Provider value={runtime.thread.composer}>
-									<QuestionsUI />
-									<ReviewUI />
-									<ReportUI />
-									<StartUI />
-									<TodoUI />
-									<DemoUI />
-									<WorkUI />
-									<EventUI />
-									<StoppedUI />
-									<InterruptedUI />
-									<Hearing value={hears(conversation)}>
-										<StartNewContext value={startNew}>
-											{/* Its cards read-only: only its orchestrator replies to it. */}
-											<ReplyContext value={handedBy === null ? reply : null}>
-												<NamedContext value={named}>
-													<ThreadView
-														openAt={openAt}
-														autoFocus={!asking || typed}
-														mentions={mentions ?? undefined}
-														references={references}
-														commands={commands ?? undefined}
-														composer={
-															handedBy === null ? undefined : (
-																<HandedOut
-																	conversation={conversation}
-																	by={handedBy}
-																	onOpen={onOpen}
-																/>
-															)
-														}
-														placeholder={
-															archived
-																? "Send a message to unarchive and continue"
-																: undefined
-														}
-														controls={
-															!archived && (
+									<UnsentContext.Provider value={unsentActions}>
+										<QuestionsUI />
+										<ReviewUI />
+										<ReportUI />
+										<StartUI />
+										<TodoUI />
+										<DemoUI />
+										<WorkUI />
+										<EventUI />
+										<StoppedUI />
+										<InterruptedUI />
+										<Hearing value={hears(conversation)}>
+											<StartNewContext value={startNew}>
+												{/* Its cards read-only: only its orchestrator replies to it. */}
+												<ReplyContext value={handedBy === null ? reply : null}>
+													<NamedContext value={named}>
+														<ThreadView
+															openAt={openAt}
+															autoFocus={!asking || typed}
+															mentions={mentions ?? undefined}
+															references={references}
+															commands={commands ?? undefined}
+															composer={
+																handedBy === null ? undefined : (
+																	<HandedOut
+																		conversation={conversation}
+																		by={handedBy}
+																		onOpen={onOpen}
+																	/>
+																)
+															}
+															placeholder={
+																archived
+																	? "Send a message to unarchive and continue"
+																	: undefined
+															}
+															controls={
+																!archived && (
+																	<>
+																		<ContextMeter usage={conversation.usage} />
+																		<SettingControls
+																			settings={settings}
+																			current={(setting) => setting.current}
+																			onChange={(setting, value) =>
+																				chooseSetting(
+																					id,
+																					setting.id,
+																					value,
+																				).catch((error: unknown) =>
+																					refused(
+																						`${setting.name} not switched`,
+																						error,
+																					),
+																				)
+																			}
+																		/>
+																	</>
+																)
+															}
+															above={
 																<>
-																	<ContextMeter usage={conversation.usage} />
-																	<SettingControls
-																		settings={settings}
-																		current={(setting) => setting.current}
-																		onChange={(setting, value) =>
-																			chooseSetting(
-																				id,
-																				setting.id,
-																				value,
-																			).catch((error: unknown) =>
-																				refused(
-																					`${setting.name} not switched`,
-																					error,
-																				),
-																			)
-																		}
-																	/>
-																</>
-															)
-														}
-														above={
-															<>
-																<NeedsYouBar />
-																<Refusal refusal={refusal} className="px-2" />
-																{ended !== null && handedBy === null && (
-																	<ArchiveBar
-																		report={ended}
-																		onArchive={() => archive.file(onLeft)}
-																	/>
-																)}
-																{queued.length > 0 && (
-																	<Queued
-																		conversation={id}
-																		messages={queued}
-																		pending={feed.unrecorded(id)}
-																		edits={
-																			handedBy === null
-																				? {
-																						onEdit: (index) => void edit(index),
-																						onDiscard: (index) =>
-																							void discard(index),
-																						onSendNow: () => void sendNow(),
-																					}
-																				: null
-																		}
-																	/>
-																)}
-																{/* Its agents' asks, which only the person answers. */}
-																{agentAsks.map((agent) => (
-																	<AgentAsk
-																		key={agent.id}
-																		drafts={drafts}
-																		conversation={agent}
-																	/>
-																))}
-																{/* Answered where it answers to, beside that one's. */}
-																{conversation.ask !== null &&
-																	handedBy === null && (
-																		<AskPanel
-																			key={conversation.ask.id}
-																			drafts={drafts}
-																			conversation={conversation}
-																			agent={agent}
-																			ask={conversation.ask}
+																	<NeedsYouBar />
+																	<Refusal refusal={refusal} className="px-2" />
+																	{ended !== null && handedBy === null && (
+																		<ArchiveBar
+																			report={ended}
+																			onArchive={() => archive.file(onLeft)}
 																		/>
 																	)}
-															</>
-														}
-													/>
-												</NamedContext>
-											</ReplyContext>
-										</StartNewContext>
-									</Hearing>
+																	{queued.length > 0 && (
+																		<Queued
+																			conversation={id}
+																			messages={queued}
+																			pending={feed.unrecorded(id)}
+																			edits={
+																				handedBy === null
+																					? {
+																							onEdit: (index) =>
+																								void edit(index),
+																							onDiscard: (index) =>
+																								void discard(index),
+																							onSendNow: () => void sendNow(),
+																						}
+																					: null
+																			}
+																		/>
+																	)}
+																	{/* Its agents' asks, which only the person answers. */}
+																	{agentAsks.map((agent) => (
+																		<AgentAsk
+																			key={agent.id}
+																			drafts={drafts}
+																			conversation={agent}
+																		/>
+																	))}
+																	{/* Answered where it answers to, beside that one's. */}
+																	{conversation.ask !== null &&
+																		handedBy === null && (
+																			<AskPanel
+																				key={conversation.ask.id}
+																				drafts={drafts}
+																				conversation={conversation}
+																				agent={agent}
+																				ask={conversation.ask}
+																			/>
+																		)}
+																</>
+															}
+														/>
+													</NamedContext>
+												</ReplyContext>
+											</StartNewContext>
+										</Hearing>
+									</UnsentContext.Provider>
 								</Composing.Provider>
 							</AssistantRuntimeProvider>
 							<Widgets

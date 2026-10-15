@@ -63,6 +63,29 @@ describe("ConversationFeed", () => {
 		stream?.onmessage?.({ data: JSON.stringify(state) });
 	}
 
+	it("shows a refused message apart, so one sent after it goes once the server has that one", async () => {
+		const idle = conversation({ status: "idle", messages: [] });
+		feed.start();
+		await list([idle]);
+		const refused = feed.send("c1", "first");
+		const second = feed.send("c1", "second");
+
+		feed.refused("c1", refused, new Error("not now"));
+		expect(feed.unsent.get("c1")).toEqual([
+			{ message: refused, why: "not now" },
+		]);
+		expect(feed.conversations[0]?.messages).toEqual([
+			expect.objectContaining({ queued: true }),
+		]);
+		say({ ...idle, status: "running", messages: [message("user", "second")] });
+
+		expect(feed.sending.has("c1")).toBe(false);
+		expect(feed.conversations[0]?.messages).toHaveLength(1);
+		expect(second.queued).toBe(true);
+		feed.take("c1", refused);
+		expect(feed.unsent.has("c1")).toBe(false);
+	});
+
 	it("keeps what streamed while it read every conversation again", async () => {
 		const before = conversation({ id: "c1" });
 		const after = conversation({

@@ -132,20 +132,20 @@ export function useNewConversation({
 			// up; the message waits on the server for the session to open.
 			const sending =
 				text !== "" || files.length > 0
-					? feed.send(state.id, noted(text, files), files)
+					? feed.send(state.id, noted(text, files), files, text)
 					: null;
 			// After the drop, or the thread would cut it short.
 			await dropped;
 			void slide(() => onOpen(state.id, "replace"));
 			await promptConversation(state.id, noted(text, files), files).catch(
 				(error: unknown) => {
-					// The conversation is open by now: what was not sent waits in its
-					// composer, its words only.
+					// The conversation is open by now: what was not sent stays in its
+					// thread, to send again or edit there.
 					if (sending !== null) {
-						feed.sent(state.id, sending);
+						feed.refused(state.id, sending, error);
+					} else {
+						refuseIn(state.id, "Not sent", error);
 					}
-					drafts.write(state.id, text);
-					refuseIn(state.id, "Not sent", error);
 				},
 			);
 		},

@@ -4,7 +4,7 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import type { ConversationState } from "../conversations";
 import { useAdapters } from "./adapters";
 import { filesOf, noted, said, useDraft } from "./composer-drafts";
@@ -13,14 +13,14 @@ import {
 	promptConversation,
 	sendQueuedNow,
 } from "./conversation-api";
-import type { ConversationFeed } from "./conversation-feed";
+import type { ConversationFeed, Sending } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import type { ThreadMessages } from "./thread-messages";
 
 /**
  * The assistant-ui runtime a conversation's thread runs on, and how it sends:
- * a message the server refuses goes back into the composer, as the draft it
- * was, and is said above it.
+ * a message shows at once, and one the server refuses stays at the thread's
+ * foot as unsent, to send again or edit.
  */
 export function useThreadRuntime(
 	conversation: ConversationState,
@@ -29,32 +29,38 @@ export function useThreadRuntime(
 	{ messages, running }: ThreadMessages,
 	refused: (title: string, error: unknown) => void,
 ): ThreadRuntime {
-	const { id, status } = conversation;
-	// Filled in by `useDraft` below, which needs the runtime this needs.
-	const restore = useRef<(text: string, files: File[]) => void>(() => {});
+	const { id } = conversation;
 	const send = useCallback(
 		async (text: string, files: File[]) => {
-			// Shown at once, with its reply's place, rather than once the server
-			// says it back: the round trip, slow over a tunnel and longer still
-			// while the agent comes back up, would leave the thread as it was,
-			// then jump. Mid-turn, only the server knows whether it joins the
-			// turn or waits for its end.
+			// Shown at once, with its reply's place or among what is queued,
+			// rather than once the server says it back: the round trip, slow over
+			// a tunnel and longer still while the agent comes back up, would leave
+			// the thread as it was, then jump.
 			const sending =
-				status !== "running" && (text !== "" || files.length > 0)
-					? feed.send(id, noted(text, files), files)
+				text !== "" || files.length > 0
+					? feed.send(id, noted(text, files), files, text)
 					: null;
 			await promptConversation(id, noted(text, files), files).catch(
 				(error: unknown) => {
+					// Kept where it shows, marked unsent, to send again or edit.
 					if (sending !== null) {
-						feed.sent(id, sending);
+						feed.refused(id, sending, error);
+					} else {
+						refused("Not sent", error);
 					}
-					restore.current(text, files);
-					refused("Not sent", error);
 					throw error;
 				},
 			);
 		},
-		[id, status, feed, refused],
+		[id, feed, refused],
+	);
+	/** Sends `message` again, refused before. */
+	const retry = useCallback(
+		(message: Sending) => {
+			feed.take(id, message);
+			void send(message.typed, message.attached).catch(() => {});
+		},
+		[id, feed, send],
 	);
 	const say = useCallback(
 		(message: AppendMessage) => send(said(message), filesOf(message)),
@@ -97,8 +103,23 @@ export function useThreadRuntime(
 			);
 		},
 	});
-	restore.current = useDraft(runtime, drafts, id);
-	return { runtime, send };
+	useDraft(runtime, drafts, id);
+	/** Puts `message`, refused before, back in the composer, after what is typed there. */
+	const edit = useCallback(
+		(message: Sending) => {
+			feed.take(id, message);
+			const composer = runtime.thread.composer;
+			const typed = composer.getState().text;
+			composer.setText(
+				typed === "" ? message.typed : `${typed}\n\n${message.typed}`,
+			);
+			for (const file of message.attached) {
+				void composer.addAttachment(file);
+			}
+		},
+		[id, feed, runtime],
+	);
+	return { runtime, send, retry, edit };
 }
 
 /** What `useThreadRuntime` gives a thread. */
@@ -106,4 +127,8 @@ export interface ThreadRuntime {
 	runtime: AssistantRuntime;
 	/** Sends `text` and `files` as the person's next message. */
 	send: (text: string, files: File[]) => Promise<void>;
+	/** Sends a message the server refused again. */
+	retry: (message: Sending) => void;
+	/** Puts a message the server refused back in the composer. */
+	edit: (message: Sending) => void;
 }

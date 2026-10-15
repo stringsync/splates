@@ -93,7 +93,7 @@ export class Dispatch {
 	 * prompt showing as sent. Each setting starts where a new conversation's
 	 * would. When it does not start, the address of the screen
 	 * that does, the prompt in its composer; when the prompt is refused, it
-	 * waits in the conversation's composer.
+	 * stays in the conversation's thread as unsent.
 	 */
 	async begin(pick: AgentPick, assignment: Assignment): Promise<string> {
 		const task = assignment.kind === "task" ? assignment.task : null;
@@ -111,10 +111,9 @@ export class Dispatch {
 		}
 		this.feed.put(started);
 		const sending = this.feed.send(started.id, text);
-		void promptConversation(started.id, text).catch(() => {
-			this.feed.sent(started.id, sending);
-			this.compose(started.id, text);
-		});
+		void promptConversation(started.id, text).catch((error: unknown) =>
+			this.feed.refused(started.id, sending, error),
+		);
 		return started.id;
 	}
 

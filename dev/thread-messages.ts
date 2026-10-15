@@ -5,7 +5,7 @@ import { type Report, type Review, stretches } from "../asked";
 import type { ConversationState, Message, Part } from "../conversations";
 import { type Event, isEscalation } from "../events";
 import { conversationAttachment } from "./conversation-api";
-import type { ConversationFeed } from "./conversation-feed";
+import { type ConversationFeed, messageOf } from "./conversation-feed";
 import type { Written } from "./escalation-card";
 import type { QuestionsData } from "./question-cards";
 import type { Turn } from "./report-cards";
@@ -25,6 +25,7 @@ export function useThreadMessages(
 ): ThreadMessages {
 	const { id, status } = conversation;
 	const running = status === "running" || feed.sending.has(id);
+	const unsent = feed.unsent.get(id);
 	// The last message is still being written while the agent works.
 	const writing = status === "running" || status === "starting";
 	// What waits for the turn's end sits above the composer, not in the
@@ -69,21 +70,34 @@ export function useThreadMessages(
 		// It holds the work row already, so the
 		// agent's first move fills that row rather than putting one in its place.
 		const prompt = said.at(-1);
-		return running && prompt?.role === "user"
-			? [
-					...liked,
-					like(
-						{ role: "agent", parts: [], plan: null, at: null, until: null },
-						said.length,
-						conversation.id,
-						false,
-						prompt.at,
-						now,
-						null,
-						happened[said.length],
-					),
-				]
-			: liked;
+		const thread =
+			running && prompt?.role === "user"
+				? [
+						...liked,
+						like(
+							{ role: "agent", parts: [], plan: null, at: null, until: null },
+							said.length,
+							conversation.id,
+							false,
+							prompt.at,
+							now,
+							null,
+							happened[said.length],
+						),
+					]
+				: liked;
+		// What the server refused, after all of it, as it would go if sent again.
+		return [
+			...thread,
+			...(unsent ?? []).map(({ message }, at) => {
+				const one = like(messageOf(message), thread.length, conversation.id);
+				return {
+					...one,
+					id: `unsent ${at}`,
+					metadata: { custom: { ...one.metadata?.custom, unsent: at } },
+				};
+			}),
+		];
 	}, [
 		conversation.messages,
 		conversation.events,
@@ -93,6 +107,7 @@ export function useThreadMessages(
 		running,
 		shown,
 		feed,
+		unsent,
 	]);
 	// Where the person left off, as it opens: the first message they have yet
 	// to see, read on from there, else the bottom. Opening marks it read, so

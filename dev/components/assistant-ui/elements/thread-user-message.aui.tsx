@@ -42,6 +42,7 @@ import {
 	unnamed,
 } from "#dev/sent-attachments.tsx";
 import { Stamp, useStamps } from "#dev/stamp.tsx";
+import { UnsentLine } from "#dev/unsent.tsx";
 import { leadingDirectives, MERGE } from "../../../../prompts";
 
 /**
@@ -131,6 +132,10 @@ export const UserMessage: FC = () => {
 		return typeof from === "string" ? from : null;
 	});
 	const teller = useContext(Held).find((each) => each.id === told);
+	const unsent = useAuiState((s) => {
+		const at = s.message.metadata.custom.unsent;
+		return typeof at === "number" ? at : null;
+	});
 	const nameOf = useNameOf();
 	const sole = useAuiState((s) => {
 		const [only, ...more] = s.message.parts;
@@ -240,6 +245,7 @@ export const UserMessage: FC = () => {
 					)}
 				</div>
 			)}
+			{unsent !== null && <UnsentLine at={unsent} />}
 		</MessagePrimitive.Root>
 	);
 };

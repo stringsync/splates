@@ -171,12 +171,28 @@ describe("App's composer queue", () => {
 		await waitFor(() => expect(textIn(box(view))).toBe(""));
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
 		expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(2);
-		testing.reply = { text: "the second note", files: [] };
+		// Up waits for the server to have the last one, to take it back.
+		await act(async () => fireEvent.keyDown(box(view), { key: "ArrowUp" }));
+		expect(testing.posted("/api/conversations/c1/unqueue")).toEqual([]);
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				status: "running",
+				messages: [
+					message("user", "go"),
+					message("agent", { type: "text", text: "On it." }),
+					{ ...message("user", "the second note"), queued: true },
+					{ ...message("user", "more"), queued: true },
+				],
+			}),
+		);
+		testing.reply = { text: "more", files: [] };
 		await act(async () => fireEvent.keyDown(box(view), { key: "ArrowUp" }));
 		expect(testing.posted("/api/conversations/c1/unqueue")).toEqual([
-			{ method: "POST", body: { index: 0 } },
+			{ method: "POST", body: { index: 1 } },
 		]);
-		await waitFor(() => expect(textIn(box(view))).toBe("the second note"));
+		await waitFor(() => expect(textIn(box(view))).toBe("more"));
 	});
 
 	it("throws a queued message away, leaving the composer as it was", async () => {

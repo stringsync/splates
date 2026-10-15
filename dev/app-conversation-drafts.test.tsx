@@ -163,14 +163,20 @@ describe("App's composer drafts", () => {
 		expect(localStorage.getItem("arbor.draft.c1")).toBe("then stop ");
 	});
 
-	it("puts a message back in the composer when the server refuses it", async () => {
+	it("puts a message the server refused back in the composer on Edit, after what is typed there", async () => {
 		const view = await testing.openConversations(held, "c1");
 		testing.refuseWrites = { reason: "usage", message: "not now" };
 		await type(view, "try this");
-
 		await act(async () => fireEvent.keyDown(box(view), { key: "Enter" }));
+		const edit = await waitFor(() =>
+			view.getByRole("button", { name: "Edit" }),
+		);
+		await type(view, "first");
 
-		await waitFor(() => expect(textIn(box(view))).toBe("try this"));
+		await act(async () => fireEvent.click(edit));
+
+		expect(textIn(box(view))).toBe("first\n\ntry this");
+		expect(view.queryByText("Couldn't send")).toBeNull();
 	});
 
 	it("keeps what was typed into a question's box while away", async () => {

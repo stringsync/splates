@@ -11,6 +11,7 @@ import type {
 	ConversationState,
 	Image,
 	Limit,
+	Message,
 	Setting,
 } from "../conversations";
 import { scoped } from "./api";
@@ -23,6 +24,17 @@ export interface Sending {
 	text: string;
 	images: Image[];
 	files: Attached[];
+	/** Whether it waits for the running turn's end, as the server will record it. */
+	queued: boolean;
+	/** What the person wrote and attached, to send again or take back. */
+	typed: string;
+	attached: File[];
+}
+
+/** A message the server refused, with why: shown until sent again or taken back. */
+export interface Unsent {
+	message: Sending;
+	why: string;
 }
 
 /** An agent a conversation can be started with. */
@@ -68,6 +80,8 @@ export class ConversationFeed
 	 * with how many the person had said there when they sent the first.
 	 */
 	readonly sending = new Map<string, { messages: Sending[]; after: number }>();
+	/** Each conversation's refused messages, in the order refused, replaced whole as they change. */
+	readonly unsent = new Map<string, readonly Unsent[]>();
 
 	/** As the server last said, without what is on its way. */
 	private recorded: ConversationState[] = [];
@@ -102,6 +116,12 @@ export class ConversationFeed
 			messages.forEach(forget);
 		}
 		this.sending.clear();
+		for (const each of this.unsent.values()) {
+			for (const { message } of each) {
+				forget(message);
+			}
+		}
+		this.unsent.clear();
 	}
 
 	/** Puts `state` in place of what the page had of it, or first when new. */
@@ -125,26 +145,31 @@ export class ConversationFeed
 	 * Shows `text` and `files` as said in conversation `id` before its server
 	 * records them, which waits on the way there and, while the agent starts
 	 * or resumes, until it is up, so the thread does not sit as it was
-	 * meanwhile. The first held there starts a turn and
-	 * the rest wait for its end, so they show as queued, as the server will
-	 * record them. Each goes once the server has recorded as many more
-	 * messages from the person there, or `sent` says it was refused. The
-	 * files show from the page's own, as the server has yet to keep them.
+	 * meanwhile. Said while a turn runs, or behind another on its way, it shows
+	 * as queued, as the server records it unless the agent takes it into the
+	 * turn, when its echo moves it into the thread. Each goes once the server
+	 * has recorded as many more messages from the person there, or `refused`
+	 * keeps it as unsent. The files show from the page's own, as the server
+	 * has yet to keep them. `typed` is the text as the person wrote it, before
+	 * the notes on its images were added.
 	 */
-	send(id: string, text: string, files: File[] = []): Sending {
+	send(id: string, text: string, files: File[] = [], typed = text): Sending {
 		const kept = files.map((file) => ({
 			name: file.name,
 			title: file.name,
 			mimeType: file.type,
 			url: URL.createObjectURL(file),
 		}));
+		const held = this.recorded.find((each) => each.id === id);
+		const sending = this.sending.get(id);
 		const message = {
 			text,
 			images: kept.filter((each) => SEEN.includes(each.mimeType)),
 			files: kept.filter((each) => !SEEN.includes(each.mimeType)),
+			queued: held?.status === "running" || sending !== undefined,
+			typed,
+			attached: files,
 		};
-		const held = this.recorded.find((each) => each.id === id);
-		const sending = this.sending.get(id);
 		if (sending === undefined) {
 			this.sending.set(id, { messages: [message], after: said(held) });
 		} else {
@@ -164,23 +189,55 @@ export class ConversationFeed
 			return 0;
 		}
 		const held = this.recorded.find((each) => each.id === id);
-		// All but the first, which starts the turn, less those recorded since.
-		return sending.messages.length - Math.max(1, said(held) - sending.after);
+		return sending.messages
+			.slice(Math.max(0, said(held) - sending.after))
+			.filter((each) => each.queued).length;
 	}
 
-	/** Stops showing `message`, which `send` showed in conversation `id`. */
-	sent(id: string, message: Sending): void {
+	/**
+	 * Keeps `message`, which `send` showed in conversation `id`, as unsent at
+	 * the thread's foot, since the server refused it with `error`.
+	 */
+	refused(id: string, message: Sending, error: unknown): void {
+		if (!this.withdraw(id, message)) {
+			return;
+		}
+		this.unsent.set(id, [
+			...(this.unsent.get(id) ?? []),
+			{
+				message,
+				why: error instanceof Error ? error.message : String(error),
+			},
+		]);
+		this.show(this.recorded);
+	}
+
+	/** Stops showing `message`, unsent in conversation `id`, to send again or edit. */
+	take(id: string, message: Sending): void {
+		const left = (this.unsent.get(id) ?? []).filter(
+			(each) => each.message !== message,
+		);
+		if (left.length === 0) {
+			this.unsent.delete(id);
+		} else {
+			this.unsent.set(id, left);
+		}
+		forget(message);
+		this.show(this.recorded);
+	}
+
+	/** Takes `message` off conversation `id`'s on their way; false when it was not. */
+	private withdraw(id: string, message: Sending): boolean {
 		const sending = this.sending.get(id);
 		const at = sending?.messages.indexOf(message) ?? -1;
 		if (sending === undefined || at === -1) {
-			return;
+			return false;
 		}
 		sending.messages.splice(at, 1);
-		forget(message);
 		if (sending.messages.length === 0) {
 			this.sending.delete(id);
 		}
-		this.show(this.recorded);
+		return true;
 	}
 
 	private show(recorded: ConversationState[]): void {
@@ -200,26 +257,7 @@ export class ConversationFeed
 				...each,
 				messages: [
 					...each.messages,
-					...sending.messages.slice(recorded).map((message, index) => ({
-						role: "user" as const,
-						parts: [
-							...message.images.map((image) => ({
-								type: "image" as const,
-								...image,
-							})),
-							...message.files.map((file) => ({
-								type: "file" as const,
-								...file,
-							})),
-							...(message.text === ""
-								? []
-								: [{ type: "text" as const, text: message.text }]),
-						],
-						plan: null,
-						at: null,
-						until: null,
-						...(recorded + index > 0 ? { queued: true as const } : {}),
-					})),
+					...sending.messages.slice(Math.max(0, recorded)).map(messageOf),
 				],
 			};
 		});
@@ -280,6 +318,24 @@ export class ConversationFeed
 		]);
 		return true;
 	}
+}
+
+/** `message` as the thread shows it, from the page's own copies of its files. */
+export function messageOf(message: Sending): Message {
+	return {
+		role: "user",
+		parts: [
+			...message.images.map((image) => ({ type: "image" as const, ...image })),
+			...message.files.map((file) => ({ type: "file" as const, ...file })),
+			...(message.text === ""
+				? []
+				: [{ type: "text" as const, text: message.text }]),
+		],
+		plan: null,
+		at: null,
+		until: null,
+		...(message.queued ? { queued: true as const } : {}),
+	};
 }
 
 /** How many messages the person has said in `conversation`, if any. */
