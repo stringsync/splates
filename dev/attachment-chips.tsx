@@ -1,5 +1,5 @@
 import { FileIcon, ImageIcon } from "lucide-react";
-import type { JSX } from "react";
+import { createContext, type JSX } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { outsideCode } from "./markdown";
 
@@ -36,6 +36,14 @@ export interface Placed {
 	shelf: Shelf;
 	at: number;
 }
+
+/**
+ * Takes the chips of attachment `placed` out of the composer, as it is
+ * removed.
+ */
+export const ForgetAttachment = createContext<(placed: Placed) => void>(
+	() => undefined,
+);
 
 /** Which attachment `name` calls, or null when it names none. */
 export function attachmentNumber(name: string): Placed | null {
@@ -111,15 +119,9 @@ export function AttachmentChip({
 	opens = false,
 }: Placed & { opens?: boolean }): JSX.Element {
 	const name = attachmentName(shelf, at - 1);
-	const Icon = shelf === "image" ? ImageIcon : FileIcon;
-	const inside = (
-		<>
-			<Icon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
-			{name}
-		</>
-	);
+	const inside = <ChipFace shelf={shelf} at={at} />;
 	if (!opens) {
-		return <span className={CHIP}>{inside}</span>;
+		return <span className={ATTACHMENT_CHIP}>{inside}</span>;
 	}
 	return (
 		<button
@@ -129,14 +131,25 @@ export function AttachmentChip({
 				event.stopPropagation();
 				tileOf(event.currentTarget, name)?.click();
 			}}
-			className={cn(CHIP, "cursor-pointer hover:bg-muted")}
+			className={cn(ATTACHMENT_CHIP, "cursor-pointer hover:bg-muted")}
 		>
 			{inside}
 		</button>
 	);
 }
 
-const CHIP =
+/** What an attachment's chip shows: its kind's icon, and its name. */
+export function ChipFace({ shelf, at }: Placed): JSX.Element {
+	const Icon = shelf === "image" ? ImageIcon : FileIcon;
+	return (
+		<>
+			<Icon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+			{attachmentName(shelf, at - 1)}
+		</>
+	);
+}
+
+export const ATTACHMENT_CHIP =
 	"inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 align-middle font-medium text-foreground/90 text-xs";
 
 /** The tile of the attachment called `name` in the message `chip` sits in. */

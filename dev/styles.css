@@ -42,6 +42,7 @@
 @source "./handed-out.tsx";
 @source "./current-task.tsx";
 @source "./attachment-chips.tsx";
+@source "./attachment-menu.tsx";
 @source "./mentioned.tsx";
 @source "./mentions.tsx";
 @source "./notifications.tsx";

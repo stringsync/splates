@@ -20,12 +20,7 @@ import {
 	PASTE_COMMAND,
 	TextNode,
 } from "lexical";
-import {
-	createContext,
-	type RefObject,
-	useEffect,
-	useLayoutEffect,
-} from "react";
+import { type RefObject, useEffect, useLayoutEffect } from "react";
 import { DIRECTIVES } from "../prompts";
 import {
 	attachmentName,
@@ -237,13 +232,6 @@ export interface ChipWriter {
 	 */
 	forget(placed: Placed): void;
 }
-/**
- * Takes the chips of attachment `placed` out of the composer, as it is
- * removed.
- */
-export const ForgetAttachment = createContext<(placed: Placed) => void>(
-	() => undefined,
-);
 /** Wires the composer's editor to `writer`. */
 export function ChipWriterPlugin({
 	writer,

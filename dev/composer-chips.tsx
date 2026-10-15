@@ -9,10 +9,10 @@ import { createContext, type JSX, use } from "react";
 import { DIRECTIVES } from "../prompts";
 import {
 	ATTACHMENT_REFERENCE,
-	AttachmentChip,
 	attachmentNumber,
 	shelfOf,
 } from "./attachment-chips";
+import { AttachmentMenu } from "./attachment-menu";
 import { DirectiveChip } from "./directives";
 import {
 	NAMING,
@@ -186,7 +186,7 @@ function AttachedChip({ name }: { name: string }): JSX.Element {
 	if (placed === null || placed.at > attached) {
 		return <span>[{name}]</span>;
 	}
-	return <AttachmentChip {...placed} />;
+	return <AttachmentMenu placed={placed} />;
 }
 const CHIP =
 	"inline-flex h-6 items-center gap-1 rounded-md border px-1.5 align-middle font-mono text-xs";

@@ -11,10 +11,8 @@ import {
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import { ArrowUpIcon, MicIcon, SquareIcon } from "lucide-react";
 import { type FC, useContext, useMemo, useRef, useState } from "react";
-import {
-	ComposerAddAttachment,
-	ComposerAttachments,
-} from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
+import { ForgetAttachment } from "#dev/attachment-chips.tsx";
+import { ComposerAddAttachment } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { ThreadExtrasContext } from "#dev/components/assistant-ui/elements/thread-context.aui.ts";
 import {
 	CategoryList,
@@ -38,7 +36,6 @@ import {
 	AttachmentChipsPlugin,
 	type ChipWriter,
 	ChipWriterPlugin,
-	ForgetAttachment,
 	NoRefocusOnTouchPlugin,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
@@ -83,28 +80,27 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 				}
 			>
 				<ForgetAttachment value={(at) => writer.current?.forget(at)}>
-					<ComposerAttachments />
+					<FileNames value={names}>
+						<LexicalComposerInput
+							placeholder={placeholder}
+							className="aui-composer-input caret-primary relative max-h-48 min-h-10 pointer-coarse:max-h-32 w-full bg-transparent px-2.5 py-1 text-base leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-1 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
+							autoFocus={autoFocus}
+							submitMode={touch ? "none" : "enter"}
+							aria-label="Message input"
+							formatter={formatter}
+							directiveChip={ComposerChip}
+							directivePluginProps={{
+								onDirectiveSelect: () => writer.current?.space(),
+							}}
+						>
+							<ChipWriterPlugin writer={writer} />
+							<PasteFilesPlugin />
+							<AttachmentChipsPlugin />
+							<TypedDirectivesPlugin />
+							<NoRefocusOnTouchPlugin />
+						</LexicalComposerInput>
+					</FileNames>
 				</ForgetAttachment>
-				<FileNames value={names}>
-					<LexicalComposerInput
-						placeholder={placeholder}
-						className="aui-composer-input caret-primary relative max-h-48 min-h-10 pointer-coarse:max-h-32 w-full bg-transparent px-2.5 py-1 text-base leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-1 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
-						autoFocus={autoFocus}
-						submitMode={touch ? "none" : "enter"}
-						aria-label="Message input"
-						formatter={formatter}
-						directiveChip={ComposerChip}
-						directivePluginProps={{
-							onDirectiveSelect: () => writer.current?.space(),
-						}}
-					>
-						<ChipWriterPlugin writer={writer} />
-						<PasteFilesPlugin />
-						<AttachmentChipsPlugin />
-						<TypedDirectivesPlugin />
-						<NoRefocusOnTouchPlugin />
-					</LexicalComposerInput>
-				</FileNames>
 				<ComposerAction />
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>

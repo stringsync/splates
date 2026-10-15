@@ -1,12 +1,4 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	mock,
-	spyOn,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import {
 	act,
 	cleanup,
@@ -133,6 +125,8 @@ describe("App's attachments", () => {
 		).toContain("/api/conversations/c1/attachments/cd34.pdf");
 
 		const picked: HTMLInputElement[] = [];
+		// The picker is an input outside the page, which no listener sees clicked.
+		// scry-ignore fakes-over-mocks
 		const click = spyOn(HTMLInputElement.prototype, "click").mockImplementation(
 			function (this: HTMLInputElement) {
 				picked.push(this);
@@ -157,9 +151,7 @@ describe("App's attachments", () => {
 		});
 		const box = view.getByRole("textbox", { name: "Message input" });
 		await waitFor(() =>
-			expect(
-				view.getByRole("button", { name: "Preview clip.mp4" }),
-			).toBeTruthy(),
+			expect(within(box).getByRole("button", { name: "File 1" })).toBeTruthy(),
 		);
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
@@ -170,7 +162,7 @@ describe("App's attachments", () => {
 		);
 	});
 
-	it("names each file attached, on its tile and in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes", async () => {
+	it("names each file attached in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes from its chip's menu", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Look" }),
 		]);
@@ -184,52 +176,40 @@ describe("App's attachments", () => {
 			png("c.png"),
 		];
 		await typeIn(box, "compare");
-		for (const file of [first, csv, second, json, third]) {
-			await act(async () =>
-				fireEvent.paste(box, { clipboardData: { files: [file] } }),
-			);
-		}
+		await act(async () =>
+			fireEvent.paste(box, {
+				clipboardData: { files: [first, csv, second, json, third] },
+			}),
+		);
 
 		await waitFor(() =>
 			expect(textIn(box)).toBe(
-				"compare [Image 1] [File 1] [Image 2] [File 2] [Image 3] ",
+				"compare [Image 1] [Image 2] [Image 3] [File 1] [File 2] ",
 			),
 		);
-		const tiles = view.container.ownerDocument.querySelector(
-			".aui-composer-attachments",
-		) as HTMLElement;
-		const names = () =>
-			[...tiles.querySelectorAll("[data-attachment]")].map((tile) =>
-				tile.getAttribute("data-attachment"),
+		const remove = async (chip: string) => {
+			await act(async () =>
+				fireEvent.click(within(box).getByRole("button", { name: chip })),
 			);
-		expect(names()).toEqual([
-			"Image 1",
-			"File 1",
-			"Image 2",
-			"File 2",
-			"Image 3",
-		]);
-
-		await act(async () =>
-			fireEvent.click(
-				within(tiles).getByRole("button", { name: "Remove notes.csv" }),
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() => view.getByRole("menuitem", { name: "Remove" })),
+				),
+			);
+		};
+		await waitFor(() =>
+			expect(within(box).getByRole("button", { name: "File 1" })).toBeTruthy(),
+		);
+		await remove("File 1");
+		await waitFor(() =>
+			expect(textIn(box)).toBe(
+				"compare [Image 1] [Image 2] [Image 3] [File 1] ",
 			),
 		);
-		await waitFor(() =>
-			expect(names()).toEqual(["Image 1", "Image 2", "File 1", "Image 3"]),
-		);
-		expect(textIn(box)).toBe("compare [Image 1] [Image 2] [File 1] [Image 3] ");
-		await act(async () =>
-			fireEvent.click(
-				within(tiles).getByRole("button", { name: "Remove a.png" }),
-			),
-		);
+		await remove("Image 1");
 
 		await waitFor(() =>
-			expect(textIn(box)).toBe("compare [Image 1] [File 1] [Image 2] "),
-		);
-		await waitFor(() =>
-			expect(names()).toEqual(["Image 1", "File 1", "Image 2"]),
+			expect(textIn(box)).toBe("compare [Image 1] [Image 2] [File 1] "),
 		);
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
@@ -238,12 +218,42 @@ describe("App's attachments", () => {
 				{
 					method: "POST",
 					body: {
-						text: "compare [Image 1] [File 1] [Image 2]",
+						text: "compare [Image 1] [Image 2] [File 1]",
 						file: [second, json, third],
 					},
 				},
 			]),
 		);
+	});
+
+	it("views an image attached from its chip's menu, and marks it up from there or from the lightbox", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Look" }),
+		]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+		await act(async () =>
+			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
+		);
+		const chip = await waitFor(() =>
+			within(box).getByRole("button", { name: "Image 1" }),
+		);
+		expect(
+			view.container.querySelector(".aui-composer-attachments"),
+		).toBeNull();
+
+		await act(async () => fireEvent.click(chip));
+		expect(view.getByRole("menuitem", { name: "Mark up" })).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: "View" })),
+		);
+		const lightbox = await waitFor(() =>
+			view.getByRole("dialog", { name: "shot.png" }),
+		);
+		expect(lightbox.querySelector("img")).not.toBeNull();
+		expect(
+			within(lightbox).getByRole("button", { name: "Mark up" }),
+		).toBeTruthy();
 	});
 
 	it("draws the images a sent message names as chips that open them", async () => {
@@ -300,13 +310,13 @@ describe("App's attachments", () => {
 		);
 		const tile = thread.querySelector('[data-attachment="File 1"]');
 		expect(tile?.textContent).toBe("notes.csv");
-		const opened = mock();
+		let opened = 0;
 		tile?.addEventListener("click", (event) => {
 			event.preventDefault();
-			opened();
+			opened++;
 		});
 		await act(async () => fireEvent.click(chip));
 
-		expect(opened).toHaveBeenCalledTimes(1);
+		expect(opened).toBe(1);
 	});
 });

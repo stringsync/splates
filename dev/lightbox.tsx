@@ -54,9 +54,11 @@ export function gallery(from: Element): Shown[] {
 
 /**
  * A lightbox to render beside the media, and `open`, which shows the media
- * `from` is, or sits in, among the others of its document.
+ * `from` is, or sits in, among the others of its document. Given `markUp`,
+ * its Mark up button hands it the image shown, rather than adding a marked
+ * up copy to the composer.
  */
-export function useLightbox(): {
+export function useLightbox(markUp?: (image: Shown) => Promise<void>): {
 	open: (from: Element) => void;
 	lightbox: JSX.Element;
 } {
@@ -83,6 +85,7 @@ export function useLightbox(): {
 				index={index}
 				onIndex={setIndex}
 				onClose={() => setIndex(null)}
+				markUp={markUp}
 			/>
 		),
 	};
@@ -98,12 +101,15 @@ export function Lightbox({
 	index,
 	onIndex,
 	onClose,
+	markUp: markUpThere,
 }: {
 	items: readonly Shown[];
 	/** The one shown, or `null` when the lightbox is closed. */
 	index: number | null;
 	onIndex: (index: number) => void;
 	onClose: () => void;
+	/** Marks up the image shown in its own way, as an attachment on its way is. */
+	markUp?: ((image: Shown) => Promise<void>) | undefined;
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);
 	const shown = index === null ? undefined : items[index];
@@ -112,11 +118,16 @@ export function Lightbox({
 	// In a conversation, an image in it can go back to the agent, marked up
 	// or as it is, in the composer.
 	const markable =
-		composer !== null &&
+		(composer !== null || markUpThere !== undefined) &&
 		shown !== undefined &&
 		!shown.video &&
 		!SVG.test(nameOf(shown));
 	const markUp = async (image: Shown) => {
+		if (markUpThere !== undefined) {
+			onClose();
+			await markUpThere(image);
+			return;
+		}
 		const response = await fetch(image.url);
 		const blob = await response.blob();
 		// Out of the way first: the annotator takes the whole window itself.
