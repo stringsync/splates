@@ -186,6 +186,24 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		expect(within(panel).getByRole("button", { name: "Merge" })).toBeTruthy();
 	});
 
+	it("shows a review it drew, once approved, as one line in place of the Merge it sent", async () => {
+		const { thread } = await opened(
+			[
+				asked("fix the header", 0),
+				said("Ready.", 1),
+				asked("[ARBOR MERGE]", 10),
+			],
+			[{ ...escalated(3), review: true, questions: [] }],
+		);
+
+		await waitFor(() => within(thread).getByRole("button", { name: "Show" }));
+		expect(
+			within(thread)
+				.getAllByRole("note", { name: "arbor" })
+				.map((line) => line.textContent),
+		).toEqual(["Review approvedheaderShow"]);
+	});
+
 	it("draws a refused escalation as a failed line", async () => {
 		const { thread } = await opened(
 			[asked("fix the header", 0), said("I'll finish the steps first.", 1)],

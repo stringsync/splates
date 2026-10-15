@@ -6,7 +6,7 @@ import {
 	SendHorizontalIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useContext, useRef } from "react";
+import { type JSX, useContext, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Collapsible,
@@ -19,6 +19,7 @@ import type { Review } from "../asked";
 import { assumptions } from "../plan";
 import { MERGE } from "../prompts";
 import { answerIn } from "../reply";
+import { ArborEvent } from "./arbor-event";
 import {
 	AssumptionList,
 	AssumptionsChanged,
@@ -76,20 +77,21 @@ export function ReviewPanel({
 	useArrival(send !== null, () => box.current);
 	const approved =
 		sent?.trim() === MERGE || sent?.trim().toLowerCase() === TYPED_MERGE;
-	return (
+	// Approved, it is history: a line of arbor's, the Merged report below
+	// it the one card that says how the task ended. Show opens it again.
+	const [shown, setShown] = useState(false);
+	const card = (
 		<CardShell
 			label={`review ${review.task}`}
 			Icon={GitMergeIcon}
 			title="Ready to merge"
-			tone="success"
+			tone={approved ? "neutral" : "success"}
 			task={review.task}
 			base={review.base}
-			folded={sent !== null}
+			folded={sent !== null && !approved}
 			aside={
-				sent === null ? undefined : (
-					<span className="text-muted-foreground text-xs">
-						{approved ? "Merge approved" : "Changes asked"}
-					</span>
+				sent === null || approved ? undefined : (
+					<span className="text-muted-foreground text-xs">Changes asked</span>
 				)
 			}
 		>
@@ -122,26 +124,14 @@ export function ReviewPanel({
 				)}
 				{review.details !== "" && <Details text={review.details} />}
 			</div>
-			{sent !== null && (
+			{sent !== null && !approved && (
 				// What the person replied, as it was sent: the card keeps it.
 				<footer className="flex items-start gap-2 border-t bg-muted/20 px-4 py-3 text-sm">
-					{approved ? (
-						<>
-							<CheckIcon
-								className="mt-0.5 size-4 text-success"
-								strokeWidth={3}
-							/>
-							<span>Merge approved</span>
-						</>
-					) : (
-						<>
-							<span className="shrink-0 text-muted-foreground">Asked for</span>
-							<Markdown
-								text={sent}
-								className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-							/>
-						</>
-					)}
+					<span className="shrink-0 text-muted-foreground">Asked for</span>
+					<Markdown
+						text={sent}
+						className="min-w-0 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+					/>
 				</footer>
 			)}
 			{send !== null && (
@@ -213,6 +203,20 @@ export function ReviewPanel({
 				</footer>
 			)}
 		</CardShell>
+	);
+	if (!approved) {
+		return card;
+	}
+	return (
+		<div className="my-6">
+			<ArborEvent
+				event={{
+					words: ["Review approved", { kind: "task", task: review.task }],
+					act: { label: shown ? "Hide" : "Show", run: () => setShown(!shown) },
+				}}
+			/>
+			{shown && card}
+		</div>
 	);
 }
 

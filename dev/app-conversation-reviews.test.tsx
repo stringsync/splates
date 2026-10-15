@@ -276,10 +276,7 @@ describe("App's review panel and demo cards", () => {
 			view.getByRole("region", { name: "review header" }),
 		);
 		const list = await unfold(panel);
-		for (const [number, pick] of [
-			["1", /Below 600px/],
-			["2", /More/],
-		] as const) {
+		const challenge = async (number: string, pick: RegExp) => {
 			await act(async () =>
 				fireEvent.click(
 					within(list).getByRole("button", {
@@ -294,7 +291,9 @@ describe("App's review panel and demo cards", () => {
 					).getByRole("button", { name: pick }),
 				),
 			);
-		}
+		};
+		await challenge("1", /Below 600px/);
+		await challenge("2", /More/);
 
 		// Its agent drops the first, and moves the second's choices around.
 		testing.served = {
@@ -407,24 +406,20 @@ describe("App's review panel and demo cards", () => {
 		).toBe(true);
 	});
 
-	it("folds as approved once Merge has sent its directive, shown as a merge card", async () => {
+	it("shows an approved review as a line of arbor's, in place of the Merge it sent", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				...reviewing,
 				messages: [...reviewing.messages, message("user", "[ARBOR MERGE]")],
 			}),
 		]);
-		const panel = await waitFor(() =>
-			view.getByRole("region", { name: "review header" }),
-		);
-		expect(
-			within(panel).getByRole("button", { name: /Ready to merge/ }).textContent,
-		).toContain("Merge approved");
-		expect(view.getByRole("note", { name: "arbor" }).textContent).toBe("Merge");
-		expect(view.getByTitle("[ARBOR MERGE]").tagName).toBe("P");
+		const line = await waitFor(() => view.getByRole("note", { name: "arbor" }));
+		expect(line.textContent).toBe("Review approvedheaderShow");
+		expect(view.queryByTitle("[ARBOR MERGE]")).toBeNull();
+		expect(view.queryByRole("region", { name: "review header" })).toBeNull();
 	});
 
-	it("folds once the person has replied, opening on the reply that was sent, whatever is typed after", async () => {
+	it("opens an approved review from its line, with nothing left to answer", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				...reviewing,
@@ -435,6 +430,25 @@ describe("App's review panel and demo cards", () => {
 				],
 			}),
 		]);
+		const line = await waitFor(() => view.getByRole("note", { name: "arbor" }));
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Show" })),
+		);
+
+		const panel = view.getByRole("region", { name: "review header" });
+		expect(panel.textContent).toContain("The header wraps on phones.");
+		expect(within(panel).queryByRole("button", { name: /^Merge/ })).toBeNull();
+		expect(within(panel).queryByRole("textbox")).toBeNull();
+		expect(within(line).getByRole("button", { name: "Hide" })).toBeTruthy();
+	});
+
+	it("folds once the person asked for changes, opening on what they asked, whatever is typed after", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				...reviewing,
+				messages: [...reviewing.messages, message("user", "Shorter title.")],
+			}),
+		]);
 		const panel = await waitFor(() =>
 			view.getByRole("region", { name: "review header" }),
 		);
@@ -442,14 +456,14 @@ describe("App's review panel and demo cards", () => {
 			name: /Ready to merge/,
 		});
 		expect(fold.getAttribute("aria-expanded")).toBe("false");
-		expect(fold.textContent).toContain("Merge approved");
+		expect(fold.textContent).toContain("Changes asked");
 		expect(panel.textContent).not.toContain("The header wraps on phones.");
 
 		await typeIn(box(view), "merge");
 		await act(async () => fireEvent.click(fold));
 
 		expect(panel.textContent).toContain("The header wraps on phones.");
-		expect(within(panel).queryByRole("button", { name: /^Merge/ })).toBeNull();
+		expect(panel.textContent).toContain("Asked forShorter title.");
 		expect(within(panel).queryByRole("textbox")).toBeNull();
 	});
 

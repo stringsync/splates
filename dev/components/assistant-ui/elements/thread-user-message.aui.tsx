@@ -18,6 +18,7 @@ import {
 	useState,
 } from "react";
 import { linkAttachments } from "#dev/attachment-chips.tsx";
+import { repliesToReview } from "#dev/card-reply.tsx";
 import { MarkdownText } from "#dev/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	useAnchorAtOnce,
@@ -41,7 +42,7 @@ import {
 	unnamed,
 } from "#dev/sent-attachments.tsx";
 import { Stamp, useStamps } from "#dev/stamp.tsx";
-import { leadingDirectives } from "../../../../prompts";
+import { leadingDirectives, MERGE } from "../../../../prompts";
 
 /**
  * Has a person's message report, as its `offsetTop`, where it sits before it
@@ -142,8 +143,13 @@ export const UserMessage: FC = () => {
 			.flatMap((part) => (part.type === "text" ? [part.text] : []))
 			.join("\n"),
 	);
+	// A review's Merge, which the review's own line says was approved.
+	const merged = useAuiState(
+		(s) =>
+			sole === MERGE && repliesToReview(s.thread.messages, s.message.index),
+	);
 	const sent = sentOf(attachments);
-	if (sole !== null && sent.length === 0 && unshown(sole)) {
+	if (sole !== null && sent.length === 0 && (unshown(sole) || merged)) {
 		// Nothing to see, but still where its turn starts.
 		return (
 			<MessagePrimitive.Root
