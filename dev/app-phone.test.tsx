@@ -732,6 +732,67 @@ describe("App on a phone", () => {
 		expect(testing.shells[0]?.readyState).toBe(3);
 		expect(view.queryByRole("region", { name: "Terminals" })).toBeNull();
 	});
+	it("nests a conversation's running commands and its shell under it in the inbox, opening each from there", async () => {
+		const running = {
+			id: "b1",
+			name: "Start the dev server",
+			command: "bun dev",
+			subagent: null,
+			state: "running" as const,
+			output: "/tmp/b1.output",
+		};
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					title: "Serve it",
+					status: "stopped",
+					background: [
+						running,
+						{ ...running, id: "b2", name: "Old build", state: "completed" },
+					],
+				}),
+			],
+			"c1",
+			{ tasks: [] },
+		);
+		await act(async () => {
+			fireEvent.keyDown(window, { key: "`", code: "Backquote", ctrlKey: true });
+		});
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Back to conversations" }),
+			),
+		);
+
+		const recent = within(
+			view.getByRole("region", { name: "inbox" }),
+		).getByRole("region", { name: "Recent" });
+		expect(
+			within(recent)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual([
+			expect.stringContaining("Serve it"),
+			"TerminalShell up",
+			"Start the dev serverbun dev",
+		]);
+		expect(recent.textContent).not.toContain("Old build");
+
+		await act(async () =>
+			fireEvent.click(
+				within(recent).getByRole("button", { name: /^Start the dev server/ }),
+			),
+		);
+		expect(location.hash).toBe("#conversations/c1");
+		expect(
+			within(
+				view.getByRole("complementary", { name: "background command" }),
+			).getByRole("heading").textContent,
+		).toBe("Start the dev server");
+	});
 });
 
 function hoursAgo(hours: number): string {

@@ -1,12 +1,12 @@
 import { useReactive } from "@webappwiz/react";
+import { GitBranchIcon, MenuIcon, SquarePenIcon } from "lucide-react";
 import {
-	GitBranchIcon,
-	MenuIcon,
-	SquarePenIcon,
-	SquareTerminalIcon,
-	XIcon,
-} from "lucide-react";
-import { type JSX, type ReactNode, useContext, useState } from "react";
+	Fragment,
+	type JSX,
+	type ReactNode,
+	useContext,
+	useState,
+} from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import { answersTo, type Needing, quietSince } from "../needs";
@@ -32,6 +32,7 @@ import { Held } from "./handed-out";
 import { Mark } from "./mark";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
+import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { RowMenu, useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, useCopiedReplies } from "./task-view";
@@ -46,8 +47,11 @@ import { unanswered } from "./unanswered";
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
  * asks, and a long press offers Rename, Mark as unread and Archive. The
- * project's name picks another project, the menu opens the drawer, and the pen, like the composer along the bottom, starts a
- * new conversation. The main tree's terminals come last, to go back to or
+ * project's name picks another project, the menu opens the drawer, and the
+ * pen, like the composer along the bottom, starts a new conversation. Under
+ * each conversation, as in the sidebar, sit its terminal while its shell is up
+ * and each command its agent left running, each opening the conversation with
+ * it on the screen. The main tree's terminals come last, to go back to or
  * close.
  */
 export function Inbox({
@@ -77,11 +81,7 @@ export function Inbox({
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
-	const { mains } = useReactive(
-		terminals,
-		(terminals) => ({ mains: terminals.mains, names: terminals.names }),
-		["changed"],
-	);
+	const { mains, beneath } = useShells(terminals, onOpen);
 	useCopiedReplies(drafts);
 	const rows = rowsOf(tasks, conversations);
 	// Each with the agents it handed out, in the group of the most pressing.
@@ -144,15 +144,23 @@ export function Inbox({
 							trees={waiting}
 							agents={agents}
 							urgent
+							beneath={beneath}
 							onOpen={open}
 						/>
 						<Group
 							title="Working"
 							trees={working}
 							agents={agents}
+							beneath={beneath}
 							onOpen={open}
 						/>
-						<Group title="Recent" trees={rest} agents={agents} onOpen={open} />
+						<Group
+							title="Recent"
+							trees={rest}
+							agents={agents}
+							beneath={beneath}
+							onOpen={open}
+						/>
 						<TerminalGroup
 							mains={mains}
 							nameOf={(key) => terminals.nameOf(key)}
@@ -190,20 +198,24 @@ export function Inbox({
 }
 
 /**
- * A heading and its rows, each agent's subagents under it, or nothing when it
- * has none. The count is of the agents at the top.
+ * A heading and its rows, each agent's subagents under it, and what
+ * `beneath` puts under each, or nothing when it has none. The count is of the
+ * agents at the top.
  */
 function Group({
 	title,
 	trees,
 	agents,
 	urgent = false,
+	beneath,
 	onOpen,
 }: {
 	agents: AgentChoice[];
 	title: string;
 	trees: Nested<Needing>[];
 	urgent?: boolean;
+	/** The rows under an agent's, a level deeper than `depth`, its own. */
+	beneath: (row: Needing, depth: number) => ReactNode[];
 	onOpen: (row: Needing) => void;
 }): ReactNode {
 	if (trees.length === 0) {
@@ -230,21 +242,24 @@ function Group({
 			</h2>
 			<ul>
 				{lines(trees, 0).map(({ row, depth }) => (
-					<li key={openedBy(row)}>
-						<Row
-							row={row}
-							depth={depth}
-							agent={
-								row.conversation === null
-									? null
-									: agentName(agents, row.conversation.agent)
-							}
-							hosting={
-								row.conversation !== null && hosting.has(row.conversation.id)
-							}
-							onOpen={() => onOpen(row)}
-						/>
-					</li>
+					<Fragment key={openedBy(row)}>
+						<li>
+							<Row
+								row={row}
+								depth={depth}
+								agent={
+									row.conversation === null
+										? null
+										: agentName(agents, row.conversation.agent)
+								}
+								hosting={
+									row.conversation !== null && hosting.has(row.conversation.id)
+								}
+								onOpen={() => onOpen(row)}
+							/>
+						</li>
+						{beneath(row, depth + 1)}
+					</Fragment>
 				))}
 			</ul>
 		</section>
@@ -378,64 +393,6 @@ function Row({
 			</button>
 			<Refusal refusal={refusal} className="px-4 pb-1.5" />
 		</>
-	);
-}
-
-/**
- * The main tree's terminals, opened from the new conversation's picker, each
- * a row to go back to it, with an X that hangs up its shell; nothing when
- * none is open.
- */
-function TerminalGroup({
-	mains,
-	nameOf,
-	onOpen,
-	onClose,
-}: {
-	/** Their keys, `terminal/<n>`, oldest first. */
-	mains: string[];
-	nameOf: (key: string) => string;
-	onOpen: (key: string) => void;
-	onClose: (key: string) => void;
-}): ReactNode {
-	if (mains.length === 0) {
-		return null;
-	}
-	return (
-		<section aria-label="Terminals" className="pt-4">
-			<h2 className="px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-				Terminals · {mains.length}
-			</h2>
-			<ul>
-				{mains.map((key) => {
-					const name = nameOf(key);
-					return (
-						<li key={key} className="flex items-center pr-2">
-							<button
-								type="button"
-								onClick={() => onOpen(key)}
-								className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left active:bg-muted"
-							>
-								<span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
-									<SquareTerminalIcon className="size-5 text-foreground/80" />
-								</span>
-								<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-									<span className="truncate font-medium text-[15px]">
-										{name}
-									</span>
-									<span className="truncate text-muted-foreground text-sm">
-										Main tree
-									</span>
-								</span>
-							</button>
-							<BarButton label={`Close ${name}`} onClick={() => onClose(key)}>
-								<XIcon />
-							</BarButton>
-						</li>
-					);
-				})}
-			</ul>
-		</section>
 	);
 }
 
