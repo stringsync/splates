@@ -35,7 +35,7 @@ import { launch } from "./phone-home";
 import { RowMenu, useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, useCopiedReplies } from "./task-view";
-import { numberOf, type Terminals } from "./terminals";
+import type { Terminals } from "./terminals";
 import { BarButton, TITLE, TopBar } from "./top-bar";
 import { unanswered } from "./unanswered";
 
@@ -79,7 +79,7 @@ export function Inbox({
 	);
 	const { mains } = useReactive(
 		terminals,
-		(terminals) => ({ mains: terminals.mains }),
+		(terminals) => ({ mains: terminals.mains, names: terminals.names }),
 		["changed"],
 	);
 	useCopiedReplies(drafts);
@@ -155,6 +155,7 @@ export function Inbox({
 						<Group title="Recent" trees={rest} agents={agents} onOpen={open} />
 						<TerminalGroup
 							mains={mains}
+							nameOf={(key) => terminals.nameOf(key)}
 							onOpen={onOpen}
 							onClose={(key) => terminals.close(key)}
 						/>
@@ -387,11 +388,13 @@ function Row({
  */
 function TerminalGroup({
 	mains,
+	nameOf,
 	onOpen,
 	onClose,
 }: {
 	/** Their keys, `terminal/<n>`, oldest first. */
 	mains: string[];
+	nameOf: (key: string) => string;
 	onOpen: (key: string) => void;
 	onClose: (key: string) => void;
 }): ReactNode {
@@ -405,7 +408,7 @@ function TerminalGroup({
 			</h2>
 			<ul>
 				{mains.map((key) => {
-					const name = `Terminal ${numberOf(key)}`;
+					const name = nameOf(key);
 					return (
 						<li key={key} className="flex items-center pr-2">
 							<button

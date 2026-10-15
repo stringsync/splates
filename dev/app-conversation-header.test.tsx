@@ -319,6 +319,55 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
+	it("nests each command it left running under it in the sidebar, opening its output from there", async () => {
+		const running = {
+			id: "b1",
+			name: "Start the dev server",
+			command: "bun dev",
+			subagent: null,
+			state: "running" as const,
+			output: "/tmp/b1.output",
+		};
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [
+					running,
+					{ ...running, id: "b2", name: "Run the tests", state: "failed" },
+				],
+			}),
+		]);
+		const sidebar = view.getByRole("navigation", { name: "conversations" });
+		const row = within(sidebar).getByRole("button", {
+			name: /Start the dev server/,
+		});
+		expect(row.title).toBe("bun dev");
+		expect(
+			within(sidebar).queryByRole("button", { name: /Run the tests/ }),
+		).toBeNull();
+
+		await act(async () => fireEvent.click(row));
+		const pane = view.getByRole("complementary", {
+			name: "background command",
+		});
+		expect(within(pane).getByRole("heading").textContent).toBe(
+			"Start the dev server",
+		);
+		expect(row.getAttribute("aria-current")).toBe("page");
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Serve it",
+				background: [{ ...running, state: "completed" }],
+			}),
+		);
+		expect(
+			within(sidebar).queryByRole("button", { name: /Start the dev server/ }),
+		).toBeNull();
+	});
+
 	it("lists the commands a subagent started under that subagent, after the agent's own", async () => {
 		const view = await testing.openConversations([
 			conversation({

@@ -1,6 +1,13 @@
 import { useReactive } from "@webappwiz/react";
 import { ArchiveIcon } from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { answersTo, type Needing, needs } from "../needs";
 import type { Details } from "../show";
@@ -22,10 +29,11 @@ import {
 import type { Drafts } from "./drafts";
 import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
-import { External, Rows, TerminalRow } from "./list-rows";
+import { CommandRow, External, Rows, TerminalRow } from "./list-rows";
 import { nest } from "./parts";
+import { NestedPanesContext } from "./side-panes";
 import { arriveAt, useCopiedReplies } from "./task-view";
-import { numberOf, type Terminals } from "./terminals";
+import type { Terminals } from "./terminals";
 import { WaitingLine } from "./waiting-line";
 
 /** How many rows ⌥⌘ and a digit can open. */
@@ -37,7 +45,9 @@ const DIGITS = 10;
  * row is named alone, with its task on hover. A conversation follows its agent
  * as it takes and lands tasks. A task whose agent runs outside the page is a
  * row of its own. Rows stay put as their agents change state; each one's mark
- * says whether it works or waits on you. Archived ones sit behind a link at
+ * says whether it works or waits on you. Under a conversation, muted as a
+ * subagent is, sit its terminal while its shell is up and each command its
+ * agent left running, each opening in the pane beside the page. Archived ones sit behind a link at
  * the bottom.
  *
  * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
@@ -70,11 +80,59 @@ export function ConversationList({
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
-	const { mains } = useReactive(
+	const { mains, up } = useReactive(
 		terminals,
-		(terminals) => ({ mains: terminals.mains }),
+		(terminals) => ({
+			mains: terminals.mains,
+			up: terminals.up().join(" "),
+			// Unread, but a rename shows at once.
+			names: terminals.names,
+		}),
 		["changed"],
 	);
+	const panes = useContext(NestedPanesContext);
+	const shells = new Set(up.split(" "));
+	const beneath = ({ conversation }: Needing): ReactNode[] => {
+		if (conversation === null || panes === null) {
+			return [];
+		}
+		const { id } = conversation;
+		const { showing } = panes;
+		const shown = open === id ? showing : null;
+		return [
+			shells.has(id) && (
+				<li key="terminal">
+					<TerminalRow
+						name={terminals.nameOf(id)}
+						nested
+						current={shown?.kind === "terminal"}
+						onOpen={() => {
+							onOpen(id);
+							panes.showTerminal(id);
+						}}
+						onClose={() => terminals.close(id)}
+						onRename={(name) => terminals.rename(id, name)}
+					/>
+				</li>
+			),
+			...conversation.background
+				.filter((each) => each.state === "running")
+				.map((each) => (
+					<li key={`background ${each.id}`}>
+						<CommandRow
+							background={each}
+							current={
+								shown?.kind === "background" && shown.background === each.id
+							}
+							onOpen={() => {
+								onOpen(id);
+								panes.watch(id, each.id);
+							}}
+						/>
+					</li>
+				)),
+		].filter(Boolean);
+	};
 
 	const listed = conversations.filter((each) => !each.archived);
 	const rows = rowsOf(tasks, conversations);
@@ -177,7 +235,8 @@ export function ConversationList({
 			{mains.map((each) => (
 				<TerminalRow
 					key={each}
-					name={`Terminal ${numberOf(each)}`}
+					name={terminals.nameOf(each)}
+					onRename={(name) => terminals.rename(each, name)}
 					current={open === each}
 					onOpen={() => onOpen(each)}
 					onClose={() => {
@@ -193,6 +252,7 @@ export function ConversationList({
 				<Rows
 					label="conversation list"
 					rows={nested}
+					beneath={beneath}
 					render={(row) =>
 						row.conversation !== null ? (
 							<Item

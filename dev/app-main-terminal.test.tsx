@@ -173,6 +173,50 @@ describe("App's terminals in the main tree", () => {
 		expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
 	});
 
+	it("renames a shell from its row, in the list and atop its page, going back to its number when cleared", async () => {
+		const view = await reading();
+		await openTerminal(view);
+		const rename = async (from: string, to: string) => {
+			await act(async () => fireEvent.doubleClick(row(view, from)));
+			const box = view.getByRole("textbox", { name: `Rename ${from}` });
+			await act(async () => {
+				fireEvent.change(box, { target: { value: to } });
+				fireEvent.keyDown(box, { key: "Enter" });
+			});
+		};
+
+		await rename("Terminal 1", "Dev server");
+
+		expect(row(view, "Dev server").getAttribute("aria-current")).toBe("page");
+		expect(view.getByRole("heading", { name: "Dev server" })).toBeTruthy();
+		expect(localStorage.getItem("arbor.terminal.names")).toBe(
+			JSON.stringify({ "terminal/1": "Dev server" }),
+		);
+
+		await rename("Dev server", " ");
+		expect(rows(view)).toEqual(["Terminal 1"]);
+	});
+
+	it("forgets a shell's name once closed, so the next under its number goes by that", async () => {
+		const view = await reading();
+		await openTerminal(view);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Rename Terminal 1" })),
+		);
+		const box = view.getByRole("textbox", { name: "Rename Terminal 1" });
+		await act(async () => {
+			fireEvent.change(box, { target: { value: "Logs" } });
+			fireEvent.keyDown(box, { key: "Enter" });
+		});
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Close Logs" })),
+		);
+		await openTerminal(view);
+
+		expect(rows(view)).toEqual(["Terminal 1"]);
+	});
+
 	it("hangs up on a shell and leaves its page from the X in its bar", async () => {
 		const view = await reading();
 		await openTerminal(view);

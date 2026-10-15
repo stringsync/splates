@@ -418,6 +418,57 @@ describe("App's terminal", () => {
 		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
 	});
 
+	it("nests the shell under its conversation in the sidebar while it is up, opening it from there", async () => {
+		const view = await reading();
+		const nested = () =>
+			within(view.getByRole("navigation", { name: "conversations" }))
+				.queryByRole("list", { name: /^parts of / })
+				?.querySelector("li");
+		expect(nested()).toBeFalsy();
+
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+		const row = within(nested() as HTMLElement).getByRole("button", {
+			name: "Terminal",
+		});
+		expect(row.getAttribute("aria-current")).toBe("page");
+		expect(row.querySelector(".italic")?.textContent).toBe("Terminal");
+
+		await press(TOGGLE);
+		expect(row.getAttribute("aria-current")).toBeNull();
+		await act(async () => fireEvent.click(row));
+		expect(view.getByRole("complementary", { name: "terminal" })).toBeTruthy();
+
+		await act(async () => shell?.exit(0));
+		expect(nested()).toBeFalsy();
+	});
+
+	it("renames the shell nested under its conversation, keeping the name for its next", async () => {
+		const view = await reading();
+		const sidebar = () =>
+			within(view.getByRole("navigation", { name: "conversations" }));
+		await press(TOGGLE);
+		await act(async () => testing.shells[0]?.accept());
+
+		await act(async () =>
+			fireEvent.click(
+				sidebar().getByRole("button", { name: "Rename Terminal" }),
+			),
+		);
+		const box = sidebar().getByRole("textbox", { name: "Rename Terminal" });
+		await act(async () => {
+			fireEvent.change(box, { target: { value: "Server" } });
+			fireEvent.keyDown(box, { key: "Enter" });
+		});
+		expect(sidebar().getByRole("button", { name: "Server" })).toBeTruthy();
+
+		await act(async () => testing.shells[0]?.exit(0));
+		await press(TOGGLE);
+		await act(async () => testing.shells[1]?.accept());
+		expect(sidebar().getByRole("button", { name: "Server" })).toBeTruthy();
+	});
+
 	it("leaves Escape alone to reach the shell", async () => {
 		const view = await reading();
 		await press(TOGGLE);

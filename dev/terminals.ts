@@ -14,7 +14,7 @@ export type TerminalsEvents = {
  * the pane is shut or another conversation is up, until the browser tab
  * closes. Whether the pane is open is one setting for every conversation, the
  * way an editor's side panel stays put as you switch files, and outlives a
- * reload in `storage`. The main tree's own terminals, opened from New, are
+ * reload in `storage`, as each name a terminal was given does. The main tree's own terminals, opened from New, are
  * more shells, kept under `terminal/<n>` until closed. A shell that exits is
  * closed with it, as a terminal's window would be. It changes whenever one of
  * its shells does.
@@ -38,6 +38,12 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 
 	private readonly sessions = new Map<string, TerminalSession>();
 
+	/**
+	 * The names terminals were given, by key, in place of the ones they go by;
+	 * replaced whole on each rename.
+	 */
+	names: Record<string, string>;
+
 	/** Its shells leave to the page each key `toggles` says shows or hides one. */
 	constructor(
 		private readonly storage: Storage,
@@ -45,6 +51,30 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		private readonly toggles: (event: KeyboardEvent) => boolean,
 	) {
 		this.open = this.stored() === "open";
+		this.names = this.storedNames();
+	}
+
+	/**
+	 * What terminal `key` is called: the name it was given, or else a main
+	 * tree's by its number and a conversation's plain "Terminal".
+	 */
+	nameOf(key: string): string {
+		return (
+			this.names[key] ??
+			(isMain(key) ? `Terminal ${numberOf(key)}` : "Terminal")
+		);
+	}
+
+	/** Names terminal `key`; a blank name goes back to the one it goes by. */
+	rename(key: string, name: string): void {
+		const { [key]: _, ...rest } = this.names;
+		this.names = name.trim() === "" ? rest : { ...rest, [key]: name.trim() };
+		try {
+			this.storage.setItem(NAMES, JSON.stringify(this.names));
+		} catch {
+			// Storage refused, full or off: the name holds until a reload.
+		}
+		this.dispatcher.dispatch("changed");
 	}
 
 	/**
@@ -117,6 +147,13 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		return status === "connecting" || status === "open";
 	}
 
+	/** The conversations whose shells are up, which the sidebar nests under each. */
+	up(): string[] {
+		return [...this.sessions.keys()].filter(
+			(key) => !isMain(key) && this.running(key),
+		);
+	}
+
 	/**
 	 * Starts another shell in the main tree, numbered one past the highest
 	 * open, and returns its key.
@@ -144,6 +181,7 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	 * a main-tree terminal is closed.
 	 */
 	close(conversation: string): void {
+		this.forget(conversation);
 		this.mains = this.mains.filter((each) => each !== conversation);
 		if (this.sessions.has(conversation)) {
 			this.restart(conversation);
@@ -158,10 +196,29 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 	private exited(key: string): void {
 		const session = this.sessions.get(key);
 		this.sessions.delete(key);
+		this.forget(key);
 		this.mains = this.mains.filter((each) => each !== key);
 		this.dispatcher.dispatch("exited", key);
 		this.dispatcher.dispatch("changed");
 		session?.dispose();
+	}
+
+	/** Drops a main-tree terminal's name as it goes, since its number comes back. */
+	private forget(key: string): void {
+		if (isMain(key) && key in this.names) {
+			this.rename(key, "");
+		}
+	}
+
+	private storedNames(): Record<string, string> {
+		try {
+			const names: unknown = JSON.parse(this.storage.getItem(NAMES) ?? "{}");
+			return typeof names === "object" && names !== null
+				? (names as Record<string, string>)
+				: {};
+		} catch {
+			return {};
+		}
 	}
 
 	private stored(): string | null {
@@ -199,3 +256,6 @@ export function numberOf(key: string): number {
 
 /** Where the pane's state is kept, beside the drafts' `arbor.draft.` keys. */
 const KEY = "arbor.terminal";
+
+/** Where the names terminals were given are kept. */
+const NAMES = "arbor.terminal.names";

@@ -14,7 +14,7 @@ import { PANE_WIDTH } from "./changes";
 import { focusComposer } from "./composer-editor";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import type { TerminalSession } from "./terminal-session";
-import { numberOf, type Terminals } from "./terminals";
+import type { Terminals } from "./terminals";
 import { BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
 
 /**
@@ -262,6 +262,11 @@ function MainScreen({
 		(session) => ({ status: session.status }),
 		["changed"],
 	);
+	const { name } = useReactive(
+		terminals,
+		(terminals) => ({ name: terminals.nameOf(terminal) }),
+		["changed"],
+	);
 
 	return (
 		<section
@@ -282,7 +287,7 @@ function MainScreen({
 				title={
 					<h2 className={cn(TITLE, "flex items-center gap-2")}>
 						<SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
-						<span className="truncate">Terminal {numberOf(terminal)}</span>
+						<span className="truncate">{name}</span>
 					</h2>
 				}
 				detail={

@@ -1,5 +1,11 @@
 import { useReactive } from "@webappwiz/react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+	createContext,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useState,
+} from "react";
 import type { ConversationState } from "../conversations";
 import type { Snapshot } from "../snapshot";
 import { BackgroundPane } from "./background";
@@ -21,6 +27,8 @@ export interface SidePanes {
 	toggleTerminal: (conversation: string) => void;
 	/** Shows `conversation`'s terminal, in place of another pane. */
 	showTerminal: (conversation: string) => void;
+	/** What the sidebar's rows under a conversation open in the pane, and which is open. */
+	nested: NestedPanes;
 	/** The conversation up, unless archived, whose terminal the pane can show. */
 	shown: ConversationState | null;
 	/** Whether a pane is open, so the page makes room for it. */
@@ -28,6 +36,26 @@ export interface SidePanes {
 	/** The pane open: a task's changes, a command's output, or a terminal. */
 	pane: ReactNode;
 }
+
+/** What the pane shows of a conversation, by its id: its terminal or a command's output. */
+export type Showing =
+	| { kind: "terminal"; conversation: string }
+	| { kind: "background"; conversation: string; background: string }
+	| null;
+
+/**
+ * What the sidebar's rows nested under a conversation, its terminal and the
+ * commands it left running, open in the pane, and which the pane shows.
+ */
+export interface NestedPanes {
+	showing: Showing;
+	/** Shows `conversation`'s terminal, in place of another pane. */
+	showTerminal: (conversation: string) => void;
+	watch: (conversation: string, background: string) => void;
+}
+
+/** The pane's `NestedPanes`; null where the page has no pane. */
+export const NestedPanesContext = createContext<NestedPanes | null>(null);
 
 /**
  * The pane beside the page, one at a time: the changes of the task under
@@ -119,6 +147,14 @@ export function useSidePanes({
 			focusComposer();
 		}
 	};
+	const showing: Showing =
+		reviewed !== undefined || shown === null
+			? null
+			: watched !== null
+				? { kind: "background", conversation: shown.id, background: watched.id }
+				: terminal
+					? { kind: "terminal", conversation: shown.id }
+					: null;
 	const paned =
 		reviewed !== undefined || watched !== null || (terminal && shown !== null);
 	const pane =
@@ -156,6 +192,7 @@ export function useSidePanes({
 		shellRunning,
 		toggleTerminal,
 		showTerminal,
+		nested: { showing, showTerminal, watch },
 		shown,
 		paned,
 		pane,
