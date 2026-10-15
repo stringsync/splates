@@ -2,6 +2,7 @@ import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "../snapshot";
+import { SlotMark } from "./app-header";
 import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
@@ -12,6 +13,7 @@ import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
 import { NextWaiting } from "./phone-thread";
+import { ProjectSwitcher } from "./projects";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
 
@@ -20,7 +22,9 @@ import { BarButton, TopBarFrame } from "./top-bar";
  * agents is home, an open conversation takes the whole screen with its own way
  * back, and every other page sits under a bar whose menu opens the drawer and
  * whose pen, as the inbox's, starts a new conversation, then how many agents
- * wait on you, at the end of every bar but the inbox's. Every bar's kebab holds the page
+ * wait on you, at the end of every bar but the inbox's. The inbox and every
+ * page the drawer goes to are headed by the slot's mark and the project
+ * switcher rather than a title, so another project is a tap away. Every bar's kebab holds the page
  * menu.
  * What each page shows, `body`, is the same as on a wide screen.
  */
@@ -73,6 +77,12 @@ export function PhoneApp({
 	const menu = () => setDrawer(true);
 	// The page menu, in every bar's kebab, so it is always at hand.
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
+	const project = (
+		<div className="flex min-w-0 items-center gap-2">
+			<SlotMark snapshot={snapshot} />
+			<ProjectSwitcher name={name} />
+		</div>
+	);
 	// The drawer's header says more, as why the server is outdated.
 	const status = offline && (
 		<span
@@ -92,7 +102,7 @@ export function PhoneApp({
 						drafts={drafts}
 						terminals={terminals}
 						tasks={snapshot.tasks}
-						name={name}
+						project={project}
 						status={status}
 						onMenu={menu}
 						onOpen={(id) => go("conversations", id)}
@@ -148,7 +158,9 @@ export function PhoneApp({
 							/>
 						)}
 					</header>
-					<TopBarFrame value={{ ...kebab, slot, status }}>{body}</TopBarFrame>
+					<TopBarFrame value={{ ...kebab, slot, status, project }}>
+						{body}
+					</TopBarFrame>
 				</div>
 			)}
 			<Drawer

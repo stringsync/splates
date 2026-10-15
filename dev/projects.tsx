@@ -94,7 +94,14 @@ export function projectUrl(project: ProjectChoice): string {
  * machine runs slots, every `arbor dev` it has a host for, picked to open
  * that one's page instead.
  */
-export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
+export function ProjectSwitcher({
+	name,
+	keyed = true,
+}: {
+	name: string;
+	/** Whether its shortcut opens it: false for a second on the page, so one press opens one. */
+	keyed?: boolean;
+}): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [active, setActive] = useState(0);
@@ -140,7 +147,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 		}, LISTED);
 		return () => tick.dispose();
 	}, []);
-	useShortcut("shortcuts.projects", () => setOpen((was) => !was));
+	useShortcut("shortcuts.projects", () => setOpen((was) => !was), keyed);
 	const shortcut = useShortcutLabel("shortcuts.projects");
 
 	const words = query.trim().toLowerCase();

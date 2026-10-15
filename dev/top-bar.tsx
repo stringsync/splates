@@ -62,6 +62,11 @@ export interface BarFrame {
 	dot?: boolean;
 	/** Ends the bar, never folded, as how many agents wait on you. */
 	end?: ReactNode;
+	/**
+	 * Heads every bar with no way back in place of its title, as the phone's
+	 * project switcher atop each page its drawer goes to.
+	 */
+	project?: ReactNode;
 }
 
 export const TopBarFrame = createContext<BarFrame | null>(null);
@@ -99,18 +104,20 @@ export function TopBar({
 		menu !== null,
 	);
 	const folded = actions.slice(fit);
+	// A bar with a way back heads a page within one, so keeps its own title.
+	const heading = (!leading && frame?.project) || title;
 	const row = (
 		<>
 			{leading}
 			<div ref={room} className="flex min-w-0 flex-1 items-center gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
 					<div ref={titled} className="flex min-w-0 items-center">
-						{typeof title === "string" ? (
-							<h2 title={title} className={cn(TITLE, "truncate")}>
-								{title}
+						{typeof heading === "string" ? (
+							<h2 title={heading} className={cn(TITLE, "truncate")}>
+								{heading}
 							</h2>
 						) : (
-							title
+							heading
 						)}
 					</div>
 					{Boolean(detail) && (

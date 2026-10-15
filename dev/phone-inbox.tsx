@@ -36,7 +36,7 @@ import { RowMenu, useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
-import { BarButton, TITLE, TopBar } from "./top-bar";
+import { BarButton, TopBar } from "./top-bar";
 import { unanswered } from "./unanswered";
 
 /**
@@ -45,8 +45,8 @@ import { unanswered } from "./unanswered";
  * each row a finger's height saying what it waits on. The agents one handed
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
- * asks, and a long press offers Rename, Mark as unread and Archive. The menu
- * opens the drawer, and the pen, like the composer along the bottom, starts a
+ * asks, and a long press offers Rename, Mark as unread and Archive. The
+ * project's name picks another project, the menu opens the drawer, and the pen, like the composer along the bottom, starts a
  * new conversation. The main tree's terminals come last, to go back to or
  * close.
  */
@@ -55,7 +55,7 @@ export function Inbox({
 	drafts,
 	terminals,
 	tasks,
-	name,
+	project,
 	status,
 	onMenu,
 	onOpen,
@@ -65,9 +65,9 @@ export function Inbox({
 	drafts: Drafts;
 	terminals: Terminals;
 	tasks: Details[];
-	/** The project's name. */
-	name: string;
-	/** Whether the server is offline or outdated, said beside the name. */
+	/** The project's switcher, heading the inbox. */
+	project: ReactNode;
+	/** Whether the server is offline or outdated, said beside the switcher. */
 	status: ReactNode;
 	onMenu: () => void;
 	onOpen: (id: string) => void;
@@ -119,10 +119,10 @@ export function Inbox({
 					</BarButton>
 				}
 				title={
-					<h1 className={cn(TITLE, "flex items-center gap-2")}>
-						<span className="truncate">{name}</span>
+					<div className="flex min-w-0 items-center gap-2">
+						{project}
 						{status}
-					</h1>
+					</div>
 				}
 				actions={[
 					{
