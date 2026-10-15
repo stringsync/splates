@@ -17,7 +17,7 @@ describe("log", () => {
 	it("records how each command ended, refusals included", async () => {
 		await deps.journal.record("retry", "alpha", async () => {});
 		await expect(
-			deps.journal.record("merge", "alpha", () =>
+			deps.journal.record("escalate", "alpha", () =>
 				Promise.reject(new Exit("tests_failed", "nope")),
 			),
 		).toBail("tests_failed");
@@ -34,7 +34,7 @@ describe("log", () => {
 		deps.log.clear();
 		await log(deps, { count: 1, json: true });
 		expect(JSON.parse(deps.out())).toMatchObject([
-			{ action: "merge", task: "alpha", reason: "tests_failed" },
+			{ action: "escalate", task: "alpha", reason: "tests_failed" },
 		]);
 	});
 

@@ -39,7 +39,19 @@ export interface Facts {
 	};
 	/** A wait on a task, the event's own: see `Waiting`. */
 	wait: Waiting;
-	merge: None;
+	merge: {
+		/** The branch it landed on, or was refused landing on. */
+		base: string;
+		/** The commit the base reached, short. */
+		commit: string;
+		/**
+		 * What it touched when it landed, or the files the rebase conflicted in
+		 * when refused for a conflict. Empty when a refusal names none.
+		 */
+		files: string[];
+		/** The merge attempts it has left. */
+		attemptsLeft: number;
+	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */
 		why: RemoveReason | null;

@@ -16,6 +16,7 @@ import type { SecretStores } from "./creds";
 import { DEFAULT_PORT } from "./dev";
 import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
+import type { Facts } from "./events";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
 import { handoff } from "./handoff";
@@ -206,7 +207,14 @@ arbor
 		const task = await here(ctx);
 		// Read before the merge discards the record that names its caller.
 		const landing = task === null ? null : await ctx.service.find(task);
-		await ctx.journal.record("merge", task, () => merge(ctx, ctx.ps.cwd()));
+		// Filled by `merge` as it learns each; a refusal keeps what it had.
+		const facts: Partial<Facts["merge"]> = {};
+		await ctx.journal.record(
+			"merge",
+			task,
+			() => merge(ctx, ctx.ps.cwd(), facts),
+			facts as Facts["merge"],
+		);
 		if (task !== null) {
 			await follow(ctx, null, { from: task });
 		}

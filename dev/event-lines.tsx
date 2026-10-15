@@ -46,6 +46,14 @@ const LINES: {
 					at: event.at,
 				}
 			: { mark: "failed", words: ["Add failed", task(event)], at: event.at },
+	merge: (event) =>
+		event.reason === null
+			? { mark: "landed", words: ["Merged", task(event)], at: event.at }
+			: {
+					mark: "failed",
+					words: ["Merge failed", task(event)],
+					at: event.at,
+				},
 	claim: (event) =>
 		event.reason === null
 			? {
@@ -272,7 +280,9 @@ function removedNote(event: EventOf<"remove">): string | undefined {
 
 type Updated = Extract<Event, { action: "todo update"; reason: null }>;
 
-/** The todo an update is about, as a chip whose title says what changed. */
+{
+	/** The todo an update is about, as a chip whose title says what changed. */
+}
 function todo(event: Updated): Named {
 	return {
 		kind: "todo",

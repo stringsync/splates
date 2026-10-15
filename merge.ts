@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
 import type { Config } from "./config";
+import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
@@ -40,6 +41,9 @@ export async function merge(
 		fs: Fs;
 	},
 	cwd: string,
+	// Filled in as it learns each, so a refusal keeps what it learned before it
+	// stopped, which the journal reads once `merge` has returned or thrown.
+	facts: Partial<Facts["merge"]> = {},
 ): Promise<void> {
 	const branch = await git.currentBranch(cwd);
 	const task = service.taskFor(branch);
@@ -60,6 +64,8 @@ export async function merge(
 	}
 
 	const base = worktree.base;
+	facts.base = base;
+	facts.attemptsLeft = config.mergeRetryCount - worktree.mergeAttempts;
 	const dirty = await worktree.uncommitted();
 	if (dirty.length > 0) {
 		fail(
@@ -106,8 +112,10 @@ export async function merge(
 	if (rebase.code !== 0) {
 		// Left in progress on purpose: the agent needs the conflict markers.
 		const paths = await git.conflictedPaths(worktree.path);
+		facts.files = paths;
 		await lock.release();
 		await bump(worktree, "conflict");
+		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		fail(
 			"conflict",
 			[
@@ -149,6 +157,7 @@ export async function merge(
 		await git.resetHard(worktree.path, before);
 		await lock.release();
 		await bump(worktree, "tests_failed");
+		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		fail(
 			"tests_failed",
 			[
@@ -193,6 +202,7 @@ export async function merge(
 	if (merged.code !== 0) {
 		await lock.release();
 		await bump(worktree, "merge_failed");
+		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		// Said to the agent landing the part, not the one holding the tree: telling
 		// it to stash sends it into a tree it does not own, and a stash there is
 		// how another agent's work gets lost.
@@ -218,6 +228,8 @@ export async function merge(
 	}
 
 	const head = await git.shortHead(landing);
+	facts.commit = head;
+	facts.files = changed;
 	// The work is on the base, so the tree has nothing left to hold. Discarding it
 	// here is what keeps `arbor list` a list of live work rather than a graveyard
 	// of landed tasks.
