@@ -89,11 +89,16 @@ export function AddLane({
 								close();
 							}
 						}}
-						className="h-8 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					/>
 					<Refusal refusal={refusal} />
 					<div className="flex items-center gap-1">
-						<Button type="submit" size="sm" disabled={name.trim() === ""}>
+						<Button
+							type="submit"
+							size="sm"
+							disabled={name.trim() === ""}
+							className="pointer-coarse:h-10 pointer-coarse:px-3"
+						>
 							Add lane
 						</Button>
 						<Button
@@ -102,6 +107,7 @@ export function AddLane({
 							variant="ghost"
 							aria-label="stop adding a lane"
 							onClick={close}
+							className="pointer-coarse:size-10"
 						>
 							<XIcon />
 						</Button>
@@ -111,7 +117,7 @@ export function AddLane({
 				<button
 					type="button"
 					onClick={() => setOpen(true)}
-					className="flex w-full cursor-pointer items-center gap-1.5 rounded-xl px-3 py-2.5 text-left text-muted-foreground text-sm outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					className="flex w-full pointer-coarse:min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3 py-2.5 text-left text-muted-foreground text-sm outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 				>
 					<PlusIcon aria-hidden className="size-4" />
 					Add another lane

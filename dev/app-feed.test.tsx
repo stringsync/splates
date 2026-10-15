@@ -159,6 +159,9 @@ describe("App's feed", () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+			);
 			const more = view.getByRole("button", { name: "More" });
 			expect(more.querySelector(".bg-warning")).toBeNull();
 			await act(async () => fireEvent.click(more));
@@ -184,6 +187,10 @@ describe("App's feed", () => {
 				release: { running: "0.0.43", newest: "0.0.44" },
 			});
 			await act(async () => testing.stream?.onmessage?.());
+			// In the drawer, which heads it with the project.
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+			);
 			const more = await waitFor(() =>
 				view.getByRole("button", { name: "More: restart to update" }),
 			);

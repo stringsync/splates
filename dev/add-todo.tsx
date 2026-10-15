@@ -34,7 +34,7 @@ export function AddTodo({ lane }: { lane: number | null }): JSX.Element {
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
-				className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-muted-foreground text-sm outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+				className="flex w-full pointer-coarse:min-h-10 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-muted-foreground text-sm outline-none hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				<PlusIcon aria-hidden className="size-4" />
 				Add a todo
@@ -113,7 +113,12 @@ function Composer({
 			<Dropped names={dropped} />
 			<Refusal refusal={refusal} />
 			<div className="flex items-center gap-1">
-				<Button type="submit" size="sm" disabled={!ready}>
+				<Button
+					type="submit"
+					size="sm"
+					disabled={!ready}
+					className="pointer-coarse:h-10 pointer-coarse:px-3"
+				>
 					Add todo
 				</Button>
 				<Button
@@ -122,6 +127,7 @@ function Composer({
 					variant="ghost"
 					aria-label="stop adding"
 					onClick={onClose}
+					className="pointer-coarse:size-10"
 				>
 					<XIcon />
 				</Button>

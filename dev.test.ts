@@ -27,6 +27,7 @@ describe("dev", () => {
 	});
 
 	it("reads the repo only while a page listens", async () => {
+		// scry-ignore fakes-over-mocks: dev takes all of Testing, so no focused interface carries the read count yet (todo #184).
 		const list = spyOn(deps.service, "list");
 
 		await serving(deps, async (_, port) => {
@@ -37,6 +38,7 @@ describe("dev", () => {
 
 			const events = await fetch(`http://localhost:${port}/events`);
 			const reader = events.body?.getReader();
+			// scry-ignore matchers-over-test-logic: waits for the first read, which nothing announces (todo #184).
 			while (list.mock.calls.length === opened) {
 				await Bun.sleep(10);
 			}
@@ -132,8 +134,8 @@ describe("dev", () => {
 
 			expect(html).toContain("<title>arbor</title>");
 			expect(html).toContain(`<div id="root">`);
-			expect(html).toContain(`href="/styles.css"`);
-			expect(html).toContain(`src="/main.js"`);
+			expect(html).toMatch(/href="\/styles\.css\?v=\w+"/);
+			expect(html).toMatch(/src="\/main\.js\?v=\w+"/);
 		});
 	});
 

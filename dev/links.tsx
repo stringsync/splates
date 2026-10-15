@@ -133,7 +133,9 @@ function Property({
 				{Icon && <Icon aria-hidden className="size-3" />}
 				{title}
 			</dt>
-			<dd className="flex min-h-7 flex-wrap items-center gap-1">{children}</dd>
+			<dd className="flex min-h-7 pointer-coarse:min-h-10 flex-wrap items-center gap-1">
+				{children}
+			</dd>
 		</>
 	);
 }
@@ -201,9 +203,14 @@ function LanePicker({
 							stop();
 						}
 					}}
-					className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					className="h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				/>
-				<Button type="submit" size="xs" disabled={name.trim() === ""}>
+				<Button
+					type="submit"
+					size="xs"
+					disabled={name.trim() === ""}
+					className="pointer-coarse:h-10 pointer-coarse:px-3"
+				>
 					Add lane
 				</Button>
 				<Button
@@ -212,6 +219,7 @@ function LanePicker({
 					variant="ghost"
 					aria-label="keep its lane"
 					onClick={stop}
+					className="pointer-coarse:size-10"
 				>
 					<XIcon />
 				</Button>
@@ -236,11 +244,11 @@ function LanePicker({
 			<SelectTrigger
 				size="sm"
 				aria-label="lane"
-				className="-ml-2 h-7 border-transparent bg-transparent px-2 shadow-none hover:bg-muted dark:bg-transparent"
+				className="-ml-2 h-7 pointer-coarse:h-10 border-transparent bg-transparent px-2 shadow-none hover:bg-muted dark:bg-transparent"
 			>
 				<SelectValue />
 			</SelectTrigger>
-			<SelectContent>
+			<SelectContent className="pointer-coarse:[&_[role=option]]:min-h-10">
 				{items.map((item) => (
 					<SelectItem key={item.value} value={item.value}>
 						{item.label}
@@ -280,13 +288,13 @@ function LinkList({
 			{linked.map((other) => (
 				<li
 					key={other.id}
-					className="group/link inline-flex h-6 items-center rounded-md bg-muted/70 text-sm"
+					className="group/link inline-flex h-6 pointer-coarse:h-10 items-center rounded-md bg-muted/70 text-sm"
 				>
 					<Tooltip>
 						<TooltipTrigger
 							render={<button type="button" />}
 							onClick={() => open(other.id)}
-							className="cursor-pointer rounded-md pl-2 tabular-nums outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+							className="cursor-pointer rounded-md pl-2 tabular-nums outline-none pointer-coarse:flex pointer-coarse:h-full pointer-coarse:items-center hover:underline focus-visible:ring-2 focus-visible:ring-ring"
 						>
 							#{other.id}
 						</TooltipTrigger>
@@ -300,7 +308,7 @@ function LinkList({
 						type="button"
 						aria-label={`unlink #${other.id}`}
 						onClick={() => onRemove(other)}
-						className="flex h-full cursor-pointer items-center rounded-md px-1 text-muted-foreground/50 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring group-hover/link:text-muted-foreground"
+						className="flex h-full cursor-pointer items-center rounded-md px-1 pointer-coarse:px-3 text-muted-foreground/50 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring group-hover/link:text-muted-foreground"
 					>
 						<XIcon className="size-3" />
 					</button>
@@ -352,6 +360,7 @@ function TodoPicker({
 						size="icon-xs"
 						variant="ghost"
 						aria-label={label}
+						className="pointer-coarse:size-10"
 						title={label}
 					/>
 				}
@@ -389,7 +398,7 @@ function TodoPicker({
 										setOpen(false);
 									}}
 									className={cn(
-										"flex w-full cursor-pointer items-baseline gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40",
+										"flex w-full pointer-coarse:min-h-10 cursor-pointer items-baseline pointer-coarse:items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40",
 									)}
 								>
 									<span className="text-muted-foreground tabular-nums">

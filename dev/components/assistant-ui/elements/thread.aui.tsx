@@ -52,6 +52,7 @@ export const Thread: FC<ThreadProps> = ({
 	placeholder,
 	composer,
 	openAt,
+	docked = false,
 }) => {
 	const isEmpty = useAuiState(isNewChatView);
 
@@ -70,7 +71,12 @@ export const Thread: FC<ThreadProps> = ({
 					composer,
 				}}
 			>
-				<ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} openAt={openAt} />
+				<ThreadRoot
+					isEmpty={isEmpty}
+					autoFocus={autoFocus}
+					openAt={openAt}
+					docked={docked}
+				/>
 			</ThreadExtrasContext.Provider>
 		</ThreadComponentsContext.Provider>
 	);
@@ -79,7 +85,8 @@ const ThreadRoot: FC<{
 	isEmpty: boolean;
 	autoFocus: boolean;
 	openAt: string | undefined;
-}> = ({ isEmpty, autoFocus, openAt }) => {
+	docked: boolean;
+}> = ({ isEmpty, autoFocus, openAt, docked }) => {
 	const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 	const { welcome, below, composer } = useContext(ThreadExtrasContext);
 	const viewport = useRef<HTMLDivElement>(null);
@@ -142,11 +149,18 @@ const ThreadRoot: FC<{
 					className={cn(
 						"mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4",
 						// A set distance down, not centered, so the welcome stays put
-						// as what sits below it grows.
-						isEmpty && "pt-[20dvh]",
+						// as what sits below it grows; docked, it centers over the
+						// composer, which stays put instead.
+						isEmpty && !docked && "pt-[20dvh]",
 					)}
 				>
-					<AuiIf condition={isNewChatView}>{welcome ?? <Welcome />}</AuiIf>
+					<AuiIf condition={isNewChatView}>
+						{docked ? (
+							<div className="my-auto">{welcome ?? <Welcome />}</div>
+						) : (
+							(welcome ?? <Welcome />)
+						)}
+					</AuiIf>
 					<AuiIf condition={isHistoryLoadingView}>
 						<ThreadHistorySkeleton />
 					</AuiIf>
@@ -168,7 +182,7 @@ const ThreadRoot: FC<{
 							"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2",
 							// Above a user message, which sticks at z-10, so one passing
 							// behind the footer does not show over the composer.
-							!isEmpty &&
+							(!isEmpty || docked) &&
 								"sticky bottom-0 z-20 mt-auto rounded-t-(--composer-radius)",
 						)}
 					>

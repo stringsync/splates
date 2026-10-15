@@ -144,7 +144,7 @@ describe("App's archiving conversations", () => {
 		await waitFor(() => expect(location.hash).toBe("#conversations/c3"));
 	});
 
-	it("goes back to the list on a phone, rather than on to the next agent waiting on you", async () => {
+	it("goes back to the inbox on a phone, rather than on to the next agent waiting on you", async () => {
 		resize(390, 844);
 		try {
 			const view = await testing.openConversations([
@@ -162,9 +162,7 @@ describe("App's archiving conversations", () => {
 				),
 			);
 			await waitFor(() =>
-				expect(
-					view.getByRole("navigation", { name: "conversations" }),
-				).toBeTruthy(),
+				expect(view.getByRole("region", { name: "inbox" })).toBeTruthy(),
 			);
 			expect(location.hash).toBe("#conversations");
 		} finally {

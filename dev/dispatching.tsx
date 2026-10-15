@@ -19,7 +19,7 @@ import type { LaneState } from "../lanes";
 import { laneReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import { AgentIcon } from "./agent-icons";
-import { Board, still } from "./board";
+import { Board, still, touchArea, touchItems } from "./board";
 import { promptConversation, startConversation } from "./conversation-api";
 import { reportedAs, useNameOf } from "./conversation-names";
 import type { Assignment, Dispatch } from "./dispatch";
@@ -116,7 +116,9 @@ export function OnIt({
 						{...still}
 						className={cn(
 							"relative inline-flex min-w-0 cursor-pointer items-center gap-1 rounded px-0.5 text-muted-foreground text-xs outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-							variant === "rows" && "gap-2 px-2 py-1 text-sm",
+							variant === "rows"
+								? "gap-2 px-2 py-1 pointer-coarse:min-h-10 text-sm"
+								: touchArea,
 						)}
 					>
 						{icon}
@@ -193,7 +195,10 @@ export function StartMenu({
 					<Button
 						size={size}
 						variant="outline"
-						className={cn("w-fit gap-1 bg-transparent", className)}
+						className={cn(
+							"w-fit gap-1 bg-transparent pointer-coarse:h-10 pointer-coarse:px-3",
+							className,
+						)}
 						{...still}
 					/>
 				}
@@ -202,7 +207,7 @@ export function StartMenu({
 				{label}
 				<ChevronDownIcon className="text-muted-foreground" />
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-56">
+			<DropdownMenuContent align="start" className={cn("w-56", touchItems)}>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>In a new conversation with</DropdownMenuLabel>
 					{set !== null && (
@@ -239,7 +244,9 @@ export function StartMenu({
 						<DropdownMenuSeparator />
 						<DropdownMenuSub>
 							<DropdownMenuSubTrigger>In a conversation</DropdownMenuSubTrigger>
-							<DropdownMenuSubContent className="max-h-80 w-64 overflow-y-auto">
+							<DropdownMenuSubContent
+								className={cn("max-h-80 w-64 overflow-y-auto", touchItems)}
+							>
 								{others.map((each) => (
 									<DropdownMenuItem
 										key={each.id}
@@ -313,12 +320,16 @@ export function StartLanes({
 	};
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
+			<DropdownMenuTrigger
+				render={
+					<Button size="sm" variant="outline" className="pointer-coarse:h-10" />
+				}
+			>
 				<PlayIcon data-icon="inline-start" />
 				Start lanes
 				<ChevronDownIcon data-icon="inline-end" />
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-64">
+			<DropdownMenuContent align="start" className={cn("w-64", touchItems)}>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>Lanes with no agent</DropdownMenuLabel>
 					{idle.map((lane) => (
@@ -416,7 +427,7 @@ export function AssigneeItems({
 								<CheckIcon className="size-3.5" />
 							)}
 						</DropdownMenuSubTrigger>
-						<DropdownMenuSubContent className="w-48">
+						<DropdownMenuSubContent className={cn("w-48", touchItems)}>
 							<DropdownMenuCheckboxItem
 								checked={is({ agent: each.id })}
 								onCheckedChange={() => onPick({ agent: each.id })}
@@ -467,7 +478,10 @@ export function AssigneeMenu({
 						size="xs"
 						variant="ghost"
 						aria-label="Assignee"
-						className={cn("w-fit gap-1 text-muted-foreground", className)}
+						className={cn(
+							"w-fit gap-1 text-muted-foreground pointer-coarse:h-10 pointer-coarse:px-3",
+							className,
+						)}
 						{...still}
 					/>
 				}
@@ -483,7 +497,7 @@ export function AssigneeMenu({
 				{assignee === null ? "Any agent" : context.dispatch.pickName(assignee)}
 				<ChevronDownIcon />
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-52">
+			<DropdownMenuContent align="start" className={cn("w-52", touchItems)}>
 				<AssigneeItems assignee={assignee} onPick={onPick} label="Assign to" />
 			</DropdownMenuContent>
 		</DropdownMenu>

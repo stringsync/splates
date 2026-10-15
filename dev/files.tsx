@@ -82,6 +82,7 @@ export function AttachButton({ files }: { files: Files }): JSX.Element {
 				aria-label="attach files"
 				size="icon-xs"
 				variant="ghost"
+				className="pointer-coarse:size-10"
 				onClick={() => picker.current?.click()}
 			>
 				<PaperclipIcon />

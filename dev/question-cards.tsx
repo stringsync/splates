@@ -8,7 +8,7 @@ import {
 import { type JSX, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import { useTouch } from "#dev/hooks/use-touch.ts";
+import { focusStop, useTouch } from "#dev/hooks/use-touch.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Question } from "../plan";
@@ -18,6 +18,7 @@ import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
+import { Sheeted, useSheeted } from "./phone-sheets";
 import { QuestionCard } from "./question-card";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -45,6 +46,7 @@ export function QuestionCards({
 	demo = null,
 	draft = null,
 	copy = false,
+	paged = false,
 	onSent,
 }: {
 	questions: Question[];
@@ -56,6 +58,11 @@ export function QuestionCards({
 	draft?: string | null;
 	/** Copy the reply rather than send it: its agent runs outside the page. */
 	copy?: boolean;
+	/**
+	 * Whether it shows one question at a time, going on to the next as each is
+	 * answered, as in a phone's sheet, rather than all of them down the card.
+	 */
+	paged?: boolean;
 	/** Once the reply is sent from it, or copied. */
 	onSent?: () => void;
 }): JSX.Element {
@@ -116,17 +123,31 @@ export function QuestionCards({
 		}
 	};
 	const panel = useRef<HTMLDivElement>(null);
+	// The question shown when paged; "Anything else" shows with the last.
+	const [page, setPage] = useState(0);
+	const last = questions.length - 1;
+	const turn = (to: number) => {
+		setPage(to);
+		panel.current?.closest("[data-sheet]")?.scrollTo({ top: 0 });
+	};
 	// Each question's first stop, then "Anything else": where Enter goes next.
 	const stops = () => [
 		...(panel.current?.querySelectorAll<HTMLElement>("[data-stop]") ?? []),
 	];
 	const next = (number: string) => {
+		if (paged) {
+			const at = questions.findIndex((asked) => asked.number === number);
+			if (at < last) {
+				turn(at + 1);
+				return;
+			}
+		}
 		const all = stops();
 		const following =
 			all[all.findIndex((stop) => stop.dataset.stop === number) + 1];
 		// The whole question in view, not just its first stop, which the
 		// browser would leave at the very foot of the thread.
-		following?.focus({ preventScroll: true });
+		focusStop(following, { preventScroll: true });
 		following?.closest("li, footer")?.scrollIntoView({ block: "nearest" });
 		if (following instanceof HTMLTextAreaElement) {
 			following.setSelectionRange(
@@ -184,41 +205,69 @@ export function QuestionCards({
 					}
 				}}
 			>
-				{reported !== "" && (
+				{reported !== "" && (!paged || page === 0) && (
 					<div className="border-b">
 						<CardBody text={reported} lead={escalation?.reason != null} />
 					</div>
 				)}
-				{demo !== null && (
+				{demo !== null && (!paged || page === 0) && (
 					<DemoSection
 						demo={demo}
 						kept={draft === null ? null : `${draft}:demo`}
 					/>
 				)}
 				<ol aria-label="questions" className="divide-y">
-					{questions.map((asked, at) => (
-						<QuestionCard
-							key={asked.number}
-							asked={asked}
-							answer={answers[at] ?? null}
-							live={live}
-							onAnswer={(answer) =>
-								write({
-									...written,
-									answers: isEmpty(answer)
-										? Object.fromEntries(
-												Object.entries(written.answers).filter(
-													([text]) => text !== asked.text,
-												),
-											)
-										: { ...written.answers, [asked.text]: answer },
-								})
-							}
-							onNext={() => next(asked.number)}
-						/>
-					))}
+					{questions.map((asked, at) =>
+						paged && at !== page ? null : (
+							<QuestionCard
+								key={asked.number}
+								asked={asked}
+								answer={answers[at] ?? null}
+								live={live}
+								onAnswer={(answer) =>
+									write({
+										...written,
+										answers: isEmpty(answer)
+											? Object.fromEntries(
+													Object.entries(written.answers).filter(
+														([text]) => text !== asked.text,
+													),
+												)
+											: { ...written.answers, [asked.text]: answer },
+									})
+								}
+								onNext={() => next(asked.number)}
+							/>
+						),
+					)}
 				</ol>
-				{live ? (
+				{paged && live && (
+					<nav
+						aria-label="questions"
+						className="flex items-center gap-2 border-t px-4 py-3"
+					>
+						<Button
+							variant="outline"
+							className="h-11 px-4"
+							disabled={page === 0}
+							onClick={() => turn(page - 1)}
+						>
+							Back
+						</Button>
+						<span className="flex-1 text-center text-muted-foreground text-sm tabular-nums">
+							{page + 1} of {questions.length}
+						</span>
+						<Button
+							variant="outline"
+							className="h-11 px-4"
+							disabled={page === last}
+							onClick={() => turn(page + 1)}
+						>
+							Next
+						</Button>
+					</nav>
+				)}
+				{live && paged && page !== last ? null : live ? (
 					<footer className="flex flex-col gap-2.5 border-t bg-muted/20 px-4 py-3">
 						<textarea
 							data-stop="more"
@@ -314,13 +363,30 @@ function MessageQuestions({
 	demo,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
+	const sheeted = useSheeted();
+	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
-		<QuestionCards
-			questions={questions}
-			escalation={escalation}
-			demo={demo}
-			// Its first question too, as a message can ask more than one list.
-			draft={`questions:${message}:${questions[0]?.text ?? ""}`}
-		/>
+		<Sheeted
+			{...(escalation === null
+				? {
+						title: `${count} for you`,
+						Icon: MessageCircleQuestionIcon,
+						tone: "info" as const,
+					}
+				: {
+						title: `${count} for you`,
+						Icon: ENDINGS.escalated.Icon,
+						tone: ENDINGS.escalated.tone,
+					})}
+		>
+			<QuestionCards
+				questions={questions}
+				escalation={escalation}
+				demo={demo}
+				// Its first question too, as a message can ask more than one list.
+				draft={`questions:${message}:${questions[0]?.text ?? ""}`}
+				paged={sheeted}
+			/>
+		</Sheeted>
 	);
 }

@@ -125,6 +125,17 @@ export async function dev(
 			},
 		});
 
+	// The shell names its script and styles by what they hold, so no cache on
+	// the way, Cloudflare's edge or a phone's, hands back a build from before a
+	// restart under the name a new one goes by.
+	const version = (body: string) => Bun.hash(body).toString(36);
+	const page = assets.shell
+		.replace('src="/main.js"', `src="/main.js?v=${version(assets.script)}"`)
+		.replace(
+			'href="/styles.css"',
+			`href="/styles.css?v=${version(assets.styles)}"`,
+		);
+
 	const context: DevContext = {
 		get url() {
 			return url;
@@ -294,7 +305,7 @@ export async function dev(
 		// The static files are handed over without entering JS; the rest have
 		// to be asked for, since they answer with the state of the repo right now.
 		routes: {
-			"/": asset(assets.shell, "text/html; charset=utf-8"),
+			"/": asset(page, "text/html; charset=utf-8"),
 			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
 			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
 			// At the root, so its scope is the whole page.

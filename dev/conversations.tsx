@@ -25,9 +25,9 @@ import {
 } from "./conversation-feed";
 import { Home } from "./conversation-home";
 import { Item } from "./conversation-item";
-import { ConversationList } from "./conversation-list";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
+import { PhoneHome } from "./phone-home";
 import { useRefusals } from "./refusal";
 import { TASK, TaskView } from "./task-view";
 import { Task } from "./tasks";
@@ -38,8 +38,8 @@ import { TodoDialog } from "./todos";
 
 /**
  * The open conversation, or the archived ones when `open` is `ARCHIVED`. On a
- * phone, where there is no sidebar, it is one or the other: the list until a
- * conversation is opened, then that alone, with a way back.
+ * phone, where the inbox lists them in place of a sidebar, each has a way back
+ * to it.
  */
 export function Conversations({
 	feed,
@@ -129,38 +129,37 @@ export function Conversations({
 	// refused in that one's thread.
 	const { refusals, refuse } = useRefusals<string>();
 	useRead(shown);
+	// What a new conversation starts with. Its picks are for one agent's
+	// settings, and its draft for one tree, so it starts over for another.
+	const starting = {
+		drafts,
+		tasks,
+		free,
+		feed,
+		agents,
+		agent: agentFor(open, agents, conversations),
+		task: taskFor(open),
+		model: modelFor(open),
+		conversations,
+		refuseIn: refuse,
+		onOpen,
+	};
+	const startKey = `${starting.agent}/${starting.task}/${starting.model}`;
 
 	return (
 		<Board value={board}>
 			{/* What a view transition fades, as `slide` starts a conversation. */}
-			<div className="flex flex-col gap-4 [view-transition-name:conversation]">
-				{phone && open === null ? (
-					<ConversationList
-						feed={feed}
-						terminals={terminals}
-						drafts={drafts}
-						tasks={tasks}
-						open={open}
-						onOpen={onOpen}
-					/>
-				) : startsOne(open) || (open === null && !phone) ? (
-					<Home
-						// Its picks are for one agent's settings, and its draft for one
-						// tree, so start over for another.
-						key={`${agentFor(open, agents, conversations)}/${taskFor(open)}/${modelFor(open)}`}
-						drafts={drafts}
-						tasks={tasks}
-						free={free}
-						feed={feed}
-						agents={agents}
-						agent={agentFor(open, agents, conversations)}
-						task={taskFor(open)}
-						model={modelFor(open)}
-						conversations={conversations}
-						refuseIn={refuse}
-						onOpen={onOpen}
-						onBack={phone ? () => onOpen(null) : null}
-					/>
+			<div className="flex h-full flex-col gap-4 [view-transition-name:conversation]">
+				{startsOne(open) || open === null ? (
+					phone ? (
+						<PhoneHome
+							key={startKey}
+							{...starting}
+							onBack={() => onOpen(null)}
+						/>
+					) : (
+						<Home key={startKey} {...starting} />
+					)
 				) : open !== null && isMain(open) ? (
 					<MainTerminal
 						key={open}

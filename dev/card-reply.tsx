@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useEffectEvent,
 } from "react";
+import { focusStop } from "#dev/hooks/use-touch.ts";
 import { toCardTop } from "./card-shell";
 
 /** What the cards in a conversation answer through. */
@@ -113,7 +114,7 @@ export function useArrival(
 			return;
 		}
 		const stop = first();
-		stop?.focus({ preventScroll: true });
+		focusStop(stop, { preventScroll: true });
 		const card = stop?.closest<HTMLElement>("[data-card]");
 		if (card != null) {
 			toCardTop(card);

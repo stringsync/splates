@@ -11,6 +11,14 @@
 @source "./app.tsx";
 @source "./app-header.tsx";
 @source "./app-nav.tsx";
+@source "./phone-app.tsx";
+@source "./phone-inbox.tsx";
+@source "./phone-drawer.tsx";
+@source "./phone-home.tsx";
+@source "./phone-sheets.tsx";
+@source "./phone-screen.tsx";
+@source "./phone-thread.tsx";
+@source "./thread-header.tsx";
 @source "./page-route.tsx";
 @source "./side-panes.tsx";
 @source "./auto-restart-dialog.tsx";

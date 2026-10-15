@@ -7,8 +7,10 @@ import {
 	menuItem,
 	message,
 	newWith,
+	resize,
 	Testing,
 	typeIn,
+	waitFor,
 	within,
 } from "./testing";
 
@@ -75,6 +77,45 @@ describe("App on a touch device", () => {
 			view.getByRole("region", { name: "new conversation" }),
 		).getByRole("textbox", { name: "Message input" });
 		expect(document.activeElement === started).toBe(false);
+	});
+
+	it("opens a review in its sheet on a phone without raising the keyboard", async () => {
+		resize(390, 844);
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message(
+							"agent",
+							[
+								"## 🔍 Ready to merge header onto main",
+								"",
+								"The header wraps on phones.",
+								"",
+								'Reply "merge", or say what to change.',
+							].join("\n"),
+						),
+					],
+				}),
+			]);
+
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() =>
+						view.getByRole("button", { name: /Ready to merge\s*Answer/ }),
+					),
+				),
+			);
+
+			const sheet = await waitFor(() =>
+				view.getByRole("dialog", { name: "Ready to merge" }),
+			);
+			expect(within(sheet).getByRole("textbox")).toBeTruthy();
+			expect(document.activeElement?.tagName).not.toBe("TEXTAREA");
+		} finally {
+			resize(1024, 768);
+		}
 	});
 
 	it("keeps the keyboard up for a message being typed as the agent starts", async () => {

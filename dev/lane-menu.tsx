@@ -19,10 +19,11 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { LaneState } from "../lanes";
 import { laneReference } from "../prompts";
 import { dropLane, joinLanes } from "./api";
-import { Board, still } from "./board";
+import { Board, still, touchItems } from "./board";
 import { copiedLabel, useCopy } from "./card";
 
 /** What can be done to a whole lane: start it, rename it, move it, fold it into another, or remove it. */
@@ -47,13 +48,14 @@ export function LaneMenu({
 						size="icon-xs"
 						variant="ghost"
 						aria-label={`${lane.name} actions`}
+						className="pointer-coarse:size-10"
 						{...still}
 					/>
 				}
 			>
 				<MoreHorizontalIcon />
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-64">
+			<DropdownMenuContent align="end" className={cn("w-64", touchItems)}>
 				<DropdownMenuItem
 					closeOnClick={false}
 					title={copied.state === "failed" ? copied.error : undefined}

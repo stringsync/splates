@@ -58,6 +58,12 @@ export type ThreadProps = {
 	composer?: ReactNode | undefined;
 	/** The id of the message to open at, rather than the bottom. */
 	openAt?: string | undefined;
+	/**
+	 * Whether the composer stays along the bottom while the thread is empty
+	 * too, the greeting centered above it, as a phone's chat apps have it,
+	 * rather than under the greeting.
+	 */
+	docked?: boolean | undefined;
 };
 export const ThreadExtrasContext = createContext<
 	Pick<

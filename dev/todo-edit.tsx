@@ -89,13 +89,18 @@ export function Edit({
 				{restored && (
 					<p className="flex items-center gap-2 text-muted-foreground text-xs">
 						Unsaved changes kept from before
-						<Button size="xs" variant="ghost" onClick={() => editor.discard()}>
+						<Button
+							size="xs"
+							variant="ghost"
+							onClick={() => editor.discard()}
+							className="pointer-coarse:h-10 pointer-coarse:px-3"
+						>
 							Discard
 						</Button>
 					</p>
 				)}
 				<MentionAnchor mentions={mentions}>
-					<InputGroup>
+					<InputGroup className="pointer-coarse:h-10">
 						<InputGroupInput
 							ref={mentions.ref}
 							aria-label="subject"
@@ -137,6 +142,7 @@ export function Edit({
 				<Button
 					variant={confirming ? "destructive" : "ghost"}
 					disabled={busy}
+					className="pointer-coarse:h-10 pointer-coarse:px-3"
 					onClick={() => settle(editor.remove(), "Not removed")}
 				>
 					<Trash2Icon data-icon="inline-start" />
@@ -145,6 +151,7 @@ export function Edit({
 				<Button
 					disabled={!changed || busy}
 					onClick={() => settle(editor.save(), "Not saved")}
+					className="pointer-coarse:h-10 pointer-coarse:px-4"
 				>
 					Save
 				</Button>

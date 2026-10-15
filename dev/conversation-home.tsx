@@ -12,7 +12,6 @@ import type { ConversationState } from "../conversations";
 import { modelOption } from "../models";
 import type { Details } from "../show";
 import { AgentBrand, AgentIcon } from "./agent-icons";
-import { Back } from "./back";
 import { FILES, filesOf, noted, said, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
 import { settingsFor } from "./conversation-address";
@@ -46,31 +45,11 @@ const RECENT = 5;
 
 const NO_MESSAGES: ThreadMessageLike[] = [];
 
-/**
- * The screen with no conversation open: an empty thread whose first message
- * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
- * composer, and under the greeting the latest unfinished conversations to
- * pick back up, none whose task merged.
- */
-export function Home({
-	drafts,
-	tasks,
-	free,
-	feed,
-	agents,
-	agent,
-	task,
-	model,
-	conversations,
-	refuseIn,
-	onOpen,
-	onBack,
-}: {
+/** What `useNewConversation` takes: who starts it, where, and what to tell. */
+export interface Starting {
 	/** What was typed and not sent, by conversation. */
 	drafts: Drafts;
 	tasks: Details[];
-	/** The live tasks no listed conversation runs in, to recommend. */
-	free: Details[];
 	feed: ConversationFeed;
 	agents: AgentChoice[];
 	/** The agent the conversation starts with, picked beside New conversation. */
@@ -84,9 +63,26 @@ export function Home({
 	/** Says in a conversation's thread that a write to it was refused. */
 	refuseIn: (id: string, title: string, error: unknown) => void;
 	onOpen: (id: string) => void;
-	/** Back to the list, on a phone; null beside a sidebar. */
-	onBack: (() => void) | null;
-}): JSX.Element {
+}
+
+/**
+ * An empty thread whose first message starts a conversation with `agent`,
+ * opening it once it is up, and what its composer offers: the agent's
+ * settings, the files, systems and tasks to mention, and why a start was
+ * refused. Laid out by `Home`, or by the phone's own screen.
+ */
+export function useNewConversation({
+	drafts,
+	tasks,
+	feed,
+	agents,
+	agent,
+	task,
+	model,
+	conversations,
+	refuseIn,
+	onOpen,
+}: Starting) {
 	const { refusal, refuse } = useRefusal();
 	const offered = settingsFor(agent, agents, conversations);
 	// A model asked for, as by a todo's agent, shows picked where it is offered.
@@ -94,21 +90,8 @@ export function Home({
 		const asked = model === null ? null : modelOption(offered, model);
 		return asked === null ? {} : { [asked.setting]: asked.value };
 	});
-	const listed = conversations.filter((each) => !each.archived);
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string, files: File[]) => void>(() => {});
-	// Only unfinished work at rest: one at work, through its subagents too, or
-	// waiting on the person is in the sidebar already, and one whose task
-	// merged, or whose lanes finished, is done.
-	const hosting = hostingWork(tasks, conversations);
-	const recent = listed
-		.filter(
-			(each) =>
-				needOf(tasks, each).kind === "idle" &&
-				!hosting.has(each.id) &&
-				!reportsDone(each),
-		)
-		.slice(0, RECENT);
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
 		isRunning: starting,
@@ -178,26 +161,80 @@ export function Home({
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),
 	);
+	const controls =
+		offered.length > 0 ? (
+			<SettingControls
+				settings={offered}
+				current={(setting) => picks[setting.id] ?? setting.current}
+				onChange={(setting, value) =>
+					setPicks((picks) => ({ ...picks, [setting.id]: value }))
+				}
+			/>
+		) : (
+			<span className="px-1.5 text-[11px] text-muted-foreground">
+				Settings appear once {agentName(agents, agent)} starts
+			</span>
+		);
+	return {
+		runtime,
+		refusal,
+		starting,
+		controls,
+		mentions: mentions ?? undefined,
+		references,
+		named,
+	};
+}
+
+/**
+ * The screen with no conversation open: an empty thread whose first message
+ * starts one with `agent` in `task`'s tree or the main tree, the agent's settings in its
+ * composer, and under the greeting the latest unfinished conversations to
+ * pick back up, none whose task merged.
+ */
+export function Home({
+	free,
+	...starting
+}: Starting & {
+	/** The live tasks no listed conversation runs in, to recommend. */
+	free: Details[];
+}): JSX.Element {
+	const { tasks, agents, agent, task, conversations, onOpen } = starting;
+	const {
+		runtime,
+		refusal,
+		starting: started,
+		controls,
+		mentions,
+		references,
+		named,
+	} = useNewConversation(starting);
+	const listed = conversations.filter((each) => !each.archived);
+	// Only unfinished work at rest: one at work, through its subagents too, or
+	// waiting on the person is in the sidebar already, and one whose task
+	// merged, or whose lanes finished, is done.
+	const hosting = hostingWork(tasks, conversations);
+	const recent = listed
+		.filter(
+			(each) =>
+				needOf(tasks, each).kind === "idle" &&
+				!hosting.has(each.id) &&
+				!reportsDone(each),
+		)
+		.slice(0, RECENT);
 
 	return (
 		<section
 			aria-label="new conversation"
 			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
 		>
-			{onBack !== null ? (
-				<header className="flex min-h-9 items-center gap-2">
-					<Back onBack={onBack} />
-					<h2 className="font-medium text-sm">New conversation</h2>
-				</header>
-			) : (
-				// A conversation's header's room, so the welcome sits where theirs do.
-				<div aria-hidden className="h-9 shrink-0" />
-			)}
+			{/* A conversation's header's room, so the welcome sits where theirs do. */}
+			<div aria-hidden className="h-9 shrink-0" />
 			<AssistantRuntimeProvider runtime={runtime}>
 				<Composing.Provider value={runtime.thread.composer}>
 					<NamedContext value={named}>
 						<ThreadView
-							mentions={mentions ?? undefined}
+							mentions={mentions}
 							references={references}
 							above={<Refusal refusal={refusal} className="px-2" />}
 							welcome={
@@ -217,7 +254,7 @@ export function Home({
 									{task === null && (
 										<Recommended
 											free={free}
-											starting={starting}
+											starting={started}
 											// The draft stays in the composer for the next one.
 											onStart={(directive) =>
 												runtime.thread.append({
@@ -250,21 +287,7 @@ export function Home({
 									)}
 								</>
 							}
-							controls={
-								offered.length > 0 ? (
-									<SettingControls
-										settings={offered}
-										current={(setting) => picks[setting.id] ?? setting.current}
-										onChange={(setting, value) =>
-											setPicks((picks) => ({ ...picks, [setting.id]: value }))
-										}
-									/>
-								) : (
-									<span className="px-1.5 text-[11px] text-muted-foreground">
-										Settings appear once {agentName(agents, agent)} starts
-									</span>
-								)
-							}
+							controls={controls}
 						/>
 					</NamedContext>
 				</Composing.Provider>

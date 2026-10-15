@@ -3,6 +3,7 @@ import {
 	ArchiveIcon,
 	ArrowRightIcon,
 	CheckIcon,
+	ChevronDownIcon,
 	CodeIcon,
 	CopyIcon,
 	GitBranchIcon,
@@ -14,7 +15,15 @@ import {
 	PlayIcon,
 	SproutIcon,
 } from "lucide-react";
-import { createContext, type JSX, useContext, useState } from "react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Proposal, Report, Start } from "../asked";
@@ -105,9 +114,56 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 				{showing ? (
 					<Source text={report.source} />
 				) : text === "" ? undefined : (
-					<CardBody text={text} lead={report.reason !== null} />
+					<Folded>
+						<CardBody text={text} lead={report.reason !== null} />
+					</Folded>
 				)}
 			</CardShell>
+		</div>
+	);
+}
+
+/**
+ * `children` cut to a few lines in a narrow thread, as on a phone, with More
+ * to read the rest; in full anywhere wider, or once it fits.
+ */
+function Folded({ children }: { children: ReactNode }): JSX.Element {
+	const [open, setOpen] = useState(false);
+	const box = useRef<HTMLDivElement>(null);
+	const [cut, setCut] = useState(false);
+	useEffect(() => {
+		const element = box.current;
+		if (element === null || open) {
+			return;
+		}
+		const measure = () =>
+			setCut(element.scrollHeight > element.clientHeight + 1);
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [open]);
+	return (
+		<div className="relative">
+			<div
+				ref={box}
+				className={cn(
+					!open &&
+						"@max-md:max-h-32 @max-md:overflow-hidden @max-md:[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
+				)}
+			>
+				{children}
+			</div>
+			{cut && !open && (
+				<button
+					type="button"
+					onClick={() => setOpen(true)}
+					className="flex h-10 w-full items-center justify-center gap-1 border-t font-medium text-muted-foreground text-sm active:bg-muted @md:hidden"
+				>
+					More
+					<ChevronDownIcon className="size-4" />
+				</button>
+			)}
 		</div>
 	);
 }
@@ -313,8 +369,10 @@ export function TodoCard({
 	return (
 		<section
 			aria-label={`todo ${proposal.id}`}
+			// In a narrow thread, as on a phone, its buttons go under its words
+			// rather than squeeze them.
 			className={cn(
-				"flex items-start gap-3 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
+				"flex flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-card py-2.5 pr-2.5 pl-3 text-card-foreground transition-colors hover:border-border",
 				!grouped && "my-3",
 				gone && "opacity-60",
 			)}
@@ -377,13 +435,13 @@ export function TodoCard({
 				<Refusal refusal={refusal} />
 			</div>
 			{started && (
-				<span className="flex shrink-0 items-center gap-1 py-1 text-success text-xs">
+				<span className="flex shrink-0 items-center gap-1 py-1 text-success text-xs @max-md:basis-full @max-md:pl-7">
 					<CheckIcon className="size-3.5" strokeWidth={3} />
 					Started
 				</span>
 			)}
 			{open && (send !== null || startNew !== null) && (
-				<span className="flex shrink-0 items-center gap-1">
+				<span className="flex shrink-0 items-center gap-1 @max-md:basis-full @max-md:pl-7 pointer-coarse:[&_button]:h-9 pointer-coarse:[&_button]:min-w-9">
 					{send !== null && (
 						<Button
 							size="sm"

@@ -17,3 +17,33 @@ export function useTouch(): boolean {
 		() => matchMedia(TOUCH).matches,
 	);
 }
+
+/**
+ * Focuses `stop`, as the page does for whatever comes up to be answered,
+ * unless on a touch device that would raise a keyboard the person never
+ * asked for: there, only a tap brings one up, or Enter while one is up.
+ */
+export function focusStop(
+	stop: HTMLElement | null | undefined,
+	opts?: FocusOptions,
+): void {
+	const unasked =
+		matchMedia(TOUCH).matches &&
+		raises(stop) &&
+		!raises(document.activeElement);
+	if (stop != null && !unasked) {
+		stop.focus(opts);
+	}
+}
+
+/** Whether focusing `element` brings up a touch screen's keyboard. */
+function raises(element: Element | null | undefined): boolean {
+	return (
+		element instanceof HTMLTextAreaElement ||
+		(element instanceof HTMLInputElement &&
+			!["button", "checkbox", "radio", "submit", "reset"].includes(
+				element.type,
+			)) ||
+		(element instanceof HTMLElement && element.isContentEditable)
+	);
+}

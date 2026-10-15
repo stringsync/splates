@@ -3,6 +3,7 @@ import { Loader2Icon } from "lucide-react";
 import {
 	type CSSProperties,
 	type JSX,
+	type ReactNode,
 	useEffect,
 	useMemo,
 	useRef,
@@ -46,6 +47,7 @@ import { ShortcutSettings } from "./hooks/use-shortcut";
 import { Notifications } from "./notifications";
 import { OpenerContext, openerOf } from "./openers";
 import { type Page, PageShortcuts, usePageRoute } from "./page-route";
+import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
 import { placeOf, rememberPlace, shownProject } from "./projects";
 import type { Found } from "./search";
@@ -66,6 +68,16 @@ import { TodoView } from "./todo-view";
 import { Todos } from "./todos";
 import { Visits } from "./visits";
 import { TreesContext } from "./work-row";
+
+/** How each page sits on a phone, under its bar; a conversation fills it. */
+const PHONE_PAGES: Record<Page, string> = {
+	todos: "min-w-0 px-4 py-4",
+	tasks: "px-4 py-6",
+	systems: "min-w-0 px-4 py-6",
+	stats: "min-w-0 px-4 py-6",
+	creds: "min-w-0 px-4 py-6",
+	conversations: "min-h-0 flex-1",
+};
 
 /** Before the first snapshot: one array, so nothing recomputes for a new one. */
 const NO_TASKS: Details[] = [];
@@ -272,9 +284,79 @@ export function App({
 			terminals,
 			wide,
 		});
-	// On a phone, an open conversation takes the whole screen: no header, and
-	// no bar along the bottom, which its own Back replaces.
-	const reading = !wide && page === "conversations" && open !== null;
+	// What each page shows, laid out by the sidebar's tabs or the phone's own.
+	const bodies: Record<Page, ReactNode> | null =
+		snapshot === null
+			? null
+			: {
+					todos: <Todos snapshot={snapshot} drafts={drafts} view={todoView} />,
+					tasks: <Tasks tasks={snapshot.tasks} open={task} onOpen={openTask} />,
+					systems: (
+						<SystemsPage
+							systems={named}
+							tasks={snapshot.tasks}
+							todos={snapshot.todos}
+							open={system}
+							onOpen={openSystem}
+							onTask={(name) => {
+								go("tasks");
+								openTask(name);
+							}}
+							onTodo={(id) => {
+								go("todos");
+								todoView.open(id);
+							}}
+						/>
+					),
+					stats: <StatsPage report={report} systems={named} />,
+					creds: (
+						<CredsPage requests={snapshot.creds} project={snapshot.repo} />
+					),
+					conversations: available && (
+						<TreesContext value={snapshot}>
+							<CredsContext
+								value={{ requests: snapshot.creds, project: snapshot.repo }}
+							>
+								<OpenerContext value={openerOf(opener)}>
+									<Conversations
+										feed={talk}
+										terminals={terminals}
+										drafts={drafts}
+										tasks={snapshot.tasks}
+										todos={snapshot.todos}
+										lanes={snapshot.lanes}
+										trunk={snapshot.trunk}
+										open={open}
+										onOpen={(id) => go("conversations", id)}
+										phone={!wide}
+									/>
+								</OpenerContext>
+							</CredsContext>
+						</TreesContext>
+					),
+				};
+	// The server opens a project on its first read, which takes seconds.
+	// Offline or outdated, the header already says why nothing came.
+	const opening = !offline && outdated === null && (
+		<div
+			role="status"
+			className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+		>
+			<Loader2Icon className="size-4 animate-spin" />
+			Opening {name}
+		</div>
+	);
+	const header = (
+		<AppHeader
+			name={name}
+			snapshot={snapshot}
+			outdated={outdated}
+			offline={offline}
+			conversations={available}
+			wide={wide}
+			onSettings={() => setSetting(true)}
+		/>
+	);
 
 	return (
 		<Held value={conversations}>
@@ -320,158 +402,105 @@ export function App({
 													every={checkpointEvery}
 													restartShown={checkpointRestartShown}
 												>
-													<Tabs
-														value={page}
-														onValueChange={(value) => go(value as Page)}
-														orientation={wide ? "vertical" : "horizontal"}
-														// Clear of the sidebar, or of the bar along the bottom.
-														className={cn(
-															"min-h-dvh gap-0",
-															wide
-																? "pl-(--sidebar-width)"
-																: !reading && "pb-20",
-															wide && paned && BESIDE_PANE,
-														)}
-														style={
-															{
-																"--sidebar-width": `${width}px`,
-															} as CSSProperties
-														}
-													>
-														{!reading && (
-															<>
-																<AppHeader
-																	name={name}
-																	snapshot={snapshot}
-																	outdated={outdated}
-																	offline={offline}
-																	conversations={available}
-																	wide={wide}
-																	onSettings={() => setSetting(true)}
-																/>
-																<AppNav
-																	wide={wide}
-																	available={available}
-																	waiting={counted ? waiting : 0}
-																	snapshot={snapshot}
-																	page={page}
-																	open={open}
-																	onOpen={(id) => go("conversations", id)}
-																	talk={talk}
-																	terminals={terminals}
-																	drafts={drafts}
-																	sidebar={sidebar}
-																/>
-															</>
-														)}
-														{snapshot === null ? (
-															// The server opens a project on its first read, which takes
-															// seconds. Offline or outdated, the header already says why
-															// nothing came.
-															!offline &&
-															outdated === null && (
-																<div
-																	role="status"
-																	className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
-																>
-																	<Loader2Icon className="size-4 animate-spin" />
-																	Opening {name}
-																</div>
-															)
-														) : (
-															<>
-																{/* The board runs as wide as its lanes, the way a Trello board
-						    scrolls sideways. */}
-																<TabsContent
-																	value="todos"
-																	className="min-w-0 px-4 py-4"
-																>
-																	<Todos
-																		snapshot={snapshot}
-																		drafts={drafts}
-																		view={todoView}
-																	/>
-																</TabsContent>
-																<TabsContent
-																	value="tasks"
-																	className="mx-auto w-full max-w-xl px-4 py-6"
-																>
-																	<Tasks
-																		tasks={snapshot.tasks}
-																		open={task}
-																		onOpen={openTask}
-																	/>
-																</TabsContent>
-																<TabsContent
-																	value="systems"
-																	className="mx-auto w-full min-w-0 max-w-xl px-4 py-6"
-																>
-																	<SystemsPage
-																		systems={named}
-																		tasks={snapshot.tasks}
-																		todos={snapshot.todos}
-																		open={system}
-																		onOpen={openSystem}
-																		onTask={(name) => {
-																			go("tasks");
-																			openTask(name);
-																		}}
-																		onTodo={(id) => {
-																			go("todos");
-																			todoView.open(id);
-																		}}
-																	/>
-																</TabsContent>
-																<TabsContent
-																	value="stats"
-																	className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
-																>
-																	<StatsPage report={report} systems={named} />
-																</TabsContent>
-																<TabsContent
-																	value="creds"
-																	className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
-																>
-																	<CredsPage
-																		requests={snapshot.creds}
-																		project={snapshot.repo}
-																	/>
-																</TabsContent>
-																{available && (
+													{wide ? (
+														<Tabs
+															value={page}
+															onValueChange={(value) => go(value as Page)}
+															orientation="vertical"
+															// Clear of the sidebar.
+															className={cn(
+																"min-h-dvh gap-0 pl-(--sidebar-width)",
+																paned && BESIDE_PANE,
+															)}
+															style={
+																{
+																	"--sidebar-width": `${width}px`,
+																} as CSSProperties
+															}
+														>
+															{header}
+															<AppNav
+																available={available}
+																snapshot={snapshot}
+																page={page}
+																open={open}
+																onOpen={(id) => go("conversations", id)}
+																talk={talk}
+																terminals={terminals}
+																drafts={drafts}
+																sidebar={sidebar}
+															/>
+															{bodies === null ? (
+																opening
+															) : (
+																<>
+																	{/* The board runs as wide as its lanes, the way a Trello
+																	    board scrolls sideways. */}
 																	<TabsContent
-																		value="conversations"
+																		value="todos"
 																		className="min-w-0 px-4 py-4"
 																	>
-																		<TreesContext value={snapshot}>
-																			<CredsContext
-																				value={{
-																					requests: snapshot.creds,
-																					project: snapshot.repo,
-																				}}
-																			>
-																				<OpenerContext value={openerOf(opener)}>
-																					<Conversations
-																						feed={talk}
-																						terminals={terminals}
-																						drafts={drafts}
-																						tasks={snapshot.tasks}
-																						todos={snapshot.todos}
-																						lanes={snapshot.lanes}
-																						trunk={snapshot.trunk}
-																						open={open}
-																						onOpen={(id) =>
-																							go("conversations", id)
-																						}
-																						phone={!wide}
-																					/>
-																				</OpenerContext>
-																			</CredsContext>
-																		</TreesContext>
+																		{bodies.todos}
 																	</TabsContent>
-																)}
-															</>
-														)}
-													</Tabs>
+																	<TabsContent
+																		value="tasks"
+																		className="mx-auto w-full max-w-xl px-4 py-6"
+																	>
+																		{bodies.tasks}
+																	</TabsContent>
+																	<TabsContent
+																		value="systems"
+																		className="mx-auto w-full min-w-0 max-w-xl px-4 py-6"
+																	>
+																		{bodies.systems}
+																	</TabsContent>
+																	<TabsContent
+																		value="stats"
+																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
+																	>
+																		{bodies.stats}
+																	</TabsContent>
+																	<TabsContent
+																		value="creds"
+																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
+																	>
+																		{bodies.creds}
+																	</TabsContent>
+																	{available && (
+																		<TabsContent
+																			value="conversations"
+																			className="min-w-0 px-4 py-4"
+																		>
+																			{bodies.conversations}
+																		</TabsContent>
+																	)}
+																</>
+															)}
+														</Tabs>
+													) : (
+														<PhoneApp
+															page={page}
+															open={open}
+															go={go}
+															name={name}
+															header={header}
+															offline={offline}
+															body={
+																bodies === null ? (
+																	opening
+																) : (
+																	<div className={PHONE_PAGES[page]}>
+																		{bodies[page]}
+																	</div>
+																)
+															}
+															available={available}
+															waiting={counted ? waiting : 0}
+															snapshot={snapshot}
+															talk={talk}
+															drafts={drafts}
+														/>
+													)}
 													{pane}
 													<SearchDialog searched={searched} pick={pick} />
 													<SettingsDialog

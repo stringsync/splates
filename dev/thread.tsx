@@ -12,7 +12,6 @@ import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import { useWidgets, WIDGETS_ROOM, Widgets, WidgetsButton } from "./actions";
 import { AskPanel } from "./ask-panel";
-import { Back } from "./back";
 import { BackgroundRow } from "./background";
 import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
@@ -25,8 +24,7 @@ import {
 } from "./composer-triggers";
 import { chooseSetting } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
-import { Rename } from "./conversation-item";
-import { lastReport, unnamed, useNameOf } from "./conversation-names";
+import { lastReport, useNameOf } from "./conversation-names";
 import { CredUI } from "./creds";
 import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
@@ -35,18 +33,20 @@ import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
 import { NamedContext } from "./mentioned";
+import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
+import { NextWaiting, PhoneThreadHeader } from "./phone-thread";
 import { QuestionsUI } from "./question-cards";
 import { Queued, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
-import { Refusal, type Refuse } from "./refusal";
+import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, StartUI, TodoUI } from "./report-cards";
 import { ReviewUI } from "./review-panel";
 import { SettingControls } from "./setting-controls";
 import { SystemsCard } from "./systems";
-import { TakeUp } from "./take-up";
-import { TaskLine, toWaiting, useArrived } from "./task-view";
+import { toWaiting, useArrived } from "./task-view";
 import { Task } from "./tasks";
 import { useThreadActions } from "./thread-actions";
+import { ThreadHeader, Where } from "./thread-header";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
 import { ContextMeter } from "./usage";
@@ -141,8 +141,10 @@ export function Thread({
 		onOpen,
 	);
 	const [details, setDetails] = useState(false);
-	// The newest card it waits on you through.
-	useArrived(id, () => toWaiting(section.current));
+	// The newest card it waits on you through, which also focuses it. A phone
+	// opens its questions and review in a sheet instead, and shows a live ask
+	// at the foot of the thread it opens at, keeping the keyboard down.
+	useArrived(id, () => onBack === null && toWaiting(section.current));
 	const systems = useSystems(conversation.task, tasks);
 	const references = useReferences(tasks, actions, systems ?? undefined);
 	const root = useContext(TreesContext)?.root ?? null;
@@ -202,20 +204,58 @@ export function Thread({
 					void edit(queued.length - 1);
 				}
 			}}
-			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+			// A phone's fills the screen; beside a sidebar, the pane's padding.
+			className={cn(
+				"@container flex min-h-0 min-w-0 flex-col",
+				onBack === null ? "h-[calc(100dvh-2rem)] gap-3" : "h-full gap-1",
+			)}
 		>
 			{archived && <ArchivedBanner />}
-			<ThreadHeader
-				conversation={conversation}
-				task={task}
-				free={free}
-				trunk={trunk}
-				refused={refused}
-				widgets={widgets}
-				onTake={(text) => void send(text, []).catch(() => {})}
-				onDetails={() => setDetails(true)}
-				onBack={onBack}
-			/>
+			{onBack === null ? (
+				<ThreadHeader
+					conversation={conversation}
+					task={task}
+					free={free}
+					trunk={trunk}
+					refused={refused}
+					widgets={widgets}
+					onTake={(text) => void send(text, []).catch(() => {})}
+					onDetails={() => setDetails(true)}
+				/>
+			) : (
+				<PhoneThreadHeader
+					conversation={conversation}
+					where={
+						<Where
+							conversation={conversation}
+							task={task}
+							free={free}
+							trunk={trunk}
+							onTake={(text) => void send(text, []).catch(() => {})}
+							onDetails={() => setDetails(true)}
+						/>
+					}
+					next={
+						<NextWaiting
+							feed={feed}
+							drafts={drafts}
+							tasks={tasks}
+							open={id}
+							onOpen={onOpen}
+						/>
+					}
+					widgets={
+						<WidgetsButton
+							open={widgets.open}
+							onToggle={widgets.toggle}
+							busy={conversation.background.some(
+								(each) => each.state === "running",
+							)}
+						/>
+					}
+					onBack={onBack}
+				/>
+			)}
 			{archive.confirm}
 			{task !== null && (
 				<Dialog open={details} onOpenChange={setDetails}>
@@ -227,225 +267,146 @@ export function Thread({
 					{conversation.error}
 				</p>
 			)}
-			<TaskRegistry>
-				{(version) => (
-					<div
-						className="relative min-h-0 flex-1"
-						style={{
-							["--thread-inset-end" as string]:
-								widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
-						}}
-					>
-						<AssistantRuntimeProvider runtime={runtime}>
-							<Composing.Provider value={runtime.thread.composer}>
-								<QuestionsUI />
-								<ReviewUI />
-								<ReportUI />
-								<StartUI />
-								<CredUI />
-								<TodoUI />
-								<DemoUI />
-								<WorkUI />
-								<StoppedUI />
-								<InterruptedUI />
-								<StartNewContext value={startNew}>
-									{/* Its cards read-only: only its orchestrator replies to it. */}
-									<ReplyContext value={handedBy === null ? reply : null}>
-										<NamedContext value={named}>
-											<ThreadView
-												openAt={openAt}
-												autoFocus={!asking || typed}
-												mentions={mentions ?? undefined}
-												references={references}
-												commands={commands ?? undefined}
-												composer={
-													handedBy === null ? undefined : (
-														<HandedOut
-															conversation={conversation}
-															by={handedBy}
-															onOpen={onOpen}
-														/>
-													)
-												}
-												placeholder={
-													archived
-														? "Send a message to unarchive and continue"
-														: undefined
-												}
-												controls={
-													!archived && (
-														<>
-															<ContextMeter usage={conversation.usage} />
-															<SettingControls
-																settings={settings}
-																current={(setting) => setting.current}
-																onChange={(setting, value) =>
-																	chooseSetting(id, setting.id, value).catch(
-																		(error: unknown) =>
-																			refused(
-																				`${setting.name} not switched`,
-																				error,
-																			),
-																	)
-																}
-															/>
-														</>
-													)
-												}
-												above={
-													<>
-														<Refusal refusal={refusal} className="px-2" />
-														{ended !== null && handedBy === null && (
-															<ArchiveBar
-																report={ended}
-																onArchive={() => archive.file(onLeft)}
-															/>
-														)}
-														{queued.length > 0 && (
-															<Queued
-																conversation={id}
-																messages={queued}
-																pending={feed.unrecorded(id)}
-																edits={
-																	handedBy === null
-																		? {
-																				onEdit: (index) => void edit(index),
-																				onDiscard: (index) =>
-																					void discard(index),
-																				onSendNow: () => void sendNow(),
-																			}
-																		: null
-																}
-															/>
-														)}
-														{/* Its agents' asks, which only the person answers. */}
-														{agentAsks.map((agent) => (
-															<AgentAsk
-																key={agent.id}
-																drafts={drafts}
-																conversation={agent}
-															/>
-														))}
-														{/* Answered where it answers to, beside that one's. */}
-														{conversation.ask !== null && handedBy === null && (
-															<AskPanel
-																key={conversation.ask.id}
-																drafts={drafts}
+			<PhoneSheets conversation={id} on={onBack !== null}>
+				<TaskRegistry>
+					{(version) => (
+						<div
+							className="relative min-h-0 flex-1"
+							style={{
+								["--thread-inset-end" as string]:
+									widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+							}}
+						>
+							<AssistantRuntimeProvider runtime={runtime}>
+								<Composing.Provider value={runtime.thread.composer}>
+									<QuestionsUI />
+									<ReviewUI />
+									<ReportUI />
+									<StartUI />
+									<CredUI />
+									<TodoUI />
+									<DemoUI />
+									<WorkUI />
+									<StoppedUI />
+									<InterruptedUI />
+									<StartNewContext value={startNew}>
+										{/* Its cards read-only: only its orchestrator replies to it. */}
+										<ReplyContext value={handedBy === null ? reply : null}>
+											<NamedContext value={named}>
+												<ThreadView
+													openAt={openAt}
+													autoFocus={!asking || typed}
+													mentions={mentions ?? undefined}
+													references={references}
+													commands={commands ?? undefined}
+													composer={
+														handedBy === null ? undefined : (
+															<HandedOut
 																conversation={conversation}
-																agent={agent}
-																ask={conversation.ask}
+																by={handedBy}
+																onOpen={onOpen}
 															/>
-														)}
-													</>
-												}
-											/>
-										</NamedContext>
-									</ReplyContext>
-								</StartNewContext>
-							</Composing.Provider>
-						</AssistantRuntimeProvider>
-						<Widgets
-							roomy={widgets.roomy}
-							open={widgets.open}
-							onClose={widgets.close}
-							actions={actions}
-							background={
-								<BackgroundRow
-									conversation={id}
-									background={conversation.background}
-								/>
-							}
-						>
-							<SystemsCard systems={task?.systems ?? []} />
-							<CurrentTask version={version} />
-						</Widgets>
-					</div>
-				)}
-			</TaskRegistry>
+														)
+													}
+													placeholder={
+														archived
+															? "Send a message to unarchive and continue"
+															: undefined
+													}
+													controls={
+														!archived && (
+															<>
+																<ContextMeter usage={conversation.usage} />
+																<SettingControls
+																	settings={settings}
+																	current={(setting) => setting.current}
+																	onChange={(setting, value) =>
+																		chooseSetting(id, setting.id, value).catch(
+																			(error: unknown) =>
+																				refused(
+																					`${setting.name} not switched`,
+																					error,
+																				),
+																		)
+																	}
+																/>
+															</>
+														)
+													}
+													above={
+														<>
+															<NeedsYouBar />
+															<Refusal refusal={refusal} className="px-2" />
+															{ended !== null && handedBy === null && (
+																<ArchiveBar
+																	report={ended}
+																	onArchive={() => archive.file(onLeft)}
+																/>
+															)}
+															{queued.length > 0 && (
+																<Queued
+																	conversation={id}
+																	messages={queued}
+																	pending={feed.unrecorded(id)}
+																	edits={
+																		handedBy === null
+																			? {
+																					onEdit: (index) => void edit(index),
+																					onDiscard: (index) =>
+																						void discard(index),
+																					onSendNow: () => void sendNow(),
+																				}
+																			: null
+																	}
+																/>
+															)}
+															{/* Its agents' asks, which only the person answers. */}
+															{agentAsks.map((agent) => (
+																<AgentAsk
+																	key={agent.id}
+																	drafts={drafts}
+																	conversation={agent}
+																/>
+															))}
+															{/* Answered where it answers to, beside that one's. */}
+															{conversation.ask !== null &&
+																handedBy === null && (
+																	<AskPanel
+																		key={conversation.ask.id}
+																		drafts={drafts}
+																		conversation={conversation}
+																		agent={agent}
+																		ask={conversation.ask}
+																	/>
+																)}
+														</>
+													}
+												/>
+											</NamedContext>
+										</ReplyContext>
+									</StartNewContext>
+								</Composing.Provider>
+							</AssistantRuntimeProvider>
+							<Widgets
+								roomy={widgets.roomy}
+								open={widgets.open}
+								onClose={widgets.close}
+								actions={actions}
+								background={
+									<BackgroundRow
+										conversation={id}
+										background={conversation.background}
+									/>
+								}
+							>
+								<SystemsCard systems={task?.systems ?? []} />
+								<CurrentTask version={version} />
+							</Widgets>
+						</div>
+					)}
+				</TaskRegistry>
+			</PhoneSheets>
 		</section>
-	);
-}
-
-/**
- * A conversation's header: its name, which a double-click renames, the task
- * it runs in or one it can take up, and the button that shows its widgets.
- */
-function ThreadHeader({
-	conversation,
-	task,
-	free,
-	trunk,
-	refused,
-	widgets,
-	onTake,
-	onDetails,
-	onBack,
-}: {
-	conversation: ConversationState;
-	/** The task it runs in; null in the main tree, or once the task is gone. */
-	task: Details | null;
-	/** The tasks it can take up from the main tree. */
-	free: Details[];
-	/** The main tree's branch. */
-	trunk: string;
-	refused: Refuse;
-	widgets: { open: boolean; toggle: () => void };
-	/** Takes up a task, sending what says so. */
-	onTake: (text: string) => void;
-	/** Shows its task's details. */
-	onDetails: () => void;
-	/** Back to the list, on a phone; null beside a sidebar. */
-	onBack: (() => void) | null;
-}): JSX.Element {
-	const { archived } = conversation;
-	const [renaming, setRenaming] = useState(false);
-	// One that answers to another is that one's to rename and set to work.
-	const handedOut = useHandedOutBy(conversation) !== null;
-	const nameOf = useNameOf();
-	const branch = task?.branch ?? (conversation.task === null ? trunk : null);
-	return (
-		<header className="flex min-h-9 items-center gap-2">
-			{onBack !== null && <Back onBack={onBack} />}
-			<div className="flex min-w-0 flex-1 flex-col">
-				{renaming ? (
-					<Rename
-						conversation={conversation}
-						refuse={refused}
-						onDone={() => setRenaming(false)}
-					/>
-				) : (
-					// A shortcut: the menu in the sidebar renames too. Capped, so a
-					// long name, such as a question it was named after, ends in an
-					// ellipsis rather than running across the pane.
-					<div className="flex min-w-0 items-center gap-2">
-						<h2
-							onDoubleClick={() => setRenaming(!handedOut)}
-							title={
-								handedOut
-									? nameOf(conversation)
-									: `${nameOf(conversation)}\nDouble-click to rename`
-							}
-							className={cn(
-								"max-w-md truncate font-medium text-sm",
-								unnamed(conversation) && "text-muted-foreground italic",
-							)}
-						>
-							{nameOf(conversation)}
-						</h2>
-					</div>
-				)}
-				{conversation.task === null && !archived && !handedOut ? (
-					<TakeUp trunk={trunk} tasks={free} onTake={onTake} />
-				) : (
-					<TaskLine branch={branch} task={task} onDetails={onDetails} />
-				)}
-			</div>
-			<WidgetsButton
-				open={widgets.open}
-				onToggle={widgets.toggle}
-				busy={conversation.background.some((each) => each.state === "running")}
-			/>
-		</header>
 	);
 }
 

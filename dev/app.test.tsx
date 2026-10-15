@@ -120,10 +120,21 @@ describe("App", () => {
 			.closest("[data-slot=tabs]")
 			?.getAttribute("data-orientation");
 
-	it("puts the pages in a bar along the bottom of a phone, and down the side of anything wider", async () => {
+	it("puts the pages in a drawer on a phone, and down the side of anything wider", async () => {
 		try {
 			resize(390);
-			expect(orientation(await testing.open())).toBe("horizontal");
+			const phone = await testing.open();
+			expect(phone.queryByRole("tablist")).toBeNull();
+			await act(async () =>
+				fireEvent.click(phone.getByRole("button", { name: "Open menu" })),
+			);
+			const drawer = await waitFor(() =>
+				phone.getByRole("dialog", { name: "Pages" }),
+			);
+			await act(async () =>
+				fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
+			);
+			expect(location.hash).toBe("#tasks");
 			cleanup();
 
 			resize(1280);

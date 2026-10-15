@@ -69,3 +69,17 @@ export const still = {
 	onMouseDown: (event: { stopPropagation(): void }) => event.stopPropagation(),
 	onTouchStart: (event: { stopPropagation(): void }) => event.stopPropagation(),
 };
+
+/**
+ * A board menu's items at a finger's height on a touch screen, given to its
+ * content and to each submenu's, which opens apart from it.
+ */
+export const touchItems = "pointer-coarse:[&_[role^=menuitem]]:min-h-10";
+
+/**
+ * A small control in a line of text, its tap target stretched to a finger's
+ * height on a touch screen without moving the text around it. The control
+ * has to be `relative`.
+ */
+export const touchArea =
+	"pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3";

@@ -2,6 +2,7 @@ import { useReactive } from "@webappwiz/react";
 import { Trash2Icon } from "lucide-react";
 import type { DOMAttributes, JSX, ReactNode } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
+import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { Annotation } from "./annotation";
 
@@ -21,6 +22,7 @@ export function Note({
 	at: number;
 	grip: Grip;
 }): JSX.Element {
+	const touch = useTouch();
 	const note = useReactive(annotation, (each) => each.marks[at]?.note ?? "", [
 		"changed",
 	]);
@@ -32,8 +34,8 @@ export function Note({
 			numberProps={grip}
 		>
 			<input
-				// biome-ignore lint/a11y/noAutofocus: a mark just drawn is there to be written about
-				autoFocus
+				// biome-ignore lint/a11y/noAutofocus: a mark just drawn is there to be written about, though a finger taps to, keeping the keyboard down until then
+				autoFocus={!touch}
 				aria-label={`note on mark ${at + 1}`}
 				placeholder="What about it?"
 				value={note}

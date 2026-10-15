@@ -451,32 +451,25 @@ describe("App's conversation list", () => {
 		]);
 	});
 
-	it("on a phone, shows the list or one conversation, with a way back", async () => {
+	it("shows the inbox or one conversation on a phone, with a way back", async () => {
 		resize(390, 844);
 		try {
 			const view = await testing.openConversations(
 				[conversation({ id: "c1", task: "alpha", title: "Fix login" })],
 				null,
 			);
-			const nav = view.getByRole("navigation", { name: "conversations" });
+			const inbox = view.getByRole("region", { name: "inbox" });
 			await act(async () =>
-				fireEvent.click(
-					within(nav).getByRole("button", { name: "Claude alpha" }),
-				),
+				fireEvent.click(within(inbox).getByRole("button", { name: /alpha/ })),
 			);
 
-			expect(
-				view.queryByRole("navigation", { name: "conversations" }),
-			).toBeNull();
-			expect(view.queryByRole("tablist")).toBeNull();
+			expect(view.queryByRole("region", { name: "inbox" })).toBeNull();
 			await act(async () =>
 				fireEvent.click(
 					view.getByRole("button", { name: "Back to conversations" }),
 				),
 			);
-			expect(
-				view.getByRole("navigation", { name: "conversations" }),
-			).toBeTruthy();
+			expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
 			expect(view.queryByRole("region", { name: "alpha" })).toBeNull();
 		} finally {
 			resize(1024, 768);

@@ -16,7 +16,9 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { LaneState } from "../lanes";
+import { touchItems } from "./board";
 
 /**
  * Which columns the board shows, picked in a menu above it: each lane and
@@ -50,7 +52,11 @@ export function ShownLanes({
 	const left = columns.filter((column) => hidden.includes(column.id)).length;
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger render={<Button size="sm" variant="outline" />}>
+			<DropdownMenuTrigger
+				render={
+					<Button size="sm" variant="outline" className="pointer-coarse:h-10" />
+				}
+			>
 				<Columns3Icon data-icon="inline-start" />
 				Lanes
 				{left > 0 && (
@@ -58,7 +64,7 @@ export function ShownLanes({
 				)}
 				<ChevronDownIcon data-icon="inline-end" />
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-64">
+			<DropdownMenuContent align="start" className={cn("w-64", touchItems)}>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>Show on the board</DropdownMenuLabel>
 					<DropdownMenuItem

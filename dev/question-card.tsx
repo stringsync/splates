@@ -173,7 +173,9 @@ export function QuestionCard({
 											data-stop={index === at ? number : undefined}
 											onFocus={() => setAt(index)}
 											onClick={() => toggle(choice.key)}
-											className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm outline-none disabled:cursor-default"
+											// Where it is narrow, its badge wraps under its text rather
+											// than squeezing it; a finger gets a taller choice.
+											className="flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-3 py-2 text-left text-sm outline-none disabled:cursor-default pointer-coarse:py-3"
 										>
 											<span
 												className={cn(
@@ -191,7 +193,7 @@ export function QuestionCard({
 												text={choice.text}
 												inline
 												unlinked
-												className="flex-1"
+												className="min-w-0 flex-1 basis-40"
 											/>
 											{choice.chosen && <Chosen label={chosenLabel} />}
 											<CheckIcon

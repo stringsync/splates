@@ -62,7 +62,7 @@ export function CardShell({
 	// Ringed in its tone while focus is inside it, as when it comes up to be
 	// answered, so it is plain where the keys go.
 	const frame = cn(
-		"group/card my-6 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
+		"group/card my-6 overflow-hidden rounded-xl border @max-md:my-3 bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
 		ringed && ["focus-within:ring-3", TONES[tone].focus],
 	);
 	const header = (
@@ -204,7 +204,8 @@ function Header({
 	return (
 		<div
 			className={cn(
-				"flex flex-wrap items-center gap-2 px-4 py-2.5",
+				// Tighter in a narrow thread, as on a phone.
+				"flex flex-wrap items-center gap-2 px-4 py-2.5 @max-md:px-3 @max-md:py-2",
 				ruled && (folded ? "group-data-[open]/card:border-b" : "border-b"),
 				TONES[tone].header,
 			)}
@@ -261,7 +262,7 @@ export function CardBody({
 		<Markdown
 			text={text}
 			className={cn(
-				"px-4 py-3.5 text-sm leading-relaxed [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
+				"px-4 py-3.5 text-sm leading-relaxed @max-md:px-3 @max-md:py-2.5 [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
 				lead &&
 					"[&_p:first-child]:font-medium [&_p:first-child]:first-letter:uppercase",
 				className,

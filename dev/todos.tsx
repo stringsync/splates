@@ -236,9 +236,10 @@ export function TodoDialog({
 				<DialogContent
 					ref={popup}
 					// The dialog itself, not its subject: a phone keeps its
-					// keyboard down until a field is tapped.
+					// keyboard down until a field is tapped. Its close button takes
+					// a finger on a touch screen.
 					initialFocus={popup}
-					className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl"
+					className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-xl pointer-coarse:[&>[data-slot=dialog-close]]:top-1 pointer-coarse:[&>[data-slot=dialog-close]]:right-1 pointer-coarse:[&>[data-slot=dialog-close]]:size-10"
 				>
 					{/* Keyed, so another todo starts on its own words. */}
 					<Edit key={todo.id} todo={todo} onDone={onClose} />

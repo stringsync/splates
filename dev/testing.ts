@@ -334,10 +334,15 @@ export class Testing implements Resource {
 			tasks: [details({ task: "alpha" })],
 			...overrides,
 		});
-		const tab = await waitFor(() =>
-			view.getByRole("tab", { name: /Conversations/ }),
+		// A phone has no tabs: it opens on its inbox.
+		const tab = await waitFor(
+			() =>
+				view.queryByRole("tab", { name: /Conversations/ }) ??
+				view.getByRole("region", { name: "inbox" }),
 		);
-		await act(async () => fireEvent.click(tab));
+		if (tab.getAttribute("role") === "tab") {
+			await act(async () => fireEvent.click(tab));
+		}
 		if (open !== null) {
 			await openRow(view, nameIn(held, open));
 		}
@@ -391,12 +396,17 @@ export type ConversationsView = Awaited<
 	ReturnType<Testing["openConversations"]>
 >;
 
-/** Opens the conversation listed by `name`, as a click in the sidebar does. */
+/**
+ * Opens the conversation listed by `name`, as a click in the sidebar does, or
+ * in the inbox on a phone.
+ */
 export async function openRow(
 	view: ConversationsView,
 	name: string,
 ): Promise<void> {
-	const nav = view.getByRole("navigation", { name: "conversations" });
+	const nav =
+		view.queryByRole("navigation", { name: "conversations" }) ??
+		view.getByRole("region", { name: "inbox" });
 	const item = within(nav)
 		.getAllByRole("listitem")
 		.flatMap((row) => within(row).getAllByRole("button"))

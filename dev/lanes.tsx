@@ -144,12 +144,12 @@ export function Lane({
 					{renaming ? (
 						<LaneName lane={lane} onDone={() => setRenaming(false)} />
 					) : (
-						<h3 className="flex min-w-0 items-baseline font-medium text-sm">
+						<h3 className="flex min-w-0 items-baseline pointer-coarse:items-center font-medium text-sm">
 							<button
 								type="button"
 								onClick={() => setRenaming(true)}
 								title="Rename"
-								className="-mx-1 min-w-0 cursor-text truncate rounded px-1 text-left outline-none hover:bg-background/70 focus-visible:ring-2 focus-visible:ring-ring"
+								className="-mx-1 min-w-0 pointer-coarse:min-h-10 cursor-text truncate rounded px-1 text-left outline-none hover:bg-background/70 focus-visible:ring-2 focus-visible:ring-ring"
 							>
 								{lane.name}
 							</button>
@@ -176,7 +176,7 @@ export function Lane({
 										type="button"
 										onClick={() => openTask(agent)}
 										{...still}
-										className="inline-flex min-w-0 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+										className="inline-flex min-w-0 pointer-coarse:min-h-10 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 									>
 										<GitBranchIcon aria-hidden className="size-3" />
 										<span className="truncate">
@@ -219,7 +219,7 @@ function StartLane({ id }: { id: number | null }): JSX.Element {
 		<Button
 			size="xs"
 			variant="outline"
-			className="w-fit bg-transparent"
+			className="w-fit bg-transparent pointer-coarse:h-10 pointer-coarse:px-3"
 			onClick={() => copy(reference)}
 			title={
 				copied.state === "failed"
@@ -272,7 +272,7 @@ function LaneName({
 					onDone();
 				}
 			}}
-			className="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 font-semibold text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			className="h-7 pointer-coarse:h-10 min-w-0 flex-1 rounded-md border bg-background px-2 font-semibold text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		/>
 	);
 }

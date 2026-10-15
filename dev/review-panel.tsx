@@ -14,7 +14,7 @@ import {
 	CollapsibleTrigger,
 } from "#dev/components/ui/collapsible.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
-import { useTouch } from "#dev/hooks/use-touch.ts";
+import { focusStop, useTouch } from "#dev/hooks/use-touch.ts";
 import type { Review } from "../asked";
 import { assumptions } from "../plan";
 import { MERGE } from "../prompts";
@@ -29,6 +29,7 @@ import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
 import { CardBody, CardShell } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
+import { Sheeted } from "./phone-sheets";
 import { Refusal, useRefusal } from "./refusal";
 
 /** What a reply typed by hand says to merge, as the review's last line asks. */
@@ -113,7 +114,7 @@ export function ReviewPanel({
 						}
 						live={send !== null}
 						onAnswer={challenge}
-						onNext={() => box.current?.focus()}
+						onNext={() => focusStop(box.current)}
 					/>
 				)}
 				{review.checks.length + review.failed.length > 0 && (
@@ -308,5 +309,9 @@ export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 /** The review of the message it is in, kept as a draft under that message. */
 function MessageReview({ review }: { review: Review }): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
-	return <ReviewPanel review={review} draft={`review:${message}`} />;
+	return (
+		<Sheeted title="Ready to merge" Icon={GitMergeIcon} tone="success">
+			<ReviewPanel review={review} draft={`review:${message}`} />
+		</Sheeted>
+	);
 }
