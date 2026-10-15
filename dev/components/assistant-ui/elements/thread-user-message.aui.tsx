@@ -127,8 +127,8 @@ export const UserMessage: FC = () => {
 				"flex flex-col gap-y-2 px-2",
 				// Stuck atop the thread for as long as its turn is in view. Opaque,
 				// so the reply cannot show past its rounded corners, then fading
-				// the reply out over the 2rem below it, which the margin and the
-				// gap keep clear while it is not stuck. The margin alone is what
+				// the reply out over the 2rem below it, which its turn keeps clear
+				// while it is not stuck (`data-sticks`). The margin alone is what
 				// its turn holds it by, so the fade comes to the next message's
 				// top as that pushes it out. On a phone the fade is half that, so
 				// it hides less of a short screen.
@@ -136,6 +136,7 @@ export const UserMessage: FC = () => {
 				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 max-sm:after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
 			)}
 			data-role="user"
+			data-sticks
 		>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
 				<Clamped

@@ -62,7 +62,7 @@ export function CardShell({
 	// Ringed in its tone while focus is inside it, as when it comes up to be
 	// answered, so it is plain where the keys go.
 	const frame = cn(
-		"group/card my-4 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
+		"group/card my-6 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs transition-[border-color,box-shadow] duration-150",
 		ringed && ["focus-within:ring-3", TONES[tone].focus],
 	);
 	const header = (

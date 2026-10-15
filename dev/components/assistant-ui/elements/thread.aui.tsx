@@ -155,7 +155,9 @@ const ThreadRoot: FC<{
 
 					<div
 						data-slot="aui_message-group"
-						className="mb-14 flex flex-col gap-y-6 empty:hidden"
+						// Margins, not a gap, so a card's own margin collapses into the
+						// space between turns rather than adding to it.
+						className="mb-14 empty:hidden [&>*+*]:mt-6"
 					>
 						<ThreadTurns />
 					</div>
@@ -214,7 +216,10 @@ const ThreadTurns: FC = () => {
 		<div
 			key={turn[0]?.id}
 			data-slot="aui_turn"
-			className="flex flex-col gap-y-6"
+			// Margins, as between turns, so cards sit as far apart across
+			// messages as within one. The 2rem below a stuck message is what
+			// keeps its fade clear of the reply.
+			className="[&>*+*]:mt-6 [&>[data-sticks]+*]:mt-8"
 		>
 			{turn.map(({ id, index }) => (
 				<MessageByIndexProvider key={id} index={index}>
