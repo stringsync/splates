@@ -71,8 +71,9 @@ export class ConversationRoutes {
 	}
 
 	/**
-	 * Asks every live conversation for a checkpoint, or only those `only`
-	 * names by id, without waiting on the agents: one whose task is merging
+	 * Asks every conversation at work for a checkpoint, or only those `only`
+	 * names by id, without waiting on the agents, passing over the idle ones,
+	 * whose turn has ended already: one whose task is merging
 	 * gets to finish the merge first. While one is still asked, the
 	 * checkpoint under way stands, and nothing is asked again. Answers with
 	 * what settles as each asked answers.
@@ -90,7 +91,7 @@ export class ConversationRoutes {
 			// What the last one said goes, so this one lists only its own.
 			conversation.dismissCheckpoint();
 			const { task, status } = conversation.state;
-			if (status === "stopped" || status === "failed") {
+			if (status !== "running" && status !== "starting") {
 				continue;
 			}
 			const worktree =

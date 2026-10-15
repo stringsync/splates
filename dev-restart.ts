@@ -1,7 +1,7 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
-import type { After, Conversation } from "./conversations";
+import type { After, Conversation, ConversationState } from "./conversations";
 import { type Project, type Served, waitingOn } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
 import type { Terminals } from "./dev-terminal";
@@ -274,7 +274,7 @@ export class Restarts {
 			});
 		}
 		// Its agents would carry on with nothing on the page left to show them.
-		const live = await this.checkpointable(found.root);
+		const live = await this.live(found.root);
 		if (live.length > 0) {
 			fail(
 				"usage",
@@ -331,15 +331,32 @@ export class Restarts {
 		return heldBy(await this.home.ps.processes(), { shells, agents });
 	}
 
-	private async checkpointable(root: string) {
+	// Those at work, or asked already: an idle one has no turn to stop.
+	private checkpointable(root: string) {
+		return this.conversationsIn(
+			root,
+			(state) =>
+				state.checkpoint !== null ||
+				state.status === "running" ||
+				state.status === "starting",
+		);
+	}
+
+	private live(root: string) {
+		return this.conversationsIn(
+			root,
+			(state) => state.status !== "stopped" && state.status !== "failed",
+		);
+	}
+
+	private async conversationsIn(
+		root: string,
+		keep: (state: ConversationState) => boolean,
+	) {
 		const project = await this.home.served.served.get(root)?.catch(() => null);
 		return ((await project?.conversations?.list()) ?? [])
 			.map(({ state }) => state)
-			.filter(
-				(state) =>
-					state.checkpoint !== null ||
-					(state.status !== "stopped" && state.status !== "failed"),
-			)
+			.filter(keep)
 			.map(({ id, name, lastTask, title, agent, status, checkpoint }) => ({
 				id,
 				name: name ?? lastTask ?? title ?? agent,

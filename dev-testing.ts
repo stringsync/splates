@@ -1,5 +1,7 @@
 import { OpenPortProvider } from "webappwiz/system";
+import type { Conversation } from "./conversations";
 import { dev } from "./dev";
+import type { FakeAgent } from "./fake-agent";
 import type { Snapshot } from "./snapshot";
 import type { Testing } from "./testing";
 
@@ -105,4 +107,27 @@ export function todoForm(
 		form.append("keep", path);
 	}
 	return form;
+}
+
+/**
+ * Sets the idle `conversation` to work on a turn `agent` holds until a
+ * checkpoint cancels it, so a checkpoint asks it; every turn after plays
+ * as `agent.turn` did.
+ */
+export async function atWork(
+	agent: FakeAgent,
+	conversation: Conversation,
+): Promise<void> {
+	const { turn, cancelled } = agent;
+	agent.turn = async () => {
+		agent.turn = turn;
+		while (agent.cancelled === cancelled) {
+			await Bun.sleep(1);
+		}
+		return "cancelled";
+	};
+	await conversation.prompt("work");
+	for (let i = 0; i < 100 && conversation.state.status !== "running"; i++) {
+		await Bun.sleep(5);
+	}
 }

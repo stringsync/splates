@@ -110,7 +110,7 @@ export function PickSlide({
 									/>
 									<ProjectName project={project} />
 									<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-										{project.conversations.length} live
+										{project.conversations.length} working
 									</span>
 								</label>
 							</li>

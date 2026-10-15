@@ -49,10 +49,13 @@ export async function working(
 	return conversation;
 }
 
-/** Settles once `done` holds, or after a hundred tries a millisecond apart. */
-export async function eventually(done: () => boolean): Promise<void> {
-	for (let i = 0; i < 100 && !done(); i++) {
-		await Bun.sleep(1);
+/** Settles once `done` holds, or after a hundred tries `ms` apart. */
+export async function eventually(
+	done: () => boolean | Promise<boolean>,
+	ms = 1,
+): Promise<void> {
+	for (let i = 0; i < 100 && !(await done()); i++) {
+		await Bun.sleep(ms);
 	}
 }
 

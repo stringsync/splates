@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type * as acp from "@agentclientprotocol/sdk";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import {
+	eventually,
 	finish,
 	type Held,
 	thread,
@@ -57,13 +57,21 @@ describe("Conversation checkpoint", () => {
 	let held: Held;
 	let said: string[];
 
-	let _client: acp.AgentSideConnection | undefined;
+	// Working on "one", then on the checkpoint said once it ends.
+	const asked = async () => {
+		const conversation = await working(conversations, held);
+		await conversation.checkpoint(true);
+		const one = held.finish;
+		held.finish = undefined;
+		one?.("end_turn");
+		await eventually(() => held.finish !== undefined);
+		return conversation;
+	};
 
 	beforeEach(() => {
 		held = {};
 		said = [];
-		agent.turn = (connection, _session, text) => {
-			_client = connection;
+		agent.turn = (_connection, _session, text) => {
 			said.push(text);
 			return new Promise((resolve) => (held.finish = resolve));
 		};
@@ -74,17 +82,13 @@ describe("Conversation checkpoint", () => {
 		await conversation.prompt("two");
 
 		const asking = conversation.checkpoint(false);
-		for (let i = 0; i < 100 && agent.cancelled === 0; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => agent.cancelled !== 0);
 		expect(conversation.state.checkpoint).toBe("asked");
 		held.finish?.("cancelled");
 		await asking;
 
 		expect(conversation.state.checkpoint).toBe("asked");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length >= 2);
 		expect(said).toEqual(["one", CHECKPOINT]);
 		await finish(conversation, held);
 		expect(conversation.state.checkpoint).toBe("done");
@@ -98,35 +102,34 @@ describe("Conversation checkpoint", () => {
 		]);
 	});
 
-	it("forgets a finished checkpoint once the person says more", async () => {
+	it("passes over an idle agent, whose turn has ended already", async () => {
 		const conversation = await started();
+
 		await conversation.checkpoint(false);
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
+
+		expect(conversation.state.checkpoint).toBeNull();
+		expect(said).toEqual([]);
+	});
+
+	it("forgets a finished checkpoint once the person says more", async () => {
+		const conversation = await asked();
 		await finish(conversation, held);
 		expect(conversation.state.checkpoint).toBe("done");
 
 		await conversation.prompt("carry on");
 
 		expect(conversation.state.checkpoint).toBeNull();
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => held.finish !== undefined);
 		await finish(conversation, held);
 	});
 
 	it("forgets a checkpoint dismissed before the agent answers", async () => {
-		const conversation = await started();
-		await conversation.checkpoint(false);
+		const conversation = await asked();
 
 		conversation.dismissCheckpoint();
 		timer.fireTimeouts();
 
 		expect(conversation.state.checkpoint).toBeNull();
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
 		await finish(conversation, held);
 		expect(conversation.state.checkpoint).toBeNull();
 	});
@@ -139,9 +142,7 @@ describe("Conversation checkpoint", () => {
 		expect(agent.cancelled).toBe(0);
 		expect(conversation.state.checkpoint).toBe("asked");
 		held.finish?.("end_turn");
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length >= 2);
 		expect(said).toEqual(["one", CHECKPOINT]);
 		expect(conversation.state.checkpoint).toBe("asked");
 		await finish(conversation, held);
@@ -149,15 +150,11 @@ describe("Conversation checkpoint", () => {
 	});
 
 	it("gives up on an agent that does not answer in time", async () => {
-		const conversation = await started();
+		const conversation = await asked();
 
-		await conversation.checkpoint(false);
 		timer.fireTimeouts();
 
 		expect(conversation.state.checkpoint).toBe("unanswered");
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
 		await finish(conversation, held);
 		expect(conversation.state.checkpoint).toBe("unanswered");
 	});
@@ -166,9 +163,7 @@ describe("Conversation checkpoint", () => {
 		const conversation = await working(conversations, held);
 
 		const asking = conversation.checkpoint(false);
-		for (let i = 0; i < 100 && agent.cancelled === 0; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => agent.cancelled !== 0);
 		timer.fireTimeouts();
 		await asking;
 
@@ -178,11 +173,7 @@ describe("Conversation checkpoint", () => {
 	});
 
 	it("keeps where it stands in the log, carrying on after a restart only when told", async () => {
-		const conversation = await started();
-		await conversation.checkpoint(false);
-		for (let i = 0; i < 100 && held.finish === undefined; i++) {
-			await Bun.sleep(1);
-		}
+		const conversation = await asked();
 		await finish(conversation, held);
 
 		await conversation.stop();
@@ -196,16 +187,13 @@ describe("Conversation checkpoint", () => {
 		expect(read?.stoppedByCheckpoint).toBe(true);
 		await read?.prompt(RESUME);
 		expect(read?.state.checkpoint).toBeNull();
-		for (let i = 0; i < 100 && said.length < 2; i++) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => said.length === 3);
 		await finish(read as Conversation, held);
 	});
 
 	it("fails when the agent dies before it answers", async () => {
-		const conversation = await started();
+		const conversation = await asked();
 
-		await conversation.checkpoint(false);
 		agent.crash();
 		await until(conversation, "failed");
 

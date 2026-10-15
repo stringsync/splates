@@ -191,17 +191,15 @@ export class ConversationTurns {
 	/**
 	 * Asks the agent to bring its `ARBOR.md` up to date and stop, cancelling
 	 * the turn it is on first, unless that turn is `merging`, which it says
-	 * the checkpoint into, or queues it after. What the person queued stays
-	 * queued, for the next prompt to send.
+	 * the checkpoint into, or queues it after. An idle agent is not asked,
+	 * having ended its turn already. What the person queued stays queued, for
+	 * the next prompt to send.
 	 */
 	async checkpoint(merging: boolean): Promise<void> {
 		const { host } = this;
 		const { state } = host;
 		await host.opening;
-		if (
-			state.checkpoint === "asked" ||
-			(state.status !== "idle" && state.status !== "running")
-		) {
+		if (state.checkpoint === "asked" || state.status !== "running") {
 			return;
 		}
 		// Asked from the start, so an agent slow to stop shows as on its way,

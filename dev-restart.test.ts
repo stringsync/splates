@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
+import { eventually } from "./conversation-testing";
 import { Conversations } from "./conversations";
 import { dev } from "./dev";
-import { json } from "./dev-testing";
+import { atWork, json } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { CHECKPOINT, RESUME } from "./prompts";
 import { RESTART } from "./supervise";
@@ -46,9 +47,8 @@ describe("dev restart", () => {
 			});
 			const { id } = (await started.json()) as { id: string };
 			const conversation = await conversations.find(id);
-			for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.status === "idle", 5);
+			await atWork(agent, conversation);
 
 			const response = await json(port, "/api/checkpoint", "POST", {
 				projects: ["repo"],
@@ -56,9 +56,7 @@ describe("dev restart", () => {
 			});
 
 			expect(response.status).toBe(200);
-			for (let i = 0; i < 100 && exits.length === 0; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => exits.length !== 0, 5);
 			expect(exits).toEqual([RESTART]);
 			expect(said).toEqual([CHECKPOINT]);
 			expect(conversation.state).toMatchObject({
@@ -66,9 +64,7 @@ describe("dev restart", () => {
 				checkpoint: "done",
 			});
 		} finally {
-			if (exits.length === 0) {
-				await server.disposeAsync();
-			}
+			await server.disposeAsync();
 		}
 
 		const again = new Conversations(`${deps.arborDir}/conversations`, [AGENT], {
@@ -88,9 +84,7 @@ describe("dev restart", () => {
 
 			await json(restarted.port, "/api/checkpoint/resume", "POST");
 
-			for (let i = 0; i < 100 && said.length < 2; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => said.length >= 2, 5);
 			expect(said).toEqual([CHECKPOINT, RESUME]);
 		} finally {
 			await restarted.disposeAsync();
@@ -114,9 +108,8 @@ describe("dev restart", () => {
 		});
 		const { id } = (await started.json()) as { id: string };
 		const conversation = await conversations.find(id);
-		for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-			await Bun.sleep(5);
-		}
+		await eventually(() => conversation.state.status === "idle", 5);
+		await atWork(agent, conversation);
 
 		const response = await json(server.port, "/api/checkpoint", "POST", {
 			projects: ["repo"],
@@ -174,9 +167,7 @@ describe("dev restart", () => {
 		});
 		agent.turn = async (_, __, text) => {
 			said.push(text);
-			if (text === CHECKPOINT) {
-				await answered;
-			}
+			await answered;
 			return "end_turn";
 		};
 		const opened = new Map<string, Conversations>();
@@ -212,9 +203,8 @@ describe("dev restart", () => {
 			);
 			const { id } = (await started.json()) as { id: string };
 			const conversation = await converse(other).find(id);
-			for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.status === "idle", 5);
+			await atWork(agent, conversation);
 			expect((await listed(port)).restarting).toBeNull();
 
 			await json(port, "/api/checkpoint", "POST", {
@@ -228,14 +218,10 @@ describe("dev restart", () => {
 				shutdown: false,
 			});
 			answer();
-			for (let i = 0; i < 100 && exits.length === 0; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => exits.length !== 0, 5);
 			expect(exits).toEqual([RESTART]);
 		} finally {
-			if (exits.length === 0) {
-				await server.disposeAsync();
-			}
+			await server.disposeAsync();
 		}
 
 		opened.clear();
@@ -244,20 +230,15 @@ describe("dev restart", () => {
 			conversations: converse,
 		});
 		try {
-			for (let i = 0; i < 100 && said.length < 2; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => said.length >= 2, 5);
 			expect(said).toEqual([CHECKPOINT, RESUME]);
 			const again = await listed(restarted.port);
 			expect(again.run).not.toBe(run);
 			expect(again.restarting).toBeNull();
-			for (
-				let i = 0;
-				i < 100 && (await listed(restarted.port)).restarted !== null;
-				i++
-			) {
-				await Bun.sleep(5);
-			}
+			await eventually(
+				async () => (await listed(restarted.port)).restarted === null,
+				5,
+			);
 			expect((await listed(restarted.port)).restarted).toBeNull();
 		} finally {
 			await restarted.disposeAsync();
@@ -283,13 +264,9 @@ describe("dev restart", () => {
 			});
 			const { id } = (await started.json()) as { id: string };
 			const conversation = await conversations.find(id);
-			for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.status === "idle", 5);
 			void conversation.prompt("work");
-			for (let i = 0; i < 100 && conversation.state.status !== "running"; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.status === "running", 5);
 
 			const refused = await json(port, "/api/restart", "POST");
 
@@ -297,21 +274,15 @@ describe("dev restart", () => {
 			expect(await refused.json()).toMatchObject({ reason: "usage" });
 
 			finish();
-			for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.status === "idle", 5);
 
 			const restarted = await json(port, "/api/restart", "POST");
 
 			expect(restarted.status).toBe(200);
-			for (let i = 0; i < 100 && exits.length === 0; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => exits.length !== 0, 5);
 			expect(exits).toEqual([RESTART]);
 		} finally {
-			if (exits.length === 0) {
-				await server.disposeAsync();
-			}
+			await server.disposeAsync();
 		}
 
 		const again = await dev(deps, { ports: OpenPortProvider.any() });
@@ -347,9 +318,7 @@ describe("dev restart", () => {
 				});
 				const { id } = (await started.json()) as { id: string };
 				const conversation = await conversations.find(id);
-				for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-					await Bun.sleep(5);
-				}
+				await eventually(() => conversation.state.status === "idle", 5);
 
 				const held = async () =>
 					(
@@ -358,11 +327,11 @@ describe("dev restart", () => {
 						).json()) as { held: { where: string; command: string }[] }
 					).held;
 				// Until the shell has started the command it runs.
-				let listed = await held();
-				for (let i = 0; i < 100 && listed[0]?.command !== "sleep 30"; i++) {
-					await Bun.sleep(5);
-					listed = await held();
-				}
+				await eventually(
+					async () => (await held())[0]?.command === "sleep 30",
+					5,
+				);
+				const listed = await held();
 				const refused = await json(port, "/api/restart", "POST");
 
 				expect(listed).toEqual([{ where: "fake", command: "sleep 30" }]);
@@ -374,15 +343,11 @@ describe("dev restart", () => {
 				const restarted = await json(port, "/api/restart", "POST");
 
 				expect(restarted.status).toBe(200);
-				for (let i = 0; i < 100 && exits.length === 0; i++) {
-					await Bun.sleep(5);
-				}
+				await eventually(() => exits.length !== 0, 5);
 				expect(exits).toEqual([RESTART]);
 			} finally {
 				command.kill();
-				if (exits.length === 0) {
-					await server.disposeAsync();
-				}
+				await server.disposeAsync();
 			}
 		},
 	);
@@ -406,29 +371,18 @@ describe("dev restart", () => {
 			});
 			const { id } = (await started.json()) as { id: string };
 			const conversation = await conversations.find(id);
-			for (let i = 0; i < 100 && conversation.state.status !== "idle"; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.status === "idle", 5);
+			await atWork(agent, conversation);
 			await json(port, "/api/checkpoint", "POST", { projects: ["repo"] });
-			for (
-				let i = 0;
-				i < 100 && conversation.state.checkpoint !== "done";
-				i++
-			) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => conversation.state.checkpoint === "done", 5);
 
 			const response = await json(port, "/api/checkpoint/restart", "POST");
 
 			expect(response.status).toBe(200);
-			for (let i = 0; i < 100 && exits.length === 0; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => exits.length !== 0, 5);
 			expect(exits).toEqual([RESTART]);
 		} finally {
-			if (exits.length === 0) {
-				await server.disposeAsync();
-			}
+			await server.disposeAsync();
 		}
 
 		const again = new Conversations(`${deps.arborDir}/conversations`, [AGENT], {
@@ -448,9 +402,7 @@ describe("dev restart", () => {
 
 			await json(restarted.port, "/api/checkpoint/resume", "POST");
 
-			for (let i = 0; i < 100 && said.length < 2; i++) {
-				await Bun.sleep(5);
-			}
+			await eventually(() => said.length >= 2, 5);
 			expect(said).toEqual([CHECKPOINT, RESUME]);
 		} finally {
 			await restarted.disposeAsync();
