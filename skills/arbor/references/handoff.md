@@ -37,16 +37,23 @@ a question its `### Handoff` leaves open.
 
 ## Handing on work another model fits better
 
-Whoever started you picked your model before anyone knew the work. Once
-you have planned (see Workflow), weigh what the plan takes against
-`arbor agents`, which says what each model is good at and what it costs,
-and hand the task on when another fits clearly better:
+Whoever started you picked your model before anyone knew the work, and
+mostly picked well enough: keep the task by default. Hand it on only for a
+reason this task has given you, one you can name in a sentence and the user
+could check against `ARBOR.md` or the tree:
 
-- **Up**, when it takes more than your model is good at: a design call, a
-  long and tangled change, or one you have already tried and failed.
-- **Down**, when it is long and mechanical and your plan says every step,
-  so a cheaper model can do it from `ARBOR.md` alone. Never for a short
-  task: handing it on costs more than finishing it.
+- **Up**, when your own work on it has shown it is beyond you: the same
+  step failed twice after you changed course, or the plan hinges on a call
+  you could not settle with confidence after investigating, and `arbor
+  agents` names a model whose strengths cover it.
+- **Down**, when most of the task is still ahead, every step of it is spelled
+  out under `## Next`, and it is long and mechanical enough that a cheaper
+  model saves more than it costs to read `ARBOR.md` and the tree afresh,
+  such as the same edit across dozens of files.
+
+None of these is a reason: the request sounds hard or easy, your model
+seems too big or too small for it, or a cheaper model could probably do
+it. When you are unsure, keep it.
 
 Keep the task when the user named your model for it, or asked you to do it
 yourself. Only an agent the user started hands on this way: one an
@@ -55,8 +62,9 @@ orchestrator handed a task to escalates instead, as above.
 You stay the one the user talks to, as a lane's orchestrator does: the
 other agent answers to you.
 
-1. Do steps 1 and 2 of Handing off your task, the `### Handoff` saying why
-   the other model fits better.
+1. Do steps 1 and 2 of Handing off your task, the `### Handoff` stating
+   the reason: what failed or what is left, with the steps or files that
+   show it.
 2. `arbor handoff <task> --relay --agent <id> --model <m>`, the cheapest
    model that fits. `arbor dev` starts it in your tree, and moves this
    conversation back to the main tree. Outside `arbor dev`, `--relay`
@@ -65,12 +73,13 @@ other agent answers to you.
    reporting to you, as for a lane outside `arbor dev`.
 3. End your turn on a working report: `## ⏳ Working <task>`, after a colon
    the agent and model it went to as `arbor agents` names them, then one
-   sentence on why, so the user can tell you to take it back.
+   sentence stating the reason, so the user can judge it and tell you to
+   take it back.
 
 ```markdown
 ## ⏳ Working <task>: on Claude Sonnet 5.5
 
-Every step is planned and mechanical, so a cheaper model takes the rename.
+Forty files still need the same rename, each listed under `## Next`, so a cheaper model takes them.
 ```
 
 From then on, work it as a lane's orchestrator works a todo it handed out

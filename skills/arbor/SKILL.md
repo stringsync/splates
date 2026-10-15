@@ -33,8 +33,8 @@ even mid-task, and again in a later session:
 - Before `arbor add <part> --base task/<your task>`, or handing a subagent
   work that may change code: [references/parts.md](references/parts.md).
 - `[ARBOR HANDOFF <task>]` or `[ARBOR HANDOFF TO <agent> <model>]` in a
-  prompt, before `arbor handoff`, or once you have planned and `arbor
-  agents` lists a model that fits the plan clearly better than yours:
+  prompt, before `arbor handoff`, or when the task gives you a reason to
+  hand it to another model:
   [references/handoff.md](references/handoff.md), handing a task to another
   agent or taking one over.
 - Before `arbor todo add`, `arbor lane add`, or `arbor todo update` or
@@ -69,9 +69,9 @@ even mid-task, and again in a later session:
    anything else (see Saying what you added).
 2. **Plan.** Once you know what done means, fill in `ARBOR.md` before
    touching code (see ARBOR.md below), then groom the todos your work touches
-   (see Grooming related todos). Then weigh the plan against your model:
-   when it takes more than you are good at, or is long and mechanical enough
-   for a cheaper one, hand it on (see
+   (see Grooming related todos). Keep the task yourself unless it gives you
+   a reason another model should take it: work that has failed you, or a
+   long, fully planned, mechanical rest (see
    [references/handoff.md](references/handoff.md)).
 3. **Check for overlap.** Read `arbor list --files`: each task's Goal and
    the files it has changed so far. Some overlap is normal: work alongside,

@@ -210,7 +210,7 @@ describe("stretches", () => {
 					base: null,
 					to: null,
 					reason: "on Claude Sonnet 5.5",
-					body: "Every step is planned and mechanical, so a cheaper model takes the rename.",
+					body: "Forty files still need the same rename, each listed under `## Next`, so a cheaper model takes them.",
 					source: example,
 				},
 			},
