@@ -114,7 +114,7 @@ export function SettingsDialog({
 							</button>
 						))}
 					</nav>
-					<div className="min-w-0 flex-1 overflow-y-auto px-6 py-4">
+					<div className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
 						{pages.length === 0 ? (
 							<p className="py-8 text-center text-muted-foreground">
 								No settings match “{query}”
@@ -154,8 +154,9 @@ function sectionId(category: Category): string {
 
 /**
  * One setting: its title and what it does, with what the search matched
- * marked, and a switch, a number field, or its choices. One under a switch that is off is
- * greyed out, and so is one this browser cannot do.
+ * marked, and a switch, a number field, or its choices, which on a phone go
+ * under the words. One under a switch that is off is greyed out, and so is one
+ * this browser cannot do.
  */
 function SettingRow({
 	settings,
@@ -180,10 +181,16 @@ function SettingRow({
 	const id = `setting-${name}`;
 	const depth = depthOf(name);
 	const { refusal, refuse } = useRefusal();
+	// Too wide to share a phone's width with the words, so it goes under them.
+	const wide = definition.shortcut || typeof value === "string";
 
 	return (
 		<li
-			className={cn("flex items-start gap-6 py-3", disabled && "opacity-60")}
+			className={cn(
+				"flex items-start gap-6 py-3",
+				wide && "max-sm:flex-col max-sm:gap-2",
+				disabled && "opacity-60",
+			)}
 			style={{ paddingLeft: `${depth * 1.25}rem` }}
 		>
 			<div className="min-w-0 flex-1">
@@ -398,7 +405,7 @@ function ShortcutField({
 		setTaken(await onBind(next));
 	};
 	return (
-		<span className="flex shrink-0 flex-col items-end gap-1">
+		<span className="flex shrink-0 flex-col items-end gap-1 max-sm:items-start">
 			<span className="flex items-center gap-1">
 				<Button
 					id={id}
