@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { SWIPE_PX } from "./phone-swipe";
 import {
 	act,
 	cleanup,
@@ -169,6 +170,50 @@ describe("App on a phone", () => {
 			fireEvent.click(within(menu).getByRole("button", { name: "Archive" })),
 		);
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
+	it("archives a conversation swiped left on its inbox row, asking first when its agent is at work", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", title: "Fix login", status: "stopped" }),
+				conversation({ id: "c2", title: "Add search", status: "running" }),
+			],
+			null,
+			{ tasks: [] },
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+		const swipe = async (name: RegExp, by: number) => {
+			const row = within(inbox).getByRole("button", { name });
+			await act(async () => {
+				fireEvent.pointerDown(row, { clientX: 300, clientY: 100 });
+				fireEvent.pointerMove(row, { clientX: 300 - by, clientY: 104 });
+				fireEvent.pointerUp(row, { clientX: 300 - by, clientY: 104 });
+				fireEvent.click(row);
+			});
+		};
+
+		// Short of the mark, it slides back, and the tap that ends it opens nothing.
+		await swipe(/Fix login/, SWIPE_PX - 20);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
+		expect(location.hash).not.toBe("#conversations/c1");
+
+		// Archived once it has slid off and closed up.
+		await swipe(/Fix login/, SWIPE_PX + 20);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+				{ method: "PUT", body: { archived: true } },
+			]),
+		);
+
+		await swipe(/Add search/, SWIPE_PX + 20);
+		const confirm = view.getByRole("dialog", { name: "Archive Add search?" });
+		expect(testing.posted("/api/conversations/c2/archived")).toEqual([]);
+		await act(async () =>
+			fireEvent.click(within(confirm).getByRole("button", { name: "Archive" })),
+		);
+		expect(testing.posted("/api/conversations/c2/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
 	});

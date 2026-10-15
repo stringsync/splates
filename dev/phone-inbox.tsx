@@ -1,12 +1,6 @@
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
-import {
-	Fragment,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useState,
-} from "react";
+import { Fragment, type JSX, type ReactNode, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import { answersTo, type Needing, quietSince } from "../needs";
@@ -33,7 +27,7 @@ import { Mark } from "./mark";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
-import { RowMenu, useLongPress } from "./phone-row-menu";
+import { Filed, type useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
 import { TaskIcon } from "./task-icon";
 import { arriveAt, useCopiedReplies } from "./task-view";
@@ -47,13 +41,13 @@ import { unanswered } from "./unanswered";
  * each row a finger's height saying what it waits on. The agents one handed
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
- * asks, and a long press offers Rename, Mark as unread and Archive. The
- * project's name picks another project, the menu opens the drawer, and the
- * pen, like the composer along the bottom, starts a new conversation. Under
- * each conversation, as in the sidebar, sit its terminal while its shell is up
- * and each command its agent left running, each opening the conversation with
- * it on the screen. The main tree's terminals come last, to go back to or
- * close.
+ * asks, a long press offers Rename, Mark as unread and Archive, and a swipe
+ * left archives it, asking first as Archive does. The project's name picks
+ * another project, the menu opens the drawer, and the pen, like the composer
+ * along the bottom, starts a new conversation. Under each conversation, as in
+ * the sidebar, sit its terminal while its shell is up and each command its
+ * agent left running, each opening the conversation with it on the screen.
+ * The main tree's terminals come last, to go back to or close.
  */
 export function Inbox({
 	feed,
@@ -300,98 +294,93 @@ function Row({
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const { text, urgent } = statusOf(row, name, trunk);
 	const moved = movedAt(row);
-	const [menu, setMenu] = useState(false);
 	const { refusal, refuse } = useRefusal();
-	const press = useLongPress(() => setMenu(true));
+	const button = (press: Partial<ReturnType<typeof useLongPress>>) => (
+		<button
+			type="button"
+			onClick={onOpen}
+			{...press}
+			className={cn(
+				// No callout or selection to fight the long press.
+				"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
+				depth === 0 ? "min-h-16" : "min-h-14",
+			)}
+			// Under the name of the agent it answers to.
+			style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
+		>
+			<span
+				className={cn(
+					"flex shrink-0 items-center justify-center rounded-full bg-muted",
+					depth === 0 ? "size-10" : "size-8",
+				)}
+			>
+				{conversation !== null && agent !== null ? (
+					<AgentIcon
+						agent={conversation.agent}
+						name={agent}
+						className={cn(
+							"text-foreground/80",
+							depth === 0 ? "size-5" : "size-4",
+						)}
+					/>
+				) : (
+					<TaskIcon
+						className={cn(
+							"text-foreground/80",
+							depth === 0 ? "size-5" : "size-4",
+						)}
+					/>
+				)}
+			</span>
+			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="flex items-baseline gap-2">
+					<span
+						className={cn(
+							"min-w-0 flex-1 truncate font-medium text-[15px]",
+							(subagent || (conversation !== null && unnamed(conversation))) &&
+								"text-muted-foreground italic",
+						)}
+					>
+						{conversation !== null ? nameOf(conversation) : (task?.task ?? "")}
+					</span>
+					{moved !== null && (
+						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+							{moved}
+						</span>
+					)}
+				</span>
+				<span className="flex items-center gap-2">
+					<span
+						className={cn(
+							"min-w-0 flex-1 truncate text-sm",
+							urgent ? "text-warning" : "text-muted-foreground",
+						)}
+					>
+						{text}
+					</span>
+					{/* A quiet external agent's status says so, rather than a spinner. */}
+					{(conversation !== null || quietSince(row, Date.now()) === null) && (
+						<Mark
+							need={need}
+							reported={reported}
+							unread={conversation?.unread ?? false}
+							hosting={hosting}
+							subagent={subagent}
+						/>
+					)}
+				</span>
+			</span>
+		</button>
+	);
 	return (
 		<>
-			{conversation !== null && (
-				<RowMenu
-					conversation={conversation}
-					open={menu}
-					onOpenChange={setMenu}
-					refuse={refuse}
-				/>
+			{conversation !== null ? (
+				<Filed conversation={conversation} refuse={refuse}>
+					{button}
+				</Filed>
+			) : (
+				button({})
 			)}
-			<button
-				type="button"
-				onClick={onOpen}
-				{...(conversation !== null ? press : {})}
-				className={cn(
-					// No callout or selection to fight the long press.
-					"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
-					depth === 0 ? "min-h-16" : "min-h-14",
-				)}
-				// Under the name of the agent it answers to.
-				style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
-			>
-				<span
-					className={cn(
-						"flex shrink-0 items-center justify-center rounded-full bg-muted",
-						depth === 0 ? "size-10" : "size-8",
-					)}
-				>
-					{conversation !== null && agent !== null ? (
-						<AgentIcon
-							agent={conversation.agent}
-							name={agent}
-							className={cn(
-								"text-foreground/80",
-								depth === 0 ? "size-5" : "size-4",
-							)}
-						/>
-					) : (
-						<TaskIcon
-							className={cn(
-								"text-foreground/80",
-								depth === 0 ? "size-5" : "size-4",
-							)}
-						/>
-					)}
-				</span>
-				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span className="flex items-baseline gap-2">
-						<span
-							className={cn(
-								"min-w-0 flex-1 truncate font-medium text-[15px]",
-								(subagent ||
-									(conversation !== null && unnamed(conversation))) &&
-									"text-muted-foreground italic",
-							)}
-						>
-							{conversation !== null
-								? nameOf(conversation)
-								: (task?.task ?? "")}
-						</span>
-						{moved !== null && (
-							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{moved}
-							</span>
-						)}
-					</span>
-					<span className="flex items-center gap-2">
-						<span
-							className={cn(
-								"min-w-0 flex-1 truncate text-sm",
-								urgent ? "text-warning" : "text-muted-foreground",
-							)}
-						>
-							{text}
-						</span>
-						{/* A quiet external agent's status says so, rather than a spinner. */}
-						{(conversation !== null ||
-							quietSince(row, Date.now()) === null) && (
-							<Mark
-								need={need}
-								reported={reported}
-								unread={conversation?.unread ?? false}
-								hosting={hosting}
-								subagent={subagent}
-							/>
-						)}
-					</span>
-				</span>
-			</button>
 			<Refusal refusal={refusal} className="px-4 pb-1.5" />
 		</>
 	);

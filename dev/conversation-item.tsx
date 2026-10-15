@@ -256,7 +256,10 @@ export function useArchive(
 	conversation: ConversationState,
 	refuse: Refuse,
 ): {
-	file: (then?: () => void) => void;
+	/** Files it away, or asks first; `then` once it is, `failed` if it is not. */
+	file: (then?: () => void, failed?: () => void) => void;
+	/** Whether `file` would ask first, were it called now. */
+	asks: () => boolean;
 	confirm: JSX.Element;
 	/**
 	 * Whether the person may archive it or bring it back: not one that answers
@@ -267,6 +270,7 @@ export function useArchive(
 	const [asking, setAsking] = useState(false);
 	// Held while `confirm` asks.
 	const after = useRef<(() => void) | undefined>(undefined);
+	const failure = useRef<(() => void) | undefined>(undefined);
 	const shellRunning = useContext(ShellRunning);
 	const showTerminal = useContext(ShowTerminal);
 	const nameOf = useNameOf();
@@ -277,19 +281,24 @@ export function useArchive(
 	const put = () =>
 		void archiveConversation(id, !archived).then(
 			() => after.current?.(),
-			(error: unknown) =>
-				refuse(archived ? "Not unarchived" : "Not archived", error),
+			(error: unknown) => {
+				failure.current?.();
+				refuse(archived ? "Not unarchived" : "Not archived", error);
+			},
 		);
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
 	// Otherwise only its shell can lose anything, like a dev server it runs;
 	// asked as it is clicked, since the shell comes and goes without a render here.
-	const file = (then?: () => void) => {
+	const asks = () =>
+		!archived && (working || along.length > 0 || shellRunning(id));
+	const file = (then?: () => void, failed?: () => void) => {
 		after.current = then;
+		failure.current = failed;
 		if (!files) {
 			return;
 		}
-		if (!archived && (working || along.length > 0 || shellRunning(id))) {
+		if (asks()) {
 			setAsking(true);
 		} else {
 			put();
@@ -355,7 +364,7 @@ export function useArchive(
 			</DialogContent>
 		</Dialog>
 	);
-	return { file, confirm, files };
+	return { file, asks, confirm, files };
 }
 
 /**
