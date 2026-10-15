@@ -1,5 +1,8 @@
+import { basename } from "node:path";
 import type { Attachment, Attachments } from "./attachments";
+import type { Facts } from "./events";
 import { fail } from "./exit";
+import type { Journal } from "./journal";
 import type { AgentPick } from "./roster";
 import type { Todos } from "./todos";
 
@@ -242,4 +245,55 @@ export function wording(
 		subject: first.trim(),
 		text: [rest.join("\n").trim(), text.trim()].filter(Boolean).join("\n\n"),
 	};
+}
+
+/**
+ * Runs `update`, which changes todo `id`, and journals it with what moved
+ * between the todo before and after, so a refused one is journaled bare.
+ */
+export async function recordUpdate(
+	journal: Journal,
+	todos: Todos,
+	id: number,
+	update: () => Promise<Todo>,
+): Promise<Todo> {
+	let before: TodoState | undefined;
+	return journal.record(
+		"todo update",
+		null,
+		async () => {
+			before = (await todos.find(id)).state;
+			return update();
+		},
+		(after) => updated(before ?? after.state, after.state),
+	);
+}
+
+/** What moved between `before` and `after`, of one todo. */
+function updated(before: TodoState, after: TodoState): Facts["todo update"] {
+	const named = (paths: string[]) => paths.map((path) => basename(path));
+	const attached = after.files.filter((path) => !before.files.includes(path));
+	const detached = before.files.filter((path) => !after.files.includes(path));
+	const blocked = after.blockedBy.filter(
+		(id) => !before.blockedBy.includes(id),
+	);
+	const unblocked = before.blockedBy.filter(
+		(id) => !after.blockedBy.includes(id),
+	);
+	const same = (old?: AgentPick, now?: AgentPick) =>
+		old?.agent === now?.agent && old?.model === now?.model;
+	const changed: Facts["todo update"]["changed"] = {
+		...(after.subject === before.subject ? {} : { subject: after.subject }),
+		...(after.text === before.text ? {} : { text: true as const }),
+		...(after.position === before.position ? {} : { position: after.position }),
+		...(after.lane === before.lane ? {} : { lane: after.lane }),
+		...(blocked.length === 0 ? {} : { blocked }),
+		...(unblocked.length === 0 ? {} : { unblocked }),
+		...(attached.length === 0 ? {} : { attached: named(attached) }),
+		...(detached.length === 0 ? {} : { detached: named(detached) }),
+		...(same(before.assignee, after.assignee)
+			? {}
+			: { assignee: after.assignee ?? null }),
+	};
+	return { todo: after.id, subject: after.subject, changed };
 }

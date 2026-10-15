@@ -11,6 +11,7 @@ import {
 	todoIds,
 } from "./arbor-flags";
 import { repository } from "./repository";
+import { recordUpdate } from "./todo";
 import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";
 import { todoRelease, todoTake } from "./todo-take";
@@ -159,7 +160,7 @@ arborTodo
 	})
 	.action(async (opts, ctx) => {
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
-		await ctx.journal.record("todo update", null, () =>
+		await recordUpdate(ctx.journal, ctx.todos, opts.id, () =>
 			todoUpdate(ctx, opts.id, {
 				subject: opts.subject,
 				text: opts.text,

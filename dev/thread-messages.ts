@@ -195,7 +195,12 @@ export function like(
 				stretch.type === "work"
 					? [{ type: "data-work", data: { work: stretch.work } }]
 					: stretch.type === "event"
-						? [{ type: "data-event", data: { event: stretch.event } }]
+						? [
+								{
+									type: "data-event",
+									data: { event: stretch.event, also: stretch.also },
+								},
+							]
 						: stretch.type === "added"
 							? stretches(stretch.text).flatMap((each): LikePart[] =>
 									each.type === "start"

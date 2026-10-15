@@ -35,7 +35,33 @@ export interface Facts {
 	attach: None;
 	retry: None;
 	"todo add": None;
-	"todo update": None;
+	"todo update": {
+		/** The todo, by id. */
+		todo: number;
+		/** Its subject once updated, so a line names it though it was reworded. */
+		subject: string;
+		/** Only what moved: a key is absent when its part stayed as it was. */
+		changed: {
+			/** The new subject. */
+			subject?: string;
+			/** Whether its detail was rewritten. */
+			text?: true;
+			/** Where it moved to in the list, 1 at the top. */
+			position?: number;
+			/** The lane it moved to, null for none. */
+			lane?: number | null;
+			/** Todos it is now blocked by. */
+			blocked?: number[];
+			/** Todos that no longer block it. */
+			unblocked?: number[];
+			/** Names of the files attached. */
+			attached?: string[];
+			/** Names of the files dropped. */
+			detached?: string[];
+			/** The agent and model it now names, null once it names none. */
+			assignee?: { agent: string; model?: string } | null;
+		};
+	};
 	"todo take": None;
 	"todo release": None;
 	"todo remove": None;

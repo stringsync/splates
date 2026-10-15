@@ -85,7 +85,58 @@ describe("App's arbor events", () => {
 			[],
 		);
 	});
+
+	it("folds todo updates in a row into one line listing each", async () => {
+		const thread = await opened(
+			turn([
+				tool({
+					id: "x1",
+					command: "arbor todo update 1",
+					at: second(2),
+					until: second(3),
+				}),
+				"Groomed.",
+			]),
+			[update(1, 3.1, "One"), update(2, 3.2, "Two"), update(3, 3.3, "Three")],
+		);
+
+		const line = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(1);
+			return found[0] as HTMLElement;
+		});
+		expect(line.textContent).toContain("Updated3 todos");
+		expect(line.textContent).toContain("#1 One");
+		expect(line.textContent).toContain("#3 Three");
+	});
+
+	it("draws one todo update with what changed in its chip's title", async () => {
+		const thread = await opened(turn(["Done."]), [update(7, 2, "Seven")]);
+
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
+		);
+		expect(line.textContent).toBe("Updated#7 Seven");
+		expect(line.querySelector("[title]")?.getAttribute("title")).toContain(
+			"moved to position 2",
+		);
+	});
 });
+
+/** A todo update the agent ran at `secs`, moving todo `id` to position 2. */
+function update(id: number, secs: number, subject: string): Event {
+	return {
+		id: `u${id}`,
+		at: second(secs),
+		action: "todo update",
+		task: null,
+		reason: null,
+		conversation: "c1",
+		todo: id,
+		subject,
+		changed: { position: 2 },
+	};
+}
 
 /** A claim of `task` the agent ran at `secs`, refused as `reason` when given. */
 function claim(task: string, secs: number, reason?: string): Event {

@@ -31,7 +31,8 @@ export interface Work {
 export type Stretch =
 	| { type: "said"; text: string }
 	| { type: "added"; text: string }
-	| { type: "event"; event: Event }
+	/** `also` is the events folded into it: a run of one action that reads as one line. */
+	| { type: "event"; event: Event; also?: Event[] }
 	| { type: "work"; work: Work };
 
 /** A stretch before its work is summed up: the work still its parts. */
@@ -84,7 +85,7 @@ export function stretchesOf(
 	if (after.length > 0) {
 		pieces.push(after);
 	}
-	const kept = placed(pieces, events);
+	const kept = folded(placed(pieces, events));
 	const works = kept.filter((run) => Array.isArray(run));
 	// The last stretch but for events, which leave the work before them as it was.
 	const end = kept.findLastIndex(
@@ -152,6 +153,37 @@ function placed(pieces: Piece[], events: readonly Event[]): Piece[] {
 		out.push(piece.slice(from), ...due(endOf(piece), true));
 	}
 	return [...out, ...left.map((event): Piece => ({ type: "event", event }))];
+}
+
+/**
+ * `pieces` with each run of successful `todo update` events, with nothing
+ * between, folded into the first, so a groom reads as one line.
+ */
+function folded(pieces: Piece[]): Piece[] {
+	const out: Piece[] = [];
+	for (const piece of pieces) {
+		const last = out.at(-1);
+		if (
+			!Array.isArray(piece) &&
+			piece.type === "event" &&
+			isUpdate(piece.event) &&
+			last !== undefined &&
+			!Array.isArray(last) &&
+			last.type === "event" &&
+			isUpdate(last.event)
+		) {
+			last.also = [...(last.also ?? []), piece.event];
+		} else {
+			out.push(
+				!Array.isArray(piece) && piece.type === "event" ? { ...piece } : piece,
+			);
+		}
+	}
+	return out;
+}
+
+function isUpdate(event: Event): boolean {
+	return event.action === "todo update" && event.reason === null;
 }
 
 /** When the last of `parts` to say so ended, or began. */

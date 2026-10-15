@@ -61,9 +61,9 @@ export function ArborEvent({
 			</div>
 			{listed.length > 0 && (
 				<ul className="mt-1.5 flex flex-col items-center gap-1.5">
-					{listed.map(({ id, subject }) => (
+					{listed.map(({ id, subject, note }) => (
 						<li key={id} className="flex max-w-full">
-							<NamedChip named={{ kind: "todo", id, subject }} whole />
+							<NamedChip named={{ kind: "todo", id, subject, note }} whole />
 						</li>
 					))}
 				</ul>
@@ -79,10 +79,10 @@ export function ArborEvent({
  */
 export type Named =
 	| { kind: "task"; task: string }
-	| { kind: "todo"; id: number; subject: string }
+	| { kind: "todo"; id: number; subject: string; note?: string }
 	| {
 			kind: "todos";
-			todos: readonly { id: number; subject: string }[];
+			todos: readonly { id: number; subject: string; note?: string }[];
 	  }
 	| { kind: "lane"; id: number; name: string }
 	| { kind: "branch"; branch: string }
@@ -247,11 +247,11 @@ function NamedChip({
 			);
 		}
 		case "todo": {
-			const { id, subject } = named;
+			const { id, subject, note } = named;
 			return (
 				<Chip
 					Icon={ListTodoIcon}
-					title={`Todo #${id}: ${subject}`}
+					title={`Todo #${id}: ${subject}${note === undefined ? "" : `\n${note}`}`}
 					open={
 						board.todos.some((todo) => todo.id === id)
 							? () => board.open(id)

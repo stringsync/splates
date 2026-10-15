@@ -4,6 +4,7 @@ import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
 import { fail } from "./exit";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
+import { recordUpdate } from "./todo";
 
 /**
  * How a project's page writes its todos and lanes, each write journaled and
@@ -45,9 +46,10 @@ export class TodoRoutes {
 	readonly updateTodo = async (request: Request): Promise<Response> => {
 		const form = await request.formData();
 		const found = await this.todoAt(request);
-		const todo = await this.#project.journal.record(
-			"todo update",
-			null,
+		const todo = await recordUpdate(
+			this.#project.journal,
+			this.#project.todos,
+			found.id,
 			async () =>
 				found.update({
 					subject: form.has("subject")
@@ -68,8 +70,11 @@ export class TodoRoutes {
 	readonly moveTodo = async (request: Request): Promise<Response> => {
 		const found = await this.todoAt(request);
 		const { position } = (await request.json()) as { position?: unknown };
-		const todo = await this.#project.journal.record("todo update", null, () =>
-			found.update({ position: Number(position) }),
+		const todo = await recordUpdate(
+			this.#project.journal,
+			this.#project.todos,
+			found.id,
+			() => found.update({ position: Number(position) }),
 		);
 		await this.#watch.tick();
 		return Response.json(todo.state);
@@ -82,7 +87,7 @@ export class TodoRoutes {
 		const found = await this.todoAt(request);
 		const { blockedBy } = await body(request);
 		const ids = Array.isArray(blockedBy) ? blockedBy.map(Number) : [];
-		const todo = await journal.record("todo update", null, () =>
+		const todo = await recordUpdate(journal, todos, found.id, () =>
 			todos.link(found.id, {
 				add: ids.filter((id) => !found.blockedBy.includes(id)),
 				drop: found.blockedBy.filter((id) => !ids.includes(id)),
@@ -97,7 +102,7 @@ export class TodoRoutes {
 		const { journal, todos } = this.#project;
 		const found = await this.todoAt(request);
 		const { lane, before, name } = await body(request);
-		const todo = await journal.record("todo update", null, () =>
+		const todo = await recordUpdate(journal, todos, found.id, () =>
 			todos.arrange(found.id, laneIn(lane), {
 				name: typeof name === "string" ? name : undefined,
 				before:
@@ -152,8 +157,11 @@ export class TodoRoutes {
 	readonly assignTodo = async (request: Request): Promise<Response> => {
 		const found = await this.todoAt(request);
 		const assignee = await this.assigneeIn(request);
-		const todo = await this.#project.journal.record("todo update", null, () =>
-			found.update({ assignee }),
+		const todo = await recordUpdate(
+			this.#project.journal,
+			this.#project.todos,
+			found.id,
+			() => found.update({ assignee }),
 		);
 		await this.#watch.tick();
 		return Response.json(todo.state);
