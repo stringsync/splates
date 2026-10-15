@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { DictationAdapter } from "@assistant-ui/react";
 import { FakeDictationLink, FakeMicrophone } from "webappwiz/dictate/testing";
-import { Duration } from "webappwiz/time";
 import { Dictation, SILENCE } from "./dictation";
 
 describe("Dictation", () => {
@@ -113,12 +112,10 @@ describe("Dictation", () => {
 		await until(() => dictation.state.phase === "recording");
 	});
 
-	it("follows the input's level, and times the take by its ticks", async () => {
+	it("follows the input's level", async () => {
 		await record();
 		microphone.tick(0.8);
 		expect(dictation.state.level).toBe(0.8);
-		microphone.hold(0.5, Duration.secs(1));
-		expect(dictation.state.elapsed.ms).toBeGreaterThanOrEqual(1000);
 	});
 
 	it("warns when the open mic hears nothing, until it does", async () => {

@@ -4,7 +4,6 @@ import {
 	BufferedSink,
 	DictationFailure,
 	type Microphone,
-	TICK,
 } from "webappwiz/dictate";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -41,8 +40,6 @@ export interface DictationState {
 	level: number;
 	/** Whether the open mic has heard nothing for {@link SILENCE}. */
 	silent: boolean;
-	/** How long the take has recorded. */
-	elapsed: Duration;
 }
 
 const IDLE: DictationState = {
@@ -51,7 +48,6 @@ const IDLE: DictationState = {
 	cred: undefined,
 	level: 0,
 	silent: false,
-	elapsed: Duration.zero(),
 };
 
 /**
@@ -185,13 +181,9 @@ export class Dictation
 			take.recording.cue("start");
 			take.session.running();
 		}
-		if (this.current.phase === "recording") {
-			take.ticks++;
-		}
 		this.set({
 			level: level ?? 0,
 			silent: take.quiet.isGreaterThanOrEqual(SILENCE),
-			elapsed: TICK.multiply(take.ticks),
 		});
 	}
 

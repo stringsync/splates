@@ -2,23 +2,27 @@ import { useReactive } from "@webappwiz/react";
 import { XIcon } from "lucide-react";
 import { useContext, useMemo } from "react";
 import { Device } from "webappwiz/browser";
-import type { Duration } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import type { Dictation, DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
 
-/** What the mic is doing, in words, so no state rests on color or motion alone. */
+/**
+ * What the mic is doing, in words, so no state rests on color or motion
+ * alone, each a word or two so it fits beside the controls on a phone.
+ */
 const WORDS: Partial<Record<DictationPhase, string>> = {
-	asking: "Allow the mic when asked",
-	opening: "Opening the mic…",
-	recording: "Listening",
+	asking: "Allow mic",
+	opening: "Starting…",
+	recording: "Recording",
 	finishing: "Finishing…",
 };
 
+/** What the status says while the open mic hears nothing. */
+const SILENT = "Can't hear you";
+
 /**
  * Says what the mic is doing, in the composer's action row while a take is
- * under way: waiting on the mic, listening with the time, or that it hears
- * nothing. Null otherwise, leaving the row to its own controls.
+ * under way: waiting on the mic, recording, or that it hears nothing. Null otherwise, leaving the row to its own controls.
  */
 export function DictationStatus() {
 	const dictation = useContext(DictationContext);
@@ -45,26 +49,15 @@ function Status({ dictation }: { dictation: Dictation }) {
 					className="dictation-dot bg-destructive size-2 shrink-0 rounded-full"
 				/>
 			)}
-			{/* Only the words are announced: the time changes too often. */}
 			<span aria-live="polite" className="truncate">
 				{phase === "recording" && silent ? (
-					<span className="text-amber-600 dark:text-amber-400">
-						Not hearing you. Is the mic muted?
-					</span>
+					<span className="text-amber-600 dark:text-amber-400">{SILENT}</span>
 				) : (
 					words
 				)}
 			</span>
-			{phase === "recording" && <Elapsed dictation={dictation} />}
 		</div>
 	);
-}
-
-function Elapsed({ dictation }: { dictation: Dictation }) {
-	const elapsed = useReactive(dictation, (each) => each.state.elapsed, [
-		"changed",
-	]);
-	return <time className="shrink-0 tabular-nums">{clock(elapsed)}</time>;
 }
 
 /**
@@ -132,10 +125,4 @@ function AllowMic() {
 					: "Click the icon left of the address, allow the microphone, then reload."}
 		</p>
 	);
-}
-
-/** Like 1:05. */
-function clock(elapsed: Duration): string {
-	const secs = Math.floor(elapsed.ms / 1000);
-	return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }

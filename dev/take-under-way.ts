@@ -13,8 +13,6 @@ export class TakeUnderWay implements Resource {
 	link: DictationLink | undefined;
 	/** Whether any audio has come from the mic. */
 	arriving = false;
-	/** Ticks counted as recording, which time the take. */
-	ticks = 0;
 	/** How long the input has been quiet. */
 	quiet = Duration.zero();
 	/** Whether the server broke the take off, which finishing says why. */

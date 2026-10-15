@@ -47,13 +47,13 @@ describe("App's composer mic", () => {
 		const stop = await waitFor(() =>
 			view.getByRole("button", { name: "Stop dictation" }),
 		);
-		expect(view.getByText("Listening")).toBeTruthy();
+		expect(view.getByText("Recording")).toBeTruthy();
 		act(() => microphone.speak(" more"));
 		await waitFor(() => expect(textIn(box)).toBe("something more"));
 
 		await act(async () => fireEvent.click(stop));
 
-		await waitFor(() => expect(view.queryByText("Listening")).toBeNull());
+		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
 		expect(textIn(box)).toBe("something more");
 	});
 
@@ -79,7 +79,7 @@ describe("App's composer mic", () => {
 			view.getByRole("button", { name: "Stop dictation" }),
 		);
 		act(() => microphone.speak(" more"));
-		await waitFor(() => expect(view.queryByText("Listening")).not.toBeNull());
+		await waitFor(() => expect(view.queryByText("Recording")).not.toBeNull());
 		expect(send().disabled).toBe(true);
 
 		await act(async () => fireEvent.click(stop));
@@ -106,7 +106,7 @@ describe("App's composer mic", () => {
 		expect(stop.getAttribute("aria-pressed")).toBe("true");
 		await press();
 
-		await waitFor(() => expect(view.queryByText("Listening")).toBeNull());
+		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
 		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();
 	});
 
@@ -131,7 +131,7 @@ describe("App's composer mic", () => {
 
 		act(() => microphone.hold(0, SILENCE));
 
-		expect(view.getByText("Not hearing you. Is the mic muted?")).toBeTruthy();
+		expect(view.getByText("Can't hear you")).toBeTruthy();
 	});
 
 	it("says the mic is blocked and how to allow it, until dismissed", async () => {
