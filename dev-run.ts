@@ -12,6 +12,8 @@ import type { Journal } from "./journal";
  */
 export class DevRun {
 	private live: string[] = [];
+	private pending: Promise<void> = Promise.resolve();
+	private stopped = false;
 
 	private constructor(
 		private readonly journal: Journal,
@@ -55,6 +57,10 @@ export class DevRun {
 
 	/** Logs the stop of this run, and closes the record so the next start does not log it again. */
 	async stop(why: StopWhy): Promise<void> {
+		// A change still being remembered would otherwise write after the
+		// record closed, or after the directory it lives in is gone.
+		this.stopped = true;
+		await this.pending;
 		await this.journal.record("dev stop", null, async () => {}, {
 			conversations: this.live,
 			why,
@@ -62,7 +68,15 @@ export class DevRun {
 		await this.write(false);
 	}
 
-	private async remember(): Promise<void> {
+	private remember(): Promise<void> {
+		const next = this.pending.then(() =>
+			this.stopped ? undefined : this.update(),
+		);
+		this.pending = next.catch(() => {});
+		return next;
+	}
+
+	private async update(): Promise<void> {
 		const live = (await this.conversations.list())
 			.filter(
 				({ state }) => state.status !== "stopped" && state.status !== "failed",
