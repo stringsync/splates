@@ -154,8 +154,8 @@ export class Systems {
 	}
 }
 
-/** A `#` at the start or after a space, and the name after it, less trailing punctuation. */
-const MENTION = /(^|\s)#([^\s#]*[^\s#.,;:!?)\]'"])/g;
+/** A `#` at the start or after a space, and the name after it, less trailing punctuation and a range's `-`. */
+const MENTION = /(^|\s)#([^\s#]*[^\s#.,;:!?)\]'"-])/g;
 
 /**
  * One line telling an agent what a mentioned system is made of:

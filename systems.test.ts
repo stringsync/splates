@@ -16,6 +16,18 @@ describe("Systems", () => {
 		playback: PLAYBACK,
 		mixer: { globs: ["src/mixer/**"] },
 	});
+	const names = (text: string) =>
+		systems.mentioned(text).map((system) => system.name);
+	const fs = new NodeFs();
+	let root: string;
+
+	beforeEach(async () => {
+		root = await mkdtemp(join(tmpdir(), "arbor-systems-"));
+	});
+
+	afterEach(async () => {
+		await rm(root, { recursive: true, force: true });
+	});
 
 	it("finds a system by its name or any alias", () => {
 		expect(systems.find("playback")?.name).toBe("playback");
@@ -36,79 +48,59 @@ describe("Systems", () => {
 		expect(systems.touchedBy(["packages/player/queue.test.ts"])).toEqual([]);
 		expect(systems.touchedBy(["README.md"])).toEqual([]);
 	});
-});
 
-describe("Systems.mentioned", () => {
-	const systems = Systems.of({
-		playback: PLAYBACK,
-		mixer: { globs: ["src/mixer/**"] },
-	});
-	const names = (text: string) =>
-		systems.mentioned(text).map((system) => system.name);
-
-	it("finds each system a # names, by name or alias, once, in order", () => {
+	it("mentioned finds each system a # names, by name or alias, once, in order", () => {
 		expect(names("Fix #mixer, then #player and #playback.")).toEqual([
 			"mixer",
 			"playback",
 		]);
 	});
 
-	it("leaves alone a # that names no system, or sits inside a word", () => {
+	it("mentioned leaves alone a # that names no system, or sits inside a word", () => {
 		expect(names("[ARBOR TODO #12] see issue#mixer and #nothing")).toEqual([]);
 	});
-});
 
-describe("Systems.unknown", () => {
-	const systems = Systems.of({ playback: PLAYBACK });
+	it("unknown finds each # that names no system, once, in order", () => {
+		const only = Systems.of({ playback: PLAYBACK });
 
-	it("finds each # that names no system, once, in order", () => {
 		expect(
-			systems.unknown("Fix #mixer and #player, then #queue and #mixer."),
+			only.unknown("Fix #mixer and #player, then #queue and #mixer."),
 		).toEqual(["mixer", "queue"]);
 	});
 
-	it("leaves alone a todo's number, a # inside a word, and code", () => {
+	it("unknown leaves alone a todo's number, a # inside a word, and code", () => {
+		const only = Systems.of({ playback: PLAYBACK });
+
 		expect(
-			systems.unknown(
+			only.unknown(
 				"[ARBOR TODO #12] see #3, issue#mixer, `#fff` and\n```\n#queue\n```",
 			),
 		).toEqual([]);
 	});
-});
 
-describe("unknownLine", () => {
-	it("asks the agent to find the code and offer a name", () => {
+	it("unknown reads a range of todo numbers, such as #197-#201, as todos", () => {
+		const only = Systems.of({ playback: PLAYBACK });
+
+		expect(only.unknown("Blocked by #197-#201, then #12-")).toEqual([]);
+	});
+
+	it("unknownLine asks the agent to find the code and offer a name", () => {
 		expect(unknownLine("mixer")).toStartWith("#mixer names no system: ");
 	});
-});
 
-describe("mentionLine", () => {
-	it("names the system, its aliases, globs, and ignores", () => {
+	it("mentionLine names the system, its aliases, globs, and ignores", () => {
 		expect(mentionLine({ name: "playback", ...PLAYBACK })).toBe(
 			"#playback (player, audio engine): packages/player/**, src/audio/**; not packages/player/**/*.test.ts",
 		);
 	});
 
-	it("leaves out what the system does not have", () => {
+	it("mentionLine leaves out what the system does not have", () => {
 		expect(mentionLine({ name: "mixer", globs: ["src/mixer/**"] })).toBe(
 			"#mixer: src/mixer/**",
 		);
 	});
-});
 
-describe("Systems.at", () => {
-	const fs = new NodeFs();
-	let root: string;
-
-	beforeEach(async () => {
-		root = await mkdtemp(join(tmpdir(), "arbor-systems-"));
-	});
-
-	afterEach(async () => {
-		await rm(root, { recursive: true, force: true });
-	});
-
-	it("names none when there is no systems file", async () => {
+	it("Systems.at names none when there is no systems file", async () => {
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 
 		await fs.write(join(root, "arbor.config.ts"), "export default {};\n");
@@ -116,7 +108,7 @@ describe("Systems.at", () => {
 		expect((await Systems.at(root, { fs })).all()).toEqual([]);
 	});
 
-	it("reads the systems file afresh, as a long-running dev needs", async () => {
+	it("Systems.at reads the systems file afresh, as a long-running dev needs", async () => {
 		await named({ mixer: { globs: ["src/mixer/**"] } });
 		expect((await Systems.at(root, { fs })).find("mixer")).not.toBeNull();
 
@@ -128,7 +120,7 @@ describe("Systems.at", () => {
 		expect(now.all().map((each) => each.name)).toEqual(["playback"]);
 	});
 
-	it("reads a systems file made after arbor read the config beside it", async () => {
+	it("Systems.at reads a systems file made after arbor read the config beside it", async () => {
 		// On macOS the temporary directory is reached through a symlink, which
 		// is where Bun's resolver missed a file made after it listed the
 		// directory.
@@ -140,13 +132,13 @@ describe("Systems.at", () => {
 		expect((await Systems.at(root, { fs })).find("mixer")).not.toBeNull();
 	});
 
-	it("refuses a system not in the shape a system takes", async () => {
+	it("Systems.at refuses a system not in the shape a system takes", async () => {
 		await named({ playback: { globs: "src/audio/**" } });
 
 		expect(await failure()).toContain("playback.globs");
 	});
 
-	it("refuses a system with more than two aliases", async () => {
+	it("Systems.at refuses a system with more than two aliases", async () => {
 		await named({
 			playback: { globs: ["a/**"], aliases: ["player", "audio", "sound"] },
 		});
@@ -154,7 +146,7 @@ describe("Systems.at", () => {
 		expect(await failure()).toContain("playback.aliases");
 	});
 
-	it("refuses two systems that answer to the same name", async () => {
+	it("Systems.at refuses two systems that answer to the same name", async () => {
 		await named({
 			playback: { globs: ["a/**"], aliases: ["mixer"] },
 			mixer: { globs: ["b/**"] },
@@ -165,7 +157,7 @@ describe("Systems.at", () => {
 		);
 	});
 
-	it("refuses a systems file that will not load, naming it", async () => {
+	it("Systems.at refuses a systems file that will not load, naming it", async () => {
 		await fs.write(
 			join(root, "arbor.systems.ts"),
 			`import "./nowhere";\nexport default {};\n`,
@@ -174,7 +166,7 @@ describe("Systems.at", () => {
 		expect(await failure()).toContain("arbor.systems.ts");
 	});
 
-	it("refuses systems still in arbor.config.ts, saying to run `arbor update`", async () => {
+	it("Systems.at refuses systems still in arbor.config.ts, saying to run `arbor update`", async () => {
 		await fs.write(
 			join(root, "arbor.config.ts"),
 			`export default { systems: { docs: { globs: ["*.md"] } } };\n`,
