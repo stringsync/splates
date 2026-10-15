@@ -6,3 +6,6 @@ release tag with `bunx skills add`.
 `arbor` runs whichever checkout you are standing in, so working on this package
 from a worktree merges with the code you are editing. Pin the main tree for the
 merge itself: `WEBAPPWIZ_ROOT="$(arbor path)" arbor merge`.
+
+To compare a change to the skill, the user runs `evals/arbor-skill` (see its
+README). Only they start it: it spends money.
