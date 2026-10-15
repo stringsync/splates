@@ -29,6 +29,7 @@ import { CredUI } from "./creds";
 import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
+import { ErrorBanner } from "./error-banner";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
@@ -263,9 +264,13 @@ export function Thread({
 				</Dialog>
 			)}
 			{conversation.error !== null && (
-				<p role="alert" className="text-destructive text-sm">
-					{conversation.error}
-				</p>
+				<ErrorBanner
+					conversation={conversation}
+					error={conversation.error}
+					handedBy={handedBy}
+					phone={onBack !== null}
+					onOpen={onOpen}
+				/>
 			)}
 			<PhoneSheets conversation={id} on={onBack !== null}>
 				<TaskRegistry>

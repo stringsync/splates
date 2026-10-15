@@ -377,7 +377,8 @@ export class ConversationTurns {
 			delivered(host.state.messages);
 			host.log.write({ kind: "sent" });
 		}
-		host.set({ status: "running" });
+		// A new turn puts the last one's failure behind it.
+		host.set({ status: "running", error: null });
 		void this.content([...waiting, ...fresh])
 			.then((prompt) => this.connection.prompt(prompt))
 			.then(

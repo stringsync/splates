@@ -70,6 +70,28 @@ describe("App's conversation of a task another handed out", () => {
 		await waitFor(() => view.getByRole("textbox", { name: "Message input" }));
 	});
 
+	it("sends you to the orchestrator to carry on once its agent stops", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				orchestrator,
+				{ ...agent, status: "failed", error: "ACP connection closed" },
+			]),
+			"agent",
+			{ tasks },
+		);
+
+		const alert = await waitFor(() => view.getByRole("alert"));
+		expect(alert.textContent).toContain(
+			"The agent stopped. Ask Stats lane to carry on.",
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(alert).getByRole("button", { name: "Stats lane" }),
+			),
+		);
+		await waitFor(() => view.getByRole("textbox", { name: "Message input" }));
+	});
+
 	it("shows its escalation's questions read-only, answered through the orchestrator", async () => {
 		const escalated = {
 			...agent,

@@ -152,6 +152,26 @@ describe("Conversation turns", () => {
 		]);
 	});
 
+	it("keeps why a turn failed until the next turn starts", async () => {
+		agent.turn = async () => {
+			throw new Error("rate limited");
+		};
+		const conversation = await started();
+
+		await conversation.prompt("one");
+		await until(conversation, "idle");
+		expect(conversation.state.error).toBe("Internal error");
+
+		agent.turn = (_client, _session, text) => {
+			said.push(text);
+			return new Promise((resolve) => (held.finish = resolve));
+		};
+		await conversation.prompt("two");
+
+		expect(conversation.state.status).toBe("running");
+		expect(conversation.state.error).toBeNull();
+	});
+
 	it("joins the running turn when the agent steers", async () => {
 		agent.steering = "injected";
 		const conversation = await working(conversations, held);

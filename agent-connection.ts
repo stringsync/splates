@@ -335,7 +335,7 @@ export class AgentConnection {
 				// the background ends: a turn like any, though no prompt ends it.
 				if (this.tells && host.state.status === "idle" && starts(update)) {
 					this.unprompted = true;
-					host.set({ status: "running" });
+					host.set({ status: "running", error: null });
 				}
 				host.log.write({ kind: "update", update, at });
 				fold(host.state, update, at);

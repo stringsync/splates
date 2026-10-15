@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	act,
 	cleanup,
@@ -225,19 +225,11 @@ describe("App's conversation thread", () => {
 		const thread = view.container.ownerDocument.querySelector(
 			'[data-slot="aui_thread-viewport"]',
 		) as HTMLElement;
-		const scrolled: unknown[] = [];
-		const scroll = spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(
-			(options?: unknown) => {
-				scrolled.push(options);
-			},
-		);
-		try {
-			thread.scrollTo({ top: 40, behavior: "smooth" });
-		} finally {
-			scroll.mockRestore();
-		}
 
-		expect(scrolled).toEqual([{ top: 40, behavior: "instant" }]);
+		thread.scrollTo({ top: 40, behavior: "smooth" });
+
+		// A glide would land on a later tick.
+		expect(thread.scrollTop).toBe(40);
 	});
 
 	it("shows why a conversation failed, and takes a prompt to resume it", async () => {
@@ -246,12 +238,27 @@ describe("App's conversation thread", () => {
 		]);
 
 		expect(view.getByRole("alert").textContent).toBe(
-			"Claude exited with code 1",
+			"The agent stopped. Send a message to start it again.Claude exited with code 1",
 		);
 		expect(
 			view
 				.getByRole("textbox", { name: "Message input" })
 				.getAttribute("contenteditable"),
 		).toBe("true");
+	});
+
+	it("says a failed turn takes another try, cut to a few lines until tapped", async () => {
+		const view = await testing.openConversations([
+			conversation({ error: "Internal error" }),
+		]);
+
+		const alert = view.getByRole("alert");
+		expect(alert.textContent).toContain(
+			"The last turn failed. Send a message to try again.",
+		);
+		const words = within(alert).getByRole("button", { name: "Internal error" });
+		expect(words.getAttribute("aria-expanded")).toBe("false");
+		await act(async () => fireEvent.click(words));
+		expect(words.getAttribute("aria-expanded")).toBe("true");
 	});
 });
