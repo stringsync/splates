@@ -20,6 +20,9 @@ export const SLOT = "ARBOR_SLOT";
  */
 export const MACHINE_HOME = "ARBOR_MACHINE_HOME";
 
+/** The file in a slot's home that its server writes its pid to. */
+export const SERVER_PID = "server.pid";
+
 /** How `arbor dev --slot` starts its server: where, and with what added. */
 export interface SlotStart {
 	slot: Slot;
@@ -68,6 +71,7 @@ export async function devSlot(ctx: ArborDeps & Repository): Promise<SlotStart> {
 		fail("slots_full", error instanceof Error ? error.message : String(error));
 	}
 	const home = `${registry}/slots/${slot.word}`;
+	await refuseStale(ctx, slot, home);
 	const saved = new SavedTunnel(`${home}/tunnel.json`, {
 		fs,
 		store: secrets.device,
@@ -142,4 +146,34 @@ async function throwaway(
 	await openRepository(ctx, { at: root, creates: true });
 	await projects.register(root);
 	return root;
+}
+
+/**
+ * Refuses to start a slot whose last server still runs, as one does when its
+ * wrapper was killed outright: it holds a port, and its cloudflared still
+ * serves the slot's host from it, so the new server would answer beside old
+ * code. Said with the pid to stop, since stopping it also ends its cloudflared.
+ */
+export async function refuseStale(
+	{ fs, ps }: Pick<ArborDeps, "fs" | "ps">,
+	slot: Slot,
+	home: string,
+): Promise<void> {
+	const file = `${home}/${SERVER_PID}`;
+	if (!(await fs.exists(file))) {
+		return;
+	}
+	const pid = Number.parseInt((await fs.read(file)).trim(), 10);
+	if (!Number.isInteger(pid) || pid === ps.pid || !ps.alive(pid)) {
+		return;
+	}
+	// A pid the kernel has since handed to another program is no stale server.
+	const running = (await ps.processes()).find((each) => each.pid === pid);
+	if (running !== undefined && !/\bdev\b/.test(running.command)) {
+		return;
+	}
+	fail(
+		"slot_running",
+		`slot ${slot.word} ${slot.emoji} still has a server running as pid ${pid}, left by an arbor dev that was killed: stop it with \`kill ${pid}\`, which ends its cloudflared too, then run this again`,
+	);
 }

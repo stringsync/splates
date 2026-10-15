@@ -32,6 +32,7 @@ it("keeps the exit codes stable", () => {
 		cloudflare: 24,
 		requested: 25,
 		slots_full: 26,
+		slot_running: 27,
 	});
 });
 

@@ -8,7 +8,7 @@ import { Conversations, launch } from "./conversations";
 import { type DevServer, dev, devPorts } from "./dev";
 import { accessConfig } from "./dev-access";
 import { devServers } from "./dev-servers";
-import { devSlot, SLOT } from "./dev-slot";
+import { devSlot, SERVER_PID, SLOT } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { fail } from "./exit";
 import { Limits } from "./limits";
@@ -90,6 +90,14 @@ export async function serveDev(
 		const saved = await savedTunnelConfig(savedTunnelOf(ctx), ctx.ps, ctx.log);
 		access = saved?.access ?? null;
 		tunnel = saved?.tunnel ?? null;
+	}
+	// A slot's server says which process it is, so the next start of the slot
+	// can tell one left running by a killed wrapper.
+	if (ctx.ps.env(SLOT) !== undefined) {
+		await ctx.fs.write(
+			`${arborHome(ctx.ps)}/${SERVER_PID}`,
+			String(ctx.ps.pid),
+		);
 	}
 	// Read once: a roster edited while it serves applies from the restart.
 	const roster = await seeded(rosterOf(ctx));

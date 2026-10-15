@@ -29,6 +29,7 @@ export const EXIT = {
 	cloudflare: 24,
 	requested: 25,
 	slots_full: 26,
+	slot_running: 27,
 } as const;
 
 export type Reason = keyof typeof EXIT;
