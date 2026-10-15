@@ -420,9 +420,7 @@ describe("App's review panel and demo cards", () => {
 		expect(
 			within(panel).getByRole("button", { name: /Ready to merge/ }).textContent,
 		).toContain("Merge approved");
-		expect(view.getByRole("region", { name: "merge" }).textContent).toContain(
-			"Asked the agent to merge the task it had reviewed.",
-		);
+		expect(view.getByRole("note", { name: "arbor" }).textContent).toBe("Merge");
 		expect(view.queryByTitle("[ARBOR MERGE]")).toBeNull();
 	});
 

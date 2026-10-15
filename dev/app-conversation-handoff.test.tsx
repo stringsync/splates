@@ -115,12 +115,8 @@ describe("App's Hand off action", () => {
 			AGENTS,
 		);
 
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "hand off to codex" }),
-		);
-		expect(card.textContent).toContain(
-			"Asked the agent to hand its task off to Codex · GPT-5.5.",
-		);
+		const line = await waitFor(() => view.getByRole("note", { name: "arbor" }));
+		expect(line.textContent).toContain("Hand off toCodex · GPT-5.5");
 	});
 
 	it("shows a working report on a task handed on as a card, offering no archive while it works", async () => {

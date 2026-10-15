@@ -375,7 +375,7 @@ describe("App's report cards", () => {
 		expect(added.textContent).toContain("Wrap the header on phones.");
 	});
 
-	it("shows a message of a checkpoint, resume, or merge alone as a card under its own icon", async () => {
+	it("shows a message of a checkpoint, resume, or merge alone as a bare line", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				messages: [
@@ -389,34 +389,20 @@ describe("App's report cards", () => {
 			}),
 		]);
 
-		const checkpoint = await waitFor(() =>
-			view.getByRole("region", { name: "checkpoint" }),
-		);
-		expect(checkpoint.textContent).toContain(
-			"Asked the agent to update ARBOR.md and stop.",
-		);
-		expect(view.getByRole("region", { name: "resume" }).textContent).toContain(
-			"Asked the agent to carry on from ARBOR.md.",
-		);
-		expect(checkpoint.closest('[data-role="user"]')?.className).not.toContain(
+		await waitFor(() => view.getAllByRole("note", { name: "arbor" }));
+		const lines = view.getAllByRole("note", { name: "arbor" });
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Checkpoint",
+			"Resume",
+			"Merge",
+		]);
+		expect(lines[0]?.closest('[data-role="user"]')?.className).not.toContain(
 			"sticky",
 		);
-		expect(view.getByRole("region", { name: "merge" }).textContent).toContain(
-			"Asked the agent to merge the task it had reviewed.",
-		);
-		for (const [name, icon] of [
-			["checkpoint", "bookmark"],
-			["resume", "play"],
-			["merge", "git-merge"],
-		]) {
-			const card = view.getByRole("region", { name });
-			expect(card.querySelector(`header .lucide-${icon}`)).not.toBeNull();
-			expect(card.querySelector(".lucide-tree-pine")).toBeNull();
-		}
 		expect(view.queryByTitle("[ARBOR CHECKPOINT]")).toBeNull();
 	});
 
-	it("shows a message of a todo, lane, or task alone as a card, its chip opening the todo", async () => {
+	it("shows a message of a todo, lane, or task alone as a line with its chip, opening the todo", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -437,48 +423,20 @@ describe("App's report cards", () => {
 			},
 		);
 
-		const taken = await waitFor(() =>
-			view.getByRole("region", { name: "take todo #12" }),
-		);
-		expect(taken.textContent).toContain("Asked the agent to take");
-		expect(taken.textContent).toContain("Retry the upload");
-		expect(taken.closest('[data-role="user"]')?.className).not.toContain(
+		await waitFor(() => view.getAllByRole("note", { name: "arbor" }));
+		const lines = view.getAllByRole("note", { name: "arbor" });
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Todo#12 Retry the upload",
+			"LaneUploads",
+			"Taskheader",
+			"Handofffooter",
+			"Untriaged lane",
+		]);
+		expect(lines[0]?.closest('[data-role="user"]')?.className).not.toContain(
 			"sticky",
 		);
-		const lane = view.getByRole("region", { name: "work down lane 3" });
-		expect(lane.textContent).toContain("Asked the agent to work down");
-		expect(lane.textContent).toContain("Uploads");
-		const untriaged = view.getByRole("region", {
-			name: "triage and work down lane untriaged",
-		});
-		expect(untriaged.textContent).toContain(
-			"Asked the agent to triage and work down",
-		);
-		expect(untriaged.textContent).toContain("Untriaged");
-		const task = view.getByRole("region", { name: "claim task header" });
-		expect(task.textContent).toContain("Asked the agent to claim");
-		expect(task.textContent).toContain("header");
-		const handed = view.getByRole("region", {
-			name: "take over handoff footer",
-		});
-		expect(handed.textContent).toContain("Asked the agent to take over");
-		expect(handed.textContent).toContain("footer");
-		for (const [card, icon] of [
-			[taken, "list-todo"],
-			[lane, "columns"],
-			[task, "git-branch"],
-			[handed, "handshake"],
-		] as const) {
-			expect(card.querySelector(`header .lucide-${icon}`)).not.toBeNull();
-			expect(card.querySelector("header .lucide-tree-pine")).toBeNull();
-			expect(
-				within(card)
-					.getByTitle(/^\[ARBOR /)
-					.querySelector(".lucide-tree-pine"),
-			).not.toBeNull();
-		}
 
-		fireEvent.click(within(taken).getByTitle("[ARBOR TODO #12]"));
+		fireEvent.click(view.getByTitle("Todo #12: Retry the upload"));
 		await waitFor(() =>
 			expect(view.getByRole("dialog").textContent).toContain("Todo 12"),
 		);

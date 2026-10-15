@@ -15,7 +15,13 @@ import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
+
+
 import { credAddress } from "./page-address";
+
+
+import { Stamp, useStamps } from "./stamp";
+
 
 /**
  * An event of arbor's in the thread: one line of a verb, the thing it names,
@@ -103,8 +109,12 @@ export interface ArborEventView {
 	mark?: Mark | null;
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
-	/** When, as an ISO time, to place it among the thread's messages. */
-	at: string;
+	/**
+	 * When, as an ISO time, to place it among the thread's messages; shown at
+	 * the line's end while the conversation's stamps are on. Null for one with
+	 * no time to show.
+	 */
+	at?: string | null;
 	/** A wait it counts down in its action's place, when it has one. */
 	deadline?: Deadline | null;
 	/** The one thing the person can do about it, when there is one. */
@@ -149,6 +159,7 @@ function Line({
 	left: number | null;
 }): JSX.Element {
 	const { mark = null, act = null } = event;
+	const stamped = useStamps().shown;
 	return (
 		<p className="flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap">
 			{mark === "failed" && (
@@ -164,6 +175,7 @@ function Line({
 				/>
 			)}
 			<Words words={event.words} />
+			{stamped && event.at != null && <Stamp at={event.at} />}
 			{left !== null ? (
 				<span className="shrink-0 tabular-nums">{countdown(left)}</span>
 			) : (

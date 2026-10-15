@@ -26,8 +26,8 @@ import {
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { useNameOf } from "#dev/conversation-names.ts";
 import {
-	DirectiveCard,
 	DirectiveChip,
+	DirectiveLine,
 	linkDirectives,
 	soleDirective,
 	unshown,
@@ -162,7 +162,7 @@ export const UserMessage: FC = () => {
 				className="px-2"
 				data-role="user"
 			>
-				<DirectiveCard directive={sole} />
+				<DirectiveLine directive={sole} at={at} />
 			</MessagePrimitive.Root>
 		);
 	}

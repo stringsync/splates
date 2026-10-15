@@ -163,7 +163,7 @@ describe("App's conversation of a task another handed out", () => {
 		await waitFor(() => view.getByRole("textbox", { name: "Message input" }));
 	});
 
-	it("shows the orchestrator a card when its agent goes quiet", async () => {
+	it("shows the orchestrator a line when its agent goes quiet", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
 				{
@@ -179,10 +179,8 @@ describe("App's conversation of a task another handed out", () => {
 			{ tasks },
 		);
 
-		const card = await waitFor(() => view.getByText(/ended its turn/));
-		expect(card.textContent).toBe(
-			"The agent on Taskalpha, handed out here, ended its turn without escalating, merging or removing it.",
-		);
+		const chip = await waitFor(() => view.getByTitle("Task alpha"));
+		expect(chip.closest('[role="note"]')?.textContent).toBe("Idlealpha");
 	});
 
 	it("shows nothing for a task handed out stopping, leaving it to the orchestrator's report", async () => {

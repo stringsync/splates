@@ -1,17 +1,8 @@
-import {
-	ColumnsIcon,
-	GitBranchIcon,
-	HandshakeIcon,
-	ListTodoIcon,
-	type LucideIcon,
-	OctagonXIcon,
-	PauseIcon,
-	TreePineIcon,
-} from "lucide-react";
+import { TreePineIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { DIRECTIVES, UNTRIAGED } from "../prompts";
+import { ArborEvent, type Words } from "./arbor-event";
 import { Board, type BoardContext } from "./board";
-import { CardBody, CardShell } from "./card-shell";
 import { Dispatching } from "./dispatching";
 import { outsideCode } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
@@ -159,17 +150,6 @@ const HANDOFF_TO = /^\[ARBOR HANDOFF TO (\S+)(?: (\S+))?\]$/;
 const CARDED =
 	/^\[ARBOR (TODO|LANE|TASK|HANDOFF|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
 
-/** How the card for each kind of directive in `CARDED` says what it asked. */
-const CARDS = {
-	TODO: { title: "Todo", Icon: ListTodoIcon, asked: "take" },
-	LANE: { title: "Lane", Icon: ColumnsIcon, asked: "work down" },
-	TASK: { title: "Task", Icon: GitBranchIcon, asked: "claim" },
-	HANDOFF: { title: "Handoff", Icon: HandshakeIcon, asked: "take over" },
-} as const satisfies Record<
-	string,
-	{ title: string; Icon: LucideIcon; asked: string }
->;
-
 /**
  * The directive that `text` holds and nothing else, when it is one a card
  * shows: one about no todo, lane, or task, such as the checkpoint `arbor dev`
@@ -194,102 +174,74 @@ export function unshown(directive: string): boolean {
 }
 
 /**
- * A message of `directive` alone, read by `soleDirective`, as a card saying
- * what it asked of the agent, in place of the message: for a todo, a lane, or
- * a task, its chip, which opens a todo still on the board or a live task.
+ * A message of `directive` alone, read by `soleDirective`, as one of arbor's
+ * event lines in place of the message: the verb it asked of the agent, and
+ * for a todo, a lane, or a task, its chip, which opens a todo still on the
+ * board or a live task.
  */
-export function DirectiveCard({
+export function DirectiveLine({
 	directive,
+	at = null,
 }: {
 	directive: string;
+	/** When it was sent, as an ISO time, shown while the stamps are on. */
+	at?: string | null;
 }): JSX.Element | null {
 	const dispatch = useContext(Dispatching)?.dispatch;
+	const board = useContext(Board);
+	const words = wordsOf(directive, board, (agent) => dispatch?.pickName(agent));
+	return words === null ? null : <ArborEvent event={{ words, at }} />;
+}
+
+/**
+ * What the line for `directive` says, or null for one that shows nothing.
+ * `nameAgent` names the agent a handoff goes to.
+ */
+function wordsOf(
+	directive: string,
+	board: BoardContext,
+	nameAgent: (agent: { agent: string; model?: string }) => string | undefined,
+): Words | null {
 	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
 	if (bare !== undefined) {
-		return (
-			<CardShell
-				label={bare.label.toLowerCase()}
-				Icon={bare.icon}
-				title={bare.label}
-				tone={bare.tone}
-			>
-				<CardBody
-					text={`Asked the agent to ${bare.about}.`}
-					className="text-muted-foreground"
-				/>
-			</CardShell>
-		);
+		return [bare.label];
 	}
 	const to = HANDOFF_TO.exec(directive);
 	if (to !== null) {
-		return (
-			<CardShell
-				label={`hand off to ${to[1]}`}
-				Icon={HandshakeIcon}
-				title="Hand off"
-			>
-				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
-					Asked the agent to hand its task off to{" "}
-					<span className="font-medium text-foreground">
-						{dispatch?.pickName({
-							agent: to[1] as string,
-							...(to[2] === undefined ? {} : { model: to[2] }),
-						}) ?? to.slice(1).filter(Boolean).join(" ")}
-					</span>
-					.
-				</p>
-			</CardShell>
-		);
+		return [
+			"Hand off to",
+			nameAgent({
+				agent: to[1] as string,
+				...(to[2] === undefined ? {} : { model: to[2] }),
+			}) ?? to.slice(1).filter(Boolean).join(" "),
+		];
 	}
 	const [, kind, argument = ""] = CARDED.exec(directive) ?? [];
-	if (kind === undefined) {
-		return null;
-	}
-	if (kind === "STOPPED") {
-		return (
-			<CardShell
-				label={`terminated ${argument}`}
-				Icon={OctagonXIcon}
-				title="Terminated"
-				tone="warning"
-			>
-				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
-					You terminated the agent on{" "}
-					<DirectiveChip directive={directive} opens inline />, handed out here.
-					Its task stands as it was.
-				</p>
-			</CardShell>
-		);
-	}
-	if (kind === "IDLE") {
-		return (
-			<CardShell label={`idle ${argument}`} Icon={PauseIcon} title="Idle">
-				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
-					The agent on <DirectiveChip directive={directive} opens inline />,
-					handed out here, ended its turn without escalating, merging or
-					removing it.
-				</p>
-			</CardShell>
-		);
-	}
-	if (kind === "REPORT") {
+	switch (kind) {
+		case undefined:
 		// The orchestrator's Working card that answers it says what came of the task.
-		return null;
+		case "REPORT":
+			return null;
+		case "STOPPED":
+			return ["Terminated", { kind: "task", task: argument }];
+		case "IDLE":
+			return ["Idle", { kind: "task", task: argument }];
+		case "TASK":
+			return ["Task", { kind: "task", task: argument }];
+		case "HANDOFF":
+			return ["Handoff", { kind: "task", task: argument }];
+		case "TODO": {
+			const id = Number(argument.replace("#", ""));
+			const todo = board.todos.find((each) => each.id === id);
+			return ["Todo", { kind: "todo", id, subject: todo?.subject ?? "" }];
+		}
+		default: {
+			if (argument === UNTRIAGED) {
+				return ["Untriaged lane"];
+			}
+			const id = Number(argument);
+			const lane = board.lanes.find((each) => each.id === id);
+			return ["Lane", { kind: "lane", id, name: lane?.name ?? argument }];
+		}
 	}
-	const { title, Icon, asked } =
-		argument === UNTRIAGED
-			? { title: "Lane", Icon: ColumnsIcon, asked: "triage and work down" }
-			: CARDS[kind as keyof typeof CARDS];
-	return (
-		<CardShell
-			label={`${asked} ${title.toLowerCase()} ${argument}`}
-			Icon={Icon}
-			title={title}
-		>
-			<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
-				Asked the agent to {asked}{" "}
-				<DirectiveChip directive={directive} opens inline />.
-			</p>
-		</CardShell>
-	);
 }
