@@ -54,7 +54,9 @@ export function ArborEvent({
 			aria-label="arbor"
 			data-slot="arbor-event"
 			data-live={live || undefined}
-			className="text-muted-foreground text-xs"
+			// A run of lines stands clear of the text around it, but its lines
+			// sit as close as work rows do.
+			className="my-4 text-muted-foreground text-xs [&:has(+[data-slot=arbor-event])]:mb-2 [[data-slot=arbor-event]+&]:mt-2"
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
