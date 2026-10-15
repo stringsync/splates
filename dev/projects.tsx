@@ -1,5 +1,5 @@
 import { CheckIcon, ChevronsUpDownIcon, HouseIcon, XIcon } from "lucide-react";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useContext, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
@@ -13,6 +13,7 @@ import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { ServerChoice } from "../dev-servers";
 import { Dot } from "./dot";
+import { NavigationContext } from "./navigation";
 import { forgetProject, listProjects, type ProjectChoice } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -100,6 +101,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
 	const [servers, setServers] = useState<ServerChoice[]>([]);
 	const shown = shownProject();
+	const navigation = useContext(NavigationContext);
 	const { refusal, refuse: refused } = useRefusal();
 
 	const load = useCallback(
@@ -176,7 +178,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 			if (placeOf(keyOf(each)).name === undefined) {
 				rememberPlace(keyOf(each), { name: each.slug });
 			}
-			location.assign(projectUrl(each));
+			navigation.go(projectUrl(each));
 		}
 	};
 
@@ -186,7 +188,7 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 		}
 		setOpen(false);
 		if (!each.here) {
-			location.assign(each.url);
+			navigation.go(each.url);
 		}
 	};
 

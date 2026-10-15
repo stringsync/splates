@@ -20,6 +20,7 @@ import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { FakeShell } from "./fake-shell";
 import { details, snapshot } from "./fixtures";
+import { NavigationContext } from "./navigation";
 import type { ProjectChoice } from "./project-api";
 import { Settings } from "./settings";
 import { App, act, fireEvent, render, waitFor, within } from "./testing-dom";
@@ -148,6 +149,10 @@ export class Testing implements Resource {
 	run = "run-1";
 	/** Whether `/api/projects` says `arbor dev` can restart itself. */
 	restartable = true;
+	/** Every path the page fetched, in order. */
+	asked: string[] = [];
+	/** Every address the page asked to go to, in order. */
+	visited: string[] = [];
 	/** How many times the page asked to reload. */
 	reloads = 0;
 	/** What restarts the page on its own; one on the system clock unless set. */
@@ -163,6 +168,7 @@ export class Testing implements Resource {
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
+	#held: Promise<void> | null = null;
 	#refusal: { reason: string; message: string } | null = null;
 	readonly #fetch = globalThis.fetch;
 	readonly #eventSource = globalThis.EventSource;
@@ -170,6 +176,10 @@ export class Testing implements Resource {
 
 	constructor() {
 		globalThis.fetch = (async (path: string, init?: RequestInit) => {
+			this.asked.push(path);
+			if (this.#held !== null && path.startsWith("/api/snapshot")) {
+				await this.#held;
+			}
 			if (this.#down) {
 				// As `fetch` does when nothing listens.
 				throw new TypeError("no server");
@@ -302,6 +312,15 @@ export class Testing implements Resource {
 		);
 	}
 
+	/** Keeps every snapshot from arriving until the returned function is called. */
+	holdSnapshots(): () => void {
+		let arrive = () => {};
+		this.#held = new Promise<void>((resolve) => {
+			arrive = resolve;
+		});
+		return arrive;
+	}
+
 	/** Fails every fetch from now on, standing in for a server that went away. */
 	goAway(): void {
 		this.#down = true;
@@ -325,18 +344,22 @@ export class Testing implements Resource {
 		history.replaceState(null, "", `${location.pathname}${location.search}`);
 		const view = render(
 			createElement(
-				DictationContext,
-				{ value: this.dictation },
-				createElement(App, {
-					settings: new Settings(localStorage),
-					checkpointEvery: CHECKPOINT_EVERY,
-					checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
-					offlineAfter: OFFLINE_AFTER,
-					reload: () => {
-						this.reloads++;
-					},
-					autoRestart: this.autoRestart,
-				}),
+				NavigationContext,
+				{ value: { go: (url: string) => this.visited.push(url) } },
+				createElement(
+					DictationContext,
+					{ value: this.dictation },
+					createElement(App, {
+						settings: new Settings(localStorage),
+						checkpointEvery: CHECKPOINT_EVERY,
+						checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
+						offlineAfter: OFFLINE_AFTER,
+						reload: () => {
+							this.reloads++;
+						},
+						autoRestart: this.autoRestart,
+					}),
+				),
 			),
 		);
 		// Hidden too, under a dialog the page opens on.
