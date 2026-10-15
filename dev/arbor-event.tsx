@@ -21,6 +21,7 @@ import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
 
 import { Stamp, useStamps } from "./stamp";
+import { TaskIcon } from "./task-icon";
 
 /**
  * An event of arbor's in the thread: one line of a verb, the thing it names,
@@ -255,7 +256,7 @@ function NamedChip({
 			const { task, goal = "", note } = named;
 			return (
 				<Chip
-					Icon={GitBranchIcon}
+					Icon={TaskIcon}
 					title={`Task ${task}${goal === "" ? "" : `: ${goal}`}${note === undefined ? "" : `\n${note}`}`}
 					open={
 						board.linked && board.tasks.includes(task)

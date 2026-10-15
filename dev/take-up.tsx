@@ -12,6 +12,7 @@ import {
 import { taskReference, todoReference } from "../prompts";
 import type { Details } from "../show";
 import { Board } from "./board";
+import { TaskIcon } from "./task-icon";
 
 /**
  * The line under a main-tree conversation's title: the trunk's branch, which
@@ -85,7 +86,7 @@ export function TakeUpItems({
 							key={each.task}
 							onClick={() => onTake(taskReference(each.task))}
 						>
-							<GitBranchIcon aria-hidden />
+							<TaskIcon aria-hidden />
 							<span className="truncate">{each.task}</span>
 						</DropdownMenuItem>
 					))}

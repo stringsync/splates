@@ -2,7 +2,6 @@ import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
 	BookmarkIcon,
 	ColumnsIcon,
-	GitBranchIcon,
 	GitMergeIcon,
 	HeartPulseIcon,
 	LayersIcon,
@@ -30,6 +29,7 @@ import type { NamedSystem } from "../systems";
 import type { Action } from "./actions";
 import { Board } from "./board";
 import type { Tone } from "./card-shell";
+import { TaskIcon } from "./task-icon";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
@@ -53,7 +53,7 @@ const CATEGORIES = [
 	{ id: "directive", label: "Directives", icon: TreePineIcon },
 	{ id: "todo", label: "Todos", icon: ListTodoIcon },
 	{ id: "lane", label: "Lanes", icon: ColumnsIcon },
-	{ id: "task", label: "Tasks", icon: GitBranchIcon },
+	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "system", label: "Systems", icon: LayersIcon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];

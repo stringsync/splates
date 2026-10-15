@@ -1,4 +1,4 @@
-import { ColumnsIcon, GitBranchIcon } from "lucide-react";
+import { ColumnsIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -14,6 +14,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Ending, Report, Start } from "../asked";
 import { CardShell, toCardTop } from "./card-shell";
 import { Markdown } from "./markdown";
+import { TaskIcon } from "./task-icon";
 
 /**
  * The task the thread is on at the point it is scrolled to, or the lanes it
@@ -89,7 +90,7 @@ export function CurrentTask({
 				label={`current ${named}`}
 				// Its name as the title, plain: the header line above the thread
 				// already offers the task's details.
-				Icon={"lanes" in start ? ColumnsIcon : GitBranchIcon}
+				Icon={"lanes" in start ? ColumnsIcon : TaskIcon}
 				title={named}
 				ringed={false}
 			>

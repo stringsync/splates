@@ -42,6 +42,7 @@ import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
 import { SystemsCard, systemsAction } from "./systems";
 import { TakeUpOrRemove } from "./task-actions";
+import { TaskIcon } from "./task-icon";
 import { Task } from "./tasks";
 import { BarButton, BELOW_BAR, TopBar } from "./top-bar";
 
@@ -143,7 +144,7 @@ export function TaskView({
 						? null
 						: {
 								label: `About ${task.task}`,
-								icon: <GitBranchIcon />,
+								icon: <TaskIcon />,
 								run: () => setDetails(true),
 							},
 					systemsAction(task.systems),

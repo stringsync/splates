@@ -2,7 +2,6 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
 	ClockIcon,
-	GitBranchIcon,
 	GripVerticalIcon,
 	HourglassIcon,
 	type LucideIcon,
@@ -33,6 +32,7 @@ import { Board, still, touchArea } from "./board";
 import { OnIt } from "./dispatching";
 import { Markdown } from "./markdown";
 import { Refusal } from "./refusal";
+import { TaskIcon } from "./task-icon";
 
 export interface CardProps {
 	todo: TodoState;
@@ -187,11 +187,7 @@ export function TakenBy({ task }: { task: string }): JSX.Element {
 				touchArea,
 			)}
 		>
-			<GitBranchIcon
-				aria-label="taken by"
-				role="img"
-				className="size-3 shrink-0"
-			/>
+			<TaskIcon aria-label="taken by" role="img" className="size-3 shrink-0" />
 			<span className="truncate">{task}</span>
 		</button>
 	);

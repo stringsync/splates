@@ -1,7 +1,8 @@
-import { GitBranchIcon, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { Board } from "./board";
+import { TaskIcon } from "./task-icon";
 
 /**
  * A chip naming a todo, lane, task or branch, as the composer draws its
@@ -73,7 +74,7 @@ export function TaskChip({
 	const board = useContext(Board);
 	return (
 		<ReferenceChip
-			Icon={GitBranchIcon}
+			Icon={TaskIcon}
 			kind="Task"
 			name={task}
 			title={task}

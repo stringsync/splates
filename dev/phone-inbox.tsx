@@ -1,5 +1,5 @@
 import { useReactive } from "@webappwiz/react";
-import { GitBranchIcon, MenuIcon, SquarePenIcon } from "lucide-react";
+import { MenuIcon, SquarePenIcon } from "lucide-react";
 import {
 	Fragment,
 	type JSX,
@@ -35,6 +35,7 @@ import { launch } from "./phone-home";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { RowMenu, useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
+import { TaskIcon } from "./task-icon";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
@@ -340,7 +341,7 @@ function Row({
 							)}
 						/>
 					) : (
-						<GitBranchIcon
+						<TaskIcon
 							className={cn(
 								"text-foreground/80",
 								depth === 0 ? "size-5" : "size-4",

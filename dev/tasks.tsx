@@ -1,4 +1,3 @@
-import { GitBranchIcon } from "lucide-react";
 import { type CSSProperties, type JSX, type ReactNode, useState } from "react";
 import {
 	Dialog,
@@ -17,6 +16,7 @@ import { isPartOf, type Nested, nest } from "./parts";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QuestionCards } from "./question-cards";
 import { ActionBar, useRetry } from "./task-actions";
+import { TaskIcon } from "./task-icon";
 import { TopBar } from "./top-bar";
 
 /**
@@ -104,7 +104,7 @@ function TaskRows({
 						)}
 					>
 						<span aria-hidden className={PHONE_TILE}>
-							<GitBranchIcon />
+							<TaskIcon />
 						</span>
 						<span className={cn("min-w-0 flex-1 truncate text-sm", PHONE_NAME)}>
 							{task.task}

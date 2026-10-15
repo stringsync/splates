@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CheckIcon, CopyIcon, GitBranchIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import {
 	type JSX,
 	type MouseEventHandler,
@@ -22,6 +22,7 @@ import { Dispatching, OnIt, StartMenu } from "./dispatching";
 import { Cards, Column, laneOfCard } from "./lane-column";
 import { LaneMenu } from "./lane-menu";
 import { Refusal } from "./refusal";
+import { TaskIcon } from "./task-icon";
 
 /** Where a column takes a dropped card: its id among the cards' numbers. */
 export function columnId(lane: number | null | "new"): string {
@@ -178,7 +179,7 @@ export function Lane({
 										{...still}
 										className="inline-flex min-w-0 pointer-coarse:min-h-10 cursor-pointer items-center gap-1 rounded text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 									>
-										<GitBranchIcon aria-hidden className="size-3" />
+										<TaskIcon aria-hidden className="size-3" />
 										<span className="truncate">
 											{agent} on {on}
 										</span>

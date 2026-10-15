@@ -6,7 +6,6 @@ import {
 	ChevronDownIcon,
 	CodeIcon,
 	CopyIcon,
-	GitBranchIcon,
 	HourglassIcon,
 	ListPlusIcon,
 	ListTodoIcon,
@@ -37,6 +36,7 @@ import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard, useStartCard } from "./current-task";
 import { Markdown } from "./markdown";
 import { Refusal, useRefusal } from "./refusal";
+import { TaskIcon } from "./task-icon";
 
 /**
  * Renders a `data-report` part: how a task ended, or what it waits on, as the
@@ -419,7 +419,7 @@ export function TodoCard({
 							</Badge>
 						)}
 						{todo?.takenBy != null && (
-							<Badge Icon={GitBranchIcon} label="taken by">
+							<Badge Icon={TaskIcon} label="taken by">
 								{todo.takenBy}
 							</Badge>
 						)}

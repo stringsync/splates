@@ -1,11 +1,11 @@
 import {
 	ChevronRightIcon,
-	CircleCheckIcon,
 	CirclePauseIcon,
 	CircleSlashIcon,
 	ColumnsIcon,
 	FlagIcon,
 	GitBranchIcon,
+	GitMergeIcon,
 	HandshakeIcon,
 	HourglassIcon,
 	type LucideIcon,
@@ -148,7 +148,7 @@ export const ENDINGS: Record<
 	Ending,
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
-	merged: { title: "Merged", Icon: CircleCheckIcon, tone: "success" },
+	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
 	escalated: {
 		title: "Escalated",

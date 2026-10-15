@@ -2,7 +2,6 @@ import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	ChartColumnIcon,
 	GaugeIcon,
-	GitBranchIcon,
 	KanbanIcon,
 	KeyRoundIcon,
 	LayersIcon,
@@ -16,6 +15,7 @@ import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
 import { type Move, PageAddress } from "./page-address";
 import type { ShortcutKey } from "./settings";
+import { TaskIcon } from "./task-icon";
 
 /**
  * The page's pages, the one in the address first: `#tasks` (or
@@ -50,7 +50,7 @@ export const PAGES: {
 		Icon: KanbanIcon,
 		shortcut: "shortcuts.todos",
 	},
-	{ value: "tasks", label: "Tasks", Icon: GitBranchIcon },
+	{ value: "tasks", label: "Tasks", Icon: TaskIcon },
 	{ value: "systems", label: "Systems", Icon: LayersIcon },
 	{ value: "stats", label: "Stats", Icon: ChartColumnIcon },
 	{ value: "creds", label: "Creds", Icon: KeyRoundIcon },

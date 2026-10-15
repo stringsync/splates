@@ -1,5 +1,4 @@
 import {
-	GitBranchIcon,
 	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
@@ -22,6 +21,7 @@ import { Input } from "#dev/components/ui/input.tsx";
 import { useShortcut } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { type Found, type Kind, type Searched, search } from "./search";
+import { TaskIcon } from "./task-icon";
 
 const HEADINGS: Record<Kind, string> = {
 	task: "Tasks",
@@ -31,7 +31,7 @@ const HEADINGS: Record<Kind, string> = {
 };
 
 const ICONS: Record<Kind, LucideIcon> = {
-	task: GitBranchIcon,
+	task: TaskIcon,
 	conversation: MessageSquareIcon,
 	todo: ListTodoIcon,
 	system: LayersIcon,

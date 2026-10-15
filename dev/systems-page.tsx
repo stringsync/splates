@@ -1,8 +1,8 @@
 import {
 	ChevronLeftIcon,
 	CopyIcon,
-	GitBranchIcon,
 	ListTodoIcon,
+	type LucideIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
@@ -21,6 +21,7 @@ import { copiedLabel, useCopy } from "./card";
 import { systemsIn } from "./mentioned";
 import { PHONE_HEADING, PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { ChipFace, dot, Globs } from "./systems";
+import { TaskIcon } from "./task-icon";
 import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /** How many globs of uncovered files the list shows. */
@@ -306,7 +307,7 @@ function SystemView({
 						{tasks.map((task) => (
 							<li key={task.task}>
 								<Line
-									Icon={GitBranchIcon}
+									Icon={TaskIcon}
 									title={task.task}
 									onClick={() => onTask(task.task)}
 								/>
@@ -431,7 +432,7 @@ function Line({
 	detail,
 	onClick,
 }: {
-	Icon: typeof GitBranchIcon;
+	Icon: LucideIcon;
 	title: string;
 	detail?: string;
 	onClick: () => void;
