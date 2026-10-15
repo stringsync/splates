@@ -513,6 +513,15 @@ line, and you act on it at your next step, as you would an answer.
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.
 
+## Checking in
+
+`[ARBOR UPDATE]`, which the `arbor dev` page's Check in button sends once you
+have worked a while, asks where your work stands. Bring `## Done` and
+`## Next` up to date, then answer in at most three `- ` lines: what you
+finished since the user last heard from you, what you are on now, and what is
+in the way, if anything. Then carry on with the work in the same turn, as
+though nothing had come; it asks for no report, no questions and no stop.
+
 ## Escalation
 
 Escalate when questions are still open once everything else is done, or when

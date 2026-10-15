@@ -14,6 +14,7 @@ import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
 import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
+import { CheckInBar } from "./check-in-bar";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -349,6 +350,12 @@ export function Thread({
 														<>
 															<NeedsYouBar />
 															<Refusal refusal={refusal} className="px-2" />
+															<CheckInBar
+																conversation={conversation}
+																handedOut={handedBy !== null}
+																waiting={queued.length > 0}
+																refused={refused}
+															/>
 															{ended !== null && handedBy === null && (
 																<ArchiveBar
 																	report={ended}

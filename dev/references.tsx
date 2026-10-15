@@ -8,11 +8,13 @@ import {
 	LayersIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	MessageCircleQuestionMarkIcon,
 	PlayIcon,
 	TreePineIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
 import {
+	CHECK_IN,
 	CHECKPOINT,
 	HEARTBEAT,
 	laneReference,
@@ -179,6 +181,13 @@ export const BARE_DIRECTIVES = [
 		label: "Heartbeat",
 		about: "check on the agents it handed tasks to",
 		icon: HeartPulseIcon,
+		tone: "neutral",
+	},
+	{
+		directive: CHECK_IN,
+		label: "Check in",
+		about: "say where the work stands and carry on",
+		icon: MessageCircleQuestionMarkIcon,
 		tone: "neutral",
 	},
 	{

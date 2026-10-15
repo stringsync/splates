@@ -100,6 +100,12 @@ export const RESUME = "[ARBOR RESUME]";
  */
 export const MERGE = "[ARBOR MERGE]";
 
+/**
+ * What asks an agent long at work to say where its work stands and carry on,
+ * as the page's Check in button sends: the arbor skill says what it means.
+ */
+export const CHECK_IN = "[ARBOR UPDATE]";
+
 /** Each `[ARBOR ...]` directive in a text, wherever it stands. */
 export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)*\]/g;
 
