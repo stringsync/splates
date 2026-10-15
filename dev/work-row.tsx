@@ -9,11 +9,12 @@ import {
 	UnplugIcon,
 } from "lucide-react";
 import { createContext, type JSX, use, useState } from "react";
-import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Step, Tool } from "../conversations";
 import { InMessage, useCardReply } from "./card-reply";
+import { CheckIn } from "./check-in";
 import { useNow } from "./hooks/use-now";
+import { ThreadAction } from "./thread-action";
 import {
 	flagged,
 	label,
@@ -133,6 +134,11 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						))}
 					</ol>
 				</details>
+				{work.running && since !== null && (
+					<InMessage>
+						<CheckIn since={since} now={now} />
+					</InMessage>
+				)}
 				{work.going && work.plan !== null && <Plan steps={work.plan} />}
 				<Flags tools={flagged(work)} short={short} />
 			</div>
@@ -229,20 +235,16 @@ function Interrupted(): JSX.Element {
 	return (
 		<div
 			data-slot="interrupted"
-			className="my-2 flex flex-col items-start gap-2 text-muted-foreground text-sm"
+			className="my-2 flex flex-col gap-2 text-muted-foreground text-sm"
 		>
 			<span className="flex items-center gap-1.5">
 				<UnplugIcon className="size-3 shrink-0" />
 				Interrupted, connection lost
 			</span>
 			{last && sent === null && reply?.send != null ? (
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => void reply.send?.(CONTINUE)}
-				>
+				<ThreadAction onClick={() => void reply.send?.(CONTINUE)}>
 					Resume
-				</Button>
+				</ThreadAction>
 			) : null}
 		</div>
 	);

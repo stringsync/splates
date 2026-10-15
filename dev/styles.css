@@ -123,7 +123,8 @@
 @source "./work-row.tsx";
 @source "./work-timeline.tsx";
 @source "./changes.tsx";
-@source "./check-in-bar.tsx";
+@source "./check-in.tsx";
+@source "./thread-action.tsx";
 @source "./actions.tsx";
 @source "./references.tsx";
 @source "./task-view.tsx";

@@ -7,20 +7,26 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	tool,
 	waitFor,
 	within,
 } from "./testing";
 
-/** A running conversation whose agent last heard the person `minutes` ago. */
+/** A running conversation whose agent began its work `minutes` ago. */
 function workingFor(minutes: number, ...more: Message[]) {
+	const at = new Date(Date.now() - minutes * 60_000).toISOString();
 	return conversation({
 		status: "running",
 		messages: [
+			message("user", "fix the header"),
 			{
-				...message("user", "fix the header"),
-				at: new Date(Date.now() - minutes * 60_000).toISOString(),
+				...message(
+					"agent",
+					tool({ command: "bun test", status: "in_progress", at }),
+				),
+				at,
+				until: new Date().toISOString(),
 			},
-			message("agent", "Reading the header."),
 			...more,
 		],
 	});
@@ -38,15 +44,17 @@ describe("App's check-in on a long turn", () => {
 		testing.dispose();
 	});
 
-	it("asks an agent ten minutes on what it last heard where its work stands", async () => {
+	it("asks an agent ten minutes at work where its work stands, under its Working line", async () => {
 		const view = await testing.openConversations([workingFor(12)]);
-		const bar = await waitFor(() =>
-			view.getByRole("region", { name: "check in" }),
+		const work = await waitFor(() =>
+			view.container.ownerDocument.querySelector('[data-slot="work"]'),
 		);
-		expect(bar.textContent).toContain("12m since you last spoke");
+		expect(work?.textContent).toContain("Working 12m");
 
 		await act(async () =>
-			fireEvent.click(within(bar).getByRole("button", { name: "Check in" })),
+			fireEvent.click(
+				within(work as HTMLElement).getByRole("button", { name: "Check in" }),
+			),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -56,13 +64,22 @@ describe("App's check-in on a long turn", () => {
 
 	it("offers none before ten minutes", async () => {
 		const view = await testing.openConversations([workingFor(8)]);
-		expect(view.queryByRole("region", { name: "check in" })).toBeNull();
+		await waitFor(() => view.getByText(/^Working 8m/));
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
 	});
 
 	it("offers none while a message waits for the agent", async () => {
 		const view = await testing.openConversations([
 			workingFor(12, { ...message("user", "and the footer"), queued: true }),
 		]);
-		expect(view.queryByRole("region", { name: "check in" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
+	});
+
+	it("offers none once the person has said something since", async () => {
+		const view = await testing.openConversations([
+			workingFor(12, { ...message("user", "and the footer"), steered: true }),
+		]);
+		await waitFor(() => view.getByText("and the footer"));
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
 	});
 });
