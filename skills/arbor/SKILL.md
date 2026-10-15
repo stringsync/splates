@@ -31,6 +31,10 @@ even mid-task, and again in a later session:
   [references/checkpoint.md](references/checkpoint.md).
 - Before `arbor add <part> --base task/<your task>`, or handing a subagent
   work that may change code: [references/parts.md](references/parts.md).
+- `[ARBOR HANDOFF <task>]` or `[ARBOR HANDOFF TO <agent> <model>]` in a
+  prompt, or before `arbor handoff`:
+  [references/handoff.md](references/handoff.md), handing a task to another
+  agent or taking one over.
 - Before `arbor todo add`, `arbor lane add`, or `arbor todo update` or
   `arbor lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/todos.md](references/todos.md), linking, placing and ordering
@@ -49,8 +53,10 @@ even mid-task, and again in a later session:
    does not. A question that only needs an answer stays in the main tree.
    `arbor claim <task>` resumes a task instead, as `[ARBOR TASK <task>]`
    from the `arbor dev` page asks: claim it, read its `ARBOR.md`, and carry
-   on from where it stands. When the request is a todo,
-   such as `[ARBOR TODO #N]` copied from the `arbor dev` page, `arbor todo
+   on from where it stands. `[ARBOR HANDOFF <task>]` asks the same for a
+   task another agent handed you: read
+   [references/handoff.md](references/handoff.md) first. When the request
+   is a todo, such as `[ARBOR TODO #N]` copied from the `arbor dev` page, `arbor todo
    show N` prints what is asked; if it names another task that took it, tell
    the user rather than start on it. Otherwise take it now, so no other agent
    starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a
@@ -99,7 +105,7 @@ even mid-task, and again in a later session:
    choose between `arbor retry` and a remove and redo.
 
 **Clean up every task you start.** A task ends in a merge or a remove, never
-left behind; one escalated and waiting on the user is not done, so leave it
+left behind, unless you hand it off, when it is the other agent's to end; one escalated and waiting on the user is not done, so leave it
 for `arbor claim`. When investigating shows there is nothing to change, the
 work is moot, or it is better redone against current trunk, `arbor todo
 remove` each todo it holds that is done or moot, `arbor todo update` the rest
@@ -629,6 +635,16 @@ Why it is a good next step.
 
 A merge or remove report ends with the proposed todos, the best one first,
 each kept to its one sentence; leave them out only when no todo is open.
+
+A handoff report proposes none, since the task goes on: its title names
+the agent it went to as `arbor agents` names it, and why after the colon,
+and its sentence says where the task stands for the agent taking it over.
+
+```markdown
+## 🤝 Handed off <task> to Codex: you asked for GPT-5.5 on the styles
+
+The parser and its tests are done; the card's styles are next.
+```
 
 A lane orchestrator reports on its lanes instead, as
 [references/lanes.md](references/lanes.md) says.

@@ -1,12 +1,13 @@
 import type { Logger } from "webappwiz/log";
 import type { Conversations } from "./conversations";
 import { modelOption } from "./models";
-import { taskReference } from "./prompts";
+import { handoffReference, taskReference } from "./prompts";
 import type { WorktreeService } from "./worktree-service";
 
 /**
- * Starts the agent of each task `arbor add --agent` handed to one and that has
- * none yet, in the task's tree, on the model asked for, told to claim it. The
+ * Starts the agent of each task `arbor add --agent` or `arbor handoff` handed
+ * to one and that has none yet, in the task's tree, on the model asked for,
+ * told to claim it, or to take it over for a handoff. The
  * conversation it starts goes on the record before the agent is told
  * anything, so a task is started once however often this runs, as long as
  * no two runs overlap. Answers once each is started, not told.
@@ -46,7 +47,12 @@ export async function startDispatched({
 		// Each agent takes its time to start, so none waits on another's.
 		void (async () => {
 			await conversation.prompt(
-				[taskReference(worktree.task), dispatch.prompt ?? ""]
+				[
+					dispatch.handoff === true
+						? handoffReference(worktree.task)
+						: taskReference(worktree.task),
+					dispatch.prompt ?? "",
+				]
 					.filter((each) => each !== "")
 					.join("\n\n"),
 			);

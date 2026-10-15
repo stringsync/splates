@@ -5,6 +5,7 @@ import { type ConversationState, Conversations } from "./conversations";
 import { dev } from "./dev";
 import { json, readUntil, serving } from "./dev-testing";
 import { AGENT, FakeAgent, heard, ROSTERED, say } from "./fake-agent";
+import { handoff } from "./handoff";
 import { Testing } from "./testing";
 
 describe("dev conversations", () => {
@@ -101,6 +102,35 @@ describe("dev conversations", () => {
 			expect(agent.launched).toHaveLength(2);
 		} finally {
 			await again.disposeAsync();
+		}
+	});
+
+	it("starts the agent a task is handed off to, told to take it over, answering to nobody else", async () => {
+		const told = Promise.withResolvers<string>();
+		agent.turn = async (_, __, text) => {
+			told.resolve(text);
+			return "end_turn";
+		};
+		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		await add(deps, "alpha");
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			await handoff(deps, "alpha", { agent: "fake", prompt: "The styles." }, [
+				ROSTERED,
+			]);
+			const said = await told.promise;
+			const alpha = await deps.service.find("alpha");
+			const [started] = await conversations.list();
+
+			expect(said).toBe("[ARBOR HANDOFF alpha]\n\nThe styles.");
+			expect(agent.launched.map((each) => each.cwd)).toEqual([alpha.path]);
+			expect(started?.state).toMatchObject({ task: "alpha", handedBy: null });
+			expect(alpha.state?.dispatch?.conversation).toBe(started?.id);
+		} finally {
+			await server.disposeAsync();
 		}
 	});
 

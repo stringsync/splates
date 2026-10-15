@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { leadingDirectives } from "./prompts";
+import { handoffToReference, leadingDirectives } from "./prompts";
 
 describe("leadingDirectives", () => {
 	it("splits the directives a text starts with from the rest", () => {
@@ -13,6 +13,19 @@ describe("leadingDirectives", () => {
 			directives: ["[ARBOR CHECKPOINT]"],
 			rest: "",
 		});
+	});
+
+	it("reads a handoff the page asks for, naming its agent and any model", () => {
+		const asked = handoffToReference({ agent: "codex", model: "gpt-5.5" });
+
+		expect(asked).toBe("[ARBOR HANDOFF TO codex gpt-5.5]");
+		expect(leadingDirectives(`${asked} for the styles`)).toEqual({
+			directives: [asked],
+			rest: "for the styles",
+		});
+		expect(handoffToReference({ agent: "claude" })).toBe(
+			"[ARBOR HANDOFF TO claude]",
+		);
 	});
 
 	it("finds none in a text that starts with anything else, or one half typed", () => {

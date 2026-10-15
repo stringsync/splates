@@ -309,7 +309,10 @@ export interface TaskState {
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];
-	/** The agent `arbor add --agent` handed the task to, for `arbor dev` to start. */
+	/**
+	 * The agent `arbor add --agent` or `arbor handoff` handed the task to, for
+	 * `arbor dev` to start.
+	 */
 	dispatch?: Dispatched;
 	/**
 	 * The `arbor dev` conversation whose agent added the task, which the page
@@ -320,7 +323,7 @@ export interface TaskState {
 }
 
 /**
- * Who `arbor add --agent` handed a task to. `arbor dev` starts the agent in
+ * Who `arbor add --agent` or `arbor handoff` handed a task to. `arbor dev` starts the agent in
  * the task's tree and writes down the conversation it started, so it starts
  * once.
  */
@@ -338,6 +341,11 @@ export interface Dispatched {
 	 * rather than an external agent's.
 	 */
 	pending?: true;
+	/**
+	 * Set when the agent at work on the task handed it on with `arbor
+	 * handoff`, so the one started is told `[ARBOR HANDOFF <task>]`.
+	 */
+	handoff?: true;
 }
 
 /**

@@ -2,19 +2,22 @@ import {
 	ArchiveIcon,
 	ArchiveRestoreIcon,
 	FileDiffIcon,
+	HandshakeIcon,
 	SquareTerminalIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import type { ConversationState } from "../conversations";
+import { handoffToReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";
 import { NEW } from "./conversation-address";
+import { promptConversation } from "./conversation-api";
 import { useArchive } from "./conversation-item";
 import { promptFor } from "./dispatch";
-import { Dispatching } from "./dispatching";
+import { AssigneeItems, Dispatching } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { useShortcut, useShortcutLabel } from "./hooks/use-shortcut";
 import type { Refuse } from "./refusal";
@@ -22,7 +25,7 @@ import { ToggleTerminal } from "./terminal";
 
 /**
  * What a conversation's thread offers beside it: reviewing its task's
- * changes, its terminal, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
+ * changes, its terminal, handing its task off to another agent, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
  * a Mac) does too; and starting a new conversation with its agent.
  */
 export function useThreadActions(
@@ -39,6 +42,7 @@ export function useThreadActions(
 	const archive = useArchive(conversation, refused);
 	const archiveKey = useShortcutLabel("shortcuts.archive");
 	const terminalKey = useShortcutLabel("shortcuts.terminal");
+	const dispatching = useContext(Dispatching);
 	const actions: Action[] = [
 		...(review !== null && task !== null && task.ahead !== null
 			? [
@@ -62,6 +66,34 @@ export function useThreadActions(
 						icon: <SquareTerminalIcon />,
 						detail: terminalKey !== null && <Kbd>{terminalKey}</Kbd>,
 						run: () => terminal(id),
+					},
+				]
+			: []),
+		// Its own task only: one an orchestrator handed it goes back through
+		// that conversation, which the page leaves the person no say in here.
+		...(dispatching !== null &&
+		conversation.task !== null &&
+		conversation.handedBy === null &&
+		!archived
+			? [
+					{
+						label: "Hand off…",
+						icon: <HandshakeIcon />,
+						run: null,
+						menu: (
+							<AssigneeItems
+								assignee={null}
+								anyone={false}
+								label="Hand off to"
+								onPick={(pick) => {
+									if (pick !== null) {
+										void promptConversation(id, handoffToReference(pick)).catch(
+											(error: unknown) => refused("Not handed off", error),
+										);
+									}
+								}}
+							/>
+						),
 					},
 				]
 			: []),
@@ -89,7 +121,6 @@ export function useThreadActions(
 	// A new conversation started on todo `id`, with the agent it is assigned
 	// to on its model, else with this one's agent; without dispatching, the
 	// new conversation screen with its prompt typed ahead of what waits there.
-	const dispatching = useContext(Dispatching);
 	const startNew = useCallback(
 		(todo: number, assignee: AgentPick | null) => {
 			const assignment = { kind: "todo", id: todo } as const;

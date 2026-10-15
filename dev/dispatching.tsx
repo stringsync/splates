@@ -384,11 +384,14 @@ export function AssigneeItems({
 	assignee,
 	onPick,
 	label,
+	anyone = true,
 }: {
 	assignee: AgentPick | null;
 	onPick: (pick: AgentPick | null) => void;
 	/** What the items are for, above them. */
 	label?: string;
+	/** Whether "Any agent" is among them, for a todo that can wait for one. */
+	anyone?: boolean;
 }): JSX.Element | null {
 	const context = useContext(Dispatching);
 	if (context === null) {
@@ -402,12 +405,14 @@ export function AssigneeItems({
 	return (
 		<DropdownMenuGroup>
 			{label !== undefined && <DropdownMenuLabel>{label}</DropdownMenuLabel>}
-			<DropdownMenuCheckboxItem
-				checked={is(null)}
-				onCheckedChange={() => onPick(null)}
-			>
-				Any agent
-			</DropdownMenuCheckboxItem>
+			{anyone && (
+				<DropdownMenuCheckboxItem
+					checked={is(null)}
+					onCheckedChange={() => onPick(null)}
+				>
+					Any agent
+				</DropdownMenuCheckboxItem>
+			)}
 			{dispatch.agents.map((each) =>
 				(each.models ?? []).length === 0 ? (
 					<DropdownMenuCheckboxItem

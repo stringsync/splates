@@ -6,6 +6,7 @@ import {
 	ColumnsIcon,
 	FlagIcon,
 	GitBranchIcon,
+	HandshakeIcon,
 	HourglassIcon,
 	type LucideIcon,
 	TriangleAlertIcon,
@@ -34,6 +35,7 @@ export function CardShell({
 	task,
 	lanes = [],
 	base = null,
+	to = null,
 	aside,
 	folded = false,
 	ringed = true,
@@ -48,6 +50,8 @@ export function CardShell({
 	lanes?: string[];
 	/** Where the task merges, shown after it. */
 	base?: string | null;
+	/** The agent the task was handed off to, shown after it. */
+	to?: string | null;
 	/** At the header's end. */
 	aside?: ReactNode;
 	/** Whether it starts closed, opened by its header: once it is answered. */
@@ -73,6 +77,7 @@ export function CardShell({
 			task={task}
 			lanes={lanes}
 			base={base}
+			to={to}
 			aside={aside}
 			folded={folded}
 			ruled={children !== undefined}
@@ -153,6 +158,7 @@ export const ENDINGS: Record<
 	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
 	waiting: { title: "Waiting", Icon: CirclePauseIcon, tone: "warning" },
 	working: { title: "Working", Icon: HourglassIcon, tone: "info" },
+	handed: { title: "Handed off", Icon: HandshakeIcon, tone: "info" },
 };
 
 /** What a report says: why it went, or what it waits on, leading the rest. */
@@ -186,6 +192,7 @@ function Header({
 	task,
 	lanes,
 	base,
+	to,
 	aside,
 	folded,
 	ruled,
@@ -196,6 +203,7 @@ function Header({
 	task: string | undefined;
 	lanes: string[];
 	base: string | null;
+	to: string | null;
 	aside: ReactNode;
 	folded: boolean;
 	/** Whether a body follows, set apart by a rule while it shows. */
@@ -232,6 +240,7 @@ function Header({
 							/>
 						</>
 					)}
+					{to !== null && <span>to {to}</span>}
 				</span>
 			)}
 			{lanes.length > 0 && (

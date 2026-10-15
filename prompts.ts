@@ -1,3 +1,5 @@
+import type { AgentPick } from "./roster";
+
 /** What a chat with an agent takes to mean todo `id`. */
 export function todoReference(id: number): string {
 	return `[ARBOR TODO #${id}]`;
@@ -20,6 +22,22 @@ export function laneReference(id: number | null): string {
 /** What a chat with an agent takes to mean "claim `task` and carry on with it". */
 export function taskReference(task: string): string {
 	return `[ARBOR TASK ${task}]`;
+}
+
+/**
+ * What a chat with an agent takes to mean "the agent at work on `task` handed
+ * it to you: claim it and carry on from where its `ARBOR.md` says it stands".
+ */
+export function handoffReference(task: string): string {
+	return `[ARBOR HANDOFF ${task}]`;
+}
+
+/**
+ * What asks the agent in a conversation to hand its task off to `pick`'s
+ * agent, on its model when it names one, as the page's Hand off action sends.
+ */
+export function handoffToReference(pick: AgentPick): string {
+	return `[ARBOR HANDOFF TO ${pick.agent}${pick.model === undefined ? "" : ` ${pick.model}`}]`;
 }
 
 /**
@@ -66,10 +84,10 @@ export const RESUME = "[ARBOR RESUME]";
 export const MERGE = "[ARBOR MERGE]";
 
 /** Each `[ARBOR ...]` directive in a text, wherever it stands. */
-export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)?\]/g;
+export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)*\]/g;
 
 /** One `[ARBOR ...]` directive at the start of a text, and the space after it. */
-const LEADING = /^\s*(\[ARBOR [A-Z]+(?: [^\]\s]+)?\])(?:\s+|$)/;
+const LEADING = /^\s*(\[ARBOR [A-Z]+(?: [^\]\s]+)*\])(?:\s+|$)/;
 
 /**
  * The directives `text` starts with, in order, and what follows them; none

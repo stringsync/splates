@@ -67,6 +67,33 @@ describe("App's report cards", () => {
 		expect(view.textContent).not.toContain("## ✅");
 	});
 
+	it("shows a handoff as a card naming the agent it went to, and offers to archive it", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message(
+						"agent",
+						[
+							"## 🤝 Handed off header to Codex: you asked for GPT-5.5",
+							"",
+							"The parser is done; the styles are next.",
+						].join("\n"),
+					),
+				],
+			}),
+		]);
+
+		const handed = await waitFor(() =>
+			view.getByRole("region", { name: "handed header" }),
+		);
+		expect(handed.textContent).toContain("Handed off");
+		expect(handed.textContent).toContain("to Codex");
+		expect(handed.textContent).toContain("you asked for GPT-5.5");
+		expect(handed.textContent).toContain("the styles are next");
+		const bar = view.getByRole("region", { name: "archive" });
+		expect(bar.textContent).toContain("header");
+	});
+
 	it("shows a lane orchestrator's finished report as a card naming each lane, and offers to archive it", async () => {
 		await testing.openConversations([
 			conversation({
@@ -398,6 +425,7 @@ describe("App's report cards", () => {
 						message("agent", "Took it."),
 						message("user", "[ARBOR LANE 3]"),
 						message("user", "[ARBOR TASK header]"),
+						message("user", "[ARBOR HANDOFF footer]"),
 						message("user", "[ARBOR LANE untriaged]"),
 					],
 				}),
@@ -430,10 +458,16 @@ describe("App's report cards", () => {
 		const task = view.getByRole("region", { name: "claim task header" });
 		expect(task.textContent).toContain("Asked the agent to claim");
 		expect(task.textContent).toContain("header");
+		const handed = view.getByRole("region", {
+			name: "take over handoff footer",
+		});
+		expect(handed.textContent).toContain("Asked the agent to take over");
+		expect(handed.textContent).toContain("footer");
 		for (const [card, icon] of [
 			[taken, "list-todo"],
 			[lane, "columns"],
 			[task, "git-branch"],
+			[handed, "handshake"],
 		] as const) {
 			expect(card.querySelector(`header .lucide-${icon}`)).not.toBeNull();
 			expect(card.querySelector("header .lucide-tree-pine")).toBeNull();

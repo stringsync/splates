@@ -19,6 +19,7 @@ describe("stretches", () => {
 				ending: "escalated",
 				task: "<task>",
 				base: null,
+				to: null,
 				reason: "needs two calls on the todo board",
 				body: "One sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
 				source:
@@ -138,6 +139,7 @@ describe("stretches", () => {
 				ending: "merged",
 				task: "<task>",
 				base: "<base>",
+				to: null,
 				reason: null,
 				body: "One sentence on what changed.\n\n- Restart `arbor dev` to see it.",
 				source:
@@ -150,10 +152,48 @@ describe("stretches", () => {
 				ending: "removed",
 				task: "<task>",
 				base: null,
+				to: null,
 				reason: "superseded by a fix on main",
 				body: "One sentence on what the task set out to do.",
 				source:
 					"## 🛑 Removed <task>: superseded by a fix on main\n\nOne sentence on what the task set out to do.",
+			},
+		});
+	});
+
+	it("reads the skill's handoff report, naming the agent the task went to", async () => {
+		const example = await skillExample("## 🤝 Handed off");
+
+		expect(stretches(example)).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "handed",
+					task: "<task>",
+					base: null,
+					to: "Codex",
+					reason: "you asked for GPT-5.5 on the styles",
+					body: "The parser and its tests are done; the card's styles are next.",
+					source:
+						"## 🤝 Handed off <task> to Codex: you asked for GPT-5.5 on the styles\n\nThe parser and its tests are done; the card's styles are next.",
+				},
+			},
+		]);
+	});
+
+	it("reads a handoff with no reason, to an agent named with its model", () => {
+		const [stretch] = stretches(
+			"## 🤝 Handed off login to Claude (Opus)\n\nThe tests are next.",
+		);
+
+		expect(stretch).toMatchObject({
+			type: "report",
+			report: {
+				ending: "handed",
+				task: "login",
+				to: "Claude (Opus)",
+				reason: null,
+				body: "The tests are next.",
 			},
 		});
 	});
@@ -370,6 +410,7 @@ describe("stretches", () => {
 					ending: "escalated",
 					task: "header",
 					base: null,
+					to: null,
 					reason: null,
 					body: "",
 					source: "## ⚠ Escalated header",

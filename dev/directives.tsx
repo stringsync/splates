@@ -1,6 +1,7 @@
 import {
 	ColumnsIcon,
 	GitBranchIcon,
+	HandshakeIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	OctagonXIcon,
@@ -11,6 +12,7 @@ import { type JSX, useContext } from "react";
 import { DIRECTIVES, UNTRIAGED } from "../prompts";
 import { Board, type BoardContext } from "./board";
 import { CardBody, CardShell } from "./card-shell";
+import { Dispatching } from "./dispatching";
 import { outsideCode } from "./markdown";
 import { ReferenceChip } from "./reference-chip";
 import { BARE_DIRECTIVES } from "./references";
@@ -71,6 +73,10 @@ function about(
 } {
 	const [, kind = "", argument = ""] =
 		/^\[ARBOR ([A-Z]+)(?: ([^\]]+))?\]$/.exec(directive) ?? [];
+	const to = HANDOFF_TO.exec(directive);
+	if (to !== null) {
+		return { kind: "Hand off to", name: to.slice(1).filter(Boolean).join(" ") };
+	}
 	switch (kind) {
 		case "TODO": {
 			const id = Number(argument.replace("#", ""));
@@ -93,6 +99,7 @@ function about(
 		}
 		// A report names the task that stopped.
 		case "TASK":
+		case "HANDOFF":
 		case "REPORT":
 		case "IDLE":
 		case "STOPPED":
@@ -141,19 +148,23 @@ export function DirectiveChip({
 	);
 }
 
+/** The page asking an agent to hand its task off: the agent, and any model. */
+const HANDOFF_TO = /^\[ARBOR HANDOFF TO (\S+)(?: (\S+))?\]$/;
+
 /**
- * A todo, lane, or task directive, or the report of a task handed out, of
- * its agent gone quiet, or of its agent terminated, which a message of it
- * alone shows as a card.
+ * A todo, lane, or task directive, a task handed off, or the report of a
+ * task handed out, of its agent gone quiet, or of its agent terminated, which
+ * a message of it alone shows as a card.
  */
 const CARDED =
-	/^\[ARBOR (TODO|LANE|TASK|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
+	/^\[ARBOR (TODO|LANE|TASK|HANDOFF|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
 
 /** How the card for each kind of directive in `CARDED` says what it asked. */
 const CARDS = {
 	TODO: { title: "Todo", Icon: ListTodoIcon, asked: "take" },
 	LANE: { title: "Lane", Icon: ColumnsIcon, asked: "work down" },
 	TASK: { title: "Task", Icon: GitBranchIcon, asked: "claim" },
+	HANDOFF: { title: "Handoff", Icon: HandshakeIcon, asked: "take over" },
 } as const satisfies Record<
 	string,
 	{ title: string; Icon: LucideIcon; asked: string }
@@ -168,7 +179,8 @@ const CARDS = {
 export function soleDirective(text: string): string | null {
 	const trimmed = text.trim();
 	return BARE_DIRECTIVES.some((each) => each.directive === trimmed) ||
-		CARDED.test(trimmed)
+		CARDED.test(trimmed) ||
+		HANDOFF_TO.test(trimmed)
 		? trimmed
 		: null;
 }
@@ -183,6 +195,7 @@ export function DirectiveCard({
 }: {
 	directive: string;
 }): JSX.Element | null {
+	const dispatch = useContext(Dispatching)?.dispatch;
 	const bare = BARE_DIRECTIVES.find((each) => each.directive === directive);
 	if (bare !== undefined) {
 		return (
@@ -196,6 +209,27 @@ export function DirectiveCard({
 					text={`Asked the agent to ${bare.about}.`}
 					className="text-muted-foreground"
 				/>
+			</CardShell>
+		);
+	}
+	const to = HANDOFF_TO.exec(directive);
+	if (to !== null) {
+		return (
+			<CardShell
+				label={`hand off to ${to[1]}`}
+				Icon={HandshakeIcon}
+				title="Hand off"
+			>
+				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
+					Asked the agent to hand its task off to{" "}
+					<span className="font-medium text-foreground">
+						{dispatch?.pickName({
+							agent: to[1] as string,
+							...(to[2] === undefined ? {} : { model: to[2] }),
+						}) ?? to.slice(1).filter(Boolean).join(" ")}
+					</span>
+					.
+				</p>
 			</CardShell>
 		);
 	}

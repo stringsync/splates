@@ -18,6 +18,7 @@ import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
+import { handoff } from "./handoff";
 import { forget, init } from "./init";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
@@ -385,6 +386,43 @@ arbor
 	.arg("task", z.string(), { description: "task name" })
 	.arg("text", z.string(), { description: "what to say, as markdown" })
 	.action((opts, ctx) => tell(ctx, opts.task, opts.text));
+
+arbor
+	.command("handoff")
+	.use(repository())
+	.description(
+		"hand the task you are at work on to another agent on the roster (`arbor agents`), which `arbor dev` starts in its worktree, told `[ARBOR HANDOFF <task>]` to claim it and carry on from its ARBOR.md; it answers to the user as you did, and this conversation leaves the task; refused to an agent an orchestrator handed its task to, and for a task another conversation is at work on",
+	)
+	.arg("task", z.string(), { description: "task name" })
+	.option("agent", z.string(), {
+		description: "the agent on the roster to hand it to",
+	})
+	.option("model", z.string(), {
+		default: "",
+		description:
+			"the model it works on, by its id or name on the roster (default: the agent's own)",
+	})
+	.option("prompt", z.string(), {
+		default: "",
+		description:
+			"what to tell the agent beyond taking the task over, such as why it is handed on",
+	})
+	.action(async (opts, ctx) => {
+		const agents = await seeded(rosterOf(ctx));
+		await ctx.journal.record("handoff", opts.task, () =>
+			handoff(
+				ctx,
+				opts.task,
+				{
+					agent: opts.agent,
+					...(opts.model === "" ? {} : { model: opts.model }),
+					...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
+				},
+				agents,
+			),
+		);
+		await follow(ctx, null, { from: opts.task });
+	});
 
 arbor
 	.command("attach")

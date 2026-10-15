@@ -351,6 +351,7 @@ export function statusOf(
 			finished: "Lanes finished",
 			waiting: "Lanes waiting",
 			working: "Lanes working",
+			handed: `Handed off to ${("to" in report ? report.to : null) ?? "another agent"}`,
 		}[report.ending];
 		return {
 			text: report.reason === null ? how : `${how} · ${report.reason}`,

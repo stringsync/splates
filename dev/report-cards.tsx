@@ -96,7 +96,7 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 				tone={tone}
 				{...("lanes" in report
 					? { lanes: report.lanes }
-					: { task: report.task, base: report.base })}
+					: { task: report.task, base: report.base, to: report.to })}
 				aside={
 					<Button
 						size="icon-xs"

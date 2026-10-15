@@ -12,6 +12,11 @@ import {
 	useSyncExternalStore,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import {
 	ShortcutSettings,
@@ -25,8 +30,10 @@ export interface Action {
 	icon: ReactNode;
 	/** Beside the label, such as a task's +/- counts. */
 	detail?: ReactNode;
-	/** Null for a row that only says something. */
+	/** Null for a row that only says something, or one that opens `menu`. */
 	run: (() => void) | null;
+	/** The items of a menu the row opens in place of running anything. */
+	menu?: ReactNode;
 }
 
 /**
@@ -245,6 +252,26 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 	const detail = action.detail && (
 		<span className="text-muted-foreground">{action.detail}</span>
 	);
+	const button = cn(
+		row,
+		"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none [&_svg]:text-muted-foreground",
+	);
+	if (action.menu !== undefined) {
+		return (
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={<button type="button" className={button} />}
+				>
+					{action.icon}
+					<span className="flex-1">{action.label}</span>
+					{detail}
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="w-52">
+					{action.menu}
+				</DropdownMenuContent>
+			</DropdownMenu>
+		);
+	}
 	return action.run === null ? (
 		<p className={cn(row, "text-muted-foreground")}>
 			{action.icon}
@@ -252,14 +279,7 @@ function ActionRow({ action }: { action: Action }): JSX.Element {
 			{detail}
 		</p>
 	) : (
-		<button
-			type="button"
-			onClick={action.run}
-			className={cn(
-				row,
-				"transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none [&_svg]:text-muted-foreground",
-			)}
-		>
+		<button type="button" onClick={action.run} className={button}>
 			{action.icon}
 			<span className="flex-1">{action.label}</span>
 			{detail}
