@@ -82,4 +82,29 @@ describe("App's check-in on a long turn", () => {
 		await waitFor(() => view.getByText("and the footer"));
 		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
 	});
+
+	it("offers none while the agent waits on the person to answer what it asks", async () => {
+		const view = await testing.openConversations([
+			{
+				...workingFor(12),
+				ask: {
+					type: "permission",
+					id: "t1",
+					at: new Date().toISOString(),
+					title: "bun test",
+					options: [{ id: "yes", name: "Allow", kind: "allow_once" }],
+				},
+			},
+		]);
+		await waitFor(() => view.getByRole("generic", { name: "permission" }));
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
+	});
+
+	it("offers none while the agent starts up under a turn that is over", async () => {
+		const view = await testing.openConversations([
+			{ ...workingFor(12), status: "starting" },
+		]);
+		await waitFor(() => view.getByText(/^Working 12m/));
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
+	});
 });

@@ -14,7 +14,7 @@ import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
 import { ReplyContext } from "./card-reply";
 import { ENDINGS, TONES } from "./card-shell";
-import { Queueing } from "./check-in";
+import { Hearing, hears } from "./check-in";
 import { useReply, useTyped } from "./composer-drafts";
 import {
 	useCommands,
@@ -283,7 +283,7 @@ export function Thread({
 									<EventUI />
 									<StoppedUI />
 									<InterruptedUI />
-									<Queueing value={queued.length > 0}>
+									<Hearing value={hears(conversation)}>
 										<StartNewContext value={startNew}>
 											{/* Its cards read-only: only its orchestrator replies to it. */}
 											<ReplyContext value={handedBy === null ? reply : null}>
@@ -383,7 +383,7 @@ export function Thread({
 												</NamedContext>
 											</ReplyContext>
 										</StartNewContext>
-									</Queueing>
+									</Hearing>
 								</Composing.Provider>
 							</AssistantRuntimeProvider>
 							<Widgets
