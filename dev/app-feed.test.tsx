@@ -155,7 +155,7 @@ describe("App's feed", () => {
 		await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 	});
 
-	it("keeps Restart and Settings in a phone's menu", async () => {
+	it("keeps Reload, Restart and Settings in a phone's menu", async () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
@@ -166,6 +166,8 @@ describe("App's feed", () => {
 			expect(more.querySelector(".bg-warning")).toBeNull();
 			await act(async () => fireEvent.click(more));
 			await waitFor(() => view.getByRole("menuitem", { name: "Settings" }));
+			// An installed app has no browser's reload button, so the menu holds one.
+			view.getByRole("menuitem", { name: "Reload page" });
 			await act(async () =>
 				fireEvent.click(
 					view.getByRole("menuitem", { name: "Restart arbor dev" }),

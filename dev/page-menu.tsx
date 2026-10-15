@@ -1,6 +1,7 @@
 import {
 	EllipsisVerticalIcon,
 	LogOutIcon,
+	RefreshCwIcon,
 	RotateCwIcon,
 	SettingsIcon,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import { type Update, UpdateDot, update } from "./release";
  * The menu beside the project's name, holding what the page can do as a
  * whole, under who Cloudflare Access signed in, if anyone, and Sign out, and
  * how hard the machine is working: Power, to checkpoint, restart or shut down, where the agents of `arbor dev` run; Fullscreen;
+ * Reload, for an app on a home screen, which has no browser's reload button;
  * Settings; and last, apart, Restart, opening the Checkpoint dialog to
  * checkpoint, restart and resume whenever the person likes. Dotted, and its
  * Restart too, once a restart would update.
@@ -88,6 +90,10 @@ export function PageMenu({
 				)}
 				{conversations && <CheckpointItem />}
 				<FullscreenItem />
+				<DropdownMenuItem onClick={() => location.reload()}>
+					<RefreshCwIcon />
+					Reload page
+				</DropdownMenuItem>
 				<DropdownMenuItem onClick={onSettings}>
 					<SettingsIcon />
 					Settings
