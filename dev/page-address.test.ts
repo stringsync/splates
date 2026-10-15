@@ -60,6 +60,30 @@ describe("PageAddress", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("leaves no terminal to go back to once it is left", async () => {
+		address.go("conversations", "c1");
+		address.go("conversations", "terminal/1");
+		const length = history.length;
+
+		address.go("creds");
+
+		expect(history.length).toBe(length);
+		await traverse(() => history.back());
+		expect(address.open).toBe("c1");
+	});
+
+	it("goes back from a terminal opened in place of New to where New was opened", async () => {
+		address.go("conversations", null);
+		address.go("conversations", "new");
+		address.go("conversations", "terminal/1", "replace");
+		const length = history.length;
+
+		await traverse(() => address.go("conversations", null));
+
+		expect(history.length).toBe(length);
+		expect(location.hash).toBe("#conversations");
+	});
+
 	it("leaves no entry for a move to where the page already is", () => {
 		address.go("stats");
 		const length = history.length;

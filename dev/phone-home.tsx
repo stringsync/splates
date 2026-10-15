@@ -98,9 +98,10 @@ export function PhoneHome({
 								</DropdownMenuItem>
 							))}
 							<DropdownMenuSeparator />
+							{/* New becomes the terminal, as a draft becomes its conversation. */}
 							<DropdownMenuItem
 								className="h-11"
-								onClick={() => onOpen(terminals.another())}
+								onClick={() => onOpen(terminals.another(), "replace")}
 							>
 								<SquareTerminalIcon />
 								Terminal

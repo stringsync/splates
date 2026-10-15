@@ -2,6 +2,7 @@ import { Disposer, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { conversationIn } from "./conversation-address";
 import type { Page } from "./page-route";
+import { isMain } from "./terminals";
 
 export type PageAddressEvents = { changed: undefined };
 
@@ -27,7 +28,8 @@ interface Entry {
  * address so a reload or a link lands on the same page. Each move is an entry
  * in the browser's history, so its back and forward, and a phone's swipe from
  * the edge, move through them. A move to the entry just left goes back to it,
- * so a back button on the page and a swipe agree.
+ * so a back button on the page and a swipe agree. A move away from a
+ * terminal takes its entry, so going back never starts a shell.
  */
 export class PageAddress implements Eventful<PageAddressEvents> {
 	private readonly dispatcher = new Dispatcher<PageAddressEvents>();
@@ -125,21 +127,34 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 			return;
 		}
 		const url = hash === "" ? `${location.pathname}${location.search}` : hash;
+		const here = entry();
 		if (how === "replace") {
-			history.replaceState(entry(), "", url);
+			history.replaceState(
+				here?.at === undefined ? here : { ...here, at: hash },
+				"",
+				url,
+			);
 			return;
 		}
-		const here = entry();
 		history.replaceState({ ...here, scroll: scrollY } satisfies Entry, "");
 		// An entry the browser made, following a link, keeps no address of its
 		// own, and may keep the state of the one before.
 		if (here?.at === location.hash && here.back === hash) {
 			history.back();
+		} else if (leavingTerminal()) {
+			const next: Entry = { at: hash, back: here?.back, scroll: 0 };
+			history.replaceState(next, "", url);
 		} else {
 			const next: Entry = { at: hash, back: location.hash, scroll: 0 };
 			history.pushState(next, "", url);
 		}
 	}
+}
+
+/** Whether the address names one of the main tree's terminals. */
+function leavingTerminal(): boolean {
+	const open = conversationIn(location.hash);
+	return open !== null && isMain(open);
 }
 
 function entry(): Entry | null {
