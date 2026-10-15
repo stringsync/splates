@@ -355,6 +355,48 @@ describe("App on a phone", () => {
 		}
 	});
 
+	it("keeps the field typed in above the keyboard as it comes up after the focus", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Header",
+				messages: [
+					message("user", "fix the header"),
+					message("agent", "1. What looks wrong at 390px?"),
+				],
+			}),
+		]);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("button", { name: /1 question for you\s*Answer/ }),
+				),
+			),
+		);
+		const sheet = await waitFor(() =>
+			view.getByRole("dialog", { name: "1 question for you" }),
+		);
+		const body = sheet.querySelector("[data-sheet]") as HTMLElement;
+		const field = within(sheet).getByRole("textbox", { name: "Answer to 1" });
+		// The sheet ends where the window does; the field sits well down it.
+		body.getBoundingClientRect = () =>
+			DOMRect.fromRect({ x: 0, y: 56, width: 390, height: innerHeight - 56 });
+		const foot = innerHeight - 100;
+		field.getBoundingClientRect = () =>
+			DOMRect.fromRect({ x: 0, y: foot - 40, width: 390, height: 40 });
+		// The sheet focuses it as it opens, before the keyboard is up.
+		await act(async () => field.focus());
+		await act(() => new Promise((done) => requestAnimationFrame(done)));
+		const from = body.scrollTop;
+
+		// The keyboard comes up only once the field has the focus.
+		const shown = innerHeight - 300;
+		await act(async () => resize(390, shown));
+
+		await waitFor(() =>
+			expect(body.scrollTop).toBe(from + foot - (shown - 12)),
+		);
+	});
+
 	it("leaves the dots off a sheet of one question", async () => {
 		const view = await testing.openConversations([
 			conversation({

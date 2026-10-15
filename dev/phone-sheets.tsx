@@ -187,7 +187,9 @@ export function Sheeted({
  * to its foot, as the composer stays above the keyboard: as it is focused,
  * as it grows, and as the keyboard comes up and shrinks the sheet to `height`.
  */
-function useTypedInView(sheet: HTMLElement | null, _height: number): void {
+function useTypedInView(sheet: HTMLElement | null, height: number): void {
+	// The keyboard rises after the focus does, each step of it a new height.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: each height is the field to show again
 	useEffect(() => {
 		if (sheet === null) {
 			return;
@@ -206,7 +208,7 @@ function useTypedInView(sheet: HTMLElement | null, _height: number): void {
 			sheet.removeEventListener("focusin", later);
 			sheet.removeEventListener("input", later);
 		};
-	}, [sheet]);
+	}, [sheet, height]);
 }
 
 /** Room left between a field and the edge it is scrolled to. */
