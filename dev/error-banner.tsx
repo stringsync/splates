@@ -80,6 +80,6 @@ export function ErrorBanner({
 }
 
 /** Out across the pane's padding to its edges: a phone's is narrower. */
-function bleed(phone: boolean): string {
+export function bleed(phone: boolean): string {
 	return phone ? "-mx-1" : "-mx-4";
 }

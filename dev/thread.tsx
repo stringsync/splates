@@ -30,7 +30,7 @@ import { CredUI } from "./creds";
 import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
-import { ErrorBanner } from "./error-banner";
+import { bleed, ErrorBanner } from "./error-banner";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
@@ -213,7 +213,7 @@ export function Thread({
 				onBack === null ? "h-[calc(100dvh-2rem)] gap-3" : "h-full gap-1",
 			)}
 		>
-			{archived && <ArchivedBanner />}
+			{archived && <ArchivedBanner phone={onBack !== null} />}
 			{onBack === null ? (
 				<ThreadHeader
 					conversation={conversation}
@@ -469,11 +469,14 @@ function ArchiveBar({
  * Atop an archived conversation, across the pane's padding to its edges,
  * saying so and how it comes back.
  */
-function ArchivedBanner(): JSX.Element {
+function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element {
 	return (
 		<p
 			role="status"
-			className="-mx-4 -mt-4 flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm"
+			className={cn(
+				bleed(phone),
+				"-mt-4 flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
+			)}
 		>
 			<ArchiveIcon className="size-4 shrink-0" />
 			<span>
