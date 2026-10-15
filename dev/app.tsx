@@ -331,24 +331,22 @@ export function App({
 					budget: <BudgetPage talk={talk} />,
 					conversations: available && (
 						<TreesContext value={snapshot}>
-							<OpenerContext value={openerOf(opener)}>
-								<Conversations
-									feed={talk}
-									terminals={terminals}
-									drafts={drafts}
-									tasks={snapshot.tasks}
-									todos={snapshot.todos}
-									lanes={snapshot.lanes}
-									trunk={snapshot.trunk}
-									open={open}
-									onOpen={(id, how) => go("conversations", id, how)}
-									onTodos={(ids) => {
-										go("todos");
-										todoView.filter(ids);
-									}}
-									phone={!wide}
-								/>
-							</OpenerContext>
+							<Conversations
+								feed={talk}
+								terminals={terminals}
+								drafts={drafts}
+								tasks={snapshot.tasks}
+								todos={snapshot.todos}
+								lanes={snapshot.lanes}
+								trunk={snapshot.trunk}
+								open={open}
+								onOpen={(id, how) => go("conversations", id, how)}
+								onTodos={(ids) => {
+									go("todos");
+									todoView.filter(ids);
+								}}
+								phone={!wide}
+							/>
 						</TreesContext>
 					),
 				};
@@ -381,129 +379,132 @@ export function App({
 	);
 
 	return (
-		<Held value={conversations}>
-			<Lanes value={searched.lanes}>
-				{/* Here rather than in the sidebar's list, which a phone has none of. */}
-				{available && snapshot !== null && (
-					<Notifications
-						feed={talk}
-						tasks={snapshot.tasks}
-						settings={settings}
-						onOpen={(id) => go("conversations", id)}
-					/>
-				)}
-				<Dispatching value={dispatching}>
-					<Trunk value={snapshot?.trunk ?? null}>
-						<ReviewChanges value={review}>
-							<WatchBackground value={watch}>
-								<NestedPanesContext value={nested}>
-									<ToggleTerminal
-										value={shown === null ? null : toggleTerminal}
-									>
-										<ShellRunning value={shellRunning}>
-											<ShowTerminal
-												value={
-													available
-														? (id: string) => {
-																go("conversations", id);
-																showTerminal(id);
+		<OpenerContext value={openerOf(opener)}>
+			<Held value={conversations}>
+				<Lanes value={searched.lanes}>
+					{/* Here rather than in the sidebar's list, which a phone has none of. */}
+					{available && snapshot !== null && (
+						<Notifications
+							feed={talk}
+							tasks={snapshot.tasks}
+							settings={settings}
+							onOpen={(id) => go("conversations", id)}
+						/>
+					)}
+					<Dispatching value={dispatching}>
+						<Trunk value={snapshot?.trunk ?? null}>
+							<ReviewChanges value={review}>
+								<WatchBackground value={watch}>
+									<NestedPanesContext value={nested}>
+										<ToggleTerminal
+											value={shown === null ? null : toggleTerminal}
+										>
+											<ShellRunning value={shellRunning}>
+												<ShowTerminal
+													value={
+														available
+															? (id: string) => {
+																	go("conversations", id);
+																	showTerminal(id);
+																}
+															: null
+													}
+												>
+													<ShortcutSettings value={settings}>
+														<PageShortcuts
+															onPage={go}
+															onBack={
+																available
+																	? () => visit(visits.back(existsRef.current))
+																	: null
 															}
-														: null
-												}
-											>
-												<ShortcutSettings value={settings}>
-													<PageShortcuts
-														onPage={go}
-														onBack={
-															available
-																? () => visit(visits.back(existsRef.current))
-																: null
-														}
-														onForward={
-															available
-																? () => visit(visits.forward(existsRef.current))
-																: null
-														}
-														onSettings={() => setSetting(true)}
-														onTerminal={
-															shown === null
-																? null
-																: () => toggleTerminal(shown.id)
-														}
-													/>
-													<TooltipProvider>
-														<CheckpointProvider
-															conversations={conversations.filter(
-																(each) => !each.archived,
-															)}
-															every={checkpointEvery}
-															restartShown={checkpointRestartShown}
-															reload={reload}
-															autoRestart={autoRestart}
-														>
-															{wide ? (
-																<DesktopApp
-																	page={page}
-																	open={open}
-																	go={go}
-																	name={name}
-																	bodies={bodies}
-																	opening={opening}
-																	paned={paned}
-																	available={available}
-																	snapshot={snapshot}
-																	outdated={outdated}
-																	offline={offline}
-																	talk={talk}
-																	drafts={drafts}
-																	terminals={terminals}
-																	menu={pageMenu}
+															onForward={
+																available
+																	? () =>
+																			visit(visits.forward(existsRef.current))
+																	: null
+															}
+															onSettings={() => setSetting(true)}
+															onTerminal={
+																shown === null
+																	? null
+																	: () => toggleTerminal(shown.id)
+															}
+														/>
+														<TooltipProvider>
+															<CheckpointProvider
+																conversations={conversations.filter(
+																	(each) => !each.archived,
+																)}
+																every={checkpointEvery}
+																restartShown={checkpointRestartShown}
+																reload={reload}
+																autoRestart={autoRestart}
+															>
+																{wide ? (
+																	<DesktopApp
+																		page={page}
+																		open={open}
+																		go={go}
+																		name={name}
+																		bodies={bodies}
+																		opening={opening}
+																		paned={paned}
+																		available={available}
+																		snapshot={snapshot}
+																		outdated={outdated}
+																		offline={offline}
+																		talk={talk}
+																		drafts={drafts}
+																		terminals={terminals}
+																		menu={pageMenu}
+																	/>
+																) : (
+																	<PhoneApp
+																		page={page}
+																		open={open}
+																		go={go}
+																		name={name}
+																		header={header}
+																		offline={offline}
+																		body={
+																			bodies === null ? (
+																				opening
+																			) : (
+																				<div className={PHONE_PAGES[page]}>
+																					{bodies[page]}
+																				</div>
+																			)
+																		}
+																		available={available}
+																		waiting={counted ? waiting : 0}
+																		snapshot={snapshot}
+																		talk={talk}
+																		drafts={drafts}
+																		terminals={terminals}
+																		pageMenu={pageMenu}
+																	/>
+																)}
+																{pane}
+																<SearchDialog searched={searched} pick={pick} />
+																<SettingsDialog
+																	settings={settings}
+																	open={setting}
+																	onOpenChange={setSetting}
 																/>
-															) : (
-																<PhoneApp
-																	page={page}
-																	open={open}
-																	go={go}
-																	name={name}
-																	header={header}
-																	offline={offline}
-																	body={
-																		bodies === null ? (
-																			opening
-																		) : (
-																			<div className={PHONE_PAGES[page]}>
-																				{bodies[page]}
-																			</div>
-																		)
-																	}
-																	available={available}
-																	waiting={counted ? waiting : 0}
-																	snapshot={snapshot}
-																	talk={talk}
-																	drafts={drafts}
-																	terminals={terminals}
-																	pageMenu={pageMenu}
-																/>
-															)}
-															{pane}
-															<SearchDialog searched={searched} pick={pick} />
-															<SettingsDialog
-																settings={settings}
-																open={setting}
-																onOpenChange={setSetting}
-															/>
-														</CheckpointProvider>
-													</TooltipProvider>
-												</ShortcutSettings>
-											</ShowTerminal>
-										</ShellRunning>
-									</ToggleTerminal>
-								</NestedPanesContext>
-							</WatchBackground>
-						</ReviewChanges>
-					</Trunk>
-				</Dispatching>
-			</Lanes>
-		</Held>
+															</CheckpointProvider>
+														</TooltipProvider>
+													</ShortcutSettings>
+												</ShowTerminal>
+											</ShellRunning>
+										</ToggleTerminal>
+									</NestedPanesContext>
+								</WatchBackground>
+							</ReviewChanges>
+						</Trunk>
+					</Dispatching>
+				</Lanes>
+			</Held>
+		</OpenerContext>
 	);
 }

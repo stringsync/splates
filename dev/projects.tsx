@@ -1,13 +1,21 @@
 import {
 	CheckIcon,
 	ChevronsUpDownIcon,
+	ExternalLinkIcon,
 	HouseIcon,
 	PlusIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, useCallback, useContext, useEffect, useState } from "react";
+import {
+	type JSX,
+	use,
+	useCallback,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
-import { Button } from "#dev/components/ui/button.tsx";
+import { Button, buttonVariants } from "#dev/components/ui/button.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import {
@@ -21,6 +29,7 @@ import type { ServerChoice } from "../dev-servers";
 import { AddProject } from "./add-project";
 import { Dot } from "./dot";
 import { NavigationContext } from "./navigation";
+import { OpenerContext } from "./openers";
 import {
 	focusProject,
 	forgetProject,
@@ -97,7 +106,8 @@ export function projectUrl(project: { slug: string }): string {
  * shortcut, ⌃⌘P unless set otherwise, which no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
  * while another project has agents waiting on you. Below them, when this
  * machine runs slots, every `arbor dev` it has a host for, picked to open
- * that one's page instead. Last, a way to add a project by its path.
+ * that one's page instead. Last, a way to add a project by its path. Each
+ * project opens in the editor Settings names, too.
  */
 export function ProjectSwitcher({
 	name,
@@ -116,6 +126,7 @@ export function ProjectSwitcher({
 	const [adding, setAdding] = useState(false);
 	const shown = shownProject();
 	const navigation = useContext(NavigationContext);
+	const opener = use(OpenerContext);
 	const { refusal, refuse: refused } = useRefusal();
 
 	const load = useCallback(
@@ -313,6 +324,20 @@ export function ProjectSwitcher({
 									</span>
 								)}
 							</button>
+							{!each.gone && (
+								<a
+									href={opener.url(each.root, null)}
+									aria-label={`Open ${each.slug} in ${opener.label}`}
+									title={`Open in ${opener.label}`}
+									className={cn(
+										buttonVariants({ variant: "ghost", size: "icon-xs" }),
+										at !== active &&
+											"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100",
+									)}
+								>
+									<ExternalLinkIcon />
+								</a>
+							)}
 							<Button
 								size="icon-xs"
 								variant="ghost"

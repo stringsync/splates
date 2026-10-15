@@ -157,6 +157,22 @@ describe("App's projects", () => {
 		);
 	});
 
+	it("opens each project still there in the editor the settings pick", async () => {
+		localStorage.setItem(
+			"arbor.settings",
+			JSON.stringify({ "editor.opener": "cursor" }),
+		);
+		const view = await testing.open();
+		await openSwitcher(view);
+
+		const shop = await waitFor(() =>
+			view.getByRole("link", { name: "Open shop in Cursor" }),
+		);
+		expect(shop.getAttribute("href")).toBe("cursor://file/code/shop");
+		expect(view.queryByRole("link", { name: "Open old in Cursor" })).toBeNull();
+		localStorage.clear();
+	});
+
 	it("forgets a project that is gone", async () => {
 		const view = await testing.open();
 		await openSwitcher(view);

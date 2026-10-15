@@ -80,7 +80,7 @@ export const SETTINGS = {
 		category: "Editor",
 		title: "Open files in",
 		description:
-			"Where a file an agent read or edited opens when you click it in a conversation.",
+			"Where a file an agent read or edited opens when you click it in a conversation, and a project from the project picker.",
 		default: ZED.id,
 		choices: OPENERS.map(({ id, label }) => ({ value: id, label })),
 	},
