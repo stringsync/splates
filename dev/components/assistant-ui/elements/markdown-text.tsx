@@ -8,7 +8,7 @@ import {
 	useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { type FC, memo, useContext, useMemo, useRef } from "react";
+import { type FC, type JSX, memo, useContext, useMemo, useRef } from "react";
 import remarkGfm from "remark-gfm";
 import { AttachmentChip, attachmentIn } from "#dev/attachment-chips.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -32,6 +32,8 @@ import {
 } from "#dev/mentioned.tsx";
 import { TaskChip } from "#dev/reference-chip.tsx";
 
+export const MarkdownText = memo(MarkdownTextImpl);
+
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
 	components?: Parameters<typeof memoizeMarkdownComponents>[0];
 	/**
@@ -42,9 +44,9 @@ type MarkdownTextProps = Partial<TextMessagePartProps> & {
 	typed?: (text: string) => string;
 };
 
-const useShallowStable = <T extends Record<string, unknown> | undefined>(
+function useShallowStable<T extends Record<string, unknown> | undefined>(
 	value: T,
-): T => {
+): T {
 	const ref = useRef(value);
 	if (value !== ref.current) {
 		const prev = ref.current;
@@ -58,9 +60,12 @@ const useShallowStable = <T extends Record<string, unknown> | undefined>(
 		}
 	}
 	return ref.current;
-};
+}
 
-const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, typed }) => {
+function MarkdownTextImpl({
+	components,
+	typed,
+}: MarkdownTextProps): JSX.Element {
 	const stableComponents = useShallowStable(components);
 	const named = useContext(NamedContext);
 	const markdownComponents = useMemo(() => {
@@ -91,9 +96,7 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, typed }) => {
 			/>
 		</div>
 	);
-};
-
-export const MarkdownText = memo(MarkdownTextImpl);
+}
 
 /** The shape of the mdast nodes `keepBreaks` reads and writes. */
 interface MdNode {
@@ -264,7 +267,7 @@ const defaultComponents = memoizeMarkdownComponents({
 	blockquote: ({ className, ...props }) => (
 		<blockquote
 			className={cn(
-				"aui-md-blockquote border-muted-foreground/30 text-muted-foreground my-3 border-s-2 ps-4",
+				"aui-md-blockquote border-muted-foreground/30 text-muted-foreground my-3 border-s-2 ps-4 first:mt-0 last:mb-0",
 				className,
 			)}
 			{...props}
@@ -273,7 +276,7 @@ const defaultComponents = memoizeMarkdownComponents({
 	ul: ({ className, ...props }) => (
 		<ul
 			className={cn(
-				"aui-md-ul marker:text-muted-foreground my-3 ms-5 list-disc [&>li]:mt-1",
+				"aui-md-ul marker:text-muted-foreground my-3 ms-5 list-disc first:mt-0 last:mb-0 [&>li]:mt-1",
 				className,
 			)}
 			{...props}
@@ -282,7 +285,7 @@ const defaultComponents = memoizeMarkdownComponents({
 	ol: ({ className, ...props }) => (
 		<ol
 			className={cn(
-				"aui-md-ol marker:text-muted-foreground my-3 ms-5 list-decimal [&>li]:mt-1",
+				"aui-md-ol marker:text-muted-foreground my-3 ms-5 list-decimal first:mt-0 last:mb-0 [&>li]:mt-1",
 				className,
 			)}
 			{...props}
@@ -295,7 +298,7 @@ const defaultComponents = memoizeMarkdownComponents({
 		/>
 	),
 	table: ({ className, ...props }) => (
-		<div className="aui-md-table-wrapper my-3 overflow-x-auto">
+		<div className="aui-md-table-wrapper my-3 overflow-x-auto first:mt-0 last:mb-0">
 			<table
 				className={cn(
 					"aui-md-table w-full border-separate border-spacing-0",
