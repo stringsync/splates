@@ -3,7 +3,7 @@ import { MarkdownWriter } from "webappwiz/md";
 import type { Fs } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
-import { PLAN_FILE } from "./plan";
+import { PLAN_FILE, STUB_STEP } from "./plan";
 import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
 import type { Todo } from "./todo";
@@ -277,8 +277,5 @@ function PLAN(task: string, goal: string | null): string {
 	if (goal !== null) {
 		writer.text(goal);
 	}
-	return writer
-		.heading(2, "Next")
-		.checklist("fill in Goal and list the steps here as `- [ ]` items")
-		.toString();
+	return writer.heading(2, "Next").checklist(STUB_STEP).toString();
 }

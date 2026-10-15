@@ -3,6 +3,13 @@ import { Markdown } from "webappwiz/md";
 /** The plan each task keeps at its worktree root, excluded from git. */
 export const PLAN_FILE = "ARBOR.md";
 
+/**
+ * The one step under `## Next` a fresh task's `ARBOR.md` starts with, asking
+ * its agent to plan, which no one should read as the work under way.
+ */
+export const STUB_STEP =
+	"fill in Goal and list the steps here as `- [ ]` items";
+
 /** The h2 sections an `ARBOR.md` may have, in the order they belong in. */
 const SECTIONS = ["Goal", "Done", "Next", "Notes", "Assumptions", "Blocked"];
 const REQUIRED = ["Goal", "Next"];

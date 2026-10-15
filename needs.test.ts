@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { type ConversationState, unused } from "./conversations";
 import { need, needs } from "./needs";
+import { STUB_STEP } from "./plan";
 import type { Details } from "./show";
 
 describe("needs", () => {
@@ -120,6 +121,21 @@ describe("needs", () => {
 		});
 		expect(need(null, talk({ task: null, status: "idle" }))).toEqual({
 			kind: "idle",
+		});
+	});
+
+	it("says the Goal until the plan has a step of its own, never the stub's", () => {
+		const stub = `# alpha\n\n## Goal\n\nship it\n\n## Next\n\n- [ ] ${STUB_STEP}\n`;
+		expect(need(task({ plan: stub }), talk())).toEqual({
+			kind: "working",
+			subject: "ship it",
+		});
+		expect(
+			need(task({ plan: `${stub}- [ ] wire the header\n` }), talk()),
+		).toEqual({ kind: "working", subject: "wire the header" });
+		expect(need(task({ plan: stub.replace("ship it", "") }), talk())).toEqual({
+			kind: "working",
+			subject: null,
 		});
 	});
 

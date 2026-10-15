@@ -1,6 +1,6 @@
 import { Markdown } from "webappwiz/md";
 import type { ConversationState } from "./conversations";
-import { type Question, questions } from "./plan";
+import { goalLine, type Question, questions, STUB_STEP } from "./plan";
 import type { Details } from "./show";
 
 /**
@@ -32,7 +32,7 @@ export type Need =
 	  }
 	| {
 			kind: "working";
-			/** The first unchecked step under `## Next`, when there is one. */
+			/** The next step under `## Next`, else the Goal's first line. */
 			subject: string | null;
 	  }
 	| { kind: "idle" };
@@ -166,7 +166,7 @@ export function need(
 			: waiting("questions", first.text);
 	}
 	return running
-		? { kind: "working", subject: task?.plan ? nextStep(task.plan) : null }
+		? { kind: "working", subject: task?.plan ? doing(task.plan) : null }
 		: { kind: "idle" };
 }
 
@@ -213,7 +213,7 @@ export function answeredThrough(
 			return {
 				...entry,
 				need: running
-					? { kind: "working", subject: plan ? nextStep(plan) : null }
+					? { kind: "working", subject: plan ? doing(plan) : null }
 					: { kind: "idle" },
 			};
 		}
@@ -264,13 +264,23 @@ function pressing(one: Need, other: Need): number {
 	return 0;
 }
 
-const STEP = /^[ \t]*- \[ \][ \t]+(.+)$/m;
+const STEPS = /^[ \t]*- \[ \][ \t]+(.+)$/gm;
 
-/** The first unchecked item under `## Next`, as written. */
+/** What a task works on: its next step, or until it has one, its Goal. */
+function doing(plan: string): string | null {
+	return nextStep(plan) ?? goalLine(plan);
+}
+
+/** The first unchecked item under `## Next`, as written, but for the stub's. */
 function nextStep(plan: string): string | null {
 	const md = Markdown.parse(plan);
 	if (!md.has("Next")) {
 		return null;
 	}
-	return STEP.exec(md.section("Next").body)?.[1]?.trim() ?? null;
+	for (const [, step] of md.section("Next").body.matchAll(STEPS)) {
+		if (step !== undefined && step.trim() !== STUB_STEP) {
+			return step.trim();
+		}
+	}
+	return null;
 }
