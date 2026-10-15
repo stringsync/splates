@@ -5,7 +5,7 @@ import { Conversations } from "./conversations";
 import { dev } from "./dev";
 import { atWork, json } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
-import { CHECKPOINT, RESUME } from "./prompts";
+import { CHECKPOINT } from "./prompts";
 import { Testing } from "./testing";
 
 describe("dev checkpoint", () => {
@@ -36,6 +36,7 @@ describe("dev checkpoint", () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
+			exit: () => {},
 		});
 		try {
 			const { port } = server;
@@ -48,15 +49,18 @@ describe("dev checkpoint", () => {
 			await atWork(agent, conversation);
 
 			expect((await json(port, "/api/checkpoint", "POST")).status).toBe(400);
+			const unsaid = await json(port, "/api/checkpoint", "POST", {
+				projects: ["repo"],
+			});
+			expect(await unsaid.text()).toContain("resume or shutdown");
 			const response = await json(port, "/api/checkpoint", "POST", {
 				projects: ["repo"],
+				after: "resume",
 			});
 
 			expect(response.status).toBe(200);
 			await eventually(() => conversation.state.checkpoint === "done", 5);
 			expect(said).toEqual(["[ARBOR CHECKPOINT]"]);
-			await json(port, "/api/conversations/checkpoint", "DELETE");
-			expect(conversation.state.checkpoint).toBeNull();
 		} finally {
 			await server.disposeAsync();
 		}
@@ -66,6 +70,7 @@ describe("dev checkpoint", () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
+			exit: () => {},
 		});
 		try {
 			const { port } = server;
@@ -94,39 +99,6 @@ describe("dev checkpoint", () => {
 		}
 	});
 
-	it("tells each one done with a checkpoint to carry on", async () => {
-		const said: string[] = [];
-		agent.turn = async (_, __, text) => {
-			said.push(text);
-			return "end_turn";
-		};
-		const server = await dev(deps, {
-			ports: OpenPortProvider.any(),
-			conversations: () => conversations,
-		});
-		try {
-			const { port } = server;
-			const started = await json(port, "/api/conversations", "POST", {
-				agent: "fake",
-			});
-			const { id } = (await started.json()) as { id: string };
-			const conversation = await conversations.find(id);
-			await eventually(() => conversation.state.status === "idle", 5);
-			await atWork(agent, conversation);
-			await json(port, "/api/checkpoint", "POST", { projects: ["repo"] });
-			await eventually(() => conversation.state.checkpoint === "done", 5);
-
-			const response = await json(port, "/api/checkpoint/resume", "POST");
-
-			expect(response.status).toBe(200);
-			expect(conversation.state.checkpoint).toBeNull();
-			await eventually(() => said.length >= 2, 5);
-			expect(said).toEqual([CHECKPOINT, RESUME]);
-		} finally {
-			await server.disposeAsync();
-		}
-	});
-
 	it("asks only the conversations named, to retry those a checkpoint missed", async () => {
 		const said: string[] = [];
 		agent.turn = async (_, __, text) => {
@@ -136,6 +108,7 @@ describe("dev checkpoint", () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
+			exit: () => {},
 		});
 		try {
 			const { port } = server;
@@ -154,6 +127,7 @@ describe("dev checkpoint", () => {
 
 			await json(port, "/api/checkpoint", "POST", {
 				projects: ["repo"],
+				after: "resume",
 				conversations: [two.id],
 			});
 			await eventually(() => two.state.checkpoint === "done", 5);
@@ -174,6 +148,7 @@ describe("dev checkpoint", () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			conversations: () => conversations,
+			exit: () => {},
 		});
 		try {
 			const { port } = server;
@@ -185,9 +160,15 @@ describe("dev checkpoint", () => {
 			await eventually(() => conversation.state.status === "idle", 5);
 			await atWork(agent, conversation);
 
-			await json(port, "/api/checkpoint", "POST", { projects: ["repo"] });
+			await json(port, "/api/checkpoint", "POST", {
+				projects: ["repo"],
+				after: "resume",
+			});
 			await eventually(() => said.length !== 0, 5);
-			await json(port, "/api/checkpoint", "POST", { projects: ["repo"] });
+			await json(port, "/api/checkpoint", "POST", {
+				projects: ["repo"],
+				after: "resume",
+			});
 			await Bun.sleep(20);
 
 			expect(agent.cancelled).toBe(1);

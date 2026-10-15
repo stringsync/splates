@@ -55,14 +55,6 @@ export async function checkpointProjects(
 }
 
 /**
- * Tells each agent done with the checkpoint, in every project, to carry on,
- * and forgets the checkpoint of those it missed.
- */
-export async function resumeCheckpoint(): Promise<void> {
-	await send("/api/checkpoint/resume", {});
-}
-
-/**
  * Restarts `arbor dev` now, or with `shutdown` shuts it down, without a
  * checkpoint: an agent at work stops mid-turn.
  */
@@ -78,15 +70,8 @@ export async function restartIdle(): Promise<void> {
 	await send("/api/restart", {});
 }
 
-/** Forgets project `slug`'s checkpoint, so the next one starts afresh. */
-export async function dismissCheckpoint(slug: string): Promise<void> {
-	await send(inProject("/api/conversations/checkpoint", slug), {
-		method: "DELETE",
-	});
-}
-
 /** `path` for the project `slug` names, whichever one the page shows. */
-function inProject(path: string, slug: string): string {
+function _inProject(path: string, slug: string): string {
 	return `${path}?${new URLSearchParams({ project: slug })}`;
 }
 
@@ -103,9 +88,9 @@ export interface Projects {
 	restarting: { resume: boolean; shutdown: boolean } | null;
 	/**
 	 * How this run began, when a checkpoint's restart started it: its agents
-	 * `waiting` to be resumed, or `resuming`, told to carry on, until each has.
+	 * `resuming`, told to carry on, until each has.
 	 */
-	restarted: "waiting" | "resuming" | null;
+	restarted: "resuming" | null;
 	/** This run of `arbor dev`: another once it has restarted. */
 	run: string;
 	/** The version of arbor it runs. */

@@ -64,7 +64,7 @@ export async function serveProject(
 		handOff();
 	}
 
-	const talks = new ConversationRoutes(project, conversations, context);
+	const talks = new ConversationRoutes(project, conversations);
 	return {
 		...new TaskRoutes(project, conversations, watch),
 		...new TodoRoutes(project, talks, watch),
@@ -111,8 +111,6 @@ export interface DevContext {
 	readonly slot: Slot | null;
 	/** The conversations `project`'s page may hold, or null when they are off. */
 	conversationsFor(project: Project): Conversations | null;
-	/** Forgets the restart a checkpoint would follow, and how this run began. */
-	dismiss(): void;
 }
 
 /** A route's work once its project is known. */
@@ -165,7 +163,6 @@ export interface Served extends AsyncResource {
 	 * answering with what settles as each answers.
 	 */
 	checkpoint: (only?: string[]) => Promise<Promise<void>[]>;
-	dismissCheckpoint: Handler;
 	moveConversation: Handler;
 	promptConversation: Handler;
 	tellConversation: Handler;

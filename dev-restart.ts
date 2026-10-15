@@ -55,21 +55,20 @@ export class Restarts {
 	/**
 	 * The restart to follow the checkpoint under way, once every agent has
 	 * answered, and whether the next run resumes them, or whether it shuts
-	 * down instead, for the next start to find them waiting; null for none.
+	 * down instead, for the next start to resume them; null for none.
 	 */
 	private restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/**
 	 * How this run began, when a checkpoint's restart started it: its agents
-	 * `waiting` to be resumed, until the checkpoint ends or another is asked
-	 * for, or `resuming`, told to carry on, until each has.
+	 * `resuming`, told to carry on, until each has.
 	 */
-	private restarted: "waiting" | "resuming" | null = null;
+	private restarted: "resuming" | null = null;
 	/** This run of `arbor dev`, so a page can tell it has restarted. */
 	private readonly run = crypto.randomUUID();
 	/**
 	 * Written by a checkpoint's restart, beside the registry, with the other
-	 * projects whose agents it stopped, so the next run opens them at once,
-	 * and whether it resumes them.
+	 * projects whose agents it stopped, so the next run opens them at once
+	 * and resumes them.
 	 */
 	private readonly reopen: string;
 	// Projects read for their tasks alone, by root: opened, never served, so
@@ -85,15 +84,9 @@ export class Restarts {
 		this.reopen = `${path.slice(0, path.lastIndexOf("/"))}/restart.json`;
 	}
 
-	/** Forgets the restart a checkpoint would follow, and how this run began. */
-	dismiss(): void {
-		this.restarting = null;
-		this.restarted = null;
-	}
-
 	/**
-	 * Opens the projects a restart stopped agents in, which carry on once
-	 * served, resuming them when it said to.
+	 * Opens the projects a restart stopped agents in, and once they are
+	 * served, tells each agent done with the checkpoint to carry on.
 	 */
 	async reopenStopped(): Promise<void> {
 		const { fs, projects, served } = this.home;
@@ -102,17 +95,15 @@ export class Restarts {
 			return;
 		}
 		await fs.rm(this.reopen, { force: true });
-		const { roots, resume } = parseRestart(stopped);
-		this.restarted = resume ? "resuming" : "waiting";
+		const roots = parseRestart(stopped);
+		this.restarted = "resuming";
 		const registered = await projects.list();
 		const opening = roots
 			.filter((root) =>
 				registered.some((each) => each.root === root && !each.gone),
 			)
 			.map((root) => served.servedAt(root).catch(() => {}));
-		if (resume) {
-			void Promise.all(opening).then(() => this.carryOn());
-		}
+		void Promise.all(opening).then(() => this.carryOn());
 	}
 
 	// Each with the conversations a checkpoint would ask, or has asked, in
@@ -152,8 +143,9 @@ export class Restarts {
 
 	/**
 	 * Asks every live conversation in each project `projects` names, by slug,
-	 * for a checkpoint, then does what `after` says. A restart waits on all of
-	 * them, and stops other projects' agents as they are.
+	 * for a checkpoint, then restarts, or shuts down when `after` says to,
+	 * once all of them have answered, stopping other projects' agents as they
+	 * are; the next run tells each to carry on.
 	 */
 	readonly checkpointProjects = async (request: Request): Promise<Response> => {
 		const read = (await request.json().catch(() => ({}))) as {
@@ -165,16 +157,14 @@ export class Restarts {
 		if (slugs.length === 0) {
 			fail("usage", "name a project to checkpoint", {});
 		}
-		const after: After =
-			read.after === "restart" ||
-			read.after === "resume" ||
-			read.after === "shutdown"
-				? read.after
-				: "stop";
+		if (read.after !== "resume" && read.after !== "shutdown") {
+			fail("usage", "say what follows the checkpoint: resume or shutdown", {});
+		}
+		const after: After = read.after;
 		const only = Array.isArray(read.conversations)
 			? read.conversations.map(String)
 			: undefined;
-		if (after !== "stop" && this.opts.exit === null) {
+		if (this.opts.exit === null) {
 			fail(
 				"usage",
 				after === "shutdown"
@@ -182,6 +172,10 @@ export class Restarts {
 					: "arbor dev cannot restart itself here: restart it",
 				{},
 			);
+		}
+		// One under way already restarts once its agents answer.
+		if (this.restarting !== null) {
+			return Response.json({});
 		}
 		const chosen = await Promise.all(
 			slugs.map((slug) => this.home.served.projectNamed(slug)),
@@ -191,34 +185,7 @@ export class Restarts {
 		for (const project of chosen) {
 			asked.push(...(await project.checkpoint(only)));
 		}
-		if (after !== "stop") {
-			this.restartAfter(asked, after === "resume", {
-				shutdown: after === "shutdown",
-			});
-		}
-		return Response.json({});
-	};
-
-	/**
-	 * Tells each agent done with the checkpoint, in every project, to carry
-	 * on, and forgets the checkpoint of those it missed.
-	 */
-	readonly resumeCheckpoint = async (): Promise<Response> => {
-		this.restarting = null;
-		this.restarted = null;
-		await this.carryOn();
-		return Response.json({});
-	};
-
-	/**
-	 * Restarts `arbor dev` now, on a newer arbor if one is out, its agents
-	 * waiting on the next run to be resumed.
-	 */
-	readonly restartFromCheckpoint = async (): Promise<Response> => {
-		if (this.opts.exit === null) {
-			fail("usage", "arbor dev cannot restart itself here: restart it", {});
-		}
-		this.restartAfter([], false);
+		this.restartAfter(asked, { shutdown: after === "shutdown" });
 		return Response.json({});
 	};
 
@@ -242,7 +209,7 @@ export class Restarts {
 			);
 		}
 		this.restarted = null;
-		this.restartAfter([], false, { reopens: false, shutdown });
+		this.restartAfter([], { reopens: false, shutdown });
 		return Response.json({});
 	};
 
@@ -281,7 +248,7 @@ export class Restarts {
 				{ held },
 			);
 		}
-		this.restartAfter([], false, { reopens: false });
+		this.restartAfter([], { reopens: false });
 		return Response.json({});
 	};
 
@@ -409,19 +376,19 @@ export class Restarts {
 	/**
 	 * Restarts `arbor dev` once each checkpoint `asked` has been answered,
 	 * unless dismissed meanwhile, or with `shutdown`, exits for good, the
-	 * next start reopening as a restart would. Without `reopen`, the next run
-	 * starts as if started afresh, as for a restart with every agent idle.
+	 * next start reopening and resuming as a restart would. Without
+	 * `reopens`, the next run starts as if started afresh, as for a restart
+	 * with every agent idle.
 	 */
 	private restartAfter(
 		asked: Promise<void>[],
-		resume: boolean,
 		{
 			reopens = true,
 			shutdown = false,
 		}: { reopens?: boolean; shutdown?: boolean } = {},
 	): void {
 		const { fs, log, here, served, server } = this.home;
-		this.restarting = { resume, shutdown };
+		this.restarting = { resume: reopens, shutdown };
 		void Promise.all(asked).then(async () => {
 			if (this.restarting === null) {
 				return;
@@ -435,7 +402,7 @@ export class Restarts {
 						roots.push(root);
 					}
 				}
-				await fs.write(this.reopen, `${JSON.stringify({ roots, resume })}\n`);
+				await fs.write(this.reopen, `${JSON.stringify({ roots })}\n`);
 			}
 			const { release } = this.versions;
 			const code = shutdown ? 0 : release === null ? RESTART : UPDATE;
@@ -467,17 +434,15 @@ export class Restarts {
 	/**
 	 * Tells each agent done with the checkpoint to carry on, which ends its
 	 * checkpoint once said, and forgets the checkpoint of those it missed.
-	 * One whose agent fails to come back keeps its checkpoint, and this run
-	 * goes back to waiting, for the page to offer Resume again.
+	 * One whose agent fails to come back has its checkpoint forgotten too,
+	 * left failed for the person to open.
 	 */
 	private async carryOn(): Promise<void> {
 		for (const conversation of await this.checkpointed()) {
 			if (conversation.state.checkpoint === "done") {
-				void conversation.prompt(RESUME).catch(() => {
-					if (this.restarted === "resuming") {
-						this.restarted = "waiting";
-					}
-				});
+				void conversation
+					.prompt(RESUME)
+					.catch(() => conversation.dismissCheckpoint());
 			} else {
 				conversation.dismissCheckpoint();
 			}
@@ -485,15 +450,12 @@ export class Restarts {
 	}
 }
 
-/** What `restart.json` says: the projects to open, and whether to resume. */
-function parseRestart(raw: string): { roots: string[]; resume: boolean } {
+/** What `restart.json` says: the projects to open. */
+function parseRestart(raw: string): string[] {
 	try {
-		const parsed = JSON.parse(raw) as { roots?: unknown; resume?: unknown };
-		return {
-			roots: Array.isArray(parsed.roots) ? parsed.roots.map(String) : [],
-			resume: parsed.resume === true,
-		};
+		const parsed = JSON.parse(raw) as { roots?: unknown };
+		return Array.isArray(parsed.roots) ? parsed.roots.map(String) : [];
 	} catch {
-		return { roots: [], resume: false };
+		return [];
 	}
 }

@@ -104,12 +104,10 @@ export const IDLE_STOP = Duration.mins(30);
 export type Checkpoint = "asked" | "done" | "failed" | "unanswered";
 
 /**
- * What follows a checkpoint: the agents stop; or `arbor dev` restarts once
- * every agent is done, and they wait to be told to carry on; or it
- * restarts and tells each to carry on itself; or it shuts down, and the next
- * start finds them waiting to be told to carry on.
+ * What follows a checkpoint once every agent is done: `arbor dev` restarts
+ * and tells each to carry on, or shuts down, and its next start does.
  */
-export type After = "stop" | "restart" | "resume" | "shutdown";
+export type After = "resume" | "shutdown";
 
 /** One turn's worth of words, the person's or the agent's. */
 export interface Message {

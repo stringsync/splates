@@ -1,9 +1,4 @@
-import {
-	CheckIcon,
-	CircleAlertIcon,
-	Loader2Icon,
-	PowerIcon,
-} from "lucide-react";
+import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -118,12 +113,8 @@ export function CheckpointProvider({
 	const [unreachable, setUnreachable] = useState(false);
 	// Those of the checkpoint under way or done, for when it ends.
 	const last = useRef<ProjectChoice[]>([]);
-	// Closed once done, so its end says nothing, stopped as its agents are.
-	const forgotten = useRef(false);
 	// Seen telling its agents to carry on after a restart, until each has.
 	const resumed = useRef(false);
-	// Back from a restart whose agents waited to be resumed, until they are.
-	const waited = useRef(false);
 	// The last listing asked for, and the newest one shown, so one that lands
 	// after a newer one cannot take the dialog back.
 	const listings = useRef(0);
@@ -162,7 +153,7 @@ export function CheckpointProvider({
 		void here;
 		void load();
 	}, [here, load]);
-	const was = { resumed, last, forgotten, waited };
+	const was = { resumed, last };
 	const shown = offered(listed?.projects ?? []);
 	const all = standing(shown.flatMap((each) => each.conversations));
 	const live = slideOf(all);
@@ -234,7 +225,7 @@ export function CheckpointProvider({
 			}
 			return;
 		}
-		const end = endOf(listed, live, { resumed, last, forgotten, waited });
+		const end = endOf(listed, live, { resumed, last });
 		if (end !== null) {
 			setEnded(end);
 		}
@@ -245,13 +236,10 @@ export function CheckpointProvider({
 		}
 		if (live !== "pick") {
 			last.current = shown;
-			waited.current = listed.restarted === "waiting";
 			setEnded(null);
 			setBack(null);
 		} else {
 			last.current = [];
-			forgotten.current = false;
-			waited.current = false;
 		}
 	}, [listed, restarting, restartShown, shownLong]);
 	// Open, it stays until closed, rather than going back to the start.
@@ -287,8 +275,7 @@ export function CheckpointProvider({
 			? (ending?.restarted ?? null)
 			: slide === "restarted"
 				? back
-				: slide === "resuming" ||
-						(slide === "done" && listed?.restarted === "waiting")
+				: slide === "resuming"
 					? (listed?.running ?? null)
 					: null;
 	const opened = useCallback(() => setOpen(true), []);
@@ -320,9 +307,6 @@ export function CheckpointProvider({
 						setEnded(null);
 					}
 					setBack(null);
-				}}
-				onForget={() => {
-					forgotten.current = true;
 				}}
 				onRestart={(shutdown = false) =>
 					setRestarting(
@@ -407,19 +391,13 @@ export function PowerBadge(): JSX.Element | null {
 			onClick={() => open()}
 			className={cn(
 				"flex min-w-0 items-center gap-1.5 self-start text-xs hover:underline",
-				badge.tone === "busy"
-					? "text-muted-foreground"
-					: badge.tone === "done"
-						? "text-success"
-						: "text-destructive",
+				badge.tone === "busy" ? "text-muted-foreground" : "text-success",
 			)}
 		>
 			{badge.tone === "busy" ? (
 				<Loader2Icon aria-hidden className="size-3 shrink-0 animate-spin" />
-			) : badge.tone === "done" ? (
-				<CheckIcon aria-hidden className="size-3 shrink-0" />
 			) : (
-				<CircleAlertIcon aria-hidden className="size-3 shrink-0" />
+				<CheckIcon aria-hidden className="size-3 shrink-0" />
 			)}
 			<span className="truncate">{badge.label}</span>
 		</button>
@@ -462,19 +440,14 @@ function endOf(
 	was: {
 		resumed: RefObject<boolean>;
 		last: RefObject<ProjectChoice[]>;
-		forgotten: RefObject<boolean>;
-		waited: RefObject<boolean>;
 	},
 ): Ended | null {
 	return listed.restarted === "resuming"
 		? null
 		: was.resumed.current
 			? { projects: was.last.current, restarted: listed.running }
-			: live === "pick" && was.last.current.length > 0 && !was.forgotten.current
-				? {
-						projects: was.last.current,
-						restarted: was.waited.current ? listed.running : null,
-					}
+			: live === "pick" && was.last.current.length > 0
+				? { projects: was.last.current, restarted: null }
 				: null;
 }
 
@@ -496,13 +469,13 @@ const RESTARTED = "arbor.power.restarted";
 /** What the header says of a run: a word, and how it went. */
 export interface Badge {
 	label: string;
-	tone: "busy" | "done" | "failed";
+	tone: "busy" | "done";
 }
 
 /**
  * The header's word on the run `slide` is in, so a restart's end shows after
  * the reload too, whether or not Power is open: under way, its agents
- * `waiting` to resume, or done, for a while once `fresh` from a reload.
+ * `waiting` being resumed, or done, for a while once `fresh` from a reload.
  */
 function badgeOf(
 	slide: Slide,
@@ -524,9 +497,6 @@ function badgeOf(
 	}
 	if (slide === "resuming") {
 		return { label: `Resuming ${plural(waiting)}`, tone: "busy" };
-	}
-	if (slide === "done" && restarted) {
-		return { label: `${plural(waiting)} waiting to resume`, tone: "failed" };
 	}
 	if ((slide === "ended" && restarted) || (fresh && slide === "pick")) {
 		return { label: "Restarted", tone: "done" };

@@ -150,7 +150,6 @@ export async function dev(
 		slot,
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
-		dismiss: () => restarts.dismiss(),
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
@@ -255,8 +254,6 @@ export async function dev(
 	const {
 		listProjects,
 		checkpointProjects,
-		resumeCheckpoint,
-		restartFromCheckpoint,
 		restartIdle,
 		powerNow,
 		forgetProject,
@@ -328,10 +325,6 @@ export async function dev(
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/power": { POST: talk(guarded(powerNow)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
-			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },
-			"/api/checkpoint/restart": {
-				POST: talk(guarded(restartFromCheckpoint)),
-			},
 			"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 			"/api/snapshot": scoped((project) => project.snapshot),
 			"/api/file": scoped((project) => project.file),
@@ -393,9 +386,6 @@ export async function dev(
 			},
 			"/api/conversations/limits": {
 				POST: talk(scoped((project) => project.refreshLimits)),
-			},
-			"/api/conversations/checkpoint": {
-				DELETE: talk(scoped((project) => project.dismissCheckpoint)),
 			},
 			"/api/conversations/events": talk(
 				scoped((project) => project.conversationEvents),

@@ -39,86 +39,6 @@ describe("App's checkpoint restart", () => {
 		testing.dispose();
 	});
 
-	it("holds one title through a restart that waits to resume, then offers Resume", async () => {
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "asked")], true),
-		];
-		testing.restarting = { resume: false, shutdown: false };
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", status: "running" })],
-			null,
-		);
-		await act(async () =>
-			fireEvent.click(await menuItem(view, "Restarting arbor dev")),
-		);
-		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Restarting arbor dev" }),
-		);
-		expect(steps(dialog)).toEqual(["Checkpoint", "Restart"]);
-		expect(current(dialog)).toBe("Checkpoint");
-		expect(dialog.textContent).toContain("0 of 1 agent checkpointed.");
-
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "done")], true),
-		];
-		await testing.say(
-			conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
-		);
-		await waitFor(() => expect(current(dialog)).toBe("Restart"));
-		expect(dialog.textContent).toContain(
-			"arbor dev is restarting. This page reloads once it is back.",
-		);
-		// No list of agents while all goes well.
-		expect(within(dialog).queryByRole("link")).toBeNull();
-		expect(
-			within(dialog)
-				.getAllByRole("button")
-				.map((each) => each.textContent),
-		).toEqual(["Close", "Close"]);
-
-		// Back, as another run, its agents waiting to be resumed.
-		await act(async () => testing.talkStream?.onerror?.());
-		testing.restarting = null;
-		testing.restarted = "waiting";
-		testing.run = "run-2";
-		await act(async () => testing.talkStream?.onopen?.());
-		await testing.say(
-			conversation({ id: "c1", status: "stopped", checkpoint: "done" }),
-		);
-
-		const waiting = await waitFor(() =>
-			view.getByRole("dialog", { name: "Agents waiting to resume" }),
-		);
-		expect(testing.reloads).toBe(1);
-		expect(waiting.textContent).toContain(
-			"Now on arbor 0.0.1. 1 agent waiting to resume.",
-		);
-		expect(
-			within(waiting)
-				.getAllByRole("button")
-				.map((each) => each.textContent),
-		).toEqual(["Close", "Resume", "Close"]);
-		await act(async () =>
-			fireEvent.click(within(waiting).getByRole("button", { name: "Resume" })),
-		);
-		expect(testing.posted("/api/checkpoint/resume")).toEqual([
-			{ method: "POST", body: {} },
-		]);
-
-		testing.restarted = null;
-		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
-		await testing.say(conversation({ id: "c1", status: "running" }));
-		const resumed = await waitFor(() =>
-			view.getByRole("dialog", { name: "arbor dev restarted" }),
-		);
-		await waitFor(() =>
-			expect(resumed.textContent).toContain(
-				"Now on arbor 0.0.1. 1 agent back at work.",
-			),
-		);
-		expect(current(resumed)).toBeNull();
-	});
-
 	it("restarts and resumes on one screen, though the page never saw the last answer", async () => {
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
@@ -214,27 +134,6 @@ describe("App's checkpoint restart", () => {
 		await waitFor(() =>
 			again.getByRole("dialog", { name: "arbor dev restarted" }),
 		);
-	});
-
-	it("says in red in the header when agents wait to resume after a restart, opening Power to resume them", async () => {
-		testing.projects = [
-			project("webappwiz", [live("c1", "One", "done")], true),
-		];
-		testing.restarted = "waiting";
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", status: "stopped", checkpoint: "done" })],
-			null,
-		);
-		const badge = await waitFor(() =>
-			view.getByRole("button", { name: "1 agent waiting to resume" }),
-		);
-
-		await act(async () => fireEvent.click(badge));
-
-		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: "Agents waiting to resume" }),
-		);
-		expect(within(dialog).getByRole("button", { name: "Resume" })).toBeTruthy();
 	});
 
 	it("names the agents a checkpoint missed, and no others", async () => {

@@ -21,10 +21,8 @@ import {
 } from "./checkpoint-slide";
 import {
 	checkpointProjects,
-	dismissCheckpoint,
 	type ProjectChoice,
 	powerNow,
-	resumeCheckpoint,
 } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 
@@ -43,15 +41,14 @@ export interface Restarting {
  * work first unless unticked, and resuming them after a restart; then one
  * screen for the whole run, its title held throughout, its steps in a line
  * with the one under way spinning, a sentence on where it is, and only the
- * agents that missed. A checkpoint left done, its agents stopped, offers to
- * resume them; closing it then forgets the checkpoint.
+ * agents that missed. The agents carry on by themselves after the restart,
+ * or on the next start after a shutdown.
  */
 export function CheckpointDialog({
 	open,
 	checkpoint,
 	onCheckpoint,
 	onClose,
-	onForget,
 	onRestart,
 	projects,
 	slide,
@@ -70,8 +67,6 @@ export function CheckpointDialog({
 	checkpoint: boolean;
 	onCheckpoint: (checkpoint: boolean) => void;
 	onClose: () => void;
-	/** Forgets a done checkpoint, whose agents stay stopped. */
-	onForget: () => void;
 	/** Says `arbor dev` is restarting, or with `shutdown` shutting down, once asked to. */
 	onRestart: (shutdown?: boolean) => void;
 	projects: ProjectChoice[];
@@ -106,28 +101,8 @@ export function CheckpointDialog({
 			.then(onChange, (error: unknown) => refuse(failed, error))
 			.finally(() => setBusy(false));
 	};
-	const close = () => {
-		if (slide !== "done") {
-			onClose();
-			return;
-		}
-		const asked = projects.filter(
-			(each) => standing(each.conversations).asked.length > 0,
-		);
-		onForget();
-		void act(
-			() =>
-				Promise.all(asked.map((each) => dismissCheckpoint(each.slug))).then(
-					() => {},
-				),
-			"Not dismissed",
-		).then(onClose);
-	};
 	const resumes =
-		restarting?.resume === true ||
-		slide === "resuming" ||
-		slide === "ended" ||
-		(slide === "done" && restarted !== null);
+		restarting?.resume === true || slide === "resuming" || slide === "ended";
 	const steps = stepsOf(slide, run, {
 		checkpointed: all.asked.length > 0,
 		resumes,
@@ -151,11 +126,9 @@ export function CheckpointDialog({
 									? all.asked.length > 0
 										? "Start arbor dev again to resume the agents."
 										: "Start arbor dev again from a terminal."
-									: restarted !== null
-										? `${on(restarted)}${plural(resumable.length)} waiting to resume.`
-										: `${plural(resumable.length)} checkpointed and stopped.`;
+									: `${plural(resumable.length)} checkpointed.`;
 	return (
-		<Dialog open={open} onOpenChange={(next) => !next && close()}>
+		<Dialog open={open} onOpenChange={(next) => !next && onClose()}>
 			<DialogContent className="sm:max-w-md">
 				{/* Keyed, so the run comes in once and stays in place as its
 				    steps move on. */}
@@ -199,17 +172,9 @@ export function CheckpointDialog({
 							<MissedList projects={projects} onOpen={onClose} />
 							<Refusal refusal={refusal} />
 							<DialogFooter>
-								<Button variant="outline" disabled={busy} onClick={close}>
+								<Button variant="outline" disabled={busy} onClick={onClose}>
 									Close
 								</Button>
-								{slide === "done" && resumable.length > 0 && (
-									<Button
-										disabled={busy}
-										onClick={() => void act(resumeCheckpoint, "Not resumed")}
-									>
-										Resume
-									</Button>
-								)}
 							</DialogFooter>
 						</>
 					)}

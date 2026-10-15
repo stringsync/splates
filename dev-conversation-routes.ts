@@ -15,7 +15,7 @@ import {
 	MEDIA_TYPES,
 	refuse,
 } from "./dev-http";
-import type { DevContext, Project } from "./dev-project";
+import type { Project } from "./dev-project";
 import { fail } from "./exit";
 import { stoppedReference } from "./prompts";
 import { modelsOf } from "./roster";
@@ -29,7 +29,6 @@ import { modelsOf } from "./roster";
 export class ConversationRoutes {
 	readonly #project: Project;
 	readonly #conversations: Conversations | null;
-	readonly #context: DevContext;
 	// Each change carries the whole conversation, since an agent streams in
 	// small pieces and a page refetching after each would fall behind. At most
 	// one per conversation per beat, the latest, which holds everything before.
@@ -38,14 +37,9 @@ export class ConversationRoutes {
 	readonly #unlisten: (() => void) | undefined;
 	readonly #unlistenRemoved: (() => void) | undefined;
 
-	constructor(
-		project: Project,
-		conversations: Conversations | null,
-		context: DevContext,
-	) {
+	constructor(project: Project, conversations: Conversations | null) {
 		this.#project = project;
 		this.#conversations = conversations;
-		this.#context = context;
 		const timer = new SystemTimer();
 		this.#unlisten = conversations?.events.on("changed", (id) => {
 			const beat = this.#beats.get(id) ?? new Throttler(timer, BEAT);
@@ -288,15 +282,6 @@ export class ConversationRoutes {
 		const { background } = await body(request);
 		await conversation.stopBackground(String(background ?? ""));
 		return Response.json(conversation.state);
-	};
-
-	/** Forgets the checkpoint here, so the next click starts a new one. */
-	readonly dismissCheckpoint = async (): Promise<Response> => {
-		this.#context.dismiss();
-		for (const conversation of await this.held().list()) {
-			conversation.dismissCheckpoint();
-		}
-		return Response.json({});
 	};
 
 	readonly unqueueConversation = async (

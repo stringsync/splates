@@ -140,7 +140,7 @@ export class Testing implements Resource {
 	/** The restart `/api/projects` says follows the checkpoint, if any. */
 	restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/** How `/api/projects` says this run began, after a checkpoint's restart. */
-	restarted: "waiting" | "resuming" | null = null;
+	restarted: "resuming" | null = null;
 	/** The run of `arbor dev` `/api/projects` names: a test changes it to restart. */
 	run = "run-1";
 	/** Whether `/api/projects` says `arbor dev` can restart itself. */

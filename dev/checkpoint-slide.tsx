@@ -1,9 +1,4 @@
-import {
-	CheckIcon,
-	CircleAlertIcon,
-	Loader2Icon,
-	PowerIcon,
-} from "lucide-react";
+import { CheckIcon, Loader2Icon, PowerIcon } from "lucide-react";
 import type { JSX } from "react";
 import { DialogTitle } from "#dev/components/ui/dialog.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -19,7 +14,7 @@ export interface Standing {
 
 /**
  * Where the dialog is: picking projects, waiting on agents, done with them
- * stopped, waiting on `arbor dev` to restart, back from a restart with no
+ * before `arbor dev` goes, waiting on it to restart, back from a restart with no
  * agent to resume, its agents being told to carry on after the restart, or
  * ended with them carrying on; or waiting on `arbor dev` to shut down, and
  * gone once it has.
@@ -44,8 +39,7 @@ export type Run = "restart" | "shutdown" | null;
 
 /**
  * The dialog's title, and the menu item's, the same for a whole run, so a
- * restart reads as one thing happening rather than a phase at a time; done
- * says the agents wait to resume when a restart came before.
+ * restart reads as one thing happening rather than a phase at a time.
  */
 export function titleOf(slide: Slide, run: Run, restarted: boolean): string {
 	switch (slide) {
@@ -69,7 +63,7 @@ export function titleOf(slide: Slide, run: Run, restarted: boolean): string {
 		case "shutDown":
 			return "arbor dev shut down";
 		case "done":
-			return restarted ? "Agents waiting to resume" : "Agents checkpointed";
+			return "Agents checkpointed";
 	}
 }
 
@@ -86,7 +80,7 @@ export function PowerTitle({ title }: { title: string }): JSX.Element {
 /** One step of a run, and how far it has got. */
 export interface Step {
 	label: string;
-	state: "done" | "now" | "todo" | "failed";
+	state: "done" | "now" | "todo";
 }
 
 /**
@@ -106,15 +100,14 @@ export function stepsOf(
 			slide === "restarting" ||
 			slide === "restarted" ||
 			slide === "resuming" ||
-			slide === "ended" ||
-			(slide === "done" && resumes));
+			slide === "ended");
 	// How far along the run is: steps before it are done, it is under way.
 	const at =
 		slide === "going"
 			? 0
 			: slide === "restarting" || slide === "shuttingDown"
 				? 1
-				: slide === "resuming" || (slide === "done" && resumes)
+				: slide === "resuming"
 					? 2
 					: 3;
 	const all: { label: string; index: number }[] = [
@@ -125,14 +118,7 @@ export function stepsOf(
 	];
 	return all.map(({ label, index }) => ({
 		label,
-		state:
-			index < at
-				? "done"
-				: index > at
-					? "todo"
-					: slide === "done"
-						? "failed"
-						: "now",
+		state: index < at ? "done" : index > at ? "todo" : "now",
 	}));
 }
 
@@ -173,10 +159,6 @@ function StepIcon({ state }: { state: Step["state"] }): JSX.Element {
 					aria-hidden
 					className="size-3.5 animate-spin text-muted-foreground"
 				/>
-			);
-		case "failed":
-			return (
-				<CircleAlertIcon aria-hidden className="size-3.5 text-destructive" />
 			);
 		case "todo":
 			return (
