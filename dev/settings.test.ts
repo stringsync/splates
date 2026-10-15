@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { Settings, search } from "./settings";
+import { definitionOf, type Key, SETTINGS, Settings, search } from "./settings";
 import "./testing";
 
 /** A browser that answers a request to notify with `answer`. */
@@ -97,14 +97,26 @@ describe("Settings", () => {
 	});
 
 	it("searches by every word, in titles, descriptions and categories", () => {
-		expect(search("")).toHaveLength(31);
+		const keys = Object.keys(SETTINGS) as Key[];
+		expect(search("")).toEqual(keys);
 		expect(search("quiet")).toEqual([
 			"notifications.on",
 			"notifications.quiet",
 			"notifications.quietAfter",
 		]);
 		expect(search("SOUND chime")).toEqual(["notifications.sound"]);
-		expect(search("notifications")).toHaveLength(7);
+		const found = search("notifications");
+		const notifications = keys.filter(
+			(key) => definitionOf(key).category === "Notifications",
+		);
+		expect(found).toEqual(expect.arrayContaining(notifications));
+		const unrelated = found.filter((key) => {
+			const { category, title, description } = definitionOf(key);
+			return !`${category} ${title} ${description}`
+				.toLowerCase()
+				.includes("notifications");
+		});
+		expect(unrelated).toEqual([]);
 		expect(search("nothing like it")).toEqual([]);
 	});
 });
