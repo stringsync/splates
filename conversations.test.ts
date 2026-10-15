@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { until } from "./conversation-testing";
+import { Adherence } from "./adherence";
+import { eventually, until } from "./conversation-testing";
 import { Conversations } from "./conversations";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { Limits } from "./limits";
@@ -190,6 +191,66 @@ describe("Conversations", () => {
 		await later.disposeAsync();
 	});
 
+	it("keeps the project's arbor skill version from the start, past a restart", async () => {
+		await fs.write(
+			"/repo/.agents/skills/arbor/SKILL.md",
+			"---\nname: arbor\nversion: 0.0.43\n---\n\n# Using arbor\n",
+		);
+		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+			root: "/repo",
+		});
+		const conversation = await shop.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		await until(conversation, "idle");
+		await shop.disposeAsync();
+		// A later release does not change what it started on.
+		await fs.write(
+			"/repo/.agents/skills/arbor/SKILL.md",
+			"---\nversion: 0.0.44\n---\n",
+		);
+
+		const later = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+		});
+		expect(conversation.state.skill).toBe("0.0.43");
+		expect((await later.find(conversation.id)).state.skill).toBe("0.0.43");
+		await later.disposeAsync();
+	});
+
+	it("judges how a conversation follows the skill as each turn ends", async () => {
+		const adherence = new Adherence("/home/.arbor/adherence.jsonl", fs, null);
+		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+			adherence,
+		});
+		const conversation = await shop.start("fake", { task: null, cwd: "/repo" });
+		await until(conversation, "idle");
+		await conversation.prompt("hello");
+		await until(conversation, "idle");
+		// Judged as the turn ends, without waiting on it.
+		await Bun.sleep(10);
+
+		expect(await adherence.list()).toMatchObject([
+			{ conversation: conversation.id, project: "/repo", skill: null },
+		]);
+		await shop.disposeAsync();
+	});
+
 	it("remembers an agent's plan limits for every project, the newest of each window", async () => {
 		const limits = new Limits("/home/.arbor/limits.json", { fs });
 		agent.turn = async (connection) => {
@@ -293,13 +354,7 @@ describe("Conversations", () => {
 
 		await conversation.prompt("one");
 		await until(conversation, "idle");
-		for (
-			let i = 0;
-			i < 100 && conversation.state.usage.limits.length === 0;
-			i++
-		) {
-			await Bun.sleep(1);
-		}
+		await eventually(() => conversation.state.usage.limits.length > 0);
 
 		expect(asked).toEqual(["fake"]);
 		expect(conversation.state.usage.limits).toEqual([window]);

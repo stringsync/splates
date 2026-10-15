@@ -172,6 +172,11 @@ export class Worktree {
 		return this.service.discard(this, ended, opts);
 	}
 
+	/** The message of each commit it has that its base does not, oldest first. */
+	commitMessages(): Promise<string[] | null> {
+		return this.service.git.commitMessages(this.base, this.branch);
+	}
+
 	commitsAhead(): Promise<number | null> {
 		return this.service.git.commitsAhead(this.base, this.branch);
 	}
@@ -236,6 +241,11 @@ export interface DiscardOptions {
 	 * from the branch when not given.
 	 */
 	changed?: string[];
+	/**
+	 * The message of each commit a merge lands, read before landing as
+	 * `changed` is.
+	 */
+	commits?: string[];
 	/** Why it was removed, as `arbor remove --reason` gives it. */
 	reason?: RemoveReason;
 }

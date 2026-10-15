@@ -1,7 +1,7 @@
 import "../../../setup";
 import { describe, expect, it } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { combine, type PeriodId, type Stats } from "../stats";
+import { combine, type PeriodId, rates, type Stats } from "../stats";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 
@@ -29,6 +29,7 @@ describe("StatsPage", () => {
 			projects: [{ project: "/repo", ...tally }],
 			systems: [],
 			since: "2026-09-28T10:00:00.000Z",
+			skill: [],
 		};
 		const page = render(
 			<StatsPage
@@ -59,6 +60,73 @@ describe("StatsPage", () => {
 		);
 	});
 
+	it("compares each skill rule's pass rate across the newest skill versions", async () => {
+		const stats: Stats = {
+			buckets: [],
+			previous: null,
+			models: [{ model: "Opus 5.5", ...tally }],
+			projects: [],
+			systems: [],
+			since: "2026-10-12T10:00:00.000Z",
+			skill: rates([
+				{
+					conversation: "a",
+					project: "/repo",
+					agent: "claude",
+					skill: "0.0.44",
+					at: "2026-10-14T10:00:00.000Z",
+					scores: { "added-card": { passed: 1, failed: 0 } },
+				},
+				{
+					conversation: "b",
+					project: "/repo",
+					agent: "claude",
+					skill: "0.0.44",
+					at: "2026-10-14T10:00:00.000Z",
+					scores: { "added-card": { passed: 1, failed: 1 } },
+				},
+				{
+					conversation: "c",
+					project: "/repo",
+					agent: "claude",
+					skill: "0.0.43",
+					at: "2026-10-13T10:00:00.000Z",
+					scores: {},
+				},
+			]),
+		};
+		const page = render(
+			<StatsPage
+				report={new StatsReport({ stats: async () => stats })}
+				systems={[]}
+			/>,
+		);
+
+		await waitFor(() => page.getByRole("region", { name: "act on" }));
+		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
+		const row = await waitFor(() =>
+			page.getByRole("cell", {
+				name: "Says what it added right after arbor add",
+			}),
+		);
+
+		const table = page.getByText("By skill version").parentElement;
+		expect(
+			Array.from(table?.querySelectorAll("th") ?? []).map(
+				(each) => each.textContent,
+			),
+		).toEqual(["Rule", "0.0.442 conversations", "0.0.431 conversation"]);
+		expect(
+			Array.from(row.parentElement?.querySelectorAll("td") ?? []).map(
+				(each) => each.textContent,
+			),
+		).toEqual([
+			"Says what it added right after arbor add",
+			"50% of 2",
+			"\u2013",
+		]);
+	});
+
 	it("heads each breakdown with only the figures it is read for, each saying what it counts", async () => {
 		const stats: Stats = {
 			buckets: [],
@@ -67,6 +135,7 @@ describe("StatsPage", () => {
 			projects: [{ project: "/repo", ...tally }],
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
+			skill: [],
 		};
 		const page = render(
 			<StatsPage
@@ -116,6 +185,7 @@ describe("StatsPage", () => {
 				{ system: "docs", ...tally, merged: 5, questionRounds: 1 },
 			],
 			since: "2026-10-12T10:00:00.000Z",
+			skill: [],
 		};
 		const page = render(
 			<StatsPage
@@ -145,6 +215,7 @@ describe("StatsPage", () => {
 			projects: [],
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
+			skill: [],
 		};
 		const page = render(
 			<StatsPage
@@ -177,6 +248,7 @@ describe("StatsPage", () => {
 			projects: [],
 			systems: [],
 			since: "2026-07-01T10:00:00.000Z",
+			skill: [],
 		};
 		const page = render(
 			<StatsPage
@@ -199,6 +271,7 @@ describe("StatsPage", () => {
 			projects: [],
 			systems: [],
 			since: null,
+			skill: [],
 		};
 		const page = render(
 			<StatsPage
@@ -219,6 +292,7 @@ describe("StatsPage", () => {
 			projects: [],
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
+			skill: [],
 		};
 		const page = render(
 			<StatsPage

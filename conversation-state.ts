@@ -51,6 +51,12 @@ export interface ConversationState {
 	 */
 	handedBy: string | null;
 	/**
+	 * The `version:` of the project's arbor skill as it started, which the
+	 * Stats page tells adherence apart by; null when it had none, or for a log
+	 * written before it was kept.
+	 */
+	skill: string | null;
+	/**
 	 * Started on the agent and model a todo or `arbor add --agent` assigned,
 	 * rather than ones the person picked, so a new conversation does not start
 	 * where this one left its settings.
@@ -368,6 +374,7 @@ export function blank(
 		archived: false,
 		archivedWith: null,
 		handedBy,
+		skill: null,
 		assigned,
 		unread: false,
 		seen: 0,

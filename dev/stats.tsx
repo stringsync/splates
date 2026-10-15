@@ -12,6 +12,7 @@ import {
 	TooltipTrigger,
 } from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import type { SkillVersion } from "../stats";
 import type { NamedSystem } from "../systems";
 import type { Advice } from "./stats-advice";
 import {
@@ -143,6 +144,8 @@ export function StatsPage({
 								columns={BY_PROJECT}
 								named={systems}
 							/>
+							{/* Whether a change to the arbor skill helped or hurt, on real work. */}
+							<BySkillVersion versions={stats.skill} />
 						</CollapsibleContent>
 					</Collapsible>
 					{stats.since && (
@@ -412,6 +415,75 @@ function Breakdown({
 					</tbody>
 				</table>
 			</div>
+		</div>
+	);
+}
+
+/** How many skill versions the table compares, the newest first. */
+const VERSIONS_SHOWN = 3;
+
+/**
+ * Each rule of the arbor skill a program can check, by how often the
+ * conversations on each of the newest versions followed it every time, out of
+ * those it applied in.
+ */
+function BySkillVersion({
+	versions,
+}: {
+	versions: SkillVersion[];
+}): JSX.Element {
+	const shown = versions.slice(0, VERSIONS_SHOWN);
+	return (
+		<div className="mt-2 flex min-w-0 flex-col gap-2 text-foreground">
+			<h3 className="font-medium text-xs">By skill version</h3>
+			{shown.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					No conversation has been checked yet. Each turn an agent ends in arbor
+					dev from now on counts here.
+				</p>
+			) : (
+				<div className="overflow-x-auto">
+					<table className="w-full text-sm tabular-nums [&_td+td]:pl-4 [&_th+th]:pl-4">
+						<thead className="text-muted-foreground text-xs">
+							<tr className="whitespace-nowrap border-b text-right">
+								<th className="py-1 text-left font-normal">Rule</th>
+								{shown.map((version) => (
+									<th
+										key={version.skill ?? "unknown"}
+										className="py-1 font-normal"
+									>
+										{version.skill ?? "Unknown"}
+										<span className="block">
+											{version.conversations} conversation
+											{version.conversations === 1 ? "" : "s"}
+										</span>
+									</th>
+								))}
+							</tr>
+						</thead>
+						<tbody>
+							{shown[0]?.checks.map((check, row) => (
+								<tr
+									key={check.id}
+									className="border-b text-right last:border-0"
+								>
+									<td className="py-1 text-left">{check.rule}</td>
+									{shown.map((version) => {
+										const rate = version.checks[row];
+										return (
+											<td key={version.skill ?? "unknown"} className="py-1">
+												{rate === undefined || rate.applied === 0
+													? NONE
+													: `${percent(rate.passed / rate.applied)} of ${rate.applied}`}
+											</td>
+										);
+									})}
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
 		</div>
 	);
 }

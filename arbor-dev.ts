@@ -1,4 +1,5 @@
 import { SystemTimer } from "webappwiz/time";
+import { Adherence } from "./adherence";
 import type { ArborDeps } from "./arbor";
 import { rosterOf, savedTunnelOf, seeded } from "./arbor-flags";
 import { codexLimits, isCodex } from "./codex-limits";
@@ -10,6 +11,7 @@ import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { fail } from "./exit";
 import { Limits } from "./limits";
 import { Offered } from "./offered";
+import { Outcomes } from "./outcomes";
 import { newest, sourceCommit } from "./release";
 import type { Repository } from "./repository";
 import { arborHome } from "./roster";
@@ -96,6 +98,13 @@ export async function serveDev(
 	const limits = new Limits(`${arborHome(ctx.ps)}/limits.json`, {
 		fs: ctx.fs,
 	});
+	// Judged as each turn ends, for the Stats page, across projects like the
+	// outcomes it reads the merged commits from.
+	const adherence = new Adherence(
+		`${arborHome(ctx.ps)}/adherence.jsonl`,
+		ctx.fs,
+		new Outcomes(`${arborHome(ctx.ps)}/outcomes.jsonl`, ctx.fs),
+	);
 	return dev(ctx, {
 		ports: devPorts(opts.port),
 		hosts: opts["allow-hosts"]
@@ -109,6 +118,7 @@ export async function serveDev(
 				fs: ctx.fs,
 				offered,
 				limits,
+				adherence,
 				readLimits: async (agent) =>
 					isCodex(agent)
 						? codexLimits({

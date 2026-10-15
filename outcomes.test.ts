@@ -49,7 +49,7 @@ describe.concurrent("outcomes", () => {
 		]);
 	});
 
-	it("writes down the picks overturned, the systems touched, failures by reason and the wait", async () => {
+	it("writes down the picks overturned, the systems touched, failures by reason, the wait and the commits landed", async () => {
 		await using deps = await Testing.open();
 		await deps.commit(
 			deps.root,
@@ -116,6 +116,7 @@ describe.concurrent("outcomes", () => {
 			picksAmended: 2,
 			systems: ["mixer"],
 			removedFor: null,
+			commits: ["add fade"],
 		});
 		expect(outcome?.waitedMs).toBeGreaterThanOrEqual(0);
 	});

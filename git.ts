@@ -143,6 +143,29 @@ export class Git {
 	}
 
 	/**
+	 * The message of each commit on `branch` since it left `trunk`, oldest
+	 * first; null when git cannot say.
+	 */
+	async commitMessages(
+		trunk: string,
+		branch: string,
+	): Promise<string[] | null> {
+		const result = await this.run(
+			this.root,
+			"log",
+			"--reverse",
+			"--format=%B%x00",
+			`${trunk}..${branch}`,
+		);
+		return result.code === 0
+			? result.stdout
+					.split("\0")
+					.map((each) => each.trim())
+					.filter(Boolean)
+			: null;
+	}
+
+	/**
 	 * What `branch` changed since it left `trunk`, as a unified diff, along
 	 * with all the work still uncommitted in `worktree` when there is one, new
 	 * files git does not track yet among it; `uncommitted` names the paths

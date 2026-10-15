@@ -5,6 +5,7 @@ import {
 	type PortProvider,
 } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
+import { Adherence } from "./adherence";
 import type { Conversations } from "./conversations";
 import type { Assets } from "./dev/assets";
 import { Access, type AccessConfig } from "./dev-access";
@@ -250,6 +251,12 @@ export async function dev(
 	// Every project's, from the record the CLI writes as each task ends, so
 	// one that is not open here still counts.
 	const outcomes = new Outcomes(`${arborHome(ps)}/outcomes.jsonl`, fs);
+	// What `arbor dev` judged of each conversation as its turns ended.
+	const adherence = new Adherence(
+		`${arborHome(ps)}/adherence.jsonl`,
+		fs,
+		outcomes,
+	);
 	// `?period=` names the period, as `PERIODS` does, or `all` for all time;
 	// 7 days for none.
 	const listStats = async (request: Request): Promise<Response> => {
@@ -261,7 +268,12 @@ export async function dev(
 				{ period },
 			);
 		}
-		return Response.json(summarize(await outcomes.list(), { period }));
+		return Response.json(
+			summarize(await outcomes.list(), {
+				period,
+				judged: await adherence.list(),
+			}),
+		);
 	};
 
 	// Not any project's: every page on this server shares one machine.

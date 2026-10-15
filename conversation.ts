@@ -165,20 +165,25 @@ export class Conversation
 			log: path,
 			assigned = false,
 			handedBy = null,
+			skill = null,
 		}: Opening,
 		deps: ConversationDeps,
 		from: From,
 	): Conversation {
 		const log = new ConversationLog(path, deps.fs, deps.timer);
 		const createdAt = new Date(deps.clock.now()).toISOString();
-		const conversation = new Conversation(
-			blank(id, agent.id, task, createdAt, base, caller, assigned, handedBy),
-			log,
-			deps,
-			agent,
-			cwd,
-			from,
+		const state = blank(
+			id,
+			agent.id,
+			task,
+			createdAt,
+			base,
+			caller,
+			assigned,
+			handedBy,
 		);
+		state.skill = skill;
+		const conversation = new Conversation(state, log, deps, agent, cwd, from);
 		log.write({
 			kind: "start",
 			id,
@@ -190,6 +195,7 @@ export class Conversation
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(handedBy === null ? {} : { handedBy }),
+			...(skill === null ? {} : { skill }),
 		});
 		return conversation;
 	}
@@ -520,6 +526,8 @@ interface Opening {
 	assigned?: boolean;
 	/** The conversation that handed it its task, which it answers to. */
 	handedBy?: string | null;
+	/** The project's arbor skill version as it starts; null when it has none. */
+	skill?: string | null;
 }
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */

@@ -70,6 +70,7 @@ export class ConversationLog {
 			start.assigned,
 			start.handedBy ?? null,
 		);
+		state.skill = start.skill ?? null;
 		const replayed: Replayed = {
 			state,
 			session: null,
@@ -233,6 +234,8 @@ export type Entry =
 			assigned?: boolean;
 			/** Who handed it its task; missing for one nobody did. */
 			handedBy?: string;
+			/** The project's arbor skill version; missing when it had none, or before it was kept. */
+			skill?: string;
 	  }
 	| { kind: "session"; session: string }
 	/** Moved into a task's worktree, or back to the main tree. */

@@ -8,6 +8,7 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
+import type { Adherence } from "./adherence";
 import {
 	type Agent,
 	type Launch,
@@ -21,6 +22,7 @@ import type { Limit, Setting } from "./conversation-state";
 import { fail } from "./exit";
 import type { Limits } from "./limits";
 import type { Offered } from "./offered";
+import { ROOT as SKILLS, versionOf } from "./skills";
 import type { Watch } from "./watch";
 
 export type {
@@ -83,6 +85,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly watch: Watch | null;
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
+	private readonly adherence: Adherence | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	/** The read of the records on disk, shared by every caller until it settles. */
@@ -105,6 +108,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.watch = opts.watch ?? null;
 		this.offered = opts.offered ?? null;
 		this.limited = opts.limits ?? null;
+		this.adherence = opts.adherence ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
 	}
@@ -210,6 +214,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				model,
 				assigned,
 				handedBy,
+				skill: await this.skillAt(cwd),
 			},
 			this.deps,
 		);
@@ -299,6 +304,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				caller,
 				cwd,
 				log: `${this.dir}/${id}.jsonl`,
+				skill: await this.skillAt(cwd),
 			},
 			this.deps,
 		);
@@ -352,6 +358,17 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			if (status === "running" && conversation.state.status === "idle") {
 				this.askLimits(conversation);
 			}
+			// A turn ended, however it did: how it followed the skill may have
+			// changed.
+			if (status === "running" && conversation.state.status !== "running") {
+				void this.adherence
+					?.judge(
+						conversation.state,
+						this.root ?? conversation.cwd ?? "",
+						conversation.now(),
+					)
+					.catch(() => {});
+			}
 			status = conversation.state.status;
 			if (conversation.state.usage.limits !== limits) {
 				limits = conversation.state.usage.limits;
@@ -364,6 +381,17 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			this.dispatcher.dispatch("changed", conversation.id);
 		});
 		this.dispatcher.dispatch("changed", conversation.id);
+	}
+
+	/**
+	 * The version of the project's arbor skill, which the conversation keeps
+	 * from its start; null when it has none.
+	 */
+	private skillAt(cwd: string): Promise<string | null> {
+		return this.fs
+			.read(`${this.root ?? cwd}/${SKILLS}/arbor/SKILL.md`)
+			.then(versionOf)
+			.catch((): null => null); // no skill installed is no version
 	}
 
 	/** Asks for `conversation`'s agent's limits, when it does not send them. */
@@ -427,6 +455,11 @@ export interface ConversationsOptions {
 	offered?: Offered | null;
 	/** Where each agent's plan limits are kept across projects; nowhere by default. */
 	limits?: Limits | null;
+	/**
+	 * Where how each conversation followed the arbor skill is kept across
+	 * projects, judged as each turn ends; nowhere by default.
+	 */
+	adherence?: Adherence | null;
 	/**
 	 * Asks an agent that does not send its plan's windows for them, after
 	 * each of its turns; none by default.

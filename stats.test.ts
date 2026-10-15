@@ -163,4 +163,43 @@ describe("summarize", () => {
 			{ system: "docs", merged: 1 },
 		]);
 	});
+
+	it("rates each skill check by the conversations it passed in, newest version first", () => {
+		const scored = (
+			conversation: string,
+			skill: string | null,
+			failed: number,
+		) => ({
+			conversation,
+			project: "/repo",
+			agent: "claude",
+			skill,
+			at: "2026-10-14T10:00:00.000Z",
+			scores: { "added-card": { passed: 1, failed } },
+		});
+
+		const { skill } = summarize([], {
+			judged: [
+				scored("a", "0.0.9", 0),
+				scored("b", null, 0),
+				scored("c", "0.0.10", 1),
+				scored("d", "0.0.10", 0),
+			],
+		});
+
+		expect(
+			skill.map((each) => [
+				each.skill,
+				each.conversations,
+				each.checks.find((check) => check.id === "added-card"),
+			]),
+		).toEqual([
+			["0.0.10", 2, expect.objectContaining({ applied: 2, passed: 1 })],
+			["0.0.9", 1, expect.objectContaining({ applied: 1, passed: 1 })],
+			[null, 1, expect.objectContaining({ applied: 1, passed: 1 })],
+		]);
+		expect(skill[0]?.checks.find((check) => check.id === "squashed")).toEqual(
+			expect.objectContaining({ applied: 0, passed: 0 }),
+		);
+	});
 });

@@ -182,6 +182,7 @@ export async function merge(
 	// Read while the branch is still ahead of its base: once it lands there
 	// is nothing between them to read, and the outcome needs what it touched.
 	const changed = (await current.changedFiles()) ?? [];
+	const commits = (await current.commitMessages()) ?? undefined;
 	const holder = await git.worktreeFor(base);
 	const landing = holder ?? git.root;
 	const checkout = holder ? null : await git.checkout(base);
@@ -225,7 +226,7 @@ export async function merge(
 	// to delete, and spawning git from a directory that no longer exists fails
 	// with ENOENT before git is even reached.
 	service.ps.cd(git.root);
-	const discarded = await current.discard("merged", { changed });
+	const discarded = await current.discard("merged", { changed, commits });
 	await lock.release();
 	if (discarded.code !== 0) {
 		fail(

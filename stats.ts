@@ -1,4 +1,6 @@
+import type { Judged } from "./adherence";
 import type { Outcome } from "./outcomes";
+import { CHECKS } from "./skill-checks";
 import {
 	type MergeFailure,
 	REMOVE_REASONS,
@@ -61,6 +63,11 @@ export interface Stats {
 	systems: ({ system: string | null } & Tally)[];
 	/** When the first outcome was written, the start of what there is to show. */
 	since: string | null;
+	/**
+	 * How conversations followed the arbor skill, by the version each started
+	 * on, newest first: over all time, since a version is its own span.
+	 */
+	skill: SkillVersion[];
 }
 
 const MINUTE = 60 * 1000;
@@ -90,6 +97,8 @@ export function isPeriodId(value: string): value is PeriodId {
 export interface SummarizeOptions {
 	period?: PeriodId;
 	now?: Date;
+	/** Each conversation's skill checks as last judged. */
+	judged?: Judged[];
 }
 
 /**
@@ -99,7 +108,7 @@ export interface SummarizeOptions {
  */
 export function summarize(
 	outcomes: Outcome[],
-	{ period = "7d", now = new Date() }: SummarizeOptions = {},
+	{ period = "7d", now = new Date(), judged = [] }: SummarizeOptions = {},
 ): Stats {
 	const tasks = outcomes.filter((each) => !each.base.startsWith("task/"));
 	const since = tasks[0]?.endedAt ?? null;
@@ -157,6 +166,7 @@ export function summarize(
 			(each) => each.systems?.[0] ?? null,
 		).map(([system, tally]) => ({ system, ...tally })),
 		since,
+		skill: rates(judged),
 	};
 }
 
@@ -268,4 +278,58 @@ function weekOf(at: Date): Date {
 	);
 	start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
 	return start;
+}
+
+/** How one check went over the conversations on one skill version. */
+export interface CheckRate {
+	id: string;
+	rule: string;
+	/** The conversations it applied in. */
+	applied: number;
+	/** Of `applied`, those where it passed every time. */
+	passed: number;
+}
+
+/** How the conversations on one arbor skill version followed it. */
+export interface SkillVersion {
+	/** Null for conversations whose version is unknown. */
+	skill: string | null;
+	conversations: number;
+	checks: CheckRate[];
+}
+
+/** Each skill version's pass rates, the newest version first and unknown last. */
+export function rates(judged: Judged[]): SkillVersion[] {
+	return [...Map.groupBy(judged, (each) => each.skill)]
+		.sort(([one], [other]) => newerFirst(one, other))
+		.map(([skill, members]) => ({
+			skill,
+			conversations: members.length,
+			checks: CHECKS.map(({ id, rule }) => {
+				const applied = members.filter((each) => each.scores[id] !== undefined);
+				return {
+					id,
+					rule,
+					applied: applied.length,
+					passed: applied.filter((each) => each.scores[id]?.failed === 0)
+						.length,
+				};
+			}),
+		}));
+}
+
+/** Orders versions newest first, null last. */
+function newerFirst(one: string | null, other: string | null): number {
+	if (one === null || other === null) {
+		return one === other ? 0 : one === null ? 1 : -1;
+	}
+	// By each number in turn, so `0.0.10` is newer than `0.0.9`.
+	const [left, right] = [one, other].map((each) => each.split(".").map(Number));
+	for (let i = 0; i < Math.max(left?.length ?? 0, right?.length ?? 0); i += 1) {
+		const diff = (right?.[i] ?? 0) - (left?.[i] ?? 0);
+		if (diff !== 0 && !Number.isNaN(diff)) {
+			return diff;
+		}
+	}
+	return other.localeCompare(one);
 }

@@ -50,6 +50,7 @@ const stats: Stats = {
 	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
 	systems: [],
 	since: "2026-08-25T10:00:00.000Z",
+	skill: [],
 };
 
 describe("StatsReport", () => {
@@ -153,6 +154,7 @@ describe("StatsReport", () => {
 				projects: [],
 				systems: [],
 				since: null,
+				skill: [],
 			}),
 		);
 

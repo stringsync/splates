@@ -276,6 +276,7 @@ export class WorktreeService {
 				0,
 			),
 			removedFor: ended === "removed" ? (opts.reason ?? null) : null,
+			...(opts.commits === undefined ? {} : { commits: opts.commits }),
 			conversation,
 			agent: ran?.agent ?? state.dispatch?.agent ?? null,
 			model: ran?.model ?? state.dispatch?.model ?? null,
