@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { OpenPortProvider } from "webappwiz/system";
+import { add } from "./add";
 import { type Conversation, Conversations } from "./conversations";
 import { dev } from "./dev";
 import { json } from "./dev-testing";
 import { AGENT, FakeAgent } from "./fake-agent";
+import { remove } from "./remove";
 import { Testing } from "./testing";
 
 describe("dev conversations handed a task", () => {
@@ -114,6 +116,47 @@ describe("dev conversations handed a task", () => {
 		expect(handed.state).toMatchObject({
 			archived: false,
 			archivedWith: null,
+		});
+	});
+
+	const onTask = async (): Promise<Conversation> => {
+		await add(deps, "alpha");
+		const working = await conversations.start("fake", {
+			task: "alpha",
+			cwd: (await deps.service.find("alpha")).path,
+			handedBy: orchestrator.id,
+		});
+		await until(() => working.state.status === "idle");
+		return working;
+	};
+
+	it("tells the one it answers to when its turn ends with the task under way", async () => {
+		const working = await onTask();
+		await working.prompt("Carry on.");
+		await until(() => said.length === 2);
+
+		expect(said).toEqual(["Carry on.", "[ARBOR IDLE alpha]"]);
+	});
+
+	it("tells it nothing once the task is escalated, which reports itself", async () => {
+		const working = await onTask();
+		await (await deps.service.find("alpha")).save({ status: "escalated" });
+		await working.prompt("Carry on.");
+		await Bun.sleep(100);
+
+		expect(said).toEqual(["Carry on."]);
+	});
+
+	it("goes with the one it answers to once its task is gone and its turn is over", async () => {
+		const working = await onTask();
+		await remove(deps, "alpha", { force: true });
+		await working.prompt("Carry on.");
+		await until(() => working.state.archived);
+
+		expect(said).toEqual(["Carry on."]);
+		expect(working.state).toMatchObject({
+			archived: true,
+			archivedWith: orchestrator.id,
 		});
 	});
 });

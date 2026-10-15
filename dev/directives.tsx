@@ -4,6 +4,7 @@ import {
 	ListTodoIcon,
 	type LucideIcon,
 	OctagonXIcon,
+	PauseIcon,
 	TreePineIcon,
 } from "lucide-react";
 import { type JSX, useContext } from "react";
@@ -93,6 +94,7 @@ function about(
 		// A report names the task that stopped.
 		case "TASK":
 		case "REPORT":
+		case "IDLE":
 		case "STOPPED":
 			return {
 				kind: "Task",
@@ -140,11 +142,12 @@ export function DirectiveChip({
 }
 
 /**
- * A todo, lane, or task directive, or the report of a task handed out, or of
- * its agent terminated, which a message of it alone shows as a card.
+ * A todo, lane, or task directive, or the report of a task handed out, of
+ * its agent gone quiet, or of its agent terminated, which a message of it
+ * alone shows as a card.
  */
 const CARDED =
-	/^\[ARBOR (TODO|LANE|TASK|REPORT|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
+	/^\[ARBOR (TODO|LANE|TASK|REPORT|IDLE|STOPPED) (#\d+|\d+|[^\]\s]+)\]$/;
 
 /** How the card for each kind of directive in `CARDED` says what it asked. */
 const CARDS = {
@@ -212,6 +215,17 @@ export function DirectiveCard({
 					You terminated the agent on{" "}
 					<DirectiveChip directive={directive} opens inline />, handed out here.
 					Its task stands as it was.
+				</p>
+			</CardShell>
+		);
+	}
+	if (kind === "IDLE") {
+		return (
+			<CardShell label={`idle ${argument}`} Icon={PauseIcon} title="Idle">
+				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
+					The agent on <DirectiveChip directive={directive} opens inline />,
+					handed out here, ended its turn without escalating, merging or
+					removing it.
 				</p>
 			</CardShell>
 		);

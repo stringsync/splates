@@ -10,6 +10,7 @@ import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
 import { startDispatched } from "./dispatched";
 import type { Format } from "./format";
+import { watchHandedOut } from "./handed-out";
 import { needs } from "./needs";
 import type { Behind, Release } from "./release";
 import type { Repository } from "./repository";
@@ -33,7 +34,9 @@ export async function serveProject(
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
+	let handedOut: Resource | null = null;
 	if (conversations !== null) {
+		handedOut = watchHandedOut({ service, conversations, log });
 		conversations.url = context.url;
 		let starting = Promise.resolve();
 		const handOff = (): void => {
@@ -80,6 +83,7 @@ export async function serveProject(
 		async disposeAsync() {
 			watch.dispose();
 			handOffs?.dispose();
+			handedOut?.dispose();
 			await talks.disposeAsync();
 		},
 	};

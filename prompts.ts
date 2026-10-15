@@ -39,6 +39,15 @@ export function stoppedReference(task: string): string {
 }
 
 /**
+ * What tells the conversation that handed `task` out that its agent's turn
+ * ended, or failed, with the task still under way and not escalated, so it
+ * waits on nothing that will come.
+ */
+export function idleReference(task: string): string {
+	return `[ARBOR IDLE ${task}]`;
+}
+
+/**
  * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
  * restart: the arbor skill says what it means.
  */

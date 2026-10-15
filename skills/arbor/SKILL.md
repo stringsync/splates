@@ -23,9 +23,10 @@ Some of this skill sits in files beside it, each read only when its moment
 comes. Whenever one of these comes up, read the whole file before going on,
 even mid-task, and again in a later session:
 
-- `[ARBOR LANE N]`, `[ARBOR REPORT <task>]` or `[ARBOR STOPPED <task>]`
-  in a prompt: [references/lanes.md](references/lanes.md), working a lane
-  as its orchestrator.
+- `[ARBOR LANE N]`, `[ARBOR REPORT <task>]`, `[ARBOR IDLE <task>]` or
+  `[ARBOR STOPPED <task>]` in a prompt:
+  [references/lanes.md](references/lanes.md), working a lane as its
+  orchestrator.
 - `[ARBOR CHECKPOINT]` or `[ARBOR RESUME]` in a prompt:
   [references/checkpoint.md](references/checkpoint.md).
 - Before `arbor add <part> --base task/<your task>`, or handing a subagent

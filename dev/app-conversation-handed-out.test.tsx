@@ -92,6 +92,28 @@ describe("App's conversation of a task another handed out", () => {
 		await waitFor(() => view.getByRole("textbox", { name: "Message input" }));
 	});
 
+	it("shows the orchestrator a card when its agent goes quiet", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				{
+					...orchestrator,
+					messages: [
+						...orchestrator.messages,
+						message("user", "[ARBOR IDLE alpha]"),
+					],
+				},
+				agent,
+			]),
+			"orch",
+			{ tasks },
+		);
+
+		const card = await waitFor(() => view.getByText(/ended its turn/));
+		expect(card.textContent).toBe(
+			"The agent on Taskalpha, handed out here, ended its turn without escalating, merging or removing it.",
+		);
+	});
+
 	it("shows its escalation's questions read-only, answered through the orchestrator", async () => {
 		const escalated = {
 			...agent,

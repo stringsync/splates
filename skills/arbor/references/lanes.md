@@ -63,6 +63,18 @@ the rest to the user at once (see Relaying for a lane's agents), while the
 agents on your other lanes carry on. Each report you end a turn on after
 one is a fresh word on every lane, so the user sees each step as it lands.
 
+`[ARBOR IDLE <task>]` means the agent you handed `<task>` out to ended a
+turn, or failed, without escalating, merging or removing it: it stopped
+without a word to you, and nothing more will come unless you act. Read
+`arbor show <task>`. When it is gone, treat it as a report of its landing
+or removal. Otherwise, when its `ARBOR.md` has open questions under
+`## Blocked`, relay them as for an escalation (see Relaying for a lane's
+agents); when it has none, `arbor tell <task>` it to carry on as the arbor
+skill says, ending in `arbor escalate`, `arbor merge` or `arbor remove`. The
+second time a task comes back idle with nothing changed, stop telling it:
+the lane waits on the user, so ask in a waiting report what becomes of it,
+with the choices `[ARBOR STOPPED <task>]` asks.
+
 `[ARBOR STOPPED <task>]` means the user terminated the agent you handed
 `<task>` to, from its conversation, leaving the task as it stood. The lane
 waits on the user: ask, in a waiting report, what becomes of it:
@@ -83,6 +95,14 @@ yours; without it, nothing will start one. Hand the todo to a subagent of
 your own harness on the model it names instead, told to `arbor claim <task>`
 and work it as above, or, when your harness cannot run that model, work it
 yourself, saying so as for any todo that names another model.
+
+Groom what you hand out as you go, so none of it piles up in arbor or the
+conversation view: every task you hand out ends merged or removed, never
+left behind. `arbor dev` archives an agent's conversation once its task is
+gone, with yours, so unarchiving yours brings it back. A subagent of your
+own harness is yours to put away: stop it once its task is gone. Before a
+finished report, read `arbor list` for any task you handed out still there,
+and see each to its end, or ask the user what becomes of it.
 
 Never hand out a todo from a lane you were not sent, or one the lane has not
 reached; when the user moves todos while you work, the next `lane show` has

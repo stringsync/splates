@@ -65,9 +65,6 @@ export { fold, heard } from "./fold";
 /** How many archived conversations are kept; older archived ones are deleted. */
 export const ARCHIVED_KEPT = 50;
 
-/** `changed` and `removed` each carry a conversation's id. */
-export type ConversationsEvents = { changed: string; removed: string };
-
 /**
  * Every conversation in the repo: the live ones this process started, and
  * the stopped ones read back from their logs, one JSON-lines file each under
@@ -373,6 +370,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 					)
 					.catch(() => {});
 			}
+			const ended =
+				(status === "running" && conversation.state.status !== "running") ||
+				(status === "starting" && conversation.state.status === "failed");
 			status = conversation.state.status;
 			if (conversation.state.usage.limits !== limits) {
 				limits = conversation.state.usage.limits;
@@ -383,6 +383,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			}
 			archived = conversation.state.archived;
 			this.dispatcher.dispatch("changed", conversation.id);
+			if (ended) {
+				this.dispatcher.dispatch("ended", conversation.id);
+			}
 		});
 		this.dispatcher.dispatch("changed", conversation.id);
 	}
@@ -481,3 +484,13 @@ export interface ConversationsOptions {
 	 */
 	root?: string | null;
 }
+
+/**
+ * `changed`, `ended` (a turn ended, however it did, or the agent failed to
+ * start) and `removed` each carry a conversation's id.
+ */
+export type ConversationsEvents = {
+	changed: string;
+	ended: string;
+	removed: string;
+};
