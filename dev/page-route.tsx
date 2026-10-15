@@ -1,3 +1,4 @@
+import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import {
 	ChartColumnIcon,
 	GaugeIcon,
@@ -8,11 +9,11 @@ import {
 	type LucideIcon,
 	MessagesSquareIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useAttachKey } from "./components/assistant-ui/elements/attachment.aui";
-import { conversationIn } from "./conversation-address";
 import { useFullscreenKey } from "./fullscreen";
 import { useShortcut } from "./hooks/use-shortcut";
+import { type Move, PageAddress } from "./page-address";
 import type { ShortcutKey } from "./settings";
 
 /**
@@ -56,58 +57,32 @@ export const PAGES: {
 ];
 
 /**
- * The page, conversation and task the address names, kept in the address, so
- * a reload or a link lands on the same page. `go` and `openTask` are new each
- * render.
+ * Where the page is, as `PageAddress` keeps it in the address and the
+ * browser's history. `go`, `openTask` and `openSystem` are new each render.
  */
 export function usePageRoute(): PageRoute {
-	const [page, setPage] = useState<Page>(() => pageIn(location.hash));
-	const [open, setOpen] = useState(() => conversationIn(location.hash));
-	const [task, setTask] = useState(() => taskIn(location.hash));
-	const [system, setSystem] = useState(() => systemIn(location.hash));
-	useEffect(() => {
-		const follow = () => {
-			setPage(pageIn(location.hash));
-			setOpen(conversationIn(location.hash));
-			setTask(taskIn(location.hash));
-			setSystem(systemIn(location.hash));
-		};
-		window.addEventListener("hashchange", follow);
-		return () => window.removeEventListener("hashchange", follow);
-	}, []);
-	const go = (next: Page, conversation: string | null = open) => {
-		setPage(next);
-		setOpen(conversation);
-		setTask(null);
-		setSystem(null);
-		const hash =
-			next === "conversations" && conversation !== null
-				? `#conversations/${conversation}`
-				: `#${next}`;
-		history.replaceState(null, "", next === "todos" ? " " : hash);
-	};
-	const openTask = (name: string | null) => {
-		setTask(name);
-		// A dialog closing as it goes elsewhere, such as to its questions,
-		// leaves the address to where it went.
-		if (name !== null || taskIn(location.hash) !== null) {
-			history.replaceState(
-				null,
-				"",
-				name === null ? "#tasks" : `#tasks/${name}`,
-			);
+	const [address] = useState(() => new PageAddress());
+	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
+	const { page, open, task, system } = useReactive(
+		address,
+		({ page, open, task, system }) => ({ page, open, task, system }),
+		["changed"],
+	);
+	useLayoutEffect(() => {
+		const scroll = address.takeScroll();
+		if (scroll !== null) {
+			scrollTo(0, scroll);
 		}
+	});
+	return {
+		page,
+		open,
+		task,
+		system,
+		go: (next, conversation, how) => address.go(next, conversation, how),
+		openTask: (name) => address.openTask(name),
+		openSystem: (name) => address.openSystem(name),
 	};
-	const openSystem = (name: string | null) => {
-		setPage("systems");
-		setSystem(name);
-		history.replaceState(
-			null,
-			"",
-			name === null ? "#systems" : `#systems/${encodeURIComponent(name)}`,
-		);
-	};
-	return { page, open, task, go, openTask, system, openSystem };
 }
 
 /** How each page sits on a phone, under its bar; a conversation fills it. */
@@ -151,37 +126,6 @@ export function PageShortcuts({
 	return null;
 }
 
-function pageIn(hash: string): Page {
-	if (hash === "#tasks" || hash.startsWith("#tasks/")) {
-		return "tasks";
-	}
-	if (hash === "#systems" || hash.startsWith("#systems/")) {
-		return "systems";
-	}
-	if (hash === "#stats") {
-		return "stats";
-	}
-	if (hash === "#creds") {
-		return "creds";
-	}
-	if (hash === "#budget") {
-		return "budget";
-	}
-	return hash.startsWith("#conversations") ? "conversations" : "todos";
-}
-
-/** The task `#tasks/<name>` has open, or null. */
-function taskIn(hash: string): string | null {
-	const [, task] = hash.match(/^#tasks\/(.+)$/) ?? [];
-	return task ?? null;
-}
-
-/** The system `#systems/<name>` has open, or null. */
-function systemIn(hash: string): string | null {
-	const [, system] = hash.match(/^#systems\/(.+)$/) ?? [];
-	return system === undefined ? null : decodeURIComponent(system);
-}
-
 /** Where the page is, as its address says, and the ways to move it. */
 export interface PageRoute {
 	page: Page;
@@ -189,8 +133,11 @@ export interface PageRoute {
 	open: string | null;
 	/** The task open on the Tasks page, or null. */
 	task: string | null;
-	/** Goes to `next`, with `conversation` open, the one open by default. */
-	go: (next: Page, conversation?: string | null) => void;
+	/**
+	 * Goes to `next`, with `conversation` open, the one open by default, in an
+	 * entry of its own unless `how` is `replace`.
+	 */
+	go: (next: Page, conversation?: string | null, how?: Move) => void;
 	/** Opens task `name` on the Tasks page, or closes the one open for null. */
 	openTask: (name: string | null) => void;
 	/** The system open on the Systems page, by name, or null. */

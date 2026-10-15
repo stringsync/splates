@@ -195,7 +195,6 @@ export function App({
 	};
 	const pick = (found: Found) => {
 		if (found.kind === "task") {
-			go("tasks");
 			openTask(found.task);
 		} else if (found.kind === "conversation") {
 			go("conversations", found.conversation);
@@ -297,10 +296,7 @@ export function App({
 							todos={snapshot.todos}
 							open={system}
 							onOpen={openSystem}
-							onTask={(name) => {
-								go("tasks");
-								openTask(name);
-							}}
+							onTask={openTask}
 							onTodo={(id) => {
 								go("todos");
 								todoView.open(id);
@@ -327,7 +323,7 @@ export function App({
 										lanes={snapshot.lanes}
 										trunk={snapshot.trunk}
 										open={open}
-										onOpen={(id) => go("conversations", id)}
+										onOpen={(id, how) => go("conversations", id, how)}
 										phone={!wide}
 									/>
 								</OpenerContext>

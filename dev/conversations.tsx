@@ -27,6 +27,7 @@ import { Home } from "./conversation-home";
 import { Item } from "./conversation-item";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
+import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
 import { useRefusals } from "./refusal";
 import { TASK, TaskView } from "./task-view";
@@ -68,7 +69,8 @@ export function Conversations({
 	/** The main tree's branch. */
 	trunk: string;
 	open: string | null;
-	onOpen: (id: string | null) => void;
+	/** Opens `id`, or the list for null, in place of what is open for `replace`. */
+	onOpen: (id: string | null, how?: Move) => void;
 	/** Whether there is no sidebar to hold the list. */
 	phone: boolean;
 }): JSX.Element {
@@ -167,7 +169,7 @@ export function Conversations({
 						terminal={open}
 						trunk={trunk}
 						onBack={phone ? () => onOpen(null) : null}
-						onExit={() => onOpen(NEW)}
+						onExit={() => onOpen(NEW, "replace")}
 					/>
 				) : open === ARCHIVED ? (
 					<Archived
@@ -188,7 +190,7 @@ export function Conversations({
 							drafts={drafts}
 							onBrought={(state) => {
 								feed.put(state);
-								onOpen(state.id);
+								onOpen(state.id, "replace");
 							}}
 							onOpen={onOpen}
 							onBack={phone ? () => onOpen(null) : null}
@@ -213,8 +215,10 @@ export function Conversations({
 						// opening the next one in its place reads as a jump.
 						onLeft={() =>
 							phone
-								? onOpen(null)
-								: goOn(rowsOf(tasks, conversations), drafts, open, onOpen)
+								? onOpen(null, "replace")
+								: goOn(rowsOf(tasks, conversations), drafts, open, (id) =>
+										onOpen(id, "replace"),
+									)
 						}
 						onOpen={onOpen}
 						onBack={phone ? () => onOpen(null) : null}

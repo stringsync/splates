@@ -33,6 +33,7 @@ import { Trunk } from "./dispatching";
 import { type Drafts, newDraft } from "./drafts";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
+import type { Move } from "./page-address";
 import { limitsOf, PlanLimits } from "./plan-limits";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
@@ -61,7 +62,8 @@ export interface Starting {
 	conversations: ConversationState[];
 	/** Says in a conversation's thread that a write to it was refused. */
 	refuseIn: (id: string, title: string, error: unknown) => void;
-	onOpen: (id: string) => void;
+	/** Opens `id`, in place of what is open for `replace`. */
+	onOpen: (id: string, how?: Move) => void;
 }
 
 /**
@@ -130,7 +132,7 @@ export function useNewConversation({
 					: null;
 			// After the drop, or the thread would cut it short.
 			await dropped;
-			void slide(() => onOpen(state.id));
+			void slide(() => onOpen(state.id, "replace"));
 			await promptConversation(state.id, noted(text, files), files).catch(
 				(error: unknown) => {
 					// The conversation is open by now: what was not sent waits in its

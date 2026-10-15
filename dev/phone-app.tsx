@@ -4,6 +4,7 @@ import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "../snapshot";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
+import type { Move } from "./page-address";
 import { PAGES, type Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
 import { IconButton, Inbox } from "./phone-inbox";
@@ -34,7 +35,7 @@ export function PhoneApp({
 	page: Page;
 	/** The conversation open, by its address, or null. */
 	open: string | null;
-	go: (page: Page, conversation?: string | null) => void;
+	go: (page: Page, conversation?: string | null, how?: Move) => void;
 	/** The project's name. */
 	name: string;
 	/** The project's header, which heads the drawer. */
@@ -124,7 +125,7 @@ export function PhoneApp({
 function useHomeIsInbox(
 	available: boolean,
 	page: Page,
-	go: (page: Page) => void,
+	go: (page: Page, conversation: null, how: Move) => void,
 ): void {
 	const landed = useRef(false);
 	useEffect(() => {
@@ -133,7 +134,7 @@ function useHomeIsInbox(
 		}
 		landed.current = true;
 		if (page === "todos" && location.hash === "") {
-			go("conversations");
+			go("conversations", null, "replace");
 		}
 	}, [available, page, go]);
 }
