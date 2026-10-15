@@ -159,4 +159,23 @@ describe("dev conversations handed a task", () => {
 			archivedWith: orchestrator.id,
 		});
 	});
+
+	it("goes with the one it answers to once the page removes its task", async () => {
+		const working = await onTask();
+		const host = `localhost:${server.port}`;
+		const removed = await fetch(
+			`http://127.0.0.1:${server.port}/api/tasks/alpha`,
+			{
+				method: "DELETE",
+				headers: { host, origin: `http://${host}` },
+			},
+		);
+		await until(() => working.state.archived);
+
+		expect(removed.status).toBe(200);
+		expect(working.state).toMatchObject({
+			archived: true,
+			archivedWith: orchestrator.id,
+		});
+	});
 });

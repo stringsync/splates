@@ -10,7 +10,7 @@ import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
 import { startDispatched } from "./dispatched";
 import type { Format } from "./format";
-import { watchHandedOut } from "./handed-out";
+import { HandedOut } from "./handed-out";
 import { needs } from "./needs";
 import type { Behind, Release } from "./release";
 import type { Repository } from "./repository";
@@ -36,7 +36,7 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let handedOut: Resource | null = null;
 	if (conversations !== null) {
-		handedOut = watchHandedOut({ service, conversations, log });
+		handedOut = HandedOut.watch({ service, conversations, log });
 		conversations.url = context.url;
 		let starting = Promise.resolve();
 		const handOff = (): void => {

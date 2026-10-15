@@ -64,8 +64,9 @@ agents on your other lanes carry on. Each report you end a turn on after
 one is a fresh word on every lane, so the user sees each step as it lands.
 
 `[ARBOR IDLE <task>]` means the agent you handed `<task>` out to ended a
-turn, or failed, without escalating, merging or removing it: it stopped
-without a word to you, and nothing more will come unless you act. Read
+turn, failed, or was stopped by a restart, without escalating, merging or
+removing it: it stopped without a word to you, and nothing more will come
+unless you act. Read
 `arbor show <task>`. When it is gone, treat it as a report of its landing
 or removal. Otherwise, when its `ARBOR.md` has open questions under
 `## Blocked`, relay them as for an escalation (see Relaying for a lane's
