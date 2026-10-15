@@ -331,7 +331,7 @@ Stop retrying an upload the server refused as too big (413), and tell the user w
 EOF`,
 		sections: [
 			"Using arbor",
-			"Reference files",
+			"Directives",
 			"Workflow",
 			"Checkpoint",
 			"ARBOR.md",

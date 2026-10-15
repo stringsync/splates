@@ -17,28 +17,38 @@ progress (`git add`, `git rebase --continue`), then merging again. A failed
 command prints `{reason}` JSON on stdout and instructions on stderr: do what
 stderr says.
 
-## Reference files
+## Directives
 
-Some of this skill sits in files beside it, each read only when its moment
-comes. Whenever one of these comes up, read the whole file before going on,
-even mid-task, and again in a later session:
+A prompt that starts with `[ARBOR ...]` comes from the `arbor dev` page or
+from arbor itself, and asks what the table says. Some of this skill sits in
+reference files beside it, each read only when its moment comes: whenever a
+row or a line below names one, read the whole file before going on, even
+mid-task, and again in a later session.
 
-- `[ARBOR LANE untriaged]` in a prompt: Working the untriaged lane below
-  first, then lanes.md as it says.
-- `[ARBOR LANE N]`, `[ARBOR REPORT <task>]`, `[ARBOR IDLE <task>]`,
-  `[ARBOR STOPPED <task>]` or `[ARBOR HEARTBEAT]` in a prompt:
-  [references/lanes.md](references/lanes.md), working a lane as its
-  orchestrator, and for a task you handed on with `--relay`,
-  [references/handoff.md](references/handoff.md) too.
-- `[ARBOR CHECKPOINT]` or `[ARBOR RESUME]` in a prompt:
-  [references/checkpoint.md](references/checkpoint.md).
+| Directive | What it asks | What to do |
+| --- | --- | --- |
+| `[ARBOR TODO #N]` | Take todo N | `arbor todo show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a task under way |
+| `[ARBOR TASK <task>]` | Resume a task | `arbor claim <task>`, read its `ARBOR.md`, and carry on from where it stands |
+| `[ARBOR HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[ARBOR TASK <task>]` |
+| `[ARBOR HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
+| `[ARBOR MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
+| `[ARBOR UPDATE]` | Where your work stands, from the Check in button | Bring `## Done` and `## Next` up to date, then answer in at most three `- ` lines: what you finished since the user last heard from you, what you are on now, and what is in the way, if anything. Then carry on with the work in the same turn, as though nothing had come: no report, no questions and no stop |
+| `[ARBOR LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
+| `[ARBOR LANE N]` | Work down lane N as its orchestrator | [lanes.md](references/lanes.md) |
+| `[ARBOR REPORT <task>]` | A task you handed out stopped: escalated, merged or removed | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
+| `[ARBOR IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
+| `[ARBOR STOPPED <task>]` | The user terminated the agent of a task you handed out | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
+| `[ARBOR HEARTBEAT]` | Check on each task you handed out and say where your lanes stand | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
+| `[ARBOR CHECKPOINT]` | Bring `ARBOR.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
+| `[ARBOR RESUME]` | Carry on from where `ARBOR.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
+
+Other moments have reference files too:
+
 - Before `arbor add <part> --base task/<your task>`, or handing a subagent
   work that may change code: [references/parts.md](references/parts.md).
-- `[ARBOR HANDOFF <task>]` or `[ARBOR HANDOFF TO <agent> <model>]` in a
-  prompt, before `arbor handoff`, or when the task gives you a reason to
-  hand it to another model:
-  [references/handoff.md](references/handoff.md), handing a task to another
-  agent or taking one over.
+- Before `arbor handoff`, or when the task gives you a reason to hand it to
+  another model: [handoff.md](references/handoff.md), handing a task to another agent or taking one
+  over.
 - Before `arbor todo add`, `arbor lane add`, or `arbor todo update` or
   `arbor lane update` with `--lane`, `--position` or `--blocked-by`:
   [references/todos.md](references/todos.md), linking, placing and ordering
@@ -53,20 +63,10 @@ even mid-task, and again in a later session:
    the Goal one or two lines as you understand it so far, and investigate in
    its worktree: the main tree changes under you as other tasks land, a worktree
    does not. A question that only needs an answer stays in the main tree.
-   `arbor claim <task>` resumes a task instead, as `[ARBOR TASK <task>]`
-   from the `arbor dev` page asks: claim it, read its `ARBOR.md`, and carry
-   on from where it stands. `[ARBOR HANDOFF <task>]` asks the same for a
-   task another agent handed you: read
-   [references/handoff.md](references/handoff.md) first. When the request
-   is a todo, such as `[ARBOR TODO #N]` copied from the `arbor dev` page, `arbor todo
-   show N` prints what is asked; if it names another task that took it, tell
-   the user rather than start on it. Otherwise take it now, so no other agent
-   starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a
-   task under way. `[ARBOR LANE untriaged]` makes you the orchestrator of the todos in
-   no lane: see Working the untriaged lane. `[ARBOR LANE N]` makes you a
-   lane's orchestrator instead: read
-   [references/lanes.md](references/lanes.md) first. Pass `--base <branch>` only when invoked with a branch
-   (`/arbor feature/auth`) or the user names one; never guess a base from the
+   `arbor claim <task>` resumes a task instead. When the request is a todo,
+   take it as `[ARBOR TODO #N]` says under Directives, and for any other
+   directive, do what its row says. Pass `--base <branch>` only when invoked
+   with a branch (`/arbor feature/auth`) or the user names one; never guess a base from the
    checked-out branch. Once `arbor add` succeeds, the `arbor dev` page shows
    it in your conversation as arbor's own line, the Goal on its task, so say
    nothing about adding it. When your harness asks right after for a word on
@@ -506,15 +506,6 @@ line, and you act on it at your next step, as you would an answer.
 When the user asks to see the work before it lands, write `Review:
 requested` under `## Notes` at once, so the request outlives your session.
 
-## Checking in
-
-`[ARBOR UPDATE]`, which the `arbor dev` page's Check in button sends once you
-have worked a while, asks where your work stands. Bring `## Done` and
-`## Next` up to date, then answer in at most three `- ` lines: what you
-finished since the user last heard from you, what you are on now, and what is
-in the way, if anything. Then carry on with the work in the same turn, as
-though nothing had come; it asks for no report, no questions and no stop.
-
 ## Escalation
 
 Escalate when questions are still open once everything else is done, or when
@@ -603,8 +594,7 @@ Give one demo per message, right before the questions it is for, or inside a
 review before its last line. The steps are the demo's only numbered list:
 never number steps elsewhere in a report, where they would read as questions.
 
-When the user approves, by replying "merge" or with `[ARBOR MERGE]`, which
-the Merge button on the `arbor dev` page's Ready to merge card sends,
+When the user approves, by replying "merge" or with `[ARBOR MERGE]`,
 `arbor claim <task>` and merge. When that merge
 stops on a conflict, name each file you resolved in the merge report, since
 that code changed after the user looked. When they ask for
