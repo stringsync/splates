@@ -16,6 +16,7 @@ import { Dot } from "./dot";
 import { NavigationContext } from "./navigation";
 import { forgetProject, listProjects, type ProjectChoice } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
+import { TITLE } from "./top-bar";
 
 /** The project the page shows: `?project=`, or none for the one started in. */
 export function shownProject(): string | null {
@@ -213,13 +214,13 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 						title={`Switch project${shortcut === null ? "" : ` (${shortcut})`}${
 							elsewhere.length > 0 ? `: ${waitingElsewhere}` : ""
 						}`}
-						className="-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left hover:bg-muted"
+						className="-mx-1.5 flex min-w-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-left hover:bg-muted max-md:h-11 max-md:py-0 max-md:hover:bg-transparent max-md:active:bg-muted"
 					/>
 				}
 			>
-				<h1 className="truncate font-medium text-sm">{name}</h1>
+				<h1 className={cn(TITLE, "truncate")}>{name}</h1>
 				{elsewhere.length > 0 && <Dot aria-hidden color="bg-warning" />}
-				<ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+				<ChevronsUpDownIcon className="size-3.5 shrink-0 text-muted-foreground max-md:size-4" />
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-80 gap-2 p-2">
 				<Input

@@ -7,8 +7,8 @@ import { MachineBadge } from "./machine";
 import { ProjectSwitcher } from "./projects";
 
 /**
- * Heads a phone's drawer, as tall as the bar beside it: the project
- * switcher and the server's state, then how a restart goes and why a
+ * Heads a phone's drawer, as tall as the bar beside it, its border in line
+ * with the bar's: the project switcher and the server's state, then how a restart goes and why a
  * checkpoint could not start, under the row when they show. The page menu
  * is in every bar's kebab.
  */
@@ -28,7 +28,7 @@ export function AppHeader({
 }): JSX.Element {
 	return (
 		<header className="flex min-w-0 flex-col">
-			<div className="flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
+			<div className="box-content flex h-(--top-bar-height) min-w-0 items-center gap-2 border-b px-4">
 				<SlotMark snapshot={snapshot} />
 				<ProjectSwitcher name={name} />
 				<ServerBadges
