@@ -3,14 +3,17 @@ import {
 	type Cleaned,
 	type Cleanup,
 	CleanupSequence,
+	CorrectionDropper,
+	FillerDropper,
 	ListFormatter,
 } from "webappwiz/dictate";
 import type { Project } from "./dev-project";
 import { SystemTagger } from "./dev-tag-systems";
 
 /**
- * What tidies a take's final text in `arbor dev`: tagging the systems it
- * names, then laying out the lists it speaks, both deciding with `decider`.
+ * What tidies a take's final text in `arbor dev`: dropping what its speaker
+ * took back, then its filler, so tagging the systems it names and laying
+ * out the lists it speaks see only what stays, all deciding with `decider`.
  * The text as heard while that is null, since the Creds page now asks for
  * its creds; one cleanup failing is logged and skipped.
  */
@@ -34,6 +37,8 @@ export class DevCleanup implements Cleanup {
 			return { text, edits: [] };
 		}
 		return new CleanupSequence(
+			this.logged("dropping its corrections", new CorrectionDropper(decider)),
+			this.logged("dropping its filler", new FillerDropper(decider)),
 			this.logged(
 				"tagging its systems",
 				new SystemTagger(this.project, decider),
