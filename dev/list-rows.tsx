@@ -52,7 +52,7 @@ export function Rows({
 			aria-label={label}
 			className={cn(
 				"flex flex-col",
-				nested && "ml-4 border-foreground/10 border-l pl-1",
+				nested && "mt-1 ml-4 border-foreground/10 border-l pl-1",
 			)}
 		>
 			{children}
