@@ -80,7 +80,7 @@ export class Access {
 
 	constructor(
 		readonly config: AccessConfig,
-		opts: { fetch?: typeof fetch; clock?: WallClock } = {},
+		opts: AccessOptions = {},
 	) {
 		this.fetch = opts.fetch ?? fetch;
 		this.clock = opts.clock ?? new SystemWallClock();
@@ -147,10 +147,16 @@ export class Access {
 	}
 
 	// Keys rotate, so one this has not seen fetches them again, but no more
-	// than once a minute, so forged ids cannot make it hammer Cloudflare.
+	// than once a minute, so forged ids cannot make it hammer Cloudflare. A
+	// request that comes while a fetch is under way waits for it, as the
+	// page's first few do the moment the server starts.
 	private async key(kid: string): Promise<CryptoKey> {
 		let key = this.keys.get(kid);
-		if (key === undefined && this.clock.now() - this.fetchedAt >= REFETCH_MS) {
+		if (
+			key === undefined &&
+			(this.fetching !== null ||
+				this.clock.now() - this.fetchedAt >= REFETCH_MS)
+		) {
 			this.fetching ??= this.refetch().finally(() => {
 				this.fetching = null;
 			});
@@ -188,6 +194,12 @@ export class Access {
 		}
 		this.keys = imported;
 	}
+}
+
+/** What an `Access` reaches the world through, swapped in tests. */
+export interface AccessOptions {
+	fetch?: typeof fetch;
+	clock?: WallClock;
 }
 
 const Header = z.object({ alg: z.string(), kid: z.string() });

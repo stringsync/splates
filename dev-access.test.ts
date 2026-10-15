@@ -77,13 +77,13 @@ const asked = (headers: Record<string, string>) =>
 describe("accessConfig", () => {
 	it("is null with neither flag, and the same team however it is named", () => {
 		expect(accessConfig("", "")).toBeNull();
-		for (const team of [
-			"team",
-			"Team.cloudflareaccess.com",
-			"https://team.cloudflareaccess.com/",
-		]) {
-			expect(accessConfig(team, "app-aud")).toEqual(config);
-		}
+		expect(
+			[
+				"team",
+				"Team.cloudflareaccess.com",
+				"https://team.cloudflareaccess.com/",
+			].map((team) => accessConfig(team, "app-aud")),
+		).toEqual([config, config, config]);
 	});
 
 	it("refuses one flag without the other, or a team that is no name", () => {
@@ -137,6 +137,21 @@ describe("Access", () => {
 		expect(await refused(await token({ nbf: NOW / 1000 + 60 }))).toContain(
 			"not valid yet",
 		);
+	});
+
+	it("verifies requests that arrive while the keys are first fetched", async () => {
+		const { verifier, fetched } = await access();
+		const signed = await token();
+		const verify = () =>
+			verifier.verify(asked({ "cf-access-jwt-assertion": signed }));
+
+		const all = await Promise.all([verify(), verify(), verify()]);
+		expect(all.map((each) => each.refused)).toEqual([
+			undefined,
+			undefined,
+			undefined,
+		]);
+		expect(fetched).toHaveLength(1);
 	});
 
 	it("fetches the keys again for an unknown one, at most once a minute", async () => {
