@@ -156,6 +156,7 @@ export interface Served extends AsyncResource {
 	raiseBudget: Handler;
 	endRaise: Handler;
 	listConversations: Handler;
+	refreshLimits: Handler;
 	startConversation: Handler;
 	listSessions: Handler;
 	bringSession: Handler;

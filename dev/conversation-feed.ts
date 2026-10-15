@@ -227,6 +227,17 @@ export class ConversationFeed
 		});
 	}
 
+	/**
+	 * Has the server ask the agents that do not send their limits for them,
+	 * then reads the agents afresh, so the page shows what they said.
+	 */
+	async refreshLimits(): Promise<void> {
+		await fetch(scoped("/api/conversations/limits"), { method: "POST" }).catch(
+			() => null,
+		);
+		await this.list();
+	}
+
 	/** Reads every conversation afresh; false when they are off. */
 	private async list(): Promise<boolean> {
 		const since = this.changes;

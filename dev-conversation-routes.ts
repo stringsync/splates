@@ -112,6 +112,12 @@ export class ConversationRoutes {
 		return asked;
 	};
 
+	/** Asks the agents that do not send their limits for them, now and then. */
+	readonly refreshLimits = async (): Promise<Response> => {
+		await this.held().refreshLimits();
+		return Response.json({});
+	};
+
 	readonly listConversations = async (): Promise<Response> => {
 		const all = this.held();
 		const offered = await all.settings();

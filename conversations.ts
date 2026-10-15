@@ -62,6 +62,9 @@ export type {
 export { DEVICES, FROM_HEADER, unused } from "./conversation-state";
 export { fold, heard } from "./fold";
 
+/** How long Codex's limits asked for stand before the Budget page asks again, in ms. */
+const LIMITS_FRESH = 5 * 60_000;
+
 /** How many archived conversations are kept; older archived ones are deleted. */
 export const ARCHIVED_KEPT = 50;
 
@@ -91,6 +94,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private loaded: Promise<void> | null = null;
 	/** The last deletion of archived conversations past `ARCHIVED_KEPT`, so they run one at a time. */
 	private pruning: Promise<void> = Promise.resolve();
+	/** When each agent's limits were last asked for, by its id, in epoch ms. */
+	private readonly asked = new Map<string, number>();
 	/** Where `arbor dev` answers, once it does, for the agents' CLI. */
 	url: string | null = null;
 
@@ -141,6 +146,29 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	 */
 	async limits(): Promise<Record<string, Limit[]>> {
 		return (await this.limited?.all()) ?? {};
+	}
+
+	/**
+	 * Asks each agent that does not send its limits for them, unless it was
+	 * asked within `LIMITS_FRESH`, and keeps what it says for every project.
+	 */
+	async refreshLimits(): Promise<void> {
+		const read = this.readLimits;
+		if (read === null) {
+			return;
+		}
+		const now = this.clock.now();
+		await Promise.all(
+			this.agents.map(async (agent) => {
+				const before = this.asked.get(agent.id);
+				if (before !== undefined && now - before < LIMITS_FRESH) {
+					return;
+				}
+				this.asked.set(agent.id, now);
+				const limits = await read(agent).catch((): Limit[] => []);
+				await this.limited?.remember(agent.id, limits).catch(() => {});
+			}),
+		);
 	}
 
 	/** Every conversation, newest first. */

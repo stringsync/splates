@@ -142,6 +142,27 @@ export function limitsOf(
 	});
 }
 
+/** When the newest of `limits` was said, as epoch ms; null when none says. */
+export function saidAt(limits: Limit[]): number | null {
+	const times = limits.flatMap((each) =>
+		each.at == null ? [] : [Date.parse(each.at)],
+	);
+	return times.length === 0 ? null : Math.max(...times);
+}
+
+/** How long ago `at` was: `just now`, `4m ago`, `2h ago`, `3d ago`. */
+export function ago(at: number, now: number): string {
+	const minutes = Math.max(0, Math.floor((now - at) / 60_000));
+	if (minutes < 1) {
+		return "just now";
+	}
+	return minutes < 60
+		? `${minutes}m ago`
+		: minutes < 1440
+			? `${Math.floor(minutes / 60)}h ago`
+			: `${Math.floor(minutes / 1440)}d ago`;
+}
+
 /**
  * What a window is called: its name when Claude has one for it, else its
  * length, as Codex's `43200_minutes` is `30-day`.

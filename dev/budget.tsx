@@ -23,7 +23,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { PHONE_HEADING } from "./phone-rows";
-import { limitsOf, PlanLimits } from "./plan-limits";
+import { ago, limitsOf, PlanLimits, saidAt } from "./plan-limits";
 
 /** What each model is, under its name. */
 const ROLES: Record<RoleBudget["role"], string> = {
@@ -409,6 +409,9 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
+	const now = useMinute();
+	// Codex never sends its limits, so the server asks it as the page opens.
+	useEffect(() => void talk.refreshLimits(), [talk]);
 	return (
 		<div className="flex flex-col gap-3">
 			<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -422,17 +425,25 @@ function PlanSection({ talk }: { talk: ConversationFeed }): JSX.Element {
 			<ul className="flex flex-col gap-4">
 				{PLANS.map(({ agent, name }) => {
 					const limits = limitsOf(agents, conversations, agent);
+					const at = saidAt(limits);
 					return (
 						<li
 							key={agent}
 							aria-label={`${name} plan`}
 							className="rounded-xl border bg-card px-4 py-3 shadow-xs"
 						>
-							<AgentBrand agent={agent} name={name} className="text-sm" />
+							<div className="flex flex-wrap items-baseline gap-x-2">
+								<AgentBrand agent={agent} name={name} className="text-sm" />
+								{at !== null && (
+									<span className="text-muted-foreground text-xs">
+										said {ago(at, now)}
+									</span>
+								)}
+							</div>
 							{limits.length === 0 ? (
 								<p className="mt-2 text-muted-foreground text-sm">
-									Not said yet: it shows once a {name} conversation runs in
-									arbor dev.
+									Not said yet: it shows once {name} says, or a conversation
+									drives it in arbor dev.
 								</p>
 							) : (
 								<PlanLimits
