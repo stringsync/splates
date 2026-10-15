@@ -246,25 +246,24 @@ export function NeedsYouBar(): ReactNode {
 	if (latest === undefined) {
 		return null;
 	}
+	// As quiet as the Archive bar beside it, the tone in its icon alone, so it
+	// never outshouts the composer; the whole bar is the tap.
+	const { title, Icon, tone, open } = latest;
 	return (
-		<SheetLine
-			title={latest.title}
-			Icon={latest.Icon}
-			tone={latest.tone}
-			onOpen={latest.open}
-			bar
-		/>
+		<button
+			type="button"
+			onClick={open}
+			className="group flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-left text-sm shadow-xs"
+		>
+			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
+			<span className="min-w-0 flex-1 truncate">{title}</span>
+			<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium shadow-xs group-active:bg-muted">
+				Answer
+				<ChevronRightIcon className="size-4 text-muted-foreground" />
+			</span>
+		</button>
 	);
 }
-
-/** The bar's tint, the tone of its icon, so a green icon never sits on yellow. */
-const BARS: Record<Tone, string> = {
-	neutral: "bg-muted/60",
-	success: "border-success/40 bg-success/10",
-	warning: "border-warning/40 bg-warning/10",
-	destructive: "border-destructive/40 bg-destructive/10",
-	info: "border-info/40 bg-info/10",
-};
 
 /** A line naming a waiting card, opening its sheet on a tap. */
 function SheetLine({
@@ -272,28 +271,22 @@ function SheetLine({
 	Icon,
 	tone,
 	onOpen,
-	bar = false,
 }: {
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
 	onOpen: () => void;
-	/** Whether it is the bar above the composer, which says what a tap does. */
-	bar?: boolean;
 }): JSX.Element {
 	return (
 		<button
 			type="button"
 			onClick={onOpen}
-			className={cn(
-				"flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 text-left shadow-xs active:bg-muted",
-				bar && BARS[tone],
-			)}
+			className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 text-left shadow-xs active:bg-muted"
 		>
 			<Icon className={cn("size-5 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 flex-1 truncate font-medium">{title}</span>
 			<span className="flex shrink-0 items-center gap-0.5 text-muted-foreground text-sm">
-				{bar ? "Answer" : "Open"}
+				Open
 				<ChevronRightIcon className="size-4" />
 			</span>
 		</button>
