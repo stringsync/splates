@@ -268,13 +268,26 @@ interface Word {
 
 /**
  * The words of `text`, leaving out any already a mention, a path or a
- * command (`#scry`, `@file`, `/arbor`).
+ * command (`#scry`, `@file`, `/arbor`), any inside a code span or fenced
+ * block, and any joined to another by a hyphen (`scry-ignore`).
  */
 function wordsOf(text: string): Word[] {
 	const words: Word[] = [];
+	const code = codeRanges(text);
 	for (const match of text.matchAll(/[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu)) {
 		const before = text[match.index - 1];
 		if (before === "#" || before === "@" || before === "/") {
+			continue;
+		}
+		const after = text[match.index + match[0].length];
+		if (
+			(before === "-" && /[\p{L}\p{N}]/u.test(text[match.index - 2] ?? "")) ||
+			(after === "-" &&
+				/[\p{L}\p{N}]/u.test(text[match.index + match[0].length + 1] ?? ""))
+		) {
+			continue;
+		}
+		if (code.some(([from, to]) => match.index >= from && match.index < to)) {
 			continue;
 		}
 		const word = match[0].replace(/['’]s$/i, "");
@@ -285,6 +298,15 @@ function wordsOf(text: string): Word[] {
 		});
 	}
 	return words;
+}
+
+/** The spans of `text` inside a fenced block or a backtick code span. */
+function codeRanges(text: string): [number, number][] {
+	const ranges: [number, number][] = [];
+	for (const match of text.matchAll(/```[\s\S]*?(?:```|$)|`[^`\n]*`/g)) {
+		ranges.push([match.index, match.index + match[0].length]);
+	}
+	return ranges;
 }
 
 /** `term`'s letters and digits, lowercased, so spacing and hyphens never count. */

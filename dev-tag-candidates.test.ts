@@ -35,4 +35,18 @@ describe("candidates", () => {
 		expect(phrases("I cry")).toEqual([["cry", ["scry"]]]);
 		expect(phrases("the check pint")).toEqual([]);
 	});
+
+	it("leaves a word inside a code span or a fenced block", () => {
+		expect(phrases("the `scry-ignore` and `scry` marker")).toEqual([]);
+		expect(phrases("```\nscry here\n```\nthen scry")).toEqual([
+			["scry", ["scry"]],
+		]);
+	});
+
+	it("leaves a name that is only part of a hyphenated word", () => {
+		expect(phrases("a scry-ignore comment, not scry")).toEqual([
+			["scry", ["scry"]],
+		]);
+		expect(phrases("the pre-scry step")).toEqual([]);
+	});
 });
