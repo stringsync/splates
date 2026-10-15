@@ -21,7 +21,17 @@ Add the part yourself, then tell the subagent:
 - to make each call the request does not settle as it sees fit, listing in
   its reply what it chose and what else it could have done, never under
   `## Blocked`, which would stop `arbor merge`;
-- to squash and `arbor merge` the part when done, landing it on your branch.
+- to squash and `arbor merge` the part when done, landing it on your branch;
+- never to wait on you: when the part cannot land until work of yours does,
+  to commit it, leave it unmerged, and say so in its reply.
+
+A part's merge runs the tests on your branch, so a part that needs work of
+yours, as tests need the fix they test, lands only once that work is
+committed. Commit it before handing the part out, or merge the part yourself
+when it comes back unmerged: `arbor claim <part>` and `arbor merge` from its
+worktree once your work is in. A subagent your harness runs in the
+foreground holds your turn until it returns, so one that waits on you waits
+forever.
 
 When the user asks for the part to go to another agent, such as one of
 another model family, run by `arbor dev`, hand it over as you add it:
