@@ -468,7 +468,9 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element {
 			role="status"
 			className={cn(
 				bleed(phone),
-				"-mt-4 flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
+				// A phone's pane has no top padding to cross.
+				!phone && "-mt-4",
+				"flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
 			)}
 		>
 			<ArchiveIcon className="size-4 shrink-0" />
