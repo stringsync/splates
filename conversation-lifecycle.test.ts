@@ -328,6 +328,16 @@ describe("Conversation lifecycle", () => {
 		expect(agent.launched).toHaveLength(2);
 	});
 
+	it("says what the agent wrote to stderr when it died starting", async () => {
+		agent.dying = 1;
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+		});
+		await until(conversation, "failed");
+		expect(conversation.state.error).toBe("fake agent fell over");
+	});
+
 	it("opens a new session for one whose agent died before opening its own", async () => {
 		agent.dying = 1;
 		const conversation = await conversations.start("fake", {

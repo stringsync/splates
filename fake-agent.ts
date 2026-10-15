@@ -113,6 +113,7 @@ export class FakeAgent {
 			initialize: async ({ clientCapabilities }) => {
 				if (this.dying > 0) {
 					this.dying--;
+					this.exit(1);
 					throw new Error("ACP connection closed");
 				}
 				await this.hold;

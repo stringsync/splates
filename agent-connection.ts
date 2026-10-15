@@ -30,6 +30,9 @@ import type { Watched } from "./watch";
 /** How long an agent starting holds up the next before it may start too. */
 const START_WAIT = Duration.secs(30);
 
+/** How long a failed start waits for its process to exit, to say why it died. */
+const DEATH_WAIT = Duration.secs(1);
+
 /**
  * A conversation's side of ACP: the agent's process and the connection to
  * it, what the agent asks of this side, routed to the person, and the calls
@@ -39,6 +42,8 @@ const START_WAIT = Duration.secs(30);
 export class AgentConnection {
 	private connection: acp.ClientSideConnection | null = null;
 	private process: AgentProcess | null = null;
+	/** How many times `open` has run, so a start that fails late knows it is still the latest. */
+	private opens = 0;
 	/** The agent's session, once it has opened one. */
 	private session: string | null;
 	/** Settles the agent's pending ask with the person's answer. */
@@ -120,30 +125,34 @@ export class AgentConnection {
 	async open(agent: Agent, cwd: string): Promise<void> {
 		const { host } = this;
 		host.set({ status: "starting", error: null, stoppedIdle: null });
+		const _attempt = ++this.opens;
 		const started = await this.startAlone();
+		let process: AgentProcess | null = null;
 		try {
 			// The agent's `arbor` finds its conversation, and the server, in its
 			// env, to move the conversation as it takes or lands a task. One
 			// working a task another conversation added also finds that one, so
 			// its `arbor add --agent` refuses: agents start agents one level deep.
 			const { id, lastCaller } = host.state;
-			const process = this.deps.launch(agent.argv, cwd, {
+			process = this.deps.launch(agent.argv, cwd, {
 				ARBOR_CONVERSATION: id,
 				...(lastCaller === null || lastCaller === id
 					? {}
 					: { ARBOR_CALLER: lastCaller }),
 				...(this.deps.url === null ? {} : { ARBOR_DEV: this.deps.url }),
 			});
-			this.process = process;
-			void process.exited.then(started, started);
-			void process.exited.then((code) => {
-				if (this.process === process) {
+			const launched = process;
+			this.process = launched;
+			void launched.exited.then(started, started);
+			void launched.exited.then((code) => {
+				if (this.process === launched) {
 					void host.close(
-						process.stderr().trim() || `${agent.name} exited with code ${code}`,
+						launched.stderr().trim() ||
+							`${agent.name} exited with code ${code}`,
 					);
 				}
 			});
-			const stream = acp.ndJsonStream(process.input, process.output);
+			const stream = acp.ndJsonStream(launched.input, launched.output);
 			const connection = new acp.ClientSideConnection(() => this.client(), {
 				writable: stream.writable,
 				readable: asyncTasks(stream.readable),
@@ -226,8 +235,36 @@ export class AgentConnection {
 			host.set({ status: "idle" });
 		} catch (error) {
 			started();
-			await host.close(messageOf(error));
+			// Left to the exit that already said why.
+			if (host.state.status === "failed") {
+				return;
+			}
+			// The connection closes as the process dies, ahead of its exit, so
+			// its stderr, which says why, is waited for.
+			await host.close((await this.diedSaying(process)) ?? messageOf(error));
 		}
+	}
+
+	/** What `process` said on stderr if it exits within `DEATH_WAIT`, else null. */
+	private async diedSaying(
+		process: AgentProcess | null,
+	): Promise<string | null> {
+		if (process === null) {
+			return null;
+		}
+		const { timer } = this.deps;
+		let giveUp: { dispose(): void } | undefined;
+		const gone = await Promise.race([
+			process.exited.then(
+				() => true,
+				() => true,
+			),
+			new Promise<false>((resolve) => {
+				giveUp = timer.setTimeout(() => resolve(false), DEATH_WAIT);
+			}),
+		]);
+		giveUp?.dispose();
+		return gone ? process.stderr().trim() || null : null;
 	}
 
 	/**
