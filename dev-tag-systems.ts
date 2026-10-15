@@ -228,6 +228,8 @@ export async function tagSystems(
  * read afresh for each take, deciding with `decider`.
  */
 export class SystemTagger implements Cleanup {
+	readonly kind = "tag";
+
 	constructor(
 		private readonly project: Project,
 		private readonly decider: Decider,

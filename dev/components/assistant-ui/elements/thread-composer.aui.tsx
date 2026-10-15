@@ -41,6 +41,7 @@ import {
 	TypedDirectivesPlugin,
 } from "#dev/composer-editor.tsx";
 import { DictateButton } from "#dev/dictate-button.tsx";
+import { DictationReview } from "#dev/dictation-review.tsx";
 import { DictationNotice, DictationStatus } from "#dev/dictation-status.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
 import { useTouch } from "#dev/hooks/use-touch.ts";
@@ -104,6 +105,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					</FileNames>
 				</ForgetAttachment>
 				<DictationNotice />
+				<DictationReview />
 				<ComposerAction />
 			</ComposerPrimitive.AttachmentDropzone>
 		</ComposerPrimitive.Root>

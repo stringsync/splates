@@ -87,7 +87,14 @@ describe("dev dictation", () => {
 			expect(await ended()).toEqual([
 				{ type: "heard", text: "heard: one " },
 				{ type: "heard", text: "heard: one two" },
-				{ type: "done", text: "heard: one two", edits: [] },
+				{
+					type: "done",
+					text: "heard: one two",
+					said: "heard: one two",
+					applied: [],
+					edits: [],
+					decisions: [],
+				},
 			]);
 		});
 	});
@@ -113,12 +120,40 @@ describe("dev dictation", () => {
 			socket.send(new TextEncoder().encode("run scry"));
 			socket.send("finish");
 
-			expect((await ended()).at(-1)).toEqual({
+			const done = (await ended()).at(-1);
+			expect(done).toMatchObject({
 				type: "done",
 				text: "heard: run #scry",
+				said: "heard: run scry",
+				applied: [{ type: "tag", start: 11, end: 12, was: "" }],
 				edits: [],
 			});
+			expect(done).toHaveProperty("decisions.0.cleanup", "tag");
+			expect(done).toHaveProperty("decisions.0.questions.0.id", "refers.scry");
 			expect(models).toEqual(["jev-latest"]);
+		});
+	});
+
+	it("runs no cleanup the page switched off", async () => {
+		await deps.commit(
+			deps.service.git.root,
+			"arbor.systems.ts",
+			`export default ${JSON.stringify({ scry: { globs: ["scry/**"] } })};\n`,
+			"name the systems",
+		);
+		await opened(async (port) => {
+			const { socket, ended } = await dictation(port, "?off=tag,nonsense");
+			socket.send(new TextEncoder().encode("run scry"));
+			socket.send("finish");
+
+			expect((await ended()).at(-1)).toEqual({
+				type: "done",
+				text: "heard: run scry",
+				said: "heard: run scry",
+				applied: [],
+				edits: [],
+				decisions: [],
+			});
 		});
 	});
 
@@ -159,7 +194,7 @@ describe("dev dictation", () => {
 			socket.send("finish");
 
 			const done = (await ended()).at(-1);
-			expect(done).toEqual({
+			expect(done).toMatchObject({
 				type: "done",
 				text: "heard: two things:\n- Run scry\n- Ship it",
 				edits: [

@@ -1,3 +1,4 @@
+import type { EditKind } from "webappwiz/dictate";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { CLEANUP_MODELS, DEFAULT_CLEANUP_MODEL } from "../cleanup-models";
 import { OPENERS, ZED } from "./openers";
@@ -42,6 +43,14 @@ export const ACCENTS = [
 	{ value: "rose", label: "Rose" },
 ] as const satisfies readonly Choice[];
 
+/** The switch for each cleanup a dictation runs, by the edits it makes. */
+export const CLEANUP_SWITCHES = {
+	correction: "dictation.corrections",
+	filler: "dictation.filler",
+	tag: "dictation.tagging",
+	item: "dictation.lists",
+} as const satisfies Record<EditKind, keyof typeof SETTINGS>;
+
 /** Every setting, in the order the dialog shows them. */
 export const SETTINGS = {
 	"appearance.theme": {
@@ -78,6 +87,33 @@ export const SETTINGS = {
 			"The model that tidies a dictation's text. Clef Flash is the cheapest; each needs its own keys, which the Creds page asks for the first time a cleanup runs.",
 		default: DEFAULT_CLEANUP_MODEL,
 		choices: CLEANUP_MODELS,
+	},
+	"dictation.corrections": {
+		category: "Dictation",
+		title: "Drop corrections",
+		description:
+			'Drop what you took back ("no, wait, Tuesday") and keep the newer wording.',
+		default: true,
+	},
+	"dictation.filler": {
+		category: "Dictation",
+		title: "Drop filler",
+		description: 'Drop "um", "you know" and the like.',
+		default: true,
+	},
+	"dictation.tagging": {
+		category: "Dictation",
+		title: "Tag systems",
+		description:
+			"Write a system you name as #name, so the agent reads it as that part of the code.",
+		default: true,
+	},
+	"dictation.lists": {
+		category: "Dictation",
+		title: "Format lists",
+		description:
+			"Lay out a list you speak (first, then, finally) as a markdown list.",
+		default: true,
 	},
 	"editor.opener": {
 		category: "Editor",

@@ -1,5 +1,5 @@
 import type { Decider } from "webappwiz/decide";
-import type { Cleanup, Transcriber } from "webappwiz/dictate";
+import type { Cleanup, EditKind, Transcriber } from "webappwiz/dictate";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
@@ -100,10 +100,11 @@ export async function serveProject(
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		decider: (model) => context.deciderFor(project, model, () => watch.tick()),
-		cleanup: (model) =>
+		cleanup: (model, off) =>
 			new DevCleanup(
 				project,
 				context.deciderFor(project, model, () => watch.tick()),
+				off,
 			),
 		async disposeAsync() {
 			watch.dispose();
@@ -218,11 +219,14 @@ export interface Served extends AsyncResource {
 	decider: (model: CleanupModel | undefined) => Promise<Decider | null>;
 	/**
 	 * Tidies a take's final text on `model`, tagging the systems it names
-	 * and formatting the lists it speaks;
+	 * and formatting the lists it speaks, but for the cleanups in `off`;
 	 * the text as heard while the creds `model` needs are missing, which it
 	 * asks for at once.
 	 */
-	cleanup: (model: CleanupModel | undefined) => Cleanup;
+	cleanup: (
+		model: CleanupModel | undefined,
+		off: ReadonlySet<EditKind>,
+	) => Cleanup;
 }
 
 /**

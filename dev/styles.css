@@ -10,6 +10,7 @@
    nothing at all. */
 @source "./app.tsx";
 @source "./dictate-button.tsx";
+@source "./dictation-review.tsx";
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";
 @source "./app-nav.tsx";

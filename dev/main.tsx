@@ -6,7 +6,7 @@ import { App } from "./app";
 import { followAppearance } from "./appearance";
 import { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
-import { Settings } from "./settings";
+import { CLEANUP_SWITCHES, Settings } from "./settings";
 
 const root = document.getElementById("root");
 if (root === null) {
@@ -58,6 +58,16 @@ document.addEventListener("gesturestart", (event) => event.preventDefault());
 // on https or localhost; elsewhere, notifications fall back to the page's own.
 void navigator.serviceWorker?.register("/worker.js").catch(() => {});
 
+/** What a take tells the server: the model its cleanups decide with, and the ones switched off. */
+const dictationQuery = () =>
+	new URLSearchParams({
+		model: settings.get("dictation.cleanupModel"),
+		off: Object.entries(CLEANUP_SWITCHES)
+			.filter(([, setting]) => !settings.get(setting))
+			.map(([kind]) => kind)
+			.join(","),
+	});
+
 // The mic needs https or localhost, and a browser with an AudioWorklet to tap
 // it; elsewhere the composer has no mic button.
 const dictation =
@@ -66,7 +76,7 @@ const dictation =
 	typeof AudioWorkletNode !== "undefined"
 		? new Dictation(new BrowserMicrophone(), () =>
 				DictationSocket.open(
-					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped(`/api/dictation?${new URLSearchParams({ model: settings.get("dictation.cleanupModel") })}`)}`,
+					`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${scoped(`/api/dictation?${dictationQuery()}`)}`,
 				),
 			)
 		: null;

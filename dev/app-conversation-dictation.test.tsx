@@ -15,14 +15,13 @@ import {
 describe("App's composer mic", () => {
 	let testing: Testing;
 	let microphone: FakeMicrophone;
+	let link: FakeDictationLink;
 
 	beforeEach(() => {
 		testing = new Testing();
 		microphone = new FakeMicrophone();
-		testing.dictation = new Dictation(
-			microphone,
-			async () => new FakeDictationLink(),
-		);
+		link = new FakeDictationLink();
+		testing.dictation = new Dictation(microphone, async () => link);
 	});
 
 	afterEach(() => {
@@ -55,6 +54,42 @@ describe("App's composer mic", () => {
 
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
 		expect(textIn(box)).toBe("something more");
+	});
+
+	it("marks what the cleanups did, and flips each edit in the message", async () => {
+		link.take = () => ({
+			text: "run #scry now, so go",
+			said: "run s cry now, so go",
+			applied: [{ type: "tag", start: 4, end: 9, was: "s cry" }],
+			edits: [
+				{ type: "filler", start: 13, end: 17, text: "", probability: 0.5 },
+			],
+			decisions: [],
+		});
+		const { view, box } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		const stop = await waitFor(() =>
+			view.getByRole("button", { name: "Stop dictation" }),
+		);
+		await act(async () => fireEvent.click(stop));
+		await waitFor(() => expect(textIn(box)).toBe("run #scry now, so go"));
+		const click = async (name: RegExp | string) =>
+			act(async () => fireEvent.click(view.getByRole("button", { name })));
+
+		await click(/^Undo tag/);
+		await waitFor(() => expect(textIn(box)).toBe("run s cry now, so go"));
+		await click(/^Make suggested filler/);
+		await waitFor(() => expect(textIn(box)).toBe("run s cry now go"));
+		await click("Cleaned up");
+		await waitFor(() => expect(textIn(box)).toBe("run #scry now, so go"));
+		await click("As said");
+		await waitFor(() => expect(textIn(box)).toBe("run s cry now, so go"));
+		await click("Dismiss cleanup");
+		expect(
+			view.queryByRole("region", { name: "Dictation cleanup" }),
+		).toBeNull();
 	});
 
 	it("shows the mic beside Send, empty or typed in", async () => {

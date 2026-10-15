@@ -9,6 +9,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { Duration } from "webappwiz/time";
 import { DictationSession } from "./dictation-session";
+import { TakeReview } from "./take-review";
 import { TakeUnderWay } from "./take-under-way";
 
 /**
@@ -40,6 +41,8 @@ export interface DictationState {
 	level: number;
 	/** Whether the open mic has heard nothing for {@link SILENCE}. */
 	silent: boolean;
+	/** The last take's cleanup, open to judge until the next take or a dismiss. */
+	review: TakeReview | undefined;
 }
 
 const IDLE: DictationState = {
@@ -48,6 +51,7 @@ const IDLE: DictationState = {
 	cred: undefined,
 	level: 0,
 	silent: false,
+	review: undefined,
 };
 
 /**
@@ -151,6 +155,13 @@ export class Dictation
 		return take.session;
 	}
 
+	/** Puts `review`, a flip of the last take's, in place of it. */
+	revise(review: TakeReview | undefined): void {
+		if (this.take === undefined) {
+			this.set({ review });
+		}
+	}
+
 	/** Puts away what the last take said went wrong. */
 	dismiss(): void {
 		if (this.take === undefined) {
@@ -212,9 +223,9 @@ export class Dictation
 		}
 		this.set({ phase: "finishing", level: 0, silent: false, error: notice });
 		try {
-			const text = await link.finish();
-			take.session.ended("stopped", text);
-			this.set({ ...IDLE, error: notice });
+			const taken = await link.finish();
+			take.session.ended("stopped", taken.text);
+			this.set({ ...IDLE, error: notice, review: TakeReview.of(taken) });
 		} catch (error) {
 			const failure = failureOf(error);
 			take.session.ended("error", take.text);
