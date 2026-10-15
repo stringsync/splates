@@ -30,7 +30,7 @@ import type { Proposal, Report, Start } from "../asked";
 import { todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
-import { Board } from "./board";
+import { Board, touchArea } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
@@ -105,7 +105,11 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 						aria-pressed={showing}
 						title={showing ? "Hide source" : "Show source"}
 						onClick={() => setShowing(!showing)}
-						className={cn(showing && "bg-accent text-accent-foreground")}
+						className={cn(
+							"relative",
+							touchArea,
+							showing && "bg-accent text-accent-foreground",
+						)}
 					>
 						<CodeIcon />
 					</Button>
@@ -181,7 +185,7 @@ function Source({ text }: { text: string }): JSX.Element {
 				variant="outline"
 				title={copied.state === "failed" ? copied.error : undefined}
 				onClick={() => copy(text)}
-				className="absolute top-2.5 right-2.5 h-7 gap-1.5 bg-background"
+				className="absolute top-2.5 right-2.5 h-7 pointer-coarse:h-10 gap-1.5 bg-background"
 			>
 				{copied.state === "copied" ? (
 					<CheckIcon data-icon="inline-start" />
@@ -441,7 +445,7 @@ export function TodoCard({
 						</span>
 					)}
 					{open && (send !== null || startNew !== null) && (
-						<span className="flex shrink-0 items-center gap-1 pointer-coarse:[&_button]:h-9 pointer-coarse:[&_button]:min-w-9">
+						<span className="flex shrink-0 items-center gap-1 pointer-coarse:[&_button]:h-10 pointer-coarse:[&_button]:min-w-10">
 							{send !== null && (
 								<Button
 									size="sm"

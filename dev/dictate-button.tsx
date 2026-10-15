@@ -25,7 +25,7 @@ const ACTIONS: Record<DictationPhase, string> = {
 	failed: "Dictate",
 };
 
-const SIZE = "size-7 rounded-md pointer-coarse:size-9";
+const SIZE = "size-7 rounded-md pointer-coarse:size-10";
 
 /** Marks each composer's mic, whichever way it toggles, for ⌥⌘V to find. */
 const MIC = "aui-composer-mic";

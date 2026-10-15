@@ -364,6 +364,7 @@ export function QuestionCards({
 								disabled={out === ""}
 								title={copied.state === "failed" ? copied.error : undefined}
 								onClick={submit}
+								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
 								{send !== null ? (
 									<SendHorizontalIcon data-icon="inline-start" />

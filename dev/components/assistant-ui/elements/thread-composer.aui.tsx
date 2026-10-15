@@ -314,7 +314,7 @@ const ComposerAction: FC = () => {
 								type="button"
 								variant="default"
 								size="icon"
-								className="aui-composer-send size-7 rounded-full pointer-coarse:size-9"
+								className="aui-composer-send size-7 rounded-full pointer-coarse:size-10"
 								aria-label="Send message"
 							/>
 						}
@@ -336,7 +336,7 @@ const ComposerAction: FC = () => {
 								type="button"
 								variant="destructive"
 								size="icon"
-								className="aui-composer-cancel size-7 rounded-full pointer-coarse:size-9"
+								className="aui-composer-cancel size-7 rounded-full pointer-coarse:size-10"
 								aria-label={isSending ? "Cancel sending" : "Stop generating"}
 							/>
 						}

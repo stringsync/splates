@@ -35,7 +35,7 @@ export const ComposerAddAttachment: FC = () => {
 					size="icon"
 					className={cn(
 						ATTACH,
-						"text-muted-foreground hover:text-foreground size-7 rounded-full pointer-coarse:size-9",
+						"text-muted-foreground hover:text-foreground size-7 rounded-full pointer-coarse:size-10",
 					)}
 					aria-label="Attach files"
 				/>
