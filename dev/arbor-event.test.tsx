@@ -93,7 +93,7 @@ describe("arbor events", () => {
 		);
 
 		expect(page.getByTitle("Cred API_TOKEN").getAttribute("href")).toBe(
-			"#creds",
+			"#creds/API_TOKEN",
 		);
 	});
 

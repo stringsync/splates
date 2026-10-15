@@ -15,6 +15,7 @@ import { Board } from "./board";
 import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
+import { credAddress } from "./page-address";
 
 /**
  * An event of arbor's in the thread: one line of a verb, the thing it names,
@@ -298,13 +299,11 @@ function NamedChip({
 				</Chip>
 			);
 		case "cred":
-			// The Creds page, which lists every cred, since it has no address
-			// for one.
 			return (
 				<Chip
 					Icon={KeyRoundIcon}
 					title={`Cred ${named.name}`}
-					href="#creds"
+					href={credAddress(named.name)}
 					className={cn("font-mono", GIVES_WAY)}
 				>
 					{named.name}

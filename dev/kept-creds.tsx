@@ -27,12 +27,15 @@ export function KeptRow({
 	scope,
 	savedBy,
 	project,
+	picked = false,
 	onChanged,
 }: {
 	name: string;
 	scope: Scope;
 	savedBy: string | null;
 	project: string;
+	/** Whether the address set the page on it. */
+	picked?: boolean;
 	onChanged: () => void;
 }): JSX.Element {
 	const wide = useWide();
@@ -54,8 +57,10 @@ export function KeptRow({
 	return (
 		<li
 			aria-label={name}
+			data-cred={name}
 			className={cn(
 				"flex flex-col gap-2 px-4 py-2.5 text-sm",
+				picked && "bg-muted ring-2 ring-ring ring-inset",
 				"max-md:min-h-16 max-md:justify-center max-md:active:bg-muted",
 			)}
 		>

@@ -11,6 +11,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -60,17 +61,24 @@ function RequestBody({ request }: { request: CredRequest }): JSX.Element {
 function RequestRow({
 	request,
 	project,
+	picked,
 	onChanged,
 }: {
 	request: CredRequest;
 	project: string;
+	/** Whether the address set the page on it. */
+	picked: boolean;
 	onChanged: () => void;
 }): JSX.Element {
 	const [error, setError] = useState<string | null>(null);
 	return (
 		<li
 			aria-label={`requested ${request.name}`}
-			className="overflow-hidden rounded-xl border bg-card shadow-xs"
+			data-cred={request.name}
+			className={cn(
+				"overflow-hidden rounded-xl border bg-card shadow-xs",
+				picked && "ring-2 ring-ring",
+			)}
 		>
 			<header className="flex flex-wrap items-center gap-2 border-b bg-warning/[0.08] px-4 py-2.5">
 				<KeyRoundIcon className="size-4 text-warning" />
@@ -123,9 +131,12 @@ function RequestRow({
 export function CredsPage({
 	requests,
 	project,
+	cred = null,
 }: {
 	requests: CredRequest[];
 	project: string;
+	/** The cred the address sets the page on, by name, to scroll to and mark. */
+	cred?: string | null;
 }): JSX.Element {
 	const open = openRequests(requests);
 	const [kept, setKept] = useState<KeptCreds | null>(null);
@@ -143,10 +154,29 @@ export function CredsPage({
 	const moved = JSON.stringify(requests);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `moved` is when to read again
 	useEffect(read, [read, moved]);
+	const page = useRef<HTMLElement>(null);
+	// Once the creds are drawn: scroll to the cred, mark it, and for a request
+	// put the cursor in its field, ready to paste.
+	useEffect(() => {
+		if (cred === null || kept === null) {
+			return;
+		}
+		const row = [...(page.current?.querySelectorAll("[data-cred]") ?? [])].find(
+			(each) => each.getAttribute("data-cred") === cred,
+		);
+		row?.scrollIntoView({ block: "center" });
+		row?.querySelector<HTMLElement>("input, textarea")?.focus({
+			preventScroll: true,
+		});
+	}, [cred, kept]);
 	const system = kept?.labels.device.replace(/ as ".*"$/, "") ?? null;
 
 	return (
-		<section aria-label="creds" className="flex min-w-0 flex-col gap-8">
+		<section
+			ref={page}
+			aria-label="creds"
+			className="flex min-w-0 flex-col gap-8"
+		>
 			{open.length > 0 && (
 				<div className="flex flex-col gap-3">
 					<header className="flex items-baseline gap-2">
@@ -163,6 +193,7 @@ export function CredsPage({
 								key={`${request.name}:${request.requestedAt}`}
 								request={request}
 								project={project}
+								picked={request.name === cred}
 								onChanged={read}
 							/>
 						))}
@@ -215,6 +246,7 @@ export function CredsPage({
 								<KeptRow
 									key={`${each.scope}:${each.name}`}
 									{...each}
+									picked={each.name === cred}
 									project={project}
 									onChanged={read}
 								/>

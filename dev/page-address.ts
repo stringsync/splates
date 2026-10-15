@@ -42,6 +42,8 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 	task = taskIn(location.hash);
 	/** The system open on the Systems page, by name, or null. */
 	system = systemIn(location.hash);
+	/** The cred the Creds page is set on, by name, or null. */
+	cred = credIn(location.hash);
 	/** The window's scroll to put back once the entry returned to is drawn. */
 	private scroll: number | null = null;
 
@@ -69,6 +71,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.open = conversation;
 		this.task = null;
 		this.system = null;
+		this.cred = null;
 		this.move(
 			next === "todos"
 				? ""
@@ -101,6 +104,13 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		);
 	}
 
+	/** Sets the Creds page on cred `name`, or on none for null. */
+	openCred(name: string | null): void {
+		this.page = "creds";
+		this.cred = name;
+		this.move(name === null ? "#creds" : credAddress(name));
+	}
+
 	/**
 	 * The window's scroll to put back, once, after the page draws the entry
 	 * the browser went back or forward to, or null.
@@ -116,6 +126,7 @@ export class PageAddress implements Eventful<PageAddressEvents> {
 		this.open = conversationIn(location.hash);
 		this.task = taskIn(location.hash);
 		this.system = systemIn(location.hash);
+		this.cred = credIn(location.hash);
 		this.scroll = entry()?.scroll ?? 0;
 		this.dispatcher.dispatch("changed");
 	};
@@ -171,7 +182,7 @@ function pageIn(hash: string): Page {
 	if (hash === "#stats") {
 		return "stats";
 	}
-	if (hash === "#creds") {
+	if (hash === "#creds" || hash.startsWith("#creds/")) {
 		return "creds";
 	}
 	if (hash === "#budget") {
@@ -190,4 +201,15 @@ function taskIn(hash: string): string | null {
 function systemIn(hash: string): string | null {
 	const [, system] = hash.match(/^#systems\/(.+)$/) ?? [];
 	return system === undefined ? null : decodeURIComponent(system);
+}
+
+/** The cred `#creds/<name>` sets the Creds page on, or null. */
+function credIn(hash: string): string | null {
+	const [, cred] = hash.match(/^#creds\/(.+)$/) ?? [];
+	return cred === undefined ? null : decodeURIComponent(cred);
+}
+
+/** The address of the Creds page set on cred `name`. */
+export function credAddress(name: string): string {
+	return `#creds/${encodeURIComponent(name)}`;
 }

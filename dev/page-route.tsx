@@ -64,9 +64,15 @@ export const PAGES: {
 export function usePageRoute(): PageRoute {
 	const [address] = useState(() => new PageAddress());
 	useDisposerEffect((disposer) => disposer.use(address.attach()), [address]);
-	const { page, open, task, system } = useReactive(
+	const { page, open, task, system, cred } = useReactive(
 		address,
-		({ page, open, task, system }) => ({ page, open, task, system }),
+		({ page, open, task, system, cred }) => ({
+			page,
+			open,
+			task,
+			system,
+			cred,
+		}),
 		["changed"],
 	);
 	useLayoutEffect(() => {
@@ -80,6 +86,7 @@ export function usePageRoute(): PageRoute {
 		open,
 		task,
 		system,
+		cred,
 		go: (next, conversation, how) => address.go(next, conversation, how),
 		openTask: (name) => address.openTask(name),
 		openSystem: (name) => address.openSystem(name),
@@ -146,4 +153,6 @@ export interface PageRoute {
 	system: string | null;
 	/** Opens system `name` on the Systems page, or the list of them for null. */
 	openSystem: (name: string | null) => void;
+	/** The cred the Creds page is set on, by name, or null. */
+	cred: string | null;
 }

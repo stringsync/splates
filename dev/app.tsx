@@ -174,7 +174,8 @@ export function App({
 		(settings) => ({ opener: settings.get("editor.opener") }),
 		["changed"],
 	);
-	const { page, open, task, go, openTask, system, openSystem } = usePageRoute();
+	const { page, open, task, go, openTask, system, openSystem, cred } =
+		usePageRoute();
 	const tasks = snapshot?.tasks ?? NO_TASKS;
 	// The page's, so ⌘K can open a todo on the board.
 	const [todoView] = useState(() => new TodoView(localStorage));
@@ -299,7 +300,11 @@ export function App({
 					),
 					stats: <StatsPage report={report} systems={named} />,
 					creds: (
-						<CredsPage requests={snapshot.creds} project={snapshot.repo} />
+						<CredsPage
+							requests={snapshot.creds}
+							project={snapshot.repo}
+							cred={cred}
+						/>
 					),
 					budget: <BudgetPage talk={talk} />,
 					conversations: available && (

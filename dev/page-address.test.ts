@@ -60,6 +60,18 @@ describe("PageAddress", () => {
 		expect(location.hash).toBe("#conversations/c1");
 	});
 
+	it("sets the Creds page on one cred and leaves it for the page", () => {
+		address.openCred("API TOKEN");
+
+		expect(location.hash).toBe("#creds/API%20TOKEN");
+		expect(address.page).toBe("creds");
+		expect(address.cred).toBe("API TOKEN");
+
+		address.go("creds");
+
+		expect(address.cred).toBeNull();
+	});
+
 	it("leaves no terminal to go back to once it is left", async () => {
 		address.go("conversations", "c1");
 		address.go("conversations", "terminal/1");
