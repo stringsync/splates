@@ -14,7 +14,7 @@ import type { Details } from "../show";
 import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import { WIDE } from "./app-nav";
-import { filesOf, noted, said, useDraft } from "./composer-drafts";
+import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
 import { settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
@@ -96,6 +96,7 @@ export function useNewConversation({
 	});
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string, files: File[]) => void>(() => {});
+	const dictated = useRef<() => boolean>(() => false);
 	const adapters = useAdapters();
 	const runtime = useExternalStoreRuntime({
 		messages: NO_MESSAGES,
@@ -105,6 +106,7 @@ export function useNewConversation({
 		onNew: async (message) => {
 			const text = said(message);
 			const files = filesOf(message);
+			const spoken = text !== "" && dictated.current();
 			// Running, the thread drops its composer to the bottom: it slides
 			// there at once, rather than when the server answers.
 			const dropped = slide(() => setStarting(true));
@@ -132,22 +134,25 @@ export function useNewConversation({
 			// up; the message waits on the server for the session to open.
 			const sending =
 				text !== "" || files.length > 0
-					? feed.send(state.id, noted(text, files), files, text)
+					? feed.send(state.id, noted(text, files), files, text, spoken)
 					: null;
 			// After the drop, or the thread would cut it short.
 			await dropped;
 			void slide(() => onOpen(state.id, "replace"));
-			await promptConversation(state.id, noted(text, files), files).catch(
-				(error: unknown) => {
-					// The conversation is open by now: what was not sent stays in its
-					// thread, to send again or edit there.
-					if (sending !== null) {
-						feed.refused(state.id, sending, error);
-					} else {
-						refuseIn(state.id, "Not sent", error);
-					}
-				},
-			);
+			await promptConversation(
+				state.id,
+				noted(text, files),
+				files,
+				spoken,
+			).catch((error: unknown) => {
+				// The conversation is open by now: what was not sent stays in its
+				// thread, to send again or edit there.
+				if (sending !== null) {
+					feed.refused(state.id, sending, error);
+				} else {
+					refuseIn(state.id, "Not sent", error);
+				}
+			});
 		},
 	});
 	restore.current = useDraft(
@@ -155,6 +160,7 @@ export function useNewConversation({
 		drafts,
 		newDraft(new URLSearchParams(location.search).get("project"), task),
 	);
+	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
 	const systems = useSystems(task, tasks);
 	const references = useReferences(tasks, [], systems ?? undefined);

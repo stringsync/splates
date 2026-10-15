@@ -187,13 +187,14 @@ export function like(
 					part.type === "image" || part.type === "file" ? [part] : [],
 				)
 				.map((part, at) => attached(conversation, part, at)),
-			// Marked as taken into the turn the agent was running, and stamped
-			// with when it was sent.
+			// Marked as taken into the turn the agent was running or as said
+			// into the mic, and stamped with when it was sent.
 			metadata: {
 				custom: {
 					steered: message.steered ?? false,
 					at: message.at,
 					told: message.told ?? null,
+					dictated: message.dictated ?? false,
 				},
 			},
 		};

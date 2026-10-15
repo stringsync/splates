@@ -8,7 +8,12 @@ import {
 	type TextMessagePartComponent,
 	useAuiState,
 } from "@assistant-ui/react";
-import { CheckIcon, CopyIcon, CornerDownRightIcon } from "lucide-react";
+import {
+	CheckIcon,
+	CopyIcon,
+	CornerDownRightIcon,
+	MicIcon,
+} from "lucide-react";
 import {
 	type FC,
 	type PropsWithChildren,
@@ -133,6 +138,9 @@ export const UserMessage: FC = () => {
 		return typeof from === "string" ? from : null;
 	});
 	const teller = useContext(Held).find((each) => each.id === told);
+	const dictated = useAuiState(
+		(s) => s.message.metadata.custom.dictated === true,
+	);
 	const unsent = useAuiState((s) => {
 		const at = s.message.metadata.custom.unsent;
 		return typeof at === "number" ? at : null;
@@ -217,7 +225,7 @@ export const UserMessage: FC = () => {
 			data-sticks
 		>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
-				<Clamped watch={id}>
+				<Clamped watch={id} dictated={dictated}>
 					{/* Only words: the files it carries are attachments, shown as
 					their chips. */}
 					<SentAttachments value={sent}>
@@ -317,6 +325,13 @@ const UserCopy: FC = () => (
 const USER_BOX =
 	"text-foreground bg-muted rounded-lg border border-foreground/15 ps-4 pe-9 py-2.5 max-sm:ps-3 max-sm:py-1.5 max-sm:text-sm wrap-break-word";
 /**
+ * Room at the box's start for the mic a dictated message shows, in the top
+ * corner by its first line, which stays in view on a phone's one.
+ */
+const DICTATED_BOX = "ps-9 max-sm:ps-8";
+const DICTATED_MIC =
+	"text-muted-foreground absolute start-3 top-3.5 size-4 max-sm:start-2.5 max-sm:top-2.5 max-sm:size-3.5";
+/**
  * Lines of a message shown before it is clicked open: one on a phone, four
  * on a wider screen. On a phone it sets the words' line height, so `1lh` is
  * one line of them, or shows the row of chips a message starts with, which
@@ -342,8 +357,10 @@ const Clamped: FC<
 	PropsWithChildren<{
 		/** Changes when the words do, to measure them again. */
 		watch: string;
+		/** Whether the person said it into the mic, which a mic in its corner shows. */
+		dictated: boolean;
 	}>
-> = ({ watch, children }) => {
+> = ({ watch, dictated, children }) => {
 	const text = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
 	const [more, setMore] = useState(false);
@@ -382,11 +399,20 @@ const Clamped: FC<
 			className={cn(
 				"aui-user-message-content outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				USER_BOX,
+				dictated && ["relative", DICTATED_BOX],
 				// Raised by a shadow while its message is stuck atop the thread.
 				"[@container_scroll-state(stuck:top)]:shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)]",
 				(more || open) && "cursor-pointer",
 			)}
 		>
+			{dictated && (
+				<MicIcon
+					data-slot="aui_user-message-dictated"
+					role="img"
+					aria-label="Dictated"
+					className={DICTATED_MIC}
+				/>
+			)}
 			<div
 				ref={text}
 				className={cn(

@@ -3,7 +3,7 @@ import type {
 	AssistantRuntime,
 	AttachmentAdapter,
 } from "@assistant-ui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Annotation } from "#dev/annotation.ts";
 import type { Reply } from "./card-reply";
 import { promptConversation } from "./conversation-api";
@@ -54,6 +54,38 @@ export function useDraft(
 		for (const file of files) {
 			void composer.addAttachment(file);
 		}
+	};
+}
+
+/**
+ * Whether the words `runtime`'s composer last sent were dictated: any take
+ * into them counts, edited after or not, until the composer is emptied by
+ * hand. Read as the message goes, after the composer has let go of its
+ * words, so it answers for the words it last held.
+ */
+export function useDictated(runtime: AssistantRuntime): () => boolean {
+	// Whether the words in the composer now came, even in part, from the mic.
+	const now = useRef(false);
+	// `now` as the composer last held any words.
+	const held = useRef(false);
+	useEffect(() => {
+		const composer = runtime.thread.composer;
+		return composer.subscribe(() => {
+			const { dictation, text } = composer.getState();
+			if (dictation !== undefined) {
+				now.current = true;
+			} else if (text === "") {
+				now.current = false;
+			}
+			if (text !== "") {
+				held.current = now.current;
+			}
+		});
+	}, [runtime]);
+	return () => {
+		const was = held.current;
+		held.current = false;
+		return was;
 	};
 }
 

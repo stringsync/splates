@@ -153,6 +153,8 @@ export interface Message {
 	steered?: true;
 	/** The conversation that said it with `arbor tell`, for one the person did not say. */
 	told?: string;
+	/** Said into the mic rather than typed. */
+	dictated?: true;
 }
 
 /** One piece of what someone in a conversation said or did. */

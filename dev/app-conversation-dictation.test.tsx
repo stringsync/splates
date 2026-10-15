@@ -198,6 +198,74 @@ describe("App's composer mic", () => {
 		expect(add.getAttribute("href")).toBe("#creds");
 	});
 
+	/** Takes "something more" into the composer, as the fake mic hears it. */
+	const dictate = async (
+		view: Awaited<ReturnType<typeof composer>>["view"],
+	) => {
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		const stop = await waitFor(() =>
+			view.getByRole("button", { name: "Stop dictation" }),
+		);
+		act(() => microphone.speak(" more"));
+		await waitFor(() => expect(view.queryByText("Recording")).not.toBeNull());
+		await act(async () => fireEvent.click(stop));
+		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
+	};
+	const send = async (view: Awaited<ReturnType<typeof composer>>["view"]) => {
+		await waitFor(() =>
+			expect(
+				(
+					view.getByRole("button", {
+						name: "Send message",
+					}) as HTMLButtonElement
+				).disabled,
+			).toBe(false),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send message" })),
+		);
+	};
+
+	it("sends a dictated message as dictated, edited after or not, marking it with a mic", async () => {
+		const { view, box } = await composer();
+		await dictate(view);
+		await typeIn(box, " please");
+
+		await send(view);
+
+		await waitFor(() =>
+			expect(
+				testing.posted(`/api/conversations/${talk.id}/prompt`),
+			).toMatchObject([{ body: { dictated: "true" } }]),
+		);
+		expect(view.getByRole("img", { name: "Dictated" })).toBeTruthy();
+	});
+
+	it("sends a message typed after the dictated one, or over a take emptied by hand, as typed", async () => {
+		const { view, box } = await composer();
+		await dictate(view);
+		await send(view);
+		await typeIn(box, "typed");
+		await send(view);
+		await dictate(view);
+		await typeIn(box, "");
+		await typeIn(box, "typed again");
+		await send(view);
+
+		await waitFor(() =>
+			expect(
+				testing.posted(`/api/conversations/${talk.id}/prompt`),
+			).toHaveLength(3),
+		);
+		expect(
+			testing
+				.posted(`/api/conversations/${talk.id}/prompt`)
+				.map(({ body }) => body.dictated ?? null),
+		).toEqual(["true", null, null]);
+	});
+
 	it("has no mic where the browser has none to give", async () => {
 		testing.dictation = null;
 		const { view } = await composer();

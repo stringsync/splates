@@ -112,6 +112,13 @@ export const MERGE = "[ARBOR MERGE]";
  */
 export const CHECK_IN = "[ARBOR UPDATE]";
 
+/**
+ * What the agent alone is told of a message the person dictated: the page
+ * marks it with a mic, and never shows these words.
+ */
+export const DICTATED =
+	"(Dictated by voice: words that sound alike may be swapped, and names in this project misspelled. Read a near miss as the closest name in the project, and ask before acting on a reading that changes what you do.)";
+
 /** Each `[ARBOR ...]` directive in a text, wherever it stands. */
 export const DIRECTIVES = /\[ARBOR [A-Z]+(?: [^\]\s]+)*\]/g;
 

@@ -224,7 +224,9 @@ export class ConversationRoutes {
 		const from = DEVICES.find(
 			(each) => each === request.headers.get(FROM_HEADER),
 		);
-		await conversation.prompt(String(form.get("text") ?? ""), files, from);
+		await conversation.prompt(String(form.get("text") ?? ""), files, from, {
+			dictated: form.get("dictated") === "true",
+		});
 		return Response.json(conversation.state);
 	};
 

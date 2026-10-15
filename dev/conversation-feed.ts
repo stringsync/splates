@@ -29,6 +29,8 @@ export interface Sending {
 	/** What the person wrote and attached, to send again or take back. */
 	typed: string;
 	attached: File[];
+	/** Whether the person said it into the mic. */
+	dictated: boolean;
 }
 
 /** A message the server refused, with why: shown until sent again or taken back. */
@@ -153,7 +155,13 @@ export class ConversationFeed
 	 * has yet to keep them. `typed` is the text as the person wrote it, before
 	 * the notes on its images were added.
 	 */
-	send(id: string, text: string, files: File[] = [], typed = text): Sending {
+	send(
+		id: string,
+		text: string,
+		files: File[] = [],
+		typed = text,
+		dictated = false,
+	): Sending {
 		const kept = files.map((file) => ({
 			name: file.name,
 			title: file.name,
@@ -169,6 +177,7 @@ export class ConversationFeed
 			queued: held?.status === "running" || sending !== undefined,
 			typed,
 			attached: files,
+			dictated,
 		};
 		if (sending === undefined) {
 			this.sending.set(id, { messages: [message], after: said(held) });
@@ -335,6 +344,7 @@ export function messageOf(message: Sending): Message {
 		at: null,
 		until: null,
 		...(message.queued ? { queued: true as const } : {}),
+		...(message.dictated ? { dictated: true as const } : {}),
 	};
 }
 

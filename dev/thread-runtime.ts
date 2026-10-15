@@ -4,10 +4,10 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { ConversationState } from "../conversations";
 import { useAdapters } from "./adapters";
-import { filesOf, noted, said, useDraft } from "./composer-drafts";
+import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
 import {
 	cancelConversation,
 	promptConversation,
@@ -31,16 +31,16 @@ export function useThreadRuntime(
 ): ThreadRuntime {
 	const { id } = conversation;
 	const send = useCallback(
-		async (text: string, files: File[]) => {
+		async (text: string, files: File[], dictated = false) => {
 			// Shown at once, with its reply's place or among what is queued,
 			// rather than once the server says it back: the round trip, slow over
 			// a tunnel and longer still while the agent comes back up, would leave
 			// the thread as it was, then jump.
 			const sending =
 				text !== "" || files.length > 0
-					? feed.send(id, noted(text, files), files, text)
+					? feed.send(id, noted(text, files), files, text, dictated)
 					: null;
-			await promptConversation(id, noted(text, files), files).catch(
+			await promptConversation(id, noted(text, files), files, dictated).catch(
 				(error: unknown) => {
 					// Kept where it shows, marked unsent, to send again or edit.
 					if (sending !== null) {
@@ -58,12 +58,19 @@ export function useThreadRuntime(
 	const retry = useCallback(
 		(message: Sending) => {
 			feed.take(id, message);
-			void send(message.typed, message.attached).catch(() => {});
+			void send(message.typed, message.attached, message.dictated).catch(
+				() => {},
+			);
 		},
 		[id, feed, send],
 	);
+	// Set once the runtime is made, which `say` is handed to.
+	const dictated = useRef<() => boolean>(() => false);
 	const say = useCallback(
-		(message: AppendMessage) => send(said(message), filesOf(message)),
+		(message: AppendMessage) => {
+			const text = said(message);
+			return send(text, filesOf(message), text !== "" && dictated.current());
+		},
 		[send],
 	);
 	const adapters = useAdapters();
@@ -104,6 +111,7 @@ export function useThreadRuntime(
 		},
 	});
 	useDraft(runtime, drafts, id);
+	dictated.current = useDictated(runtime);
 	/** Puts `message`, refused before, back in the composer, after what is typed there. */
 	const edit = useCallback(
 		(message: Sending) => {
@@ -125,8 +133,8 @@ export function useThreadRuntime(
 /** What `useThreadRuntime` gives a thread. */
 export interface ThreadRuntime {
 	runtime: AssistantRuntime;
-	/** Sends `text` and `files` as the person's next message. */
-	send: (text: string, files: File[]) => Promise<void>;
+	/** Sends `text` and `files` as the person's next message, said into the mic when `dictated`. */
+	send: (text: string, files: File[], dictated?: boolean) => Promise<void>;
 	/** Sends a message the server refused again. */
 	retry: (message: Sending) => void;
 	/** Puts a message the server refused back in the composer. */

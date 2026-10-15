@@ -31,7 +31,12 @@ const CHECKPOINT_WAIT = Duration.mins(2);
 export interface PromptOptions {
 	/** The conversation that said it with `arbor tell`, when the person did not. */
 	told?: string;
+	/** Whether the person said it into the mic rather than typed it. */
+	dictated?: boolean;
 }
+
+/** What a message's options mark it with, in the log and the thread alike. */
+type Marks = Pick<Message, "told" | "dictated">;
 
 /**
  * The turns of a conversation: what the person says goes to the agent as a
@@ -64,7 +69,7 @@ export class ConversationTurns {
 		text: string,
 		files: Upload[] = [],
 		from?: Device,
-		{ told }: PromptOptions = {},
+		{ told, dictated = false }: PromptOptions = {},
 	): Promise<void> {
 		const { host, connection } = this;
 		const { state } = host;
@@ -102,15 +107,18 @@ export class ConversationTurns {
 			this.mark(null);
 		}
 		const kept = await this.files.keep(files, connection.sees);
-		const byTold = told === undefined ? {} : { told };
+		const marks: Marks = {
+			...(told === undefined ? {} : { told }),
+			...(dictated ? { dictated: true } : {}),
+		};
 		if (state.status === "running") {
 			if (!connection.canSteer || waited) {
-				this.queue(words, kept, from, told);
+				this.queue(words, kept, from, marks);
 				return;
 			}
 			// Said into the turn first, so a refusal leaves nothing in the thread.
 			const outcome = await connection.steer(
-				await this.content([said(words, null, kept)]),
+				await this.content([{ ...said(words, null, kept), ...marks }]),
 			);
 			if (outcome === "injected" || outcome === "startedNewTurn") {
 				const at = host.now();
@@ -123,13 +131,13 @@ export class ConversationTurns {
 					at,
 					...steered,
 					...(from === undefined ? {} : { from }),
-					...byTold,
+					...marks,
 					...shown(kept),
 				});
 				state.messages.push({
 					...said(words, at, kept),
 					...steered,
-					...byTold,
+					...marks,
 				});
 				host.changed();
 				return;
@@ -143,19 +151,19 @@ export class ConversationTurns {
 			// next one if that has started.
 			// Read again: the turn may have ended while the agent answered.
 			if ((state.status as Status) !== "idle") {
-				this.queue(words, kept, from, told);
+				this.queue(words, kept, from, marks);
 				return;
 			}
 		}
 		this.held = false;
 		const at = host.now();
-		const message = { ...said(words, at, kept), ...byTold };
+		const message = { ...said(words, at, kept), ...marks };
 		host.log.write({
 			kind: "prompt",
 			text: words,
 			at,
 			...(from === undefined ? {} : { from }),
-			...byTold,
+			...marks,
 			...shown(kept),
 		});
 		state.messages.push(message);
@@ -390,7 +398,7 @@ export class ConversationTurns {
 		words: string,
 		sent: Sent[],
 		from?: Device,
-		told?: string,
+		marks: Marks = {},
 	): void {
 		const { host } = this;
 		const at = host.now();
@@ -400,13 +408,13 @@ export class ConversationTurns {
 			at,
 			queued: true,
 			...(from === undefined ? {} : { from }),
-			...(told === undefined ? {} : { told }),
+			...marks,
 			...shown(sent),
 		});
 		host.state.messages.push({
 			...said(words, at, sent),
 			queued: true,
-			...(told === undefined ? {} : { told }),
+			...marks,
 		});
 		host.changed();
 	}

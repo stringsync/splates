@@ -72,9 +72,14 @@ export async function promptConversation(
 	id: string,
 	text: string,
 	files: File[] = [],
+	/** Whether the person said it into the mic, which the agent is told. */
+	dictated = false,
 ): Promise<void> {
 	const form = new FormData();
 	form.set("text", text);
+	if (dictated) {
+		form.set("dictated", "true");
+	}
 	for (const file of files) {
 		form.append("file", file, file.name);
 	}

@@ -5,6 +5,7 @@ import type * as acp from "@agentclientprotocol/sdk";
 import type { Fs } from "webappwiz/system";
 import { textOf } from "./conversation-messages";
 import type { Message, Sent, Upload } from "./conversation-state";
+import { DICTATED } from "./prompts";
 import { mentionLine, Systems, unknownLine } from "./systems";
 
 /**
@@ -69,7 +70,8 @@ export class ConversationFiles {
 	/**
 	 * What `messages` say, as one prompt: their images, links to their other
 	 * files, then their words, with a line on each system they name in
-	 * `tree`, the one the agent runs in; none for a log too old to say.
+	 * `tree`, the one the agent runs in (none for a log too old to say), and
+	 * one on reading them as speech when any was dictated.
 	 */
 	async content(
 		messages: Message[],
@@ -105,7 +107,9 @@ export class ConversationFiles {
 			.map(textOf)
 			.filter((each) => each !== "")
 			.join("\n\n");
-		const text = [said, await this.systemsIn(said, tree)]
+		// For the agent alone, as the systems are: the thread shows a mic.
+		const dictated = messages.some((each) => each.dictated) ? DICTATED : "";
+		const text = [said, await this.systemsIn(said, tree), dictated]
 			.filter((each) => each !== "")
 			.join("\n\n");
 		return [
