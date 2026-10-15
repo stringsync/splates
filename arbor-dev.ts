@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { MemoryLock } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
@@ -11,24 +12,29 @@ import { devServers } from "./dev-servers";
 import { devSlot, SERVER_PID, SLOT } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { fail } from "./exit";
+import { Git } from "./git";
 import { Limits } from "./limits";
+import { loadConfig } from "./load-config";
 import { Offered } from "./offered";
 import { Outcomes } from "./outcomes";
+import { Projects } from "./projects";
 import { newest, sourceCommit } from "./release";
-import type { Repository } from "./repository";
 import { arborHome } from "./roster";
 import { slotOf } from "./slots";
 import { SERVING, supervise, UNBUILT } from "./supervise";
+import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
 
 /**
  * What `arbor dev` does with its flags: run itself as a supervised child, so
  * the page can restart it, which then serves the page, reached through the
  * tunnel and Access the flags name, or else the ones saved for this machine.
- * The server, from the child; nothing from the supervisor, which exits.
+ * It serves every registered project wherever it is started; the page picks
+ * which one it shows. The server, from the child; nothing from the
+ * supervisor, which exits.
  */
 export async function serveDev(
-	ctx: ArborDeps & Repository,
+	ctx: ArborDeps,
 	opts: DevFlags,
 ): Promise<DevServer | undefined> {
 	// Read before the child starts, so a half-given pair fails once.
@@ -37,7 +43,7 @@ export async function serveDev(
 		opts.tunnel,
 		opts["tunnel-name"],
 		access,
-		ctx.config.tunnel,
+		await tunnelProvider(ctx),
 		ctx.ps,
 	);
 	if (
@@ -69,13 +75,7 @@ export async function serveDev(
 		// The slot is readied here, once, and its child serves it as a bare
 		// `arbor dev` serves the machine's tunnel, from the slot's home.
 		const slot = opts.slot ? await devSlot(ctx) : null;
-		ctx.ps.exit(
-			await supervise(ctx.ps, {
-				build,
-				env: slot?.env,
-				cwd: slot?.cwd,
-			}),
-		);
+		ctx.ps.exit(await supervise(ctx.ps, { build, env: slot?.env }));
 		return;
 	}
 	// The saved tunnel only when no flag says how to reach the page, so a
@@ -117,44 +117,68 @@ export async function serveDev(
 	);
 	// One for every project, so agents resumed together start one at a time.
 	const starting = new MemoryLock();
-	return dev(ctx, {
-		ports: devPorts(opts.port),
-		hosts: opts["allow-hosts"]
-			.split(",")
-			.map((host) => host.trim())
-			.filter(Boolean),
-		access,
-		tunnel,
-		conversations: ({ arborDir, git }) =>
-			new Conversations(`${arborDir}/conversations`, roster, {
-				fs: ctx.fs,
-				starting,
-				offered,
-				limits,
-				adherence,
-				readLimits: async (agent) =>
-					isCodex(agent)
-						? codexLimits({
-								launch,
-								timer: new SystemTimer(),
-								now: () => Date.now(),
-								cwd: git.root,
-								codex: ctx.ps.env("CODEX_PATH"),
-							})
-						: [],
-				watch: new Watch(git),
-				root: git.root,
-			}),
-		// A login shell, as a terminal window opens, so the person's PATH
-		// and aliases are there.
-		shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
-		newest: () => newest(),
-		source: () => sourceCommit(ctx.ps),
-		unbuilt: ctx.ps.env(UNBUILT) !== undefined,
-		slot: slotOf(ctx.ps.env(SLOT) ?? ""),
-		servers: () => devServers(ctx),
-		exit: (code) => ctx.ps.exit(code),
-	});
+	return dev(
+		{ ...ctx, projects: Projects.ofMachine(ctx) },
+		{
+			ports: devPorts(opts.port),
+			hosts: opts["allow-hosts"]
+				.split(",")
+				.map((host) => host.trim())
+				.filter(Boolean),
+			access,
+			tunnel,
+			conversations: ({ arborDir, git }) =>
+				new Conversations(`${arborDir}/conversations`, roster, {
+					fs: ctx.fs,
+					starting,
+					offered,
+					limits,
+					adherence,
+					readLimits: async (agent) =>
+						isCodex(agent)
+							? codexLimits({
+									launch,
+									timer: new SystemTimer(),
+									now: () => Date.now(),
+									cwd: git.root,
+									codex: ctx.ps.env("CODEX_PATH"),
+								})
+							: [],
+					watch: new Watch(git),
+					root: git.root,
+				}),
+			// A login shell, as a terminal window opens, so the person's PATH
+			// and aliases are there.
+			shell: [ctx.ps.env("SHELL") ?? "/bin/sh", "-l"],
+			newest: () => newest(),
+			source: () => sourceCommit(ctx.ps),
+			unbuilt: ctx.ps.env(UNBUILT) !== undefined,
+			slot: slotOf(ctx.ps.env(SLOT) ?? ""),
+			servers: () => devServers(ctx),
+			exit: (code) => ctx.ps.exit(code),
+		},
+	);
+}
+
+/**
+ * The tunnel provider `arbor.config.ts` names in the repository `arbor dev`
+ * was started in, if it was started in one: the one thing it reads from where
+ * it runs. Null outside a repository, or for one naming none.
+ */
+async function tunnelProvider({
+	fs,
+	ps,
+}: ArborDeps): Promise<TunnelProvider | null> {
+	const { exitCode, stdout } = await ps.spawnCapture(
+		["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+		{ cwd: ps.cwd() },
+	);
+	if (exitCode !== 0) {
+		return null;
+	}
+	const root = dirname(stdout.trim());
+	return (await loadConfig(root, { fs, git: new Git(root, { ps, fs }) }))
+		.tunnel;
 }
 
 /** The flags `arbor dev` takes, as `serveDev` reads them. */

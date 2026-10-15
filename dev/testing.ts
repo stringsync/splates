@@ -348,6 +348,18 @@ export class Testing implements Resource {
 
 	/** Renders the page with `served` waiting, and lets it arrive. */
 	async open(overrides: Partial<Snapshot> = {}) {
+		const view = this.render(overrides);
+		// Hidden too, under a dialog the page opens on.
+		await waitFor(() =>
+			expect(
+				view.getByRole("region", { name: "Untriaged", hidden: true }),
+			).toBeTruthy(),
+		);
+		return view;
+	}
+
+	/** Renders the page with `served` waiting, without waiting for it. */
+	render(overrides: Partial<Snapshot> = {}) {
 		this.served = snapshot(overrides);
 		// The page a test before went to stays in the address: start on none, in
 		// the project the test put there.
@@ -373,12 +385,6 @@ export class Testing implements Resource {
 					}),
 				),
 			),
-		);
-		// Hidden too, under a dialog the page opens on.
-		await waitFor(() =>
-			expect(
-				view.getByRole("region", { name: "Untriaged", hidden: true }),
-			).toBeTruthy(),
 		);
 		return view;
 	}

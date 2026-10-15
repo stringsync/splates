@@ -280,7 +280,7 @@ describe.concurrent("arbor", () => {
 		expect([
 			await arbor(env.root, "todo", "list"),
 			await arbor(env.root, "add", "alpha", "--goal", "land it"),
-			await arbor(env.root, "dev"),
+			await arbor(env.root, "list"),
 		]).toMatchObject([uninitialized, uninitialized, uninitialized]);
 		expect(await env.fs.exists(env.arborDir)).toBe(false);
 		expect(await env.projects.list()).toEqual([]);

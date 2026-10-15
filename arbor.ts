@@ -333,9 +333,8 @@ arbor
 
 arbor
 	.command("dev")
-	.use(repository({ migrates: true }))
 	.description(
-		"serve the todos and the tasks as a web page on this machine, where todos can be added, updated, reordered or removed",
+		"serve every arbor project on this machine as a web page, from wherever it is run: the page picks the project it shows, adds one by its path, running `arbor init` there, and shows its todos and tasks, where todos can be added, updated, reordered or removed; it brings each project's records forward as it opens it",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,
@@ -358,7 +357,7 @@ arbor
 	.option("tunnel", z.string(), {
 		default: "",
 		description:
-			"the public host name of a tunnel to run, with cloudflared or the tunnel provider arbor.config.ts names, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated. With none of the tunnel and Access flags, the tunnel `arbor tunnel setup` saved runs, if any",
+			"the public host name of a tunnel to run, with cloudflared or the tunnel provider named by arbor.config.ts in the repository it is run in, if any, which is allowed as a host too; refused without --access-team and --access-aud, so a tunnel never exposes the page unauthenticated. With none of the tunnel and Access flags, the tunnel `arbor tunnel setup` saved runs, if any",
 	})
 	.option("tunnel-name", z.string(), {
 		default: "",
@@ -368,7 +367,7 @@ arbor
 	.option("slot", z.boolean(), {
 		default: false,
 		description:
-			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: the checkout keeps its word, as fox, until it no longer exists. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, and starts in a throwaway project there unless that home registers the one it is run in; not with the tunnel and Access flags",
+			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: the checkout keeps its word, as fox, until it no longer exists. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, starting with a throwaway project there; not with the tunnel and Access flags",
 	})
 	.action((opts, ctx) => serveDev(ctx, opts));
 

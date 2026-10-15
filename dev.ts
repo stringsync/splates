@@ -8,12 +8,13 @@ import {
 import { Duration } from "webappwiz/time";
 import { Adherence } from "./adherence";
 import type { Conversations } from "./conversations";
-import type { Assets } from "./dev/assets";
 import { Access, type AccessConfig } from "./dev-access";
 import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
+import { Picker } from "./dev-picker";
 import {
 	type DevContext,
+	type DevMachine,
 	type Handler,
 	type Project,
 	type Served,
@@ -32,7 +33,6 @@ import { fail } from "./exit";
 import type { Git } from "./git";
 import { Machine, type MachineSensors, osSensors } from "./machine";
 import { Outcomes } from "./outcomes";
-import type { Projects } from "./projects";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
 import { arborHome } from "./roster";
@@ -58,7 +58,7 @@ export const PORT_SPAN = 20;
  * who is asking; without it, a tunnel still reaches no further than the todos.
  */
 export async function dev(
-	home: Project & { assets: Assets; projects: Projects },
+	deps: DevMachine,
 	{
 		ports = devPorts(DEFAULT_PORT),
 		hosts = [],
@@ -79,25 +79,14 @@ export async function dev(
 		sensors = null,
 		pusher,
 		open = async (root) => ({
-			...home,
-			...(await openRepository(home, { at: root, migrates: true })),
+			fs: deps.fs,
+			ps: deps.ps,
+			log: deps.log,
+			...(await openRepository(deps, { at: root, migrates: true })),
 		}),
 	}: DevOptions = {},
 ): Promise<DevServer> {
-	const { fs, ps, log, assets, projects } = home;
-	const here = home.service.git.root;
-	// The page lists and switches between registered projects only, so one
-	// that is not would be served but never named.
-	if (!(await projects.list()).some((each) => each.root === here)) {
-		fail(
-			"uninitialized",
-			[
-				`${here} is not registered as an arbor project.`,
-				"Run `arbor init` in it once, then `arbor dev` again.",
-			].join("\n"),
-			{ root: here },
-		);
-	}
+	const { fs, ps, log, assets, projects, opened = [] } = deps;
 	// The page is the one thing a tunnel exposes, so no tunnel runs unguarded.
 	if (tunnel !== null && access === null) {
 		fail(
@@ -167,13 +156,16 @@ export async function dev(
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
 
-	// By root, each opened on its first request: the one `arbor dev` started
-	// in at once, every other registered one only when a page asks for it.
+	// By root, each opened on its first request: the focused one at once,
+	// every other registered one only when a page asks for it.
 	const served = new Map<string, Promise<Served>>();
 	const servedAt = (root: string): Promise<Served> => {
 		let found = served.get(root);
 		if (found === undefined) {
-			found = (root === here ? Promise.resolve(home) : open(root)).then(serve);
+			const ready = opened.find((each) => each.git.root === root);
+			found = (ready === undefined ? open(root) : Promise.resolve(ready)).then(
+				serve,
+			);
 			// One that failed to open is tried again on the next request.
 			found.catch(() => served.delete(root));
 			served.set(root, found);
@@ -181,14 +173,20 @@ export async function dev(
 		return found;
 	};
 
-	/** The project a request names with `?project=`, or the one started in. */
+	/** The project a request names with `?project=`, or the focused one. */
 	const projectFor = (request: Request): Promise<Served> =>
 		projectNamed(new URL(request.url).searchParams.get("project") ?? "");
 
-	/** The project `slug` names, or the one started in for none. */
+	/** The project `slug` names, or the focused one for none. */
 	const projectNamed = async (slug: string): Promise<Served> => {
 		if (slug === "") {
-			return servedAt(here);
+			const focused = await projects.focused();
+			if (focused === null) {
+				fail("not_found", "no arbor project yet: add one by its path", {
+					project: slug,
+				});
+			}
+			return servedAt(focused.root);
 		}
 		const found = (await projects.list()).find((each) => each.slug === slug);
 		if (found === undefined) {
@@ -257,7 +255,6 @@ export async function dev(
 			ps,
 			log,
 			projects,
-			here,
 			served: { served, servedAt, projectNamed },
 			terminals,
 			server: disposer,
@@ -272,6 +269,8 @@ export async function dev(
 		powerNow,
 		forgetProject,
 	} = restarts;
+
+	const picker = new Picker(deps);
 
 	// Every project's, from the record the CLI writes as each task ends, so
 	// one that is not open here still counts.
@@ -341,7 +340,14 @@ export async function dev(
 			),
 			"/icon-192.png": asset(assets.icons[192], "image/png"),
 			"/icon-512.png": asset(assets.icons[512], "image/png"),
-			"/api/projects": guarded(listProjects),
+			"/api/projects": {
+				GET: guarded(listProjects),
+				// It runs `bunx skills add` there, so only as far as a
+				// conversation reaches.
+				POST: talk(guarded(picker.add)),
+			},
+			"/api/projects/:slug/commit": { POST: talk(guarded(picker.commit)) },
+			"/api/focus": { PUT: guarded(picker.focus) },
 			"/api/stats": guarded(listStats),
 			"/api/identity": guarded(async (request) =>
 				Response.json({
@@ -497,8 +503,14 @@ export async function dev(
 	// this never asks for.
 	const port = server.port ?? requested;
 	url = `http://localhost:${port}`;
-	// Open now, so the page's first request finds it ready.
-	await servedAt(here);
+	// Open now, so the page's first request finds it ready; one that fails
+	// says so when the page asks for it.
+	const focused = await projects.focused();
+	if (focused !== null) {
+		await servedAt(focused.root).catch((error: unknown) =>
+			log.error(`${focused.root} did not open: ${String(error)}`),
+		);
+	}
 	// And those a restart stopped agents in, which carry on once served.
 	await restarts.reopenStopped();
 
@@ -575,7 +587,7 @@ export interface DevOptions {
 	 * key its creds keep; a test hands in a fake.
 	 */
 	transcriber?: TranscriberFor;
-	/** Opens a registered project other than the one started in, by its root. */
+	/** Opens a registered project by its root; `openRepository` by default. */
 	open?: (root: string) => Promise<Project>;
 	/**
 	 * The latest arbor on npm, or null when it cannot say, asked as the server

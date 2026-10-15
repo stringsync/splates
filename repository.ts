@@ -123,15 +123,7 @@ export async function openRepository(
 	});
 	await service.init();
 
-	const projects = new Projects(`${registry}/projects.json`, {
-		fs,
-		lock: new FileLock(`${registry}/projects.lock`, {
-			fs,
-			ps,
-			log,
-			stalenessMs: config.leaseStalenessMs,
-		}),
-	});
+	const projects = Projects.ofMachine({ fs, ps, log }, config.leaseStalenessMs);
 
 	return {
 		projects,

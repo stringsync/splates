@@ -19,6 +19,28 @@ describe("Projects", () => {
 		expect(Date.parse(listed[0]?.added ?? "")).not.toBeNaN();
 	});
 
+	it("focuses a registered repository, else falls back to the first", async () => {
+		await using deps = await Testing.open({ init: false });
+		const other = `${deps.root}-other`;
+		await deps.fs.mkdir(`${other}/.git`);
+		expect(await deps.projects.focused()).toBeNull();
+
+		await deps.projects.register(deps.root);
+		await deps.projects.register(other);
+		expect((await deps.projects.focused())?.root).toBe(deps.root);
+
+		expect(await deps.projects.focus(other)).toBe(true);
+		expect(await deps.projects.focus("/nowhere")).toBe(false);
+		expect((await deps.projects.focused())?.root).toBe(other);
+
+		await deps.fs.rm(`${other}/.git`, { recursive: true });
+		expect((await deps.projects.focused())?.root).toBe(deps.root);
+		await deps.projects.forget(other);
+		await deps.fs.mkdir(`${other}/.git`);
+		await deps.projects.register(other);
+		expect((await deps.projects.focused())?.root).toBe(deps.root);
+	});
+
 	it("keeps every repository when commands register at once", async () => {
 		await using deps = await Testing.open({ init: false });
 		const roots = ["a", "b", "c", "d"].map((name) => `${deps.root}-${name}`);
@@ -54,10 +76,9 @@ describe("Projects", () => {
 
 	it("names each by its root's last part, numbering a second of the same name", async () => {
 		await using deps = await Testing.open({ init: false });
-		const roots = ["/a/web", "/b/web", "/c/api"];
-		for (const root of roots) {
-			await deps.projects.register(root);
-		}
+		await deps.projects.register("/a/web");
+		await deps.projects.register("/b/web");
+		await deps.projects.register("/c/api");
 
 		expect((await deps.projects.list()).map((each) => each.slug)).toEqual([
 			"web",

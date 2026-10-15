@@ -21,6 +21,7 @@ import type { LaneRecord } from "../lanes";
 import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
+import { NoProject } from "./add-project";
 import { stats } from "./api";
 import { AppHeader } from "./app-header";
 import { useWide } from "./app-nav";
@@ -119,12 +120,13 @@ export function App({
 		},
 		[feed],
 	);
-	const { snapshot, offline, outdated } = useReactive(
+	const { snapshot, offline, outdated, missing } = useReactive(
 		feed,
 		(feed) => ({
 			snapshot: feed.snapshot,
 			offline: feed.offline,
 			outdated: feed.outdated,
+			missing: feed.missing,
 		}),
 		["changed"],
 	);
@@ -351,16 +353,23 @@ export function App({
 					),
 				};
 	// The server opens a project on its first read, which takes seconds.
-	// Offline or outdated, the header already says why nothing came.
-	const opening = !offline && outdated === null && (
-		<div
-			role="status"
-			className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
-		>
-			<Loader2Icon className="size-4 animate-spin" />
-			Opening {name}
-		</div>
-	);
+	// Offline or outdated, the header already says why nothing came; with no
+	// project to show, the page asks for one.
+	const opening =
+		missing !== null ? (
+			<NoProject message={missing} />
+		) : (
+			!offline &&
+			outdated === null && (
+				<div
+					role="status"
+					className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+				>
+					<Loader2Icon className="size-4 animate-spin" />
+					Opening {name}
+				</div>
+			)
+		);
 	const header = (
 		<AppHeader
 			name={name}

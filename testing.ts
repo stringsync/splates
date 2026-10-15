@@ -42,6 +42,13 @@ export class Testing implements AsyncDisposable {
 	// The real ones, which publish: `dev` is tested by serving a page and
 	// fetching it, and asserting on what comes back is the point.
 	readonly assets = assets;
+	/**
+	 * What `arbor dev` serves as it is when handed these deps: this repo, with
+	 * its fakes, rather than one it opens again.
+	 */
+	get opened(): Testing[] {
+		return [this];
+	}
 	/** Arbitrary but valid settings; a test changes what it cares about. */
 	readonly config: Config;
 	readonly git: Git;

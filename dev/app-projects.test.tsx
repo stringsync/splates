@@ -19,7 +19,7 @@ describe("App's projects", () => {
 				slug: "webappwiz",
 				root: "/code/webappwiz",
 				gone: false,
-				here: true,
+				focused: true,
 				conversations: [],
 				waiting: 0,
 			},
@@ -27,7 +27,7 @@ describe("App's projects", () => {
 				slug: "shop",
 				root: "/code/shop",
 				gone: false,
-				here: false,
+				focused: false,
 				conversations: [],
 				waiting: 2,
 			},
@@ -35,7 +35,7 @@ describe("App's projects", () => {
 				slug: "old",
 				root: "/code/old",
 				gone: true,
-				here: false,
+				focused: false,
 				conversations: [],
 				waiting: 0,
 			},
@@ -171,7 +171,7 @@ describe("App's projects", () => {
 		);
 	});
 
-	it("forgets one still there, but never the one shown or started in", async () => {
+	it("forgets one still there, focused or not, but never the one shown", async () => {
 		visit("http://localhost/?project=old");
 		const view = await testing.open();
 		await openSwitcher(view);
@@ -179,13 +179,136 @@ describe("App's projects", () => {
 		const forget = await waitFor(() =>
 			view.getByRole("button", { name: "Forget shop" }),
 		);
-		expect(view.queryByRole("button", { name: "Forget webappwiz" })).toBeNull();
+		expect(view.getByRole("button", { name: "Forget webappwiz" })).toBeTruthy();
 		expect(view.queryByRole("button", { name: "Forget old" })).toBeNull();
 		await act(async () => fireEvent.click(forget));
 
 		expect(testing.posts).toContainEqual(
 			expect.objectContaining({ path: "/api/projects/shop", method: "DELETE" }),
 		);
+	});
+
+	it("focuses the project picked, and names it in the address", async () => {
+		const view = await testing.open();
+		await openSwitcher(view);
+
+		await act(async () =>
+			fireEvent.click(await waitFor(() => view.getByText("/code/shop"))),
+		);
+
+		expect(testing.posts).toContainEqual(
+			expect.objectContaining({
+				path: expect.stringMatching(/^\/api\/focus/),
+				method: "PUT",
+				body: JSON.stringify({ project: "shop" }),
+			}),
+		);
+		expect(new URL(String(testing.visited[0])).search).toBe("?project=shop");
+	});
+
+	it("adds a project by its path, and asks before committing what arbor init wrote", async () => {
+		testing.reply = {
+			project: { slug: "fresh", root: "/code/fresh", added: "", gone: false },
+			uncommitted: [".agents/skills/arbor/SKILL.md", "skills-lock.json"],
+			shown: [".agents/skills/arbor", "skills-lock.json"],
+			branch: "main",
+		};
+		const view = await testing.open();
+		await openSwitcher(view);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add a project" })),
+		);
+		await act(async () =>
+			fireEvent.change(view.getByRole("textbox", { name: "project path" }), {
+				target: { value: "~/code/fresh" },
+			}),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add" })),
+		);
+
+		expect(testing.posts).toContainEqual(
+			expect.objectContaining({
+				path: expect.stringMatching(/^\/api\/projects/),
+				method: "POST",
+				body: JSON.stringify({ path: "~/code/fresh" }),
+			}),
+		);
+		const asking = await waitFor(() =>
+			view.getByRole("group", {
+				name: "Commit what arbor init wrote in fresh",
+			}),
+		);
+		expect(asking.textContent).toContain(
+			"arbor init wrote .agents/skills/arbor, skills-lock.json in fresh. Commit them on main?",
+		);
+		expect(testing.visited).toEqual([]);
+
+		await act(async () =>
+			fireEvent.click(within(asking).getByRole("button", { name: "Commit" })),
+		);
+		expect(testing.posts).toContainEqual(
+			expect.objectContaining({
+				path: expect.stringMatching(/^\/api\/projects\/fresh\/commit/),
+				body: JSON.stringify({
+					paths: [".agents/skills/arbor/SKILL.md", "skills-lock.json"],
+				}),
+			}),
+		);
+		await waitFor(() =>
+			expect(new URL(String(testing.visited[0])).search).toBe("?project=fresh"),
+		);
+	});
+
+	it("opens a project added without committing, when asked to leave it", async () => {
+		testing.reply = {
+			project: { slug: "fresh", root: "/code/fresh", added: "", gone: false },
+			uncommitted: ["skills-lock.json"],
+			shown: ["skills-lock.json"],
+			branch: null,
+		};
+		const view = await testing.open();
+		await openSwitcher(view);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add a project" })),
+		);
+		await act(async () =>
+			fireEvent.change(view.getByRole("textbox", { name: "project path" }), {
+				target: { value: "/code/fresh" },
+			}),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Add" })),
+		);
+		const asking = await waitFor(() =>
+			view.getByRole("group", {
+				name: "Commit what arbor init wrote in fresh",
+			}),
+		);
+		expect(asking.textContent).toContain("Commit it?");
+
+		await act(async () =>
+			fireEvent.click(
+				within(asking).getByRole("button", { name: "Leave uncommitted" }),
+			),
+		);
+		expect(testing.posts.some((post) => post.path.includes("/commit"))).toBe(
+			false,
+		);
+		expect(new URL(String(testing.visited[0])).search).toBe("?project=fresh");
+	});
+
+	it("asks for a project when there is none to show", async () => {
+		testing.projects = [];
+		testing.refuse("not_found", "no arbor project yet: add one by its path");
+		const view = testing.render();
+
+		await waitFor(() =>
+			expect(
+				view.getByText("No arbor project yet: add one by its path"),
+			).toBeTruthy(),
+		);
+		expect(view.getByRole("form", { name: "Add a project" })).toBeTruthy();
 	});
 });
 

@@ -28,13 +28,13 @@ export function live(
 export function project(
 	slug: string,
 	listed: ProjectChoice["conversations"],
-	here = false,
+	focused = false,
 ): ProjectChoice {
 	return {
 		slug,
 		root: `/code/${slug}`,
 		gone: false,
-		here,
+		focused,
 		conversations: listed,
 		waiting: 0,
 	};

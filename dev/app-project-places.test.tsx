@@ -19,7 +19,7 @@ describe("App coming back to a project", () => {
 				slug: "webappwiz",
 				root: "/code/webappwiz",
 				gone: false,
-				here: true,
+				focused: true,
 				conversations: [],
 				waiting: 0,
 			},
@@ -27,7 +27,7 @@ describe("App coming back to a project", () => {
 				slug: "shop",
 				root: "/code/shop",
 				gone: false,
-				here: false,
+				focused: false,
 				conversations: [],
 				waiting: 2,
 			},
@@ -55,7 +55,7 @@ describe("App coming back to a project", () => {
 		await pick(back, "/code/webappwiz");
 
 		const returned = new URL(String(testing.visited[1]));
-		expect(returned.search).toBe("");
+		expect(returned.search).toBe("?project=webappwiz");
 		expect(returned.hash).toBe("#conversations/c1");
 	});
 

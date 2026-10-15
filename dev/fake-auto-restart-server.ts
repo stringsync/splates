@@ -54,7 +54,7 @@ const here = (conversations: ProjectConversation[] = []) => ({
 	slug: "repo",
 	root: "/repo",
 	gone: false,
-	here: true,
+	focused: true,
 	conversations,
 	waiting: 0,
 });

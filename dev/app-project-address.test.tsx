@@ -20,7 +20,7 @@ describe("App at a project's address", () => {
 				slug: "webappwiz",
 				root: "/code/webappwiz",
 				gone: false,
-				here: true,
+				focused: true,
 				conversations: [],
 				waiting: 0,
 			},
@@ -28,7 +28,7 @@ describe("App at a project's address", () => {
 				slug: "shop",
 				root: "/code/shop",
 				gone: false,
-				here: false,
+				focused: false,
 				conversations: [],
 				waiting: 2,
 			},
@@ -44,7 +44,7 @@ describe("App at a project's address", () => {
 
 	it("leaves the agents waiting in the project shown off the switcher's mark", async () => {
 		testing.projects = testing.projects.map((each) =>
-			each.here ? { ...each, waiting: 1 } : each,
+			each.focused ? { ...each, waiting: 1 } : each,
 		);
 		const view = await testing.open();
 

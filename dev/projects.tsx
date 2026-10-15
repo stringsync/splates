@@ -1,4 +1,10 @@
-import { CheckIcon, ChevronsUpDownIcon, HouseIcon, XIcon } from "lucide-react";
+import {
+	CheckIcon,
+	ChevronsUpDownIcon,
+	HouseIcon,
+	PlusIcon,
+	XIcon,
+} from "lucide-react";
 import { type JSX, useCallback, useContext, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -12,13 +18,19 @@ import {
 import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { ServerChoice } from "../dev-servers";
+import { AddProject } from "./add-project";
 import { Dot } from "./dot";
 import { NavigationContext } from "./navigation";
-import { forgetProject, listProjects, type ProjectChoice } from "./project-api";
+import {
+	focusProject,
+	forgetProject,
+	listProjects,
+	type ProjectChoice,
+} from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
 import { TITLE } from "./top-bar";
 
-/** The project the page shows: `?project=`, or none for the one started in. */
+/** The project the address names: `?project=`, or none for the focused one. */
 export function shownProject(): string | null {
 	return new URLSearchParams(location.search).get("project") || null;
 }
@@ -29,7 +41,7 @@ export function shownProject(): string | null {
  */
 const LISTED = Duration.secs(15);
 
-/** Where this tab last was in each project, by slug, "" for the one started in. */
+/** Where this tab last was in each project, by slug, "" for the focused one. */
 const PLACES = "arbor.places";
 
 /** A project as this tab last showed it: its name, and the address's hash. */
@@ -49,7 +61,7 @@ function places(): Record<string, Place> {
 	}
 }
 
-/** Where `project`, a slug or "" for the one started in, was last left. */
+/** Where `project`, a slug or "" for the focused one, was last left. */
 export function placeOf(project: string): Place {
 	return places()[project] ?? {};
 }
@@ -61,23 +73,16 @@ export function rememberPlace(project: string, place: Place): void {
 	sessionStorage.setItem(PLACES, JSON.stringify(all));
 }
 
-function keyOf(project: ProjectChoice): string {
-	return project.here ? "" : project.slug;
-}
-
 /**
- * Where the page goes to show `project`: where this tab last left it, else
- * the same page of it, and none of the last project's conversations, which
- * are its own.
+ * Where the page goes to show `project`, named by its slug, so the address
+ * keeps showing it whatever is focused later: where this tab last left it,
+ * else the same page of it, and none of the last project's conversations,
+ * which are its own.
  */
-export function projectUrl(project: ProjectChoice): string {
+export function projectUrl(project: { slug: string }): string {
 	const url = new URL(location.href);
-	if (project.here) {
-		url.searchParams.delete("project");
-	} else {
-		url.searchParams.set("project", project.slug);
-	}
-	const { hash } = placeOf(keyOf(project));
+	url.searchParams.set("project", project.slug);
+	const { hash } = placeOf(project.slug);
 	if (hash !== undefined) {
 		url.hash = hash;
 	} else if (url.hash.startsWith("#conversations/")) {
@@ -92,7 +97,7 @@ export function projectUrl(project: ProjectChoice): string {
  * shortcut, ⌃⌘P unless set otherwise, which no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
  * while another project has agents waiting on you. Below them, when this
  * machine runs slots, every `arbor dev` it has a host for, picked to open
- * that one's page instead.
+ * that one's page instead. Last, a way to add a project by its path.
  */
 export function ProjectSwitcher({
 	name,
@@ -108,6 +113,7 @@ export function ProjectSwitcher({
 	// Null until first listed, so it never says none match before it knows.
 	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
 	const [servers, setServers] = useState<ServerChoice[]>([]);
+	const [adding, setAdding] = useState(false);
 	const shown = shownProject();
 	const navigation = useContext(NavigationContext);
 	const { refusal, refuse: refused } = useRefusal();
@@ -167,7 +173,7 @@ export function ProjectSwitcher({
 	);
 	const picks = matching.length + matchingServers.length;
 	const current = (each: ProjectChoice) =>
-		shown === null ? each.here : each.slug === shown;
+		shown === null ? each.focused : each.slug === shown;
 	// This one's own are on the page already.
 	const elsewhere = (projects ?? []).filter(
 		(each) => each.waiting > 0 && !current(each),
@@ -180,11 +186,16 @@ export function ProjectSwitcher({
 			return;
 		}
 		setOpen(false);
+		// What an address naming none shows next, on any device; going there
+		// waits on it no more than on a refusal.
+		void focusProject(each.slug).catch(() => {});
 		if (!current(each)) {
 			// So coming back lands here, and the page names `each` while it opens.
-			rememberPlace(shown ?? "", { hash: location.hash });
-			if (placeOf(keyOf(each)).name === undefined) {
-				rememberPlace(keyOf(each), { name: each.slug });
+			const leaving =
+				shown ?? (projects ?? []).find((one) => one.focused)?.slug ?? "";
+			rememberPlace(leaving, { hash: location.hash });
+			if (placeOf(each.slug).name === undefined) {
+				rememberPlace(each.slug, { name: each.slug });
 			}
 			navigation.go(projectUrl(each));
 		}
@@ -207,6 +218,7 @@ export function ProjectSwitcher({
 				setOpen(next);
 				setQuery("");
 				setActive(0);
+				setAdding(false);
 			}}
 		>
 			<PopoverTrigger
@@ -301,7 +313,7 @@ export function ProjectSwitcher({
 									</span>
 								)}
 							</button>
-							{!each.here && !current(each) && (
+							{!current(each) && (
 								<Button
 									size="icon-xs"
 									variant="ghost"
@@ -309,7 +321,7 @@ export function ProjectSwitcher({
 									title={
 										each.gone
 											? "Forget it: its repository is gone"
-											: "Forget it: `arbor init` there brings it back"
+											: "Forget it: adding it again brings it back"
 									}
 									className={cn(
 										!each.gone &&
@@ -372,6 +384,20 @@ export function ProjectSwitcher({
 						})}
 					</ul>
 				)}
+				<div className="border-t pt-2">
+					{adding ? (
+						<AddProject autoFocus />
+					) : (
+						<button
+							type="button"
+							onClick={() => setAdding(true)}
+							className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-muted-foreground text-sm hover:bg-muted hover:text-foreground"
+						>
+							<PlusIcon className="size-3.5 shrink-0" />
+							Add a project
+						</button>
+					)}
+				</div>
 				<Refusal refusal={refusal} className="px-2" />
 				{shortcut !== null && (
 					<p className="px-2 text-muted-foreground text-xs">

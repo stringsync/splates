@@ -21,7 +21,7 @@ export interface ServedProjects {
 	readonly served: Map<string, Promise<Served>>;
 	/** The project at `root`, opened on first asking. */
 	servedAt(root: string): Promise<Served>;
-	/** The project `slug` names, or the one started in for none. */
+	/** The project `slug` names, or the focused one for none. */
 	projectNamed(slug: string): Promise<Served>;
 }
 
@@ -32,8 +32,6 @@ export interface RestartsHome {
 	log: Logger;
 	/** The registry of arbor projects. */
 	projects: Projects;
-	/** The root of the project `arbor dev` started in. */
-	here: string;
 	served: ServedProjects;
 	terminals: Terminals;
 	/** Stops the whole server, before a restart ends the process. */
@@ -125,11 +123,12 @@ export class Restarts {
 		// Read before the conversations, so a checkpoint asked meanwhile never
 		// pairs its restart with agents not yet asked, which reads as restarting.
 		const then = { restarting: this.restarting, restarted: this.restarted };
+		const focused = await this.home.projects.focused();
 		return Response.json({
 			projects: await Promise.all(
 				(await this.home.projects.list()).map(async (each) => ({
 					...each,
-					here: each.root === this.home.here,
+					focused: each.root === focused?.root,
 					conversations: await this.checkpointable(each.root),
 					waiting: each.gone ? 0 : await this.waitingIn(each.root),
 				})),
@@ -260,16 +259,11 @@ export class Restarts {
 	};
 
 	readonly forgetProject = async (request: Request): Promise<Response> => {
-		const { projects, here, served } = this.home;
+		const { projects, served } = this.home;
 		const slug = new URL(request.url).pathname.split("/")[3] ?? "";
 		const found = (await projects.list()).find((each) => each.slug === slug);
 		if (found === undefined) {
 			fail("not_found", `no arbor project '${slug}'`, { project: slug });
-		}
-		if (found.root === here) {
-			fail("usage", `arbor dev runs in ${slug}: it cannot forget it`, {
-				project: slug,
-			});
 		}
 		// Its agents would carry on with nothing on the page left to show them.
 		const live = await this.live(found.root);
@@ -403,7 +397,7 @@ export class Restarts {
 			shutdown = false,
 		}: { reopens?: boolean; shutdown?: boolean } = {},
 	): void {
-		const { fs, log, here, served, server } = this.home;
+		const { fs, log, served, server } = this.home;
 		this.restarting = { resume: reopens, shutdown };
 		void Promise.all(asked).then(async () => {
 			if (this.restarting === null) {
@@ -414,7 +408,7 @@ export class Restarts {
 				for (const [root, opened] of served.served) {
 					const project = await opened.catch(() => null);
 					const all = (await project?.conversations?.list()) ?? [];
-					if (root !== here && all.some((each) => each.stoppedByCheckpoint)) {
+					if (all.some((each) => each.stoppedByCheckpoint)) {
 						roots.push(root);
 					}
 				}

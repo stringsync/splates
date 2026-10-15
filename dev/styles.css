@@ -37,6 +37,7 @@
 @source "./media.tsx";
 @source "./lightbox.tsx";
 @source "./zoom.tsx";
+@source "./add-project.tsx";
 @source "./annotate.tsx";
 @source "./annotate-board.tsx";
 @source "./mark-notes.tsx";

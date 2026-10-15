@@ -1,9 +1,12 @@
+import type { Deps } from "webappwiz/cmd";
 import type { Transcriber } from "webappwiz/dictate";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { ConversationState, Conversations } from "./conversations";
+import type { SecretStores } from "./creds";
+import type { Assets } from "./dev/assets";
 import { BudgetRoutes } from "./dev-budgets";
 import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
@@ -19,6 +22,7 @@ import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
 import type { LaneRecord } from "./lanes";
 import { type Needing, needs } from "./needs";
+import type { Projects } from "./projects";
 import type { Behind, Release } from "./release";
 import type { Repository } from "./repository";
 import type { Details } from "./show";
@@ -125,6 +129,25 @@ export type Project = Pick<
 	Repository,
 	"service" | "journal" | "todos" | "format" | "arborDir" | "git" | "creds"
 > & { fs: Fs; ps: Ps; log: Logger };
+
+/**
+ * What `dev` runs with: the machine's, not any project's, since it serves
+ * every registered project wherever it was started.
+ */
+export type DevMachine = Deps & {
+	fs: Fs;
+	/** Where each project's creds are kept; the system's stores by default. */
+	secrets?: SecretStores;
+	/** The built page. */
+	assets: Assets;
+	/** Every arbor project on this machine. */
+	projects: Projects;
+	/**
+	 * Projects opened already, served as they are rather than opened again:
+	 * a test's own, with its fakes.
+	 */
+	opened?: Project[];
+};
 
 /** What the server as a whole tells each project it serves. */
 export interface DevContext {

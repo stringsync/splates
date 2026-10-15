@@ -43,6 +43,10 @@ http://localhost:4269.
 bunx @webappwiz/arbor dev
 ```
 
+Run it from anywhere: it serves every arbor project on this machine. Its
+project picker switches between them, and adds a repository by its path,
+running `arbor init` there and asking before it commits what that wrote.
+
 ### Parallel agents
 
 Start as many conversations as you like, each in a task of its own.

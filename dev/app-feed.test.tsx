@@ -92,7 +92,7 @@ describe("App's feed", () => {
 				slug: "shop",
 				root: "/code/shop",
 				gone: false,
-				here: true,
+				focused: true,
 				conversations: [
 					{
 						id: "c1",

@@ -1,5 +1,7 @@
-import type { Fs, Lock } from "webappwiz/system";
+import type { Logger } from "webappwiz/log";
+import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { fail } from "./exit";
+import { arborHome } from "./roster";
 
 /** The registry's own format, apart from each repository's records. */
 const FORMAT = 1;
@@ -23,6 +25,13 @@ export interface Project extends ProjectRecord {
 	gone: boolean;
 }
 
+/** The registry's file as written: its records, and the project last focused. */
+interface RegistryFile {
+	projects: ProjectRecord[];
+	/** The root `arbor dev`'s page last picked, which an address naming none shows. */
+	focused: string | null;
+}
+
 /** What `Projects` works with. */
 export interface ProjectsOptions {
 	fs: Fs;
@@ -42,6 +51,26 @@ export class Projects {
 	private readonly lock: Lock;
 	private readonly now: () => Date;
 
+	/**
+	 * This machine's registry, in `ARBOR_HOME`, `~/.arbor` for none, with a
+	 * lock that counts as stale after `stalenessMs`.
+	 */
+	static ofMachine(
+		{ fs, ps, log }: { fs: Fs; ps: Ps; log: Logger },
+		stalenessMs?: number,
+	): Projects {
+		const home = arborHome(ps);
+		return new Projects(`${home}/projects.json`, {
+			fs,
+			lock: new FileLock(`${home}/projects.lock`, {
+				fs,
+				ps,
+				log,
+				stalenessMs,
+			}),
+		});
+	}
+
 	constructor(
 		/** `~/.arbor/projects.json`, or a test's own. */
 		readonly path: string,
@@ -57,23 +86,44 @@ export class Projects {
 	 * it again changes nothing.
 	 */
 	async register(root: string): Promise<boolean> {
-		if ((await this.records()).some((each) => each.root === root)) {
+		if ((await this.read()).projects.some((each) => each.root === root)) {
 			return false;
 		}
-		// The lock lives beside the file, so its directory comes first.
-		await this.fs.mkdir(this.dir);
-		// Read again under the lock: another command may have just written it.
-		await this.lock.acquire();
-		try {
-			const records = await this.records();
-			if (records.some((each) => each.root === root)) {
-				return false;
+		return this.change((file) => {
+			if (file.projects.some((each) => each.root === root)) {
+				return null;
 			}
-			await this.write([...records, { root, added: this.now().toISOString() }]);
-			return true;
-		} finally {
-			await this.lock.release();
-		}
+			return {
+				...file,
+				projects: [...file.projects, { root, added: this.now().toISOString() }],
+			};
+		});
+	}
+
+	/**
+	 * Makes the registered repository at `root` the one an address naming
+	 * none shows, as picking it on the page does, saying whether it is
+	 * registered.
+	 */
+	async focus(root: string): Promise<boolean> {
+		let registered = false;
+		await this.change((file) => {
+			registered = file.projects.some((each) => each.root === root);
+			return registered && file.focused !== root
+				? { ...file, focused: root }
+				: null;
+		});
+		return registered;
+	}
+
+	/**
+	 * The project an address naming none shows: the one last focused, else
+	 * the first registered, skipping those gone; null while there is none.
+	 */
+	async focused(): Promise<Project | null> {
+		const { focused } = await this.read();
+		const open = (await this.list()).filter((each) => !each.gone);
+		return open.find((each) => each.root === focused) ?? open[0] ?? null;
 	}
 
 	/**
@@ -84,7 +134,7 @@ export class Projects {
 	async list(): Promise<Project[]> {
 		const projects: Project[] = [];
 		const taken = new Map<string, number>();
-		for (const record of await this.records()) {
+		for (const record of (await this.read()).projects) {
 			const name = record.root.split("/").filter(Boolean).at(-1) ?? "project";
 			const seen = (taken.get(name) ?? 0) + 1;
 			taken.set(name, seen);
@@ -102,15 +152,34 @@ export class Projects {
 	 * for good, or one `arbor dev` should no longer offer.
 	 */
 	async forget(root: string): Promise<boolean> {
+		return this.change((file) => {
+			const kept = file.projects.filter((each) => each.root !== root);
+			return kept.length === file.projects.length
+				? null
+				: {
+						projects: kept,
+						focused: file.focused === root ? null : file.focused,
+					};
+		});
+	}
+
+	/**
+	 * Rewrites the file as `edit` says, under the lock, saying whether it
+	 * did: `edit` returns null to leave it as it is.
+	 */
+	private async change(
+		edit: (file: RegistryFile) => RegistryFile | null,
+	): Promise<boolean> {
+		// The lock lives beside the file, so its directory comes first.
 		await this.fs.mkdir(this.dir);
+		// Read under the lock: another command may have just written it.
 		await this.lock.acquire();
 		try {
-			const records = await this.records();
-			const kept = records.filter((each) => each.root !== root);
-			if (kept.length === records.length) {
+			const changed = edit(await this.read());
+			if (changed === null) {
 				return false;
 			}
-			await this.write(kept);
+			await this.write(changed);
 			return true;
 		} finally {
 			await this.lock.release();
@@ -121,12 +190,16 @@ export class Projects {
 		return this.path.slice(0, this.path.lastIndexOf("/"));
 	}
 
-	private async records(): Promise<ProjectRecord[]> {
+	private async read(): Promise<RegistryFile> {
 		const raw = await this.fs.read(this.path).catch(() => null);
 		if (raw === null) {
-			return [];
+			return { projects: [], focused: null };
 		}
-		let parsed: { format?: number; projects?: ProjectRecord[] };
+		let parsed: {
+			format?: number;
+			projects?: ProjectRecord[];
+			focused?: string | null;
+		};
 		try {
 			parsed = JSON.parse(raw);
 		} catch {
@@ -144,14 +217,17 @@ export class Projects {
 				{ path: this.path, format: parsed.format, understood: FORMAT },
 			);
 		}
-		return parsed.projects ?? [];
+		return {
+			projects: parsed.projects ?? [],
+			focused: parsed.focused ?? null,
+		};
 	}
 
-	private async write(projects: ProjectRecord[]): Promise<void> {
+	private async write({ projects, focused }: RegistryFile): Promise<void> {
 		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
 		await this.fs.write(
 			tmp,
-			`${JSON.stringify({ format: FORMAT, projects }, null, "\t")}\n`,
+			`${JSON.stringify({ format: FORMAT, projects, focused }, null, "\t")}\n`,
 		);
 		await this.fs.rename(tmp, this.path);
 	}

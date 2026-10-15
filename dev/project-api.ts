@@ -1,9 +1,11 @@
 /**
- * The page's calls across projects: listing and forgetting them, and the
- * checkpoint and restart that span every project `arbor dev` serves.
+ * The page's calls across projects: listing, adding, focusing and forgetting
+ * them, and the checkpoint and restart that span every project `arbor dev`
+ * serves.
  */
 
 import type { After, Checkpoint } from "../conversations";
+import type { Added } from "../dev-picker";
 import type { ServerChoice } from "../dev-servers";
 import type { Held } from "../held";
 import type { Behind } from "../release";
@@ -34,6 +36,29 @@ export async function forgetProject(slug: string): Promise<void> {
 			);
 		}
 	});
+}
+
+/**
+ * Makes the repository `path` sits in an arbor project, as `arbor init` there
+ * would, and focuses it; commits nothing, but says what init wrote.
+ */
+export async function addProject(path: string): Promise<Added> {
+	return (await sendJson("/api/projects", "POST", { path })) as Added;
+}
+
+/** Commits `paths`, which `arbor init` wrote, in the project `slug` names. */
+export async function commitProject(
+	slug: string,
+	paths: string[],
+): Promise<void> {
+	await sendJson(`/api/projects/${encodeURIComponent(slug)}/commit`, "POST", {
+		paths,
+	});
+}
+
+/** Makes `slug` the project an address naming none shows, on any device. */
+export async function focusProject(slug: string): Promise<void> {
+	await sendJson("/api/focus", "PUT", { project: slug });
 }
 
 /**
@@ -114,8 +139,8 @@ export interface ProjectChoice {
 	root: string;
 	/** Its repository moved or was deleted: it cannot be opened. */
 	gone: boolean;
-	/** The one `arbor dev` runs in, which the page shows with no `?project=`. */
-	here: boolean;
+	/** The one picked last, which the page shows with no `?project=`. */
+	focused: boolean;
 	/** Its live conversations, and those a checkpoint has asked. */
 	conversations: ProjectConversation[];
 	/** How many of its agents wait on you. */

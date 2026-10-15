@@ -5,7 +5,7 @@ import { savedTunnelOf } from "./arbor-flags";
 import { SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
 import { Projects } from "./projects";
-import { openRepository, type Repository } from "./repository";
+import { openRepository } from "./repository";
 import { arborHome } from "./roster";
 import { SavedTunnel } from "./saved-tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
@@ -23,15 +23,13 @@ export const MACHINE_HOME = "ARBOR_MACHINE_HOME";
 /** The file in a slot's home that its server writes its pid to. */
 export const SERVER_PID = "server.pid";
 
-/** How `arbor dev --slot` starts its server: where, and with what added. */
+/** How `arbor dev --slot` starts its server: with what added. */
 export interface SlotStart {
 	slot: Slot;
 	/** The public host it answers on, as in fox.example.com. */
 	host: string;
 	/** The slot's home, its `ARBOR_HOME`, and the word it serves under. */
 	env: Record<string, string>;
-	/** The project the server starts in. */
-	cwd: string;
 }
 
 /**
@@ -39,11 +37,26 @@ export interface SlotStart {
  * tunnel, made on the slot's first claim, and its home, `~/.arbor/slots/<word>`,
  * which keeps its own projects, roster and tunnel apart from the machine's, so
  * it never drives the agents of the `arbor dev` serving your projects. Its
- * server starts in the project it is run in when its home registers that one,
- * else in a throwaway project of its own, made on the first start.
+ * home starts out with a throwaway project of its own, made on the first
+ * start, so its page has one to show.
  */
-export async function devSlot(ctx: ArborDeps & Repository): Promise<SlotStart> {
-	const { fs, ps, log, git, secrets = SYSTEM_STORES } = ctx;
+export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
+	const { fs, ps, log, secrets = SYSTEM_STORES } = ctx;
+	// The checkout of arbor it runs from, wherever it is run, whose creds
+	// keep the slot's tunnel token.
+	const checkout = import.meta.dirname;
+	const { git, creds } = await openRepository(ctx, { at: checkout }).catch(
+		(error: unknown) => {
+			if (error instanceof Error && error.message.startsWith("not a git")) {
+				fail(
+					"usage",
+					"--slot serves a checkout of arbor: run that checkout's bin/arbor",
+					{ at: checkout },
+				);
+			}
+			throw error;
+		},
+	);
 	const machine = await savedTunnelOf(ctx).read();
 	if (machine === null) {
 		fail(
@@ -61,7 +74,7 @@ export async function devSlot(ctx: ArborDeps & Repository): Promise<SlotStart> {
 	// each worktree holds a slot of its own.
 	const { stdout } = await ps.spawnCapture(
 		["git", "rev-parse", "--show-toplevel"],
-		{ cwd: ps.cwd() },
+		{ cwd: checkout },
 	);
 	const tree = stdout.trim() || git.root;
 	let slot: Slot;
@@ -82,7 +95,7 @@ export async function devSlot(ctx: ArborDeps & Repository): Promise<SlotStart> {
 		record = await slotTunnelSetup({
 			slot,
 			machine,
-			creds: ctx.creds,
+			creds,
 			saved,
 			log,
 			fetch: ctx.fetch,
@@ -92,18 +105,16 @@ export async function devSlot(ctx: ArborDeps & Repository): Promise<SlotStart> {
 		fs,
 		lock: new FileLock(`${home}/projects.lock`, { fs, ps, log }),
 	});
-	const registered = (await projects.list()).some(
-		(each) => each.root === git.root,
-	);
-	const cwd = registered ? git.root : await throwaway(ctx, home, projects);
+	if ((await projects.list()).length === 0) {
+		await throwaway(ctx, home, projects);
+	}
 	log.info(
-		`slot ${slot.word} ${slot.emoji}: ${color.blue(`https://${record.host}`)}, serving ${cwd}`,
+		`slot ${slot.word} ${slot.emoji}: ${color.blue(`https://${record.host}`)}`,
 	);
 	return {
 		slot,
 		host: record.host,
 		env: { ARBOR_HOME: home, [SLOT]: slot.word, [MACHINE_HOME]: registry },
-		cwd,
 	};
 }
 

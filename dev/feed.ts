@@ -34,6 +34,11 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 	 * past what it understands: it refuses until it is updated.
 	 */
 	outdated: string | null = null;
+	/**
+	 * What the server says when it has no project to show: none added yet,
+	 * or the one the address names is gone.
+	 */
+	missing: string | null = null;
 
 	private stream: LiveStream | null = null;
 	/** Counting down to `offline` while the server is unreachable. */
@@ -80,6 +85,10 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 					reason?: string;
 					message?: string;
 				} | null;
+				if (refusal?.reason === "not_found") {
+					this.reached({ missing: refusal.message ?? "" });
+					return;
+				}
 				if (refusal?.reason !== "outdated") {
 					throw new Error(`snapshot: ${response.status}`);
 				}
@@ -89,6 +98,7 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 			this.reached({
 				snapshot: (await response.json()) as Snapshot,
 				outdated: null,
+				missing: null,
 			});
 		} catch {
 			// The last good snapshot stays on screen: a page that empties itself
@@ -99,7 +109,8 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 
 	/** Starts counting down to `offline`, unless already counting. */
 	private lost(): void {
-		if (this.offline || this.unreachable !== null) {
+		// Its stream is refused too, by a server that answers.
+		if (this.offline || this.unreachable !== null || this.missing !== null) {
 			return;
 		}
 		this.unreachable = this.timer.setTimeout(() => {
@@ -109,14 +120,16 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 	}
 
 	/** The server answered with `next`: the countdown to `offline` stops. */
-	private reached(next: Partial<Pick<Feed, "snapshot" | "outdated">>): void {
+	private reached(
+		next: Partial<Pick<Feed, "snapshot" | "outdated" | "missing">>,
+	): void {
 		this.unreachable?.dispose();
 		this.unreachable = null;
 		this.set({ ...next, offline: false });
 	}
 
 	private set(
-		next: Partial<Pick<Feed, "snapshot" | "offline" | "outdated">>,
+		next: Partial<Pick<Feed, "snapshot" | "offline" | "outdated" | "missing">>,
 	): void {
 		Object.assign(this, next);
 		this.dispatcher.dispatch("changed");
