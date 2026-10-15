@@ -3,6 +3,7 @@ import { SquareTerminalIcon, TerminalIcon, XIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import type { Needing } from "../needs";
 import { NestedPanesContext } from "./side-panes";
+import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
 import { BarButton } from "./top-bar";
 
@@ -31,6 +32,7 @@ export function useShells(
 		["changed"],
 	);
 	const panes = useContext(NestedPanesContext);
+	const openPage = useContext(OpenTerminalPage);
 	const shells = new Set(up.split(" "));
 	const beneath = ({ conversation }: Needing, depth: number): ReactNode[] => {
 		if (conversation === null || panes === null) {
@@ -47,8 +49,12 @@ export function useShells(
 						text="Shell up"
 						depth={depth}
 						onOpen={() => {
-							onOpen(id);
-							panes.showTerminal(id);
+							if (openPage === null) {
+								onOpen(id);
+								panes.showTerminal(id);
+							} else {
+								openPage(id);
+							}
 						}}
 					/>
 					<BarButton

@@ -836,7 +836,24 @@ describe("App on a phone", () => {
 
 		await act(async () =>
 			fireEvent.click(
-				within(recent).getByRole("button", { name: /^Start the dev server/ }),
+				within(recent).getByRole("button", { name: /^Terminal/ }),
+			),
+		);
+		expect(location.hash).toBe("#conversations/c1/terminal");
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Back to conversations" }),
+			),
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					within(view.getByRole("region", { name: "inbox" })).getByRole(
+						"region",
+						{ name: "Recent" },
+					),
+				).getByRole("button", { name: /^Start the dev server/ }),
 			),
 		);
 		expect(location.hash).toBe("#conversations/c1");
