@@ -125,7 +125,7 @@ export async function cloudflareApi(
 			"requested",
 			[
 				`${API_TOKEN} is needed to set up ${host}, so it is requested on the Creds page of \`arbor dev\`.`,
-				`Say \`## 🔑 Requested ${API_TOKEN}\`, \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
+				`Run \`arbor creds wait ${API_TOKEN}\`, then run this again.`,
 			].join("\n"),
 			{ host, name: API_TOKEN },
 		);
