@@ -14,6 +14,11 @@ const POLL = Duration.secs(2);
 /** The only two statuses a task moves on from by itself. */
 const RUNNING: WorktreeStatus[] = ["working", "merging"];
 
+/** When a wait begun now gives up after `timeout`, as an ISO time. */
+export function untilAfter(timeout: Duration): string {
+	return new Date(Date.now() + timeout.ms).toISOString();
+}
+
 export interface WaitOptions {
 	/** How long to wait before giving up. */
 	timeout?: Duration;

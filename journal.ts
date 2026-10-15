@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import type { Action, Event, FactsOf } from "./events";
+import type { Action, Event, Facts, FactsOf } from "./events";
 import { Exit } from "./exit";
 
 /** How long a log file is kept once it fills, so a live conversation can still show the events in it. */
@@ -59,6 +59,28 @@ export class Journal {
 		}
 	}
 
+	/**
+	 * Logs a wait as it begins, then `record`s how it ended with `began`
+	 * naming that first event, so the page can count it down while it runs.
+	 */
+	async waiting<A extends "wait" | "todo wait" | "creds wait", T>(
+		action: A,
+		task: string | null,
+		facts: Omit<Facts[A], "began">,
+		run: () => Promise<T>,
+	): Promise<T> {
+		const began = await this.append(action, task, null, {
+			...facts,
+			began: null,
+		});
+		return this.record(
+			action,
+			task,
+			run,
+			...([{ ...facts, began }] as FactsOf<A, T>),
+		);
+	}
+
 	async tail(count: number): Promise<Event[]> {
 		if (count <= 0) {
 			return [];
@@ -92,7 +114,7 @@ export class Journal {
 		task: string | null,
 		reason: string | null,
 		facts: object,
-	): Promise<void> {
+	): Promise<string> {
 		const event = {
 			id: randomUUID(),
 			at: new Date().toISOString(),
@@ -106,6 +128,7 @@ export class Journal {
 		if ((await this.read(this.path)).length >= this.capacity) {
 			await this.rotate();
 		}
+		return event.id;
 	}
 
 	/**

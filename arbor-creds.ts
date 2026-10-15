@@ -7,6 +7,7 @@ import { here } from "./arbor-flags";
 import { DEFAULT_TIMEOUT } from "./creds";
 import { fail } from "./exit";
 import { repository } from "./repository";
+import { untilAfter } from "./wait";
 
 /** `arbor creds`, which the root cli mounts after `arbor lane`. */
 export const arborCreds = cli<ArborDeps>("creds")
@@ -79,16 +80,22 @@ arborCreds
 		description: "how long to wait before giving up",
 	})
 	.action(async (opts, ctx) => {
-		const ended = await ctx.creds.wait(opts.name, {
-			timeout: Duration.secs(opts["timeout-secs"]),
-		});
-		if (ended === "dismissed") {
-			fail(
-				"dismissed",
-				`${opts.name} was dismissed: carry on without it, or ask the person why`,
-				{ name: opts.name },
-			);
-		}
+		const timeout = Duration.secs(opts["timeout-secs"]);
+		await ctx.journal.waiting(
+			"creds wait",
+			null,
+			{ name: opts.name, until: untilAfter(timeout) },
+			async () => {
+				const ended = await ctx.creds.wait(opts.name, { timeout });
+				if (ended === "dismissed") {
+					fail(
+						"dismissed",
+						`${opts.name} was dismissed: carry on without it, or ask the person why`,
+						{ name: opts.name },
+					);
+				}
+			},
+		);
 		ctx.log.info(`${color.green("saved")} ${opts.name}`);
 	});
 

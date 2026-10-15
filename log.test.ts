@@ -38,6 +38,31 @@ describe("log", () => {
 		]);
 	});
 
+	it("logs a wait as it begins, then how it ended, naming the first", async () => {
+		const until = new Date(Date.now() + 60_000).toISOString();
+		await expect(
+			deps.journal.waiting("wait", "alpha", { until }, () =>
+				Promise.reject(new Exit("timeout", "still working")),
+			),
+		).toBail("timeout");
+
+		const [began, ended] = await deps.journal.tail(2);
+		expect(began).toMatchObject({
+			action: "wait",
+			task: "alpha",
+			reason: null,
+			until,
+			began: null,
+		});
+		expect(ended).toMatchObject({
+			action: "wait",
+			task: "alpha",
+			reason: "timeout",
+			until,
+			began: began?.id,
+		});
+	});
+
 	it("moves a full log aside and still reads back across both", async () => {
 		// Room for two, so the second event rotates the file.
 		const journal = new Journal(join(deps.arborDir, "log.jsonl"), 2, {

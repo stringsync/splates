@@ -15,7 +15,7 @@ import { recordUpdate } from "./todo";
 import { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";
 import { todoRelease, todoTake } from "./todo-take";
-import { DEFAULT_TIMEOUT, todoWait } from "./wait";
+import { DEFAULT_TIMEOUT, todoWait, untilAfter } from "./wait";
 
 /** `arbor todo`, which the root cli mounts after the task commands. */
 export const arborTodo = cli<ArborDeps>("todo")
@@ -227,6 +227,17 @@ arborTodo
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
-	.action((opts, ctx) =>
-		todoWait(ctx, opts.id, { timeout: Duration.secs(opts["timeout-secs"]) }),
-	);
+	.action(async (opts, ctx) => {
+		const timeout = Duration.secs(opts["timeout-secs"]);
+		const todo = (await ctx.todos.all()).find((each) => each.id === opts.id);
+		await ctx.journal.waiting(
+			"todo wait",
+			null,
+			{
+				todo: opts.id,
+				subject: todo?.subject ?? null,
+				until: untilAfter(timeout),
+			},
+			() => todoWait(ctx, opts.id, { timeout }),
+		);
+	});

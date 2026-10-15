@@ -157,13 +157,19 @@ function placed(pieces: Piece[], events: readonly Event[]): Piece[] {
 
 /**
  * `pieces` with each run of successful `todo update` events, with nothing
- * between, folded into the first, so a groom reads as one line.
+ * between, folded into the first, so a groom reads as one line, and each
+ * wait's end folded into its beginning, so it is one line that changes.
  */
 function folded(pieces: Piece[]): Piece[] {
 	const out: Piece[] = [];
 	for (const piece of pieces) {
 		const last = out.at(-1);
-		if (
+		const event =
+			!Array.isArray(piece) && piece.type === "event" ? piece.event : null;
+		const began = event === null ? undefined : beganWith(out, event);
+		if (event !== null && began !== undefined) {
+			began.also = [...(began.also ?? []), event];
+		} else if (
 			!Array.isArray(piece) &&
 			piece.type === "event" &&
 			isUpdate(piece.event) &&
@@ -180,6 +186,23 @@ function folded(pieces: Piece[]): Piece[] {
 		}
 	}
 	return out;
+}
+
+/** The beginning in `out` of the wait `event` ends, if it is one. */
+function beganWith(
+	out: Piece[],
+	event: Event,
+): Extract<Piece, { type: "event" }> | undefined {
+	const began = "began" in event ? event.began : null;
+	if (began == null) {
+		return undefined;
+	}
+	return out.find(
+		(piece): piece is Extract<Piece, { type: "event" }> =>
+			!Array.isArray(piece) &&
+			piece.type === "event" &&
+			piece.event.id === began,
+	);
 }
 
 function isUpdate(event: Event): boolean {

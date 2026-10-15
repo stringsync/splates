@@ -32,7 +32,7 @@ import { show } from "./show";
 import { systems } from "./system";
 import { reportToCaller, tell } from "./tell";
 import { update } from "./update";
-import { DEFAULT_TIMEOUT, wait } from "./wait";
+import { DEFAULT_TIMEOUT, untilAfter, wait } from "./wait";
 import { REMOVE_REASONS } from "./worktree";
 
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
@@ -296,11 +296,15 @@ arbor
 		default: DEFAULT_TIMEOUT.secs,
 		description: "how long to wait before giving up",
 	})
-	.action((opts, ctx) =>
-		wait(ctx, opts.task, {
-			timeout: Duration.secs(opts["timeout-secs"]),
-		}),
-	);
+	.action((opts, ctx) => {
+		const timeout = Duration.secs(opts["timeout-secs"]);
+		return ctx.journal.waiting(
+			"wait",
+			opts.task,
+			{ until: untilAfter(timeout) },
+			() => wait(ctx, opts.task, { timeout }),
+		);
+	});
 
 arbor
 	.command("log")

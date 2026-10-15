@@ -198,7 +198,11 @@ export function like(
 						? [
 								{
 									type: "data-event",
-									data: { event: stretch.event, also: stretch.also },
+									data: {
+										event: stretch.event,
+										also: stretch.also,
+										going: !settled,
+									},
 								},
 							]
 						: stretch.type === "added"

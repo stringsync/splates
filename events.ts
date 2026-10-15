@@ -30,6 +30,8 @@ export interface Facts {
 		 */
 		to: string;
 	};
+	/** A wait on a task, the event's own: see `Waiting`. */
+	wait: Waiting;
 	merge: None;
 	remove: None;
 	escalate: None;
@@ -74,6 +76,12 @@ export interface Facts {
 		};
 	};
 	"todo take": None;
+	"todo wait": Waiting & {
+		/** The todo, by id. */
+		todo: number;
+		/** Its subject as the wait began, or null for a todo there is no such thing as. */
+		subject: string | null;
+	};
 	"todo release": None;
 	"todo remove": None;
 	"lane add": {
@@ -108,11 +116,27 @@ export interface Facts {
 	"creds save": None;
 	"creds remove": None;
 	"creds dismiss": None;
+	"creds wait": Waiting & {
+		/** The cred waited for, by name. */
+		name: string;
+	};
 	"tunnel setup": None;
 	"tunnel remove": None;
 }
 
 type None = Record<never, never>;
+
+/**
+ * A wait, logged twice in the append-only journal: as it begins, so the page
+ * can count down to `until` while it runs, then as it ends, saying how, with
+ * `began` naming the first. The page folds the two into one line.
+ */
+export interface Waiting {
+	/** When it gives up, as an ISO time. */
+	until: string;
+	/** The id of the event it began with, on the one it ends with; null on that first. */
+	began: string | null;
+}
 
 export type Action = keyof Facts;
 
