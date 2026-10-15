@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import type { Action, Event, Facts, FactsOf } from "./events";
+import {
+	type Action,
+	type Event,
+	type Facts,
+	type FactsOf,
+	isCurrent,
+} from "./events";
 import { Exit } from "./exit";
 
 /** How long a log file is kept once it fills, so a live conversation can still show the events in it. */
@@ -125,7 +131,7 @@ export class Journal {
 			...facts,
 		};
 		await this.fs.append(this.path, `${JSON.stringify(event)}\n`);
-		if ((await this.read(this.path)).length >= this.capacity) {
+		if ((await this.parsed(this.path)).length >= this.capacity) {
 			await this.rotate();
 		}
 		return event.id;
@@ -155,7 +161,17 @@ export class Journal {
 		return files.filter((file) => file.endsWith(".jsonl")).sort();
 	}
 
+	/**
+	 * The events in `path` that carry every fact their action records now:
+	 * one that went through before its action recorded them is left out,
+	 * since a reader trusts an event's facts as its type gives them.
+	 */
 	private async read(path: string): Promise<Event[]> {
+		return (await this.parsed(path)).filter(isCurrent);
+	}
+
+	/** Every event in `path`, whatever facts it carries. */
+	private async parsed(path: string): Promise<Event[]> {
 		const raw = await this.fs.read(path).catch(() => "");
 		return raw
 			.split("\n")

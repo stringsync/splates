@@ -222,6 +222,63 @@ interface TodosFacts {
 
 export type Action = keyof Facts;
 
+/**
+ * Each action's facts by name, as its event records them now. An action that
+ * gains a fact adds it here too, or this fails to compile, so the journal can
+ * tell an event recorded before then.
+ */
+export const FACTS = {
+	add: ["base", "todos", "goal", "subjects", "agent", "model"],
+	claim: ["escalated", "tookOver"],
+	tell: ["to"],
+	wait: ["until", "began"],
+	merge: ["base", "commit", "files", "attemptsLeft"],
+	remove: ["why", "released"],
+	escalate: ["about", "review", "base", "questions"],
+	handoff: ["agent", "model", "relay"],
+	attach: ["stored", "removed"],
+	retry: ["attempts"],
+	"todo add": ["todo", "subject", "lane", "position"],
+	"todo update": ["todo", "subject", "changed"],
+	"todo take": ["todos"],
+	"todo wait": ["until", "began", "todo", "subject"],
+	"todo release": ["todos"],
+	"todo remove": ["todos"],
+	"lane add": ["lane", "name"],
+	"lane update": ["lane", "name", "changed"],
+	"lane remove": ["lane", "name", "todos"],
+	"lane join": [],
+	"creds request": ["name", "asked"],
+	"creds save": [],
+	"creds remove": [],
+	"creds dismiss": [],
+	"creds wait": ["until", "began", "name"],
+	"tunnel setup": [],
+	"tunnel remove": [],
+	"dev start": ["conversations"],
+	"dev stop": ["conversations", "why"],
+} as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
+
+/** Each action's facts `FACTS` leaves out, which must be none. */
+type Unlisted = {
+	[A in Action]: Exclude<keyof Facts[A], (typeof FACTS)[A][number]>;
+}[Action];
+const listed: [Unlisted] extends [never] ? true : Unlisted = true;
+void listed;
+
+/**
+ * Whether `event` carries every fact its action records now. One that went
+ * through before its action recorded them all does not, and nor does one
+ * logged by a newer arbor for an action this one does not know.
+ */
+export function isCurrent(event: Event): boolean {
+	if (event.reason !== null) {
+		return true;
+	}
+	const facts: readonly string[] | undefined = FACTS[event.action];
+	return facts?.every((fact) => fact in event);
+}
+
 /** What every event carries, whatever its action. */
 interface Common<A extends Action> {
 	/** Its own, so a reader following the log takes each event once. */

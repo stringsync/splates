@@ -153,6 +153,34 @@ describe("log", () => {
 		expect(claimed).toMatchObject({ action: "claim", escalated: true });
 	});
 
+	it("leaves out an event recorded before its action had the facts it has now", async () => {
+		// An escalation logged before `escalate` recorded its questions.
+		await deps.fs.append(
+			join(deps.arborDir, "log.jsonl"),
+			`${JSON.stringify({
+				id: "old",
+				at: "2026-10-15T16:48:21.146Z",
+				action: "escalate",
+				task: "a",
+				reason: null,
+				conversation: "c1",
+			})}\n`,
+		);
+		await deps.journal.record("escalate", "a", async () => {}, {
+			about: "needs a call",
+			review: false,
+			base: "main",
+			questions: [],
+		});
+
+		expect((await deps.journal.tail(10)).map((event) => event.action)).toEqual([
+			"escalate",
+		]);
+		expect(await deps.journal.recent()).toMatchObject([
+			{ action: "escalate", questions: [] },
+		]);
+	});
+
 	it("says so plainly when nothing has happened", async () => {
 		await log(deps);
 
