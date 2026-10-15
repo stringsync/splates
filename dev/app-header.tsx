@@ -92,7 +92,7 @@ export function SlotMark({
 			}
 			className="shrink-0 text-base leading-none"
 		>
-			{slot?.emoji ?? "🌳"}
+			{slot?.emoji ?? "🌲"}
 		</span>
 	);
 }
