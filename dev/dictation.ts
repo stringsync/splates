@@ -151,6 +151,11 @@ export class Dictation
 		return take.session;
 	}
 
+	/** Tells the take under way that the person edited the draft it writes in. */
+	edited(): void {
+		this.take?.session.edited();
+	}
+
 	/** Puts away what the last take said went wrong. */
 	dismiss(): void {
 		if (this.take === undefined) {

@@ -57,6 +57,26 @@ describe("App's composer mic", () => {
 		expect(textIn(box)).toBe("something more");
 	});
 
+	it("keeps an edit made mid-take, adding only what is heard after it", async () => {
+		const { view, box } = await composer();
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		const stop = await waitFor(() =>
+			view.getByRole("button", { name: "Stop dictation" }),
+		);
+		await waitFor(() => expect(textIn(box)).toBe("something"));
+		await typeIn(box, "Something, edited");
+		act(() => microphone.speak(" more"));
+		await waitFor(() => expect(textIn(box)).toBe("Something, edited more"));
+
+		await act(async () => fireEvent.click(stop));
+
+		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
+		expect(textIn(box)).toBe("Something, edited more");
+	});
+
 	it("shows the mic beside Send, empty or typed in", async () => {
 		const { view, box } = await composer();
 		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();

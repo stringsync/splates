@@ -88,6 +88,20 @@ describe("Dictation", () => {
 		expect(microphone.open).toBe(false);
 	});
 
+	it("gives only the words after an edit, though the final text rewords those before", async () => {
+		const { session, said } = await record();
+		microphone.speak(" more");
+		dictation.edited();
+		microphone.speak(" words");
+		link.text = "Something, more words.";
+		await session.stop();
+
+		expect(said.slice(2)).toEqual([
+			{ transcript: "words", isFinal: false },
+			{ transcript: "words.", isFinal: true },
+		]);
+	});
+
 	it("stays opening while the mic sends no audio", async () => {
 		microphone.speak = () => {};
 		listen();

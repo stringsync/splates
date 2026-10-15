@@ -1,7 +1,7 @@
-import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
+import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { useReactive } from "@webappwiz/react";
 import { MicIcon, MicOffIcon } from "lucide-react";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { useHeld } from "#dev/hooks/use-held.ts";
@@ -58,6 +58,7 @@ export function DictateButton() {
 function Mic({ dictation }: { dictation: Dictation }) {
 	const phase = useReactive(dictation, (each) => each.state.phase, ["changed"]);
 	const dictating = useAuiState((state) => state.composer.dictation != null);
+	useEdits(dictation);
 	const held = useHeld();
 	const key = useHeldKey("shortcuts.dictate");
 	const shortcut = useShortcutLabel("shortcuts.dictate");
@@ -117,6 +118,25 @@ function Mic({ dictation }: { dictation: Dictation }) {
 		>
 			<MicIcon className="size-4 pointer-coarse:size-5" />
 		</ComposerPrimitive.StopDictation>
+	);
+}
+
+/**
+ * Tells the take under way when the person edits its draft. The composer
+ * takes the edited draft as the base the take writes after, dropping the
+ * rough text it showed, so a take whose rough text is gone was edited.
+ */
+function useEdits(dictation: Dictation): void {
+	const aui = useAui();
+	useEffect(
+		() =>
+			aui.subscribe(() => {
+				const take = aui.composer.getState().dictation;
+				if (take != null && take.transcript === undefined) {
+					dictation.edited();
+				}
+			}),
+		[aui, dictation],
 	);
 }
 
