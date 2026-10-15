@@ -426,7 +426,7 @@ export function statusOf(
 			escalated: "Escalated",
 			finished: "Lanes finished",
 			waiting: "Lanes waiting",
-			working: "Lanes working",
+			working: "lanes" in report ? "Lanes working" : "Working",
 			handed: `Handed off to ${("to" in report ? report.to : null) ?? "another agent"}`,
 		}[report.ending];
 		return {

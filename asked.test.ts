@@ -198,6 +198,28 @@ describe("stretches", () => {
 		});
 	});
 
+	it("reads the skill's working report on a task handed on, naming the agent after the colon", async () => {
+		const example = await skillExample("## ⏳ Working <task>");
+
+		expect(stretches(example)).toEqual([
+			{
+				type: "report",
+				report: {
+					ending: "working",
+					task: "<task>",
+					base: null,
+					to: null,
+					reason: "on Claude Sonnet 5.5",
+					body: "Every step is planned and mechanical, so a cheaper model takes the rename.",
+					source: example,
+				},
+			},
+		]);
+		expect(stretches("## ⏳ Working lanes-fix\n\nOut.")[0]).toMatchObject({
+			report: { ending: "working", task: "lanes-fix", reason: null },
+		});
+	});
+
 	it("reads the skill's finished lanes report, naming each lane", async () => {
 		const example = await skillExample("## 🏁 Finished lanes");
 

@@ -59,6 +59,46 @@ describe("handoff", () => {
 		});
 	});
 
+	it("hands the task to an agent that answers to this conversation, with relay", async () => {
+		deps.proc.env.ARBOR_CONVERSATION = "c1";
+		await add(deps, "alpha");
+
+		await handoff(
+			deps,
+			"alpha",
+			{ agent: "fake", model: "Small" },
+			[ROSTERED],
+			{
+				relay: true,
+			},
+		);
+
+		const found = await deps.service.find("alpha");
+		expect(found.caller).toBe("c1");
+		expect(found.state?.dispatch).toEqual({
+			agent: "fake",
+			model: "small",
+			handoff: true,
+		});
+		await found.save({
+			dispatch: { ...found.state?.dispatch, agent: "fake", conversation: "c2" },
+		});
+		expect(handOff(await deps.service.find("alpha"))).toEqual({
+			caller: "c1",
+			conversation: "c2",
+		});
+		expect(deps.out()).toContain('say "## ⏳ Working alpha: on <agent>"');
+	});
+
+	it("refuses to relay outside arbor dev, where nothing would report back", async () => {
+		await add(deps, "alpha");
+
+		await expect(
+			handoff(deps, "alpha", { agent: "fake" }, [ROSTERED], { relay: true }),
+		).toBail("usage", { message: "--relay needs `arbor dev`" });
+		expect((await deps.service.find("alpha")).state?.dispatch).toBeUndefined();
+	});
+
 	it("refuses a task another conversation is at work on", async () => {
 		deps.proc.env.ARBOR_CONVERSATION = "c1";
 		await add(deps, "alpha");

@@ -122,4 +122,29 @@ describe("App's Hand off action", () => {
 			"Asked the agent to hand its task off to Codex · GPT-5.5.",
 		);
 	});
+
+	it("shows a working report on a task handed on as a card, offering no archive while it works", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message(
+						"agent",
+						[
+							"## ⏳ Working header: on Claude Sonnet 5.5",
+							"",
+							"Every step is planned, so a cheaper model takes it.",
+						].join("\n"),
+					),
+				],
+			}),
+		]);
+
+		const working = await waitFor(() =>
+			view.getByRole("region", { name: "working header" }),
+		);
+		expect(working.textContent).toContain("Working");
+		expect(working.textContent).toContain("on Claude Sonnet 5.5");
+		expect(working.textContent).toContain("a cheaper model takes it");
+		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
+	});
 });

@@ -21,8 +21,9 @@ export function judge(
 export interface Transcript {
 	beats: Beat[];
 	/**
-	 * Whether a lane's orchestrator handed it its task, so it reports to that
-	 * orchestrator, which proposes the next todo in its place.
+	 * Whether another conversation handed it its task, a lane's orchestrator
+	 * or an agent relaying for it, so it reports to that conversation, which
+	 * proposes the next todo in its place.
 	 */
 	handed: boolean;
 }

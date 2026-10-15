@@ -26,13 +26,15 @@ even mid-task, and again in a later session:
 - `[ARBOR LANE N]`, `[ARBOR REPORT <task>]`, `[ARBOR IDLE <task>]` or
   `[ARBOR STOPPED <task>]` in a prompt:
   [references/lanes.md](references/lanes.md), working a lane as its
-  orchestrator.
+  orchestrator, and for a task you handed on with `--relay`,
+  [references/handoff.md](references/handoff.md) too.
 - `[ARBOR CHECKPOINT]` or `[ARBOR RESUME]` in a prompt:
   [references/checkpoint.md](references/checkpoint.md).
 - Before `arbor add <part> --base task/<your task>`, or handing a subagent
   work that may change code: [references/parts.md](references/parts.md).
 - `[ARBOR HANDOFF <task>]` or `[ARBOR HANDOFF TO <agent> <model>]` in a
-  prompt, or before `arbor handoff`:
+  prompt, before `arbor handoff`, or once you have planned and `arbor
+  agents` lists a model that fits the plan clearly better than yours:
   [references/handoff.md](references/handoff.md), handing a task to another
   agent or taking one over.
 - Before `arbor todo add`, `arbor lane add`, or `arbor todo update` or
@@ -67,7 +69,10 @@ even mid-task, and again in a later session:
    anything else (see Saying what you added).
 2. **Plan.** Once you know what done means, fill in `ARBOR.md` before
    touching code (see ARBOR.md below), then groom the todos your work touches
-   (see Grooming related todos).
+   (see Grooming related todos). Then weigh the plan against your model:
+   when it takes more than you are good at, or is long and mechanical enough
+   for a cheaper one, hand it on (see
+   [references/handoff.md](references/handoff.md)).
 3. **Check for overlap.** Read `arbor list --files`: each task's Goal and
    the files it has changed so far. Some overlap is normal: work alongside,
    accept the rebase, and note it in `ARBOR.md`. Only when conflicts would be hard to resolve, `arbor wait
@@ -515,8 +520,9 @@ for a review (see Merge or review).
 
 ### Reporting to an orchestrator
 
-When a lane's orchestrator handed you the task (another conversation ran
-`arbor add --agent` for it, and `$ARBOR_CALLER` is set), you report to it,
+When another conversation handed you the task, a lane's orchestrator or
+an agent that handed it on with `arbor handoff --relay` (`$ARBOR_CALLER` is
+set), you report to it,
 not to the user, who cannot write in your conversation: every message after
 your first comes through it, answers and `[ARBOR MERGE]` included. Work as
 above, but write for it, since it reads your `ARBOR.md`, not your replies:

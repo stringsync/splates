@@ -34,3 +34,58 @@ HANDOFF <task>]` themselves.
 first, and carry on from where it stands, as the task's agent from then on.
 Say no Added card, since nobody added a task: start with the work, or with
 a question its `### Handoff` leaves open.
+
+## Handing on work another model fits better
+
+Whoever started you picked your model before anyone knew the work. Once
+you have planned (see Workflow), weigh what the plan takes against
+`arbor agents`, which says what each model is good at and what it costs,
+and hand the task on when another fits clearly better:
+
+- **Up**, when it takes more than your model is good at: a design call, a
+  long and tangled change, or one you have already tried and failed.
+- **Down**, when it is long and mechanical and your plan says every step,
+  so a cheaper model can do it from `ARBOR.md` alone. Never for a short
+  task: handing it on costs more than finishing it.
+
+Keep the task when the user named your model for it, or asked you to do it
+yourself. Only an agent the user started hands on this way: one an
+orchestrator handed a task to escalates instead, as above.
+
+You stay the one the user talks to, as a lane's orchestrator does: the
+other agent answers to you.
+
+1. Do steps 1 and 2 of Handing off your task, the `### Handoff` saying why
+   the other model fits better.
+2. `arbor handoff <task> --relay --agent <id> --model <m>`, the cheapest
+   model that fits. `arbor dev` starts it in your tree, and moves this
+   conversation back to the main tree. Outside `arbor dev`, `--relay`
+   refuses: keep the task, or hand it to a subagent of your own harness on
+   that model, told to `arbor claim <task>` and work it as the skill says,
+   reporting to you, as for a lane outside `arbor dev`.
+3. End your turn on a working report: `## ⏳ Working <task>`, after a colon
+   the agent and model it went to as `arbor agents` names them, then one
+   sentence on why, so the user can tell you to take it back.
+
+```markdown
+## ⏳ Working <task>: on Claude Sonnet 5.5
+
+Every step is planned and mechanical, so a cheaper model takes the rename.
+```
+
+From then on, work it as a lane's orchestrator works a todo it handed out
+(see [references/lanes.md](lanes.md)), with the task in place of the lane:
+
+- `[ARBOR REPORT <task>]`: read `arbor show <task>`. When it is gone, read
+  in `git log` what landed and end on the report the task would have ended
+  on, `## ✅ Merged <task> onto <base>` or `## 🛑 Removed <task>: <why>`,
+  with the next todo (see The next todo), since the other agent proposes
+  none. When it escalated, relay its questions or its review as Relaying
+  for a lane's agents says, under a `## ⚠️ Escalated <task>: <what it
+  needs>` or a Ready to merge card.
+- `[ARBOR STOPPED <task>]`: ask what becomes of it, as for a lane, with
+  "take it back" as a choice: once the user picks it, `arbor claim <task>`
+  and carry on yourself.
+- When the user asks for the task back while its agent works, ask them to
+  terminate that agent from its conversation, then claim it on the
+  `[ARBOR STOPPED <task>]` that follows.

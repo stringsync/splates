@@ -391,7 +391,7 @@ arbor
 	.command("handoff")
 	.use(repository())
 	.description(
-		"hand the task you are at work on to another agent on the roster (`arbor agents`), which `arbor dev` starts in its worktree, told `[ARBOR HANDOFF <task>]` to claim it and carry on from its ARBOR.md; it answers to the user as you did, and this conversation leaves the task; refused to an agent an orchestrator handed its task to, and for a task another conversation is at work on",
+		"hand the task you are at work on to another agent on the roster (`arbor agents`), which `arbor dev` starts in its worktree, told `[ARBOR HANDOFF <task>]` to claim it and carry on from its ARBOR.md; it answers to the user as you did, or with --relay to you, and this conversation leaves the task; refused to an agent an orchestrator handed its task to, and for a task another conversation is at work on",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.option("agent", z.string(), {
@@ -407,6 +407,11 @@ arbor
 		description:
 			"what to tell the agent beyond taking the task over, such as why it is handed on",
 	})
+	.option("relay", z.boolean(), {
+		default: false,
+		description:
+			"for work you judged another model fits better: the agent answers to you, as to a lane's orchestrator, reporting back with `[ARBOR REPORT <task>]` and told what the user says with `arbor tell`; needs `arbor dev`",
+	})
 	.action(async (opts, ctx) => {
 		const agents = await seeded(rosterOf(ctx));
 		await ctx.journal.record("handoff", opts.task, () =>
@@ -419,6 +424,7 @@ arbor
 					...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 				},
 				agents,
+				{ relay: opts.relay },
 			),
 		);
 		await follow(ctx, null, { from: opts.task });

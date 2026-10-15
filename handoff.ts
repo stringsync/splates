@@ -9,6 +9,9 @@ import type { WorktreeService } from "./worktree-service";
  * tree, told `[ARBOR HANDOFF <task>]`, to carry on from where its `ARBOR.md`
  * says it stands. The new agent answers to the person, as the old one did:
  * the task's caller goes, so nobody else tells it anything or hears from it.
+ * With `relay`, for an agent that hands on work it judged another model fits
+ * better, the new agent answers to this conversation instead, as to a lane's
+ * orchestrator: it reports back here, and is told what the person says.
  * Only the conversation working the task hands it off; one that answers to an
  * orchestrator escalates instead, for the orchestrator to decide.
  */
@@ -17,6 +20,7 @@ export async function handoff(
 	task: string,
 	to: Omit<Dispatched, "conversation" | "pending" | "handoff">,
 	agents: RosterAgent[],
+	{ relay = false }: { relay?: boolean } = {},
 ): Promise<void> {
 	const handedBy = service.ps.env("ARBOR_CALLER");
 	if (handedBy !== undefined) {
@@ -45,16 +49,26 @@ export async function handoff(
 			{ task, conversation: working },
 		);
 	}
+	// Nothing reports back to a conversation `arbor dev` does not run.
+	if (relay && here === undefined) {
+		fail(
+			"usage",
+			"--relay needs `arbor dev`, which starts the agent and carries its reports back: work the task yourself, or hand it to a subagent of your own harness",
+			{ task },
+		);
+	}
 	const picked = { ...to, ...pickAgent(agents, to.agent, to.model, { task }) };
 	await found.save({
-		caller: undefined,
+		caller: relay ? here : undefined,
 		dispatch: { ...picked, handoff: true },
 	});
 	log.info(
 		[
 			`${color.green("handed off")} ${task}`,
 			`  agent:    ${picked.agent}${picked.model === undefined ? "" : ` (${picked.model})`}, which \`arbor dev\` starts in the worktree`,
-			`  next:     say "## 🤝 Handed off ${task} to <agent>" and end your turn: the task is the new agent's now`,
+			relay
+				? `  next:     say "## ⏳ Working ${task}: on <agent>" and end your turn: it reports back to you`
+				: `  next:     say "## 🤝 Handed off ${task} to <agent>" and end your turn: the task is the new agent's now`,
 		].join("\n"),
 	);
 }
