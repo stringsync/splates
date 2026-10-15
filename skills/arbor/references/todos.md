@@ -12,8 +12,10 @@ priority, which is the position's job.
 
 ## Lanes
 
-A lane is a queue of todos that build on each other, worked top to bottom by
-an orchestrator (see [references/lanes.md](lanes.md)). A lane has no model
+A lane is a queue of todos that build on each other, landed top first by an
+orchestrator (see [references/lanes.md](lanes.md)), which hands out several at
+once when nothing holds them back: link a todo `--blocked-by` the one above it
+whenever it needs that one's code, even in the same lane. A lane has no model
 of its own: each todo names its own. Groom lanes as you add todos: you know
 what each new one builds on, and nobody lays lanes out for you. Read
 `arbor lane list`, then for each todo you add:

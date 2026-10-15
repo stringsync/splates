@@ -9,7 +9,7 @@ import { repository } from "./repository";
 /** `arbor lane`, which the root cli mounts after `arbor todo`. */
 export const arborLane = cli<ArborDeps>("lane")
 	.description(
-		"lanes: named runs of todos, worked top to bottom; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing each todo to an agent on the model it names. A todo in no lane is untriaged, and `[ARBOR LANE untriaged]` starts one that places those in lanes first",
+		"lanes: named runs of todos, landed top first; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing out each todo nothing holds back to an agent on the model it names, or doing it itself. A todo in no lane is untriaged, and `[ARBOR LANE untriaged]` starts one that places those in lanes first",
 	)
 	.use(repository());
 

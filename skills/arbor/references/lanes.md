@@ -1,18 +1,22 @@
 # Working a lane
 
-A lane is a named, ordered queue of todos that build on each other, worked
-top to bottom, one task per todo. Lanes are the columns of the `arbor dev`
+A lane is a named, ordered queue of todos that build on each other, landed
+top first, one task per todo, as many at once as their code allows. Lanes are the columns of the `arbor dev`
 board; a todo in none is untriaged. Agents place the todos they add (see
 Lanes in [references/todos.md](todos.md)), and the user rearranges them. Each has a
 number, which commands and the prompt use, and a name, which says what its
 todos are for: `arbor lane list` shows both.
 
 `[ARBOR LANE N]`, copied from the `arbor dev` page, makes you lane N's
-orchestrator. You do not do its todos yourself: you hand each to an agent on
-the model the todo names, see it land, and carry what it learned to the next.
-Each lane you are sent adds one more to work side by side, a todo out on each
-at once. The lane is arbor's, not the prompt's, so read it from arbor each
-time:
+orchestrator, and your job is to burn it down: every todo in it landed, as
+soon as the order of their code allows. Its agents set the pace, so keeping
+them moving comes before anything else: whenever one stops, settle what it
+needs at once, from what you know or can find out, rather than pass it along.
+Hand out every todo the lane can run at once, each to an agent on the model
+it names, carry what each one learned to the next, and do a todo yourself
+whenever that beats handing it out (see Doing a todo yourself). Each lane you
+are sent adds more to work side by side. The lane is arbor's, not the
+prompt's, so read it from arbor each time:
 
 Once you have first read the lanes you were sent, before handing anything
 out, say so in a message of its own, which the `arbor dev` page shows as a
@@ -32,23 +36,32 @@ Make the Stats page say what to act on, then renew licenses on their own.
    the lane is done or gone, done by you or by agents you never started, say
    so in a line. Once every lane you work is, end on a finished report (see
    Reporting), so the `arbor dev` page shows you as done.
-2. When its next todo is blocked by a todo in another lane, wait for that
-   one rather than skip ahead: a lane is in order for reasons the board knows
-   and you do not. Meanwhile, go on with your other lanes. A blocker you
-   handed out wakes you with its report, as in step 4; for any other, `arbor
-   todo wait <id>`, again on `timeout`. When the other task is escalated, the
-   lane waits on that task, as in step 4.
-3. Hand the next todo out. `arbor todo show <id>` names its agent and model;
-   when it names none, pick one as for a todo you add (see Todos), and say
-   which in your report as `- Assumed: <what>`. Then `arbor add <task> --todo <id> --agent <a>
-   --model <m> --prompt '<what>'`, where `<what>` holds what the lane's
-   earlier steps taught you that the todo's detail does not: names chosen,
-   files moved, answers the user gave. The agent works it as a task of its
-   own (see Workflow), merging it itself, but reports to you, not the user
-   (see Reporting to an orchestrator): its questions and its review come to
-   you to bring to the user. It proposes no next todo, since you hand that
-   out.
-4. Once each lane you work has a todo out, or waits, end your turn on a
+2. When its next todo is blocked by a todo in another lane, it waits for
+   that one. A blocker you handed out wakes you with its report, as in step
+   5; for any other, `arbor todo wait <id>`, again on `timeout`. When the
+   other task is escalated, that todo waits on that task, as in step 5.
+   Meanwhile, go on with the todos below it that it does not hold up, as in
+   step 4, and with your other lanes.
+3. Hand the next todo out, or do it yourself (see Doing a todo yourself).
+   `arbor todo show <id>` names its agent and model; when it names none,
+   pick one as for a todo you add (see Todos), and say which in your report
+   as `- Assumed: <what>`. Then `arbor add <task> --todo <id> --agent <a>
+   --model <m> --prompt '<what>'`, where `<what>` holds all the agent needs
+   that the todo's detail does not, so it never has to ask you: names
+   chosen, files moved, answers the user gave, what the tasks out beside it
+   are changing. The agent works it as a task of its own (see Workflow),
+   merging it itself, but reports to you, not the user (see Reporting to an
+   orchestrator): its questions and its review come to you. It proposes no
+   next todo, since you hand that out.
+4. Then `arbor lane show N` again: its next is the first todo no task has
+   taken. Hand that one out too, in step 3, unless it has to wait: when
+   `arbor todo show` links it `--blocked-by` an open todo, when its detail
+   says it needs the code of one still out, or when it would change the
+   same files as a task out on the lane (`arbor list --files`), which would
+   cost both a hard rebase. One that has to wait goes out once what it waits
+   on lands. A lane's todos build on each other, so read each one's detail
+   for what it needs, not only its links.
+5. Once nothing more can go out on any lane you work, end your turn on a
    working report (see Reporting on lanes) saying what each lane waits on, rather
    than block in `arbor wait`: your agents work on their own, and each wakes
    you as it stops. Never end a turn with work out and no report on it.
@@ -58,9 +71,9 @@ means a task you handed out stopped: escalated, merged or removed. Read
 `arbor show <task>`, once per stop: one you have already acted on needs
 nothing more. When it is gone, read in `git log` what landed, say so in a
 line, and go back to step 1 for its lane without waiting for the user. When
-it is escalated, the lane waits on that task: answer what you can and bring
-the rest to the user at once (see Relaying for a lane's agents), while the
-agents on your other lanes carry on. Each report you end a turn on after
+it is escalated, what needs that task waits on it: answer what you can and
+bring the rest to the user at once (see Relaying for a lane's agents), while
+every other agent carries on. Each report you end a turn on after
 one is a fresh word on every lane, so the user sees each step as it lands.
 
 `[ARBOR IDLE <task>]` means the agent you handed `<task>` out to ended a
@@ -73,8 +86,10 @@ or removal. Otherwise, when its `ARBOR.md` has open questions under
 agents); when it has none, `arbor tell <task>` it to carry on as the arbor
 skill says, ending in `arbor escalate`, `arbor merge` or `arbor remove`. The
 second time a task comes back idle with nothing changed, stop telling it:
-the lane waits on the user, so ask in a waiting report what becomes of it,
-with the choices `[ARBOR STOPPED <task>]` asks.
+`arbor claim <task>` and finish it yourself, as for a todo you do (see Doing
+a todo yourself), carrying on from its `ARBOR.md`. Only when it cannot go on
+without the user, ask in a waiting report what becomes of it, with the
+choices `[ARBOR STOPPED <task>]` asks.
 
 `[ARBOR STOPPED <task>]` means the user terminated the agent you handed
 `<task>` to, from its conversation, leaving the task as it stood. The lane
@@ -105,9 +120,29 @@ own harness is yours to put away: stop it once its task is gone. Before a
 finished report, read `arbor list` for any task you handed out still there,
 and see each to its end, or ask the user what becomes of it.
 
-Never hand out a todo from a lane you were not sent, or one the lane has not
-reached; when the user moves todos while you work, the next `lane show` has
+Never hand out a todo from a lane you were not sent, or one step 4 holds
+back; when the user moves todos while you work, the next `lane show` has
 them.
+
+## Doing a todo yourself
+
+Do a todo yourself, rather than hand it out, when briefing an agent would
+take about as long as the work: a small change in files the lane already
+showed you, or one that leans on what the lane taught you more than a
+`--prompt` could carry. Hand out the long ones, above all when others can
+run beside them, since you work one at a time.
+
+`arbor add <task> --todo <id>`, with no `--agent`, and work it as any task
+(see Workflow): its Added card, its `ARBOR.md`, and its merge report, which
+proposes the lane's next todo; then go back to step 1. Work one that names
+another model all the same, saying so in its Added card. Hand out what can
+go out first, so agents work while you do.
+
+Your agents still come first. Their reports reach you as messages while you
+work: at each step, act on every `[ARBOR REPORT]`, `[ARBOR IDLE]` or
+`[ARBOR STOPPED]` that came in before going on, so none of them waits on
+your work. When your task needs the user, escalate it as any task, and say
+so in your waiting report as a lane line.
 
 ## Relaying for a lane's agents
 
@@ -119,8 +154,8 @@ conversation as the user would.
 
 1. Read `arbor show <task>`: its open questions under `## Blocked`, or, for
    a review, its `### Review` under `## Notes`.
-2. Answer each question that the lane's earlier steps, or the user's
-   answers to them, already settle, as the user would from the page: its
+2. Answer each question that the lane's earlier steps, the user's answers
+   to them, or a look at the code settle, as the user would from the page: its
    line quoted in bold, then the choice picked (see Keeping Blocked
    current), and a line saying you answered it from the lane and why, so it
    keeps it as an assumption. Say each in your report as an assumption the
@@ -153,8 +188,8 @@ permission asks, which only the user can answer, show above your composer.
 
 ## Reporting on lanes
 
-A lane orchestrator has no task of its own to report on. Whenever a task it
-handed out needs the user, it ends its turn on one report for every lane
+A lane orchestrator reports on its lanes, beyond the reports of a todo it
+does itself. Whenever a task it handed out needs the user, it ends its turn on one report for every lane
 waiting on one: `## ⏸️ Waiting lanes`, the names of the lanes that wait,
 and after a colon, the tasks they wait on, then one sentence on what the
 user has to answer, a `- ` line per lane it works on where it stands, then

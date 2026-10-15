@@ -4,7 +4,7 @@ import { arborRuns, lastSaid } from "./reading";
 import { CORE, type Scenario } from "./scenario";
 
 // The scenarios that make the agent a lane's orchestrator, handing todos to
-// agents of its own rather than doing them.
+// agents of its own or doing them itself.
 
 /** Says it started its lanes before handing anything out. */
 const STARTED: EvalCheck = {
@@ -37,6 +37,7 @@ export const LANE: Scenario = {
 	sections: [
 		...CORE,
 		"Working a lane",
+		"Doing a todo yourself",
 		"Relaying for a lane's agents",
 		"Reporting on lanes",
 		"Handing out part of your task",
