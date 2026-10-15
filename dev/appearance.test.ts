@@ -54,6 +54,27 @@ describe("followAppearance", () => {
 		expect(meta.content).toBe("#f3f4f7");
 	});
 
+	it("draws iOS's launch image in the theme's background, once a theme", async () => {
+		const settings = new Settings(localStorage);
+		const root = document.createElement("html");
+		const link = document.createElement("link");
+		link.rel = "apple-touch-startup-image";
+		root.append(link);
+		const drawn: string[] = [];
+		const draw = (background: string) => {
+			drawn.push(background);
+			return `data:image/png;${background}`;
+		};
+		const { media, set } = device();
+		followAppearance(settings, root, media, draw);
+		expect(link.getAttribute("href")).toBe("data:image/png;#f3f4f7");
+
+		await settings.set("appearance.accent", "rose");
+		set(true);
+		expect(link.getAttribute("href")).toBe("data:image/png;#1d1f23");
+		expect(drawn).toEqual(["#f3f4f7", "#1d1f23"]);
+	});
+
 	it("wears the accent set, and stops once told to", async () => {
 		const settings = new Settings(localStorage);
 		const root = document.createElement("html");

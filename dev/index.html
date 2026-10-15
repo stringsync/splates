@@ -17,12 +17,28 @@
 		<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
 		<link rel="apple-touch-icon" href="/icon-192.png" />
 		<meta name="theme-color" content="#1d1f23" />
+		<!-- The theme as dev/appearance.ts sets it, and the 🌲 on its background
+		     until the app mounts over it, so opening the app never paints white
+		     while the styles and script are on their way. -->
+		<script>
+			try {
+				const theme = JSON.parse(localStorage.getItem("arbor.settings") ?? "{}")["appearance.theme"];
+				const dark = theme === "dark" || (theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+				document.documentElement.classList.toggle("dark", dark);
+				document.querySelector('meta[name="theme-color"]').content = dark ? "#1d1f23" : "#f3f4f7";
+			} catch {}
+		</script>
+		<style>
+			html { background: #f3f4f7; }
+			html.dark { background: #1d1f23; }
+			.splash { position: fixed; inset: 0; display: grid; place-items: center; font-size: 96px; line-height: 1; }
+		</style>
 		<!-- Both are routes the server builds on request, not files next to this
 		     one. See dev/assets.ts for why they are not Bun's HTML import. -->
 		<link rel="stylesheet" href="/styles.css" />
 	</head>
 	<body>
-		<div id="root"></div>
+		<div id="root"><div class="splash" aria-hidden="true">🌲</div></div>
 		<script type="module" src="/main.js"></script>
 	</body>
 </html>

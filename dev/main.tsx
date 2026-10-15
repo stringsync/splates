@@ -13,6 +13,14 @@ if (root === null) {
 	throw new Error("no #root to mount into: index.html and main.tsx disagree");
 }
 
+// The launch screen an installed app opens on, which only iOS reads, and only
+// from a link: appearance.ts draws it in the theme's background.
+if ("standalone" in navigator) {
+	const launch = document.createElement("link");
+	launch.rel = "apple-touch-startup-image";
+	document.head.append(launch);
+}
+
 // Read before the first render, so the page never paints in the wrong theme.
 const settings = new Settings(localStorage);
 followAppearance(
