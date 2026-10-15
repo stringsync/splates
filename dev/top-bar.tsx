@@ -24,29 +24,6 @@ import { cn } from "#dev/lib/utils.ts";
 import { useWide } from "./app-nav";
 import { UpdateDot } from "./release";
 
-/**
- * Something a page can do from its bar: an icon, with words beside it only
- * when they say what it is set to, as a period's "7 days".
- */
-export interface BarAction {
-	/** What it does: its tooltip, its name to a screen reader, its row in the kebab. */
-	label: string;
-	icon: ReactNode;
-	/** Words beside the icon in the bar; none for the icon alone. */
-	text?: string;
-	/** What a click does; none when it opens `menu`. */
-	run?: () => void;
-	/** The items it opens, a submenu of the kebab once folded into it. */
-	menu?: ReactNode;
-	menuClassName?: string;
-	/** Whether what it shows or hides is showing, as the widgets. */
-	expanded?: boolean;
-	/** Marks it while something it holds is going, as a command running. */
-	busy?: boolean;
-	/** Its shortcut, as `⌥⌘/`, in its tooltip and its row in the kebab. */
-	shortcut?: string | null;
-}
-
 /** What the page's shell gives every bar under it. */
 export interface BarFrame {
 	/**
@@ -62,6 +39,8 @@ export interface BarFrame {
 	dot?: boolean;
 	/** Ends the bar, never folded, as how many agents wait on you. */
 	end?: ReactNode;
+	/** Marks a bar's way back, as with how many agents wait on you. */
+	badge?: ReactNode;
 	/**
 	 * Heads every bar with no way back in place of its title, as the phone's
 	 * project switcher atop each page its drawer goes to.
@@ -99,16 +78,25 @@ export function TopBar({
 	const frame = useContext(TopBarFrame);
 	const wide = useWide();
 	const menu = frame?.menu ?? null;
+	const kept = actions.filter((action) => action.kebab === true);
+	const shown = actions.filter((action) => action.kebab !== true);
 	const { room, titled, stated, measure, fit } = useFit(
-		actions.length,
-		menu !== null,
+		shown.length,
+		menu !== null || kept.length > 0,
 	);
-	const folded = actions.slice(fit);
+	const folded = [...shown.slice(fit), ...kept];
 	// A bar with a way back heads a page within one, so keeps its own title.
 	const heading = (!leading && frame?.project) || title;
 	const row = (
 		<>
-			{leading}
+			{leading && frame?.badge ? (
+				<span className="relative flex shrink-0">
+					{leading}
+					{frame.badge}
+				</span>
+			) : (
+				leading
+			)}
 			<div ref={room} className="flex min-w-0 flex-1 items-center gap-1">
 				<div className="flex min-w-0 flex-1 items-center gap-2">
 					<div ref={titled} className="flex min-w-0 items-center">
@@ -140,7 +128,7 @@ export function TopBar({
 						wide={wide}
 					/>
 				)}
-				{actions.slice(0, fit).map((action) => (
+				{shown.slice(0, fit).map((action) => (
 					<ActionButton key={action.label} action={action} wide={wide} />
 				))}
 				{/* Every action and the kebab, unseen, to tell how wide each is. */}
@@ -150,7 +138,7 @@ export function TopBar({
 					inert
 					className="pointer-events-none invisible absolute top-0 left-0 flex gap-1"
 				>
-					{actions.map((action) => (
+					{shown.map((action) => (
 						<span key={action.label} className={buttonClass(action, wide)}>
 							<Face action={action} />
 						</span>
@@ -178,6 +166,31 @@ export function TopBar({
 			{row}
 		</header>
 	);
+}
+
+/**
+ * Something a page can do from its bar: an icon, with words beside it only
+ * when they say what it is set to, as a period's "7 days".
+ */
+export interface BarAction {
+	/** What it does: its tooltip, its name to a screen reader, its row in the kebab. */
+	label: string;
+	icon: ReactNode;
+	/** Words beside the icon in the bar; none for the icon alone. */
+	text?: string;
+	/** What a click does; none when it opens `menu`. */
+	run?: () => void;
+	/** The items it opens, a submenu of the kebab once folded into it. */
+	menu?: ReactNode;
+	menuClassName?: string;
+	/** Whether what it shows or hides is showing, as the widgets. */
+	expanded?: boolean;
+	/** Marks it while something it holds is going, as a command running. */
+	busy?: boolean;
+	/** Its shortcut, as `⌥⌘/`, in its tooltip and its row in the kebab. */
+	shortcut?: string | null;
+	/** Kept in the kebab whatever the room, as a phone's New conversation. */
+	kebab?: boolean;
 }
 
 /** How a bar's title reads, for a page that heads it with its own. */

@@ -125,6 +125,8 @@ export function ThreadHeader({
 					label: "New conversation",
 					icon: <SquarePenIcon />,
 					run: onNew,
+					// A phone starts one from the inbox, mostly.
+					kebab: phone,
 				},
 			]}
 		/>

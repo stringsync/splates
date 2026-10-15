@@ -567,7 +567,7 @@ describe("App on a phone", () => {
 		expect(view.getByText("fix the header")).toBeTruthy();
 	});
 
-	it("goes on from its header to the next agent waiting on you", async () => {
+	it("counts on its header's way back the other agents waiting on you", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				id: "c1",
@@ -583,14 +583,16 @@ describe("App on a phone", () => {
 			}),
 		]);
 		expect(location.hash).toBe("#conversations/c1");
+		view.getByRole("status", { name: "1 waiting on you" });
+		expect(view.queryByRole("button", { name: /^Next waiting/ })).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(
-				view.getByRole("button", { name: "Next waiting on you, of 1" }),
+				view.getByRole("button", { name: "Back to conversations" }),
 			),
 		);
 
-		expect(location.hash).toBe("#conversations/c2");
+		expect(location.hash).toBe("#conversations");
 	});
 
 	it("goes from atop any other page to the next agent waiting on you", async () => {
@@ -722,14 +724,43 @@ describe("App on a phone", () => {
 		).toContain("beta");
 	});
 
+	it("leaves a restart to update to the inbox's kebab, out of a conversation's", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Broke" })],
+			"c1",
+			{ release: { running: "0.0.43", newest: "0.0.44" } },
+		);
+		expect(location.hash).toBe("#conversations/c1");
+		view.getByRole("button", { name: "More" });
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Back to conversations" }),
+			),
+		);
+
+		await waitFor(() =>
+			view.getByRole("button", { name: "More: restart to update" }),
+		);
+	});
+
 	it("starts a new conversation with the same agent from a conversation's bar", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Broke", agent: "codex" }),
 		]);
 		expect(location.hash).toBe("#conversations/c1");
+		// A phone starts one from the inbox, mostly: the kebab keeps it here.
+		expect(view.queryByRole("button", { name: "New conversation" })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "New conversation" }),
+				),
+			),
 		);
 
 		expect(location.hash).toBe("#conversations/new/codex");

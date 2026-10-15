@@ -13,8 +13,8 @@ import { BarButton } from "./top-bar";
  * How many other agents wait on you, as a badge, which a tap goes on to, the
  * next of them first, as ⌥⌘M does. It keeps its place at the end of the bar
  * while none does, dimmed, so nothing beside it shifts as agents come and go.
- * Ends a thread's bar, and that of every page but the inbox, which lists them
- * itself.
+ * Ends the bar of every page but the inbox, which lists them itself, and
+ * conversations, whose way back counts them.
  */
 export function NextWaiting({
 	feed,
@@ -30,16 +30,7 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
-	const { conversations } = useReactive(
-		feed,
-		(feed) => ({ conversations: feed.conversations }),
-		["changed"],
-	);
-	useCopiedReplies(drafts);
-	const rows = rowsOf(tasks, conversations);
-	const others = rows.filter(
-		(row) => openedBy(row) !== open && waitsOnYou(row, drafts),
-	);
+	const others = useWaitingElsewhere(feed, drafts, tasks, open);
 	const count = others.length;
 	return (
 		<BarButton
@@ -66,5 +57,53 @@ export function NextWaiting({
 				</span>
 			)}
 		</BarButton>
+	);
+}
+
+/**
+ * How many other agents wait on you, as a badge on the way back, which goes
+ * to the inbox that lists them; nothing while none does.
+ */
+export function WaitingBadge({
+	feed,
+	drafts,
+	tasks,
+	open,
+}: {
+	feed: ConversationFeed;
+	drafts: Drafts;
+	tasks: Details[];
+	open: string | null;
+}): JSX.Element | null {
+	const count = useWaitingElsewhere(feed, drafts, tasks, open).length;
+	if (count === 0) {
+		return null;
+	}
+	return (
+		<span
+			role="status"
+			aria-label={`${count} waiting on you`}
+			className="pointer-events-none absolute top-0.5 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-warning px-1 font-semibold text-[10px] text-white leading-none ring-2 ring-background"
+		>
+			{count}
+		</span>
+	);
+}
+
+/** The rows of the other agents that wait on you, beside `open`. */
+function useWaitingElsewhere(
+	feed: ConversationFeed,
+	drafts: Drafts,
+	tasks: Details[],
+	open: string | null,
+): ReturnType<typeof rowsOf> {
+	const { conversations } = useReactive(
+		feed,
+		(feed) => ({ conversations: feed.conversations }),
+		["changed"],
+	);
+	useCopiedReplies(drafts);
+	return rowsOf(tasks, conversations).filter(
+		(row) => openedBy(row) !== open && waitsOnYou(row, drafts),
 	);
 }

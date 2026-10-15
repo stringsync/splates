@@ -12,7 +12,7 @@ import type { Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
 import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
-import { NextWaiting } from "./phone-thread";
+import { NextWaiting, WaitingBadge } from "./phone-thread";
 import { ProjectSwitcher } from "./projects";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBarFrame } from "./top-bar";
@@ -110,17 +110,18 @@ export function PhoneApp({
 				</TopBarFrame>
 			) : page === "conversations" ? (
 				<Screen className="px-1">
-					{/* Every conversation's bar ends with how many others wait. */}
+					{/* Every conversation's way back counts how many others wait. */}
 					<TopBarFrame
 						value={{
 							...kebab,
-							end: snapshot !== null && (
-								<NextWaiting
+							// Restarting to update is the inbox's to say.
+							dot: false,
+							badge: snapshot !== null && (
+								<WaitingBadge
 									feed={talk}
 									drafts={drafts}
 									tasks={snapshot.tasks}
 									open={open}
-									onOpen={(id) => go("conversations", id)}
 								/>
 							),
 						}}
