@@ -10,7 +10,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Report } from "../asked";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
-import { useWidgets, WIDGETS_ROOM, Widgets, WidgetsButton } from "./actions";
+import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
 import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
 import { ReplyContext } from "./card-reply";
@@ -22,6 +22,7 @@ import {
 	useNamed,
 	useSystems,
 } from "./composer-triggers";
+import { NEW } from "./conversation-address";
 import { chooseSetting } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { lastReport, useNameOf } from "./conversation-names";
@@ -246,16 +247,13 @@ export function Thread({
 							onOpen={onOpen}
 						/>
 					}
-					widgets={
-						<WidgetsButton
-							open={widgets.open}
-							onToggle={widgets.toggle}
-							busy={conversation.background.some(
-								(each) => each.state === "running",
-							)}
-						/>
-					}
+					widgets={widgets}
+					busy={conversation.background.some(
+						(each) => each.state === "running",
+					)}
 					onBack={onBack}
+					// With the same agent, in the main tree: a task's tree is its own.
+					onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
 				/>
 			)}
 			{archive.confirm}

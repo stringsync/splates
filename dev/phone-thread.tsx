@@ -1,9 +1,23 @@
 import { useReactive } from "@webappwiz/react";
-import { ChevronLeftIcon, ChevronsRightIcon } from "lucide-react";
+import {
+	ChevronLeftIcon,
+	ChevronsRightIcon,
+	EllipsisIcon,
+	PanelRightCloseIcon,
+	PanelRightIcon,
+	SquarePenIcon,
+} from "lucide-react";
 import type { JSX, ReactNode } from "react";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
+import type { useWidgets } from "./actions";
 import type { ConversationFeed } from "./conversation-feed";
 import { unnamed, useNameOf } from "./conversation-names";
 import { nextWaiting, openedBy, rowsOf, waitsOnYou } from "./conversation-rows";
@@ -13,23 +27,30 @@ import { arriveAt, useCopiedReplies } from "./task-view";
 
 /**
  * A conversation's header on a phone: back to the inbox, its name over where
- * it runs, then what else waits on you and its widgets, each a fingertip.
+ * it runs, what else waits on you, then a menu for the rest, so it stays
+ * calm with each a fingertip.
  */
 export function PhoneThreadHeader({
 	conversation,
 	where,
 	next,
 	widgets,
+	busy,
 	onBack,
+	onNew,
 }: {
 	conversation: ConversationState;
 	/** The line under its name: its task, or one it can take up. */
 	where: ReactNode;
 	/** On to the next agent waiting on you. */
 	next: ReactNode;
-	/** The button that shows its widgets. */
-	widgets: ReactNode;
+	/** Its widgets, which the menu shows or hides. */
+	widgets: Pick<ReturnType<typeof useWidgets>, "open" | "toggle">;
+	/** Whether a widget has something going, such as a command running. */
+	busy: boolean;
 	onBack: () => void;
+	/** On to a new conversation, so several start one after another. */
+	onNew: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
 	return (
@@ -49,7 +70,35 @@ export function PhoneThreadHeader({
 				{where}
 			</div>
 			{next}
-			<span className="flex [&_button]:size-11 [&_svg]:size-5">{widgets}</span>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<button
+							type="button"
+							aria-label="More"
+							className="relative flex size-11 shrink-0 items-center justify-center rounded-full active:bg-muted [&_svg]:size-5"
+						/>
+					}
+				>
+					<EllipsisIcon />
+					{busy && !widgets.open && (
+						<span
+							aria-hidden
+							className="absolute top-2 right-2 size-1.5 animate-pulse rounded-full bg-success"
+						/>
+					)}
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="w-56">
+					<DropdownMenuItem className="h-11" onClick={onNew}>
+						<SquarePenIcon />
+						New conversation
+					</DropdownMenuItem>
+					<DropdownMenuItem className="h-11" onClick={widgets.toggle}>
+						{widgets.open ? <PanelRightCloseIcon /> : <PanelRightIcon />}
+						{widgets.open ? "Hide widgets" : "Show widgets"}
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 		</header>
 	);
 }

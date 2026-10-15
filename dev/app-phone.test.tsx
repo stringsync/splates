@@ -263,4 +263,29 @@ describe("App on a phone", () => {
 
 		expect(location.hash).toBe("#conversations/c2");
 	});
+
+	it("starts a new conversation with the same agent from a conversation's menu", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Broke", agent: "codex" }),
+		]);
+		expect(location.hash).toBe("#conversations/c1");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "More" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "New conversation" }),
+				),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/new/codex");
+		const starting = view.getByRole("region", { name: "new conversation" });
+		expect(
+			within(starting).getByRole("button", { name: "Pick an agent" })
+				.textContent,
+		).toContain("Codex");
+	});
 });
