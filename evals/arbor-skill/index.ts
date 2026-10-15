@@ -1,6 +1,7 @@
 // Evals for the arbor skill: scenarios run against `claude -p` and graded,
 // by code where a program can tell and by a model for the rest. Each run
-// costs real money, so only a person starts one, from a terminal; see README.md.
+// uses tokens someone pays for, billed to an API key or counted against a
+// Claude plan, so only a person starts one, from a terminal; see README.md.
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { cli } from "webappwiz/cmd";
@@ -8,8 +9,9 @@ import type { Logger } from "webappwiz/log";
 import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { Batch, fixtureVersion } from "./batch";
+import { Payer } from "./payer";
 import { report } from "./report";
-import { Results } from "./results";
+import { Results, tokens, total } from "./results";
 import { SCENARIOS } from "./scenarios";
 import { type Variant, variant } from "./variants";
 
@@ -63,7 +65,7 @@ evals
 		}
 		const estimate = await batch.estimate();
 		log.info(
-			`${estimate.runs} runs to make (${estimate.kept} kept) on ${opts.model}, about $${estimate.runUsd.toFixed(2)}, ${
+			`${estimate.runs} runs to make (${estimate.kept} kept) on ${opts.model}, about $${estimate.runUsd.toFixed(2)} at API prices, ${
 				estimate.pastRuns === 0
 					? "a guess, with no past runs"
 					: `from ${estimate.pastRuns} past runs`
@@ -72,12 +74,13 @@ evals
 		if (estimate.runs + estimate.grades > 0) {
 			if (!process.stdin.isTTY) {
 				throw new Error(
-					"these evals spend money, so they run only from a terminal, for a person who says yes",
+					"these evals use tokens a person pays for, billed or counted against their plan, so they run only from a terminal, for a person who says yes",
 				);
 			}
+			const payer = await Payer.of(ps);
 			if (
 				prompt(
-					`Spend about $${(estimate.runUsd + estimate.gradeUsd).toFixed(2)}? [y/N]`,
+					`${payer.ask(estimate.runUsd + estimate.gradeUsd, estimate.tokens)} [y/N]`,
 				)
 					?.trim()
 					.toLowerCase() !== "y"
@@ -85,8 +88,8 @@ evals
 				log.info("nothing run");
 				return;
 			}
-			const spent = await batch.run(log, ps);
-			log.info(`spent $${spent.toFixed(2)}`);
+			const used = await batch.run(log, ps);
+			log.info(payer.used(total(used), tokens(used)));
 		}
 		log.info(
 			`\n${report(

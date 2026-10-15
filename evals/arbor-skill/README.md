@@ -6,27 +6,30 @@ tell, with the checks `arbor dev` runs on real conversations
 (`@webappwiz/arbor/skill-checks`) and a few more only an eval can see, and by a
 model only for the items that take judgment.
 
-Each run costs money (about $0.35 on Opus), so only a person starts one, from
-a terminal. Nothing here runs under `bin/wiz dev test` or CI but its unit
-tests.
+Each run uses tokens someone pays for (about $0.35 on Opus at API prices),
+billed to an API key, or counted against a Claude plan's usage limits when
+`claude` is logged in to claude.ai, so only a person starts one, from a
+terminal. Nothing here runs under `bin/wiz dev test` or CI but its unit tests.
 
 ```sh
 bin/wiz dev eval                      # main's skill against this tree's
 bin/wiz dev eval main ../other/skills/arbor --reps 5
 bin/wiz dev eval --scenario lane      # whatever changed
-bin/wiz dev eval report               # the kept runs; spends nothing
+bin/wiz dev eval report               # the kept runs; uses nothing
 ```
 
 `bin/wiz dev eval` hands its arguments to `bun evals/arbor-skill/index.ts`
 (`run` unless the first is `report`), with your terminal, so the question
-before any spending is asked there.
+before anything is used is asked there.
 
 Each skill version is a directory holding `SKILL.md`, or a git ref whose
 `skills/arbor` is read; the first is the baseline. With two or more, only the
 scenarios whose skill sections changed run, each section found by its heading
 in whatever file it lives in, so a section moved to another file unchanged
-runs nothing. `run` prints what is already kept, what the rest should cost
-from past runs, and asks before spending anything.
+runs nothing. `run` prints what is already kept, and what the rest should
+cost at API prices and in tokens from past runs. It asks before using
+anything, naming who pays: an `ANTHROPIC_API_KEY` in the environment, which
+`claude -p` takes over a login, or else the plan `claude auth status` names.
 
 Runs are kept in `~/.arbor/skill-evals`, by a hash of the skill's words (its
 `version:` line left out), the scenario and the fixture, so a version already

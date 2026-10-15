@@ -92,6 +92,7 @@ export class Results {
 						scenario: meta.scenario,
 						model: meta.model,
 						costUsd: total(meta.usage),
+						tokens: tokens(meta.usage),
 					});
 				}
 			} else if (path.endsWith("/grade.json")) {
@@ -100,6 +101,7 @@ export class Results {
 					history.grades.push({
 						model: grade.model,
 						costUsd: grade.usage.costUsd,
+						tokens: tokens([grade.usage]),
 					});
 				}
 			}
@@ -148,12 +150,26 @@ export interface RunMeta {
 }
 
 export interface History {
-	runs: { scenario: string; model: string; costUsd: number }[];
-	grades: { model: string; costUsd: number }[];
+	runs: { scenario: string; model: string; costUsd: number; tokens: number }[];
+	grades: { model: string; costUsd: number; tokens: number }[];
 }
 
+/** What `usage` cost at API prices, whoever pays. */
 export function total(usage: Usage[]): number {
 	return usage.reduce((sum, each) => sum + each.costUsd, 0);
+}
+
+/** Every token `usage` counts, cached ones included. */
+export function tokens(usage: Usage[]): number {
+	return usage.reduce(
+		(sum, each) =>
+			sum +
+			each.inputTokens +
+			each.outputTokens +
+			each.cacheReadTokens +
+			each.cacheWriteTokens,
+		0,
+	);
 }
 
 async function json<T>(path: string): Promise<T | null> {

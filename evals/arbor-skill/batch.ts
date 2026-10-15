@@ -89,32 +89,31 @@ export class Batch {
 		const runs = missing.map((key) =>
 			perRun(history, key.scenario.id, key.model),
 		);
-		const perGrade = mean(
-			history.grades
-				.filter((each) => each.model === this.opts.grader)
-				.map((each) => each.costUsd),
+		const pastGrades = history.grades.filter(
+			(each) => each.model === this.opts.grader,
 		);
 		return {
 			kept: this.keys.length - missing.length,
 			runs: missing.length,
 			grades,
-			runUsd: runs.reduce((sum, each) => sum + each, 0),
-			gradeUsd: grades * (perGrade ?? GRADE_USD),
+			runUsd: runs.reduce((sum, each) => sum + each.costUsd, 0),
+			gradeUsd:
+				grades * (mean(pastGrades.map((each) => each.costUsd)) ?? GRADE_USD),
+			tokens:
+				runs.reduce((sum, each) => sum + each.tokens, 0) +
+				grades * (mean(pastGrades.map((each) => each.tokens)) ?? 0),
 			pastRuns: history.runs.filter((each) => each.model === this.opts.model)
 				.length,
 		};
 	}
 
-	/** Runs what is missing, then grades what is ungraded, some at a time; what it spent. */
-	async run(log: Logger, ps: Ps): Promise<number> {
-		let spent = 0;
+	/** Runs what is missing, then grades what is ungraded, some at a time; what that used. */
+	async run(log: Logger, ps: Ps): Promise<Usage[]> {
+		const used: Usage[] = [];
 		await pool(this.keys, this.opts.parallel, async (key) => {
 			const name = `${this.labelOf(key.skill)} ${key.scenario.id} #${key.rep}`;
 			try {
-				// Awaited apart: `spent += await` reads `spent` before the run, so
-				// runs finishing together would overwrite each other's cost.
-				const cost = await this.runOne(key, name, log, ps);
-				spent += cost;
+				used.push(...(await this.runOne(key, name, log, ps)));
 			} catch (error) {
 				// One broken run leaves the rest of the batch to finish.
 				log.info(
@@ -122,17 +121,17 @@ export class Batch {
 				);
 			}
 		});
-		return spent;
+		return used;
 	}
 
-	/** Runs and grades one, as far as it is missing; what that spent. */
+	/** Runs and grades one, as far as it is missing; what that used. */
 	private async runOne(
 		key: RunKey,
 		name: string,
 		log: Logger,
 		ps: Ps,
-	): Promise<number> {
-		let spent = 0;
+	): Promise<Usage[]> {
+		const used: Usage[] = [];
 		let stored = await this.results.run(key);
 		if (stored === null) {
 			const dir = join(
@@ -163,7 +162,7 @@ export class Batch {
 				}
 			}
 			const usage = readRun(turns, key.scenario.turns).usage;
-			spent += total(usage);
+			used.push(...usage);
 			await this.results.saveRun(key, {
 				meta: {
 					scenario: key.scenario.id,
@@ -195,11 +194,11 @@ export class Batch {
 					model: this.opts.grader,
 				},
 			);
-			spent += graded.usage.costUsd;
+			used.push(graded.usage);
 			await this.results.saveGrade(key, graded);
 			log.info(`graded ${name}: $${graded.usage.costUsd.toFixed(2)}`);
 		}
-		return spent;
+		return used;
 	}
 
 	/** Every kept run's verdicts, code and model, for the report. */
@@ -262,8 +261,11 @@ export interface Estimate {
 	kept: number;
 	runs: number;
 	grades: number;
+	/** At API prices, whoever pays. */
 	runUsd: number;
 	gradeUsd: number;
+	/** What the runs and grades should use, from past ones; 0 with none. */
+	tokens: number;
 	/** How many past runs the estimate rests on; none means it is a guess. */
 	pastRuns: number;
 }
@@ -309,13 +311,18 @@ function graded(
 }
 
 /** The mean cost of past runs of `scenario` on `model`, else of any scenario on it, else a guess. */
-function perRun(history: History, scenario: string, model: string): number {
+function perRun(
+	history: History,
+	scenario: string,
+	model: string,
+): { costUsd: number; tokens: number } {
 	const onModel = history.runs.filter((each) => each.model === model);
 	const same = onModel.filter((each) => each.scenario === scenario);
-	return (
-		mean((same.length > 0 ? same : onModel).map((each) => each.costUsd)) ??
-		RUN_USD
-	);
+	const past = same.length > 0 ? same : onModel;
+	return {
+		costUsd: mean(past.map((each) => each.costUsd)) ?? RUN_USD,
+		tokens: mean(past.map((each) => each.tokens)) ?? 0,
+	};
 }
 
 function mean(values: number[]): number | null {
