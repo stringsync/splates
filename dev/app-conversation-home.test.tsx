@@ -194,67 +194,13 @@ describe("App's conversation home", () => {
 		expect(view.getByRole("region", { name: "fix the login" })).toBeTruthy();
 	});
 
-	it("recommends a free task, then a lane nobody works down, then the top open todo in no lane, two at most, and starts a conversation with the one tapped", async () => {
-		const view = await testing.openConversations(
-			[conversation({ id: "c1", task: "busy", title: "Busy" })],
-			null,
-			{
-				tasks: [
-					details({ task: "busy" }),
-					details({ task: "elsewhere", lease: "held" }),
-					details({ task: "header-wrap" }),
-				],
-				lanes: [
-					{ id: 1, name: "Worked" },
-					{ id: 2, name: "Upload pipeline" },
-				],
-				todos: [
-					todo({ id: 1, lane: 1, takenBy: "worked-task" }),
-					todo({ id: 2, lane: 1, position: 2 }),
-					todo({ id: 3, lane: 2, position: 3, subject: "resume uploads" }),
-					todo({ id: 4, position: 4, subject: "dark mode" }),
-				],
-			},
-		);
-		testing.reply = conversation({ id: "c9", task: null, status: "starting" });
-		const recommended = view.getByRole("region", { name: "recommended" });
-
-		expect(
-			within(recommended)
-				.getAllByRole("button")
-				.map((each) => each.title),
-		).toEqual([
-			"Start a conversation with [ARBOR TASK header-wrap]",
-			"Start a conversation with [ARBOR LANE 2]",
-		]);
-		await act(async () =>
-			fireEvent.click(
-				within(recommended).getByTitle(
-					"Start a conversation with [ARBOR LANE 2]",
-				),
-			),
-		);
-
-		expect(testing.posted("/api/conversations")).toHaveLength(1);
-		await waitFor(() =>
-			expect(testing.posted("/api/conversations/c9/prompt")).toEqual([
-				{ method: "POST", body: { text: "[ARBOR LANE 2]" } },
-			]),
-		);
-		expect(location.hash).toBe("#conversations/c9");
-	});
-
-	it("says when nothing is unclaimed, rather than drop the recommended row", async () => {
+	it("recommends no task, lane or todo to take up", async () => {
 		const view = await testing.openConversations([], null, {
-			tasks: [],
-			todos: [todo({ id: 1, takenBy: "alpha" })],
+			tasks: [details({ task: "header-wrap" })],
+			todos: [todo({ id: 1, subject: "dark mode" })],
 		});
 
-		expect(
-			within(view.getByRole("region", { name: "recommended" })).getByText(
-				"Nothing unclaimed",
-			),
-		).toBeTruthy();
+		expect(view.queryByRole("region", { name: "recommended" })).toBeNull();
 	});
 
 	it("starts an agent's first conversation in a project with the settings its sessions left elsewhere, and says when none are known", async () => {

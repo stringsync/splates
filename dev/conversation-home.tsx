@@ -34,7 +34,6 @@ import { type Drafts, newDraft } from "./drafts";
 import { Mark } from "./mark";
 import { NamedContext } from "./mentioned";
 import { limitsOf, PlanLimits } from "./plan-limits";
-import { Recommended } from "./recommended";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
@@ -192,23 +191,10 @@ export function useNewConversation({
  * composer, and under the greeting the latest unfinished conversations to
  * pick back up, none whose task merged.
  */
-export function Home({
-	free,
-	...starting
-}: Starting & {
-	/** The live tasks no listed conversation runs in, to recommend. */
-	free: Details[];
-}): JSX.Element {
+export function Home(starting: Starting): JSX.Element {
 	const { tasks, agents, agent, task, conversations, onOpen } = starting;
-	const {
-		runtime,
-		refusal,
-		starting: started,
-		controls,
-		mentions,
-		references,
-		named,
-	} = useNewConversation(starting);
+	const { runtime, refusal, controls, mentions, references, named } =
+		useNewConversation(starting);
 	const listed = conversations.filter((each) => !each.archived);
 	// Only unfinished work at rest: one at work, through its subagents too, or
 	// waiting on the person is in the sidebar already, and one whose task
@@ -251,19 +237,6 @@ export function Home({
 							below={
 								<>
 									<PlanLimits limits={limitsOf(agents, conversations, agent)} />
-									{task === null && (
-										<Recommended
-											free={free}
-											starting={started}
-											// The draft stays in the composer for the next one.
-											onStart={(directive) =>
-												runtime.thread.append({
-													role: "user",
-													content: [{ type: "text", text: directive }],
-												})
-											}
-										/>
-									)}
 									{recent.length > 0 && (
 										<section
 											aria-label="recent conversations"

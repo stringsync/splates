@@ -1,6 +1,6 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { ChevronDownIcon, ChevronLeftIcon } from "lucide-react";
-import { type JSX, useContext, useLayoutEffect, useRef } from "react";
+import { type JSX, useLayoutEffect, useRef } from "react";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import {
 	DropdownMenu,
@@ -9,17 +9,13 @@ import {
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Composing } from "#dev/composing.tsx";
-import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
-import { Board } from "./board";
 import { composerIn } from "./composer-editor";
 import { NEW } from "./conversation-address";
 import { agentName } from "./conversation-feed";
 import { type Starting, useNewConversation } from "./conversation-home";
-import { DirectiveChip } from "./directives";
 import { NamedContext } from "./mentioned";
 import { IconButton } from "./phone-inbox";
-import { recommended } from "./recommended";
 import { Refusal } from "./refusal";
 
 /**
@@ -37,30 +33,18 @@ export function launch(): void {
 /**
  * A new conversation on a phone, as the chat apps start one: the agent to
  * talk to picked at the top, a greeting in the middle, and the composer along
- * the bottom, with what nobody is on yet as chips just above it.
+ * the bottom.
  */
 export function PhoneHome({
-	free,
 	onBack,
 	...starting
 }: Starting & {
-	/** The live tasks no listed conversation runs in, to recommend. */
-	free: Details[];
 	/** Back to the inbox. */
 	onBack: () => void;
 }): JSX.Element {
 	const { agents, agent, task, onOpen } = starting;
-	const {
-		runtime,
-		refusal,
-		starting: started,
-		controls,
-		mentions,
-		references,
-		named,
-	} = useNewConversation(starting);
-	const board = useContext(Board);
-	const chips = task === null ? recommended(free, board) : [];
+	const { runtime, refusal, controls, mentions, references, named } =
+		useNewConversation(starting);
 	const section = useRef<HTMLElement>(null);
 	useLayoutEffect(() => {
 		if (launched && section.current !== null) {
@@ -137,36 +121,7 @@ export function PhoneHome({
 										)}
 									</div>
 								}
-								above={
-									<>
-										<Refusal refusal={refusal} className="px-2" />
-										{chips.length > 0 && (
-											<ul
-												aria-label="recommended"
-												className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]"
-											>
-												{chips.map((directive) => (
-													<li key={directive} className="flex shrink-0">
-														<button
-															type="button"
-															title={`Start a conversation with ${directive}`}
-															disabled={started}
-															onClick={() =>
-																runtime.thread.append({
-																	role: "user",
-																	content: [{ type: "text", text: directive }],
-																})
-															}
-															className="flex h-10 max-w-[75vw] items-center rounded-md active:bg-muted disabled:opacity-60 *:shrink"
-														>
-															<DirectiveChip directive={directive} />
-														</button>
-													</li>
-												))}
-											</ul>
-										)}
-									</>
-								}
+								above={<Refusal refusal={refusal} className="px-2" />}
 								controls={controls}
 							/>
 						</div>

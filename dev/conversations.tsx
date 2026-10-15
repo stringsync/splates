@@ -134,7 +134,6 @@ export function Conversations({
 	const starting = {
 		drafts,
 		tasks,
-		free,
 		feed,
 		agents,
 		agent: agentFor(open, agents, conversations),
