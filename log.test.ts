@@ -89,6 +89,7 @@ describe("log", () => {
 		const asked = {
 			base: "main",
 			todos: [3],
+			goal: null,
 			agent: "claude",
 			model: "sonnet",
 		};

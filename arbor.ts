@@ -104,6 +104,11 @@ arbor
 		description:
 			"take up these todos, comma separated: their words become the plan's Goal, merging removes them, and removing the task puts them back",
 	})
+	.option("goal", z.string(), {
+		default: "",
+		description:
+			"one or two lines on what done means, written under `## Goal` in the task's ARBOR.md; required unless --todo seeds the Goal",
+	})
 	.option("agent", z.string(), {
 		default: "",
 		description:
@@ -125,6 +130,13 @@ arbor
 				task: opts.task,
 			});
 		}
+		if (opts.goal.trim() === "" && opts.todo === "") {
+			fail(
+				"usage",
+				`say what done means: \`arbor add ${opts.task} --goal "<one or two lines>"\`, or take todos with --todo`,
+				{ task: opts.task },
+			);
+		}
 		const dispatch =
 			opts.agent === ""
 				? undefined
@@ -141,6 +153,7 @@ arbor
 				add(ctx, opts.task, {
 					base: opts.base || undefined,
 					todos: todoIds(opts.todo),
+					goal: opts.goal.trim() || undefined,
 					dispatch,
 					agents,
 					// Before the task is live, or the page shows it a moment as an
@@ -154,6 +167,7 @@ arbor
 			{
 				base: opts.base || ctx.config.trunk,
 				todos: todoIds(opts.todo),
+				goal: opts.goal.trim() || null,
 				agent: dispatch?.agent ?? null,
 				model: dispatch?.model ?? null,
 			},

@@ -32,7 +32,7 @@ describe("arbor cli", () => {
 	afterEach(() => env.disposeAsync());
 
 	it("runs its commands against the dependencies it is given", async () => {
-		await arbor.run(deps, ["add", "alpha"]);
+		await arbor.run(deps, ["add", "alpha", "--goal", "land it"]);
 		await arbor.run(deps, ["list", "--json"]);
 
 		const rows = JSON.parse(String(env.log.entries.at(-1)?.message));
@@ -55,7 +55,7 @@ describe("arbor cli", () => {
 	});
 
 	it("escalates a task and edits its todos", async () => {
-		await arbor.run(deps, ["add", "alpha"]);
+		await arbor.run(deps, ["add", "alpha", "--goal", "land it"]);
 		const worktree = await env.service.find("alpha");
 		await env.fs.write(
 			join(worktree.path, "ARBOR.md"),
@@ -101,7 +101,7 @@ describe("arbor cli", () => {
 	});
 
 	it("asks for a review from the command line", async () => {
-		await arbor.run(deps, ["add", "alpha"]);
+		await arbor.run(deps, ["add", "alpha", "--goal", "land it"]);
 		const worktree = await env.service.find("alpha");
 		await env.finish(worktree.path);
 		const plan = await env.fs.read(join(worktree.path, "ARBOR.md"));
@@ -126,6 +126,24 @@ describe("arbor cli", () => {
 
 		expect(env.out()).toContain('"reason":"not_found"');
 		expect(env.proc.lastExit()).toBe(8);
+	});
+
+	it("refuses a task with no Goal, and writes the one it is given into its plan", async () => {
+		await arbor.run(deps, ["add", "alpha"]);
+
+		expect(env.out()).toContain('"reason":"usage"');
+		expect(env.out()).toContain("--goal");
+		expect((await env.service.find("alpha")).gone).toBe(true);
+
+		await arbor.run(deps, ["add", "alpha", "--goal", "Stop the 413 retries."]);
+		const { path } = await env.service.find("alpha");
+		expect(await env.fs.read(join(path, "ARBOR.md"))).toContain(
+			"## Goal\n\nStop the 413 retries.",
+		);
+		expect((await env.journal.tail(1))[0]).toMatchObject({
+			action: "add",
+			goal: "Stop the 413 retries.",
+		});
 	});
 
 	it("refuses a port that cannot exist rather than trying to listen", async () => {

@@ -52,8 +52,9 @@ even mid-task, and again in a later session:
 ## Workflow
 
 1. **Start before you look.** When a request may end in a code change,
-   `arbor add <task>` before reading any code, and investigate in its
-   worktree: the main tree changes under you as other tasks land, a worktree
+   `arbor add <task> --goal "<what done means>"` before reading any code,
+   the Goal one or two lines as you understand it so far, and investigate in
+   its worktree: the main tree changes under you as other tasks land, a worktree
    does not. A question that only needs an answer stays in the main tree.
    `arbor claim <task>` resumes a task instead, as `[ARBOR TASK <task>]`
    from the `arbor dev` page asks: claim it, read its `ARBOR.md`, and carry

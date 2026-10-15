@@ -1,7 +1,7 @@
 # Handing out part of your task
 
-`arbor add <part> --base task/<your task>` from inside your tree makes a task
-that lands on your branch instead of trunk. While parts are out, keep your
+`arbor add <part> --base task/<your task> --goal "<what done means>"` from
+inside your tree makes a task that lands on your branch instead of trunk. While parts are out, keep your
 tree committed (a part lands by fast-forwarding your checkout), re-read files
 before editing them, and squash only after every part has landed. Hand a
 part out only when describing it is shorter than doing it.
@@ -35,8 +35,8 @@ forever.
 
 When the user asks for the part to go to another agent, such as one of
 another model family, run by `arbor dev`, hand it over as you add it:
-`arbor add <part> --base task/<your task> --agent <id> --prompt '<what to
-do, and the rules above>'`, with `--model <m>`. Read `arbor agents` first:
+`arbor add <part> --base task/<your task> --goal "<what done means>" --agent
+<id> --prompt '<what to do, and the rules above>'`, with `--model <m>`. Read `arbor agents` first:
 it lists each agent you can name and its models, with what each is good at
 and what it costs. Take the agent and model the user names, else the
 assignee `arbor todo show` gives for the part's todo, else the model whose

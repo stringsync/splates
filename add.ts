@@ -23,6 +23,11 @@ export interface AddOptions {
 	 */
 	todos?: number[];
 	/**
+	 * One or two lines on what done means, written under `## Goal` ahead of
+	 * whatever the todos seed it with.
+	 */
+	goal?: string;
+	/**
 	 * Runs once the worktree exists and before its record makes the task live,
 	 * so whatever it tells of the task is in place before anyone can see it.
 	 */
@@ -56,6 +61,7 @@ export async function add(
 	{
 		base = config.trunk,
 		todos: ids = [],
+		goal: asked,
 		onTree,
 		dispatch,
 		agents = [],
@@ -172,7 +178,12 @@ export async function add(
 
 	await fs.write(
 		`${worktree.path}/${PLAN_FILE}`,
-		PLAN(task, taken.length === 0 ? null : goal(taken)),
+		PLAN(
+			task,
+			[asked?.trim(), taken.length === 0 ? "" : goal(taken)]
+				.filter(Boolean)
+				.join("\n\n") || null,
+		),
 	);
 	for (const todo of taken) {
 		await todo.take(task);
@@ -262,9 +273,9 @@ function goal(todos: Todo[]): string {
 		.join("\n\n");
 }
 
-/** The plan a fresh task starts with. `## Goal` is the todos it takes up, if
- * any; it is otherwise left empty on purpose: `arbor show` nags until the
- * agent fills it in. */
+/** The plan a fresh task starts with. `## Goal` is the Goal it was given and
+ * the todos it takes up, if any; it is otherwise left empty on purpose:
+ * `arbor show` nags until the agent fills it in. */
 function PLAN(task: string, goal: string | null): string {
 	const writer = new MarkdownWriter().heading(1, task).heading(2, "Goal");
 	if (goal !== null) {

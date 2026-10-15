@@ -71,6 +71,7 @@ describe("dev", () => {
 		await deps.journal.record("add", "alpha", () => add(deps, "alpha"), {
 			base: "main",
 			todos: [],
+			goal: "land it",
 			agent: null,
 			model: null,
 		});

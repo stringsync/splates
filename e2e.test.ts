@@ -15,8 +15,12 @@ describe.concurrent("arbor", () => {
 		await using cli = await setup();
 		const { env, arbor, rows } = cli;
 
-		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
-		expect((await arbor(env.root, "add", "beta")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+		).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "beta", "--goal", "land it")).exitCode,
+		).toBe(0);
 
 		const listed = await rows();
 		expect(listed.map((row) => row.task)).toEqual(["alpha", "beta"]);
@@ -70,7 +74,9 @@ describe.concurrent("arbor", () => {
 		await using cli = await setup();
 		const { env, arbor, rows } = cli;
 
-		expect((await arbor(env.root, "add", "parent")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "parent", "--goal", "land it")).exitCode,
+		).toBe(0);
 		const parent = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
@@ -80,7 +86,17 @@ describe.concurrent("arbor", () => {
 		// The parent hands out a part from inside its own tree, based on its own
 		// branch, so the part lands on it rather than on trunk.
 		expect(
-			(await arbor(parent, "add", "part", "--base", "task/parent")).exitCode,
+			(
+				await arbor(
+					parent,
+					"add",
+					"part",
+					"--base",
+					"task/parent",
+					"--goal",
+					"land it",
+				)
+			).exitCode,
 		).toBe(0);
 		const part = ensure.defined(
 			(await rows()).find((row) => row.task === "part")?.worktree,
@@ -119,7 +135,9 @@ describe.concurrent("arbor", () => {
 			join(env.root, "arbor.config.ts"),
 			`export default { preMerge: "grep -q ok status.txt" };\n`,
 		);
-		expect((await arbor(env.root, "add", "gamma")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "gamma", "--goal", "land it")).exitCode,
+		).toBe(0);
 		const tree = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
@@ -158,7 +176,9 @@ describe.concurrent("arbor", () => {
 		await using cli = await setup();
 		const { env, arbor, rows } = cli;
 
-		expect((await arbor(env.root, "add", "delta")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "delta", "--goal", "land it")).exitCode,
+		).toBe(0);
 		const tree = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
@@ -198,7 +218,9 @@ describe.concurrent("arbor", () => {
 			`export default { preMerge: "if [ -f ${die} ]; then rm ${die}; kill -9 $PPID; fi" };\n`,
 		);
 		await env.fs.write(die, "");
-		expect((await arbor(env.root, "add", "epsilon")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "epsilon", "--goal", "land it")).exitCode,
+		).toBe(0);
 		const tree = ensure.defined(
 			(await rows())[0]?.worktree,
 			"add did not record a worktree path",
@@ -236,11 +258,15 @@ describe.concurrent("arbor", () => {
 		await using cli = await setup({ init: false });
 		const { env, arbor } = cli;
 
-		for (const args of [["todo", "list"], ["add", "alpha"], ["dev"]]) {
-			const refused = await arbor(env.root, ...args);
-			expect(refused.exitCode).toBe(20);
-			expect(refused.stderr).toContain("Run `arbor init` in it once");
-		}
+		const uninitialized = {
+			exitCode: 20,
+			stderr: expect.stringContaining("Run `arbor init` in it once"),
+		};
+		expect([
+			await arbor(env.root, "todo", "list"),
+			await arbor(env.root, "add", "alpha", "--goal", "land it"),
+			await arbor(env.root, "dev"),
+		]).toMatchObject([uninitialized, uninitialized, uninitialized]);
 		expect(await env.fs.exists(env.arborDir)).toBe(false);
 		expect(await env.projects.list()).toEqual([]);
 
@@ -252,14 +278,18 @@ describe.concurrent("arbor", () => {
 		expect(registered.stdout).toContain(`registered ${env.root}`);
 		expect(await env.fs.read(join(env.arborDir, "format"))).toBe("1\n");
 		expect(again.stdout).toContain(`${env.root} is already registered`);
-		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+		).toBe(0);
 	});
 
 	it("registers an arbor project already under way, by its main tree", async () => {
 		await using cli = await setup();
 		const { env, arbor } = cli;
 		await env.projects.forget(env.root);
-		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+		).toBe(0);
 
 		const [alpha] = (await cli.rows()).map((row) => row.worktree);
 		expect((await arbor(alpha as string, "init")).exitCode).toBe(0);
@@ -272,7 +302,9 @@ describe.concurrent("arbor", () => {
 	it("forgets this repository, keeping its records", async () => {
 		await using cli = await setup();
 		const { env, arbor } = cli;
-		expect((await arbor(env.root, "add", "alpha")).exitCode).toBe(0);
+		expect(
+			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+		).toBe(0);
 
 		const forgot = await arbor(env.root, "forget");
 		const again = await arbor(env.root, "forget");
@@ -294,7 +326,7 @@ describe.concurrent("arbor", () => {
 		expect(await env.fs.read(format)).toBe("1\n");
 
 		await env.fs.write(format, "2\n");
-		const refused = await arbor(env.root, "add", "alpha");
+		const refused = await arbor(env.root, "add", "alpha", "--goal", "land it");
 		expect(refused.exitCode).toBe(19);
 		expect(refused.stdout).toContain("outdated");
 		expect(refused.stderr).toContain("bunx @webappwiz/arbor@latest");

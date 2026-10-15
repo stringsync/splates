@@ -57,6 +57,18 @@ describe("add", () => {
 		expect(plan).toContain("- [ ]");
 	});
 
+	it("puts the Goal it is given ahead of what its todos seed", async () => {
+		const todo = await deps.todos.add("Retry on 413", null, {
+			text: "in upload.ts",
+		});
+		await add(deps, "alpha", { goal: "Stop the retries.", todos: [todo.id] });
+
+		const { path } = await deps.service.find("alpha");
+		expect(await deps.fs.read(join(path, "ARBOR.md"))).toContain(
+			"## Goal\n\nStop the retries.\n\nRetry on 413\n\nin upload.ts",
+		);
+	});
+
 	it("excludes the plan from git, once, so no task can commit it", async () => {
 		await add(deps, "alpha");
 		await add(deps, "beta");
