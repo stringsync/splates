@@ -2,6 +2,7 @@ import "../../../setup";
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { ArborEvent, type ArborEventView } from "./arbor-event";
+import { Board, NO_BOARD } from "./board";
 
 afterEach(cleanup);
 
@@ -121,6 +122,39 @@ describe("arbor events", () => {
 
 		expect(page.queryByRole("button", { name: "Paste" })).toBeNull();
 		expect(page.getByText("Saved")).toBeDefined();
+	});
+
+	it("opens the board narrowed to a burst's todos from its chip", () => {
+		const opened: (readonly number[])[] = [];
+		const page = render(
+			<Board
+				value={{
+					...NO_BOARD,
+					linked: true,
+					openTodos: (ids) => opened.push(ids),
+				}}
+			>
+				<ArborEvent
+					event={{
+						...merged,
+						words: [
+							"Updated",
+							{
+								kind: "todos",
+								todos: [
+									{ id: 212, subject: "one" },
+									{ id: 214, subject: "two" },
+								],
+							},
+						],
+					}}
+				/>
+			</Board>,
+		);
+
+		fireEvent.click(page.getByTitle("Todos #212, #214"));
+
+		expect(opened).toEqual([[212, 214]]);
 	});
 
 	it("names a burst of todos as one chip, listing each whole beneath", () => {

@@ -318,6 +318,10 @@ export function App({
 										trunk={snapshot.trunk}
 										open={open}
 										onOpen={(id, how) => go("conversations", id, how)}
+										onTodos={(ids) => {
+											go("todos");
+											todoView.filter(ids);
+										}}
 										phone={!wide}
 									/>
 								</OpenerContext>

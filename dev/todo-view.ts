@@ -18,8 +18,8 @@ export interface TodosShown {
 const HIDDEN = "arbor.hiddenLanes";
 
 /**
- * The todo list's choices: which todo or task is open, and which lanes the
- * board leaves out, `null` for the untriaged. `show` applies them to a
+ * The todo list's choices: which todo or task is open, which todos the board
+ * is narrowed to, and which lanes it leaves out, `null` for the untriaged. `show` applies them to a
  * snapshot, which can change under them: a choice the snapshot no longer has room for
  * shows as nothing picked.
  */
@@ -30,6 +30,8 @@ export class TodoView implements Eventful<TodoViewEvents> {
 	opened: number | null = null;
 	openedTask: string | null = null;
 	hidden: (number | null)[];
+	/** The only todos the board shows, by id, or null for every one. */
+	only: readonly number[] | null = null;
 
 	/** `storage` keeps the hidden lanes for the next visit, when given. */
 	constructor(private readonly storage?: Storage) {
@@ -65,6 +67,11 @@ export class TodoView implements Eventful<TodoViewEvents> {
 		this.set({ openedTask: null });
 	}
 
+	/** Narrows the board to the todos in `ids`, or back to every one for null. */
+	filter(ids: readonly number[] | null): void {
+		this.set({ only: ids });
+	}
+
 	/** Shows lane `lane`, or the untriaged for null, if hidden, else hides it. */
 	toggleLane(lane: number | null): void {
 		this.hide(
@@ -81,7 +88,7 @@ export class TodoView implements Eventful<TodoViewEvents> {
 	}
 
 	private set(
-		next: Partial<Pick<TodoView, "opened" | "openedTask" | "hidden">>,
+		next: Partial<Pick<TodoView, "opened" | "openedTask" | "hidden" | "only">>,
 	): void {
 		Object.assign(this, next);
 		this.dispatcher.dispatch("changed");

@@ -255,6 +255,11 @@ function NamedChip({
 				<Chip
 					Icon={ListTodoIcon}
 					title={`Todos ${todos.map(({ id }) => `#${id}`).join(", ")}`}
+					open={
+						board.linked
+							? () => board.openTodos(todos.map(({ id }) => id))
+							: undefined
+					}
 					className={GIVES_WAY}
 				>
 					{todos.length} todos

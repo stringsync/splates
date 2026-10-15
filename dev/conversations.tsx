@@ -53,6 +53,7 @@ export function Conversations({
 	trunk,
 	open,
 	onOpen,
+	onTodos,
 	phone,
 }: {
 	feed: ConversationFeed;
@@ -72,6 +73,8 @@ export function Conversations({
 	open: string | null;
 	/** Opens `id`, or the list for null, in place of what is open for `replace`. */
 	onOpen: (id: string | null, how?: Move) => void;
+	/** Opens the todo board showing only the todos in `ids`. */
+	onTodos: (ids: readonly number[]) => void;
 	/** Whether there is no sidebar to hold the list. */
 	phone: boolean;
 }): JSX.Element {
@@ -104,6 +107,7 @@ export function Conversations({
 			lanes: named(todos, lanes),
 			open: setOpenedTodo,
 			openTask: setOpenedTask,
+			openTodos: onTodos,
 			tasks: tasks.map((each) => each.task),
 			plans: plansOf(tasks),
 			moveLane: () => {},
@@ -112,7 +116,7 @@ export function Conversations({
 			refuseLane: () => {},
 			drafts,
 		}),
-		[todos, lanes, drafts, tasks],
+		[todos, lanes, drafts, tasks, onTodos],
 	);
 	const todo = todos.find((each) => each.id === openedTodo);
 	const task = tasks.find((each) => each.task === openedTask);

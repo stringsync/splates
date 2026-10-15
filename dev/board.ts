@@ -16,6 +16,8 @@ export interface BoardContext {
 	lanes: LaneRecord[];
 	open: (id: number) => void;
 	openTask: (task: string) => void;
+	/** Opens the todo board showing only the todos in `ids`. */
+	openTodos: (ids: readonly number[]) => void;
 	/** Every live task, by name: those a chip naming one opens. */
 	tasks: readonly string[];
 	/** Each live task's `ARBOR.md`, by its name, for what it assumed. */
@@ -41,6 +43,7 @@ export const NO_BOARD: BoardContext = {
 	lanes: [],
 	open: () => {},
 	openTask: () => {},
+	openTodos: () => {},
 	tasks: [],
 	plans: new Map(),
 	moveLane: () => {},

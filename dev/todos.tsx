@@ -4,6 +4,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog, DialogContent } from "#dev/components/ui/dialog.tsx";
 import { lanes as laneList, named } from "../lanes";
 import type { Snapshot } from "../snapshot";
@@ -44,9 +45,14 @@ export function Todos({
 	const [board] = useState(() => new TodoBoard());
 	// Every choice is read, so any of them changing renders again; `show` then
 	// applies them to whichever snapshot came last.
-	const { hidden } = useReactive(
+	const { hidden, only } = useReactive(
 		view,
-		({ opened, openedTask, hidden }) => ({ opened, openedTask, hidden }),
+		({ opened, openedTask, hidden, only }) => ({
+			opened,
+			openedTask,
+			hidden,
+			only,
+		}),
 		["changed"],
 	);
 	const { dragging, naming, draggingLane } = useReactive(
@@ -66,7 +72,15 @@ export function Todos({
 	// The lanes as dropped, too, until the server's word on them arrives.
 	const shownLanes = board.showLanes(snapshot.lanes);
 	const records = useMemo(() => named(all, shownLanes), [all, shownLanes]);
-	const lanes = laneList(all, records);
+	// Blockers and the lanes' next todos are read from every todo; only what
+	// each column lists is narrowed.
+	const lanes = laneList(all, records).map((lane) =>
+		only === null
+			? lane
+			: { ...lane, todos: lane.todos.filter((todo) => only.includes(todo.id)) },
+	);
+	const kept =
+		only === null ? all : all.filter((todo) => only.includes(todo.id));
 	const shown = lanes.filter((lane) => !hidden.includes(lane.id));
 	const { refusals: refusedTodos, refuse: refuseTodo } = useRefusals<number>();
 	const { refusals: refusedLanes, refuse: refuseLane } = useRefusals<
@@ -79,6 +93,7 @@ export function Todos({
 			lanes: records,
 			open: (id: number) => view.open(id),
 			openTask: (name: string) => view.openTask(snapshot, name),
+			openTodos: (ids: readonly number[]) => view.filter(ids),
 			tasks: snapshot.tasks.map((each) => each.task),
 			plans: plansOf(snapshot.tasks),
 			moveLane: (id: number, position: number) =>
@@ -142,10 +157,22 @@ export function Todos({
 				lifted={lifted}
 				liftedLane={lanes.find((lane) => lane.id === draggingLane)}
 			>
+				{only !== null && (
+					<p className="mb-2 flex items-center gap-2 text-muted-foreground text-xs">
+						Showing {kept.length} of {all.length} todos
+						<Button
+							variant="outline"
+							size="xs"
+							onClick={() => view.filter(null)}
+						>
+							Show all
+						</Button>
+					</p>
+				)}
 				<div className="mb-2 flex gap-2">
 					<ShownLanes
 						lanes={lanes}
-						untriaged={all.filter((todo) => todo.lane === null).length}
+						untriaged={kept.filter((todo) => todo.lane === null).length}
 						hidden={hidden}
 						onToggle={(lane) => view.toggleLane(lane)}
 						onHide={(lanes) => view.hide(lanes)}
@@ -167,7 +194,7 @@ export function Todos({
 				>
 					{!hidden.includes(null) && (
 						<Untriaged
-							todos={all.filter((todo) => todo.lane === null)}
+							todos={kept.filter((todo) => todo.lane === null)}
 							staleness={snapshot.todoStalenessMs}
 						/>
 					)}
