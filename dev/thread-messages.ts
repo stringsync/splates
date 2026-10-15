@@ -166,11 +166,11 @@ export function like(
 					: [],
 			),
 			// Shown as tiles above the words, each opening full size.
-			attachments: message.parts.flatMap((part) =>
-				part.type === "image" || part.type === "file"
-					? [attached(conversation, part)]
-					: [],
-			),
+			attachments: message.parts
+				.flatMap((part) =>
+					part.type === "image" || part.type === "file" ? [part] : [],
+				)
+				.map((part, at) => attached(conversation, part, at)),
 			// Marked as taken into the turn the agent was running, and stamped
 			// with when it was sent.
 			metadata: {
@@ -324,14 +324,20 @@ function turnsOf(
 	return turns;
 }
 
-/** A file the person sent, as assistant-ui shows an attachment. */
+/**
+ * A file the person sent, as assistant-ui shows an attachment, keyed by `at`,
+ * its place among the message's files: a file is named for what is in it, so
+ * one sent twice in a message has one name, and assistant-ui throws on a key
+ * it sees twice.
+ */
 function attached(
 	conversation: string,
 	part: Extract<Part, { type: "image" | "file" }>,
+	at: number,
 ): NonNullable<ThreadMessageLike["attachments"]>[number] {
 	const url = conversationAttachment(conversation, part);
 	return {
-		id: part.name,
+		id: `${at}:${part.name}`,
 		type: part.type,
 		name: part.type === "file" ? part.title : part.name,
 		contentType: part.mimeType,
