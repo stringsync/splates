@@ -7,7 +7,7 @@ import {
 	DialogHeader,
 } from "#dev/components/ui/dialog.tsx";
 import type { Held } from "../held";
-import { PhaseTitle, plural } from "./checkpoint-slide";
+import { PowerTitle, plural } from "./checkpoint-slide";
 import type { ProjectChoice } from "./project-api";
 
 /**
@@ -45,7 +45,7 @@ export function PickSlide({
 	return (
 		<>
 			<DialogHeader>
-				<PhaseTitle slide="pick" restarted={null} />
+				<PowerTitle title="Power" />
 				<DialogDescription>
 					{working.length === 0
 						? "No agent is running."

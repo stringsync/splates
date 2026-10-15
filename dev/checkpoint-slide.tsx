@@ -1,12 +1,12 @@
 import {
-	FlagIcon,
+	CheckIcon,
+	CircleAlertIcon,
 	Loader2Icon,
-	PlayIcon,
 	PowerIcon,
-	RotateCwIcon,
 } from "lucide-react";
 import type { JSX } from "react";
 import { DialogTitle } from "#dev/components/ui/dialog.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { ProjectConversation } from "./project-api";
 
 /** How a checkpoint stands. */
@@ -39,85 +39,153 @@ export function slideOf({ asked, going }: Standing): Slide {
 	return asked.length === 0 ? "pick" : going > 0 ? "going" : "done";
 }
 
+/** What follows the checkpoint under way: a restart, a shutdown, or neither. */
+export type Run = "restart" | "shutdown" | null;
+
 /**
- * How each slide stands, for the title menu's Power, its own so moving
- * on is plain to see; done says `arbor dev` restarted when its agents wait to
- * resume on the new run. The dialog itself is titled by its phase.
+ * The dialog's title, and the menu item's, the same for a whole run, so a
+ * restart reads as one thing happening rather than a phase at a time; done
+ * says the agents wait to resume when a restart came before.
  */
-export function titleOf(slide: Slide, restarted: string | null): string {
+export function titleOf(slide: Slide, run: Run, restarted: boolean): string {
 	switch (slide) {
 		case "pick":
 			return "Power";
 		case "going":
-			return "Checkpoint under way";
-		case "done":
-			return restarted === null ? "Checkpoint done" : "arbor dev restarted";
+			return run === "restart"
+				? "Restarting arbor dev"
+				: run === "shutdown"
+					? "Shutting down arbor dev"
+					: "Checkpointing agents";
 		case "restarting":
+		case "resuming":
 			return "Restarting arbor dev";
 		case "restarted":
 			return "arbor dev restarted";
-		case "resuming":
-			return "Resuming agents";
 		case "ended":
-			return "Agents resumed";
+			return restarted ? "arbor dev restarted" : "Agents resumed";
 		case "shuttingDown":
 			return "Shutting down arbor dev";
 		case "shutDown":
 			return "arbor dev shut down";
+		case "done":
+			return restarted ? "Agents waiting to resume" : "Agents checkpointed";
 	}
 }
 
-/**
- * The phases the dialog walks through, as "Checkpoint, restart and resume"
- * and "Checkpoint and shut down" name them, each with its icon, after Power,
- * where the person picks; done is still the checkpoint until a restart has
- * followed it.
- */
-const PHASES = {
-	power: { title: "Power", Icon: PowerIcon },
-	checkpoint: { title: "Checkpoint", Icon: FlagIcon },
-	restart: { title: "Restart", Icon: RotateCwIcon },
-	resume: { title: "Resume", Icon: PlayIcon },
-	shutdown: { title: "Shut down", Icon: PowerIcon },
-};
-
-/**
- * The dialog's title: the phase it is in, with its icon, which spins while
- * `arbor dev` restarts or shuts down.
- */
-export function PhaseTitle({
-	slide,
-	restarted,
-}: {
-	slide: Slide;
-	restarted: string | null;
-}): JSX.Element {
-	const { title, Icon } = PHASES[phaseOf(slide, restarted)];
+/** The dialog's title, with Power's icon. */
+export function PowerTitle({ title }: { title: string }): JSX.Element {
 	return (
 		<DialogTitle className="flex items-center gap-2">
-			{slide === "restarting" || slide === "shuttingDown" ? (
-				<Loader2Icon aria-hidden className="size-4 animate-spin" />
-			) : (
-				<Icon aria-hidden className="size-4" />
-			)}
+			<PowerIcon aria-hidden className="size-4" />
 			{title}
 		</DialogTitle>
 	);
 }
 
-/** What a done checkpoint came to, in a sentence, its agents `then`. */
-export function summary(
-	standing: Standing,
-	then: "stopped" | "waiting to resume",
-): string {
-	return `${plural(standing.asked.length - standing.missed.length)} checkpointed and ${then}.${missing(standing)}`;
+/** One step of a run, and how far it has got. */
+export interface Step {
+	label: string;
+	state: "done" | "now" | "todo" | "failed";
 }
 
-/** Those a checkpoint missed, in a sentence after another, if any. */
-export function missing({ missed }: Standing): string {
-	return missed.length === 0
-		? ""
-		: ` ${missed.length} missed: ${missed.map((each) => each.name).join(", ")}.`;
+/**
+ * The steps of the run `slide` is in: a checkpoint when `checkpointed`, then
+ * a restart, and a resume when `resumes`, or a shutdown.
+ */
+export function stepsOf(
+	slide: Slide,
+	run: Run,
+	{ checkpointed, resumes }: { checkpointed: boolean; resumes: boolean },
+): Step[] {
+	const shutdown =
+		run === "shutdown" || slide === "shuttingDown" || slide === "shutDown";
+	const restart =
+		!shutdown &&
+		(run === "restart" ||
+			slide === "restarting" ||
+			slide === "restarted" ||
+			slide === "resuming" ||
+			slide === "ended" ||
+			(slide === "done" && resumes));
+	// How far along the run is: steps before it are done, it is under way.
+	const at =
+		slide === "going"
+			? 0
+			: slide === "restarting" || slide === "shuttingDown"
+				? 1
+				: slide === "resuming" || (slide === "done" && resumes)
+					? 2
+					: 3;
+	const all: { label: string; index: number }[] = [
+		...(checkpointed ? [{ label: "Checkpoint", index: 0 }] : []),
+		...(shutdown ? [{ label: "Shut down", index: 1 }] : []),
+		...(restart ? [{ label: "Restart", index: 1 }] : []),
+		...(restart && resumes ? [{ label: "Resume", index: 2 }] : []),
+	];
+	return all.map(({ label, index }) => ({
+		label,
+		state:
+			index < at
+				? "done"
+				: index > at
+					? "todo"
+					: slide === "done"
+						? "failed"
+						: "now",
+	}));
+}
+
+/** The run's steps in a line, the one under way spinning. */
+export function Steps({ steps }: { steps: Step[] }): JSX.Element | null {
+	if (steps.length === 0) {
+		return null;
+	}
+	return (
+		<ol aria-label="steps" className="flex items-center gap-2 text-sm">
+			{steps.map((step, index) => (
+				<li
+					key={step.label}
+					aria-current={step.state === "now" ? "step" : undefined}
+					className={cn(
+						"flex items-center gap-1.5",
+						step.state === "todo" && "text-muted-foreground",
+					)}
+				>
+					{index > 0 && (
+						<span aria-hidden className="mr-0.5 h-px w-4 bg-border" />
+					)}
+					<StepIcon state={step.state} />
+					{step.label}
+				</li>
+			))}
+		</ol>
+	);
+}
+
+function StepIcon({ state }: { state: Step["state"] }): JSX.Element {
+	switch (state) {
+		case "done":
+			return <CheckIcon aria-hidden className="size-3.5 text-success" />;
+		case "now":
+			return (
+				<Loader2Icon
+					aria-hidden
+					className="size-3.5 animate-spin text-muted-foreground"
+				/>
+			);
+		case "failed":
+			return (
+				<CircleAlertIcon aria-hidden className="size-3.5 text-destructive" />
+			);
+		case "todo":
+			return (
+				<span
+					aria-hidden
+					className="size-3.5 rounded-full border border-muted-foreground/40"
+				/>
+			);
+	}
 }
 
 /** `count` agents, in words. */
@@ -135,24 +203,4 @@ export function standing(conversations: ProjectConversation[]): Standing {
 				each.checkpoint === "failed" || each.checkpoint === "unanswered",
 		),
 	};
-}
-
-function phaseOf(slide: Slide, restarted: string | null): keyof typeof PHASES {
-	switch (slide) {
-		case "pick":
-			return "power";
-		case "going":
-			return "checkpoint";
-		case "done":
-			return restarted === null ? "checkpoint" : "restart";
-		case "restarting":
-		case "restarted":
-			return "restart";
-		case "resuming":
-		case "ended":
-			return "resume";
-		case "shuttingDown":
-		case "shutDown":
-			return "shutdown";
-	}
 }

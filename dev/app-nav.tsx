@@ -70,7 +70,7 @@ export function AppNav({
 			{/* Below the header. */}
 			<TabsList
 				variant="line"
-				className="fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-20 group-data-vertical/tabs:h-dvh"
+				className="fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-[calc(var(--app-header-height,4rem)+1rem)] group-data-vertical/tabs:h-dvh"
 			>
 				{pages.map(({ value, label, Icon, shortcut }) => (
 					<TabsTrigger

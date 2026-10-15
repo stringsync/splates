@@ -322,8 +322,11 @@ export class Testing implements Resource {
 				},
 			}),
 		);
+		// Hidden too, under a dialog the page opens on.
 		await waitFor(() =>
-			expect(view.getByRole("region", { name: "Untriaged" })).toBeTruthy(),
+			expect(
+				view.getByRole("region", { name: "Untriaged", hidden: true }),
+			).toBeTruthy(),
 		);
 		return view;
 	}
@@ -383,6 +386,7 @@ export class Testing implements Resource {
 	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
 	dispose(): void {
 		localStorage.clear();
+		sessionStorage.clear();
 		globalThis.fetch = this.#fetch;
 		globalThis.EventSource = this.#eventSource;
 		globalThis.WebSocket = this.#webSocket;

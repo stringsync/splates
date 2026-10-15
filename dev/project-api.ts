@@ -63,14 +63,6 @@ export async function resumeCheckpoint(): Promise<void> {
 }
 
 /**
- * Restarts `arbor dev` now, each agent done with the checkpoint waiting on
- * the next run to be resumed.
- */
-export async function restartFromCheckpoint(): Promise<void> {
-	await send("/api/checkpoint/restart", {});
-}
-
-/**
  * Restarts `arbor dev` now, or with `shutdown` shuts it down, without a
  * checkpoint: an agent at work stops mid-turn.
  */

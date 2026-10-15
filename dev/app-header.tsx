@@ -1,7 +1,7 @@
-import type { JSX } from "react";
+import { type JSX, useEffect, useRef } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Snapshot } from "../snapshot";
-import { CheckpointRefusal } from "./checkpoint";
+import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { MachineBadge, useMachine } from "./machine";
 import { PageMenu } from "./page-menu";
 import { ProjectSwitcher } from "./projects";
@@ -9,8 +9,8 @@ import { ProjectSwitcher } from "./projects";
 /**
  * Heads the sidebar when there is one, and the page on a phone: the project
  * switcher, a badge when the server is outdated, unbuilt or offline, or the
- * machine is strained, the page menu, the project's path, and why a
- * checkpoint could not start.
+ * machine is strained, the page menu, the project's path, or in its place
+ * how a restart goes, and why a checkpoint could not start.
  */
 export function AppHeader({
 	name,
@@ -35,8 +35,30 @@ export function AppHeader({
 		!offline;
 	// Asked once here for the badge and the menu alike.
 	const machine = useMachine();
+	const { badge } = useCheckpoint();
+	const ref = useRef<HTMLElement>(null);
+	// Fixed over the sidebar, it tells the tabs how far down to start, so a
+	// line it grows, such as Power's badge, pushes them down rather than
+	// landing on them.
+	useEffect(() => {
+		const header = ref.current;
+		if (!wide || header === null) {
+			return;
+		}
+		const root = document.documentElement.style;
+		const measure = () =>
+			root.setProperty("--app-header-height", `${header.offsetHeight}px`);
+		measure();
+		const resized = new ResizeObserver(measure);
+		resized.observe(header);
+		return () => {
+			resized.disconnect();
+			root.removeProperty("--app-header-height");
+		};
+	}, [wide]);
 	return (
 		<header
+			ref={ref}
 			className={cn(
 				"flex min-w-0 flex-col gap-0.5",
 				wide
@@ -101,10 +123,16 @@ export function AppHeader({
 					onSettings={onSettings}
 				/>
 			</div>
-			{snapshot && (
-				<span className="truncate text-muted-foreground text-xs">
-					{snapshot.path}
-				</span>
+			{/* A restart's word takes the path's place while it shows, so the
+			    header never grows a line for it. */}
+			{!offline && badge !== null ? (
+				<PowerBadge />
+			) : (
+				snapshot && (
+					<span className="truncate text-muted-foreground text-xs">
+						{snapshot.path}
+					</span>
+				)
 			)}
 			{/* Out of the menu that asked, which has closed. */}
 			<CheckpointRefusal className="pt-1" />
