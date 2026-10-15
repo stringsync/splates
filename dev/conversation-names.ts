@@ -1,6 +1,6 @@
 import { createContext, use } from "react";
 import { type Ending, type Report, stretches } from "../asked";
-import { lanesOf, nameOf } from "../conversation-name";
+import { nameOf, realName } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 
@@ -15,12 +15,7 @@ export function useNameOf(): (conversation: ConversationState) => string {
 
 /** Whether `nameOf` is a stand-in, shown muted until a real name comes. */
 export function unnamed(conversation: ConversationState): boolean {
-	return (
-		conversation.name === null &&
-		conversation.lastTask === null &&
-		lanesOf(conversation).length === 0 &&
-		conversation.title === null
-	);
+	return realName(conversation, []) === null;
 }
 
 /**

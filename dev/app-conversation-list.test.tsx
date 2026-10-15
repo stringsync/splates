@@ -285,7 +285,7 @@ describe("App's conversation list", () => {
 		]);
 	});
 
-	it("names a lane's orchestrator after its lanes, over the agent's title", async () => {
+	it("names a lane's orchestrator after its lanes, over a task it took and the agent's title", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -297,7 +297,8 @@ describe("App's conversation list", () => {
 				}),
 				conversation({
 					id: "c2",
-					task: null,
+					task: "add-line",
+					lastTask: "add-line",
 					messages: [message("user", "[ARBOR LANE 20]\n[ARBOR LANE 9]")],
 					createdAt: "2026-10-11T10:02:00.000Z",
 				}),

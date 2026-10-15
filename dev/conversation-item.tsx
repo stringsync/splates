@@ -26,7 +26,7 @@ import {
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { openingOf } from "../conversation-name";
+import { namedForTask, openingOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { Need } from "../needs";
 import { AgentIcon } from "./agent-icons";
@@ -401,10 +401,7 @@ export function whereOf(
 	conversation: ConversationState,
 	trunk: string | null,
 ): string | null {
-	if (
-		conversation.lastTask !== null &&
-		(conversation.name ?? conversation.lastTask) === conversation.lastTask
-	) {
+	if (namedForTask(conversation)) {
 		return null;
 	}
 	return whereRuns(conversation.task, trunk);

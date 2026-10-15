@@ -102,6 +102,7 @@ export async function serveProject(
 			}),
 			lanes: await project.todos.lanes(),
 		}),
+		lanes: () => project.todos.lanes(),
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
@@ -153,6 +154,8 @@ export interface Served extends AsyncResource {
 	waiting: () => Promise<number>;
 	/** What each of its agents needs, and the lanes that name an orchestrator. */
 	needing: () => Promise<{ rows: Needing[]; lanes: LaneRecord[] }>;
+	/** The lanes on its board, to name an orchestrator after. */
+	lanes: () => Promise<LaneRecord[]>;
 	events: Handler;
 	file: Handler;
 	paths: Handler;

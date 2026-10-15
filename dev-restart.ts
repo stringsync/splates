@@ -1,6 +1,7 @@
 import type { AsyncResource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
+import { realName } from "./conversation-name";
 import type { After, Conversation, ConversationState } from "./conversations";
 import { type Project, type Served, waitingOn } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
@@ -226,11 +227,12 @@ export class Restarts {
 		}
 		const working: { id: string; name: string }[] = [];
 		for (const project of await this.opened()) {
+			const lanes = await project.lanes();
 			for (const { state } of (await project.conversations?.list()) ?? []) {
 				if (state.status === "running" || state.status === "starting") {
 					working.push({
 						id: state.id,
-						name: state.name ?? state.lastTask ?? state.title ?? state.agent,
+						name: realName(state, lanes) ?? state.agent,
 					});
 				}
 			}
@@ -303,6 +305,7 @@ export class Restarts {
 	private async holding(): Promise<Held[]> {
 		const agents: { name: string; pid: number }[] = [];
 		for (const project of await this.opened()) {
+			const lanes = await project.lanes();
 			for (const each of (await project.conversations?.list()) ?? []) {
 				const { state, pid } = each;
 				if (
@@ -310,10 +313,7 @@ export class Restarts {
 					state.status !== "running" &&
 					state.status !== "starting"
 				) {
-					agents.push({
-						name: state.name ?? state.lastTask ?? state.title ?? state.agent,
-						pid,
-					});
+					agents.push({ name: realName(state, lanes) ?? state.agent, pid });
 				}
 			}
 		}
@@ -347,14 +347,15 @@ export class Restarts {
 		keep: (state: ConversationState) => boolean,
 	) {
 		const project = await this.home.served.served.get(root)?.catch(() => null);
+		const lanes = (await project?.lanes()) ?? [];
 		return ((await project?.conversations?.list()) ?? [])
 			.map(({ state }) => state)
 			.filter(keep)
-			.map(({ id, name, lastTask, title, agent, status, checkpoint }) => ({
-				id,
-				name: name ?? lastTask ?? title ?? agent,
-				status,
-				checkpoint,
+			.map((state) => ({
+				id: state.id,
+				name: realName(state, lanes) ?? state.agent,
+				status: state.status,
+				checkpoint: state.checkpoint,
 			}));
 	}
 
@@ -424,6 +425,7 @@ export class Restarts {
 	private async checkpointed(): Promise<Conversation[]> {
 		const all: Conversation[] = [];
 		for (const project of await this.opened()) {
+			const _lanes = await project.lanes();
 			for (const each of (await project.conversations?.list()) ?? []) {
 				if (each.state.checkpoint !== null) {
 					all.push(each);

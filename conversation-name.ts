@@ -3,24 +3,36 @@ import type { LaneRecord } from "./lanes";
 import { leadingDirectives, UNTRIAGED } from "./prompts";
 
 /**
- * What a conversation goes by: the name the person gave it, else the task its
- * agent holds, so it follows the agent from task to task, or held last, so a
- * finished task keeps its name until the agent takes another, else the lanes
- * it was started on, so an orchestrator's follows a lane's renames, else the
- * agent's title. Until it has one, a stand-in (see `unnamed`): the first line
- * of what the person first said, else "Not started".
+ * What a conversation goes by: its real name (see `realName`), else a
+ * stand-in until it has one: the first line of what the person first said,
+ * else "Not started".
  */
 export function nameOf(
 	conversation: ConversationState,
 	lanes: readonly LaneRecord[],
 ): string {
 	return (
+		realName(conversation, lanes) ?? openingOf(conversation) ?? "Not started"
+	);
+}
+
+/**
+ * The name a conversation has earned, or null: the name the person gave it,
+ * else the lanes it was started on, so an orchestrator's follows a lane's
+ * renames and keeps them through a todo it does itself, else the task its
+ * agent holds, so it follows the agent from task to task, or held last, so a
+ * finished task keeps its name until the agent takes another, else the
+ * agent's title.
+ */
+export function realName(
+	conversation: ConversationState,
+	lanes: readonly LaneRecord[],
+): string | null {
+	return (
 		conversation.name ??
-		conversation.lastTask ??
 		lanesNamed(conversation, lanes) ??
-		conversation.title ??
-		openingOf(conversation) ??
-		"Not started"
+		conversation.lastTask ??
+		conversation.title
 	);
 }
 
@@ -40,6 +52,19 @@ function lanesNamed(
 				`Lane ${argument}`),
 	);
 	return named.length === 0 ? null : named.join(", ");
+}
+
+/**
+ * Whether a conversation goes by the task its agent holds or held last, as
+ * `nameOf` names it.
+ */
+export function namedForTask(conversation: ConversationState): boolean {
+	return (
+		conversation.lastTask !== null &&
+		(conversation.name === null
+			? lanesOf(conversation).length === 0
+			: conversation.name === conversation.lastTask)
+	);
 }
 
 /** What each `[ARBOR LANE ...]` the person's first words start with names. */
