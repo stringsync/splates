@@ -142,6 +142,10 @@ describe("App on a touch device", () => {
 		);
 		expect(testing.posted("/api/conversations/c1/prompt")).toHaveLength(1);
 		expect(box.contains(document.activeElement)).toBe(false);
+
+		// Nor raises it again as the run the send started begins.
+		await act(async () => {});
+		expect(box.contains(document.activeElement)).toBe(false);
 	});
 
 	it("types a new line on Return, sending only on Send", async () => {

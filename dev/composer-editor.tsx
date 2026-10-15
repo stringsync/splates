@@ -13,7 +13,10 @@ import {
 	$isElementNode,
 	$isRangeSelection,
 	$isTextNode,
+	$setSelection,
 	COMMAND_PRIORITY_HIGH,
+	COMMAND_PRIORITY_LOW,
+	FOCUS_COMMAND,
 	getNearestEditorFromDOMNode,
 	type LexicalEditor,
 	type LexicalNode,
@@ -113,7 +116,8 @@ export function PasteFilesPlugin(): null {
  * read: the editor lets go of focus once its message is sent, and keeps it
  * off when the agent starts a run, where assistant-ui's focus would raise the
  * keyboard over the reply. A message being typed as the run starts keeps the
- * focus it has. Its run listener focuses as the run starts, so this one, made
+ * focus it has; the one just sent, still in the editor as its run starts, does
+ * not. Its run listener focuses as the run starts, so this one, made
  * in a layout effect to run ahead of it, notes whether the editor had focus,
  * and takes back the focus it gave before the page paints.
  */
@@ -121,23 +125,35 @@ export function KeyboardDownOnTouchPlugin(): null {
 	const [editor] = useLexicalComposerContext();
 	const aui = useAui();
 	useLayoutEffect(() => {
+		// The run a send starts can begin before the send's blur lands, the
+		// page showing the message at once, so it is not one being typed,
+		// until the person comes back to the editor.
+		let sending = false;
+		const back = editor.registerCommand(
+			FOCUS_COMMAND,
+			() => {
+				sending = false;
+				return false;
+			},
+			COMMAND_PRIORITY_LOW,
+		);
 		const sent = aui.on("composer.send", () => {
 			if (matchMedia(TOUCH).matches) {
-				queueMicrotask(() => editor.blur());
+				sending = true;
+				queueMicrotask(() => letGo(editor));
 			}
 		});
 		const started = aui.on("thread.runStart", () => {
 			const root = editor.getRootElement();
-			if (
-				!matchMedia(TOUCH).matches ||
-				root === null ||
-				root.contains(document.activeElement)
-			) {
+			const typing = !sending && root?.contains(document.activeElement);
+			sending = false;
+			if (!matchMedia(TOUCH).matches || root === null || typing) {
 				return;
 			}
-			queueMicrotask(() => editor.blur());
+			queueMicrotask(() => letGo(editor));
 		});
 		return () => {
+			back();
 			sent();
 			started();
 		};
@@ -198,6 +214,15 @@ function redrawCaret(root: HTMLElement): void {
 	const range = selection.getRangeAt(0);
 	selection.removeAllRanges();
 	selection.addRange(range);
+}
+/**
+ * Takes the focus off `editor`, and its selection with it: Lexical puts a
+ * selection it still holds back on the page at its next update, which would
+ * focus it again.
+ */
+function letGo(editor: LexicalEditor): void {
+	editor.update(() => $setSelection(null), { discrete: true });
+	editor.blur();
 }
 /**
  * Writes the chip of each attachment as it is attached, at the caret, once:

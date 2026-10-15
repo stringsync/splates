@@ -34,11 +34,13 @@ export function useThreadRuntime(
 	const restore = useRef<(text: string, files: File[]) => void>(() => {});
 	const send = useCallback(
 		async (text: string, files: File[]) => {
-			// The server says nothing of it until the agent is back up.
+			// Shown at once, with its reply's place, rather than once the server
+			// says it back: the round trip, slow over a tunnel and longer still
+			// while the agent comes back up, would leave the thread as it was,
+			// then jump. Mid-turn, only the server knows whether it joins the
+			// turn or waits for its end.
 			const sending =
-				status !== "idle" &&
-				status !== "running" &&
-				(text !== "" || files.length > 0)
+				status !== "running" && (text !== "" || files.length > 0)
 					? feed.send(id, noted(text, files), files)
 					: null;
 			await promptConversation(id, noted(text, files), files).catch(

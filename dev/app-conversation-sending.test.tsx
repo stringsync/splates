@@ -228,6 +228,40 @@ describe("App's sending messages", () => {
 		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
 	});
 
+	it("shows a message to an idle conversation at once, with its reply's place, rather than once the server says it back", async () => {
+		const said = [message("user", "fix the login"), message("agent", "Done.")];
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "idle", messages: said }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "and the logout");
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		// With its reply's place in the same step, so the thread anchors the
+		// message once, not again when the server's copy comes.
+		await waitFor(() =>
+			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		);
+		expect(
+			within(thread).getByRole("button", { name: "Stop generating" }),
+		).toBeTruthy();
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [...said, message("user", "and the logout")],
+			}),
+		);
+
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+		expect(
+			within(thread).getByRole("button", { name: "Stop generating" }),
+		).toBeTruthy();
+	});
+
 	it("marks a message the agent took into its running turn as steered", async () => {
 		const view = await testing.openConversations([
 			conversation({

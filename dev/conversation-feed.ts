@@ -122,9 +122,10 @@ export class ConversationFeed
 	}
 
 	/**
-	 * Shows `text` and `files` as said in conversation `id`, whose server holds it
-	 * unrecorded until the agent is up, starting or resuming, so the thread
-	 * does not sit as it was meanwhile. The first held there starts a turn and
+	 * Shows `text` and `files` as said in conversation `id` before its server
+	 * records them, which waits on the way there and, while the agent starts
+	 * or resumes, until it is up, so the thread does not sit as it was
+	 * meanwhile. The first held there starts a turn and
 	 * the rest wait for its end, so they show as queued, as the server will
 	 * record them. Each goes once the server has recorded as many more
 	 * messages from the person there, or `sent` says it was refused. The

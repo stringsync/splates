@@ -90,8 +90,9 @@ describe("App's composer drafts", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
 			{ method: "POST", body: { text: "keep [ARBOR TODO #12] small" } },
 		]);
+		// Out of the composer; the thread shows it in the message sent.
 		await waitFor(() =>
-			expect(view.queryByTitle("[ARBOR TODO #12]")).toBeNull(),
+			expect(within(box(view)).queryByTitle("[ARBOR TODO #12]")).toBeNull(),
 		);
 		expect(localStorage.getItem("arbor.draft.c1") ?? "").toBe("");
 	});
