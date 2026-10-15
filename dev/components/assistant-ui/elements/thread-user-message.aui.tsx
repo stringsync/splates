@@ -12,13 +12,11 @@ import { CheckIcon, CopyIcon, CornerDownRightIcon } from "lucide-react";
 import {
 	type FC,
 	type PropsWithChildren,
-	type ReactNode,
 	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
-import { linkAttachments, shelfOf } from "#dev/attachment-chips.tsx";
-import { SentTile } from "#dev/components/assistant-ui/elements/attachment-thumb.tsx";
+import { linkAttachments } from "#dev/attachment-chips.tsx";
 import { MarkdownText } from "#dev/components/assistant-ui/elements/markdown-text.tsx";
 import {
 	useAnchorAtOnce,
@@ -32,7 +30,12 @@ import {
 	soleDirective,
 } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import { GROUP } from "#dev/lightbox.tsx";
+import {
+	type Sent,
+	SentAttachmentChip,
+	SentAttachments,
+	unnamed,
+} from "#dev/sent-attachments.tsx";
 import { leadingDirectives } from "../../../../prompts";
 
 /**
@@ -58,29 +61,45 @@ const unstuckTop = (element: HTMLDivElement | null) => {
 };
 /**
  * What the person typed, as markdown with each line break kept, each todo it
- * mentions a link to it, each system and file a chip, and its directives as
- * the chips the composer showed them as: those it starts with in a row above
- * its words, the rest where they stand.
+ * mentions a link to it, each system and file a chip, and the directives and
+ * attachments after those `Leading` shows as chips where they stand.
  */
 const UserText: TextMessagePartComponent = ({ text }) => {
+	const { rest } = leadingDirectives(text);
+	return rest === "" ? null : <MarkdownText typed={afterDirectives} />;
+};
+/**
+ * The chips a message starts with, in a row above its words as the composer
+ * showed them: the directives its words start with, and each attachment its
+ * words never name.
+ */
+const Leading: FC<{ text: string; sent: readonly Sent[] }> = ({
+	text,
+	sent,
+}) => {
 	const { directives, rest } = leadingDirectives(text);
+	const loose = unnamed(sent, text);
+	if (directives.length + loose.length === 0) {
+		return null;
+	}
 	return (
-		<>
-			{directives.length > 0 && (
-				<span
-					data-slot="aui_user-message-directives"
-					className={cn(
-						"aui-user-message-directives flex flex-wrap gap-2",
-						rest !== "" && "pb-2",
-					)}
-				>
-					{directives.map((directive) => (
-						<DirectiveChip key={directive} directive={directive} opens />
-					))}
-				</span>
+		<span
+			data-slot="aui_user-message-directives"
+			className={cn(
+				"aui-user-message-directives flex flex-wrap gap-2",
+				rest !== "" && "pb-2",
 			)}
-			{rest !== "" && <MarkdownText typed={afterDirectives} />}
-		</>
+		>
+			{directives.map((directive) => (
+				<DirectiveChip key={directive} directive={directive} opens />
+			))}
+			{loose.map((placed) => (
+				<SentAttachmentChip
+					key={`${placed.shelf} ${placed.at}`}
+					placed={placed}
+				/>
+			))}
+		</span>
 	);
 };
 /**
@@ -101,7 +120,13 @@ export const UserMessage: FC = () => {
 			? soleDirective(only.text)
 			: null;
 	});
-	if (sole !== null && (attachments ?? []).length === 0) {
+	const text = useAuiState((s) =>
+		s.message.parts
+			.flatMap((part) => (part.type === "text" ? [part.text] : []))
+			.join("\n"),
+	);
+	const sent = sentOf(attachments);
+	if (sole !== null && sent.length === 0) {
 		// A card, with nothing to stick atop its turn: what it asked is said once.
 		return (
 			<MessagePrimitive.Root
@@ -139,14 +164,13 @@ export const UserMessage: FC = () => {
 			data-sticks
 		>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
-				<Clamped
-					watch={id}
-					head={<SentTiles attachments={attachments} />}
-					files={(attachments ?? []).length > 0}
-				>
-					{/* Only words: the images it carries are attachments, shown as
-					the tiles above. */}
-					<MessagePrimitive.Parts components={{ Text: UserText }} />
+				<Clamped watch={id}>
+					{/* Only words: the files it carries are attachments, shown as
+					their chips. */}
+					<SentAttachments value={sent}>
+						<Leading text={text} sent={sent} />
+						<MessagePrimitive.Parts components={{ Text: UserText }} />
+					</SentAttachments>
 				</Clamped>
 				<UserCopy />
 			</div>
@@ -162,55 +186,24 @@ export const UserMessage: FC = () => {
 		</MessagePrimitive.Root>
 	);
 };
-/**
- * The files a message holds, at its start as the composer shows them, each
- * opening full size; nothing for a message without any.
- */
-const SentTiles: FC<{
-	attachments: readonly CompleteAttachment[] | undefined;
-}> = ({ attachments = [] }) => {
-	const sent = attachments.flatMap((attachment) =>
+/** The files a message holds, where the page loads each from. */
+const sentOf = (
+	attachments: readonly CompleteAttachment[] | undefined = [],
+): Sent[] =>
+	attachments.flatMap((attachment) =>
 		(attachment.content ?? []).flatMap((part) =>
 			part.type === "image" || part.type === "file"
 				? [
 						{
-							...attachment,
 							src: part.type === "image" ? part.image : part.data,
+							name: attachment.name,
+							type: attachment.type,
+							contentType: attachment.contentType,
 						},
 					]
 				: [],
 		),
 	);
-	if (sent.length === 0) {
-		return null;
-	}
-	return (
-		<div
-			data-slot="aui_user-message-images"
-			// The lightbox steps through the images and recordings of one message.
-			{...{ [GROUP]: "" }}
-			// A tile opens the file, rather than the message it sits in.
-			onClick={(event) => event.stopPropagation()}
-			onKeyDown={(event) => event.stopPropagation()}
-			className="flex flex-wrap gap-2 pb-2"
-		>
-			{sent.map((each) => (
-				<SentTile
-					key={each.src}
-					src={each.src}
-					name={each.name}
-					type={each.type}
-					contentType={each.contentType}
-					// Its images come first, then its other files, each in the
-					// order the agent is sent them.
-					place={sent
-						.filter((other) => shelfOf(other.type) === shelfOf(each.type))
-						.indexOf(each)}
-				/>
-			))}
-		</div>
-	);
-};
 /**
  * Copies what the person said, from the message's top corner: there only
  * while the message is hovered or the button has focus, and a check once it
@@ -254,11 +247,6 @@ const USER_BOX =
 const CLAMP =
 	"max-h-24 max-sm:max-h-[1lh] max-sm:leading-relaxed max-sm:has-[.aui-user-message-directives]:max-h-7";
 /**
- * How much of a message with files is shown before it is clicked open: its
- * row of tiles on a phone, and a line or two under it on a wider screen.
- */
-const CLAMP_WITH_FILES = "max-h-32 max-sm:max-h-14";
-/**
  * Where a cut message fades: its last lines on a wider screen. On a phone its
  * one line ends in an ellipsis instead (`CUT_LINE`), since a fade at its end
  * reads as a shadow over the copy button.
@@ -268,20 +256,16 @@ const CUT_FADE =
 /** A message cut to one line on a phone, ending in an ellipsis. */
 const CUT_LINE = "max-sm:line-clamp-1";
 /**
- * A message cut to four lines, or to its files and a line or two (one line,
- * or its files alone, on a phone), fading out where it is cut, and opened or
- * closed again by a click (or Enter) when there is more than fits.
+ * A message cut to four lines (one on a phone), fading out where it is cut,
+ * and opened or closed again by a click (or Enter) when there is more than
+ * fits.
  */
 const Clamped: FC<
 	PropsWithChildren<{
 		/** Changes when the words do, to measure them again. */
 		watch: string;
-		/** Above the words, and cut with them: the files the message holds. */
-		head?: ReactNode;
-		/** Whether there are files above the words, which take more room. */
-		files: boolean;
 	}>
-> = ({ watch, head, files, children }) => {
+> = ({ watch, children }) => {
 	const text = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
 	const [more, setMore] = useState(false);
@@ -328,17 +312,14 @@ const Clamped: FC<
 			<div
 				ref={text}
 				className={cn(
-					// The files are cut with the words, so a message stuck atop the
-					// thread is no taller for holding them.
-					!open && [files ? CLAMP_WITH_FILES : CLAMP, "overflow-hidden"],
+					!open && [CLAMP, "overflow-hidden"],
 					// Open, it still sticks atop the thread, so it scrolls past half
 					// the screen rather than hide the reply.
 					open && "max-h-[50dvh] overflow-y-auto",
 					!open && more && CUT_FADE,
-					!open && !files && CUT_LINE,
+					!open && CUT_LINE,
 				)}
 			>
-				{head}
 				{children}
 			</div>
 		</div>

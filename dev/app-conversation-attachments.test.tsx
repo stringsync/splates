@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import type { ConversationState } from "../conversations";
 import {
 	act,
 	cleanup,
@@ -12,47 +13,72 @@ import {
 	within,
 } from "./testing";
 
+/** A part of a message as the server keeps it. */
+type Part = ConversationState["messages"][number]["parts"][number];
+
 describe("App's attachments", () => {
 	let testing: Testing;
+	/** Where each new tab the page opened was opened to. */
+	let opened: (string | URL | undefined)[];
+	let open: { mockRestore(): void };
 
 	beforeEach(() => {
 		testing = new Testing();
+		opened = [];
+		// A new tab is outside the page.
+		// scry-ignore fakes-over-mocks
+		open = spyOn(window, "open").mockImplementation((url) => {
+			opened.push(url);
+			return null;
+		});
 	});
 
 	afterEach(() => {
+		open.mockRestore();
 		cleanup();
 		testing.dispose();
 	});
 
-	it("sends an image pasted into the composer, and shows the images the person sent on their message", async () => {
+	/** The page open on a conversation whose one message says `text` and carries `files`. */
+	const openSent = async (text: string, files: Part[]) => {
 		const view = await testing.openConversations([
 			conversation({
 				title: "Look",
 				messages: [
 					{
-						...message("user", "this one"),
-						parts: [
-							{ type: "image", name: "ab12.png", mimeType: "image/png" },
-							{ type: "text", text: "this one" },
-						],
+						...message("user", text),
+						parts: [...files, { type: "text", text }],
 					},
 				],
 			}),
 		]);
-		const thread = view.getByRole("region", { name: "Look" });
-		// In the message's box, ahead of its words, as the composer holds it.
-		await waitFor(() =>
-			expect(
-				within(thread)
-					.getByRole("button", { name: "Preview ab12.png" })
-					.closest(".aui-user-message-content")
-					?.textContent?.endsWith("this one"),
-			).toBe(true),
+		return { view, thread: view.getByRole("region", { name: "Look" }) };
+	};
+
+	/** The page open on a conversation with nothing said yet, and its composer. */
+	const openEmpty = async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Look" }),
+		]);
+		return { view, box: view.getByRole("textbox", { name: "Message input" }) };
+	};
+
+	it("sends an image pasted into the composer, and shows the images the person sent on their message as chips", async () => {
+		const { view, thread } = await openSent("this one", [
+			{ type: "image", name: "ab12.png", mimeType: "image/png" },
+		]);
+		// In the message's box, ahead of its words, its chip and not the image.
+		const chip = await waitFor(() =>
+			within(thread).getByRole("button", { name: "Image 1" }),
 		);
+		expect(chip.closest(".aui-user-message-content")?.textContent).toBe(
+			"Image 1this one",
+		);
+		expect(thread.querySelector("img")).toBeNull();
+		await act(async () => fireEvent.click(chip));
+		expect(view.getByRole("menuitem", { name: "Mark up" })).toBeTruthy();
 		await act(async () =>
-			fireEvent.click(
-				within(thread).getByRole("button", { name: "Preview ab12.png" }),
-			),
+			fireEvent.click(view.getByRole("menuitem", { name: "View" })),
 		);
 		const lightbox = await waitFor(() =>
 			view.getByRole("dialog", { name: "ab12.png" }),
@@ -64,9 +90,7 @@ describe("App's attachments", () => {
 		const box = view.getByRole("textbox", { name: "Message input" });
 
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
-		await act(async () =>
-			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
-		);
+		await paste(box, [shot]);
 		await typeIn(box, "and this");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
@@ -77,38 +101,24 @@ describe("App's attachments", () => {
 		);
 	});
 
-	it("attaches any file with ⌥⌘;, plays a recording the person sent, and links any other file", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				title: "Look",
-				messages: [
-					{
-						...message("user", "these"),
-						parts: [
-							{
-								type: "file",
-								name: "ab12.mp4",
-								title: "bug.mp4",
-								mimeType: "video/mp4",
-							},
-							{
-								type: "file",
-								name: "cd34.pdf",
-								title: "spec.pdf",
-								mimeType: "application/pdf",
-							},
-							{ type: "text", text: "these" },
-						],
-					},
-				],
-			}),
+	it("attaches any file with ⌥⌘;, plays a recording the person sent, and opens any other file where it is kept", async () => {
+		const { view, thread } = await openSent("these", [
+			{
+				type: "file",
+				name: "ab12.mp4",
+				title: "bug.mp4",
+				mimeType: "video/mp4",
+			},
+			{
+				type: "file",
+				name: "cd34.pdf",
+				title: "spec.pdf",
+				mimeType: "application/pdf",
+			},
 		]);
-		const thread = view.getByRole("region", { name: "Look" });
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					within(thread).getByRole("button", { name: "Preview bug.mp4" }),
-				),
+		await viewFrom(
+			await waitFor(() =>
+				within(thread).getByRole("button", { name: "File 1" }),
 			),
 		);
 		const lightbox = await waitFor(() =>
@@ -118,11 +128,10 @@ describe("App's attachments", () => {
 		await act(async () =>
 			fireEvent.click(within(lightbox).getByRole("button", { name: "close" })),
 		);
-		expect(
-			within(thread)
-				.getByRole("link", { name: "spec.pdf" })
-				.getAttribute("href"),
-		).toContain("/api/conversations/c1/attachments/cd34.pdf");
+		await viewFrom(within(thread).getByRole("button", { name: "File 2" }));
+		expect(String(opened[0])).toContain(
+			"/api/conversations/c1/attachments/cd34.pdf",
+		);
 
 		const picked: HTMLInputElement[] = [];
 		// The picker is an input outside the page, which no listener sees clicked.
@@ -163,24 +172,14 @@ describe("App's attachments", () => {
 	});
 
 	it("names each file attached in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes from its chip's menu", async () => {
-		const view = await testing.openConversations([
-			conversation({ id: "c1", title: "Look" }),
-		]);
-		const box = view.getByRole("textbox", { name: "Message input" });
-		const png = (name: string) => new File([name], name, { type: "image/png" });
-		const [first, csv, second, json, third] = [
-			png("a.png"),
-			new File(["x,y"], "notes.csv", { type: "text/csv" }),
-			png("b.png"),
-			new File(["{}"], "data.json", { type: "application/json" }),
-			png("c.png"),
-		];
+		const { view, box } = await openEmpty();
+		const first = new File(["a"], "a.png", { type: "image/png" });
+		const csv = new File(["x,y"], "notes.csv", { type: "text/csv" });
+		const second = new File(["b"], "b.png", { type: "image/png" });
+		const json = new File(["{}"], "data.json", { type: "application/json" });
+		const third = new File(["c"], "c.png", { type: "image/png" });
 		await typeIn(box, "compare");
-		await act(async () =>
-			fireEvent.paste(box, {
-				clipboardData: { files: [first, csv, second, json, third] },
-			}),
-		);
+		await paste(box, [first, csv, second, json, third]);
 
 		await waitFor(() =>
 			expect(textIn(box)).toBe(
@@ -227,14 +226,9 @@ describe("App's attachments", () => {
 	});
 
 	it("views an image attached from its chip's menu, and marks it up from there or from the lightbox", async () => {
-		const view = await testing.openConversations([
-			conversation({ id: "c1", title: "Look" }),
-		]);
-		const box = view.getByRole("textbox", { name: "Message input" });
+		const { view, box } = await openEmpty();
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
-		await act(async () =>
-			fireEvent.paste(box, { clipboardData: { files: [shot] } }),
-		);
+		await paste(box, [shot]);
 		const chip = await waitFor(() =>
 			within(box).getByRole("button", { name: "Image 1" }),
 		);
@@ -256,67 +250,63 @@ describe("App's attachments", () => {
 		).toBeTruthy();
 	});
 
-	it("draws the images a sent message names as chips that open them", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				title: "Look",
-				messages: [
-					{
-						...message("user", "see [Image 1]"),
-						parts: [
-							{ type: "image", name: "ab12.png", mimeType: "image/png" },
-							{ type: "text", text: "see [Image 1]" },
-						],
-					},
-				],
-			}),
+	it("draws the images a sent message names as chips that view them", async () => {
+		const { view, thread } = await openSent("see [Image 1]", [
+			{ type: "image", name: "ab12.png", mimeType: "image/png" },
 		]);
-		const thread = view.getByRole("region", { name: "Look" });
 
-		const chip = await waitFor(() =>
-			within(thread).getByRole("button", { name: "Image 1" }),
+		await viewFrom(
+			await waitFor(() =>
+				within(thread).getByRole("button", { name: "Image 1" }),
+			),
 		);
-		await act(async () => fireEvent.click(chip));
 
 		await waitFor(() =>
 			expect(view.getByRole("dialog", { name: "ab12.png" })).toBeTruthy(),
 		);
 	});
 
-	it("draws the other files a sent message names as chips on the tiles they open", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				title: "Look",
-				messages: [
-					{
-						...message("user", "see [File 1]"),
-						parts: [
-							{
-								type: "file",
-								name: "cd34.csv",
-								title: "notes.csv",
-								mimeType: "text/csv",
-							},
-							{ type: "text", text: "see [File 1]" },
-						],
-					},
-				],
-			}),
+	it("draws the other files a sent message names as chips that open them where they are kept", async () => {
+		const { view, thread } = await openSent("see [File 1]", [
+			{
+				type: "file",
+				name: "cd34.csv",
+				title: "notes.csv",
+				mimeType: "text/csv",
+			},
 		]);
-		const thread = view.getByRole("region", { name: "Look" });
 
 		const chip = await waitFor(() =>
 			within(thread).getByRole("button", { name: "File 1" }),
 		);
-		const tile = thread.querySelector('[data-attachment="File 1"]');
-		expect(tile?.textContent).toBe("notes.csv");
-		let opened = 0;
-		tile?.addEventListener("click", (event) => {
-			event.preventDefault();
-			opened++;
-		});
+		// Named where it stands, and not again in a row above the words.
+		expect(
+			within(thread).getAllByRole("button", { name: "File 1" }),
+		).toHaveLength(1);
+		expect(chip.getAttribute("title")).toBe("notes.csv");
 		await act(async () => fireEvent.click(chip));
+		expect(view.queryByRole("menuitem", { name: "Mark up" })).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("menuitem", { name: "View" })),
+		);
 
-		expect(opened).toBe(1);
+		expect(String(opened[0])).toContain(
+			"/api/conversations/c1/attachments/cd34.csv",
+		);
 	});
 });
+
+/** Views the attachment `chip` names, from its menu. */
+async function viewFrom(chip: HTMLElement): Promise<void> {
+	await act(async () => fireEvent.click(chip));
+	await act(async () =>
+		fireEvent.click(
+			within(document.body).getByRole("menuitem", { name: "View" }),
+		),
+	);
+}
+
+/** Pastes `files` into the composer `box`. */
+async function paste(box: HTMLElement, files: File[]): Promise<void> {
+	await act(async () => fireEvent.paste(box, { clipboardData: { files } }));
+}

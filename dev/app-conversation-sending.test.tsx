@@ -123,8 +123,10 @@ describe("App's sending messages", () => {
 		);
 		await waitFor(() =>
 			expect(
-				within(thread).getByRole("button", { name: "Preview shot.png" }),
-			).toBeTruthy(),
+				within(thread)
+					.getByRole("button", { name: "Image 1" })
+					.getAttribute("title"),
+			).toBe("shot.png"),
 		);
 
 		await testing.say(
@@ -142,12 +144,11 @@ describe("App's sending messages", () => {
 
 		await waitFor(() =>
 			expect(
-				within(thread).getByRole("button", { name: "Preview ab12.png" }),
-			).toBeTruthy(),
+				within(thread)
+					.getByRole("button", { name: "Image 1" })
+					.getAttribute("title"),
+			).toBe("ab12.png"),
 		);
-		expect(
-			within(thread).queryByRole("button", { name: "Preview shot.png" }),
-		).toBeNull();
 	});
 
 	it("shows a message to a stopped conversation in its thread while its agent resumes, then as the server has it", async () => {

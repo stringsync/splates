@@ -1,6 +1,5 @@
 import { FileIcon, ImageIcon } from "lucide-react";
 import { createContext, type JSX } from "react";
-import { cn } from "#dev/lib/utils.ts";
 import { outsideCode } from "./markdown";
 
 /**
@@ -103,41 +102,6 @@ export function attachmentIn(href: string | undefined): Placed | null {
 		: { shelf: link[1] as Shelf, at: Number(link[2]) };
 }
 
-/**
- * Marks an attachment's tile with its name, which its tooltip shows, for a
- * sent message's chips to open it by.
- */
-export const TILE = "data-attachment";
-
-/**
- * An attachment named in a line, as the composer and a sent message draw it.
- * Given `opens`, a tap opens the attachment it names in its message.
- */
-export function AttachmentChip({
-	shelf,
-	at,
-	opens = false,
-}: Placed & { opens?: boolean }): JSX.Element {
-	const name = attachmentName(shelf, at - 1);
-	const inside = <ChipFace shelf={shelf} at={at} />;
-	if (!opens) {
-		return <span className={ATTACHMENT_CHIP}>{inside}</span>;
-	}
-	return (
-		<button
-			type="button"
-			onClick={(event) => {
-				// Opens the image, rather than the message it sits in.
-				event.stopPropagation();
-				tileOf(event.currentTarget, name)?.click();
-			}}
-			className={cn(ATTACHMENT_CHIP, "cursor-pointer hover:bg-muted")}
-		>
-			{inside}
-		</button>
-	);
-}
-
 /** What an attachment's chip shows: its kind's icon, and its name. */
 export function ChipFace({ shelf, at }: Placed): JSX.Element {
 	const Icon = shelf === "image" ? ImageIcon : FileIcon;
@@ -151,9 +115,3 @@ export function ChipFace({ shelf, at }: Placed): JSX.Element {
 
 export const ATTACHMENT_CHIP =
 	"inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 align-middle font-medium text-foreground/90 text-xs";
-
-/** The tile of the attachment called `name` in the message `chip` sits in. */
-function tileOf(chip: HTMLElement, name: string): HTMLElement | null {
-	const message = chip.closest('[data-role="user"]');
-	return message?.querySelector<HTMLElement>(`[${TILE}="${name}"]`) ?? null;
-}

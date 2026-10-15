@@ -61,6 +61,8 @@ export function gallery(from: Element): Shown[] {
  */
 export function useLightbox(markUp?: (image: Shown) => Promise<void>): {
 	open: (from: Element) => void;
+	/** Shows `items[at]`, stepping through `items`. */
+	show: (items: Shown[], at: number) => void;
 	lightbox: JSX.Element;
 } {
 	const [items, setItems] = useState<Shown[]>([]);
@@ -78,8 +80,13 @@ export function useLightbox(markUp?: (image: Shown) => Promise<void>): {
 			),
 		);
 	};
+	const show = (items: Shown[], at: number) => {
+		setItems(items);
+		setIndex(at);
+	};
 	return {
 		open,
+		show,
 		lightbox: (
 			<Lightbox
 				items={items}
@@ -115,29 +122,16 @@ export function Lightbox({
 }): JSX.Element {
 	const popup = useRef<HTMLDivElement>(null);
 	const shown = index === null ? undefined : items[index];
-	const composer = useContext(Composing);
-	const annotator = useAnnotate();
-	// In a conversation, an image in it can go back to the agent, marked up
-	// or as it is, in the composer.
+	const sendBack = useSendBack();
 	const markable =
-		(composer !== null || markUpThere !== undefined) &&
+		(sendBack.markUp !== null || markUpThere !== undefined) &&
 		shown !== undefined &&
 		!shown.video &&
 		!SVG.test(nameOf(shown));
 	const markUp = async (image: Shown) => {
-		if (markUpThere !== undefined) {
-			onClose();
-			await markUpThere(image);
-			return;
-		}
-		const response = await fetch(image.url);
-		const blob = await response.blob();
 		// Out of the way first: the annotator takes the whole window itself.
 		onClose();
-		const marked = await annotator.open(
-			new File([blob], nameOf(image), { type: blob.type }),
-		);
-		await composer?.addAttachment(marked);
+		await (markUpThere ?? sendBack.markUp)?.(image);
 	};
 	const many = items.length > 1;
 	const step = (by: number) => {
@@ -286,9 +280,34 @@ export function Lightbox({
 					</DialogPrimitive.Popup>
 				</DialogPrimitive.Portal>
 			</DialogPrimitive.Root>
-			{annotator.annotate}
+			{sendBack.annotate}
 		</>
 	);
+}
+
+/**
+ * Marks up an image in a conversation and adds it to the composer, to go back
+ * to the agent; `markUp` is null where no conversation is open. Render
+ * `annotate` beside whatever calls it.
+ */
+export function useSendBack(): {
+	markUp: ((image: Shown) => Promise<void>) | null;
+	annotate: JSX.Element;
+} {
+	const composer = useContext(Composing);
+	const annotator = useAnnotate();
+	const markUp = async (image: Shown) => {
+		const response = await fetch(image.url);
+		const blob = await response.blob();
+		const marked = await annotator.open(
+			new File([blob], nameOf(image), { type: blob.type }),
+		);
+		await composer?.addAttachment(marked);
+	};
+	return {
+		markUp: composer === null ? null : markUp,
+		annotate: annotator.annotate,
+	};
 }
 
 /**

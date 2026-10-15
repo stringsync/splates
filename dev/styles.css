@@ -98,6 +98,7 @@
 @source "./refusal.tsx";
 @source "./release.tsx";
 @source "./search-dialog.tsx";
+@source "./sent-attachments.tsx";
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";
 @source "./stats.tsx";
