@@ -634,6 +634,21 @@ needs from the user (a review, a decision, access, a test only they can run).
 Keep the title to about eight words, lowercase after the colon, with no ending
 punctuation.
 
+The sentence names the one change the user will notice, not each part of it:
+status codes, errors thrown and the rest are the diff's. Count its words
+before you send it, and at 25 or more, cut it rather than split it in two.
+Not this, at 27 words:
+
+```markdown
+When the server rejects an upload as too big (413), the client now stops retrying, tells the user the file is too big, and throws an error.
+```
+
+But this, at 15:
+
+```markdown
+An upload the server refuses as too big now stops and tells the user why.
+```
+
 Then stop, but for a `- ` line, at most three, on anything the user must act
 on or would be caught out without: a restart to pick the change up, a file
 resolved in a conflict after their review, a todo gone stale. Leave out what
