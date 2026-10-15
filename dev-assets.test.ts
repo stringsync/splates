@@ -19,8 +19,10 @@ describe("dev's static files", () => {
 			const paths = [
 				"/",
 				"/main.js",
+				"/main.js.map",
 				"/styles.css",
 				"/worker.js",
+				"/worker.js.map",
 				"/manifest.webmanifest",
 				"/icon-192.png",
 				"/icon-512.png",
@@ -34,6 +36,29 @@ describe("dev's static files", () => {
 			expect(
 				responses.map((response) => response.headers.get("cache-control")),
 			).toEqual(paths.map(() => "no-cache"));
+		});
+	});
+
+	it("serves each script's source map where the script says it is", async () => {
+		await add(deps, "alpha");
+
+		await serving(deps, async (_snapshot, port) => {
+			const map = async (path: string) => {
+				const script = await fetch(`http://localhost:${port}${path}`);
+				const link = (await script.text()).match(
+					/\/\/# sourceMappingURL=(\S+)\s*$/,
+				)?.[1];
+				const response = await fetch(new URL(link ?? "", script.url));
+				return {
+					status: response.status,
+					version: (await response.json()).version,
+				};
+			};
+
+			expect(await Promise.all(["/main.js", "/worker.js"].map(map))).toEqual([
+				{ status: 200, version: 3 },
+				{ status: 200, version: 3 },
+			]);
 		});
 	});
 

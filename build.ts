@@ -26,9 +26,9 @@ const ICON_SIZES = [192, 512] as const;
 
 /**
  * A browser script, as one file with what it imports in it: the page's, with
- * React and its modules, or the service worker's.
+ * React and its modules, or the service worker's. Its source map comes with it.
  */
-async function script(entry: string): Promise<string> {
+async function script(entry: string): Promise<{ code: string; map: string }> {
 	const built = await Bun.build({
 		entrypoints: [`${here}/dev/${entry}`],
 		target: "browser",
@@ -36,16 +36,21 @@ async function script(entry: string): Promise<string> {
 		// size, slower, and asks the person on the page to install DevTools.
 		define: { "process.env.NODE_ENV": '"production"' },
 		minify: true,
+		// A map beside the script, so DevTools shows the original source, names
+		// and lines intact. Linked rather than inline, since only DevTools asks
+		// for it: inline, every page load would carry the map's ~12 MB.
+		sourcemap: "linked",
 		// Left to throw, a failure arrives as an AggregateError that says only
 		// "Bundle failed": which import went missing is in the logs, and whoever
 		// is reading the terminal needs that to know it is their install.
 		throw: false,
 	});
-	const [output] = built.outputs;
-	if (output === undefined) {
+	const output = built.outputs.find(({ kind }) => kind === "entry-point");
+	const map = built.outputs.find(({ kind }) => kind === "sourcemap");
+	if (output === undefined || map === undefined) {
 		throw new Error(built.logs.map(String).join("\n"));
 	}
-	return output.text();
+	return { code: await output.text(), map: await map.text() };
 }
 
 /**
@@ -109,8 +114,14 @@ await Bun.write(
 	`${out}/shell.txt`,
 	await Bun.file(`${here}/dev/index.html`).text(),
 );
-await Bun.write(`${out}/main.txt`, await script("main.tsx"));
-await Bun.write(`${out}/worker.txt`, await script("worker.ts"));
+for (const [name, entry] of [
+	["main", "main.tsx"],
+	["worker", "worker.ts"],
+] as const) {
+	const { code, map } = await script(entry);
+	await Bun.write(`${out}/${name}.txt`, code);
+	await Bun.write(`${out}/${name}.map.txt`, map);
+}
 await Bun.write(`${out}/styles.txt`, await styles());
 await Bun.write(
 	`${out}/manifest.txt`,
