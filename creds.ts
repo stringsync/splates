@@ -122,7 +122,8 @@ export class Creds {
 	/**
 	 * Asks a person for `name`, saying what for, kept in `scope`'s store once they save it.
 	 * Asks nothing, returning null, when that store already keeps it, unless
-	 * `replace` says the value kept there does not work.
+	 * `replace` says the value kept there does not work, and then a purpose or
+	 * instructions left off are those of the last request for `name`.
 	 */
 	async request(
 		name: string,
@@ -141,6 +142,13 @@ export class Creds {
 		},
 	): Promise<CredRequest | null> {
 		usable(name);
+		if (replace && (purpose.trim() === "" || instructions.trim() === "")) {
+			const { requests } = await this.read();
+			const last = requests.find((each) => each.name === name);
+			purpose = purpose.trim() === "" ? (last?.purpose ?? "") : purpose;
+			instructions =
+				instructions.trim() === "" ? (last?.instructions ?? "") : instructions;
+		}
 		if (purpose.trim() === "") {
 			fail(
 				"usage",

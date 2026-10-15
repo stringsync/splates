@@ -41,7 +41,7 @@ arborCreds
 	.option("replace", z.boolean(), {
 		default: false,
 		description:
-			"ask again although one is kept, since the kept one does not work",
+			"ask again although one is kept, since the kept one does not work; --purpose and --instructions left off are those of the last request",
 	})
 	.action(async (opts, ctx) => {
 		const scope = opts.device ? "device" : "project";

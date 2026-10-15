@@ -53,6 +53,27 @@ describe("creds", () => {
 		).toMatchObject({ status: "open" });
 	});
 
+	it("replaces with the last request's purpose and instructions when left off", async () => {
+		const ask = {
+			scope: "project" as const,
+			purpose: WHY,
+			instructions: HOW,
+			task: null,
+		};
+		await deps.creds.request("API_TOKEN", ask);
+		await deps.projectStore.set("API_TOKEN", "old");
+
+		expect(
+			await deps.creds.request("API_TOKEN", {
+				scope: "project",
+				purpose: "",
+				instructions: "",
+				task: null,
+				replace: true,
+			}),
+		).toMatchObject({ purpose: WHY, instructions: HOW, status: "open" });
+	});
+
 	it("refuses a request that says nothing of what it is for", async () => {
 		await expect(
 			deps.creds.request("API_TOKEN", {
