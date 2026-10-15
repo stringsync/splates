@@ -307,7 +307,7 @@ export const ReviewUI = makeAssistantDataUI<{ review: Review }>({
 });
 
 /** The review of the message it is in, kept as a draft under that message. */
-function MessageReview({ review }: { review: Review }): JSX.Element {
+export function MessageReview({ review }: { review: Review }): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
 	return (
 		<Sheeted title="Ready to merge" Icon={GitMergeIcon} tone="success">

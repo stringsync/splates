@@ -1,8 +1,9 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Lock } from "webappwiz/system";
+import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
+import { PLAN_FILE, questions, ready, unfinished, whatIsLeft } from "./plan";
 import type { Escalation } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -39,7 +40,7 @@ export async function escalate(
 	reason: string,
 	cwd: string,
 	{ task, review = false }: EscalateOptions = {},
-): Promise<void> {
+): Promise<Facts["escalate"]> {
 	const branch = await git.currentBranch(cwd);
 	const name = task || service.taskFor(branch);
 	if (!name) {
@@ -53,11 +54,10 @@ export async function escalate(
 		fail("not_found", `no state file for '${name}'`, { task: name });
 	}
 
+	const plan = await fs.read(`${found.path}/${PLAN_FILE}`).catch(() => "");
 	if (review) {
 		// A review is the one thing left: approve it and the task lands.
-		const left = unfinished(
-			await fs.read(`${found.path}/${PLAN_FILE}`).catch(() => ""),
-		);
+		const left = unfinished(plan);
 		if (!ready(left)) {
 			fail(
 				"blocked",
@@ -99,4 +99,10 @@ export async function escalate(
 			.filter(Boolean)
 			.join("\n"),
 	);
+	return {
+		about: reason,
+		review,
+		base: worktree.base,
+		questions: questions(plan).filter((asked) => !asked.done),
+	};
 }

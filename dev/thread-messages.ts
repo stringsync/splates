@@ -1,11 +1,13 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import { useEffect, useMemo, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
-import { type Report, stretches } from "../asked";
+import { type Report, type Review, stretches } from "../asked";
 import type { ConversationState, Message, Part } from "../conversations";
-import type { Event } from "../events";
+import { type Event, isEscalation } from "../events";
 import { conversationAttachment } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
+import type { Written } from "./escalation-card";
+import type { QuestionsData } from "./question-cards";
 import type { Turn } from "./report-cards";
 import { replyDue, stretchesOf } from "./work";
 
@@ -109,6 +111,8 @@ export function useThreadMessages(
 				(part) =>
 					part.type === "data-questions" ||
 					part.type === "data-review" ||
+					(part.type === "data-event" &&
+						isEscalation((part.data as { event: Event }).event)) ||
 					(part.type === "data-report" &&
 						(part.data as { report: Report }).report.ending === "escalated"),
 			));
@@ -191,35 +195,37 @@ export function like(
 			custom: { at: settled ? (message.until ?? message.at) : null },
 		},
 		content: [
-			...all.flatMap((stretch, at): LikePart[] =>
-				stretch.type === "work"
-					? [{ type: "data-work", data: { work: stretch.work } }]
-					: stretch.type === "event"
-						? [
-								{
-									type: "data-event",
-									data: {
-										event: stretch.event,
-										also: stretch.also,
-										going: !settled,
+			...withEscalation(
+				all.flatMap((stretch, at): LikePart[] =>
+					stretch.type === "work"
+						? [{ type: "data-work", data: { work: stretch.work } }]
+						: stretch.type === "event"
+							? [
+									{
+										type: "data-event",
+										data: {
+											event: stretch.event,
+											also: stretch.also,
+											going: !settled,
+										},
 									},
-								},
-							]
-						: stretch.type === "added"
-							? stretches(stretch.text).flatMap((each): LikePart[] =>
-									each.type === "start"
-										? [{ type: "data-start", data: { start: each.start } }]
-										: each.type === "text"
-											? [{ type: "text", text: each.text }]
-											: [],
-								)
-							: at === reply
-								? replied(stretch.text, settled, {
-										task,
-										began,
-										until: message.until,
-									})
-								: [{ type: "text", text: stretch.text }],
+								]
+							: stretch.type === "added"
+								? stretches(stretch.text).flatMap((each): LikePart[] =>
+										each.type === "start"
+											? [{ type: "data-start", data: { start: each.start } }]
+											: each.type === "text"
+												? [{ type: "text", text: each.text }]
+												: [],
+									)
+								: at === reply
+									? replied(stretch.text, settled, {
+											task,
+											began,
+											until: message.until,
+										})
+									: [{ type: "text", text: stretch.text }],
+				),
 			),
 			...(message.stopped === undefined
 				? []
@@ -234,6 +240,68 @@ export function like(
 					]),
 		],
 	};
+}
+
+/**
+ * `parts` with what the agent wrote of the last escalation arbor recorded in
+ * them, its report, the questions it ends with and their demo, or its review,
+ * taken into the escalation's card rather than drawn as a second one.
+ */
+function withEscalation(parts: LikePart[]): LikePart[] {
+	const escalatedIn = (part: LikePart): { event: Event } | null => {
+		if (part.type !== "data-event") {
+			return null;
+		}
+		const data = part.data as { event: Event };
+		return isEscalation(data.event) ? data : null;
+	};
+	const at = parts.findLastIndex((part) => escalatedIn(part) !== null);
+	const data = at === -1 ? null : escalatedIn(parts[at] as LikePart);
+	if (data === null) {
+		return parts;
+	}
+	const { event } = data;
+	const written: Written = { report: null, demo: null, review: null };
+	const kept = parts.filter((part, index) => {
+		if (index === at) {
+			return true;
+		}
+		if (part.type === "data-report") {
+			const { report } = part.data as { report: Report };
+			if (
+				report.ending === "escalated" &&
+				"task" in report &&
+				report.task === event.task
+			) {
+				written.report = report;
+				return false;
+			}
+		}
+		if (part.type === "data-questions") {
+			const { escalation, demo } = part.data as QuestionsData;
+			if (escalation?.task === event.task) {
+				written.report = escalation;
+				written.demo = demo;
+				return false;
+			}
+		}
+		if (part.type === "data-review") {
+			const { review } = part.data as { review: Review };
+			if (review.task === event.task) {
+				written.review = review;
+				return false;
+			}
+		}
+		return true;
+	});
+	return kept.map((part) =>
+		part === parts[at]
+			? {
+					type: "data-event" as const,
+					data: { ...data, written },
+				}
+			: part,
+	);
 }
 
 /**

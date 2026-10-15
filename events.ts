@@ -1,4 +1,13 @@
+import type { Question } from "./plan";
 import type { RemoveReason } from "./worktree";
+
+/** An escalation that went through, which asks the person to act. */
+export type Escalated = Extract<Event, { action: "escalate"; reason: null }>;
+
+/** Whether `event` is an escalation that went through. */
+export function isEscalation(event: Event): event is Escalated {
+	return event.action === "escalate" && event.reason === null;
+}
 
 /**
  * What each action's event says beyond what every event does, keyed by the
@@ -58,7 +67,19 @@ export interface Facts {
 		/** The todos it put back on the list, by id and subject. */
 		released: { id: number; subject: string }[];
 	};
-	escalate: None;
+	escalate: {
+		/** Why it needs the person, or for a review, what to look at. */
+		about: string;
+		/** Whether it asks the person to approve merging, not to answer. */
+		review: boolean;
+		/** Where it merges once done. */
+		base: string;
+		/**
+		 * Its open questions under `## Blocked` as they stood, which the card
+		 * asks: a report never follows the task afterwards.
+		 */
+		questions: Question[];
+	};
 	handoff: {
 		/** The roster agent it went to, by its id. */
 		agent: string;

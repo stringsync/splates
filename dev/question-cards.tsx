@@ -14,6 +14,7 @@ import { focusStop, useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
+import { type Event, isEscalation } from "../events";
 import type { Question } from "../plan";
 import { isUpdate } from "../prompts";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
@@ -422,6 +423,11 @@ function draftName(message: string, questions: Question[]): string {
 	return `questions:${message}:${questions[0]?.text ?? ""}`;
 }
 
+/** The questions an escalation it records asks; null for any other event. */
+function escalatedQuestions(event: Event): Question[] | null {
+	return isEscalation(event) && !event.review ? event.questions : null;
+}
+
 /** What the panel holds before it is sent: answers by question line, and the rest. */
 interface Written {
 	answers: Record<string, Answer>;
@@ -442,7 +448,7 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 });
 
 /** The questions of the message it is in, kept as a draft under that message. */
-function MessageQuestions({
+export function MessageQuestions({
 	questions,
 	escalation,
 	demo,
@@ -460,10 +466,16 @@ function MessageQuestions({
 				break;
 			}
 			for (const part of earlier.content) {
-				if (part.type === "data" && part.name === "questions") {
-					names.push(
-						draftName(earlier.id, (part.data as QuestionsData).questions),
-					);
+				const asked =
+					part.type !== "data"
+						? null
+						: part.name === "questions"
+							? (part.data as QuestionsData).questions
+							: part.name === "event"
+								? escalatedQuestions((part.data as { event: Event }).event)
+								: null;
+				if (asked !== null && asked.length > 0) {
+					names.push(draftName(earlier.id, asked));
 				}
 			}
 		}

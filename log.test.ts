@@ -19,8 +19,11 @@ describe("log", () => {
 			attempts: 0,
 		});
 		await expect(
-			deps.journal.record("escalate", "alpha", () =>
-				Promise.reject(new Exit("tests_failed", "nope")),
+			deps.journal.record(
+				"escalate",
+				"alpha",
+				() => Promise.reject(new Exit("tests_failed", "nope")),
+				(facts) => facts,
 			),
 		).toBail("tests_failed");
 

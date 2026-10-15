@@ -1,6 +1,6 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { JSX } from "react";
-import type { Action, Event } from "../events";
+import { type Action, type Event, isEscalation } from "../events";
 import {
 	ArborEvent,
 	type ArborEventView,
@@ -8,21 +8,29 @@ import {
 	type Words,
 } from "./arbor-event";
 import { useStartCard } from "./current-task";
+import { EscalationCard, type Written } from "./escalation-card";
 import { useNow } from "./hooks/use-now";
 
 /**
  * Renders a `data-event` part: something arbor did at the agent's word, as
  * the line its action draws, or nothing for an action that draws none yet.
+ * An escalation that went through is the one event drawn as a card, since
+ * the person has to act on it, with what the agent `written` of it in that
+ * turn.
  */
 export const EventUI = makeAssistantDataUI<{
 	event: Event;
 	also?: Event[];
 	going?: boolean;
+	written?: Written | null;
 }>({
 	name: "event",
-	render: ({ data }) => (
-		<EventLine event={data.event} also={data.also} going={data.going} />
-	),
+	render: ({ data }) =>
+		isEscalation(data.event) ? (
+			<EscalationCard event={data.event} written={data.written ?? null} />
+		) : (
+			<EventLine event={data.event} also={data.also} going={data.going} />
+		),
 });
 
 /** The line `event` draws, or null for an action with none. */
@@ -136,6 +144,15 @@ const LINES: {
 					at: event.at,
 				}
 			: null,
+	// One that went through is a card, which `EventUI` draws in its place.
+	escalate: (event) =>
+		event.reason === null
+			? { words: ["Escalated", task(event)], at: event.at }
+			: {
+					mark: "failed",
+					words: ["Escalate failed", task(event)],
+					at: event.at,
+				},
 };
 
 /** The line a command on todos draws, none when it was refused. */

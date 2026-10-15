@@ -8,6 +8,7 @@ import {
 	useEffectEvent,
 } from "react";
 import { focusStop } from "#dev/hooks/use-touch.ts";
+import { type Event, isEscalation } from "../events";
 import { isUpdate } from "../prompts";
 import { toCardTop } from "./card-shell";
 
@@ -104,10 +105,17 @@ export function textOf(message: ThreadMessage): string {
 		.join("");
 }
 
-/** Whether `message` asks the person something, as questions or a review. */
+/**
+ * Whether `message` asks the person something, as questions or a review, or
+ * as an escalation arbor recorded.
+ */
 export function asks(message: ThreadMessage): boolean {
 	return message.content.some(
-		(part) => part.type === "data" && ASKING.includes(part.name),
+		(part) =>
+			part.type === "data" &&
+			(ASKING.includes(part.name) ||
+				(part.name === "event" &&
+					isEscalation((part.data as { event: Event }).event))),
 	);
 }
 

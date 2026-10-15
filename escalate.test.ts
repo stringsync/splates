@@ -75,4 +75,24 @@ describe("escalate", () => {
 			"review:   ready to merge once a person approves",
 		);
 	});
+
+	it("says what the card needs: the reason, the base, and the questions still open", async () => {
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.fs.write(
+			join(worktree, PLAN_FILE),
+			"# alpha\n\n## Next\n\n- [ ] wire it up\n\n## Blocked\n\n- [x] 1. Keep it? → yes\n- [ ] 2. Which pages need it?\n  - [a] Todos\n  - [b] Tasks\n",
+		);
+
+		const facts = await escalate(deps, "two calls on the header", worktree);
+
+		expect(facts).toMatchObject({
+			about: "two calls on the header",
+			review: false,
+			base: "main",
+		});
+		expect(facts.questions).toMatchObject([
+			{ number: "2", text: "Which pages need it?", pick: "any" },
+		]);
+	});
 });

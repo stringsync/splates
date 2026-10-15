@@ -66,6 +66,7 @@
 @source "./conversations.tsx";
 @source "./thread.tsx";
 @source "./error-banner.tsx";
+@source "./escalation-card.tsx";
 @source "./idle-banner.tsx";
 @source "./heartbeat-banner.tsx";
 @source "./thread-actions.tsx";

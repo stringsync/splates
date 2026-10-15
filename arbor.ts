@@ -415,11 +415,15 @@ arbor
 	})
 	.action(async (opts, ctx) => {
 		const task = opts.task || (await here(ctx));
-		await ctx.journal.record("escalate", task, () =>
-			escalate(ctx, opts.reason, ctx.ps.cwd(), {
-				task: opts.task || undefined,
-				review: opts.review,
-			}),
+		await ctx.journal.record(
+			"escalate",
+			task,
+			() =>
+				escalate(ctx, opts.reason, ctx.ps.cwd(), {
+					task: opts.task || undefined,
+					review: opts.review,
+				}),
+			(facts) => facts,
 		);
 		if (task !== null) {
 			await reportToCaller(ctx, await ctx.service.find(task));
