@@ -16,12 +16,9 @@ import { distinctNames } from "./file-chip";
 import { useNow } from "./hooks/use-now";
 import { OpenerContext } from "./openers";
 
-
 import { credAddress } from "./page-address";
 
-
 import { Stamp, useStamps } from "./stamp";
-
 
 /**
  * An event of arbor's in the thread: one line of a verb, the thing it names,
