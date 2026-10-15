@@ -101,8 +101,11 @@
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";
 @source "./stats.tsx";
+@source "./cred-paste.tsx";
 @source "./cred-privacy.tsx";
+@source "./cred-scope.tsx";
 @source "./creds.tsx";
+@source "./kept-creds.tsx";
 @source "./systems.tsx";
 @source "./systems-page.tsx";
 @source "./usage.tsx";
