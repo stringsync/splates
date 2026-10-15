@@ -168,6 +168,27 @@ describe("App on a phone", () => {
 		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
 	});
 
+	it("starts a new conversation from the pen atop any other page", async () => {
+		const view = await testing.openConversations([], null);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		const drawer = await waitFor(() =>
+			view.getByRole("dialog", { name: "Pages" }),
+		);
+		await act(async () =>
+			fireEvent.click(within(drawer).getByRole("button", { name: /Tasks/ })),
+		);
+		expect(location.hash).toBe("#tasks");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+		);
+
+		expect(location.hash).toBe("#conversations/new");
+		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
+	});
+
 	it("answers questions one at a time, in a sheet the bar above the composer opens", async () => {
 		const view = await testing.openConversations([
 			conversation({

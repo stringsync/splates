@@ -1,7 +1,8 @@
 import { useReactive } from "@webappwiz/react";
-import { MenuIcon } from "lucide-react";
+import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "../snapshot";
+import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import type { Move } from "./page-address";
@@ -14,7 +15,8 @@ import type { Terminals } from "./terminals";
 /**
  * The page on a phone, a layout of its own beside the sidebar's: the inbox of
  * agents is home, an open conversation takes the whole screen with its own way
- * back, and every other page sits under a bar whose menu opens the drawer.
+ * back, and every other page sits under a bar whose menu opens the drawer and
+ * whose pen, as the inbox's, starts a new conversation.
  * What each page shows, `body`, is the same as on a wide screen.
  */
 export function PhoneApp({
@@ -98,6 +100,14 @@ export function PhoneApp({
 							</span>
 							{status}
 						</h1>
+						{available && (
+							<IconButton
+								label="New conversation"
+								onClick={() => go("conversations", NEW)}
+							>
+								<SquarePenIcon />
+							</IconButton>
+						)}
 					</header>
 					{body}
 				</div>
