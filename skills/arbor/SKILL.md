@@ -139,7 +139,8 @@ for Relaying and the lane reports):
    todo show <id>`, `arbor lane list`, and `arbor list --files` for the
    tasks under way, then place it as for a todo you add (see Lanes in
    [references/todos.md](references/todos.md)): in a lane whose work it
-   builds on, or `--lane new` for one of its own when it starts a chain.
+   builds on, or `--lane new` for one of its own when it starts a chain,
+   saying the name you gave it in your report as `- Assumed: <what>`.
    Todos that touch the same files go in one lane, in the order they should
    land, so their agents never fight over rebases.
 2. Link what blocks each: `arbor todo update <id> --blocked-by <id>` when it
@@ -635,27 +636,28 @@ Keep the title to about eight words, lowercase after the colon, with no ending
 punctuation.
 
 The sentence names the one change the user will notice, not each part of it:
-status codes, errors thrown and the rest are the diff's. Count its words
-before you send it, and at 25 or more, cut it rather than split it in two.
-Not this, at 27 words:
+status codes, errors thrown and the rest are the diff's. Then stop, but for
+a `- ` line, at most three, on anything the user must act on or would be
+caught out without: a restart to pick the change up, a file resolved in a
+conflict after their review, a todo gone stale. Leave out what the page, the
+diff, or `ARBOR.md` already says: that tests pass (but for a review's
+checks), that nothing is merged yet, the files touched, how you did it, and
+calls you made, the questions asked as questions and the assumptions said as
+in Asking as you go.
+
+Count the sentence's words before you send it, and at 25 or more, cut it
+rather than split it in two. Not this body, which lists the parts, says the
+tests pass, and says it is not merged:
 
 ```markdown
-When the server rejects an upload as too big (413), the client now stops retrying, tells the user the file is too big, and throws an error.
+Uploads no longer retry forever on a 413. They now tell the user the file is too big and fail; `bun test` passes. It is not merged yet: it waits on your answer below.
 ```
 
-But this, at 15:
+But this, one sentence at 15 words:
 
 ```markdown
 An upload the server refuses as too big now stops and tells the user why.
 ```
-
-Then stop, but for a `- ` line, at most three, on anything the user must act
-on or would be caught out without: a restart to pick the change up, a file
-resolved in a conflict after their review, a todo gone stale. Leave out what
-the page, the diff, or `ARBOR.md` already says: that tests pass (but for a
-review's checks), that nothing is merged yet, the files touched, how you did
-it, and calls you made, the questions asked as questions and the assumptions
-said as in Asking as you go.
 
 When the user has answered questions since your last report, add a `- `
 line for each answer you did not follow as given, or that changed more than

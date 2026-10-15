@@ -40,7 +40,7 @@ Make the Stats page say what to act on, then renew licenses on their own.
    lane waits on that task, as in step 4.
 3. Hand the next todo out. `arbor todo show <id>` names its agent and model;
    when it names none, pick one as for a todo you add (see Todos), and say
-   which in your report. Then `arbor add <task> --todo <id> --agent <a>
+   which in your report as `- Assumed: <what>`. Then `arbor add <task> --todo <id> --agent <a>
    --model <m> --prompt '<what>'`, where `<what>` holds what the lane's
    earlier steps taught you that the todo's detail does not: names chosen,
    files moved, answers the user gave. The agent works it as a task of its
@@ -169,6 +169,12 @@ sentence on what lands next, and a `- ` line per lane on what it waits on.
 The user hears nothing is asked of them, and each report that wakes it
 brings a fresh one.
 
+Like a task agent's assumptions, each call it makes is said once, in the
+report that ends the turn it made it in, after the lane lines: a
+`- Assumed: <what>` line for each model it picked for a todo
+that named none and each lane it named, and a `- Assumed for <task>: <what>`
+line for each answer it gave from the lane.
+
 ```markdown
 ## ⏳ Working lanes Stats, Licensing: on stats-breakdowns-clear, licensing-renew
 
@@ -176,6 +182,7 @@ Both lanes have a todo out; the breakdown tables land first.
 
 - Stats: #155 out as stats-breakdowns-clear (Sonnet); #160 is next.
 - Licensing: #172 out as licensing-renew (Haiku); #173 is next.
+- Assumed: Haiku for #172, which named no model, as a mechanical rename.
 ```
 
 ```markdown
