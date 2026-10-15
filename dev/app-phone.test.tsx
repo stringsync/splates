@@ -288,4 +288,50 @@ describe("App on a phone", () => {
 				.textContent,
 		).toContain("Codex");
 	});
+
+	it("opens a shell in the main tree from the new conversation's picker, listed in the inbox until closed", async () => {
+		const view = await testing.openConversations([], null);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Pick an agent" })),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: "Terminal" })),
+			),
+		);
+
+		expect(location.hash).toBe("#conversations/terminal/1");
+		expect(
+			view.getByRole("region", { name: "terminal" }).textContent,
+		).toContain("in the main tree");
+		expect(testing.shells.map((shell) => shell.task)).toEqual([null]);
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Back to conversations" }),
+			),
+		);
+		const terminals = view.getByRole("region", { name: "Terminals" });
+		await act(async () =>
+			fireEvent.click(
+				within(terminals).getByRole("button", { name: /^Terminal 1/ }),
+			),
+		);
+		expect(location.hash).toBe("#conversations/terminal/1");
+		expect(testing.shells).toHaveLength(1);
+
+		await act(async () =>
+			fireEvent.click(
+				view.getByRole("button", { name: "Back to conversations" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Close Terminal 1" })),
+		);
+		expect(testing.shells[0]?.readyState).toBe(3);
+		expect(view.queryByRole("region", { name: "Terminals" })).toBeNull();
+	});
 });

@@ -1,5 +1,11 @@
 import { useReactive } from "@webappwiz/react";
-import { GitBranchIcon, MenuIcon, SquarePenIcon } from "lucide-react";
+import {
+	GitBranchIcon,
+	MenuIcon,
+	SquarePenIcon,
+	SquareTerminalIcon,
+	XIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Needing } from "../needs";
@@ -25,6 +31,7 @@ import { Mark } from "./mark";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
 import { arriveAt, useCopiedReplies } from "./task-view";
+import { numberOf, type Terminals } from "./terminals";
 import { unanswered } from "./unanswered";
 
 /**
@@ -34,11 +41,13 @@ import { unanswered } from "./unanswered";
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
  * asks. The menu opens the drawer, and the pen, like
- * the composer along the bottom, starts a new conversation.
+ * the composer along the bottom, starts a new conversation. The main tree's
+ * terminals come last, to go back to or close.
  */
 export function Inbox({
 	feed,
 	drafts,
+	terminals,
 	tasks,
 	name,
 	status,
@@ -48,6 +57,7 @@ export function Inbox({
 	feed: ConversationFeed;
 	/** Where a reply copied for an external agent is kept. */
 	drafts: Drafts;
+	terminals: Terminals;
 	tasks: Details[];
 	/** The project's name. */
 	name: string;
@@ -59,6 +69,11 @@ export function Inbox({
 	const { agents, conversations } = useReactive(
 		feed,
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
+		["changed"],
+	);
+	const { mains } = useReactive(
+		terminals,
+		(terminals) => ({ mains: terminals.mains }),
 		["changed"],
 	);
 	useCopiedReplies(drafts);
@@ -103,7 +118,7 @@ export function Inbox({
 				</IconButton>
 			</header>
 			<div className="flex flex-1 flex-col pb-28">
-				{rows.length === 0 ? (
+				{rows.length === 0 && mains.length === 0 ? (
 					<p className="px-6 py-16 text-center text-muted-foreground">
 						No conversations yet. Start one below.
 					</p>
@@ -123,6 +138,11 @@ export function Inbox({
 							onOpen={open}
 						/>
 						<Group title="Recent" trees={rest} agents={agents} onOpen={open} />
+						<TerminalGroup
+							mains={mains}
+							onOpen={onOpen}
+							onClose={(key) => terminals.close(key)}
+						/>
 					</>
 				)}
 			</div>
@@ -307,6 +327,62 @@ function Row({
 				</span>
 			</span>
 		</button>
+	);
+}
+
+/**
+ * The main tree's terminals, opened from the new conversation's picker, each
+ * a row to go back to it, with an X that hangs up its shell; nothing when
+ * none is open.
+ */
+function TerminalGroup({
+	mains,
+	onOpen,
+	onClose,
+}: {
+	/** Their keys, `terminal/<n>`, oldest first. */
+	mains: string[];
+	onOpen: (key: string) => void;
+	onClose: (key: string) => void;
+}): ReactNode {
+	if (mains.length === 0) {
+		return null;
+	}
+	return (
+		<section aria-label="Terminals" className="pt-4">
+			<h2 className="px-4 pb-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+				Terminals · {mains.length}
+			</h2>
+			<ul>
+				{mains.map((key) => {
+					const name = `Terminal ${numberOf(key)}`;
+					return (
+						<li key={key} className="flex items-center pr-2">
+							<button
+								type="button"
+								onClick={() => onOpen(key)}
+								className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 text-left active:bg-muted"
+							>
+								<span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted">
+									<SquareTerminalIcon className="size-5 text-foreground/80" />
+								</span>
+								<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+									<span className="truncate font-medium text-[15px]">
+										{name}
+									</span>
+									<span className="truncate text-muted-foreground text-sm">
+										Main tree
+									</span>
+								</span>
+							</button>
+							<IconButton label={`Close ${name}`} onClick={() => onClose(key)}>
+								<XIcon />
+							</IconButton>
+						</li>
+					);
+				})}
+			</ul>
+		</section>
 	);
 }
 

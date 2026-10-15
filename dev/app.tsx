@@ -499,6 +499,7 @@ export function App({
 															snapshot={snapshot}
 															talk={talk}
 															drafts={drafts}
+															terminals={terminals}
 														/>
 													)}
 													{pane}

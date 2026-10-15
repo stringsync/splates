@@ -8,6 +8,7 @@ import { PAGES, type Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
 import { IconButton, Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
+import type { Terminals } from "./terminals";
 
 /**
  * The page on a phone, a layout of its own beside the sidebar's: the inbox of
@@ -28,6 +29,7 @@ export function PhoneApp({
 	snapshot,
 	talk,
 	drafts,
+	terminals,
 }: {
 	page: Page;
 	/** The conversation open, by its address, or null. */
@@ -48,6 +50,7 @@ export function PhoneApp({
 	snapshot: Snapshot | null;
 	talk: ConversationFeed;
 	drafts: Drafts;
+	terminals: Terminals;
 }): JSX.Element {
 	const [drawer, setDrawer] = useState(false);
 	const { conversations } = useReactive(
@@ -73,6 +76,7 @@ export function PhoneApp({
 				<Inbox
 					feed={talk}
 					drafts={drafts}
+					terminals={terminals}
 					tasks={snapshot.tasks}
 					name={name}
 					status={status}

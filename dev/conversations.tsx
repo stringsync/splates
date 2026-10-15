@@ -154,6 +154,7 @@ export function Conversations({
 						<PhoneHome
 							key={startKey}
 							{...starting}
+							terminals={terminals}
 							onBack={() => onOpen(null)}
 						/>
 					) : (

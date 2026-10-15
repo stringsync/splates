@@ -1,11 +1,16 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { ChevronDownIcon, ChevronLeftIcon } from "lucide-react";
+import {
+	ChevronDownIcon,
+	ChevronLeftIcon,
+	SquareTerminalIcon,
+} from "lucide-react";
 import { type JSX, useLayoutEffect, useRef } from "react";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Composing } from "#dev/composing.tsx";
@@ -17,6 +22,7 @@ import { type Starting, useNewConversation } from "./conversation-home";
 import { NamedContext } from "./mentioned";
 import { IconButton } from "./phone-inbox";
 import { Refusal } from "./refusal";
+import type { Terminals } from "./terminals";
 
 /**
  * Whether the inbox's composer was just tapped, raising the keyboard, which
@@ -33,12 +39,15 @@ export function launch(): void {
 /**
  * A new conversation on a phone, as the chat apps start one: the agent to
  * talk to picked at the top, a greeting in the middle, and the composer along
- * the bottom.
+ * the bottom. The picker offers a terminal in the main tree too, as New does
+ * on a wide screen.
  */
 export function PhoneHome({
+	terminals,
 	onBack,
 	...starting
 }: Starting & {
+	terminals: Terminals;
 	/** Back to the inbox. */
 	onBack: () => void;
 }): JSX.Element {
@@ -88,6 +97,14 @@ export function PhoneHome({
 									{each.name}
 								</DropdownMenuItem>
 							))}
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								className="h-11"
+								onClick={() => onOpen(terminals.another())}
+							>
+								<SquareTerminalIcon />
+								Terminal
+							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
