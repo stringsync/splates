@@ -1,4 +1,5 @@
 import type { Fs } from "webappwiz/system";
+import type { Device } from "./conversation-state";
 import type { MergeFailure, RemoveReason } from "./worktree";
 
 /**
@@ -79,10 +80,54 @@ export interface Outcome {
 	removedFor?: RemoveReason | null;
 	/** For a merge, each commit's message it landed, oldest first. Absent from older lines. */
 	commits?: string[];
+	/**
+	 * How many times the person spoke to its conversation from each layout of
+	 * the page while it ran. Absent from older lines.
+	 */
+	promptsFrom?: Partial<Record<Device, number>>;
 	/** The `arbor dev` conversation that ended it; null for an external agent. */
 	conversation: string | null;
 	/** The agent `arbor add --agent` handed it to, if any. */
 	agent: string | null;
 	/** The model it was handed over with, if any. */
 	model: string | null;
+}
+
+/**
+ * How many prompts the person said from each layout in the conversation
+ * logged at `log`, from `since` to `until`: a conversation can outlive the
+ * task, or come to it already under way.
+ */
+export async function promptsFrom(
+	log: string,
+	fs: Fs,
+	since: string,
+	until: string,
+): Promise<Partial<Record<Device, number>>> {
+	const counts: Partial<Record<Device, number>> = {};
+	const raw = await fs.read(log).catch(() => "");
+	// Each line is written with its kind first, so only prompts are parsed.
+	for (const line of raw.split("\n")) {
+		if (!line.startsWith('{"kind":"prompt"')) {
+			continue;
+		}
+		const entry = parsed(line);
+		if (
+			entry?.from !== undefined &&
+			entry.at !== undefined &&
+			entry.at >= since &&
+			entry.at <= until
+		) {
+			counts[entry.from] = (counts[entry.from] ?? 0) + 1;
+		}
+	}
+	return counts;
+}
+
+function parsed(line: string): { from?: Device; at?: string } | null {
+	try {
+		return JSON.parse(line);
+	} catch {
+		return null;
+	}
 }

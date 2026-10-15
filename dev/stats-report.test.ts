@@ -47,6 +47,10 @@ const stats: Stats = {
 		{ model: null, ...bar("", { merged: 2, removed: 2, reviewRounds: 2 }) },
 	],
 	previous: bar("", { merged: 6, clean: 1, questionRounds: 9 }),
+	devices: [
+		{ device: "both", ...bar("", { merged: 1 }) },
+		{ device: null, ...bar("", { merged: 1 }) },
+	],
 	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
 	systems: [],
 	since: "2026-08-25T10:00:00.000Z",
@@ -126,7 +130,7 @@ describe("StatsReport", () => {
 		});
 	});
 
-	it("names each model and project as a person reads it", async () => {
+	it("names each model, device and project as a person reads it", async () => {
 		const report = new StatsReport(new FakeSource(stats));
 
 		await report.refresh();
@@ -141,6 +145,10 @@ describe("StatsReport", () => {
 				overturnedShare: null,
 			},
 		]);
+		expect(report.devices).toMatchObject([
+			{ name: "Phone and desktop", ended: 1 },
+			{ name: "No prompts", ended: 1 },
+		]);
 		expect(report.projects).toMatchObject([{ name: "webappwiz", ended: 1 }]);
 	});
 
@@ -151,6 +159,7 @@ describe("StatsReport", () => {
 				buckets: [],
 				previous: null,
 				models: [],
+				devices: [],
 				projects: [],
 				systems: [],
 				since: null,

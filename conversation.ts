@@ -17,6 +17,7 @@ import {
 	type Attached,
 	blank,
 	type ConversationState,
+	type Device,
 	type Limit,
 	type Upload,
 } from "./conversation-state";
@@ -239,8 +240,8 @@ export class Conversation
 	}
 
 	/** Says `text` to the agent, with `files` (see `ConversationTurns`). */
-	prompt(text: string, files: Upload[] = []): Promise<void> {
-		return this.turns.prompt(text, files);
+	prompt(text: string, files: Upload[] = [], from?: Device): Promise<void> {
+		return this.turns.prompt(text, files, from);
 	}
 
 	/** Takes back the `index`th queued message, answering with its words and files. */

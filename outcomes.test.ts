@@ -181,4 +181,44 @@ describe.concurrent("outcomes", () => {
 			{ task: "beta", conversation: "gone", agent: null, model: null },
 		]);
 	});
+
+	it("counts the prompts said from each layout of the page while the task ran", async () => {
+		await using deps = await Testing.open();
+		deps.proc.env = { ...deps.proc.env, ARBOR_CONVERSATION: "c1" };
+		await add(deps, "alpha");
+		const during = new Date().toISOString();
+		await deps.fs.mkdir(join(deps.arborDir, "conversations"));
+		await deps.fs.write(
+			join(deps.arborDir, "conversations", "c1.jsonl"),
+			[
+				{ kind: "start", id: "c1", agent: "claude", task: null },
+				// Before the task, so another task's.
+				{
+					kind: "prompt",
+					text: "hi",
+					at: "2000-01-01T00:00:00.000Z",
+					from: "phone",
+				},
+				{ kind: "prompt", text: "go", at: during, from: "phone" },
+				{
+					kind: "prompt",
+					text: "and",
+					at: during,
+					from: "phone",
+					queued: true,
+				},
+				{ kind: "prompt", text: "merge", at: during, from: "desktop" },
+				// An agent's word, from no layout.
+				{ kind: "prompt", text: "[ARBOR RESUME]", at: during },
+			]
+				.map((line) => `${JSON.stringify(line)}\n`)
+				.join(""),
+		);
+
+		await remove(deps, "alpha");
+
+		expect(await deps.outcomes.list()).toMatchObject([
+			{ task: "alpha", promptsFrom: { phone: 2, desktop: 1 } },
+		]);
+	});
 });

@@ -1,5 +1,11 @@
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { combine, type PeriodId, type Stats, type Tally } from "../stats";
+import {
+	combine,
+	type PeriodId,
+	type Stats,
+	type Tally,
+	type WorkedFrom,
+} from "../stats";
 import {
 	type Advice,
 	type AdviceId,
@@ -186,12 +192,29 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		);
 	}
 
+	/** By where the person worked each task from; "No prompts" for none said from the page. */
+	get devices(): Row[] {
+		return (this.stats?.devices ?? []).map((each) =>
+			row(
+				each.device === null ? "No prompts" : DEVICE_NAMES[each.device],
+				each,
+			),
+		);
+	}
+
 	get projects(): Row[] {
 		return (this.stats?.projects ?? []).map((each) =>
 			row(each.project.split("/").filter(Boolean).at(-1) ?? each.project, each),
 		);
 	}
 }
+
+/** What a device row reads as. */
+const DEVICE_NAMES: Record<WorkedFrom, string> = {
+	phone: "Phone",
+	desktop: "Desktop",
+	both: "Phone and desktop",
+};
 
 /** One bar of the trend, for its height and its tooltip. */
 export interface Bucket {
@@ -203,7 +226,7 @@ export interface Bucket {
 	questionsPerTask: number | null;
 }
 
-/** A model, project or system, with its figures over the period. */
+/** A model, device, project or system, with its figures over the period. */
 export interface Row {
 	name: string;
 	/** The system the row is, shown as its chip; absent for a model, a project or no system. */

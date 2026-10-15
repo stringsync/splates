@@ -5,6 +5,7 @@ import {
 	conversation,
 	fireEvent,
 	message,
+	resize,
 	Testing,
 	textIn,
 	typeIn,
@@ -189,10 +190,10 @@ describe("App's sending messages", () => {
 		const thread = view.getByRole("region", { name: "Login" });
 		const box = view.getByRole("textbox", { name: "Message input" });
 
-		for (const text of ["and the logout", "and the signup"]) {
-			await typeIn(box, text);
-			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
-		}
+		await typeIn(box, "and the logout");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await typeIn(box, "and the signup");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() =>
 			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
@@ -300,6 +301,27 @@ describe("App's sending messages", () => {
 		expect(within(thread).getByRole("alert").textContent).toBe(
 			"Not sent: cannot resume",
 		);
+	});
+
+	it("names the layout each message is sent from, for the Stats page", async () => {
+		const send = async (text: string) => {
+			const view = await testing.openConversations([conversation()]);
+			const box = await waitFor(() =>
+				view.getByRole("textbox", { name: "Message input" }),
+			);
+			await typeIn(box, text);
+			await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+			cleanup();
+		};
+
+		await send("at a desk");
+		resize(390, 844);
+		await send("on a phone").finally(() => resize(1024, 768));
+
+		expect(testing.posts).toEqual([
+			expect.objectContaining({ headers: { "arbor-from": "desktop" } }),
+			expect.objectContaining({ headers: { "arbor-from": "phone" } }),
+		]);
 	});
 
 	it("sends on Enter, keeps a new line on Shift+Enter, and stops a turn on Escape", async () => {

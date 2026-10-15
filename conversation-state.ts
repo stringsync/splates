@@ -155,6 +155,14 @@ export interface Attached extends Image {
 }
 
 /** A file the person sent, as the page sends it, before it is kept. */
+/** Where the person said something on the page: its phone layout or its wide one. */
+export type Device = "phone" | "desktop";
+
+export const DEVICES: readonly Device[] = ["phone", "desktop"];
+
+/** The header a prompt from the page names its `Device` in. */
+export const FROM_HEADER = "arbor-from";
+
 export interface Upload {
 	/** What the person called it. */
 	title: string;

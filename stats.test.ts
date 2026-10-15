@@ -119,6 +119,26 @@ describe("summarize", () => {
 		]);
 	});
 
+	it("groups by where the person worked each task from", () => {
+		const stats = summarize(
+			[
+				ended({ promptsFrom: { phone: 3 } }),
+				ended({ promptsFrom: { phone: 1, desktop: 2 } }),
+				ended({ promptsFrom: { desktop: 1 }, ended: "removed" }),
+				ended({ promptsFrom: { phone: 0, desktop: 4 } }),
+				ended({}),
+			],
+			{ now },
+		);
+
+		expect(stats.devices).toMatchObject([
+			{ device: "desktop", merged: 1, removed: 1 },
+			{ device: "phone", merged: 1 },
+			{ device: "both", merged: 1 },
+			{ device: null, merged: 1 },
+		]);
+	});
+
 	it("leaves parts out, since their caller is counted", () => {
 		const stats = summarize([ended({ base: "task/parent" })], { now });
 

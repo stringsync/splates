@@ -15,7 +15,7 @@ import { SidebarHandle, type SidebarWidth } from "./sidebar";
 import type { Terminals } from "./terminals";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
-const WIDE = "(min-width: 768px)";
+export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, each with what it counts, the

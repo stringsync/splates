@@ -53,6 +53,12 @@ export interface Stats {
 	previous: Tally | null;
 	/** By the model that ended each task in the period, the most first; null for unknown. */
 	models: ({ model: string | null } & Tally)[];
+	/**
+	 * By where the person worked each task in the period from, the most
+	 * first: null for none, as for an external agent, or one that ended
+	 * before it was kept.
+	 */
+	devices: ({ device: WorkedFrom | null } & Tally)[];
 	/** By the main tree each task in the period was in, the most first. */
 	projects: ({ project: string } & Tally)[];
 	/**
@@ -68,6 +74,22 @@ export interface Stats {
 	 * on, newest first: over all time, since a version is its own span.
 	 */
 	skill: SkillVersion[];
+}
+
+/** Where the person spoke to a task's conversation from: a phone, a desktop, or both. */
+export type WorkedFrom = "phone" | "desktop" | "both";
+
+/** Where `outcome`'s prompts came from, or null when none was said from the page. */
+export function workedFrom(outcome: Outcome): WorkedFrom | null {
+	const phone = (outcome.promptsFrom?.phone ?? 0) > 0;
+	const desktop = (outcome.promptsFrom?.desktop ?? 0) > 0;
+	return phone && desktop
+		? "both"
+		: phone
+			? "phone"
+			: desktop
+				? "desktop"
+				: null;
 }
 
 const MINUTE = 60 * 1000;
@@ -152,6 +174,10 @@ export function summarize(
 					),
 		models: grouped(inPeriod, (each) => each.model).map(([model, tally]) => ({
 			model,
+			...tally,
+		})),
+		devices: grouped(inPeriod, workedFrom).map(([device, tally]) => ({
+			device,
 			...tally,
 		})),
 		projects: grouped(inPeriod, (each) => each.project).map(

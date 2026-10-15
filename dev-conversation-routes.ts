@@ -1,6 +1,12 @@
 import { Duration, SystemTimer, Throttler } from "webappwiz/time";
 import type { Conversation } from "./conversation";
-import type { Answer, Conversations, Upload } from "./conversations";
+import {
+	type Answer,
+	type Conversations,
+	DEVICES,
+	FROM_HEADER,
+	type Upload,
+} from "./conversations";
 import {
 	body,
 	type EventSink,
@@ -197,6 +203,7 @@ export class ConversationRoutes {
 	};
 
 	// A form: the words as `text`, and each file sent with them as `file`.
+	// `FROM_HEADER` names the layout they were said on.
 	readonly promptConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
 		await this.#refuseHandedOut(conversation);
@@ -211,7 +218,10 @@ export class ConversationRoutes {
 				});
 			}
 		}
-		await conversation.prompt(String(form.get("text") ?? ""), files);
+		const from = DEVICES.find(
+			(each) => each === request.headers.get(FROM_HEADER),
+		);
+		await conversation.prompt(String(form.get("text") ?? ""), files, from);
 		return Response.json(conversation.state);
 	};
 

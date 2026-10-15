@@ -279,6 +279,22 @@ describe("Conversation turns", () => {
 		expect(conversation.state.status).toBe("idle");
 	});
 
+	it("logs the layout of the page each message was said from", async () => {
+		const conversation = await started();
+
+		await conversation.prompt("one", [], "desktop");
+		await eventually(() => held.finish !== undefined);
+		await conversation.prompt("two", [], "phone");
+		await finish(conversation, held);
+		await conversation.stop();
+
+		expect(
+			await fs.read(`/repo/.git/arbor/conversations/${conversation.id}.jsonl`),
+		).toMatch(
+			/"text":"one","at":"[^"]+","from":"desktop"}[\s\S]*"text":"two","at":"[^"]+","queued":true,"from":"phone"/,
+		);
+	});
+
 	it("queues what is said meanwhile for its end, when the agent cannot steer", async () => {
 		const conversation = await unprompted();
 

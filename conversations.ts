@@ -45,6 +45,7 @@ export type {
 	Command,
 	ConversationState,
 	Decision,
+	Device,
 	Edit,
 	Field,
 	Image,
@@ -58,7 +59,7 @@ export type {
 	Upload,
 	Usage,
 } from "./conversation-state";
-export { unused } from "./conversation-state";
+export { DEVICES, FROM_HEADER, unused } from "./conversation-state";
 export { fold, heard } from "./fold";
 
 /** How many archived conversations are kept; older archived ones are deleted. */

@@ -4,6 +4,7 @@
  * settings, and renaming, marking and archiving them.
  */
 
+import { FROM_HEADER } from "../conversation-state";
 import type {
 	Answer,
 	Attached,
@@ -12,6 +13,7 @@ import type {
 	Session,
 } from "../conversations";
 import { scoped, send, sendJson } from "./api";
+import { WIDE } from "./app-nav";
 
 /**
  * Starts a conversation with `agent`, in `task`'s tree or the main tree for
@@ -62,7 +64,10 @@ export async function bringSession(
 	})) as ConversationState;
 }
 
-/** Says `text` to the agent in conversation `id`, with `files`. */
+/**
+ * Says `text` to the agent in conversation `id`, with `files`, and which
+ * layout the page shows, so the Stats page can tell phone work from desktop.
+ */
 export async function promptConversation(
 	id: string,
 	text: string,
@@ -73,7 +78,10 @@ export async function promptConversation(
 	for (const file of files) {
 		form.append("file", file, file.name);
 	}
-	await send(`/api/conversations/${id}/prompt`, { body: form });
+	await send(`/api/conversations/${id}/prompt`, {
+		body: form,
+		headers: { [FROM_HEADER]: matchMedia(WIDE).matches ? "desktop" : "phone" },
+	});
 }
 
 /** Where the page reads `file`, one the person sent in conversation `id`. */

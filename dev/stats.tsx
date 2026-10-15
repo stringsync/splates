@@ -39,22 +39,33 @@ export function StatsPage({
 	/** The systems this project names, for each system's chip to open to. */
 	systems: readonly NamedSystem[];
 }): JSX.Element {
-	const { stats, error, empty, period, ended, lead, rest, models, projects } =
-		useReactive(
-			report,
-			(report) => ({
-				stats: report.stats,
-				error: report.error,
-				empty: report.empty,
-				period: report.period,
-				ended: report.ended,
-				lead: report.lead,
-				rest: report.rest,
-				models: report.models,
-				projects: report.projects,
-			}),
-			["changed"],
-		);
+	const {
+		stats,
+		error,
+		empty,
+		period,
+		ended,
+		lead,
+		rest,
+		models,
+		devices,
+		projects,
+	} = useReactive(
+		report,
+		(report) => ({
+			stats: report.stats,
+			error: report.error,
+			empty: report.empty,
+			period: report.period,
+			ended: report.ended,
+			lead: report.lead,
+			rest: report.rest,
+			models: report.models,
+			devices: report.devices,
+			projects: report.projects,
+		}),
+		["changed"],
+	);
 	// Read each time the page is shown: tasks end while it is away.
 	useEffect(() => {
 		void report.refresh();
@@ -136,6 +147,13 @@ export function StatsPage({
 								title="By model"
 								rows={models}
 								columns={BY_MODEL}
+								named={systems}
+							/>
+							{/* Whether work done from a phone lands as well as at a desk. */}
+							<Breakdown
+								title="By device"
+								rows={devices}
+								columns={BY_DEVICE}
 								named={systems}
 							/>
 							<Breakdown
@@ -355,9 +373,10 @@ const REMOVED: Column = {
 	cell: (row) => figure(row.removedShare, percent),
 };
 
-/** Only what each table is read for: where questions come from, which model to name, nothing for a project. */
+/** Only what each table is read for: where questions come from, which model to name, how phone work goes, nothing for a project. */
 const BY_SYSTEM = [ENDED, QUESTIONS];
 const BY_MODEL = [ENDED, QUESTIONS, REVIEWS, OVERTURNED, REMOVED];
+const BY_DEVICE = [ENDED, QUESTIONS, REVIEWS, REMOVED];
 const BY_PROJECT = [ENDED, REMOVED];
 
 function figure(
@@ -367,7 +386,7 @@ function figure(
 	return value === null ? NONE : shown(value);
 }
 
-/** Every model, project or system, with the figures it is read for over the period. */
+/** Every model, device, project or system, with the figures it is read for over the period. */
 function Breakdown({
 	title,
 	rows,

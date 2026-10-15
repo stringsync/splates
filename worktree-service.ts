@@ -4,7 +4,7 @@ import { Attachments } from "./attachments";
 import type { Config } from "./config";
 import type { Git, GitResult } from "./git";
 import { ranWith } from "./models";
-import type { Outcomes } from "./outcomes";
+import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, PLAN_FILE, picks } from "./plan";
 import { Systems } from "./systems";
 import { type DiscardOptions, type TaskState, Worktree } from "./worktree";
@@ -239,13 +239,11 @@ export class WorktreeService {
 			null;
 		// What the conversation ran is what did the work; the handover only
 		// says what was asked for, and is all an unstarted one has.
-		const ran =
+		const log =
 			conversation === null
 				? null
-				: await ranWith(
-						`${this.conversationsDir}/${conversation}.jsonl`,
-						this.fs,
-					);
+				: `${this.conversationsDir}/${conversation}.jsonl`;
+		const ran = log === null ? null : await ranWith(log, this.fs);
 		await this.outcomes.record({
 			project: this.git.root,
 			task,
@@ -277,6 +275,10 @@ export class WorktreeService {
 			),
 			removedFor: ended === "removed" ? (opts.reason ?? null) : null,
 			...(opts.commits === undefined ? {} : { commits: opts.commits }),
+			promptsFrom:
+				log === null
+					? {}
+					: await promptsFrom(log, this.fs, state.createdAt, endedAt),
 			conversation,
 			agent: ran?.agent ?? state.dispatch?.agent ?? null,
 			model: ran?.model ?? state.dispatch?.model ?? null,

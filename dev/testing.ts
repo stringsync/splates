@@ -55,6 +55,7 @@ export interface Post {
 	path: string;
 	method: string;
 	body: BodyInit | null | undefined;
+	headers?: HeadersInit;
 }
 
 /** The handlers `Feed` sets on its `EventSource`, for a test to call. */
@@ -160,7 +161,12 @@ export class Testing implements Resource {
 				throw new TypeError("no server");
 			}
 			if (init?.method !== undefined && init.method !== "GET") {
-				this.posts.push({ path, method: init.method, body: init.body });
+				this.posts.push({
+					path,
+					method: init.method,
+					body: init.body,
+					headers: init.headers,
+				});
 				return this.refuseWrites === null
 					? Response.json(this.reply)
 					: Response.json(this.refuseWrites, { status: 409 });

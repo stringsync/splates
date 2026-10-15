@@ -14,6 +14,7 @@ import {
 import type {
 	Attached,
 	Checkpoint,
+	Device,
 	Message,
 	Sent,
 	Status,
@@ -53,7 +54,11 @@ export class ConversationTurns {
 	 * running turn when the agent can take it there, and otherwise waits for
 	 * the turn to end.
 	 */
-	async prompt(text: string, files: Upload[] = []): Promise<void> {
+	async prompt(
+		text: string,
+		files: Upload[] = [],
+		from?: Device,
+	): Promise<void> {
 		const { host, connection } = this;
 		const { state } = host;
 		const words = text.trim();
@@ -91,7 +96,7 @@ export class ConversationTurns {
 		const kept = await this.files.keep(files, connection.sees);
 		if (state.status === "running") {
 			if (!connection.canSteer || waited) {
-				this.queue(words, kept);
+				this.queue(words, kept, from);
 				return;
 			}
 			// Said into the turn first, so a refusal leaves nothing in the thread.
@@ -108,6 +113,7 @@ export class ConversationTurns {
 					text: words,
 					at,
 					...steered,
+					...(from === undefined ? {} : { from }),
 					...shown(kept),
 				});
 				state.messages.push({ ...said(words, at, kept), ...steered });
@@ -123,14 +129,20 @@ export class ConversationTurns {
 			// next one if that has started.
 			// Read again: the turn may have ended while the agent answered.
 			if ((state.status as Status) !== "idle") {
-				this.queue(words, kept);
+				this.queue(words, kept, from);
 				return;
 			}
 		}
 		this.held = false;
 		const at = host.now();
 		const message = said(words, at, kept);
-		host.log.write({ kind: "prompt", text: words, at, ...shown(kept) });
+		host.log.write({
+			kind: "prompt",
+			text: words,
+			at,
+			...(from === undefined ? {} : { from }),
+			...shown(kept),
+		});
 		state.messages.push(message);
 		this.send([message]);
 	}
@@ -350,7 +362,7 @@ export class ConversationTurns {
 	}
 
 	/** Holds `words` and `sent` for when the turn ends, shown as said. */
-	private queue(words: string, sent: Sent[]): void {
+	private queue(words: string, sent: Sent[], from?: Device): void {
 		const { host } = this;
 		const at = host.now();
 		host.log.write({
@@ -358,6 +370,7 @@ export class ConversationTurns {
 			text: words,
 			at,
 			queued: true,
+			...(from === undefined ? {} : { from }),
 			...shown(sent),
 		});
 		host.state.messages.push({ ...said(words, at, sent), queued: true });

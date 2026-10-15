@@ -8,6 +8,7 @@ import {
 	type Checkpoint,
 	type ConversationState,
 	type Decision,
+	type Device,
 	type Image,
 	type Limit,
 	type Setting,
@@ -267,6 +268,8 @@ export type Entry =
 			at?: string;
 			queued?: true;
 			steered?: true;
+			/** Where the person said it on the page; missing for an agent's word, or from older logs. */
+			from?: Device;
 			/** Missing from logs written before the page sent images. */
 			images?: Image[];
 			/** Missing from logs written before the page sent other files. */
