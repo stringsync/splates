@@ -60,6 +60,42 @@ describe("App's conversation of a task another handed out", () => {
 		],
 	};
 
+	const option = (value: string, name: string) => ({
+		value,
+		name,
+		description: null,
+	});
+	const tuned = {
+		...agent,
+		settings: [
+			{
+				id: "model",
+				name: "Model",
+				type: "select" as const,
+				category: "model",
+				current: "opus",
+				options: [option("sonnet", "Sonnet 5.5"), option("opus", "Opus 5.5")],
+			},
+			{
+				id: "effort",
+				name: "Effort",
+				type: "select" as const,
+				category: "thought_level",
+				current: "high",
+				options: [option("low", "Low"), option("high", "High")],
+			},
+			{
+				id: "fast",
+				name: "Fast mode",
+				type: "boolean" as const,
+				category: null,
+				current: "off",
+				options: [option("on", "On"), option("off", "Off")],
+			},
+		],
+		usage: { ...agent.usage, context: { used: 84_000, size: 200_000 } },
+	};
+
 	it("points to the orchestrator in place of the composer, and opens it", async () => {
 		const view = await testing.openConversations(
 			newestFirst([orchestrator, agent]),
@@ -79,6 +115,21 @@ describe("App's conversation of a task another handed out", () => {
 			fireEvent.click(view.getByRole("button", { name: "Stats lane" })),
 		);
 		await waitFor(() => view.getByRole("textbox", { name: "Message input" }));
+	});
+
+	it("shows its model, effort and context read-only in place of the composer's", async () => {
+		const view = await testing.openConversations(
+			newestFirst([orchestrator, tuned]),
+			"agent",
+			{ tasks },
+		);
+
+		const note = await waitFor(() =>
+			view.getByRole("note", { name: "handed out" }),
+		);
+		expect(within(note).getByText("Opus 5.5 · High")).toBeTruthy();
+		within(note).getByRole("button", { name: "42% of context used" });
+		expect(view.queryByRole("combobox")).toBeNull();
 	});
 
 	it("sends you to the orchestrator to carry on once its agent stops", async () => {

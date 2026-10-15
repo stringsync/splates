@@ -1,12 +1,13 @@
 import { OctagonXIcon } from "lucide-react";
 import { createContext, type JSX, useContext } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
-import type { ConversationState } from "../conversations";
+import type { ConversationState, Setting } from "../conversations";
 import { AskPanel } from "./ask-panel";
 import { terminateConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import type { Drafts } from "./drafts";
 import { Refusal, useRefusal } from "./refusal";
+import { ContextMeter } from "./usage";
 
 /**
  * Every conversation the page holds, archived ones too: what tells whether one
@@ -60,7 +61,9 @@ export function useHandedTo(
  * In place of the composer of a conversation another handed its task to:
  * the agent answers to that one, so its questions and reviews go there, and
  * the person talks to it there. Terminate is the way out, stopping the agent
- * and telling that one, which decides what becomes of the task.
+ * and telling that one, which decides what becomes of the task. What the
+ * composer's row would show, its model, effort and context, it shows read-only:
+ * that one picked them.
  */
 export function HandedOut({
 	conversation,
@@ -75,6 +78,7 @@ export function HandedOut({
 	const { refusal, attempt } = useRefusal();
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
+	const picked = settingsLine(conversation.settings);
 	return (
 		<div
 			role="note"
@@ -109,9 +113,32 @@ export function HandedOut({
 					</Button>
 				)}
 			</div>
+			<div className="flex min-w-0 items-center gap-1 text-xs empty:hidden">
+				{picked !== "" && <span className="truncate">{picked}</span>}
+				<ContextMeter usage={conversation.usage} />
+			</div>
 			<Refusal refusal={refusal} className="text-right" />
 		</div>
 	);
+}
+
+/**
+ * A session's settings as the composer's pickers read: each pick by its
+ * option's name, and a toggle by its own name while on.
+ */
+function settingsLine(settings: Setting[]): string {
+	return settings
+		.flatMap((setting) =>
+			setting.type === "boolean"
+				? setting.current === "on"
+					? [setting.name]
+					: []
+				: [
+						setting.options.find((option) => option.value === setting.current)
+							?.name ?? setting.current,
+					],
+		)
+		.join(" · ");
 }
 
 /**
