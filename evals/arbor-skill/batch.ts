@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Logger } from "webappwiz/log";
+import type { Ps } from "webappwiz/system";
+import type { Duration } from "webappwiz/time";
 import { COMMON } from "./checks";
 import { Fixture } from "./fixture";
 import { type Grade, grade, rubricHash } from "./grader";
@@ -75,7 +77,11 @@ export class Batch {
 			if (run === null) {
 				missing.push(key);
 			}
-			if (run === null || !graded(run.grade, key.scenario, this.opts.grader)) {
+			if (
+				run === null ||
+				(run.meta.timedOut !== true &&
+					!graded(run.grade, key.scenario, this.opts.grader))
+			) {
 				grades++;
 			}
 		}
@@ -100,12 +106,12 @@ export class Batch {
 	}
 
 	/** Runs what is missing, then grades what is ungraded, some at a time; what it spent. */
-	async run(log: Logger): Promise<number> {
+	async run(log: Logger, ps: Ps): Promise<number> {
 		let spent = 0;
 		await pool(this.keys, this.opts.parallel, async (key) => {
 			const name = `${this.labelOf(key.skill)} ${key.scenario.id} #${key.rep}`;
 			try {
-				spent += await this.runOne(key, name, log);
+				spent += await this.runOne(key, name, log, ps);
 			} catch (error) {
 				// One broken run leaves the rest of the batch to finish.
 				log.info(
@@ -121,6 +127,7 @@ export class Batch {
 		key: RunKey,
 		name: string,
 		log: Logger,
+		ps: Ps,
 	): Promise<number> {
 		let spent = 0;
 		let stored = await this.results.run(key);
@@ -133,29 +140,48 @@ export class Batch {
 			const variant = this.variants.find(
 				(each) => each.hash === key.skill,
 			) as Variant;
-			const fixture = new Fixture(dir, variant.dir);
+			const fixture = new Fixture(dir, variant.dir, ps);
 			await fixture.create(key.scenario);
 			const turns: string[][] = [];
 			const at = new Date().toISOString();
+			let timedOut = false;
 			for (const prompt of key.scenario.turns) {
 				const resume =
 					turns.length === 0 ? undefined : sessionOf(turns[0] ?? []);
-				turns.push(await fixture.turn(prompt, { model: key.model, resume }));
+				const turn = await fixture.turn(prompt, {
+					model: key.model,
+					resume,
+					limit: this.opts.limit,
+				});
+				turns.push(turn.lines);
+				if (turn.timedOut) {
+					timedOut = true;
+					break;
+				}
 			}
 			const usage = readRun(turns, key.scenario.turns).usage;
 			spent += total(usage);
 			await this.results.saveRun(key, {
-				meta: { scenario: key.scenario.id, model: key.model, at, usage },
+				meta: {
+					scenario: key.scenario.id,
+					model: key.model,
+					at,
+					usage,
+					...(timedOut ? { timedOut: true as const } : {}),
+				},
 				turns,
 				end: await fixture.end(),
 			});
 			stored = await this.results.run(key);
 			log.info(
-				`ran ${name}: $${total(usage).toFixed(2)}${stored === null ? ", cut off" : ""}`,
+				timedOut
+					? `timed out ${name} after ${this.opts.limit.human()}, at least $${total(usage).toFixed(2)}; delete ${this.results.dir(key)} to run it again`
+					: `ran ${name}: $${total(usage).toFixed(2)}${stored === null ? ", cut off" : ""}`,
 			);
 		}
 		if (
 			stored !== null &&
+			stored.meta.timedOut !== true &&
 			!graded(stored.grade, key.scenario, this.opts.grader)
 		) {
 			const graded = await grade(
@@ -183,8 +209,10 @@ export class Batch {
 			}
 			const log = readRun(stored.turns, key.scenario.turns);
 			const run = { log, end: stored.end };
+			const timedOut = stored.meta.timedOut === true;
 			const checks: Record<string, boolean | null> = {};
-			for (const check of [...COMMON, ...key.scenario.checks]) {
+			// One the limit stopped never finished, so nothing it did is judged.
+			for (const check of timedOut ? [] : [...COMMON, ...key.scenario.checks]) {
 				const verdicts = check.judge(run);
 				// A run passes a check when every place it applied passed.
 				checks[check.id] =
@@ -197,6 +225,7 @@ export class Batch {
 			found.push({
 				variant: this.labelOf(key.skill),
 				scenario: key.scenario.id,
+				timedOut,
 				checks,
 				model,
 				reads: reads(log.tools),
@@ -221,6 +250,8 @@ export interface BatchOptions {
 	reps: number;
 	/** Runs at once. */
 	parallel: number;
+	/** How long one turn may run before it is stopped. */
+	limit: Duration;
 }
 
 export interface Estimate {
@@ -238,6 +269,8 @@ export interface Estimate {
 export interface RunVerdicts {
 	variant: string;
 	scenario: string;
+	/** Whether the limit stopped it; its checks and model items are then empty. */
+	timedOut: boolean;
 	checks: Record<string, boolean | null>;
 	model: Record<string, boolean | null>;
 	/** The skill's files beyond SKILL.md it read, by path within the skill. */

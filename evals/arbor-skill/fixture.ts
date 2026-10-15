@@ -2,6 +2,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EndState } from "@webappwiz/arbor/skill-checks";
 import { $, type ShellExpression } from "bun";
+import type { ProcessEntry, Ps } from "webappwiz/system";
+import { Duration, SystemTimer, timeouts } from "webappwiz/time";
 import type { Scenario } from "./scenario";
 
 /**
@@ -19,6 +21,8 @@ export class Fixture {
 		readonly dir: string,
 		/** The skill under test, as a directory holding SKILL.md. */
 		private readonly skill: string,
+		/** Starts the agent, and stops it with all it started at the time limit. */
+		private readonly ps: Ps,
 	) {
 		this.repo = join(dir, "repo");
 		this.env = {
@@ -72,12 +76,68 @@ export class Fixture {
 		}
 	}
 
-	/** One turn of `claude -p`, resuming the session `resume` names; what it printed, line by line. */
-	async turn(prompt: string, opts: TurnOptions): Promise<string[]> {
+	/**
+	 * One turn of `claude -p`, resuming the session `resume` names: what it
+	 * printed, line by line, and whether the limit stopped it. An agent can
+	 * wait forever, as on a subagent that waits on it, so at the limit it is
+	 * killed with every process under it.
+	 */
+	async turn(prompt: string, opts: TurnOptions): Promise<Turn> {
 		const resume = opts.resume === undefined ? [] : ["--resume", opts.resume];
-		const out = await this
-			.sh`claude -p ${prompt} ${resume} --model ${opts.model} --output-format stream-json --verbose --dangerously-skip-permissions --setting-sources project --strict-mcp-config`.nothrow();
-		return out.stdout.toString().split("\n").filter(Boolean);
+		const child = this.ps.start(
+			[
+				"claude",
+				"-p",
+				prompt,
+				...resume,
+				"--model",
+				opts.model,
+				"--output-format",
+				"stream-json",
+				"--verbose",
+				"--dangerously-skip-permissions",
+				"--setting-sources",
+				"project",
+				"--strict-mcp-config",
+			],
+			{
+				cwd: this.repo,
+				env: Object.fromEntries(
+					Object.entries(this.env).flatMap(([name, value]) =>
+						value === undefined ? [] : [[name, value]],
+					),
+				),
+				unset: Object.keys(this.env).filter(
+					(name) => this.env[name] === undefined,
+				),
+			},
+		);
+		await child.stdin.close();
+		let printed = "";
+		const reading = (async () => {
+			const decoder = new TextDecoder();
+			for await (const chunk of child.stdout) {
+				printed += decoder.decode(chunk, { stream: true });
+			}
+		})();
+		// Read, or a full pipe would stall it.
+		void new Response(child.stderr).text();
+		const timer = new SystemTimer();
+		const timedOut = !(await timeouts.race(timer, child.exited, opts.limit));
+		if (timedOut && child.pid !== null) {
+			for (const pid of under(await this.ps.processes(), child.pid)) {
+				try {
+					process.kill(pid, "SIGKILL");
+				} catch {
+					// Gone already.
+				}
+			}
+		}
+		await child.exited;
+		// A process it left behind can hold its output open; what came before
+		// that is enough.
+		await timeouts.race(timer, reading, Duration.secs(10));
+		return { lines: printed.split("\n").filter(Boolean), timedOut };
 	}
 
 	/** Where the repository stands once the agent is done, for the checks to read. */
@@ -125,6 +185,28 @@ export interface TurnOptions {
 	model: string;
 	/** The session to resume, for a turn after the first. */
 	resume?: string;
+	/** How long the turn may run before it is stopped. */
+	limit: Duration;
+}
+
+export interface Turn {
+	/** What `claude -p` printed, line by line. */
+	lines: string[];
+	/** Whether the limit stopped it, so it printed no result. */
+	timedOut: boolean;
+}
+
+/** `pid` and every process under it, as `processes` lists them. */
+function under(processes: ProcessEntry[], pid: number): number[] {
+	const found = [pid];
+	for (let index = 0; index < found.length; index++) {
+		for (const each of processes) {
+			if (each.ppid === found[index]) {
+				found.push(each.pid);
+			}
+		}
+	}
+	return found;
 }
 
 /** What the checks read of a repository once a run is done. */

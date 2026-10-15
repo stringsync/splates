@@ -36,16 +36,25 @@ export class Results {
 	async run(key: RunKey): Promise<StoredRun | null> {
 		const dir = this.dir(key);
 		const meta = await json<RunMeta>(join(dir, "run.json"));
-		if (meta === null || meta.usage.length !== key.scenario.turns.length) {
+		if (
+			meta === null ||
+			(meta.timedOut !== true &&
+				meta.usage.length !== key.scenario.turns.length)
+		) {
 			return null;
 		}
-		const turns = await Promise.all(
-			key.scenario.turns.map(async (_, index) =>
-				(await readFile(join(dir, `turn${index + 1}.jsonl`), "utf8")).split(
-					"\n",
-				),
-			),
-		);
+		// One the limit stopped kept only the turns it reached.
+		const turns: string[][] = [];
+		for (let index = 0; index < key.scenario.turns.length; index++) {
+			const text = await readFile(
+				join(dir, `turn${index + 1}.jsonl`),
+				"utf8",
+			).catch(() => null);
+			if (text === null) {
+				break;
+			}
+			turns.push(text.split("\n"));
+		}
 		const end = await json<EndRepo>(join(dir, "end.json"));
 		return end === null
 			? null
@@ -129,8 +138,13 @@ export interface RunMeta {
 	model: string;
 	/** When it started, as an ISO timestamp. */
 	at: string;
-	/** What each turn cost. */
+	/** What each turn cost, but for one the limit stopped, which printed no cost. */
 	usage: Usage[];
+	/**
+	 * Whether the limit stopped it. It is kept, so it is not paid for again,
+	 * but never graded; delete its directory to run it again.
+	 */
+	timedOut?: true;
 }
 
 export interface History {

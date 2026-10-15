@@ -2,9 +2,9 @@ import type { RunVerdicts } from "./batch";
 import { total } from "./results";
 
 /**
- * The kept runs as a table per scenario: each check's passes over the runs
- * it applied to, a column per variant, then the skill files read and what
- * the runs cost.
+ * The kept runs as a table per scenario: how many the limit stopped, each
+ * check's passes over the runs it applied to, a column per variant, then the
+ * skill files read and what the runs cost.
  */
 export function report(runs: RunVerdicts[], variants: string[]): string {
 	const out: string[] = [];
@@ -23,6 +23,17 @@ export function report(runs: RunVerdicts[], variants: string[]): string {
 				variants.map((variant, index) => `${variant} (${by[index]?.length})`),
 			),
 		);
+		if (of.some((each) => each.timedOut)) {
+			out.push(
+				row(
+					"timed out",
+					by.map(
+						(each) =>
+							`${each.filter((run) => run.timedOut).length}/${each.length}`,
+					),
+				),
+			);
+		}
 		for (const kind of ["checks", "model"] as const) {
 			const ids = [...new Set(of.flatMap((each) => Object.keys(each[kind])))];
 			for (const id of ids) {

@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { cli } from "webappwiz/cmd";
 import type { Logger } from "webappwiz/log";
+import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { Batch, fixtureVersion } from "./batch";
 import { report } from "./report";
@@ -47,8 +48,16 @@ evals
 		default: 7,
 		description: "runs at once",
 	})
-	.action(async (opts, { log }) => {
-		const batch = await plan(log, opts);
+	.option("limit", z.coerce.number().positive(), {
+		default: 10,
+		description:
+			"minutes one turn may run before it is stopped and kept as timed out",
+	})
+	.action(async (opts, { log, ps }) => {
+		const batch = await plan(log, {
+			...opts,
+			limit: Duration.mins(opts.limit),
+		});
 		if (batch === null) {
 			return;
 		}
@@ -76,7 +85,7 @@ evals
 				log.info("nothing run");
 				return;
 			}
-			const spent = await batch.run(log);
+			const spent = await batch.run(log, ps);
 			log.info(`spent $${spent.toFixed(2)}`);
 		}
 		log.info(
@@ -105,7 +114,12 @@ evals
 		description: "the agent's model",
 	})
 	.action(async (opts, { log }) => {
-		const batch = await plan(log, { ...opts, grader: "opus", parallel: 1 });
+		const batch = await plan(log, {
+			...opts,
+			grader: "opus",
+			parallel: 1,
+			limit: Duration.zero(),
+		});
 		if (batch !== null) {
 			log.info(
 				report(
@@ -123,6 +137,7 @@ interface PlanOptions {
 	model: string;
 	grader: string;
 	parallel: number;
+	limit: Duration;
 }
 
 /** The batch the options ask for, saying what changed; null when nothing would run. */

@@ -33,5 +33,10 @@ Runs are kept in `~/.arbor/skill-evals`, by a hash of the skill's words (its
 run costs nothing again, and each run and grade keeps what it cost. A changed
 rubric grades the kept runs again; a changed fixture or prompt runs them again.
 
+An agent can wait forever, as on a subagent that waits on it, so each turn
+stops after `--limit` minutes (10 by default), with every process it started.
+The run is kept as timed out: the report counts it, it is never graded, and
+it is not paid for again until its directory, which the log names, is deleted.
+
 The scenarios, their prompts, and their checks and rubric are in
 `scenarios.ts`; the throwaway repository is in `fixture.ts`.
