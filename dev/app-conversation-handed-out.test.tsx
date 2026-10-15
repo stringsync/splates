@@ -176,6 +176,28 @@ describe("App's conversation of a task another handed out", () => {
 		);
 	});
 
+	it("shows nothing for a task handed out stopping, leaving it to the orchestrator's report", async () => {
+		const view = await testing.openConversations(
+			newestFirst([
+				{
+					...orchestrator,
+					messages: [
+						...orchestrator.messages,
+						message("user", "[ARBOR REPORT alpha]"),
+						message("agent", "## ⏳ Working lanes Stats: on beta"),
+					],
+				},
+				agent,
+			]),
+			"orch",
+			{ tasks },
+		);
+
+		await waitFor(() => view.getByRole("region", { name: "working Stats" }));
+		expect(view.queryByText(/handed out here/)).toBeNull();
+		expect(view.queryByText("[ARBOR REPORT alpha]")).toBeNull();
+	});
+
 	it("shows its escalation's questions read-only, answered through the orchestrator", async () => {
 		const view = await testing.openConversations(
 			newestFirst([orchestrator, escalated]),

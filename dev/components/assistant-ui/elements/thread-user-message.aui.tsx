@@ -28,6 +28,7 @@ import {
 	DirectiveChip,
 	linkDirectives,
 	soleDirective,
+	unshown,
 } from "#dev/directives.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import {
@@ -126,6 +127,16 @@ export const UserMessage: FC = () => {
 			.join("\n"),
 	);
 	const sent = sentOf(attachments);
+	if (sole !== null && sent.length === 0 && unshown(sole)) {
+		// Nothing to see, but still where its turn starts.
+		return (
+			<MessagePrimitive.Root
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				data-role="user"
+			/>
+		);
+	}
 	if (sole !== null && sent.length === 0) {
 		// A card, with nothing to stick atop its turn: what it asked is said once.
 		return (

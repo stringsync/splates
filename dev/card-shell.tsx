@@ -157,7 +157,7 @@ export const ENDINGS: Record<
 	},
 	finished: { title: "Finished", Icon: FlagIcon, tone: "success" },
 	waiting: { title: "Waiting", Icon: CirclePauseIcon, tone: "warning" },
-	working: { title: "Working", Icon: HourglassIcon, tone: "info" },
+	working: { title: "Working", Icon: HourglassIcon, tone: "neutral" },
 	handed: { title: "Handed off", Icon: HandshakeIcon, tone: "info" },
 };
 

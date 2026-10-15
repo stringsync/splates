@@ -186,6 +186,14 @@ export function soleDirective(text: string): string | null {
 }
 
 /**
+ * Whether a message of `directive` alone shows nothing: the report of a task
+ * handed out, which the orchestrator's next lane report says all of.
+ */
+export function unshown(directive: string): boolean {
+	return CARDED.exec(directive)?.[1] === "REPORT";
+}
+
+/**
  * A message of `directive` alone, read by `soleDirective`, as a card saying
  * what it asked of the agent, in place of the message: for a todo, a lane, or
  * a task, its chip, which opens a todo still on the board or a live task.
@@ -265,18 +273,8 @@ export function DirectiveCard({
 		);
 	}
 	if (kind === "REPORT") {
-		return (
-			<CardShell
-				label={`report ${argument}`}
-				Icon={GitBranchIcon}
-				title="Report"
-			>
-				<p className="px-4 py-3.5 text-muted-foreground text-sm leading-relaxed">
-					<DirectiveChip directive={directive} opens inline />, handed out here,
-					stopped: escalated, merged or removed.
-				</p>
-			</CardShell>
-		);
+		// The orchestrator's Working card that answers it says what came of the task.
+		return null;
 	}
 	const { title, Icon, asked } =
 		argument === UNTRIAGED

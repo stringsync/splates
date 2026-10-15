@@ -34,7 +34,7 @@ Make the Stats page say what to act on, then renew licenses on their own.
 
 1. `arbor lane show N` prints the steps and what to do next. When it says
    the lane is done or gone, done by you or by agents you never started, say
-   so in a line. Once every lane you work is, end on a finished report (see
+   so in your next lane report. Once every lane you work is, end on a finished report (see
    Reporting), so the `arbor dev` page shows you as done.
 2. When its next todo is blocked by a todo in another lane, it waits for
    that one. A blocker you handed out wakes you with its report, as in step
@@ -71,8 +71,9 @@ Make the Stats page say what to act on, then renew licenses on their own.
 `[ARBOR REPORT <task>]`, which arrives as a message from the user would,
 means a task you handed out stopped: escalated, merged or removed. Read
 `arbor show <task>`, once per stop: one you have already acted on needs
-nothing more. When it is gone, read in `git log` what landed, say so in a
-line, and go back to step 1 for its lane without waiting for the user. When
+nothing more. When it is gone, read in `git log` what landed, and go back to step 1 for
+its lane without waiting for the user, saying what landed in the report
+that ends your turn, never in a line of its own. When
 it is escalated, what needs that task waits on it: answer what you can and
 bring the rest to the user at once (see Relaying for a lane's agents), while
 every other agent carries on. Each report you end a turn on after
@@ -203,10 +204,13 @@ to merge card of its own.
 
 Whenever it ends a turn with a task it handed out still at work, and no
 lane waits on the user, it ends on a working report: `## ⏳ Working lanes`,
-the names of the lanes it works, and after a colon, the tasks out, then one
-sentence on what lands next, and a `- ` line per lane on what it waits on.
-The user hears nothing is asked of them, and each report that wakes it
-brings a fresh one.
+the names of the lanes it works, and after a colon, the tasks out, then a
+`####` line, one sentence on what landed since its last report and what
+lands next, and a `- ` line per lane on what it waits on. The user hears
+nothing is asked of them, and each report that wakes it brings a fresh one.
+The working report is where every word on the lanes goes: say nothing
+before it in the turn, neither what landed nor what went out, since the
+user reads the lanes in one card.
 
 Like a task agent's assumptions, each call it makes is said once, in the
 report that ends the turn it made it in, after the lane lines: a
@@ -217,7 +221,7 @@ line for each answer it gave from the lane.
 ```markdown
 ## ⏳ Working lanes Stats, Licensing: on stats-breakdowns-clear, licensing-renew
 
-Both lanes have a todo out; the breakdown tables land first.
+#### #154 merged as stats-totals-first, so the breakdown tables land next.
 
 - Stats: #155 out as stats-breakdowns-clear (Sonnet); #160 is next.
 - Licensing: #172 out as licensing-renew (Haiku); #173 is next.
