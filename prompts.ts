@@ -73,6 +73,16 @@ export function idleReference(task: string): string {
 export const HEARTBEAT = "[ARBOR HEARTBEAT]";
 
 /**
+ * Whether `text` is an update arbor itself tells the conversation that handed
+ * tasks out: a report, idle, stopped or heartbeat, never the person's word.
+ */
+export function isUpdate(text: string): boolean {
+	return /^\[ARBOR (?:(?:REPORT|IDLE|STOPPED) [^\]]+|HEARTBEAT)\]$/.test(
+		text.trim(),
+	);
+}
+
+/**
  * What asks an agent to bring its `ARBOR.md` up to date and stop, as before a
  * restart: the arbor skill says what it means.
  */

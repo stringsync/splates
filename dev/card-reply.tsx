@@ -1,4 +1,4 @@
-import { useAuiState } from "@assistant-ui/react";
+import { type ThreadMessage, useAuiState } from "@assistant-ui/react";
 import {
 	createContext,
 	type JSX,
@@ -8,6 +8,7 @@ import {
 	useEffectEvent,
 } from "react";
 import { focusStop } from "#dev/hooks/use-touch.ts";
+import { isUpdate } from "../prompts";
 import { toCardTop } from "./card-shell";
 
 /** What the cards in a conversation answer through. */
@@ -37,39 +38,89 @@ export const ReplyContext = createContext<Reply | null>(null);
 const SentContext = createContext<string | null>(null);
 
 /**
+ * Whether the agent asked again in a later message before the person replied:
+ * what `InMessage` reads from the thread.
+ */
+const AskedAgainContext = createContext(false);
+
+/**
  * What a card answers through while the person has yet to reply to its
  * message, and once they have, the reply they sent. Neither outside a
- * conversation.
+ * conversation, nor once the agent asked again in a later message, which
+ * `askedAgain` says.
  */
-export function useCardReply(): { reply: Reply | null; sent: string | null } {
+export function useCardReply(): {
+	reply: Reply | null;
+	sent: string | null;
+	askedAgain: boolean;
+} {
 	const live = useContext(ReplyContext);
 	const sent = useContext(SentContext);
-	return sent === null ? { reply: live, sent: null } : { reply: null, sent };
+	const askedAgain = useContext(AskedAgainContext);
+	return sent === null
+		? { reply: askedAgain ? null : live, sent: null, askedAgain }
+		: { reply: null, sent, askedAgain: false };
 }
+
+/** The parts of a message that ask the person something, by name. */
+const ASKING = ["questions", "review"];
 
 /**
  * Puts the card in `children` in its message: from the person's reply to it
- * on, the card keeps that reply, which nothing changes any more.
+ * on, the card keeps that reply, which nothing changes any more. Arbor's own
+ * updates in between, such as a task's report, are no reply. Before one, a
+ * later message that asks the person something itself takes over from it.
  */
 export function InMessage({ children }: { children: ReactNode }): JSX.Element {
-	const sent = useAuiState((state) => {
-		const next = state.thread.messages[state.message.index + 1];
-		return next?.role === "user"
-			? next.content
-					.map((part) => (part.type === "text" ? part.text : ""))
-					.join("")
-			: null;
-	});
-	return <SentContext value={sent}>{children}</SentContext>;
+	// One message on from its own: the reply, or the ask that takes over.
+	const after = useAuiState((state) =>
+		state.thread.messages
+			.slice(state.message.index + 1)
+			.findIndex(
+				(next) =>
+					(next.role === "user" && !isUpdate(textOf(next))) ||
+					(next.role === "assistant" && asks(next)),
+			),
+	);
+	const next = useAuiState((state) =>
+		after === -1
+			? null
+			: state.thread.messages[state.message.index + 1 + after],
+	);
+	const sent = next?.role === "user" ? textOf(next) : null;
+	return (
+		<SentContext value={sent}>
+			<AskedAgainContext value={next?.role === "assistant"}>
+				{children}
+			</AskedAgainContext>
+		</SentContext>
+	);
+}
+
+/** The words of `message`, without its files. */
+export function textOf(message: ThreadMessage): string {
+	return message.content
+		.map((part) => (part.type === "text" ? part.text : ""))
+		.join("");
+}
+
+/** Whether `message` asks the person something, as questions or a review. */
+export function asks(message: ThreadMessage): boolean {
+	return message.content.some(
+		(part) => part.type === "data" && ASKING.includes(part.name),
+	);
 }
 
 /**
  * What a card keeps in the conversation's drafts under `name` while it is
- * written, dropped once `sent`; nothing is kept without a name.
+ * written, dropped once `sent`; nothing is kept without a name. While it
+ * holds nothing, it reads the first of the drafts `before` that holds
+ * anything, as for a card asked again.
  */
 export function useKept(
 	name: string | null,
 	sent: string | null,
+	before: string[] = [],
 ): { read(): string; write(text: string): void } {
 	const drafts = useContext(ReplyContext)?.drafts ?? null;
 	// Sent, from the card or the composer: nothing is left to keep.
@@ -79,7 +130,18 @@ export function useKept(
 		}
 	}, [sent, name, drafts]);
 	return {
-		read: () => (name === null ? "" : (drafts?.read(name) ?? "")),
+		read: () => {
+			if (name === null || drafts === null) {
+				return "";
+			}
+			for (const each of [name, ...before]) {
+				const text = drafts.read(each);
+				if (text !== "") {
+					return text;
+				}
+			}
+			return "";
+		},
 		write: (text) => {
 			if (name !== null) {
 				drafts?.write(name, text);

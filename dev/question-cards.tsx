@@ -15,9 +15,16 @@ import { cn } from "#dev/lib/utils.ts";
 import type { TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Question } from "../plan";
+import { isUpdate } from "../prompts";
 import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
 import { copiedLabel, useCopy } from "./card";
-import { InMessage, useArrival, useCardReply, useKept } from "./card-reply";
+import {
+	InMessage,
+	textOf,
+	useArrival,
+	useCardReply,
+	useKept,
+} from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
@@ -48,6 +55,7 @@ export function QuestionCards({
 	escalation = null,
 	demo = null,
 	draft = null,
+	earlier = [],
 	copy = false,
 	paged = false,
 	onSent,
@@ -59,6 +67,11 @@ export function QuestionCards({
 	demo?: Demo | null;
 	/** The name it keeps what is written under in the conversation's drafts. */
 	draft?: string | null;
+	/**
+	 * The drafts of the questions these were asked again for, newest first: it
+	 * opens with the first that holds anything, while its own holds nothing.
+	 */
+	earlier?: string[];
 	/** Copy the reply rather than send it: its agent runs outside the page. */
 	copy?: boolean;
 	/**
@@ -69,9 +82,9 @@ export function QuestionCards({
 	/** Once the reply is sent from it, or copied. */
 	onSent?: () => void;
 }): JSX.Element {
-	const { reply, sent } = useCardReply();
-	const live = sent === null && (copy || reply !== null);
-	const kept = useKept(draft, sent);
+	const { reply, sent, askedAgain } = useCardReply();
+	const live = sent === null && !askedAgain && (copy || reply !== null);
+	const kept = useKept(draft, sent, earlier);
 	const touch = useTouch();
 	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
@@ -190,7 +203,8 @@ export function QuestionCards({
 						...ENDINGS.escalated,
 						task: escalation.task,
 					})}
-			folded={sent !== null}
+			// Asked again below, it is answered there.
+			folded={sent !== null || askedAgain}
 			// Each question marks itself while it has the focus.
 			ringed={false}
 			// Paged, the dots in its footer say it, so a narrow header never wraps.
@@ -400,6 +414,14 @@ export function QuestionCards({
 /** How long a pick shows before a paged panel goes on from it. */
 const GO_ON_MS = 300;
 
+/**
+ * What the questions `message` asks keep what is written under: by its first
+ * question too, as a message can ask more than one list.
+ */
+function draftName(message: string, questions: Question[]): string {
+	return `questions:${message}:${questions[0]?.text ?? ""}`;
+}
+
 /** What the panel holds before it is sent: answers by question line, and the rest. */
 interface Written {
 	answers: Record<string, Answer>;
@@ -426,6 +448,27 @@ function MessageQuestions({
 	demo,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
+	// The drafts of the questions asked before these since the person last
+	// replied, newest first, which these take over, as when arbor told the
+	// agent of a task's end meanwhile and it asked them again.
+	const before = useAuiState((state) => {
+		const names: string[] = [];
+		for (const earlier of state.thread.messages
+			.slice(0, state.message.index)
+			.toReversed()) {
+			if (earlier.role === "user" && !isUpdate(textOf(earlier))) {
+				break;
+			}
+			for (const part of earlier.content) {
+				if (part.type === "data" && part.name === "questions") {
+					names.push(
+						draftName(earlier.id, (part.data as QuestionsData).questions),
+					);
+				}
+			}
+		}
+		return names.join("\n");
+	});
 	const sheeted = useSheeted();
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
@@ -446,8 +489,8 @@ function MessageQuestions({
 				questions={questions}
 				escalation={escalation}
 				demo={demo}
-				// Its first question too, as a message can ask more than one list.
-				draft={`questions:${message}:${questions[0]?.text ?? ""}`}
+				draft={draftName(message, questions)}
+				earlier={before === "" ? [] : before.split("\n")}
 				paged={sheeted}
 			/>
 		</Sheeted>
