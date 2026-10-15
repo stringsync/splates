@@ -13,6 +13,7 @@
 @source "./app-nav.tsx";
 @source "./phone-app.tsx";
 @source "./phone-inbox.tsx";
+@source "./phone-row-menu.tsx";
 @source "./phone-drawer.tsx";
 @source "./phone-home.tsx";
 @source "./phone-sheets.tsx";

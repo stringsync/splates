@@ -6,7 +6,7 @@ import {
 	SquareTerminalIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, type ReactNode, useContext } from "react";
+import { type JSX, type ReactNode, useContext, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import type { Needing } from "../needs";
 import type { Details } from "../show";
@@ -30,6 +30,8 @@ import type { Drafts } from "./drafts";
 import { Mark } from "./mark";
 import { type Nested, nest } from "./parts";
 import { launch } from "./phone-home";
+import { RowMenu, useLongPress } from "./phone-row-menu";
+import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import { numberOf, type Terminals } from "./terminals";
 import { unanswered } from "./unanswered";
@@ -40,9 +42,10 @@ import { unanswered } from "./unanswered";
  * each row a finger's height saying what it waits on. The agents one handed
  * out, its subagents and parts, sit under it, in its group, since they answer
  * to it rather than to you. A tap on one waiting goes straight to what it
- * asks. The menu opens the drawer, and the pen, like
- * the composer along the bottom, starts a new conversation. The main tree's
- * terminals come last, to go back to or close.
+ * asks, and a long press offers Rename, Mark as unread and Archive. The menu
+ * opens the drawer, and the pen, like the composer along the bottom, starts a
+ * new conversation. The main tree's terminals come last, to go back to or
+ * close.
  */
 export function Inbox({
 	feed,
@@ -234,6 +237,7 @@ function Group({
 /**
  * One agent: its mark, its name, what it waits on, and how long since it
  * moved. One handed out sits indented under the agent it answers to, smaller.
+ * Held down, a conversation's row opens its menu.
  */
 function Row({
 	row,
@@ -257,76 +261,94 @@ function Row({
 		conversation !== null ? nameOf(conversation) : (task?.task ?? "");
 	const { text, urgent } = statusOf(row, name, trunk);
 	const moved = movedAt(row);
+	const [menu, setMenu] = useState(false);
+	const { refusal, refuse } = useRefusal();
+	const press = useLongPress(() => setMenu(true));
 	return (
-		<button
-			type="button"
-			onClick={onOpen}
-			className={cn(
-				"flex w-full items-center gap-3 py-2.5 pr-4 text-left active:bg-muted",
-				depth === 0 ? "min-h-16" : "min-h-14",
+		<>
+			{conversation !== null && (
+				<RowMenu
+					conversation={conversation}
+					open={menu}
+					onOpenChange={setMenu}
+					refuse={refuse}
+				/>
 			)}
-			// Under the name of the agent it answers to.
-			style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
-		>
-			<span
+			<button
+				type="button"
+				onClick={onOpen}
+				{...(conversation !== null ? press : {})}
 				className={cn(
-					"flex shrink-0 items-center justify-center rounded-full bg-muted",
-					depth === 0 ? "size-10" : "size-8",
+					// No callout or selection to fight the long press.
+					"flex w-full select-none items-center gap-3 py-2.5 pr-4 text-left [-webkit-touch-callout:none] active:bg-muted",
+					depth === 0 ? "min-h-16" : "min-h-14",
 				)}
+				// Under the name of the agent it answers to.
+				style={{ paddingLeft: `${1 + 3.25 * depth}rem` }}
 			>
-				{conversation !== null && agent !== null ? (
-					<AgentIcon
-						agent={conversation.agent}
-						name={agent}
-						className={cn(
-							"text-foreground/80",
-							depth === 0 ? "size-5" : "size-4",
-						)}
-					/>
-				) : (
-					<GitBranchIcon
-						className={cn(
-							"text-foreground/80",
-							depth === 0 ? "size-5" : "size-4",
-						)}
-					/>
-				)}
-			</span>
-			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-				<span className="flex items-baseline gap-2">
-					<span
-						className={cn(
-							"min-w-0 flex-1 truncate font-medium text-[15px]",
-							conversation !== null &&
-								unnamed(conversation) &&
-								"text-muted-foreground italic",
-						)}
-					>
-						{conversation !== null ? nameOf(conversation) : (task?.task ?? "")}
-					</span>
-					{moved !== null && (
-						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-							{moved}
-						</span>
+				<span
+					className={cn(
+						"flex shrink-0 items-center justify-center rounded-full bg-muted",
+						depth === 0 ? "size-10" : "size-8",
+					)}
+				>
+					{conversation !== null && agent !== null ? (
+						<AgentIcon
+							agent={conversation.agent}
+							name={agent}
+							className={cn(
+								"text-foreground/80",
+								depth === 0 ? "size-5" : "size-4",
+							)}
+						/>
+					) : (
+						<GitBranchIcon
+							className={cn(
+								"text-foreground/80",
+								depth === 0 ? "size-5" : "size-4",
+							)}
+						/>
 					)}
 				</span>
-				<span className="flex items-center gap-2">
-					<span
-						className={cn(
-							"min-w-0 flex-1 truncate text-sm",
-							urgent ? "text-warning" : "text-muted-foreground",
+				<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span className="flex items-baseline gap-2">
+						<span
+							className={cn(
+								"min-w-0 flex-1 truncate font-medium text-[15px]",
+								conversation !== null &&
+									unnamed(conversation) &&
+									"text-muted-foreground italic",
+							)}
+						>
+							{conversation !== null
+								? nameOf(conversation)
+								: (task?.task ?? "")}
+						</span>
+						{moved !== null && (
+							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+								{moved}
+							</span>
 						)}
-					>
-						{text}
 					</span>
-					<Mark
-						need={need}
-						reported={reported}
-						unread={conversation?.unread ?? false}
-					/>
+					<span className="flex items-center gap-2">
+						<span
+							className={cn(
+								"min-w-0 flex-1 truncate text-sm",
+								urgent ? "text-warning" : "text-muted-foreground",
+							)}
+						>
+							{text}
+						</span>
+						<Mark
+							need={need}
+							reported={reported}
+							unread={conversation?.unread ?? false}
+						/>
+					</span>
 				</span>
-			</span>
-		</button>
+			</button>
+			<Refusal refusal={refusal} className="px-4 pb-1.5" />
+		</>
 	);
 }
 

@@ -100,6 +100,61 @@ describe("App on a phone", () => {
 		expect(location.hash).toBe("#conversations/orch");
 	});
 
+	it("renames, marks unread and archives a conversation from a long press on its inbox row", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Fix login", status: "stopped" })],
+			null,
+			{ tasks: [] },
+		);
+		const inbox = view.getByRole("region", { name: "inbox" });
+		// As Android holds a row: the finger down, then the context menu.
+		const hold = async () => {
+			const row = within(inbox).getByRole("button", { name: /Fix login/ });
+			await act(async () => {
+				fireEvent.pointerDown(row);
+				fireEvent.contextMenu(row);
+			});
+			return view.getByRole("dialog", { name: "Fix login" });
+		};
+
+		let menu = await hold();
+		// The press opens the menu, not the conversation.
+		expect(location.hash).not.toBe("#conversations/c1");
+		await act(async () =>
+			fireEvent.click(within(menu).getByRole("button", { name: "Rename" })),
+		);
+		const box = within(menu).getByRole("textbox", {
+			name: "Rename Fix login",
+		});
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "Login" } }),
+		);
+		await act(async () =>
+			fireEvent.click(within(menu).getByRole("button", { name: "Save" })),
+		);
+		expect(testing.posted("/api/conversations/c1/name")).toEqual([
+			{ method: "PUT", body: { name: "Login" } },
+		]);
+
+		menu = await hold();
+		await act(async () =>
+			fireEvent.click(
+				within(menu).getByRole("button", { name: "Mark as unread" }),
+			),
+		);
+		expect(testing.posted("/api/conversations/c1/unread")).toEqual([
+			{ method: "PUT", body: { unread: true } },
+		]);
+
+		menu = await hold();
+		await act(async () =>
+			fireEvent.click(within(menu).getByRole("button", { name: "Archive" })),
+		);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
 	it("starts a new conversation from the composer along the inbox's bottom", async () => {
 		const view = await testing.openConversations([], null);
 
