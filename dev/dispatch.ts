@@ -57,6 +57,11 @@ export class Dispatch {
 		);
 	}
 
+	/** `task`'s details, while it is still there. */
+	task(task: string): Details | undefined {
+		return this.tasks.find((each) => each.task === task);
+	}
+
 	/**
 	 * The conversations that could take `assignment` on: every one listed but those
 	 * already on it, which hold it.

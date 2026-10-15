@@ -31,6 +31,7 @@ import { namedForTask, openingOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { Need } from "../needs";
 import { AgentIcon } from "./agent-icons";
+import { removeTask } from "./api";
 import { copiedLabel, useCopy } from "./card";
 import {
 	archiveConversation,
@@ -38,7 +39,7 @@ import {
 	renameConversation,
 } from "./conversation-api";
 import { reportedAs, unnamed, useNameOf } from "./conversation-names";
-import { Trunk, whereRuns } from "./dispatching";
+import { Dispatching, Trunk, whereRuns } from "./dispatching";
 import { useHandedOutBy, useHandedTo } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
@@ -247,10 +248,11 @@ export function Item({
 }
 
 /**
- * Archives `conversation`, or brings it back, then runs `then`. While its
- * agent works, or its shell is up, `file` asks first in
- * `confirm`, since archiving stops both; render `confirm` beside whatever
- * calls `file`.
+ * Archives `conversation`, or brings it back, then runs `then`. Archiving
+ * removes its task too, as `arbor remove` does, while the task is still there
+ * and this conversation last took it. While its agent works, its shell is up,
+ * or it would remove its task, `file` asks first in `confirm`, since archiving
+ * stops or discards them; render `confirm` beside whatever calls `file`.
  */
 export function useArchive(
 	conversation: ConversationState,
@@ -273,12 +275,19 @@ export function useArchive(
 	const failure = useRef<(() => void) | undefined>(undefined);
 	const shellRunning = useContext(ShellRunning);
 	const showTerminal = useContext(ShowTerminal);
+	const dispatching = useContext(Dispatching);
 	const nameOf = useNameOf();
 	const { id, archived } = conversation;
+	// One handed on to another agent is that agent's to remove.
+	const held =
+		conversation.task === null
+			? undefined
+			: dispatching?.dispatch.task(conversation.task);
+	const task = !archived && held?.takenBy === id ? held : null;
 	const files = useHandedOutBy(conversation) === null;
 	// The agents it handed tasks to go with it, any at work stopped.
 	const along = useHandedTo(conversation).filter((each) => !each.archived);
-	const put = () =>
+	const fileAway = () =>
 		void archiveConversation(id, !archived).then(
 			() => after.current?.(),
 			(error: unknown) => {
@@ -286,12 +295,21 @@ export function useArchive(
 				refuse(archived ? "Not unarchived" : "Not archived", error);
 			},
 		);
+	// The task goes first, so a failed archive leaves only that to try again.
+	const put = () =>
+		task === null
+			? fileAway()
+			: void removeTask(task.task).then(fileAway, (error: unknown) => {
+					failure.current?.();
+					refuse("Not removed", error);
+				});
 	const working =
 		conversation.status === "starting" || conversation.status === "running";
 	// Otherwise only its shell can lose anything, like a dev server it runs;
 	// asked as it is clicked, since the shell comes and goes without a render here.
 	const asks = () =>
-		!archived && (working || along.length > 0 || shellRunning(id));
+		!archived &&
+		(task !== null || working || along.length > 0 || shellRunning(id));
 	const file = (then?: () => void, failed?: () => void) => {
 		after.current = then;
 		failure.current = failed;
@@ -304,20 +322,32 @@ export function useArchive(
 			put();
 		}
 	};
+	// Read while it asks, which renders it.
+	const shell = asking && shellRunning(id);
 	const confirm = (
 		<Dialog open={asking} onOpenChange={setAsking}>
 			<DialogContent showCloseButton={false}>
 				<DialogHeader>
 					<DialogTitle>Archive {nameOf(conversation)}?</DialogTitle>
-					<DialogDescription>
-						{working
-							? "The agent is still running. Archiving stops it and closes its terminal."
-							: along.length > 0
-								? "Archiving stops its agent."
-								: conversation.status === "idle"
-									? "Its terminal is still open. Archiving closes it, and stops the idle agent."
-									: "Its terminal is still open. Archiving closes it."}
-					</DialogDescription>
+					{task !== null && (
+						<DialogDescription>
+							Archiving removes its task, {task.task}:{" "}
+							{task.ahead !== null && task.ahead > 0
+								? `its ${task.ahead} commit${task.ahead === 1 ? "" : "s"} not on ${task.base}, its worktree and any uncommitted changes are discarded.`
+								: "its worktree, branch and uncommitted changes are discarded."}
+						</DialogDescription>
+					)}
+					{(working || along.length > 0 || shell) && (
+						<DialogDescription>
+							{working
+								? "The agent is still running. Archiving stops it and closes its terminal."
+								: along.length > 0
+									? "Archiving stops its agent."
+									: conversation.status === "idle"
+										? "Its terminal is still open. Archiving closes it, and stops the idle agent."
+										: "Its terminal is still open. Archiving closes it."}
+						</DialogDescription>
+					)}
 					{along.length > 0 && (
 						<DialogDescription>
 							It takes the agents it handed tasks to with it, stopping any at
@@ -335,7 +365,7 @@ export function useArchive(
 				<DialogFooter>
 					{/* Only its shell stands in the way: show it, to stop what runs
 					    there or see that nothing does. */}
-					{!working && along.length === 0 && showTerminal !== null && (
+					{!working && along.length === 0 && shell && showTerminal !== null && (
 						<Button
 							variant="outline"
 							className="sm:mr-auto"

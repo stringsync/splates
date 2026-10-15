@@ -3,6 +3,7 @@ import {
 	act,
 	cleanup,
 	conversation,
+	details,
 	fireEvent,
 	message,
 	pressArchive,
@@ -87,6 +88,99 @@ describe("App's archiving conversations", () => {
 				),
 			),
 		);
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
+	it("asks before archiving the conversation that last took its task, and removes the task before archiving it", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
+			null,
+			{ tasks: [details({ task: "alpha", takenBy: "c1", ahead: 2 })] },
+		);
+		const archive = () =>
+			act(async () =>
+				fireEvent.click(
+					within(
+						view.getByRole("navigation", { name: "conversations" }),
+					).getByRole("button", { name: "Archive alpha" }),
+				),
+			);
+
+		await archive();
+		const dialog = view.getByRole("dialog", { name: "Archive alpha?" });
+		expect(dialog.textContent).toContain(
+			"Archiving removes its task, alpha: its 2 commits not on main",
+		);
+		expect(dialog.textContent).not.toContain("terminal");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" })),
+		);
+		expect(testing.posts).toEqual([]);
+
+		await archive();
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
+					"button",
+					{ name: "Archive" },
+				),
+			),
+		);
+		await waitFor(() =>
+			expect(testing.posts.map(({ method, path }) => [method, path])).toEqual([
+				["DELETE", "/api/tasks/alpha"],
+				["PUT", "/api/conversations/c1/archived"],
+			]),
+		);
+	});
+
+	it("keeps the conversation unarchived when its task is not removed", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
+			null,
+			{ tasks: [details({ task: "alpha", takenBy: "c1" })] },
+		);
+		testing.refuseWrites = { reason: "usage", message: "locked" };
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive alpha" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog", { name: "Archive alpha?" })).getByRole(
+					"button",
+					{ name: "Archive" },
+				),
+			),
+		);
+
+		expect(await view.findByText(/Not removed/)).toBeTruthy();
+		expect(testing.posted("/api/conversations/c1/archived")).toEqual([]);
+	});
+
+	it("leaves a task another conversation took since, archiving without asking", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", task: "alpha", status: "stopped" })],
+			null,
+			{ tasks: [details({ task: "alpha", takenBy: "c2" })] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive alpha" }),
+			),
+		);
+
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(testing.posted("/api/tasks/alpha")).toEqual([]);
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
