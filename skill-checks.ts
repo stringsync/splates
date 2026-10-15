@@ -169,7 +169,6 @@ const TITLES = {
 	merge: /^## ✅ Merged \S+ onto \S+$/,
 	remove: /^## 🛑 Removed \S+: .*[^.!?:]$/,
 	escalate: /^## ⚠️? Escalated \S+: .*[^.!?:]$/,
-	handoff: /^## 🤝 Handed off \S+ to [^:]+(?:: .*[^.!?:])?$/,
 	review: /^## 🔍 Ready to merge \S+ onto \S+$/,
 };
 
@@ -207,14 +206,13 @@ function words(text: string): string[] {
 }
 
 /** What each verb prints once it has done its work, after the task's name. */
-const DONE = /^(added|merged|removed|escalated|handed off) (?!todo \d)(\S+)/gm;
+const DONE = /^(added|merged|removed|escalated) (?!todo \d)(\S+)/gm;
 
 const VERBS = {
 	added: "add",
 	merged: "merge",
 	removed: "remove",
 	escalated: "escalate",
-	"handed off": "handoff",
 } as const;
 
 /** A terminal color code, which arbor prints around what it did. */
@@ -314,7 +312,7 @@ function said(beats: Beat[]): string {
 
 /** A task ending, with the report it was given. */
 interface Ending extends Event {
-	verb: "merge" | "remove" | "escalate" | "handoff";
+	verb: "merge" | "remove" | "escalate";
 	/**
 	 * The last words after it, before the turn ends or another task is
 	 * added; empty when there are none.

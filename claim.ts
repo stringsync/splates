@@ -10,7 +10,7 @@ import type { WorktreeService } from "./worktree-service";
 export async function claim(
 	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
-): Promise<{ escalated: boolean }> {
+): Promise<{ escalated: boolean; tookOver: boolean }> {
 	const found = await service.find(task);
 
 	if (found.gone) {
@@ -88,5 +88,12 @@ export async function claim(
 			: `  uncommitted (${changes.length}):\n${changes.map((change) => `    ${change}`).join("\n")}`,
 	);
 	log.info(lines.join("\n"));
-	return { escalated };
+	// The agent `arbor handoff` handed the task to, in the conversation `arbor
+	// dev` started for it, as against the one that handed it on or an outsider.
+	const { dispatch } = found.state ?? {};
+	const tookOver =
+		dispatch?.handoff === true &&
+		dispatch.conversation !== undefined &&
+		service.ps.env("ARBOR_CONVERSATION") === dispatch.conversation;
+	return { escalated, tookOver };
 }

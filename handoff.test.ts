@@ -36,7 +36,7 @@ describe("handoff", () => {
 		expect(found.caller).toBeNull();
 		expect(handOff(found)).toBeNull();
 		expect(deps.out()).toContain("agent:    fake (small)");
-		expect(deps.out()).toContain('say "## 🤝 Handed off alpha to <agent>"');
+		expect(deps.out()).toContain("the task is the new agent's now");
 	});
 
 	it("hands on a task an agent was handed by a handoff, dropping what the last one was told", async () => {

@@ -88,7 +88,24 @@ export function fixtureThread(now: number): FixtureItem[] {
 				at: at(0),
 			},
 		},
+		{
+			kind: "event",
+			event: {
+				words: [
+					"Handed off",
+					{ ...task("events-look"), note: "handed to codex (gpt-5.5)" },
+				],
+				at: at(1),
+			},
+		},
+		{
+			kind: "event",
+			event: { words: ["Took over", task("events-look")], at: at(2) },
+		},
 	];
 }
 
-const task = (name: string): Named => ({ kind: "task", task: name });
+const task = (name: string): Extract<Named, { kind: "task" }> => ({
+	kind: "task",
+	task: name,
+});

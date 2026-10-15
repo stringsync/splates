@@ -85,7 +85,7 @@ export type Named =
 			task: string;
 			/** What done means for it, shown on hover, when the event knows. */
 			goal?: string;
-			/** More for its hover, such as why it was removed. */
+			/** More for its hover, such as why it was removed or who it went to. */
 			note?: string;
 	  }
 	| { kind: "todo"; id: number; subject: string; note?: string }

@@ -48,7 +48,7 @@ describe("App's arbor events", () => {
 		]);
 		const thread = await opened(state, [
 			claim("alpha", 3.5),
-			claim("beta", 10.5, "lease_held"),
+			claim("beta", 10.5, { reason: "lease_held" }),
 		]);
 
 		const lines = await waitFor(() => {
@@ -66,6 +66,34 @@ describe("App's arbor events", () => {
 		expect(thread.textContent).toMatch(
 			/arbor claim alpha.*Claimedalpha.*a\.ts.*Claim failedbeta.*It stops now\./,
 		);
+	});
+
+	it("draws a handoff as a line, and the claim that takes it over as another", async () => {
+		const thread = await opened(turn(["Over to you."]), [
+			{
+				id: "h",
+				at: second(2),
+				action: "handoff",
+				task: "alpha",
+				reason: null,
+				conversation: "c1",
+				agent: "codex",
+				model: "gpt-5.5",
+				relay: false,
+			},
+			claim("alpha", 3, { tookOver: true }),
+		]);
+
+		const lines = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(2);
+			return found;
+		});
+		expect(lines.map((line) => line.textContent)).toEqual([
+			"Handed offalpha",
+			"Took overalpha",
+		]);
+		expect(within(lines[0] as HTMLElement).getByTitle(/codex \(gpt-5\.5\)/));
 	});
 
 	it("draws nothing for an action no line is drawn for yet", async () => {
@@ -249,7 +277,12 @@ function update(id: number, secs: number, subject: string): Event {
 }
 
 /** A claim of `task` the agent ran at `secs`, refused as `reason` when given. */
-function claim(task: string, secs: number, reason?: string): Event {
+function claim(
+	task: string,
+	secs: number,
+	opts: { reason?: string; tookOver?: boolean } = {},
+): Event {
+	const { reason, tookOver = false } = opts;
 	return reason === undefined
 		? {
 				id: task,
@@ -259,6 +292,7 @@ function claim(task: string, secs: number, reason?: string): Event {
 				reason: null,
 				conversation: "c1",
 				escalated: false,
+				tookOver,
 			}
 		: {
 				id: task,

@@ -132,13 +132,13 @@ describe("log", () => {
 				"claim",
 				"a",
 				() => Promise.reject(new Exit("not_found", "gone")),
-				(out: { escalated: boolean }) => out,
+				(out: { escalated: boolean; tookOver: boolean }) => out,
 			),
 		).toBail("not_found");
 		await deps.journal.record(
 			"claim",
 			"a",
-			async () => ({ escalated: true }),
+			async () => ({ escalated: true, tookOver: false }),
 			(out) => out,
 		);
 

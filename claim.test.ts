@@ -12,6 +12,17 @@ describe("claim", () => {
 
 	afterEach(() => deps.disposeAsync());
 
+	it("says it took the task over only in the conversation a handoff started", async () => {
+		await add(deps, "alpha");
+		await (await deps.service.find("alpha")).save({
+			dispatch: { agent: "fake", conversation: "c2", handoff: true },
+		});
+
+		expect(await claim(deps, "alpha")).toMatchObject({ tookOver: false });
+		deps.proc.env.ARBOR_CONVERSATION = "c2";
+		expect(await claim(deps, "alpha")).toMatchObject({ tookOver: true });
+	});
+
 	it("refuses a live lease and takes a cold one", async () => {
 		await add(deps, "alpha");
 		await (await deps.service.find("alpha")).save({

@@ -679,15 +679,9 @@ Why it is a good next step.
 A merge or remove report ends with the proposed todos, the best one first,
 each kept to its one sentence; leave them out only when no todo is open.
 
-A handoff report proposes none, since the task goes on: its title names
-the agent it went to as `arbor agents` names it, and why after the colon,
-and its sentence says where the task stands for the agent taking it over.
-
-```markdown
-## 🤝 Handed off <task> to Codex: you asked for GPT-5.5 on the styles
-
-The parser and its tests are done; the card's styles are next.
-```
+A handoff makes no report: the `arbor dev` page shows it as arbor's own line,
+and the agent it went to as that line's hover. Say where the task stands in
+its `### Handoff`, then end your turn.
 
 A lane orchestrator reports on its lanes instead, as
 [references/lanes.md](references/lanes.md) says.

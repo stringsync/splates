@@ -161,8 +161,9 @@ describe("stretches", () => {
 		});
 	});
 
-	it("reads the skill's handoff report, naming the agent the task went to", async () => {
-		const example = await skillExample("## 🤝 Handed off");
+	it("reads an old handoff report, naming the agent the task went to", () => {
+		const example =
+			"## 🤝 Handed off <task> to Codex: you asked for GPT-5.5 on the styles\n\nThe parser and its tests are done; the card's styles are next.";
 
 		expect(stretches(example)).toEqual([
 			{

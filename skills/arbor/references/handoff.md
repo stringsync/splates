@@ -20,13 +20,15 @@ the orchestrator's.
    strengths fit what is left at the lowest cost it is worth. `arbor dev`
    starts it in your tree, sent `[ARBOR HANDOFF <task>]` and any `--prompt`,
    and moves this conversation back to the main tree.
-4. Report it in a block of its own, the 🤝 card the skill's Reporting
-   shows, and end your turn. The task is the other agent's from then on:
-   run nothing on it again, and when the user asks you about it, point them
-   to its conversation.
+4. End your turn, saying nothing of the handoff: the `arbor dev` page shows
+   it as arbor's own line, "Handed off" on the task, with the agent and
+   model it went to on hover, and the `### Handoff` holds why and where it
+   stands. The task is the other agent's from then on: run nothing on it
+   again, and when the user asks you about it, point them to its
+   conversation.
 
-Outside `arbor dev`, nothing starts the agent until it runs: say so in the
-report, so the user can start `arbor dev` or give another agent `[ARBOR
+Outside `arbor dev`, nothing starts the agent until it runs: say so in a
+line, so the user can start `arbor dev` or give another agent `[ARBOR
 HANDOFF <task>]` themselves.
 
 `[ARBOR HANDOFF <task>]` sent to you means another agent handed you `<task>`:

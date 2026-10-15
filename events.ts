@@ -23,6 +23,11 @@ export interface Facts {
 	claim: {
 		/** Whether the task was escalated, so the claim ends a wait on the user. */
 		escalated: boolean;
+		/**
+		 * Whether the agent claiming is the one the task was handed to with
+		 * `arbor handoff`, taking it over.
+		 */
+		tookOver: boolean;
 	};
 	tell: {
 		/**
@@ -42,7 +47,14 @@ export interface Facts {
 		released: { id: number; subject: string }[];
 	};
 	escalate: None;
-	handoff: None;
+	handoff: {
+		/** The roster agent it went to, by its id. */
+		agent: string;
+		/** Its model, by the id the roster gives it, or null for the agent's own. */
+		model: string | null;
+		/** Whether the agent answers to the conversation that handed it on. */
+		relay: boolean;
+	};
 	attach: None;
 	retry: None;
 	"todo add": {
@@ -188,9 +200,9 @@ export type Event = {
 }[Action];
 
 /**
- * An action's facts: what it was asked with, known before it runs and kept
- * when it is refused, or a function of what it returned, kept only when it
- * succeeds. An action with no facts of its own takes none.
+ * What `ctx.journal.record` takes for an action's facts: a value, for what the
+ * command was asked with, kept even when it is refused, or a function of what
+ * it returned, kept only on success. An action with no facts takes none.
  */
 export type FactsOf<A extends Action, T> = keyof Facts[A] extends never
 	? []

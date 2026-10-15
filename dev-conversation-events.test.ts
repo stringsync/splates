@@ -50,7 +50,7 @@ describe("conversation events", () => {
 		await deps.journal.record(
 			"claim",
 			task,
-			async () => ({ escalated: false }),
+			async () => ({ escalated: false, tookOver: false }),
 			(out) => out,
 		);
 		delete deps.proc.env.ARBOR_CONVERSATION;

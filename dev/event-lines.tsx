@@ -48,13 +48,27 @@ const LINES: {
 			: { mark: "failed", words: ["Add failed", task(event)], at: event.at },
 	claim: (event) =>
 		event.reason === null
-			? { words: ["Claimed", task(event)], at: event.at }
+			? {
+					words: [event.tookOver ? "Took over" : "Claimed", task(event)],
+					at: event.at,
+				}
 			: {
 					mark: "failed",
 					words: ["Claim failed", task(event)],
 					at: event.at,
 				},
 	remove: removed,
+	handoff: (event) =>
+		event.reason === null
+			? {
+					words: ["Handed off", { ...task(event), note: handedTo(event) }],
+					at: event.at,
+				}
+			: {
+					mark: "failed",
+					words: ["Handoff failed", task(event)],
+					at: event.at,
+				},
 	"todo update": (event) =>
 		event.reason === null
 			? { words: ["Updated", todo(event)], at: event.at }
@@ -266,6 +280,12 @@ function todo(event: Updated): Named {
 		subject: event.subject,
 		note: noteOf(event),
 	};
+}
+
+/** Who a handoff went to, for its chip's hover. */
+function handedTo(event: EventOf<"handoff"> & { reason: null }): string {
+	const model = event.model === null ? "" : ` (${event.model})`;
+	return `handed to ${event.agent}${model}${event.relay ? ", reporting back to the one that handed it on" : ""}`;
 }
 
 /** What an update changed, in words, or undefined when nothing moved. */

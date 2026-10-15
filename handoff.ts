@@ -1,6 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
-import { pickAgent, type RosterAgent } from "./roster";
+import { type AgentPick, pickAgent, type RosterAgent } from "./roster";
 import type { Dispatched } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -21,7 +21,7 @@ export async function handoff(
 	to: Omit<Dispatched, "conversation" | "pending" | "handoff">,
 	agents: RosterAgent[],
 	{ relay = false }: { relay?: boolean } = {},
-): Promise<void> {
+): Promise<AgentPick> {
 	const handedBy = service.ps.env("ARBOR_CALLER");
 	if (handedBy !== undefined) {
 		fail(
@@ -68,7 +68,8 @@ export async function handoff(
 			`  agent:    ${picked.agent}${picked.model === undefined ? "" : ` (${picked.model})`}, which \`arbor dev\` starts in the worktree`,
 			relay
 				? `  next:     say "## ⏳ Working ${task}: on <agent>" and end your turn: it reports back to you`
-				: `  next:     say "## 🤝 Handed off ${task} to <agent>" and end your turn: the task is the new agent's now`,
+				: "  next:     end your turn: the task is the new agent's now, and the page shows the handoff",
 		].join("\n"),
 	);
+	return picked;
 }

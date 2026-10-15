@@ -461,18 +461,26 @@ arbor
 	})
 	.action(async (opts, ctx) => {
 		const agents = await seeded(rosterOf(ctx));
-		await ctx.journal.record("handoff", opts.task, () =>
-			handoff(
-				ctx,
-				opts.task,
-				{
-					agent: opts.agent,
-					...(opts.model === "" ? {} : { model: opts.model }),
-					...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
-				},
-				agents,
-				{ relay: opts.relay },
-			),
+		await ctx.journal.record(
+			"handoff",
+			opts.task,
+			() =>
+				handoff(
+					ctx,
+					opts.task,
+					{
+						agent: opts.agent,
+						...(opts.model === "" ? {} : { model: opts.model }),
+						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
+					},
+					agents,
+					{ relay: opts.relay },
+				),
+			(picked) => ({
+				agent: picked.agent,
+				model: picked.model ?? null,
+				relay: opts.relay,
+			}),
 		);
 		await follow(ctx, null, { from: opts.task });
 	});

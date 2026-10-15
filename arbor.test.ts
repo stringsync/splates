@@ -168,6 +168,18 @@ describe("arbor cli", () => {
 		});
 	});
 
+	it("logs the agent a handoff went to, and whether it answers back", async () => {
+		env.proc.env.ARBOR_CONVERSATION = "c1";
+		await arbor.run(deps, ["add", "alpha", "--goal", "Style it."]);
+		await arbor.run(deps, ["handoff", "alpha", "--agent", "nobody"]);
+
+		expect((await env.journal.tail(1))[0]).toMatchObject({
+			action: "handoff",
+			task: "alpha",
+			reason: "usage",
+		});
+	});
+
 	it("refuses a port that cannot exist rather than trying to listen", async () => {
 		// As the supervisor runs it.
 		env.proc.env[SERVING] = "1";

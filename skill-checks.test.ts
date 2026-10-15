@@ -54,11 +54,8 @@ describe("skill checks", () => {
 				user(),
 				run("arbor escalate 'two calls'", "escalated last"),
 				say("## ⚠️ Escalated last: needs two calls"),
-				user(),
-				run("arbor handoff styles --agent codex", "handed off styles"),
-				say("## 🤝 Handed off styles to Codex: you asked for GPT-5.5"),
 			]),
-		).toEqual([true, true, true, true, true]);
+		).toEqual([true, true, true, true]);
 	});
 
 	it("report-title: fails a report that is not titled, or ends on a full stop", () => {
@@ -70,11 +67,8 @@ describe("skill checks", () => {
 				user(),
 				run("arbor remove old", "removed old"),
 				say("## 🛑 Removed old: it was moot."),
-				user(),
-				run("arbor handoff styles --agent codex", "handed off styles"),
-				say("Codex has it now."),
 			]),
-		).toEqual([false, false, false]);
+		).toEqual([false, false]);
 	});
 
 	it("report-title: judges the report before the next task is added, not the card after", () => {
