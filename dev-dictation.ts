@@ -1,4 +1,3 @@
-import { isCleanupKind, isCleanupModel } from "./cleanup-models";
 import { DictationConnection } from "./dev-dictation-connection";
 import { type HostGate, refuse } from "./dev-http";
 import type { Served } from "./dev-project";
@@ -35,17 +34,7 @@ export class Dictations {
 					);
 				}
 				const project = await this.projects.projectFor(request);
-				// The page names the model its Settings picked for the cleanups.
-				const { searchParams } = new URL(request.url);
-				const model = searchParams.get("model") ?? "";
-				// And the cleanups it switched off, by what each edits.
-				const off = new Set(
-					(searchParams.get("off") ?? "").split(",").filter(isCleanupKind),
-				);
-				const data = new DictationConnection(
-					project.transcriber(),
-					project.cleanup(isCleanupModel(model) ? model : undefined, off),
-				);
+				const data = new DictationConnection(project.transcriber());
 				// Bun answers an upgrade itself, so there is nothing to return.
 				return server.upgrade(request, { data })
 					? undefined

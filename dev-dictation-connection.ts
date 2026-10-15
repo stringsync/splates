@@ -1,5 +1,4 @@
 import {
-	type Cleanup,
 	DictationFailure,
 	DictationRelay,
 	type Transcriber,
@@ -18,8 +17,6 @@ export class DictationConnection implements Connection {
 	constructor(
 		/** Null when the project has no key, which the Creds page now asks for. */
 		private readonly transcriber: Promise<Transcriber | null>,
-		/** Run on the take's final text before it goes back. */
-		private readonly cleanup?: Cleanup,
 	) {}
 
 	open(socket: Bun.ServerWebSocket<Connection>): void {
@@ -37,7 +34,6 @@ export class DictationConnection implements Connection {
 				}
 				return transcriber;
 			}),
-			this.cleanup,
 		);
 	}
 

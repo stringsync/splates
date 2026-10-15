@@ -1,16 +1,12 @@
-import type { Decider } from "webappwiz/decide";
-import type { Cleanup, EditKind, Transcriber } from "webappwiz/dictate";
+import type { Transcriber } from "webappwiz/dictate";
 import type { AsyncResource, Resource } from "webappwiz/disposable";
 import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { Debouncer, SystemTimer } from "webappwiz/time";
-import type { CleanupModel } from "./cleanup-models";
 import type { ConversationState, Conversations } from "./conversations";
 import { BudgetRoutes } from "./dev-budgets";
-import { DevCleanup } from "./dev-cleanup";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
-import type { DeciderFor } from "./dev-decider";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
@@ -99,13 +95,6 @@ export async function serveProject(
 		}),
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
-		decider: (model) => context.deciderFor(project, model, () => watch.tick()),
-		cleanup: (model, off) =>
-			new DevCleanup(
-				project,
-				context.deciderFor(project, model, () => watch.tick()),
-				off,
-			),
 		async disposeAsync() {
 			watch.dispose();
 			handOffs?.dispose();
@@ -137,8 +126,6 @@ export interface DevContext {
 	conversationsFor(project: Project): Conversations | null;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
-	/** What `project`'s dictation cleanups decide with. */
-	readonly deciderFor: DeciderFor;
 }
 
 /** A route's work once its project is known. */
@@ -215,18 +202,6 @@ export interface Served extends AsyncResource {
 	 * after asking for the key on the Creds page, without one.
 	 */
 	transcriber: () => Promise<Transcriber | null>;
-	/** What the cleanups decide with on `model`, null once it asked for creds. */
-	decider: (model: CleanupModel | undefined) => Promise<Decider | null>;
-	/**
-	 * Tidies a take's final text on `model`, tagging the systems it names
-	 * and formatting the lists it speaks, but for the cleanups in `off`;
-	 * the text as heard while the creds `model` needs are missing, which it
-	 * asks for at once.
-	 */
-	cleanup: (
-		model: CleanupModel | undefined,
-		off: ReadonlySet<EditKind>,
-	) => Cleanup;
 }
 
 /**

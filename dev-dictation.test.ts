@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Answer } from "webappwiz/decide";
-import { FakeDecider } from "webappwiz/decide/testing";
 import type { DictationMessage } from "webappwiz/dictate";
 import { FakeTranscriber } from "webappwiz/dictate/testing";
 import { OpenPortProvider } from "webappwiz/system";
-import type { CleanupModel } from "./cleanup-models";
 import { dev } from "./dev";
 import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
 import { Testing } from "./testing";
@@ -12,15 +9,10 @@ import { Testing } from "./testing";
 describe("dev dictation", () => {
 	let deps: Testing;
 	let transcriber: FakeTranscriber;
-	let decider: FakeDecider;
-	/** The model each take's cleanup asked to decide with. */
-	let models: (CleanupModel | undefined)[];
 
 	beforeEach(async () => {
 		deps = await Testing.open();
 		transcriber = new FakeTranscriber();
-		decider = new FakeDecider();
-		models = [];
 	});
 
 	afterEach(() => deps.disposeAsync());
@@ -32,10 +24,6 @@ describe("dev dictation", () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			transcriber: transcribe,
-			decider: async (_project, model) => {
-				models.push(model);
-				return decider;
-			},
 		});
 		try {
 			await body(server.port);
@@ -45,14 +33,14 @@ describe("dev dictation", () => {
 	};
 
 	/** A dictation open as the page opens one, with all it has said. */
-	const dictation = async (port: number, query = "") => {
+	const dictation = async (port: number) => {
 		// Bun's client sends no Origin of its own. The DOM's type for the
 		// constructor does not know Bun takes options here.
 		const options: Bun.WebSocketOptions = {
 			headers: { origin: `http://127.0.0.1:${port}` },
 		};
 		const socket = new WebSocket(
-			`ws://127.0.0.1:${port}/api/dictation${query}`,
+			`ws://127.0.0.1:${port}/api/dictation`,
 			options as string[],
 		);
 		const said: DictationMessage[] = [];
@@ -87,126 +75,8 @@ describe("dev dictation", () => {
 			expect(await ended()).toEqual([
 				{ type: "heard", text: "heard: one " },
 				{ type: "heard", text: "heard: one two" },
-				{
-					type: "done",
-					text: "heard: one two",
-					said: "heard: one two",
-					applied: [],
-					edits: [],
-					decisions: [],
-				},
+				{ type: "done", text: "heard: one two" },
 			]);
-		});
-	});
-
-	it("tags the systems the final text names, on the model the page picked", async () => {
-		await deps.commit(
-			deps.service.git.root,
-			"arbor.systems.ts",
-			`export default ${JSON.stringify({ scry: { globs: ["scry/**"] } })};\n`,
-			"name the systems",
-		);
-		decider.answers = {
-			"refers.scry": { type: "noul", noul: 0.99 },
-			"span.0": {
-				type: "choice",
-				choice: "scry",
-				probabilities: { scry: 0.99, none: 0.01 },
-				confidence: 1,
-			},
-		};
-		await opened(async (port) => {
-			const { socket, ended } = await dictation(port, "?model=jev-latest");
-			socket.send(new TextEncoder().encode("run scry"));
-			socket.send("finish");
-
-			const done = (await ended()).at(-1);
-			expect(done).toMatchObject({
-				type: "done",
-				text: "heard: run #scry",
-				said: "heard: run scry",
-				applied: [{ type: "tag", start: 11, end: 12, was: "" }],
-				edits: [],
-			});
-			expect(done).toHaveProperty("decisions.0.cleanup", "tag");
-			expect(done).toHaveProperty("decisions.0.questions.0.id", "refers.scry");
-			expect(models).toEqual(["jev-latest"]);
-		});
-	});
-
-	it("runs no cleanup the page switched off", async () => {
-		await deps.commit(
-			deps.service.git.root,
-			"arbor.systems.ts",
-			`export default ${JSON.stringify({ scry: { globs: ["scry/**"] } })};\n`,
-			"name the systems",
-		);
-		await opened(async (port) => {
-			const { socket, ended } = await dictation(port, "?off=tag,nonsense");
-			socket.send(new TextEncoder().encode("run scry"));
-			socket.send("finish");
-
-			expect((await ended()).at(-1)).toEqual({
-				type: "done",
-				text: "heard: run scry",
-				said: "heard: run scry",
-				applied: [],
-				edits: [],
-				decisions: [],
-			});
-		});
-	});
-
-	it("formats the lists the final text speaks, keeping an unsure tag's edit on it", async () => {
-		await deps.commit(
-			deps.service.git.root,
-			"arbor.systems.ts",
-			`export default ${JSON.stringify({ scry: { globs: ["scry/**"] } })};\n`,
-			"name the systems",
-		);
-		const kind = (item: number, intro = 0): Answer => ({
-			type: "choice",
-			choice: item > 0.5 ? "item" : "intro",
-			probabilities: { intro, item, continues: 0, prose: 1 - item - intro },
-			confidence: 1,
-		});
-		const loose: Answer = { type: "noul", noul: 0.1 };
-		decider.answers = {
-			"refers.scry": { type: "noul", noul: 0.9 },
-			"span.0": {
-				type: "choice",
-				choice: "scry",
-				probabilities: { scry: 0.6, none: 0.4 },
-				confidence: 1,
-			},
-			"kind.0": kind(0, 0.9),
-			"kind.1": kind(0.95),
-			"kind.2": kind(0.95),
-			"step.0": loose,
-			"step.1": loose,
-			"step.2": loose,
-		};
-		await opened(async (port) => {
-			const { socket, ended } = await dictation(port);
-			socket.send(
-				new TextEncoder().encode("two things. First, run scry. Then, ship it."),
-			);
-			socket.send("finish");
-
-			const done = (await ended()).at(-1);
-			expect(done).toMatchObject({
-				type: "done",
-				text: "heard: two things:\n- Run scry\n- Ship it",
-				edits: [
-					{
-						type: "tag",
-						start: 25,
-						end: 29,
-						system: "scry",
-						probability: 0.9 * 0.6,
-					},
-				],
-			});
 		});
 	});
 

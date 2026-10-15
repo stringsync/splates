@@ -60,13 +60,7 @@ describe("App on a touch device", () => {
 			)
 				.getAllByRole("button")
 				.map((each) => each.textContent),
-		).toEqual([
-			"Appearance",
-			"Dictation",
-			"Editor",
-			"Notifications",
-			"Restart",
-		]);
+		).toEqual(["Appearance", "Editor", "Notifications", "Restart"]);
 	});
 
 	it("leaves the composer for a tap, in a conversation opened or new", async () => {

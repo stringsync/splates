@@ -79,7 +79,6 @@ describe("App's settings and notifications", () => {
 				.map((each) => each.textContent),
 		).toEqual([
 			"Appearance",
-			"Dictation",
 			"Editor",
 			"Notifications",
 			"Restart",

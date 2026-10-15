@@ -1,6 +1,4 @@
-import type { EditKind } from "webappwiz/dictate";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { CLEANUP_MODELS, DEFAULT_CLEANUP_MODEL } from "../cleanup-models";
 import { OPENERS, ZED } from "./openers";
 import { NONE, type Shortcut, valid } from "./shortcuts";
 
@@ -9,7 +7,6 @@ export type SettingsEvents = { changed: undefined };
 /** The groups the Settings dialog lists down its left, in order. */
 export const CATEGORIES = [
 	"Appearance",
-	"Dictation",
 	"Editor",
 	"Notifications",
 	"Restart",
@@ -43,15 +40,6 @@ export const ACCENTS = [
 	{ value: "rose", label: "Rose" },
 ] as const satisfies readonly Choice[];
 
-/** The switch for each cleanup a dictation runs, by the edits it makes. */
-export const CLEANUP_SWITCHES = {
-	correction: "dictation.corrections",
-	filler: "dictation.filler",
-	tag: "dictation.tagging",
-	item: "dictation.lists",
-	missing: "dictation.missing",
-} as const satisfies Record<EditKind, keyof typeof SETTINGS>;
-
 /** Every setting, in the order the dialog shows them. */
 export const SETTINGS = {
 	"appearance.theme": {
@@ -79,48 +67,6 @@ export const SETTINGS = {
 		title: "Widgets beside conversations",
 		description:
 			"Show a conversation's actions, background commands and task beside its messages where there is room for them. Elsewhere they float over the conversation while you open them.",
-		default: true,
-	},
-	"dictation.cleanupModel": {
-		category: "Dictation",
-		title: "Cleanup model",
-		description:
-			"The model that tidies a dictation's text. Clef Flash is the cheapest; each needs its own keys, which the Creds page asks for the first time a cleanup runs.",
-		default: DEFAULT_CLEANUP_MODEL,
-		choices: CLEANUP_MODELS,
-	},
-	"dictation.corrections": {
-		category: "Dictation",
-		title: "Drop corrections",
-		description:
-			'Drop what you took back ("no, wait, Tuesday") and keep the newer wording.',
-		default: true,
-	},
-	"dictation.filler": {
-		category: "Dictation",
-		title: "Drop filler",
-		description: 'Drop "um", "you know" and the like.',
-		default: true,
-	},
-	"dictation.tagging": {
-		category: "Dictation",
-		title: "Tag systems",
-		description:
-			"Write a system you name as #name, so the agent reads it as that part of the code.",
-		default: true,
-	},
-	"dictation.lists": {
-		category: "Dictation",
-		title: "Format lists",
-		description:
-			"Lay out a list you speak (first, then, finally) as a markdown list.",
-		default: true,
-	},
-	"dictation.missing": {
-		category: "Dictation",
-		title: "Flag missing words",
-		description:
-			"Mark a sentence that seems to be missing a word, since transcription loses some. It points at the sentence and changes nothing.",
 		default: true,
 	},
 	"editor.opener": {
@@ -465,43 +411,4 @@ function storedIn(
 	} catch {
 		return {};
 	}
-}
-
-/** Something the browser must allow before a setting can be on. */
-interface Allowance {
-	/** Whether this browser has it at all. */
-	supported(): boolean;
-	/** Whether it is allowed now. */
-	allowed(): boolean;
-	/** Asks for it, from a click, since browsers refuse otherwise. */
-	ask(): Promise<boolean>;
-	/** What to tell the person when it was refused. */
-	refused: string;
-}
-
-/** One of the values a choice can take, with what the dialog calls it. */
-export interface Choice {
-	value: string;
-	label: string;
-}
-
-/** A setting the person can change, as the dialog shows it. */
-export interface Definition {
-	category: Category;
-	title: string;
-	description: string;
-	/** A switch for a boolean, a field for a number, a pick for a string. */
-	default: boolean | number | string;
-	/** What a string can be, in the order the dialog offers them. */
-	choices?: readonly Choice[];
-	/** Show each choice as a swatch of the accent it names. */
-	swatches?: boolean;
-	/** What a number counts, and the least it can be. */
-	unit?: string;
-	min?: number;
-	/** A keyboard shortcut, its default the one the page starts with. */
-	shortcut?: boolean;
-	/** The switch this one does nothing without. */
-	under?: string;
-	browser?: Allowance;
 }
