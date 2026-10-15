@@ -9,6 +9,7 @@ import {
 	createContext,
 	type JSX,
 	type ReactNode,
+	type Ref,
 	useCallback,
 	useContext,
 	useEffect,
@@ -40,7 +41,14 @@ interface Sheet {
 interface Sheets {
 	add(sheet: Sheet): () => void;
 	shown: Sheet[];
+	/** Says whether the line of card `id` is in sight in the thread. */
+	sight(id: string, inView: boolean): void;
+	/** The cards whose lines are in sight, which the bar leaves to them. */
+	inView: ReadonlySet<string>;
 }
+
+/** How much of a card's line must show for it to stand in for the bar. */
+const IN_VIEW = 0.5;
 
 const SheetsContext = createContext<Sheets | null>(null);
 
@@ -64,6 +72,21 @@ export function PhoneSheets({
 	// first to come up opens.
 	const arriving = useRef(false);
 	const [shown, setShown] = useState<Sheet[]>([]);
+	const [inView, setInView] = useState<ReadonlySet<string>>(new Set());
+	const sight = useCallback((id: string, seen: boolean) => {
+		setInView((was) => {
+			if (was.has(id) === seen) {
+				return was;
+			}
+			const next = new Set(was);
+			if (seen) {
+				next.add(id);
+			} else {
+				next.delete(id);
+			}
+			return next;
+		});
+	}, []);
 	const add = useCallback((sheet: Sheet) => {
 		all.current = [
 			...all.current.filter((each) => each.id !== sheet.id),
@@ -79,7 +102,10 @@ export function PhoneSheets({
 			setShown(all.current);
 		};
 	}, []);
-	const sheets = useMemo(() => ({ add, shown }), [add, shown]);
+	const sheets = useMemo(
+		() => ({ add, shown, sight, inView }),
+		[add, shown, sight, inView],
+	);
 	// Beside a sidebar, the thread scrolls to it instead.
 	useArrived(on ? conversation : "", () => {
 		const latest = all.current.at(-1);
@@ -129,12 +155,15 @@ export function Sheeted({
 			return add({ id, title, Icon, tone, open: () => setOpen(true) });
 		}
 	}, [add, live, id, title, Icon, tone]);
+	const [line, setLine] = useState<HTMLButtonElement | null>(null);
+	useLineInSight(line, id, sheets?.sight);
 	if (sheets === null || !live) {
 		return children;
 	}
 	return (
 		<>
 			<SheetLine
+				ref={setLine}
 				title={title}
 				Icon={Icon}
 				tone={tone}
@@ -241,11 +270,13 @@ function reveal(sheet: HTMLElement): void {
 
 /**
  * Above the composer of a phone's thread, the newest card waiting on you, a
- * tap from its sheet: so what needs you is never a scroll away.
+ * tap from its sheet: so what needs you is never a scroll away. None while
+ * that card's own line is in sight, which opens the same sheet.
  */
 export function NeedsYouBar(): ReactNode {
-	const latest = useContext(SheetsContext)?.shown.at(-1);
-	if (latest === undefined) {
+	const sheets = useContext(SheetsContext);
+	const latest = sheets?.shown.at(-1);
+	if (latest === undefined || sheets?.inView.has(latest.id)) {
 		return null;
 	}
 	// As quiet as the Archive bar beside it, the tone in its icon alone, so it
@@ -267,13 +298,45 @@ export function NeedsYouBar(): ReactNode {
 	);
 }
 
+/**
+ * Tells `sight` whether `line`, card `id`'s line in the thread, shows at
+ * least `IN_VIEW` of itself, and that it no longer does once it goes.
+ */
+function useLineInSight(
+	line: HTMLElement | null,
+	id: string,
+	sight: Sheets["sight"] | undefined,
+): void {
+	useEffect(() => {
+		if (line === null || sight === undefined) {
+			return;
+		}
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const latest = entries.at(-1);
+				if (latest !== undefined) {
+					sight(id, latest.intersectionRatio >= IN_VIEW);
+				}
+			},
+			{ threshold: IN_VIEW },
+		);
+		observer.observe(line);
+		return () => {
+			observer.disconnect();
+			sight(id, false);
+		};
+	}, [line, id, sight]);
+}
+
 /** A line naming a waiting card, opening its sheet on a tap. */
 function SheetLine({
+	ref,
 	title,
 	Icon,
 	tone,
 	onOpen,
 }: {
+	ref: Ref<HTMLButtonElement>;
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
@@ -281,6 +344,7 @@ function SheetLine({
 }): JSX.Element {
 	return (
 		<button
+			ref={ref}
 			type="button"
 			onClick={onOpen}
 			className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 text-left shadow-xs active:bg-muted"

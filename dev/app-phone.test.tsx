@@ -308,6 +308,49 @@ describe("App on a phone", () => {
 		expect(shown()).toEqual(["question 1"]);
 	});
 
+	it("leaves the bar above the composer out while the card's own line is in sight", async () => {
+		const real = globalThis.IntersectionObserver;
+		// The one line in the thread, as the observer last watched it.
+		let watched: ((ratio: number) => void) | null = null;
+		globalThis.IntersectionObserver = class {
+			constructor(private readonly callback: IntersectionObserverCallback) {}
+			observe(target: Element) {
+				watched = (ratio) =>
+					this.callback(
+						[{ target, intersectionRatio: ratio } as IntersectionObserverEntry],
+						{} as IntersectionObserver,
+					);
+			}
+			disconnect() {}
+		} as unknown as typeof IntersectionObserver;
+		const scroll = (ratio: number) => act(async () => watched?.(ratio));
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					title: "Header",
+					messages: [
+						message("user", "fix the header"),
+						message("agent", report),
+					],
+				}),
+			]);
+			const bar = () =>
+				view.queryByRole("button", { name: /3 questions for you\s*Answer/ });
+			await waitFor(() => expect(bar()).toBeTruthy());
+
+			await scroll(1);
+			expect(bar()).toBeNull();
+			expect(
+				view.getByRole("button", { name: /3 questions for you\s*Open/ }),
+			).toBeTruthy();
+
+			await scroll(0.2);
+			expect(bar()).toBeTruthy();
+		} finally {
+			globalThis.IntersectionObserver = real;
+		}
+	});
+
 	it("goes on from a typed answer to the next question's field, keeping the keyboard up", async () => {
 		const media = window.matchMedia;
 		window.matchMedia = (query) =>
