@@ -258,6 +258,7 @@ export async function dev(
 		resumeCheckpoint,
 		restartFromCheckpoint,
 		restartIdle,
+		powerNow,
 		forgetProject,
 	} = restarts;
 
@@ -325,6 +326,7 @@ export async function dev(
 			),
 			"/api/machine": guarded(async () => Response.json(await machine.read())),
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
+			"/api/power": { POST: talk(guarded(powerNow)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
 			"/api/checkpoint/resume": { POST: talk(guarded(resumeCheckpoint)) },
 			"/api/checkpoint/restart": {

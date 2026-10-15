@@ -95,6 +95,7 @@ export function App({
 	checkpointEvery,
 	checkpointRestartShown,
 	offlineAfter,
+	reload = () => location.reload(),
 }: {
 	settings: Settings;
 	/** How often a checkpoint under way is asked after; a second by default. */
@@ -103,6 +104,8 @@ export function App({
 	checkpointRestartShown?: Duration;
 	/** How long the server stays unreachable before the page says so; ten seconds by default. */
 	offlineAfter?: Duration;
+	/** Reloads the page, once a restart asked to is back. */
+	reload?: () => void;
 }): JSX.Element {
 	// One Feed for as long as this component lives. `useReactive` subscribes to
 	// the source it saw on its first render, so an instance that got rebuilt
@@ -172,7 +175,7 @@ export function App({
 				wall: new SystemWallClock(),
 				input: window,
 				storage: sessionStorage,
-				reload: () => location.reload(),
+				reload,
 			}),
 	);
 	useDisposerEffect((disposer) => disposer.use(terminals), [terminals]);
@@ -352,7 +355,6 @@ export function App({
 			snapshot={snapshot}
 			outdated={outdated}
 			offline={offline}
-			conversations={available}
 			wide={wide}
 			onSettings={() => setSetting(true)}
 		/>
@@ -401,6 +403,7 @@ export function App({
 													)}
 													every={checkpointEvery}
 													restartShown={checkpointRestartShown}
+													reload={reload}
 												>
 													{wide ? (
 														<Tabs

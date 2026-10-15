@@ -92,18 +92,6 @@ export function Resuming(): JSX.Element {
 	);
 }
 
-/** Whether `conversation` is back at work, as `current` lists it. */
-function _back(current: ProjectChoice[], id: string): boolean {
-	const found = current
-		.flatMap((each) => each.conversations)
-		.find((each) => each.id === id);
-	return (
-		found !== undefined &&
-		found.status !== "stopped" &&
-		found.status !== "failed"
-	);
-}
-
 export function ProjectName({
 	project,
 }: {

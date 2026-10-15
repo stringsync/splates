@@ -17,7 +17,6 @@ export function AppHeader({
 	snapshot,
 	outdated,
 	offline,
-	conversations,
 	wide,
 	onSettings,
 }: {
@@ -26,12 +25,10 @@ export function AppHeader({
 	/** Why a newer arbor has the server refusing, or null. */
 	outdated: string | null;
 	offline: boolean;
-	/** Whether `arbor dev` holds conversations. */
-	conversations: boolean;
 	wide: boolean;
 	onSettings: () => void;
 }): JSX.Element {
-	// Whether Restart says a restart would update arbor, with a dot.
+	// Whether Power says a restart would update arbor, with a dot.
 	const hinted =
 		(snapshot?.release != null || snapshot?.behind != null) &&
 		outdated === null &&
@@ -101,7 +98,6 @@ export function AppHeader({
 					machine={offline ? null : machine}
 					release={hinted ? (snapshot?.release ?? null) : null}
 					behind={hinted ? (snapshot?.behind ?? null) : null}
-					conversations={conversations}
 					onSettings={onSettings}
 				/>
 			</div>

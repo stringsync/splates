@@ -2,7 +2,6 @@ import {
 	EllipsisVerticalIcon,
 	LogOutIcon,
 	RefreshCwIcon,
-	RotateCwIcon,
 	SettingsIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useState } from "react";
@@ -19,7 +18,7 @@ import {
 import { useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import type { MachineReading } from "../machine";
 import { identity } from "./api";
-import { CheckpointItem, useCheckpoint } from "./checkpoint";
+import { CheckpointItem } from "./checkpoint";
 import { FullscreenItem } from "./fullscreen";
 import { MachineStats } from "./machine";
 import { type Update, UpdateDot, update } from "./release";
@@ -27,26 +26,21 @@ import { type Update, UpdateDot, update } from "./release";
 /**
  * The menu beside the project's name, holding what the page can do as a
  * whole, under who Cloudflare Access signed in, if anyone, and Sign out, and
- * how hard the machine is working: Power, to checkpoint, restart or shut down, where the agents of `arbor dev` run; Fullscreen;
- * Reload, for an app on a home screen, which has no browser's reload button;
- * Settings; and last, apart, Restart, opening the Checkpoint dialog to
- * checkpoint, restart and resume whenever the person likes. Dotted, and its
- * Restart too, once a restart would update.
+ * how hard the machine is working: Power, to checkpoint, restart, shut down
+ * or any of them together; Fullscreen; Reload, for an app on a home screen,
+ * which has no browser's reload button; and Settings. Dotted, and its Power
+ * too, once a restart would update.
  */
 export function PageMenu({
 	machine,
 	release,
 	behind,
-	conversations,
 	onSettings,
 }: Update & {
 	/** How hard the machine is working, or null before it has said. */
 	machine: MachineReading | null;
-	/** Whether `arbor dev` runs agents, which Power is for. */
-	conversations: boolean;
 	onSettings: () => void;
 }): JSX.Element {
-	const { open } = useCheckpoint();
 	const why = update(release, behind);
 	const settingsKey = useShortcutLabel("shortcuts.settings");
 	// Asked once here rather than as the menu opens, so it never pops in.
@@ -88,7 +82,7 @@ export function PageMenu({
 						<DropdownMenuSeparator />
 					</>
 				)}
-				{conversations && <CheckpointItem />}
+				<CheckpointItem update={why} />
 				<FullscreenItem />
 				<DropdownMenuItem onClick={() => location.reload()}>
 					<RefreshCwIcon />
@@ -102,19 +96,6 @@ export function PageMenu({
 							{settingsKey}
 						</DropdownMenuShortcut>
 					)}
-				</DropdownMenuItem>
-				<DropdownMenuSeparator />
-				<DropdownMenuItem
-					// Not a bare Restart, which the terminal's button for its shell is.
-					aria-label={why === null ? "Restart arbor dev" : "Restart to update"}
-					title={why ?? undefined}
-					onClick={() => open("resume")}
-				>
-					<span className="relative flex">
-						<RotateCwIcon />
-						{why !== null && <UpdateDot ring="ring-popover" />}
-					</span>
-					{why === null ? "Restart" : "Restart to update"}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

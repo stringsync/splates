@@ -7,7 +7,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 } from "#dev/components/ui/dialog.tsx";
-import type { After } from "../conversations";
+import type { Held } from "../held";
 import {
 	AskedList,
 	CheckpointResumed,
@@ -29,6 +29,7 @@ import {
 	dismissCheckpoint,
 	type ProjectChoice,
 	type ProjectConversation,
+	powerNow,
 	restartFromCheckpoint,
 	resumeCheckpoint,
 } from "./project-api";
@@ -45,8 +46,8 @@ export interface Restarting {
 }
 
 /**
- * Picks projects to checkpoint and what follows, this one picked to start
- * with; then lists how each agent asked gets on; then, once all have
+ * Power: restarts or shuts down `arbor dev`, checkpointing every agent at
+ * work first unless unticked, and resuming them after a restart; then lists how each agent asked gets on; then, once all have
  * answered, offers to resume them, restart, or retry those it missed; or
  * says `arbor dev` is restarting when that was asked for, then offers to
  * resume them after it, or shows each carry on; and once they have, says
@@ -55,8 +56,8 @@ export interface Restarting {
  */
 export function CheckpointDialog({
 	open,
-	after,
-	onAfter,
+	checkpoint,
+	onCheckpoint,
 	onClose,
 	onForget,
 	onRestart,
@@ -67,17 +68,18 @@ export function CheckpointDialog({
 	newest,
 	current,
 	restartable,
+	held,
 	onChange,
 }: {
 	open: boolean;
-	/** What follows the checkpoint, as picked. */
-	after: After;
-	onAfter: (after: After) => void;
+	/** Whether a restart or shutdown checkpoints first, as picked. */
+	checkpoint: boolean;
+	onCheckpoint: (checkpoint: boolean) => void;
 	onClose: () => void;
 	/** Forgets a done checkpoint, whose agents stay stopped. */
 	onForget: () => void;
-	/** Says `arbor dev` is restarting, once asked to. */
-	onRestart: () => void;
+	/** Says `arbor dev` is restarting, or with `shutdown` shutting down, once asked to. */
+	onRestart: (shutdown?: boolean) => void;
 	projects: ProjectChoice[];
 	slide: Slide;
 	/** The restart to follow the checkpoint, if any. */
@@ -90,6 +92,8 @@ export function CheckpointDialog({
 	current: ProjectChoice[];
 	/** Whether `arbor dev` can restart itself. */
 	restartable: boolean;
+	/** The commands a restart would kill. */
+	held: Held[];
 	onChange: () => Promise<void>;
 }): JSX.Element {
 	const all = standing(projects.flatMap((each) => each.conversations));
@@ -151,20 +155,27 @@ export function CheckpointDialog({
 					{slide === "pick" ? (
 						<PickSlide
 							projects={projects}
-							after={after}
-							onAfter={onAfter}
+							checkpoint={checkpoint}
+							onCheckpoint={onCheckpoint}
 							busy={busy}
 							newest={newest}
 							restartable={restartable}
+							held={held}
 							onClose={onClose}
-							onAsk={(go) =>
-								act(() => checkpointProjects(go, after), "Not checkpointed")
-							}
-							onRestart={() =>
-								act(
-									() => restartFromCheckpoint().then(onRestart),
-									"Not restarted",
-								)
+							onPower={(shutdown) =>
+								projects.length > 0 && checkpoint
+									? act(
+											() =>
+												checkpointProjects(
+													projects.map((each) => each.slug),
+													shutdown ? "shutdown" : "resume",
+												),
+											"Not checkpointed",
+										)
+									: act(
+											() => powerNow(shutdown).then(() => onRestart(shutdown)),
+											shutdown ? "Not shut down" : "Not restarted",
+										)
 							}
 						/>
 					) : (
@@ -177,9 +188,9 @@ export function CheckpointDialog({
 										: slide === "shuttingDown"
 											? "arbor dev is shutting down."
 											: slide === "shutDown"
-												? "arbor dev shut down. Start it again to resume each agent."
+												? `arbor dev shut down.${all.asked.length > 0 ? " Start it again to resume each agent." : ""}`
 												: slide === "restarting"
-													? `arbor dev is restarting${on(newest)}${restarting?.resume ? ", then each agent resumes" : ", then you pick what comes next"}.`
+													? `arbor dev is restarting${on(newest)}${restarting?.resume ? ", then each agent resumes" : all.asked.length > 0 ? ", then you pick what comes next" : ""}, and this page reloads.`
 													: slide === "restarted"
 														? `arbor dev restarted${on(restarted)}.`
 														: slide === "resuming" || slide === "ended"
@@ -193,11 +204,6 @@ export function CheckpointDialog({
 							<Refusal refusal={refusal} />
 							{slide !== "done" ? (
 								<DialogFooter>
-									{(slide === "ended" || slide === "restarted") && (
-										<Button variant="outline" onClick={() => location.reload()}>
-											Reload page
-										</Button>
-									)}
 									<Button variant="outline" onClick={onClose}>
 										Close
 									</Button>
@@ -212,7 +218,7 @@ export function CheckpointDialog({
 									onClose={close}
 									onRestart={() =>
 										act(
-											() => restartFromCheckpoint().then(onRestart),
+											() => restartFromCheckpoint().then(() => onRestart()),
 											"Not restarted",
 										)
 									}

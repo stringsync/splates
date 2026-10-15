@@ -90,11 +90,13 @@ describe("App's checkpoint restart", () => {
 			view.getByRole("dialog", { name: "Restart" }),
 		);
 		expect(restarting.textContent).toContain(
-			"arbor dev is restarting, then you pick what comes next.",
+			"arbor dev is restarting, then you pick what comes next, and this page reloads.",
 		);
-		for (const name of ["Restart", "Resume"]) {
-			expect(within(restarting).queryByRole("button", { name })).toBeNull();
-		}
+		expect(
+			within(restarting)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["Close", "Close"]);
 
 		// Back, as another run, its agents waiting to be resumed.
 		await act(async () => testing.talkStream?.onerror?.());
@@ -113,9 +115,11 @@ describe("App's checkpoint restart", () => {
 				"Now on arbor 0.0.1. 1 agent checkpointed and waiting to resume.",
 			),
 		);
-		for (const name of ["Restart", "Retry missed"]) {
-			expect(within(restarted).queryByRole("button", { name })).toBeNull();
-		}
+		expect(
+			within(restarted)
+				.getAllByRole("button")
+				.map((each) => each.textContent),
+		).toEqual(["Close", "Resume", "Close"]);
 		await act(async () =>
 			fireEvent.click(
 				within(restarted).getByRole("button", { name: "Resume" }),
@@ -138,9 +142,7 @@ describe("App's checkpoint restart", () => {
 			),
 		);
 		expect(within(resumed).getByRole("img", { name: "Resumed" })).toBeTruthy();
-		expect(
-			within(resumed).getByRole("button", { name: "Reload page" }),
-		).toBeTruthy();
+		expect(testing.reloads).toBe(1);
 	});
 
 	it("restarts and resumes, showing each agent carry on, though the page never saw the last answer", async () => {
@@ -169,7 +171,7 @@ describe("App's checkpoint restart", () => {
 			{ timeout: 3000 },
 		);
 		expect(restarting.textContent).toContain(
-			"arbor dev is restarting, then each agent resumes.",
+			"arbor dev is restarting, then each agent resumes, and this page reloads.",
 		);
 		expect(
 			within(restarting).queryByRole("img", { name: "Checkpointing" }),
@@ -209,9 +211,7 @@ describe("App's checkpoint restart", () => {
 		).toBeTruthy();
 		// The same slide, rather than a second one sliding in.
 		await waitFor(() =>
-			expect(
-				within(restarted).getByRole("button", { name: "Reload page" }),
-			).toBeTruthy(),
+			expect(restarted.textContent).toContain("1 agent resumed."),
 		);
 		expect(within(restarted).getByRole("list", { name: "agents" })).toBe(list);
 	});
@@ -241,7 +241,7 @@ describe("App's checkpoint restart", () => {
 			view.getByRole("dialog", { name: "Restart" }),
 		);
 		expect(restarting.textContent).toContain(
-			"arbor dev is restarting, then each agent resumes.",
+			"arbor dev is restarting, then each agent resumes, and this page reloads.",
 		);
 		await waitFor(() => view.getByRole("dialog", { name: "Resume" }));
 	});
@@ -255,20 +255,15 @@ describe("App's checkpoint restart", () => {
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "Power" }),
 		);
-		await act(async () =>
-			fireEvent.click(
-				within(dialog).getByRole("radio", {
-					name: /^Checkpoint and shut down/,
-				}),
-			),
-		);
 		testing.projects = [
 			project("webappwiz", [live("c1", "One", "asked")], true),
 		];
 		testing.restarting = { resume: false, shutdown: true };
 
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" })),
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Shut down" }),
+			),
 		);
 
 		expect(testing.posted("/api/checkpoint")).toEqual([

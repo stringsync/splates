@@ -86,7 +86,7 @@ describe("App's feed", () => {
 		expect(badge.title).toContain("the terminal running arbor dev says why");
 	});
 
-	it("keeps a Restart in the sidebar, offering a newer arbor on it, opening Checkpoint with restart and resume picked", async () => {
+	it("keeps Power in the sidebar, offering a newer arbor on it, checkpointing, restarting and resuming from it", async () => {
 		testing.projects = [
 			{
 				slug: "shop",
@@ -106,30 +106,23 @@ describe("App's feed", () => {
 		];
 		const view = await testing.open();
 		expect(view.queryByText("Restart to update")).toBeNull();
-		expect((await menuItem(view, "Restart arbor dev")).textContent).toBe(
-			"Restart",
-		);
+		expect((await menuItem(view, "Power")).textContent).toContain("Power");
 
 		testing.served = snapshot({
 			release: { running: "0.0.43", newest: "0.0.44" },
 		});
 		await act(async () => testing.stream?.onmessage?.());
-		const badge = await menuItem(view, "Restart to update");
+		const badge = await menuItem(view, "Power: restart to update");
 		expect(badge.title).toBe("arbor 0.0.44 is out (this runs 0.0.43)");
 		await act(async () => badge.click());
 
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "Power" }),
 		);
-		expect(
-			(
-				within(dialog).getByRole("radio", {
-					name: /^Checkpoint, restart and resume/,
-				}) as HTMLInputElement
-			).checked,
-		).toBe(true);
 		await act(async () =>
-			within(dialog).getByRole("button", { name: "Proceed" }).click(),
+			within(dialog)
+				.getByRole("button", { name: /^Restart/ })
+				.click(),
 		);
 		expect(
 			testing.posts
@@ -146,7 +139,7 @@ describe("App's feed", () => {
 			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
 		});
 		await act(async () => testing.stream?.onmessage?.());
-		const badge = await menuItem(view, "Restart to update");
+		const badge = await menuItem(view, "Power: restart to update");
 		expect(badge.title).toBe(
 			"arbor's source is at bbbbbbbb (this runs aaaaaaaa)",
 		);
@@ -155,7 +148,7 @@ describe("App's feed", () => {
 		await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 	});
 
-	it("keeps Reload, Restart and Settings in a phone's menu", async () => {
+	it("keeps Reload, Power and Settings in a phone's menu", async () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
@@ -169,9 +162,7 @@ describe("App's feed", () => {
 			// An installed app has no browser's reload button, so the menu holds one.
 			view.getByRole("menuitem", { name: "Reload page" });
 			await act(async () =>
-				fireEvent.click(
-					view.getByRole("menuitem", { name: "Restart arbor dev" }),
-				),
+				fireEvent.click(view.getByRole("menuitem", { name: "Power" })),
 			);
 			await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 		} finally {
@@ -181,7 +172,7 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("dots a phone's menu, and the Restart in it, once a restart would update", async () => {
+	it("dots a phone's menu, and the Power in it, once a restart would update", async () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
@@ -199,7 +190,7 @@ describe("App's feed", () => {
 			expect(more.querySelector(".bg-warning")).not.toBeNull();
 			await act(async () => fireEvent.click(more));
 			const restart = await waitFor(() =>
-				view.getByRole("menuitem", { name: "Restart to update" }),
+				view.getByRole("menuitem", { name: "Power: restart to update" }),
 			);
 			expect(restart.title).toBe("arbor 0.0.44 is out (this runs 0.0.43)");
 			expect(restart.querySelector(".bg-warning")).not.toBeNull();

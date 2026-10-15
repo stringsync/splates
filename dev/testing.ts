@@ -8,6 +8,7 @@ import { Duration } from "webappwiz/time";
 import type { ConversationState, Session } from "../conversations";
 import type { ServerChoice } from "../dev-servers";
 import type { FileDiff } from "../diff";
+import type { Held } from "../held";
 import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
@@ -142,6 +143,10 @@ export class Testing implements Resource {
 	run = "run-1";
 	/** Whether `/api/projects` says `arbor dev` can restart itself. */
 	restartable = true;
+	/** How many times the page asked to reload. */
+	reloads = 0;
+	/** What `/api/projects` says a restart would kill. */
+	held: Held[] = [];
 	/** Who `/api/identity` says Cloudflare Access signed in, or null. */
 	email: string | null = null;
 	/** What `/api/machine` reads, or null for it to fail. */
@@ -184,6 +189,7 @@ export class Testing implements Resource {
 					newest: this.served.release?.newest ?? null,
 					behind: this.served.behind,
 					restartable: this.restartable,
+					held: this.held,
 				};
 				await this.listingProjects;
 				return Response.json(listed);
@@ -311,6 +317,9 @@ export class Testing implements Resource {
 				checkpointEvery: CHECKPOINT_EVERY,
 				checkpointRestartShown: CHECKPOINT_RESTART_SHOWN,
 				offlineAfter: OFFLINE_AFTER,
+				reload: () => {
+					this.reloads++;
+				},
 			}),
 		);
 		await waitFor(() =>

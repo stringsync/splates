@@ -245,6 +245,63 @@ describe("dev restart", () => {
 		}
 	});
 
+	it("restarts or shuts down at once with no checkpoint, though an agent is at work, and reopens nothing after", async () => {
+		const said: string[] = [];
+		agent.turn = (_, __, text) => {
+			said.push(text);
+			return new Promise(() => {});
+		};
+		const exits: number[] = [];
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+			exit: (code) => exits.push(code),
+		});
+		try {
+			const { port } = server;
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+			});
+			const { id } = (await started.json()) as { id: string };
+			const conversation = await conversations.find(id);
+			await eventually(() => conversation.state.status === "idle", 5);
+			void conversation.prompt("work");
+			await eventually(() => conversation.state.status === "running", 5);
+
+			const restarted = await json(port, "/api/power", "POST", {
+				shutdown: false,
+			});
+
+			expect(restarted.status).toBe(200);
+			await eventually(() => exits.length !== 0, 5);
+			expect(exits).toEqual([RESTART]);
+			expect(said).toEqual(["work"]);
+		} finally {
+			await server.disposeAsync();
+		}
+
+		const again = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			exit: (code) => exits.push(code),
+		});
+		try {
+			const listed = (await (
+				await fetch(`http://127.0.0.1:${again.port}/api/projects`)
+			).json()) as { restarted: string | null };
+			expect(listed.restarted).toBeNull();
+
+			const shut = await json(again.port, "/api/power", "POST", {
+				shutdown: true,
+			});
+
+			expect(shut.status).toBe(200);
+			await eventually(() => exits.length === 2, 5);
+			expect(exits).toEqual([RESTART, 0]);
+		} finally {
+			await again.disposeAsync();
+		}
+	});
+
 	it("restarts at once with every agent idle, refused while one is at work, and reopens nothing after", async () => {
 		let finish = () => {};
 		agent.turn = () =>

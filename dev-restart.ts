@@ -223,6 +223,30 @@ export class Restarts {
 	};
 
 	/**
+	 * Restarts `arbor dev` now, or with `shutdown` exits for good, without a
+	 * checkpoint: an agent at work stops mid-turn, and a command it would
+	 * kill dies with it. The next run starts as if started afresh.
+	 */
+	readonly powerNow = async (request: Request): Promise<Response> => {
+		const read = (await request.json().catch(() => ({}))) as {
+			shutdown?: unknown;
+		};
+		const shutdown = read.shutdown === true;
+		if (this.opts.exit === null) {
+			fail(
+				"usage",
+				shutdown
+					? "arbor dev cannot shut itself down here: stop it"
+					: "arbor dev cannot restart itself here: restart it",
+				{},
+			);
+		}
+		this.restarted = null;
+		this.restartAfter([], false, { reopens: false, shutdown });
+		return Response.json({});
+	};
+
+	/**
 	 * Restarts `arbor dev` now, refused while any agent is at work, or a
 	 * command it would kill runs: a job in front in a shell, or one an idle
 	 * agent left running.
@@ -417,7 +441,7 @@ export class Restarts {
 			const code = shutdown ? 0 : release === null ? RESTART : UPDATE;
 			log.info(
 				shutdown
-					? "arbor dev shutting down after a checkpoint"
+					? "arbor dev shutting down"
 					: release === null
 						? "arbor dev restarting"
 						: `arbor dev restarting on arbor ${release.newest}`,

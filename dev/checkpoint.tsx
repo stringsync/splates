@@ -17,57 +17,12 @@ import {
 	DropdownMenuShortcut,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
-import type { After, ConversationState } from "../conversations";
+import type { ConversationState } from "../conversations";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
 import { type Slide, slideOf, standing, titleOf } from "./checkpoint-slide";
 import { listProjects, type ProjectChoice, type Projects } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
-
-/** A checkpoint whose agents carried on, after `arbor dev` restarted or not. */
-interface Ended {
-	projects: ProjectChoice[];
-	/** The arbor it restarted on; null when it did not restart. */
-	restarted: string | null;
-}
-
-/**
- * The checkpoint `listed` ends, if it ends one, given what was seen before:
- * its agents told to carry on after a restart now have, or it is no longer
- * listed.
- */
-function endOf(
-	listed: Projects,
-	live: Slide,
-	was: {
-		resumed: RefObject<boolean>;
-		last: RefObject<ProjectChoice[]>;
-		forgotten: RefObject<boolean>;
-		waited: RefObject<boolean>;
-	},
-): Ended | null {
-	return listed.restarted === "resuming"
-		? null
-		: was.resumed.current
-			? { projects: was.last.current, restarted: listed.running }
-			: live === "pick" && was.last.current.length > 0 && !was.forgotten.current
-				? {
-						projects: was.last.current,
-						restarted: was.waited.current ? listed.running : null,
-					}
-				: null;
-}
-
-/** How long a checkpoint whose agents carried on still says it is done. */
-const ENDED = Duration.mins(1);
-
-/**
- * How long the Restart slide shows at least, so a restart quicker than the
- * page can see is still seen.
- */
-const RESTART_SHOWN = Duration.secs(3);
-
-/** How often the projects are asked for while a checkpoint is under way. */
-const EVERY = Duration.secs(1);
+import { UpdateDot } from "./release";
 
 /** How a checkpoint stands, and what opens its dialog. */
 interface Checkpointing {
@@ -75,8 +30,8 @@ interface Checkpointing {
 	title: string;
 	/** Why the projects could not be listed, for a moment. */
 	refusal: string | null;
-	/** Opens the dialog, with `after` picked when it offers projects. */
-	open: (after?: After) => void;
+	/** Opens the dialog. */
+	open: () => void;
 }
 
 const Checkpointing = createContext<Checkpointing | null>(null);
@@ -102,27 +57,30 @@ export function useCheckpoint(): Checkpointing {
  * project's, change, and every `every`, a second by default, while a
  * checkpoint or restart is under way or the dialog is open. Holds the
  * Restart slide for `restartShown` at least, three seconds by default, even
- * once `arbor dev` is back.
+ * once `arbor dev` is back, then reloads the page.
  */
 export function CheckpointProvider({
 	conversations,
 	every = EVERY,
 	restartShown = RESTART_SHOWN,
+	reload = () => location.reload(),
 	children,
 }: {
 	conversations: ConversationState[];
 	every?: Duration;
 	restartShown?: Duration;
+	/** Reloads the page, once a restart asked to is back. */
+	reload?: () => void;
 	children: ReactNode;
 }): JSX.Element {
 	const [listed, setListed] = useState<Projects | null>(null);
 	const [open, setOpen] = useState(false);
-	// What follows the checkpoint, as the dialog was opened to pick.
-	const [after, setAfter] = useState<After>("stop");
-	useShortcut("shortcuts.checkpoint", () => {
-		setAfter("stop");
-		setOpen(true);
-	});
+	// Whether a restart or shutdown checkpoints first, as last picked.
+	const [checkpoint, setCheckpoint] = useState(true);
+	useShortcut("shortcuts.checkpoint", () => setOpen(true));
+	// How to reload the page once a restart is back, as of the last render.
+	const reloads = useRef(reload);
+	reloads.current = reload;
 	// The checkpoint that ended last, while it says so.
 	const [ended, setEnded] = useState<Ended | null>(null);
 	const [restarting, setRestarting] = useState<Restarting | null>(null);
@@ -230,6 +188,8 @@ export function CheckpointProvider({
 				return () => wait.dispose();
 			}
 			restartSince.current = null;
+			// Served afresh, so the page runs what the new run built.
+			reloads.current();
 			setRestarting(null);
 			// Carried on before the page saw them told to.
 			if (restarting.resume && listed.restarted === null) {
@@ -307,10 +267,7 @@ export function CheckpointProvider({
 						(slide === "done" && listed?.restarted === "waiting")
 					? (listed?.running ?? null)
 					: null;
-	const opened = useCallback((after: After = "stop") => {
-		setAfter(after);
-		setOpen(true);
-	}, []);
+	const opened = useCallback(() => setOpen(true), []);
 	const title = titleOf(slide, restarted);
 	const value = useMemo(
 		() => ({ slide, title, refusal, open: opened }),
@@ -321,8 +278,8 @@ export function CheckpointProvider({
 			{children}
 			<CheckpointDialog
 				open={open}
-				after={after}
-				onAfter={setAfter}
+				checkpoint={checkpoint}
+				onCheckpoint={setCheckpoint}
 				onClose={() => {
 					setOpen(false);
 					// Seen, so the button is free for the next one.
@@ -334,11 +291,11 @@ export function CheckpointProvider({
 				onForget={() => {
 					forgotten.current = true;
 				}}
-				onRestart={() =>
+				onRestart={(shutdown = false) =>
 					setRestarting(
 						listed === null
 							? null
-							: { run: listed.run, resume: false, shutdown: false },
+							: { run: listed.run, resume: false, shutdown },
 					)
 				}
 				projects={
@@ -356,6 +313,7 @@ export function CheckpointProvider({
 				newest={listed?.newest ?? null}
 				current={listed?.projects ?? []}
 				restartable={listed?.restartable ?? false}
+				held={listed?.held ?? []}
 				onChange={load}
 			/>
 		</Checkpointing.Provider>
@@ -363,21 +321,34 @@ export function CheckpointProvider({
 }
 
 /**
- * The title menu's Power, opening the dialog as its shortcut does, and saying
- * how the checkpoint stands.
+ * The title menu's Power, opening the dialog as its shortcut does, saying
+ * how the checkpoint stands, and dotted, titled with `update`, when a
+ * restart would update.
  */
-export function CheckpointItem(): JSX.Element {
+export function CheckpointItem({
+	update,
+}: {
+	update: string | null;
+}): JSX.Element {
 	const { slide, title, open } = useCheckpoint();
 	const shortcut = useShortcutLabel("shortcuts.checkpoint");
+	const restartToUpdate = slide === "pick" && update !== null;
 	return (
-		<DropdownMenuItem onClick={() => open()}>
+		<DropdownMenuItem
+			title={update ?? undefined}
+			aria-label={restartToUpdate ? "Power: restart to update" : undefined}
+			onClick={() => open()}
+		>
 			{slide === "going" ||
 			slide === "restarting" ||
 			slide === "resuming" ||
 			slide === "shuttingDown" ? (
 				<Loader2Icon className="animate-spin" />
 			) : slide === "pick" ? (
-				<PowerIcon />
+				<span className="relative flex">
+					<PowerIcon />
+					{update !== null && <UpdateDot ring="ring-popover" />}
+				</span>
 			) : (
 				<CheckIcon className="text-success" />
 			)}
@@ -406,3 +377,49 @@ export function CheckpointRefusal({
 function offered(projects: ProjectChoice[]): ProjectChoice[] {
 	return projects.filter((each) => !each.gone && each.conversations.length > 0);
 }
+
+/** A checkpoint whose agents carried on, after `arbor dev` restarted or not. */
+interface Ended {
+	projects: ProjectChoice[];
+	/** The arbor it restarted on; null when it did not restart. */
+	restarted: string | null;
+}
+
+/**
+ * The checkpoint `listed` ends, if it ends one, given what was seen before:
+ * its agents told to carry on after a restart now have, or it is no longer
+ * listed.
+ */
+function endOf(
+	listed: Projects,
+	live: Slide,
+	was: {
+		resumed: RefObject<boolean>;
+		last: RefObject<ProjectChoice[]>;
+		forgotten: RefObject<boolean>;
+		waited: RefObject<boolean>;
+	},
+): Ended | null {
+	return listed.restarted === "resuming"
+		? null
+		: was.resumed.current
+			? { projects: was.last.current, restarted: listed.running }
+			: live === "pick" && was.last.current.length > 0 && !was.forgotten.current
+				? {
+						projects: was.last.current,
+						restarted: was.waited.current ? listed.running : null,
+					}
+				: null;
+}
+
+/** How long a checkpoint whose agents carried on still says it is done. */
+const ENDED = Duration.mins(1);
+
+/**
+ * How long the Restart slide shows at least, so a restart quicker than the
+ * page can see is still seen.
+ */
+const RESTART_SHOWN = Duration.secs(3);
+
+/** How often the projects are asked for while a checkpoint is under way. */
+const EVERY = Duration.secs(1);
