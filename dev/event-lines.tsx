@@ -15,7 +15,7 @@ export const EventUI = makeAssistantDataUI<{ event: Event; also?: Event[] }>({
 /**
  * How each action shows in its conversation, as a line in the look of
  * `ArborEvent`. Each slice of the Arbor events lane adds its own; an action
- * missing here shows nothing.
+ * missing here, or returning null for an event, shows nothing.
  */
 const LINES: {
 	[A in Action]?: (event: EventOf<A>) => ArborEventView | null;
@@ -31,6 +31,17 @@ const LINES: {
 	"todo update": (event) =>
 		event.reason === null
 			? { words: ["Updated", todo(event)], at: event.at }
+			: null,
+	// A refused add made no todo to name, and the agent says why itself.
+	"todo add": (event) =>
+		event.reason === null
+			? {
+					words: [
+						"Added",
+						{ kind: "todo", id: event.todo, subject: event.subject },
+					],
+					at: event.at,
+				}
 			: null,
 };
 

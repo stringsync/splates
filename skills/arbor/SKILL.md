@@ -87,8 +87,8 @@ even mid-task, and again in a later session:
    as you commit it; arbor never commits for you. When something outside
    your Goal comes up (a bug next door, a follow-up, a reply that widens the
    task), `arbor todo add` it from your worktree and move on,
-   so the task stays one coherent change, and name it in the reply that
-   ends your turn (see Proposing a todo). Write down each call the request
+   so the task stays one coherent change; the conversation shows what you
+   added (see Proposing a todo). Write down each call the request
    does not settle as you make it, as an assumption or a question, and keep
    going (see Asking as you go), bringing `## Blocked` up to date before
    each step. Before handing a subagent work that may change code, read
@@ -265,8 +265,7 @@ back to the most related todo.
 
 ### Proposing a todo
 
-Whenever you put a todo in front of the user, one you propose or one you just
-added, head it one level below the report's title with 📝, its subject
+Whenever you propose a todo to the user, head it one level below the report's title with 📝, its subject
 exactly as `arbor todo show` prints it, and its id, then write one sentence on
 why it matters now, such as what it shares with the work just done. The page
 shows the todo itself.
@@ -277,10 +276,11 @@ shows the todo itself.
 It touches the retry loop this task just rewrote.
 ```
 
-Every todo you add, put in front of the user this way in the reply that
-ends the turn you added it in, even one that ends no task: the `arbor dev`
-page heads it as added by your task, so they see what went on the list
-without reading the board.
+A todo you add needs no heading in your reply: the `arbor dev` page shows
+each `arbor todo add` in the conversation as a line naming the todo, which
+opens it. Say more about it only what that line cannot, in your own words.
+That shrinks what you say, never the todo: its subject and detail stay as
+full as Todos asks, since whoever picks it up reads nothing else.
 
 The 📝 belongs to the heading: leave it out of `arbor todo add` and
 `--subject`.

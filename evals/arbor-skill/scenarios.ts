@@ -206,19 +206,21 @@ export const SCENARIOS: readonly Scenario[] = [
 				},
 			},
 			{
-				id: "proposed",
-				rule: "Heads the new todo with its subject as added",
+				id: "added-line",
+				rule: "Keeps the new todo's subject plain, and leaves heading it to its event line",
 				judge: ({ log, end }) => {
 					const todo = end.todos.find((each) => each.id === 4);
 					const subject = String(todo?.subject ?? "");
-					const ok =
-						todo !== undefined &&
-						!subject.includes("📝") &&
-						lastSaid(log.transcript.beats).includes(`### 📝 ${subject} [#4]`);
+					const headed = TODO_HEADING.test(lastSaid(log.transcript.beats));
+					const problems = [
+						...(todo === undefined ? ["no todo added"] : []),
+						...(subject.includes("📝") ? ["📝 in the subject"] : []),
+						...(headed ? ["headed the added todo"] : []),
+					];
 					return [
 						{
-							ok,
-							why: ok ? "proposed" : `no "### 📝 ${subject} [#4]" heading`,
+							ok: problems.length === 0,
+							why: problems.join("; ") || "left to its line",
 						},
 					];
 				},
@@ -413,6 +415,9 @@ function numbered(text: string): number {
 	return text.split("\n").filter((line) => /^- \[[ x]\] \d+\. /.test(line))
 		.length;
 }
+
+/** A todo's heading in a reply, as one proposed. */
+const TODO_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;
 
 /** Whether `arbor add` words take todo `id`. */
 function takes(args: string[], id: string): boolean {

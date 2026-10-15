@@ -12,7 +12,7 @@ import {
 } from "./arbor-flags";
 import { repository } from "./repository";
 import { recordUpdate } from "./todo";
-import { todoAdd, todoRemove, todoUpdate } from "./todo-edit";
+import { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
 import { todoList, todoShow } from "./todo-list";
 import { todoRelease, todoTake } from "./todo-take";
 import { DEFAULT_TIMEOUT, todoWait } from "./wait";
@@ -65,15 +65,19 @@ arborTodo
 	.action(async (opts, ctx) => {
 		const from = await here(ctx);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
-		await ctx.journal.record("todo add", from, () =>
-			todoAdd(ctx, opts.subject, from, {
-				text: opts.text,
-				position: opts.position,
-				files: commaList(opts.file),
-				blockedBy: todoIds(opts["blocked-by"]),
-				lane: laneIn(opts.lane) ?? null,
-				assignee,
-			}),
+		await ctx.journal.record(
+			"todo add",
+			from,
+			() =>
+				todoAdd(ctx, opts.subject, from, {
+					text: opts.text,
+					position: opts.position,
+					files: commaList(opts.file),
+					blockedBy: todoIds(opts["blocked-by"]),
+					lane: laneIn(opts.lane) ?? null,
+					assignee,
+				}),
+			addedFacts,
 		);
 	});
 

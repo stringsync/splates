@@ -34,7 +34,16 @@ export interface Facts {
 	handoff: None;
 	attach: None;
 	retry: None;
-	"todo add": None;
+	"todo add": {
+		/** The todo it added, by id. */
+		todo: number;
+		/** Its line, as the page names it. */
+		subject: string;
+		/** The lane it went in, or null when it went in none. */
+		lane: number | null;
+		/** Where it went in the list, 1 at the top. */
+		position: number;
+	};
 	"todo update": {
 		/** The todo, by id. */
 		todo: number;

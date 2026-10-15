@@ -28,6 +28,13 @@ describe("dev todos", () => {
 			});
 			expect(todo?.files[0]).toEndWith("-notes.md");
 			expect(lower).toMatchObject({ subject: "lower", position: 2 });
+			expect((await deps.journal.tail(1))[0]).toMatchObject({
+				action: "todo add",
+				todo: todo?.id,
+				subject: "write the docs",
+				lane: null,
+				position: 1,
+			});
 		});
 	});
 
@@ -86,15 +93,11 @@ describe("dev todos", () => {
 			).toBe(200);
 			expect((await state(3))?.blockedBy).toEqual([2]);
 
-			for (const [id, lane] of [
-				[1, "new"],
-				[2, 1],
-				[3, 1],
-			] as const) {
-				expect(
-					(await send("PUT", `/api/todos/${id}/lane`, { lane })).status,
-				).toBe(200);
-			}
+			expect([
+				(await send("PUT", "/api/todos/1/lane", { lane: "new" })).status,
+				(await send("PUT", "/api/todos/2/lane", { lane: 1 })).status,
+				(await send("PUT", "/api/todos/3/lane", { lane: 1 })).status,
+			]).toEqual([200, 200, 200]);
 			expect(
 				(await send("PUT", "/api/todos/3/lane", { lane: "new" })).status,
 			).toBe(200);

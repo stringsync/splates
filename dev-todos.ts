@@ -5,6 +5,7 @@ import type { ProjectWatch } from "./dev-project-watch";
 import { fail } from "./exit";
 import { type AgentPick, modelsOf, pickAgent } from "./roster";
 import { recordUpdate } from "./todo";
+import { addedFacts } from "./todo-edit";
 
 /**
  * How a project's page writes its todos and lanes, each write journaled and
@@ -30,14 +31,18 @@ export class TodoRoutes {
 	readonly addTodo = async (request: Request): Promise<Response> => {
 		const { journal, todos } = this.#project;
 		const form = await request.formData();
-		const todo = await journal.record("todo add", null, async () =>
-			todos.add(String(form.get("subject") ?? ""), null, {
-				text: String(form.get("text") ?? ""),
-				files: await uploads(form),
-				position: positionIn(form),
-				// Added from a lane's column, it goes at the bottom of that lane.
-				lane: form.has("lane") ? laneIn(Number(form.get("lane"))) : null,
-			}),
+		const todo = await journal.record(
+			"todo add",
+			null,
+			async () =>
+				todos.add(String(form.get("subject") ?? ""), null, {
+					text: String(form.get("text") ?? ""),
+					files: await uploads(form),
+					position: positionIn(form),
+					// Added from a lane's column, it goes at the bottom of that lane.
+					lane: form.has("lane") ? laneIn(Number(form.get("lane"))) : null,
+				}),
+			addedFacts,
 		);
 		await this.#watch.tick();
 		return Response.json(todo.state);

@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { color, type Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import { readFiles } from "./attachments";
+import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { AgentPick } from "./roster";
 import type { Todo } from "./todo";
@@ -56,6 +57,16 @@ export async function todoAdd(
 		].join("\n"),
 	);
 	return todo;
+}
+
+/** What a `todo add` event says of the todo it added. */
+export function addedFacts(todo: Todo): Facts["todo add"] {
+	return {
+		todo: todo.id,
+		subject: todo.subject,
+		lane: todo.lane,
+		position: todo.position,
+	};
 }
 
 export interface TodoUpdateOptions extends TodoFileOptions {

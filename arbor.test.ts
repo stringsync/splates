@@ -146,6 +146,28 @@ describe("arbor cli", () => {
 		});
 	});
 
+	it("logs the todo it adds, with where it went", async () => {
+		await arbor.run(deps, ["todo", "add", "first"]);
+		await arbor.run(deps, [
+			"todo",
+			"add",
+			"Upload retries forever on a 413",
+			"--position",
+			"1",
+			"--lane",
+			"new",
+		]);
+
+		expect((await env.journal.tail(1))[0]).toMatchObject({
+			action: "todo add",
+			reason: null,
+			todo: 2,
+			subject: "Upload retries forever on a 413",
+			lane: 1,
+			position: 1,
+		});
+	});
+
 	it("refuses a port that cannot exist rather than trying to listen", async () => {
 		// As the supervisor runs it.
 		env.proc.env[SERVING] = "1";
