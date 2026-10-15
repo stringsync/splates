@@ -299,7 +299,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 		],
 		rubric: [
-			"offer: the agent wrote a numbered question under `## Blocked` offering to name the retry code as a system, recommending the name the code already goes by (such as `upload`, for `src/upload*`) over `retries`, with choices including adding `retries` as an alias or leaving it unnamed, one marked `(chosen)`",
+			"offer: the agent wrote a numbered question under `## Blocked` offering to name the retry code as an arbor system, recommending the name the code already goes by (such as `#upload`, for `src/upload*`) over `#retries`, with choices including adding `#retries` as an alias or leaving it unnamed, one marked `(chosen)`, and every system name and alias in it written as `#name`",
 		],
 	},
 	{

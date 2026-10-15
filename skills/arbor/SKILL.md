@@ -309,10 +309,11 @@ only the user names one. Offer to as a question under `## Blocked`, and write
 - when the user writes `#name` and no system answers to it: find the code
   they mean, then, if no system covers it, offer to name it, recommending the
   name that code already goes by (its directory, module or main type) over
-  theirs; if one does, offer `name` as its alias.
+  theirs; if one does, offer `#name` as its alias.
 
 Before writing that question, read
-[references/systems.md](references/systems.md) on how to word it and how to
+[references/systems.md](references/systems.md) on how to word it, each name
+as `#name` so it reads as an arbor system rather than a class, and how to
 write the file once the answer comes.
 
 ## Creds
