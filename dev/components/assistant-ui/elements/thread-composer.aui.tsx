@@ -330,12 +330,12 @@ const ComposerAction: FC = () => {
 								type="button"
 								variant="default"
 								size="icon"
-								className="aui-composer-send size-7 rounded-full pointer-coarse:size-10"
+								className="aui-composer-send size-7 rounded-full pointer-coarse:size-11"
 								aria-label="Send message"
 							/>
 						}
 					>
-						<ArrowUpIcon className="aui-composer-send-icon size-4" />
+						<ArrowUpIcon className="aui-composer-send-icon size-4 pointer-coarse:size-5" />
 					</ComposerPrimitive.Send>
 				</AuiIf>
 				<AuiIf
@@ -352,12 +352,12 @@ const ComposerAction: FC = () => {
 								type="button"
 								variant="destructive"
 								size="icon"
-								className="aui-composer-cancel size-7 rounded-full pointer-coarse:size-10"
+								className="aui-composer-cancel size-7 rounded-full pointer-coarse:size-11"
 								aria-label={isSending ? "Cancel sending" : "Stop generating"}
 							/>
 						}
 					>
-						<SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" />
+						<SquareIcon className="aui-composer-cancel-icon size-3.5 pointer-coarse:size-4 fill-current" />
 					</ComposerPrimitive.Cancel>
 				</AuiIf>
 			</div>

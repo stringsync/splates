@@ -25,7 +25,7 @@ import { useWide } from "./app-nav";
  * to tap.
  */
 const IN_COMPOSER =
-	"h-6 pointer-coarse:h-10 pointer-coarse:px-2 pointer-coarse:text-xs min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
+	"h-6 pointer-coarse:h-11 pointer-coarse:px-2 pointer-coarse:text-sm pointer-coarse:[&_svg:not([class*='size-'])]:size-4 min-w-0 shrink gap-0.5 border-transparent bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none hover:bg-muted hover:text-foreground dark:bg-transparent dark:hover:bg-muted [&_svg:not([class*='size-'])]:size-3";
 
 /**
  * A session's settings in the composer's bottom row: each inline where the

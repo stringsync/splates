@@ -25,7 +25,7 @@ const ACTIONS: Record<DictationPhase, string> = {
 	failed: "Dictate",
 };
 
-const SIZE = "size-7 rounded-md pointer-coarse:size-10";
+const SIZE = "size-7 rounded-md pointer-coarse:size-11";
 
 /** Marks each composer's mic, whichever way it toggles, for ⌥⌘V to find. */
 const MIC = "aui-composer-mic";
@@ -86,9 +86,9 @@ function Mic({ dictation }: { dictation: Dictation }) {
 				{held && key !== null ? (
 					<Kbd aria-hidden>{key}</Kbd>
 				) : phase === "denied" ? (
-					<MicOffIcon className="size-4" />
+					<MicOffIcon className="size-4 pointer-coarse:size-5" />
 				) : (
-					<MicIcon className="size-4" />
+					<MicIcon className="size-4 pointer-coarse:size-5" />
 				)}
 			</ComposerPrimitive.Dictate>
 		);
@@ -115,7 +115,7 @@ function Mic({ dictation }: { dictation: Dictation }) {
 				/>
 			}
 		>
-			<MicIcon className="size-4" />
+			<MicIcon className="size-4 pointer-coarse:size-5" />
 		</ComposerPrimitive.StopDictation>
 	);
 }
