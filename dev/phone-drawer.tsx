@@ -5,13 +5,17 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Snapshot } from "../snapshot";
 import { ARCHIVED } from "./conversation-address";
 import { openRequests } from "./creds";
+import type { Move } from "./page-address";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 
 /**
  * The phone's way to every page, slid in from the left as in the Claude and
  * ChatGPT apps: the project's header up top, the inbox first, then the other
- * pages, each with what it counts, and the archived conversations last.
+ * pages, each with what it counts, and the archived conversations last. The
+ * pages it opens take each other's place in history above home, the inbox or
+ * the board without one, so back from any of them goes home, as Android's
+ * top-level destinations do.
  */
 export function Drawer({
 	open,
@@ -39,11 +43,20 @@ export function Drawer({
 	/** How many conversations are archived. */
 	archived: number;
 	snapshot: Snapshot | null;
-	/** Goes to `page`, with `conversation` open there. */
-	onGo: (page: Page, conversation?: string | null) => void;
+	/** Goes to `page`, with `conversation` open there, as `how` leaves history. */
+	onGo: (page: Page, conversation: string | null, how: Move) => void;
 }): JSX.Element {
-	const go = (page: Page, conversation: string | null = null) => {
-		onGo(page, conversation);
+	const home = (page: Page, conversation: string | null) =>
+		available
+			? page === "conversations" && conversation === null
+			: page === "todos";
+	const go = (to: Page, open: string | null = null) => {
+		// Home is pushed, so the move back to it goes back instead.
+		onGo(
+			to,
+			open,
+			home(page, conversation) || home(to, open) ? "push" : "replace",
+		);
 		onOpenChange(false);
 	};
 	const requested =

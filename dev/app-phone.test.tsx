@@ -189,6 +189,37 @@ describe("App on a phone", () => {
 		expect(view.getByRole("region", { name: "new conversation" })).toBeTruthy();
 	});
 
+	it("goes back to the inbox from any page the menu opened, however many it opened", async () => {
+		const view = await testing.openConversations([], null);
+		const length = history.length;
+		const pick = async (name: RegExp) => {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+			);
+			const drawer = await waitFor(() =>
+				view.getByRole("dialog", { name: "Pages" }),
+			);
+			await act(async () =>
+				fireEvent.click(within(drawer).getByRole("button", { name })),
+			);
+		};
+		await pick(/Tasks/);
+		await pick(/Stats/);
+		await pick(/Creds/);
+
+		expect(location.hash).toBe("#creds");
+		expect(history.length).toBe(length + 1);
+		await act(
+			() =>
+				new Promise<void>((resolve) => {
+					addEventListener("popstate", () => resolve(), { once: true });
+					history.back();
+				}),
+		);
+		expect(location.hash).toBe("#conversations");
+		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
+	});
+
 	it("answers questions one at a time, in a sheet the bar above the composer opens", async () => {
 		const view = await testing.openConversations([
 			conversation({
