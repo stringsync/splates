@@ -1,3 +1,4 @@
+import type { Ps } from "webappwiz/system";
 import { type HostGate, refuse } from "./dev-http";
 import type { Served } from "./dev-project";
 import type { Connection } from "./dev-sockets";
@@ -22,6 +23,8 @@ export class Terminals {
 		private readonly gate: HostGate,
 		private readonly shell: string[] | null,
 		private readonly projects: TerminalProjects,
+		/** Where each shell's job in front is read from. */
+		private readonly ps: Ps,
 	) {}
 
 	/** The pid of each shell open now. */
@@ -58,6 +61,7 @@ export class Terminals {
 					cwd,
 					dimension(params.get("cols"), 80),
 					dimension(params.get("rows"), 24),
+					this.ps,
 				);
 				// Bun answers an upgrade itself, so there is nothing to return.
 				return server.upgrade(request, { data })

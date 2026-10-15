@@ -62,7 +62,29 @@ describe("dev terminal", () => {
 			}
 			expect(said.screen).toContain(text);
 		};
-		return { socket, said, shows };
+		/**
+		 * Asks what job the shell runs in front until it answers `command`, up
+		 * to a few seconds, since a job takes a moment to come to the front.
+		 */
+		const fronts = async (command: string | null) => {
+			let answer: unknown;
+			for (let i = 0; i < 100 && answer !== command; i++) {
+				const before = said.controls.length;
+				socket.send(JSON.stringify({ type: "front" }));
+				for (let j = 0; j < 300 && said.controls.length === before; j++) {
+					await Bun.sleep(10);
+				}
+				answer = (said.controls.at(-1) as { command?: unknown }).command;
+			}
+			expect(said.controls.at(-1)).toEqual({ type: "front", command });
+		};
+		/** Waits for the server to hang up, up to a few seconds. */
+		const closes = async () => {
+			for (let i = 0; i < 300 && !said.closed; i++) {
+				await Bun.sleep(10);
+			}
+		};
+		return { socket, said, shows, fronts, closes };
 	};
 
 	const opened = async (
@@ -127,15 +149,28 @@ describe("dev terminal", () => {
 		});
 	});
 
+	it("says what job the shell runs in front when asked, null at its prompt", async () => {
+		await opened(async (port) => {
+			const { socket, shows, fronts } = await terminal(port);
+			socket.send(new TextEncoder().encode("echo ready\n"));
+			await shows("ready");
+
+			await fronts(null);
+
+			socket.send(new TextEncoder().encode("echo going; sleep 7\n"));
+			await shows("going");
+
+			await fronts("sleep 7");
+		});
+	});
+
 	it("says how the shell exited, then closes", async () => {
 		await opened(async (port) => {
-			const { socket, said } = await terminal(port);
+			const { socket, said, closes } = await terminal(port);
 
 			socket.send(new TextEncoder().encode("exit 3\n"));
 
-			for (let i = 0; i < 300 && !said.closed; i++) {
-				await Bun.sleep(10);
-			}
+			await closes();
 			expect(said).toMatchObject({
 				controls: [{ type: "exit", code: 3 }],
 				closed: true,

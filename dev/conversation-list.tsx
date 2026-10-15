@@ -11,6 +11,7 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import { answersTo, type Needing, needs } from "../needs";
 import type { Details } from "../show";
+import { useCloseTerminal } from "./close-terminal";
 import {
 	ARCHIVED,
 	NEW,
@@ -100,6 +101,7 @@ export function ConversationList({
 	const panes = useContext(NestedPanesContext);
 	const openPage = useContext(OpenTerminalPage);
 	const shells = new Set(up.split(" "));
+	const closing = useCloseTerminal(terminals);
 	const beneath = ({ conversation }: Needing): ReactNode[] => {
 		if (conversation === null || panes === null) {
 			return [];
@@ -115,7 +117,17 @@ export function ConversationList({
 						nested
 						current={shown?.kind === "terminal" || open === terminalAddress(id)}
 						onOpen={() => (openPage === null ? onOpen(id) : openPage(id))}
-						onClose={() => terminals.close(id)}
+						onClose={() =>
+							closing.close(id, () => {
+								// Its pane or page, left up, would start another shell.
+								if (open === terminalAddress(id)) {
+									onOpen(id);
+								}
+								if (open === id || open === terminalAddress(id)) {
+									terminals.hide();
+								}
+							})
+						}
 						onRename={(name) => terminals.rename(id, name)}
 					/>
 				</li>
@@ -244,12 +256,13 @@ export function ConversationList({
 					onRename={(name) => terminals.rename(each, name)}
 					current={open === each}
 					onOpen={() => onOpen(each)}
-					onClose={() => {
-						if (open === each) {
-							onOpen(NEW);
-						}
-						terminals.close(each);
-					}}
+					onClose={() =>
+						closing.close(each, () => {
+							if (open === each) {
+								onOpen(NEW);
+							}
+						})
+					}
 				/>
 			))}
 			{/* None, and no list either: an empty one would still take a gap. */}
@@ -305,6 +318,7 @@ export function ConversationList({
 				<span className="flex-1">Archived</span>
 				{archived > 0 && <span className="tabular-nums">{archived}</span>}
 			</button>
+			{closing.confirm}
 		</nav>
 	);
 }

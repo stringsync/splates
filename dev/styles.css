@@ -104,6 +104,7 @@
 @source "./question-card.tsx";
 @source "./question-ranking.tsx";
 @source "./choice-body.tsx";
+@source "./close-terminal.tsx";
 @source "./review-panel.tsx";
 @source "./assumption-list.tsx";
 @source "./report-cards.tsx";

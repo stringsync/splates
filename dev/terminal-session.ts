@@ -29,6 +29,8 @@ export class TerminalSession
 	private readonly fit = new FitAddon();
 	private readonly disposer = new Disposer();
 	private socket: WebSocket | null = null;
+	/** Each `front` waiting on the shell's answer, oldest first. */
+	private asking: ((command: string | null) => void)[] = [];
 
 	/**
 	 * A shell in `task`'s worktree, or the main tree for null, which leaves to
@@ -98,7 +100,22 @@ export class TerminalSession
 		this.terminal.focus();
 	}
 
+	/**
+	 * The job the shell runs in front, as `sleep 5`, or null at its prompt or
+	 * with no shell to ask: what closing it would stop.
+	 */
+	front(): Promise<string | null> {
+		if (this.socket?.readyState !== WebSocket.OPEN) {
+			return Promise.resolve(null);
+		}
+		return new Promise((resolve) => {
+			this.asking.push(resolve);
+			this.send(JSON.stringify({ type: "front" }));
+		});
+	}
+
 	dispose(): void {
+		this.answered(null);
 		this.socket?.close();
 		this.socket = null;
 		this.disposer.dispose();
@@ -157,17 +174,30 @@ export class TerminalSession
 				this.terminal.write(new Uint8Array(data as ArrayBuffer));
 				return;
 			}
-			const control = JSON.parse(data) as { type: string };
+			const control = JSON.parse(data) as {
+				type: string;
+				command?: string | null;
+			};
 			if (control.type === "exit") {
 				this.set("exited");
+			} else if (control.type === "front") {
+				this.asking.shift()?.(control.command ?? null);
 			}
 		};
 		socket.onclose = () => {
+			this.answered(null);
 			if (this.status !== "exited") {
 				this.set("closed");
 			}
 		};
 		this.socket = socket;
+	}
+
+	/** Answers every `front` still waiting with `command`. */
+	private answered(command: string | null): void {
+		for (const resolve of this.asking.splice(0)) {
+			resolve(command);
+		}
 	}
 
 	private send(data: string | Uint8Array<ArrayBuffer>): void {

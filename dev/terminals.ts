@@ -147,6 +147,14 @@ export class Terminals implements Eventful<TerminalsEvents>, Resource {
 		return status === "connecting" || status === "open";
 	}
 
+	/**
+	 * The job terminal `key`'s shell runs in front, or null at its prompt or
+	 * with no shell: what closing it would stop.
+	 */
+	front(key: string): Promise<string | null> {
+		return this.sessions.get(key)?.front() ?? Promise.resolve(null);
+	}
+
 	/** The conversations whose shells are up, which the sidebar nests under each. */
 	up(): string[] {
 		return [...this.sessions.keys()].filter(

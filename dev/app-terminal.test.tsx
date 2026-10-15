@@ -442,6 +442,21 @@ describe("App's terminal", () => {
 		expect(nested()).toBeFalsy();
 	});
 
+	it("hangs up on the shell from the X of its nested row, hiding the pane rather than starting another", async () => {
+		const view = await reading();
+		await press(TOGGLE);
+		const [shell] = testing.shells;
+		await act(async () => shell?.accept());
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Close Terminal" })),
+		);
+
+		expect(shell?.readyState).toBe(3);
+		expect(testing.shells).toHaveLength(1);
+		expect(view.queryByRole("complementary", { name: "terminal" })).toBeNull();
+	});
+
 	it("renames the shell nested under its conversation, keeping the name for its next", async () => {
 		const view = await reading();
 		const sidebar = () =>

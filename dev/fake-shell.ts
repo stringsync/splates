@@ -15,6 +15,9 @@ export class FakeShell {
 	/** Typing as text, and every control message the page sent, in order. */
 	readonly sent: unknown[] = [];
 
+	/** The job in front of the shell, as `front` answers; null at its prompt. */
+	running: string | null = null;
+
 	constructor(readonly url: string) {}
 
 	/** The task the page asked for a shell in, or null for the main tree. */
@@ -42,11 +45,19 @@ export class FakeShell {
 	// The page's own calls, as on a `WebSocket`.
 
 	send(data: string | Uint8Array): void {
-		this.sent.push(
+		const sent: unknown =
 			typeof data === "string"
 				? JSON.parse(data)
-				: new TextDecoder().decode(data),
-		);
+				: new TextDecoder().decode(data);
+		this.sent.push(sent);
+		// Answered later, as the server reads the process table first.
+		if ((sent as { type?: string }).type === "front") {
+			queueMicrotask(() =>
+				this.onmessage?.({
+					data: JSON.stringify({ type: "front", command: this.running }),
+				}),
+			);
+		}
 	}
 
 	close(): void {

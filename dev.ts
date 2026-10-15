@@ -239,7 +239,7 @@ export async function dev(
 				return pick(project)(request);
 			})(request);
 
-	const terminals = new Terminals(gate, shell, { projectFor });
+	const terminals = new Terminals(gate, shell, { projectFor }, ps);
 	const dictations = new Dictations(gate, { projectFor });
 
 	const disposer = new AsyncDisposer();

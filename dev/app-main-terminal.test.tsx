@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "../conversations";
+import type { FakeShell } from "./fake-shell";
 import {
 	act,
 	cleanup,
@@ -171,6 +172,36 @@ describe("App's terminals in the main tree", () => {
 
 		await openTerminal(view);
 		expect(rows(view)).toEqual(["Terminal 1", "Terminal 2"]);
+	});
+
+	it("asks before closing a shell that runs a job, hanging up only once confirmed", async () => {
+		const view = await reading();
+		await openTerminal(view);
+		const shell = testing.shells[0] as FakeShell;
+		await act(async () => shell.accept());
+		shell.running = "bun run dev";
+		const close = () =>
+			act(async () =>
+				fireEvent.click(view.getByRole("button", { name: "Close Terminal 1" })),
+			);
+
+		await close();
+		const ask = view.getByRole("dialog", { name: "Close Terminal 1?" });
+		expect(ask.textContent).toContain("It is still running bun run dev.");
+		await act(async () =>
+			fireEvent.click(within(ask).getByRole("button", { name: "Cancel" })),
+		);
+		expect(shell.readyState).toBe(1);
+		expect(rows(view)).toEqual(["Terminal 1"]);
+
+		await close();
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("dialog")).getByRole("button", { name: "Close" }),
+			),
+		);
+		expect(shell.readyState).toBe(3);
+		expect(rows(view)).toEqual([]);
 	});
 
 	it("renames a shell from its row, in the list and atop its page, going back to its number when cleared", async () => {

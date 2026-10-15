@@ -2,6 +2,7 @@ import { useReactive } from "@webappwiz/react";
 import { SquareTerminalIcon, TerminalIcon, XIcon } from "lucide-react";
 import { type JSX, type ReactNode, useContext } from "react";
 import type { Needing } from "../needs";
+import { useCloseTerminal } from "./close-terminal";
 import { NestedPanesContext } from "./side-panes";
 import { OpenTerminalPage } from "./terminal";
 import type { Terminals } from "./terminals";
@@ -21,6 +22,10 @@ export function useShells(
 	mains: string[];
 	/** The rows under `row`'s, at `depth`. */
 	beneath: (row: Needing, depth: number) => ReactNode[];
+	/** Hangs up on terminal `key`, asking first while it runs a job. */
+	close: (key: string) => void;
+	/** The ask, to render in the inbox. */
+	confirm: JSX.Element;
 } {
 	const { mains, up } = useReactive(
 		terminals,
@@ -34,6 +39,7 @@ export function useShells(
 	const panes = useContext(NestedPanesContext);
 	const openPage = useContext(OpenTerminalPage);
 	const shells = new Set(up.split(" "));
+	const closing = useCloseTerminal(terminals);
 	const beneath = ({ conversation }: Needing, depth: number): ReactNode[] => {
 		if (conversation === null || panes === null) {
 			return [];
@@ -57,10 +63,7 @@ export function useShells(
 							}
 						}}
 					/>
-					<BarButton
-						label={`Close ${name}`}
-						onClick={() => terminals.close(id)}
-					>
+					<BarButton label={`Close ${name}`} onClick={() => closing.close(id)}>
 						<XIcon />
 					</BarButton>
 				</li>
@@ -88,7 +91,12 @@ export function useShells(
 				)),
 		].filter(Boolean);
 	};
-	return { mains, beneath };
+	return {
+		mains,
+		beneath,
+		close: (key) => closing.close(key),
+		confirm: closing.confirm,
+	};
 }
 
 /**

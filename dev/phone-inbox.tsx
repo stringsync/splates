@@ -76,7 +76,7 @@ export function Inbox({
 		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
 		["changed"],
 	);
-	const { mains, beneath } = useShells(terminals, onOpen);
+	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
 	useCopiedReplies(drafts);
 	const rows = rowsOf(tasks, conversations);
 	// Each with the agents it handed out, in the group of the most pressing.
@@ -160,7 +160,7 @@ export function Inbox({
 							mains={mains}
 							nameOf={(key) => terminals.nameOf(key)}
 							onOpen={onOpen}
-							onClose={(key) => terminals.close(key)}
+							onClose={close}
 						/>
 					</>
 				)}
@@ -188,6 +188,7 @@ export function Inbox({
 					/>
 				</label>
 			</div>
+			{confirm}
 		</section>
 	);
 }
