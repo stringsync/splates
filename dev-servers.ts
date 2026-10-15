@@ -56,10 +56,11 @@ export async function devServers({
 	}
 	const slots = new Slots(`${home}/slots.json`, {
 		fs,
+		ps,
 		lock: new FileLock(`${home}/slots.lock`, { fs, ps, log }),
 	});
 	for (const { slot, tree } of await slots.list()) {
-		const host = await hostOf(`${home}/slots/${slot.word}/tunnel.json`);
+		const host = await hostOf(`${slots.home(slot)}/tunnel.json`);
 		if (host !== null) {
 			servers.push({
 				slot,

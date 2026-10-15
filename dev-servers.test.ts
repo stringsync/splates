@@ -23,6 +23,7 @@ describe("devServers", () => {
 		await save("/home/.arbor/tunnel.json", "arbor.example.com");
 		const slots = new Slots("/home/.arbor/slots.json", {
 			fs,
+			ps: new FakePs(),
 			lock: new MemoryLock(),
 		});
 		for (const tree of ["/trees/one", "/trees/two", "/trees/three"]) {

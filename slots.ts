@@ -1,5 +1,8 @@
-import type { Fs, Lock } from "webappwiz/system";
+import type { Fs, Lock, Ps } from "webappwiz/system";
 import { z } from "zod";
+
+/** The file in a slot's home that its server writes its pid to. */
+export const SERVER_PID = "server.pid";
 
 /** The file's own format. */
 const FORMAT = 1;
@@ -49,8 +52,10 @@ const Claims = z.object({
 /**
  * Which tree holds which slot, kept in `~/.arbor/slots.json` for every
  * checkout on this machine. A tree holds the same word every time, so its host
- * name is worth writing down, until the tree no longer exists: a worktree
- * gives its slot back by being removed, never by anyone tidying up.
+ * name is worth writing down, until the tree no longer exists and its server
+ * has stopped: a worktree gives its slot back by being removed, never by
+ * anyone tidying up, but a server left running from a merged worktree still
+ * holds its port and its host, so its word goes to no other tree.
  */
 export class Slots {
 	constructor(
@@ -58,6 +63,8 @@ export class Slots {
 		readonly path: string,
 		private readonly deps: {
 			fs: Fs;
+			/** Tells whether a slot's last server still runs. */
+			ps: Pick<Ps, "pid" | "alive" | "processes">;
 			/** Held while claiming, so two trees starting together get a word each. */
 			lock: Lock;
 			pool?: readonly { word: string; emoji: string }[];
@@ -66,7 +73,7 @@ export class Slots {
 
 	/**
 	 * The slot `tree` holds, claimed now when it holds none: the first word no
-	 * tree that still exists holds. Throws, naming each holder, when every word
+	 * tree that still exists holds, and no server still runs on. Throws, naming each holder, when every word
 	 * is held.
 	 */
 	async claim(tree: string): Promise<Slot> {
@@ -86,6 +93,13 @@ export class Slots {
 					holders.push(`  ${slot.word}: ${holder}`);
 					continue;
 				}
+				const pid = await this.server(slot);
+				if (pid !== null) {
+					holders.push(
+						`  ${slot.word}: pid ${pid}${holder === undefined ? "" : `, run from ${holder}`}`,
+					);
+					continue;
+				}
 				await this.write({ ...claims, [slot.word]: tree });
 				return slot;
 			}
@@ -93,12 +107,40 @@ export class Slots {
 				[
 					"every dev slot is held:",
 					...holders,
-					`remove one of those worktrees, or its claim in ${this.path}`,
+					`remove one of those worktrees, stop one of those servers, or remove a claim in ${this.path}`,
 				].join("\n"),
 			);
 		} finally {
 			await lock.release();
 		}
+	}
+
+	/** The slot's home, its `ARBOR_HOME`: `~/.arbor/slots/<word>`. */
+	home(slot: Slot): string {
+		return `${this.path.slice(0, this.path.lastIndexOf("/"))}/slots/${slot.word}`;
+	}
+
+	/**
+	 * The pid of the slot's last server while it still runs, as one does when
+	 * its wrapper was killed or its worktree merged; null once it has stopped,
+	 * or for this process itself.
+	 */
+	async server(slot: Slot): Promise<number | null> {
+		const { fs, ps } = this.deps;
+		const file = `${this.home(slot)}/${SERVER_PID}`;
+		if (!(await fs.exists(file))) {
+			return null;
+		}
+		const pid = Number.parseInt((await fs.read(file)).trim(), 10);
+		if (!Number.isInteger(pid) || pid === ps.pid || !ps.alive(pid)) {
+			return null;
+		}
+		// A pid the kernel has since handed to another program is no server.
+		const running = (await ps.processes()).find((each) => each.pid === pid);
+		if (running !== undefined && !/\bdev\b/.test(running.command)) {
+			return null;
+		}
+		return pid;
 	}
 
 	/** Each slot a tree that still exists holds, in the pool's order. */

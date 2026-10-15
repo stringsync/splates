@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { MemoryLock } from "webappwiz/system";
-import { FakeFs } from "webappwiz/system/testing";
-import { SLOT_POOL, Slots, slotOf } from "./slots";
+import { FakeFs, FakePs } from "webappwiz/system/testing";
+import { SERVER_PID, SLOT_POOL, Slots, slotOf } from "./slots";
 
 describe("Slots", () => {
 	const pool = [
@@ -10,15 +10,31 @@ describe("Slots", () => {
 	];
 	const machine = async () => {
 		const fs = new FakeFs();
+		const ps = new FakePs();
 		await fs.mkdir("/trees/one");
 		await fs.mkdir("/trees/two");
 		await fs.mkdir("/trees/three");
 		const slots = new Slots("/home/.arbor/slots.json", {
 			fs,
+			ps,
 			lock: new MemoryLock(),
 			pool,
 		});
-		return { fs, slots };
+		// Leaves a server running on `word`, as `arbor dev --slot` does.
+		const serve = async (word: string, pid: number) => {
+			await fs.mkdir(`/home/.arbor/slots/${word}`);
+			await fs.write(`/home/.arbor/slots/${word}/${SERVER_PID}`, String(pid));
+			ps.setProcesses([
+				{
+					pid,
+					ppid: 1,
+					pgid: pid,
+					tpgid: 0,
+					command: "bun index.ts dev --slot",
+				},
+			]);
+		};
+		return { fs, ps, slots, serve };
 	};
 
 	it("gives each tree the first word no other holds, and the same one every time", async () => {
@@ -43,6 +59,40 @@ describe("Slots", () => {
 		await fs.rm("/trees/one", { recursive: true });
 
 		expect((await slots.claim("/trees/three")).word).toBe("cat");
+	});
+
+	it("keeps a word whose server still runs after its tree is gone", async () => {
+		const { fs, slots, serve } = await machine();
+		await slots.claim("/trees/one");
+		await serve("cat", 777);
+		await fs.rm("/trees/one", { recursive: true });
+
+		expect((await slots.claim("/trees/two")).word).toBe("bee");
+		await expect(slots.claim("/trees/three")).rejects.toThrow(
+			"every dev slot is held:\n  cat: pid 777, run from /trees/one\n  bee: /trees/two",
+		);
+	});
+
+	it("takes a word back once its server stops", async () => {
+		const { fs, ps, slots, serve } = await machine();
+		await slots.claim("/trees/one");
+		await serve("cat", 777);
+		await fs.rm("/trees/one", { recursive: true });
+		ps.kill(777);
+
+		expect((await slots.claim("/trees/two")).word).toBe("cat");
+	});
+
+	it("takes a word back whose pid has gone to another program", async () => {
+		const { fs, ps, slots, serve } = await machine();
+		await slots.claim("/trees/one");
+		await serve("cat", 777);
+		await fs.rm("/trees/one", { recursive: true });
+		ps.setProcesses([
+			{ pid: 777, ppid: 1, pgid: 777, tpgid: 0, command: "vim notes.txt" },
+		]);
+
+		expect((await slots.claim("/trees/two")).word).toBe("cat");
 	});
 
 	it("names every holder when every word is held", async () => {

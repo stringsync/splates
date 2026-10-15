@@ -20,9 +20,6 @@ export const SLOT = "ARBOR_SLOT";
  */
 export const MACHINE_HOME = "ARBOR_MACHINE_HOME";
 
-/** The file in a slot's home that its server writes its pid to. */
-export const SERVER_PID = "server.pid";
-
 /** How `arbor dev --slot` starts its server: with what added. */
 export interface SlotStart {
 	slot: Slot;
@@ -68,6 +65,7 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 	const registry = arborHome(ps);
 	const slots = new Slots(`${registry}/slots.json`, {
 		fs,
+		ps,
 		lock: new FileLock(`${registry}/slots.lock`, { fs, ps, log }),
 	});
 	// The worktree it runs in, not the main tree every worktree shares, so
@@ -83,8 +81,8 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 	} catch (error) {
 		fail("slots_full", error instanceof Error ? error.message : String(error));
 	}
-	const home = `${registry}/slots/${slot.word}`;
-	await refuseStale(ctx, slot, home);
+	const home = slots.home(slot);
+	await refuseStale(slots, slot);
 	const saved = new SavedTunnel(`${home}/tunnel.json`, {
 		fs,
 		store: secrets.device,
@@ -165,22 +163,9 @@ async function throwaway(
  * serves the slot's host from it, so the new server would answer beside old
  * code. Said with the pid to stop, since stopping it also ends its cloudflared.
  */
-export async function refuseStale(
-	{ fs, ps }: Pick<ArborDeps, "fs" | "ps">,
-	slot: Slot,
-	home: string,
-): Promise<void> {
-	const file = `${home}/${SERVER_PID}`;
-	if (!(await fs.exists(file))) {
-		return;
-	}
-	const pid = Number.parseInt((await fs.read(file)).trim(), 10);
-	if (!Number.isInteger(pid) || pid === ps.pid || !ps.alive(pid)) {
-		return;
-	}
-	// A pid the kernel has since handed to another program is no stale server.
-	const running = (await ps.processes()).find((each) => each.pid === pid);
-	if (running !== undefined && !/\bdev\b/.test(running.command)) {
+export async function refuseStale(slots: Slots, slot: Slot): Promise<void> {
+	const pid = await slots.server(slot);
+	if (pid === null) {
 		return;
 	}
 	fail(
