@@ -20,8 +20,7 @@ prompt's, so read it from arbor each time:
 
 Once you have first read the lanes you were sent, before handing anything
 out, say so in a message of its own, which the `arbor dev` page shows as a
-card, as a task's Added card is (see Saying what you added), and beside the
-thread until your finished report: a `## 🌱 Started lanes` title with the
+card, and beside the thread until your finished report: a `## 🌱 Started lanes` title with the
 lanes' names as the board shows them, a blank line, and one or two lines on
 what they add up to. A lane you are sent later gets a Started card of its
 own; placing the untriaged todos, start the lanes you placed them in.
@@ -147,9 +146,9 @@ are doing. When several can go at once, keep for yourself the one that
 leans most on what the lane taught you, and hand out the rest.
 
 `arbor add <task> --todo <id>`, with no `--agent`, and work it as any task
-(see Workflow): its Added card, its `ARBOR.md`, and its merge report, which
-proposes the lane's next todo; then go back to step 1. Work one that names
-another model all the same, saying so in its Added card. Hand out what can
+(see Workflow): its `ARBOR.md`, and its merge report, which proposes the
+lane's next todo; then go back to step 1. Work one that names another model
+all the same, saying so as Todos asks. Hand out what can
 go out first, so agents work while you do.
 
 Your agents still come first. Their reports reach you as messages while you

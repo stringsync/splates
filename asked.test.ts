@@ -324,19 +324,10 @@ describe("stretches", () => {
 		]);
 	});
 
-	it("reads the skill's word that it added a task, its Goal under it", async () => {
-		const example = await skillExample("## 🌱 Added");
+	it("leaves a title saying a task was added as words, since arbor draws that itself", () => {
+		const text = "## 🌱 Added upload-413\n\nStop retrying a 413.";
 
-		expect(stretches(`On it.\n\n${example}`)).toEqual([
-			{ type: "text", text: "On it." },
-			{
-				type: "start",
-				start: {
-					task: "<task>",
-					goal: "Stop retrying an upload the server refused as too big, and tell the user why.",
-				},
-			},
-		]);
+		expect(stretches(text)).toEqual([{ type: "text", text }]);
 	});
 
 	it("reads the skill's own demo, alone in a message, as a demo", async () => {

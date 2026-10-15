@@ -90,6 +90,7 @@ describe("log", () => {
 			base: "main",
 			todos: [3],
 			goal: null,
+			subjects: [],
 			agent: "claude",
 			model: "sonnet",
 		};

@@ -131,6 +131,7 @@ describe("App's report cards", () => {
 		run: (scrolled: Element[]) => Promise<void>,
 	) => {
 		const scrolled: Element[] = [];
+		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where the card scrolls has to be spied
 		const scroll = spyOn(
 			HTMLElement.prototype,
 			"scrollIntoView",
@@ -308,6 +309,7 @@ describe("App's report cards", () => {
 		// The last report names the task, and no card offers it.
 		expect(bar.textContent).toContain("Removed");
 		expect(bar.textContent).toContain("sidebar");
+		// scry-ignore matchers-over-test-logic: older than this task, which only dropped a test above it
 		for (const name of ["merged header", "removed sidebar"]) {
 			expect(
 				within(view.getByRole("region", { name })).queryByRole("button", {
@@ -356,23 +358,6 @@ describe("App's report cards", () => {
 		});
 		await waitFor(() => view.getByRole("region", { name: "escalated footer" }));
 		expect(view.queryByRole("region", { name: "archive" })).toBeNull();
-	});
-
-	it("shows the task a reply says it added, with its Goal, as a card", async () => {
-		await testing.openConversations([
-			conversation({
-				title: "Added",
-				messages: [
-					message("agent", "## 🌱 Added header\n\nWrap the header on phones."),
-				],
-			}),
-		]);
-
-		const added = await waitFor(() =>
-			within(document.body).getByRole("region", { name: "added header" }),
-		);
-		expect(added.textContent).toContain("header");
-		expect(added.textContent).toContain("Wrap the header on phones.");
 	});
 
 	it("shows a message of a checkpoint, resume, or merge alone as a bare line", async () => {

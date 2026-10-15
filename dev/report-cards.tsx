@@ -26,7 +26,7 @@ import {
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { Proposal, Report, Start } from "../asked";
+import type { LanesStart, Proposal, Report } from "../asked";
 import { todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
@@ -49,28 +49,23 @@ export const ReportUI = makeAssistantDataUI<{ report: Report }>({
 });
 
 /**
- * Renders a `data-start` part: the task the agent added, and its Goal, or the
- * lanes it started to orchestrate and what they add up to, as it said when it
- * began, whether that ends its turn or comes along the way.
+ * Renders a `data-start` part: the lanes the agent started to orchestrate and
+ * what they add up to, as it said when it began, whether that ends its turn
+ * or comes along the way. A task it added is arbor's own line instead.
  */
-export const StartUI = makeAssistantDataUI<{ start: Start }>({
+export const StartUI = makeAssistantDataUI<{ start: LanesStart }>({
 	name: "start",
 	render: ({ data }) => <StartCard start={data.start} />,
 });
 
-export function StartCard({ start }: { start: Start }): JSX.Element {
-	// Its task, or its lanes, show beside the thread once it scrolls up out
-	// of sight.
+export function StartCard({ start }: { start: LanesStart }): JSX.Element {
+	// Its lanes show beside the thread once it scrolls up out of sight.
 	return (
 		<div ref={useStartCard(start)}>
 			<CardShell
-				{...("lanes" in start
-					? {
-							label: `started ${start.lanes.join(", ")}`,
-							title: "Started",
-							lanes: start.lanes,
-						}
-					: { label: `added ${start.task}`, title: "Added", task: start.task })}
+				label={`started ${start.lanes.join(", ")}`}
+				title="Started"
+				lanes={start.lanes}
 				Icon={SproutIcon}
 			>
 				{start.goal === "" ? undefined : <CardBody text={start.goal} />}

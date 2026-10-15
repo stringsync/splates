@@ -230,12 +230,8 @@ export async function add(
 			`  worktree: ${worktree.path}`,
 			`  branch:   ${worktree.branch}`,
 			`  base:     ${base}`,
-			// Said here, as the agent reads it, since the skill alone leaves
-			// agents answering a nudge for news with progress instead.
 			...(handOff === undefined
-				? [
-						`  next:     say "## 🌱 Added ${task}" and its Goal before anything else`,
-					]
+				? []
 				: [
 						`  agent:    ${handOff.agent}${handOff.model === undefined ? "" : ` (${handOff.model})`}, which \`arbor dev\` starts in the worktree`,
 					]),

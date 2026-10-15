@@ -86,8 +86,8 @@ export function stretches(text: string): Stretch[] {
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, its report of how a task ended or what it
- * waits on or that the lanes it orchestrated are done, its word that it added
- * a task or started lanes, a todo it proposes, a demo for the person to try, or its word that
+ * waits on or that the lanes it orchestrated are done, its word that it
+ * started lanes, a todo it proposes, a demo for the person to try, or its word that
  * it requested a cred.
  */
 export type Stretch =
@@ -95,7 +95,7 @@ export type Stretch =
 	| { type: "questions"; questions: Question[] }
 	| { type: "review"; review: Review }
 	| { type: "report"; report: Report }
-	| { type: "start"; start: Start }
+	| { type: "start"; start: LanesStart }
 	| { type: "todo"; todo: Proposal }
 	| { type: "demo"; demo: Demo }
 	| { type: "cred"; name: string };
@@ -175,7 +175,7 @@ export interface LanesReport {
 /** What an agent says it is starting on: a task, or a lane orchestrator's lanes. */
 export type Start = TaskStart | LanesStart;
 
-/** A task the skill says it added as `## 🌱 Added <task>`, its Goal under it. */
+/** A task arbor added at the agent's word, its Goal from the add event. */
 export interface TaskStart {
 	task: string;
 	/** What done means, as the task's Goal says, as markdown. */
@@ -219,7 +219,6 @@ const WORKING = /^## ⏳ Working lanes? (.*?)(?::[ \t]*(.*?))?[ \t]*$/;
 /** A task handed to another agent, which reports back: `on <agent>` after the colon. */
 const WORKING_TASK = /^## ⏳ Working (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const HANDED = /^## 🤝 Handed off (\S+) to (.+?)(?::[ \t]*(.*?))?[ \t]*$/;
-const ADDED = /^## 🌱 Added (\S+)[ \t]*$/;
 const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
 /** The skill's word that it requested a cred, which the page shows as the request. */
 const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
@@ -243,7 +242,7 @@ const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
 
 /**
- * The report, added task, started lanes or proposed todo titled at `start`, which runs until
+ * The report, started lanes or proposed todo titled at `start`, which runs until
  * the next heading or list of questions, and the line after it; null for any
  * other line.
  */
@@ -259,7 +258,6 @@ function keptAt(
 	const working = WORKING.exec(line);
 	const workingTask = working === null ? WORKING_TASK.exec(line) : null;
 	const handed = HANDED.exec(line);
-	const added = ADDED.exec(line);
 	const started = STARTED.exec(line);
 	const proposed = PROPOSAL.exec(line);
 	if (
@@ -270,7 +268,6 @@ function keptAt(
 		working === null &&
 		workingTask === null &&
 		handed === null &&
-		added === null &&
 		started === null &&
 		proposed === null
 	) {
@@ -284,15 +281,6 @@ function keptAt(
 		.slice(start + 1, end)
 		.join("\n")
 		.replace(/^\n+|\s+$/g, "");
-	if (added !== null) {
-		return {
-			stretch: {
-				type: "start",
-				start: { task: added[1] as string, goal: body },
-			},
-			end,
-		};
-	}
 	if (started !== null) {
 		return {
 			stretch: {

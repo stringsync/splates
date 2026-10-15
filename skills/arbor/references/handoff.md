@@ -32,8 +32,7 @@ HANDOFF <task>]` themselves.
 `[ARBOR HANDOFF <task>]` sent to you means another agent handed you `<task>`:
 `arbor claim <task>`, read its `ARBOR.md`, the `### Handoff` under `## Notes`
 first, and carry on from where it stands, as the task's agent from then on.
-Say no Added card, since nobody added a task: start with the work, or with
-a question its `### Handoff` leaves open.
+Start with the work, or with a question its `### Handoff` leaves open.
 
 ## Handing on work another model fits better
 

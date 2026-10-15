@@ -72,6 +72,7 @@ describe("dev", () => {
 			base: "main",
 			todos: [],
 			goal: "land it",
+			subjects: [],
 			agent: null,
 			model: null,
 		});

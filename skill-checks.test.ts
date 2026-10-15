@@ -10,59 +10,6 @@ describe("skill checks", () => {
 		).toEqual([{ verb: "add", args: ["retry", "--todo", "3"] }]);
 	});
 
-	it("added-card: passes a card said before any other words, commands between", () => {
-		expect(
-			verdicts("added-card", [
-				user(),
-				add(),
-				run("cat ARBOR.md"),
-				say("## 🌱 Added upload-413\n\nStop retrying a 413."),
-			]),
-		).toEqual([true]);
-	});
-
-	it("added-card: fails other words said first", () => {
-		expect(
-			verdicts("added-card", [
-				user(),
-				add(),
-				say("Reading the upload code."),
-				say("## 🌱 Added upload-413"),
-			]),
-		).toEqual([false]);
-	});
-
-	it("added-card: leaves out a task handed to another agent, or a part", () => {
-		expect(
-			verdicts("added-card", [
-				user(),
-				add("lane-step", " --todo 4 --agent claude"),
-				add("piece", " --base task/upload-413"),
-				say("Handed out."),
-			]),
-		).toEqual([]);
-	});
-
-	it("added-card: leaves out an add that failed, though a pipe hid its exit", () => {
-		expect(
-			verdicts("added-card", [
-				user(),
-				run("arbor add upload-413 | tail", '{"reason":"exists"}'),
-				say("It exists already."),
-			]),
-		).toEqual([]);
-	});
-
-	it("added-card: leaves out an add in a throwaway repo, as for a demo", () => {
-		expect(
-			verdicts("added-card", [
-				user(),
-				run("export ARBOR_HOME=/tmp/h; arbor add demo", "added demo"),
-				say("Demo ready."),
-			]),
-		).toEqual([]);
-	});
-
 	it("plan-first: passes ARBOR.md written before the first other edit", () => {
 		expect(
 			verdicts("plan-first", [
@@ -128,19 +75,6 @@ describe("skill checks", () => {
 				say("Codex has it now."),
 			]),
 		).toEqual([false, false, false]);
-	});
-
-	it("report-title: reads the title past an Added card in the same message", () => {
-		expect(
-			verdicts("report-title", [
-				user(),
-				add("gone"),
-				run("arbor remove gone --reason nothing", "removed gone"),
-				say(
-					"## 🌱 Added gone\n\nCheck.\n\n## 🛑 Removed gone: nothing to change",
-				),
-			]),
-		).toEqual([true]);
 	});
 
 	it("report-title: judges the report before the next task is added, not the card after", () => {

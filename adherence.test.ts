@@ -88,7 +88,6 @@ describe("Adherence", () => {
 				skill: "0.0.43",
 				at: AT,
 				scores: {
-					"added-card": { passed: 1, failed: 0 },
 					"report-title": { passed: 1, failed: 0 },
 					squashed: { passed: 0, failed: 1 },
 				},

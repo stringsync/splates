@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { ConversationState } from "../conversations";
+import type { Event } from "../events";
 import {
 	act,
 	cleanup,
@@ -88,45 +89,57 @@ describe("App's work row", () => {
 		expect(work.textContent).not.toContain("All tests pass.");
 	});
 
-	it("shows the task the agent added along the way as a card between its work", async () => {
-		const thread = await opened(
-			turn([
-				tool({ id: "x1", command: "arbor add upload-limit" }),
-				"## 🌱 Added upload-limit\n\nStop retrying an upload refused as too big.",
-				tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"] }),
+	it("shows the task the agent added along the way as arbor's line between its work, its Goal on the task", async () => {
+		const thread = await opened({
+			...turn([
+				tool({
+					id: "x1",
+					command: "arbor add upload-limit",
+					at: second(2),
+					until: second(3),
+				}),
+				tool({ id: "r1", kind: "read", paths: ["/repo/a.ts"], at: second(5) }),
 				"It stops now.",
 			]),
-		);
+			events: [added(3)],
+		});
 
-		const added = await waitFor(() =>
-			within(thread).getByRole("region", { name: "added upload-limit" }),
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
 		);
-		expect(added.textContent).toContain("Added");
-		expect(added.textContent).toContain(
-			"Stop retrying an upload refused as too big.",
-		);
+		expect(line.textContent).toBe("Addedupload-limit");
+		expect(
+			within(line).getByTitle(
+				"Task upload-limit: Stop retrying an upload refused as too big.",
+			),
+		).toBeTruthy();
 		const works = within(thread).getAllByRole("list", { name: "timeline" });
 		expect(works.map(lines)).toEqual([
-			["Ranarbor add upload-limit"],
+			["Ranarbor add upload-limit1s"],
 			["Reada.ts"],
 		]);
 		expect(thread.textContent).toMatch(
-			/arbor add upload-limit.*Added.*Reada\.ts.*It stops now\./,
+			/arbor add upload-limit.*Addedupload-limit.*Reada\.ts.*It stops now\./,
 		);
-		expect(thread.textContent).not.toContain("## 🌱");
 	});
 
-	it("shows the task added along the way beside the thread while its card is scrolled up out of sight, until a report that it merged comes up", async () => {
-		const thread = await opened(
-			turn([
-				tool({ id: "x1", command: "arbor add upload-limit" }),
-				"## 🌱 Added upload-limit\n\nStop retrying an upload refused as too big.",
-				tool({ id: "x2", command: "arbor merge" }),
+	// scry-ignore simple-test-setup: its layout spy is its own, which no other test shares
+	it("shows the task added along the way beside the thread while its line is scrolled up out of sight, until a report that it merged comes up", async () => {
+		const thread = await opened({
+			...turn([
+				tool({
+					id: "x1",
+					command: "arbor add upload-limit",
+					at: second(2),
+					until: second(3),
+				}),
+				tool({ id: "x2", command: "arbor merge", at: second(5) }),
 				"## ✅ Merged upload-limit onto main\n\nUploads stop retrying.",
 			]),
-		);
-		const added = await waitFor(() =>
-			within(thread).getByRole("region", { name: "added upload-limit" }),
+			events: [added(3)],
+		});
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
 		);
 		const merged = within(thread).getByRole("region", {
 			name: "merged upload-limit",
@@ -135,13 +148,14 @@ describe("App's work row", () => {
 			'[data-slot="aui_thread-viewport"]',
 		) as HTMLElement;
 		// Laid out, as happy-dom never does: the thread 800px tall, the
-		// Added card in view or above it, the report below or in view.
-		const card = added.parentElement as HTMLElement;
+		// Added line in view or above it, the report below or in view.
+		const card = line.parentElement as HTMLElement;
 		const report = merged.parentElement as HTMLElement;
 		Object.defineProperty(card, "offsetHeight", { value: 120 });
 		let cardTop = 200;
 		let reportTop = 2000;
 		const rect = HTMLElement.prototype.getBoundingClientRect;
+		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
 		const placed = spyOn(
 			HTMLElement.prototype,
 			"getBoundingClientRect",
@@ -183,7 +197,7 @@ describe("App's work row", () => {
 			await scroll();
 			await waitFor(() => expect(shown()).toBe("false"));
 
-			// Fading out, the card saying it in the thread again.
+			// Fading out, the line saying it in the thread again.
 			cardTop = 200;
 			await scroll();
 			await waitFor(() => expect(shown()).toBe("true"));
@@ -219,6 +233,7 @@ describe("App's work row", () => {
 		let cardTop = -500;
 		let reportTop = 2000;
 		const rect = HTMLElement.prototype.getBoundingClientRect;
+		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
 		const placed = spyOn(
 			HTMLElement.prototype,
 			"getBoundingClientRect",
@@ -260,12 +275,12 @@ describe("App's work row", () => {
 		}
 	});
 
-	it("keeps words along the way that say a task was added folded in while they are still being written", async () => {
+	it("keeps words along the way that say lanes were started folded in while they are still being written", async () => {
 		const thread = await opened(
 			turn(
 				[
-					tool({ id: "x1", command: "arbor add upload-limit" }),
-					"## 🌱 Added upload-limit\n\nStop retrying",
+					tool({ id: "x1", command: "arbor lane show 20" }),
+					"## 🌱 Started lanes Stats\n\nMake the Stats",
 				],
 				{ status: "running" },
 			),
@@ -277,7 +292,7 @@ describe("App's work row", () => {
 			).toHaveLength(1),
 		);
 		expect(
-			within(thread).queryByRole("region", { name: "added upload-limit" }),
+			within(thread).queryByRole("region", { name: "started Stats" }),
 		).toBeNull();
 	});
 
@@ -343,3 +358,21 @@ describe("App's work row", () => {
 		]);
 	});
 });
+
+/** The event of the agent adding upload-limit, `secs` into its turn. */
+function added(secs: number): Event {
+	return {
+		id: "add",
+		at: second(secs),
+		action: "add",
+		task: "upload-limit",
+		reason: null,
+		conversation: "c1",
+		base: "main",
+		todos: [],
+		goal: "Stop retrying an upload refused as too big.",
+		subjects: [],
+		agent: null,
+		model: null,
+	};
+}

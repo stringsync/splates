@@ -2,6 +2,7 @@ import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { JSX } from "react";
 import type { Action, Event } from "../events";
 import { ArborEvent, type ArborEventView, type Named } from "./arbor-event";
+import { useStartCard } from "./current-task";
 
 /**
  * Renders a `data-event` part: something arbor did at the agent's word, as
@@ -20,6 +21,16 @@ export const EventUI = makeAssistantDataUI<{ event: Event; also?: Event[] }>({
 const LINES: {
 	[A in Action]?: (event: EventOf<A>) => ArborEventView | null;
 } = {
+	add: (event) =>
+		event.reason === null
+			? {
+					words: [
+						"Added",
+						{ kind: "task", task: event.task ?? "", goal: goalOf(event) },
+					],
+					at: event.at,
+				}
+			: { mark: "failed", words: ["Add failed", task(event)], at: event.at },
 	claim: (event) =>
 		event.reason === null
 			? { words: ["Claimed", task(event)], at: event.at }
@@ -77,7 +88,37 @@ function EventLine({
 	also?: Event[];
 }): JSX.Element | null {
 	const view = lineOfRun(event, also);
-	return view === null ? null : <ArborEvent event={view} />;
+	if (view === null) {
+		return null;
+	}
+	return event.action === "add" && event.reason === null ? (
+		<AddedLine event={event} view={view} />
+	) : (
+		<ArborEvent event={view} />
+	);
+}
+
+/**
+ * The line of a task added, which shows beside the thread, as the task it is
+ * on, once it scrolls up out of sight.
+ */
+function AddedLine({
+	event,
+	view,
+}: {
+	event: EventOf<"add">;
+	view: ArborEventView;
+}): JSX.Element {
+	return (
+		<div ref={useStartCard({ task: event.task ?? "", goal: goalOf(event) })}>
+			<ArborEvent event={view} />
+		</div>
+	);
+}
+
+/** What done means for the task an add made: its `--goal`, else the todos it took. */
+function goalOf(event: EventOf<"add">): string {
+	return event.goal ?? event.subjects?.join("\n\n") ?? "";
 }
 
 type EventOf<A extends Action> = Extract<Event, { action: A }>;

@@ -11,6 +11,8 @@ export interface Facts {
 		todos: number[];
 		/** What `--goal` said done means, or null when the todos seed the Goal. */
 		goal: string | null;
+		/** The subjects of the todos it took, in order, which seed its Goal. */
+		subjects: string[];
 		/** The agent it was handed to, or null when this conversation keeps it. */
 		agent: string | null;
 		/** That agent's model, or null for its own default or no agent. */

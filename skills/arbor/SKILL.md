@@ -70,8 +70,11 @@ even mid-task, and again in a later session:
    lane's orchestrator instead: read
    [references/lanes.md](references/lanes.md) first. Pass `--base <branch>` only when invoked with a branch
    (`/arbor feature/auth`) or the user names one; never guess a base from the
-   checked-out branch. Once `arbor add` succeeds, say what you added before
-   anything else (see Saying what you added).
+   checked-out branch. Once `arbor add` succeeds, the `arbor dev` page shows
+   it in your conversation as arbor's own line, the Goal on its task, so say
+   nothing about adding it. When your harness asks right after for a word on
+   what you are doing, say in one line what you will do next, without the
+   task's name or Goal, which that line already shows.
 2. **Plan.** Once you know what done means, fill in `ARBOR.md` before
    touching code (see ARBOR.md below), then groom the todos your work touches
    (see Grooming related todos). Keep the task yourself unless it gives you
@@ -156,24 +159,6 @@ for Relaying and the lane reports):
    again, and place any todo added since the same way. Once nothing is left
    to place and every lane you work is done, end on a finished report.
 
-## Saying what you added
-
-When `arbor add` makes your task, say so in a message of its own, which the
-`arbor dev` page shows as a card: a `## 🌱 Added <task>` title, a blank line,
-and the Goal, one or two lines on what done means as you understand it so
-far. Say it once per task, never for a claim. Say it next, before any other
-words: when your harness asks you to say what you are doing, this card is
-that word, never a line on what you will read first.
-
-```markdown
-## 🌱 Added <task>
-
-Stop retrying an upload the server refused as too big, and tell the user why.
-```
-
-When the todo you took names a model other than yours, end the card with a
-`- ` line saying so, such as `- #12 names Sonnet; I run as Opus.`
-
 ## Todos
 
 Write a todo's subject the way you write a question's, short enough to scan.
@@ -201,9 +186,9 @@ changes what a todo takes, `arbor todo update <id> --agent <id> --model <m>`
 picks again.
 
 When you take a todo that names a model other than the one you run as, take
-it anyway: whoever handed it to you chose you. Say so in your Added card (see
-Saying what you added), so the user can stop you and start the model it
-names instead.
+it anyway: whoever handed it to you chose you. Say so in a line of its own
+right after `arbor add`, such as `#12 names Sonnet; I run as Opus.`, so the
+user can stop you and start the model it names instead.
 
 Name the files and the feature in the detail, the feature by its system name
 when one covers it (see Systems), so whoever grooms the list later can tell

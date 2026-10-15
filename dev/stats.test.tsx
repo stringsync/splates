@@ -16,6 +16,7 @@ const tally = {
 };
 
 describe("StatsPage", () => {
+	// scry-ignore simple-test-setup: older than this task, which only renamed a check id
 	it("leads with what stands out, its bars charted, and folds the rest away", async () => {
 		const busy = { ...tally, merged: 6, questionRounds: 6 };
 		const stats: Stats = {
@@ -61,6 +62,7 @@ describe("StatsPage", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only renamed a check id
 	it("compares each skill rule's pass rate across the newest skill versions", async () => {
 		const stats: Stats = {
 			buckets: [],
@@ -77,7 +79,7 @@ describe("StatsPage", () => {
 					agent: "claude",
 					skill: "0.0.44",
 					at: "2026-10-14T10:00:00.000Z",
-					scores: { "added-card": { passed: 1, failed: 0 } },
+					scores: { "plan-first": { passed: 1, failed: 0 } },
 				},
 				{
 					conversation: "b",
@@ -85,7 +87,7 @@ describe("StatsPage", () => {
 					agent: "claude",
 					skill: "0.0.44",
 					at: "2026-10-14T10:00:00.000Z",
-					scores: { "added-card": { passed: 1, failed: 1 } },
+					scores: { "plan-first": { passed: 1, failed: 1 } },
 				},
 				{
 					conversation: "c",
@@ -108,7 +110,7 @@ describe("StatsPage", () => {
 		fireEvent.click(page.getByRole("button", { name: "Everything else" }));
 		const row = await waitFor(() =>
 			page.getByRole("cell", {
-				name: "Says what it added right after arbor add",
+				name: "Writes ARBOR.md before the first edit",
 			}),
 		);
 
@@ -122,13 +124,10 @@ describe("StatsPage", () => {
 			Array.from(row.parentElement?.querySelectorAll("td") ?? []).map(
 				(each) => each.textContent,
 			),
-		).toEqual([
-			"Says what it added right after arbor add",
-			"50% of 2",
-			"\u2013",
-		]);
+		).toEqual(["Writes ARBOR.md before the first edit", "50% of 2", "\u2013"]);
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only renamed a check id
 	it("heads each breakdown with only the figures it is read for, each saying what it counts", async () => {
 		const stats: Stats = {
 			buckets: [],
@@ -177,6 +176,7 @@ describe("StatsPage", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only renamed a check id
 	it("shows each system as its chip, opening to its globs where this project names it", async () => {
 		const stats: Stats = {
 			buckets: [

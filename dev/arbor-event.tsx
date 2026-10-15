@@ -78,7 +78,12 @@ export function ArborEvent({
  * chip, "5 todos", listing each beneath the line.
  */
 export type Named =
-	| { kind: "task"; task: string }
+	| {
+			kind: "task";
+			task: string;
+			/** What done means for it, shown on hover, when the event knows. */
+			goal?: string;
+	  }
 	| { kind: "todo"; id: number; subject: string; note?: string }
 	| {
 			kind: "todos";
@@ -230,11 +235,11 @@ function NamedChip({
 	const opener = use(OpenerContext);
 	switch (named.kind) {
 		case "task": {
-			const { task } = named;
+			const { task, goal = "" } = named;
 			return (
 				<Chip
 					Icon={GitBranchIcon}
-					title={`Task ${task}`}
+					title={goal === "" ? `Task ${task}` : `Task ${task}: ${goal}`}
 					open={
 						board.linked && board.tasks.includes(task)
 							? () => board.openTask(task)

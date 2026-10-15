@@ -65,23 +65,6 @@ export interface Check {
 /** Every check, in the order the Stats page lists them. */
 export const CHECKS: readonly Check[] = [
 	{
-		id: "added-card",
-		rule: "Says what it added right after arbor add",
-		judge: ({ beats }) =>
-			added(beats).map(({ at, task }) => {
-				// Commands may come between; no other words may.
-				const said = beats
-					.slice(at + 1)
-					.find((each) => each.kind === "say" || each.kind === "user");
-				const first =
-					said?.kind === "say" ? said.text.trimStart().split("\n")[0] : "";
-				return {
-					ok: first?.trim() === `${ADDED} ${task}`,
-					why: `after adding ${task}: ${first ? `said "${first}"` : "said nothing first"}`,
-				};
-			}),
-	},
-	{
 		id: "plan-first",
 		rule: "Writes ARBOR.md before the first edit",
 		judge: ({ beats }) =>
@@ -189,9 +172,6 @@ const TITLES = {
 	handoff: /^## 🤝 Handed off \S+ to [^:]+(?:: .*[^.!?:])?$/,
 	review: /^## 🔍 Ready to merge \S+ onto \S+$/,
 };
-
-/** How the card saying what was added starts, before the task's name. */
-const ADDED = "## 🌱 Added";
 
 /** A proposed todo's heading. */
 const TODO_HEADING = /^### 📝 .+ \[#\d+\]\s*$/m;
@@ -369,19 +349,9 @@ function endings(beats: Beat[]): Ending[] {
 	});
 }
 
-/**
- * What `report` is titled: its first line, or past an Added card said in the
- * same message, the heading after it.
- */
+/** What `report` is titled: its first line. */
 function titleOf(report: string): string {
-	const lines = report.trim().split("\n");
-	const first = lines[0]?.trim() ?? "";
-	if (!first.startsWith(ADDED)) {
-		return first;
-	}
-	return (
-		lines.find((line, index) => index > 0 && line.startsWith("## ")) ?? first
-	);
+	return report.trim().split("\n")[0]?.trim() ?? "";
 }
 
 /** The lines of `text` that ask something: ending in `?`, outside code, quotes and headings. */

@@ -146,6 +146,10 @@ arbor
 						...(opts.prompt === "" ? {} : { prompt: opts.prompt }),
 					};
 		const agents = dispatch === undefined ? [] : await seeded(rosterOf(ctx));
+		const all = await ctx.todos.all();
+		const subjects = todoIds(opts.todo).flatMap(
+			(id) => all.find((todo) => todo.id === id)?.subject ?? [],
+		);
 		await ctx.journal.record(
 			"add",
 			opts.task,
@@ -168,6 +172,7 @@ arbor
 				base: opts.base || ctx.config.trunk,
 				todos: todoIds(opts.todo),
 				goal: opts.goal.trim() || null,
+				subjects,
 				agent: dispatch?.agent ?? null,
 				model: dispatch?.model ?? null,
 			},

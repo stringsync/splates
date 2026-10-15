@@ -195,7 +195,7 @@ describe("summarize", () => {
 			agent: "claude",
 			skill,
 			at: "2026-10-14T10:00:00.000Z",
-			scores: { "added-card": { passed: 1, failed } },
+			scores: { "plan-first": { passed: 1, failed } },
 		});
 
 		const { skill } = summarize([], {
@@ -211,7 +211,7 @@ describe("summarize", () => {
 			skill.map((each) => [
 				each.skill,
 				each.conversations,
-				each.checks.find((check) => check.id === "added-card"),
+				each.checks.find((check) => check.id === "plan-first"),
 			]),
 		).toEqual([
 			["0.0.10", 2, expect.objectContaining({ applied: 2, passed: 1 })],
