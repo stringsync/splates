@@ -46,9 +46,11 @@ const SPANS = [
 ] as const;
 
 /**
- * The Budget page: what scry's checks may spend on each model in this
- * project, with how much of each window is gone, a form to change it or
- * raise it for a while, then how much of the Claude and Codex plans is used.
+ * The Budget page: how much of the Claude and Codex plans is used, then what
+ * scry's checks may spend on each model in this project, with how much of
+ * each window is gone and a form to change it or raise it for a while. Plan
+ * limits come first since their cards keep one shape, while the budgets
+ * arrive from the CLI a moment later and would shift anything below them.
  */
 export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 	const [budgets, setBudgets] = useState<Budgets | null>(null);
@@ -69,6 +71,7 @@ export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 		});
 	return (
 		<section aria-label="budget" className="flex min-w-0 flex-col gap-8">
+			<PlanSection talk={talk} />
 			<div className="flex flex-col gap-3">
 				<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 					<h2 className={cn("font-medium text-sm", PHONE_HEADING)}>
@@ -103,7 +106,6 @@ export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 					</ul>
 				)}
 			</div>
-			<PlanSection talk={talk} />
 		</section>
 	);
 }
