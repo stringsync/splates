@@ -1,7 +1,6 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Duration } from "webappwiz/time";
 import { AgentConnection } from "./agent-connection";
 import type { Agent } from "./agent-process";
 import { ConversationBackground } from "./conversation-background";
@@ -19,6 +18,7 @@ import {
 	blank,
 	type ConversationState,
 	type Device,
+	IDLE_STOP,
 	type Limit,
 	type Upload,
 } from "./conversation-state";
@@ -511,7 +511,7 @@ export class Conversation
 		this.resting ??= this.deps.timer.setTimeout(() => {
 			this.resting = null;
 			if (idle()) {
-				void this.stop();
+				void this.stop().then(() => this.set({ stoppedIdle: this.now() }));
 			}
 		}, IDLE_STOP);
 	}
@@ -548,9 +548,6 @@ export class Conversation
 		});
 	}
 }
-
-/** How long an agent sits idle before its process is stopped. */
-export const IDLE_STOP = Duration.mins(30);
 
 /** What a conversation is opened with, started afresh or brought in. */
 interface Opening {

@@ -33,6 +33,7 @@ import { ErrorBanner } from "./error-banner";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
+import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { NextWaiting, PhoneThreadHeader } from "./phone-thread";
@@ -272,6 +273,14 @@ export function Thread({
 					onOpen={onOpen}
 				/>
 			)}
+			{conversation.status === "stopped" &&
+				conversation.stoppedIdle !== null && (
+					<IdleBanner
+						handedBy={handedBy}
+						phone={onBack !== null}
+						onOpen={onOpen}
+					/>
+				)}
 			<PhoneSheets conversation={id} on={onBack !== null}>
 				<TaskRegistry>
 					{(version) => (

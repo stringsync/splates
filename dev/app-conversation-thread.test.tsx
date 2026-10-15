@@ -247,6 +247,32 @@ describe("App's conversation thread", () => {
 		).toBe("true");
 	});
 
+	it("says arbor stopped an agent left idle, and what wakes it", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				status: "stopped",
+				stoppedIdle: "2026-10-14T10:00:00.000Z",
+			}),
+		]);
+
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="idle-banner"]')
+				?.textContent,
+		).toBe(
+			"Stopped after 30 minutes idle. Sending a message starts it again where it left off.",
+		);
+	});
+
+	it("says nothing of idling for an agent stopped otherwise", async () => {
+		const view = await testing.openConversations([
+			conversation({ status: "stopped" }),
+		]);
+
+		expect(
+			view.container.ownerDocument.querySelector('[data-slot="idle-banner"]'),
+		).toBeNull();
+	});
+
 	it("says a failed turn takes another try, cut to a few lines until tapped", async () => {
 		const view = await testing.openConversations([
 			conversation({ error: "Internal error" }),

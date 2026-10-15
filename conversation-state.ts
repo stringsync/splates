@@ -1,3 +1,4 @@
+import { Duration } from "webappwiz/time";
 import type { Flag } from "./watch";
 
 /** Everything the page shows of one conversation. */
@@ -28,6 +29,11 @@ export interface ConversationState {
 	status: Status;
 	/** Why it failed, for `failed`. */
 	error: string | null;
+	/**
+	 * When arbor stopped its agent for sitting idle `IDLE_STOP`; null otherwise,
+	 * and again once it starts.
+	 */
+	stoppedIdle: string | null;
 	messages: Message[];
 	ask: Ask | null;
 	/** What the session lets the person pick: its mode, model, effort. */
@@ -87,6 +93,9 @@ export interface ConversationState {
  * prompt resumes the session in a new one.
  */
 export type Status = "starting" | "idle" | "running" | "stopped" | "failed";
+
+/** How long an agent sits idle before arbor stops its process. */
+export const IDLE_STOP = Duration.mins(30);
 
 /**
  * Where a checkpoint stands: asked of the agent, done once its turn ends,
@@ -374,6 +383,7 @@ export function blank(
 		name: null,
 		status: "starting",
 		error: null,
+		stoppedIdle: null,
 		messages: [],
 		ask: null,
 		settings: [],

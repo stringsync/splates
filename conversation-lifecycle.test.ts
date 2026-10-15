@@ -5,7 +5,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
-import { IDLE_STOP } from "./conversation";
+import { IDLE_STOP } from "./conversation-state";
 import { eventually, once, until } from "./conversation-testing";
 import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
@@ -359,13 +359,16 @@ describe("Conversation lifecycle", () => {
 		const conversation = await started();
 
 		restOut();
-		await until(conversation, "stopped");
+		await once(conversation, () => conversation.state.stoppedIdle !== null);
+		expect(conversation.state.status).toBe("stopped");
+		expect(conversation.state.stoppedIdle).toBe("2026-10-11T10:00:00.000Z");
 		expect(agent.killed).toBe(1);
 
 		await conversation.prompt("again");
 		await until(conversation, "idle");
 		expect(agent.launched).toHaveLength(2);
 		expect(agent.resumed).toHaveLength(1);
+		expect(conversation.state.stoppedIdle).toBeNull();
 	});
 
 	it("leaves an agent be while its turn runs", async () => {

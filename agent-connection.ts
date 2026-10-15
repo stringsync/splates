@@ -119,7 +119,7 @@ export class AgentConnection {
 	 */
 	async open(agent: Agent, cwd: string): Promise<void> {
 		const { host } = this;
-		host.set({ status: "starting", error: null });
+		host.set({ status: "starting", error: null, stoppedIdle: null });
 		const started = await this.startAlone();
 		try {
 			// The agent's `arbor` finds its conversation, and the server, in its

@@ -62,6 +62,7 @@
 @source "./conversations.tsx";
 @source "./thread.tsx";
 @source "./error-banner.tsx";
+@source "./idle-banner.tsx";
 @source "./thread-actions.tsx";
 @source "./conversation-home.tsx";
 @source "./setting-controls.tsx";
