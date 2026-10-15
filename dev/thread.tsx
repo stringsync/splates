@@ -4,7 +4,6 @@ import { type JSX, useCallback, useContext, useRef, useState } from "react";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
-import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Report } from "../asked";
@@ -32,7 +31,6 @@ import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
 import { AgentAsk, HandedOut, useHandedOutBy, useHandedTo } from "./handed-out";
-import { useShortcutLabel } from "./hooks/use-shortcut";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
@@ -435,7 +433,6 @@ function ArchiveBar({
 	onArchive: () => void;
 }): JSX.Element {
 	const { title, Icon, tone } = ENDINGS[report.ending];
-	const shortcut = useShortcutLabel("shortcuts.archive");
 	return (
 		<section
 			aria-label="archive"
@@ -448,15 +445,11 @@ function ArchiveBar({
 					{"lanes" in report ? report.lanes.join(", ") : report.task}
 				</span>
 			</span>
-			{shortcut !== null && <Kbd className="ml-auto">{shortcut}</Kbd>}
 			<Button
 				size="sm"
 				variant="outline"
 				onClick={onArchive}
-				className={cn(
-					"h-7 gap-1.5 bg-background",
-					shortcut === null && "ml-auto",
-				)}
+				className="ml-auto h-7 gap-1.5 bg-background"
 			>
 				<ArchiveIcon data-icon="inline-start" />
 				Archive
