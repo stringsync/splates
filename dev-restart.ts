@@ -3,6 +3,7 @@ import type { Logger } from "webappwiz/log";
 import type { Fs, Ps } from "webappwiz/system";
 import type { After, Conversation } from "./conversations";
 import { type Project, type Served, waitingOn } from "./dev-project";
+import type { ServerChoice } from "./dev-servers";
 import type { Terminals } from "./dev-terminal";
 import type { Versions } from "./dev-versions";
 import { fail } from "./exit";
@@ -41,6 +42,8 @@ export interface RestartsHome {
 export interface RestartsOptions {
 	exit: ((code: number) => void) | null;
 	open: (root: string) => Promise<Project>;
+	/** Every `arbor dev` on this machine the page can switch to. */
+	servers: () => Promise<ServerChoice[]>;
 }
 
 /**
@@ -136,6 +139,7 @@ export class Restarts {
 					waiting: each.gone ? 0 : await this.waitingIn(each.root),
 				})),
 			),
+			servers: await this.opts.servers(),
 			...then,
 			run: this.run,
 			running: this.versions.running,

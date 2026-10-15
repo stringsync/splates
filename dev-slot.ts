@@ -14,6 +14,12 @@ import { type Slot, Slots } from "./slots";
 /** Set in a slot's server's environment to the word it serves under. */
 export const SLOT = "ARBOR_SLOT";
 
+/**
+ * Set in a slot's server's environment to the machine's `ARBOR_HOME`, whose
+ * tunnel and slots the page lists to switch between.
+ */
+export const MACHINE_HOME = "ARBOR_MACHINE_HOME";
+
 /** How `arbor dev --slot` starts its server: where, and with what added. */
 export interface SlotStart {
 	slot: Slot;
@@ -92,7 +98,7 @@ export async function devSlot(ctx: ArborDeps & Repository): Promise<SlotStart> {
 	return {
 		slot,
 		host: record.host,
-		env: { ARBOR_HOME: home, [SLOT]: slot.word },
+		env: { ARBOR_HOME: home, [SLOT]: slot.word, [MACHINE_HOME]: registry },
 		cwd,
 	};
 }

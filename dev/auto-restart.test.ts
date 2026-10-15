@@ -20,6 +20,7 @@ const here = (conversations: ProjectConversation[] = []) => ({
 class FakeServer implements AutoRestartServer {
 	listed: Projects = {
 		projects: [here()],
+		servers: [],
 		restarting: null,
 		restarted: null,
 		run: "run-1",

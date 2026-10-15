@@ -6,6 +6,7 @@ import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations, launch } from "./conversations";
 import { type DevServer, dev, devPorts } from "./dev";
 import { accessConfig } from "./dev-access";
+import { devServers } from "./dev-servers";
 import { devSlot, SLOT } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { fail } from "./exit";
@@ -139,6 +140,7 @@ export async function serveDev(
 		source: () => sourceCommit(ctx.ps),
 		unbuilt: ctx.ps.env(UNBUILT) !== undefined,
 		slot: slotOf(ctx.ps.env(SLOT) ?? ""),
+		servers: () => devServers(ctx),
 		exit: (code) => ctx.ps.exit(code),
 	});
 }

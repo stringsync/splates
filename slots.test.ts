@@ -55,6 +55,21 @@ describe("Slots", () => {
 		);
 	});
 
+	it("lists each word a tree that still exists holds, in the pool's order", async () => {
+		const { fs, slots } = await machine();
+		await slots.claim("/trees/one");
+		await slots.claim("/trees/two");
+
+		expect(await slots.list()).toEqual([
+			{ slot: { word: "cat", emoji: "😸" }, tree: "/trees/one" },
+			{ slot: { word: "bee", emoji: "🐝" }, tree: "/trees/two" },
+		]);
+		await fs.rm("/trees/one", { recursive: true });
+		expect((await slots.list()).map(({ tree }) => tree)).toEqual([
+			"/trees/two",
+		]);
+	});
+
 	it("hands out short animals, each once", () => {
 		const words = SLOT_POOL.map(({ word }) => word);
 		expect(words.every((word) => word.length === 3 || word.length === 4)).toBe(

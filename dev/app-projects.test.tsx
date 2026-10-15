@@ -83,6 +83,61 @@ describe("App's projects", () => {
 		assign.mockRestore();
 	});
 
+	it("lists this machine's arbor dev and its slots, and opens the one picked", async () => {
+		testing.servers = [
+			{ slot: null, url: "https://arbor.example.com", tree: null, here: true },
+			{
+				slot: { word: "fox", emoji: "🦊" },
+				url: "https://fox.example.com",
+				tree: "/code/webappwiz-arbor/upload",
+				here: false,
+			},
+		];
+		const view = await testing.open();
+		const assign = spyOn(location, "assign").mockImplementation(() => {});
+
+		await act(async () =>
+			fireEvent.keyDown(window, {
+				key: "p",
+				code: "KeyP",
+				ctrlKey: true,
+				metaKey: true,
+			}),
+		);
+		const slots = await waitFor(() =>
+			view.getByRole("list", { name: "slots" }),
+		);
+		expect(within(slots).getByText("this machine")).toBeTruthy();
+		const find = view.getByRole("textbox", { name: "find a project" });
+		await act(async () =>
+			fireEvent.change(find, { target: { value: "upload" } }),
+		);
+		expect(view.queryByText("/code/shop")).toBeNull();
+		expect(within(slots).queryByText("this machine")).toBeNull();
+		await act(async () => fireEvent.keyDown(find, { key: "Enter" }));
+
+		expect(assign.mock.calls).toEqual([["https://fox.example.com"]]);
+		assign.mockRestore();
+	});
+
+	it("lists no slots on a machine that runs none", async () => {
+		testing.servers = [
+			{ slot: null, url: "https://arbor.example.com", tree: null, here: true },
+		];
+		const view = await testing.open();
+
+		await act(async () =>
+			fireEvent.keyDown(window, {
+				key: "p",
+				code: "KeyP",
+				ctrlKey: true,
+				metaKey: true,
+			}),
+		);
+		await waitFor(() => expect(view.getByText("/code/shop")).toBeTruthy());
+		expect(view.queryByRole("list", { name: "slots" })).toBeNull();
+	});
+
 	it("marks each project with how many agents wait on you there", async () => {
 		const view = await testing.open();
 

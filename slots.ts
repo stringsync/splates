@@ -101,6 +101,20 @@ export class Slots {
 		}
 	}
 
+	/** Each slot a tree that still exists holds, in the pool's order. */
+	async list(): Promise<{ slot: Slot; tree: string }[]> {
+		const { fs, pool = SLOT_POOL } = this.deps;
+		const claims = await this.read();
+		const held: { slot: Slot; tree: string }[] = [];
+		for (const slot of pool) {
+			const tree = claims[slot.word];
+			if (tree !== undefined && (await fs.exists(tree))) {
+				held.push({ slot, tree });
+			}
+		}
+		return held;
+	}
+
 	private async read(): Promise<Record<string, string>> {
 		const raw = await this.deps.fs.read(this.path).catch(() => null);
 		if (raw === null) {

@@ -4,6 +4,7 @@
  */
 
 import type { After, Checkpoint } from "../conversations";
+import type { ServerChoice } from "../dev-servers";
 import type { Held } from "../held";
 import type { Behind } from "../release";
 import { ApiError, send, sendJson } from "./api";
@@ -12,6 +13,8 @@ import { ApiError, send, sendJson } from "./api";
 export interface Projects {
 	/** Every arbor project, in the order each joined. */
 	projects: ProjectChoice[];
+	/** Every `arbor dev` on this machine with a host, running or not. */
+	servers: ServerChoice[];
 	/**
 	 * The restart to follow the checkpoint under way, and whether the next
 	 * run resumes its agents; null for none.

@@ -18,6 +18,7 @@ import {
 	serveProject,
 } from "./dev-project";
 import { Restarts } from "./dev-restart";
+import type { ServerChoice } from "./dev-servers";
 import { type TerminalData, Terminals } from "./dev-terminal";
 import { startTunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
@@ -66,6 +67,7 @@ export async function dev(
 		sourceEvery = SOURCE_CHECK,
 		unbuilt = false,
 		slot = null,
+		servers = async () => [],
 		exit = null,
 		sensors = null,
 		open = async (root) => ({
@@ -237,7 +239,7 @@ export async function dev(
 			server: disposer,
 		},
 		versions,
-		{ exit, open },
+		{ exit, open, servers },
 	);
 	const {
 		listProjects,
@@ -536,6 +538,11 @@ export interface DevOptions {
 	unbuilt?: boolean;
 	/** The slot `arbor dev --slot` serves under, which the page shows; null for none. */
 	slot?: Slot | null;
+	/**
+	 * Every `arbor dev` on this machine, the machine's own and each slot's,
+	 * which the page's switcher lists beside the projects; none by default.
+	 */
+	servers?: () => Promise<ServerChoice[]>;
 	/**
 	 * Ends the process with `RESTART` or `UPDATE` once the server has
 	 * stopped, for its supervisor to start another; without it, the page

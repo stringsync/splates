@@ -6,6 +6,7 @@ import { createElement } from "react";
 import type { Resource } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
 import type { ConversationState, Session } from "../conversations";
+import type { ServerChoice } from "../dev-servers";
 import type { FileDiff } from "../diff";
 import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
@@ -130,6 +131,8 @@ export class Testing implements Resource {
 	talkStream: Stream | null = null;
 	/** What the page is told of the projects on this machine. */
 	projects: ProjectChoice[] = [];
+	/** The `arbor dev`s on this machine the page is told of. */
+	servers: ServerChoice[] = [];
 	/** The restart `/api/projects` says follows the checkpoint, if any. */
 	restarting: { resume: boolean; shutdown: boolean } | null = null;
 	/** How `/api/projects` says this run began, after a checkpoint's restart. */
@@ -167,6 +170,7 @@ export class Testing implements Resource {
 			if (route === "/api/projects") {
 				const listed = {
 					projects: this.projects,
+					servers: this.servers,
 					restarting: this.restarting,
 					restarted: this.restarted,
 					run: this.run,

@@ -1,4 +1,4 @@
-import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, HouseIcon, XIcon } from "lucide-react";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Duration, SystemTimer } from "webappwiz/time";
 import { Button } from "#dev/components/ui/button.tsx";
@@ -11,6 +11,7 @@ import {
 } from "#dev/components/ui/popover.tsx";
 import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
+import type { ServerChoice } from "../dev-servers";
 import { Dot } from "./dot";
 import { forgetProject, listProjects, type ProjectChoice } from "./project-api";
 import { Refusal, useRefusal } from "./refusal";
@@ -87,7 +88,9 @@ export function projectUrl(project: ProjectChoice): string {
  * The project's name, heading the page, as a picker of every project on this
  * machine, each marked with how many agents wait on you there: its
  * shortcut, ⌃⌘P unless set otherwise, which no browser takes, opens it, typing narrows it, the arrows and Enter pick. Closed, it is marked
- * while another project has agents waiting on you.
+ * while another project has agents waiting on you. Below them, when this
+ * machine runs slots, every `arbor dev` it has a host for, picked to open
+ * that one's page instead.
  */
 export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -95,13 +98,17 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	const [active, setActive] = useState(0);
 	// Null until first listed, so it never says none match before it knows.
 	const [projects, setProjects] = useState<ProjectChoice[] | null>(null);
+	const [servers, setServers] = useState<ServerChoice[]>([]);
 	const shown = shownProject();
 	const { refusal, refuse: refused } = useRefusal();
 
 	const load = useCallback(
 		() =>
 			listProjects().then(
-				(listed) => setProjects(listed.projects),
+				(listed) => {
+					setProjects(listed.projects);
+					setServers(listed.servers);
+				},
 				(error: unknown) => refused("Projects not listed", error),
 			),
 		[refused],
@@ -116,7 +123,10 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 	useEffect(() => {
 		const list = () =>
 			listProjects().then(
-				(listed) => setProjects(listed.projects),
+				(listed) => {
+					setProjects(listed.projects);
+					setServers(listed.servers);
+				},
 				() => {},
 			);
 		void list();
@@ -137,6 +147,15 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 			each.slug.toLowerCase().includes(words) ||
 			each.root.toLowerCase().includes(words),
 	);
+	// Only worth listing when there is another to go to.
+	const otherServers = servers.length > 1 ? servers : [];
+	const matchingServers = otherServers.filter(
+		(each) =>
+			words === "" ||
+			serverName(each).toLowerCase().includes(words) ||
+			(each.tree ?? "").toLowerCase().includes(words),
+	);
+	const picks = matching.length + matchingServers.length;
 	const current = (each: ProjectChoice) =>
 		shown === null ? each.here : each.slug === shown;
 	// This one's own are on the page already.
@@ -158,6 +177,16 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 				rememberPlace(keyOf(each), { name: each.slug });
 			}
 			location.assign(projectUrl(each));
+		}
+	};
+
+	const goServer = (each: ServerChoice | undefined) => {
+		if (each === undefined) {
+			return;
+		}
+		setOpen(false);
+		if (!each.here) {
+			location.assign(each.url);
 		}
 	};
 
@@ -203,13 +232,17 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 					onKeyDown={(event) => {
 						if (event.key === "ArrowDown") {
 							event.preventDefault();
-							setActive((at) => Math.min(at + 1, matching.length - 1));
+							setActive((at) => Math.min(at + 1, picks - 1));
 						} else if (event.key === "ArrowUp") {
 							event.preventDefault();
 							setActive((at) => Math.max(at - 1, 0));
 						} else if (event.key === "Enter") {
 							event.preventDefault();
-							go(matching[active]);
+							if (active < matching.length) {
+								go(matching[active]);
+							} else {
+								goServer(matchingServers[active - matching.length]);
+							}
 						}
 					}}
 				/>
@@ -285,6 +318,50 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 						</li>
 					))}
 				</ul>
+				{matchingServers.length > 0 && (
+					<ul aria-label="slots" className="flex flex-col border-t pt-2">
+						{matchingServers.map((each, index) => {
+							const at = matching.length + index;
+							return (
+								<li key={each.url} className="flex items-center">
+									<button
+										type="button"
+										title={each.url}
+										onMouseEnter={() => setActive(at)}
+										onClick={() => goServer(each)}
+										className={cn(
+											"flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+											at === active && "bg-muted",
+										)}
+									>
+										<CheckIcon
+											className={cn(
+												"size-3.5 shrink-0",
+												!each.here && "invisible",
+											)}
+										/>
+										{each.slot === null ? (
+											<HouseIcon
+												aria-hidden
+												className="size-3.5 shrink-0 text-muted-foreground"
+											/>
+										) : (
+											<span aria-hidden className="shrink-0 leading-none">
+												{each.slot.emoji}
+											</span>
+										)}
+										<span className="flex min-w-0 flex-1 flex-col">
+											<span className="truncate">{serverName(each)}</span>
+											<span className="truncate text-muted-foreground text-xs">
+												{each.tree ?? new URL(each.url).host}
+											</span>
+										</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				)}
 				<Refusal refusal={refusal} className="px-2" />
 				{shortcut !== null && (
 					<p className="px-2 text-muted-foreground text-xs">
@@ -294,4 +371,9 @@ export function ProjectSwitcher({ name }: { name: string }): JSX.Element {
 			</PopoverContent>
 		</Popover>
 	);
+}
+
+/** What the switcher calls `server`: its slot's word, or the machine's own. */
+function serverName(server: ServerChoice): string {
+	return server.slot === null ? "this machine" : server.slot.word;
 }
