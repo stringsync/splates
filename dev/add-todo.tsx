@@ -106,7 +106,7 @@ function Composer({
 					onClick={subject.onClick}
 					onKeyDown={keys}
 					onPaste={(event) => draft.files.paste(event)}
-					className="w-full resize-none rounded-lg border bg-card px-3 py-2 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					className="w-full resize-none rounded-lg border bg-card px-3 py-2 text-sm pointer-coarse:text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
 				/>
 			</MentionAnchor>
 			<FileList files={draft.files} />

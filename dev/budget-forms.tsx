@@ -38,7 +38,7 @@ export function EditForm({
 				autoFocus
 				onChange={(event) => setSpend(event.target.value)}
 				placeholder="5m/day"
-				className="font-mono max-md:h-10"
+				className="font-mono"
 			/>
 			<p className="text-muted-foreground text-xs">
 				<code>nothing</code>, <code>unlimited</code>, or limits joined by
@@ -101,7 +101,7 @@ export function RaiseForm({
 					autoFocus
 					onChange={(event) => setAmount(event.target.value)}
 					placeholder="2m"
-					className="w-24 font-mono max-md:h-10"
+					className="w-24 font-mono"
 				/>
 				<span className="text-sm">tokens for</span>
 				<SpanPicker span={span} onPick={setSpan} />

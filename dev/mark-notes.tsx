@@ -61,7 +61,7 @@ export function Note({
 						annotation.select(null);
 					}
 				}}
-				className="min-w-0 flex-1 bg-transparent px-1 text-black text-sm outline-none placeholder:text-black/40"
+				className="min-w-0 flex-1 bg-transparent px-1 pointer-coarse:h-10 text-black text-sm pointer-coarse:text-base outline-none placeholder:text-black/40"
 			/>
 			<Button
 				variant="ghost"

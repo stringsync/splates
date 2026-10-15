@@ -9,7 +9,7 @@ import type { Drafts } from "./drafts";
 import { Refusal, useRefusal } from "./refusal";
 
 const SELECT =
-	"h-8 rounded-md border bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+	"h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** What the agent is waiting on, answered in place or skipped. */
 export function AskPanel({

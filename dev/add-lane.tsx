@@ -89,7 +89,7 @@ export function AddLane({
 								close();
 							}
 						}}
-						className="h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="h-8 pointer-coarse:h-10 rounded-md border bg-background px-2 text-sm pointer-coarse:text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					/>
 					<Refusal refusal={refusal} />
 					<div className="flex items-center gap-1">

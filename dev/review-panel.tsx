@@ -150,7 +150,7 @@ export function ReviewPanel({
 								ask();
 							}
 						}}
-						className="field-sizing-content min-h-9 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
+						className="field-sizing-content min-h-9 pointer-coarse:min-h-11 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm pointer-coarse:text-base outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground/70 hover:border-border focus:border-ring focus:ring-3 focus:ring-ring/20"
 					/>
 					<div className="flex items-center gap-2 pointer-coarse:[&_button]:h-10 pointer-coarse:[&_button]:px-3">
 						{changed ? (

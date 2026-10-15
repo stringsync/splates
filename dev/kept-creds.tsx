@@ -219,7 +219,7 @@ export function AddCred({
 					placeholder="NAME_OF_THE_CRED"
 					value={name}
 					onChange={(event) => setName(event.target.value.trim())}
-					className="max-w-72 font-mono max-md:placeholder:font-sans max-md:h-10 max-md:max-w-none max-md:basis-full"
+					className="max-w-72 font-mono max-md:placeholder:font-sans max-md:max-w-none max-md:basis-full"
 				/>
 				<fieldset className="flex rounded-md border p-0.5">
 					<legend className="sr-only">Kept for</legend>

@@ -37,6 +37,7 @@ import {
 	CaretInPlacePlugin,
 	type ChipWriter,
 	ChipWriterPlugin,
+	focusComposer,
 	KeyboardDownOnTouchPlugin,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
@@ -47,6 +48,9 @@ import { distinctNames } from "#dev/file-chip.tsx";
 import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import { filesIn, NamedContext } from "#dev/mentioned.tsx";
+
+/** What a tap in the composer's box works itself, rather than the editor. */
+const CONTROL = "button, a, input, textarea, [contenteditable], [role=option]";
 
 export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	const {
@@ -76,7 +80,17 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
 				render={
+					// A tap in the box that misses its controls still lands in the
+					// editor, as a textarea's padding would: on a phone the line
+					// being typed on is a small part of the box.
+					// biome-ignore lint/a11y/noStaticElementInteractions: a pointer convenience; the editor itself takes the keyboard
+					// biome-ignore lint/a11y/useKeyWithClickEvents: as above
 					<div
+						onClick={(event) => {
+							if (!(event.target as Element).closest(CONTROL)) {
+								focusComposer(event.currentTarget);
+							}
+						}}
 						data-slot="aui_composer-shell"
 						className="border-foreground/10 focus-within:border-foreground/25 data-[dragging=true]:border-ring flex w-full cursor-text [view-transition-name:composer] flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]"
 					/>
@@ -86,7 +100,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 					<FileNames value={names}>
 						<LexicalComposerInput
 							placeholder={placeholder}
-							className="aui-composer-input caret-primary relative max-h-48 min-h-10 pointer-coarse:max-h-32 w-full bg-transparent px-2.5 py-1 text-base leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-1 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
+							className="aui-composer-input caret-primary relative max-h-48 min-h-10 pointer-coarse:max-h-32 w-full bg-transparent px-2.5 text-base leading-6 [&_.aui-lexical-input]:min-h-10 [&_.aui-lexical-input]:py-2 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:left-2.5 [&_.aui-lexical-placeholder]:text-muted-foreground/60"
 							autoFocus={autoFocus}
 							submitMode={touch ? "none" : "enter"}
 							aria-label="Message input"

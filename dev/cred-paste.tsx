@@ -80,7 +80,7 @@ export function Paste({
 					}
 					value={value}
 					onChange={(event) => setValue(event.target.value)}
-					className="font-mono max-md:placeholder:font-sans max-md:h-10"
+					className="font-mono max-md:placeholder:font-sans"
 				/>
 				{wide && actions}
 			</div>
