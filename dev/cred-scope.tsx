@@ -2,7 +2,16 @@ import { FolderIcon, LaptopIcon } from "lucide-react";
 import type { JSX } from "react";
 import type { Scope } from "../creds";
 
-/** Where a cred is kept: this project, by its name, or the whole device. */
+/**
+ * What the page calls a scope: the project by its name, or every project.
+ * Never "this device", since the page may be open on a phone while the cred
+ * is kept on the machine `arbor dev` runs on.
+ */
+export function scopeLabel(scope: Scope, project: string): string {
+	return scope === "project" ? project : "all projects";
+}
+
+/** Where a cred is kept: this project, by its name, or every project. */
 export function ScopeChip({
 	scope,
 	project,
@@ -17,11 +26,11 @@ export function ScopeChip({
 			title={
 				scope === "project"
 					? "Kept for this project"
-					: "Kept for every project on this device"
+					: "Kept for every project on the machine arbor dev runs on"
 			}
 		>
 			<Icon className="size-3" />
-			{scope === "project" ? project : "this device"}
+			{scopeLabel(scope, project)}
 		</span>
 	);
 }

@@ -14,7 +14,7 @@ import { removeCred, saveCred } from "./api";
 import { useWide } from "./app-nav";
 import { touchItems } from "./board";
 import { Paste } from "./cred-paste";
-import { ScopeChip } from "./cred-scope";
+import { ScopeChip, scopeLabel } from "./cred-scope";
 import { PHONE_TILE } from "./phone-rows";
 
 /**
@@ -226,7 +226,7 @@ export function AddCred({
 							onClick={() => setScope(each)}
 							className="rounded px-2 py-0.5 text-muted-foreground text-xs outline-none max-md:px-3 max-md:py-1.5 max-md:text-sm hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent aria-pressed:text-foreground"
 						>
-							{each === "project" ? project : "this device"}
+							{scopeLabel(each, project)}
 						</button>
 					))}
 				</fieldset>
