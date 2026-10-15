@@ -507,8 +507,18 @@ describe("App on a phone", () => {
 
 	it("goes on from its header to the next agent waiting on you", async () => {
 		const view = await testing.openConversations([
-			conversation({ id: "c1", title: "Broke", status: "failed" }),
-			conversation({ id: "c2", title: "Also broke", status: "failed" }),
+			conversation({
+				id: "c1",
+				title: "Broke",
+				status: "failed",
+				createdAt: "2026-10-11T10:02:00.000Z",
+			}),
+			conversation({
+				id: "c2",
+				title: "Also broke",
+				status: "failed",
+				createdAt: "2026-10-11T10:01:00.000Z",
+			}),
 		]);
 		expect(location.hash).toBe("#conversations/c1");
 
@@ -524,8 +534,18 @@ describe("App on a phone", () => {
 	it("goes from atop any other page to the next agent waiting on you", async () => {
 		const view = await testing.openConversations(
 			[
-				conversation({ id: "c1", title: "Broke", status: "failed" }),
-				conversation({ id: "c2", title: "Also broke", status: "failed" }),
+				conversation({
+					id: "c1",
+					title: "Broke",
+					status: "failed",
+					createdAt: "2026-10-11T10:02:00.000Z",
+				}),
+				conversation({
+					id: "c2",
+					title: "Also broke",
+					status: "failed",
+					createdAt: "2026-10-11T10:01:00.000Z",
+				}),
 			],
 			null,
 		);
