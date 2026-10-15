@@ -278,7 +278,8 @@ export class Restarts {
 		const opened = served.served.get(found.root);
 		served.served.delete(found.root);
 		await (await opened?.catch(() => null))?.disposeAsync();
-		return Response.json(found);
+		// Where a page that showed it goes now: the one focused before it.
+		return Response.json({ ...found, next: await projects.focused() });
 	};
 
 	/** Each project opened so far, but those that failed to open. */

@@ -171,7 +171,7 @@ describe("App's projects", () => {
 		);
 	});
 
-	it("forgets one still there, focused or not, but never the one shown", async () => {
+	it("forgets one still there, focused or not, staying on the one shown", async () => {
 		visit("http://localhost/?project=old");
 		const view = await testing.open();
 		await openSwitcher(view);
@@ -180,11 +180,47 @@ describe("App's projects", () => {
 			view.getByRole("button", { name: "Forget shop" }),
 		);
 		expect(view.getByRole("button", { name: "Forget webappwiz" })).toBeTruthy();
-		expect(view.queryByRole("button", { name: "Forget old" })).toBeNull();
 		await act(async () => fireEvent.click(forget));
 
 		expect(testing.posts).toContainEqual(
 			expect.objectContaining({ path: "/api/projects/shop", method: "DELETE" }),
+		);
+		expect(testing.visited).toEqual([]);
+	});
+
+	it("forgets the one shown, going to the project focused before it", async () => {
+		visit("http://localhost/?project=shop#todos");
+		testing.reply = { slug: "shop", next: { slug: "webappwiz" } };
+		const view = await testing.open();
+		await openSwitcher(view);
+
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Forget shop" })),
+			),
+		);
+
+		await waitFor(() =>
+			expect(new URL(String(testing.visited[0])).search).toBe(
+				"?project=webappwiz",
+			),
+		);
+	});
+
+	it("forgets the last project, going to the page that asks for one", async () => {
+		visit("http://localhost/?project=shop#todos");
+		testing.reply = { slug: "shop", next: null };
+		const view = await testing.open();
+		await openSwitcher(view);
+
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("button", { name: "Forget shop" })),
+			),
+		);
+
+		await waitFor(() =>
+			expect(String(testing.visited[0])).toBe("http://localhost/"),
 		);
 	});
 

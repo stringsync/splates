@@ -41,6 +41,42 @@ describe("Projects", () => {
 		expect((await deps.projects.focused())?.root).toBe(deps.root);
 	});
 
+	it("falls back to the one focused before, once the focused one is forgotten", async () => {
+		await using deps = await Testing.open({ init: false });
+		const [second, third] = [`${deps.root}-second`, `${deps.root}-third`];
+		await deps.fs.mkdir(`${second}/.git`);
+		await deps.fs.mkdir(`${third}/.git`);
+		await deps.projects.register(deps.root);
+		await deps.projects.register(second);
+		await deps.projects.register(third);
+
+		await deps.projects.focus(second);
+		await deps.projects.focus(third);
+		await deps.projects.forget(third);
+
+		expect((await deps.projects.focused())?.root).toBe(second);
+	});
+
+	it("reads the single focused root an earlier arbor wrote", async () => {
+		await using deps = await Testing.open({ init: false });
+		const other = `${deps.root}-other`;
+		await deps.fs.mkdir(`${other}/.git`);
+		await deps.fs.mkdir(deps.arborHome);
+		await deps.fs.write(
+			deps.projects.path,
+			JSON.stringify({
+				format: 1,
+				projects: [
+					{ root: deps.root, added: "2026-10-15T00:00:00.000Z" },
+					{ root: other, added: "2026-10-15T00:00:00.000Z" },
+				],
+				focused: other,
+			}),
+		);
+
+		expect((await deps.projects.focused())?.root).toBe(other);
+	});
+
 	it("keeps every repository when commands register at once", async () => {
 		await using deps = await Testing.open({ init: false });
 		const roots = ["a", "b", "c", "d"].map((name) => `${deps.root}-${name}`);

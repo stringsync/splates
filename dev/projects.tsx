@@ -313,30 +313,45 @@ export function ProjectSwitcher({
 									</span>
 								)}
 							</button>
-							{!current(each) && (
-								<Button
-									size="icon-xs"
-									variant="ghost"
-									aria-label={`Forget ${each.slug}`}
-									title={
-										each.gone
-											? "Forget it: its repository is gone"
+							<Button
+								size="icon-xs"
+								variant="ghost"
+								aria-label={`Forget ${each.slug}`}
+								title={
+									each.gone
+										? "Forget it: its repository is gone"
+										: current(each)
+											? "Forget it, going back to the project before it: adding it again brings it back"
 											: "Forget it: adding it again brings it back"
-									}
-									className={cn(
-										!each.gone &&
-											at !== active &&
-											"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100",
-									)}
-									onClick={() =>
-										forgetProject(each.slug).then(load, (error: unknown) =>
+								}
+								className={cn(
+									!each.gone &&
+										at !== active &&
+										"opacity-0 focus-visible:opacity-100 group-hover/project:opacity-100",
+								)}
+								onClick={() =>
+									forgetProject(each.slug).then(
+										(next) => {
+											if (!current(each)) {
+												return load();
+											}
+											// The page showed it: on to the one focused
+											// before it, or to none left.
+											setOpen(false);
+											const url = new URL(location.href);
+											url.searchParams.delete("project");
+											url.hash = "";
+											navigation.go(
+												next === null ? url.toString() : projectUrl(next),
+											);
+										},
+										(error: unknown) =>
 											refused(`${each.slug} not forgotten`, error),
-										)
-									}
-								>
-									<XIcon />
-								</Button>
-							)}
+									)
+								}
+							>
+								<XIcon />
+							</Button>
 						</li>
 					))}
 				</ul>

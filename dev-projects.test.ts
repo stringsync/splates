@@ -192,10 +192,14 @@ describe("dev projects", () => {
 			expect((await write(port, "/api/projects/gone", "DELETE")).status).toBe(
 				200,
 			);
-			expect((await write(port, "/api/projects/repo", "DELETE")).status).toBe(
-				200,
-			);
+			// Focused, so a page showing it goes on to the one left.
+			await deps.projects.focus(deps.root);
+			const forgot = await write(port, "/api/projects/repo", "DELETE");
 			// The one left takes the name the forgotten one had.
+			expect(await forgot.json()).toMatchObject({
+				root: deps.root,
+				next: { slug: "repo", root: other.root },
+			});
 			expect(await list()).toMatchObject([{ slug: "repo", root: other.root }]);
 		});
 	});

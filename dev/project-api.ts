@@ -20,9 +20,15 @@ export async function listProjects(): Promise<Projects> {
 	return (await response.json()) as Projects;
 }
 
-/** Drops a project from the registry, as for one that is gone for good. */
-export async function forgetProject(slug: string): Promise<void> {
-	await fetch(`/api/projects/${encodeURIComponent(slug)}`, {
+/**
+ * Drops a project from the registry, as for one that is gone for good,
+ * saying the project focused before it, for a page that showed it to go to;
+ * null when none is left.
+ */
+export async function forgetProject(
+	slug: string,
+): Promise<{ slug: string } | null> {
+	return fetch(`/api/projects/${encodeURIComponent(slug)}`, {
 		method: "DELETE",
 	}).then(async (response) => {
 		if (!response.ok) {
@@ -35,6 +41,10 @@ export async function forgetProject(slug: string): Promise<void> {
 				body.message ?? "not forgotten",
 			);
 		}
+		const { next } = (await response.json()) as {
+			next: { slug: string } | null;
+		};
+		return next;
 	});
 }
 

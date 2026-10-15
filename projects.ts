@@ -25,11 +25,15 @@ export interface Project extends ProjectRecord {
 	gone: boolean;
 }
 
-/** The registry's file as written: its records, and the project last focused. */
+/** The registry's file as written: its records, and the projects focused. */
 interface RegistryFile {
 	projects: ProjectRecord[];
-	/** The root `arbor dev`'s page last picked, which an address naming none shows. */
-	focused: string | null;
+	/**
+	 * The roots `arbor dev`'s page picked, the last first, the first of them
+	 * what an address naming none shows, the next what it shows once that
+	 * one is forgotten.
+	 */
+	focused: string[];
 }
 
 /** What `Projects` works with. */
@@ -109,21 +113,31 @@ export class Projects {
 		let registered = false;
 		await this.change((file) => {
 			registered = file.projects.some((each) => each.root === root);
-			return registered && file.focused !== root
-				? { ...file, focused: root }
+			return registered && file.focused[0] !== root
+				? {
+						...file,
+						focused: [root, ...file.focused.filter((each) => each !== root)],
+					}
 				: null;
 		});
 		return registered;
 	}
 
 	/**
-	 * The project an address naming none shows: the one last focused, else
-	 * the first registered, skipping those gone; null while there is none.
+	 * The project an address naming none shows: the one focused last, else
+	 * the one focused before it, and so on, else the first registered,
+	 * skipping those gone; null while there is none.
 	 */
 	async focused(): Promise<Project | null> {
 		const { focused } = await this.read();
 		const open = (await this.list()).filter((each) => !each.gone);
-		return open.find((each) => each.root === focused) ?? open[0] ?? null;
+		for (const root of focused) {
+			const found = open.find((each) => each.root === root);
+			if (found !== undefined) {
+				return found;
+			}
+		}
+		return open[0] ?? null;
 	}
 
 	/**
@@ -158,7 +172,7 @@ export class Projects {
 				? null
 				: {
 						projects: kept,
-						focused: file.focused === root ? null : file.focused,
+						focused: file.focused.filter((each) => each !== root),
 					};
 		});
 	}
@@ -193,12 +207,12 @@ export class Projects {
 	private async read(): Promise<RegistryFile> {
 		const raw = await this.fs.read(this.path).catch(() => null);
 		if (raw === null) {
-			return { projects: [], focused: null };
+			return { projects: [], focused: [] };
 		}
 		let parsed: {
 			format?: number;
 			projects?: ProjectRecord[];
-			focused?: string | null;
+			focused?: string[] | string | null;
 		};
 		try {
 			parsed = JSON.parse(raw);
@@ -219,7 +233,11 @@ export class Projects {
 		}
 		return {
 			projects: parsed.projects ?? [],
-			focused: parsed.focused ?? null,
+			// A single root, as the arbor that began focusing wrote it.
+			focused:
+				typeof parsed.focused === "string"
+					? [parsed.focused]
+					: (parsed.focused ?? []),
 		};
 	}
 
