@@ -128,7 +128,7 @@ function questions(
 		const said = [name, ...(system.aliases ?? [])]
 			.map((term) => `"${term}"`)
 			.join(" or ");
-		asked[`refers:${name}`] = {
+		asked[`refers.${name}`] = {
 			type: "noul",
 			instructions: `Does the speaker refer to ${describe(project, name, system)}?`,
 			criteria: {
@@ -147,7 +147,7 @@ function questions(
 		}
 		criteria[NONE] =
 			"No part of the code: an everyday word, or a name for something else.";
-		asked[`span:${index}`] = {
+		asked[`span.${index}`] = {
 			type: "choice",
 			instructions: {
 				question:
@@ -187,13 +187,13 @@ export async function tagSystems(
 	let from = 0;
 	const edits: DictationEdit[] = [];
 	found.forEach((candidate, index) => {
-		const choice = answers[`span:${index}`];
+		const choice = answers[`span.${index}`];
 		if (choice?.type !== "choice") {
 			return;
 		}
 		let best: { system: string; probability: number } | undefined;
 		for (const system of candidate.systems) {
-			const refers = answers[`refers:${system}`];
+			const refers = answers[`refers.${system}`];
 			const probability =
 				(choice.probabilities[system] ?? 0) *
 				(refers?.type === "noul" ? refers.noul : 0);
@@ -225,36 +225,18 @@ export async function tagSystems(
 
 /**
  * The cleanup that tags the systems `project`'s `arbor.systems.ts` names,
- * read afresh for each take, deciding with `decider`; the text as heard
- * while that is null, since the Creds page now asks for its creds.
+ * read afresh for each take, deciding with `decider`.
  */
 export class SystemTagger implements Cleanup {
-	private readonly decider: Promise<Decider | null>;
-
 	constructor(
 		private readonly project: Project,
-		decider: Promise<Decider | null>,
-	) {
-		// A take that ends before its text is final never asks for it.
-		this.decider = decider.catch((error: unknown) => {
-			project.log.error(`no decider for a dictation's cleanup: ${error}`);
-			return null;
-		});
-	}
+		private readonly decider: Decider,
+	) {}
 
 	async clean(text: string): Promise<Cleaned> {
-		const decider = await this.decider;
-		if (decider === null) {
-			return { text, edits: [] };
-		}
 		const root = this.project.service.git.root;
 		const systems = await readSystems(root, this.project.fs);
-		try {
-			return await tagSystems(decider, basename(root), systems, text);
-		} catch (error) {
-			this.project.log.error(`tagging a dictation's systems failed: ${error}`);
-			throw error;
-		}
+		return tagSystems(this.decider, basename(root), systems, text);
 	}
 }
 

@@ -7,11 +7,11 @@ import { Debouncer, SystemTimer } from "webappwiz/time";
 import type { CleanupModel } from "./cleanup-models";
 import type { ConversationState, Conversations } from "./conversations";
 import { BudgetRoutes } from "./dev-budgets";
+import { DevCleanup } from "./dev-cleanup";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
 import type { DeciderFor } from "./dev-decider";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
-import { SystemTagger } from "./dev-tag-systems";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
 import type { TranscriberFor } from "./dev-transcriber";
@@ -91,7 +91,7 @@ export async function serveProject(
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		decider: (model) => context.deciderFor(project, model, () => watch.tick()),
 		cleanup: (model) =>
-			new SystemTagger(
+			new DevCleanup(
 				project,
 				context.deciderFor(project, model, () => watch.tick()),
 			),
@@ -205,7 +205,8 @@ export interface Served extends AsyncResource {
 	/** What the cleanups decide with on `model`, null once it asked for creds. */
 	decider: (model: CleanupModel | undefined) => Promise<Decider | null>;
 	/**
-	 * Tidies a take's final text on `model`, tagging the systems it names;
+	 * Tidies a take's final text on `model`, tagging the systems it names
+	 * and formatting the lists it speaks;
 	 * the text as heard while the creds `model` needs are missing, which it
 	 * asks for at once.
 	 */

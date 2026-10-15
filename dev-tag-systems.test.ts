@@ -29,11 +29,11 @@ describe("tagSystems", () => {
 
 	it("applies sure tags, leaves unlikely ones, and marks the rest", async () => {
 		decider.answers = {
-			"refers:scry": noul(0.95),
-			"refers:board": noul(0.9),
-			"span:0": choice({ scry: 0.95, none: 0.05 }),
-			"span:1": choice({ board: 0.6, none: 0.4 }),
-			"span:2": choice({ scry: 0.1, none: 0.9 }),
+			"refers.scry": noul(0.95),
+			"refers.board": noul(0.9),
+			"span.0": choice({ scry: 0.95, none: 0.05 }),
+			"span.1": choice({ board: 0.6, none: 0.4 }),
+			"span.2": choice({ scry: 0.1, none: 0.9 }),
 		};
 		const text = "run scry on the board, I scry";
 
@@ -60,16 +60,16 @@ describe("tagSystems", () => {
 
 	it("asks a Noul per system and a Choice per span, with none to pick", async () => {
 		decider.answers = {
-			"refers:scry": noul(0),
-			"span:0": choice({ none: 1 }),
-			"span:1": choice({ none: 1 }),
+			"refers.scry": noul(0),
+			"span.0": choice({ none: 1 }),
+			"span.1": choice({ none: 1 }),
 		};
 
 		await tagSystems(decider, "w", SYSTEMS, "run scry and scry again");
 
 		const asked = decider.asked[0]?.questions ?? {};
-		expect(Object.keys(asked)).toEqual(["refers:scry", "span:0", "span:1"]);
-		expect(asked["span:1"]).toMatchObject({
+		expect(Object.keys(asked)).toEqual(["refers.scry", "span.0", "span.1"]);
+		expect(asked["span.1"]).toMatchObject({
 			type: "choice",
 			instructions: { phrase: "scry", where: "run scry and [scry] again" },
 			criteria: { scry: expect.any(String), none: expect.any(String) },
@@ -78,8 +78,8 @@ describe("tagSystems", () => {
 
 	it("tags only above the apply threshold", async () => {
 		decider.answers = {
-			"refers:scry": noul(1),
-			"span:0": choice({ scry: TAG_THRESHOLDS.apply, none: 0.2 }),
+			"refers.scry": noul(1),
+			"span.0": choice({ scry: TAG_THRESHOLDS.apply, none: 0.2 }),
 		};
 
 		const { text, edits } = await tagSystems(decider, "w", SYSTEMS, "scry it");

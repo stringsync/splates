@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { Answer } from "webappwiz/decide";
 import { FakeDecider } from "webappwiz/decide/testing";
 import type { DictationMessage } from "webappwiz/dictate";
 import { FakeTranscriber } from "webappwiz/dictate/testing";
@@ -99,8 +100,8 @@ describe("dev dictation", () => {
 			"name the systems",
 		);
 		decider.answers = {
-			"refers:scry": { type: "noul", noul: 0.99 },
-			"span:0": {
+			"refers.scry": { type: "noul", noul: 0.99 },
+			"span.0": {
 				type: "choice",
 				choice: "scry",
 				probabilities: { scry: 0.99, none: 0.01 },
@@ -118,6 +119,59 @@ describe("dev dictation", () => {
 				edits: [],
 			});
 			expect(models).toEqual(["jev-latest"]);
+		});
+	});
+
+	it("formats the lists the final text speaks, keeping an unsure tag's edit on it", async () => {
+		await deps.commit(
+			deps.service.git.root,
+			"arbor.systems.ts",
+			`export default ${JSON.stringify({ scry: { globs: ["scry/**"] } })};\n`,
+			"name the systems",
+		);
+		const kind = (item: number, intro = 0): Answer => ({
+			type: "choice",
+			choice: item > 0.5 ? "item" : "intro",
+			probabilities: { intro, item, continues: 0, prose: 1 - item - intro },
+			confidence: 1,
+		});
+		const loose: Answer = { type: "noul", noul: 0.1 };
+		decider.answers = {
+			"refers.scry": { type: "noul", noul: 0.9 },
+			"span.0": {
+				type: "choice",
+				choice: "scry",
+				probabilities: { scry: 0.6, none: 0.4 },
+				confidence: 1,
+			},
+			"kind.0": kind(0, 0.9),
+			"kind.1": kind(0.95),
+			"kind.2": kind(0.95),
+			"step.0": loose,
+			"step.1": loose,
+			"step.2": loose,
+		};
+		await opened(async (port) => {
+			const { socket, ended } = await dictation(port);
+			socket.send(
+				new TextEncoder().encode("two things. First, run scry. Then, ship it."),
+			);
+			socket.send("finish");
+
+			const done = (await ended()).at(-1);
+			expect(done).toEqual({
+				type: "done",
+				text: "heard: two things:\n- Run scry\n- Ship it",
+				edits: [
+					{
+						type: "tag",
+						start: 25,
+						end: 29,
+						system: "scry",
+						probability: 0.9 * 0.6,
+					},
+				],
+			});
 		});
 	});
 
