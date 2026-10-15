@@ -51,21 +51,36 @@ describe.concurrent("arbor", () => {
 		).toBe("0");
 
 		expect(await rows()).toEqual([]);
+	});
+
+	it("keeps the journal of a task after it has merged and gone", async () => {
+		await using cli = await setup();
+		const { env, arbor, rows } = cli;
+
+		expect(
+			(await arbor(env.root, "add", "alpha", "--goal", "land it")).exitCode,
+		).toBe(0);
+		const alpha = ensure.defined(
+			(await rows())[0]?.worktree,
+			"add did not record a worktree path",
+		);
+		expect((await arbor(alpha, "claim", "alpha")).exitCode).toBe(0);
+		await env.commit(alpha, "alpha.txt", "alpha\n", "add alpha");
+		await env.finish(alpha);
+		expect((await arbor(alpha, "merge")).exitCode).toBe(0);
+
 		const removed = await arbor(env.root, "remove", "alpha");
 		expect(removed.exitCode).toBe(13);
 		expect(removed.stdout).toContain("already_removed");
 
-		// The journal outlives the tasks: both merges and the refused remove.
+		// The journal outlives the task: its merge and the refused remove.
 		const journal = JSON.parse(
 			(await arbor(env.root, "log", "--json")).stdout,
 		) as { action: string; task: string | null; reason: string | null }[];
 		expect(journal).toMatchObject([
 			{ action: "add", task: "alpha", reason: null },
-			{ action: "add", task: "beta", reason: null },
 			{ action: "claim", task: "alpha", reason: null },
 			{ action: "merge", task: "alpha", reason: null },
-			{ action: "claim", task: "beta", reason: null },
-			{ action: "merge", task: "beta", reason: null },
 			{ action: "remove", task: "alpha", reason: "already_removed" },
 		]);
 	});
