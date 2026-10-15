@@ -16,6 +16,111 @@ import { CardShell, toCardTop } from "./card-shell";
 import { Markdown } from "./markdown";
 
 /**
+ * The task the thread is on at the point it is scrolled to, or the lanes it
+ * orchestrates, as a card in the panel beside it: the last Added or Started
+ * card scrolled up out of sight, while no report that its task merged or was
+ * removed, or that its lanes finished, has come up since. It fades in as
+ * the card goes behind the person's message stuck atop its turn, and out as
+ * the card comes back into view or the task ends, so it never says what the
+ * thread on screen already does.
+ */
+export function CurrentTask({
+	version,
+}: {
+	version: number;
+}): JSX.Element | null {
+	const registry = useContext(RegistryContext);
+	// The card whose task shows, and the last one shown, kept while it fades.
+	const [current, setCurrent] = useState<HTMLElement | null>(null);
+	const [last, setLast] = useState<HTMLElement | null>(null);
+	const now = useRef<HTMLElement | null>(null);
+	now.current = current;
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` counts the cards' changes
+	useLayoutEffect(() => {
+		const scroller = registry?.viewport?.current ?? null;
+		if (registry === null || scroller === null) {
+			return;
+		}
+		let frame = 0;
+		const measure = () => {
+			frame = 0;
+			const next = currentCard(registry, scroller);
+			if (next !== now.current) {
+				setCurrent(next);
+				if (next !== null) {
+					setLast(next);
+				}
+			}
+		};
+		const schedule = () => {
+			if (frame === 0) {
+				frame = requestAnimationFrame(measure);
+			}
+		};
+		measure();
+		scroller.addEventListener("scroll", schedule, { passive: true });
+		const resized = new ResizeObserver(schedule);
+		resized.observe(scroller);
+		return () => {
+			cancelAnimationFrame(frame);
+			scroller.removeEventListener("scroll", schedule);
+			resized.disconnect();
+		};
+	}, [registry, version]);
+
+	const card = current ?? last;
+	const start = card === null ? undefined : registry?.starts.get(card);
+	if (card === null || start === undefined) {
+		return null;
+	}
+	const named = "lanes" in start ? start.lanes.join(", ") : start.task;
+	return (
+		<div
+			aria-hidden={current === null}
+			inert={current === null}
+			className={cn(
+				"[&>[data-card]]:my-0",
+				"transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-none",
+				current === null ? "-translate-y-1 opacity-0" : "opacity-100",
+			)}
+		>
+			<CardShell
+				label={`current ${named}`}
+				// Its name as the title, plain: the header line above the thread
+				// already offers the task's details.
+				Icon={"lanes" in start ? ColumnsIcon : GitBranchIcon}
+				title={named}
+				ringed={false}
+			>
+				{start.goal !== "" && (
+					// Back to where the task was added; its chip opens the task.
+					<button
+						type="button"
+						title={
+							"lanes" in start
+								? "Show where they were started"
+								: "Show where it was added"
+						}
+						onClick={() => toCardTop(card, "smooth")}
+						className="block w-full text-start transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
+					>
+						{/* Unlinked, as links cannot sit in a button. Cut off past
+						    about ten lines and faded downward, only when it runs
+						    longer, so what is cut reads as more on the card. */}
+						<Markdown
+							text={start.goal}
+							unlinked
+							className="scroll-fade-y max-h-60 overflow-hidden px-3 py-3 text-sm leading-relaxed [--scroll-fade-b-size:4rem] [--scroll-fade-t-size:0px] [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
+						/>
+					</button>
+				)}
+			</CardShell>
+		</div>
+	);
+}
+
+/**
  * What a conversation's thread holds that says which task it is on, or which
  * lanes: its Added and Started cards, each by its element, the reports that
  * end a task, by its name, or the lanes, as null, and the viewport they
@@ -118,109 +223,6 @@ function useRegistered<T>(
 			};
 		},
 		[registry, value],
-	);
-}
-
-/**
- * The task the thread is on at the point it is scrolled to, or the lanes it
- * orchestrates, as a card in the panel beside it: the last Added or Started
- * card scrolled up out of sight, while no report that its task merged or was
- * removed, or that its lanes finished, has come up since. It fades in as
- * the card goes behind the person's message stuck atop its turn, and out as
- * the card comes back into view or the task ends, so it never says what the
- * thread on screen already does.
- */
-export function CurrentTask({
-	version,
-}: {
-	version: number;
-}): JSX.Element | null {
-	const registry = useContext(RegistryContext);
-	// The card whose task shows, and the last one shown, kept while it fades.
-	const [current, setCurrent] = useState<HTMLElement | null>(null);
-	const [last, setLast] = useState<HTMLElement | null>(null);
-	const now = useRef<HTMLElement | null>(null);
-	now.current = current;
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` counts the cards' changes
-	useLayoutEffect(() => {
-		const scroller = registry?.viewport?.current ?? null;
-		if (registry === null || scroller === null) {
-			return;
-		}
-		let frame = 0;
-		const measure = () => {
-			frame = 0;
-			const next = currentCard(registry, scroller);
-			if (next !== now.current) {
-				setCurrent(next);
-				if (next !== null) {
-					setLast(next);
-				}
-			}
-		};
-		const schedule = () => {
-			if (frame === 0) {
-				frame = requestAnimationFrame(measure);
-			}
-		};
-		measure();
-		scroller.addEventListener("scroll", schedule, { passive: true });
-		const resized = new ResizeObserver(schedule);
-		resized.observe(scroller);
-		return () => {
-			cancelAnimationFrame(frame);
-			scroller.removeEventListener("scroll", schedule);
-			resized.disconnect();
-		};
-	}, [registry, version]);
-
-	const card = current ?? last;
-	const start = card === null ? undefined : registry?.starts.get(card);
-	if (card === null || start === undefined) {
-		return null;
-	}
-	const named = "lanes" in start ? start.lanes.join(", ") : start.task;
-	return (
-		<div
-			aria-hidden={current === null}
-			inert={current === null}
-			className={cn(
-				"[&>[data-card]]:my-0",
-				"transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-none",
-				current === null ? "-translate-y-1 opacity-0" : "opacity-100",
-			)}
-		>
-			<CardShell
-				label={`current ${named}`}
-				// Its name as the title, plain: the header line above the thread
-				// already offers the task's details.
-				Icon={"lanes" in start ? ColumnsIcon : GitBranchIcon}
-				title={named}
-				ringed={false}
-			>
-				{start.goal !== "" && (
-					// Back to where the task was added; its chip opens the task.
-					<button
-						type="button"
-						title={
-							"lanes" in start
-								? "Show where they were started"
-								: "Show where it was added"
-						}
-						onClick={() => toCardTop(card, "smooth")}
-						className="block w-full text-start transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
-					>
-						{/* Unlinked, as links cannot sit in a button. */}
-						<Markdown
-							text={start.goal}
-							unlinked
-							className="line-clamp-[10] px-3 py-3 text-sm leading-relaxed [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-						/>
-					</button>
-				)}
-			</CardShell>
-		</div>
 	);
 }
 
