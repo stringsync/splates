@@ -13,6 +13,8 @@
 @source "./dictation-status.tsx";
 @source "./app-header.tsx";
 @source "./app-nav.tsx";
+@source "./desktop-app.tsx";
+@source "./sidebar-head.tsx";
 @source "./phone-app.tsx";
 @source "./phone-inbox.tsx";
 @source "./phone-row-menu.tsx";
@@ -128,7 +130,7 @@
 @source "./actions.tsx";
 @source "./references.tsx";
 @source "./task-view.tsx";
-@source "./back.tsx";
+@source "./top-bar.tsx";
 @source "./background.tsx";
 @source "./terminal.tsx";
 @source "./arbor-event.tsx";
@@ -138,6 +140,18 @@
 @source "./components/assistant-ui";
 
 @custom-variant dark (&:is(.dark *));
+
+/* How tall every top bar is, `TopBar`'s, and the drawer's and the sidebar's
+   heads with it, so the row runs on unbroken: a finger's height on a phone,
+   tighter beside a sidebar, from the width `WIDE` in app-nav.tsx names. */
+:root {
+	--top-bar-height: 3.5rem;
+}
+@media (min-width: 768px) {
+	:root {
+		--top-bar-height: 3rem;
+	}
+}
 
 /* Two soft, cool grays, with color kept for what matters: the accent marks
    what you can act on and what is selected, and success, warning and

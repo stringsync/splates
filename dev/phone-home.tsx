@@ -14,15 +14,16 @@ import {
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { Composing } from "#dev/composing.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import { AgentIcon, AgentMark } from "./agent-icons";
 import { composerIn } from "./composer-editor";
 import { NEW } from "./conversation-address";
 import { agentName } from "./conversation-feed";
 import { type Starting, useNewConversation } from "./conversation-home";
 import { NamedContext } from "./mentioned";
-import { IconButton } from "./phone-inbox";
 import { Refusal } from "./refusal";
 import type { Terminals } from "./terminals";
+import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /**
  * Whether the inbox's composer was just tapped, raising the keyboard, which
@@ -68,25 +69,30 @@ export function PhoneHome({
 			aria-label="new conversation"
 			className="flex h-full min-h-0 min-w-0 flex-col"
 		>
-			<header className="flex h-14 shrink-0 items-center gap-1">
-				<IconButton label="Back to inbox" onClick={onBack}>
-					<ChevronLeftIcon />
-				</IconButton>
-				<div className="flex flex-1 justify-center">
+			<TopBar
+				leading={
+					<BarButton label="Back to inbox" onClick={onBack}>
+						<ChevronLeftIcon />
+					</BarButton>
+				}
+				title={
 					<DropdownMenu>
 						<DropdownMenuTrigger
 							render={
 								<button
 									type="button"
 									aria-label="Pick an agent"
-									className="flex h-10 items-center gap-2 rounded-full px-3 font-semibold text-base active:bg-muted"
+									className={cn(
+										TITLE,
+										"-mx-2 flex h-10 items-center gap-1.5 rounded-full px-2 active:bg-muted",
+									)}
 								/>
 							}
 						>
 							{name}
 							<ChevronDownIcon className="size-4 text-muted-foreground" />
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="center" className="w-48">
+						<DropdownMenuContent align="start" className="w-48">
 							{agents.map((each) => (
 								<DropdownMenuItem
 									key={each.id}
@@ -108,10 +114,8 @@ export function PhoneHome({
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-				</div>
-				{/* As wide as Back, so the picker sits in the middle. */}
-				<span aria-hidden className="size-11 shrink-0" />
-			</header>
+				}
+			/>
 			<AssistantRuntimeProvider runtime={runtime}>
 				<Composing.Provider value={runtime.thread.composer}>
 					<NamedContext value={named}>

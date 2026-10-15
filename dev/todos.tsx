@@ -6,22 +6,23 @@ import { useReactive } from "@webappwiz/react";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog, DialogContent } from "#dev/components/ui/dialog.tsx";
-import { lanes as laneList, named } from "../lanes";
+import { type LaneState, lanes as laneList, named } from "../lanes";
 import type { Snapshot } from "../snapshot";
 import type { TodoState } from "../todo";
 import { AddLane } from "./add-lane";
 import { Board as BoardContext, plansOf } from "./board";
 import { BoardDrag } from "./board-drag";
-import { StartLanes } from "./dispatching";
+import { useStartLanes } from "./dispatching";
 import type { Drafts } from "./drafts";
 import { fadeOf, useEdges } from "./hooks/use-edges";
 import { columnId, Lane, Untriaged } from "./lanes";
 import { useRefusals } from "./refusal";
-import { ShownLanes } from "./shown-lanes";
+import { shownLanes } from "./shown-lanes";
 import { Task } from "./tasks";
 import { TodoBoard } from "./todo-board";
 import { Edit } from "./todo-edit";
 import type { TodoView } from "./todo-view";
+import { TopBar } from "./top-bar";
 
 /**
  * Work deferred for later as a board, a Trello lite: the untriaged todos
@@ -169,21 +170,13 @@ export function Todos({
 						</Button>
 					</p>
 				)}
-				<div className="mb-2 flex gap-2">
-					<ShownLanes
-						lanes={lanes}
-						untriaged={kept.filter((todo) => todo.lane === null).length}
-						hidden={hidden}
-						onToggle={(lane) => view.toggleLane(lane)}
-						onHide={(lanes) => view.hide(lanes)}
-					/>
-					<StartLanes
-						lanes={lanes}
-						untriaged={all.some(
-							(todo) => todo.lane === null && todo.takenBy === null,
-						)}
-					/>
-				</div>
+				<TodosBar
+					lanes={lanes}
+					untriaged={kept.filter((todo) => todo.lane === null).length}
+					open={all.some((todo) => todo.lane === null && todo.takenBy === null)}
+					hidden={hidden}
+					view={view}
+				/>
 				<div
 					ref={scroller}
 					onScroll={readEdges}
@@ -273,5 +266,42 @@ export function TodoDialog({
 				</DialogContent>
 			)}
 		</Dialog>
+	);
+}
+
+/**
+ * The board's bar: which lanes it shows, and starting an orchestrator on
+ * those with no agent. Under the board's context, which starting reads.
+ */
+function TodosBar({
+	lanes,
+	untriaged,
+	open,
+	hidden,
+	view,
+}: {
+	lanes: LaneState[];
+	/** How many todos shown are in no lane. */
+	untriaged: number;
+	/** Whether a todo in no lane is open, for an orchestrator to place. */
+	open: boolean;
+	hidden: (number | null)[];
+	view: TodoView;
+}): JSX.Element {
+	const start = useStartLanes({ lanes, untriaged: open });
+	return (
+		<TopBar
+			title="Todos"
+			actions={[
+				shownLanes({
+					lanes,
+					untriaged,
+					hidden,
+					onToggle: (lane) => view.toggleLane(lane),
+					onHide: (lanes) => view.hide(lanes),
+				}),
+				...(start === null ? [] : [start]),
+			]}
+		/>
 	);
 }

@@ -1,6 +1,6 @@
 import "../../../setup";
 import { describe, expect, it } from "bun:test";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { combine, type PeriodId, rates, type Stats } from "../stats";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
@@ -324,15 +324,18 @@ describe("StatsPage", () => {
 		);
 		await waitFor(() => page.getByText(/tasks ended/));
 
-		fireEvent.click(page.getByRole("button", { name: "All time" }));
-
-		await waitFor(() =>
-			expect(
-				page
-					.getByRole("button", { name: "All time" })
-					.getAttribute("aria-pressed"),
-			).toBe("true"),
+		await act(async () =>
+			fireEvent.click(page.getByRole("button", { name: "Period: 7 days" })),
 		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					page.getByRole("menuitemradio", { name: "All time" }),
+				),
+			),
+		);
+
+		await waitFor(() => page.getByRole("button", { name: "Period: All time" }));
 		expect(asked).toEqual(["7d", "all"]);
 		expect(page.getByText(/tasks ended/).textContent).toMatch(
 			/^2 tasks ended counting since/,

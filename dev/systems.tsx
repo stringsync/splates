@@ -1,12 +1,12 @@
 import { LayersIcon } from "lucide-react";
 import type { JSX } from "react";
-import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
 import type { NamedSystem } from "../systems";
+import type { BarAction } from "./top-bar";
 
 /**
  * The systems a task touches, under the actions card: by name, since the card
@@ -38,38 +38,19 @@ export function SystemsCard({
 }
 
 /**
- * The card as an icon, beside `ActionButtons` in a conversation too narrow
- * for the card, opening the same chips.
+ * The card as an action of a bar, opening the same chips, for a page too
+ * narrow to show the card; null with no systems.
  */
-export function SystemsButton({
-	systems,
-}: {
-	systems: NamedSystem[];
-}): JSX.Element | null {
+export function systemsAction(systems: NamedSystem[]): BarAction | null {
 	if (systems.length === 0) {
 		return null;
 	}
-	return (
-		<div className="@min-[76rem]:hidden">
-			<Popover>
-				<PopoverTrigger
-					render={
-						<Button
-							variant="outline"
-							size="icon-sm"
-							aria-label="Systems"
-							title={`Systems: ${systems.map((system) => system.name).join(", ")}`}
-						/>
-					}
-				>
-					<LayersIcon />
-				</PopoverTrigger>
-				<PopoverContent align="end" className="w-60 p-3">
-					<SystemChips systems={systems} />
-				</PopoverContent>
-			</Popover>
-		</div>
-	);
+	return {
+		label: "Systems",
+		icon: <LayersIcon />,
+		menuClassName: "w-60 p-3",
+		menu: <SystemChips systems={systems} />,
+	};
 }
 
 function SystemChips({

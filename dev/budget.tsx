@@ -26,6 +26,7 @@ import { useMinute } from "./hooks/use-minute";
 import { METER_COLUMNS, Meter, toneOf } from "./meter";
 import { PHONE_HEADING } from "./phone-rows";
 import { ago, limitsOf, PlanLimits, saidAt } from "./plan-limits";
+import { TopBar } from "./top-bar";
 
 /** What each model is, under its name. */
 const ROLES: Record<RoleBudget["role"], string> = {
@@ -66,6 +67,7 @@ export function BudgetPage({ talk }: { talk: ConversationFeed }): JSX.Element {
 		});
 	return (
 		<section aria-label="budget" className="flex min-w-0 flex-col gap-8">
+			<TopBar title="Budget" />
 			<PlanSection talk={talk} />
 			<div className="flex flex-col gap-3">
 				<header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

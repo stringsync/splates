@@ -47,13 +47,28 @@ describe("App", () => {
 		expect(edge.getAttribute("aria-valuenow")).toBe("224");
 	});
 
-	it("names the repo, and shows where it sits", async () => {
+	it("names the repo atop the sidebar, beside the button that hides it", async () => {
 		const view = await testing.open();
 
 		expect(view.getByRole("heading", { level: 1 }).textContent).toBe(
 			"webappwiz",
 		);
-		expect(view.getByText("~/Projects/webappwiz")).toBeTruthy();
+		const tabs = view.getByRole("tab", { name: /Todos/ });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /^Hide sidebar/ })),
+		);
+		expect(tabs.closest("[role=tablist]")?.classList.contains("hidden")).toBe(
+			true,
+		);
+		expect(view.getByRole("heading", { level: 1 }).textContent).toBe(
+			"webappwiz",
+		);
+		await act(async () =>
+			fireEvent.keyDown(window, { code: "KeyB", key: "b", metaKey: true }),
+		);
+		expect(tabs.closest("[role=tablist]")?.classList.contains("hidden")).toBe(
+			false,
+		);
 	});
 
 	it("says in the page menu who Cloudflare Access signed in, with Sign out, and nothing on this machine", async () => {

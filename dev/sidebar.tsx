@@ -1,10 +1,12 @@
 import type { JSX, KeyboardEvent, PointerEvent } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 
-export type SidebarWidthEvents = { changed: undefined };
+export type SidebarEvents = { changed: undefined };
 
 /** Where the sidebar's width is kept between visits. */
 const WIDTH = "arbor.sidebarWidth";
+/** Where a hidden sidebar is kept hidden between visits. */
+const HIDDEN = "arbor.sidebarHidden";
 
 /** In pixels: the width it starts at, `w-56`, and how far it can go. */
 export const DEFAULT_WIDTH = 224;
@@ -15,18 +17,32 @@ export const MAX_WIDTH = 480;
 const STEP = 16;
 
 /**
- * How wide the sidebar is, in pixels, always within `MIN_WIDTH` and
- * `MAX_WIDTH`. `storage` keeps it for the next visit, when given.
+ * Whether the sidebar shows, and how wide it is, in pixels, always within
+ * `MIN_WIDTH` and `MAX_WIDTH`. `storage` keeps both for the next visit, when
+ * given.
  */
-export class SidebarWidth implements Eventful<SidebarWidthEvents> {
-	private readonly dispatcher = new Dispatcher<SidebarWidthEvents>();
+export class Sidebar implements Eventful<SidebarEvents> {
+	private readonly dispatcher = new Dispatcher<SidebarEvents>();
 	readonly events = this.dispatcher.events;
 
 	width: number;
+	shown: boolean;
 
 	constructor(private readonly storage?: Storage) {
 		const kept = Number(storage?.getItem(WIDTH) ?? Number.NaN);
 		this.width = Number.isFinite(kept) ? clamp(kept) : DEFAULT_WIDTH;
+		this.shown = (storage?.getItem(HIDDEN) ?? null) === null;
+	}
+
+	/** Hides it when shown and shows it when hidden, as ⌘B does. */
+	toggle(): void {
+		this.shown = !this.shown;
+		if (this.shown) {
+			this.storage?.removeItem(HIDDEN);
+		} else {
+			this.storage?.setItem(HIDDEN, "1");
+		}
+		this.dispatcher.dispatch("changed");
 	}
 
 	/** Moves the edge to `width`, as near as the range allows. */
@@ -39,7 +55,7 @@ export class SidebarWidth implements Eventful<SidebarWidthEvents> {
 		this.dispatcher.dispatch("changed");
 	}
 
-	/** Keeps the width for the next visit: once a drag ends, not on every move. */
+	/** Keeps the width for the next visit. Call it when a drag ends. */
 	keep(): void {
 		if (this.width === DEFAULT_WIDTH) {
 			this.storage?.removeItem(WIDTH);
@@ -62,11 +78,7 @@ function clamp(width: number): number {
  * The sidebar's right edge, to drag wider or narrower. Arrow keys move it
  * too, and a double click puts it back.
  */
-export function SidebarHandle({
-	sidebar,
-}: {
-	sidebar: SidebarWidth;
-}): JSX.Element {
+export function SidebarHandle({ sidebar }: { sidebar: Sidebar }): JSX.Element {
 	const drag = (event: PointerEvent<HTMLDivElement>) => {
 		if (event.button !== 0) {
 			return;

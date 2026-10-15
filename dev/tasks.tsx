@@ -14,9 +14,10 @@ import type { Details } from "../show";
 import { OnIt } from "./dispatching";
 import { HEADING, Markdown } from "./markdown";
 import { isPartOf, type Nested, nest } from "./parts";
-import { PHONE_NAME, PHONE_ROW, PHONE_TILE, PHONE_TITLED } from "./phone-rows";
+import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QuestionCards } from "./question-cards";
 import { ActionBar, useRetry } from "./task-actions";
+import { TopBar } from "./top-bar";
 
 /**
  * Every task in a line: its name and the marks of the conversations on it.
@@ -36,9 +37,7 @@ export function Tasks({
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
-			<header className={PHONE_TITLED}>
-				<h2 className="font-medium text-sm">Tasks</h2>
-			</header>
+			<TopBar title="Tasks" />
 			{/* One line, not a big empty state: the todos below it are the page then. */}
 			{tasks.length === 0 ? (
 				<p className="text-muted-foreground text-sm">

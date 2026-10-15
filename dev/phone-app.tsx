@@ -6,19 +6,22 @@ import { NEW } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import type { Move } from "./page-address";
-import { PAGES, type Page } from "./page-route";
+import type { PageMenu } from "./page-menu";
+import type { Page } from "./page-route";
 import { Drawer } from "./phone-drawer";
-import { IconButton, Inbox } from "./phone-inbox";
+import { Inbox } from "./phone-inbox";
 import { Screen } from "./phone-screen";
 import { NextWaiting } from "./phone-thread";
 import type { Terminals } from "./terminals";
+import { BarButton, TopBarFrame } from "./top-bar";
 
 /**
  * The page on a phone, a layout of its own beside the sidebar's: the inbox of
  * agents is home, an open conversation takes the whole screen with its own way
  * back, and every other page sits under a bar whose menu opens the drawer and
- * whose pen, as the inbox's, starts a new conversation, beside how many agents
- * wait on you, as a thread's header says.
+ * whose pen, as the inbox's, starts a new conversation, then how many agents
+ * wait on you, at the end of every bar but the inbox's. Every bar's kebab holds the page
+ * menu.
  * What each page shows, `body`, is the same as on a wide screen.
  */
 export function PhoneApp({
@@ -35,6 +38,7 @@ export function PhoneApp({
 	talk,
 	drafts,
 	terminals,
+	pageMenu,
 }: {
 	page: Page;
 	/** The conversation open, by its address, or null. */
@@ -56,8 +60,10 @@ export function PhoneApp({
 	talk: ConversationFeed;
 	drafts: Drafts;
 	terminals: Terminals;
+	pageMenu: PageMenu;
 }): JSX.Element {
 	const [drawer, setDrawer] = useState(false);
+	const [slot, setSlot] = useState<HTMLElement | null>(null);
 	const { conversations } = useReactive(
 		talk,
 		(talk) => ({ conversations: talk.conversations }),
@@ -65,6 +71,8 @@ export function PhoneApp({
 	);
 	useHomeIsInbox(available, page, go);
 	const menu = () => setDrawer(true);
+	// The page menu, in every bar's kebab, so it is always at hand.
+	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
 	// The drawer's header says more, as why the server is outdated.
 	const status = offline && (
 		<span
@@ -78,30 +86,58 @@ export function PhoneApp({
 	return (
 		<div className="min-h-dvh">
 			{page === "conversations" && open === null && snapshot !== null ? (
-				<Inbox
-					feed={talk}
-					drafts={drafts}
-					terminals={terminals}
-					tasks={snapshot.tasks}
-					name={name}
-					status={status}
-					onMenu={menu}
-					onOpen={(id) => go("conversations", id)}
-				/>
+				<TopBarFrame value={kebab}>
+					<Inbox
+						feed={talk}
+						drafts={drafts}
+						terminals={terminals}
+						tasks={snapshot.tasks}
+						name={name}
+						status={status}
+						onMenu={menu}
+						onOpen={(id) => go("conversations", id)}
+					/>
+				</TopBarFrame>
 			) : page === "conversations" ? (
-				<Screen className="px-1">{body}</Screen>
+				<Screen className="px-1">
+					{/* Every conversation's bar ends with how many others wait. */}
+					<TopBarFrame
+						value={{
+							...kebab,
+							end: snapshot !== null && (
+								<NextWaiting
+									feed={talk}
+									drafts={drafts}
+									tasks={snapshot.tasks}
+									open={open}
+									onOpen={(id) => go("conversations", id)}
+								/>
+							),
+						}}
+					>
+						{body}
+					</TopBarFrame>
+				</Screen>
 			) : (
 				<div data-bounce>
-					<header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b bg-background/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur">
-						<IconButton label="Open menu" onClick={menu}>
+					{/* The page's own bar lands in the middle, as every other's
+					    does beside a sidebar. */}
+					<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">
+						<BarButton label="Open menu" onClick={menu}>
 							<MenuIcon />
-						</IconButton>
-						<h1 className="flex min-w-0 flex-1 items-center gap-2 font-semibold text-base">
-							<span className="truncate">
-								{PAGES.find((each) => each.value === page)?.label}
-							</span>
-							{status}
-						</h1>
+						</BarButton>
+						<div
+							ref={setSlot}
+							className="flex min-w-0 flex-1 items-center gap-1"
+						/>
+						{available && (
+							<BarButton
+								label="New conversation"
+								onClick={() => go("conversations", NEW)}
+							>
+								<SquarePenIcon />
+							</BarButton>
+						)}
 						{available && snapshot !== null && (
 							<NextWaiting
 								feed={talk}
@@ -111,16 +147,8 @@ export function PhoneApp({
 								onOpen={(id) => go("conversations", id)}
 							/>
 						)}
-						{available && (
-							<IconButton
-								label="New conversation"
-								onClick={() => go("conversations", NEW)}
-							>
-								<SquarePenIcon />
-							</IconButton>
-						)}
 					</header>
-					{body}
+					<TopBarFrame value={{ ...kebab, slot, status }}>{body}</TopBarFrame>
 				</div>
 			)}
 			<Drawer

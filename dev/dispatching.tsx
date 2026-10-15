@@ -24,6 +24,7 @@ import { promptConversation, startConversation } from "./conversation-api";
 import { reportedAs, useNameOf } from "./conversation-names";
 import type { Assignment, Dispatch } from "./dispatch";
 import { Mark } from "./mark";
+import type { BarAction } from "./top-bar";
 
 /**
  * The main tree's branch, which names it where a conversation's place is
@@ -302,20 +303,21 @@ export function StartItems({
 }
 
 /**
- * Puts one orchestrator on several lanes at once, from above the board: the
+ * Puts one orchestrator on several lanes at once, from the board's bar: the
  * lanes ticked among those with a todo next and no agent, and Untriaged while
  * it holds an open todo, in a new conversation with the agent picked, sent
  * `[ARBOR LANE <n>]` for each straight away, since the prompt says only that.
- * Each lane that does not start says so on its header.
+ * Each lane that does not start says so on its header. An action of the
+ * board's bar, or null while no lane is idle.
  */
-export function StartLanes({
+export function useStartLanes({
 	lanes,
 	untriaged,
 }: {
 	lanes: LaneState[];
 	/** Whether a todo in no lane is open, for an orchestrator to place. */
 	untriaged: boolean;
-}): JSX.Element | null {
+}): BarAction | null {
 	const context = useContext(Dispatching);
 	const { refuseLane } = useContext(Board);
 	const [picked, setPicked] = useState<(number | null)[]>([]);
@@ -343,18 +345,12 @@ export function StartLanes({
 				}
 			});
 	};
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<Button size="sm" variant="outline" className="pointer-coarse:h-10" />
-				}
-			>
-				<PlayIcon data-icon="inline-start" />
-				Start lanes
-				<ChevronDownIcon data-icon="inline-end" />
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className={cn("w-64", touchItems)}>
+	return {
+		label: "Start lanes",
+		icon: <PlayIcon />,
+		menuClassName: cn("w-64", touchItems),
+		menu: (
+			<>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>Lanes with no agent</DropdownMenuLabel>
 					{idle.map((lane) => (
@@ -395,9 +391,9 @@ export function StartLanes({
 						</DropdownMenuItem>
 					))}
 				</DropdownMenuGroup>
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
+			</>
+		),
+	};
 }
 
 /**

@@ -1,4 +1,3 @@
-import { PanelRightCloseIcon, PanelRightIcon } from "lucide-react";
 import {
 	type JSX,
 	type ReactNode,
@@ -11,18 +10,13 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { Button } from "#dev/components/ui/button.tsx";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import {
-	ShortcutSettings,
-	useShortcut,
-	useShortcutLabel,
-} from "./hooks/use-shortcut";
+import { ShortcutSettings, useShortcut } from "./hooks/use-shortcut";
 
 /** Something to do with a conversation, or a place in it to go to. */
 export interface Action {
@@ -106,41 +100,6 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
 	return { roomy, open: roomy ? docked : floating, toggle, close };
 }
 
-/** The one button in a conversation's header, showing or hiding its widgets. */
-export function WidgetsButton({
-	open,
-	onToggle,
-	busy,
-}: {
-	open: boolean;
-	onToggle: () => void;
-	/** Marks the button while a widget has something going, such as a command running. */
-	busy?: boolean;
-}): JSX.Element {
-	const key = useShortcutLabel("shortcuts.widgets");
-	const label = open ? "Hide widgets" : "Show widgets";
-	return (
-		<Button
-			variant="ghost"
-			size="icon-sm"
-			aria-label="Widgets"
-			aria-expanded={open}
-			title={key === null ? label : `${label} (${key})`}
-			onClick={onToggle}
-			data-widgets-toggle
-			className="relative"
-		>
-			{open ? <PanelRightCloseIcon /> : <PanelRightIcon />}
-			{busy && !open && (
-				<span
-					aria-hidden
-					className="absolute top-0.5 right-0.5 size-1.5 animate-pulse rounded-full bg-success"
-				/>
-			)}
-		</Button>
-	);
-}
-
 /**
  * Everything to do with a conversation, as widgets, each a card of its own:
  * the actions, many of them opening the pane beside the page, then a menu of
@@ -179,13 +138,13 @@ export function Widgets({
 				onClose();
 			}
 		};
-		// Not from the button, which toggles them itself, nor from a menu
+		// Not from the bar, whose button toggles them itself, nor from a menu
 		// one of them opened, which sits outside in a portal.
 		const press = (event: PointerEvent) => {
 			const target = event.target as Element;
 			if (
 				!panel.current?.contains(target) &&
-				target.closest("[data-widgets-toggle], [data-slot$=content]") === null
+				target.closest("[data-bar-action], [data-slot$=content]") === null
 			) {
 				onClose();
 			}

@@ -39,6 +39,7 @@ import { limitsOf, PlanLimits } from "./plan-limits";
 import { useReferences } from "./references";
 import { Refusal, useRefusal } from "./refusal";
 import { SettingControls } from "./setting-controls";
+import { BELOW_BAR, TopBar } from "./top-bar";
 import { TreesContext } from "./work-row";
 
 /** How many conversations the home screen offers to pick back up. */
@@ -216,10 +217,9 @@ export function Home(starting: Starting): JSX.Element {
 	return (
 		<section
 			aria-label="new conversation"
-			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+			className={cn(BELOW_BAR, "flex min-h-0 min-w-0 flex-col gap-3")}
 		>
-			{/* A conversation's header's room, so the welcome sits where theirs do. */}
-			<div aria-hidden className="h-9 shrink-0" />
+			<TopBar title="New conversation" />
 			<AssistantRuntimeProvider runtime={runtime}>
 				<Composing.Provider value={runtime.thread.composer}>
 					<NamedContext value={named}>

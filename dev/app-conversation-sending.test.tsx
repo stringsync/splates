@@ -83,8 +83,9 @@ describe("App's sending messages", () => {
 		const thread = await waitFor(() =>
 			view.getByRole("region", { name: "fix the login" }),
 		);
-		// Its title, and the message.
-		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
+		// The message, and its title in the page's bar.
+		expect(within(thread).getByText("fix the login")).toBeTruthy();
+		expect(view.getByRole("heading", { name: "fix the login" })).toBeTruthy();
 		expect(
 			within(view.getByRole("list", { name: "conversation list" })).getByText(
 				"fix the login",
@@ -104,7 +105,8 @@ describe("App's sending messages", () => {
 				within(thread).getByRole("button", { name: "Stop generating" }),
 			).toBeTruthy(),
 		);
-		expect(within(thread).getAllByText("fix the login")).toHaveLength(2);
+		expect(within(thread).getByText("fix the login")).toBeTruthy();
+		expect(view.getByRole("heading", { name: "fix the login" })).toBeTruthy();
 	});
 
 	it("shows the images sent with the first message in the new conversation's thread while its agent starts, then as the server keeps them", async () => {

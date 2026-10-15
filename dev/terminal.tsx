@@ -1,15 +1,20 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { SquareTerminalIcon, XIcon } from "lucide-react";
+import {
+	ChevronLeftIcon,
+	RotateCcwIcon,
+	SquareTerminalIcon,
+	XIcon,
+} from "lucide-react";
 import { createContext, type JSX, useEffect, useRef } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
-import { Back } from "./back";
 import { PANE_WIDTH } from "./changes";
 import { focusComposer } from "./composer-editor";
 import { useShortcutLabel } from "./hooks/use-shortcut";
 import type { TerminalSession } from "./terminal-session";
 import { numberOf, type Terminals } from "./terminals";
+import { BarButton, BELOW_BAR, TITLE, TopBar } from "./top-bar";
 
 /**
  * Shows a conversation's terminal in the pane beside the page, or hides it;
@@ -236,42 +241,50 @@ function MainScreen({
 	return (
 		<section
 			aria-label="terminal"
-			className="flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-2"
+			className={cn(
+				"flex min-h-0 min-w-0 flex-col gap-2",
+				onBack === null ? BELOW_BAR : "h-full",
+			)}
 		>
-			<header className="flex h-9 shrink-0 items-center gap-2">
-				{onBack !== null && <Back onBack={onBack} />}
-				<SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
-				<h2 className="min-w-0 truncate font-medium text-sm">
-					Terminal {numberOf(terminal)}{" "}
-					<span className="font-normal text-muted-foreground">
-						in the main tree, on <span className="font-mono">{trunk}</span>
+			<TopBar
+				leading={
+					onBack !== null && (
+						<BarButton label="Back to conversations" onClick={onBack}>
+							<ChevronLeftIcon />
+						</BarButton>
+					)
+				}
+				title={
+					<h2 className={cn(TITLE, "flex items-center gap-2")}>
+						<SquareTerminalIcon className="size-4 shrink-0 text-muted-foreground" />
+						<span className="truncate">Terminal {numberOf(terminal)}</span>
+					</h2>
+				}
+				detail={
+					<span className="flex min-w-0 items-center gap-2 text-sm">
+						<span className="truncate">
+							in the main tree, on <span className="font-mono">{trunk}</span>
+						</span>
+						<span role="status" className="shrink-0 text-xs">
+							{status === "connecting" && "Connecting"}
+							{status === "closed" && "Disconnected"}
+						</span>
 					</span>
-				</h2>
-				<span role="status" className="text-muted-foreground text-xs">
-					{status === "connecting" && "Connecting"}
-					{status === "closed" && "Disconnected"}
-				</span>
-				{status === "closed" && (
-					<Button
-						size="sm"
-						variant="outline"
-						className="ml-auto"
-						onClick={() => terminals.restart(terminal)}
-					>
-						Restart
-					</Button>
-				)}
-				<Button
-					size="icon-sm"
-					variant="ghost"
-					aria-label="Close the terminal"
-					title="Close the terminal"
-					className={cn(status !== "closed" && "ml-auto")}
-					onClick={onClose}
-				>
-					<XIcon />
-				</Button>
-			</header>
+				}
+				actions={[
+					...(status === "closed"
+						? [
+								{
+									label: "Restart",
+									icon: <RotateCcwIcon />,
+									text: "Restart",
+									run: () => terminals.restart(terminal),
+								},
+							]
+						: []),
+					{ label: "Close the terminal", icon: <XIcon />, run: onClose },
+				]}
+			/>
 			<Screen
 				session={session}
 				focused

@@ -36,6 +36,7 @@ import { RowMenu, useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import { numberOf, type Terminals } from "./terminals";
+import { BarButton, TITLE, TopBar } from "./top-bar";
 import { unanswered } from "./unanswered";
 
 /**
@@ -110,18 +111,27 @@ export function Inbox({
 			aria-label="inbox"
 			className="flex min-h-dvh flex-col bg-background"
 		>
-			<header className="sticky top-0 z-10 flex h-14 items-center gap-1 border-b bg-background/95 px-2 pt-[env(safe-area-inset-top)] backdrop-blur">
-				<IconButton label="Open menu" onClick={onMenu}>
-					<MenuIcon />
-				</IconButton>
-				<h1 className="flex min-w-0 flex-1 items-center gap-2 font-semibold text-base">
-					<span className="truncate">{name}</span>
-					{status}
-				</h1>
-				<IconButton label="New conversation" onClick={() => onOpen(NEW)}>
-					<SquarePenIcon />
-				</IconButton>
-			</header>
+			<TopBar
+				className="sticky top-0 z-10 box-content border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur"
+				leading={
+					<BarButton label="Open menu" onClick={onMenu}>
+						<MenuIcon />
+					</BarButton>
+				}
+				title={
+					<h1 className={cn(TITLE, "flex items-center gap-2")}>
+						<span className="truncate">{name}</span>
+						{status}
+					</h1>
+				}
+				actions={[
+					{
+						label: "New conversation",
+						icon: <SquarePenIcon />,
+						run: () => onOpen(NEW),
+					},
+				]}
+			/>
 			<div className="flex flex-1 flex-col pb-28">
 				{rows.length === 0 && mains.length === 0 ? (
 					<p className="px-6 py-16 text-center text-muted-foreground">
@@ -415,9 +425,9 @@ function TerminalGroup({
 									</span>
 								</span>
 							</button>
-							<IconButton label={`Close ${name}`} onClick={() => onClose(key)}>
+							<BarButton label={`Close ${name}`} onClick={() => onClose(key)}>
 								<XIcon />
-							</IconButton>
+							</BarButton>
 						</li>
 					);
 				})}
@@ -522,26 +532,4 @@ function movedAt({ conversation, task }: Needing): string | null {
 	}
 	const hours = Math.floor(minutes / 60);
 	return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
-}
-
-/** A header's icon button, as big as a fingertip. */
-export function IconButton({
-	label,
-	onClick,
-	children,
-}: {
-	label: string;
-	onClick: () => void;
-	children: ReactNode;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			onClick={onClick}
-			className="flex size-11 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted [&_svg]:size-5"
-		>
-			{children}
-		</button>
-	);
 }

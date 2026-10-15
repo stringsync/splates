@@ -37,7 +37,6 @@ import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
 import { NamedContext } from "./mentioned";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
-import { NextWaiting, PhoneThreadHeader } from "./phone-thread";
 import { QuestionsUI } from "./question-cards";
 import { Queued, useQueueEdits } from "./queued";
 import { useReferences } from "./references";
@@ -52,6 +51,7 @@ import { useThreadActions } from "./thread-actions";
 import { ThreadHeader, useWhereAction } from "./thread-header";
 import { useThreadMessages } from "./thread-messages";
 import { useThreadRuntime } from "./thread-runtime";
+import { BELOW_BAR } from "./top-bar";
 import { ContextMeter } from "./usage";
 import { InterruptedUI, StoppedUI, TreesContext, WorkUI } from "./work-row";
 
@@ -218,42 +218,23 @@ export function Thread({
 			// A phone's fills the screen; beside a sidebar, the pane's padding.
 			className={cn(
 				"@container flex min-h-0 min-w-0 flex-col",
-				onBack === null ? "h-[calc(100dvh-2rem)] gap-3" : "h-full gap-1",
+				onBack === null ? cn(BELOW_BAR, "gap-3") : "h-full gap-1",
 			)}
 		>
+			<ThreadHeader
+				conversation={conversation}
+				task={task}
+				free={free}
+				trunk={trunk}
+				refused={refused}
+				widgets={widgets}
+				onTake={(text) => void send(text, []).catch(() => {})}
+				onDetails={() => setDetails(true)}
+				// With the same agent, in the main tree: a task's tree is its own.
+				onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
+				onBack={onBack}
+			/>
 			{archived && <ArchivedBanner phone={onBack !== null} />}
-			{onBack === null ? (
-				<ThreadHeader
-					conversation={conversation}
-					task={task}
-					free={free}
-					trunk={trunk}
-					refused={refused}
-					widgets={widgets}
-					onTake={(text) => void send(text, []).catch(() => {})}
-					onDetails={() => setDetails(true)}
-				/>
-			) : (
-				<PhoneThreadHeader
-					conversation={conversation}
-					next={
-						<NextWaiting
-							feed={feed}
-							drafts={drafts}
-							tasks={tasks}
-							open={id}
-							onOpen={onOpen}
-						/>
-					}
-					widgets={widgets}
-					busy={conversation.background.some(
-						(each) => each.state === "running",
-					)}
-					onBack={onBack}
-					// With the same agent, in the main tree: a task's tree is its own.
-					onNew={() => onOpen(`${NEW}/${conversation.agent}`)}
-				/>
-			)}
 			{archive.confirm}
 			{task !== null && (
 				<Dialog open={details} onOpenChange={setDetails}>
@@ -480,8 +461,6 @@ function ArchivedBanner({ phone }: { phone: boolean }): JSX.Element {
 			role="status"
 			className={cn(
 				bleed(phone),
-				// A phone's pane has no top padding to cross.
-				!phone && "-mt-4",
 				"flex shrink-0 items-center justify-center gap-2 border-b bg-muted px-4 py-2 text-muted-foreground text-sm",
 			)}
 		>

@@ -252,6 +252,7 @@ describe("App's conversation list", () => {
 		).toEqual(["split-a"]);
 	});
 
+	// scry-ignore simple-test-setup: the unnamed conversations it lists are what it checks, and no other test opens with them
 	it("stands in for a missing name, muted, with what the person first said, else Not started", async () => {
 		const view = await testing.openConversations(
 			[
@@ -298,6 +299,7 @@ describe("App's conversation list", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: the orchestrator and its lanes are what it checks, and no other test opens with them
 	it("names a lane's orchestrator after its lanes, over a task it took and the agent's title", async () => {
 		const view = await testing.openConversations(
 			[
@@ -446,15 +448,11 @@ describe("App's conversation list", () => {
 			within(nav).queryByRole("textbox", { name: "Rename alpha" }),
 		).toBeNull();
 
-		const thread = view.getByRole("region", { name: "alpha" });
+		// The open conversation's title, in the page's bar atop its thread.
 		await act(async () =>
-			fireEvent.doubleClick(
-				within(thread).getByRole("heading", { name: "alpha" }),
-			),
+			fireEvent.doubleClick(view.getByRole("heading", { name: "alpha" })),
 		);
-		const box = within(thread).getByRole("textbox", {
-			name: "Rename alpha",
-		});
+		const box = view.getByRole("textbox", { name: "Rename alpha" });
 		await act(async () =>
 			fireEvent.change(box, { target: { value: "Login redirect" } }),
 		);

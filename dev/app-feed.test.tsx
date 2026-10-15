@@ -148,13 +148,10 @@ describe("App's feed", () => {
 		await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 	});
 
-	it("keeps Reload, Power and Settings in a phone's menu", async () => {
+	it("keeps Reload, Power and Settings in a phone's bar, in its kebab", async () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Open menu" })),
-			);
 			const more = view.getByRole("button", { name: "More" });
 			expect(more.querySelector(".bg-warning")).toBeNull();
 			await act(async () => fireEvent.click(more));
@@ -172,7 +169,7 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("dots a phone's menu, and the Power in it, once a restart would update", async () => {
+	it("dots a phone's kebab, and the Power in it, once a restart would update", async () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
@@ -180,10 +177,6 @@ describe("App's feed", () => {
 				release: { running: "0.0.43", newest: "0.0.44" },
 			});
 			await act(async () => testing.stream?.onmessage?.());
-			// In the drawer, which heads it with the project.
-			await act(async () =>
-				fireEvent.click(view.getByRole("button", { name: "Open menu" })),
-			);
 			const more = await waitFor(() =>
 				view.getByRole("button", { name: "More: restart to update" }),
 			);

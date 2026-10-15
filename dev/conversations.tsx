@@ -1,4 +1,5 @@
 import { useReactive } from "@webappwiz/react";
+import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useEffect, useMemo, useState } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
@@ -7,7 +8,6 @@ import { type LaneRecord, named } from "../lanes";
 import { needOfExternal } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
-import { Back } from "./back";
 import { Board, plansOf } from "./board";
 import {
 	ARCHIVED,
@@ -37,6 +37,7 @@ import { MainTerminal } from "./terminal";
 import { isMain, type Terminals } from "./terminals";
 import { Thread } from "./thread";
 import { TodoDialog } from "./todos";
+import { BarButton, TopBar } from "./top-bar";
 
 /**
  * The open conversation, or the archived ones when `open` is `ARCHIVED`. On a
@@ -190,7 +191,7 @@ export function Conversations({
 					/>
 				) : open?.startsWith(TASK) ? (
 					external === null ? (
-						<p className="text-muted-foreground text-sm">No such task.</p>
+						<Missing what="task" onBack={phone ? () => onOpen(null) : null} />
 					) : (
 						<TaskView
 							task={external}
@@ -202,11 +203,15 @@ export function Conversations({
 								onOpen(state.id, "replace");
 							}}
 							onOpen={onOpen}
+							onNew={() => onOpen(NEW)}
 							onBack={phone ? () => onOpen(null) : null}
 						/>
 					)
 				) : shown === null ? (
-					<p className="text-muted-foreground text-sm">No such conversation.</p>
+					<Missing
+						what="conversation"
+						onBack={phone ? () => onOpen(null) : null}
+					/>
 				) : (
 					<Thread
 						key={shown.id}
@@ -290,10 +295,16 @@ function Archived({
 			aria-label="archived conversations"
 			className="mx-auto flex w-full max-w-xl flex-col gap-2"
 		>
-			<header className="flex items-center gap-2">
-				{onBack !== null && <Back onBack={onBack} />}
-				<h2 className="font-medium text-sm">Archived</h2>
-			</header>
+			<TopBar
+				leading={
+					onBack !== null && (
+						<BarButton label="Back to conversations" onClick={onBack}>
+							<ChevronLeftIcon />
+						</BarButton>
+					)
+				}
+				title="Archived"
+			/>
 			{conversations.length === 0 ? (
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
@@ -313,5 +324,33 @@ function Archived({
 				</ul>
 			)}
 		</section>
+	);
+}
+
+/** In place of a conversation or a task the address names and the page has none of. */
+function Missing({
+	what,
+	onBack,
+}: {
+	what: string;
+	/** Back to the list, on a phone; null beside a sidebar. */
+	onBack: (() => void) | null;
+}): JSX.Element {
+	return (
+		<>
+			<TopBar
+				leading={
+					onBack !== null && (
+						<BarButton label="Back to conversations" onClick={onBack}>
+							<ChevronLeftIcon />
+						</BarButton>
+					)
+				}
+				title={`No such ${what}`}
+			/>
+			<p className="text-muted-foreground text-sm max-md:px-3">
+				It may have ended, or the link may be wrong.
+			</p>
+		</>
 	);
 }

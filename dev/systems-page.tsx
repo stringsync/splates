@@ -1,4 +1,9 @@
-import { CopyIcon, GitBranchIcon, ListTodoIcon } from "lucide-react";
+import {
+	ChevronLeftIcon,
+	CopyIcon,
+	GitBranchIcon,
+	ListTodoIcon,
+} from "lucide-react";
 import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
@@ -12,17 +17,11 @@ import type {
 import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import { systemChanges } from "./api";
-import { Back } from "./back";
 import { copiedLabel, useCopy } from "./card";
 import { systemsIn } from "./mentioned";
-import {
-	PHONE_HEADING,
-	PHONE_NAME,
-	PHONE_ROW,
-	PHONE_TILE,
-	PHONE_TITLED,
-} from "./phone-rows";
+import { PHONE_HEADING, PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { ChipFace, dot, Globs } from "./systems";
+import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /** How many globs of uncovered files the list shows. */
 const UNCOVERED_SHOWN = 8;
@@ -78,9 +77,7 @@ export function SystemsPage({
 	}
 	return (
 		<section aria-label="systems" className="flex flex-col gap-2">
-			<header className={PHONE_TITLED}>
-				<h2 className="font-medium text-sm">Systems</h2>
-			</header>
+			<TopBar title="Systems" />
 			{systems.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No systems: name parts of the code in <code>arbor.systems.ts</code>,
@@ -263,17 +260,30 @@ function SystemView({
 			aria-label={`system ${system.name}`}
 			className="flex flex-col gap-6 max-md:gap-7"
 		>
-			<header className="-ml-2 flex items-center gap-1 max-md:-mt-2">
-				<Back label="Back to systems" onBack={onBack} />
-				<h2 className="flex min-w-0 items-center gap-1.5 font-medium font-mono text-sm max-md:gap-2 max-md:font-sans max-md:font-semibold max-md:text-[17px]">
-					<ChipFace name={system.name} />
-				</h2>
-				{(system.aliases ?? []).length > 0 && (
-					<span className="ml-1 truncate text-muted-foreground text-xs">
-						also {system.aliases?.join(", ")}
-					</span>
-				)}
-			</header>
+			<TopBar
+				leading={
+					<BarButton label="Back to systems" onClick={onBack}>
+						<ChevronLeftIcon />
+					</BarButton>
+				}
+				title={
+					<h2
+						className={cn(
+							TITLE,
+							"flex items-center gap-1.5 font-mono max-md:font-sans",
+						)}
+					>
+						<ChipFace name={system.name} />
+					</h2>
+				}
+				detail={
+					(system.aliases ?? []).length > 0 && (
+						<span className="truncate text-xs">
+							also {system.aliases?.join(", ")}
+						</span>
+					)
+				}
+			/>
 			<Part title="Made of">
 				<Globs system={system} className="max-md:text-[13px]" />
 				{changes !== null && (

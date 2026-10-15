@@ -1,19 +1,30 @@
-import { ChevronDownIcon, GitBranchIcon } from "lucide-react";
-import { type JSX, useState } from "react";
+import {
+	ChevronDownIcon,
+	ChevronLeftIcon,
+	GitBranchIcon,
+	PanelRightCloseIcon,
+	PanelRightIcon,
+	SquarePenIcon,
+} from "lucide-react";
+import { type JSX, type ReactNode, useState } from "react";
+import { useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
-import { type Action, WidgetsButton } from "./actions";
+import type { Action } from "./actions";
 import { Rename } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useHandedOutBy } from "./handed-out";
 import type { Refuse } from "./refusal";
 import { TakeUp, TakeUpItems } from "./take-up";
 import { TaskLine } from "./task-view";
+import { BarButton, TITLE, TopBar } from "./top-bar";
 
 /**
- * A conversation's header: its name, which a double-click renames, the task
- * it runs in or one it can take up, and the button that shows its widgets.
+ * A conversation's bar: its name, which a double-click renames, beside a
+ * sidebar the task it runs in or one it can take up, then its widgets and a
+ * new conversation. A phone leads it with the way back; there where it runs
+ * is the first of its widgets.
  */
 export function ThreadHeader({
 	conversation,
@@ -24,6 +35,8 @@ export function ThreadHeader({
 	widgets,
 	onTake,
 	onDetails,
+	onNew,
+	onBack,
 }: {
 	conversation: ConversationState;
 	/** The task it runs in; null in the main tree, or once the task is gone. */
@@ -38,56 +51,83 @@ export function ThreadHeader({
 	onTake: (text: string) => void;
 	/** Shows its task's details. */
 	onDetails: () => void;
-}): JSX.Element {
+	/** On to a new conversation, so several start one after another. */
+	onNew: () => void;
+	/** Back to the inbox, on a phone; null beside a sidebar. */
+	onBack: (() => void) | null;
+}): ReactNode {
 	const [renaming, setRenaming] = useState(false);
 	// One that answers to another is that one's to rename and set to work.
 	const handedOut = useHandedOutBy(conversation) !== null;
 	const nameOf = useNameOf();
+	const key = useShortcutLabel("shortcuts.widgets");
+	const phone = onBack !== null;
 	return (
-		<header className="flex min-h-9 items-center gap-2">
-			<div className="flex min-w-0 flex-1 flex-col">
-				{renaming ? (
+		<TopBar
+			leading={
+				phone && (
+					<BarButton label="Back to conversations" onClick={onBack}>
+						<ChevronLeftIcon />
+					</BarButton>
+				)
+			}
+			title={
+				renaming ? (
 					<Rename
 						conversation={conversation}
 						refuse={refused}
 						onDone={() => setRenaming(false)}
 					/>
 				) : (
-					// A shortcut: the menu in the sidebar renames too. Capped, so a
-					// long name, such as a question it was named after, ends in an
-					// ellipsis rather than running across the pane.
-					<div className="flex min-w-0 items-center gap-2">
-						<h2
-							onDoubleClick={() => setRenaming(!handedOut)}
-							title={
-								handedOut
-									? nameOf(conversation)
-									: `${nameOf(conversation)}\nDouble-click to rename`
-							}
-							className={cn(
-								"max-w-md truncate font-medium text-sm",
-								unnamed(conversation) && "text-muted-foreground italic",
-							)}
-						>
-							{nameOf(conversation)}
-						</h2>
-					</div>
-				)}
-				<Where
-					conversation={conversation}
-					task={task}
-					free={free}
-					trunk={trunk}
-					onTake={onTake}
-					onDetails={onDetails}
-				/>
-			</div>
-			<WidgetsButton
-				open={widgets.open}
-				onToggle={widgets.toggle}
-				busy={conversation.background.some((each) => each.state === "running")}
-			/>
-		</header>
+					// A shortcut: the menu in the sidebar renames too. A long name,
+					// such as a question it was named after, ends in an ellipsis.
+					<h2
+						onDoubleClick={() => setRenaming(!handedOut && !phone)}
+						title={
+							handedOut || phone
+								? nameOf(conversation)
+								: `${nameOf(conversation)}\nDouble-click to rename`
+						}
+						className={cn(
+							TITLE,
+							"truncate",
+							unnamed(conversation) && "text-muted-foreground italic",
+						)}
+					>
+						{nameOf(conversation)}
+					</h2>
+				)
+			}
+			detail={
+				!phone && (
+					<Where
+						conversation={conversation}
+						task={task}
+						free={free}
+						trunk={trunk}
+						onTake={onTake}
+						onDetails={onDetails}
+					/>
+				)
+			}
+			actions={[
+				{
+					label: "Widgets",
+					icon: widgets.open ? <PanelRightCloseIcon /> : <PanelRightIcon />,
+					run: widgets.toggle,
+					expanded: widgets.open,
+					busy: conversation.background.some(
+						(each) => each.state === "running",
+					),
+					shortcut: key,
+				},
+				{
+					label: "New conversation",
+					icon: <SquarePenIcon />,
+					run: onNew,
+				},
+			]}
+		/>
 	);
 }
 

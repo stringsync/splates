@@ -440,14 +440,7 @@ describe("App on a phone", () => {
 		expect(view.queryByRole("img", { name: "branch" })).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Show widgets" }),
-				),
-			),
+			fireEvent.click(view.getByRole("button", { name: "Widgets" })),
 		);
 		const actions = view.getByRole("navigation", { name: "actions" });
 		await act(async () =>
@@ -468,14 +461,7 @@ describe("App on a phone", () => {
 			{ tasks: [details({ task: "beta", status: "escalated" })] },
 		);
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "Show widgets" }),
-				),
-			),
+			fireEvent.click(view.getByRole("button", { name: "Widgets" })),
 		);
 		const actions = view.getByRole("navigation", { name: "actions" });
 		await act(async () =>
@@ -489,21 +475,14 @@ describe("App on a phone", () => {
 		).toContain("beta");
 	});
 
-	it("starts a new conversation with the same agent from a conversation's menu", async () => {
+	it("starts a new conversation with the same agent from a conversation's bar", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Broke", agent: "codex" }),
 		]);
 		expect(location.hash).toBe("#conversations/c1");
 
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "More" })),
-		);
-		await act(async () =>
-			fireEvent.click(
-				await waitFor(() =>
-					view.getByRole("menuitem", { name: "New conversation" }),
-				),
-			),
+			fireEvent.click(view.getByRole("button", { name: "New conversation" })),
 		);
 
 		expect(location.hash).toBe("#conversations/new/codex");

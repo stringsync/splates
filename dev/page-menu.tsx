@@ -1,104 +1,126 @@
+import { LogOutIcon, RefreshCwIcon, SettingsIcon } from "lucide-react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import {
-	EllipsisVerticalIcon,
-	LogOutIcon,
-	RefreshCwIcon,
-	SettingsIcon,
-} from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuShortcut,
-	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
 import type { MachineReading } from "../machine";
+import type { Snapshot } from "../snapshot";
 import { identity } from "./api";
 import { CheckpointItem } from "./checkpoint";
 import { FullscreenItem } from "./fullscreen";
-import { MachineStats } from "./machine";
-import { type Update, UpdateDot, update } from "./release";
+import { MachineStats, useMachine } from "./machine";
+import { type Update, update } from "./release";
 
 /**
- * The menu beside the project's name, holding what the page can do as a
- * whole, under who Cloudflare Access signed in, if anyone, and Sign out, and
- * how hard the machine is working: Power, to checkpoint, restart, shut down
- * or any of them together; Fullscreen; Reload, for an app on a home screen,
- * which has no browser's reload button; and Settings. Dotted, and its Power
- * too, once a restart would update.
+ * What the page can do as a whole, at the foot of every bar's kebab: who
+ * Cloudflare Access signed in, if anyone, and Sign out, and how hard the
+ * machine is working; Power, to checkpoint, restart, shut down or any of
+ * them together; Fullscreen; Reload, for an app on a home screen, which has
+ * no browser's reload button; and Settings. `dot` marks the kebab, and its
+ * Power too, once a restart would update. The machine's reading, asked once
+ * here, is for the server's badges too.
  */
-export function PageMenu({
+export function usePageMenu({
+	snapshot,
+	outdated,
+	offline,
+	onSettings,
+}: {
+	snapshot: Snapshot | null;
+	/** Why a newer arbor has the server refusing, or null. */
+	outdated: string | null;
+	offline: boolean;
+	onSettings: () => void;
+}): PageMenu {
+	const machine = useMachine();
+	const email = useSignedIn();
+	const dot =
+		(snapshot?.release != null || snapshot?.behind != null) &&
+		outdated === null &&
+		!offline;
+	return {
+		machine,
+		dot,
+		items: (
+			<PageMenuItems
+				email={email}
+				machine={offline ? null : machine}
+				release={dot ? (snapshot?.release ?? null) : null}
+				behind={dot ? (snapshot?.behind ?? null) : null}
+				onSettings={onSettings}
+			/>
+		),
+	};
+}
+
+/** The page menu, as `usePageMenu` makes it. */
+export interface PageMenu {
+	/** How hard the machine is working, or null before it has said. */
+	machine: MachineReading | null;
+	items: ReactNode;
+	/** Whether a restart would update arbor. */
+	dot: boolean;
+}
+
+/** The page menu's items. */
+function PageMenuItems({
+	email,
 	machine,
 	release,
 	behind,
 	onSettings,
 }: Update & {
-	/** How hard the machine is working, or null before it has said. */
+	/** Who Cloudflare Access signed in, from `useSignedIn`. */
+	email: string | null;
 	machine: MachineReading | null;
 	onSettings: () => void;
 }): JSX.Element {
 	const why = update(release, behind);
 	const settingsKey = useShortcutLabel("shortcuts.settings");
-	// Asked once here rather than as the menu opens, so it never pops in.
-	const email = useSignedIn();
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				aria-label={why === null ? "More" : "More: restart to update"}
-				// A finger's worth on a touch screen, overhanging the row rather
-				// than growing it, with the icon still flush with the edge.
-				className="-mr-1.5 pointer-coarse:-mr-2.5 pointer-coarse:-my-1.5 ml-auto flex size-7 pointer-coarse:size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-			>
-				<span className="relative flex">
-					<EllipsisVerticalIcon className="size-4 pointer-coarse:size-5" />
-					{why !== null && <UpdateDot />}
-				</span>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-56">
-				{email !== null && (
-					<>
-						<DropdownMenuGroup>
-							<DropdownMenuLabel
-								title={`Signed in as ${email}`}
-								className="break-all font-normal"
-							>
-								{email}
-							</DropdownMenuLabel>
-							<DropdownMenuItem onClick={() => location.assign(SIGN_OUT)}>
-								<LogOutIcon />
-								Sign out
-							</DropdownMenuItem>
-						</DropdownMenuGroup>
-						<DropdownMenuSeparator />
-					</>
+		<>
+			{email !== null && (
+				<>
+					<DropdownMenuGroup>
+						<DropdownMenuLabel
+							title={`Signed in as ${email}`}
+							className="break-all font-normal"
+						>
+							{email}
+						</DropdownMenuLabel>
+						<DropdownMenuItem onClick={() => location.assign(SIGN_OUT)}>
+							<LogOutIcon />
+							Sign out
+						</DropdownMenuItem>
+					</DropdownMenuGroup>
+					<DropdownMenuSeparator />
+				</>
+			)}
+			{machine !== null && (
+				<>
+					<MachineStats reading={machine} className="px-1.5 py-1" />
+					<DropdownMenuSeparator />
+				</>
+			)}
+			<CheckpointItem update={why} />
+			<FullscreenItem />
+			<DropdownMenuItem onClick={() => location.reload()}>
+				<RefreshCwIcon />
+				Reload page
+			</DropdownMenuItem>
+			<DropdownMenuItem onClick={onSettings}>
+				<SettingsIcon />
+				Settings
+				{settingsKey !== null && (
+					<DropdownMenuShortcut aria-hidden>{settingsKey}</DropdownMenuShortcut>
 				)}
-				{machine !== null && (
-					<>
-						<MachineStats reading={machine} className="px-1.5 py-1" />
-						<DropdownMenuSeparator />
-					</>
-				)}
-				<CheckpointItem update={why} />
-				<FullscreenItem />
-				<DropdownMenuItem onClick={() => location.reload()}>
-					<RefreshCwIcon />
-					Reload page
-				</DropdownMenuItem>
-				<DropdownMenuItem onClick={onSettings}>
-					<SettingsIcon />
-					Settings
-					{settingsKey !== null && (
-						<DropdownMenuShortcut aria-hidden>
-							{settingsKey}
-						</DropdownMenuShortcut>
-					)}
-				</DropdownMenuItem>
-			</DropdownMenuContent>
-		</DropdownMenu>
+			</DropdownMenuItem>
+		</>
 	);
 }
 

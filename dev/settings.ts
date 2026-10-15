@@ -207,6 +207,11 @@ export const SETTINGS = {
 		"Start or stop dictating into the message being written.",
 		"Alt+Mod+KeyV",
 	),
+	"shortcuts.sidebar": shortcut(
+		"Sidebar",
+		"Show or hide the sidebar.",
+		"Mod+KeyB",
+	),
 	"shortcuts.widgets": shortcut(
 		"Widgets",
 		"Show or hide the open conversation's widgets.",

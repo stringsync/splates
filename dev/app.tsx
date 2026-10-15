@@ -1,7 +1,6 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
 import { Loader2Icon } from "lucide-react";
 import {
-	type CSSProperties,
 	type JSX,
 	type ReactNode,
 	useEffect,
@@ -10,9 +9,7 @@ import {
 	useState,
 } from "react";
 import { type Duration, SystemClock, SystemTimer } from "webappwiz/time";
-import { Tabs, TabsContent } from "#dev/components/ui/tabs.tsx";
 import { TooltipProvider } from "#dev/components/ui/tooltip.tsx";
-import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 import type { Details } from "../show";
@@ -20,11 +17,11 @@ import type { NamedSystem } from "../systems";
 import type { TodoState } from "../todo";
 import { stats } from "./api";
 import { AppHeader } from "./app-header";
-import { AppNav, useWide } from "./app-nav";
+import { useWide } from "./app-nav";
 import { AutoRestart } from "./auto-restart";
 import { WatchBackground } from "./background";
 import { BudgetPage } from "./budget";
-import { BESIDE_PANE, ReviewChanges } from "./changes";
+import { ReviewChanges } from "./changes";
 import { CheckpointProvider } from "./checkpoint";
 import { useSystems } from "./composer-triggers";
 import { NEW, TASK } from "./conversation-address";
@@ -33,6 +30,7 @@ import { useWaiting } from "./conversation-list";
 import { Lanes } from "./conversation-names";
 import { Conversations } from "./conversations";
 import { CredsPage } from "./creds";
+import { DesktopApp } from "./desktop-app";
 import { Dispatch } from "./dispatch";
 import { Dispatching, Trunk } from "./dispatching";
 import { Drafts } from "./drafts";
@@ -41,6 +39,7 @@ import { Held } from "./handed-out";
 import { ShortcutSettings } from "./hooks/use-shortcut";
 import { Notifications } from "./notifications";
 import { OpenerContext, openerOf } from "./openers";
+import { usePageMenu } from "./page-menu";
 import {
 	type Page,
 	PageShortcuts,
@@ -56,7 +55,6 @@ import type { Settings } from "./settings";
 import { SettingsDialog } from "./settings-dialog";
 import { matches } from "./shortcuts";
 import { useSidePanes } from "./side-panes";
-import { SidebarWidth } from "./sidebar";
 import { StatsPage } from "./stats";
 import { StatsReport } from "./stats-report";
 import { SystemsPage } from "./systems-page";
@@ -255,6 +253,12 @@ export function App({
 	};
 
 	const [setting, setSetting] = useState(false);
+	const pageMenu = usePageMenu({
+		snapshot,
+		outdated,
+		offline,
+		onSettings: () => setSetting(true),
+	});
 
 	const waiting = useWaiting(talk, drafts, tasks);
 	const counted = available && waiting > 0;
@@ -263,13 +267,6 @@ export function App({
 	}, [name, counted, waiting]);
 
 	const wide = useWide();
-	// Dragged wider or narrower by its edge, and kept for the next visit.
-	const [sidebar] = useState(() => new SidebarWidth(localStorage));
-	const { width } = useReactive(
-		sidebar,
-		(sidebar) => ({ width: sidebar.width }),
-		["changed"],
-	);
 	const { review, watch, shellRunning, toggleTerminal, shown, paned, pane } =
 		useSidePanes({
 			snapshot,
@@ -350,8 +347,7 @@ export function App({
 			snapshot={snapshot}
 			outdated={outdated}
 			offline={offline}
-			wide={wide}
-			onSettings={() => setSetting(true)}
+			machine={pageMenu.machine}
 		/>
 	);
 
@@ -402,86 +398,23 @@ export function App({
 													autoRestart={autoRestart}
 												>
 													{wide ? (
-														<Tabs
-															value={page}
-															onValueChange={(value) => go(value as Page)}
-															orientation="vertical"
-															// Clear of the sidebar.
-															className={cn(
-																"min-h-dvh gap-0 pl-(--sidebar-width)",
-																paned && BESIDE_PANE,
-															)}
-															style={
-																{
-																	"--sidebar-width": `${width}px`,
-																} as CSSProperties
-															}
-														>
-															{header}
-															<AppNav
-																available={available}
-																snapshot={snapshot}
-																page={page}
-																open={open}
-																onOpen={(id) => go("conversations", id)}
-																talk={talk}
-																terminals={terminals}
-																drafts={drafts}
-																sidebar={sidebar}
-															/>
-															{bodies === null ? (
-																opening
-															) : (
-																<>
-																	{/* The board runs as wide as its lanes, the way a Trello
-																	    board scrolls sideways. */}
-																	<TabsContent
-																		value="todos"
-																		className="min-w-0 px-4 py-4"
-																	>
-																		{bodies.todos}
-																	</TabsContent>
-																	<TabsContent
-																		value="tasks"
-																		className="mx-auto w-full max-w-xl px-4 py-6"
-																	>
-																		{bodies.tasks}
-																	</TabsContent>
-																	<TabsContent
-																		value="systems"
-																		className="mx-auto w-full min-w-0 max-w-xl px-4 py-6"
-																	>
-																		{bodies.systems}
-																	</TabsContent>
-																	<TabsContent
-																		value="stats"
-																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
-																	>
-																		{bodies.stats}
-																	</TabsContent>
-																	<TabsContent
-																		value="creds"
-																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
-																	>
-																		{bodies.creds}
-																	</TabsContent>
-																	<TabsContent
-																		value="budget"
-																		className="mx-auto w-full min-w-0 max-w-3xl px-4 py-6"
-																	>
-																		{bodies.budget}
-																	</TabsContent>
-																	{available && (
-																		<TabsContent
-																			value="conversations"
-																			className="min-w-0 px-4 py-4"
-																		>
-																			{bodies.conversations}
-																		</TabsContent>
-																	)}
-																</>
-															)}
-														</Tabs>
+														<DesktopApp
+															page={page}
+															open={open}
+															go={go}
+															name={name}
+															bodies={bodies}
+															opening={opening}
+															paned={paned}
+															available={available}
+															snapshot={snapshot}
+															outdated={outdated}
+															offline={offline}
+															talk={talk}
+															drafts={drafts}
+															terminals={terminals}
+															menu={pageMenu}
+														/>
 													) : (
 														<PhoneApp
 															page={page}
@@ -505,6 +438,7 @@ export function App({
 															talk={talk}
 															drafts={drafts}
 															terminals={terminals}
+															pageMenu={pageMenu}
 														/>
 													)}
 													{pane}

@@ -122,9 +122,7 @@ Cap upload retries
 		);
 		expect(within(alone).getByRole("button", { name: "Copied" })).toBeTruthy();
 		await act(async () =>
-			fireEvent.click(
-				within(alone).getByRole("button", { name: "About gamma" }),
-			),
+			fireEvent.click(view.getByRole("button", { name: "About gamma" })),
 		);
 		const dialog = await waitFor(() =>
 			view.getByRole("dialog", { name: "gamma" }),
@@ -198,7 +196,8 @@ Cap upload retries
 		expect(
 			within(alone).getByRole("region", { name: "systems" }).textContent,
 		).toContain("uploads");
-		expect(within(alone).getByRole("button", { name: "Systems" })).toBeTruthy();
+		// In the page's bar, atop its view.
+		expect(view.getByRole("button", { name: "Systems" })).toBeTruthy();
 	});
 
 	it("keeps the answers to an external agent across a reload, waiting on you no longer once its questions are seen, and marks its row once the reply is copied, until it asks again", async () => {
@@ -350,14 +349,10 @@ Cap upload retries
 			task: "beta",
 		});
 		// Its thread, named for its task, as one started here is.
-		await waitFor(() =>
-			expect(
-				within(view.getByRole("region", { name: "beta" })).getByRole(
-					"heading",
-					{ name: "beta" },
-				),
-			).toBeTruthy(),
-		);
+		await waitFor(() => {
+			expect(view.getByRole("region", { name: "beta" })).toBeTruthy();
+			expect(view.getByRole("heading", { name: "beta" })).toBeTruthy();
+		});
 	});
 
 	it("says when no session in a task's tree can be brought in", async () => {

@@ -1,11 +1,15 @@
 import { useReactive } from "@webappwiz/react";
-import { ChevronRightIcon } from "lucide-react";
+import { CalendarRangeIcon, ChevronRightIcon } from "lucide-react";
 import { type JSX, useEffect } from "react";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "#dev/components/ui/collapsible.tsx";
+import {
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+} from "#dev/components/ui/dropdown-menu.tsx";
 import {
 	Tooltip,
 	TooltipContent,
@@ -14,6 +18,7 @@ import {
 import { cn } from "#dev/lib/utils.ts";
 import type { SkillVersion } from "../stats";
 import type { NamedSystem } from "../systems";
+import { touchItems } from "./board";
 import type { Advice } from "./stats-advice";
 import {
 	type Axis,
@@ -25,6 +30,7 @@ import {
 	type StatsReport,
 } from "./stats-report";
 import { SystemNameChip } from "./systems";
+import { TopBar } from "./top-bar";
 
 /**
  * What to change, from how tasks have ended across every project: the one or
@@ -73,26 +79,34 @@ export function StatsPage({
 
 	return (
 		<section aria-label="stats" className="flex min-w-0 flex-col gap-6">
-			<header className="flex flex-wrap items-center justify-between gap-2">
-				<h2 className="font-medium text-sm">Stats</h2>
-				<fieldset className="flex rounded-md border p-0.5">
-					<legend className="sr-only">Period</legend>
-					{PERIODS.map((each) => (
-						<button
-							key={each.label}
-							type="button"
-							aria-pressed={each === period}
-							onClick={() => void report.choose(each)}
-							className={cn(
-								"rounded px-2 py-0.5 text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-								each === period && "bg-accent text-foreground",
-							)}
-						>
-							{each.label}
-						</button>
-					))}
-				</fieldset>
-			</header>
+			<TopBar
+				title="Stats"
+				actions={[
+					{
+						label: "Period",
+						icon: <CalendarRangeIcon />,
+						text: period.label,
+						menuClassName: cn("w-40", touchItems),
+						menu: (
+							<DropdownMenuRadioGroup
+								value={period.id}
+								onValueChange={(id) => {
+									const chosen = PERIODS.find((each) => each.id === id);
+									if (chosen !== undefined) {
+										void report.choose(chosen);
+									}
+								}}
+							>
+								{PERIODS.map((each) => (
+									<DropdownMenuRadioItem key={each.id} value={each.id}>
+										{each.label}
+									</DropdownMenuRadioItem>
+								))}
+							</DropdownMenuRadioGroup>
+						),
+					},
+				]}
+			/>
 			{error !== null && (
 				<p role="alert" className="text-destructive text-sm">
 					{error}

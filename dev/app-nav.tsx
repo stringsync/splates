@@ -1,6 +1,8 @@
+import { useReactive } from "@webappwiz/react";
 import { type JSX, type ReactNode, useSyncExternalStore } from "react";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { TabsList, TabsTrigger } from "#dev/components/ui/tabs.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { Snapshot } from "../snapshot";
 import type { ConversationFeed } from "./conversation-feed";
 import { ConversationList } from "./conversation-list";
@@ -12,7 +14,7 @@ import { NewMenu } from "./new-menu";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
-import { SidebarHandle, type SidebarWidth } from "./sidebar";
+import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 
 /** Wide enough for a sidebar: a laptop, or a tablet held sideways. */
@@ -20,7 +22,8 @@ export const WIDE = "(min-width: 768px)";
 
 /**
  * The page's tabs in a sidebar down the left, under New, each with what it
- * counts, the conversation list under them, and a handle to drag it wider. A phone has
+ * counts, the conversation list under them, and a handle to drag it wider,
+ * unless it is hidden. A phone has
  * its own layout, `PhoneApp`, in place of it.
  */
 export function AppNav({
@@ -44,9 +47,14 @@ export function AppNav({
 	talk: ConversationFeed;
 	terminals: Terminals;
 	drafts: Drafts;
-	sidebar: SidebarWidth;
+	sidebar: Sidebar;
 }): JSX.Element {
 	const held = useHeld();
+	const { shown } = useReactive(
+		sidebar,
+		(sidebar) => ({ shown: sidebar.shown }),
+		["changed"],
+	);
 	const pages = PAGES.filter(
 		({ value }) => value !== "conversations" || available,
 	);
@@ -69,10 +77,14 @@ export function AppNav({
 		snapshot !== null && openRequests(snapshot.creds).length > 0;
 	return (
 		<>
-			{/* Below the header. */}
+			{/* Below the row of bars, where its head floats. Hidden, it stays
+			    mounted, so its tabs still answer to the page's shortcuts. */}
 			<TabsList
 				variant="line"
-				className="fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-[calc(var(--app-header-height,4rem)+1rem)] group-data-vertical/tabs:h-dvh"
+				className={cn(
+					"fixed inset-y-0 left-0 z-40 w-(--sidebar-width) items-stretch justify-start gap-1 border-r bg-sidebar px-3 pt-(--top-bar-height) group-data-vertical/tabs:h-dvh",
+					!shown && "hidden",
+				)}
 			>
 				{available && (
 					<NewMenu
@@ -120,7 +132,7 @@ export function AppNav({
 					</div>
 				)}
 			</TabsList>
-			<SidebarHandle sidebar={sidebar} />
+			{shown && <SidebarHandle sidebar={sidebar} />}
 		</>
 	);
 }

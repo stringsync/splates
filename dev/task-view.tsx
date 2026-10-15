@@ -1,6 +1,7 @@
 import {
+	ChevronLeftIcon,
 	GitBranchIcon,
-	SquareArrowOutUpRightIcon,
+	SquarePenIcon,
 	TriangleAlertIcon,
 	UnplugIcon,
 } from "lucide-react";
@@ -21,13 +22,13 @@ import {
 } from "#dev/components/ui/alert.tsx";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import type { ConversationState, Session } from "../conversations";
 import { answersTo, type Need, quietSince } from "../needs";
 import type { Question } from "../plan";
 import type { Details } from "../show";
 import { AgentIcon } from "./agent-icons";
-import { Back } from "./back";
 import { type Reply, ReplyContext } from "./card-reply";
 import { toCardTop } from "./card-shell";
 import { TASK } from "./conversation-address";
@@ -39,9 +40,10 @@ import { Held } from "./handed-out";
 import { useNow } from "./hooks/use-now";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
-import { SystemsButton, SystemsCard } from "./systems";
+import { SystemsCard, systemsAction } from "./systems";
 import { TakeUpOrRemove } from "./task-actions";
 import { Task } from "./tasks";
+import { BarButton, BELOW_BAR, TopBar } from "./top-bar";
 
 /**
  * A task whose agent runs outside the page, such as in Claude Code or Codex,
@@ -61,6 +63,7 @@ export function TaskView({
 	drafts,
 	onBrought,
 	onOpen,
+	onNew,
 	onBack,
 }: {
 	task: Details;
@@ -71,6 +74,8 @@ export function TaskView({
 	onBrought: (conversation: ConversationState) => void;
 	/** Opens the conversation it answers to. */
 	onOpen: (id: string) => void;
+	/** On to a new conversation, as from a conversation's bar. */
+	onNew: () => void;
 	/** Back to the list, on a phone; null beside a sidebar. */
 	onBack: (() => void) | null;
 }): JSX.Element {
@@ -108,42 +113,43 @@ export function TaskView({
 		<section
 			ref={section}
 			aria-label={task.task}
-			className="@container flex h-[calc(100dvh-2rem)] min-h-0 min-w-0 flex-col gap-3"
+			className={cn(
+				"@container flex min-h-0 min-w-0 flex-col gap-3",
+				onBack === null ? BELOW_BAR : "h-full",
+			)}
 		>
-			<header className="flex min-h-9 items-center gap-2">
-				{onBack !== null && <Back onBack={onBack} />}
-				<div className="flex min-w-0 flex-1 flex-col">
-					<h2 className="flex min-w-0 items-center gap-1.5 font-medium text-sm">
-						<SquareArrowOutUpRightIcon
-							role="img"
-							aria-label="external agent"
-							className="size-3.5 shrink-0 text-foreground/70"
-						/>
-						{/* A phone keeps its header to one line: the name opens
-						    what the branch line would. */}
-						{onBack === null ? (
-							<span className="truncate">{task.task}</span>
-						) : (
-							<button
-								type="button"
-								aria-label={`About ${task.task}`}
-								onClick={() => setDetails(true)}
-								className="truncate rounded-sm text-left"
-							>
-								{task.task}
-							</button>
-						)}
-					</h2>
-					{onBack === null && (
+			<TopBar
+				leading={
+					onBack !== null && (
+						<BarButton label="Back to conversations" onClick={onBack}>
+							<ChevronLeftIcon />
+						</BarButton>
+					)
+				}
+				title={task.task}
+				detail={
+					onBack === null && (
 						<TaskLine
 							branch={task.branch}
 							task={task}
 							onDetails={() => setDetails(true)}
 						/>
-					)}
-				</div>
-				<SystemsButton systems={task.systems} />
-			</header>
+					)
+				}
+				actions={[
+					// A phone keeps its bar to the name: this opens what the branch
+					// beside it would.
+					onBack === null
+						? null
+						: {
+								label: `About ${task.task}`,
+								icon: <GitBranchIcon />,
+								run: () => setDetails(true),
+							},
+					systemsAction(task.systems),
+					{ label: "New conversation", icon: <SquarePenIcon />, run: onNew },
+				].filter((each) => each !== null)}
+			/>
 			<div className="relative min-h-0 flex-1 overflow-y-auto">
 				{/* Where a conversation's widgets stand, at the right. */}
 				<div className="absolute top-4 right-4 hidden w-60 @min-[61rem]:block">
