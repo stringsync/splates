@@ -1,6 +1,6 @@
 import { STARTS } from "./checks";
 import { SEEDED } from "./fixture";
-import { LANE, UNTRIAGED } from "./lanes";
+import { LANE, PARALLEL, SAME_FILES, UNTRIAGED } from "./lanes";
 import {
 	arborRuns,
 	lastSaid,
@@ -142,6 +142,8 @@ export const SCENARIOS: readonly Scenario[] = [
 		],
 	},
 	LANE,
+	PARALLEL,
+	SAME_FILES,
 	{
 		id: "defer",
 		turns: [
