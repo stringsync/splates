@@ -424,6 +424,33 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("ends a proposed todo at its paragraph, leaving the message after it as text", () => {
+		const found = stretches(
+			[
+				"### 📝 Install scry from npm [#162]",
+				"",
+				"No open todo relates to this lane,",
+				"and this one is at the top of the list.",
+				"",
+				"Now for your question.",
+				"",
+				"- One real miss.",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			{
+				type: "todo",
+				todo: {
+					id: 162,
+					subject: "Install scry from npm",
+					body: "No open todo relates to this lane,\nand this one is at the top of the list.",
+				},
+			},
+			{ type: "text", text: "Now for your question.\n\n- One real miss." },
+		]);
+	});
+
 	it("reads an escalation without a reason, or with its emoji's variation selector left off", () => {
 		expect(stretches("## ⚠ Escalated header")).toEqual([
 			{

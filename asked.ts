@@ -276,7 +276,10 @@ function keptAt(
 	) {
 		return null;
 	}
-	const end = endAt(lines, start + 1);
+	const end =
+		proposed !== null
+			? paragraphEnd(lines, start + 1, endAt(lines, start + 1))
+			: endAt(lines, start + 1);
 	const body = lines
 		.slice(start + 1, end)
 		.join("\n")
@@ -453,6 +456,28 @@ function trimmed(lines: string[]): string {
  * The first line from `start` that begins something else: a heading or a
  * list of questions, outside code blocks; else the end.
  */
+/**
+ * The line after the first paragraph from `start`, short of `end`: a
+ * proposed todo's body is one sentence, so what follows it is the message
+ * going on.
+ */
+function paragraphEnd(lines: string[], start: number, end: number): number {
+	let begun = false;
+	let fenced = false;
+	for (let i = start; i < end; i += 1) {
+		const line = lines[i] as string;
+		if (FENCE.test(line)) {
+			fenced = !fenced;
+		}
+		if (line.trim() !== "") {
+			begun = true;
+		} else if (begun && !fenced) {
+			return i;
+		}
+	}
+	return end;
+}
+
 function endAt(lines: string[], start: number): number {
 	let fenced = false;
 	for (let i = start; i < lines.length; i += 1) {
