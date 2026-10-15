@@ -3,6 +3,7 @@ import {
 	AGENTS,
 	act,
 	cleanup,
+	conversation,
 	details,
 	fireEvent,
 	resize,
@@ -71,6 +72,21 @@ describe("App's task dialog on a phone", () => {
 		expect(
 			await waitFor(() => view.getByRole("heading", { name: "Remove beta?" })),
 		).toBeTruthy();
+	});
+
+	it("names the conversation working on it, rather than showing a bare spinner", async () => {
+		testing.talk = {
+			agents: AGENTS,
+			conversations: [
+				conversation({ id: "c1", task: "beta", status: "running" }),
+			],
+		};
+		const { bar } = await openTask(details({ task: "beta", ahead: 2 }));
+
+		const open = bar.getByRole("button", { name: /^Open / });
+		const name = open.getAttribute("title") ?? "";
+		expect(name).not.toBe("");
+		expect(open.textContent).toContain(name);
 	});
 
 	it("shows two actions side by side, with no menu", async () => {

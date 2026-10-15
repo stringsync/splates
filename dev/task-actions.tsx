@@ -138,7 +138,8 @@ export function ActionBar({
 			aria-label="actions"
 			className="flex w-full flex-col gap-2 [&_button]:h-10"
 		>
-			{chatting && <OnIt task={task.task} variant="chips" />}
+			{/* A row of its own, so it names whose spinner it is. */}
+			{chatting && <OnIt task={task.task} variant="rows" className="-mx-2" />}
 			{count <= 2 || lead === undefined ? (
 				<div className="flex gap-2 [&>*]:flex-1">
 					<ActionButton action={remove.action} outline />
