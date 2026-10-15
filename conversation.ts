@@ -1,6 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { Duration } from "webappwiz/time";
 import { AgentConnection } from "./agent-connection";
 import type { Agent } from "./agent-process";
 import { ConversationBackground } from "./conversation-background";
@@ -43,6 +44,8 @@ export class Conversation
 	opening: Promise<void> | null = null;
 	/** When it was archived, for which archived ones to keep; null when unknown or not archived. */
 	private archivedAt: string | null;
+	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
+	private resting: Resource | null = null;
 
 	private constructor(
 		readonly state: ConversationState,
@@ -428,6 +431,7 @@ export class Conversation
 	}
 
 	dispose(): void {
+		this.resting?.dispose();
 		void this.stop();
 	}
 
@@ -479,7 +483,37 @@ export class Conversation
 	}
 
 	changed(): void {
+		this.rest();
 		this.dispatcher.dispatch("changed");
+	}
+
+	/**
+	 * Stops an agent left idle `IDLE_STOP`, with no command running in the background,
+	 * no question open and no checkpoint, so its process exits and takes what
+	 * it started along, MCP servers and browsers included. The next prompt
+	 * resumes the same session.
+	 */
+	private rest(): void {
+		const idle = (): boolean => {
+			const { status, background, ask, checkpoint } = this.state;
+			return (
+				status === "idle" &&
+				background.every((each) => each.state !== "running") &&
+				ask === null &&
+				checkpoint === null
+			);
+		};
+		if (!idle()) {
+			this.resting?.dispose();
+			this.resting = null;
+			return;
+		}
+		this.resting ??= this.deps.timer.setTimeout(() => {
+			this.resting = null;
+			if (idle()) {
+				void this.stop();
+			}
+		}, IDLE_STOP);
 	}
 
 	/** Opens the agent in `cwd`, clearing `opening` once it has or failed to. */
@@ -514,6 +548,9 @@ export class Conversation
 		});
 	}
 }
+
+/** How long an agent sits idle before its process is stopped. */
+export const IDLE_STOP = Duration.mins(30);
 
 /** What a conversation is opened with, started afresh or brought in. */
 interface Opening {

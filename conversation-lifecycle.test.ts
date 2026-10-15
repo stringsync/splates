@@ -5,6 +5,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { FakeFs } from "webappwiz/system/testing";
 import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
+import { IDLE_STOP } from "./conversation";
 import { eventually, once, until } from "./conversation-testing";
 import { type Conversation, Conversations } from "./conversations";
 import { AGENT, FakeAgent, say } from "./fake-agent";
@@ -342,6 +343,66 @@ describe("Conversation lifecycle", () => {
 		expect(conversation.sessionId).toBe("s1");
 		expect(agent.resumed).toEqual([]);
 		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
+	});
+
+	/** Fires each pending wait as long as an agent may sit idle. */
+	const restOut = () => {
+		for (const entry of timer.timeouts) {
+			if (!entry.disposed && entry.delay.ms === IDLE_STOP.ms) {
+				entry.disposed = true;
+				entry.callback();
+			}
+		}
+	};
+
+	it("stops an agent left idle, and resumes its session on the next prompt", async () => {
+		const conversation = await started();
+
+		restOut();
+		await until(conversation, "stopped");
+		expect(agent.killed).toBe(1);
+
+		await conversation.prompt("again");
+		await until(conversation, "idle");
+		expect(agent.launched).toHaveLength(2);
+		expect(agent.resumed).toHaveLength(1);
+	});
+
+	it("leaves an agent be while its turn runs", async () => {
+		let finish = () => {};
+		agent.turn = () =>
+			new Promise((resolve) => {
+				finish = () => resolve("end_turn");
+			});
+		const conversation = await started();
+		const prompted = conversation.prompt("work");
+		await until(conversation, "running");
+
+		restOut();
+		expect(conversation.state.status).toBe("running");
+		finish();
+		await prompted;
+		expect(agent.killed).toBe(0);
+	});
+
+	it("leaves an agent be while a command it left in the background runs", async () => {
+		const conversation = await started();
+		const running = {
+			id: "b1",
+			name: "dev server",
+			command: "bun dev",
+			subagent: null,
+			state: "running",
+			output: null,
+		} as const;
+		conversation.set({ background: [running] });
+
+		restOut();
+		expect(conversation.state.status).toBe("idle");
+
+		conversation.set({ background: [{ ...running, state: "completed" }] });
+		restOut();
+		await until(conversation, "stopped");
 	});
 
 	it("fails with the agent's last words when it dies on its own", async () => {
