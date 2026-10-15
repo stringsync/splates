@@ -12,11 +12,7 @@ import {
 	useState,
 } from "react";
 import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
-import {
-	DropdownMenuItem,
-	DropdownMenuShortcut,
-} from "#dev/components/ui/dropdown-menu.tsx";
-import { useShortcut, useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
+import { DropdownMenuItem } from "#dev/components/ui/dropdown-menu.tsx";
 import type { ConversationState } from "../conversations";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
 import { type Slide, slideOf, standing, titleOf } from "./checkpoint-slide";
@@ -46,7 +42,7 @@ export function useCheckpoint(): Checkpointing {
 }
 
 /**
- * The page's one checkpoint, and the dialog, opened by its shortcut or `open`, to
+ * The page's one checkpoint, and the dialog, opened by `open`, to
  * checkpoint any of the projects with agents running, which says how one
  * under way gets on, then slides on to what to do once it is done, or to
  * `arbor dev` restarting when that was asked for, and from there to what to
@@ -77,7 +73,6 @@ export function CheckpointProvider({
 	const [open, setOpen] = useState(false);
 	// Whether a restart or shutdown checkpoints first, as last picked.
 	const [checkpoint, setCheckpoint] = useState(true);
-	useShortcut("shortcuts.checkpoint", () => setOpen(true));
 	// How to reload the page once a restart is back, as of the last render.
 	const reloads = useRef(reload);
 	reloads.current = reload;
@@ -321,7 +316,7 @@ export function CheckpointProvider({
 }
 
 /**
- * The title menu's Power, opening the dialog as its shortcut does, saying
+ * The title menu's Power, opening the dialog, saying
  * how the checkpoint stands, and dotted, titled with `update`, when a
  * restart would update.
  */
@@ -331,7 +326,6 @@ export function CheckpointItem({
 	update: string | null;
 }): JSX.Element {
 	const { slide, title, open } = useCheckpoint();
-	const shortcut = useShortcutLabel("shortcuts.checkpoint");
 	const restartToUpdate = slide === "pick" && update !== null;
 	return (
 		<DropdownMenuItem
@@ -353,9 +347,6 @@ export function CheckpointItem({
 				<CheckIcon className="text-success" />
 			)}
 			{title}
-			{shortcut !== null && (
-				<DropdownMenuShortcut aria-hidden>{shortcut}</DropdownMenuShortcut>
-			)}
 		</DropdownMenuItem>
 	);
 }

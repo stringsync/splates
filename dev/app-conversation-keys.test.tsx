@@ -150,7 +150,7 @@ describe("App's sidebar keys", () => {
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
-	it("opens Todos with ⌥⌘T and Power with ⌥⌘C, showing a tab's key while ⌥⌘ is held", async () => {
+	it("opens Todos with ⌥⌘T, showing a tab's key while ⌥⌘ is held", async () => {
 		const view = await testing.openConversations(
 			newestFirst([conversation({ id: "c1", title: "First" })]),
 			null,
@@ -179,17 +179,6 @@ describe("App's sidebar keys", () => {
 			fireEvent.keyUp(window, { key: "Alt", metaKey: true }),
 		);
 		expect(key(/Todos/)).toBeNull();
-
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				code: "KeyC",
-				altKey: true,
-				ctrlKey: true,
-			}),
-		);
-		expect(
-			await waitFor(() => view.getByRole("dialog", { name: "Power" })),
-		).toBeTruthy();
 	});
 
 	it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {

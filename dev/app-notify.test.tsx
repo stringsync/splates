@@ -146,14 +146,16 @@ describe("App's settings and notifications", () => {
 			metaKey: true,
 		});
 		await record("Search", {
-			key: "ç",
-			code: "KeyC",
+			key: "∆",
+			code: "KeyJ",
 			altKey: true,
 			metaKey: true,
 		});
-		expect(field("Search").getAttribute("aria-label")).toBe("Search: ⌥⌘C");
-		expect(field("Power").getAttribute("aria-label")).toBe("Power: none");
-		expect(within(dialog).getByText("Was Power's")).toBeTruthy();
+		expect(field("Search").getAttribute("aria-label")).toBe("Search: ⌥⌘J");
+		expect(field("Fullscreen").getAttribute("aria-label")).toBe(
+			"Fullscreen: none",
+		);
+		expect(within(dialog).getByText("Was Fullscreen's")).toBeTruthy();
 
 		await act(async () => fireEvent.keyDown(dialog, { key: "Escape" }));
 		await waitFor(() =>
@@ -161,14 +163,10 @@ describe("App's settings and notifications", () => {
 		);
 		await search({ key: "k", code: "KeyK", metaKey: true });
 		expect(searching()).toBeNull();
-		await search({ key: "ç", code: "KeyC", altKey: true, metaKey: true });
+		await search({ key: "∆", code: "KeyJ", altKey: true, metaKey: true });
 		await waitFor(() => expect(searching()).toBeTruthy());
-		await search({ key: "ç", code: "KeyC", altKey: true, metaKey: true });
+		await search({ key: "∆", code: "KeyJ", altKey: true, metaKey: true });
 		await waitFor(() => expect(searching()).toBeNull());
-		// Power lost its shortcut, so its menu item shows none.
-		expect((await menuItem(view, "Power")).textContent).toBe("Power");
-
-		await act(async () => fireEvent.keyDown(document.body, { key: "Escape" }));
 		await act(async () =>
 			fireEvent.keyDown(document.body, {
 				key: ",",
@@ -191,14 +189,14 @@ describe("App's settings and notifications", () => {
 		).toBe("Search: none");
 		await act(async () =>
 			fireEvent.click(
-				within(again).getByRole("button", { name: "Reset Power to ⌥⌘C" }),
+				within(again).getByRole("button", { name: "Reset Fullscreen to ⌥⌘F" }),
 			),
 		);
 		expect(
 			within(again)
-				.getByRole("button", { name: /^Power: / })
+				.getByRole("button", { name: /^Fullscreen: / })
 				.getAttribute("aria-label"),
-		).toBe("Power: ⌥⌘C");
+		).toBe("Fullscreen: ⌥⌘F");
 	});
 
 	it("keeps only the settings a search matches, marking the words", async () => {

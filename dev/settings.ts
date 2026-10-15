@@ -249,11 +249,6 @@ export const SETTINGS = {
 		"Show or hide the open conversation's terminal.",
 		"Ctrl+Backquote",
 	),
-	"shortcuts.checkpoint": shortcut(
-		"Power",
-		"Checkpoint every agent, then restart or shut down arbor dev.",
-		"Alt+Mod+KeyC",
-	),
 	"shortcuts.fullscreen": shortcut(
 		"Fullscreen",
 		"Go fullscreen, or back.",
