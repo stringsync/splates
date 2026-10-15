@@ -934,10 +934,22 @@ The Stats page leads with what to act on, and licenses renew on their own.
 - Licensing: #171 and #172 merged; #173 removed as moot.
 ```
 
+An escalation or a review can need more than that before the user can
+answer or merge: what you found, how it works, what it costs. Say it in
+sections, so every card reads the same: a `####` line stating one point in a
+sentence, then `- ` lines with its details, one fact each, and no paragraphs.
+Give a section only to a point the user needs; most reports need none. Keep
+to `####`: a `##` or `###` heading would end the card.
+
 ```markdown
 ## ⚠️ Escalated <task>: needs two calls on the todo board
 
 One sentence on what changed.
+
+#### A card drags on a phone only after a long press.
+
+- A short press still scrolls the lane.
+- The long press is half a second, as on the home screen.
 
 ### 🎬 Demo: dragging a card on a phone
 
@@ -983,6 +995,11 @@ Open http://localhost:4310 (a demo repo, nothing of yours).
 
 Checks: `bun run typecheck`, `bun test`
 
+#### A drop saves the todo's lane and position in one write.
+
+- A reload never shows it half moved.
+- A drop on its own spot writes nothing.
+
 Reply "merge", or say what to change.
 ```
 
@@ -991,9 +1008,9 @@ what to check, then a `Checks:` line naming each check you ran that passed,
 as the project's instructions name them, each in backticks, and under it,
 when one failed for a reason outside the task, a `Failed:` line naming each
 that failed the same way, then that last line exactly, so every review reads the same. Anything more the user may
-want before merging, such as how it works, goes between the checks and the
-last line: the `arbor dev` page folds it away as its details, below the
-assumptions it lists from `ARBOR.md` and the checks.
+want before merging, such as how it works, goes in sections between the
+checks and the last line: the `arbor dev` page folds it away as its details,
+below the assumptions it lists from `ARBOR.md` and the checks.
 
 Number questions the same way wherever you ask them: a mid-task reply, a
 merge report, or a message outside any task. The user answers by number, so

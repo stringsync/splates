@@ -247,7 +247,10 @@ function Header({
 	);
 }
 
-/** A card's markdown body, its margins kept inside the card. */
+/**
+ * A card's markdown body, its margins kept inside the card. A `####` section
+ * states its point in a sentence, so it reads as one, not as a quiet label.
+ */
 export function CardBody({
 	text,
 	lead = false,
@@ -263,6 +266,7 @@ export function CardBody({
 			text={text}
 			className={cn(
 				"px-4 py-3.5 text-sm leading-relaxed @max-md:px-3 @max-md:py-2.5 [&_img]:rounded-lg [&_img]:ring-1 [&_img]:ring-border [&_p:first-child]:mt-0 [&_p:last-child]:mb-0",
+				"[&_h4]:mt-4 [&_h4]:mb-1 [&_h4:first-child]:mt-0 [&_h4]:font-semibold [&_h4]:text-sm [&_h4]:normal-case [&_h4]:tracking-normal [&_h4]:opacity-100",
 				lead &&
 					"[&_p:first-child]:font-medium [&_p:first-child]:first-letter:uppercase",
 				className,

@@ -216,7 +216,11 @@ const STARTED = /^## 🌱 Started lanes? (.*?)[ \t]*$/;
 /** The skill's word that it requested a cred, which the page shows as the request. */
 const REQUESTED = /^## 🔑 Requested ([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 const PROPOSAL = /^### 📝 (.+?) \[#(\d+)\][ \t]*$/;
-const HEADING = /^#{1,6}[ \t]/;
+/**
+ * A heading that ends a card: `#` to `###`. Deeper ones, `####`, are sections
+ * within its body.
+ */
+const HEADING = /^#{1,3}[ \t]/;
 
 /** A review report's title, and the line every one ends with. */
 const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;

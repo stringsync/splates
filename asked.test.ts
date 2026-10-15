@@ -41,9 +41,9 @@ describe("stretches", () => {
 				task: "<task>",
 				base: null,
 				reason: "needs two calls on the todo board",
-				body: "One sentence on what changed.",
+				body: "One sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
 				source:
-					"## ⚠️ Escalated <task>: needs two calls on the todo board\n\nOne sentence on what changed.",
+					"## ⚠️ Escalated <task>: needs two calls on the todo board\n\nOne sentence on what changed.\n\n#### A card drags on a phone only after a long press.\n\n- A short press still scrolls the lane.\n- The long press is half a second, as on the home screen.",
 			},
 		});
 		expect(found[1]).toEqual({
@@ -131,7 +131,8 @@ describe("stretches", () => {
 					},
 					checks: ["bun run typecheck", "bun test"],
 					failed: [],
-					details: "",
+					details:
+						"#### A drop saves the todo's lane and position in one write.\n\n- A reload never shows it half moved.\n- A drop on its own spot writes nothing.",
 				},
 			},
 		]);
