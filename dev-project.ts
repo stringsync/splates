@@ -12,12 +12,10 @@ import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
-import { DevRun } from "./dev-run";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
 import type { TranscriberFor } from "./dev-transcriber";
 import { startDispatched } from "./dispatched";
-import type { StopWhy } from "./events";
 import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
 import type { LaneRecord } from "./lanes";
@@ -47,16 +45,8 @@ export async function serveProject(
 	let handOffs: Resource | null = null;
 	let handedOut: Resource | null = null;
 	let events: Resource | null = null;
-	let run: DevRun | null = null;
 	if (conversations !== null) {
 		handedOut = HandedOut.watch({ service, conversations, log });
-		run = await DevRun.start({
-			journal,
-			conversations,
-			fs,
-			arborDir,
-			remote: context.remote,
-		});
 		events = await ConversationEvents.follow({
 			journal,
 			conversations,
@@ -120,7 +110,6 @@ export async function serveProject(
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
-			await run?.stop(context.stopping);
 			watch.dispose();
 			handOffs?.dispose();
 			handedOut?.dispose();
@@ -159,16 +148,12 @@ export type DevMachine = Deps & {
 export interface DevContext {
 	/** Where the agents' own `arbor` reaches this server, once it listens. */
 	readonly url: string | null;
-	/** Where its tunnel reaches the page from elsewhere, or null when it runs none. */
-	readonly remote: string | null;
 	/** A newer arbor on npm, once a check has found one; every page says so. */
 	readonly release: Release | null;
 	/** Commits to arbor's own source since this run started, once seen. */
 	readonly behind: Behind | null;
 	/** Whether building the page failed, so it serves the one built before. */
 	readonly unbuilt: boolean;
-	/** Why the server is stopping, as its projects log it. */
-	readonly stopping: StopWhy;
 	/** The slot `arbor dev --slot` serves under, or null. */
 	readonly slot: Slot | null;
 	/** The conversations `project`'s page may hold, or null when they are off. */

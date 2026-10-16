@@ -178,65 +178,6 @@ describe("App's arbor events", () => {
 		);
 	});
 
-	it("draws arbor dev stopping and starting as lines with no chip", async () => {
-		const thread = await opened(turn(["Back."]), [
-			{
-				id: "s1",
-				at: second(2),
-				action: "dev stop",
-				task: null,
-				reason: null,
-				conversation: null,
-				conversations: ["c1"],
-				why: "restart",
-			},
-			{
-				id: "s2",
-				at: second(3),
-				action: "dev start",
-				task: null,
-				reason: null,
-				conversation: null,
-				conversations: ["c1"],
-				remote: null,
-			},
-		]);
-
-		const lines = await waitFor(() => {
-			const found = within(thread).getAllByRole("note", { name: "arbor" });
-			expect(found).toHaveLength(2);
-			return found;
-		});
-		expect(lines.map((line) => line.textContent)).toEqual([
-			"arbor dev stopped",
-			"arbor dev started",
-		]);
-	});
-
-	it("links the remote address arbor dev started at", async () => {
-		const thread = await opened(turn(["Back."]), [
-			{
-				id: "s1",
-				at: second(3),
-				action: "dev start",
-				task: null,
-				reason: null,
-				conversation: null,
-				conversations: ["c1"],
-				remote: "https://dev.example.com",
-			},
-		]);
-
-		const link = await waitFor(() =>
-			within(thread).getByRole("link", { name: "dev.example.com" }),
-		);
-		expect(link.getAttribute("href")).toBe("https://dev.example.com");
-		expect(link.getAttribute("target")).toBe("_blank");
-		expect(
-			within(thread).getByRole("note", { name: "arbor" }).textContent,
-		).toBe("arbor dev startedatdev.example.com");
-	});
-
 	it("draws a retry as a line naming its task, a refused one marked", async () => {
 		const thread = await opened(
 			turn([

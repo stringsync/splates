@@ -192,22 +192,7 @@ export interface Facts {
 	};
 	"tunnel setup": None;
 	"tunnel remove": None;
-	"dev start": {
-		/** The conversations that were running when the run before it ended. */
-		conversations: string[];
-		/** Where its tunnel reaches it from elsewhere, or null when it runs none. */
-		remote: string | null;
-	};
-	"dev stop": {
-		/** The conversations running as it stopped. */
-		conversations: string[];
-		/** Why it stopped. */
-		why: StopWhy;
-	};
 }
-
-/** Why `arbor dev` stopped: a restart, an update, a shutdown, or `lost` when it left no word. */
-export type StopWhy = "restart" | "update" | "shutdown" | "lost";
 
 type None = Record<never, never>;
 
@@ -230,10 +215,12 @@ interface TodosFacts {
 export type Action = keyof Facts;
 
 /**
- * Each action's facts by name, as its event records them now. An action that
- * gains a fact adds it here too, or this fails to compile, so the journal can
- * tell an event recorded before then.
+ * Each action's facts by name, as its event records them now: the journal
+ * reads an event only when it carries all of them, and none of an action
+ * missing here.
  */
+// Compiles only while it lists every fact in `Facts`, so an action that
+// gains one adds it here too.
 export const FACTS = {
 	add: ["base", "todos", "goal", "subjects", "agent", "model"],
 	claim: ["escalated", "tookOver"],
@@ -262,8 +249,6 @@ export const FACTS = {
 	"creds wait": ["until", "began", "name"],
 	"tunnel setup": [],
 	"tunnel remove": [],
-	"dev start": ["conversations", "remote"],
-	"dev stop": ["conversations", "why"],
 } as const satisfies { [A in Action]: readonly (keyof Facts[A])[] };
 
 /** Each action's facts `FACTS` leaves out, which must be none. */

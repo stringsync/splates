@@ -28,7 +28,6 @@ import { Terminals } from "./dev-terminal";
 import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
 import { startTunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
-import type { StopWhy } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import { Machine, type MachineSensors, osSensors } from "./machine";
@@ -133,15 +132,10 @@ export async function dev(
 			`href="/styles.css?v=${version(assets.styles)}"`,
 		);
 
-	let stopping: StopWhy = "shutdown";
 	const context: DevContext = {
-		get stopping() {
-			return stopping;
-		},
 		get url() {
 			return url;
 		},
-		remote: tunnel === null ? null : `https://${tunnel.host}`,
 		get release() {
 			return versions.release;
 		},
@@ -261,7 +255,7 @@ export async function dev(
 			server: disposer,
 		},
 		versions,
-		{ exit, open, servers, stopping: (why) => (stopping = why) },
+		{ exit, open, servers },
 	);
 	const {
 		listProjects,

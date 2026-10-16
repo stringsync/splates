@@ -3,12 +3,9 @@ import {
 	ColumnsIcon,
 	FileIcon,
 	GitBranchIcon,
-	GlobeIcon,
 	KeyRoundIcon,
 	ListTodoIcon,
 	type LucideIcon,
-	PlayIcon,
-	PowerIcon,
 	XIcon,
 } from "lucide-react";
 import { type JSX, type ReactNode, use, useContext } from "react";
@@ -98,9 +95,7 @@ export type Named =
 	| { kind: "lane"; id: number; name: string }
 	| { kind: "branch"; branch: string }
 	| { kind: "file"; path: string }
-	| { kind: "cred"; name: string }
-	/** A page elsewhere, by its host, opened in a tab of its own. */
-	| { kind: "url"; url: string };
+	| { kind: "cred"; name: string };
 
 /**
  * What an event says, read in order: a verb and the thing it names, each
@@ -117,11 +112,6 @@ export type Words = readonly (string | Named)[];
 export interface ArborEventView {
 	/** The mark leading it, its line's only color, when it has one. */
 	mark?: Mark | null;
-	/**
-	 * A small muted icon of the line's own, for a line naming no chip to carry
-	 * one: arbor dev starting or stopping.
-	 */
-	icon?: "started" | "stopped";
 	/** What it did, as a verb and its subject: `["Merged", task]`. */
 	words: Words;
 	/**
@@ -193,12 +183,6 @@ function Line({
 					aria-label="Landed"
 					className="size-3.5 shrink-0 text-success"
 				/>
-			)}
-			{event.icon === "started" && (
-				<PlayIcon aria-hidden className="size-3 shrink-0" />
-			)}
-			{event.icon === "stopped" && (
-				<PowerIcon aria-hidden className="size-3 shrink-0" />
 			)}
 			<Words words={event.words} />
 			{stamped && event.at != null && <Stamp at={event.at} />}
@@ -347,18 +331,6 @@ function NamedChip({
 					{named.name}
 				</Chip>
 			);
-		case "url":
-			return (
-				<Chip
-					Icon={GlobeIcon}
-					title={named.url}
-					href={named.url}
-					newTab
-					className={GIVES_WAY}
-				>
-					{new URL(named.url).host}
-				</Chip>
-			);
 	}
 }
 
@@ -371,7 +343,6 @@ function Chip({
 	title,
 	open,
 	href,
-	newTab = false,
 	whole = false,
 	className,
 	children,
@@ -380,8 +351,6 @@ function Chip({
 	title: string;
 	open?: (() => void) | undefined;
 	href?: string;
-	/** Whether `href` opens in a tab of its own, leaving this page be. */
-	newTab?: boolean;
 	/** Whether it shows all its name, wrapping, rather than cut short. */
 	whole?: boolean;
 	className?: string;
@@ -404,12 +373,7 @@ function Chip({
 	);
 	if (href !== undefined) {
 		return (
-			<a
-				href={href}
-				title={title}
-				className={look}
-				{...(newTab && { target: "_blank", rel: "noreferrer" })}
-			>
+			<a href={href} title={title} className={look}>
 				{inside}
 			</a>
 		);
