@@ -6,18 +6,24 @@ import {
 	HandshakeIcon,
 	Loader2Icon,
 	PauseIcon,
+	PlayIcon,
 	SquareTerminalIcon,
 } from "lucide-react";
 import { type JSX, useCallback, useContext } from "react";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
+import { textOf } from "../conversation-messages";
 import type { ConversationState } from "../conversations";
-import { handoffToReference } from "../prompts";
+import { CHECKPOINT, DEFER, handoffToReference, RESUME } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { Details } from "../show";
 import type { Action } from "./actions";
 import { ReviewChanges } from "./changes";
 import { NEW } from "./conversation-address";
-import { pauseConversation, promptConversation } from "./conversation-api";
+import {
+	pauseConversation,
+	promptConversation,
+	sendQueuedNow,
+} from "./conversation-api";
 import { useArchive } from "./conversation-item";
 import { promptFor } from "./dispatch";
 import { AssigneeItems, Dispatching } from "./dispatching";
@@ -29,7 +35,8 @@ import { ToggleTerminal } from "./terminal";
 
 /**
  * What a conversation's thread offers beside it: reviewing its task's
- * changes, its terminal, pausing its agent at a checkpoint, handing its
+ * changes, its terminal, pausing its agent at a checkpoint and resuming it,
+ * deferring what the person last asked, handing its
  * task off to another agent, showing
  * its messages' timestamps, and archiving it, which ⌥⌘⌫ (Ctrl+Alt+Backspace off
  * a Mac) does too; and starting a new conversation with its agent.
@@ -177,7 +184,8 @@ export interface ThreadActions {
 
 /**
  * Pause, while its own agent runs, which checkpoints it and leaves it
- * stopped; while it checkpoints for it, a row saying so in its place.
+ * stopped, and Defer under it; while it checkpoints for it, a row saying so
+ * in their place; once the person's last word paused it, Resume.
  */
 function pauseActions(
 	conversation: ConversationState,
@@ -193,12 +201,24 @@ function pauseActions(
 			},
 		];
 	}
-	if (
-		status !== "running" ||
-		checkpoint !== null ||
-		handedBy !== null ||
-		archived
-	) {
+	if (handedBy !== null || archived) {
+		return [];
+	}
+	if (status !== "running") {
+		return paused(conversation)
+			? [
+					{
+						label: "Resume",
+						icon: <PlayIcon />,
+						run: () =>
+							void promptConversation(id, RESUME).catch((error: unknown) =>
+								refused("Not resumed", error),
+							),
+					},
+				]
+			: [];
+	}
+	if (checkpoint !== null) {
 		return [];
 	}
 	return [
@@ -210,5 +230,23 @@ function pauseActions(
 					refused("Not paused", error),
 				),
 		},
+		{
+			label: "Defer",
+			icon: <ClockIcon />,
+			// Sent now, stopping the turn, so the agent saves its work on the
+			// request rather than finishing it first.
+			run: () =>
+				void promptConversation(id, DEFER)
+					.then(() => sendQueuedNow(id))
+					.catch((error: unknown) => refused("Not deferred", error)),
+		},
 	];
+}
+
+/** Whether the person's last word to the conversation was its checkpoint. */
+function paused({ messages }: ConversationState): boolean {
+	const last = messages.findLast(
+		(message) => message.role === "user" && message.queued !== true,
+	);
+	return last !== undefined && textOf(last).trim() === CHECKPOINT;
 }

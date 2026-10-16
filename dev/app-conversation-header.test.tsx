@@ -5,6 +5,7 @@ import {
 	conversation,
 	details,
 	fireEvent,
+	message,
 	Testing,
 	todo,
 	waitFor,
@@ -270,6 +271,62 @@ describe("App's conversation header", () => {
 
 		await testing.say(conversation({ id: "c1", title: "Fix login" }));
 		expect(within(actions()).queryByText(/Paus/)).toBeNull();
+	});
+
+	it("defers what the person last asked from under Pause, stopping the turn so the agent saves its work", async () => {
+		const view = await testing.openConversations([
+			conversation({ id: "c1", title: "Fix login", status: "running" }),
+		]);
+		const actions = view.getByRole("navigation", { name: "actions" });
+
+		await act(async () =>
+			fireEvent.click(within(actions).getByRole("button", { name: "Defer" })),
+		);
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/send-now")).toHaveLength(1),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "[ARBOR DEFER]" } },
+		]);
+	});
+
+	it("resumes an agent from the actions card once the person's last word paused it", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				messages: [
+					message("user", "Fix the login form"),
+					message("agent", "On it."),
+					message("user", "[ARBOR CHECKPOINT]"),
+					message("agent", "Checkpointed."),
+				],
+			}),
+		]);
+		const actions = () => view.getByRole("navigation", { name: "actions" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(actions()).getByRole("button", { name: "Resume" }),
+			),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "[ARBOR RESUME]" } },
+		]);
+
+		await testing.say(
+			conversation({
+				id: "c1",
+				title: "Fix login",
+				messages: [
+					message("user", "[ARBOR CHECKPOINT]"),
+					message("user", "Carry on"),
+				],
+			}),
+		);
+		expect(
+			within(actions()).queryByRole("button", { name: "Resume" }),
+		).toBeNull();
 	});
 
 	it("lists the commands it left in the background in a menu from the actions card, each saying how it stands", async () => {
