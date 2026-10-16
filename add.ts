@@ -45,6 +45,11 @@ export interface AddOptions {
 	 * to an agent of its own, so `dispatch` is a must.
 	 */
 	away?: boolean;
+	/**
+	 * Hands the task out though `config.agentCapacity` tasks are out to
+	 * agents already, as only the person may ask.
+	 */
+	overCapacity?: boolean;
 }
 
 export async function add(
@@ -74,6 +79,7 @@ export async function add(
 		dispatch,
 		agents = [],
 		away = false,
+		overCapacity = false,
 	}: AddOptions = {},
 ): Promise<void> {
 	if (away && dispatch === undefined) {
@@ -101,6 +107,18 @@ export async function add(
 			`this agent was started by conversation ${handedBy}, and an agent another started cannot start one: drop --agent and do the work yourself`,
 			{ task, caller: handedBy },
 		);
+	}
+	if (dispatch !== undefined && !overCapacity) {
+		const out = (await service.list()).filter(
+			(each) => each.state?.dispatch !== undefined,
+		).length;
+		if (out >= config.agentCapacity) {
+			fail(
+				"agents_full",
+				`${out} tasks are out to agents already, as many as agentCapacity in arbor.config.ts lets out at once: hand this one out once one of them lands. Only when the person explicitly asks for more at once, pass --over-capacity`,
+				{ task, out, capacity: config.agentCapacity },
+			);
+		}
 	}
 	const handOff =
 		dispatch === undefined

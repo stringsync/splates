@@ -32,9 +32,9 @@ own; placing the untriaged todos, start the lanes you placed them in.
 Make the Stats page say what to act on, then renew licenses on their own.
 ```
 
-The page shows your plan beside your thread, live from arbor: each lane's
-open todos in order, the agent on each and how it stands, what holds the
-rest back, and what landed. So you change the plan by changing the lanes:
+The page shows your plan in your latest working report, live from arbor:
+a board of each lane's todos to do, those under way with how each agent
+stands, and those landed. So you change the plan by changing the lanes:
 `arbor todo update <id> --position <n>`, `--blocked-by <id>` or `--lane
 <n>` (see [references/todos.md](todos.md)), never by writing it out.
 
@@ -63,6 +63,12 @@ rest back, and what landed. So you change the plan by changing the lanes:
    what the todo's detail does not and the lane taught you: names chosen,
    files moved, answers the user gave, what the tasks out beside it are
    changing. `arbor dev` starts the agent, nested under you on the page.
+   When `add` stops on `agents_full`, the repo has as many agents out as
+   `agentCapacity` in `arbor.config.ts` allows: hand out nothing more, and
+   say in your working report what waits for room, since each report of one
+   landing frees one. Pass `--over-capacity` only when the user asked, in so
+   many words, for more agents at once than that; a lane's size or urgency
+   is never their consent.
 5. Once nothing more can go out, end your turn on a working report (see
    Reporting on lanes). Never wait, sleep or poll for your agents: arbor
    wakes you with a directive whenever one of them stops, and only then do

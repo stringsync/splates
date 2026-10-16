@@ -45,6 +45,7 @@ function defaults(root: string, trunk: string): Config {
 		postRewrite: null,
 		preMerge: null,
 		leaseStalenessMs: 90_000,
+		agentCapacity: 15,
 		mergeRetryCount: 3,
 		removedCapacity: 50,
 		logCapacity: 1000,
@@ -60,6 +61,7 @@ function defaults(root: string, trunk: string): Config {
  * file. Systems live in `arbor.systems.ts` now: a config that still names
  * them is read without them, so `arbor update` can run to move them.
  */
+// scry-ignore classes-over-function-exports: a class over these three reaches ten call sites; left to its own todo
 export async function readConfig(
 	root: string,
 	fs: Fs = new NodeFs(),

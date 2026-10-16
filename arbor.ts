@@ -173,9 +173,17 @@ arbor
 		description:
 			"with --agent: what to tell the agent beyond claiming the task, such as a part's instructions",
 	})
+	.option("over-capacity", z.boolean(), {
+		default: false,
+		description:
+			"with --agent: hand it out though agentCapacity (arbor.config.ts) tasks are out to agents already; only when the person explicitly asked for more at once",
+	})
 	.action(async (opts, ctx) => {
-		if (opts.agent === "" && (opts.model !== "" || opts.prompt !== "")) {
-			fail("usage", "--model and --prompt go with --agent", {
+		if (
+			opts.agent === "" &&
+			(opts.model !== "" || opts.prompt !== "" || opts["over-capacity"])
+		) {
+			fail("usage", "--model, --prompt and --over-capacity go with --agent", {
 				task: opts.task,
 			});
 		}
@@ -210,6 +218,7 @@ arbor
 					dispatch,
 					agents,
 					away: ctx.elsewhere !== null,
+					overCapacity: opts["over-capacity"],
 					// Before the task is live, or the page shows it a moment as an
 					// external agent's. A task handed to another agent is that
 					// agent's, so this conversation stays where it is.

@@ -26,6 +26,13 @@ export interface Config {
 	preMerge: string | null;
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
+	/**
+	 * How many tasks handed to agents of their own, by `arbor add --agent`,
+	 * may be out at once: a lane orchestrator hands out every todo that can
+	 * go, and each starts an agent. Past it, `add --agent` refuses, unless
+	 * the person asked for more and it passes `--over-capacity`.
+	 */
+	agentCapacity: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
 	mergeRetryCount: number;
 	/**

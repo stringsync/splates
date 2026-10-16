@@ -235,6 +235,30 @@ describe("add", () => {
 		expect((await deps.service.find("alpha")).caller).toBe("c2");
 	});
 
+	it("refuses to hand out a task past agentCapacity, unless asked to go over it", async () => {
+		deps.config.agentCapacity = 1;
+		await add(deps, "alpha", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+
+		await expect(
+			add(deps, "beta", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),
+		).toBail("agents_full", {
+			message: ["1 tasks are out to agents", "--over-capacity"],
+		});
+		expect((await deps.service.find("beta")).gone).toBe(true);
+		await add(deps, "gamma");
+		await add(deps, "beta", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+			overCapacity: true,
+		});
+		expect((await deps.service.find("beta")).state?.dispatch).toEqual({
+			agent: "fake",
+		});
+	});
+
 	it("names the trunk and the config when the trunk is not a branch", async () => {
 		deps.config.trunk = "master";
 

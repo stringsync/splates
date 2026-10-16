@@ -31,6 +31,7 @@ export const EXIT = {
 	slots_full: 26,
 	slot_running: 27,
 	not_granted: 28,
+	agents_full: 29,
 } as const;
 
 export type Reason = keyof typeof EXIT;
