@@ -46,6 +46,8 @@ import { WaitingLine } from "./waiting-line";
 
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
+/** How lately a conversation was archived for ⌥⌘[ and ⌥⌘] still to stop on it. */
+const RECENTLY_ARCHIVED = 60 * 60 * 1000;
 
 /**
  * The sidebar's conversations, in one list, newest first, after
@@ -60,7 +62,8 @@ const DIGITS = 10;
  *
  * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
  * the first ten rows, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
- * terminals among them, round past either end; each but the digits as the
+ * terminals among them, and any conversation archived in the last hour where it
+ * sat, round past either end; each but the digits as the
  * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
  * Atop it, `NextWaiting` says how many wait on you, opening the
  * next as ⌥⌘M does.
@@ -172,17 +175,6 @@ export function ConversationList({
 	openRowRef.current = openRow;
 	const shownRef = useRef(shown);
 	shownRef.current = shown;
-	// Every row top to bottom, by what opens it: what ⌥⌘[ and ⌥⌘] step through.
-	const stops = [
-		...mains,
-		...flatten(nested).flatMap((row) =>
-			row.conversation !== null
-				? [row.conversation.id]
-				: row.task !== null
-					? [`${TASK}${row.task.task}`]
-					: [],
-		),
-	];
 	useEffect(() => {
 		const jump = (event: KeyboardEvent) => {
 			const digit = /^Digit(\d)$/.exec(event.code)?.[1];
@@ -204,6 +196,20 @@ export function ConversationList({
 	// From a row, round past either end; from no row, in from the top or the
 	// bottom.
 	const step = (by: 1 | -1) => {
+		// Every row top to bottom, by what opens it, and each conversation
+		// archived lately where it sat.
+		const since = Date.now() - RECENTLY_ARCHIVED;
+		const kept = rowsOf(
+			tasks,
+			conversations,
+			(each) => !each.archived || Date.parse(each.archivedAt ?? "") >= since,
+		);
+		const stops = [
+			...mains,
+			...flatten(nest(kept, (host, part) => isHostOf(tasks, host, part))).map(
+				openedBy,
+			),
+		];
 		if (stops.length === 0) {
 			return false;
 		}

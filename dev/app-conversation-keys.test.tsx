@@ -103,6 +103,46 @@ describe("App's sidebar keys", () => {
 		expect(location.hash).toBe("#conversations/task/beta");
 	});
 
+	it("stops with ⌥⌘[ and ⌥⌘] on a conversation archived in the last hour, where it sat", async () => {
+		const ago = (minutes: number) =>
+			new Date(Date.now() - minutes * 60 * 1000).toISOString();
+		await testing.openConversations(
+			newestFirst([
+				conversation({ id: "c1", title: "First" }),
+				conversation({
+					id: "c2",
+					title: "Lately",
+					archived: true,
+					archivedAt: ago(10),
+				}),
+				conversation({
+					id: "c3",
+					title: "Long ago",
+					archived: true,
+					archivedAt: ago(120),
+				}),
+				conversation({ id: "c4", title: "Last" }),
+			]),
+			"c4",
+		);
+		const press = (code: string) =>
+			act(async () =>
+				fireEvent.keyDown(document.body, {
+					code,
+					altKey: true,
+					metaKey: true,
+				}),
+			);
+		await press("BracketLeft");
+		expect(location.hash).toBe("#conversations/c2");
+		await press("BracketLeft");
+		expect(location.hash).toBe("#conversations/c1");
+		await press("BracketRight");
+		expect(location.hash).toBe("#conversations/c2");
+		await press("BracketRight");
+		expect(location.hash).toBe("#conversations/c4");
+	});
+
 	it("goes back through the conversations opened with ⌥⌘, and forward with ⌥⌘., leaving ⌘, to Settings", async () => {
 		const view = await testing.openConversations(
 			newestFirst([

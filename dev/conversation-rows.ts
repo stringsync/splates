@@ -14,22 +14,25 @@ import { isPartOf, type Nested, nest } from "./parts";
 import { arriveAt, ExternalReplies } from "./task-view";
 import { unanswered } from "./unanswered";
 
-/** The sidebar's rows, newest first: the conversations listed, then external agents. */
+/**
+ * The sidebar's rows, newest first: the conversations listed, then external
+ * agents. `listed` picks the conversations, by default those not archived.
+ */
 export function rowsOf(
 	tasks: Details[],
 	conversations: ConversationState[],
+	listed: (conversation: ConversationState) => boolean = (each) =>
+		!each.archived,
 ): Needing[] {
-	const listed = conversations
-		.filter((each) => !each.archived)
-		.map((conversation) => ({
-			conversation,
-			task: null,
-			need: needOf(tasks, conversation),
-		}));
+	const rows = conversations.filter(listed).map((conversation) => ({
+		conversation,
+		task: null,
+		need: needOf(tasks, conversation),
+	}));
 	// Together, so an external agent's wait lifts onto the conversation it
 	// answers to.
 	return answeredThrough(
-		[...listed, ...externals(tasks, conversations)],
+		[...rows, ...externals(tasks, conversations)],
 		conversations,
 	).toSorted((one, other) => started(other).localeCompare(started(one)));
 }

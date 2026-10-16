@@ -76,7 +76,6 @@ export class ConversationLog {
 			state,
 			session: null,
 			cwd: start.cwd ?? null,
-			archivedAt: null,
 			picks: {},
 		};
 		let running = false;
@@ -129,7 +128,7 @@ export class ConversationLog {
 			} else if (entry.kind === "archive") {
 				state.archived = entry.archived;
 				state.archivedWith = entry.archived ? (entry.with ?? null) : null;
-				replayed.archivedAt = entry.archived ? (entry.at ?? null) : null;
+				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
 			} else if (entry.kind === "unread") {
@@ -213,8 +212,6 @@ export interface Replayed {
 	session: string | null;
 	/** Where it runs; null for a log too old to say. */
 	cwd: string | null;
-	/** When it was archived; null when unknown or not archived. */
-	archivedAt: string | null;
 	/** Its settings as last set, by id, for the resumed session to match. */
 	picks: Record<string, string>;
 }

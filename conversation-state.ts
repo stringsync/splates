@@ -54,6 +54,8 @@ export interface ConversationState {
 	createdAt: string;
 	/** Put away: stopped, kept off the list, shown with the archived ones. */
 	archived: boolean;
+	/** When it was archived; null when not archived, or for a log too old to say. */
+	archivedAt: string | null;
 	/**
 	 * The conversation whose archiving put this one away with it, which
 	 * unarchiving that one brings back; null when it was archived alone, or
@@ -416,6 +418,7 @@ export function blank(
 		commands: [],
 		createdAt,
 		archived: false,
+		archivedAt: null,
 		archivedWith: null,
 		handedBy,
 		skill: null,

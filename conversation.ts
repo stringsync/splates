@@ -42,8 +42,6 @@ export class Conversation
 	private readonly background: ConversationBackground;
 	/** Under way while the agent starts or comes back, for a prompt to wait on. */
 	opening: Promise<void> | null = null;
-	/** When it was archived, for which archived ones to keep; null when unknown or not archived. */
-	private archivedAt: string | null;
 	/** Stops the agent once it has sat idle `IDLE_STOP`; null while it works. */
 	private resting: Resource | null = null;
 
@@ -55,15 +53,8 @@ export class Conversation
 		readonly agent: Agent | null,
 		/** Where it runs; null for a log too old to say. */
 		private dir: string | null,
-		{
-			session = null,
-			loading = false,
-			picks = {},
-			model = null,
-			archivedAt = null,
-		}: From = {},
+		{ session = null, loading = false, picks = {}, model = null }: From = {},
 	) {
-		this.archivedAt = archivedAt;
 		this.files = new ConversationFiles(log.path, deps.fs, deps.projects);
 		this.connection = new AgentConnection(this, deps, {
 			session,
@@ -86,14 +77,14 @@ export class Conversation
 		if (replayed === null) {
 			return null;
 		}
-		const { state, session, cwd, archivedAt, picks } = replayed;
+		const { state, session, cwd, picks } = replayed;
 		return new Conversation(
 			state,
 			log,
 			deps,
 			agents.find((each) => each.id === state.agent) ?? null,
 			cwd,
-			{ session, picks, archivedAt },
+			{ session, picks },
 		);
 	}
 
@@ -229,7 +220,7 @@ export class Conversation
 	 */
 	get archivedSince(): string | null {
 		return this.state.archived
-			? (this.archivedAt ?? this.state.createdAt)
+			? (this.state.archivedAt ?? this.state.createdAt)
 			: null;
 	}
 
@@ -554,9 +545,9 @@ export class Conversation
 			...(withConversation === undefined ? {} : { with: withConversation }),
 		});
 		await this.log.flush();
-		this.archivedAt = archived ? at : null;
 		this.set({
 			archived,
+			archivedAt: archived ? at : null,
 			archivedWith: archived ? (withConversation ?? null) : null,
 		});
 	}
@@ -591,5 +582,4 @@ interface From {
 	picks?: Record<string, string>;
 	/** The model to pick once the session offers it. */
 	model?: string | null;
-	archivedAt?: string | null;
 }

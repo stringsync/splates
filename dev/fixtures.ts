@@ -121,6 +121,7 @@ export function conversation(
 		heartbeat: null,
 		name: null,
 		archived: false,
+		archivedAt: null,
 		archivedWith: null,
 		handedBy: null,
 		skill: null,
