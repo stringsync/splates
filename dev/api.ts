@@ -8,6 +8,7 @@
 import type { KeptCred, Scope } from "../creds";
 import type { FileDiff } from "../diff";
 import type { HeavyJobsReading } from "../heavy";
+import type { Landed } from "../landed";
 import type { MachineReading } from "../machine";
 import type { Wants } from "../notices";
 import type { AgentPick } from "../roster";
@@ -239,6 +240,20 @@ export async function taskDiff(task: string): Promise<FileDiff[]> {
 		throw new ApiError("error", `${task}'s diff: ${response.status}`);
 	}
 	return (await response.json()) as FileDiff[];
+}
+
+/**
+ * How `task` went once it merged, beside its project's week before; null
+ * when it never merged here.
+ */
+export async function taskOutcome(task: string): Promise<Landed | null> {
+	const response = await fetch(
+		scoped(`/api/tasks/${encodeURIComponent(task)}/outcome`),
+	);
+	if (!response.ok) {
+		throw new ApiError("error", `${task}'s outcome: ${response.status}`);
+	}
+	return (await response.json()) as Landed | null;
 }
 
 /**

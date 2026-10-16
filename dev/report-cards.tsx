@@ -35,6 +35,7 @@ import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard, useStartCard } from "./current-task";
 import { Markdown } from "./markdown";
+import { MergedStats } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
 import { TaskIcon } from "./task-icon";
 
@@ -112,10 +113,17 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 			>
 				{showing ? (
 					<Source text={report.source} />
-				) : text === "" ? undefined : (
-					<Folded>
-						<CardBody text={text} lead={report.reason !== null} />
-					</Folded>
+				) : text === "" && report.ending !== "merged" ? undefined : (
+					<>
+						{text !== "" && (
+							<Folded>
+								<CardBody text={text} lead={report.reason !== null} />
+							</Folded>
+						)}
+						{report.ending === "merged" && "task" in report && (
+							<MergedStats task={report.task} />
+						)}
+					</>
 				)}
 			</CardShell>
 		</div>

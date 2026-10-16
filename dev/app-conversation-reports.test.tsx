@@ -189,6 +189,7 @@ describe("App's report cards", () => {
 		expect(scrolled).toEqual([]);
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only added a test beside it
 	it("opens a conversation that ends on questions at their card's top, where the focus is", async () => {
 		// Resizes the page has no layout to make, as the cards above render.
 		const watchers = new Set<() => void>();
@@ -327,6 +328,56 @@ describe("App's report cards", () => {
 
 		expect(card.querySelector("pre")).toBeNull();
 		expect(card.querySelector("strong")?.textContent).toBe("wraps");
+	});
+
+	it("shows under a merged card how its task went beside the project's usual, the gate's word and what went wrong", async () => {
+		testing.landed.header = {
+			outcome: {
+				project: "/repo",
+				task: "header",
+				base: "main",
+				ended: "merged",
+				startedAt: "2026-10-14T09:20:00.000Z",
+				endedAt: "2026-10-14T10:00:00.000Z",
+				questionRounds: 0,
+				reviewRounds: 0,
+				failedMerges: 1,
+				size: { files: 2, added: 40, removed: 3 },
+				findings: [
+					{ kind: "gate", reason: "conflict", at: "", files: ["header.ts"] },
+					{ kind: "stopped", at: "" },
+				],
+				conversation: null,
+				agent: null,
+				model: null,
+			},
+			baseline: null,
+		};
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message(
+						"agent",
+						"## ✅ Merged header onto main\n\nThe header wraps now.",
+					),
+				],
+			}),
+		]);
+
+		const went = await waitFor(() =>
+			within(view.getByRole("region", { name: "merged header" })).getByRole(
+				"region",
+				{ name: "how it went" },
+			),
+		);
+		expect(went.textContent).toContain("+40 −3");
+		expect(
+			within(went).getByRole("list", { name: "gate" }).textContent,
+		).toContain("Conflicted in header.ts");
+		expect(
+			within(went).getByRole("list", { name: "findings" }).textContent,
+		).toContain("You stopped a turn");
+		expect(testing.asked).toContain("/api/tasks/header/outcome");
 	});
 
 	it("offers to archive the conversation above the composer while its last word reports a task that is over, then goes on to a new one with none waiting", async () => {

@@ -10,6 +10,7 @@ import type { ConversationState, Session } from "../conversations";
 import type { ServerChoice } from "../dev-servers";
 import type { FileDiff } from "../diff";
 import type { Held } from "../held";
+import type { Landed } from "../landed";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
@@ -115,6 +116,8 @@ export class Testing implements Resource {
 	listingProjects: Promise<void> = Promise.resolve();
 	/** Each task's diff, by task, for `/api/tasks/:task/diff`. */
 	diffs: Record<string, FileDiff[]> = {};
+	/** How each merged task went, by task, for `/api/tasks/:task/outcome`; null for one absent. */
+	landed: Record<string, Landed> = {};
 	/** What every write answers with; a test sets it when the page reads it. */
 	reply: unknown = {};
 	/** Refuses every write with this, as the server does, when set. */
@@ -251,6 +254,12 @@ export class Testing implements Resource {
 			if (diff !== null) {
 				return Response.json(
 					this.diffs[decodeURIComponent(diff[1] ?? "")] ?? [],
+				);
+			}
+			const outcome = /^\/api\/tasks\/([^/]+)\/outcome$/.exec(route ?? "");
+			if (outcome !== null) {
+				return Response.json(
+					this.landed[decodeURIComponent(outcome[1] ?? "")] ?? null,
 				);
 			}
 			if (route === "/api/conversations/sessions") {

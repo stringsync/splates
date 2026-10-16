@@ -6,11 +6,11 @@ import {
 	type PortProvider,
 } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import { Adherence } from "./adherence";
 import type { Conversations } from "./conversations";
 import { Access, type AccessConfig } from "./dev-access";
 import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
+import { DevOutcomes } from "./dev-outcomes";
 import { Picker } from "./dev-picker";
 import {
 	type DevContext,
@@ -32,12 +32,9 @@ import { fail } from "./exit";
 import type { Git } from "./git";
 import { type HeavyCap, HeavyJobs } from "./heavy";
 import { Machine, type MachineSensors, osSensors } from "./machine";
-import { Outcomes } from "./outcomes";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
-import { arborHome } from "./roster";
 import type { Slot } from "./slots";
-import { isPeriodId, PERIODS, summarize } from "./stats";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
 export const DEFAULT_PORT = 4269;
@@ -269,33 +266,7 @@ export async function dev(
 
 	const picker = new Picker(deps);
 
-	// Every project's, from the record the CLI writes as each task ends, so
-	// one that is not open here still counts.
-	const outcomes = new Outcomes(`${arborHome(ps)}/outcomes.jsonl`, fs);
-	// What `arbor dev` judged of each conversation as its turns ended.
-	const adherence = new Adherence(
-		`${arborHome(ps)}/adherence.jsonl`,
-		fs,
-		outcomes,
-	);
-	// `?period=` names the period, as `PERIODS` does, or `all` for all time;
-	// 7 days for none.
-	const listStats = async (request: Request): Promise<Response> => {
-		const period = new URL(request.url).searchParams.get("period") ?? "7d";
-		if (!isPeriodId(period)) {
-			fail(
-				"usage",
-				`period is one of ${[...Object.keys(PERIODS), "all"].join(", ")}: not ${period}`,
-				{ period },
-			);
-		}
-		return Response.json(
-			summarize(await outcomes.list(), {
-				period,
-				judged: await adherence.list(),
-			}),
-		);
-	};
+	const ended = new DevOutcomes(deps);
 
 	// Every project's, to each device that subscribed, whichever page it was on.
 	const pushes = await Pushes.start({
@@ -346,7 +317,7 @@ export async function dev(
 			},
 			"/api/projects/:slug/commit": { POST: talk(guarded(picker.commit)) },
 			"/api/focus": { PUT: guarded(picker.focus) },
-			"/api/stats": guarded(listStats),
+			"/api/stats": guarded(ended.stats),
 			"/api/identity": guarded(async (request) =>
 				Response.json({
 					email: (await gate.identity(request))?.email ?? null,
@@ -372,6 +343,9 @@ export async function dev(
 			"/api/systems": scoped((project) => project.systems),
 			"/api/systems/changes": scoped((project) => project.systemChanges),
 			"/api/tasks/:task/diff": scoped((project) => project.diff),
+			"/api/tasks/:task/outcome": scoped((project) =>
+				ended.landed(project.root),
+			),
 			"/api/tasks/:task/retry": {
 				POST: scoped((project) => project.retryTask),
 			},
