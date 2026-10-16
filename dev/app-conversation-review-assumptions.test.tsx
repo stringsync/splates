@@ -47,6 +47,7 @@ describe("App's review panel, with what the task assumed", () => {
 					"",
 					"- [ ] 1. Where should the header wrap?",
 					"  - (a) Below 400px (chosen)",
+					"    Why: the menu fits down to 400px.",
 					"  - (b) Below 600px",
 					"- [ ] 2. What should the menu be called?",
 					"  - (a) Menu (chosen)",
@@ -78,6 +79,18 @@ describe("App's review panel, with what the task assumed", () => {
 	afterEach(() => {
 		cleanup();
 		testing.dispose();
+	});
+
+	it("folds the Why of the choice an assumption took", async () => {
+		const list = await unfold(panel);
+		const row = within(list).getByRole("listitem", { name: "assumption 1" });
+		expect(within(row).queryByText("the menu fits down to 400px.")).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(within(row).getByRole("button", { name: "Why" })),
+		);
+
+		expect(within(row).getByText("the menu fits down to 400px.")).toBeTruthy();
 	});
 
 	it("folds what the task assumed under a title that counts them", async () => {
@@ -194,26 +207,34 @@ describe("App's review panel, with what the task assumed", () => {
 
 	it("holds the assumptions still while one is challenged, offering to reload once its agent changes them", async () => {
 		const list = await unfold(panel);
-		const challenge = async (number: string, pick: RegExp) => {
-			await act(async () =>
-				fireEvent.click(
-					within(list).getByRole("button", {
-						name: `Challenge assumption ${number}`,
-					}),
-				),
-			);
-			await act(async () =>
-				fireEvent.click(
-					within(
-						within(list).getByRole("listitem", {
-							name: `question ${number}`,
-						}),
-					).getByRole("button", { name: pick }),
-				),
-			);
-		};
-		await challenge("1", /Below 600px/);
-		await challenge("2", /More/);
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", {
+					name: "Challenge assumption 1",
+				}),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(
+					within(list).getByRole("listitem", { name: "question 1" }),
+				).getByRole("button", { name: /Below 600px/ }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(list).getByRole("button", {
+					name: "Challenge assumption 2",
+				}),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				within(
+					within(list).getByRole("listitem", { name: "question 2" }),
+				).getByRole("button", { name: /More/ }),
+			),
+		);
 
 		// Its agent drops the first, and moves the second's choices around.
 		testing.served = {

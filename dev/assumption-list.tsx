@@ -23,6 +23,7 @@ import {
 	replyOf,
 	takenOf,
 } from "../reply";
+import { ChoiceWhy } from "./choice-body";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 
@@ -446,6 +447,9 @@ function AssumptionRow({
 						<Markdown text={shown} inline />
 					</span>
 				)}
+				{challenge === null && taken.length === 1 && (
+					<ChoiceWhy why={taken[0]?.why ?? ""} inset={false} />
+				)}
 			</div>
 			{button}
 		</li>
@@ -466,7 +470,7 @@ function alike(one: Question[], other: Question[]): boolean {
 				number,
 				text,
 				body,
-				choices.map(({ key, text, chosen }) => [key, text, chosen]),
+				choices.map(({ key, text, why, chosen }) => [key, text, why, chosen]),
 			]),
 		);
 	return said(one) === said(other);

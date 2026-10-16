@@ -4,7 +4,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
 import { CardBox } from "./card-box";
-import { ChoiceBody, HowToPick } from "./choice-body";
+import { ChoiceBody, ChoiceWhy, HowToPick } from "./choice-body";
 import type { Files } from "./files";
 import { Markdown } from "./markdown";
 import { Ranking } from "./question-ranking";
@@ -255,6 +255,7 @@ export function QuestionCard({
 											/>
 										</button>
 										<ChoiceBody body={choice.body} />
+										<ChoiceWhy why={choice.why} />
 									</div>
 								);
 							})}

@@ -7,6 +7,7 @@ describe("replyOf", () => {
 			key,
 			text: `choice ${key}`,
 			body: "",
+			why: "",
 			chosen: false,
 		}));
 	const one = {

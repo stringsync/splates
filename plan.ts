@@ -86,6 +86,12 @@ export interface Choice {
 	 */
 	body: string;
 	/**
+	 * Why the agent would go with it, or not: a `Why:` line under it, without
+	 * the label, kept out of `body`. The page folds
+	 * it away until asked. Empty when there is none.
+	 */
+	why: string;
+	/**
 	 * Marked `(chosen)`: what the agent went with while it waits for the reply,
 	 * which picks nothing for the person.
 	 */
@@ -185,6 +191,7 @@ export function offers(
 		key: one ?? any ?? order ?? "",
 		text: text.replace(CHOSEN, ""),
 		body: "",
+		why: "",
 		chosen: CHOSEN.test(text),
 	};
 	INDENTS.set(offered, indent.length);
@@ -198,9 +205,28 @@ export function offers(
 export function settled(asked: Question, body: string[]): Question {
 	asked.body = dedent(body);
 	for (const choice of asked.choices) {
-		choice.body = dedent(choice.body.split("\n"));
+		Object.assign(choice, reasoned(dedent(choice.body.split("\n"))));
 	}
 	return asked;
+}
+
+/** A choice's rationale, on a line of its own: `Why: no one is signed out`. */
+const WHY = /^why:[ \t]*(.*)$/i;
+
+/**
+ * A choice's dedented `body` with its first `Why:` line taken out as `why`,
+ * so a screenshot before or after it stays the body.
+ */
+function reasoned(body: string): Pick<Choice, "body" | "why"> {
+	const lines = body.split("\n");
+	const at = lines.findIndex((line) => WHY.test(line));
+	if (at === -1) {
+		return { body, why: "" };
+	}
+	return {
+		body: dedent(lines.filter((_, index) => index !== at)),
+		why: (WHY.exec(lines[at] ?? "")?.[1] ?? "").trim(),
+	};
 }
 
 /** Lines with the indent they all share taken off, blank ends trimmed. */

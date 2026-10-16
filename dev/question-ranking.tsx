@@ -6,7 +6,7 @@ import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
-import { ChoiceBody, HowToPick } from "./choice-body";
+import { ChoiceBody, ChoiceWhy, HowToPick } from "./choice-body";
 import { Markdown } from "./markdown";
 
 /**
@@ -116,6 +116,7 @@ export function Ranking({
 						<span className="flex min-w-0 flex-1 flex-col">
 							<Markdown text={choice.text} inline unlinked />
 							<ChoiceBody body={choice.body} inset={false} />
+							<ChoiceWhy why={choice.why} inset={false} />
 						</span>
 						{live && (
 							<span className="flex shrink-0">

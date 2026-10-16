@@ -76,7 +76,9 @@ Prose back at the margin ends it.
 					"",
 					"![before](/tmp/before.png) ![after](/tmp/after.png)",
 				].join("\n"),
-				choices: [{ key: "a", text: "Ship it", body: "", chosen: false }],
+				choices: [
+					{ key: "a", text: "Ship it", body: "", why: "", chosen: false },
+				],
 				pick: "one",
 			}),
 		]);
@@ -127,6 +129,28 @@ Prose back at the margin ends it.
 				{ key: "b", text: "A panel", body: "![panel](/tmp/panel.png)" },
 			],
 		});
+	});
+
+	it("reads a choice's `Why:` line apart from its body", () => {
+		const [asked] = questions(`${GOOD}
+## Blocked
+
+- [ ] 1. How should existing sessions move to the new tokens?
+  - (a) Sign everyone out once
+    ![signed out](/tmp/out.png)
+    why: simplest, and nothing to keep.
+    Dark one too: ![dark](/tmp/dark.png)
+  - (b) Migrate each session on its next request (chosen)
+    Why: no one gets signed out.
+`);
+		expect(asked?.choices).toMatchObject([
+			{
+				key: "a",
+				body: "![signed out](/tmp/out.png)\nDark one too: ![dark](/tmp/dark.png)",
+				why: "simplest, and nothing to keep.",
+			},
+			{ key: "b", body: "", why: "no one gets signed out.", chosen: true },
+		]);
 	});
 
 	it("reads `- a.` choices as ones a reply puts in order", () => {
