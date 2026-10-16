@@ -35,6 +35,7 @@ import {
 	DirectiveChip,
 	DirectiveLine,
 	isBare,
+	isSoleCommand,
 	linkDirectives,
 	soleDirective,
 	unshown,
@@ -200,34 +201,12 @@ export const UserMessage: FC = () => {
 			</MessagePrimitive.Root>
 		);
 	}
-	return (
-		<MessagePrimitive.Root
-			ref={unstuckTop}
-			data-slot="aui_user-message-root"
-			// What `useAnchorAtOnce` finds a new turn's start by, and `useOpenAt`
-			// the first unseen message.
-			data-message-id={id}
-			className={cn(
-				// No entrance: the thread jumps to it as it comes, with nothing
-				// else in view, so a fade would show an empty thread for a frame.
-				"flex flex-col gap-y-2 px-2",
-				// Stuck atop the thread for as long as its turn is in view. Opaque,
-				// so the reply cannot show past its rounded corners, then fading
-				// the reply out over the 2rem below it, which its turn keeps clear
-				// while it is not stuck (`data-sticks`). The margin alone is what
-				// its turn holds it by, so the fade comes to the next message's
-				// top as that pushes it out. On a phone the fade is half that, so
-				// it hides less of a short screen.
-				"bg-background sticky top-0 z-10 mb-2 [container-type:scroll-state]",
-				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 max-sm:after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
-			)}
-			data-role="user"
-			data-sticks
-		>
+	const body = (
+		<>
 			<div className="aui-user-message-content-wrapper group/user relative min-w-0">
 				<Clamped watch={id} dictated={dictated}>
 					{/* Only words: the files it carries are attachments, shown as
-					their chips. */}
+				their chips. */}
 					<SentAttachments value={sent}>
 						<Leading text={text} sent={sent} />
 						<MessagePrimitive.Parts components={{ Text: UserText }} />
@@ -269,6 +248,48 @@ export const UserMessage: FC = () => {
 				</div>
 			)}
 			{unsent !== null && <UnsentLine at={unsent} />}
+		</>
+	);
+	if (sent.length === 0 && isSoleCommand(text)) {
+		// A skill or command alone, which carries on the turn it comes in (see
+		// `carriesOn`): not a primitive's root, which assistant-ui would anchor
+		// a reply's turn to, nor stuck atop the thread.
+		return (
+			<div
+				data-slot="aui_user-message-root"
+				data-message-id={id}
+				className="mb-2 flex flex-col gap-y-2 px-2"
+				data-role="user"
+			>
+				{body}
+			</div>
+		);
+	}
+	return (
+		<MessagePrimitive.Root
+			ref={unstuckTop}
+			data-slot="aui_user-message-root"
+			// What `useAnchorAtOnce` finds a new turn's start by, and `useOpenAt`
+			// the first unseen message.
+			data-message-id={id}
+			className={cn(
+				// No entrance: the thread jumps to it as it comes, with nothing
+				// else in view, so a fade would show an empty thread for a frame.
+				"flex flex-col gap-y-2 px-2",
+				// Stuck atop the thread for as long as its turn is in view. Opaque,
+				// so the reply cannot show past its rounded corners, then fading
+				// the reply out over the 2rem below it, which its turn keeps clear
+				// while it is not stuck (`data-sticks`). The margin alone is what
+				// its turn holds it by, so the fade comes to the next message's
+				// top as that pushes it out. On a phone the fade is half that, so
+				// it hides less of a short screen.
+				"bg-background sticky top-0 z-10 mb-2 [container-type:scroll-state]",
+				"after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-8 max-sm:after:h-4 after:bg-linear-to-b after:from-background after:to-transparent",
+			)}
+			data-role="user"
+			data-sticks
+		>
+			{body}
 		</MessagePrimitive.Root>
 	);
 };

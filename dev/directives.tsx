@@ -173,12 +173,20 @@ export function isBare(directive: string): boolean {
 	return BARE_DIRECTIVES.some((each) => each.directive === directive);
 }
 
+/** A skill or command named alone, as the composer's `/` writes it. */
+const SOLE_COMMAND = /^\/\S+$/u;
+
+/** Whether `text` only invokes a skill or command, with nothing more. */
+export function isSoleCommand(text: string): boolean {
+	return SOLE_COMMAND.test(text.trim());
+}
+
 /**
  * Whether `message` is a person's message of one bare directive alone, which
  * shows as one of arbor's event lines, as a checkpoint, a resume, or a merge
- * does. It carries on the turn it comes in rather than opening one, and takes
- * none of the scroll a turn's start does, so the message stuck atop that turn
- * stays there while the reply goes on.
+ * does, or of one skill or command alone. It carries on the turn it comes in
+ * rather than opening one, and takes none of the scroll a turn's start does,
+ * so the message stuck atop that turn stays there while the reply goes on.
  */
 export function carriesOn(message: ThreadMessage): boolean {
 	if (message.role !== "user") {
@@ -194,7 +202,7 @@ export function carriesOn(message: ThreadMessage): boolean {
 		only?.type === "text" &&
 		more.length === 0 &&
 		!files &&
-		isBare(only.text.trim())
+		(isBare(only.text.trim()) || isSoleCommand(only.text))
 	);
 }
 

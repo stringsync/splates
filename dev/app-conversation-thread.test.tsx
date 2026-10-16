@@ -322,6 +322,30 @@ describe("App's conversation thread", () => {
 		]);
 	});
 
+	it("keeps a message of a skill alone in the turn it comes in, unstuck, so it takes none of a turn's scroll", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message("user", "fix the header"),
+					message("agent", "Looking at it."),
+					message("user", "/simplify"),
+					message("agent", "Simplified it."),
+					message("user", "/simplify and the footer"),
+				],
+			}),
+		]);
+
+		await waitFor(() => view.getByText("Simplified it."));
+		const turns = [...document.querySelectorAll('[data-slot="aui_turn"]')];
+		expect(turns.map((turn) => turn.firstElementChild?.textContent)).toEqual([
+			expect.stringContaining("fix the header"),
+			expect.stringContaining("/simplify and the footer"),
+		]);
+		const skill = view.getByText("/simplify").closest('[data-role="user"]');
+		expect(skill?.closest('[data-slot="aui_turn"]')).toBe(turns[0]);
+		expect(skill?.className).not.toContain("sticky");
+	});
+
 	it("scrolls the thread at once, even when asked to glide", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Fix login" }),
