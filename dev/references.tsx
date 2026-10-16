@@ -1,12 +1,12 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
 	BookmarkIcon,
+	ClockIcon,
 	FolderGit2Icon,
 	GitMergeIcon,
 	HeartPulseIcon,
 	LayersIcon,
 	LightbulbIcon,
-	ListPlusIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	MessageCircleQuestionMarkIcon,
@@ -18,9 +18,9 @@ import { type ReactNode, useContext, useMemo } from "react";
 import type { ProjectRef } from "../conversation-host";
 import {
 	APPROVE,
-	CAPTURE,
 	CHECK_IN,
 	CHECKPOINT,
+	DEFER,
 	HEARTBEAT,
 	laneReference,
 	MERGE,
@@ -220,10 +220,10 @@ export const BARE_DIRECTIVES = [
 		tone: "neutral",
 	},
 	{
-		directive: CAPTURE,
-		label: "Capture",
+		directive: DEFER,
+		label: "Defer",
 		about: "make the request a todo rather than do it",
-		icon: ListPlusIcon,
+		icon: ClockIcon,
 		tone: "neutral",
 	},
 	{

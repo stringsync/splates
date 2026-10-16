@@ -2,9 +2,9 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import {
 	APPROVE,
-	CAPTURE,
 	CHECK_IN,
 	CHECKPOINT,
+	DEFER,
 	HEARTBEAT,
 	handoffReference,
 	handoffToReference,
@@ -33,7 +33,7 @@ describe("the arbor skill's Directives table", () => {
 				MERGE,
 				investigateReference("<task>"),
 				APPROVE,
-				CAPTURE,
+				DEFER,
 				CHECK_IN,
 				laneReference(null),
 				laneReference(0).replace("0", "N"),
