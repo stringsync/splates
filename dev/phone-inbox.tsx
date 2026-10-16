@@ -429,7 +429,9 @@ export function statusOf(
 		return { text: `No sign since ${age(quiet)}`, urgent: false };
 	}
 	if (need.kind === "assuming") {
-		return { text: `Working · ${need.subject}`, urgent: false };
+		const subject =
+			need.via === undefined ? need.subject : `${need.via}: ${need.subject}`;
+		return { text: `Working · ${subject}`, urgent: false };
 	}
 	if (need.kind === "working") {
 		return { text: need.subject ?? "Working", urgent: false };

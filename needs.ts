@@ -30,6 +30,8 @@ export type Need =
 			/** The first open question. */
 			subject: string;
 			questions: Question[];
+			/** The agent handed out by this one whose questions it relays. */
+			via?: string;
 	  }
 	| {
 			kind: "working";
@@ -253,8 +255,10 @@ export function need(
  * that one rather than on the person: only the person answers its asks, so
  * one waits on that one's row, where they show, whatever it is doing; its
  * escalations reach the person through that one's reports, so one waits on
- * that one's row once it is idle, having relayed it, naming the agent. A
- * failure stays the agent's own, since nothing tells that one of it.
+ * that one's row once it is idle, having relayed it, naming the agent, and
+ * while it works on regardless, that one goes ahead with them owed, as an
+ * assuming agent does. A failure stays the agent's own, since nothing tells
+ * that one of it.
  */
 export function answeredThrough(
 	found: Needing[],
@@ -301,7 +305,26 @@ export function answeredThrough(
 			(wait.why === "ask"
 				? entry.need.kind !== "waiting"
 				: entry.need.kind === "idle");
-		return wait !== undefined && takes ? { ...entry, need: wait } : entry;
+		if (wait !== undefined && takes) {
+			return { ...entry, need: wait };
+		}
+		if (
+			wait?.kind === "waiting" &&
+			wait.why !== "ask" &&
+			entry.need.kind === "working"
+		) {
+			const { subject, questions, via } = wait;
+			return {
+				...entry,
+				need: {
+					kind: "assuming",
+					subject,
+					questions,
+					...(via === undefined ? {} : { via }),
+				},
+			};
+		}
+		return entry;
 	});
 }
 

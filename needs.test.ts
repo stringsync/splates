@@ -205,24 +205,34 @@ describe("needs", () => {
 		});
 	});
 
-	it("waits on an idle orchestrator for its agent's escalation, not while it relays it", () => {
+	it("waits on an idle orchestrator for its agent's escalation, and has it assuming while it works on", () => {
 		const of = (status: ConversationState["status"]) =>
 			needs({
-				tasks: [task({ status: "escalated", escalation: "look" })],
+				tasks: [task({ plan: PLAN, status: "escalated", escalation: "look" })],
 				conversations: [
 					talk({ id: "orch", task: null, status }),
 					talk({ id: "agent", status: "idle", handedBy: "orch" }),
 				],
-			}).map((each) => [each.conversation?.id, each.need.kind]);
+			});
 
-		expect(of("idle")).toEqual([
+		expect(
+			of("idle").map((each) => [each.conversation?.id, each.need.kind]),
+		).toEqual([
 			["orch", "waiting"],
 			["agent", "idle"],
 		]);
-		expect(of("running")).toEqual([
-			["orch", "working"],
+		const running = of("running");
+		expect(
+			running.map((each) => [each.conversation?.id, each.need.kind]),
+		).toEqual([
+			["orch", "assuming"],
 			["agent", "idle"],
 		]);
+		expect(running[0]?.need).toMatchObject({
+			subject: "Does the header wrap?",
+			questions: [{ number: "2" }, { number: "3" }],
+			via: "alpha",
+		});
 	});
 
 	it("waits on the conversation whose agent added an external agent's task, naming it", () => {
