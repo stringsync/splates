@@ -83,9 +83,6 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 						{stat.detail !== null && (
 							<dd className="text-muted-foreground">{stat.detail}</dd>
 						)}
-						{stat.median !== null && (
-							<dd className="text-muted-foreground">median {stat.median}</dd>
-						)}
 					</div>
 				))}
 			</dl>

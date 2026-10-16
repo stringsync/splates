@@ -21,8 +21,6 @@ export interface Stat {
 	value: string | Lines;
 	/** What it was made of, as working beside waiting; null for nothing more. */
 	detail: string | null;
-	/** Its project's median; null with too few tasks to say. */
-	median: string | null;
 	/** Past its project's 90th percentile, or twice its median. */
 	high: boolean;
 }
@@ -59,7 +57,6 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 		label: string,
 		value: Stat["value"],
 		detail: string | null,
-		show: (value: number) => string,
 	): Stat => {
 		const spread = baseline?.measures[measure] ?? null;
 		const own = values[measure];
@@ -67,7 +64,6 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			label,
 			value,
 			detail,
-			median: spread === null ? null : show(spread.median),
 			high: own !== null && outlier(own, spread),
 		};
 	};
@@ -79,7 +75,6 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			outcome.workedMs === undefined
 				? null
 				: `worked ${duration(outcome.workedMs)} · waited ${duration(outcome.waitedMs ?? 0)}`,
-			duration,
 		),
 	];
 	if (outcome.usage !== undefined) {
@@ -89,16 +84,9 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 						label: "Tokens",
 						value: `${tokens(outcome.usage.output)} out`,
 						detail: null,
-						median: null,
 						high: false,
 					}
-				: stat(
-						"cost",
-						"Cost",
-						dollars(outcome.usage.cost.amount),
-						null,
-						dollars,
-					),
+				: stat("cost", "Cost", dollars(outcome.usage.cost.amount), null),
 		);
 	}
 	if (outcome.size !== undefined) {
@@ -108,18 +96,11 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 				"Size",
 				{ added: outcome.size.added, removed: outcome.size.removed },
 				`${outcome.size.files} ${outcome.size.files === 1 ? "file" : "files"}`,
-				(lines) => `${Math.round(lines)} lines`,
 			),
 		);
 	}
 	stats.push(
-		stat(
-			"involvement",
-			"Asked you",
-			times(values.involvement ?? 0),
-			null,
-			(rounds) => times(Math.round(rounds)),
-		),
+		stat("involvement", "Asked you", times(values.involvement ?? 0), null),
 	);
 	const found = outcome.findings ?? [];
 	const fact = (finding: Finding): Fact => ({

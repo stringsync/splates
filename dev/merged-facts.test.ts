@@ -52,7 +52,7 @@ describe("mergedFacts", () => {
 		});
 	});
 
-	it("says each figure beside its project's median, marking one far above it", () => {
+	it("says each figure, marking one far above its project's usual", () => {
 		const facts = mergedFacts({
 			outcome: merged({
 				workedMs: 20 * MINUTE,
@@ -85,28 +85,24 @@ describe("mergedFacts", () => {
 				label: "Time",
 				value: "40m",
 				detail: "worked 20m · waited 10m",
-				median: "30m",
 				high: false,
 			},
 			{
 				label: "Cost",
 				value: "$4.50",
 				detail: null,
-				median: "$1.00",
 				high: true,
 			},
 			{
 				label: "Size",
 				value: { added: 120, removed: 30 },
 				detail: "3 files",
-				median: "200 lines",
 				high: false,
 			},
 			{
 				label: "Asked you",
 				value: "once",
 				detail: null,
-				median: "once",
 				high: false,
 			},
 		]);
@@ -148,7 +144,7 @@ describe("mergedFacts", () => {
 			{ text: "You stopped a turn", again: null },
 			{ text: "Edited 900 lines to land 40", again: null },
 		]);
-		expect(facts.stats.map((stat) => stat.median)).toEqual([null, null]);
+		expect(facts.stats.map((stat) => stat.high)).toEqual([false, false]);
 	});
 
 	it("says tokens for an agent that tells no cost, and only the failures an older outcome counted", () => {
