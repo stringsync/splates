@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryLogger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
-import { importConfig } from "./load-config";
+import { ConfigFiles } from "./load-config";
 import { moveSystems, systemsSource, typeConfig } from "./migrate-config";
 import { Systems } from "./systems";
 
@@ -146,7 +146,9 @@ export default {
 	preMerge: "bun test",
 } satisfies ConfigFile;
 `);
-		expect(await importConfig(root, fs)).toEqual({ preMerge: "bun test" });
+		expect(await new ConfigFiles(fs).importConfig(root)).toEqual({
+			preMerge: "bun test",
+		});
 	});
 
 	it("leaves a config it cannot rewrite as it is, saying so", async () => {

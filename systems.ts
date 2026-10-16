@@ -1,6 +1,6 @@
 import { type Fs, type Glob, NodeFs, NodeGlob } from "webappwiz/system";
 import { z } from "zod";
-import { CONFIG_FILE, importConfig, importDefault } from "./load-config";
+import { CONFIG_FILE, ConfigFiles } from "./load-config";
 
 /** The file a repo names its systems in, at its root. */
 export const SYSTEMS_FILE = "arbor.systems.ts";
@@ -223,14 +223,15 @@ export async function readSystems(
 	root: string,
 	fs: Fs = new NodeFs(),
 ): Promise<Record<string, System>> {
-	if ((await importConfig(root, fs)).systems !== undefined) {
+	const files = new ConfigFiles(fs);
+	if ((await files.importConfig(root)).systems !== undefined) {
 		throw new Error(
 			`${root}/${CONFIG_FILE} names systems, which arbor now reads from ${SYSTEMS_FILE}: run \`arbor update\` to move them`,
 		);
 	}
 	return checkSystems(
 		`${root}/${SYSTEMS_FILE}`,
-		await importDefault(root, SYSTEMS_FILE, fs),
+		await files.importDefault(root, SYSTEMS_FILE),
 	);
 }
 

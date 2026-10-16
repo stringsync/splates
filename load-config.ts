@@ -23,7 +23,7 @@ export async function loadConfig(
 	root: string,
 	opts: LoadConfigOptions = {},
 ): Promise<Config> {
-	const found = await readConfig(root, opts.fs);
+	const found = await new ConfigFiles(opts.fs).read(root);
 	// Only a repo that has not said which branch is its trunk pays for the
 	// detecting spawn.
 	const trunk =
@@ -56,60 +56,59 @@ function defaults(root: string, trunk: string): Config {
 	};
 }
 
-/**
- * What `root`'s `arbor.config.ts` names, or nothing when there is no such
- * file. Systems live in `arbor.systems.ts` now: a config that still names
- * them is read without them, so `arbor update` can run to move them.
- */
-// scry-ignore classes-over-function-exports: a class over these three reaches ten call sites; left to its own todo
-export async function readConfig(
-	root: string,
-	fs: Fs = new NodeFs(),
-): Promise<Partial<Config>> {
-	const { systems: _, ...config } = await importConfig(root, fs);
-	return config as Partial<Config>;
-}
+/** Reads the TypeScript files a repo keeps its settings in, through `fs`. */
+export class ConfigFiles {
+	constructor(private readonly fs: Fs = new NodeFs()) {}
 
-/**
- * Everything `root`'s `arbor.config.ts` exports as its default, unchecked, or
- * nothing when there is no such file.
- */
-export function importConfig(
-	root: string,
-	fs: Fs = new NodeFs(),
-): Promise<Record<string, unknown>> {
-	return importDefault(root, CONFIG_FILE, fs);
-}
-
-/**
- * What the TypeScript file `file` at `root` exports as its default, unchecked,
- * or nothing when there is no such file. Read afresh whenever the file has
- * changed, so a long-running `arbor dev` sees an edit without a restart.
- */
-export async function importDefault(
-	root: string,
-	file: string,
-	fs: Fs,
-): Promise<Record<string, unknown>> {
-	const path = `${root}/${file}`;
-	if (!(await fs.exists(path))) {
-		return {};
+	/**
+	 * What `root`'s `arbor.config.ts` names, or nothing when there is no such
+	 * file. Systems live in `arbor.systems.ts` now: a config that still names
+	 * them is read without them, so `arbor update` can run to move them.
+	 */
+	async read(root: string): Promise<Partial<Config>> {
+		const { systems: _, ...config } = await this.importConfig(root);
+		return config as Partial<Config>;
 	}
-	// `import()` keeps a module for as long as the process runs, keyed by what
-	// it was asked for, so asking by the file's contents re-imports it only
-	// once it has changed.
-	const version = Bun.hash(await fs.read(path)).toString(36);
-	// Asked through a symlinked directory, such as macOS's `/var`, Bun's
-	// resolver misses a file made after it first listed the directory. Not on
-	// disk, as a fake `fs` has it, the path stays as it is.
-	const real = await realpath(path).catch(() => path);
-	// Falling back to the defaults would be worse than failing: a config arbor
-	// silently ignored is a `preMerge` gate that silently stopped running.
-	const mod = (await import(`${real}?v=${version}`).catch((cause: unknown) => {
-		throw new Error(
-			`could not load ${path}: ${cause}. Its imports may be stale: try \`bun install\` in ${root}.`,
-			{ cause },
-		);
-	})) as { default?: Record<string, unknown> };
-	return mod.default ?? {};
+
+	/**
+	 * Everything `root`'s `arbor.config.ts` exports as its default, unchecked, or
+	 * nothing when there is no such file.
+	 */
+	importConfig(root: string): Promise<Record<string, unknown>> {
+		return this.importDefault(root, CONFIG_FILE);
+	}
+
+	/**
+	 * What the TypeScript file `file` at `root` exports as its default, unchecked,
+	 * or nothing when there is no such file. Read afresh whenever the file has
+	 * changed, so a long-running `arbor dev` sees an edit without a restart.
+	 */
+	async importDefault(
+		root: string,
+		file: string,
+	): Promise<Record<string, unknown>> {
+		const path = `${root}/${file}`;
+		if (!(await this.fs.exists(path))) {
+			return {};
+		}
+		// `import()` keeps a module for as long as the process runs, keyed by what
+		// it was asked for, so asking by the file's contents re-imports it only
+		// once it has changed.
+		const version = Bun.hash(await this.fs.read(path)).toString(36);
+		// Asked through a symlinked directory, such as macOS's `/var`, Bun's
+		// resolver misses a file made after it first listed the directory. Not on
+		// disk, as a fake `fs` has it, the path stays as it is.
+		const real = await realpath(path).catch(() => path);
+		// Falling back to the defaults would be worse than failing: a config arbor
+		// silently ignored is a `preMerge` gate that silently stopped running.
+		const mod = (await import(`${real}?v=${version}`).catch(
+			(cause: unknown) => {
+				throw new Error(
+					`could not load ${path}: ${cause}. Its imports may be stale: try \`bun install\` in ${root}.`,
+					{ cause },
+				);
+			},
+		)) as { default?: Record<string, unknown> };
+		return mod.default ?? {};
+	}
 }

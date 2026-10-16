@@ -1,7 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { typedConfig, withoutSystems } from "./config-source";
-import { CONFIG_FILE, importConfig } from "./load-config";
+import { CONFIG_FILE, ConfigFiles } from "./load-config";
 import { checkSystems, SYSTEMS_FILE, type SystemsFile } from "./systems";
 
 /**
@@ -21,7 +21,7 @@ export async function moveSystems({
 	fs: Fs;
 	log: Logger;
 }): Promise<number> {
-	const config = await importConfig(root, fs);
+	const config = await new ConfigFiles(fs).importConfig(root);
 	if (config.systems === undefined) {
 		return 0;
 	}
@@ -46,7 +46,9 @@ export async function moveSystems({
 	}
 	await fs.write(configPath, after);
 	const { systems: _, ...rest } = config;
-	const rewritten = await importConfig(root, fs).catch(() => null);
+	const rewritten = await new ConfigFiles(fs)
+		.importConfig(root)
+		.catch(() => null);
 	if (
 		rewritten === null ||
 		JSON.stringify(rewritten) !== JSON.stringify(rest)
@@ -97,9 +99,11 @@ export async function typeConfig({
 		);
 		return;
 	}
-	const config = await importConfig(root, fs);
+	const config = await new ConfigFiles(fs).importConfig(root);
 	await fs.write(path, after);
-	const rewritten = await importConfig(root, fs).catch(() => null);
+	const rewritten = await new ConfigFiles(fs)
+		.importConfig(root)
+		.catch(() => null);
 	if (JSON.stringify(rewritten) !== JSON.stringify(config)) {
 		await fs.write(path, before);
 		log.info(
