@@ -334,7 +334,7 @@ describe("App's conversation of a task another handed out", () => {
 		);
 		expect(
 			view.getAllByRole("menuitem").map((each) => each.textContent),
-		).toEqual(["Copy link", "Mark as unread"]);
+		).toEqual(["Copy link", "Mark as unread", "Move under…"]);
 	});
 
 	it("terminates its agent from where the composer was", async () => {

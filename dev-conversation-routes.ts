@@ -378,6 +378,27 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	readonly reparentConversation = async (
+		request: Request,
+	): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const { parent } = await body(request);
+		if (parent !== null && typeof parent !== "string") {
+			fail("usage", "parent is a conversation's id, or null for the top", {
+				conversation: conversation.id,
+			});
+		}
+		if (parent === conversation.id) {
+			fail(
+				"usage",
+				`conversation ${conversation.id} cannot nest under itself`,
+				{ conversation: conversation.id },
+			);
+		}
+		await conversation.reparent(parent);
+		return Response.json(conversation.state);
+	};
+
 	readonly archiveConversation = async (
 		request: Request,
 	): Promise<Response> => {

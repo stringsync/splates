@@ -255,6 +255,25 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.pinned).toBe(false);
 	});
 
+	it("keeps where the person nested it, and reads it back", async () => {
+		const conversation = await started();
+		expect(conversation.state.parent).toBeNull();
+		const reread = () =>
+			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+				fs,
+				timer,
+				clock,
+				launch: agent.launch,
+			}).list();
+
+		await conversation.reparent("c9");
+
+		expect(conversation.state.parent).toEqual({ id: "c9" });
+		expect((await reread())[0]?.state.parent).toEqual({ id: "c9" });
+		await conversation.reparent(null);
+		expect((await reread())[0]?.state.parent).toEqual({ id: null });
+	});
+
 	it("counts the messages seen when last marked read, and reads it back", async () => {
 		const conversation = await started();
 		await conversation.prompt("hello");

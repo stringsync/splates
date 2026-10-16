@@ -203,6 +203,17 @@ export async function pinConversation(
 	await sendJson(`/api/conversations/${id}/pinned`, "PUT", { pinned });
 }
 
+/**
+ * Nests conversation `id` in the list under conversation `parent`, or at the
+ * top for null.
+ */
+export async function reparentConversation(
+	id: string,
+	parent: string | null,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/parent`, "PUT", { parent });
+}
+
 /** Puts conversation `id` away, stopping its agent, or back on the list. */
 export async function archiveConversation(
 	id: string,

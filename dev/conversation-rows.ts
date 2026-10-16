@@ -195,14 +195,19 @@ function callerOfRow(tasks: Details[], row: Needing): string | null {
 }
 
 /**
- * Whether `part` nests under `host`: its task is a part of host's, or host's
- * agent added it, as when it handed a subagent a task that lands on trunk.
+ * Whether `part` nests under `host`: the person nested it there, or, until
+ * they nest it anywhere, its task is a part of host's, or host's agent added
+ * it, as when it handed a subagent a task that lands on trunk.
  */
 export function isHostOf(
 	tasks: Details[],
 	host: Needing,
 	part: Needing,
 ): boolean {
+	const placed = part.conversation?.parent ?? null;
+	if (placed !== null) {
+		return placed.id !== null && placed.id === host.conversation?.id;
+	}
 	const caller = callerOfRow(tasks, part);
 	return (
 		isPartOf(baseOfRow(tasks, part), lastTaskOfRow(host)) ||

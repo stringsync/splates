@@ -65,6 +65,12 @@ export interface ConversationState {
 	/** Kept atop the list, archived or not, until unpinned. */
 	pinned: boolean;
 	/**
+	 * Where the person nested it in the list, over where its task would:
+	 * under the conversation `id`, or at the top for a null `id`. Null until
+	 * they do, while it nests by its task.
+	 */
+	parent: { id: string | null } | null;
+	/**
 	 * The conversation that handed it its task with `arbor add --agent`, which
 	 * it answers to in place of the person: the page writes nothing to it but
 	 * an answer to what its agent asks permission for, and its terminating.
@@ -436,6 +442,7 @@ export function blank(
 		archivedAt: null,
 		archivedWith: null,
 		pinned: false,
+		parent: null,
 		handedBy,
 		startedBy,
 		skill: null,

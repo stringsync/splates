@@ -437,6 +437,20 @@ export class Conversation
 		this.set({ pinned });
 	}
 
+	/**
+	 * Nests it in the list under the conversation `id`, or at the top for
+	 * null, over where its task would.
+	 */
+	async reparent(id: string | null): Promise<void> {
+		if (this.state.parent !== null && this.state.parent.id === id) {
+			return;
+		}
+		const parent = { id };
+		this.log.write({ kind: "parent", parent });
+		await this.log.flush();
+		this.set({ parent });
+	}
+
 	/** Settles once everything said so far is in its log, for a reader of the file. */
 	async saved(): Promise<void> {
 		await this.log.flush();

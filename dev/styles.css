@@ -87,6 +87,7 @@
 @source "./conversation-list.tsx";
 @source "./new-menu.tsx";
 @source "./conversation-item.tsx";
+@source "./reparent.tsx";
 @source "./list-rows.tsx";
 @source "./mark.tsx";
 @source "./demo-cards.tsx";

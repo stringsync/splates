@@ -38,6 +38,7 @@ import { useHeld } from "./hooks/use-held";
 import { useHeldKey, useShortcut } from "./hooks/use-shortcut";
 import { CommandRow, External, Rows, TerminalRow } from "./list-rows";
 import { nest } from "./parts";
+import { Placing, placesOf } from "./reparent";
 import { NestedPanesContext } from "./side-panes";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import { OpenTerminalPage } from "./terminal";
@@ -273,43 +274,50 @@ export function ConversationList({
 			))}
 			{/* None, and no list either: an empty one would still take a gap. */}
 			{nested.length > 0 && (
-				<Rows
-					label="conversation list"
-					rows={nested}
-					beneath={beneath}
-					render={(row, nested) =>
-						row.conversation !== null ? (
-							<Item
-								conversation={row.conversation}
-								agent={agentName(agents, row.conversation.agent)}
-								need={row.need}
-								current={row.conversation.id === open}
-								onOpen={() => openRow(row)}
-								onLeft={
-									row.conversation.id === open
-										? () => goOn(rows, drafts, conversations, open, onOpen)
-										: undefined
-								}
-								hint={held ? hintOf(shown, row) : null}
-								hosting={hosting.has(row.conversation.id)}
-								nested={nested}
-							/>
-						) : (
-							row.task !== null && (
-								<External
-									task={row.task}
+				<Placing
+					value={{
+						places: placesOf(nested),
+						agentOf: (each) => agentName(agents, each.agent),
+					}}
+				>
+					<Rows
+						label="conversation list"
+						rows={nested}
+						beneath={beneath}
+						render={(row, nested) =>
+							row.conversation !== null ? (
+								<Item
+									conversation={row.conversation}
+									agent={agentName(agents, row.conversation.agent)}
 									need={row.need}
-									copied={copiedFor(drafts, null, row.task, row.need)}
-									seen={seenFor(drafts, null, row.task, row.need)}
-									current={`${TASK}${row.task.task}` === open}
+									current={row.conversation.id === open}
 									onOpen={() => openRow(row)}
+									onLeft={
+										row.conversation.id === open
+											? () => goOn(rows, drafts, conversations, open, onOpen)
+											: undefined
+									}
 									hint={held ? hintOf(shown, row) : null}
-									subagent={answersTo(row, conversations) !== null}
+									hosting={hosting.has(row.conversation.id)}
+									nested={nested}
 								/>
+							) : (
+								row.task !== null && (
+									<External
+										task={row.task}
+										need={row.need}
+										copied={copiedFor(drafts, null, row.task, row.need)}
+										seen={seenFor(drafts, null, row.task, row.need)}
+										current={`${TASK}${row.task.task}` === open}
+										onOpen={() => openRow(row)}
+										hint={held ? hintOf(shown, row) : null}
+										subagent={answersTo(row, conversations) !== null}
+									/>
+								)
 							)
-						)
-					}
-				/>
+						}
+					/>
+				</Placing>
 			)}
 			<button
 				type="button"

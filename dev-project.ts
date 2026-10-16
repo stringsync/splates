@@ -269,6 +269,7 @@ export interface Served extends AsyncResource {
 	renameConversation: Handler;
 	markUnread: Handler;
 	pinConversation: Handler;
+	reparentConversation: Handler;
 	archiveConversation: Handler;
 	conversationEvents: Handler;
 	terminalTree: (request: Request) => Promise<string>;

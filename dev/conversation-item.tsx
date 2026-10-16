@@ -5,6 +5,7 @@ import {
 	CircleDotIcon,
 	EllipsisVerticalIcon,
 	LinkIcon,
+	ListTreeIcon,
 	PencilIcon,
 	PinIcon,
 	PinOffIcon,
@@ -51,14 +52,16 @@ import { Dispatching, Trunk, whereRuns } from "./dispatching";
 import { Held, useHandedOutBy } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
+import { MoveUnder, usePlaces } from "./reparent";
 import { LaneIcon } from "./task-icon";
 import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
  * needs you, its name muted for one that answers to another, and a pin while
- * pinned. Hovered or focused, it offers a menu, Archive (or Unarchive), and
- * Pin (or Unpin), but for one nested under another, which moves with that one.
+ * pinned. Hovered or focused, it offers a menu, Move under… among it, Archive
+ * (or Unarchive), and Pin (or Unpin), but for one nested under another, which
+ * moves with that one.
  */
 export function Item({
 	conversation,
@@ -91,6 +94,8 @@ export function Item({
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
 	const [renaming, setRenaming] = useState(false);
+	const [moving, setMoving] = useState(false);
+	const places = usePlaces(conversation);
 	const { copied, copy } = useCopy();
 	const trunk = useContext(Trunk);
 	const { id, archived } = conversation;
@@ -120,6 +125,15 @@ export function Item({
 				/>
 			)}
 			{confirm}
+			{places !== null && (
+				<MoveUnder
+					conversation={conversation}
+					places={places}
+					open={moving}
+					onOpenChange={setMoving}
+					refuse={refuse}
+				/>
+			)}
 			<button
 				type="button"
 				data-row
@@ -253,6 +267,12 @@ export function Item({
 							>
 								<CircleDotIcon />
 								Mark as unread
+							</DropdownMenuItem>
+						)}
+						{places !== null && !archived && (
+							<DropdownMenuItem onClick={() => setMoving(true)}>
+								<ListTreeIcon />
+								Move under…
 							</DropdownMenuItem>
 						)}
 						{files && (

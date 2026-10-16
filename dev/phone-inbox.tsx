@@ -34,6 +34,7 @@ import { launch } from "./phone-home";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
+import { Placing, placesOf } from "./reparent";
 import { LaneIcon, TaskIcon } from "./task-icon";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
@@ -138,7 +139,12 @@ export function Inbox({
 						No conversations yet. Start one below.
 					</p>
 				) : (
-					<>
+					<Placing
+						value={{
+							places: placesOf(trees),
+							agentOf: (each) => agentName(agents, each.agent),
+						}}
+					>
 						<Group
 							title="Needs you"
 							trees={waiting}
@@ -167,7 +173,7 @@ export function Inbox({
 							onOpen={onOpen}
 							onClose={close}
 						/>
-					</>
+					</Placing>
 				)}
 			</div>
 			{/* Where a thumb is, as the chat apps keep their composer. */}

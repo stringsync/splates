@@ -2,6 +2,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import {
 	ArchiveIcon,
 	CircleDotIcon,
+	ListTreeIcon,
 	PencilIcon,
 	PinIcon,
 	PinOffIcon,
@@ -28,6 +29,7 @@ import { unnamed, useNameOf } from "./conversation-names";
 import { useHandedOutBy } from "./handed-out";
 import { Swipeable } from "./phone-swipe";
 import type { Refuse } from "./refusal";
+import { MoveUnder, usePlaces } from "./reparent";
 
 /** How long a finger rests on a row before its menu opens. */
 const HOLD_MS = 500;
@@ -142,8 +144,9 @@ export function Filed({
 
 /**
  * A row's menu as a sheet up from the bottom, as iOS's apps offer one on a
- * long press: its name, then Rename, Mark as unread, Pin and Archive, each a
- * finger's height, Pin only when `pins`. Rename turns the name into a box to type in.
+ * long press: its name, then Rename, Mark as unread, Move under…, Pin and
+ * Archive, each a finger's height, Pin only when `pins`. Rename turns the
+ * name into a box to type in; Move under… asks where in a dialog.
  */
 function RowMenu({
 	conversation,
@@ -166,6 +169,8 @@ function RowMenu({
 	const [value, setValue] = useState("");
 	const box = useRef<HTMLInputElement>(null);
 	const handedOut = useHandedOutBy(conversation) !== null;
+	const places = usePlaces(conversation);
+	const [moving, setMoving] = useState(false);
 	const { id, archived } = conversation;
 	const close = () => {
 		onOpenChange(false);
@@ -190,104 +195,126 @@ function RowMenu({
 		close();
 	};
 	return (
-		<DialogPrimitive.Root
-			open={open}
-			onOpenChange={(open) => (open ? onOpenChange(true) : close())}
-		>
-			<DialogPrimitive.Portal>
-				<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-				<DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-1 rounded-t-2xl bg-popover px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-popover-foreground shadow-xl outline-none transition-transform duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full">
-					<span
-						aria-hidden
-						className="mx-auto mb-1 h-1 w-10 rounded-full bg-muted-foreground/30"
-					/>
-					<DialogPrimitive.Title
-						className={cn(
-							"truncate px-3 pb-1 text-center text-muted-foreground text-sm",
-							renaming && "sr-only",
-						)}
-					>
-						{nameOf(conversation)}
-					</DialogPrimitive.Title>
-					{renaming ? (
-						<form
-							className="flex items-center gap-2 px-1 pb-1"
-							onSubmit={(event) => {
-								event.preventDefault();
-								save();
-							}}
+		<>
+			{places !== null && (
+				<MoveUnder
+					conversation={conversation}
+					places={places}
+					open={moving}
+					onOpenChange={setMoving}
+					refuse={refuse}
+				/>
+			)}
+			<DialogPrimitive.Root
+				open={open}
+				onOpenChange={(open) => (open ? onOpenChange(true) : close())}
+			>
+				<DialogPrimitive.Portal>
+					<DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/30 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+					<DialogPrimitive.Popup className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-1 rounded-t-2xl bg-popover px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-popover-foreground shadow-xl outline-none transition-transform duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full">
+						<span
+							aria-hidden
+							className="mx-auto mb-1 h-1 w-10 rounded-full bg-muted-foreground/30"
+						/>
+						<DialogPrimitive.Title
+							className={cn(
+								"truncate px-3 pb-1 text-center text-muted-foreground text-sm",
+								renaming && "sr-only",
+							)}
 						>
-							<input
-								ref={box}
-								aria-label={`Rename ${nameOf(conversation)}`}
-								value={value}
-								onChange={(event) => setValue(event.target.value)}
-								enterKeyHint="done"
-								className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							/>
-							<button
-								type="submit"
-								className="h-11 shrink-0 rounded-lg bg-primary px-4 font-medium text-base text-primary-foreground active:opacity-80"
+							{nameOf(conversation)}
+						</DialogPrimitive.Title>
+						{renaming ? (
+							<form
+								className="flex items-center gap-2 px-1 pb-1"
+								onSubmit={(event) => {
+									event.preventDefault();
+									save();
+								}}
 							>
-								Save
-							</button>
-						</form>
-					) : (
-						<>
-							{!handedOut && (
-								<Action icon={<PencilIcon />} onClick={rename}>
-									Rename
-								</Action>
-							)}
-							{!conversation.unread && !archived && (
-								<Action
-									icon={<CircleDotIcon />}
-									onClick={() => {
-										close();
-										void markUnread(id, true).catch((error: unknown) =>
-											refuse("Not marked unread", error),
-										);
-									}}
+								<input
+									ref={box}
+									aria-label={`Rename ${nameOf(conversation)}`}
+									value={value}
+									onChange={(event) => setValue(event.target.value)}
+									enterKeyHint="done"
+									className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								/>
+								<button
+									type="submit"
+									className="h-11 shrink-0 rounded-lg bg-primary px-4 font-medium text-base text-primary-foreground active:opacity-80"
 								>
-									Mark as unread
-								</Action>
-							)}
-							{pins && (
-								<Action
-									icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
-									onClick={() => {
-										close();
-										void pinConversation(id, !conversation.pinned).catch(
-											(error: unknown) =>
-												refuse(
-													conversation.pinned ? "Not unpinned" : "Not pinned",
-													error,
-												),
-										);
-									}}
-								>
-									{conversation.pinned ? "Unpin" : "Pin"}
-								</Action>
-							)}
-							{archive !== null && (
-								<Action
-									icon={<ArchiveIcon />}
-									onClick={() => {
-										close();
-										archive();
-									}}
-								>
-									Archive
-								</Action>
-							)}
-						</>
-					)}
-					<DialogPrimitive.Close className="mt-1 h-12 rounded-xl bg-muted font-medium text-base active:opacity-80">
-						Cancel
-					</DialogPrimitive.Close>
-				</DialogPrimitive.Popup>
-			</DialogPrimitive.Portal>
-		</DialogPrimitive.Root>
+									Save
+								</button>
+							</form>
+						) : (
+							<>
+								{!handedOut && (
+									<Action icon={<PencilIcon />} onClick={rename}>
+										Rename
+									</Action>
+								)}
+								{!conversation.unread && !archived && (
+									<Action
+										icon={<CircleDotIcon />}
+										onClick={() => {
+											close();
+											void markUnread(id, true).catch((error: unknown) =>
+												refuse("Not marked unread", error),
+											);
+										}}
+									>
+										Mark as unread
+									</Action>
+								)}
+								{places !== null && !archived && (
+									<Action
+										icon={<ListTreeIcon />}
+										onClick={() => {
+											close();
+											setMoving(true);
+										}}
+									>
+										Move under…
+									</Action>
+								)}
+								{pins && (
+									<Action
+										icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
+										onClick={() => {
+											close();
+											void pinConversation(id, !conversation.pinned).catch(
+												(error: unknown) =>
+													refuse(
+														conversation.pinned ? "Not unpinned" : "Not pinned",
+														error,
+													),
+											);
+										}}
+									>
+										{conversation.pinned ? "Unpin" : "Pin"}
+									</Action>
+								)}
+								{archive !== null && (
+									<Action
+										icon={<ArchiveIcon />}
+										onClick={() => {
+											close();
+											archive();
+										}}
+									>
+										Archive
+									</Action>
+								)}
+							</>
+						)}
+						<DialogPrimitive.Close className="mt-1 h-12 rounded-xl bg-muted font-medium text-base active:opacity-80">
+							Cancel
+						</DialogPrimitive.Close>
+					</DialogPrimitive.Popup>
+				</DialogPrimitive.Portal>
+			</DialogPrimitive.Root>
+		</>
 	);
 }
 
