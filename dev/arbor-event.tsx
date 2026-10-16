@@ -56,7 +56,7 @@ export function ArborEvent({
 			aria-label="arbor"
 			data-slot="arbor-event"
 			data-live={live || undefined}
-			className="my-4 text-muted-foreground text-xs"
+			className="my-6 text-muted-foreground text-xs"
 		>
 			<div className="flex items-center gap-3">
 				<Rule />
@@ -64,7 +64,7 @@ export function ArborEvent({
 				<Rule />
 			</div>
 			{listed.length > 0 && (
-				<ul className="mt-1.5 flex flex-col items-center gap-1.5">
+				<ul className="mt-2 flex flex-col items-center gap-2">
 					{listed.map(({ id, subject, note }) => (
 						<li key={id} className="flex max-w-full">
 							<NamedChip named={{ kind: "todo", id, subject, note }} whole />
