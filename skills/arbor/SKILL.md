@@ -535,8 +535,8 @@ or a short recording when it moves or takes steps. Save it outside the
 worktree, `arbor attach` it, and name the path it prints as
 `![what](/abs/path.png)`. The `arbor dev` page shows an attached file inline,
 in `ARBOR.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
-as a video. Only attached files show there, and they go when the task does,
-so never point a question at a file anywhere else.
+as a video. Only attached files show there, and they go when the task does (from
+`arbor dev` they stay with the conversation), so never point a question at a file anywhere else.
 
 Put each screenshot in the question it is for, under what it shows: under the
 question's line for what it asks about, or indented under a choice for what

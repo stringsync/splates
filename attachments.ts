@@ -96,3 +96,14 @@ export async function readFiles(
 function safe(name: string): string {
 	return basename(name).replace(/[^\w.-]+/g, "-") || "attachment";
 }
+
+/** The bytes of every file under `dir`, folders included, 0 when it is not there. */
+export async function folderBytes(fs: Fs, dir: string): Promise<number> {
+	let total = 0;
+	for (const name of await fs.readdir(dir).catch(() => [])) {
+		const path = `${dir}/${name}`;
+		const found = await fs.stat(path);
+		total += found.isDirectory() ? await folderBytes(fs, path) : found.size;
+	}
+	return total;
+}

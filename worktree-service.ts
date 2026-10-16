@@ -1,7 +1,7 @@
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import type { Adherence } from "./adherence";
-import { Attachments } from "./attachments";
+import { Attachments, folderBytes } from "./attachments";
 import type { Config } from "./config";
 import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
@@ -122,12 +122,57 @@ export class WorktreeService {
 	}
 
 	/**
-	 * Whether `path` is a file some task holds: one level inside a task's
-	 * folder, so never a record, and not a way out of here.
+	 * Where a task's files live when it attaches them from `conversation`:
+	 * beside that conversation's artifacts, in `attached/<task>/`, so they
+	 * outlive the task and a merged card's images still show.
+	 */
+	attached(conversation: string, task: string): Attachments {
+		return new Attachments(
+			`${this.conversationsDir}/${conversation}/attached/${task}`,
+			this.fs,
+		);
+	}
+
+	/**
+	 * Every folder holding files `task` attached: its own, and one in each
+	 * conversation that attached some.
+	 */
+	async filesOf(task: string): Promise<Attachments[]> {
+		const folders = [this.files(task)];
+		const entries = await this.fs
+			.readdir(this.conversationsDir)
+			.catch(() => []);
+		for (const entry of entries.filter((each) => !each.endsWith(".jsonl"))) {
+			const folder = this.attached(entry, task);
+			if ((await folder.held()).length > 0) {
+				folders.push(folder);
+			}
+		}
+		return folders;
+	}
+
+	/**
+	 * The bytes `conversation` keeps on disk, its artifacts and attached
+	 * files, which together are held to `artifactConversationCapacity`.
+	 */
+	conversationBytes(conversation: string): Promise<number> {
+		return folderBytes(this.fs, `${this.conversationsDir}/${conversation}`);
+	}
+
+	/**
+	 * Whether `path` is a file some task or conversation holds for a task:
+	 * one level inside a task's folder, or inside a conversation's
+	 * `attached/<task>/`, never a record or log, and not a way out of here.
 	 */
 	owns(path: string): boolean {
-		const inside = relative(this.tasksDir, resolve(path));
-		return !inside.startsWith("..") && inside.split(sep).length === 2;
+		const parts = relative(this.tasksDir, resolve(path)).split(sep);
+		if (!parts.includes("..") && parts.length === 2) {
+			return true;
+		}
+		const inside = relative(this.conversationsDir, resolve(path)).split(sep);
+		return (
+			!inside.includes("..") && inside.length === 4 && inside[1] === "attached"
+		);
 	}
 
 	/** Always answers; the returned worktree's status says what was found. */

@@ -47,6 +47,29 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("serves a file a conversation holds for a task, but not its log or artifacts", async () => {
+		await add(deps, "alpha");
+		const dir = `${deps.arborDir}/conversations`;
+		await deps.fs.mkdir(dir);
+		await deps.fs.writeBytes(`${dir}/c1.jsonl`, new Uint8Array([1]));
+		const [shot = ""] = await deps.service
+			.attached("c1", "alpha")
+			.store([{ name: "shot.png", bytes: new Uint8Array([5]) }]);
+		await deps.fs.mkdir(`${dir}/c1/artifacts`);
+		await deps.fs.writeBytes(`${dir}/c1/artifacts/a.png`, new Uint8Array([6]));
+
+		await serving(deps, async (_snapshot, port) => {
+			const file = (path: string) =>
+				fetch(
+					`http://127.0.0.1:${port}/api/file?${new URLSearchParams({ path })}`,
+				);
+
+			expect((await file(shot)).status).toBe(200);
+			expect((await file(`${dir}/c1.jsonl`)).status).toBe(404);
+			expect((await file(`${dir}/c1/artifacts/a.png`)).status).toBe(404);
+		});
+	});
+
 	it("serves a file a task holds in parts, but never its record", async () => {
 		await add(deps, "alpha");
 		const [clip = ""] = await deps.service

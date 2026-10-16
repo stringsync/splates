@@ -1,6 +1,7 @@
 import { basename, dirname, resolve } from "node:path";
 import { type IdProvider, UuidProvider } from "webappwiz/id";
 import type { Fs } from "webappwiz/system";
+import { folderBytes } from "./attachments";
 import type { Config } from "./config";
 import { fail } from "./exit";
 
@@ -63,7 +64,12 @@ export class Artifacts {
 					{ name, bytes: size, capacity: limits.file },
 				);
 			}
-			const conversation = kept(this.deps.held()) + size;
+			// Files attached to the conversation count toward its capacity too.
+			const attached = await folderBytes(
+				this.deps.fs,
+				`${dirname(this.dir)}/attached`,
+			);
+			const conversation = kept(this.deps.held()) + attached + size;
 			if (conversation > limits.conversation) {
 				refuse("this conversation", conversation, limits.conversation);
 			}

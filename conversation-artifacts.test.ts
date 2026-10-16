@@ -161,6 +161,22 @@ describe("Conversation artifacts", () => {
 		).toBe("not_found");
 	});
 
+	it("counts files attached to the conversation toward its capacity", async () => {
+		const conversation = await started();
+		await fs.mkdir(`${DIR}/${conversation.id}/attached/login`);
+		await fs.writeBytes(
+			`${DIR}/${conversation.id}/attached/login/shot.png`,
+			new Uint8Array(15),
+		);
+
+		const exit = await refused(
+			conversation.artifacts.add(file("report.html", "x".repeat(6))),
+		);
+
+		expect(exit.reason).toBe("too_large");
+		await conversation.artifacts.add(file("report.html", "x".repeat(5)));
+	});
+
 	it("refuses a file past its limit, changing nothing", async () => {
 		const conversation = await started();
 

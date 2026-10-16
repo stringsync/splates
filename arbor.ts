@@ -632,7 +632,7 @@ arbor
 	.command("attach")
 	.use(repository({ needs: "own" }))
 	.description(
-		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/arbor, which the `arbor dev` page shows inline; they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds",
+		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/arbor, which the `arbor dev` page shows inline; from a conversation (its $ARBOR_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds",
 	)
 	.arg("files", z.string(), {
 		default: "",
@@ -647,6 +647,11 @@ arbor
 		description:
 			"files it holds to drop first, comma separated, by path or stored name",
 	})
+	.option("conversation", z.string(), {
+		default: "",
+		description:
+			"conversation to keep the files with, when $ARBOR_CONVERSATION is not set",
+	})
 	.action(async (opts, ctx) =>
 		ctx.journal.record(
 			"attach",
@@ -655,6 +660,7 @@ arbor
 				attach(ctx, commaList(opts.files), ctx.ps.cwd(), {
 					task: opts.task || undefined,
 					remove: commaList(opts.remove),
+					conversation: opts.conversation || undefined,
 				}),
 			(stored) => ({ stored, removed: commaList(opts.remove) }),
 		),
