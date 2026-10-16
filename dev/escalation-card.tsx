@@ -1,5 +1,6 @@
 import type { JSX } from "react";
-import type { Assumed, Review, TaskReport } from "../asked";
+import type { Review, TaskReport } from "../asked";
+import type { Assumed } from "../assumed";
 import type { Demo } from "../demo";
 import type { Escalated } from "../events";
 import { InMessage } from "./card-reply";

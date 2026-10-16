@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { assumedIn } from "./asked";
+import { assumedIn } from "./assumed";
 
 describe("assumedIn", () => {
 	const plan = [
@@ -55,5 +55,25 @@ describe("assumedIn", () => {
 				pick: null,
 			},
 		]);
+	});
+
+	it("shows a call in the exhibit the reply captions it with, unless its plan shows it something", () => {
+		const exhibit = { title: "The rail", body: "![rail](/abs/rail.png)" };
+		const [planned, bare] = assumedIn(
+			[
+				"## Assumptions",
+				"",
+				"- [ ] 3. What should the retry limit be?",
+				"  ![limits](/abs/limits.png)",
+				"  - (a) Three tries (chosen)",
+			].join("\n"),
+			[
+				{ number: "3", text: "Three tries", exhibit },
+				{ number: "8", text: "A rail beside the thread", exhibit },
+			],
+		);
+
+		expect(planned?.body).toBe("![limits](/abs/limits.png)");
+		expect(bare?.body).toBe("![rail](/abs/rail.png)");
 	});
 });

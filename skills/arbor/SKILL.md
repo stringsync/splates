@@ -452,7 +452,7 @@ Say each assumption in the conversation too, in the reply that ends the turn
 you wrote it in, so the user sees the call while it is cheap to undo: a
 `- Assumed <number>: <what you chose>` line each, its number the one it has
 in `ARBOR.md`, beyond any cap on `- ` lines, after the others and before any
-todo, demo or question. The `arbor dev` page shows each as that item, with
+todo, demo or question, those an exhibit shows under it (see below). The `arbor dev` page shows each as that item, with
 its choices, for the user to challenge from the reply. A review leaves
 them out, since its Ready to merge card lists them, and a proposal lists them
 as Proposing says.
@@ -526,6 +526,45 @@ question they are for.
     ![rail](/abs/path/rail.png)
   - (b) A bordered panel
     ![panel](/abs/path/panel.png)
+```
+
+An assumption the user can see goes unread as a line of words, so show it:
+whenever a call is about something visible (a layout, a wording on screen)
+or a shape (a data flow, a state machine, a type), put an exhibit in its
+body, under its line: a screenshot or recording, a diagram as an attached
+image (the page draws no diagram source), or a short code block or diff.
+Words alone are no exhibit; they stay its body. Leave a call with nothing to
+show (a name, a limit) a line. An exhibit captions one or two calls, never
+more: two shown by the same screenshot or snippet each carry it, line for
+line, and the `arbor dev` page shows it once, open, with them under it, among
+the rest by number.
+
+```markdown
+## Assumptions
+
+- [ ] 7. When should the nav collapse into a menu?
+  ![header at 390px](/abs/path/header.png)
+  - (a) Below 480px (chosen)
+  - (b) Below 640px
+- [ ] 8. Where should the search box go once it collapses?
+  ![header at 390px](/abs/path/header.png)
+  - (a) Into the menu (chosen)
+  - (b) Beside the menu button
+```
+
+In a reply, put an exhibit among the `- Assumed` lines as a
+`### 🖼️ <what it shows>` heading, the exhibit, then, with no blank line
+between them, the `- Assumed` lines it captions:
+
+```markdown
+- Assumed 9: Named the breakpoint `NAV_COLLAPSE`
+
+### 🖼️ The header at 390px
+
+![header at 390px](/abs/path/header.png)
+
+- Assumed 7: The nav collapses into a menu below 480px
+- Assumed 8: The search box moves into the menu
 ```
 
 ## Keeping Blocked current

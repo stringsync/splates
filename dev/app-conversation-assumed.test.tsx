@@ -50,21 +50,25 @@ describe("App's cards for the calls a reply says it assumed", () => {
 			messages: [message("agent", lines.join("\n"))],
 		});
 
-	it("lists the calls as its plan writes them, offering Send only once one is challenged", async () => {
+	/** The page open on that conversation, and its card of the calls assumed. */
+	const assumedCard = async (lines: string[]) => {
 		const view = await testing.openConversations(
-			[
-				replying([
-					"Uploads stop on a 413 now.",
-					"",
-					"- Assumed 3: Three tries, a second apart",
-				]),
-			],
+			[replying(lines)],
 			"c1",
 			uploads,
 		);
 		const card = await waitFor(() =>
 			view.getByRole("region", { name: "assumed" }),
 		);
+		return { view, card };
+	};
+
+	it("lists the calls as its plan writes them, offering Send only once one is challenged", async () => {
+		const { view, card } = await assumedCard([
+			"Uploads stop on a 413 now.",
+			"",
+			"- Assumed 3: Three tries, a second apart",
+		]);
 		const list = within(card).getByRole("region", { name: "Assumptions" });
 		// The card's title says them, so the list folds under none of its own.
 		expect(
@@ -103,6 +107,34 @@ describe("App's cards for the calls a reply says it assumed", () => {
 				},
 			},
 		]);
+	});
+
+	it("lists the calls by number, each under the exhibit it shows", async () => {
+		const { card } = await assumedCard([
+			"- Assumed 9: Named it `MAX_RETRIES`",
+			"",
+			"### 🖼️ The retry limit",
+			"",
+			"![retry limit](/abs/limit.png)",
+			"",
+			"- Assumed 3: Three tries, a second apart",
+		]);
+		const exhibit = within(card).getByRole("figure", {
+			name: "exhibit for assumption 3",
+		});
+		expect(exhibit.textContent).toContain("retry limit");
+		expect(
+			within(exhibit).getByText("What should the retry limit be?"),
+		).toBeTruthy();
+		expect(
+			within(exhibit).getByRole("button", { name: "Challenge assumption 3" }),
+		).toBeTruthy();
+		expect(
+			within(card)
+				.getAllByRole("button", { name: /^Challenge assumption/ })
+				.map((each) => each.getAttribute("aria-label")),
+		).toEqual(["Challenge assumption 3", "Challenge assumption 9"]);
+		expect(within(exhibit).queryByText(/MAX_RETRIES/)).toBeNull();
 	});
 
 	it("lists them in the questions card they come before, a challenge going with the answers", async () => {
@@ -166,14 +198,7 @@ describe("App's cards for the calls a reply says it assumed", () => {
 	});
 
 	it("challenges a call its plan has no item for in words, quoting its line", async () => {
-		const view = await testing.openConversations(
-			[replying(["- Assumed 7: Named it `MAX_RETRIES`"])],
-			"c1",
-			uploads,
-		);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "assumed" }),
-		);
+		const { card } = await assumedCard(["- Assumed 7: Named it `MAX_RETRIES`"]);
 		await act(async () =>
 			fireEvent.click(
 				within(card).getByRole("button", { name: "Challenge assumption 7" }),

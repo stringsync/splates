@@ -498,6 +498,60 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("gives the calls an exhibit captions what it shows, up to a blank line", () => {
+		const found = stretches(
+			[
+				"The header wraps now.",
+				"",
+				"- Assumed 4: Named it `Header`",
+				"",
+				"### 🖼️ The header at 390px",
+				"",
+				"![header at 390px](/abs/header.png)",
+				"",
+				"- Assumed 5: The nav collapses into a menu below 480px",
+				"- Assumed 6: The search box moves into the menu too",
+				"",
+				"- Assumed 7: Kept the old breakpoints elsewhere",
+			].join("\n"),
+		);
+
+		const exhibit = {
+			title: "The header at 390px",
+			body: "![header at 390px](/abs/header.png)",
+		};
+		expect(found).toEqual([
+			{ type: "text", text: "The header wraps now." },
+			{
+				type: "assumed",
+				assumed: [
+					{ number: "4", text: "Named it `Header`" },
+					{
+						number: "5",
+						text: "The nav collapses into a menu below 480px",
+						exhibit,
+					},
+					{
+						number: "6",
+						text: "The search box moves into the menu too",
+						exhibit,
+					},
+					{ number: "7", text: "Kept the old breakpoints elsewhere" },
+				],
+			},
+		]);
+	});
+
+	it("leaves an exhibit that captions no call as text", () => {
+		const text = [
+			"### 🖼️ The header at 390px",
+			"",
+			"![header at 390px](/abs/header.png)",
+		].join("\n");
+
+		expect(stretches(text)).toEqual([{ type: "text", text }]);
+	});
+
 	it("ends a proposed todo at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

@@ -13,6 +13,7 @@ import {
 	CollapsibleTrigger,
 } from "#dev/components/ui/collapsible.tsx";
 import { cn } from "#dev/lib/utils.ts";
+import { shownIn } from "../exhibit";
 import type { Question } from "../plan";
 import {
 	type Answer,
@@ -26,9 +27,12 @@ import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 
 /**
- * A task's assumptions, closed until opened under a title that counts them,
- * and held open while any is challenged, so a challenge written never hides;
- * `bare`, with no title, open, where its card's own title already says them.
+ * A task's assumptions, by number, each under the exhibit its body shows,
+ * if any, those beside each other sharing one. With no exhibit among them,
+ * and not `bare`, they are closed until opened under a title that counts
+ * them, and held open while any is challenged, so a challenge written never
+ * hides. `bare` lists them with no title, open, where their card's own
+ * title already says them.
  * Each is what it asked over the choice the agent took, with a Challenge
  * control that opens it as a question card offering the rest, and Keep to
  * put that away again. `answers` are the challenges written, by position.
@@ -74,14 +78,15 @@ export function AssumptionList({
 			return after;
 		});
 	const [unfolded, setUnfolded] = useState(open);
-	const challenged = answers.some((answer) => answer != null);
-	const rows = assumptions.map((assumed, at) => {
+	const item = (assumed: Question, at: number, shown: boolean) => {
 		const answer = answers[at] ?? null;
-		const open = opened.has(assumed.number) || answer !== null;
-		return open ? (
+		return opened.has(assumed.number) || answer !== null ? (
 			<ChallengeCard
 				key={assumed.number}
-				assumed={assumed}
+				// What it shows is above it already.
+				assumed={
+					shown ? { ...assumed, body: shownIn(assumed.body).said } : assumed
+				}
 				answer={answer}
 				live={live}
 				onAnswer={(next) => onAnswer(assumed, next)}
@@ -113,14 +118,41 @@ export function AssumptionList({
 				onChallenge={() => toggle(assumed.number, true)}
 			/>
 		);
-	});
-	if (bare) {
+	};
+	const segments = exhibited(assumptions);
+	const rows = segments.map(({ shown, captions }) =>
+		shown === null ? (
+			captions.map(({ assumed, at }) => item(assumed, at, false))
+		) : (
+			<li key={captions[0]?.assumed.number}>
+				{/* A rule down its left, never a box: it holds its rows, which a
+				box inside the card would nest. */}
+				<figure
+					aria-label={`exhibit for ${captions.map(({ assumed }) => `assumption ${assumed.number}`).join(" and ")}`}
+					className="my-1.5 ml-4 flex flex-col border-muted-foreground/30 border-l-2"
+				>
+					{named(shown) !== null && (
+						<figcaption className="pb-1 pl-3 font-medium text-muted-foreground text-xs">
+							{named(shown)}
+						</figcaption>
+					)}
+					<Markdown text={shown} className="pr-4 pl-3 [&_p]:my-0" />
+					<ol className="flex flex-col pt-1.5 [&>li]:pl-3">
+						{captions.map(({ assumed, at }) => item(assumed, at, true))}
+					</ol>
+				</figure>
+			</li>
+		),
+	);
+	// An exhibit is there to be looked at, so a list that shows one never folds.
+	if (bare || segments.some(({ shown }) => shown !== null)) {
 		return (
-			<section aria-label="Assumptions" className="@container flex flex-col">
+			<section aria-label="Assumptions" className="@container">
 				<ol className="flex flex-col py-1.5">{rows}</ol>
 			</section>
 		);
 	}
+	const challenged = answers.some((answer) => answer != null);
 	return (
 		<Collapsible
 			open={unfolded || challenged}
@@ -139,6 +171,39 @@ export function AssumptionList({
 			</CollapsibleContent>
 		</Collapsible>
 	);
+}
+
+/** What an exhibit shows, as its first image's alt text says it; null for none. */
+function named(shown: string): string | null {
+	return /!\[([^\]]+)\]/.exec(shown)?.[1] ?? null;
+}
+
+/**
+ * `assumptions` by number, each kept with its position, those beside each
+ * other that show the same exhibit, their bodies' images and code blocks,
+ * gathered under it; null for those that show none.
+ */
+function exhibited(
+	assumptions: Question[],
+): { shown: string | null; captions: { assumed: Question; at: number }[] }[] {
+	const segments: {
+		shown: string | null;
+		captions: { assumed: Question; at: number }[];
+	}[] = [];
+	for (const { assumed, at } of assumptions
+		.map((assumed, at) => ({ assumed, at }))
+		.toSorted(
+			(one, other) => Number(one.assumed.number) - Number(other.assumed.number),
+		)) {
+		const { shown } = shownIn(assumed.body);
+		const last = segments.at(-1);
+		if (shown !== null && last?.shown === shown) {
+			last.captions.push({ assumed, at });
+		} else {
+			segments.push({ shown, captions: [{ assumed, at }] });
+		}
+	}
+	return segments;
 }
 
 /**

@@ -1,12 +1,8 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
 import { ListChecksIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
-import {
-	type Assumed,
-	assumedIn,
-	type Proposal,
-	type TaskReport,
-} from "../asked";
+import type { Proposal, TaskReport } from "../asked";
+import { type Assumed, assumedIn } from "../assumed";
 import type { Demo } from "../demo";
 import { type Event, isEscalation } from "../events";
 import type { Question } from "../plan";
