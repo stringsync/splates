@@ -165,6 +165,23 @@ traffic, and `--tunnel-name` is refused beside a provider of your own. One
 that is not ready, or fails to start, is logged and skipped: the page keeps
 serving on this machine.
 
+### Task ports
+
+Any port a task's processes listen on, in its worktree or under its agent, is
+found and forwarded as VS Code forwards ports, through the worker that runs
+it. Save a wildcard base host for this machine to open each one anywhere,
+behind the same Access application:
+
+```bash
+bunx @webappwiz/arbor dev --ports-host ports.example.com
+```
+
+`https://<task>-<port>.ports.example.com` then reaches that task's server,
+seen there as `localhost:<port>`, and only with a verified Access token;
+routing `*.ports.example.com` to `arbor dev`, its DNS and TLS, are yours.
+`--ports-host none` forgets the base. `arbor ports [task]` lists each port
+with its remote and local links, as the task's dialog on the page does.
+
 ### Stats
 
 As each task merges or is removed, arbor writes down how it went in

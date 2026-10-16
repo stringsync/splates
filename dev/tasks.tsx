@@ -17,6 +17,7 @@ import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
 import { QuestionCards } from "./question-cards";
 import { ActionBar, useRetry } from "./task-actions";
 import { TaskIcon } from "./task-icon";
+import { TaskPorts } from "./task-ports";
 import { TopBar } from "./top-bar";
 
 /**
@@ -170,6 +171,7 @@ export function Task({ task }: { task: Details }): JSX.Element {
 					</ul>
 				)}
 				<Facts task={task} retry={retry.note} />
+				<TaskPorts task={task.task} />
 			</div>
 			<DialogFooter className="sm:justify-between">
 				<ActionBar

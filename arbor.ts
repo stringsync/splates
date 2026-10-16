@@ -31,6 +31,7 @@ import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
 import { merge } from "./merge";
 import { path } from "./path";
+import { portsLs } from "./ports-list";
 import { newest } from "./release";
 import { remove } from "./remove";
 import { repository } from "./repository";
@@ -414,12 +415,43 @@ arbor
 		description:
 			"the named tunnel cloudflared runs for --tunnel, by default the one its own config names; not with a tunnel provider of arbor.config.ts",
 	})
+	.option("ports-host", z.string(), {
+		default: "",
+		description:
+			"the wildcard base host to serve task ports under, saved for this machine so a bare `arbor dev` serves it too: each port a task's processes listen on opens at https://<task>-<port>.<base>, to whoever Cloudflare Access lets in, and is refused without Access; routing *.<base> here, its DNS and TLS, are yours. `none` forgets it, leaving each task port forwarded to a port on this machine's loopback alone",
+	})
 	.option("slot", z.boolean(), {
 		default: false,
 		description:
 			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: a task's worktree keeps its word, as fox, until the task merges or is removed, which stops its server; run again, it stops the tree's last server first. Refused in an arbor repository's main tree, which every agent shares. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, starting with a throwaway project there; not with the tunnel and Access flags",
 	})
 	.action((opts, ctx) => serveDev(ctx, opts));
+
+arbor
+	.command("ports")
+	.description(
+		"list the ports tasks serve, found by the running `arbor dev` as an editor finds ports to forward: each port a process in a task's worktree, or under its agent, listens on, with its link through the ports host `arbor dev --ports-host` saved, behind Cloudflare Access, and its link on this machine; give the user both",
+	)
+	.arg("task", z.string(), {
+		default: "",
+		description: "only this task's ports; every task's by default",
+	})
+	.option("dev", z.string(), {
+		default: "",
+		description:
+			"the `arbor dev` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from ARBOR_DEV, else this machine's on its default port",
+	})
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) =>
+		portsLs({
+			task: opts.task,
+			dev: opts.dev,
+			json: opts.json,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
+		}),
+	);
 
 arbor
 	.command("agents")

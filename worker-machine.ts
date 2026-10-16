@@ -1,4 +1,4 @@
-import type { Fs, ProcessEntry, Ps } from "webappwiz/system";
+import type { Fs, ListeningEntry, ProcessEntry, Ps } from "webappwiz/system";
 import { Git, type GitResult } from "./git";
 
 /** A file's size, and its bytes from where the caller last read up to. */
@@ -10,11 +10,13 @@ export interface WorkerRead {
 /**
  * What the coordinator asks of the machine a task runs on: git in its
  * worktree around each tool call (`Watch`), a background command's output
- * (`ConversationBackground`), and the process table (`heldBy`).
+ * (`ConversationBackground`), the process table (`heldBy`), and the ports
+ * its processes listen on (`TaskPorts`).
  */
 export interface WorkerMachine {
 	git(cwd: string, args: string[]): Promise<GitResult>;
 	processes(): Promise<ProcessEntry[]>;
+	listening(): Promise<ListeningEntry[]>;
 	/** `path` from byte `from` on; a missing file reads as empty. */
 	read(path: string, from: number): Promise<WorkerRead>;
 	/** Whether anything is at `path`, a file or a directory. */
@@ -39,6 +41,10 @@ export class LocalWorkerMachine implements WorkerMachine {
 
 	processes(): Promise<ProcessEntry[]> {
 		return this.ps.processes();
+	}
+
+	listening(): Promise<ListeningEntry[]> {
+		return this.ps.listening();
 	}
 
 	exists(path: string): Promise<boolean> {

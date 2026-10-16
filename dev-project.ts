@@ -28,6 +28,7 @@ import type { Repository } from "./repository";
 import type { Details } from "./show";
 import type { Slot } from "./slots";
 import { tasksOf } from "./snapshot";
+import type { PortOwners } from "./task-ports";
 
 /**
  * Everything one project's page talks to: its records, its stream of
@@ -118,6 +119,14 @@ export async function serveProject(
 			lanes: await project.todos.laneNames(),
 		}),
 		lanes: () => project.todos.laneNames(),
+		portOwners: async () => ({
+			worktrees: (await service.list())
+				.filter((each) => each.exists)
+				.map(({ task, path }) => ({ task, path })),
+			agents: ((await conversations?.list()) ?? []).flatMap(({ state, pid }) =>
+				state.task !== null && pid !== null ? [{ task: state.task, pid }] : [],
+			),
+		}),
 		events: async () => watch.events(),
 		transcriber: () => context.transcriberFor(project, () => watch.tick()),
 		async disposeAsync() {
@@ -203,6 +212,8 @@ export interface Served extends AsyncResource {
 	needing: () => Promise<{ rows: Needing[]; lanes: LaneRecord[] }>;
 	/** Every lane there has been, to name an orchestrator after. */
 	lanes: () => Promise<LaneRecord[]>;
+	/** Its tasks' worktrees and agents, whose processes' ports are the tasks'. */
+	portOwners: () => Promise<PortOwners>;
 	events: Handler;
 	file: Handler;
 	paths: Handler;

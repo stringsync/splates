@@ -12,6 +12,7 @@ import { RUNNING } from "./release";
 import { WorkerCallHost } from "./worker-call-host";
 import type { WorkerChannel } from "./worker-channel";
 import { LocalWorkerMachine } from "./worker-machine";
+import { WorkerPortHost } from "./worker-port-host";
 import { WorkerProcessHost } from "./worker-process-host";
 import { WorkerPtyHost } from "./worker-pty-host";
 import { WorkerSession, type WorkerSessionOptions } from "./worker-session";
@@ -25,7 +26,7 @@ export interface WorkerDialer {
 }
 
 /** The channels a worker serves, which it says it can in its hello. */
-export const WORKER_CAPABILITIES = ["process", "pty", "calls"];
+export const WORKER_CAPABILITIES = ["process", "pty", "calls", "port"];
 
 /** Who a `WorkerDaemon` is and what it runs on. */
 export interface WorkerDaemonOptions {
@@ -46,7 +47,8 @@ export interface WorkerDaemonOptions {
 /**
  * `arbor worker run`: a worker that dials out to its coordinator and keeps
  * dialing, waiting longer after each failure, and runs what it is asked to
- * on this machine: processes, PTYs and calls. What it runs outlives a
+ * on this machine: processes, PTYs, calls, and connections to the ports its
+ * tasks serve. What it runs outlives a
  * dropped link, since the session replays what the coordinator missed.
  */
 export class WorkerDaemon implements AsyncResource {
@@ -153,6 +155,9 @@ export class WorkerDaemon implements AsyncResource {
 					break;
 				case "calls":
 					host = new WorkerCallHost(channel, this.machine);
+					break;
+				case "port":
+					host = new WorkerPortHost(channel, this.session);
 					break;
 				default:
 					log.error(

@@ -30,6 +30,12 @@ export interface DevOptions {
 	 * reads; this machine, read directly, by default.
 	 */
 	worker?: WorkerMachine | null;
+	/**
+	 * The wildcard base host task ports are served under, as
+	 * `<task>-<port>.<base>`, behind `access`; null serves them only on
+	 * loopback ports here. Refused without `access`.
+	 */
+	portsHost?: string | null;
 	/** Where to listen; the port `--port` asked for, and the span above it. */
 	ports?: PortProvider;
 	/**

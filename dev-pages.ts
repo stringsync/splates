@@ -41,6 +41,38 @@ export class Pages implements Eventful<PagesEvents> {
 		}
 	}
 
+	/** The server's routes for the page's own files, spread into its `routes`. */
+	routes(): Record<string, (request: Request) => Response> {
+		// Read on each request, since a rebuild replaces what is served. The
+		// page is a React app under `dev/`, built before publishing and carried
+		// in the bundle, so nothing here builds markup or reads it off disk.
+		const asset =
+			(body: () => string | Uint8Array<ArrayBuffer>, type: string) =>
+			(request: Request): Response =>
+				this.respond(request, body(), type);
+		return {
+			"/": asset(() => this.page, "text/html; charset=utf-8"),
+			"/main.js": asset(
+				() => this.assets.script,
+				"text/javascript; charset=utf-8",
+			),
+			"/main.js.map": asset(() => this.assets.scriptMap, "application/json"),
+			"/styles.css": asset(() => this.assets.styles, "text/css; charset=utf-8"),
+			// At the root, so its scope is the whole page.
+			"/worker.js": asset(
+				() => this.assets.worker,
+				"text/javascript; charset=utf-8",
+			),
+			"/worker.js.map": asset(() => this.assets.workerMap, "application/json"),
+			"/manifest.webmanifest": asset(
+				() => this.assets.manifest,
+				"application/manifest+json; charset=utf-8",
+			),
+			"/icon-192.png": asset(() => this.assets.icons[192], "image/png"),
+			"/icon-512.png": asset(() => this.assets.icons[512], "image/png"),
+		};
+	}
+
 	/** `body` as `type`, or a 304 for a request that holds this very build. */
 	respond(
 		request: Request,

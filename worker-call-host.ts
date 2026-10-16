@@ -13,6 +13,7 @@ export const CallRequest = z.discriminatedUnion("method", [
 		args: z.array(z.string()),
 	}),
 	z.object({ id: z.number().int(), method: z.literal("processes") }),
+	z.object({ id: z.number().int(), method: z.literal("listening") }),
 	z.object({
 		id: z.number().int(),
 		method: z.literal("exists"),
@@ -83,6 +84,8 @@ export class WorkerCallHost implements Resource {
 				return { ...(await this.machine.git(request.cwd, request.args)) };
 			case "processes":
 				return (await this.machine.processes()).map((each) => ({ ...each }));
+			case "listening":
+				return (await this.machine.listening()).map((each) => ({ ...each }));
 			case "exists":
 				return await this.machine.exists(request.path);
 			case "read": {

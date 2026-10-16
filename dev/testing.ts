@@ -8,6 +8,7 @@ import { Duration } from "webappwiz/time";
 import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import type { ConversationState, Session } from "../conversations";
 import type { ServerChoice } from "../dev-servers";
+import type { PortLink } from "../dev-task-ports";
 import type { FileDiff } from "../diff";
 import type { Held } from "../held";
 import type { Landed } from "../landed";
@@ -177,6 +178,8 @@ export class Testing implements Resource {
 	machine: MachineStatus | null = null;
 	/** What `/api/setup` reads, or null for it to fail. */
 	setup: SetupProgress | null = null;
+	/** The ports `/api/ports` says tasks serve. */
+	ports: PortLink[] = [];
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
@@ -241,6 +244,9 @@ export class Testing implements Resource {
 				return this.setup === null
 					? new Response(null, { status: 500 })
 					: Response.json(this.setup);
+			}
+			if (route === "/api/ports") {
+				return Response.json({ base: null, ports: this.ports });
 			}
 			if (route === "/api/machine") {
 				return this.machine === null

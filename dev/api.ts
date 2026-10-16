@@ -6,6 +6,7 @@
  */
 
 import type { KeptCred, Scope } from "../creds";
+import type { PortLink } from "../dev-task-ports";
 import type { FileDiff } from "../diff";
 import type { HeavyJobsReading } from "../heavy";
 import type { Landed } from "../landed";
@@ -296,6 +297,18 @@ export async function identity(): Promise<string | null> {
 		throw new ApiError("error", `/api/identity: ${response.status}`);
 	}
 	return ((await response.json()) as { email: string | null }).email;
+}
+
+/**
+ * Each port a task serves now, with its link through the ports host, if one
+ * is saved, and on the machine `arbor dev` runs on.
+ */
+export async function taskPorts(): Promise<PortLink[]> {
+	const response = await fetch("/api/ports");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/ports: ${response.status}`);
+	}
+	return ((await response.json()) as { ports: PortLink[] }).ports;
 }
 
 /** What the page shows of the machine: its reading, and its heavy jobs. */

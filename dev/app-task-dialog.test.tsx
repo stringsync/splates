@@ -77,6 +77,34 @@ see the header
 		).toBeNull();
 	});
 
+	it("links each port the task serves, through the ports host and on the machine", async () => {
+		testing.ports = [
+			{
+				task: "beta",
+				port: 5173,
+				local: "http://localhost:5173",
+				remote: "https://beta-5173.ports.example.com",
+			},
+			{
+				task: "gamma",
+				port: 3000,
+				local: "http://localhost:3000",
+				remote: null,
+			},
+		];
+		const view = await testing.openTasks({ tasks: [escalated] });
+		const dialog = await openBeta(view);
+
+		const ports = await waitFor(() =>
+			within(dialog).getByRole("region", { name: "ports" }),
+		);
+		expect(
+			within(ports)
+				.getAllByRole("link")
+				.map((link) => link.getAttribute("href")),
+		).toEqual(["https://beta-5173.ports.example.com", "http://localhost:5173"]);
+	});
+
 	it("answers a task's open questions from its action bar in the dialog when the page runs no conversations", async () => {
 		const view = await testing.openTasks({ tasks: [escalated] });
 		const dialog = await openBeta(view);

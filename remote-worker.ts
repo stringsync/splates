@@ -1,4 +1,4 @@
-import type { ProcessEntry } from "webappwiz/system";
+import type { ListeningEntry, ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
 import type { Launch } from "./agent-process";
 import type { GitResult } from "./git";
@@ -77,12 +77,24 @@ export class RemoteWorker implements WorkerMachine {
 		);
 	}
 
+	/**
+	 * Opens a connection to `port` on the worker's loopback, such as a task's
+	 * dev server, as a `port` channel for a `PortPipe` to carry.
+	 */
+	port(port: number): WorkerChannel {
+		return this.session.open("port", { port });
+	}
+
 	async git(cwd: string, args: string[]): Promise<GitResult> {
 		return GitAnswer.parse(await this.call({ method: "git", cwd, args }));
 	}
 
 	async processes(): Promise<ProcessEntry[]> {
 		return ProcessesAnswer.parse(await this.call({ method: "processes" }));
+	}
+
+	async listening(): Promise<ListeningEntry[]> {
+		return ListeningAnswer.parse(await this.call({ method: "listening" }));
 	}
 
 	async exists(path: string): Promise<boolean> {
@@ -146,6 +158,14 @@ const ProcessesAnswer = z.array(
 		pgid: z.number(),
 		tpgid: z.number(),
 		command: z.string(),
+	}),
+);
+const ListeningAnswer = z.array(
+	z.object({
+		pid: z.number(),
+		host: z.string(),
+		port: z.number(),
+		cwd: z.string().nullable(),
 	}),
 );
 const ReadAnswer = z.object({ size: z.number(), bytes: z.string() });

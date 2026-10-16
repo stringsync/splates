@@ -34,6 +34,7 @@
 @source "./board-drag.tsx";
 @source "./todo-edit.tsx";
 @source "./tasks.tsx";
+@source "./task-ports.tsx";
 @source "./task-actions.tsx";
 @source "./dispatching.tsx";
 @source "./start-menu.tsx";

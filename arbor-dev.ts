@@ -3,7 +3,12 @@ import { MemoryLock } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
 import type { ArborDeps } from "./arbor";
-import { rosterOf, savedTunnelOf, seeded } from "./arbor-flags";
+import {
+	rosterOf,
+	savedPortsHostOf,
+	savedTunnelOf,
+	seeded,
+} from "./arbor-flags";
 import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations } from "./conversations";
 import { type DevServer, dev, devPorts } from "./dev";
@@ -23,6 +28,7 @@ import { Outcomes } from "./outcomes";
 import { Projects } from "./projects";
 import { newest, sourceCommit } from "./release";
 import { arborHome } from "./roster";
+import { portsHostFlag } from "./saved-ports-host";
 import { SharedBrowser } from "./shared-browser";
 import { SERVER_PID, SLOT, slotOf } from "./slots";
 import { SERVING, supervise, UNBUILT } from "./supervise";
@@ -45,6 +51,7 @@ export async function serveDev(
 ): Promise<DevServer | undefined> {
 	// Read before the child starts, so a half-given pair fails once.
 	let access = accessConfig(opts["access-team"], opts["access-aud"]);
+	const portsFlag = portsHostFlag(opts["ports-host"]);
 	let tunnel = tunnelConfig(
 		opts.tunnel,
 		opts["tunnel-name"],
@@ -81,6 +88,9 @@ export async function serveDev(
 		// The slot is readied here, once, and its child serves it as a bare
 		// `arbor dev` serves the machine's tunnel, from the slot's home.
 		const slot = opts.slot ? await devSlot(ctx) : null;
+		if (portsFlag !== undefined) {
+			await savedPortsHostOf(ctx).save(portsFlag);
+		}
 		// Agents run on the local worker, beside the server, so a restart
 		// leaves them running.
 		const worker = ["worker", "run", "--id", LOCAL_WORKER, "--quiet"];
@@ -100,6 +110,8 @@ export async function serveDev(
 		access = saved?.access ?? null;
 		tunnel = saved?.tunnel ?? null;
 	}
+	const portsHost =
+		portsFlag === undefined ? await savedPortsHostOf(ctx).read() : portsFlag;
 	// A slot's server says which process it is, so the next start of the slot
 	// can tell one left running by a killed wrapper.
 	if (ctx.ps.env(SLOT) !== undefined) {
@@ -152,6 +164,7 @@ export async function serveDev(
 				.filter(Boolean),
 			access,
 			tunnel,
+			portsHost,
 			conversations: ({ arborDir, git }) =>
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,
@@ -233,5 +246,6 @@ export interface DevFlags {
 	"access-aud": string;
 	tunnel: string;
 	"tunnel-name": string;
+	"ports-host": string;
 	slot: boolean;
 }

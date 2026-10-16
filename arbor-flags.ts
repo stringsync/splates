@@ -10,6 +10,7 @@ import {
 	Roster,
 	type RosterAgent,
 } from "./roster";
+import { SavedPortsHost } from "./saved-ports-host";
 import { SavedTunnel } from "./saved-tunnel";
 import { SLOT_POOL } from "./slots";
 
@@ -47,6 +48,11 @@ export function rosterOf({ ps, fs }: ArborDeps): Roster {
 }
 
 /** The tunnel `arbor tunnel setup` saved for this machine. */
+/** The base host `arbor dev --ports-host` saved for this machine. */
+export function savedPortsHostOf({ ps, fs }: ArborDeps): SavedPortsHost {
+	return new SavedPortsHost(`${arborHome(ps)}/ports.json`, fs);
+}
+
 export function savedTunnelOf({
 	ps,
 	fs,
