@@ -1,0 +1,96 @@
+# arbor becomes Spinning Plates
+
+arbor leaves webappwiz as its own product, **Spinning Plates**, and stays
+open source. It earns money the way Zed does: every line of code is public,
+and what is sold is the running service, hosted workers and a hosted
+coordinator, never a feature held back.
+
+Each todo in the Spinning Plates lane points here. Decisions marked
+*settled* were made with the user; those under *Open* are asked when their
+todo starts, never decided by the agent alone.
+
+## Name and owner (settled)
+
+- Product: Spinning Plates, at spinningplates.tech.
+- Command and repo: `splates`, short for spinningplates and free on npm,
+  GitHub and Homebrew. `spin` is taken (Fermyon), and `plates`, `sp` and
+  `spl` are too common; a user who wants two letters aliases it.
+- Owner: the stringsync LLC. The repo is `stringsync/splates`, public; the
+  package is `@stringsync/splates`, its bin `splates`. The LLC owns the
+  product, sells the service, and holds the right to relicense.
+- Only `packages/arbor`, `skills/arbor` and `evals/arbor-skill` move;
+  the rest of webappwiz stays in webappwiz.
+
+## Open core, the Zed way (settled)
+
+- **All code is public**: the CLI, the page, the coordinator, the worker
+  protocol, `worker run`, every `WorkerProvider`, the Pulumi programs.
+- **The service is what sells**: cloud workers by the hour and an
+  always-on hosted coordinator, run by stringsync from spinningplates.tech.
+  Customers pay for machines they never run, update or watch.
+- **Paid is the default path**: "Add cloud workers" on the Workers page
+  signs in to spinningplates.tech and machines appear, as Zed's editor
+  signs in to its own servers. The default provider is public code calling
+  the spinningplates.tech API.
+- **Self-hosting is first class**: home workers, your own Pulumi stack,
+  your own coordinator, all documented and none hobbled, as arbor already
+  works fully without the `arbor dev` harness. Trust is the moat, and
+  running the machines is the product.
+- **Only operations stay private**: API keys, Pulumi state, billing
+  credentials and the spinningplates.tech deployment config, in stringsync's
+  cloud account and secret store, never in a repo.
+- Public code never depends on anything private; the service plugs in
+  through `WorkerProvider` and the worker protocol.
+- What the service charges for, beyond list price, stays out of the public
+  repo: prices, margins and spend live with the business, while the
+  architecture stays here.
+
+## Leaving webappwiz (settled)
+
+1. **Cut webappwiz's dependency on arbor** while still in one repo, so a
+   public package never needs splates: `@webappwiz/cli` imports
+   `@webappwiz/arbor/skills` and `@webappwiz/arbor/update`, and `wiz`
+   imports `@webappwiz/arbor/heavy` and ships `skills/arbor`. What both
+   need moves into `webappwiz` or `@webappwiz/cli`; the dependency then runs
+   one way, splates on webappwiz from npm.
+2. **Extract with history** into `stringsync/splates` with
+   `git filter-repo`, keeping the three paths, `packages/arbor` at the
+   root. The repo setup comes along (biome, tsconfig, scry config and the
+   rules that apply, `bin/`, setup), and `webappwiz: workspace:*` becomes a
+   version range. In-flight arbor tasks land first.
+3. **Rename** in the new repo, so webappwiz's tasks never rebase over it:
+   the command, the package, `arbor.config.ts`, `~/.arbor` and
+   `.git/arbor`, `ARBOR_*`, `ARBOR.md`, the `[ARBOR …]` directives and the
+   skill, with a one-time migration of existing projects (the global
+   server already migrates older records forward).
+4. **Retire `@webappwiz/arbor`**: `npm deprecate` it pointing at
+   `@stringsync/splates` (npm allows unpublishing only in the first 72
+   hours), remove the three paths from webappwiz, and use splates there as
+   a dev tool installed on the machine, not a dependency, so webappwiz
+   installs and passes CI for anyone without it.
+
+webappwiz's public history keeps arbor; it was MIT, and rewriting the
+history takes nothing back. Versions published so far stay MIT.
+
+## Licensing
+
+Versions up to 0.0.44 are MIT and stay so. The LLC can relicense new ones
+while it is the only copyright holder, so a CLA (or a DCO with a
+relicensing clause) comes before the first outside contribution. Zed keeps
+its editor GPL and its server AGPL, so no one can host a closed fork of
+the service.
+
+## Open
+
+Asked when their todo starts:
+
+- License of the new repo: MIT throughout, or the coordinator and service
+  under AGPL with the CLI and worker MIT (extraction todo).
+- Whether the rename reaches `ARBOR.md`, the `[ARBOR …]` directives and the
+  state directories, or only the command and package (rename todo).
+- CLA or DCO, and which tool (CLA todo).
+- How the hosted service charges (by worker-hour at a markup, or a
+  subscription with included hours), accounts, and the billing provider
+  (hosted workers todo).
+- Whether the hosted coordinator is one box per customer or shared
+  (#295).
