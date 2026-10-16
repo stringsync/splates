@@ -1,5 +1,10 @@
 import { CheckIcon, CircleDotIcon, ListChecksIcon } from "lucide-react";
 import { type JSX, type KeyboardEvent, type ReactNode, useState } from "react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "#dev/components/ui/tooltip.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
@@ -51,7 +56,6 @@ export function QuestionCard({
 			choices.findIndex((choice) => said.picks.includes(choice.key)),
 		),
 	);
-	// Whether its choices' reasons are shown.
 	const [reasons, setReasons] = useState(false);
 	const reasoned = choices.some((choice) => choice.why !== "");
 	const toggle = (key: string) => {
@@ -301,12 +305,33 @@ export function QuestionCard({
 	);
 }
 
-/** How far the call reaches, as the agent sized it. */
+/** What each size means, as the skill defines it, for the letter's hover. */
+const SIZE_MEANINGS: Record<string, string> = {
+	small: "stays local and is cheap to redo",
+	medium: "shapes how a feature behaves or looks, or spans systems",
+	large: "hard to undo or outward-facing",
+};
+
+/**
+ * How far the call reaches, as the agent sized it: its first letter, quiet
+ * beside the question, and on hover the size and what it means.
+ */
 function Size({ size }: { size: string }): JSX.Element {
+	const word = size.charAt(0).toUpperCase() + size.slice(1);
+	const meaning = SIZE_MEANINGS[size];
+	const label =
+		meaning === undefined ? `${word} call` : `${word} call: ${meaning}`;
 	return (
-		<span className="mt-px shrink-0 rounded-full bg-muted px-1.5 py-px text-[11px] text-muted-foreground capitalize">
-			{size}
-		</span>
+		<Tooltip>
+			<TooltipTrigger
+				render={<span />}
+				aria-label={label}
+				className="mt-0.5 shrink-0 cursor-default rounded font-medium text-[11px] text-muted-foreground/70 tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			>
+				{word.charAt(0)}
+			</TooltipTrigger>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
 	);
 }
 

@@ -103,6 +103,12 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		expect(card.textContent).toContain("two calls on the header");
 		expect(card.textContent).toContain("The header wraps now.");
 		expect(card.textContent).toContain("the header on a phone");
+		// The size is a quiet letter, its meaning on hover.
+		expect(
+			within(card).getByLabelText("Large call: hard to undo or outward-facing")
+				.textContent,
+		).toBe("L");
+		expect(card.textContent).not.toContain("large");
 	});
 
 	it("says why it needs the person when no question is open", async () => {
@@ -293,7 +299,7 @@ function escalated(secs: number): Extract<Event, { action: "escalate" }> & {
 				"- [ ] 4. Which pages need it?",
 				"  - [a] Todos",
 				"  - [b] Tasks",
-				"- [ ] 6. How should a stale todo be shown?",
+				"- [ ] 6. (large) How should a stale todo be shown?",
 				"  - (a) A muted card",
 				"  - (b) A badge",
 			].join("\n"),
