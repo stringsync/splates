@@ -13,6 +13,7 @@ import {
 
 const BOARD: NamedSystem = {
 	name: "board",
+	description: "Todos and the lanes they sit in",
 	aliases: ["lanes"],
 	globs: ["src/board/**", "src/gone/**"],
 };
@@ -42,7 +43,7 @@ describe("App's Systems page", () => {
 				},
 				{ name: "skills", files: 3, unmatched: [], changed: 0, changes: [] },
 			],
-			since: "2026-09-01T00:00:00Z",
+			since: new Date(Date.now() - 2.5 * 86_400_000).toISOString(),
 			scanned: 500,
 			uncovered: 40,
 			groups: Array.from({ length: 10 }, (_, at) => ({
@@ -80,7 +81,7 @@ describe("App's Systems page", () => {
 		return view;
 	}
 
-	it("lists each system with how often it changed and its latest change", async () => {
+	it("lists each system with what it is and how often it changed", async () => {
 		const view = await openSystems();
 		const list = await waitFor(() =>
 			view.getByRole("list", { name: "system list" }),
@@ -88,7 +89,9 @@ describe("App's Systems page", () => {
 
 		await waitFor(() => {
 			expect(within(list).getByText("14 changes")).toBeTruthy();
-			expect(within(list).getByText("Drag a card on a phone")).toBeTruthy();
+			expect(
+				within(list).getByText("Todos and the lanes they sit in"),
+			).toBeTruthy();
 			expect(within(list).getByText("0 changes")).toBeTruthy();
 		});
 		expect(location.hash).toBe("#systems");
@@ -96,7 +99,7 @@ describe("App's Systems page", () => {
 
 	it("opens a system to what it is made of, what names it, and its changes", async () => {
 		const view = await openSystems();
-		await waitFor(() => view.getByText("Drag a card on a phone"));
+		await waitFor(() => view.getByText("14 changes"));
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: /board/ })),
@@ -104,6 +107,9 @@ describe("App's Systems page", () => {
 
 		const page = view.getByRole("region", { name: "system board" });
 		expect(location.hash).toBe("#systems/board");
+		expect(
+			within(page).getByText("Todos and the lanes they sit in"),
+		).toBeTruthy();
 		expect(within(page).getByText("12 files on trunk")).toBeTruthy();
 		expect(within(page).getByRole("alert").textContent).toContain(
 			"src/gone/**",

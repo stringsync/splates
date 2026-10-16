@@ -88,6 +88,7 @@ function describe(system: NamedSystem): string {
 		aliases.length > 0
 			? `${color.bold(system.name)} (${aliases.join(", ")})`
 			: color.bold(system.name),
+		...(system.description === undefined ? [] : [`  ${system.description}`]),
 		`  ${color.dim("globs")}   ${system.globs.join(", ")}`,
 		...(ignore.length > 0
 			? [`  ${color.dim("ignore")}  ${ignore.join(", ")}`]

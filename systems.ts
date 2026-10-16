@@ -7,6 +7,8 @@ export const SYSTEMS_FILE = "arbor.systems.ts";
 
 /** One named part of the code: the files it is made of. */
 export interface System {
+	/** What it is for in one short line, never how it works, which goes stale. */
+	description?: string;
 	/**
 	 * Other names people call it by, at most two, so one part of the code
 	 * keeps one word for it.
@@ -38,7 +40,7 @@ export interface SystemsOptions {
  * import type { SystemsFile } from "@webappwiz/arbor/systems";
  *
  * export default {
- * 	playback: { aliases: ["player"], globs: ["src/audio/**"] },
+ * 	playback: { description: "Playing a song", globs: ["src/audio/**"] },
  * } satisfies SystemsFile;
  * ```
  *
@@ -167,7 +169,7 @@ export function hashed(text: string): string[] {
  * One line telling an agent what a mentioned system is made of:
  *
  * ```
- * #playback (player, audio engine): src/player/**, src/audio/**; not src/player/*.test.ts
+ * #playback (player, audio engine): Playing a song. Made of src/player/**, src/audio/**; not src/player/*.test.ts
  * ```
  */
 export function mentionLine(system: NamedSystem): string {
@@ -176,7 +178,11 @@ export function mentionLine(system: NamedSystem): string {
 	return [
 		`#${system.name}`,
 		aliases.length > 0 ? ` (${aliases.join(", ")})` : "",
-		`: ${system.globs.join(", ")}`,
+		": ",
+		system.description === undefined
+			? ""
+			: `${system.description.replace(/\.$/, "")}. Made of `,
+		system.globs.join(", "),
 		ignore.length > 0 ? `; not ${ignore.join(", ")}` : "",
 	].join("");
 }
@@ -189,9 +195,18 @@ export function unknownLine(name: string): string {
 	return `#${name} names no system: find the code it means, and offer to name it as the arbor skill's Systems section says.`;
 }
 
+/** The longest {@link System.description} arbor takes. */
+export const DESCRIPTION_MAX = 80;
+
 const SYSTEMS = z.record(
 	z.string().min(1),
 	z.strictObject({
+		description: z
+			.string()
+			.min(1)
+			.max(DESCRIPTION_MAX)
+			.refine((text) => !text.includes("\n"), "must be one line")
+			.optional(),
 		aliases: z.array(z.string().min(1)).max(2).optional(),
 		globs: z.array(z.string().min(1)).min(1),
 		ignore: z.array(z.string().min(1)).optional(),
@@ -221,7 +236,8 @@ export async function readSystems(
 
 /**
  * `systems` in the shape {@link System} names, or throws
- * naming `path` for one that is not, one with more than two aliases, or two
+ * naming `path` for one that is not, one with more than two aliases or a
+ * description longer than one short line, or two
  * that answer to the same name, which would leave `arbor systems <name>`
  * guessing.
  */

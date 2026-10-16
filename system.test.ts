@@ -7,6 +7,7 @@ import { Testing } from "./testing";
 
 const SYSTEMS = `export default ${JSON.stringify({
 	playback: {
+		description: "Playing a song",
 		aliases: ["player"],
 		globs: ["src/audio/**"],
 		ignore: ["src/audio/**/*.test.ts"],
@@ -29,7 +30,9 @@ describe("systems", () => {
 		await systems(deps);
 
 		const out = color.strip(deps.out());
-		expect(out).toContain("playback (player)\n  globs   src/audio/**");
+		expect(out).toContain(
+			"playback (player)\n  Playing a song\n  globs   src/audio/**",
+		);
 		expect(out).toContain("  ignore  src/audio/**/*.test.ts");
 		expect(out).toContain("mixer\n  globs   src/mixer/**");
 	});
@@ -42,6 +45,7 @@ describe("systems", () => {
 		expect(JSON.parse(deps.out())).toEqual([
 			{
 				name: "playback",
+				description: "Playing a song",
 				aliases: ["player"],
 				globs: ["src/audio/**"],
 				ignore: ["src/audio/**/*.test.ts"],

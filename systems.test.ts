@@ -6,6 +6,7 @@ import { NodeFs } from "webappwiz/system";
 import { mentionLine, Systems, unknownLine } from "./systems";
 
 const PLAYBACK = {
+	description: "Playing a song",
 	aliases: ["player", "audio engine"],
 	globs: ["packages/player/**", "src/audio/**"],
 	ignore: ["packages/player/**/*.test.ts"],
@@ -88,9 +89,9 @@ describe("Systems", () => {
 		expect(unknownLine("mixer")).toStartWith("#mixer names no system: ");
 	});
 
-	it("mentionLine names the system, its aliases, globs, and ignores", () => {
+	it("tells an agent a mentioned system's aliases, description, globs, and ignores", () => {
 		expect(mentionLine({ name: "playback", ...PLAYBACK })).toBe(
-			"#playback (player, audio engine): packages/player/**, src/audio/**; not packages/player/**/*.test.ts",
+			"#playback (player, audio engine): Playing a song. Made of packages/player/**, src/audio/**; not packages/player/**/*.test.ts",
 		);
 	});
 
@@ -138,12 +139,24 @@ describe("Systems", () => {
 		expect(await failure()).toContain("playback.globs");
 	});
 
-	it("Systems.at refuses a system with more than two aliases", async () => {
+	it("refuses a system with more than two aliases", async () => {
 		await named({
 			playback: { globs: ["a/**"], aliases: ["player", "audio", "sound"] },
 		});
 
 		expect(await failure()).toContain("playback.aliases");
+	});
+
+	it("refuses a description longer than one short line", async () => {
+		await named({
+			playback: { globs: ["a/**"], description: "x".repeat(81) },
+		});
+		expect(await failure()).toContain("playback.description");
+
+		await named({
+			playback: { globs: ["a/**"], description: "Playing\na song" },
+		});
+		expect(await failure()).toContain("must be one line");
 	});
 
 	it("Systems.at refuses two systems that answer to the same name", async () => {
@@ -166,7 +179,7 @@ describe("Systems", () => {
 		expect(await failure()).toContain("arbor.systems.ts");
 	});
 
-	it("Systems.at refuses systems still in arbor.config.ts, saying to run `arbor update`", async () => {
+	it("refuses systems still in arbor.config.ts, saying to run `arbor update`", async () => {
 		await fs.write(
 			join(root, "arbor.config.ts"),
 			`export default { systems: { docs: { globs: ["*.md"] } } };\n`,

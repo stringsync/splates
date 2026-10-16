@@ -73,7 +73,7 @@ function SystemChips({
 
 /**
  * A system a message mentions as `#name`: its color and name, opening to its
- * aliases and the globs it is made of.
+ * aliases, what it is, and the globs it is made of.
  */
 export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
 	const aliases = system.aliases ?? [];
@@ -94,6 +94,9 @@ export function SystemChip({ system }: { system: NamedSystem }): JSX.Element {
 					<p className="text-muted-foreground text-xs">
 						Also {aliases.join(", ")}
 					</p>
+				)}
+				{system.description !== undefined && (
+					<p className="text-sm">{system.description}</p>
 				)}
 				<Globs system={system} className="pt-1" />
 				{/* The address change is all it takes: the page follows it. */}

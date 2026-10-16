@@ -13,7 +13,7 @@ name instead.
 ```markdown
 - [ ] 3. Should the mixing code be an arbor system?
   You have called `src/mixer/**` "the mixer" three times, and no system covers it.
-  - (a) Name it `#mixer`, for `src/mixer/**` (chosen)
+  - (a) Name it `#mixer`, "Mixing tracks into one", for `src/mixer/**` (chosen)
   - (b) Add `src/mixer/**` to `#playback`, with `#mixer` as an alias
   - (c) Leave it unnamed
 ```
@@ -22,3 +22,11 @@ Here `(chosen)` is what you would pick, not what you did: write nothing until
 the answer comes, then commit the change to `arbor.systems.ts` with your
 task, where names go without the `#`. `satisfies SystemsFile` types what you
 write, the typecheck catches a mistake, and `arbor systems` reads it back.
+
+Give every system a description: a few words on what it is for, as the user
+would say it, such as "Mixing tracks into one". Leave out how it works, its
+files, its types and what it does today, since nothing checks a description
+against the code and any such detail goes stale as the code changes; the
+globs already say what it is made of. arbor refuses one longer than a line
+of 80 characters. When your task changes what a system is for, update its
+description with it.

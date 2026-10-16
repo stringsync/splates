@@ -174,7 +174,10 @@ function UncoveredLine({ group }: { group: Uncovered }): JSX.Element {
 	);
 }
 
-/** A system in the list: its name and aliases, then its latest change. */
+/**
+ * A system in the list: its name and aliases, how often it changed, and what
+ * it is.
+ */
 function SystemRow({
 	system,
 	changes,
@@ -184,7 +187,6 @@ function SystemRow({
 	changes: SystemChanges | null;
 	onOpen: () => void;
 }): JSX.Element {
-	const latest = changes?.changes[0];
 	return (
 		<button
 			type="button"
@@ -222,12 +224,9 @@ function SystemRow({
 						</span>
 					)}
 				</span>
-				{latest !== undefined && (
-					<span className="flex min-w-0 items-baseline gap-2 pl-3.5 text-muted-foreground text-xs max-md:pl-0 max-md:text-sm">
-						<span className="min-w-0 flex-1 truncate">{latest.subject}</span>
-						<span className="shrink-0 text-xs tabular-nums">
-							{age(latest.at)}
-						</span>
+				{system.description !== undefined && (
+					<span className="truncate pl-3.5 text-sm max-md:pl-0">
+						{system.description}
 					</span>
 				)}
 			</span>
@@ -235,7 +234,10 @@ function SystemRow({
 	);
 }
 
-/** One system: its globs, what refers to it, and its recent changes. */
+/**
+ * One system: what it is, its globs, what refers to it, and its recent
+ * changes.
+ */
 function SystemView({
 	system,
 	changes,
@@ -285,6 +287,9 @@ function SystemView({
 					)
 				}
 			/>
+			{system.description !== undefined && (
+				<p className="text-sm max-md:text-[15px]">{system.description}</p>
+			)}
 			<Part title="Made of">
 				<Globs system={system} className="max-md:text-[13px]" />
 				{changes !== null && (

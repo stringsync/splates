@@ -282,7 +282,8 @@ The 📝 belongs to the heading: leave it out of `arbor todo add` and
 ## Systems
 
 A repo can name parts of its code as systems in `arbor.systems.ts`, each a
-name keying its aliases, its globs, and globs to `ignore`. `arbor systems`
+name keying a short description, its aliases, its globs, and globs to
+`ignore`. `arbor systems`
 prints them, `arbor systems <name>` one by its name or an alias, and
 `arbor systems --task <task>` those a task's changed files fall in. Read them
 when you need them, never up front. Wherever a system covers what you mean,
