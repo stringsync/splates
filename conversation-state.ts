@@ -230,6 +230,11 @@ export interface Tool {
 	paths: string[];
 	/** The subagent's tool call it was made under, if one made it. */
 	parent: string | null;
+	/**
+	 * For a call that starts a subagent, as Claude's Agent tool: its type and
+	 * the model it was asked to run on, each null when the call names none.
+	 */
+	subagent?: { type: string | null; model: string | null };
 	/** When it began and finished; null in a log too old to say, or until it has. */
 	at: string | null;
 	until: string | null;

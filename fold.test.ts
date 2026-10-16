@@ -245,6 +245,36 @@ describe("fold", () => {
 		});
 	});
 
+	it("keeps the type and model a subagent call asks for, as Claude's Agent tool sends them", () => {
+		const into = state();
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "a1",
+			title: "Map the cards",
+			kind: "think",
+			status: "in_progress",
+			rawInput: {
+				description: "Map the cards",
+				prompt: "Find the cards",
+				subagent_type: "Explore",
+				model: "haiku",
+			},
+		});
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "a2",
+			title: "Fix it",
+			kind: "think",
+			status: "in_progress",
+			rawInput: { description: "Fix it", prompt: "Fix the bug" },
+		});
+
+		expect(into.messages[0]?.parts).toMatchObject([
+			{ subagent: { type: "Explore", model: "haiku" } },
+			{ subagent: { type: null, model: null } },
+		]);
+	});
+
 	it("keeps what a call searches for or fetches, as its input names it", () => {
 		const into = state();
 		fold(into, {

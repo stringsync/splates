@@ -34,9 +34,8 @@ import { toCardTop } from "./card-shell";
 import { TASK } from "./conversation-address";
 import { bringSession, listSessions } from "./conversation-api";
 import { type AgentChoice, agentName } from "./conversation-feed";
-import { useNameOf } from "./conversation-names";
 import { type Drafts, externalDraft } from "./drafts";
-import { Held } from "./handed-out";
+import { Held, ReadOnlyBanner, SubagentComposer } from "./handed-out";
 import { useNow } from "./hooks/use-now";
 import { QuestionCards } from "./question-cards";
 import { Refusal, useRefusal } from "./refusal";
@@ -151,6 +150,7 @@ export function TaskView({
 					{ label: "New conversation", icon: <SquarePenIcon />, run: onNew },
 				].filter((each) => each !== null)}
 			/>
+			{by !== null && <ReadOnlyBanner by={by} phone={onBack !== null} />}
 			<div className="relative min-h-0 flex-1 overflow-y-auto">
 				{/* Where a conversation's widgets stand, at the right. */}
 				<div className="absolute top-4 right-4 hidden w-60 @min-[61rem]:block">
@@ -168,9 +168,7 @@ export function TaskView({
 								</AlertDescription>
 								<TakeUpOrRemove task={task} className="col-start-2 mt-2" />
 							</Alert>
-						) : by !== null ? (
-							<ReportsTo by={by} onOpen={onOpen} />
-						) : (
+						) : by !== null ? null : (
 							<Alert variant="warning">
 								<TriangleAlertIcon />
 								<AlertTitle>Its agent runs outside the page</AlertTitle>
@@ -211,6 +209,13 @@ export function TaskView({
 					</div>
 				</div>
 			</div>
+			{by !== null && (
+				<div className="@min-[61rem]:pe-[16.75rem]">
+					<div className="mx-auto w-full max-w-[44rem] px-4 pb-4">
+						<SubagentComposer task={task.task} by={by} onOpen={onOpen} />
+					</div>
+				</div>
+			)}
 			<Dialog open={details} onOpenChange={setDetails}>
 				{details && <Task task={task} />}
 			</Dialog>
@@ -399,42 +404,6 @@ export function TaskLine({
 		>
 			{line}
 		</button>
-	);
-}
-
-/**
- * Where an external agent's warning would be, for one that answers to a
- * conversation: its questions and reviews reach the person through that
- * one's reports, so they answer it there.
- */
-function ReportsTo({
-	by,
-	onOpen,
-}: {
-	by: ConversationState;
-	onOpen: (id: string) => void;
-}): JSX.Element {
-	const nameOf = useNameOf();
-	return (
-		<div
-			role="note"
-			aria-label="reports to"
-			className="flex flex-col gap-3 rounded-lg border px-4 py-3 text-muted-foreground"
-		>
-			<p>
-				A subagent of{" "}
-				<span className="font-medium text-foreground">{nameOf(by)}</span>, which
-				it reports to: answer it there.
-			</p>
-			<Button
-				variant="outline"
-				size="sm"
-				className="self-start"
-				onClick={() => onOpen(by.id)}
-			>
-				Open {nameOf(by)}
-			</Button>
-		</div>
 	);
 }
 

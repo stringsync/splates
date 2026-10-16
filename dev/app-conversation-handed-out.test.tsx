@@ -119,6 +119,10 @@ describe("App's conversation of a task another handed out", () => {
 			"Handed out by Stats lane, which it reports to. Talk to it there.",
 		);
 		expect(view.queryByRole("textbox", { name: "Message input" })).toBeNull();
+		expect(
+			view.getByText("This conversation is read-only.").parentElement
+				?.textContent,
+		).toBe("This conversation is read-only. Only Stats lane writes to it.");
 
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Stats lane" })),

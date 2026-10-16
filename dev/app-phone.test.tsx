@@ -9,6 +9,7 @@ import {
 	message,
 	resize,
 	Testing,
+	tool,
 	waitFor,
 	within,
 } from "./testing";
@@ -124,15 +125,61 @@ describe("App on a phone", () => {
 		expect(sub?.textContent).toContain("sub");
 
 		await act(async () => fireEvent.click(sub as HTMLElement));
-		const note = view.getByRole("note", { name: "reports to" });
+		const note = view.getByRole("note", { name: "subagent" });
 		expect(view.queryByText("Its agent runs outside the page")).toBeNull();
+		expect(view.getByText("This conversation is read-only.")).toBeTruthy();
+		expect(note.textContent).toContain("A subagent of Orchestrator");
 		await act(async () =>
 			fireEvent.click(
-				within(note).getByRole("button", { name: "Open Orchestrator" }),
+				within(note).getByRole("button", { name: "Orchestrator" }),
 			),
 		);
 
 		expect(location.hash).toBe("#conversations/orch");
+	});
+
+	it("names a subagent's parent, its task, and the type and model it was started on", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "orch",
+					name: "Worker protocol",
+					status: "running",
+					task: "worker-protocol",
+					messages: [
+						message(
+							"agent",
+							tool({
+								id: "agent1",
+								title: "Map the cards",
+								kind: "think",
+								subagent: { type: "Explore", model: "haiku" },
+							}),
+							tool({
+								id: "add1",
+								command: "arbor add sub --goal 'Map them'",
+								parent: "agent1",
+							}),
+						),
+					],
+				}),
+			],
+			null,
+			{ tasks: [details({ task: "sub", caller: "orch" })] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(view.getByRole("region", { name: "inbox" })).getByText("sub"),
+			),
+		);
+		const note = view.getByRole("note", { name: "subagent" });
+		expect(note.textContent).toContain(
+			"A subagent of Worker protocol on worker-protocol, which it reports to.",
+		);
+		expect(
+			within(note).getByText("Map the cards · Explore · haiku"),
+		).toBeTruthy();
 	});
 
 	it("renames, marks unread and archives a conversation from a long press on its inbox row", async () => {

@@ -17,7 +17,16 @@ export function fill(
 	tool.title = update.title ?? tool.title;
 	tool.kind = update.kind ?? tool.kind;
 	const input = update.rawInput as
-		| { command?: unknown; pattern?: unknown; query?: unknown; url?: unknown }
+		| {
+				command?: unknown;
+				pattern?: unknown;
+				query?: unknown;
+				url?: unknown;
+				description?: unknown;
+				prompt?: unknown;
+				subagent_type?: unknown;
+				model?: unknown;
+		  }
 		| null
 		| undefined;
 	if (typeof input?.command === "string") {
@@ -28,6 +37,17 @@ export function fill(
 	const target = input?.pattern ?? input?.query ?? input?.url;
 	if (typeof target === "string") {
 		tool.target = target;
+	}
+	// Claude's Agent tool: its type is optional, its prompt and description not.
+	if (
+		typeof input?.subagent_type === "string" ||
+		(typeof input?.prompt === "string" && typeof input.description === "string")
+	) {
+		tool.subagent = {
+			type:
+				typeof input.subagent_type === "string" ? input.subagent_type : null,
+			model: typeof input.model === "string" ? input.model : null,
+		};
 	}
 	if (update.locations != null && update.locations.length > 0) {
 		tool.paths = [...new Set(update.locations.map((each) => each.path))];
@@ -104,10 +124,11 @@ export function toolIn(state: ConversationState, id: string): Tool | null {
 	return null;
 }
 
-/** The subagent's tool call an update came from: Claude stamps it in `_meta`. */
+/** The subagent's tool call an update came from; null for the agent's own. */
 export function parentOf(update: {
 	_meta?: { [key: string]: unknown } | null;
 }): string | null {
+	// Claude stamps it in `_meta`.
 	const claude = update._meta?.claudeCode as
 		| { parentToolUseId?: unknown }
 		| undefined;
