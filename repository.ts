@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
 import { FileLock, type Fs, type Lock } from "webappwiz/system";
+import { Adherence } from "./adherence";
 import type { Config } from "./config";
 import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
 import { Format } from "./format";
@@ -123,6 +124,7 @@ export async function openRepository(
 		fs,
 		ps,
 		outcomes: new Outcomes(`${registry}/outcomes.jsonl`, fs),
+		adherence: new Adherence(`${registry}/adherence.jsonl`, fs, null),
 	});
 	await service.init();
 

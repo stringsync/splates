@@ -82,7 +82,11 @@ export async function grantRetry(
 	// The lease stays as escalate left it: whoever picks the task up takes it
 	// with `claim`, the same as any other resume.
 	return {
-		worktree: await found.save({ status: "working", mergeAttempts: 0 }),
+		worktree: await found.save({
+			status: "working",
+			mergeAttempts: 0,
+			retries: (found.state?.retries ?? 0) + 1,
+		}),
 		attempts: found.mergeAttempts,
 	};
 }

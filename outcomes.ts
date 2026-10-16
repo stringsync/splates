@@ -1,6 +1,8 @@
 import type { Fs } from "webappwiz/system";
 import type { Device } from "./conversation-state";
-import type { MergeFailure, RemoveReason } from "./worktree";
+import type { Finding } from "./findings";
+import type { TaskUsage } from "./task-log";
+import type { DiffSize, MergeFailure, RemoveReason } from "./worktree";
 
 /**
  * Every task that has ended on this machine, across projects, in
@@ -85,6 +87,17 @@ export interface Outcome {
 	 * the page while it ran. Absent from older lines.
 	 */
 	promptsFrom?: Partial<Record<Device, number>>;
+	/**
+	 * What its own turns used, not the rest of its conversation's. Absent from
+	 * older lines, and for a task with no conversation log to read.
+	 */
+	usage?: TaskUsage;
+	/** How long its agent worked, its turns summed, in milliseconds. Absent as `usage` is. */
+	workedMs?: number;
+	/** What it landed, or for a removed task, what its branch held. Absent from older lines. */
+	size?: DiffSize;
+	/** What went worse than it could have. Absent from older lines, never read as none. */
+	findings?: Finding[];
 	/** The `arbor dev` conversation that ended it; null for an external agent. */
 	conversation: string | null;
 	/** The agent `arbor add --agent` handed it to, if any. */

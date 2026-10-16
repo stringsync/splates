@@ -188,11 +188,12 @@ export class Worktree {
 		return this.service.git.commitsAhead(this.base, this.branch);
 	}
 
-	/** Lines added and removed across all its pending work, as `diff` shows it. */
-	async diffStat(): Promise<{ added: number; removed: number } | null> {
+	/** Files and lines across all its pending work, as `diff` shows it; null without a branch. */
+	async size(): Promise<DiffSize | null> {
 		const files = await this.diff();
 		return (
 			files && {
+				files: files.length,
 				added: files.reduce((sum, file) => sum + file.added, 0),
 				removed: files.reduce((sum, file) => sum + file.removed, 0),
 			}
@@ -260,6 +261,15 @@ export interface DiscardOptions {
 	commits?: string[];
 	/** Why it was removed, as `arbor remove --reason` gives it. */
 	reason?: RemoveReason;
+	/** What a merge lands, read before landing as `changed` is. */
+	size?: DiffSize;
+}
+
+/** How big a change is, as its diff counts it. */
+export interface DiffSize {
+	files: number;
+	added: number;
+	removed: number;
 }
 
 /** Why a task can be removed rather than merged, as `--reason` names it. */
@@ -293,9 +303,10 @@ export interface Escalation {
 	at: string;
 	/**
 	 * Set for a task handed over to be approved rather than to answer
-	 * questions, the reason saying what to look at. Records from before
-	 * reviews were a state hold the number of the question that asked, `"4"`.
+	 * questions, the reason saying what to look at.
 	 */
+	// Records from before reviews were a state hold the number of the
+	// question that asked, `"4"`.
 	review?: true | string;
 	/**
 	 * When `claim` took the task back up, ending the wait on a person; absent
@@ -306,6 +317,18 @@ export interface Escalation {
 
 /** Why a merge failed, as `merge` refuses it. */
 export type MergeFailure = "conflict" | "tests_failed" | "merge_failed";
+
+/** One time `merge` turned a task away, and what it said of why. */
+export interface GateFailure {
+	reason: MergeFailure | "budget_exhausted";
+	at: string;
+	/** The files the rebase conflicted in, for a conflict. */
+	files?: string[];
+	/** The tests the gate named as failing, for `tests_failed`. */
+	tests?: string[];
+	/** What git said, for `merge_failed`. */
+	error?: string;
+}
 
 export interface TaskState {
 	task: string;
@@ -323,6 +346,14 @@ export interface TaskState {
 	mergeFailures?: number;
 	/** `mergeFailures` by why each failed. Absent in old records. */
 	mergeFailuresBy?: Partial<Record<MergeFailure, number>>;
+	/**
+	 * Each time the gate turned it away, oldest first, with what it named:
+	 * every failed merge, and each refusal once its attempts ran out. Absent in
+	 * old records.
+	 */
+	gateFailures?: GateFailure[];
+	/** How many times `arbor retry` granted it more attempts. Absent in old records. */
+	retries?: number;
 	createdAt: string;
 	updatedAt: string;
 	escalations?: Escalation[];
@@ -353,10 +384,11 @@ export interface Dispatched {
 	/** The conversation `arbor dev` started, once it has. */
 	conversation?: string;
 	/**
-	 * Set while the postCheckout hook readies the tree, which `arbor dev`
-	 * waits out: recorded from the start, the task reads as handed over
-	 * rather than an external agent's.
+	 * Set while the postCheckout hook readies the tree; `arbor dev` starts the
+	 * agent once it clears.
 	 */
+	// Recorded from the start, so the task reads as handed over rather than
+	// an external agent's.
 	pending?: true;
 	/**
 	 * Set when the agent at work on the task handed it on with `arbor

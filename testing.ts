@@ -7,6 +7,7 @@ import { CounterIdProvider } from "webappwiz/id";
 import { color, MemoryLogger } from "webappwiz/log";
 import { FileLock, NodeFs, NodePs } from "webappwiz/system";
 import { FakeProcess } from "webappwiz/system/testing";
+import { Adherence } from "./adherence";
 import type { Config } from "./config";
 import { Creds, type SecretStores } from "./creds";
 import { assets } from "./dev/assets";
@@ -66,6 +67,7 @@ export class Testing implements AsyncDisposable {
 	readonly projects: Projects;
 	/** How each task ended, kept in `arborHome`. */
 	readonly outcomes: Outcomes;
+	readonly adherence: Adherence;
 	/** The dev slots tasks give back as they end, kept in `arborHome`. */
 	readonly slots: Slots;
 	/** Maps for the system's stores, so no test reads or writes the user's. */
@@ -103,10 +105,16 @@ export class Testing implements AsyncDisposable {
 			join(this.arborHome, "outcomes.jsonl"),
 			this.fs,
 		);
+		this.adherence = new Adherence(
+			join(this.arborHome, "adherence.jsonl"),
+			this.fs,
+			null,
+		);
 		this.service = new WorktreeService(this.git, this.config, this.arborDir, {
 			fs: this.fs,
 			ps: this.ps,
 			outcomes: this.outcomes,
+			adherence: this.adherence,
 		});
 		this.shell = new Shell({ ps: this.ps });
 		this.journal = new Journal(

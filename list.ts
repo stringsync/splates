@@ -55,7 +55,7 @@ export async function list(
 
 async function row(worktree: Worktree): Promise<Row> {
 	const { state } = worktree;
-	const diff = state ? await worktree.diffStat() : null;
+	const diff = state ? await worktree.size() : null;
 	return {
 		task: worktree.task,
 		// One unreadable record shows as `unknown` instead of taking down the

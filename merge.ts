@@ -9,7 +9,7 @@ import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
 import type { Todos } from "./todos";
-import type { MergeFailure, Worktree } from "./worktree";
+import type { GateFailure, MergeFailure, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 const TAIL_LINES = 40;
@@ -79,6 +79,15 @@ export async function merge(
 		);
 	}
 	if (worktree.mergeAttempts >= config.mergeRetryCount) {
+		// Once per budget: an agent that keeps trying is one refusal, not many.
+		if (worktree.state.gateFailures?.at(-1)?.reason !== "budget_exhausted") {
+			await worktree.save({
+				gateFailures: [
+					...(worktree.state.gateFailures ?? []),
+					{ reason: "budget_exhausted", at: new Date().toISOString() },
+				],
+			});
+		}
 		fail(
 			"budget_exhausted",
 			`'${task}' has used its ${config.mergeRetryCount} merge attempts: run \`arbor escalate <reason>\`, and a human can grant another ${config.mergeRetryCount} with \`arbor retry ${task}\`; or \`arbor remove ${task}\` and start over against current ${base}`,
@@ -118,7 +127,7 @@ export async function merge(
 		const paths = await git.conflictedPaths(worktree.path);
 		facts.files = paths;
 		await lock.release();
-		await bump(worktree, "conflict");
+		await bump(worktree, "conflict", { files: paths });
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		fail(
 			"conflict",
@@ -160,10 +169,10 @@ export async function merge(
 		// to its previous state.
 		await git.resetHard(worktree.path, before);
 		await lock.release();
-		await bump(worktree, "tests_failed");
-		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		const output = `${gated.stdout}\n${gated.stderr}`;
 		const failed = failedTests(output);
+		await bump(worktree, "tests_failed", { tests: failed });
+		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		facts.failedTests = failed;
 		fail(
 			"tests_failed",
@@ -202,6 +211,7 @@ export async function merge(
 	// is nothing between them to read, and the outcome needs what it touched.
 	const changed = (await current.changedFiles()) ?? [];
 	const commits = (await current.commitMessages()) ?? undefined;
+	const size = (await current.size()) ?? undefined;
 	const holder = await git.worktreeFor(base);
 	const landing = holder ?? git.root;
 	const checkout = holder ? null : await git.checkout(base);
@@ -211,7 +221,9 @@ export async function merge(
 			: await git.mergeFfOnly(landing, service.branchFor(task));
 	if (merged.code !== 0) {
 		await lock.release();
-		await bump(worktree, "merge_failed");
+		await bump(worktree, "merge_failed", {
+			error: (merged.stderr || merged.stdout).trim(),
+		});
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		// Said to the agent landing the part, not the one holding the tree: telling
 		// it to stash sends it into a tree it does not own, and a stash there is
@@ -248,7 +260,11 @@ export async function merge(
 	// to delete, and spawning git from a directory that no longer exists fails
 	// with ENOENT before git is even reached.
 	service.ps.cd(git.root);
-	const discarded = await current.discard("merged", { changed, commits });
+	const discarded = await current.discard("merged", {
+		changed,
+		commits,
+		size,
+	});
 	await lock.release();
 	if (discarded.code !== 0) {
 		fail(
@@ -287,13 +303,21 @@ export async function merge(
 	log.info(lines.join("\n"));
 }
 
-async function bump(worktree: Worktree, reason: MergeFailure): Promise<void> {
+async function bump(
+	worktree: Worktree,
+	reason: MergeFailure,
+	named: Omit<GateFailure, "reason" | "at">,
+): Promise<void> {
 	const by = worktree.state?.mergeFailuresBy ?? {};
 	await worktree.take({
 		status: "working",
 		mergeAttempts: worktree.mergeAttempts + 1,
 		mergeFailures: (worktree.state?.mergeFailures ?? 0) + 1,
 		mergeFailuresBy: { ...by, [reason]: (by[reason] ?? 0) + 1 },
+		gateFailures: [
+			...(worktree.state?.gateFailures ?? []),
+			{ reason, at: new Date().toISOString(), ...named },
+		],
 	});
 }
 

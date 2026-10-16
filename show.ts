@@ -125,7 +125,7 @@ export class TaskDetails {
 		// A record whose worktree or branch is gone is still worth showing: the
 		// status names what is wrong, and asking git about a branch that is not
 		// there would only fill the fields with nulls.
-		const stat = worktree.hasBranch ? await worktree.diffStat() : null;
+		const stat = worktree.hasBranch ? await worktree.size() : null;
 		const plan = worktree.exists
 			? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => null)
 			: null;

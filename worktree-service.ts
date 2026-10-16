@@ -1,13 +1,21 @@
 import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
+import type { Adherence } from "./adherence";
 import { Attachments } from "./attachments";
 import type { Config } from "./config";
+import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, PLAN_FILE, picks } from "./plan";
 import { Systems } from "./systems";
-import { type DiscardOptions, type TaskState, Worktree } from "./worktree";
+import { taskLog } from "./task-log";
+import {
+	type DiffSize,
+	type DiscardOptions,
+	type TaskState,
+	Worktree,
+} from "./worktree";
 
 const BRANCH_PREFIX = "task/";
 
@@ -27,6 +35,8 @@ export interface WorktreeServiceOptions {
 	ps?: Ps;
 	/** Where each task's ending is written down; none, and nothing is. */
 	outcomes?: Outcomes;
+	/** How closely conversations follow the skill, which an ending's findings read. */
+	adherence?: Adherence;
 }
 
 export class WorktreeService {
@@ -35,6 +45,7 @@ export class WorktreeService {
 	private readonly conversationsDir: string;
 	private readonly fs: Fs;
 	private readonly outcomes: Outcomes | null;
+	private readonly adherence: Adherence | null;
 	readonly ps: Ps;
 
 	// scry-ignore classes-over-function-exports: Git is the only way arbor speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
@@ -47,6 +58,7 @@ export class WorktreeService {
 		this.fs = opts.fs ?? new NodeFs();
 		this.ps = opts.ps ?? new NodePs();
 		this.outcomes = opts.outcomes ?? null;
+		this.adherence = opts.adherence ?? null;
 		this.tasksDir = `${arborDir}/tasks`;
 		this.removedDir = `${arborDir}/removed`;
 		this.conversationsDir = `${arborDir}/conversations`;
@@ -186,7 +198,7 @@ export class WorktreeService {
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
 		await this.files(worktree.task).clear();
 		await this.rememberRemoved(worktree.task);
-		await this.recordOutcome(worktree, ended, opts, ending);
+		await this.recordOutcome(worktree, ended, ending, opts);
 		return removed;
 	}
 
@@ -210,10 +222,10 @@ export class WorktreeService {
 	 */
 	private async ending(
 		worktree: Worktree,
-		{ changed }: DiscardOptions,
+		{ changed, size }: DiscardOptions,
 	): Promise<Ending> {
 		if (!this.outcomes || !worktree.state) {
-			return { plan: "", systems: [] };
+			return { plan: "", systems: [], size: null };
 		}
 		const paths =
 			changed ??
@@ -226,14 +238,15 @@ export class WorktreeService {
 				? await this.fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "")
 				: "",
 			systems: systems?.touchedBy(paths).map((each) => each.name) ?? [],
+			size: size ?? (worktree.hasBranch ? await worktree.size() : null) ?? null,
 		};
 	}
 
 	private async recordOutcome(
 		{ task, base, state }: Worktree,
 		ended: "merged" | "removed",
-		opts: DiscardOptions,
 		ending: Ending,
+		opts: DiscardOptions,
 	): Promise<void> {
 		if (!this.outcomes || !state) {
 			return;
@@ -257,6 +270,16 @@ export class WorktreeService {
 				? null
 				: `${this.conversationsDir}/${conversation}.jsonl`;
 		const ran = log === null ? null : await ranWith(log, this.fs);
+		const worked =
+			log === null
+				? null
+				: await taskLog(log, this.fs, state.createdAt, endedAt);
+		const judged =
+			conversation === null || this.adherence === null
+				? null
+				: ((await this.adherence.list()).find(
+						(each) => each.conversation === conversation,
+					) ?? null);
 		await this.outcomes.record({
 			project: this.git.root,
 			task,
@@ -292,6 +315,20 @@ export class WorktreeService {
 				log === null
 					? {}
 					: await promptsFrom(log, this.fs, state.createdAt, endedAt),
+			...(worked === null
+				? {}
+				: { usage: worked.usage, workedMs: worked.workedMs }),
+			...(ending.size === null ? {} : { size: ending.size }),
+			findings: findings({
+				gateFailures: state.gateFailures ?? [],
+				retries: state.retries ?? 0,
+				picksOverturned: asked.overturned,
+				assumptionsChallenged: assuming.challenged,
+				log: worked,
+				landedLines:
+					ending.size === null ? null : ending.size.added + ending.size.removed,
+				adherence: judged,
+			}),
 			conversation,
 			agent: ran?.agent ?? state.dispatch?.agent ?? null,
 			model: ran?.model ?? state.dispatch?.model ?? null,
@@ -366,4 +403,6 @@ export class WorktreeService {
 interface Ending {
 	plan: string;
 	systems: string[];
+	/** What it landed or would have; null when there is no branch to read. */
+	size: DiffSize | null;
 }
