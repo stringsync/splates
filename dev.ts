@@ -375,6 +375,9 @@ export async function dev(
 					PATCH: scoped((project) => project.updateTodo),
 					DELETE: scoped((project) => project.removeTodo),
 				},
+				"/api/todos/:id/restore": {
+					POST: scoped((project) => project.restoreTodo),
+				},
 				"/api/todos/:id/position": {
 					PUT: scoped((project) => project.moveTodo),
 				},

@@ -51,8 +51,42 @@ describe("App's todo add events", () => {
 		);
 
 		expect(lines.map((line) => line.textContent)).toEqual([
-			"Added#4 Upload retries forever on a 413",
+			"Added#4 Upload retries forever on a 413Remove",
 		]);
+	});
+
+	it("removes the todo from its line, and puts it back with Undo", async () => {
+		const line = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
+		);
+
+		await act(async () =>
+			fireEvent.click(within(line).getByRole("button", { name: "Remove" })),
+		);
+
+		expect(testing.posted("/api/todos/4")).toMatchObject([
+			{ method: "DELETE" },
+		]);
+		const removed = await waitFor(() =>
+			within(thread).getByRole("note", { name: "arbor" }),
+		);
+		expect(removed.textContent).toBe(
+			"Removed#4 Upload retries forever on a 413Undo",
+		);
+
+		await act(async () =>
+			fireEvent.click(within(removed).getByRole("button", { name: "Undo" })),
+		);
+
+		expect(testing.posted("/api/todos/4/restore")).toMatchObject([
+			{ method: "POST" },
+		]);
+		await waitFor(() =>
+			within(within(thread).getByRole("note", { name: "arbor" })).getByRole(
+				"button",
+				{ name: "Remove" },
+			),
+		);
 	});
 
 	it("opens the todo from its chip", async () => {

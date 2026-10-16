@@ -2,6 +2,7 @@ import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { JSX } from "react";
 import type { Start } from "../asked";
 import { type Action, type Event, isEscalation } from "../events";
+import { AddedLine } from "./added-line";
 import {
 	ArborEvent,
 	type ArborEventView,
@@ -214,6 +215,9 @@ function EventLine({
 	const view = lineOfRun(event, also, going, now);
 	if (view === null) {
 		return null;
+	}
+	if (event.action === "todo add" && event.reason === null) {
+		return <AddedLine view={view} id={event.todo} />;
 	}
 	const start = startOf(event);
 	return start === null ? (

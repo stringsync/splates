@@ -1,37 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import type { Outcome } from "../outcomes";
 import type { Decision } from "../plan";
-import { deferred, type Fact, mergedFacts } from "./merged-facts";
+import { mergedFacts } from "./merged-facts";
 
 describe("mergedFacts", () => {
-	// scry-ignore simple-test-setup: each test builds the outcome it reads, which is its input, not shared setup
-	it("defers a finding as the card says it, with the data it came from", () => {
-		const stopped = {
-			kind: "stopped",
-			at: "2026-10-14T09:30:00.000Z",
-		} as const;
-		const facts = mergedFacts({
-			outcome: merged({
-				findings: [
-					{ kind: "gate", reason: "conflict", at: "", files: ["a.ts"] },
-					stopped,
-				],
-			}),
-			baseline: null,
-		});
-
-		expect(deferred("alpha", facts.findings[0] as Fact)).toEqual({
-			subject: "You stopped a turn",
-			text: [
-				"Found in `alpha` as it merged: You stopped a turn.",
-				"",
-				"```json",
-				JSON.stringify(stopped, null, 2),
-				"```",
-			].join("\n"),
-		});
-	});
-
 	it("says each figure, marking one far above its project's usual", () => {
 		const facts = mergedFacts({
 			outcome: merged({

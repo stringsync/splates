@@ -144,7 +144,7 @@ describe("dev todos", () => {
 		});
 	});
 
-	it("updates and removes a todo", async () => {
+	it("updates, removes and puts back a todo", async () => {
 		const todo = await deps.todos.add("write docs", null, {
 			files: [
 				{ name: "a.png", bytes: new Uint8Array([1]) },
@@ -178,8 +178,16 @@ describe("dev todos", () => {
 			expect((await snapshot()).todos).toMatchObject([
 				{ subject: "above", position: 1 },
 			]);
-			expect(await deps.fs.exists(kept ?? "")).toBe(false);
+			// Kept, for the line it was added on to put it back.
+			expect(await deps.fs.exists(kept ?? "")).toBe(true);
 			expect((await write("DELETE", "/api/todos/1")).status).toBe(404);
+
+			expect((await write("POST", "/api/todos/1/restore")).status).toBe(200);
+			expect((await snapshot()).todos).toMatchObject([
+				{ subject: "above", position: 1 },
+				{ id: 1, subject: "write the docs", position: 2, files: [kept] },
+			]);
+			expect((await write("POST", "/api/todos/1/restore")).status).toBe(404);
 			expect((await write("DELETE", "/api/todos/nope")).status).toBe(400);
 		});
 	});

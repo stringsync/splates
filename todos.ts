@@ -306,6 +306,61 @@ export class Todos {
 		});
 	}
 
+	/**
+	 * @internal Removes one as `delete` does, keeping it and its files under
+	 * `removed/` for `restore` to put back. Only the newest `REMOVED_KEPT` are
+	 * kept, the older going for good.
+	 */
+	async discard(state: TodoState): Promise<void> {
+		await this.fs.mkdir(this.removedDir);
+		const kept: RemovedTodo = { state, removedAt: new Date().toISOString() };
+		await this.fs.write(
+			this.removedPath(state.id),
+			`${JSON.stringify(kept, null, "\t")}\n`,
+		);
+		await this.delete(state.id);
+		const removed = await this.removed();
+		for (const { state: old } of removed.slice(0, -REMOVED_KEPT)) {
+			await this.fs.rm(this.removedPath(old.id), { force: true });
+			await this.attachments(old.id).clear();
+		}
+	}
+
+	/**
+	 * Puts a todo `discard` removed back under its id, where it stood in the
+	 * list, untaken: in its lane while that lane is still on the board, after
+	 * those it waited on that still are.
+	 */
+	async restore(id: number): Promise<Todo> {
+		return this.locked(async () => {
+			const raw = await this.fs.read(this.removedPath(id)).catch(() => null);
+			if (raw === null) {
+				fail(
+					"not_found",
+					`no removed todo ${id} to put back: only the last ${REMOVED_KEPT} removed are kept`,
+					{ todo: id },
+				);
+			}
+			const { state } = JSON.parse(raw) as RemovedTodo;
+			const stored = await this.stored();
+			if (stored.some((other) => other.id === id)) {
+				fail("exists", `todo ${id} is on the list already`, { todo: id });
+			}
+			const lanes = await this.laneFiles.records(stored);
+			const restored = await this.save({
+				...state,
+				takenBy: null,
+				lane: lanes.some((lane) => lane.id === state.lane) ? state.lane : null,
+				blockedBy: state.blockedBy.filter((before) =>
+					stored.some((other) => other.id === before),
+				),
+			});
+			await this.fs.rm(this.removedPath(id), { force: true });
+			await this.place(restored.state, state.position);
+			return this.settled(id);
+		});
+	}
+
 	/** @internal Runs `run` holding the lock every write goes through. */
 	async locked<T>(run: () => Promise<T>): Promise<T> {
 		await this.lock.acquire();
@@ -398,6 +453,31 @@ export class Todos {
 		}
 	}
 
+	private get removedDir(): string {
+		return `${this.dir}/removed`;
+	}
+
+	private removedPath(id: number): string {
+		return `${this.removedDir}/${id}.json`;
+	}
+
+	/** The todos `discard` kept, the oldest removed first. */
+	private async removed(): Promise<RemovedTodo[]> {
+		const entries = await this.fs.readdir(this.removedDir).catch(() => []);
+		const kept: RemovedTodo[] = [];
+		for (const entry of entries.filter((each) => each.endsWith(".json"))) {
+			const raw = await this.fs
+				.read(`${this.removedDir}/${entry}`)
+				.catch(() => null);
+			if (raw !== null) {
+				kept.push(JSON.parse(raw) as RemovedTodo);
+			}
+		}
+		return kept.sort((left, right) =>
+			left.removedAt.localeCompare(right.removedAt),
+		);
+	}
+
 	private path(id: number): string {
 		return `${this.dir}/${id}.json`;
 	}
@@ -435,6 +515,15 @@ export class Todos {
 		}
 		return found?.state ?? null;
 	}
+}
+
+/** How many removed todos `Todos.discard` keeps for `restore`. */
+export const REMOVED_KEPT = 50;
+
+/** A removed todo as `discard` keeps it. */
+interface RemovedTodo {
+	state: TodoState;
+	removedAt: string;
 }
 
 /** What `Todos` is stored through; the real filesystem by default. */

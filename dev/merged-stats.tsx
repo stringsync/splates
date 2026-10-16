@@ -14,12 +14,12 @@ import {
 	useState,
 } from "react";
 import { cn } from "#dev/lib/utils.ts";
+import type { Fact } from "../finding-facts";
 import type { Landed } from "../landed";
-import { type TodoForm, taskOutcome } from "./api";
-import { DeferButton } from "./defer";
+import { taskOutcome } from "./api";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
-import { type Decided, deferred, type Fact, mergedFacts } from "./merged-facts";
+import { type Decided, mergedFacts } from "./merged-facts";
 import { SystemNameChip } from "./systems";
 
 /**
@@ -105,7 +105,6 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 			) : (
 				<Facts
 					label="gate"
-					task={task}
 					facts={facts.gate}
 					Icon={CircleXIcon}
 					tone="text-destructive"
@@ -114,7 +113,6 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 			{facts.findings.length > 0 && (
 				<Facts
 					label="findings"
-					task={task}
 					facts={facts.findings}
 					Icon={CircleAlertIcon}
 					tone="text-warning"
@@ -144,13 +142,11 @@ function Decisions({ decided }: { decided: Decided }): JSX.Element {
 
 function Facts({
 	label,
-	task,
 	facts,
 	Icon,
 	tone,
 }: {
 	label: string;
-	task: string;
 	facts: Fact[];
 	Icon: typeof CircleAlertIcon;
 	tone: string;
@@ -164,7 +160,6 @@ function Facts({
 					key={index}
 					Icon={Icon}
 					tone={tone}
-					defer={deferred(task, fact)}
 				>
 					<Markdown text={fact.text} className="[&_p]:my-0" />
 					{fact.again !== null && (
@@ -176,19 +171,14 @@ function Facts({
 	);
 }
 
-/**
- * One line of what went worse, its Defer right after its words, beside them
- * where it fits and under them where it does not, so it reads as that line's.
- */
+/** One line of what went worse; `arbor merge` made a todo of it. */
 function FindingLine({
 	Icon,
 	tone,
-	defer,
 	children,
 }: {
 	Icon: typeof CircleAlertIcon;
 	tone: string;
-	defer: TodoForm;
 	children: ReactNode;
 }): JSX.Element {
 	return (
@@ -197,7 +187,6 @@ function FindingLine({
 			<Icon aria-hidden className={cn("mt-px size-3.5 shrink-0", tone)} />
 			<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5">
 				{children}
-				<DeferButton todo={defer} />
 			</span>
 		</li>
 	);

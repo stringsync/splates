@@ -187,6 +187,11 @@ export class Todo {
 		await this.todos.delete(this.id);
 		await this.attachments.clear();
 	}
+
+	/** Removes it, as the person did, keeping it for `Todos.restore` to put back. */
+	discard(): Promise<void> {
+		return this.todos.discard(this.state);
+	}
 }
 
 /** A todo's words, place or files changed: new ones added, some of the old kept. */

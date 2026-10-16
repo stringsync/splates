@@ -198,21 +198,40 @@ export class TodoRoutes {
 		await this.#project.journal.record(
 			"todo remove",
 			null,
-			() => found.remove(),
+			// Kept, so the conversation line it was added on can put it back.
+			() => found.discard(),
 			() => ({ todos: todosNamed([found]) }),
 		);
 		await this.#watch.tick();
 		return Response.json(found.state);
 	};
 
+	/** Puts back a todo the page removed, under its id, where it stood. */
+	readonly restoreTodo = async (request: Request): Promise<Response> => {
+		const { journal, todos } = this.#project;
+		const todo = await journal.record(
+			"todo add",
+			null,
+			() => todos.restore(this.idAt(request)),
+			addedFacts,
+		);
+		await this.#watch.tick();
+		return Response.json(todo.state);
+	};
+
 	/** The todo a `/api/todos/<id>` path names, or `/api/todos/<id>/position`. */
 	private async todoAt(request: Request) {
+		return this.#project.todos.find(this.idAt(request));
+	}
+
+	/** The id a `/api/todos/<id>` path names, or `/api/todos/<id>/restore`. */
+	private idAt(request: Request): number {
 		const raw = new URL(request.url).pathname.split("/")[3] ?? "";
 		const id = Number(raw);
 		if (!Number.isInteger(id) || id <= 0) {
 			fail("usage", `'${raw}' is not a todo id`, { todo: raw });
 		}
-		return this.#project.todos.find(id);
+		return id;
 	}
 
 	/**

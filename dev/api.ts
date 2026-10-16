@@ -171,8 +171,14 @@ export async function dropLane(id: number): Promise<void> {
 	await send(`/api/lanes/${id}`, { method: "DELETE" });
 }
 
+/** Removes a todo, kept for `restoreTodo` to put back. */
 export async function removeTodo(id: number): Promise<void> {
 	await send(`/api/todos/${id}`, { method: "DELETE" });
+}
+
+/** Puts back a todo `removeTodo` removed, under its id, where it stood. */
+export async function restoreTodo(id: number): Promise<void> {
+	await send(`/api/todos/${id}/restore`, { method: "POST" });
 }
 
 /** Where the page loads a file a todo holds. */

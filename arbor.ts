@@ -23,6 +23,7 @@ import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import type { Facts } from "./events";
 import { exits, fail } from "./exit";
+import { addFactTodos } from "./fact-todos";
 import { follow, serveProject } from "./follow";
 import { handoff } from "./handoff";
 import { runHeavy } from "./heavy-run";
@@ -277,6 +278,11 @@ arbor
 			facts as Facts["merge"],
 		);
 		if (task !== null) {
+			// After the merge's own event, so the conversation says it landed
+			// before what it found; landed is landed, whatever happens here.
+			await addFactTodos(ctx, task).catch((error: unknown) =>
+				ctx.log.error(`could not add todos for what the merge found: ${error}`),
+			);
 			await follow(ctx, null, { from: task });
 		}
 		if (landing !== null) {

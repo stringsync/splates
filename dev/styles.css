@@ -115,7 +115,6 @@
 @source "./assumption-list.tsx";
 @source "./report-cards.tsx";
 @source "./merged-stats.tsx";
-@source "./defer.tsx";
 @source "./card-shell.tsx";
 @source "./refusal.tsx";
 @source "./release.tsx";
@@ -157,6 +156,7 @@
 @source "./terminal.tsx";
 @source "./arbor-event.tsx";
 @source "./event-lines.tsx";
+@source "./added-line.tsx";
 @source "./events-preview.tsx";
 @source "./components/ui";
 @source "./components/assistant-ui";

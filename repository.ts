@@ -31,6 +31,8 @@ export interface Repository {
 	shell: Shell;
 	journal: Journal;
 	todos: Todos;
+	/** How each task on this machine ended, which a merge reads its findings from. */
+	outcomes: Outcomes;
 	/** Every arbor project on this machine, which `arbor init` joins this one to. */
 	projects: Projects;
 	/** The creds agents ask for, and the stores they are kept in. */
@@ -228,10 +230,11 @@ export async function openRepository(
 	// which only `arbor init` writes this one into, and how each task ended.
 	// `ARBOR_HOME` moves it, as the tests do to keep theirs out of the user's.
 	const registry = arborHome(ps);
+	const outcomes = new Outcomes(`${registry}/outcomes.jsonl`, fs);
 	const service = new WorktreeService(git, config, arborDir, {
 		fs,
 		ps,
-		outcomes: new Outcomes(`${registry}/outcomes.jsonl`, fs),
+		outcomes,
 		adherence: new Adherence(`${registry}/adherence.jsonl`, fs, null),
 	});
 	await service.init();
@@ -259,6 +262,7 @@ export async function openRepository(
 		format,
 		git,
 		service,
+		outcomes,
 		lock: new FileLock(`${arborDir}/merge.lock`, {
 			fs,
 			ps,

@@ -231,6 +231,7 @@ export interface Served extends AsyncResource {
 	updateLane: Handler;
 	dropLane: Handler;
 	removeTodo: Handler;
+	restoreTodo: Handler;
 	listCreds: Handler;
 	saveCred: Handler;
 	removeCred: Handler;

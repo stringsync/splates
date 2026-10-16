@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Outcome } from "../outcomes";
 import {
-	act,
 	cleanup,
 	conversation,
-	fireEvent,
 	message,
 	Testing,
 	waitFor,
@@ -104,25 +102,5 @@ describe("App's merged card actions", () => {
 
 		expect(within(went).getByText("1 by you")).not.toBeNull();
 		expect(within(went).getByText("2 by agent")).not.toBeNull();
-	});
-
-	it("defers one finding as an untriaged todo, then says Deferred on its line", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
-			}),
-		]);
-		const findings = await waitFor(() =>
-			view.getByRole("list", { name: "findings" }),
-		);
-
-		await act(async () =>
-			fireEvent.click(within(findings).getByRole("button", { name: "Defer" })),
-		);
-
-		expect(testing.posted("/api/todos")).toMatchObject([
-			{ method: "POST", body: { subject: "You stopped a turn" } },
-		]);
-		expect(within(findings).getByText("Deferred")).not.toBeNull();
 	});
 });
