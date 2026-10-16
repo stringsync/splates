@@ -27,6 +27,7 @@ import { SERVER_PID, SLOT, slotOf } from "./slots";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
+import { workerSocketPath } from "./worker-run";
 
 /**
  * What `arbor dev` does with its flags: run itself as a supervised child, so
@@ -178,6 +179,7 @@ export async function serveDev(
 			slot: slotOf(ctx.ps.env(SLOT) ?? ""),
 			servers: () => devServers(ctx),
 			exit: (code) => ctx.ps.exit(code),
+			workerSocket: workerSocketPath(ctx.ps),
 		},
 	);
 	return {

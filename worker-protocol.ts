@@ -42,7 +42,8 @@ export type ChannelFrame = Extract<Frame, { channel: number }>;
 /** What one end makes of the other's version, from its hello or welcome. */
 export type Negotiated =
 	| { ok: true; protocol: string; capabilities: string[] }
-	| { ok: false; reason: string };
+	/** `refused` when the other end turned this one away, rather than the link going. */
+	| { ok: false; reason: string; refused: boolean };
 
 /**
  * Turns frames into what a `WorkerSocket` carries and back, and settles which
@@ -52,7 +53,8 @@ export type Negotiated =
 export class WorkerProtocol {
 	private constructor() {}
 
-	/** Bump the major for a change an older end would misread. */
+	/** The version this end speaks, sent in every hello and welcome. */
+	// Bump the major for a change an older end would misread.
 	static readonly version = "1.0";
 
 	static readonly headerBytes = 8;
@@ -111,6 +113,7 @@ export class WorkerProtocol {
 		if (Number.isNaN(theirMajor) || ourMajor !== theirMajor) {
 			return {
 				ok: false,
+				refused: true,
 				reason: `speaks protocol ${theirs.protocol}, and this end speaks ${ours.protocol}: update the older one`,
 			};
 		}

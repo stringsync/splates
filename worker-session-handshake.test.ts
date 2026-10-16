@@ -79,7 +79,7 @@ describe("WorkerSession handshake", () => {
 
 		const reason =
 			"the worker speaks protocol 2.0, and this end speaks 1.0: update the older one";
-		expect(accepted).toEqual({ ok: false, reason });
+		expect(accepted).toEqual({ ok: false, reason, refused: true });
 		expect(answers).toEqual([{ type: "refuse", reason }]);
 		expect(coordinator.connected).toBe(false);
 	});
@@ -92,7 +92,11 @@ describe("WorkerSession handshake", () => {
 			WorkerProtocol.encode({ type: "refuse", reason: "drained" }),
 		);
 
-		expect(await connecting).toEqual({ ok: false, reason: "drained" });
+		expect(await connecting).toEqual({
+			ok: false,
+			reason: "drained",
+			refused: true,
+		});
 		expect(worker.connected).toBe(false);
 	});
 
@@ -105,6 +109,7 @@ describe("WorkerSession handshake", () => {
 		expect(await connecting).toEqual({
 			ok: false,
 			reason: "nothing heard for 31s",
+			refused: false,
 		});
 	});
 

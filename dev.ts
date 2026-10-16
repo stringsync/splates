@@ -1,20 +1,15 @@
-import {
-	AsyncDisposer,
-	type AsyncResource,
-	type Resource,
-} from "webappwiz/disposable";
-import type { Pusher, VapidKeys } from "webappwiz/push";
+import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
 import {
 	MAX_PORT,
 	OpenPortProvider,
 	type PortProvider,
 } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
-import type { Conversations } from "./conversations";
 import { SYSTEM_STORES } from "./creds";
-import { Access, type AccessConfig } from "./dev-access";
+import { Access } from "./dev-access";
 import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
+import type { DevOptions } from "./dev-options";
 import { DevOutcomes } from "./dev-outcomes";
 import { Pages } from "./dev-pages";
 import { Picker } from "./dev-picker";
@@ -28,25 +23,25 @@ import {
 } from "./dev-project";
 import { Pushes } from "./dev-push";
 import { Restarts } from "./dev-restart";
-import type { ServerChoice } from "./dev-servers";
 import { SetupRoutes } from "./dev-setup";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { Terminals } from "./dev-terminal";
-import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
-import { startTunnel, type TunnelConfig } from "./dev-tunnel";
+import { transcriberFor } from "./dev-transcriber";
+import { startTunnel } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
+import { DevWorkers } from "./dev-workers";
 import { fail } from "./exit";
-import type { Git } from "./git";
-import { type HeavyCap, HeavyJobs } from "./heavy";
-import { Machine, type MachineSensors, osSensors } from "./machine";
+import { HeavyJobs } from "./heavy";
+import { Machine, osSensors } from "./machine";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
 import { arborHome } from "./roster";
 import { Setup } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
-import type { Slot } from "./slots";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
+export type { DevOptions } from "./dev-options";
+
 export const DEFAULT_PORT = 4269;
 
 /** How far above the port asked for `dev` will look before giving up. */
@@ -86,6 +81,7 @@ export async function dev(
 		exit = null,
 		sensors = null,
 		heavy = null,
+		workerSocket = null,
 		pusher,
 		open = async (root) => ({
 			fs: deps.fs,
@@ -291,6 +287,12 @@ export async function dev(
 		),
 	);
 
+	const workers = new DevWorkers(log);
+	disposer.defer(() => workers.disposeAsync());
+	if (workerSocket !== null) {
+		await workers.listen(workerSocket, fs);
+	}
+
 	const requested = await ports.get();
 	const server = Bun.serve<Connection>({
 		port: requested,
@@ -490,6 +492,9 @@ export async function dev(
 			if (pathname === "/api/dictation") {
 				return dictations.open(request, server);
 			}
+			if (pathname === "/api/workers") {
+				return workers.open(request, server);
+			}
 			return new Response("not found", { status: 404 });
 		},
 	});
@@ -540,102 +545,6 @@ const CHECK = Duration.mins(60);
 
 /** How often `arbor dev` run from a checkout reads its source's last commit. */
 const SOURCE_CHECK = Duration.secs(15);
-
-/** What `dev` lets a caller choose. */
-export interface DevOptions {
-	/** Where to listen; the port `--port` asked for, and the span above it. */
-	ports?: PortProvider;
-	/**
-	 * Host names besides this machine's own that the page may be reached by,
-	 * like the hostname of a tunnel. Anything else is refused, which is what
-	 * stops another site from reading the repo through a browser pointed at
-	 * localhost. Who may use those names is the Access policy's business, not
-	 * arbor's.
-	 */
-	hosts?: string[];
-	/**
-	 * The Cloudflare Access application in front of `hosts`, or null for none.
-	 * Given one, a request to those hosts must carry a token it signed, and
-	 * then may use conversations and terminals too. Anything that exposes the
-	 * page beyond this machine refuses to without it.
-	 */
-	access?: AccessConfig | null;
-	/**
-	 * The Cloudflare tunnel to run once listening, whose host `hosts` also
-	 * lets in. Refused without `access`.
-	 */
-	tunnel?: TunnelConfig | null;
-	/**
-	 * Makes the conversations a project's page may hold with agents, its
-	 * records in `arborDir`, its commands watched through `git`; without it no page has any to show, and the routes
-	 * say they are off.
-	 */
-	conversations?:
-		| ((project: { arborDir: string; git: Git }) => Conversations)
-		| null;
-	/**
-	 * The shell a page's terminal runs, as argv, in the main tree or a task's
-	 * worktree; without it, the page has no terminal and the route says so.
-	 */
-	shell?: string[] | null;
-	/**
-	 * What a project's dictations transcribe with, by default OpenAI on the
-	 * key its creds keep; a test hands in a fake.
-	 */
-	transcriber?: TranscriberFor;
-	/** Opens a registered project by its root; `openRepository` by default. */
-	open?: (root: string) => Promise<Project>;
-	/**
-	 * The latest arbor on npm, or null when it cannot say, asked as the server
-	 * starts and hourly after; the page hints at a restart once it is past
-	 * `running`. Without it, nothing is checked.
-	 */
-	newest?: () => Promise<string | null>;
-	/** The version serving; the one installed by default. */
-	running?: string;
-	/** How often `newest` is asked after the first time: hourly by default. */
-	checkEvery?: Duration;
-	/**
-	 * The last commit to arbor's own source, or null when it does not run
-	 * from a checkout. Asked as the server starts, then every `sourceEvery`;
-	 * once it moves on, the page hints at a restart. A server started from a
-	 * checkout asks this in place of `newest`, since a restart runs the
-	 * checkout again. Without it, nothing is checked.
-	 */
-	source?: () => Promise<string | null>;
-	/** How often `source` is asked after the first time. */
-	sourceEvery?: Duration;
-	/**
-	 * Whether building the page failed before this start, so what it serves
-	 * is the page built before; the page says so.
-	 */
-	unbuilt?: boolean;
-	/**
-	 * Starts what rebuilds the page as its source changes, handing it the
-	 * pages to serve what it built; stopped with the server. None for a
-	 * server that runs no checkout.
-	 */
-	rebuilds?: ((pages: Pages) => Resource) | null;
-	/** The slot `arbor dev --slot` serves under, which the page shows; null for none. */
-	slot?: Slot | null;
-	/**
-	 * Every `arbor dev` on this machine, the machine's own and each slot's,
-	 * which the page's switcher lists beside the projects; none by default.
-	 */
-	servers?: () => Promise<ServerChoice[]>;
-	/**
-	 * Ends the process with `RESTART` or `UPDATE` once the server has
-	 * stopped, for its supervisor to start another; without it, the page
-	 * cannot restart `arbor dev`.
-	 */
-	exit?: ((code: number) => void) | null;
-	/** Where the page's machine stats come from; this machine's OS for none. */
-	sensors?: MachineSensors | null;
-	/** Whose test runs and installs the page shows; this machine's for none. */
-	heavy?: Pick<HeavyCap, "read"> | null;
-	/** What pushes notices to the devices that subscribed; the Web Push services by default. */
-	pusher?: (keys: VapidKeys) => Pusher;
-}
 
 /** A running server, and the one thing a caller ever wants to do with it. */
 export interface DevServer extends AsyncResource {

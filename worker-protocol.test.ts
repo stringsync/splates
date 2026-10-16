@@ -63,6 +63,7 @@ describe("WorkerProtocol", () => {
 			),
 		).toEqual({
 			ok: false,
+			refused: true,
 			reason:
 				"speaks protocol 2.3, and this end speaks 1.0: update the older one",
 		});

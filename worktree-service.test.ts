@@ -155,6 +155,9 @@ class RecordingFs implements Fs {
 	rm(path: string, opts?: RmOptions): Promise<void> {
 		return this.inner.rm(path, opts);
 	}
+	chmod(path: string, mode: number): Promise<void> {
+		return this.inner.chmod(path, mode);
+	}
 	isSymlink(path: string): Promise<boolean> {
 		return this.inner.isSymlink(path);
 	}

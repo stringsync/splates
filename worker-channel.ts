@@ -6,6 +6,7 @@ import type { Json } from "./worker-protocol";
 export interface WorkerChannelEvents extends Record<string, unknown> {
 	data: { bytes: Uint8Array; seq: number };
 	message: { body: Json; seq: number };
+	/** Both ends have closed it, whichever closed first. */
 	close: undefined;
 }
 
@@ -28,7 +29,7 @@ export interface WorkerChannelLink {
  * One stream between a coordinator and a worker, such as an agent's stdio or
  * a PTY: bytes as `data`, and JSON as `message` for what is not bytes (a
  * resize, an exit code). Its frames survive a reconnect. Disposing it closes
- * it at both ends; the other end hears `close` and closes too.
+ * it at both ends, and each hears `close` once both have.
  */
 export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<WorkerChannelEvents>();
@@ -91,7 +92,6 @@ export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 			if (!this.sentClose) {
 				this.sentClose = true;
 				this.link.send(this.id, { type: "close" });
-				this.dispatcher.dispatch("close");
 			}
 			this.finishIfDone();
 			return false;
@@ -111,6 +111,7 @@ export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 	private finishIfDone(): void {
 		if (this.sentClose && this.heardClose) {
 			this.link.done(this.id);
+			this.dispatcher.dispatch("close");
 			this.dispatcher.dispose();
 		}
 	}

@@ -153,6 +153,16 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		return !this.replay.full;
 	}
 
+	/** Settles once writes may go on: at once, or at the next `drain`. */
+	drained(): Promise<void> {
+		if (this.writable) {
+			return Promise.resolve();
+		}
+		return new Promise((resolve) =>
+			this.events.on("drain", () => resolve(), { once: true }),
+		);
+	}
+
 	/** Opens a channel to the other end, which hears it as `channel`. */
 	open(kind: string, params: Json = null): WorkerChannel {
 		this.assertOpen();
@@ -208,7 +218,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			const reason = `the worker ${negotiated.reason}`;
 			this.write(socket, { type: "refuse", reason });
 			socket.dispose();
-			return { ok: false, reason };
+			return { ok: false, reason, refused: true };
 		}
 		const connection = this.attach(socket);
 		this.write(socket, {
@@ -318,7 +328,11 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			return;
 		}
 		if (frame.type === "refuse") {
-			connection.settled.resolve({ ok: false, reason: frame.reason });
+			connection.settled.resolve({
+				ok: false,
+				reason: frame.reason,
+				refused: true,
+			});
 			this.lose(`refused: ${frame.reason}`);
 			return;
 		}
@@ -332,7 +346,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		);
 		if (!negotiated.ok) {
 			const reason = `the coordinator ${negotiated.reason}`;
-			connection.settled.resolve({ ok: false, reason });
+			connection.settled.resolve({ ok: false, reason, refused: true });
 			this.lose(reason);
 			return;
 		}
@@ -482,7 +496,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		}
 		this.connection = undefined;
 		connection.dispose();
-		connection.settled.resolve({ ok: false, reason });
+		connection.settled.resolve({ ok: false, reason, refused: false });
 		for (const [channel, ping] of this.forgetting) {
 			if (ping !== undefined) {
 				this.forgetting.set(channel, undefined);

@@ -13,6 +13,7 @@ import { setup } from "./arbor-setup";
 import { arborSlots } from "./arbor-slots";
 import { arborTodo } from "./arbor-todo";
 import { arborTunnel } from "./arbor-tunnel";
+import { arborWorker } from "./arbor-worker";
 import { attach } from "./attach";
 import { claim } from "./claim";
 import type { SecretStores } from "./creds";
@@ -589,4 +590,5 @@ arbor
 	.mount("lane", arborLane)
 	.mount("creds", arborCreds)
 	.mount("tunnel", arborTunnel)
-	.mount("slots", arborSlots);
+	.mount("slots", arborSlots)
+	.mount("worker", arborWorker);
