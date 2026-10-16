@@ -164,6 +164,9 @@ describe("StatsPage", () => {
 			"Reviews per task",
 			"Picks overturned",
 			"Tasks removed",
+			"Cost per task",
+			"Agent working time",
+			"Lines per task",
 		]);
 		expect(heads("By device")).toEqual([
 			"Name",
@@ -176,6 +179,8 @@ describe("StatsPage", () => {
 			"Name",
 			"Tasks ended",
 			"Tasks removed",
+			"Cost per task",
+			"Lines per task",
 		]);
 	});
 

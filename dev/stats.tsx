@@ -21,6 +21,13 @@ import type { NamedSystem } from "../systems";
 import { touchItems } from "./board";
 import type { Advice } from "./stats-advice";
 import {
+	BY_DEVICE,
+	BY_MODEL,
+	BY_PROJECT,
+	BY_SYSTEM,
+	type Column,
+} from "./stats-columns";
+import {
 	type Axis,
 	type Bucket,
 	decimal,
@@ -362,43 +369,6 @@ function Trend({
 
 /** A figure there is not enough data for. */
 const NONE = "\u2013";
-
-/** A column of a breakdown, headed by what its figure counts. */
-interface Column {
-	head: string;
-	cell: (row: Row) => string;
-}
-
-const ENDED: Column = { head: "Tasks ended", cell: (row) => String(row.ended) };
-const QUESTIONS: Column = {
-	head: "Questions per task",
-	cell: (row) => figure(row.questionsPerTask, decimal),
-};
-const REVIEWS: Column = {
-	head: "Reviews per task",
-	cell: (row) => figure(row.reviewsPerTask, decimal),
-};
-const OVERTURNED: Column = {
-	head: "Picks overturned",
-	cell: (row) => figure(row.overturnedShare, percent),
-};
-const REMOVED: Column = {
-	head: "Tasks removed",
-	cell: (row) => figure(row.removedShare, percent),
-};
-
-/** Only what each table is read for: where questions come from, which model to name, how phone work goes, nothing for a project. */
-const BY_SYSTEM = [ENDED, QUESTIONS];
-const BY_MODEL = [ENDED, QUESTIONS, REVIEWS, OVERTURNED, REMOVED];
-const BY_DEVICE = [ENDED, QUESTIONS, REVIEWS, REMOVED];
-const BY_PROJECT = [ENDED, REMOVED];
-
-function figure(
-	value: number | null,
-	shown: (value: number) => string,
-): string {
-	return value === null ? NONE : shown(value);
-}
 
 /** Every model, device, project or system, with the figures it is read for over the period. */
 function Breakdown({

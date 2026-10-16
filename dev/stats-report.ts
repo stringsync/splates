@@ -237,6 +237,12 @@ export interface Row {
 	removedShare: number | null;
 	/** Of the questions offering the agent's pick, the share you answered otherwise. */
 	overturnedShare: number | null;
+	/** Dollars a task cost, over those whose agent said; null when none did. */
+	costPerTask: number | null;
+	/** How long a task's agent worked, in milliseconds, over those with usage kept. */
+	workedPerTask: number | null;
+	/** Lines added and removed per task, over those whose diff size was kept. */
+	linesPerTask: number | null;
 }
 
 /**
@@ -266,6 +272,12 @@ function row(name: string, tally: Tally): Row {
 		reviewsPerTask: ended === 0 ? null : tally.reviewRounds / ended,
 		removedShare: removedShare(tally),
 		overturnedShare: overturnedShare(tally),
+		costPerTask: tally.costed === 0 ? null : tally.cost / tally.costed,
+		workedPerTask: tally.used === 0 ? null : tally.workedMs / tally.used,
+		linesPerTask:
+			tally.sized === 0
+				? null
+				: (tally.linesAdded + tally.linesRemoved) / tally.sized,
 	};
 }
 

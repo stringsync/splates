@@ -94,6 +94,9 @@ describe("StatsReport", () => {
 				reviewsPerTask: 0.5,
 				removedShare: 0.5,
 				overturnedShare: null,
+				costPerTask: null,
+				workedPerTask: null,
+				linesPerTask: null,
 			},
 		]);
 		expect(report.devices).toMatchObject([
@@ -101,6 +104,35 @@ describe("StatsReport", () => {
 			{ name: "No prompts", ended: 1 },
 		]);
 		expect(report.projects).toMatchObject([{ name: "webappwiz", ended: 1 }]);
+	});
+
+	it("averages cost, working time and lines over the tasks that kept each", async () => {
+		const base = stats.models[0] as (typeof stats.models)[number];
+		const report = new StatsReport(
+			new FakeSource({
+				...stats,
+				models: [
+					{
+						...base,
+						used: 4,
+						workedMs: 4 * 60_000,
+						costed: 2,
+						cost: 3,
+						sized: 2,
+						linesAdded: 30,
+						linesRemoved: 10,
+					},
+				],
+			}),
+		);
+
+		await report.refresh();
+
+		expect(report.models[0]).toMatchObject({
+			costPerTask: 1.5,
+			workedPerTask: 60_000,
+			linesPerTask: 20,
+		});
 	});
 
 	it("says why a load failed, and is empty before any task has ended", async () => {
