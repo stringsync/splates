@@ -162,7 +162,126 @@ export const CHECKS: readonly Check[] = [
 				};
 			}),
 	},
+	{
+		id: "setup-read-first",
+		rule: "Reads a setup step before acting on it",
+		judge: ({ beats }) =>
+			setups(beats).flatMap(({ step, span }) => {
+				const first = span.find(
+					(beat) =>
+						beat.kind === "edit" ||
+						(beat.kind === "run" && arborCalls(beat.command).length > 0),
+				);
+				if (first === undefined) {
+					return [];
+				}
+				const ok = checks(first, step);
+				return [
+					{
+						ok,
+						why: ok
+							? `${step}: read it first`
+							: `${step}: acted before reading it`,
+					},
+				];
+			}),
+	},
+	{
+		id: "setup-checked",
+		rule: "Checks a setup step after each change",
+		judge: ({ beats }) =>
+			setups(beats).flatMap(({ step, span }) =>
+				turns(span).flatMap(({ beats: turn }) => {
+					const last = turn.findLastIndex(acts);
+					if (last === -1) {
+						return [];
+					}
+					const ok = turn.slice(last + 1).some((beat) => checks(beat, step));
+					return [
+						{
+							ok,
+							why: ok
+								? `${step}: checked after the last change`
+								: `${step}: changed without checking after`,
+						},
+					];
+				}),
+			),
+	},
+	{
+		id: "setup-one-step",
+		rule: "Stays on the setup step it was asked about",
+		judge: ({ beats }) =>
+			setups(beats).map(({ step, span }) => {
+				const next = span.findIndex(
+					(beat, at) => at > 0 && beat.kind === "user",
+				);
+				const other = (next === -1 ? span : span.slice(0, next))
+					.flatMap((beat) =>
+						beat.kind === "run" ? arborCalls(beat.command) : [],
+					)
+					.flatMap(({ verb, args }) =>
+						verb === "setup"
+							? args.filter((arg) => !arg.startsWith("-") && arg !== step)
+							: [],
+					)[0];
+				return {
+					ok: other === undefined,
+					why:
+						other === undefined
+							? `${step}: kept to it`
+							: `${step}: went on to ${other} unasked`,
+				};
+			}),
+	},
 ];
+
+/** What the Setup page sends to start a conversation on one step. */
+const SETUP = /^\s*\[ARBOR SETUP ([^\]\s]+)\]/;
+
+/**
+ * Each setup step a conversation was asked to walk the user through, with
+ * the beats from the ask up to the next one.
+ */
+function setups(beats: Beat[]): { step: string; span: Beat[] }[] {
+	const asks = beats.flatMap((beat, at) => {
+		const step = beat.kind === "user" ? SETUP.exec(beat.text)?.[1] : undefined;
+		return step === undefined ? [] : [{ at, step }];
+	});
+	return asks.map(({ at, step }, index) => ({
+		step,
+		span: beats.slice(at, asks[index + 1]?.at ?? beats.length),
+	}));
+}
+
+/** Whether `beat` reads `step` with `arbor setup`, which skipping does too. */
+function checks(beat: Beat, step: string): boolean {
+	return (
+		beat.kind === "run" &&
+		arborCalls(beat.command).some(
+			({ verb, args }) => verb === "setup" && args.includes(step),
+		)
+	);
+}
+
+/**
+ * Whether `beat` changes something a setup check could see: an edit, or an
+ * `arbor` command that is not a read. Other shell commands are left out,
+ * since a program cannot tell `which claude` from `brew install`.
+ */
+function acts(beat: Beat): boolean {
+	if (beat.kind === "edit") {
+		return true;
+	}
+	return (
+		beat.kind === "run" &&
+		arborCalls(beat.command).some(
+			({ verb, args }) =>
+				verb !== "setup" &&
+				!(verb === "creds" && ["wait", "list"].includes(args[0] ?? "")),
+		)
+	);
+}
 
 /** What a task's report is titled, by how it ended. */
 const TITLES = {

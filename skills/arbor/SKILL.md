@@ -27,6 +27,7 @@ asks you to read it as Reference files says.
 | --- | --- | --- |
 | `[ARBOR TODO #N]` | Take todo N | `arbor todo show N` prints what is asked; if it names another task that took it, tell the user rather than start on it. Otherwise take it now, so no other agent starts on it: `arbor add <task> --todo N`, or `arbor todo take N` from a task under way |
 | `[ARBOR TASK <task>]` | Resume a task | `arbor claim <task>`, read its `ARBOR.md`, and carry on from where it stands |
+| `[ARBOR SETUP <step>]` | Walk the user through one step of setting arbor up, from the Setup page | [setup.md](references/setup.md) |
 | `[ARBOR HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[ARBOR TASK <task>]` |
 | `[ARBOR HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[ARBOR MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
@@ -61,6 +62,9 @@ which remembers none of it.
   todos.
 - Before offering to name a system, or writing `arbor.systems.ts`:
   [references/systems.md](references/systems.md).
+- When the user asks to set arbor up on this machine, or any part of it
+  (agents, remote access, notifications, dictation):
+  [references/setup.md](references/setup.md), one step at a time.
 
 ## Workflow
 
@@ -346,7 +350,9 @@ kept.
 
 ## Remote access
 
-When the user asks to reach `arbor dev` from elsewhere, `arbor tunnel setup
+When the user asks to reach `arbor dev` from elsewhere, that is the `tunnel`
+setup step: walk them through it as
+[references/setup.md](references/setup.md) says. Its `arbor tunnel setup
 <host> --email <theirs>` makes the Cloudflare tunnel, its DNS record and its
 Access application with an API token kept as the cred
 `ARBOR_CLOUDFLARE_API_TOKEN`, and saves them for the machine, so a bare `arbor

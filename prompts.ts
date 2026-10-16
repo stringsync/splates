@@ -24,6 +24,11 @@ export function taskReference(task: string): string {
 	return `[ARBOR TASK ${task}]`;
 }
 
+/** What a chat with an agent takes to mean "walk the user through setup step `step`". */
+export function setupReference(step: string): string {
+	return `[ARBOR SETUP ${step}]`;
+}
+
 /**
  * What a chat with an agent takes to mean "the agent at work on `task` handed
  * it to you: claim it and carry on from where its `ARBOR.md` says it stands".

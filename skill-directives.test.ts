@@ -14,6 +14,7 @@ import {
 	RECONNECT,
 	RESUME,
 	reportReference,
+	setupReference,
 	stoppedReference,
 	taskReference,
 	todoReference,
@@ -25,6 +26,7 @@ describe("the arbor skill's Directives table", () => {
 			[
 				todoReference(0).replace("0", "N"),
 				taskReference("<task>"),
+				setupReference("<step>"),
 				handoffReference("<task>"),
 				handoffToReference({ agent: "<agent>", model: "<model>" }),
 				MERGE,

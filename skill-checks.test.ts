@@ -150,6 +150,76 @@ describe("skill checks", () => {
 		).toEqual([]);
 	});
 
+	it("setup-read-first: passes a step read before acting, and fails one acted on first", () => {
+		expect(
+			verdicts("setup-read-first", [
+				user("[ARBOR SETUP tunnel]"),
+				run("cat skills/arbor/references/setup.md"),
+				run("arbor setup tunnel --json"),
+				run("arbor tunnel setup dev.example.com --email me@example.com"),
+				user("[ARBOR SETUP agents]"),
+				run("arbor agents"),
+				run("arbor setup agents"),
+			]),
+		).toEqual([true, false]);
+	});
+
+	it("setup-read-first: does not apply outside a setup conversation", () => {
+		expect(verdicts("setup-read-first", [user(), add()])).toEqual([]);
+	});
+
+	it("setup-checked: passes each turn checked after its last change, and fails one left unchecked", () => {
+		expect(
+			verdicts("setup-checked", [
+				user("[ARBOR SETUP agents]"),
+				run("arbor setup agents --json"),
+				run("arbor agents"),
+				edit("/Users/me/.arbor/agents.json"),
+				run("arbor setup agents"),
+				say("The roster now has Claude and Codex."),
+				user("make codex the default"),
+				edit("/Users/me/.arbor/agents.json"),
+				say("Done."),
+			]),
+		).toEqual([true, false]);
+	});
+
+	it("setup-checked: counts waiting on a cred as no change, and a turn that changed nothing does not apply", () => {
+		expect(
+			verdicts("setup-checked", [
+				user("[ARBOR SETUP dictation]"),
+				run("arbor setup dictation --json"),
+				say("Dictation transcribes on your own OpenAI key."),
+				user("go ahead"),
+				run("arbor creds request OPENAI_API_KEY --device --purpose x"),
+				run("arbor setup dictation"),
+				run("arbor creds wait OPENAI_API_KEY"),
+			]),
+		).toEqual([true]);
+	});
+
+	it("setup-one-step: fails reading another step in the ask's turn, but not once the user asks", () => {
+		expect(
+			verdicts("setup-one-step", [
+				user("[ARBOR SETUP agents]"),
+				run("arbor setup agents --json"),
+				run("arbor setup --json"),
+				say("Next is the tunnel."),
+				user("[ARBOR SETUP tunnel]"),
+				run("arbor setup tunnel --json"),
+				run("arbor setup notifications --json"),
+			]),
+		).toEqual([true, false]);
+		expect(
+			verdicts("setup-one-step", [
+				user("[ARBOR SETUP agents]"),
+				run("arbor setup agents"),
+				user("now the tunnel"),
+				run("arbor setup tunnel"),
+			]),
+		).toEqual([true]);
+	});
+
 	it("squashed: passes one plain commit, and fails several or an attributed one", () => {
 		const found = judge(
 			{ beats: [], handed: false },
