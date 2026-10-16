@@ -3,7 +3,7 @@ import { age } from "./age";
 import { blockersOf, followers, isReady, lane, mentioned } from "./lanes";
 import { pickLabel } from "./roster";
 import { table } from "./table";
-import type { TodoState } from "./todo";
+import { cameFrom, type TodoState } from "./todo";
 import type { Todos } from "./todos";
 
 export interface TodoListOptions {
@@ -68,7 +68,7 @@ export async function todoList(
 				todo.subject,
 				todo.blockedBy.join(","),
 				todo.lane === null ? "" : String(todo.lane),
-				todo.from ?? "",
+				cameFrom(todo.state) ?? "",
 				age(todo.state.createdAt),
 				todo.takenBy ?? "",
 				todo.files.length === 0 ? "" : String(todo.files.length),
@@ -111,7 +111,7 @@ export async function todoShow(
 	const lines = [
 		`${color.bold(`todo ${todo.id}`)} ${todo.subject}`,
 		`  position:  ${todo.position}`,
-		`  from:      ${todo.from ?? "added by hand"}`,
+		`  from:      ${cameFrom(todo.state) ?? "added by hand"}`,
 		`  taken by:  ${todo.takenBy ?? "nobody yet"}`,
 		...(todo.state.assignee === undefined
 			? []

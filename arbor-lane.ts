@@ -15,14 +15,13 @@ import { UNTRIAGED } from "./prompts";
 import { repository } from "./repository";
 
 /** `arbor lane`, which the root cli mounts after `arbor todo`. */
-export const arborLane = cli<ArborDeps>("lane")
-	.description(
-		"lanes: named runs of todos, landed top first; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing out each todo nothing holds back to an agent on the model it names, or doing it itself. A todo in no lane is untriaged, and `[ARBOR LANE untriaged]` starts one that places those in lanes first",
-	)
-	.use(repository());
+export const arborLane = cli<ArborDeps>("lane").description(
+	"lanes: named runs of todos, landed top first; `[ARBOR LANE <n>]` from `arbor dev` starts an orchestrator on one, handing out each todo nothing holds back to an agent on the model it names, or doing it itself. A todo in no lane is untriaged, and `[ARBOR LANE untriaged]` starts one that places those in lanes first",
+);
 
 arborLane
 	.command("list")
+	.use(repository({ needs: "read" }))
 	.description(
 		"every lane: its name, its todos in order, the tasks on it, its next todo, and what blocks that in other lanes",
 	)
@@ -31,6 +30,7 @@ arborLane
 
 arborLane
 	.command("show")
+	.use(repository({ needs: "read" }))
 	.description(
 		"one lane step by step, and what its agent does next: start the next todo, or wait for the one blocking it in another lane to land first; `untriaged` lists the todos in no lane, to place in lanes",
 	)
@@ -50,6 +50,7 @@ arborLane
 
 arborLane
 	.command("add")
+	.use(repository({ needs: "tasks" }))
 	.description("start an empty lane, after the others")
 	.arg("name", z.string(), {
 		description: "what its todos are for, like `Licensing`",
@@ -65,6 +66,7 @@ arborLane
 
 arborLane
 	.command("update")
+	.use(repository({ needs: "tasks" }))
 	.description("rename a lane, or move it among the others")
 	.arg("lane", z.coerce.number().int().positive(), {
 		description: "lane number",
@@ -88,6 +90,7 @@ arborLane
 
 arborLane
 	.command("remove")
+	.use(repository({ needs: "tasks" }))
 	.description(
 		"remove a lane, putting its todos back with the untriaged ones; a lane whose last todo merges goes on its own",
 	)

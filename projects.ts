@@ -12,6 +12,11 @@ export interface ProjectRecord {
 	root: string;
 	/** When arbor first ran there, as an ISO timestamp. */
 	added: string;
+	/**
+	 * What each other project may do here, by its root, those left out
+	 * `DEFAULT_REACH`.
+	 */
+	grants?: Record<string, Reach>;
 }
 
 /** A registered repository, as the registry reads it back. */
@@ -162,6 +167,69 @@ export class Projects {
 	}
 
 	/**
+	 * What the project at `from` may do in the one at `to`: what `to` granted
+	 * it, else `DEFAULT_REACH`.
+	 */
+	async reach(from: string, to: string): Promise<Reach> {
+		const record = (await this.read()).projects.find(
+			(each) => each.root === to,
+		);
+		return record?.grants?.[from] ?? DEFAULT_REACH;
+	}
+
+	/**
+	 * Lets the project at `from` do as much as `reach` in the registered one
+	 * at `to`, saying whether `to` is registered.
+	 */
+	async grant(to: string, from: string, reach: Reach): Promise<boolean> {
+		let registered = false;
+		await this.change((file) => {
+			registered = file.projects.some((each) => each.root === to);
+			if (!registered) {
+				return null;
+			}
+			return {
+				...file,
+				projects: file.projects.map((each) => {
+					if (each.root !== to) {
+						return each;
+					}
+					const { [from]: _, ...others } = each.grants ?? {};
+					// The default is kept by leaving it out, so it moves with it.
+					const grants =
+						reach === DEFAULT_REACH ? others : { ...others, [from]: reach };
+					return Object.keys(grants).length === 0
+						? { root: each.root, added: each.added }
+						: { ...each, grants };
+				}),
+			};
+		});
+		return registered;
+	}
+
+	/**
+	 * The registered project a command names as `slug`, refusing one that is
+	 * not there.
+	 */
+	async named(slug: string): Promise<Project> {
+		const all = await this.list();
+		const found = all.find((each) => each.slug === slug && !each.gone);
+		if (found === undefined) {
+			fail(
+				"not_found",
+				`no arbor project here is called ${slug}: it is one of ${
+					all
+						.filter((each) => !each.gone)
+						.map((each) => each.slug)
+						.join(", ") || "none"
+				}. A repository that is not one yet joins once \`arbor init\` runs there: ask the user before you run it.`,
+				{ project: slug },
+			);
+		}
+		return found;
+	}
+
+	/**
 	 * Drops the repository at `root`, saying whether it was there: one gone
 	 * for good, or one `arbor dev` should no longer offer.
 	 */
@@ -252,6 +320,23 @@ export class Projects {
 }
 
 /**
+ * What an agent working in one project may do in another through arbor,
+ * each including those before it: read its tasks, todos, lanes and systems;
+ * add todos to its untriaged lane; or hand its tasks to agents and
+ * orchestrate them. Grants stop arbor commands, not file edits.
+ */
+export const REACHES = ["read", "todos", "tasks"] as const;
+export type Reach = (typeof REACHES)[number];
+
+/** What a project lets another do that it has granted nothing. */
+export const DEFAULT_REACH: Reach = "todos";
+
+/** Whether `granted` covers what `needed` asks for. */
+export function reaches(granted: Reach, needed: Reach): boolean {
+	return REACHES.indexOf(granted) >= REACHES.indexOf(needed);
+}
+
+/**
  * One line telling an agent where a project a prompt names as `#slug` sits,
  * and how to change it:
  *
@@ -262,9 +347,26 @@ export class Projects {
 export function projectLine({
 	slug,
 	root,
+	reach,
 }: {
 	slug: string;
 	root: string;
+	/**
+	 * What the project the prompt is in may do there; null when it is that
+	 * project, or in none.
+	 */
+	reach: Reach | null;
 }): string {
-	return `#${slug} is the arbor project at ${root}: read its code there, and land any change to it from a task added there.`;
+	return reach === null
+		? `#${slug} is the arbor project at ${root}: read its code there, and land any change to it from a task added there.`
+		: `#${slug} is the arbor project at ${root}: read its code there, run arbor on it as \`arbor --project ${slug} <command>\`, and ${REACH_LINES[reach]}.`;
 }
+
+/** What `projectLine` says each reach lets an agent do there. */
+const REACH_LINES: Record<Reach, string> = {
+	read: "only read its tasks, todos, lanes and systems: ask the user for more when your work needs it",
+	todos:
+		"add todos for it, but hand it no task: ask the user for more when your work needs it",
+	tasks:
+		"add todos for it or hand its tasks to agents, never taking one yourself",
+};

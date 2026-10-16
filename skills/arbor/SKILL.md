@@ -292,9 +292,8 @@ every agent use one word for one part of the code. A prompt from the
 is made of, or, when no system answers to it, a line saying so.
 
 A `#name` can name another arbor project on this machine instead, and its
-line then gives that project's directory. Read its code there as you need
-it, and make any change to it in a task of its own, added from that
-directory, since a task lands only on its own repository.
+line then gives that project's directory and how far it lets you go there
+(see Other projects).
 
 Systems are named a few at a time as they come up, never all at once, and
 only the user names one. Offer to as a question under `## Blocked`, and write
@@ -313,6 +312,40 @@ Before writing that question, read
 [references/systems.md](references/systems.md) on how to word it, each name
 as `#name` so it reads as an arbor system rather than a class, and how to
 write the file once the answer comes.
+
+## Other projects
+
+The other arbor projects on this machine are yours to read: their code in
+their directories, and their tasks, todos, lanes and systems with `arbor
+--project <slug> <command>` (`arbor list`, `todo list`, `show`, `systems`
+and the like). `arbor projects` lists them, with what each lets this one do
+and what this one lets each do. What you may do in one is what it grants
+this project:
+
+- **read**: look only.
+- **todos**, every project's unless it grants otherwise: `arbor --project
+  <slug> todo add` what it should do, written as any todo is (see Todos),
+  saying in its detail why your project needs it. Leave `--lane` off:
+  whoever orchestrates that project places it.
+- **tasks**: hand it a task, `arbor --project <slug> add <task> --goal
+  "<...>" --agent <id> --model <m>`, and orchestrate it as
+  [references/lanes.md](references/lanes.md) says for a task you handed
+  out. Its directives name it `<slug>/<task>`; run each command on it with
+  `--project <slug>`: `show`, `tell`, `wait`, `remove`.
+
+You never take a task in another project yourself: you do not `add` one
+without `--agent`, `claim`, merge or escalate one there, and an agent you
+hand one to starts none of its own. A command that needs more than the
+project granted stops on `not_granted`; never `cd` there to get around it,
+which is checked the same way.
+
+Whenever work here needs another project, ask for what it takes rather
+than work around it: a grant, as a question under `## Blocked` naming the
+project, the reach, and what you would do with it; or, for a repository
+that is not an arbor project yet, leave to `arbor init` it, which makes it
+one any agent can reach. Run `arbor projects grant <slug> <reach>` from that
+project's directory, or `arbor init` there, only once the user says so in
+so many words, as in "let webappwiz hand out tasks here".
 
 ## Creds
 

@@ -10,6 +10,7 @@ import {
 	position,
 	todoIds,
 } from "./arbor-flags";
+import { fail } from "./exit";
 import { repository } from "./repository";
 import { recordUpdate, todosNamed } from "./todo";
 import { addedFacts, todoAdd, todoRemove, todoUpdate } from "./todo-edit";
@@ -18,14 +19,13 @@ import { todoRelease, todoTake } from "./todo-take";
 import { DEFAULT_TIMEOUT, todoWait, untilAfter } from "./wait";
 
 /** `arbor todo`, which the root cli mounts after the task commands. */
-export const arborTodo = cli<ArborDeps>("todo")
-	.description(
-		"defer work for later instead of growing the task you are in: `merge` recommends the next one when a task lands",
-	)
-	.use(repository());
+export const arborTodo = cli<ArborDeps>("todo").description(
+	"defer work for later instead of growing the task you are in: `merge` recommends the next one when a task lands",
+);
 
 arborTodo
 	.command("add")
+	.use(repository({ needs: "todos" }))
 	.description(
 		"note something to do later and move on; run from a worktree, it records the task it came up in",
 	)
@@ -63,8 +63,28 @@ arborTodo
 		description: "with --agent: the model, by its id or name on the roster",
 	})
 	.action(async (opts, ctx) => {
+		if (ctx.elsewhere !== null && opts.lane !== "") {
+			fail(
+				"not_granted",
+				"a todo from another project goes in its untriaged lane, for whoever orchestrates it there to place: leave --lane off",
+				{ subject: opts.subject },
+			);
+		}
 		const from = await here(ctx);
 		const assignee = await assigneeIn(ctx, opts.agent, opts.model);
+		// Run with `--project`, the working directory is in the other project.
+		const origin =
+			ctx.elsewhere === null
+				? undefined
+				: {
+						project: ctx.elsewhere,
+						task:
+							ctx.project === undefined
+								? null
+								: ctx.service.taskFor(
+										await ctx.git.currentBranch(ctx.ps.cwd()),
+									),
+					};
 		await ctx.journal.record(
 			"todo add",
 			from,
@@ -76,6 +96,7 @@ arborTodo
 					blockedBy: todoIds(opts["blocked-by"]),
 					lane: laneIn(opts.lane) ?? null,
 					assignee,
+					origin,
 				}),
 			addedFacts,
 		);
@@ -83,6 +104,7 @@ arborTodo
 
 arborTodo
 	.command("list")
+	.use(repository({ needs: "read" }))
 	.description(
 		"every todo, top of the list first, with the task it came from and the task that took it up",
 	)
@@ -106,6 +128,7 @@ arborTodo
 
 arborTodo
 	.command("show")
+	.use(repository({ needs: "read" }))
 	.description("one todo in full: where it stands, its files, and its detail")
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.option("json", z.boolean(), { default: false, description: "emit JSON" })
@@ -113,6 +136,7 @@ arborTodo
 
 arborTodo
 	.command("update")
+	.use(repository({ needs: "tasks" }))
 	.description(
 		"say what a todo is in other words, move it up or down the list, or attach and drop files; it keeps its id",
 	)
@@ -181,6 +205,7 @@ arborTodo
 
 arborTodo
 	.command("take")
+	.use(repository({ needs: "own" }))
 	.description(
 		"take up todos for the task whose worktree you are in, as when they turn out to be part of its work: merging removes them, removing the task puts them back",
 	)
@@ -199,6 +224,7 @@ arborTodo
 
 arborTodo
 	.command("release")
+	.use(repository({ needs: "own" }))
 	.description(
 		"put taken todos back on the list, as when a task lands without finishing them: `arbor todo update` the leftover first; from a worktree, only its own task's",
 	)
@@ -217,6 +243,7 @@ arborTodo
 
 arborTodo
 	.command("remove")
+	.use(repository({ needs: "tasks" }))
 	.description("drop a todo that was done some other way or no longer applies")
 	.arg("id", z.coerce.number().int().positive(), { description: "todo id" })
 	.action((opts, ctx) =>
@@ -230,6 +257,7 @@ arborTodo
 
 arborTodo
 	.command("wait")
+	.use(repository({ needs: "read" }))
 	.description(
 		"block until a todo leaves the list, which it does when the task that took it merges: for a todo blocked by one another lane is on; ends early when that task is escalated, and gives up with `timeout`",
 	)

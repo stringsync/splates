@@ -80,6 +80,8 @@ describe("tell", () => {
 
 	it("reports a task stopping to the conversation that handed it out", async () => {
 		runAs("agent");
+		await deps.fs.mkdir(`${deps.arborDir}/conversations`);
+		await deps.fs.write(`${deps.arborDir}/conversations/orch.jsonl`, "");
 
 		await reportToCaller({ ...deps, send }, await deps.service.find("alpha"));
 
@@ -89,6 +91,17 @@ describe("tell", () => {
 				origin: "http://localhost:4270",
 				text: "[ARBOR REPORT alpha]",
 			},
+		]);
+	});
+
+	it("names the task by its project to a caller of another project's page", async () => {
+		runAs("agent");
+
+		await reportToCaller({ ...deps, send }, await deps.service.find("alpha"));
+
+		const slug = deps.root.split("/").at(-1);
+		expect(sent.map((each) => each.text)).toEqual([
+			`[ARBOR REPORT ${slug}/alpha]`,
 		]);
 	});
 

@@ -71,10 +71,12 @@ export class WorktreeService {
 	 */
 	async conversation(): Promise<string | undefined> {
 		const id = this.ps.env("ARBOR_CONVERSATION");
-		return id !== undefined &&
-			(await this.fs.exists(`${this.conversationsDir}/${id}.jsonl`))
-			? id
-			: undefined;
+		return id !== undefined && (await this.holds(id)) ? id : undefined;
+	}
+
+	/** Whether the `arbor dev` conversation `id` is one of this repo's. */
+	holds(id: string): Promise<boolean> {
+		return this.fs.exists(`${this.conversationsDir}/${id}.jsonl`);
 	}
 
 	async init(): Promise<void> {

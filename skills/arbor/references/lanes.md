@@ -67,6 +67,11 @@ Make the Stats page say what to act on, then renew licenses on their own.
    than block in `arbor wait`: your agents work on their own, and each wakes
    you as it stops. Never end a turn with work out and no report on it.
 
+A task you handed out in another project comes back named `<slug>/<task>`:
+run each command below on it as `arbor --project <slug> <command> <task>`.
+You cannot claim one there: where this file says to finish a task
+yourself, bring it to the user instead.
+
 `[ARBOR REPORT <task>]`, which arrives as a message from the user would,
 means a task you handed out stopped: escalated, merged or removed. Read
 `arbor show <task>`, once per stop: one you have already acted on needs

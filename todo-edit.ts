@@ -5,7 +5,7 @@ import { readFiles } from "./attachments";
 import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { AgentPick } from "./roster";
-import type { Todo } from "./todo";
+import type { Todo, TodoOrigin } from "./todo";
 import type { Todos } from "./todos";
 
 export interface TodoFileOptions {
@@ -24,6 +24,8 @@ export interface TodoAddOptions extends TodoFileOptions {
 	lane?: number | "new" | null;
 	/** The agent that should work it; none by default. */
 	assignee?: AgentPick | null;
+	/** The other project it is added from; none by default. */
+	origin?: TodoOrigin;
 }
 
 export async function todoAdd(
@@ -37,6 +39,7 @@ export async function todoAdd(
 		blockedBy,
 		lane,
 		assignee,
+		origin,
 	}: TodoAddOptions = {},
 ): Promise<Todo> {
 	const todo = await deps.todos.add(subject, from, {
@@ -46,6 +49,7 @@ export async function todoAdd(
 		blockedBy,
 		lane,
 		assignee,
+		origin,
 	});
 	deps.log.info(
 		[

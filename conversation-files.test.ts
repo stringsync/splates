@@ -36,7 +36,10 @@ describe("Conversation files", () => {
 				clock,
 				ids: new CounterIdProvider(),
 				launch: agent.launch,
+				root: "/repo",
 				projects: {
+					reach: async (from, to) =>
+						from === "/repo" && to === "/Users/me/shop" ? "tasks" : "todos",
 					list: async () => [
 						{ slug: "shop", root: "/Users/me/shop", gone: false },
 						{ slug: "playback", root: "/Users/me/playback", gone: false },
@@ -242,7 +245,7 @@ describe("Conversation files", () => {
 		expect(agent.prompts.at(-1)).toEqual([
 			{
 				type: "text",
-				text: `Match the header in #shop, then #playback, #old and #mixer\n\n#playback (player): src/audio/**\n${projectLine({ slug: "shop", root: "/Users/me/shop" })}\n${unknownLine("old")}\n${unknownLine("mixer")}`,
+				text: `Match the header in #shop, then #playback, #old and #mixer\n\n#playback (player): src/audio/**\n${projectLine({ slug: "shop", root: "/Users/me/shop", reach: "tasks" })}\n${unknownLine("old")}\n${unknownLine("mixer")}`,
 			},
 		]);
 	});

@@ -48,6 +48,7 @@ export class Todos {
 			blockedBy = [],
 			lane = null,
 			assignee = null,
+			origin,
 		}: TodoNew = {},
 	): Promise<Todo> {
 		const words = wording(subject, text);
@@ -78,6 +79,7 @@ export class Todos {
 				files: await this.attachments(id).store(files),
 				blockedBy: [...new Set(blockedBy)].sort((left, right) => left - right),
 				lane: null,
+				...(origin === undefined ? {} : { origin }),
 			};
 			const todo = await this.save(
 				assigned(
@@ -438,7 +440,7 @@ export class Todos {
 /** What `Todos` is stored through; the real filesystem by default. */
 export interface TodosOptions {
 	fs?: Fs;
-	/** Names stored files apart; a test counts. */
+	/** What names stored files apart; random ids by default. */
 	ids?: IdProvider;
 }
 

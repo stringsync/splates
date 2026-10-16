@@ -40,6 +40,11 @@ export interface AddOptions {
 	dispatch?: Dispatched;
 	/** The roster's agents, which `dispatch` must name one of, and its model. */
 	agents?: RosterAgent[];
+	/**
+	 * Added from another project, as `arbor --project` does: the task goes
+	 * to an agent of its own, so `dispatch` is a must.
+	 */
+	away?: boolean;
 }
 
 export async function add(
@@ -68,8 +73,16 @@ export async function add(
 		onTree,
 		dispatch,
 		agents = [],
+		away = false,
 	}: AddOptions = {},
 ): Promise<void> {
+	if (away && dispatch === undefined) {
+		fail(
+			"not_granted",
+			"a task in another project goes to an agent of its own: add it with --agent, and orchestrate it from here",
+			{ task },
+		);
+	}
 	if (!NAME.test(task)) {
 		fail(
 			"usage",

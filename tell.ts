@@ -1,6 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
 import { fail } from "./exit";
+import type { Projects } from "./projects";
 import { reportReference } from "./prompts";
 import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -95,7 +96,19 @@ export async function tell(
  * worth a line, never a failure, since the command has done its work.
  */
 export async function reportToCaller(
-	{ ps, log, send = fetch }: { ps: Ps; log: Logger; send?: Send },
+	{
+		ps,
+		log,
+		service,
+		projects,
+		send = fetch,
+	}: {
+		ps: Ps;
+		log: Logger;
+		service: WorktreeService;
+		projects: Projects;
+		send?: Send;
+	},
 	worktree: Worktree,
 ): Promise<void> {
 	const url = ps.env("ARBOR_DEV");
@@ -109,8 +122,13 @@ export async function reportToCaller(
 		return;
 	}
 	try {
+		// A caller of another project's page names the task by this one's slug.
+		const root = service.git.root;
+		const named = (await service.holds(ends.caller))
+			? worktree.task
+			: `${(await projects.list()).find((each) => each.root === root)?.slug ?? root}/${worktree.task}`;
 		const form = new FormData();
-		form.set("text", reportReference(worktree.task));
+		form.set("text", reportReference(named));
 		const response = await send(
 			`${url}/api/conversations/${ends.caller}/prompt`,
 			{ method: "POST", headers: { origin: url }, body: form },

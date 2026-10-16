@@ -10,14 +10,13 @@ import { repository } from "./repository";
 import { untilAfter } from "./wait";
 
 /** `arbor creds`, which the root cli mounts after `arbor lane`. */
-export const arborCreds = cli<ArborDeps>("creds")
-	.description(
-		"creds an agent needs a person for, such as an API token: request one saying what it is for, with instructions for getting it, which the Creds page of `arbor dev` shows for the person to paste, then wait for it; the value goes into the system's store (the macOS Keychain, Windows Credential Manager, a Linux secret service), never to the agent, and code reads it through webappwiz/creds",
-	)
-	.use(repository());
+export const arborCreds = cli<ArborDeps>("creds").description(
+	"creds an agent needs a person for, such as an API token: request one saying what it is for, with instructions for getting it, which the Creds page of `arbor dev` shows for the person to paste, then wait for it; the value goes into the system's store (the macOS Keychain, Windows Credential Manager, a Linux secret service), never to the agent, and code reads it through webappwiz/creds",
+);
 
 arborCreds
 	.command("request")
+	.use(repository({ needs: "own" }))
 	.description(
 		"ask a person for a cred, saying why it is needed and what it will be used for, with markdown instructions for getting it; returns at once, and does nothing when the store already keeps it unless --replace; run from a worktree, it records the task asking",
 	)
@@ -75,6 +74,7 @@ arborCreds
 
 arborCreds
 	.command("wait")
+	.use(repository({ needs: "own" }))
 	.description(
 		"block until a person saves the cred requested, or dismisses the request (`dismissed`); gives up with `timeout` rather than waiting forever",
 	)
@@ -105,6 +105,7 @@ arborCreds
 
 arborCreds
 	.command("list")
+	.use(repository({ needs: "read" }))
 	.description(
 		"the creds requested and still open, with what each is for, and every cred the project's store and the device's keep, by name; never a value",
 	)

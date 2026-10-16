@@ -1,5 +1,7 @@
 import type { Logger } from "webappwiz/log";
 import type { Ps } from "webappwiz/system";
+import type { Git } from "./git";
+import type { Projects } from "./projects";
 
 /** What `fetch` is used for here, so a test can stand in for it. */
 type Send = (url: string, init: RequestInit) => Promise<Response>;
@@ -46,6 +48,47 @@ export async function follow(
 	} catch (error) {
 		log.error(
 			`arbor dev at ${url} could not be told of the move: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+}
+
+/**
+ * Asks `arbor dev` to serve the project `git` is in, so the agent a task
+ * there was just handed to from another project starts: the server opens a
+ * project only once something asks for it. Outside `arbor dev` it says
+ * nothing; a server that cannot be reached is worth a line.
+ */
+export async function serveProject({
+	ps,
+	log,
+	git,
+	projects,
+	send = fetch,
+}: {
+	ps: Ps;
+	log: Logger;
+	git: Git;
+	projects: Projects;
+	send?: Send;
+}): Promise<void> {
+	const url = ps.env("ARBOR_DEV");
+	const slug = (await projects.list()).find(
+		(each) => each.root === git.root,
+	)?.slug;
+	if (url === undefined || slug === undefined) {
+		return;
+	}
+	try {
+		const response = await send(`${url}/api/projects/${slug}/serve`, {
+			method: "POST",
+			headers: { origin: url },
+		});
+		if (!response.ok) {
+			log.error(`arbor dev did not serve ${slug}: ${response.status}`);
+		}
+	} catch (error) {
+		log.error(
+			`arbor dev at ${url} could not be asked to serve ${slug}: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 }

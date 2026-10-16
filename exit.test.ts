@@ -33,6 +33,7 @@ it("keeps the exit codes stable", () => {
 		requested: 25,
 		slots_full: 26,
 		slot_running: 27,
+		not_granted: 28,
 	});
 });
 

@@ -4,6 +4,7 @@ import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { add } from "./add";
 import { HEARTBEAT_IDLE } from "./conversation-state";
 import { type Conversation, Conversations } from "./conversations";
+import { Everywhere } from "./everywhere";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";
 import { remove } from "./remove";
@@ -101,6 +102,54 @@ describe("HandedOut", () => {
 		await Bun.sleep(50);
 
 		expect(said).toEqual(["[ARBOR TASK alpha]", "[ARBOR IDLE alpha]"]);
+	});
+
+	it("tells one of another project's page, naming the task by its project", async () => {
+		const elsewhere = new Conversations(
+			`${deps.root}-shop/.git/arbor/conversations`,
+			[AGENT],
+			{ launch: agent.launch },
+		);
+		try {
+			const orchestrator = await elsewhere.start("fake", {
+				task: null,
+				cwd: `${deps.root}-shop`,
+			});
+			const working = await conversations.start("fake", {
+				task: "alpha",
+				cwd: (await deps.service.find("alpha")).path,
+				handedBy: orchestrator.id,
+			});
+			await until(() => working.state.status === "idle");
+			await working.prompt("[ARBOR TASK alpha]");
+			await until(() => said.length === 1 && working.state.status === "idle");
+			watching = HandedOut.watch({
+				service: deps.service,
+				conversations,
+				everywhere: new Everywhere({
+					list: async () => [
+						...(await conversations.list()).map((conversation) => ({
+							conversation,
+							root: deps.root,
+						})),
+						...(await elsewhere.list()).map((conversation) => ({
+							conversation,
+							root: `${deps.root}-shop`,
+						})),
+					],
+					slug: async () => "repo",
+				}),
+				log: deps.log,
+				timer,
+				clock,
+			});
+			await watching.sweep();
+			await until(() => said.length === 2);
+
+			expect(said).toEqual(["[ARBOR TASK alpha]", "[ARBOR IDLE repo/alpha]"]);
+		} finally {
+			await elsewhere.disposeAsync();
+		}
 	});
 
 	it("tells it again once the agent has said more and gone quiet again", async () => {

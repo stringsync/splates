@@ -4,6 +4,7 @@ import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch } from "./agent-process";
 import type { ConversationLog } from "./conversation-log";
 import type { ConversationState } from "./conversation-state";
+import type { Reach } from "./projects";
 import type { SessionServers } from "./shared-browser";
 import type { Watch } from "./watch";
 
@@ -67,6 +68,8 @@ export interface ConversationDeps {
 export interface ProjectRoster {
 	/** Each project, flagged `gone` when its repository is no longer there. */
 	list(): Promise<(ProjectRef & { gone: boolean })[]>;
+	/** What the project at `from` may do in the one at `to`. */
+	reach(from: string, to: string): Promise<Reach>;
 }
 
 /** An arbor project a prompt can name as `#slug`. */

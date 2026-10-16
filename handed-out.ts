@@ -10,6 +10,7 @@ import {
 } from "webappwiz/time";
 import { HEARTBEAT_IDLE } from "./conversation-state";
 import type { Conversation, Conversations } from "./conversations";
+import { Everywhere } from "./everywhere";
 import {
 	HEARTBEAT,
 	idleReference,
@@ -59,6 +60,7 @@ export class HandedOut implements Resource {
 	private constructor(
 		private readonly service: WorktreeService,
 		private readonly conversations: Conversations,
+		private readonly everywhere: Everywhere,
 		private readonly log: Logger,
 		private readonly timer: Timer,
 		private readonly clock: WallClock,
@@ -87,17 +89,30 @@ export class HandedOut implements Resource {
 	static watch({
 		service,
 		conversations,
+		everywhere = Everywhere.onlyHere(service.git.root, conversations),
 		log,
 		timer = new SystemTimer(),
 		clock = new SystemWallClock(),
 	}: {
 		service: WorktreeService;
 		conversations: Conversations;
+		/**
+		 * Every project's conversations, where the one that handed out a task
+		 * here may be; this project's alone by default.
+		 */
+		everywhere?: Everywhere;
 		log: Logger;
 		timer?: Timer;
 		clock?: WallClock;
 	}): HandedOut {
-		const watching = new HandedOut(service, conversations, log, timer, clock);
+		const watching = new HandedOut(
+			service,
+			conversations,
+			everywhere,
+			log,
+			timer,
+			clock,
+		);
 		watching.sweep();
 		return watching;
 	}
@@ -117,8 +132,10 @@ export class HandedOut implements Resource {
 			for (const conversation of all) {
 				await this.#check(conversation);
 			}
+			// The agents a conversation here handed tasks to may be in any project.
+			const anywhere = await this.#anywhere();
 			for (const conversation of all) {
-				this.#beat(conversation, all);
+				this.#beat(conversation, anywhere);
 			}
 		});
 	}
@@ -136,6 +153,10 @@ export class HandedOut implements Resource {
 				),
 			);
 		return this.#checking;
+	}
+
+	async #anywhere(): Promise<Conversation[]> {
+		return (await this.everywhere.list()).map((each) => each.conversation);
 	}
 
 	/** Keeps `conversation`'s next heartbeat, as `all` stand, on its state and the timer. */
@@ -161,10 +182,7 @@ export class HandedOut implements Resource {
 					void this.#queue(async () => {
 						this.#beats.delete(id);
 						// Its agents may have stopped, or it spoke, since.
-						const now = nextHeartbeat(
-							conversation,
-							await this.conversations.list(),
-						);
+						const now = nextHeartbeat(conversation, await this.#anywhere());
 						if (now === null || Date.parse(now) > this.clock.now()) {
 							return;
 						}
@@ -183,9 +201,8 @@ export class HandedOut implements Resource {
 			return;
 		}
 		const worktree = await this.service.find(task);
-		const caller = (await this.conversations.list()).find(
-			(each) => each.id === state.handedBy,
-		);
+		const found = await this.everywhere.find(state.handedBy);
+		const caller = found?.conversation;
 		const working = state.status === "running" || state.status === "starting";
 		if (worktree.gone) {
 			// Its last turn has its report to finish.
@@ -208,13 +225,21 @@ export class HandedOut implements Resource {
 		if (
 			!quiet ||
 			worktree.state?.status === "escalated" ||
+			found === undefined ||
 			caller === undefined ||
-			caller.state.archived ||
-			heard(caller, conversation, task)
+			caller.state.archived
 		) {
 			return;
 		}
-		await caller.prompt(idleReference(task));
+		const named = await this.everywhere.taskNamed(
+			task,
+			this.service.git.root,
+			found.root,
+		);
+		if (heard(caller, conversation, named)) {
+			return;
+		}
+		await caller.prompt(idleReference(named));
 	}
 }
 

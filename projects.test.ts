@@ -135,6 +135,32 @@ describe("Projects", () => {
 		]);
 	});
 
+	it("lets another project add todos until granted otherwise", async () => {
+		await using deps = await Testing.open({ init: false });
+		await deps.projects.register("/a/web");
+		await deps.projects.register("/c/api");
+		expect(await deps.projects.reach("/a/web", "/c/api")).toBe("todos");
+
+		expect(await deps.projects.grant("/c/api", "/a/web", "tasks")).toBe(true);
+		expect(await deps.projects.reach("/a/web", "/c/api")).toBe("tasks");
+		expect(await deps.projects.reach("/c/api", "/a/web")).toBe("todos");
+
+		await deps.projects.grant("/c/api", "/a/web", "todos");
+		expect(await deps.fs.read(deps.projects.path)).not.toContain("grants");
+		expect(await deps.projects.grant("/nowhere", "/a/web", "read")).toBe(false);
+	});
+
+	it("names a project by its slug, refusing one not there", async () => {
+		await using deps = await Testing.open({ init: false });
+		await deps.projects.register(deps.root);
+
+		const slug = deps.root.split("/").at(-1) ?? "";
+		expect((await deps.projects.named(slug)).root).toBe(deps.root);
+		await expect(deps.projects.named("nowhere")).rejects.toMatchObject({
+			reason: "not_found",
+		});
+	});
+
 	it("refuses a registry a newer arbor wrote", async () => {
 		await using deps = await Testing.open({ init: false });
 		await deps.fs.mkdir(deps.projects.path.replace(/\/[^/]+$/, ""));

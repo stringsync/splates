@@ -1,16 +1,17 @@
 import { dirname } from "node:path";
 import type { Deps, Middleware } from "webappwiz/cmd";
-import { FileLock, type Fs, type Lock } from "webappwiz/system";
+import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { Adherence } from "./adherence";
 import type { Config } from "./config";
 import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
+import { fail } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
 import { type HeavyCap, HeavyJobs } from "./heavy";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
-import { Projects } from "./projects";
+import { Projects, type Reach, reaches } from "./projects";
 import { arborHome } from "./roster";
 import { Shell } from "./shell";
 import { Slots } from "./slots";
@@ -58,15 +59,119 @@ export interface RepositoryOptions {
 }
 
 /**
- * Runs the action against the repository `cwd` sits in, and refuses to run it
- * at all when that is not a repository, or its records are in a format this
- * arbor does not read.
+ * Runs the action against the repository `cwd` sits in, or the registered
+ * project `--project` names, and refuses to run it at all when that is not
+ * a repository, its records are in a format this arbor does not read, or
+ * the command is run from another project that has not been granted what
+ * it `needs` there.
  */
-export function repository<C extends Deps & { fs: Fs; secrets?: SecretStores }>(
-	opts: RepositoryOptions = {},
-): Middleware<C, C & Repository> {
-	return async (ctx, next) =>
-		next({ ...ctx, ...(await openRepository(ctx, opts)) });
+export function repository<
+	C extends Deps & { fs: Fs; secrets?: SecretStores; project?: string },
+>(
+	opts: Omit<RepositoryOptions, "at"> & { needs: Needs },
+): Middleware<C, C & Repository & Reached> {
+	return async (ctx, next) => {
+		const at =
+			ctx.project === undefined
+				? undefined
+				: (await Projects.ofMachine(ctx).named(ctx.project)).root;
+		const repo = await openRepository(ctx, { ...opts, at });
+		const elsewhere = await checkReach(ctx, repo, opts.needs);
+		await next({ ...ctx, ...repo, elsewhere });
+	};
+}
+
+/**
+ * What a command needs of the project it runs on, when an agent of another
+ * project runs it: a reach that project must have granted, or `own` for a
+ * command no other project may run there at all.
+ */
+export type Needs = Reach | "own";
+
+/** What `repository` adds beyond the repository itself. */
+export interface Reached {
+	/**
+	 * The main tree of the other project the command is run from, as checked
+	 * against what it `needs`; null when run from this one, or from none.
+	 */
+	elsewhere: string | null;
+}
+
+/**
+ * The other project a command is run from, refusing one that has not been
+ * granted what it `needs` here. The project acting is the one whose `arbor dev` conversation runs the
+ * command, so an agent that `cd`s here is checked as one that names this
+ * project with `--project`; else, for an agent outside the page, the one
+ * `cwd` sits in.
+ */
+async function checkReach(
+	{ fs, ps, project }: Deps & { fs: Fs; project?: string },
+	{ git, projects, service }: Repository,
+	needs: Needs,
+): Promise<string | null> {
+	const from =
+		(await service.conversation()) !== undefined
+			? git.root
+			: ((await conversationHome(fs, ps.env("ARBOR_CONVERSATION"), projects)) ??
+				(project === undefined ? git.root : await mainTree(ps)));
+	if (from === null || from === git.root) {
+		return null;
+	}
+	const slugs = await projects.list();
+	const called = (root: string) =>
+		slugs.find((each) => each.root === root)?.slug ?? root;
+	if (needs === "own") {
+		fail(
+			"not_granted",
+			`this command runs only on ${called(git.root)} itself, never from ${called(from)}: an agent there hands work here to an agent of its own instead`,
+			{ from: called(from), to: called(git.root) },
+		);
+	}
+	const reach = await projects.reach(from, git.root);
+	if (!reaches(reach, needs)) {
+		fail(
+			"not_granted",
+			[
+				`${called(git.root)} lets ${called(from)} ${reach === "read" ? "only read" : "only add todos"} here, and this needs ${needs}.`,
+				`Ask the user whether it may: once they say so, \`arbor projects grant ${called(from)} ${needs}\` run in ${git.root} grants it.`,
+			].join("\n"),
+			{ from: called(from), to: called(git.root), reach, needs },
+		);
+	}
+	return from;
+}
+
+/**
+ * The main tree of the registered project whose `arbor dev` conversation
+ * `id` is, or null for one of none.
+ */
+async function conversationHome(
+	fs: Fs,
+	id: string | undefined,
+	projects: Projects,
+): Promise<string | null> {
+	if (id === undefined) {
+		return null;
+	}
+	for (const each of await projects.list()) {
+		if (await fs.exists(`${each.root}/.git/arbor/conversations/${id}.jsonl`)) {
+			return each.root;
+		}
+	}
+	return null;
+}
+
+/** The main tree of the repository `cwd` sits in, or null outside one. */
+async function mainTree(ps: Ps): Promise<string | null> {
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		ps.cwd(),
+		"rev-parse",
+		"--path-format=absolute",
+		"--git-common-dir",
+	]);
+	return exitCode === 0 ? dirname(stdout.trim()) : null;
 }
 
 /**

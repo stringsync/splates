@@ -55,7 +55,10 @@ export class Conversation
 		private dir: string | null,
 		{ session = null, loading = false, picks = {}, model = null }: From = {},
 	) {
-		this.files = new ConversationFiles(log.path, deps.fs, deps.projects);
+		this.files = new ConversationFiles(log.path, deps.fs, {
+			projects: deps.projects,
+			home: deps.root,
+		});
 		this.connection = new AgentConnection(this, deps, {
 			session,
 			loading,

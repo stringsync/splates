@@ -127,6 +127,10 @@ export async function here({
 	service,
 	git,
 	ps,
+	project,
 }: ArborDeps & Repository): Promise<string | null> {
-	return service.taskFor(await git.currentBranch(ps.cwd()));
+	// Run with `--project`, the working directory is another repository's.
+	return project === undefined
+		? service.taskFor(await git.currentBranch(ps.cwd()))
+		: null;
 }

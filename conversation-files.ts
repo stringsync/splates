@@ -17,14 +17,25 @@ import { hashed, mentionLine, Systems, unknownLine } from "./systems";
 export class ConversationFiles {
 	/** Where the files are kept. */
 	private readonly dir: string;
+	private readonly projects: ProjectRoster | null;
+	private readonly home: string | null;
 
 	constructor(
 		log: string,
 		private readonly fs: Fs,
-		/** The arbor projects on this machine, for `#slug`; null for none. */
-		private readonly projects: ProjectRoster | null = null,
+		{
+			projects = null,
+			home = null,
+		}: {
+			/** The arbor projects on this machine, for `#slug`; null for none. */
+			projects?: ProjectRoster | null;
+			/** The main tree of the project the conversation is in; null for none. */
+			home?: string | null;
+		} = {},
 	) {
 		this.dir = resolve(log.replace(/\.jsonl$/, ""));
+		this.projects = projects;
+		this.home = home;
 	}
 
 	/**
@@ -158,7 +169,18 @@ export class ConversationFiles {
 		});
 		return [
 			...systems.map(mentionLine),
-			...found.map(projectLine),
+			...(await Promise.all(
+				found.map(async (project) =>
+					projectLine({
+						...project,
+						reach:
+							this.home === null || project.root === this.home
+								? null
+								: ((await this.projects?.reach(this.home, project.root)) ??
+									null),
+					}),
+				),
+			)),
 			...unknown
 				.filter((called) => !found.some((each) => each.slug === called))
 				.map(unknownLine),

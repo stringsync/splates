@@ -13,7 +13,7 @@ export const arborTunnel = cli<ArborDeps>("tunnel").description(
 
 arborTunnel
 	.command("setup")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		`make a Cloudflare tunnel to \`arbor dev\`, the DNS record routing <host> to it, and an Access application letting in only --email, through the API with the token kept as the cred ${API_TOKEN}, then save them for this machine, so a bare \`arbor dev\` comes up tunneled; run again, it changes only what is not so already. Without that token it requests it on the Creds page of \`arbor dev\`, with how to make it, and exits \`requested\`: \`arbor creds wait ${API_TOKEN}\`, then run it again`,
 	)
@@ -83,7 +83,7 @@ arborTunnel
 
 arborTunnel
 	.command("remove")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		`delete what \`arbor tunnel setup\` and \`arbor dev --slot\` made in Cloudflare by what they saved: each tunnel, the DNS record routing to it, the Access applications and their policy, then forget the saved files and the tunnels' tokens; the API token kept as ${API_TOKEN} stays. Run again after a failure, it finishes what is left`,
 	)

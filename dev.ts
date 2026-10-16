@@ -30,6 +30,7 @@ import { transcriberFor } from "./dev-transcriber";
 import { startTunnel } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { DevWorkers } from "./dev-workers";
+import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { HeavyJobs } from "./heavy";
 import { Machine, osSensors } from "./machine";
@@ -120,6 +121,9 @@ export async function dev(
 	// Read on each request, since a rebuild replaces what is served.
 	const pages = new Pages(assets);
 
+	// By root, each opened on its first request: the focused one at once,
+	// every other registered one only when a page asks for it.
+	const served = new Map<string, Promise<Served>>();
 	const context: DevContext = {
 		get url() {
 			return url;
@@ -136,13 +140,11 @@ export async function dev(
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
 		transcriberFor: transcriber,
+		everywhere: Everywhere.served(served, projects),
 	};
 	const serve = (project: Project): Promise<Served> =>
 		serveProject(project, context);
 
-	// By root, each opened on its first request: the focused one at once,
-	// every other registered one only when a page asks for it.
-	const served = new Map<string, Promise<Served>>();
 	const servedAt = (root: string): Promise<Served> => {
 		let found = served.get(root);
 		if (found === undefined) {
@@ -336,6 +338,18 @@ export async function dev(
 				POST: talk(guarded(picker.add)),
 			},
 			"/api/projects/:slug/commit": { POST: talk(guarded(picker.commit)) },
+			// An agent of another project handed it a task: its agent starts
+			// only once the project is served.
+			"/api/projects/:slug/serve": {
+				POST: talk(
+					guarded(async (request) => {
+						await projectNamed(
+							new URL(request.url).pathname.split("/")[3] ?? "",
+						);
+						return new Response(null, { status: 204 });
+					}),
+				),
+			},
 			"/api/focus": { PUT: guarded(picker.focus) },
 			"/api/stats": guarded(ended.stats),
 			"/api/identity": guarded(async (request) =>

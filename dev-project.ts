@@ -17,6 +17,7 @@ import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
 import type { TranscriberFor } from "./dev-transcriber";
 import { startDispatched } from "./dispatched";
+import type { Everywhere } from "./everywhere";
 import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
 import type { LaneRecord } from "./lanes";
@@ -47,7 +48,12 @@ export async function serveProject(
 	let handedOut: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
-		handedOut = HandedOut.watch({ service, conversations, log });
+		handedOut = HandedOut.watch({
+			service,
+			conversations,
+			everywhere: context.everywhere,
+			log,
+		});
 		events = await ConversationEvents.follow({
 			journal,
 			conversations,
@@ -81,7 +87,11 @@ export async function serveProject(
 		handOff();
 	}
 
-	const talks = new ConversationRoutes(project, conversations);
+	const talks = new ConversationRoutes(
+		project,
+		conversations,
+		context.everywhere,
+	);
 	return {
 		...new TaskRoutes(project, conversations, watch),
 		...new TodoRoutes(project, talks, watch),
@@ -170,6 +180,8 @@ export interface DevContext {
 	readonly pages: Pages;
 	/** The conversations `project`'s page may hold, or null when they are off. */
 	conversationsFor(project: Project): Conversations | null;
+	/** Every served project's conversations, where a caller of one may be. */
+	readonly everywhere: Everywhere;
 	/** What `project`'s dictations transcribe with. */
 	readonly transcriberFor: TranscriberFor;
 }

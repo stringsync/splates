@@ -9,6 +9,7 @@ import { arborCreds } from "./arbor-creds";
 import { serveDev } from "./arbor-dev";
 import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
 import { arborLane } from "./arbor-lane";
+import { arborProjects } from "./arbor-projects";
 import { setup } from "./arbor-setup";
 import { arborSlots } from "./arbor-slots";
 import { arborTodo } from "./arbor-todo";
@@ -22,7 +23,7 @@ import type { Assets } from "./dev/assets";
 import { escalate } from "./escalate";
 import type { Facts } from "./events";
 import { exits, fail } from "./exit";
-import { follow } from "./follow";
+import { follow, serveProject } from "./follow";
 import { handoff } from "./handoff";
 import { runHeavy } from "./heavy-run";
 import { forget, init } from "./init";
@@ -44,12 +45,38 @@ import { REMOVE_REASONS } from "./worktree";
 /** Everything `arbor` is run with, before the repository middleware adds to it. */
 export interface ArborDeps extends Deps {
 	fs: Fs;
+	/**
+	 * The registered project a leading `--project <slug>` names, which repo
+	 * commands run on instead of the one the working directory is in.
+	 */
+	project?: string;
 	/** The built page `dev` serves as its preview. */
 	assets: Assets;
 	/** Where creds are kept; the system's stores by default. */
 	secrets?: SecretStores;
 	/** How `arbor tunnel setup` reaches Cloudflare's API; the global one by default. */
 	fetch?: typeof fetch;
+}
+
+/**
+ * Splits a leading `--project <slug>`, or `--project=<slug>`, off the
+ * arguments, for `run` to be handed as `project`.
+ */
+export function projectArgs(argv: string[]): {
+	project?: string;
+	argv: string[];
+} {
+	const [first, second, ...rest] = argv;
+	if (first === "--project" && second !== undefined) {
+		return { project: second, argv: rest };
+	}
+	if (first?.startsWith("--project=")) {
+		return {
+			project: first.slice("--project=".length),
+			argv: argv.slice(1),
+		};
+	}
+	return { argv };
 }
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and
@@ -60,7 +87,7 @@ export const arbor = cli<ArborDeps>("arbor").use(exits<ArborDeps>());
 // context straight on: each command takes the few it names off it.
 arbor
 	.command("init")
-	.use(repository({ creates: true }))
+	.use(repository({ creates: true, needs: "own" }))
 	.description(
 		"make this repository an arbor project: set up its records under .git/arbor when it has none, install the arbor skill of this release with `bunx skills add`, and register it in ~/.arbor/projects.json, so `arbor dev` serves it beside every other; run again, it changes only what is not so already",
 	)
@@ -68,7 +95,7 @@ arbor
 
 arbor
 	.command("update")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"bring this repository up to the newest arbor on npm: run `update` on that release when it is newer than this one, which installs its arbor skill with `bunx skills add` over the copy there, leaving one that links to your own, and moves systems an older arbor.config.ts names into arbor.systems.ts; commit what changed",
 	)
@@ -102,7 +129,7 @@ arbor
 
 arbor
 	.command("forget")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"take this repository off ~/.arbor/projects.json, so `arbor dev` no longer offers it; its records stay, and `arbor init` brings it back",
 	)
@@ -110,7 +137,7 @@ arbor
 
 arbor
 	.command("add")
-	.use(repository())
+	.use(repository({ needs: "tasks" }))
 	.description(
 		"start a new task: create branch task/<task>, a worktree at ../<repo>-arbor.noindex/<task> and a state record",
 	)
@@ -181,6 +208,7 @@ arbor
 					goal: opts.goal.trim() || undefined,
 					dispatch,
 					agents,
+					away: ctx.elsewhere !== null,
 					// Before the task is live, or the page shows it a moment as an
 					// external agent's. A task handed to another agent is that
 					// agent's, so this conversation stays where it is.
@@ -198,11 +226,14 @@ arbor
 				model: dispatch?.model ?? null,
 			},
 		);
+		if (ctx.elsewhere !== null) {
+			await serveProject(ctx);
+		}
 	});
 
 arbor
 	.command("claim")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"resume an existing task: take ownership of its worktree and print its path, status and any half-finished rebase; an escalated task goes back to working; refuses while another agent holds the lease, but takes a stale one silently, so `arbor show` first if the tree may not be abandoned",
 	)
@@ -219,7 +250,7 @@ arbor
 
 arbor
 	.command("merge")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"land this worktree's branch on its base (trunk unless created with --base): rebase onto it, run tests on the rebased code, fast-forward it in whichever worktree has it checked out, then discard the worktree, branch and record (linear history, never a merge commit, no flag to skip tests); requires committed work, refusing a dirty worktree",
 	)
@@ -245,7 +276,7 @@ arbor
 
 arbor
 	.command("remove")
-	.use(repository())
+	.use(repository({ needs: "tasks" }))
 	.description(
 		"discard a task: worktree, branch and state file; cheap and encouraged, since redoing a task against current trunk often beats a hard rebase",
 	)
@@ -272,7 +303,7 @@ arbor
 
 arbor
 	.command("list")
-	.use(repository())
+	.use(repository({ needs: "read" }))
 	.description(
 		"list every task: name, status, lease (held: an agent is on it now; stale: gone quiet, normal for a task mid-edit; none), commits ahead of trunk, age",
 	)
@@ -286,7 +317,7 @@ arbor
 
 arbor
 	.command("systems")
-	.use(repository())
+	.use(repository({ needs: "read" }))
 	.description(
 		"print the systems arbor.systems.ts names, the parts of the code each name stands for: every one, one by its name or an alias, or with --task those a task's changed files (committed or not) fall in; read from the current task's worktree, or --task's, so one named during a task counts at once",
 	)
@@ -308,7 +339,7 @@ arbor
 
 arbor
 	.command("show")
-	.use(repository())
+	.use(repository({ needs: "read" }))
 	.description(
 		"read one task without touching it: everything `list` shows for it, plus the ARBOR.md its agent left at the worktree root; takes no lease, so it cannot knock that agent off its own tree",
 	)
@@ -318,7 +349,7 @@ arbor
 
 arbor
 	.command("wait")
-	.use(repository())
+	.use(repository({ needs: "read" }))
 	.description(
 		"block until a task stops moving: escalated, or gone (merged or removed), or broken; takes no lease, and gives up with `timeout` rather than waiting forever",
 	)
@@ -339,7 +370,7 @@ arbor
 
 arbor
 	.command("log")
-	.use(repository())
+	.use(repository({ needs: "read" }))
 	.description(
 		"show what has been done here recently: one line per add, claim, merge, remove, escalate, retry, todo and more, with how it ended; outlives the tasks themselves",
 	)
@@ -430,7 +461,7 @@ arbor
 
 arbor
 	.command("path")
-	.use(repository())
+	.use(repository({ needs: "read" }))
 	.description(
 		"print a task's worktree path, or the main tree with no task; names another agent's tree without taking its lease",
 	)
@@ -442,7 +473,7 @@ arbor
 
 arbor
 	.command("escalate")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"hand this task to a human and stop: records the reason, drops the lease and leaves the worktree exactly as it is; use instead of resolving a genuine conflict badly just to finish",
 	)
@@ -478,7 +509,7 @@ arbor
 
 arbor
 	.command("tell")
-	.use(repository())
+	.use(repository({ needs: "tasks" }))
 	.description(
 		"say something in the conversation of the agent a task was handed to with `arbor add --agent`, as the user would: how an orchestrator passes on the user's answers, a merge, or what its lane taught it, since the agent answers to it alone; only the conversation that handed the task out may",
 	)
@@ -495,7 +526,7 @@ arbor
 
 arbor
 	.command("handoff")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"hand the task you are at work on to another agent on the roster (`arbor agents`), which `arbor dev` starts in its worktree, told `[ARBOR HANDOFF <task>]` to claim it and carry on from its ARBOR.md; it answers to the user as you did, or with --relay to you, and this conversation leaves the task; refused to an agent an orchestrator handed its task to, and for a task another conversation is at work on",
 	)
@@ -546,7 +577,7 @@ arbor
 
 arbor
 	.command("attach")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/arbor, which the `arbor dev` page shows inline; they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds",
 	)
@@ -578,7 +609,7 @@ arbor
 
 arbor
 	.command("retry")
-	.use(repository())
+	.use(repository({ needs: "own" }))
 	.description(
 		"give an escalated task another mergeRetryCount merge attempts and put it back to working; the way out of `budget_exhausted` that is not remove and redo, and only from escalated, so a human has seen the tree first",
 	)
@@ -588,6 +619,7 @@ arbor
 arbor
 	.mount("todo", arborTodo)
 	.mount("lane", arborLane)
+	.mount("projects", arborProjects)
 	.mount("creds", arborCreds)
 	.mount("tunnel", arborTunnel)
 	.mount("slots", arborSlots)

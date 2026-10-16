@@ -31,6 +31,8 @@ export interface TodoState {
 	lane: number | null;
 	/** The agent, and model, that should work it, over its lane's; absent for none. */
 	assignee?: AgentPick;
+	/** The other project it was added from; absent for one added here. */
+	origin?: TodoOrigin;
 }
 
 /**
@@ -207,6 +209,27 @@ export interface TodoChange {
 	assignee?: AgentPick | null;
 }
 
+/**
+ * Where a todo came up, as a list shows it: its task here, or for one added
+ * from another project, `<project>/<task>`, the project by its directory's
+ * name; null for one a person added from the main tree.
+ */
+export function cameFrom({ from, origin }: TodoState): string | null {
+	if (origin === undefined) {
+		return from;
+	}
+	const project = basename(origin.project);
+	return origin.task === null ? project : `${project}/${origin.task}`;
+}
+
+/** The other project a todo was added from, and the task there it came up in. */
+export interface TodoOrigin {
+	/** That project's main tree. */
+	project: string;
+	/** Its task the todo came up in, or null for its main tree. */
+	task: string | null;
+}
+
 /** What a new todo has besides its subject, all of it optional. */
 export interface TodoNew {
 	/** Whatever more there is to say about it. */
@@ -220,6 +243,8 @@ export interface TodoNew {
 	lane?: number | "new" | null;
 	/** The agent that should work it; none by default. */
 	assignee?: AgentPick | null;
+	/** The other project it is added from; none by default. */
+	origin?: TodoOrigin;
 }
 
 /** `state` worked by `assignee`, or by nobody in particular for null. */

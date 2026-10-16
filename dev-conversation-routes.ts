@@ -16,6 +16,7 @@ import {
 	refuse,
 } from "./dev-http";
 import type { Project } from "./dev-project";
+import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { stoppedReference } from "./prompts";
 import { modelsOf } from "./roster";
@@ -29,6 +30,8 @@ import { modelsOf } from "./roster";
 export class ConversationRoutes {
 	readonly #project: Project;
 	readonly #conversations: Conversations | null;
+	/** Every project's conversations, where a caller of one here may be. */
+	readonly #everywhere: Everywhere | null;
 	// Each change carries the whole conversation, since an agent streams in
 	// small pieces and a page refetching after each would fall behind. At most
 	// one per conversation per beat, the latest, which holds everything before.
@@ -37,9 +40,18 @@ export class ConversationRoutes {
 	readonly #unlisten: (() => void) | undefined;
 	readonly #unlistenRemoved: (() => void) | undefined;
 
-	constructor(project: Project, conversations: Conversations | null) {
+	constructor(
+		project: Project,
+		conversations: Conversations | null,
+		everywhere: Everywhere | null = null,
+	) {
 		this.#project = project;
 		this.#conversations = conversations;
+		this.#everywhere =
+			everywhere ??
+			(conversations === null
+				? null
+				: Everywhere.onlyHere(project.service.git.root, conversations));
 		const timer = new SystemTimer();
 		this.#unlisten = conversations?.events.on("changed", (id) => {
 			const beat = this.#beats.get(id) ?? new Throttler(timer, BEAT);
@@ -63,6 +75,14 @@ export class ConversationRoutes {
 	}
 
 	/** The conversations a page may hold, or a refusal when they are off. */
+	/** Every project's conversations, refusing as `held` does while they are off. */
+	#anywhere(): Everywhere {
+		if (this.#everywhere === null) {
+			fail("not_found", "conversations are off", {});
+		}
+		return this.#everywhere;
+	}
+
 	held(): Conversations {
 		if (this.#conversations === null) {
 			fail("not_found", "conversations are off", {});
@@ -364,7 +384,10 @@ export class ConversationRoutes {
 		const conversation = await this.conversationAt(request);
 		await this.#refuseHandedOut(conversation);
 		const { archived } = await body(request);
-		const all = await this.held().list();
+		// The agents it handed tasks to may be in other projects.
+		const all = (await this.#anywhere().list()).map(
+			(each) => each.conversation,
+		);
 		if (archived === false) {
 			await conversation.unarchive();
 			// Those its archiving took with it come back with it.
@@ -433,13 +456,20 @@ export class ConversationRoutes {
 			await conversation.cancel();
 		}
 		await conversation.stop();
-		const caller = (await this.held().list()).find(
-			(each) => each.id === handedBy,
-		);
+		const found = await this.#anywhere().find(handedBy);
 		// An archived one took this one with it, and is told nothing.
-		if (caller !== undefined && !caller.state.archived) {
-			await caller.prompt(
-				stoppedReference(task ?? lastTask ?? conversation.id),
+		if (found !== undefined && !found.conversation.state.archived) {
+			const stopped = task ?? lastTask;
+			await found.conversation.prompt(
+				stoppedReference(
+					stopped === null
+						? conversation.id
+						: await this.#anywhere().taskNamed(
+								stopped,
+								this.#project.service.git.root,
+								found.root,
+							),
+				),
 			);
 		}
 		return Response.json(conversation.state);
@@ -454,10 +484,7 @@ export class ConversationRoutes {
 		if (handedBy === null) {
 			return;
 		}
-		const caller = (await this.held().list()).find(
-			(each) => each.id === handedBy,
-		);
-		if (caller !== undefined) {
+		if ((await this.#anywhere().find(handedBy)) !== undefined) {
 			fail(
 				"blocked",
 				`conversation ${conversation.id} answers to conversation ${handedBy}: talk to it there`,
