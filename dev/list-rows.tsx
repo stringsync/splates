@@ -39,7 +39,8 @@ export function Rows({
 }: {
 	label: string;
 	rows: Nested<Needing>[];
-	render: (row: Needing) => ReactNode;
+	/** Draws a row; `nested` when it sits under another. */
+	render: (row: Needing, nested: boolean) => ReactNode;
 	/** What a row has nested under it ahead of its parts, each an `<li>`. */
 	beneath?: (row: Needing) => ReactNode[];
 	nested?: boolean;
@@ -60,7 +61,7 @@ export function Rows({
 				const under = beneath(row);
 				return (
 					<li key={keyOfRow(row)}>
-						{render(row)}
+						{render(row, nested)}
 						{(under.length > 0 || parts.length > 0) && (
 							<Rows
 								label={`parts of ${lastTaskOfRow(row) ?? (row.conversation === null ? "" : nameOf(row.conversation))}`}

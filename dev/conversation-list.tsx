@@ -277,7 +277,7 @@ export function ConversationList({
 					label="conversation list"
 					rows={nested}
 					beneath={beneath}
-					render={(row) =>
+					render={(row, nested) =>
 						row.conversation !== null ? (
 							<Item
 								conversation={row.conversation}
@@ -292,6 +292,7 @@ export function ConversationList({
 								}
 								hint={held ? hintOf(shown, row) : null}
 								hosting={hosting.has(row.conversation.id)}
+								nested={nested}
 							/>
 						) : (
 							row.task !== null && (

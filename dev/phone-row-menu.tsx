@@ -108,10 +108,13 @@ export function useLongPress(onPress: () => void): {
 export function Filed({
 	conversation,
 	refuse,
+	nested,
 	children,
 }: {
 	conversation: ConversationState;
 	refuse: Refuse;
+	/** Whether it sits under another row, so moves with it and is never pinned. */
+	nested: boolean;
 	/** The row, given what opens its menu on a long press. */
 	children: (press: ReturnType<typeof useLongPress>) => ReactNode;
 }): JSX.Element {
@@ -127,6 +130,7 @@ export function Filed({
 				open={menu}
 				onOpenChange={setMenu}
 				archive={archivable ? () => file() : null}
+				pins={archivable && !nested}
 				refuse={refuse}
 			/>
 			<Swipeable archive={archivable ? { asks, file } : null}>
@@ -139,13 +143,14 @@ export function Filed({
 /**
  * A row's menu as a sheet up from the bottom, as iOS's apps offer one on a
  * long press: its name, then Rename, Mark as unread, Pin and Archive, each a
- * finger's height. Rename turns the name into a box to type in.
+ * finger's height, Pin only when `pins`. Rename turns the name into a box to type in.
  */
 function RowMenu({
 	conversation,
 	open,
 	onOpenChange,
 	archive,
+	pins,
 	refuse,
 }: {
 	conversation: ConversationState;
@@ -153,6 +158,7 @@ function RowMenu({
 	onOpenChange: (open: boolean) => void;
 	/** Files it away, asking first as its row does; null when it cannot be. */
 	archive: (() => void) | null;
+	pins: boolean;
 	refuse: Refuse;
 }): JSX.Element {
 	const nameOf = useNameOf();
@@ -246,7 +252,7 @@ function RowMenu({
 									Mark as unread
 								</Action>
 							)}
-							{archive !== null && (
+							{pins && (
 								<Action
 									icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
 									onClick={() => {

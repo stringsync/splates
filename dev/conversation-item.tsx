@@ -58,7 +58,7 @@ import { ShellRunning, ShowTerminal } from "./terminal";
  * One conversation in a list: its agent's mark, its name, and whether it
  * needs you, its name muted for one that answers to another, and a pin while
  * pinned. Hovered or focused, it offers a menu, Archive (or Unarchive), and
- * Pin (or Unpin).
+ * Pin (or Unpin), but for one nested under another, which moves with that one.
  */
 export function Item({
 	conversation,
@@ -70,6 +70,7 @@ export function Item({
 	where = false,
 	hint = null,
 	hosting = false,
+	nested = false,
 }: {
 	conversation: ConversationState;
 	agent: string;
@@ -84,6 +85,8 @@ export function Item({
 	hint?: string | null;
 	/** Whether an agent it handed a task to is at work. */
 	hosting?: boolean;
+	/** Whether it sits under another row, as a part does under its host. */
+	nested?: boolean;
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
@@ -98,7 +101,8 @@ export function Item({
 	const reported = reportedAs(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
-	const { pinned } = conversation;
+	const pins = files && !archived && !nested;
+	const pinned = pins && conversation.pinned;
 	const Pin = pinned ? PinOffIcon : PinIcon;
 	const pin = pinned ? "Unpin" : "Pin";
 	return (
@@ -160,7 +164,7 @@ export function Item({
 				>
 					{nameOf(conversation)}
 				</span>
-				{pinned && !archived && (
+				{pinned && (
 					<PinIcon
 						aria-label="Pinned"
 						// Gone while its buttons show, Unpin among them.
@@ -261,7 +265,7 @@ export function Item({
 						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				{files && !archived && (
+				{pins && (
 					<Button
 						size="icon-xs"
 						variant="ghost"

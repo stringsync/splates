@@ -387,7 +387,7 @@ function Row({
 	return (
 		<>
 			{conversation !== null ? (
-				<Filed conversation={conversation} refuse={refuse}>
+				<Filed conversation={conversation} refuse={refuse} nested={depth > 0}>
 					{button}
 				</Filed>
 			) : (
