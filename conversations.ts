@@ -28,6 +28,7 @@ import type { Limit, Setting } from "./conversation-state";
 import { fail } from "./exit";
 import type { Limits } from "./limits";
 import type { Offered } from "./offered";
+import type { Outcomes } from "./outcomes";
 import type { SessionServers } from "./shared-browser";
 import { ROOT as SKILLS, versionOf } from "./skills";
 import type { Watch } from "./watch";
@@ -97,6 +98,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly offered: Offered | null;
 	private readonly limited: Limits | null;
 	private readonly adherence: Adherence | null;
+	private readonly outcomes: Outcomes | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	private readonly projects: ProjectRoster | null;
@@ -127,6 +129,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.offered = opts.offered ?? null;
 		this.limited = opts.limits ?? null;
 		this.adherence = opts.adherence ?? null;
+		this.outcomes = opts.outcomes ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
 		this.projects = opts.projects ?? null;
@@ -392,6 +395,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		let archived = conversation.state.archived;
 		let limits = conversation.state.usage.limits;
 		let status = conversation.state.status;
+		// When the running turn began; null when it began before this server.
+		let turnStarted: string | null = null;
 		void this.limited
 			?.remember(conversation.state.agent, limits)
 			.catch(() => {});
@@ -409,6 +414,9 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			if (status === "running" && conversation.state.status === "idle") {
 				this.askLimits(conversation);
 			}
+			if (status !== "running" && conversation.state.status === "running") {
+				turnStarted = conversation.now();
+			}
 			// A turn ended, however it did: how it followed the skill may have
 			// changed.
 			if (status === "running" && conversation.state.status !== "running") {
@@ -419,6 +427,24 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 						conversation.now(),
 					)
 					.catch(() => {});
+				// A task it merged wrote its outcome before the turn said its usage.
+				const { outcomes } = this;
+				if (outcomes !== null && turnStarted !== null) {
+					const since = turnStarted;
+					const until = conversation.now();
+					void conversation
+						.saved()
+						.then(() =>
+							outcomes.creditTurn(
+								conversation.id,
+								`${this.dir}/${conversation.id}.jsonl`,
+								since,
+								until,
+							),
+						)
+						.catch(() => {});
+				}
+				turnStarted = null;
 			}
 			const ended =
 				(status === "running" && conversation.state.status !== "running") ||
@@ -527,6 +553,11 @@ export interface ConversationsOptions {
 	 * projects, judged as each turn ends; nowhere by default.
 	 */
 	adherence?: Adherence | null;
+	/**
+	 * Where how each task ended is kept across projects, credited with the
+	 * turn it ended in once that turn ends; nowhere by default.
+	 */
+	outcomes?: Outcomes | null;
 	/**
 	 * Asks an agent that does not send its plan's windows for them, after
 	 * each of its turns; none by default.

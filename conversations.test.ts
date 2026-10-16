@@ -8,6 +8,8 @@ import { Conversations } from "./conversations";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { Limits } from "./limits";
 import { Offered } from "./offered";
+import type { Outcome } from "./outcomes";
+import { Outcomes } from "./outcomes";
 
 /** What each session is opened with, so Claude asks the arbor way. */
 const ASK_IN_ARBOR = {
@@ -251,6 +253,45 @@ describe("Conversations", () => {
 		await shop.disposeAsync();
 	});
 
+	it("credits a task merged mid-turn with that turn's usage once it ends", async () => {
+		const outcomes = new Outcomes("/home/.arbor/outcomes.jsonl", fs);
+		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+			outcomes,
+		});
+		const conversation = await shop.start("fake", { task: null, cwd: "/repo" });
+		await until(conversation, "idle");
+		agent.usage = { inputTokens: 40, outputTokens: 7, totalTokens: 47 };
+		agent.turn = async () => {
+			// As `arbor merge` writes it, before the turn says its usage.
+			await outcomes.record({
+				...MERGED,
+				conversation: conversation.id,
+				startedAt: conversation.now(),
+				endedAt: conversation.now(),
+			});
+			return "end_turn";
+		};
+		await conversation.prompt("merge it");
+		await until(conversation, "idle");
+		// Credited as the turn ends, without waiting on it.
+		await eventually(
+			async () => (await outcomes.list())[0]?.usage !== undefined,
+		);
+
+		expect((await outcomes.list())[0]?.usage).toEqual({
+			input: 40,
+			cached: 0,
+			output: 7,
+			cost: null,
+		});
+		await shop.disposeAsync();
+	});
+
 	it("remembers an agent's plan limits for every project, the newest of each window", async () => {
 		const limits = new Limits("/home/.arbor/limits.json", { fs });
 		agent.turn = async (connection) => {
@@ -393,3 +434,20 @@ describe("Conversations", () => {
 		await reread.disposeAsync();
 	});
 });
+
+/** A task merged with no usage of its own, as one done in a single turn. */
+const MERGED: Outcome = {
+	project: "/repo",
+	task: "login",
+	base: "main",
+	ended: "merged",
+	startedAt: "",
+	endedAt: "",
+	questionRounds: 0,
+	reviewRounds: 0,
+	failedMerges: 0,
+	usage: { input: 0, cached: 0, output: 0, cost: null },
+	conversation: null,
+	agent: null,
+	model: null,
+};

@@ -437,6 +437,11 @@ export class Conversation
 		this.set({ pinned });
 	}
 
+	/** Settles once everything said so far is in its log, for a reader of the file. */
+	async saved(): Promise<void> {
+		await this.log.flush();
+	}
+
 	/** Marks it seen, or unseen again for the person to come back to. */
 	async markUnread(unread: boolean): Promise<void> {
 		this.flag(unread);

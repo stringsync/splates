@@ -296,6 +296,65 @@ describe.concurrent("outcomes", () => {
 			{ kind: "adherence", check: "merge-squashed", passed: 1, failed: 3 },
 		]);
 	});
+
+	it("reads usage with no tokens out as never kept, since no turn the task ran ever counted", async () => {
+		await using deps = await Testing.open();
+		const line = (task: string, output: number) =>
+			`${JSON.stringify({ task, usage: { input: 5, cached: 0, output, cost: null } })}\n`;
+		await deps.fs.write(
+			deps.outcomes.path,
+			line("alpha", 0) + line("beta", 12),
+		);
+
+		const [alpha, beta] = await deps.outcomes.list();
+
+		expect(alpha).not.toHaveProperty("usage");
+		expect(beta?.usage?.output).toBe(12);
+	});
+
+	it("credits a task merged in its first turn with that turn's usage once the turn ends, beside the outcomes", async () => {
+		await using deps = await Testing.open();
+		deps.proc.env = { ...deps.proc.env, ARBOR_CONVERSATION: "c1" };
+		const worktree = await committed(deps, "one\n");
+		const at = await stepsFromStart(deps);
+		const start = [
+			{ kind: "prompt", text: "earlier", at: BEFORE },
+			said("done", BEFORE),
+			costing(2),
+			{ kind: "usage", usage: { inputTokens: 100, outputTokens: 10 } },
+			{ kind: "prompt", text: "go", at: at(0) },
+			said("on it", at(1)),
+		];
+		await logged(deps, start);
+		await Bun.sleep(20);
+		await merge(deps, worktree);
+		const [recorded] = await deps.outcomes.list();
+		const ended = new Date(Date.now() + 10).toISOString();
+		await logged(deps, [
+			...start,
+			said("merged", ended),
+			costing(3.25),
+			{ kind: "usage", usage: { inputTokens: 40, outputTokens: 7 } },
+		]);
+
+		const log = join(deps.arborDir, "conversations", "c1.jsonl");
+		await deps.outcomes.creditTurn("c1", log, at(0), ended);
+		await deps.outcomes.creditTurn("c2", log, at(0), ended);
+
+		expect(recorded).not.toHaveProperty("usage");
+		expect((await deps.outcomes.list())[0]?.usage).toEqual({
+			input: 40,
+			cached: 0,
+			output: 7,
+			cost: { amount: 1.25, currency: "USD" },
+		});
+		expect(
+			(await deps.fs.read(deps.outcomes.path)).trim().split("\n"),
+		).toHaveLength(1);
+		expect(
+			(await deps.fs.read(deps.outcomes.turnsPath)).trim().split("\n"),
+		).toHaveLength(1);
+	});
 });
 
 const BEFORE = "2000-01-01T00:00:00.000Z";

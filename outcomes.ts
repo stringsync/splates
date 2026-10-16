@@ -2,7 +2,7 @@ import type { Fs } from "webappwiz/system";
 import type { Device } from "./conversation-state";
 import type { Finding } from "./findings";
 import type { Decision } from "./plan";
-import type { TaskUsage } from "./task-log";
+import { type TaskUsage, taskLog } from "./task-log";
 import type { DiffSize, MergeFailure, RemoveReason } from "./worktree";
 
 /**
@@ -17,27 +17,161 @@ export class Outcomes {
 		private readonly fs: Fs,
 	) {}
 
+	/**
+	 * Beside `path`, the usage of the turns tasks ended in, which `arbor
+	 * merge` writes its line too early to see. Apart from `path`, so arbor
+	 * versions that read only that never mistake one for a task.
+	 */
+	get turnsPath(): string {
+		return `${this.dir}/outcome-usage.jsonl`;
+	}
+
 	async record(outcome: Outcome): Promise<void> {
 		// Appending, rather than rewriting, keeps two agents ending tasks at once
 		// from dropping each other's line.
-		await this.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
+		await this.fs.mkdir(this.dir);
 		await this.fs.append(this.path, `${JSON.stringify(outcome)}\n`);
 	}
 
 	async list(): Promise<Outcome[]> {
-		const raw = await this.fs.read(this.path).catch(() => "");
-		return raw
-			.split("\n")
-			.filter(Boolean)
-			.flatMap((line) => {
-				try {
-					// A torn line loses one task, not the whole history.
-					return [JSON.parse(line) as Outcome];
-				} catch {
-					return [];
-				}
-			});
+		const turns = await lines<TurnUsage>(this.fs, this.turnsPath);
+		return (await lines<Outcome>(this.fs, this.path)).map((outcome) =>
+			known(
+				turns
+					.filter(
+						(turn) =>
+							turn.project === outcome.project &&
+							turn.task === outcome.task &&
+							turn.endedAt === outcome.endedAt,
+					)
+					.reduce(credited, outcome),
+			),
+		);
 	}
+
+	/**
+	 * Credits the task that `conversation`, logged at `log`, ended last in
+	 * its turn from `since` to `until` with what the rest of that turn used,
+	 * once the turn has ended and said it. Several ended in one turn: the
+	 * last one's is what the turn finished on.
+	 */
+	async creditTurn(
+		conversation: string,
+		log: string,
+		since: string,
+		until: string,
+	): Promise<void> {
+		const ended = (await lines<Outcome>(this.fs, this.path)).findLast(
+			(each) =>
+				each.conversation === conversation &&
+				each.usage !== undefined &&
+				each.endedAt >= since &&
+				each.endedAt <= until,
+		);
+		if (ended?.usage === undefined) {
+			return;
+		}
+		const whole = await taskLog(log, this.fs, ended.startedAt, until);
+		if (whole === null) {
+			return;
+		}
+		const usage = less(whole.usage, ended.usage);
+		if (usage.input === 0 && usage.output === 0 && !usage.cost?.amount) {
+			return;
+		}
+		const turn: TurnUsage = {
+			project: ended.project,
+			task: ended.task,
+			endedAt: ended.endedAt,
+			usage,
+		};
+		await this.fs.mkdir(this.dir);
+		await this.fs.append(this.turnsPath, `${JSON.stringify(turn)}\n`);
+	}
+
+	private get dir(): string {
+		return this.path.slice(0, this.path.lastIndexOf("/"));
+	}
+}
+
+/**
+ * What the rest of the turn a task ended in used, a line of
+ * `~/.arbor/outcome-usage.jsonl`, naming its outcome by when it ended.
+ */
+interface TurnUsage {
+	project: string;
+	task: string;
+	endedAt: string;
+	usage: TaskUsage;
+}
+
+/** Each JSON line of the file at `path`; a torn one loses that line alone. */
+async function lines<T>(fs: Fs, path: string): Promise<T[]> {
+	const raw = await fs.read(path).catch(() => "");
+	return raw
+		.split("\n")
+		.filter(Boolean)
+		.flatMap((line) => {
+			try {
+				return [JSON.parse(line) as T];
+			} catch {
+				return [];
+			}
+		});
+}
+
+/** `outcome` with `turn`'s usage added to its own. */
+function credited(outcome: Outcome, turn: TurnUsage): Outcome {
+	const usage = outcome.usage;
+	if (usage === undefined) {
+		return outcome;
+	}
+	return {
+		...outcome,
+		usage: {
+			input: usage.input + turn.usage.input,
+			cached: usage.cached + turn.usage.cached,
+			output: usage.output + turn.usage.output,
+			cost:
+				usage.cost === null && turn.usage.cost === null
+					? null
+					: {
+							amount:
+								(usage.cost?.amount ?? 0) + (turn.usage.cost?.amount ?? 0),
+							currency:
+								usage.cost?.currency ?? turn.usage.cost?.currency ?? "USD",
+						},
+		},
+	};
+}
+
+/** What `whole` used past `part`. */
+function less(whole: TaskUsage, part: TaskUsage): TaskUsage {
+	return {
+		input: whole.input - part.input,
+		cached: whole.cached - part.cached,
+		output: whole.output - part.output,
+		cost:
+			whole.cost === null
+				? null
+				: {
+						amount: whole.cost.amount - (part.cost?.amount ?? 0),
+						currency: whole.cost.currency,
+					},
+	};
+}
+
+/**
+ * `outcome` with no usage when it kept none worth reading: no agent turn
+ * produced no tokens, so 0 out means the turn that did the work was never
+ * counted, as for a task merged in the turn it began in.
+ */
+function known(outcome: Outcome): Outcome {
+	if (outcome.usage === undefined || outcome.usage.output > 0) {
+		return outcome;
+	}
+	const { usage: _, ...rest } = outcome;
+	return rest;
 }
 
 /**
@@ -94,8 +228,10 @@ export interface Outcome {
 	 */
 	promptsFrom?: Partial<Record<Device, number>>;
 	/**
-	 * What its own turns used, not the rest of its conversation's. Absent from
-	 * older lines, and for a task with no conversation log to read.
+	 * What its own turns used, not the rest of its conversation's, the turn it
+	 * ended in added from `turnsPath` once `arbor dev` saw it end. Absent from
+	 * older lines, for a task with no conversation log to read, and, as read,
+	 * for one with no tokens out, which never kept the turns that did its work.
 	 */
 	usage?: TaskUsage;
 	/** How long its agent worked, its turns summed, in milliseconds. Absent as `usage` is. */

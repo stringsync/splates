@@ -77,9 +77,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 				: `worked ${duration(outcome.workedMs)} · waited ${duration(outcome.waitedMs ?? 0)}`,
 		),
 	];
-	// A task merged in the turn it began in kept none of its tokens, since a
-	// turn's usage is logged only as the turn ends, after the merge.
-	if (outcome.usage !== undefined && outcome.usage.output > 0) {
+	if (outcome.usage !== undefined) {
 		const read = `${tokens(outcome.usage.input)} in · ${tokens(outcome.usage.output)} out`;
 		stats.push(
 			outcome.usage.cost === null

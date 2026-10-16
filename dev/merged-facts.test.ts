@@ -152,12 +152,9 @@ describe("mergedFacts", () => {
 		expect(facts.findings).toEqual([]);
 	});
 
-	it("says nothing of usage a task merged in its first turn never kept, nor calls an older outcome never kept", () => {
+	it("says nothing of usage never kept, nor calls an older outcome never kept", () => {
 		const facts = mergedFacts({
-			outcome: merged({
-				usage: { input: 0, cached: 0, output: 0, cost: null },
-				assumptionsMade: 0,
-			}),
+			outcome: merged({ assumptionsMade: 0 }),
 			baseline: null,
 		});
 		const older = mergedFacts({ outcome: merged({}), baseline: null });

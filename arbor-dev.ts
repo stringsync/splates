@@ -131,10 +131,11 @@ export async function serveDev(
 	});
 	// Judged as each turn ends, for the Stats page, across projects like the
 	// outcomes it reads the merged commits from.
+	const outcomes = new Outcomes(`${arborHome(ctx.ps)}/outcomes.jsonl`, ctx.fs);
 	const adherence = new Adherence(
 		`${arborHome(ctx.ps)}/adherence.jsonl`,
 		ctx.fs,
-		new Outcomes(`${arborHome(ctx.ps)}/outcomes.jsonl`, ctx.fs),
+		outcomes,
 	);
 	// One for every project, so agents resumed together start one at a time.
 	const starting = new MemoryLock();
@@ -174,6 +175,7 @@ export async function serveDev(
 					offered,
 					limits,
 					adherence,
+					outcomes,
 					readLimits: async (agent) =>
 						isCodex(agent)
 							? codexLimits({
