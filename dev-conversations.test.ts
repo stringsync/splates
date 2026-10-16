@@ -299,6 +299,60 @@ describe("dev conversations", () => {
 		}
 	}, 15_000);
 
+	it("serves a version of an artifact, 404 gone once its bytes are deleted and 404 not_found for an unknown one", async () => {
+		const server = await dev(deps, {
+			ports: OpenPortProvider.any(),
+			conversations: () => conversations,
+		});
+		try {
+			const { port } = server;
+			const started = await json(port, "/api/conversations", "POST", {
+				agent: "fake",
+				task: null,
+			});
+			const { id } = (await started.json()) as { id: string };
+			const conversation = await conversations.find(id);
+			const encoder = new TextEncoder();
+			await conversation.artifacts.add({
+				name: "page.html",
+				mimeType: "text/html",
+				bytes: encoder.encode("<p>one</p>"),
+			});
+			await conversation.artifacts.add({
+				name: "page.html",
+				mimeType: "text/html",
+				bytes: encoder.encode("<p>two</p>"),
+			});
+			const at = (name: string, version: number) =>
+				fetch(
+					`http://localhost:${port}/api/conversations/${id}/artifacts/${name}/${version}`,
+				);
+
+			const page = await at("page.html", 2);
+			expect(page.status).toBe(200);
+			expect(await page.text()).toBe("<p>two</p>");
+			expect(page.headers.get("content-type")).toBe("text/html");
+			const policy = page.headers.get("content-security-policy") ?? "";
+			expect(policy).toContain("sandbox allow-scripts;");
+			expect(policy).not.toContain("allow-same-origin");
+			expect(policy).toContain("frame-ancestors 'self'");
+
+			await conversation.artifacts.delete("page.html", 1, "deleted");
+			const gone = await at("page.html", 1);
+			expect(gone.status).toBe(404);
+			expect(await gone.json()).toMatchObject({ reason: "gone" });
+			expect((await at("page.html", 2)).status).toBe(200);
+			const unknown = [await at("page.html", 3), await at("other.png", 1)];
+			expect(unknown.map((each) => each.status)).toEqual([404, 404]);
+			expect(await Promise.all(unknown.map((each) => each.json()))).toEqual([
+				expect.objectContaining({ reason: "not_found" }),
+				expect.objectContaining({ reason: "not_found" }),
+			]);
+		} finally {
+			await server.disposeAsync();
+		}
+	}, 15_000);
+
 	it("refuses a conversation in a task with no worktree", async () => {
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),

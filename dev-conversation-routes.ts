@@ -7,6 +7,7 @@ import {
 	FROM_HEADER,
 	type Upload,
 } from "./conversations";
+import { artifactResponse } from "./dev-artifacts";
 import {
 	body,
 	type EventSink,
@@ -269,6 +270,16 @@ export class ConversationRoutes {
 			// Named for what is in it, so it never changes.
 			"cache-control": "private, max-age=31536000, immutable",
 		});
+	};
+
+	// One version of an artifact an agent kept: 404 `not_found` for a name or
+	// version the record lacks, 404 `gone` for one whose bytes were deleted, so
+	// the page shows a placeholder for it.
+	readonly conversationArtifact = async (
+		request: Request,
+	): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		return artifactResponse(request, conversation);
 	};
 
 	readonly answerConversation = async (request: Request): Promise<Response> => {

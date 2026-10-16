@@ -221,3 +221,14 @@ export async function archiveConversation(
 ): Promise<void> {
 	await sendJson(`/api/conversations/${id}/archived`, "PUT", { archived });
 }
+
+/** Where the page reads `version` of the artifact `name` of conversation `id`. */
+export function conversationArtifact(
+	id: string,
+	name: string,
+	version: number,
+): string {
+	return scoped(
+		`/api/conversations/${id}/artifacts/${encodeURIComponent(name)}/${version}`,
+	);
+}

@@ -439,6 +439,9 @@ export async function dev(
 				"/api/conversations/:id/attachments/:name": {
 					GET: talk(owned((project) => project.conversationAttachment)),
 				},
+				"/api/conversations/:id/artifacts/:name/:version": {
+					GET: talk(owned((project) => project.conversationArtifact)),
+				},
 				"/api/conversations/:id/tell": {
 					POST: talk(owned((project) => project.tellConversation)),
 				},
