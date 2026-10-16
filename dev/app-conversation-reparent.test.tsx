@@ -137,6 +137,39 @@ describe("App's moving a conversation under another", () => {
 		).toEqual(["Footer"]);
 	});
 
+	it("says moving one a lane's orchestrator started cuts it loose", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "c1", title: "Lanes" }),
+				conversation({ id: "c3", title: "Footer", startedBy: "c1" }),
+			],
+			null,
+			{ tasks: [] },
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+
+		await act(async () =>
+			fireEvent.click(
+				within(nav).getByRole("button", { name: "More for Footer" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() =>
+					view.getByRole("menuitem", { name: "Move under…" }),
+				),
+			),
+		);
+
+		expect(
+			within(
+				await waitFor(() => view.getByRole("dialog", { name: /Move Footer/ })),
+			).getByText(/Lanes started it/).textContent,
+		).toBe(
+			"Lanes started it. Moved, it is yours alone: Lanes no longer hears from it, wakes it, or archives it along.",
+		);
+	});
+
 	it("moves one from a long press on its inbox row", async () => {
 		resize(390, 844);
 		const view = await open();

@@ -455,3 +455,19 @@ export function blank(
 		background: [],
 	};
 }
+
+/**
+ * Who added the task a conversation moves to, as it keeps it: kept from
+ * before for none, and none for the task it was moved away from in the list,
+ * whose caller it was cut loose from.
+ */
+export function callerAfter(
+	state: Pick<ConversationState, "lastCaller" | "lastTask" | "parent">,
+	task: string | null,
+	caller: string | null,
+): string | null {
+	if (task === null) {
+		return state.lastCaller;
+	}
+	return state.parent !== null && task === state.lastTask ? null : caller;
+}

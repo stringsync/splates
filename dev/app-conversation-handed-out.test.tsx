@@ -314,7 +314,7 @@ describe("App's conversation of a task another handed out", () => {
 		expect(within(row).getByText("alpha").className).toContain("italic");
 	});
 
-	it("offers no archive or rename of it, only of the orchestrator", async () => {
+	it("offers no archive, rename or move of it, only of the orchestrator", async () => {
 		const view = await testing.openConversations(
 			newestFirst([orchestrator, agent]),
 			"orch",
@@ -334,7 +334,7 @@ describe("App's conversation of a task another handed out", () => {
 		);
 		expect(
 			view.getAllByRole("menuitem").map((each) => each.textContent),
-		).toEqual(["Copy link", "Mark as unread", "Move under…"]);
+		).toEqual(["Copy link", "Mark as unread"]);
 	});
 
 	it("terminates its agent from where the composer was", async () => {

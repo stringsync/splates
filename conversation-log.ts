@@ -7,6 +7,7 @@ import {
 	blank,
 	type Checkpoint,
 	type ConversationState,
+	callerAfter,
 	type Decision,
 	type Device,
 	type Image,
@@ -117,12 +118,11 @@ export class ConversationLog {
 			} else if (entry.kind === "session") {
 				replayed.session = entry.session;
 			} else if (entry.kind === "task") {
+				state.lastCaller = callerAfter(state, entry.task, entry.caller ?? null);
 				state.task = entry.task;
 				state.lastTask = entry.task ?? state.lastTask;
 				state.lastBase =
 					entry.task === null ? state.lastBase : (entry.base ?? null);
-				state.lastCaller =
-					entry.task === null ? state.lastCaller : (entry.caller ?? null);
 				replayed.cwd = entry.cwd;
 			} else if (entry.kind === "settings") {
 				state.settings = entry.settings;
@@ -136,6 +136,9 @@ export class ConversationLog {
 				state.pinned = entry.pinned;
 			} else if (entry.kind === "parent") {
 				state.parent = entry.parent;
+				// Moved, it is cut loose from whoever started it or added its task.
+				state.startedBy = null;
+				state.lastCaller = null;
 			} else if (entry.kind === "unread") {
 				state.unread = entry.unread;
 				if (!entry.unread) {

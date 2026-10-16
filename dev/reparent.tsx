@@ -14,6 +14,7 @@ import { AgentIcon } from "./agent-icons";
 import { reparentConversation } from "./conversation-api";
 import { useNameOf } from "./conversation-names";
 import { flatten } from "./conversation-rows";
+import { Held, useHandedOutBy } from "./handed-out";
 import type { Nested } from "./parts";
 import type { Refuse } from "./refusal";
 
@@ -62,15 +63,20 @@ export function placesOf(trees: Nested<Needing>[]): Map<string, Places> {
 	return places;
 }
 
-/** `conversation`'s places in the list around it; null where it has none. */
+/**
+ * `conversation`'s places in the list around it; null where it has none, as
+ * for a subagent, which stays under the one it answers to.
+ */
 export function usePlaces(conversation: ConversationState): Places | null {
-	return useContext(Placing).places.get(conversation.id) ?? null;
+	const places = useContext(Placing).places.get(conversation.id) ?? null;
+	return useHandedOutBy(conversation) === null ? places : null;
 }
 
 /**
  * Asks where in the list to nest `conversation`: at the top, or under any
  * other conversation listed but its own, the one it sits under now checked.
- * Where it nests is the person's view alone: the agent it answers to stays.
+ * Moving it cuts it loose from the lane orchestrator that started it, which
+ * says so first.
  */
 export function MoveUnder({
 	conversation,
@@ -87,6 +93,8 @@ export function MoveUnder({
 }): JSX.Element {
 	const nameOf = useNameOf();
 	const { agentOf } = useContext(Placing);
+	const { startedBy } = conversation;
+	const starter = useContext(Held).find((each) => each.id === startedBy);
 	const move = (parent: string | null) => {
 		onOpenChange(false);
 		if (parent !== places.under) {
@@ -100,9 +108,13 @@ export function MoveUnder({
 			<DialogContent className="gap-3">
 				<DialogHeader>
 					<DialogTitle>Move {nameOf(conversation)} under</DialogTitle>
-					<DialogDescription>
-						Where it sits in the list. Who it answers to stays as it is.
-					</DialogDescription>
+					{starter !== undefined && (
+						<DialogDescription>
+							{nameOf(starter)} started it. Moved, it is yours alone:{" "}
+							{nameOf(starter)} no longer hears from it, wakes it, or archives
+							it along.
+						</DialogDescription>
+					)}
 				</DialogHeader>
 				<ul
 					aria-label="Places"

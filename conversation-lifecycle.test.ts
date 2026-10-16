@@ -274,6 +274,33 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.parent).toEqual({ id: null });
 	});
 
+	it("cuts one moved loose from whoever started it or added its task, and reads it back", async () => {
+		const conversation = await conversations.start("fake", {
+			task: "signup",
+			cwd: "/repo-arbor/signup",
+			caller: "c0",
+			startedBy: "c0",
+		});
+		await until(conversation, "idle");
+		const reread = async () =>
+			(
+				await new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+					fs,
+					timer,
+					clock,
+					launch: agent.launch,
+				}).list()
+			)[0]?.state;
+
+		await conversation.reparent(null);
+		conversation.move("signup", "/repo-arbor/signup", "main", "c0");
+
+		expect([conversation.state, await reread()]).toEqual([
+			expect.objectContaining({ startedBy: null, lastCaller: null }),
+			expect.objectContaining({ startedBy: null, lastCaller: null }),
+		]);
+	});
+
 	it("counts the messages seen when last marked read, and reads it back", async () => {
 		const conversation = await started();
 		await conversation.prompt("hello");

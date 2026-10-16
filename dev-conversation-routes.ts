@@ -382,6 +382,8 @@ export class ConversationRoutes {
 		request: Request,
 	): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
+		// A subagent stays under the one it answers to.
+		await this.#refuseHandedOut(conversation);
 		const { parent } = await body(request);
 		if (parent !== null && typeof parent !== "string") {
 			fail("usage", "parent is a conversation's id, or null for the top", {

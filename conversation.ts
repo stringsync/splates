@@ -17,6 +17,7 @@ import {
 	type Attached,
 	blank,
 	type ConversationState,
+	callerAfter,
 	type Device,
 	IDLE_STOP,
 	type Limit,
@@ -396,7 +397,7 @@ export class Conversation
 			task,
 			lastTask: task ?? this.state.lastTask,
 			lastBase: task === null ? this.state.lastBase : base,
-			lastCaller: task === null ? this.state.lastCaller : caller,
+			lastCaller: callerAfter(this.state, task, caller),
 		});
 	}
 
@@ -439,7 +440,10 @@ export class Conversation
 
 	/**
 	 * Nests it in the list under the conversation `id`, or at the top for
-	 * null, over where its task would.
+	 * null, over where its task would, cutting it loose from the conversation
+	 * that started it or added its task: that one no longer tells it, hears
+	 * from it, or archives it along. Never for a subagent, which stays with
+	 * the one it answers to.
 	 */
 	async reparent(id: string | null): Promise<void> {
 		if (this.state.parent !== null && this.state.parent.id === id) {
@@ -448,7 +452,7 @@ export class Conversation
 		const parent = { id };
 		this.log.write({ kind: "parent", parent });
 		await this.log.flush();
-		this.set({ parent });
+		this.set({ parent, startedBy: null, lastCaller: null });
 	}
 
 	/** Settles once everything said so far is in its log, for a reader of the file. */
