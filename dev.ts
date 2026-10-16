@@ -282,6 +282,7 @@ export async function dev(
 				fs,
 				home: arborHome(ps),
 				device: (deps.secrets ?? SYSTEM_STORES).device,
+				fetch: deps.fetch,
 			},
 			SETUP_AREAS,
 		),

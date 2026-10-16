@@ -350,8 +350,9 @@ kept.
 
 ## Remote access
 
-When the user asks to reach `arbor dev` from elsewhere, that is the `tunnel`
-setup step: walk them through it as
+When the user asks to reach `arbor dev` from elsewhere, that is the Remote
+access setup area, from its `cloudflare-token` step through `tunnel`, `access`
+and `slot-tunnels`: walk them through it as
 [references/setup.md](references/setup.md) says. Its `arbor tunnel setup
 <host> --email <theirs>` makes the Cloudflare tunnel, its DNS record and its
 Access application with an API token kept as the cred

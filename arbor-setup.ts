@@ -12,9 +12,14 @@ import {
 import { SETUP_AREAS } from "./setup-areas";
 
 /** This machine's setup, read through `deps`. */
-export function setupOf({ fs, ps, secrets = SYSTEM_STORES }: ArborDeps): Setup {
+export function setupOf({
+	fs,
+	ps,
+	secrets = SYSTEM_STORES,
+	fetch,
+}: ArborDeps): Setup {
 	return new Setup(
-		{ fs, home: arborHome(ps), device: secrets.device },
+		{ fs, home: arborHome(ps), device: secrets.device, fetch },
 		SETUP_AREAS,
 	);
 }

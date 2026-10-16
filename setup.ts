@@ -156,6 +156,8 @@ export interface SetupMachine {
 	home: string;
 	/** The device's secret store, where creds kept for every project live. */
 	device: SecretStore;
+	/** How a check reaches the network, as for Access; the global one by default. */
+	fetch?: typeof globalThis.fetch;
 }
 
 /**

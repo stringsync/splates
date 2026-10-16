@@ -141,6 +141,8 @@ export type DevMachine = Deps & {
 	fs: Fs;
 	/** Where each project's creds are kept; the system's stores by default. */
 	secrets?: SecretStores;
+	/** How setup's checks reach the network; the global fetch by default. */
+	fetch?: typeof fetch;
 	/** The built page. */
 	assets: Assets;
 	/** Every arbor project on this machine. */
