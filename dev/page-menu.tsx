@@ -8,9 +8,8 @@ import {
 	DropdownMenuShortcut,
 } from "#dev/components/ui/dropdown-menu.tsx";
 import { useShortcutLabel } from "#dev/hooks/use-shortcut.ts";
-import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
-import { identity } from "./api";
+import { identity, type MachineStatus } from "./api";
 import { CheckpointItem } from "./checkpoint";
 import { FullscreenItem } from "./fullscreen";
 import { MachineStats, useMachine } from "./machine";
@@ -61,7 +60,7 @@ export function usePageMenu({
 /** The page menu, as `usePageMenu` makes it. */
 export interface PageMenu {
 	/** How hard the machine is working, or null before it has said. */
-	machine: MachineReading | null;
+	machine: MachineStatus | null;
 	items: ReactNode;
 	/** Whether a restart would update arbor. */
 	dot: boolean;
@@ -77,7 +76,7 @@ function PageMenuItems({
 }: Update & {
 	/** Who Cloudflare Access signed in, from `useSignedIn`. */
 	email: string | null;
-	machine: MachineReading | null;
+	machine: MachineStatus | null;
 	onSettings: () => void;
 }): JSX.Element {
 	const why = update(release, behind);

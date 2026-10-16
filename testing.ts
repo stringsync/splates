@@ -14,6 +14,7 @@ import { assets } from "./dev/assets";
 import { Exit, type Reason } from "./exit";
 import { Format } from "./format";
 import { Git } from "./git";
+import { HeavyJobs } from "./heavy";
 import { Journal } from "./journal";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE } from "./plan";
@@ -56,6 +57,8 @@ export class Testing implements AsyncDisposable {
 	readonly git: Git;
 	readonly service: WorktreeService;
 	readonly shell: Shell;
+	/** Kept in `arborHome`, so no test waits on the machine's own jobs. */
+	readonly heavy: HeavyJobs;
 	readonly journal: Journal;
 	readonly lockPath: string;
 	readonly lock: FileLock;
@@ -117,6 +120,17 @@ export class Testing implements AsyncDisposable {
 			adherence: this.adherence,
 		});
 		this.shell = new Shell({ ps: this.ps });
+		this.heavy = new HeavyJobs(join(this.arborHome, "heavy.json"), {
+			fs: this.fs,
+			ps: this.ps,
+			lock: new FileLock(join(this.arborHome, "heavy.lock"), {
+				fs: this.fs,
+				ps: this.ps,
+				log: this.log,
+			}),
+			log: this.log,
+			cap: 2,
+		});
 		this.journal = new Journal(
 			join(this.arborDir, "log.jsonl"),
 			this.config.logCapacity,
@@ -145,12 +159,14 @@ export class Testing implements AsyncDisposable {
 		// refuses the test an `--agent`.
 		// Run from a slot's server, it leaves out the machine's home too, so no
 		// task ending here gives back a slot of the user's.
+		// Nor does it wait on, or pass through, a heavy-job slot of the machine's.
 		const {
 			ARBOR_CONVERSATION,
 			ARBOR_CALLER,
 			ARBOR_DEV,
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
+			ARBOR_HEAVY,
 			...inherited
 		} = process.env;
 		this.proc.env = { ...inherited, ARBOR_HOME: this.arborHome };

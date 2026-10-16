@@ -30,6 +30,7 @@ import { startTunnel, type TunnelConfig } from "./dev-tunnel";
 import { Versions } from "./dev-versions";
 import { fail } from "./exit";
 import type { Git } from "./git";
+import { type HeavyCap, HeavyJobs } from "./heavy";
 import { Machine, type MachineSensors, osSensors } from "./machine";
 import { Outcomes } from "./outcomes";
 import { RUNNING } from "./release";
@@ -76,6 +77,7 @@ export async function dev(
 		servers = async () => [],
 		exit = null,
 		sensors = null,
+		heavy = null,
 		pusher,
 		open = async (root) => ({
 			fs: deps.fs,
@@ -308,6 +310,7 @@ export async function dev(
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
+	const jobs = heavy ?? HeavyJobs.ofMachine({ fs, ps, log });
 
 	const requested = await ports.get();
 	const server = Bun.serve<Connection>({
@@ -349,7 +352,9 @@ export async function dev(
 					email: (await gate.identity(request))?.email ?? null,
 				}),
 			),
-			"/api/machine": guarded(async () => Response.json(await machine.read())),
+			"/api/machine": guarded(async () =>
+				Response.json({ ...(await machine.read()), heavy: await jobs.read() }),
+			),
 			// Through a tunnel only once Access verified who is asking, as a
 			// conversation is: what an agent said goes to the device.
 			"/api/push": talk(guarded(pushes.key)),
@@ -624,6 +629,8 @@ export interface DevOptions {
 	exit?: ((code: number) => void) | null;
 	/** Where the page's machine stats come from; this machine's OS for none. */
 	sensors?: MachineSensors | null;
+	/** Whose test runs and installs the page shows; this machine's for none. */
+	heavy?: Pick<HeavyCap, "read"> | null;
 	/** What pushes notices to the devices that subscribed; the Web Push services by default. */
 	pusher?: (keys: VapidKeys) => Pusher;
 }

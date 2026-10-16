@@ -10,11 +10,10 @@ import type { ConversationState, Session } from "../conversations";
 import type { ServerChoice } from "../dev-servers";
 import type { FileDiff } from "../diff";
 import type { Held } from "../held";
-import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
-import type { Budgets, KeptCreds } from "./api";
+import type { Budgets, KeptCreds, MachineStatus } from "./api";
 import type { AutoRestart } from "./auto-restart";
 import type { AgentChoice } from "./conversation-feed";
 import type { Dictation } from "./dictation";
@@ -171,7 +170,7 @@ export class Testing implements Resource {
 	/** The public key `/api/push` hands out, which a device subscribes with. */
 	pushKey = PUSH_KEY;
 	/** What `/api/machine` reads, or null for it to fail. */
-	machine: MachineReading | null = null;
+	machine: MachineStatus | null = null;
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;

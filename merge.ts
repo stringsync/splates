@@ -4,6 +4,7 @@ import type { Config } from "./config";
 import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
+import type { HeavyCap } from "./heavy";
 import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
 import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
@@ -32,6 +33,7 @@ export async function merge(
 		todos,
 		fs,
 		slots,
+		heavy,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -42,6 +44,7 @@ export async function merge(
 		todos: Todos;
 		fs: Fs;
 		slots: Slots;
+		heavy: HeavyCap;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -156,12 +159,19 @@ export async function merge(
 		.filter(Boolean)
 		.join(" && ");
 	const gated = gate
-		? await shell.run(gate, worktree.path, {
-				env: {
-					ARBOR_TASK: task,
-					ARBOR_WORKTREE: worktree.path,
-				},
-			})
+		? await (async () => {
+				// A test run is the heaviest thing an agent does, so it waits its
+				// turn with every other on the machine.
+				await using slot = await heavy.take({ what: "preMerge", task });
+				// Awaited, or the slot goes back before the hook ends.
+				return await shell.run(gate, worktree.path, {
+					env: {
+						ARBOR_TASK: task,
+						ARBOR_WORKTREE: worktree.path,
+						...slot.env,
+					},
+				});
+			})()
 		: { exitCode: 0, stdout: "", stderr: "" };
 	if (gated.exitCode !== 0) {
 		// The rebase already finished, so there is nothing for `rebase --abort`

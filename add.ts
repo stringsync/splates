@@ -3,6 +3,7 @@ import { MarkdownWriter } from "webappwiz/md";
 import type { Fs } from "webappwiz/system";
 import type { Config } from "./config";
 import { fail } from "./exit";
+import type { HeavyCap } from "./heavy";
 import { PLAN_FILE, STUB_STEP } from "./plan";
 import { pickAgent, type RosterAgent } from "./roster";
 import type { Shell } from "./shell";
@@ -49,6 +50,7 @@ export async function add(
 		log,
 		fs,
 		todos,
+		heavy,
 	}: {
 		service: WorktreeService;
 		shell: Shell;
@@ -56,6 +58,7 @@ export async function add(
 		log: Logger;
 		fs: Fs;
 		todos: Todos;
+		heavy: HeavyCap;
 	},
 	task: string,
 	{
@@ -191,18 +194,21 @@ export async function add(
 
 	// A fresh worktree shares no untracked files with the repo: no node_modules,
 	// no .env. That is what the hook is for.
-	if (config.postCheckout) {
-		const { exitCode } = await shell.stream(
-			config.postCheckout,
-			worktree.path,
-			{
+	const hook = config.postCheckout;
+	if (hook) {
+		const { exitCode } = await (async () => {
+			// An install on a cold cache takes cores enough to wait its turn.
+			await using slot = await heavy.take({ what: "postCheckout", task });
+			// Awaited, or the slot goes back before the hook ends.
+			return await shell.stream(hook, worktree.path, {
 				env: {
 					ARBOR_TASK: task,
 					ARBOR_WORKTREE: worktree.path,
 					ARBOR_TRUNK: config.trunk,
+					...slot.env,
 				},
-			},
-		);
+			});
+		})();
 		if (exitCode !== 0) {
 			// No agent starts in a tree its hook left broken.
 			if (handOff !== undefined) {

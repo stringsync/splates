@@ -1,7 +1,7 @@
 import type { JSX, ReactNode } from "react";
 import { cn } from "#dev/lib/utils.ts";
-import type { MachineReading } from "../machine";
 import type { Snapshot } from "../snapshot";
+import type { MachineStatus } from "./api";
 import { CheckpointRefusal, PowerBadge, useCheckpoint } from "./checkpoint";
 import { MachineBadge } from "./machine";
 import { ProjectSwitcher } from "./projects";
@@ -24,7 +24,7 @@ export function AppHeader({
 	/** Why a newer arbor has the server refusing, or null. */
 	outdated: string | null;
 	offline: boolean;
-	machine: MachineReading | null;
+	machine: MachineStatus | null;
 }): JSX.Element {
 	return (
 		<header className="flex min-w-0 flex-col">
@@ -57,7 +57,7 @@ export function AppStatus({
 	snapshot: Snapshot | null;
 	outdated: string | null;
 	offline: boolean;
-	machine: MachineReading | null;
+	machine: MachineStatus | null;
 }): JSX.Element {
 	return (
 		<>
@@ -112,7 +112,7 @@ function ServerBadges({
 	snapshot: Snapshot | null;
 	outdated: string | null;
 	offline: boolean;
-	machine: MachineReading | null;
+	machine: MachineStatus | null;
 }): JSX.Element {
 	return (
 		<>

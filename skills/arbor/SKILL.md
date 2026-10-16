@@ -98,7 +98,11 @@ which remembers none of it.
    going (see Asking as you go), bringing `## Blocked` up to date before
    each step. Before handing a subagent work that may change code, read
    [references/parts.md](references/parts.md): it works in a part of your
-   task.
+   task. Run a whole test suite, an install, or anything as heavy as
+   `arbor heavy -- <command>`, unless the project's instructions say its
+   script takes a slot itself: it waits for one of the machine's few
+   heavy-job slots, so agents testing at once queue rather than run it out
+   of memory.
 5. **Land.** Once every step under `## Next` and every question under
    `## Blocked` is checked, the task is ready to merge, whatever stands
    under `## Assumptions`: `arbor todo add`

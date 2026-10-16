@@ -22,6 +22,7 @@ import type { Facts } from "./events";
 import { exits, fail } from "./exit";
 import { follow } from "./follow";
 import { handoff } from "./handoff";
+import { runHeavy } from "./heavy-run";
 import { forget, init } from "./init";
 import { list } from "./list";
 import { DEFAULT_COUNT, log as showLog } from "./log";
@@ -77,6 +78,21 @@ arbor
 			log: ctx.log,
 			newest: () => newest(),
 		});
+		if (code !== 0) {
+			ctx.ps.exit(code);
+		}
+	});
+
+arbor
+	.command("heavy")
+	.description(
+		"run a heavy command (a full test run, an install) in one of this machine's heavy-job slots, waiting for one to come free first, so agents testing at once queue rather than run out of memory; `ARBOR_HEAVY_JOBS` sets how many run at once, 2 by default",
+	)
+	.rest("command", z.string(), {
+		description: "the command and its arguments, after `--`",
+	})
+	.action(async (opts, ctx) => {
+		const code = await runHeavy(ctx, opts.command);
 		if (code !== 0) {
 			ctx.ps.exit(code);
 		}

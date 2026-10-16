@@ -7,6 +7,7 @@
 
 import type { KeptCred, Scope } from "../creds";
 import type { FileDiff } from "../diff";
+import type { HeavyJobsReading } from "../heavy";
 import type { MachineReading } from "../machine";
 import type { Wants } from "../notices";
 import type { AgentPick } from "../roster";
@@ -281,13 +282,16 @@ export async function identity(): Promise<string | null> {
 	return ((await response.json()) as { email: string | null }).email;
 }
 
+/** What the page shows of the machine: its reading, and its heavy jobs. */
+export type MachineStatus = MachineReading & { heavy: HeavyJobsReading };
+
 /** How hard the machine `arbor dev` runs on is working right now. */
-export async function machine(): Promise<MachineReading> {
+export async function machine(): Promise<MachineStatus> {
 	const response = await fetch("/api/machine");
 	if (!response.ok) {
 		throw new ApiError("error", `/api/machine: ${response.status}`);
 	}
-	return (await response.json()) as MachineReading;
+	return (await response.json()) as MachineStatus;
 }
 
 /** The public key this device subscribes to the server's pushes with. */

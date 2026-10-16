@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { MachineReading } from "../machine";
+import type { MachineStatus } from "./api";
 import { act, cleanup, fireEvent, Testing, waitFor, within } from "./testing";
 
 describe("App's machine stats", () => {
@@ -57,6 +57,35 @@ describe("App's machine stats", () => {
 		expect(view.getByLabelText("CPU").textContent).toContain("94%");
 	});
 
+	it("says the Mac is busy while a heavy job waits, naming what runs and what waits", async () => {
+		testing.machine = reading({
+			heavy: {
+				cap: 2,
+				running: [
+					job("preMerge", "alpha", 11),
+					job("wiz dev test", "beta", 12),
+				],
+				waiting: [job("postCheckout", "gamma", 13)],
+			},
+		});
+		const view = await testing.open();
+
+		await act(async () =>
+			fireEvent.click(await waitFor(() => view.getByText("Mac busy"))),
+		);
+
+		const jobs = await waitFor(() =>
+			view.getByRole("region", { name: "Heavy jobs" }),
+		);
+		expect(jobs.textContent).toContain("2 of 2");
+		expect(
+			within(jobs).getByRole("list", { name: "Running" }).textContent,
+		).toBe("alpha · preMergebeta · wiz dev test");
+		expect(
+			within(jobs).getByRole("list", { name: "Waiting" }).textContent,
+		).toBe("gamma · postCheckout");
+	});
+
 	it("shows nothing of the machine while the server does not say", async () => {
 		const view = await testing.open();
 		await act(async () =>
@@ -69,7 +98,7 @@ describe("App's machine stats", () => {
 });
 
 /** A Mac of 16 cores, coping. */
-function reading(over: Partial<MachineReading> = {}): MachineReading {
+function reading(over: Partial<MachineStatus> = {}): MachineStatus {
 	return {
 		kind: "Mac",
 		cpu: 0.23,
@@ -77,6 +106,12 @@ function reading(over: Partial<MachineReading> = {}): MachineReading {
 		load: 3.2,
 		cores: 16,
 		temperature: null,
+		heavy: { cap: 2, running: [], waiting: [] },
 		...over,
 	};
+}
+
+/** A heavy job of `task`'s, running or waiting since ten this morning. */
+function job(what: string, task: string | null, pid: number) {
+	return { what, task, pid, since: "2026-10-16T10:00:00.000Z" };
 }

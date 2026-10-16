@@ -17,6 +17,7 @@
 	"exports": {
 		".": "./index.ts",
 		"./config": "./config.ts",
+		"./heavy": "./heavy.ts",
 		"./skill-checks": "./skill-checks.ts",
 		"./skills": "./skills.ts",
 		"./systems": "./systems.ts",

@@ -6,6 +6,7 @@ import type { Config } from "./config";
 import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
 import { Format } from "./format";
 import { Git } from "./git";
+import { type HeavyCap, HeavyJobs } from "./heavy";
 import { Journal } from "./journal";
 import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
@@ -35,6 +36,8 @@ export interface Repository {
 	creds: Creds;
 	/** The machine's dev slots, which a task gives back as it ends. */
 	slots: Slots;
+	/** The machine's slots for test runs and installs, which hooks wait for. */
+	heavy: HeavyCap;
 }
 
 /** How `repository` treats records in an older format than this arbor's. */
@@ -133,6 +136,7 @@ export async function openRepository(
 	return {
 		projects,
 		slots: Slots.ofMachine({ fs, ps, log }),
+		heavy: HeavyJobs.ofMachine({ fs, ps, log }),
 		creds: await Creds.open(
 			arborDir,
 			git.root,

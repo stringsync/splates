@@ -195,6 +195,22 @@ describe.concurrent("merge", () => {
 		});
 	});
 
+	it("runs the gate in a heavy-job slot of the machine's, and gives it back", async () => {
+		await using deps = await Testing.open();
+		const seen = join(deps.arborHome, "seen.json");
+		deps.config.preMerge = `cp ${join(deps.arborHome, "heavy.json")} ${seen}`;
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.finish(worktree);
+		await merge(deps, worktree);
+
+		const during = JSON.parse(await deps.fs.read(seen));
+		expect(during.running).toMatchObject([{ what: "preMerge", task: "alpha" }]);
+		expect((await deps.heavy.read()).running).toEqual([]);
+	});
+
 	it("runs postRewrite before preMerge, and fails the gate when it does", async () => {
 		await using deps = await Testing.open();
 

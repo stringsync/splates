@@ -7,8 +7,8 @@ import {
 	PopoverTrigger,
 } from "#dev/components/ui/popover.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { MachineReading } from "../machine";
-import { machine } from "./api";
+import type { HeavyJob } from "../heavy";
+import { type MachineStatus, machine } from "./api";
 
 /** How often the page asks how the machine is doing, while in front. */
 const EVERY = Duration.secs(5);
@@ -21,8 +21,8 @@ const DEGREES = { warning: 80, destructive: 95 };
  * The machine's reading, asked every few seconds while the page is in front,
  * or null before the first and while the server does not answer.
  */
-export function useMachine(): MachineReading | null {
-	const [reading, setReading] = useState<MachineReading | null>(null);
+export function useMachine(): MachineStatus | null {
+	const [reading, setReading] = useState<MachineStatus | null>(null);
 	useEffect(() => {
 		const observer = new WindowBackgroundObserver();
 		const ask = () => {
@@ -44,10 +44,11 @@ export function useMachine(): MachineReading | null {
 
 /**
  * Whether the machine is working hard enough that agents may slow down: CPU
- * or memory red, or the hottest sensor red.
+ * or memory red, the hottest sensor red, or a heavy job waiting for a slot.
  */
-export function strained(reading: MachineReading): boolean {
+export function strained(reading: MachineStatus): boolean {
 	return (
+		reading.heavy.waiting.length > 0 ||
 		toneOf(reading.cpu, SHARE) === "destructive" ||
 		toneOf(reading.memory, SHARE) === "destructive" ||
 		(reading.temperature !== null &&
@@ -63,7 +64,7 @@ export function MachineStats({
 	reading,
 	className,
 }: {
-	reading: MachineReading;
+	reading: MachineStatus;
 	className?: string;
 }): JSX.Element {
 	const { cpu, memory, temperature } = reading;
@@ -98,7 +99,59 @@ export function MachineStats({
 					/>
 				)}
 			</ul>
+			<HeavyJobs reading={reading} />
 		</section>
+	);
+}
+
+/**
+ * The test runs and installs holding the machine's slots, then those waiting
+ * for one, first come first; nothing while none run.
+ */
+function HeavyJobs({
+	reading,
+}: {
+	reading: MachineStatus;
+}): JSX.Element | null {
+	const { cap, running, waiting } = reading.heavy;
+	if (running.length === 0 && waiting.length === 0) {
+		return null;
+	}
+	return (
+		<section aria-label="Heavy jobs" className="mt-1 flex flex-col gap-1">
+			<h4 className="flex justify-between text-muted-foreground text-xs">
+				<span>Heavy jobs</span>
+				<span>
+					{running.length} of {cap}
+				</span>
+			</h4>
+			<JobList name="Running" jobs={running} />
+			{waiting.length > 0 && (
+				<>
+					<h4 className="text-warning text-xs">Waiting</h4>
+					<JobList name="Waiting" jobs={waiting} />
+				</>
+			)}
+		</section>
+	);
+}
+
+function JobList({
+	name,
+	jobs,
+}: {
+	name: string;
+	jobs: HeavyJob[];
+}): JSX.Element {
+	return (
+		<ul aria-label={name} className="flex flex-col gap-0.5 text-xs">
+			{jobs.map((job) => (
+				<li key={`${job.pid}-${job.since}`} className="truncate">
+					{job.task !== null && <span>{job.task} · </span>}
+					<span className="font-mono text-muted-foreground">{job.what}</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 
@@ -152,7 +205,7 @@ function Meter({
 export function MachineBadge({
 	reading,
 }: {
-	reading: MachineReading | null;
+	reading: MachineStatus | null;
 }): JSX.Element | null {
 	if (reading === null || !strained(reading)) {
 		return null;

@@ -29,6 +29,12 @@ every command.
 removes the worktree. A conflict or a failing check goes back to the agent that
 made the change, which fixes it and merges again.
 
+**Heavy jobs.** Hooks (`postCheckout`, `postRewrite`, `preMerge`) run in one
+of the machine's heavy-job slots, two by default (`ARBOR_HEAVY_JOBS` sets
+how many), so several agents testing at once queue rather than run the
+machine out of memory. `arbor heavy -- <command>` runs anything else as
+heavy, such as a test suite an agent runs mid-task, in a slot too.
+
 **Escalating.** When an agent needs you (a decision, access, a review, or
 merges that keep failing), it runs `arbor escalate`: it stops, leaves its
 worktree as it is, and writes down its questions. You answer, and it picks up
