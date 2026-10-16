@@ -12,7 +12,7 @@ import type { RemoteWorker, WorkerKind } from "./remote-worker";
 import { table } from "./table";
 import type { WorkerRegistry } from "./worker-registry";
 
-/** One worker as `GET /api/workers` and `arbor worker ls` give it. */
+/** One worker as `GET /api/workers` and `arbor worker list` give it. */
 export interface WorkerListing {
 	id: string;
 	/** `provisioned` is for workers arbor makes itself, which do not exist yet. */
@@ -85,8 +85,8 @@ const Listings = z.object({
 	),
 });
 
-/** What `arbor worker ls` is run with. */
-export interface WorkerLsOptions {
+/** What `arbor worker list` is run with. */
+export interface ListWorkersOptions {
 	/** The `arbor dev` to ask; empty for the one this agent runs under. */
 	dev: string;
 	json: boolean;
@@ -96,8 +96,8 @@ export interface WorkerLsOptions {
 	wall?: WallClock;
 }
 
-/** `arbor worker ls`: asks the running `arbor dev` which workers it has. */
-export async function workerLs(opts: WorkerLsOptions): Promise<void> {
+/** `arbor worker list`: asks the running `arbor dev` which workers it has. */
+export async function listWorkers(opts: ListWorkersOptions): Promise<void> {
 	const { log, ps, send = fetch, wall = new SystemWallClock() } = opts;
 	const url = opts.dev || ps.env("ARBOR_DEV");
 	if (!url) {

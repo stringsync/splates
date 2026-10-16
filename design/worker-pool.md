@@ -202,7 +202,7 @@ predate the Pulumi requirement; the provider is chosen again in #289.
 Phases merge independently; the single-Mac setup works after each.
 
 1. Protocol: local worker as its own process, remote launch, terminals and
-   proxying through it, `arbor worker ls`, a restartable coordinator.
+   proxying through it, `arbor worker list`, a restartable coordinator.
 2. Durability and merge: repo state over the relay, the central remote,
    checkpoint pushes, the merge lease, clone-based checkouts.
 3. Registered workers: join tokens, add/drain/rm, the pool UI, the visible

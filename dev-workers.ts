@@ -72,7 +72,7 @@ export class DevWorkers implements AsyncResource {
 			: refuse(400, "usage", "a worker connects with a WebSocket");
 	};
 
-	/** `GET /api/workers`: each worker and each refusal, as `arbor worker ls` shows them. */
+	/** `GET /api/workers`: each worker and each refusal, as `arbor worker list` shows them. */
 	readonly list = async (): Promise<Response> =>
 		Response.json(workerList(this.registry));
 

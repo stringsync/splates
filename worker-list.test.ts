@@ -11,9 +11,9 @@ import { DevWorkers } from "./dev-workers";
 import { UnixWorkerSocket } from "./unix-worker-socket";
 import { WebSocketWorkerSocket } from "./websocket-worker-socket";
 import { WorkerDaemon } from "./worker-daemon";
-import { workerLs } from "./worker-list";
+import { listWorkers } from "./worker-list";
 
-describe("arbor worker ls", () => {
+describe("arbor worker list", () => {
 	let dir: string;
 	let workers: DevWorkers;
 	let server: Bun.Server<Connection>;
@@ -76,7 +76,7 @@ describe("arbor worker ls", () => {
 
 	async function ls(json: boolean): Promise<string> {
 		const log = new MemoryLogger();
-		await workerLs({ dev: url, json, log, ps: new NodePs() });
+		await listWorkers({ dev: url, json, log, ps: new NodePs() });
 		return log.entries.map((entry) => String(entry.message)).join("\n");
 	}
 
@@ -130,7 +130,7 @@ describe("arbor worker ls", () => {
 	});
 
 	it("fails when it has no arbor dev to ask", async () => {
-		const asking = workerLs({
+		const asking = listWorkers({
 			dev: "",
 			json: false,
 			log: new MemoryLogger(),
