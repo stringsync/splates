@@ -1,8 +1,9 @@
 # arbor becomes Spinning Plates
 
 arbor leaves webappwiz as its own product, **Spinning Plates**, and stays
-open source. It earns money the way Zed does: every line of code is public,
-and what is sold is the running service, hosted workers and a hosted
+open source. Nothing is sold now. The design keeps one door open: should
+it ever earn money, it would do so the way Zed does, every line of code
+public and only the running service sold, hosted workers and a hosted
 coordinator, never a feature held back.
 
 Each todo in the Spinning Plates lane points here. Decisions marked
@@ -23,27 +24,32 @@ todo starts, never decided by the agent alone.
 
 ## Open core, the Zed way (settled)
 
+Selling compute is an option kept open, not a product being built. Nothing
+here is built for it now; the work only avoids closing it off.
+
+What holds now:
+
 - **All code is public**: the CLI, the page, the coordinator, the worker
   protocol, `worker run`, every `WorkerProvider`, the Pulumi programs.
-- **The service is what sells**: cloud workers by the hour and an
-  always-on hosted coordinator, run by stringsync from spinningplates.tech.
-  Customers pay for machines they never run, update or watch.
-- **Paid is the default path**: "Add cloud workers" on the Workers page
-  signs in to spinningplates.tech and machines appear, as Zed's editor
-  signs in to its own servers. The default provider is public code calling
-  the spinningplates.tech API.
-- **Self-hosting is first class**: home workers, your own Pulumi stack,
+- **Self-hosting is the product**: home workers, your own Pulumi stack,
   your own coordinator, all documented and none hobbled, as arbor already
-  works fully without the `arbor dev` harness. Trust is the moat, and
-  running the machines is the product.
-- **Only operations stay private**: API keys, Pulumi state, billing
-  credentials and the spinningplates.tech deployment config, in stringsync's
-  cloud account and secret store, never in a repo.
-- Public code never depends on anything private; the service plugs in
-  through `WorkerProvider` and the worker protocol.
-- What the service charges for, beyond list price, stays out of the public
-  repo: prices, margins and spend live with the business, while the
-  architecture stays here.
+  works fully without the `arbor dev` harness.
+- **Seams that keep the option**: `WorkerProvider` assumes nothing of where
+  the cloud credentials live or where Pulumi runs (#288), so a provider
+  could call a remote API instead; the Pulumi programs hold nothing only one
+  operator runs (#289, #295); public code never depends on anything private.
+- **The right to relicense**: the LLC holds every copyright, kept by a CLA
+  before outside contributions (#310).
+
+What it would look like, if the user chooses to sell (not planned):
+
+- Cloud workers by the hour and an always-on hosted coordinator, run by
+  stringsync from spinningplates.tech; "Add cloud workers" on the Workers
+  page signs in and machines appear, as Zed's editor signs in to its own
+  servers, with self-hosting beside it.
+- Only operations would be private: API keys, Pulumi state, billing
+  credentials and deploy config, in a secret store, never a repo. Prices
+  and margins would live with the business, not in this repo.
 
 ## Leaving webappwiz (settled)
 
@@ -89,8 +95,7 @@ Asked when their todo starts:
 - Whether the rename reaches `ARBOR.md`, the `[ARBOR …]` directives and the
   state directories, or only the command and package (rename todo).
 - CLA or DCO, and which tool (CLA todo).
-- How the hosted service charges (by worker-hour at a markup, or a
-  subscription with included hours), accounts, and the billing provider
-  (hosted workers todo).
-- Whether the hosted coordinator is one box per customer or shared
-  (#295).
+
+Not asked until the user chooses to sell: how a hosted service charges,
+accounts and billing, and whether a hosted coordinator is a box per
+customer or shared.

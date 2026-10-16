@@ -5,8 +5,8 @@ conversations run at once than one machine holds, and arbor can run always-on
 without a laptop. The question/answer UX does not change: distribution is
 plumbing.
 
-The pool is also what Spinning Plates sells: all of it is public, and
-stringsync runs it as a hosted service (see [splates.md](splates.md)).
+All of it is public, and none of it closes off running it as a hosted
+service later (see [splates.md](splates.md)); nothing hosted is built now.
 
 Each todo in the worker lanes points here. Decisions marked *settled* were made
 with the user; those under *Open* are asked when their phase starts, never
@@ -159,19 +159,12 @@ first real provider drives a Pulumi stack through the Automation API, and
 the cloud coordinator's box is a Pulumi program too. Workers boot from a
 snapshot arbor builds and refreshes, and scale to zero.
 
-Two kinds of provider sit behind the one interface, so it assumes neither
-(settled):
-
-- **Self-hosted**: the Pulumi provider in the user's own cloud account,
-  with their API token as a cred. Documented and never hobbled.
-- **Hosted**, the default the Workers page offers: public code that signs
-  in to spinningplates.tech and asks its API for workers, which stringsync
-  provisions with that same Pulumi provider and bills by the hour. The
-  user holds no cloud account; the service holds the cloud credentials.
-
-A provider's price per hour is what the user pays: list price for
-self-hosted, the service's price for hosted, so the budget works in the
-same dollars either way.
+The provider built is self-hosted: the Pulumi provider in the user's own
+cloud account, with their API token as a cred. The interface still assumes
+nothing of where cloud credentials live or where Pulumi runs, so a hosted
+provider calling a remote API could sit behind it later without changing
+it (settled; see [splates.md](splates.md)). A provider's price per hour is
+what the user pays, so the budget would count the same dollars either way.
 
 ## Updates without waiting
 
@@ -224,10 +217,10 @@ Phases merge independently; the single-Mac setup works after each.
    checkpoint pushes, the merge lease, clone-based checkouts.
 3. Registered workers: join tokens, add/drain/rm, the pool UI, the visible
    queue, proven with a Linux container as a second worker.
-4. Provisioning and budget, then hosted workers from spinningplates.tech.
+4. Provisioning and budget.
 5. Cloud coordinator, near New Jersey, backed up by nightly provider
    snapshots; the Mac becomes a registered worker while awake, managed from
-   the Workers page. Self-hosted first; hosted for customers after.
+   the Workers page.
 
 Before phase 1: a shared browser and the heavy-job cap, on their own.
 
@@ -240,7 +233,4 @@ Asked when their todo starts:
 - Credential delivery against a secrets manager (#284).
 - Which Pulumi-supported cloud and region for workers, and what one warm
   worker costs (#289).
-- Where the cloud coordinator runs, near New Jersey, and whether the hosted
-  one is a box per customer or shared (#295).
-- How hosted workers are priced and billed, and how accounts sign in
-  (see [splates.md](splates.md)).
+- Where the cloud coordinator runs, near New Jersey (#295).
