@@ -261,16 +261,6 @@ export function Item({
 						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
-				{files && (
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						aria-label={`${put} ${nameOf(conversation)}`}
-						onClick={() => file(archived ? undefined : onLeft)}
-					>
-						<Put />
-					</Button>
-				)}
 				{files && !archived && (
 					<Button
 						size="icon-xs"
@@ -283,6 +273,16 @@ export function Item({
 						}
 					>
 						<Pin />
+					</Button>
+				)}
+				{files && (
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						aria-label={`${put} ${nameOf(conversation)}`}
+						onClick={() => file(archived ? undefined : onLeft)}
+					>
+						<Put />
 					</Button>
 				)}
 			</span>

@@ -48,7 +48,7 @@ describe("App's pinning conversations", () => {
 		).toEqual([true, false]);
 	});
 
-	it("offers Pin after the menu and Archive", () => {
+	it("offers Pin then Archive after the menu", () => {
 		const row = within(nav).getAllByRole("listitem")[1] as HTMLElement;
 
 		expect(
@@ -56,7 +56,7 @@ describe("App's pinning conversations", () => {
 				.getAllByRole("button")
 				.slice(1)
 				.map((button) => button.getAttribute("aria-label")),
-		).toEqual(["More for New", "Archive New", "Pin New"]);
+		).toEqual(["More for New", "Pin New", "Archive New"]);
 	});
 
 	it("pins and unpins", async () => {
