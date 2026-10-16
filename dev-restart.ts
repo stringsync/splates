@@ -65,6 +65,11 @@ export class Restarts {
 	 * `resuming`, told to carry on, until each has.
 	 */
 	private restarted: "resuming" | null = null;
+	/**
+	 * Whether `reopenStopped` has read how this run began, before which a
+	 * checkpoint left in the logs may yet be one to resume.
+	 */
+	private began = false;
 	/** This run of `arbor dev`, so a page can tell it has restarted. */
 	private readonly run = crypto.randomUUID();
 	/**
@@ -94,11 +99,13 @@ export class Restarts {
 		const { fs, projects, served } = this.home;
 		const stopped = await fs.read(this.reopen).catch(() => null);
 		if (stopped === null) {
+			this.began = true;
 			return;
 		}
 		await fs.rm(this.reopen, { force: true });
 		const roots = parseRestart(stopped);
 		this.restarted = "resuming";
+		this.began = true;
 		const registered = await projects.list();
 		const opening = roots
 			.filter((root) =>
@@ -120,6 +127,7 @@ export class Restarts {
 		) {
 			this.restarted = null;
 		}
+		await this.forgetStale();
 		// Read before the conversations, so a checkpoint asked meanwhile never
 		// pairs its restart with agents not yet asked, which reads as restarting.
 		const then = { restarting: this.restarting, restarted: this.restarted };
@@ -186,11 +194,20 @@ export class Restarts {
 			slugs.map((slug) => this.home.served.projectNamed(slug)),
 		);
 		this.restarted = null;
+		// Under way while its agents are asked, so one done before the last
+		// is asked is not forgotten as stale.
+		const shutdown = after === "shutdown";
+		this.restarting = { resume: true, shutdown };
 		const asked: Promise<void>[] = [];
-		for (const project of chosen) {
-			asked.push(...(await project.checkpoint(only)));
+		try {
+			for (const project of chosen) {
+				asked.push(...(await project.checkpoint(only)));
+			}
+		} catch (error) {
+			this.restarting = null;
+			throw error;
 		}
-		this.restartAfter(asked, { shutdown: after === "shutdown" });
+		this.restartAfter(asked, { shutdown });
 		return Response.json({});
 	};
 
@@ -427,6 +444,23 @@ export class Restarts {
 			await server.disposeAsync();
 			this.opts.exit?.(code);
 		});
+	}
+
+	/**
+	 * Forgets each checkpoint ended with no run under way to restart or
+	 * resume it: left by a run that stopped without saying to resume, as when
+	 * killed mid-checkpoint, or in a project opened after the resume. Kept,
+	 * it would hold Power on a checkpoint nothing ever ends.
+	 */
+	private async forgetStale(): Promise<void> {
+		if (!this.began || this.restarting !== null || this.restarted !== null) {
+			return;
+		}
+		for (const conversation of await this.checkpointed()) {
+			if (conversation.state.checkpoint !== "asked") {
+				conversation.dismissCheckpoint();
+			}
+		}
 	}
 
 	/** Each conversation a checkpoint has asked, in every project. */
