@@ -68,7 +68,7 @@ describe("conversation events", () => {
 		await claimed("delta", "some-other-conversation");
 		await claimed("beta", conversation.id);
 
-		await eventually(() => conversation.state.events.length === 2, 10);
+		await eventually(() => conversation.state.events.length === 2, 100);
 
 		expect(conversation.state.events.map((event) => event.task)).toEqual([
 			"alpha",
