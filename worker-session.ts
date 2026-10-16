@@ -5,7 +5,9 @@ import {
 	Duration,
 	SystemClock,
 	SystemTimer,
+	SystemWallClock,
 	type Timer,
+	type WallClock,
 } from "webappwiz/time";
 import { WorkerChannel, type WorkerChannelLink } from "./worker-channel";
 import { WorkerConnection } from "./worker-connection";
@@ -52,6 +54,8 @@ export interface WorkerSessionOptions {
 	acks?: "delivery" | "manual";
 	timer?: Timer;
 	clock?: Clock;
+	/** Stamps `lastHeard`. */
+	wall?: WallClock;
 }
 
 /**
@@ -78,12 +82,14 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	private readonly acks: "delivery" | "manual";
 	private readonly timer: Timer;
 	private readonly clock: Clock;
+	private readonly wall: WallClock;
 	private readonly link: WorkerChannelLink;
 	private connection: WorkerConnection | undefined;
 	private nextChannel: number;
 	private nextPing = 0;
 	private wasFull = false;
 	private _negotiated: Negotiated | undefined;
+	private _lastHeard: number | null = null;
 	private disposed = false;
 
 	constructor(
@@ -98,6 +104,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.acks = opts.acks ?? "delivery";
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemClock();
+		this.wall = opts.wall ?? new SystemWallClock();
 		// Each end numbers the channels it opens apart, so neither waits on the other for an id.
 		this.nextChannel = role === "worker" ? 1 : 2;
 		this.link = {
@@ -142,6 +149,11 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	/** What the last handshake settled on, once there has been one. */
 	get negotiated(): Negotiated | undefined {
 		return this._negotiated;
+	}
+
+	/** When any frame last came from the other end, in epoch milliseconds; null before the first. */
+	get lastHeard(): number | null {
+		return this._lastHeard;
 	}
 
 	get connected(): boolean {
@@ -250,6 +262,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.lose("a new connection replaced it");
 		const connection = new WorkerConnection(socket, this.clock.now());
 		this.connection = connection;
+		this._lastHeard = this.wall.now();
 		connection.resources.defer(
 			socket.events.on("frame", (encoded) => this.hear(encoded)),
 		);
@@ -290,6 +303,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			return;
 		}
 		connection.heard = this.clock.now();
+		this._lastHeard = this.wall.now();
 		let frame: Frame;
 		try {
 			frame = WorkerProtocol.decode(encoded);

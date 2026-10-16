@@ -25,6 +25,9 @@ type Call = CallRequest extends infer Each
 		: never
 	: never;
 
+/** How a worker joined: over this machine's socket, or by its own say-so. */
+export type WorkerKind = "local" | "registered";
+
 /**
  * The coordinator's handle on one worker: what it said of itself in its
  * hello, and the work it can be given. Its session outlives any one
@@ -43,6 +46,8 @@ export class RemoteWorker implements WorkerMachine {
 		/** Slots, platform and build, as its last hello said. */
 		public info: { [key: string]: Json },
 		readonly session: WorkerSession,
+		/** How its last connection arrived. */
+		public kind: WorkerKind = "registered",
 	) {}
 
 	get connected(): boolean {

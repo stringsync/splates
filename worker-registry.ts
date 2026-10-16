@@ -6,10 +6,12 @@ import {
 	Duration,
 	SystemClock,
 	SystemTimer,
+	SystemWallClock,
 	type Timer,
 	timeouts,
+	type WallClock,
 } from "webappwiz/time";
-import { RemoteWorker } from "./remote-worker";
+import { RemoteWorker, type WorkerKind } from "./remote-worker";
 import { WORKER_CAPABILITIES } from "./worker-daemon";
 import { WorkerSession, type WorkerSessionOptions } from "./worker-session";
 import type { WorkerSocket } from "./worker-socket";
@@ -32,9 +34,13 @@ export interface WorkerRegistryEvents extends Record<string, unknown> {
 export interface WorkerRegistryOptions {
 	/** How long a new connection has to say hello. */
 	helloWithin?: Duration;
-	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
+	session?: Omit<
+		WorkerSessionOptions,
+		"timer" | "clock" | "wall" | "capabilities"
+	>;
 	timer?: Timer;
 	clock?: Clock;
+	wall?: WallClock;
 }
 
 /**
@@ -51,6 +57,7 @@ export class WorkerRegistry
 	private readonly refusals = new Map<string, RefusedWorker>();
 	private readonly timer: Timer;
 	private readonly clock: Clock;
+	private readonly wall: WallClock;
 
 	constructor(
 		private readonly log: Logger,
@@ -58,6 +65,7 @@ export class WorkerRegistry
 	) {
 		this.timer = opts.timer ?? new SystemTimer();
 		this.clock = opts.clock ?? new SystemClock();
+		this.wall = opts.wall ?? new SystemWallClock();
 	}
 
 	get workers(): RemoteWorker[] {
@@ -73,8 +81,14 @@ export class WorkerRegistry
 		return this.byId.get(id);
 	}
 
-	/** Takes a worker's new connection, hanging up on one that says nothing in time. */
-	async accept(socket: WorkerSocket): Promise<void> {
+	/**
+	 * Takes a worker's new connection, hanging up on one that says nothing in
+	 * time. `kind` is how it reached us: `local` over this machine's socket.
+	 */
+	async accept(
+		socket: WorkerSocket,
+		kind: WorkerKind = "registered",
+	): Promise<void> {
 		const hello = WorkerSession.hello(socket);
 		const answered = await timeouts.race(
 			this.timer,
@@ -101,6 +115,7 @@ export class WorkerRegistry
 				capabilities: WORKER_CAPABILITIES,
 				timer: this.timer,
 				clock: this.clock,
+				wall: this.wall,
 			});
 		const negotiated = session.accept(socket, said);
 		if (!negotiated.ok) {
@@ -115,8 +130,9 @@ export class WorkerRegistry
 			return;
 		}
 		this.refusals.delete(said.id);
-		const worker = known ?? new RemoteWorker(said.id, said.info, session);
+		const worker = known ?? new RemoteWorker(said.id, said.info, session, kind);
 		worker.info = said.info;
+		worker.kind = kind;
 		this.byId.set(said.id, worker);
 		this.dispatcher.dispatch("joined", worker);
 	}

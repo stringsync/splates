@@ -493,7 +493,7 @@ export async function dev(
 				return dictations.open(request, server);
 			}
 			if (pathname === "/api/workers") {
-				return workers.open(request, server);
+				return workers.route(request, server, guarded);
 			}
 			return new Response("not found", { status: 404 });
 		},

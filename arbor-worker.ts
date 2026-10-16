@@ -1,6 +1,7 @@
 import { cli } from "webappwiz/cmd";
 import { z } from "zod";
 import type { ArborDeps } from "./arbor";
+import { workerLs } from "./worker-list";
 import { workerRun } from "./worker-run";
 
 /** `arbor worker`, which the root cli mounts after `arbor slots`. */
@@ -35,5 +36,26 @@ arborWorker
 			log: ctx.log,
 			ps: ctx.ps,
 			fs: ctx.fs,
+		}),
+	);
+
+arborWorker
+	.command("ls")
+	.description(
+		"list the workers the running `arbor dev` has: kind (local over its socket, registered otherwise), platform, build, protocol, slots used and total, health with when it was last heard, tasks and $/hour, then any it refused for speaking another protocol",
+	)
+	.option("dev", z.string(), {
+		default: "",
+		description:
+			"the `arbor dev` to ask, a URL such as http://localhost:4310; by default the one an agent runs under, from ARBOR_DEV",
+	})
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.action((opts, ctx) =>
+		workerLs({
+			dev: opts.dev,
+			json: opts.json,
+			log: ctx.log,
+			ps: ctx.ps,
+			send: ctx.fetch,
 		}),
 	);

@@ -5,6 +5,7 @@ import { hostname, LOCAL_HOSTS, refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { ServerWorkerSocket } from "./server-worker-socket";
 import { UnixWorkerListener } from "./unix-worker-listener";
+import { workerList } from "./worker-list";
 import { WorkerRegistry } from "./worker-registry";
 
 /**
@@ -31,7 +32,7 @@ export class DevWorkers implements AsyncResource {
 			const listener = await UnixWorkerListener.listen(path, fs);
 			listener.events.on(
 				"socket",
-				(socket) => void this.registry.accept(socket),
+				(socket) => void this.registry.accept(socket, "local"),
 			);
 			this.listener = listener;
 		} catch (error) {
@@ -63,6 +64,22 @@ export class DevWorkers implements AsyncResource {
 			? undefined
 			: refuse(400, "usage", "a worker connects with a WebSocket");
 	};
+
+	/** `GET /api/workers`: each worker and each refusal, as `arbor worker ls` shows them. */
+	readonly list = async (): Promise<Response> =>
+		Response.json(workerList(this.registry));
+
+	/** A worker upgrades; anyone else is asking who has joined, and `guard` decides who may. */
+	readonly route = (
+		request: Request,
+		server: Bun.Server<Connection>,
+		guard: (
+			handle: (request: Request) => Promise<Response>,
+		) => (request: Request) => Promise<Response>,
+	): Response | undefined | Promise<Response> =>
+		request.headers.get("upgrade") === null
+			? guard(this.list)(request)
+			: this.open(request, server);
 
 	async disposeAsync(): Promise<void> {
 		this.registry.dispose();
