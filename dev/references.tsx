@@ -6,6 +6,7 @@ import {
 	HeartPulseIcon,
 	LayersIcon,
 	LightbulbIcon,
+	ListPlusIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	MessageCircleQuestionMarkIcon,
@@ -17,6 +18,7 @@ import { type ReactNode, useContext, useMemo } from "react";
 import type { ProjectRef } from "../conversation-host";
 import {
 	APPROVE,
+	CAPTURE,
 	CHECK_IN,
 	CHECKPOINT,
 	HEARTBEAT,
@@ -142,7 +144,7 @@ export function useReferences(
 		};
 		return {
 			adapter: {
-				// Only those with something in them.
+				// An empty category would be a heading with nothing to pick under it.
 				categories: () =>
 					CATEGORIES.filter(({ id }) => (items[id] ?? []).length > 0),
 				categoryItems: (id) => items[id] ?? [],
@@ -215,6 +217,13 @@ export const BARE_DIRECTIVES = [
 		label: "Check in",
 		about: "say where the work stands and carry on",
 		icon: MessageCircleQuestionMarkIcon,
+		tone: "neutral",
+	},
+	{
+		directive: CAPTURE,
+		label: "Capture",
+		about: "make the request a todo rather than do it",
+		icon: ListPlusIcon,
 		tone: "neutral",
 	},
 	{

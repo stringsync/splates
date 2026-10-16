@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import {
 	APPROVE,
+	CAPTURE,
 	CHECK_IN,
 	CHECKPOINT,
 	HEARTBEAT,
@@ -32,6 +33,7 @@ describe("the arbor skill's Directives table", () => {
 				MERGE,
 				investigateReference("<task>"),
 				APPROVE,
+				CAPTURE,
 				CHECK_IN,
 				laneReference(null),
 				laneReference(0).replace("0", "N"),

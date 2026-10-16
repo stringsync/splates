@@ -134,6 +134,13 @@ export const APPROVE = "[ARBOR APPROVE]";
 export const CHECK_IN = "[ARBOR UPDATE]";
 
 /**
+ * What asks an agent to make the request after it, or, alone, the person's
+ * message before it, a todo rather than do it, as the composer's Capture
+ * offers: the arbor skill says what it means.
+ */
+export const CAPTURE = "[ARBOR CAPTURE]";
+
+/**
  * What the agent alone is told of a message the person dictated: the page
  * marks it with a mic, and never shows these words.
  */
