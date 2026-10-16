@@ -5,8 +5,7 @@ import type { Snapshot } from "../snapshot";
 import { scoped } from "./api";
 import { LiveStream } from "./live-stream";
 
-/** `page` carries the version of a page the server rebuilt. */
-export type FeedEvents = { changed: undefined; page: string };
+export type FeedEvents = { changed: undefined };
 
 /**
  * How long the server stays unreachable before the page says it is offline.
@@ -64,9 +63,6 @@ export class Feed implements Eventful<FeedEvents>, Resource {
 			// an error to recover from: `open` clears it when the server comes
 			// back.
 			error: () => this.lost(),
-			named: {
-				page: (event) => this.dispatcher.dispatch("page", event.data),
-			},
 		});
 		void this.load();
 	}

@@ -69,7 +69,6 @@ export async function dev(
 		source = async () => null,
 		sourceEvery = SOURCE_CHECK,
 		unbuilt = false,
-		rebuilds = null,
 		slot = null,
 		servers = async () => [],
 		exit = null,
@@ -114,7 +113,6 @@ export async function dev(
 	const talk = local;
 	/** Where the agents' own `arbor` reaches this server, once it listens. */
 	let url: string | null = null;
-	// Read on each request, since a rebuild replaces what is served.
 	const pages = new Pages(assets);
 
 	// By root, each opened on its first request: the focused one at once,
@@ -132,7 +130,6 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
-		pages,
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
 		transcriberFor: transcriber,
@@ -268,10 +265,6 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
-	if (rebuilds !== null) {
-		const rebuilding = rebuilds(pages);
-		disposer.defer(async () => rebuilding.dispose());
-	}
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));

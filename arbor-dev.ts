@@ -13,7 +13,6 @@ import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations } from "./conversations";
 import { type DevServer, dev, devPorts } from "./dev";
 import { accessConfig } from "./dev-access";
-import { rebuildOnChange } from "./dev-pages";
 import { devServers } from "./dev-servers";
 import { devSlot } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
@@ -197,11 +196,6 @@ export async function serveDev(
 			newest: () => newest(),
 			source: () => sourceCommit(ctx.ps),
 			unbuilt: ctx.ps.env(UNBUILT) !== undefined,
-			// From a checkout, the page is built again as `dev/` changes.
-			rebuilds:
-				(await sourceCommit(ctx.ps)) === null
-					? null
-					: (pages) => rebuildOnChange(pages, ctx, import.meta.dirname),
 			slot: slotOf(ctx.ps.env(SLOT) ?? ""),
 			servers: () => devServers(ctx),
 			exit: (code) => ctx.ps.exit(code),

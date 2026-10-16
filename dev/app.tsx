@@ -46,7 +46,6 @@ import { ShortcutSettings } from "./hooks/use-shortcut";
 import { Notifications } from "./notifications";
 import { OpenerContext, openerOf } from "./openers";
 import { usePageMenu } from "./page-menu";
-import { usePageReload } from "./page-reload";
 import {
 	type Page,
 	PageShortcuts,
@@ -170,7 +169,6 @@ export function App({
 	// What was typed and not sent, by conversation and todo: one for the page,
 	// so a prompt composed on the board reaches the composer it opens.
 	const [drafts] = useState(() => new Drafts(localStorage));
-	usePageReload(feed, drafts);
 	// A shell per conversation, kept until the tab closes.
 	const [terminals] = useState(
 		() =>

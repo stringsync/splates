@@ -1,10 +1,8 @@
-import type { Resource } from "webappwiz/disposable";
 import type { Pusher, VapidKeys } from "webappwiz/push";
 import type { PortProvider } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
 import type { Conversations } from "./conversations";
 import type { AccessConfig } from "./dev-access";
-import type { Pages } from "./dev-pages";
 import type { Project } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
 import type { TranscriberFor } from "./dev-transcriber";
@@ -103,12 +101,6 @@ export interface DevOptions {
 	 * is the page built before; the page says so.
 	 */
 	unbuilt?: boolean;
-	/**
-	 * Starts what rebuilds the page as its source changes, handing it the
-	 * pages to serve what it built; stopped with the server. None for a
-	 * server that runs no checkout.
-	 */
-	rebuilds?: ((pages: Pages) => Resource) | null;
 	/** The slot `arbor dev --slot` serves under, which the page shows; null for none. */
 	slot?: Slot | null;
 	/**

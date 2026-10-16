@@ -18,8 +18,6 @@ export class ProjectWatch implements StreamWatcher {
 	/** The streams of the pages listening. */
 	private readonly open = new Set<EventSink>();
 	private last = "";
-	/** Stops telling pages of a rebuilt page. */
-	private pageWatch: (() => void) | null = null;
 	private watches: Resource[] = [];
 	private readonly trees = new Map<string, Resource>();
 	private poll: ReturnType<typeof setInterval> | null = null;
@@ -99,26 +97,17 @@ export class ProjectWatch implements StreamWatcher {
 
 	opened(): void {
 		if (this.open.size === 1) {
-			this.pageWatch = this.context.pages.events.on("rebuilt", (version) => {
-				for (const stream of this.open) {
-					stream.enqueue(encoder.encode(`event: page\ndata: ${version}\n\n`));
-				}
-			});
 			this.arm();
 		}
 	}
 
 	closed(): void {
 		if (this.open.size === 0) {
-			this.pageWatch?.();
-			this.pageWatch = null;
 			this.disarm();
 		}
 	}
 
 	dispose(): void {
-		this.pageWatch?.();
-		this.pageWatch = null;
 		this.disarm();
 	}
 

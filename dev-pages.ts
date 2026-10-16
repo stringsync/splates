@@ -1,51 +1,23 @@
-import type { Resource } from "webappwiz/disposable";
-import { Dispatcher, type Eventful } from "webappwiz/events";
-import type { Logger } from "webappwiz/log";
-import type { Fs, Ps } from "webappwiz/system";
-import { Debouncer, Duration, SystemTimer } from "webappwiz/time";
 import type { Assets } from "./dev/assets";
 
-export type PagesEvents = { rebuilt: string };
-
-/** What the page's name carries in the shell, which an open tab reads back. */
-export const PAGE_META = "arbor-page";
-
-/** How long edits under `dev/` settle before the page is built again. */
-export const REBUILD_SETTLE = Duration.ms(300);
-
 /**
- * The page the server hands to browsers: its files, and the version they make
- * together. Replacing them serves the new page from the next request, and
- * says `rebuilt` so open tabs can be told.
+ * The page the server hands to browsers: the files built as this run
+ * started. It changes only with a restart, which builds it again before the
+ * server comes back, so the page always matches the server it talks to.
  */
-export class Pages implements Eventful<PagesEvents> {
-	private readonly dispatcher = new Dispatcher<PagesEvents>();
-	readonly events = this.dispatcher.events;
-
+export class Pages {
 	/** The shell, naming the script and styles by what they hold. */
-	page = "";
-	/** Names this build of the page; changes with the script or the styles. */
-	version = "";
+	readonly page: string;
 
-	constructor(public assets: Assets) {
-		this.stamp();
-	}
-
-	/** Serves `assets` from now on, and tells the tabs that hold the old page. */
-	replace(assets: Assets): void {
-		const before = this.version;
-		this.assets = assets;
-		this.stamp();
-		if (this.version !== before) {
-			this.dispatcher.dispatch("rebuilt", this.version);
-		}
+	constructor(readonly assets: Assets) {
+		this.page = stamped(assets);
 	}
 
 	/** The server's routes for the page's own files, spread into its `routes`. */
 	routes(): Record<string, (request: Request) => Response> {
-		// Read on each request, since a rebuild replaces what is served. The
-		// page is a React app under `dev/`, built before publishing and carried
-		// in the bundle, so nothing here builds markup or reads it off disk.
+		// The page is a React app under `dev/`, built before publishing and
+		// carried in the bundle, so nothing here builds markup or reads it off
+		// disk.
 		const asset =
 			(body: () => string | Uint8Array<ArrayBuffer>, type: string) =>
 			(request: Request): Response =>
@@ -97,97 +69,14 @@ export class Pages implements Eventful<PagesEvents> {
 			headers: { ...headers, "content-type": type },
 		});
 	}
-
-	// The shell names its script and styles by what they hold, so no cache on
-	// the way, Cloudflare's edge or a phone's, hands back a build from before a
-	// restart under the name a new one goes by.
-	private stamp(): void {
-		const hash = (body: string) => Bun.hash(body).toString(36);
-		const { shell, script, styles } = this.assets;
-		this.version = hash(hash(script) + hash(styles));
-		this.page = shell
-			.replace('src="/main.js"', `src="/main.js?v=${hash(script)}"`)
-			.replace('href="/styles.css"', `href="/styles.css?v=${hash(styles)}"`)
-			.replace(
-				"</head>",
-				`<meta name="${PAGE_META}" content="${this.version}" /></head>`,
-			);
-	}
 }
 
-/** The files `build.ts` writes under `dev/build`, read back as assets. */
-async function builtAssets(fs: Fs, dir: string): Promise<Assets> {
-	const text = (name: string) => fs.read(`${dir}/${name}.txt`);
-	const icon = async (size: number) =>
-		Uint8Array.fromBase64(await text(`icon-${size}`));
-	return {
-		shell: await text("shell"),
-		script: await text("main"),
-		scriptMap: await text("main.map"),
-		styles: await text("styles"),
-		worker: await text("worker"),
-		workerMap: await text("worker.map"),
-		manifest: await text("manifest"),
-		icons: { 192: await icon(192), 512: await icon(512) },
-	};
-}
-
-/**
- * Builds the page again whenever a file under `dev/` changes, and serves what
- * it built, so iterating on the page needs no restart. A build that fails
- * leaves the page as it was.
- */
-export function rebuildOnChange(
-	pages: Pages,
-	deps: { fs: Fs; ps: Ps; log: Logger },
-	root: string,
-): Resource {
-	const { fs, ps, log } = deps;
-	const dev = `${root}/dev`;
-	let building = false;
-	let again = false;
-	const build = async (): Promise<void> => {
-		if (building) {
-			again = true;
-			return;
-		}
-		building = true;
-		try {
-			const [runtime = "bun"] = ps.self;
-			const { exitCode, stderr } = await ps.spawnCapture(
-				[runtime, "run", "build.ts"],
-				{ cwd: root },
-			);
-			if (exitCode !== 0) {
-				log.error(`arbor dev could not rebuild the page: ${stderr.trim()}`);
-			} else {
-				pages.replace(await builtAssets(fs, `${dev}/build`));
-			}
-		} catch (error) {
-			log.error(`arbor dev could not rebuild the page: ${String(error)}`);
-		} finally {
-			building = false;
-		}
-		if (again) {
-			again = false;
-			await build();
-		}
-	};
-	const settle = new Debouncer(new SystemTimer(), REBUILD_SETTLE);
-	const watch = fs.watch(
-		dev,
-		(path) => {
-			// Its own output, and tests, which are not part of the page.
-			if (!/(^|\/)build\//.test(path) && !/\.test\.tsx?$/.test(path)) {
-				settle.call(() => void build());
-			}
-		},
-		{ recursive: true },
-	);
-	return {
-		dispose: () => {
-			settle.cancel();
-			watch.dispose();
-		},
-	};
+// The shell names its script and styles by what they hold, so no cache on the
+// way, Cloudflare's edge or a phone's, hands back a build from before a
+// restart under the name a new one goes by.
+function stamped({ shell, script, styles }: Assets): string {
+	const hash = (body: string) => Bun.hash(body).toString(36);
+	return shell
+		.replace('src="/main.js"', `src="/main.js?v=${hash(script)}"`)
+		.replace('href="/styles.css"', `href="/styles.css?v=${hash(styles)}"`);
 }

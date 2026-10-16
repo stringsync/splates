@@ -209,7 +209,8 @@ what the user pays, so the budget would count the same dollars either way.
 
 The coordinator restarts on its own: agents, terminals and dev servers belong
 to workers, which keep running and reconnect, and replay fills the gap.
-UI-only changes rebuild the page and push it to open tabs. Worker builds roll
+UI changes reach open tabs only with that restart, which builds the page
+again, so a tab never reloads while in use or runs ahead of its server. Worker builds roll
 out one worker at a time by drain and resume, never re-adopting live agents;
 new tasks go to updated workers first; the pool view, a Workers page in the
 nav, shows each worker's build.
