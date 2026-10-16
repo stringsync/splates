@@ -55,7 +55,7 @@ import {
 } from "./page-route";
 import { PhoneApp } from "./phone-app";
 import { listProjects, restartIdle } from "./project-api";
-import { placeOf, rememberPlace, shownProject } from "./projects";
+import { placeOf, rememberPlace, shownProject } from "./project-places";
 import type { Found } from "./search";
 import { SearchDialog } from "./search-dialog";
 import type { Settings } from "./settings";

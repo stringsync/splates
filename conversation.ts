@@ -64,7 +64,7 @@ export class Conversation
 		}: From = {},
 	) {
 		this.archivedAt = archivedAt;
-		this.files = new ConversationFiles(log.path, deps.fs);
+		this.files = new ConversationFiles(log.path, deps.fs, deps.projects);
 		this.connection = new AgentConnection(this, deps, {
 			session,
 			loading,

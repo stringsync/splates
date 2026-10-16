@@ -3,6 +3,10 @@ import { linkNamed, namedIn } from "./mentioned";
 
 const named = {
 	systems: [{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] }],
+	projects: [
+		{ slug: "shop", root: "/Users/me/shop" },
+		{ slug: "playback", root: "/Users/me/playback" },
+	],
 	paths: new Set(["src/", "src/a.ts", "lib/a.ts", "app/(shop)/[id]/page.tsx"]),
 	tree: "/repo",
 };
@@ -12,6 +16,16 @@ describe("linkNamed", () => {
 		expect(linkNamed("fix #player in @src/a.ts", named)).toBe(
 			"fix [#player](#system=playback) in [@src/a.ts](#file=src%2Fa.ts&name=a.ts)",
 		);
+	});
+
+	it("links a project by its slug, and a system over a project of its name", () => {
+		const linked = linkNamed("match #shop, then #playback", named);
+		const href = /\]\((#project=[^)]*)\)/.exec(linked)?.[1];
+
+		expect(linked).toBe(
+			"match [#shop](#project=shop), then [#playback](#system=playback)",
+		);
+		expect(namedIn(href)).toEqual({ project: "shop" });
 	});
 
 	it("leaves what a sentence puts after a mention outside it", () => {

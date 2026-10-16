@@ -15,7 +15,12 @@ import { useAdapters } from "./adapters";
 import { AgentBrand, AgentIcon } from "./agent-icons";
 import { WIDE } from "./app-nav";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
-import { useFileMentions, useNamed, useSystems } from "./composer-triggers";
+import {
+	useFileMentions,
+	useNamed,
+	useProjects,
+	useSystems,
+} from "./composer-triggers";
 import { settingsFor } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import {
@@ -163,11 +168,18 @@ export function useNewConversation({
 	dictated.current = useDictated(runtime);
 	const { adapter: mentions, paths } = useFileMentions(task);
 	const systems = useSystems(task, tasks);
-	const references = useReferences(tasks, [], systems ?? undefined);
+	const projects = useProjects();
+	const references = useReferences(
+		tasks,
+		[],
+		systems ?? undefined,
+		projects ?? undefined,
+	);
 	const root = useContext(TreesContext)?.root ?? null;
 	const named = useNamed(
 		paths,
 		systems,
+		projects,
 		task === null
 			? root
 			: (tasks.find((each) => each.task === task)?.worktree ?? null),

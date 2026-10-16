@@ -117,8 +117,9 @@ export async function serveDev(
 	);
 	// One for every project, so agents resumed together start one at a time.
 	const starting = new MemoryLock();
+	const projects = Projects.ofMachine(ctx);
 	return dev(
-		{ ...ctx, projects: Projects.ofMachine(ctx) },
+		{ ...ctx, projects },
 		{
 			ports: devPorts(opts.port),
 			hosts: opts["allow-hosts"]
@@ -146,6 +147,7 @@ export async function serveDev(
 							: [],
 					watch: new Watch(git),
 					root: git.root,
+					projects,
 				}),
 			// A login shell, as a terminal window opens, so the person's PATH
 			// and aliases are there.

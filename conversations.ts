@@ -17,7 +17,7 @@ import {
 	type Session,
 } from "./agent-process";
 import { Conversation } from "./conversation";
-import type { ConversationDeps } from "./conversation-host";
+import type { ConversationDeps, ProjectRoster } from "./conversation-host";
 import type { Limit, Setting } from "./conversation-state";
 import { fail } from "./exit";
 import type { Limits } from "./limits";
@@ -90,6 +90,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly adherence: Adherence | null;
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
+	private readonly projects: ProjectRoster | null;
 	/** The read of the records on disk, shared by every caller until it settles. */
 	private loaded: Promise<void> | null = null;
 	/** The last deletion of archived conversations past `ARCHIVED_KEPT`, so they run one at a time. */
@@ -116,6 +117,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.adherence = opts.adherence ?? null;
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
+		this.projects = opts.projects ?? null;
 	}
 
 	/** What each conversation is made with, read as each starts, since `url` is set later. */
@@ -129,6 +131,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			url: this.url,
 			watch: this.watch,
 			root: this.root,
+			projects: this.projects,
 		};
 	}
 
@@ -511,6 +514,11 @@ export interface ConversationsOptions {
 	 * of it; without it, such a conversation cannot resume.
 	 */
 	root?: string | null;
+	/**
+	 * The arbor projects on this machine, for a prompt's `#slug` to name one
+	 * by; none by default.
+	 */
+	projects?: ProjectRoster | null;
 }
 
 /**

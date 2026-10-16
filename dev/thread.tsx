@@ -27,6 +27,7 @@ import {
 	useCommands,
 	useFileMentions,
 	useNamed,
+	useProjects,
 	useSystems,
 } from "./composer-triggers";
 import { NEW } from "./conversation-address";
@@ -169,11 +170,18 @@ export function Thread({
 	// at the foot of the thread it opens at, keeping the keyboard down.
 	useArrived(id, () => onBack === null && toWaiting(section.current));
 	const systems = useSystems(conversation.task, tasks);
-	const references = useReferences(tasks, actions, systems ?? undefined);
+	const projects = useProjects();
+	const references = useReferences(
+		tasks,
+		actions,
+		systems ?? undefined,
+		projects ?? undefined,
+	);
 	const root = useContext(TreesContext)?.root ?? null;
 	const named = useNamed(
 		paths,
 		systems,
+		projects,
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
 	// What the conversation's last word reports, to offer archiving it when

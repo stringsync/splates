@@ -31,11 +31,27 @@ describe("App's composer references", () => {
 		lanes: [{ id: 3, name: "Uploads" }],
 	};
 
+	/**
+	 * The conversations page on `on`, its composer's box, a key pressed in
+	 * it, the list `#` opens, and the row highlighted there.
+	 */
+	const opened = async (on = board) => {
+		const view = await testing.openConversations([], null, on);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		const list = () => view.getByRole("listbox", { name: "references" });
+		return {
+			view,
+			box,
+			key: (name: string) =>
+				act(async () => fireEvent.keyDown(box, { key: name })),
+			list,
+			highlighted: () =>
+				list().querySelector("[data-highlighted]")?.textContent,
+		};
+	};
+
 	it("lists arbor's items by category for a #, and writes the one picked as a chip", async () => {
-		const view = await testing.openConversations([], null, board);
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
+		const { view, box } = await opened();
 
 		await typeIn(box, "#");
 		const categories = await waitFor(() =>
@@ -68,10 +84,7 @@ describe("App's composer references", () => {
 	});
 
 	it("reaches Back with the arrow keys in a category, and goes back on Enter", async () => {
-		const view = await testing.openConversations([], null, board);
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
+		const { view, box } = await opened();
 		const key = (name: string) =>
 			act(async () => fireEvent.keyDown(box, { key: name }));
 		const highlighted = () =>
@@ -103,18 +116,10 @@ describe("App's composer references", () => {
 	});
 
 	it("keeps the row the arrow keys are on while the pointer rests on the list", async () => {
-		const view = await testing.openConversations([], null, {
+		const { box, key, list, highlighted } = await opened({
 			todos: [1, 2, 3].map((id) => todo({ id, subject: `Todo ${id}` })),
 			lanes: [],
 		});
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
-		const key = (name: string) =>
-			act(async () => fireEvent.keyDown(box, { key: name }));
-		const list = () => view.getByRole("listbox", { name: "references" });
-		const highlighted = () =>
-			list().querySelector("[data-highlighted]")?.textContent;
 		const point = (subject: string, left: number) =>
 			act(async () =>
 				fireEvent.mouseMove(
@@ -148,18 +153,7 @@ describe("App's composer references", () => {
 
 	it("keeps the row the arrow keys are on as the board changes", async () => {
 		const todos = [1, 2, 3].map((id) => todo({ id, subject: `Todo ${id}` }));
-		const view = await testing.openConversations([], null, {
-			todos,
-			lanes: [],
-		});
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
-		const key = (name: string) =>
-			act(async () => fireEvent.keyDown(box, { key: name }));
-		const list = () => view.getByRole("listbox", { name: "references" });
-		const highlighted = () =>
-			list().querySelector("[data-highlighted]")?.textContent;
+		const { box, key, list, highlighted } = await opened({ todos, lanes: [] });
 
 		await typeIn(box, "#");
 		await waitFor(list);
@@ -190,10 +184,7 @@ describe("App's composer references", () => {
 	});
 
 	it("searches every category for what follows the #", async () => {
-		const view = await testing.openConversations([], null, board);
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
+		const { view, box } = await opened();
 
 		await typeIn(box, "see #upl");
 		const found = await waitFor(() =>
@@ -217,10 +208,7 @@ describe("App's composer references", () => {
 		testing.systems = [
 			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
 		];
-		const view = await testing.openConversations([], null, board);
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
+		const { view, box } = await opened();
 
 		await typeIn(box, "fix #playe");
 		const found = await waitFor(() =>
@@ -241,15 +229,12 @@ describe("App's composer references", () => {
 		testing.systems = [
 			{ name: "playback", aliases: ["player"], globs: ["src/audio/**"] },
 		];
-		const view = await testing.openConversations([], null, board);
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
+		const { view, box } = await opened();
 
-		for (const text of ["fix playback", "the Player"]) {
-			await typeIn(box, text);
-			expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
-		}
+		await typeIn(box, "fix playback");
+		expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
+		await typeIn(box, "the Player");
+		expect(view.queryByRole("listbox", { name: "references" })).toBeNull();
 
 		testing.reply = conversation({ id: "c9", status: "starting" });
 		await typeIn(box, "fix player");
@@ -263,10 +248,7 @@ describe("App's composer references", () => {
 
 	it("offers the systems as a category of their own", async () => {
 		testing.systems = [{ name: "mixer", globs: ["src/mixer/**"] }];
-		const view = await testing.openConversations([], null, board);
-		const box = view.getByRole("textbox", {
-			name: "Message input",
-		});
+		const { view, box } = await opened();
 
 		await typeIn(box, "#");
 		const categories = await waitFor(() =>
@@ -280,6 +262,41 @@ describe("App's composer references", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		await waitFor(() => expect(textIn(box)).toBe("#mixer "));
+	});
+
+	it("writes a project picked after a #, and sends it as typed", async () => {
+		testing.projects = [
+			{
+				slug: "shop",
+				root: "/Users/me/shop",
+				gone: false,
+				focused: false,
+				conversations: [],
+				waiting: 0,
+			},
+		];
+		const { view, box } = await opened();
+
+		await typeIn(box, "match #shop");
+		const found = await waitFor(() =>
+			view.getByRole("listbox", { name: "references" }),
+		);
+		expect(
+			within(found)
+				.getAllByRole("option")
+				.map((option) => option.textContent),
+		).toEqual(["shop/Users/me/shop"]);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		await waitFor(() => expect(textIn(box)).toBe("match #shop "));
+		expect(within(box).getByRole("button", { name: "shop" })).toBeTruthy();
+		testing.reply = conversation({ id: "c9", status: "starting" });
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c9/prompt")).toEqual([
+				{ method: "POST", body: { text: "match #shop" } },
+			]),
+		);
 	});
 
 	it("runs a conversation's action picked after a #, writing nothing", async () => {

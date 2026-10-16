@@ -45,9 +45,10 @@ export interface ConversationDeps {
 	clock: WallClock;
 	launch: Launch;
 	/**
-	 * Held while an agent's process starts, until it answers `initialize`:
-	 * agents launched through `bunx` at once race in its install, and most die.
+	 * Hold it while an agent's process starts, until it answers
+	 * `initialize`, so agents start one at a time.
 	 */
+	// Agents launched through `bunx` at once race in its install, and most die.
 	starting: Lock;
 	/** Where `arbor dev` answers, for the agent's CLI to tell it things. */
 	url: string | null;
@@ -55,4 +56,19 @@ export interface ConversationDeps {
 	watch: Watch | null;
 	/** The main tree, where a conversation carries on once its worktree is gone. */
 	root: string | null;
+	/** The arbor projects on this machine, for `#slug`; null for none. */
+	projects: ProjectRoster | null;
+}
+
+/** The arbor projects on this machine, as `Projects` lists them. */
+export interface ProjectRoster {
+	/** Each project, flagged `gone` when its repository is no longer there. */
+	list(): Promise<(ProjectRef & { gone: boolean })[]>;
+}
+
+/** An arbor project a prompt can name as `#slug`. */
+export interface ProjectRef {
+	slug: string;
+	/** Its main tree's root. */
+	root: string;
 }

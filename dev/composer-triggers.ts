@@ -1,11 +1,13 @@
 import type { TriggerAdapter } from "@assistant-ui/react";
 import { useEffect, useMemo, useState } from "react";
+import type { ProjectRef } from "../conversation-host";
 import type { Command } from "../conversations";
 import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import { systems as fetchSystems, paths } from "./api";
 import type { Named } from "./mentioned";
 import { rank } from "./mentions";
+import { listProjects } from "./project-api";
 
 /**
  * The tree's paths for the composer's `@`, once they have loaded, and as the
@@ -49,23 +51,54 @@ export function useFileMentions(task: string | null): {
 const MENTIONS_SHOWN = 8;
 
 /**
- * What a tree names, for `NamedContext`, from its `paths` and `systems`, each
- * null while it loads, and where it sits.
+ * What a tree names, for `NamedContext`, from its `paths`, `systems` and the
+ * machine's `projects`, each null while it loads, and where it sits.
  */
 export function useNamed(
 	paths: ReadonlySet<string> | null,
 	systems: NamedSystem[] | null,
+	projects: ProjectRef[] | null,
 	tree: string | null,
 ): Named {
 	return useMemo(
 		() => ({
 			systems: systems ?? [],
+			projects: projects ?? [],
 			paths: paths ?? new Set(),
 			tree,
-			resolving: { paths: paths === null, systems: systems === null },
+			resolving: {
+				paths: paths === null,
+				systems: systems === null || projects === null,
+			},
 		}),
-		[paths, systems, tree],
+		[paths, systems, projects, tree],
 	);
+}
+
+/**
+ * The arbor projects on this machine, for `#`, those gone left out; null
+ * until they come, and none when they cannot. Asked once: a project added
+ * meanwhile shows on the next visit.
+ */
+export function useProjects(): ProjectRef[] | null {
+	const [projects, setProjects] = useState<ProjectRef[] | null>(null);
+	useEffect(() => {
+		let current = true;
+		listProjects().then(
+			(listed) =>
+				current &&
+				setProjects(
+					listed.projects
+						.filter((each) => !each.gone)
+						.map(({ slug, root }) => ({ slug, root })),
+				),
+			() => current && setProjects([]),
+		);
+		return () => {
+			current = false;
+		};
+	}, []);
+	return projects;
 }
 
 /**

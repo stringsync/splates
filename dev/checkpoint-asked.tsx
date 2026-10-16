@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { standing } from "./checkpoint-slide";
 import type { ProjectChoice } from "./project-api";
-import { projectUrl } from "./projects";
+import { projectUrl } from "./project-places";
 
 /**
  * The agents a checkpoint missed, each a link to its conversation, so a run

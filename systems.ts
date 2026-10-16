@@ -134,18 +134,9 @@ export class Systems {
 	 * rather than a system, and one in code means something else.
 	 */
 	unknown(text: string): string[] {
-		const prose = text.replace(/```[\s\S]*?(```|$)|`[^`\n]*`/g, " ");
-		const found: string[] = [];
-		for (const [, , called = ""] of prose.matchAll(MENTION)) {
-			if (
-				!/^\d+$/.test(called) &&
-				this.find(called) === null &&
-				!found.includes(called)
-			) {
-				found.push(called);
-			}
-		}
-		return found;
+		return hashed(text).filter(
+			(called) => !/^\d+$/.test(called) && this.find(called) === null,
+		);
 	}
 
 	private contains(system: System, path: string): boolean {
@@ -156,6 +147,21 @@ export class Systems {
 
 /** A `#` at the start or after a space, and the name after it, less trailing punctuation and a range's `-`. */
 const MENTION = /(^|\s)#([^\s#]*[^\s#.,;:!?)\]'"-])/g;
+
+/**
+ * Each word `text` mentions as `#word` outside code, once, in the order first
+ * mentioned: in code, a `#` means something else.
+ */
+export function hashed(text: string): string[] {
+	const prose = text.replace(/```[\s\S]*?(```|$)|`[^`\n]*`/g, " ");
+	const found: string[] = [];
+	for (const [, , called = ""] of prose.matchAll(MENTION)) {
+		if (!found.includes(called)) {
+			found.push(called);
+		}
+	}
+	return found;
+}
 
 /**
  * One line telling an agent what a mentioned system is made of:

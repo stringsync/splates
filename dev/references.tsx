@@ -2,6 +2,7 @@ import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
 	BookmarkIcon,
 	ColumnsIcon,
+	FolderGit2Icon,
 	GitMergeIcon,
 	HeartPulseIcon,
 	LayersIcon,
@@ -13,6 +14,7 @@ import {
 	TreePineIcon,
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
+import type { ProjectRef } from "../conversation-host";
 import {
 	CHECK_IN,
 	CHECKPOINT,
@@ -33,8 +35,8 @@ import { TaskIcon } from "./task-icon";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
- * as a chip in place of what was typed, its directive or a system, or runs
- * it, for an action.
+ * as a chip in place of what was typed, its directive, a system or a
+ * project, or runs it, for an action.
  */
 export interface References {
 	adapter: TriggerAdapter;
@@ -43,7 +45,8 @@ export interface References {
 	icon: (item: TriggerItem) => ReactNode;
 	/**
 	 * An item as the composer writes it: a chip that reads as its directive,
-	 * or `#name` for a system; null for an action, which `pick` runs instead.
+	 * or `#name` for a system or project; null for an action, which `pick`
+	 * runs instead.
 	 */
 	chip: (item: TriggerItem) => TriggerItem | null;
 }
@@ -55,17 +58,20 @@ const CATEGORIES = [
 	{ id: "lane", label: "Lanes", icon: ColumnsIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "system", label: "Systems", icon: LayersIcon },
+	{ id: "project", label: "Projects", icon: FolderGit2Icon },
 	{ id: "action", label: "Actions", icon: null },
 ] as const satisfies { id: string; label: string; icon: LucideIcon | null }[];
 
 /**
- * The board's todos and lanes, `tasks`, `systems`, the directives, and
- * `actions` for `#` in the composer, the conversation's actions run in place.
+ * The board's todos and lanes, `tasks`, `systems`, the other arbor
+ * `projects` on this machine, the directives, and `actions` for `#` in the
+ * composer, the conversation's actions run in place.
  */
 export function useReferences(
 	tasks: readonly Details[],
 	actions: readonly Action[] = [],
 	systems: readonly NamedSystem[] = [],
+	projects: readonly ProjectRef[] = [],
 ): References {
 	const { todos, lanes } = useContext(Board);
 	return useMemo(() => {
@@ -118,6 +124,14 @@ export function useReferences(
 					: {}),
 				metadata: { system: system.name },
 			})),
+			// Its directory as its description, which the agent is told too.
+			project: projects.map((project) => ({
+				id: `project:${project.slug}`,
+				type: "project",
+				label: project.slug,
+				description: project.root,
+				metadata: { project: project.slug },
+			})),
 			action: runnable.map((action, index) => ({
 				id: `action:${action.label}`,
 				type: "action",
@@ -139,9 +153,12 @@ export function useReferences(
 				}
 			},
 			chip: (item) => {
-				const { directive, system } = item.metadata ?? {};
+				const { directive, system, project } = item.metadata ?? {};
 				if (typeof directive === "string") {
 					return { id: directive, type: "directive", label: directive };
+				}
+				if (typeof project === "string") {
+					return { id: project, type: "project", label: project };
 				}
 				return typeof system === "string"
 					? { id: system, type: "system", label: system }
@@ -156,7 +173,7 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [todos, lanes, tasks, actions, systems]);
+	}, [todos, lanes, tasks, actions, systems, projects]);
 }
 
 /**

@@ -8,6 +8,7 @@ import { FakeTimer, FakeWallClock } from "webappwiz/time/testing";
 import { until } from "./conversation-testing";
 import { Conversations } from "./conversations";
 import { AGENT, FakeAgent } from "./fake-agent";
+import { projectLine } from "./projects";
 import { unknownLine } from "./systems";
 
 describe("Conversation files", () => {
@@ -35,6 +36,13 @@ describe("Conversation files", () => {
 				clock,
 				ids: new CounterIdProvider(),
 				launch: agent.launch,
+				projects: {
+					list: async () => [
+						{ slug: "shop", root: "/Users/me/shop", gone: false },
+						{ slug: "playback", root: "/Users/me/playback", gone: false },
+						{ slug: "old", root: "/Users/me/old", gone: true },
+					],
+				},
 			},
 		);
 	});
@@ -215,6 +223,26 @@ describe("Conversation files", () => {
 			{
 				type: "text",
 				text: `See #12, #player and #mixer\n\n#playback (player): src/audio/**\n${unknownLine("mixer")}`,
+			},
+		]);
+	});
+
+	it("tells the agent where a project it names sits, and lets a system of the same name win", async () => {
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: tree,
+		});
+		await until(conversation, "idle");
+
+		await conversation.prompt(
+			"Match the header in #shop, then #playback, #old and #mixer",
+		);
+		await until(conversation, "idle");
+
+		expect(agent.prompts.at(-1)).toEqual([
+			{
+				type: "text",
+				text: `Match the header in #shop, then #playback, #old and #mixer\n\n#playback (player): src/audio/**\n${projectLine({ slug: "shop", root: "/Users/me/shop" })}\n${unknownLine("old")}\n${unknownLine("mixer")}`,
 			},
 		]);
 	});

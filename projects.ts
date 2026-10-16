@@ -250,3 +250,21 @@ export class Projects {
 		await this.fs.rename(tmp, this.path);
 	}
 }
+
+/**
+ * One line telling an agent where a project a prompt names as `#slug` sits,
+ * and how to change it:
+ *
+ * ```
+ * #shop is the arbor project at /Users/me/shop: read its code there, and land any change to it from a task added there.
+ * ```
+ */
+export function projectLine({
+	slug,
+	root,
+}: {
+	slug: string;
+	root: string;
+}): string {
+	return `#${slug} is the arbor project at ${root}: read its code there, and land any change to it from a task added there.`;
+}

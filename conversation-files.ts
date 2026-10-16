@@ -3,10 +3,12 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Fs } from "webappwiz/system";
+import type { ProjectRoster } from "./conversation-host";
 import { textOf } from "./conversation-messages";
 import type { Message, Sent, Upload } from "./conversation-state";
+import { projectLine } from "./projects";
 import { DICTATED } from "./prompts";
-import { mentionLine, Systems, unknownLine } from "./systems";
+import { hashed, mentionLine, Systems, unknownLine } from "./systems";
 
 /**
  * The files the person sent in a conversation, kept beside its log in a
@@ -19,6 +21,8 @@ export class ConversationFiles {
 	constructor(
 		log: string,
 		private readonly fs: Fs,
+		/** The arbor projects on this machine, for `#slug`; null for none. */
+		private readonly projects: ProjectRoster | null = null,
 	) {
 		this.dir = resolve(log.replace(/\.jsonl$/, ""));
 	}
@@ -70,8 +74,9 @@ export class ConversationFiles {
 	/**
 	 * What `messages` say, as one prompt: their images, links to their other
 	 * files, then their words, with a line on each system they name in
-	 * `tree`, the one the agent runs in (none for a log too old to say), and
-	 * one on reading them as speech when any was dictated.
+	 * `tree`, the one the agent runs in (none for a log too old to say), one
+	 * on where each project they name sits, and one on reading them as speech
+	 * when any was dictated.
 	 */
 	async content(
 		messages: Message[],
@@ -109,7 +114,7 @@ export class ConversationFiles {
 			.join("\n\n");
 		// For the agent alone, as the systems are: the thread shows a mic.
 		const dictated = messages.some((each) => each.dictated) ? DICTATED : "";
-		const text = [said, await this.systemsIn(said, tree), dictated]
+		const text = [said, await this.namedIn(said, tree), dictated]
 			.filter((each) => each !== "")
 			.join("\n\n");
 		return [
@@ -125,24 +130,38 @@ export class ConversationFiles {
 	}
 
 	/**
-	 * A line on each system `text` mentions with `#`, then one on each `#word`
-	 * that names none, for the agent alone: the thread keeps the words as
-	 * typed. Read from `tree` as it goes, so a system named there a moment
-	 * ago counts.
+	 * A line on each system `text` mentions with `#`, then on each project,
+	 * then one on each `#word` that names neither, for the agent alone: the
+	 * thread keeps the words as typed. Read from `tree` and the projects as
+	 * it goes, so a system named there a moment ago counts. A system wins
+	 * over a project of the same name.
 	 */
-	private async systemsIn(text: string, tree: string | null): Promise<string> {
-		if (tree === null || !text.includes("#")) {
+	private async namedIn(text: string, tree: string | null): Promise<string> {
+		if (!text.includes("#")) {
 			return "";
 		}
-		// A config that will not load names none, rather than holding the
-		// message back.
-		const named = await Systems.at(tree, { fs: this.fs }).catch(() => null);
-		if (named === null) {
-			return "";
-		}
+		// A config that will not load, or a registry that will not read, names
+		// none, rather than holding the message back.
+		const named =
+			tree === null
+				? null
+				: await Systems.at(tree, { fs: this.fs }).catch(() => null);
+		const listed = (await this.projects?.list().catch(() => null)) ?? [];
+		const projects = listed.filter((each) => !each.gone);
+		const systems = named?.mentioned(text) ?? [];
+		const unknown = named?.unknown(text) ?? [];
+		const found = hashed(text).flatMap((called) => {
+			const project = projects.find((each) => each.slug === called);
+			return project === undefined || (named?.find(called) ?? null) !== null
+				? []
+				: [project];
+		});
 		return [
-			...named.mentioned(text).map(mentionLine),
-			...named.unknown(text).map(unknownLine),
+			...systems.map(mentionLine),
+			...found.map(projectLine),
+			...unknown
+				.filter((called) => !found.some((each) => each.slug === called))
+				.map(unknownLine),
 		].join("\n");
 	}
 }

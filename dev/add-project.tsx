@@ -5,7 +5,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Added } from "../dev-picker";
 import { NavigationContext } from "./navigation";
 import { addProject, commitProject } from "./project-api";
-import { projectUrl } from "./projects";
+import { projectUrl } from "./project-places";
 import { Refusal, useRefusal } from "./refusal";
 
 /**

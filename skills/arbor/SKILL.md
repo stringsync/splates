@@ -281,6 +281,11 @@ every agent use one word for one part of the code. A prompt from the
 `arbor dev` page that mentions `#name` ends with a line on what that system
 is made of, or, when no system answers to it, a line saying so.
 
+A `#name` can name another arbor project on this machine instead, and its
+line then gives that project's directory. Read its code there as you need
+it, and make any change to it in a task of its own, added from that
+directory, since a task lands only on its own repository.
+
 Systems are named a few at a time as they come up, never all at once, and
 only the user names one. Offer to as a question under `## Blocked`, and write
 `arbor.systems.ts` only once they pick a choice that does:

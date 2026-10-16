@@ -25,14 +25,15 @@ import {
 
 /**
  * A reference as the agent reads it: `@path` for a file, `#name` for a
- * system, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
+ * system or project, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
  * and an `[ARBOR ...]` directive as itself.
  */
 export function serialize(item: TriggerItem): string {
 	if (item.type === "attachment") {
 		return `[${item.id}]`;
 	}
-	const sign = { file: "@", system: "#", command: "/" }[item.type] ?? "";
+	const sign =
+		{ file: "@", system: "#", project: "#", command: "/" }[item.type] ?? "";
 	return `${sign}${item.id}`;
 }
 /**
@@ -55,15 +56,24 @@ const NAME = /^\p{L}[\p{L}\p{N}_-]*$/u;
  * nothing, such as `#12`, stays text.
  */
 export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
-	/** What `called` reads as after `sign`, if it is a chip. */
-	const chipped = (sign: string, called: string): string | undefined => {
+	/** What `called` reads as after `sign`, and what it names, if it is a chip. */
+	const chipped = (
+		sign: string,
+		called: string,
+	): { as: string; type: string } | undefined => {
 		const resolving =
 			sign === "@" ? named.resolving.paths : named.resolving.systems;
 		if (!resolving) {
-			return reading(named, sign, called)?.as;
+			const found = reading(named, sign, called);
+			return found && { as: found.as, type: found.kind };
 		}
+		// Told apart once they come: until then, a `#` is a system's.
 		const as = untrailed(called);
-		return sign === "@" || NAME.test(as) ? as : undefined;
+		return sign === "@"
+			? { as, type: "file" }
+			: NAME.test(as)
+				? { as, type: "system" }
+				: undefined;
 	};
 	return {
 		serialize,
@@ -85,21 +95,19 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 					at = found.index + whole.length;
 					continue;
 				}
-				const as = sign === undefined ? whole : chipped(sign, called);
-				if (as === undefined) {
+				const chip =
+					sign === undefined
+						? { as: whole, type: "directive" }
+						: chipped(sign, called);
+				if (chip === undefined) {
 					continue;
 				}
+				const { as, type } = chip;
 				const start = found.index + before.length;
 				if (start > at) {
 					segments.push({ kind: "text", text: text.slice(at, start) });
 				}
-				segments.push({
-					kind: "mention",
-					type:
-						sign === undefined ? "directive" : sign === "@" ? "file" : "system",
-					id: as,
-					label: as,
-				});
+				segments.push({ kind: "mention", type, id: as, label: as });
 				at = start + (sign?.length ?? 0) + as.length;
 			}
 			if (at < text.length || segments.length === 0) {
@@ -159,15 +167,22 @@ function Chip({
 		);
 	}
 	const names = use(FileNames);
-	const found = reading(named, file ? "@" : "#", directiveId)?.target;
+	const found = reading(named, file ? "@" : "#", directiveId);
 	if (found === undefined) {
 		return (
 			<span>{serialize({ id: directiveId, type: directiveType, label })}</span>
 		);
 	}
+	const { target, kind } = found;
 	return (
 		<NamedChip
-			named={file ? { file: found, name: names.get(found) } : { system: found }}
+			named={
+				kind === "file"
+					? { file: target, name: names.get(target) }
+					: kind === "project"
+						? { project: target }
+						: { system: target }
+			}
 		/>
 	);
 }
