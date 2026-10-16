@@ -29,7 +29,7 @@ describe("skill sections", () => {
 		expect(changedSections(before, after)).toEqual(["Reporting"]);
 	});
 
-	it("skillHash: ignores the version ship stamps", () => {
+	it("leaves the version ship stamps out of skillHash", () => {
 		expect(
 			skillHash(new Map([["SKILL.md", "---\nversion: 0.0.1\n---\nText"]])),
 		).toBe(

@@ -113,6 +113,7 @@ export class Results {
 		const ran = JSON.stringify({
 			turns: scenario.turns,
 			setup: scenario.setup,
+			dev: scenario.dev,
 			fixture: this.fixture,
 		});
 		return createHash("sha256").update(ran).digest("hex").slice(0, 8);

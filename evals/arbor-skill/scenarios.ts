@@ -1,6 +1,15 @@
 import { STARTS } from "./checks";
 import { SEEDED } from "./fixture";
-import { LANE, PARALLEL, SAME_FILES, UNTRIAGED } from "./lanes";
+import {
+	IDLE,
+	LANE,
+	NO_DEV,
+	PARALLEL,
+	PIVOT_LANE,
+	REPORT,
+	SAME_FILES,
+	UNTRIAGED,
+} from "./lanes";
 import {
 	arborRuns,
 	lastSaid,
@@ -145,6 +154,10 @@ export const SCENARIOS: readonly Scenario[] = [
 	LANE,
 	PARALLEL,
 	SAME_FILES,
+	REPORT,
+	IDLE,
+	PIVOT_LANE,
+	NO_DEV,
 	{
 		id: "defer",
 		turns: [

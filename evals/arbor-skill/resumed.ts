@@ -1,5 +1,4 @@
-import type { Beat } from "@webappwiz/arbor/skill-checks";
-import { arborRuns, lastSaid, section, turnsOf } from "./reading";
+import { arborRuns, lastSaid, section, touchesCode, turnsOf } from "./reading";
 import { CORE, type Scenario } from "./scenario";
 
 // The scenarios that resume a task already planned, retry-413, and send it a
@@ -29,17 +28,6 @@ Stop retrying an upload the server refused as too big (413), and tell the user w
 
 ## Notes
 EOF`;
-
-/** Whether a beat writes code other than ARBOR.md. */
-function touchesCode(beat: Beat): boolean {
-	return (
-		(beat.kind === "edit" &&
-			beat.paths.some((path) => !path.endsWith("ARBOR.md"))) ||
-		(beat.kind === "run" &&
-			/src\/\S*\.ts/.test(beat.command) &&
-			/(>|\bsed -i|\.write)/.test(beat.command))
-	);
-}
 
 /** A checkpoint stops the work, leaving ARBOR.md saying where it stood. */
 export const CHECKPOINT: Scenario = {

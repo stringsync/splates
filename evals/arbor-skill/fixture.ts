@@ -2,6 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EndState } from "@webappwiz/arbor/skill-checks";
 import { $, type ShellExpression } from "bun";
+import type { AsyncResource } from "webappwiz/disposable";
 import type { ProcessEntry, Ps } from "webappwiz/system";
 import { Duration, SystemTimer, timeouts } from "webappwiz/time";
 import type { Scenario } from "./scenario";
@@ -12,9 +13,11 @@ import type { Scenario } from "./scenario";
  * todos seeded. Every `arbor` it runs, and every one its agent runs, is this
  * checkout's, with its own `ARBOR_HOME`, so nothing reaches the user's.
  */
-export class Fixture {
+export class Fixture implements AsyncResource {
 	readonly repo: string;
 	private readonly env: Record<string, string | undefined>;
+	/** The stand-in for `arbor dev`, for a scenario run as one it started. */
+	private dev: ReturnType<typeof Bun.serve> | null = null;
 
 	constructor(
 		/** Emptied, then holds the repository, its arbor home and the `arbor` on its PATH. */
@@ -63,9 +66,7 @@ export class Fixture {
 		for (const todo of TODOS) {
 			await sh`arbor todo add ${todo.subject} ${todo.detail} ${todo.flags}`;
 		}
-		if (scenario.setup !== undefined) {
-			await sh`sh -c ${scenario.setup}`;
-		}
+		// Before setup, which may land a todo as an agent would.
 		const todos = JSON.parse(
 			await sh`arbor todo list --json`.text(),
 		) as unknown[];
@@ -74,6 +75,30 @@ export class Fixture {
 				`the fixture seeded ${todos.length} todos, not ${TODOS.length}`,
 			);
 		}
+		if (scenario.dev === true) {
+			this.startDev();
+		}
+		if (scenario.setup !== undefined) {
+			await sh`sh -c ${scenario.setup}`;
+		}
+	}
+
+	/**
+	 * Runs everything from here on as `arbor dev` would run an agent it
+	 * started, as conversation `orch`: `arbor tell` and the reports that
+	 * `merge`, `remove` and `escalate` send its caller reach a stand-in that
+	 * takes them all, since no agent here is started to hear them.
+	 */
+	private startDev(): void {
+		this.dev = Bun.serve({ port: 0, fetch: () => Response.json({}) });
+		this.env.ARBOR_DEV = this.dev.url.origin;
+		this.env.ARBOR_CONVERSATION = DEV_CONVERSATION;
+	}
+
+	/** Stops the stand-in for `arbor dev`, if one runs. */
+	async disposeAsync(): Promise<void> {
+		await this.dev?.stop(true);
+		this.dev = null;
 	}
 
 	/**
@@ -275,6 +300,9 @@ it("returns once the server accepts", async () => {
 });
 `,
 };
+
+/** The conversation a scenario run as `arbor dev`'s agent is, as its tasks' caller. */
+export const DEV_CONVERSATION = "orch";
 
 /** The commits on main before the agent starts. */
 export const SEEDED = 2;

@@ -74,3 +74,14 @@ export function lastSaid(beats: Beat[]): string {
 	const last = beats.findLast((beat) => beat.kind === "say");
 	return last?.kind === "say" ? last.text.trim() : "";
 }
+
+/** Whether a beat writes code other than ARBOR.md. */
+export function touchesCode(beat: Beat): boolean {
+	return (
+		(beat.kind === "edit" &&
+			beat.paths.some((path) => !path.endsWith("ARBOR.md"))) ||
+		(beat.kind === "run" &&
+			/src\/\S*\.ts/.test(beat.command) &&
+			/(>|\bsed -i|\.write)/.test(beat.command))
+	);
+}

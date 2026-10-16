@@ -43,3 +43,11 @@ it is not paid for again until its directory, which the log names, is deleted.
 
 The scenarios, their prompts, and their checks and rubric are in
 `scenarios.ts`; the throwaway repository is in `fixture.ts`.
+
+A scenario marked `dev` runs the agent as one `arbor dev` started, with a
+stand-in server that takes every `arbor tell` and report and starts no
+agent. So a lane orchestrator hands its todos out and ends its turn, as it
+would on the page. Each event it acts on (a report, an agent gone idle, a
+change of course) is its own scenario: setup seeds the state the event
+finds, rather than an earlier turn reaching it. `lane-no-dev` keeps the path
+without `arbor dev`, landing the lane through the agent's own subagents.
