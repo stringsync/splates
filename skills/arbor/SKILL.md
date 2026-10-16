@@ -436,9 +436,17 @@ undo and what a wrong guess would cost, not on how sure you are:
   something the user said before. The task cannot merge until it is
   answered, though the user can answer in chat while you work.
 
-Keep each assumed choice in one place (a constant, a config value, a single
-component), so a challenge costs a small fix rather than a rewrite. When an
-answer or a challenge overturns a choice, redo that part.
+Build so calls stay cheap to undo, since that is what lets them go ahead as
+assumptions. Keep each choice in one place (a constant, a config value, a
+single component or module), and keep what uses it loosely coupled to it:
+callers go through a narrow surface (a function, a type, a module's exports)
+and never reach into how it works, so swapping in another implementation
+changes that one place and none of its callers. Before asking a question
+because a wrong guess would cost much rework, look for such a seam: when one
+would contain the call, build it and assume instead. A seam is a boundary,
+not ceremony: no interface or abstract base for a single implementation, and
+no layer added only in case. When an answer or a challenge overturns a
+choice, redo that part.
 
 Say each assumption in the conversation too, in the reply that ends the turn
 you wrote it in, so the user sees the call while it is cheap to undo: a
