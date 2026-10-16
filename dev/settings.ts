@@ -202,16 +202,17 @@ export const SETTINGS = {
 		"Pick files to attach to the message being written.",
 		"Alt+Mod+Semicolon",
 	),
+	"shortcuts.markUp": shortcut(
+		"Mark up",
+		"Mark up the image whose chip the caret is just after.",
+		"Mod+KeyB",
+	),
 	"shortcuts.dictate": shortcut(
 		"Dictate",
 		"Start or stop dictating into the message being written.",
 		"Alt+Mod+KeyV",
 	),
-	"shortcuts.sidebar": shortcut(
-		"Sidebar",
-		"Show or hide the sidebar.",
-		"Mod+KeyB",
-	),
+	"shortcuts.sidebar": shortcut("Sidebar", "Show or hide the sidebar.", NONE),
 	"shortcuts.widgets": shortcut(
 		"Widgets",
 		"Show or hide the open conversation's widgets.",

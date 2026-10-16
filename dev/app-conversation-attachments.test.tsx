@@ -8,6 +8,7 @@ import {
 	message,
 	Testing,
 	textIn,
+	typeAtCaret,
 	typeIn,
 	waitFor,
 	within,
@@ -172,6 +173,7 @@ describe("App's attachments", () => {
 	});
 
 	it("names each file attached in a chip at the caret, images apart from other files, renumbering the rest of its kind when one goes from its chip's menu", async () => {
+		// scry-ignore simple-test-setup: these files are this test's own inputs, shared with no other
 		const { view, box } = await openEmpty();
 		const first = new File(["a"], "a.png", { type: "image/png" });
 		const csv = new File(["x,y"], "notes.csv", { type: "text/csv" });
@@ -250,6 +252,60 @@ describe("App's attachments", () => {
 		).toBeTruthy();
 	});
 
+	it("hints from an image's chip that ⌘B marks it up while the caret is just after it", async () => {
+		const { box } = await openEmpty();
+		await act(async () => box.focus());
+		await paste(box, [new File(["png"], "one.png", { type: "image/png" })]);
+		const shown = await waitFor(() => hint());
+		expect(shown.textContent).toBe("Mark up ⌘B");
+
+		// Words after it move the caret on; taking them back brings it home.
+		await typeAtCaret(box, "x");
+		await waitFor(() => expect(hintShown()).toBeNull());
+		await typeAtCaret(box, "");
+		await waitFor(() => expect(hint().textContent).toBe("Mark up ⌘B"));
+	});
+
+	it("marks up the image whose chip the caret is just after on ⌘B, and only there", async () => {
+		const decode = globalThis.createImageBitmap;
+		// The page decodes it to draw on, which happy-dom cannot.
+		globalThis.createImageBitmap = (async () => ({
+			width: 100,
+			height: 50,
+			close() {},
+		})) as unknown as typeof createImageBitmap;
+		try {
+			const { view, box } = await openEmpty();
+			await act(async () => box.focus());
+			await paste(box, [new File(["png"], "two.png", { type: "image/png" })]);
+			await typeAtCaret(box, "see");
+			const commandB = { key: "b", code: "KeyB", metaKey: true };
+			// Left to the page, where it does nothing.
+			let left = false;
+			await act(async () => {
+				left = fireEvent.keyDown(box, commandB);
+			});
+			expect(left).toBe(true);
+			expect(
+				view.queryByRole("dialog", { name: "Mark up two.png" }),
+			).toBeNull();
+
+			await typeAtCaret(box, "");
+			await typeAtCaret(box, "");
+			await typeAtCaret(box, "");
+			await waitFor(() => hint());
+			await act(async () => fireEvent.keyDown(box, commandB));
+			await waitFor(() =>
+				expect(
+					view.getByRole("dialog", { name: "Mark up two.png" }),
+				).toBeTruthy(),
+			);
+			expect(textIn(box)).toBe("[Image 1] ");
+		} finally {
+			globalThis.createImageBitmap = decode;
+		}
+	});
+
 	it("draws the images a sent message names as chips that view them", async () => {
 		const { view, thread } = await openSent("see [Image 1]", [
 			{ type: "image", name: "ab12.png", mimeType: "image/png" },
@@ -297,6 +353,19 @@ describe("App's attachments", () => {
 });
 
 /** Views the attachment `chip` names, from its menu. */
+/** The hint a chip pops up, which only the eye reads. */
+function hintShown(): HTMLElement | null {
+	return document.querySelector<HTMLElement>('[data-slot="tooltip-content"]');
+}
+
+function hint(): HTMLElement {
+	const shown = hintShown();
+	if (shown === null) {
+		throw new Error("no hint is shown");
+	}
+	return shown;
+}
+
 async function viewFrom(chip: HTMLElement): Promise<void> {
 	await act(async () => fireEvent.click(chip));
 	await act(async () =>

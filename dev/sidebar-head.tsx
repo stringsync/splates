@@ -12,8 +12,7 @@ import { BarButton } from "./top-bar";
 /**
  * Heads the sidebar, floating at its top over the row of bars: which slot
  * this is, the project switcher, cut short within the sidebar's width, and
- * right of it the button that hides or shows the sidebar, as ⌘B does. It
- * stays once the sidebar hides, and tells the bars how wide it is, so they
+ * right of it the button that hides or shows the sidebar. It stays once the sidebar hides, and tells the bars how wide it is, so they
  * start clear of it.
  */
 export function SidebarHead({

@@ -34,7 +34,7 @@ export class Sidebar implements Eventful<SidebarEvents> {
 		this.shown = (storage?.getItem(HIDDEN) ?? null) === null;
 	}
 
-	/** Hides it when shown and shows it when hidden, as ⌘B does. */
+	/** Hides it when shown and shows it when hidden, as its shortcut does. */
 	toggle(): void {
 		this.shown = !this.shown;
 		if (this.shown) {

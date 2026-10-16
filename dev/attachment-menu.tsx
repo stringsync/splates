@@ -1,5 +1,13 @@
 import { useAui, useAuiState } from "@assistant-ui/react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { mergeRegister } from "@lexical/utils";
+import {
+	BLUR_COMMAND,
+	COMMAND_PRIORITY_HIGH,
+	FOCUS_COMMAND,
+	KEY_DOWN_COMMAND,
+	type LexicalEditor,
+} from "lexical";
 import {
 	AlertCircleIcon,
 	EyeIcon,
@@ -7,11 +15,12 @@ import {
 	PencilIcon,
 	XIcon,
 } from "lucide-react";
-import { type JSX, use, useRef, useState } from "react";
+import { type JSX, use, useEffect, useRef, useState } from "react";
 import { useAnnotate } from "./annotate";
 import { Annotation } from "./annotation";
 import {
 	ATTACHMENT_CHIP,
+	attachmentName,
 	ChipFace,
 	chippedAlready,
 	ForgetAttachment,
@@ -38,9 +47,14 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
+import { Kbd } from "./components/ui/kbd";
+import { Tooltip, TooltipContent } from "./components/ui/tooltip";
+import { AttachmentChips } from "./composer-editor";
 import { useFileSrc } from "./hooks/use-file-src";
+import { useBinding, useShortcutLabel } from "./hooks/use-shortcut";
 import { cn } from "./lib/utils";
 import { useLightbox } from "./lightbox";
+import { matches } from "./shortcuts";
 
 /** Where an SVG is kept, which cannot be marked up. */
 const SVG = /\.svg$/i;
@@ -107,7 +121,9 @@ export interface Attached {
 
 /**
  * The chip of `attached`, an attachment on its way: a tap opens a menu to
- * view it in the lightbox, mark it up when it is an image, or remove it.
+ * view it in the lightbox, mark it up when it is an image, or remove it. While
+ * the caret is just after the chip of an image, its shortcut marks it up
+ * too, a hint from the chip saying so.
  */
 export function AttachedMenu({
 	placed,
@@ -138,6 +154,11 @@ export function AttachedMenu({
 	};
 	const { open, lightbox } = useLightbox(markable ? markUp : undefined);
 	const chip = useRef<HTMLButtonElement>(null);
+	const offering = useMarkUpAtCaret(
+		editor,
+		markable ? attachmentName(placed.shelf, placed.at - 1) : null,
+		markUp,
+	);
 	const view = () => {
 		if (kind === "file") {
 			window.open(src, "_blank", "noreferrer");
@@ -197,6 +218,11 @@ export function AttachedMenu({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<Tooltip open={offering !== null}>
+				<TooltipContent anchor={chip}>
+					Mark up <Kbd>{offering}</Kbd>
+				</TooltipContent>
+			</Tooltip>
 			{lightbox}
 			{annotator.annotate}
 			<Dialog open={asking} onOpenChange={setAsking}>
@@ -226,6 +252,70 @@ export function AttachedMenu({
 			</Dialog>
 		</>
 	);
+}
+
+/**
+ * The label of the shortcut that marks up attachment `id` with `markUp`,
+ * while the caret in `editor` is just after its chip, and the shortcut
+ * then; null otherwise, as for no `id` or on a touch device.
+ */
+function useMarkUpAtCaret(
+	editor: LexicalEditor,
+	id: string | null,
+	// scry-ignore objects-over-callbacks: what the shortcut runs, kept in a ref so a fresh arrow does not re-listen
+	markUp: () => Promise<void>,
+): string | null {
+	const label = useShortcutLabel("shortcuts.markUp");
+	const shortcut = useBinding("shortcuts.markUp");
+	const [at, setAt] = useState(false);
+	const run = useRef(markUp);
+	run.current = markUp;
+	const on = id !== null && label !== null;
+	useEffect(() => {
+		if (!on) {
+			return;
+		}
+		const chips = new AttachmentChips(editor);
+		const here = () =>
+			chips.beforeCaret() === id &&
+			editor.getRootElement()?.contains(document.activeElement) === true;
+		const check = () => setAt(here());
+		check();
+		return mergeRegister(
+			editor.registerUpdateListener(check),
+			// Focus lands after the command runs, and leaves after it too.
+			editor.registerCommand(
+				FOCUS_COMMAND,
+				() => {
+					queueMicrotask(check);
+					return false;
+				},
+				COMMAND_PRIORITY_HIGH,
+			),
+			editor.registerCommand(
+				BLUR_COMMAND,
+				() => {
+					setAt(false);
+					return false;
+				},
+				COMMAND_PRIORITY_HIGH,
+			),
+			editor.registerCommand(
+				KEY_DOWN_COMMAND,
+				(event) => {
+					if (!matches(event, shortcut) || !here()) {
+						return false;
+					}
+					// Ahead of the paste it would otherwise be.
+					event.preventDefault();
+					void run.current();
+					return true;
+				},
+				COMMAND_PRIORITY_HIGH,
+			),
+		);
+	}, [editor, on, id, shortcut]);
+	return on && at ? label : null;
 }
 
 /**

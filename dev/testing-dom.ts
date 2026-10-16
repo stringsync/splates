@@ -14,6 +14,8 @@ export const {
 	$createParagraphNode,
 	$createTextNode,
 	$getRoot,
+	$getSelection,
 	$isElementNode,
+	$isRangeSelection,
 	getNearestEditorFromDOMNode,
 } = await import("lexical");

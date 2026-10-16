@@ -36,7 +36,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 /**
  * The page beside a sidebar, a layout of its own beside the phone's: one
  * row of bars across the top, the sidebar's head floating at its left with
- * the project switcher and the button that hides the sidebar, as ⌘B does,
+ * the project switcher and the button that hides the sidebar,
  * and each page's own bar in the rest, whose kebab ends with the page menu.
  * Under them, the sidebar's tabs and the page. The sidebar keeps its width
  * and whether it shows for the next visit. What each page shows, `bodies`,

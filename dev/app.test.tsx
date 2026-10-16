@@ -64,7 +64,7 @@ describe("App", () => {
 			"webappwiz",
 		);
 		await act(async () =>
-			fireEvent.keyDown(window, { code: "KeyB", key: "b", metaKey: true }),
+			fireEvent.click(view.getByRole("button", { name: /^Show sidebar/ })),
 		);
 		expect(tabs.closest("[role=tablist]")?.classList.contains("hidden")).toBe(
 			false,

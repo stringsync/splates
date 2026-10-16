@@ -113,15 +113,16 @@ export function PasteFilesPlugin(): null {
 }
 /**
  * Keeps the keyboard down after a send on a touch device, so the reply can be
- * read: the editor lets go of focus once its message is sent, and keeps it
- * off when the agent starts a run, where assistant-ui's focus would raise the
- * keyboard over the reply. A message being typed as the run starts keeps the
- * focus it has; the one just sent, still in the editor as its run starts, does
- * not. Render it among the composer editor's plugins.
+ * read; a message being typed as the agent's run starts keeps its focus.
+ * Render it among the composer editor's plugins.
  */
 export function KeyboardDownOnTouchPlugin(): null {
 	const [editor] = useLexicalComposerContext();
 	const aui = useAui();
+	// The editor lets go of focus once its message is sent, and keeps it off
+	// when the agent starts a run, where assistant-ui's focus would raise the
+	// keyboard over the reply; the message just sent, still in the editor as
+	// its run starts, is not one being typed.
 	// assistant-ui's run listener focuses as the run starts, so this one, made
 	// in a layout effect to run ahead of it, notes whether the editor had
 	// focus, and takes back the focus it gave before the page paints.
@@ -163,18 +164,17 @@ export function KeyboardDownOnTouchPlugin(): null {
 }
 /**
  * Puts the caret back in the editor once what moved it settles, on a touch
- * device. iOS Safari draws the caret where it was placed and leaves it there
- * when the editor moves without an edit, so the caret floats over the thread
- * or below the box. Setting the same selection again makes it draw the caret
- * anew.
- *
- * The editor's place on the page is watched each frame while it has the
- * focus, rather than the events that move it: the phone's screen is pinned to
- * the keyboard by a style React sets after the viewport's events, and what
- * sits in the footer can move the box with no event at all.
+ * device, where iOS Safari otherwise leaves it floating over the thread or
+ * below the box. Render it inside the editor's composer.
  */
 export function CaretInPlacePlugin(): null {
 	const [editor] = useLexicalComposerContext();
+	// iOS Safari draws the caret where it was placed and leaves it there when
+	// the editor moves without an edit; setting the same selection again makes
+	// it draw the caret anew. The editor's place is watched each frame while it
+	// has the focus, rather than the events that move it: the screen is pinned
+	// to the keyboard by a style React sets after the viewport's events, and
+	// what sits in the footer can move the box with no event at all.
 	useEffect(() => {
 		if (!matchMedia(TOUCH).matches) {
 			return;
@@ -294,6 +294,30 @@ export class AttachmentChips {
 	forget(placed: Placed): void {
 		this.editor.update(() => $forget(placed));
 	}
+
+	/**
+	 * The attachment whose chip the caret sits just after, or just after the
+	 * space that follows it, as it does once the chip is written; null when
+	 * it sits anywhere else.
+	 */
+	beforeCaret(): string | null {
+		return this.editor.getEditorState().read($attachmentBeforeCaret);
+	}
+}
+function $attachmentBeforeCaret(): string | null {
+	const selection = $getSelection();
+	const anchor = $isRangeSelection(selection) ? selection.anchor : null;
+	const node = anchor?.getNode();
+	// Past the space written after it, where the caret lands with the chip.
+	const before =
+		anchor?.type === "text" &&
+		node?.getTextContent().slice(0, anchor.offset) === " "
+			? node.getPreviousSibling()
+			: $beforeCaret();
+	return $isDirectiveNode(before) &&
+		before.getDirectiveItem().type === "attachment"
+		? before.getDirectiveItem().id
+		: null;
 }
 function $write(id: string): void {
 	if ($attachmentChips().some((chip) => chip.getDirectiveItem().id === id)) {

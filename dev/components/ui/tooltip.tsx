@@ -26,6 +26,7 @@ function TooltipContent({
 	className,
 	side = "top",
 	sideOffset = 4,
+	anchor,
 	align = "center",
 	alignOffset = 0,
 	children,
@@ -33,11 +34,12 @@ function TooltipContent({
 }: TooltipPrimitive.Popup.Props &
 	Pick<
 		TooltipPrimitive.Positioner.Props,
-		"align" | "alignOffset" | "side" | "sideOffset"
+		"align" | "alignOffset" | "anchor" | "side" | "sideOffset"
 	>) {
 	return (
 		<TooltipPrimitive.Portal>
 			<TooltipPrimitive.Positioner
+				anchor={anchor}
 				align={align}
 				alignOffset={alignOffset}
 				side={side}

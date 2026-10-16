@@ -1,9 +1,12 @@
+import type { TextNode } from "lexical";
 import type { ConversationsView } from "./testing";
 import {
 	$createParagraphNode,
 	$createTextNode,
 	$getRoot,
+	$getSelection,
 	$isElementNode,
+	$isRangeSelection,
 	act,
 	fireEvent,
 	getNearestEditorFromDOMNode,
@@ -45,6 +48,39 @@ export function typeIn(box: HTMLElement, text: string): Promise<void> {
 					);
 				}
 				root.selectEnd();
+			},
+			{ discrete: true },
+		);
+	});
+}
+
+/**
+ * Types `text` into the composer `box` at its caret, as its editor takes
+ * typing, or with `text` empty, takes back the character before the caret.
+ */
+export function typeAtCaret(box: HTMLElement, text: string): Promise<void> {
+	return act(async () => {
+		box.focus();
+		editorOf(box).update(
+			() => {
+				const selection = $getSelection();
+				if (!$isRangeSelection(selection)) {
+					throw new Error("the caret is not in the box");
+				}
+				if (text === "") {
+					// By hand, as happy-dom gives Lexical no selection to move.
+					const { anchor } = selection;
+					const node = anchor.getNode() as TextNode;
+					selection.setTextNodeRange(
+						node,
+						anchor.offset - 1,
+						node,
+						anchor.offset,
+					);
+					selection.removeText();
+				} else {
+					selection.insertText(text);
+				}
 			},
 			{ discrete: true },
 		);
