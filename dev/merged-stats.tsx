@@ -20,6 +20,7 @@ import { type TodoForm, taskOutcome } from "./api";
 import { ReplyContext } from "./card-reply";
 import { DeferButton } from "./defer";
 import { Markdown } from "./markdown";
+import { NamedContext } from "./mentioned";
 import {
 	deferred,
 	deferredLeft,
@@ -28,16 +29,19 @@ import {
 	mergedFacts,
 } from "./merged-facts";
 import { Refusal, useRefusal } from "./refusal";
+import { SystemNameChip } from "./systems";
 
 /**
  * How `task` went once it merged, under its card's report: its time, cost,
- * size and the person's part beside its project's usual, what the gate made
- * of it, and anything that went worse than it could have. Nothing while it
+ * size and the person's part beside its project's usual, the systems it
+ * touched, what the gate made of it, and anything that went worse than it
+ * could have. Nothing while it
  * loads, or for a task whose merge was never recorded here.
  */
 export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	const [landed, setLanded] = useState<Landed | null>(null);
 	const send = useContext(ReplyContext)?.send ?? null;
+	const named = useContext(NamedContext).systems;
 	const [investigating, setInvestigating] = useState(false);
 	const { refusal, attempt } = useRefusal();
 	useEffect(() => {
@@ -92,6 +96,18 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 					</div>
 				))}
 			</dl>
+			{(landed.outcome.systems ?? []).length > 0 && (
+				<div className="flex flex-col gap-1">
+					<span className="text-muted-foreground">Systems</span>
+					<ul aria-label="systems" className="flex flex-wrap gap-1">
+						{(landed.outcome.systems ?? []).map((name) => (
+							<li key={name} className="flex min-w-0">
+								<SystemNameChip name={name} systems={named} />
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 			{facts.gate === null ? (
 				<p className="flex items-center gap-1.5 text-success">
 					<CircleCheckIcon aria-hidden className="size-3.5" />
