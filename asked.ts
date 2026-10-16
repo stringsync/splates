@@ -204,7 +204,7 @@ export interface LanesReport {
 /** What an agent says it is starting on: a task, or a lane orchestrator's lanes. */
 export type Start = TaskStart | LanesStart;
 
-/** A task arbor added at the agent's word, its Goal from the add event. */
+/** A task the agent added for itself or claimed, its Goal from that event. */
 export interface TaskStart {
 	task: string;
 	/** What done means, as the task's Goal says, as markdown. */

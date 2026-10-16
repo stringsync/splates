@@ -367,6 +367,7 @@ function claim(
 				conversation: "c1",
 				escalated: false,
 				tookOver,
+				goal: "",
 			}
 		: {
 				id: task,

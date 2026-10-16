@@ -37,6 +37,8 @@ export interface Facts {
 		 * `arbor handoff`, taking it over.
 		 */
 		tookOver: boolean;
+		/** What its `ARBOR.md` says done means, as markdown, or "" for nothing yet. */
+		goal: string;
 	};
 	tell: {
 		/**
@@ -224,7 +226,7 @@ export type Action = keyof Facts;
 // gains one adds it here too.
 export const FACTS = {
 	add: ["base", "todos", "goal", "subjects", "agent", "model"],
-	claim: ["escalated", "tookOver"],
+	claim: ["escalated", "tookOver", "goal"],
 	tell: ["to"],
 	wait: ["until", "began"],
 	merge: ["base", "commit", "files", "attemptsLeft", "failedTests"],

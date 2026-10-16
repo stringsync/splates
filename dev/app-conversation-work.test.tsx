@@ -206,6 +206,93 @@ describe("App's work row", () => {
 		}
 	});
 
+	// scry-ignore simple-test-setup: its layout spy is its own, which no other test shares
+	it("shows the task the agent claimed beside the thread, not one it added for another agent after", async () => {
+		const thread = await opened({
+			...turn([
+				tool({ id: "x1", command: "arbor claim upload-limit", at: second(2) }),
+				tool({
+					id: "x2",
+					command: "arbor add sibling --agent claude",
+					at: second(4),
+				}),
+				"Handed sibling out.",
+			]),
+			events: [
+				{
+					id: "claim",
+					at: second(3),
+					action: "claim",
+					task: "upload-limit",
+					reason: null,
+					conversation: "c1",
+					escalated: false,
+					tookOver: false,
+					goal: "Stop retrying an upload refused as too big.",
+				},
+				{
+					id: "add",
+					at: second(5),
+					action: "add",
+					task: "sibling",
+					reason: null,
+					conversation: "c1",
+					base: "main",
+					todos: [],
+					goal: "Size the upload limit.",
+					subjects: [],
+					agent: "claude",
+					model: null,
+				},
+			],
+		});
+		const notes = await waitFor(() => {
+			const found = within(thread).getAllByRole("note", { name: "arbor" });
+			expect(found).toHaveLength(2);
+			return found;
+		});
+		expect(notes.map((note) => note.textContent)).toEqual([
+			"Claimedupload-limit",
+			"Addedsibling",
+		]);
+		const viewport = thread.querySelector(
+			'[data-slot="aui_thread-viewport"]',
+		) as HTMLElement;
+		// Both lines scrolled up out of sight, the handed-out add the lower.
+		const lines = notes.map((note) =>
+			Object.defineProperty(note.parentElement as HTMLElement, "offsetHeight", {
+				value: 40,
+			}),
+		);
+		const rect = HTMLElement.prototype.getBoundingClientRect;
+		// scry-ignore fakes-over-mocks: happy-dom lays nothing out, so where each card sits has to be spied
+		const placed = spyOn(
+			HTMLElement.prototype,
+			"getBoundingClientRect",
+		).mockImplementation(function (this: HTMLElement) {
+			return this === viewport
+				? new DOMRect(0, 0, 600, 800)
+				: lines.includes(this)
+					? new DOMRect(0, -500 + 100 * lines.indexOf(this), 600, 40)
+					: rect.call(this);
+		});
+		const view = within(document.body);
+		try {
+			await act(async () => fireEvent.scroll(viewport));
+			const current = await waitFor(() =>
+				view.getByRole("region", { name: "current upload-limit" }),
+			);
+			expect(current.textContent).toContain(
+				"Stop retrying an upload refused as too big.",
+			);
+			expect(
+				view.queryByRole("region", { name: "current sibling", hidden: true }),
+			).toBeNull();
+		} finally {
+			placed.mockRestore();
+		}
+	});
+
 	it("shows the lanes an orchestrator started beside the thread while its card is scrolled up out of sight, until its finished report comes up", async () => {
 		const thread = await opened(
 			turn([

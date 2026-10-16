@@ -1,5 +1,6 @@
 import { makeAssistantDataUI } from "@assistant-ui/react";
 import type { JSX } from "react";
+import type { Start } from "../asked";
 import { type Action, type Event, isEscalation } from "../events";
 import {
 	ArborEvent,
@@ -214,26 +215,45 @@ function EventLine({
 	if (view === null) {
 		return null;
 	}
-	return event.action === "add" && event.reason === null ? (
-		<AddedLine event={event} view={view} />
-	) : (
+	const start = startOf(event);
+	return start === null ? (
 		<ArborEvent event={view} />
+	) : (
+		<StartLine start={start} view={view} />
 	);
 }
 
 /**
- * The line of a task added, which shows beside the thread, as the task it is
- * on, once it scrolls up out of sight.
+ * The task `event` puts this conversation on: one it claimed, or added for
+ * itself. An add handed to another agent puts it on none, since that agent
+ * claims it in its own conversation.
  */
-function AddedLine({
-	event,
+function startOf(event: Event): Start | null {
+	if (event.reason !== null) {
+		return null;
+	}
+	if (event.action === "add" && event.agent === null) {
+		return { task: event.task ?? "", goal: goalOf(event) };
+	}
+	if (event.action === "claim") {
+		return { task: event.task ?? "", goal: event.goal };
+	}
+	return null;
+}
+
+/**
+ * The line of a task the conversation took up, which shows beside the
+ * thread, as the task it is on, once it scrolls up out of sight.
+ */
+function StartLine({
+	start,
 	view,
 }: {
-	event: EventOf<"add">;
+	start: Start;
 	view: ArborEventView;
 }): JSX.Element {
 	return (
-		<div ref={useStartCard({ task: event.task ?? "", goal: goalOf(event) })}>
+		<div ref={useStartCard(start)}>
 			<ArborEvent event={view} />
 		</div>
 	);

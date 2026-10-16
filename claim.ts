@@ -1,5 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
+import type { Fs } from "webappwiz/system";
 import { fail } from "./exit";
+import { goalOf, PLAN_FILE } from "./plan";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -8,9 +10,9 @@ import type { WorktreeService } from "./worktree-service";
  * merge budget stays as it was, which only `retry` refills.
  */
 export async function claim(
-	{ service, log }: { service: WorktreeService; log: Logger },
+	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
 	task: string,
-): Promise<{ escalated: boolean; tookOver: boolean }> {
+): Promise<{ escalated: boolean; tookOver: boolean; goal: string }> {
 	const found = await service.find(task);
 
 	if (found.gone) {
@@ -95,5 +97,7 @@ export async function claim(
 		dispatch?.handoff === true &&
 		dispatch.conversation !== undefined &&
 		service.ps.env("ARBOR_CONVERSATION") === dispatch.conversation;
-	return { escalated, tookOver };
+	// What the page shows as the task the conversation is now on.
+	const plan = await fs.read(`${worktree.path}/${PLAN_FILE}`).catch(() => "");
+	return { escalated, tookOver, goal: goalOf(plan) };
 }

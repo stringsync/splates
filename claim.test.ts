@@ -23,6 +23,14 @@ describe("claim", () => {
 		expect(await claim(deps, "alpha")).toMatchObject({ tookOver: true });
 	});
 
+	it("says what the task's ARBOR.md gives as its Goal", async () => {
+		await add(deps, "alpha", { goal: "Stop retrying on a 413." });
+
+		expect(await claim(deps, "alpha")).toMatchObject({
+			goal: "Stop retrying on a 413.",
+		});
+	});
+
 	it("refuses a live lease and takes a cold one", async () => {
 		await add(deps, "alpha");
 		await (await deps.service.find("alpha")).save({

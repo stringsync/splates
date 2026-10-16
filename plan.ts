@@ -35,6 +35,15 @@ export function goalLine(text: string): string | null {
 }
 
 /**
+ * What an `ARBOR.md` says done means: all of `## Goal`, as markdown, or ""
+ * when it says nothing yet.
+ */
+export function goalOf(text: string): string {
+	const md = Markdown.parse(text);
+	return md.has("Goal") ? md.section("Goal").body.trim() : "";
+}
+
+/**
  * One `- [ ] 9.` item under `## Blocked`: something only a person can do.
  * The item's line is its subject; lines indented under it are its body, and
  * `- (a) ...`, `- [a] ...` or `- a. ...` lines among them are the answers it

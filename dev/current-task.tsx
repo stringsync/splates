@@ -17,7 +17,7 @@ import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
  * The task the thread is on at the point it is scrolled to, or the lanes it
- * orchestrates, as a card in the panel beside it: the last Added or Started
+ * orchestrates, as a card in the panel beside it: the last Added, Claimed or Started
  * card scrolled up out of sight, while no report that its task merged or was
  * removed, or that its lanes finished, has come up since. It fades in as
  * the card goes behind the person's message stuck atop its turn, and out as
@@ -94,13 +94,13 @@ export function CurrentTask({
 				ringed={false}
 			>
 				{start.goal !== "" && (
-					// Back to where the task was added; its chip opens the task.
+					// Back to where the task was taken up; its chip opens the task.
 					<button
 						type="button"
 						title={
 							"lanes" in start
 								? "Show where they were started"
-								: "Show where it was added"
+								: "Show where it was taken up"
 						}
 						onClick={() => toCardTop(card, "smooth")}
 						className="block w-full text-start transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
@@ -122,7 +122,7 @@ export function CurrentTask({
 
 /**
  * What a conversation's thread holds that says which task it is on, or which
- * lanes: its Added and Started cards, each by its element, the reports that
+ * lanes: its Added, Claimed and Started cards, each by its element, the reports that
  * end a task, by its name, or the lanes, as null, and the viewport they
  * scroll in.
  */
@@ -181,7 +181,7 @@ export function useTaskViewport(viewport: RefObject<HTMLElement | null>): void {
 	}, [registry, viewport]);
 }
 
-/** Gives an Added or Started card's element to the registry, as its ref. */
+/** Gives an Added, Claimed or Started card's element to the registry, as its ref. */
 export function useStartCard(
 	start: Start,
 ): (element: HTMLElement | null) => void {
@@ -227,7 +227,7 @@ function useRegistered<T>(
 }
 
 /**
- * The Added or Started card of the task or lanes the thread is on where
+ * The Added, Claimed or Started card of the task or lanes the thread is on where
  * `scroller` stands: the lowest one gone out of sight above, unless a report
  * that its task is over, or its lanes finished, has since come into view.
  */
