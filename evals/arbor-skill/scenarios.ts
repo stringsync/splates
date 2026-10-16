@@ -8,6 +8,7 @@ import {
 	section,
 	turnsOf,
 } from "./reading";
+import { CHECK_IN, CHECKPOINT } from "./resumed";
 import { CORE, type Scenario } from "./scenario";
 
 export const SCENARIOS: readonly Scenario[] = [
@@ -304,110 +305,8 @@ export const SCENARIOS: readonly Scenario[] = [
 			"offer: the agent wrote a numbered question under `## Blocked` offering to name the retry code as an arbor system, recommending the name the code already goes by (such as `#upload`, for `src/upload*`) over `#retries`, with choices including adding `#retries` as an alias or leaving it unnamed, one marked `(chosen)`, and every system name and alias in it written as `#name`",
 		],
 	},
-	{
-		id: "checkpoint",
-		turns: [
-			"[ARBOR TASK retry-413]\n\nPick it up and stop before the first code change; say in one line where it stands.",
-			"[ARBOR CHECKPOINT]",
-		],
-		setup: `arbor add retry-413 --todo 1 && cat > "$(arbor path retry-413)/ARBOR.md" <<'EOF'
-# retry-413
-
-## Goal
-
-Stop retrying an upload the server refused as too big (413), and tell the user why.
-
-## Done
-
-- [x] read src/upload.ts
-
-## Next
-
-- [ ] stop retrying on 413
-- [ ] tell the user the file is too big
-- [ ] test both
-
-## Notes
-EOF`,
-		sections: [
-			"Using arbor",
-			"Directives",
-			"Reference files",
-			"Workflow",
-			"Checkpoint",
-			"ARBOR.md",
-		],
-		checks: [
-			{
-				id: "claimed",
-				rule: "Claims the task and reads its ARBOR.md",
-				judge: ({ log }) => {
-					const [first = []] = turnsOf(log.transcript.beats);
-					const claimed = arborRuns(first).some(
-						(run) => run.verb === "claim" && run.args[0] === "retry-413",
-					);
-					const read =
-						log.tools.some(
-							(tool) =>
-								tool.turn === 1 &&
-								JSON.stringify(tool.input).includes("ARBOR.md"),
-						) || arborRuns(first).some((run) => run.verb === "show");
-					return [
-						{
-							ok: claimed && read,
-							why: `${claimed ? "claimed" : "never claimed"}; ${read ? "read ARBOR.md" : "never read ARBOR.md"}`,
-						},
-					];
-				},
-			},
-			{
-				id: "stopped",
-				rule: "Starts no new work on a checkpoint",
-				judge: ({ log }) => {
-					const second = turnsOf(log.transcript.beats)[1] ?? [];
-					const edited = second.some(
-						(beat) =>
-							(beat.kind === "edit" &&
-								beat.paths.some((path) => !path.endsWith("ARBOR.md"))) ||
-							(beat.kind === "run" &&
-								/src\/\S*\.ts/.test(beat.command) &&
-								/(>|\bsed -i|\.write)/.test(beat.command)),
-					);
-					const merged = arborRuns(second).some((run) => run.verb === "merge");
-					return [
-						{
-							ok: !edited && !merged,
-							why: edited ? "edited code" : merged ? "merged" : "stopped",
-						},
-					];
-				},
-			},
-			{
-				id: "noted",
-				rule: "Leaves notes in ARBOR.md on where it stopped",
-				judge: ({ end }) => {
-					const plan =
-						end.tasks.find((task) => task.task === "retry-413")?.plan ?? "";
-					const ok = section(plan, "Notes").trim() !== "";
-					return [{ ok, why: ok ? "notes written" : "Notes left empty" }];
-				},
-			},
-			{
-				id: "one-line",
-				rule: "Replies to a checkpoint in one line",
-				judge: ({ log }) => {
-					const reply = lastSaid(turnsOf(log.transcript.beats)[1] ?? []);
-					const lines = reply
-						.split("\n")
-						.filter((line) => line.trim() !== "").length;
-					return [{ ok: lines === 1, why: `${lines} lines` }];
-				},
-			},
-		],
-		rubric: [
-			"notes-say-where: in turn 2 the `## Notes` of ARBOR.md say what the agent was doing when stopped and what comes next, and `## Done` and `## Next` match where the work stands",
-		],
-	},
+	CHECKPOINT,
+	CHECK_IN,
 	{
 		id: "review-again",
 		turns: [
