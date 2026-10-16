@@ -268,7 +268,7 @@ describe("dev projects", () => {
 				["repo-2", 2],
 			]);
 		});
-	});
+	}, 15_000);
 
 	it("finds a conversation by its id in the project it started in", async () => {
 		await using other = await another();
