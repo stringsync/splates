@@ -18,6 +18,7 @@ import { Outcomes } from "./outcomes";
 import { PLAN_FILE } from "./plan";
 import { Projects } from "./projects";
 import { Shell } from "./shell";
+import { MACHINE_HOME, SLOT, Slots } from "./slots";
 import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
 
@@ -65,6 +66,8 @@ export class Testing implements AsyncDisposable {
 	readonly projects: Projects;
 	/** How each task ended, kept in `arborHome`. */
 	readonly outcomes: Outcomes;
+	/** The dev slots tasks give back as they end, kept in `arborHome`. */
+	readonly slots: Slots;
 	/** Maps for the system's stores, so no test reads or writes the user's. */
 	readonly projectStore = new FakeSecretStore({}, "the project's store");
 	readonly deviceStore = new FakeSecretStore({}, "the device's store");
@@ -132,9 +135,18 @@ export class Testing implements AsyncDisposable {
 		// agent in `arbor dev`, it leaves out that agent's conversation too, so
 		// a command's `follow` never reaches the live server, nor its caller
 		// refuses the test an `--agent`.
-		const { ARBOR_CONVERSATION, ARBOR_CALLER, ARBOR_DEV, ...inherited } =
-			process.env;
+		// Run from a slot's server, it leaves out the machine's home too, so no
+		// task ending here gives back a slot of the user's.
+		const {
+			ARBOR_CONVERSATION,
+			ARBOR_CALLER,
+			ARBOR_DEV,
+			[MACHINE_HOME]: _machine,
+			[SLOT]: _slot,
+			...inherited
+		} = process.env;
 		this.proc.env = { ...inherited, ARBOR_HOME: this.arborHome };
+		this.slots = Slots.ofMachine(this);
 		this.projects = new Projects(join(this.arborHome, "projects.json"), {
 			fs: this.fs,
 			lock: new FileLock(join(this.arborHome, "projects.lock"), {

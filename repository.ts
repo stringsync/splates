@@ -11,6 +11,7 @@ import { Outcomes } from "./outcomes";
 import { Projects } from "./projects";
 import { arborHome } from "./roster";
 import { Shell } from "./shell";
+import { Slots } from "./slots";
 import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
 
@@ -31,6 +32,8 @@ export interface Repository {
 	projects: Projects;
 	/** The creds agents ask for, and the stores they are kept in. */
 	creds: Creds;
+	/** The machine's dev slots, which a task gives back as it ends. */
+	slots: Slots;
 }
 
 /** How `repository` treats records in an older format than this arbor's. */
@@ -127,6 +130,7 @@ export async function openRepository(
 
 	return {
 		projects,
+		slots: Slots.ofMachine({ fs, ps, log }),
 		creds: await Creds.open(
 			arborDir,
 			git.root,

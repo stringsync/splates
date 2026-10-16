@@ -1,5 +1,6 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
+import { freedLine, type Slots } from "./slots";
 import type { Todos } from "./todos";
 import type { RemoveReason } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -25,7 +26,8 @@ export async function remove(
 		service,
 		log,
 		todos,
-	}: { service: WorktreeService; log: Logger; todos: Todos },
+		slots,
+	}: { service: WorktreeService; log: Logger; todos: Todos; slots: Slots },
 	task: string,
 	{ force = false, conversation, reason }: RemoveOptions = {},
 ): Promise<{ released: { id: number; subject: string }[] }> {
@@ -67,6 +69,8 @@ export async function remove(
 		});
 	}
 
+	const freed = await slots.release(worktree.path);
+
 	// The work was thrown away, not done, so what it took up is open again.
 	const released = await todos.takenBy(task);
 	for (const todo of released) {
@@ -85,6 +89,9 @@ export async function remove(
 				`  discarded ${unlanded} commit(s) that were never on ${worktree.base}`,
 			),
 		);
+	}
+	if (freed !== null) {
+		lines.push(`  slot:     ${freedLine(freed)}`);
 	}
 	for (const todo of released) {
 		lines.push(`  todo ${todo.id} is open again: ${todo.subject}`);

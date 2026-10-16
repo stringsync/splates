@@ -7,6 +7,7 @@ import type { Git } from "./git";
 import { PLAN_FILE, ready, unfinished, whatIsLeft } from "./plan";
 import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
+import { freedLine, type Slots } from "./slots";
 import type { Todos } from "./todos";
 import type { MergeFailure, Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -30,6 +31,7 @@ export async function merge(
 		log,
 		todos,
 		fs,
+		slots,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -39,6 +41,7 @@ export async function merge(
 		log: Logger;
 		todos: Todos;
 		fs: Fs;
+		slots: Slots;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -254,6 +257,7 @@ export async function merge(
 			{ task },
 		);
 	}
+	const freed = await slots.release(current.path);
 	// Done is done: the todos this task took up leave the list with it.
 	const done = await todos.takenBy(task);
 	// Read before the todos go, since a lane they empty ends with them.
@@ -268,6 +272,7 @@ export async function merge(
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`
 		}\n  worktree removed, cd ${git.root}`,
+		...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
 		...done.map((todo) => `  done todo ${todo.id}: ${todo.subject}`),
 	];
 	// Only a landing on trunk ends a piece of work. A part landing on its

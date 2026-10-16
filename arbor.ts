@@ -9,6 +9,7 @@ import { arborCreds } from "./arbor-creds";
 import { serveDev } from "./arbor-dev";
 import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
 import { arborLane } from "./arbor-lane";
+import { arborSlots } from "./arbor-slots";
 import { arborTodo } from "./arbor-todo";
 import { arborTunnel } from "./arbor-tunnel";
 import { attach } from "./attach";
@@ -367,7 +368,7 @@ arbor
 	.option("slot", z.boolean(), {
 		default: false,
 		description:
-			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: the checkout keeps its word, as fox, until it no longer exists. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, starting with a throwaway project there; not with the tunnel and Access flags",
+			"serve this checkout's arbor at https://<word>.<zone>, a slot of its own on the zone `arbor tunnel setup` uses, behind the same Access policy, so several run side by side and a phone opens each by name: a task's worktree keeps its word, as fox, until the task merges or is removed, which stops its server; run again, it stops the tree's last server first. Refused in an arbor repository's main tree, which every agent shares. A slot keeps its own projects in ~/.arbor/slots/<word>, apart from yours, starting with a throwaway project there; not with the tunnel and Access flags",
 	})
 	.action((opts, ctx) => serveDev(ctx, opts));
 
@@ -542,4 +543,5 @@ arbor
 	.mount("todo", arborTodo)
 	.mount("lane", arborLane)
 	.mount("creds", arborCreds)
-	.mount("tunnel", arborTunnel);
+	.mount("tunnel", arborTunnel)
+	.mount("slots", arborSlots);

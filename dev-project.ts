@@ -122,7 +122,14 @@ export async function serveProject(
 /** What `dev` serves a project with: its own records, read and written. */
 export type Project = Pick<
 	Repository,
-	"service" | "journal" | "todos" | "format" | "arborDir" | "git" | "creds"
+	| "service"
+	| "journal"
+	| "todos"
+	| "format"
+	| "arborDir"
+	| "git"
+	| "creds"
+	| "slots"
 > & { fs: Fs; ps: Ps; log: Logger };
 
 /**

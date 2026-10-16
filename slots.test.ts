@@ -20,7 +20,8 @@ describe("Slots", () => {
 			lock: new MemoryLock(),
 			pool,
 		});
-		// Leaves a server running on `word`, as `arbor dev --slot` does.
+		// Leaves a server running on `word`, as `arbor dev --slot` does, which
+		// a SIGTERM ends.
 		const serve = async (word: string, pid: number) => {
 			await fs.mkdir(`/home/.arbor/slots/${word}`);
 			await fs.write(`/home/.arbor/slots/${word}/${SERVER_PID}`, String(pid));
@@ -33,8 +34,17 @@ describe("Slots", () => {
 					command: "bun index.ts dev --slot",
 				},
 			]);
+			ps.simulate(async () => {
+				const [, killed] = ps.getCalls().at(-1)?.split(" ") ?? [];
+				ps.kill(Number(killed));
+				return 0;
+			});
 		};
-		return { fs, ps, slots, serve };
+		// An arbor repository's main tree, which every agent of it shares.
+		const main = async (tree: string) => {
+			await fs.mkdir(`${tree}/.git/arbor`);
+		};
+		return { fs, ps, slots, serve, main };
 	};
 
 	it("gives each tree the first word no other holds, and the same one every time", async () => {
@@ -93,6 +103,64 @@ describe("Slots", () => {
 		]);
 
 		expect((await slots.claim("/trees/two")).word).toBe("cat");
+	});
+
+	it("takes a word back from an arbor repository's main tree", async () => {
+		const { slots, main } = await machine();
+		await slots.claim("/trees/one");
+		await main("/trees/one");
+
+		expect(await slots.owns("/trees/one")).toBe(false);
+		expect((await slots.claim("/trees/two")).word).toBe("cat");
+	});
+
+	it("gives a tree's word back and stops its server on release", async () => {
+		const { ps, slots, serve } = await machine();
+		await slots.claim("/trees/one");
+		await serve("cat", 777);
+
+		expect(await slots.release("/trees/one")).toEqual({
+			slot: { word: "cat", emoji: "😸" },
+			stopped: 777,
+		});
+		expect(ps.alive(777)).toBe(false);
+		expect(await slots.release("/trees/one")).toBeNull();
+		expect((await slots.claim("/trees/two")).word).toBe("cat");
+	});
+
+	it("prunes only the orphans, stopping their servers", async () => {
+		const { fs, ps, slots, serve, main } = await machine();
+		await slots.claim("/trees/one");
+		await slots.claim("/trees/two");
+		await serve("cat", 777);
+		await fs.rm("/trees/one", { recursive: true });
+		await main("/trees/two");
+
+		expect(
+			(await slots.prune()).map(({ slot, pid }) => [slot.word, pid]),
+		).toEqual([
+			["cat", 777],
+			["bee", null],
+		]);
+		expect(ps.alive(777)).toBe(false);
+		expect(await slots.status()).toEqual([]);
+	});
+
+	it("leaves a task's worktree its word and its running server on prune", async () => {
+		const { ps, slots, serve } = await machine();
+		await slots.claim("/trees/one");
+		await serve("cat", 777);
+
+		expect(await slots.prune()).toEqual([]);
+		expect(ps.alive(777)).toBe(true);
+		expect(await slots.status()).toEqual([
+			{
+				slot: { word: "cat", emoji: "😸" },
+				tree: "/trees/one",
+				pid: 777,
+				orphaned: false,
+			},
+		]);
 	});
 
 	it("names every holder when every word is held", async () => {

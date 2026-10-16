@@ -578,6 +578,11 @@ throwaway repository with `ARBOR_HOME` set to a throwaway directory, so it
 stays out of the user's `arbor dev` project list. When `arbor tunnel status`
 shows a tunnel, `arbor dev --slot` from your worktree does both and prints a
 `https://<word>.<zone>` the user can open on their phone too: give them that.
+Your worktree keeps its slot until the task merges or is removed, which stops
+its server. Every other slot is another task's: never kill its server or edit
+`~/.arbor/slots.json`, even when it looks left behind. When none is free, run
+`arbor slots prune`, which frees only those no task holds any more, and
+otherwise ask the user.
 
 ## Proposing
 

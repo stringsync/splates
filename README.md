@@ -108,8 +108,12 @@ bunx @webappwiz/arbor dev --slot
 
 `--slot` claims a short animal word for the checkout it runs in, as `fox`, and
 serves it at `https://fox.<zone>`, on the zone `tunnel setup` used, behind the
-same Access policy, so a phone opens each by name. The checkout keeps its word
-until it no longer exists. A word's tunnel and DNS record are made on its first
+same Access policy, so a phone opens each by name. A task's worktree keeps its
+word until the task merges or is removed, which stops its server and gives the
+word back; run again, `--slot` stops the tree's last server first. It refuses
+an arbor repository's main tree, which every agent shares. `arbor slots list`
+shows who holds each word, and `arbor slots prune` frees those no tree owns any
+more, stopping their servers. A word's tunnel and DNS record are made on its first
 claim and kept, and one wildcard Access application covers every slot. A slot
 keeps its own projects, roster and tunnel in `~/.arbor/slots/<word>`, apart
 from yours, and starts in a throwaway project there, unless that home

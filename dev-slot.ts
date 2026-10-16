@@ -1,4 +1,4 @@
-import { color } from "webappwiz/log";
+import { color, type Logger } from "webappwiz/log";
 import { FileLock } from "webappwiz/system";
 import type { ArborDeps } from "./arbor";
 import { savedTunnelOf } from "./arbor-flags";
@@ -9,16 +9,7 @@ import { openRepository } from "./repository";
 import { arborHome } from "./roster";
 import { SavedTunnel } from "./saved-tunnel";
 import { slotTunnelSetup } from "./slot-tunnel";
-import { type Slot, Slots } from "./slots";
-
-/** Set in a slot's server's environment to the word it serves under. */
-export const SLOT = "ARBOR_SLOT";
-
-/**
- * Set in a slot's server's environment to the machine's `ARBOR_HOME`, whose
- * tunnel and slots the page lists to switch between.
- */
-export const MACHINE_HOME = "ARBOR_MACHINE_HOME";
+import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
 
 /** How `arbor dev --slot` starts its server: with what added. */
 export interface SlotStart {
@@ -62,12 +53,8 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 			{},
 		);
 	}
-	const registry = arborHome(ps);
-	const slots = new Slots(`${registry}/slots.json`, {
-		fs,
-		ps,
-		lock: new FileLock(`${registry}/slots.lock`, { fs, ps, log }),
-	});
+	const registry = ps.env(MACHINE_HOME) ?? arborHome(ps);
+	const slots = Slots.ofMachine(ctx);
 	// The worktree it runs in, not the main tree every worktree shares, so
 	// each worktree holds a slot of its own.
 	const { stdout } = await ps.spawnCapture(
@@ -75,6 +62,13 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 		{ cwd: checkout },
 	);
 	const tree = stdout.trim() || git.root;
+	if (!(await slots.owns(tree))) {
+		fail(
+			"usage",
+			`--slot serves a task's worktree, and ${tree} is the main tree every agent shares, whose server would be any of theirs to stop: \`cd "$(arbor path <task>)"\` into your task's worktree, then run \`bin/arbor dev --slot\` there`,
+			{ at: tree },
+		);
+	}
 	let slot: Slot;
 	try {
 		slot = await slots.claim(tree);
@@ -82,7 +76,7 @@ export async function devSlot(ctx: ArborDeps): Promise<SlotStart> {
 		fail("slots_full", error instanceof Error ? error.message : String(error));
 	}
 	const home = slots.home(slot);
-	await refuseStale(slots, slot);
+	await stopLeftover(slots, slot, log);
 	const saved = new SavedTunnel(`${home}/tunnel.json`, {
 		fs,
 		store: secrets.device,
@@ -158,18 +152,21 @@ async function throwaway(
 }
 
 /**
- * Refuses to start a slot whose last server still runs, as one does when its
- * wrapper was killed outright: it holds a port, and its cloudflared still
- * serves the slot's host from it, so the new server would answer beside old
- * code. Said with the pid to stop, since stopping it also ends its cloudflared.
+ * Stops the server this tree's slot last ran, if it still runs, as one does
+ * when its wrapper was killed or it was started again: it holds a port, and
+ * its cloudflared still serves the slot's host from it, so the new server
+ * would answer beside old code. Only this tree ever holds the word, so the
+ * server is this task's own to stop.
  */
-export async function refuseStale(slots: Slots, slot: Slot): Promise<void> {
-	const pid = await slots.server(slot);
-	if (pid === null) {
-		return;
+export async function stopLeftover(
+	slots: Slots,
+	slot: Slot,
+	log: Pick<Logger, "info">,
+): Promise<void> {
+	const pid = await slots.stop(slot);
+	if (pid !== null) {
+		log.info(
+			`stopped slot ${slot.word} ${slot.emoji}'s last server, pid ${pid}, to serve this tree's code`,
+		);
 	}
-	fail(
-		"slot_running",
-		`slot ${slot.word} ${slot.emoji} still has a server running as pid ${pid}, left by an arbor dev that was killed: stop it with \`kill ${pid}\`, which ends its cloudflared too, then run this again`,
-	);
 }

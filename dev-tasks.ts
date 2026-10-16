@@ -122,7 +122,7 @@ export class TaskRoutes {
 	// the task, so it goes past an external agent's lease. Each conversation
 	// in its tree stops before the tree goes, and carries on in the main tree.
 	readonly removeTask = async (request: Request): Promise<Response> => {
-		const { journal, service, log, todos } = this.#project;
+		const { journal, service, log, todos, slots } = this.#project;
 		const task = decodeURIComponent(
 			new URL(request.url).pathname.split("/")[3] ?? "",
 		);
@@ -137,7 +137,7 @@ export class TaskRoutes {
 			"remove",
 			task,
 			() =>
-				remove({ service, log, todos }, task, {
+				remove({ service, log, todos, slots }, task, {
 					force: true,
 					conversation: on[0]?.id,
 				}),

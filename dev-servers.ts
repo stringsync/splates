@@ -1,10 +1,9 @@
 import type { Logger } from "webappwiz/log";
-import { FileLock, type Fs, type Ps } from "webappwiz/system";
+import type { Fs, Ps } from "webappwiz/system";
 import { type SecretStores, SYSTEM_STORES } from "./creds";
-import { MACHINE_HOME, SLOT } from "./dev-slot";
 import { arborHome } from "./roster";
 import { SavedTunnel } from "./saved-tunnel";
-import { type Slot, Slots } from "./slots";
+import { MACHINE_HOME, SLOT, type Slot, Slots } from "./slots";
 
 /**
  * An `arbor dev` on this machine the page can switch to: the machine's own,
@@ -54,11 +53,7 @@ export async function devServers({
 			here: here === null,
 		});
 	}
-	const slots = new Slots(`${home}/slots.json`, {
-		fs,
-		ps,
-		lock: new FileLock(`${home}/slots.lock`, { fs, ps, log }),
-	});
+	const slots = Slots.ofMachine({ fs, ps, log });
 	for (const { slot, tree } of await slots.list()) {
 		const host = await hostOf(`${slots.home(slot)}/tunnel.json`);
 		if (host !== null) {
