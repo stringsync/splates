@@ -176,7 +176,7 @@ arbor
 	.option("over-capacity", z.boolean(), {
 		default: false,
 		description:
-			"with --agent: hand it out though agentCapacity (arbor.config.ts) tasks are out to agents already; only when the person explicitly asked for more at once",
+			"with --agent: hand it out though you have as many tasks out to agents as agentsPerAgent (arbor.config.ts) allows; only when the person explicitly asked for more at once",
 	})
 	.action(async (opts, ctx) => {
 		if (

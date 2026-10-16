@@ -27,12 +27,13 @@ export interface Config {
 	/** How long since its last heartbeat before a task's lease is up for grabs. */
 	leaseStalenessMs: number;
 	/**
-	 * How many tasks handed to agents of their own, by `arbor add --agent`,
-	 * may be out at once: a lane orchestrator hands out every todo that can
-	 * go, and each starts an agent. Past it, `add --agent` refuses, unless
-	 * the person asked for more and it passes `--over-capacity`.
+	 * How many agents one agent may have started at once: the tasks it
+	 * handed out with `arbor add --agent` and that are still out. A lane
+	 * orchestrator hands out every todo that can go, each to an agent of
+	 * its own. Past it, `add --agent` refuses, unless the person asked for
+	 * more and it passes `--over-capacity`.
 	 */
-	agentCapacity: number;
+	agentsPerAgent: number;
 	/** Failed `merge` attempts a task gets before it must escalate or be removed. */
 	mergeRetryCount: number;
 	/**
@@ -83,8 +84,8 @@ export interface Config {
 export type ConfigFile = Partial<Config>;
 
 /**
- * Identity, for the types: what configs called before `ConfigFile`, kept so
- * they still load for `arbor update` to rewrite.
+ * Types a config written before `ConfigFile`, which wraps its default in
+ * `defineConfig(...)`, so it still loads until `arbor update` rewrites it.
  *
  * @deprecated `satisfies ConfigFile` instead.
  */

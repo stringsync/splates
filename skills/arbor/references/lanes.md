@@ -63,8 +63,9 @@ stands, and those landed. So you change the plan by changing the lanes:
    what the todo's detail does not and the lane taught you: names chosen,
    files moved, answers the user gave, what the tasks out beside it are
    changing. `arbor dev` starts the agent, nested under you on the page.
-   When `add` stops on `agents_full`, the repo has as many agents out as
-   `agentCapacity` in `arbor.config.ts` allows: hand out nothing more, and
+   When `add` stops on `agents_full`, you have as many agents out as
+   `agentsPerAgent` in `arbor.config.ts` allows one agent: hand out nothing
+   more, and
    say in your working report what waits for room, since each report of one
    landing frees one. Pass `--over-capacity` only when the user asked, in so
    many words, for more agents at once than that; a lane's size or urgency

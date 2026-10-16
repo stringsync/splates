@@ -235,8 +235,9 @@ describe("add", () => {
 		expect((await deps.service.find("alpha")).caller).toBe("c2");
 	});
 
-	it("refuses to hand out a task past agentCapacity, unless asked to go over it", async () => {
-		deps.config.agentCapacity = 1;
+	it("refuses to hand out a task past agentsPerAgent, unless asked to go over it", async () => {
+		deps.config.agentsPerAgent = 1;
+		deps.proc.env.ARBOR_CONVERSATION = "orch";
 		await add(deps, "alpha", {
 			dispatch: { agent: "fake" },
 			agents: [ROSTERED],
@@ -245,7 +246,7 @@ describe("add", () => {
 		await expect(
 			add(deps, "beta", { dispatch: { agent: "fake" }, agents: [ROSTERED] }),
 		).toBail("agents_full", {
-			message: ["1 tasks are out to agents", "--over-capacity"],
+			message: ["you have 1 tasks out to agents", "--over-capacity"],
 		});
 		expect((await deps.service.find("beta")).gone).toBe(true);
 		await add(deps, "gamma");
@@ -254,6 +255,25 @@ describe("add", () => {
 			agents: [ROSTERED],
 			overCapacity: true,
 		});
+		expect((await deps.service.find("beta")).state?.dispatch).toEqual({
+			agent: "fake",
+		});
+	});
+
+	it("counts only the agents the one adding it started toward agentsPerAgent", async () => {
+		deps.config.agentsPerAgent = 1;
+		deps.proc.env.ARBOR_CONVERSATION = "other";
+		await add(deps, "alpha", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+		deps.proc.env.ARBOR_CONVERSATION = "orch";
+
+		await add(deps, "beta", {
+			dispatch: { agent: "fake" },
+			agents: [ROSTERED],
+		});
+
 		expect((await deps.service.find("beta")).state?.dispatch).toEqual({
 			agent: "fake",
 		});

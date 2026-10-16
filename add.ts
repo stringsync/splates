@@ -46,8 +46,8 @@ export interface AddOptions {
 	 */
 	away?: boolean;
 	/**
-	 * Hands the task out though `config.agentCapacity` tasks are out to
-	 * agents already, as only the person may ask.
+	 * Hands the task out though the agent adding it has as many out to
+	 * agents as `config.agentsPerAgent` allows, as only the person may ask.
 	 */
 	overCapacity?: boolean;
 }
@@ -109,14 +109,16 @@ export async function add(
 		);
 	}
 	if (dispatch !== undefined && !overCapacity) {
+		// The ones this agent handed out: theirs are their own to count.
+		const caller = service.ps.env("ARBOR_CONVERSATION") ?? null;
 		const out = (await service.list()).filter(
-			(each) => each.state?.dispatch !== undefined,
+			(each) => each.state?.dispatch !== undefined && each.caller === caller,
 		).length;
-		if (out >= config.agentCapacity) {
+		if (out >= config.agentsPerAgent) {
 			fail(
 				"agents_full",
-				`${out} tasks are out to agents already, as many as agentCapacity in arbor.config.ts lets out at once: hand this one out once one of them lands. Only when the person explicitly asks for more at once, pass --over-capacity`,
-				{ task, out, capacity: config.agentCapacity },
+				`you have ${out} tasks out to agents already, as many as agentsPerAgent in arbor.config.ts lets one agent have at once: hand this one out once one of them lands. Only when the person explicitly asks for more at once, pass --over-capacity`,
+				{ task, out, capacity: config.agentsPerAgent },
 			);
 		}
 	}

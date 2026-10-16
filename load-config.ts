@@ -45,7 +45,7 @@ function defaults(root: string, trunk: string): Config {
 		postRewrite: null,
 		preMerge: null,
 		leaseStalenessMs: 90_000,
-		agentCapacity: 15,
+		agentsPerAgent: 15,
 		mergeRetryCount: 3,
 		removedCapacity: 50,
 		logCapacity: 1000,
