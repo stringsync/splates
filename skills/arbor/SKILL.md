@@ -387,14 +387,19 @@ Do not save questions for escalation. Whenever you make a decision that does
 not clearly follow from what the user asked (a name, a default, behavior they
 never mentioned, one reading of an ambiguous ask), write it down in
 `ARBOR.md` right away, saying what you chose and what else you could have
-done, and carry on. Write it as one of two kinds:
+done, and carry on. Which kind it is depends on how hard the call is to
+undo and what a wrong guess would cost, not on how sure you are:
 
-- **An assumption**, under `## Assumptions`, when the call can be undone and
-  you have a clear pick. Nothing waits on it: `arbor merge` and `arbor
-  escalate --review` pass over it, and the user challenges it only if they
-  disagree.
-- **A question**, under `## Blocked`, when the call is hard to undo or
-  outward-facing, has no clear pick or is a close call, or goes against
+- **An assumption**, under `## Assumptions`, when reverting or editing one
+  commit would undo the call, in this repo's code alone, touching no data,
+  users or outside systems. A close call is one too: take the better pick and
+  write the runner-up as its other choice. Nothing waits on it: `arbor merge`
+  and `arbor escalate --review` pass over it, and the user challenges it only
+  if they disagree.
+- **A question**, under `## Blocked`, when undoing the call takes more than
+  that (a migration, data written, a message sent, anything outside the
+  repo), when a wrong guess would cost much rework even though it can be
+  undone (a data shape many files will build on), or when it goes against
   something the user said before. The task cannot merge until it is
   answered, though the user can answer in chat while you work.
 
@@ -626,8 +631,9 @@ of one.
 
 When the user asks what you think, or a request leaves open a design that
 would be costly to build on a wrong guess, propose before you build, so the
-user can approve it or challenge what it rests on. A change cheap to undo
-needs no proposal: make it, writing its calls as assumptions.
+user can approve it or challenge what it rests on. A change one commit's
+revert would undo needs no proposal: make it, writing its calls as
+assumptions.
 
 A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
 few words on what you would build, lowercase after its first word; a blank

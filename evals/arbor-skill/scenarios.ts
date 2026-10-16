@@ -139,7 +139,7 @@ export const SCENARIOS: readonly Scenario[] = [
 			},
 		],
 		rubric: [
-			"calls-right: the calls written down cover what the request leaves open, such as the cap's number and what happens once it is reached, and each sits where the skill puts it: an assumption when it can be undone and has a clear pick, a question under `## Blocked` when it is hard to undo, outward-facing or a close call",
+			"calls-right: the calls written down cover what the request leaves open, such as the cap's number and what happens once it is reached, and each sits where the skill puts it: an assumption when one commit's revert would undo it, a close call included, a question under `## Blocked` when undoing it reaches past the repo's code or a wrong guess would cost much rework",
 		],
 	},
 	LANE,
