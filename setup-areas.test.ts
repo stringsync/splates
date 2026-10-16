@@ -20,17 +20,32 @@ describe("SETUP_AREAS", () => {
 
 		expect(
 			progress.areas.flatMap((area) => area.steps.map((step) => step.status)),
-		).toEqual(["ready", "ready", "ready", "ready"]);
-		expect(progress.next).toBe("agents");
+		).toEqual(["ready", "waiting", "ready", "ready", "waiting", "ready"]);
+		expect(progress.next).toBe("agent-roster");
 		expect(progress.required).toBe(true);
 	});
 
 	it("checks each step against what arbor keeps on the machine", async () => {
 		await machine.fs.mkdir(HOME, { recursive: true });
-		await machine.fs.write(`${HOME}/agents.json`, "{}");
+		await machine.fs.write(
+			`${HOME}/agents.json`,
+			JSON.stringify({
+				agents: [
+					{
+						id: "claude",
+						name: "Claude",
+						argv: ["claude"],
+						models: [{ id: "opus", name: "Opus", strengths: "", cost: "" }],
+					},
+				],
+			}),
+		);
 		await machine.fs.write(
 			`${HOME}/push.json`,
-			JSON.stringify({ keys: {}, devices: [{}] }),
+			JSON.stringify({
+				keys: {},
+				devices: [{ wants: { waiting: true, finished: false } }],
+			}),
 		);
 		await new SavedTunnel(`${HOME}/tunnel.json`, {
 			fs: machine.fs,
@@ -43,5 +58,32 @@ describe("SETUP_AREAS", () => {
 
 		expect(progress.areas.every((area) => area.left === 0)).toBe(true);
 		expect(progress.next).toBeNull();
+	});
+
+	it("leaves the models and notices to do when only their first step is", async () => {
+		await machine.fs.mkdir(HOME, { recursive: true });
+		await machine.fs.write(
+			`${HOME}/agents.json`,
+			JSON.stringify({
+				agents: [{ id: "x", name: "X", argv: ["x"], models: [] }],
+			}),
+		);
+		await machine.fs.write(
+			`${HOME}/push.json`,
+			JSON.stringify({
+				keys: {},
+				devices: [{ wants: { waiting: false, finished: false } }],
+			}),
+		);
+
+		const steps = (await new Setup(machine, SETUP_AREAS).read()).areas.flatMap(
+			(area) => area.steps,
+		);
+		const status = (id: string) => steps.find((step) => step.id === id)?.status;
+
+		expect(status("agent-roster")).toBe("done");
+		expect(status("agent-models")).toBe("ready");
+		expect(status("notifications-device")).toBe("done");
+		expect(status("notifications-notices")).toBe("ready");
 	});
 });

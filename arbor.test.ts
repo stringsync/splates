@@ -64,7 +64,7 @@ describe("arbor cli", () => {
 		await arbor.run(deps, ["setup", "--json"]);
 
 		const progress = JSON.parse(String(env.log.entries.at(-1)?.message));
-		expect(progress.next).toBe("agents");
+		expect(progress.next).toBe("agent-roster");
 		expect(
 			progress.areas.find((area: { id: string }) => area.id === "dictation")
 				.skipped,

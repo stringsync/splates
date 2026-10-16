@@ -33,7 +33,7 @@ describe("dev's setup routes", () => {
 				{ skipped: true },
 			);
 
-			expect(fresh.next).toBe("agents");
+			expect(fresh.next).toBe("agent-roster");
 			expect(skipped.status).toBe(200);
 			expect(
 				((await skipped.json()) as SetupProgress).areas.find(
