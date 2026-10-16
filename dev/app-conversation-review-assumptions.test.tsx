@@ -81,13 +81,13 @@ describe("App's review panel, with what the task assumed", () => {
 		testing.dispose();
 	});
 
-	it("folds the Why of the choice an assumption took", async () => {
+	it("shows the reason for the choice an assumption took once asked", async () => {
 		const list = await unfold(panel);
 		const row = within(list).getByRole("listitem", { name: "assumption 1" });
 		expect(within(row).queryByText("the menu fits down to 400px.")).toBeNull();
 
 		await act(async () =>
-			fireEvent.click(within(row).getByRole("button", { name: "Why" })),
+			fireEvent.click(within(row).getByRole("button", { name: "Show reason" })),
 		);
 
 		expect(within(row).getByText("the menu fits down to 400px.")).toBeTruthy();

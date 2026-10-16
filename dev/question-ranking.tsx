@@ -6,7 +6,7 @@ import { useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
-import { ChoiceBody, ChoiceWhy, HowToPick } from "./choice-body";
+import { ChoiceBody, HowToPick, WhyLine, WhySwitch } from "./choice-body";
 import { Markdown } from "./markdown";
 
 /**
@@ -35,6 +35,9 @@ export function Ranking({
 	const order = ranked(asked, answer);
 	const answered = answer.picks.length > 0;
 	const [at, setAt] = useState(0);
+	// Whether its choices' reasons are shown.
+	const [reasons, setReasons] = useState(false);
+	const reasoned = asked.choices.some((choice) => choice.why !== "");
 	const touch = useTouch();
 	const list = useRef<HTMLOListElement>(null);
 	const focus = (index: number) => {
@@ -78,12 +81,13 @@ export function Ranking({
 	};
 	return (
 		<div className={cn("flex flex-col", roomy ? "gap-2.5" : "gap-1.5")}>
-			<p>
+			<div className="flex items-center justify-between gap-2">
 				<HowToPick
 					Icon={ArrowUpDownIcon}
 					text="Put in order, first at the top"
 				/>
-			</p>
+				{reasoned && <WhySwitch on={reasons} onTurn={setReasons} />}
+			</div>
 			<ol
 				ref={list}
 				aria-label={text}
@@ -116,7 +120,7 @@ export function Ranking({
 						<span className="flex min-w-0 flex-1 flex-col">
 							<Markdown text={choice.text} inline unlinked />
 							<ChoiceBody body={choice.body} inset={false} />
-							<ChoiceWhy why={choice.why} inset={false} />
+							{reasons && <WhyLine why={choice.why} inset={false} />}
 						</span>
 						{live && (
 							<span className="flex shrink-0">

@@ -23,7 +23,7 @@ import {
 	replyOf,
 	takenOf,
 } from "../reply";
-import { ChoiceWhy } from "./choice-body";
+import { WhyLine, WhySwitch } from "./choice-body";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 
@@ -388,6 +388,10 @@ function AssumptionRow({
 }): JSX.Element {
 	const { number, text, choices } = assumed;
 	const taken = choices.filter((choice) => choice.chosen);
+	// The reason for what it took, shown once asked for.
+	const why =
+		challenge === null && taken.length === 1 ? (taken[0]?.why ?? "") : "";
+	const [reasons, setReasons] = useState(false);
 	const picked = choices.filter((choice) =>
 		challenge?.picks.includes(choice.key),
 	);
@@ -447,10 +451,13 @@ function AssumptionRow({
 						<Markdown text={shown} inline />
 					</span>
 				)}
-				{challenge === null && taken.length === 1 && (
-					<ChoiceWhy why={taken[0]?.why ?? ""} inset={false} />
-				)}
+				{reasons && why !== "" && <WhyLine why={why} inset={false} />}
 			</div>
+			{why !== "" && (
+				<span className="flex h-6 items-center">
+					<WhySwitch one on={reasons} onTurn={setReasons} />
+				</span>
+			)}
 			{button}
 		</li>
 	);

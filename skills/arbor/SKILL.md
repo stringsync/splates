@@ -496,8 +496,9 @@ reply lists every letter in the order picked, `4. b, a, c`.
 When the pick is a close call, or the user may well want to challenge it,
 give a choice a `Why:` line indented under it: one sentence on why you would
 take it, or why not. Any choice can have one, the `(chosen)` one most often;
-leave it off where the choice says it all. The `arbor dev` page folds it away
-until the user opens it, so it never crowds the choices.
+leave it off where the choice says it all. The `arbor dev` page hides every
+`Why:` line until the user asks to see a question's reasons, so they never
+crowd the choices.
 
 ```markdown
 ## Blocked
@@ -924,7 +925,7 @@ reports first, as a list numbered from 1 whatever their numbers in
 answered there, never in prose. The user answers from the report, so each
 item carries what is needed to answer it: its subject, at most one line of
 body under it, the choices exactly as in `ARBOR.md` (so a reply of `2. b`
-names one), each with its `Why:` line, which the page folds and the one line
+names one), each with its `Why:` line, which the page hides and the one line
 of body leaves out, and each screenshot or file by absolute path, under the question
 or choice it shows as in `ARBOR.md`. Inline a screenshot as
 `![what](/abs/path.png)` when the `arbor dev` page or your harness shows

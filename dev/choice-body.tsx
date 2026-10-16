@@ -1,10 +1,5 @@
-import { ChevronRightIcon, type LucideIcon } from "lucide-react";
+import { LightbulbIcon, type LucideIcon } from "lucide-react";
 import type { JSX } from "react";
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from "#dev/components/ui/collapsible.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { Markdown } from "./markdown";
 
@@ -31,11 +26,10 @@ export function ChoiceBody({
 }
 
 /**
- * Why the agent would go with a choice, or not, closed until opened, so a
- * card reads as its choices alone. Lined up with its text unless `inset` is
- * off, as `ChoiceBody` is.
+ * Why the agent would go with a choice, or not, once its question's reasons
+ * are shown: muted under its text, lined up with it unless `inset` is off.
  */
-export function ChoiceWhy({
+export function WhyLine({
 	why,
 	inset = true,
 }: {
@@ -43,21 +37,44 @@ export function ChoiceWhy({
 	inset?: boolean;
 }): JSX.Element | null {
 	return why === "" ? null : (
-		<Collapsible
-			render={<div />}
-			className={cn("group/why", inset && "pr-3 pb-2 pl-11")}
+		<Markdown
+			text={why}
+			className={cn(
+				"text-[13px] text-muted-foreground leading-relaxed [&_p]:my-0",
+				inset && "pr-3 pb-2 pl-11",
+			)}
+		/>
+	);
+}
+
+/**
+ * One switch per question that shows every choice's Why at once, off until
+ * turned on, so a card reads as its choices alone. `one` where there is a
+ * single reason to show.
+ */
+export function WhySwitch({
+	on,
+	onTurn,
+	one = false,
+}: {
+	on: boolean;
+	onTurn: (on: boolean) => void;
+	one?: boolean;
+}): JSX.Element {
+	const reasons = one ? "reason" : "reasons";
+	return (
+		<button
+			type="button"
+			aria-pressed={on}
+			onClick={() => onTurn(!on)}
+			className={cn(
+				"inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 font-medium text-[11px] text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40",
+				on && "bg-muted text-foreground",
+			)}
 		>
-			<CollapsibleTrigger className="flex cursor-pointer items-center gap-1 rounded-sm font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40">
-				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/why:rotate-90" />
-				Why
-			</CollapsibleTrigger>
-			<CollapsibleContent>
-				<Markdown
-					text={why}
-					className="pt-1 text-[13px] text-muted-foreground leading-relaxed [&_p]:my-0"
-				/>
-			</CollapsibleContent>
-		</Collapsible>
+			<LightbulbIcon className="size-3.5" />
+			{on ? `Hide ${reasons}` : `Show ${reasons}`}
+		</button>
 	);
 }
 

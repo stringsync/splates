@@ -105,32 +105,37 @@ describe("App's questions card under a proposal", () => {
 		]);
 	});
 
-	it("folds a choice's Why away until opened, picking nothing", async () => {
+	it("shows its choices' reasons only once asked, picking nothing", async () => {
 		const { card } = await opened(
 			proposing([
 				"2. How should the menu fold?",
 				"   - (a) Into a sheet (chosen)",
 				"     Why: a sheet keeps every item one tap away.",
 				"   - (b) Into a dropdown",
+				"     Why: a dropdown keeps the page in view.",
 			]),
 		);
-		const why = within(card).getByRole("button", { name: "Why" });
-		expect(why.getAttribute("aria-expanded")).toBe("false");
+		const show = within(card).getByRole("button", { name: "Show reasons" });
+		expect(show.getAttribute("aria-pressed")).toBe("false");
 		expect(
 			within(card).queryByText("a sheet keeps every item one tap away."),
 		).toBeNull();
 
-		await act(async () => fireEvent.click(why));
+		await act(async () => fireEvent.click(show));
 
-		expect(why.getAttribute("aria-expanded")).toBe("true");
 		expect(
 			within(card).getByText("a sheet keeps every item one tap away."),
 		).toBeTruthy();
+		expect(
+			within(card).getByText("a dropdown keeps the page in view."),
+		).toBeTruthy();
 		const sheet = within(card).getByRole("button", { name: /Into a sheet/ });
 		expect(sheet.getAttribute("aria-pressed")).toBe("true");
-		expect(within(card).getAllByRole("button", { name: "Why" })).toHaveLength(
-			1,
-		);
+		expect(
+			within(card).getAllByRole("button", {
+				name: /Show reasons|Hide reasons/,
+			}),
+		).toHaveLength(1);
 	});
 
 	it("approves only once a call with nothing chosen is answered", async () => {

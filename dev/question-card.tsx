@@ -4,7 +4,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
 import type { Answer } from "../reply";
 import { CardBox } from "./card-box";
-import { ChoiceBody, ChoiceWhy, HowToPick } from "./choice-body";
+import { ChoiceBody, HowToPick, WhyLine, WhySwitch } from "./choice-body";
 import type { Files } from "./files";
 import { Markdown } from "./markdown";
 import { Ranking } from "./question-ranking";
@@ -51,6 +51,9 @@ export function QuestionCard({
 			choices.findIndex((choice) => said.picks.includes(choice.key)),
 		),
 	);
+	// Whether its choices' reasons are shown.
+	const [reasons, setReasons] = useState(false);
+	const reasoned = choices.some((choice) => choice.why !== "");
 	const toggle = (key: string) => {
 		const on = said.picks.includes(key);
 		onAnswer({
@@ -174,7 +177,7 @@ export function QuestionCard({
 								roomy ? "gap-2.5" : "gap-1.5",
 							)}
 						>
-							<legend className="mb-1.5">
+							<legend className="mb-1.5 flex w-full items-center justify-between gap-2">
 								{pick === "any" ? (
 									<HowToPick
 										Icon={ListChecksIcon}
@@ -183,6 +186,7 @@ export function QuestionCard({
 								) : (
 									<HowToPick Icon={CircleDotIcon} text="Pick one" />
 								)}
+								{reasoned && <WhySwitch on={reasons} onTurn={setReasons} />}
 							</legend>
 							{choices.map((choice, index) => {
 								const on = said.picks.includes(choice.key);
@@ -256,7 +260,7 @@ export function QuestionCard({
 											/>
 										</button>
 										<ChoiceBody body={choice.body} />
-										<ChoiceWhy why={choice.why} />
+										{reasons && <WhyLine why={choice.why} />}
 									</div>
 								);
 							})}
