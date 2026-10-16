@@ -144,7 +144,10 @@ export function Task({ task }: { task: Details }): JSX.Element {
 	return (
 		<DialogContent className={cn(TASK_DIALOG, PHONE_SHEET)}>
 			<DialogHeader>
-				<DialogTitle>{task.task}</DialogTitle>
+				<DialogTitle className="flex items-center gap-2">
+					<TaskIcon aria-hidden className="size-4 shrink-0" />
+					<span className="min-w-0 break-words">{task.task}</span>
+				</DialogTitle>
 			</DialogHeader>
 			<div className="-mx-4 flex min-w-0 flex-col gap-4 overflow-y-auto px-4 text-sm">
 				{answering && open.length > 0 && (
