@@ -9,6 +9,7 @@ import { arborCreds } from "./arbor-creds";
 import { serveDev } from "./arbor-dev";
 import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
 import { arborLane } from "./arbor-lane";
+import { setup } from "./arbor-setup";
 import { arborSlots } from "./arbor-slots";
 import { arborTodo } from "./arbor-todo";
 import { arborTunnel } from "./arbor-tunnel";
@@ -397,6 +398,34 @@ arbor
 	.action((opts, ctx) =>
 		agents({ roster: rosterOf(ctx), log: ctx.log }, { json: opts.json }),
 	);
+
+arbor
+	.command("setup")
+	.description(
+		"set arbor up on this machine, one step at a time: with no step, each area's steps, checked from real state, and the one to do next; with a step, why it matters, the one thing the user does and what the agent does. Skips are kept in ~/.arbor/setup.json, so a skipped step stops asking",
+	)
+	.arg("step", z.string(), {
+		default: "",
+		description: "a step's id; omit for every area's progress",
+	})
+	.option("json", z.boolean(), { default: false, description: "emit JSON" })
+	.option("skip", z.boolean(), {
+		default: false,
+		description: "with a step: stop asking for it",
+	})
+	.option("unskip", z.boolean(), {
+		default: false,
+		description: "with a step: ask for it again",
+	})
+	.action(async (opts, ctx) => {
+		if (opts.step === "" && (opts.skip || opts.unskip)) {
+			fail("usage", "--skip and --unskip name a step", {});
+		}
+		if (opts.skip && opts.unskip) {
+			fail("usage", "--skip or --unskip, not both", { step: opts.step });
+		}
+		await setup(ctx, opts);
+	});
 
 arbor
 	.command("path")

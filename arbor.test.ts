@@ -56,6 +56,21 @@ describe("arbor cli", () => {
 		expect(await env.fs.exists(join(env.arborHome, "agents.json"))).toBe(true);
 	});
 
+	it("prints setup's progress and skips a step from outside any repository", async () => {
+		const away = join(env.arborHome, "..");
+		await env.fs.mkdir(away);
+		env.ps.cd(away);
+		await arbor.run(deps, ["setup", "dictation", "--skip"]);
+		await arbor.run(deps, ["setup", "--json"]);
+
+		const progress = JSON.parse(String(env.log.entries.at(-1)?.message));
+		expect(progress.next).toBe("agents");
+		expect(
+			progress.areas.find((area: { id: string }) => area.id === "dictation")
+				.skipped,
+		).toBe(1);
+	});
+
 	it("escalates a task and edits its todos", async () => {
 		await arbor.run(deps, ["add", "alpha", "--goal", "land it"]);
 		const worktree = await env.service.find("alpha");

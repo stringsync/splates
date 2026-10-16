@@ -7,6 +7,7 @@ import {
 } from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import type { Conversations } from "./conversations";
+import { SYSTEM_STORES } from "./creds";
 import { Access, type AccessConfig } from "./dev-access";
 import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
@@ -23,6 +24,7 @@ import {
 import { Pushes } from "./dev-push";
 import { Restarts } from "./dev-restart";
 import type { ServerChoice } from "./dev-servers";
+import { SetupRoutes } from "./dev-setup";
 import { CONNECTIONS, type Connection } from "./dev-sockets";
 import { Terminals } from "./dev-terminal";
 import { type TranscriberFor, transcriberFor } from "./dev-transcriber";
@@ -34,6 +36,9 @@ import { type HeavyCap, HeavyJobs } from "./heavy";
 import { Machine, type MachineSensors, osSensors } from "./machine";
 import { RUNNING } from "./release";
 import { openRepository } from "./repository";
+import { arborHome } from "./roster";
+import { Setup } from "./setup";
+import { SETUP_AREAS } from "./setup-areas";
 import type { Slot } from "./slots";
 
 /** Preferred, not required: `dev` moves up from here when it is taken. */
@@ -282,6 +287,16 @@ export async function dev(
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
 	const jobs = heavy ?? HeavyJobs.ofMachine({ fs, ps, log });
+	const setup = new SetupRoutes(
+		new Setup(
+			{
+				fs,
+				home: arborHome(ps),
+				device: (deps.secrets ?? SYSTEM_STORES).device,
+			},
+			SETUP_AREAS,
+		),
+	);
 
 	const requested = await ports.get();
 	const server = Bun.serve<Connection>({
@@ -333,6 +348,8 @@ export async function dev(
 				PUT: talk(guarded(pushes.subscribe)),
 				DELETE: talk(guarded(pushes.unsubscribe)),
 			},
+			"/api/setup": guarded(setup.read),
+			"/api/setup/:step/skipped": { PUT: guarded(setup.skip) },
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/power": { POST: talk(guarded(powerNow)) },
 			"/api/checkpoint": { POST: talk(guarded(checkpointProjects)) },
