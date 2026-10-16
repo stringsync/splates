@@ -175,6 +175,12 @@ export function CheckpointProvider({
 	const ending =
 		ended ??
 		(listed === null || restarting !== null ? null : endOf(listed, live, was));
+	// Shut down, then started again: over, so the dialog closes rather than
+	// reading as shutting down once more.
+	const started =
+		restarting?.shutdown === true &&
+		listed !== null &&
+		listed.run !== restarting.run;
 	// Gone to restart, its agents have answered, if not as the page last saw.
 	const slide: Slide =
 		live === "going" && !(restarting !== null && unreachable)
@@ -182,7 +188,7 @@ export function CheckpointProvider({
 			: ending !== null
 				? "ended"
 				: restarting?.shutdown
-					? unreachable
+					? unreachable || started
 						? "shutDown"
 						: "shuttingDown"
 					: restarting !== null
@@ -204,6 +210,13 @@ export function CheckpointProvider({
 		void shownLong;
 		if (restarting === null || listed.run === restarting.run) {
 			running.current = listed.running;
+		}
+		if (restarting?.shutdown && listed.run !== restarting.run) {
+			setRestarting(null);
+			setOpen(false);
+			setFrom(null);
+			last.current = [];
+			return;
 		}
 		if (restarting !== null && listed.run !== restarting.run) {
 			const clock = new SystemClock();
@@ -319,7 +332,7 @@ export function CheckpointProvider({
 		<Checkpointing.Provider value={value}>
 			{children}
 			<CheckpointDialog
-				open={open || slide === "counting"}
+				open={(open && !started) || slide === "counting"}
 				checkpoint={checkpoint}
 				onCheckpoint={setCheckpoint}
 				onClose={() => {

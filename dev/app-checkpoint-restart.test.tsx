@@ -235,4 +235,42 @@ describe("App's checkpoint restart", () => {
 		);
 		await menuItem(view, "arbor dev shut down");
 	});
+
+	it("closes once arbor dev is started again after a shutdown", async () => {
+		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", status: "running" })],
+			null,
+		);
+		await act(async () => fireEvent.click(await menuItem(view, "Power")));
+		const dialog = await waitFor(() =>
+			view.getByRole("dialog", { name: "Power" }),
+		);
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "asked")], true),
+		];
+		testing.restarting = { resume: false, shutdown: true };
+		await act(async () =>
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: "Shut down" }),
+			),
+		);
+		testing.goAway();
+		await waitFor(
+			() => view.getByRole("dialog", { name: "arbor dev shut down" }),
+			{ timeout: 3000 },
+		);
+
+		testing.restarting = null;
+		testing.run = "run-2";
+		testing.projects = [
+			project("webappwiz", [live("c1", "One", "done")], true),
+		];
+		testing.comeBack();
+
+		await waitFor(() => expect(view.queryByRole("dialog")).toBeNull(), {
+			timeout: 3000,
+		});
+		await menuItem(view, "Agents checkpointed");
+	});
 });
