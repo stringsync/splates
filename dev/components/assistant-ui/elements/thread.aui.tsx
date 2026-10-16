@@ -143,12 +143,16 @@ const ThreadRoot: FC<{
 				scrollToBottomOnInitialize={false}
 				data-slot="aui_thread-viewport"
 				// Clear of what sits over its right, such as docked widgets, which
-				// set `--thread-inset-end`, so the messages center beside them.
-				className="relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll pe-(--thread-inset-end,0px)"
+				// set `--thread-inset-end`, so the messages center beside them; and
+				// of the padding it reaches across, `--thread-bleed-end`, so its
+				// scrollbar sits at the edge while the messages stay put.
+				className="relative -me-(--thread-bleed-end,0px) flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll pe-[calc(var(--thread-inset-end,0px)+var(--thread-bleed-end,0px))]"
 			>
 				<div
 					className={cn(
-						"mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4",
+						// A phone's messages reach as wide as the composer: half the
+						// padding here, and the other half on the composer's footer.
+						"mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4 max-md:px-2",
 						// A set distance down, not centered, so the welcome stays put
 						// as what sits below it grows; docked, it centers over the
 						// composer, which stays put instead.
@@ -180,7 +184,7 @@ const ThreadRoot: FC<{
 					<ThreadPrimitive.ViewportFooter
 						ref={footer}
 						className={cn(
-							"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2",
+							"aui-thread-viewport-footer bg-background flex flex-col gap-4 overflow-visible pb-2 max-md:px-2",
 							// Above a user message, which sticks at z-10, so one passing
 							// behind the footer does not show over the composer.
 							(!isEmpty || docked) &&

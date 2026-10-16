@@ -109,7 +109,11 @@ export function PhoneApp({
 					/>
 				</TopBarFrame>
 			) : page === "conversations" ? (
-				<Screen className="px-1">
+				<Screen
+					// A thread reaches across the right padding, so its scrollbar
+					// sits at the screen's edge (`--thread-bleed-end`).
+					className="px-1 [--thread-bleed-end:--spacing(1)]"
+				>
 					{/* Every conversation's way back counts how many others wait. */}
 					<TopBarFrame
 						value={{

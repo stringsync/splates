@@ -27,7 +27,9 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	budget: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
-	conversations: "min-w-0 px-4 pb-4",
+	// A thread reaches across its right padding, so its scrollbar sits at the
+	// window's edge (`--thread-bleed-end`).
+	conversations: "min-w-0 px-4 pb-4 [--thread-bleed-end:--spacing(4)]",
 };
 
 /**
