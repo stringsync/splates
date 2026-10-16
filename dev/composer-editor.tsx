@@ -359,13 +359,56 @@ const COMPOSER = '[aria-label="Message input"][contenteditable]';
  * left, or at the end.
  */
 export function focusComposer(scope: ParentNode | null = document): void {
-	const box = scope?.querySelector<HTMLElement>(COMPOSER) ?? null;
+	focusBox(scope?.querySelector<HTMLElement>(COMPOSER) ?? null);
+}
+function focusBox(box: HTMLElement | null): void {
 	const editor = getNearestEditorFromDOMNode(box);
 	if (editor !== null) {
 		editor.focus();
 	} else {
 		box?.focus();
 	}
+}
+/**
+ * Where a bare `/` is the user's to type, or a control's own key: a box, a
+ * menu, a list, or a dialog over the page.
+ */
+const KEEPS_SLASH =
+	"input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=dialog], [role=alertdialog]";
+/**
+ * Puts the keyboard in the page's composer on a bare `/`, as GitHub and Slack
+ * do, while it is on screen and the key is not being typed somewhere else.
+ * The `/` itself is not typed, so the commands popover stays shut.
+ */
+export function useSlashFocusesComposer(): void {
+	useEffect(() => {
+		const press = (event: KeyboardEvent) => {
+			if (
+				event.key !== "/" ||
+				event.defaultPrevented ||
+				event.isComposing ||
+				event.ctrlKey ||
+				event.metaKey ||
+				event.altKey ||
+				(event.target instanceof Element &&
+					event.target.closest(KEEPS_SLASH) !== null)
+			) {
+				return;
+			}
+			const box = document.querySelector<HTMLElement>(COMPOSER);
+			if (
+				box === null ||
+				box.getClientRects().length === 0 ||
+				box.closest("[inert], [aria-hidden=true]") !== null
+			) {
+				return;
+			}
+			event.preventDefault();
+			focusBox(box);
+		};
+		window.addEventListener("keydown", press);
+		return () => window.removeEventListener("keydown", press);
+	}, []);
 }
 /** The composer within `scope`, for focus to land on. */
 export function composerIn(scope: ParentNode): HTMLElement | null {

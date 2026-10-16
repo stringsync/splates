@@ -41,6 +41,7 @@ import {
 	KeyboardDownOnTouchPlugin,
 	PasteFilesPlugin,
 	TypedDirectivesPlugin,
+	useSlashFocusesComposer,
 } from "#dev/composer-editor.tsx";
 import { DictateButton } from "#dev/dictate-button.tsx";
 import { DictationNotice, DictationStatus } from "#dev/dictation-status.tsx";
@@ -76,6 +77,7 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	// A phone's keyboard has no Shift for a new line, so its Return types one
 	// and Send sends.
 	const touch = useTouch();
+	useSlashFocusesComposer();
 	const composer = (
 		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
 			<ComposerPrimitive.AttachmentDropzone
