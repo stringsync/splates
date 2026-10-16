@@ -106,15 +106,6 @@ export const RESUME = "[ARBOR RESUME]";
 export const RECONNECT = "[ARBOR RECONNECT]";
 
 /**
- * What asks the agent that merged `task` to look into what went wrong in it,
- * as the merged card's Investigate button sends, its findings after it: the
- * arbor skill says what it means.
- */
-export function investigateReference(task: string): string {
-	return `[ARBOR INVESTIGATE ${task}]`;
-}
-
-/**
  * What approves a task's review and asks the agent to merge it, as the Ready
  * to merge card's Merge button sends: the arbor skill says what it means.
  */

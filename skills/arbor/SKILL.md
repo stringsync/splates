@@ -31,7 +31,6 @@ asks you to read it as Reference files says.
 | `[ARBOR HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[ARBOR TASK <task>]` |
 | `[ARBOR HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[ARBOR MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
-| `[ARBOR INVESTIGATE <task>]` | Look into what went wrong in a task you merged, from its merged card, every finding listed after it | See Investigating findings |
 | `[ARBOR APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[ARBOR DEFER]` | Make the request after it a todo rather than do it; alone, make the user's message before it one, and stop | Read [todos.md](references/todos.md), then `arbor todo add` the request as Todos says, from your worktree when a task is under way, its detail all the message gives and what you already know of the code it touches, with no new investigation. Sent alone, it defers work you may have begun: save it before you stop. Put what you learned and did on that request since the message in the todo's detail, ticking off the `- [ ]` steps done. When you started a task for it, commit what its worktree holds, write in the detail that it carries on there with `arbor claim <task>`, bring `ARBOR.md` up to date, and `arbor escalate "deferred to todo #N"`. Either way, take no further step toward the request and reply with nothing beyond the line the page shows for the todo; then, after a request, carry on with any work under way, and, sent alone, end your turn |
 | `[ARBOR UPDATE]` | Where your work stands, from the Check in button | Bring `## Done` and `## Next` up to date, then, before any other tool call, answer in at most three `- ` lines: what you finished since the user last heard from you, what you are on now, and what is in the way, if anything. Write them as your reply even when this comes in mid-turn: your thinking and `ARBOR.md` do not count. Then carry on with the work in the same turn: no further report, no questions and no stop |
@@ -720,30 +719,6 @@ its server. Every other slot is another task's: never kill its server or edit
 `~/.arbor/slots.json`, even when it looks left behind. When none is free, run
 `arbor slots prune`, which frees only those no task holds any more, and
 otherwise ask the user.
-
-## Investigating findings
-
-A merged card lists what went worse than it could have in its task: the
-gate turning it away, the user stopping you, a command failing again and
-again, and the like. `[ARBOR INVESTIGATE <task>]` asks you to look into them,
-each listed after it with its data. Fix what you can, in a task of its own
-when it changes code (see Workflow), then end on one report: a
-`## 🔎 Investigated <task>` title, a blank line, one sentence on what you
-fixed, then a `- ` line for each finding you left unfixed, saying what it is
-and why, after a colon, you left it.
-
-```markdown
-## 🔎 Investigated header-wrap
-
-The header test no longer waits on a font that never loads.
-
-- The gate keeps failing on `wraps at 390px`: it needs a browser the gate does not run.
-```
-
-Never `arbor todo add` a finding you left, or put it in a todo you add:
-no conversation goes perfectly, and todos made of every finding pile up
-stale. The card offers Defer on each line, and only the user makes a todo
-of one.
 
 ## Proposing
 

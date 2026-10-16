@@ -1,17 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import type { Outcome } from "../outcomes";
 import type { Decision } from "../plan";
-import {
-	deferred,
-	deferredLeft,
-	type Fact,
-	investigation,
-	mergedFacts,
-} from "./merged-facts";
+import { deferred, type Fact, mergedFacts } from "./merged-facts";
 
 describe("mergedFacts", () => {
 	// scry-ignore simple-test-setup: each test builds the outcome it reads, which is its input, not shared setup
-	it("asks Investigate of every finding as the card says it, with the data each came from", () => {
+	it("defers a finding as the card says it, with the data it came from", () => {
 		const stopped = {
 			kind: "stopped",
 			at: "2026-10-14T09:30:00.000Z",
@@ -26,15 +20,6 @@ describe("mergedFacts", () => {
 			baseline: null,
 		});
 
-		const asked = investigation("alpha", facts);
-
-		expect(asked.split("\n").slice(0, 4)).toEqual([
-			"[ARBOR INVESTIGATE alpha]",
-			"",
-			"- Conflicted in a.ts",
-			"- You stopped a turn",
-		]);
-		expect(asked).toContain('"kind": "stopped"');
 		expect(deferred("alpha", facts.findings[0] as Fact)).toEqual({
 			subject: "You stopped a turn",
 			text: [
@@ -44,12 +29,6 @@ describe("mergedFacts", () => {
 				JSON.stringify(stopped, null, 2),
 				"```",
 			].join("\n"),
-		});
-		expect(
-			deferredLeft("alpha", "`bun test` keeps failing: it needs a browser"),
-		).toEqual({
-			subject: "bun test keeps failing",
-			text: "Left unfixed when `alpha`'s findings were investigated: `bun test` keeps failing: it needs a browser",
 		});
 	});
 

@@ -42,29 +42,6 @@ describe("App's merged card actions", () => {
 		testing.dispose();
 	});
 
-	it("asks the agent to investigate every finding, and says so in place", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				messages: [message("agent", "## ✅ Merged header onto main\n\nDone.")],
-			}),
-		]);
-		const went = await waitFor(() =>
-			view.getByRole("region", { name: "how it went" }),
-		);
-
-		await act(async () =>
-			fireEvent.click(
-				within(went).getByRole("button", { name: "Investigate" }),
-			),
-		);
-
-		const [sent] = testing.posted("/api/conversations/c1/prompt");
-		expect(sent?.body.text).toStartWith(
-			"[ARBOR INVESTIGATE header]\n\n- You stopped a turn\n",
-		);
-		expect(within(went).getByText("Investigating")).not.toBeNull();
-	});
-
 	it("shows the systems the task touched as chips", async () => {
 		testing.landed.header = {
 			outcome: { ...header(), systems: ["arbor-dev", "skill"] },
@@ -147,40 +124,5 @@ describe("App's merged card actions", () => {
 			{ method: "POST", body: { subject: "You stopped a turn" } },
 		]);
 		expect(within(findings).getByText("Deferred")).not.toBeNull();
-	});
-
-	it("offers Defer on each finding an Investigated report left, under what it fixed", async () => {
-		const view = await testing.openConversations([
-			conversation({
-				messages: [
-					message(
-						"agent",
-						[
-							"## 🔎 Investigated header",
-							"",
-							"The header test no longer waits on a font.",
-							"",
-							"- The gate keeps failing on `wraps at 390px`: it needs a browser.",
-						].join("\n"),
-					),
-				],
-			}),
-		]);
-		const card = await waitFor(() =>
-			view.getByRole("region", { name: "investigated header" }),
-		);
-		expect(card.textContent).toContain("no longer waits on a font");
-		const left = within(card).getByRole("list", { name: "left unfixed" });
-
-		await act(async () =>
-			fireEvent.click(within(left).getByRole("button", { name: "Defer" })),
-		);
-
-		expect(testing.posted("/api/todos")).toMatchObject([
-			{
-				method: "POST",
-				body: { subject: "The gate keeps failing on wraps at 390px" },
-			},
-		]);
 	});
 });

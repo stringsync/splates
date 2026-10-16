@@ -2,7 +2,6 @@ import { findingKeys, type Measure, measured, outlier } from "../baselines";
 import { keptDecisions, madeBy } from "../decided";
 import type { Finding } from "../findings";
 import type { Landed } from "../landed";
-import { investigateReference } from "../prompts";
 import type { TodoForm } from "./api";
 import { duration } from "./stats-advice";
 
@@ -152,30 +151,6 @@ export interface Decided {
 	byAgent: number;
 }
 
-/**
- * What Investigate asks the agent that merged `task`: the directive, then
- * every finding as the card says it, and the data each was found from.
- */
-export function investigation(task: string, facts: MergedFacts): string {
-	const all = [...(facts.gate ?? []), ...facts.findings];
-	return [
-		investigateReference(task),
-		"",
-		...all.map(
-			(fact) =>
-				`- ${fact.text}${fact.again === null ? "" : ` (${fact.again})`}`,
-		),
-		"",
-		"```json",
-		JSON.stringify(
-			all.flatMap((fact) => (fact.finding === null ? [] : [fact.finding])),
-			null,
-			2,
-		),
-		"```",
-	].join("\n");
-}
-
 /** The todo Defer makes of `fact`, found in `task` as it merged. */
 export function deferred(task: string, fact: Fact): TodoForm {
 	return {
@@ -186,18 +161,6 @@ export function deferred(task: string, fact: Fact): TodoForm {
 				? []
 				: ["", "```json", JSON.stringify(fact.finding, null, 2), "```"]),
 		].join("\n"),
-	};
-}
-
-/**
- * The todo Defer makes of a finding Investigate left in `task`: `left` is its
- * line, what it is, then why after its colon.
- */
-export function deferredLeft(task: string, left: string): TodoForm {
-	const what = left.split(/:\s/)[0] ?? left;
-	return {
-		subject: plain(what),
-		text: `Left unfixed when \`${task}\`'s findings were investigated: ${left}`,
 	};
 }
 

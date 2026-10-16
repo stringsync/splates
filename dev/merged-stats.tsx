@@ -1,11 +1,9 @@
 import {
 	ArrowUpIcon,
 	BotIcon,
-	CheckIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
-	SearchIcon,
 	UserIcon,
 } from "lucide-react";
 import {
@@ -15,23 +13,13 @@ import {
 	useEffect,
 	useState,
 } from "react";
-import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Landed } from "../landed";
 import { type TodoForm, taskOutcome } from "./api";
-import { ReplyContext } from "./card-reply";
 import { DeferButton } from "./defer";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
-import {
-	type Decided,
-	deferred,
-	deferredLeft,
-	type Fact,
-	investigation,
-	mergedFacts,
-} from "./merged-facts";
-import { Refusal, useRefusal } from "./refusal";
+import { type Decided, deferred, type Fact, mergedFacts } from "./merged-facts";
 import { SystemNameChip } from "./systems";
 
 /**
@@ -43,10 +31,7 @@ import { SystemNameChip } from "./systems";
  */
 export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	const [landed, setLanded] = useState<Landed | null>(null);
-	const send = useContext(ReplyContext)?.send ?? null;
 	const named = useContext(NamedContext).systems;
-	const [investigating, setInvestigating] = useState(false);
-	const { refusal, attempt } = useRefusal();
 	useEffect(() => {
 		let current = true;
 		taskOutcome(task).then(
@@ -62,7 +47,6 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 		return null;
 	}
 	const facts = mergedFacts(landed);
-	const found = facts.gate !== null || facts.findings.length > 0;
 	return (
 		<section
 			aria-label="how it went"
@@ -136,33 +120,6 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 					tone="text-warning"
 				/>
 			)}
-			{found && send !== null && (
-				<div className="flex flex-col items-end gap-1">
-					{investigating ? (
-						<span className="flex items-center gap-1 text-success">
-							<CheckIcon className="size-3.5" strokeWidth={3} />
-							Investigating
-						</span>
-					) : (
-						<Button
-							size="sm"
-							onClick={async () =>
-								setInvestigating(
-									await attempt(
-										send(investigation(task, facts)),
-										"Not investigated",
-									),
-								)
-							}
-							className="gap-1.5 pointer-coarse:h-10"
-						>
-							<SearchIcon data-icon="inline-start" />
-							Investigate
-						</Button>
-					)}
-					<Refusal refusal={refusal} />
-				</div>
-			)}
 		</section>
 	);
 }
@@ -182,36 +139,6 @@ function Decisions({ decided }: { decided: Decided }): JSX.Element {
 				</span>
 			))}
 		</span>
-	);
-}
-
-/**
- * What an Investigated report left unfixed in `task`, a line each with Defer,
- * under what it fixed.
- */
-export function Leftovers({
-	task,
-	left,
-}: {
-	task: string;
-	left: string[];
-}): JSX.Element {
-	return (
-		<ul
-			aria-label="left unfixed"
-			className="flex flex-col gap-1.5 border-t px-4 py-3 text-xs"
-		>
-			{left.map((line) => (
-				<FindingLine
-					key={line}
-					Icon={CircleAlertIcon}
-					tone="text-warning"
-					defer={deferredLeft(task, line)}
-				>
-					<Markdown text={line} className="[&_p]:my-0" />
-				</FindingLine>
-			))}
-		</ul>
 	);
 }
 

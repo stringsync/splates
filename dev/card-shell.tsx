@@ -8,7 +8,6 @@ import {
 	HandshakeIcon,
 	HourglassIcon,
 	type LucideIcon,
-	SearchCheckIcon,
 	TriangleAlertIcon,
 } from "lucide-react";
 import type { JSX, ReactNode } from "react";
@@ -150,7 +149,6 @@ export const ENDINGS: Record<
 	{ title: string; Icon: LucideIcon; tone: Tone }
 > = {
 	merged: { title: "Merged", Icon: GitMergeIcon, tone: "success" },
-	investigated: { title: "Investigated", Icon: SearchCheckIcon, tone: "info" },
 	removed: { title: "Removed", Icon: CircleSlashIcon, tone: "destructive" },
 	escalated: {
 		title: "Escalated",

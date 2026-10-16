@@ -151,7 +151,6 @@ export interface Proposal {
  */
 export type Ending =
 	| "merged"
-	| "investigated"
 	| "removed"
 	| "escalated"
 	| "handed"
@@ -166,9 +165,7 @@ export type Report = TaskReport | LanesReport;
  * A report the skill titles `## ✅ Merged <task> onto <base>`, `## 🛑 Removed
  * <task>: <why>`, `## ⚠️ Escalated <task>: <what it needs>`, `## 🤝 Handed
  * off <task> to <agent>: <why>`, or `## ⏳ Working <task>: on <agent>`, for a
- * task its agent handed on and relays for, as a lane's orchestrator does; or
- * `## 🔎 Investigated <task>`, once its agent looked into what went wrong in
- * a task it merged, each finding it left as a `- ` line (see `leftIn` in `investigated.ts`).
+ * task its agent handed on and relays for, as a lane's orchestrator does.
  */
 export interface TaskReport {
 	ending: Exclude<Ending, "finished" | "waiting">;
@@ -243,7 +240,6 @@ const ASKS = /\?(?:[ \t]+\([^()]*\))?$/;
 const ASKS_THEN = /^(.*?\?(?:[ \t]+\([^()]*\))?)[ \t]+(\S.*)$/;
 
 const MERGED = /^## ✅ Merged (\S+) onto (\S+)[ \t]*$/;
-const INVESTIGATED = /^## 🔎 Investigated (\S+)[ \t]*$/;
 const ENDED =
 	/^## (?:(🛑) Removed|⚠\uFE0F? Escalated) (\S+?)(?::[ \t]*(.*?))?[ \t]*$/;
 const FINISHED = /^## 🏁 Finished lanes? (.*?)[ \t]*$/;
@@ -285,7 +281,6 @@ function keptAt(
 ): { stretch: Stretch; end: number } | null {
 	const line = lines[start] as string;
 	const merged = MERGED.exec(line);
-	const investigated = INVESTIGATED.exec(line);
 	const ended = ENDED.exec(line);
 	const finished = FINISHED.exec(line);
 	const waiting = WAITING.exec(line);
@@ -296,7 +291,6 @@ function keptAt(
 	const proposed = PROPOSAL.exec(line);
 	if (
 		merged === null &&
-		investigated === null &&
 		ended === null &&
 		finished === null &&
 		waiting === null &&
@@ -376,35 +370,25 @@ function keptAt(
 								body,
 								source,
 							}
-						: investigated !== null
+						: handed !== null
 							? {
-									ending: "investigated",
-									task: investigated[1] as string,
+									ending: "handed",
+									task: handed[1] as string,
 									base: null,
-									to: null,
-									reason: null,
+									to: handed[2] as string,
+									reason: handed[3] || null,
 									body,
 									source,
 								}
-							: handed !== null
-								? {
-										ending: "handed",
-										task: handed[1] as string,
-										base: null,
-										to: handed[2] as string,
-										reason: handed[3] || null,
-										body,
-										source,
-									}
-								: {
-										ending: ended?.[1] === undefined ? "escalated" : "removed",
-										task: ended?.[2] as string,
-										base: null,
-										to: null,
-										reason: ended?.[3] || null,
-										body,
-										source,
-									};
+							: {
+									ending: ended?.[1] === undefined ? "escalated" : "removed",
+									task: ended?.[2] as string,
+									base: null,
+									to: null,
+									reason: ended?.[3] || null,
+									body,
+									source,
+								};
 	return { stretch: { type: "report", report }, end };
 }
 
