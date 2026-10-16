@@ -164,6 +164,7 @@ export class Testing implements AsyncDisposable {
 		const {
 			ARBOR_CONVERSATION,
 			ARBOR_CALLER,
+			ARBOR_STARTED_BY,
 			ARBOR_DEV,
 			[MACHINE_HOME]: _machine,
 			[SLOT]: _slot,
