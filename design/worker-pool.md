@@ -36,12 +36,15 @@ and scheduler talk only to that contract:
   `/api/workers` WebSocket and multiplexes every channel over it. Workers
   never listen on a public port.
 - The local worker speaks the same protocol to a coordinator on the same
-  machine, as **its own process**. One code path; local and remote cannot
-  drift.
+  machine, as **its own process**, over a Unix socket in `ARBOR_HOME`
+  guarded by file permissions. One code path; local and remote cannot
+  drift. How it is started (the supervisor or launchd) is open.
 - **Framing:** JSON control frames, and binary data frames with a small
   header (channel id, seq). Seq is per channel. The worker keeps unacked
   frames; the coordinator acks; on reconnect the coordinator says the last seq
-  it holds per channel and the worker replays the rest.
+  it holds per channel and the worker replays the rest. When the
+  coordinator stays away longer than the buffer holds, the worker stops
+  reading the agent's output: the agent blocks and nothing is lost.
 - **Versioning:** the hello carries `protocol: major.minor` and a capability
   list. Minor differences negotiate by capability; a worker on another major
   is drained instead of breaking.
@@ -63,10 +66,13 @@ files when local, an HTTP API to the coordinator when remote. The worker
 opens a **loopback relay port** forwarded over its socket; `ARBOR_DEV`
 points at it, so callbacks and repo-state calls both reach the coordinator.
 
-## Task ports (settled direction)
+## Task ports (settled)
 
-Assume nothing of Cloudflare but Access. arbor routes by `Host` header under a
-configured wildcard base host, `<task>-<port>.<base>`; how that base reaches
+Assume nothing of Cloudflare but Access. Any port a task's processes listen
+on is found and forwarded automatically, as VS Code and Codespaces do, and
+never without Access. arbor routes by `Host` header under a wildcard base
+host saved per machine (`arbor dev --ports-host`), `<task>-<port>.<base>`;
+how that base reaches
 the coordinator (DNS, TLS, tunnel) is the operator's ingress or a
 `TunnelProvider`'s job, and Access verification is the existing JWT check.
 With no base host configured, the coordinator forwards each task port to a
@@ -76,41 +82,80 @@ poking at the app, demos and screenshots.
 
 ## Durability and merge
 
-- No shared volume. Each worker's disk is a disposable cache: a bare mirror
-  per project, task clones made from it with `--reference`.
-- A central git remote is the durable truth. The task branch is pushed at
-  every checkpoint, so the plan (intent) and the commits (done work) are
-  durable together; a fresh worker clones the branch and resumes.
+- No shared volume. Each remote worker's disk is a disposable cache: a bare
+  mirror per project, task clones made from it with `--reference`. The
+  local worker keeps worktrees.
+- The central remote is the project's existing GitHub origin. A task's
+  branch is pushed there as `arbor/<task>` after every commit and at every
+  checkpoint, and deleted on merge or remove; `ARBOR.md` syncs to the
+  coordinator as repo state at the same moments and never lands on main. The
+  plan (intent) and the commits (done work) are durable together; a fresh
+  worker clones the branch and resumes.
 - The merge lock becomes a lease held by the coordinator. The worker takes
-  it, fetches trunk, rebases, runs the hooks locally, and fast-forward pushes.
+  it, fetches trunk, rebases, runs the hooks locally, and pushes the tested
+  `arbor/<task>`; the coordinator checks it is a fast-forward of what was
+  tested and pushes main itself.
+
+## Git credentials
+
+The repo and main are protected first. Workers never hold a credential that
+can push main or change repo settings: they get a short-lived, repo-scoped
+token per task (recommended: a GitHub App installation token the coordinator
+mints), revoked with the worker, and a ruleset lets only the coordinator's
+identity update main. How workers authenticate is asked in #281.
+
+## Credentials
+
+Agent credentials reach workers from the coordinator over the socket at
+task start, kept in memory or tmpfs, never baked into an image, revoked on
+`rm`. Delivery flows from `webappwiz/creds`, as a store. A comparison with a
+secrets manager comes before it is built (#284).
 
 ## Scheduler, queue and budget
 
 - Placement: a local slot, then an existing remote worker, then a newly
   provisioned one if the budget allows; otherwise the task queues, visibly,
-  with its position, wait and reason.
+  with its position, wait and reason. First come, first served, and the
+  user can reorder the queue.
+- A task prefers the worker holding its checkout. Workers advertise their
+  platform (Linux or macOS); a project may require one in `arbor.config.ts`.
+- A task waiting on the user holds its slot while its agent is live; when
+  the agent idles out (30 min) the slot frees, and the answer queues it
+  again. When its worker is removed, it checkpoints, pushes and frees the
+  slot.
 - A heavy-job cap per worker (test runs, installs, browser launches) turns
   contention into queueing.
 - Every limit the user sets is in dollars: a $/hour rate cap, and $/day and
   $/month limits each with a warning threshold and a hard stop. Specs are
   secondary detail. A queue offers a priced one-click raise; `arbor budget`
   does the same.
+- Workers are a budget of their own, beside scry's `som` and `llm`; agent
+  API spend stays out for now. Reaching 80%, 90% and 100% of any limit is
+  loud: a Web Push each and the header. A hard stop places nothing new, and
+  running tasks stop at their next checkpoint.
+- A worker's idle time is shared across the tasks that ran on it that hour.
 - Reuse scry's window maths (`Budgets.standing`/`allowance`, `Limit[]`,
   raise and pause in `packages/cli/scry`), not its ledger: scry counts
   integer tokens per fixed role in a per-device JSON file with no warning
   tier in its logic. Spend is a coordinator ledger keyed by project and task
   (slot-hours), marked estimate (list price) or billed.
-- Provisioned workers go through a `WorkerProvider` (create, destroy, list,
-  price per hour per type) in `arbor.config.ts`, the way `TunnelProvider`
-  is, with a fake for tests.
+## Provisioning
+
+Provisioned workers go through a `WorkerProvider` (create, destroy, list,
+price per hour per type) in `arbor.config.ts`, the way `TunnelProvider` is,
+with a fake for tests. Everything provisioned must be Pulumi-supported: the
+first real provider drives a Pulumi stack through the Automation API, and
+the cloud coordinator's box is a Pulumi program too. Workers boot from a
+snapshot arbor builds and refreshes, and scale to zero.
 
 ## Updates without waiting
 
 The coordinator restarts on its own: agents, terminals and dev servers belong
 to workers, which keep running and reconnect, and replay fills the gap.
 UI-only changes rebuild the page and push it to open tabs. Worker builds roll
-out one worker at a time by drain and resume; new tasks go to updated workers
-first; the pool view shows each worker's build.
+out one worker at a time by drain and resume, never re-adopting live agents;
+new tasks go to updated workers first; the pool view, a Workers page in the
+nav, shows each worker's build.
 
 ## Sizing
 
@@ -141,7 +186,8 @@ Prices from Hetzner's 15 June 2026 adjustment and fly.io/pricing, USD,
 excluding IPv4 and VAT; CX53 specs from third parties. Recommended: CX53,
 a $0.25/h rate cap, $5/day (warn $3.50), $75/month (warn $60), and idle
 shutdown after 15 minutes at the end of the paid hour. All remote, that is
-about $55/month typical and $86 at peak, coordinator included.
+about $55/month typical and $86 at peak, coordinator included. These
+predate the Pulumi requirement; the provider is chosen again in #289.
 
 ## Delivery
 
@@ -154,18 +200,19 @@ Phases merge independently; the single-Mac setup works after each.
 3. Registered workers: join tokens, add/drain/rm, the pool UI, the visible
    queue, proven with a Linux container as a second worker.
 4. Provisioning and budget.
-5. Cloud coordinator.
+5. Cloud coordinator, near New Jersey, backed up by nightly provider
+   snapshots; the Mac becomes a registered worker while awake, managed from
+   the Workers page.
 
 Before phase 1: a shared browser and the heavy-job cap, on their own.
 
 ## Open
 
-Asked when their phase starts:
+Asked when their todo starts:
 
-- Where the central git remote lives (phase 2).
-- How agent credentials reach workers (phase 3).
-- What happens to an escalated task when its worker is removed (phase 3).
-- What a hard spend limit does to workers already running (phase 4).
-- Whether a worker daemon restart re-adopts live agents or drains and resumes
-  (phase 4).
-- Which provider (phase 4; recommended Hetzner).
+- How the local worker starts: the supervisor or launchd (#273).
+- How workers authenticate to GitHub (#281).
+- Credential delivery against a secrets manager (#284).
+- Which Pulumi-supported cloud and region for workers, and what one warm
+  worker costs (#289).
+- Where the cloud coordinator runs, near New Jersey (#295).
