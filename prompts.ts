@@ -121,9 +121,9 @@ export function investigateReference(task: string): string {
 export const MERGE = "[ARBOR MERGE]";
 
 /**
- * What approves an agent's proposal and asks it to go ahead, any challenges
- * after it, as the Proposed card's Approve button sends: the arbor skill says
- * what it means.
+ * What approves an agent's proposal as it stands and asks it to go ahead,
+ * the answers to any calls it chose nothing for after it, as the Proposed
+ * card's Approve button sends: the arbor skill says what it means.
  */
 export const APPROVE = "[ARBOR APPROVE]";
 

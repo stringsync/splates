@@ -776,12 +776,14 @@ In a task, write each call in `ARBOR.md` too, the chosen ones under
 
 The `arbor dev` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is
-answered, its button approves, sending `[ARBOR APPROVE]`, then each answer
-that differs from what you chose, quoted as any answer is (see Keeping
-Blocked current), then any words. That, or a reply of "approve", means go
-ahead as proposed, taking in each answer and word, every call not quoted as
-you chose it, after `arbor add` when no task is under way. A reply without
-it answers what it quotes: take that in and propose again.
+answered and the user has changed none of your choices, its button approves,
+sending `[ARBOR APPROVE]`, then the answer to each call you chose nothing
+for, quoted as any answer is (see Keeping Blocked current). That, or a reply
+of "approve", means go ahead as proposed, taking in each answer, every call
+not quoted as you chose it, after `arbor add` when no task is under way. A
+reply without it, as the card sends once the user picks another choice,
+challenges a call or writes anything else, answers what it quotes: take that
+in and propose again.
 
 ## Demos
 

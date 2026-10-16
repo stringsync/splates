@@ -46,8 +46,10 @@ import { Refusal, useRefusal } from "./refusal";
  * written stays in the panel, never the composer, until it is sent, or for
  * an agent outside the page, copied to paste into its session. Under a
  * proposal, each question with a `(chosen)` choice comes answered with it,
- * and once every one is answered, sending approves the proposal, saying
- * only the answers that differ from what the agent chose. The calls the
+ * and once every one is answered, Approve approves the proposal, saying
+ * any answer to a call the agent chose nothing for. Picking another choice,
+ * challenging a call, or writing anything else makes it a reply instead,
+ * saying only what differs, for the agent to propose again. The calls the
  * agent assumed list under them, each challenged as on the review card, a
  * challenge going out with the answers; with no questions, it offers to
  * send only once one is challenged.
@@ -170,8 +172,18 @@ export function QuestionCards({
 	const files = send === null ? null : boxFiles;
 	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
 	const saidOf = () => all.map((asked) => said(asked, writtenFor(asked)));
-	// Every one answered, sending approves the proposal.
-	const approving = proposal !== null && answered === questions.length;
+	// Every one answered, and nothing the agent chose or assumed changed,
+	// sending approves the proposal; anything changed is a reply to it.
+	const approving =
+		proposal !== null &&
+		answered === questions.length &&
+		!questions.some(
+			(asked) =>
+				chosen(asked) !== null && said(asked, writtenFor(asked)) !== null,
+		) &&
+		assumed.every((call) => writtenFor(call) === null) &&
+		written.more.trim() === "" &&
+		!attached;
 	const out = replyOf(all, saidOf(), written.more);
 	const empty = !approving && out === "" && !attached;
 	// With nothing asked, only a challenge calls for a way to send it.
@@ -454,8 +466,12 @@ export function QuestionCards({
 									disabled={empty}
 									onClick={submit}
 								>
-									<SendHorizontalIcon data-icon="inline-start" />
-									Send
+									{approving ? (
+										<CheckIcon data-icon="inline-start" />
+									) : (
+										<SendHorizontalIcon data-icon="inline-start" />
+									)}
+									{approving ? "Approve" : "Send"}
 								</Button>
 							)}
 						</div>
@@ -487,7 +503,12 @@ export function QuestionCards({
 											<Kbd>↵</Kbd> next
 										</span>
 										<span>
-											<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
+											<Kbd>⌘↵</Kbd>{" "}
+											{send === null
+												? "copies"
+												: approving
+													? "approves"
+													: "sends"}
 										</span>
 									</>
 								)}
@@ -500,14 +521,22 @@ export function QuestionCards({
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
 								{send !== null ? (
-									<SendHorizontalIcon data-icon="inline-start" />
+									approving ? (
+										<CheckIcon data-icon="inline-start" />
+									) : (
+										<SendHorizontalIcon data-icon="inline-start" />
+									)
 								) : copied.state === "copied" ? (
 									<CheckIcon data-icon="inline-start" />
 								) : (
 									<CopyIcon data-icon="inline-start" />
 								)}
 								<span aria-live="polite">
-									{send === null ? copiedLabel(copied, "Copy reply") : "Send"}
+									{send === null
+										? copiedLabel(copied, "Copy reply")
+										: approving
+											? "Approve"
+											: "Send"}
 								</span>
 							</Button>
 						</div>

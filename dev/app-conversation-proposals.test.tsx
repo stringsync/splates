@@ -71,7 +71,7 @@ describe("App's questions card under a proposal", () => {
 		expect(chose.getAttribute("aria-pressed")).toBe("true");
 
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
+			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -79,12 +79,13 @@ describe("App's questions card under a proposal", () => {
 		]);
 	});
 
-	it("sends only the picks that differ from what it chose with the approval", async () => {
+	it("replies, approving nothing, once a pick differs from what it chose", async () => {
 		const { card } = await opened(proposing([]));
 
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: /600px/ })),
 		);
+		expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
 		);
@@ -94,8 +95,6 @@ describe("App's questions card under a proposal", () => {
 				method: "POST",
 				body: {
 					text: [
-						"[ARBOR APPROVE]",
-						"",
 						"> **Where should the header wrap?**",
 						"",
 						"- (b) Below 600px",
@@ -148,7 +147,7 @@ describe("App's questions card under a proposal", () => {
 			"More",
 		);
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
+			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -164,6 +163,22 @@ describe("App's questions card under a proposal", () => {
 					].join("\n"),
 				},
 			},
+		]);
+	});
+
+	it("replies, approving nothing, once anything else is written", async () => {
+		const { card } = await opened(proposing([]));
+
+		await typeIn(
+			within(card).getByRole("textbox", { name: "Anything else" }),
+			"Hold off on the menu",
+		);
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
+		);
+
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{ method: "POST", body: { text: "Hold off on the menu" } },
 		]);
 	});
 });
