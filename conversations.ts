@@ -75,7 +75,7 @@ export { fold, heard } from "./fold";
 const LIMITS_FRESH = 5 * 60_000;
 
 /** How many archived conversations are kept; older archived ones are deleted. */
-export const ARCHIVED_KEPT = 50;
+export const ARCHIVED_KEPT = 200;
 
 /**
  * Every conversation in the repo: the live ones this process started, and
