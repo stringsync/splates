@@ -49,7 +49,7 @@ import {
 import { HeartbeatBanner } from "./heartbeat-banner";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
-import { PlanCard, StartedByCard } from "./lane-plan";
+import { PlanSource, StartedByCard } from "./lane-plan";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
@@ -291,164 +291,167 @@ export function Thread({
 			{conversation.heartbeat !== null && (
 				<HeartbeatBanner at={conversation.heartbeat} phone={onBack !== null} />
 			)}
-			<PhoneSheets conversation={id} on={onBack !== null}>
-				<TaskRegistry>
-					{(version) => (
-						<div
-							className="relative min-h-0 flex-1"
-							style={{
-								["--thread-inset-end" as string]:
-									widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
-							}}
-						>
-							<AssistantRuntimeProvider runtime={runtime}>
-								<Composing.Provider value={runtime.thread.composer}>
-									<UnsentContext.Provider value={unsentActions}>
-										<QuestionsUI />
-										<ReviewUI />
-										<ReportUI />
-										<StartUI />
-										<TodoUI />
-										<DemoUI />
-										<WorkUI />
-										<EventUI />
-										<StoppedUI />
-										<InterruptedUI />
-										<Hearing value={hears(conversation)}>
-											<StartNewContext value={startNew}>
-												{/* Its cards read-only: only its orchestrator replies to it. */}
-												<ReplyContext value={handedBy === null ? reply : null}>
-													<NamedContext value={named}>
-														<ThreadView
-															openAt={openAt}
-															autoFocus={!asking || typed}
-															mentions={mentions ?? undefined}
-															references={references}
-															commands={commands ?? undefined}
-															composer={
-																handedBy === null ? undefined : (
-																	<HandedOut
-																		conversation={conversation}
-																		by={handedBy}
-																		onOpen={onOpen}
-																	/>
-																)
-															}
-															placeholder={
-																archived
-																	? "Send a message to unarchive and continue"
-																	: undefined
-															}
-															controls={
-																!archived && (
+			<PlanSource value={{ conversation, tasks, onOpen }}>
+				<PhoneSheets conversation={id} on={onBack !== null}>
+					<TaskRegistry>
+						{(version) => (
+							<div
+								className="relative min-h-0 flex-1"
+								style={{
+									["--thread-inset-end" as string]:
+										widgets.roomy && widgets.open ? WIDGETS_ROOM : "0px",
+								}}
+							>
+								<AssistantRuntimeProvider runtime={runtime}>
+									<Composing.Provider value={runtime.thread.composer}>
+										<UnsentContext.Provider value={unsentActions}>
+											<QuestionsUI />
+											<ReviewUI />
+											<ReportUI />
+											<StartUI />
+											<TodoUI />
+											<DemoUI />
+											<WorkUI />
+											<EventUI />
+											<StoppedUI />
+											<InterruptedUI />
+											<Hearing value={hears(conversation)}>
+												<StartNewContext value={startNew}>
+													{/* Its cards read-only: only its orchestrator replies to it. */}
+													<ReplyContext
+														value={handedBy === null ? reply : null}
+													>
+														<NamedContext value={named}>
+															<ThreadView
+																openAt={openAt}
+																autoFocus={!asking || typed}
+																mentions={mentions ?? undefined}
+																references={references}
+																commands={commands ?? undefined}
+																composer={
+																	handedBy === null ? undefined : (
+																		<HandedOut
+																			conversation={conversation}
+																			by={handedBy}
+																			onOpen={onOpen}
+																		/>
+																	)
+																}
+																placeholder={
+																	archived
+																		? "Send a message to unarchive and continue"
+																		: undefined
+																}
+																controls={
+																	!archived && (
+																		<>
+																			<ContextMeter
+																				usage={conversation.usage}
+																			/>
+																			<SettingControls
+																				settings={settings}
+																				current={(setting) => setting.current}
+																				onChange={(setting, value) =>
+																					chooseSetting(
+																						id,
+																						setting.id,
+																						value,
+																					).catch((error: unknown) =>
+																						refused(
+																							`${setting.name} not switched`,
+																							error,
+																						),
+																					)
+																				}
+																			/>
+																		</>
+																	)
+																}
+																above={
 																	<>
-																		<ContextMeter usage={conversation.usage} />
-																		<SettingControls
-																			settings={settings}
-																			current={(setting) => setting.current}
-																			onChange={(setting, value) =>
-																				chooseSetting(
-																					id,
-																					setting.id,
-																					value,
-																				).catch((error: unknown) =>
-																					refused(
-																						`${setting.name} not switched`,
-																						error,
-																					),
-																				)
-																			}
+																		<NeedsYouBar />
+																		<Refusal
+																			refusal={refusal}
+																			className="px-2"
 																		/>
-																	</>
-																)
-															}
-															above={
-																<>
-																	<NeedsYouBar />
-																	<Refusal refusal={refusal} className="px-2" />
-																	{ended !== null && handedBy === null && (
-																		<ArchiveBar
-																			report={ended}
-																			onArchive={() => archive.file(onLeft)}
-																		/>
-																	)}
-																	{queued.length > 0 && (
-																		<Queued
-																			conversation={id}
-																			messages={queued}
-																			pending={feed.unrecorded(id)}
-																			edits={
-																				handedBy === null
-																					? {
-																							onEdit: (index) =>
-																								void edit(index),
-																							onDiscard: (index) =>
-																								void discard(index),
-																							onSendNow: () => void sendNow(),
-																						}
-																					: null
-																			}
-																		/>
-																	)}
-																	{/* Its agents' asks, which only the person answers. */}
-																	{agentAsks.map((agent) => (
-																		<AgentAsk
-																			key={agent.id}
-																			drafts={drafts}
-																			conversation={agent}
-																		/>
-																	))}
-																	{/* Answered where it answers to, beside that one's. */}
-																	{conversation.ask !== null &&
-																		handedBy === null && (
-																			<AskPanel
-																				key={conversation.ask.id}
-																				drafts={drafts}
-																				conversation={conversation}
-																				agent={agent}
-																				ask={conversation.ask}
+																		{ended !== null && handedBy === null && (
+																			<ArchiveBar
+																				report={ended}
+																				onArchive={() => archive.file(onLeft)}
 																			/>
 																		)}
-																</>
-															}
-														/>
-													</NamedContext>
-												</ReplyContext>
-											</StartNewContext>
-										</Hearing>
-									</UnsentContext.Provider>
-								</Composing.Provider>
-							</AssistantRuntimeProvider>
-							<Widgets
-								roomy={widgets.roomy}
-								open={widgets.open}
-								onClose={widgets.close}
-								actions={
-									onBack !== null && where !== null
-										? [where, ...actions]
-										: actions
-								}
-								background={
-									<BackgroundRow
-										conversation={id}
-										background={conversation.background}
-									/>
-								}
-							>
-								<StartedByCard conversation={conversation} onOpen={onOpen} />
-								<SystemsCard systems={task?.systems ?? []} />
-								{/* Above the current task, which keeps its room while it hides. */}
-								<PlanCard
-									conversation={conversation}
-									tasks={tasks}
-									onOpen={onOpen}
-								/>
-								<CurrentTask version={version} />
-							</Widgets>
-						</div>
-					)}
-				</TaskRegistry>
-			</PhoneSheets>
+																		{queued.length > 0 && (
+																			<Queued
+																				conversation={id}
+																				messages={queued}
+																				pending={feed.unrecorded(id)}
+																				edits={
+																					handedBy === null
+																						? {
+																								onEdit: (index) =>
+																									void edit(index),
+																								onDiscard: (index) =>
+																									void discard(index),
+																								onSendNow: () => void sendNow(),
+																							}
+																						: null
+																				}
+																			/>
+																		)}
+																		{/* Its agents' asks, which only the person answers. */}
+																		{agentAsks.map((agent) => (
+																			<AgentAsk
+																				key={agent.id}
+																				drafts={drafts}
+																				conversation={agent}
+																			/>
+																		))}
+																		{/* Answered where it answers to, beside that one's. */}
+																		{conversation.ask !== null &&
+																			handedBy === null && (
+																				<AskPanel
+																					key={conversation.ask.id}
+																					drafts={drafts}
+																					conversation={conversation}
+																					agent={agent}
+																					ask={conversation.ask}
+																				/>
+																			)}
+																	</>
+																}
+															/>
+														</NamedContext>
+													</ReplyContext>
+												</StartNewContext>
+											</Hearing>
+										</UnsentContext.Provider>
+									</Composing.Provider>
+								</AssistantRuntimeProvider>
+								<Widgets
+									roomy={widgets.roomy}
+									open={widgets.open}
+									onClose={widgets.close}
+									actions={
+										onBack !== null && where !== null
+											? [where, ...actions]
+											: actions
+									}
+									background={
+										<BackgroundRow
+											conversation={id}
+											background={conversation.background}
+										/>
+									}
+								>
+									<StartedByCard conversation={conversation} onOpen={onOpen} />
+									<SystemsCard systems={task?.systems ?? []} />
+									<CurrentTask version={version} />
+								</Widgets>
+							</div>
+						)}
+					</TaskRegistry>
+				</PhoneSheets>
+			</PlanSource>
 		</section>
 	);
 }

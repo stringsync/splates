@@ -1,4 +1,8 @@
-import { makeAssistantDataUI } from "@assistant-ui/react";
+import {
+	makeAssistantDataUI,
+	type ThreadMessage,
+	useAuiState,
+} from "@assistant-ui/react";
 import {
 	ArchiveIcon,
 	ArrowRightIcon,
@@ -35,6 +39,7 @@ import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard, useStartCard } from "./current-task";
+import { PlanBoard } from "./lane-plan";
 import { Markdown } from "./markdown";
 import { Leftovers, MergedStats } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
@@ -78,7 +83,14 @@ export function StartCard({ start }: { start: LanesStart }): JSX.Element {
 
 export function ReportCard({ report }: { report: Report }): JSX.Element {
 	const { title, Icon, tone } = ENDINGS[report.ending];
-	const text = reportText(report);
+	// A lane orchestrator's Working card says what changed; the plan, live,
+	// takes the place of its lines on each lane in the latest one only, the
+	// others folded to what changed, since only the latest is current.
+	const planned = report.ending === "working" && "lanes" in report;
+	const latest = useLatestOnLanes(report);
+	const text = planned
+		? reportText({ ...report, body: leadOf(report.body) })
+		: reportText(report);
 	// Shows the markdown the agent wrote in place of the card's body, until
 	// toggled back; never kept, so the card opens rendered.
 	const [showing, setShowing] = useState(false);
@@ -116,6 +128,13 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 					<Source text={report.source} />
 				) : report.ending === "investigated" && "task" in report ? (
 					<Investigated task={report.task} body={report.body} />
+				) : planned ? (
+					<>
+						{text !== "" && (
+							<CardBody text={text} lead={report.reason !== null} />
+						)}
+						{latest && <PlanBoard />}
+					</>
 				) : text === "" && report.ending !== "merged" ? undefined : (
 					<>
 						{text !== "" && (
@@ -131,6 +150,45 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 			</CardShell>
 		</div>
 	);
+}
+
+/**
+ * Whether `report` is the last report on lanes in its thread: no later one in
+ * its message, nor in any message after it.
+ */
+function useLatestOnLanes(report: Report): boolean {
+	return useAuiState((state) => {
+		if (!("lanes" in report)) {
+			return false;
+		}
+		const { messages } = state.thread;
+		const own = messages[state.message.index];
+		return (
+			own !== undefined &&
+			onLanes(own).at(-1)?.source === report.source &&
+			messages
+				.slice(state.message.index + 1)
+				.every((each) => onLanes(each).length === 0)
+		);
+	});
+}
+
+/** The reports on lanes in `message`, in order. */
+function onLanes(message: ThreadMessage): Report[] {
+	return message.content.flatMap((part) =>
+		part.type === "data" &&
+		part.name === "report" &&
+		"lanes" in (part.data as { report: Report }).report
+			? [(part.data as { report: Report }).report]
+			: [],
+	);
+}
+
+/** What a report on lanes says before its lines on each lane. */
+function leadOf(body: string): string {
+	const lines = body.split("\n");
+	const at = lines.findIndex((line) => line.startsWith("- "));
+	return (at === -1 ? lines : lines.slice(0, at)).join("\n").trim();
 }
 
 /** What an Investigated report fixed, then each finding it left, to defer. */

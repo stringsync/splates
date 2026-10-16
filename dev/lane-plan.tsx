@@ -1,9 +1,17 @@
-import { CornerUpLeftIcon } from "lucide-react";
-import { type JSX, type ReactNode, use, useContext } from "react";
+import { CornerUpLeftIcon, Loader2Icon } from "lucide-react";
+import {
+	createContext,
+	type JSX,
+	type ReactNode,
+	use,
+	useContext,
+	useState,
+} from "react";
 import { stretches } from "../asked";
 import { lanesOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
+import { type Need, needOfExternal } from "../needs";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { Board } from "./board";
@@ -112,24 +120,35 @@ function startedLanes(conversation: ConversationState): string[] {
 	);
 }
 
-/**
- * Beside a lane orchestrator's thread, its plan as it stands: each lane's
- * open todos in order, each with the agent on it and how that one stands,
- * or what holds it back, then what landed. A todo opens its card, an agent
- * its conversation. Nothing for a conversation that orchestrates nothing.
- */
-export function PlanCard({
-	conversation,
-	tasks,
-	onOpen,
-}: {
+/** The conversation a thread shows, for a Working card in it to draw its plan. */
+export const PlanSource = createContext<{
 	conversation: ConversationState;
 	tasks: Details[];
 	onOpen: (id: string) => void;
-}): JSX.Element | null {
+} | null>(null);
+
+/** How many rows Todo and Done show before the rest fold away. */
+const SHOWN = 3;
+
+/**
+ * In a lane orchestrator's latest Working card, its plan as it stands, live
+ * from arbor: Todo, its lanes' open todos no task has taken, in the order
+ * they land, each with what holds it back; Doing, those taken, each with the
+ * agent on it and how that one stands; and Done, the agents it started whose
+ * tasks are gone, newest last. A todo opens its card, an agent its
+ * conversation. Todo shows its first rows and Done its last, the rest a click
+ * away; Doing, as long as the agents at once, shows them all. Nothing outside
+ * a thread, or for a conversation that orchestrates nothing.
+ */
+export function PlanBoard(): JSX.Element | null {
+	const source = useContext(PlanSource);
 	const held = useContext(Held);
 	const board = use(Board);
 	const nameOf = useNameOf();
+	if (source === null) {
+		return null;
+	}
+	const { conversation, tasks, onOpen } = source;
 	const plan = planOf(
 		conversation,
 		held,
@@ -141,84 +160,191 @@ export function PlanCard({
 		return null;
 	}
 	const open = new Set(board.todos.map((todo) => todo.id));
+	// Each row names its lane only when there is more than one.
+	const laned = (lane: LaneRecord, text: string) =>
+		plan.lanes.length > 1 ? `${lane.name} · ${text}` : text;
+	const steps = plan.lanes.flatMap(({ lane, steps }) =>
+		steps.map((step) => ({ lane, ...step })),
+	);
+	const todo = steps
+		.filter((step) => step.todo.takenBy === null)
+		.map(({ lane, todo }) => (
+			<PlanRow
+				key={todo.id}
+				onClick={() => board.open(todo.id)}
+				mark={null}
+				line={<TodoLine todo={todo} />}
+				under={laned(lane, waitsOn(todo, open))}
+			/>
+		));
+	// What the agent on a taken todo needs: its conversation's, or for an
+	// external agent's task, the task's own.
+	const needOn = ({ todo, agent }: PlanStep): Need | null => {
+		if (agent !== null) {
+			return needOf(tasks, agent);
+		}
+		const task = tasks.find((each) => each.task === todo.takenBy);
+		return task === undefined ? null : needOfExternal(task, [...held]);
+	};
+	const doing = steps
+		.filter((step) => step.todo.takenBy !== null)
+		.map((step) => {
+			const { lane, todo, agent } = step;
+			const need = needOn(step);
+			return (
+				<PlanRow
+					key={todo.id}
+					onClick={() =>
+						agent === null ? board.open(todo.id) : onOpen(agent.id)
+					}
+					mark={
+						need === null ? null : (
+							<Mark
+								need={need}
+								reported={agent === null ? null : reportedAs(agent)}
+							/>
+						)
+					}
+					line={<TodoLine todo={todo} />}
+					under={laned(
+						lane,
+						agent === null ? (todo.takenBy ?? "") : nameOf(agent),
+					)}
+				/>
+			);
+		});
+	const done = plan.landed.map((agent) => (
+		<PlanRow
+			key={agent.id}
+			onClick={() => onOpen(agent.id)}
+			mark={<Mark need={needOf(tasks, agent)} reported={reportedAs(agent)} />}
+			line={nameOf(agent)}
+			under={reportedAs(agent) === "removed" ? "Removed" : "Merged"}
+		/>
+	));
+	const merged = plan.landed.filter(
+		(agent) => reportedAs(agent) !== "removed",
+	).length;
+	const working =
+		conversation.status === "running" ||
+		conversation.status === "starting" ||
+		steps.some((step) => {
+			const kind = step.todo.takenBy === null ? null : needOn(step)?.kind;
+			return kind === "working" || kind === "assuming";
+		});
 	return (
 		<section
 			aria-label="plan"
-			data-widget
-			className="overflow-hidden rounded-lg border bg-background py-1"
+			className="flex flex-col gap-3 px-4 pb-4 @max-md:px-3"
 		>
-			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm [&_svg]:size-4 [&_svg]:text-muted-foreground">
-				<LaneIcon />
-				Plan
-			</h3>
-			{plan.lanes.map(({ lane, steps }) => (
-				<div key={lane.id} className="pb-1">
-					<h4 className="truncate px-3 pt-1 text-muted-foreground text-xs">
-						{lane.name}
-					</h4>
-					{steps.length === 0 ? (
-						<p className="px-3 py-1 text-muted-foreground text-xs">
-							Nothing left
-						</p>
-					) : (
-						<ul>
-							{steps.map(({ todo, agent }) => (
-								<li key={todo.id}>
-									<PlanRow
-										onClick={() => board.open(todo.id)}
-										mark={
-											agent === null ? null : (
-												<Mark
-													need={needOf(tasks, agent)}
-													reported={reportedAs(agent)}
-												/>
-											)
-										}
-										line={
-											<>
-												<span className="text-muted-foreground tabular-nums">
-													#{todo.id}
-												</span>{" "}
-												{todo.subject}
-											</>
-										}
-										under={
-											agent !== null
-												? nameOf(agent)
-												: todo.takenBy !== null
-													? `Taken by ${todo.takenBy}`
-													: waitsOn(todo, open)
-										}
-									/>
-								</li>
-							))}
-						</ul>
-					)}
-				</div>
-			))}
-			{plan.landed.length > 0 && (
-				<div className="pb-1">
-					<h4 className="px-3 pt-1 text-muted-foreground text-xs">Landed</h4>
-					<ul>
-						{plan.landed.map((agent) => (
-							<li key={agent.id}>
-								<PlanRow
-									onClick={() => onOpen(agent.id)}
-									mark={
-										<Mark
-											need={needOf(tasks, agent)}
-											reported={reportedAs(agent)}
-										/>
-									}
-									line={nameOf(agent)}
-									under={null}
-								/>
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
+			<Progress done={merged} of={merged + steps.length} working={working} />
+			<div className="grid grid-cols-3 items-start gap-2 @max-md:grid-cols-1">
+				<PlanColumn title="Todo" rows={todo} shown={SHOWN} />
+				<PlanColumn title="Doing" rows={doing} shown={doing.length} />
+				<PlanColumn title="Done" rows={done} shown={SHOWN} fromEnd />
+			</div>
 		</section>
+	);
+}
+
+/**
+ * How far the plan has come: its todos merged out of every one it holds, as a
+ * bar and a count, with a spinner while any of its agents works, the
+ * orchestrator too.
+ */
+function Progress({
+	done,
+	of,
+	working,
+}: {
+	done: number;
+	of: number;
+	working: boolean;
+}): JSX.Element {
+	return (
+		<div className="flex items-center gap-2.5">
+			<div
+				role="progressbar"
+				aria-label="merged"
+				aria-valuemin={0}
+				aria-valuemax={of}
+				aria-valuenow={done}
+				className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+			>
+				<div
+					className="h-full rounded-full bg-success transition-[width]"
+					style={{ width: `${of === 0 ? 0 : (done / of) * 100}%` }}
+				/>
+			</div>
+			<span className="text-muted-foreground text-xs tabular-nums">
+				{done} of {of}
+			</span>
+			{working && (
+				<Loader2Icon
+					role="status"
+					aria-label="working"
+					className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+				/>
+			)}
+		</div>
+	);
+}
+
+function TodoLine({ todo }: { todo: TodoState }): JSX.Element {
+	return (
+		<>
+			<span className="text-muted-foreground tabular-nums">#{todo.id}</span>{" "}
+			{todo.subject}
+		</>
+	);
+}
+
+/**
+ * One of the board's columns: its title and count, then `shown` of its rows,
+ * the first or with `fromEnd` the last, the rest behind a line that opens
+ * them in place.
+ */
+function PlanColumn({
+	title,
+	rows,
+	shown,
+	fromEnd = false,
+}: {
+	title: string;
+	rows: JSX.Element[];
+	shown: number;
+	fromEnd?: boolean;
+}): JSX.Element {
+	const [opened, setOpened] = useState(false);
+	const hidden = opened ? 0 : Math.max(0, rows.length - shown);
+	const more =
+		hidden === 0 ? null : (
+			<li>
+				<button
+					type="button"
+					onClick={() => setOpened(true)}
+					className="w-full rounded-md px-1 py-0.5 text-start text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+				>
+					{fromEnd ? `${hidden} earlier` : `${hidden} more`}
+				</button>
+			</li>
+		);
+	return (
+		<div className="flex min-w-0 flex-col gap-1.5 rounded-lg bg-muted/60 p-1.5">
+			<h4 className="flex items-center gap-1.5 px-1 pt-0.5 font-medium text-muted-foreground text-xs">
+				{title}
+				<span className="tabular-nums">{rows.length}</span>
+			</h4>
+			{rows.length === 0 ? (
+				<p className="px-1 pb-0.5 text-muted-foreground text-xs">Nothing</p>
+			) : (
+				<ul aria-label={title} className="flex flex-col gap-1.5">
+					{fromEnd && more}
+					{fromEnd ? rows.slice(hidden) : rows.slice(0, rows.length - hidden)}
+					{!fromEnd && more}
+				</ul>
+			)}
+		</div>
 	);
 }
 
@@ -226,8 +352,8 @@ export function PlanCard({
 function waitsOn(todo: TodoState, open: ReadonlySet<number>): string {
 	const blockers = todo.blockedBy.filter((id) => open.has(id));
 	return blockers.length === 0
-		? "Not handed out"
-		: `Waits on ${blockers.map((id) => `#${id}`).join(", ")}`;
+		? "Ready"
+		: `After ${blockers.map((id) => `#${id}`).join(", ")}`;
 }
 
 function PlanRow({
@@ -237,29 +363,27 @@ function PlanRow({
 	under,
 }: {
 	onClick: () => void;
-	/** How its agent stands; null for none, leaving the space. */
+	/** How its agent stands, as the sidebar shows it; null for none. */
 	mark: ReactNode;
 	line: ReactNode;
-	under: string | null;
+	under: string;
 }): JSX.Element {
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className="flex w-full items-start gap-2 px-3 py-1 text-start text-sm transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
-		>
-			<span className="flex h-5 items-center">
-				{mark ?? <span className="size-3.5 shrink-0" />}
-			</span>
-			<span className="min-w-0 flex-1">
-				<span className="line-clamp-2">{line}</span>
-				{under !== null && (
+		<li>
+			<button
+				type="button"
+				onClick={onClick}
+				className="flex w-full items-start gap-2 rounded-md border bg-background px-2.5 py-1.5 text-start text-sm shadow-xs transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
+			>
+				{mark !== null && <span className="flex h-5 items-center">{mark}</span>}
+				<span className="min-w-0 flex-1">
+					<span className="line-clamp-2">{line}</span>
 					<span className="block truncate text-muted-foreground text-xs">
 						{under}
 					</span>
-				)}
-			</span>
-		</button>
+				</span>
+			</button>
+		</li>
 	);
 }
 
