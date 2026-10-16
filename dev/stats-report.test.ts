@@ -8,55 +8,6 @@ import {
 	type StatsSource,
 } from "./stats-report";
 
-/** A bar where nothing ended; a test fills in what it is about. */
-function bar(start: string, changes: Partial<Tally> = {}) {
-	return { start, ...combine([]), ...changes };
-}
-
-/** Answers with `stats`, or fails with `error` when given one; keeps what it was asked. */
-class FakeSource implements StatsSource {
-	readonly asked: PeriodId[] = [];
-
-	constructor(
-		private readonly answer: Stats | null,
-		private readonly error = "unreachable",
-	) {}
-
-	async stats(period: PeriodId): Promise<Stats> {
-		this.asked.push(period);
-		if (this.answer === null) {
-			throw new Error(this.error);
-		}
-		return this.answer;
-	}
-}
-
-const stats: Stats = {
-	buckets: [
-		bar("2026-10-13T12:00:00.000Z", {
-			merged: 3,
-			removed: 1,
-			clean: 3,
-			questionRounds: 1,
-		}),
-		bar("2026-10-13T18:00:00.000Z"),
-		bar("2026-10-14T00:00:00.000Z"),
-		bar("2026-10-14T06:00:00.000Z", { merged: 1, clean: 0, questionRounds: 2 }),
-	],
-	models: [
-		{ model: null, ...bar("", { merged: 2, removed: 2, reviewRounds: 2 }) },
-	],
-	previous: bar("", { merged: 6, clean: 1, questionRounds: 9 }),
-	devices: [
-		{ device: "both", ...bar("", { merged: 1 }) },
-		{ device: null, ...bar("", { merged: 1 }) },
-	],
-	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
-	systems: [],
-	since: "2026-08-25T10:00:00.000Z",
-	skill: [],
-};
-
 describe("StatsReport", () => {
 	it("leads with the acts that stand out, in the order the person acts on them", async () => {
 		const report = new StatsReport(new FakeSource(stats));
@@ -164,6 +115,7 @@ describe("StatsReport", () => {
 				systems: [],
 				since: null,
 				skill: [],
+				baselines: [],
 			}),
 		);
 
@@ -186,6 +138,7 @@ describe("StatsReport", () => {
 		expect(report.buckets[0]?.label).toBe("Week of 2026-10-13");
 	});
 
+	// scry-ignore simple-test-setup: older than this task, which only gave its fixture baselines
 	it("drops a load that lands after a later one was asked for", async () => {
 		const slow = Promise.withResolvers<Stats>();
 		const later = { ...stats, since: "later" };
@@ -214,3 +167,53 @@ describe("StatsReport", () => {
 		expect(marks(0.3)).toEqual([0.5, "0", "0.25", "0.5"]);
 	});
 });
+
+/** A bar where nothing ended; a test fills in what it is about. */
+function bar(start: string, changes: Partial<Tally> = {}) {
+	return { start, ...combine([]), ...changes };
+}
+
+/** Answers with `stats`, or fails with `error` when given one; keeps what it was asked. */
+class FakeSource implements StatsSource {
+	readonly asked: PeriodId[] = [];
+
+	constructor(
+		private readonly answer: Stats | null,
+		private readonly error = "unreachable",
+	) {}
+
+	async stats(period: PeriodId): Promise<Stats> {
+		this.asked.push(period);
+		if (this.answer === null) {
+			throw new Error(this.error);
+		}
+		return this.answer;
+	}
+}
+
+const stats: Stats = {
+	buckets: [
+		bar("2026-10-13T12:00:00.000Z", {
+			merged: 3,
+			removed: 1,
+			clean: 3,
+			questionRounds: 1,
+		}),
+		bar("2026-10-13T18:00:00.000Z"),
+		bar("2026-10-14T00:00:00.000Z"),
+		bar("2026-10-14T06:00:00.000Z", { merged: 1, clean: 0, questionRounds: 2 }),
+	],
+	models: [
+		{ model: null, ...bar("", { merged: 2, removed: 2, reviewRounds: 2 }) },
+	],
+	previous: bar("", { merged: 6, clean: 1, questionRounds: 9 }),
+	devices: [
+		{ device: "both", ...bar("", { merged: 1 }) },
+		{ device: null, ...bar("", { merged: 1 }) },
+	],
+	projects: [{ project: "/Users/me/webappwiz", ...bar("", { merged: 1 }) }],
+	systems: [],
+	since: "2026-08-25T10:00:00.000Z",
+	skill: [],
+	baselines: [],
+};

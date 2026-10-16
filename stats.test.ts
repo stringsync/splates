@@ -222,4 +222,42 @@ describe("summarize", () => {
 			expect.objectContaining({ applied: 0, passed: 0 }),
 		);
 	});
+
+	it("totals cost, tokens, working time and lines over the tasks that kept them", () => {
+		const stats = summarize(
+			[
+				ended({
+					usage: {
+						input: 100,
+						cached: 50,
+						output: 10,
+						cost: { amount: 1.5, currency: "USD" },
+					},
+					workedMs: 60_000,
+					size: { files: 2, added: 30, removed: 5 },
+				}),
+				// Codex says no cost.
+				ended({
+					usage: { input: 40, cached: 0, output: 4, cost: null },
+					workedMs: 1000,
+				}),
+				ended({}),
+			],
+			{ period: "1d", now },
+		);
+
+		expect(stats.buckets.at(-3)).toMatchObject({
+			used: 2,
+			inputTokens: 140,
+			outputTokens: 14,
+			costed: 1,
+			cost: 1.5,
+			workedMs: 61_000,
+			sized: 1,
+			filesChanged: 2,
+			linesAdded: 30,
+			linesRemoved: 5,
+		});
+		expect(stats.baselines).toMatchObject([{ project: "/repo", tasks: 3 }]);
+	});
 });

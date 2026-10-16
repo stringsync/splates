@@ -32,6 +32,7 @@ describe("StatsPage", () => {
 			systems: [],
 			since: "2026-09-28T10:00:00.000Z",
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage
@@ -72,6 +73,7 @@ describe("StatsPage", () => {
 			projects: [],
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
+			baselines: [],
 			skill: rates([
 				{
 					conversation: "a",
@@ -138,6 +140,7 @@ describe("StatsPage", () => {
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage
@@ -197,6 +200,7 @@ describe("StatsPage", () => {
 			],
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage
@@ -228,6 +232,7 @@ describe("StatsPage", () => {
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage
@@ -262,6 +267,7 @@ describe("StatsPage", () => {
 			systems: [],
 			since: "2026-07-01T10:00:00.000Z",
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage
@@ -286,6 +292,7 @@ describe("StatsPage", () => {
 			systems: [],
 			since: null,
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage
@@ -308,6 +315,7 @@ describe("StatsPage", () => {
 			systems: [],
 			since: "2026-10-12T10:00:00.000Z",
 			skill: [],
+			baselines: [],
 		};
 		const page = render(
 			<StatsPage

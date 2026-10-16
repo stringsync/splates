@@ -1,4 +1,5 @@
 import type { Judged } from "./adherence";
+import { type Baseline, baselines } from "./baselines";
 import type { Outcome } from "./outcomes";
 import { CHECKS } from "./skill-checks";
 import {
@@ -33,6 +34,23 @@ export interface Tally {
 	waitedMs: number;
 	/** Of the `timed` tasks, how long they took from add to end, in milliseconds. */
 	spentMs: number;
+	/** Tasks whose own usage was kept; older ones and external agents' were not. */
+	used: number;
+	/** Of the `used` tasks, tokens read, those from cache among them, and written. */
+	inputTokens: number;
+	outputTokens: number;
+	/** Of the `used` tasks, those whose agent said what they cost; Codex does not. */
+	costed: number;
+	/** Of the `costed` tasks, what they cost, summed. */
+	cost: number;
+	/** Of the `used` tasks, how long their agents worked, in milliseconds. */
+	workedMs: number;
+	/** Tasks whose diff size was kept. */
+	sized: number;
+	/** Of the `sized` tasks, the files and lines they changed. */
+	filesChanged: number;
+	linesAdded: number;
+	linesRemoved: number;
 	/** Failed merges by why, where it was kept. */
 	failedBy: Record<MergeFailure, number>;
 	/** Removed tasks by why; `unsaid` for one removed without `--reason`, or before it was kept. */
@@ -74,6 +92,8 @@ export interface Stats {
 	 * on, newest first: over all time, since a version is its own span.
 	 */
 	skill: SkillVersion[];
+	/** Each project's recent merged tasks, to hold one against: over the week before now, whatever the period. */
+	baselines: Baseline[];
 }
 
 /** Where the person spoke to a task's conversation from: a phone, a desktop, or both. */
@@ -193,12 +213,16 @@ export function summarize(
 		).map(([system, tally]) => ({ system, ...tally })),
 		since,
 		skill: rates(judged),
+		baselines: baselines(outcomes, now),
 	};
 }
 
 function tally(outcomes: Outcome[]): Tally {
 	const merged = outcomes.filter((each) => each.ended === "merged");
 	const timed = outcomes.filter((each) => each.waitedMs !== undefined);
+	const used = outcomes.filter((each) => each.usage !== undefined);
+	const costed = used.filter((each) => each.usage?.cost != null);
+	const sized = outcomes.filter((each) => each.size !== undefined);
 	const removedFor = blank(["unsaid", ...REMOVE_REASONS]);
 	for (const each of outcomes) {
 		if (each.ended === "removed") {
@@ -232,6 +256,16 @@ function tally(outcomes: Outcome[]): Tally {
 			timed,
 			(each) => Date.parse(each.endedAt) - Date.parse(each.startedAt),
 		),
+		used: used.length,
+		inputTokens: sum(used, (each) => each.usage?.input ?? 0),
+		outputTokens: sum(used, (each) => each.usage?.output ?? 0),
+		costed: costed.length,
+		cost: sum(costed, (each) => each.usage?.cost?.amount ?? 0),
+		workedMs: sum(used, (each) => each.workedMs ?? 0),
+		sized: sized.length,
+		filesChanged: sum(sized, (each) => each.size?.files ?? 0),
+		linesAdded: sum(sized, (each) => each.size?.added ?? 0),
+		linesRemoved: sum(sized, (each) => each.size?.removed ?? 0),
 		failedBy,
 		removedFor,
 	};
@@ -270,6 +304,16 @@ const SUMMED = [
 	"timed",
 	"waitedMs",
 	"spentMs",
+	"used",
+	"inputTokens",
+	"outputTokens",
+	"costed",
+	"cost",
+	"workedMs",
+	"sized",
+	"filesChanged",
+	"linesAdded",
+	"linesRemoved",
 ] as const;
 
 const MERGE_FAILURES: MergeFailure[] = [
