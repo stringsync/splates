@@ -12,26 +12,6 @@ import {
 	within,
 } from "./testing";
 
-/** A running conversation whose agent began its work `minutes` ago. */
-function workingFor(minutes: number, ...more: Message[]) {
-	const at = new Date(Date.now() - minutes * 60_000).toISOString();
-	return conversation({
-		status: "running",
-		messages: [
-			message("user", "fix the header"),
-			{
-				...message(
-					"agent",
-					tool({ command: "bun test", status: "in_progress", at }),
-				),
-				at,
-				until: new Date().toISOString(),
-			},
-			...more,
-		],
-	});
-}
-
 describe("App's check-in on a long turn", () => {
 	let testing: Testing;
 
@@ -66,6 +46,17 @@ describe("App's check-in on a long turn", () => {
 		const view = await testing.openConversations([workingFor(8)]);
 		await waitFor(() => view.getByText(/^Working 8m/));
 		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
+	});
+
+	it("counts from the agent's reply while its turn goes on after it", async () => {
+		const view = await testing.openConversations([repliedAfter(16, 6)]);
+		await waitFor(() => view.getByText(/^Working 16m/));
+		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
+	});
+
+	it("asks once the agent's reply is ten minutes old", async () => {
+		const view = await testing.openConversations([repliedAfter(16, 11)]);
+		await waitFor(() => view.getByRole("button", { name: "Check in" }));
 	});
 
 	it("offers none while a message waits for the agent", async () => {
@@ -111,3 +102,51 @@ describe("App's check-in on a long turn", () => {
 		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
 	});
 });
+
+/** A running conversation whose agent began its work `minutes` ago. */
+function workingFor(minutes: number, ...more: Message[]) {
+	const at = new Date(Date.now() - minutes * 60_000).toISOString();
+	return conversation({
+		status: "running",
+		messages: [
+			message("user", "fix the header"),
+			{
+				...message(
+					"agent",
+					tool({ command: "bun test", status: "in_progress", at }),
+				),
+				at,
+				until: new Date().toISOString(),
+			},
+			...more,
+		],
+	});
+}
+
+/**
+ * A running conversation whose agent began `minutes` ago and replied
+ * `replied` minutes ago, its turn still going, as while its subagents work.
+ */
+function repliedAfter(minutes: number, replied: number) {
+	const ago = (each: number) =>
+		new Date(Date.now() - each * 60_000).toISOString();
+	return conversation({
+		status: "running",
+		messages: [
+			message("user", "work down lane 3"),
+			{
+				...message(
+					"agent",
+					tool({
+						command: "arbor list",
+						status: "completed",
+						at: ago(minutes),
+					}),
+					{ type: "text", text: "Working lane 3", at: ago(replied) },
+				),
+				at: ago(minutes),
+				until: new Date().toISOString(),
+			},
+		],
+	});
+}

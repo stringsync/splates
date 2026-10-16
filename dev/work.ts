@@ -23,6 +23,8 @@ export interface Work {
 	working: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
+	/** When the agent began the words it has so far ended its turn on while the turn goes on, as when its subagents work after its reply; null otherwise. */
+	replied: string | null;
 }
 
 /**
@@ -87,6 +89,7 @@ export function stretchesOf(
 	if (after.length > 0) {
 		pieces.push(after);
 	}
+	const replied = going && said?.type === "text" ? (said.at ?? null) : null;
 	const kept = folded(placed(pieces, events));
 	const works = kept.filter((run) => Array.isArray(run));
 	// The last stretch but for events, which leave the work before them as it was.
@@ -115,6 +118,7 @@ export function stretchesOf(
 				running: going && index === end,
 				working: going && run === final,
 				going,
+				replied,
 			},
 		};
 	});

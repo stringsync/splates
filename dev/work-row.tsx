@@ -137,7 +137,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 				</details>
 				{work.working && since !== null && (
 					<InMessage>
-						<CheckIn since={since} now={now} />
+						<CheckIn since={latest(since, work.replied)} now={now} />
 					</InMessage>
 				)}
 				{work.going && work.plan !== null && <Plan steps={work.plan} />}
@@ -145,6 +145,11 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 			</div>
 		</Going>
 	);
+}
+
+/** The later of `since` and `replied`: the person has heard from the agent since it replied. */
+function latest(since: string, replied: string | null): string {
+	return replied !== null && replied > since ? replied : since;
 }
 
 /**
