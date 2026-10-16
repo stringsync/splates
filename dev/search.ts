@@ -13,7 +13,7 @@ export interface Searched {
 	tasks: Details[];
 	todos: TodoState[];
 	conversations: ConversationState[];
-	/** Every lane, to name a lane's orchestrator after it. */
+	/** Every lane there has been, to name a lane's orchestrator after it. */
 	lanes: readonly LaneRecord[];
 }
 

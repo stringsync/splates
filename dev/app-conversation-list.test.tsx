@@ -326,7 +326,7 @@ describe("App's conversation list", () => {
 			],
 			null,
 			{
-				lanes: [
+				laneNames: [
 					{ id: 22, name: "Cloudflare Access" },
 					{ id: 20, name: "Stats" },
 				],

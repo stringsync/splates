@@ -27,6 +27,11 @@ export interface Snapshot {
 	todos: TodoState[];
 	/** Every lane, in board order, empty ones too. */
 	lanes: LaneRecord[];
+	/**
+	 * The name of every lane there has been, those on the board first, to
+	 * name a lane's orchestrator after it once the lane is done.
+	 */
+	laneNames: LaneRecord[];
 	tasks: Details[];
 	/** Every cred agents requested, open or not, the latest first; never a value. */
 	creds: CredRequest[];
@@ -80,6 +85,7 @@ export async function snapshot({
 		todoStalenessMs: service.config.todoStalenessMs,
 		todos: (await todos.all()).map((todo) => todo.state),
 		lanes: await todos.lanes(),
+		laneNames: await todos.laneNames(),
 		tasks,
 		creds: await creds.requests(),
 		trunk: service.config.trunk,
@@ -107,23 +113,26 @@ export async function tasksOf({
 }
 
 /**
- * What the page is actually showing, minus the fields that move on their own.
- * `age` ticks every minute, and hashing it would push to every open page for
- * nothing.
+ * A key that changes only when what the page shows does, to push a snapshot
+ * to open pages only when it differs from the last one pushed.
  */
 export function fingerprint({
 	todos,
 	lanes,
+	laneNames,
 	tasks,
 	creds,
 	release,
 	behind,
 }: Snapshot): string {
+	// Leaves out the fields that move on their own: `age` ticks every
+	// minute, and hashing it would push to every open page for nothing.
 	return JSON.stringify([
 		release,
 		behind,
 		todos,
 		lanes,
+		laneNames,
 		creds,
 		tasks.map((task) => [
 			task.task,

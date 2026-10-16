@@ -205,7 +205,7 @@ export function App({
 		tasks,
 		todos: snapshot?.todos ?? NO_TODOS,
 		conversations: available ? conversations : NO_CONVERSATIONS,
-		lanes: snapshot?.lanes ?? NO_LANES,
+		lanes: snapshot?.laneNames ?? NO_LANES,
 	};
 	const pick = (found: Found) => {
 		if (found.kind === "task") {

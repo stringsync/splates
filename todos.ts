@@ -219,6 +219,11 @@ export class Todos {
 		return this.laneFiles.records(await this.stored());
 	}
 
+	/** The name of every lane there has been, those on the board first. */
+	async laneNames(): Promise<LaneRecord[]> {
+		return this.laneFiles.names(await this.stored());
+	}
+
 	/** Moves every todo in lane `from` to the bottom of lane `into`; `from` is gone. */
 	joinLanes(from: number, into: number): Promise<void> {
 		return this.laneFiles.joinLanes(from, into);

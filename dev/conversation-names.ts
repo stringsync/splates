@@ -4,7 +4,7 @@ import { nameOf, realName } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 
-/** Every lane on the board, to name a lane's orchestrator after it. */
+/** Every lane there has been, to name a lane's orchestrator after it. */
 export const Lanes = createContext<readonly LaneRecord[]>([]);
 
 /** `nameOf` with the board's lanes, for a component to call. */

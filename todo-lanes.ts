@@ -263,14 +263,34 @@ export class TodoLanes {
 	 * has no record. A file that will not parse reads as none.
 	 */
 	async records(states: TodoState[]): Promise<LaneRecord[]> {
-		const raw = await this.fs.read(`${this.todos.dir}/lanes`).catch(() => "[]");
-		let stored: LaneRecord[] = [];
+		return named(states, await this.read("lanes"));
+	}
+
+	/**
+	 * The name of every lane there has been: those on the board, and after
+	 * them each that is gone as it was last called, so an orchestrator whose
+	 * lanes are done still goes by their names.
+	 */
+	async names(states: TodoState[]): Promise<LaneRecord[]> {
+		const records = await this.records(states);
+		const ended = await this.read("ended-lanes");
+		return [
+			...records,
+			...ended.filter(({ id }) => !records.some((record) => record.id === id)),
+		];
+	}
+
+	/** The lane records in `file`, none when it is missing or will not parse. */
+	private async read(file: string): Promise<LaneRecord[]> {
+		const raw = await this.fs
+			.read(`${this.todos.dir}/${file}`)
+			.catch(() => "[]");
 		try {
 			const parsed: unknown = JSON.parse(raw);
 			if (Array.isArray(parsed)) {
 				// Only the id and name, so a field lanes no longer have, such as
 				// the agent one was once assigned, goes the next time they are written.
-				stored = parsed
+				return parsed
 					.filter(
 						(each) =>
 							Number.isInteger(each?.id) && typeof each?.name === "string",
@@ -278,13 +298,31 @@ export class TodoLanes {
 					.map(({ id, name }) => ({ id, name }));
 			}
 		} catch {}
-		return named(states, stored);
+		return [];
 	}
 
-	/** Writes the lanes, in board order. Call it under the lock. */
+	/**
+	 * Writes the lanes, in board order, keeping the name of each lane they
+	 * drop in `ended-lanes`. Call it under the lock.
+	 */
 	private async writeLanes(records: LaneRecord[]): Promise<void> {
+		const dropped = (await this.read("lanes")).filter(
+			({ id }) => !records.some((record) => record.id === id),
+		);
+		if (dropped.length > 0) {
+			const ended = await this.read("ended-lanes");
+			await this.write("ended-lanes", [
+				...ended.filter(({ id }) => !dropped.some((each) => each.id === id)),
+				...dropped,
+			]);
+		}
+		await this.write("lanes", records);
+	}
+
+	/** Writes `records` to `file` whole, so a reader never sees half of it. */
+	private async write(file: string, records: LaneRecord[]): Promise<void> {
 		await this.fs.mkdir(this.todos.dir);
-		const path = `${this.todos.dir}/lanes`;
+		const path = `${this.todos.dir}/${file}`;
 		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
 		await this.fs.write(tmp, `${JSON.stringify(records, null, "\t")}\n`);
 		await this.fs.rename(tmp, path);

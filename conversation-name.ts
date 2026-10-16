@@ -39,7 +39,7 @@ export function realName(
 /**
  * The names of the lanes a conversation opened with `[ARBOR LANE <n>]` for,
  * as an orchestrator's does, or null for any other: "Untriaged" for the
- * untriaged todos, and a lane no longer on the board by its number.
+ * untriaged todos, and a lane `lanes` lacks by its number.
  */
 function lanesNamed(
 	conversation: ConversationState,

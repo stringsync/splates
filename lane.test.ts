@@ -30,7 +30,7 @@ async function land(deps: Testing, task: string): Promise<void> {
 	deps.ps.cd(deps.root);
 }
 
-describe.concurrent("todo links", () => {
+describe.concurrent("todo links and lanes", () => {
 	it("adds a todo after others, and lists only the ready ones", async () => {
 		await using deps = await Testing.open();
 		await todoAdd(deps, "store licenses", null);
@@ -152,9 +152,7 @@ describe.concurrent("todo links", () => {
 
 		expect(color.strip(deps.out())).toContain("with store, which is escalated");
 	});
-});
 
-describe.concurrent("lanes", () => {
 	it("reshapes lanes: move, reorder, join and drop, never out of order", async () => {
 		await using deps = await Testing.open();
 		await seed(deps.todos, sound2score());
@@ -260,9 +258,8 @@ describe.concurrent("lanes", () => {
 		);
 		expect(out).toContain("arbor todo update <id> --lane new");
 
-		for (const id of [198, 201]) {
-			await todoUpdate(deps, id, { lane: 3 });
-		}
+		await todoUpdate(deps, 198, { lane: 3 });
+		await todoUpdate(deps, 201, { lane: 3 });
 		deps.log.clear();
 		await laneShow(deps, null);
 		expect(color.strip(deps.out())).toContain(
@@ -306,6 +303,24 @@ describe.concurrent("lanes", () => {
 		expect(out).toContain("lane 1 only step is done");
 		expect(out).toContain("next todo 2: elsewhere");
 		expect(await deps.todos.lanes()).toEqual([]);
+		expect(await deps.todos.laneNames()).toEqual([
+			{ id: 1, name: "only step" },
+		]);
+	});
+
+	it("keeps the name of every lane there has been, as it was last called", async () => {
+		await using deps = await Testing.open();
+		await laneAdd(deps, "Licensing");
+		await laneAdd(deps, "Billing");
+		await laneUpdate(deps, 1, { name: "Licenses" });
+
+		await deps.todos.dropLane(1);
+
+		expect(await deps.todos.lanes()).toEqual([{ id: 2, name: "Billing" }]);
+		expect(await deps.todos.laneNames()).toEqual([
+			{ id: 2, name: "Billing" },
+			{ id: 1, name: "Licenses" },
+		]);
 	});
 
 	it("keeps a lane whose last todo is removed by hand, empty", async () => {
