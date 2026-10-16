@@ -6,11 +6,17 @@ import {
 	CircleXIcon,
 	SearchIcon,
 } from "lucide-react";
-import { type JSX, useContext, useEffect, useState } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	useContext,
+	useEffect,
+	useState,
+} from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Landed } from "../landed";
-import { taskOutcome } from "./api";
+import { type TodoForm, taskOutcome } from "./api";
 import { ReplyContext } from "./card-reply";
 import { DeferButton } from "./defer";
 import { Markdown } from "./markdown";
@@ -154,17 +160,17 @@ export function Leftovers({
 	return (
 		<ul
 			aria-label="left unfixed"
-			className="flex flex-col gap-1 border-t px-4 py-3 text-xs"
+			className="flex flex-col gap-1.5 border-t px-4 py-3 text-xs"
 		>
 			{left.map((line) => (
-				<li key={line} className="flex items-start gap-1.5">
-					<CircleAlertIcon
-						aria-hidden
-						className="mt-1 size-3.5 shrink-0 text-warning"
-					/>
-					<Markdown text={line} className="min-w-0 flex-1 [&_p]:my-0" />
-					<DeferButton todo={deferredLeft(task, line)} />
-				</li>
+				<FindingLine
+					key={line}
+					Icon={CircleAlertIcon}
+					tone="text-warning"
+					defer={deferredLeft(task, line)}
+				>
+					<Markdown text={line} className="[&_p]:my-0" />
+				</FindingLine>
 			))}
 		</ul>
 	);
@@ -184,22 +190,49 @@ function Facts({
 	tone: string;
 }): JSX.Element {
 	return (
-		<ul aria-label={label} className="flex flex-col gap-1">
+		<ul aria-label={label} className="flex flex-col gap-1.5">
 			{facts.map((fact, index) => (
-				// Two alike, as two stopped turns, are two lines.
-				// biome-ignore lint/suspicious/noArrayIndexKey: the list never reorders
-				<li key={index} className="flex items-start gap-1.5">
-					<Icon aria-hidden className={cn("mt-1 size-3.5 shrink-0", tone)} />
-					{/* Beside its line where it fits, under it where it does not. */}
-					<span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5">
-						<Markdown text={fact.text} className="[&_p]:my-0" />
-						{fact.again !== null && (
-							<span className="text-muted-foreground">{fact.again}</span>
-						)}
-					</span>
-					<DeferButton todo={deferred(task, fact)} />
-				</li>
+				<FindingLine
+					// Two alike, as two stopped turns, are two lines.
+					// biome-ignore lint/suspicious/noArrayIndexKey: the list never reorders
+					key={index}
+					Icon={Icon}
+					tone={tone}
+					defer={deferred(task, fact)}
+				>
+					<Markdown text={fact.text} className="[&_p]:my-0" />
+					{fact.again !== null && (
+						<span className="text-muted-foreground">{fact.again}</span>
+					)}
+				</FindingLine>
 			))}
 		</ul>
+	);
+}
+
+/**
+ * One line of what went worse, its Defer right after its words, beside them
+ * where it fits and under them where it does not, so it reads as that line's.
+ */
+function FindingLine({
+	Icon,
+	tone,
+	defer,
+	children,
+}: {
+	Icon: typeof CircleAlertIcon;
+	tone: string;
+	defer: TodoForm;
+	children: ReactNode;
+}): JSX.Element {
+	return (
+		<li className="flex items-start gap-1.5">
+			{/* A 14px icon on a 16px line sits a pixel down to center on it. */}
+			<Icon aria-hidden className={cn("mt-px size-3.5 shrink-0", tone)} />
+			<span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5">
+				{children}
+				<DeferButton todo={defer} />
+			</span>
+		</li>
 	);
 }

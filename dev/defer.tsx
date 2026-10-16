@@ -23,7 +23,9 @@ export function DeferButton({ todo }: { todo: TodoForm }): JSX.Element {
 		);
 	}
 	return (
-		<span className="flex shrink-0 flex-col items-end">
+		// Its 24px button overhangs the 16px line it sits on, rather than
+		// spreading that line from the next.
+		<span className="-my-1 pointer-coarse:-my-3 flex shrink-0 flex-col items-start">
 			<Button
 				size="xs"
 				variant="ghost"
