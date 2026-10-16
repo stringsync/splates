@@ -18,6 +18,12 @@ export class SetupRoutes {
 	readonly read = async (): Promise<Response> =>
 		Response.json(await this.#setup.read());
 
+	/** Marks setup seen, so the page stops nudging towards it. */
+	readonly see = async (): Promise<Response> => {
+		await this.#setup.see();
+		return Response.json(await this.#setup.read());
+	};
+
 	/** Skips the step `/api/setup/:step/skipped` names, or asks for it again. */
 	readonly skip = async (request: Request): Promise<Response> => {
 		const step = decodeURIComponent(

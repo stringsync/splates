@@ -12,6 +12,7 @@ import type { Landed } from "../landed";
 import type { MachineReading } from "../machine";
 import type { Wants } from "../notices";
 import type { AgentPick } from "../roster";
+import type { SetupProgress } from "../setup";
 import type { PeriodId, Stats } from "../stats";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
@@ -307,6 +308,32 @@ export async function machine(): Promise<MachineStatus> {
 		throw new ApiError("error", `/api/machine: ${response.status}`);
 	}
 	return (await response.json()) as MachineStatus;
+}
+
+/** This machine's setup: every step checked, by area, and the one to do next. */
+export async function setup(): Promise<SetupProgress> {
+	const response = await fetch("/api/setup");
+	if (!response.ok) {
+		throw new ApiError("error", `/api/setup: ${response.status}`);
+	}
+	return (await response.json()) as SetupProgress;
+}
+
+/** Skips setup step `step`, or asks for it again, answering the fresh progress. */
+export async function skipSetupStep(
+	step: string,
+	skipped: boolean,
+): Promise<SetupProgress> {
+	return (await sendJson(
+		`/api/setup/${encodeURIComponent(step)}/skipped`,
+		"PUT",
+		{ skipped },
+	)) as SetupProgress;
+}
+
+/** Marks setup seen on this machine, so the page stops nudging towards it. */
+export async function seeSetup(): Promise<SetupProgress> {
+	return (await sendJson("/api/setup/seen", "PUT", {})) as SetupProgress;
 }
 
 /** The public key this device subscribes to the server's pushes with. */

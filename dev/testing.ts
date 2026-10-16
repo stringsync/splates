@@ -11,6 +11,7 @@ import type { ServerChoice } from "../dev-servers";
 import type { FileDiff } from "../diff";
 import type { Held } from "../held";
 import type { Landed } from "../landed";
+import type { SetupProgress } from "../setup";
 import type { Snapshot } from "../snapshot";
 import type { SystemsReport } from "../system-changes";
 import type { NamedSystem } from "../systems";
@@ -174,6 +175,8 @@ export class Testing implements Resource {
 	pushKey = PUSH_KEY;
 	/** What `/api/machine` reads, or null for it to fail. */
 	machine: MachineStatus | null = null;
+	/** What `/api/setup` reads, or null for it to fail. */
+	setup: SetupProgress | null = null;
 	/** Every terminal the page opened, oldest first. */
 	readonly shells: FakeShell[] = [];
 	#down = false;
@@ -233,6 +236,11 @@ export class Testing implements Resource {
 			}
 			if (route === "/api/push") {
 				return Response.json({ publicKey: this.pushKey });
+			}
+			if (route === "/api/setup") {
+				return this.setup === null
+					? new Response(null, { status: 500 })
+					: Response.json(this.setup);
 			}
 			if (route === "/api/machine") {
 				return this.machine === null

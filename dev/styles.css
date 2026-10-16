@@ -125,6 +125,9 @@
 @source "./cred-privacy.tsx";
 @source "./cred-scope.tsx";
 @source "./creds.tsx";
+@source "./setup-page.tsx";
+@source "./setup-nudge.tsx";
+@source "./setup-state.tsx";
 @source "./kept-creds.tsx";
 @source "./systems.tsx";
 @source "./systems-page.tsx";

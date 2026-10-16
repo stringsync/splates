@@ -353,6 +353,7 @@ export async function dev(
 				DELETE: talk(guarded(pushes.unsubscribe)),
 			},
 			"/api/setup": guarded(setup.read),
+			"/api/setup/seen": { PUT: guarded(setup.see) },
 			"/api/setup/:step/skipped": { PUT: guarded(setup.skip) },
 			"/api/restart": { POST: talk(guarded(restartIdle)) },
 			"/api/power": { POST: talk(guarded(powerNow)) },

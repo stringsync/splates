@@ -201,6 +201,9 @@ function pageIn(hash: string): Page {
 	if (hash === "#budget") {
 		return "budget";
 	}
+	if (hash === "#setup") {
+		return "setup";
+	}
 	return hash.startsWith("#conversations") ? "conversations" : "todos";
 }
 

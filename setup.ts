@@ -64,6 +64,7 @@ export class Setup {
 					after: step.after.map((each) => each.id),
 					status,
 					problem,
+					cred: step.cred ?? null,
 				});
 			}
 			areas.push({
@@ -83,6 +84,7 @@ export class Setup {
 		return {
 			areas,
 			next: next?.id ?? null,
+			fresh: !(await this.#machine.fs.exists(this.#path)),
 			required: all.some(
 				(step) =>
 					!step.optional &&
@@ -106,6 +108,16 @@ export class Setup {
 		const skipped = await this.#skipped();
 		if (skipped.includes(id)) {
 			await this.#save(skipped.filter((each) => each !== id));
+		}
+	}
+
+	/**
+	 * Marks setup as seen on this machine, so the page stops nudging a fresh
+	 * one towards it.
+	 */
+	async see(): Promise<void> {
+		if (!(await this.#machine.fs.exists(this.#path))) {
+			await this.#save([]);
 		}
 	}
 
@@ -165,6 +177,8 @@ export interface SetupStep {
 	readonly optional: boolean;
 	/** The steps that must be done first, on the roster before this one. */
 	readonly after: readonly SetupStep[];
+	/** The cred the user pastes for it, when that is the one thing they do. */
+	readonly cred?: string;
 	/** Whether it is done, from real state. */
 	check(machine: SetupMachine): Promise<boolean>;
 }
@@ -191,6 +205,8 @@ export interface StepProgress {
 	status: StepStatus;
 	/** What went wrong checking it, or null when the check ran. */
 	problem: string | null;
+	/** The cred the user pastes for it, or null. */
+	cred: string | null;
 }
 
 export interface AreaProgress {
@@ -207,6 +223,8 @@ export interface SetupProgress {
 	areas: AreaProgress[];
 	/** The one step to do next, or null when nothing is ready. */
 	next: string | null;
+	/** Whether no one has opened setup on this machine yet. */
+	fresh: boolean;
 	/** Whether any required step is neither done nor skipped. */
 	required: boolean;
 }

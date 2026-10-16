@@ -8,6 +8,7 @@ import { openRequests } from "./creds";
 import type { Move } from "./page-address";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
+import { SetupNudge } from "./setup-nudge";
 
 /**
  * The phone's way to every page, slid in from the left as in the Claude and
@@ -111,17 +112,25 @@ export function Drawer({
 							),
 						)}
 					</nav>
-					{available && (
-						<div className="mt-auto border-t p-2">
-							<Entry
-								current={conversation === ARCHIVED}
-								onClick={() => go("conversations", ARCHIVED)}
-								icon={<ArchiveIcon />}
-								label="Archived"
-								count={archived}
-							/>
-						</div>
-					)}
+					{/* At the foot, the nudge until setup is seen, then Archived. */}
+					<div className="mt-auto">
+						{page !== "setup" && (
+							<div className="p-2">
+								<SetupNudge onOpen={() => go("setup")} />
+							</div>
+						)}
+						{available && (
+							<div className="border-t p-2">
+								<Entry
+									current={conversation === ARCHIVED}
+									onClick={() => go("conversations", ARCHIVED)}
+									icon={<ArchiveIcon />}
+									label="Archived"
+									count={archived}
+								/>
+							</div>
+						)}
+					</div>
 				</DialogPrimitive.Popup>
 			</DialogPrimitive.Portal>
 		</DialogPrimitive.Root>

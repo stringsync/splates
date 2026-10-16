@@ -10,7 +10,7 @@ import type { ConversationFeed } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 import { useShortcut } from "./hooks/use-shortcut";
 import type { PageMenu } from "./page-menu";
-import { PAGES, type Page } from "./page-route";
+import type { Page } from "./page-route";
 import { Sidebar } from "./sidebar";
 import { SidebarHead } from "./sidebar-head";
 import type { Terminals } from "./terminals";
@@ -27,6 +27,7 @@ const DESKTOP_PAGES: Record<Page, string> = {
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	creds: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
 	budget: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",
+	setup: "mx-auto w-full min-w-0 max-w-xl px-4 pt-2 pb-6",
 	// A thread reaches across its right padding, so its scrollbar sits at the
 	// window's edge (`--thread-bleed-end`).
 	conversations: "min-w-0 px-4 pb-4 [--thread-bleed-end:--spacing(4)]",
@@ -138,6 +139,7 @@ export function DesktopApp({
 					page={page}
 					open={open}
 					onOpen={(id) => go("conversations", id)}
+					onPage={(to) => go(to)}
 					talk={talk}
 					terminals={terminals}
 					drafts={drafts}
@@ -150,17 +152,18 @@ export function DesktopApp({
 						{opening}
 					</>
 				) : (
-					PAGES.filter(
-						({ value }) => value !== "conversations" || available,
-					).map(({ value }) => (
-						<TabsContent
-							key={value}
-							value={value}
-							className={DESKTOP_PAGES[value]}
-						>
-							{bodies[value]}
-						</TabsContent>
-					))
+					// Every page, those out of the nav, as Setup, too.
+					(Object.keys(DESKTOP_PAGES) as Page[])
+						.filter((value) => value !== "conversations" || available)
+						.map((value) => (
+							<TabsContent
+								key={value}
+								value={value}
+								className={DESKTOP_PAGES[value]}
+							>
+								{bodies[value]}
+							</TabsContent>
+						))
 				)}
 			</Tabs>
 		</TopBarFrame>

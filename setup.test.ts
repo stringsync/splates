@@ -98,6 +98,26 @@ describe("Setup", () => {
 		expect(unskipped.areas[0]?.skipped).toBe(0);
 	});
 
+	it("is fresh until setup is seen or a step skipped", async () => {
+		const setup = new Setup(machine, roster());
+
+		const fresh = await setup.read();
+		await setup.see();
+		const seen = await setup.read();
+
+		expect(fresh.fresh).toBe(true);
+		expect(seen.fresh).toBe(false);
+	});
+
+	it("keeps what was skipped when setup is seen again", async () => {
+		const setup = new Setup(machine, roster());
+		await setup.skip("key");
+
+		await setup.see();
+
+		expect((await setup.read()).areas[1]?.skipped).toBe(1);
+	});
+
 	it("counts a done step as done although it was skipped", async () => {
 		const setup = new Setup(machine, roster());
 		await setup.skip("key");

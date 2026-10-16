@@ -1,5 +1,11 @@
 import { useReactive } from "@webappwiz/react";
-import { CheckIcon, RotateCcwIcon, SearchIcon, XIcon } from "lucide-react";
+import {
+	CheckIcon,
+	ListChecksIcon,
+	RotateCcwIcon,
+	SearchIcon,
+	XIcon,
+} from "lucide-react";
 import { type JSX, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
@@ -35,10 +41,13 @@ export function SettingsDialog({
 	settings,
 	open,
 	onOpenChange,
+	onSetup,
 }: {
 	settings: Settings;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** Opens the Setup wizard, once the dialog has closed. */
+	onSetup: () => void;
 }): JSX.Element {
 	const [query, setQuery] = useState("");
 	const [picked, setPicked] = useState<Category>(CATEGORIES[0]);
@@ -82,38 +91,52 @@ export function SettingsDialog({
 					</div>
 				</div>
 				<div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-					<nav
-						aria-label="setting categories"
-						className="flex shrink-0 gap-0.5 overflow-x-auto border-b p-2 sm:w-48 sm:flex-col sm:overflow-x-visible sm:border-r sm:border-b-0"
-					>
-						{shown.map(({ category, keys }) => (
-							<button
-								key={category}
-								type="button"
-								aria-current={category === picked ? "true" : undefined}
-								onClick={() => {
-									setPicked(category);
-									if (searching) {
-										document
-											.getElementById(sectionId(category))
-											?.scrollIntoView({ block: "start" });
-									}
-								}}
-								className={cn(
-									"flex shrink-0 items-center rounded-md px-3 py-1.5 text-left hover:bg-muted",
-									category === picked &&
-										"bg-accent font-medium hover:bg-accent",
-								)}
-							>
-								<span className="flex-1">{category}</span>
-								{searching && (
-									<span className="text-muted-foreground text-xs tabular-nums">
-										{keys.length}
-									</span>
-								)}
-							</button>
-						))}
-					</nav>
+					<div className="flex shrink-0 flex-col border-b sm:w-48 sm:border-r sm:border-b-0">
+						<nav
+							aria-label="setting categories"
+							className="flex shrink-0 gap-0.5 overflow-x-auto p-2 sm:flex-1 sm:flex-col sm:overflow-x-visible"
+						>
+							{shown.map(({ category, keys }) => (
+								<button
+									key={category}
+									type="button"
+									aria-current={category === picked ? "true" : undefined}
+									onClick={() => {
+										setPicked(category);
+										if (searching) {
+											document
+												.getElementById(sectionId(category))
+												?.scrollIntoView({ block: "start" });
+										}
+									}}
+									className={cn(
+										"flex shrink-0 items-center rounded-md px-3 py-1.5 text-left hover:bg-muted",
+										category === picked &&
+											"bg-accent font-medium hover:bg-accent",
+									)}
+								>
+									<span className="flex-1">{category}</span>
+									{searching && (
+										<span className="text-muted-foreground text-xs tabular-nums">
+											{keys.length}
+										</span>
+									)}
+								</button>
+							))}
+						</nav>
+						{/* Under the categories, since it is a walk-through, not a setting. */}
+						<button
+							type="button"
+							onClick={() => {
+								onOpenChange(false);
+								onSetup();
+							}}
+							className="flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-muted-foreground hover:bg-muted hover:text-foreground m-2 mt-0 sm:mt-0"
+						>
+							<ListChecksIcon className="size-4" />
+							Set up arbor
+						</button>
+					</div>
 					<div className="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
 						{pages.length === 0 ? (
 							<p className="py-8 text-center text-muted-foreground">

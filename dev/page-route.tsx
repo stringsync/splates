@@ -21,7 +21,7 @@ import { TaskIcon } from "./task-icon";
  * The page's pages, the one in the address first: `#tasks` (or
  * `#tasks/<name>` for one open), `#conversations` (or `#conversations/<id>`
  * for one open), `#systems` (or `#systems/<name>` for one open), `#stats`,
- * `#creds`, `#budget`, or the board.
+ * `#creds`, `#budget`, `#setup`, or the board.
  */
 export type Page =
 	| "todos"
@@ -30,9 +30,13 @@ export type Page =
 	| "systems"
 	| "stats"
 	| "creds"
-	| "budget";
+	| "budget"
+	| "setup";
 
-/** Each page with the shortcut that opens it, if any. */
+/**
+ * Each page in the nav, with the shortcut that opens it, if any. Setup is
+ * not one: Settings and the nudge open it.
+ */
 export const PAGES: {
 	value: Page;
 	label: string;
@@ -101,6 +105,7 @@ export const PHONE_PAGES: Record<Page, string> = {
 	stats: "min-w-0 px-4 py-6",
 	creds: "min-w-0 px-4 py-6",
 	budget: "min-w-0 px-4 py-6",
+	setup: "min-w-0 px-4 py-6",
 	conversations: "min-h-0 flex-1",
 };
 

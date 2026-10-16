@@ -97,6 +97,7 @@ function setupAreas(): readonly SetupArea[] {
 		agent: `Request it with \`arbor creds request ${OPENAI_KEY} --device\`, with how to get it.`,
 		optional: true,
 		after: [],
+		cred: OPENAI_KEY,
 		check: async ({ device }) => (await device.get(OPENAI_KEY)) !== undefined,
 	};
 	return [

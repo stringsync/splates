@@ -14,6 +14,7 @@ import { NewMenu } from "./new-menu";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
+import { SetupNudge } from "./setup-nudge";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 
@@ -32,6 +33,7 @@ export function AppNav({
 	page,
 	open,
 	onOpen,
+	onPage,
 	talk,
 	terminals,
 	drafts,
@@ -44,6 +46,8 @@ export function AppNav({
 	/** The conversation open, by its address, or null. */
 	open: string | null;
 	onOpen: (id: string | null) => void;
+	/** Goes to another page. */
+	onPage: (page: Page) => void;
 	talk: ConversationFeed;
 	terminals: Terminals;
 	drafts: Drafts;
@@ -62,14 +66,13 @@ export function AppNav({
 	// the list under it says what waits. None shows for nothing.
 	const count = (page: Page) => {
 		const counting =
-			snapshot === null ||
-			page === "conversations" ||
-			page === "systems" ||
-			page === "stats" ||
-			page === "creds" ||
-			page === "budget"
+			snapshot === null
 				? 0
-				: (page === "todos" ? snapshot.todos : snapshot.tasks).length;
+				: page === "todos"
+					? snapshot.todos.length
+					: page === "tasks"
+						? snapshot.tasks.length
+						: 0;
 		return counting === 0 ? null : counting;
 	};
 	// Creds counts nothing: a dot says a request waits on the person.
@@ -129,6 +132,12 @@ export function AppNav({
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>
+					</div>
+				)}
+				{/* At the foot, under the conversations, until setup is seen. */}
+				{page !== "setup" && (
+					<div className="mt-auto pt-3 pb-3">
+						<SetupNudge onOpen={() => onPage("setup")} />
 					</div>
 				)}
 			</TabsList>

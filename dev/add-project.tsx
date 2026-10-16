@@ -1,3 +1,4 @@
+import { Loader2Icon } from "lucide-react";
 import { type JSX, useContext, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Input } from "#dev/components/ui/input.tsx";
@@ -138,4 +139,35 @@ export function NoProject({ message }: { message: string }): JSX.Element {
 			<AddProject autoFocus className="w-full max-w-sm" />
 		</div>
 	);
+}
+
+/**
+ * What the page shows before a project's first snapshot: the server opens a
+ * project on its first read, which takes seconds. Offline or outdated, the
+ * header already says why nothing came; with no project to show, the page
+ * asks for one.
+ */
+export function Opening({
+	missing,
+	waiting,
+	name,
+}: {
+	/** Why there is no project to show, or null while one opens. */
+	missing: string | null;
+	/** Whether the server is reachable and current, so one is on its way. */
+	waiting: boolean;
+	name: string;
+}): JSX.Element | null {
+	if (missing !== null) {
+		return <NoProject message={missing} />;
+	}
+	return waiting ? (
+		<div
+			role="status"
+			className="flex flex-1 items-center justify-center gap-2 py-24 text-muted-foreground text-sm"
+		>
+			<Loader2Icon className="size-4 animate-spin" />
+			Opening {name}
+		</div>
+	) : null;
 }
