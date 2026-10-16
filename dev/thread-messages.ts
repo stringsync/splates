@@ -410,17 +410,33 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 								heading.report.ending === "escalated"
 									? heading.report
 									: null,
+							proposal: heading?.type === "proposal" ? heading.proposal : null,
 							demo,
 						},
 					},
 				];
 			}
 			case "demo":
-				return after?.type === "questions"
+				return after?.type === "questions" || before?.type === "proposal"
 					? []
 					: [{ type: "data-demo", data: { demo: stretch.demo } }];
 			case "review":
 				return [{ type: "data-review", data: { review: stretch.review } }];
+			case "proposal":
+				// Its questions are its card; without any, it is a card of its own.
+				return asking?.type === "questions"
+					? []
+					: [
+							{
+								type: "data-questions",
+								data: {
+									questions: [],
+									escalation: null,
+									proposal: stretch.proposal,
+									demo: after?.type === "demo" ? after.demo : null,
+								} satisfies QuestionsData,
+							},
+						];
 			case "start":
 				return [{ type: "data-start", data: { start: stretch.start } }];
 			case "report":

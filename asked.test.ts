@@ -124,6 +124,38 @@ describe("stretches", () => {
 		).toEqual([]);
 	});
 
+	it("reads the skill's proposal, and the calls it rests on as its questions", async () => {
+		const proposal = await skillExample("## 💡 Proposed");
+
+		expect(stretches(proposal)).toEqual([
+			{
+				type: "proposal",
+				proposal: {
+					subject: "a card for proposals",
+					body: "Fold proposals into the questions card, each assumption a question already answered.\n\n#### An assumption is a question with an answer.\n\n- The questions card already tags a `(chosen)` choice.\n- It already heads its questions with an escalation's report.\n- One card then asks everything, answered or not.",
+				},
+			},
+			{
+				type: "questions",
+				questions: [
+					expect.objectContaining({
+						number: "1",
+						text: "Where should a proposal's assumptions come from?",
+						choices: [
+							expect.objectContaining({ key: "a", chosen: true }),
+							expect.objectContaining({ key: "b", chosen: false }),
+						],
+					}),
+					expect.objectContaining({
+						number: "2",
+						text: "What should its button say?",
+						choices: [],
+					}),
+				],
+			},
+		]);
+	});
+
 	it("reads the skill's merge and remove reports, and the todos they propose", async () => {
 		const merged = await skillExample("## ✅ Merged");
 		const removed = await skillExample("## 🛑 Removed");
@@ -488,6 +520,45 @@ describe("stretches", () => {
 	it("leaves a review title without the line every review ends with as text", () => {
 		const text = "## 🔍 Ready to merge header onto main\n\nStill going.";
 		expect(stretches(text)).toEqual([{ type: "text", text }]);
+	});
+
+	it("reads a proposal that rests on no calls, up to the next heading", () => {
+		expect(
+			stretches(
+				[
+					"Here is what I would do.",
+					"",
+					"## 💡 Proposed a wider header",
+					"",
+					"Let the header wrap at 390px.",
+					"",
+					"#### It overflows today.",
+					"",
+					"- The menu runs off the edge.",
+					"",
+					"### 📝 Header overflows [#4]",
+					"",
+					"It is the same header.",
+				].join("\n"),
+			),
+		).toEqual([
+			{ type: "text", text: "Here is what I would do." },
+			{
+				type: "proposal",
+				proposal: {
+					subject: "a wider header",
+					body: "Let the header wrap at 390px.\n\n#### It overflows today.\n\n- The menu runs off the edge.",
+				},
+			},
+			{
+				type: "todo",
+				todo: {
+					id: 4,
+					subject: "Header overflows",
+					body: "It is the same header.",
+				},
+			},
+		]);
 	});
 });
 

@@ -42,6 +42,21 @@ export function stretches(text: string): Stretch[] {
 			i = end;
 			continue;
 		}
+		const proposed = PROPOSED.exec(line);
+		if (proposed !== null) {
+			const end = endAt(lines, i + 1);
+			found.push(...prose(lines.slice(from, i)));
+			found.push({
+				type: "proposal",
+				proposal: {
+					subject: proposed[1] as string,
+					body: trimmed(lines.slice(i + 1, end)),
+				},
+			});
+			from = end;
+			i = end - 1;
+			continue;
+		}
 		const demo = demoHere(lines, i);
 		if (demo !== null) {
 			found.push(...prose(lines.slice(from, i)));
@@ -77,7 +92,7 @@ export function stretches(text: string): Stretch[] {
 /**
  * A stretch of an agent's message: markdown as it was written, the questions
  * it asks the person in the arbor skill's format, its report asking them to
- * review a task before it merges, its report of how a task ended or what it
+ * review a task before it merges, a design it proposes, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it
  * started lanes, a todo it proposes, a demo for the person to try, or its word that
  * it requested a cred.
@@ -86,9 +101,10 @@ export type Stretch =
 	| { type: "text"; text: string }
 	| { type: "questions"; questions: Question[] }
 	| { type: "review"; review: Review }
+	| { type: "proposal"; proposal: Proposal }
 	| { type: "report"; report: Report }
 	| { type: "start"; start: LanesStart }
-	| { type: "todo"; todo: Proposal }
+	| { type: "todo"; todo: TodoProposal }
 	| { type: "demo"; demo: Demo };
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
@@ -105,6 +121,18 @@ export interface Review {
 	failed: string[];
 	/** Whatever else it says, past the summary, as markdown. */
 	details: string;
+}
+
+/**
+ * What the agent proposes to do, as the skill's `## 💡 Proposed` report puts
+ * it, for the person to approve before it starts. The questions after it are
+ * the calls it rests on, those with a `(chosen)` choice already answered.
+ */
+export interface Proposal {
+	/** What it proposes, as its title says. */
+	subject: string;
+	/** What it recommends, and the `####` sections saying why, as markdown. */
+	body: string;
 }
 
 /**
@@ -185,7 +213,7 @@ export interface LanesStart {
 }
 
 /** A todo the skill proposes as `### 📝 <subject> [#<id>]`. */
-export interface Proposal {
+export interface TodoProposal {
 	id: number;
 	/** The subject as the agent wrote it, which may since have changed. */
 	subject: string;
@@ -221,6 +249,8 @@ const HEADING = /^#{1,3}[ \t]/;
 /** A review report's title, and the line every one ends with. */
 const REVIEW = /^## 🔍 Ready to merge (\S+) onto (\S+)[ \t]*$/;
 const REVIEW_END = 'Reply "merge", or say what to change.';
+/** A proposal's title. */
+const PROPOSED = /^## 💡 Proposed (.+?)[ \t]*$/;
 /** A review's line naming the checks that passed, each in a code span. */
 const CHECKS = /^Checks:[ \t]*(.*)$/;
 /** A review's line naming the checks that failed, the same way. */

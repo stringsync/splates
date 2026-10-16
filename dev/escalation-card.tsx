@@ -72,6 +72,7 @@ export function EscalationCard({
 					number: String(at + 1),
 				}))}
 				escalation={escalation}
+				proposal={null}
 				demo={written?.demo ?? null}
 			/>
 		</InMessage>

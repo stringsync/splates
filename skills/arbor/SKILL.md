@@ -30,6 +30,7 @@ asks you to read it as Reference files says.
 | `[ARBOR HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[ARBOR TASK <task>]` |
 | `[ARBOR HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[ARBOR MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
+| `[ARBOR APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[ARBOR UPDATE]` | Where your work stands, from the Check in button | Bring `## Done` and `## Next` up to date, then answer in at most three `- ` lines: what you finished since the user last heard from you, what you are on now, and what is in the way, if anything. Then carry on with the work in the same turn, as though nothing had come: no report, no questions and no stop |
 | `[ARBOR LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
 | `[ARBOR LANE N]` | Work down lane N as its orchestrator | [lanes.md](references/lanes.md) |
@@ -393,7 +394,8 @@ Say each assumption in the conversation too, in the reply that ends the turn
 you wrote it in, so the user sees the call while it is cheap to undo: a
 `- Assumed <number>: <what you chose>` line each, beyond any cap on `- `
 lines, after the others and before any todo, demo or question. A review leaves
-them out, since its Ready to merge card lists them.
+them out, since its Ready to merge card lists them, and a proposal lists them
+as Proposing says.
 
 An answer can reach you mid-turn, as a message that arrives while you work.
 Read it at the next step rather than at the end: record it (see Keeping
@@ -576,6 +578,52 @@ throwaway repository with `ARBOR_HOME` set to a throwaway directory, so it
 stays out of the user's `arbor dev` project list. When `arbor tunnel status`
 shows a tunnel, `arbor dev --slot` from your worktree does both and prints a
 `https://<word>.<zone>` the user can open on their phone too: give them that.
+
+## Proposing
+
+When the user asks what you think, or a request leaves open a design that
+would be costly to build on a wrong guess, propose before you build, so the
+user can approve it or challenge what it rests on. A change cheap to undo
+needs no proposal: make it, writing its calls as assumptions.
+
+A proposal is one block: a `## 💡 Proposed <subject>` title, the subject a
+few words on what you would build, lowercase after its first word; a blank
+line; one plain sentence, under 25 words, on what you recommend; then a
+`####` section for each reason the user needs, its line stating one point in
+a sentence, then three `- ` lines, one fact each, with no paragraphs. It
+ends with each call it rests on that the user has not settled, as a list of
+questions numbered from 1: a call you have a clear pick for marks that
+choice `(chosen)`, as an assumption does, and one you have none for marks
+none, as a question.
+
+```markdown
+## 💡 Proposed a card for proposals
+
+Fold proposals into the questions card, each assumption a question already answered.
+
+#### An assumption is a question with an answer.
+
+- The questions card already tags a `(chosen)` choice.
+- It already heads its questions with an escalation's report.
+- One card then asks everything, answered or not.
+
+1. Where should a proposal's assumptions come from?
+   - (a) The reply, so a proposal works outside a task too (chosen)
+   - (b) `ARBOR.md`, so every proposal needs a task
+2. What should its button say?
+```
+
+In a task, write each call in `ARBOR.md` too, the chosen ones under
+`## Assumptions` and the rest under `## Blocked`.
+
+The `arbor dev` page shows a proposal as a questions card headed by it, each
+call with a `(chosen)` choice already answered with it. Once every call is
+answered, its button approves, sending `[ARBOR APPROVE]`, then each answer
+that differs from what you chose, quoted as any answer is (see Keeping
+Blocked current), then any words. That, or a reply of "approve", means go
+ahead as proposed, taking in each answer and word, every call not quoted as
+you chose it, after `arbor add` when no task is under way. A reply without
+it answers what it quotes: take that in and propose again.
 
 ## Demos
 

@@ -4,6 +4,7 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	CopyIcon,
+	LightbulbIcon,
 	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
@@ -12,10 +13,19 @@ import { Button } from "#dev/components/ui/button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { focusStop, raises, useTouch } from "#dev/hooks/use-touch.ts";
 import { cn } from "#dev/lib/utils.ts";
-import type { TaskReport } from "../asked";
+import type { Proposal, TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Question } from "../plan";
-import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
+import { APPROVE } from "../prompts";
+import {
+	type Answer,
+	answerIn,
+	besides,
+	challenges,
+	isEmpty,
+	replyOf,
+	takenOf,
+} from "../reply";
 import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
 import { CardBox } from "./card-box";
@@ -31,11 +41,15 @@ import { Refusal, useRefusal } from "./refusal";
  * choice, the arrows move between them, Enter goes on to the next question
  * and from "Anything else" sends, as ⌘Enter does from anywhere in it. What is
  * written stays in the panel, never the composer, until it is sent, or for
- * an agent outside the page, copied to paste into its session.
+ * an agent outside the page, copied to paste into its session. Under a
+ * proposal, each question with a `(chosen)` choice comes answered with it,
+ * and once every one is answered, sending approves the proposal, saying
+ * only the answers that differ from what the agent chose.
  */
 export function QuestionCards({
 	questions,
 	escalation = null,
+	proposal = null,
 	demo = null,
 	draft = null,
 	earlier = [],
@@ -46,6 +60,8 @@ export function QuestionCards({
 	questions: Question[];
 	/** The escalation they end, which heads them in its place. */
 	escalation?: TaskReport | null;
+	/** The proposal they rest under, which heads them in its place. */
+	proposal?: Proposal | null;
 	/** The demo they ask about, shown above them. */
 	demo?: Demo | null;
 	/** The name it keeps what is written under in the conversation's drafts. */
@@ -70,12 +86,23 @@ export function QuestionCards({
 	const live = sent === null && !askedAgain && (copy || reply !== null);
 	const kept = useKept(draft, sent, earlier);
 	const touch = useTouch();
+	// What a proposal's agent chose for `asked`, which it comes answered with.
+	const chosen = (asked: Question): Answer | null =>
+		proposal !== null && asked.choices.some((choice) => choice.chosen)
+			? takenOf(asked)
+			: null;
+	// What a reply says of `answer`: under a proposal, nothing of one that
+	// leaves what the agent chose.
+	const said = (asked: Question, answer: Answer | null): Answer | null =>
+		proposal === null || answer === null || challenges(asked, answer)
+			? answer
+			: null;
 	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
 		return {
 			answers: Object.fromEntries(
 				questions.flatMap((asked) => {
-					const answer = answerIn(before, asked);
+					const answer = answerIn(before, asked) ?? chosen(asked);
 					return answer === null ? [] : [[asked.text, answer]];
 				}),
 			),
@@ -89,14 +116,16 @@ export function QuestionCards({
 		kept.write(
 			replyOf(
 				questions,
-				questions.map((asked) => next.answers[asked.text] ?? null),
+				questions.map((asked) => said(asked, next.answers[asked.text] ?? null)),
 				next.more,
 			),
 		);
 	};
 	// What is written here, or once sent, what the reply that was says.
 	const answers = questions.map((asked) =>
-		sent === null ? writtenFor(asked) : answerIn(sent, asked),
+		sent === null
+			? writtenFor(asked)
+			: (answerIn(sent, asked) ?? chosen(asked)),
 	);
 	const more = sent === null ? written.more : besides(sent, questions);
 	const answered = answers.filter((answer) => answer !== null).length;
@@ -105,25 +134,31 @@ export function QuestionCards({
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
 	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
-	const out = replyOf(questions, questions.map(writtenFor), written.more);
+	const saidOf = () => questions.map((asked) => said(asked, writtenFor(asked)));
+	// Every one answered, sending approves the proposal.
+	const approving = proposal !== null && answered === questions.length;
+	const out = replyOf(questions, saidOf(), written.more);
+	const empty = !approving && out === "" && !attached;
 	const { copied, copy: copyOut } = useCopy();
 	const { refusal, attempt } = useRefusal();
 	const submit = () => {
-		if (!live || (out === "" && !attached)) {
+		if (!live || empty) {
 			return;
 		}
+		const approved = (text: string) =>
+			!approving ? text : text === "" ? APPROVE : `${APPROVE}\n\n${text}`;
 		if (send === null) {
 			// Kept, to copy again until its agent records it.
-			copyOut(out, onSent);
+			copyOut(approved(out), onSent);
 		} else {
 			// Sent from outside a message, nothing else drops what it kept.
 			const { text, files: sending } = boxFiles.reply(
 				questions,
-				questions.map(writtenFor),
+				saidOf(),
 				written.more,
 			);
 			void attempt(
-				send(text, sending).then(() => {
+				send(approved(text), sending).then(() => {
 					kept.write("");
 					boxFiles.clear();
 					onSent?.();
@@ -200,29 +235,42 @@ export function QuestionCards({
 	useArrival(live, () =>
 		panel.current?.querySelector<HTMLElement>("[data-stop]"),
 	);
-	// Ending an escalation, they are its card: headed as it, what it says first.
-	const reported = escalation === null ? "" : reportText(escalation);
+	// Ending an escalation or under a proposal, they are its card: headed as
+	// it, what it says first.
+	const reported =
+		proposal !== null
+			? proposal.body
+			: escalation === null
+				? ""
+				: reportText(escalation);
 	return (
 		<CardShell
-			{...(escalation === null
+			{...(proposal !== null
 				? {
-						label: "questions for you",
-						Icon: MessageCircleQuestionIcon,
-						title: `${questions.length === 1 ? "A question" : "Questions"} for you`,
+						label: `proposal ${proposal.subject}`,
+						Icon: LightbulbIcon,
+						title: proposal.subject,
 						tone: "info" as const,
 					}
-				: {
-						label: `escalated ${escalation.task}`,
-						...ENDINGS.escalated,
-						task: escalation.task,
-					})}
+				: escalation === null
+					? {
+							label: "questions for you",
+							Icon: MessageCircleQuestionIcon,
+							title: `${questions.length === 1 ? "A question" : "Questions"} for you`,
+							tone: "info" as const,
+						}
+					: {
+							label: `escalated ${escalation.task}`,
+							...ENDINGS.escalated,
+							task: escalation.task,
+						})}
 			// Asked again below, it is answered there.
 			folded={sent !== null || askedAgain}
 			// Each question marks itself while it has the focus.
 			ringed={false}
 			// Paging, its footer says it, so a narrow header never wraps.
 			aside={
-				paging ? undefined : (
+				paging || questions.length === 0 ? undefined : (
 					<span className="flex items-center gap-2">
 						<span className="text-muted-foreground text-xs tabular-nums">
 							{answered} of {questions.length} answered
@@ -382,11 +430,15 @@ export function QuestionCards({
 							) : (
 								<Button
 									className="h-11 flex-1 text-base"
-									disabled={out === "" && !attached}
+									disabled={empty}
 									onClick={submit}
 								>
-									<SendHorizontalIcon data-icon="inline-start" />
-									Send
+									{approving ? (
+										<CheckIcon data-icon="inline-start" />
+									) : (
+										<SendHorizontalIcon data-icon="inline-start" />
+									)}
+									{approving ? "Approve" : "Send"}
 								</Button>
 							)}
 						</div>
@@ -419,27 +471,40 @@ export function QuestionCards({
 											<Kbd>↵</Kbd> next
 										</span>
 										<span>
-											<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
+											<Kbd>⌘↵</Kbd>{" "}
+											{send === null
+												? "copies"
+												: approving
+													? "approves"
+													: "sends"}
 										</span>
 									</>
 								)}
 							</p>
 							<Button
 								size="sm"
-								disabled={out === "" && !attached}
+								disabled={empty}
 								title={copied.state === "failed" ? copied.error : undefined}
 								onClick={submit}
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
 								{send !== null ? (
-									<SendHorizontalIcon data-icon="inline-start" />
+									approving ? (
+										<CheckIcon data-icon="inline-start" />
+									) : (
+										<SendHorizontalIcon data-icon="inline-start" />
+									)
 								) : copied.state === "copied" ? (
 									<CheckIcon data-icon="inline-start" />
 								) : (
 									<CopyIcon data-icon="inline-start" />
 								)}
 								<span aria-live="polite">
-									{send === null ? copiedLabel(copied, "Copy reply") : "Send"}
+									{send === null
+										? copiedLabel(copied, "Copy reply")
+										: approving
+											? "Approve"
+											: "Send"}
 								</span>
 							</Button>
 						</div>

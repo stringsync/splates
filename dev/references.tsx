@@ -6,6 +6,7 @@ import {
 	GitMergeIcon,
 	HeartPulseIcon,
 	LayersIcon,
+	LightbulbIcon,
 	ListTodoIcon,
 	type LucideIcon,
 	MessageCircleQuestionMarkIcon,
@@ -16,6 +17,7 @@ import {
 import { type ReactNode, useContext, useMemo } from "react";
 import type { ProjectRef } from "../conversation-host";
 import {
+	APPROVE,
 	CHECK_IN,
 	CHECKPOINT,
 	HEARTBEAT,
@@ -221,6 +223,13 @@ export const BARE_DIRECTIVES = [
 		label: "Merge",
 		about: "merge the task it had reviewed",
 		icon: GitMergeIcon,
+		tone: "success",
+	},
+	{
+		directive: APPROVE,
+		label: "Approve",
+		about: "go ahead with the proposal it made",
+		icon: LightbulbIcon,
 		tone: "success",
 	},
 ] as const satisfies {

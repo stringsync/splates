@@ -1,7 +1,7 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import { MessageCircleQuestionIcon } from "lucide-react";
+import { LightbulbIcon, MessageCircleQuestionIcon } from "lucide-react";
 import type { JSX } from "react";
-import type { TaskReport } from "../asked";
+import type { Proposal, TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import { type Event, isEscalation } from "../events";
 import type { Question } from "../plan";
@@ -13,12 +13,13 @@ import { QuestionCards } from "./question-cards";
 
 /**
  * The data a `data-questions` part carries: one message's questions, in
- * order, the escalation they end, when they do, and the demo they follow,
- * which is what they ask about.
+ * order, the escalation they end or the proposal they rest under, when they
+ * do, and the demo they follow, which is what they ask about.
  */
 export interface QuestionsData {
 	questions: Question[];
 	escalation: TaskReport | null;
+	proposal: Proposal | null;
 	demo: Demo | null;
 }
 
@@ -39,6 +40,7 @@ export const QuestionsUI = makeAssistantDataUI<QuestionsData>({
 export function MessageQuestions({
 	questions,
 	escalation,
+	proposal,
 	demo,
 }: QuestionsData): JSX.Element {
 	const message = useAuiState((state) => state.message.id);
@@ -73,21 +75,24 @@ export function MessageQuestions({
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
 		<Sheeted
-			{...(escalation === null
-				? {
-						title: `${count} for you`,
-						Icon: MessageCircleQuestionIcon,
-						tone: "info" as const,
-					}
-				: {
-						title: `${count} for you`,
-						Icon: ENDINGS.escalated.Icon,
-						tone: ENDINGS.escalated.tone,
-					})}
+			{...(proposal !== null
+				? { title: "Proposed", Icon: LightbulbIcon, tone: "info" as const }
+				: escalation === null
+					? {
+							title: `${count} for you`,
+							Icon: MessageCircleQuestionIcon,
+							tone: "info" as const,
+						}
+					: {
+							title: `${count} for you`,
+							Icon: ENDINGS.escalated.Icon,
+							tone: ENDINGS.escalated.tone,
+						})}
 		>
 			<QuestionCards
 				questions={questions}
 				escalation={escalation}
+				proposal={proposal}
 				demo={demo}
 				draft={draftName(message, questions)}
 				earlier={before === "" ? [] : before.split("\n")}
@@ -102,7 +107,7 @@ export function MessageQuestions({
  * question too, as a message can ask more than one list.
  */
 function draftName(message: string, questions: Question[]): string {
-	return `questions:${message}:${questions[0]?.text ?? ""}`;
+	return `questions:${message}:${questions[0]?.text ?? "proposal"}`;
 }
 
 /** The questions an escalation it records asks; null for any other event. */

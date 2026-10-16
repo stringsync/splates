@@ -58,6 +58,27 @@ export function isEmpty(answer: Answer): boolean {
 	return answer.picks.length === 0 && answer.words.trim() === "";
 }
 
+/** The answer that leaves `assumed` as the agent took it: its `(chosen)` choices. */
+export function takenOf(assumed: Question): Answer {
+	return {
+		picks: assumed.choices
+			.filter((choice) => choice.chosen)
+			.map((choice) => choice.key),
+		words: "",
+	};
+}
+
+/** Whether `answer` challenges `assumed`: says anything but what it took. */
+export function challenges(assumed: Question, answer: Answer): boolean {
+	const taken = takenOf(assumed).picks;
+	return (
+		!isEmpty(answer) &&
+		(answer.words.trim() !== "" ||
+			answer.picks.length !== taken.length ||
+			answer.picks.some((key) => !taken.includes(key)))
+	);
+}
+
 /**
  * What a quote-and-reply reply in `text` says to `asked`, found by its line
  * rather than its number, or null when it quotes another: what follows its

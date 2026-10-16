@@ -25,7 +25,7 @@ import {
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { LanesStart, Proposal, Report } from "../asked";
+import type { LanesStart, Report, TodoProposal } from "../asked";
 import { todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
@@ -219,7 +219,7 @@ export interface Turn {
  * up" when `next` says the run follows a task's end.
  */
 export const TodoUI = makeAssistantDataUI<{
-	todos: Proposal[];
+	todos: TodoProposal[];
 	turn?: Turn;
 	next?: boolean;
 }>({
@@ -255,12 +255,14 @@ function addedIn(todo: TodoState, turn: Turn | null): boolean {
  * to it: `lane` is undefined for one not added, null for one added to none.
  */
 function gathered(
-	proposals: Proposal[],
+	proposals: TodoProposal[],
 	todos: TodoState[],
 	turn: Turn | null,
-): { lane: number | null | undefined; proposals: Proposal[] }[] {
-	const groups: { lane: number | null | undefined; proposals: Proposal[] }[] =
-		[];
+): { lane: number | null | undefined; proposals: TodoProposal[] }[] {
+	const groups: {
+		lane: number | null | undefined;
+		proposals: TodoProposal[];
+	}[] = [];
 	for (const proposal of proposals) {
 		const live = todos.find((each) => each.id === proposal.id);
 		const lane =
@@ -280,7 +282,7 @@ function TodoRun({
 	turn,
 	next,
 }: {
-	proposals: Proposal[];
+	proposals: TodoProposal[];
 	turn: Turn | null;
 	next: boolean;
 }): JSX.Element {
@@ -345,7 +347,7 @@ export function TodoCard({
 	proposal,
 	grouped = false,
 }: {
-	proposal: Proposal;
+	proposal: TodoProposal;
 	/** Whether it stands in a group, which spaces it. */
 	grouped?: boolean;
 }): JSX.Element {

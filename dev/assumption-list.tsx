@@ -14,68 +14,116 @@ import {
 } from "#dev/components/ui/collapsible.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Question } from "../plan";
-import { type Answer, answerIn, besides, isEmpty, replyOf } from "../reply";
+import {
+	type Answer,
+	answerIn,
+	besides,
+	challenges,
+	replyOf,
+	takenOf,
+} from "../reply";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
 
-/** The answer that leaves `assumed` as the agent took it: its `(chosen)` choices. */
-function takenOf(assumed: Question): Answer {
-	return {
-		picks: assumed.choices
-			.filter((choice) => choice.chosen)
-			.map((choice) => choice.key),
-		words: "",
-	};
-}
-
-/** Whether `answer` challenges `assumed`: says anything but what it took. */
-function challenges(assumed: Question, answer: Answer): boolean {
-	const taken = takenOf(assumed).picks;
-	return (
-		!isEmpty(answer) &&
-		(answer.words.trim() !== "" ||
-			answer.picks.length !== taken.length ||
-			answer.picks.some((key) => !taken.includes(key)))
-	);
-}
-
-/** What is written against a task's assumptions: each challenge by its line, and any words. */
-interface Written {
-	challenges: Record<string, Answer>;
-	changes: string;
-}
-
-/** Whether two lists of assumptions say the same: their lines, choices and picks. */
-function alike(one: Question[], other: Question[]): boolean {
-	const said = (list: Question[]) =>
-		JSON.stringify(
-			list.map(({ number, text, body, choices }) => [
-				number,
-				text,
-				body,
-				choices.map(({ key, text, chosen }) => [key, text, chosen]),
-			]),
-		);
-	return said(one) === said(other);
-}
-
 /**
- * `answer` to `before` moved onto `after`, the same assumption since
- * changed: each pick by its choice's text, as its letter may have moved.
- * Null when nothing of it is left.
+ * A task's assumptions, closed until opened under a title that counts them,
+ * and held open while any is challenged, so a challenge written never hides.
+ * Each is what it asked over the choice the agent took, with a Challenge
+ * control that opens it as a question card offering the rest, and Keep to
+ * put that away again. `answers` are the challenges written, by position.
  */
-function carried(
-	before: Question,
-	after: Question,
-	answer: Answer,
-): Answer | null {
-	const picks = answer.picks.flatMap((key) => {
-		const text = before.choices.find((choice) => choice.key === key)?.text;
-		const now = after.choices.find((choice) => choice.text === text);
-		return now === undefined ? [] : [now.key];
-	});
-	const moved = { picks, words: answer.words };
-	return challenges(after, moved) ? moved : null;
+export function AssumptionList({
+	assumptions,
+	answers,
+	live,
+	onAnswer,
+	onNext,
+}: {
+	assumptions: Question[];
+	answers: (Answer | null)[];
+	/** Whether a challenge can still be written. */
+	live: boolean;
+	onAnswer: (assumed: Question, answer: Answer) => void;
+	/** Once Enter is pressed in an open challenge. */
+	onNext: () => void;
+}): JSX.Element {
+	// Open with a challenge already written, as from a kept draft.
+	const [opened, setOpened] = useState(
+		() =>
+			new Set(
+				assumptions
+					.filter((_, at) => answers[at] != null)
+					.map((assumed) => assumed.number),
+			),
+	);
+	const toggle = (number: string, open: boolean) =>
+		setOpened((before) => {
+			const after = new Set(before);
+			if (open) {
+				after.add(number);
+			} else {
+				after.delete(number);
+			}
+			return after;
+		});
+	const [unfolded, setUnfolded] = useState(false);
+	const challenged = answers.some((answer) => answer != null);
+	return (
+		<Collapsible
+			open={unfolded || challenged}
+			onOpenChange={setUnfolded}
+			disabled={challenged}
+			render={<section aria-label="Assumptions" />}
+			className="@container group/assumptions flex flex-col"
+		>
+			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 aria-disabled:cursor-default aria-disabled:hover:text-muted-foreground">
+				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/assumptions:rotate-90" />
+				Assumptions
+				<span className="tabular-nums">{assumptions.length}</span>
+			</CollapsibleTrigger>
+			<CollapsibleContent render={<ol />} className="flex flex-col pb-1.5">
+				{assumptions.map((assumed, at) => {
+					const answer = answers[at] ?? null;
+					const open = opened.has(assumed.number) || answer !== null;
+					return open ? (
+						<ChallengeCard
+							key={assumed.number}
+							assumed={assumed}
+							answer={answer}
+							live={live}
+							onAnswer={(next) => onAnswer(assumed, next)}
+							onNext={onNext}
+							action={
+								live && (
+									<Button
+										variant="ghost"
+										size="xs"
+										aria-label={`Keep assumption ${assumed.number}`}
+										onClick={() => {
+											onAnswer(assumed, takenOf(assumed));
+											toggle(assumed.number, false);
+										}}
+										className="shrink-0 text-muted-foreground"
+									>
+										<UndoIcon data-icon="inline-start" />
+										Keep
+									</Button>
+								)
+							}
+						/>
+					) : (
+						<AssumptionRow
+							key={assumed.number}
+							assumed={assumed}
+							challenge={answer}
+							live={live}
+							onChallenge={() => toggle(assumed.number, true)}
+						/>
+					);
+				})}
+			</CollapsibleContent>
+		</Collapsible>
+	);
 }
 
 /**
@@ -217,107 +265,6 @@ export function AssumptionsChanged({
 }
 
 /**
- * A task's assumptions, closed until opened under a title that counts them,
- * and held open while any is challenged, so a challenge written never hides.
- * Each is what it asked over the choice the agent took, with a Challenge
- * control that opens it as a question card offering the rest, and Keep to
- * put that away again. `answers` are the challenges written, by position.
- */
-export function AssumptionList({
-	assumptions,
-	answers,
-	live,
-	onAnswer,
-	onNext,
-}: {
-	assumptions: Question[];
-	answers: (Answer | null)[];
-	/** Whether a challenge can still be written. */
-	live: boolean;
-	onAnswer: (assumed: Question, answer: Answer) => void;
-	/** Once Enter is pressed in an open challenge. */
-	onNext: () => void;
-}): JSX.Element {
-	// Open with a challenge already written, as from a kept draft.
-	const [opened, setOpened] = useState(
-		() =>
-			new Set(
-				assumptions
-					.filter((_, at) => answers[at] != null)
-					.map((assumed) => assumed.number),
-			),
-	);
-	const toggle = (number: string, open: boolean) =>
-		setOpened((before) => {
-			const after = new Set(before);
-			if (open) {
-				after.add(number);
-			} else {
-				after.delete(number);
-			}
-			return after;
-		});
-	const [unfolded, setUnfolded] = useState(false);
-	const challenged = answers.some((answer) => answer != null);
-	return (
-		<Collapsible
-			open={unfolded || challenged}
-			onOpenChange={setUnfolded}
-			disabled={challenged}
-			render={<section aria-label="Assumptions" />}
-			className="@container group/assumptions flex flex-col"
-		>
-			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 px-4 py-2.5 font-medium text-muted-foreground text-xs outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 aria-disabled:cursor-default aria-disabled:hover:text-muted-foreground">
-				<ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[open]/assumptions:rotate-90" />
-				Assumptions
-				<span className="tabular-nums">{assumptions.length}</span>
-			</CollapsibleTrigger>
-			<CollapsibleContent render={<ol />} className="flex flex-col pb-1.5">
-				{assumptions.map((assumed, at) => {
-					const answer = answers[at] ?? null;
-					const open = opened.has(assumed.number) || answer !== null;
-					return open ? (
-						<ChallengeCard
-							key={assumed.number}
-							assumed={assumed}
-							answer={answer}
-							live={live}
-							onAnswer={(next) => onAnswer(assumed, next)}
-							onNext={onNext}
-							action={
-								live && (
-									<Button
-										variant="ghost"
-										size="xs"
-										aria-label={`Keep assumption ${assumed.number}`}
-										onClick={() => {
-											onAnswer(assumed, takenOf(assumed));
-											toggle(assumed.number, false);
-										}}
-										className="shrink-0 text-muted-foreground"
-									>
-										<UndoIcon data-icon="inline-start" />
-										Keep
-									</Button>
-								)
-							}
-						/>
-					) : (
-						<AssumptionRow
-							key={assumed.number}
-							assumed={assumed}
-							challenge={answer}
-							live={live}
-							onChallenge={() => toggle(assumed.number, true)}
-						/>
-					);
-				})}
-			</CollapsibleContent>
-		</Collapsible>
-	);
-}
-
-/**
  * An assumption as a question card: every choice offered, the one the agent
  * took tagged Assumed and picked until another is. Picking it again
  * withdraws the challenge.
@@ -363,7 +310,6 @@ function AssumptionRow({
 	const picked = choices.filter((choice) =>
 		challenge?.picks.includes(choice.key),
 	);
-	// The challenge written, in place of what it took.
 	const shown =
 		challenge !== null
 			? picked.length > 0
@@ -424,4 +370,43 @@ function AssumptionRow({
 			{button}
 		</li>
 	);
+}
+
+/** What is written against a task's assumptions: each challenge by its line, and any words. */
+interface Written {
+	challenges: Record<string, Answer>;
+	changes: string;
+}
+
+/** Whether two lists of assumptions say the same: their lines, choices and picks. */
+function alike(one: Question[], other: Question[]): boolean {
+	const said = (list: Question[]) =>
+		JSON.stringify(
+			list.map(({ number, text, body, choices }) => [
+				number,
+				text,
+				body,
+				choices.map(({ key, text, chosen }) => [key, text, chosen]),
+			]),
+		);
+	return said(one) === said(other);
+}
+
+/**
+ * `answer` to `before` moved onto `after`, the same assumption since
+ * changed: each pick by its choice's text, as its letter may have moved.
+ * Null when nothing of it is left.
+ */
+function carried(
+	before: Question,
+	after: Question,
+	answer: Answer,
+): Answer | null {
+	const picks = answer.picks.flatMap((key) => {
+		const text = before.choices.find((choice) => choice.key === key)?.text;
+		const now = after.choices.find((choice) => choice.text === text);
+		return now === undefined ? [] : [now.key];
+	});
+	const moved = { picks, words: answer.words };
+	return challenges(after, moved) ? moved : null;
 }

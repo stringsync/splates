@@ -107,6 +107,13 @@ export const RECONNECT = "[ARBOR RECONNECT]";
 export const MERGE = "[ARBOR MERGE]";
 
 /**
+ * What approves an agent's proposal and asks it to go ahead, any challenges
+ * after it, as the Proposed card's Approve button sends: the arbor skill says
+ * what it means.
+ */
+export const APPROVE = "[ARBOR APPROVE]";
+
+/**
  * What asks an agent long at work to say where its work stands and carry on,
  * as the page's Check in button sends: the arbor skill says what it means.
  */
