@@ -71,7 +71,7 @@ describe("App's questions card under a proposal", () => {
 		expect(chose.getAttribute("aria-pressed")).toBe("true");
 
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),
+			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -86,7 +86,7 @@ describe("App's questions card under a proposal", () => {
 			fireEvent.click(within(card).getByRole("button", { name: /600px/ })),
 		);
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),
+			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -107,15 +107,15 @@ describe("App's questions card under a proposal", () => {
 
 	it("approves only once a call with nothing chosen is answered", async () => {
 		const { card } = await opened(proposing(["2. What should the menu say?"]));
-		expect(within(card).getByRole("button", { name: "Send" })).toBeTruthy();
-		expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
+		const send = within(card).getByRole("button", { name: "Send" });
+		expect(send.hasAttribute("disabled")).toBe(true);
 
 		await typeIn(
 			within(card).getByRole("textbox", { name: "Answer to 2" }),
 			"More",
 		);
 		await act(async () =>
-			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),
+			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([

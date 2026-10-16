@@ -448,12 +448,8 @@ export function QuestionCards({
 									disabled={empty}
 									onClick={submit}
 								>
-									{approving ? (
-										<CheckIcon data-icon="inline-start" />
-									) : (
-										<SendHorizontalIcon data-icon="inline-start" />
-									)}
-									{approving ? "Approve" : "Send"}
+									<SendHorizontalIcon data-icon="inline-start" />
+									Send
 								</Button>
 							)}
 						</div>
@@ -485,12 +481,7 @@ export function QuestionCards({
 											<Kbd>↵</Kbd> next
 										</span>
 										<span>
-											<Kbd>⌘↵</Kbd>{" "}
-											{send === null
-												? "copies"
-												: approving
-													? "approves"
-													: "sends"}
+											<Kbd>⌘↵</Kbd> {send === null ? "copies" : "sends"}
 										</span>
 									</>
 								)}
@@ -503,22 +494,14 @@ export function QuestionCards({
 								className="pointer-coarse:h-10 pointer-coarse:px-3"
 							>
 								{send !== null ? (
-									approving ? (
-										<CheckIcon data-icon="inline-start" />
-									) : (
-										<SendHorizontalIcon data-icon="inline-start" />
-									)
+									<SendHorizontalIcon data-icon="inline-start" />
 								) : copied.state === "copied" ? (
 									<CheckIcon data-icon="inline-start" />
 								) : (
 									<CopyIcon data-icon="inline-start" />
 								)}
 								<span aria-live="polite">
-									{send === null
-										? copiedLabel(copied, "Copy reply")
-										: approving
-											? "Approve"
-											: "Send"}
+									{send === null ? copiedLabel(copied, "Copy reply") : "Send"}
 								</span>
 							</Button>
 						</div>
