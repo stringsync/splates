@@ -221,6 +221,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			model,
 			assigned,
 			handedBy,
+			startedBy,
 		}: {
 			task: string | null;
 			/** The branch `task` was cut from. */
@@ -235,6 +236,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			assigned?: boolean;
 			/** The conversation that handed it its task, which it answers to. */
 			handedBy?: string | null;
+			/** The lane orchestrator that handed it its task, which hears when it stops. */
+			startedBy?: string | null;
 		},
 	): Promise<Conversation> {
 		const chosen = this.agents.find((each) => each.id === agent);
@@ -261,6 +264,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				model,
 				assigned,
 				handedBy,
+				startedBy,
 				skill: await this.skillAt(cwd),
 			},
 			this.deps,

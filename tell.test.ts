@@ -58,7 +58,11 @@ describe("tell", () => {
 			{
 				url: "http://localhost:4270/api/conversations/agent/tell",
 				origin: "http://localhost:4270",
-				text: { from: "orch", text: "> **Keep it?**\n- (a) Keep it" },
+				text: {
+					from: "orch",
+					text: "> **Keep it?**\n- (a) Keep it",
+					stop: false,
+				},
 			},
 		]);
 	});

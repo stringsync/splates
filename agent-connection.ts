@@ -133,12 +133,16 @@ export class AgentConnection {
 			// env, to move the conversation as it takes or lands a task. One
 			// working a task another conversation added also finds that one, so
 			// its `arbor add --agent` refuses: agents start agents one level deep.
-			const { id, lastCaller } = host.state;
+			// One a lane's orchestrator started finds it as the one that started
+			// it, not one it reports to: it answers to the person.
+			const { id, lastCaller, startedBy } = host.state;
 			process = this.deps.launch(agent.argv, cwd, {
 				ARBOR_CONVERSATION: id,
-				...(lastCaller === null || lastCaller === id
-					? {}
-					: { ARBOR_CALLER: lastCaller }),
+				...(startedBy !== null
+					? { ARBOR_STARTED_BY: startedBy }
+					: lastCaller === null || lastCaller === id
+						? {}
+						: { ARBOR_CALLER: lastCaller }),
 				...(this.deps.url === null ? {} : { ARBOR_DEV: this.deps.url }),
 			});
 			const launched = process;

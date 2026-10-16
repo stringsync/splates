@@ -32,6 +32,7 @@ describe("handoff", () => {
 			model: "small",
 			prompt: "Take the styles.",
 			handoff: true,
+			relay: false,
 		});
 		expect(found.caller).toBeNull();
 		expect(handOff(found)).toBeNull();
@@ -56,6 +57,7 @@ describe("handoff", () => {
 		expect((await deps.service.find("alpha")).state?.dispatch).toEqual({
 			agent: "fake",
 			handoff: true,
+			relay: false,
 		});
 	});
 
@@ -79,6 +81,7 @@ describe("handoff", () => {
 			agent: "fake",
 			model: "small",
 			handoff: true,
+			relay: true,
 		});
 		await found.save({
 			dispatch: { ...found.state?.dispatch, agent: "fake", conversation: "c2" },

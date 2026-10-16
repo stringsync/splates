@@ -310,15 +310,25 @@ describe("stretches", () => {
 					ending: "working",
 					lanes: ["Stats", "Licensing"],
 					reason: "on stats-breakdowns-clear, licensing-renew",
-					body: expect.stringContaining("- Stats: #155 out"),
+					body: expect.stringContaining("- Stats: #160 waits on #155"),
 					source: example,
 				},
 			},
 		]);
 	});
 
-	it("reads the skill's waiting lanes report, naming each lane and what they wait on, then the questions it relays", async () => {
-		const example = await skillExample("## ⏸️ Waiting lanes");
+	it("reads a waiting lanes report, as the skill once had them, naming each lane and what they wait on, then the questions it relays", () => {
+		const example = [
+			"## ⏸️ Waiting lanes Stats: on stats-breakdowns-clear",
+			"",
+			"Answer stats-breakdowns-clear's question on the breakdown tables.",
+			"",
+			"- Stats: waits on stats-breakdowns-clear, escalated on what reads wrong.",
+			"",
+			"1. Which breakdown should lead the table?",
+			"   - (a) By project (chosen)",
+			"   - (b) By agent",
+		].join("\n");
 
 		expect(stretches(example)).toEqual([
 			{

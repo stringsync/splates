@@ -29,19 +29,23 @@ export const SWEEP = Duration.mins(5);
 const SETTLE = Duration.secs(1);
 
 /**
- * Keeps the conversation that handed tasks out with `arbor add --agent` up
+ * Keeps the conversation that handed tasks out, a lane's orchestrator with
+ * `arbor add --agent` or a relaying agent with `arbor handoff --relay`, up
  * to date on the agents it handed them to, so it never waits on one that
  * has gone quiet, a restart included. An agent that is not at work, with its
  * task still under way and not escalated, gets nothing more done unless that
  * one acts, so that one is told `[ARBOR IDLE <task>]`, unless it has heard of
- * the task since the agent last said anything. An agent whose task is gone is archived with that one,
- * off the list. Each is checked as its turn ends, once the conversations'
- * changes settle, as the project opens, and every `SWEEP`.
+ * the task since the agent last said anything, or, for one that answers to
+ * the person, the person took it in hand. An agent that answers to the one
+ * that handed it out is archived with that one once its task is gone, off the
+ * list. Each is checked as its turn ends, once the conversations' changes
+ * settle, as the project opens, and every `SWEEP`.
  *
- * A conversation idle `HEARTBEAT_IDLE` since its last turn, with an agent it
- * handed a task to still at work, is told `[ARBOR HEARTBEAT]`, so it checks
+ * A conversation idle `HEARTBEAT_IDLE` since its last turn, with an agent
+ * that answers to it still at work, is told `[ARBOR HEARTBEAT]`, so it checks
  * on them rather than wait out a long task with no word to the person. Any
- * turn it takes before then puts the next one off again.
+ * turn it takes before then puts the next one off again. A lane's
+ * orchestrator gets none: its agents talk to the person themselves.
  */
 export class HandedOut implements Resource {
 	/**
@@ -197,16 +201,18 @@ export class HandedOut implements Resource {
 	async #check(conversation: Conversation): Promise<void> {
 		const { state } = conversation;
 		const task = state.task ?? state.lastTask;
-		if (state.handedBy === null || state.archived || task === null) {
+		const by = state.handedBy ?? state.startedBy;
+		if (by === null || state.archived || task === null) {
 			return;
 		}
 		const worktree = await this.service.find(task);
-		const found = await this.everywhere.find(state.handedBy);
+		const found = await this.everywhere.find(by);
 		const caller = found?.conversation;
 		const working = state.status === "running" || state.status === "starting";
 		if (worktree.gone) {
-			// Its last turn has its report to finish.
-			if (!working) {
+			// Its last turn has its report to finish. One that answers to the
+			// person is theirs to archive.
+			if (!working && state.handedBy !== null) {
 				await conversation.archive(caller?.id);
 			}
 			return;
@@ -225,6 +231,8 @@ export class HandedOut implements Resource {
 		if (
 			!quiet ||
 			worktree.state?.status === "escalated" ||
+			// One the person took in hand waits on them, not on its orchestrator.
+			(state.handedBy === null && inHand(state)) ||
 			found === undefined ||
 			caller === undefined ||
 			caller.state.archived
@@ -298,5 +306,18 @@ function heard(
 			message.parts.some(
 				(part) => part.type === "text" && told.includes(part.text.trim()),
 			),
+	);
+}
+
+/**
+ * Whether the person took a conversation in hand since it was handed its
+ * task: the last word said to it was theirs, not `arbor tell`'s, or they
+ * stopped its last turn. Its orchestrator then leaves it to them.
+ */
+function inHand(state: Conversation["state"]): boolean {
+	const said = state.messages.findLast((message) => message.role === "user");
+	return (
+		(said !== undefined && said.told === undefined) ||
+		state.messages.at(-1)?.stopped !== undefined
 	);
 }

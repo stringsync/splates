@@ -33,6 +33,11 @@ export interface PromptOptions {
 	told?: string;
 	/** Whether the person said it into the mic rather than typed it. */
 	dictated?: boolean;
+	/**
+	 * Whether it stops the running turn and follows it, rather than joining
+	 * it, for a change of plans.
+	 */
+	stop?: boolean;
 }
 
 /** What a message's options mark it with, in the log and the thread alike. */
@@ -69,7 +74,7 @@ export class ConversationTurns {
 		text: string,
 		files: Upload[] = [],
 		from?: Device,
-		{ told, dictated = false }: PromptOptions = {},
+		{ told, dictated = false, stop = false }: PromptOptions = {},
 	): Promise<void> {
 		const { host, connection } = this;
 		const { state } = host;
@@ -112,6 +117,13 @@ export class ConversationTurns {
 			...(dictated ? { dictated: true } : {}),
 		};
 		if (state.status === "running") {
+			if (stop) {
+				this.queue(words, kept, from, marks);
+				await this.halt();
+				// After `halt`, which holds the queue for a stop.
+				this.held = false;
+				return;
+			}
 			if (!connection.canSteer || waited) {
 				this.queue(words, kept, from, marks);
 				return;

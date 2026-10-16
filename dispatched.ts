@@ -38,8 +38,12 @@ export async function startDispatched({
 			cwd: worktree.path,
 			model: dispatch.model,
 			assigned: true,
-			// It answers to whoever handed it out, not to the person.
-			handedBy: worktree.caller,
+			// One handed on with `--relay` answers to whoever handed it on; one
+			// a lane's orchestrator handed out answers to the person, and that
+			// one only hears when it stops.
+			...((dispatch.relay ?? dispatch.handoff === true)
+				? { handedBy: worktree.caller }
+				: { startedBy: worktree.caller }),
 		});
 		await worktree.save({
 			dispatch: { ...dispatch, conversation: conversation.id },
@@ -55,6 +59,10 @@ export async function startDispatched({
 				]
 					.filter((each) => each !== "")
 					.join("\n\n"),
+				[],
+				undefined,
+				// Said by whoever handed it out, not by the person.
+				worktree.caller === null ? {} : { told: worktree.caller },
 			);
 			// Told once the session is open, so its settings are known by now.
 			if (

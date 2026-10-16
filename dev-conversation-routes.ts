@@ -414,23 +414,24 @@ export class ConversationRoutes {
 
 	/**
 	 * Says `text` in a conversation as the person would, for the conversation
-	 * that handed it its task, as `arbor tell` does: the one way in to it.
+	 * that handed it its task, as `arbor tell` does: the one way in to one
+	 * that answers to it, and how a lane's orchestrator wakes or stops one it
+	 * started. With `stop`, the running turn stops first.
 	 */
 	readonly tellConversation = async (request: Request): Promise<Response> => {
 		const conversation = await this.conversationAt(request);
-		const { from, text } = await body(request);
-		if (
-			conversation.state.handedBy === null ||
-			conversation.state.handedBy !== from
-		) {
+		const { from, text, stop } = await body(request);
+		const by = conversation.state.handedBy ?? conversation.state.startedBy;
+		if (by === null || by !== from) {
 			fail(
 				"usage",
-				`conversation ${conversation.id} answers only to the one that handed it its task`,
+				`conversation ${conversation.id} is told only by the one that handed it its task`,
 				{ conversation: conversation.id },
 			);
 		}
 		await conversation.prompt(String(text ?? ""), [], undefined, {
 			told: String(from),
+			stop: stop === true,
 		});
 		return Response.json(conversation.state);
 	};

@@ -543,15 +543,20 @@ arbor
 	.command("tell")
 	.use(repository({ needs: "tasks" }))
 	.description(
-		"say something in the conversation of the agent a task was handed to with `arbor add --agent`, as the user would: how an orchestrator passes on the user's answers, a merge, or what its lane taught it, since the agent answers to it alone; only the conversation that handed the task out may",
+		"say something in the conversation of the agent a task was handed to with `arbor add --agent` or `arbor handoff --relay`, as the user would: how an orchestrator wakes an agent that sits idle, stops it for a change of plans, or passes on what its lane taught it, and how a relaying agent passes on the user's answers; only the conversation that handed the task out may",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.arg("text", z.string(), { description: "what to say, as markdown" })
+	.option("stop", z.boolean(), {
+		default: false,
+		description:
+			"stop the turn the agent is running first, as the user's Stop does, then say text: for a change of plans",
+	})
 	.action((opts, ctx) =>
 		ctx.journal.record(
 			"tell",
 			opts.task,
-			() => tell(ctx, opts.task, opts.text),
+			() => tell(ctx, opts.task, opts.text, { stop: opts.stop }),
 			(to) => ({ to }),
 		),
 	);
@@ -560,7 +565,7 @@ arbor
 	.command("handoff")
 	.use(repository({ needs: "own" }))
 	.description(
-		"hand the task you are at work on to another agent on the roster (`arbor agents`), which `arbor dev` starts in its worktree, told `[ARBOR HANDOFF <task>]` to claim it and carry on from its ARBOR.md; it answers to the user as you did, or with --relay to you, and this conversation leaves the task; refused to an agent an orchestrator handed its task to, and for a task another conversation is at work on",
+		"hand the task you are at work on to another agent on the roster (`arbor agents`), which `arbor dev` starts in its worktree, told `[ARBOR HANDOFF <task>]` to claim it and carry on from its ARBOR.md; it answers to the user as you did, or with --relay to you, and this conversation leaves the task, though a lane's orchestrator that started you goes on hearing of it; refused to an agent that answers to another conversation, and for a task another conversation is at work on",
 	)
 	.arg("task", z.string(), { description: "task name" })
 	.option("agent", z.string(), {
@@ -579,7 +584,7 @@ arbor
 	.option("relay", z.boolean(), {
 		default: false,
 		description:
-			"for work you judged another model fits better: the agent answers to you, as to a lane's orchestrator, reporting back with `[ARBOR REPORT <task>]` and told what the user says with `arbor tell`; needs `arbor dev`",
+			"for work you judged another model fits better: the agent answers to you rather than the user, reporting back with `[ARBOR REPORT <task>]` and told what the user says with `arbor tell`; needs `arbor dev`",
 	})
 	.action(async (opts, ctx) => {
 		const agents = await seeded(rosterOf(ctx));

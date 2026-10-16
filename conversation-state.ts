@@ -72,6 +72,13 @@ export interface ConversationState {
 	 */
 	handedBy: string | null;
 	/**
+	 * The lane orchestrator that handed it its task with `arbor add --agent`:
+	 * it answers to the person, as any conversation does, and that one only
+	 * hears when it stops, and may wake, stop or remove it. Set when it
+	 * starts, and kept once the task is gone.
+	 */
+	startedBy: string | null;
+	/**
 	 * The `version:` of the project's arbor skill as it started, which the
 	 * Stats page tells adherence apart by; null when it had none, or for a log
 	 * written before it was kept.
@@ -404,6 +411,7 @@ export function blank(
 	caller: string | null = null,
 	assigned = false,
 	handedBy: string | null = null,
+	startedBy: string | null = null,
 ): ConversationState {
 	return {
 		id,
@@ -429,6 +437,7 @@ export function blank(
 		archivedWith: null,
 		pinned: false,
 		handedBy,
+		startedBy,
 		skill: null,
 		assigned,
 		unread: false,

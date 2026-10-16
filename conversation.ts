@@ -163,6 +163,7 @@ export class Conversation
 			log: path,
 			assigned = false,
 			handedBy = null,
+			startedBy = null,
 			skill = null,
 		}: Opening,
 		deps: ConversationDeps,
@@ -179,6 +180,7 @@ export class Conversation
 			caller,
 			assigned,
 			handedBy,
+			startedBy,
 		);
 		state.skill = skill;
 		const conversation = new Conversation(state, log, deps, agent, cwd, from);
@@ -193,6 +195,7 @@ export class Conversation
 			createdAt,
 			...(assigned ? { assigned } : {}),
 			...(handedBy === null ? {} : { handedBy }),
+			...(startedBy === null ? {} : { startedBy }),
 			...(skill === null ? {} : { skill }),
 		});
 		return conversation;
@@ -581,6 +584,8 @@ interface Opening {
 	assigned?: boolean;
 	/** The conversation that handed it its task, which it answers to. */
 	handedBy?: string | null;
+	/** The lane orchestrator that handed it its task, which hears when it stops. */
+	startedBy?: string | null;
 	/** The project's arbor skill version as it starts; null when it has none. */
 	skill?: string | null;
 }

@@ -28,6 +28,7 @@ describe("fold", () => {
 		archivedWith: null,
 		pinned: false,
 		handedBy: null,
+		startedBy: null,
 		skill: null,
 		assigned: false,
 		unread: false,

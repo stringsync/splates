@@ -395,6 +395,12 @@ export interface Dispatched {
 	 * handoff`, so the one started is told `[ARBOR HANDOFF <task>]`.
 	 */
 	handoff?: true;
+	/**
+	 * Whether the agent started answers to the task's caller rather than the
+	 * person, as for `arbor handoff --relay`. Absent in records written
+	 * before it was kept, when a handoff with a caller always relayed.
+	 */
+	relay?: boolean;
 }
 
 /**

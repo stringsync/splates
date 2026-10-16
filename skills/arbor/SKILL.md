@@ -36,10 +36,10 @@ asks you to read it as Reference files says.
 | `[ARBOR UPDATE]` | Where your work stands, from the Check in button | Bring `## Done` and `## Next` up to date, then, before any other tool call, answer in at most three `- ` lines: what you finished since the user last heard from you, what you are on now, and what is in the way, if anything. Write them as your reply even when this comes in mid-turn: your thinking and `ARBOR.md` do not count. Then carry on with the work in the same turn: no further report, no questions and no stop |
 | `[ARBOR LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
 | `[ARBOR LANE N]` | Work down lane N as its orchestrator | [lanes.md](references/lanes.md) |
-| `[ARBOR REPORT <task>]` | A task you handed out stopped: escalated, merged or removed | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
-| `[ARBOR IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
-| `[ARBOR STOPPED <task>]` | The user terminated the agent of a task you handed out | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
-| `[ARBOR HEARTBEAT]` | Check on each task you handed out and say where your lanes stand | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) too |
+| `[ARBOR REPORT <task>]` | A task you handed out stopped: escalated, merged or removed | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
+| `[ARBOR IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
+| `[ARBOR STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
+| `[ARBOR HEARTBEAT]` | Check on the task you handed on with `--relay` and say where it stands | [handoff.md](references/handoff.md) |
 | `[ARBOR CHECKPOINT]` | Bring `ARBOR.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[ARBOR RESUME]` | Carry on from where `ARBOR.md` says you stopped | [checkpoint.md](references/checkpoint.md) |
 | `[ARBOR RECONNECT]` | A lost connection cut your last turn short, and the user asks you to carry on | Your last step may have finished, half finished, or never started: check what it left (`git status`, `git log`, what its command was to change) before running it again. Then carry on with the work as though nothing had come: no report of the interruption, no questions about it and no stop |
@@ -629,9 +629,13 @@ asked again. Check an item off only when its answer is one you can act on;
 anything else stays open and leads your next report. A reply about something
 you did is an instruction. When the user defers or skips a question, check it
 off and carry on without it (for a defer, `arbor todo add` it first). Only
-the user answers questions, yours or another agent's, but for a lane
-orchestrator's answers to the agents it handed tasks to (see
-[references/lanes.md](references/lanes.md)).
+the user answers questions, yours or another agent's, but for the answers
+of an agent that handed its task on with `--relay` (see
+[references/handoff.md](references/handoff.md)).
+
+A message `arbor tell` says in your conversation for the lane's
+orchestrator that handed you your task, to carry on or to change course,
+you take as you would the user's.
 
 A challenge comes the same way, naming an assumption by its number or its
 line, and you act on it at your next step, as you would an answer.
@@ -660,23 +664,27 @@ Never ask whether the work is ready to merge among other questions, or as a
 question at all: once they are answered and the work is done, merge or ask
 for a review (see Merge or review).
 
-### Reporting to an orchestrator
+### Answering to the agent that handed you the task
 
-When another conversation handed you the task, a lane's orchestrator or
-an agent that handed it on with `arbor handoff --relay` (`$ARBOR_CALLER` is
-set), you report to it,
-not to the user, who cannot write in your conversation: every message after
-your first comes through it, answers and `[ARBOR MERGE]` included. Work as
-above, but write for it, since it reads your `ARBOR.md`, not your replies:
+When an agent handed its task on to you with `arbor handoff --relay`
+(`$ARBOR_CALLER` is set), you report to it, not to the user, who cannot
+write in your conversation: every message after your first comes through
+it, answers and `[ARBOR MERGE]` included. Work as above, but write for it,
+since it reads your `ARBOR.md`, not your replies:
 
 - every question under `## Blocked`, as always, before you escalate;
 - for a review, the review report itself, its sentence, demo and `Checks:`
   line, under `## Notes` as a `### Review` of its own, before `arbor
   escalate --review`;
-- an answer it gives from the lane, saying so, moves its question to the end
-  of `## Assumptions`, numbered as it was, its `(chosen)` the answer.
+- an answer it gives itself, saying so, moves its question to the end of
+  `## Assumptions`, numbered as it was, its `(chosen)` the answer.
 
 `arbor escalate`, `arbor merge` and `arbor remove` tell it you stopped.
+
+A lane's orchestrator that handed you a todo (`$ARBOR_STARTED_BY` is set)
+is not one you report to: you answer to the user, as for any task, and
+those commands only tell it where the lane stands. Propose no next todo
+once you merge or remove: it hands that out.
 
 ## Merge or review
 

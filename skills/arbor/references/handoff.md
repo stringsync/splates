@@ -6,9 +6,11 @@ another model family, or sends `[ARBOR HANDOFF TO <agent> <model>]` from the
 to `--agent` and `--model`, hand the whole task over rather than a part: the
 other agent takes over your tree, your branch and your `ARBOR.md`, and
 answers to the user as you did. Only the agent at work on a task hands it
-off. When an orchestrator handed you yours, `arbor handoff` refuses:
-escalate instead, naming the agent you would hand it to, since the lane is
-the orchestrator's.
+off. When another agent handed you yours with `--relay`, so you answer to
+it, `arbor handoff` refuses: escalate instead, naming the agent you would
+hand it to, since the task is that one's to place. A lane's orchestrator
+that handed you yours goes on hearing of the task from the agent it goes
+to.
 
 1. Commit each step you finished, and move it to `## Done`.
 2. Bring `ARBOR.md` up to date as for a checkpoint, then write a `###
@@ -57,11 +59,9 @@ seems too big or too small for it, or a cheaper model could probably do
 it. When you are unsure, keep it.
 
 Keep the task when the user named your model for it, or asked you to do it
-yourself. Only an agent the user started hands on this way: one an
-orchestrator handed a task to escalates instead, as above.
+yourself. An agent that answers to another escalates instead, as above.
 
-You stay the one the user talks to, as a lane's orchestrator does: the
-other agent answers to you.
+You stay the one the user talks to: the other agent answers to you.
 
 1. Do steps 1 and 2 of Handing off your task, the `### Handoff` stating
    the reason: what failed or what is left, with the steps or files that
@@ -71,7 +71,7 @@ other agent answers to you.
    conversation back to the main tree. Outside `arbor dev`, `--relay`
    refuses: keep the task, or hand it to a subagent of your own harness on
    that model, told to `arbor claim <task>` and work it as the skill says,
-   reporting to you, as for a lane outside `arbor dev`.
+   reporting to you, and `arbor wait <task>` on it in place of its reports.
 3. End your turn on a working report: `## ⏳ Working <task>`, after a colon
    the agent and model it went to as `arbor agents` names them, then one
    sentence stating the reason, so the user can judge it and tell you to
@@ -83,19 +83,60 @@ other agent answers to you.
 Forty files still need the same rename, each listed under `## Next`, so a cheaper model takes them.
 ```
 
-From then on, work it as a lane's orchestrator works a todo it handed out
-(see [references/lanes.md](lanes.md)), with the task in place of the lane:
+From then on, arbor wakes you whenever it stops, and you carry its
+questions up to the user and their answers down:
 
 - `[ARBOR REPORT <task>]`: read `arbor show <task>`. When it is gone, read
   in `git log` what landed and end on the report the task would have ended
   on, `## ✅ Merged <task> onto <base>` or `## 🛑 Removed <task>: <why>`,
   with the next todo (see The next todo), since the other agent proposes
-  none. When it escalated, relay its questions or its review as Relaying
-  for a lane's agents says, under a `## ⚠️ Escalated <task>: <what it
-  needs>` or a Ready to merge card.
-- `[ARBOR STOPPED <task>]`: ask what becomes of it, as for a lane, with
-  "take it back" as a choice: once the user picks it, `arbor claim <task>`
-  and carry on yourself.
+  none. When it escalated, relay its questions or its review (see Relaying
+  below), under a `## ⚠️ Escalated <task>: <what it needs>` or a Ready to
+  merge card.
+- `[ARBOR IDLE <task>]`: it stopped without a word to you. When its
+  `ARBOR.md` has open questions under `## Blocked`, relay them; when it
+  has none, `arbor tell <task>` it to carry on as the arbor skill says,
+  ending in `arbor escalate`, `arbor merge` or `arbor remove`. The second
+  time it comes back idle with nothing changed, ask the user whether to
+  take it back.
+- `[ARBOR STOPPED <task>]`: the user terminated its agent. Ask what becomes
+  of it, with "take it back" as a choice: once the user picks it, `arbor
+  claim <task>` and carry on yourself.
+- `[ARBOR HEARTBEAT]`: you have sat idle ten minutes while it works, so the
+  user has heard nothing for that long. Read `arbor show <task>`, act on it
+  as for `[ARBOR IDLE <task>]` when it has not moved, and end on a fresh
+  working report.
 - When the user asks for the task back while its agent works, ask them to
   terminate that agent from its conversation, then claim it on the
   `[ARBOR STOPPED <task>]` that follows.
+
+### Relaying
+
+The user talks to you, never to the agent: the `arbor dev` page offers no
+composer on its conversation, only a line pointing to yours, and its
+permission asks show above your composer. So you carry its questions up
+and the answers down, with `arbor tell <task> '<text>'`, which says
+`<text>` in its conversation as the user would.
+
+1. Read `arbor show <task>`: its open questions under `## Blocked`, or, for
+   a review, its `### Review` under `## Notes`.
+2. Answer each question that what you know of the task, the user's earlier
+   answers, or a look at the code settle, as the user would from the page:
+   its line quoted in bold, then the choice picked (see Keeping Blocked
+   current), and a line saying you answered it and why, so it keeps it as
+   an assumption. Say each in your report as an assumption the user can
+   challenge: `- Assumed for <task>: <what you answered>`. Never answer one
+   that is a close call or goes against what the user said.
+3. Ask the user the rest, each open question in a numbered list exactly as
+   the agent wrote it, with its choices and screenshots. A review you relay
+   as a Ready to merge card of its own, the agent's `### Review` as it
+   wrote it.
+4. The user's answers reach you as messages. `arbor tell` the task the
+   quotes and words that answer its questions, as they came, and its
+   challenges to an assumption you made. "Merge" or `[ARBOR MERGE]` on a
+   review you relayed goes down as `[ARBOR MERGE]`; changes asked for go
+   down as they came. Questions they left open are asked again first in
+   your next report.
+
+Never ask the user to go to the agent's conversation, or to send you on:
+whatever they say to you is yours to pass down.

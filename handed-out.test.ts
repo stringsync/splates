@@ -200,7 +200,10 @@ describe("HandedOut", () => {
 	 * An orchestrator that took a turn, and an agent at work on alpha it
 	 * handed out, watched and swept once.
 	 */
-	const atWork = async (): Promise<{
+	const atWork = async (
+		/** How the agent stands to the orchestrator. */
+		as: "handedBy" | "startedBy" = "handedBy",
+	): Promise<{
 		orchestrator: Conversation;
 		working: Conversation;
 		watched: HandedOut;
@@ -225,7 +228,7 @@ describe("HandedOut", () => {
 		const working = await conversations.start("fake", {
 			task: "alpha",
 			cwd: (await deps.service.find("alpha")).path,
-			handedBy: orchestrator.id,
+			[as]: orchestrator.id,
 		});
 		await until(() => working.state.status === "idle");
 		void working.prompt("[ARBOR TASK alpha]");
@@ -295,6 +298,59 @@ describe("HandedOut", () => {
 		release();
 		await until(() => working.state.status === "idle");
 		await watched.sweep();
+
+		expect(orchestrator.state.heartbeat).toBeNull();
+	});
+	/** A lane's orchestrator, and an agent it started on alpha that took one turn. */
+	const startedOut = async (): Promise<{
+		orchestrator: Conversation;
+		working: Conversation;
+	}> => {
+		const orchestrator = await conversations.start("fake", {
+			task: null,
+			cwd: deps.root,
+		});
+		const working = await conversations.start("fake", {
+			task: "alpha",
+			cwd: (await deps.service.find("alpha")).path,
+			startedBy: orchestrator.id,
+		});
+		await until(() => working.state.status === "idle");
+		await working.prompt("[ARBOR TASK alpha]", [], undefined, {
+			told: orchestrator.id,
+		});
+		await until(() => said.length === 1 && working.state.status === "idle");
+		return { orchestrator, working };
+	};
+
+	it("tells a lane's orchestrator when an agent it started goes quiet on what it said", async () => {
+		await startedOut();
+		await watch().sweep();
+		await until(() => said.length === 2);
+
+		expect(said).toEqual(["[ARBOR TASK alpha]", "[ARBOR IDLE alpha]"]);
+	});
+
+	it("tells the orchestrator nothing once the person takes an agent it started in hand", async () => {
+		const { working } = await startedOut();
+		await working.prompt("Try the other layout.");
+		await until(() => said.length === 2 && working.state.status === "idle");
+		await watch().sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[ARBOR TASK alpha]", "Try the other layout."]);
+	});
+
+	it("leaves an agent a lane's orchestrator started for the person to archive once its task is gone", async () => {
+		const { working } = await startedOut();
+		await remove(deps, "alpha", { force: true });
+		await watch().sweep();
+
+		expect((await conversations.find(working.id)).state.archived).toBe(false);
+	});
+
+	it("sends no heartbeat to a lane's orchestrator, whose agents talk to the person", async () => {
+		const { orchestrator } = await atWork("startedBy");
 
 		expect(orchestrator.state.heartbeat).toBeNull();
 	});

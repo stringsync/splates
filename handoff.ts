@@ -8,7 +8,9 @@ import type { WorktreeService } from "./worktree-service";
  * Hands a task under way to another agent, which `arbor dev` starts in its
  * tree, told `[ARBOR HANDOFF <task>]`, to carry on from where its `ARBOR.md`
  * says it stands. The new agent answers to the person, as the old one did:
- * the task's caller goes, so nobody else tells it anything or hears from it.
+ * the task's caller goes, so nobody else tells it anything or hears from it,
+ * but for a lane's orchestrator that started the old one, which goes on
+ * hearing when it stops.
  * With `relay`, for an agent that hands on work it judged another model fits
  * better, the new agent answers to this conversation instead, as to a lane's
  * orchestrator: it reports back here, and is told what the person says.
@@ -18,7 +20,7 @@ import type { WorktreeService } from "./worktree-service";
 export async function handoff(
 	{ service, log }: { service: WorktreeService; log: Logger },
 	task: string,
-	to: Omit<Dispatched, "conversation" | "pending" | "handoff">,
+	to: Omit<Dispatched, "conversation" | "pending" | "handoff" | "relay">,
 	agents: RosterAgent[],
 	{ relay = false }: { relay?: boolean } = {},
 ): Promise<AgentPick> {
@@ -59,8 +61,10 @@ export async function handoff(
 	}
 	const picked = { ...to, ...pickAgent(agents, to.agent, to.model, { task }) };
 	await found.save({
-		caller: relay ? here : undefined,
-		dispatch: { ...picked, handoff: true },
+		// A lane's orchestrator that started this one goes on hearing of the
+		// task, from the agent it goes to.
+		caller: relay ? here : service.ps.env("ARBOR_STARTED_BY"),
+		dispatch: { ...picked, handoff: true, relay },
 	});
 	log.info(
 		[

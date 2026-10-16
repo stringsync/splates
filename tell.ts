@@ -29,10 +29,10 @@ export function handOff(
 
 /**
  * Says `text` in the conversation of the agent a task was handed to, as the
- * user would, for the conversation that handed it out to pass on answers, a
- * merge, or what the earlier steps of its lane taught it. Only that
- * conversation may: the agent answers to it, not to whoever else asks.
- * Answers with that agent's conversation.
+ * user would, for the conversation that handed it out to wake it, pass on
+ * answers, or what the earlier steps of its lane taught it; with `stop`, its
+ * running turn stopped first, for a change of plans. Only that conversation
+ * may, not whoever else asks. Answers with that agent's conversation.
  */
 export async function tell(
 	{
@@ -42,6 +42,7 @@ export async function tell(
 	}: { ps: Ps; service: WorktreeService; send?: Send },
 	task: string,
 	text: string,
+	{ stop = false }: { stop?: boolean } = {},
 ): Promise<string> {
 	const url = ps.env("ARBOR_DEV");
 	const id = ps.env("ARBOR_CONVERSATION");
@@ -74,7 +75,7 @@ export async function tell(
 			method: "POST",
 			// The server refuses a write from any other origin than its own.
 			headers: { "content-type": "application/json", origin: url },
-			body: JSON.stringify({ from: id, text }),
+			body: JSON.stringify({ from: id, text, stop }),
 		},
 	);
 	if (!response.ok) {

@@ -49,6 +49,7 @@ import {
 import { HeartbeatBanner } from "./heartbeat-banner";
 import { useTouch } from "./hooks/use-touch";
 import { IdleBanner } from "./idle-banner";
+import { PlanCard, StartedByCard } from "./lane-plan";
 import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
@@ -434,7 +435,14 @@ export function Thread({
 									/>
 								}
 							>
+								<StartedByCard conversation={conversation} onOpen={onOpen} />
 								<SystemsCard systems={task?.systems ?? []} />
+								{/* Above the current task, which keeps its room while it hides. */}
+								<PlanCard
+									conversation={conversation}
+									tasks={tasks}
+									onOpen={onOpen}
+								/>
 								<CurrentTask version={version} />
 							</Widgets>
 						</div>

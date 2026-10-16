@@ -67,6 +67,7 @@
 @source "./lanes.tsx";
 @source "./lane-column.tsx";
 @source "./lane-menu.tsx";
+@source "./lane-plan.tsx";
 @source "./add-todo.tsx";
 @source "./add-lane.tsx";
 @source "./shown-lanes.tsx";
