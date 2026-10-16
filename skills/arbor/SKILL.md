@@ -658,6 +658,12 @@ that code changed after the user looked. When they ask for
 changes, `arbor claim <task>`, add each as a step under `## Next`, and work
 through them as before.
 
+While a review waits on the user, every reply that ends your turn ends with
+the whole review report again, brought up to date, never its last line
+alone: after you answer a question about it, after the changes they asked
+for, or after anything else they say in between. The `arbor dev` page shows
+the Ready to merge card, which the user merges from, only for a whole report.
+
 ## Reporting
 
 The user reads a report at a glance, so it holds only what they need to act

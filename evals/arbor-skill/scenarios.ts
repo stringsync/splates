@@ -408,6 +408,67 @@ EOF`,
 			"notes-say-where: in turn 2 the `## Notes` of ARBOR.md say what the agent was doing when stopped and what comes next, and `## Done` and `## Next` match where the work stands",
 		],
 	},
+	{
+		id: "review-again",
+		turns: [
+			"[ARBOR TASK retry-413]\n\nIt waits on my review; show it to me.",
+			"Why stop on a 413 only, and not on every 4xx?",
+		],
+		setup: `arbor add retry-413 --todo 1 && cd "$(arbor path retry-413)" && sed -i.bak 's/if (status < 400) return;/if (status < 400) return;\\n\\t\\tif (status === 413) {\\n\\t\\t\\ttell("the file is too big to upload");\\n\\t\\t\\treturn;\\n\\t\\t}/' src/upload.ts && rm src/upload.ts.bak && git commit -qam "Stop retrying an upload refused as too big" && cat > ARBOR.md <<'EOF'
+# retry-413
+
+## Goal
+
+Stop retrying an upload the server refused as too big (413), and tell the user why.
+
+## Done
+
+- [x] stop retrying on 413
+- [x] tell the user the file is too big
+
+## Notes
+
+Review: requested
+EOF
+arbor escalate --review "the message a too-big upload shows"`,
+		sections: [...CORE, "Merge or review", "Demos"],
+		checks: [
+			{
+				id: "card-again",
+				rule: "Ends a reply to a waiting review with the whole review report",
+				judge: ({ log }) => {
+					const reply = lastSaid(turnsOf(log.transcript.beats)[1] ?? []);
+					const titled = /^## 🔍 Ready to merge retry-413 onto main\s*$/m.test(
+						reply,
+					);
+					const ended = reply.endsWith('Reply "merge", or say what to change.');
+					return [
+						{
+							ok: titled && ended,
+							why: titled
+								? ended
+									? "the whole report"
+									: "a title without its last line"
+								: ended
+									? "the last line alone"
+									: "no review",
+						},
+					];
+				},
+			},
+			{
+				id: "not-merged",
+				rule: "Leaves a review it was asked about unmerged",
+				judge: ({ log }) => {
+					const merged = arborRuns(log.transcript.beats).some(
+						(run) => run.verb === "merge",
+					);
+					return [{ ok: !merged, why: merged ? "merged" : "waited" }];
+				},
+			},
+		],
+		rubric: [],
+	},
 	UNTRIAGED,
 ];
 
