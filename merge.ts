@@ -10,10 +10,17 @@ import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
 import type { Todos } from "./todos";
-import type { GateFailure, MergeFailure, Worktree } from "./worktree";
+import type {
+	FailedTest,
+	GateFailure,
+	MergeFailure,
+	Worktree,
+} from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 const TAIL_LINES = 40;
+/** The most lines kept of what one failed test said. */
+const MESSAGE_LINES = 30;
 
 /**
  * Lands the current worktree's branch on its base branch, trunk unless the
@@ -181,7 +188,10 @@ export async function merge(
 		await lock.release();
 		const output = `${gated.stdout}\n${gated.stderr}`;
 		const failed = failedTests(output);
-		await bump(worktree, "tests_failed", { tests: failed });
+		await bump(worktree, "tests_failed", {
+			tests: failed.map((each) => each.name),
+			failures: failed,
+		});
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		facts.failedTests = failed;
 		fail(
@@ -191,7 +201,14 @@ export async function merge(
 				`${base} is untouched and ${branch} is back at ${before.slice(0, 8)}.`,
 				"",
 				...(failed.length > 0
-					? [`Failing tests (${failed.length}):`, ...failed, ""]
+					? [
+							`Failing tests (${failed.length}):`,
+							...failed.flatMap((each) => [
+								each.name,
+								...(each.message === "" ? [] : [indent(each.message)]),
+							]),
+							"",
+						]
 					: []),
 				tail(output),
 			].join("\n"),
@@ -335,15 +352,41 @@ function tail(output: string): string {
 	return output.trim().split("\n").slice(-TAIL_LINES).join("\n");
 }
 
-/**
- * The tests a runner reported as failing, which the tail cuts off: bun prints
- * each as a `(fail) name` line well before the summary. Another runner prints
- * none, so the tail alone is what the agent gets.
- */
-export function failedTests(output: string): string[] {
-	const names = output
+function indent(text: string): string {
+	return text
 		.split("\n")
-		.map((line) => /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/.exec(line))
-		.flatMap((match) => (match?.[1] ? [match[1]] : []));
-	return [...new Set(names)];
+		.map((line) => `    ${line}`)
+		.join("\n");
 }
+
+/**
+ * The tests a runner reported as failing, each with what it said, which the
+ * tail cuts off. Another runner prints none, so the tail alone is what the
+ * agent gets.
+ */
+export function failedTests(output: string): FailedTest[] {
+	// bun prints each as a `(fail) name` line well before the summary, with the
+	// expect diff or error and its stack just above it.
+	const lines = output.split("\n");
+	const found = new Map<string, string>();
+	let start = 0;
+	lines.forEach((line, index) => {
+		const name = FAIL_LINE.exec(line)?.[1];
+		if (name === undefined) {
+			return;
+		}
+		if (!found.has(name)) {
+			found.set(
+				name,
+				lines
+					.slice(Math.max(start, index - MESSAGE_LINES), index)
+					.join("\n")
+					.trim(),
+			);
+		}
+		start = index + 1;
+	});
+	return [...found].map(([name, message]) => ({ name, message }));
+}
+
+const FAIL_LINE = /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;

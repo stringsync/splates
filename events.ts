@@ -1,5 +1,5 @@
 import type { Question } from "./plan";
-import type { RemoveReason } from "./worktree";
+import type { FailedTest, RemoveReason } from "./worktree";
 
 /** An escalation that went through, which asks the person to act. */
 export type Escalated = Extract<Event, { action: "escalate"; reason: null }>;
@@ -62,9 +62,10 @@ export interface Facts {
 		attemptsLeft: number;
 		/**
 		 * The tests the gate named as failing when refused for `tests_failed`,
-		 * so the log shows which ones fail most. Empty when the runner named none.
+		 * with what each said, so the log shows which ones fail most and why.
+		 * Empty when the runner named none.
 		 */
-		failedTests: string[];
+		failedTests: FailedTest[];
 	};
 	remove: {
 		/** The `--reason` it gave, or null when it gave none. */

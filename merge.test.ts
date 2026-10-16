@@ -195,6 +195,21 @@ describe.concurrent("merge", () => {
 		});
 	});
 
+	it("keeps what each failing test said beside its name", async () => {
+		await using deps = await Testing.open();
+
+		deps.config.preMerge =
+			"printf 'noise\\nExpected: 1\\nReceived: 2\\n(fail) a > b [1.2ms]\\n'; exit 1";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await deps.finish(worktree);
+		await expect(merge(deps, worktree)).toBail("tests_failed", {
+			message: "a > b\n    noise\n    Expected: 1\n    Received: 2\n",
+		});
+	});
+
 	it("runs the gate in a heavy-job slot of the machine's, and gives it back", async () => {
 		await using deps = await Testing.open();
 		const seen = join(deps.arborHome, "seen.json");

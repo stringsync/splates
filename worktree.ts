@@ -318,6 +318,12 @@ export interface Escalation {
 /** Why a merge failed, as `merge` refuses it. */
 export type MergeFailure = "conflict" | "tests_failed" | "merge_failed";
 
+/** A test the gate named as failing, and what it said, as far as the runner printed. */
+export interface FailedTest {
+	name: string;
+	message: string;
+}
+
 /** One time `merge` turned a task away, and what it said of why. */
 export interface GateFailure {
 	reason: MergeFailure | "budget_exhausted";
@@ -326,6 +332,8 @@ export interface GateFailure {
 	files?: string[];
 	/** The tests the gate named as failing, for `tests_failed`. */
 	tests?: string[];
+	/** Those tests with what each said, for `tests_failed`. Absent in old records. */
+	failures?: FailedTest[];
 	/** What git said, for `merge_failed`. */
 	error?: string;
 }

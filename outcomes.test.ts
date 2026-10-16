@@ -244,6 +244,7 @@ describe.concurrent("outcomes", () => {
 				reason: "tests_failed",
 				at: expect.any(String),
 				tests: ["adds up"],
+				failures: [{ name: "adds up", message: "" }],
 			},
 			{ kind: "gate", reason: "budget_exhausted", at: expect.any(String) },
 			{ kind: "retried", times: 1 },
