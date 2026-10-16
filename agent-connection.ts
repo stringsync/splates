@@ -178,10 +178,15 @@ export class AgentConnection {
 			this.steering = steers(initialized);
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
+			// Offered only to an agent that takes them over HTTP, which they are.
+			const mcpServers =
+				initialized.agentCapabilities?.mcpCapabilities?.http === true
+					? ((await this.deps.servers?.servers()) ?? [])
+					: [];
 			if (this.session === null) {
 				const session = await connection.newSession({
 					cwd,
-					mcpServers: [],
+					mcpServers,
 					_meta: SESSION_META,
 				});
 				this.session = session.sessionId;
@@ -191,7 +196,7 @@ export class AgentConnection {
 				const session = await connection.loadSession({
 					sessionId: this.session,
 					cwd,
-					mcpServers: [],
+					mcpServers,
 					_meta: SESSION_META,
 				});
 				this.loading = false;
@@ -201,7 +206,7 @@ export class AgentConnection {
 				const session = await connection.resumeSession({
 					sessionId: this.session,
 					cwd,
-					mcpServers: [],
+					mcpServers,
 					_meta: SESSION_META,
 				});
 				host.state.settings = settingsIn(session.configOptions);

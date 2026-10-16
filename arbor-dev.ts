@@ -13,6 +13,7 @@ import { devSlot } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
 import { fail } from "./exit";
 import { Git } from "./git";
+import { HeavyJobs } from "./heavy";
 import { Limits } from "./limits";
 import { loadConfig } from "./load-config";
 import { Offered } from "./offered";
@@ -20,6 +21,7 @@ import { Outcomes } from "./outcomes";
 import { Projects } from "./projects";
 import { newest, sourceCommit } from "./release";
 import { arborHome } from "./roster";
+import { SharedBrowser } from "./shared-browser";
 import { SERVER_PID, SLOT, slotOf } from "./slots";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import type { TunnelProvider } from "./tunnel-provider";
@@ -118,7 +120,18 @@ export async function serveDev(
 	// One for every project, so agents resumed together start one at a time.
 	const starting = new MemoryLock();
 	const projects = Projects.ofMachine(ctx);
-	return dev(
+	// One for every project, so every agent on the machine shares one browser.
+	const browser = new SharedBrowser(
+		{
+			ps: ctx.ps,
+			fs: ctx.fs,
+			timer: new SystemTimer(),
+			log: ctx.log,
+			heavy: HeavyJobs.ofMachine(ctx),
+		},
+		arborHome(ctx.ps),
+	);
+	const server = await dev(
 		{ ...ctx, projects },
 		{
 			ports: devPorts(opts.port),
@@ -148,6 +161,7 @@ export async function serveDev(
 					watch: new Watch(git),
 					root: git.root,
 					projects,
+					servers: browser,
 				}),
 			// A login shell, as a terminal window opens, so the person's PATH
 			// and aliases are there.
@@ -160,6 +174,13 @@ export async function serveDev(
 			exit: (code) => ctx.ps.exit(code),
 		},
 	);
+	return {
+		port: server.port,
+		disposeAsync: async () => {
+			await server.disposeAsync();
+			await browser.disposeAsync();
+		},
+	};
 }
 
 /**

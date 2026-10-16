@@ -22,6 +22,7 @@ import type { Limit, Setting } from "./conversation-state";
 import { fail } from "./exit";
 import type { Limits } from "./limits";
 import type { Offered } from "./offered";
+import type { SessionServers } from "./shared-browser";
 import { ROOT as SKILLS, versionOf } from "./skills";
 import type { Watch } from "./watch";
 
@@ -91,6 +92,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly readLimits: ((agent: Agent) => Promise<Limit[]>) | null;
 	private readonly root: string | null;
 	private readonly projects: ProjectRoster | null;
+	private readonly servers: SessionServers | null;
 	/** The read of the records on disk, shared by every caller until it settles. */
 	private loaded: Promise<void> | null = null;
 	/** The last deletion of archived conversations past `ARCHIVED_KEPT`, so they run one at a time. */
@@ -118,6 +120,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.readLimits = opts.readLimits ?? null;
 		this.root = opts.root ?? null;
 		this.projects = opts.projects ?? null;
+		this.servers = opts.servers ?? null;
 	}
 
 	/** What each conversation is made with, read as each starts, since `url` is set later. */
@@ -132,6 +135,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			watch: this.watch,
 			root: this.root,
 			projects: this.projects,
+			servers: this.servers,
 		};
 	}
 
@@ -519,6 +523,11 @@ export interface ConversationsOptions {
 	 * by; none by default.
 	 */
 	projects?: ProjectRoster | null;
+	/**
+	 * The MCP servers each session is offered, beyond the agent's own, shared
+	 * across projects like the browser they serve; none by default.
+	 */
+	servers?: SessionServers | null;
 }
 
 /**

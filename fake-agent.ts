@@ -53,6 +53,10 @@ export class FakeAgent {
 	loaded: string[] = [];
 	/** The `_meta` each session was opened, loaded or resumed with, in order. */
 	opened: unknown[] = [];
+	/** Whether it takes MCP servers over HTTP, as Claude's adapter does. */
+	http = false;
+	/** The MCP servers each session was opened, loaded or resumed with, in order. */
+	mcp: acp.McpServer[][] = [];
 	/** Every prompt it was sent, block by block, in order. */
 	prompts: acp.ContentBlock[][] = [];
 	/** The settings set, in order. */
@@ -121,6 +125,7 @@ export class FakeAgent {
 				return {
 					protocolVersion: acp.PROTOCOL_VERSION,
 					agentCapabilities: {
+						...(this.http ? { mcpCapabilities: { http: true } } : {}),
 						...(this.sees ? { promptCapabilities: { image: true } } : {}),
 						...(this.held === null
 							? {}
@@ -155,8 +160,9 @@ export class FakeAgent {
 				}
 				return { outcome: this.steering };
 			},
-			newSession: async ({ _meta }) => {
+			newSession: async ({ _meta, mcpServers }) => {
 				this.opened.push(_meta);
+				this.mcp.push(mcpServers);
 				return { sessionId: "s1", configOptions: this.options };
 			},
 			listSessions: async ({ cwd }) => ({
@@ -164,8 +170,9 @@ export class FakeAgent {
 					.filter((each) => cwd == null || each.cwd === cwd)
 					.map(({ replay: _, ...info }) => info),
 			}),
-			loadSession: async ({ sessionId, _meta }) => {
+			loadSession: async ({ sessionId, _meta, mcpServers }) => {
 				this.opened.push(_meta);
+				this.mcp.push(mcpServers);
 				const session = this.held?.find((each) => each.sessionId === sessionId);
 				if (session === undefined) {
 					throw acp.RequestError.resourceNotFound(sessionId);
@@ -176,8 +183,9 @@ export class FakeAgent {
 				}
 				return { configOptions: this.options };
 			},
-			resumeSession: async ({ sessionId, _meta }) => {
+			resumeSession: async ({ sessionId, _meta, mcpServers }) => {
 				this.opened.push(_meta);
+				this.mcp.push(mcpServers ?? []);
 				this.resumed.push(sessionId);
 				return { configOptions: this.options };
 			},

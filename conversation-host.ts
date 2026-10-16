@@ -4,6 +4,7 @@ import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch } from "./agent-process";
 import type { ConversationLog } from "./conversation-log";
 import type { ConversationState } from "./conversation-state";
+import type { SessionServers } from "./shared-browser";
 import type { Watch } from "./watch";
 
 /**
@@ -58,6 +59,8 @@ export interface ConversationDeps {
 	root: string | null;
 	/** The arbor projects on this machine, for `#slug`; null for none. */
 	projects: ProjectRoster | null;
+	/** The MCP servers each session is offered, beyond the agent's own; null for none. */
+	servers: SessionServers | null;
 }
 
 /** The arbor projects on this machine, as `Projects` lists them. */
