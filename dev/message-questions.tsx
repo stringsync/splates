@@ -1,9 +1,5 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import {
-	LightbulbIcon,
-	ListChecksIcon,
-	MessageCircleQuestionIcon,
-} from "lucide-react";
+import { ListChecksIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import {
 	type Assumed,
@@ -95,7 +91,11 @@ export function MessageQuestions({
 	return (
 		<Sheeted
 			{...(proposal !== null
-				? { title: "Proposed", Icon: LightbulbIcon, tone: "info" as const }
+				? {
+						title: `Questions: ${proposal.subject}`,
+						Icon: MessageCircleQuestionIcon,
+						tone: "info" as const,
+					}
 				: escalation === null && questions.length === 0
 					? { title: "Assumed", Icon: ListChecksIcon, tone: "neutral" as const }
 					: escalation === null

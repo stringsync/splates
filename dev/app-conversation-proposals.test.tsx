@@ -62,6 +62,7 @@ describe("App's questions card under a proposal", () => {
 
 	it("heads the questions with the proposal, approving what it chose", async () => {
 		const { card } = await opened(proposing([]));
+		expect(within(card).getByText("Questions: a wrapping header")).toBeTruthy();
 		expect(
 			within(card).getByText("Let the header wrap on phones."),
 		).toBeTruthy();

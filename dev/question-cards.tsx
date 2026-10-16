@@ -4,7 +4,6 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	CopyIcon,
-	LightbulbIcon,
 	ListChecksIcon,
 	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
@@ -286,8 +285,8 @@ export function QuestionCards({
 			{...(proposal !== null
 				? {
 						label: `proposal ${proposal.subject}`,
-						Icon: LightbulbIcon,
-						title: proposal.subject,
+						Icon: MessageCircleQuestionIcon,
+						title: `Questions: ${proposal.subject}`,
 						tone: "info" as const,
 					}
 				: escalation === null && questions.length === 0
