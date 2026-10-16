@@ -535,8 +535,12 @@ or a short recording when it moves or takes steps. Save it outside the
 worktree, `arbor attach` it, and name the path it prints as
 `![what](/abs/path.png)`. The `arbor dev` page shows an attached file inline,
 in `ARBOR.md` and in your replies alike, playing a `.mp4`, `.webm` or `.mov`
-as a video. Only attached files show there, and they go when the task does (from
-`arbor dev` they stay with the conversation), so never point a question at a file anywhere else.
+as a video. Only attached files show there, so never point a question at a
+file anywhere else. Attached from a conversation (`arbor dev` gives its agents
+one; an agent outside it passes `--conversation <id>`), a file stays with it
+past the task, so the question still shows it when the user scrolls back;
+attached outside one, it goes when the task does. Such a file is no artifact
+(see Artifacts): it serves the question it is in.
 
 Put each screenshot in the question it is for, under what it shows: under the
 question's line for what it asks about, or indented under a choice for what
@@ -809,6 +813,35 @@ alone: after you answer a question about it, after the changes they asked
 for, or after anything else they say in between. The `arbor dev` page shows
 the Ready to merge card, which the user merges from, only for a whole report.
 
+## Artifacts
+
+An artifact is a file the user will come back for after the task is gone: a
+screenshot or recording of the finished work, an HTML page, a generated
+document. It belongs to the conversation, not the task, so it outlives every
+task the conversation runs, and the `arbor dev` page lists the conversation's
+artifacts beside its thread. Keep one with `arbor artifact add <file>`, named
+for its basename, or `--name <name>` for another. Adding a name the
+conversation already holds makes that artifact's next version, every earlier
+one kept, so give one thing one name and add it again whenever it changes,
+rather than a new name per take. `arbor artifact remove <name>` once it no
+longer stands, as when the work it shows was redone or dropped; `arbor
+artifact list` and `arbor artifact show <name>` read them back. It needs a
+conversation: `$ARBOR_CONVERSATION` from `arbor dev`, or
+`--conversation <id>` from outside it.
+
+One file may be 50 MB, one conversation's artifacts 250 MB, and the project's
+2 GB, counting every version still kept (`artifactFileCapacity`,
+`artifactConversationCapacity` and `artifactProjectCapacity` in
+`arbor.config.ts`). Past them `add` stops on `too_large`, keeping nothing of
+that file: trim a recording rather than ask for more room.
+
+Most files you show are not artifacts: a screenshot that shows a question or
+an assumption, an exhibit in a reply or a report's card, a demo step's image.
+Each serves the moment it is shown in, so it stays inline: `arbor attach` it
+and name it as `![what](/abs/path.png)`, as Asking as you go and Demos say.
+Make a file an artifact only when the user would look for it on its own,
+apart from the reply it came in.
+
 ## Reporting
 
 The user reads a report at a glance, so it holds only what they need to act
@@ -870,6 +903,10 @@ One sentence on what the task set out to do.
 
 Why it is a good next step.
 ```
+
+When the task made an artifact, a merge report names it in a `- ` line,
+`- Artifact: <name>`, rather than inlining it: the page lists it already, and
+the report stays a glance.
 
 A merge or remove report ends with the proposed todos, the best one first,
 each kept to its one sentence; leave them out only when no todo is open.

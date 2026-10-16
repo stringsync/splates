@@ -10,7 +10,7 @@ import { repository } from "./repository";
 
 /** `arbor artifact`, which the root cli mounts after `arbor attach`. */
 export const arborArtifact = cli<ArborDeps>("artifact").description(
-	"files your conversation made as its outputs, such as a screenshot, a recording or an HTML page: kept by name for the life of the conversation, whatever task it was made in, and shown on the `arbor dev` page. The conversation is $ARBOR_CONVERSATION, or --conversation <id> from an agent outside `arbor dev`",
+	"files your conversation made as its outputs, such as a screenshot, a recording or an HTML page: kept by name for the life of the conversation, whatever task it was made in, and listed on the `arbor dev` page beside its thread. A file that shows a question, an assumption or a demo step is no artifact: `arbor attach` it. The conversation is $ARBOR_CONVERSATION, or --conversation <id> from an agent outside `arbor dev`",
 );
 
 const conversation = [
@@ -27,7 +27,7 @@ arborArtifact
 	.command("add")
 	.use(repository({ needs: "own" }))
 	.description(
-		"keep files as artifacts of this conversation, each named for its basename, or by --name when there is one; adding a name the conversation holds makes its next version, every earlier one kept. Past the size limits it stops with `too_large`, changing nothing for that file",
+		"keep files as artifacts of this conversation, each named for its basename, or by --name when there is one; adding a name the conversation holds makes its next version, every earlier one kept. Past the size limits (artifactFileCapacity per file, artifactConversationCapacity per conversation, artifactProjectCapacity per project, every kept version counted) it stops with `too_large`, changing nothing for that file",
 	)
 	.arg("files", z.string(), { description: "files to keep, comma separated" })
 	.option("name", z.string(), {

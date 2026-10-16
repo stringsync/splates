@@ -632,7 +632,7 @@ arbor
 	.command("attach")
 	.use(repository({ needs: "own" }))
 	.description(
-		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/arbor, which the `arbor dev` page shows inline; from a conversation (its $ARBOR_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds",
+		"store screenshots and recordings for this task's questions to show: prints the path each was stored at, under .git/arbor, which the `arbor dev` page shows inline; from a conversation (its $ARBOR_CONVERSATION, or --conversation) they stay with it past the task, otherwise they go when the task merges or is removed, and a task holds at most attachmentCapacity bytes; with no files, lists what it holds. A file the user will come back for on its own is an artifact instead (`arbor artifact add`)",
 	)
 	.arg("files", z.string(), {
 		default: "",
