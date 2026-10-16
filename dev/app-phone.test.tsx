@@ -831,7 +831,7 @@ describe("App on a phone", () => {
 		).toContain("beta");
 	});
 
-	it("leaves a restart to update to the inbox's kebab, out of a conversation's", async () => {
+	it("leaves Restart to update to the inbox's bar, out of a conversation's", async () => {
 		const view = await testing.openConversations(
 			[conversation({ id: "c1", title: "Broke" })],
 			"c1",
@@ -839,6 +839,9 @@ describe("App on a phone", () => {
 		);
 		expect(location.hash).toBe("#conversations/c1");
 		view.getByRole("button", { name: "More" });
+		expect(
+			view.queryByRole("button", { name: "Restart to update" }),
+		).toBeNull();
 
 		await act(async () =>
 			fireEvent.click(
@@ -847,7 +850,7 @@ describe("App on a phone", () => {
 		);
 
 		await waitFor(() =>
-			view.getByRole("button", { name: "More: restart to update" }),
+			view.getByRole("button", { name: "Restart to update" }),
 		);
 	});
 

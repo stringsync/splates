@@ -169,18 +169,23 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("dots a phone's kebab, and the Power in it, once a restart would update", async () => {
+	it("puts Update before a phone's kebab, and dots the Power in it, once a restart would update", async () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
+			expect(
+				view.queryByRole("button", { name: "Restart to update" }),
+			).toBeNull();
 			testing.served = snapshot({
 				release: { running: "0.0.43", newest: "0.0.44" },
 			});
 			await act(async () => testing.stream?.onmessage?.());
-			const more = await waitFor(() =>
-				view.getByRole("button", { name: "More: restart to update" }),
+			const update = await waitFor(() =>
+				view.getByRole("button", { name: "Restart to update" }),
 			);
-			expect(more.querySelector(".bg-warning")).not.toBeNull();
+			expect(update.textContent).toBe("Update");
+			const more = view.getByRole("button", { name: "More" });
+			expect(more.querySelector(".bg-warning")).toBeNull();
 			await act(async () => fireEvent.click(more));
 			const restart = await waitFor(() =>
 				view.getByRole("menuitem", { name: "Power: restart to update" }),
@@ -192,6 +197,28 @@ describe("App's feed", () => {
 			cleanup();
 			resize(1024, 768);
 		}
+	});
+
+	it("opens Power from Restart to update, beside the kebab", async () => {
+		const view = await testing.open();
+		expect(
+			view.queryByRole("button", { name: "Restart to update" }),
+		).toBeNull();
+
+		testing.served = snapshot({
+			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
+		});
+		await act(async () => testing.stream?.onmessage?.());
+		const restart = await waitFor(() =>
+			view.getByRole("button", { name: "Restart to update" }),
+		);
+		expect(restart.textContent).toBe("Restart to update");
+		expect(
+			restart.parentElement?.nextElementSibling?.getAttribute("aria-label"),
+		).toBe("More");
+		await act(async () => fireEvent.click(restart));
+
+		await waitFor(() => view.getByRole("dialog", { name: "Power" }));
 	});
 
 	it("grays out the tab's icon while offline, and brings it back", async () => {

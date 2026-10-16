@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Duration, SystemClock, SystemTimer } from "webappwiz/time";
 import { DropdownMenuItem } from "#dev/components/ui/dropdown-menu.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import type { ConversationState } from "../conversations";
 import type { AutoRestart } from "./auto-restart";
 import { CheckpointDialog, type Restarting } from "./checkpoint-dialog";
@@ -417,6 +418,34 @@ export function CheckpointItem({
 			)}
 			{title}
 		</DropdownMenuItem>
+	);
+}
+
+/**
+ * Restart to update, as Zed's, in every bar before its kebab once a restart
+ * would update arbor, opening Power; nothing while a run is under way, which
+ * the header's badge says instead. Its words shrink to Update on a phone.
+ */
+export function RestartButton({ wide }: { wide: boolean }): JSX.Element | null {
+	const { slide, open } = useCheckpoint();
+	if (slide !== "pick" && slide !== "counting") {
+		return null;
+	}
+	return (
+		<button
+			type="button"
+			aria-label="Restart to update"
+			title="Restart to update"
+			onClick={() => open()}
+			className={cn(
+				"flex shrink-0 items-center whitespace-nowrap border border-border bg-background font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring active:bg-muted dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+				wide
+					? "h-7 rounded-md px-2.5 text-xs"
+					: "h-8 rounded-full px-3 text-sm",
+			)}
+		>
+			{wide ? "Restart to update" : "Update"}
+		</button>
 	);
 }
 
