@@ -30,6 +30,7 @@ asks you to read it as Reference files says.
 | `[ARBOR HANDOFF <task>]` | Take over a task another agent handed you | [handoff.md](references/handoff.md) first, then as for `[ARBOR TASK <task>]` |
 | `[ARBOR HANDOFF TO <agent> <model>]` | Hand your task to that agent, on that model | [handoff.md](references/handoff.md) |
 | `[ARBOR MERGE]` | The user approved your review, from the Ready to merge card | As for a reply of "merge": see Merge or review |
+| `[ARBOR INVESTIGATE <task>]` | Look into what went wrong in a task you merged, from its merged card, every finding listed after it | See Investigating findings |
 | `[ARBOR APPROVE]` | The user approved your proposal, from its card, with any answers after it | As for a reply of "approve": see Proposing |
 | `[ARBOR UPDATE]` | Where your work stands, from the Check in button | Bring `## Done` and `## Next` up to date, then answer in at most three `- ` lines: what you finished since the user last heard from you, what you are on now, and what is in the way, if anything. Then carry on with the work in the same turn, as though nothing had come: no report, no questions and no stop |
 | `[ARBOR LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
@@ -589,6 +590,30 @@ its server. Every other slot is another task's: never kill its server or edit
 `~/.arbor/slots.json`, even when it looks left behind. When none is free, run
 `arbor slots prune`, which frees only those no task holds any more, and
 otherwise ask the user.
+
+## Investigating findings
+
+A merged card lists what went worse than it could have in its task: the
+gate turning it away, the user stopping you, a command failing again and
+again, and the like. `[ARBOR INVESTIGATE <task>]` asks you to look into them,
+each listed after it with its data. Fix what you can, in a task of its own
+when it changes code (see Workflow), then end on one report: a
+`## 🔎 Investigated <task>` title, a blank line, one sentence on what you
+fixed, then a `- ` line for each finding you left unfixed, saying what it is
+and why, after a colon, you left it.
+
+```markdown
+## 🔎 Investigated header-wrap
+
+The header test no longer waits on a font that never loads.
+
+- The gate keeps failing on `wraps at 390px`: it needs a browser the gate does not run.
+```
+
+Never `arbor todo add` a finding you left, or put it in a todo you add:
+no conversation goes perfectly, and todos made of every finding pile up
+stale. The card offers Defer on each line, and only the user makes a todo
+of one.
 
 ## Proposing
 

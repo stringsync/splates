@@ -26,6 +26,7 @@ import {
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { LanesStart, Report, TodoProposal } from "../asked";
+import { leftIn } from "../investigated";
 import { todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
@@ -35,7 +36,7 @@ import { InMessage, useCardReply } from "./card-reply";
 import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
 import { useEndCard, useStartCard } from "./current-task";
 import { Markdown } from "./markdown";
-import { MergedStats } from "./merged-stats";
+import { Leftovers, MergedStats } from "./merged-stats";
 import { Refusal, useRefusal } from "./refusal";
 import { TaskIcon } from "./task-icon";
 
@@ -113,6 +114,8 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 			>
 				{showing ? (
 					<Source text={report.source} />
+				) : report.ending === "investigated" && "task" in report ? (
+					<Investigated task={report.task} body={report.body} />
 				) : text === "" && report.ending !== "merged" ? undefined : (
 					<>
 						{text !== "" && (
@@ -127,6 +130,23 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 				)}
 			</CardShell>
 		</div>
+	);
+}
+
+/** What an Investigated report fixed, then each finding it left, to defer. */
+function Investigated({
+	task,
+	body,
+}: {
+	task: string;
+	body: string;
+}): JSX.Element {
+	const { fixed, left } = leftIn(body);
+	return (
+		<>
+			{fixed !== "" && <CardBody text={fixed} />}
+			{left.length > 0 && <Leftovers task={task} left={left} />}
+		</>
 	);
 }
 

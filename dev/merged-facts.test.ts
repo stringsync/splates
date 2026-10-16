@@ -1,8 +1,57 @@
 import { describe, expect, it } from "bun:test";
 import type { Outcome } from "../outcomes";
-import { mergedFacts } from "./merged-facts";
+import {
+	deferred,
+	deferredLeft,
+	type Fact,
+	investigation,
+	mergedFacts,
+} from "./merged-facts";
 
 describe("mergedFacts", () => {
+	// scry-ignore simple-test-setup: each test builds the outcome it reads, which is its input, not shared setup
+	it("asks Investigate of every finding as the card says it, with the data each came from", () => {
+		const stopped = {
+			kind: "stopped",
+			at: "2026-10-14T09:30:00.000Z",
+		} as const;
+		const facts = mergedFacts({
+			outcome: merged({
+				findings: [
+					{ kind: "gate", reason: "conflict", at: "", files: ["a.ts"] },
+					stopped,
+				],
+			}),
+			baseline: null,
+		});
+
+		const asked = investigation("alpha", facts);
+
+		expect(asked.split("\n").slice(0, 4)).toEqual([
+			"[ARBOR INVESTIGATE alpha]",
+			"",
+			"- Conflicted in a.ts",
+			"- You stopped a turn",
+		]);
+		expect(asked).toContain('"kind": "stopped"');
+		expect(deferred("alpha", facts.findings[0] as Fact)).toEqual({
+			subject: "You stopped a turn",
+			text: [
+				"Found in `alpha` as it merged: You stopped a turn.",
+				"",
+				"```json",
+				JSON.stringify(stopped, null, 2),
+				"```",
+			].join("\n"),
+		});
+		expect(
+			deferredLeft("alpha", "`bun test` keeps failing: it needs a browser"),
+		).toEqual({
+			subject: "bun test keeps failing",
+			text: "Left unfixed when `alpha`'s findings were investigated: `bun test` keeps failing: it needs a browser",
+		});
+	});
+
 	it("says each figure beside its project's median, marking one far above it", () => {
 		const facts = mergedFacts({
 			outcome: merged({
@@ -90,12 +139,12 @@ describe("mergedFacts", () => {
 			},
 		});
 
-		expect(facts.gate).toEqual([
+		expect(facts.gate).toMatchObject([
 			{ text: "Tests failed: adds up", again: "3rd time this week" },
 			{ text: "Ran out of merge attempts", again: null },
 			{ text: "Given more attempts once", again: null },
 		]);
-		expect(facts.findings).toEqual([
+		expect(facts.findings).toMatchObject([
 			{ text: "You stopped a turn", again: null },
 			{ text: "Edited 900 lines to land 40", again: null },
 		]);
@@ -116,7 +165,7 @@ describe("mergedFacts", () => {
 			value: "12.3k out",
 		});
 		expect(facts.gate).toEqual([
-			{ text: "Failed to merge twice", again: null },
+			{ text: "Failed to merge twice", again: null, finding: null },
 		]);
 		expect(facts.findings).toEqual([]);
 	});

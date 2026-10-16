@@ -430,6 +430,7 @@ export function statusOf(
 	if (report !== null) {
 		const how = {
 			merged: `Merged onto ${("base" in report ? report.base : null) ?? "main"}`,
+			investigated: "Investigated",
 			removed: "Removed",
 			escalated: "Escalated",
 			finished: "Lanes finished",

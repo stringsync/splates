@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { stretches } from "./asked";
+import { leftIn } from "./investigated";
 
 describe("stretches", () => {
 	it("reads the questions of the skill's own escalation example", async () => {
@@ -79,6 +80,23 @@ describe("stretches", () => {
 				pick: "one",
 			},
 		]);
+	});
+
+	it("reads the skill's own Investigated report, each finding it left apart from what it fixed", async () => {
+		const [stretch] = stretches(await skillExample("## 🔎"));
+
+		expect(stretch).toMatchObject({
+			type: "report",
+			report: { ending: "investigated", task: "header-wrap" },
+		});
+		expect(
+			stretch?.type === "report" ? leftIn(stretch.report.body) : null,
+		).toEqual({
+			fixed: "The header test no longer waits on a font that never loads.",
+			left: [
+				"The gate keeps failing on `wraps at 390px`: it needs a browser the gate does not run.",
+			],
+		});
 	});
 
 	it("reads the skill's own review report as a review, and nothing else as one", async () => {

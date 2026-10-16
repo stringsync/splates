@@ -140,7 +140,12 @@ const RegistryContext = createContext<Registry | null>(null);
  * The endings after which a task is over for the conversation, unlike an
  * escalation: a task handed off goes on in another.
  */
-const OVER: ReadonlySet<Ending> = new Set(["merged", "removed", "handed"]);
+const OVER: ReadonlySet<Ending> = new Set([
+	"merged",
+	"investigated",
+	"removed",
+	"handed",
+]);
 
 /**
  * Holds what a conversation's thread says about its tasks, for the

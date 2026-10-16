@@ -1,15 +1,27 @@
 import {
 	ArrowUpIcon,
+	CheckIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
+	SearchIcon,
 } from "lucide-react";
-import { type JSX, useEffect, useState } from "react";
+import { type JSX, useContext, useEffect, useState } from "react";
+import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Landed } from "../landed";
 import { taskOutcome } from "./api";
+import { ReplyContext } from "./card-reply";
+import { DeferButton } from "./defer";
 import { Markdown } from "./markdown";
-import { type Fact, mergedFacts } from "./merged-facts";
+import {
+	deferred,
+	deferredLeft,
+	type Fact,
+	investigation,
+	mergedFacts,
+} from "./merged-facts";
+import { Refusal, useRefusal } from "./refusal";
 
 /**
  * How `task` went once it merged, under its card's report: its time, cost,
@@ -19,6 +31,9 @@ import { type Fact, mergedFacts } from "./merged-facts";
  */
 export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	const [landed, setLanded] = useState<Landed | null>(null);
+	const send = useContext(ReplyContext)?.send ?? null;
+	const [investigating, setInvestigating] = useState(false);
+	const { refusal, attempt } = useRefusal();
 	useEffect(() => {
 		let current = true;
 		taskOutcome(task).then(
@@ -34,6 +49,7 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 		return null;
 	}
 	const facts = mergedFacts(landed);
+	const found = facts.gate !== null || facts.findings.length > 0;
 	return (
 		<section
 			aria-label="how it went"
@@ -72,6 +88,7 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 			) : (
 				<Facts
 					label="gate"
+					task={task}
 					facts={facts.gate}
 					Icon={CircleXIcon}
 					tone="text-destructive"
@@ -80,22 +97,82 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 			{facts.findings.length > 0 && (
 				<Facts
 					label="findings"
+					task={task}
 					facts={facts.findings}
 					Icon={CircleAlertIcon}
 					tone="text-warning"
 				/>
 			)}
+			{found && send !== null && (
+				<div className="flex flex-col items-end gap-1">
+					{investigating ? (
+						<span className="flex items-center gap-1 text-success">
+							<CheckIcon className="size-3.5" strokeWidth={3} />
+							Investigating
+						</span>
+					) : (
+						<Button
+							size="sm"
+							onClick={async () =>
+								setInvestigating(
+									await attempt(
+										send(investigation(task, facts)),
+										"Not investigated",
+									),
+								)
+							}
+							className="gap-1.5 pointer-coarse:h-10"
+						>
+							<SearchIcon data-icon="inline-start" />
+							Investigate
+						</Button>
+					)}
+					<Refusal refusal={refusal} />
+				</div>
+			)}
 		</section>
+	);
+}
+
+/**
+ * What an Investigated report left unfixed in `task`, a line each with Defer,
+ * under what it fixed.
+ */
+export function Leftovers({
+	task,
+	left,
+}: {
+	task: string;
+	left: string[];
+}): JSX.Element {
+	return (
+		<ul
+			aria-label="left unfixed"
+			className="flex flex-col gap-1 border-t px-4 py-3 text-xs"
+		>
+			{left.map((line) => (
+				<li key={line} className="flex items-start gap-1.5">
+					<CircleAlertIcon
+						aria-hidden
+						className="mt-1 size-3.5 shrink-0 text-warning"
+					/>
+					<Markdown text={line} className="min-w-0 flex-1 [&_p]:my-0" />
+					<DeferButton todo={deferredLeft(task, line)} />
+				</li>
+			))}
+		</ul>
 	);
 }
 
 function Facts({
 	label,
+	task,
 	facts,
 	Icon,
 	tone,
 }: {
 	label: string;
+	task: string;
 	facts: Fact[];
 	Icon: typeof CircleAlertIcon;
 	tone: string;
@@ -106,7 +183,7 @@ function Facts({
 				// Two alike, as two stopped turns, are two lines.
 				// biome-ignore lint/suspicious/noArrayIndexKey: the list never reorders
 				<li key={index} className="flex items-start gap-1.5">
-					<Icon aria-hidden className={cn("mt-0.5 size-3.5 shrink-0", tone)} />
+					<Icon aria-hidden className={cn("mt-1 size-3.5 shrink-0", tone)} />
 					{/* Beside its line where it fits, under it where it does not. */}
 					<span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5">
 						<Markdown text={fact.text} className="[&_p]:my-0" />
@@ -114,6 +191,7 @@ function Facts({
 							<span className="text-muted-foreground">{fact.again}</span>
 						)}
 					</span>
+					<DeferButton todo={deferred(task, fact)} />
 				</li>
 			))}
 		</ul>

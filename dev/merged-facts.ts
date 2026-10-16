@@ -1,6 +1,8 @@
 import { findingKeys, type Measure, measured, outlier } from "../baselines";
 import type { Finding } from "../findings";
 import type { Landed } from "../landed";
+import { investigateReference } from "../prompts";
+import type { TodoForm } from "./api";
 import { duration } from "./stats-advice";
 
 /** What the merged card says of how a task went, a line each. */
@@ -28,6 +30,8 @@ export interface Fact {
 	text: string;
 	/** "3rd time this week" when it came up before in its project; null otherwise. */
 	again: string | null;
+	/** What it was found from; null for an older outcome's count of failed merges. */
+	finding: Finding | null;
 }
 
 /** The findings that are not the gate's, the most worth acting on first. */
@@ -115,6 +119,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 	const fact = (finding: Finding): Fact => ({
 		text: said(finding),
 		again: again(baseline?.findings[findingKeys(finding).at(-1) ?? ""] ?? 0),
+		finding,
 	});
 	const gate = found.filter(
 		(each) => each.kind === "gate" || each.kind === "retried",
@@ -128,6 +133,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 						{
 							text: `Failed to merge ${times(outcome.failedMerges)}`,
 							again: null,
+							finding: null,
 						},
 					]
 				: gate.length === 0
@@ -141,6 +147,60 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			)
 			.map(fact),
 	};
+}
+
+/**
+ * What Investigate asks the agent that merged `task`: the directive, then
+ * every finding as the card says it, and the data each was found from.
+ */
+export function investigation(task: string, facts: MergedFacts): string {
+	const all = [...(facts.gate ?? []), ...facts.findings];
+	return [
+		investigateReference(task),
+		"",
+		...all.map(
+			(fact) =>
+				`- ${fact.text}${fact.again === null ? "" : ` (${fact.again})`}`,
+		),
+		"",
+		"```json",
+		JSON.stringify(
+			all.flatMap((fact) => (fact.finding === null ? [] : [fact.finding])),
+			null,
+			2,
+		),
+		"```",
+	].join("\n");
+}
+
+/** The todo Defer makes of `fact`, found in `task` as it merged. */
+export function deferred(task: string, fact: Fact): TodoForm {
+	return {
+		subject: plain(fact.text),
+		text: [
+			`Found in \`${task}\` as it merged: ${fact.text}${fact.again === null ? "." : `, the ${fact.again}.`}`,
+			...(fact.finding === null
+				? []
+				: ["", "```json", JSON.stringify(fact.finding, null, 2), "```"]),
+		].join("\n"),
+	};
+}
+
+/**
+ * The todo Defer makes of a finding Investigate left in `task`: `left` is its
+ * line, what it is, then why after its colon.
+ */
+export function deferredLeft(task: string, left: string): TodoForm {
+	const what = left.split(/:\s/)[0] ?? left;
+	return {
+		subject: plain(what),
+		text: `Left unfixed when \`${task}\`'s findings were investigated: ${left}`,
+	};
+}
+
+/** `text` without the code spans the card shows it in, for a todo's line. */
+function plain(text: string): string {
+	return text.replaceAll("`", "");
 }
 
 /** A finding as one line of the card. */
