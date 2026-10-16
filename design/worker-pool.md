@@ -76,6 +76,9 @@ write `.git/arbor` directly today. Repo state goes behind an interface:
 files when local, an HTTP API to the coordinator when remote. The worker
 opens a **loopback relay port** forwarded over its socket; `ARBOR_DEV`
 points at it, so callbacks and repo-state calls both reach the coordinator.
+"Local" means on the coordinator's own machine: once the coordinator is in
+the cloud, `arbor` run by hand on the Mac reaches repo state through the
+Mac's own worker daemon, so a machine holds one credential, its worker's.
 
 ## Task ports (settled)
 
@@ -98,7 +101,10 @@ poking at the app, demos and screenshots.
   local worker keeps worktrees.
 - The central remote is the project's existing GitHub origin. A task's
   branch is pushed there as `arbor/<task>` after every commit and at every
-  checkpoint, and deleted on merge or remove; `ARBOR.md` syncs to the
+  checkpoint, and deleted on merge or remove. A checkpoint commits the
+  working tree first, as a WIP commit the agent squashes before merging, so
+  a worker that dies or is removed by force loses nothing past its last
+  checkpoint; `ARBOR.md` syncs to the
   coordinator as repo state at the same moments and never lands on main. The
   plan (intent) and the commits (done work) are durable together; a fresh
   worker clones the branch and resumes.
@@ -119,20 +125,53 @@ identity update main. How workers authenticate is asked in #281.
 
 Agent credentials reach workers from the coordinator over the socket at
 task start, kept in memory or tmpfs, never baked into an image, revoked on
-`rm`. Delivery flows from `webappwiz/creds`, as a store. A comparison with a
+remove. Each worker gets API keys of its own from each provider's console,
+each with its own spend limit, rather than a share of the user's seats:
+seats are per person, and the agent CLIs sign in per user (#305). Delivery flows from `webappwiz/creds`, as a store. A comparison with a
 secrets manager comes before it is built (#284).
+
+## Managing the pool
+
+- `arbor worker add --local N` makes this machine a worker with N slots;
+  `arbor worker add` mints a join token, single use and good for 15
+  minutes, for `arbor worker run --join <token>` on any machine. Each joined
+  worker gets a revocable identity of its own, checked on every upgrade of
+  `/api/workers`, and a Cloudflare Access service token of its own, minted
+  at join with the API token `arbor tunnel setup` keeps and sent as the
+  `CF-Access-Client-Id` and `CF-Access-Client-Secret` headers, so workers
+  pass Access like everything else; both are revoked on remove. The
+  registry persists across coordinator restarts.
+- `arbor worker drain <id>` takes no new tasks and lets in-flight ones
+  finish, or checkpoint, push and requeue. `arbor worker remove <id>`
+  drains first; `--force` requeues each task from its last pushed
+  checkpoint. Either way the worker's credentials are revoked. Removing the
+  local worker leaves the machine as coordinator only.
+- A Workers page in the nav shows each worker (kind, platform, slots,
+  health, build, tasks, $/hour) with the same actions as the CLI, and turns
+  this Mac on and off as a worker, after the coordinator moves to the cloud
+  too.
+- Home workers: the two Windows machines run the Linux worker unchanged in
+  WSL2, joined by a one-line PowerShell installer, started at boot by a
+  scheduled task, and shown as `linux (wsl2)`. They may sleep when idle;
+  the coordinator marks them asleep, not gone, and wakes one with a
+  Wake-on-LAN packet sent from the Mac or any awake worker on that network
+  when the queue needs it. They are extra capacity at $0/hour, never the
+  only capacity (#302, #303).
 
 ## Scheduler, queue and budget
 
-- Placement: a local slot, then an existing remote worker, then a newly
-  provisioned one if the budget allows; otherwise the task queues, visibly,
-  with its position, wait and reason. First come, first served, and the
-  user can reorder the queue.
+- Placement: a free slot on an awake worker (the local one, then a
+  registered one, then one already provisioned), then waking a sleeping
+  registered worker, then a newly provisioned one if the budget allows;
+  otherwise the task queues, visibly, with its position, wait and reason.
+  A wake that has not checked in within a time limit falls through to
+  provisioning, so a home machine never holds the queue up. First come,
+  first served, and the user can reorder the queue.
 - A task prefers the worker holding its checkout. Workers advertise their
   platform (Linux or macOS); a project may require one in `arbor.config.ts`.
 - A task waiting on the user holds its slot while its agent is live; when
-  the agent idles out (30 min) the slot frees, and the answer queues it
-  again. When its worker is removed, it checkpoints, pushes and frees the
+  the agent idles out (30 min) the slot frees, its dev servers stop with
+  it, and the answer queues it again, which brings its ports back. When its worker is removed, it checkpoints, pushes and frees the
   slot.
 - A heavy-job cap per worker (test runs, installs, browser launches) turns
   contention into queueing.
@@ -215,7 +254,7 @@ Phases merge independently; the single-Mac setup works after each.
    proxying through it, `arbor worker list`, a restartable coordinator.
 2. Durability and merge: repo state over the relay, the central remote,
    checkpoint pushes, the merge lease, clone-based checkouts.
-3. Registered workers: join tokens, add/drain/rm, the pool UI, the visible
+3. Registered workers: join tokens, add, drain and remove, the pool UI, the visible
    queue, proven with a Linux container as a second worker.
 4. Provisioning and budget.
 5. Cloud coordinator, near New Jersey, backed up by nightly provider
@@ -228,9 +267,9 @@ Before phase 1: a shared browser and the heavy-job cap, on their own.
 
 Asked when their todo starts:
 
-- How the local worker starts: the supervisor or launchd (#273).
 - How workers authenticate to GitHub (#281).
 - Credential delivery against a secrets manager (#284).
+- How each worker's API keys are made and kept per provider (#305).
 - Which Pulumi-supported cloud and region for workers, and what one warm
   worker costs (#289).
 - Where the cloud coordinator runs, near New Jersey (#295).
