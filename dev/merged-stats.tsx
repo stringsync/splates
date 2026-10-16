@@ -66,7 +66,16 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 							)}
 							title={stat.high ? "Above this project's usual" : undefined}
 						>
-							{stat.value}
+							{typeof stat.value === "string" ? (
+								stat.value
+							) : (
+								<span>
+									<span className="text-success">+{stat.value.added}</span>{" "}
+									<span className="text-destructive">
+										−{stat.value.removed}
+									</span>
+								</span>
+							)}
 							{stat.high && (
 								<ArrowUpIcon aria-label="above usual" className="size-3.5" />
 							)}

@@ -97,7 +97,7 @@ describe("mergedFacts", () => {
 			},
 			{
 				label: "Size",
-				value: "+120 −30",
+				value: { added: 120, removed: 30 },
 				detail: "3 files",
 				median: "200 lines",
 				high: false,

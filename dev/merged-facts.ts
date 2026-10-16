@@ -17,13 +17,19 @@ export interface MergedFacts {
 /** One figure, beside its project's usual. */
 export interface Stat {
 	label: string;
-	value: string;
+	/** Lines added and removed for a size, which the card colors. */
+	value: string | Lines;
 	/** What it was made of, as working beside waiting; null for nothing more. */
 	detail: string | null;
 	/** Its project's median; null with too few tasks to say. */
 	median: string | null;
 	/** Past its project's 90th percentile, or twice its median. */
 	high: boolean;
+}
+
+export interface Lines {
+	added: number;
+	removed: number;
 }
 
 export interface Fact {
@@ -51,7 +57,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 	const stat = (
 		measure: Measure,
 		label: string,
-		value: string,
+		value: Stat["value"],
 		detail: string | null,
 		show: (value: number) => string,
 	): Stat => {
@@ -100,7 +106,7 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			stat(
 				"lines",
 				"Size",
-				`+${outcome.size.added} −${outcome.size.removed}`,
+				{ added: outcome.size.added, removed: outcome.size.removed },
 				`${outcome.size.files} ${outcome.size.files === 1 ? "file" : "files"}`,
 				(lines) => `${Math.round(lines)} lines`,
 			),
