@@ -63,6 +63,22 @@ describe("App on a phone", () => {
 		expect(waiting.textContent).toContain("Failed");
 	});
 
+	it("leads a lane's orchestrator with [Lane] in its inbox", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "c1",
+					messages: [message("user", "[ARBOR LANE 4]")],
+				}),
+			],
+			null,
+			{ tasks: [], laneNames: [{ id: 4, name: "Stats" }] },
+		);
+
+		const inbox = view.getByRole("region", { name: "inbox" });
+		expect(within(inbox).getByText("[Lane] Stats")).toBeTruthy();
+	});
+
 	it("puts a task its conversation left in Needs you, and says how long one elsewhere has been quiet", async () => {
 		const left = details({ task: "delta", takenBy: "c9" });
 		const quiet = details({ task: "gamma", activeAt: hoursAgo(2) });
@@ -352,6 +368,7 @@ describe("App on a phone", () => {
 		expect(shown()).toEqual(["question 1"]);
 	});
 
+	// scry-ignore simple-test-setup: its IntersectionObserver stub is its own, which no other test shares
 	it("leaves the bar above the composer out while the card's own line is in sight", async () => {
 		const real = globalThis.IntersectionObserver;
 		// The one line in the thread, as the observer last watched it.
@@ -452,6 +469,7 @@ describe("App on a phone", () => {
 		}
 	});
 
+	// scry-ignore simple-test-setup: its layout stubs are its own, which no other test shares
 	it("keeps the field typed in above the keyboard as it comes up after the focus", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -857,6 +875,8 @@ describe("App on a phone", () => {
 		expect(testing.shells[0]?.readyState).toBe(3);
 		expect(view.queryByRole("region", { name: "Terminals" })).toBeNull();
 	});
+
+	// scry-ignore simple-test-setup: the background commands it lists are what it checks, and no other test opens with them
 	it("nests a conversation's running commands and its shell under it in the inbox, opening each from there", async () => {
 		const running = {
 			id: "b1",

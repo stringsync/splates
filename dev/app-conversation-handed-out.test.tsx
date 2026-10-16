@@ -259,9 +259,10 @@ describe("App's conversation of a task another handed out", () => {
 				.map(
 					(each) => each.closest("li")?.querySelector("button")?.textContent,
 				),
-		).toEqual(["Stats lane"]);
+		).toEqual(["[Lane] Stats lane"]);
 	});
 
+	// scry-ignore simple-test-setup: the working orchestrator it opens with is what it checks, and no other test does
 	it("marks the orchestrator working in the list while its agent works", async () => {
 		const view = await testing.openConversations(
 			newestFirst([
@@ -289,7 +290,7 @@ describe("App's conversation of a task another handed out", () => {
 				.map(
 					(each) => each.closest("li")?.querySelector("button")?.textContent,
 				),
-		).toEqual(["Stats lane", "alpha"]);
+		).toEqual(["[Lane] Stats lane", "alpha"]);
 	});
 
 	it("shows no dot for it in the list, its name muted, once it merged unread", async () => {

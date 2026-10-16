@@ -300,7 +300,7 @@ describe("App's conversation list", () => {
 	});
 
 	// scry-ignore simple-test-setup: the orchestrator and its lanes are what it checks, and no other test opens with them
-	it("names a lane's orchestrator after its lanes, over a task it took and the agent's title", async () => {
+	it("names a lane's orchestrator after its lanes, led by [Lane], over a task it took and the agent's title", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -338,9 +338,9 @@ describe("App's conversation list", () => {
 			.map((item) => item.querySelector("span.truncate") as HTMLElement);
 
 		expect(names.map((name) => name.textContent)).toEqual([
-			"Cloudflare Access",
-			"Stats, Lane 9",
-			"Untriaged",
+			"[Lane] Cloudflare Access",
+			"[Lane] Stats, Lane 9",
+			"[Lane] Untriaged",
 			"alpha",
 		]);
 		expect(names.some((name) => name.classList.contains("italic"))).toBe(false);

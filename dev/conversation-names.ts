@@ -1,6 +1,6 @@
 import { createContext, use } from "react";
 import { type Ending, type Report, stretches } from "../asked";
-import { nameOf, realName } from "../conversation-name";
+import { lanesOf, nameOf, realName } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 
@@ -11,6 +11,18 @@ export const Lanes = createContext<readonly LaneRecord[]>([]);
 export function useNameOf(): (conversation: ConversationState) => string {
 	const lanes = use(Lanes);
 	return (conversation) => nameOf(conversation, lanes);
+}
+
+/**
+ * `useNameOf` for a row in the sidebar or the inbox, where a lane's
+ * orchestrator leads with "[Lane]" so it stands apart from the tasks.
+ */
+export function useRowNameOf(): (conversation: ConversationState) => string {
+	const nameOf = useNameOf();
+	return (conversation) =>
+		lanesOf(conversation).length === 0
+			? nameOf(conversation)
+			: `[Lane] ${nameOf(conversation)}`;
 }
 
 /** Whether `nameOf` is a stand-in, shown muted until a real name comes. */

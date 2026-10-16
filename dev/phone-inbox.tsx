@@ -12,7 +12,12 @@ import {
 	agentName,
 	type ConversationFeed,
 } from "./conversation-feed";
-import { lastReport, unnamed, useNameOf } from "./conversation-names";
+import {
+	lastReport,
+	unnamed,
+	useNameOf,
+	useRowNameOf,
+} from "./conversation-names";
 import {
 	flatten,
 	hostsAtWork,
@@ -285,6 +290,7 @@ function Row({
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
+	const rowNameOf = useRowNameOf();
 	const trunk = useContext(Trunk);
 	const { conversation, task, need } = row;
 	// One that answers to another is not yours to address.
@@ -342,7 +348,9 @@ function Row({
 								"text-muted-foreground italic",
 						)}
 					>
-						{conversation !== null ? nameOf(conversation) : (task?.task ?? "")}
+						{conversation !== null
+							? rowNameOf(conversation)
+							: (task?.task ?? "")}
 					</span>
 					{moved !== null && (
 						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">

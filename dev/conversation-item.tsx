@@ -38,7 +38,12 @@ import {
 	markUnread,
 	renameConversation,
 } from "./conversation-api";
-import { reportedAs, unnamed, useNameOf } from "./conversation-names";
+import {
+	reportedAs,
+	unnamed,
+	useNameOf,
+	useRowNameOf,
+} from "./conversation-names";
 import { Dispatching, Trunk, whereRuns } from "./dispatching";
 import { useHandedOutBy, useHandedTo } from "./handed-out";
 import { Mark } from "./mark";
@@ -76,6 +81,7 @@ export function Item({
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
+	const rowNameOf = useRowNameOf();
 	const [renaming, setRenaming] = useState(false);
 	const { copied, copy } = useCopy();
 	const trunk = useContext(Trunk);
@@ -138,7 +144,7 @@ export function Item({
 							"text-muted-foreground italic",
 					)}
 				>
-					{nameOf(conversation)}
+					{rowNameOf(conversation)}
 				</span>
 				{where && whereOf(conversation, trunk) !== null && (
 					<span className="shrink-0 truncate text-muted-foreground text-xs">
