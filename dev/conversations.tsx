@@ -266,8 +266,12 @@ export function Conversations({
 						onLeft={() =>
 							phone
 								? onOpen(null, "replace")
-								: goOn(rowsOf(tasks, conversations), drafts, open, (id) =>
-										onOpen(id, "replace"),
+								: goOn(
+										rowsOf(tasks, conversations),
+										drafts,
+										conversations,
+										open,
+										(id) => onOpen(id, "replace"),
 									)
 						}
 						onOpen={onOpen}

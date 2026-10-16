@@ -1,6 +1,7 @@
 import { useReactive } from "@webappwiz/react";
 import { ChevronsRightIcon } from "lucide-react";
 import type { JSX } from "react";
+import type { ConversationState } from "../conversations";
 import type { Details } from "../show";
 import { openedBy } from "./conversation-address";
 import type { ConversationFeed } from "./conversation-feed";
@@ -30,7 +31,12 @@ export function NextWaiting({
 	open: string | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
-	const others = useWaitingElsewhere(feed, drafts, tasks, open);
+	const { others, conversations } = useWaitingElsewhere(
+		feed,
+		drafts,
+		tasks,
+		open,
+	);
 	const count = others.length;
 	return (
 		<BarButton
@@ -41,7 +47,7 @@ export function NextWaiting({
 			}
 			disabled={count === 0}
 			onClick={() => {
-				const next = nextWaiting(others, drafts, open);
+				const next = nextWaiting(others, drafts, conversations, open);
 				if (next !== undefined) {
 					arriveAt(openedBy(next));
 					onOpen(openedBy(next));
@@ -75,7 +81,7 @@ export function WaitingBadge({
 	tasks: Details[];
 	open: string | null;
 }): JSX.Element | null {
-	const count = useWaitingElsewhere(feed, drafts, tasks, open).length;
+	const count = useWaitingElsewhere(feed, drafts, tasks, open).others.length;
 	if (count === 0) {
 		return null;
 	}
@@ -90,20 +96,24 @@ export function WaitingBadge({
 	);
 }
 
-/** The rows of the other agents that wait on you, beside `open`. */
+/**
+ * The rows of the other agents that wait on you, beside `open`, and the
+ * conversations they were read from.
+ */
 function useWaitingElsewhere(
 	feed: ConversationFeed,
 	drafts: Drafts,
 	tasks: Details[],
 	open: string | null,
-): ReturnType<typeof rowsOf> {
+): { others: ReturnType<typeof rowsOf>; conversations: ConversationState[] } {
 	const { conversations } = useReactive(
 		feed,
 		(feed) => ({ conversations: feed.conversations }),
 		["changed"],
 	);
 	useCopiedReplies(drafts);
-	return rowsOf(tasks, conversations).filter(
-		(row) => openedBy(row) !== open && waitsOnYou(row, drafts),
+	const others = rowsOf(tasks, conversations).filter(
+		(row) => openedBy(row) !== open && waitsOnYou(row, drafts, conversations),
 	);
+	return { others, conversations };
 }

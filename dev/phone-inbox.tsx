@@ -87,7 +87,7 @@ export function Inbox({
 	// Each with the agents it handed out, in the group of the most pressing.
 	const trees = nest(rows, (host, part) => isHostOf(tasks, host, part));
 	const waiting = trees.filter((tree) =>
-		flatten([tree]).some((row) => waitsOnYou(row, drafts)),
+		flatten([tree]).some((row) => waitsOnYou(row, drafts, conversations)),
 	);
 	const working = trees.filter(
 		(tree) =>
@@ -100,7 +100,7 @@ export function Inbox({
 		(tree) => !waiting.includes(tree) && !working.includes(tree),
 	);
 	const open = (row: Needing) => {
-		if (waitsOnYou(row, drafts)) {
+		if (waitsOnYou(row, drafts, conversations)) {
 			arriveAt(openedBy(row));
 		}
 		onOpen(openedBy(row));

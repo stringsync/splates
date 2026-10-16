@@ -287,7 +287,7 @@ export function ConversationList({
 								onOpen={() => openRow(row)}
 								onLeft={
 									row.conversation.id === open
-										? () => goOn(rows, drafts, open, onOpen)
+										? () => goOn(rows, drafts, conversations, open, onOpen)
 										: undefined
 								}
 								hint={held ? hintOf(shown, row) : null}
@@ -363,7 +363,7 @@ function NextWaiting({
 	// The latest, for the listener below, which outlives a render.
 	const next = useRef(() => {});
 	next.current = () => {
-		const waiting = nextWaiting(rows, drafts, open);
+		const waiting = nextWaiting(rows, drafts, conversations, open);
 		if (waiting !== undefined) {
 			arriveAt(openedBy(waiting));
 			onOpen(openedBy(waiting));
@@ -375,7 +375,9 @@ function NextWaiting({
 
 	return (
 		<WaitingLine
-			waiting={rows.filter((row) => waitsOnYou(row, drafts)).length}
+			waiting={
+				rows.filter((row) => waitsOnYou(row, drafts, conversations)).length
+			}
 			nudges={nudges}
 			hint={held ? waitingKey : null}
 			onNext={() => next.current()}

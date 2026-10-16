@@ -1,6 +1,7 @@
 import type { ConversationState } from "../conversations";
 import {
 	answeredThrough,
+	answersTo,
 	externals,
 	type Need,
 	type Needing,
@@ -68,17 +69,19 @@ export function hintOf(shown: Needing[], row: Needing): string | null {
 export function nextWaiting(
 	rows: Needing[],
 	drafts: Drafts,
+	conversations: ConversationState[],
 	open: string | null,
 ): Needing | undefined {
+	const waits = (row: Needing) => waitsOnYou(row, drafts, conversations);
 	const at = rows.findIndex((row) => openedBy(row) === open);
 	const others = [...rows.slice(at + 1), ...rows.slice(0, at + 1)].filter(
 		(row) => openedBy(row) !== open,
 	);
 	return (
-		others.find((row) => waitsOnYou(row, drafts)) ??
+		others.find(waits) ??
 		others.find(wasMerged) ??
 		others.find(isUnread) ??
-		rows.find((row) => openedBy(row) === open && waitsOnYou(row, drafts))
+		rows.find((row) => openedBy(row) === open && waits(row))
 	);
 }
 
@@ -89,10 +92,11 @@ export function nextWaiting(
 export function goOn(
 	rows: Needing[],
 	drafts: Drafts,
+	conversations: ConversationState[],
 	open: string | null,
 	onOpen: (id: string) => void,
 ): void {
-	const next = nextWaiting(rows, drafts, open);
+	const next = nextWaiting(rows, drafts, conversations, open);
 	if (next === undefined || openedBy(next) === open) {
 		onOpen(NEW);
 	} else {
@@ -124,13 +128,22 @@ function isUnread({ conversation, need }: Needing): boolean {
  * Whether ⌥⌘M stops on `row`: an agent stopped on you, or an external one
  * asking as it works, while it has questions no reply has answered yet, nor
  * for an external agent, seen in its view or copied. One the page runs asks as it works only in
- * its plan, until its report asks again as it stops.
+ * its plan, until its report asks again as it stops. A subagent, answering to
+ * one of `conversations`, waits on you only once it failed: you answer the
+ * rest through that one, which is waiting on you in its place.
  */
 export function waitsOnYou(
 	{ conversation, task, need }: Needing,
 	drafts: Drafts,
+	conversations: readonly ConversationState[],
 ): boolean {
 	if (seenFor(drafts, conversation, task, need)) {
+		return false;
+	}
+	if (
+		answersTo({ conversation, task }, conversations) !== null &&
+		!(need.kind === "waiting" && need.why === "failed")
+	) {
 		return false;
 	}
 	if (need.kind === "waiting" && need.why !== "questions") {

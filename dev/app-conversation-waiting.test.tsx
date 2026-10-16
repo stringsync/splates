@@ -33,6 +33,15 @@ describe("App's going to the next waiting agent", () => {
 		options: [{ id: "yes", name: "Allow", kind: "allow_once" as const }],
 	};
 
+	const pressNext = () =>
+		act(async () =>
+			fireEvent.keyDown(document.body, {
+				altKey: true,
+				metaKey: true,
+				code: "KeyM",
+			}),
+		);
+
 	const PLAN = `# a task
 
 ## Goal
@@ -88,13 +97,7 @@ Cap upload retries
 				],
 			},
 		);
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 
 		expect(location.hash).toBe("#conversations/c2");
 		expect(view.queryByRole("dialog")).toBeNull();
@@ -109,13 +112,7 @@ Cap upload retries
 			null,
 			{ tasks: [details({ task: "alpha", plan: PLAN })] },
 		);
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 
 		expect(location.hash).toBe("#conversations/task/alpha");
 		await waitFor(() =>
@@ -125,6 +122,20 @@ Cap upload retries
 					.contains(document.activeElement),
 			).toBe(true),
 		);
+	});
+
+	it("passes over a subagent asking as it works, answered through the conversation it answers to", async () => {
+		const view = await testing.openConversations(
+			[conversation({ id: "c1", title: "Idle" })],
+			null,
+			{ tasks: [details({ task: "alpha", caller: "c1", plan: PLAN })] },
+		);
+		await pressNext();
+
+		expect(location.hash).not.toBe("#conversations/task/alpha");
+		expect(
+			view.getByRole("button", { name: /waiting on you/ }).textContent,
+		).toContain("Nothing waiting on you");
 	});
 
 	it("goes on ⌥⌘M to what the agent asks as it works", async () => {
@@ -141,13 +152,7 @@ Cap upload retries
 			null,
 			{ tasks: [details({ task: "alpha", plan: PLAN })] },
 		);
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 
 		expect(location.hash).toBe("#conversations/c1");
 		await waitFor(() =>
@@ -183,29 +188,11 @@ Cap upload retries
 			fireEvent.keyDown(document.body, { altKey: true, code: "KeyN" }),
 		);
 		expect(location.hash).toBe(before);
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c2");
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c3");
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c2");
 	});
 
@@ -227,21 +214,13 @@ Cap upload retries
 			]),
 			null,
 		);
-		const press = () =>
-			act(async () =>
-				fireEvent.keyDown(document.body, {
-					altKey: true,
-					metaKey: true,
-					code: "KeyM",
-				}),
-			);
-		await press();
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c3");
 		// On the one asking, it moves on to a merged one, as from an escalated task.
-		await press();
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c4");
 		// The one asking still comes first from anywhere else.
-		await press();
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c3");
 	});
 
@@ -263,18 +242,10 @@ Cap upload retries
 			]),
 			null,
 		);
-		const press = () =>
-			act(async () =>
-				fireEvent.keyDown(document.body, {
-					altKey: true,
-					metaKey: true,
-					code: "KeyM",
-				}),
-			);
-		await press();
+		await pressNext();
 		const first = location.hash;
 		expect(["#conversations/c2", "#conversations/c4"]).toContain(first);
-		await press();
+		await pressNext();
 		expect(location.hash).not.toBe(first);
 		expect(["#conversations/c2", "#conversations/c4"]).toContain(location.hash);
 	});
@@ -287,13 +258,7 @@ Cap upload retries
 			]),
 			null,
 		);
-		await act(async () =>
-			fireEvent.keyDown(document.body, {
-				altKey: true,
-				metaKey: true,
-				code: "KeyM",
-			}),
-		);
+		await pressNext();
 		expect(location.hash).toBe("#conversations/c2");
 	});
 });
