@@ -1,6 +1,7 @@
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Fs } from "webappwiz/system";
 import { Duration, Throttler, type Timer } from "webappwiz/time";
+import { type ArtifactChange, applyArtifact } from "./artifacts";
 import { delivered, said, sent, takeBack } from "./conversation-messages";
 import {
 	type Attached,
@@ -156,6 +157,8 @@ export class ConversationLog {
 				if (tool !== null) {
 					tool.decision = entry.decision;
 				}
+			} else if (entry.kind === "artifact") {
+				applyArtifact(state.artifacts, entry.change);
 			} else if (entry.kind === "turn") {
 				running = entry.running;
 			} else if (entry.kind === "end") {
@@ -311,4 +314,6 @@ export type Entry =
 	| { kind: "flags"; tool: string; flags: Flag[] }
 	/** How the person answered the agent asking permission for a tool call. */
 	| { kind: "decision"; tool: string; decision: Decision }
+	/** An artifact added, removed, or its bytes deleted. */
+	| { kind: "artifact"; change: ArtifactChange }
 	| { kind: "end"; error: string | null };

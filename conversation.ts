@@ -3,6 +3,7 @@ import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import { AgentConnection } from "./agent-connection";
 import type { Agent } from "./agent-process";
+import { Artifacts, applyArtifact } from "./artifacts";
 import { ConversationBackground } from "./conversation-background";
 import { ConversationFiles } from "./conversation-files";
 import type {
@@ -38,6 +39,8 @@ export class Conversation
 	readonly events = this.dispatcher.events;
 
 	private readonly files: ConversationFiles;
+	/** The files its agent kept as its outputs, read and changed here. */
+	readonly artifacts: Artifacts;
 	private readonly connection: AgentConnection;
 	private readonly turns: ConversationTurns;
 	private readonly background: ConversationBackground;
@@ -59,6 +62,19 @@ export class Conversation
 		this.files = new ConversationFiles(log.path, deps.fs, {
 			projects: deps.projects,
 			home: deps.root,
+		});
+		this.artifacts = new Artifacts(log.path, {
+			fs: deps.fs,
+			ids: deps.ids,
+			limits: deps.artifacts,
+			now: () => this.now(),
+			held: () => this.state.artifacts,
+			record: async (change) => {
+				this.log.write({ kind: "artifact", change });
+				await this.log.flush();
+				applyArtifact(this.state.artifacts, change);
+				this.changed();
+			},
 		});
 		this.connection = new AgentConnection(this, deps, {
 			session,

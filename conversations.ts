@@ -22,6 +22,7 @@ import {
 	listSessions,
 	type Session,
 } from "./agent-process";
+import { ARTIFACT_LIMITS, type ArtifactLimits } from "./artifacts";
 import { Conversation } from "./conversation";
 import type { ConversationDeps, ProjectRoster } from "./conversation-host";
 import type { Limit, Setting } from "./conversation-state";
@@ -41,6 +42,11 @@ export type {
 	Session,
 } from "./agent-process";
 export { launch } from "./agent-process";
+export type {
+	Artifact,
+	ArtifactGone,
+	ArtifactVersion,
+} from "./artifacts";
 export { Conversation } from "./conversation";
 export type { ConversationEvents } from "./conversation-host";
 export type {
@@ -103,6 +109,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 	private readonly root: string | null;
 	private readonly projects: ProjectRoster | null;
 	private readonly servers: SessionServers | null;
+	private readonly artifacts: ArtifactLimits;
 	/** The read of the records on disk, shared by every caller until it settles. */
 	private loaded: Promise<void> | null = null;
 	/** The last deletion of archived conversations past `ARCHIVED_KEPT`, so they run one at a time. */
@@ -134,12 +141,15 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		this.root = opts.root ?? null;
 		this.projects = opts.projects ?? null;
 		this.servers = opts.servers ?? null;
+		this.artifacts = opts.artifacts ?? ARTIFACT_LIMITS;
 	}
 
 	/** What each conversation is made with, read as each starts, since `url` is set later. */
 	private get deps(): ConversationDeps {
 		return {
 			fs: this.fs,
+			ids: this.ids,
+			artifacts: this.artifacts,
 			timer: this.timer,
 			clock: this.clock,
 			launch: this.run,
@@ -528,6 +538,8 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 
 export interface ConversationsOptions {
 	fs?: Fs;
+	/** How many bytes of artifacts each may keep; `ARTIFACT_LIMITS` by default. */
+	artifacts?: ArtifactLimits;
 	ids?: IdProvider;
 	launch?: Launch;
 	/**

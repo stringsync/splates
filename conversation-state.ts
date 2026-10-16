@@ -1,4 +1,5 @@
 import { Duration } from "webappwiz/time";
+import type { Artifact } from "./artifacts";
 import type { Event } from "./events";
 import type { Flag } from "./watch";
 
@@ -119,6 +120,8 @@ export interface ConversationState {
 	usage: Usage;
 	/** The commands the agent left in the background, oldest first. */
 	background: Background[];
+	/** The files its agent kept as its outputs, in the order first added, removed ones too. */
+	artifacts: Artifact[];
 }
 
 /**
@@ -453,6 +456,7 @@ export function blank(
 		pausing: false,
 		usage: unused(),
 		background: [],
+		artifacts: [],
 	};
 }
 

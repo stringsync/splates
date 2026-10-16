@@ -1,7 +1,9 @@
 import type { Events } from "webappwiz/events";
+import type { IdProvider } from "webappwiz/id";
 import type { Fs, Lock } from "webappwiz/system";
 import type { Timer, WallClock } from "webappwiz/time";
 import type { Agent, Launch } from "./agent-process";
+import type { ArtifactLimits } from "./artifacts";
 import type { ConversationLog } from "./conversation-log";
 import type { ConversationState } from "./conversation-state";
 import type { Reach } from "./projects";
@@ -44,6 +46,10 @@ export type ConversationEvents = { changed: undefined };
 /** What every conversation in a repo is made with. */
 export interface ConversationDeps {
 	fs: Fs;
+	/** What names the files artifacts are kept in. */
+	ids: IdProvider;
+	/** How many bytes of artifacts it may keep (`artifacts.ts`). */
+	artifacts: ArtifactLimits;
 	timer: Timer;
 	clock: WallClock;
 	launch: Launch;

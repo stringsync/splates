@@ -1,6 +1,7 @@
 import type { Pusher, VapidKeys } from "webappwiz/push";
 import type { PortProvider } from "webappwiz/system";
 import type { Duration } from "webappwiz/time";
+import type { Config } from "./config";
 import type { Conversations } from "./conversations";
 import type { AccessConfig } from "./dev-access";
 import type { Project } from "./dev-project";
@@ -58,11 +59,16 @@ export interface DevOptions {
 	tunnel?: TunnelConfig | null;
 	/**
 	 * Makes the conversations a project's page may hold with agents, its
-	 * records in `arborDir`, its commands watched through `git`; without it no page has any to show, and the routes
+	 * records in `arborDir`, its commands watched through `git`, its limits
+	 * from `config`; without it no page has any to show, and the routes
 	 * say they are off.
 	 */
 	conversations?:
-		| ((project: { arborDir: string; git: Git }) => Conversations)
+		| ((project: {
+				arborDir: string;
+				git: Git;
+				config: Config;
+		  }) => Conversations)
 		| null;
 	/**
 	 * The shell a page's terminal runs, as argv, in the main tree or a task's

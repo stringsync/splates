@@ -38,6 +38,7 @@ describe("fold", () => {
 		pausing: false,
 		usage: unused(),
 		background: [],
+		artifacts: [],
 	});
 	const at = (secs: number) =>
 		new Date(Date.parse("2026-10-11T10:00:00Z") + secs * 1000).toISOString();

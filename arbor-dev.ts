@@ -9,6 +9,7 @@ import {
 	savedTunnelOf,
 	seeded,
 } from "./arbor-flags";
+import { artifactLimits } from "./artifacts";
 import { codexLimits, isCodex } from "./codex-limits";
 import { Conversations } from "./conversations";
 import { type DevServer, dev, devPorts } from "./dev";
@@ -165,9 +166,10 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
-			conversations: ({ arborDir, git }) =>
+			conversations: ({ arborDir, git, config }) =>
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,
+					artifacts: artifactLimits(config),
 					launch: worker.launch,
 					machine: worker,
 					starting,

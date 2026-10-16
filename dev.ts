@@ -130,8 +130,8 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
-		conversationsFor: ({ arborDir, git }) =>
-			converse?.({ arborDir, git }) ?? null,
+		conversationsFor: ({ arborDir, git, service }) =>
+			converse?.({ arborDir, git, config: service.config }) ?? null,
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 	};

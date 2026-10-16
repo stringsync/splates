@@ -430,6 +430,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		pausing: false,
 		usage: unused(),
 		background: [],
+		artifacts: [],
 		...overrides,
 	};
 }

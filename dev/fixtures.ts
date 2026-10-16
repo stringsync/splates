@@ -152,6 +152,7 @@ export function conversation(
 		lastBase: null,
 		lastCaller: null,
 		background: [],
+		artifacts: [],
 		...overrides,
 	};
 }

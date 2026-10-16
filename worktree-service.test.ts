@@ -33,6 +33,9 @@ describe("WorktreeService", () => {
 			logCapacity: 200,
 			todoStalenessMs: 30 * 24 * 60 * 60 * 1000,
 			attachmentCapacity: 100 * 1024 * 1024,
+			artifactFileCapacity: 50 * 1024 * 1024,
+			artifactConversationCapacity: 250 * 1024 * 1024,
+			artifactProjectCapacity: 2 * 1024 * 1024 * 1024,
 			wiz: "wiz",
 			tunnel: null,
 		};

@@ -58,6 +58,15 @@ export interface Config {
 	 * together: a screen recording is the one thing here that grows fast.
 	 */
 	attachmentCapacity: number;
+	/** How many bytes one artifact a conversation keeps may be (`artifacts.ts`). */
+	artifactFileCapacity: number;
+	/**
+	 * How many bytes of artifacts one conversation may keep, every version
+	 * whose bytes have not been deleted.
+	 */
+	artifactConversationCapacity: number;
+	/** How many bytes of artifacts every conversation in the project may keep together. */
+	artifactProjectCapacity: number;
 	/**
 	 * The command the `arbor dev` Budget page runs `scry budgets` with, from
 	 * the repo's root. Leave it unset when the repo installs `@webappwiz/cli`;
