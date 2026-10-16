@@ -436,6 +436,20 @@ undo and what a wrong guess would cost, not on how sure you are:
   something the user said before. The task cannot merge until it is
   answered, though the user can answer in chat while you work.
 
+Size each call by how far it reaches, never by how long it takes, and lead
+its line with the size in parentheses, after its number:
+
+- **small**: stays local and is cheap to redo: a name, a default, wording,
+  one component.
+- **medium**: shapes how a feature behaves or looks, or spans systems.
+- **large**: hard to undo or outward-facing: a data format, an API, a
+  migration, the architecture, what other projects or people see. A large
+  call is always a question, never an assumption.
+
+The Stats page counts, at each size, the calls the user made against those
+agents made without them, so size every call, the ones a proposal asks
+included, wherever you write it.
+
 Build so calls stay cheap to undo, since that is what lets them go ahead as
 assumptions. Keep each choice in one place (a constant, a config value, a
 single component or module), and keep what uses it loosely coupled to it:
@@ -488,17 +502,17 @@ until the user opens it, so it never crowds the choices.
 ```markdown
 ## Blocked
 
-- [x] 1. Should the old upload endpoint stay for a release? → a
+- [x] 1. (large) Should the old upload endpoint stay for a release? → a
   - (a) Keep it for one release, logging each call (chosen)
   - (b) Remove it now
-- [ ] 2. What looks wrong in the header at 390px?
+- [ ] 2. (small) What looks wrong in the header at 390px?
   ![header at 390px](/abs/path/shot.png)
-- [ ] 3. How should existing sessions move to the new tokens?
+- [ ] 3. (large) How should existing sessions move to the new tokens?
   Sessions are keyed by the old cookie.
   - (a) Sign everyone out once
   - (b) Migrate each session on its next request (chosen)
     Why: no one is signed out, and the old cookie still reads for a release.
-- [ ] 4. In what order should the settings pages land?
+- [ ] 4. (medium) In what order should the settings pages land?
   - a. Profile
   - b. Billing
   - c. Notifications
@@ -507,7 +521,7 @@ until the user opens it, so it never crowds the choices.
 ```markdown
 ## Assumptions
 
-- [ ] 5. What should the retry limit be?
+- [ ] 5. (small) What should the retry limit be?
   Kept in `MAX_RETRIES` in `src/upload.ts`.
   - (a) Three tries, a second apart (chosen)
   - (b) Five tries, backing off
@@ -743,10 +757,10 @@ Fold proposals into the questions card, each assumption a question already answe
 - It already heads its questions with an escalation's report.
 - One card then asks everything, answered or not.
 
-1. Where should a proposal's assumptions come from?
+1. (medium) Where should a proposal's assumptions come from?
    - (a) The reply, so a proposal works outside a task too (chosen)
    - (b) `ARBOR.md`, so every proposal needs a task
-2. What should its button say?
+2. (small) What should its button say?
 ```
 
 In a task, write each call in `ARBOR.md` too, the chosen ones under

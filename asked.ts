@@ -1,6 +1,6 @@
 import { type Assumed, assumedAt, isAssumed } from "./assumed";
 import { type Demo, demoAt, isDemoTitle } from "./demo";
-import { offers, type Question, settled } from "./plan";
+import { offers, type Question, settled, sized } from "./plan";
 
 /**
  * `text` cut where it asks questions: a list numbered from 1 at the margin,
@@ -590,11 +590,11 @@ function asks({ asked, body }: { asked: Question; body: string[] }): boolean {
 	return asked.choices.length > 0;
 }
 
-function question(number: string, text: string): Question {
+function question(number: string, line: string): Question {
 	return {
 		number,
 		done: false,
-		text: text.trim(),
+		...sized(line.trim()),
 		body: "",
 		reply: null,
 		followUps: [],

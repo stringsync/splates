@@ -45,8 +45,13 @@ export interface Question {
 	number: string;
 	/** Checked off, which the agent does once it has acted on the reply. */
 	done: boolean;
-	/** The item's own line, without its checkbox, number or reply. */
+	/** The item's own line, without its checkbox, number, size or reply. */
 	text: string;
+	/**
+	 * How far the call reaches, from the `(large)` that leads its line, one of
+	 * `SIZES` as the skill writes it; null when it has none.
+	 */
+	size: string | null;
 	/**
 	 * The markdown indented under it, dedented, choices left out: detail,
 	 * code blocks, `![shot](/abs/path.png)` images. Empty when there is none.
@@ -108,6 +113,25 @@ const CHOICE =
 	/^([ \t]+)- (?:\(([a-z])\)|\[([a-z])\]|([a-z])\.)[ \t]+(.+?)[ \t]*$/;
 /** What ends the choice the agent went with. */
 const CHOSEN = /[ \t]*\(chosen\)$/i;
+
+/**
+ * How far a call reaches, smallest first, as the skill defines each: small
+ * stays local and is cheap to redo, medium shapes a feature or spans
+ * systems, large is hard to undo or outward-facing. The one place the scheme
+ * lives: outcomes keep each call's size as the word it was written with, so
+ * a word dropped from here still reads back from older outcomes.
+ */
+export const SIZES = ["small", "medium", "large"] as const;
+/** The `(large)` that leads an item's line: any one lowercase word. */
+const SIZE = /^\(([a-z]+)\)[ \t]+/;
+
+/** `text` without the size that leads it, and that size, or null. */
+export function sized(text: string): { text: string; size: string | null } {
+	const size = SIZE.exec(text);
+	return size === null
+		? { text, size: null }
+		: { text: text.slice(size[0].length), size: size[1] as string };
+}
 
 /**
  * Every numbered item under `## Blocked`, open or checked off, each with the
@@ -255,32 +279,88 @@ export function picks(text: string): {
 	amended: number;
 } {
 	const asked = questions(text);
-	let picked = 0;
-	let overturned = 0;
-	let amended = 0;
-	for (const each of asked) {
-		const chosen = each.choices.find((choice) => choice.chosen);
-		// `(b) ...`, `- (b) ...`, or a lone `b` or `b.`, as replies are written
-		// back; never the `a` that starts "a lot".
-		const reply = each.reply ?? "";
-		const [lead, wrapped, bare] =
-			/^(?:- )?(?:\(([a-z])\)|([a-z])(?=[.,]|$))/i.exec(reply) ?? [];
-		const key = wrapped ?? bare;
-		if (chosen === undefined || key === undefined || each.pick !== "one") {
-			continue;
-		}
-		picked++;
-		if (key.toLowerCase() !== chosen.key) {
-			overturned++;
-		} else if (
-			/[a-z0-9]/i.test(reply.slice(lead?.length ?? 0)) ||
-			each.followUps.length > 0
-		) {
-			amended++;
-		}
-	}
-	return { asked: asked.length, picked, overturned, amended };
+	const met = asked.map(metPick).filter((each) => each !== null);
+	return {
+		asked: asked.length,
+		picked: met.length,
+		overturned: met.filter((each) => each === "overturned").length,
+		amended: met.filter((each) => each === "amended").length,
+	};
 }
+
+/**
+ * How the person met the agent's pick on `asked`: null when it offered none,
+ * picks any or an order, or was answered in words alone or not at all.
+ */
+function metPick(asked: Question): "kept" | "amended" | "overturned" | null {
+	const chosen = asked.choices.find((choice) => choice.chosen);
+	// `(b) ...`, `- (b) ...`, or a lone `b` or `b.`, as replies are written
+	// back; never the `a` that starts "a lot".
+	const reply = asked.reply ?? "";
+	const [lead, wrapped, bare] =
+		/^(?:- )?(?:\(([a-z])\)|([a-z])(?=[.,]|$))/i.exec(reply) ?? [];
+	const key = wrapped ?? bare;
+	if (chosen === undefined || key === undefined || asked.pick !== "one") {
+		return null;
+	}
+	if (key.toLowerCase() !== chosen.key) {
+		return "overturned";
+	}
+	return /[a-z0-9]/i.test(reply.slice(lead?.length ?? 0)) ||
+		asked.followUps.length > 0
+		? "amended"
+		: "kept";
+}
+
+/**
+ * One call a plan made, as an outcome keeps it: enough to count how the
+ * agent's recommendations fare by size, and to size it again by its line if
+ * the scheme changes.
+ */
+export interface Decision {
+	/** As the plan numbers it. */
+	number: string;
+	/** The item's line, without its size. */
+	text: string;
+	/** The word its line was sized with, or null for none. */
+	size: string | null;
+	/** Put to the person under `## Blocked`, or made without asking. */
+	how: "asked" | "assumed";
+	/**
+	 * What became of the agent's recommendation: an assumption left alone is
+	 * kept; a pick taken as it was, kept; taken with words added, amended;
+	 * answered with another choice, overturned; an assumption the person
+	 * challenged, challenged. Null for a question with no pick to meet, or
+	 * one never answered with a choice.
+	 */
+	ended: "kept" | "amended" | "overturned" | "challenged" | null;
+}
+
+/** Every call in the plan `text`, asked and assumed, in the order numbered. */
+export function decisions(text: string): Decision[] {
+	const each = (
+		item: Question,
+		how: Decision["how"],
+		ended: Decision["ended"],
+	): Decision => ({
+		number: item.number,
+		text: item.text,
+		size: item.size,
+		how,
+		ended,
+	});
+	return [
+		...assumptions(text).map((item) => each(item, "assumed", "kept")),
+		...questions(text).map((item) =>
+			CHALLENGED.test(item.reply ?? "")
+				? each(item, "assumed", "challenged")
+				: each(item, "asked", metPick(item)),
+		),
+	].sort((one, other) => Number(one.number) - Number(other.number));
+}
+
+/** The reply that moves an assumption to `## Blocked`. */
+const CHALLENGED = /^challenged\b/i;
 
 /**
  * How many calls the agent made without asking, and how many of them the
@@ -292,7 +372,7 @@ export function assumptionCounts(text: string): {
 	challenged: number;
 } {
 	const challenged = questions(text).filter((each) =>
-		/^challenged\b/i.test(each.reply ?? ""),
+		CHALLENGED.test(each.reply ?? ""),
 	).length;
 	return { made: assumptions(text).length + challenged, challenged };
 }
@@ -395,10 +475,14 @@ function question(line: string): Question | null {
 	}
 	const [, check = " ", number = "", rest = ""] = item;
 	const arrow = rest.indexOf(ARROW);
+	const { text, size } = sized(
+		(arrow === -1 ? rest : rest.slice(0, arrow)).trim(),
+	);
 	return {
 		number,
 		done: check !== " ",
-		text: (arrow === -1 ? rest : rest.slice(0, arrow)).trim(),
+		text,
+		size,
 		body: "",
 		reply: arrow === -1 ? null : rest.slice(arrow + ARROW.length).trim(),
 		followUps: [],

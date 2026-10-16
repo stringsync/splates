@@ -6,6 +6,7 @@ import {
 	type Tally,
 	type WorkedFrom,
 } from "../stats";
+import { type DecisionRates, decisionRates } from "./decision-rates";
 import {
 	type Advice,
 	type AdviceId,
@@ -73,6 +74,11 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 	error: string | null = null;
 	/** What the page looks at: 7 days, until the person picks another. */
 	period: Period = PERIODS[3] as Period;
+	/**
+	 * The decision sizes the chart counts, null among them for calls with
+	 * none; null for all of them, as it starts.
+	 */
+	shown: ReadonlySet<string | null> | null = null;
 	/** The last load asked for, so an earlier one landing late is dropped. */
 	private asked = 0;
 
@@ -83,6 +89,26 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 		this.period = period;
 		this.dispatcher.dispatch("changed");
 		return this.refresh();
+	}
+
+	/**
+	 * Adds `size` to the sizes the chart counts, or takes it out, null being
+	 * calls with none: picking one while all show counts it alone, and taking
+	 * out the last one counts all again.
+	 */
+	toggleSize(size: string | null): void {
+		const shown = new Set(this.shown ?? []);
+		if (!shown.delete(size)) {
+			shown.add(size);
+		}
+		this.shown = shown.size === 0 ? null : shown;
+		this.dispatcher.dispatch("changed");
+	}
+
+	/** Counts every size on the chart again. */
+	showAllSizes(): void {
+		this.shown = null;
+		this.dispatcher.dispatch("changed");
 	}
 
 	async refresh(): Promise<void> {
@@ -184,6 +210,13 @@ export class StatsReport implements Eventful<StatsReportEvents> {
 				? row("No system", each)
 				: { ...row(each.system, each), system: each.system },
 		);
+	}
+
+	/** How many calls the person made against how many agents took off them; null until loaded. */
+	get decisions(): DecisionRates | null {
+		return this.stats === null
+			? null
+			: decisionRates(this.stats, this.period, this.buckets, this.shown);
 	}
 
 	get models(): Row[] {

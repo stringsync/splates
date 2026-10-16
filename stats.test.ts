@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Outcome } from "./outcomes";
-import { summarize } from "./stats";
+import { combine, summarize } from "./stats";
 
 /** An outcome that ended cleanly; a test overrides what it is about. */
 function ended(changes: Partial<Outcome>): Outcome {
@@ -259,5 +259,73 @@ describe("summarize", () => {
 			linesRemoved: 5,
 		});
 		expect(stats.baselines).toMatchObject([{ project: "/repo", tasks: 3 }]);
+	});
+
+	it("counts who made each size's calls in scheme order, older outcomes as unsized", () => {
+		const stats = summarize(
+			[
+				ended({
+					decisions: [
+						{
+							number: "1",
+							text: "A?",
+							size: "large",
+							how: "asked",
+							ended: "overturned",
+						},
+						{
+							number: "2",
+							text: "B?",
+							size: "small",
+							how: "assumed",
+							ended: "kept",
+						},
+						{
+							number: "3",
+							text: "C?",
+							size: "large",
+							how: "asked",
+							ended: "kept",
+						},
+						{
+							number: "4",
+							text: "D?",
+							size: "tiny",
+							how: "assumed",
+							ended: "challenged",
+						},
+					],
+				}),
+				// Written before decisions were kept: its counts read back unsized.
+				ended({
+					questionsAsked: 4,
+					picksAsked: 2,
+					picksAmended: 1,
+					assumptionsMade: 3,
+					assumptionsChallenged: 1,
+				}),
+			],
+			{ now },
+		);
+		expect(stats.sizes).toMatchObject([
+			{ size: "small", decidedByYou: 0, decidedByAgents: 1 },
+			{ size: "large", decidedByYou: 2, decidedByAgents: 0 },
+			// A challenged assumption took the person's attention.
+			{ size: "tiny", decidedByYou: 1, decidedByAgents: 0 },
+			// Every question put to them, picked or not, and the challenge.
+			{ size: null, decidedByYou: 4, decidedByAgents: 2 },
+		]);
+		// Each size's bars line up with the period's: its call sits in the bar
+		// the task ended in.
+		const bar = stats.buckets.findIndex((each) => each.decidedByAgents > 0);
+		expect(stats.sizes[0]?.buckets).toHaveLength(stats.buckets.length);
+		expect(stats.sizes[0]?.buckets[bar]).toEqual({
+			decidedByYou: 0,
+			decidedByAgents: 1,
+		});
+		expect(combine(stats.buckets)).toMatchObject({
+			decidedByYou: 7,
+			decidedByAgents: 3,
+		});
 	});
 });

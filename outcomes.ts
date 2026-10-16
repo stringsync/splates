@@ -1,6 +1,7 @@
 import type { Fs } from "webappwiz/system";
 import type { Device } from "./conversation-state";
 import type { Finding } from "./findings";
+import type { Decision } from "./plan";
 import type { TaskUsage } from "./task-log";
 import type { DiffSize, MergeFailure, RemoveReason } from "./worktree";
 
@@ -74,6 +75,11 @@ export interface Outcome {
 	assumptionsMade?: number;
 	/** Of `assumptionsMade`, those the person challenged. */
 	assumptionsChallenged?: number;
+	/**
+	 * Each call its plan made, asked or assumed, with its size and what became
+	 * of it. Absent from older lines, whose calls the counts above alone keep.
+	 */
+	decisions?: Decision[];
 	/** The systems its changed files fall in, by name. Absent from older lines. */
 	systems?: string[];
 	/** How long it waited on a person, escalated, in milliseconds. Absent from older lines. */

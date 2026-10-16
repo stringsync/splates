@@ -7,7 +7,7 @@ import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
 import { ranWith } from "./models";
 import { type Outcomes, promptsFrom } from "./outcomes";
-import { assumptionCounts, PLAN_FILE, picks } from "./plan";
+import { assumptionCounts, decisions, PLAN_FILE, picks } from "./plan";
 import { Systems } from "./systems";
 import { taskLog } from "./task-log";
 import {
@@ -299,6 +299,7 @@ export class WorktreeService {
 			picksAmended: asked.amended,
 			assumptionsMade: assuming.made,
 			assumptionsChallenged: assuming.challenged,
+			decisions: decisions(ending.plan),
 			systems: ending.systems,
 			// Each escalation waits until claimed, or until the task ended
 			// while it still waited.

@@ -1,61 +1,13 @@
 import type { Judged } from "./adherence";
 import { type Baseline, baselines } from "./baselines";
 import type { Outcome } from "./outcomes";
+import { type Decision, SIZES } from "./plan";
 import { CHECKS } from "./skill-checks";
 import {
 	type MergeFailure,
 	REMOVE_REASONS,
 	type RemoveReason,
 } from "./worktree";
-
-/** How a group of ended tasks went, summed. */
-export interface Tally {
-	merged: number;
-	removed: number;
-	/** Of `merged`, those that landed without a person answering a question. */
-	clean: number;
-	/** Over every task in the group, merged and removed alike. */
-	questionRounds: number;
-	reviewRounds: number;
-	failedMerges: number;
-	/** Questions that offered the agent's pick and were answered with a choice. */
-	picksAsked: number;
-	/** Of `picksAsked`, those answered with another choice. */
-	picksOverturned: number;
-	/** Of `picksAsked`, those answered with the agent's choice and words added. */
-	picksAmended: number;
-	/** Calls made without asking. */
-	assumptionsMade: number;
-	/** Of `assumptionsMade`, those challenged. */
-	assumptionsChallenged: number;
-	/** Tasks whose time waiting on a person was kept; older ones were not. */
-	timed: number;
-	/** Of the `timed` tasks, how long they waited on a person, in milliseconds. */
-	waitedMs: number;
-	/** Of the `timed` tasks, how long they took from add to end, in milliseconds. */
-	spentMs: number;
-	/** Tasks whose own usage was kept; older ones and external agents' were not. */
-	used: number;
-	/** Of the `used` tasks, tokens read, those from cache among them, and written. */
-	inputTokens: number;
-	outputTokens: number;
-	/** Of the `used` tasks, those whose agent said what they cost; Codex does not. */
-	costed: number;
-	/** Of the `costed` tasks, what they cost, summed. */
-	cost: number;
-	/** Of the `used` tasks, how long their agents worked, in milliseconds. */
-	workedMs: number;
-	/** Tasks whose diff size was kept. */
-	sized: number;
-	/** Of the `sized` tasks, the files and lines they changed. */
-	filesChanged: number;
-	linesAdded: number;
-	linesRemoved: number;
-	/** Failed merges by why, where it was kept. */
-	failedBy: Record<MergeFailure, number>;
-	/** Removed tasks by why; `unsaid` for one removed without `--reason`, or before it was kept. */
-	removedFor: Record<RemoveReason | "unsaid", number>;
-}
 
 /** What the Stats page shows: how tasks ended, bar by bar and by who did them. */
 export interface Stats {
@@ -85,6 +37,12 @@ export interface Stats {
 	 * ended before systems were kept.
 	 */
 	systems: ({ system: string | null } & Tally)[];
+	/**
+	 * Who made the calls tasks in the period made, by size: `SIZES` in order, then any
+	 * other word an older scheme used, then null for those with none, which
+	 * holds every call from before sizes were kept.
+	 */
+	sizes: SizeTally[];
 	/** When the first outcome was written, the start of what there is to show. */
 	since: string | null;
 	/**
@@ -94,6 +52,74 @@ export interface Stats {
 	skill: SkillVersion[];
 	/** Each project's recent merged tasks, to hold one against: over the week before now, whatever the period. */
 	baselines: Baseline[];
+}
+
+/** How a group of ended tasks went, summed. */
+export interface Tally {
+	merged: number;
+	removed: number;
+	/** Of `merged`, those that landed without a person answering a question. */
+	clean: number;
+	/** Over every task in the group, merged and removed alike. */
+	questionRounds: number;
+	reviewRounds: number;
+	failedMerges: number;
+	/** Questions that offered the agent's pick and were answered with a choice. */
+	picksAsked: number;
+	/** Of `picksAsked`, those answered with another choice. */
+	picksOverturned: number;
+	/** Of `picksAsked`, those answered with the agent's choice and words added. */
+	picksAmended: number;
+	/** Calls made without asking. */
+	assumptionsMade: number;
+	/** Of `assumptionsMade`, those challenged. */
+	assumptionsChallenged: number;
+	/** Calls the person made: questions put to them, assumptions challenged. */
+	decidedByYou: number;
+	/** Calls agents made that stood without the person: assumptions left alone. */
+	decidedByAgents: number;
+	/** Tasks whose time waiting on a person was kept; older ones were not. */
+	timed: number;
+	/** Of the `timed` tasks, how long they waited on a person, in milliseconds. */
+	waitedMs: number;
+	/** Of the `timed` tasks, how long they took from add to end, in milliseconds. */
+	spentMs: number;
+	/** Tasks whose own usage was kept; older ones and external agents' were not. */
+	used: number;
+	/** Of the `used` tasks, tokens read, those from cache among them, and written. */
+	inputTokens: number;
+	outputTokens: number;
+	/** Of the `used` tasks, those whose agent said what they cost; Codex does not. */
+	costed: number;
+	/** Of the `costed` tasks, what they cost, summed. */
+	cost: number;
+	/** Of the `used` tasks, how long their agents worked, in milliseconds. */
+	workedMs: number;
+	/** Tasks whose diff size was kept. */
+	sized: number;
+	/** Of the `sized` tasks, the files and lines they changed. */
+	filesChanged: number;
+	linesAdded: number;
+	linesRemoved: number;
+	/** Failed merges by why, where it was kept. */
+	failedBy: Record<MergeFailure, number>;
+	/** Removed tasks by why; `unsaid` for one removed without `--reason`, or before it was kept. */
+	removedFor: Record<RemoveReason | "unsaid", number>;
+}
+
+/** Who made the calls of one size: the person, or agents without asking. */
+export interface SizeTally extends Decided {
+	size: string | null;
+	/** The same, bar by bar, in the order of `Stats.buckets`. */
+	buckets: Decided[];
+	/** The same over the as long a span before, as `Stats.previous`; null for all time. */
+	previous: Decided | null;
+}
+
+/** How many calls the person made, and how many agents made without them. */
+export interface Decided {
+	decidedByYou: number;
+	decidedByAgents: number;
 }
 
 /** Where the person spoke to a task's conversation from: a phone, a desktop, or both. */
@@ -136,6 +162,11 @@ export function isPeriodId(value: string): value is PeriodId {
 	return value === "all" || Object.hasOwn(PERIODS, value);
 }
 
+/** How long each bar of `period` is, in milliseconds: a week for all time. */
+export function bucketOf(period: PeriodId): number {
+	return period === "all" ? WEEK : PERIODS[period].bucket;
+}
+
 export interface SummarizeOptions {
 	period?: PeriodId;
 	now?: Date;
@@ -156,7 +187,7 @@ export function summarize(
 	const since = tasks[0]?.endedAt ?? null;
 	// All time runs a week a bar from the week the first task ended, or this
 	// week alone; the rest a bar each `bucket`, cut on the clock.
-	const bucket = period === "all" ? WEEK : PERIODS[period].bucket;
+	const bucket = bucketOf(period);
 	const floor =
 		period === "all"
 			? (at: number) => weekOf(new Date(at)).getTime()
@@ -173,6 +204,13 @@ export function summarize(
 		(each) => floor(Date.parse(each.endedAt)) >= first,
 	);
 	const before = first - length * bucket;
+	const earlier =
+		period === "all"
+			? null
+			: tasks.filter((each) => {
+					const at = floor(Date.parse(each.endedAt));
+					return at >= before && at < first;
+				});
 	return {
 		buckets: Array.from({ length }, (_, index) => {
 			const start = first + index * bucket;
@@ -183,15 +221,7 @@ export function summarize(
 				),
 			};
 		}),
-		previous:
-			period === "all"
-				? null
-				: tally(
-						tasks.filter((each) => {
-							const at = floor(Date.parse(each.endedAt));
-							return at >= before && at < first;
-						}),
-					),
+		previous: earlier === null ? null : tally(earlier),
 		models: grouped(inPeriod, (each) => each.model).map(([model, tally]) => ({
 			model,
 			...tally,
@@ -211,6 +241,9 @@ export function summarize(
 			),
 			(each) => each.systems?.[0] ?? null,
 		).map(([system, tally]) => ({ system, ...tally })),
+		sizes: sizeTallies(inPeriod, earlier, length, (each) =>
+			Math.round((floor(Date.parse(each.endedAt)) - first) / bucket),
+		),
 		since,
 		skill: rates(judged),
 		baselines: baselines(outcomes, now),
@@ -250,6 +283,8 @@ function tally(outcomes: Outcome[]): Tally {
 			outcomes,
 			(each) => each.assumptionsChallenged ?? 0,
 		),
+		decidedByYou: decidedBy(outcomes, "decidedByYou"),
+		decidedByAgents: decidedBy(outcomes, "decidedByAgents"),
 		timed: timed.length,
 		waitedMs: sum(timed, (each) => each.waitedMs ?? 0),
 		spentMs: sum(
@@ -269,6 +304,116 @@ function tally(outcomes: Outcome[]): Tally {
 		failedBy,
 		removedFor,
 	};
+}
+
+/**
+ * Who made the calls in `outcomes`, by size, in the order `Stats.sizes`
+ * gives, each over the period and in each of its `length` bars, `barOf`
+ * saying which bar an outcome ended in, and over the span before it, from
+ * `earlier`: a size from either gets a row.
+ */
+function sizeTallies(
+	outcomes: Outcome[],
+	earlier: Outcome[] | null,
+	length: number,
+	barOf: (outcome: Outcome) => number,
+): SizeTally[] {
+	const none = (): Decided => ({ decidedByYou: 0, decidedByAgents: 0 });
+	const bySize = new Map<string | null, SizeTally>();
+	const rowOf = (size: string | null): SizeTally => {
+		const row = bySize.get(size) ?? {
+			size,
+			...none(),
+			buckets: Array.from({ length }, none),
+			previous: earlier === null ? null : none(),
+		};
+		bySize.set(size, row);
+		return row;
+	};
+	for (const outcome of outcomes) {
+		const bar = barOf(outcome);
+		for (const [decision, count] of decided(outcome)) {
+			const row = rowOf(decision.size);
+			row[whose(decision)] += count;
+			const inBar = row.buckets[bar];
+			if (inBar !== undefined) {
+				inBar[whose(decision)] += count;
+			}
+		}
+	}
+	for (const outcome of earlier ?? []) {
+		for (const [decision, count] of decided(outcome)) {
+			const { previous } = rowOf(decision.size);
+			if (previous !== null) {
+				previous[whose(decision)] += count;
+			}
+		}
+	}
+	const rank = (size: string | null): number => {
+		const at = SIZES.indexOf(size as (typeof SIZES)[number]);
+		return at !== -1 ? at : size === null ? SIZES.length + 1 : SIZES.length;
+	};
+	return [...bySize.values()].sort(
+		(one, other) =>
+			rank(one.size) - rank(other.size) ||
+			(one.size ?? "").localeCompare(other.size ?? ""),
+	);
+}
+
+/**
+ * Who made `decision`: the person, for one put to them or an assumption
+ * they challenged, which took their attention either way; otherwise the
+ * agent, whose assumption stood without them.
+ */
+function whose(
+	decision: Pick<Decision, "how" | "ended">,
+): "decidedByYou" | "decidedByAgents" {
+	return decision.how === "asked" || decision.ended === "challenged"
+		? "decidedByYou"
+		: "decidedByAgents";
+}
+
+/** How many calls in `outcomes` `who` made. */
+function decidedBy(outcomes: Outcome[], who: ReturnType<typeof whose>): number {
+	return sum(outcomes, (outcome) =>
+		sum(decided(outcome), ([decision, count]) =>
+			whose(decision) === who ? count : 0,
+		),
+	);
+}
+
+/**
+ * The calls `outcome` made, each with how many it stands for: its own
+ * decisions one each, or for a line from before they were kept, its counts
+ * read back as unsized calls.
+ */
+function decided(
+	outcome: Outcome,
+): [Pick<Decision, "size" | "how" | "ended">, number][] {
+	if (outcome.decisions !== undefined) {
+		return outcome.decisions.map((each) => [each, 1]);
+	}
+	const picked = outcome.picksAsked ?? 0;
+	const overturned = outcome.picksOverturned ?? 0;
+	const amended = outcome.picksAmended ?? 0;
+	const challenged = outcome.assumptionsChallenged ?? 0;
+	const unsized = (
+		how: Decision["how"],
+		ended: Decision["ended"],
+		count: number,
+	): [Pick<Decision, "size" | "how" | "ended">, number] => [
+		{ size: null, how, ended },
+		Math.max(0, count),
+	];
+	return [
+		unsized("asked", "kept", picked - overturned - amended),
+		unsized("asked", "amended", amended),
+		unsized("asked", "overturned", overturned),
+		// `questionsAsked` counts challenged assumptions, which moved there.
+		unsized("asked", null, (outcome.questionsAsked ?? 0) - picked - challenged),
+		unsized("assumed", "kept", (outcome.assumptionsMade ?? 0) - challenged),
+		unsized("assumed", "challenged", challenged),
+	].filter(([, count]) => count > 0);
 }
 
 /** Tallies added up, as for the bars of a period. */
@@ -301,6 +446,8 @@ const SUMMED = [
 	"picksAmended",
 	"assumptionsMade",
 	"assumptionsChallenged",
+	"decidedByYou",
+	"decidedByAgents",
 	"timed",
 	"waitedMs",
 	"spentMs",
@@ -337,8 +484,8 @@ function grouped<K>(
 		.map(([each, members]) => [each, tally(members)]);
 }
 
-function sum(outcomes: Outcome[], count: (outcome: Outcome) => number): number {
-	return outcomes.reduce((total, each) => total + count(each), 0);
+function sum<T>(items: T[], count: (item: T) => number): number {
+	return items.reduce((total, each) => total + count(each), 0);
 }
 
 /** The Monday, UTC, that starts the week `at` falls in. */

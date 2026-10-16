@@ -48,6 +48,7 @@ describe("assumedIn", () => {
 				number: "7",
 				done: false,
 				text: "Named it `MAX_RETRIES`",
+				size: null,
 				body: "",
 				reply: null,
 				followUps: [],

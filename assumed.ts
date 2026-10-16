@@ -1,5 +1,5 @@
 import { type Exhibit, exhibitTitle, shownIn } from "./exhibit";
-import { assumptions, type Question, questions } from "./plan";
+import { assumptions, type Question, questions, sized } from "./plan";
 
 /** A reply's line saying a call the agent made: `- Assumed 3: Three tries`. */
 const ASSUMED = /^- Assumed (\d+):[ \t]+(.+?)[ \t]*$/;
@@ -34,7 +34,7 @@ export function assumedIn(plan: string, assumed: Assumed[]): Question[] {
 		const item = items.find((each) => each.number === number) ?? {
 			number,
 			done: false,
-			text,
+			...sized(text),
 			body: "",
 			reply: null,
 			followUps: [],

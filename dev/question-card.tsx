@@ -42,7 +42,7 @@ export function QuestionCard({
 	/** Where what is attached to its answer goes; null where a reply carries none. */
 	files?: Files | null;
 }): JSX.Element {
-	const { number, text, body, choices, pick } = asked;
+	const { number, text, size, body, choices, pick } = asked;
 	const said: Answer = answer ?? UNANSWERED;
 	// The choice the arrows move from, and Tab lands on: the first picked.
 	const [at, setAt] = useState(() =>
@@ -142,6 +142,7 @@ export function QuestionCard({
 						>
 							<Markdown text={text} inline />
 						</p>
+						{size !== null && <Size size={size} />}
 						{action}
 					</div>
 					{body !== "" && (
@@ -293,6 +294,15 @@ export function QuestionCard({
 				)}
 			</div>
 		</li>
+	);
+}
+
+/** How far the call reaches, as the agent sized it. */
+function Size({ size }: { size: string }): JSX.Element {
+	return (
+		<span className="mt-px shrink-0 rounded-full bg-muted px-1.5 py-px text-[11px] text-muted-foreground capitalize">
+			{size}
+		</span>
 	);
 }
 

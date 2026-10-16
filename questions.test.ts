@@ -220,6 +220,7 @@ function bare(overrides: Partial<Question>): Question {
 		number: "1",
 		done: false,
 		text: "",
+		size: null,
 		body: "",
 		reply: null,
 		followUps: [],

@@ -27,6 +27,7 @@ import {
 	BY_SYSTEM,
 	type Column,
 } from "./stats-columns";
+import { Decisions } from "./stats-decisions";
 import {
 	type Axis,
 	type Bucket,
@@ -60,6 +61,8 @@ export function StatsPage({
 		ended,
 		lead,
 		rest,
+		decisions,
+		shown,
 		models,
 		devices,
 		projects,
@@ -73,6 +76,8 @@ export function StatsPage({
 			ended: report.ended,
 			lead: report.lead,
 			rest: report.rest,
+			decisions: report.decisions,
+			shown: report.shown,
 			models: report.models,
 			devices: report.devices,
 			projects: report.projects,
@@ -143,6 +148,18 @@ export function StatsPage({
 							))
 						)}
 					</section>
+					{/* Whether agents are taking calls off the person, the page's goal. */}
+					{decisions !== null && (
+						<Decisions
+							rates={decisions}
+							period={period}
+							weekly={period.id === "all"}
+							named={systems}
+							shown={shown}
+							onToggle={(size) => report.toggleSize(size)}
+							onAll={() => report.showAllSizes()}
+						/>
+					)}
 					<Collapsible
 						render={<section aria-label="Everything else" />}
 						className="group/rest flex flex-col gap-3"

@@ -121,6 +121,7 @@
 @source "./settings-dialog.tsx";
 @source "./sidebar.tsx";
 @source "./stamp.tsx";
+@source "./stats-decisions.tsx";
 @source "./stats.tsx";
 @source "./cred-paste.tsx";
 @source "./cred-privacy.tsx";
@@ -200,6 +201,10 @@
 	--border: oklch(0.885 0.007 264);
 	--input: oklch(0.86 0.008 264);
 	--ring: var(--brand);
+	/* The Stats page's two decision lines: the first two slots of the
+	   dataviz reference palette, validated as a pair on each surface. */
+	--series-you: #2a78d6;
+	--series-agents: #eb6834;
 }
 
 .dark {
@@ -221,6 +226,8 @@
 	--info: oklch(0.746 0.16 232.661);
 	--border: oklch(1 0 0 / 9%);
 	--input: oklch(1 0 0 / 14%);
+	--series-you: #3987e5;
+	--series-agents: #d95926;
 }
 
 /* Each accent, light then dark. A swatch carrying `data-accent` wears its
