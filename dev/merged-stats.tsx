@@ -1,10 +1,12 @@
 import {
 	ArrowUpIcon,
+	BotIcon,
 	CheckIcon,
 	CircleAlertIcon,
 	CircleCheckIcon,
 	CircleXIcon,
 	SearchIcon,
+	UserIcon,
 } from "lucide-react";
 import {
 	type JSX,
@@ -22,6 +24,7 @@ import { DeferButton } from "./defer";
 import { Markdown } from "./markdown";
 import { NamedContext } from "./mentioned";
 import {
+	type Decided,
 	deferred,
 	deferredLeft,
 	type Fact,
@@ -33,10 +36,10 @@ import { SystemNameChip } from "./systems";
 
 /**
  * How `task` went once it merged, under its card's report: its time, cost,
- * size and the person's part beside its project's usual, the systems it
- * touched, what the gate made of it, and anything that went worse than it
- * could have. Nothing while it
- * loads, or for a task whose merge was never recorded here.
+ * size and the calls the person and the agent made beside its project's
+ * usual, the systems it touched, what the gate made of it, and anything that
+ * went worse than it could have. Nothing while it loads, or for a task whose
+ * merge was never recorded here.
  */
 export function MergedStats({ task }: { task: string }): JSX.Element | null {
 	const [landed, setLanded] = useState<Landed | null>(null);
@@ -78,13 +81,15 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 						>
 							{typeof stat.value === "string" ? (
 								stat.value
-							) : (
+							) : "added" in stat.value ? (
 								<span>
 									<span className="text-success">+{stat.value.added}</span>{" "}
 									<span className="text-destructive">
 										−{stat.value.removed}
 									</span>
 								</span>
+							) : (
+								<Decisions decided={stat.value} />
 							)}
 							{stat.high && (
 								<ArrowUpIcon aria-label="above usual" className="size-3.5" />
@@ -159,6 +164,24 @@ export function MergedStats({ task }: { task: string }): JSX.Element | null {
 				</div>
 			)}
 		</section>
+	);
+}
+
+/** Who made the task's calls, a line each for the person and the agent. */
+function Decisions({ decided }: { decided: Decided }): JSX.Element {
+	const sides = [
+		{ who: "you", count: decided.byYou, Icon: UserIcon },
+		{ who: "agent", count: decided.byAgent, Icon: BotIcon },
+	];
+	return (
+		<span className="flex flex-col">
+			{sides.map(({ who, count, Icon }) => (
+				<span key={who} className="flex items-center gap-1.5">
+					<Icon aria-hidden className="size-3.5 text-muted-foreground" />
+					{count} by {who}
+				</span>
+			))}
+		</span>
 	);
 }
 

@@ -22,7 +22,8 @@ describe("baselines", () => {
 			measures: {
 				spentMs: { tasks: 10, median: 5.5 * MINUTE, p90: 9.1 * MINUTE },
 				lines: { tasks: 10, median: 10, p90: 10 },
-				involvement: { tasks: 10, median: 0, p90: 0 },
+				// Nor any calls.
+				decidedByYou: null,
 				// Older outcomes kept no cost, so there is none to compare with.
 				cost: null,
 			},
@@ -88,8 +89,29 @@ describe("baselines", () => {
 		expect(
 			measured(
 				merged(3, {
-					questionRounds: 1,
-					reviewRounds: 1,
+					decisions: [
+						{
+							number: "1",
+							text: "Asked",
+							size: "small",
+							how: "asked",
+							ended: null,
+						},
+						{
+							number: "2",
+							text: "Challenged",
+							size: "large",
+							how: "assumed",
+							ended: "challenged",
+						},
+						{
+							number: "3",
+							text: "Assumed",
+							size: "small",
+							how: "assumed",
+							ended: "kept",
+						},
+					],
 					usage: { input: 1, cached: 0, output: 1, cost: null },
 				}),
 			),
@@ -97,7 +119,7 @@ describe("baselines", () => {
 			spentMs: 3 * MINUTE,
 			cost: null,
 			lines: null,
-			involvement: 2,
+			decidedByYou: 2,
 			failedMerges: 0,
 		});
 		expect(

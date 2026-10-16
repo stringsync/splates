@@ -1,4 +1,5 @@
 import { findingKeys, type Measure, measured, outlier } from "../baselines";
+import { keptDecisions, madeBy } from "../decided";
 import type { Finding } from "../findings";
 import type { Landed } from "../landed";
 import { investigateReference } from "../prompts";
@@ -17,8 +18,8 @@ export interface MergedFacts {
 /** One figure, beside its project's usual. */
 export interface Stat {
 	label: string;
-	/** Lines added and removed for a size, which the card colors. */
-	value: string | Lines;
+	/** Lines added and removed for a size, and calls by who made them, which the card colors. */
+	value: string | Lines | Decided;
 	/** What it was made of, as working beside waiting; null for nothing more. */
 	detail: string | null;
 	/** Past its project's 90th percentile, or twice its median. */
@@ -97,9 +98,20 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			),
 		);
 	}
-	stats.push(
-		stat("involvement", "Asked you", times(values.involvement ?? 0), null),
-	);
+	// Older outcomes kept no calls, so they say nothing of them.
+	if (keptDecisions(outcome)) {
+		stats.push(
+			stat(
+				"decidedByYou",
+				"Decisions",
+				{
+					byYou: madeBy(outcome, "decidedByYou"),
+					byAgent: madeBy(outcome, "decidedByAgents"),
+				},
+				null,
+			),
+		);
+	}
 	const found = outcome.findings ?? [];
 	const fact = (finding: Finding): Fact => ({
 		text: said(finding),
@@ -132,6 +144,12 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 			)
 			.map(fact),
 	};
+}
+
+/** The calls a task made, by who made them. */
+export interface Decided {
+	byYou: number;
+	byAgent: number;
 }
 
 /**

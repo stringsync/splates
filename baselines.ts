@@ -1,3 +1,4 @@
+import { keptDecisions, madeBy } from "./decided";
 import type { Finding } from "./findings";
 import type { Outcome } from "./outcomes";
 
@@ -63,15 +64,15 @@ export type Measure =
 	| "cost"
 	/** Lines added and removed. */
 	| "lines"
-	/** Questions and review rounds put to the person. */
-	| "involvement"
+	/** Calls the person made, asked or challenged. */
+	| "decidedByYou"
 	| "failedMerges";
 
 export const MEASURES: readonly Measure[] = [
 	"spentMs",
 	"cost",
 	"lines",
-	"involvement",
+	"decidedByYou",
 	"failedMerges",
 ];
 
@@ -94,7 +95,9 @@ export function measured(outcome: Outcome): Record<Measure, number | null> {
 			outcome.size === undefined
 				? null
 				: outcome.size.added + outcome.size.removed,
-		involvement: outcome.questionRounds + outcome.reviewRounds,
+		decidedByYou: keptDecisions(outcome)
+			? madeBy(outcome, "decidedByYou")
+			: null,
 		failedMerges: outcome.failedMerges,
 	};
 }

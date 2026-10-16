@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Outcome } from "../outcomes";
+import type { Decision } from "../plan";
 import {
 	deferred,
 	deferredLeft,
@@ -64,7 +65,13 @@ describe("mergedFacts", () => {
 					cost: { amount: 4.5, currency: "USD" },
 				},
 				size: { files: 3, added: 120, removed: 30 },
-				questionRounds: 1,
+				decisions: [
+					decision("1", "large", "asked", "overturned"),
+					decision("2", "small", "assumed", "kept"),
+					decision("3", null, "assumed", "kept"),
+					decision("4", "small", "assumed", "challenged"),
+					decision("5", "medium", "assumed", "kept"),
+				],
 			}),
 			baseline: {
 				project: "/repo",
@@ -73,7 +80,7 @@ describe("mergedFacts", () => {
 					spentMs: { tasks: 10, median: 30 * MINUTE, p90: 60 * MINUTE },
 					cost: { tasks: 10, median: 1, p90: 3 },
 					lines: { tasks: 10, median: 200, p90: 400 },
-					involvement: { tasks: 10, median: 1, p90: 2 },
+					decidedByYou: { tasks: 10, median: 1, p90: 2 },
 					failedMerges: { tasks: 10, median: 0, p90: 0 },
 				},
 				findings: {},
@@ -100,8 +107,8 @@ describe("mergedFacts", () => {
 				high: false,
 			},
 			{
-				label: "Asked you",
-				value: "once",
+				label: "Decisions",
+				value: { byYou: 2, byAgent: 3 },
 				detail: null,
 				high: false,
 			},
@@ -128,7 +135,7 @@ describe("mergedFacts", () => {
 					spentMs: null,
 					cost: null,
 					lines: null,
-					involvement: null,
+					decidedByYou: null,
 					failedMerges: null,
 				},
 				findings: { "gate:tests_failed:adds up": 3, stopped: 1 },
@@ -144,7 +151,7 @@ describe("mergedFacts", () => {
 			{ text: "You stopped a turn", again: null },
 			{ text: "Edited 900 lines to land 40", again: null },
 		]);
-		expect(facts.stats.map((stat) => stat.high)).toEqual([false, false]);
+		expect(facts.stats.map((stat) => stat.high)).toEqual([false]);
 	});
 
 	it("says tokens for an agent that tells no cost, and only the failures an older outcome counted", () => {
@@ -166,22 +173,35 @@ describe("mergedFacts", () => {
 		expect(facts.findings).toEqual([]);
 	});
 
-	it("says nothing of usage a task merged in its first turn never kept", () => {
+	it("says nothing of usage a task merged in its first turn never kept, nor calls an older outcome never kept", () => {
 		const facts = mergedFacts({
 			outcome: merged({
 				usage: { input: 0, cached: 0, output: 0, cost: null },
+				assumptionsMade: 0,
 			}),
 			baseline: null,
 		});
+		const older = mergedFacts({ outcome: merged({}), baseline: null });
 
 		expect(facts.stats.map((stat) => stat.label)).toEqual([
 			"Time",
-			"Asked you",
+			"Decisions",
 		]);
+		expect(facts.stats[1]?.value).toEqual({ byYou: 0, byAgent: 0 });
+		expect(older.stats.map((stat) => stat.label)).toEqual(["Time"]);
 	});
 });
 
 const MINUTE = 60_000;
+
+function decision(
+	number: string,
+	size: Decision["size"],
+	how: Decision["how"],
+	ended: Decision["ended"],
+): Decision {
+	return { number, text: `Call ${number}`, size, how, ended };
+}
 
 /** A merged task 40 minutes long; a test overrides what it is about. */
 function merged(changes: Partial<Outcome>): Outcome {
