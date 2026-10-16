@@ -58,9 +58,9 @@ describe("mergedFacts", () => {
 				workedMs: 20 * MINUTE,
 				waitedMs: 10 * MINUTE,
 				usage: {
-					input: 1,
+					input: 4_200_000,
 					cached: 0,
-					output: 1,
+					output: 31_500,
 					cost: { amount: 4.5, currency: "USD" },
 				},
 				size: { files: 3, added: 120, removed: 30 },
@@ -90,7 +90,7 @@ describe("mergedFacts", () => {
 			{
 				label: "Cost",
 				value: "$4.50",
-				detail: null,
+				detail: "4.2M in · 31.5k out",
 				high: true,
 			},
 			{
@@ -158,12 +158,26 @@ describe("mergedFacts", () => {
 
 		expect(facts.stats[1]).toMatchObject({
 			label: "Tokens",
-			value: "12.3k out",
+			value: "1 in · 12.3k out",
 		});
 		expect(facts.gate).toEqual([
 			{ text: "Failed to merge twice", again: null, finding: null },
 		]);
 		expect(facts.findings).toEqual([]);
+	});
+
+	it("says nothing of usage a task merged in its first turn never kept", () => {
+		const facts = mergedFacts({
+			outcome: merged({
+				usage: { input: 0, cached: 0, output: 0, cost: null },
+			}),
+			baseline: null,
+		});
+
+		expect(facts.stats.map((stat) => stat.label)).toEqual([
+			"Time",
+			"Asked you",
+		]);
 	});
 });
 

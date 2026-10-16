@@ -77,16 +77,14 @@ export function mergedFacts({ outcome, baseline }: Landed): MergedFacts {
 				: `worked ${duration(outcome.workedMs)} · waited ${duration(outcome.waitedMs ?? 0)}`,
 		),
 	];
-	if (outcome.usage !== undefined) {
+	// A task merged in the turn it began in kept none of its tokens, since a
+	// turn's usage is logged only as the turn ends, after the merge.
+	if (outcome.usage !== undefined && outcome.usage.output > 0) {
+		const read = `${tokens(outcome.usage.input)} in · ${tokens(outcome.usage.output)} out`;
 		stats.push(
 			outcome.usage.cost === null
-				? {
-						label: "Tokens",
-						value: `${tokens(outcome.usage.output)} out`,
-						detail: null,
-						high: false,
-					}
-				: stat("cost", "Cost", dollars(outcome.usage.cost.amount), null),
+				? { label: "Tokens", value: read, detail: null, high: false }
+				: stat("cost", "Cost", dollars(outcome.usage.cost.amount), read),
 		);
 	}
 	if (outcome.size !== undefined) {
@@ -257,5 +255,9 @@ function dollars(amount: number): string {
 }
 
 function tokens(count: number): string {
-	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
+	return count < 1000
+		? `${count}`
+		: count < 1_000_000
+			? `${(count / 1000).toFixed(1)}k`
+			: `${(count / 1_000_000).toFixed(1)}M`;
 }
