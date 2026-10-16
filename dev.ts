@@ -1,4 +1,8 @@
-import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
+import {
+	AsyncDisposer,
+	type AsyncResource,
+	type Resource,
+} from "webappwiz/disposable";
 import type { Pusher, VapidKeys } from "webappwiz/push";
 import {
 	MAX_PORT,
@@ -12,6 +16,7 @@ import { Access, type AccessConfig } from "./dev-access";
 import { Dictations } from "./dev-dictation";
 import { HostGate, LOOPBACK, MAX_BODY_BYTES } from "./dev-http";
 import { DevOutcomes } from "./dev-outcomes";
+import { Pages } from "./dev-pages";
 import { Picker } from "./dev-picker";
 import {
 	type DevContext,
@@ -75,6 +80,7 @@ export async function dev(
 		source = async () => null,
 		sourceEvery = SOURCE_CHECK,
 		unbuilt = false,
+		rebuilds = null,
 		slot = null,
 		servers = async () => [],
 		exit = null,
@@ -110,31 +116,13 @@ export async function dev(
 	// The page itself is a React app under `dev/`, built before publishing and
 	// carried in the bundle, so nothing here builds markup and nothing reads it
 	// off disk.
-	const asset = (
-		body: string | Uint8Array<ArrayBuffer>,
-		type: string,
-	): Response =>
-		new Response(body, {
-			headers: {
-				"content-type": type,
-				// Ask again each time, so a restart's build reaches the page. Bun
-				// answers the ETag with a 304, so asking is cheap. Without it,
-				// Cloudflare keeps the .js, .css and .png at its edge, and has a
-				// phone keep them too, for hours after the server moved on.
-				"cache-control": "no-cache",
-			},
-		});
+	const asset =
+		(body: () => string | Uint8Array<ArrayBuffer>, type: string) =>
+		(request: Request): Response =>
+			pages.respond(request, body(), type);
 
-	// The shell names its script and styles by what they hold, so no cache on
-	// the way, Cloudflare's edge or a phone's, hands back a build from before a
-	// restart under the name a new one goes by.
-	const version = (body: string) => Bun.hash(body).toString(36);
-	const page = assets.shell
-		.replace('src="/main.js"', `src="/main.js?v=${version(assets.script)}"`)
-		.replace(
-			'href="/styles.css"',
-			`href="/styles.css?v=${version(assets.styles)}"`,
-		);
+	// Read on each request, since a rebuild replaces what is served.
+	const pages = new Pages(assets);
 
 	const context: DevContext = {
 		get url() {
@@ -148,6 +136,7 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
+		pages,
 		conversationsFor: ({ arborDir, git }) =>
 			converse?.({ arborDir, git }) ?? null,
 		transcriberFor: transcriber,
@@ -283,6 +272,10 @@ export async function dev(
 		pusher,
 	});
 	disposer.defer(async () => pushes.dispose());
+	if (rebuilds !== null) {
+		const rebuilding = rebuilds(pages);
+		disposer.defer(async () => rebuilding.dispose());
+	}
 
 	// Not any project's: every page on this server shares one machine.
 	const machine = new Machine(sensors ?? osSensors(fs));
@@ -311,19 +304,28 @@ export async function dev(
 		// The static files are handed over without entering JS; the rest have
 		// to be asked for, since they answer with the state of the repo right now.
 		routes: {
-			"/": asset(page, "text/html; charset=utf-8"),
-			"/main.js": asset(assets.script, "text/javascript; charset=utf-8"),
-			"/main.js.map": asset(assets.scriptMap, "application/json"),
-			"/styles.css": asset(assets.styles, "text/css; charset=utf-8"),
+			"/": asset(() => pages.page, "text/html; charset=utf-8"),
+			"/main.js": asset(
+				() => pages.assets.script,
+				"text/javascript; charset=utf-8",
+			),
+			"/main.js.map": asset(() => pages.assets.scriptMap, "application/json"),
+			"/styles.css": asset(
+				() => pages.assets.styles,
+				"text/css; charset=utf-8",
+			),
 			// At the root, so its scope is the whole page.
-			"/worker.js": asset(assets.worker, "text/javascript; charset=utf-8"),
-			"/worker.js.map": asset(assets.workerMap, "application/json"),
+			"/worker.js": asset(
+				() => pages.assets.worker,
+				"text/javascript; charset=utf-8",
+			),
+			"/worker.js.map": asset(() => pages.assets.workerMap, "application/json"),
 			"/manifest.webmanifest": asset(
-				assets.manifest,
+				() => pages.assets.manifest,
 				"application/manifest+json; charset=utf-8",
 			),
-			"/icon-192.png": asset(assets.icons[192], "image/png"),
-			"/icon-512.png": asset(assets.icons[512], "image/png"),
+			"/icon-192.png": asset(() => pages.assets.icons[192], "image/png"),
+			"/icon-512.png": asset(() => pages.assets.icons[512], "image/png"),
 			"/api/projects": {
 				GET: guarded(listProjects),
 				// It runs `bunx skills add` there, so only as far as a
@@ -605,6 +607,12 @@ export interface DevOptions {
 	 * is the page built before; the page says so.
 	 */
 	unbuilt?: boolean;
+	/**
+	 * Starts what rebuilds the page as its source changes, handing it the
+	 * pages to serve what it built; stopped with the server. None for a
+	 * server that runs no checkout.
+	 */
+	rebuilds?: ((pages: Pages) => Resource) | null;
 	/** The slot `arbor dev --slot` serves under, which the page shows; null for none. */
 	slot?: Slot | null;
 	/**

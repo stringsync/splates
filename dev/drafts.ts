@@ -33,6 +33,24 @@ export class Drafts implements Eventful<DraftsEvents> {
 		}
 	}
 
+	/** Whether any draft holds text: something typed and not sent. */
+	typed(): boolean {
+		if (this.kept.size > 0) {
+			return true;
+		}
+		try {
+			for (let i = 0; i < (this.storage?.length ?? 0); i++) {
+				const key = this.storage?.key(i) ?? "";
+				if (key.startsWith(PREFIX) && this.storage?.getItem(key)) {
+					return true;
+				}
+			}
+		} catch {
+			// Storage refused: the drafts kept in memory are all there are.
+		}
+		return false;
+	}
+
 	/** The files attached to the draft under `key`, if the page still has them. */
 	files(key: string): File[] {
 		return this.attached.get(key) ?? [];
@@ -124,6 +142,7 @@ export interface KeptTodo extends TodoWords {
 }
 
 /** The todo draft under `key`, or null when there is none. */
+// scry-ignore classes-over-function-exports: a pair of pure conversions between a draft's text and a todo, with no state for a class to hold
 export function readTodo(drafts: Drafts, key: string): KeptTodo | null {
 	const text = drafts.read(key);
 	if (text === "") {

@@ -30,4 +30,15 @@ describe("Drafts", () => {
 
 		expect(written).toEqual(["new:shop"]);
 	});
+
+	it("says whether any draft holds text", () => {
+		const drafts = new Drafts(refusing);
+		expect(drafts.typed()).toBe(false);
+
+		drafts.write("c1", "typing");
+		expect(drafts.typed()).toBe(true);
+
+		drafts.write("c1", "");
+		expect(drafts.typed()).toBe(false);
+	});
 });

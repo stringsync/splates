@@ -11,6 +11,7 @@ import { BudgetRoutes } from "./dev-budgets";
 import { ConversationEvents } from "./dev-conversation-events";
 import { ConversationRoutes } from "./dev-conversation-routes";
 import { CredRoutes } from "./dev-creds";
+import type { Pages } from "./dev-pages";
 import { ProjectWatch, SETTLE } from "./dev-project-watch";
 import { TaskRoutes } from "./dev-tasks";
 import { TodoRoutes } from "./dev-todos";
@@ -163,6 +164,8 @@ export interface DevContext {
 	readonly unbuilt: boolean;
 	/** The slot `arbor dev --slot` serves under, or null. */
 	readonly slot: Slot | null;
+	/** The page being served, which a rebuild replaces. */
+	readonly pages: Pages;
 	/** The conversations `project`'s page may hold, or null when they are off. */
 	conversationsFor(project: Project): Conversations | null;
 	/** What `project`'s dictations transcribe with. */
