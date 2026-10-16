@@ -64,7 +64,7 @@ describe("App on a phone", () => {
 		expect(waiting.textContent).toContain("Failed");
 	});
 
-	it("leads a lane's orchestrator with [Lane] in its inbox", async () => {
+	it("marks a lane's orchestrator as a lane in its inbox", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -77,7 +77,8 @@ describe("App on a phone", () => {
 		);
 
 		const inbox = view.getByRole("region", { name: "inbox" });
-		expect(within(inbox).getByText("[Lane] Stats")).toBeTruthy();
+		expect(within(inbox).getByText("Stats")).toBeTruthy();
+		expect(within(inbox).getByLabelText("Lane")).toBeTruthy();
 	});
 
 	it("puts a task its conversation left in Needs you, and says how long one elsewhere has been quiet", async () => {

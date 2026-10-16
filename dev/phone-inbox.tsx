@@ -14,9 +14,9 @@ import {
 } from "./conversation-feed";
 import {
 	lastReport,
+	leadsLanes,
 	unnamed,
 	useNameOf,
-	useRowNameOf,
 } from "./conversation-names";
 import {
 	flatten,
@@ -34,7 +34,7 @@ import { launch } from "./phone-home";
 import { TerminalGroup, useShells } from "./phone-inbox-shells";
 import { Filed, type useLongPress } from "./phone-row-menu";
 import { Refusal, useRefusal } from "./refusal";
-import { TaskIcon } from "./task-icon";
+import { LaneIcon, TaskIcon } from "./task-icon";
 import { arriveAt, useCopiedReplies } from "./task-view";
 import type { Terminals } from "./terminals";
 import { BarButton, TopBar } from "./top-bar";
@@ -290,7 +290,6 @@ function Row({
 	onOpen: () => void;
 }): JSX.Element {
 	const nameOf = useNameOf();
-	const rowNameOf = useRowNameOf();
 	const trunk = useContext(Trunk);
 	const { conversation, task, need } = row;
 	// One that answers to another is not yours to address.
@@ -341,6 +340,12 @@ function Row({
 			</span>
 			<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 				<span className="flex items-baseline gap-2">
+					{conversation !== null && leadsLanes(conversation) && (
+						<LaneIcon
+							aria-label="Lane"
+							className="size-3.5 shrink-0 self-center text-muted-foreground"
+						/>
+					)}
 					<span
 						className={cn(
 							"min-w-0 flex-1 truncate font-medium text-[15px]",
@@ -348,9 +353,7 @@ function Row({
 								"text-muted-foreground italic",
 						)}
 					>
-						{conversation !== null
-							? rowNameOf(conversation)
-							: (task?.task ?? "")}
+						{name}
 					</span>
 					{moved !== null && (
 						<span className="shrink-0 text-muted-foreground text-xs tabular-nums">

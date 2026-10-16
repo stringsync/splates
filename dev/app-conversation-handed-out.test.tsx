@@ -263,7 +263,7 @@ describe("App's conversation of a task another handed out", () => {
 				.map(
 					(each) => each.closest("li")?.querySelector("button")?.textContent,
 				),
-		).toEqual(["[Lane] Stats lane"]);
+		).toEqual(["Stats lane"]);
 	});
 
 	// scry-ignore simple-test-setup: the working orchestrator it opens with is what it checks, and no other test does
@@ -294,7 +294,7 @@ describe("App's conversation of a task another handed out", () => {
 				.map(
 					(each) => each.closest("li")?.querySelector("button")?.textContent,
 				),
-		).toEqual(["[Lane] Stats lane", "alpha"]);
+		).toEqual(["Stats lane", "alpha"]);
 	});
 
 	it("shows no dot for it in the list, its name muted, once it merged unread", async () => {

@@ -42,15 +42,16 @@ import {
 	renameConversation,
 } from "./conversation-api";
 import {
+	leadsLanes,
 	reportedAs,
 	unnamed,
 	useNameOf,
-	useRowNameOf,
 } from "./conversation-names";
 import { Dispatching, Trunk, whereRuns } from "./dispatching";
 import { useHandedOutBy, useHandedTo } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
+import { LaneIcon } from "./task-icon";
 import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
@@ -86,7 +87,6 @@ export function Item({
 }): JSX.Element {
 	const [menu, setMenu] = useState(false);
 	const nameOf = useNameOf();
-	const rowNameOf = useRowNameOf();
 	const [renaming, setRenaming] = useState(false);
 	const { copied, copy } = useCopy();
 	const trunk = useContext(Trunk);
@@ -144,6 +144,12 @@ export function Item({
 					name={agent}
 					className="size-3.5 text-foreground/70"
 				/>
+				{leadsLanes(conversation) && (
+					<LaneIcon
+						aria-label="Lane"
+						className="size-3.5 shrink-0 text-muted-foreground"
+					/>
+				)}
 				<span
 					className={cn(
 						"min-w-0 flex-1 truncate text-sm",
@@ -152,7 +158,7 @@ export function Item({
 							"text-muted-foreground italic",
 					)}
 				>
-					{rowNameOf(conversation)}
+					{nameOf(conversation)}
 				</span>
 				{pinned && !archived && (
 					<PinIcon

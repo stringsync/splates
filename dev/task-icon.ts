@@ -1,7 +1,10 @@
-import { ClipboardListIcon } from "lucide-react";
+import { ClipboardListIcon, ColumnsIcon } from "lucide-react";
 
 /**
  * What stands for a task wherever the page shows one. A branch's own name,
  * such as trunk or the one a task merges onto, keeps `GitBranchIcon`.
  */
 export const TaskIcon = ClipboardListIcon;
+
+/** What stands for a lane, and for the conversation orchestrating it. */
+export const LaneIcon = ColumnsIcon;

@@ -2,7 +2,6 @@ import {
 	ChevronRightIcon,
 	CirclePauseIcon,
 	CircleSlashIcon,
-	ColumnsIcon,
 	FlagIcon,
 	GitBranchIcon,
 	GitMergeIcon,
@@ -22,6 +21,7 @@ import { cn } from "#dev/lib/utils.ts";
 import type { Ending, Report } from "../asked";
 import { Markdown } from "./markdown";
 import { ReferenceChip, TaskChip } from "./reference-chip";
+import { LaneIcon } from "./task-icon";
 
 /**
  * The frame every card in a conversation shares: a header with an icon, what
@@ -250,7 +250,7 @@ function Header({
 					{lanes.map((lane) => (
 						<ReferenceChip
 							key={lane}
-							Icon={ColumnsIcon}
+							Icon={LaneIcon}
 							kind="Lane"
 							name={lane}
 							title={lane}

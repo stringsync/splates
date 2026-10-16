@@ -1,6 +1,5 @@
 import {
 	CheckIcon,
-	ColumnsIcon,
 	FileIcon,
 	GitBranchIcon,
 	KeyRoundIcon,
@@ -19,7 +18,7 @@ import { OpenerContext } from "./openers";
 import { credAddress } from "./page-address";
 
 import { Stamp, useStamps } from "./stamp";
-import { TaskIcon } from "./task-icon";
+import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
  * An event of arbor's in the thread: one line of a verb, the thing it names,
@@ -292,7 +291,7 @@ function NamedChip({
 		case "lane":
 			return (
 				<Chip
-					Icon={ColumnsIcon}
+					Icon={LaneIcon}
 					title={`Lane ${named.id}: ${named.name}`}
 					className={GIVES_WAY}
 				>

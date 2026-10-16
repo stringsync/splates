@@ -1,7 +1,6 @@
 import type { TriggerAdapter, TriggerItem } from "@assistant-ui/react";
 import {
 	BookmarkIcon,
-	ColumnsIcon,
 	FolderGit2Icon,
 	GitMergeIcon,
 	HeartPulseIcon,
@@ -33,7 +32,7 @@ import type { NamedSystem } from "../systems";
 import type { Action } from "./actions";
 import { Board } from "./board";
 import type { Tone } from "./card-shell";
-import { TaskIcon } from "./task-icon";
+import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
  * What `#` offers in the composer, by category: picking an item writes it
@@ -57,7 +56,7 @@ export interface References {
 const CATEGORIES = [
 	{ id: "directive", label: "Directives", icon: TreePineIcon },
 	{ id: "todo", label: "Todos", icon: ListTodoIcon },
-	{ id: "lane", label: "Lanes", icon: ColumnsIcon },
+	{ id: "lane", label: "Lanes", icon: LaneIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
 	{ id: "system", label: "Systems", icon: LayersIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
