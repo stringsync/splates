@@ -7,6 +7,7 @@ import { type Conversation, Conversations } from "./conversations";
 import { Everywhere } from "./everywhere";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";
+import type { LaneRecord } from "./lanes";
 import { remove } from "./remove";
 import { Testing } from "./testing";
 
@@ -20,6 +21,8 @@ describe("HandedOut", () => {
 	let clock: FakeWallClock;
 	/** Lets the agent's turn on alpha end, which `atWork` holds until then. */
 	let release: () => void;
+	/** The lanes on the board, lane 1 until a test empties it. */
+	let board: LaneRecord[];
 
 	const until = async (done: () => boolean) => {
 		for (let i = 0; i < 200 && !done(); i++) {
@@ -36,6 +39,7 @@ describe("HandedOut", () => {
 		watching = HandedOut.watch({
 			service: deps.service,
 			conversations,
+			lanes: async () => board,
 			log: deps.log,
 			timer,
 			clock,
@@ -56,6 +60,7 @@ describe("HandedOut", () => {
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.now());
 		release = () => {};
+		board = [{ id: 1, name: "Stats" }];
 		await add(deps, "alpha");
 	});
 
@@ -139,6 +144,7 @@ describe("HandedOut", () => {
 					],
 					slug: async () => "repo",
 				}),
+				lanes: async () => board,
 				log: deps.log,
 				timer,
 				clock,
@@ -353,5 +359,80 @@ describe("HandedOut", () => {
 		const { orchestrator } = await atWork("startedBy");
 
 		expect(orchestrator.state.heartbeat).toBeNull();
+	});
+
+	/**
+	 * A lane's orchestrator sent lane 1 that answers each prompt with
+	 * `reply`, once it has answered the first.
+	 */
+	const orchestrating = async (reply: string): Promise<Conversation> => {
+		agent.turn = async (client, session, text) => {
+			said.push(text);
+			await client.sessionUpdate({
+				sessionId: session,
+				update: {
+					sessionUpdate: "agent_message_chunk",
+					content: { type: "text", text: reply },
+				},
+			});
+			return "end_turn";
+		};
+		const orchestrator = await conversations.start("fake", {
+			task: null,
+			cwd: deps.root,
+		});
+		await until(() => orchestrator.state.status === "idle");
+		await orchestrator.prompt("[ARBOR LANE 1]");
+		await until(
+			() =>
+				orchestrator.state.status === "idle" &&
+				orchestrator.state.messages.at(-1)?.role === "agent",
+		);
+		return orchestrator;
+	};
+
+	it("tells an orchestrator still saying its lanes are under way once they are done, once", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		board = [];
+		const watched = watch();
+		await watched.sweep();
+		await until(() => said.length === 2);
+		await watched.sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[ARBOR LANE 1]", "[ARBOR LANES DONE]"]);
+	});
+
+	it("tells an orchestrator nothing while one of its lanes is left", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		await watch().sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[ARBOR LANE 1]"]);
+	});
+
+	it("tells an orchestrator nothing once it has said its lanes are finished", async () => {
+		await orchestrating("## 🏁 Finished lanes Stats\n\nThe Stats page leads.");
+		board = [];
+		await watch().sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[ARBOR LANE 1]"]);
+	});
+
+	it("tells an orchestrator whose lanes were done while arbor dev was down", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		board = [];
+		await restart();
+		await watch().sweep();
+		await until(() => said.length === 2);
+
+		expect(said).toEqual(["[ARBOR LANE 1]", "[ARBOR LANES DONE]"]);
 	});
 });

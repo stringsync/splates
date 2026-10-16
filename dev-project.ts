@@ -52,6 +52,7 @@ export async function serveProject(
 			service,
 			conversations,
 			everywhere: context.everywhere,
+			lanes: () => project.todos.lanes(),
 			log,
 		});
 		events = await ConversationEvents.follow({

@@ -245,4 +245,69 @@ describe("App's agents a lane's orchestrator started", () => {
 		);
 		expect(within(todos).getAllByRole("button")).toHaveLength(6);
 	});
+
+	/** The board once lane 1's todos all landed: the lane is gone. */
+	const emptied = { ...snapshot, tasks: [], lanes: [], todos: [] };
+
+	it("turns the latest Working card's plan into how many landed once its lanes are done", async () => {
+		const { plan } = await openPlan(
+			[reported("alpha went out."), landed, ...gone.slice(0, 4)],
+			emptied,
+		);
+
+		expect(within(plan).queryAllByRole("list")).toHaveLength(0);
+		expect(plan.textContent).toContain("All 5 merged");
+		expect(plan.textContent).toContain("arbor dev tells the orchestrator");
+		expect(within(plan).queryByRole("status", { name: "working" })).toBeNull();
+
+		await act(async () =>
+			fireEvent.click(
+				within(plan).getByRole("button", { name: "Nudge it now" }),
+			),
+		);
+
+		expect(testing.posted("/api/conversations/orch/prompt")).toEqual([
+			{ method: "POST", body: { text: "[ARBOR LANES DONE]" } },
+		]);
+		await waitFor(() => expect(plan.textContent).toContain("Nudged."));
+	});
+
+	it("says how many landed in the latest Finished card, under its lines", async () => {
+		const { view, plan } = await openPlan(
+			[
+				conversation({
+					...reported("alpha went out."),
+					messages: [
+						...reported("alpha went out.").messages,
+						message(
+							"agent",
+							"## 🏁 Finished lanes Stats\n\nThe totals lead.\n\n- Stats: #5 and #6 merged.",
+						),
+					],
+				}),
+				conversation({
+					...landed,
+					messages: [
+						landed.messages[0] as ReturnType<typeof message>,
+						{
+							...message("agent", "## ✅ Merged beta onto main"),
+							until: new Date(Date.now() - 4 * 60_000).toISOString(),
+						},
+					],
+				}),
+			],
+			emptied,
+		);
+
+		const finished = view.getByRole("region", { name: "finished Stats" });
+		expect(within(finished).getByRole("region", { name: "plan" })).toBe(plan);
+		expect(finished.textContent).toContain("#5 and #6 merged.");
+		expect(plan.textContent).toContain("All 1 merged 4m ago");
+		expect(plan.textContent).not.toContain("arbor dev tells");
+		expect(
+			within(plan).queryByRole("button", { name: "Nudge it now" }),
+		).toBeNull();
+		const working = view.getByRole("region", { name: "working Stats" });
+		expect(within(working).queryByRole("region", { name: "plan" })).toBeNull();
+	});
 });

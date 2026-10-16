@@ -1,3 +1,4 @@
+import { stretches } from "./asked";
 import type { ConversationState } from "./conversations";
 import type { LaneRecord } from "./lanes";
 import { leadingDirectives, UNTRIAGED } from "./prompts";
@@ -78,6 +79,21 @@ export function lanesOf(conversation: ConversationState): string[] {
 				return lane === undefined ? [] : [lane];
 			})
 		: [];
+}
+
+/** The lanes each Started card `conversation`'s agent said names. */
+export function startedLanes(conversation: ConversationState): string[] {
+	return conversation.messages.flatMap((message) =>
+		message.role !== "agent"
+			? []
+			: message.parts.flatMap((part) =>
+					part.type !== "text"
+						? []
+						: stretches(part.text).flatMap((each) =>
+								each.type === "start" ? each.start.lanes : [],
+							),
+				),
+	);
 }
 
 /** The first line the person said in a conversation, or null before they say any. */

@@ -107,6 +107,12 @@ what becomes of it:
    - (c) Remove the task and leave its todo for later
 ```
 
+`[ARBOR LANES DONE]` means no lane you work is left on the board: its
+last todo landed, by your agent, another conversation or an external one,
+while your last report still said it was under way. Read `arbor lane list`
+and `arbor list` to be sure, then end on your finished report (see Reporting
+on lanes), so the page shows you as done.
+
 Never answer an agent's questions, or tell it anything the user said to it:
 it is theirs. A todo the user moved, linked or edited while you worked
 shows in the next `lane show`.

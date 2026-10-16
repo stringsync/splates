@@ -8,14 +8,20 @@ import {
 	type Timer,
 	type WallClock,
 } from "webappwiz/time";
+import { type Stretch, stretches } from "./asked";
+import { lanesOf, startedLanes } from "./conversation-name";
+import type { Message } from "./conversation-state";
 import { HEARTBEAT_IDLE } from "./conversation-state";
 import type { Conversation, Conversations } from "./conversations";
 import { Everywhere } from "./everywhere";
+import type { LaneRecord } from "./lanes";
 import {
 	HEARTBEAT,
 	idleReference,
+	LANES_DONE,
 	reportReference,
 	stoppedReference,
+	UNTRIAGED,
 } from "./prompts";
 import type { WorktreeService } from "./worktree-service";
 
@@ -46,6 +52,11 @@ const SETTLE = Duration.secs(1);
  * on them rather than wait out a long task with no word to the person. Any
  * turn it takes before then puts the next one off again. A lane's
  * orchestrator gets none: its agents talk to the person themselves.
+ *
+ * A lane's orchestrator whose lanes are all done, however their last todos
+ * landed, that sits idle on a Working or Waiting report, as though they were
+ * not, is told `[ARBOR LANES DONE]`, once since it last started lanes, so it
+ * ends on its Finished report.
  */
 export class HandedOut implements Resource {
 	/**
@@ -65,6 +76,7 @@ export class HandedOut implements Resource {
 		private readonly service: WorktreeService,
 		private readonly conversations: Conversations,
 		private readonly everywhere: Everywhere,
+		private readonly lanes: () => Promise<LaneRecord[]>,
 		private readonly log: Logger,
 		private readonly timer: Timer,
 		private readonly clock: WallClock,
@@ -94,6 +106,7 @@ export class HandedOut implements Resource {
 		service,
 		conversations,
 		everywhere = Everywhere.onlyHere(service.git.root, conversations),
+		lanes,
 		log,
 		timer = new SystemTimer(),
 		clock = new SystemWallClock(),
@@ -105,6 +118,8 @@ export class HandedOut implements Resource {
 		 * here may be; this project's alone by default.
 		 */
 		everywhere?: Everywhere;
+		/** The lanes on the board, a lane gone from it once it is done. */
+		lanes: () => Promise<LaneRecord[]>;
 		log: Logger;
 		timer?: Timer;
 		clock?: WallClock;
@@ -113,6 +128,7 @@ export class HandedOut implements Resource {
 			service,
 			conversations,
 			everywhere,
+			lanes,
 			log,
 			timer,
 			clock,
@@ -135,6 +151,10 @@ export class HandedOut implements Resource {
 			}
 			for (const conversation of all) {
 				await this.#check(conversation);
+			}
+			const lanes = await this.lanes();
+			for (const conversation of all) {
+				await this.#finish(conversation, lanes);
 			}
 			// The agents a conversation here handed tasks to may be in any project.
 			const anywhere = await this.#anywhere();
@@ -196,6 +216,56 @@ export class HandedOut implements Resource {
 				wait,
 			),
 		);
+	}
+
+	/**
+	 * Tells `conversation`, when it last said its lanes are under way and
+	 * none of them is left in `lanes`, that they are done, unless it was told
+	 * so since it last started any.
+	 */
+	async #finish(
+		conversation: Conversation,
+		lanes: LaneRecord[],
+	): Promise<void> {
+		const { state } = conversation;
+		if (
+			state.archived ||
+			// Stopped by a restart, it is as idle; by the person, theirs.
+			!(
+				state.status === "idle" ||
+				(state.status === "stopped" && this.#readBack.has(state.id))
+			) ||
+			state.ask !== null ||
+			state.checkpoint !== null ||
+			!onLanes(state.messages.at(-1))
+		) {
+			return;
+		}
+		const sent = lanesOf(state).filter((lane) => lane !== UNTRIAGED);
+		const named = startedLanes(state);
+		if (
+			(sent.length === 0 && named.length === 0) ||
+			lanes.some(
+				(lane) => sent.includes(String(lane.id)) || named.includes(lane.name),
+			)
+		) {
+			return;
+		}
+		const since = state.messages.slice(
+			state.messages.findLastIndex((message) => startsIn(message)) + 1,
+		);
+		if (
+			since.some(
+				(message) =>
+					message.role === "user" &&
+					message.parts.some(
+						(part) => part.type === "text" && part.text.trim() === LANES_DONE,
+					),
+			)
+		) {
+			return;
+		}
+		await conversation.prompt(LANES_DONE);
 	}
 
 	async #check(conversation: Conversation): Promise<void> {
@@ -281,6 +351,34 @@ function nextHeartbeat(
 		return null;
 	}
 	return new Date(Date.parse(since) + HEARTBEAT_IDLE.ms).toISOString();
+}
+
+/** The stretches of `message`, the agent's; none for the person's. */
+function stretchesOf(message: Message): Stretch[] {
+	return message.role !== "agent"
+		? []
+		: message.parts.flatMap((part) =>
+				part.type === "text" ? stretches(part.text) : [],
+			);
+}
+
+/** Whether `message`, the agent's, holds a Started card. */
+function startsIn(message: Message): boolean {
+	return stretchesOf(message).some((each) => each.type === "start");
+}
+
+/**
+ * Whether `message` is the agent's and its last report on lanes says they
+ * are under way: Working, or Waiting on the person.
+ */
+function onLanes(message: Message | undefined): boolean {
+	const last = (message === undefined ? [] : stretchesOf(message)).findLast(
+		(each) => each.type === "report" && "lanes" in each.report,
+	);
+	return (
+		last?.type === "report" &&
+		(last.report.ending === "working" || last.report.ending === "waiting")
+	);
 }
 
 /**

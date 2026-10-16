@@ -1,4 +1,4 @@
-import { CornerUpLeftIcon, Loader2Icon } from "lucide-react";
+import { CheckIcon, CornerUpLeftIcon, Loader2Icon } from "lucide-react";
 import {
 	createContext,
 	type JSX,
@@ -7,18 +7,22 @@ import {
 	useContext,
 	useState,
 } from "react";
-import { stretches } from "../asked";
-import { lanesOf } from "../conversation-name";
+import { lanesOf, startedLanes } from "../conversation-name";
 import type { ConversationState } from "../conversations";
 import type { LaneRecord } from "../lanes";
 import { type Need, needOfExternal } from "../needs";
+import { LANES_DONE } from "../prompts";
 import type { Details } from "../show";
 import type { TodoState } from "../todo";
 import { Board } from "./board";
+import { ReplyContext } from "./card-reply";
 import { reportedAs, useNameOf } from "./conversation-names";
 import { needOf } from "./conversation-rows";
 import { Held } from "./handed-out";
+import { useMinute } from "./hooks/use-minute";
 import { Mark } from "./mark";
+import { ago } from "./plan-limits";
+import { Refusal, useRefusal } from "./refusal";
 import { LaneIcon } from "./task-icon";
 
 /** A lane an orchestrator works, its open todos in the order they land. */
@@ -105,21 +109,6 @@ export function planOf(
 	};
 }
 
-/** The lanes each Started card `conversation`'s agent said names. */
-function startedLanes(conversation: ConversationState): string[] {
-	return conversation.messages.flatMap((message) =>
-		message.role !== "agent"
-			? []
-			: message.parts.flatMap((part) =>
-					part.type !== "text"
-						? []
-						: stretches(part.text).flatMap((each) =>
-								each.type === "start" ? each.start.lanes : [],
-							),
-				),
-	);
-}
-
 /** The conversation a thread shows, for a Working card in it to draw its plan. */
 export const PlanSource = createContext<{
 	conversation: ConversationState;
@@ -137,10 +126,18 @@ const SHOWN = 3;
  * agent on it and how that one stands; and Done, the agents it started whose
  * tasks are gone, newest last. A todo opens its card, an agent its
  * conversation. Todo shows its first rows and Done its last, the rest a click
- * away; Doing, as long as the agents at once, shows them all. Nothing outside
- * a thread, or for a conversation that orchestrates nothing.
+ * away; Doing, as long as the agents at once, shows them all. Once its lanes
+ * are done and nothing works, only how many landed and when the last did,
+ * and, until the orchestrator has said its Finished report, that arbor dev
+ * tells it to. Nothing outside a thread, or for a conversation that
+ * orchestrates nothing.
  */
-export function PlanBoard(): JSX.Element | null {
+export function PlanBoard({
+	reported = false,
+}: {
+	/** Whether it shows in the orchestrator's Finished report. */
+	reported?: boolean;
+}): JSX.Element | null {
 	const source = useContext(PlanSource);
 	const held = useContext(Held);
 	const board = use(Board);
@@ -225,6 +222,7 @@ export function PlanBoard(): JSX.Element | null {
 	const merged = plan.landed.filter(
 		(agent) => reportedAs(agent) !== "removed",
 	).length;
+	const removed = plan.landed.length - merged;
 	const working =
 		conversation.status === "running" ||
 		conversation.status === "starting" ||
@@ -232,6 +230,22 @@ export function PlanBoard(): JSX.Element | null {
 			const kind = step.todo.takenBy === null ? null : needOn(step)?.kind;
 			return kind === "working" || kind === "assuming";
 		});
+	// Its own turn, as on a nudge, leaves its lanes as done as they were.
+	if (plan.lanes.length === 0 && done.length > 0) {
+		return (
+			<section
+				aria-label="plan"
+				className="flex flex-col gap-2 px-4 pb-4 @max-md:px-3"
+			>
+				<Finished
+					merged={merged}
+					removed={removed}
+					at={lastLanded(plan.landed)}
+				/>
+				{!reported && <Nudge working={working} />}
+			</section>
+		);
+	}
 	return (
 		<section
 			aria-label="plan"
@@ -286,6 +300,86 @@ function Progress({
 					className="size-3.5 shrink-0 animate-spin text-muted-foreground"
 				/>
 			)}
+		</div>
+	);
+}
+
+/**
+ * That arbor dev tells the orchestrator its lanes are done, and a link to
+ * tell it now, gone while it works; "Nudged" in its place once clicked.
+ */
+function Nudge({ working }: { working: boolean }): JSX.Element {
+	const send = useContext(ReplyContext)?.send ?? null;
+	const [nudged, setNudged] = useState(false);
+	const { refusal, attempt } = useRefusal();
+	return (
+		<div className="text-muted-foreground text-xs">
+			<p>
+				Every lane is done. arbor dev tells the orchestrator so, for it to wrap
+				up with its Finished report.{" "}
+				{nudged
+					? "Nudged."
+					: send !== null &&
+						!working && (
+							<button
+								type="button"
+								onClick={() =>
+									void attempt(send(LANES_DONE), "Not nudged").then(
+										(sent) => sent && setNudged(true),
+									)
+								}
+								className="cursor-pointer underline underline-offset-2 hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+							>
+								Nudge it now
+							</button>
+						)}
+			</p>
+			<Refusal refusal={refusal} />
+		</div>
+	);
+}
+
+/** When the last of `landed` said anything, as epoch ms; null when none says. */
+function lastLanded(landed: ConversationState[]): number | null {
+	const times = landed.flatMap((agent) => {
+		const last = agent.messages.at(-1);
+		const at = last?.until ?? last?.at ?? null;
+		return at === null ? [] : [Date.parse(at)];
+	});
+	return times.length === 0 ? null : Math.max(...times);
+}
+
+/**
+ * A plan carried out: its bar full, what came of its todos, and how long ago
+ * the last landed.
+ */
+function Finished({
+	merged,
+	removed,
+	at,
+}: {
+	merged: number;
+	removed: number;
+	at: number | null;
+}): JSX.Element {
+	const now = useMinute();
+	return (
+		<div className="flex items-center gap-2.5">
+			<div
+				role="progressbar"
+				aria-label="merged"
+				aria-valuemin={0}
+				aria-valuemax={merged}
+				aria-valuenow={merged}
+				className="h-1.5 flex-1 overflow-hidden rounded-full bg-success"
+			/>
+			<span className="flex items-center gap-1 text-success text-xs tabular-nums">
+				<CheckIcon aria-hidden className="size-3.5" strokeWidth={3} />
+				{removed === 0
+					? `All ${merged} merged`
+					: `${merged} merged, ${removed} removed`}
+				{at !== null && ` ${ago(at, now)}`}
+			</span>
 		</div>
 	);
 }

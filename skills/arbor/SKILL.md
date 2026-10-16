@@ -39,6 +39,7 @@ asks you to read it as Reference files says.
 | `[ARBOR REPORT <task>]` | A task you handed out stopped: escalated, merged or removed | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
 | `[ARBOR IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
 | `[ARBOR STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
+| `[ARBOR LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |
 | `[ARBOR HEARTBEAT]` | Check on the task you handed on with `--relay` and say where it stands | [handoff.md](references/handoff.md) |
 | `[ARBOR CHECKPOINT]` | Bring `ARBOR.md` up to date and stop, as before a restart | [checkpoint.md](references/checkpoint.md) |
 | `[ARBOR RESUME]` | Carry on from where `ARBOR.md` says you stopped | [checkpoint.md](references/checkpoint.md) |

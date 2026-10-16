@@ -84,9 +84,12 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	const { title, Icon, tone } = ENDINGS[report.ending];
 	// A lane orchestrator's Working card says what changed; the plan, live,
 	// takes the place of its lines on each lane in the latest one only, the
-	// others folded to what changed, since only the latest is current.
+	// others folded to what changed, since only the latest is current. Its
+	// latest Finished card keeps its lines, on what came of each todo, and
+	// shows how many landed, and when, under them.
 	const planned = report.ending === "working" && "lanes" in report;
 	const latest = useLatestOnLanes(report);
+	const finished = report.ending === "finished" && latest;
 	const text = planned
 		? reportText({ ...report, body: leadOf(report.body) })
 		: reportText(report);
@@ -132,7 +135,9 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 						)}
 						{latest && <PlanBoard />}
 					</>
-				) : text === "" && report.ending !== "merged" ? undefined : (
+				) : text === "" &&
+					report.ending !== "merged" &&
+					!finished ? undefined : (
 					<>
 						{text !== "" && (
 							<Folded>
@@ -142,6 +147,7 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 						{report.ending === "merged" && "task" in report && (
 							<MergedStats task={report.task} />
 						)}
+						{finished && <PlanBoard reported />}
 					</>
 				)}
 			</CardShell>
