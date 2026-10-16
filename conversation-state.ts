@@ -62,6 +62,8 @@ export interface ConversationState {
 	 * is not archived.
 	 */
 	archivedWith: string | null;
+	/** Kept atop the list, archived or not, until unpinned. */
+	pinned: boolean;
 	/**
 	 * The conversation that handed it its task with `arbor add --agent`, which
 	 * it answers to in place of the person: the page writes nothing to it but
@@ -420,6 +422,7 @@ export function blank(
 		archived: false,
 		archivedAt: null,
 		archivedWith: null,
+		pinned: false,
 		handedBy,
 		skill: null,
 		assigned,

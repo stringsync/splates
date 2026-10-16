@@ -15,8 +15,9 @@ import { arriveAt, ExternalReplies } from "./task-view";
 import { unanswered } from "./unanswered";
 
 /**
- * The sidebar's rows, newest first: the conversations listed, then external
- * agents. `listed` picks the conversations, by default those not archived.
+ * The sidebar's rows, the pinned ones first, each newest first: the
+ * conversations listed, then external agents. `listed` picks the
+ * conversations, by default those not archived.
  */
 export function rowsOf(
 	tasks: Details[],
@@ -34,7 +35,16 @@ export function rowsOf(
 	return answeredThrough(
 		[...rows, ...externals(tasks, conversations)],
 		conversations,
-	).toSorted((one, other) => started(other).localeCompare(started(one)));
+	).toSorted(
+		(one, other) =>
+			Number(pinned(other)) - Number(pinned(one)) ||
+			started(other).localeCompare(started(one)),
+	);
+}
+
+/** Whether a row's conversation is pinned atop the list. */
+function pinned(row: Needing): boolean {
+	return row.conversation?.pinned === true;
 }
 
 /** Nested rows in the order they show, each part under its task. */

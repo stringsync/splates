@@ -275,6 +275,13 @@ describe("dev conversations", () => {
 			expect(played.status).toBe(206);
 			expect(played.headers.get("content-type")).toBe("video/mp4");
 			expect(await played.text()).toBe("mp4");
+			const pinned = await json(
+				port,
+				`/api/conversations/${id}/pinned`,
+				"PUT",
+				{ pinned: true },
+			);
+			expect(await pinned.json()).toMatchObject({ id, pinned: true });
 			const archived = await json(
 				port,
 				`/api/conversations/${id}/archived`,

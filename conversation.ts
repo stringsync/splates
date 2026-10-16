@@ -421,6 +421,16 @@ export class Conversation
 		await this.put({ archived: false });
 	}
 
+	/** Keeps it atop the list, or lets it go back among the rest. */
+	async pin(pinned: boolean): Promise<void> {
+		if (this.state.pinned === pinned) {
+			return;
+		}
+		this.log.write({ kind: "pin", pinned });
+		await this.log.flush();
+		this.set({ pinned });
+	}
+
 	/** Marks it seen, or unseen again for the person to come back to. */
 	async markUnread(unread: boolean): Promise<void> {
 		this.flag(unread);

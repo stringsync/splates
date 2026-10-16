@@ -195,6 +195,14 @@ export async function markUnread(id: string, unread: boolean): Promise<void> {
 	await sendJson(`/api/conversations/${id}/unread`, "PUT", { unread });
 }
 
+/** Keeps conversation `id` atop the list, or lets it go back among the rest. */
+export async function pinConversation(
+	id: string,
+	pinned: boolean,
+): Promise<void> {
+	await sendJson(`/api/conversations/${id}/pinned`, "PUT", { pinned });
+}
+
 /** Puts conversation `id` away, stopping its agent, or back on the list. */
 export async function archiveConversation(
 	id: string,

@@ -350,6 +350,14 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	readonly pinConversation = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		await this.#refuseHandedOut(conversation);
+		const { pinned } = await body(request);
+		await conversation.pin(pinned === true);
+		return Response.json(conversation.state);
+	};
+
 	readonly archiveConversation = async (
 		request: Request,
 	): Promise<Response> => {

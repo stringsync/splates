@@ -131,6 +131,8 @@ export class ConversationLog {
 				state.archivedAt = entry.archived ? (entry.at ?? null) : null;
 			} else if (entry.kind === "rename") {
 				state.name = entry.name;
+			} else if (entry.kind === "pin") {
+				state.pinned = entry.pinned;
 			} else if (entry.kind === "unread") {
 				state.unread = entry.unread;
 				if (!entry.unread) {
@@ -260,6 +262,7 @@ export type Entry =
 	  }
 	| { kind: "rename"; name: string | null }
 	| { kind: "unread"; unread: boolean }
+	| { kind: "pin"; pinned: boolean }
 	/** `at` is missing from logs written before the page showed how long things took. */
 	| {
 			kind: "prompt";

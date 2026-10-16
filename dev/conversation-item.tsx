@@ -6,6 +6,8 @@ import {
 	EllipsisVerticalIcon,
 	LinkIcon,
 	PencilIcon,
+	PinIcon,
+	PinOffIcon,
 	SquareTerminalIcon,
 } from "lucide-react";
 import { type JSX, useContext, useEffect, useRef, useState } from "react";
@@ -36,6 +38,7 @@ import { copiedLabel, useCopy } from "./card";
 import {
 	archiveConversation,
 	markUnread,
+	pinConversation,
 	renameConversation,
 } from "./conversation-api";
 import {
@@ -52,7 +55,9 @@ import { ShellRunning, ShowTerminal } from "./terminal";
 
 /**
  * One conversation in a list: its agent's mark, its name, and whether it
- * needs you, its name muted for one that answers to another. Hovered or focused, it offers Archive (or Unarchive) and a menu.
+ * needs you, its name muted for one that answers to another, and a pin while
+ * pinned. Hovered or focused, it offers a menu, Archive (or Unarchive), and
+ * Pin (or Unpin).
  */
 export function Item({
 	conversation,
@@ -93,6 +98,9 @@ export function Item({
 	const reported = reportedAs(conversation);
 	const Put = archived ? ArchiveRestoreIcon : ArchiveIcon;
 	const put = archived ? "Unarchive" : "Archive";
+	const { pinned } = conversation;
+	const Pin = pinned ? PinOffIcon : PinIcon;
+	const pin = pinned ? "Unpin" : "Pin";
 	return (
 		<div
 			className={cn(
@@ -119,10 +127,10 @@ export function Item({
 				// there is one.
 				className={cn(
 					// A touch screen has no hover, so its buttons always show.
-					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3 text-left group-focus-within/item:pr-14 group-hover/item:pr-14 pointer-coarse:pr-24",
+					"flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3 text-left group-focus-within/item:pr-20 group-hover/item:pr-20 pointer-coarse:pr-28",
 					renaming && "hidden",
 					menu
-						? "pr-14"
+						? "pr-20"
 						: need.kind === "idle" &&
 								!hosting &&
 								(handedOut || (reported === null && !conversation.unread)) &&
@@ -146,6 +154,16 @@ export function Item({
 				>
 					{rowNameOf(conversation)}
 				</span>
+				{pinned && !archived && (
+					<PinIcon
+						aria-label="Pinned"
+						// Gone while its buttons show, Unpin among them.
+						className={cn(
+							"size-3 shrink-0 text-muted-foreground group-focus-within/item:hidden group-hover/item:hidden pointer-coarse:hidden",
+							menu && "hidden",
+						)}
+					/>
+				)}
 				{where && whereOf(conversation, trunk) !== null && (
 					<span className="shrink-0 truncate text-muted-foreground text-xs">
 						{whereOf(conversation, trunk)}
@@ -154,7 +172,7 @@ export function Item({
 			</button>
 			<span
 				className={cn(
-					"pointer-events-none absolute right-2 flex items-center pointer-coarse:right-16",
+					"pointer-events-none absolute right-2 flex items-center pointer-coarse:right-22",
 					renaming && "hidden",
 					menu
 						? "hidden"
@@ -245,6 +263,20 @@ export function Item({
 						onClick={() => file(archived ? undefined : onLeft)}
 					>
 						<Put />
+					</Button>
+				)}
+				{files && !archived && (
+					<Button
+						size="icon-xs"
+						variant="ghost"
+						aria-label={`${pin} ${nameOf(conversation)}`}
+						onClick={() =>
+							void pinConversation(id, !pinned).catch((error: unknown) =>
+								refuse(pinned ? "Not unpinned" : "Not pinned", error),
+							)
+						}
+					>
+						<Pin />
 					</Button>
 				)}
 			</span>

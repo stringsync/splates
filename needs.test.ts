@@ -408,6 +408,7 @@ function talk(overrides: Partial<ConversationState> = {}): ConversationState {
 		archived: false,
 		archivedAt: null,
 		archivedWith: null,
+		pinned: false,
 		handedBy: null,
 		skill: null,
 		assigned: false,

@@ -1,5 +1,11 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { ArchiveIcon, CircleDotIcon, PencilIcon } from "lucide-react";
+import {
+	ArchiveIcon,
+	CircleDotIcon,
+	PencilIcon,
+	PinIcon,
+	PinOffIcon,
+} from "lucide-react";
 import {
 	type JSX,
 	type PointerEvent,
@@ -12,7 +18,11 @@ import { flushSync } from "react-dom";
 import { cn } from "#dev/lib/utils.ts";
 import { openingOf } from "../conversation-name";
 import type { ConversationState } from "../conversations";
-import { markUnread, renameConversation } from "./conversation-api";
+import {
+	markUnread,
+	pinConversation,
+	renameConversation,
+} from "./conversation-api";
 import { useArchive } from "./conversation-item";
 import { unnamed, useNameOf } from "./conversation-names";
 import { useHandedOutBy } from "./handed-out";
@@ -128,7 +138,7 @@ export function Filed({
 
 /**
  * A row's menu as a sheet up from the bottom, as iOS's apps offer one on a
- * long press: its name, then Rename, Mark as unread and Archive, each a
+ * long press: its name, then Rename, Mark as unread, Pin and Archive, each a
  * finger's height. Rename turns the name into a box to type in.
  */
 function RowMenu({
@@ -234,6 +244,23 @@ function RowMenu({
 									}}
 								>
 									Mark as unread
+								</Action>
+							)}
+							{archive !== null && (
+								<Action
+									icon={conversation.pinned ? <PinOffIcon /> : <PinIcon />}
+									onClick={() => {
+										close();
+										void pinConversation(id, !conversation.pinned).catch(
+											(error: unknown) =>
+												refuse(
+													conversation.pinned ? "Not unpinned" : "Not pinned",
+													error,
+												),
+										);
+									}}
+								>
+									{conversation.pinned ? "Unpin" : "Pin"}
 								</Action>
 							)}
 							{archive !== null && (

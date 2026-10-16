@@ -124,6 +124,7 @@ export function conversation(
 		archived: false,
 		archivedAt: null,
 		archivedWith: null,
+		pinned: false,
 		handedBy: null,
 		skill: null,
 		assigned: false,

@@ -236,6 +236,25 @@ describe("Conversation lifecycle", () => {
 		expect((await reread())[0]?.state.unread).toBe(true);
 	});
 
+	it("is pinned until unpinned, and reads it back", async () => {
+		const conversation = await started();
+		expect(conversation.state.pinned).toBe(false);
+		const reread = () =>
+			new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+				fs,
+				timer,
+				clock,
+				launch: agent.launch,
+			}).list();
+
+		await conversation.pin(true);
+
+		expect(conversation.state.pinned).toBe(true);
+		expect((await reread())[0]?.state.pinned).toBe(true);
+		await conversation.pin(false);
+		expect((await reread())[0]?.state.pinned).toBe(false);
+	});
+
 	it("counts the messages seen when last marked read, and reads it back", async () => {
 		const conversation = await started();
 		await conversation.prompt("hello");
