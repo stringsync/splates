@@ -255,6 +255,8 @@ export interface Served extends AsyncResource {
 	moveConversation: Handler;
 	promptConversation: Handler;
 	tellConversation: Handler;
+	addArtifact: Handler;
+	removeArtifact: Handler;
 	terminateConversation: Handler;
 	conversationAttachment: Handler;
 	conversationArtifact: Handler;

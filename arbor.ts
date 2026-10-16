@@ -5,6 +5,7 @@ import { Duration } from "webappwiz/time";
 import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
+import { arborArtifact } from "./arbor-artifact";
 import { arborCreds } from "./arbor-creds";
 import { serveDev } from "./arbor-dev";
 import { commaList, here, rosterOf, seeded, todoIds } from "./arbor-flags";
@@ -669,6 +670,7 @@ arbor
 	.action((opts, ctx) => recordRetry(ctx, opts.task));
 
 arbor
+	.mount("artifact", arborArtifact)
 	.mount("todo", arborTodo)
 	.mount("lane", arborLane)
 	.mount("projects", arborProjects)

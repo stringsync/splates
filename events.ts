@@ -102,6 +102,20 @@ export interface Facts {
 		/** What `--remove` named to drop, each by path or stored name. */
 		removed: string[];
 	};
+	"artifact add": {
+		/** The artifact, by name. */
+		name: string;
+		/** The version it made. */
+		version: number;
+		/** That version's size. */
+		bytes: number;
+	};
+	"artifact remove": {
+		/** The artifact, by name. */
+		name: string;
+		/** The version that was current. */
+		version: number;
+	};
 	retry: {
 		/** The merge attempts the task had spent, which the grant gives it more of. */
 		attempts: number;
@@ -234,6 +248,8 @@ export const FACTS = {
 	escalate: ["about", "review", "base", "questions"],
 	handoff: ["agent", "model", "relay"],
 	attach: ["stored", "removed"],
+	"artifact add": ["name", "version", "bytes"],
+	"artifact remove": ["name", "version"],
 	retry: ["attempts"],
 	"todo add": ["todo", "subject", "lane", "position"],
 	"todo update": ["todo", "subject", "changed"],

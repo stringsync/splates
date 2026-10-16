@@ -74,6 +74,11 @@ export class WorktreeService {
 		return id !== undefined && (await this.holds(id)) ? id : undefined;
 	}
 
+	/** Where the log of the conversation `id` is kept. */
+	conversationLog(id: string): string {
+		return `${this.conversationsDir}/${id}.jsonl`;
+	}
+
 	/** Whether the `arbor dev` conversation `id` is one of this repo's. */
 	holds(id: string): Promise<boolean> {
 		return this.fs.exists(`${this.conversationsDir}/${id}.jsonl`);

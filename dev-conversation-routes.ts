@@ -473,6 +473,32 @@ export class ConversationRoutes {
 		return Response.json(conversation.state);
 	};
 
+	// The agent's own `arbor artifact add`: a form with the artifact's `name`,
+	// its `mimeType`, and its bytes as `file`. The conversation's own store keeps
+	// it, so the page hears of it as it would of any change.
+	readonly addArtifact = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const form = await request.formData();
+		const file = form.get("file");
+		if (!(file instanceof File)) {
+			fail("usage", "an artifact needs its file");
+		}
+		const version = await conversation.artifacts.add({
+			name: String(form.get("name") ?? ""),
+			mimeType: String(form.get("mimeType") ?? "application/octet-stream"),
+			bytes: new Uint8Array(await file.arrayBuffer()),
+		});
+		return Response.json(version);
+	};
+
+	// The agent's own `arbor artifact remove`.
+	readonly removeArtifact = async (request: Request): Promise<Response> => {
+		const conversation = await this.conversationAt(request);
+		const name = new URL(request.url).pathname.split("/")[5] ?? "";
+		await conversation.artifacts.remove(decodeURIComponent(name));
+		return Response.json({ removed: decodeURIComponent(name) });
+	};
+
 	/**
 	 * The person's way out of a handed-out agent: stops its turn and its
 	 * process, and tells the conversation that handed it out, which decides
