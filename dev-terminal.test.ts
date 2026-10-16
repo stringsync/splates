@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { OpenPortProvider } from "webappwiz/system";
+import { MemoryLogger } from "webappwiz/log";
+import { NodeFs, NodePs, OpenPortProvider } from "webappwiz/system";
+import { Duration } from "webappwiz/time";
 import { add } from "./add";
 import { dev } from "./dev";
 import { serving } from "./dev-testing";
+import { DevWorkers } from "./dev-workers";
 import { Testing } from "./testing";
+import { WorkerDaemon } from "./worker-daemon";
+import { WorkerSocketPair } from "./worker-socket-pair";
 
 describe("dev terminal", () => {
 	let deps: Testing;
@@ -91,15 +96,33 @@ describe("dev terminal", () => {
 		body: (port: number) => Promise<void>,
 		options: { hosts?: string[] } = {},
 	) => {
+		// The shells run on the local worker, here in this process.
+		const workers = new DevWorkers(new MemoryLogger());
+		const pair = new WorkerSocketPair();
+		const daemon = new WorkerDaemon(
+			{ where: "memory", dial: async () => pair.worker },
+			{
+				id: "local",
+				slots: 4,
+				ps: new NodePs(),
+				fs: new NodeFs(),
+				log: new MemoryLogger(),
+				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
+			},
+		);
+		void daemon.run();
+		void workers.registry.accept(pair.coordinator, "local");
 		const server = await dev(deps, {
 			ports: OpenPortProvider.any(),
 			shell: ["/bin/sh"],
+			workers,
 			...options,
 		});
 		try {
 			await body(server.port);
 		} finally {
 			await server.disposeAsync();
+			await daemon.disposeAsync();
 		}
 	};
 

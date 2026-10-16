@@ -218,7 +218,8 @@ export async function dev(
 				return pick(project)(request);
 			})(request);
 
-	const terminals = new Terminals(gate, shell, { projectFor }, ps);
+	const workers = givenWorkers ?? new DevWorkers(log);
+	const terminals = new Terminals(gate, shell, { projectFor }, workers.local);
 	const dictations = new Dictations(gate, { projectFor });
 
 	const disposer = new AsyncDisposer();
@@ -285,7 +286,6 @@ export async function dev(
 		),
 	);
 
-	const workers = givenWorkers ?? new DevWorkers(log);
 	disposer.defer(() => workers.disposeAsync());
 	if (workerSocket !== null) {
 		await workers.listen(workerSocket, fs);

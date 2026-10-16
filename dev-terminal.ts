@@ -1,10 +1,13 @@
-import type { Ps } from "webappwiz/system";
 import { type HostGate, refuse } from "./dev-http";
 import type { Served } from "./dev-project";
 import type { Connection } from "./dev-sockets";
-import { MAX_SIZE, TerminalConnection } from "./dev-terminal-connection";
+import {
+	MAX_SIZE,
+	type ShellHost,
+	TerminalConnection,
+	type TerminalShell,
+} from "./dev-terminal-connection";
 import { fail } from "./exit";
-import type { Pty } from "./pty";
 
 /** How a terminal finds the project its request names. */
 export interface TerminalProjects {
@@ -17,19 +20,21 @@ export interface TerminalProjects {
  */
 export class Terminals {
 	// Every shell a page has open, so stopping the server hangs up on them all.
-	private readonly shells = new Set<Pty>();
+	private readonly shells = new Set<TerminalShell>();
 
 	constructor(
 		private readonly gate: HostGate,
 		private readonly shell: string[] | null,
 		private readonly projects: TerminalProjects,
-		/** Where each shell's job in front is read from. */
-		private readonly ps: Ps,
+		/** The worker the shells run on, whose process table says their jobs in front. */
+		private readonly worker: ShellHost,
 	) {}
 
 	/** The pid of each shell open now. */
 	get pids(): number[] {
-		return [...this.shells].map((pty) => pty.pid);
+		return [...this.shells].flatMap((pty) =>
+			pty.pid === null ? [] : [pty.pid],
+		);
 	}
 
 	// A shell runs anything typed at it, so it gets the conversations' rule (this
@@ -61,7 +66,7 @@ export class Terminals {
 					cwd,
 					dimension(params.get("cols"), 80),
 					dimension(params.get("rows"), 24),
-					this.ps,
+					this.worker,
 				);
 				// Bun answers an upgrade itself, so there is nothing to return.
 				return server.upgrade(request, { data })

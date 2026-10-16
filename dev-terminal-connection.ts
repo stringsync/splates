@@ -1,9 +1,10 @@
-import type { Ps } from "webappwiz/system";
+import type { ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
 import { json } from "./dev-http";
 import type { Connection } from "./dev-sockets";
 import { heldBy } from "./held";
-import { Pty } from "./pty";
+import type { RemotePty } from "./remote-pty";
+import type { RemotePtyOptions } from "./remote-worker";
 
 /** Bigger than any screen, and small enough that a typo cannot hurt. */
 export const MAX_SIZE = 1000;
@@ -21,27 +22,36 @@ const TerminalMessage = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("front") }),
 ]);
 
+/** The shells a terminal opens, as a worker runs them. */
+export type TerminalShell = RemotePty;
+
+/** What a terminal needs of the worker it runs on. */
+export interface ShellHost {
+	pty(options: RemotePtyOptions): TerminalShell;
+	processes(): Promise<ProcessEntry[]>;
+}
+
 /**
  * One terminal's socket: bytes both ways are the shell's own; text is for
  * what is not, as JSON: a resize or a question from the page, the shell's
  * exit code and the job in front, null at a prompt, from here.
  */
 export class TerminalConnection implements Connection {
-	private pty: Pty | null = null;
+	private pty: TerminalShell | null = null;
 
 	constructor(
 		/** Every shell open, which this one joins while it runs. */
-		private readonly shells: Set<Pty>,
+		private readonly shells: Set<TerminalShell>,
 		private readonly argv: string[],
 		private readonly cwd: string,
 		private readonly cols: number,
 		private readonly rows: number,
-		/** Where the job in front of the shell is read from. */
-		private readonly ps: Ps,
+		/** The worker the shell runs on, where its job in front is read from. */
+		private readonly worker: ShellHost,
 	) {}
 
 	open(socket: Bun.ServerWebSocket<Connection>): void {
-		const pty = new Pty({
+		const pty = this.worker.pty({
 			argv: this.argv,
 			cwd: this.cwd,
 			cols: this.cols,
@@ -80,11 +90,11 @@ export class TerminalConnection implements Connection {
 
 	/** Tells the page what `pty`'s shell runs in front, or null at its prompt. */
 	private async front(
-		pty: Pty,
+		pty: TerminalShell,
 		socket: Bun.ServerWebSocket<Connection>,
 	): Promise<void> {
-		const [held] = heldBy(await this.ps.processes(), {
-			shells: [pty.pid],
+		const [held] = heldBy(await this.worker.processes(), {
+			shells: pty.pid === null ? [] : [pty.pid],
 			agents: [],
 		});
 		socket.send(
