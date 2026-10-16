@@ -27,7 +27,8 @@ import { QuestionCard } from "./question-card";
 
 /**
  * A task's assumptions, closed until opened under a title that counts them,
- * and held open while any is challenged, so a challenge written never hides.
+ * and held open while any is challenged, so a challenge written never hides;
+ * `bare`, with no title, open, where its card's own title already says them.
  * Each is what it asked over the choice the agent took, with a Challenge
  * control that opens it as a question card offering the rest, and Keep to
  * put that away again. `answers` are the challenges written, by position.
@@ -37,6 +38,7 @@ export function AssumptionList({
 	answers,
 	live,
 	unfolded: open = false,
+	bare = false,
 	onAnswer,
 	onNext,
 }: {
@@ -46,6 +48,8 @@ export function AssumptionList({
 	live: boolean;
 	/** Whether it starts open, as when it is all its card holds. */
 	unfolded?: boolean;
+	/** Whether it goes untitled and always open, as when its card is titled Assumed. */
+	bare?: boolean;
 	onAnswer: (assumed: Question, answer: Answer) => void;
 	/** Once Enter is pressed in an open challenge. */
 	onNext: () => void;
@@ -71,6 +75,52 @@ export function AssumptionList({
 		});
 	const [unfolded, setUnfolded] = useState(open);
 	const challenged = answers.some((answer) => answer != null);
+	const rows = assumptions.map((assumed, at) => {
+		const answer = answers[at] ?? null;
+		const open = opened.has(assumed.number) || answer !== null;
+		return open ? (
+			<ChallengeCard
+				key={assumed.number}
+				assumed={assumed}
+				answer={answer}
+				live={live}
+				onAnswer={(next) => onAnswer(assumed, next)}
+				onNext={onNext}
+				action={
+					live && (
+						<Button
+							variant="ghost"
+							size="xs"
+							aria-label={`Keep assumption ${assumed.number}`}
+							onClick={() => {
+								onAnswer(assumed, takenOf(assumed));
+								toggle(assumed.number, false);
+							}}
+							className="shrink-0 text-muted-foreground"
+						>
+							<UndoIcon data-icon="inline-start" />
+							Keep
+						</Button>
+					)
+				}
+			/>
+		) : (
+			<AssumptionRow
+				key={assumed.number}
+				assumed={assumed}
+				challenge={answer}
+				live={live}
+				onChallenge={() => toggle(assumed.number, true)}
+			/>
+		);
+	});
+	if (bare) {
+		return (
+			<section aria-label="Assumptions" className="@container flex flex-col">
+				<ol className="flex flex-col py-1.5">{rows}</ol>
+			</section>
+		);
+	}
 	return (
 		<Collapsible
 			open={unfolded || challenged}
@@ -85,45 +135,7 @@ export function AssumptionList({
 				<span className="tabular-nums">{assumptions.length}</span>
 			</CollapsibleTrigger>
 			<CollapsibleContent render={<ol />} className="flex flex-col pb-1.5">
-				{assumptions.map((assumed, at) => {
-					const answer = answers[at] ?? null;
-					const open = opened.has(assumed.number) || answer !== null;
-					return open ? (
-						<ChallengeCard
-							key={assumed.number}
-							assumed={assumed}
-							answer={answer}
-							live={live}
-							onAnswer={(next) => onAnswer(assumed, next)}
-							onNext={onNext}
-							action={
-								live && (
-									<Button
-										variant="ghost"
-										size="xs"
-										aria-label={`Keep assumption ${assumed.number}`}
-										onClick={() => {
-											onAnswer(assumed, takenOf(assumed));
-											toggle(assumed.number, false);
-										}}
-										className="shrink-0 text-muted-foreground"
-									>
-										<UndoIcon data-icon="inline-start" />
-										Keep
-									</Button>
-								)
-							}
-						/>
-					) : (
-						<AssumptionRow
-							key={assumed.number}
-							assumed={assumed}
-							challenge={answer}
-							live={live}
-							onChallenge={() => toggle(assumed.number, true)}
-						/>
-					);
-				})}
+				{rows}
 			</CollapsibleContent>
 		</Collapsible>
 	);

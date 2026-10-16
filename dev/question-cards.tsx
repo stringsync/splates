@@ -394,6 +394,12 @@ export function QuestionCards({
 							answers={challenged}
 							live={live}
 							unfolded={questions.length === 0}
+							// Alone in the Assumed card, whose title already says them.
+							bare={
+								proposal === null &&
+								escalation === null &&
+								questions.length === 0
+							}
 							onAnswer={(call, next) =>
 								setAnswer(call, challenges(call, next) ? next : null)
 							}

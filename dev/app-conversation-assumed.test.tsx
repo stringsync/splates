@@ -66,6 +66,10 @@ describe("App's cards for the calls a reply says it assumed", () => {
 			view.getByRole("region", { name: "assumed" }),
 		);
 		const list = within(card).getByRole("region", { name: "Assumptions" });
+		// The card's title says them, so the list folds under none of its own.
+		expect(
+			within(card).queryByRole("button", { name: /^Assumptions/ }),
+		).toBeNull();
 		expect(
 			within(list).getByText("What should the retry limit be?"),
 		).toBeTruthy();
