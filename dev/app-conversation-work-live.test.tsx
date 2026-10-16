@@ -30,6 +30,14 @@ describe("App's work row while working", () => {
 			view.getByRole("region", { name: state.title ?? "" }),
 		);
 	};
+	// What the work row's line says.
+	const line = (thread: HTMLElement) =>
+		thread.querySelector('[data-slot="work"] summary')?.textContent;
+	// The work row's foldable timeline, the first when there are more.
+	const details = (thread: HTMLElement) =>
+		within(thread)
+			.getAllByRole("list", { name: "timeline" })[0]
+			?.closest("details") as HTMLDetailsElement;
 	it("says only Working and how long it has worked while it works, shimmering, with its plan", async () => {
 		const thread = await opened(
 			turn(
@@ -77,12 +85,8 @@ describe("App's work row while working", () => {
 			status: "running",
 		});
 		const thread = await opened(working);
-		const details = () =>
-			within(thread)
-				.getByRole("list", { name: "timeline" })
-				.closest("details") as HTMLDetailsElement;
 		await waitFor(() => within(thread).getByText(/^Working/));
-		expect(details().open).toBe(false);
+		expect(details(thread).open).toBe(false);
 
 		await testing.say(
 			turn([tool({ id: "x1", command: "bun test" }), "Tests pass."], {
@@ -90,7 +94,7 @@ describe("App's work row while working", () => {
 			}),
 		);
 		await waitFor(() => expect(thread.textContent).toContain("Tests pass."));
-		expect(details().open).toBe(false);
+		expect(details(thread).open).toBe(false);
 	});
 
 	it("keeps the agent's latest words in the row while it works, until a moment passes with nothing after them", async () => {
@@ -108,19 +112,45 @@ describe("App's work row while working", () => {
 			),
 		);
 
-		const line = () =>
-			thread.querySelector('[data-slot="work"] summary')?.textContent;
 		const timeline = await waitFor(() =>
 			within(thread).getByRole("list", { name: "timeline" }),
 		);
 		expect(timeline.textContent).toContain("Now the fix.");
-		expect(line()).toMatch(/^Working /);
+		expect(line(thread)).toMatch(/^Working /);
 		act(() => {
 			testing.wall.advance(Duration.secs(1));
 			testing.timer.fireTimeouts();
 		});
-		await waitFor(() => expect(thread.textContent).toContain("Now the fix."));
-		expect(line()).not.toMatch(/^Working/);
+		await waitFor(() =>
+			expect(
+				within(thread).getByRole("list", { name: "timeline" }).textContent,
+			).not.toContain("Now the fix."),
+		);
+		expect(thread.textContent).toContain("Now the fix.");
+	});
+
+	it("says Working on its row, not Worked above a Working under its reply, while the turn goes on after the reply", async () => {
+		const thread = await opened(
+			turn(
+				[
+					tool({ id: "a1", kind: "think", status: "completed" }),
+					tool({
+						id: "a2",
+						command: "bun test",
+						status: "in_progress",
+						parent: "a1",
+					}),
+					"Four agents are at work.",
+				],
+				{ status: "running" },
+			),
+		);
+
+		await waitFor(() =>
+			expect(thread.textContent).toContain("Four agents are at work."),
+		);
+		expect(line(thread)).toMatch(/^Working/);
+		expect(thread.textContent?.match(/Work(ed|ing)/g)).toEqual(["Working"]);
 	});
 
 	it("folds what the agent said before its latest call into the row while it works", async () => {
@@ -150,14 +180,12 @@ describe("App's work row while working", () => {
 		);
 		const timelines = () =>
 			within(thread).getAllByRole("list", { name: "timeline" });
-		const details = () =>
-			timelines()[0]?.closest("details") as HTMLDetailsElement;
 		await waitFor(() => expect(thread.textContent).toContain("Checking."));
-		expect(details().open).toBe(false);
+		expect(details(thread).open).toBe(false);
 		expect(timelines()[0]?.textContent).not.toContain("Checking.");
 		await act(async () => {
-			details().open = true;
-			details().dispatchEvent(new Event("toggle"));
+			details(thread).open = true;
+			details(thread).dispatchEvent(new Event("toggle"));
 		});
 
 		await testing.say(
@@ -173,7 +201,7 @@ describe("App's work row while working", () => {
 		await waitFor(() => expect(thread.textContent).toContain("bun run demo"));
 		expect(timelines()).toHaveLength(1);
 		expect(timelines()[0]?.textContent).toContain("Checking.");
-		expect(details().open).toBe(true);
+		expect(details(thread).open).toBe(true);
 		await testing.say(
 			turn(
 				[
@@ -190,7 +218,7 @@ describe("App's work row while working", () => {
 		);
 		expect(timelines()).toHaveLength(1);
 		expect(timelines()[0]?.textContent).not.toContain("Still checking.");
-		expect(details().open).toBe(true);
+		expect(details(thread).open).toBe(true);
 	});
 	it("shows what the agent already wrote at once on opening it mid-turn, typing out only what comes after", async () => {
 		const words = "The tests ran, and two of them failed on the parser.";

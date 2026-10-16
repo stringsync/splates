@@ -76,7 +76,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 	// It counts up only once the agent has moved, so the row never sits at
 	// 0s while the agent has yet to start.
 	const since = work.until === null ? null : work.at;
-	const now = useNow(work.running && since !== null);
+	const now = useNow(work.working && since !== null);
 	const items = timeline(work);
 	const trees = use(TreesContext);
 	const short = (path: string) => relative(path, trees);
@@ -102,10 +102,10 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						<span
 							className={cn(
 								"min-w-0 truncate",
-								work.running && "shimmer motion-reduce:animate-none",
+								work.working && "shimmer motion-reduce:animate-none",
 							)}
 						>
-							{!work.running
+							{!work.working
 								? worked(work)
 								: since === null
 									? "Working"
@@ -135,7 +135,7 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 						))}
 					</ol>
 				</details>
-				{work.running && since !== null && (
+				{work.working && since !== null && (
 					<InMessage>
 						<CheckIn since={since} now={now} />
 					</InMessage>

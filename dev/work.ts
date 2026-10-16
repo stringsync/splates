@@ -17,8 +17,10 @@ export interface Work {
 	at: string | null;
 	/** When the agent last moved in it. */
 	until: string | null;
-	/** Still going, with nothing said since: the row says Working, counting up once the agent has moved; once over, it adds up what it did. */
+	/** Still going, with nothing said since: its last thought is still being thought. */
 	running: boolean;
+	/** The turn's last row while it goes on, even with words after it, since its subagents can still be at work: it says Working, counting up once the agent has moved; once over, it adds up what it did. */
+	working: boolean;
 	/** The turn is still going, so a call yet to finish is running, not stopped. */
 	going: boolean;
 }
@@ -111,6 +113,7 @@ export function stretchesOf(
 						? message.until
 						: (ended.sort().at(-1) ?? startOf(next ?? []) ?? message.until),
 				running: going && index === end,
+				working: going && run === final,
 				going,
 			},
 		};

@@ -27,6 +27,7 @@ import {
 	ToolGroupTrigger,
 } from "#dev/components/assistant-ui/elements/tool-group.aui.tsx";
 import { Stamp, useStamps } from "#dev/stamp.tsx";
+import type { Work } from "#dev/work.ts";
 
 const reasoningDuration = (timing: ThreadGroupPart["timing"]) =>
 	timing?.completedAt === undefined
@@ -162,15 +163,20 @@ export const AssistantMessage: FC = () => {
 };
 /**
  * The shimmering Working label under a busy reply, there while its text streams
- * too, except under streaming reasoning or the row of what the agent is doing,
- * whose own labels already say so.
+ * too, except under streaming reasoning, or in a turn whose row of what the
+ * agent is doing still says Working above the reply.
  */
 const WorkingIndicator: FC = () => {
 	const labelled = useAuiState((s) => {
 		const last = s.message.parts.at(-1);
 		return (
 			last?.type === "reasoning" ||
-			(last?.type === "data" && last.name === "work")
+			s.message.parts.some(
+				(part) =>
+					part.type === "data" &&
+					part.name === "work" &&
+					(part.data as { work: Work }).work.working,
+			)
 		);
 	});
 	if (labelled) {
