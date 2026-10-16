@@ -17,7 +17,8 @@ todo starts, never decided by the agent alone.
   GitHub and Homebrew. `spin` is taken (Fermyon), and `plates`, `sp` and
   `spl` are too common; a user who wants two letters aliases it.
 - Owner: the stringsync LLC. The repo is `stringsync/splates`, public; the
-  package is `@stringsync/splates`, its bin `splates`. The LLC owns the
+  package is `splates`, unscoped so `bunx splates` runs it with nothing
+  installed, and its bin is `splates` too. The LLC owns the
   product, sells the service, and holds the right to relicense.
 - Only `packages/arbor`, `skills/arbor` and `evals/arbor-skill` move;
   the rest of webappwiz stays in webappwiz.
@@ -70,7 +71,7 @@ What it would look like, if the user chooses to sell (not planned):
    skill, with a one-time migration of existing projects (the global
    server already migrates older records forward).
 4. **Retire `@webappwiz/arbor`**: `npm deprecate` it pointing at
-   `@stringsync/splates` (npm allows unpublishing only in the first 72
+   `splates` (npm allows unpublishing only in the first 72
    hours), remove the three paths from webappwiz, and use splates there as
    a dev tool installed on the machine, not a dependency, so webappwiz
    installs and passes CI for anyone without it.
