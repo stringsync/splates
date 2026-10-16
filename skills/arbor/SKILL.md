@@ -396,8 +396,10 @@ answer or a challenge overturns a choice, redo that part.
 
 Say each assumption in the conversation too, in the reply that ends the turn
 you wrote it in, so the user sees the call while it is cheap to undo: a
-`- Assumed <number>: <what you chose>` line each, beyond any cap on `- `
-lines, after the others and before any todo, demo or question. A review leaves
+`- Assumed <number>: <what you chose>` line each, its number the one it has
+in `ARBOR.md`, beyond any cap on `- ` lines, after the others and before any
+todo, demo or question. The `arbor dev` page shows each as that item, with
+its choices, for the user to challenge from the reply. A review leaves
 them out, since its Ready to merge card lists them, and a proposal lists them
 as Proposing says.
 

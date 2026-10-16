@@ -439,6 +439,47 @@ describe("stretches", () => {
 		]);
 	});
 
+	it("reads a reply's `- Assumed <number>:` lines as the calls assumed, out of the list and report they end", () => {
+		const found = stretches(
+			[
+				"## ⚠️ Escalated uploads: needs a call on retries",
+				"",
+				"An upload the server refuses as too big now stops.",
+				"",
+				"- Restart `arbor dev` to see it.",
+				"- Assumed 3: Three tries, a second apart",
+				"",
+				"- Assumed 4: Kept the old endpoint for a release",
+				"",
+				"1. Should a 429 retry?",
+				"",
+				"- Assumed: an orchestrator's lane name, which no number makes a call",
+			].join("\n"),
+		);
+
+		expect(found).toEqual([
+			expect.objectContaining({
+				type: "report",
+				report: expect.objectContaining({
+					ending: "escalated",
+					body: "An upload the server refuses as too big now stops.\n\n- Restart `arbor dev` to see it.",
+				}),
+			}),
+			{
+				type: "assumed",
+				assumed: [
+					{ number: "3", text: "Three tries, a second apart" },
+					{ number: "4", text: "Kept the old endpoint for a release" },
+				],
+			},
+			expect.objectContaining({ type: "questions" }),
+			{
+				type: "text",
+				text: "- Assumed: an orchestrator's lane name, which no number makes a call",
+			},
+		]);
+	});
+
 	it("ends a proposed todo at its paragraph, leaving the message after it as text", () => {
 		const found = stretches(
 			[

@@ -1,5 +1,5 @@
 import { type Demo, demoAt, isDemoTitle } from "./demo";
-import { offers, type Question, settled } from "./plan";
+import { assumptions, offers, type Question, questions, settled } from "./plan";
 
 /**
  * `text` cut where it asks questions: a list numbered from 1 at the margin,
@@ -65,6 +65,14 @@ export function stretches(text: string): Stretch[] {
 			i = demo.end - 1;
 			continue;
 		}
+		const assumed = assumedAt(lines, i);
+		if (assumed !== null) {
+			found.push(...prose(lines.slice(from, i)));
+			found.push({ type: "assumed", assumed: assumed.assumed });
+			from = assumed.end;
+			i = assumed.end - 1;
+			continue;
+		}
 		const kept = keptAt(lines, i);
 		if (kept !== null) {
 			found.push(...prose(lines.slice(from, i)));
@@ -94,8 +102,8 @@ export function stretches(text: string): Stretch[] {
  * it asks the person in the arbor skill's format, its report asking them to
  * review a task before it merges, a design it proposes, its report of how a task ended or what it
  * waits on or that the lanes it orchestrated are done, its word that it
- * started lanes, a todo it proposes, a demo for the person to try, or its word that
- * it requested a cred.
+ * started lanes, a todo it proposes, a demo for the person to try, the calls
+ * it made without asking, or its word that it requested a cred.
  */
 export type Stretch =
 	| { type: "text"; text: string }
@@ -105,7 +113,41 @@ export type Stretch =
 	| { type: "report"; report: Report }
 	| { type: "start"; start: LanesStart }
 	| { type: "todo"; todo: TodoProposal }
-	| { type: "demo"; demo: Demo };
+	| { type: "demo"; demo: Demo }
+	| { type: "assumed"; assumed: Assumed[] };
+
+/**
+ * A call the agent made without asking, as the skill's `- Assumed <number>:
+ * <what>` line says it in a reply: numbered as in its task's `## Assumptions`.
+ */
+export interface Assumed {
+	number: string;
+	/** What it chose, as the line says it. */
+	text: string;
+}
+
+/**
+ * Each of `assumed` as its task's `plan` writes it, matched by number: under
+ * `## Assumptions`, or under `## Blocked` once challenged, so a reply that
+ * challenged it still reads as it did. One the plan has no item for, as
+ * outside a task or once it is gone, is its line alone, with no choices.
+ */
+export function assumedIn(plan: string, assumed: Assumed[]): Question[] {
+	const items = [...assumptions(plan), ...questions(plan)];
+	return assumed.map(
+		({ number, text }) =>
+			items.find((item) => item.number === number) ?? {
+				number,
+				done: false,
+				text,
+				body: "",
+				reply: null,
+				followUps: [],
+				choices: [],
+				pick: null,
+			},
+	);
+}
 
 /** A review the skill's `## 🔍 Ready to merge` report asks for. */
 export interface Review {
@@ -256,13 +298,39 @@ const CHECKS = /^Checks:[ \t]*(.*)$/;
 /** A review's line naming the checks that failed, the same way. */
 const FAILED = /^Failed:[ \t]*(.*)$/;
 
+/** A reply's line saying a call the agent made: `- Assumed 3: Three tries`. */
+const ASSUMED = /^- Assumed (\d+):[ \t]+(.+?)[ \t]*$/;
+
 /** An item of a numbered list, at the margin: `2. How should …?`. */
 const ITEM = /^(\d+)\.[ \t]+(.+)$/;
 const FENCE = /^[ \t]*(```|~~~)/;
 
 /**
+ * The run of `- Assumed <number>:` lines from `start`, blank lines between
+ * them, and the line after it; null for any other line.
+ */
+function assumedAt(
+	lines: string[],
+	start: number,
+): { assumed: Assumed[]; end: number } | null {
+	const assumed: Assumed[] = [];
+	let end = start;
+	for (let i = start; i < lines.length; i += 1) {
+		const line = lines[i] as string;
+		const said = ASSUMED.exec(line);
+		if (said !== null) {
+			assumed.push({ number: said[1] as string, text: said[2] as string });
+			end = i + 1;
+		} else if (line.trim() !== "") {
+			break;
+		}
+	}
+	return assumed.length === 0 ? null : { assumed, end };
+}
+
+/**
  * The report, started lanes or proposed todo titled at `start`, which runs until
- * the next heading or list of questions, and the line after it; null for any
+ * whatever begins next, and the line after it; null for any
  * other line.
  */
 function keptAt(
@@ -460,10 +528,6 @@ function trimmed(lines: string[]): string {
 }
 
 /**
- * The first line from `start` that begins something else: a heading or a
- * list of questions, outside code blocks; else the end.
- */
-/**
  * The line after the first paragraph from `start`, short of `end`: a
  * proposed todo's body is one sentence, so what follows it is the message
  * going on.
@@ -485,6 +549,11 @@ function paragraphEnd(lines: string[], start: number, end: number): number {
 	return end;
 }
 
+/**
+ * The first line from `start` that begins something else: a heading, a
+ * `- Assumed <number>:` line or a list of questions, outside code blocks;
+ * else the end.
+ */
 function endAt(lines: string[], start: number): number {
 	let fenced = false;
 	for (let i = start; i < lines.length; i += 1) {
@@ -496,6 +565,7 @@ function endAt(lines: string[], start: number): number {
 		if (
 			!fenced &&
 			(HEADING.test(line) ||
+				ASSUMED.test(line) ||
 				(ITEM.exec(line)?.[1] === "1" && listAt(lines, i) !== null))
 		) {
 			return i;

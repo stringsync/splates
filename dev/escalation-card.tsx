@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import type { Review, TaskReport } from "../asked";
+import type { Assumed, Review, TaskReport } from "../asked";
 import type { Demo } from "../demo";
 import type { Escalated } from "../events";
 import { InMessage } from "./card-reply";
@@ -10,11 +10,12 @@ import { MessageReview } from "./review-panel";
 /**
  * What the agent wrote of its escalation in the turn it escalated, which its
  * card takes in rather than drawing a second card: its report, the demo its
- * questions ask about, or its review.
+ * questions ask about, the calls it says it assumed, or its review.
  */
 export interface Written {
 	report: TaskReport | null;
 	demo: Demo | null;
+	assumed: Assumed[];
 	review: Review | null;
 }
 
@@ -61,7 +62,8 @@ export function EscalationCard({
 		body: report?.body ?? "",
 		source: report?.source ?? `## ⚠️ Escalated ${task}: ${event.about}`,
 	};
-	if (event.questions.length === 0) {
+	const assumed = written?.assumed ?? [];
+	if (event.questions.length === 0 && assumed.length === 0) {
 		return <ReportCard report={escalation} />;
 	}
 	return (
@@ -74,6 +76,8 @@ export function EscalationCard({
 				escalation={escalation}
 				proposal={null}
 				demo={written?.demo ?? null}
+				assumed={assumed}
+				task={task}
 			/>
 		</InMessage>
 	);

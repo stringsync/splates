@@ -5,6 +5,7 @@ import {
 	ChevronRightIcon,
 	CopyIcon,
 	LightbulbIcon,
+	ListChecksIcon,
 	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
@@ -26,6 +27,8 @@ import {
 	replyOf,
 	takenOf,
 } from "../reply";
+import { AnythingElsePage } from "./anything-else-page";
+import { AssumptionList } from "./assumption-list";
 import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
 import { CardBox } from "./card-box";
@@ -44,13 +47,17 @@ import { Refusal, useRefusal } from "./refusal";
  * an agent outside the page, copied to paste into its session. Under a
  * proposal, each question with a `(chosen)` choice comes answered with it,
  * and once every one is answered, sending approves the proposal, saying
- * only the answers that differ from what the agent chose.
+ * only the answers that differ from what the agent chose. The calls the
+ * agent assumed list under them, each challenged as on the review card, a
+ * challenge going out with the answers; with no questions, it offers to
+ * send only once one is challenged.
  */
 export function QuestionCards({
 	questions,
 	escalation = null,
 	proposal = null,
 	demo = null,
+	assumed = [],
 	draft = null,
 	earlier = [],
 	copy = false,
@@ -64,6 +71,8 @@ export function QuestionCards({
 	proposal?: Proposal | null;
 	/** The demo they ask about, shown above them. */
 	demo?: Demo | null;
+	/** The calls the agent says it made without asking, each with what it chose. */
+	assumed?: Question[];
 	/** The name it keeps what is written under in the conversation's drafts. */
 	draft?: string | null;
 	/**
@@ -97,16 +106,25 @@ export function QuestionCards({
 		proposal === null || answer === null || challenges(asked, answer)
 			? answer
 			: null;
+	// Everything a reply can answer: the questions, then each call assumed,
+	// which only a challenge answers.
+	const all = [...questions, ...assumed];
 	const [written, setWritten] = useState((): Written => {
 		const before = kept.read();
 		return {
-			answers: Object.fromEntries(
-				questions.flatMap((asked) => {
+			answers: Object.fromEntries([
+				...questions.flatMap((asked) => {
 					const answer = answerIn(before, asked) ?? chosen(asked);
 					return answer === null ? [] : [[asked.text, answer]];
 				}),
-			),
-			more: besides(before, questions),
+				...assumed.flatMap((call) => {
+					const answer = answerIn(before, call);
+					return answer === null || !challenges(call, answer)
+						? []
+						: [[call.text, answer]];
+				}),
+			]),
+			more: besides(before, all),
 		};
 	});
 	// By each question's line, which stays put as others come and go.
@@ -115,30 +133,49 @@ export function QuestionCards({
 		setWritten(next);
 		kept.write(
 			replyOf(
-				questions,
-				questions.map((asked) => said(asked, next.answers[asked.text] ?? null)),
+				all,
+				all.map((asked) => said(asked, next.answers[asked.text] ?? null)),
 				next.more,
 			),
 		);
 	};
+	// Sets what is written to `asked`, dropping it once it says nothing.
+	const setAnswer = (asked: Question, next: Answer | null) =>
+		write({
+			...written,
+			answers:
+				next === null
+					? Object.fromEntries(
+							Object.entries(written.answers).filter(
+								([text]) => text !== asked.text,
+							),
+						)
+					: { ...written.answers, [asked.text]: next },
+		});
 	// What is written here, or once sent, what the reply that was says.
 	const answers = questions.map((asked) =>
 		sent === null
 			? writtenFor(asked)
 			: (answerIn(sent, asked) ?? chosen(asked)),
 	);
-	const more = sent === null ? written.more : besides(sent, questions);
+	// The challenge to each call assumed, written or sent; null for none.
+	const challenged = assumed.map((call) =>
+		sent === null ? writtenFor(call) : answerIn(sent, call),
+	);
+	const more = sent === null ? written.more : besides(sent, all);
 	const answered = answers.filter((answer) => answer !== null).length;
 	const send = copy ? null : (reply?.send ?? null);
 	// What is attached to each box, where the reply can carry files.
 	const boxFiles = useResource(() => new BoxFiles(), []);
 	const files = send === null ? null : boxFiles;
 	const attached = useReactive(boxFiles, (each) => each.any, ["changed"]);
-	const saidOf = () => questions.map((asked) => said(asked, writtenFor(asked)));
+	const saidOf = () => all.map((asked) => said(asked, writtenFor(asked)));
 	// Every one answered, sending approves the proposal.
 	const approving = proposal !== null && answered === questions.length;
-	const out = replyOf(questions, saidOf(), written.more);
+	const out = replyOf(all, saidOf(), written.more);
 	const empty = !approving && out === "" && !attached;
+	// With nothing asked, only a challenge calls for a way to send it.
+	const quiet = questions.length === 0 && proposal === null && empty;
 	const { copied, copy: copyOut } = useCopy();
 	const { refusal, attempt } = useRefusal();
 	const submit = () => {
@@ -153,7 +190,7 @@ export function QuestionCards({
 		} else {
 			// Sent from outside a message, nothing else drops what it kept.
 			const { text, files: sending } = boxFiles.reply(
-				questions,
+				all,
 				saidOf(),
 				written.more,
 			);
@@ -252,18 +289,25 @@ export function QuestionCards({
 						title: proposal.subject,
 						tone: "info" as const,
 					}
-				: escalation === null
+				: escalation === null && questions.length === 0
 					? {
-							label: "questions for you",
-							Icon: MessageCircleQuestionIcon,
-							title: `${questions.length === 1 ? "A question" : "Questions"} for you`,
-							tone: "info" as const,
+							label: "assumed",
+							Icon: ListChecksIcon,
+							title: "Assumed",
+							tone: "neutral" as const,
 						}
-					: {
-							label: `escalated ${escalation.task}`,
-							...ENDINGS.escalated,
-							task: escalation.task,
-						})}
+					: escalation === null
+						? {
+								label: "questions for you",
+								Icon: MessageCircleQuestionIcon,
+								title: `${questions.length === 1 ? "A question" : "Questions"} for you`,
+								tone: "info" as const,
+							}
+						: {
+								label: `escalated ${escalation.task}`,
+								...ENDINGS.escalated,
+								task: escalation.task,
+							})}
 			// Asked again below, it is answered there.
 			folded={sent !== null || askedAgain}
 			// Each question marks itself while it has the focus.
@@ -327,24 +371,15 @@ export function QuestionCards({
 									live={live}
 									roomy={paging}
 									files={files?.of(asked.text) ?? null}
-									onAnswer={(answer) => {
-										const picked = answer.picks.some(
+									onAnswer={(next) => {
+										const picked = next.picks.some(
 											(key) =>
 												!(writtenFor(asked)?.picks.includes(key) ?? false),
 										);
 										if (paging && asked.pick === "one" && picked) {
 											goOn(at);
 										}
-										write({
-											...written,
-											answers: isEmpty(answer)
-												? Object.fromEntries(
-														Object.entries(written.answers).filter(
-															([text]) => text !== asked.text,
-														),
-													)
-												: { ...written.answers, [asked.text]: answer },
-										});
+										setAnswer(asked, isEmpty(next) ? null : next);
 									}}
 									onNext={() => next(asked.number)}
 								/>
@@ -352,57 +387,37 @@ export function QuestionCards({
 						)}
 					</ol>
 				)}
-				{paging && page === end && (
-					<section
-						aria-label="anything else"
-						className="flex flex-col gap-5 px-5 py-5"
-					>
-						<div className="flex flex-col gap-3">
-							<span className="font-semibold text-lg leading-snug">
-								Anything else?
-							</span>
-							<CardBox
-								roomy
-								data-stop="more"
-								aria-label="Anything else"
-								rows={4}
-								value={written.more}
-								placeholder="Optional"
-								onValue={(more) => write({ ...written, more })}
-								files={files?.of(MORE) ?? null}
-								className="min-h-28"
-							/>
-						</div>
-						{/* What is answered, a tap from going back to change it. */}
-						<ol aria-label="your answers" className="flex flex-col gap-2">
-							{questions.map((asked, at) => (
-								<li key={asked.number}>
-									<button
-										type="button"
-										onClick={() => turn(at)}
-										className="flex min-h-12 w-full items-center gap-3 rounded-xl border bg-card px-4 py-2 text-left active:bg-muted"
-									>
-										<span className="min-w-0 flex-1 truncate text-sm">
-											<Markdown text={asked.text} inline unlinked />
-										</span>
-										{answers[at] === null ? (
-											<span className="shrink-0 text-muted-foreground text-sm">
-												Not answered
-											</span>
-										) : (
-											<CheckIcon
-												aria-label="answered"
-												className="size-5 shrink-0 text-success"
-											/>
-										)}
-										<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-									</button>
-								</li>
-							))}
-						</ol>
-					</section>
+				{assumed.length > 0 && (!paging || page === 0) && (
+					<div className="border-t first:border-t-0">
+						<AssumptionList
+							assumptions={assumed}
+							answers={challenged}
+							live={live}
+							unfolded={questions.length === 0}
+							onAnswer={(call, next) =>
+								setAnswer(call, challenges(call, next) ? next : null)
+							}
+							onNext={() =>
+								focusStop(
+									panel.current?.querySelector<HTMLElement>(
+										'[data-stop="more"]',
+									),
+								)
+							}
+						/>
+					</div>
 				)}
-				{paging ? (
+				{paging && page === end && !quiet && (
+					<AnythingElsePage
+						questions={questions}
+						answers={answers}
+						more={written.more}
+						onMore={(more) => write({ ...written, more })}
+						files={files?.of(MORE) ?? null}
+						onTurn={turn}
+					/>
+				)}
+				{quiet ? null : paging ? (
 					<footer
 						// It stays at the sheet's foot, as a composer does.
 						data-pinned

@@ -1,7 +1,13 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import { useEffect, useMemo, useState } from "react";
 import { Duration } from "webappwiz/time";
-import { type Report, type Review, stretches } from "../asked";
+import {
+	type Report,
+	type Review,
+	type Stretch,
+	stretches,
+	type TaskReport,
+} from "../asked";
 import type { ConversationState, Message, Part } from "../conversations";
 import { type Event, isEscalation } from "../events";
 import { conversationAttachment } from "./conversation-api";
@@ -280,7 +286,12 @@ function withEscalation(parts: LikePart[]): LikePart[] {
 		return parts;
 	}
 	const { event } = data;
-	const written: Written = { report: null, demo: null, review: null };
+	const written: Written = {
+		report: null,
+		demo: null,
+		assumed: [],
+		review: null,
+	};
 	const kept = parts.filter((part, index) => {
 		if (index === at) {
 			return true;
@@ -297,10 +308,11 @@ function withEscalation(parts: LikePart[]): LikePart[] {
 			}
 		}
 		if (part.type === "data-questions") {
-			const { escalation, demo } = part.data as QuestionsData;
+			const { escalation, demo, assumed } = part.data as QuestionsData;
 			if (escalation?.task === event.task) {
 				written.report = escalation;
 				written.demo = demo;
+				written.assumed = assumed;
 				return false;
 			}
 		}
@@ -376,12 +388,19 @@ function attached(
 	};
 }
 
+/** The escalation `stretch` reports; null for any other stretch. */
+function escalatedIn(stretch: Stretch | undefined): TaskReport | null {
+	return stretch?.type === "report" && stretch.report.ending === "escalated"
+		? stretch.report
+		: null;
+}
+
 /**
  * The agent's reply, its questions and review as cards once it has stopped
  * writing them: a list mid-stream may yet turn out not to ask any. An
- * escalation's questions come right after it, or after the demo they ask
- * about, so they are one card: the questions, headed as the escalation, the
- * demo above them. A run of todos is one part, with `turn` to say which
+ * escalation's questions come right after it, or after the calls it assumed
+ * and the demo they ask about, so they are one card: the questions, headed
+ * as the escalation, the demo above them, the calls assumed among them. A run of todos is one part, with `turn` to say which
  * of them it added, and `next` whether it follows a merge or remove report.
  */
 function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
@@ -392,30 +411,59 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 	return all.flatMap((stretch, at): LikePart[] => {
 		const before = all[at - 1];
 		const after = all[at + 1];
-		// The questions an escalation ends, past the demo between them.
-		const asking = after?.type === "demo" ? all[at + 2] : after;
+		// How many stretches from `from`, going by `step`, stand between
+		// questions and what heads them: the calls assumed and the demo.
+		const aside = (from: number, step: 1 | -1): number => {
+			let count = 0;
+			while (
+				["assumed", "demo"].includes(all[from + count * step]?.type ?? "")
+			) {
+				count += 1;
+			}
+			return count;
+		};
+		// The questions an escalation or proposal ends, past what stands between.
+		const asking = all[at + 1 + aside(at + 1, 1)];
 		switch (stretch.type) {
 			case "text":
 				return [{ type: "text", text: stretch.text }];
 			case "questions": {
 				const demo = before?.type === "demo" ? before.demo : null;
-				const heading = demo === null ? before : all[at - 2];
+				const said = all[demo === null ? at - 1 : at - 2];
+				const assumed = said?.type === "assumed" ? said.assumed : [];
+				const heading = all[at - 1 - aside(at - 1, -1)];
 				return [
 					{
 						type: "data-questions",
 						data: {
 							questions: stretch.questions,
-							escalation:
-								heading?.type === "report" &&
-								heading.report.ending === "escalated"
-									? heading.report
-									: null,
+							escalation: escalatedIn(heading),
 							proposal: heading?.type === "proposal" ? heading.proposal : null,
 							demo,
-						},
+							assumed,
+							task: turn.task,
+						} satisfies QuestionsData,
 					},
 				];
 			}
+			case "assumed":
+				// Before questions, they are the questions' card; else one of
+				// their own, headed as an escalation they end.
+				return asking?.type === "questions"
+					? []
+					: [
+							{
+								type: "data-questions",
+								data: {
+									questions: [],
+									escalation: escalatedIn(before),
+									proposal: null,
+									demo: null,
+									assumed: stretch.assumed,
+									task: turn.task,
+								} satisfies QuestionsData,
+							},
+						];
 			case "demo":
 				return after?.type === "questions" || before?.type === "proposal"
 					? []
@@ -434,6 +482,8 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 									escalation: null,
 									proposal: stretch.proposal,
 									demo: after?.type === "demo" ? after.demo : null,
+									assumed: [],
+									task: turn.task,
 								} satisfies QuestionsData,
 							},
 						];
@@ -441,7 +491,7 @@ function replied(text: string, settled: boolean, turn: Turn): LikePart[] {
 				return [{ type: "data-start", data: { start: stretch.start } }];
 			case "report":
 				return stretch.report.ending === "escalated" &&
-					asking?.type === "questions"
+					(asking?.type === "questions" || after?.type === "assumed")
 					? []
 					: [{ type: "data-report", data: { report: stretch.report } }];
 			case "todo": {

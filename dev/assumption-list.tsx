@@ -36,6 +36,7 @@ export function AssumptionList({
 	assumptions,
 	answers,
 	live,
+	unfolded: open = false,
 	onAnswer,
 	onNext,
 }: {
@@ -43,6 +44,8 @@ export function AssumptionList({
 	answers: (Answer | null)[];
 	/** Whether a challenge can still be written. */
 	live: boolean;
+	/** Whether it starts open, as when it is all its card holds. */
+	unfolded?: boolean;
 	onAnswer: (assumed: Question, answer: Answer) => void;
 	/** Once Enter is pressed in an open challenge. */
 	onNext: () => void;
@@ -66,7 +69,7 @@ export function AssumptionList({
 			}
 			return after;
 		});
-	const [unfolded, setUnfolded] = useState(false);
+	const [unfolded, setUnfolded] = useState(open);
 	const challenged = answers.some((answer) => answer != null);
 	return (
 		<Collapsible
