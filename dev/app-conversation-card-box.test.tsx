@@ -10,6 +10,7 @@ import {
 	message,
 	Testing,
 	textIn,
+	todo,
 	waitFor,
 	within,
 } from "./testing";
@@ -230,5 +231,80 @@ describe("App's card answer boxes", () => {
 				{ method: "POST", body: { text: "[Image 1]", file: [shot] } },
 			]),
 		);
+	});
+
+	it("writes the path an @ in a box picks, as the composer sends it", async () => {
+		testing.tree = ["src/", "src/header.tsx"];
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		const box = answer(view, "2");
+
+		await act(async () =>
+			fireEvent.change(box, {
+				target: { value: "Look at @head", selectionStart: 13 },
+			}),
+		);
+		const files = await waitFor(() =>
+			within(card(view, "2")).getByRole("listbox", { name: "files" }),
+		);
+		expect(
+			within(files)
+				.getAllByRole("option")
+				.map((option) => option.textContent),
+		).toEqual(["header.tsxsrc/"]);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(answer(view, "2").value).toBe("Look at @src/header.tsx ");
+		expect(within(card(view, "2")).queryByRole("listbox")).toBeNull();
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
+	});
+
+	it("writes what a # in a box picks as its reference, leaving out the composer's directives and actions", async () => {
+		const view = await testing.openConversations([asking], asking.id, {
+			todos: [todo({ id: 12, subject: "Retry the upload on a 413" })],
+			lanes: [],
+		});
+		await waitFor(() => card(view, "2"));
+		const box = answer(view, "2");
+
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "#", selectionStart: 1 } }),
+		);
+		const references = await waitFor(() =>
+			within(card(view, "2")).getByRole("listbox", { name: "references" }),
+		);
+		expect(
+			within(references)
+				.getAllByRole("option")
+				.map((option) => option.textContent),
+		).toEqual([
+			"Retry the upload on a 413#12",
+			"Untriagedtodos in no lane",
+			"alphaworking",
+		]);
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "#12", selectionStart: 3 } }),
+		);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+
+		expect(answer(view, "2").value).toBe("[ARBOR TODO #12] ");
+	});
+
+	it("closes a box's list on Escape, leaving the card's keys alone", async () => {
+		testing.tree = ["src/header.tsx"];
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		const box = answer(view, "2");
+		await act(async () =>
+			fireEvent.change(box, { target: { value: "@", selectionStart: 1 } }),
+		);
+		await waitFor(() =>
+			within(card(view, "2")).getByRole("listbox", { name: "files" }),
+		);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
+
+		expect(within(card(view, "2")).queryByRole("listbox")).toBeNull();
+		expect(answer(view, "2").value).toBe("@");
 	});
 });

@@ -4,6 +4,7 @@ import {
 	type ChangeEvent,
 	type JSX,
 	type KeyboardEvent,
+	type ReactNode,
 	useEffect,
 	useRef,
 } from "react";
@@ -23,8 +24,12 @@ interface Place {
 	room: number;
 }
 
-/** An `@` being typed: where it starts, and what follows it so far. */
+/** What a reference starts with: `@` for a path, `#` for the rest. */
+export type Sign = "@" | "#";
+
+/** An `@` or `#` being typed: its sign, where it starts, and what follows it so far. */
 interface Mention {
+	sign: Sign;
 	start: number;
 	query: string;
 }
@@ -38,23 +43,24 @@ interface Edges {
 export type MentionsEvents = { changed: undefined };
 
 /**
- * A text box's words, and the files and directories an `@` in them can point
- * an agent at: a list of the tree's paths, filtered as you type, and the path
- * written in place of what was typed. Read it through `useMentions`, which
- * wires it to a box.
+ * A text box's words, and what an `@` or `#` in them can point an agent at,
+ * as its `sources` offer: a list filtered as you type, and the pick written
+ * in place of what was typed. Read it through `useMentions`, which wires it
+ * to a box.
  *
- * `load` fetches the paths, once, when the box first shows, so there is
- * nothing to wait for at the `@`.
+ * `load` fetches what the sources search, once, when the box first shows, so
+ * there is nothing to wait for at the sign.
  */
 export class Mentions implements Eventful<MentionsEvents>, Resource {
 	private readonly dispatcher = new Dispatcher<MentionsEvents>();
 	readonly events = this.dispatcher.events;
 
-	/** The paths that match the `@` the caret is in, best first. */
-	matches: string[] = [];
+	/** What matches the `@` or `#` the caret is in, best first. */
+	matches: Pick[] = [];
+	/** The sign of the list that shows. */
+	sign: Sign = "@";
 	place: Place = { below: false, room: SHOWN * ROW };
 
-	private all: string[] = [];
 	private caret = 0;
 	private chosen = 0;
 	// Where Escape closed the list, so it stays closed until another `@`.
@@ -63,8 +69,7 @@ export class Mentions implements Eventful<MentionsEvents>, Resource {
 	private loads = 0;
 
 	constructor(
-		/** Whose tree to list; empty for the main tree. */
-		private readonly task: string,
+		private readonly sources: Sources,
 		/** The box's words. */
 		public text = "",
 	) {}
@@ -81,16 +86,13 @@ export class Mentions implements Eventful<MentionsEvents>, Resource {
 
 	load(): void {
 		const load = ++this.loads;
-		fetchPaths(this.task).then(
-			(found) => {
-				if (load === this.loads) {
-					this.all = found;
-					this.update();
-				}
-			},
-			// Without the list, `@` is only a character: nothing else breaks.
-			() => undefined,
-		);
+		for (const source of Object.values(this.sources)) {
+			source.load?.().then(
+				() => load === this.loads && this.update(),
+				// Without the list, the sign is only a character: nothing else breaks.
+				() => undefined,
+			);
+		}
 	}
 
 	dispose(): void {
@@ -129,7 +131,7 @@ export class Mentions implements Eventful<MentionsEvents>, Resource {
 		this.update();
 	}
 
-	/** Closes the list until another `@`; false when none was open. */
+	/** Closes the list until another sign; false when none was open. */
 	dismiss(): boolean {
 		const mention = this.mention();
 		if (!this.open || mention === null) {
@@ -141,18 +143,17 @@ export class Mentions implements Eventful<MentionsEvents>, Resource {
 	}
 
 	/**
-	 * Writes `path` in place of the `@` being typed, and gives where the caret
-	 * belongs after it; null when no `@` is being typed. Writes the active
-	 * match when no path is given.
+	 * Writes `pick` in place of the sign being typed, and gives where the
+	 * caret belongs after it; null when no sign is being typed, or nothing
+	 * matches. Writes the active match when no pick is given.
 	 */
-	insert(path = this.matches[this.active] ?? ""): number | null {
+	insert(pick = this.matches[this.active]): number | null {
 		const mention = this.mention();
-		if (mention === null) {
+		if (mention === null || pick === undefined) {
 			return null;
 		}
 		const end = mention.start + 1 + mention.query.length;
-		// A directory keeps the list open on what is inside it; a file is done.
-		const written = `@${path}${path.endsWith("/") ? "" : " "}`;
+		const { written } = pick;
 		const after = mention.start + written.length;
 		this.write(
 			this.text.slice(0, mention.start) + written + this.text.slice(end),
@@ -178,7 +179,10 @@ export class Mentions implements Eventful<MentionsEvents>, Resource {
 	}
 
 	private mention(): Mention | null {
-		return typedAt(this.text, this.caret);
+		const mention = typedAt(this.text, this.caret);
+		return mention !== null && this.sources[mention.sign] !== undefined
+			? mention
+			: null;
 	}
 
 	private update(): void {
@@ -187,13 +191,42 @@ export class Mentions implements Eventful<MentionsEvents>, Resource {
 		this.matches =
 			mention === null || mention.start === this.dismissed
 				? []
-				: rank(this.all, mention.query).slice(0, SHOWN);
+				: (this.sources[mention.sign]?.search(mention.query) ?? []).slice(
+						0,
+						SHOWN,
+					);
+		this.sign = mention?.sign ?? this.sign;
 		if (!wasOpen && this.open) {
 			this.chosen = 0;
 		}
 		this.dispatcher.dispatch("changed");
 	}
 }
+
+/** One row of the list: what it shows, and what picking it writes. */
+export interface Pick {
+	id: string;
+	label: string;
+	/** Beside the label, giving way first, such as a path's folder. */
+	description?: string | undefined;
+	icon: ReactNode;
+	/**
+	 * Written in place of the sign and what was typed after it. One that
+	 * ends in a space is done; one that does not keeps the list open on
+	 * what it now starts, as a directory does on what is inside it.
+	 */
+	written: string;
+}
+
+/** What a sign offers: the rows that match what was typed after it, best first. */
+export interface Source {
+	search(query: string): Pick[];
+	/** Fetches what it searches, once, when the box first shows. */
+	load?(): Promise<void>;
+}
+
+/** Each sign the box takes, and what it offers. */
+export type Sources = Partial<Record<Sign, Source>>;
 
 /**
  * Wires `mentions` to a text box: spread the handlers onto the box, give it
@@ -205,13 +238,14 @@ export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
 	mentions: Mentions,
 ) {
 	const ref = useRef<Box>(null);
-	const { value, matches, active, place } = useReactive(
+	const { value, matches, active, place, sign } = useReactive(
 		mentions,
 		(mentions) => ({
 			value: mentions.text,
 			matches: mentions.matches,
 			active: mentions.active,
 			place: mentions.place,
+			sign: mentions.sign,
 		}),
 		["changed"],
 	);
@@ -283,10 +317,11 @@ export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
 		},
 		menu: open ? (
 			<Menu
+				label={sign === "@" ? "files" : "references"}
 				matches={matches}
 				active={active}
 				place={place}
-				onPick={(path) => focusAt(mentions.insert(path))}
+				onPick={(pick) => focusAt(mentions.insert(pick))}
 				onHover={(index) => mentions.hover(index)}
 			/>
 		) : null,
@@ -294,42 +329,41 @@ export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
 }
 
 function Menu({
+	label,
 	matches,
 	active,
 	place,
 	onPick,
 	onHover,
 }: {
-	matches: string[];
+	label: string;
+	matches: Pick[];
 	active: number;
 	place: Place;
-	onPick: (path: string) => void;
+	onPick: (pick: Pick) => void;
 	onHover: (index: number) => void;
 }): JSX.Element {
 	return (
 		<div
 			role="listbox"
-			aria-label="files"
+			aria-label={label}
 			style={{ maxHeight: place.room }}
 			className={cn(
 				"absolute inset-x-0 z-50 overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-md",
 				place.below ? "top-full mt-1" : "bottom-full mb-1",
 			)}
 		>
-			{matches.map((path, index) => {
-				const directory = path.endsWith("/");
-				const Icon = directory ? FolderIcon : FileIcon;
-				const [folder, name] = split(path);
+			{matches.map((pick, index) => {
 				return (
 					<div
-						key={path}
+						key={pick.id}
 						role="option"
 						tabIndex={-1}
 						aria-selected={index === active}
 						// Down, not click, so the box keeps its focus and caret.
 						onMouseDown={(event) => {
 							event.preventDefault();
-							onPick(path);
+							onPick(pick);
 						}}
 						onMouseEnter={() => onHover(index)}
 						// Kept in view as the arrow keys move past the room there is.
@@ -340,15 +374,15 @@ function Menu({
 						}}
 						style={{ height: ROW }}
 						className={cn(
-							"flex cursor-default items-center gap-2 rounded-md px-2 text-sm",
+							"flex cursor-default items-center gap-2 rounded-md px-2 text-sm [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
 							index === active && "bg-muted",
 						)}
 					>
-						<Icon className="size-4 shrink-0 text-muted-foreground" />
-						<span className="truncate">{name}</span>
-						{/* Gives way first, so the name keeps as much as it can. */}
+						{pick.icon}
+						<span className="truncate">{pick.label}</span>
+						{/* Gives way first, so the label keeps as much as it can. */}
 						<span className="shrink-1000 truncate text-muted-foreground text-xs">
-							{folder}
+							{pick.description}
 						</span>
 					</div>
 				);
@@ -357,14 +391,46 @@ function Menu({
 	);
 }
 
-/** The `@` the caret is in, if any: one at the start or after a space. */
+/** The `@` or `#` the caret is in, if any: one at the start or after a space. */
 export function typedAt(text: string, caret: number): Mention | null {
-	const found = /(^|\s)@([^\s@]*)$/.exec(text.slice(0, caret));
+	const found = /(^|\s)([@#])([^\s@#]*)$/.exec(text.slice(0, caret));
 	if (found === null) {
 		return null;
 	}
-	const query = found[2] ?? "";
-	return { start: caret - query.length - 1, query };
+	const sign = found[2] === "#" ? "#" : "@";
+	const query = found[3] ?? "";
+	return { sign, start: caret - query.length - 1, query };
+}
+
+/**
+ * The tree `task` runs in's files and directories for `@`, fetched as the
+ * box first shows; empty for the main tree.
+ */
+export function treePaths(task: string): Source {
+	let all: string[] = [];
+	return {
+		load: () =>
+			fetchPaths(task).then((found) => {
+				all = found;
+			}),
+		search: (query) => pathPicks(rank(all, query)),
+	};
+}
+
+/** Paths as the `@` list shows them, a directory's keeping it open. */
+export function pathPicks(paths: readonly string[]): Pick[] {
+	return paths.map((path) => {
+		const directory = path.endsWith("/");
+		const Icon = directory ? FolderIcon : FileIcon;
+		const [folder, name] = split(path);
+		return {
+			id: path,
+			label: name,
+			description: folder,
+			icon: <Icon />,
+			written: `@${path}${directory ? "" : " "}`,
+		};
+	});
 }
 
 /**

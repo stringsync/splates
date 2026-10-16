@@ -2,7 +2,7 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import { addTodo } from "./api";
 import { type Drafts, readTodo, writeTodo } from "./drafts";
 import { Files } from "./files";
-import { Mentions } from "./mentions";
+import { Mentions, treePaths } from "./mentions";
 
 export type TodoDraftEvents = { changed: undefined };
 
@@ -27,8 +27,8 @@ export class TodoDraft implements Eventful<TodoDraftEvents> {
 		private readonly key: string,
 	) {
 		const kept = readTodo(drafts, key);
-		this.subject = new Mentions("", kept?.subject ?? "");
-		this.detail = new Mentions("", kept?.detail ?? "");
+		this.subject = new Mentions({ "@": treePaths("") }, kept?.subject ?? "");
+		this.detail = new Mentions({ "@": treePaths("") }, kept?.detail ?? "");
 		this.files.add(kept?.files ?? []);
 		this.dropped = kept?.dropped ?? [];
 		for (const part of [this.subject, this.detail, this.files]) {

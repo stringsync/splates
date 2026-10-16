@@ -3,7 +3,7 @@ import type { TodoState } from "../todo";
 import { removeTodo, updateTodo } from "./api";
 import { type Drafts, readTodo, writeTodo } from "./drafts";
 import { Files } from "./files";
-import { Mentions } from "./mentions";
+import { Mentions, treePaths } from "./mentions";
 
 export type TodoEditorEvents = { changed: undefined };
 
@@ -40,8 +40,14 @@ export class TodoEditor implements Eventful<TodoEditorEvents> {
 		const kept = readTodo(drafts, key);
 		this.fromDraft = kept !== null;
 		this.dropped = kept?.dropped ?? [];
-		this.subject = new Mentions("", kept?.subject ?? todo.subject);
-		this.detail = new Mentions("", kept?.detail ?? todo.text);
+		this.subject = new Mentions(
+			{ "@": treePaths("") },
+			kept?.subject ?? todo.subject,
+		);
+		this.detail = new Mentions(
+			{ "@": treePaths("") },
+			kept?.detail ?? todo.text,
+		);
 		// A stored file removed since can no longer be kept.
 		this.files = new Files(
 			kept?.keep?.filter((path) => todo.files.includes(path)) ?? todo.files,
