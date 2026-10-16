@@ -192,4 +192,17 @@ describe("App's work row while working", () => {
 		expect(timelines()[0]?.textContent).not.toContain("Still checking.");
 		expect(details().open).toBe(true);
 	});
+	it("shows what the agent already wrote at once on opening it mid-turn, typing out only what comes after", async () => {
+		const words = "The tests ran, and two of them failed on the parser.";
+		const thread = await opened(turn([words], { status: "running" }));
+
+		// Typed out, it would show none of it yet.
+		expect(thread.textContent).toContain(words);
+
+		const more = " Fixing the first now, since the second follows from it.";
+		await testing.say(turn([words + more], { status: "running" }));
+		expect(thread.textContent).toContain(words);
+		expect(thread.textContent).not.toContain(more.trim());
+		await waitFor(() => expect(thread.textContent).toContain(more.trim()));
+	});
 });

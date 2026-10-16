@@ -1,6 +1,10 @@
 "use client";
 
-import type { TextMessagePartProps } from "@assistant-ui/react";
+import {
+	type TextMessagePartProps,
+	TextMessagePartProvider,
+	useMessagePartText,
+} from "@assistant-ui/react";
 import {
 	type CodeHeaderProps,
 	MarkdownTextPrimitive,
@@ -8,7 +12,16 @@ import {
 	useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { type FC, type JSX, memo, useContext, useMemo, useRef } from "react";
+import {
+	type FC,
+	type JSX,
+	memo,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import remarkGfm from "remark-gfm";
 import { attachmentIn } from "#dev/attachment-chips.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -78,23 +91,35 @@ function MarkdownTextImpl({
 			...memoizeMarkdownComponents(stableComponents),
 		};
 	}, [stableComponents]);
+	// What the agent wrote before this mounted, such as on opening the
+	// conversation mid-turn, shows at once: only what it writes after types out.
+	const part = useMessagePartText();
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => setMounted(true), []);
 
 	// The lightbox steps through the screenshots of one message.
 	return (
 		<div {...{ [GROUP]: "" }}>
-			<MarkdownTextPrimitive
-				remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
-				// Each `#N` a link to that todo, which `a` draws as a mention, and
-				// each system, path and task the page names one `a` draws as its
-				// chip.
-				preprocess={(text: string) =>
-					linkMentions(linkNamed(linkTasks(typed ? typed(text) : text), named))
-				}
-				className="aui-md"
-				components={markdownComponents}
-				smooth={typed === undefined}
-				defer
-			/>
+			<TextMessagePartProvider
+				text={part.text}
+				isRunning={mounted && part.status.type === "running"}
+			>
+				<MarkdownTextPrimitive
+					remarkPlugins={typed ? TYPED_PLUGINS : PLUGINS}
+					// Each `#N` a link to that todo, which `a` draws as a mention, and
+					// each system, path and task the page names one `a` draws as its
+					// chip.
+					preprocess={(text: string) =>
+						linkMentions(
+							linkNamed(linkTasks(typed ? typed(text) : text), named),
+						)
+					}
+					className="aui-md"
+					components={markdownComponents}
+					smooth={typed === undefined}
+					defer
+				/>
+			</TextMessagePartProvider>
 		</div>
 	);
 }
