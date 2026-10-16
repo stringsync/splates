@@ -36,7 +36,7 @@ export function Column({
 			aria-label={label}
 			style={style}
 			className={cn(
-				"flex max-h-[calc(100dvh-6rem)] w-72 shrink-0 snap-start flex-col gap-1.5 rounded-xl bg-muted/40 p-2 transition-colors dark:bg-muted/20",
+				"flex max-h-full w-72 shrink-0 snap-start flex-col gap-1.5 rounded-xl bg-muted/40 p-2 transition-colors dark:bg-muted/20",
 				lit && "bg-primary/5 ring-1 ring-primary/30",
 				className,
 			)}

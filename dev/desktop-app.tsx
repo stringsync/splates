@@ -21,7 +21,10 @@ import { TopBar, TopBarFrame } from "./top-bar";
  * as its lanes, the way a Trello board scrolls sideways.
  */
 const DESKTOP_PAGES: Record<Page, string> = {
-	todos: "min-w-0 px-4 pb-4",
+	// As tall as the window under its bar, so the board's scrollbar sits on
+	// the window's bottom edge.
+	todos:
+		"flex h-[calc(100dvh-var(--top-bar-height))] min-w-0 flex-none flex-col px-4",
 	tasks: "mx-auto w-full max-w-xl px-4 pt-2 pb-6",
 	systems: "mx-auto w-full min-w-0 max-w-xl px-4 pt-2 pb-6",
 	stats: "mx-auto w-full min-w-0 max-w-3xl px-4 pt-2 pb-6",

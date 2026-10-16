@@ -183,7 +183,7 @@ export function Todos({
 					// Faded where more columns are scrolled out of view, so a column
 					// cut off at the edge reads as more to see, not as the end.
 					style={{ maskImage: fadeOf(edges) }}
-					className="-mx-4 flex snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-4"
+					className="-mx-4 flex min-h-0 flex-1 snap-x scroll-px-4 items-start gap-3 overflow-x-auto px-4 pb-4"
 				>
 					{!hidden.includes(null) && (
 						<Untriaged

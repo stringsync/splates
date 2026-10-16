@@ -99,7 +99,10 @@ export function usePageRoute(): PageRoute {
 
 /** How each page sits on a phone, under its bar; a conversation fills it. */
 export const PHONE_PAGES: Record<Page, string> = {
-	todos: "min-w-0 px-4 py-4",
+	// As tall as the screen under its bar, so the board's scrollbar sits on
+	// the screen's bottom edge.
+	todos:
+		"flex h-[calc(100dvh-var(--top-bar-height)-1px-env(safe-area-inset-top))] min-w-0 flex-col px-4 pt-4",
 	tasks: "px-4 py-6",
 	systems: "min-w-0 px-4 py-6",
 	stats: "min-w-0 px-4 py-6",
