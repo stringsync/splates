@@ -25,7 +25,7 @@ import {
 } from "./fold";
 import { modelOption } from "./models";
 import { toolIn } from "./tool-calls";
-import type { Watched } from "./watch";
+import type { Watched } from "./watched";
 
 /** How long an agent starting holds up the next before it may start too. */
 const START_WAIT = Duration.secs(30);

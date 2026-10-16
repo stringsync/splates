@@ -36,6 +36,12 @@ export class WorkerReplay {
 	}
 
 	/** Drops every frame of each channel up to the seq the other end holds. */
+	/** Lets go of every frame, for an other end that will never ack them. */
+	clear(): void {
+		this.channels.clear();
+		this._bytes = 0;
+	}
+
 	ack(acks: Held): void {
 		for (const [channel, seq] of acks) {
 			const kept = this.channels.get(channel);

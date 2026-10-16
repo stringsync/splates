@@ -9,10 +9,12 @@ import type { Project } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
 import type { TranscriberFor } from "./dev-transcriber";
 import type { TunnelConfig } from "./dev-tunnel";
+import type { DevWorkers } from "./dev-workers";
 import type { Git } from "./git";
 import type { HeavyCap } from "./heavy";
 import type { MachineSensors } from "./machine";
 import type { Slot } from "./slots";
+import type { WorkerMachine } from "./worker-machine";
 
 /** What `dev` lets a caller choose. */
 export interface DevOptions {
@@ -21,6 +23,13 @@ export interface DevOptions {
 	 * reach this server only through `/api/workers`.
 	 */
 	workerSocket?: string | null;
+	/** Where workers are taken in; one of its own by default. */
+	workers?: DevWorkers | null;
+	/**
+	 * The worker agents and terminals run on, whose process table a restart
+	 * reads; this machine, read directly, by default.
+	 */
+	worker?: WorkerMachine | null;
 	/** Where to listen; the port `--port` asked for, and the span above it. */
 	ports?: PortProvider;
 	/**

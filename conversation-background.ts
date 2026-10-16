@@ -34,7 +34,7 @@ export class ConversationBackground {
 	 */
 	output(id: string): ReadableStream<Uint8Array> {
 		this.command(id);
-		const { fs, timer } = this.deps;
+		const { machine, timer } = this.deps;
 		let read = 0;
 		let waiting: Resource | null = null;
 		let cancelled = false;
@@ -46,14 +46,13 @@ export class ConversationBackground {
 			}
 			const command = this.host.state.background.find((each) => each.id === id);
 			const path = command?.output ?? null;
-			const size =
-				path !== null && (await fs.exists(path))
-					? (await fs.stat(path)).size
-					: 0;
-			if (path !== null && size > read) {
-				const bytes = await fs.readBytes(path);
-				stream.enqueue(bytes.slice(read));
-				read = bytes.length;
+			const { size, bytes } =
+				path === null
+					? { size: 0, bytes: new Uint8Array(0) }
+					: await machine.read(path, read);
+			if (bytes.byteLength > 0) {
+				stream.enqueue(bytes);
+				read += bytes.byteLength;
 			}
 			// Read once more after it ends, for what it printed last.
 			if (command?.state !== "running" && size <= read) {

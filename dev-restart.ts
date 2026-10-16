@@ -13,6 +13,7 @@ import type { Projects } from "./projects";
 import { RESUME } from "./prompts";
 import { tasksOf } from "./snapshot";
 import { RESTART, UPDATE } from "./supervise";
+import type { WorkerMachine } from "./worker-machine";
 
 /** The projects `arbor dev` serves, as its restarts reach them. */
 export interface ServedProjects {
@@ -33,6 +34,8 @@ export interface RestartsHome {
 	projects: Projects;
 	served: ServedProjects;
 	terminals: Terminals;
+	/** Where agents and shells run, whose process table says what a restart would kill. */
+	machine: Pick<WorkerMachine, "processes">;
 	/** Stops the whole server, before a restart ends the process. */
 	server: AsyncResource;
 }
@@ -316,7 +319,7 @@ export class Restarts {
 		if (shells.length === 0 && agents.length === 0) {
 			return [];
 		}
-		return heldBy(await this.home.ps.processes(), { shells, agents });
+		return heldBy(await this.home.machine.processes(), { shells, agents });
 	}
 
 	// Those at work, or asked already: an idle one has no turn to stop. A

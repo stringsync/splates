@@ -28,12 +28,19 @@ arborWorker
 		description:
 			"what the coordinator knows this worker by, kept across restarts so it picks up where it was; by default the machine's host name",
 	})
+	.option("quiet", z.boolean(), {
+		default: false,
+		description:
+			"say only what went wrong, not each time it joins or loses its coordinator, as the worker `arbor dev` starts beside itself does",
+	})
 	.action((opts, ctx) =>
 		workerRun({
 			coordinator: opts.coordinator,
 			slots: opts.slots,
 			id: opts.id,
-			log: ctx.log,
+			log: opts.quiet
+				? { info: () => {}, error: (...said) => ctx.log.error(...said) }
+				: ctx.log,
 			ps: ctx.ps,
 			fs: ctx.fs,
 		}),

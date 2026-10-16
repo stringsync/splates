@@ -78,6 +78,20 @@ export class WorkerChannel implements Eventful<WorkerChannelEvents>, Resource {
 	}
 
 	/**
+	 * Ends it here without a word to the other end, which no longer knows it,
+	 * as a coordinator started again does not; this end hears `close`.
+	 */
+	drop(): void {
+		if (this.sentClose && this.heardClose) {
+			return;
+		}
+		this.sentClose = true;
+		this.heardClose = true;
+		this.dispatcher.dispatch("close");
+		this.dispatcher.dispose();
+	}
+
+	/**
 	 * Hands the channel what the other end sent; the session calls it. Says
 	 * whether anyone heard it, since a frame nobody heard is the session's to ack.
 	 */

@@ -129,10 +129,6 @@ export async function workerLs(opts: WorkerLsOptions): Promise<void> {
 		log.info(JSON.stringify(listed, null, "\t"));
 		return;
 	}
-	if (listed.workers.length === 0 && listed.refused.length === 0) {
-		log.info("no workers: run `arbor worker run` to join one");
-		return;
-	}
 	const lines: string[] = [];
 	if (listed.workers.length > 0) {
 		lines.push(

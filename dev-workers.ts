@@ -3,10 +3,14 @@ import type { Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { hostname, LOCAL_HOSTS, refuse } from "./dev-http";
 import type { Connection } from "./dev-sockets";
+import type { RemoteWorker } from "./remote-worker";
 import { ServerWorkerSocket } from "./server-worker-socket";
 import { UnixWorkerListener } from "./unix-worker-listener";
 import { workerList } from "./worker-list";
 import { WorkerRegistry } from "./worker-registry";
+
+/** What the worker the supervisor starts beside the server is known by. */
+export const LOCAL_WORKER = "local";
 
 /**
  * Where `arbor dev` takes its workers in, as their coordinator: the local
@@ -16,10 +20,13 @@ import { WorkerRegistry } from "./worker-registry";
  */
 export class DevWorkers implements AsyncResource {
 	readonly registry: WorkerRegistry;
+	/** This machine's worker, which agents run on; work waits for it to join. */
+	readonly local: RemoteWorker;
 	private listener: UnixWorkerListener | null = null;
 
 	constructor(private readonly log: Logger) {
 		this.registry = new WorkerRegistry(log);
+		this.local = this.registry.expect(LOCAL_WORKER, "local");
 	}
 
 	/**

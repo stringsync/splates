@@ -38,13 +38,21 @@ and scheduler talk only to that contract:
 - The local worker speaks the same protocol to a coordinator on the same
   machine, as **its own process**, over a Unix socket in `ARBOR_HOME`
   guarded by file permissions. One code path; local and remote cannot
-  drift. How it is started (the supervisor or launchd) is open.
+  drift. The supervisor starts it beside the server, as
+  `arbor worker run --id local --quiet`, starts it again a second after it
+  ends, and stops it on quitting `arbor dev`; a server restart or update
+  leaves it running.
 - **Framing:** JSON control frames, and binary data frames with a small
   header (channel id, seq). Seq is per channel. The worker keeps unacked
   frames; the coordinator acks; on reconnect the coordinator says the last seq
   it holds per channel and the worker replays the rest. When the
   coordinator stays away longer than the buffer holds, the worker stops
   reading the agent's output: the agent blocks and nothing is lost.
+  The hello and welcome each name their end's session, new each time a
+  process starts: an end that finds the other one new ends every channel it
+  held, since the new one knows none of them. Until a coordinator logs what
+  it holds and takes its sessions back after a restart, a restart ends the
+  agents it was running, as before workers.
 - **Versioning:** the hello carries `protocol: major.minor` and a capability
   list. Minor differences negotiate by capability; a worker on another major
   is drained instead of breaking.

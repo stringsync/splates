@@ -1,4 +1,5 @@
 import type { Ps } from "webappwiz/system";
+import { Duration, SystemTimer, type Timer } from "webappwiz/time";
 
 /** What a server exits with to be started again as it was. */
 export const RESTART = 75;
@@ -13,8 +14,8 @@ export const UPDATE = 76;
 export const SERVING = "ARBOR_DEV_SERVING";
 
 /**
- * Set in the server's environment when building its page failed, so the page
- * it serves, the one built before, says it may be out of date.
+ * Set in the server's environment to tell it its page failed to build, so
+ * the page says it may be out of date.
  */
 export const UNBUILT = "ARBOR_DEV_UNBUILT";
 
@@ -34,7 +35,17 @@ export interface SuperviseOptions {
 	env?: Record<string, string>;
 	/** Where the server runs, the working directory by default. */
 	cwd?: string;
+	/**
+	 * The arguments of a worker to run beside the server, as `["worker",
+	 * "run"]`: started again whenever it ends, on the newest arbor once the
+	 * server updates, and stopped with this. Null for none.
+	 */
+	worker?: string[] | null;
+	timer?: Timer;
 }
+
+/** How long a worker that ended waits before it is started again. */
+const WORKER_PAUSE = Duration.secs(1);
 
 /**
  * Runs `arbor dev` as a child of this process, sharing its terminal, and
@@ -42,13 +53,21 @@ export interface SuperviseOptions {
  * started, or on the newest arbor when it asks to update. Ctrl-C reaches the
  * child too, and its exit ends this. A SIGTERM or SIGHUP to this one stops the
  * child with a SIGTERM and ends this, since the child would otherwise outlive
- * it, listening on its port. Answers with the exit code to end on.
+ * it, listening on its port. A `worker` runs beside it as a second child.
+ * Answers with the exit code to end on.
  */
 export async function supervise(
 	ps: Ps,
-	{ build = null, env = {}, cwd }: SuperviseOptions = {},
+	{
+		build = null,
+		env = {},
+		cwd,
+		worker = null,
+		timer = new SystemTimer(),
+	}: SuperviseOptions = {},
 ): Promise<number> {
-	let argv = [...ps.self, ...ps.args];
+	let arbor = ps.self;
+	let argv = [...arbor, ...ps.args];
 	// Built until it updates: npm's arbor ships its page.
 	let building = build;
 	// Ctrl-C is the child's to end on, and its exit then ends this.
@@ -62,6 +81,16 @@ export async function supervise(
 		});
 	const terminated = stopOn("SIGTERM", 128 + 15);
 	const hungUp = stopOn("SIGHUP", 128 + 1);
+	// Its own, since the server restarting leaves it running.
+	const working = new AbortController();
+	if (worker !== null) {
+		void keep(ps, () => [...arbor, ...worker], {
+			env,
+			cwd,
+			signal: working.signal,
+			timer,
+		});
+	}
 	try {
 		for (;;) {
 			// A failed build has said why on the terminal, and the page it left
@@ -91,15 +120,51 @@ export async function supervise(
 				throw error;
 			}
 			if (exitCode === UPDATE) {
-				argv = [...NEWEST, ...ps.args];
+				arbor = NEWEST;
+				argv = [...arbor, ...ps.args];
 				building = null;
 			} else if (exitCode !== RESTART) {
 				return exitCode;
 			}
 		}
 	} finally {
+		working.abort();
 		quiet.dispose();
 		terminated.dispose();
 		hungUp.dispose();
 	}
+}
+
+/**
+ * Runs `argv()` until `signal` aborts, starting it again a pause after each
+ * time it ends, so one that dies at once does not spin.
+ */
+async function keep(
+	ps: Ps,
+	argv: () => string[],
+	{ timer, ...opts }: KeepOptions,
+): Promise<void> {
+	while (!opts.signal.aborted) {
+		// An abort rejects the spawn once the worker is gone.
+		await ps.spawn(argv(), opts).catch(() => {});
+		await new Promise<void>((resolve) => {
+			const pause = timer.setTimeout(resolve, WORKER_PAUSE);
+			opts.signal.addEventListener(
+				"abort",
+				() => {
+					pause.dispose();
+					resolve();
+				},
+				{ once: true },
+			);
+		});
+	}
+}
+
+/** What `keep` runs its child with, and stops it on. */
+interface KeepOptions {
+	env: Record<string, string>;
+	cwd?: string;
+	signal: AbortSignal;
+	timer: Timer;
 }

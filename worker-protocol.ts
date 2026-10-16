@@ -1,50 +1,5 @@
 import { z } from "zod";
 
-/** A JSON value, as control frames carry them. */
-export type Json =
-	| string
-	| number
-	| boolean
-	| null
-	| Json[]
-	| { [key: string]: Json };
-
-/** Each channel's last seq one end holds, as `[channel, seq]` pairs. */
-export type Held = [channel: number, seq: number][];
-
-/**
- * Every frame on the link between a coordinator and a worker. Those naming a
- * `channel` carry its seq and are kept until acked, so they survive a
- * reconnect; the rest belong to one connection and are never replayed.
- */
-export type Frame =
-	| {
-			type: "hello";
-			protocol: string;
-			capabilities: string[];
-			id: string;
-			info: { [key: string]: Json };
-			held: Held;
-	  }
-	| { type: "welcome"; protocol: string; capabilities: string[]; held: Held }
-	| { type: "refuse"; reason: string }
-	| { type: "open"; channel: number; seq: number; kind: string; params: Json }
-	| { type: "message"; channel: number; seq: number; body: Json }
-	| { type: "data"; channel: number; seq: number; bytes: Uint8Array }
-	| { type: "close"; channel: number; seq: number }
-	| { type: "ack"; acks: Held }
-	| { type: "ping"; n: number }
-	| { type: "pong"; n: number };
-
-/** A frame that belongs to a channel, so it has a seq and is replayed. */
-export type ChannelFrame = Extract<Frame, { channel: number }>;
-
-/** What one end makes of the other's version, from its hello or welcome. */
-export type Negotiated =
-	| { ok: true; protocol: string; capabilities: string[] }
-	/** `refused` when the other end turned this one away, rather than the link going. */
-	| { ok: false; reason: string; refused: boolean };
-
 /**
  * Turns frames into what a `WorkerSocket` carries and back, and settles which
  * version two ends speak. A `WorkerSession` uses it for every frame; reach for
@@ -126,6 +81,60 @@ export class WorkerProtocol {
 	}
 }
 
+/** A JSON value, as control frames carry them. */
+export type Json =
+	| string
+	| number
+	| boolean
+	| null
+	| Json[]
+	| { [key: string]: Json };
+
+/** Each channel's last seq one end holds, as `[channel, seq]` pairs. */
+export type Held = [channel: number, seq: number][];
+
+/**
+ * Every frame on the link between a coordinator and a worker. Those naming a
+ * `channel` carry its seq and are kept until acked, so they survive a
+ * reconnect; the rest belong to one connection and are never replayed.
+ */
+export type Frame =
+	| {
+			type: "hello";
+			protocol: string;
+			capabilities: string[];
+			id: string;
+			info: { [key: string]: Json };
+			/** The worker session's id, new each time a worker starts. */
+			session: string;
+			held: Held;
+	  }
+	| {
+			type: "welcome";
+			protocol: string;
+			capabilities: string[];
+			/** The coordinator session's id, new each time a coordinator starts. */
+			session: string;
+			held: Held;
+	  }
+	| { type: "refuse"; reason: string }
+	| { type: "open"; channel: number; seq: number; kind: string; params: Json }
+	| { type: "message"; channel: number; seq: number; body: Json }
+	| { type: "data"; channel: number; seq: number; bytes: Uint8Array }
+	| { type: "close"; channel: number; seq: number }
+	| { type: "ack"; acks: Held }
+	| { type: "ping"; n: number }
+	| { type: "pong"; n: number };
+
+/** A frame that belongs to a channel, so it has a seq and is replayed. */
+export type ChannelFrame = Extract<Frame, { channel: number }>;
+
+/** What one end makes of the other's version, from its hello or welcome. */
+export type Negotiated =
+	| { ok: true; protocol: string; capabilities: string[] }
+	/** `refused` when the other end turned this one away, rather than the link going. */
+	| { ok: false; reason: string; refused: boolean };
+
 const json: z.ZodType<Json> = z.lazy(() =>
 	z.union([
 		z.string(),
@@ -145,12 +154,14 @@ const frameSchema = z.discriminatedUnion("type", [
 		capabilities: z.array(z.string()),
 		id: z.string(),
 		info: z.record(z.string(), json),
+		session: z.string(),
 		held,
 	}),
 	z.object({
 		type: z.literal("welcome"),
 		protocol: z.string(),
 		capabilities: z.array(z.string()),
+		session: z.string(),
 		held,
 	}),
 	z.object({ type: z.literal("refuse"), reason: z.string() }),

@@ -82,6 +82,21 @@ export class WorkerRegistry
 	}
 
 	/**
+	 * The worker known by `id`, made now if it has yet to join, so work can be
+	 * given it before it does: its session keeps what it is sent until then.
+	 * `kind` is how it will connect.
+	 */
+	expect(id: string, kind: WorkerKind = "registered"): RemoteWorker {
+		const known = this.byId.get(id);
+		if (known !== undefined) {
+			return known;
+		}
+		const worker = new RemoteWorker(id, {}, this.session(), kind);
+		this.byId.set(id, worker);
+		return worker;
+	}
+
+	/**
 	 * Takes a worker's new connection, hanging up on one that says nothing in
 	 * time. `kind` is how it reached us: `local` over this machine's socket.
 	 */
@@ -108,15 +123,7 @@ export class WorkerRegistry
 			return;
 		}
 		const known = this.byId.get(said.id);
-		const session =
-			known?.session ??
-			new WorkerSession("coordinator", {
-				...this.opts.session,
-				capabilities: WORKER_CAPABILITIES,
-				timer: this.timer,
-				clock: this.clock,
-				wall: this.wall,
-			});
+		const session = known?.session ?? this.session();
 		const negotiated = session.accept(socket, said);
 		if (!negotiated.ok) {
 			const refused = {
@@ -135,6 +142,16 @@ export class WorkerRegistry
 		worker.kind = kind;
 		this.byId.set(said.id, worker);
 		this.dispatcher.dispatch("joined", worker);
+	}
+
+	private session(): WorkerSession {
+		return new WorkerSession("coordinator", {
+			...this.opts.session,
+			capabilities: WORKER_CAPABILITIES,
+			timer: this.timer,
+			clock: this.clock,
+			wall: this.wall,
+		});
 	}
 
 	dispose(): void {

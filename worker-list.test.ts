@@ -82,7 +82,7 @@ describe("arbor worker ls", () => {
 
 	// scry-ignore simple-test-setup: it alone dials both a socket and a WebSocket
 	it("lists a worker over the socket as local and one over /api/workers as registered", async () => {
-		await join_("home", 8, () =>
+		await join_("local", 8, () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
 		);
 		await join_("away", 2, () =>
@@ -103,7 +103,7 @@ describe("arbor worker ls", () => {
 				],
 			),
 		).toEqual([
-			["home", "local", { used: 0, total: 8 }],
+			["local", "local", { used: 0, total: 8 }],
 			["away", "registered", { used: 0, total: 2 }],
 		]);
 		expect(listed.workers[0]).toMatchObject({
@@ -116,17 +116,17 @@ describe("arbor worker ls", () => {
 	});
 
 	it("prints a table, one row a worker", async () => {
-		await join_("home", 8, () =>
+		await join_("local", 8, () =>
 			UnixWorkerSocket.connect(join(dir, "worker.sock")),
 		);
 
 		const text = await ls(false);
 
-		expect(text).toMatch(/home\s+local\s.*\s0\/8\s+connected, heard/);
+		expect(text).toMatch(/local\s+local\s.*\s0\/8\s+connected, heard/);
 	});
 
-	it("says there are no workers", async () => {
-		expect(await ls(false)).toContain("no workers");
+	it("lists the local worker as away before it joins", async () => {
+		expect(await ls(false)).toMatch(/local\s+local\s.*\s0\/\?\s+away/);
 	});
 
 	it("fails when it has no arbor dev to ask", async () => {

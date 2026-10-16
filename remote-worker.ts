@@ -1,5 +1,6 @@
 import type { ProcessEntry } from "webappwiz/system";
 import { z } from "zod";
+import type { Launch } from "./agent-process";
 import type { GitResult } from "./git";
 import { RemoteProcess } from "./remote-process";
 import { RemotePty } from "./remote-pty";
@@ -54,6 +55,9 @@ export class RemoteWorker implements WorkerMachine {
 		return this.session.connected;
 	}
 
+	/** `start`, as the `Launch` that conversations start their agents with. */
+	readonly launch: Launch = (argv, cwd, env) => this.start(argv, cwd, env);
+
 	/** Starts `argv` in `cwd` on the worker, its stdio piped back here. */
 	start(
 		argv: string[],
@@ -79,6 +83,10 @@ export class RemoteWorker implements WorkerMachine {
 
 	async processes(): Promise<ProcessEntry[]> {
 		return ProcessesAnswer.parse(await this.call({ method: "processes" }));
+	}
+
+	async exists(path: string): Promise<boolean> {
+		return z.boolean().parse(await this.call({ method: "exists", path }));
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

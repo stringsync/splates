@@ -65,6 +65,8 @@ export interface WorkerSessionOptions {
  * new connection replays what was not acked, in order, once.
  */
 export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
+	/** What its hello or welcome names it by, so the other end can tell one started again. */
+	readonly id = crypto.randomUUID();
 	private readonly dispatcher = new Dispatcher<WorkerSessionEvents>();
 	readonly events = this.dispatcher.events;
 	private readonly channels = new Map<number, WorkerChannel>();
@@ -91,6 +93,8 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 	private _negotiated: Negotiated | undefined;
 	private _lastHeard: number | null = null;
 	private disposed = false;
+	/** The other end's session at the last handshake; null before the first. */
+	private peer: string | null = null;
 
 	constructor(
 		readonly role: "worker" | "coordinator",
@@ -209,6 +213,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			capabilities: this.capabilities,
 			id: hello.id,
 			info: hello.info ?? {},
+			session: this.id,
 			held: [...this.held],
 		});
 		return connection.settled.promise;
@@ -237,9 +242,10 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			type: "welcome",
 			protocol: WorkerProtocol.version,
 			capabilities: this.capabilities,
+			session: this.id,
 			held: [...this.held],
 		});
-		this.go(connection, negotiated, hello.held);
+		this.go(connection, negotiated, hello.held, hello.session);
 		return negotiated;
 	}
 
@@ -279,7 +285,12 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		connection: WorkerConnection,
 		negotiated: Negotiated,
 		held: Held,
+		peer: string,
 	): void {
+		if (this.peer !== null && this.peer !== peer) {
+			this.forget();
+		}
+		this.peer = peer;
 		this._negotiated = negotiated;
 		connection.live = true;
 		// The handshake told the other end everything this one holds.
@@ -364,7 +375,7 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 			this.lose(reason);
 			return;
 		}
-		this.go(connection, negotiated, frame.held);
+		this.go(connection, negotiated, frame.held, frame.session);
 	}
 
 	private receive(frame: ChannelFrame): void {
@@ -463,6 +474,29 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		if (this.wasFull && !this.replay.full) {
 			this.wasFull = false;
 			this.dispatcher.dispatch("drain");
+		}
+	}
+
+	/**
+	 * Ends every channel at this end, for another end started again, which
+	 * knows none of them: what they ran stops, as when the old one hung up.
+	 */
+	private forget(): void {
+		const channels = [...this.channels.values()];
+		for (const state of [
+			this.channels,
+			this.sent,
+			this.received,
+			this.held,
+			this.pendingAcks,
+			this.forgetting,
+		]) {
+			state.clear();
+		}
+		this.replay.clear();
+		this.acknowledged([]);
+		for (const channel of channels) {
+			channel.drop();
 		}
 	}
 

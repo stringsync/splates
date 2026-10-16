@@ -17,6 +17,8 @@ export interface WorkerMachine {
 	processes(): Promise<ProcessEntry[]>;
 	/** `path` from byte `from` on; a missing file reads as empty. */
 	read(path: string, from: number): Promise<WorkerRead>;
+	/** Whether anything is at `path`, a file or a directory. */
+	exists(path: string): Promise<boolean>;
 }
 
 /** The machine this process runs on, as a worker answers for it. */
@@ -37,6 +39,10 @@ export class LocalWorkerMachine implements WorkerMachine {
 
 	processes(): Promise<ProcessEntry[]> {
 		return this.ps.processes();
+	}
+
+	exists(path: string): Promise<boolean> {
+		return this.fs.exists(path);
 	}
 
 	async read(path: string, from: number): Promise<WorkerRead> {

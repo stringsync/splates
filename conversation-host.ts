@@ -7,6 +7,7 @@ import type { ConversationState } from "./conversation-state";
 import type { Reach } from "./projects";
 import type { SessionServers } from "./shared-browser";
 import type { Watch } from "./watch";
+import type { WorkerMachine } from "./worker-machine";
 
 /**
  * What a conversation's parts, its connection, its turns and its background
@@ -46,6 +47,8 @@ export interface ConversationDeps {
 	timer: Timer;
 	clock: WallClock;
 	launch: Launch;
+	/** Where the agent runs, which its background commands' output is read from. */
+	machine: WorkerMachine;
 	/**
 	 * Hold it while an agent's process starts, until it answers
 	 * `initialize`, so agents start one at a time.

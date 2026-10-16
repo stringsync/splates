@@ -69,6 +69,7 @@ describe("WorkerSession handshake", () => {
 				capabilities: [],
 				id: "linux",
 				info: {},
+				session: "linux-1",
 				held: [],
 			}),
 		);

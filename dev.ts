@@ -1,9 +1,4 @@
 import { AsyncDisposer, type AsyncResource } from "webappwiz/disposable";
-import {
-	MAX_PORT,
-	OpenPortProvider,
-	type PortProvider,
-} from "webappwiz/system";
 import { Duration } from "webappwiz/time";
 import { SYSTEM_STORES } from "./creds";
 import { Access } from "./dev-access";
@@ -13,6 +8,7 @@ import type { DevOptions } from "./dev-options";
 import { DevOutcomes } from "./dev-outcomes";
 import { Pages } from "./dev-pages";
 import { Picker } from "./dev-picker";
+import { DEFAULT_PORT, devPorts } from "./dev-ports";
 import {
 	type DevContext,
 	type DevMachine,
@@ -39,14 +35,10 @@ import { openRepository } from "./repository";
 import { arborHome } from "./roster";
 import { Setup } from "./setup";
 import { SETUP_AREAS } from "./setup-areas";
+import { LocalWorkerMachine } from "./worker-machine";
 
-/** Preferred, not required: `dev` moves up from here when it is taken. */
 export type { DevOptions } from "./dev-options";
-
-export const DEFAULT_PORT = 4269;
-
-/** How far above the port asked for `dev` will look before giving up. */
-export const PORT_SPAN = 20;
+export { DEFAULT_PORT, devPorts, PORT_SPAN } from "./dev-ports";
 
 /**
  * Serves what `todo list`, `list` and `show` print as one page that refetches
@@ -83,6 +75,8 @@ export async function dev(
 		sensors = null,
 		heavy = null,
 		workerSocket = null,
+		workers: givenWorkers = null,
+		worker = null,
 		pusher,
 		open = async (root) => ({
 			fs: deps.fs,
@@ -243,6 +237,7 @@ export async function dev(
 			projects,
 			served: { served, servedAt, projectNamed },
 			terminals,
+			machine: worker ?? new LocalWorkerMachine(ps, fs),
 			server: disposer,
 		},
 		versions,
@@ -290,7 +285,7 @@ export async function dev(
 		),
 	);
 
-	const workers = new DevWorkers(log);
+	const workers = givenWorkers ?? new DevWorkers(log);
 	disposer.defer(() => workers.disposeAsync());
 	if (workerSocket !== null) {
 		await workers.listen(workerSocket, fs);
@@ -565,22 +560,4 @@ const SOURCE_CHECK = Duration.secs(15);
 /** A running server, and the one thing a caller ever wants to do with it. */
 export interface DevServer extends AsyncResource {
 	port: number;
-}
-
-/**
- * Where `dev` will listen, given the port asked for. A flag is outside input,
- * so a port that cannot exist is a refusal with an exit code rather than the
- * assertion `OpenPortProvider` would raise for a bug in here.
- */
-export function devPorts(from: number): PortProvider {
-	if (!Number.isInteger(from) || from < 0 || from > MAX_PORT) {
-		fail(
-			"usage",
-			`invalid port '${from}': use a whole number 0 to ${MAX_PORT}`,
-			{
-				port: from,
-			},
-		);
-	}
-	return OpenPortProvider.span({ from, span: PORT_SPAN, host: LOOPBACK });
 }

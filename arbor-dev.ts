@@ -5,13 +5,14 @@ import { Adherence } from "./adherence";
 import type { ArborDeps } from "./arbor";
 import { rosterOf, savedTunnelOf, seeded } from "./arbor-flags";
 import { codexLimits, isCodex } from "./codex-limits";
-import { Conversations, launch } from "./conversations";
+import { Conversations } from "./conversations";
 import { type DevServer, dev, devPorts } from "./dev";
 import { accessConfig } from "./dev-access";
 import { rebuildOnChange } from "./dev-pages";
 import { devServers } from "./dev-servers";
 import { devSlot } from "./dev-slot";
 import { savedTunnelConfig, tunnelConfig } from "./dev-tunnel";
+import { DevWorkers, LOCAL_WORKER } from "./dev-workers";
 import { fail } from "./exit";
 import { Git } from "./git";
 import { HeavyJobs } from "./heavy";
@@ -27,6 +28,7 @@ import { SERVER_PID, SLOT, slotOf } from "./slots";
 import { SERVING, supervise, UNBUILT } from "./supervise";
 import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
+import { WorkerGit } from "./worker-git";
 import { workerSocketPath } from "./worker-run";
 
 /**
@@ -79,7 +81,10 @@ export async function serveDev(
 		// The slot is readied here, once, and its child serves it as a bare
 		// `arbor dev` serves the machine's tunnel, from the slot's home.
 		const slot = opts.slot ? await devSlot(ctx) : null;
-		ctx.ps.exit(await supervise(ctx.ps, { build, env: slot?.env }));
+		// Agents run on the local worker, beside the server, so a restart
+		// leaves them running.
+		const worker = ["worker", "run", "--id", LOCAL_WORKER, "--quiet"];
+		ctx.ps.exit(await supervise(ctx.ps, { build, env: slot?.env, worker }));
 		return;
 	}
 	// The saved tunnel only when no flag says how to reach the page, so a
@@ -133,6 +138,10 @@ export async function serveDev(
 		},
 		arborHome(ctx.ps),
 	);
+	// Agents run on this machine's worker, which the supervisor starts beside
+	// this server; what they are sent waits for it to join.
+	const workers = new DevWorkers(ctx.log);
+	const worker = workers.local;
 	const server = await dev(
 		{ ...ctx, projects },
 		{
@@ -146,6 +155,8 @@ export async function serveDev(
 			conversations: ({ arborDir, git }) =>
 				new Conversations(`${arborDir}/conversations`, roster, {
 					fs: ctx.fs,
+					launch: worker.launch,
+					machine: worker,
 					starting,
 					offered,
 					limits,
@@ -153,14 +164,14 @@ export async function serveDev(
 					readLimits: async (agent) =>
 						isCodex(agent)
 							? codexLimits({
-									launch,
+									launch: worker.launch,
 									timer: new SystemTimer(),
 									now: () => Date.now(),
 									cwd: git.root,
 									codex: ctx.ps.env("CODEX_PATH"),
 								})
 							: [],
-					watch: new Watch(git),
+					watch: new Watch(new WorkerGit(git.root, worker)),
 					root: git.root,
 					projects,
 					servers: browser,
@@ -180,6 +191,8 @@ export async function serveDev(
 			servers: () => devServers(ctx),
 			exit: (code) => ctx.ps.exit(code),
 			workerSocket: workerSocketPath(ctx.ps),
+			workers,
+			worker,
 		},
 	);
 	return {
