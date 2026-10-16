@@ -2,6 +2,7 @@ import { useReactive } from "@webappwiz/react";
 import { ChevronLeftIcon } from "lucide-react";
 import { type JSX, useContext, useEffect, useMemo, useState } from "react";
 import { WindowBackgroundObserver } from "webappwiz/browser";
+import { Duration } from "webappwiz/time";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import type { ConversationState } from "../conversations";
 import { type LaneRecord, named } from "../lanes";
@@ -29,8 +30,10 @@ import { Home } from "./conversation-home";
 import { Item } from "./conversation-item";
 import { goOn, needOf, rowsOf } from "./conversation-rows";
 import type { Drafts } from "./drafts";
+import { useNow } from "./hooks/use-now";
 import type { Move } from "./page-address";
 import { PhoneHome } from "./phone-home";
+import { ago } from "./plan-limits";
 import { useRefusals } from "./refusal";
 import { TaskView } from "./task-view";
 import { Task } from "./tasks";
@@ -314,8 +317,9 @@ function useRead(conversation: ConversationState | null): void {
 }
 
 /**
- * The archived conversations, newest first, to read or bring back: every one
- * kept, since arbor deletes the older ones.
+ * The archived conversations, newest first, each with how long ago it was
+ * archived, to read or bring back: every one kept, since arbor deletes the
+ * older ones.
  */
 function Archived({
 	tasks,
@@ -330,6 +334,7 @@ function Archived({
 	onOpen: (id: string) => void;
 	onBack: (() => void) | null;
 }): JSX.Element {
+	const now = useNow(true, Duration.mins(1));
 	return (
 		<section
 			aria-label="archived conversations"
@@ -358,6 +363,11 @@ function Archived({
 								current={false}
 								onOpen={() => onOpen(each.id)}
 								where
+								ago={
+									each.archivedAt === null
+										? null
+										: ago(Date.parse(each.archivedAt), now)
+								}
 							/>
 						</li>
 					))}

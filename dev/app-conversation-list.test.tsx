@@ -91,21 +91,21 @@ describe("App's conversation list", () => {
 					title: "Archived first",
 					createdAt: "2026-10-11T10:03:00.000Z",
 					archived: true,
-					archivedAt: "2026-10-12T10:00:00.000Z",
+					archivedAt: hoursAgo(3),
 				}),
 				conversation({
 					id: "a2",
 					title: "Archived last",
 					createdAt: "2026-10-11T10:01:00.000Z",
 					archived: true,
-					archivedAt: "2026-10-12T12:00:00.000Z",
+					archivedAt: hoursAgo(1),
 				}),
 				conversation({
 					id: "a3",
 					title: "Archived between",
 					createdAt: "2026-10-11T10:02:00.000Z",
 					archived: true,
-					archivedAt: "2026-10-12T11:00:00.000Z",
+					archivedAt: hoursAgo(2),
 				}),
 			],
 			null,
@@ -123,10 +123,44 @@ describe("App's conversation list", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual([
-			"Archived lastmain",
-			"Archived betweenmain",
-			"Archived firstmain",
+			"Archived lastmain1h ago",
+			"Archived betweenmain2h ago",
+			"Archived firstmain3h ago",
 		]);
+	});
+
+	it("says how long ago each archived conversation was archived", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "a1",
+					title: "Lately",
+					archived: true,
+					archivedAt: hoursAgo(3),
+				}),
+				conversation({
+					id: "a2",
+					title: "Too old to say",
+					createdAt: "2026-01-01T10:00:00.000Z",
+					archived: true,
+					archivedAt: null,
+				}),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		await act(async () =>
+			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
+		);
+		const archived = view.getByRole("region", {
+			name: "archived conversations",
+		});
+
+		expect(
+			within(archived)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["Latelymain3h ago", "Too old to saymain"]);
 	});
 
 	it("drops an archived conversation once the server deletes it", async () => {
@@ -538,3 +572,7 @@ describe("App's conversation list", () => {
 		}
 	});
 });
+
+function hoursAgo(hours: number): string {
+	return new Date(Date.now() - hours * 3_600_000).toISOString();
+}

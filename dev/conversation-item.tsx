@@ -71,6 +71,7 @@ export function Item({
 	onOpen,
 	onLeft,
 	where = false,
+	ago = null,
 	hint = null,
 	hosting = false,
 	nested = false,
@@ -84,6 +85,8 @@ export function Item({
 	onLeft?: () => void;
 	/** Whether to say where it ran, rather than only on hover. */
 	where?: boolean;
+	/** How long ago it was archived, as `3h ago`, said after where it ran. */
+	ago?: string | null;
 	/** The key that opens it with ⌥⌘, while ⌥⌘ is held. */
 	hint?: string | null;
 	/** Whether an agent it handed a task to is at work. */
@@ -192,6 +195,9 @@ export function Item({
 					<span className="shrink-0 truncate text-muted-foreground text-xs">
 						{whereOf(conversation, trunk)}
 					</span>
+				)}
+				{ago !== null && (
+					<span className="shrink-0 text-muted-foreground text-xs">{ago}</span>
 				)}
 			</button>
 			<span
