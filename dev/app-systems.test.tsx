@@ -32,6 +32,7 @@ describe("App's Systems page", () => {
 					files: 12,
 					unmatched: ["src/gone/**"],
 					changed: 14,
+					overlaps: [{ name: "skills", changed: 5 }],
 					changes: [
 						{
 							hash: "abcdef1234567890",
@@ -41,7 +42,14 @@ describe("App's Systems page", () => {
 						},
 					],
 				},
-				{ name: "skills", files: 3, unmatched: [], changed: 0, changes: [] },
+				{
+					name: "skills",
+					files: 3,
+					unmatched: [],
+					changed: 0,
+					changes: [],
+					overlaps: [],
+				},
 			],
 			since: new Date(Date.now() - 2.5 * 86_400_000).toISOString(),
 			scanned: 500,
@@ -162,6 +170,31 @@ describe("App's Systems page", () => {
 		await act(async () => fireEvent.click(rows[0] as HTMLElement));
 		expect(copied).toEqual(["src/part0/*"]);
 		expect(rows[0]?.textContent).toContain("Copied");
+	});
+
+	it("lists the systems its changes touched too, each opening that system", async () => {
+		const view = await openSystems();
+		await waitFor(() => view.getByText("14 changes"));
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: /board/ })),
+		);
+
+		const page = view.getByRole("region", { name: "system board" });
+		const overlaps = within(page).getByRole("list", {
+			name: "systems changed with it",
+		});
+		expect(within(overlaps).getByText("5 changes")).toBeTruthy();
+
+		await act(async () =>
+			fireEvent.click(within(overlaps).getByRole("button", { name: /skills/ })),
+		);
+
+		expect(location.hash).toBe("#systems/skills");
+		// A system no recent commit changed says nothing of what it changes with.
+		const skills = view.getByRole("region", { name: "system skills" });
+		expect(
+			within(skills).queryByRole("region", { name: "Changed with" }),
+		).toBeNull();
 	});
 
 	it("goes back to the list", async () => {

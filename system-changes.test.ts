@@ -15,7 +15,6 @@ function commit(files: string[]): Commit {
 
 describe("systemsReport", () => {
 	it("groups the files no system covers by directory, the busiest groups of several first", () => {
-		const systems = Systems.of({ docs: { globs: ["docs/**"] } });
 		const files = [
 			"docs/a.md",
 			"README.md",
@@ -24,12 +23,16 @@ describe("systemsReport", () => {
 			"lib/c.ts",
 		];
 
-		const report = systemsReport(systems, files, [
-			commit(["lib/c.ts"]),
-			commit(["lib/c.ts", "docs/a.md"]),
-			// Two files in one group count as one change to it.
-			commit(["src/a.ts", "src/b.ts"]),
-		]);
+		const report = systemsReport(
+			Systems.of({ docs: { globs: ["docs/**"] } }),
+			files,
+			[
+				commit(["lib/c.ts"]),
+				commit(["lib/c.ts", "docs/a.md"]),
+				// Two files in one group count as one change to it.
+				commit(["src/a.ts", "src/b.ts"]),
+			],
+		);
 
 		expect(report.uncovered).toBe(4);
 		// A lone file goes after a group of several, however busy.
@@ -55,6 +58,34 @@ describe("systemsReport", () => {
 			{ glob: "app/tunnel*", files: SPLIT, changed: 1 },
 			{ glob: "app/.gitignore*", files: 1, changed: 0 },
 			{ glob: "app/age*", files: 1, changed: 0 },
+		]);
+	});
+
+	it("counts how often each system changed alongside each other, the most first", () => {
+		const report = systemsReport(
+			Systems.of({
+				board: { globs: ["board/**"] },
+				skills: { globs: ["skills/**"] },
+				stats: { globs: ["stats/**"] },
+			}),
+			[],
+			[
+				commit(["board/a.ts", "skills/a.md"]),
+				commit(["board/b.ts", "stats/a.ts", "skills/a.md"]),
+				commit(["board/a.ts", "board/b.ts"]),
+				commit(["stats/a.ts", "skills/a.md"]),
+			],
+		);
+
+		const overlaps = (name: string) =>
+			report.systems.find((each) => each.name === name)?.overlaps;
+		expect(overlaps("board")).toEqual([
+			{ name: "skills", changed: 2 },
+			{ name: "stats", changed: 1 },
+		]);
+		expect(overlaps("stats")).toEqual([
+			{ name: "skills", changed: 2 },
+			{ name: "board", changed: 1 },
 		]);
 	});
 });

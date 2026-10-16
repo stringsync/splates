@@ -28,6 +28,19 @@ export interface SystemChanges {
 	changed: number;
 	/** The latest of them, up to `CHANGES_SHOWN`, newest first. */
 	changes: Change[];
+	/**
+	 * Each other system some of those commits changed too, the most first.
+	 * A task lands as one commit, so this is how often its tasks reach there.
+	 */
+	overlaps: Overlap[];
+}
+
+/** Another system that commits changing one system changed too. */
+export interface Overlap {
+	/** The other system's name. */
+	name: string;
+	/** How many of the commits changing both. */
+	changed: number;
 }
 
 /** What the Systems page reads: every system, and how far back it looked. */
@@ -65,23 +78,51 @@ export function systemsReport(
 	files: string[],
 	commits: Commit[],
 ): SystemsReport {
+	const touchedBy = commits.map((commit) =>
+		systems.touchedBy(commit.files).map((each) => each.name),
+	);
 	return {
 		systems: systems.all().map((system) => {
-			const touching = commits
-				.filter((commit) => systems.within(system, commit.files).length > 0)
-				.map(({ files: _, ...change }) => change);
+			const touching = commits.filter((_, at) =>
+				touchedBy[at]?.includes(system.name),
+			);
 			return {
 				name: system.name,
 				files: systems.within(system, files).length,
 				unmatched: systems.unmatched(system, files),
 				changed: touching.length,
-				changes: touching.slice(0, CHANGES_SHOWN),
+				changes: touching
+					.slice(0, CHANGES_SHOWN)
+					.map(({ files: _, ...change }) => change),
+				overlaps: overlapsOf(
+					system.name,
+					touchedBy.filter((names) => names.includes(system.name)),
+				),
 			};
 		}),
 		since: commits.at(-1)?.at ?? null,
 		scanned: commits.length,
 		...uncovered(systems, files, commits),
 	};
+}
+
+/**
+ * The systems besides `name` that `touched`, the systems each commit changing
+ * it changed, take in, each with how many of those commits, the most first.
+ */
+function overlapsOf(name: string, touched: string[][]): Overlap[] {
+	const counts = new Map<string, number>();
+	for (const other of touched.flat()) {
+		if (other !== name) {
+			counts.set(other, (counts.get(other) ?? 0) + 1);
+		}
+	}
+	return [...counts]
+		.map(([other, changed]) => ({ name: other, changed }))
+		.sort(
+			(one, other) =>
+				other.changed - one.changed || one.name.localeCompare(other.name),
+		);
 }
 
 /**

@@ -133,6 +133,7 @@
 @source "./setup-state.tsx";
 @source "./kept-creds.tsx";
 @source "./systems.tsx";
+@source "./system-view.tsx";
 @source "./systems-page.tsx";
 @source "./usage.tsx";
 @source "./plan-limits.tsx";
