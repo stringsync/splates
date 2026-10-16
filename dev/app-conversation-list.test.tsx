@@ -83,6 +83,52 @@ describe("App's conversation list", () => {
 		expect(location.hash).toBe("#conversations/archived");
 	});
 
+	it("lists archived conversations by when each was archived, last first", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({
+					id: "a1",
+					title: "Archived first",
+					createdAt: "2026-10-11T10:03:00.000Z",
+					archived: true,
+					archivedAt: "2026-10-12T10:00:00.000Z",
+				}),
+				conversation({
+					id: "a2",
+					title: "Archived last",
+					createdAt: "2026-10-11T10:01:00.000Z",
+					archived: true,
+					archivedAt: "2026-10-12T12:00:00.000Z",
+				}),
+				conversation({
+					id: "a3",
+					title: "Archived between",
+					createdAt: "2026-10-11T10:02:00.000Z",
+					archived: true,
+					archivedAt: "2026-10-12T11:00:00.000Z",
+				}),
+			],
+			null,
+		);
+		const nav = view.getByRole("navigation", { name: "conversations" });
+		await act(async () =>
+			fireEvent.click(within(nav).getByRole("button", { name: /Archived/ })),
+		);
+		const archived = view.getByRole("region", {
+			name: "archived conversations",
+		});
+
+		expect(
+			within(archived)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual([
+			"Archived lastmain",
+			"Archived betweenmain",
+			"Archived firstmain",
+		]);
+	});
+
 	it("drops an archived conversation once the server deletes it", async () => {
 		const view = await testing.openConversations(
 			[

@@ -349,7 +349,7 @@ function Archived({
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
 				<ul className="flex flex-col">
-					{conversations.map((each) => (
+					{conversations.toSorted(byArchivedAt).map((each) => (
 						<li key={each.id}>
 							<Item
 								conversation={each}
@@ -364,6 +364,16 @@ function Archived({
 				</ul>
 			)}
 		</section>
+	);
+}
+
+/** Archived last first, by when it started for a log too old to say. */
+function byArchivedAt(
+	one: ConversationState,
+	other: ConversationState,
+): number {
+	return (other.archivedAt ?? other.createdAt).localeCompare(
+		one.archivedAt ?? one.createdAt,
 	);
 }
 
