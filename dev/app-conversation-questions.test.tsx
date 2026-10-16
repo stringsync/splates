@@ -9,6 +9,7 @@ import {
 	message,
 	Testing,
 	textIn,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -210,25 +211,16 @@ describe("App's question cards", () => {
 		// Answered, it keeps its number.
 		expect(card(view, "2").textContent).toStartWith("2 answered");
 		const note = (question: string) =>
-			within(card(view, question)).getByRole("textbox") as HTMLTextAreaElement;
-		await act(async () =>
-			fireEvent.change(note("2"), { target: { value: "only on phones" } }),
-		);
-		await act(async () =>
-			fireEvent.change(note("3"), {
-				target: { value: "after a\nphone check" },
-			}),
-		);
-		expect(note("2").value).toBe("only on phones");
+			within(card(view, question)).getByRole("textbox");
+		await typeIn(note("2"), "only on phones");
+		await typeIn(note("3"), "after a\nphone check");
+		expect(textIn(note("2"))).toBe("only on phones");
 		expect(view.getByText("3 of 3 answered")).toBeTruthy();
-		await act(async () =>
-			fireEvent.change(note("3"), { target: { value: "" } }),
-		);
+		await typeIn(note("3"), "");
 		expect(view.getByText("2 of 3 answered")).toBeTruthy();
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "Anything else" }), {
-				target: { value: "Also the footer." },
-			}),
+		await typeIn(
+			view.getByRole("textbox", { name: "Anything else" }),
+			"Also the footer.",
 		);
 		expect(textIn(box(view))).toBe("");
 		expect(

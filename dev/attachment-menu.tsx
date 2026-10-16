@@ -46,13 +46,12 @@ import { useLightbox } from "./lightbox";
 const SVG = /\.svg$/i;
 
 /**
- * The chip of an attachment on its way, the only place the composer shows it:
- * a tap opens a menu to view it in the lightbox, mark it up when it is an
- * image, or remove it, its chips with it.
+ * The chip of an attachment on its way in the composer, the only place the
+ * composer shows it: a tap opens a menu to view it in the lightbox, mark it
+ * up when it is an image, or remove it, its chips with it.
  */
 export function AttachmentMenu({ placed }: { placed: Placed }): JSX.Element {
 	const aui = useAui();
-	const [editor] = useLexicalComposerContext();
 	const forget = use(ForgetAttachment);
 	const attachment = useAuiState(
 		(state) =>
@@ -60,17 +59,72 @@ export function AttachmentMenu({ placed }: { placed: Placed }): JSX.Element {
 				(each) => shelfOf(each.type) === placed.shelf,
 			)[placed.at - 1],
 	);
-	const file = attachment?.file;
+	const status = attachment?.status;
+	return (
+		<AttachedMenu
+			placed={placed}
+			attached={{
+				file: attachment?.file,
+				name: attachment?.name ?? "",
+				kind: kindOf(attachment?.type ?? "", attachment?.contentType),
+				image: attachment?.type === "image",
+				uploading: status?.type === "running",
+				failed:
+					status?.type === "incomplete" && status.reason === "error"
+						? (status.message ?? "Upload failed")
+						: undefined,
+				remove: () => {
+					if (attachment === undefined) {
+						return;
+					}
+					forget(placed);
+					void aui.composer().attachment({ id: attachment.id }).remove();
+				},
+				replace: (marked) =>
+					attachment === undefined
+						? Promise.resolve()
+						: replace(aui.composer(), attachment.id, marked),
+			}}
+		/>
+	);
+}
+
+/** An attachment as its chip's menu works it, wherever it is attached. */
+export interface Attached {
+	file: File | undefined;
+	name: string;
+	kind: ReturnType<typeof kindOf>;
+	/** Whether it is sent as an image, which can be marked up. */
+	image: boolean;
+	uploading: boolean;
+	/** Why it failed to upload, if it did. */
+	failed: string | undefined;
+	/** Takes it off, its chips with it. */
+	remove(): void;
+	/** Puts `marked` in its place, as a mark up does. */
+	replace(marked: File): Promise<void>;
+}
+
+/**
+ * The chip of `attached`, an attachment on its way: a tap opens a menu to
+ * view it in the lightbox, mark it up when it is an image, or remove it.
+ */
+export function AttachedMenu({
+	placed,
+	attached,
+}: {
+	placed: Placed;
+	attached: Attached;
+}): JSX.Element {
+	const [editor] = useLexicalComposerContext();
+	const { file, name, kind, failed, uploading } = attached;
 	const src = useFileSrc(file);
-	const kind = kindOf(attachment?.type ?? "", attachment?.contentType);
-	const name = attachment?.name ?? "";
-	const markable =
-		attachment?.type === "image" && file !== undefined && !SVG.test(name);
+	const markable = attached.image && file !== undefined && !SVG.test(name);
 	// Marked up, the keyboard goes back to writing.
 	const input = useRef<HTMLElement | null>(null);
 	const annotator = useAnnotate(input);
 	const markUp = async () => {
-		if (attachment === undefined || file === undefined) {
+		if (file === undefined) {
 			return;
 		}
 		input.current = editor.getRootElement();
@@ -78,7 +132,7 @@ export function AttachmentMenu({ placed }: { placed: Placed }): JSX.Element {
 		if (marked !== file) {
 			// It keeps the chip the image it stands in for has.
 			chippedAlready(marked);
-			await replace(aui.composer(), attachment.id, marked);
+			await attached.replace(marked);
 			input.current?.focus();
 		}
 	};
@@ -93,19 +147,7 @@ export function AttachmentMenu({ placed }: { placed: Placed }): JSX.Element {
 	};
 	const [asking, setAsking] = useState(false);
 	const marks = Annotation.marksOn(file);
-	const remove = () => {
-		if (attachment === undefined) {
-			return;
-		}
-		forget(placed);
-		void aui.composer().attachment({ id: attachment.id }).remove();
-	};
-	const status = attachment?.status;
-	const failed =
-		status?.type === "incomplete" && status.reason === "error"
-			? (status.message ?? "Upload failed")
-			: undefined;
-	const uploading = status?.type === "running";
+	const remove = () => attached.remove();
 	return (
 		<>
 			<DropdownMenu>

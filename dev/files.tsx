@@ -1,10 +1,26 @@
 import { useReactive } from "@webappwiz/react";
-import { FileIcon, PaperclipIcon, XIcon } from "lucide-react";
-import { type JSX, useEffect, useRef, useState } from "react";
+import {
+	EyeIcon,
+	FileIcon,
+	ImageIcon,
+	PaperclipIcon,
+	XIcon,
+} from "lucide-react";
+import { type JSX, useRef } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
-import { Button } from "#dev/components/ui/button.tsx";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "#dev/components/ui/dropdown-menu.tsx";
 import { InputGroupButton } from "#dev/components/ui/input-group.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import { fileUrl } from "./api";
+import { ATTACHMENT_CHIP, type Shelf } from "./attachment-chips";
+import { SEEN } from "./conversation-feed";
+import { useFileSrc } from "./hooks/use-file-src";
 import { GROUP, ITEM, type Shown, useLightbox } from "./lightbox";
 
 export type FilesEvents = { changed: undefined };
@@ -47,6 +63,21 @@ export class Files implements Eventful<FilesEvents> {
 		}
 	}
 
+	/** The new files counted on `shelf`, in the order they were attached. */
+	on(shelf: Shelf): File[] {
+		return this.files.filter((file) => fileShelf(file) === shelf);
+	}
+
+	/** Puts `by` in the place of `file`, as a mark up does. */
+	replace(file: File, by: File): void {
+		this.set({ files: this.files.map((each) => (each === file ? by : each)) });
+	}
+
+	/** Takes `file` off. */
+	remove(file: File): void {
+		this.set({ files: this.files.filter((each) => each !== file) });
+	}
+
 	drop(index: number): void {
 		this.set({ files: this.files.filter((_, at) => at !== index) });
 	}
@@ -69,6 +100,11 @@ export class Files implements Eventful<FilesEvents> {
 		Object.assign(this, next);
 		this.dispatcher.dispatch("changed");
 	}
+}
+
+/** The shelf a reply counts `file` on: an image an agent is sent as such, or a file. */
+export function fileShelf(file: File): Shelf {
+	return SEEN.includes(file.type) ? "image" : "file";
 }
 
 const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
@@ -101,7 +137,7 @@ export function AttachButton({ files }: { files: Files }): JSX.Element {
 	);
 }
 
-/** Every file attached, stored or new, each with a way to drop it. */
+/** Every file attached, stored or new, each a chip with a way to drop it. */
 export function FileList({ files }: { files: Files }): JSX.Element | null {
 	const { added, kept } = useReactive(
 		files,
@@ -113,13 +149,13 @@ export function FileList({ files }: { files: Files }): JSX.Element | null {
 	}
 	// The lightbox steps through the images of one list, stored and new alike.
 	return (
-		<div {...{ [GROUP]: "" }} className="flex flex-wrap gap-2">
+		<div {...{ [GROUP]: "" }} className="flex flex-wrap gap-1.5">
 			{kept.map((path) => (
 				<Chip
 					key={path}
 					name={stored(path)}
-					src={IMAGE.test(path) ? fileUrl(path) : undefined}
-					href={fileUrl(path)}
+					src={fileUrl(path)}
+					image={IMAGE.test(path)}
 					onRemove={() => files.unkeep(path)}
 				/>
 			))}
@@ -141,90 +177,84 @@ function New({
 	file: File;
 	onRemove: () => void;
 }): JSX.Element {
-	const image = file.type.startsWith("image/");
-	// Revoked when the chip goes, or every pasted screenshot stays in memory for
-	// as long as the page is open.
-	const [url, setUrl] = useState<string>();
-	useEffect(() => {
-		if (!image) {
-			return;
-		}
-		const created = URL.createObjectURL(file);
-		setUrl(created);
-		return () => URL.revokeObjectURL(created);
-	}, [file, image]);
 	return (
-		<Chip name={file.name} src={image ? url : undefined} onRemove={onRemove} />
+		<Chip
+			name={file.name}
+			src={useFileSrc(file)}
+			image={file.type.startsWith("image/")}
+			onRemove={onRemove}
+		/>
 	);
 }
 
 /**
- * One file: a thumbnail for an image, which opens in the lightbox, and its
- * name otherwise, which opens in a new tab when stored.
+ * One file, as the composer's chip of an attachment: its kind's icon and its
+ * name, a tap opening a menu to view it, an image in the lightbox, or to
+ * remove it.
  */
 function Chip({
 	name,
 	src,
-	href,
+	image,
 	onRemove,
 }: {
 	name: string;
-	src?: string;
-	href?: string;
+	/** Where the page loads it from, once it can. */
+	src: string | undefined;
+	image: boolean;
 	onRemove?: () => void;
 }): JSX.Element {
 	const { open, lightbox } = useLightbox();
-	const face =
-		src === undefined ? (
-			<div className="flex h-16 max-w-40 items-center gap-2 rounded-md border px-3 text-xs">
-				<FileIcon className="size-4 shrink-0 text-muted-foreground" />
-				<span className="truncate">{name}</span>
-			</div>
-		) : (
-			<img
-				src={src}
-				alt={name}
-				className="size-16 rounded-md border object-cover"
-			/>
-		);
+	const chip = useRef<HTMLButtonElement>(null);
+	const Icon = image ? ImageIcon : FileIcon;
+	const view = () => {
+		if (!image) {
+			window.open(src, "_blank", "noreferrer");
+		} else if (chip.current !== null) {
+			open(chip.current);
+		}
+	};
 	return (
-		<div className="relative">
-			{src !== undefined ? (
-				<button
-					type="button"
-					{...{
-						[ITEM]: JSON.stringify({
-							url: src,
-							alt: name,
-							video: false,
-						} satisfies Shown),
-					}}
-					aria-label={`expand ${name}`}
-					onClick={(event) => open(event.currentTarget)}
-					className="block cursor-zoom-in rounded-md"
+		<>
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					ref={chip}
+					{...(image && src !== undefined
+						? {
+								[ITEM]: JSON.stringify({
+									url: src,
+									alt: name,
+									video: false,
+								} satisfies Shown),
+							}
+						: {})}
+					title={name}
+					className={cn(
+						ATTACHMENT_CHIP,
+						"max-w-56 cursor-pointer hover:bg-muted data-popup-open:bg-muted pointer-coarse:h-8",
+					)}
 				>
-					{face}
-				</button>
-			) : href !== undefined ? (
-				<a href={href} target="_blank" rel="noreferrer">
-					{face}
-				</a>
-			) : (
-				face
-			)}
+					<Icon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+					<span className="truncate">{name}</span>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent className="w-auto">
+					<DropdownMenuItem disabled={src === undefined} onClick={view}>
+						<EyeIcon />
+						View
+					</DropdownMenuItem>
+					{onRemove && (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem variant="destructive" onClick={onRemove}>
+								<XIcon />
+								Remove
+							</DropdownMenuItem>
+						</>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
 			{lightbox}
-			{onRemove && (
-				<Button
-					aria-label={`remove ${name}`}
-					variant="secondary"
-					size="icon-xs"
-					className="absolute -top-2 -right-2 rounded-full"
-					onClick={onRemove}
-				>
-					<XIcon />
-				</Button>
-			)}
-		</div>
+		</>
 	);
 }
 

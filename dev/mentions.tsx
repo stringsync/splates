@@ -19,7 +19,7 @@ const SHOWN = 8;
 const ROW = 32;
 
 /** Which side of the box the list opens on, and how tall it may get there. */
-interface Place {
+export interface Place {
 	below: boolean;
 	room: number;
 }
@@ -260,18 +260,9 @@ export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
 	);
 
 	useEffect(() => {
-		if (!open || ref.current === null) {
-			return;
+		if (open && ref.current !== null) {
+			placeList(mentions, ref.current);
 		}
-		// A dialog the box sits in clips anything past its edges, and the window
-		// clips the rest.
-		const frame = ref.current
-			.closest("[data-slot=dialog-content]")
-			?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
-		mentions.placeIn(ref.current.getBoundingClientRect(), {
-			top: frame.top,
-			bottom: Math.min(frame.bottom, innerHeight),
-		});
 	}, [open, mentions]);
 
 	const focusAt = (caret: number | null) => {
@@ -316,7 +307,7 @@ export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
 			return true;
 		},
 		menu: open ? (
-			<Menu
+			<MentionMenu
 				label={sign === "@" ? "files" : "references"}
 				matches={matches}
 				active={active}
@@ -328,7 +319,21 @@ export function useMentions<Box extends HTMLInputElement | HTMLTextAreaElement>(
 	};
 }
 
-function Menu({
+/** Opens the list of `mentions` on the side of `box` with room for it. */
+export function placeList(mentions: Mentions, box: Element): void {
+	// A dialog the box sits in clips anything past its edges, and the window
+	// clips the rest.
+	const frame = box
+		.closest("[data-slot=dialog-content]")
+		?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+	mentions.placeIn(box.getBoundingClientRect(), {
+		top: frame.top,
+		bottom: Math.min(frame.bottom, innerHeight),
+	});
+}
+
+/** The list of what matches the sign being typed, floating over its box. */
+export function MentionMenu({
 	label,
 	matches,
 	active,

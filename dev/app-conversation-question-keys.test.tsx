@@ -9,6 +9,7 @@ import {
 	message,
 	Testing,
 	textIn,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -86,17 +87,11 @@ describe("App's question card keys", () => {
 		expect(
 			document.activeElement === within(card(view, "3")).getByRole("textbox"),
 		).toBe(true);
-		await act(async () =>
-			fireEvent.change(document.activeElement as Element, {
-				target: { value: "soon" },
-			}),
-		);
+		await typeIn(document.activeElement as HTMLElement, "soon");
 		await key("Enter");
 		const more = view.getByRole("textbox", { name: "Anything else" });
 		expect(document.activeElement === more).toBe(true);
-		await act(async () =>
-			fireEvent.change(more, { target: { value: "Thanks" } }),
-		);
+		await typeIn(more, "Thanks");
 		await key("Enter", { shiftKey: true });
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 		await key("Enter");
@@ -184,12 +179,10 @@ describe("App's question card keys", () => {
 
 	it("sends with ⌘Enter from any question", async () => {
 		const view = await testing.openConversations([asking()]);
-		const note = await waitFor(
-			() => within(card(view, "3")).getByRole("textbox") as HTMLTextAreaElement,
+		const note = await waitFor(() =>
+			within(card(view, "3")).getByRole("textbox"),
 		);
-		await act(async () =>
-			fireEvent.change(note, { target: { value: "after a check" } }),
-		);
+		await typeIn(note, "after a check");
 		await act(async () =>
 			fireEvent.keyDown(note, { key: "Enter", metaKey: true }),
 		);
@@ -205,14 +198,12 @@ describe("App's question card keys", () => {
 	it("keeps a note that starts like a choice as typed, picking nothing", async () => {
 		const view = await testing.openConversations([asking()]);
 		const second = await waitFor(() => card(view, "2"));
-		const note = within(second).getByRole("textbox") as HTMLTextAreaElement;
+		const note = within(second).getByRole("textbox");
 
 		// scry-ignore matchers-over-test-logic: each step types on from the last, checked as typed
 		for (const typed of ["a", "a ", "a lot"]) {
-			await act(async () =>
-				fireEvent.change(note, { target: { value: typed } }),
-			);
-			expect(note.value).toBe(typed);
+			await typeIn(note, typed);
+			expect(textIn(note)).toBe(typed);
 		}
 		expect(
 			within(second)

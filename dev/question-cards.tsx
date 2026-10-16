@@ -29,6 +29,7 @@ import {
 } from "../reply";
 import { AnythingElsePage } from "./anything-else-page";
 import { AssumptionList } from "./assumption-list";
+import { caretToEnd } from "./box-editor";
 import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
 import { CardBox } from "./card-box";
@@ -464,7 +465,6 @@ export function QuestionCards({
 						<CardBox
 							data-stop="more"
 							aria-label="Anything else"
-							rows={1}
 							value={written.more}
 							placeholder="Anything else?"
 							onValue={(more) => write({ ...written, more })}
@@ -542,10 +542,10 @@ export function QuestionCards({
 	);
 }
 
-/** Puts the caret at the end of what `stop` holds, when it is a field. */
+/** Puts the caret at the end of what `stop` holds, when it is a box. */
 function toEnd(stop: HTMLElement | null | undefined): void {
-	if (stop instanceof HTMLTextAreaElement) {
-		stop.setSelectionRange(stop.value.length, stop.value.length);
+	if (stop?.isContentEditable) {
+		caretToEnd(stop);
 	}
 }
 

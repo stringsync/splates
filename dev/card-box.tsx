@@ -1,32 +1,18 @@
 import { useReactive, useResource } from "@webappwiz/react";
 import { PlusIcon } from "lucide-react";
-import {
-	type ComponentProps,
-	type JSX,
-	type ReactNode,
-	useContext,
-	useEffect,
-	useId,
-	useRef,
-	useState,
-} from "react";
+import { type JSX, type ReactNode, useContext, useId, useRef } from "react";
 import { ATTACH } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { BoxDictation } from "./box-dictation";
-import { useThreadSources } from "./box-references";
+import { BoxEditor, type BoxEditorProps } from "./box-editor";
 import { BoxMic } from "./dictate-button";
 import type { Dictation } from "./dictation";
 import { DictationContext } from "./dictation-context";
 import { DictationNotice, DictationStatus } from "./dictation-status";
-import { FileList, type Files } from "./files";
-import { Mentions, useMentions } from "./mentions";
+import type { Files } from "./files";
 
-type Props = Omit<ComponentProps<"textarea">, "value" | "onChange"> & {
-	value: string;
-	onValue: (text: string) => void;
-	/** Where what is attached to it goes; null where a reply carries no files. */
-	files: Files | null;
+type Props = Omit<BoxEditorProps, "inset"> & {
 	/** Sized for a finger, as the one question on a phone's screen. */
 	roomy?: boolean;
 };
@@ -36,7 +22,8 @@ type Props = Omit<ComponentProps<"textarea">, "value" | "onChange"> & {
  * and the mic at its end, and under it the files attached to it. The plus
  * and mic show only while the box has the focus, the pointer, or a take
  * writing in it, so a card of several boxes stays quiet. A paste of files
- * attaches them, and `@` and `#` offer what the thread's composer does.
+ * attaches them, and `@` and `#` offer what the thread's composer does; what
+ * is picked or attached is a chip in the words, as in the composer.
  */
 export function CardBox(props: Props): JSX.Element {
 	const dictation = useContext(DictationContext);
@@ -69,18 +56,13 @@ function DictatedBox({
 }
 
 function Box({
-	value,
 	onValue,
 	files,
 	roomy = false,
 	className,
 	box,
-	ref,
-	onKeyDown,
 	...props
 }: Props & { box: BoxDictation | null }): JSX.Element {
-	const inset = roomy ? "px-4" : "px-3";
-	const typed = useBoxMentions(value, onValue);
 	return (
 		<div
 			className={cn(
@@ -89,32 +71,15 @@ function Box({
 			)}
 		>
 			<div className="flex items-end">
-				<textarea
+				<BoxEditor
 					{...props}
-					ref={(textarea) => {
-						typed.ref.current = textarea;
-						if (typeof ref === "function") {
-							ref(textarea);
-						} else if (ref != null) {
-							ref.current = textarea;
-						}
+					files={files}
+					onValue={(text) => {
+						onValue(text);
+						box?.typed(text);
 					}}
-					value={value}
-					onChange={(event) => {
-						typed.onChange(event);
-						box?.typed(event.target.value);
-					}}
-					onSelect={typed.onSelect}
-					onClick={typed.onClick}
-					onKeyDown={(event) => {
-						if (!typed.onKeyDown(event)) {
-							onKeyDown?.(event);
-						}
-					}}
-					onPaste={(event) => files?.paste(event)}
+					inset={roomy ? "px-4" : "px-3"}
 					className={cn(
-						"field-sizing-content min-w-0 flex-1 resize-none bg-transparent outline-none placeholder:text-muted-foreground/70",
-						inset,
 						roomy ? "py-3 text-base" : "py-2 text-sm pointer-coarse:text-base",
 						className,
 					)}
@@ -130,56 +95,8 @@ function Box({
 				)}
 			</div>
 			{box !== null && <DictationNotice by={box.by} />}
-			{files !== null && <Attached files={files} inset={inset} />}
-			{typed.menu}
 		</div>
 	);
-}
-
-/**
- * The box's words as `Mentions` reads them, for the `@` and `#` the thread
- * offers, kept to `value`, which a take or a draft writes too: a pick from
- * the list is written through `onValue`.
- */
-function useBoxMentions(value: string, onValue: (text: string) => void) {
-	const sources = useThreadSources();
-	const [mentions] = useState(() => new Mentions(sources, value));
-	const typed = useMentions<HTMLTextAreaElement>(mentions);
-	const told = useRef(onValue);
-	told.current = onValue;
-	const shown = useRef(value);
-	shown.current = value;
-	useEffect(() => {
-		if (mentions.text !== value) {
-			mentions.write(value, typed.ref.current?.selectionStart ?? value.length);
-		}
-	}, [mentions, value, typed.ref]);
-	useEffect(
-		() =>
-			mentions.events.on("changed", () => {
-				if (mentions.text !== shown.current) {
-					told.current(mentions.text);
-				}
-			}),
-		[mentions],
-	);
-	return typed;
-}
-
-/** The files attached to a box, once it holds any. */
-function Attached({
-	files,
-	inset,
-}: {
-	files: Files;
-	inset: string;
-}): JSX.Element | null {
-	const any = useReactive(files, (each) => each.files.length > 0, ["changed"]);
-	return any ? (
-		<div className={cn(inset, "pb-2")}>
-			<FileList files={files} />
-		</div>
-	) : null;
 }
 
 /**

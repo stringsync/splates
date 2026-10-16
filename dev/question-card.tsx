@@ -101,7 +101,7 @@ export function QuestionCard({
 			onNext();
 		}
 	};
-	const enter = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+	const enter = (event: globalThis.KeyboardEvent) => {
 		// Enter moves on; Shift+Enter is a new line.
 		if (event.key === "Enter" && !event.shiftKey) {
 			event.preventDefault();
@@ -266,7 +266,6 @@ export function QuestionCard({
 						roomy={roomy}
 						data-stop={choices.length === 0 ? number : undefined}
 						aria-label={`Answer to ${number}`}
-						rows={roomy && choices.length === 0 ? 4 : 1}
 						value={said.words}
 						placeholder={
 							choices.length > 0 ? "Add a note (optional)" : "Your answer"

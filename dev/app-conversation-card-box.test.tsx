@@ -11,6 +11,7 @@ import {
 	Testing,
 	textIn,
 	todo,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -53,7 +54,7 @@ describe("App's card answer boxes", () => {
 	const card = (view: ConversationsView, question: string) =>
 		view.getByRole("listitem", { name: `question ${question}` });
 	const answer = (view: ConversationsView, question: string) =>
-		within(card(view, question)).getByRole("textbox") as HTMLTextAreaElement;
+		within(card(view, question)).getByRole("textbox");
 
 	it("writes what the mic hears into its own box, not the composer, saying it listens there", async () => {
 		const view = await testing.openConversations([asking]);
@@ -69,7 +70,9 @@ describe("App's card answer boxes", () => {
 		);
 		expect(within(card(view, "2")).getByText("Recording")).toBeTruthy();
 		act(() => microphone.speak(" more"));
-		await waitFor(() => expect(answer(view, "2").value).toBe("something more"));
+		await waitFor(() =>
+			expect(textIn(answer(view, "2"))).toBe("something more"),
+		);
 		expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
 			"",
 		);
@@ -77,7 +80,7 @@ describe("App's card answer boxes", () => {
 		await act(async () => fireEvent.click(stop));
 
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
-		expect(answer(view, "2").value).toBe("something more");
+		expect(textIn(answer(view, "2"))).toBe("something more");
 	});
 
 	it("keeps an edit made mid-take, adding only what is heard after it", async () => {
@@ -91,41 +94,32 @@ describe("App's card answer boxes", () => {
 		const stop = await waitFor(() =>
 			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
 		);
-		await waitFor(() => expect(answer(view, "2").value).toBe("something"));
+		await waitFor(() => expect(textIn(answer(view, "2"))).toBe("something"));
 
-		await act(async () =>
-			fireEvent.change(answer(view, "2"), {
-				target: { value: "Something, edited" },
-			}),
-		);
+		await typeIn(answer(view, "2"), "Something, edited");
 		act(() => microphone.speak(" more"));
 		await waitFor(() =>
-			expect(answer(view, "2").value).toBe("Something, edited more"),
+			expect(textIn(answer(view, "2"))).toBe("Something, edited more"),
 		);
 
 		await act(async () => fireEvent.click(stop));
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
-		expect(answer(view, "2").value).toBe("Something, edited more");
+		expect(textIn(answer(view, "2"))).toBe("Something, edited more");
 	});
 
 	it("sends the files pasted into a box with the reply, named after the answer they go with", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));
 		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
-		await act(async () =>
-			fireEvent.change(answer(view, "2"), {
-				target: { value: "This overlaps" },
-			}),
-		);
+		await typeIn(answer(view, "2"), "This overlaps");
 
 		await act(async () =>
 			fireEvent.paste(answer(view, "2"), { clipboardData: { files: [shot] } }),
 		);
 		expect(
-			within(card(view, "2")).getByRole("button", {
-				name: "remove shot.png",
-			}),
+			within(card(view, "2")).getByRole("button", { name: "Image 1" }),
 		).toBeTruthy();
+		expect(textIn(answer(view, "2"))).toBe("This overlaps [Image 1] ");
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Send" })),
 		);
@@ -239,11 +233,7 @@ describe("App's card answer boxes", () => {
 		await waitFor(() => card(view, "2"));
 		const box = answer(view, "2");
 
-		await act(async () =>
-			fireEvent.change(box, {
-				target: { value: "Look at @head", selectionStart: 13 },
-			}),
-		);
+		await typeIn(box, "Look at @head");
 		const files = await waitFor(() =>
 			within(card(view, "2")).getByRole("listbox", { name: "files" }),
 		);
@@ -254,7 +244,9 @@ describe("App's card answer boxes", () => {
 		).toEqual(["header.tsxsrc/"]);
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		expect(answer(view, "2").value).toBe("Look at @src/header.tsx ");
+		expect(textIn(answer(view, "2"))).toBe("Look at @src/header.tsx ");
+		// A chip, as the composer draws it, not the path as words.
+		expect(within(answer(view, "2")).getByText("header.tsx")).toBeTruthy();
 		expect(within(card(view, "2")).queryByRole("listbox")).toBeNull();
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
@@ -267,9 +259,7 @@ describe("App's card answer boxes", () => {
 		await waitFor(() => card(view, "2"));
 		const box = answer(view, "2");
 
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "#", selectionStart: 1 } }),
-		);
+		await typeIn(box, "#");
 		const references = await waitFor(() =>
 			within(card(view, "2")).getByRole("listbox", { name: "references" }),
 		);
@@ -282,12 +272,11 @@ describe("App's card answer boxes", () => {
 			"Untriagedtodos in no lane",
 			"alphaworking",
 		]);
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "#12", selectionStart: 3 } }),
-		);
+		await typeIn(box, "#12");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
-		expect(answer(view, "2").value).toBe("[ARBOR TODO #12] ");
+		expect(textIn(answer(view, "2"))).toBe("[ARBOR TODO #12] ");
+		expect(answer(view, "2").textContent).not.toContain("[ARBOR TODO #12]");
 	});
 
 	it("closes a box's list on Escape, leaving the card's keys alone", async () => {
@@ -295,9 +284,7 @@ describe("App's card answer boxes", () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));
 		const box = answer(view, "2");
-		await act(async () =>
-			fireEvent.change(box, { target: { value: "@", selectionStart: 1 } }),
-		);
+		await typeIn(box, "@");
 		await waitFor(() =>
 			within(card(view, "2")).getByRole("listbox", { name: "files" }),
 		);
@@ -305,6 +292,68 @@ describe("App's card answer boxes", () => {
 		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
 
 		expect(within(card(view, "2")).queryByRole("listbox")).toBeNull();
-		expect(answer(view, "2").value).toBe("@");
+		expect(textIn(answer(view, "2"))).toBe("@");
+	});
+
+	it("names each box's files from 1, and the reply's in one count, each where its chip stands", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		const first = new File(["a"], "first.png", { type: "image/png" });
+		const second = new File(["b"], "second.png", { type: "image/png" });
+		await typeIn(answer(view, "2"), "This");
+		await act(async () =>
+			fireEvent.paste(answer(view, "2"), { clipboardData: { files: [first] } }),
+		);
+		const more = view.getByRole("textbox", { name: "Anything else" });
+		await typeIn(more, "And");
+		await act(async () =>
+			fireEvent.paste(more, { clipboardData: { files: [second] } }),
+		);
+		await typeIn(more, `${textIn(more)}too`);
+		expect(textIn(more)).toBe("And [Image 1] too");
+
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send" })),
+		);
+
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{
+					method: "POST",
+					body: {
+						text: "And [Image 2] too\n\n> **What looks off at 390px?**\n\nThis [Image 1]",
+						file: [first, second],
+					},
+				},
+			]),
+		);
+	});
+
+	it("removes a file from its chip's menu, its chip with it", async () => {
+		const view = await testing.openConversations([asking]);
+		await waitFor(() => card(view, "2"));
+		const shot = new File(["png bytes"], "shot.png", { type: "image/png" });
+		await typeIn(answer(view, "2"), "This overlaps");
+		await act(async () =>
+			fireEvent.paste(answer(view, "2"), { clipboardData: { files: [shot] } }),
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(card(view, "2")).getByRole("button", { name: "Image 1" }),
+			),
+		);
+		await act(async () =>
+			fireEvent.click(
+				await waitFor(() => view.getByRole("menuitem", { name: "Remove" })),
+			),
+		);
+
+		await waitFor(() =>
+			expect(textIn(answer(view, "2"))).toBe("This overlaps "),
+		);
+		expect(
+			within(card(view, "2")).queryByRole("button", { name: "Image 1" }),
+		).toBeNull();
 	});
 });

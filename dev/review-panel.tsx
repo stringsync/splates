@@ -87,7 +87,7 @@ export function ReviewPanel({
 			);
 		}
 	};
-	const box = useRef<HTMLTextAreaElement>(null);
+	const box = useRef<HTMLDivElement>(null);
 	useArrival(send !== null, () => box.current);
 	const approved =
 		sent?.trim() === MERGE || sent?.trim().toLowerCase() === TYPED_MERGE;
@@ -153,7 +153,6 @@ export function ReviewPanel({
 					<CardBox
 						ref={box}
 						aria-label={`Changes to ${review.task}`}
-						rows={1}
 						value={changes}
 						placeholder="Say what to change…"
 						onValue={setChanges}

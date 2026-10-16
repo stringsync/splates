@@ -2,9 +2,8 @@ import { Disposer, type Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import type { Question } from "../plan";
 import { type Answer, replyOf } from "../reply";
-import { attachmentName, shelfOf } from "./attachment-chips";
-import { SEEN } from "./conversation-feed";
-import { Files } from "./files";
+import { ATTACHMENT_REFERENCE, attachmentName } from "./attachment-chips";
+import { Files, fileShelf } from "./files";
 
 /** The name of a card's "Anything else" box among its boxes. */
 export const MORE = "more";
@@ -35,8 +34,10 @@ export class BoxFiles implements Eventful<{ changed: undefined }>, Resource {
 
 	/**
 	 * The reply's files, box by box in the order of `texts`, and each box's
-	 * text with its files named after it: `[Image 1]` for the reply's first
-	 * image, `[File 1]` for its first other file.
+	 * text with its files named in the reply's count: `[Image 1]` for the
+	 * reply's first image, `[File 1]` for its first other file. A box names its
+	 * own from 1, each where its chip stands; one whose chip was taken out of
+	 * the words is named after them.
 	 */
 	out(texts: { name: string; text: string }[]): {
 		texts: string[];
@@ -47,13 +48,31 @@ export class BoxFiles implements Eventful<{ changed: undefined }>, Resource {
 		const named = texts.map(({ name, text }) => {
 			const own = this.boxes.get(name)?.files ?? [];
 			files.push(...own);
-			const names = own.map((file) => {
-				const shelf = shelfOf(SEEN.includes(file.type) ? "image" : "file");
-				const at = counts[shelf];
-				counts[shelf] += 1;
-				return `[${attachmentName(shelf, at)}]`;
-			});
-			return [text, ...names].filter((each) => each !== "").join(" ");
+			const local = { image: 0, file: 0 };
+			const renamed = new Map<string, string>();
+			for (const file of own) {
+				const shelf = fileShelf(file);
+				renamed.set(
+					attachmentName(shelf, local[shelf]++),
+					attachmentName(shelf, counts[shelf]++),
+				);
+			}
+			const chipped = new Set<string>();
+			const said = text.replace(
+				new RegExp(ATTACHMENT_REFERENCE.source, "g"),
+				(whole, called: string) => {
+					const to = renamed.get(called);
+					if (to === undefined) {
+						return whole;
+					}
+					chipped.add(called);
+					return `[${to}]`;
+				},
+			);
+			const loose = [...renamed]
+				.filter(([from]) => !chipped.has(from))
+				.map(([, to]) => `[${to}]`);
+			return [said, ...loose].filter((each) => each !== "").join(" ");
 		});
 		return { texts: named, files };
 	}

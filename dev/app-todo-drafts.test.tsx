@@ -85,7 +85,7 @@ describe("App's todo drafts", () => {
 			}),
 		);
 		await away(view);
-		expect(view.getByRole("button", { name: "remove shot.png" })).toBeTruthy();
+		expect(view.getByRole("button", { name: "shot.png" })).toBeTruthy();
 		expect(view.queryByText(/Lost on reload/)).toBeNull();
 
 		cleanup();

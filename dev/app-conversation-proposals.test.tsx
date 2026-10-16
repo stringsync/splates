@@ -7,6 +7,7 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -108,11 +109,9 @@ describe("App's questions card under a proposal", () => {
 		expect(within(card).getByRole("button", { name: "Send" })).toBeTruthy();
 		expect(within(card).queryByRole("button", { name: "Approve" })).toBeNull();
 
-		await act(async () =>
-			fireEvent.change(
-				within(card).getByRole("textbox", { name: "Answer to 2" }),
-				{ target: { value: "More" } },
-			),
+		await typeIn(
+			within(card).getByRole("textbox", { name: "Answer to 2" }),
+			"More",
 		);
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),

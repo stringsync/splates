@@ -7,6 +7,8 @@ import {
 	details,
 	fireEvent,
 	Testing,
+	textIn,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -97,11 +99,9 @@ Cap upload retries
 			configurable: true,
 			value: { writeText: async (text: string) => void copied.push(text) },
 		});
-		await act(async () =>
-			fireEvent.change(
-				within(alone).getByRole("textbox", { name: "Answer to 1" }),
-				{ target: { value: "three" } },
-			),
+		await typeIn(
+			within(alone).getByRole("textbox", { name: "Answer to 1" }),
+			"three",
 		);
 		await act(async () =>
 			fireEvent.click(
@@ -225,12 +225,12 @@ Cap upload retries
 			return view;
 		};
 		const answer = (view: ConversationsView) =>
-			(
+			textIn(
 				within(view.getByRole("region", { name: "gamma" })).getByRole(
 					"textbox",
 					{ name: "Answer to 1" },
-				) as HTMLTextAreaElement
-			).value;
+				),
+			);
 		const next = () =>
 			act(async () => {
 				fireEvent.keyDown(document.body, {
@@ -264,11 +264,7 @@ Cap upload retries
 		expect(location.hash).toBe("#conversations/new");
 
 		await open(view);
-		await act(async () =>
-			fireEvent.change(view.getByRole("textbox", { name: "Answer to 1" }), {
-				target: { value: "three" },
-			}),
-		);
+		await typeIn(view.getByRole("textbox", { name: "Answer to 1" }), "three");
 		cleanup();
 		view = await opened(PLAN);
 		expect(answer(view)).toBe("three");

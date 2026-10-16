@@ -117,13 +117,14 @@ export function PasteFilesPlugin(): null {
  * off when the agent starts a run, where assistant-ui's focus would raise the
  * keyboard over the reply. A message being typed as the run starts keeps the
  * focus it has; the one just sent, still in the editor as its run starts, does
- * not. Its run listener focuses as the run starts, so this one, made
- * in a layout effect to run ahead of it, notes whether the editor had focus,
- * and takes back the focus it gave before the page paints.
+ * not. Render it among the composer editor's plugins.
  */
 export function KeyboardDownOnTouchPlugin(): null {
 	const [editor] = useLexicalComposerContext();
 	const aui = useAui();
+	// assistant-ui's run listener focuses as the run starts, so this one, made
+	// in a layout effect to run ahead of it, notes whether the editor had
+	// focus, and takes back the focus it gave before the page paints.
 	useLayoutEffect(() => {
 		// The run a send starts can begin before the send's blur lands, the
 		// page showing the message at once, so it is not one being typed,
@@ -258,6 +259,7 @@ export function AttachmentChipsPlugin(): null {
 	const [editor] = useLexicalComposerContext();
 	const attachments = useAuiState((state) => state.composer.attachments);
 	useEffect(() => {
+		const chips = new AttachmentChips(editor);
 		// Each is named by its place on its shelf, images apart from the rest.
 		for (const shelf of ["image", "file"] as const) {
 			const shelved = attachments.filter(
@@ -267,33 +269,50 @@ export function AttachmentChipsPlugin(): null {
 				if (attachment.file === undefined || !wantsChip(attachment.file)) {
 					return;
 				}
-				$write(editor, attachmentName(shelf, at));
+				chips.write(attachmentName(shelf, at));
 			});
 		}
 	}, [editor, attachments]);
 	return null;
 }
-/** Writes the chip of attachment `id` at the caret, unless it is there already. */
-function $write(editor: LexicalEditor, id: string): void {
-	editor.update(() => {
-		if ($attachmentChips().some((chip) => chip.getDirectiveItem().id === id)) {
-			return;
-		}
-		const chip = $chip(id);
-		const found = $getSelection();
-		const selection = $isRangeSelection(found) ? found : $getRoot().selectEnd();
-		// Apart from a word it would otherwise run into.
-		const { anchor } = selection;
-		const node = anchor.getNode();
-		if (
-			$isTextNode(node) &&
-			/\S$/.test(node.getTextContent().slice(0, anchor.offset))
-		) {
-			selection.insertText(" ");
-		}
-		selection.insertNodes([chip]);
-		$spaceAfter(chip);
-	});
+/**
+ * The attachment chips in an editor's words: write one at the caret as its
+ * file is attached, and take one out as its file is removed.
+ */
+export class AttachmentChips {
+	constructor(private readonly editor: LexicalEditor) {}
+
+	/** Writes the chip of attachment `id` at the caret, unless it is there already. */
+	write(id: string): void {
+		this.editor.update(() => $write(id));
+	}
+
+	/**
+	 * Takes out the chips of attachment `placed` as it is removed, and names
+	 * those after it on its shelf one lower, as they now are.
+	 */
+	forget(placed: Placed): void {
+		this.editor.update(() => $forget(placed));
+	}
+}
+function $write(id: string): void {
+	if ($attachmentChips().some((chip) => chip.getDirectiveItem().id === id)) {
+		return;
+	}
+	const chip = $chip(id);
+	const found = $getSelection();
+	const selection = $isRangeSelection(found) ? found : $getRoot().selectEnd();
+	// Apart from a word it would otherwise run into.
+	const { anchor } = selection;
+	const node = anchor.getNode();
+	if (
+		$isTextNode(node) &&
+		/\S$/.test(node.getTextContent().slice(0, anchor.offset))
+	) {
+		selection.insertText(" ");
+	}
+	selection.insertNodes([chip]);
+	$spaceAfter(chip);
 }
 /** The chip of attachment `id`. */
 function $chip(id: string) {
@@ -364,7 +383,7 @@ export function ChipWriterPlugin({
 						$spaceAfter(chip);
 					}
 				}),
-			forget: (placed) => editor.update(() => $forget(placed)),
+			forget: (placed) => new AttachmentChips(editor).forget(placed),
 		};
 		return () => {
 			writer.current = null;

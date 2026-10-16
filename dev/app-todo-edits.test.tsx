@@ -147,13 +147,19 @@ describe("App's todo edits", () => {
 			view.getByRole("button", { name: "Save" }),
 		);
 		expect((save as HTMLButtonElement).disabled).toBe(true);
-		// An image opens in the lightbox; any other file is a link to it.
-		expect(
-			view.getByRole("link", { name: "b.log" }).getAttribute("target"),
-		).toBe("_blank");
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "expand a.png" })),
-		);
+		// Each is a chip, as in the composer: an image views in the lightbox.
+		const menu = async (name: string, item: string) => {
+			await act(async () =>
+				fireEvent.click(view.getByRole("button", { name })),
+			);
+			await act(async () =>
+				fireEvent.click(
+					await waitFor(() => view.getByRole("menuitem", { name: item })),
+				),
+			);
+		};
+		expect(view.queryByRole("img", { name: "a.png" })).toBeNull();
+		await menu("a.png", "View");
 		const lightbox = await waitFor(() =>
 			view.getByRole("dialog", { name: "a.png" }),
 		);
@@ -163,9 +169,8 @@ describe("App's todo edits", () => {
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "close" })),
 		);
-		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "remove b.log" })),
-		);
+		await menu("b.log", "Remove");
+		expect(view.queryByRole("button", { name: "b.log" })).toBeNull();
 		await act(async () => fireEvent.click(save));
 
 		await waitFor(() => expect(testing.posts).toHaveLength(1));

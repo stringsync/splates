@@ -102,6 +102,7 @@
 @source "./message-questions.tsx";
 @source "./card-reply.tsx";
 @source "./card-box.tsx";
+@source "./box-editor.tsx";
 @source "./box-references.tsx";
 @source "./question-card.tsx";
 @source "./question-ranking.tsx";

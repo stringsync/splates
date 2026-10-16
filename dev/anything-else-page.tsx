@@ -42,7 +42,6 @@ export function AnythingElsePage({
 					roomy
 					data-stop="more"
 					aria-label="Anything else"
-					rows={4}
 					value={more}
 					placeholder="Optional"
 					onValue={onMore}

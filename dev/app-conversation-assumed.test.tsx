@@ -7,6 +7,7 @@ import {
 	fireEvent,
 	message,
 	Testing,
+	typeIn,
 	waitFor,
 	within,
 } from "./testing";
@@ -118,11 +119,9 @@ describe("App's cards for the calls a reply says it assumed", () => {
 		expect(view.queryByRole("region", { name: "assumed" })).toBeNull();
 		// Only what it asks counts toward what is answered.
 		expect(card.textContent).toContain("0 of 1 answered");
-		await act(async () =>
-			fireEvent.change(
-				within(card).getByRole("textbox", { name: "Answer to 1" }),
-				{ target: { value: "Yes, once" } },
-			),
+		await typeIn(
+			within(card).getByRole("textbox", { name: "Answer to 1" }),
+			"Yes, once",
 		);
 		const list = within(card).getByRole("region", { name: "Assumptions" });
 		await act(async () =>
@@ -176,11 +175,9 @@ describe("App's cards for the calls a reply says it assumed", () => {
 				within(card).getByRole("button", { name: "Challenge assumption 7" }),
 			),
 		);
-		await act(async () =>
-			fireEvent.change(
-				within(card).getByRole("textbox", { name: "Answer to 7" }),
-				{ target: { value: "Call it RETRY_LIMIT" } },
-			),
+		await typeIn(
+			within(card).getByRole("textbox", { name: "Answer to 7" }),
+			"Call it RETRY_LIMIT",
 		);
 		await act(async () =>
 			fireEvent.click(within(card).getByRole("button", { name: "Send" })),
