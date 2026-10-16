@@ -154,15 +154,13 @@ describe("App's review panel, with what the task assumed", () => {
 			),
 		);
 		// Merging would leave the challenge unsaid, so Send stands in for it.
-		expect(button(panel)).toBe("Send changes");
+		expect(button(panel)).toBe("Send");
 		await typeIn(
 			within(panel).getByRole("textbox", { name: "Changes to header" }),
 			"and bolder",
 		);
 		await act(async () =>
-			fireEvent.click(
-				within(panel).getByRole("button", { name: "Send changes" }),
-			),
+			fireEvent.click(within(panel).getByRole("button", { name: "Send" })),
 		);
 
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
@@ -191,7 +189,7 @@ describe("App's review panel, with what the task assumed", () => {
 		await act(async () =>
 			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
 		);
-		expect(button(panel)).toBe("Send changes");
+		expect(button(panel)).toBe("Send");
 
 		await act(async () =>
 			fireEvent.click(within(list).getByRole("button", { name: /Menu/ })),
@@ -257,7 +255,7 @@ describe("App's review panel, with what the task assumed", () => {
 		await act(async () => testing.stream?.onmessage?.());
 
 		// Nothing moved under the person.
-		// Said beside Send changes, which stays put too.
+		// Said beside Send, which stays put too.
 		const banner = await waitFor(() => within(panel).getByRole("status"));
 		expect(
 			within(list).getByRole("listitem", { name: "question 1" }),
@@ -295,7 +293,7 @@ describe("App's review panel, with what the task assumed", () => {
 		await act(async () =>
 			fireEvent.click(within(list).getByRole("button", { name: /More/ })),
 		);
-		expect(button(panel)).toBe("Send changes");
+		expect(button(panel)).toBe("Send");
 
 		await act(async () =>
 			fireEvent.click(
@@ -314,9 +312,9 @@ describe("App's review panel, with what the task assumed", () => {
 	});
 });
 
-/** The one button the review's footer shows: Merge, or Send changes. */
+/** The one button the review's footer shows: Merge, or Send. */
 function button(panel: HTMLElement): string {
-	const shown = ["Merge", "Send changes"].filter(
+	const shown = ["Merge", "Send"].filter(
 		(name) => within(panel).queryByRole("button", { name }) !== null,
 	);
 	expect(shown).toHaveLength(1);

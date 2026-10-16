@@ -45,7 +45,7 @@ const TYPED_MERGE = "merge";
 /**
  * A review answered by keyboard alone: it comes up in its changes box, where
  * Enter sends them, and Merge is a Tab away while the box is empty. It shows
- * one button, Merge or Send changes, as the box is empty or not. What is written stays in the
+ * one button, Merge or Send, as the box is empty or not. What is written stays in the
  * panel, never the composer, until it is sent. It lists what the task
  * assumed, read from its `ARBOR.md` so the list is current, and a challenge
  * to one goes out with the changes, quoting its line as an answer would.
@@ -201,7 +201,7 @@ export function ReviewPanel({
 						) : (
 							<Button size="sm" onClick={ask}>
 								<SendHorizontalIcon data-icon="inline-start" />
-								Send changes
+								Send
 							</Button>
 						)}
 					</div>

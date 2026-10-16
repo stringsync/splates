@@ -215,9 +215,7 @@ describe("App's card answer boxes", () => {
 			fireEvent.paste(changes, { clipboardData: { files: [shot] } }),
 		);
 		await act(async () =>
-			fireEvent.click(
-				within(panel).getByRole("button", { name: "Send changes" }),
-			),
+			fireEvent.click(within(panel).getByRole("button", { name: "Send" })),
 		);
 
 		await waitFor(() =>

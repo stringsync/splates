@@ -82,7 +82,7 @@ describe("App's review panel and demo cards", () => {
 		await typeIn(changes, "merge the header first");
 		expect(textIn(changes)).toBe("merge the header first");
 		// Merging would leave the changes unsaid, so Send stands in for it.
-		expect(button(panel)).toBe("Send changes");
+		expect(button(panel)).toBe("Send");
 		expect(textIn(box(view))).toBe("");
 		expect(localStorage.getItem("arbor.draft.c1:review:0")).toBe(
 			"merge the header first",
@@ -136,7 +136,7 @@ describe("App's review panel and demo cards", () => {
 				.getAttribute("aria-pressed"),
 		).toBe("true");
 		expect(button(view.getByRole("region", { name: "review header" }))).toBe(
-			"Send changes",
+			"Send",
 		);
 	});
 
@@ -413,9 +413,9 @@ describe("App's review panel and demo cards", () => {
 	});
 });
 
-/** The one button the review's footer shows: Merge, or Send changes. */
+/** The one button the review's footer shows: Merge, or Send. */
 function button(panel: HTMLElement): string {
-	const shown = ["Merge", "Send changes"].filter(
+	const shown = ["Merge", "Send"].filter(
 		(name) => within(panel).queryByRole("button", { name }) !== null,
 	);
 	expect(shown).toHaveLength(1);
