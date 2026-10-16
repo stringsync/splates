@@ -8,6 +8,7 @@ import {
 	resize,
 	Testing,
 	textIn,
+	tool,
 	typeIn,
 	waitFor,
 	within,
@@ -497,5 +498,25 @@ describe("App's sending messages", () => {
 				body: { text: "[ARBOR RECONNECT]" },
 			},
 		]);
+	});
+
+	it("leaves the turn a lost connection cut short as it ended while the agent comes back", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Cut short",
+				status: "starting",
+				messages: [
+					message("user", "go"),
+					{
+						...message("agent", "Starting on it.", tool()),
+						interrupted: "2026-10-12T10:00:00.000Z",
+					},
+				],
+			}),
+		]);
+		const thread = view.getByRole("region", { name: "Cut short" });
+
+		await within(thread).findByText("Interrupted, connection lost");
+		expect(within(thread).queryByText(/^Working/)).toBeNull();
 	});
 });

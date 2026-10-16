@@ -104,7 +104,10 @@ describe("App's check-in on a long turn", () => {
 		const view = await testing.openConversations([
 			{ ...workingFor(12), status: "starting" },
 		]);
-		await waitFor(() => view.getByText(/^Working 12m/));
+		const work = await waitFor(() =>
+			view.container.ownerDocument.querySelector('[data-slot="work"]'),
+		);
+		expect(work?.textContent).not.toContain("Working");
 		expect(view.queryByRole("button", { name: "Check in" })).toBeNull();
 	});
 });

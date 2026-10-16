@@ -26,8 +26,10 @@ export function useThreadMessages(
 	const { id, status } = conversation;
 	const running = status === "running" || feed.sending.has(id);
 	const unsent = feed.unsent.get(id);
-	// The last message is still being written while the agent works.
-	const writing = status === "running" || status === "starting";
+	// The last message is still being written while the agent works. An agent
+	// starting is coming back to answer a prompt, never to go on with the turn
+	// it last ended, which a lost connection may have cut short.
+	const writing = status === "running";
 	// What waits for the turn's end sits above the composer, not in the
 	// thread: the agent has yet to hear it, and the thread would take it for
 	// a turn the agent is answering.
