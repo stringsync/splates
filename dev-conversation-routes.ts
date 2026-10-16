@@ -384,7 +384,7 @@ export class ConversationRoutes {
 		const conversation = await this.conversationAt(request);
 		await this.#refuseHandedOut(conversation);
 		const { archived } = await body(request);
-		// The agents it handed tasks to may be in other projects.
+		// The agents it handed tasks to or started may be in other projects.
 		const all = (await this.#anywhere().list()).map(
 			(each) => each.conversation,
 		);
@@ -397,13 +397,16 @@ export class ConversationRoutes {
 					.map((each) => each.unarchive()),
 			);
 		} else {
-			// The agents it handed tasks to answer to it alone: they go with it,
-			// stopped mid-work if they were at it, as the page confirmed.
+			// The agents it handed tasks to answer to it alone, and those a lane's
+			// orchestrator started work its lanes: they go with it, stopped
+			// mid-work if they were at it, as the page confirmed.
 			await Promise.all(
 				all
 					.filter(
 						(each) =>
-							each.state.handedBy === conversation.id && !each.state.archived,
+							(each.state.handedBy === conversation.id ||
+								each.state.startedBy === conversation.id) &&
+							!each.state.archived,
 					)
 					.map((each) => each.archive(conversation.id)),
 			);

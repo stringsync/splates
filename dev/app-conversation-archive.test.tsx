@@ -186,6 +186,68 @@ describe("App's archiving conversations", () => {
 		]);
 	});
 
+	it("archives a lane's orchestrator without asking once every agent it started is done", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "o1", title: "Stats lane", status: "stopped" }),
+				conversation({
+					id: "c1",
+					startedBy: "o1",
+					lastTask: "alpha",
+					status: "stopped",
+				}),
+			],
+			null,
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive Stats lane" }),
+			),
+		);
+
+		expect(view.queryByRole("dialog")).toBeNull();
+		expect(testing.posted("/api/conversations/o1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
+	it("asks before archiving a lane's orchestrator while an agent it started holds its task", async () => {
+		const view = await testing.openConversations(
+			[
+				conversation({ id: "o1", title: "Stats lane", status: "stopped" }),
+				conversation({
+					id: "c1",
+					startedBy: "o1",
+					task: "alpha",
+					status: "idle",
+				}),
+			],
+			null,
+			{ tasks: [details({ task: "alpha", takenBy: "c1" })] },
+		);
+
+		await act(async () =>
+			fireEvent.click(
+				within(
+					view.getByRole("navigation", { name: "conversations" }),
+				).getByRole("button", { name: "Archive Stats lane" }),
+			),
+		);
+		const dialog = view.getByRole("dialog", { name: "Archive Stats lane?" });
+		expect(dialog.textContent).toContain("or started with it");
+		expect(dialog.textContent).toContain("alpha");
+		await act(async () =>
+			fireEvent.click(within(dialog).getByRole("button", { name: "Archive" })),
+		);
+
+		expect(testing.posted("/api/conversations/o1/archived")).toEqual([
+			{ method: "PUT", body: { archived: true } },
+		]);
+	});
+
 	it("archives the open conversation on ⌥⌘⌫, going on to the next agent waiting on you", async () => {
 		const view = await testing.openConversations([
 			conversation({ id: "c1", title: "Done", status: "stopped" }),

@@ -48,7 +48,7 @@ import {
 	useNameOf,
 } from "./conversation-names";
 import { Dispatching, Trunk, whereRuns } from "./dispatching";
-import { useHandedOutBy, useHandedTo } from "./handed-out";
+import { Held, useHandedOutBy } from "./handed-out";
 import { Mark } from "./mark";
 import { Refusal, type Refuse, useRefusal } from "./refusal";
 import { LaneIcon } from "./task-icon";
@@ -298,9 +298,11 @@ export function Item({
 /**
  * Archives `conversation`, or brings it back, then runs `then`. Archiving
  * removes its task too, as `arbor remove` does, while the task is still there
- * and this conversation last took it. While its agent works, its shell is up,
- * or it would remove its task, `file` asks first in `confirm`, since archiving
- * stops or discards them; render `confirm` beside whatever calls `file`.
+ * and this conversation last took it, and takes along the agents it handed
+ * tasks to or started. While its agent works, its shell is up, it would remove
+ * its task, or an agent it takes along is not done, `file` asks first in
+ * `confirm`, since archiving stops or discards them; render `confirm` beside
+ * whatever calls `file`.
  */
 export function useArchive(
 	conversation: ConversationState,
@@ -333,8 +335,21 @@ export function useArchive(
 			: dispatching?.dispatch.task(conversation.task);
 	const task = !archived && held?.takenBy === id ? held : null;
 	const files = useHandedOutBy(conversation) === null;
-	// The agents it handed tasks to go with it, any at work stopped.
-	const along = useHandedTo(conversation).filter((each) => !each.archived);
+	// The agents it handed tasks to or started go with it, any at work stopped.
+	const along = useContext(Held).filter(
+		(each) => (each.handedBy === id || each.startedBy === id) && !each.archived,
+	);
+	// One it started is done once it stopped working and its task is gone,
+	// merged or removed; one it handed a task to answers to it, so always asks.
+	const live = along.filter(
+		(each) =>
+			each.handedBy === id ||
+			each.status === "starting" ||
+			each.status === "running" ||
+			(each.task !== null &&
+				(dispatching === null ||
+					dispatching.dispatch.task(each.task) !== undefined)),
+	);
 	const fileAway = () =>
 		void archiveConversation(id, !archived).then(
 			() => after.current?.(),
@@ -357,7 +372,7 @@ export function useArchive(
 	// asked as it is clicked, since the shell comes and goes without a render here.
 	const asks = () =>
 		!archived &&
-		(task !== null || working || along.length > 0 || shellRunning(id));
+		(task !== null || working || live.length > 0 || shellRunning(id));
 	const file = (then?: () => void, failed?: () => void) => {
 		after.current = then;
 		failure.current = failed;
@@ -385,11 +400,11 @@ export function useArchive(
 								: "its worktree, branch and uncommitted changes are discarded."}
 						</DialogDescription>
 					)}
-					{(working || along.length > 0 || shell) && (
+					{(working || live.length > 0 || shell) && (
 						<DialogDescription>
 							{working
 								? "The agent is still running. Archiving stops it and closes its terminal."
-								: along.length > 0
+								: live.length > 0
 									? "Archiving stops its agent."
 									: conversation.status === "idle"
 										? "Its terminal is still open. Archiving closes it, and stops the idle agent."
@@ -398,8 +413,8 @@ export function useArchive(
 					)}
 					{along.length > 0 && (
 						<DialogDescription>
-							It takes the agents it handed tasks to with it, stopping any at
-							work, and unarchiving it brings them back:{" "}
+							It takes the agents it handed tasks to or started with it,
+							stopping any at work, and unarchiving it brings them back:{" "}
 							{along
 								.map(
 									(each) =>
@@ -413,7 +428,7 @@ export function useArchive(
 				<DialogFooter>
 					{/* Only its shell stands in the way: show it, to stop what runs
 					    there or see that nothing does. */}
-					{!working && along.length === 0 && shell && showTerminal !== null && (
+					{!working && live.length === 0 && shell && showTerminal !== null && (
 						<Button
 							variant="outline"
 							className="sm:mr-auto"

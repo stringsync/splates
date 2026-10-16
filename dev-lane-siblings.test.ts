@@ -132,10 +132,18 @@ describe("dev conversations a lane's orchestrator started", () => {
 		expect(agent.cancelled).toBe(1);
 	});
 
-	it("stays when the orchestrator is archived", async () => {
+	it("goes with the orchestrator when it is archived, and comes back with it", async () => {
 		await write(orchestrator.id, "archived", "PUT", { archived: true });
 
 		expect(orchestrator.state.archived).toBe(true);
+		expect(started.state).toMatchObject({
+			archived: true,
+			archivedWith: orchestrator.id,
+		});
+
+		await write(orchestrator.id, "archived", "PUT", { archived: false });
+
+		expect(orchestrator.state.archived).toBe(false);
 		expect(started.state.archived).toBe(false);
 	});
 });
