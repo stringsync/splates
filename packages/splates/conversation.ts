@@ -152,11 +152,12 @@ export class Conversation
 			sessionCwd,
 		});
 		if (taken !== null && agent !== null) {
-			conversation.grant =
-				deps.slots?.hold(
-					{ id: state.id, task: state.task },
-					taken.live.handle.worker,
-				) ?? null;
+			conversation.grant = !spawned(state)
+				? null
+				: (deps.slots?.hold(
+						{ id: state.id, task: state.task },
+						taken.live.handle.worker,
+					) ?? null);
 			conversation.connection.reattach(agent, taken.process, taken.live);
 		}
 		return conversation;
@@ -685,12 +686,14 @@ export class Conversation
 
 	/**
 	 * Waits in the queue for a slot for its agent, keeping where it waits in
-	 * its state: the launch on the worker it was placed on, undefined when
-	 * there are no slots to take, or null once a stop takes it out of line.
+	 * its state: the launch on the worker it was placed on, undefined when it
+	 * takes no slot, or null once a stop takes it out of line. Only an agent
+	 * another agent started takes one: slots cap how many agents agents
+	 * start, never how many the person does.
 	 */
 	private async place(): Promise<Launch | undefined | null> {
 		const { slots } = this.deps;
-		if (slots === undefined) {
+		if (slots === undefined || !spawned(this.state)) {
 			return undefined;
 		}
 		this.grant?.dispose();
@@ -735,6 +738,11 @@ export class Conversation
 		}
 		this.set({ queue: spot });
 	}
+}
+
+/** Whether another agent started it, handing it its task, rather than the person. */
+function spawned(state: ConversationState): boolean {
+	return state.handedBy !== null || state.startedBy !== null;
 }
 
 /** What a conversation is opened with, started afresh or brought in. */

@@ -14,13 +14,17 @@ import type { WorkerRegistry } from "./worker-registry";
 /** How many agents a worker runs at once until its hello says. */
 export const DEFAULT_SLOTS = 8;
 
-/** How many agents this machine's worker runs at once, unless `splates server --worker-slots` says. */
+/**
+ * How many agents other agents started this machine's worker runs at once,
+ * unless `splates server --worker-slots` says; those the person starts take
+ * no slot.
+ */
 export const LOCAL_SLOTS = 16;
 
 /**
  * The machine's queue for worker slots, over the workers its registry
- * keeps: every project's agents wait in one line, and each starts on the
- * worker it was placed on.
+ * keeps: the agents other agents start, from every project, wait in one
+ * line, and each starts on the worker it was placed on.
  */
 export class WorkerSlots implements Resource {
 	readonly scheduler: Scheduler;

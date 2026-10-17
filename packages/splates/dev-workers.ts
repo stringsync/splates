@@ -37,11 +37,12 @@ export interface DevWorkersOptions {
 /**
  * Where `splates server` takes its workers in, as their coordinator: the local
  * worker through a Unix socket only this user may open, and others through
- * `/api/workers`, and every agent waits in `slots` for room on one.
+ * `/api/workers`, and every agent another agent starts waits in `slots`
+ * for room on one.
  */
 export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly registry: WorkerRegistry;
-	/** The queue every project's agents take a slot on a worker from. */
+	/** The queue the agents other agents start take a slot on a worker from. */
 	readonly slots: WorkerSlots;
 	/** This machine's worker, which agents run on; work waits for it to join. */
 	readonly local: RemoteWorker;

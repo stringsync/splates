@@ -229,6 +229,10 @@ secrets manager comes before it is built (#284).
   A wake that has not checked in within a time limit falls through to
   provisioning, so a home machine never holds the queue up. First come,
   first served, and the user can reorder the queue.
+- Slots cap the agents other agents start (*settled*): those `splates add
+  --agent` or a lane's orchestrator hand out. An agent the person starts
+  always runs at once and takes no slot; by default a worker caps the rest
+  at 16 (`splates server --worker-slots`).
 - A task prefers the worker holding its checkout. Workers advertise their
   platform (Linux or macOS); a project may require one in `splates.config.ts`.
 - A task waiting on the user holds its slot while its agent is live; when

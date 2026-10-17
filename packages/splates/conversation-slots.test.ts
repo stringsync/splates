@@ -82,8 +82,13 @@ describe("Conversations waiting for a slot", () => {
 
 	afterEach(() => conversations.disposeAsync());
 
+	/** Starts an agent on `task` as a lane's orchestrator hands one out. */
 	const start = (task: string) =>
-		conversations.start("fake", { task, cwd: `/repo-splates/${task}` });
+		conversations.start("fake", {
+			task,
+			cwd: `/repo-splates/${task}`,
+			startedBy: "orchestrator",
+		});
 
 	const restOut = () => {
 		for (const entry of timer.timeouts) {
@@ -148,6 +153,15 @@ describe("Conversations waiting for a slot", () => {
 		await again;
 		await until(first, "idle");
 		expect(agent.launched).toHaveLength(3);
+	});
+
+	it("starts an agent the person starts at once, taking no slot", async () => {
+		const first = await start("login");
+		await until(first, "idle");
+		const own = await conversations.start("fake", { task: null, cwd: "/repo" });
+		await until(own, "idle");
+		expect(own.state.queue).toBeNull();
+		expect(scheduler.held().map((held) => held.id)).toEqual([first.id]);
 	});
 
 	it("frees the slot of an agent that fails to start", async () => {
