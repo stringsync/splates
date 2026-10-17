@@ -19,6 +19,7 @@ import { startDispatched } from "./dispatched";
 import type { Everywhere } from "./everywhere";
 import type { Format } from "./format";
 import { HandedOut } from "./handed-out";
+import { SeenLaneTodos } from "./lane-todos";
 import type { LaneRecord } from "./lanes";
 import { type Needing, needs } from "./needs";
 import type { Projects } from "./projects";
@@ -45,7 +46,8 @@ export async function serveProject(
 	// not a page listens, so its records are watched all along. One run at
 	// a time, so none starts a task the run before it is starting.
 	let handOffs: Resource | null = null;
-	let handedOut: Resource | null = null;
+	let handedOut: HandedOut | null = null;
+	let todosWatch: Resource | null = null;
 	let events: Resource | null = null;
 	if (conversations !== null) {
 		handedOut = HandedOut.watch({
@@ -53,6 +55,8 @@ export async function serveProject(
 			conversations,
 			everywhere: context.everywhere,
 			lanes: () => project.todos.lanes(),
+			todos: () => project.todos.stored(),
+			seen: new SeenLaneTodos(fs, `${arborDir}/lane-todos.json`),
 			log,
 		});
 		events = await ConversationEvents.follow({
@@ -86,6 +90,26 @@ export async function serveProject(
 			);
 		}
 		handOff();
+		// A todo merged or let go from any tree tells its lane's orchestrator
+		// at once, not at the next sweep.
+		const todosSettled = new Debouncer(new SystemTimer(), SETTLE);
+		const watched = handedOut;
+		try {
+			await fs.mkdir(`${arborDir}/todos`);
+			const watching = fs.watch(`${arborDir}/todos`, () =>
+				todosSettled.call(() => void watched.sweep()),
+			);
+			todosWatch = {
+				dispose: () => {
+					watching.dispose();
+					todosSettled.cancel();
+				},
+			};
+		} catch (error) {
+			log.error(
+				`arbor dev cannot watch ${service.git.root}'s todos, so a lane's orchestrator hears of one merged or let go only at the next sweep: ${String(error)}`,
+			);
+		}
 	}
 
 	const talks = new ConversationRoutes(
@@ -132,6 +156,7 @@ export async function serveProject(
 		async disposeAsync() {
 			watch.dispose();
 			handOffs?.dispose();
+			todosWatch?.dispose();
 			handedOut?.dispose();
 			events?.dispose();
 			await talks.disposeAsync();

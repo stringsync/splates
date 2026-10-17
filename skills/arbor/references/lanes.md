@@ -66,29 +66,44 @@ stands, and those landed. So you change the plan by changing the lanes:
    When `add` stops on `agents_full`, you have as many agents out as
    `agentsPerAgent` in `arbor.config.ts` allows one agent: hand out nothing
    more, and
-   say in your working report what waits for room, since each report of one
-   landing frees one. Pass `--over-capacity` only when the user asked, in so
+   say in your working report what waits for room, since each todo that
+   lands frees one. Pass `--over-capacity` only when the user asked, in so
    many words, for more agents at once than that; a lane's size or urgency
    is never their consent.
 5. Once nothing more can go out, end your turn on a working report (see
    Reporting on lanes). Never wait, sleep or poll for your agents: arbor
-   wakes you with a directive whenever one of them stops, and only then do
-   you act.
+   wakes you with a directive whenever a todo in your lanes is done or open
+   again, and only then do you act.
 
 A task you handed out in another project comes back named `<slug>/<task>`:
 run each command below on it as `arbor --project <slug> <command> <task>`.
 
 ## What wakes you
 
-`[ARBOR REPORT <task>]`, which arrives as a message from the user would,
-means a task you handed out stopped: escalated, merged or removed. Read
-`arbor show <task>`, once per stop: one you have already acted on needs
-nothing more. When it is gone, read in `git log` what landed, then go back
-to step 1 of Handing out for its lane: what it held back may go out now,
-and what landed may change what the rest need, which you pass on in their
-`--prompt`, or to one out with `arbor tell`. When it escalated, it waits on
-the user, who answers it in its own conversation: what needs it waits too,
-and the rest goes on.
+Your agents never report to you: arbor watches the todos in your lanes and
+tells you what became of each, however it came about, by your agent, another
+conversation or an external one. Each arrives as a message from the user
+would, once per change.
+
+`[ARBOR TODO DONE #N]` means todo N left the list: its task merged, or it
+was removed. Read in `git log` what landed, then go back to step 1 of
+Handing out for its lane: what it held back may go out now, and what landed
+may change what the rest need, which you pass on in their `--prompt`, or to
+one out with `arbor tell`.
+
+`[ARBOR TODO OPEN #N]` means todo N is open again: the task that took it
+released it or was removed. Go back to step 1 of Handing out for its lane,
+which hands it out again once it can go; `arbor todo show N` says what the
+last task learned.
+
+A task that escalates wakes you for nothing: it waits on the user, who
+answers it in its own conversation, and what needs it waits too.
+
+A task you handed to another project holds no todo in your lanes, so its
+agent reports instead: `[ARBOR REPORT <slug>/<task>]` means it stopped,
+escalated, merged or removed. Read `arbor --project <slug> show <task>`,
+once per stop, and when it is gone, go back to step 1 of Handing out as for
+a todo done.
 
 `[ARBOR IDLE <task>]` means the agent you handed `<task>` out to ended a
 turn, failed, or was stopped by a restart, without escalating, merging or

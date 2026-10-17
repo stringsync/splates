@@ -18,6 +18,8 @@ import {
 	setupReference,
 	stoppedReference,
 	taskReference,
+	todoDoneReference,
+	todoOpenReference,
 	todoReference,
 } from "./prompts";
 
@@ -39,6 +41,8 @@ describe("the arbor skill's Directives table", () => {
 				reportReference("<task>"),
 				idleReference("<task>"),
 				stoppedReference("<task>"),
+				todoDoneReference(0).replace("0", "N"),
+				todoOpenReference(0).replace("0", "N"),
 				HEARTBEAT,
 				LANES_DONE,
 				CHECKPOINT,

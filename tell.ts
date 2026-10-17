@@ -89,9 +89,22 @@ export async function tell(
 }
 
 /**
+ * Whether the agent at work on `worktree` answers to the conversation that
+ * handed it on, as after `arbor handoff --relay`; a handoff recorded before
+ * `relay` was kept always did.
+ */
+function relays(worktree: Worktree): boolean {
+	const dispatch = worktree.state?.dispatch;
+	return (
+		dispatch?.relay === true ||
+		(dispatch?.handoff === true && dispatch.relay === undefined)
+	);
+}
+
+/**
  * Tells the conversation that handed `worktree` out that the task stopped,
- * escalated, merged or removed, with `[ARBOR REPORT <task>]`, so an
- * orchestrator waiting on the user hears of it too. Run before the record
+ * escalated, merged or removed, with `[ARBOR REPORT <task>]`, when its agent
+ * answers to that conversation, or that conversation is another project's. Run before the record
  * goes, by the command that stops it. Outside `arbor dev`, or for a task
  * nobody handed out, it says nothing; a server that cannot be reached is
  * worth a line, never a failure, since the command has done its work.
@@ -122,10 +135,16 @@ export async function reportToCaller(
 	) {
 		return;
 	}
+	const here = await service.holds(ends.caller);
+	// A lane's orchestrator here hears of its todos from `arbor dev` instead;
+	// one of another project's page has no todo here to hear of.
+	if (here && !relays(worktree)) {
+		return;
+	}
 	try {
 		// A caller of another project's page names the task by this one's slug.
 		const root = service.git.root;
-		const named = (await service.holds(ends.caller))
+		const named = here
 			? worktree.task
 			: `${(await projects.list()).find((each) => each.root === root)?.slug ?? root}/${worktree.task}`;
 		const form = new FormData();

@@ -7,9 +7,11 @@ import { type Conversation, Conversations } from "./conversations";
 import { Everywhere } from "./everywhere";
 import { AGENT, FakeAgent } from "./fake-agent";
 import { HandedOut } from "./handed-out";
+import { SeenLaneTodos } from "./lane-todos";
 import type { LaneRecord } from "./lanes";
 import { remove } from "./remove";
 import { Testing } from "./testing";
+import type { TodoState } from "./todo";
 
 describe("HandedOut", () => {
 	let deps: Testing;
@@ -23,6 +25,8 @@ describe("HandedOut", () => {
 	let release: () => void;
 	/** The lanes on the board, lane 1 until a test empties it. */
 	let board: LaneRecord[];
+	/** The todos on the list, none until a test adds some. */
+	let list: TodoState[];
 
 	const until = async (done: () => boolean) => {
 		for (let i = 0; i < 200 && !done(); i++) {
@@ -40,6 +44,8 @@ describe("HandedOut", () => {
 			service: deps.service,
 			conversations,
 			lanes: async () => board,
+			todos: async () => list,
+			seen: new SeenLaneTodos(deps.fs, `${deps.arborDir}/lane-todos.json`),
 			log: deps.log,
 			timer,
 			clock,
@@ -61,6 +67,7 @@ describe("HandedOut", () => {
 		clock = new FakeWallClock(Date.now());
 		release = () => {};
 		board = [{ id: 1, name: "Stats" }];
+		list = [];
 		await add(deps, "alpha");
 	});
 
@@ -145,6 +152,8 @@ describe("HandedOut", () => {
 					slug: async () => "repo",
 				}),
 				lanes: async () => board,
+				todos: async () => list,
+				seen: new SeenLaneTodos(deps.fs, `${deps.arborDir}/lane-todos.json`),
 				log: deps.log,
 				timer,
 				clock,
@@ -434,5 +443,86 @@ describe("HandedOut", () => {
 		await until(() => said.length === 2);
 
 		expect(said).toEqual(["[ARBOR LANE 1]", "[ARBOR LANES DONE]"]);
+	});
+
+	/** Todo `id` in `lane`, taken by `takenBy`. */
+	const todo = (
+		id: number,
+		takenBy: string | null,
+		lane: number | null = 1,
+	): TodoState => ({
+		id,
+		subject: `todo ${id}`,
+		text: "",
+		position: id,
+		from: null,
+		createdAt: "2026-10-16T00:00:00Z",
+		takenBy,
+		files: [],
+		blockedBy: [],
+		lane,
+	});
+
+	it("tells an orchestrator once as a todo in its lane leaves the list", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		list = [todo(2, "beta"), todo(3, null)];
+		const watched = watch();
+		await watched.sweep();
+		list = [todo(3, null)];
+		await watched.sweep();
+		await until(() => said.length === 2);
+		await watched.sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[ARBOR LANE 1]", "[ARBOR TODO DONE #2]"]);
+	});
+
+	it("tells an orchestrator as a todo in its lane comes back open", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		list = [todo(2, "beta")];
+		const watched = watch();
+		await watched.sweep();
+		list = [todo(2, null)];
+		await watched.sweep();
+		await until(() => said.length === 2);
+
+		expect(said).toEqual(["[ARBOR LANE 1]", "[ARBOR TODO OPEN #2]"]);
+	});
+
+	it("tells an orchestrator nothing of a todo in a lane it does not work", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		board = [
+			{ id: 1, name: "Stats" },
+			{ id: 2, name: "Licensing" },
+		];
+		list = [todo(2, "beta", 2)];
+		const watched = watch();
+		await watched.sweep();
+		list = [];
+		await watched.sweep();
+		await Bun.sleep(50);
+
+		expect(said).toEqual(["[ARBOR LANE 1]"]);
+	});
+
+	it("tells an orchestrator of a todo that left its lane while arbor dev was down", async () => {
+		await orchestrating(
+			"## ⏳ Working lanes Stats: on beta\n\n#### #2 went out.",
+		);
+		list = [todo(2, "beta"), todo(3, null)];
+		await watch().sweep();
+		watching?.dispose();
+		list = [todo(3, null)];
+		await restart();
+		await watch().sweep();
+		await until(() => said.length === 2);
+
+		expect(said).toEqual(["[ARBOR LANE 1]", "[ARBOR TODO DONE #2]"]);
 	});
 });

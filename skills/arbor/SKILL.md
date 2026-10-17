@@ -36,7 +36,9 @@ asks you to read it as Reference files says.
 | `[ARBOR UPDATE]` | Where your work stands, from the Check in button | Bring `## Done` and `## Next` up to date, then, before any other tool call, answer in at most three `- ` lines: what you finished since the user last heard from you, what you are on now, and what is in the way, if anything. Write them as your reply even when this comes in mid-turn: your thinking and `ARBOR.md` do not count. Then carry on with the work in the same turn: no further report, no questions and no stop |
 | `[ARBOR LANE untriaged]` | Orchestrate the todos in no lane | Working the untriaged lane below first, then [lanes.md](references/lanes.md) as it says |
 | `[ARBOR LANE N]` | Work down lane N as its orchestrator | [lanes.md](references/lanes.md) |
-| `[ARBOR REPORT <task>]` | A task you handed out stopped: escalated, merged or removed | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
+| `[ARBOR REPORT <task>]` | A task you handed on with `--relay`, or to another project, stopped: escalated, merged or removed | [handoff.md](references/handoff.md); for another project's, [lanes.md](references/lanes.md) |
+| `[ARBOR TODO DONE #N]` | A todo in a lane you orchestrate left the list: merged or removed | [lanes.md](references/lanes.md) |
+| `[ARBOR TODO OPEN #N]` | A todo in a lane you orchestrate is open again: its task let it go or was removed | [lanes.md](references/lanes.md) |
 | `[ARBOR IDLE <task>]` | A task you handed out sits still: its agent's turn ended, or failed, short of a stop | [lanes.md](references/lanes.md); for a task you handed on with `--relay`, [handoff.md](references/handoff.md) |
 | `[ARBOR STOPPED <task>]` | The user terminated the agent of a task you handed on with `--relay` | [handoff.md](references/handoff.md) |
 | `[ARBOR LANES DONE]` | Every lane you orchestrate is done, however its last todo landed | [lanes.md](references/lanes.md) |
@@ -689,7 +691,7 @@ since it reads your `ARBOR.md`, not your replies:
 
 A lane's orchestrator that handed you a todo (`$ARBOR_STARTED_BY` is set)
 is not one you report to: you answer to the user, as for any task, and
-those commands only tell it where the lane stands. Propose no next todo
+arbor tells it where the lane stands from the todos. Propose no next todo
 once you merge or remove: it hands that out.
 
 ## Merge or review

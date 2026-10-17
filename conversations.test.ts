@@ -230,6 +230,33 @@ describe("Conversations", () => {
 		await later.disposeAsync();
 	});
 
+	it("gives an agent read back before the server answers the server's url as it resumes", async () => {
+		const conversation = await started();
+		await conversations.disposeAsync();
+		agent.launched.length = 0;
+
+		// As after a restart: the project opens, reading every conversation
+		// back, before `arbor dev` knows its url.
+		const later = new Conversations("/repo/.git/arbor/conversations", [AGENT], {
+			fs,
+			timer,
+			clock,
+			ids: new CounterIdProvider(),
+			launch: agent.launch,
+		});
+		const read = await later.find(conversation.id);
+		later.url = "http://localhost:4269";
+		await read.resume();
+
+		expect(agent.launched.map((each) => each.env)).toEqual([
+			{
+				ARBOR_CONVERSATION: conversation.id,
+				ARBOR_DEV: "http://localhost:4269",
+			},
+		]);
+		await later.disposeAsync();
+	});
+
 	it("judges how a conversation follows the skill as each turn ends", async () => {
 		const adherence = new Adherence("/home/.arbor/adherence.jsonl", fs, null);
 		const shop = new Conversations("/repo/.git/arbor/conversations", [AGENT], {

@@ -157,9 +157,15 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		});
 	}
 
-	/** What each conversation is made with, read as each starts, since `url` is set later. */
+	/** What each conversation is made with. */
 	private get deps(): ConversationDeps {
+		const conversations = this;
 		return {
+			// Read as each agent launches, since `url` is set after the project
+			// opens, which reads back every conversation from before a restart.
+			get url() {
+				return conversations.url;
+			},
 			fs: this.fs,
 			ids: this.ids,
 			artifacts: this.artifacts,
@@ -169,7 +175,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			launch: this.run,
 			machine: this.machine,
 			starting: this.starting,
-			url: this.url,
 			watch: this.watch,
 			root: this.root,
 			projects: this.projects,

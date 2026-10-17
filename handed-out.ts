@@ -14,6 +14,12 @@ import type { Message } from "./conversation-state";
 import { HEARTBEAT_IDLE } from "./conversation-state";
 import type { Conversation, Conversations } from "./conversations";
 import { Everywhere } from "./everywhere";
+import {
+	type LaneTodoChange,
+	laneChanges,
+	laneTodos,
+	type SeenLaneTodos,
+} from "./lane-todos";
 import type { LaneRecord } from "./lanes";
 import {
 	HEARTBEAT,
@@ -21,8 +27,11 @@ import {
 	LANES_DONE,
 	reportReference,
 	stoppedReference,
+	todoDoneReference,
+	todoOpenReference,
 	UNTRIAGED,
 } from "./prompts";
+import type { TodoState } from "./todo";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -53,6 +62,12 @@ const SETTLE = Duration.secs(1);
  * turn it takes before then puts the next one off again. A lane's
  * orchestrator gets none: its agents talk to the person themselves.
  *
+ * A lane's orchestrator is told `[ARBOR TODO DONE #N]` as a todo in a lane
+ * it works leaves the list, and `[ARBOR TODO OPEN #N]` as one comes back
+ * open, however that came about, so the todos drive the lane rather than its
+ * agents reporting back. What changed while `arbor dev` was down is told
+ * once it is back.
+ *
  * A lane's orchestrator whose lanes are all done, however their last todos
  * landed, that sits idle on a Working or Waiting report, as though they were
  * not, is told `[ARBOR LANES DONE]`, once since it last started lanes, so it
@@ -77,6 +92,8 @@ export class HandedOut implements Resource {
 		private readonly conversations: Conversations,
 		private readonly everywhere: Everywhere,
 		private readonly lanes: () => Promise<LaneRecord[]>,
+		private readonly todos: () => Promise<TodoState[]>,
+		private readonly seen: SeenLaneTodos,
 		private readonly log: Logger,
 		private readonly timer: Timer,
 		private readonly clock: WallClock,
@@ -107,6 +124,8 @@ export class HandedOut implements Resource {
 		conversations,
 		everywhere = Everywhere.onlyHere(service.git.root, conversations),
 		lanes,
+		todos,
+		seen,
 		log,
 		timer = new SystemTimer(),
 		clock = new SystemWallClock(),
@@ -120,6 +139,10 @@ export class HandedOut implements Resource {
 		everywhere?: Everywhere;
 		/** The lanes on the board, a lane gone from it once it is done. */
 		lanes: () => Promise<LaneRecord[]>;
+		/** Every todo on the list. */
+		todos: () => Promise<TodoState[]>;
+		/** The lane todos as last seen, kept past a restart. */
+		seen: SeenLaneTodos;
 		log: Logger;
 		timer?: Timer;
 		clock?: WallClock;
@@ -129,6 +152,8 @@ export class HandedOut implements Resource {
 			conversations,
 			everywhere,
 			lanes,
+			todos,
+			seen,
 			log,
 			timer,
 			clock,
@@ -153,6 +178,8 @@ export class HandedOut implements Resource {
 				await this.#check(conversation);
 			}
 			const lanes = await this.lanes();
+			// Before the lanes done, so one told of its last todo ends there.
+			await this.#tell(all, lanes);
 			for (const conversation of all) {
 				await this.#finish(conversation, lanes);
 			}
@@ -215,6 +242,45 @@ export class HandedOut implements Resource {
 					}),
 				wait,
 			),
+		);
+	}
+
+	/**
+	 * Tells each orchestrator in `all` what became of the todos in the lanes
+	 * it works since they were last seen.
+	 */
+	async #tell(all: Conversation[], lanes: LaneRecord[]): Promise<void> {
+		const stored = await this.todos();
+		const now = laneTodos(stored, lanes);
+		const before = await this.seen.read();
+		if (before !== null) {
+			for (const change of laneChanges(before, now, stored)) {
+				for (const conversation of all) {
+					if (this.#works(conversation, change)) {
+						await conversation.prompt(
+							change.change === "done"
+								? todoDoneReference(change.todo)
+								: todoOpenReference(change.todo),
+						);
+					}
+				}
+			}
+		}
+		if (JSON.stringify(before) !== JSON.stringify(now)) {
+			await this.seen.write(now);
+		}
+	}
+
+	/** Whether `conversation` orchestrates the lane `change` is in, and is still at it. */
+	#works(conversation: Conversation, change: LaneTodoChange): boolean {
+		const { state } = conversation;
+		return (
+			!state.archived &&
+			// Stopped by the person, it is theirs.
+			(state.status !== "stopped" || this.#readBack.has(state.id)) &&
+			(lanesOf(state).includes(String(change.lane.id)) ||
+				startedLanes(state).includes(change.lane.name)) &&
+			!finished(state)
 		);
 	}
 
@@ -351,6 +417,14 @@ function nextHeartbeat(
 		return null;
 	}
 	return new Date(Date.parse(since) + HEARTBEAT_IDLE.ms).toISOString();
+}
+
+/** Whether the last report `state`'s agent made on its lanes is its Finished one. */
+function finished(state: Conversation["state"]): boolean {
+	const last = state.messages
+		.flatMap(stretchesOf)
+		.findLast((each) => each.type === "report" && "lanes" in each.report);
+	return last?.type === "report" && last.report.ending === "finished";
 }
 
 /** The stretches of `message`, the agent's; none for the person's. */

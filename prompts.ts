@@ -78,6 +78,22 @@ export function idleReference(task: string): string {
 export const HEARTBEAT = "[ARBOR HEARTBEAT]";
 
 /**
+ * What tells a lane's orchestrator that todo `id`, in a lane it works, left
+ * the list: merged, or removed.
+ */
+export function todoDoneReference(id: number): string {
+	return `[ARBOR TODO DONE #${id}]`;
+}
+
+/**
+ * What tells a lane's orchestrator that todo `id`, in a lane it works, is
+ * open again: the task that took it released it or was removed.
+ */
+export function todoOpenReference(id: number): string {
+	return `[ARBOR TODO OPEN #${id}]`;
+}
+
+/**
  * What tells a lane's orchestrator that every lane it works is done, however
  * the last todo landed, so it ends on its Finished report.
  */
@@ -85,11 +101,11 @@ export const LANES_DONE = "[ARBOR LANES DONE]";
 
 /**
  * Whether `text` is an update arbor itself tells the conversation that handed
- * tasks out: a report, idle, stopped, heartbeat or lanes done, never the
- * person's word.
+ * tasks out: a report, idle, stopped, a todo done or open, heartbeat or
+ * lanes done, never the person's word.
  */
 export function isUpdate(text: string): boolean {
-	return /^\[ARBOR (?:(?:REPORT|IDLE|STOPPED) [^\]]+|HEARTBEAT|LANES DONE)\]$/.test(
+	return /^\[ARBOR (?:(?:REPORT|IDLE|STOPPED) [^\]]+|TODO (?:DONE|OPEN) #\d+|HEARTBEAT|LANES DONE)\]$/.test(
 		text.trim(),
 	);
 }

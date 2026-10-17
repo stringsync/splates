@@ -25,11 +25,16 @@ describe("tell", () => {
 		sent = [];
 		status = 200;
 		await add(deps, "alpha");
-		// As `arbor dev` leaves a task conversation `orch` handed out once it
-		// started the agent in conversation `agent`.
+		// As `arbor dev` leaves a task conversation `orch` handed on with
+		// `--relay` once it started the agent in conversation `agent`.
 		await (await deps.service.find("alpha")).save({
 			caller: "orch",
-			dispatch: { agent: "fake", conversation: "agent" },
+			dispatch: {
+				agent: "fake",
+				conversation: "agent",
+				handoff: true,
+				relay: true,
+			},
 		});
 	});
 
@@ -116,6 +121,33 @@ describe("tell", () => {
 		await reportToCaller({ ...deps, send }, await deps.service.find("beta"));
 
 		expect(sent).toEqual([]);
+	});
+
+	it("reports nothing for a task a lane's orchestrator here handed out, which hears from its todos", async () => {
+		runAs("agent");
+		await deps.fs.mkdir(`${deps.arborDir}/conversations`);
+		await deps.fs.write(`${deps.arborDir}/conversations/orch.jsonl`, "");
+		await (await deps.service.find("alpha")).save({
+			dispatch: { agent: "fake", conversation: "agent" },
+		});
+
+		await reportToCaller({ ...deps, send }, await deps.service.find("alpha"));
+
+		expect(sent).toEqual([]);
+	});
+
+	it("reports a task another project's orchestrator handed out, which has no todo here to hear of", async () => {
+		runAs("agent");
+		await (await deps.service.find("alpha")).save({
+			dispatch: { agent: "fake", conversation: "agent" },
+		});
+
+		await reportToCaller({ ...deps, send }, await deps.service.find("alpha"));
+
+		const slug = deps.root.split("/").at(-1);
+		expect(sent.map((each) => each.text)).toEqual([
+			`[ARBOR REPORT ${slug}/alpha]`,
+		]);
 	});
 
 	it("notes a server that refuses the report, and goes on", async () => {
