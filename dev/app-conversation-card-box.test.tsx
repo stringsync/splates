@@ -267,12 +267,18 @@ describe("App's card answer boxes", () => {
 			"Retry the upload on a 413#12",
 			"Untriagedtodos in no lane",
 			"alphaworking",
+			`${asking.title}${asking.id}`,
 		]);
 		await typeIn(box, "#12");
 		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
 
 		expect(textIn(answer(view, "2"))).toBe("[ARBOR TODO #12] ");
 		expect(answer(view, "2").textContent).not.toContain("[ARBOR TODO #12]");
+		await typeIn(answer(view, "2"), "#Header");
+		await act(async () =>
+			fireEvent.keyDown(answer(view, "2"), { key: "Enter" }),
+		);
+		expect(textIn(answer(view, "2"))).toBe(`#${asking.id} `);
 	});
 
 	it("closes a box's list on Escape, leaving the card's keys alone", async () => {

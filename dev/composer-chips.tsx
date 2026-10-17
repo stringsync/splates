@@ -25,7 +25,7 @@ import {
 
 /**
  * A reference as the agent reads it: `@path` for a file, `#name` for a
- * system or project, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
+ * system, project or conversation UUID, `/name` for a command, `[Image 2]` or `[File 1]` for an attachment,
  * and an `[ARBOR ...]` directive as itself.
  */
 export function serialize(item: TriggerItem): string {
@@ -33,7 +33,9 @@ export function serialize(item: TriggerItem): string {
 		return `[${item.id}]`;
 	}
 	const sign =
-		{ file: "@", system: "#", project: "#", command: "/" }[item.type] ?? "";
+		{ file: "@", system: "#", project: "#", conversation: "#", command: "/" }[
+			item.type
+		] ?? "";
 	return `${sign}${item.id}`;
 }
 /**
@@ -61,6 +63,10 @@ export function chipFormatter(named: Named): Unstable_DirectiveFormatter {
 		sign: string,
 		called: string,
 	): { as: string; type: string } | undefined => {
+		const conversation = reading(named, sign, called);
+		if (conversation?.kind === "conversation") {
+			return { as: conversation.as, type: "conversation" };
+		}
 		const resolving =
 			sign === "@" ? named.resolving.paths : named.resolving.systems;
 		if (!resolving) {
@@ -151,6 +157,9 @@ function Chip({
 	if (directiveType === "attachment") {
 		return <AttachedChip name={directiveId} />;
 	}
+	if (directiveType === "conversation") {
+		return <NamedChip named={{ conversation: directiveId }} />;
+	}
 	const file = directiveType === "file";
 	if (file ? named.resolving.paths : named.resolving.systems) {
 		return (
@@ -181,7 +190,9 @@ function Chip({
 					? { file: target, name: names.get(target) }
 					: kind === "project"
 						? { project: target }
-						: { system: target }
+						: kind === "conversation"
+							? { conversation: target }
+							: { system: target }
 			}
 		/>
 	);

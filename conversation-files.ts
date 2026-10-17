@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Fs } from "webappwiz/system";
 import type { ProjectRoster } from "./conversation-host";
 import { textOf } from "./conversation-messages";
+import { conversationReference } from "./conversation-reference";
 import type { Message, Sent, Upload } from "./conversation-state";
 import { projectLine } from "./projects";
 import { DICTATED } from "./prompts";
@@ -150,7 +151,7 @@ export class ConversationFiles {
 	}
 
 	/**
-	 * A line on each system `text` mentions with `#`, then on each project,
+	 * A line on each system, conversation UUID and project `text` mentions with `#`,
 	 * then one on each `#word` that names neither, for the agent alone: the
 	 * thread keeps the words as typed. Read from `tree` and the projects as
 	 * it goes, so a system named there a moment ago counts. A system wins
@@ -170,6 +171,7 @@ export class ConversationFiles {
 		const projects = listed.filter((each) => !each.gone);
 		const systems = named?.mentioned(text) ?? [];
 		const unknown = named?.unknown(text) ?? [];
+		const conversations = hashed(text).filter(conversationReference);
 		const found = hashed(text).flatMap((called) => {
 			const project = projects.find((each) => each.slug === called);
 			return project === undefined || (named?.find(called) ?? null) !== null
@@ -178,6 +180,10 @@ export class ConversationFiles {
 		});
 		return [
 			...systems.map(mentionLine),
+			...conversations.map(
+				(id) =>
+					`#${id} references conversation ${id}. Its log is ${dirname(this.dir)}/${id}.jsonl.`,
+			),
 			...(await Promise.all(
 				found.map(async (project) =>
 					projectLine({
@@ -191,7 +197,11 @@ export class ConversationFiles {
 				),
 			)),
 			...unknown
-				.filter((called) => !found.some((each) => each.slug === called))
+				.filter(
+					(called) =>
+						!conversationReference(called) &&
+						!found.some((each) => each.slug === called),
+				)
 				.map(unknownLine),
 		].join("\n");
 	}

@@ -9,6 +9,7 @@ import {
 	LightbulbIcon,
 	ListTodoIcon,
 	type LucideIcon,
+	MessageCircleIcon,
 	MessageCircleQuestionMarkIcon,
 	PlayIcon,
 	PlugIcon,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useContext, useMemo } from "react";
 import type { ProjectRef } from "../conversation-host";
+import { nameOf } from "../conversation-name";
 import {
 	APPROVE,
 	CHECK_IN,
@@ -34,6 +36,8 @@ import type { NamedSystem } from "../systems";
 import type { Action } from "./actions";
 import { Board } from "./board";
 import type { Tone } from "./card-shell";
+import { Lanes } from "./conversation-names";
+import { Held } from "./handed-out";
 import { LaneIcon, TaskIcon } from "./task-icon";
 
 /**
@@ -60,6 +64,7 @@ const CATEGORIES = [
 	{ id: "todo", label: "Todos", icon: ListTodoIcon },
 	{ id: "lane", label: "Lanes", icon: LaneIcon },
 	{ id: "task", label: "Tasks", icon: TaskIcon },
+	{ id: "conversation", label: "Conversations", icon: MessageCircleIcon },
 	{ id: "system", label: "Systems", icon: LayersIcon },
 	{ id: "project", label: "Projects", icon: FolderGit2Icon },
 	{ id: "action", label: "Actions", icon: null },
@@ -77,6 +82,8 @@ export function useReferences(
 	projects: readonly ProjectRef[] = [],
 ): References {
 	const { todos, lanes } = useContext(Board);
+	const conversations = useContext(Held);
+	const namedLanes = useContext(Lanes);
 	return useMemo(() => {
 		const runnable = actions.filter((action) => action.run !== null);
 		const items: Record<string, TriggerItem[]> = {
@@ -117,6 +124,13 @@ export function useReferences(
 				description: task.status,
 				metadata: { directive: taskReference(task.task) },
 			})),
+			conversation: conversations.map((conversation) => ({
+				id: conversation.id,
+				type: "conversation",
+				label: nameOf(conversation, namedLanes),
+				description: `${conversation.archived ? "Archived · " : ""}${conversation.id}`,
+				metadata: { conversation: conversation.id },
+			})),
 			// Its aliases as its description, so typing one finds it too.
 			system: systems.map((system) => ({
 				id: `system:${system.name}`,
@@ -156,7 +170,11 @@ export function useReferences(
 				}
 			},
 			chip: (item) => {
-				const { directive, system, project } = item.metadata ?? {};
+				const { directive, system, project, conversation } =
+					item.metadata ?? {};
+				if (typeof conversation === "string") {
+					return { id: conversation, type: "conversation", label: item.label };
+				}
 				if (typeof directive === "string") {
 					return { id: directive, type: "directive", label: directive };
 				}
@@ -176,7 +194,16 @@ export function useReferences(
 				return Icon == null ? null : <Icon />;
 			},
 		};
-	}, [todos, lanes, tasks, actions, systems, projects]);
+	}, [
+		todos,
+		lanes,
+		tasks,
+		actions,
+		systems,
+		projects,
+		conversations,
+		namedLanes,
+	]);
 }
 
 /**

@@ -10,7 +10,14 @@ import type { References } from "./references";
  * answer can point at. A directive is a whole message's, and an action runs
  * rather than writes.
  */
-const POINTED_AT = new Set(["todo", "lane", "task", "system", "project"]);
+const POINTED_AT = new Set([
+	"todo",
+	"lane",
+	"task",
+	"system",
+	"project",
+	"conversation",
+]);
 
 /**
  * What `@` and `#` offer in a plain box inside a thread, such as a card's

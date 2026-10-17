@@ -61,4 +61,26 @@ describe("linkNamed", () => {
 			name: "page.tsx",
 		});
 	});
+
+	it("links a UUID independently of its current name or presence in the roster", () => {
+		const id = "550e8400-e29b-41d4-a716-446655440000";
+		const linked = `see [#${id}](#conversations/${id}).`;
+		expect(
+			linkNamed(`see #${id}.`, {
+				...named,
+				conversations: [{ id, name: "Old name" }],
+			}),
+		).toBe(linked);
+		expect(
+			linkNamed(`see #${id}.`, {
+				...named,
+				conversations: [{ id, name: "New name" }],
+			}),
+		).toBe(linked);
+		expect(linkNamed(`see #${id}.`, named)).toBe(linked);
+		expect(namedIn(`#conversations/${id}`)).toEqual({ conversation: id });
+		expect(namedIn("#conversations/new")).toBeNull();
+		expect(namedIn("#conversations/archived")).toBeNull();
+		expect(linkNamed(`\`#${id}\``, named)).toBe(`\`#${id}\``);
+	});
 });

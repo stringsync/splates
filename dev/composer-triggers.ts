@@ -1,10 +1,13 @@
 import type { TriggerAdapter } from "@assistant-ui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import type { ProjectRef } from "../conversation-host";
+import { nameOf } from "../conversation-name";
 import type { Command } from "../conversations";
 import type { Details } from "../show";
 import type { NamedSystem } from "../systems";
 import { systems as fetchSystems, paths } from "./api";
+import { Lanes } from "./conversation-names";
+import { Held } from "./handed-out";
 import type { Named } from "./mentioned";
 import { rank } from "./mentions";
 import { listProjects } from "./project-api";
@@ -60,8 +63,14 @@ export function useNamed(
 	projects: ProjectRef[] | null,
 	tree: string | null,
 ): Named {
+	const held = useContext(Held);
+	const lanes = useContext(Lanes);
 	return useMemo(
 		() => ({
+			conversations: held.map((each) => ({
+				id: each.id,
+				name: nameOf(each, lanes),
+			})),
 			systems: systems ?? [],
 			projects: projects ?? [],
 			paths: paths ?? new Set(),
@@ -71,7 +80,7 @@ export function useNamed(
 				systems: systems === null || projects === null,
 			},
 		}),
-		[paths, systems, projects, tree],
+		[paths, systems, projects, tree, held, lanes],
 	);
 }
 

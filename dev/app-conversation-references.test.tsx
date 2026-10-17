@@ -299,6 +299,55 @@ describe("App's composer references", () => {
 		);
 	});
 
+	// scry-ignore simple-test-setup: only this test needs an archived, named conversation to reference and rename
+	it("searches current conversation names and writes a UUID chip that opens the conversation", async () => {
+		const id = "550e8400-e29b-41d4-a716-446655440000";
+		const view = await testing.openConversations([
+			conversation({ id: "c1", name: "Current thread" }),
+			conversation({ id, name: "Upload investigation", archived: true }),
+		]);
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "see #invest");
+		const list = await waitFor(() =>
+			view.getByRole("listbox", { name: "references" }),
+		);
+		expect(
+			within(list).getByRole("option", { name: /Upload investigation/ })
+				.textContent,
+		).toContain(id);
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() => expect(textIn(box)).toBe(`see #${id} `));
+		const link = within(box).getByRole("link", {
+			name: "Upload investigation",
+		});
+		expect(link.getAttribute("href")).toBe(`#conversations/${id}`);
+		await testing.say(
+			conversation({ id, name: "Renamed discussion", archived: true }),
+		);
+		await waitFor(() =>
+			expect(
+				within(box)
+					.getByRole("link", { name: "Renamed discussion" })
+					.getAttribute("href"),
+			).toBe(`#conversations/${id}`),
+		);
+		expect(textIn(box)).toBe(`see #${id} `);
+
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() =>
+			expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+				{ method: "POST", body: { text: `see #${id}` } },
+			]),
+		);
+		await waitFor(() =>
+			expect(
+				view
+					.getAllByRole("link", { name: "Renamed discussion" })
+					.some((each) => each.getAttribute("href") === `#conversations/${id}`),
+			).toBe(true),
+		);
+	});
+
 	it("runs a conversation's action picked after a #, writing nothing", async () => {
 		const view = await testing.openConversations([
 			conversation({ title: "alpha" }),

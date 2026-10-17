@@ -191,6 +191,23 @@ describe("Conversation files", () => {
 		]);
 	});
 
+	it("identifies conversation UUIDs for the agent without treating them as unknown systems", async () => {
+		const conversation = await conversations.start("fake", {
+			task: "login",
+			cwd: tree,
+		});
+		await until(conversation, "idle");
+		const id = "550e8400-e29b-41d4-a716-446655440000";
+		await conversation.prompt(`see #${id}`);
+		await until(conversation, "idle");
+		expect(agent.prompts.at(-1)).toEqual([
+			{
+				type: "text",
+				text: `see #${id}\n\n#${id} references conversation ${id}. Its log is /repo/.git/arbor/conversations/${id}.jsonl.`,
+			},
+		]);
+	});
+
 	it("tells the agent what each one is made of, and keeps the words as typed in the thread", async () => {
 		const conversation = await conversations.start("fake", {
 			task: "login",
