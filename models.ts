@@ -3,11 +3,13 @@ import type { Setting } from "./conversations";
 
 /**
  * Where `model` is among `settings`: the model setting's id, and the value
- * there whose value or name it is, in any case; null when none offers it.
+ * there whose value or name it is; null when none offers it. Provider-qualified
+ * values always require an exact ID; `exact` also disables all display aliases.
  */
 export function modelOption(
 	settings: Setting[],
 	model: string,
+	exact = false,
 ): { setting: string; value: string } | null {
 	const wanted = model.toLowerCase();
 	for (const setting of settings) {
@@ -16,8 +18,12 @@ export function modelOption(
 		}
 		const option = setting.options.find(
 			(each) =>
-				each.value.toLowerCase() === wanted ||
-				each.name.toLowerCase() === wanted,
+				each.value === model ||
+				(!exact &&
+					!model.includes("/") &&
+					!each.value.includes("/") &&
+					(each.value.toLowerCase() === wanted ||
+						each.name.toLowerCase() === wanted)),
 		);
 		if (option !== undefined) {
 			return { setting: setting.id, value: option.value };
@@ -47,13 +53,13 @@ export function pickedModel(settings: Setting[]): string | null {
 
 /**
  * The agent the conversation logged at `log` runs, and the model it last had
- * picked; null when there is no such log. Reads only the lines that say so,
- * since the CLI asks as a task ends and a log runs to megabytes.
+ * picked; null when there is no such log.
  */
 export async function ranWith(
 	log: string,
 	fs: Fs,
 ): Promise<{ agent: string; model: string | null } | null> {
+	// Only inspect identity/settings entries: conversation logs can be megabytes.
 	const lines = (await fs.read(log).catch(() => "")).split("\n");
 	const start = parsed(lines[0]);
 	if (start?.kind !== "start" || typeof start.agent !== "string") {

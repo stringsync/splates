@@ -169,6 +169,15 @@ describe("Conversation sessions", () => {
 		).rejects.toMatchObject({ reason: "usage" });
 	});
 
+	it("reports a missing executable without opening a protocol session", async () => {
+		const agent = launch(["/nonexistent/arbor-opencode-fixture"], "/tmp", {});
+		expect(await agent.exited).toBe(127);
+		expect(agent.stderr()).toContain(
+			"cannot start /nonexistent/arbor-opencode-fixture",
+		);
+		await expect(printed(agent)).rejects.toThrow();
+	});
+
 	it("ends an agent that cannot start as one that exited saying why", async () => {
 		const agent = launch(["sh"], "/no/such/tree", {});
 

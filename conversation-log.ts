@@ -115,6 +115,8 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 		const replayed: Replayed = {
 			state,
 			session: null,
+			model: null,
+			sessionCwd: start.cwd ?? null,
 			cwd: start.cwd ?? null,
 			picks: {},
 			live: null,
@@ -164,8 +166,11 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 				tally(state, entry.usage);
 			} else if (entry.kind === "limits") {
 				state.usage.limits = heard(state.usage.limits, entry.limits);
+			} else if (entry.kind === "model-request") {
+				replayed.model = entry.model;
 			} else if (entry.kind === "session") {
 				replayed.session = entry.session;
+				replayed.sessionCwd = entry.cwd ?? replayed.sessionCwd;
 			} else if (entry.kind === "task") {
 				state.lastCaller = callerAfter(state, entry.task, entry.caller ?? null);
 				state.task = entry.task;
@@ -334,6 +339,10 @@ export interface Replayed {
 	state: ConversationState;
 	/** The agent's session, once it opened one. */
 	session: string | null;
+	/** Explicit requested model, including failed selections. */
+	model: string | null;
+	/** Original session directory, independent of task moves. */
+	sessionCwd: string | null;
 	/** Where it runs; null for a log too old to say. */
 	cwd: string | null;
 	/** Its settings as last set, by id, for the resumed session to match. */
@@ -394,7 +403,8 @@ type Said =
 			/** The project's arbor skill version; missing when it had none, or before it was kept. */
 			skill?: string;
 	  }
-	| { kind: "session"; session: string }
+	| { kind: "session"; session: string; cwd?: string }
+	| { kind: "model-request"; model: string }
 	/** Moved into a task's worktree, or back to the main tree. */
 	| {
 			kind: "task";

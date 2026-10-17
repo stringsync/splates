@@ -50,7 +50,7 @@ executable version and sanitized handshake fixtures before claiming support.
 V1 and V2 documentation coexist; use the installed version's protocol, not a
 minimum-version number guessed from today's docs.
 
-## #352 — connection and lifecycle
+## #352: connection and lifecycle
 
 Exact implementation locations (all relative to the repository):
 
@@ -81,7 +81,7 @@ Acceptance: mocked complete turn with streamed text/tool updates and permissions
 cancel and recover correctly; invalid selection prevents prompt; existing
 Claude/Codex tests still pass. No production account is required.
 
-## #353 — explicit model selection and setup
+## #353: explicit model selection and setup
 
 Depends on #352 merging. Use these files:
 
@@ -127,7 +127,7 @@ Acceptance: fixture-only picker/config validation, unavailable/stale model error
 no provider fallback, no default-roster change. A paid smoke test is explicitly
 outside acceptance until the user authorizes it.
 
-## #354 — usage and comparison
+## #354: usage and comparison
 
 Depends on #352 and #353 merging. Exact locations:
 
@@ -197,3 +197,14 @@ claim any of the implementation todos complete. Each implementation runs
 `bin/wiz dev fix` and `bin/wiz dev test` (the test command takes its own heavy
 slot). Planning changes only documentation and todo metadata; validate links,
 paths, dependency ordering and diff without billed calls.
+
+## #352 implementation compatibility record
+
+On 2026-10-17, `command -v opencode` found no executable on the implementation
+machine. No OpenCode version, native login, real model call, or recorded executable
+handshake was verified. `conversation-opencode.test.ts` supplies synthetic ACP
+fixtures for negotiated resume/load, exact provider-qualified settings, permissions,
+queueing, and errors. These fixtures establish client behavior, not a supported
+production executable version. Live compatibility remains explicitly unverified;
+fixture implementation does not require login. #353 retains picker/setup work and
+#354 retains usage instrumentation and any separately authorized comparison.

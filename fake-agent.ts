@@ -64,11 +64,18 @@ export class FakeAgent {
 	prompts: acp.ContentBlock[][] = [];
 	/** The settings set, in order. */
 	chosen: { configId: string; value: unknown }[] = [];
-	private options = structuredClone(OPTIONS);
+	options = structuredClone(OPTIONS);
+	/** Negotiated resume support; absent capabilities must never imply it. */
+	resumes = true;
+	protocolVersion = acp.PROTOCOL_VERSION;
+	disconnect: () => void = () => {};
+	/** Simulate an agent refusing to apply a model choice. */
+	ignoreChoices = false;
 	/** What each start's `initialize` waits on; null, the default, answers at once. */
 	hold: Promise<void> | null = null;
 	/** How many starts to come die before answering `initialize`. */
 	dying = 0;
+	stderr = "fake agent fell over";
 	launched: { argv: string[]; cwd: string; env: Record<string, string> }[] = [];
 	killed = 0;
 	/** The pid each process it launches says it has. */
@@ -82,7 +89,11 @@ export class FakeAgent {
 	): AgentProcess => {
 		this.launched.push({ argv, cwd, env });
 		const toAgent = new TransformStream<Uint8Array, Uint8Array>();
-		const toClient = new TransformStream<Uint8Array, Uint8Array>();
+		const toClient = new TransformStream<Uint8Array, Uint8Array>({
+			start: (controller) => {
+				this.disconnect = () => controller.terminate();
+			},
+		});
 		new acp.AgentSideConnection(
 			(client) => this.agent(client),
 			acp.ndJsonStream(toClient.writable, toAgent.readable),
@@ -96,7 +107,7 @@ export class FakeAgent {
 			output: framed(toClient.readable),
 			ack: () => {},
 			handle: null,
-			stderr: () => "fake agent fell over",
+			stderr: () => this.stderr,
 			exited,
 			kill: () => {
 				this.killed++;
@@ -128,13 +139,15 @@ export class FakeAgent {
 				await this.hold;
 				this.capabilities = clientCapabilities ?? null;
 				return {
-					protocolVersion: acp.PROTOCOL_VERSION,
+					protocolVersion: this.protocolVersion,
 					agentCapabilities: {
 						...(this.http ? { mcpCapabilities: { http: true } } : {}),
 						...(this.sees ? { promptCapabilities: { image: true } } : {}),
-						...(this.held === null
-							? {}
-							: { loadSession: true, sessionCapabilities: { list: {} } }),
+						loadSession: this.held !== null,
+						sessionCapabilities: {
+							...(this.resumes ? { resume: {} } : {}),
+							...(this.held === null ? {} : { list: {} }),
+						},
 					},
 					...(this.steering === null
 						? {}
@@ -201,7 +214,7 @@ export class FakeAgent {
 			setSessionConfigOption: async ({ configId, value }) => {
 				this.chosen.push({ configId, value });
 				this.options = this.options.map((option) =>
-					option.id === configId
+					option.id === configId && !this.ignoreChoices
 						? ({
 								...option,
 								currentValue:

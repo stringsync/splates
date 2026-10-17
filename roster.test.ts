@@ -30,6 +30,39 @@ describe("Roster", () => {
 		expect(await deps.roster.agents()).toEqual(mine);
 	});
 
+	it("keeps an optional OpenCode entry and editable provider-qualified models in roster order", async () => {
+		await using deps = await setup();
+		await deps.roster.seed();
+		const opencode = {
+			id: "opencode",
+			name: "OpenCode",
+			argv: ["opencode", "acp"],
+			models: [
+				{
+					id: "opencode-go/fixture",
+					name: "Fixture",
+					strengths: "test only",
+					cost: "unknown",
+				},
+			],
+		};
+		const entries = [
+			...DEFAULT_AGENTS.slice(0, 1),
+			opencode,
+			...DEFAULT_AGENTS.slice(1),
+		];
+		await deps.fs.write(
+			deps.roster.path,
+			JSON.stringify({ format: 1, agents: entries }),
+		);
+		expect(await deps.roster.seed()).toBe(false);
+		expect(await deps.roster.agents()).toEqual(entries);
+		expect(DEFAULT_AGENTS.map((agent) => agent.id)).toEqual([
+			"claude",
+			"codex",
+		]);
+	});
+
 	it("reads as the defaults while there is no roster", async () => {
 		await using deps = await setup();
 
@@ -76,9 +109,7 @@ describe("Roster", () => {
 			message: ["written by a newer arbor", "bunx @webappwiz/arbor@latest"],
 		});
 	});
-});
 
-describe("agents", () => {
 	it("prints each agent's command and models, saying where it wrote the defaults", async () => {
 		await using deps = await setup();
 

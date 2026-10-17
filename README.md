@@ -196,3 +196,48 @@ compare each figure with the as long a span before, saying whether it got
 better or worse, and say what to change when one stands out. Fixed rules over
 the counts make those calls, not a model, so the same outcomes always read
 the same.
+
+### Optional OpenCode ACP agent
+
+OpenCode can be added alongside the existing entries in the roster printed by
+`arbor agents`. It is opt-in; Claude and Codex remain the default roster. Add an
+entry with editable `models` (replace the example ID with one your agent offers):
+
+```json
+{
+  "id": "opencode",
+  "name": "OpenCode",
+  "argv": ["opencode", "acp"],
+  "models": [
+    {
+      "id": "opencode-go/<discovered-model-id>",
+      "name": "My Go model",
+      "strengths": "Describe the intended experiment",
+      "cost": "Check the account's current plan"
+    }
+  ]
+}
+```
+
+Arbor requires the full, case-sensitive model ID returned in ACP settings for
+OpenCode. Missing choices or a different confirmed provider/model stop the turn;
+it never substitutes another provider. Refresh your editable catalog from
+OpenCode's offered models when it changes. Picker polish is tracked in #353;
+usage provenance and comparisons are tracked in #354.
+
+OpenCode owns its native login and tools. Arbor neither imports its credentials
+nor exports OS-store secrets to it. Recovery uses advertised resume support, or
+advertised load with history replay suppressed. An imported CLI session still
+replays once. OpenCode recovery uses its original absolute directory; if that
+directory is gone, restore it or explicitly start a new conversation. Unsupported
+recovery reports an error. Without steering support, messages queue for the next
+turn. Client file and terminal capabilities are not advertised.
+
+Compatibility as of 2026-10-17: this integration is verified with synthetic ACP
+fixtures, not a recorded OpenCode executable. `opencode` was absent from the
+implementation environment's PATH, so no executable version or live login was
+verified and no minimum supported version is claimed. Production acceptance
+requires recording a version and sanitized handshake separately; no paid smoke
+test was run. See [the experiment plan](design/opencode-acp.md) for opt-in setup,
+provider restrictions, and the separate paid-overflow control. Fixture checks
+never establish account entitlement or remaining quota.

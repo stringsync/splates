@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: the conversation lifecycle coordinates its delegated turns, files, connection, and log as one public object.
 import type * as acp from "@agentclientprotocol/sdk";
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
@@ -61,7 +62,13 @@ export class Conversation
 		readonly agent: Agent | null,
 		/** Where it runs; null for a log too old to say. */
 		private dir: string | null,
-		{ session = null, loading = false, picks = {}, model = null }: From = {},
+		{
+			session = null,
+			loading = false,
+			picks = {},
+			model = null,
+			sessionCwd = dir,
+		}: From = {},
 	) {
 		this.files = new ConversationFiles(log.path, deps.fs, {
 			projects: deps.projects,
@@ -86,6 +93,7 @@ export class Conversation
 			loading,
 			picks,
 			model,
+			sessionCwd,
 		});
 		this.turns = new ConversationTurns(this, deps, this.connection, this.files);
 		this.background = new ConversationBackground(this, deps, this.connection);
@@ -106,7 +114,7 @@ export class Conversation
 		if (replayed === null) {
 			return null;
 		}
-		const { state, session, cwd, picks } = replayed;
+		const { state, session, cwd, picks, model, sessionCwd } = replayed;
 		const agent = agents.find((each) => each.id === state.agent) ?? null;
 		let taken: { process: AgentProcess; live: Live } | null = null;
 		if (replayed.live !== null) {
@@ -128,6 +136,8 @@ export class Conversation
 		const conversation = new Conversation(state, log, deps, agent, cwd, {
 			session,
 			picks,
+			model,
+			sessionCwd,
 		});
 		if (taken !== null && agent !== null) {
 			conversation.connection.reattach(agent, taken.process, taken.live);
@@ -146,8 +156,7 @@ export class Conversation
 			settings?: Record<string, string>;
 			/**
 			 * The model to pick, by its value or name in the session's model
-			 * setting, over what `settings` says; the agent's own when it offers
-			 * none such.
+			 * setting, over what `settings` says. An unavailable choice fails.
 			 */
 			model?: string;
 		},
@@ -157,6 +166,9 @@ export class Conversation
 			picks: settings,
 			model: model ?? null,
 		});
+		if (model !== undefined) {
+			conversation.log.write({ kind: "model-request", model });
+		}
 		conversation.opening = conversation.wake(opening.agent, opening.cwd);
 		return conversation;
 	}
@@ -255,9 +267,8 @@ export class Conversation
 	}
 
 	/**
-	 * What takes the agent's process back after a coordinator restart: it
-	 * runs on a worker, which keeps it through one; null while a restart
-	 * would stop it.
+	 * The handle for reattaching after a coordinator restart, or null when
+	 * this process cannot survive a restart.
 	 */
 	get handle(): ProcessHandle | null {
 		return this.connection.handle;
@@ -404,7 +415,10 @@ export class Conversation
 		}
 		// Its task landed or went without the agent's `arbor` reaching this
 		// server to move it, so it carries on in the main tree.
-		if (!(await this.deps.fs.exists(this.dir))) {
+		if (
+			this.agent.id !== "opencode" &&
+			!(await this.deps.fs.exists(this.dir))
+		) {
 			if (this.deps.root === null) {
 				fail(
 					"not_found",
@@ -658,6 +672,8 @@ interface Opening {
 
 /** What a conversation starts from, beyond its state: what its log or its caller said. */
 interface From {
+	/** Original cwd required by OpenCode recovery. */
+	sessionCwd?: string | null;
 	/** The agent's session, for one read back or brought in. */
 	session?: string | null;
 	/** Whether the first open loads `session`, replaying it, rather than resuming it. */

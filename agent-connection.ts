@@ -1,3 +1,4 @@
+// scry-ignore-file compact-files: ACP requests, replay, asks, and reattachment share one connection state machine.
 import * as acp from "@agentclientprotocol/sdk";
 import { Disposer } from "webappwiz/disposable";
 import { Duration } from "webappwiz/time";
@@ -12,6 +13,7 @@ import {
 	STEER,
 	steers,
 } from "./acp-extensions";
+import { agentError } from "./agent-errors";
 import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
 import { AgentStream } from "./agent-stream";
 import type { ConversationDeps, ConversationHost } from "./conversation-host";
@@ -78,10 +80,13 @@ export class AgentConnection {
 	private loading: boolean;
 	/** The person's words the replay has said so far, not yet logged as a prompt. */
 	private heard: string | null = null;
+	/** Recovery loads replay history already in the log. */
+	private suppressReplay = false;
 	/** Settings picked before the session opened, set once it has. */
 	private picks: Record<string, string>;
 	/** The model asked for before the session opened, picked once it has. */
 	private model: string | null;
+	private sessionCwd: string | null;
 
 	constructor(
 		private readonly host: ConversationHost,
@@ -91,18 +96,21 @@ export class AgentConnection {
 			loading = false,
 			picks = {},
 			model = null,
+			sessionCwd = null,
 		}: {
 			session?: string | null;
 			/** Whether the first open loads `session`, replaying it, rather than resuming it. */
 			loading?: boolean;
 			picks?: Record<string, string>;
 			model?: string | null;
+			sessionCwd?: string | null;
 		} = {},
 	) {
 		this.session = session;
 		this.loading = loading;
 		this.picks = picks;
 		this.model = model;
+		this.sessionCwd = sessionCwd;
 	}
 
 	/** The agent's pid while it runs, for the commands it left running. */
@@ -147,9 +155,19 @@ export class AgentConnection {
 		const { host } = this;
 		host.set({ status: "starting", error: null, stoppedIdle: null });
 		const _attempt = ++this.opens;
+		const previous = host.state.settings;
 		const started = await this.startAlone();
 		let process: AgentProcess | null = null;
 		try {
+			if (agent.id === "opencode" && this.session !== null) {
+				const original = this.sessionCwd;
+				if (original === null || !(await this.deps.fs.exists(original))) {
+					throw new Error(
+						`OpenCode cannot recover this session: original directory ${original ?? "unknown"} is unavailable. Restore it or explicitly start a new conversation.`,
+					);
+				}
+				cwd = original;
+			}
 			// The agent's `arbor` finds its conversation, and the server, in its
 			// env, to move the conversation as it takes or lands a task. One
 			// working a task another conversation added also finds that one, so
@@ -157,7 +175,7 @@ export class AgentConnection {
 			// One a lane's orchestrator started finds it as the one that started
 			// it, not one it reports to: it answers to the person.
 			const { id, lastCaller, startedBy } = host.state;
-			// A new process numbers its frames from one again.
+			// Reset the log cursor so a replacement process can acknowledge its own frames.
 			host.log.heard(0);
 			process = this.deps.launcher.launch(agent.argv, cwd, {
 				ARBOR_CONVERSATION: id,
@@ -187,6 +205,11 @@ export class AgentConnection {
 					},
 				},
 			});
+			if (initialized.protocolVersion !== acp.PROTOCOL_VERSION) {
+				throw new Error(
+					`Unsupported ACP protocol version ${initialized.protocolVersion}; expected ${acp.PROTOCOL_VERSION}.`,
+				);
+			}
 			started();
 			this.steering = steers(initialized);
 			this.finishing = false;
@@ -204,9 +227,19 @@ export class AgentConnection {
 					_meta: SESSION_META,
 				});
 				this.session = session.sessionId;
-				host.log.write({ kind: "session", session: session.sessionId });
+				this.sessionCwd = cwd;
+				host.log.write({ kind: "session", session: session.sessionId, cwd });
 				host.state.settings = settingsIn(session.configOptions);
-			} else if (this.loading) {
+			} else if (
+				this.loading ||
+				initialized.agentCapabilities?.sessionCapabilities?.resume == null
+			) {
+				if (initialized.agentCapabilities?.loadSession !== true) {
+					throw new Error(
+						`${agent.name} cannot recover this session: it advertises neither resume nor load. Start a new conversation explicitly.`,
+					);
+				}
+				this.suppressReplay = !this.loading;
 				const session = await connection.loadSession({
 					sessionId: this.session,
 					cwd,
@@ -214,6 +247,7 @@ export class AgentConnection {
 					_meta: SESSION_META,
 				});
 				this.loading = false;
+				this.suppressReplay = false;
 				this.logHeard();
 				host.state.settings = settingsIn(session.configOptions);
 			} else {
@@ -228,15 +262,44 @@ export class AgentConnection {
 			const asked =
 				this.model === null
 					? null
-					: modelOption(host.state.settings, this.model);
-			this.model = null;
-			const picks =
-				asked === null
-					? this.picks
-					: { ...this.picks, [asked.setting]: asked.value };
-			this.picks = {};
+					: modelOption(
+							host.state.settings,
+							this.model,
+							agent.id === "opencode",
+						);
+			if (this.model !== null && asked === null) {
+				throw new Error(
+					`Requested model '${this.model}' is not offered by ${agent.name}; no prompt was sent.`,
+				);
+			}
+			const picks = {
+				...Object.fromEntries(
+					previous
+						.filter((each) => each.category === "model" || each.id === "model")
+						.map((each) => [each.id, each.current]),
+				),
+				...this.picks,
+				...(asked === null ? {} : { [asked.setting]: asked.value }),
+			};
+			this.picks = picks;
 			for (const [id, value] of Object.entries(picks)) {
 				const setting = host.state.settings.find((each) => each.id === id);
+				const isModel =
+					id === "model" ||
+					setting?.category === "model" ||
+					previous.some((each) => each.id === id && each.category === "model");
+				if (isModel) {
+					this.model = value;
+					host.log.write({ kind: "model-request", model: value });
+				}
+				if (
+					isModel &&
+					!setting?.options.some((option) => option.value === value)
+				) {
+					throw new Error(
+						`Requested model '${value}' is no longer offered; no prompt was sent.`,
+					);
+				}
 				if (
 					setting !== undefined &&
 					setting.current !== value &&
@@ -249,7 +312,16 @@ export class AgentConnection {
 					});
 					host.state.settings = settingsIn(response.configOptions);
 				}
+				if (
+					isModel &&
+					host.state.settings.find((each) => each.id === id)?.current !== value
+				) {
+					throw new Error(
+						`Agent did not confirm requested model '${value}'; no prompt was sent.`,
+					);
+				}
 			}
+			this.picks = {};
 			host.log.write({ kind: "settings", settings: host.state.settings });
 			// On a worker, the process outlives a restart from here on: the
 			// log says what to take back and what the agent can do.
@@ -264,13 +336,16 @@ export class AgentConnection {
 			host.set({ status: "idle" });
 		} catch (error) {
 			started();
+			this.suppressReplay = false;
 			// Left to the exit that already said why.
 			if (host.state.status === "failed") {
 				return;
 			}
 			// The connection closes as the process dies, ahead of its exit, so
 			// its stderr, which says why, is waited for.
-			await host.close((await this.diedSaying(process)) ?? messageOf(error));
+			await host.close(
+				(await this.diedSaying(process)) ?? agentError(messageOf(error)),
+			);
 		}
 	}
 
@@ -358,7 +433,8 @@ export class AgentConnection {
 			void host.close(
 				lost
 					? null
-					: process.stderr().trim() || `${agent.name} exited with code ${code}`,
+					: agentError(process.stderr()).trim() ||
+							`${agent.name} exited with code ${code}`,
 			);
 		});
 		const stream = new AgentStream(process, opts);
@@ -395,6 +471,13 @@ export class AgentConnection {
 			readable: asyncTasks(stream.readable),
 		});
 		this.connection = connection;
+		void connection.closed.then(() => {
+			if (this.connection === connection && host.state.status !== "starting") {
+				void host.close(
+					`${agent.name} ACP connection closed; retry explicitly to recover the session.`,
+				);
+			}
+		});
 		return connection;
 	}
 
@@ -417,7 +500,7 @@ export class AgentConnection {
 			}),
 		]);
 		giveUp?.dispose();
-		return gone ? process.stderr().trim() || null : null;
+		return gone ? agentError(process.stderr()).trim() || null : null;
 	}
 
 	/**
@@ -444,8 +527,25 @@ export class AgentConnection {
 	async prompt(
 		prompt: acp.ContentBlock[],
 	): Promise<acp.PromptResponse | undefined> {
+		this.validateModel();
 		this.finishing = false;
 		return this.connection?.prompt({ sessionId: this.session ?? "", prompt });
+	}
+
+	/** A stale or substituted choice must never reach a prompt or steering call. */
+	private validateModel(): void {
+		if (this.model !== null) {
+			const selected = modelOption(this.host.state.settings, this.model, true);
+			if (
+				selected === null ||
+				this.host.state.settings.find((each) => each.id === selected.setting)
+					?.current !== this.model
+			) {
+				throw new Error(
+					`Requested model '${this.model}' is not confirmed; no prompt was sent.`,
+				);
+			}
+		}
 	}
 
 	/**
@@ -454,6 +554,7 @@ export class AgentConnection {
 	 * turn ended on the way.
 	 */
 	async steer(prompt: acp.ContentBlock[]): Promise<string | undefined> {
+		this.validateModel();
 		if (this.connection === null) {
 			return undefined;
 		}
@@ -477,6 +578,7 @@ export class AgentConnection {
 
 	/** Stops the agent's turn, if it is connected. */
 	async cancel(): Promise<void> {
+		this.settled({ type: "dismiss" });
 		if (this.connection !== null && this.session !== null) {
 			await this.connection.cancel({ sessionId: this.session });
 		}
@@ -499,6 +601,10 @@ export class AgentConnection {
 	 * not, as picked for when it next opens.
 	 */
 	async choose(setting: Setting, value: string): Promise<Setting[]> {
+		if (setting.category === "model" || setting.id === "model") {
+			this.model = value;
+			this.host.log.write({ kind: "model-request", model: value });
+		}
 		if (this.connection === null || this.session === null) {
 			this.picks = { ...this.picks, [setting.id]: value };
 			return this.host.state.settings.map((each) =>
@@ -510,7 +616,17 @@ export class AgentConnection {
 			configId: setting.id,
 			...configValue(setting, value),
 		});
-		return settingsIn(response.configOptions);
+		const settings = settingsIn(response.configOptions);
+		if (
+			(setting.category === "model" || setting.id === "model") &&
+			settings.find((each) => each.id === setting.id)?.current !== value
+		) {
+			await this.host.close(
+				`Agent did not confirm requested model '${value}'; no prompt was sent.`,
+			);
+			throw new Error(`Agent did not confirm requested model '${value}'`);
+		}
+		return settings;
 	}
 
 	/** Settles the agent's pending ask, if `id` is still the one it is on. */
@@ -524,6 +640,7 @@ export class AgentConnection {
 		this.settled(answer);
 	}
 
+	// scry-ignore resources-are-disposable: closes one process; this reusable connection keeps session and requested settings for reopening.
 	/** Ends the process, dismissing whatever the agent was asking. */
 	close(): void {
 		this.settled({ type: "dismiss" });
@@ -540,6 +657,9 @@ export class AgentConnection {
 		const { host } = this;
 		return {
 			sessionUpdate: async ({ update }) => {
+				if (this.suppressReplay) {
+					return;
+				}
 				// A replay says the person's words too, which the log keeps as
 				// prompts, as though said here; it says nothing of when.
 				if (this.loading) {
@@ -579,6 +699,9 @@ export class AgentConnection {
 				}
 			},
 			requestPermission: async (params) => {
+				if (this.suppressReplay) {
+					return { outcome: { outcome: "cancelled" } };
+				}
 				const { toolCall } = params;
 				const title = toolCall.title ?? "Allow this?";
 				// An agent may ask before it says it is making the call.
@@ -612,7 +735,7 @@ export class AgentConnection {
 				return permitted(answer);
 			},
 			createElicitation: async (params) => {
-				if (params.mode !== "form") {
+				if (this.suppressReplay || params.mode !== "form") {
 					return { action: "decline" };
 				}
 				const asked: Asked = {
@@ -626,7 +749,11 @@ export class AgentConnection {
 			// Kept, since on a worker its commands outlive a restart; a log
 			// read back with its process gone has none running.
 			extNotification: async (method, params) => {
-				if (method === ASYNC_TASK_UPDATE && !this.loading) {
+				if (
+					method === ASYNC_TASK_UPDATE &&
+					!this.loading &&
+					!this.suppressReplay
+				) {
 					const update = params.update as AsyncTaskUpdate;
 					host.log.write({ kind: "background", update });
 					foldBackground(host.state, update);

@@ -159,6 +159,39 @@ describe("A conversation on a worker across a coordinator restart", () => {
 		expect(kinds.filter((kind) => kind === "launched")).toHaveLength(1);
 	});
 
+	it("keeps a requested provider-qualified model and absent steering across worker reattachment", async () => {
+		const model = "opencode-go/fixture";
+		agent.options = [
+			{
+				id: "model",
+				name: "Model",
+				category: "model",
+				type: "select",
+				currentValue: model,
+				options: [{ value: model, name: "Fixture" }],
+			},
+		];
+		const before = await conversations.start("fake", {
+			task: "login",
+			cwd: "/repo-arbor/login",
+			model,
+		});
+		await until(before, "idle");
+		await before.prompt("one");
+		await eventually(() => words(before).includes("Hi."));
+		await settle();
+		const [after] = await restart();
+		await after?.prompt("queued");
+		expect(agent.prompts).toHaveLength(1);
+		expect(agent.steered).toEqual([]);
+		expect(after?.state.settings[0]?.current).toBe(model);
+		goOn();
+		await eventually(() => agent.prompts.length === 2);
+		await until(after as Conversation, "idle");
+		expect(agent.launched).toHaveLength(1);
+		expect(agent.prompts).toHaveLength(2);
+	});
+
 	it("reads the same conversation back idle from its log, and carries on with the next prompt", async () => {
 		const before = await conversations.start("fake", {
 			task: "login",
