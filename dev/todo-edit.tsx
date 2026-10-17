@@ -25,7 +25,7 @@ import { Links } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
-import { StartAssigned, StartMenu } from "./start-menu";
+import { StartAssigned } from "./start-menu";
 import { TodoEditor } from "./todo-editor";
 
 /**
@@ -115,19 +115,7 @@ export function Edit({
 					</InputGroup>
 				</MentionAnchor>
 				{todo.takenBy === null ? (
-					<div className="flex flex-wrap items-center gap-2">
-						{todo.assignee && (
-							<StartAssigned
-								assignment={{ kind: "todo", id: todo.id }}
-								assignee={todo.assignee}
-								onStart={onDone}
-							/>
-						)}
-						<StartMenu
-							assignment={{ kind: "todo", id: todo.id }}
-							assignee={todo.assignee ?? null}
-							onStart={onDone}
-						/>
+					<div className="flex flex-wrap items-center gap-1">
 						<AssigneeMenu
 							assignee={todo.assignee ?? null}
 							onPick={(pick) =>
@@ -135,6 +123,11 @@ export function Edit({
 									refuse("Not assigned", error),
 								)
 							}
+						/>
+						<StartAssigned
+							assignment={{ kind: "todo", id: todo.id }}
+							assignee={todo.assignee ?? null}
+							onStart={onDone}
 						/>
 					</div>
 				) : (

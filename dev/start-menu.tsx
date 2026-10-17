@@ -83,7 +83,8 @@ export function StartMenu({
  * Starts `assignee` on `assignment` in one tap, as the first of `StartMenu`'s
  * items does: a new conversation on its model, the prompt sent, and opens it.
  * As `quiet`, a card's line of plain text naming the assignee; otherwise a
- * button like `StartMenu`'s, for beside the assignee's own menu. Null while the assignee's agent is not on the roster.
+ * play button for beside the assignee's own menu, which names it, disabled
+ * with none assigned. Null while the assignee's agent is not on the roster.
  */
 export function StartAssigned({
 	assignment,
@@ -92,7 +93,7 @@ export function StartAssigned({
 	onStart,
 }: {
 	assignment: Assignment;
-	assignee: AgentPick;
+	assignee: AgentPick | null;
 	quiet?: boolean;
 	/** Called as it opens its conversation, as to close a dialog. */
 	onStart?: () => void;
@@ -101,13 +102,27 @@ export function StartAssigned({
 	// Started once: a second tap before the conversation opens would start
 	// another.
 	const [starting, setStarting] = useState(false);
-	if (
-		context === null ||
-		!context.dispatch.agents.some((each) => each.id === assignee.agent)
-	) {
+	if (context === null) {
 		return null;
 	}
 	const { dispatch } = context;
+	if (assignee === null) {
+		return quiet ? null : (
+			<Button
+				size="icon-xs"
+				variant="outline"
+				aria-label="Start"
+				title="Pick an agent to start"
+				disabled
+				className="bg-transparent pointer-coarse:size-10"
+			>
+				<PlayIcon />
+			</Button>
+		);
+	}
+	if (!dispatch.agents.some((each) => each.id === assignee.agent)) {
+		return null;
+	}
 	const name = dispatch.pickName(assignee);
 	const start = (): void => {
 		setStarting(true);
@@ -141,19 +156,19 @@ export function StartAssigned({
 			</button>
 		);
 	}
-	// The dialog names the assignee beside it, so the button need not.
+	// The assignee's menu beside it names the agent, so the button need not.
 	return (
 		<Button
-			size="xs"
+			size="icon-xs"
 			variant="outline"
+			aria-label={`Start with ${name}`}
 			title={`Start with ${name}`}
 			disabled={starting}
 			onClick={start}
-			className="w-fit gap-1 bg-transparent pointer-coarse:h-10 pointer-coarse:px-3"
+			className="bg-transparent pointer-coarse:size-10"
 			{...still}
 		>
-			<PlayIcon data-icon="inline-start" />
-			Start with assignee
+			<PlayIcon />
 		</Button>
 	);
 }

@@ -296,7 +296,17 @@ describe("App's todo cards", () => {
 	});
 
 	it("opens a proposed todo from its subject, over the conversation", async () => {
-		const view = await testing.openConversations([proposing], undefined, board);
+		const view = await testing.openConversations([proposing], undefined, {
+			...board,
+			todos: [
+				todo({
+					id: 12,
+					subject: "Retry the upload on a 413",
+					lane: 3,
+					assignee: { agent: "codex" },
+				}),
+			],
+		});
 		const open = await waitFor(() =>
 			view.getByRole("region", { name: "todo 12" }),
 		);
@@ -323,14 +333,13 @@ describe("App's todo cards", () => {
 		expect(location.hash).toStartWith("#conversations/");
 
 		// Starting it in a new conversation leaves the dialog behind.
+		testing.reply = conversation({ id: "c9", status: "starting" });
 		await act(async () =>
-			fireEvent.click(within(dialog).getByRole("button", { name: "Start" })),
+			fireEvent.click(
+				within(dialog).getByRole("button", { name: /^Start with Codex/ }),
+			),
 		);
-		const codex = await waitFor(() =>
-			view.getByRole("menuitem", { name: /Codex/ }),
-		);
-		await act(async () => fireEvent.click(codex));
-		expect(location.hash).toBe("#conversations/new/codex");
+		await waitFor(() => expect(location.hash).toBe("#conversations/c9"));
 		await waitFor(() =>
 			expect(view.queryByRole("dialog", { name: /Todo 12/ })).toBeNull(),
 		);
