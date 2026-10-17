@@ -81,7 +81,7 @@ describe("App's settings and notifications", () => {
 			"Appearance",
 			"Editor",
 			"Notifications",
-			"Restart",
+			"Updates",
 			"Shortcuts",
 		]);
 		expect(within(dialog).getByRole("group", { name: "Theme" })).toBeTruthy();

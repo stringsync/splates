@@ -13,7 +13,7 @@ export interface Standing {
 }
 
 /**
- * Where the dialog is: picking projects, counting down to an auto restart,
+ * Where the dialog is: picking projects, counting down to an auto update,
  * waiting on agents, done with them
  * before `arbor dev` goes, waiting on it to restart, back from a restart with no
  * agent to resume, its agents being told to carry on after the restart, or
@@ -43,12 +43,20 @@ export type Run = "restart" | "shutdown" | null;
  * The dialog's title, and the menu item's, the same for a whole run, so a
  * restart reads as one thing happening rather than a phase at a time.
  */
-export function titleOf(slide: Slide, run: Run, restarted: boolean): string {
+export function titleOf(
+	slide: Slide,
+	run: Run,
+	restarted: boolean,
+	updating = false,
+): string {
+	if (updating) {
+		return "Updating arbor dev";
+	}
 	switch (slide) {
 		case "pick":
 			return "Power";
 		case "counting":
-			return "Restarting arbor dev";
+			return "Updating arbor dev";
 		case "going":
 			return run === "restart"
 				? "Restarting arbor dev"

@@ -37,7 +37,7 @@ export interface Restarting {
 	shutdown: boolean;
 }
 
-/** An auto restart counting down: how long is left, and what it brings. */
+/** An auto update counting down: how long is left, and what it brings. */
 export interface Countdown {
 	left: Duration;
 	onto: string;
@@ -46,7 +46,7 @@ export interface Countdown {
 /**
  * Power: restarts `arbor dev` at once, its agents on a worker carrying on
  * through it, or shuts it down, checkpointing every agent at work first
- * unless unticked, or counts down to an auto restart, which can be cancelled
+ * unless unticked, or counts down to an auto update, which can be cancelled
  * or done now; then one screen for the whole run, its title held throughout,
  * its steps in a line with the one under way spinning, a sentence on where
  * it is, and only the agents that missed. Agents a checkpoint stopped carry
@@ -70,6 +70,7 @@ export function CheckpointDialog({
 	current,
 	restartable,
 	held,
+	updating = false,
 	countdown,
 	onCancel,
 	onRestartNow,
@@ -101,7 +102,9 @@ export function CheckpointDialog({
 	restartable: boolean;
 	/** The commands a restart would kill. */
 	held: Held[];
-	/** The auto restart counting down, on the `counting` slide. */
+	/** Whether this run is an automatic update, which restarts to pick up newer arbor. */
+	updating?: boolean;
+	/** The auto update counting down, on the `counting` slide. */
 	countdown: Countdown | null;
 	/** Cancels the countdown. */
 	onCancel: () => void;
@@ -127,14 +130,16 @@ export function CheckpointDialog({
 	const steps = stepsOf(slide, run, {
 		checkpointed: all.asked.length > 0,
 		resumes,
-	});
+	}).map((step) =>
+		updating && step.label === "Restart" ? { ...step, label: "Update" } : step,
+	);
 	const said =
 		slide === "counting" && countdown !== null
-			? `arbor dev is behind ${countdown.onto}, and you and every agent have been idle for a minute. This page reloads once it is back.`
+			? `arbor dev will update to ${countdown.onto}. You and the agents this update would interrupt have been idle for a minute. Updating restarts arbor dev, then reloads this page.`
 			: slide === "going"
 				? `${all.asked.length - all.going - all.missed.length} of ${plural(all.asked.length)} checkpointed.`
 				: slide === "restarting"
-					? `arbor dev is restarting${onto === null ? "" : ` on ${onto}`}. This page reloads once it is back.`
+					? `arbor dev is ${updating ? "updating" : "restarting"}${onto === null ? "" : `${updating ? " to " : " on "}${onto}`}. This page reloads once it is back.`
 					: slide === "resuming"
 						? `${carried} of ${plural(resumable.length)} back at work.`
 						: slide === "ended"
@@ -214,7 +219,7 @@ export function CheckpointDialog({
 										<Button variant="outline" onClick={onCancel}>
 											Cancel
 										</Button>
-										<Button onClick={onRestartNow}>Restart now</Button>
+										<Button onClick={onRestartNow}>Update now</Button>
 									</>
 								) : (
 									<Button variant="outline" disabled={busy} onClick={onClose}>

@@ -9,7 +9,7 @@ export const CATEGORIES = [
 	"Appearance",
 	"Editor",
 	"Notifications",
-	"Restart",
+	"Updates",
 	"Shortcuts",
 ] as const;
 
@@ -139,11 +139,12 @@ export const SETTINGS = {
 		default: false,
 		under: "notifications.on",
 	},
+	// Keep the original storage key so saved auto-update preferences carry over.
 	"restart.auto": {
-		category: "Restart",
-		title: "Restart when out of date",
+		category: "Updates",
+		title: "Auto update",
 		description:
-			"Once a newer arbor is out, or commits land on the source arbor dev runs from, and every agent has been idle for a minute, restart arbor dev after a minute's countdown you can cancel, then reload this page.",
+			"Automatically update to a newer arbor release or the latest commits on its local source. Once you and the agents an update would interrupt have been idle for a minute, a minute’s countdown lets you cancel. Updating restarts arbor dev and reloads this page.",
 		default: false,
 	},
 	"shortcuts.search": shortcut(

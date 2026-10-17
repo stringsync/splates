@@ -341,7 +341,8 @@ export function CheckpointProvider({
 	const opened = useCallback(() => setOpen(true), []);
 	const run: Run =
 		restarting === null ? null : restarting.shutdown ? "shutdown" : "restart";
-	const title = titleOf(slide, run, restarted !== null);
+	const updating = auto.step !== "watching";
+	const title = titleOf(slide, run, restarted !== null, updating);
 	// Checkpointed and not yet told to carry on.
 	const waiting = all.asked.filter((each) => each.checkpoint === "done").length;
 	const badge = badgeOf(slide, run, waiting);
@@ -442,6 +443,7 @@ export function CheckpointProvider({
 				current={listed?.projects ?? []}
 				restartable={listed?.restartable ?? false}
 				held={listed?.held ?? []}
+				updating={updating}
 				countdown={
 					auto.step === "counting" ? { left: auto.left, onto: auto.onto } : null
 				}

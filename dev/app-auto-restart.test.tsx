@@ -14,7 +14,7 @@ import {
 	within,
 } from "./testing";
 
-describe("App's auto restart", () => {
+describe("App's auto update", () => {
 	let testing: Testing;
 	let timer: FakeTimer;
 	let clock: FakeClock;
@@ -59,9 +59,9 @@ describe("App's auto restart", () => {
 		await pass(65);
 
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /^Restarting arbor dev in 0:\d\d$/ }),
+			view.getByRole("dialog", { name: /^Updating arbor dev in 0:\d\d$/ }),
 		);
-		expect(dialog.textContent).toContain("arbor dev is behind bbbbbbbb");
+		expect(dialog.textContent).toContain("arbor dev will update to bbbbbbbb");
 		const left = () =>
 			Number(/in 0:(\d\d)/.exec(dialog.textContent ?? "")?.[1]);
 		const before = left();
@@ -78,23 +78,23 @@ describe("App's auto restart", () => {
 		);
 	});
 
-	it("restarts now on Power's Restart slide, then reloads once back", async () => {
+	it("updates now on Power's Update slide, then reloads once back", async () => {
 		const view = await open();
 		await pass(65);
 		const dialog = await waitFor(() =>
-			view.getByRole("dialog", { name: /^Restarting arbor dev in/ }),
+			view.getByRole("dialog", { name: /^Updating arbor dev in/ }),
 		);
 
 		await act(async () =>
 			fireEvent.click(
-				within(dialog).getByRole("button", { name: "Restart now" }),
+				within(dialog).getByRole("button", { name: "Update now" }),
 			),
 		);
 		expect(testing.posts.map((each) => each.path)).toContain("/api/restart");
 		await waitFor(() =>
 			expect(
 				within(dialog).getByRole("listitem", { current: "step" }).textContent,
-			).toBe("Restart"),
+			).toBe("Update"),
 		);
 		expect(dialog.textContent).toContain("This page reloads once it is back.");
 

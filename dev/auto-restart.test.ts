@@ -55,6 +55,21 @@ describe("AutoRestart", () => {
 		});
 	});
 
+	it("automatically updates when a newer published release is available", async () => {
+		server.listed = { ...server.listed, behind: null, newest: "0.0.45" };
+		await pass(65);
+		expect(restart.state).toMatchObject({
+			step: "counting",
+			onto: "arbor 0.0.45",
+		});
+		await pass(60);
+		expect(server.restarts).toBe(1);
+		expect(restart.state).toMatchObject({
+			step: "restarting",
+			onto: "arbor 0.0.45",
+		});
+	});
+
 	it("starts no countdown while held, as while Power is open", async () => {
 		restart.hold(true);
 		await pass(125);
