@@ -388,8 +388,7 @@
 	body {
 		@apply bg-background text-foreground antialiased wrap-anywhere;
 	}
-	/* On a phone the page holds still like an app: it never scrolls sideways,
-	   never rubber-bands past its ends, and a double tap is just two taps.
+	/* Keep sideways overscroll off and treat a double tap as two taps.
 	   index.html and main.tsx turn off pinch zoom. */
 	html,
 	body {
@@ -397,11 +396,14 @@
 		overscroll-behavior: none;
 		touch-action: manipulation;
 	}
-	/* A page that scrolls as a list, as Creds or Budget on a phone, bounces
-	   past its ends like a list in any app, even when it all fits. */
-	html:has([data-bounce]),
-	html:has([data-bounce]) body {
-		overscroll-behavior-y: auto;
+	/* Every phone page gets native vertical bounce, including views outside
+	   the main page layout such as Archived. Keep this at the same breakpoint
+	   as PhoneApp rather than requiring each view to opt in. */
+	@media (width < 768px) {
+		html,
+		body {
+			overscroll-behavior-y: auto;
+		}
 	}
 	::selection {
 		background: color-mix(in oklab, var(--brand) 30%, transparent);

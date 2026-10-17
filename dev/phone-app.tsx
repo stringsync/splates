@@ -120,7 +120,7 @@ export function PhoneApp({
 					</TopBarFrame>
 				</Screen>
 			) : (
-				<div data-bounce>
+				<div>
 					{/* The page's own bar lands in the middle, as every other's
 					    does beside a sidebar. */}
 					<header className="sticky top-0 z-30 box-content flex h-(--top-bar-height) items-center gap-1 border-b bg-background/95 px-1 pt-[env(safe-area-inset-top)] backdrop-blur">

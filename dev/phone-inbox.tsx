@@ -106,7 +106,6 @@ export function Inbox({
 	return (
 		<section
 			aria-label="inbox"
-			data-bounce
 			className="flex min-h-dvh flex-col bg-background"
 		>
 			<TopBar
