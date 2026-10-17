@@ -15,6 +15,8 @@ Without arbor, `bunx skills add jaredjj3/webappwiz#v<release> --skill arbor`
 installs the same skill. From then on, your agents start each change with
 `arbor add` and land it with `arbor merge`.
 
+Contributions are welcome: see [Contributing](CONTRIBUTING.md).
+
 ## How it works
 
 At its core, arbor is a consistent way to coordinate worktrees. Each change is
