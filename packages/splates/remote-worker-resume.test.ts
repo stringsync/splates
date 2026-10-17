@@ -9,6 +9,9 @@ import { WorkerDaemon } from "./worker-daemon";
 import { WorkerSession } from "./worker-session";
 import { WorkerSocketPair } from "./worker-socket-pair";
 
+// The daemon's default `orphanBound`.
+const ORPHAN_BOUND_SECS = 600;
+
 describe("RemoteWorker after the coordinator restarts", () => {
 	let timer: FakeTimer;
 	let clock: FakeClock;
@@ -71,7 +74,12 @@ describe("RemoteWorker after the coordinator restarts", () => {
 		remote = new RemoteWorker("local", {}, coordinator);
 		pair = new WorkerSocketPair();
 		await Bun.sleep(0);
-		timer.fireTimeouts();
+		// The worker's redial backoff, not the bound on a coordinator that never returns.
+		timer.timeouts.forEach((entry, index) => {
+			if (entry.delay.secs !== ORPHAN_BOUND_SECS) {
+				timer.fireTimeout(index);
+			}
+		});
 	};
 
 	/** Every frame `output` yields as it comes, as text with its seq. */

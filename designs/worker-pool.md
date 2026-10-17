@@ -255,6 +255,16 @@ major of `WorkerProtocol.version` (a minor negotiates by capability and
 never touches channels), or `LOG_FORMAT`. The restart that deploys it then
 ends the agents mid-turn once, instead of misreading them.
 
+A worker also bounds how long it keeps what a coordinator left. When the
+coordinator's session is lost, the worker (`WorkerDaemon`) starts
+`orphanBound`, ten minutes, and a coordinator that connects again cancels it.
+If none does, the worker ends every channel it held, which kills each agent
+and shell. Ten minutes is longer than a restart or a network blip, which take
+seconds, and shorter than a forgotten evening, in which a stopped coordinator
+would leave agents burning slots and tokens on the turn they were in. A
+coordinator that returns under a new session id ends the old session's
+channels at once (`WorkerSession.forget`), without waiting for the bound.
+
 ## Sizing
 
 Measured 2026-10-16 on an M4 Max (16 cores, 64 GB) with ~8 live sessions;

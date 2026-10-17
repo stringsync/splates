@@ -38,6 +38,11 @@ export interface WorkerDaemonOptions {
 	log: Logger;
 	/** The shortest and longest wait between dials. */
 	backoff?: { min: Duration; max: Duration };
+	/**
+	 * How long the coordinator's session may stay lost before every channel
+	 * it held ends; ten minutes by default.
+	 */
+	orphanBound?: Duration;
 	/** Paces the session, as `WorkerSession` takes it. */
 	session?: Omit<WorkerSessionOptions, "timer" | "clock" | "capabilities">;
 	timer?: Timer;
@@ -57,6 +62,8 @@ export class WorkerDaemon implements AsyncResource {
 	private readonly timer: Timer;
 	private readonly backoff: { min: Duration; max: Duration };
 	private readonly machine: LocalWorkerMachine;
+	private readonly orphanBound: Duration;
+	private orphaned: Resource | undefined;
 	private waiting: { wake(): void; timeout: Resource } | undefined;
 	private stopped = false;
 
@@ -69,6 +76,7 @@ export class WorkerDaemon implements AsyncResource {
 			min: Duration.ms(500),
 			max: Duration.secs(10),
 		};
+		this.orphanBound = opts.orphanBound ?? Duration.mins(10);
 		this.machine = new LocalWorkerMachine(opts.ps, opts.fs);
 		this.session = new WorkerSession("worker", {
 			...opts.session,
@@ -77,6 +85,8 @@ export class WorkerDaemon implements AsyncResource {
 			clock: opts.clock ?? new SystemClock(),
 		});
 		this.session.events.on("channel", (channel) => this.serve(channel));
+		this.session.events.on("connected", () => this.orphaned?.dispose());
+		this.session.events.on("lost", () => this.orphan());
 	}
 
 	/**
@@ -134,12 +144,31 @@ export class WorkerDaemon implements AsyncResource {
 	/** Stops dialing and everything this worker runs, and hangs up. */
 	async disposeAsync(): Promise<void> {
 		this.stopped = true;
+		this.orphaned?.dispose();
 		this.waiting?.timeout.dispose();
 		this.waiting?.wake();
 		for (const host of [...this.hosts]) {
 			host.dispose();
 		}
 		this.session.dispose();
+	}
+
+	/**
+	 * Starts the bound on a lost coordinator. A restart returns in seconds
+	 * and takes its channels back; one that does not return within the bound
+	 * is gone, and what it left would burn its slot and tokens for good.
+	 */
+	private orphan(): void {
+		if (this.stopped) {
+			return;
+		}
+		this.orphaned?.dispose();
+		this.orphaned = this.timer.setTimeout(() => {
+			this.opts.log.info(
+				`no coordinator returned within ${this.orphanBound.secs}s; ending what it left`,
+			);
+			this.session.endChannels();
+		}, this.orphanBound);
 	}
 
 	private serve(channel: WorkerChannel): void {

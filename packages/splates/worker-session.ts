@@ -376,6 +376,18 @@ export class WorkerSession implements Eventful<WorkerSessionEvents>, Resource {
 		this.lose("the coordinator is restarting");
 	}
 
+	/**
+	 * Ends every channel here while staying up, for an other end that has not
+	 * returned: what they ran stops now, and a coordinator that does come back
+	 * hears the closes it missed.
+	 */
+	endChannels(): void {
+		for (const channel of [...this.channels.values()]) {
+			channel.dispose();
+			channel.drop();
+		}
+	}
+
 	/** Settles once the other end has acked everything sent, or at once with nothing out. */
 	acked(): Promise<void> {
 		if (this.replay.bytes === 0) {

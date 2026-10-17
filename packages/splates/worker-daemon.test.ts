@@ -38,6 +38,7 @@ describe("WorkerDaemon", () => {
 				log: new MemoryLogger(),
 				backoff: { min: Duration.ms(20), max: Duration.ms(100) },
 				session: { bufferBytes: 64 * 1024 },
+				orphanBound: Duration.secs(2),
 			},
 		);
 		void daemon.run();
@@ -161,5 +162,20 @@ describe("WorkerDaemon", () => {
 
 		expect((await received).length).toBe(20_000_000);
 		expect(await child.exited).toBe(0);
+	});
+
+	// scry-ignore simple-test-setup: it alone drops the coordinator for good, which is what it tests
+	it("ends a process when the coordinator does not return within the bound", async () => {
+		const child = worker.start(["sleep", "30"], dir);
+		await sleep(Duration.ms(100));
+		const pid = child.pid as number;
+
+		await listener.disposeAsync();
+		await sleep(Duration.ms(1000));
+		expect(new NodePs().alive(pid)).toBe(true);
+		await sleep(Duration.ms(1500));
+
+		await sleep(Duration.ms(100));
+		expect(new NodePs().alive(pid)).toBe(false);
 	});
 });
