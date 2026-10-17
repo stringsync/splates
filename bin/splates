@@ -5,6 +5,9 @@
 here="$(dirname "${BASH_SOURCE[0]}")"
 if [[ "${1:-}" == "dev" ]]; then
 	shift
+	# A pin keeps `splates merge` off the tree it rewrites, but the merge's
+	# test gate runs `dev test` and must test the checkout it is in, not the pin.
+	unset SPLATES_ROOT
 	exec "$here/_run" packages/dev/index.ts "$@"
 fi
 exec "$here/_run" packages/splates/index.ts "$@"

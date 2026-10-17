@@ -42,7 +42,8 @@ describe.concurrent("splates", () => {
 			await using cli = await setup();
 			const { exitCode, stdout } = await cli.env.ps.spawnCapture(
 				[join(import.meta.dirname, "../../bin/splates"), "dev", ...args],
-				{ cwd: cli.env.root, env: { SPLATES_ROOT: "" } },
+				// NO_COLOR keeps the help plain even when the terminal forces color.
+				{ cwd: cli.env.root, env: { SPLATES_ROOT: "", NO_COLOR: "1" } },
 			);
 
 			expect(exitCode).toBe(0);
