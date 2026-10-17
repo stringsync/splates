@@ -12,11 +12,18 @@ export function tabId(): string {
 		if (kept !== null && kept !== "") {
 			return kept;
 		}
-		const made = crypto.randomUUID();
+		const made = randomId();
 		sessionStorage.setItem(TAB, made);
 		return made;
 	} catch {
 		// Storage off: a tab that reloads gets fresh shells.
-		return crypto.randomUUID();
+		return randomId();
 	}
+}
+
+/** A tab key also works over HTTP, where `crypto.randomUUID` is unavailable. */
+function randomId(): string {
+	return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+		byte.toString(16).padStart(2, "0"),
+	).join("");
 }
