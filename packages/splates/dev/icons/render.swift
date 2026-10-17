@@ -1,4 +1,4 @@
-// Draws the app icon: the 🌲 emoji as macOS draws it, on the page's dark
+// Draws the app icon: the 🍽️ emoji as macOS draws it, on the page's dark
 // background, full bleed so iOS can round the corners itself. Run on a Mac
 // from this directory, once per size: `swift render.swift 512 icon-512.png`,
 // and the same for 192.
@@ -20,8 +20,8 @@ NSRect(x: 0, y: 0, width: size, height: size).fill()
 // The glyph fits the middle 60%, inside the circle Android cuts a maskable
 // icon to.
 let font = NSFont(name: "Apple Color Emoji", size: size * 0.6)!
-let tree = NSAttributedString(string: "🌲", attributes: [.font: font])
-let glyph = tree.size()
-tree.draw(at: NSPoint(x: (size - glyph.width) / 2, y: (size - glyph.height) / 2))
+let plate = NSAttributedString(string: "🍽️", attributes: [.font: font])
+let glyph = plate.size()
+plate.draw(at: NSPoint(x: (size - glyph.width) / 2, y: (size - glyph.height) / 2))
 NSGraphicsContext.restoreGraphicsState()
 try! image.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))

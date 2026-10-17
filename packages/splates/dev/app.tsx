@@ -88,7 +88,7 @@ const NO_LANES: LaneRecord[] = [];
 
 /** The page's tree, drawn gray and faded: `index.html` has it in color. */
 const OFFLINE_ICON =
-	"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><filter id='gray'><feColorMatrix type='saturate' values='0'/></filter><text y='26' font-size='28' filter='url(%23gray)' opacity='0.5'>🌲</text></svg>";
+	"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><filter id='gray'><feColorMatrix type='saturate' values='0'/></filter><text y='26' font-size='28' filter='url(%23gray)' opacity='0.5'>🍽️</text></svg>";
 
 export function App({
 	settings,
