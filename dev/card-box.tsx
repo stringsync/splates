@@ -1,6 +1,14 @@
 import { useReactive, useResource } from "@webappwiz/react";
 import { PlusIcon } from "lucide-react";
-import { type JSX, type ReactNode, useContext, useId, useRef } from "react";
+import {
+	type JSX,
+	type ReactNode,
+	type RefObject,
+	useContext,
+	useEffect,
+	useId,
+	useRef,
+} from "react";
 import { ATTACH } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { cn } from "#dev/lib/utils.ts";
@@ -63,14 +71,16 @@ function Box({
 	box,
 	...props
 }: Props & { box: BoxDictation | null }): JSX.Element {
+	const shell = useRef<HTMLDivElement>(null);
 	return (
 		<div
+			ref={shell}
 			className={cn(
 				"group/box relative flex flex-col border border-border/70 bg-muted/30 transition-[background-color,border-color,box-shadow] duration-150 hover:border-border focus-within:border-ring focus-within:bg-background focus-within:ring-3 focus-within:ring-ring/20",
 				roomy ? "rounded-xl" : "rounded-lg",
 			)}
 		>
-			<div className="flex items-end">
+			<div className="relative min-h-(--suffix-height)">
 				<BoxEditor
 					{...props}
 					files={files}
@@ -81,14 +91,15 @@ function Box({
 					inset={roomy ? "px-4" : "px-3"}
 					className={cn(
 						roomy ? "py-3 text-base" : "py-2 text-sm pointer-coarse:text-base",
+						LAST_LINE_ROOM,
 						className,
 					)}
 				/>
 				{box !== null ? (
-					<MicSuffix box={box} files={files} roomy={roomy} />
+					<MicSuffix box={box} files={files} roomy={roomy} shell={shell} />
 				) : (
 					files !== null && (
-						<Suffix shown={false} roomy={roomy}>
+						<Suffix shown={false} roomy={roomy} shell={shell}>
 							<AttachPlus files={files} />
 						</Suffix>
 					)
@@ -100,6 +111,15 @@ function Box({
 }
 
 /**
+ * Room for the suffix at the end of the text's last line, as wide as the
+ * suffix, so the lines above run the box's full width. A last line ending in
+ * a line break, as an empty box's does, keeps none: the room would sit on a
+ * line of its own.
+ */
+const LAST_LINE_ROOM =
+	"[&_p:last-child:not(:has(>br:last-child))]:after:inline-block [&_p:last-child:not(:has(>br:last-child))]:after:w-(--suffix-width)";
+
+/**
  * The suffix of a box with a mic: the plus, or while a take writes in the
  * box, what the mic is doing, as the composer says it there, then the mic.
  */
@@ -107,14 +127,16 @@ function MicSuffix({
 	box,
 	files,
 	roomy,
+	shell,
 }: {
 	box: BoxDictation;
 	files: Files | null;
 	roomy: boolean;
+	shell: RefObject<HTMLDivElement | null>;
 }): JSX.Element {
 	const taking = useReactive(box, (each) => each.taking, ["changed"]);
 	return (
-		<Suffix shown={taking} roomy={roomy}>
+		<Suffix shown={taking} roomy={roomy} shell={shell}>
 			{taking ? (
 				<DictationStatus />
 			) : (
@@ -126,23 +148,48 @@ function MicSuffix({
 }
 
 /**
- * A box's buttons at the end of its text, beside its last line however many
+ * A box's buttons in its bottom corner, beside its last line however many
  * it wraps to. Its room is kept whether it shows or not, so the focus that
  * shows it moves nothing; it shows while the box has the focus or `shown`.
+ * Its size goes to the box's shell, for the room the last line keeps and
+ * the height of a box of one line.
  */
 function Suffix({
 	shown,
 	roomy,
+	shell,
 	children,
 }: {
 	shown: boolean;
 	roomy: boolean;
+	shell: RefObject<HTMLDivElement | null>;
 	children: ReactNode;
 }): JSX.Element {
+	const ref = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const suffix = ref.current;
+		const style = shell.current?.style;
+		if (suffix === null || style === undefined) {
+			return;
+		}
+		const measure = () => {
+			style.setProperty("--suffix-width", `${suffix.offsetWidth}px`);
+			style.setProperty("--suffix-height", `${suffix.offsetHeight}px`);
+		};
+		measure();
+		const resized = new ResizeObserver(measure);
+		resized.observe(suffix);
+		return () => {
+			resized.disconnect();
+			style.removeProperty("--suffix-width");
+			style.removeProperty("--suffix-height");
+		};
+	}, [shell]);
 	return (
 		<div
+			ref={ref}
 			className={cn(
-				"flex shrink-0 items-center transition-opacity duration-150",
+				"absolute right-0 bottom-0 flex items-center transition-opacity duration-150",
 				roomy ? "p-1.5" : "p-1",
 				shown
 					? "opacity-100"
