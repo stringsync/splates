@@ -82,6 +82,28 @@ export class ConversationTurns {
 		if (words === "" && files.length === 0) {
 			fail("usage", "say something to the agent", { conversation: state.id });
 		}
+		// Save before waiting for startup: the session may never open before
+		// the server restarts. The durable queue then offers Send now / Edit.
+		if (state.status === "starting" && host.opening !== null) {
+			const opening = host.opening;
+			// Capabilities are not known yet; keep uploads as files and choose
+			// their wire representation once the agent has initialized.
+			const kept = await this.files.keep(files, false);
+			this.queue(words, kept, from, {
+				...(told === undefined ? {} : { told }),
+				...(dictated ? { dictated: true } : {}),
+			});
+			await host.log.flush();
+			await opening;
+			if (
+				(state.status as Status) === "idle" &&
+				state.messages.some((each) => each.queued)
+			) {
+				this.held = false;
+				this.send([], { first: true });
+			}
+			return;
+		}
 		// Said to an archived one, it goes back on the list to carry on.
 		await host.unarchive();
 		if (state.status === "stopped" || state.status === "failed") {
@@ -433,18 +455,22 @@ export class ConversationTurns {
 	 * Starts a turn on `fresh`, with every message still queued ahead of it,
 	 * as one prompt, or on `fresh` alone, leaving the queue as it is.
 	 */
-	private send(fresh: Message[], { alone = false } = {}): void {
+	private send(fresh: Message[], { alone = false, first = false } = {}): void {
 		const { host } = this;
 		const waiting = alone
 			? []
-			: host.state.messages.filter((each) => each.queued);
+			: host.state.messages
+					.filter((each) => each.queued)
+					.slice(0, first ? 1 : Infinity);
 		if (waiting.length > 0) {
-			delivered(host.state.messages);
-			host.log.write({ kind: "sent" });
+			delivered(host.state.messages, waiting.length);
+			host.log.write({ kind: "sent", ...(first ? { count: 1 } : {}) });
 		}
 		// A new turn puts the last one's failure behind it.
 		host.set({ status: "running", error: null });
-		void this.content([...waiting, ...fresh])
+		void host.log
+			.flush()
+			.then(() => this.content([...waiting, ...fresh]))
 			.then((prompt) => this.connection.prompt(prompt))
 			.then(
 				(response) => {
@@ -460,7 +486,11 @@ export class ConversationTurns {
 
 	/** What `messages` say, as one prompt, for the tree the agent runs in. */
 	private content(messages: Message[]) {
-		return this.files.content(messages, this.host.cwd ?? this.deps.root);
+		return this.files.content(
+			messages,
+			this.host.cwd ?? this.deps.root,
+			this.connection.sees,
+		);
 	}
 
 	/** Settles once no turn is running, or the checkpoint has given up. */

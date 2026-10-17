@@ -144,6 +144,7 @@ describe("Conversation lifecycle", () => {
 		await reread.disposeAsync();
 	});
 
+	// scry-ignore simple-test-setup: only this test configures usage and a cumulative session cost
 	it("adds up the tokens each turn used and what the session cost, through a restart", async () => {
 		agent.usage = {
 			inputTokens: 10,
@@ -531,8 +532,14 @@ describe("Conversation lifecycle", () => {
 		const log = "/repo/.git/arbor/conversations/0.jsonl";
 		await Bun.sleep(1);
 
-		// The start went out at once; the rest wait for the timer.
-		expect((await fs.read(log)).trim().split("\n")).toHaveLength(1);
+		// The prompt is durable before sending; the first streamed update
+		// starts the next interval and the remaining chunks wait for it.
+		expect(
+			(await fs.read(log))
+				.trim()
+				.split("\n")
+				.map((line) => JSON.parse(line).kind),
+		).toEqual(["start", "session", "settings", "prompt", "turn", "update"]);
 		await conversation.stop();
 		const lines = (await fs.read(log)).trim().split("\n");
 		expect(lines.map((line) => JSON.parse(line).kind)).toEqual([
@@ -550,6 +557,7 @@ describe("Conversation lifecycle", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: only this test needs a real repository and a git command watcher
 	it("flags a command for what it did to git, and keeps the flag in the log", async () => {
 		await using env = await Testing.open();
 		await env.fs.write(join(env.root, "README.md"), "edited\n");

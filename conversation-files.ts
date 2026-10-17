@@ -92,8 +92,17 @@ export class ConversationFiles {
 	async content(
 		messages: Message[],
 		tree: string | null,
+		sees = false,
 	): Promise<acp.ContentBlock[]> {
-		const parts = messages.flatMap((message) => message.parts);
+		// Uploads queued before initialization are files until capabilities are
+		// known. Image-capable agents still receive those as image blocks.
+		const parts = messages
+			.flatMap((message) => message.parts)
+			.map((part) =>
+				part.type === "file" && sees && part.mimeType in IMAGE_TYPES
+					? { ...part, type: "image" as const }
+					: part,
+			);
 		const images = await Promise.all(
 			parts
 				.flatMap((part) => (part.type === "image" ? [part] : []))

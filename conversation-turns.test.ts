@@ -234,6 +234,14 @@ describe("Conversation turns", () => {
 			["one", false],
 			["two", true],
 		]);
+		await conversation.saved();
+		const restarted = readBack();
+		const recovered = await restarted.find(conversation.id);
+		expect(thread(recovered)[0]).toEqual(["one", false]);
+		expect(thread(recovered).filter(([, queued]) => queued)).toEqual([
+			["two", true],
+		]);
+		await restarted.disposeAsync();
 		await eventually(() => held.finish !== undefined);
 		held.finish?.("end_turn");
 		await eventually(() => said.length === 2);

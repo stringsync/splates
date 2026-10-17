@@ -66,6 +66,101 @@ describe("Conversation queue", () => {
 		};
 	});
 
+	it.each([false, true])(
+		"saves the first prompt before startup and recovers it after restart (images: %s)",
+		async (sees) => {
+			let ready = () => {};
+			agent.hold = new Promise<void>((resolve) => {
+				ready = resolve;
+			});
+			agent.sees = sees;
+			const conversation = await conversations.start("fake", {
+				task: "login",
+				cwd: "/repo-arbor/login",
+			});
+			try {
+				const prompting = conversation.prompt(
+					"keep my first thought",
+					[
+						{
+							title: "sketch.png",
+							mimeType: "image/png",
+							bytes: new Uint8Array([1, 2, 3]),
+						},
+					],
+					"phone",
+					{ dictated: true },
+				);
+				await eventually(async () =>
+					(
+						await fs.read(
+							`/repo/.git/arbor/conversations/${conversation.id}.jsonl`,
+						)
+					).includes("keep my first thought"),
+				);
+				expect(conversation.state.status).toBe("starting");
+				expect(agent.prompts).toEqual([]);
+				// No timer tick or graceful shutdown: only what reached disk counts.
+				const restarted = new Conversations(
+					"/repo/.git/arbor/conversations",
+					[AGENT],
+					{
+						fs,
+						timer,
+						clock,
+						launch: agent.launch,
+					},
+				);
+				const recovered = await restarted.find(conversation.id);
+				expect(thread(recovered)).toEqual([["keep my first thought", true]]);
+				expect(recovered.state.messages[0]).toMatchObject({ dictated: true });
+				const part = recovered.state.messages[0]?.parts[0];
+				expect(part?.type).toBe("file");
+				expect(part).toHaveProperty("name");
+				expect(
+					await recovered.attachment((part as { name: string }).name),
+				).toEqual({
+					bytes: new Uint8Array([1, 2, 3]),
+					mimeType: "image/png",
+				});
+				await restarted.disposeAsync();
+				ready();
+				await prompting;
+			} finally {
+				ready();
+			}
+			await eventually(() => agent.prompts.length === 1);
+			expect(agent.prompts[0]?.[0]?.type).toBe(
+				sees ? "image" : "resource_link",
+			);
+			expect(thread(conversation)).toEqual([["keep my first thought", false]]);
+			await finish(conversation, held);
+		},
+	);
+
+	it("saves an idle session's prompt before the agent can answer", async () => {
+		const conversation = await _started();
+		await conversation.prompt("keep this too");
+		await eventually(() => agent.prompts.length === 1);
+		const restarted = new Conversations(
+			"/repo/.git/arbor/conversations",
+			[AGENT],
+			{
+				fs,
+				timer,
+				clock,
+				launch: agent.launch,
+			},
+		);
+		expect(thread(await restarted.find(conversation.id))[0]).toEqual([
+			"keep this too",
+			false,
+		]);
+		await restarted.disposeAsync();
+		await eventually(() => held.finish !== undefined);
+		await finish(conversation, held);
+	});
+
 	it("waits for the turn to end when the agent cannot steer, then says all that waited as one prompt", async () => {
 		let client: acp.AgentSideConnection | undefined;
 		agent.turn = (connection, _session, text) => {
@@ -175,7 +270,6 @@ describe("Conversation queue", () => {
 			{ fs, timer, launch: agent.launch },
 		);
 		const [read] = await reread.list();
-		// Stopped mid-turn, the turn reads back as cut short.
 		expect(read && thread(read)).toEqual([
 			["one", false],
 			["", false],
@@ -206,6 +300,7 @@ describe("Conversation queue", () => {
 		await finish(conversation, held);
 	});
 
+	// scry-ignore simple-test-setup: stopping and reopening this queue is the behavior under test
 	it("reads back what still waits from its log", async () => {
 		const conversation = await working(conversations, held);
 		await conversation.prompt("two");
@@ -218,7 +313,6 @@ describe("Conversation queue", () => {
 		);
 		const [read] = await reread.list();
 
-		// Stopped mid-turn, the turn reads back as cut short.
 		expect(read && thread(read)).toEqual([
 			["one", false],
 			["", false],

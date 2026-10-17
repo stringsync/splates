@@ -51,9 +51,11 @@ export function textOf(message: Message): string {
 		.join("");
 }
 
-/** Marks every queued message as gone out. */
-export function delivered(messages: Message[]): void {
-	for (const each of messages) {
+/** Marks up to `count` queued messages as gone out, all by default. */
+export function delivered(messages: Message[], count = Infinity): void {
+	for (const each of messages
+		.filter((message) => message.queued)
+		.slice(0, count)) {
 		delete each.queued;
 	}
 }
