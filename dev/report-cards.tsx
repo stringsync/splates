@@ -33,6 +33,7 @@ import type { LanesStart, Report, TodoProposal } from "../asked";
 import { todoReference } from "../prompts";
 import type { AgentPick } from "../roster";
 import type { TodoState } from "../todo";
+import { CardArchive, useArchivable } from "./archive-offer";
 import { Board, touchArea } from "./board";
 import { Badge, copiedLabel, useCopy } from "./card";
 import { InMessage, useCardReply } from "./card-reply";
@@ -98,6 +99,7 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 	const [showing, setShowing] = useState(false);
 	// One that merged or removed its task ends it beside the thread too.
 	const ended = useEndCard(report);
+	const archivable = useArchivable(report);
 	return (
 		<div ref={ended}>
 			<CardShell
@@ -127,7 +129,10 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 				}
 			>
 				{showing ? (
-					<Source text={report.source} />
+					<>
+						<Source text={report.source} />
+						<CardArchive report={report} />
+					</>
 				) : planned ? (
 					<>
 						{text !== "" && (
@@ -135,9 +140,11 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 						)}
 						{latest && <PlanBoard />}
 					</>
-				) : text === "" &&
-					report.ending !== "merged" &&
-					!finished ? undefined : (
+				) : text === "" && report.ending !== "merged" && !finished ? (
+					archivable ? (
+						<CardArchive report={report} />
+					) : undefined
+				) : (
 					<>
 						{text !== "" && (
 							<Folded>
@@ -148,6 +155,7 @@ export function ReportCard({ report }: { report: Report }): JSX.Element {
 							<MergedStats task={report.task} />
 						)}
 						{finished && <PlanBoard reported />}
+						<CardArchive report={report} />
 					</>
 				)}
 			</CardShell>

@@ -9,21 +9,24 @@ import {
 	useState,
 } from "react";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
-import { Button } from "#dev/components/ui/button.tsx";
 import { Dialog } from "#dev/components/ui/dialog.tsx";
 import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Report } from "../asked";
 import type { ConversationState } from "../conversations";
+import { isEscalation } from "../events";
 import type { Details } from "../show";
 import { useWidgets, WIDGETS_ROOM, Widgets } from "./actions";
+import {
+	ArchiveBar,
+	ArchiveOfferProvider,
+	useArchiveOffer,
+} from "./archive-offer";
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
 import { BackgroundRow } from "./background";
-import { touchButton } from "./board";
 import { ReplyContext } from "./card-reply";
-import { ENDINGS, TONES } from "./card-shell";
 import { Hearing, hears } from "./check-in";
 import { useReply, useTyped } from "./composer-drafts";
 import {
@@ -41,7 +44,7 @@ import { CurrentTask, TaskRegistry } from "./current-task";
 import { DemoUI } from "./demo-cards";
 import type { Drafts } from "./drafts";
 import { bleed, ErrorBanner } from "./error-banner";
-import { EventUI } from "./event-lines";
+import { EventUI, lineOf } from "./event-lines";
 import {
 	AgentAsk,
 	HandedOut,
@@ -208,16 +211,11 @@ function Conversation({
 		task?.worktree ?? (conversation.task === null ? root : null),
 	);
 	// What the conversation's last word reports, to offer archiving it when
-	// the task is over, or the lanes it worked are.
-	const report = lastReport(conversation);
-	const ended =
-		report !== null &&
-		report.ending !== "escalated" &&
-		report.ending !== "waiting" &&
-		report.ending !== "working" &&
-		!archived
-			? report
-			: null;
+	// the task is over, or the lanes it worked are; never to one handed out.
+	const { offer, barred } = useArchiveOffer(
+		archived || handedBy !== null ? null : ended(conversation),
+		() => archive.file(onLeft),
+	);
 	const widgets = useWidgets(section);
 	const nameOf = useNameOf();
 	const touch = useTouch();
@@ -331,115 +329,115 @@ function Conversation({
 											<EventUI />
 											<StoppedUI />
 											<InterruptedUI />
-											<Hearing value={hears(conversation)}>
-												<StartNewContext value={startNew}>
-													{/* Its cards read-only: only its orchestrator replies to it. */}
-													<ReplyContext
-														value={handedBy === null ? reply : null}
-													>
-														<NamedContext value={named}>
-															<ThreadView
-																openAt={openAt}
-																autoFocus={!asking || typed}
-																mentions={mentions ?? undefined}
-																references={references}
-																commands={commands ?? undefined}
-																composer={
-																	handedBy === null ? undefined : (
-																		<HandedOut
-																			conversation={conversation}
-																			by={handedBy}
-																			onOpen={onOpen}
-																		/>
-																	)
-																}
-																placeholder={
-																	archived
-																		? "Send a message to unarchive and continue"
-																		: undefined
-																}
-																controls={
-																	!archived && (
+											<ArchiveOfferProvider value={offer}>
+												<Hearing value={hears(conversation)}>
+													<StartNewContext value={startNew}>
+														{/* Its cards read-only: only its orchestrator replies to it. */}
+														<ReplyContext
+															value={handedBy === null ? reply : null}
+														>
+															<NamedContext value={named}>
+																<ThreadView
+																	openAt={openAt}
+																	autoFocus={!asking || typed}
+																	mentions={mentions ?? undefined}
+																	references={references}
+																	commands={commands ?? undefined}
+																	composer={
+																		handedBy === null ? undefined : (
+																			<HandedOut
+																				conversation={conversation}
+																				by={handedBy}
+																				onOpen={onOpen}
+																			/>
+																		)
+																	}
+																	placeholder={
+																		archived
+																			? "Send a message to unarchive and continue"
+																			: undefined
+																	}
+																	controls={
+																		!archived && (
+																			<>
+																				<ContextMeter
+																					usage={conversation.usage}
+																				/>
+																				<SettingControls
+																					settings={settings}
+																					current={(setting) => setting.current}
+																					onChange={(setting, value) =>
+																						chooseSetting(
+																							id,
+																							setting.id,
+																							value,
+																						).catch((error: unknown) =>
+																							refused(
+																								`${setting.name} not switched`,
+																								error,
+																							),
+																						)
+																					}
+																				/>
+																			</>
+																		)
+																	}
+																	above={
 																		<>
-																			<ContextMeter
-																				usage={conversation.usage}
+																			<NeedsYouBar />
+																			<Refusal
+																				refusal={refusal}
+																				className="px-2"
 																			/>
-																			<SettingControls
-																				settings={settings}
-																				current={(setting) => setting.current}
-																				onChange={(setting, value) =>
-																					chooseSetting(
-																						id,
-																						setting.id,
-																						value,
-																					).catch((error: unknown) =>
-																						refused(
-																							`${setting.name} not switched`,
-																							error,
-																						),
-																					)
-																				}
-																			/>
-																		</>
-																	)
-																}
-																above={
-																	<>
-																		<NeedsYouBar />
-																		<Refusal
-																			refusal={refusal}
-																			className="px-2"
-																		/>
-																		{ended !== null && handedBy === null && (
-																			<ArchiveBar
-																				report={ended}
-																				onArchive={() => archive.file(onLeft)}
-																			/>
-																		)}
-																		{queued.length > 0 && (
-																			<Queued
-																				conversation={id}
-																				messages={queued}
-																				pending={feed.unrecorded(id)}
-																				edits={
-																					handedBy === null
-																						? {
-																								onEdit: (index) =>
-																									void edit(index),
-																								onDiscard: (index) =>
-																									void discard(index),
-																								onSendNow: () => void sendNow(),
-																							}
-																						: null
-																				}
-																			/>
-																		)}
-																		{/* Its agents' asks, which only the person answers. */}
-																		{agentAsks.map((agent) => (
-																			<AgentAsk
-																				key={agent.id}
-																				drafts={drafts}
-																				conversation={agent}
-																			/>
-																		))}
-																		{/* Answered where it answers to, beside that one's. */}
-																		{conversation.ask !== null &&
-																			handedBy === null && (
-																				<AskPanel
-																					key={conversation.ask.id}
-																					drafts={drafts}
-																					conversation={conversation}
-																					agent={agent}
-																					ask={conversation.ask}
+																			{offer !== null && barred && (
+																				<ArchiveBar offer={offer} />
+																			)}
+																			{queued.length > 0 && (
+																				<Queued
+																					conversation={id}
+																					messages={queued}
+																					pending={feed.unrecorded(id)}
+																					edits={
+																						handedBy === null
+																							? {
+																									onEdit: (index) =>
+																										void edit(index),
+																									onDiscard: (index) =>
+																										void discard(index),
+																									onSendNow: () =>
+																										void sendNow(),
+																								}
+																							: null
+																					}
 																				/>
 																			)}
-																	</>
-																}
-															/>
-														</NamedContext>
-													</ReplyContext>
-												</StartNewContext>
-											</Hearing>
+																			{/* Its agents' asks, which only the person answers. */}
+																			{agentAsks.map((agent) => (
+																				<AgentAsk
+																					key={agent.id}
+																					drafts={drafts}
+																					conversation={agent}
+																				/>
+																			))}
+																			{/* Answered where it answers to, beside that one's. */}
+																			{conversation.ask !== null &&
+																				handedBy === null && (
+																					<AskPanel
+																						key={conversation.ask.id}
+																						drafts={drafts}
+																						conversation={conversation}
+																						agent={agent}
+																						ask={conversation.ask}
+																					/>
+																				)}
+																		</>
+																	}
+																/>
+															</NamedContext>
+														</ReplyContext>
+													</StartNewContext>
+												</Hearing>
+											</ArchiveOfferProvider>
 										</UnsentContext.Provider>
 									</Composing.Provider>
 								</AssistantRuntimeProvider>
@@ -477,41 +475,32 @@ function Conversation({
 }
 
 /**
- * A bar above the composer while the conversation's last word is the report
- * of a task that is over, offering to put the conversation away: what to do
- * once nothing is left to say. It goes as the conversation carries on.
+ * The report that is the conversation's last word when it says the task is
+ * over, or the lanes are, and nothing arbor shows in the thread came after
+ * it, such as another task taken up: null otherwise.
  */
-function ArchiveBar({
-	report,
-	onArchive,
-}: {
-	report: Report;
-	onArchive: () => void;
-}): JSX.Element {
-	const { title, Icon, tone } = ENDINGS[report.ending];
-	return (
-		<section
-			aria-label="archive"
-			className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm shadow-xs"
-		>
-			<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
-			<span className="min-w-0 truncate">
-				{title}{" "}
-				<span className="font-mono text-xs">
-					{"lanes" in report ? report.lanes.join(", ") : report.task}
-				</span>
-			</span>
-			<Button
-				size="sm"
-				variant="outline"
-				onClick={onArchive}
-				className={cn("ml-auto h-7 gap-1.5 bg-background", touchButton)}
-			>
-				<ArchiveIcon data-icon="inline-start" />
-				Archive
-			</Button>
-		</section>
-	);
+function ended(conversation: ConversationState): Report | null {
+	const report = lastReport(conversation);
+	if (
+		report === null ||
+		report.ending === "escalated" ||
+		report.ending === "waiting" ||
+		report.ending === "working"
+	) {
+		return null;
+	}
+	// When the agent began saying it; a log too old to say keeps the offer.
+	const reply = conversation.messages
+		.at(-1)
+		?.parts.findLast((part) => part.type === "text" && part.text.trim() !== "");
+	const said = reply?.type === "text" ? reply.at : null;
+	const movedOn =
+		typeof said === "string" &&
+		conversation.events.some(
+			(event) =>
+				event.at > said && (isEscalation(event) || lineOf(event) !== null),
+		);
+	return movedOn ? null : report;
 }
 
 /**
