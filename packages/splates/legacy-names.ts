@@ -58,20 +58,6 @@ class Warnings {
 export const legacyWarnings = new Warnings();
 
 /**
- * `argv` with `splates dev`, the server's old name, as `splates server`,
- * saying so once. A checkout's `bin/splates` sends `splates dev <command>`
- * to the repo's own tooling before it gets here, so only the server's
- * options, or none, ever follow it.
- */
-export function legacyServer(argv: string[]): string[] {
-	if (argv[0] !== "dev") {
-		return argv;
-	}
-	legacyWarnings.once("splates dev", "splates server");
-	return ["server", ...argv.slice(1)];
-}
-
-/**
  * `next`, or `old` while only the old directory is there: until `splates server`
  * has moved it, every command reads records where arbor left them.
  */

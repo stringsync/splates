@@ -33,7 +33,9 @@ a task with its own branch and worktree, and every agent moves tasks through
 the same few commands, so agents never edit the same checkout and always know
 what the others are doing. There is no daemon and no orchestrator: splates is a
 CLI over git, and any agent in any terminal can use it. `splates --help` lists
-every command.
+every command. A bare `splates` prints help too; start the web page with
+`splates server`. The `splates dev` namespace belongs only to this repository
+and is absent from the published CLI.
 
 **Merging.** `splates merge` rebases the task onto `main`, runs your checks
 (`preMerge` in `splates.config.ts`) on the result, fast-forwards `main`, and

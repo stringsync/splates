@@ -6,7 +6,6 @@ import { MemoryLogger } from "webappwiz/log";
 import { NodeFs, NodePs } from "webappwiz/system";
 import {
 	legacyName,
-	legacyServer,
 	movedPath,
 	moveLegacyDir,
 	movePlan,
@@ -28,18 +27,6 @@ describe("legacy names", () => {
 
 	afterEach(async () => {
 		await rm(root, { recursive: true, force: true });
-	});
-
-	it("runs `splates dev`, the server's old name, as `splates server`", () => {
-		expect(legacyServer(["dev", "--port", "4400"])).toEqual([
-			"server",
-			"--port",
-			"4400",
-		]);
-	});
-
-	it("leaves every other command as it is", () => {
-		expect(legacyServer(["list", "dev"])).toEqual(["list", "dev"]);
 	});
 
 	it("names a variable or cred both ways, and leaves others alone", () => {

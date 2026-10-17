@@ -11,6 +11,62 @@ import { Testing } from "./testing";
 setDefaultTimeout(30_000);
 
 describe.concurrent("splates", () => {
+	it("prints help without starting a server when no command is given", async () => {
+		await using cli = await setup();
+		const { exitCode, stdout } = await cli.splates(cli.env.root);
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("Usage: splates <command>");
+		expect(stdout).toContain("  server ");
+		expect(stdout).not.toContain("the default command");
+		expect(stdout).not.toContain("  dev ");
+	});
+
+	it("does not expose the checkout's development namespace in the published CLI", async () => {
+		await using cli = await setup();
+		const { stdout } = await cli.splates(
+			cli.env.root,
+			"dev",
+			"--port",
+			"99999",
+		);
+
+		expect(stdout).toContain("Usage: splates <command>");
+		expect(stdout).not.toContain("Usage: splates dev");
+		expect(stdout).not.toContain("  fix ");
+	});
+
+	it.each([{ args: [] }, { args: ["--help"] }])(
+		"dispatches a checkout's dev $args to its own namespace",
+		async ({ args }) => {
+			await using cli = await setup();
+			const { exitCode, stdout } = await cli.env.ps.spawnCapture(
+				[join(import.meta.dirname, "../../bin/splates"), "dev", ...args],
+				{ cwd: cli.env.root, env: { SPLATES_ROOT: "" } },
+			);
+
+			expect(exitCode).toBe(0);
+			expect(stdout).toContain("Usage: splates dev <command>");
+			expect(stdout).toContain("  fix ");
+			expect(stdout).toContain("  test ");
+			expect(stdout).not.toContain("  server ");
+		},
+	);
+
+	it("exposes server options through the explicit server command", async () => {
+		await using cli = await setup();
+		const { exitCode, stdout } = await cli.splates(
+			cli.env.root,
+			"server",
+			"--help",
+		);
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("Usage: splates server");
+		expect(stdout).toContain("--port");
+		expect(stdout).toContain("--tunnel");
+	});
+
 	it("lands both trees on trunk without a merge when two agents work at once", async () => {
 		await using cli = await setup();
 		const { env, splates, rows } = cli;

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
 import { FORMAT } from "../../packages/splates/format";
 import type { Assertion, Match, Probe } from "./probe";
 import { command, seedFile, seedRepository } from "./probe-sandbox";

@@ -1,7 +1,7 @@
 import { availableParallelism } from "node:os";
+import { heavyJobsOfMachine } from "splates/heavy";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { type HeavyCap, NodeFs, NodePs, type Ps } from "webappwiz/system";
-import { heavyJobsOfMachine } from "../splates/heavy";
 import { ROOT } from "./root";
 
 export interface TestOptions {

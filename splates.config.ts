@@ -1,4 +1,4 @@
-import type { ConfigFile } from "./packages/splates/config";
+import type { ConfigFile } from "splates/config";
 
 export default {
 	postCheckout: "bun install",

@@ -1,4 +1,4 @@
-import type { SystemsFile } from "./packages/splates/systems";
+import type { SystemsFile } from "splates/systems";
 
 export default {
 	models: {

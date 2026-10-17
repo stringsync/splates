@@ -2,7 +2,7 @@
 import { basename } from "node:path";
 import { NodeFs } from "webappwiz/system";
 import { assets } from "./dev/assets";
-import { LEGACY, legacyServer, legacyWarnings } from "./legacy-names";
+import { LEGACY, legacyWarnings } from "./legacy-names";
 import { systemPs } from "./legacy-ps";
 import { projectArgs, splates } from "./splates";
 
@@ -12,7 +12,4 @@ if (basename(process.argv[1] ?? "") === LEGACY) {
 }
 const ps = systemPs();
 const { project, argv } = projectArgs(ps.args);
-await splates.run(
-	{ fs: new NodeFs(), ps, assets, project },
-	legacyServer(argv),
-);
+await splates.run({ fs: new NodeFs(), ps, assets, project }, argv);

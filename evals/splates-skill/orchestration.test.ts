@@ -2,6 +2,7 @@ import { expect, it } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+// biome-ignore lint/style/noRestrictedImports: these evaluations verify private prompt and plan contracts
 import * as prompts from "../../packages/splates/prompts";
 import module from "./orchestration.probes";
 import {

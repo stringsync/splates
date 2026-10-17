@@ -84,9 +84,7 @@ export function projectArgs(argv: string[]): {
 
 // Outermost first: a refusal raised in an action unwinds past `repository` and
 // stops at `exits`, which is the only thing that ends the process.
-export const splates = cli<SplatesDeps>("splates")
-	.use(exits<SplatesDeps>())
-	.fallback("server");
+export const splates = cli<SplatesDeps>("splates").use(exits<SplatesDeps>());
 
 // Every action is handed the dependencies it runs with, so it passes the
 // context straight on: each command takes the few it names off it.
@@ -403,7 +401,7 @@ splates
 splates
 	.command("server")
 	.description(
-		"the default command: serve every splates project on this machine as a web page, from wherever it is run: the page picks the project it shows, adds one by its path, running `splates init` there, and shows its todos and tasks, where todos can be added, updated, reordered or removed; it brings each project's records forward as it opens it",
+		"serve every splates project on this machine as a web page, from wherever it is run: the page picks the project it shows, adds one by its path, running `splates init` there, and shows its todos and tasks, where todos can be added, updated, reordered or removed; it brings each project's records forward as it opens it",
 	)
 	.option("port", z.coerce.number(), {
 		default: DEFAULT_PORT,

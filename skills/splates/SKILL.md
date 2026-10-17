@@ -11,6 +11,10 @@ trunk without pull requests. Run it with `bunx splates <command>` (or
 `splates` if on PATH). `splates --help` explains the commands; this file covers
 only what the CLI cannot tell you.
 
+A bare `splates` prints help; start the server explicitly with `splates server`.
+`splates dev` is only for developing the splates repository, through its
+checkout's `bin/splates`; it is not a command in the published CLI.
+
 **Rule:** never use raw git for state transitions splates covers: every landing
 goes through `splates merge`. The exception is finishing a rebase left in
 progress (`git add`, `git rebase --continue`), then merging again. A failed
@@ -402,7 +406,7 @@ and `slot-tunnels`: walk them through it as
 <host> --email <theirs>` makes the Cloudflare tunnel, its DNS record and its
 Access application with an API token kept as the cred
 `SPLATES_CLOUDFLARE_API_TOKEN`, and saves them for the machine, so a bare `splates
-dev` comes up tunneled. Without the token it requests it, with how to make
+server` comes up tunneled. Without the token it requests it, with how to make
 it, and exits `requested`: say so and wait as for any cred (see Creds), then
 run it again. When the account has no Zero Trust organization, it asks for
 `--team <name>` to make one. Ask the user for the host, the emails and any

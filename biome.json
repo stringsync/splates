@@ -30,6 +30,17 @@
 							{ "selector": { "kind": "any" }, "match": ".*" }
 						]
 					}
+				},
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"patterns": [
+							{
+								"group": ["**/packages/**"],
+								"message": "Import the package's public API (e.g. 'splates/config') instead of reaching into packages/."
+							}
+						]
+					}
 				}
 			},
 			"correctness": { "noUndeclaredDependencies": "error" }
