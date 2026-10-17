@@ -23,16 +23,13 @@ export const ASYNC_TASK_STATE = "async_task_state_update";
 export const ASYNC_TASK_PROGRESS = "async_task_progress";
 export const ASYNC_TASK_STOP = "_session/async_task/stop";
 
-/**
- * The notification the client hears each of those updates as, once
- * `asyncTasks` has moved it there: the SDK would refuse it as a session update
- * it does not know.
- */
+/** The notification the client hears each of those updates as (see `asyncTasks`). */
 export const ASYNC_TASK_UPDATE = "_arbor/async_task";
 
 /**
  * The messages from an agent, each update on a background command moved to
- * `ASYNC_TASK_UPDATE`, ahead of the SDK's checks.
+ * `ASYNC_TASK_UPDATE`, ahead of the SDK's checks, which would refuse it as a
+ * session update they do not know.
  */
 export function asyncTasks(
 	messages: ReadableStream<acp.AnyMessage>,
@@ -96,6 +93,19 @@ export function steers(initialized: acp.InitializeResponse): boolean {
 		"supported" in steering &&
 		steering.supported === true
 	);
+}
+
+/** Whether `update` is the agent's final answer, after which its turn ends. */
+export function finalAnswer(update: acp.SessionUpdate): boolean {
+	if (update.sessionUpdate !== "agent_message_chunk") {
+		return false;
+	}
+	// Codex marks each message's phase for a client that declares AIR, as
+	// arbor does for Claude's background commands.
+	const air = (
+		update._meta?.jetbrains as { air?: { phase?: unknown } } | undefined
+	)?.air;
+	return air?.phase === "final_answer";
 }
 
 /** Folds an update on a background command into those the agent left. */

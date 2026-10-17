@@ -5,6 +5,7 @@ import {
 	ASYNC_TASK_UPDATE,
 	type AsyncTaskUpdate,
 	asyncTasks,
+	finalAnswer,
 	foldBackground,
 	SESSION_META,
 	STEER,
@@ -24,7 +25,7 @@ import {
 	starts,
 } from "./fold";
 import { modelOption } from "./models";
-import { toolIn } from "./tool-calls";
+import { parentOf, toolIn } from "./tool-calls";
 import type { Watched } from "./watched";
 
 /** How long an agent starting holds up the next before it may start too. */
@@ -50,6 +51,11 @@ export class AgentConnection {
 	private settle: ((answer: Answer) => void) | null = null;
 	/** Whether the agent takes a prompt into its running turn. */
 	private steering = false;
+	/**
+	 * Whether the running turn is on its final answer: a prompt steered in
+	 * now may find it ended, and the agent start a turn of its own for it.
+	 */
+	private finishing = false;
 	/** Whether the agent takes images in a prompt. */
 	private seeing = false;
 	/** Whether the turn running is one the agent started, with no prompt to end it. */
@@ -103,9 +109,9 @@ export class AgentConnection {
 		return this.connection !== null;
 	}
 
-	/** Whether the agent takes a prompt into its running turn. */
+	/** Whether the agent takes a prompt into its running turn, as it stands. */
 	get canSteer(): boolean {
-		return this.steering;
+		return this.steering && !this.finishing;
 	}
 
 	/** Whether the agent takes images in a prompt. */
@@ -180,6 +186,7 @@ export class AgentConnection {
 			});
 			started();
 			this.steering = steers(initialized);
+			this.finishing = false;
 			this.seeing =
 				initialized.agentCapabilities?.promptCapabilities?.image === true;
 			// Offered only to an agent that takes them over HTTP, which they are.
@@ -300,6 +307,7 @@ export class AgentConnection {
 	async prompt(
 		prompt: acp.ContentBlock[],
 	): Promise<acp.PromptResponse | undefined> {
+		this.finishing = false;
 		return this.connection?.prompt({ sessionId: this.session ?? "", prompt });
 	}
 
@@ -320,6 +328,13 @@ export class AgentConnection {
 				_meta: { steering: { idleBehavior: "promptRequired" } },
 			},
 		);
+		// An agent that starts a turn of its own rather than answer
+		// `promptRequired`, as Codex does, is steered no more unless it says
+		// when such a turn ends, as Claude does: arbor would show it idle
+		// while it works, and put the next prompt on top of that turn.
+		if (outcome === "startedNewTurn" && !this.tells) {
+			this.steering = false;
+		}
 		return outcome;
 	}
 
@@ -409,7 +424,11 @@ export class AgentConnection {
 				// the background ends: a turn like any, though no prompt ends it.
 				if (this.tells && host.state.status === "idle" && starts(update)) {
 					this.unprompted = true;
+					this.finishing = false;
 					host.set({ status: "running", error: null });
+				}
+				if (finalAnswer(update) && parentOf(update) === null) {
+					this.finishing = true;
 				}
 				host.log.write({ kind: "update", update, at });
 				fold(host.state, update, at);

@@ -29,16 +29,26 @@ export function fold(
 			}
 			const turn = agentTurn(state, at);
 			const last = turn.parts.at(-1);
-			if (update.sessionUpdate === "agent_message_chunk") {
-				if (last?.type === "text") {
-					last.text += update.content.text;
-				} else {
-					turn.parts.push({ type: "text", text: update.content.text, at });
+			const type =
+				update.sessionUpdate === "agent_message_chunk" ? "text" : "thought";
+			const message = update.messageId ?? null;
+			const { text } = update.content;
+			if (last?.type === type) {
+				// A new message, as Codex says each of a turn's, starts a
+				// paragraph rather than running on from the last.
+				const next =
+					message !== null && last.message != null && last.message !== message;
+				last.text += next ? `\n\n${text}` : text;
+				if (message !== null) {
+					last.message = message;
 				}
-			} else if (last?.type === "thought") {
-				last.text += update.content.text;
 			} else {
-				turn.parts.push({ type: "thought", text: update.content.text, at });
+				turn.parts.push({
+					type,
+					text,
+					at,
+					...(message === null ? {} : { message }),
+				});
 			}
 			return;
 		}

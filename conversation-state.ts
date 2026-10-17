@@ -179,10 +179,18 @@ export interface Message {
 
 /** One piece of what someone in a conversation said or did. */
 export type Part =
-	/** `at` is when the agent began saying it, where the server knows. */
-	| { type: "text"; text: string; at?: string | null }
+	/**
+	 * `at` is when the agent began saying it, where the server knows;
+	 * `message` is the agent's id for its latest message here, if it gave one.
+	 */
+	| { type: "text"; text: string; at?: string | null; message?: string | null }
 	/** `at` is when the agent began it; null in a log too old to say. */
-	| { type: "thought"; text: string; at: string | null }
+	| {
+			type: "thought";
+			text: string;
+			at: string | null;
+			message?: string | null;
+	  }
 	| ({ type: "image" } & Image)
 	| ({ type: "file" } & Attached)
 	| Tool;

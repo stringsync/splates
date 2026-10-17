@@ -31,9 +31,11 @@ export class FakeAgent {
 	resumed: string[] = [];
 	/**
 	 * What `_session/steering` answers, or null for an agent that does not
-	 * offer it, the default.
+	 * offer it, the default: `startedNewTurn` as Codex does when it finds no
+	 * turn, whatever arbor asked, and `failed` as it does on an error.
 	 */
-	steering: "injected" | "promptRequired" | null = null;
+	steering: "injected" | "promptRequired" | "startedNewTurn" | "failed" | null =
+		null;
 	/** What was steered into a turn, in order. */
 	steered: string[] = [];
 	/** What arbor said it can take, as it started the last process. */
@@ -151,7 +153,10 @@ export class FakeAgent {
 					throw acp.RequestError.methodNotFound(method);
 				}
 				const prompt = params.prompt as acp.ContentBlock[];
-				if (this.steering === "injected") {
+				if (
+					this.steering === "injected" ||
+					this.steering === "startedNewTurn"
+				) {
 					this.steered.push(
 						prompt
 							.map((block) => (block.type === "text" ? block.text : ""))

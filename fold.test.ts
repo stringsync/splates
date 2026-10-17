@@ -433,6 +433,29 @@ describe("fold", () => {
 		]);
 	});
 
+	it("starts a paragraph for each new message, as Codex says them back to back", () => {
+		const into = state();
+		const chunk = (text: string, messageId: string): acp.SessionUpdate => ({
+			sessionUpdate: "agent_message_chunk",
+			content: { type: "text", text },
+			messageId,
+		});
+		foldAll(into, [
+			[chunk("Checking the ", "m1"), at(0)],
+			[chunk("tests.", "m1"), at(1)],
+			[chunk("They pass.", "m2"), at(2)],
+		]);
+
+		expect(into.messages[0]?.parts).toEqual([
+			{
+				type: "text",
+				text: "Checking the tests.\n\nThey pass.",
+				at: at(0),
+				message: "m2",
+			},
+		]);
+	});
+
 	it("keeps the plan as last sent, and when a thought began", () => {
 		const into = state();
 		fold(

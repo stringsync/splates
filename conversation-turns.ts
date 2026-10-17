@@ -128,10 +128,13 @@ export class ConversationTurns {
 				this.queue(words, kept, from, marks);
 				return;
 			}
-			// Said into the turn first, so a refusal leaves nothing in the thread.
-			const outcome = await connection.steer(
-				await this.content([{ ...said(words, null, kept), ...marks }]),
-			);
+			// Said into the turn first, so only what it took shows as steered.
+			// One it failed to take waits for the turn's end, as for an agent
+			// that cannot steer, rather than being refused: that end's prompt
+			// says what is wrong with it, if anything is.
+			const outcome = await connection
+				.steer(await this.content([{ ...said(words, null, kept), ...marks }]))
+				.catch(() => undefined);
 			if (outcome === "injected" || outcome === "startedNewTurn") {
 				const at = host.now();
 				// A new turn it started is a turn like any other.
@@ -154,13 +157,8 @@ export class ConversationTurns {
 				host.changed();
 				return;
 			}
-			if (outcome !== "promptRequired") {
-				fail("usage", `${host.agent?.name ?? "the agent"} did not take it`, {
-					conversation: state.id,
-				});
-			}
-			// The turn ended on the way: a turn of its own, then, or after the
-			// next one if that has started.
+			// Not taken, or the turn ended on the way: a turn of its own, then,
+			// or after the next one if that has started.
 			// Read again: the turn may have ended while the agent answered.
 			if ((state.status as Status) !== "idle") {
 				this.queue(words, kept, from, marks);
