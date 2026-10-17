@@ -1,4 +1,12 @@
-import { type CSSProperties, type JSX, type ReactNode, useState } from "react";
+import { SquarePenIcon } from "lucide-react";
+import {
+	type CSSProperties,
+	type JSX,
+	type ReactNode,
+	useContext,
+	useState,
+} from "react";
+import { Button } from "#dev/components/ui/button.tsx";
 import {
 	Dialog,
 	DialogContent,
@@ -7,10 +15,19 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "#dev/components/ui/dialog.tsx";
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from "#dev/components/ui/empty.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { questions } from "../plan";
 import type { Details } from "../show";
-import { OnIt } from "./dispatching";
+import { NEW } from "./conversation-address";
+import { Dispatching, OnIt } from "./dispatching";
 import { HEADING, Markdown } from "./markdown";
 import { isPartOf, type Nested, nest } from "./parts";
 import { PHONE_NAME, PHONE_ROW, PHONE_TILE } from "./phone-rows";
@@ -35,15 +52,35 @@ export function Tasks({
 	onOpen: (task: string | null) => void;
 }): JSX.Element {
 	const opened = tasks.find((task) => task.task === open) ?? null;
+	const dispatching = useContext(Dispatching);
 
 	return (
 		<section aria-label="tasks" className="flex flex-col gap-2">
 			<TopBar title="Tasks" />
-			{/* One line, not a big empty state: the todos below it are the page then. */}
 			{tasks.length === 0 ? (
-				<p className="text-muted-foreground text-sm">
-					No tasks: <code>arbor add &lt;task&gt;</code> starts one.
-				</p>
+				<Empty className="min-h-80 py-16">
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<TaskIcon aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No tasks yet</EmptyTitle>
+						<EmptyDescription>
+							Start a conversation and tell an agent what you’d like to work on.
+							Tasks will appear here as your agent picks up work.
+						</EmptyDescription>
+					</EmptyHeader>
+					{dispatching !== null && (
+						<EmptyContent>
+							<Button
+								onClick={() => dispatching.open(NEW)}
+								className="max-md:min-h-11"
+							>
+								<SquarePenIcon data-icon="inline-start" aria-hidden />
+								Start a conversation
+							</Button>
+						</EmptyContent>
+					)}
+				</Empty>
 			) : (
 				<TaskRows
 					label="task list"
