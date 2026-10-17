@@ -8,6 +8,7 @@ import { ConsoleLogger, type Logger } from "webappwiz/log";
 import { NodeFs } from "webappwiz/system";
 import { acpAdapter, cliAdapter } from "./probe-adapters";
 import { admit, budget } from "./probe-affordability";
+import { evalBudgetCli, projectEvalBudgets } from "./probe-budget-cli";
 import { skillChange, smokeProbes } from "./probe-change";
 import { probeReport } from "./probe-report";
 import {
@@ -89,6 +90,10 @@ export async function fastCli(
 	args: string[],
 	log: Logger = new ConsoleLogger(),
 ): Promise<void> {
+	if (args[0] === "budgets") {
+		await evalBudgetCli(args.slice(1), root, log);
+		return;
+	}
 	const plannedAt = performance.now();
 	const { values, positionals } = parseArgs({
 		args,
@@ -373,6 +378,11 @@ export async function fastCli(
 			cliHash,
 			allowUnmetered: false,
 			budget: spending,
+			sharedBudget: module.probes.some(
+				(probe) => probe.execution.kind === "agent",
+			)
+				? await projectEvalBudgets(root)
+				: undefined,
 			signal: controller.signal,
 			reproduction,
 			include: (probe, target) =>
@@ -429,6 +439,7 @@ const HELP = `bin/wiz dev eval [fast|list|plan|report] [options]
   --probe ID | --aspect NAME | --requirement ID (repeatable; groups intersect)
   --kind cli|agent        select local CLI checks or agent probes
   --module PATH            explicit ProbeModule; default discovers *.probes.ts
+  budgets [set <tokens/window|nothing>|reset] [--format json]  free shared token budget controls
   --target agent:model     repeat to compare configured ACP agents
   --parallel 1 --reps 1    bounded independent combinations
   --milliseconds N --turns N --tokens N   override each probe's bounds

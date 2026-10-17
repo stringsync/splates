@@ -218,6 +218,8 @@ export interface RunOptions {
 	allowUnmetered?: boolean;
 	/** Mandatory in the model CLI; low-level synthetic runner tests may omit it. */
 	budget?: Allowance;
+	/** Shared project ledger; the model CLI always supplies this, free stand-ins may inject it. */
+	sharedBudget?: import("./probe-budget-store").EvalBudgets;
 	signal?: AbortSignal;
 	reproduction: string[];
 	include?: (probe: Probe, target: Target) => boolean;

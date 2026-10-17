@@ -10,7 +10,8 @@ import {
 	type ProbeRun,
 } from "./probe";
 import { cliAdapter } from "./probe-adapters";
-import { type Allowance, admit } from "./probe-affordability";
+import type { Allowance } from "./probe-affordability";
+import { recordBudget, reserveBudget } from "./probe-budget-accounting";
 import {
 	assessRun,
 	configurationHash,
@@ -76,7 +77,7 @@ export async function runProbes(
 				})),
 			),
 	);
-	const allowances = opts.budget ? admit(jobs, opts.budget) : undefined;
+	const { allowances, reservationId } = await reserveBudget(jobs, opts);
 	await mkdir(opts.directory, { recursive: true });
 	const results: StoredRun[] = [];
 	let index = 0;
@@ -97,6 +98,7 @@ export async function runProbes(
 				target: job.target,
 				repetition: job.repetition,
 				allowance: allowances?.[jobIndex],
+				reservationId,
 			});
 			results.push(stored.value);
 			opts.completed?.(stored.value, stored.path);
@@ -105,6 +107,7 @@ export async function runProbes(
 	await Promise.all(
 		Array.from({ length: Math.min(opts.parallel, jobs.length) }, worker),
 	);
+	await recordBudget(results, reservationId, opts);
 	return results;
 }
 
@@ -115,6 +118,7 @@ async function runOne(
 		target: Target;
 		repetition: number;
 		allowance?: Readonly<Allowance>;
+		reservationId?: string;
 	},
 ): Promise<{ value: StoredRun; path: string }> {
 	const { seed, target, repetition } = opts;
@@ -182,7 +186,11 @@ async function runOne(
 		],
 	};
 	const runtime: Record<string, Json> = opts.allowance
-		? { reserved: { ...opts.allowance }, aggregateBudget: { ...opts.budget } }
+		? {
+				reserved: { ...opts.allowance },
+				aggregateBudget: { ...opts.budget },
+				sharedReservation: opts.reservationId ?? null,
+			}
 		: {};
 	const adapterIdentity = {
 		version: target.adapter.version,

@@ -5,6 +5,9 @@ assertion contracts and free CLI boundaries, **not measured model adherence**.
 The original requirements map below remains a broader target, not a claim that
 every mapped requirement is now covered.
 
+See [shared token budgets](BUDGETS.md) for configuration, persistence and conservative
+reservations, and [native blockers](NATIVE-BLOCKERS.md) for inspected transport evidence.
+
 ## Affordability controls and remaining provider blocker
 
 The CLI now requires an immutable skill baseline, skips unchanged instructions,

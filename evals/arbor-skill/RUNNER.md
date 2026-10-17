@@ -5,6 +5,9 @@ execution without changing that contract. Read `PROBES.md` and `COVERAGE.md`
 for evidence semantics and the audit's planned requirements. Runner unit tests
 and fake-agent results are **not measured model adherence**.
 
+See [shared token budgets](BUDGETS.md) for configuration, persistence and conservative
+reservations, and [native blockers](NATIVE-BLOCKERS.md) for inspected transport evidence.
+
 ## Affordability admission and current guarantees
 
 The model CLI requires `--baseline REV`, resolved to an immutable Git commit.
@@ -29,8 +32,9 @@ selection and `--failed` still require a skill change and the same budget gate.
 
 Default aggregate admission ceilings are **4,000 tokens and USD 0.10** per
 invocation. `--max-tokens` and `--max-usd` may adjust these up to hard maxima of
-**10,000 tokens and USD 0.25**. There is no automatic cross-invocation spending
-allowance: each deliberate invocation has its own cap. Positive integer tokens
+**10,000 tokens and USD 0.25**. Each deliberate invocation has its own cap; shared token windows additionally
+constrain repeated invocations when configured. No shared allowance is invented
+until explicitly declared. Positive integer tokens
 and integer microdollars avoid rounding past a ceiling. The runner reserves the
 worst-case charge for every selected probe × target × repetition before any seed
 or agent starts; concurrency cannot multiply the admitted budget. It does not
