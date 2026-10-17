@@ -47,6 +47,7 @@ interface Checkpointing {
 	restart: () => void;
 	restartBusy: boolean;
 	restartDone: boolean;
+	version: string | null;
 }
 
 const Checkpointing = createContext<Checkpointing | null>(null);
@@ -99,7 +100,7 @@ export function CheckpointProvider({
 		if (!restartDone) {
 			return;
 		}
-		const notice = timer.setTimeout(() => setRestartDone(false), ENDED);
+		const notice = timer.setTimeout(() => setRestartDone(false), UPDATED_SHOWN);
 		return () => notice.dispose();
 	}, [restartDone, timer]);
 	useDisposerEffect(
@@ -361,7 +362,7 @@ export function CheckpointProvider({
 				if (error instanceof TypeError) {
 					started();
 				} else {
-					refuse("Restart failed", error);
+					refuse("Update failed", error);
 				}
 			})
 			.finally(() => {
@@ -381,6 +382,7 @@ export function CheckpointProvider({
 			restart,
 			restartBusy,
 			restartDone,
+			version: listed?.running ?? null,
 		}),
 		[
 			slide,
@@ -391,6 +393,7 @@ export function CheckpointProvider({
 			restart,
 			restartBusy,
 			restartDone,
+			listed?.running,
 			open,
 		],
 	);
@@ -557,6 +560,7 @@ function endOf(
 
 /** How long a checkpoint whose agents carried on still says it is done. */
 const ENDED = Duration.mins(1);
+const UPDATED_SHOWN = Duration.secs(10);
 const NOTICE_TIMER = new SystemTimer();
 
 /**

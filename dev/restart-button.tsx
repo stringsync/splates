@@ -11,10 +11,17 @@ export function RestartButton({
 	wide: boolean;
 	update: boolean;
 }): JSX.Element | null {
-	const { restart, restartBusy, restartDone } = useCheckpoint();
+	const { restart, restartBusy, restartDone, version } = useCheckpoint();
 	const done = restartDone && !update && !restartBusy;
 	if (!update && !restartBusy && !done) {
-		return null;
+		return version === null ? null : (
+			<span
+				title={`Current version: arbor ${version}`}
+				className="shrink-0 whitespace-nowrap font-mono text-muted-foreground text-xs"
+			>
+				v{version}
+			</span>
+		);
 	}
 	if (done) {
 		return (
@@ -23,11 +30,11 @@ export function RestartButton({
 				className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-success text-xs"
 			>
 				<CheckIcon aria-hidden className="size-3.5" />
-				Restarted
+				Updated
 			</span>
 		);
 	}
-	const label = restartBusy ? "Restarting" : "Restart to update";
+	const label = restartBusy ? "Updating" : "Update";
 	return (
 		<Button
 			variant="outline"
@@ -47,7 +54,7 @@ export function RestartButton({
 			) : (
 				<RotateCwIcon aria-hidden data-icon="inline-start" />
 			)}
-			{restartBusy ? "Restarting" : wide ? "Restart to update" : "Update"}
+			{label}
 		</Button>
 	);
 }

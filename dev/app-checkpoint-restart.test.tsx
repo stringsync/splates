@@ -98,7 +98,7 @@ describe("App's checkpoint restart", () => {
 			[conversation({ id: "c1", status: "running" })],
 			null,
 		);
-		await waitFor(() => view.getByRole("button", { name: "Restarting" }));
+		await waitFor(() => view.getByRole("button", { name: "Updating" }));
 		testing.restarting = null;
 		testing.restarted = "resuming";
 		testing.run = "run-2";
@@ -110,10 +110,8 @@ describe("App's checkpoint restart", () => {
 
 		const again = await testing.open();
 
-		await waitFor(() => again.getByText("Restarted"));
-		expect(
-			again.getByText("Restarted").closest("[role=status]"),
-		).not.toBeNull();
+		await waitFor(() => again.getByText("Updated"));
+		expect(again.getByText("Updated").closest("[role=status]")).not.toBeNull();
 		expect(again.queryByRole("dialog")).toBeNull();
 		testing.restarted = null;
 		testing.projects = [project("webappwiz", [live("c1", "One")], true)];
@@ -127,7 +125,7 @@ describe("App's checkpoint restart", () => {
 		const view = await testing.openConversations([], null, {
 			release: { running: "0.0.43", newest: "0.0.44" },
 		});
-		await waitFor(() => view.getByRole("button", { name: "Restarting" }));
+		await waitFor(() => view.getByRole("button", { name: "Updating" }));
 		testing.restarting = null;
 		testing.run = "run-2";
 		testing.served = {
@@ -141,32 +139,33 @@ describe("App's checkpoint restart", () => {
 			release: null,
 		});
 
-		await waitFor(() => again.getByText("Restarted"));
+		await waitFor(() => again.getByText("Updated"));
 		expect(again.queryByRole("dialog")).toBeNull();
-		expect(
-			again.getByText("Restarted").classList.contains("text-success"),
-		).toBe(true);
+		expect(again.getByText("Updated").classList.contains("text-success")).toBe(
+			true,
+		);
 
 		testing.served = {
 			...testing.served,
 			release: { running: "0.0.44", newest: "0.0.45" },
 		};
 		await act(async () => testing.stream?.onmessage?.());
-		await waitFor(() =>
-			again.getByRole("button", { name: "Restart to update" }),
-		);
-		expect(again.queryByText("Restarted")).toBeNull();
+		await waitFor(() => again.getByRole("button", { name: "Update" }));
+		expect(again.queryByText("Updated")).toBeNull();
 	});
 
-	it("dismisses the inline confirmation after a minute", async () => {
+	it("replaces the inline confirmation with the current version after ten seconds", async () => {
 		sessionStorage.setItem("arbor.power.restarted", "0.0.43");
 		const view = await testing.open();
-		await waitFor(() => view.getByText("Restarted"));
+		await waitFor(() => view.getByText("Updated"));
 		expect(testing.timer.timeouts).toContainEqual(
-			expect.objectContaining({ delay: Duration.mins(1), disposed: false }),
+			expect.objectContaining({ delay: Duration.secs(10), disposed: false }),
 		);
 		await act(async () => testing.timer.fireTimeouts());
-		expect(view.queryByText("Restarted")).toBeNull();
+		expect(view.queryByText("Updated")).toBeNull();
+		expect(view.getByTitle("Current version: arbor 0.0.1").textContent).toBe(
+			"v0.0.1",
+		);
 		expect(view.queryByRole("dialog")).toBeNull();
 	});
 

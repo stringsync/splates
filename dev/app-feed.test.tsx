@@ -106,7 +106,7 @@ describe("App's feed", () => {
 			},
 		];
 		const view = await testing.open();
-		expect(view.queryByText("Restart to update")).toBeNull();
+		expect(view.queryByText("Update")).toBeNull();
 		expect((await menuItem(view, "Power")).textContent).toContain("Power");
 
 		testing.served = snapshot({
@@ -134,7 +134,7 @@ describe("App's feed", () => {
 
 	it("offers a restart once commits land on the source it runs from", async () => {
 		const view = await testing.open();
-		expect(view.queryByText("Restart to update")).toBeNull();
+		expect(view.queryByText("Update")).toBeNull();
 
 		testing.served = snapshot({
 			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
@@ -174,15 +174,13 @@ describe("App's feed", () => {
 		try {
 			resize(390, 844);
 			const view = await testing.open();
-			expect(
-				view.queryByRole("button", { name: "Restart to update" }),
-			).toBeNull();
+			expect(view.queryByRole("button", { name: "Update" })).toBeNull();
 			testing.served = snapshot({
 				release: { running: "0.0.43", newest: "0.0.44" },
 			});
 			await act(async () => testing.stream?.onmessage?.());
 			const update = await waitFor(() =>
-				view.getByRole("button", { name: "Restart to update" }),
+				view.getByRole("button", { name: "Update" }),
 			);
 			expect(update.textContent).toBe("Update");
 			const more = view.getByRole("button", { name: "More" });
@@ -200,32 +198,36 @@ describe("App's feed", () => {
 		}
 	});
 
-	it("restarts directly from Restart to update, keeping a spinner beside the kebab", async () => {
+	it("updates directly from Update, keeping a spinner beside the kebab", async () => {
 		const view = await testing.open();
-		expect(
-			view.queryByRole("button", { name: "Restart to update" }),
-		).toBeNull();
+		await waitFor(() =>
+			expect(view.getByTitle("Current version: arbor 0.0.1").textContent).toBe(
+				"v0.0.1",
+			),
+		);
+		expect(view.queryByRole("button", { name: "Update" })).toBeNull();
 
 		testing.served = snapshot({
 			behind: { running: "a".repeat(40), newest: "b".repeat(40) },
 		});
 		await act(async () => testing.stream?.onmessage?.());
 		const restart = await waitFor(() =>
-			view.getByRole("button", { name: "Restart to update" }),
+			view.getByRole("button", { name: "Update" }),
 		);
-		expect(restart.textContent).toBe("Restart to update");
+		expect(view.queryByTitle("Current version: arbor 0.0.1")).toBeNull();
+		expect(restart.textContent).toBe("Update");
 		expect(
 			restart.parentElement?.nextElementSibling?.getAttribute("aria-label"),
 		).toBe("More");
 		await act(async () => fireEvent.click(restart));
 
-		await waitFor(() => view.getByRole("button", { name: "Restarting" }));
+		await waitFor(() => view.getByRole("button", { name: "Updating" }));
 		expect(view.queryByRole("dialog")).toBeNull();
 		expect(testing.posted("/api/power")).toEqual([
 			{ method: "POST", body: { shutdown: false } },
 		]);
 		expect(testing.posted("/api/checkpoint")).toEqual([]);
-		const busy = view.getByRole("button", { name: "Restarting" });
+		const busy = view.getByRole("button", { name: "Updating" });
 		expect(busy.hasAttribute("disabled")).toBe(true);
 		expect(busy.querySelector(".animate-spin")).not.toBeNull();
 	});
@@ -236,22 +238,20 @@ describe("App's feed", () => {
 		});
 		testing.refuseWrites = { reason: "cannot restart", message: "Try again" };
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Restart to update" })),
+			fireEvent.click(view.getByRole("button", { name: "Update" })),
 		);
 		await waitFor(() =>
 			expect(
-				view
-					.getByRole("button", { name: "Restart to update" })
-					.hasAttribute("disabled"),
+				view.getByRole("button", { name: "Update" }).hasAttribute("disabled"),
 			).toBe(false),
 		);
-		expect(view.queryByRole("button", { name: "Restarting" })).toBeNull();
+		expect(view.queryByRole("button", { name: "Updating" })).toBeNull();
 		expect(view.queryByRole("dialog")).toBeNull();
 		testing.refuseWrites = null;
 		await act(async () =>
-			fireEvent.click(view.getByRole("button", { name: "Restart to update" })),
+			fireEvent.click(view.getByRole("button", { name: "Update" })),
 		);
-		await waitFor(() => view.getByRole("button", { name: "Restarting" }));
+		await waitFor(() => view.getByRole("button", { name: "Updating" }));
 		expect(testing.posted("/api/power")).toHaveLength(2);
 	});
 

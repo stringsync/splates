@@ -35,7 +35,7 @@ export interface BarFrame {
 	status?: ReactNode;
 	/** The page menu's items, at the foot of the kebab. */
 	menu?: ReactNode;
-	/** Puts Restart to update before the kebab, once a restart would update arbor. */
+	/** Puts Update before the kebab, once a restart would update arbor. */
 	dot?: boolean;
 	/** Ends the bar, never folded, as how many agents wait on you. */
 	end?: ReactNode;
@@ -56,7 +56,7 @@ export const TopBarFrame = createContext<BarFrame | null>(null);
  * page's status and what `detail` adds, then its actions. Those that do not
  * fit fold into a kebab on their left, the last first, so the first stay in
  * sight; the kebab holds the page menu too, where the shell gives one, with
- * Restart to update before it once a restart would update arbor. Under
+ * Update before it once a restart would update arbor. Under
  * a shell that keeps a row for it, it goes there, so the bar stays put
  * however the page under it scrolls or is laid out.
  */
@@ -242,7 +242,7 @@ const GAP = 4;
 /**
  * How many of `count` actions fit beside the title and the status, measured
  * from an unseen copy of them each time the bar, its title, its detail, its
- * status, Restart to update or its actions change size: all when they do, or
+ * status, Update or its actions change size: all when they do, or
  * as many as leave room for the kebab, the detail, the status, Restart to
  * update, and `TITLE_ROOM` of the title, or the whole title when shorter.
  */
@@ -287,7 +287,7 @@ function useFit(
 		// The detail and the status keep their whole widths.
 		const detail = detailed.current?.offsetWidth ?? 0;
 		const status = stated.current?.offsetWidth ?? 0;
-		// Restart to update never folds, so keeps its whole width too.
+		// Update never folds, so keeps its whole width too.
 		const restarting = restart.current?.offsetWidth ?? 0;
 		const space =
 			into.clientWidth -
