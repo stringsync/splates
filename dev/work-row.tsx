@@ -152,13 +152,14 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 							<TimelineItem item={item} short={short} />
 						</div>
 					))}
+				{work.going && work.plan !== null && <Plan steps={work.plan} />}
+				<Flags tools={flagged(work)} short={short} />
+				{/* Last, under the plan and warnings, as the turn's one action. */}
 				{work.working && !waiting && since !== null && (
 					<InMessage>
 						<CheckIn since={latest(since, work.replied)} now={now} />
 					</InMessage>
 				)}
-				{work.going && work.plan !== null && <Plan steps={work.plan} />}
-				<Flags tools={flagged(work)} short={short} />
 			</div>
 		</Going>
 	);

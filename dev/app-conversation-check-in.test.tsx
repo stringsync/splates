@@ -42,6 +42,18 @@ describe("App's check-in on a long turn", () => {
 		]);
 	});
 
+	it("sits last, under the turn's warnings", async () => {
+		const view = await testing.openConversations([droppedCommits(12)]);
+		const button = await waitFor(() =>
+			view.getByRole("button", { name: "Check in" }),
+		);
+		const warnings = view.getByRole("list", { name: "warnings" });
+		expect(
+			warnings.compareDocumentPosition(button) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
+
 	it("freezes working time at a pending permission request", async () => {
 		const state = workingFor(12);
 		const view = await testing.openConversations([
@@ -163,6 +175,29 @@ function repliedAfter(minutes: number, replied: number) {
 					{ type: "text", text: "Working lane 3", at: ago(replied) },
 				),
 				at: ago(minutes),
+				until: new Date().toISOString(),
+			},
+		],
+	});
+}
+
+/** A running conversation whose agent dropped commits `minutes` ago. */
+function droppedCommits(minutes: number) {
+	const at = new Date(Date.now() - minutes * 60_000).toISOString();
+	return conversation({
+		status: "running",
+		messages: [
+			message("user", "fix the header"),
+			{
+				...message(
+					"agent",
+					tool({
+						command: "git reset --hard HEAD~1",
+						at,
+						flags: [{ type: "dropped", branch: "task/header" }],
+					}),
+				),
+				at,
 				until: new Date().toISOString(),
 			},
 		],
