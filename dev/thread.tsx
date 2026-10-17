@@ -25,7 +25,7 @@ import {
 import { ArtifactViewer } from "./artifact-open";
 import { ArtifactsCard } from "./artifacts-card";
 import { AskPanel } from "./ask-panel";
-import { BackgroundRow } from "./background";
+import { BackgroundCard } from "./background";
 import { ReplyContext } from "./card-reply";
 import { Hearing, hears } from "./check-in";
 import { useReply, useTyped } from "./composer-drafts";
@@ -450,13 +450,11 @@ function Conversation({
 											? [where, ...actions]
 											: actions
 									}
-									background={
-										<BackgroundRow
-											conversation={id}
-											background={conversation.background}
-										/>
-									}
 								>
+									<BackgroundCard
+										conversation={id}
+										background={conversation.background}
+									/>
 									<StartedByCard conversation={conversation} onOpen={onOpen} />
 									<SystemsCard systems={task?.systems ?? []} />
 									<ArtifactsCard

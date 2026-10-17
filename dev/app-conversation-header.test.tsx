@@ -329,50 +329,65 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
-	it("lists the commands it left in the background in a menu from the actions card, each saying how it stands", async () => {
+	it("lists the commands it left in the background in a card of their own, newest first, the latest three until expanded", async () => {
+		const command = (id: string, name: string) => ({
+			id,
+			name,
+			command: null,
+			subagent: null,
+			state: "completed" as const,
+			output: null,
+		});
 		const view = await testing.openConversations([
 			conversation({
 				id: "c1",
 				title: "Serve it",
 				background: [
+					command("b1", "Install"),
+					command("b2", "Build"),
+					{ ...command("b3", "Run the tests"), state: "failed" },
 					{
-						id: "b1",
-						name: "Start the dev server",
+						...command("b4", "Start the dev server"),
 						command: "bun dev",
-						subagent: null,
 						state: "running",
-						output: "/tmp/b1.output",
 					},
-					{
-						id: "b2",
-						name: "Run the tests",
-						command: null,
-						subagent: null,
-						state: "failed",
-						output: null,
-					},
+					command("b5", "Lint"),
 				],
 			}),
 		]);
-
-		const row = within(
-			view.getByRole("navigation", { name: "actions" }),
-		).getByRole("button", { name: "Background commands" });
-		expect(row.textContent).toBe("Background1 running");
-		await act(async () => fireEvent.click(row));
-		const menu = await waitFor(() => view.getByRole("menu"));
-		expect(
-			within(menu)
-				.getAllByRole("menuitem")
-				.map((item) => [item.title, item.textContent]),
-		).toEqual([
+		const card = view.getByRole("region", { name: "background commands" });
+		const rows = () =>
+			within(card)
+				.getAllByRole("listitem")
+				.map((item) => [
+					within(item).getByRole("button").title,
+					item.textContent,
+				]);
+		expect(within(card).getByRole("heading").textContent).toBe(
+			"Background1 running",
+		);
+		expect(rows()).toEqual([
+			["Lint", "LintDone"],
 			["bun dev", "Start the dev serverRunning"],
 			["Run the tests", "Run the testsFailed"],
 		]);
 
+		const toggle = within(card).getByRole("button", { name: "Show 2 more" });
+		expect(toggle.getAttribute("aria-expanded")).toBe("false");
+		await act(async () => fireEvent.click(toggle));
+		expect(toggle.textContent).toBe("Show fewer");
+		expect(toggle.getAttribute("aria-expanded")).toBe("true");
+		expect(rows().map(([title]) => title)).toEqual([
+			"Lint",
+			"bun dev",
+			"Run the tests",
+			"Build",
+			"Install",
+		]);
+
 		await testing.say(conversation({ id: "c1", title: "Serve it" }));
 		expect(
-			view.queryByRole("button", { name: "Background commands" }),
+			view.queryByRole("region", { name: "background commands" }),
 		).toBeNull();
 	});
 
@@ -425,7 +440,7 @@ describe("App's conversation header", () => {
 		).toBeNull();
 	});
 
-	it("lists the commands a subagent started under that subagent, after the agent's own", async () => {
+	it("names the subagent that started a command in its row's title", async () => {
 		const view = await testing.openConversations([
 			conversation({
 				id: "c1",
@@ -439,39 +454,19 @@ describe("App's conversation header", () => {
 						state: "running",
 						output: null,
 					},
-					{
-						id: "b2",
-						name: "Start the dev server",
-						command: "bun dev",
-						subagent: null,
-						state: "running",
-						output: null,
-					},
 				],
 			}),
 		]);
 
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("navigation", { name: "actions" })).getByRole(
-					"button",
-					{ name: "Background commands" },
-				),
-			),
-		);
-		const menu = await waitFor(() => view.getByRole("menu"));
 		expect(
-			within(menu)
-				.getAllByRole("group")
-				.map((group) => group.textContent),
-		).toEqual([
-			"Background commandsStart the dev serverRunning",
-			"Check the buildWatch the buildRunning",
-		]);
+			within(
+				view.getByRole("region", { name: "background commands" }),
+			).getByRole("button", { name: /Watch the build/ }).title,
+		).toBe("bun build --watch\nStarted by Check the build");
 	});
 
 	// scry-ignore simple-test-setup: only this test reads a command's output, so it holds its own rather than share one every test ignores
-	it("opens a command's output beside the page, from the card's menu or the narrow one, with a Stop while it runs", async () => {
+	it("opens a command's output beside the page from its row in the card, with a Stop while it runs", async () => {
 		testing.outputs = { b1: "listening on 3000" };
 		const running = {
 			id: "b1",
@@ -485,22 +480,10 @@ describe("App's conversation header", () => {
 			conversation({ id: "c1", title: "Serve it", background: [running] }),
 		]);
 
-		await act(async () =>
-			fireEvent.click(
-				within(view.getByRole("navigation", { name: "actions" })).getByRole(
-					"button",
-					{ name: "Background commands" },
-				),
-			),
-		);
-		await act(async () =>
-			fireEvent.click(
-				within(await waitFor(() => view.getByRole("menu"))).getByRole(
-					"menuitem",
-					{ name: /Start the dev server/ },
-				),
-			),
-		);
+		const row = within(
+			view.getByRole("region", { name: "background commands" }),
+		).getByRole("button", { name: /Start the dev server/ });
+		await act(async () => fireEvent.click(row));
 		const pane = view.getByRole("complementary", {
 			name: "background command",
 		});
@@ -536,20 +519,7 @@ describe("App's conversation header", () => {
 			view.queryByRole("complementary", { name: "background command" }),
 		).toBeNull();
 
-		await act(async () =>
-			fireEvent.click(
-				// The narrow one, in the thread's header ahead of the card.
-				view.getAllByRole("button", {
-					name: "Background commands",
-				})[0] as HTMLElement,
-			),
-		);
-		const menu = await waitFor(() => view.getByRole("menu"));
-		await act(async () =>
-			fireEvent.click(
-				within(menu).getByRole("menuitem", { name: /Start the dev server/ }),
-			),
-		);
+		await act(async () => fireEvent.click(row));
 		expect(
 			view.getByRole("complementary", { name: "background command" }),
 		).toBeTruthy();

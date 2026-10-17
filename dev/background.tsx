@@ -1,23 +1,20 @@
 import { useDisposerEffect, useReactive } from "@webappwiz/react";
-import { CheckIcon, SquareIcon, TerminalIcon, XIcon } from "lucide-react";
+import {
+	CheckIcon,
+	ChevronDownIcon,
+	SquareIcon,
+	TerminalIcon,
+	XIcon,
+} from "lucide-react";
 import {
 	createContext,
 	type JSX,
-	type ReactNode,
 	useContext,
 	useEffect,
 	useRef,
 	useState,
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuTrigger,
-} from "#dev/components/ui/dropdown-menu.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import type { Background, BackgroundState } from "../conversations";
 import { BackgroundOutput } from "./background-output";
@@ -41,12 +38,16 @@ const SAID: Record<BackgroundState, string> = {
 	stopped: "Stopped",
 };
 
+/** How many of a conversation's commands its card shows until expanded. */
+const SHOWN = 3;
+
 /**
- * The commands an agent left in the background, as one row of the actions
- * card saying how many run, opening a menu of them. Nothing at all while it
- * has left none.
+ * The commands an agent left in the background, as a card beside its
+ * thread: the latest few, newest first, each saying how it stands and
+ * opening what it printed, then a row that expands to the rest. Nothing at
+ * all while it has left none.
  */
-export function BackgroundRow({
+export function BackgroundCard({
 	conversation,
 	background,
 }: {
@@ -54,28 +55,23 @@ export function BackgroundRow({
 	background: Background[];
 }): JSX.Element | null {
 	const watch = useContext(WatchBackground);
+	const [expanded, setExpanded] = useState(false);
 	if (background.length === 0 || watch === null) {
 		return null;
 	}
 	const running = background.filter((each) => each.state === "running");
+	const newest = background.toReversed();
+	const more = newest.length - SHOWN;
 	return (
-		<div className="py-1">
-			<BackgroundMenuOf
-				conversation={conversation}
-				background={background}
-				watch={watch}
-				trigger={
-					<button
-						type="button"
-						aria-label="Background commands"
-						title={`Background commands: ${running.length} running`}
-						className="flex h-8 w-full items-center gap-2 px-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-popup-open:bg-accent [&_svg]:size-4 [&_svg]:text-muted-foreground"
-					/>
-				}
-			>
+		<section
+			aria-label="background commands"
+			data-widget
+			className="overflow-hidden rounded-lg border bg-background py-1"
+		>
+			<h3 className="flex h-8 items-center gap-2 px-3 font-medium text-sm [&_svg]:size-4 [&_svg]:text-muted-foreground">
 				<TerminalIcon />
 				<span className="flex-1">Background</span>
-				<span className="flex items-center gap-1.5 text-muted-foreground">
+				<span className="flex items-center gap-1.5 font-normal text-muted-foreground">
 					{running.length > 0 ? (
 						<>
 							<span
@@ -88,81 +84,48 @@ export function BackgroundRow({
 						background.length
 					)}
 				</span>
-			</BackgroundMenuOf>
-		</div>
-	);
-}
-
-/**
- * A menu of the commands from `trigger`, each saying how it stands and
- * opening what it printed: those the agent started first, then those each
- * of its subagents started, under that subagent.
- */
-function BackgroundMenuOf({
-	conversation,
-	background,
-	watch,
-	trigger,
-	children,
-}: {
-	conversation: string;
-	background: Background[];
-	watch: (conversation: string, background: string) => void;
-	trigger: JSX.Element;
-	children: ReactNode;
-}): JSX.Element {
-	const item = (each: Background) => (
-		<DropdownMenuItem
-			key={each.id}
-			title={each.command ?? each.name}
-			className={cn(each.subagent !== null && "pl-5")}
-			onClick={() => watch(conversation, each.id)}
-		>
-			<StateMark state={each.state} />
-			<span className="flex-1 truncate">{each.name}</span>
-			<span className="text-muted-foreground text-xs">{SAID[each.state]}</span>
-		</DropdownMenuItem>
-	);
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger render={trigger}>{children}</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-64">
-				<DropdownMenuGroup>
-					<DropdownMenuLabel>Background commands</DropdownMenuLabel>
-					{background.filter((each) => each.subagent === null).map(item)}
-				</DropdownMenuGroup>
-				{bySubagent(background).map(({ subagent, started }) => (
-					<DropdownMenuGroup key={subagent.id}>
-						<DropdownMenuLabel className="truncate">
-							{subagent.title}
-						</DropdownMenuLabel>
-						{started.map(item)}
-					</DropdownMenuGroup>
+			</h3>
+			<ul>
+				{(expanded ? newest : newest.slice(0, SHOWN)).map((each) => (
+					<li key={each.id}>
+						<button
+							type="button"
+							title={
+								each.subagent === null
+									? (each.command ?? each.name)
+									: `${each.command ?? each.name}\nStarted by ${each.subagent.title}`
+							}
+							onClick={() => watch(conversation, each.id)}
+							className="flex h-8 w-full items-center gap-2 px-3 text-left text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+						>
+							<StateMark state={each.state} />
+							<span className="min-w-0 flex-1 truncate">{each.name}</span>
+							<span className="shrink-0 text-muted-foreground text-xs">
+								{SAID[each.state]}
+							</span>
+						</button>
+					</li>
 				))}
-			</DropdownMenuContent>
-		</DropdownMenu>
+			</ul>
+			{more > 0 && (
+				<button
+					type="button"
+					aria-expanded={expanded}
+					onClick={() => setExpanded((was) => !was)}
+					className="flex h-8 w-full items-center gap-2 px-3 text-left text-muted-foreground text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+				>
+					<ChevronDownIcon
+						aria-hidden
+						className={cn(
+							"size-4 shrink-0 transition-transform motion-reduce:transition-none",
+							expanded && "rotate-180",
+						)}
+					/>
+					{expanded ? "Show fewer" : `Show ${more} more`}
+				</button>
+			)}
+		</section>
 	);
-}
-
-/** The commands subagents started, by subagent, in the order each first started one. */
-function bySubagent(
-	background: Background[],
-): { subagent: NonNullable<Background["subagent"]>; started: Background[] }[] {
-	const groups = new Map<
-		string,
-		{ subagent: NonNullable<Background["subagent"]>; started: Background[] }
-	>();
-	for (const each of background) {
-		if (each.subagent !== null) {
-			const group = groups.get(each.subagent.id) ?? {
-				subagent: each.subagent,
-				started: [],
-			};
-			group.started.push(each);
-			groups.set(each.subagent.id, group);
-		}
-	}
-	return [...groups.values()];
 }
 
 /**

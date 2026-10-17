@@ -102,9 +102,9 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
 
 /**
  * Everything to do with a conversation, as widgets, each a card of its own:
- * the actions, many of them opening the pane beside the page, then a menu of
- * the commands it left in the background below a rule, and cards such as the
- * systems its task touches. Docked at the thread's right where it is
+ * the actions, many of them opening the pane beside the page, and cards
+ * under them such as the commands it left in the background and the systems
+ * its task touches. Docked at the thread's right where it is
  * `roomy`, its messages centered in the room left of them; elsewhere
  * floating, frosted, over the thread's top right with the thread veiled
  * behind them, like the Control Center,
@@ -112,15 +112,12 @@ export function useWidgets(section: RefObject<HTMLElement | null>): {
  */
 export function Widgets({
 	actions,
-	background,
 	children,
 	roomy,
 	open,
 	onClose,
 }: {
 	actions: Action[];
-	/** Below another rule: a menu of the commands the agent left, while any are. */
-	background?: ReactNode;
 	/** Cards stacked under the actions, such as the systems a task touches. */
 	children?: ReactNode;
 	roomy: boolean;
@@ -205,7 +202,7 @@ export function Widgets({
 				<nav
 					aria-label="actions"
 					data-widget
-					className="flex flex-col divide-y overflow-hidden rounded-lg border bg-background"
+					className="flex flex-col overflow-hidden rounded-lg border bg-background"
 				>
 					{actions.length > 0 && (
 						<div className="py-1">
@@ -214,7 +211,6 @@ export function Widgets({
 							))}
 						</div>
 					)}
-					{background}
 				</nav>
 				{children}
 			</section>
