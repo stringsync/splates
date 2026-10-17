@@ -16,7 +16,7 @@ import { Markdown } from "./markdown";
 import { CredField, JourneyDone, SetupIndex, StepForm } from "./setup-form";
 import { SetupJourney } from "./setup-journey";
 import { SetupContext } from "./setup-state";
-import { STEP_BODIES } from "./setup-steps";
+import { JOURNEY_ENDS, STEP_BODIES } from "./setup-steps";
 import { TopBar } from "./top-bar";
 
 /** Intentional setup: choose an area, then answer its steps a page at a time. */
@@ -72,7 +72,14 @@ function Journey({
 	);
 	useEffect(() => journey.events.on("settled", settle), [journey, settle]);
 	if (step === undefined) {
-		return <JourneyDone title={area.title} onLeave={onLeave} />;
+		const End = JOURNEY_ENDS[area.id];
+		return (
+			<JourneyDone title={area.title} onLeave={onLeave}>
+				{End !== undefined && (
+					<End feed={feed} onOpen={onOpen} onLeave={onLeave} />
+				)}
+			</JourneyDone>
+		);
 	}
 	const onAgent =
 		feed === null

@@ -154,25 +154,34 @@ describe("Setup journeys", () => {
 		});
 	});
 
-	it("draws OpenCode's pages from its own controls, repair going back to install", async () => {
+	it("asks OpenCode's models on one page, and ends offering to turn it off", async () => {
 		progress = with_({
 			"opencode-install": "done",
 			"opencode-connect": "done",
-			"opencode-models": "done",
 		});
 		const view = open();
 		await click(view, "Set up OpenCode");
-		expect(view.getByRole("form", { name: "Check OpenCode configuration" }));
-
-		await click(view, "Revisit / repair setup");
-
-		expect(view.getByRole("form", { name: "Install OpenCode" }));
-		expect(
-			view.getByRole("button", { name: "Install OpenCode with npm" }),
-		).toBeTruthy();
-		expect(testing.posts.filter((post) => post.path.endsWith("/next"))).toEqual(
-			[],
+		expect(view.getByRole("form", { name: "Choose your models" }));
+		expect(view.getByLabelText("Main model")).toBeTruthy();
+		expect(view.getByLabelText("Auxiliary model, for titles")).toBeTruthy();
+		fireEvent.click(
+			view.getByLabelText("Use balance is off in my OpenCode Console"),
 		);
+		testing.reply = with_({
+			"opencode-install": "done",
+			"opencode-connect": "done",
+			"opencode-models": "done",
+			"opencode-ready": "done",
+		});
+
+		await click(view, "Next");
+
+		await waitFor(() => view.getByText("OpenCode is set up"));
+		expect(
+			testing.posted("/api/setup/opencode-models/next")[0]?.body,
+		).toMatchObject({ answers: { balanceOff: true } });
+		await click(view, "Turn OpenCode off");
+		expect(testing.posted("/api/setup/opencode/disable")).toHaveLength(1);
 	});
 
 	it("lists areas as rows, marking those with every step done", () => {

@@ -9,23 +9,18 @@ import {
 	type OpenCodeSelection,
 } from "./setup-opencode-models";
 
-/** Observations only: a stored credential is not proof of entitlement or inference. */
-export interface OpenCodeStatus {
-	version: string | null;
-	auth: "unchecked" | "missing" | "stored" | "unsupported";
-	protocol: "unchecked" | "compatible" | "failed";
-	checking: boolean;
-	problem: string | null;
-	checkedAt: string | null;
-}
-
-/** Fixed native actions; no arguments, credentials or commands come from the page. */
+/** How Setup installs OpenCode; nothing from the page reaches the command. */
 export const OPENCODE_INSTALL = [
 	"npm",
 	"install",
 	"--global",
 	"@opencode/cli@latest",
 ];
+
+/**
+ * How Setup logs OpenCode in to Go; `OpenCodeSetup.login` types the key at
+ * its prompt, on a terminal of its own.
+ */
 export const OPENCODE_LOGIN = [
 	"opencode",
 	"auth",
@@ -36,251 +31,138 @@ export const OPENCODE_LOGIN = [
 	"--standalone",
 ];
 
-/** Non-billed installation, native-auth metadata and initialize-only ACP checks. */
+/**
+ * OpenCode on this machine as Setup reads and changes it: each check runs
+ * OpenCode afresh, so a page loaded after a restart reads what is there.
+ * None sends a prompt; native output never reaches the page, which gets
+ * fixed lines instead.
+ */
 export class OpenCodeSetup {
-	private status: OpenCodeStatus = {
-		version: null,
-		auth: "unchecked",
-		protocol: "unchecked",
-		checking: false,
-		problem: null,
-		checkedAt: null,
-	};
-	private pending: Promise<OpenCodeStatus> | null = null;
-	private controller: AbortController | null = null;
-
 	readonly models: OpenCodeModels;
-	constructor(private readonly deps: { fs: Fs; ps: Ps; home: string }) {
+	/** The roster as last verified ready, to tell whether it still is. */
+	#verified: string | null = null;
+
+	constructor(
+		private readonly deps: {
+			fs: Fs;
+			ps: Ps;
+			home: string;
+			/** Has open projects read the roster again once it changes. */
+			roster?: () => Promise<void>;
+		},
+	) {
 		this.models = new OpenCodeModels(deps, {
 			run: (args, signal, env, cwd) => this.command(args, signal, env, cwd),
 		});
 	}
 
-	async configure<T>(
-		operation: (signal: AbortSignal) => Promise<T>,
-		requireConnection = true,
-	): Promise<T> {
-		if (this.status.checking) {
-			throw new Error("busy");
-		}
-		if (
-			requireConnection &&
-			(this.status.auth !== "stored" ||
-				this.status.protocol !== "compatible" ||
-				this.status.problem)
-		) {
-			throw new Error("Check installation and native Go authentication first.");
-		}
-		const controller = new AbortController();
-		this.controller = controller;
-		this.status.checking = true;
-		try {
-			return await operation(controller.signal);
-		} finally {
-			this.status.checking = false;
-			this.controller = null;
-		}
-	}
-
-	async readiness(cwd: string, verify = false): Promise<OpenCodeReadiness> {
-		const result: OpenCodeReadiness = {
-			cwd,
-			selection: null,
-			ready: false,
-			checkedAt: null,
-			problem: null,
-		};
-		try {
-			if (this.status.checking) {
-				throw new OpenCodeModelError(
-					"Finish or cancel the current setup action first.",
-				);
-			}
-			const recipe = await this.models.recipes.stored();
-			if (!recipe) {
-				return result;
-			}
-			result.selection = { model: recipe.model, auxiliary: recipe.auxiliary };
-			if (!verify) {
-				return result;
-			}
-			const status = await this.check();
-			if (
-				status.problem ||
-				status.auth !== "stored" ||
-				status.protocol !== "compatible"
-			) {
-				throw new OpenCodeModelError(
-					status.problem ??
-						"Reconnect native Go authentication, then check again.",
-				);
-			}
-			await this.configure(async (signal) => {
-				await this.models.verifyStored(recipe, cwd, signal);
-				await this.handshake(signal, cwd, recipe.env);
-				await this.models.recipes.unchanged(recipe, signal);
-			});
-			result.ready = true;
-			result.checkedAt = new Date().toISOString();
-		} catch (error) {
-			result.problem =
-				error instanceof OpenCodeModelError
-					? error.message
-					: "Configuration could not be verified. Check the connection, revisit model selection and retry. No prompt was sent.";
-		}
-		return result;
-	}
-
+	/** Where Setup runs OpenCode, away from any project's configuration. */
 	get cwd(): string {
 		return `${this.deps.home}/setup-opencode`;
 	}
-	read(): OpenCodeStatus {
-		return { ...this.status };
-	}
-	async prepare(): Promise<void> {
-		await this.deps.fs.mkdir(this.cwd, { recursive: true });
+
+	/** The installed OpenCode's version, or null when none answers. */
+	async version(): Promise<string | null> {
+		const output = await this.command(
+			["--version"],
+			AbortSignal.timeout(15_000),
+		).catch(() => null);
+		const version = output?.trim().replace(/^opencode v/, "") ?? "";
+		return /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(version) ? version : null;
 	}
 
-	check(): Promise<OpenCodeStatus> {
-		if (this.status.checking && this.pending === null) {
-			return Promise.resolve(this.read());
-		}
-		if (this.pending !== null) {
-			return this.pending;
-		}
-		this.models.invalidate();
-		const controller = new AbortController();
-		this.controller = controller;
-		this.status = {
-			version: null,
-			auth: "unchecked",
-			protocol: "unchecked",
-			checking: true,
-			problem: null,
-			checkedAt: null,
-		};
-		this.pending = this.probe(controller.signal).finally(() => {
-			this.pending = null;
-			this.controller = null;
-		});
-		return this.pending;
-	}
-
-	/** Native actions can change credentials; require new observations afterwards. */
-	invalidate(): void {
-		this.models.invalidate();
-		this.status.auth = "unchecked";
-		this.status.protocol = "unchecked";
-		this.status.checkedAt = null;
-		this.status.problem = null;
-	}
-
-	cancel(): void {
-		this.controller?.abort();
-		this.models.cancel();
-	}
-
-	private async command(
-		args: string[],
-		signal: AbortSignal,
-		env?: Record<string, string>,
-		cwd = this.cwd,
-	): Promise<string> {
-		signal.throwIfAborted();
-		const result = await this.deps.ps.spawnCapture(["opencode", ...args], {
-			cwd,
-			env,
-			signal,
-			timeoutMs: 15_000,
-			stdin: "",
-		});
-		if (result.exitCode !== 0) {
-			throw new Error("command failed");
-		}
-		return stripVTControlCharacters(result.stdout);
-	}
-
-	private async probe(signal: AbortSignal): Promise<OpenCodeStatus> {
-		let problem =
-			"OpenCode was not found or could not report its version. Install it, then check again. If already installed, restart splates so it sees the updated PATH.";
-		try {
-			await this.prepare();
-			const version = (await this.command(["--version"], signal))
-				.trim()
-				.replace(/^opencode v/, "");
-			// Never reflect arbitrary process output (including provider errors) into the page.
-			if (!/^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(version)) {
-				throw new Error("version");
-			}
-			this.status.version = version;
-			problem =
-				"This OpenCode version does not expose the supported native login and JSON authentication listing. Update OpenCode using its official installation instructions, then retry.";
-			const login = await this.command(["auth", "login", "--help"], signal);
-			const list = await this.command(["auth", "list", "--help"], signal);
-			this.status.auth = "unsupported";
-			if (
-				!login.includes("--standalone") ||
-				!login.includes("--method") ||
-				!/\btarget\b/i.test(login) ||
-				!list.includes("--format")
-			) {
-				throw new Error("auth interface");
-			}
-			problem =
-				"OpenCode could not list its native authentication. Retry, or reconnect your existing Go account.";
-			const listing: unknown = JSON.parse(
-				await this.command(
-					["auth", "list", "--format", "json", "--standalone"],
-					signal,
-				),
+	/** Installs OpenCode with npm, throwing a line for the page on failure. */
+	async install(): Promise<void> {
+		const result = await this.deps.ps
+			.spawnCapture(OPENCODE_INSTALL, {
+				cwd: await this.prepare(),
+				timeoutMs: 10 * 60_000,
+				stdin: "",
+			})
+			.catch(() => null);
+		if (result === null) {
+			throw new Error(
+				"Could not run npm. Install Node.js, then press Try again.",
 			);
-			this.status.auth = storedGo(listing) ? "stored" : "missing";
-			problem =
-				"OpenCode could not complete the ACP handshake. Update or repair the installation, then retry. No model prompt was sent.";
-			this.status.protocol = "failed";
-			await this.handshake(signal);
-			this.status.protocol = "compatible";
-			this.status.problem = null;
-		} catch {
-			this.status.problem = signal.aborted
-				? "Check canceled. You can retry."
-				: problem;
-		} finally {
-			this.status.checking = false;
-			this.status.checkedAt = new Date().toISOString();
 		}
-		return this.read();
+		if (result.exitCode !== 0) {
+			throw new Error(
+				`npm could not install OpenCode. Run \`${OPENCODE_INSTALL.join(" ")}\` in a terminal to see why.`,
+			);
+		}
 	}
 
-	private async handshake(
-		signal: AbortSignal,
-		cwd = this.cwd,
-		env?: Record<string, string>,
-	): Promise<void> {
-		signal.throwIfAborted();
+	/**
+	 * Whether OpenCode keeps a Go credential, from its public auth listing;
+	 * false when OpenCode does not answer.
+	 */
+	async connected(): Promise<boolean> {
+		const output = await this.command(
+			["auth", "list", "--format", "json", "--standalone"],
+			AbortSignal.timeout(15_000),
+		).catch(() => null);
+		try {
+			return output !== null && storedGo(JSON.parse(output));
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Hands OpenCode the Go `key` at its own login prompt, on a terminal of
+	 * its own, so OpenCode keeps a copy and works outside splates too.
+	 */
+	async login(key: string): Promise<void> {
+		// On a terminal: OpenCode refuses a key on piped stdin, and one in argv
+		// would show in `ps`.
+		const child = this.deps.ps.startOnTerminal([...OPENCODE_LOGIN], {
+			cwd: await this.prepare(),
+			cols: 120,
+			rows: 30,
+			env: { TERM: "xterm-256color" },
+		});
+		const decoder = new TextDecoder();
+		let screen = "";
+		let typed = false;
+		const timer = setTimeout(() => child.kill("SIGHUP"), 60_000);
+		try {
+			void (async () => {
+				for await (const bytes of child.output) {
+					screen += decoder.decode(bytes, { stream: true });
+					if (!typed && /API key/i.test(stripVTControlCharacters(screen))) {
+						typed = true;
+						child.write(new TextEncoder().encode(`${key}\r`));
+					}
+				}
+			})().catch(() => {});
+			const code = await child.exited;
+			if (code !== 0 || !typed) {
+				throw new Error(
+					"OpenCode did not take the key. Check it, then press Try again.",
+				);
+			}
+		} finally {
+			clearTimeout(timer);
+			child.close();
+		}
+		this.models.invalidate();
+	}
+
+	/** Checks that OpenCode speaks ACP as splates does; sends no prompt. */
+	async handshake(cwd?: string, env?: Record<string, string>): Promise<void> {
+		const signal = AbortSignal.timeout(15_000);
 		const child = this.deps.ps.start(["opencode", "acp"], {
-			cwd,
+			cwd: cwd ?? (await this.prepare()),
 			env,
 			signal,
 			timeoutMs: 15_000,
 		});
-		// Drain and discard stderr: it may contain native provider diagnostics.
+		let aborted: (() => void) | undefined;
+		// Drain and discard stderr: it may hold native provider diagnostics.
 		void (async () => {
 			for await (const _bytes of child.stderr) {
 			}
 		})().catch(() => {});
-		const process = {
-			pid: child.pid,
-			input: child.stdin,
-			output: framed(child.stdout),
-			ack: () => {},
-			handle: null,
-			stderr: () => "",
-			exited: child.exited,
-			kill: () => child.kill(),
-		};
-		let timeout: ReturnType<typeof setTimeout> | undefined;
-		let aborted: (() => void) | undefined;
 		try {
 			const connection = new acp.ClientSideConnection(
 				() => ({
@@ -289,7 +171,16 @@ export class OpenCodeSetup {
 						outcome: { outcome: "cancelled" },
 					}),
 				}),
-				new AgentStream(process),
+				new AgentStream({
+					pid: child.pid,
+					input: child.stdin,
+					output: framed(child.stdout),
+					ack: () => {},
+					handle: null,
+					stderr: () => "",
+					exited: child.exited,
+					kill: () => child.kill(),
+				}),
 			);
 			const response = await Promise.race([
 				connection.initialize({
@@ -300,58 +191,117 @@ export class OpenCodeSetup {
 					throw new Error("exited");
 				}),
 				new Promise<never>((_, reject) => {
-					timeout = setTimeout(() => reject(new Error("timeout")), 15_000);
-					aborted = () => reject(new Error("canceled"));
+					aborted = () => reject(signal.reason);
 					signal.addEventListener("abort", aborted, { once: true });
-					if (signal.aborted) {
-						aborted();
-					}
 				}),
 			]);
 			if (response.protocolVersion !== acp.PROTOCOL_VERSION) {
 				throw new Error("protocol version");
 			}
+		} catch {
+			throw new Error(
+				"OpenCode did not answer splates over ACP. Update OpenCode, then press Try again.",
+			);
 		} finally {
-			clearTimeout(timeout);
 			if (aborted !== undefined) {
 				signal.removeEventListener("abort", aborted);
 			}
 			child.kill();
 		}
 	}
+
+	/** Saves `selection` as the roster's OpenCode recipe. */
+	async choose(selection: OpenCodeSelection): Promise<void> {
+		await this.prepare();
+		await this.models.save(selection, AbortSignal.timeout(60_000));
+		await this.deps.roster?.();
+	}
+
+	/**
+	 * Checks the saved recipe with OpenCode in `cwd`: its models still
+	 * listed, its configuration in effect, ACP answering. Sends no prompt.
+	 */
+	async verify(cwd?: string): Promise<OpenCodeSelection> {
+		const where = cwd ?? (await this.prepare());
+		const recipe = await this.models.recipes.stored();
+		if (recipe === null) {
+			throw new OpenCodeModelError("Choose the models first.");
+		}
+		try {
+			const signal = AbortSignal.timeout(60_000);
+			await this.models.verifyStored(recipe, where, signal);
+			await this.handshake(where, recipe.env);
+			await this.models.recipes.unchanged(recipe, signal);
+		} catch (error) {
+			throw error instanceof OpenCodeModelError
+				? error
+				: new Error(
+						"OpenCode could not check the saved models. Press Try again.",
+					);
+		}
+		this.#verified = recipe.raw;
+		return { model: recipe.model, auxiliary: recipe.auxiliary };
+	}
+
+	/** Whether the recipe on the roster is the one `verify` last passed. */
+	async ready(): Promise<boolean> {
+		return (
+			this.#verified !== null &&
+			(await this.models.recipes.rawRoster()) === this.#verified
+		);
+	}
+
+	/** Takes the recipe off the roster; OpenCode's own login stays. */
+	async disable(): Promise<void> {
+		await this.models.recipes.disable(AbortSignal.timeout(15_000));
+		this.models.invalidate();
+		this.#verified = null;
+		await this.deps.roster?.();
+	}
+
+	async prepare(): Promise<string> {
+		await this.deps.fs.mkdir(this.cwd, { recursive: true });
+		return this.cwd;
+	}
+
+	private async command(
+		args: string[],
+		signal: AbortSignal,
+		env?: Record<string, string>,
+		cwd?: string,
+	): Promise<string> {
+		signal.throwIfAborted();
+		const result = await this.deps.ps.spawnCapture(["opencode", ...args], {
+			cwd: cwd ?? (await this.prepare()),
+			env,
+			signal,
+			timeoutMs: 15_000,
+			stdin: "",
+		});
+		if (result.exitCode !== 0) {
+			throw new Error("command failed");
+		}
+		return stripVTControlCharacters(result.stdout);
+	}
 }
 
 /** Auth list is public metadata, never auth export or the native credential file. */
 function storedGo(value: unknown): boolean {
-	if (!Array.isArray(value)) {
-		throw new Error("unknown auth listing");
-	}
-	for (const item of value) {
-		if (
-			typeof item !== "object" ||
-			item === null ||
-			typeof item.id !== "string" ||
-			!Array.isArray(item.connections)
-		) {
-			throw new Error("unknown auth entry");
-		}
-		if (item.id === "opencode-go") {
-			return item.connections.some(
-				(entry: unknown) =>
-					typeof entry === "object" &&
-					entry !== null &&
-					"type" in entry &&
-					entry.type === "credential",
-			);
-		}
-	}
-	return false;
-}
-
-export interface OpenCodeReadiness {
-	cwd: string;
-	selection: OpenCodeSelection | null;
-	ready: boolean;
-	checkedAt: string | null;
-	problem: string | null;
+	return (
+		Array.isArray(value) &&
+		value.some(
+			(item) =>
+				typeof item === "object" &&
+				item !== null &&
+				item.id === "opencode-go" &&
+				Array.isArray(item.connections) &&
+				item.connections.some(
+					(entry: unknown) =>
+						typeof entry === "object" &&
+						entry !== null &&
+						"type" in entry &&
+						entry.type === "credential",
+				),
+		)
+	);
 }

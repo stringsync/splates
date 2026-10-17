@@ -138,10 +138,6 @@
 @source "./cred-scope.tsx";
 @source "./creds.tsx";
 @source "./setup-page.tsx";
-@source "./setup-opencode.tsx";
-@source "./setup-opencode-models.tsx";
-@source "./setup-opencode-ready.tsx";
-@source "./setup-opencode-terminal.tsx";
 @source "./setup-state.tsx";
 @source "./setup-steps.tsx";
 @source "./setup-opencode-steps.tsx";

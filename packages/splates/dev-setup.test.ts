@@ -30,7 +30,8 @@ describe("dev's setup routes", () => {
 				answers: {},
 			});
 
-			expect(fresh.next).toBe("opencode-install");
+			// OpenCode's steps read this machine, so which comes next varies.
+			expect(fresh.next).toStartWith("opencode-");
 			expect(unsaved.status).toBe(422);
 			expect(await unsaved.json()).toEqual({
 				reason: "step",

@@ -14,18 +14,8 @@ import {
 /** Only metadata commands. The configuration is embedded in the roster argv so
  * a single atomic rename activates both the models and their experiment policy. */
 export class OpenCodeModels {
-	private catalog: OpenCodeCatalog = {
-		models: [],
-		checkedAt: null,
-		problem: null,
-	};
-	private previewed: {
-		view: OpenCodePreview;
-		before: string | null;
-		after: string;
-		env: Record<string, string>;
-	} | null = null;
-	private saved: OpenCodeSelection | null = null;
+	/** The Go catalog as last listed, kept briefly so one page read lists it once. */
+	#catalog: { models: Promise<string[]>; at: number } | null = null;
 	readonly recipes: OpenCodeRecipes;
 	constructor(
 		private readonly deps: { fs: Fs; ps: Ps; home: string },
@@ -34,172 +24,79 @@ export class OpenCodeModels {
 		this.recipes = new OpenCodeRecipes(deps);
 	}
 
-	read(): OpenCodeModelState {
-		return structuredClone({
-			catalog: this.catalog,
-			preview: this.previewed?.view ?? null,
-			saved: this.saved,
-		});
-	}
-	invalidate(): void {
-		this.catalog = { models: [], checkedAt: null, problem: null };
-		this.previewed = null;
-		this.saved = null;
-	}
-	cancel(): void {
-		this.previewed = null;
-	}
-
-	async refresh(signal: AbortSignal): Promise<OpenCodeModelState> {
-		this.previewed = null;
-		this.saved = null;
-		this.catalog = { models: [], checkedAt: null, problem: null };
-		try {
-			const help = await this.metadata.run(["models", "--help"], signal);
-			if (!help.includes("--standalone")) {
-				throw new OpenCodeModelError("unsupported");
-			}
-			const models = await this.discover(signal);
-			if (!models.length) {
-				throw new OpenCodeModelError("empty");
-			}
-			this.catalog = {
-				models,
-				checkedAt: new Date().toISOString(),
-				problem: null,
-			};
-		} catch {
-			this.catalog.problem = signal.aborted
-				? "Model refresh canceled. Retry when ready."
-				: "No Go models could be listed. Check your native Go connection and update OpenCode if its model interface is unsupported, then refresh. No prompt was sent.";
+	/** The Go models OpenCode lists, by exact id. */
+	catalog(): Promise<string[]> {
+		if (this.#catalog === null || Date.now() - this.#catalog.at > CATALOG_TTL) {
+			const models = this.discover(AbortSignal.timeout(15_000)).then(
+				(models) => {
+					if (!models.length) {
+						throw new OpenCodeModelError("OpenCode lists no Go models.");
+					}
+					return models;
+				},
+			);
+			// A failed listing is tried again on the next read.
+			models.catch(() => {
+				this.#catalog = null;
+			});
+			this.#catalog = { models, at: Date.now() };
 		}
-		return this.read();
+		return this.#catalog.models;
 	}
 
-	async preview(
-		selection: OpenCodeSelection,
-		signal: AbortSignal,
-	): Promise<OpenCodeModelState> {
-		this.previewed = null;
+	/** Lists the catalog afresh next time, as after a new login. */
+	invalidate(): void {
+		this.#catalog = null;
+	}
+
+	/**
+	 * Writes `selection` as the roster's OpenCode recipe, once OpenCode
+	 * confirms the configuration it makes is the one in effect.
+	 */
+	async save(selection: OpenCodeSelection, signal: AbortSignal): Promise<void> {
 		if (this.deps.ps.platform === "win32") {
 			throw new OpenCodeModelError(
 				"This experiment launch recipe requires macOS or Linux.",
 			);
 		}
-		this.requireModels(selection);
-		const help = await this.metadata.run(["api", "--help"], signal);
-		if (!help.includes("--standalone") || !help.includes("--param")) {
-			throw new OpenCodeModelError(
-				"Update OpenCode: the supported configuration inspection interface is unavailable.",
-			);
-		}
-		// Project sources are excluded only for this roster command. Global files
-		// remain untouched, and all observed custom agents receive an explicit model.
-		const baseEnv = { OPENCODE_CONFIG_PROJECT_DISABLE: "1" };
-		const names = (await this.agents(signal, baseEnv)).map((agent) => agent.id);
-		if (!names.includes("build") || !names.includes("title")) {
-			throw new OpenCodeModelError(
-				"OpenCode did not expose the expected main and auxiliary agents. Update it and retry.",
-			);
-		}
-		const config = {
-			model: selection.model,
-			default_agent: "build",
-			warming: false,
-			policies: [
-				{ action: "provider.use", resource: "*", effect: "deny" },
-				{ action: "provider.use", resource: "opencode-go", effect: "allow" },
-			],
-			agents: Object.fromEntries(
-				names.map((name) => [
-					name,
-					{
-						model:
-							name === "build" || name === "plan"
-								? selection.model
-								: selection.auxiliary,
-					},
-				]),
-			),
-		};
-		const env = { ...baseEnv, OPENCODE_CONFIG_CONTENT: JSON.stringify(config) };
-		await this.verify(selection, config, signal, env);
-		const before = await this.recipes.rawRoster();
-		const after = await this.roster(before, selection, env);
-		signal.throwIfAborted();
-		this.previewed = {
-			before,
-			after,
-			env,
-			view: {
-				...selection,
-				token: crypto.randomUUID(),
-				path: `${this.deps.home}/agents.json`,
-				config,
-				agents: names,
-			},
-		};
-		return this.read();
-	}
-
-	async apply(
-		token: string,
-		balanceOff: boolean,
-		signal: AbortSignal,
-	): Promise<OpenCodeModelState> {
-		const preview = this.previewed;
-		this.previewed = null;
-		if (!preview || preview.view.token !== token) {
-			throw new OpenCodeModelError(
-				"Preview expired. Review the configuration again.",
-			);
-		}
-		if (!balanceOff) {
-			throw new OpenCodeModelError(
-				"Confirm in Console that Use balance is off before applying.",
-			);
-		}
-		const selected = {
-			model: preview.view.model,
-			auxiliary: preview.view.auxiliary,
-		};
-		const fresh = await this.discover(signal, preview.env);
+		openCodeSelection.parse(selection);
+		this.invalidate();
+		const models = await this.catalog();
 		if (
-			!fresh.includes(selected.model) ||
-			!fresh.includes(selected.auxiliary)
+			!models.includes(selection.model) ||
+			!models.includes(selection.auxiliary)
 		) {
-			this.catalog = {
-				models: fresh,
-				checkedAt: new Date().toISOString(),
-				problem: "A selected model is no longer available. Choose again.",
-			};
 			throw new OpenCodeModelError(
-				this.catalog.problem ?? "Selected model unavailable",
+				"A chosen model is no longer listed. Pick again.",
 			);
 		}
-		await this.verify(selected, preview.view.config, signal, preview.env);
+		const config = recipeOf(selection);
+		// Project sources are excluded only for this roster command; global
+		// files remain untouched.
+		const env = {
+			OPENCODE_CONFIG_PROJECT_DISABLE: "1",
+			OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
+		};
+		await this.verify(selection, config, signal, env);
 		const path = `${this.deps.home}/agents.json`;
 		const lock = new FileLock(`${path}.lock`, this.deps);
 		await this.deps.fs.mkdir(this.deps.home, { recursive: true });
 		await lock.acquire();
 		const tmp = `${path}.${crypto.randomUUID()}.tmp`;
 		try {
-			signal.throwIfAborted();
-			if ((await this.recipes.rawRoster()) !== preview.before) {
-				throw new OpenCodeModelError(
-					"The roster changed after preview. Review again to preserve those changes.",
-				);
-			}
-			await this.deps.fs.write(tmp, preview.after);
+			const after = await this.roster(
+				await this.recipes.rawRoster(),
+				selection,
+				env,
+			);
+			await this.deps.fs.write(tmp, after);
 			await this.deps.fs.chmod(tmp, 0o600);
 			signal.throwIfAborted();
 			await this.deps.fs.rename(tmp, path);
-			this.saved = selected;
 		} finally {
 			await this.deps.fs.rm(tmp, { force: true }).catch(() => {});
 			await lock.release();
 		}
-		return this.read();
 	}
 
 	async verifyStored(
@@ -207,50 +104,16 @@ export class OpenCodeModels {
 		cwd: string,
 		signal: AbortSignal,
 	): Promise<void> {
-		const help = await this.metadata.run(
-			["api", "--help"],
-			signal,
-			recipe.env,
-			cwd,
-		);
-		const modelsHelp = await this.metadata.run(
-			["models", "--help"],
-			signal,
-			recipe.env,
-			cwd,
-		);
-		if (
-			!help.includes("--standalone") ||
-			!help.includes("--param") ||
-			!modelsHelp.includes("--standalone")
-		) {
-			throw new OpenCodeModelError(
-				"Update OpenCode, then retry the configuration check.",
-			);
-		}
 		const models = await this.discover(signal, recipe.env, cwd);
 		if (!models.includes(recipe.model) || !models.includes(recipe.auxiliary)) {
 			throw new OpenCodeModelError(
-				"A saved Go model is unavailable. Revisit model selection and choose again.",
+				"A saved Go model is no longer listed. Go back to the models and pick again.",
 			);
 		}
 		await this.verify(recipe, recipe.config, signal, recipe.env, cwd);
 		await this.recipes.unchanged(recipe, signal);
 	}
 
-	private requireModels(selection: OpenCodeSelection): void {
-		openCodeSelection.parse(selection);
-		if (
-			this.catalog.problem ||
-			!this.catalog.checkedAt ||
-			!this.catalog.models.includes(selection.model) ||
-			!this.catalog.models.includes(selection.auxiliary)
-		) {
-			throw new OpenCodeModelError(
-				"Refresh the catalog and choose exact available Go model IDs.",
-			);
-		}
-	}
 	private async discover(
 		signal: AbortSignal,
 		env?: Record<string, string>,
@@ -273,27 +136,16 @@ export class OpenCodeModels {
 		}
 		if (env && lines.some((line) => !id.safeParse(line).success)) {
 			throw new OpenCodeModelError(
-				"OpenCode did not enforce the Go-only provider policy. Resolve its managed provider configuration before applying.",
+				"OpenCode did not enforce the Go-only provider policy. Resolve its managed provider configuration, then press Try again.",
 			);
 		}
 		return [...new Set(lines.filter((line) => id.safeParse(line).success))];
 	}
-	private async agents(
-		signal: AbortSignal,
-		env: Record<string, string>,
-		cwd = `${this.deps.home}/setup-opencode`,
-	) {
-		return agentList.parse(
-			JSON.parse(
-				await this.metadata.run(
-					["api", "agent.list", "--standalone", "--param", `directory=${cwd}`],
-					signal,
-					env,
-					cwd,
-				),
-			),
-		).data;
-	}
+	/**
+	 * Confirms through OpenCode's configuration API that `config` is the
+	 * configuration in effect, its agents' models included. OpenCode 2's
+	 * agent listing is empty, so the configuration is the only witness.
+	 */
 	private async verify(
 		selection: OpenCodeSelection,
 		config: Record<string, unknown>,
@@ -301,8 +153,7 @@ export class OpenCodeModels {
 		env: Record<string, string>,
 		cwd = `${this.deps.home}/setup-opencode`,
 	): Promise<void> {
-		// Inspect configuration through the supported API, never native credential
-		// files. Keep only comparisons; do not return or persist raw config output.
+		// Keep only comparisons; never return or persist raw config output.
 		const sources = entries.parse(
 			JSON.parse(
 				await this.metadata.run(
@@ -324,6 +175,10 @@ export class OpenCodeModels {
 				sameModel(info.model, selection.model) &&
 				info.warming === false &&
 				info.default_agent === "build" &&
+				sameAgents(
+					info.agents,
+					config.agents as Record<string, { model: string }>,
+				) &&
 				!(
 					typeof info.providers === "object" &&
 					info.providers !== null &&
@@ -356,29 +211,13 @@ export class OpenCodeModels {
 						"default_agent" in info))
 			) {
 				throw new OpenCodeModelError(
-					"Existing provider or managed configuration conflicts with this experiment. Resolve that configuration before applying; no files were changed.",
+					"Your own OpenCode configuration sets providers or models that override this setup. Remove them, then press Try again.",
 				);
 			}
 		}
 		if (!found) {
 			throw new OpenCodeModelError(
-				"OpenCode did not confirm the experiment provider policy. Update it and retry.",
-			);
-		}
-		const agents = await this.agents(signal, env, cwd);
-		const expected = config.agents as Record<string, { model: string }>;
-		if (
-			agents.length !== Object.keys(expected).length ||
-			new Set(agents.map((agent) => agent.id)).size !== agents.length ||
-			agents.some(
-				(agent) =>
-					!Object.hasOwn(expected, agent.id) ||
-					`${agent.model?.providerID}/${agent.model?.id}` !==
-						expected[agent.id]?.model,
-			)
-		) {
-			throw new OpenCodeModelError(
-				"A custom or managed agent overrides an experiment model. Refresh and review the configuration again.",
+				"OpenCode did not confirm the configuration. Update OpenCode, then press Try again.",
 			);
 		}
 	}
@@ -398,7 +237,7 @@ export class OpenCodeModels {
 		let agent = agents.find((entry) => entry.id === "opencode");
 		if (agent && !managedArgv(agent.argv)) {
 			throw new OpenCodeModelError(
-				"The OpenCode entry has a custom launch command. Setup leaves it untouched; reconcile that command before applying.",
+				"Your roster's OpenCode entry has a launch command of its own, which Setup leaves alone. Remove it from agents.json, then press Try again.",
 			);
 		}
 		if (!agent) {
@@ -427,6 +266,69 @@ export class OpenCodeModels {
 	}
 }
 
+/** How long a listed catalog serves page reads before OpenCode is asked again. */
+const CATALOG_TTL = 60_000;
+
+/**
+ * The agents the recipe names: the main model plans and builds, the
+ * auxiliary one writes titles.
+ */
+const RECIPE_AGENTS = {
+	build: "model",
+	plan: "model",
+	title: "auxiliary",
+} as const;
+
+/** The configuration a selection runs OpenCode with. */
+function recipeOf(selection: OpenCodeSelection): RecipeConfig {
+	return {
+		model: selection.model,
+		default_agent: "build",
+		warming: false,
+		policies: [
+			{ action: "provider.use", resource: "*", effect: "deny" },
+			{ action: "provider.use", resource: "opencode-go", effect: "allow" },
+		],
+		agents: Object.fromEntries(
+			Object.entries(RECIPE_AGENTS).map(([name, which]) => [
+				name,
+				{ model: selection[which] },
+			]),
+		),
+	};
+}
+
+interface RecipeConfig extends Record<string, unknown> {
+	model: string;
+	default_agent: string;
+	warming: boolean;
+	policies: unknown[];
+	agents: Record<string, { model: string }>;
+}
+
+/** Whether OpenCode's echo of `agents` gives each the model the recipe set. */
+function sameAgents(
+	value: unknown,
+	expected: Record<string, { model: string }>,
+): boolean {
+	if (typeof value !== "object" || value === null) {
+		return false;
+	}
+	const echoed = value as Record<string, unknown>;
+	return (
+		Object.keys(echoed).length === Object.keys(expected).length &&
+		Object.entries(expected).every(([name, { model }]) => {
+			const agent = echoed[name];
+			return (
+				typeof agent === "object" &&
+				agent !== null &&
+				"model" in agent &&
+				sameModel(agent.model, model)
+			);
+		})
+	);
+}
+
 function sameModel(value: unknown, expected: string): boolean {
 	return (
 		value === expected ||
@@ -440,23 +342,6 @@ function sameModel(value: unknown, expected: string): boolean {
 
 export const openCodeSelection = z.object({ model: id, auxiliary: id });
 export type OpenCodeSelection = z.infer<typeof openCodeSelection>;
-export interface OpenCodeCatalog {
-	models: string[];
-	checkedAt: string | null;
-	problem: string | null;
-}
-export interface OpenCodePreview extends OpenCodeSelection {
-	token: string;
-	path: string;
-	config: Record<string, unknown>;
-	agents: string[];
-}
-export interface OpenCodeModelState {
-	catalog: OpenCodeCatalog;
-	preview: OpenCodePreview | null;
-	saved: OpenCodeSelection | null;
-}
-
 export interface OpenCodeMetadata {
 	run(
 		args: string[],
@@ -466,14 +351,6 @@ export interface OpenCodeMetadata {
 	): Promise<string>;
 }
 
-const agentList = z.object({
-	data: z.array(
-		z.object({
-			id: z.string().min(1).max(240),
-			model: z.object({ providerID: z.string(), id: z.string() }).optional(),
-		}),
-	),
-});
 const entries = z.array(
 	z.union([
 		z.object({ type: z.literal("directory"), path: z.string() }),

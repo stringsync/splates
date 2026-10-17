@@ -1,29 +1,45 @@
-import type { SpawnOptions, StartOptions } from "webappwiz/system";
-import { FakePs } from "webappwiz/system/testing";
+import type {
+	SpawnOptions,
+	StartOptions,
+	TerminalOptions,
+} from "webappwiz/system";
+import { FakePs, type FakeTerminalChild } from "webappwiz/system/testing";
 
-/** Synthetic V2 metadata for tests and visual review, never a real account. */
+/**
+ * OpenCode 2 as Setup sees it, for tests, never a real account: its
+ * metadata commands, an npm install, a login prompt on a terminal, and an
+ * ACP server that answers initialize only.
+ */
 export class OpenCodeFixturePs extends FakePs {
 	installed = true;
+	/** Whether npm's install succeeds, making OpenCode installed. */
+	installs = true;
 	connected = true;
 	conflict = false;
 	unavailable = false;
-	offline = false;
 	protocol = 1;
+	/** The keys typed at OpenCode's login prompt. */
+	keys: string[] = [];
+	/** Every ACP method asked. */
 	requests: string[] = [];
-	metadata: Array<{ argv: string[]; cwd?: string }> = [];
+	/** Every OpenCode and npm command run, with its env. */
+	commands: Array<{ argv: string[]; env?: Record<string, string> }> = [];
+
 	override async spawnCapture(argv: string[], opts?: SpawnOptions) {
 		await super.spawnCapture(argv, opts);
-		this.metadata.push({ argv, cwd: opts?.cwd });
-		if (!this.installed || this.offline) {
+		this.commands.push({ argv, env: opts?.env });
+		if (argv[0] === "npm") {
+			this.installed ||= this.installs;
+			return { exitCode: this.installs ? 0 : 1, stdout: "", stderr: "" };
+		}
+		if (!this.installed) {
 			throw new Error("fixture unavailable; private diagnostic");
 		}
 		const command = argv.slice(1).join(" ");
 		const config = JSON.parse(opts?.env?.OPENCODE_CONFIG_CONTENT ?? "{}");
 		let stdout: string;
 		if (command === "--version") {
-			stdout = "2.0.0-fixture";
-		} else if (command.endsWith("--help")) {
-			stdout = "target --method --standalone --format --param";
+			stdout = "opencode v2.0.32";
 		} else if (command.startsWith("auth list")) {
 			stdout = JSON.stringify(
 				this.connected
@@ -36,30 +52,35 @@ export class OpenCodeFixturePs extends FakePs {
 				: "opencode-go/Main\nopencode-go/Small";
 		} else if (command.startsWith("api config.get")) {
 			stdout = JSON.stringify([
-				{ type: "document", info: config },
-				...(this.conflict
-					? [{ type: "document", info: { model: "opencode/Other" } }]
-					: []),
+				{ type: "directory", path: "/home/.config/opencode" },
+				{ type: "document", info: this.echo(config) },
 			]);
-		} else if (command.startsWith("api agent.list")) {
-			stdout = JSON.stringify({
-				data: ["build", "plan", "title", "compaction"].map((id) => ({
-					id,
-					...(config.agents
-						? {
-								model: {
-									providerID: "opencode-go",
-									id: config.agents[id]?.model.slice("opencode-go/".length),
-								},
-							}
-						: {}),
-				})),
-			});
 		} else {
 			throw new Error(`Unexpected fixture metadata command: ${command}`);
 		}
 		return { exitCode: 0, stdout, stderr: "" };
 	}
+
+	override startOnTerminal(
+		argv: string[],
+		opts: TerminalOptions,
+	): FakeTerminalChild {
+		const child = super.startOnTerminal(argv, opts);
+		this.commands.push({ argv, env: opts.env });
+		child.print("◆  Enter your OpenCode Go API key\r\n");
+		const write = child.write.bind(child);
+		child.write = (data) => {
+			write(data);
+			const key =
+				typeof data === "string" ? data : new TextDecoder().decode(data);
+			this.keys.push(key.replace(/\r$/, ""));
+			this.connected = true;
+			child.print("◇  Connected to OpenCode Go\r\n");
+			child.exit(0);
+		};
+		return child;
+	}
+
 	override start(argv: string[], opts?: StartOptions) {
 		const child = super.start(argv, opts);
 		void (async () => {
@@ -75,5 +96,35 @@ export class OpenCodeFixturePs extends FakePs {
 			}
 		})().catch(() => child.kill());
 		return child;
+	}
+
+	/** The inline config as OpenCode 2 echoes it, models split by provider. */
+	private echo(config: Record<string, unknown>): Record<string, unknown> {
+		const split = (id: string) => {
+			const [providerID, ...model] = id.split("/");
+			return {
+				providerID: this.conflict ? "opencode" : providerID,
+				model: model.join("/"),
+			};
+		};
+		const agents = config.agents as
+			| Record<string, { model: string }>
+			| undefined;
+		return {
+			...config,
+			...(typeof config.model === "string"
+				? { model: split(config.model) }
+				: {}),
+			...(agents
+				? {
+						agents: Object.fromEntries(
+							Object.entries(agents).map(([name, agent]) => [
+								name,
+								{ model: split(agent.model) },
+							]),
+						),
+					}
+				: {}),
+		};
 	}
 }

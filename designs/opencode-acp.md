@@ -7,6 +7,14 @@ contract. The earlier lane 45 plan below is historical reference; its V1 CLI and
 configuration examples are superseded by the V2 setup contracts at the end.
 All compatibility evidence remains synthetic, not a successful live inference.
 
+Since #32 the journey is four form pages (install, Go key, models, check),
+each check run against OpenCode afresh. On OpenCode 2.0.32 `api agent.list`
+answers no agents, so the recipe names `build`, `plan` and `title` itself and
+is confirmed through `api config.get`, which echoes each agent's model. The
+key is kept as the device cred `OPENCODE_GO_API_KEY` and typed at `opencode
+auth login opencode-go --method key` on a terminal, since that prompt refuses
+piped stdin and argv would show in `ps`.
+
 ## Scope and evidence
 
 Reuse splates's ACP client and process launcher. OpenCode is the coding agent;

@@ -1,4 +1,11 @@
-import type { SetupArea, SetupStep } from "./setup";
+import type { SetupArea, SetupMachine, SetupStep, StepOption } from "./setup";
+import type { OpenCodeSetup } from "./setup-opencode";
+
+/** The device cred OpenCode's Go key is kept as, beside OpenCode's own copy. */
+export const OPENCODE_GO_KEY = "OPENCODE_GO_API_KEY";
+
+/** Where the user gets a Go key and turns Use balance off. */
+const CONSOLE = "https://opencode.ai/auth";
 
 /** OpenCode on an OpenCode Go account, beside the other agents. */
 export const OPENCODE_AREA: SetupArea = openCodeArea();
@@ -7,55 +14,135 @@ function openCodeArea(): SetupArea {
 	const installStep: SetupStep = {
 		id: "opencode-install",
 		title: "Install OpenCode",
-		why: "Optionally add OpenCode alongside your existing agents.",
-		user: "Check this machine, or install OpenCode here with npm. No model prompt is sent.",
+		why: "OpenCode runs your OpenCode Go models beside the other agents.",
+		user: "OpenCode is not on this machine yet. Next installs it with npm.",
 		agent:
-			"Use the native OpenCode controls in Setup; do not start a paid conversation or edit the roster.",
+			"Press Next on the page, or run `npm install --global @opencode/cli@latest`. Do not start a paid conversation or edit the roster.",
 		optional: true,
 		after: [],
-		check: async ({ opencode }) => opencode?.read().version != null,
+		check: async (machine) => (await native(machine).version()) !== null,
+		submit: async (machine) => {
+			await native(machine).install();
+		},
+		doing: "Installing OpenCode with npm…",
+		notDone:
+			"npm installed OpenCode, but splates cannot find it on its PATH. Restart `splates server`, then press Next.",
 	};
 	const connectStep: SetupStep = {
 		id: "opencode-connect",
-		title: "Connect OpenCode Go",
-		why: "Connect your existing Go or Go Plus account through OpenCode's own secure login.",
-		user: "Open your existing account in Console, then enter its key only into the native login prompt below. Return here and check again.",
+		title: "Paste your OpenCode Go API key",
+		why: "splates keeps it for this device and hands it to OpenCode, which keeps its own copy.",
+		user: "Paste your OpenCode Go API key.",
 		agent:
-			"Never ask for keys in chat or read native credential files. Native auth listing confirms only stored credentials; ACP initialize checks protocol compatibility, not entitlement or billing.",
+			"Have the user paste the key into the page; never ask for it in chat or read native credential files.",
 		optional: true,
 		after: [installStep],
-		check: async ({ opencode }) =>
-			opencode?.read().auth === "stored" &&
-			opencode.read().protocol === "compatible" &&
-			opencode.read().problem === null,
+		fields: [
+			{
+				kind: "cred",
+				name: OPENCODE_GO_KEY,
+				label: "OpenCode Go API key",
+				help: `Copy it from your Go workspace in the [OpenCode Console](${CONSOLE}).`,
+			},
+		],
+		check: async (machine) =>
+			(await machine.device.get(OPENCODE_GO_KEY)) !== undefined &&
+			(await native(machine).connected()),
+		submit: async (machine) => {
+			const opencode = native(machine);
+			const key = await machine.device.get(OPENCODE_GO_KEY);
+			if (key !== undefined && !(await opencode.connected())) {
+				await opencode.login(key);
+			}
+			await opencode.handshake();
+		},
+		doing: "Connecting OpenCode to Go…",
+		notDone: "OpenCode still lists no Go key. Paste it again, then press Next.",
 	};
-	const openCodeModelsStep: SetupStep = {
+	const modelsStep: SetupStep = {
 		id: "opencode-models",
-		title: "Choose OpenCode Go models",
-		why: "Select exact Go models and review an experiment-only configuration.",
-		user: "Refresh available models, choose main and auxiliary models, then confirm Use balance is off in Console before applying.",
-		agent:
-			"Use the native model controls; no prompts or credential exports. Saved configuration is not proof of inference or billing.",
+		title: "Choose your models",
+		why: `Turn **Use balance** off in the [OpenCode Console](${CONSOLE}), so conversations stay on your Go plan.`,
+		user: "Pick a main and an auxiliary model.",
+		agent: "Have the user pick on the page; no prompts or credential exports.",
 		optional: true,
 		after: [connectStep],
-		check: async ({ opencode }) =>
-			(await opencode?.models.recipes.stored().catch(() => null)) != null,
+		fields: [
+			{
+				kind: "choice",
+				name: "model",
+				label: "Main model",
+				options: (machine) => models(machine, "model"),
+			},
+			{
+				kind: "choice",
+				name: "auxiliary",
+				label: "Auxiliary model, for titles",
+				options: (machine) => models(machine, "auxiliary"),
+			},
+			{
+				kind: "yes-no",
+				name: "balanceOff",
+				label: "Use balance is off in my OpenCode Console",
+			},
+		],
+		check: async (machine) =>
+			(await native(machine).models.recipes.stored()) !== null,
+		submit: async (machine, answers) => {
+			if (answers.balanceOff !== true) {
+				throw new Error(
+					"Turn Use balance off in your OpenCode Console first, then say so here.",
+				);
+			}
+			await native(machine).choose({
+				model: String(answers.model),
+				auxiliary: String(answers.auxiliary),
+			});
+		},
+		doing: "Saving your models…",
 	};
-	const openCodeReadyStep: SetupStep = {
+	const readyStep: SetupStep = {
 		id: "opencode-ready",
-		title: "Check OpenCode configuration",
-		why: "Verify the saved recipe for a new conversation in this project.",
-		user: "Check configuration, then open a new conversation on your selected main model.",
+		title: "Check OpenCode",
+		why: "Makes sure OpenCode runs your models before your first conversation.",
+		user: "Next checks your models with OpenCode, without sending a prompt.",
 		agent:
-			"Metadata and ACP initialize only. Never send a paid test prompt or claim billing is verified.",
+			"Press Finish on the page. Metadata and ACP initialize only; never send a paid test prompt.",
 		optional: true,
-		after: [openCodeModelsStep],
-		check: async () => false,
+		after: [modelsStep],
+		check: async (machine) => native(machine).ready(),
+		submit: async (machine) => {
+			await native(machine).verify();
+		},
+		doing: "Checking OpenCode…",
 	};
 
 	return {
 		id: "opencode",
 		title: "OpenCode",
-		steps: [installStep, connectStep, openCodeModelsStep, openCodeReadyStep],
+		steps: [installStep, connectStep, modelsStep, readyStep],
 	};
+}
+
+/** The machine's OpenCode, which every OpenCode step reads. */
+function native(machine: SetupMachine): OpenCodeSetup {
+	if (machine.opencode === undefined) {
+		throw new Error("OpenCode setup runs only under `splates server`.");
+	}
+	return machine.opencode;
+}
+
+/** The Go catalog as choices, the saved recipe's pick first. */
+async function models(
+	machine: SetupMachine,
+	which: "model" | "auxiliary",
+): Promise<StepOption[]> {
+	const opencode = native(machine);
+	const listed = await opencode.models.catalog();
+	const saved = await opencode.models.recipes.stored().catch(() => null);
+	const first = saved?.[which];
+	return [
+		...listed.filter((id) => id === first),
+		...listed.filter((id) => id !== first),
+	].map((id) => ({ value: id, label: id.replace(/^opencode-go\//, "") }));
 }

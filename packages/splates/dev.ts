@@ -309,11 +309,11 @@ export async function dev(
 	const machine = new Machine(sensors ?? osSensors(fs));
 	const jobs = heavy ?? heavyJobsOfMachine({ fs, ps, log });
 	const opencode = new OpenCodeSetupRoutes(
-		new OpenCodeSetup({ fs, ps, home: splatesHome(ps) }),
-		ps,
-		gate,
-		{
-			refresh: async () => {
+		new OpenCodeSetup({
+			fs,
+			ps,
+			home: splatesHome(ps),
+			roster: async () => {
 				const agents = await new Roster(`${splatesHome(ps)}/agents.json`, {
 					fs,
 				}).agents();
@@ -322,9 +322,8 @@ export async function dev(
 					project?.conversations?.refreshRoster(agents);
 				}
 			},
-		},
+		}),
 	);
-	disposer.defer(() => opencode.disposeAsync());
 	const setup = new SetupRoutes(
 		new Setup(
 			{
@@ -404,71 +403,29 @@ export async function dev(
 					PUT: talk(guarded(pushes.subscribe)),
 					DELETE: talk(guarded(pushes.unsubscribe)),
 				},
-				"/api/setup/opencode": gate.local(guarded(opencode.read)),
-				"/api/setup/opencode/check": {
-					POST: gate.local(guarded(opencode.check)),
-				},
-				"/api/setup/opencode/models": {
-					GET: gate.local(guarded(opencode.models)),
-				},
-				"/api/setup/opencode/models/refresh": {
-					POST: gate.local(guarded(opencode.refreshModels)),
-				},
-				"/api/setup/opencode/models/preview": {
-					POST: gate.local(guarded(opencode.previewModels)),
-				},
-				"/api/setup/opencode/models/apply": {
-					POST: gate.local(guarded(opencode.applyModels)),
-				},
-				"/api/setup/opencode/readiness": {
-					GET: local(
-						scoped((project) => () => opencode.readiness(project.root, false)),
-					),
-					POST: local(
-						scoped((project) => () => opencode.readiness(project.root, true)),
-					),
-				},
 				"/api/setup/opencode/disable": {
 					POST: local(guarded(opencode.disable)),
 				},
 				"/api/setup/opencode/conversation": {
 					POST: local(
-						scoped((project) => async (request) => {
-							const input = await request.json().catch(() => null);
-							if (input?.balanceOff !== true) {
-								return Response.json(
-									{ message: "Confirm Use balance is off in Console." },
-									{ status: 400 },
-								);
-							}
-							const checked = await opencode.readiness(project.root, true);
-							if (!checked.ok) {
-								return checked;
-							}
-							const state = await checked.json();
-							if (!state.ready || !state.selection) {
-								return Response.json(
-									{ message: state.problem ?? "Check configuration first." },
-									{ status: 400 },
-								);
-							}
-							return project.startConversation(
-								new Request(request.url, {
-									method: "POST",
-									headers: { "content-type": "application/json" },
-									body: JSON.stringify({
-										agent: "opencode",
-										model: state.selection.model,
-										task: null,
-										assigned: true,
-									}),
-								}),
-							);
-						}),
+						scoped(
+							(project) => async (request) =>
+								opencode.conversation(project.root, (selection) =>
+									project.startConversation(
+										new Request(request.url, {
+											method: "POST",
+											headers: { "content-type": "application/json" },
+											body: JSON.stringify({
+												agent: "opencode",
+												model: selection.model,
+												task: null,
+												assigned: true,
+											}),
+										}),
+									),
+								),
+						),
 					),
-				},
-				"/api/setup/opencode/cancel": {
-					POST: gate.local(guarded(opencode.cancel)),
 				},
 				"/api/setup": guarded(setup.read),
 				"/api/setup/seen": { PUT: guarded(setup.see) },
@@ -648,9 +605,6 @@ export async function dev(
 				return claimed;
 			}
 			const { pathname } = new URL(request.url);
-			if (pathname === "/api/setup/opencode/native") {
-				return opencode.open(request, server);
-			}
 			if (pathname === "/api/terminal") {
 				return terminals.open(request, server);
 			}
