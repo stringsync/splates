@@ -1,5 +1,4 @@
 import { makeAssistantDataUI, useAuiState } from "@assistant-ui/react";
-import { ListChecksIcon, MessageCircleQuestionIcon } from "lucide-react";
 import { type JSX, useContext } from "react";
 import type { Proposal, TaskReport } from "../asked";
 import { type Assumed, assumedIn } from "../assumed";
@@ -9,9 +8,9 @@ import type { Question } from "../plan";
 import { isUpdate } from "../prompts";
 import { Board } from "./board";
 import { InMessage, textOf } from "./card-reply";
-import { ENDINGS } from "./card-shell";
 import { Sheeted, useSheeted } from "./phone-sheets";
 import { QuestionCards } from "./question-cards";
+import { questionHeading } from "./question-heading";
 
 /**
  * The data a `data-questions` part carries: one message's questions, in
@@ -86,30 +85,7 @@ export function MessageQuestions({
 	const count = `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
 	return (
 		<Sheeted
-			{...(proposal !== null
-				? {
-						title: `Questions: ${proposal.subject}`,
-						Icon: MessageCircleQuestionIcon,
-						tone: "info" as const,
-					}
-				: escalation === null && questions.length === 0
-					? {
-							title: "Assumed",
-							Icon: ListChecksIcon,
-							tone: "neutral" as const,
-							action: "Review",
-						}
-					: escalation === null
-						? {
-								title: `${count} for you`,
-								Icon: MessageCircleQuestionIcon,
-								tone: "info" as const,
-							}
-						: {
-								title: `${count} for you`,
-								Icon: ENDINGS.escalated.Icon,
-								tone: ENDINGS.escalated.tone,
-							})}
+			{...questionHeading(questions.length, escalation, proposal, count)}
 		>
 			<QuestionCards
 				questions={questions}

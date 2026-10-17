@@ -764,7 +764,9 @@ Fold proposals into the questions card, each assumption a question already answe
 ```
 
 In a task, write each call in `ARBOR.md` too, the chosen ones under
-`## Assumptions` and the rest under `## Blocked`.
+`## Assumptions` and the rest under `## Blocked`, then `arbor escalate` as
+Escalation says and end your turn, so the task shows as waiting on the user;
+the page draws the proposal as the escalation's card, so ask nothing else.
 
 The `arbor dev` page shows a proposal as a questions card headed by it, each
 call with a `(chosen)` choice already answered with it. Once every call is

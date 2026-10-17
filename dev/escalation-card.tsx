@@ -1,8 +1,9 @@
 import type { JSX } from "react";
-import type { Review, TaskReport } from "../asked";
+import type { Proposal, Review, TaskReport } from "../asked";
 import type { Assumed } from "../assumed";
 import type { Demo } from "../demo";
 import type { Escalated } from "../events";
+import type { Question } from "../plan";
 import { InMessage } from "./card-reply";
 import { MessageQuestions } from "./message-questions";
 import { ReportCard } from "./report-cards";
@@ -11,13 +12,18 @@ import { MessageReview } from "./review-panel";
 /**
  * What the agent wrote of its escalation in the turn it escalated, which its
  * card takes in rather than drawing a second card: its report, the demo its
- * questions ask about, the calls it says it assumed, or its review.
+ * questions ask about, the calls it says it assumed, its review, or the
+ * proposal it waits on with the calls it rests on, which the card asks in
+ * place of the task's open questions, since those it chose stand under
+ * `## Assumptions`, not `## Blocked`.
  */
 export interface Written {
 	report: TaskReport | null;
 	demo: Demo | null;
 	assumed: Assumed[];
 	review: Review | null;
+	proposal: Proposal | null;
+	questions: Question[];
 }
 
 /**
@@ -64,18 +70,27 @@ export function EscalationCard({
 		source: report?.source ?? `## ⚠️ Escalated ${task}: ${event.about}`,
 	};
 	const assumed = written?.assumed ?? [];
-	if (event.questions.length === 0 && assumed.length === 0) {
+	const proposal = written?.proposal ?? null;
+	if (
+		proposal === null &&
+		event.questions.length === 0 &&
+		assumed.length === 0
+	) {
 		return <ReportCard report={escalation} />;
 	}
 	return (
 		<InMessage>
 			<MessageQuestions
-				questions={event.questions.map((asked, at) => ({
-					...asked,
-					number: String(at + 1),
-				}))}
+				questions={
+					proposal === null
+						? event.questions.map((asked, at) => ({
+								...asked,
+								number: String(at + 1),
+							}))
+						: (written?.questions ?? [])
+				}
 				escalation={escalation}
-				proposal={null}
+				proposal={proposal}
 				demo={written?.demo ?? null}
 				assumed={assumed}
 				task={task}

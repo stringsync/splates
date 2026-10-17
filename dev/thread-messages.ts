@@ -276,8 +276,9 @@ export function like(
 
 /**
  * `parts` with what the agent wrote of the last escalation arbor recorded in
- * them, its report, the questions it ends with and their demo, or its review,
- * taken into the escalation's card rather than drawn as a second one.
+ * them, its report, the questions it ends with and their demo, its review,
+ * or the proposal it escalated to wait on, taken into the escalation's card
+ * rather than drawn as a second one.
  */
 function withEscalation(parts: LikePart[]): LikePart[] {
 	const escalatedIn = (part: LikePart): { event: Event } | null => {
@@ -298,6 +299,8 @@ function withEscalation(parts: LikePart[]): LikePart[] {
 		demo: null,
 		assumed: [],
 		review: null,
+		proposal: null,
+		questions: [],
 	};
 	const kept = parts.filter((part, index) => {
 		if (index === at) {
@@ -315,9 +318,19 @@ function withEscalation(parts: LikePart[]): LikePart[] {
 			}
 		}
 		if (part.type === "data-questions") {
-			const { escalation, demo, assumed } = part.data as QuestionsData;
+			const { questions, escalation, proposal, demo, assumed, task } =
+				part.data as QuestionsData;
 			if (escalation?.task === event.task) {
 				written.report = escalation;
+				written.demo = demo;
+				written.assumed = assumed;
+				return false;
+			}
+			// A proposal names no task of its own: the turn's is the escalation's,
+			// where the log can say it at all.
+			if (proposal !== null && (task === null || task === event.task)) {
+				written.proposal = proposal;
+				written.questions = questions;
 				written.demo = demo;
 				written.assumed = assumed;
 				return false;

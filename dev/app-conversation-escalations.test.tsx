@@ -111,6 +111,72 @@ describe("App's escalation cards, drawn from the escalate event", () => {
 		expect(card.textContent).not.toContain("large");
 	});
 
+	it("takes in a proposal the agent escalated to wait on, asking its calls as the one card", async () => {
+		const { view, thread } = await opened(
+			[
+				asked("fix the header", 0),
+				said(
+					[
+						"## 💡 Proposed a wrapping header",
+						"",
+						"Let the header wrap on phones.",
+						"",
+						"#### It overflows at 390px.",
+						"",
+						"- The menu runs off the edge.",
+						"",
+						"1. (small) Where should the header wrap?",
+						"   - (a) Below 400px (chosen)",
+						"   - (b) Below 600px",
+						"2. (medium) Which pages need it?",
+						"   - [a] Todos",
+						"   - [b] Tasks",
+					].join("\n"),
+					5,
+				),
+			],
+			// Its chosen call stands under Assumptions, so Blocked holds one.
+			[
+				{
+					...escalated(3),
+					about: "a proposal to approve",
+					questions: questions(
+						["## Blocked", "", "- [ ] 2. Which pages need it?"].join("\n"),
+					),
+				},
+			],
+		);
+
+		const card = await waitFor(() =>
+			view.getByRole("region", { name: "escalated header" }),
+		);
+		expect(
+			within(thread).queryByRole("region", { name: /^proposal/ }),
+		).toBeNull();
+		expect(view.getAllByRole("list", { name: "questions" })).toHaveLength(1);
+		expect(card.textContent).toContain("Escalated");
+		expect(card.textContent).toContain("Proposed a wrapping header");
+		expect(card.textContent).toContain("Let the header wrap on phones.");
+		// The proposal's own calls, the chosen one answered already.
+		expect(card.textContent).toContain("Where should the header wrap?");
+		expect(within(card).getByText("1 of 2 answered")).toBeTruthy();
+		// Answering the open call approves the proposal, as from its own card.
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: /Todos/ })),
+		);
+		await act(async () =>
+			fireEvent.click(within(card).getByRole("button", { name: "Approve" })),
+		);
+		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([
+			{
+				method: "POST",
+				body: {
+					text: "[ARBOR APPROVE]\n\n> **Which pages need it?**\n\n- (a) Todos",
+				},
+			},
+		]);
+	});
+
 	it("puts the agent's recommended choice first, picked already", async () => {
 		const { view } = await opened(
 			[asked("fix the header", 0), said("Stopping here.", 1)],

@@ -4,8 +4,6 @@ import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
 	CopyIcon,
-	ListChecksIcon,
-	MessageCircleQuestionIcon,
 	SendHorizontalIcon,
 } from "lucide-react";
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -33,10 +31,11 @@ import { BoxFiles, MORE } from "./box-files";
 import { copiedLabel, useCopy } from "./card";
 import { CardBox } from "./card-box";
 import { useArrival, useCardReply, useKept } from "./card-reply";
-import { CardBody, CardShell, ENDINGS, reportText } from "./card-shell";
+import { CardBody, CardShell, reportText } from "./card-shell";
 import { DemoSection } from "./demo-cards";
 import { Markdown } from "./markdown";
 import { QuestionCard } from "./question-card";
+import { questionHeading } from "./question-heading";
 import { Refusal, useRefusal } from "./refusal";
 
 /**
@@ -288,41 +287,21 @@ export function QuestionCards({
 		panel.current?.querySelector<HTMLElement>("[data-stop]"),
 	);
 	// Ending an escalation or under a proposal, they are its card: headed as
-	// it, what it says first.
+	// it, what it says first. A proposal the task escalated to wait on is
+	// the escalation's card, led by what it proposed, which its title said.
 	const reported =
 		proposal !== null
-			? proposal.body
+			? escalation === null
+				? proposal.body
+				: [`Proposed ${proposal.subject}`, proposal.body]
+						.filter((each) => each !== "")
+						.join("\n\n")
 			: escalation === null
 				? ""
 				: reportText(escalation);
 	return (
 		<CardShell
-			{...(proposal !== null
-				? {
-						label: `proposal ${proposal.subject}`,
-						Icon: MessageCircleQuestionIcon,
-						title: `Questions: ${proposal.subject}`,
-						tone: "info" as const,
-					}
-				: escalation === null && questions.length === 0
-					? {
-							label: "assumed",
-							Icon: ListChecksIcon,
-							title: "Assumed",
-							tone: "neutral" as const,
-						}
-					: escalation === null
-						? {
-								label: "questions for you",
-								Icon: MessageCircleQuestionIcon,
-								title: `${questions.length === 1 ? "A question" : "Questions"} for you`,
-								tone: "info" as const,
-							}
-						: {
-								label: `escalated ${escalation.task}`,
-								...ENDINGS.escalated,
-								task: escalation.task,
-							})}
+			{...questionHeading(questions.length, escalation, proposal)}
 			// Asked again below, it is answered there.
 			folded={sent !== null || askedAgain}
 			// Each question marks itself while it has the focus.
