@@ -360,6 +360,91 @@ describe("App's conversation thread", () => {
 		expect(thread.scrollTop).toBe(40);
 	});
 
+	it("follows the bottom as an open timeline of work still going on grows, until the person scrolls up", async () => {
+		// Resizes the page has no layout to make, as the timeline grows.
+		const watchers = new Set<() => void>();
+		const real = globalThis.ResizeObserver;
+		globalThis.ResizeObserver = class {
+			private readonly fire: () => void;
+			constructor(changed: ResizeObserverCallback) {
+				this.fire = () => changed([], this as unknown as ResizeObserver);
+			}
+			observe() {
+				watchers.add(this.fire);
+			}
+			unobserve() {}
+			disconnect() {
+				watchers.delete(this.fire);
+			}
+		} as unknown as typeof ResizeObserver;
+		try {
+			const view = await testing.openConversations([
+				conversation({
+					title: "Run tests",
+					status: "running",
+					messages: [
+						message("user", "run the tests"),
+						message(
+							"agent",
+							tool({ command: "bun test", status: "in_progress" }),
+						),
+					],
+				}),
+			]);
+			const thread = document.querySelector(
+				'[data-slot="aui_thread-viewport"]',
+			) as HTMLElement;
+			const work = await waitFor(() => {
+				const found = thread.querySelector<HTMLDetailsElement>(
+					'[data-slot="work"] details',
+				);
+				expect(found).not.toBeNull();
+				return found as HTMLDetailsElement;
+			});
+			let height = 1000;
+			Object.defineProperty(thread, "scrollHeight", { get: () => height });
+			Object.defineProperty(thread, "clientHeight", { get: () => 500 });
+			const scroll = async (top: number) => {
+				thread.scrollTop = top;
+				await act(async () => fireEvent.scroll(thread));
+			};
+			const grow = async (by: number) => {
+				height += by;
+				await act(async () => {
+					// scry-ignore matchers-over-test-logic: fires every resize watched, building no subject
+					for (const fire of watchers) {
+						fire();
+					}
+				});
+			};
+			await scroll(500);
+
+			// Folded, it is the person's to scroll to.
+			await grow(100);
+			expect(thread.scrollTop).toBe(500);
+
+			await scroll(600);
+			await act(async () => {
+				work.open = true;
+				fireEvent(work, new Event("toggle"));
+			});
+			await grow(200);
+			expect(thread.scrollTop).toBe(800);
+
+			await scroll(700);
+			await grow(200);
+			expect(thread.scrollTop).toBe(700);
+
+			// Back at the bottom, it follows again.
+			await scroll(1000);
+			await grow(150);
+			expect(thread.scrollTop).toBe(1150);
+			expect(view.getByText(/Working/)).toBeTruthy();
+		} finally {
+			globalThis.ResizeObserver = real;
+		}
+	});
+
 	it("shows why a conversation failed, and takes a prompt to resume it", async () => {
 		const view = await testing.openConversations([
 			conversation({ status: "failed", error: "Claude exited with code 1" }),

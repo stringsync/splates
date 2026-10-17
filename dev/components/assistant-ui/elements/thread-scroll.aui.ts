@@ -152,6 +152,52 @@ export function useOpenAt(
 		}
 	}, [running]);
 }
+/** The timeline of work still going on, opened by the person. */
+const FOLLOWED = '[data-slot="work"] details[open][data-working]';
+/**
+ * Keeps `viewport` at its bottom as it grows while the person has the
+ * timeline of work still going on open and was at the bottom, so they watch
+ * it come. assistant-ui follows nothing while a turn is anchored to the top,
+ * and would stop following once a disclosure in a message opened anyway.
+ * Scrolling up lets go; scrolling back to the bottom takes hold again.
+ */
+export function useFollowWork(
+	viewport: RefObject<HTMLDivElement | null>,
+): void {
+	useLayoutEffect(() => {
+		const scroller = viewport.current;
+		const content = scroller?.firstElementChild;
+		if (scroller == null || content == null) {
+			return;
+		}
+		const bottom = () => scroller.scrollHeight - scroller.clientHeight;
+		const atBottom = () => bottom() - scroller.scrollTop <= 1;
+		let following = atBottom();
+		let top = scroller.scrollTop;
+		// Growing never scrolls the thread up, so only the person does.
+		const scrolled = () => {
+			if (atBottom()) {
+				following = true;
+			} else if (scroller.scrollTop < top) {
+				following = false;
+			}
+			top = scroller.scrollTop;
+		};
+		const grew = () => {
+			if (following && scroller.querySelector(FOLLOWED) !== null) {
+				scroller.scrollTop = bottom();
+				top = scroller.scrollTop;
+			}
+		};
+		scroller.addEventListener("scroll", scrolled, { passive: true });
+		const watching = new ResizeObserver(grew);
+		watching.observe(content);
+		return () => {
+			scroller.removeEventListener("scroll", scrolled);
+			watching.disconnect();
+		};
+	}, [viewport]);
+}
 /**
  * The person's message that opens the turn assistant-ui anchors to the top:
  * the one before the last, a reply, while it runs. None for a bare line, as a

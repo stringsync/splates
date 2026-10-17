@@ -30,6 +30,7 @@ import {
 	UNCLAMPED,
 	useAnchorAtOnce,
 	useClearOf,
+	useFollowWork,
 	useOpenAt,
 } from "#dev/components/assistant-ui/elements/thread-scroll.aui.ts";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
@@ -123,6 +124,7 @@ const ThreadRoot: FC<{
 	}, []);
 	useOpenAt(viewport, openAt);
 	useAnchorAtOnce(viewport);
+	useFollowWork(viewport);
 	const footer = useRef<HTMLDivElement>(null);
 	useClearOf(viewport, footer);
 

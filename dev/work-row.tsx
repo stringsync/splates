@@ -93,6 +93,8 @@ export function WorkRow({ work }: { work: Work }): JSX.Element {
 			<div data-slot="work" className="my-2 flex flex-col gap-1.5 text-sm">
 				<details
 					open={open}
+					// The thread follows it as it grows while it is open.
+					data-working={work.working || undefined}
 					onToggle={(event) => setOpen(event.currentTarget.open)}
 					// The timeline slides open and shut with the chevron, where the
 					// browser can size to `auto`; elsewhere it opens at once.
