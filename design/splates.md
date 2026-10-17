@@ -86,7 +86,8 @@ history takes nothing back. Versions published so far stay MIT.
 
 ## Licensing
 
-Versions up to 0.0.44 are MIT and stay so. The LLC can relicense new ones
+The repo is MIT throughout, its `LICENSE` naming the stringsync LLC
+(settled). Versions up to 0.0.44 are MIT and stay so. The LLC can relicense new ones
 while it is the only copyright holder, so a CLA (or a DCO with a
 relicensing clause) comes before the first outside contribution. Zed keeps
 its editor GPL and its server AGPL, so no one can host a closed fork of
@@ -96,8 +97,6 @@ the service.
 
 Asked when their todo starts:
 
-- License of the new repo: MIT throughout, or the coordinator and service
-  under AGPL with the CLI and worker MIT (extraction todo).
 - Whether the rename reaches `ARBOR.md`, the `[ARBOR …]` directives and the
   state directories, or only the command and package (rename todo).
 - CLA or DCO, and which tool (CLA todo).
