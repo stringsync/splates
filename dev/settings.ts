@@ -184,12 +184,12 @@ export const SETTINGS = {
 	),
 	"shortcuts.next": shortcut(
 		"Next conversation",
-		"Open the conversation below the one open, archived in the last hour or not, round past the end.",
+		"Open the sidebar conversation below the one open, round past the end.",
 		"Alt+Mod+BracketRight",
 	),
 	"shortcuts.previous": shortcut(
 		"Previous conversation",
-		"Open the conversation above the one open, archived in the last hour or not, round past the top.",
+		"Open the sidebar conversation above the one open, round past the top.",
 		"Alt+Mod+BracketLeft",
 	),
 	"shortcuts.archive": shortcut(

@@ -47,8 +47,6 @@ import { WaitingLine } from "./waiting-line";
 
 /** How many rows ⌥⌘ and a digit can open. */
 const DIGITS = 10;
-/** How lately a conversation was archived for ⌥⌘[ and ⌥⌘] still to stop on it. */
-const RECENTLY_ARCHIVED = 60 * 60 * 1000;
 
 /**
  * The sidebar's conversations, in one list, newest first, after
@@ -63,8 +61,7 @@ const RECENTLY_ARCHIVED = 60 * 60 * 1000;
  *
  * The arrow keys move between rows, ⌥⌘0 to ⌥⌘9 (Ctrl+Alt off a Mac) open
  * the first ten rows, top to bottom, and ⌥⌘] and ⌥⌘[ open the row below or above the one open,
- * terminals among them, and any conversation archived in the last hour where it
- * sat, round past either end; each but the digits as the
+ * main-tree terminals among them, round past either end; each but the digits as the
  * settings bind it. Holding ⌥⌘ shows each of those keys beside what it opens.
  * Atop it, `NextWaiting` says how many wait on you, opening the
  * next as ⌥⌘M does.
@@ -197,20 +194,8 @@ export function ConversationList({
 	// From a row, round past either end; from no row, in from the top or the
 	// bottom.
 	const step = (by: 1 | -1) => {
-		// Every row top to bottom, by what opens it, and each conversation
-		// archived lately where it sat.
-		const since = Date.now() - RECENTLY_ARCHIVED;
-		const kept = rowsOf(
-			tasks,
-			conversations,
-			(each) => !each.archived || Date.parse(each.archivedAt ?? "") >= since,
-		);
-		const stops = [
-			...mains,
-			...flatten(nest(kept, (host, part) => isHostOf(tasks, host, part))).map(
-				openedBy,
-			),
-		];
+		// The same rows and order as the sidebar, by what opens each one.
+		const stops = [...mains, ...flatten(nested).map(openedBy)];
 		if (stops.length === 0) {
 			return false;
 		}

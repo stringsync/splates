@@ -103,7 +103,7 @@ describe("App's sidebar keys", () => {
 		expect(location.hash).toBe("#conversations/task/beta");
 	});
 
-	it("stops with ⌥⌘[ and ⌥⌘] on a conversation archived in the last hour, where it sat", async () => {
+	it("skips archived conversations with ⌥⌘[ and ⌥⌘], including those archived in the last hour", async () => {
 		const ago = (minutes: number) =>
 			new Date(Date.now() - minutes * 60 * 1000).toISOString();
 		await testing.openConversations(
@@ -124,6 +124,7 @@ describe("App's sidebar keys", () => {
 				conversation({ id: "c4", title: "Last" }),
 			]),
 			"c4",
+			{ tasks: [] },
 		);
 		const press = (code: string) =>
 			act(async () =>
@@ -134,11 +135,11 @@ describe("App's sidebar keys", () => {
 				}),
 			);
 		await press("BracketLeft");
-		expect(location.hash).toBe("#conversations/c2");
-		await press("BracketLeft");
 		expect(location.hash).toBe("#conversations/c1");
+		await press("BracketLeft");
+		expect(location.hash).toBe("#conversations/c4");
 		await press("BracketRight");
-		expect(location.hash).toBe("#conversations/c2");
+		expect(location.hash).toBe("#conversations/c1");
 		await press("BracketRight");
 		expect(location.hash).toBe("#conversations/c4");
 	});
