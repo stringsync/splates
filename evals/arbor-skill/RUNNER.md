@@ -30,35 +30,31 @@ of all changed requirements. Unmapped reference changes require explicit probe
 selection; they never expand into the full suite. Explicit probe/aspect/requirement
 selection and `--failed` still require a skill change and the same budget gate.
 
-Default aggregate admission ceilings are **4,000 tokens and USD 0.10** per
-invocation. `--max-tokens` and `--max-usd` may adjust these up to hard maxima of
+Default aggregate admission limits are **4,000 tokens and USD 0.10** per
+invocation. `--max-tokens` and `--max-usd` may adjust these up to configuration maxima of
 **10,000 tokens and USD 0.25**. Each deliberate invocation has its own cap; shared token windows additionally
 constrain repeated invocations when configured. No shared allowance is invented
 until explicitly declared. Positive integer tokens
 and integer microdollars avoid rounding past a ceiling. The runner reserves the
-worst-case charge for every selected probe × target × repetition before any seed
+conservative allowance for every selected probe × target × repetition before any seed
 or agent starts; concurrency cannot multiply the admitted budget. It does not
-refund failures, cancellations or unknown usage. Retries and all input, output,
-hidden reasoning and billable tool usage must fit each provider reservation.
+refund failures, cancellations or unknown usage. Reservations include retries, input, output, reasoning and billable tool activity;
+monitored enforcement may overshoot these allowances.
 
-Only an adapter implementing the trusted `Metering` contract can receive an
-admitted invocation: its non-billable quote must bound the whole probe, and its
-bounded execution method must enforce that allowance before sending requests.
-Unknown pricing/ceilings or a missing integration refuse the entire batch before
-launch. A reported charge above a reservation becomes an infrastructure error,
-not success; this diagnostic is not retroactive cost enforcement. Just as with
-trusted tool capture, a custom adapter's false certification cannot be made safe
-by the runner. Provider-specific enforcement must be independently verified.
+Native drivers use `nativeAdapter` from `native-adapter.ts`. Its `NativeDriver`
+contract declares token and USD limits independently as `hard`, `monitored`, or
+`unavailable`. A non-billable quote reserves an admission allowance, not a universal
+billing ceiling. Native hard controls apply where verified; reported cumulative
+usage triggers cancellation at a monitored threshold. In-flight work may overshoot.
+Unknown usage stays unknown and reservations are not refunded. Observed overshoot
+also reduces remaining shared allowance. A threshold cancels active and queued
+jobs in this invocation; independently running invocations retain their own
+reservations and may already have work in flight.
 
-**Generic ACP has no such metering integration and is rejected.**
-`--allow-unmetered` cannot bypass the model CLI policy. The low-level `runProbes`
-API remains injectable for free synthetic tests; calls omitting a budget are not
-the affordable CLI workflow. The CLI always supplies the budget. No production
-model provider is certified yet; #371 owns native tool capture, authentication
-and provider-enforced input/output/retry metering. Unsupported ACP runs are not
-a useful cheap eval. Free fake-provider tests prove admission mechanics only.
-Local CLI cases use zero model tokens/dollars; refused model execution launches
-nothing. There is still **no empirical model-cost, latency or adherence evidence**.
+The existing generic ACP CLI selection remains refused until #382 connects the
+native adapters from #379–381. #371 supplies the shared contract and lifecycle,
+not the three transports. No live cost, latency or adherence evidence is claimed.
+See [native ownership and gaps](NATIVE-BLOCKERS.md) for exact integration interfaces.
 
 Legacy E2E execution lacks these controls and is now refused at the eval entry
 point. `e2e report` remains available without models; its historical results do
@@ -66,8 +62,8 @@ not become focused evidence. Do not bypass the entry point to claim affordabilit
 
 AGENTS.md remains unchanged. #365 may change it only after the user's later
 approval, and any replacement must retain skill-change-only model execution and
-low enforced aggregate budgets. The policy controls are free-tested here; a useful
-real-model workflow and production metering evidence remain #371 prerequisites.
+small aggregate admission budgets. The policy controls are free-tested here; a useful
+real-model workflow remains downstream adapter/integration work.
 
 ## Free planning and later execution syntax
 
@@ -227,8 +223,7 @@ repetition, including gaps and failures. Published fixtures are tuning cases.
 
 Today this loop measures local CLI contracts and tests assertion logic. Skill
 wording comparisons between real models remain blocked on a native authenticated
-adapter with enforced tools/bounds, complete ordered commands/reads/writes and
-trusted delivered-byte evidence. Discovery additionally needs native activation
+adapter with native permission controls and honestly scoped evidence. Discovery additionally needs native activation
 without injected root instructions, alternate skill source wiring and controlled
 truncation/session fixtures. UPDATE needs intermediate reply and real mid-turn
 delivery observations; coherent reports and equivalent argv need stronger checks.
@@ -241,7 +236,7 @@ calling a focused model smoke/comparison meaningful.
 
 ## Later authorized comparisons
 
-After #371 supplies a certified provider, a bounded selection could use:
+After #379–382 supply native adapters and CLI integration, a bounded selection could use:
 
 ```sh
 bin/wiz dev eval fast --baseline BASE_COMMIT --probe lifecycle/claim --target claude:opus --parallel 1 --reps 1 --tokens 2000 --max-tokens 2000 --max-usd 0.05

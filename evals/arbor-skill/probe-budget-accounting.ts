@@ -43,8 +43,81 @@ export async function recordBudget(
 			models.every(
 				(run) =>
 					run.run.evidence.termination === "stop" &&
+					run.adapter.runtime.nativeUsageComplete !== false &&
 					run.result.status !== "infrastructure-error",
 			),
 		);
 	}
+}
+
+export function finishUsage(
+	context: import("./probe-record").RunContext,
+	allowance: Readonly<Allowance> | undefined,
+	metering: import("./probe-affordability").Metering | undefined,
+	warnings: string[],
+): void {
+	const { usage, evidence, runtime } = context;
+	if (
+		allowance &&
+		((usage.tokens !== null &&
+			(!Number.isSafeInteger(usage.tokens) ||
+				usage.tokens < 0 ||
+				(usage.tokens > allowance.tokens &&
+					(metering?.limits?.tokens ?? "hard") === "hard"))) ||
+			(usage.costUsd !== null &&
+				(!Number.isFinite(usage.costUsd) ||
+					usage.costUsd < 0 ||
+					(usage.costUsd * 1000000 > allowance.microUsd &&
+						(metering?.limits?.costUsd ?? "hard") === "hard"))))
+	) {
+		evidence.termination = "infrastructure-error";
+		evidence.detail =
+			"Provider violated its reserved metering contract; cost guarantee cannot be claimed";
+	}
+	if (allowance) {
+		runtime.overshoot = {
+			tokens:
+				usage.tokens === null
+					? null
+					: Math.max(0, usage.tokens - allowance.tokens),
+			microUsd:
+				usage.costUsd === null
+					? null
+					: Math.max(
+							0,
+							Math.ceil(usage.costUsd * 1000000) - allowance.microUsd,
+						),
+		};
+		if (metering?.limits) {
+			warnings.push(
+				`Native budget policy: ${JSON.stringify(metering.limits)}; monitored limits may overshoot; unavailable usage stays unknown.`,
+			);
+		}
+	}
+}
+
+export function observeUsage(
+	usage: { tokens: number | null; costUsd: number | null },
+	value: { tokens: number | null; costUsd: number | null },
+	allowance?: Readonly<Allowance>,
+): boolean {
+	for (const [key, total] of Object.entries(value)) {
+		if (
+			total !== null &&
+			(!Number.isFinite(total) ||
+				total < 0 ||
+				(key === "tokens" && !Number.isSafeInteger(total)))
+		) {
+			throw new Error("Invalid native usage");
+		}
+	}
+	usage.tokens =
+		value.tokens === null ? null : Math.max(usage.tokens ?? 0, value.tokens);
+	usage.costUsd =
+		value.costUsd === null ? null : Math.max(usage.costUsd ?? 0, value.costUsd);
+	return (
+		!!allowance &&
+		((usage.tokens !== null && usage.tokens >= allowance.tokens) ||
+			(usage.costUsd !== null && usage.costUsd * 1000000 >= allowance.microUsd))
+	);
 }

@@ -189,6 +189,8 @@ export interface RunContext {
 	env: Record<string, string>;
 	evidence: Evidence;
 	usage: ProbeRun["usage"];
+	/** Cumulative billable totals, never context-window occupancy. Null means unknown. */
+	reportUsage?(usage: { tokens: number | null; costUsd: number | null }): void;
 	runtime: Record<string, Json>;
 	emit(event: Event): void;
 	reply(text: string): void;

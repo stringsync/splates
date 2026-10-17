@@ -11,7 +11,12 @@ import {
 } from "./probe";
 import { cliAdapter } from "./probe-adapters";
 import type { Allowance } from "./probe-affordability";
-import { recordBudget, reserveBudget } from "./probe-budget-accounting";
+import {
+	finishUsage,
+	observeUsage,
+	recordBudget,
+	reserveBudget,
+} from "./probe-budget-accounting";
 import {
 	assessRun,
 	configurationHash,
@@ -81,6 +86,10 @@ export async function runProbes(
 	await mkdir(opts.directory, { recursive: true });
 	const results: StoredRun[] = [];
 	let index = 0;
+	const batch = new AbortController();
+	const signal = opts.signal
+		? AbortSignal.any([opts.signal, batch.signal])
+		: batch.signal;
 	const worker = async () => {
 		for (;;) {
 			const jobIndex = index++;
@@ -90,6 +99,9 @@ export async function runProbes(
 			}
 			const stored = await runOne(job.probe, {
 				...opts,
+				signal,
+				onLimit: () =>
+					batch.abort("budget threshold reached; queued runs cancelled"),
 				seed: module.seeds.find(
 					(seed) =>
 						seed.id === job.probe.seed.id &&
@@ -119,6 +131,7 @@ async function runOne(
 		repetition: number;
 		allowance?: Readonly<Allowance>;
 		reservationId?: string;
+		onLimit: () => void;
 	},
 ): Promise<{ value: StoredRun; path: string }> {
 	const { seed, target, repetition } = opts;
@@ -188,6 +201,10 @@ async function runOne(
 	const runtime: Record<string, Json> = opts.allowance
 		? {
 				reserved: { ...opts.allowance },
+				limitModes: target.adapter.metering?.limits ?? {
+					tokens: "hard",
+					costUsd: "hard",
+				},
 				aggregateBudget: { ...opts.budget },
 				sharedReservation: opts.reservationId ?? null,
 			}
@@ -244,6 +261,17 @@ async function runOne(
 			ARBOR_HOME: isolation.arborHome,
 			XDG_CONFIG_HOME: join(dir, "home", ".config"),
 			XDG_CACHE_HOME: join(dir, "home", ".cache"),
+		},
+		reportUsage(value) {
+			if (traceClosed) {
+				return;
+			}
+			if (observeUsage(usage, value, opts.allowance)) {
+				opts.onLimit();
+				controller.abort(
+					"native budget threshold reached (in-flight overshoot possible)",
+				);
+			}
 		},
 		emit(event) {
 			if (closed || stopped) {
@@ -423,21 +451,7 @@ async function runOne(
 		evidence.termination = "bound";
 		evidence.detail = "observed turn/token bound exceeded";
 	}
-	if (
-		opts.allowance &&
-		((usage.tokens !== null &&
-			(!Number.isSafeInteger(usage.tokens) ||
-				usage.tokens < 0 ||
-				usage.tokens > opts.allowance.tokens)) ||
-			(usage.costUsd !== null &&
-				(!Number.isFinite(usage.costUsd) ||
-					usage.costUsd < 0 ||
-					usage.costUsd * 1000000 > opts.allowance.microUsd)))
-	) {
-		evidence.termination = "infrastructure-error";
-		evidence.detail =
-			"Provider violated its reserved metering contract; cost guarantee cannot be claimed";
-	}
+	finishUsage(context, opts.allowance, target.adapter.metering, warnings);
 	traceClosed = true;
 	async function disposeResources() {
 		for (let dispose = disposers.pop(); dispose; dispose = disposers.pop()) {

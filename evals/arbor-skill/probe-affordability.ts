@@ -15,11 +15,14 @@ export const MAX_BUDGET: Readonly<Allowance> = {
 	microUsd: 250000,
 };
 
-/** A provider integration must bound all input/output, hidden reasoning, tools and retries before sending requests. */
+export type LimitMode = "hard" | "monitored" | "unavailable";
+
+/** Native limits describe enforcement honestly; omitted modes retain the legacy hard contract. */
 export interface Metering {
-	/** Pure, non-billable upper bound for the whole probe, including failures and retries; null means unknown. */
+	limits?: { tokens: LimitMode; costUsd: LimitMode };
+	/** Pure non-billable reservation for the whole probe, including retries; null refuses admission. */
 	quote(probe: Probe, model: string | null): Allowance | null;
-	/** No spend beyond allowance, even after cancellation or missing usage; never fall back to an unbounded call. */
+	/** Apply declared native limits and report cumulative usage; monitored limits may overshoot. */
 	run(
 		context: import("./probe-record").RunContext,
 		model: string | null,
@@ -77,7 +80,7 @@ export function admit(
 		const meter = target.adapter.metering;
 		if (!meter) {
 			throw new Error(
-				`Unsupported metering for ${target.adapter.id}: no enforceable token/USD ceiling; no agents launched`,
+				`Unsupported metering for ${target.adapter.id}: no declared native budget policy; no agents launched`,
 			);
 		}
 		const quote = meter.quote(probe, target.model);

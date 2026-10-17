@@ -55,7 +55,7 @@ export function probeReport(values: StoredRun[]): string {
 				);
 				if (run.adapter.runtime.reserved) {
 					lines.push(
-						`    reserved maximum (not measured cost): ${JSON.stringify(run.adapter.runtime.reserved)}; aggregate ceiling: ${JSON.stringify(run.adapter.runtime.aggregateBudget)}`,
+						`    reserved allowance (not a billing ceiling): ${JSON.stringify(run.adapter.runtime.reserved)}; aggregate admission limit: ${JSON.stringify(run.adapter.runtime.aggregateBudget)}; modes: ${JSON.stringify(run.adapter.runtime.limitModes)}; overshoot: ${JSON.stringify(run.adapter.runtime.overshoot)}`,
 					);
 				}
 				for (const verdict of run.result.verdicts) {

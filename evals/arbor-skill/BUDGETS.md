@@ -2,7 +2,7 @@
 
 Eval budgets pool **total tokens across every target, probe and repetition** in a
 project. They do not make unsupported providers executable. The skill-change gate,
-terminal confirmation and certified provider metering remain mandatory. No paid
+terminal confirmation and declared native budget policy remain mandatory. No paid
 runs were used to implement this feature. AGENTS.md's warning is unchanged.
 
 ## Configuration and controls
@@ -51,19 +51,24 @@ override and reservations so a concurrent budget edit cannot race admission.
 
 ## Accounting and guarantees
 
-Input tokens, including cached input, count once. Output tokens include hidden
-reasoning once; do not add reasoning to a total that already includes it. Every
-billable attempt and retry counts. An adapter unable to certify this total or the
-corresponding complete charge ceiling remains unsupported. Tool dollar charges
-are included in provider dollar reservations even when they have no token unit.
+Native usage counts input (including cache) and output (including reasoning) once,
+including retries and child activity when the runtime exposes them. Context-window
+occupancy is not cumulative usage. Unavailable totals remain null, never zero.
 
-The runner first admits the entire probe × target × repetition batch against
-provider quotes and invocation guardrails, then reserves its complete token and
-microdollar ceilings in the shared ledger under an interprocess lock. It writes
-by atomic rename before any seed or model request starts. Concurrent invocations
-reread reservations under that same lock. There is no second allowance for retries.
-A failure to persist refuses launch. Unsupported pricing/metering refuses before
-any shared reservation. A declined confirmation does not reserve anything.
+`NativeDriver.limits` independently labels token and dollar controls: `hard` is a
+verified native cap; `monitored` cancels at reported cumulative usage; `unavailable`
+means no such native control/meter. Monitored thresholds can overshoot during
+in-flight work. Reservations are admission allowances, not guaranteed charges.
+Timeouts and configured token allowance are always required; native dollar
+safeguards apply where supported. There is no unlimited mode.
+
+The whole selected batch reserves tokens and microdollars before any seed or model
+starts, under the existing interprocess lock. Concurrent invocations reread that
+ledger. A declined confirmation reserves nothing. At an observed threshold the
+runner cancels this invocation's active sessions and queued work. Other invocations
+may already be in flight. Known overshoot is charged as at least the greater of
+reserved and observed tokens; it never refunds a reservation. Future admission
+uses that reduced remaining allowance.
 
 Reservations are never refunded, even when a known result reports fewer tokens.
 Reports distinguish consumed reservations, outstanding reservations and remaining
@@ -78,15 +83,13 @@ reservation can therefore exhaust a window indefinitely; automatic recovery
 would require independent proof that all billable work ended and its usage is
 complete. No such recovery shortcut is provided.
 
-Per-invocation defaults remain **4,000 tokens / USD 0.10**, with hard maxima of
+Per-invocation defaults remain **4,000 tokens / USD 0.10**, with configuration maxima of
 **10,000 tokens / USD 0.25**, regardless of shared configuration. `per: "check"`
 is a per-invocation limit, as in Scry; add a day/month/rolling limit to constrain
 spending across invocations. Token budgets are not dollar-equivalent across
-models: input, cached input, output and reasoning prices may differ. Reserved USD
-are certified ceilings; observed USD are reported usage. Neither proves live
-cost without a certified provider. Unknown prices or unenforceable charges still
-refuse execution. No production provider is certified and no live cost, latency
-or adherence measurement exists.
+models: input, cached input, output and reasoning prices may differ. Reserved USD are allowances; observed USD are runtime-reported usage.
+Neither establishes a universal provider ceiling. Native implementations and CLI
+integration follow in #379–382. No live cost, latency or adherence measurement exists.
 
 Free tests cover two-process contention, restart persistence, reset without
 refund, zero/exhausted/undeclared budgets, calendar/rolling windows, unknown usage,
