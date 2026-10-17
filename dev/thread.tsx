@@ -156,6 +156,7 @@ function Conversation({
 	const { queued, openAt, asking } = thread;
 	const {
 		runtime,
+		stopping,
 		send,
 		retry,
 		edit: editUnsent,
@@ -349,6 +350,7 @@ function Conversation({
 																<ThreadView
 																	openAt={openAt}
 																	autoFocus={!asking || typed}
+																	stopping={stopping}
 																	mentions={mentions ?? undefined}
 																	references={references}
 																	commands={commands ?? undefined}

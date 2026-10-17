@@ -485,6 +485,58 @@ describe("App's sending messages", () => {
 		).toEqual(["POST"]);
 	});
 
+	it("shows a pending stop until the turn ends, ignoring repeated clicks and Escape", async () => {
+		const view = await testing.openConversations([
+			conversation({ status: "running" }),
+		]);
+		testing.holdWrites();
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Stop generating" })),
+		);
+		const stopping = view.getByRole("button", { name: "Stopping…" });
+		expect(stopping.hasAttribute("disabled")).toBe(true);
+		expect(stopping.getAttribute("aria-busy")).toBe("true");
+		expect(stopping.querySelector(".animate-spin")).not.toBeNull();
+		await act(async () => {
+			fireEvent.click(stopping);
+			fireEvent.keyDown(box, { key: "Escape" });
+		});
+		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(1);
+
+		// An acknowledgement alone does not mean the agent has stopped.
+		await act(async () => testing.release());
+		expect(view.getByRole("button", { name: "Stopping…" })).toBe(stopping);
+		await testing.say(conversation({ status: "idle" }));
+		expect(view.queryByRole("button", { name: "Stopping…" })).toBeNull();
+		await testing.say(conversation({ status: "running" }));
+		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
+		expect(view.getByRole("button", { name: "Stopping…" })).toBeTruthy();
+		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(2);
+	});
+
+	it("makes stopping available again when the server refuses the request", async () => {
+		const view = await testing.openConversations([
+			conversation({ status: "running" }),
+		]);
+		testing.refuseWrites = { reason: "busy", message: "try again" };
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await act(async () => fireEvent.keyDown(box, { key: "Escape" }));
+		expect(view.getByText("Not cancelled: try again")).toBeTruthy();
+		expect(view.queryByRole("button", { name: "Stopping…" })).toBeNull();
+		expect(
+			view
+				.getByRole("button", { name: "Stop generating" })
+				.hasAttribute("disabled"),
+		).toBe(false);
+		testing.refuseWrites = null;
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Stop generating" })),
+		);
+		expect(view.getByRole("button", { name: "Stopping…" })).toBeTruthy();
+		expect(testing.posted("/api/conversations/c1/cancel")).toHaveLength(2);
+	});
+
 	it("ends a turn the person stopped with a line that says so", async () => {
 		const view = await testing.openConversations([
 			conversation({

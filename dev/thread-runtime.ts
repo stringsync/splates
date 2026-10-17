@@ -4,7 +4,7 @@ import {
 	type ThreadMessageLike,
 	useExternalStoreRuntime,
 } from "@assistant-ui/react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConversationState } from "../conversations";
 import { useAdapters } from "./adapters";
 import { filesOf, noted, said, useDictated, useDraft } from "./composer-drafts";
@@ -30,6 +30,14 @@ export function useThreadRuntime(
 	refused: (title: string, error: unknown) => void,
 ): ThreadRuntime {
 	const { id } = conversation;
+	const [stopping, setStopping] = useState(false);
+	const cancelling = useRef(false);
+	useEffect(() => {
+		if (!running) {
+			cancelling.current = false;
+			setStopping(false);
+		}
+	}, [running]);
 	const send = useCallback(
 		async (text: string, files: File[], dictated = false) => {
 			// Shown at once, with its reply's place or among what is queued,
@@ -114,9 +122,16 @@ export function useThreadRuntime(
 			[say, id],
 		),
 		onCancel: async () => {
-			await cancelConversation(id).catch((error: unknown) =>
-				refused("Not cancelled", error),
-			);
+			if (cancelling.current) {
+				return;
+			}
+			cancelling.current = true;
+			setStopping(true);
+			await cancelConversation(id).catch((error: unknown) => {
+				cancelling.current = false;
+				setStopping(false);
+				refused("Not cancelled", error);
+			});
 		},
 	});
 	useDraft(runtime, drafts, id);
@@ -136,12 +151,14 @@ export function useThreadRuntime(
 		},
 		[id, feed, runtime],
 	);
-	return { runtime, send, retry, edit };
+	return { runtime, send, retry, edit, stopping: stopping && running };
 }
 
 /** What `useThreadRuntime` gives a thread. */
 export interface ThreadRuntime {
 	runtime: AssistantRuntime;
+	/** A stop was requested and the running turn has yet to end. */
+	stopping: boolean;
 	/** Sends `text` and `files` as the person's next message, said into the mic when `dictated`. */
 	send: (text: string, files: File[], dictated?: boolean) => Promise<void>;
 	/** Sends a message the server refused again. */

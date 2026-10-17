@@ -10,7 +10,7 @@ import {
 	useAuiState,
 } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
-import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { ArrowUpIcon, Loader2Icon, SquareIcon } from "lucide-react";
 import {
 	type FC,
 	useContext,
@@ -317,7 +317,7 @@ const ComposerAction: FC = () => {
 			!(s.thread.isRunning && s.thread.capabilities.cancel),
 	);
 
-	const { controls } = useContext(ThreadExtrasContext);
+	const { controls, stopping = false } = useContext(ThreadExtrasContext);
 	const sendDictation = useDictationSend();
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
@@ -397,11 +397,23 @@ const ComposerAction: FC = () => {
 								variant="destructive"
 								size="icon"
 								className="aui-composer-cancel size-7 rounded-full pointer-coarse:size-11"
-								aria-label={isSending ? "Cancel sending" : "Stop generating"}
+								disabled={stopping}
+								aria-busy={stopping}
+								aria-label={
+									stopping
+										? "Stopping…"
+										: isSending
+											? "Cancel sending"
+											: "Stop generating"
+								}
 							/>
 						}
 					>
-						<SquareIcon className="aui-composer-cancel-icon size-3.5 pointer-coarse:size-4 fill-current" />
+						{stopping ? (
+							<Loader2Icon className="animate-spin" aria-hidden="true" />
+						) : (
+							<SquareIcon className="aui-composer-cancel-icon size-3.5 pointer-coarse:size-4 fill-current" />
+						)}
 					</ComposerPrimitive.Cancel>
 				</AuiIf>
 			</div>
