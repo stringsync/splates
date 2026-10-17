@@ -9,8 +9,9 @@ import {
 } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { Board } from "./board";
+import { AttachPlus } from "./card-box";
 import { type Drafts, todoDraft } from "./drafts";
-import { AttachButton, Dropped, FileList } from "./files";
+import { Dropped, FileList } from "./files";
 import { MentionAnchor, useMentions } from "./mentions";
 import { Refusal, useRefusal } from "./refusal";
 import { TodoDraft } from "./todo-draft";
@@ -132,7 +133,7 @@ function Composer({
 					<XIcon />
 				</Button>
 				<span className="ml-auto">
-					<AttachButton files={draft.files} />
+					<AttachPlus files={draft.files} />
 				</span>
 			</div>
 		</form>

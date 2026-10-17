@@ -18,9 +18,10 @@ import type { TodoState } from "../todo";
 import { assignTodo } from "./api";
 import { Board as BoardContext } from "./board";
 import { CopyLink } from "./card";
+import { AttachPlus } from "./card-box";
 import { AssigneeMenu, OnIt } from "./dispatching";
 import { todoEdit } from "./drafts";
-import { AttachButton, Dropped, FileList } from "./files";
+import { Dropped, FileList } from "./files";
 import { Links } from "./links";
 import { Markdown } from "./markdown";
 import { MentionAnchor, useMentions } from "./mentions";
@@ -192,7 +193,7 @@ function Detail({ editor }: { editor: TodoEditor }): JSX.Element {
 						className="min-h-32"
 					/>
 					<InputGroupAddon align="block-end">
-						<AttachButton files={editor.files} />
+						<AttachPlus files={editor.files} />
 					</InputGroupAddon>
 				</InputGroup>
 			</MentionAnchor>

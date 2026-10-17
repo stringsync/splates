@@ -170,7 +170,7 @@ function Suffix({
 }
 
 /** The composer's plus, attaching to a box of its own. */
-function AttachPlus({ files }: { files: Files }): JSX.Element {
+export function AttachPlus({ files }: { files: Files }): JSX.Element {
 	const picker = useRef<HTMLInputElement>(null);
 	return (
 		<>

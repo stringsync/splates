@@ -1,11 +1,5 @@
 import { useReactive } from "@webappwiz/react";
-import {
-	EyeIcon,
-	FileIcon,
-	ImageIcon,
-	PaperclipIcon,
-	XIcon,
-} from "lucide-react";
+import { EyeIcon, FileIcon, ImageIcon, XIcon } from "lucide-react";
 import { type JSX, useRef } from "react";
 import { Dispatcher, type Eventful } from "webappwiz/events";
 import {
@@ -15,7 +9,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#dev/components/ui/dropdown-menu.tsx";
-import { InputGroupButton } from "#dev/components/ui/input-group.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { fileUrl } from "./api";
 import { ATTACHMENT_CHIP, type Shelf } from "./attachment-chips";
@@ -108,34 +101,6 @@ export function fileShelf(file: File): Shelf {
 }
 
 const IMAGE = /\.(png|jpe?g|gif|webp|svg)$/i;
-
-/** The paperclip: picks any number of files of any kind. */
-export function AttachButton({ files }: { files: Files }): JSX.Element {
-	const picker = useRef<HTMLInputElement>(null);
-	return (
-		<>
-			<InputGroupButton
-				aria-label="attach files"
-				size="icon-xs"
-				variant="ghost"
-				className="pointer-coarse:size-10"
-				onClick={() => picker.current?.click()}
-			>
-				<PaperclipIcon />
-			</InputGroupButton>
-			<input
-				ref={picker}
-				type="file"
-				multiple
-				hidden
-				onChange={(event) => {
-					files.add(event.target.files ?? []);
-					event.target.value = "";
-				}}
-			/>
-		</>
-	);
-}
 
 /** Every file attached, stored or new, each a chip with a way to drop it. */
 export function FileList({ files }: { files: Files }): JSX.Element | null {
