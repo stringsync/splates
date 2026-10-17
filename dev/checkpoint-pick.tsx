@@ -1,10 +1,13 @@
 import { TriangleAlertIcon } from "lucide-react";
-import type { JSX } from "react";
+import { type JSX, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import {
+	Dialog,
+	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
+	DialogTrigger,
 } from "#dev/components/ui/dialog.tsx";
 import type { Held } from "../held";
 import { PowerTitle, plural } from "./checkpoint-slide";
@@ -12,9 +15,8 @@ import type { ProjectChoice } from "./project-api";
 
 /**
  * Power's first slide: restart or shut down `arbor dev`. A restart is at
- * once, and keeps every agent at work on a worker; a shutdown stops them
- * all, every one checkpointing first while `checkpoint` is ticked. Says what
- * each stops as it is.
+ * once, and keeps every agent at work on a worker. Shutdown opens a
+ * confirmation with the choice to checkpoint first.
  */
 export function PickSlide({
 	projects,
@@ -42,13 +44,18 @@ export function PickSlide({
 	/** Restarts at once, or with `shutdown` shuts down, checkpointing first when ticked. */
 	onPower: (shutdown: boolean) => Promise<void>;
 }): JSX.Element {
+	const [confirming, setConfirming] = useState(false);
 	const working = projects.flatMap((each) => each.conversations);
 	// What a restart stops: those off a worker.
 	const dies = working.filter((each) => !each.survives);
-	const checkpointing = working.length > 0 && checkpoint;
 	const stops = lines({
-		restart: dies.map((each) => each.name),
-		shutdown: checkpointing ? [] : working.map((each) => each.name),
+		agents: dies.map((each) => each.name),
+		action: "Restart",
+		held,
+	});
+	const shutdownStops = lines({
+		agents: checkpoint ? [] : working.map((each) => each.name),
+		action: "Shutdown",
 		held,
 	});
 	return (
@@ -66,17 +73,6 @@ export function PickSlide({
 					{!restartable && " arbor dev cannot restart itself here."}
 				</DialogDescription>
 			</DialogHeader>
-			{working.length > 0 && restartable && (
-				<label className="flex cursor-pointer items-center gap-2.5 text-sm">
-					<input
-						type="checkbox"
-						checked={checkpoint}
-						onChange={(event) => onCheckpoint(event.target.checked)}
-						className="accent-primary"
-					/>
-					Checkpoint before shutting down
-				</label>
-			)}
 			{restartable && stops.length > 0 && <Stops lines={stops} />}
 			<DialogFooter>
 				<Button variant="outline" onClick={onClose}>
@@ -84,13 +80,55 @@ export function PickSlide({
 				</Button>
 				{restartable && (
 					<>
-						<Button
-							variant="outline"
-							disabled={busy}
-							onClick={() => void onPower(true)}
-						>
-							Shut down
-						</Button>
+						<Dialog open={confirming} onOpenChange={setConfirming}>
+							<DialogTrigger
+								render={<Button variant="outline" disabled={busy} />}
+							>
+								Shut down
+							</DialogTrigger>
+							<DialogContent showCloseButton={false}>
+								<DialogHeader>
+									<PowerTitle title="Shut down arbor dev?" />
+									<DialogDescription>
+										This stops arbor dev and all running agents. You will need
+										to start arbor dev again from a terminal.
+									</DialogDescription>
+								</DialogHeader>
+								{working.length > 0 && (
+									<label className="flex cursor-pointer items-center gap-2.5 text-sm">
+										<input
+											type="checkbox"
+											disabled={busy}
+											checked={checkpoint}
+											onChange={(event) => onCheckpoint(event.target.checked)}
+											className="accent-primary"
+										/>
+										Checkpoint before shutting down
+									</label>
+								)}
+								{shutdownStops.length > 0 && <Stops lines={shutdownStops} />}
+								<DialogFooter>
+									<Button
+										variant="outline"
+										disabled={busy}
+										onClick={() => setConfirming(false)}
+										autoFocus
+									>
+										Cancel
+									</Button>
+									<Button
+										variant="destructive"
+										disabled={busy}
+										onClick={() => {
+											setConfirming(false);
+											void onPower(true);
+										}}
+									>
+										Shut down
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
 						<Button disabled={busy} onClick={() => void onPower(false)}>
 							{onto === null ? "Restart" : `Restart on ${onto}`}
 						</Button>
@@ -101,27 +139,19 @@ export function PickSlide({
 	);
 }
 
-/**
- * What going on stops as it is, a line each: the agents a restart stops
- * mid-turn, those a shutdown without a checkpoint stops, as one line when
- * they are the same, and the commands either kills.
- */
+/** The agents and commands this action stops without a checkpoint. */
 function lines({
-	restart,
-	shutdown,
+	agents,
+	action,
 	held,
 }: {
-	restart: string[];
-	shutdown: string[];
+	agents: string[];
+	action: "Restart" | "Shutdown";
 	held: Held[];
 }): string[] {
-	const same = restart.length === shutdown.length;
 	return [
-		...(restart.length > 0
-			? [`${same ? "Stops" : "Restart stops"} mid-turn: ${restart.join(", ")}.`]
-			: []),
-		...(shutdown.length > 0 && !same
-			? [`Shutdown stops mid-turn: ${shutdown.join(", ")}.`]
+		...(agents.length > 0
+			? [`${action} stops mid-turn: ${agents.join(", ")}.`]
 			: []),
 		...(held.length > 0
 			? [
