@@ -60,6 +60,7 @@ import { NamedContext } from "./mentioned";
 import { QuestionsUI } from "./message-questions";
 import { NeedsYouBar, PhoneSheets } from "./phone-sheets";
 import { Queued, useQueueEdits } from "./queued";
+import { QueuedUI } from "./queued-time";
 import { useReferences } from "./references";
 import { Refusal } from "./refusal";
 import { ReportUI, StartNewContext, StartUI, TodoUI } from "./report-cards";
@@ -332,6 +333,7 @@ function Conversation({
 											<TodoUI />
 											<DemoUI />
 											<WorkUI />
+											<QueuedUI />
 											<EventUI />
 											<StoppedUI />
 											<CompactionUI />
@@ -403,28 +405,26 @@ function Conversation({
 																			{offer !== null && barred && (
 																				<ArchiveBar offer={offer} />
 																			)}
-																			{queued.length > 0 && (
-																				<Queued
-																					conversation={id}
-																					messages={queued}
-																					starting={
-																						conversation.status === "starting"
-																					}
-																					pending={feed.unrecorded(id)}
-																					edits={
-																						handedBy === null
-																							? {
-																									onEdit: (index) =>
-																										void edit(index),
-																									onDiscard: (index) =>
-																										void discard(index),
-																									onSendNow: () =>
-																										void sendNow(),
-																								}
-																							: null
-																					}
-																				/>
-																			)}
+																			{queued.length > 0 &&
+																				conversation.status !== "starting" && (
+																					<Queued
+																						conversation={id}
+																						messages={queued}
+																						pending={feed.unrecorded(id)}
+																						edits={
+																							handedBy === null
+																								? {
+																										onEdit: (index) =>
+																											void edit(index),
+																										onDiscard: (index) =>
+																											void discard(index),
+																										onSendNow: () =>
+																											void sendNow(),
+																									}
+																								: null
+																						}
+																					/>
+																				)}
 																			{/* Its agents' asks, which only the person answers. */}
 																			{agentAsks.map((agent) => (
 																				<AgentAsk

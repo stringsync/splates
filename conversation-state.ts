@@ -174,6 +174,8 @@ export interface Message {
 	 * it goes out when the turn ends.
 	 */
 	queued?: true;
+	/** When a queued prompt reached the agent; absent for prompts sent immediately or old logs. */
+	sentAt?: string;
 	/** When the person stopped the agent's turn, for one they stopped. */
 	stopped?: string;
 	/** When the connection to the agent was lost mid-turn, for one it cut short. */

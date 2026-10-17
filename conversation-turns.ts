@@ -481,8 +481,9 @@ export class ConversationTurns {
 					.filter((each) => each.queued)
 					.slice(0, first ? 1 : Infinity);
 		if (waiting.length > 0) {
-			delivered(host.state.messages, waiting.length);
-			host.log.write({ kind: "sent", ...(first ? { count: 1 } : {}) });
+			const at = host.now();
+			delivered(host.state.messages, waiting.length, at);
+			host.log.write({ kind: "sent", at, ...(first ? { count: 1 } : {}) });
 		}
 		// A new turn puts the last one's failure behind it.
 		host.set({ status: "running", error: null });

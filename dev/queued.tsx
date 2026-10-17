@@ -19,7 +19,6 @@ import {
 	unqueueConversation,
 } from "./conversation-api";
 import { Directed, DirectiveChip } from "./directives";
-import { cn } from "./lib/utils";
 
 /**
  * What the person said while the agent worked, to an agent that cannot take
@@ -30,12 +29,9 @@ export function Queued({
 	conversation,
 	messages,
 	pending,
-	starting = false,
 	edits,
 }: {
 	conversation: string;
-	/** Held until the agent opens its session, before any turn can run. */
-	starting?: boolean;
 	messages: Message[];
 	/** How many of `messages`, the last ones, the server has yet to record. */
 	pending: number;
@@ -55,32 +51,27 @@ export function Queued({
 	return (
 		<section
 			aria-label="queued messages"
-			className={cn(
-				"mb-2 flex flex-col gap-1",
-				!starting && "rounded-2xl border bg-muted/50 p-2",
-			)}
+			className="mb-2 flex flex-col gap-1 rounded-2xl border bg-muted/50 p-2"
 		>
-			{!starting && (
-				<header className="flex items-center gap-2 pl-2">
-					<h3 className="flex-1 text-muted-foreground text-xs">
-						Queued for when the agent's turn ends
-					</h3>
-					{edits !== null && (
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={edits.onSendNow}
-							className={touchButton}
-						>
-							<SendHorizontalIcon />
-							Send now
-							{empty && !touch && (
-								<Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>
-							)}
-						</Button>
-					)}
-				</header>
-			)}
+			<header className="flex items-center gap-2 pl-2">
+				<h3 className="flex-1 text-muted-foreground text-xs">
+					Queued for when the agent's turn ends
+				</h3>
+				{edits !== null && (
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={edits.onSendNow}
+						className={touchButton}
+					>
+						<SendHorizontalIcon />
+						Send now
+						{empty && !touch && (
+							<Kbd className="-mr-1 h-4 bg-transparent">↵</Kbd>
+						)}
+					</Button>
+				)}
+			</header>
 			<ul className="flex flex-col">
 				{messages.map((message, index) => {
 					const text = message.parts
@@ -113,10 +104,7 @@ export function Queued({
 							// each one's words are what the person sees.
 							// biome-ignore lint/suspicious/noArrayIndexKey: see above
 							key={index}
-							className={cn(
-								"flex items-center gap-2 rounded-lg py-1 pr-1 pl-2",
-								starting && "mb-2 flex-wrap",
-							)}
+							className="flex items-center gap-2 rounded-lg py-1 pr-1 pl-2"
 						>
 							{images.map((image) => (
 								<img
@@ -129,12 +117,7 @@ export function Queued({
 							{directives.map((directive) => (
 								<DirectiveChip key={directive} directive={directive} />
 							))}
-							<span
-								className={cn(
-									"min-w-0 flex-1 text-sm",
-									starting ? "whitespace-pre-wrap wrap-break-word" : "truncate",
-								)}
-							>
+							<span className="min-w-0 flex-1 truncate text-sm">
 								<Directed text={rest} />
 							</span>
 							{sending && (
@@ -166,11 +149,6 @@ export function Queued({
 										<Trash2Icon />
 									</Button>
 								</>
-							)}
-							{starting && (
-								<span className="w-full text-muted-foreground text-xs">
-									Queued
-								</span>
 							)}
 						</li>
 					);

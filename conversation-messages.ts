@@ -52,11 +52,18 @@ export function textOf(message: Message): string {
 }
 
 /** Marks up to `count` queued messages as gone out, all by default. */
-export function delivered(messages: Message[], count = Infinity): void {
+export function delivered(
+	messages: Message[],
+	count = Infinity,
+	at?: string,
+): void {
 	for (const each of messages
 		.filter((message) => message.queued)
 		.slice(0, count)) {
 		delete each.queued;
+		if (at !== undefined) {
+			each.sentAt = at;
+		}
 	}
 }
 

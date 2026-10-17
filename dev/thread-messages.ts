@@ -14,6 +14,7 @@ import { conversationAttachment } from "./conversation-api";
 import { type ConversationFeed, messageOf } from "./conversation-feed";
 import type { Written } from "./escalation-card";
 import type { QuestionsData } from "./message-questions";
+import { queuedReply } from "./queued-time";
 import type { Turn } from "./report-cards";
 import { replyDue, stretchesOf } from "./work";
 import { workingTimes } from "./working-report-time";
@@ -24,7 +25,8 @@ type LikePart = Exclude<ThreadMessageLike["content"], string>[number];
 /**
  * What a conversation's thread shows: its messages as assistant-ui takes
  * them, with the reply's place held while the agent has yet to speak, and
- * what waits for the turn's end apart, for above the composer.
+ * what waits for the turn's end apart, for above the composer. Startup-held
+ * prompts use the normal thread so they are pinned before the agent starts.
  */
 export function useThreadMessages(
 	conversation: ConversationState,
@@ -41,7 +43,8 @@ export function useThreadMessages(
 	const writing = status === "running";
 	// What waits for the turn's end sits above the composer, not in the
 	// thread: the agent has yet to hear it, and the thread would take it for
-	// a turn the agent is answering.
+	// a turn the agent is answering. Startup-held messages are also shown
+	// in the thread, with a Queued placeholder until the first turn starts.
 	const queued = conversation.messages.filter((each) => each.queued);
 	// The latest words wait a moment to show as the reply: shown again once due.
 	const latest = conversation.messages.findLast((each) => !each.queued);
@@ -73,24 +76,30 @@ export function useThreadMessages(
 	const messages = useMemo(() => {
 		void shown;
 		const now = feed.wall.now();
-		const said = conversation.messages.filter((each) => !each.queued);
+		const starting = conversation.status === "starting";
+		const said = conversation.messages.filter(
+			(each) => !each.queued || starting,
+		);
 		const happened = turnsOf(said, conversation.events);
 		const liked = workingTimes(
 			said.map((message, index) =>
-				like(
-					message,
-					index,
-					conversation.id,
-					!writing || index < said.length - 1,
-					said[index - 1]?.at ?? message.at,
-					now,
-					conversation.lastTask,
-					happened[index],
-					writing &&
-						index === said.length - 1 &&
-						conversation.ask?.type === "permission"
-						? conversation.ask.at
-						: null,
+				queuedReply(
+					like(
+						message,
+						index,
+						conversation.id,
+						!writing || index < said.length - 1,
+						said[index - 1]?.sentAt ?? said[index - 1]?.at ?? message.at,
+						now,
+						conversation.lastTask,
+						happened[index],
+						writing &&
+							index === said.length - 1 &&
+							conversation.ask?.type === "permission"
+							? conversation.ask.at
+							: null,
+					),
+					said[index - 1],
 				),
 			),
 			said,
@@ -102,18 +111,27 @@ export function useThreadMessages(
 		// agent's first move fills that row rather than putting one in its place.
 		const prompt = said.at(-1);
 		const thread =
-			running && prompt?.role === "user"
+			(running || starting) && prompt?.role === "user"
 				? [
 						...liked,
-						like(
-							{ role: "agent", parts: [], plan: null, at: null, until: null },
-							said.length,
-							conversation.id,
-							false,
-							prompt.at,
-							now,
-							null,
-							happened[said.length],
+						queuedReply(
+							like(
+								{
+									role: "agent",
+									parts: [],
+									plan: null,
+									at: null,
+									until: null,
+								},
+								said.length,
+								conversation.id,
+								false,
+								prompt.sentAt ?? prompt.at,
+								now,
+								null,
+								happened[said.length],
+							),
+							prompt,
 						),
 					]
 				: liked;
@@ -131,6 +149,7 @@ export function useThreadMessages(
 		];
 	}, [
 		conversation.messages,
+		conversation.status,
 		conversation.ask,
 		conversation.events,
 		conversation.id,
@@ -243,7 +262,9 @@ export function like(
 		role: "assistant",
 		// Stamped with when it last moved, once it has stopped moving.
 		metadata: {
-			custom: { at: settled ? (message.until ?? message.at) : null },
+			custom: {
+				at: settled ? (message.until ?? message.at) : null,
+			},
 		},
 		content: [
 			...withEscalation(

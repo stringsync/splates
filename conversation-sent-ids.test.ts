@@ -58,6 +58,9 @@ describe("A conversation's messages the page named", () => {
 			await prompting;
 		}
 		expect(conversation.state.messages[0]?.id).toBe("p1");
+		expect(conversation.state.messages[0]?.sentAt).toBe(
+			"2026-10-17T10:00:00.000Z",
+		);
 		await eventually(() => held.finish !== undefined);
 		await finish(conversation, held);
 		await conversation.stop();
@@ -65,6 +68,7 @@ describe("A conversation's messages the page named", () => {
 		try {
 			const [read] = await reread.list();
 			expect(read === undefined ? [] : ids(read)).toEqual(["p1"]);
+			expect(read?.state.messages[0]?.sentAt).toBe("2026-10-17T10:00:00.000Z");
 		} finally {
 			await reread.disposeAsync();
 		}

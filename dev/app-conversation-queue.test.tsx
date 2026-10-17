@@ -36,8 +36,11 @@ describe("App's composer queue", () => {
 	const type = (view: ConversationsView, text: string) =>
 		typeIn(box(view), text);
 
-	it("shows a subtle Queued label below startup-held messages until the first turn starts", async () => {
-		const first = message("user", "Fix login");
+	it("pins startup-held messages in the thread above a shimmering Queued label until the first turn starts", async () => {
+		const first = {
+			...message("user", "Fix login"),
+			at: new Date(Date.now() - 30_000).toISOString(),
+		};
 		const state = conversation({
 			id: "c1",
 			title: "Fix login",
@@ -45,26 +48,32 @@ describe("App's composer queue", () => {
 			messages: [{ ...first, queued: true }],
 		});
 		const view = await testing.openConversations([state], "c1");
-		const queued = view.getByRole("region", { name: "queued messages" });
-		const label = within(queued).getByText("Queued");
-		expect(label.parentElement?.lastElementChild).toBe(label);
-		expect(
-			within(label.parentElement as HTMLElement).getByText("Fix login"),
-		).toBeTruthy();
-		expect(within(queued).queryByRole("heading")).toBeNull();
-		expect(
-			view.queryByText(/Waiting for agent to start\. Your messages/),
-		).toBeNull();
-		expect(
-			view.getByRole("status", { name: "waiting for agent to start" }),
-		).toBeTruthy();
-		expect(view.queryByRole("status", { name: "working" })).toBeNull();
-		expect(
-			within(queued).queryByRole("button", { name: /Send now/ }),
-		).toBeNull();
-		expect(within(queued).queryByText(/turn ends/)).toBeNull();
+		const thread = view.getByRole("region", { name: "Fix login" });
+		const user = within(thread)
+			.getByText("Fix login")
+			.closest('[data-slot="aui_user-message-root"]');
+		expect(user?.hasAttribute("data-sticks")).toBe(true);
+		const label = within(thread).getByText(/^Queued \d+s$/);
+		const initial = label.textContent;
+		await waitFor(() => expect(label.textContent).not.toBe(initial), {
+			timeout: 2500,
+		});
+		expect(label.className).toContain("shimmer");
+		expect(label.className).toContain("motion-reduce:animate-none");
+		expect(label.getAttribute("role")).toBe("status");
+		expect(view.queryByRole("region", { name: "queued messages" })).toBeNull();
+		expect(within(thread).queryByText(/^Working/)).toBeNull();
 
-		await testing.say({ ...state, status: "running", messages: [first] });
+		await testing.say({
+			...state,
+			status: "running",
+			messages: [
+				{
+					...first,
+					sentAt: new Date(Date.parse(first.at) + 20_000).toISOString(),
+				},
+			],
+		});
 
 		await waitFor(() =>
 			expect(
@@ -78,6 +87,28 @@ describe("App's composer queue", () => {
 			view.queryByRole("status", { name: "waiting for agent to start" }),
 		).toBeNull();
 		expect(view.getByRole("status", { name: "working" })).toBeTruthy();
+		expect(within(thread).getByText("Queued for 20s").className).not.toContain(
+			"shimmer",
+		);
+		expect(within(thread).getByText(/^Working/)).toBeTruthy();
+		expect(
+			within(thread)
+				.getByText("Fix login")
+				.closest('[data-slot="aui_user-message-root"]'),
+		).toBe(user);
+		await testing.say({
+			...state,
+			status: "idle",
+			messages: [
+				{
+					...first,
+					sentAt: new Date(Date.parse(first.at) + 20_000).toISOString(),
+				},
+				message("agent", "Finished."),
+			],
+		});
+		expect(within(thread).getByText("Queued for 20s")).toBeTruthy();
+		expect(within(thread).queryByText(/^Working/)).toBeNull();
 	});
 
 	it("sends while the agent works, offering Send over Stop once something is typed", async () => {

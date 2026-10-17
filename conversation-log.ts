@@ -153,7 +153,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 					...(entry.id === undefined ? {} : { id: entry.id }),
 				});
 			} else if (entry.kind === "sent") {
-				delivered(state.messages, entry.count);
+				delivered(state.messages, entry.count, entry.at);
 			} else if (entry.kind === "stopped") {
 				agentTurn(state, entry.at).stopped = entry.at;
 			} else if (entry.kind === "interrupted") {
@@ -458,7 +458,7 @@ type Said =
 			files?: Attached[];
 	  }
 	/** Every queued prompt went out. */
-	| { kind: "sent"; count?: number }
+	| { kind: "sent"; count?: number; at?: string }
 	/** The person stopped the agent's turn. */
 	| { kind: "stopped"; at: string }
 	/** The agent's turn ended early, its connection lost or its process gone. */
