@@ -66,7 +66,7 @@ export function PhoneApp({
 		(talk) => ({ conversations: talk.conversations }),
 		["changed"],
 	);
-	useHomeIsInbox(available, page, go);
+	useHomeIsInbox(page, go);
 	const menu = () => setDrawer(true);
 	// The page menu, in every bar's kebab, so it is always at hand.
 	const kebab = { menu: pageMenu.items, dot: pageMenu.dot };
@@ -82,13 +82,14 @@ export function PhoneApp({
 	);
 	return (
 		<div className="min-h-dvh">
-			{page === "conversations" && open === null && snapshot !== null ? (
+			{page === "conversations" && open === null ? (
 				<TopBarFrame value={kebab}>
 					<Inbox
 						feed={talk}
 						drafts={drafts}
 						terminals={terminals}
-						tasks={snapshot.tasks}
+						tasks={snapshot?.tasks ?? []}
+						loading={snapshot === null}
 						status={status}
 						onMenu={menu}
 						onOpen={(id) => go("conversations", id)}
@@ -170,21 +171,20 @@ export function PhoneApp({
 
 /**
  * Opens the inbox in place of the board when the address names no page, as
- * the phone's home is its agents, once conversations are known to be held.
+ * the phone's home is its agents, even before they load.
  */
 function useHomeIsInbox(
-	available: boolean,
 	page: Page,
 	go: (page: Page, conversation: null, how: Move) => void,
 ): void {
 	const landed = useRef(false);
 	useEffect(() => {
-		if (!available || landed.current) {
+		if (landed.current) {
 			return;
 		}
 		landed.current = true;
 		if (page === "todos" && location.hash === "") {
 			go("conversations", null, "replace");
 		}
-	}, [available, page, go]);
+	}, [page, go]);
 }

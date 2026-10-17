@@ -28,6 +28,53 @@ describe("App on a phone", () => {
 		resize(1024, 768);
 	});
 
+	it("keeps an empty inbox as home and in the menu without the conversation service", async () => {
+		const view = await testing.open({ tasks: [] });
+		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
+		await waitFor(() =>
+			expect(view.getByText("No conversations yet.")).toBeTruthy(),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		expect(
+			view.getByRole("button", { name: "Inbox" }).getAttribute("aria-current"),
+		).toBe("page");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Todos" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Inbox" })),
+		);
+		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
+	});
+
+	it("keeps the inbox and menu while loading, then shows its empty state", async () => {
+		testing.talk = { agents: [], conversations: [] };
+		const release = testing.holdSnapshots();
+		const view = testing.render({ tasks: [] });
+		expect(view.getByRole("region", { name: "inbox" })).toBeTruthy();
+		expect(view.getByRole("status", { name: "Loading inbox" })).toBeTruthy();
+		expect(view.queryByText(/No conversations yet/)).toBeNull();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Open menu" })),
+		);
+		expect(view.getByRole("button", { name: "Inbox" })).toBeTruthy();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Inbox" })),
+		);
+		await act(async () => release());
+		await waitFor(() =>
+			expect(
+				view.getByText("No conversations yet. Start one below."),
+			).toBeTruthy(),
+		);
+		expect(view.queryByRole("status", { name: "Loading inbox" })).toBeNull();
+	});
+
 	const report = [
 		"## ⚠️ Escalated header: waiting on two calls",
 		"",

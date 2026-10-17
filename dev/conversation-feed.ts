@@ -55,7 +55,7 @@ export interface Unsent {
 /**
  * The page's copy of every conversation, each replaced whole as the server
  * streams it. `available` stays false when the server holds no
- * conversations, and the page then shows no Conversations at all.
+ * conversations. The phone still keeps its Inbox as home.
  */
 export class ConversationFeed
 	implements Eventful<ConversationFeedEvents>, Resource
@@ -63,6 +63,8 @@ export class ConversationFeed
 	private readonly dispatcher = new Dispatcher<ConversationFeedEvents>();
 	readonly events = this.dispatcher.events;
 
+	/** Whether the first listing is still on its way. */
+	loading = true;
 	available = false;
 	agents: AgentChoice[] = [];
 	/** Newest first, each with the messages on their way (see `send`) as said. */
@@ -368,13 +370,15 @@ export class ConversationFeed
 		);
 		// Off, or a host that may not have them: either way, nothing to show.
 		if (response === null || !response.ok) {
+			this.loading = false;
+			this.dispatcher.dispatch("changed");
 			return false;
 		}
 		const { agents, conversations } = (await response.json()) as {
 			agents: AgentChoice[];
 			conversations: ConversationState[];
 		};
-		Object.assign(this, { available: true, agents });
+		Object.assign(this, { available: true, loading: false, agents });
 		// What streamed while the listing was on its way is newer than it, as
 		// when the stream reopens and a message is said before this answers.
 		const moved = (id: string) => (this.changedAt.get(id) ?? -1) >= since;

@@ -1,6 +1,12 @@
 import { useReactive } from "@webappwiz/react";
 import { MenuIcon, SquarePenIcon } from "lucide-react";
 import { Fragment, type JSX, type ReactNode, useContext } from "react";
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+} from "#dev/components/ui/empty.tsx";
+import { Skeleton } from "#dev/components/ui/skeleton.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { age } from "../age";
 import { answersTo, type Needing, quietSince } from "../needs";
@@ -60,6 +66,7 @@ export function Inbox({
 	terminals,
 	tasks,
 	status,
+	loading,
 	onMenu,
 	onOpen,
 }: {
@@ -70,12 +77,19 @@ export function Inbox({
 	tasks: Details[];
 	/** Whether the server is offline or outdated, shown in the header. */
 	status: ReactNode;
+	/** Whether the project snapshot is still on its way. */
+	loading: boolean;
 	onMenu: () => void;
 	onOpen: (id: string) => void;
 }): JSX.Element {
-	const { agents, conversations } = useReactive(
+	const { agents, conversations, pending, available } = useReactive(
 		feed,
-		(feed) => ({ agents: feed.agents, conversations: feed.conversations }),
+		(feed) => ({
+			agents: feed.agents,
+			conversations: feed.conversations,
+			pending: feed.loading,
+			available: feed.available,
+		}),
 		["changed"],
 	);
 	const { mains, beneath, close, confirm } = useShells(terminals, onOpen);
@@ -120,15 +134,35 @@ export function Inbox({
 					{
 						label: "New conversation",
 						icon: <SquarePenIcon />,
-						run: () => onOpen(NEW),
+						run: () => {
+							if (available) {
+								onOpen(NEW);
+							}
+						},
 					},
 				]}
 			/>
 			<div className="flex flex-1 flex-col pb-28">
-				{rows.length === 0 && mains.length === 0 ? (
-					<p className="px-6 py-16 text-center text-muted-foreground">
-						No conversations yet. Start one below.
-					</p>
+				{loading || pending ? (
+					<div
+						role="status"
+						aria-label="Loading inbox"
+						className="flex flex-col gap-3 p-6"
+					>
+						<span className="sr-only">Loading inbox…</span>
+						<Skeleton className="h-16 w-full" />
+						<Skeleton className="h-16 w-full" />
+					</div>
+				) : rows.length === 0 && mains.length === 0 ? (
+					<Empty className="py-16">
+						<EmptyHeader>
+							<EmptyDescription>
+								{available
+									? "No conversations yet. Start one below."
+									: "No conversations yet."}
+							</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
 				) : (
 					<Placing
 						value={{
@@ -182,6 +216,7 @@ export function Inbox({
 					<input
 						aria-label="Start a conversation"
 						placeholder={`Ask ${agent?.name ?? "an agent"} to work on something`}
+						disabled={!available}
 						onFocus={() => {
 							launch();
 							onOpen(NEW);

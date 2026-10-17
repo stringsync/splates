@@ -14,8 +14,7 @@ import { SetupNudge } from "./setup-nudge";
  * The phone's way to every page, slid in from the left as in the Claude and
  * ChatGPT apps: the project's header up top, the inbox first, then the other
  * pages, each with what it counts, and the archived conversations last. The
- * pages it opens take each other's place in history above home, the inbox or
- * the board without one, so back from any of them goes home, as Android's
+ * pages it opens take each other's place in history above the inbox, even while it loads, so back from any of them goes home, as Android's
  * top-level destinations do.
  */
 export function Drawer({
@@ -48,9 +47,7 @@ export function Drawer({
 	onGo: (page: Page, conversation: string | null, how: Move) => void;
 }): JSX.Element {
 	const home = (page: Page, conversation: string | null) =>
-		available
-			? page === "conversations" && conversation === null
-			: page === "todos";
+		page === "conversations" && conversation === null;
 	const go = (to: Page, open: string | null = null) => {
 		// Home is pushed, so the move back to it goes back instead.
 		onGo(
@@ -80,16 +77,14 @@ export function Drawer({
 					</DialogPrimitive.Title>
 					{header}
 					<nav className="flex flex-col gap-0.5 p-2">
-						{available && (
-							<Entry
-								current={page === "conversations" && conversation === null}
-								onClick={() => go("conversations")}
-								icon={<InboxIcon />}
-								label="Inbox"
-								count={waiting}
-								urgent
-							/>
-						)}
+						<Entry
+							current={page === "conversations" && conversation === null}
+							onClick={() => go("conversations")}
+							icon={<InboxIcon />}
+							label="Inbox"
+							count={waiting}
+							urgent
+						/>
 						{PAGES.filter(({ value }) => value !== "conversations").map(
 							({ value, label, Icon }) => (
 								<Entry

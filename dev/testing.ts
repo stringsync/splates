@@ -421,7 +421,8 @@ export class Testing implements Resource {
 		// Hidden too, under a dialog the page opens on.
 		await waitFor(() =>
 			expect(
-				view.getByRole("region", { name: "Untriaged", hidden: true }),
+				view.queryByRole("region", { name: "inbox", hidden: true }) ??
+					view.getByRole("region", { name: "Untriaged", hidden: true }),
 			).toBeTruthy(),
 		);
 		return view;
