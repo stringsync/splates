@@ -19,6 +19,13 @@ import {
 
 const BRANCH_PREFIX = "task/";
 
+/** The task `branch` is the branch of, or null for any other branch. */
+export function taskOf(branch: string | null): string | null {
+	return branch?.startsWith(BRANCH_PREFIX)
+		? branch.slice(BRANCH_PREFIX.length)
+		: null;
+}
+
 export interface AddOptions {
 	/** Branch the new worktree starts from. Defaults to the trunk. */
 	base?: string;
@@ -104,9 +111,7 @@ export class WorktreeService {
 	}
 
 	taskFor(branch: string | null): string | null {
-		return branch?.startsWith(BRANCH_PREFIX)
-			? branch.slice(BRANCH_PREFIX.length)
-			: null;
+		return taskOf(branch);
 	}
 
 	recordPath(task: string): string {

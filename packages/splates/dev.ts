@@ -70,7 +70,7 @@ export async function dev(
 		running = RUNNING,
 		checkEvery = Duration.mins(60), // how often to ask npm for a newer splates
 		source = async () => null,
-		sourceEvery = Duration.secs(15), // how often to read a checkout's last commit
+		sourceEvery = Duration.secs(15), // so a commit in a checkout shows within seconds
 		unbuilt = false,
 		slot = null,
 		servers = async () => [],
@@ -134,8 +134,8 @@ export async function dev(
 		},
 		unbuilt,
 		slot,
-		conversationsFor: ({ splatesDir, git, service }) =>
-			converse?.({ splatesDir, git, config: service.config }) ?? null,
+		conversationsFor: ({ splatesDir, git, service, creds }) =>
+			converse?.({ splatesDir, git, config: service.config, creds }) ?? null,
 		transcriberFor: transcriber,
 		everywhere: Everywhere.served(served, projects),
 	};

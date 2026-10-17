@@ -4,10 +4,12 @@ import type { Config } from "./config";
 import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
-import { Plans, ready, unfinished, whatIsLeft } from "./plan";
+import { LEGACY_PLAN_FILE } from "./legacy-names";
+import { PLAN_FILE, Plans, ready, unfinished, whatIsLeft } from "./plan";
 import { recommend, recommendation } from "./recommend";
 import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
+import { pushedLine, type TaskBranches } from "./task-branches";
 import type { Todos } from "./todos";
 import type {
 	FailedTest,
@@ -40,6 +42,7 @@ export async function merge(
 		fs,
 		slots,
 		heavy,
+		branches,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -51,6 +54,7 @@ export async function merge(
 		fs: Fs;
 		slots: Slots;
 		heavy: HeavyCap;
+		branches: TaskBranches;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -85,6 +89,19 @@ export async function merge(
 			"dirty",
 			`'${task}' has uncommitted changes: commit them before merging`,
 			{ task, paths: dirty },
+		);
+	}
+	// The plan is the task's own, kept beside the code and never in it: a
+	// branch that tracks it would land it on the base for every task to share.
+	const plans = await git.tracked(`refs/heads/${worktree.branch}`, [
+		PLAN_FILE,
+		LEGACY_PLAN_FILE,
+	]);
+	if (plans.length > 0) {
+		fail(
+			"blocked",
+			`'${task}' tracks ${plans.join(" and ")}, which must never land on ${base}: \`git rm --cached ${plans.join(" ")}\`, commit, and merge again. No merge attempt was spent.`,
+			{ task, paths: plans },
 		);
 	}
 	if (worktree.mergeAttempts >= config.mergeRetryCount) {
@@ -323,6 +340,8 @@ export async function merge(
 		);
 	}
 	const freed = await slots.release(current.path);
+	// Landed is landed: a remote that kept its copy only has a stray branch.
+	const unpushed = pushedLine(await branches.delete(task), "deleted");
 	// Done is done: the todos this task took up leave the list with it.
 	const done = await todos.takenBy(task);
 	// Read before the todos go, since a lane they empty ends with them.
@@ -338,6 +357,7 @@ export async function merge(
 			landing === git.root ? "" : `\n  landed in: ${landing}`
 		}\n  worktree removed, cd ${git.root}`,
 		...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
+		...(unpushed === null ? [] : [unpushed]),
 		...done.map((todo) => `  done todo ${todo.id}: ${todo.subject}`),
 	];
 	// Only a landing on trunk ends a piece of work. A part landing on its

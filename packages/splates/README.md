@@ -48,6 +48,17 @@ how many), so several agents testing at once queue rather than run the
 machine out of memory. `splates heavy -- <command>` runs anything else as
 heavy, such as a test suite an agent runs mid-task, in a slot too.
 
+**Pushing.** With `remote: "origin"` in `splates.config.ts`, each task's
+branch goes to that remote as `splates/<task>`: after every commit an agent
+makes under `splates server`, at `splates checkpoint`, escalation and handoff,
+and it is deleted once the task merges or is removed. `splates checkpoint`
+commits uncommitted work first, as a `WIP: checkpoint` commit squashed before
+merging. A branch that tracks `SPLATES.md` is never pushed or merged. With the
+GitHub App's id and private key kept as the creds `SPLATES_GITHUB_APP_ID` and
+`SPLATES_GITHUB_APP_KEY`, pushes to github.com use an hour-long token the App
+mints for that repository's contents alone; otherwise, the machine's own git
+credentials. Without `remote`, nothing is pushed.
+
 **Escalating.** When an agent needs you (a decision, access, a review, or
 merges that keep failing), it runs `splates escalate`: it stops, leaves its
 worktree as it is, and writes down its questions. You answer, and it picks up

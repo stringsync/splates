@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
 import { freedLine, type Slots } from "./slots";
+import { pushedLine, type TaskBranches } from "./task-branches";
 import type { Todos } from "./todos";
 import type { RemoveReason } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
@@ -27,7 +28,14 @@ export async function remove(
 		log,
 		todos,
 		slots,
-	}: { service: WorktreeService; log: Logger; todos: Todos; slots: Slots },
+		branches,
+	}: {
+		service: WorktreeService;
+		log: Logger;
+		todos: Todos;
+		slots: Slots;
+		branches: TaskBranches;
+	},
 	task: string,
 	{ force = false, conversation, reason }: RemoveOptions = {},
 ): Promise<{ released: { id: number; subject: string }[] }> {
@@ -70,6 +78,7 @@ export async function remove(
 	}
 
 	const freed = await slots.release(worktree.path);
+	const deleted = pushedLine(await branches.delete(task), "deleted");
 
 	// The work was thrown away, not done, so what it took up is open again.
 	const released = await todos.takenBy(task);
@@ -92,6 +101,9 @@ export async function remove(
 	}
 	if (freed !== null) {
 		lines.push(`  slot:     ${freedLine(freed)}`);
+	}
+	if (deleted !== null) {
+		lines.push(deleted);
 	}
 	for (const todo of released) {
 		lines.push(`  todo ${todo.id} is open again: ${todo.subject}`);

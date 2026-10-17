@@ -20,15 +20,26 @@ export type Flag =
 	| { type: "pushed"; refs: string[] }
 	/** Changed these files in the main tree, from a task's worktree. */
 	| { type: "outside"; paths: string[] };
+
+/** What `Watch` tells of each command that moves the branch of the tree it runs in. */
+export interface BranchMoves {
+	/** The command committed, amended, squashed or rebased `branch`. */
+	moved(branch: string): void;
+}
+
 /**
  * Watches the commands agents run in one repository, `git.root` its main
  * tree, for what they did to git.
  */
 export class Watch {
-	constructor(private readonly git: WatchGit) {}
+	constructor(
+		private readonly git: WatchGit,
+		/** Told of each command that moves its tree's branch; none by default. */
+		private readonly moves: BranchMoves | null = null,
+	) {}
 
 	/** Starts watching a command run in `cwd`, looking at git as it stands. */
 	command(cwd: string): Watched {
-		return Watched.start(this.git, cwd);
+		return Watched.start(this.git, cwd, this.moves);
 	}
 }

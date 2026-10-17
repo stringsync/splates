@@ -6,6 +6,13 @@ export interface Config {
 	 * then fast-forwards it to the result; new worktrees start from it.
 	 */
 	trunk: string;
+	/**
+	 * The git remote each task's branch is pushed to as `splates/<task>`,
+	 * after every commit and at every checkpoint, so a task outlives the
+	 * machine it runs on: the project's GitHub origin, as `"origin"`. Null,
+	 * the default, pushes nothing, and tasks live on this machine alone.
+	 */
+	remote: string | null;
 	/** Directory holding one worktree per task, a sibling of the repo. */
 	worktreeRoot: string;
 	/** Command run by `add` in the new worktree, via `sh -c`. */

@@ -10,6 +10,7 @@ import { remove } from "./remove";
 import { grantRetry } from "./retry";
 import { RECENT_COMMITS, systemsReport } from "./system-changes";
 import { Systems } from "./systems";
+import { TaskBranches } from "./task-branches";
 
 /**
  * What a project's page reads of its tasks, and what it does to them. Each
@@ -169,7 +170,7 @@ export class TaskRoutes {
 	// the task, so it goes past an external agent's lease. Each conversation
 	// in its tree stops before the tree goes, and carries on in the main tree.
 	readonly removeTask = async (request: Request): Promise<Response> => {
-		const { journal, service, log, todos, slots } = this.#project;
+		const { journal, service, log, todos, slots, creds } = this.#project;
 		const task = decodeURIComponent(
 			new URL(request.url).pathname.split("/")[3] ?? "",
 		);
@@ -184,10 +185,24 @@ export class TaskRoutes {
 			"remove",
 			task,
 			() =>
-				remove({ service, log, todos, slots }, task, {
-					force: true,
-					conversation: on[0]?.id,
-				}),
+				remove(
+					{
+						service,
+						log,
+						todos,
+						slots,
+						branches: TaskBranches.of({
+							git: service.git,
+							config: service.config,
+							creds,
+						}),
+					},
+					task,
+					{
+						force: true,
+						conversation: on[0]?.id,
+					},
+				),
 			({ released }) => ({ why: null, released }),
 		);
 		for (const conversation of on) {

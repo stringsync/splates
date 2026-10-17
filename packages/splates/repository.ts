@@ -23,6 +23,7 @@ import { Projects, type Reach, reaches } from "./projects";
 import { splatesHome } from "./roster";
 import { Shell } from "./shell";
 import { Slots } from "./slots";
+import { TaskBranches } from "./task-branches";
 import { Todos } from "./todos";
 import { WorktreeService } from "./worktree-service";
 
@@ -49,6 +50,8 @@ export interface Repository {
 	slots: Slots;
 	/** The machine's slots for test runs and installs, which hooks wait for. */
 	heavy: HeavyCap;
+	/** Each task's branch on the central remote, which a task pushes as it goes. */
+	branches: TaskBranches;
 }
 
 /** How `repository` treats records in an older format than this splates's. */
@@ -286,6 +289,7 @@ export async function openRepository(
 
 	return {
 		projects,
+		branches: TaskBranches.of({ git, config, creds }),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		creds,

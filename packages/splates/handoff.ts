@@ -1,6 +1,7 @@
 import { color, type Logger } from "webappwiz/log";
 import { fail } from "./exit";
 import { type AgentPick, pickAgent, type RosterAgent } from "./roster";
+import { pushedLine, type TaskBranches } from "./task-branches";
 import type { Dispatched } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -18,7 +19,11 @@ import type { WorktreeService } from "./worktree-service";
  * orchestrator escalates instead, for the orchestrator to decide.
  */
 export async function handoff(
-	{ service, log }: { service: WorktreeService; log: Logger },
+	{
+		service,
+		log,
+		branches,
+	}: { service: WorktreeService; log: Logger; branches: TaskBranches },
 	task: string,
 	to: Omit<Dispatched, "conversation" | "pending" | "handoff" | "relay">,
 	agents: RosterAgent[],
@@ -66,9 +71,11 @@ export async function handoff(
 		caller: relay ? here : service.ps.env("SPLATES_STARTED_BY"),
 		dispatch: { ...picked, handoff: true, relay },
 	});
+	const pushed = pushedLine(await branches.push(task, found.branch), "pushed");
 	log.info(
 		[
 			`${color.green("handed off")} ${task}`,
+			...(pushed === null ? [] : [pushed]),
 			`  agent:    ${picked.agent}${picked.model === undefined ? "" : ` (${picked.model})`}, which \`splates server\` starts in the worktree`,
 			relay
 				? `  next:     say "## ⏳ Working ${task}: on <agent>" and end your turn: it reports back to you`

@@ -38,6 +38,7 @@ export async function loadConfig(
 function defaults(root: string, trunk: string): Config {
 	return {
 		trunk,
+		remote: null,
 		// Spotlight skips a folder named `*.noindex`, and only that: indexing
 		// every `bun install` and removal in the worktrees kept two cores busy
 		// and made timing tests fail the merge gate. A file marking the folder,

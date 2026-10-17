@@ -20,6 +20,7 @@ import { PLAN_FILE } from "./plan";
 import { Projects } from "./projects";
 import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
+import { TaskBranches } from "./task-branches";
 import { Todos } from "./todos";
 import { assets } from "./web/assets";
 import { WorktreeService } from "./worktree-service";
@@ -82,12 +83,16 @@ export class Testing implements AsyncDisposable {
 	};
 	readonly creds: Creds;
 
+	/** Pushes to `config.remote`, read at each push, so a test can set one. */
+	readonly branches: TaskBranches;
+
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
 		this.splatesDir = join(this.root, ".git", "splates");
 		this.ps = new NodePs({ proc: this.proc });
 		this.config = {
 			trunk: "main",
+			remote: null,
 			worktreeRoot: `${this.root}-splates`,
 			postCheckout: null,
 			postRewrite: null,
@@ -190,6 +195,7 @@ export class Testing implements AsyncDisposable {
 			{ project: this.projectStore, device: this.deviceStore },
 			{ fs: this.fs },
 		);
+		this.branches = TaskBranches.of(this);
 		this.format = new Format(this.splatesDir, {
 			fs: this.fs,
 			lock: new FileLock(join(this.splatesDir, "format.lock"), {

@@ -35,6 +35,7 @@ import {
 	seeded,
 } from "./splates-flags";
 import { SERVING, supervise, UNBUILT } from "./supervise";
+import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
 import { WorkerGit } from "./worker-git";
@@ -186,7 +187,7 @@ export async function serveDev(
 			access,
 			tunnel,
 			portsHost,
-			conversations: ({ splatesDir, git, config }) =>
+			conversations: ({ splatesDir, git, config, creds }) =>
 				new Conversations(`${splatesDir}/conversations`, roster, {
 					fs: ctx.fs,
 					artifacts: artifactLimits(config),
@@ -207,7 +208,10 @@ export async function serveDev(
 									codex: ctx.ps.env("CODEX_PATH"),
 								})
 							: [],
-					watch: new Watch(new WorkerGit(git.root, worker)),
+					watch: new Watch(
+						new WorkerGit(git.root, worker),
+						pushOnMove(TaskBranches.of({ git, config, creds }), ctx.log),
+					),
 					root: git.root,
 					projects,
 					servers: browser,

@@ -4,6 +4,7 @@ import type { Facts } from "./events";
 import { fail } from "./exit";
 import type { Git } from "./git";
 import { Plans, questions, ready, unfinished, whatIsLeft } from "./plan";
+import { pushedLine, type TaskBranches } from "./task-branches";
 import type { Escalation } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
@@ -30,12 +31,14 @@ export async function escalate(
 		lock,
 		log,
 		fs,
+		branches,
 	}: {
 		service: WorktreeService;
 		git: Git;
 		lock: Lock;
 		log: Logger;
 		fs: Fs;
+		branches: TaskBranches;
 	},
 	reason: string,
 	cwd: string,
@@ -82,6 +85,13 @@ export async function escalate(
 		escalations,
 	});
 	await lock.releaseIfOurs();
+	// What it waits on a person with is what a worker that dies meanwhile
+	// would lose, so the remote gets it as committed; the tree itself is left
+	// as the agent left it, uncommitted work and all, for the person to see.
+	const pushed = pushedLine(
+		await branches.push(worktree.task, worktree.branch),
+		"pushed",
+	);
 
 	log.info(
 		[
@@ -90,6 +100,7 @@ export async function escalate(
 			`  branch:   ${worktree.branch}`,
 			`  reason:   ${reason}`,
 			review ? "  review:   ready to merge once a person approves" : "",
+			pushed ?? "",
 			escalations.length > 1
 				? `  (${escalations.length} escalations recorded)`
 				: "",

@@ -407,6 +407,59 @@ export class Git {
 		return this.run(this.root, "branch", "-D", branch);
 	}
 
+	/**
+	 * Commits everything in the tree at `cwd`, new files git does not ignore
+	 * among it, as `message`, skipping the repo's commit hooks: a checkpoint
+	 * saves work as it stands, finished or not.
+	 */
+	async commitAll(cwd: string, message: string): Promise<GitResult> {
+		const added = await this.run(cwd, "add", "--all");
+		return added.code === 0
+			? this.run(cwd, "commit", "--no-verify", "--quiet", "-m", message)
+			: added;
+	}
+
+	/** The URL `remote` fetches from, or null when there is no such remote. */
+	async remoteUrl(remote: string): Promise<string | null> {
+		const { code, stdout } = await this.run(
+			this.root,
+			"remote",
+			"get-url",
+			remote,
+		);
+		return code === 0 && stdout !== "" ? stdout : null;
+	}
+
+	/** Which of `paths` git tracks at `ref`. */
+	async tracked(ref: string, paths: string[]): Promise<string[]> {
+		const { code, stdout } = await this.run(
+			this.root,
+			"ls-tree",
+			"--name-only",
+			ref,
+			"--",
+			...paths,
+		);
+		return code === 0 ? lines(stdout) : [];
+	}
+
+	/**
+	 * `git push` with `args`, `env` added to its environment, which is how a
+	 * token reaches it without landing in its argv. It never asks for a
+	 * password: a push with nothing to sign in with fails instead of hanging.
+	 */
+	async push(
+		cwd: string,
+		args: string[],
+		env: Record<string, string> = {},
+	): Promise<GitResult> {
+		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
+			["git", "-C", cwd, "push", ...args],
+			{ env: { GIT_TERMINAL_PROMPT: "0", ...env } },
+		);
+		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+	}
+
 	/** The one `.git` every worktree of this repo shares. */
 	commonDir(): Promise<string> {
 		return this.out(

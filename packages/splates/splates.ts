@@ -6,6 +6,7 @@ import { z } from "zod";
 import { add } from "./add";
 import { agents } from "./agents";
 import { attach } from "./attach";
+import { checkpoint } from "./checkpoint";
 import { claim } from "./claim";
 import type { SecretStores } from "./creds";
 import { DEFAULT_PORT } from "./dev";
@@ -518,6 +519,16 @@ splates
 		description: "task name; omit for the main tree",
 	})
 	.action((opts, ctx) => path(ctx, opts.task || undefined));
+
+splates
+	.command("checkpoint")
+	.use(repository({ needs: "own" }))
+	.description(
+		"save this task to the central remote (`remote` in splates.config.ts) before a stop: commit what is uncommitted as a `WIP: checkpoint` commit, to squash before merging, and push the branch as `splates/<task>`, so a worker that dies loses nothing; with no remote configured, leaves the tree as it is",
+	)
+	.action(async (_opts, ctx) => {
+		await checkpoint(ctx, ctx.ps.cwd());
+	});
 
 splates
 	.command("escalate")

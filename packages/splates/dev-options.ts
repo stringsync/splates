@@ -4,6 +4,7 @@ import type { Duration } from "webappwiz/time";
 import type { Config } from "./config";
 import type { Conversations } from "./conversations";
 import type { CoordinatorState } from "./coordinator-state";
+import type { Creds } from "./creds";
 import type { AccessConfig } from "./dev-access";
 import type { Project } from "./dev-project";
 import type { ServerChoice } from "./dev-servers";
@@ -75,6 +76,7 @@ export interface DevOptions {
 				splatesDir: string;
 				git: Git;
 				config: Config;
+				creds: Creds;
 		  }) => Conversations)
 		| null;
 	/**

@@ -22,6 +22,7 @@ describe("WorktreeService", () => {
 		ps = new FakePs();
 		config = {
 			trunk: "main",
+			remote: null,
 			worktreeRoot: "/repo-splates",
 			postCheckout: null,
 			postRewrite: null,
