@@ -1,19 +1,23 @@
 import "./testing-dom";
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { ConversationFeed } from "./conversation-feed";
 
 describe("ConversationFeed saved defaults", () => {
 	const originalFetch = globalThis.fetch;
 	const OriginalSource = globalThis.EventSource;
 	let feed: ConversationFeed;
-	let listeners: Map<string, () => void>;
-	let current: string;
-	let requests: number;
 
-	beforeEach(async () => {
-		listeners = new Map();
-		current = "small";
-		requests = 0;
+	afterEach(() => {
+		feed.dispose();
+		globalThis.fetch = originalFetch;
+		globalThis.EventSource = OriginalSource;
+	});
+
+	it("refreshes per-agent defaults and replaces stale OpenCode options", async () => {
+		const listeners = new Map<string, () => void>();
+		let current = "small";
+		let goModels = ["opencode-go/first", "opencode-go/removed"];
+		let requests = 0;
 		globalThis.fetch = (async () => {
 			requests++;
 			return Response.json({
@@ -22,6 +26,22 @@ describe("ConversationFeed saved defaults", () => {
 						id: "codex",
 						name: "Codex",
 						settings: [{ id: "model", current }],
+						limits: [],
+					},
+					{
+						id: "opencode",
+						name: "OpenCode",
+						settings: [
+							{
+								id: "model",
+								current: goModels[0],
+								options: goModels.map((value) => ({
+									value,
+									name: "Shared",
+									description: null,
+								})),
+							},
+						],
 						limits: [],
 					},
 				],
@@ -39,20 +59,19 @@ describe("ConversationFeed saved defaults", () => {
 		feed = new ConversationFeed();
 		feed.start();
 		await Bun.sleep(10);
-	});
-
-	afterEach(() => {
-		feed.dispose();
-		globalThis.fetch = originalFetch;
-		globalThis.EventSource = OriginalSource;
-	});
-
-	it("refreshes the saved model after a selection on another page", async () => {
 		expect(feed.agents[0]?.settings[0]?.current).toBe("small");
 		current = "big";
 		listeners.get("settings")?.();
 		await Bun.sleep(10);
 		expect(requests).toBe(2);
+		expect(feed.agents[0]?.settings[0]?.current).toBe("big");
+		goModels = ["opencode-go/second"];
+		listeners.get("settings")?.();
+		await Bun.sleep(10);
+		expect(
+			feed.agents[1]?.settings[0]?.options.map((each) => each.value),
+		).toEqual(goModels);
+		expect(feed.agents[1]?.settings[0]?.current).toBe("opencode-go/second");
 		expect(feed.agents[0]?.settings[0]?.current).toBe("big");
 	});
 });

@@ -210,6 +210,105 @@ describe("App's conversation home", () => {
 		expect(view.queryByRole("region", { name: "recommended" })).toBeNull();
 	});
 
+	it("preserves an unavailable explicit OpenCode request for server validation", async () => {
+		const offered: Setting = {
+			id: "model",
+			name: "Model",
+			type: "select",
+			category: "model",
+			current: "opencode-go/shared",
+			options: [
+				{ value: "opencode-go/shared", name: "Shared", description: null },
+			],
+		};
+		const view = await testing.openConversations([], null, {}, [
+			...AGENTS,
+			{ id: "opencode", name: "OpenCode", settings: [offered], limits: [] },
+		]);
+		await act(async () => {
+			location.hash = "#conversations/new/opencode?model=opencode-go%2Fremoved";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		await waitFor(() =>
+			expect(
+				view.getByRole("combobox", { name: "model" }).textContent,
+			).toContain("opencode-go/removed (unavailable)"),
+		);
+		testing.reply = conversation({
+			id: "c9",
+			agent: "opencode",
+			status: "starting",
+		});
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "fixture prompt");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		const wanted = "opencode-go/removed";
+		expect(testing.posted("/api/conversations")).toEqual([
+			{
+				method: "POST",
+				body: {
+					agent: "opencode",
+					task: null,
+					settings: { model: wanted },
+					model: wanted,
+					assigned: true,
+				},
+			},
+		]);
+	});
+	it("sends a manually replaced OpenCode request", async () => {
+		const offered: Setting = {
+			id: "model",
+			name: "Model",
+			type: "select",
+			category: "model",
+			current: "opencode-go/shared",
+			options: [
+				{ value: "opencode-go/shared", name: "Shared", description: null },
+			],
+		};
+		const view = await testing.openConversations([], null, {}, [
+			...AGENTS,
+			{ id: "opencode", name: "OpenCode", settings: [offered], limits: [] },
+		]);
+		await act(async () => {
+			location.hash = "#conversations/new/opencode?model=opencode-go%2Fremoved";
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		await waitFor(() =>
+			expect(
+				view.getByRole("combobox", { name: "model" }).textContent,
+			).toContain("opencode-go/removed (unavailable)"),
+		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("combobox", { name: "model" })),
+		);
+		await pick(
+			await waitFor(() => view.getByRole("option", { name: /OpenCode Go/ })),
+		);
+		testing.reply = conversation({
+			id: "c9",
+			agent: "opencode",
+			status: "starting",
+		});
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "fixture prompt");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		const wanted = "opencode-go/shared";
+		expect(testing.posted("/api/conversations")).toEqual([
+			{
+				method: "POST",
+				body: {
+					agent: "opencode",
+					task: null,
+					settings: { model: wanted },
+					model: wanted,
+					assigned: true,
+				},
+			},
+		]);
+	});
+
 	it("starts an agent's first conversation in a project with the settings its sessions left elsewhere, and says when none are known", async () => {
 		const model: Setting = {
 			id: "model",

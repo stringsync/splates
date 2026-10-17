@@ -10,6 +10,7 @@ import {
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -71,8 +72,7 @@ export function SettingControls({
 				{/* The model says the most about how the next reply goes. */}
 				{model !== undefined && (
 					<span className="truncate">
-						{model.options.find((option) => option.value === current(model))
-							?.name ?? current(model)}
+						{settingLabel(model, current(model))}
 					</span>
 				)}
 			</DialogTrigger>
@@ -187,12 +187,12 @@ function SettingSelect({
 			// Base UI keeps a picker's items once it has them, and shows a
 			// value it cannot find as its text, "null" among them: a picker
 			// reused for another agent's options must start over.
-			key={setting.options.map((option) => option.value).join("\n")}
+			key={JSON.stringify(setting.options)}
 			items={setting.options.map((option) => ({
 				value: option.value,
-				label: option.name,
+				label: settingLabel(setting, option.value),
 			}))}
-			value={known ? value : setting.current}
+			value={known ? value : null}
 			onValueChange={(value) => {
 				if (value !== null) {
 					onChange(String(value));
@@ -202,7 +202,8 @@ function SettingSelect({
 			<SelectTrigger
 				size="sm"
 				aria-label={setting.name.toLowerCase()}
-				title={setting.name}
+				title={settingLabel(setting, value)}
+				aria-invalid={!known || undefined}
 				className={inDialog ? "min-w-0 max-w-[60%]" : IN_COMPOSER}
 			>
 				{/* A mode, model, or effort says what it is by its value; "Off"
@@ -210,7 +211,7 @@ function SettingSelect({
 				{!inDialog && !UNLABELED.has(setting.category ?? "") && (
 					<span className="text-muted-foreground/70">{setting.name}</span>
 				)}
-				<SelectValue />
+				<SelectValue>{settingLabel(setting, value)}</SelectValue>
 			</SelectTrigger>
 			<SelectContent
 				side={inDialog ? "bottom" : "top"}
@@ -218,16 +219,36 @@ function SettingSelect({
 				alignItemWithTrigger={false}
 				className="w-auto"
 			>
-				{setting.options.map((option) => (
-					<SelectItem
-						key={option.value}
-						value={option.value}
-						title={option.description ?? undefined}
-					>
-						{option.name}
-					</SelectItem>
-				))}
+				<SelectGroup>
+					{setting.options.map((option) => (
+						<SelectItem
+							key={option.value}
+							value={option.value}
+							title={option.description ?? undefined}
+						>
+							{settingLabel(setting, option.value)}
+						</SelectItem>
+					))}
+				</SelectGroup>
 			</SelectContent>
 		</Select>
 	);
+}
+
+/** Keep provider identities visible even when different providers reuse a name. */
+function settingLabel(setting: Setting, value: string): string {
+	const option = setting.options.find((each) => each.value === value);
+	if (option === undefined) {
+		return `${value} (unavailable)`;
+	}
+	if (
+		(setting.category === "model" || setting.id === "model") &&
+		value.includes("/")
+	) {
+		const name = value.startsWith("opencode-go/")
+			? `OpenCode Go · ${option.name}`
+			: option.name;
+		return `${name} (${value})`;
+	}
+	return option.name;
 }

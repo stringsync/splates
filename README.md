@@ -222,8 +222,28 @@ entry with editable `models` (replace the example ID with one your agent offers)
 Arbor requires the full, case-sensitive model ID returned in ACP settings for
 OpenCode. Missing choices or a different confirmed provider/model stop the turn;
 it never substitutes another provider. Refresh your editable catalog from
-OpenCode's offered models when it changes. Picker polish is tracked in #353;
-usage provenance and comparisons are tracked in #354.
+OpenCode's offered models when it changes. In Choosing agents and models,
+choose OpenCode from New, then select the model in the composer (Settings on a
+phone). Go choices show “OpenCode Go” and their full `opencode-go/...` ID; models
+with the same display name remain distinct across providers. ACP config updates
+replace the offered options. A removed selection is shown as unavailable until
+you explicitly choose a replacement; it is never silently changed to the current
+agent default. OpenCode choices do not change Claude/Codex saved settings.
+Usage provenance and comparisons are tracked in #354.
+
+For a separately authorized live setup, install OpenCode using its official
+instructions and record `opencode --version`; no minimum release is verified here.
+Connect an already-authorized Go account through OpenCode's `/connect`, then use
+`/models` or `opencode models opencode-go` to discover exact IDs. Update only the
+optional entry's `models` in the roster, preserving the other entries. Start a
+new session to obtain fresh ACP options; editing the roster alone does not make
+a model available to an existing session.
+
+Scope the experiment's effective OpenCode configuration to
+`enabled_providers: ["opencode-go"]`, with both `model` and `small_model` set to
+the discovered full ID. Check project and custom-agent overrides and auxiliary
+calls. Keep Console **Use balance** off separately; ACP does not verify that
+control. Do not replace global configuration or export native login credentials.
 
 OpenCode owns its native login and tools. Arbor neither imports its credentials
 nor exports OS-store secrets to it. Recovery uses advertised resume support, or

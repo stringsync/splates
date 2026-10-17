@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { agents } from "./agents";
-import { DEFAULT_AGENTS, Roster } from "./roster";
+import { DEFAULT_AGENTS, pickAgent, Roster } from "./roster";
 import { Testing } from "./testing";
 
 async function setup() {
@@ -61,6 +61,39 @@ describe("Roster", () => {
 			"claude",
 			"codex",
 		]);
+	});
+
+	it("requires exact provider IDs even when roster display names collide", () => {
+		const agents = [
+			{
+				id: "opencode",
+				name: "OpenCode",
+				argv: ["opencode", "acp"],
+				models: ["opencode-go/shared", "openrouter/shared"].map((id) => ({
+					id,
+					name: "Shared",
+					strengths: "fixture",
+					cost: "unknown",
+				})),
+			},
+		];
+		expect(pickAgent(agents, "opencode", "opencode-go/shared")).toEqual({
+			agent: "opencode",
+			model: "opencode-go/shared",
+		});
+		expect(() => pickAgent(agents, "opencode", "Shared")).toThrow(
+			"has no model",
+		);
+		expect(() => pickAgent(agents, "opencode", "shared")).toThrow(
+			"has no model",
+		);
+		expect(() => pickAgent(agents, "opencode", "OPENCODE-GO/shared")).toThrow(
+			"has no model",
+		);
+		expect(() => pickAgent(agents, "opencode", "opencode-go/missing")).toThrow(
+			"has no model",
+		);
+		expect(pickAgent(DEFAULT_AGENTS, "claude", "OPUS").model).toBe("opus");
 	});
 
 	it("reads as the defaults while there is no roster", async () => {

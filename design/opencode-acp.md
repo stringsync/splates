@@ -208,3 +208,19 @@ queueing, and errors. These fixtures establish client behavior, not a supported
 production executable version. Live compatibility remains explicitly unverified;
 fixture implementation does not require login. #353 retains picker/setup work and
 #354 retains usage instrumentation and any separately authorized comparison.
+
+## #353 implementation record
+
+Choosing agents and models keeps manual OpenCode selection opt-in. The composer
+and phone settings expose full provider-qualified IDs, with OpenCode Go labeled
+explicitly. Refreshed ACP options replace old ones; removed selections remain
+visibly unavailable and requests still reach #352's exact validation gates.
+Roster selection also refuses display aliases for provider-qualified models and
+for OpenCode. Claude/Codex defaults and unqualified aliases are unchanged.
+
+Synthetic fixtures cover duplicate display names across providers, refreshed
+options, stale explicit New-screen requests and manual replacement. Existing
+#352 fixtures cover refusal before prompts, model-request persistence and worker
+recovery. No executable compatibility, login, entitlement, or quota was verified.
+#354 remains responsible for usage provenance and comparisons; #362 owns the
+separate automatic-routing entry, which is not implemented here.

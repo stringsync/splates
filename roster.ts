@@ -4,6 +4,86 @@ import { z } from "zod";
 import type { Agent } from "./conversations";
 import { fail } from "./exit";
 
+/**
+ * The agents arbor can start, and the models each runs, kept in one file
+ * under the user's home rather than per project: an orchestrator in any
+ * project, of any model family, can read it to delegate to any other.
+ */
+export class Roster {
+	constructor(
+		/** `~/.arbor/agents.json`, or a test's own. */
+		readonly path: string,
+		private readonly deps: { fs: Fs },
+	) {}
+
+	/**
+	 * Writes the defaults when there is no roster yet, saying whether it did,
+	 * so the user has a file to edit rather than a list they cannot see.
+	 */
+	async seed(): Promise<boolean> {
+		if (await this.deps.fs.exists(this.path)) {
+			return false;
+		}
+		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
+		// Through a temporary file, so a reader never sees half of it.
+		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
+		await this.deps.fs.write(
+			tmp,
+			`${JSON.stringify({ format: FORMAT, agents: DEFAULT_AGENTS }, null, "\t")}\n`,
+		);
+		await this.deps.fs.rename(tmp, this.path);
+		return true;
+	}
+
+	/** Every agent on the roster, in its order; the defaults when there is none. */
+	async agents(): Promise<RosterAgent[]> {
+		const raw = await this.deps.fs.read(this.path).catch(() => null);
+		if (raw === null) {
+			return DEFAULT_AGENTS;
+		}
+		let json: unknown;
+		try {
+			json = JSON.parse(raw);
+		} catch {
+			fail("usage", `${this.path} is not JSON: fix or delete it`, {
+				path: this.path,
+			});
+		}
+		const format = (json as { format?: unknown } | null)?.format;
+		if (typeof format === "number" && format > FORMAT) {
+			fail(
+				"outdated",
+				[
+					`${this.path} is in format ${format}, written by a newer arbor; this one understands up to ${FORMAT}, so it leaves it alone.`,
+					"Run `bunx @webappwiz/arbor@latest` instead.",
+				].join("\n"),
+				{ path: this.path, format, understood: FORMAT },
+			);
+		}
+		const parsed = schema.safeParse(json);
+		if (!parsed.success) {
+			const issue = parsed.error.issues[0];
+			fail(
+				"usage",
+				`${this.path} is not a roster: ${issue?.path.join(".") || "the file"}: ${issue?.message}. Fix it, or delete it for the defaults`,
+				{ path: this.path },
+			);
+		}
+		const agents = parsed.data.agents;
+		const twice = agents.find(
+			(agent, i) => agents.findIndex((each) => each.id === agent.id) !== i,
+		);
+		if (twice !== undefined) {
+			fail(
+				"usage",
+				`${this.path} lists agent '${twice.id}' twice: give each its own id`,
+				{ path: this.path, agent: twice.id },
+			);
+		}
+		return agents;
+	}
+}
+
 /** The roster's own format. */
 const FORMAT = 1;
 
@@ -121,7 +201,7 @@ export function pickLabel(pick: AgentPick): string {
 
 /**
  * `agent` on `model`, named by its id or name in any case, as the roster's
- * ids; refuses an agent or a model the roster does not list, saying so with
+ * ids; OpenCode and provider-qualified models require an exact ID. Refuses an agent or a model the roster does not list, saying so with
  * `data`. An agent whose models the roster leaves out takes the model as
  * given.
  */
@@ -145,7 +225,12 @@ export function pickAgent(
 	const wanted = model.toLowerCase();
 	const picked = found.models.find(
 		(each) =>
-			each.id.toLowerCase() === wanted || each.name.toLowerCase() === wanted,
+			each.id === model ||
+			(agent !== "opencode" &&
+				!model.includes("/") &&
+				!each.id.includes("/") &&
+				(each.id.toLowerCase() === wanted ||
+					each.name.toLowerCase() === wanted)),
 	);
 	if (picked === undefined) {
 		fail(
@@ -160,84 +245,4 @@ export function pickAgent(
 /** Where the user's arbor files live: `~/.arbor`, or `ARBOR_HOME`, as the tests set. */
 export function arborHome(ps: Ps): string {
 	return ps.env("ARBOR_HOME") ?? `${ps.env("HOME") ?? homedir()}/.arbor`;
-}
-
-/**
- * The agents arbor can start, and the models each runs, kept in one file
- * under the user's home rather than per project: an orchestrator in any
- * project, of any model family, can read it to delegate to any other.
- */
-export class Roster {
-	constructor(
-		/** `~/.arbor/agents.json`, or a test's own. */
-		readonly path: string,
-		private readonly deps: { fs: Fs },
-	) {}
-
-	/**
-	 * Writes the defaults when there is no roster yet, saying whether it did,
-	 * so the user has a file to edit rather than a list they cannot see.
-	 */
-	async seed(): Promise<boolean> {
-		if (await this.deps.fs.exists(this.path)) {
-			return false;
-		}
-		await this.deps.fs.mkdir(this.path.slice(0, this.path.lastIndexOf("/")));
-		// Through a temporary file, so a reader never sees half of it.
-		const tmp = `${this.path}.${crypto.randomUUID()}.tmp`;
-		await this.deps.fs.write(
-			tmp,
-			`${JSON.stringify({ format: FORMAT, agents: DEFAULT_AGENTS }, null, "\t")}\n`,
-		);
-		await this.deps.fs.rename(tmp, this.path);
-		return true;
-	}
-
-	/** Every agent on the roster, in its order; the defaults when there is none. */
-	async agents(): Promise<RosterAgent[]> {
-		const raw = await this.deps.fs.read(this.path).catch(() => null);
-		if (raw === null) {
-			return DEFAULT_AGENTS;
-		}
-		let json: unknown;
-		try {
-			json = JSON.parse(raw);
-		} catch {
-			fail("usage", `${this.path} is not JSON: fix or delete it`, {
-				path: this.path,
-			});
-		}
-		const format = (json as { format?: unknown } | null)?.format;
-		if (typeof format === "number" && format > FORMAT) {
-			fail(
-				"outdated",
-				[
-					`${this.path} is in format ${format}, written by a newer arbor; this one understands up to ${FORMAT}, so it leaves it alone.`,
-					"Run `bunx @webappwiz/arbor@latest` instead.",
-				].join("\n"),
-				{ path: this.path, format, understood: FORMAT },
-			);
-		}
-		const parsed = schema.safeParse(json);
-		if (!parsed.success) {
-			const issue = parsed.error.issues[0];
-			fail(
-				"usage",
-				`${this.path} is not a roster: ${issue?.path.join(".") || "the file"}: ${issue?.message}. Fix it, or delete it for the defaults`,
-				{ path: this.path },
-			);
-		}
-		const agents = parsed.data.agents;
-		const twice = agents.find(
-			(agent, i) => agents.findIndex((each) => each.id === agent.id) !== i,
-		);
-		if (twice !== undefined) {
-			fail(
-				"usage",
-				`${this.path} lists agent '${twice.id}' twice: give each its own id`,
-				{ path: this.path, agent: twice.id },
-			);
-		}
-		return agents;
-	}
 }

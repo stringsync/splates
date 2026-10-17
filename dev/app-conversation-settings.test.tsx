@@ -1,4 +1,6 @@
+import "./testing-dom";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { SettingControls } from "./setting-controls";
 import {
 	AGENTS,
 	act,
@@ -7,6 +9,7 @@ import {
 	fireEvent,
 	newWith,
 	pick,
+	render,
 	Testing,
 	waitFor,
 	within,
@@ -65,6 +68,66 @@ describe("App's conversation settings", () => {
 		expect(testing.posted("/api/conversations/c1/archived")).toEqual([
 			{ method: "PUT", body: { archived: true } },
 		]);
+	});
+
+	it("distinguishes provider IDs and refreshes options without substituting a stale pick", async () => {
+		const offered = {
+			...model("opencode-go/shared", []),
+			options: ["opencode-go/shared", "openrouter/shared"].map((value) => ({
+				value,
+				name: "Shared",
+				description: null,
+			})),
+		};
+		const changes: string[] = [];
+		const props = {
+			settings: [offered],
+			current: () => "opencode-go/shared",
+			onChange: (_setting: unknown, value: string) => changes.push(value),
+		};
+		const view = render(<SettingControls {...props} />);
+		expect(view.getByRole("combobox").textContent).toContain(
+			"OpenCode Go · Shared (opencode-go/shared)",
+		);
+		await act(async () => fireEvent.click(view.getByRole("combobox")));
+		await pick(
+			await waitFor(() =>
+				view.getByRole("option", { name: "Shared (openrouter/shared)" }),
+			),
+		);
+		expect(changes).toEqual(["openrouter/shared"]);
+		view.rerender(
+			<SettingControls
+				{...props}
+				settings={[
+					{
+						...offered,
+						current: "openrouter/shared",
+						options: [
+							{
+								value: "openrouter/shared",
+								name: "Renamed",
+								description: null,
+							},
+						],
+					},
+				]}
+			/>,
+		);
+		expect(view.getByRole("combobox").textContent).toContain(
+			"opencode-go/shared (unavailable)",
+		);
+		expect(view.getByRole("combobox").getAttribute("aria-invalid")).toBe(
+			"true",
+		);
+		await act(async () => fireEvent.click(view.getByRole("combobox")));
+		await waitFor(() =>
+			expect(
+				view.getByRole("option", { name: "Renamed (openrouter/shared)" }),
+			).toBeTruthy(),
+		);
+		expect(view.queryByRole("option", { name: /opencode-go/ })).toBeNull();
+		expect(changes).toEqual(["openrouter/shared"]);
 	});
 
 	it("shows an effort picker by its value alone", async () => {
@@ -132,11 +195,30 @@ describe("App's conversation settings", () => {
 				settings: [model("luna", ["Luna", "Sol"])],
 			}),
 		];
+		held.push(
+			conversation({
+				id: "c3",
+				agent: "opencode",
+				settings: [
+					{
+						...model("opencode-go/first", []),
+						options: ["first", "second"].map((name) => ({
+							value: `opencode-go/${name}`,
+							name,
+							description: null,
+						})),
+					},
+				],
+			}),
+		);
 		const view = await testing.openConversations(
 			held,
 			null,
 			{},
-			AGENTS.map((agent) => ({
+			[
+				...AGENTS,
+				{ id: "opencode", name: "OpenCode", settings: [], limits: [] },
+			].map((agent) => ({
 				...agent,
 				settings: held.find((each) => each.agent === agent.id)?.settings ?? [],
 			})),
@@ -148,6 +230,19 @@ describe("App's conversation settings", () => {
 			await waitFor(() => view.getByRole("option", { name: "Sonnet" })),
 		);
 
+		await newWith(view, "OpenCode");
+		await act(async () =>
+			fireEvent.click(view.getByRole("combobox", { name: "model" })),
+		);
+		await pick(
+			await waitFor(() =>
+				view.getByRole("option", { name: /opencode-go\/second/ }),
+			),
+		);
+		await newWith(view, "Claude");
+		expect(view.getByRole("combobox", { name: "model" }).textContent).toContain(
+			"Opus",
+		);
 		await newWith(view, "Codex");
 
 		await waitFor(() =>
@@ -173,10 +268,14 @@ describe("App's conversation settings", () => {
 							name: "Model",
 							type: "select",
 							category: "model",
-							current: "big",
+							current: "opencode-go/big",
 							options: [
-								{ value: "big", name: "Big", description: null },
-								{ value: "small", name: "Small", description: null },
+								{ value: "opencode-go/big", name: "Big", description: null },
+								{
+									value: "opencode-go/small",
+									name: "Small",
+									description: null,
+								},
 							],
 						},
 						{
@@ -196,7 +295,9 @@ describe("App's conversation settings", () => {
 
 			expect(view.queryByRole("combobox", { name: "model" })).toBeNull();
 			const settings = view.getByRole("button", { name: "settings" });
-			expect(settings.textContent).toContain("Big");
+			expect(settings.textContent).toContain(
+				"OpenCode Go · Big (opencode-go/big)",
+			);
 			await act(async () => fireEvent.click(settings));
 			const dialog = await waitFor(() => view.getByRole("dialog"));
 			await act(async () =>
@@ -210,12 +311,16 @@ describe("App's conversation settings", () => {
 				),
 			);
 			await pick(
-				await waitFor(() => view.getByRole("option", { name: "Small" })),
+				await waitFor(() =>
+					view.getByRole("option", {
+						name: "OpenCode Go · Small (opencode-go/small)",
+					}),
+				),
 			);
 
 			expect(testing.posted("/api/conversations/c1/setting")).toEqual([
 				{ method: "PUT", body: { id: "fast", value: "on" } },
-				{ method: "PUT", body: { id: "model", value: "small" } },
+				{ method: "PUT", body: { id: "model", value: "opencode-go/small" } },
 			]);
 		} finally {
 			happyDOM.setInnerWidth(wide);

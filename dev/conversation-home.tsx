@@ -8,7 +8,7 @@ import { flushSync } from "react-dom";
 import { Thread as ThreadView } from "#dev/components/assistant-ui/elements/thread.aui.tsx";
 import { Composing } from "#dev/composing.tsx";
 import { cn } from "#dev/lib/utils.ts";
-import type { ConversationState } from "../conversations";
+import type { ConversationState, Setting } from "../conversations";
 import { modelOption } from "../models";
 import type { Details } from "../show";
 import { useAdapters } from "./adapters";
@@ -94,11 +94,22 @@ export function useNewConversation({
 }: Starting) {
 	const { refusal, refuse } = useRefusal();
 	const offered = settingsFor(agent, agents, conversations);
-	// A model asked for, as by a todo's agent, shows picked where it is offered.
-	const [picks, setPicks] = useState<Record<string, string>>(() => {
-		const asked = model === null ? null : modelOption(offered, model);
-		return asked === null ? {} : { [asked.setting]: asked.value };
-	});
+	const modelSetting = offered.find(
+		(each) => each.category === "model" || each.id === "model",
+	);
+	const [picks, setPicks] = useState<Record<string, string>>({});
+	// Resolve against each refreshed catalog, without losing an unavailable request.
+	const asked =
+		model === null ? null : modelOption(offered, model, agent === "opencode");
+	const requested =
+		model === null
+			? undefined
+			: (picks[modelSetting?.id ?? ""] ?? asked?.value ?? model);
+	const current = (setting: Setting) =>
+		picks[setting.id] ??
+		(setting.id === modelSetting?.id ? requested : undefined) ??
+		setting.current;
+
 	const [starting, setStarting] = useState(false);
 	const restore = useRef<(text: string, files: File[]) => void>(() => {});
 	const dictated = useRef<() => boolean>(() => false);
@@ -117,15 +128,16 @@ export function useNewConversation({
 			const dropped = slide(() => setStarting(true));
 			// Each as shown: where it was left, unless picked here.
 			const settings = {
-				...Object.fromEntries(offered.map((each) => [each.id, each.current])),
+				...Object.fromEntries(offered.map((each) => [each.id, current(each)])),
 				...picks,
 			};
 			const state = await startConversation(
 				agent,
 				task,
 				settings,
-				// Until a session has offered its settings, the server picks it.
-				model !== null && offered.length === 0 ? model : undefined,
+				// Keep explicit requests even when the cached catalog no longer offers them.
+				// A manual replacement wins; the server validates the exact identity.
+				requested,
 				// Asked for by a todo's agent, so no pick of the person's.
 				model !== null,
 			).catch((error: unknown) => {
@@ -189,7 +201,7 @@ export function useNewConversation({
 		offered.length > 0 ? (
 			<SettingControls
 				settings={offered}
-				current={(setting) => picks[setting.id] ?? setting.current}
+				current={current}
 				onChange={(setting, value) =>
 					setPicks((picks) => ({ ...picks, [setting.id]: value }))
 				}
