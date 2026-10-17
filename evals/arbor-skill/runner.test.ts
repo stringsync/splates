@@ -443,13 +443,21 @@ describe("configured ACP adapter (free fake only)", () => {
 		expect(event[0]?.result.status).toBe("unsupported");
 		expect(fake.launched).toHaveLength(0);
 	});
+	// scry-ignore simple-test-setup: this test alone cancels when the fake enters initialization; other ACP tests must initialize normally.
 	it("cancels a hanging ACP initialization and kills its process", async () => {
 		const fake = new FakeAgent();
-		fake.hold = new Promise(() => {});
+		const controller = new AbortController();
+		// Cancel at the actual initialization boundary, not during skill copying.
+		Object.defineProperty(fake, "hold", {
+			get() {
+				controller.abort("initialization cancelled");
+				return new Promise<void>(() => {});
+			},
+		});
 		const result = await runProbes(
 			{
 				probes: [
-					probe({ bounds: { milliseconds: 30, turns: 1, tokens: 100 } }),
+					probe({ bounds: { milliseconds: 5000, turns: 1, tokens: 100 } }),
 				],
 				seeds: [seed],
 			},
@@ -459,9 +467,10 @@ describe("configured ACP adapter (free fake only)", () => {
 					model: "big",
 				},
 			],
-			await options({ allowUnmetered: true }),
+			await options({ allowUnmetered: true, signal: controller.signal }),
 		);
 		expect(result[0]?.result.status).toBe("bound");
+		expect(fake.launched).toHaveLength(1);
 		expect(fake.killed).toBe(1);
 		expect(fake.prompts).toHaveLength(0);
 	});
