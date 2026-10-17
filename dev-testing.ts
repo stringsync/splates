@@ -50,7 +50,7 @@ export async function serving(
 		await body(
 			async () =>
 				(await (
-					await fetch(`http://localhost:${server.port}/api/snapshot`)
+					await fetch(`http://127.0.0.1:${server.port}/api/snapshot`)
 				).json()) as Snapshot,
 			server.port,
 		);

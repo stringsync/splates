@@ -70,7 +70,7 @@ describe("OpenCode setup on the running server", () => {
 				"opencode",
 			]);
 			const listing = await (
-				await fetch(`http://localhost:${server.port}/api/conversations`)
+				await fetch(`http://127.0.0.1:${server.port}/api/conversations`)
 			).json();
 			expect(
 				listing.agents.at(-1).models.map((model: { id: string }) => model.id),
@@ -103,7 +103,7 @@ describe("OpenCode setup on the running server", () => {
 			expect(existing?.agent?.id).toBe("opencode");
 			expect(new Set(ps.requests)).toEqual(new Set(["initialize"]));
 			const refused = await fetch(
-				`http://localhost:${server.port}/api/setup/opencode/readiness`,
+				`http://127.0.0.1:${server.port}/api/setup/opencode/readiness`,
 				{ method: "POST", headers: { origin: "https://foreign.invalid" } },
 			);
 			expect(refused.status).toBe(403);

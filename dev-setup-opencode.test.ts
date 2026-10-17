@@ -48,11 +48,11 @@ describe("OpenCode native setup routes", () => {
 
 	const connect = async (
 		action: string,
-		origin = `http://localhost:${server.port}`,
+		origin = `http://127.0.0.1:${server.port}`,
 	) => {
 		const options: Bun.WebSocketOptions = { headers: { origin } };
 		socket = new WebSocket(
-			`ws://localhost:${server.port}/api/setup/opencode/native?action=${action}`,
+			`ws://127.0.0.1:${server.port}/api/setup/opencode/native?action=${action}`,
 			options as string[],
 		);
 		return new Promise<boolean>((resolve) => {

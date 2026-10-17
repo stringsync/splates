@@ -48,7 +48,7 @@ describe("dev artifacts", () => {
 			});
 			const at = (name: string) =>
 				fetch(
-					`http://localhost:${port}/api/conversations/${id}/artifacts/${encodeURIComponent(name)}/1`,
+					`http://127.0.0.1:${port}/api/conversations/${id}/artifacts/${encodeURIComponent(name)}/1`,
 				);
 
 			const [page, notes] = [await at("page.html"), await at("notes ü.pdf")];

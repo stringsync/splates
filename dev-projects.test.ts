@@ -56,7 +56,7 @@ describe("dev projects", () => {
 			expect(added.status).toBe(200);
 
 			const there = (await (
-				await fetch(`http://localhost:${port}/api/snapshot?project=repo-2`)
+				await fetch(`http://127.0.0.1:${port}/api/snapshot?project=repo-2`)
 			).json()) as Snapshot;
 			expect(there.path).toBe(other.root);
 			expect(there.todos.map((todo) => todo.subject)).toEqual(["over there"]);
@@ -72,7 +72,7 @@ describe("dev projects", () => {
 
 		await serving(deps, async (snapshot, port) => {
 			expect(
-				(await fetch(`http://localhost:${port}/api/snapshot`)).status,
+				(await fetch(`http://127.0.0.1:${port}/api/snapshot`)).status,
 			).toBe(404);
 
 			await using other = await another();
@@ -170,7 +170,7 @@ describe("dev projects", () => {
 			const list = async () =>
 				(
 					(await (
-						await fetch(`http://localhost:${port}/api/projects`)
+						await fetch(`http://127.0.0.1:${port}/api/projects`)
 					).json()) as {
 						projects: { slug: string; root: string; gone: boolean }[];
 					}
@@ -181,11 +181,11 @@ describe("dev projects", () => {
 				{ slug: "gone", gone: true },
 			]);
 			expect(
-				(await fetch(`http://localhost:${port}/api/snapshot?project=gone`))
+				(await fetch(`http://127.0.0.1:${port}/api/snapshot?project=gone`))
 					.status,
 			).toBe(404);
 			expect(
-				(await fetch(`http://localhost:${port}/api/snapshot?project=none`))
+				(await fetch(`http://127.0.0.1:${port}/api/snapshot?project=none`))
 					.status,
 			).toBe(404);
 
@@ -224,13 +224,13 @@ describe("dev projects", () => {
 
 		await serving(deps, async (_, port) => {
 			const stats = (await (
-				await fetch(`http://localhost:${port}/api/stats`)
+				await fetch(`http://127.0.0.1:${port}/api/stats`)
 			).json()) as Stats;
 			expect(stats.projects).toMatchObject([
 				{ project: other.root, removed: 1, questionRounds: 1 },
 			]);
 			expect(
-				(await fetch(`http://localhost:${port}/api/stats?period=soon`)).status,
+				(await fetch(`http://127.0.0.1:${port}/api/stats?period=soon`)).status,
 			).toBe(400);
 		});
 	});
@@ -254,7 +254,7 @@ describe("dev projects", () => {
 			const waiting = async () =>
 				(
 					(await (
-						await fetch(`http://localhost:${port}/api/projects`)
+						await fetch(`http://127.0.0.1:${port}/api/projects`)
 					).json()) as { projects: { slug: string; waiting: number }[] }
 				).projects.map(({ slug, waiting }) => [slug, waiting]);
 			expect(await waiting()).toEqual([
@@ -304,7 +304,7 @@ describe("dev projects", () => {
 			const listed = async (query: string) =>
 				(
 					(await (
-						await fetch(`http://localhost:${port}/api/conversations${query}`)
+						await fetch(`http://127.0.0.1:${port}/api/conversations${query}`)
 					).json()) as { conversations: { id: string }[] }
 				).conversations.map((each) => each.id);
 			expect(await listed("?project=repo-2")).toEqual([id]);

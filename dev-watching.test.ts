@@ -19,7 +19,7 @@ describe("dev", () => {
 	describe("watching", () => {
 		/** The page's stream of changes, once it has connected. */
 		const listen = async (port: number) => {
-			const events = await fetch(`http://localhost:${port}/events`);
+			const events = await fetch(`http://127.0.0.1:${port}/events`);
 			const reader = (events.body ?? new ReadableStream()).getReader();
 			await readUntil(reader, ": connected");
 			return reader;
@@ -60,7 +60,7 @@ describe("dev", () => {
 				await deps.fs.write(`${tree}/docs/deep/notes.md`, "a\n");
 				expect(await within(reader, "data: changed", 5_000)).toBe(true);
 				const snapshot = await (
-					await fetch(`http://localhost:${port}/api/snapshot`)
+					await fetch(`http://127.0.0.1:${port}/api/snapshot`)
 				).json();
 				expect(snapshot.tasks[0].systems).toEqual([
 					{ name: "docs", globs: ["docs/**"] },
@@ -120,12 +120,12 @@ describe("dev", () => {
 				const read = async () =>
 					(
 						(await (
-							await fetch(`http://localhost:${port}/api/snapshot`)
+							await fetch(`http://127.0.0.1:${port}/api/snapshot`)
 						).json()) as Snapshot
 					).release;
 				expect(await read()).toBeNull();
 
-				const events = await fetch(`http://localhost:${port}/events`);
+				const events = await fetch(`http://127.0.0.1:${port}/events`);
 				const reader = events.body?.getReader();
 				if (!reader) {
 					throw new Error("no event stream");
@@ -156,11 +156,11 @@ describe("dev", () => {
 				const { port } = server;
 				const read = async () =>
 					(await (
-						await fetch(`http://localhost:${port}/api/snapshot`)
+						await fetch(`http://127.0.0.1:${port}/api/snapshot`)
 					).json()) as Snapshot;
 				expect((await read()).behind).toBeNull();
 
-				const events = await fetch(`http://localhost:${port}/events`);
+				const events = await fetch(`http://127.0.0.1:${port}/events`);
 				const reader = events.body?.getReader();
 				if (!reader) {
 					throw new Error("no event stream");
@@ -175,7 +175,7 @@ describe("dev", () => {
 					behind: { running: "a".repeat(40), newest: "b".repeat(40) },
 				});
 				expect(
-					await (await fetch(`http://localhost:${port}/api/projects`)).json(),
+					await (await fetch(`http://127.0.0.1:${port}/api/projects`)).json(),
 				).toMatchObject({
 					newest: null,
 					behind: { running: "a".repeat(40), newest: "b".repeat(40) },
@@ -194,7 +194,7 @@ describe("dev", () => {
 			});
 			try {
 				const snapshot = (await (
-					await fetch(`http://localhost:${server.port}/api/snapshot`)
+					await fetch(`http://127.0.0.1:${server.port}/api/snapshot`)
 				).json()) as Snapshot;
 				expect(snapshot.unbuilt).toBe(true);
 			} finally {

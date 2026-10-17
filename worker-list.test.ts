@@ -34,7 +34,7 @@ describe("splates worker list", () => {
 					: (workers.open(request, server) ??
 						new Response("not found", { status: 404 })),
 		});
-		url = `http://localhost:${server.port}`;
+		url = `http://127.0.0.1:${server.port}`;
 		daemons = [];
 	});
 
@@ -87,7 +87,7 @@ describe("splates worker list", () => {
 		);
 		await join_("away", 2, () =>
 			WebSocketWorkerSocket.connect(
-				`ws://localhost:${server.port}/api/workers`,
+				`ws://127.0.0.1:${server.port}/api/workers`,
 			),
 		);
 

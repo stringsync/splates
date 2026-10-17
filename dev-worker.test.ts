@@ -16,7 +16,7 @@ describe("dev's service worker", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const response = await fetch(`http://localhost:${port}/worker.js`);
+			const response = await fetch(`http://127.0.0.1:${port}/worker.js`);
 
 			expect(response.headers.get("content-type")).toContain("text/javascript");
 			expect(await response.text()).toContain("notificationclick");

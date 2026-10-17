@@ -79,7 +79,7 @@ describe("machine", () => {
 			sensors.busy = 50;
 			sensors.idle = 50;
 			const response = await fetch(
-				`http://localhost:${server.port}/api/machine`,
+				`http://127.0.0.1:${server.port}/api/machine`,
 			);
 			expect(await response.json()).toMatchObject({ cpu: 0.5, cores: 2 });
 		} finally {

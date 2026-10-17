@@ -35,7 +35,7 @@ describe("DevWorkers", () => {
 		const joined = new Promise<RemoteWorker>((resolve) =>
 			workers.registry.events.on("joined", resolve, { once: true }),
 		);
-		const url = `ws://localhost:${server.port}/api/workers`;
+		const url = `ws://127.0.0.1:${server.port}/api/workers`;
 		const daemon = new WorkerDaemon(
 			{ where: url, dial: () => WebSocketWorkerSocket.connect(url) },
 			{

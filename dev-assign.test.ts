@@ -40,7 +40,7 @@ describe("dev assign", () => {
 		try {
 			const { port } = server;
 			const listed = (await (
-				await fetch(`http://localhost:${port}/api/conversations`)
+				await fetch(`http://127.0.0.1:${port}/api/conversations`)
 			).json()) as { agents: unknown[] };
 			expect(listed.agents).toEqual([
 				{

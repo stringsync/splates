@@ -20,7 +20,7 @@ describe("dev", () => {
 			expect((await snapshot()).tasks).toEqual([]);
 			await deps.fs.write(`${deps.splatesDir}/format`, "2\n");
 
-			const response = await fetch(`http://localhost:${port}/api/snapshot`);
+			const response = await fetch(`http://127.0.0.1:${port}/api/snapshot`);
 
 			expect(response.status).toBe(409);
 			expect(await response.text()).toContain("bunx splates@latest");
@@ -44,7 +44,7 @@ describe("dev", () => {
 			expect(reads.count).toBe(opened);
 
 			const next = reads.nextRead();
-			const events = await fetch(`http://localhost:${port}/events`);
+			const events = await fetch(`http://127.0.0.1:${port}/events`);
 			const reader = events.body?.getReader();
 			await next;
 			await reader?.cancel();
@@ -141,7 +141,7 @@ describe("dev", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const html = await (await fetch(`http://localhost:${port}/`)).text();
+			const html = await (await fetch(`http://127.0.0.1:${port}/`)).text();
 
 			expect(html).toContain("<title>Spinning Plates</title>");
 			expect(html).toContain(`<div id="root">`);
@@ -154,7 +154,7 @@ describe("dev", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const at = `http://localhost:${port}`;
+			const at = `http://127.0.0.1:${port}`;
 			const html = await (await fetch(`${at}/`)).text();
 			// Without credentials, Cloudflare Access would turn the manifest away.
 			expect(html).toContain(
@@ -196,7 +196,7 @@ describe("dev", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const response = await fetch(`http://localhost:${port}/nope`);
+			const response = await fetch(`http://127.0.0.1:${port}/nope`);
 
 			expect(response.status).toBe(404);
 		});
@@ -206,7 +206,7 @@ describe("dev", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const response = await fetch(`http://localhost:${port}/main.js`);
+			const response = await fetch(`http://127.0.0.1:${port}/main.js`);
 			const js = await response.text();
 
 			expect(response.headers.get("content-type")).toContain("text/javascript");
@@ -227,7 +227,7 @@ describe("dev", () => {
 
 		await serving(deps, async (_snapshot, port) => {
 			const css = await (
-				await fetch(`http://localhost:${port}/styles.css`)
+				await fetch(`http://127.0.0.1:${port}/styles.css`)
 			).text();
 
 			// Either at-rule surviving into the output means Tailwind did not run,
@@ -266,7 +266,7 @@ describe("dev", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const events = await fetch(`http://localhost:${port}/events`);
+			const events = await fetch(`http://127.0.0.1:${port}/events`);
 			const reader = (events.body ?? new ReadableStream()).getReader();
 			await add(deps, "beta");
 

@@ -21,7 +21,7 @@ describe("dev's push routes", () => {
 		});
 		try {
 			const key = (await (
-				await fetch(`http://localhost:${server.port}/api/push`)
+				await fetch(`http://127.0.0.1:${server.port}/api/push`)
 			).json()) as { publicKey: string };
 			const kept = await json(server.port, "/api/push/subscription", "PUT", {
 				subscription: subscription("https://push.example/a"),

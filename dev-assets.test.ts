@@ -29,7 +29,7 @@ describe("dev's static files", () => {
 			];
 
 			const responses = await Promise.all(
-				paths.map((path) => fetch(`http://localhost:${port}${path}`)),
+				paths.map((path) => fetch(`http://127.0.0.1:${port}${path}`)),
 			);
 			await Promise.all(responses.map((response) => response.arrayBuffer()));
 
@@ -44,7 +44,7 @@ describe("dev's static files", () => {
 
 		await serving(deps, async (_snapshot, port) => {
 			const map = async (path: string) => {
-				const script = await fetch(`http://localhost:${port}${path}`);
+				const script = await fetch(`http://127.0.0.1:${port}${path}`);
 				const link = (await script.text()).match(
 					/\/\/# sourceMappingURL=(\S+)\s*$/,
 				)?.[1];
@@ -66,11 +66,11 @@ describe("dev's static files", () => {
 		await add(deps, "alpha");
 
 		await serving(deps, async (_snapshot, port) => {
-			const first = await fetch(`http://localhost:${port}/main.js`);
+			const first = await fetch(`http://127.0.0.1:${port}/main.js`);
 			await first.arrayBuffer();
 			const etag = first.headers.get("etag") ?? "";
 
-			const again = await fetch(`http://localhost:${port}/main.js`, {
+			const again = await fetch(`http://127.0.0.1:${port}/main.js`, {
 				headers: { "if-none-match": etag },
 			});
 

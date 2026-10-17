@@ -30,7 +30,7 @@ describe("dev conversations", () => {
 	it("says they are off unless asked for", async () => {
 		await serving(deps, async (_, port) => {
 			const response = await fetch(
-				`http://localhost:${port}/api/conversations`,
+				`http://127.0.0.1:${port}/api/conversations`,
 			);
 
 			expect(response.status).toBe(404);
@@ -152,7 +152,7 @@ describe("dev conversations", () => {
 		try {
 			const { port } = server;
 			const listed = await fetch(
-				`http://localhost:${port}/api/conversations/sessions?task=alpha`,
+				`http://127.0.0.1:${port}/api/conversations/sessions?task=alpha`,
 			);
 
 			expect(await listed.json()).toEqual([
@@ -204,7 +204,7 @@ describe("dev conversations", () => {
 		try {
 			const { port } = server;
 			const listed = await (
-				await fetch(`http://localhost:${port}/api/conversations`)
+				await fetch(`http://127.0.0.1:${port}/api/conversations`)
 			).json();
 			expect(listed).toEqual({
 				agents: [
@@ -229,7 +229,7 @@ describe("dev conversations", () => {
 				},
 			]);
 			const events = await fetch(
-				`http://localhost:${port}/api/conversations/events`,
+				`http://127.0.0.1:${port}/api/conversations/events`,
 			);
 			const reader = events.body?.getReader();
 			if (!reader) {
@@ -243,10 +243,10 @@ describe("dev conversations", () => {
 			);
 			for (let i = 0; i < 100; i++) {
 				const response = await fetch(
-					`http://localhost:${port}/api/conversations/${id}/prompt`,
+					`http://127.0.0.1:${port}/api/conversations/${id}/prompt`,
 					{
 						method: "POST",
-						headers: { origin: `http://localhost:${port}` },
+						headers: { origin: `http://127.0.0.1:${port}` },
 						body: form,
 					},
 				);
@@ -263,13 +263,13 @@ describe("dev conversations", () => {
 			await reader.cancel();
 			// The file sent with it plays from the server, a part at a time.
 			const { conversations } = (await (
-				await fetch(`http://localhost:${port}/api/conversations`)
+				await fetch(`http://127.0.0.1:${port}/api/conversations`)
 			).json()) as { conversations: ConversationState[] };
 			const sent = conversations.find((each) => each.id === id)?.messages[0]
 				?.parts[0];
 			expect(sent).toMatchObject({ type: "file", title: "bug.mp4" });
 			const played = await fetch(
-				`http://localhost:${port}/api/conversations/${id}/attachments/${sent?.type === "file" ? sent.name : ""}`,
+				`http://127.0.0.1:${port}/api/conversations/${id}/attachments/${sent?.type === "file" ? sent.name : ""}`,
 				{ headers: { range: "bytes=0-2" } },
 			);
 			expect(played.status).toBe(206);
@@ -325,7 +325,7 @@ describe("dev conversations", () => {
 			});
 			const at = (name: string, version: number) =>
 				fetch(
-					`http://localhost:${port}/api/conversations/${id}/artifacts/${name}/${version}`,
+					`http://127.0.0.1:${port}/api/conversations/${id}/artifacts/${name}/${version}`,
 				);
 
 			const page = await at("page.html", 2);
@@ -375,11 +375,11 @@ describe("dev conversations", () => {
 			await add("one");
 			await add("two");
 			const at = (version: string) =>
-				`http://localhost:${port}/api/conversations/${id}/artifacts/page.html/${version}`;
+				`http://127.0.0.1:${port}/api/conversations/${id}/artifacts/page.html/${version}`;
 			const del = (version: string) =>
 				fetch(at(version), {
 					method: "DELETE",
-					headers: { origin: `http://localhost:${port}` },
+					headers: { origin: `http://127.0.0.1:${port}` },
 				});
 
 			expect((await del("1")).status).toBe(200);

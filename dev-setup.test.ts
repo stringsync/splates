@@ -18,7 +18,7 @@ describe("dev's setup routes", () => {
 		const server = await dev(deps, { ports: OpenPortProvider.any() });
 		try {
 			const fresh = (await (
-				await fetch(`http://localhost:${server.port}/api/setup`)
+				await fetch(`http://127.0.0.1:${server.port}/api/setup`)
 			).json()) as SetupProgress;
 			const skipped = await json(
 				server.port,
