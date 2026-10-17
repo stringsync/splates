@@ -1,7 +1,15 @@
 import { useReactive } from "@webappwiz/react";
 import { XIcon } from "lucide-react";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+	useContext,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Device } from "webappwiz/browser";
+import { TICK } from "webappwiz/dictate";
 import { Button } from "#dev/components/ui/button.tsx";
 import { cn } from "#dev/lib/utils.ts";
 import { COMPOSER, type Dictation, type DictationPhase } from "./dictation";
@@ -46,6 +54,7 @@ function Status({
 	const levels = useReactive(dictation, (each) => each.state.levels, [
 		"changed",
 	]);
+	const level = useReactive(dictation, (each) => each.state.level, ["changed"]);
 	const words = WORDS[phase];
 	if (words === undefined) {
 		return null;
@@ -59,7 +68,14 @@ function Status({
 			data-phase={phase}
 		>
 			{phase === "recording" && (
-				<Waveform levels={levels} expanded={expanded} />
+				<>
+					<span
+						aria-hidden="true"
+						className="dictation-level bg-foreground size-2 shrink-0 rounded-full transition-opacity duration-75 motion-reduce:transition-none"
+						style={{ opacity: 0.2 + Math.sqrt(level) * 0.8 }}
+					/>
+					<Waveform levels={levels} expanded={expanded} />
+				</>
 			)}
 			<span
 				aria-live="polite"
@@ -95,6 +111,7 @@ function Waveform({
 	expanded: boolean;
 }) {
 	const strip = useRef<SVGSVGElement>(null);
+	const bars = useRef<SVGPathElement>(null);
 	const [width, setWidth] = useState(160);
 	useEffect(() => {
 		const element = strip.current;
@@ -108,7 +125,31 @@ function Waveform({
 		observer.observe(element);
 		return () => observer.disconnect();
 	}, []);
-	const count = Math.ceil(width / 6);
+	// Keep the same bars moving between the mic's 100 ms ticks instead of
+	// jumping six pixels each time. The newest bar enters from offscreen.
+	useLayoutEffect(() => {
+		const element = bars.current;
+		if (element === null || levels.length === 0) {
+			return;
+		}
+		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+		if (reduced.matches) {
+			element.removeAttribute("transform");
+			return;
+		}
+		const start = performance.now();
+		let frame = 0;
+		const move = () => {
+			const progress = Math.min(1, (performance.now() - start) / TICK.ms);
+			element.setAttribute("transform", `translate(${6 * (1 - progress)} 0)`);
+			if (progress < 1) {
+				frame = requestAnimationFrame(move);
+			}
+		};
+		move();
+		return () => cancelAnimationFrame(frame);
+	}, [levels]);
+	const count = Math.ceil(width / 6) + 1;
 	const heard = levels.slice(-count);
 	const path = Array.from({ length: count }, (_, index) => {
 		const level = heard[index - (count - heard.length)] ?? 0;
@@ -121,12 +162,13 @@ function Waveform({
 			ref={strip}
 			aria-hidden="true"
 			className={cn(
-				"dictation-waveform h-7 min-w-0 opacity-70",
+				"dictation-waveform h-7 min-w-0 overflow-hidden opacity-70",
 				expanded ? "w-full" : "w-32",
 			)}
 			viewBox={`0 0 ${width} 28`}
 		>
 			<path
+				ref={bars}
 				d={path}
 				stroke="currentColor"
 				strokeWidth="2.5"
