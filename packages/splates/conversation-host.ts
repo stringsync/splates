@@ -59,8 +59,9 @@ export interface ConversationDeps {
 	/** What starts each agent, and takes one back after a restart. */
 	launcher: Launcher;
 	/**
-	 * Where each agent waits for a slot on a worker before it starts, and
-	 * starts there; none starts every one at once on `launcher`.
+	 * Where each agent another agent started waits for a slot on a worker
+	 * before it starts, and starts there; one the person started, or every
+	 * one with none, starts at once on `launcher`.
 	 */
 	slots?: ConversationSlots;
 	/** Where the agent runs, which its background commands' output is read from. */

@@ -22,8 +22,9 @@ export interface ConversationsOptions {
 	/** What starts agents and takes them back after a restart, over `launch`: a worker. */
 	launcher?: Launcher;
 	/**
-	 * Where each agent waits for a slot on a worker, which it then starts
-	 * on; none starts every agent at once on `launcher`.
+	 * Where each agent another agent started waits for a slot on a worker,
+	 * which it then starts on; one the person started, or every one with
+	 * none, starts at once on `launcher`.
 	 */
 	slots?: ConversationSlots;
 	/**
