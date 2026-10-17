@@ -338,7 +338,7 @@ function Archived({
 	return (
 		<section
 			aria-label="archived conversations"
-			className="mx-auto flex w-full max-w-xl flex-col gap-2"
+			className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-2"
 		>
 			<TopBar
 				leading={
@@ -353,7 +353,7 @@ function Archived({
 			{conversations.length === 0 ? (
 				<p className="text-muted-foreground text-sm">Nothing archived.</p>
 			) : (
-				<ul className="flex flex-col">
+				<ul className="flex min-h-0 flex-col overflow-y-auto overscroll-contain">
 					{conversations.toSorted(byArchivedAt).map((each) => (
 						<li key={each.id}>
 							<Item
