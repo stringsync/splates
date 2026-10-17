@@ -67,12 +67,16 @@ function Status({
 			)}
 			data-phase={phase}
 		>
+			<Waveform levels={levels} expanded={expanded} />
 			<span
 				aria-hidden="true"
-				className="dictation-level bg-foreground size-2 shrink-0 rounded-full transition-opacity duration-75 motion-reduce:transition-none"
-				style={{ opacity: 0.2 + Math.sqrt(level) * 0.8 }}
+				className="dictation-level bg-foreground size-2 shrink-0 rounded-full transition-[opacity,transform] duration-75 motion-reduce:transition-none"
+				style={{
+					opacity: 0.2 + Math.sqrt(level) * 0.8,
+					// Transform leaves the strip and controls fixed as loudness changes.
+					transform: `scale(${0.5 + Math.sqrt(level) * 0.75})`,
+				}}
 			/>
-			<Waveform levels={levels} expanded={expanded} />
 			<span
 				aria-live="polite"
 				className={

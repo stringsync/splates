@@ -87,7 +87,7 @@ function Mic({ dictation }: { dictation: Dictation }) {
 					tooltip={tooltip(ACTIONS[phase])}
 					side="bottom"
 					type="button"
-					variant="default"
+					variant="secondary"
 					size="icon"
 					data-phase={phase}
 					aria-pressed={true}
@@ -109,7 +109,7 @@ function Mic({ dictation }: { dictation: Dictation }) {
 /** Waiting stays in the control, leaving the waveform strip undisturbed. */
 function DictationControl({ phase }: { phase: DictationPhase }) {
 	return phase === "recording" ? (
-		<SquareIcon aria-hidden="true" className="fill-current" />
+		<SquareIcon aria-hidden="true" strokeWidth={1.75} />
 	) : (
 		<LoaderCircleIcon
 			aria-hidden="true"
@@ -140,7 +140,7 @@ export function BoxMic({ box }: { box: BoxDictation }) {
 			tooltip={shortcut === null ? action : `${action} (${shortcut})`}
 			side="bottom"
 			type="button"
-			variant={live ? "default" : "ghost"}
+			variant={live ? "secondary" : "ghost"}
 			size="icon"
 			data-phase={live ? phase : undefined}
 			aria-pressed={live}
