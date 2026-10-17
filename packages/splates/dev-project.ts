@@ -18,6 +18,7 @@ import type { TranscriberFor } from "./dev-transcriber";
 import { startDispatched } from "./dispatched";
 import type { Everywhere } from "./everywhere";
 import type { Format } from "./format";
+import type { InstallationToken } from "./github-app";
 import { HandedOut } from "./handed-out";
 import { SeenLaneTodos } from "./lane-todos";
 import type { LaneRecord } from "./lanes";
@@ -131,6 +132,7 @@ export async function serveProject(
 		format,
 		conversations,
 		land: (request) => project.trunk.land(request),
+		mintToken: () => project.branches.mint(),
 		answerState: async (call) => {
 			const value = await answerState(fs, project.splatesDir, call);
 			if (!READS.has(call.op)) {
@@ -188,6 +190,7 @@ export type Project = Pick<
 	| "creds"
 	| "slots"
 	| "trunk"
+	| "branches"
 > & { fs: Fs; ps: Ps; log: Logger };
 
 /**
@@ -243,6 +246,8 @@ export interface Served extends AsyncResource {
 	answerState: (call: StateCall) => Promise<unknown>;
 	/** Moves trunk to a worker's tested branch, as `POST /api/land` asks. */
 	land: (request: LandRequest) => Promise<Landed>;
+	/** A token for its repository's git, as `POST /api/token` asks; null without the App. */
+	mintToken: () => Promise<InstallationToken | null>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;

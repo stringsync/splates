@@ -141,6 +141,16 @@ describe("WorkerDaemon", () => {
 		});
 	});
 
+	it("runs git with what the coordinator adds to its environment, such as a token", async () => {
+		const ran = await worker.git(dir, ["config", "--get", "splates.said"], {
+			GIT_CONFIG_COUNT: "1",
+			GIT_CONFIG_KEY_0: "splates.said",
+			GIT_CONFIG_VALUE_0: "hello",
+		});
+
+		expect(ran).toMatchObject({ code: 0, stdout: "hello\n" });
+	});
+
 	// scry-ignore simple-test-setup: it alone drops and brings back the coordinator, which is what it tests
 	it("stalls a process while the coordinator is away past the bound, and loses nothing", async () => {
 		const child = worker.start(

@@ -2,7 +2,7 @@ import type { Git } from "./git";
 import { Watched } from "./watched";
 
 /** The git `Watch` runs, on whichever machine the agent works: `Git` here, or a worker's. */
-export type WatchGit = Pick<Git, "root" | "run" | "interruptedOps">;
+export type WatchGit = Pick<Git, "root" | "run" | "interruptedOps" | "at">;
 
 /**
  * Something a command did to git that an agent should not have, judged by
@@ -23,8 +23,11 @@ export type Flag =
 
 /** What `Watch` tells of each command that moves the branch of the tree it runs in. */
 export interface BranchMoves {
-	/** The command committed, amended, squashed or rebased `branch`. */
-	moved(branch: string): void;
+	/**
+	 * The command committed, amended, squashed or rebased `branch`, which
+	 * `at` reads, rooted at the tree it ran in on the machine it ran on.
+	 */
+	moved(branch: string, at: Git): void;
 }
 
 /**

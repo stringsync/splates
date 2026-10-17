@@ -199,7 +199,7 @@ export async function add(
 			: { dispatch: { ...handOff, pending: true } }),
 	});
 
-	await new Plans(fs).exclude(await service.git.commonDir());
+	await new Plans(fs).exclude(await worktree.git.commonDir());
 
 	await fs.write(
 		`${worktree.path}/${PLAN_FILE}`,

@@ -110,7 +110,10 @@ export class WorkerDaemon implements AsyncResource {
 			await fs
 				.mkdir(dirname(relayAt))
 				.then(() =>
-					fs.write(relayAt, `${JSON.stringify({ url: this.relay?.url })}\n`),
+					fs.write(
+						relayAt,
+						`${JSON.stringify({ url: this.relay?.url, worker: this.opts.id })}\n`,
+					),
 				)
 				.catch((error: unknown) =>
 					log.error(`cannot say where the relay listens: ${String(error)}`),

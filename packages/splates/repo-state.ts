@@ -106,6 +106,14 @@ export const StateRequest = z.object({
 	call: StateCall,
 });
 
+/** What `POST /api/token` takes: the project whose repository a worker's git signs in to. */
+export const TokenRequest = z.object({
+	project: z.union([
+		z.object({ slug: z.string() }),
+		z.object({ origin: z.string() }),
+	]),
+});
+
 /** What a stat answers with over the wire. */
 export interface WireStat {
 	directory: boolean;
@@ -119,7 +127,7 @@ export function relayFile(home: string): string {
 }
 
 /** What `relay.json` holds. */
-const RelayFile = z.object({ url: z.string() });
+const RelayFile = z.object({ url: z.string(), worker: z.string().optional() });
 
 /**
  * The coordinator a command on a worker reaches its project's records
@@ -132,22 +140,33 @@ export async function findRelay(
 	{ fs, env }: { fs: Fs; env: (name: string) => string | undefined },
 	home: string,
 	origin: () => Promise<string | null>,
-): Promise<{ url: string; project: StateProject } | null> {
+): Promise<FoundRelay | null> {
 	let url = env("SPLATES_DEV");
-	if (url === undefined) {
-		const read = await fs.read(relayFile(home)).catch(() => null);
-		const parsed = read === null ? null : RelayFile.safeParse(safeJson(read));
-		url = parsed?.success ? parsed.data.url : undefined;
-	}
+	const read = await fs.read(relayFile(home)).catch(() => null);
+	const parsed = read === null ? null : RelayFile.safeParse(safeJson(read));
+	const said = parsed?.success ? parsed.data : null;
+	url ??= said?.url;
 	if (url === undefined) {
 		return null;
 	}
+	const worker = env("SPLATES_WORKER") ?? said?.worker ?? null;
 	const slug = env("SPLATES_PROJECT");
 	if (slug !== undefined) {
-		return { url, project: { slug } };
+		return { url, project: { slug }, worker };
 	}
 	const found = await origin();
-	return found === null ? null : { url, project: { origin: found } };
+	return found === null ? null : { url, project: { origin: found }, worker };
+}
+
+/** The relay `findRelay` found, and the worker it is this machine's. */
+export interface FoundRelay {
+	url: string;
+	project: StateProject;
+	/**
+	 * The worker this machine is, which a task's clone made here is recorded
+	 * on; null when neither the env nor the daemon says.
+	 */
+	worker: string | null;
 }
 
 function safeJson(text: string): unknown {

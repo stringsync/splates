@@ -1,5 +1,7 @@
 import type { Fs, ListeningEntry, ProcessEntry, Ps } from "webappwiz/system";
-import { Git, type GitResult } from "./git";
+import { type GitResult, type GitRunner, processGit } from "./git";
+import { splatesHome } from "./roster";
+import { type ProjectCheckout, WorkerCheckouts } from "./worker-checkouts";
 
 /** A file's size, and its bytes from where the caller last read up to. */
 export interface WorkerRead {
@@ -13,30 +15,51 @@ export interface WorkerRead {
  * (`ConversationBackground`), the process table (`heldBy`), and the ports
  * its processes listen on (`TaskPorts`).
  */
-export interface WorkerMachine {
-	git(cwd: string, args: string[]): Promise<GitResult>;
+export interface WorkerMachine extends GitRunner {
+	/**
+	 * `git -C <cwd> <args>`, `env` added to its environment, as `GitRunner`
+	 * runs it: untrimmed. A token in `env` is held in memory there, never on
+	 * disk.
+	 */
+	git(
+		cwd: string,
+		args: string[],
+		env?: Record<string, string>,
+	): Promise<GitResult>;
 	processes(): Promise<ProcessEntry[]>;
 	listening(): Promise<ListeningEntry[]>;
 	/** `path` from byte `from` on; a missing file reads as empty. */
 	read(path: string, from: number): Promise<WorkerRead>;
 	/** Whether anything is at `path`, a file or a directory. */
 	exists(path: string): Promise<boolean>;
+	/**
+	 * Fetches, or makes, the project's mirror and its clone of trunk, and
+	 * answers where the clone is (`WorkerCheckouts.checkout`).
+	 */
+	checkout(request: ProjectCheckout): Promise<string>;
+	/** Takes away a task's clone made beside a project's (`WorkerCheckouts.remove`). */
+	removeCheckout(path: string): Promise<void>;
 }
 
 /** The machine this process runs on, as a worker answers for it. */
 export class LocalWorkerMachine implements WorkerMachine {
-	private readonly runner: Git;
+	readonly git: WorkerMachine["git"];
+	private readonly checkouts: WorkerCheckouts;
 
 	constructor(
 		private readonly ps: Ps,
 		private readonly fs: Fs,
 	) {
-		// `run` takes its own cwd, so the root is never read.
-		this.runner = new Git("/", { ps, fs });
+		this.git = processGit(ps).git;
+		this.checkouts = new WorkerCheckouts(splatesHome(ps), ps, fs);
 	}
 
-	git(cwd: string, args: string[]): Promise<GitResult> {
-		return this.runner.run(cwd, ...args);
+	checkout(request: ProjectCheckout): Promise<string> {
+		return this.checkouts.checkout(request);
+	}
+
+	removeCheckout(path: string): Promise<void> {
+		return this.checkouts.remove(path);
 	}
 
 	processes(): Promise<ProcessEntry[]> {

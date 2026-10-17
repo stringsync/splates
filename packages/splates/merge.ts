@@ -194,7 +194,7 @@ export async function merge(
 		if (relayed) {
 			// A worker's own trunk follows the remote's, so what the task
 			// changed reads against what it rebased onto.
-			await git.run(git.root, "branch", "--force", base, onto);
+			await worktree.moveBase(onto);
 		}
 	}
 	const rebase = await git.rebase(worktree.path, onto ?? base);
@@ -485,7 +485,7 @@ async function landOnRemote({
 	relayed: boolean;
 	holder: { pid: number; hostname: string };
 }): Promise<Landed> {
-	const pushed = await branches.push(worktree.task, worktree.branch);
+	const pushed = await branches.pushTree(worktree);
 	if (pushed.status !== "pushed") {
 		return {
 			status: "refused",
@@ -500,7 +500,7 @@ async function landOnRemote({
 		holder,
 	});
 	if (landed.status === "landed" && relayed) {
-		await git.run(git.root, "branch", "--force", worktree.base, head);
+		await worktree.moveBase(head);
 	}
 	return landed;
 }

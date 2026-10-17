@@ -88,10 +88,7 @@ export async function escalate(
 	// What it waits on a person with is what a worker that dies meanwhile
 	// would lose, so the remote gets it as committed; the tree itself is left
 	// as the agent left it, uncommitted work and all, for the person to see.
-	const pushed = pushedLine(
-		await branches.push(worktree.task, worktree.branch),
-		"pushed",
-	);
+	const pushed = pushedLine(await branches.pushTree(worktree), "pushed");
 
 	log.info(
 		[

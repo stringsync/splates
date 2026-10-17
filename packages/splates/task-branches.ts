@@ -6,6 +6,7 @@ import { GitHubApp, githubRepo, type InstallationToken } from "./github-app";
 import { LEGACY_PLAN_FILE } from "./legacy-names";
 import { PLAN_FILE } from "./plan";
 import type { BranchMoves } from "./watch";
+import type { Worktree } from "./worktree";
 import { taskOf } from "./worktree-service";
 
 /** What a task's branch is pushed as on the central remote: `splates/<task>`. */
@@ -25,10 +26,19 @@ export type Pushed =
 	/** Git or GitHub refused it, saying `why`. */
 	| { status: "failed"; why: string };
 
-/** Where `TaskBranches` finds the GitHub App it mints tokens with. */
+/** What mints a task's tokens: the GitHub App, or a coordinator that keeps it. */
+export type TokenMinter = Pick<GitHubApp, "token">;
+
+/** Where `TaskBranches` finds what it mints tokens with. */
 export interface AppSource {
 	/** The App, or null when its creds are not kept. */
-	app(): Promise<GitHubApp | null>;
+	app(): Promise<TokenMinter | null>;
+}
+
+/** Where `TaskBranches` reads a task's branch, for a push, a delete or a sign-in. */
+export interface BranchOptions {
+	/** The repository the branch is in: the main tree's by default, or a clone's. */
+	at?: Git;
 }
 
 /** What `TaskBranches.of` reaches GitHub through; the global `fetch` by default. */
@@ -37,9 +47,11 @@ export interface TaskBranchesOptions {
 }
 
 /** Where a push goes and what it signs in with. */
-interface Target {
+export interface Target {
 	/** A remote's name, or a URL. */
 	to: string;
+	/** The URL it fetches from, which a clone is made from. */
+	url: string;
 	/** Added to git's environment, carrying a token when there is one. */
 	env: Record<string, string>;
 }
@@ -97,7 +109,12 @@ export class TaskBranches {
 	 * as it goes. Run while a rebase is under way, it pushes the branch as it
 	 * stood before the rebase.
 	 */
-	async push(task: string, branch: string): Promise<Pushed> {
+	async push(
+		task: string,
+		branch: string,
+		opts: BranchOptions = {},
+	): Promise<Pushed> {
+		const at = opts.at ?? this.git;
 		if (this.config.remote === null) {
 			return { status: "off" };
 		}
@@ -105,7 +122,7 @@ export class TaskBranches {
 		if (name !== null) {
 			return { status: "refused", why: name };
 		}
-		const plans = await this.git.tracked(`refs/heads/${branch}`, [
+		const plans = await at.tracked(`refs/heads/${branch}`, [
 			PLAN_FILE,
 			LEGACY_PLAN_FILE,
 		]);
@@ -115,16 +132,26 @@ export class TaskBranches {
 				why: `${branch} tracks ${plans.join(" and ")}, which never leaves this machine: \`git rm --cached ${plans.join(" ")}\` and commit`,
 			};
 		}
-		return this.run(task, [
-			"--force",
-			"--no-verify",
-			"--",
-			`refs/heads/${branch}:refs/heads/${this.pushedBranch(task)}`,
-		]);
+		return this.run(
+			task,
+			[
+				"--force",
+				"--no-verify",
+				"--",
+				`refs/heads/${branch}:refs/heads/${this.pushedBranch(task)}`,
+			],
+			at,
+		);
+	}
+
+	/** Pushes a task's own branch from its checkout, a worktree or a clone, as `push` does. */
+	pushTree(tree: Pick<Worktree, "task" | "branch" | "git">): Promise<Pushed> {
+		return this.push(tree.task, tree.branch, { at: tree.git });
 	}
 
 	/** Deletes `splates/<task>` from the remote; one already gone is deleted too. */
-	async delete(task: string): Promise<Pushed> {
+	async delete(task: string, opts: BranchOptions = {}): Promise<Pushed> {
+		const at = opts.at ?? this.git;
 		if (this.config.remote === null) {
 			return { status: "off" };
 		}
@@ -132,12 +159,16 @@ export class TaskBranches {
 		if (name !== null) {
 			return { status: "refused", why: name };
 		}
-		const deleted = await this.run(task, [
-			"--no-verify",
-			"--delete",
-			"--",
-			`refs/heads/${this.pushedBranch(task)}`,
-		]);
+		const deleted = await this.run(
+			task,
+			[
+				"--no-verify",
+				"--delete",
+				"--",
+				`refs/heads/${this.pushedBranch(task)}`,
+			],
+			at,
+		);
 		this.tokens.delete(task);
 		return deleted.status === "failed" &&
 			/remote ref does not exist/i.test(deleted.why)
@@ -168,7 +199,7 @@ export class TaskBranches {
 		}
 		let target: Target;
 		try {
-			target = await this.target(task, remote);
+			target = await this.target(task, remote, this.git);
 		} catch (error) {
 			return { status: "failed", why: String(error) };
 		}
@@ -187,10 +218,40 @@ export class TaskBranches {
 		};
 	}
 
-	private run(task: string, args: string[]): Promise<Pushed> {
+	/**
+	 * Where `task`'s branch is pushed and fetched, signing in with a token
+	 * of its own when the App is kept; null when no remote is configured.
+	 * Read in `at`, the repository the task's branch is in. A null `task`
+	 * signs in for the project's own checkout, with a token minted afresh.
+	 */
+	async signIn(
+		task: string | null,
+		opts: BranchOptions = {},
+	): Promise<Target | null> {
+		const remote = this.config.remote;
+		return remote === null
+			? null
+			: this.target(task, remote, opts.at ?? this.git);
+	}
+
+	/**
+	 * A token of the App's for the project's own repository, as the
+	 * coordinator mints one for a worker's git; null when the App is not
+	 * kept or the remote is not on github.com. Never for any other
+	 * repository, whatever the worker asks.
+	 */
+	async mint(): Promise<InstallationToken | null> {
+		const remote = this.config.remote;
+		const url = remote === null ? null : await this.git.remoteUrl(remote);
+		const repo = url === null ? null : githubRepo(url);
+		const app = repo === null ? null : await this.apps.app();
+		return repo === null || app === null ? null : app.token(repo);
+	}
+
+	private run(task: string, args: string[], at: Git): Promise<Pushed> {
 		const ran = (this.last.get(task) ?? Promise.resolve())
 			.catch(() => {})
-			.then(() => this.runNow(task, args));
+			.then(() => this.runNow(task, args, at));
 		this.last.set(task, ran);
 		void ran.finally(() => {
 			if (this.last.get(task) === ran) {
@@ -200,22 +261,18 @@ export class TaskBranches {
 		return ran;
 	}
 
-	private async runNow(task: string, args: string[]): Promise<Pushed> {
+	private async runNow(task: string, args: string[], at: Git): Promise<Pushed> {
 		let target: Target;
 		const remote = this.config.remote;
 		if (remote === null) {
 			return { status: "off" };
 		}
 		try {
-			target = await this.target(task, remote);
+			target = await this.target(task, remote, at);
 		} catch (error) {
 			return { status: "failed", why: String(error) };
 		}
-		const pushed = await this.git.push(
-			this.git.root,
-			[target.to, ...args],
-			target.env,
-		);
+		const pushed = await at.push(at.root, [target.to, ...args], target.env);
 		return pushed.code === 0
 			? { status: "pushed", branch: this.pushedBranch(task) }
 			: { status: "failed", why: pushed.stderr || pushed.stdout };
@@ -226,26 +283,34 @@ export class TaskBranches {
 	 * when the App is kept and the remote is on github.com; the remote itself
 	 * otherwise, signing in as this machine does.
 	 */
-	private async target(task: string, remote: string): Promise<Target> {
-		const url = await this.git.remoteUrl(remote);
+	private async target(
+		task: string | null,
+		remote: string,
+		at: Git,
+	): Promise<Target> {
+		const url = await at.remoteUrl(remote);
 		const repo = url === null ? null : githubRepo(url);
 		const app = repo === null ? null : await this.apps.app();
 		if (repo === null || app === null) {
-			return { to: remote, env: {} };
+			return { to: remote, url: url ?? remote, env: {} };
 		}
-		let held = this.tokens.get(task);
+		let held = task === null ? undefined : this.tokens.get(task);
 		if (
 			held === undefined ||
 			held.expiresAt.getTime() - Date.now() < TOKEN_MARGIN_MS
 		) {
 			held = await app.token(repo);
-			this.tokens.set(task, held);
+			if (task !== null) {
+				this.tokens.set(task, held);
+			}
 		}
 		const basic = Buffer.from(`x-access-token:${held.token}`).toString(
 			"base64",
 		);
+		const https = `https://github.com/${repo.owner}/${repo.name}.git`;
 		return {
-			to: `https://github.com/${repo.owner}/${repo.name}.git`,
+			to: https,
+			url: https,
 			env: {
 				GIT_CONFIG_COUNT: "2",
 				GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
@@ -298,12 +363,14 @@ export function pushedLine(
  */
 export function pushOnMove(branches: TaskBranches, log: Logger): BranchMoves {
 	return {
-		moved: (branch) => {
+		moved: (branch, at) => {
 			const task = taskOf(branch);
 			if (task === null) {
 				return;
 			}
-			void branches.push(task, branch).then(
+			// From the tree it moved in, on its worker: a clone's branch is
+			// in no other repository.
+			void branches.push(task, branch, { at }).then(
 				(pushed) => {
 					if (pushed.status === "refused" || pushed.status === "failed") {
 						log.error(`could not push ${branch}: ${pushed.why}`);

@@ -2,6 +2,7 @@ import { relative, resolve, sep } from "node:path";
 import { type Fs, NodeFs, NodePs, type Ps } from "webappwiz/system";
 import type { Adherence } from "./adherence";
 import { Attachments, folderBytes } from "./attachments";
+import type { Checkouts } from "./checkouts";
 import type { Config } from "./config";
 import { findings } from "./findings";
 import type { Git, GitResult } from "./git";
@@ -11,12 +12,15 @@ import { type Outcomes, promptsFrom } from "./outcomes";
 import { assumptionCounts, decisions, Plans, picks } from "./plan";
 import { Systems } from "./systems";
 import { taskLog } from "./task-log";
+import { workerGit } from "./worker-git";
+import type { WorkerMachine } from "./worker-machine";
 import {
 	type DiffSize,
 	type DiscardOptions,
 	type TaskState,
 	Worktree,
 } from "./worktree";
+import { WorktreeCheckouts } from "./worktree-checkouts";
 
 const BRANCH_PREFIX = "task/";
 
@@ -51,6 +55,14 @@ export interface WorktreeServiceOptions {
 	 * judges its holder.
 	 */
 	leases?: LeaseBeat;
+	/**
+	 * How this machine checks tasks out when it is a remote worker: clones,
+	 * each record naming `machine`, this worker's id. None on the
+	 * coordinator's machine, whose tasks are worktrees of the main tree.
+	 */
+	clones?: { checkouts: Checkouts; machine: string };
+	/** The workers the coordinator reaches, which a clone elsewhere is read on. */
+	machines?: WorkerMachines;
 }
 
 export class WorktreeService {
@@ -61,6 +73,9 @@ export class WorktreeService {
 	private readonly outcomes: Outcomes | null;
 	private readonly adherence: Adherence | null;
 	private readonly leases: LeaseBeat | null;
+	private readonly worktrees: WorktreeCheckouts;
+	private readonly clones: { checkouts: Checkouts; machine: string } | null;
+	private readonly machines: WorkerMachines | null;
 	readonly ps: Ps;
 
 	// scry-ignore classes-over-function-exports: Git is the only way splates speaks git and a second implementation is not coming, so there is no interface to write; tests run the real Git against a throwaway repo rather than faking twenty methods
@@ -75,6 +90,9 @@ export class WorktreeService {
 		this.outcomes = opts.outcomes ?? null;
 		this.adherence = opts.adherence ?? null;
 		this.leases = opts.leases ?? null;
+		this.worktrees = new WorktreeCheckouts(git, this.fs);
+		this.clones = opts.clones ?? null;
+		this.machines = opts.machines ?? null;
 		this.tasksDir = `${splatesDir}/tasks`;
 		this.removedDir = `${splatesDir}/removed`;
 		this.conversationsDir = `${splatesDir}/conversations`;
@@ -204,16 +222,22 @@ export class WorktreeService {
 			corrupt = true; // a record that will not parse is still a record
 		}
 		const path = state?.worktree ?? this.pathFor(task);
-		const exists = await this.fs.exists(path);
-		const hasBranch = await this.git.branchExists(this.branchFor(task));
+		const branch = state?.branch ?? this.branchFor(task);
+		const machine =
+			(state === null ? this.clones?.machine : state.machine) ?? null;
+		const reach = this.reach(machine, path, branch);
+		const exists = await reach.exists();
+		const hasBranch = await reach.git.branchExists(branch);
 		return new Worktree(this, {
 			task,
-			branch: state?.branch ?? this.branchFor(task),
+			branch,
 			path,
 			state,
 			exists,
 			hasBranch,
 			corrupt,
+			machine,
+			git: reach.git,
 			// Only worth asking when there is nothing else left of the task.
 			removedAt:
 				state || exists || hasBranch || corrupt
@@ -243,7 +267,48 @@ export class WorktreeService {
 		{ base = this.config.trunk }: AddOptions = {},
 	): Promise<GitResult> {
 		await this.fs.mkdir(this.config.worktreeRoot);
-		return this.git.addWorktree(this.branchFor(task), this.pathFor(task), base);
+		return (this.clones?.checkouts ?? this.worktrees).add(
+			task,
+			this.branchFor(task),
+			this.pathFor(task),
+			base,
+		);
+	}
+
+	/**
+	 * Whether `worktree`'s checkout is somewhere this machine cannot work
+	 * in, though a clone of it can be made here again: on another worker,
+	 * or gone from this one.
+	 */
+	elsewhere(worktree: Worktree): boolean {
+		return (
+			this.clones !== null &&
+			worktree.state !== null &&
+			(worktree.machine !== this.clones.machine || !worktree.exists)
+		);
+	}
+
+	/**
+	 * Clones `worktree` here again from its pushed branch, as a remote
+	 * worker resumes a task whose checkout was on another worker, or was
+	 * swept from this one, and points its record at the new clone.
+	 */
+	async resume(worktree: Worktree): Promise<GitResult> {
+		if (this.clones === null) {
+			return this.worktrees.resume(worktree.task);
+		}
+		const path = this.pathFor(worktree.task);
+		await this.fs.rm(path, { recursive: true, force: true });
+		const resumed = await this.clones.checkouts.resume(
+			worktree.task,
+			worktree.branch,
+			path,
+			worktree.base,
+		);
+		if (resumed.code === 0) {
+			await worktree.save({ worktree: path, machine: this.clones.machine });
+		}
+		return resumed;
 	}
 
 	async discard(
@@ -253,24 +318,54 @@ export class WorktreeService {
 	): Promise<GitResult> {
 		// What the outcome reads off the tree and branch, before they go.
 		const ending = await this.ending(worktree, opts);
-		const removed = worktree.exists
-			? await this.git.removeWorktree(worktree.path)
-			: // Directory gone by other means: drop the metadata git still holds.
-				await this.git.pruneWorktrees();
+		const removed = await this.reach(
+			worktree.machine,
+			worktree.path,
+			worktree.branch,
+		).remove();
 		if (removed.code !== 0) {
 			return removed;
-		}
-		if (worktree.hasBranch) {
-			const deleted = await this.git.deleteBranch(worktree.branch);
-			if (deleted.code !== 0) {
-				return deleted;
-			}
 		}
 		await this.fs.rm(this.recordPath(worktree.task), { force: true });
 		await this.files(worktree.task).clear();
 		await this.rememberRemoved(worktree.task);
 		await this.recordOutcome(worktree, ended, ending, opts);
 		return removed;
+	}
+
+	/**
+	 * How to read and remove the checkout at `path`: a worktree of the main
+	 * tree for a null `machine`; else a clone, on this machine when it is
+	 * this worker, or on the worker `machine` as the coordinator holds it.
+	 * One on a worker nobody here reaches is taken to be there still, and
+	 * left for that worker's disk, a cache, to lose.
+	 */
+	private reach(machine: string | null, path: string, branch: string): Reach {
+		if (machine === null) {
+			return {
+				git: this.git,
+				exists: () => this.fs.exists(path),
+				remove: () => this.worktrees.remove(path, branch),
+			};
+		}
+		if (machine === this.clones?.machine) {
+			const { checkouts } = this.clones;
+			return {
+				git: checkouts.gitOf(path),
+				exists: () => this.fs.exists(path),
+				remove: () => checkouts.remove(path, branch),
+			};
+		}
+		const worker = this.machines?.machine(machine) ?? null;
+		return {
+			git: worker === null ? this.git.at(path) : workerGit(path, worker),
+			exists: async () =>
+				worker === null ? true : worker.exists(path).catch(() => true),
+			remove: async () => {
+				await worker?.removeCheckout(path).catch(() => {});
+				return { code: 0, stdout: "", stderr: "" };
+			},
+		};
 	}
 
 	/** Writes a task's record. A concurrent reader sees the old one or the new. */
@@ -477,4 +572,18 @@ interface Ending {
 	systems: string[];
 	/** What it landed or would have; null when there is no branch to read. */
 	size: DiffSize | null;
+}
+
+/** The workers a coordinator holds, by id. */
+export interface WorkerMachines {
+	/** The worker `id`, or null when none by that id has joined. */
+	machine(id: string): WorkerMachine | null;
+}
+
+/** Where a task's checkout is, and how to read it there. */
+interface Reach {
+	git: Git;
+	exists(): Promise<boolean>;
+	/** Takes the checkout away, and its branch with it. */
+	remove(): Promise<GitResult>;
 }

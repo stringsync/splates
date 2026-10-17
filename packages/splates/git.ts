@@ -11,10 +11,29 @@ export interface GitResult {
  * to run these themselves, since going through splates is what makes concurrent
  * work safe, so this is the only place git is spoken.
  */
+/**
+ * How a `Git` runs `git -C <cwd> <args>`, `env` added to its environment:
+ * a process on this machine by default, or one on the worker a checkout is
+ * on. Its output comes back as git wrote it, untrimmed.
+ */
+export interface GitRunner {
+	git(
+		cwd: string,
+		args: string[],
+		env?: Record<string, string>,
+	): Promise<GitResult>;
+}
+
+/** The files a `Git` reads itself rather than asking git. */
+export type GitFiles = Pick<Fs, "exists" | "read">;
+
 /** What a `Git` works through; the real ones by default. */
 export interface GitOptions {
 	ps?: Ps;
-	fs?: Fs;
+	/** Where a worktree's git directory is read, on the machine git runs on. */
+	fs?: GitFiles;
+	/** Where git runs; a process through `ps` by default. */
+	run?: GitRunner;
 }
 
 /** One commit as `Git.log` reads it. */
@@ -30,29 +49,50 @@ export interface Commit {
 }
 
 export class Git {
-	private readonly ps: Ps;
-	private readonly fs: Fs;
+	private readonly fs: GitFiles;
+	private readonly runner: GitRunner;
 
 	constructor(
 		/** The main worktree, where trunk lives. */
 		readonly root: string,
 		opts: GitOptions = {},
 	) {
-		this.ps = opts.ps ?? new NodePs();
 		this.fs = opts.fs ?? new NodeFs();
+		this.runner = opts.run ?? processGit(opts.ps ?? new NodePs());
+	}
+
+	/**
+	 * The same repository's git, run the same way, as rooted at `root`: a
+	 * clone's own, whose branches its main tree does not have.
+	 */
+	at(root: string): Git {
+		return new Git(root, { fs: this.fs, run: this.runner });
 	}
 
 	async run(cwd: string, ...args: string[]): Promise<GitResult> {
-		const { exitCode, stdout, stderr } = await this.ps.spawnCapture([
-			"git",
+		const { code, stdout, stderr } = await this.runner.git(cwd, [
 			// Background reads must not refresh the index while a merge writes it.
 			// Required locks for writes are still taken by Git.
 			"--no-optional-locks",
-			"-C",
-			cwd,
 			...args,
 		]);
-		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+		return { code, stdout: stdout.trim(), stderr: stderr.trim() };
+	}
+
+	/** `run` with `env` added to git's environment, which is how a token reaches it without landing in its argv. */
+	async runWith(
+		cwd: string,
+		args: string[],
+		env: Record<string, string>,
+	): Promise<GitResult> {
+		const { code, stdout, stderr } = await this.runner.git(
+			cwd,
+			args,
+			// It never asks for a password: one with nothing to sign in with
+			// fails instead of hanging.
+			{ GIT_TERMINAL_PROMPT: "0", ...env },
+		);
+		return { code, stdout: stdout.trim(), stderr: stderr.trim() };
 	}
 
 	async out(cwd: string, ...args: string[]): Promise<string> {
@@ -197,17 +237,14 @@ export class Git {
 			return null;
 		}
 		const raw = (cwd: string, ...args: string[]) =>
-			this.ps.spawnCapture([
-				"git",
+			this.runner.git(cwd, [
 				"--no-optional-locks",
-				"-C",
-				cwd,
 				"diff",
 				"--no-color",
 				"--no-ext-diff",
 				...args,
 			]);
-		const { exitCode, stdout } = await raw(
+		const { code: exitCode, stdout } = await raw(
 			worktree ?? this.root,
 			base.stdout,
 			// Without a worktree, the branch's tip stands in for the tree.
@@ -448,29 +485,21 @@ export class Git {
 	 * token reaches it without landing in its argv. It never asks for a
 	 * password: a push with nothing to sign in with fails instead of hanging.
 	 */
-	async push(
+	push(
 		cwd: string,
 		args: string[],
 		env: Record<string, string> = {},
 	): Promise<GitResult> {
-		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
-			["git", "-C", cwd, "push", ...args],
-			{ env: { GIT_TERMINAL_PROMPT: "0", ...env } },
-		);
-		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+		return this.runWith(cwd, ["push", ...args], env);
 	}
 
 	/** `git fetch` with `args`, signing in as `push` does. */
-	async fetch(
+	fetch(
 		cwd: string,
 		args: string[],
 		env: Record<string, string> = {},
 	): Promise<GitResult> {
-		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
-			["git", "-C", cwd, "fetch", "--quiet", "--no-tags", ...args],
-			{ env: { GIT_TERMINAL_PROMPT: "0", ...env } },
-		);
-		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+		return this.runWith(cwd, ["fetch", "--quiet", "--no-tags", ...args], env);
 	}
 
 	/**
@@ -481,11 +510,12 @@ export class Git {
 		remote: string,
 		refs: string[],
 	): Promise<Map<string, string> | null> {
-		const { exitCode, stdout } = await this.ps.spawnCapture(
-			["git", "-C", this.root, "ls-remote", remote, ...refs],
-			{ env: { GIT_TERMINAL_PROMPT: "0" } },
+		const { code, stdout } = await this.runWith(
+			this.root,
+			["ls-remote", remote, ...refs],
+			{},
 		);
-		if (exitCode !== 0) {
+		if (code !== 0) {
 			return null;
 		}
 		const heads = new Map<string, string>();
@@ -531,12 +561,19 @@ export class Git {
 		);
 	}
 
-	/** The git directory belonging to a worktree, or null if it has none. */
+	/**
+	 * The git directory belonging to a worktree, or null if it has none: the
+	 * one a linked worktree's `.git` file points at, or a clone's own `.git`.
+	 */
 	async worktreeGitDir(worktree: string): Promise<string | null> {
 		// Guessing this from the worktree's basename would be wrong: git dedupes
 		// those names, so the directory is not always named after the worktree.
-		const raw = await this.fs.read(`${worktree}/.git`).catch(() => null);
-		return raw?.trim().replace(/^gitdir:\s*/, "") ?? null;
+		const dotGit = `${worktree}/.git`;
+		if (await this.fs.exists(`${dotGit}/HEAD`)) {
+			return dotGit;
+		}
+		const raw = await this.fs.read(dotGit).catch(() => "");
+		return raw.trim().replace(/^gitdir:\s*/, "") || null;
 	}
 
 	/** Half-finished merges and rebases a resuming agent is standing in. */
@@ -563,4 +600,17 @@ export class Git {
 
 function lines(out: string): string[] {
 	return out === "" ? [] : out.split("\n");
+}
+
+/** `GitRunner` as a process through `ps`. */
+export function processGit(ps: Ps): GitRunner {
+	return {
+		git: async (cwd, args, env) => {
+			const { exitCode, stdout, stderr } = await ps.spawnCapture(
+				["git", "-C", cwd, ...args],
+				env === undefined ? undefined : { env },
+			);
+			return { code: exitCode, stdout, stderr };
+		},
+	};
 }

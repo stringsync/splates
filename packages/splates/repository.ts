@@ -4,6 +4,8 @@ import type { HeavyCap } from "webappwiz/system";
 import { FileLock, type Fs, type Lock, type Ps } from "webappwiz/system";
 import { SystemTimer } from "webappwiz/time";
 import { Adherence } from "./adherence";
+import { HOME_KEY } from "./checkouts";
+import { CloneCheckouts } from "./clone-checkouts";
 import type { Config } from "./config";
 import { Creds, type SecretStores, SYSTEM_STORES } from "./creds";
 import { fail } from "./exit";
@@ -22,6 +24,7 @@ import { loadConfig } from "./load-config";
 import { Outcomes } from "./outcomes";
 import { PLAN_FILE, Plans } from "./plan";
 import { Projects, type Reach, reaches } from "./projects";
+import { RelayApp } from "./relay-app";
 import { RelayFs } from "./relay-fs";
 import { RelayLanding } from "./relay-landing";
 import { RelayLock } from "./relay-lock";
@@ -33,7 +36,7 @@ import { Slots } from "./slots";
 import { TaskBranches } from "./task-branches";
 import { Todos } from "./todos";
 import { CoordinatorLanding, type TrunkLanding } from "./trunk-landing";
-import { WorktreeService } from "./worktree-service";
+import { type WorkerMachines, WorktreeService } from "./worktree-service";
 
 /**
  * Runs the action against the repository `cwd` sits in, or the registered
@@ -123,6 +126,8 @@ export interface RepositoryOptions {
 	creates?: boolean;
 	/** Where to look for the repository; the working directory by default. */
 	at?: string;
+	/** The workers a task cloned on one is read through, as `splates server` holds them. */
+	machines?: WorkerMachines;
 }
 
 /**
@@ -237,7 +242,7 @@ export async function openRepository(
 		log,
 		secrets = SYSTEM_STORES,
 	}: Deps & { fs: Fs; secrets?: SecretStores },
-	{ migrates = false, creates = false, at }: RepositoryOptions = {},
+	{ migrates = false, creates = false, at, machines }: RepositoryOptions = {},
 ): Promise<Repository> {
 	// Nothing below here touches `Fs` or `Ps`: this is the only place they are
 	// spoken.
@@ -286,8 +291,14 @@ export async function openRepository(
 					disk,
 				);
 
-	const git = new Git(dirname(gitDir), { ps, fs });
-	const config = await loadConfig(dirname(gitDir), { fs, git });
+	// A worker's task clone works against the project clone it was made
+	// from, as a worktree does against its main tree.
+	const root =
+		relay === null
+			? dirname(gitDir)
+			: await cloneHome(ps, cwd, dirname(gitDir));
+	const git = new Git(root, { ps, fs });
+	const config = await loadConfig(root, { fs, git });
 	const timer = new SystemTimer();
 	const lockAt = (path: string): Lock =>
 		relay === null
@@ -331,12 +342,27 @@ export async function openRepository(
 	const beats =
 		relay === null ? null : new LeaseBeat(timer, config.leaseStalenessMs);
 	const outcomes = new Outcomes(`${registry}/outcomes.jsonl`, fs);
+	// On a worker, the coordinator mints each token its git signs in with.
+	const relayed =
+		relay === null
+			? null
+			: new TaskBranches(git, config, new RelayApp(relay.url, relay.project));
 	const service = new WorktreeService(git, config, splatesDir, {
 		fs,
 		ps,
 		outcomes,
 		adherence: new Adherence(`${registry}/adherence.jsonl`, fs, null),
 		leases: beats ?? undefined,
+		...(machines === undefined ? {} : { machines }),
+		// A remote worker clones each task, the local one keeps worktrees.
+		...(relay === null || relayed === null
+			? {}
+			: {
+					clones: {
+						checkouts: new CloneCheckouts(git, config, relayed, fs),
+						machine: relay.worker ?? ps.hostname,
+					},
+				}),
 	});
 	await service.init();
 	if (migrates) {
@@ -363,7 +389,7 @@ export async function openRepository(
 		fs,
 		beats,
 		projects,
-		branches: TaskBranches.of({ git, config, creds }),
+		branches: relayed ?? TaskBranches.of({ git, config, creds }),
 		slots: Slots.ofMachine({ fs, ps, log }),
 		heavy: heavyJobsOfMachine({ fs, ps, log }),
 		creds,
@@ -390,6 +416,22 @@ export async function openRepository(
 			{ fs },
 		),
 	};
+}
+
+/**
+ * The project clone the task clone at `cwd` was made from, as its config
+ * names it, or `root`, the checkout's own, for any other.
+ */
+async function cloneHome(ps: Ps, cwd: string, root: string): Promise<string> {
+	const { exitCode, stdout } = await ps.spawnCapture([
+		"git",
+		"-C",
+		cwd,
+		"config",
+		"--get",
+		HOME_KEY,
+	]);
+	return exitCode === 0 && stdout.trim() !== "" ? stdout.trim() : root;
 }
 
 /** The URL of `root`'s `origin` remote, or null for none. */

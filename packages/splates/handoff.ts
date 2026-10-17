@@ -71,7 +71,7 @@ export async function handoff(
 		caller: relay ? here : service.ps.env("SPLATES_STARTED_BY"),
 		dispatch: { ...picked, handoff: true, relay },
 	});
-	const pushed = pushedLine(await branches.push(task, found.branch), "pushed");
+	const pushed = pushedLine(await branches.pushTree(found), "pushed");
 	log.info(
 		[
 			`${color.green("handed off")} ${task}`,

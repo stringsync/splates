@@ -38,7 +38,7 @@ import { SERVING, supervise, UNBUILT } from "./supervise";
 import { pushOnMove, TaskBranches } from "./task-branches";
 import type { TunnelProvider } from "./tunnel-provider";
 import { Watch } from "./watch";
-import { WorkerGit } from "./worker-git";
+import { workerGit } from "./worker-git";
 import { workerSocketPath } from "./worker-run";
 
 /**
@@ -220,7 +220,7 @@ export async function serveDev(
 								})
 							: [],
 					watch: new Watch(
-						new WorkerGit(git.root, worker),
+						workerGit(git.root, worker),
 						pushOnMove(TaskBranches.of({ git, config, creds }), ctx.log),
 					),
 					root: git.root,

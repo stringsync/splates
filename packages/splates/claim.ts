@@ -2,6 +2,7 @@ import { color, type Logger } from "webappwiz/log";
 import type { Fs } from "webappwiz/system";
 import { fail } from "./exit";
 import { goalOf, Plans } from "./plan";
+import type { Worktree } from "./worktree";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -13,12 +14,27 @@ export async function claim(
 	{ service, log, fs }: { service: WorktreeService; log: Logger; fs: Fs },
 	task: string,
 ): Promise<{ escalated: boolean; tookOver: boolean; goal: string }> {
-	const found = await service.find(task);
+	let found = await service.find(task);
 
 	if (found.gone) {
 		fail("not_found", `no task '${task}': run \`splates add ${task}\``, {
 			task,
 		});
+	}
+	// A remote worker picks a task up from its pushed branch, wherever its
+	// last checkout was, once nobody there drives it.
+	if (service.elsewhere(found)) {
+		refuseHeld(found);
+		const resumed = await service.resume(found);
+		if (resumed.code !== 0) {
+			fail(
+				"orphaned",
+				`could not clone '${task}' again from its pushed branch: ${resumed.stderr || resumed.stdout}`,
+				{ task },
+			);
+		}
+		found = await service.find(task);
+		await new Plans(fs).exclude(await found.git.commonDir());
 	}
 	if (found.status === "orphaned") {
 		fail(
@@ -34,13 +50,7 @@ export async function claim(
 			{ task, branch: found.branch },
 		);
 	}
-	if (found.leaseHeldByOther) {
-		fail(
-			"lease_held",
-			`'${task}' is held by pid ${found.lease?.pid} on ${found.lease?.hostname} (heartbeat ${found.lease?.heartbeatAt}): another agent is driving this tree`,
-			{ task, lease: found.lease },
-		);
-	}
+	refuseHeld(found);
 
 	// A worktree with no readable record is still work: `save` writes a fresh
 	// one rather than refusing the resume.
@@ -100,4 +110,15 @@ export async function claim(
 	// What the page shows as the task the conversation is now on.
 	const plan = (await new Plans(fs).read(worktree.path)) ?? "";
 	return { escalated, tookOver, goal: goalOf(plan) };
+}
+
+/** Refuses a task another agent holds the lease on. */
+function refuseHeld(found: Worktree): void {
+	if (found.leaseHeldByOther) {
+		fail(
+			"lease_held",
+			`'${found.task}' is held by pid ${found.lease?.pid} on ${found.lease?.hostname} (heartbeat ${found.lease?.heartbeatAt}): another agent is driving this tree`,
+			{ task: found.task, lease: found.lease },
+		);
+	}
 }

@@ -39,7 +39,7 @@ export class Watched {
 			after.tip !== null &&
 			after.tip !== before.tip
 		) {
-			this.moves?.moved(short(after.branch));
+			this.moves?.moved(short(after.branch), this.git.at(this.cwd));
 		}
 		const stashed = after.stash.filter(
 			(each) => !before.stash.includes(each),

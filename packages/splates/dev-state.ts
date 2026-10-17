@@ -3,7 +3,12 @@ import { z } from "zod";
 import type { Served } from "./dev-project";
 import { fail } from "./exit";
 import type { Projects } from "./projects";
-import { StateRequest, sameOrigin } from "./repo-state";
+import {
+	type StateProject,
+	StateRequest,
+	sameOrigin,
+	TokenRequest,
+} from "./repo-state";
 import { LandRequest } from "./trunk-landing";
 
 /** What `POST /api/land` takes. */
@@ -41,10 +46,7 @@ export class StateRoutes {
 			fail("usage", `not a call on a project's records: ${parsed.error}`, {});
 		}
 		const { project, call } = parsed.data;
-		const served =
-			"slug" in project
-				? await this.deps.named(project.slug)
-				: await this.byOrigin(project.origin);
+		const served = await this.served(project);
 		await served.format.check();
 		return Response.json({ value: (await served.answerState(call)) ?? null });
 	};
@@ -59,13 +61,38 @@ export class StateRoutes {
 			fail("usage", `not a landing: ${parsed.error}`, {});
 		}
 		const { project, request: landing } = parsed.data;
-		const served =
-			"slug" in project
-				? await this.deps.named(project.slug)
-				: await this.byOrigin(project.origin);
+		const served = await this.served(project);
 		await served.format.check();
 		return Response.json({ value: await served.land(landing) });
 	};
+
+	/**
+	 * Answers `POST /api/token`: a token for the project's own repository,
+	 * minted for a worker's git to sign in with, never kept there; null
+	 * when the project keeps no GitHub App, and the worker signs in as its
+	 * machine does.
+	 */
+	readonly token = async (request: Request): Promise<Response> => {
+		const parsed = TokenRequest.safeParse(
+			await request.json().catch(() => null),
+		);
+		if (!parsed.success) {
+			fail("usage", `not a token request: ${parsed.error}`, {});
+		}
+		const minted = await (await this.served(parsed.data.project)).mintToken();
+		return Response.json({
+			value:
+				minted === null
+					? null
+					: { token: minted.token, expiresAt: minted.expiresAt.toISOString() },
+		});
+	};
+
+	private served(project: StateProject): Promise<Served> {
+		return "slug" in project
+			? this.deps.named(project.slug)
+			: this.byOrigin(project.origin);
+	}
 
 	private async byOrigin(origin: string): Promise<Served> {
 		const wanted = sameOrigin(origin);

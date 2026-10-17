@@ -12,6 +12,7 @@ import { UnixWorkerListener } from "./unix-worker-listener";
 import { workerList } from "./worker-list";
 import { WorkerRegistry } from "./worker-registry";
 import { WorkerSlots } from "./worker-slots";
+import type { WorkerMachines } from "./worktree-service";
 
 /** What the worker the supervisor starts beside the server is known by. */
 export const LOCAL_WORKER = "local";
@@ -38,7 +39,7 @@ export interface DevWorkersOptions {
  * worker through a Unix socket only this user may open, and others through
  * `/api/workers`, and every agent waits in `slots` for room on one.
  */
-export class DevWorkers implements AsyncResource {
+export class DevWorkers implements AsyncResource, WorkerMachines {
 	readonly registry: WorkerRegistry;
 	/** The queue every project's agents take a slot on a worker from. */
 	readonly slots: WorkerSlots;
@@ -67,6 +68,11 @@ export class DevWorkers implements AsyncResource {
 		});
 		this.local = this.registry.expect(LOCAL_WORKER, "local");
 		this.slots = new WorkerSlots(this.registry, { platform });
+	}
+
+	/** The worker `id`, as a project reads a task cloned there through it. */
+	machine(id: string): RemoteWorker | null {
+		return this.registry.worker(id) ?? null;
 	}
 
 	/**

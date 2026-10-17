@@ -148,6 +148,33 @@ commits the remote lacks refuses to merge until they are pushed. Without
 `remote`, and for parts landing on a task's branch, a merge lands locally
 as before.
 
+How clone checkouts are built (todo #14). A task's checkout goes behind
+`Checkouts` (`checkouts.ts`): `WorktreeCheckouts` on the coordinator's
+machine, `CloneCheckouts` in a checkout reached through the relay, so a
+remote worker clones and the local one keeps worktrees. Before an agent
+starts on a remote worker, `materialize` mints a token and asks the worker
+(the `checkout` call) to fetch, or make, `<SPLATES_HOME>/worker/mirrors/<slug>.git`
+and a clone of trunk beside it in `worker/projects/<slug>/<repo>`, which
+names the mirror in its config (`splates.mirror`) and is answered by its
+canonical path, the agent's working directory. `splates add` there clones
+the task from the central remote with `--reference-if-able` the mirror,
+checks out `task/<task>` and makes its base a local branch, and names the
+project clone as its home (`splates.home`), which `openRepository` takes as
+the main tree. The record names the worker (`machine`, from
+`SPLATES_WORKER`, which `RemoteWorker.start` sets, else `relay.json`), and
+`Worktree.git` reads the task's branch in its clone: on the worker
+directly, on the coordinator through that worker (`workerGit` over
+`WorkerMachine.git`), so the page reads it as any task; a worker that has
+not joined is taken to hold it still. `splates claim` on a worker whose
+record points elsewhere, or whose clone is gone, clones the task again from
+`splates/<task>`. Every push runs in the tree the branch is in
+(`TaskBranches.pushTree`, and `pushOnMove` in the tree the command ran in,
+on its machine). Tokens never touch a worker's disk: the coordinator sends
+one over the socket in a git call's environment, and a command on the
+worker asks for one through the relay (`POST /api/token`, `RelayApp`),
+minted for the project's own repository alone and held in that process's
+memory. `SPLATES.md` is not in the clone it resumes into until #69 syncs it.
+
 ## Git credentials
 
 The repo and main are protected first. Workers never hold a credential that

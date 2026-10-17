@@ -75,7 +75,7 @@ export async function checkpoint(
 			);
 		}
 	}
-	const pushed = await branches.push(task, worktree.branch);
+	const pushed = await branches.pushTree(worktree);
 	log.info(
 		[
 			`${color.green("checkpointed")} ${task}`,

@@ -1,6 +1,7 @@
 import type { Resource } from "webappwiz/disposable";
 import { z } from "zod";
 import type { WorkerChannel } from "./worker-channel";
+import { ProjectCheckout } from "./worker-checkouts";
 import type { WorkerMachine } from "./worker-machine";
 import type { Json } from "./worker-protocol";
 
@@ -11,6 +12,7 @@ export const CallRequest = z.discriminatedUnion("method", [
 		method: z.literal("git"),
 		cwd: z.string(),
 		args: z.array(z.string()),
+		env: z.record(z.string(), z.string()).optional(),
 	}),
 	z.object({ id: z.number().int(), method: z.literal("processes") }),
 	z.object({ id: z.number().int(), method: z.literal("listening") }),
@@ -24,6 +26,16 @@ export const CallRequest = z.discriminatedUnion("method", [
 		method: z.literal("read"),
 		path: z.string(),
 		from: z.number().int().nonnegative(),
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("checkout"),
+		request: ProjectCheckout,
+	}),
+	z.object({
+		id: z.number().int(),
+		method: z.literal("removeCheckout"),
+		path: z.string(),
 	}),
 ]);
 export type CallRequest = z.infer<typeof CallRequest>;
@@ -81,7 +93,9 @@ export class WorkerCallHost implements Resource {
 	private async call(request: CallRequest): Promise<Json> {
 		switch (request.method) {
 			case "git":
-				return { ...(await this.machine.git(request.cwd, request.args)) };
+				return {
+					...(await this.machine.git(request.cwd, request.args, request.env)),
+				};
 			case "processes":
 				return (await this.machine.processes()).map((each) => ({ ...each }));
 			case "listening":
@@ -95,6 +109,11 @@ export class WorkerCallHost implements Resource {
 				);
 				return { size, bytes: Buffer.from(bytes).toString("base64") };
 			}
+			case "checkout":
+				return await this.machine.checkout(request.request);
+			case "removeCheckout":
+				await this.machine.removeCheckout(request.path);
+				return null;
 		}
 	}
 

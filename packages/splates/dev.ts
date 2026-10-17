@@ -85,11 +85,7 @@ export async function dev(
 		coordinator = null,
 		portsHost = null,
 		pusher,
-		open = async (root) => ({
-			ps: deps.ps,
-			log: deps.log,
-			...(await openRepository(deps, { at: root, migrates: true })),
-		}),
+		open: givenOpen,
 	}: DevOptions = {},
 ): Promise<DevServer> {
 	const { fs, ps, log, assets, projects, opened = [] } = deps;
@@ -230,6 +226,18 @@ export async function dev(
 	});
 
 	const workers = givenWorkers ?? new DevWorkers(log);
+	// Each project reads a task cloned on a worker through that worker.
+	const open =
+		givenOpen ??
+		(async (root: string) => ({
+			ps: deps.ps,
+			log: deps.log,
+			...(await openRepository(deps, {
+				at: root,
+				migrates: true,
+				machines: workers,
+			})),
+		}));
 	if (
 		(coordinator?.roots.length ?? 0) > 0 ||
 		(coordinator?.terminals.length ?? 0) > 0
@@ -627,6 +635,7 @@ export async function dev(
 				"/api/queue/:id/position": {
 					PUT: talk(guarded(workers.moveQueued)),
 				},
+				"/api/token": { POST: talk(guarded(state.token)) },
 			},
 			taskPorts,
 		),

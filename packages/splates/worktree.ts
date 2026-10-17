@@ -1,5 +1,5 @@
 import { type FileDiff, parseDiff } from "./diff";
-import type { GitResult } from "./git";
+import type { Git, GitResult } from "./git";
 import type { WorktreeService } from "./worktree-service";
 
 /**
@@ -101,6 +101,19 @@ export class Worktree {
 		return this.snapshot.removedAt;
 	}
 
+	/**
+	 * The worker whose clone the task's checkout is, or null for a worktree
+	 * of the main tree.
+	 */
+	get machine(): string | null {
+		return this.snapshot.machine;
+	}
+
+	/** The git its branch is read through: the main tree's, or its clone's. */
+	get git(): Git {
+		return this.snapshot.git;
+	}
+
 	get status(): WorktreeStatus {
 		const { state, exists, hasBranch, removedAt, corrupt } = this.snapshot;
 		if (corrupt) {
@@ -137,6 +150,9 @@ export class Worktree {
 			lease: null,
 			mergeAttempts: 0,
 			createdAt: now,
+			...(this.snapshot.machine === null
+				? {}
+				: { machine: this.snapshot.machine }),
 			...(this.snapshot.state ?? {}),
 			...changes,
 			updatedAt: now,
@@ -181,13 +197,21 @@ export class Worktree {
 		return this.service.discard(this, ended, opts);
 	}
 
+	/**
+	 * Points its base branch at `commit`, in the repository its branch is
+	 * in: the main tree's, or its clone's, whose branches are its own.
+	 */
+	moveBase(commit: string): Promise<GitResult> {
+		return this.git.run(this.git.root, "branch", "--force", this.base, commit);
+	}
+
 	/** The message of each commit it has that its base does not, oldest first. */
 	commitMessages(): Promise<string[] | null> {
-		return this.service.git.commitMessages(this.base, this.branch);
+		return this.git.commitMessages(this.base, this.branch);
 	}
 
 	commitsAhead(): Promise<number | null> {
-		return this.service.git.commitsAhead(this.base, this.branch);
+		return this.git.commitsAhead(this.base, this.branch);
 	}
 
 	/** Files and lines across all its pending work, as `diff` shows it; null without a branch. */
@@ -207,7 +231,7 @@ export class Worktree {
 	 * null without a branch.
 	 */
 	async diff(): Promise<FileDiff[] | null> {
-		const diff = await this.service.git.diff(
+		const diff = await this.git.diff(
 			this.base,
 			this.branch,
 			this.exists ? this.path : null,
@@ -223,7 +247,7 @@ export class Worktree {
 
 	/** Committed and uncommitted paths this task touches; null without a branch. */
 	changedFiles(): Promise<string[] | null> {
-		return this.service.git.changedFiles(
+		return this.git.changedFiles(
 			this.base,
 			this.branch,
 			this.exists ? this.path : null,
@@ -231,16 +255,16 @@ export class Worktree {
 	}
 
 	uncommitted(): Promise<string[]> {
-		return this.service.git.porcelain(this.path);
+		return this.git.porcelain(this.path);
 	}
 
 	/** When its branch's latest commit was made, or null without a branch. */
 	committedAt(): Promise<string | null> {
-		return this.service.git.committedAt(this.branch);
+		return this.git.committedAt(this.branch);
 	}
 
 	interruptedOps(): Promise<string[]> {
-		return this.service.git.interruptedOps(this.path);
+		return this.git.interruptedOps(this.path);
 	}
 }
 
@@ -380,6 +404,11 @@ export interface TaskState {
 	 * tasks remembered it.
 	 */
 	caller?: string;
+	/**
+	 * The worker whose clone the task's checkout is, which the coordinator
+	 * asks about it; absent for a worktree of the main tree.
+	 */
+	machine?: string;
 }
 
 /**
@@ -438,4 +467,8 @@ export interface WorktreeSnapshot {
 	hasBranch: boolean;
 	removedAt: string | null;
 	corrupt: boolean;
+	/** As `Worktree.machine`. */
+	machine: string | null;
+	/** As `Worktree.git`. */
+	git: Git;
 }

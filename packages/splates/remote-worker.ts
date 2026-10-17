@@ -6,6 +6,7 @@ import { RemoteProcess } from "./remote-process";
 import { RemotePty } from "./remote-pty";
 import { CallAnswer, type CallRequest } from "./worker-call-host";
 import type { WorkerChannel } from "./worker-channel";
+import type { ProjectCheckout } from "./worker-checkouts";
 import type { WorkerMachine, WorkerRead } from "./worker-machine";
 import type { Json } from "./worker-protocol";
 import type { WorkerSession } from "./worker-session";
@@ -65,7 +66,12 @@ export class RemoteWorker implements WorkerMachine {
 		env: Record<string, string> = {},
 	): RemoteProcess {
 		return new RemoteProcess(
-			this.session.open("process", { argv, cwd, env }),
+			// Which worker it is, so a task it clones is recorded on this one.
+			this.session.open("process", {
+				argv,
+				cwd,
+				env: { SPLATES_WORKER: this.id, ...env },
+			}),
 			this.session,
 			this.id,
 		);
@@ -124,8 +130,19 @@ export class RemoteWorker implements WorkerMachine {
 		return this.session.open("port", { port });
 	}
 
-	async git(cwd: string, args: string[]): Promise<GitResult> {
-		return GitAnswer.parse(await this.call({ method: "git", cwd, args }));
+	async git(
+		cwd: string,
+		args: string[],
+		env?: Record<string, string>,
+	): Promise<GitResult> {
+		return GitAnswer.parse(
+			await this.call({
+				method: "git",
+				cwd,
+				args,
+				...(env === undefined ? {} : { env }),
+			}),
+		);
 	}
 
 	async processes(): Promise<ProcessEntry[]> {
@@ -145,6 +162,14 @@ export class RemoteWorker implements WorkerMachine {
 			await this.call({ method: "read", path, from }),
 		);
 		return { size, bytes: new Uint8Array(Buffer.from(bytes, "base64")) };
+	}
+
+	async checkout(request: ProjectCheckout): Promise<string> {
+		return z.string().parse(await this.call({ method: "checkout", request }));
+	}
+
+	async removeCheckout(path: string): Promise<void> {
+		await this.call({ method: "removeCheckout", path });
 	}
 
 	private call(request: Call): Promise<unknown> {
