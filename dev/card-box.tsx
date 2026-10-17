@@ -28,8 +28,8 @@ type Props = Omit<BoxEditorProps, "inset"> & {
 /**
  * A card's answer box as a small composer: the text, with a plus to attach
  * and the mic at its end, and under it the files attached to it. The plus
- * and mic show only while the box has the focus, the pointer, or a take
- * writing in it, so a card of several boxes stays quiet. A paste of files
+ * and mic show only while the box has the focus or pointer. During a take,
+ * a full-width waveform and stop control replace the editor. A paste of files
  * attaches them, and `@` and `#` offer what the thread's composer does; what
  * is picked or attached is a chip in the words, as in the composer.
  */
@@ -60,7 +60,8 @@ function DictatedBox({
 			}),
 		[dictation, by],
 	);
-	return <Box {...props} box={box} />;
+	const taking = useReactive(box, (each) => each.taking, ["changed"]);
+	return <Box {...props} box={box} taking={taking} />;
 }
 
 function Box({
@@ -69,8 +70,9 @@ function Box({
 	roomy = false,
 	className,
 	box,
+	taking = false,
 	...props
-}: Props & { box: BoxDictation | null }): JSX.Element {
+}: Props & { box: BoxDictation | null; taking?: boolean }): JSX.Element {
 	const shell = useRef<HTMLDivElement>(null);
 	return (
 		<div
@@ -80,7 +82,7 @@ function Box({
 				roomy ? "rounded-xl" : "rounded-lg",
 			)}
 		>
-			<div className="relative min-h-(--suffix-height)">
+			<div hidden={taking} className="relative min-h-(--suffix-height)">
 				<BoxEditor
 					{...props}
 					files={files}
@@ -95,16 +97,21 @@ function Box({
 						className,
 					)}
 				/>
-				{box !== null ? (
-					<MicSuffix box={box} files={files} roomy={roomy} shell={shell} />
-				) : (
-					files !== null && (
-						<Suffix shown={false} roomy={roomy} shell={shell}>
-							<AttachPlus files={files} />
-						</Suffix>
-					)
+				{(box !== null || files !== null) && (
+					<Suffix roomy={roomy} shell={shell}>
+						{files !== null && <AttachPlus files={files} />}
+						{box !== null && <BoxMic box={box} />}
+					</Suffix>
 				)}
 			</div>
+			{taking && box !== null && (
+				<div
+					className={cn("flex min-w-0 items-center", roomy ? "p-1.5" : "p-1")}
+				>
+					<DictationStatus expanded />
+					<BoxMic box={box} />
+				</div>
+			)}
 			{box !== null && <DictationNotice by={box.by} />}
 		</div>
 	);
@@ -120,47 +127,17 @@ const LAST_LINE_ROOM =
 	"[&_p:last-child:not(:has(>br:last-child))]:after:inline-block [&_p:last-child:not(:has(>br:last-child))]:after:w-(--suffix-width)";
 
 /**
- * The suffix of a box with a mic: the plus, or while a take writes in the
- * box, what the mic is doing, as the composer says it there, then the mic.
- */
-function MicSuffix({
-	box,
-	files,
-	roomy,
-	shell,
-}: {
-	box: BoxDictation;
-	files: Files | null;
-	roomy: boolean;
-	shell: RefObject<HTMLDivElement | null>;
-}): JSX.Element {
-	const taking = useReactive(box, (each) => each.taking, ["changed"]);
-	return (
-		<Suffix shown={taking} roomy={roomy} shell={shell}>
-			{taking ? (
-				<DictationStatus />
-			) : (
-				files !== null && <AttachPlus files={files} />
-			)}
-			<BoxMic box={box} />
-		</Suffix>
-	);
-}
-
-/**
  * A box's buttons in its bottom corner, beside its last line however many
  * it wraps to. Its room is kept whether it shows or not, so the focus that
- * shows it moves nothing; it shows while the box has the focus or `shown`.
+ * shows it moves nothing; it shows while the box has focus or the pointer.
  * Its size goes to the box's shell, for the room the last line keeps and
  * the height of a box of one line.
  */
 function Suffix({
-	shown,
 	roomy,
 	shell,
 	children,
 }: {
-	shown: boolean;
 	roomy: boolean;
 	shell: RefObject<HTMLDivElement | null>;
 	children: ReactNode;
@@ -189,11 +166,8 @@ function Suffix({
 		<div
 			ref={ref}
 			className={cn(
-				"absolute right-0 bottom-0 flex items-center transition-opacity duration-150",
+				"absolute right-0 bottom-0 flex items-center opacity-0 transition-opacity duration-150 group-focus-within/box:opacity-100 group-hover/box:opacity-100",
 				roomy ? "p-1.5" : "p-1",
-				shown
-					? "opacity-100"
-					: "opacity-0 group-focus-within/box:opacity-100 group-hover/box:opacity-100",
 			)}
 		>
 			{children}

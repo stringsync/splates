@@ -70,7 +70,12 @@ describe("App's card answer boxes", () => {
 		);
 		expect(within(card(view, "2")).getByText("Recording")).toBeTruthy();
 		act(() => microphone.speak(" more"));
-		await waitFor(() => expect(textIn(answer(view, "2"))).toBe(""));
+		expect(within(card(view, "2")).queryByRole("textbox")).toBeNull();
+		expect(
+			within(card(view, "2")).queryByRole("button", { name: "Attach files" }),
+		).toBeNull();
+		expect(card(view, "2").querySelector(".dictation-waveform")).toBeTruthy();
+		expect(card(view, "2").querySelector(".dictation-level")).toBeTruthy();
 		expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
 			"",
 		);
@@ -106,9 +111,10 @@ describe("App's card answer boxes", () => {
 		expect(textIn(composer)).toBe("");
 	});
 
-	it("keeps an edit made mid-take, appending the full transcript", async () => {
+	it("restores the existing draft with the full transcript after dictation", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));
+		await typeIn(answer(view, "2"), "Something, edited");
 		await act(async () =>
 			fireEvent.click(
 				within(card(view, "2")).getByRole("button", { name: "Dictate" }),
@@ -117,13 +123,9 @@ describe("App's card answer boxes", () => {
 		const stop = await waitFor(() =>
 			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
 		);
-		expect(textIn(answer(view, "2"))).toBe("");
-
-		await typeIn(answer(view, "2"), "Something, edited");
+		expect(within(card(view, "2")).queryByRole("textbox")).toBeNull();
 		act(() => microphone.speak(" more"));
-		await waitFor(() =>
-			expect(textIn(answer(view, "2"))).toBe("Something, edited"),
-		);
+		expect(within(card(view, "2")).queryByRole("textbox")).toBeNull();
 
 		await act(async () => fireEvent.click(stop));
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
@@ -208,6 +210,7 @@ describe("App's card answer boxes", () => {
 		expect(view.getAllByRole("alert")).toHaveLength(1);
 	});
 
+	// scry-ignore simple-test-setup: only this test opens a review card; the other scenarios use questions
 	it("sends the files attached to a review's changes with them", async () => {
 		const view = await testing.openConversations([
 			conversation({
@@ -272,6 +275,7 @@ describe("App's card answer boxes", () => {
 		expect(testing.posted("/api/conversations/c1/prompt")).toEqual([]);
 	});
 
+	// scry-ignore simple-test-setup: only this scenario needs a todo to pick from the reference menu
 	it("writes what a # in a box picks as its reference, leaving out the composer's directives and actions", async () => {
 		const view = await testing.openConversations([asking], asking.id, {
 			todos: [todo({ id: 12, subject: "Retry the upload on a 413" })],
