@@ -5,9 +5,9 @@
 	"type": "module",
 	"module": "index.ts",
 	"dependencies": {
-		"@webappwiz/cli": "^0.0.45",
+		"@webappwiz/cli": "0.0.46",
 		"@stringsync/splates": "workspace:*",
-		"webappwiz": "^0.0.45",
+		"webappwiz": "0.0.46",
 		"zod": "^4.4.3"
 	}
 }

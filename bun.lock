@@ -9,10 +9,10 @@
         "@biomejs/biome": "^2.5.7",
         "@stringsync/splates": "workspace:*",
         "@types/bun": "1.3.14",
-        "@webappwiz/cli": "^0.0.45",
-        "@webappwiz/scry": "^0.0.45",
+        "@webappwiz/cli": "0.0.46",
+        "@webappwiz/scry": "0.0.46",
         "typescript": "^7",
-        "webappwiz": "^0.0.45",
+        "webappwiz": "0.0.46",
         "zod": "^4.4.3",
       },
     },
@@ -21,8 +21,8 @@
       "version": "0.0.45",
       "dependencies": {
         "@stringsync/splates": "workspace:*",
-        "@webappwiz/cli": "^0.0.45",
-        "webappwiz": "^0.0.45",
+        "@webappwiz/cli": "0.0.46",
+        "webappwiz": "0.0.46",
         "zod": "^4.4.3",
       },
     },
@@ -35,7 +35,7 @@
       },
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.7.0",
-        "webappwiz": "^0.0.45",
+        "webappwiz": "0.0.46",
         "zod": "^4.4.3",
       },
       "devDependencies": {
@@ -59,7 +59,7 @@
         "@types/bun": "1.3.14",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
-        "@webappwiz/react": "^0.0.45",
+        "@webappwiz/react": "0.0.46",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/addon-webgl": "^0.19.0",
         "@xterm/xterm": "^6.0.0",
@@ -445,11 +445,11 @@
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.4.0", "", {}, "sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ=="],
 
-    "@webappwiz/cli": ["@webappwiz/cli@0.0.45", "", { "dependencies": { "@ast-grep/napi": "0.45.3", "@webappwiz/scry": "^0.0.45", "webappwiz": "^0.0.45", "zod": "^4.4.3" }, "peerDependencies": { "typescript": "^7" }, "bin": { "webappwiz": "index.js" } }, "sha512-7NWp0XD+X32b51+44ibLruExCbe3n/8PneYgMiImsZgnDINHQU4t8k2vaeQV++Egwi4W22k+fL49m2pNPloXfg=="],
+    "@webappwiz/cli": ["@webappwiz/cli@0.0.46", "", { "dependencies": { "@ast-grep/napi": "0.45.3", "@webappwiz/scry": "^0.0.46", "webappwiz": "^0.0.46", "zod": "^4.4.3" }, "peerDependencies": { "typescript": "^7" }, "bin": { "webappwiz": "index.js" } }, "sha512-GyCaVwcZfjWG+xwb8ajNebOQPBYmqLXfls3xMNjtuODI+xhOCNQt5+zgBgRhqIzv2nsgGCSecHPC8dbygEVGpw=="],
 
-    "@webappwiz/react": ["@webappwiz/react@0.0.45", "", { "dependencies": { "webappwiz": "^0.0.45" }, "peerDependencies": { "react": "^19" } }, "sha512-5fA+yHh8L8rrNWpsdEoAzTC8+1R/YEymSuNCT3NGPIf6vWgrpQNSJe1MuzxGVJ693qd0TdOxQ67KSw5g7Np2+g=="],
+    "@webappwiz/react": ["@webappwiz/react@0.0.46", "", { "dependencies": { "webappwiz": "^0.0.46" }, "peerDependencies": { "react": "^19" } }, "sha512-F+Q/VPjNZo9UaiDMAF7LD2OXwV/OPEWc4/7ZBMN2wCOUEUZ9cN7yGzTm0jnS64iEl5xBYP4i7BHGThqMRFdf4g=="],
 
-    "@webappwiz/scry": ["@webappwiz/scry@0.0.45", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.45", "zod": "^4.4.3" } }, "sha512-mC0/r3MXNUvZ1Axy70f8z8cPrOjb3a2hJUQQgA5AwUBJYIONC16/zFPh/FaPQ3ryc6VuUbiz0DK7ZjbuYluIEQ=="],
+    "@webappwiz/scry": ["@webappwiz/scry@0.0.46", "", { "dependencies": { "@anthropic-ai/sdk": "^0.131.0", "@ast-grep/napi": "0.45.3", "webappwiz": "^0.0.46", "zod": "^4.4.3" } }, "sha512-RE4rFIjSw3DbviRwQ/OS/qqhokcYR80PYf9Gvc/WtJtLyrZjfTnUfQOtzgeX4lD1V5f6PT1BuKrgPBnh6MCPIw=="],
 
     "@xterm/addon-fit": ["@xterm/addon-fit@0.11.0", "", {}, "sha512-jYcgT6xtVYhnhgxh3QgYDnnNMYTcf8ElbxxFzX0IZo+vabQqSPAjC3c1wJrKB5E19VwQei89QCiZZP86DCPF7g=="],
 
@@ -755,7 +755,7 @@
 
     "vfile-message": ["vfile-message@4.0.3", "", { "dependencies": { "@types/unist": "^3.0.0", "unist-util-stringify-position": "^4.0.0" } }, "sha512-QTHzsGd1EhbZs4AsQ20JX1rC3cOlt/IWJruk893DfLRr57lcnOeMaWG4K0JrRta4mIJZKth2Au3mM3u03/JWKw=="],
 
-    "webappwiz": ["webappwiz@0.0.45", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-AT2k9esFOB8glixAAfmINcEEF4rSH8lpL6EABAtK80yeUrdVDR/jY42V+TCyrZ1V8Hb/4fEqaVvfSkTaK1O2Ng=="],
+    "webappwiz": ["webappwiz@0.0.46", "", { "dependencies": { "@standard-schema/spec": "^1.1.0" } }, "sha512-h7kmznPmHOX09SgfIcMFXs8J6UoLs4TN1wD09q2qv4fpX32sqcxSMf2HDoFFZjyn4XRaJILl+C37W6zhaS+pQw=="],
 
     "whatwg-mimetype": ["whatwg-mimetype@3.0.0", "", {}, "sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q=="],
 

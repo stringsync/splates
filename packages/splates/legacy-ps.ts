@@ -49,6 +49,10 @@ export class LegacyNamesPs implements Ps {
 		return legacy;
 	}
 
+	columns(): number | undefined {
+		return this.inner.columns();
+	}
+
 	alive(pid: number): boolean {
 		return this.inner.alive(pid);
 	}
