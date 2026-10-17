@@ -425,31 +425,3 @@
 ::view-transition-new(root) {
 	animation: none;
 }
-
-.dictation-status[data-phase="recording"] .dictation-dot {
-	animation: dictation-blink 1.2s ease-in-out infinite;
-}
-
-/* Waiting on the browser's prompt or the mic, the glyph breathes. */
-.dictate:is([data-phase="asking"], [data-phase="opening"]) svg {
-	animation: dictate-fade 1.4s ease-in-out infinite;
-}
-
-@keyframes dictate-fade {
-	50% {
-		opacity: 0.3;
-	}
-}
-
-@keyframes dictation-blink {
-	50% {
-		opacity: 0.3;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.dictation-status[data-phase="recording"] .dictation-dot,
-	.dictate:is([data-phase="asking"], [data-phase="opening"]) svg {
-		animation: none;
-	}
-}

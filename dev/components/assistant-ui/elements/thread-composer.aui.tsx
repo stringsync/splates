@@ -6,11 +6,19 @@ import {
 	type TriggerAdapter,
 	type TriggerMatcher,
 	type Unstable_DirectiveFormatter,
+	useAui,
 	useAuiState,
 } from "@assistant-ui/react";
 import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import { ArrowUpIcon, SquareIcon } from "lucide-react";
-import { type FC, useContext, useMemo, useRef, useState } from "react";
+import {
+	type FC,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { ForgetAttachment } from "#dev/attachment-chips.tsx";
 import { ComposerAddAttachment } from "#dev/components/assistant-ui/elements/attachment.aui.tsx";
 import { ThreadExtrasContext } from "#dev/components/assistant-ui/elements/thread-context.aui.ts";
@@ -44,6 +52,7 @@ import {
 	useSlashFocusesComposer,
 } from "#dev/composer-editor.tsx";
 import { DictateButton } from "#dev/dictate-button.tsx";
+import { DictationContext } from "#dev/dictation-context.ts";
 import { DictationNotice, DictationStatus } from "#dev/dictation-status.tsx";
 import { distinctNames } from "#dev/file-chip.tsx";
 import { useTouch } from "#dev/hooks/use-touch.ts";
@@ -77,9 +86,27 @@ export const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 	// A phone's keyboard has no Shift for a new line, so its Return types one
 	// and Send sends.
 	const touch = useTouch();
+	const sendDictation = useDictationSend();
+	const dictating = useAuiState((s) => s.composer.dictation != null);
 	useSlashFocusesComposer();
 	const composer = (
-		<ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
+		<ComposerPrimitive.Root
+			className="aui-composer-root relative flex w-full flex-col"
+			onKeyDownCapture={(event) => {
+				if (
+					dictating &&
+					!touch &&
+					event.key === "Enter" &&
+					!event.shiftKey &&
+					!event.nativeEvent.isComposing &&
+					(event.target as HTMLElement).isContentEditable
+				) {
+					event.preventDefault();
+					event.stopPropagation();
+					void sendDictation();
+				}
+			}}
+		>
 			<ComposerPrimitive.AttachmentDropzone
 				render={
 					// A tap in the box that misses its controls still lands in the
@@ -291,6 +318,7 @@ const ComposerAction: FC = () => {
 	);
 
 	const { controls } = useContext(ThreadExtrasContext);
+	const sendDictation = useDictationSend();
 	const dictating = useAuiState((s) => s.composer.dictation != null);
 
 	return (
@@ -313,18 +341,30 @@ const ComposerAction: FC = () => {
 				<AuiIf condition={(s) => s.thread.capabilities.dictation}>
 					<DictateButton />
 				</AuiIf>
-				{/* Always in place, empty or not, so nothing shifts; off while a
-				    take runs, since sending empties the message it writes into. */}
+				{dictating && (
+					<TooltipIconButton
+						tooltip="Send message"
+						side="bottom"
+						type="button"
+						variant="default"
+						size="icon"
+						className="aui-composer-send size-7 rounded-full pointer-coarse:size-11"
+						aria-label="Send message"
+						onClick={() => void sendDictation()}
+					>
+						<ArrowUpIcon />
+					</TooltipIconButton>
+				)}
 				<AuiIf
 					condition={(s) =>
-						!s.composer.canCancel ||
-						(s.thread.capabilities.queue && !s.composer.isEmpty) ||
-						(s.thread.voice !== undefined &&
-							s.composer.submission === undefined)
+						!dictating &&
+						(!s.composer.canCancel ||
+							(s.thread.capabilities.queue && !s.composer.isEmpty) ||
+							(s.thread.voice !== undefined &&
+								s.composer.submission === undefined))
 					}
 				>
 					<ComposerPrimitive.Send
-						disabled={dictating}
 						render={
 							<TooltipIconButton
 								tooltip="Send message"
@@ -342,6 +382,7 @@ const ComposerAction: FC = () => {
 				</AuiIf>
 				<AuiIf
 					condition={(s) =>
+						!dictating &&
 						s.composer.canCancel &&
 						!(s.thread.capabilities.queue && !s.composer.isEmpty) &&
 						(s.thread.voice === undefined ||
@@ -366,3 +407,28 @@ const ComposerAction: FC = () => {
 		</div>
 	);
 };
+
+/** Finish the take before assistant-ui sends, which otherwise cancels it. */
+function useDictationSend() {
+	const aui = useAui();
+	const dictation = useContext(DictationContext);
+	const sending = useRef(false);
+	const mounted = useRef(true);
+	useEffect(() => {
+		mounted.current = true;
+		return () => {
+			mounted.current = false;
+		};
+	}, []);
+	return async () => {
+		if (sending.current || dictation === null) return;
+		sending.current = true;
+		try {
+			await dictation.finish();
+			if (mounted.current && dictation.state.phase === "idle")
+				aui.composer.send();
+		} finally {
+			sending.current = false;
+		}
+	};
+}

@@ -11,10 +11,8 @@ export interface DictatedBox {
 
 /**
  * The page's dictation written into a plain text box, such as a card's
- * answer, as the composer writes it into its own: what is heard goes after
- * what the box held as the take began, rough until the take is done. A
- * change typed mid-take becomes what it goes after, and only words heard
- * after it are added.
+ * answer: the final transcript goes after what the box holds. A change
+ * typed mid-take becomes the text the full transcript is appended to.
  */
 export class BoxDictation
 	implements Eventful<{ changed: undefined }>, Resource
@@ -65,7 +63,6 @@ export class BoxDictation
 	typed(text: string): void {
 		if (this.session !== undefined) {
 			this.before = text;
-			this.dictation.edited();
 		}
 	}
 

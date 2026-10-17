@@ -70,9 +70,7 @@ describe("App's card answer boxes", () => {
 		);
 		expect(within(card(view, "2")).getByText("Recording")).toBeTruthy();
 		act(() => microphone.speak(" more"));
-		await waitFor(() =>
-			expect(textIn(answer(view, "2"))).toBe("something more"),
-		);
+		await waitFor(() => expect(textIn(answer(view, "2"))).toBe(""));
 		expect(textIn(view.getByRole("textbox", { name: "Message input" }))).toBe(
 			"",
 		);
@@ -83,7 +81,7 @@ describe("App's card answer boxes", () => {
 		expect(textIn(answer(view, "2"))).toBe("something more");
 	});
 
-	it("keeps an edit made mid-take, adding only what is heard after it", async () => {
+	it("keeps an edit made mid-take, appending the full transcript", async () => {
 		const view = await testing.openConversations([asking]);
 		await waitFor(() => card(view, "2"));
 		await act(async () =>
@@ -94,17 +92,17 @@ describe("App's card answer boxes", () => {
 		const stop = await waitFor(() =>
 			within(card(view, "2")).getByRole("button", { name: "Stop dictation" }),
 		);
-		await waitFor(() => expect(textIn(answer(view, "2"))).toBe("something"));
+		expect(textIn(answer(view, "2"))).toBe("");
 
 		await typeIn(answer(view, "2"), "Something, edited");
 		act(() => microphone.speak(" more"));
 		await waitFor(() =>
-			expect(textIn(answer(view, "2"))).toBe("Something, edited more"),
+			expect(textIn(answer(view, "2"))).toBe("Something, edited"),
 		);
 
 		await act(async () => fireEvent.click(stop));
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
-		expect(textIn(answer(view, "2"))).toBe("Something, edited more");
+		expect(textIn(answer(view, "2"))).toBe("Something, edited something more");
 	});
 
 	it("sends the files pasted into a box with the reply, named after the answer they go with", async () => {

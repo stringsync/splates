@@ -38,7 +38,7 @@ describe("App's composer mic", () => {
 		return { view, box };
 	};
 
-	it("writes what it hears into the message, saying it listens, then stops", async () => {
+	it("shows a waveform without partial text, then transcribes into the message", async () => {
 		const { view, box } = await composer();
 
 		await act(async () =>
@@ -48,8 +48,9 @@ describe("App's composer mic", () => {
 			view.getByRole("button", { name: "Stop dictation" }),
 		);
 		expect(view.getByText("Recording")).toBeTruthy();
+		expect(view.container.querySelector(".dictation-waveform")).not.toBeNull();
 		act(() => microphone.speak(" more"));
-		await waitFor(() => expect(textIn(box)).toBe("something more"));
+		expect(textIn(box)).toBe("");
 
 		await act(async () => fireEvent.click(stop));
 
@@ -57,7 +58,7 @@ describe("App's composer mic", () => {
 		expect(textIn(box)).toBe("something more");
 	});
 
-	it("keeps an edit made mid-take, adding only what is heard after it", async () => {
+	it("keeps an edit made mid-take, appending the complete transcript", async () => {
 		const { view, box } = await composer();
 
 		await act(async () =>
@@ -66,15 +67,15 @@ describe("App's composer mic", () => {
 		const stop = await waitFor(() =>
 			view.getByRole("button", { name: "Stop dictation" }),
 		);
-		await waitFor(() => expect(textIn(box)).toBe("something"));
+		expect(textIn(box)).toBe("");
 		await typeIn(box, "Something, edited");
 		act(() => microphone.speak(" more"));
-		await waitFor(() => expect(textIn(box)).toBe("Something, edited more"));
+		expect(textIn(box)).toBe("Something, edited");
 
 		await act(async () => fireEvent.click(stop));
 
 		await waitFor(() => expect(view.queryByText("Recording")).toBeNull());
-		expect(textIn(box)).toBe("Something, edited more");
+		expect(textIn(box)).toBe("Something, edited something more");
 	});
 
 	it("shows the mic beside Send, empty or typed in", async () => {
@@ -88,7 +89,7 @@ describe("App's composer mic", () => {
 		expect(view.getByRole("button", { name: "Send message" })).toBeTruthy();
 	});
 
-	it("keeps Send in place but off until the take ends, though it fills the message", async () => {
+	it("keeps Send available while recording", async () => {
 		const { view } = await composer();
 		const send = () =>
 			view.getByRole("button", { name: "Send message" }) as HTMLButtonElement;
@@ -100,11 +101,99 @@ describe("App's composer mic", () => {
 		);
 		act(() => microphone.speak(" more"));
 		await waitFor(() => expect(view.queryByText("Recording")).not.toBeNull());
-		expect(send().disabled).toBe(true);
+		expect(send().disabled).toBe(false);
 
 		await act(async () => fireEvent.click(stop));
 
 		await waitFor(() => expect(send().disabled).toBe(false));
+	});
+
+	// scry-ignore simple-test-setup: only this test delays the final transcript; its deferred resolver belongs to this scenario
+	it("keeps the draft while transcribing and sends once with the final text", async () => {
+		const link = new FakeDictationLink();
+		let finish: (text: string) => void = () => {};
+		link.finish = () =>
+			new Promise<string>((resolve) => {
+				finish = resolve;
+			});
+		testing.dictation?.dispose();
+		testing.dictation = new Dictation(microphone, async () => link);
+		const { view, box } = await composer();
+		await typeIn(box, "Please");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Stop dictation" })),
+		);
+		expect(textIn(box)).toBe("Please");
+		expect(view.getByText("Transcribing").className).toContain("shimmer");
+		await act(async () => {
+			fireEvent.click(view.getByRole("button", { name: "Send message" }));
+			fireEvent.click(view.getByRole("button", { name: "Send message" }));
+		});
+		expect(testing.posted(`/api/conversations/${talk.id}/prompt`)).toEqual([]);
+		await act(async () => finish("fix this."));
+		await waitFor(() =>
+			expect(
+				testing.posted(`/api/conversations/${talk.id}/prompt`),
+			).toMatchObject([
+				{ body: { text: "Please fix this.", dictated: "true" } },
+			]),
+		);
+		expect(textIn(box)).toBe("");
+	});
+
+	it("sends directly from a recording after transcription", async () => {
+		const { view } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send message" })),
+		);
+		await waitFor(() =>
+			expect(
+				testing.posted(`/api/conversations/${talk.id}/prompt`),
+			).toMatchObject([{ body: { text: "something" } }]),
+		);
+	});
+
+	// scry-ignore simple-test-setup: only this send scenario needs a link that fails on finish
+	it("keeps the draft instead of sending when transcription fails", async () => {
+		const link = new FakeDictationLink();
+		link.finish = async () => {
+			throw new Error("Transcription failed");
+		};
+		testing.dictation?.dispose();
+		testing.dictation = new Dictation(microphone, async () => link);
+		const { view, box } = await composer();
+		await typeIn(box, "Please");
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		await waitFor(() => view.getByRole("button", { name: "Stop dictation" }));
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Send message" })),
+		);
+		await waitFor(() =>
+			expect(view.getByRole("alert").textContent).toContain(
+				"Transcription failed",
+			),
+		);
+		expect(testing.posted(`/api/conversations/${talk.id}/prompt`)).toEqual([]);
+		expect(textIn(box)).toBe("Please something");
+	});
+
+	it("shows Starting immediately while the microphone is opening", async () => {
+		microphone.speak = () => {};
+		const { view } = await composer();
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
+		);
+		expect(view.getByText("Starting").className).toContain("shimmer");
 	});
 
 	it("starts and stops a take with ⌥⌘V", async () => {
@@ -130,7 +219,7 @@ describe("App's composer mic", () => {
 		expect(view.getByRole("button", { name: "Dictate" })).toBeTruthy();
 	});
 
-	it("shows a pressed mic while it listens, leaving the square to stop generating", async () => {
+	it("shows a plain stop square while it listens", async () => {
 		const { view } = await composer();
 		await act(async () =>
 			fireEvent.click(view.getByRole("button", { name: "Dictate" })),
@@ -138,8 +227,8 @@ describe("App's composer mic", () => {
 		const stop = await waitFor(() =>
 			view.getByRole("button", { name: "Stop dictation" }),
 		);
-		expect(stop.querySelector(".lucide-mic")).not.toBeNull();
-		expect(stop.querySelector(".lucide-square")).toBeNull();
+		expect(stop.querySelector(".lucide-mic")).toBeNull();
+		expect(stop.querySelector(".lucide-square")).not.toBeNull();
 	});
 
 	it("asks whether the mic hears when it hears nothing", async () => {

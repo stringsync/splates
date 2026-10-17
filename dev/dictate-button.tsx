@@ -1,7 +1,7 @@
-import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
+import { ComposerPrimitive, useAuiState } from "@assistant-ui/react";
 import { useReactive } from "@webappwiz/react";
-import { MicIcon, MicOffIcon } from "lucide-react";
-import { useContext, useEffect } from "react";
+import { MicIcon, MicOffIcon, SquareIcon } from "lucide-react";
+import { useContext } from "react";
 import { TooltipIconButton } from "#dev/components/assistant-ui/elements/tooltip-icon-button.tsx";
 import { Kbd } from "#dev/components/ui/kbd.tsx";
 import { useHeld } from "#dev/hooks/use-held.ts";
@@ -22,7 +22,7 @@ const ACTIONS: Record<DictationPhase, string> = {
 	denied: "Dictate",
 	opening: "Cancel dictation",
 	recording: "Stop dictation",
-	finishing: "Finishing dictation",
+	finishing: "Transcribing",
 	failed: "Dictate",
 };
 
@@ -31,26 +31,7 @@ const SIZE = "size-7 rounded-md pointer-coarse:size-11";
 /** Marks each composer's mic, whichever way it toggles, for ⌥⌘V to find. */
 const MIC = "aui-composer-mic";
 
-/** How the button looks in each phase of a take under way. */
-const LOOKS: Partial<Record<DictationPhase, string>> = {
-	// Waiting, on the browser's prompt or on the mic: the mic breathes.
-	asking: "text-foreground",
-	opening: "text-foreground",
-	// Hearing, then waiting on the final text: a still red mic on a red tint,
-	// never a square, which is stop-generating's alone; the blinking dot in
-	// DictationStatus says it is live.
-	recording:
-		"bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive",
-	finishing: "bg-destructive/10 text-destructive",
-};
-
-/**
- * The composer's mic, always beside Send: an icon-only mic to start, showing
- * its key while ⌥⌘ is held, and pressed on a red tint while it hears you and
- * while the final text comes. Waiting on the browser's prompt or the mic, the
- * glyph itself breathes, so nothing crowds it off center.
- * Every state also has its words, beside it in {@link DictationStatus}.
- */
+/** Start a take, or stop and transcribe it without sending the draft. */
 export function DictateButton() {
 	const dictation = useContext(DictationContext);
 	return dictation === null ? null : <Mic dictation={dictation} />;
@@ -59,7 +40,6 @@ export function DictateButton() {
 function Mic({ dictation }: { dictation: Dictation }) {
 	const phase = useReactive(dictation, (each) => each.state.phase, ["changed"]);
 	const dictating = useAuiState((state) => state.composer.dictation != null);
-	useEdits(dictation);
 	const held = useHeld();
 	const key = useHeldKey("shortcuts.dictate");
 	const shortcut = useShortcutLabel("shortcuts.dictate");
@@ -102,22 +82,21 @@ function Mic({ dictation }: { dictation: Dictation }) {
 					tooltip={tooltip(ACTIONS[phase])}
 					side="bottom"
 					type="button"
-					variant="ghost"
+					variant="default"
 					size="icon"
 					data-phase={phase}
 					aria-pressed={true}
-					aria-disabled={phase === "finishing"}
+					disabled={phase === "finishing"}
 					className={cn(
 						MIC,
 						"aui-composer-stop-dictation dictate relative transition-colors duration-200",
 						SIZE,
-						LOOKS[phase],
 					)}
 					aria-label={ACTIONS[phase]}
 				/>
 			}
 		>
-			<MicIcon className="size-4 pointer-coarse:size-5" />
+			<SquareIcon className="fill-current" />
 		</ComposerPrimitive.StopDictation>
 	);
 }
@@ -144,48 +123,31 @@ export function BoxMic({ box }: { box: BoxDictation }) {
 			tooltip={shortcut === null ? action : `${action} (${shortcut})`}
 			side="bottom"
 			type="button"
-			variant="ghost"
+			variant={live ? "default" : "ghost"}
 			size="icon"
 			data-phase={live ? phase : undefined}
 			aria-pressed={live}
-			aria-disabled={phase === "finishing"}
+			disabled={phase === "finishing"}
 			aria-label={action}
 			onClick={() => (live ? box.stop() : box.start())}
 			className={cn(
 				MIC,
 				live
-					? cn("dictate relative transition-colors duration-200", LOOKS[phase])
+					? "dictate relative transition-colors duration-200"
 					: "text-muted-foreground hover:text-foreground",
 				SIZE,
 			)}
 		>
 			{held && key !== null && !live ? (
 				<Kbd aria-hidden>{key}</Kbd>
+			) : live ? (
+				<SquareIcon className="fill-current" />
 			) : phase === "denied" ? (
 				<MicOffIcon className="size-4 pointer-coarse:size-5" />
 			) : (
 				<MicIcon className="size-4 pointer-coarse:size-5" />
 			)}
 		</TooltipIconButton>
-	);
-}
-
-/**
- * Tells the take under way when the person edits its draft. The composer
- * takes the edited draft as the base the take writes after, dropping the
- * rough text it showed, so a take whose rough text is gone was edited.
- */
-function useEdits(dictation: Dictation): void {
-	const aui = useAui();
-	useEffect(
-		() =>
-			aui.subscribe(() => {
-				const take = aui.composer.getState().dictation;
-				if (take != null && take.transcript === undefined) {
-					dictation.edited();
-				}
-			}),
-		[aui, dictation],
 	);
 }
 

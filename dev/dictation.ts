@@ -41,6 +41,8 @@ export interface DictationState {
 	cred: string | undefined;
 	/** How loud the input is, from 0 to 1. */
 	level: number;
+	/** Recent input levels, oldest first, for the scrolling waveform. */
+	levels: readonly number[];
 	/** Whether the open mic has heard nothing for {@link SILENCE}. */
 	silent: boolean;
 }
@@ -50,13 +52,13 @@ const IDLE: DictationState = {
 	error: undefined,
 	cred: undefined,
 	level: 0,
+	levels: [],
 	silent: false,
 };
 
 /**
  * The composer's dictation: records a take from the mic, streams it to arbor
- * dev to be transcribed as it is spoken, and hands the text to the composer
- * through assistant-ui's {@link DictationAdapter} as it comes.
+ * dev, and hands the final transcript to the composer only after stopping.
  */
 export class Dictation
 	implements DictationAdapter, Eventful<{ changed: undefined }>, Resource
@@ -94,12 +96,16 @@ export class Dictation
 	listen(by = COMPOSER): DictationSession {
 		this.take?.session.ended("cancelled", undefined);
 		this.take?.dispose();
+		this.finishing = undefined;
 		const sink = new BufferedSink();
 		const recording = this.microphone.start(sink);
 		const link = this.open();
 		const take = new TakeUnderWay(
 			new DictationSession({
-				stop: () => (this.take === take ? this.stop() : Promise.resolve()),
+				stop: () =>
+					this.take === take
+						? this.finish()
+						: (this.finishing ?? Promise.resolve()),
 				cancel: () => {
 					if (this.take === take) {
 						this.cancel();
@@ -127,7 +133,7 @@ export class Dictation
 			each.events.on("tick", (level) => this.tick(take, level));
 			each.events.on("interrupted", (why) => {
 				if (this.take === take) {
-					void this.stop(`Stopped: ${why}.`);
+					void this.finish(`Stopped: ${why}.`);
 				}
 			});
 		}, ignore);
@@ -140,7 +146,6 @@ export class Dictation
 			sink.attach(each);
 			each.events.on("heard", (text) => {
 				take.text = text;
-				take.session.heard(text);
 			});
 			// The take ends either way: on a break the server says why, on a
 			// drop the text heard so far stays in the draft.
@@ -148,7 +153,7 @@ export class Dictation
 				each.events.on(event, () => {
 					if (this.take === take) {
 						take.broken = true;
-						void this.stop();
+						void this.finish();
 					}
 				});
 			}
@@ -166,10 +171,20 @@ export class Dictation
 		return take.session;
 	}
 
-	/** Tells the take under way that the person edited the draft it writes in. */
-	edited(): void {
-		this.take?.session.edited();
+	/** Stops audio and waits for the final text, including a stop already under way. */
+	finish(notice?: string): Promise<void> {
+		if (this.finishing === undefined) {
+			const pending = this.stop(notice).finally(() => {
+				if (this.finishing === pending) {
+					this.finishing = undefined;
+				}
+			});
+			this.finishing = pending;
+		}
+		return this.finishing;
 	}
+
+	private finishing: Promise<void> | undefined;
 
 	/** Puts away what the last take said went wrong. */
 	dismiss(): void {
@@ -179,6 +194,7 @@ export class Dictation
 	}
 
 	dispose(): void {
+		this.take?.session.ended("cancelled", undefined);
 		this.take?.dispose();
 		this.take = undefined;
 		this.dispatcher.dispose();
@@ -203,6 +219,10 @@ export class Dictation
 		}
 		this.set({
 			level: level ?? 0,
+			levels:
+				level === null
+					? this.current.levels
+					: [...this.current.levels.slice(-39), level],
 			silent: take.quiet.isGreaterThanOrEqual(SILENCE),
 		});
 	}
@@ -214,7 +234,6 @@ export class Dictation
 	 */
 	private async stop(notice?: string): Promise<void> {
 		const { take } = this;
-		this.take = undefined;
 		if (take === undefined) {
 			return;
 		}
@@ -225,6 +244,7 @@ export class Dictation
 		const { link } = take;
 		if (link === undefined || (!take.arriving && !take.broken)) {
 			// Stopped before any audio came: there is nothing to finish.
+			this.take = undefined;
 			take.dispose();
 			take.session.ended("cancelled", undefined);
 			this.set({ ...IDLE, error: notice });
@@ -233,9 +253,17 @@ export class Dictation
 		this.set({ phase: "finishing", level: 0, silent: false, error: notice });
 		try {
 			const text = await link.finish();
+			if (this.take !== take) {
+				return;
+			}
+			this.take = undefined;
 			take.session.ended("stopped", text);
 			this.set({ ...IDLE, error: notice });
 		} catch (error) {
+			if (this.take !== take) {
+				return;
+			}
+			this.take = undefined;
 			const failure = failureOf(error);
 			take.session.ended("error", take.text);
 			this.set({

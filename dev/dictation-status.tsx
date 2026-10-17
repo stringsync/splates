@@ -3,6 +3,7 @@ import { XIcon } from "lucide-react";
 import { useContext, useMemo } from "react";
 import { Device } from "webappwiz/browser";
 import { Button } from "#dev/components/ui/button.tsx";
+import { cn } from "#dev/lib/utils.ts";
 import { COMPOSER, type Dictation, type DictationPhase } from "./dictation";
 import { DictationContext } from "./dictation-context";
 
@@ -11,10 +12,10 @@ import { DictationContext } from "./dictation-context";
  * alone, each a word or two so it fits beside the controls on a phone.
  */
 const WORDS: Partial<Record<DictationPhase, string>> = {
-	asking: "Allow mic",
-	opening: "Starting…",
+	asking: "Starting",
+	opening: "Starting",
 	recording: "Recording",
-	finishing: "Finishing…",
+	finishing: "Transcribing",
 };
 
 /** What the status says while the open mic hears nothing. */
@@ -34,6 +35,9 @@ function Status({ dictation }: { dictation: Dictation }) {
 	const silent = useReactive(dictation, (each) => each.state.silent, [
 		"changed",
 	]);
+	const levels = useReactive(dictation, (each) => each.state.levels, [
+		"changed",
+	]);
 	const words = WORDS[phase];
 	if (words === undefined) {
 		return null;
@@ -44,12 +48,34 @@ function Status({ dictation }: { dictation: Dictation }) {
 			data-phase={phase}
 		>
 			{phase === "recording" && (
-				<span
+				<svg
 					aria-hidden="true"
-					className="dictation-dot bg-destructive size-2 shrink-0 rounded-full"
-				/>
+					className="dictation-waveform h-7 w-32 shrink min-w-0"
+					viewBox="0 0 160 28"
+				>
+					<path
+						d={levels
+							.map((level, index) => {
+								const position = 160 - (levels.length - index) * 4 + 2;
+								const height = Math.max(1, Math.sqrt(level) * 12);
+								return `M${position},${14 - height}V${14 + height}`;
+							})
+							.join(" ")}
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+					/>
+				</svg>
 			)}
-			<span aria-live="polite" className="truncate">
+			<span
+				aria-live="polite"
+				className={cn(
+					"truncate",
+					phase === "recording" && !silent
+						? "sr-only"
+						: phase !== "recording" && "shimmer motion-reduce:animate-none",
+				)}
+			>
 				{phase === "recording" && silent ? (
 					<span className="text-amber-600 dark:text-amber-400">{SILENT}</span>
 				) : (

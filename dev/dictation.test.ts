@@ -73,33 +73,50 @@ describe("Dictation", () => {
 		expect(microphone.cues).toEqual([]);
 	});
 
-	it("gives the composer the text as it is heard, then the final text", async () => {
+	it("withholds partial transcripts and gives the composer only the final text", async () => {
 		const { session, said } = await record();
 		microphone.speak(" more");
+		expect(said).toEqual([]);
 		await session.stop();
 
-		expect(said).toEqual([
-			{ transcript: "something", isFinal: false },
-			{ transcript: "something more", isFinal: false },
-			{ transcript: "something more", isFinal: true },
-		]);
+		expect(said).toEqual([{ transcript: "something more", isFinal: true }]);
 		expect(session.status).toEqual({ type: "ended", reason: "stopped" });
 		expect(dictation.state.phase).toBe("idle");
 		expect(microphone.open).toBe(false);
 	});
 
-	it("gives only the words after an edit, though the final text rewords those before", async () => {
+	// scry-ignore simple-test-setup: only this test delays the final transcript; its deferred resolver belongs to this scenario
+	it("waits for the same final transcript when stopped twice", async () => {
 		const { session, said } = await record();
-		microphone.speak(" more");
-		dictation.edited();
-		microphone.speak(" words");
-		link.text = "Something, more words.";
-		await session.stop();
+		let finish: (text: string) => void = () => {};
+		link.finish = () =>
+			new Promise<string>((resolve) => {
+				finish = resolve;
+			});
+		const first = session.stop();
+		const second = dictation.finish();
+		expect(dictation.state.phase).toBe("finishing");
+		expect(said).toEqual([]);
+		finish("Final words.");
+		await Promise.all([first, second]);
+		expect(said).toEqual([{ transcript: "Final words.", isFinal: true }]);
+	});
 
-		expect(said.slice(2)).toEqual([
-			{ transcript: "words", isFinal: false },
-			{ transcript: "words.", isFinal: true },
-		]);
+	// scry-ignore simple-test-setup: this scenario alone replaces a take while its transcript is pending
+	it("ignores a late transcript after a new recording replaces it", async () => {
+		const { session, said } = await record();
+		let finish: (text: string) => void = () => {};
+		link.finish = () =>
+			new Promise<string>((resolve) => {
+				finish = resolve;
+			});
+		const pending = session.stop();
+		dictation.listen();
+		finish("stale words");
+		await pending;
+		expect(said).toEqual([]);
+		expect(session.status).toEqual({ type: "ended", reason: "cancelled" });
+		expect(dictation.state.phase).not.toBe("idle");
 	});
 
 	it("stays opening while the mic sends no audio", async () => {
