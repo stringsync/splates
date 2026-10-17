@@ -116,8 +116,8 @@ export class Dispatch {
 		}
 		this.feed.put(started);
 		const sending = this.feed.send(started.id, text);
-		void promptConversation(started.id, text).catch((error: unknown) =>
-			this.feed.refused(started.id, sending, error),
+		void promptConversation(started.id, text, [], false, sending.id).catch(
+			(error: unknown) => this.feed.refused(started.id, sending, error),
 		);
 		return started.id;
 	}

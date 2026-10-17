@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { CounterIdProvider } from "webappwiz/id";
 import type { ConversationState } from "../conversations";
 import { ConversationFeed } from "./conversation-feed";
 import { conversation, message } from "./testing";
@@ -42,7 +43,7 @@ describe("ConversationFeed", () => {
 			}
 			close(): void {}
 		} as unknown as typeof EventSource;
-		feed = new ConversationFeed();
+		feed = new ConversationFeed(undefined, undefined, new CounterIdProvider());
 	});
 
 	afterEach(() => {
@@ -77,13 +78,56 @@ describe("ConversationFeed", () => {
 		expect(feed.conversations[0]?.messages).toEqual([
 			expect.objectContaining({ queued: true }),
 		]);
-		say({ ...idle, status: "running", messages: [message("user", "second")] });
+		say({
+			...idle,
+			status: "running",
+			messages: [{ ...message("user", "second"), id: second.id }],
+		});
 
 		expect(feed.sending.has("c1")).toBe(false);
 		expect(feed.conversations[0]?.messages).toHaveLength(1);
 		expect(second.queued).toBe(true);
 		feed.take("c1", refused);
 		expect(feed.unsent.has("c1")).toBe(false);
+	});
+
+	it("keeps a message on its way while the server records one told, and drops it once its own copy comes", async () => {
+		const running = conversation({
+			status: "running",
+			messages: [message("user", "go")],
+		});
+		feed.start();
+		await list([running]);
+		const sent = feed.send("c1", "and the logout");
+		const told = {
+			...message("user", "carry on"),
+			told: "c2",
+			queued: true as const,
+		};
+
+		say({ ...running, messages: [...running.messages, told] });
+
+		expect(feed.conversations[0]?.messages).toEqual([
+			message("user", "go"),
+			told,
+			expect.objectContaining({ id: sent.id, queued: true }),
+		]);
+		expect(feed.unrecorded("c1")).toBe(1);
+
+		const recorded = {
+			...message("user", "and the logout"),
+			queued: true as const,
+			id: sent.id,
+		};
+		say({ ...running, messages: [...running.messages, told, recorded] });
+
+		expect(feed.sending.has("c1")).toBe(false);
+		expect(feed.unrecorded("c1")).toBe(0);
+		expect(feed.conversations[0]?.messages).toEqual([
+			message("user", "go"),
+			told,
+			recorded,
+		]);
 	});
 
 	it("keeps what streamed while it read every conversation again", async () => {

@@ -204,13 +204,16 @@ export async function body(request: Request): Promise<Record<string, unknown>> {
 		: {};
 }
 
-/** The files a form carries under `file`, as bytes. */
-export async function uploads(form: FormData): Promise<Attachment[]> {
-	const files: Attachment[] = [];
+/** The files a form carries under `file`, as bytes, each with its type. */
+export async function uploads(
+	form: FormData,
+): Promise<(Attachment & { mimeType: string })[]> {
+	const files: (Attachment & { mimeType: string })[] = [];
 	for (const file of form.getAll("file")) {
 		if (file instanceof File) {
 			files.push({
 				name: file.name || "pasted",
+				mimeType: file.type,
 				bytes: new Uint8Array(await file.arrayBuffer()),
 			});
 		}

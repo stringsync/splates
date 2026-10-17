@@ -33,6 +33,8 @@ export interface PromptOptions {
 	told?: string;
 	/** Whether the person said it into the mic rather than typed it. */
 	dictated?: boolean;
+	/** The id the page gave it, so the page knows its own copy when it comes back. */
+	id?: string;
 	/**
 	 * Whether it stops the running turn and follows it, rather than joining
 	 * it, for a change of plans.
@@ -41,7 +43,7 @@ export interface PromptOptions {
 }
 
 /** What a message's options mark it with, in the log and the thread alike. */
-type Marks = Pick<Message, "told" | "dictated">;
+type Marks = Pick<Message, "told" | "dictated" | "id">;
 
 /**
  * The turns of a conversation: what the person says goes to the agent as a
@@ -74,7 +76,7 @@ export class ConversationTurns {
 		text: string,
 		files: Upload[] = [],
 		from?: Device,
-		{ told, dictated = false, stop = false }: PromptOptions = {},
+		{ told, dictated = false, stop = false, id }: PromptOptions = {},
 	): Promise<void> {
 		const { host, connection } = this;
 		const { state } = host;
@@ -137,6 +139,7 @@ export class ConversationTurns {
 		const marks: Marks = {
 			...(told === undefined ? {} : { told }),
 			...(dictated ? { dictated: true } : {}),
+			...(id === undefined ? {} : { id }),
 		};
 		if (state.status === "running") {
 			if (stop) {

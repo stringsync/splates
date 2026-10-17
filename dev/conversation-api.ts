@@ -74,9 +74,14 @@ export async function promptConversation(
 	files: File[] = [],
 	/** Whether the person said it into the mic, which the agent is told. */
 	dictated = false,
+	/** The id the feed gave the copy it shows, which the server keeps on its own. */
+	sent?: string,
 ): Promise<void> {
 	const form = new FormData();
 	form.set("text", text);
+	if (sent !== undefined) {
+		form.set("id", sent);
+	}
 	if (dictated) {
 		form.set("dictated", "true");
 	}

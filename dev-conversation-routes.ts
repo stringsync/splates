@@ -21,6 +21,7 @@ import {
 	fileResponse,
 	MEDIA_TYPES,
 	refuse,
+	uploads,
 } from "./dev-http";
 import type { Project } from "./dev-project";
 import { Everywhere } from "./everywhere";
@@ -229,21 +230,15 @@ export class ConversationRoutes {
 		const conversation = await this.conversationAt(request);
 		await this.#refuseHandedOut(conversation);
 		const form = await request.formData();
-		const files: Upload[] = [];
-		for (const file of form.getAll("file")) {
-			if (file instanceof File) {
-				files.push({
-					title: file.name || "pasted",
-					mimeType: file.type,
-					bytes: new Uint8Array(await file.arrayBuffer()),
-				});
-			}
-		}
+		const files: Upload[] = (await uploads(form)).map(
+			({ name, mimeType, bytes }) => ({ title: name, mimeType, bytes }),
+		);
 		const from = DEVICES.find(
 			(each) => each === request.headers.get(FROM_HEADER),
 		);
 		await conversation.prompt(String(form.get("text") ?? ""), files, from, {
 			dictated: form.get("dictated") === "true",
+			id: form.get("id")?.toString() || undefined,
 		});
 		return Response.json(conversation.state);
 	};

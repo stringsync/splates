@@ -97,7 +97,12 @@ describe("App's sending messages", () => {
 			conversation({
 				id: "c9",
 				status: "running",
-				messages: [message("user", "fix the login")],
+				messages: [
+					{
+						...message("user", "fix the login"),
+						id: testing.sentId("c9", "fix the login"),
+					},
+				],
 			}),
 		);
 
@@ -140,6 +145,7 @@ describe("App's sending messages", () => {
 					{
 						...message("user", ""),
 						parts: [{ type: "image", name: "ab12.png", mimeType: "image/png" }],
+						id: testing.sentId("c9", "[Image 1]"),
 					},
 				],
 			}),
@@ -174,7 +180,13 @@ describe("App's sending messages", () => {
 			conversation({
 				title: "Login",
 				status: "running",
-				messages: [...said, message("user", "and the logout")],
+				messages: [
+					...said,
+					{
+						...message("user", "and the logout"),
+						id: testing.sentId("c1", "and the logout"),
+					},
+				],
 			}),
 		);
 
@@ -218,8 +230,15 @@ describe("App's sending messages", () => {
 				status: "running",
 				messages: [
 					...said,
-					message("user", "and the logout"),
-					{ ...message("user", "and the signup"), queued: true },
+					{
+						...message("user", "and the logout"),
+						id: testing.sentId("c1", "and the logout"),
+					},
+					{
+						...message("user", "and the signup"),
+						queued: true,
+						id: testing.sentId("c1", "and the signup"),
+					},
 				],
 			}),
 		);
@@ -227,6 +246,52 @@ describe("App's sending messages", () => {
 		await waitFor(() => expect(discard.disabled).toBe(false));
 		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 		expect(within(thread).getAllByText("and the signup")).toHaveLength(1);
+	});
+
+	it("keeps showing a message on its way while the server records one told by another conversation, then shows it once", async () => {
+		const said = [message("user", "fix the login"), message("agent", "Done.")];
+		const view = await testing.openConversations([
+			conversation({ title: "Login", status: "stopped", messages: said }),
+		]);
+		const thread = view.getByRole("region", { name: "Login" });
+		const box = view.getByRole("textbox", { name: "Message input" });
+		await typeIn(box, "and the logout");
+		await act(async () => fireEvent.keyDown(box, { key: "Enter" }));
+		await waitFor(() =>
+			expect(within(thread).getAllByText("and the logout")).toHaveLength(1),
+		);
+		const told = { ...message("user", "carry on"), told: "c2" };
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [...said, told],
+			}),
+		);
+
+		await waitFor(() =>
+			expect(within(thread).getAllByText("carry on")).toHaveLength(1),
+		);
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
+
+		await testing.say(
+			conversation({
+				title: "Login",
+				status: "running",
+				messages: [
+					...said,
+					told,
+					{
+						...message("user", "and the logout"),
+						queued: true,
+						id: testing.sentId("c1", "and the logout"),
+					},
+				],
+			}),
+		);
+
+		expect(within(thread).getAllByText("and the logout")).toHaveLength(1);
 	});
 
 	it("shows a message to an idle conversation at once, with its reply's place, rather than once the server says it back", async () => {
@@ -253,7 +318,13 @@ describe("App's sending messages", () => {
 			conversation({
 				title: "Login",
 				status: "running",
-				messages: [...said, message("user", "and the logout")],
+				messages: [
+					...said,
+					{
+						...message("user", "and the logout"),
+						id: testing.sentId("c1", "and the logout"),
+					},
+				],
 			}),
 		);
 

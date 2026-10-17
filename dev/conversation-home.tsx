@@ -149,6 +149,7 @@ export function useNewConversation({
 				noted(text, files),
 				files,
 				spoken,
+				sending?.id,
 			).catch((error: unknown) => {
 				// The conversation is open by now: what was not sent stays in its
 				// thread, to send again or edit there.

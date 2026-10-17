@@ -1,5 +1,6 @@
 import type { Resource } from "webappwiz/disposable";
 import { Dispatcher, type Eventful } from "webappwiz/events";
+import { type IdProvider, UuidProvider } from "webappwiz/id";
 import {
 	SystemTimer,
 	SystemWallClock,
@@ -21,6 +22,11 @@ export type ConversationFeedEvents = { changed: undefined };
 
 /** A message on its way: its words, and its files read from the page's own copies. */
 export interface Sending {
+	/**
+	 * The page's id for it, sent with it for the server to keep on its own
+	 * copy, which is how the page knows that copy when it comes back.
+	 */
+	id: string;
 	text: string;
 	images: Image[];
 	files: Attached[];
@@ -39,29 +45,6 @@ export interface Unsent {
 	why: string;
 }
 
-/** An agent a conversation can be started with. */
-export interface AgentChoice {
-	id: string;
-	name: string;
-	/** The models the roster lists for it, by the ids its Model setting takes. */
-	models?: { id: string; name: string }[];
-	/**
-	 * What its sessions last offered, from any project, each where it was
-	 * left; none until it has had one on this machine.
-	 */
-	settings: Setting[];
-	/**
-	 * The plan's windows of use, as it last said in any project; none until
-	 * it has, and never from an agent that does not say.
-	 */
-	limits: Limit[];
-}
-
-/** What to call agent `id`: its name, or its id once it is off the roster. */
-export function agentName(agents: AgentChoice[], id: string): string {
-	return agents.find((agent) => agent.id === id)?.name ?? id;
-}
-
 /**
  * The page's copy of every conversation, each replaced whole as the server
  * streams it. `available` stays false when the server holds no
@@ -77,11 +60,8 @@ export class ConversationFeed
 	agents: AgentChoice[] = [];
 	/** Newest first, each with the messages on their way (see `send`) as said. */
 	conversations: ConversationState[] = [];
-	/**
-	 * Each conversation's messages on their way, by id, in the order sent,
-	 * with how many the person had said there when they sent the first.
-	 */
-	readonly sending = new Map<string, { messages: Sending[]; after: number }>();
+	/** Each conversation's messages on their way, by id, in the order sent. */
+	readonly sending = new Map<string, Sending[]>();
 	/** Each conversation's refused messages, in the order refused, replaced whole as they change. */
 	readonly unsent = new Map<string, readonly Unsent[]>();
 
@@ -96,10 +76,14 @@ export class ConversationFeed
 	private readonly changedAt = new Map<string, number>();
 	private stream: LiveStream | null = null;
 
-	/** `timer` and `wall` are what the thread waits and reads the date by. */
+	/**
+	 * `timer` and `wall` are what the thread waits and reads the date by;
+	 * `ids` names each message on its way.
+	 */
 	constructor(
 		readonly timer: Timer = new SystemTimer(),
 		readonly wall: WallClock = new SystemWallClock(),
+		private readonly ids: IdProvider = new UuidProvider(),
 	) {}
 
 	start(): void {
@@ -114,7 +98,7 @@ export class ConversationFeed
 	dispose(): void {
 		this.stream?.dispose();
 		this.stream = null;
-		for (const { messages } of this.sending.values()) {
+		for (const messages of this.sending.values()) {
 			messages.forEach(forget);
 		}
 		this.sending.clear();
@@ -150,8 +134,8 @@ export class ConversationFeed
 	 * meanwhile. Said while a turn runs, or behind another on its way, it shows
 	 * as queued, as the server records it unless the agent takes it into the
 	 * turn, when its echo moves it into the thread. Each goes once the server
-	 * has recorded as many more messages from the person there, or `refused`
-	 * keeps it as unsent. The files show from the page's own, as the server
+	 * has recorded a message with its id, whatever else it records meanwhile,
+	 * or `refused` keeps it as unsent. The files show from the page's own, as the server
 	 * has yet to keep them. `typed` is the text as the person wrote it, before
 	 * the notes on its images were added.
 	 */
@@ -171,6 +155,7 @@ export class ConversationFeed
 		const held = this.recorded.find((each) => each.id === id);
 		const sending = this.sending.get(id);
 		const message = {
+			id: this.ids.next(),
 			text,
 			images: kept.filter((each) => SEEN.includes(each.mimeType)),
 			files: kept.filter((each) => !SEEN.includes(each.mimeType)),
@@ -180,9 +165,9 @@ export class ConversationFeed
 			dictated,
 		};
 		if (sending === undefined) {
-			this.sending.set(id, { messages: [message], after: said(held) });
+			this.sending.set(id, [message]);
 		} else {
-			sending.messages.push(message);
+			sending.push(message);
 		}
 		this.show(this.recorded);
 		return message;
@@ -193,14 +178,7 @@ export class ConversationFeed
 	 * the last ones: the server has nothing of them to take back yet.
 	 */
 	unrecorded(id: string): number {
-		const sending = this.sending.get(id);
-		if (sending === undefined) {
-			return 0;
-		}
-		const held = this.recorded.find((each) => each.id === id);
-		return sending.messages
-			.slice(Math.max(0, said(held) - sending.after))
-			.filter((each) => each.queued).length;
+		return (this.sending.get(id) ?? []).filter((each) => each.queued).length;
 	}
 
 	/**
@@ -238,12 +216,12 @@ export class ConversationFeed
 	/** Takes `message` off conversation `id`'s on their way; false when it was not. */
 	private withdraw(id: string, message: Sending): boolean {
 		const sending = this.sending.get(id);
-		const at = sending?.messages.indexOf(message) ?? -1;
+		const at = sending?.indexOf(message) ?? -1;
 		if (sending === undefined || at === -1) {
 			return false;
 		}
-		sending.messages.splice(at, 1);
-		if (sending.messages.length === 0) {
+		sending.splice(at, 1);
+		if (sending.length === 0) {
 			this.sending.delete(id);
 		}
 		return true;
@@ -256,19 +234,17 @@ export class ConversationFeed
 			if (sending === undefined) {
 				return each;
 			}
-			const recorded = said(each) - sending.after;
-			if (recorded >= sending.messages.length) {
+			// Its own copies by id, so what others said meanwhile, as an
+			// `arbor tell` or another device, never stands in for one.
+			const kept = new Set(each.messages.map((message) => message.id));
+			const left = sending.filter((message) => !kept.has(message.id));
+			sending.filter((message) => kept.has(message.id)).forEach(forget);
+			if (left.length === 0) {
 				this.sending.delete(each.id);
-				sending.messages.forEach(forget);
 				return each;
 			}
-			return {
-				...each,
-				messages: [
-					...each.messages,
-					...sending.messages.slice(Math.max(0, recorded)).map(messageOf),
-				],
-			};
+			this.sending.set(each.id, left);
+			return { ...each, messages: [...each.messages, ...left.map(messageOf)] };
 		});
 		this.dispatcher.dispatch("changed");
 	}
@@ -332,9 +308,33 @@ export class ConversationFeed
 	}
 }
 
+/** An agent a conversation can be started with. */
+export interface AgentChoice {
+	id: string;
+	name: string;
+	/** The models the roster lists for it, by the ids its Model setting takes. */
+	models?: { id: string; name: string }[];
+	/**
+	 * What its sessions last offered, from any project, each where it was
+	 * left; none until it has had one on this machine.
+	 */
+	settings: Setting[];
+	/**
+	 * The plan's windows of use, as it last said in any project; none until
+	 * it has, and never from an agent that does not say.
+	 */
+	limits: Limit[];
+}
+
+/** What to call agent `id`: its name, or its id once it is off the roster. */
+export function agentName(agents: AgentChoice[], id: string): string {
+	return agents.find((agent) => agent.id === id)?.name ?? id;
+}
+
 /** `message` as the thread shows it, from the page's own copies of its files. */
 export function messageOf(message: Sending): Message {
 	return {
+		id: message.id,
 		role: "user",
 		parts: [
 			...message.images.map((image) => ({ type: "image" as const, ...image })),
@@ -349,14 +349,6 @@ export function messageOf(message: Sending): Message {
 		...(message.queued ? { queued: true as const } : {}),
 		...(message.dictated ? { dictated: true as const } : {}),
 	};
-}
-
-/** How many messages the person has said in `conversation`, if any. */
-function said(conversation: ConversationState | undefined): number {
-	return (
-		conversation?.messages.filter((message) => message.role === "user")
-			.length ?? 0
-	);
 }
 
 /** The images an agent that takes images is sent as such, as the server keeps them. */

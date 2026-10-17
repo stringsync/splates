@@ -40,17 +40,21 @@ export function useThreadRuntime(
 				text !== "" || files.length > 0
 					? feed.send(id, noted(text, files), files, text, dictated)
 					: null;
-			await promptConversation(id, noted(text, files), files, dictated).catch(
-				(error: unknown) => {
-					// Kept where it shows, marked unsent, to send again or edit.
-					if (sending !== null) {
-						feed.refused(id, sending, error);
-					} else {
-						refused("Not sent", error);
-					}
-					throw error;
-				},
-			);
+			await promptConversation(
+				id,
+				noted(text, files),
+				files,
+				dictated,
+				sending?.id,
+			).catch((error: unknown) => {
+				// Kept where it shows, marked unsent, to send again or edit.
+				if (sending !== null) {
+					feed.refused(id, sending, error);
+				} else {
+					refused("Not sent", error);
+				}
+				throw error;
+			});
 		},
 		[id, feed, refused],
 	);

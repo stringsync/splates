@@ -175,6 +175,8 @@ export interface Message {
 	told?: string;
 	/** Said into the mic rather than typed. */
 	dictated?: true;
+	/** The id the page gave it as it sent it, so it knows its own copy when it comes back. */
+	id?: string;
 }
 
 /** One piece of what someone in a conversation said or did. */

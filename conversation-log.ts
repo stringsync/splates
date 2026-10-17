@@ -33,13 +33,15 @@ export interface ConversationLogEvents extends Record<string, unknown> {
 }
 
 /**
- * A conversation's log: one JSON line per entry, appended a little behind
- * what happens, so an agent streaming chunks does not write a line each.
- * Each entry carries the seq of the agent's frame being handled as it was
- * written, so a coordinator started again knows where its process's replay
- * carries on from, and acks the worker only for what the file holds.
+ * A conversation's log, one JSON line per entry: `write` each entry as it
+ * happens, and `replay` the file to read the conversation back.
  */
 export class ConversationLog implements Eventful<ConversationLogEvents> {
+	// Appended a little behind what happens, so an agent streaming chunks does
+	// not write a line each. Each entry carries the seq of the agent's frame
+	// being handled as it was written, so a coordinator started again knows
+	// where its process's replay carries on from, and acks the worker only for
+	// what the file holds.
 	private readonly dispatcher = new Dispatcher<ConversationLogEvents>();
 	readonly events = this.dispatcher.events;
 	/** The lines not yet appended to the file, each with its seq. */
@@ -145,6 +147,7 @@ export class ConversationLog implements Eventful<ConversationLogEvents> {
 					...(entry.steered ? { steered: true } : {}),
 					...(entry.told === undefined ? {} : { told: entry.told }),
 					...(entry.dictated ? { dictated: true } : {}),
+					...(entry.id === undefined ? {} : { id: entry.id }),
 				});
 			} else if (entry.kind === "sent") {
 				delivered(state.messages, entry.count);
@@ -427,6 +430,8 @@ type Said =
 			told?: string;
 			/** Said into the mic; missing from logs written before the page said. */
 			dictated?: true;
+			/** The page's id for it; missing for an agent's word, or from older logs. */
+			id?: string;
 			/** Where the person said it on the page; missing for an agent's word, or from older logs. */
 			from?: Device;
 			/** Missing from logs written before the page sent images. */

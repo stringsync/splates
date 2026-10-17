@@ -82,6 +82,7 @@ describe("App's composer queue", () => {
 		expect(within(queued).getByText("then stop")).toBeTruthy();
 	});
 
+	// scry-ignore simple-test-setup: each test opens the conversation its case needs
 	it("shows a directive mid-way through a queued message as a chip where it stands", async () => {
 		const view = await testing.openConversations(
 			[
@@ -183,7 +184,11 @@ describe("App's composer queue", () => {
 					message("user", "go"),
 					message("agent", { type: "text", text: "On it." }),
 					{ ...message("user", "the second note"), queued: true },
-					{ ...message("user", "more"), queued: true },
+					{
+						...message("user", "more"),
+						queued: true,
+						id: testing.sentId("c1", "more"),
+					},
 				],
 			}),
 		);

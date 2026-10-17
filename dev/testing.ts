@@ -449,7 +449,8 @@ export class Testing implements Resource {
 
 	/**
 	 * What the page posted to `path`, each body parsed: a form as its fields,
-	 * the files it carries as `file`.
+	 * the files it carries as `file`, leaving out the id the page names a
+	 * message on its way by (see `sentId`).
 	 */
 	posted(path: string) {
 		return this.posts
@@ -461,6 +462,24 @@ export class Testing implements Resource {
 						? fields(post.body)
 						: JSON.parse(String(post.body ?? "{}")),
 			}));
+	}
+
+	/**
+	 * The id the page gave the message it last posted to conversation
+	 * `conversation` with `text`, for the server's copy to come back with.
+	 */
+	sentId(conversation: string, text: string): string {
+		const sent = this.posts.findLast(
+			(post) =>
+				post.path === `/api/conversations/${conversation}/prompt` &&
+				post.body instanceof FormData &&
+				post.body.get("text") === text,
+		)?.body as FormData | undefined;
+		const id = sent?.get("id");
+		if (typeof id !== "string") {
+			throw new Error(`no message ${text} posted to ${conversation}`);
+		}
+		return id;
 	}
 
 	/** Hands `fetch`, `EventSource` and `WebSocket` back. */
@@ -522,7 +541,7 @@ function fields(form: FormData): Record<string, unknown> {
 	const files = form.getAll("file");
 	return {
 		...Object.fromEntries(
-			[...form.entries()].filter(([name]) => name !== "file"),
+			[...form.entries()].filter(([name]) => name !== "file" && name !== "id"),
 		),
 		...(files.length === 0 ? {} : { file: files }),
 	};
