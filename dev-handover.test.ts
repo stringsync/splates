@@ -125,8 +125,11 @@ describe("dev restart with agents on the worker", () => {
 		const after = await converse(deps).find(id);
 		expect(after.state.status).toBe("running");
 		await after.cancel();
-		await eventually(() => after.state.status === "idle", 5);
+		// The cancel crosses the worker socket to the agent, which can take longer
+		// than the other waits when the machine is busy; this one ends when it lands.
+		await eventually(() => after.state.status === "idle", 50);
 
+		expect(after.state.status).toBe("idle");
 		expect(agent.cancelled).toBe(cancelled + 1);
 		expect(agent.launched).toHaveLength(1);
 		expect(agent.killed).toBe(0);
