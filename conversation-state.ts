@@ -219,7 +219,7 @@ export interface Image {
 	name: string;
 	mimeType: string;
 	/**
-	 * Where the page shows one still on its way, until the server keeps it.
+	 * Preview URL to display while the image uploads.
 	 */
 	url?: string;
 }
@@ -266,6 +266,8 @@ export interface Tool {
 	target: string | null;
 	/** The end of what it printed, at most `TOOL_CHARS`. */
 	output: string;
+	/** The reported process exit code; absent until reported, or in older state. */
+	exitCode?: number;
 	/** The changes it made to files. */
 	edits: Edit[];
 	/** The files it touched. */

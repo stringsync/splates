@@ -88,6 +88,11 @@ export function TimelineItem({
 								</p>
 							)
 						)}
+						{tool.exitCode !== undefined && (
+							<p className="px-2.5 py-1.5 text-muted-foreground">
+								Exit code: {tool.exitCode}
+							</p>
+						)}
 					</div>
 				</Call>
 			);

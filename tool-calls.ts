@@ -97,6 +97,9 @@ export function fill(
 			.slice(-TOOL_CHARS);
 	}
 	const code = meta?.terminal_exit?.exit_code;
+	if (typeof code === "number") {
+		tool.exitCode = code;
+	}
 	tool.status =
 		typeof code === "number" && code !== 0
 			? "failed"

@@ -360,7 +360,48 @@ describe("fold", () => {
 		expect(into.messages[0]?.parts[0]).toMatchObject({
 			command: "wc -l note.txt",
 			output: "no such file\n",
+			exitCode: 1,
 			status: "failed",
+		});
+	});
+
+	it("keeps streamed output and a successful exit through later updates", () => {
+		const into = state();
+		fold(into, {
+			sessionUpdate: "tool_call",
+			toolCallId: "x1",
+			title: "bun test",
+			kind: "execute",
+			status: "in_progress",
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "x1",
+			_meta: { terminal_output_delta: { data: "Starting\n" } },
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "x1",
+			_meta: { terminal_output_delta: { data: "1 pass\n" } },
+		});
+		expect(into.messages[0]?.parts[0]).toMatchObject({
+			output: "Starting\n1 pass\n",
+			status: "in_progress",
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "x1",
+			_meta: { terminal_exit: { exit_code: 0 } },
+		});
+		fold(into, {
+			sessionUpdate: "tool_call_update",
+			toolCallId: "x1",
+			status: "completed",
+		});
+		expect(into.messages[0]?.parts[0]).toMatchObject({
+			output: "Starting\n1 pass\n",
+			exitCode: 0,
+			status: "completed",
 		});
 	});
 

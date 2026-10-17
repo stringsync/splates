@@ -77,6 +77,37 @@ describe("App's work row commands", () => {
 		);
 	});
 
+	it("updates an open command with streamed output and its exit code", async () => {
+		const command = (output: string, exitCode?: number) =>
+			turn(
+				[
+					tool({
+						id: "x1",
+						command: "bun test",
+						output,
+						exitCode,
+						status: exitCode === undefined ? "in_progress" : "completed",
+					}),
+				],
+				{ status: "running" },
+			);
+		const thread = await opened(command("Starting\n"));
+		const output = await waitFor(() =>
+			within(thread).getByRole("region", { name: "output" }),
+		);
+		const details = output.closest("details") as HTMLDetailsElement;
+		await act(async () => {
+			details.open = true;
+		});
+		expect(thread.textContent).not.toContain("Exit code:");
+		await testing.say(command("Starting\n1 pass\n"));
+		await waitFor(() => expect(output.textContent).toContain("1 pass"));
+		expect(details.open).toBe(true);
+		await testing.say(command("Starting\n1 pass\n", 0));
+		await waitFor(() => expect(thread.textContent).toContain("Exit code: 0"));
+		expect(output.textContent).toContain("1 pass");
+	});
+
 	const reading = () =>
 		turn([
 			tool({

@@ -218,6 +218,8 @@ export class AgentConnection {
 					// on `ASYNC_TASK_STOP`; Codex lists its sessions' turns only
 					// to one that declares `sessionIndex`.
 					_meta: {
+						// AIR clients must explicitly request command output chunks.
+						terminal_output_delta: true,
 						jetbrains: {
 							air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
 						},
@@ -438,9 +440,8 @@ export class AgentConnection {
 	}
 
 	/**
-	 * Lets go of the process without ending it, for a coordinator started
-	 * again to take back, once the stream has handed over whole frames only:
-	 * the log flushed after this says where it stopped.
+	 * Releases the running agent for the next coordinator to reconnect.
+	 * Flush the conversation log after awaiting this before shutting down.
 	 */
 	async detach(): Promise<void> {
 		await this.stream?.detach();

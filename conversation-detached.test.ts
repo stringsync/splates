@@ -51,6 +51,7 @@ describe("Conversation following a turn Codex starts for a steer", () => {
 
 	it("declares the session index and subscribes to the list for the conversation's directory", () => {
 		expect(agent.capabilities?._meta).toEqual({
+			terminal_output_delta: true,
 			jetbrains: {
 				air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
 			},

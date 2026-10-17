@@ -91,6 +91,7 @@ describe("Conversation background", () => {
 		await started();
 
 		expect(agent.capabilities?._meta).toEqual({
+			terminal_output_delta: true,
 			jetbrains: {
 				air: { version: 1, capabilities: ["asyncTasks", "sessionIndex"] },
 			},
