@@ -6,6 +6,7 @@ import {
 	eventually,
 	finish,
 	type Held,
+	once,
 	thread,
 	working,
 } from "./conversation-testing";
@@ -53,7 +54,7 @@ describe("Conversation steering, as Codex answers it", () => {
 			...say("Done: the tests pass."),
 			_meta: { jetbrains: { air: { phase: "final_answer" } } },
 		});
-		await eventually(() => conversation.state.taking === "queue");
+		await once(conversation, () => conversation.state.taking === "queue");
 		await finish(conversation, held);
 
 		await eventually(() => conversation.state.taking === "start");
@@ -65,6 +66,9 @@ describe("Conversation steering, as Codex answers it", () => {
 			...say("Done: the tests pass."),
 			_meta: { jetbrains: { air: { phase: "final_answer" } } },
 		});
+		// Sending an ACP notification does not await its receipt. Prompt only
+		// once the conversation has observed the final answer.
+		await once(conversation, () => conversation.state.taking === "queue");
 
 		await conversation.prompt("two");
 
