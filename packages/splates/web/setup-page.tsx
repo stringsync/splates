@@ -15,6 +15,7 @@ import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
 import { Paste } from "./cred-paste";
 import { Markdown } from "./markdown";
+import { AGENT_JOURNEYS } from "./setup-form";
 import { OpenCodeControls } from "./setup-opencode";
 import { OpenCodeModelControls } from "./setup-opencode-models";
 import { OpenCodeReadyControls } from "./setup-opencode-ready";
@@ -53,7 +54,6 @@ export function SetupPage({
 	);
 }
 
-const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
 const DESCRIPTIONS: Record<string, string> = {
 	opencode:
 		"Install, connect your Go account, choose models and check configuration.",

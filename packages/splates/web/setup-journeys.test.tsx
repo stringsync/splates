@@ -3,6 +3,7 @@ import { FakeSecretStore } from "webappwiz/creds/testing";
 import { FakeFs } from "webappwiz/system/testing";
 import { Setup, type SetupProgress } from "../setup";
 import { SETUP_AREAS } from "../setup-areas";
+import { SetupIndex, StepForm } from "./setup-form";
 import { SetupPage } from "./setup-page";
 import { SetupContext } from "./setup-state";
 import { act, cleanup, fireEvent, render, Testing } from "./testing";
@@ -152,5 +153,45 @@ describe("Selectable setup journeys", () => {
 		expect(testing.posted("/api/setup/codex-models/skipped")[0]?.body).toEqual({
 			skipped: false,
 		});
+	});
+
+	it("lists areas as rows, marking those with every step done", () => {
+		const view = render(
+			<SetupIndex
+				areas={progress.areas.map((area) => ({
+					...area,
+					done: area.id === "claude" ? area.steps.length : 0,
+				}))}
+				onSelect={() => {}}
+			/>,
+		);
+		const rows = view.getAllByRole("button").map((row) => row.textContent);
+		expect(rows.slice(0, 3)).toEqual([
+			"Set up OpenCode",
+			"Set up Claude Done",
+			"Set up Codex",
+		]);
+	});
+
+	it("asks one question, with Next becoming Try again once it fails", () => {
+		let nexts = 0;
+		const view = render(
+			<StepForm
+				title="Install OpenCode"
+				at={2}
+				of={4}
+				next={{ kind: "failed", problem: "npm is not on your PATH." }}
+				onNext={() => nexts++}
+				onAgent={null}
+				onLeave={() => {}}
+			/>,
+		);
+		expect(view.getByText("2 of 4")).toBeTruthy();
+		expect(view.getByRole("alert").textContent).toBe(
+			"npm is not on your PATH.",
+		);
+		fireEvent.click(view.getByRole("button", { name: "Try again" }));
+		expect(nexts).toBe(1);
+		expect(view.queryByRole("button", { name: "Back" })).toBeNull();
 	});
 });
