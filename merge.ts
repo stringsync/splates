@@ -398,6 +398,7 @@ export function failedTests(output: string): FailedTest[] {
 				name,
 				lines
 					.slice(Math.max(start, index - MESSAGE_LINES), index)
+					.concat(afterFail(lines[index + 1]))
 					.join("\n")
 					.trim(),
 			);
@@ -405,6 +406,12 @@ export function failedTests(output: string): FailedTest[] {
 		start = index + 1;
 	});
 	return [...found].map(([name, message]) => ({ name, message }));
+}
+
+// bun prints a timed-out test's only explanation on the line after its name,
+// so the lines above it are another test's noise
+function afterFail(next: string | undefined): string[] {
+	return next !== undefined && /^\s*\^ /.test(next) ? [next.trim()] : [];
 }
 
 const FAIL_LINE = /^\s*\(fail\)\s+(.+?)(?:\s+\[[\d.]+ ?m?s\])?\s*$/;

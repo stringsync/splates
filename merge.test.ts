@@ -237,6 +237,22 @@ describe.concurrent("merge", () => {
 		});
 	});
 
+	it("keeps the timeout note bun prints after a timed-out test's name", async () => {
+		await using deps = await Testing.open();
+
+		deps.config.preMerge =
+			"printf 'An update to Conversation was not wrapped in act(...)\\n(fail) a > b [30000.1ms]\\n  ^ this test timed out after 30000ms.\\n'; exit 1";
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+
+		await deps.finish(worktree);
+		await expect(merge(deps, worktree)).toBail("tests_failed", {
+			message:
+				"a > b\n    An update to Conversation was not wrapped in act(...)\n    ^ this test timed out after 30000ms.\n",
+		});
+	});
+
 	it("runs the gate in a heavy-job slot of the machine's, and gives it back", async () => {
 		await using deps = await Testing.open();
 		const seen = join(deps.arborHome, "seen.json");
