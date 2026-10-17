@@ -42,8 +42,8 @@ export async function fix(opts: FixOptions): Promise<void> {
 
 	const scry = await ps.spawn(
 		[
-			"bin/splates",
-			"dev",
+			"bunx",
+			"@webappwiz/cli",
 			"scry",
 			"check",
 			"--since",

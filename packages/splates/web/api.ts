@@ -450,7 +450,7 @@ export async function dismissCred(name: string): Promise<void> {
 }
 
 /**
- * Where a project's scry budgets stand, as `splates dev scry budgets --format json`
+ * Where a project's scry budgets stand, as `scry budgets --format json`
  * prints it; splates only passes it on, so this mirrors the CLI's type.
  */
 export interface Budgets {

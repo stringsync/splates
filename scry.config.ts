@@ -20,8 +20,8 @@ const VENDORED_RULES = [
 	"tests-own-their-state",
 ];
 
-// the skills under .agents and the rules `splates dev scry add` copied from the
-// catalog are vendored, not this repository's to fix; `splates dev scry update`
+// the skills under .agents and the rules `bunx @webappwiz/cli scry add` copied from the
+// catalog are vendored, not this repository's to fix; `bunx @webappwiz/cli scry update`
 // refreshes them
 export default {
 	exclude: [".agents/**", ...VENDORED_RULES.map((id) => `.wiz/scry/${id}/**`)],

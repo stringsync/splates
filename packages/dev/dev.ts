@@ -1,12 +1,18 @@
-import { webappwiz } from "@webappwiz/cli/webappwiz";
+import { cli, type Deps } from "webappwiz/cmd";
+import type { Fs } from "webappwiz/system";
 import { z } from "zod";
 import { evalSkill } from "./eval";
 import { fix } from "./fix";
 import { ship } from "./ship";
 import { test } from "./test";
 
-/** Run repository checks, tests, evaluations, releases, and webappwiz commands. */
-export const dev = webappwiz("splates dev");
+/** What `splates dev` commands run with: a cli's deps, and the filesystem. */
+export interface DevDeps extends Deps {
+	fs: Fs;
+}
+
+/** Run repository checks, tests, evaluations, and releases. */
+export const dev = cli<DevDeps>("splates dev");
 
 dev
 	.command("eval")

@@ -40,6 +40,6 @@ runs Biome, TypeScript, and Scry against these shared settings.
 The maintained splates agent skill lives in `skills/splates`, linked from
 `.agents/skills/splates`. Third-party skills in `.agents/skills` are installed
 from pinned releases and recorded in `skills-lock.json`; update them through
-`splates dev skills`, rather than editing their installed copies. `CLAUDE.md`
+`bunx @webappwiz/cli skills`, rather than editing their installed copies. `CLAUDE.md`
 links to `AGENTS.md`, and `.claude/skills` links to `.agents/skills`, so agents
 share the same instructions.

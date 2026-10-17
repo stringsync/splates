@@ -21,7 +21,6 @@
       "version": "0.0.45",
       "dependencies": {
         "@stringsync/splates": "workspace:*",
-        "@webappwiz/cli": "0.0.46",
         "webappwiz": "0.0.46",
         "zod": "^4.4.3",
       },
