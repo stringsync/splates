@@ -164,7 +164,7 @@ function Conversation({
 	const agentAsks = useHandedTo(conversation).filter(
 		(each) => each.ask !== null && !each.archived,
 	);
-	const reply = useReply(id, drafts, handedBy === null);
+	const reply = useReply(id, drafts, handedBy === null ? send : null);
 	const typed = useTyped(runtime);
 	const { adapter: mentions, paths } = useFileMentions(conversation.task);
 	const commands = useCommands(conversation.commands);

@@ -498,6 +498,10 @@ describe("App's sending messages", () => {
 				body: { text: "[ARBOR RECONNECT]" },
 			},
 		]);
+		// Shown as said at once, so the button goes before the server echoes it.
+		expect(
+			within(thread).queryByRole("button", { name: "Reconnect" }),
+		).toBeNull();
 	});
 
 	it("leaves the turn a lost connection cut short as it ended while the agent comes back", async () => {

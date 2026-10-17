@@ -6,7 +6,6 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Annotation } from "#dev/annotation.ts";
 import type { Reply } from "./card-reply";
-import { promptConversation } from "./conversation-api";
 import { SEEN } from "./conversation-feed";
 import type { Drafts } from "./drafts";
 
@@ -143,28 +142,31 @@ export function filesOf(message: AppendMessage): File[] {
 }
 
 /**
- * What the cards in conversation `id` answer through: what they send goes to
- * it, and what one keeps goes in `drafts` beside the composer's own.
+ * What the cards in conversation `id` answer through: what they send goes
+ * out through `send`, the thread's own, so it shows at once as the
+ * composer's does, and what one keeps goes in `drafts` beside the
+ * composer's own. Null `send` where its cards send nothing, as a handed-out
+ * task's.
  */
 export function useReply(
 	id: string,
 	drafts: Drafts,
-	/** Whether its cards send anything, which a handed-out task's do not. */
-	sends = true,
+	send: ((text: string, files: File[]) => Promise<void>) | null,
 ): Reply {
 	return useMemo(
 		() => ({
-			send: sends
-				? (said: string, files: readonly File[] = []) =>
-						promptConversation(id, noted(said, files), [...files])
-				: null,
+			send:
+				send === null
+					? null
+					: (said: string, files: readonly File[] = []) =>
+							send(said, [...files]),
 			drafts: {
 				read: (name: string) => drafts.read(`${id}:${name}`),
 				write: (name: string, kept: string) =>
 					drafts.write(`${id}:${name}`, kept),
 			},
 		}),
-		[id, drafts, sends],
+		[id, drafts, send],
 	);
 }
 
