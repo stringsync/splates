@@ -32,6 +32,8 @@ interface Sheet {
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
+	/** What its line and the bar call a tap on it. */
+	action: string;
 	/**
 	 * Opens it, over the thread, or over where the page was at `from` when it
 	 * came from there, going back to it on a close.
@@ -140,11 +142,14 @@ export function Sheeted({
 	title,
 	Icon,
 	tone,
+	action = "Answer",
 	children,
 }: {
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
+	/** What a tap on its line or the bar does, "Answer" unless it asks nothing. */
+	action?: string;
 	children: ReactNode;
 }): ReactNode {
 	const sheets = useContext(SheetsContext);
@@ -173,9 +178,9 @@ export function Sheeted({
 	const add = sheets?.add;
 	useEffect(() => {
 		if (add !== undefined && live) {
-			return add({ id, title, Icon, tone, open: show });
+			return add({ id, title, Icon, tone, action, open: show });
 		}
-	}, [add, live, id, title, Icon, tone, show]);
+	}, [add, live, id, title, Icon, tone, action, show]);
 	const [line, setLine] = useState<HTMLButtonElement | null>(null);
 	useLineInSight(line, id, sheets?.sight);
 	if (sheets === null || !live) {
@@ -188,6 +193,7 @@ export function Sheeted({
 				title={title}
 				Icon={Icon}
 				tone={tone}
+				action={action}
 				onOpen={() => show()}
 			/>
 			<DialogPrimitive.Root
@@ -309,7 +315,7 @@ export function NeedsYouBar(): ReactNode {
 	}
 	// As quiet as the Archive bar beside it, the tone in its icon alone, so it
 	// never outshouts the composer; the whole bar is the tap.
-	const { title, Icon, tone, open } = latest;
+	const { title, Icon, tone, action, open } = latest;
 	// Its own landmark, apart from the line in the thread that reads the same.
 	return (
 		<aside aria-label="Waiting on you">
@@ -320,7 +326,7 @@ export function NeedsYouBar(): ReactNode {
 			>
 				<Icon className={cn("size-4 shrink-0", TONES[tone].icon)} />
 				<span className="min-w-0 flex-1 truncate">{title}</span>
-				<Answer />
+				<Action label={action} />
 			</button>
 		</aside>
 	);
@@ -330,10 +336,10 @@ export function NeedsYouBar(): ReactNode {
  * What a tap on a waiting card's line or bar does, the same on both, so
  * either reads as the way to the sheet.
  */
-function Answer(): JSX.Element {
+function Action({ label }: { label: string }): JSX.Element {
 	return (
 		<span className="flex h-7 shrink-0 items-center gap-0.5 rounded-md border bg-background pr-1.5 pl-2.5 font-medium text-[0.8rem] shadow-xs group-active:bg-muted pointer-coarse:h-10 pointer-coarse:pr-2 pointer-coarse:pl-3">
-			Answer
+			{label}
 			<ChevronRightIcon className="size-4 text-muted-foreground" />
 		</span>
 	);
@@ -375,12 +381,14 @@ function SheetLine({
 	title,
 	Icon,
 	tone,
+	action,
 	onOpen,
 }: {
 	ref: Ref<HTMLButtonElement>;
 	title: string;
 	Icon: LucideIcon;
 	tone: Tone;
+	action: string;
 	onOpen: () => void;
 }): JSX.Element {
 	return (
@@ -392,7 +400,7 @@ function SheetLine({
 		>
 			<Icon className={cn("size-5 shrink-0", TONES[tone].icon)} />
 			<span className="min-w-0 flex-1 truncate font-medium">{title}</span>
-			<Answer />
+			<Action label={action} />
 		</button>
 	);
 }

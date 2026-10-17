@@ -461,6 +461,26 @@ describe("App on a phone", () => {
 		}
 	});
 
+	it("offers to review, not answer, a card that only assumes", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				title: "Uploads",
+				messages: [
+					message("user", "fix the uploads"),
+					message("agent", "- Assumed 1: Three tries, a second apart"),
+				],
+			}),
+		]);
+
+		const bar = await waitFor(() =>
+			view.getByRole("complementary", { name: "Waiting on you" }),
+		);
+		expect(
+			within(bar).getByRole("button", { name: /Assumed\s*Review/ }),
+		).toBeTruthy();
+		expect(bar.textContent).not.toContain("Answer");
+	});
+
 	it("goes on from a typed answer to the next question's field, keeping the keyboard up", async () => {
 		const media = window.matchMedia;
 		window.matchMedia = (query) =>

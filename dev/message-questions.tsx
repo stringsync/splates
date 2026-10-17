@@ -93,7 +93,12 @@ export function MessageQuestions({
 						tone: "info" as const,
 					}
 				: escalation === null && questions.length === 0
-					? { title: "Assumed", Icon: ListChecksIcon, tone: "neutral" as const }
+					? {
+							title: "Assumed",
+							Icon: ListChecksIcon,
+							tone: "neutral" as const,
+							action: "Review",
+						}
 					: escalation === null
 						? {
 								title: `${count} for you`,
