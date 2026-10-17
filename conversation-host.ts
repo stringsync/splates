@@ -42,7 +42,7 @@ export interface ConversationHost {
 	flag(unread: boolean): void;
 }
 
-export type ConversationEvents = { changed: undefined };
+export type ConversationEvents = { changed: undefined; chosen: string };
 
 /** What every conversation in a repo is made with. */
 export interface ConversationDeps {

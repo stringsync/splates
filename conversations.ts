@@ -34,53 +34,9 @@ import type { Limits } from "./limits";
 import type { Offered } from "./offered";
 import type { Outcomes } from "./outcomes";
 import type { SessionServers } from "./shared-browser";
-import { ROOT as SKILLS, versionOf } from "./skills";
+import { installedVersion } from "./skills";
 import type { Watch } from "./watch";
 import { LocalWorkerMachine, type WorkerMachine } from "./worker-machine";
-
-export type {
-	Agent,
-	AgentProcess,
-	Launch,
-	Launcher,
-	Session,
-} from "./agent-process";
-export { launch } from "./agent-process";
-export type {
-	Artifact,
-	ArtifactGone,
-	ArtifactVersion,
-} from "./artifacts";
-export { Conversation } from "./conversation";
-export type { ConversationEvents } from "./conversation-host";
-export type {
-	After,
-	Answer,
-	Ask,
-	Attached,
-	Background,
-	BackgroundState,
-	Checkpoint,
-	Command,
-	Compaction,
-	ConversationState,
-	Decision,
-	Device,
-	Edit,
-	Field,
-	Image,
-	Limit,
-	Message,
-	Part,
-	Setting,
-	Status,
-	Step,
-	Tool,
-	Upload,
-	Usage,
-} from "./conversation-state";
-export { DEVICES, FROM_HEADER, unused } from "./conversation-state";
-export { fold, heard } from "./fold";
 
 /** How long Codex's limits asked for stand before the Budget page asks again, in ms. */
 const LIMITS_FRESH = 5 * 60_000;
@@ -301,11 +257,11 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				assigned,
 				handedBy,
 				startedBy,
-				skill: await this.skillAt(cwd),
+				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,
 		);
-		this.track(conversation);
+		this.track(conversation, assigned ? undefined : settings);
 		return conversation;
 	}
 
@@ -391,7 +347,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 				caller,
 				cwd,
 				log: `${this.dir}/${id}.jsonl`,
-				skill: await this.skillAt(cwd),
+				skill: await installedVersion(this.fs, this.root ?? cwd),
 			},
 			this.deps,
 		);
@@ -432,11 +388,16 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 		void this.disposeAsync();
 	}
 
-	private track(conversation: Conversation): void {
+	private track(
+		conversation: Conversation,
+		picks?: Record<string, string>,
+	): void {
+		this.offered?.track(
+			conversation,
+			() => this.dispatcher.dispatch("settings"),
+			picks,
+		);
 		this.known.set(conversation.id, conversation);
-		// Only what changes from here: a log read back may be older than what
-		// another project's sessions offered since.
-		let remembered = conversation.state.settings;
 		let archived = conversation.state.archived;
 		let limits = conversation.state.usage.limits;
 		let status = conversation.state.status;
@@ -446,15 +407,7 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			?.remember(conversation.state.agent, limits)
 			.catch(() => {});
 		conversation.events.on("changed", () => {
-			const { agent, settings, assigned } = conversation.state;
-			if (settings !== remembered && settings.length > 0) {
-				remembered = settings;
-				// An assignment's model is not the person's pick: it only says what
-				// an agent never started otherwise offers.
-				void this.offered
-					?.remember(agent, settings, { unlessKnown: assigned })
-					.catch(() => {});
-			}
+			const { agent } = conversation.state;
 			// A turn ended: what the agent does not send is asked for.
 			if (status === "running" && conversation.state.status === "idle") {
 				this.askLimits(conversation);
@@ -509,17 +462,6 @@ export class Conversations implements Eventful<ConversationsEvents>, Resource {
 			}
 		});
 		this.dispatcher.dispatch("changed", conversation.id);
-	}
-
-	/**
-	 * The version of the project's arbor skill, which the conversation keeps
-	 * from its start; null when it has none.
-	 */
-	private skillAt(cwd: string): Promise<string | null> {
-		return this.fs
-			.read(`${this.root ?? cwd}/${SKILLS}/arbor/SKILL.md`)
-			.then(versionOf)
-			.catch((): null => null); // no skill installed is no version
 	}
 
 	/** Asks for `conversation`'s agent's limits, when it does not send them. */
@@ -641,7 +583,52 @@ export interface ConversationsOptions {
  * start) and `removed` each carry a conversation's id.
  */
 export type ConversationsEvents = {
+	settings: undefined;
 	changed: string;
 	ended: string;
 	removed: string;
 };
+
+export type {
+	Agent,
+	AgentProcess,
+	Launch,
+	Launcher,
+	Session,
+} from "./agent-process";
+export { launch } from "./agent-process";
+export type {
+	Artifact,
+	ArtifactGone,
+	ArtifactVersion,
+} from "./artifacts";
+export { Conversation } from "./conversation";
+export type { ConversationEvents } from "./conversation-host";
+export type {
+	After,
+	Answer,
+	Ask,
+	Attached,
+	Background,
+	BackgroundState,
+	Checkpoint,
+	Command,
+	Compaction,
+	ConversationState,
+	Decision,
+	Device,
+	Edit,
+	Field,
+	Image,
+	Limit,
+	Message,
+	Part,
+	Setting,
+	Status,
+	Step,
+	Tool,
+	Upload,
+	Usage,
+} from "./conversation-state";
+export { DEVICES, FROM_HEADER, unused } from "./conversation-state";
+export { fold, heard } from "./fold";

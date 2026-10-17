@@ -14,8 +14,8 @@ const model = (current: string): Setting[] => [
 ];
 
 const AGENTS = [
-	{ id: "claude", name: "Claude", settings: [], limits: [] },
-	{ id: "codex", name: "Codex", settings: [], limits: [] },
+	{ id: "claude", name: "Claude", settings: model("saved"), limits: [] },
+	{ id: "codex", name: "Codex", settings: model("saved"), limits: [] },
 ];
 
 describe("a new conversation", () => {
@@ -37,10 +37,12 @@ describe("a new conversation", () => {
 		];
 
 		expect(agentFor(NEW, AGENTS, conversations)).toBe("claude");
-		expect(settingsFor("claude", AGENTS, conversations)).toEqual(model("opus"));
+		expect(settingsFor("claude", AGENTS, conversations)).toEqual(
+			model("saved"),
+		);
 	});
 
-	it("starts as an assignment left it when the person never picked that agent", () => {
+	it("keeps saved defaults even when the only conversation is assigned", () => {
 		const conversations = [
 			conversation({
 				id: "c1",
@@ -51,6 +53,6 @@ describe("a new conversation", () => {
 		];
 
 		expect(agentFor(NEW, AGENTS, conversations)).toBe("codex");
-		expect(settingsFor("codex", AGENTS, conversations)).toEqual(model("gpt"));
+		expect(settingsFor("codex", AGENTS, conversations)).toEqual(model("saved"));
 	});
 });

@@ -4,7 +4,9 @@ import { Dispatcher, type Eventful } from "webappwiz/events";
 import { AgentConnection } from "./agent-connection";
 import type { Agent, AgentProcess, ProcessHandle } from "./agent-process";
 import { Artifacts, applyArtifact } from "./artifacts";
+import { put } from "./conversation-archive";
 import { ConversationBackground } from "./conversation-background";
+import { choose } from "./conversation-choice";
 import { ConversationFiles } from "./conversation-files";
 import type {
 	ConversationDeps,
@@ -379,22 +381,8 @@ export class Conversation
 	 */
 	async choose(id: string, value: string): Promise<void> {
 		await this.opening;
-		const setting = this.state.settings.find((each) => each.id === id);
-		if (setting === undefined) {
-			fail("usage", `conversation ${this.id} has no setting '${id}'`, {
-				conversation: this.id,
-			});
-		}
-		if (!setting.options.some((option) => option.value === value)) {
-			fail(
-				"usage",
-				`'${value}' is not a ${setting.name.toLowerCase()} this agent offers`,
-				{ conversation: this.id },
-			);
-		}
-		const settings = await this.connection.choose(setting, value);
-		this.log.write({ kind: "settings", settings });
-		this.set({ settings });
+		await choose(this, this.connection, id, value);
+		this.dispatcher.dispatch("chosen", id);
 	}
 
 	/**
@@ -486,7 +474,7 @@ export class Conversation
 	 */
 	async archive(withConversation?: string): Promise<void> {
 		await this.stop();
-		await this.put({ archived: true, with: withConversation });
+		await put(this, { archived: true, with: withConversation });
 		await this.artifacts.archive();
 	}
 
@@ -500,7 +488,7 @@ export class Conversation
 
 	/** Back on the list, stopped until the next prompt. */
 	async unarchive(): Promise<void> {
-		await this.put({ archived: false });
+		await put(this, { archived: false });
 	}
 
 	/** Keeps it atop the list, or lets it go back among the rest. */
@@ -642,31 +630,6 @@ export class Conversation
 	private wake(agent: Agent, cwd: string): Promise<void> {
 		return this.connection.open(agent, cwd).finally(() => {
 			this.opening = null;
-		});
-	}
-
-	private async put({
-		archived,
-		with: withConversation,
-	}: {
-		archived: boolean;
-		with?: string | undefined;
-	}): Promise<void> {
-		if (this.state.archived === archived) {
-			return;
-		}
-		const at = this.now();
-		this.log.write({
-			kind: "archive",
-			archived,
-			at,
-			...(withConversation === undefined ? {} : { with: withConversation }),
-		});
-		await this.log.flush();
-		this.set({
-			archived,
-			archivedAt: archived ? at : null,
-			archivedWith: archived ? (withConversation ?? null) : null,
 		});
 	}
 }

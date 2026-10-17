@@ -279,7 +279,10 @@ export class ConversationFeed
 		}
 		this.stream = new LiveStream(scoped("/api/conversations/events"), {
 			message: (event) => this.put(JSON.parse(event.data) as ConversationState),
-			named: { removed: (event) => this.drop(event.data) },
+			named: {
+				removed: (event) => this.drop(event.data),
+				settings: () => void this.list(),
+			},
 			// Back after the stream dropped, as when `arbor dev` restarts or the
 			// machine wakes: what the page holds may have moved meanwhile, so it
 			// is read again whole.

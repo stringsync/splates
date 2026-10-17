@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { Limit, Setting } from "../conversations";
 import {
+	AGENTS,
 	act,
 	cleanup,
 	conversation,
@@ -28,7 +29,7 @@ describe("App's conversation home", () => {
 		testing.dispose();
 	});
 
-	it("with none open, offers the latest idle conversations to pick back up, none working, waiting, or merged", async () => {
+	it("offers the latest idle conversations when none is open, excluding working, waiting, and merged ones", async () => {
 		const view = await testing.openConversations(
 			[
 				conversation({ id: "c1", task: "alpha", title: "Fix login" }),
@@ -121,31 +122,37 @@ describe("App's conversation home", () => {
 	});
 
 	it("starts a conversation from the home composer, in the main tree with the agent picked from New and its settings, and says the message", async () => {
+		const held = [
+			conversation({ id: "c1", title: "Latest" }),
+			conversation({
+				id: "c0",
+				agent: "codex",
+				title: "Earlier",
+				// Archived; its settings also match the saved user defaults.
+				archived: true,
+				settings: [
+					{
+						id: "model",
+						name: "Model",
+						type: "select",
+						category: "model",
+						current: "big",
+						options: [
+							{ value: "big", name: "Big", description: null },
+							{ value: "small", name: "Small", description: null },
+						],
+					},
+				],
+			}),
+		];
 		const view = await testing.openConversations(
-			[
-				conversation({ id: "c1", title: "Latest" }),
-				conversation({
-					id: "c0",
-					agent: "codex",
-					title: "Earlier",
-					// Archived, and still what Codex's settings are known from.
-					archived: true,
-					settings: [
-						{
-							id: "model",
-							name: "Model",
-							type: "select",
-							category: "model",
-							current: "big",
-							options: [
-								{ value: "big", name: "Big", description: null },
-								{ value: "small", name: "Small", description: null },
-							],
-						},
-					],
-				}),
-			],
+			held,
 			null,
+			{},
+			AGENTS.map((agent) => ({
+				...agent,
+				settings: held.find((each) => each.agent === agent.id)?.settings ?? [],
+			})),
 		);
 		testing.reply = conversation({
 			id: "c9",
@@ -165,7 +172,7 @@ describe("App's conversation home", () => {
 
 		await newWith(view, "Codex");
 		expect(location.hash).toBe("#conversations/new/codex");
-		// Where Codex's last conversation left it.
+		// The saved Codex defaults.
 		expect(view.getByRole("combobox", { name: "model" }).textContent).toContain(
 			"Big",
 		);
@@ -242,15 +249,8 @@ describe("App's conversation home", () => {
 		]);
 	});
 
+	// scry-ignore simple-test-setup: these plan-window fixtures belong only to this test; no other home test shares them.
 	it("shows how much of the plan is used and when each window resets, the newest said, yellow from 80% and red from 90%, for each agent that says", async () => {
-		const hours = (count: number) =>
-			new Date(Date.now() + count * 3_600_000).toISOString();
-		const limit = (window: string, used: number, at: string): Limit => ({
-			window,
-			used,
-			resets: hours(window === "five_hour" ? 2 : 50),
-			at,
-		});
 		const view = await testing.openConversations(
 			[
 				conversation({
@@ -347,4 +347,13 @@ describe("App's conversation home", () => {
 			).getByLabelText("Codex"),
 		).toBeTruthy();
 	});
+});
+
+const hours = (count: number) =>
+	new Date(Date.now() + count * 3_600_000).toISOString();
+const limit = (window: string, used: number, at: string): Limit => ({
+	window,
+	used,
+	resets: hours(window === "five_hour" ? 2 : 50),
+	at,
 });

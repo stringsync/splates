@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	AGENTS,
 	act,
 	cleanup,
 	conversation,
@@ -224,29 +225,35 @@ describe("App's sidebar keys", () => {
 	});
 
 	it("starts a new conversation with ⌥⌘N, with the agent and model the last one started with", async () => {
+		const held = newestFirst([
+			conversation({
+				id: "c1",
+				agent: "codex",
+				title: "Latest",
+				settings: [
+					{
+						id: "model",
+						name: "Model",
+						type: "select",
+						category: "model",
+						current: "small",
+						options: [
+							{ value: "big", name: "Big", description: null },
+							{ value: "small", name: "Small", description: null },
+						],
+					},
+				],
+			}),
+			conversation({ id: "c2", title: "Earlier", status: "running", ask }),
+		]);
 		const view = await testing.openConversations(
-			newestFirst([
-				conversation({
-					id: "c1",
-					agent: "codex",
-					title: "Latest",
-					settings: [
-						{
-							id: "model",
-							name: "Model",
-							type: "select",
-							category: "model",
-							current: "small",
-							options: [
-								{ value: "big", name: "Big", description: null },
-								{ value: "small", name: "Small", description: null },
-							],
-						},
-					],
-				}),
-				conversation({ id: "c2", title: "Earlier", status: "running", ask }),
-			]),
+			held,
 			null,
+			{},
+			AGENTS.map((agent) => ({
+				...agent,
+				settings: held.find((each) => each.agent === agent.id)?.settings ?? [],
+			})),
 		);
 
 		await act(async () =>

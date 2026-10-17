@@ -22,6 +22,10 @@ describe("Conversations", () => {
 	let clock: FakeWallClock;
 	let agent: FakeAgent;
 	let conversations: Conversations;
+	let offered: Offered;
+	let limits: Limits;
+	let shop: Conversations;
+	let project: (dir: string) => Conversations;
 
 	beforeEach(async () => {
 		fs = new FakeFs();
@@ -32,6 +36,19 @@ describe("Conversations", () => {
 		timer = new FakeTimer();
 		clock = new FakeWallClock(Date.parse("2026-10-11T10:00:00Z"));
 		agent = new FakeAgent();
+		offered = new Offered("/home/.arbor/offered.json", { fs });
+		limits = new Limits("/home/.arbor/limits.json", { fs });
+		project = (dir: string) =>
+			new Conversations(dir, [AGENT], {
+				fs,
+				timer,
+				clock,
+				ids: new CounterIdProvider(),
+				launch: agent.launch,
+				offered,
+				limits,
+			});
+		shop = project("/shop/.git/arbor/conversations");
 		conversations = new Conversations(
 			"/repo/.git/arbor/conversations",
 			[AGENT],
@@ -101,18 +118,8 @@ describe("Conversations", () => {
 		expect(agent.opened).toEqual([ASK_IN_ARBOR]);
 	});
 
+	// scry-ignore simple-test-setup: opening, choosing, and restarting are the persistence behavior exercised here; shared services are in beforeEach.
 	it("remembers what an agent's sessions offer for every project, as last left", async () => {
-		const offered = new Offered("/home/.arbor/offered.json", { fs });
-		const project = (dir: string) =>
-			new Conversations(dir, [AGENT], {
-				fs,
-				timer,
-				clock,
-				ids: new CounterIdProvider(),
-				launch: agent.launch,
-				offered,
-			});
-		const shop = project("/shop/.git/arbor/conversations");
 		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });
 		await until(conversation, "idle");
 		await conversation.choose("model", "small");
@@ -136,15 +143,6 @@ describe("Conversations", () => {
 	});
 
 	it("leaves what an agent's sessions offer as the person left it when a todo assigned the model", async () => {
-		const offered = new Offered("/home/.arbor/offered.json", { fs });
-		const shop = new Conversations("/shop/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-			offered,
-		});
 		const currents = async () => {
 			// Remembered as each change lands, without waiting on it.
 			await Bun.sleep(10);
@@ -191,6 +189,76 @@ describe("Conversations", () => {
 		});
 		expect((await later.find(assigned.id)).state.assigned).toBe(true);
 		await later.disposeAsync();
+	});
+
+	it("keeps user defaults through unsolicited ACP updates and sibling sessions", async () => {
+		const first = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			settings: { model: "small", fast: "on" },
+		});
+		await until(first, "idle");
+		await Bun.sleep(10);
+		const saved = structuredClone((await offered.all()).fake);
+		expect(saved?.find((each) => each.id === "model")?.current).toBe("small");
+		expect(saved?.find((each) => each.id === "fast")?.current).toBe("on");
+		await agent.say({
+			sessionUpdate: "config_option_update",
+			configOptions: [
+				{
+					id: "model",
+					name: "Model",
+					type: "select",
+					currentValue: "big",
+					options: [
+						{ value: "big", name: "Big" },
+						{ value: "small", name: "Small" },
+					],
+				},
+				{ id: "fast", name: "Fast mode", type: "boolean", currentValue: false },
+			],
+		});
+		await eventually(
+			() =>
+				first.state.settings.find((each) => each.id === "model")?.current ===
+				"big",
+		);
+		await Bun.sleep(10);
+		expect(
+			(await offered.all()).fake?.map(({ id, current }) => [id, current]),
+		).toEqual(saved?.map(({ id, current }) => [id, current]));
+		// Picking one parameter must not capture the agent's unsolicited model.
+		await first.choose("fast", "off");
+		await Bun.sleep(10);
+		expect(
+			(await offered.all()).fake?.find((each) => each.id === "model")?.current,
+		).toBe("small");
+		const sibling = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			model: "big",
+		});
+		await until(sibling, "idle");
+		await Bun.sleep(10);
+		expect(
+			(await offered.all()).fake?.find((each) => each.id === "model")?.current,
+		).toBe("small");
+		// An explicit selection still counts in an assigned conversation.
+		const assigned = await shop.start("fake", {
+			task: null,
+			cwd: "/shop",
+			model: "small",
+			assigned: true,
+		});
+		await until(assigned, "idle");
+		await assigned.choose("model", "big");
+		await Bun.sleep(10);
+		expect(
+			(await offered.all()).fake?.find((each) => each.id === "model")?.current,
+		).toBe("big");
+		await shop.disposeAsync();
+		const later = new Offered(offered.path, { fs });
+		expect((await later.all()).fake).toEqual((await offered.all()).fake);
 	});
 
 	it("keeps the project's arbor skill version from the start, past a restart", async () => {
@@ -319,8 +387,8 @@ describe("Conversations", () => {
 		await shop.disposeAsync();
 	});
 
+	// scry-ignore simple-test-setup: this usage frame and second-process read are specific inputs to the cross-project persistence check.
 	it("remembers an agent's plan limits for every project, the newest of each window", async () => {
-		const limits = new Limits("/home/.arbor/limits.json", { fs });
 		agent.turn = async (connection) => {
 			await connection.sessionUpdate({
 				sessionId: "s1",
@@ -341,14 +409,7 @@ describe("Conversations", () => {
 			});
 			return "end_turn";
 		};
-		const shop = new Conversations("/shop/.git/arbor/conversations", [AGENT], {
-			fs,
-			timer,
-			clock,
-			ids: new CounterIdProvider(),
-			launch: agent.launch,
-			limits,
-		});
+
 		const conversation = await shop.start("fake", { task: null, cwd: "/shop" });
 		await until(conversation, "idle");
 		await conversation.prompt("one");

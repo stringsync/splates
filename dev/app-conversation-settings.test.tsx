@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+	AGENTS,
 	act,
 	cleanup,
 	conversation,
@@ -119,32 +120,26 @@ describe("App's conversation settings", () => {
 	});
 
 	it("offers each agent's own settings on the home, a pick for one never reaching the other", async () => {
-		const model = (current: string, names: string[]) => ({
-			id: "model",
-			name: "Model",
-			type: "select" as const,
-			category: "model",
-			current,
-			options: names.map((name) => ({
-				value: name.toLowerCase(),
-				name,
-				description: null,
-			})),
-		});
+		const held = [
+			conversation({
+				id: "c1",
+				settings: [model("opus", ["Opus", "Sonnet"])],
+			}),
+			conversation({
+				id: "c2",
+				agent: "codex",
+				title: "Other",
+				settings: [model("luna", ["Luna", "Sol"])],
+			}),
+		];
 		const view = await testing.openConversations(
-			[
-				conversation({
-					id: "c1",
-					settings: [model("opus", ["Opus", "Sonnet"])],
-				}),
-				conversation({
-					id: "c2",
-					agent: "codex",
-					title: "Other",
-					settings: [model("luna", ["Luna", "Sol"])],
-				}),
-			],
+			held,
 			null,
+			{},
+			AGENTS.map((agent) => ({
+				...agent,
+				settings: held.find((each) => each.agent === agent.id)?.settings ?? [],
+			})),
 		);
 		await act(async () =>
 			fireEvent.click(view.getByRole("combobox", { name: "model" })),
@@ -226,4 +221,17 @@ describe("App's conversation settings", () => {
 			happyDOM.setInnerWidth(wide);
 		}
 	});
+});
+
+const model = (current: string, names: string[]) => ({
+	id: "model",
+	name: "Model",
+	type: "select" as const,
+	category: "model",
+	current,
+	options: names.map((name) => ({
+		value: name.toLowerCase(),
+		name,
+		description: null,
+	})),
 });

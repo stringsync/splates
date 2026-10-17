@@ -79,25 +79,13 @@ export function agentFor(
 	);
 }
 
-/**
- * The settings a new conversation with `agent` starts from: as its newest
- * conversation the person picked it for left them, else its newest one
- * that got as far as a session; failing that, from its sessions in any
- * project; the first one with an agent on this machine, none, for its own
- * defaults.
- */
+/** The user's saved defaults, independent of live session settings. */
 export function settingsFor(
 	agent: string,
 	agents: AgentChoice[],
-	conversations: ConversationState[],
+	_conversations: ConversationState[],
 ): Setting[] {
-	return (
-		picked(conversations).find(
-			(each) => each.agent === agent && each.settings.length > 0,
-		)?.settings ??
-		agents.find((each) => each.id === agent)?.settings ??
-		[]
-	);
+	return agents.find((each) => each.id === agent)?.settings ?? [];
 }
 
 /**

@@ -127,3 +127,11 @@ export class ProjectSkills {
 		return `${this.root}/${this.path(name)}/SKILL.md`;
 	}
 }
+
+/** The installed arbor skill's version, or null when absent or unreadable. */
+export function installedVersion(fs: Fs, root: string): Promise<string | null> {
+	return fs
+		.read(`${root}/${ROOT}/arbor/SKILL.md`)
+		.then(versionOf)
+		.catch((): null => null);
+}

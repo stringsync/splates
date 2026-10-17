@@ -1,5 +1,6 @@
 import { Duration, SystemTimer, Throttler } from "webappwiz/time";
 import type { Conversation } from "./conversation";
+import { listing } from "./conversation-listing";
 import {
 	type Answer,
 	type Conversations,
@@ -25,7 +26,6 @@ import type { Project } from "./dev-project";
 import { Everywhere } from "./everywhere";
 import { fail } from "./exit";
 import { stoppedReference } from "./prompts";
-import { modelsOf } from "./roster";
 
 /**
  * How a project's page talks to agents: starting, prompting and steering its
@@ -44,6 +44,7 @@ export class ConversationRoutes {
 	readonly #listeners = new Set<EventSink>();
 	readonly #beats = new Map<string, Throttler>();
 	readonly #unlisten: (() => void) | undefined;
+	readonly #unlistenSettings: (() => void) | undefined;
 	readonly #unlistenRemoved: (() => void) | undefined;
 
 	constructor(
@@ -58,6 +59,9 @@ export class ConversationRoutes {
 			(conversations === null
 				? null
 				: Everywhere.onlyHere(project.service.git.root, conversations));
+		this.#unlistenSettings = conversations?.events.on("settings", () => {
+			this.#send(encoder.encode("event: settings\ndata: {}\n\n"));
+		});
 		const timer = new SystemTimer();
 		this.#unlisten = conversations?.events.on("changed", (id) => {
 			const beat = this.#beats.get(id) ?? new Throttler(timer, BEAT);
@@ -142,19 +146,7 @@ export class ConversationRoutes {
 	};
 
 	readonly listConversations = async (): Promise<Response> => {
-		const all = this.held();
-		const offered = await all.settings();
-		const limits = await all.limits();
-		return Response.json({
-			agents: all.agents.map((each) => ({
-				id: each.id,
-				name: each.name,
-				models: modelsOf(each).map(({ id, name }) => ({ id, name })),
-				settings: offered[each.id] ?? [],
-				limits: limits[each.id] ?? [],
-			})),
-			conversations: (await all.list()).map((each) => each.state),
-		});
+		return Response.json(await listing(this.held()));
 	};
 
 	/** The tree a terminal opens in: `?task=`'s worktree, or the main tree. */
@@ -557,6 +549,7 @@ export class ConversationRoutes {
 	async disposeAsync(): Promise<void> {
 		this.#unlisten?.();
 		this.#unlistenRemoved?.();
+		this.#unlistenSettings?.();
 		for (const beat of this.#beats.values()) {
 			beat.dispose();
 		}
