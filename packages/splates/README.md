@@ -59,6 +59,16 @@ GitHub App's id and private key kept as the creds `SPLATES_GITHUB_APP_ID` and
 mints for that repository's contents alone; otherwise, the machine's own git
 credentials. Without `remote`, nothing is pushed.
 
+With `remote`, `main` is the remote's: `splates merge` fetches it, rebases
+onto it, runs the checks, pushes the tested `splates/<task>`, and asks
+`splates server`, the coordinator, to move `main` there. The coordinator alone
+pushes `main`, with its machine's own git credentials, and only when the
+remote's `main` is still the commit the checks ran on; then it fast-forwards
+its own `main` checkout. A merge refuses while the local `main` holds commits
+the remote lacks, until they are pushed. Protect `main` with a ruleset that
+lets only the coordinator's identity update it, so the App's tokens, which
+workers push with, reach `splates/*` alone.
+
 **Escalating.** When an agent needs you (a decision, access, a review, or
 merges that keep failing), it runs `splates escalate`: it stops, leaves its
 worktree as it is, and writes down its questions. You answer, and it picks up

@@ -22,6 +22,7 @@ import { Shell } from "./shell";
 import { MACHINE_HOME, SLOT, Slots } from "./slots";
 import { TaskBranches } from "./task-branches";
 import { Todos } from "./todos";
+import { CoordinatorLanding } from "./trunk-landing";
 import { assets } from "./web/assets";
 import { WorktreeService } from "./worktree-service";
 
@@ -85,6 +86,8 @@ export class Testing implements AsyncDisposable {
 
 	/** Pushes to `config.remote`, read at each push, so a test can set one. */
 	readonly branches: TaskBranches;
+	/** Lands on `config.remote`'s trunk as the coordinator does. */
+	readonly trunk: CoordinatorLanding;
 
 	private constructor(private readonly base: string) {
 		this.root = join(base, "repo");
@@ -204,6 +207,12 @@ export class Testing implements AsyncDisposable {
 			{ fs: this.fs },
 		);
 		this.branches = TaskBranches.of(this);
+		this.trunk = new CoordinatorLanding({
+			git: this.git,
+			fs: this.fs,
+			config: this.config,
+			lease: this.lockPath,
+		});
 		this.format = new Format(this.splatesDir, {
 			fs: this.fs,
 			lock: new FileLock(join(this.splatesDir, "format.lock"), {

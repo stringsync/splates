@@ -619,6 +619,9 @@ export async function dev(
 				// Through a worker's relay, which reaches only this machine's
 				// names: the records of a project its commands run on.
 				"/api/state": { POST: talk(guarded(state.answer)) },
+				// And a merge there holding the lease, which only this end
+				// lands on trunk.
+				"/api/land": { POST: talk(guarded(state.land)) },
 				"/api/queue": guarded(workers.queue),
 				"/api/queue/:id/position": {
 					PUT: talk(guarded(workers.moveQueued)),

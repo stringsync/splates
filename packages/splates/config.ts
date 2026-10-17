@@ -9,8 +9,10 @@ export interface Config {
 	/**
 	 * The git remote each task's branch is pushed to as `splates/<task>`,
 	 * after every commit and at every checkpoint, so a task outlives the
-	 * machine it runs on: the project's GitHub origin, as `"origin"`. Null,
-	 * the default, pushes nothing, and tasks live on this machine alone.
+	 * machine it runs on: the project's GitHub origin, as `"origin"`. With
+	 * one, trunk is the remote's: a merge rebases onto it and the
+	 * coordinator alone pushes it. Null, the default, pushes nothing, and
+	 * tasks live on this machine alone.
 	 */
 	remote: string | null;
 	/** Directory holding one worktree per task, a sibling of the repo. */

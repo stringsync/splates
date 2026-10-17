@@ -11,6 +11,7 @@ import type { Shell } from "./shell";
 import { freedLine, type Slots } from "./slots";
 import { pushedLine, type TaskBranches } from "./task-branches";
 import type { Todos } from "./todos";
+import type { Landed, TrunkLanding } from "./trunk-landing";
 import type {
 	FailedTest,
 	GateFailure,
@@ -29,6 +30,10 @@ const MESSAGE_LINES = 30;
  * base, runs the gate there, and fast-forwards the base with
  * `git merge --ff-only`, in whichever worktree has the base checked out.
  * History stays linear.
+ *
+ * With a central remote, trunk is the remote's: the merge fetches it,
+ * rebases onto it, runs the gate, pushes the tested `splates/<task>`, and
+ * asks the coordinator to move trunk there, which only it does.
  */
 export async function merge(
 	{
@@ -43,6 +48,8 @@ export async function merge(
 		slots,
 		heavy,
 		branches,
+		trunk,
+		relayed = false,
 	}: {
 		service: WorktreeService;
 		git: Git;
@@ -55,6 +62,9 @@ export async function merge(
 		slots: Slots;
 		heavy: HeavyCap;
 		branches: TaskBranches;
+		trunk: TrunkLanding;
+		/** Whether this runs on a worker, whose records are the coordinator's. */
+		relayed?: boolean;
 	},
 	cwd: string,
 	// Filled in as it learns each, so a refusal keeps what it learned before it
@@ -137,6 +147,14 @@ export async function merge(
 			{ task, blocked: left.questions, steps: left.steps },
 		);
 	}
+	const remote = base === config.trunk ? branches.remote() : null;
+	if (relayed && base === config.trunk && remote === null) {
+		fail(
+			"blocked",
+			`'${task}' runs on a worker, which lands on ${base} only through the central remote: set \`remote\` in splates.config.ts. No merge attempt was spent.`,
+			{ task },
+		);
+	}
 	worktree = await worktree.take();
 
 	// Blocks until free: an agent told "busy, try later" goes and edits code in
@@ -145,7 +163,41 @@ export async function merge(
 	worktree = await worktree.take({ status: "merging" });
 
 	const before = await git.head(worktree.path);
-	const rebase = await git.rebase(worktree.path, base);
+	// Trunk as the remote has it, which only the coordinator moves: the
+	// commit the gate tests on, and the one the coordinator checks trunk is
+	// still at before it lands.
+	let onto: string | null = null;
+	if (remote !== null) {
+		const fetched = await branches.fetchTrunk(task, base, worktree.path);
+		if (fetched.status !== "fetched") {
+			await lock.release();
+			await worktree.take({ status: "working" });
+			fail(
+				"blocked",
+				`could not fetch ${base} from ${remote}: ${fetched.status === "off" ? "no remote is configured" : fetched.why}\nNo merge attempt was spent: merge again once ${remote} can be reached.`,
+				{ task, remote },
+			);
+		}
+		onto = fetched.commit;
+		if (!relayed && !(await git.isAncestor(`refs/heads/${base}`, onto))) {
+			await lock.release();
+			await worktree.take({ status: "working" });
+			fail(
+				"blocked",
+				[
+					`${base} here has commits ${remote} lacks, and a merge lands on ${remote}'s ${base}, which would leave them behind.`,
+					`Push them first (\`git push ${remote} ${base}\` from ${git.root}), then merge again. No merge attempt was spent.`,
+				].join("\n"),
+				{ task, remote },
+			);
+		}
+		if (relayed) {
+			// A worker's own trunk follows the remote's, so what the task
+			// changed reads against what it rebased onto.
+			await git.run(git.root, "branch", "--force", base, onto);
+		}
+	}
+	const rebase = await git.rebase(worktree.path, onto ?? base);
 	if (rebase.code !== 0) {
 		// Left in progress on purpose: the agent needs the conflict markers.
 		const paths = await git.conflictedPaths(worktree.path);
@@ -277,13 +329,41 @@ export async function merge(
 	const changed = (await current.changedFiles()) ?? [];
 	const commits = (await current.commitMessages()) ?? undefined;
 	const size = (await current.size()) ?? undefined;
-	const holder = await git.worktreeFor(base);
+	const landed =
+		remote !== null && onto !== null
+			? await landOnRemote({
+					git,
+					branches,
+					trunk,
+					worktree: current,
+					remote,
+					onto,
+					relayed,
+					holder: { pid: service.ps.pid, hostname: service.ps.hostname },
+				})
+			: null;
+	if (landed !== null && landed.status === "refused") {
+		await lock.release();
+		await bump(current, "merge_failed", { error: landed.why });
+		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
+		fail(
+			"merge_failed",
+			[
+				`could not land ${branch} on ${remote}'s ${base}: ${landed.why}`,
+				`${base} is untouched; ${branch} stays rebased and tested. Merge again.`,
+			].join("\n"),
+			{ task, base, remote },
+		);
+	}
+	const holder = landed === null ? await git.worktreeFor(base) : null;
 	const landing = holder ?? git.root;
-	const checkout = holder ? null : await git.checkout(base);
+	const checkout = landed !== null || holder ? null : await git.checkout(base);
 	const merged =
-		checkout && checkout.code !== 0
-			? checkout
-			: await git.mergeFfOnly(landing, service.branchFor(task));
+		landed !== null
+			? { code: 0, stdout: "", stderr: "" }
+			: checkout && checkout.code !== 0
+				? checkout
+				: await git.mergeFfOnly(landing, service.branchFor(task));
 	if (merged.code !== 0) {
 		await lock.release();
 		await refuseIndexLock(worktree, `${merged.stdout}\n${merged.stderr}`);
@@ -315,7 +395,10 @@ export async function merge(
 		);
 	}
 
-	const head = await git.shortHead(landing);
+	const head =
+		landed === null
+			? await git.shortHead(landing)
+			: (await git.out(current.path, "rev-parse", "--short", "HEAD")).trim();
 	facts.commit = head;
 	facts.files = changed;
 	// The work is on the base, so the tree has nothing left to hold. Discarding it
@@ -356,6 +439,13 @@ export async function merge(
 		`${color.green("merged")} ${task} onto ${base} (${head})${
 			landing === git.root ? "" : `\n  landed in: ${landing}`
 		}\n  worktree removed, cd ${git.root}`,
+		...(landed !== null && landed.local !== "moved"
+			? [
+					color.yellow(
+						`  ${base} here could not follow ${remote}: ${landed.local.stuck}\n  It landed on ${remote}; bring this checkout up with \`git pull --ff-only\`.`,
+					),
+				]
+			: []),
 		...(freed === null ? [] : [`  slot ${freedLine(freed)}`]),
 		...(unpushed === null ? [] : [unpushed]),
 		...done.map((todo) => `  done todo ${todo.id}: ${todo.subject}`),
@@ -370,6 +460,49 @@ export async function merge(
 		);
 	}
 	log.info(lines.join("\n"));
+}
+
+/**
+ * Pushes the tested branch as `splates/<task>` and asks the coordinator to
+ * move the remote's trunk to it from `onto`, the commit it was tested on.
+ */
+async function landOnRemote({
+	git,
+	branches,
+	trunk,
+	worktree,
+	remote,
+	onto,
+	relayed,
+	holder,
+}: {
+	git: Git;
+	branches: TaskBranches;
+	trunk: TrunkLanding;
+	worktree: Worktree;
+	remote: string;
+	onto: string;
+	relayed: boolean;
+	holder: { pid: number; hostname: string };
+}): Promise<Landed> {
+	const pushed = await branches.push(worktree.task, worktree.branch);
+	if (pushed.status !== "pushed") {
+		return {
+			status: "refused",
+			why: `${branches.pushedBranch(worktree.task)} was not pushed to ${remote}: ${pushed.status === "off" ? "no remote is configured" : pushed.why}`,
+		};
+	}
+	const head = await git.head(worktree.path);
+	const landed = await trunk.land({
+		task: worktree.task,
+		onto,
+		head,
+		holder,
+	});
+	if (landed.status === "landed" && relayed) {
+		await git.run(git.root, "branch", "--force", worktree.base, head);
+	}
+	return landed;
 }
 
 /** Git owns its lock: neither its age nor an absent open fd proves it stale. */

@@ -43,17 +43,16 @@ describe("WorkerRelay", () => {
 		await env.commit(
 			env.root,
 			"splates.config.ts",
-			`export default { preMerge: "true" };\n`,
+			`export default { preMerge: "true", remote: "origin" };\n`,
 			"config",
 		);
-		await env.gitCli(
-			env.root,
-			"remote",
-			"add",
-			"origin",
-			"https://example.com/team/repo.git",
-		);
+		env.config.remote = "origin";
 		const base = dirname(env.root);
+		// The central remote, which only the coordinator moves trunk on.
+		const remote = join(base, "remote.git");
+		await env.gitCli(base, "init", "--quiet", "--bare", remote);
+		await env.gitCli(env.root, "remote", "add", "origin", remote);
+		await env.gitCli(env.root, "push", "--quiet", "origin", "main");
 		const socket = join(base, "worker.sock");
 		const log = new MemoryLogger();
 		const workers = new DevWorkers(log);
@@ -64,15 +63,7 @@ describe("WorkerRelay", () => {
 		});
 		home = join(base, "worker", "home");
 		clone = join(base, "worker", "repo");
-		await env.gitCli(base, "clone", "--quiet", env.root, clone);
-		// The project's origin, written another way.
-		await env.gitCli(
-			clone,
-			"remote",
-			"set-url",
-			"origin",
-			"git@example.com:team/repo",
-		);
+		await env.gitCli(base, "clone", "--quiet", remote, clone);
 		await env.gitCli(clone, "config", "user.email", "splates@example.com");
 		await env.gitCli(clone, "config", "user.name", "splates");
 		await env.gitCli(clone, "config", "commit.gpgsign", "false");
@@ -182,6 +173,14 @@ describe("WorkerRelay", () => {
 		await env.finish(tree);
 		await splates(tree, ["merge"]);
 
+		// Landed by the coordinator, on the remote and in its own checkout.
+		const remote = join(dirname(env.root), "remote.git");
+		expect(await env.gitCli(remote, "log", "-1", "--format=%s", "main")).toBe(
+			"Do the work",
+		);
+		expect(await env.gitCli(env.root, "log", "-1", "--format=%s")).toBe(
+			"Do the work",
+		);
 		expect((await env.service.find("alpha")).status).toBe("removed");
 		expect(await env.todos.all()).toEqual([]);
 	});

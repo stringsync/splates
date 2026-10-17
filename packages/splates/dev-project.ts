@@ -30,6 +30,7 @@ import type { Details } from "./show";
 import type { Slot } from "./slots";
 import { tasksOf } from "./snapshot";
 import type { PortOwners } from "./task-ports";
+import type { Landed, LandRequest } from "./trunk-landing";
 import type { Assets } from "./web/assets";
 
 /**
@@ -129,6 +130,7 @@ export async function serveProject(
 		root: service.git.root,
 		format,
 		conversations,
+		land: (request) => project.trunk.land(request),
 		answerState: async (call) => {
 			const value = await answerState(fs, project.splatesDir, call);
 			if (!READS.has(call.op)) {
@@ -185,6 +187,7 @@ export type Project = Pick<
 	| "git"
 	| "creds"
 	| "slots"
+	| "trunk"
 > & { fs: Fs; ps: Ps; log: Logger };
 
 /**
@@ -238,6 +241,8 @@ export interface Served extends AsyncResource {
 	conversations: Conversations | null;
 	/** Runs a worker's call on its records, as `POST /api/state` asks. */
 	answerState: (call: StateCall) => Promise<unknown>;
+	/** Moves trunk to a worker's tested branch, as `POST /api/land` asks. */
+	land: (request: LandRequest) => Promise<Landed>;
 	/** Reads the repo again soon, telling its pages if anything moved. */
 	refresh: () => void;
 	snapshot: Handler;

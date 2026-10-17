@@ -128,6 +128,26 @@ poking at the app, demos and screenshots.
   `splates/<task>`; the coordinator checks it is a fast-forward of what was
   tested and pushes main itself.
 
+How the merge lease is built (todo #13). The lease is `merge.lock` on the
+coordinator's disk, so it outlives a restart: a merge on the coordinator
+takes it there, one on a worker through `/api/state`, as a `RelayLock`
+either way, whose holder beats every third of `leaseStalenessMs`. A holder
+on the same host is judged by its pid, one elsewhere by its beat, so a
+worker that dies frees it within 90 s and a long test run on either side is
+never stolen. With `remote` configured, a merge onto trunk fetches the
+remote's trunk (`TaskBranches.fetchTrunk`, with the task's token), rebases
+onto that commit, runs the hooks, pushes `splates/<task>`, and asks the
+coordinator to land it (`TrunkLanding`: in-process on the coordinator,
+`POST /api/land` from a worker). The coordinator checks the asker still
+holds the lease, that the remote's trunk is still the tested commit, and
+that `splates/<task>` is the tested head and a fast-forward of it, then
+pushes trunk with its own credentials as `--force-with-lease` against that
+commit, and fast-forwards its own trunk checkout. A refusal there is a
+`merge_failed` that spends an attempt. A coordinator whose trunk holds
+commits the remote lacks refuses to merge until they are pushed. Without
+`remote`, and for parts landing on a task's branch, a merge lands locally
+as before.
+
 ## Git credentials
 
 The repo and main are protected first. Workers never hold a credential that

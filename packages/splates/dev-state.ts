@@ -1,8 +1,16 @@
 import type { Ps } from "webappwiz/system";
+import { z } from "zod";
 import type { Served } from "./dev-project";
 import { fail } from "./exit";
 import type { Projects } from "./projects";
 import { StateRequest, sameOrigin } from "./repo-state";
+import { LandRequest } from "./trunk-landing";
+
+/** What `POST /api/land` takes. */
+const LandBody = z.object({
+	project: StateRequest.shape.project,
+	request: LandRequest,
+});
 
 /**
  * Answers `POST /api/state`: a command on a worker reading or writing its
@@ -39,6 +47,24 @@ export class StateRoutes {
 				: await this.byOrigin(project.origin);
 		await served.format.check();
 		return Response.json({ value: (await served.answerState(call)) ?? null });
+	};
+
+	/**
+	 * Answers `POST /api/land`: a merge on a worker, holding the merge lease,
+	 * asking the coordinator to move trunk to the branch it tested.
+	 */
+	readonly land = async (request: Request): Promise<Response> => {
+		const parsed = LandBody.safeParse(await request.json().catch(() => null));
+		if (!parsed.success) {
+			fail("usage", `not a landing: ${parsed.error}`, {});
+		}
+		const { project, request: landing } = parsed.data;
+		const served =
+			"slug" in project
+				? await this.deps.named(project.slug)
+				: await this.byOrigin(project.origin);
+		await served.format.check();
+		return Response.json({ value: await served.land(landing) });
 	};
 
 	private async byOrigin(origin: string): Promise<Served> {

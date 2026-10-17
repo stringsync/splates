@@ -460,6 +460,67 @@ export class Git {
 		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
 	}
 
+	/** `git fetch` with `args`, signing in as `push` does. */
+	async fetch(
+		cwd: string,
+		args: string[],
+		env: Record<string, string> = {},
+	): Promise<GitResult> {
+		const { exitCode, stdout, stderr } = await this.ps.spawnCapture(
+			["git", "-C", cwd, "fetch", "--quiet", "--no-tags", ...args],
+			{ env: { GIT_TERMINAL_PROMPT: "0", ...env } },
+		);
+		return { code: exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+	}
+
+	/**
+	 * The commit each of `refs` is at on `remote`, by ref, leaving out those
+	 * it lacks; null when the remote cannot be read.
+	 */
+	async remoteHeads(
+		remote: string,
+		refs: string[],
+	): Promise<Map<string, string> | null> {
+		const { exitCode, stdout } = await this.ps.spawnCapture(
+			["git", "-C", this.root, "ls-remote", remote, ...refs],
+			{ env: { GIT_TERMINAL_PROMPT: "0" } },
+		);
+		if (exitCode !== 0) {
+			return null;
+		}
+		const heads = new Map<string, string>();
+		for (const line of lines(stdout.trim())) {
+			const [commit, ref] = line.split("\t");
+			if (commit && ref) {
+				heads.set(ref, commit);
+			}
+		}
+		return heads;
+	}
+
+	/** Whether `ancestor` is `commit` or reached from it. */
+	async isAncestor(ancestor: string, commit: string): Promise<boolean> {
+		const { code } = await this.run(
+			this.root,
+			"merge-base",
+			"--is-ancestor",
+			ancestor,
+			commit,
+		);
+		return code === 0;
+	}
+
+	/** Whether this repository has `commit`'s object. */
+	async hasCommit(commit: string): Promise<boolean> {
+		const { code } = await this.run(
+			this.root,
+			"cat-file",
+			"-e",
+			`${commit}^{commit}`,
+		);
+		return code === 0;
+	}
+
 	/** The one `.git` every worktree of this repo shares. */
 	commonDir(): Promise<string> {
 		return this.out(

@@ -145,6 +145,48 @@ export class TaskBranches {
 			: deleted;
 	}
 
+	/**
+	 * Fetches the remote's `trunk` into `refs/remotes/<remote>/<trunk>`,
+	 * signing in as `task`'s pushes do, and gives the commit it is at: what a
+	 * merge rebases onto, since only the coordinator moves trunk there.
+	 */
+	async fetchTrunk(
+		task: string,
+		trunk: string,
+		cwd: string,
+	): Promise<
+		| { status: "fetched"; commit: string }
+		| Exclude<Pushed, { status: "pushed" }>
+	> {
+		const remote = this.config.remote;
+		if (remote === null) {
+			return { status: "off" };
+		}
+		const name = checkedName(task);
+		if (name !== null) {
+			return { status: "refused", why: name };
+		}
+		let target: Target;
+		try {
+			target = await this.target(task, remote);
+		} catch (error) {
+			return { status: "failed", why: String(error) };
+		}
+		const tracking = trackingRef(remote, trunk);
+		const fetched = await this.git.fetch(
+			cwd,
+			[target.to, `+refs/heads/${trunk}:${tracking}`],
+			target.env,
+		);
+		if (fetched.code !== 0) {
+			return { status: "failed", why: fetched.stderr || fetched.stdout };
+		}
+		return {
+			status: "fetched",
+			commit: await this.git.out(cwd, "rev-parse", tracking),
+		};
+	}
+
 	private run(task: string, args: string[]): Promise<Pushed> {
 		const ran = (this.last.get(task) ?? Promise.resolve())
 			.catch(() => {})
@@ -215,6 +257,11 @@ export class TaskBranches {
 			},
 		};
 	}
+}
+
+/** Where `remote`'s `trunk` is kept once fetched. */
+export function trackingRef(remote: string, trunk: string): string {
+	return `refs/remotes/${remote}/${trunk}`;
 }
 
 /** Why `task` cannot name a pushed branch, or null when it can. */

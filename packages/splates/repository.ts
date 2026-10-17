@@ -23,6 +23,7 @@ import { Outcomes } from "./outcomes";
 import { PLAN_FILE, Plans } from "./plan";
 import { Projects, type Reach, reaches } from "./projects";
 import { RelayFs } from "./relay-fs";
+import { RelayLanding } from "./relay-landing";
 import { RelayLock } from "./relay-lock";
 import { findRelay } from "./repo-state";
 import { splatesHome } from "./roster";
@@ -31,6 +32,7 @@ import { Shell } from "./shell";
 import { Slots } from "./slots";
 import { TaskBranches } from "./task-branches";
 import { Todos } from "./todos";
+import { CoordinatorLanding, type TrunkLanding } from "./trunk-landing";
 import { WorktreeService } from "./worktree-service";
 
 /**
@@ -79,6 +81,7 @@ export interface Repository {
 	format: Format;
 	git: Git;
 	service: WorktreeService;
+	/** The merge lease, which one merge in the repository holds at a time. */
 	lock: Lock;
 	shell: Shell;
 	journal: Journal;
@@ -95,6 +98,14 @@ export interface Repository {
 	heavy: HeavyCap;
 	/** Each task's branch on the central remote, which a task pushes as it goes. */
 	branches: TaskBranches;
+	/**
+	 * What moves trunk on the central remote once a merge has tested its
+	 * branch: this machine itself on the coordinator, the coordinator through
+	 * the relay on a worker.
+	 */
+	trunk: TrunkLanding;
+	/** Whether this checkout's records are the coordinator's, reached through the relay. */
+	relayed: boolean;
 }
 
 /** How `repository` treats records in an older format than this splates's. */
@@ -293,6 +304,18 @@ export async function openRepository(
 					timer,
 					stalenessMs: config.leaseStalenessMs,
 				});
+	// The merge lease: one per repository, kept on the coordinator's disk so
+	// it outlives a restart, and beating on either side, so neither judges a
+	// long test run on the other's host stale. One whose holder dies is free
+	// once its pid is gone on the same host, or its beat is old elsewhere.
+	const mergeLease = `${splatesDir}/merge.lock`;
+	const lease = new RelayLock(mergeLease, {
+		fs,
+		ps,
+		log,
+		timer,
+		stalenessMs: config.leaseStalenessMs,
+	});
 	// Before anything reads or makes a record.
 	const format = new Format(splatesDir, {
 		fs,
@@ -350,7 +373,12 @@ export async function openRepository(
 		git,
 		service,
 		outcomes,
-		lock: lockAt(`${splatesDir}/merge.lock`),
+		lock: lease,
+		relayed: relay !== null,
+		trunk:
+			relay === null
+				? new CoordinatorLanding({ git, fs, config, lease: mergeLease })
+				: new RelayLanding(relay.url, relay.project),
 		shell: new Shell({ ps }),
 		journal: new Journal(`${splatesDir}/log.jsonl`, config.logCapacity, {
 			fs,
