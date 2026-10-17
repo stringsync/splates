@@ -34,7 +34,8 @@ export function PlanLimits({
 	className?: string;
 	/**
 	 * Lays the rows out in `METER_COLUMNS`, each reset under its bar, so the
-	 * bars line up with the page's other meters.
+	 * bars line up with the page's other meters. On mobile the numbers sit
+	 * above a full-width bar, with the reset time beneath it.
 	 */
 	aligned?: boolean;
 	/** What the list is headed, like the agent whose plan it is. */
@@ -54,12 +55,12 @@ export function PlanLimits({
 			<h3 className="pl-3 font-medium text-muted-foreground text-xs">
 				{title}
 			</h3>
-			{/* On a phone, when each window resets goes under it, so its bar keeps its width. */}
+			{/* Budget meters get their own full-width row on mobile. */}
 			<ul
 				className={cn(
 					"grid gap-x-3",
 					aligned
-						? METER_COLUMNS
+						? cn(METER_COLUMNS, "max-md:gap-y-2")
 						: "grid-cols-[max-content_1fr_3rem_14rem] max-md:grid-cols-[max-content_1fr_3rem]",
 				)}
 			>
@@ -76,14 +77,22 @@ export function PlanLimits({
 							aria-label={name}
 							className={cn(
 								"col-span-full grid grid-cols-subgrid items-center rounded-md py-1.5 text-sm tabular-nums",
-								!aligned && "px-3",
+								aligned ? "max-md:gap-y-2" : "px-3",
 							)}
 						>
 							<span className="whitespace-nowrap">{name}</span>
-							<Meter used={used} />
+							<Meter
+								used={used}
+								className={
+									aligned
+										? "max-md:col-span-full max-md:row-start-2"
+										: undefined
+								}
+							/>
 							<span
 								className={cn(
 									"text-right",
+									aligned && "max-md:col-start-2 max-md:row-start-1",
 									tone === "warning" && "text-warning",
 									tone === "destructive" && "text-destructive",
 								)}
@@ -93,7 +102,9 @@ export function PlanLimits({
 							<span
 								className={cn(
 									"text-muted-foreground text-xs",
-									aligned ? "col-span-2 col-start-2" : "max-md:col-span-full",
+									aligned
+										? "col-span-2 col-start-2 max-md:col-span-full max-md:col-start-1"
+										: "max-md:col-span-full",
 								)}
 							>
 								{over

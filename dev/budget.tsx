@@ -282,7 +282,12 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 		);
 	}
 	return (
-		<ul className={cn("grid items-center gap-x-3 gap-y-2", METER_COLUMNS)}>
+		<ul
+			className={cn(
+				"grid items-center gap-x-3 gap-y-2 max-md:gap-y-4",
+				METER_COLUMNS,
+			)}
+		>
 			{role.standing.map((each) => {
 				const used = each.tokens === 0 ? 1 : each.spent / each.tokens;
 				const tone = toneOf(used);
@@ -290,15 +295,18 @@ function Windows({ role }: { role: RoleBudget }): JSX.Element {
 					<li
 						key={each.window}
 						aria-label={each.window}
-						className="col-span-full grid grid-cols-subgrid items-center text-sm tabular-nums"
+						className="col-span-full grid grid-cols-subgrid items-center text-sm max-md:gap-y-2 tabular-nums"
 					>
 						<span className="whitespace-nowrap first-letter:uppercase">
 							{each.window}
 						</span>
-						<Meter used={used} />
+						<Meter
+							used={used}
+							className="max-md:col-span-full max-md:row-start-2"
+						/>
 						<span
 							className={cn(
-								"text-right",
+								"text-right max-md:col-start-2 max-md:row-start-1",
 								tone === "warning" && "text-warning",
 								tone === "destructive" && "text-destructive",
 							)}

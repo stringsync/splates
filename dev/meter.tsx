@@ -4,10 +4,10 @@ import { cn } from "#dev/lib/utils.ts";
 /**
  * The columns a list of meters lays out in: a name, the bar, then what it
  * says. Every list on a page that uses them puts its bars at the same x, the
- * same width.
+ * same width. On mobile the bar spans a second row below the name and numbers.
  */
 export const METER_COLUMNS =
-	"grid-cols-[7rem_1fr_10rem] max-md:grid-cols-[6rem_1fr_6.5rem]";
+	"grid-cols-[7rem_1fr_10rem] max-md:grid-cols-[minmax(0,1fr)_auto]";
 
 /** How a share used, 0 to 1, reads: plain, a warning from 80%, an alarm from 90%. */
 export function toneOf(used: number): "warning" | "destructive" | null {
@@ -19,12 +19,21 @@ export function toneOf(used: number): "warning" | "destructive" | null {
 }
 
 /** A thin bar filled to `used`, 0 to 1, in its tone. */
-export function Meter({ used }: { used: number }): JSX.Element {
+export function Meter({
+	used,
+	className,
+}: {
+	used: number;
+	className?: string;
+}): JSX.Element {
 	const tone = toneOf(used);
 	return (
 		<span
 			aria-hidden
-			className="relative h-1 overflow-hidden rounded-full bg-foreground/15"
+			className={cn(
+				"relative h-1 overflow-hidden rounded-full bg-foreground/15",
+				className,
+			)}
 		>
 			<span
 				className={cn(
