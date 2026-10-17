@@ -5,11 +5,11 @@ import {
 	ChevronRightIcon,
 	RotateCwIcon,
 } from "lucide-react";
-import { type JSX, useContext, useEffect, useState } from "react";
+import { type JSX, useContext, useState } from "react";
 import { Button } from "#dev/components/ui/button.tsx";
 import { setupReference } from "../prompts";
-import type { SetupProgress, StepProgress } from "../setup";
-import { saveCred, seeSetup, skipSetupStep } from "./api";
+import type { AreaProgress, SetupProgress, StepProgress } from "../setup";
+import { saveCred, skipSetupStep } from "./api";
 import { agentFor, NEW } from "./conversation-address";
 import { promptConversation, startConversation } from "./conversation-api";
 import type { ConversationFeed } from "./conversation-feed";
@@ -21,12 +21,7 @@ import { OpenCodeReadyControls } from "./setup-opencode-ready";
 import { SetupContext } from "./setup-state";
 import { TopBar } from "./top-bar";
 
-/**
- * Setup as a wizard: one large question at a time, its area above it, why
- * it matters and the one thing to do, under a thin bar of how much is done.
- * Back and Next walk every step, done or not; Skip puts off an optional one.
- * Opening it marks setup seen, so the nudge towards it stops.
- */
+/** Intentional setup: choose an area, then walk only its steps. */
 export function SetupPage({
 	feed,
 	onOpen,
@@ -36,20 +31,96 @@ export function SetupPage({
 	/** Opens the conversation started on a step. */
 	onOpen: (id: string) => void;
 }): JSX.Element {
-	const { progress, settle } = useContext(SetupContext);
-	const fresh = progress?.fresh ?? false;
-	useEffect(() => {
-		if (fresh) {
-			seeSetup().then(settle, () => {});
-		}
-	}, [fresh, settle]);
+	const { progress } = useContext(SetupContext);
+	const [selected, setSelected] = useState<string | null>(null);
+	const area = progress?.areas.find((area) => area.id === selected);
 	return (
 		<section aria-label="setup" className="flex min-w-0 flex-col gap-8">
 			<TopBar title="Setup" />
-			{progress !== null && (
-				<Wizard progress={progress} feed={feed} onOpen={onOpen} />
-			)}
+			{progress !== null &&
+				(area ? (
+					<Wizard
+						key={area.id}
+						area={area}
+						feed={feed}
+						onOpen={onOpen}
+						onJourneys={() => setSelected(null)}
+					/>
+				) : (
+					<Chooser progress={progress} onSelect={setSelected} />
+				))}
 		</section>
+	);
+}
+
+const AGENT_JOURNEYS = ["opencode", "claude", "codex"];
+const DESCRIPTIONS: Record<string, string> = {
+	opencode:
+		"Install, connect your Go account, choose models and check configuration.",
+	claude:
+		"Install and sign in, then review Claude's roster entry and models. Checks read the roster only.",
+	codex:
+		"Install and sign in, then review Codex's roster entry and models. Checks read the roster only.",
+	agents: "Review the shared agent roster and model descriptions.",
+	"remote-access": "Reach arbor from your phone or another computer.",
+	notifications: "Choose where and when arbor notifies you.",
+	dictation: "Set up voice input for your prompts.",
+};
+
+function Chooser({
+	progress,
+	onSelect,
+}: {
+	progress: SetupProgress;
+	onSelect: (id: string) => void;
+}): JSX.Element {
+	const agents = AGENT_JOURNEYS.flatMap((id) =>
+		progress.areas.filter((area) => area.id === id),
+	);
+	const other = progress.areas.filter(
+		(area) => !AGENT_JOURNEYS.includes(area.id),
+	);
+	return (
+		<div className="mx-auto flex w-full max-w-xl flex-col gap-8">
+			<header className="flex flex-col gap-2">
+				<h2 className="text-3xl font-medium">What would you like to set up?</h2>
+				<p className="text-muted-foreground">
+					Choose a journey. You can leave, revisit or repair it at any time.
+				</p>
+			</header>
+			{[
+				{ title: "Agents", areas: agents },
+				{ title: "Other machine setup", areas: other },
+			].map(
+				({ title, areas }) =>
+					areas.length > 0 && (
+						<section
+							key={title}
+							aria-label={title}
+							className="flex flex-col gap-3"
+						>
+							<h3 className="font-medium">{title}</h3>
+							{areas.map((area) => (
+								<div key={area.id} className="flex flex-col gap-2">
+									<Button
+										variant="outline"
+										className="min-h-12 justify-between"
+										onClick={() => onSelect(area.id)}
+									>
+										Set up {area.title}
+										<ChevronRightIcon data-icon="inline-end" />
+									</Button>
+									<p className="text-sm text-muted-foreground">
+										{DESCRIPTIONS[area.id]} {area.done} of {area.steps.length}{" "}
+										steps done
+										{area.skipped > 0 ? ` · ${area.skipped} skipped` : ""}.
+									</p>
+								</div>
+							))}
+						</section>
+					),
+			)}
+		</div>
 	);
 }
 
@@ -59,22 +130,27 @@ interface Placed {
 }
 
 function Wizard({
-	progress,
+	area,
 	feed,
 	onOpen,
+	onJourneys,
 }: {
-	progress: SetupProgress;
+	area: AreaProgress;
+	onJourneys: () => void;
 	feed: ConversationFeed | null;
 	onOpen: (id: string) => void;
 }): JSX.Element {
 	const { refresh, settle } = useContext(SetupContext);
-	const steps: Placed[] = progress.areas.flatMap((area) =>
-		area.steps.map((step) => ({ step, area: area.title })),
-	);
-	// Starts on the step to do next; past the last is the end.
+	const steps: Placed[] = area.steps.map((step) => ({
+		step,
+		area: area.title,
+	}));
+	// Revisit begins at the first unresolved step, with all steps still reachable.
 	const [at, setAt] = useState(() => {
-		const next = steps.findIndex(({ step }) => step.id === progress.next);
-		return next === -1 ? steps.length : next;
+		const next = steps.findIndex(
+			({ step }) => step.status === "ready" || step.status === "waiting",
+		);
+		return next === -1 ? 0 : next;
 	});
 	const [error, setError] = useState<string | null>(null);
 	const done = steps.filter(({ step }) => step.status === "done").length;
@@ -89,7 +165,22 @@ function Wizard({
 		setAt(Math.min(at + 1, steps.length));
 	};
 	const skip = (step: string) =>
-		act(skipSetupStep(step, true).then(settle)).then(forward);
+		act(skipSetupStep(step, true).then(settle).then(forward));
+	const resume = async (step: StepProgress) => {
+		const needed = new Set([step.id]);
+		for (const { step: before } of [...steps].reverse()) {
+			if (needed.has(before.id)) {
+				for (const id of before.after) {
+					needed.add(id);
+				}
+			}
+		}
+		for (const { step: before } of steps) {
+			if (needed.has(before.id) && before.status === "skipped") {
+				settle(await skipSetupStep(before.id, false));
+			}
+		}
+	};
 	const startAgent =
 		feed === null
 			? null
@@ -107,6 +198,29 @@ function Wizard({
 
 	return (
 		<div className="mx-auto flex min-h-[70vh] w-full max-w-xl flex-col gap-8">
+			<Button
+				variant="ghost"
+				className="self-start min-h-11"
+				onClick={onJourneys}
+			>
+				<ChevronLeftIcon data-icon="inline-start" /> Back to journeys
+			</Button>
+			<nav aria-label={`${area.title} steps`} className="flex flex-wrap gap-2">
+				{steps.map(({ step }, index) => (
+					<Button
+						key={step.id}
+						variant={at === index ? "secondary" : "ghost"}
+						className="min-h-11"
+						aria-current={at === index ? "step" : undefined}
+						onClick={() => {
+							setError(null);
+							setAt(index);
+						}}
+					>
+						{index + 1}. {step.title}
+					</Button>
+				))}
+			</nav>
 			<div className="flex items-center gap-3">
 				<div
 					role="progressbar"
@@ -134,6 +248,7 @@ function Wizard({
 						here={here}
 						onAgent={startAgent}
 						onCheck={refresh}
+						onResume={() => act(resume(here.step))}
 						feed={feed}
 						onOpen={onOpen}
 						onRepair={() =>
@@ -187,6 +302,7 @@ function Question({
 	feed,
 	onOpen,
 	onRepair,
+	onResume,
 }: {
 	here: Placed;
 	onAgent: ((step: string) => void) | null;
@@ -194,6 +310,7 @@ function Question({
 	feed: ConversationFeed | null;
 	onOpen: (id: string) => void;
 	onRepair: () => void;
+	onResume: () => void;
 }): JSX.Element {
 	return (
 		<article aria-label={`step ${step.id}`} className="flex flex-col gap-8">
@@ -207,6 +324,11 @@ function Question({
 					<Markdown text={step.why} inline />
 				</p>
 			</header>
+			{step.status === "skipped" && (
+				<Button variant="outline" onClick={onResume}>
+					Resume this step
+				</Button>
+			)}
 			{step.id === "opencode-ready" ? (
 				<OpenCodeReadyControls
 					feed={feed}
@@ -217,12 +339,15 @@ function Question({
 				<OpenCodeModelControls />
 			) : step.id === "opencode-install" || step.id === "opencode-connect" ? (
 				<OpenCodeControls step={step.id} />
-			) : step.status === "done" ? (
+			) : step.status === "done" && !/^(claude|codex)-/.test(step.id) ? (
 				<p className="flex items-center gap-2 text-lg text-success">
 					<CheckIcon className="size-5" /> Done
 				</p>
 			) : (
 				<div className="flex flex-col gap-4">
+					{step.status === "done" && (
+						<p className="text-success">Saved in roster</p>
+					)}
 					<p className="text-lg">
 						<Markdown text={step.user} inline />
 					</p>
@@ -274,8 +399,8 @@ function End({ done }: { done: boolean }): JSX.Element {
 			</h2>
 			<p className="text-lg text-muted-foreground">
 				{done
-					? "Everything arbor can set up on this machine is set up."
-					: "Go Back to any step left, or come back to Setup from Settings."}
+					? "Every step in this journey is done. Revisit any step to review it."
+					: "Revisit any step left, or go back to journeys to choose another setup."}
 			</p>
 		</div>
 	);

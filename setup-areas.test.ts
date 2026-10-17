@@ -46,6 +46,10 @@ describe("SETUP_AREAS", () => {
 			"ready",
 			"waiting",
 			"ready",
+			"ready",
+			"waiting",
+			"ready",
+			"waiting",
 		]);
 		expect(progress.next).toBe("agent-roster");
 		expect(progress.required).toBe(true);
@@ -85,10 +89,42 @@ describe("SETUP_AREAS", () => {
 
 		const setup = new Setup(machine, SETUP_AREAS);
 		await setup.skip("opencode-install");
+		await setup.skip("codex-roster");
 		const progress = await setup.read();
 
 		expect(progress.areas.every((area) => area.left === 0)).toBe(true);
 		expect(progress.next).toBeNull();
+	});
+
+	it("checks Claude and Codex independently without modifying their roster", async () => {
+		await machine.fs.mkdir(HOME, { recursive: true });
+		const roster = JSON.stringify({
+			agents: [
+				{ id: "claude", name: "Claude", argv: ["custom-claude"], models: [] },
+			],
+		});
+		await machine.fs.write(`${HOME}/agents.json`, roster);
+		const setup = new Setup(machine, SETUP_AREAS);
+		const progress = await setup.read();
+		expect(
+			progress.areas
+				.find((area) => area.id === "claude")
+				?.steps.map((step) => step.status),
+		).toEqual(["done", "ready"]);
+		expect(
+			progress.areas
+				.find((area) => area.id === "codex")
+				?.steps.map((step) => step.status),
+		).toEqual(["ready", "waiting"]);
+		await setup.skip("codex-roster");
+		expect(
+			(await setup.read()).areas.find((area) => area.id === "codex")?.skipped,
+		).toBe(2);
+		await setup.unskip("codex-roster");
+		expect(
+			(await setup.read()).areas.find((area) => area.id === "codex")?.skipped,
+		).toBe(0);
+		expect(await machine.fs.read(`${HOME}/agents.json`)).toBe(roster);
 	});
 
 	it("leaves the models and notices to do when only their first step is", async () => {

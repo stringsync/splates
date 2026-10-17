@@ -86,7 +86,7 @@ async function scenario(name: string) {
 			device: new FakeSecretStore(),
 			opencode: native,
 		},
-		SETUP_AREAS.filter((area) => area.id === "opencode"),
+		SETUP_AREAS,
 	);
 	await setup.see();
 	if (name !== "fresh" && name !== "missing-login") {
@@ -131,6 +131,20 @@ const handle = gate.local(
 			return new Response(assets.styles, {
 				headers: { "content-type": "text/css" },
 			});
+		}
+		if (path === "/api/setup/seen") {
+			await setup.see();
+			return Response.json(await setup.read());
+		}
+		const skipped = /^\/api\/setup\/([^/]+)\/skipped$/.exec(path);
+		if (skipped?.[1]) {
+			const body = await request.json();
+			if (body.skipped) {
+				await setup.skip(skipped[1]);
+			} else {
+				await setup.unskip(skipped[1]);
+			}
+			return Response.json(await setup.read());
 		}
 		if (path === "/api/setup") {
 			return Response.json(await setup.read());

@@ -14,7 +14,6 @@ import { NewMenu } from "./new-menu";
 import { PAGES, type Page } from "./page-route";
 import { UpdateDot } from "./release";
 import type { ShortcutKey } from "./settings";
-import { SetupNudge } from "./setup-nudge";
 import { type Sidebar, SidebarHandle } from "./sidebar";
 import type { Terminals } from "./terminals";
 
@@ -33,7 +32,6 @@ export function AppNav({
 	page,
 	open,
 	onOpen,
-	onPage,
 	talk,
 	terminals,
 	drafts,
@@ -132,12 +130,6 @@ export function AppNav({
 							open={page === "conversations" ? open : null}
 							onOpen={onOpen}
 						/>
-					</div>
-				)}
-				{/* At the foot, under the conversations, until setup is seen. */}
-				{page !== "setup" && (
-					<div className="mt-auto pt-3 pb-3">
-						<SetupNudge onOpen={() => onPage("setup")} />
 					</div>
 				)}
 			</TabsList>

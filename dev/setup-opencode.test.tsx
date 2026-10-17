@@ -149,6 +149,9 @@ describe("OpenCode wizard controls", () => {
 				<SetupPage feed={null} onOpen={() => {}} />
 			</SetupContext>,
 		);
+		await act(async () =>
+			fireEvent.click(view.getByRole("button", { name: "Set up OpenCode" })),
+		);
 		expect(
 			view.getByRole("article", { name: "step opencode-install" }),
 		).toBeTruthy();

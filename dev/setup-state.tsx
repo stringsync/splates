@@ -21,7 +21,7 @@ export interface SetupState {
 	settle: (progress: SetupProgress) => void;
 }
 
-/** What the nav's dot, the nudge and the Setup page read. */
+/** What the Setup page reads. */
 export const SetupContext = createContext<SetupState>({
 	progress: null,
 	refresh: () => {},

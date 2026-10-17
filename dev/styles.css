@@ -137,7 +137,6 @@
 @source "./setup-opencode-models.tsx";
 @source "./setup-opencode-ready.tsx";
 @source "./setup-opencode-terminal.tsx";
-@source "./setup-nudge.tsx";
 @source "./setup-state.tsx";
 @source "./kept-creds.tsx";
 @source "./systems.tsx";
