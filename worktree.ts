@@ -330,6 +330,8 @@ export interface GateFailure {
 	at: string;
 	/** The files the rebase conflicted in, for a conflict. */
 	files?: string[];
+	/** What git said, for a conflict that named no file: why the rebase failed. */
+	output?: string;
 	/** The tests the gate named as failing, for `tests_failed`. */
 	tests?: string[];
 	/** Those tests with what each said, for `tests_failed`. Absent in old records. */

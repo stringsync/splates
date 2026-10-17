@@ -136,20 +136,38 @@ export async function merge(
 		// Left in progress on purpose: the agent needs the conflict markers.
 		const paths = await git.conflictedPaths(worktree.path);
 		facts.files = paths;
+		// A rebase can fail with no file in conflict (an untracked file in the
+		// way, a locked index, a refusing hook): git then often aborted itself,
+		// so there is nothing to resolve or continue, and its words are the
+		// only clue.
+		const inProgress = (await git.interruptedOps(worktree.path)).length > 0;
+		const output = tail(`${rebase.stdout}\n${rebase.stderr}`);
 		await lock.release();
-		await bump(worktree, "conflict", { files: paths });
+		await bump(worktree, "conflict", {
+			files: paths,
+			...(paths.length === 0 && { output }),
+		});
 		facts.attemptsLeft = (facts.attemptsLeft ?? 1) - 1;
 		fail(
 			"conflict",
-			[
-				`rebase onto ${base} conflicted in ${paths.length || "?"} file(s):`,
-				...paths.map((file) => `  ${file}`),
-				"",
-				"The rebase is still in progress. Resolve the conflicts, `git add` them,",
-				"`git rebase --continue`, then run `arbor merge` again.",
-				"If both sides restructured the same logic, prefer `arbor escalate <reason>`",
-				`or \`arbor remove ${task}\` and redo the task against current ${base}.`,
-			].join("\n"),
+			paths.length > 0
+				? [
+						`rebase onto ${base} conflicted in ${paths.length} file(s):`,
+						...paths.map((file) => `  ${file}`),
+						"",
+						"The rebase is still in progress. Resolve the conflicts, `git add` them,",
+						"`git rebase --continue`, then run `arbor merge` again.",
+						"If both sides restructured the same logic, prefer `arbor escalate <reason>`",
+						`or \`arbor remove ${task}\` and redo the task against current ${base}.`,
+					].join("\n")
+				: [
+						`rebase onto ${base} failed with no file in conflict (exit ${rebase.code}). Git said:`,
+						indent(output),
+						"",
+						inProgress
+							? "The rebase is still in progress: finish it (`git rebase --continue`, or `--skip` for a commit that became empty), then run `arbor merge` again."
+							: "Git stopped the rebase itself, so there is nothing to resolve: fix what it names, then run `arbor merge` again.",
+					].join("\n"),
 			{ task, paths },
 		);
 	}

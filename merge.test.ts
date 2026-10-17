@@ -160,6 +160,33 @@ describe.concurrent("merge", () => {
 		expect(await deps.fs.exists(deps.lockPath)).toBe(false);
 	});
 
+	it("says why a rebase failed that left no file in conflict", async () => {
+		await using deps = await Testing.open();
+
+		await add(deps, "alpha");
+		const worktree = (await deps.service.find("alpha")).path;
+		await deps.commit(worktree, "alpha.txt", "alpha\n", "add alpha");
+		await deps.commit(deps.root, "trunk.txt", "trunk\n", "add trunk");
+		const hooks = join(
+			await deps.gitCli(worktree, "rev-parse", "--git-common-dir"),
+			"hooks",
+		);
+		await deps.fs.write(
+			join(hooks, "pre-rebase"),
+			"#!/bin/sh\necho refused-by-hook >&2\nexit 1\n",
+		);
+		await deps.gitCli(worktree, "config", "core.hooksPath", hooks);
+		await Bun.spawn(["chmod", "+x", join(hooks, "pre-rebase")]).exited;
+
+		await deps.finish(worktree);
+		await expect(merge(deps, worktree)).toBail("conflict", {
+			message: "no file in conflict",
+		});
+		expect(
+			(await deps.service.find("alpha")).state?.gateFailures?.at(-1)?.output,
+		).toContain("refused-by-hook");
+	});
+
 	it("rolls the branch back and leaves trunk alone when the gate fails", async () => {
 		await using deps = await Testing.open();
 
