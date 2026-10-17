@@ -46,7 +46,9 @@ export function budget(tokens?: string, usd?: string): Allowance {
 		value.tokens > MAX_BUDGET.tokens ||
 		value.microUsd > MAX_BUDGET.microUsd
 	) {
-		throw new Error("Hard invocation ceiling: 10000 total tokens and USD 0.25");
+		throw new Error(
+			"Invocation reservation maximum: 10000 total tokens and USD 0.25",
+		);
 	}
 	return value;
 }

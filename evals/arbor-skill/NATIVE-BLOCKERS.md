@@ -1,4 +1,10 @@
-# Native adapter ownership and remaining evidence gaps
+# Native adapter integration and remaining evidence gaps
+
+Current: #379–382 connect native Claude, Codex and OpenCode through `native-target.ts`
+and `probe-cli.ts`. See RUNNER.md for commands and auth limitations. The inspection
+table below is historical; its former CLI-selection gap is resolved. All native
+billing remains incomplete; reservations stay outstanding. Codex USD is unavailable.
+Free transport evidence is not measured live operation, cheapness or adherence.
 
 Inspected at base `29a76de3` with local version/help/schema commands only. No
 provider prompt, benchmark, credential copying or account request was performed.

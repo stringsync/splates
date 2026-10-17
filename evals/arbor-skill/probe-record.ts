@@ -179,6 +179,8 @@ export interface Adapter {
 	run(context: RunContext, model: string | null): Promise<void>;
 }
 export interface Target {
+	/** CLI provider name, separate from transport identity. */
+	selector?: string;
 	adapter: Adapter;
 	model: string | null;
 }

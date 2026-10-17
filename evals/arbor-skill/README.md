@@ -5,22 +5,24 @@ Focused probes use deterministic assertions without an LLM judge. Read
 for all 73 registered probes, and [PROBES.md](PROBES.md) for evidence semantics.
 
 Today `fast --kind cli` runs eleven local CLI contracts: ten pass and delegation's
-incomplete nested capture remains explicitly uncovered. All 62 agent probes need
-native tool instrumentation unavailable in generic ACP. Synthetic tests establish
+incomplete nested capture remains explicitly uncovered. The native CLI can evaluate partial state/reply evidence for broad shell profiles;
+complete tool/read evidence for the 62 agent probes remains unavailable. Synthetic tests establish
 assertion behavior, not measured model adherence.
 
 The model CLI requires a changed Arbor skill/reference snapshot against an
 explicit `--baseline` Git commit. `plan` is free. Defaults are at most two targeted
 probes, one repetition, parallel one, 4,000 aggregate tokens and USD 0.10.
-Missing enforceable provider metering is refused before launch, including ACP;
-`--allow-unmetered` cannot bypass this policy. #371 still owns native instrumentation
-and provider enforcement. No empirical model cost has been measured.
+Native Claude/Codex/OpenCode controls are monitored, with possible in-flight
+overshoot; Codex USD is unavailable. All retain outstanding billing reservations,
+even on success. `--allow-unmetered` cannot bypass admission. Native authentication
+prerequisites and narrow-profile refusals are detailed in RUNNER.md. No empirical
+model cost or live adherence has been measured; #365 remains for user review.
 
 ```sh
 bin/wiz dev eval plan --baseline BASE_COMMIT
 bin/wiz dev eval fast --kind cli --directory /tmp/arbor-cli-results
 bin/wiz dev eval report --directory /tmp/arbor-cli-results
-bin/wiz dev fix
+bin/wiz dev fix --code-only
 bin/wiz dev test
 ```
 

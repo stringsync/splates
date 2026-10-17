@@ -35,7 +35,8 @@ edit AGENTS.md, call session init, copy credentials, request login or install a
 runtime. Existing native auth in the isolated HOME is the only supported auth
 source. A fresh runner HOME normally has none: this is explicitly unsupported.
 
-`exec`, `shell`, `bash`, `arbor` and `git` map to broad native `bash` permission;
+`exec`, `shell` and `bash` map to broad native `bash` permission. Named `arbor`/`git`
+without one of those broad permissions are refused before launch;
 this is NOT an executable allowlist. `read` enables read/glob/grep, and
 write/edit/patch enable native edit permission. Skill loading is enabled; other
 native tools are denied. Unknown requested tools are unsupported before launch.

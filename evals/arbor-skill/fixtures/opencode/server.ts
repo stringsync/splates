@@ -1,4 +1,6 @@
 // Free HTTP/SSE stand-in shaped from @opencode-ai/sdk 1.19.3. Never loads a model.
+import { decisionTransport } from "../decision-transport";
+
 const scenario = process.env.OPENCODE_FIXTURE ?? "success";
 const config = JSON.parse(process.env.OPENCODE_CONFIG_CONTENT ?? "{}");
 let permission: unknown;
@@ -155,7 +157,15 @@ const server = Bun.serve({
 								modelID: "model",
 							}
 						: message("last"),
-				parts: [{ type: "text", text: "done" }],
+				parts: [
+					{
+						type: "text",
+						text: await decisionTransport(
+							url.searchParams.get("directory") ?? process.cwd(),
+							process.env.NATIVE_DECISION_FIXTURE,
+						),
+					},
+				],
 			});
 		}
 		if (path === "/session/owned/message") {

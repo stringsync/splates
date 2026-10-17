@@ -8,17 +8,26 @@ every mapped requirement is now covered.
 See [shared token budgets](BUDGETS.md) for configuration, persistence and conservative
 reservations, and [native blockers](NATIVE-BLOCKERS.md) for inspected transport evidence.
 
-## Affordability controls and remaining provider blocker
+## Native integration evidence and limits
 
-The CLI now requires an immutable skill baseline, skips unchanged instructions,
-selects at most two targeted smoke probes by default, and admits the entire batch
-only within hard aggregate token/microdollar reservations. `probe-affordability.test.ts`
-free-tests the gate, selection, safe budgets and bounded-provider dispatch. See
-RUNNER.md for exact limits and unsupported cases. ACP has no certified metering
-integration and is refused before launch; these controls do not establish a useful
-real-model eval or empirical cost. #371 still owns native provider enforcement.
-AGENTS.md is unchanged; #365 needs the user's later approval and must retain
-skill-change-only execution and low enforced aggregate budgets.
+The CLI requires changed skill/reference bytes against an immutable baseline,
+selects at most two smoke cases, defaults to one repetition/active agent, and
+reserves the whole batch against invocation and configured shared token budgets.
+Native Claude/Codex/OpenCode selection is implemented; generic ACP is not selected.
+Limits are monitored with possible in-flight overshoot; Codex USD is unavailable.
+All drivers retain outstanding reservations because billing completeness is false.
+No empirical cost or live model adherence has been measured. See RUNNER.md for
+commands, native auth prerequisites and unsupported profiles.
+
+`native-integration.test.ts` runs unchanged registered `decisions/local-choice`
+and `decisions/answer` through each provider's real subprocess or HTTP/SSE
+transport with scripted free peers. It independently observes decision state and
+parses replies, while command assertions stay uncovered; it checks retained
+reservations and exhausted subsequent admission. Narrow arbor/git-only profiles
+are unsupported before prompting on every provider. Provider suites cover
+startup/auth/permission failures, interruption, usage, cancellation and cleanup.
+Fixtures are not live agents. OpenCode is not installed/authenticated for this user.
+AGENTS.md remains unchanged and #365 awaits user review.
 
 ## Registered probes
 

@@ -190,7 +190,10 @@ async function runOne(
 		reproduction: [
 			...opts.reproduction,
 			...(probe.execution.kind === "agent"
-				? ["--target", `${target.adapter.id}:${target.model}`]
+				? [
+						"--target",
+						`${target.selector ?? target.adapter.id}:${target.model}`,
+					]
 				: []),
 			"--probe",
 			probe.id,

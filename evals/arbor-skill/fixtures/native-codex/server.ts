@@ -4,6 +4,8 @@ import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
+import { decisionTransport } from "../decision-transport";
+
 const scenario = process.argv[2];
 const log = process.argv[3] as string;
 let root = "";
@@ -236,7 +238,9 @@ for await (const line of createInterface({ input: process.stdin })) {
 				type: "agentMessage",
 				id: "reply",
 				phase: scenario === "missing-phase" ? null : "final_answer",
-				text: "## ✅ Merged sample onto main\n\nThe sample now works.",
+				text: process.argv[4]
+					? await decisionTransport(cwd, process.argv[4])
+					: "## ✅ Merged sample onto main\n\nThe sample now works.",
 			},
 		});
 		end();

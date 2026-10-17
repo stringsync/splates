@@ -152,6 +152,14 @@ class OpenCodeSession implements NativeSession {
 		}
 		const providerID = match[1] as string;
 		const modelID = match[2] as string;
+		if (
+			tools.some((tool) => ["arbor", "git"].includes(tool)) &&
+			!tools.some((tool) => ["shell", "exec", "bash"].includes(tool))
+		) {
+			return this.unsupported(
+				"OpenCode cannot enforce narrow arbor/git executable allowlists; declare broad shell/exec only when the probe permits it",
+			);
+		}
 		const permission: Record<string, Json> = { "*": "deny", skill: "allow" };
 		for (const tool of tools) {
 			if (["exec", "shell", "bash", "arbor", "git"].includes(tool)) {

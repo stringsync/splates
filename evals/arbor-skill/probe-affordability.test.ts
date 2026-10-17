@@ -70,10 +70,43 @@ it("plans a targeted reference smoke without consulting targets or metering serv
 	);
 	const output = log.entries.map((entry) => entry.message).join("\n");
 	expect(output).toContain(
-		"Selected: orchestration/dependency; reps 1; parallel 1; aggregate ceilings 4000 tokens / USD 0.100000",
+		"Selected: orchestration/dependency; reps 1; parallel 1; aggregate admission limits 4000 tokens / USD 0.100000",
 	);
 	expect(output).toContain("Plan only");
 });
+
+it.each(["claude:fixture", "codex:fixture", "opencode:provider/model"])(
+	"admits native CLI selection %s only up to terminal confirmation without a launch",
+	async (target) => {
+		await writeFile(join(skill, "SKILL.md"), "# Arbor\nChanged\n");
+		const script = `import { fastCli } from ${JSON.stringify(join(import.meta.dir, "probe-cli.ts"))}; try { await fastCli(process.argv.slice(1)); } catch (error) { console.log(error.message); }`;
+		const result = await exec(process.execPath, [
+			"-e",
+			script,
+			"fast",
+			"--baseline",
+			"HEAD",
+			"--skill",
+			skill,
+			"--probe",
+			"decisions/local-choice",
+			"--target",
+			target,
+			"--skill-mode",
+			"explicit",
+			"--reserve-tokens",
+			"100",
+			"--reserve-usd",
+			"0.001",
+			"--codex-home",
+			join(directory, "unopened-codex-home"),
+		]);
+		expect(result.stdout).toContain(
+			"Paid agent probes require a terminal and confirmation",
+		);
+		expect(result.stdout).toContain("reps 1; parallel 1");
+	},
+);
 
 it("compares dirty and committed edits, additions, renames and deletions against immutable baseline bytes", async () => {
 	const initial = await skillChange(skill, "HEAD");
@@ -152,8 +185,12 @@ it("rejects unmetered opt-in and legacy model execution, while leaving reports a
 it("uses exact integer dollar ceilings and rejects unsafe or excessive budgets", () => {
 	expect(budget()).toEqual({ tokens: 4000, microUsd: 100000 });
 	expect(budget("1000", "0.000001")).toEqual({ tokens: 1000, microUsd: 1 });
-	expect(() => budget("10001", "0.1")).toThrow("Hard invocation ceiling");
-	expect(() => budget("1000", "0.250001")).toThrow("Hard invocation ceiling");
+	expect(() => budget("10001", "0.1")).toThrow(
+		"Invocation reservation maximum",
+	);
+	expect(() => budget("1000", "0.250001")).toThrow(
+		"Invocation reservation maximum",
+	);
 	expect(() => budget("1000", "NaN")).toThrow();
 	expect(() => budget("0", "0.1")).toThrow();
 	expect(() => budget("1000", "0.0000001")).toThrow();

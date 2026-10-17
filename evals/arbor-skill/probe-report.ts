@@ -58,6 +58,11 @@ export function probeReport(values: StoredRun[]): string {
 						`    reserved allowance (not a billing ceiling): ${JSON.stringify(run.adapter.runtime.reserved)}; aggregate admission limit: ${JSON.stringify(run.adapter.runtime.aggregateBudget)}; modes: ${JSON.stringify(run.adapter.runtime.limitModes)}; overshoot: ${JSON.stringify(run.adapter.runtime.overshoot)}`,
 					);
 				}
+				if (run.adapter.runtime.nativeUsageComplete === false) {
+					lines.push(
+						"    Billing incomplete: shared reservation remains outstanding even on success; windows/reset do not release it. Reported usage is not total billing or proof of cheapness.",
+					);
+				}
 				for (const verdict of run.result.verdicts) {
 					lines.push(
 						`    ${verdict.id}: ${verdict.status}; expected ${JSON.stringify(verdict.expected)}; actual ${JSON.stringify(verdict.actual)}; evidence ${verdict.evidence.join(",")}`,

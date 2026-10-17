@@ -88,8 +88,14 @@ Per-invocation defaults remain **4,000 tokens / USD 0.10**, with configuration m
 is a per-invocation limit, as in Scry; add a day/month/rolling limit to constrain
 spending across invocations. Token budgets are not dollar-equivalent across
 models: input, cached input, output and reasoning prices may differ. Reserved USD are allowances; observed USD are runtime-reported usage.
-Neither establishes a universal provider ceiling. Native implementations and CLI
-integration follow in #379–382. No live cost, latency or adherence measurement exists.
+Neither establishes a universal provider ceiling. CLI native selection is implemented for all three providers. **Every current native
+driver reports billing incomplete**, including successful Claude/OpenCode runs with
+numeric usage. All their reservations remain outstanding indefinitely; a small
+window can be exhausted after one or two sessions and cannot be refreshed by
+resetting configuration or waiting for the next month. Codex USD is unavailable.
+This policy limits admissions but does not establish actual cheapness. Per-session
+default reservations are 2,000 tokens / USD 0.05; changing them is an explicit
+allowance decision, not a model price calculation. No live cost, latency or adherence measurement exists.
 
 Free tests cover two-process contention, restart persistence, reset without
 refund, zero/exhausted/undeclared budgets, calendar/rolling windows, unknown usage,

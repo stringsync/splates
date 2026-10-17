@@ -22,7 +22,7 @@ before the instruction edit; choosing HEAD compares only uncommitted edits.
 There is no automatic advancing baseline or hidden repeat scheduler.
 
 A free `plan` command displays changed files, immutable baseline/hash identities,
-targeted selection and ceilings without consulting model accounts. Default smoke
+targeted selection and admission limits without consulting model accounts. Default smoke
 selection maps changed root instructions to `discovery/implicit`, and references
 to their owning aspect. It selects at most two cases in sorted file order, one
 repetition, parallel one. This is a targeted smoke sample, not complete coverage
@@ -35,7 +35,7 @@ invocation. `--max-tokens` and `--max-usd` may adjust these up to configuration 
 **10,000 tokens and USD 0.25**. Each deliberate invocation has its own cap; shared token windows additionally
 constrain repeated invocations when configured. No shared allowance is invented
 until explicitly declared. Positive integer tokens
-and integer microdollars avoid rounding past a ceiling. The runner reserves the
+and integer microdollars avoid rounding past an admission limit. The runner reserves the
 conservative allowance for every selected probe × target × repetition before any seed
 or agent starts; concurrency cannot multiply the admitted budget. It does not
 refund failures, cancellations or unknown usage. Reservations include retries, input, output, reasoning and billable tool activity;
@@ -51,10 +51,14 @@ also reduces remaining shared allowance. A threshold cancels active and queued
 jobs in this invocation; independently running invocations retain their own
 reservations and may already have work in flight.
 
-The existing generic ACP CLI selection remains refused until #382 connects the
-native adapters from #379–381. #371 supplies the shared contract and lifecycle,
-not the three transports. No live cost, latency or adherence evidence is claimed.
-See [native ownership and gaps](NATIVE-BLOCKERS.md) for exact integration interfaces.
+The CLI selects native Claude Code, Codex and OpenCode directly, independently
+of ACP roster argv. No native driver declares a hard token ceiling. Claude and
+OpenCode monitor reported tokens/USD; Codex monitors tokens and has **no USD
+meter or enforcement**. All three report incomplete billing, even after normal
+completion. Shared reservations remain outstanding and can exhaust a window
+indefinitely; resets and calendar rollovers do not release them. This makes
+repeated testing deliberately restrictive, not proven cheap. No live cost,
+latency, authenticated operation or adherence has been measured by this integration.
 
 Legacy E2E execution lacks these controls and is now refused at the eval entry
 point. `e2e report` remains available without models; its historical results do
@@ -63,7 +67,7 @@ not become focused evidence. Do not bypass the entry point to claim affordabilit
 AGENTS.md remains unchanged. #365 may change it only after the user's later
 approval, and any replacement must retain skill-change-only model execution and
 small aggregate admission budgets. The policy controls are free-tested here; a useful
-real-model workflow remains downstream adapter/integration work.
+real-model validation still requires separately authorized live smoke testing.
 
 ## Free planning and later execution syntax
 
@@ -221,34 +225,67 @@ only while identities match: a wording/code change requires a fresh selection.
 Reserve independently authored variations before tuning and report every
 repetition, including gaps and failures. Published fixtures are tuning cases.
 
-Today this loop measures local CLI contracts and tests assertion logic. Skill
-wording comparisons between real models remain blocked on a native authenticated
-adapter with native permission controls and honestly scoped evidence. Discovery additionally needs native activation
-without injected root instructions, alternate skill source wiring and controlled
-truncation/session fixtures. UPDATE needs intermediate reply and real mid-turn
-delivery observations; coherent reports and equivalent argv need stronger checks.
-Do not remove explicit uncovered assertions merely because tool capture improves.
+Native transport fixtures test registered `decisions/local-choice` and
+`decisions/answer` without altering their assertions. Scripted subprocesses change
+the isolated decision record and emit native-shaped replies. State/reply verdicts
+pass; command/read/discovery/steering gaps stay uncovered. This proves the
+integration can evaluate useful partial evidence, not that a model follows the skill.
+The provider suites also test startup/auth/permission refusal, interrupted streams,
+cancellation/overshoot and awaited cleanup. Never delete uncovered assertions to
+make a native result look fully passing.
 
-`runProbes` accepts a custom adapter programmatically; CLI `--target` currently
-constructs generic ACP only. There is no supported CLI flag that turns it into an
-instrumented adapter. Implement that connection and free execution tests before
-calling a focused model smoke/comparison meaningful.
+## Supported commands and later authorized smoke tests
 
-## Later authorized comparisons
-
-After #379–382 supply native adapters and CLI integration, a bounded selection could use:
+Free inspection and tests:
 
 ```sh
-bin/wiz dev eval fast --baseline BASE_COMMIT --probe lifecycle/claim --target claude:opus --parallel 1 --reps 1 --tokens 2000 --max-tokens 2000 --max-usd 0.05
-bin/wiz dev eval fast --baseline BASE_COMMIT --probe lifecycle/claim --target claude:opus --target codex:gpt-6-astra --parallel 2 --reps 1 --tokens 2000 --max-tokens 4000 --max-usd 0.10
+bin/wiz dev eval plan --baseline BASE_COMMIT --probe decisions/local-choice
+bin/wiz dev eval budgets
+bin/wiz dev eval report --directory /tmp/arbor-native-results
+bun test evals/arbor-skill/native-integration.test.ts
 ```
 
-These exact selectors remain refused with current ACP; neither command is an
-operational affordable model smoke test today. No paid run was executed here.
-Each provider's full reservation must fit, or the command refuses the whole batch.
+The following are **potentially paid**, separately authorized examples, not commands
+run during integration. `BASE_COMMIT` must precede actual skill/reference changes;
+`MODEL` must be an exact available native model/alias. Each requires terminal
+confirmation and a configured shared token allowance. The per-session defaults
+are 2,000 tokens (clamped to probe bounds) and USD 0.05, independently configurable
+with `--reserve-tokens` / `--reserve-usd`. They are reservations, not price estimates.
+All selected reservations must fit the aggregate defaults of 4,000 / USD 0.10.
 
-Target syntax is `agent:model` using the configured arbor roster, repeated for
-comparison. `--kind cli|agent` also filters list, run and report. Selection groups intersect; within each flag, repeated values form
+```sh
+bin/wiz dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target claude:MODEL --directory /tmp/arbor-native-results
+bin/wiz dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target codex:MODEL --codex-home /absolute/existing/native/codex-home --directory /tmp/arbor-native-results
+bin/wiz dev eval fast --baseline BASE_COMMIT --probe decisions/local-choice --target opencode:PROVIDER/MODEL --directory /tmp/arbor-native-results
+```
+
+Use `--probe decisions/answer` for a second state-focused case. Repeat `--target`
+for a two-provider comparison (one case, one repetition, parallel one fits default
+reservations); billing incompleteness still retains the entire batch reservation.
+`--skill-mode explicit` uses native skill invocation; the default is native discovery.
+Neither mode certifies skill activation or delivered read bytes.
+
+Authentication is a practical limitation: each run has a private HOME. Claude
+retains supported native keychain behavior; it must pass `auth status` in that
+environment. Codex defaults to an empty private home; `--codex-home` explicitly
+uses existing native auth/config **in place**, may write native runtime metadata,
+and is included in reproduction/config identity. No credentials are copied or
+login initiated. OpenCode currently requires auth in the isolated HOME, with no
+CLI provisioner; a fresh run normally reports unsupported. This user has neither
+OpenCode nor credentials. Its command documents selection syntax, **not a ready
+live workflow**. Missing prerequisites fail without a fallback. Installing,
+authenticating or testing live requires a separate decision.
+
+Codex is pinned to inspected 0.156.0. Broad read/write plus shell/exec decision
+profiles are supported. Named arbor/git-only profiles are refused by all three
+rather than broadened to shell access; many continuity/orchestration cases and
+mapped default smoke cases therefore remain unsupported. Event stops and complete
+nested execution/read/steering evidence remain unavailable. Full adherence and
+empirical affordability remain unmeasured. #365 and the AGENTS.md warning await
+user review; this integration does not authorize their change.
+
+Target syntax is `claude:MODEL`, `codex:MODEL`, or `opencode:PROVIDER/MODEL`,
+independent of the configured ACP roster. `--kind cli|agent` also filters list, run and report. Selection groups intersect; within each flag, repeated values form
 a union. Unknown selectors and invalid positive integer budgets are rejected.
 `--parallel` defaults to 1, `--reps` to 1. CLI-only probes run once per repetition,
 not once per model. Every agent invocation requires terminal confirmation;
@@ -283,11 +320,14 @@ No best-run selection, cached grades, speedup target or model ranking is inferre
 Setup/observation overhead is measured per run; CLI planning/hash time prints
 separately so it is not hidden inside model time.
 
-Free coverage is in `runner.test.ts`, `probe-cli.test.ts`, `probe.test.ts` and the
+Free coverage includes `native-integration.test.ts`, the three `native-*.test.ts`
+provider suites, `runner.test.ts`, `probe-cli.test.ts`, `probe.test.ts` and the
 independently owned `probe-audit.test.ts`. Tests use deterministic adapters,
 production fake ACP transport, throwaway git repos and local CLI commands, never
 paid models. A representative standalone free direct-CLI test took about 19ms
 in one local test invocation; this is an observation of that fixture, **not a
 performance target**. Required workspace checks are `bin/wiz dev fix` and
-`bin/wiz dev test`. The integrated registry is pinned by `integration.test.ts`; broader audit rows
+`bin/wiz dev test`. Under this task’s no-paid constraint, fix ran with
+`--code-only`: formatting, typechecking and non-model Scry ran; model-backed
+Scry (`som`/`llm`) was explicitly excluded, not claimed as passed. The integrated registry is pinned by `integration.test.ts`; broader audit rows
 remain partial wherever the aspect documents identify gaps.

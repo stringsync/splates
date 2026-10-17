@@ -3,10 +3,9 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { Roster } from "@webappwiz/arbor/probe-runtime";
 import { ConsoleLogger, type Logger } from "webappwiz/log";
-import { NodeFs } from "webappwiz/system";
-import { acpAdapter, cliAdapter } from "./probe-adapters";
+import { nativeTarget } from "./native-target";
+import { cliAdapter } from "./probe-adapters";
 import { admit, budget } from "./probe-affordability";
 import { evalBudgetCli, projectEvalBudgets } from "./probe-budget-cli";
 import { skillChange, smokeProbes } from "./probe-change";
@@ -105,6 +104,10 @@ export async function fastCli(
 			requirement: { type: "string", multiple: true },
 			module: { type: "string", multiple: true },
 			target: { type: "string", multiple: true },
+			"skill-mode": { type: "string", default: "discovery" },
+			"codex-home": { type: "string" },
+			"reserve-tokens": { type: "string", default: "2000" },
+			"reserve-usd": { type: "string", default: "0.05" },
 			reps: { type: "string", default: "1" },
 			parallel: { type: "string", default: "1" },
 			baseline: { type: "string" },
@@ -140,6 +143,11 @@ export async function fastCli(
 	const parallel = number(values.parallel, 1);
 	const spending = budget(values["max-tokens"], values["max-usd"]);
 	const reps = number(values.reps, 1);
+	const reservation = budget(values["reserve-tokens"], values["reserve-usd"]);
+	const mode = values["skill-mode"];
+	if (mode !== "discovery" && mode !== "explicit") {
+		throw new Error("--skill-mode must be discovery or explicit");
+	}
 	const selected = (value: {
 		id: string;
 		aspect: string;
@@ -208,7 +216,7 @@ export async function fastCli(
 	if (hasAgents) {
 		if (values["allow-unmetered"]) {
 			throw new Error(
-				"--allow-unmetered is forbidden for model execution: enforceable aggregate token/USD budgets are required",
+				"--allow-unmetered is forbidden for model execution: declared native controls and aggregate reservations are required",
 			);
 		}
 		const change = await skillChange(skill, values.baseline);
@@ -241,11 +249,11 @@ export async function fastCli(
 	}
 
 	log.info(
-		`Selected: ${module.probes.map((probe) => probe.id).join(", ")}; reps ${reps}; parallel ${parallel}; aggregate ceilings ${spending.tokens} tokens / USD ${(spending.microUsd / 1000000).toFixed(6)}`,
+		`Selected: ${module.probes.map((probe) => probe.id).join(", ")}; reps ${reps}; parallel ${parallel}; aggregate admission limits ${spending.tokens} tokens / USD ${(spending.microUsd / 1000000).toFixed(6)}`,
 	);
 	if (command === "plan") {
 		log.info(
-			"Plan only: no roster/authentication/model execution. Generic ACP has no supported hard metering.",
+			"Plan only: no authentication/model execution. Native tokens are monitored; USD is monitored for Claude/OpenCode and unavailable for Codex. In-flight work may overshoot; billing is incomplete and reservations remain outstanding.",
 		);
 		return;
 	}
@@ -253,38 +261,25 @@ export async function fastCli(
 		treeHash(skill),
 		treeHash(join(root, "packages/arbor")),
 	]);
-	const roster = values.target?.length
-		? await new Roster(
-				join(
-					process.env.ARBOR_HOME ?? join(homedir(), ".arbor"),
-					"agents.json",
-				),
-				{ fs: new NodeFs() },
-			).agents()
-		: [];
 	const targets: Target[] = [];
 	for (const value of values.target ?? []) {
-		const [id, ...modelParts] = value.split(":");
-		const model = modelParts.join(":");
-		if (!id || !model) {
-			throw new Error("--target requires agent:model");
-		}
-		const agent = roster.find((each) => each.id === id);
-		if (!agent) {
-			throw new Error(`unknown configured agent: ${id}`);
-		}
+		const target = nativeTarget(value, {
+			source: skill,
+			mode,
+			allowance: reservation,
+			codexHome: values["codex-home"]
+				? resolve(values["codex-home"])
+				: undefined,
+		});
 		if (
-			agent.models.length &&
-			!agent.models.some((each) => each.id === model)
-		) {
-			throw new Error(`unknown model ${model} for ${id}`);
-		}
-		if (
-			targets.some((each) => each.adapter.id === id && each.model === model)
+			targets.some(
+				(each) =>
+					each.adapter.id === target.adapter.id && each.model === target.model,
+			)
 		) {
 			throw new Error(`duplicate target: ${value}`);
 		}
-		targets.push({ adapter: acpAdapter(agent, skill), model });
+		targets.push(target);
 	}
 	if (
 		module.probes.some((probe) => probe.execution.kind === "agent") &&
@@ -327,7 +322,7 @@ export async function fastCli(
 			throw new Error("Paid agent probes require a terminal and confirmation");
 		}
 		log.info(
-			`${module.probes.length} probes, ${targets.length} targets, ${values.reps} repetitions; parallel ${values.parallel}. Aggregate hard ceilings: ${spending.tokens} tokens, USD ${(spending.microUsd / 1000000).toFixed(6)}. All calls/retries must fit reserved provider maxima; unknown metering is refused.`,
+			`${module.probes.length} probes, ${targets.length} targets, ${values.reps} repetitions; parallel ${values.parallel}. Aggregate admission limits: ${spending.tokens} tokens, USD ${(spending.microUsd / 1000000).toFixed(6)}. Per-session reservation: up to ${reservation.tokens} tokens / USD ${(reservation.microUsd / 1000000).toFixed(6)}. Tokens monitored; Claude/OpenCode USD monitored; Codex USD unavailable. In-flight overshoot is possible. All drivers report incomplete billing: shared reservations remain outstanding, even on success, and can indefinitely exhaust a window. No live affordability or full adherence claim.`,
 		);
 		if (
 			prompt("Start these potentially paid agent probes? [y/N]")
@@ -351,6 +346,15 @@ export async function fastCli(
 			skill,
 			"--directory",
 			directory,
+			"--skill-mode",
+			mode,
+			"--reserve-tokens",
+			String(reservation.tokens),
+			"--reserve-usd",
+			(reservation.microUsd / 1000000).toFixed(6),
+			...(values["codex-home"]
+				? ["--codex-home", resolve(values["codex-home"])]
+				: []),
 			...(values.module?.flatMap((path) => ["--module", resolve(path)]) ?? []),
 			...(baseline
 				? [
@@ -440,11 +444,14 @@ const HELP = `bin/wiz dev eval [fast|list|plan|report] [options]
   --kind cli|agent        select local CLI checks or agent probes
   --module PATH            explicit ProbeModule; default discovers *.probes.ts
   budgets [set <tokens/window|nothing>|reset] [--format json]  free shared token budget controls
-  --target agent:model     repeat to compare configured ACP agents
+  --target agent:model     native claude:MODEL, codex:MODEL, opencode:PROVIDER/MODEL (repeat)
+  --skill-mode discovery|explicit  native skill loading (default discovery)
+  --codex-home PATH        existing native auth/config in place; may write runtime metadata
+  --reserve-tokens 2000 --reserve-usd 0.05  per-session reservation, not estimated price
   --parallel 1 --reps 1    bounded independent combinations
   --milliseconds N --turns N --tokens N   override each probe's bounds
   --baseline REV          required Git baseline for skill/reference change gate
-  --max-tokens 4000 --max-usd 0.10  aggregate ceilings (hard maxima 10000 / 0.25)
+  --max-tokens 4000 --max-usd 0.10  aggregate admission limits (configuration maxima 10000 / 0.25)
   --allow-unmetered        rejected for model execution
   --failed                 rerun compatible non-passing probes; report filters non-passes
   --skill DIR --directory DIR
