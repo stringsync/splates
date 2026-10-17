@@ -239,6 +239,7 @@ export interface Served extends AsyncResource {
 	portOwners: () => Promise<PortOwners>;
 	events: Handler;
 	file: Handler;
+	open: Handler;
 	paths: Handler;
 	systems: Handler;
 	systemChanges: Handler;

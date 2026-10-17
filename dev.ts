@@ -375,6 +375,8 @@ export async function dev(
 				"/api/projects/:slug": { DELETE: guarded(forgetProject) },
 				"/api/snapshot": scoped((project) => project.snapshot),
 				"/api/file": scoped((project) => project.file),
+				// It runs the person's editor, so only as far as a conversation reaches.
+				"/api/open": { POST: talk(scoped((project) => project.open)) },
 				"/api/paths": scoped((project) => project.paths),
 				"/api/systems": scoped((project) => project.systems),
 				"/api/systems/changes": scoped((project) => project.systemChanges),

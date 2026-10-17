@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import { EDITORS, type Editor, ZED as ZED_EDITOR } from "../editors";
 
 /** An editor a file the page names can open in, through the link it handles. */
 export interface Opener {
@@ -9,24 +10,12 @@ export interface Opener {
 	url(path: string, line: number | null): string;
 }
 
-/** An editor that opens `scheme://file/<path>:<line>`, as Zed and VS Code's family do. */
-function fileUrl(id: string, label: string, scheme: string): Opener {
-	return {
-		id,
-		label,
-		url: (path, line) =>
-			`${scheme}://file${encodeURI(path)}${line === null ? "" : `:${line}`}`,
-	};
-}
-
-export const ZED = fileUrl("zed", "Zed", "zed");
+export const ZED = fileUrl(ZED_EDITOR);
 
 /** Every editor a file can open in, in the order the Settings dialog offers them. */
-export const OPENERS = [
-	ZED,
-	fileUrl("vscode", "VS Code", "vscode"),
-	fileUrl("cursor", "Cursor", "cursor"),
-] as const satisfies readonly Opener[];
+export const OPENERS: readonly Opener[] = EDITORS.map((editor) =>
+	editor === ZED_EDITOR ? ZED : fileUrl(editor),
+);
 
 /** The opener `id` names, or Zed for one the page no longer knows. */
 export function openerOf(id: string): Opener {
@@ -35,3 +24,13 @@ export function openerOf(id: string): Opener {
 
 /** Where the person has files open, as the Settings dialog has it. */
 export const OpenerContext = createContext<Opener>(ZED);
+
+/** An editor that opens `scheme://file/<path>:<line>`, as Zed and VS Code's family do. */
+function fileUrl({ id, label, scheme }: Editor): Opener {
+	return {
+		id,
+		label,
+		url: (path, line) =>
+			`${scheme}://file${encodeURI(path)}${line === null ? "" : `:${line}`}`,
+	};
+}

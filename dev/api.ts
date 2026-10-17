@@ -515,3 +515,15 @@ export async function endRaise(id: number): Promise<Budgets> {
 		method: "DELETE",
 	})) as Budgets;
 }
+
+/**
+ * Opens `path` in `editor` on this machine, inside the tree it belongs to,
+ * at `line` when there is one.
+ */
+export async function openFile(
+	editor: string,
+	path: string,
+	line: number | null,
+): Promise<void> {
+	await sendJson("/api/open", "POST", { editor, path, line });
+}

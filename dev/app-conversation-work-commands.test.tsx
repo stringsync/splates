@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import type { ConversationState } from "../conversations";
 import { act, cleanup, Testing, tool, turn, waitFor, within } from "./testing";
 
+/** Puts the page at `url`, which `history` cannot do from `about:blank`. */
+function visit(url: string): void {
+	(
+		window as unknown as { happyDOM: { setURL(url: string): void } }
+	).happyDOM.setURL(url);
+}
+
 describe("App's work row commands", () => {
 	let testing: Testing;
 
@@ -90,6 +97,27 @@ describe("App's work row commands", () => {
 
 		const chip = await waitFor(() => within(thread).getByRole("link"));
 		expect(chip.getAttribute("href")).toBe("vscode://file/repo/src/a.ts:12");
+	});
+
+	it("asks the server to open a clicked chip inside its worktree, on its own machine only", async () => {
+		const thread = await opened(reading());
+		const chip = await waitFor(() => within(thread).getByRole("link"));
+		const opens = () =>
+			testing.posts.filter((each) => each.path === "/api/open");
+
+		const away = location.href;
+		visit("http://localhost:4310/");
+		try {
+			await act(async () => chip.click());
+		} finally {
+			visit(away);
+		}
+		expect(opens().map((each) => each.body)).toEqual([
+			JSON.stringify({ editor: "zed", path: "/repo/src/a.ts", line: 12 }),
+		]);
+
+		await act(async () => chip.click());
+		expect(opens()).toHaveLength(1);
 	});
 
 	// scry-ignore simple-test-setup: these file types and line ranges are unique inputs to this test

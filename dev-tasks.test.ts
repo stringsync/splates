@@ -47,6 +47,47 @@ describe("dev tasks", () => {
 		});
 	});
 
+	it("opens a task's file in the editor inside its worktree", async () => {
+		await add(deps, "alpha");
+		const tree = (await deps.service.find("alpha")).path;
+		const bin = `${deps.root}-bin`;
+		await deps.fs.mkdir(bin);
+		await deps.fs.write(
+			`${bin}/zed`,
+			`#!/bin/sh\necho "$@" > "${bin}/opened"\n`,
+		);
+		await deps.fs.chmod(`${bin}/zed`, 0o755);
+		deps.proc.env.PATH = `${bin}:${deps.proc.env.PATH ?? ""}`;
+
+		await serving(deps, async (_snapshot, port) => {
+			const open = (body: unknown) =>
+				fetch(`http://127.0.0.1:${port}/api/open`, {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						origin: `http://127.0.0.1:${port}`,
+					},
+					body: JSON.stringify(body),
+				});
+
+			const opened = await open({
+				editor: "zed",
+				path: `${tree}/README.md`,
+				line: 3,
+			});
+			expect(opened.status).toBe(204);
+			expect((await deps.fs.read(`${bin}/opened`)).trim()).toBe(
+				`${tree} ${tree}/README.md:3`,
+			);
+			expect(
+				(await open({ editor: "zed", path: "/etc/passwd", line: null })).status,
+			).toBe(404);
+			expect(
+				(await open({ editor: "vim", path: `${tree}/README.md` })).status,
+			).toBe(400);
+		});
+	});
+
 	it("serves a file a conversation holds for a task, but not its log or artifacts", async () => {
 		await add(deps, "alpha");
 		const dir = `${deps.arborDir}/conversations`;

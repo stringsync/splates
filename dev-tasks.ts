@@ -1,7 +1,9 @@
 import type { Conversations } from "./conversations";
 import { fileResponse, MEDIA_TYPES, refuse } from "./dev-http";
+import { inTree } from "./dev-open";
 import type { Project } from "./dev-project";
 import type { ProjectWatch } from "./dev-project-watch";
+import { editorOf } from "./editors";
 import { fail } from "./exit";
 import { remove } from "./remove";
 import { grantRetry } from "./retry";
@@ -44,6 +46,50 @@ export class TaskRoutes {
 			return refuse(404, "not_found", `nothing here shows ${path}`);
 		}
 		return fileResponse(request, bytes, type, {});
+	};
+
+	// A file the page names, in the person's editor inside the tree it belongs
+	// to, which a link cannot say. Only a file under this project's trees, so
+	// the page can open nothing else on this machine.
+	readonly open = async (request: Request): Promise<Response> => {
+		const { service, fs, ps } = this.#project;
+		const body = (await request.json().catch(() => ({}))) as {
+			editor?: unknown;
+			path?: unknown;
+			line?: unknown;
+		};
+		const editor = editorOf(String(body.editor));
+		if (editor === null) {
+			return refuse(400, "usage", `no editor '${String(body.editor)}'`);
+		}
+		const path = typeof body.path === "string" ? body.path : "";
+		const line = Number.isInteger(body.line) ? Number(body.line) : null;
+		const found = path.startsWith("/")
+			? await inTree(
+					path,
+					{ root: service.git.root, worktrees: service.config.worktreeRoot },
+					(tree) => fs.exists(tree),
+				)
+			: null;
+		if (found === null) {
+			return refuse(
+				404,
+				"not_found",
+				`${path} is in none of this project's trees`,
+			);
+		}
+		const argv = editor.argv(found.tree, found.file, line);
+		const { exitCode } = await ps
+			.spawnCapture(argv)
+			.catch(() => ({ exitCode: null }));
+		if (exitCode !== 0) {
+			return refuse(
+				503,
+				"no_editor",
+				`\`${argv[0]}\` did not open ${found.file}: is its command installed?`,
+			);
+		}
+		return new Response(null, { status: 204 });
 	};
 
 	// Names only, and only what git would show anyone with the repo: enough to
