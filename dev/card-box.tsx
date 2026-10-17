@@ -93,7 +93,7 @@ function Box({
 					inset={roomy ? "px-4" : "px-3"}
 					className={cn(
 						roomy ? "py-3 text-base" : "py-2 text-sm pointer-coarse:text-base",
-						LAST_LINE_ROOM,
+						(box !== null || files !== null) && BUTTON_ROOM,
 						className,
 					)}
 				/>
@@ -117,20 +117,14 @@ function Box({
 	);
 }
 
-/**
- * Room for the suffix at the end of the text's last line, as wide as the
- * suffix, so the lines above run the box's full width. A last line ending in
- * a line break, as an empty box's does, keeps none: the room would sit on a
- * line of its own.
- */
-const LAST_LINE_ROOM =
-	"[&_p:last-child:not(:has(>br:last-child))]:after:inline-block [&_p:last-child:not(:has(>br:last-child))]:after:w-(--suffix-width)";
+/** Keep wrapped text clear of the buttons, including their full touch height. */
+const BUTTON_ROOM = "pr-[calc(var(--suffix-width,0px)+0.75rem)]";
 
 /**
  * A box's buttons in its bottom corner, beside its last line however many
  * it wraps to. Its room is kept whether it shows or not, so the focus that
  * shows it moves nothing; it shows while the box has focus or the pointer.
- * Its size goes to the box's shell, for the room the last line keeps and
+ * Its size goes to the box's shell, for the space the editor keeps and
  * the height of a box of one line.
  */
 function Suffix({
