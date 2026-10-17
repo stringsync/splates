@@ -41,5 +41,26 @@ describe("Working report elapsed time", () => {
 		expect(
 			within(working).getByRole("timer", { name: "Elapsed time" }).textContent,
 		).toBe("2m 14s");
+		expect(working.textContent).toContain("Worked");
+		expect(working.textContent).not.toContain("Working");
+	});
+
+	it("says Working while no agent message follows", async () => {
+		const view = await testing.openConversations([
+			conversation({
+				messages: [
+					message("agent", {
+						type: "text",
+						text: "## ⏳ Working alpha: on Claude Sonnet\n\nFollowing the plan.",
+						at: "2026-10-17T12:00:00.000Z",
+					}),
+				],
+			}),
+		]);
+		const working = await waitFor(() =>
+			view.getByRole("region", { name: "working alpha" }),
+		);
+		expect(working.textContent).toContain("Working");
+		expect(working.textContent).not.toContain("Worked");
 	});
 });

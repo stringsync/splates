@@ -94,7 +94,13 @@ export function ReportCard({
 	report: Report;
 	timing?: ReportTiming;
 }): JSX.Element {
-	const { title, Icon, tone } = ENDINGS[report.ending];
+	const { Icon, tone } = ENDINGS[report.ending];
+	// A Working card whose time has stopped, once later words replace it,
+	// says the work is past.
+	const title =
+		report.ending === "working" && timing?.until != null
+			? "Worked"
+			: ENDINGS[report.ending].title;
 	// A lane orchestrator's Working card says what changed; the plan, live,
 	// takes the place of its lines on each lane in the latest one only, the
 	// others folded to what changed, since only the latest is current. Its
